@@ -1,0 +1,29 @@
+[
+  {
+    "id": "dust-mite",
+    "name": "Dust Mite",
+    "archetype": "chaser",
+    "health": 10,
+    "damage": 5,
+    "speed": 68,
+    "xpValue": 1
+  },
+  {
+    "id": "junk-rusher",
+    "name": "Junk Rusher",
+    "archetype": "charger",
+    "health": 18,
+    "damage": 8,
+    "speed": 112,
+    "xpValue": 2
+  },
+  {
+    "id": "trash-brute",
+    "name": "Trash Brute",
+    "archetype": "tank",
+    "health": 72,
+    "damage": 14,
+    "speed": 42,
+    "xpValue": 6
+  }
+]
