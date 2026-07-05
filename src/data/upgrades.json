@@ -1,0 +1,26 @@
+[
+  {
+    "id": "quick-paws",
+    "name": "Quick Paws",
+    "rarity": "common",
+    "target": "player",
+    "description": "Increase movement speed for this run.",
+    "maxStacks": 5
+  },
+  {
+    "id": "extra-scrap",
+    "name": "Extra Scrap",
+    "rarity": "common",
+    "target": "economy",
+    "description": "Increase coin drops for this run.",
+    "maxStacks": 3
+  },
+  {
+    "id": "hot-barrel",
+    "name": "Hot Barrel",
+    "rarity": "uncommon",
+    "target": "weapon",
+    "description": "Increase fire rate for one equipped weapon.",
+    "maxStacks": 4
+  }
+]
