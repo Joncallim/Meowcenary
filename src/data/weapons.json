@@ -1,0 +1,35 @@
+[
+  {
+    "id": "scrap-pistol-t1",
+    "name": "Scrap Pistol",
+    "family": "pistol",
+    "rarity": "common",
+    "fireRateMs": 650,
+    "damage": 8,
+    "projectileSpeed": 360,
+    "range": 300,
+    "mergeTier": 1
+  },
+  {
+    "id": "can-smg-t1",
+    "name": "Can SMG",
+    "family": "smg",
+    "rarity": "common",
+    "fireRateMs": 140,
+    "damage": 3,
+    "projectileSpeed": 330,
+    "range": 240,
+    "mergeTier": 1
+  },
+  {
+    "id": "bolt-shotgun-t1",
+    "name": "Bolt Shotgun",
+    "family": "shotgun",
+    "rarity": "uncommon",
+    "fireRateMs": 1050,
+    "damage": 6,
+    "projectileSpeed": 310,
+    "range": 180,
+    "mergeTier": 1
+  }
+]
