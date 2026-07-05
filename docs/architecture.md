@@ -1,14 +1,24 @@
 # Architecture
 
-## Architecture Principles
+This document explains how Meowcenary should be organised. It is written for future agents and future maintainers, not just engine specialists.
 
-- Phaser owns rendering, physics, scenes, and frame lifecycle.
-- TypeScript owns game rules, state transitions, and data contracts.
-- Gameplay balance lives in JSON data first.
-- Systems should be small, explicit, and independently testable.
-- Scene code should orchestrate systems rather than becoming the game logic dump.
+## Core Idea
 
-## Current Runtime Shape
+Phaser should run the game screen. TypeScript systems should run the game rules.
+
+That means scenes should stay thin. A scene can create objects, wire systems together, and call `update()`. It should not become the place where every combat, upgrade, save, and economy rule lives.
+
+## Main Principles
+
+- Keep code modular, easy to read, and as simple as possible.
+- Prefer small files with clear names over clever frameworks.
+- Put gameplay tuning in JSON data when practical.
+- Put game rules in systems that can be tested.
+- Let Phaser own rendering, physics, scene lifecycle, and browser input/audio primitives.
+- Avoid new dependencies unless they clearly make the code simpler.
+- No ads, paid power, subscriptions, timers, or energy systems.
+
+## Runtime Shape
 
 ```mermaid
 flowchart TD
@@ -19,49 +29,56 @@ flowchart TD
   Game --> UI[HUD and Menus]
 ```
 
-## Planned System Boundaries
+## System Boundaries
 
-| System | Responsibility | Should Not Own |
+| System | Owns | Does Not Own |
 | --- | --- | --- |
-| Input | Keyboard, pointer, touch abstraction | Player stats or combat rules |
-| Player | Position, health, movement state | Upgrade selection, enemy spawning |
-| Weapon | Firing cadence, projectile creation, targeting | Level-up card generation |
-| Enemy | Movement intent, damage, death rewards | Global difficulty curves |
-| Spawn Director | Spawn timing, enemy mix, pressure scaling | Enemy rendering details |
-| Upgrade | Card generation, stack rules, modifiers | Projectile physics |
-| Save | Persistence, migration, settings | Run-time combat decisions |
-| UI | Menus, HUD, upgrade cards | Core gameplay calculations |
+| Input | Keyboard, pointer, and touch intent | Player stats or movement rules |
+| Player | Player health, position, and movement state | Upgrade generation or enemy spawning |
+| Weapons | Fire timing, targeting, projectiles, and merge state | Level-up card selection |
+| Enemies | Enemy movement, damage, death, and rewards | Global difficulty curves |
+| Spawn Director | When and where enemies appear | Enemy rendering details |
+| Upgrades | Run-only upgrade choices, stacks, and modifiers | Permanent progression |
+| Loot | XP, currency, chests, and reward tables | Paid rewards or ad multipliers |
+| Save | Local persistence, settings, migrations, and meta state | Run-time combat decisions |
+| UI | HUD, menus, cards, inventory, settings | Core gameplay calculations |
+| Audio | Music, SFX, mute, and volume | Gameplay rules |
+| Debug | Developer-only visibility and cheats | Production player progression |
 
 ## Data-Driven Gameplay
 
-The following should remain data-backed unless a feature clearly requires code:
+If a value changes how the game feels, prefer putting it in data first.
 
-- Weapon base stats.
-- Enemy base stats.
+Good data candidates:
+
+- Weapon stats.
+- Enemy stats.
 - Upgrade cards.
 - Spawn curves.
-- Character base stats.
+- Character stats.
 - Loot tables.
-- Meta progression costs.
+- Permanent upgrade costs.
+- Arena definitions.
 
-Each JSON file should map to a TypeScript interface in `src/systems/types.ts` or a more specific contract file once the system grows.
+Use TypeScript interfaces and validation so bad data fails early.
 
 ## AI Handoff Pattern
 
-Each feature issue should produce four artifacts:
+Every feature should move through the same simple flow:
 
-1. Architecture note from Opus Supercode.
-2. Implementation plan with file-level changes.
-3. GPT-5.5 implementation and tests.
-4. Playtest notes and balancing follow-up.
+1. Architecture: define boundaries and data shape.
+2. Implementation: code the smallest useful slice.
+3. Tests: cover pure rules and validation.
+4. Playtest: confirm the feature is understandable and fun.
+5. Follow-up: tune balance separately from architecture defects.
 
-## Acceptance Criteria Template
+## Review Checklist
 
-Every implementation feature should include:
+Before merging implementation work, check:
 
-- Player-facing behaviour.
-- Data model changes.
-- Affected systems.
-- Edge cases.
-- Test expectations.
-- Manual playtest checklist.
+- Did the scene stay thin?
+- Is the feature split into clear systems?
+- Are pure rules tested?
+- Is tuning data-driven where practical?
+- Are browser and mobile constraints considered?
+- Is the code easy for the next agent to read?
