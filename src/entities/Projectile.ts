@@ -101,11 +101,6 @@ export class Projectile {
 
   destroy(): void {
     this.active = false;
-    if (this.sprite.active) {
-      this.sprite.destroy();
-      return;
-    }
-
     this.sprite.destroy();
   }
 }

@@ -14,19 +14,12 @@ export interface WeaponRegistry {
   createWeaponInstance(def: WeaponDefinition): WeaponInstance;
 }
 
-let nextWeaponInstanceId = 1;
-
 export function createWeaponInstance(
   def: WeaponDefinition,
-  instanceId?: string,
+  instanceId: string,
 ): WeaponInstance {
-  const resolvedInstanceId = instanceId ?? `weapon-${nextWeaponInstanceId}`;
-  if (instanceId === undefined) {
-    nextWeaponInstanceId += 1;
-  }
-
   return {
-    instanceId: resolvedInstanceId,
+    instanceId,
     defId: def.id,
     family: def.family,
     tier: def.mergeTier,
@@ -38,8 +31,4 @@ export function createDefaultWeaponLoadout(registry: WeaponRegistry): WeaponInst
     .map((family) => registry.weaponByFamilyTier(family, 1))
     .filter((def): def is WeaponDefinition => def !== undefined)
     .map((def) => registry.createWeaponInstance(def));
-}
-
-export function resetWeaponInstanceIdsForTests(): void {
-  nextWeaponInstanceId = 1;
 }

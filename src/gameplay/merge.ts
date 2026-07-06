@@ -9,12 +9,24 @@ export function canMerge(
     return false;
   }
 
-  const definition = registry.weaponById(a.defId);
-  if (!definition || definition.mergeTier !== a.tier || definition.family !== a.family) {
+  const aDefinition = registry.weaponById(a.defId);
+  const bDefinition = registry.weaponById(b.defId);
+  if (
+    !aDefinition ||
+    !bDefinition ||
+    aDefinition.mergeTier !== a.tier ||
+    bDefinition.mergeTier !== b.tier ||
+    aDefinition.family !== a.family ||
+    bDefinition.family !== b.family
+  ) {
     return false;
   }
 
-  return a.tier < definition.maxTier && registry.weaponByFamilyTier(a.family, a.tier + 1) !== undefined;
+  return (
+    aDefinition.id === bDefinition.id &&
+    a.tier < aDefinition.maxTier &&
+    registry.weaponByFamilyTier(a.family, a.tier + 1) !== undefined
+  );
 }
 
 export function mergeResult(

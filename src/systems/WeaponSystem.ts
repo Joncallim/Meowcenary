@@ -11,7 +11,6 @@ import type { RunState } from '../gameplay/runState';
 import { nearestTarget } from '../gameplay/targeting';
 import { resolveWeaponStats, type EffectiveWeaponStats } from '../gameplay/weaponStats';
 import type { WeaponInstance, WeaponRegistry } from '../gameplay/weapons';
-import type { WeaponDefinition } from './types';
 
 export type XpDropFactory = (x: number, y: number, amount: number) => XpDrop;
 
@@ -65,7 +64,7 @@ export class WeaponSystem implements System {
       const cadence = this.cadenceFor(weapon, stats.intervalMs);
       const ticks = cadence.update(dtMs);
       for (let i = 0; i < ticks; i += 1) {
-        this.fireAtNearestTarget(definition, stats);
+        this.fireAtNearestTarget(definition.id, stats);
       }
     }
   }
@@ -80,7 +79,12 @@ export class WeaponSystem implements System {
 
   private cadenceFor(weapon: WeaponInstance, intervalMs: number): Cadence {
     const current = this.cadences.get(weapon.instanceId);
-    if (current && current.intervalMs === intervalMs) {
+    if (current) {
+      if (current.intervalMs !== intervalMs) {
+        current.intervalMs = intervalMs;
+        current.cadence.setInterval(intervalMs);
+      }
+
       return current.cadence;
     }
 
@@ -92,18 +96,17 @@ export class WeaponSystem implements System {
     return runtime.cadence;
   }
 
-  private fireAtNearestTarget(definition: WeaponDefinition, stats: EffectiveWeaponStats): void {
+  private fireAtNearestTarget(weaponId: string, stats: EffectiveWeaponStats): void {
     const target = nearestTarget(this.player, this.enemies, stats.range);
     if (!target) {
       return;
     }
 
-    const behavior = resolveFamilyBehavior(definition, stats);
     const directions = projectileDirections({
       origin: this.player,
       target,
-      projectileCount: behavior.projectileCount,
-      spreadDeg: behavior.spreadDeg,
+      projectileCount: stats.projectileCount,
+      spreadDeg: stats.spreadDeg,
     });
 
     for (const direction of directions) {
@@ -119,7 +122,7 @@ export class WeaponSystem implements System {
     }
 
     this.ctx.bus.emit('weapon:fired', {
-      weaponId: definition.id,
+      weaponId,
       x: this.player.x,
       y: this.player.y,
     });
@@ -165,21 +168,6 @@ export class WeaponSystem implements System {
       y: hitY,
     });
     this.createXpDrop(hitX, hitY, enemy.definition.xpValue);
-  }
-}
-
-function resolveFamilyBehavior(
-  definition: WeaponDefinition,
-  stats: EffectiveWeaponStats,
-): Pick<EffectiveWeaponStats, 'projectileCount' | 'spreadDeg'> {
-  switch (definition.family) {
-    case 'pistol':
-    case 'smg':
-      return { projectileCount: 1, spreadDeg: 0 };
-    case 'shotgun':
-      return { projectileCount: stats.projectileCount, spreadDeg: stats.spreadDeg };
-    default:
-      return { projectileCount: stats.projectileCount, spreadDeg: stats.spreadDeg };
   }
 }
 

@@ -27,4 +27,15 @@ describe('DataWeaponRegistry', () => {
 
     expect(registry.weaponsByFamily('smg').map((weapon) => weapon.mergeTier)).toEqual([1, 2, 3]);
   });
+
+  it('creates sequential runtime weapon instances per registry', () => {
+    const registry = new DataWeaponRegistry(loadGameData());
+    const pistol = registry.weaponById('scrap-pistol-t1');
+    if (!pistol) {
+      throw new Error('missing pistol');
+    }
+
+    expect(registry.createWeaponInstance(pistol).instanceId).toBe('weapon-1');
+    expect(registry.createWeaponInstance(pistol).instanceId).toBe('weapon-2');
+  });
 });

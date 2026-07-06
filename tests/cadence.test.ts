@@ -18,5 +18,13 @@ describe('createCadence', () => {
     cadence.reset();
     expect(cadence.update(20)).toBe(0);
   });
-});
 
+  it('can change interval without discarding accumulated progress', () => {
+    const cadence = createCadence(100);
+
+    expect(cadence.update(60)).toBe(0);
+    cadence.setInterval(80);
+
+    expect(cadence.update(20)).toBe(1);
+  });
+});

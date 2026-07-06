@@ -110,6 +110,10 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-P', this.togglePause, this);
     this.input.keyboard?.on('keydown-ESC', this.togglePause, this);
     this.input.keyboard?.on('keydown-SPACE', this.confirmOverlay, this);
+    if (RuntimeConfig.isDev) {
+      this.input.keyboard?.on('keydown-F8', this.forceLoseRun, this);
+      this.input.keyboard?.on('keydown-F9', this.forceWinRun, this);
+    }
     this.input.on('pointerdown', this.confirmOverlay, this);
     this.unsubscribers.push(
       ctx.bus.on('level:up', ({ level }) => {
@@ -227,6 +231,8 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.off('keydown-ESC', this.togglePause, this);
     this.input.keyboard?.off('keydown-SPACE', this.confirmOverlay, this);
     this.input.keyboard?.off('keydown-R', this.restartRun, this);
+    this.input.keyboard?.off('keydown-F8', this.forceLoseRun, this);
+    this.input.keyboard?.off('keydown-F9', this.forceWinRun, this);
     this.input.off('pointerdown', this.confirmOverlay, this);
     this.systems.forEach((system) => {
       system.destroy();
@@ -242,7 +248,7 @@ export class GameScene extends Phaser.Scene {
     this.audioManager = undefined;
     this.runState = undefined;
     if (this.physicsPausedByRun) {
-      this.physics.world.resume();
+      this.physics.world?.resume();
       this.physicsPausedByRun = false;
     }
     this.enemyGroup = undefined;
@@ -323,6 +329,24 @@ export class GameScene extends Phaser.Scene {
 
   private restartRun(): void {
     this.scene.restart();
+  }
+
+  private forceLoseRun(): void {
+    const runState = this.runState;
+    if (!RuntimeConfig.isDev || !runState || runState.status !== 'active') {
+      return;
+    }
+
+    endRun(runState, 'lost', this.getContext().bus);
+  }
+
+  private forceWinRun(): void {
+    const runState = this.runState;
+    if (!RuntimeConfig.isDev || !runState || runState.status !== 'active') {
+      return;
+    }
+
+    endRun(runState, 'won', this.getContext().bus);
   }
 
   private maybeEndRunForVictory(ctx: GameContext, runState: RunState): void {

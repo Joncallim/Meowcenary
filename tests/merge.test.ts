@@ -1,17 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { canMerge, mergeResult, replaceMergedWeapons } from '../src/gameplay/merge';
-import {
-  createWeaponInstance,
-  resetWeaponInstanceIdsForTests,
-} from '../src/gameplay/weapons';
+import { createWeaponInstance } from '../src/gameplay/weapons';
 import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import { loadGameData } from '../src/systems/validation';
 
 describe('weapon merge rules', () => {
-  const registry = new DataWeaponRegistry(loadGameData());
+  let registry: DataWeaponRegistry;
 
   beforeEach(() => {
-    resetWeaponInstanceIdsForTests();
+    registry = new DataWeaponRegistry(loadGameData());
   });
 
   it('accepts same family and same tier below max', () => {
@@ -66,6 +63,23 @@ describe('weapon merge rules', () => {
         registry,
       ),
     ).toBe(false);
+  });
+
+  it('rejects stale instance state that disagrees with the second definition', () => {
+    const pistol = registry.weaponById('scrap-pistol-t1');
+    const smg = registry.weaponById('can-smg-t1');
+    if (!pistol || !smg) {
+      throw new Error('missing test weapon');
+    }
+
+    const a = createWeaponInstance(pistol, 'a');
+    const stale = {
+      ...createWeaponInstance(smg, 'b'),
+      family: 'pistol',
+    };
+
+    expect(canMerge(a, stale, registry)).toBe(false);
+    expect(mergeResult(a, stale, registry)).toBeNull();
   });
 
   it('returns a next-tier merge result', () => {

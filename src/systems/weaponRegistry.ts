@@ -6,6 +6,7 @@ export class DataWeaponRegistry implements WeaponRegistry {
   private readonly byId = new Map<string, WeaponDefinition>();
   private readonly byFamilyTier = new Map<string, WeaponDefinition>();
   private readonly byFamily = new Map<string, WeaponDefinition[]>();
+  private nextInstanceId = 1;
 
   constructor(data: Pick<GameData, 'weapons'>) {
     for (const weapon of data.weapons) {
@@ -35,7 +36,9 @@ export class DataWeaponRegistry implements WeaponRegistry {
   }
 
   createWeaponInstance(def: WeaponDefinition): WeaponInstance {
-    return createRuntimeWeaponInstance(def);
+    const instance = createRuntimeWeaponInstance(def, `weapon-${this.nextInstanceId}`);
+    this.nextInstanceId += 1;
+    return instance;
   }
 }
 
