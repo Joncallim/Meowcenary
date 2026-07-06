@@ -13,16 +13,44 @@ import { loadGameData } from '../src/systems/validation';
 describe('foundation seams', () => {
   it('can compose a GameContext without Phaser', () => {
     const save = new SaveManager(new MemoryStorageAdapter(), 'test-save');
+    const settings = { ...DEFAULT_SETTINGS };
     const ctx: GameContext = {
       bus: createEventBus(),
       rng: createRng(1),
       data: loadGameData(),
       save,
-      settings: DEFAULT_SETTINGS,
+      settings,
+      updateSettings(patch) {
+        Object.assign(settings, patch);
+        return { ...settings };
+      },
     };
 
     expect(ctx.data.weapons.length).toBeGreaterThan(0);
     expect(ctx.rng.next()).toBeGreaterThanOrEqual(0);
+  });
+
+  it('exposes a single settings update seam', () => {
+    const save = new SaveManager(new MemoryStorageAdapter(), 'test-save');
+    const settings = { ...DEFAULT_SETTINGS };
+    const ctx: GameContext = {
+      bus: createEventBus(),
+      rng: createRng(1),
+      data: loadGameData(),
+      save,
+      settings,
+      updateSettings(patch) {
+        Object.assign(settings, patch);
+        save.save({ version: 1, settings: { ...settings }, meta: {} });
+        return { ...settings };
+      },
+    };
+
+    expect(ctx.updateSettings({ muted: true, sfxVolume: 0.25 })).toMatchObject({
+      muted: true,
+      sfxVolume: 0.25,
+    });
+    expect(ctx.save.load().settings).toMatchObject({ muted: true, sfxVolume: 0.25 });
   });
 
   it('defines the minimal System lifecycle', () => {
@@ -42,4 +70,3 @@ describe('foundation seams', () => {
     expect(calls).toEqual([16.67, -1]);
   });
 });
-

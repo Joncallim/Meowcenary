@@ -14,13 +14,21 @@ export class BootScene extends Phaser.Scene {
   create(): void {
     const data = loadGameData();
     const save = new SaveManager(new LocalStorageAdapter());
-    const settings = save.load().settings;
+    const saveData = save.load();
+    const settings = { ...saveData.settings };
+    // This is for boot/menu-only randomness. Run gameplay owns its own seed.
+    const bootSeed = Date.now();
     const ctx: GameContext = {
       bus: createEventBus(),
-      rng: createRng(1),
+      rng: createRng(bootSeed),
       data,
       save,
       settings,
+      updateSettings(patch) {
+        Object.assign(settings, patch);
+        save.save({ ...save.load(), settings: { ...settings } });
+        return { ...settings };
+      },
     };
 
     this.registry.set(GAME_CONTEXT_REGISTRY_KEY, ctx);
