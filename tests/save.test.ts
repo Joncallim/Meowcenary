@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_SETTINGS,
+  LocalStorageAdapter,
   MemoryStorageAdapter,
   SaveManager,
+  type StorageAdapter,
   createDefaultSave,
   migrate,
 } from '../src/systems/save';
@@ -55,5 +57,78 @@ describe('SaveManager', () => {
       meta: {},
     });
   });
+
+  it('does not write while loading', () => {
+    const storage = new CountingStorageAdapter();
+    storage.setItem(saveKey, JSON.stringify(createDefaultSave()));
+    storage.setCalls = 0;
+
+    const manager = new SaveManager(storage, saveKey);
+
+    expect(manager.load()).toEqual(createDefaultSave());
+    expect(storage.setCalls).toBe(0);
+  });
+
+  it('recovers when storage operations throw', () => {
+    const manager = new SaveManager(new ThrowingStorageAdapter(), saveKey);
+
+    expect(manager.load()).toEqual(createDefaultSave());
+    expect(() => manager.save(createDefaultSave())).not.toThrow();
+    expect(() => manager.clear()).not.toThrow();
+  });
+
+  it('localStorage adapter treats storage failures as non-fatal', () => {
+    const adapter = new LocalStorageAdapter(new ThrowingStorage());
+
+    expect(adapter.getItem(saveKey)).toBeNull();
+    expect(() => adapter.setItem(saveKey, '{}')).not.toThrow();
+    expect(() => adapter.removeItem(saveKey)).not.toThrow();
+  });
 });
 
+class CountingStorageAdapter extends MemoryStorageAdapter {
+  setCalls = 0;
+
+  override setItem(key: string, value: string): void {
+    this.setCalls += 1;
+    super.setItem(key, value);
+  }
+}
+
+class ThrowingStorageAdapter implements StorageAdapter {
+  getItem(): string | null {
+    throw new Error('blocked');
+  }
+
+  setItem(): void {
+    throw new Error('blocked');
+  }
+
+  removeItem(): void {
+    throw new Error('blocked');
+  }
+}
+
+class ThrowingStorage implements Storage {
+  readonly length = 0;
+
+  clear(): void {
+    throw new Error('blocked');
+  }
+
+  getItem(): string | null {
+    throw new Error('blocked');
+  }
+
+  key(): string | null {
+    throw new Error('blocked');
+  }
+
+  removeItem(): void {
+    throw new Error('blocked');
+  }
+
+  setItem(): void {
+    throw new Error('blocked');
+  }
+}

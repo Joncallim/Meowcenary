@@ -23,5 +23,10 @@ describe('createRng', () => {
       second.next(),
     ]);
   });
-});
 
+  it('allows pick to be destructured', () => {
+    const { pick } = createRng(1234);
+
+    expect(['a', 'b', 'c']).toContain(pick(['a', 'b', 'c']));
+  });
+});

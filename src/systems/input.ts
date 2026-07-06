@@ -39,7 +39,7 @@ export class InputController {
   update(): void {
     const keyboard = this.getKeyboardVector();
     const pointer = this.getPointerIntent();
-    this.moveVector = normalize({ x: keyboard.x + pointer.x, y: keyboard.y + pointer.y });
+    this.moveVector = clampLength({ x: keyboard.x + pointer.x, y: keyboard.y + pointer.y }, 1);
   }
 
   getMoveVector(): Vec2 {
@@ -107,4 +107,3 @@ function pressed(key: Phaser.Input.Keyboard.Key): boolean {
 function pointerToVec2(pointer: Phaser.Input.Pointer): Vec2 {
   return { x: pointer.x, y: pointer.y };
 }
-

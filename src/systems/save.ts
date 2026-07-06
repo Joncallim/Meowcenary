@@ -57,33 +57,59 @@ export class SaveManager {
   ) {}
 
   load(): SaveDataV1 {
-    const save = migrate(this.storage.getItem(this.key));
-    this.save(save);
-    return save;
+    try {
+      return migrate(this.storage.getItem(this.key));
+    } catch {
+      return createDefaultSave();
+    }
   }
 
   save(data: SaveDataV1): void {
-    this.storage.setItem(this.key, JSON.stringify(migrate(data)));
+    try {
+      this.storage.setItem(this.key, JSON.stringify(migrate(data)));
+    } catch {
+      // Persistence is best-effort; boot and settings recovery must stay non-fatal.
+    }
   }
 
   clear(): void {
-    this.storage.removeItem(this.key);
+    try {
+      this.storage.removeItem(this.key);
+    } catch {
+      // Persistence is best-effort; storage-disabled browsers should still boot.
+    }
   }
 }
 
 export class LocalStorageAdapter implements StorageAdapter {
-  constructor(private readonly localStorageRef: Storage = window.localStorage) {}
+  private readonly localStorageRef: Storage | null;
+
+  constructor(localStorageRef?: Storage) {
+    this.localStorageRef = localStorageRef ?? getBrowserLocalStorage();
+  }
 
   getItem(key: string): string | null {
-    return this.localStorageRef.getItem(key);
+    try {
+      return this.localStorageRef?.getItem(key) ?? null;
+    } catch {
+      return null;
+    }
   }
 
   setItem(key: string, value: string): void {
-    this.localStorageRef.setItem(key, value);
+    try {
+      this.localStorageRef?.setItem(key, value);
+    } catch {
+      // Ignore blocked, full, or disabled storage.
+    }
   }
 
   removeItem(key: string): void {
-    this.localStorageRef.removeItem(key);
+    try {
+      this.localStorageRef?.removeItem(key);
+    } catch {
+      // Ignore blocked or disabled storage.
+    }
   }
 }
 
@@ -161,3 +187,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function getBrowserLocalStorage(): Storage | null {
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}

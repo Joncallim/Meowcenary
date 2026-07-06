@@ -16,21 +16,22 @@ export function createRng(seed: number): Rng {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   }
 
+  function int(minInclusive: number, maxInclusive: number): number {
+    const min = Math.ceil(Math.min(minInclusive, maxInclusive));
+    const max = Math.floor(Math.max(minInclusive, maxInclusive));
+    return Math.floor(next() * (max - min + 1)) + min;
+  }
+
   return {
     next,
-
-    int(minInclusive, maxInclusive) {
-      const min = Math.ceil(Math.min(minInclusive, maxInclusive));
-      const max = Math.floor(Math.max(minInclusive, maxInclusive));
-      return Math.floor(next() * (max - min + 1)) + min;
-    },
+    int,
 
     pick(items) {
       if (items.length === 0) {
         throw new Error('Rng.pick requires at least one item');
       }
 
-      return items[this.int(0, items.length - 1)];
+      return items[int(0, items.length - 1)];
     },
 
     weighted(entries) {
@@ -51,4 +52,3 @@ export function createRng(seed: number): Rng {
     },
   };
 }
-

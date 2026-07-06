@@ -22,11 +22,20 @@ const ENEMY_ARCHETYPES = new Set<EnemyDefinition['archetype']>([
 ]);
 const UPGRADE_TARGETS = new Set<UpgradeDefinition['target']>(['player', 'weapon', 'economy', 'run']);
 
-type RowCheck = (row: unknown, index: number) => string[];
+export type RowCheck = (row: unknown, index: number) => string[];
 
 export function validate<T>(name: string, rows: unknown[], check: RowCheck): T[] {
+  const errors = collectValidationErrors(name, rows, check);
+  if (errors.length > 0) {
+    throw new Error(`Invalid game data:\n${errors.join('\n')}`);
+  }
+
+  return rows as T[];
+}
+
+export function collectValidationErrors(name: string, rows: unknown[], check: RowCheck): string[] {
   if (!Array.isArray(rows)) {
-    throw new Error(`${name}[0].rows: expected array`);
+    return [`${name}[0].rows: expected array`];
   }
 
   const errors: string[] = [];
@@ -36,11 +45,7 @@ export function validate<T>(name: string, rows: unknown[], check: RowCheck): T[]
     }
   });
 
-  if (errors.length > 0) {
-    throw new Error(`Invalid game data:\n${errors.join('\n')}`);
-  }
-
-  return rows as T[];
+  return errors;
 }
 
 export function loadGameData(): GameData {
@@ -91,7 +96,7 @@ function checkWeapon(row: unknown): string[] {
   requirePositiveNumber(weapon, 'damage', errors);
   requirePositiveNumber(weapon, 'projectileSpeed', errors);
   requirePositiveNumber(weapon, 'range', errors);
-  requirePositiveNumber(weapon, 'mergeTier', errors);
+  requirePositiveInteger(weapon, 'mergeTier', errors);
   return errors;
 }
 
@@ -124,7 +129,7 @@ function checkUpgrade(row: unknown): string[] {
   requireRarity(upgrade, 'rarity', errors);
   requireEnum(upgrade, 'target', UPGRADE_TARGETS, errors);
   requireString(upgrade, 'description', errors);
-  requirePositiveNumber(upgrade, 'maxStacks', errors);
+  requirePositiveInteger(upgrade, 'maxStacks', errors);
   return errors;
 }
 
@@ -153,7 +158,7 @@ function checkSpawnCurveShape(row: unknown): string[] {
     requireNonNegativeNumber(wave, 'startSecond', waveErrors);
     requireString(wave, 'enemyId', waveErrors);
     requirePositiveNumber(wave, 'spawnEveryMs', waveErrors);
-    requirePositiveNumber(wave, 'maxAlive', waveErrors);
+    requirePositiveInteger(wave, 'maxAlive', waveErrors);
     errors.push(...waveErrors.map((error) => `waves[${waveIndex}].${error}`));
   });
 
@@ -210,6 +215,13 @@ function requirePositiveNumber(row: Record<string, unknown>, field: string, erro
   const value = readField(row, field);
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
     errors.push(`${field}: required positive number`);
+  }
+}
+
+function requirePositiveInteger(row: Record<string, unknown>, field: string, errors: string[]): void {
+  const value = readField(row, field);
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    errors.push(`${field}: required positive integer`);
   }
 }
 
