@@ -40,7 +40,7 @@ src/
     pool.ts          Generic object Pool<T> (added in Epic 12)
   entities/      Phaser display/physics objects: Player, Enemy, Projectile, Drop
   gameplay/      Pure run rules (no Phaser imports): runState, stats, xp,
-                 targeting, merge, upgrades, spawnDirector, loot, reward
+                 targeting, weapons, merge, upgrades, spawnDirector, loot, reward
   systems/       Phaser-aware coordinators: input, save, validation, weapons,
                  enemies, debug, audio, types.ts
   scenes/        BootScene, GameScene (thin coordinators only)
@@ -103,6 +103,8 @@ function createRng(seed: number): Rng;         // deterministic (mulberry32)
 ```
 
 Never call `Math.random()` in gameplay code. The run seed lives in `RunState`.
+`GameContext.menuRng` is boot/menu-scoped only; combat, loot, spawns, and cards
+must create/use a run-scoped RNG from `RunState.seed`.
 
 ### Stats and modifiers (primitive owned by Epic 1 `src/gameplay/stats.ts`)
 
@@ -127,9 +129,9 @@ interface ModifierStack {
 }
 ```
 
-Convention: **higher is always better.** Fire rate is modelled as `attackSpeed`
-(default 1), and effective interval is `baseFireRateMs / attackSpeed` — never
-apply a modifier directly to a `*Ms` field.
+Convention: **higher is always better.** Fire cadence is modelled as
+`attackSpeed` (default 1), and effective interval is `baseFireRateMs / attackSpeed`
+— never apply a modifier directly to a `*Ms` field.
 
 ### Run state (Epic 1 owns `src/gameplay/runState.ts`)
 
@@ -138,6 +140,8 @@ reads and writes it through helper functions, not by reaching into the scene.
 
 ```ts
 type RunStatus = 'intro' | 'active' | 'paused' | 'won' | 'lost';
+type PauseReason = 'manual' | 'levelUp';
+type RunOutcome = 'won' | 'lost';
 
 interface RunState {
   status: RunStatus;
@@ -151,10 +155,38 @@ interface RunState {
   kills: number;
   currency: number;                 // scrap collected this run (not yet banked)
   stats: ModifierStack;             // player/global stats
-  equipped: WeaponInstance[];       // Epic 2 populates
+  equipped: WeaponInstance[];       // Epic 2 populates and types
   upgradeStacks: Record<string, number>; // Epic 3 populates
+  pauseReason: PauseReason | null;
+  outcome?: RunOutcome;
 }
 ```
+
+When `RunState.status !== 'active'`, gameplay simulation must not advance:
+run timer, spawn cadence, weapon cadence, projectile movement, pickup side
+effects, and damage callbacks all pause.
+
+### Weapon runtime state (Epic 2 owns `src/gameplay/weapons.ts`)
+
+Weapon data is static; weapon instances are runtime state. Keep them separate.
+
+```ts
+interface WeaponInstance {
+  instanceId: string;
+  defId: string;
+  family: string;
+  tier: number;
+}
+```
+
+Rules:
+
+- `WeaponInstance` must stay Phaser-free and serializable.
+- `RunState.equipped` stores weapon instances.
+- `WeaponSystem` owns runtime machinery such as `Cadence`, Phaser groups, and
+  projectile objects; those do not belong in `RunState`.
+- Merge helpers live in `src/gameplay/merge.ts` and stay pure.
+- Weapon data lives in `src/data/weapons.json` and is validated at load time.
 
 ### Save data (Epic 0 owns `src/systems/save.ts`)
 
