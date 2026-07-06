@@ -1,7 +1,24 @@
 export const RuntimeConfig = {
   canvas: { width: 390, height: 844 },
+  gameplay: {
+    player: {
+      baseMaxHealth: 100,
+      baseMoveSpeed: 175,
+      invulnerabilityMs: 650,
+      pickupRadius: 30,
+      contactDamageCooldownMs: 700,
+    },
+    enemy: {
+      contactRadius: 18,
+    },
+    projectile: {
+      radius: 4,
+    },
+    xpDrop: {
+      radius: 8,
+    },
+  },
   storageKey: 'meowcenary.save.v1',
   targetFps: 60,
   isDev: import.meta.env.DEV,
 } as const;
-
