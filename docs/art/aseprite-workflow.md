@@ -27,7 +27,9 @@ Export a source file to the standard spritesheet + metadata paths (headless with
 `-b`):
 
 ```bash
-aseprite -b assets-src/characters/scrap-tabby/source/scrap-tabby.aseprite \
+aseprite -b \
+  --ignore-layer notes \
+  assets-src/characters/scrap-tabby/source/scrap-tabby.aseprite \
   --sheet public/assets/characters/scrap-tabby/scrap-tabby.png \
   --data public/assets/characters/scrap-tabby/scrap-tabby.json \
   --format json-array \
@@ -37,6 +39,10 @@ aseprite -b assets-src/characters/scrap-tabby/source/scrap-tabby.aseprite \
 
 - `--format json-array` and `--list-tags` keep the animation tag names in the
   metadata, which the engine keys off (see the Asset Standard).
+- `--ignore-layer notes` excludes the non-exported `notes` guide layer. Aseprite
+  bakes every *visible* layer into the sheet, so `notes` must be excluded here
+  (it must also appear **before** the source file to apply to it). Keep the layer
+  hidden in the source too (see the scaffold below) as a second safeguard.
 - Do not add `--trim` unless engine trim support is explicitly implemented — it
   breaks the stable-anchor expectation.
 
@@ -57,7 +63,10 @@ spr:newTag(5, 10).name = "run"
 spr:newTag(11, 12).name = "hurt"
 spr:newTag(13, 16).name = "defeat"
 for _, name in ipairs({ "shadow", "body", "outfit", "face", "weapon", "notes" }) do
-  spr:newLayer().name = name
+  local layer = spr:newLayer()
+  layer.name = name
+  -- `notes` holds working guides only; keep it hidden so it is never exported.
+  if name == "notes" then layer.isVisible = false end
 end
 spr:saveAs("assets-src/characters/scrap-tabby/source/scrap-tabby.aseprite")
 ```

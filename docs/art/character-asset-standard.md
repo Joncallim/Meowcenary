@@ -64,7 +64,9 @@ Order and name layers consistently:
 - `outfit`
 - `weapon`
 - `shadow`
-- `notes` (non-exported working notes / guides)
+- `notes` — non-exported working notes / guides. Keep this layer **hidden** in
+  the source and pass `--ignore-layer notes` on export, so guide marks are never
+  baked into the spritesheet (see [`aseprite-workflow.md`](./aseprite-workflow.md)).
 
 ## Export Requirements
 
