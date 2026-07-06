@@ -6,6 +6,7 @@ import { SceneKey } from '../engine/sceneKeys';
 import type { System } from '../engine/system';
 import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
+import { createDefaultWeaponLoadout } from '../gameplay/weapons';
 import {
   createRunState,
   endRun,
@@ -20,7 +21,8 @@ import { DebugOverlay } from '../systems/debug';
 import { DropSystem } from '../systems/DropSystem';
 import { InputController } from '../systems/input';
 import { SpawnSystem } from '../systems/SpawnSystem';
-import { StarterCombatSystem } from '../systems/StarterCombatSystem';
+import { DataWeaponRegistry } from '../systems/weaponRegistry';
+import { WeaponSystem } from '../systems/WeaponSystem';
 
 export class GameScene extends Phaser.Scene {
   private audioManager?: AudioManager;
@@ -54,6 +56,8 @@ export class GameScene extends Phaser.Scene {
       arenaId: spawnCurve?.id ?? 'arena',
     });
     const runRng = createRng(this.runState.seed);
+    const weaponRegistry = new DataWeaponRegistry(ctx.data);
+    this.runState.equipped = createDefaultWeaponLoadout(weaponRegistry);
 
     this.inputController = new InputController(this);
     this.debugOverlay = new DebugOverlay(this);
@@ -80,7 +84,7 @@ export class GameScene extends Phaser.Scene {
     );
     this.systems = [
       new SpawnSystem(this, ctx, this.runState, runRng, this.player, this.enemies, this.enemyGroup),
-      new StarterCombatSystem(
+      new WeaponSystem(
         this,
         ctx,
         this.runState,
@@ -88,6 +92,7 @@ export class GameScene extends Phaser.Scene {
         this.enemies,
         this.projectileGroup,
         this.enemyGroup,
+        weaponRegistry,
         dropSystem.createXpDrop.bind(dropSystem),
         RuntimeConfig.gameplay.projectile.radius,
       ),
@@ -207,6 +212,7 @@ export class GameScene extends Phaser.Scene {
       `Level: ${runState.level} XP: ${runState.xp.toFixed(1)}/${runState.xpToNext}`,
       `Health: ${this.player.health.toFixed(0)}/${this.player.maxHealth.toFixed(0)}`,
       `Enemies: ${this.enemies.length} Kills: ${runState.kills}`,
+      `Weapons: ${runState.equipped.map((weapon) => `${weapon.family} T${weapon.tier}`).join(', ')}`,
       `Move: ${move.x.toFixed(2)}, ${move.y.toFixed(2)}`,
       `Pointer: ${pointer ? `${Math.round(pointer.x)}, ${Math.round(pointer.y)}` : 'none'}`,
     ]);
@@ -346,6 +352,7 @@ export class GameScene extends Phaser.Scene {
         `Health: ${Math.ceil(this.player.health)} / ${Math.ceil(this.player.maxHealth)}`,
         `Level: ${runState.level}  XP: ${Math.floor(runState.xp)} / ${runState.xpToNext}`,
         `Kills: ${runState.kills}`,
+        `Weapons: ${runState.equipped.map((weapon) => `${weapon.family} T${weapon.tier}`).join(', ')}`,
         'Move: WASD/arrows/drag',
         'Pause: P/Esc',
       ].join('\n'),
