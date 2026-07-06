@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { RuntimeConfig } from './engine/config';
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import './styles.css';
@@ -10,13 +11,13 @@ const config: Phaser.Types.Core.GameConfig = {
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: 390,
-    height: 844,
+    width: RuntimeConfig.canvas.width,
+    height: RuntimeConfig.canvas.height,
   },
   physics: {
     default: 'arcade',
     arcade: {
-      debug: import.meta.env.DEV,
+      debug: RuntimeConfig.isDev,
     },
   },
   scene: [BootScene, GameScene],
