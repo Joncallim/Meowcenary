@@ -6,7 +6,15 @@ import { SceneKey } from '../engine/sceneKeys';
 import type { System } from '../engine/system';
 import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
-import { createRunState, endRun, pauseRun, startRun, tickRun, type RunState } from '../gameplay/runState';
+import {
+  createRunState,
+  endRun,
+  pauseRun,
+  resumeRun,
+  startRun,
+  tickRun,
+  type RunState,
+} from '../gameplay/runState';
 import { AudioManager } from '../systems/audio';
 import { DebugOverlay } from '../systems/debug';
 import { DropSystem } from '../systems/DropSystem';
@@ -29,6 +37,7 @@ export class GameScene extends Phaser.Scene {
   private hudText?: Phaser.GameObjects.Text;
   private centerText?: Phaser.GameObjects.Text;
   private overlayText?: Phaser.GameObjects.Text;
+  private physicsPausedByRun = false;
 
   constructor() {
     super(SceneKey.Game);
@@ -99,14 +108,17 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointerdown', this.confirmOverlay, this);
     this.unsubscribers.push(
       ctx.bus.on('level:up', ({ level }) => {
-        pauseRun(this.requireRunState(), ctx.bus);
+        pauseRun(this.requireRunState(), ctx.bus, 'levelUp');
+        this.syncPhysicsPause(this.requireRunState());
         ctx.bus.emit('card:offered', { choices: ['placeholder-upgrade'] });
         this.showOverlay(`Level ${level}\nChoose: Field Tune-Up\nSpace / click to continue`);
       }),
       ctx.bus.on('run:won', () => {
+        this.syncPhysicsPause(this.requireRunState());
         this.showOverlay('Run Complete\nYou survived the wave.\nPress R to restart');
       }),
       ctx.bus.on('run:lost', () => {
+        this.syncPhysicsPause(this.requireRunState());
         this.showOverlay('Run Failed\nPress R to restart');
       }),
     );
@@ -180,6 +192,7 @@ export class GameScene extends Phaser.Scene {
     this.inputController.update(delta);
     tickRun(runState, delta);
     this.maybeEndRunForVictory(ctx, runState);
+    this.syncPhysicsPause(runState);
     this.player.update(delta);
     this.systems.forEach((system) => {
       system.update(delta);
@@ -222,6 +235,10 @@ export class GameScene extends Phaser.Scene {
     this.debugOverlay = undefined;
     this.audioManager = undefined;
     this.runState = undefined;
+    if (this.physicsPausedByRun) {
+      this.physics.world.resume();
+      this.physicsPausedByRun = false;
+    }
     this.enemyGroup = undefined;
     this.projectileGroup = undefined;
     this.dropGroup = undefined;
@@ -268,25 +285,33 @@ export class GameScene extends Phaser.Scene {
 
     const ctx = this.getContext();
     if (runState.status === 'active') {
-      pauseRun(runState, ctx.bus);
+      pauseRun(runState, ctx.bus, 'manual');
+      this.syncPhysicsPause(runState);
       this.showOverlay('Paused\nP / Esc to resume');
       return;
     }
 
-    if (runState.status === 'paused') {
-      startRun(runState, ctx.bus);
+    if (runState.status === 'paused' && runState.pauseReason === 'manual') {
+      resumeRun(runState, ctx.bus, 'manual');
+      this.syncPhysicsPause(runState);
       this.hideOverlay();
     }
   }
 
   private confirmOverlay(): void {
     const runState = this.runState;
-    if (!runState || runState.status !== 'paused' || !this.overlayText?.visible) {
+    if (
+      !runState ||
+      runState.status !== 'paused' ||
+      runState.pauseReason !== 'levelUp' ||
+      !this.overlayText?.visible
+    ) {
       return;
     }
 
     this.getContext().bus.emit('card:chosen', { upgradeId: 'placeholder-upgrade' });
-    startRun(runState, this.getContext().bus);
+    resumeRun(runState, this.getContext().bus, 'levelUp');
+    this.syncPhysicsPause(runState);
     this.hideOverlay();
   }
 
@@ -315,6 +340,7 @@ export class GameScene extends Phaser.Scene {
     this.hudText.setText(
       [
         `Status: ${runState.status}`,
+        `Pause: ${runState.pauseReason ?? 'none'}`,
         `Time: ${formatClock(runState.timeMs)} / ${formatClock(durationSeconds * 1000)}`,
         `Survive: ${remainingSeconds}s`,
         `Health: ${Math.ceil(this.player.health)} / ${Math.ceil(this.player.maxHealth)}`,
@@ -332,6 +358,20 @@ export class GameScene extends Phaser.Scene {
 
   private hideOverlay(): void {
     this.overlayText?.setVisible(false);
+  }
+
+  private syncPhysicsPause(runState: RunState): void {
+    const shouldPause = runState.status !== 'active';
+    if (shouldPause && !this.physicsPausedByRun) {
+      this.physics.world.pause();
+      this.physicsPausedByRun = true;
+      return;
+    }
+
+    if (!shouldPause && this.physicsPausedByRun) {
+      this.physics.world.resume();
+      this.physicsPausedByRun = false;
+    }
   }
 }
 

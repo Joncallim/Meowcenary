@@ -41,12 +41,16 @@ export class StarterCombatSystem implements System {
   }
 
   update(dtMs: number): void {
+    if (this.runState.status !== 'active') {
+      return;
+    }
+
     this.projectiles.forEach((projectile) => {
       projectile.update(dtMs);
     });
     compactActive(this.projectiles);
 
-    if (this.runState.status !== 'active' || !this.weapon) {
+    if (!this.weapon) {
       return;
     }
 
@@ -102,6 +106,10 @@ export class StarterCombatSystem implements System {
     projectileObject: unknown,
     enemyObject: unknown,
   ): void {
+    if (this.runState.status !== 'active') {
+      return;
+    }
+
     const projectileGameObject = arcadeGameObject(projectileObject);
     const enemyGameObject = arcadeGameObject(enemyObject);
     const projectile = this.projectiles.find((candidate) => candidate.sprite === projectileGameObject);

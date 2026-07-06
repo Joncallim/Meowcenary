@@ -51,12 +51,12 @@ export class Player {
   }
 
   update(dtMs: number): void {
-    this.invulnerableMs = Math.max(0, this.invulnerableMs - dtMs);
-
     if (this.runState.status !== 'active') {
       this.body.setVelocity(0, 0);
       return;
     }
+
+    this.invulnerableMs = Math.max(0, this.invulnerableMs - dtMs);
 
     const move = this.input.getMoveVector();
     const speed = this.runState.stats.resolve('moveSpeed', this.options.baseMoveSpeed);

@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createEventBus } from '../src/engine/eventBus';
-import { createRunState, endRun, pauseRun, startRun, tickRun } from '../src/gameplay/runState';
+import {
+  createRunState,
+  endRun,
+  pauseRun,
+  resumeRun,
+  startRun,
+  tickRun,
+} from '../src/gameplay/runState';
 
 describe('RunState', () => {
   it('creates intro run state with initial progression values', () => {
@@ -11,6 +18,7 @@ describe('RunState', () => {
     expect(runState.level).toBe(1);
     expect(runState.xp).toBe(0);
     expect(runState.kills).toBe(0);
+    expect(runState.pauseReason).toBeNull();
   });
 
   it('starts, pauses, and resumes with events', () => {
@@ -25,9 +33,10 @@ describe('RunState', () => {
 
     startRun(runState, bus);
     pauseRun(runState, bus);
-    startRun(runState, bus);
+    resumeRun(runState, bus, 'manual');
 
     expect(runState.status).toBe('active');
+    expect(runState.pauseReason).toBeNull();
     expect(started).toHaveBeenCalledWith({
       characterId: 'starter',
       arenaId: 'junkyard',
@@ -35,6 +44,46 @@ describe('RunState', () => {
     });
     expect(paused).toHaveBeenCalledWith({});
     expect(resumed).toHaveBeenCalledWith({});
+  });
+
+  it('tracks pause reasons and clears them on matching resume', () => {
+    const manual = createRunState({ seed: 42, characterId: 'starter', arenaId: 'junkyard' });
+    const levelUp = createRunState({ seed: 43, characterId: 'starter', arenaId: 'junkyard' });
+    startRun(manual);
+    startRun(levelUp);
+
+    pauseRun(manual, undefined, 'manual');
+    pauseRun(levelUp, undefined, 'levelUp');
+
+    expect(manual.pauseReason).toBe('manual');
+    expect(levelUp.pauseReason).toBe('levelUp');
+
+    resumeRun(manual, undefined, 'manual');
+
+    expect(manual.status).toBe('active');
+    expect(manual.pauseReason).toBeNull();
+  });
+
+  it('does not resume a level-up pause through a manual resume', () => {
+    const runState = createRunState({ seed: 42, characterId: 'starter', arenaId: 'junkyard' });
+    startRun(runState);
+    pauseRun(runState, undefined, 'levelUp');
+
+    resumeRun(runState, undefined, 'manual');
+
+    expect(runState.status).toBe('paused');
+    expect(runState.pauseReason).toBe('levelUp');
+  });
+
+  it('does not use startRun as a generic paused-run resume', () => {
+    const runState = createRunState({ seed: 42, characterId: 'starter', arenaId: 'junkyard' });
+    startRun(runState);
+    pauseRun(runState, undefined, 'levelUp');
+
+    startRun(runState);
+
+    expect(runState.status).toBe('paused');
+    expect(runState.pauseReason).toBe('levelUp');
   });
 
   it('ticks only while active', () => {
@@ -81,7 +130,7 @@ describe('RunState', () => {
     startRun(runState);
     endRun(runState, 'won');
     pauseRun(runState);
-    startRun(runState);
+    resumeRun(runState);
 
     expect(runState.status).toBe('won');
     expect(runState.outcome).toBe('won');

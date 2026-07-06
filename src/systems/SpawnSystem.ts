@@ -39,6 +39,9 @@ export class SpawnSystem implements System {
 
   update(dtMs: number): void {
     if (this.runState.status !== 'active') {
+      this.enemies.forEach((enemy) => {
+        enemy.body.setVelocity(0, 0);
+      });
       return;
     }
 

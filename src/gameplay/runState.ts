@@ -4,6 +4,7 @@ import { xpToNext } from './xp';
 
 export type RunStatus = 'intro' | 'active' | 'paused' | 'won' | 'lost';
 export type RunOutcome = 'won' | 'lost';
+export type PauseReason = 'manual' | 'levelUp';
 
 export interface RunState {
   status: RunStatus;
@@ -19,6 +20,7 @@ export interface RunState {
   stats: ModifierStack;
   equipped: unknown[];
   upgradeStacks: Record<string, number>;
+  pauseReason: PauseReason | null;
   outcome?: RunOutcome;
 }
 
@@ -43,33 +45,44 @@ export function createRunState(opts: CreateRunStateOptions): RunState {
     stats: new ModifierStack(),
     equipped: [],
     upgradeStacks: {},
+    pauseReason: null,
   };
 }
 
 export function startRun(state: RunState, bus?: EventBus): void {
   if (state.status === 'intro') {
     state.status = 'active';
+    state.pauseReason = null;
     bus?.emit('run:start', {
       characterId: state.characterId,
       arenaId: state.arenaId,
       seed: state.seed,
     });
-    return;
-  }
-
-  if (state.status === 'paused') {
-    state.status = 'active';
-    bus?.emit('run:resumed', {});
   }
 }
 
-export function pauseRun(state: RunState, bus?: EventBus): void {
+export function pauseRun(state: RunState, bus?: EventBus, reason: PauseReason = 'manual'): void {
   if (state.status !== 'active') {
     return;
   }
 
   state.status = 'paused';
+  state.pauseReason = reason;
   bus?.emit('run:paused', {});
+}
+
+export function resumeRun(state: RunState, bus?: EventBus, reason?: PauseReason): void {
+  if (state.status !== 'paused') {
+    return;
+  }
+
+  if (reason !== undefined && state.pauseReason !== reason) {
+    return;
+  }
+
+  state.status = 'active';
+  state.pauseReason = null;
+  bus?.emit('run:resumed', {});
 }
 
 export function tickRun(state: RunState, dtMs: number): void {
