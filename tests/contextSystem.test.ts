@@ -16,18 +16,18 @@ describe('foundation seams', () => {
     const settings = { ...DEFAULT_SETTINGS };
     const ctx: GameContext = {
       bus: createEventBus(),
-      rng: createRng(1),
+      menuRng: createRng(1),
       data: loadGameData(),
       save,
       settings,
       updateSettings(patch) {
         Object.assign(settings, patch);
-        return { ...settings };
+        return settings;
       },
     };
 
     expect(ctx.data.weapons.length).toBeGreaterThan(0);
-    expect(ctx.rng.next()).toBeGreaterThanOrEqual(0);
+    expect(ctx.menuRng.next()).toBeGreaterThanOrEqual(0);
   });
 
   it('exposes a single settings update seam', () => {
@@ -35,14 +35,14 @@ describe('foundation seams', () => {
     const settings = { ...DEFAULT_SETTINGS };
     const ctx: GameContext = {
       bus: createEventBus(),
-      rng: createRng(1),
+      menuRng: createRng(1),
       data: loadGameData(),
       save,
       settings,
       updateSettings(patch) {
         Object.assign(settings, patch);
         save.save({ version: 1, settings: { ...settings }, meta: {} });
-        return { ...settings };
+        return settings;
       },
     };
 

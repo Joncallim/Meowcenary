@@ -16,18 +16,18 @@ export class BootScene extends Phaser.Scene {
     const save = new SaveManager(new LocalStorageAdapter());
     const saveData = save.load();
     const settings = { ...saveData.settings };
-    // This is for boot/menu-only randomness. Run gameplay owns its own seed.
+    // This RNG is boot/menu scoped only. Run gameplay owns its own seed.
     const bootSeed = Date.now();
     const ctx: GameContext = {
       bus: createEventBus(),
-      rng: createRng(bootSeed),
+      menuRng: createRng(bootSeed),
       data,
       save,
       settings,
       updateSettings(patch) {
         Object.assign(settings, patch);
         save.save({ ...save.load(), settings: { ...settings } });
-        return { ...settings };
+        return settings;
       },
     };
 

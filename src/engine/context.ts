@@ -8,10 +8,10 @@ export const GAME_CONTEXT_REGISTRY_KEY = 'meowcenary.gameContext';
 export interface GameContext {
   bus: EventBus;
   /**
-   * Boot/menu-scoped randomness only. Gameplay runs must create their RNG from
+   * This RNG is boot/menu scoped only. Gameplay runs must create their RNG from
    * RunState.seed so combat, loot, spawns, and cards stay reproducible per run.
    */
-  rng: Rng;
+  menuRng: Rng;
   data: GameData;
   save: SaveManager;
   settings: Settings;
