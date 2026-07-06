@@ -51,6 +51,56 @@ describe('game data validation', () => {
     );
   });
 
+  it('validates shipped weapon family tiers', () => {
+    const data = loadGameData();
+
+    expect(data.weapons.map((weapon) => weapon.id)).toEqual([
+      'scrap-pistol-t1',
+      'scrap-pistol-t2',
+      'scrap-pistol-t3',
+      'can-smg-t1',
+      'can-smg-t2',
+      'can-smg-t3',
+      'bolt-shotgun-t1',
+      'bolt-shotgun-t2',
+      'bolt-shotgun-t3',
+    ]);
+  });
+
+  it('rejects non-contiguous weapon family tiers', () => {
+    const data = loadGameData();
+    const broken = structuredClone(data);
+    broken.weapons = broken.weapons.filter((weapon) => weapon.id !== 'scrap-pistol-t2');
+
+    expect(() => validateGameData(broken)).toThrow(/family "pistol" missing mergeTier 2/);
+  });
+
+  it('rejects weapon merge tiers above max tier', () => {
+    const data = loadGameData();
+    const broken = structuredClone(data);
+    broken.weapons[0].mergeTier = 4;
+
+    expect(() => validateGameData(broken)).toThrow(/mergeTier: 4 exceeds maxTier 3/);
+  });
+
+  it('rejects invalid projectile count, pierce, and spread values', () => {
+    const data = loadGameData();
+
+    const badProjectileCount = structuredClone(data);
+    badProjectileCount.weapons[0].projectileCount = 0;
+    expect(() => validateGameData(badProjectileCount)).toThrow(
+      /weapons\.json\[0\]\.projectileCount/,
+    );
+
+    const badPierce = structuredClone(data);
+    badPierce.weapons[0].pierce = -1;
+    expect(() => validateGameData(badPierce)).toThrow(/weapons\.json\[0\]\.pierce/);
+
+    const badSpread = structuredClone(data);
+    badSpread.weapons[0].spreadDeg = Number.NaN;
+    expect(() => validateGameData(badSpread)).toThrow(/weapons\.json\[0\]\.spreadDeg/);
+  });
+
   it('can collect row errors without throwing', () => {
     const errors = collectValidationErrors('example.json', [{ id: '' }, {}], (row) =>
       typeof row === 'object' && row !== null && 'id' in row ? [] : ['id: required string'],
