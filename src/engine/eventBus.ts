@@ -1,0 +1,70 @@
+export interface GameEventMap {
+  'run:start': { characterId: string; arenaId: string; seed: number };
+  'run:paused': Record<string, never>;
+  'run:resumed': Record<string, never>;
+  'run:won': { timeMs: number; level: number; kills: number };
+  'run:lost': { timeMs: number; level: number; kills: number };
+  'player:damaged': { amount: number; healthRemaining: number };
+  'player:died': Record<string, never>;
+  'enemy:spawned': { instanceId: number; enemyId: string; x: number; y: number };
+  'enemy:damaged': { instanceId: number; amount: number; x: number; y: number };
+  'enemy:killed': { instanceId: number; enemyId: string; x: number; y: number };
+  'weapon:fired': { weaponId: string; x: number; y: number };
+  'projectile:hit': { x: number; y: number; damage: number; killed: boolean };
+  'xp:gained': { amount: number; total: number };
+  'level:up': { level: number };
+  'card:offered': { choices: string[] };
+  'card:chosen': { upgradeId: string };
+  'weapon:merged': { fromId: string; toId: string };
+  'drop:collected': { kind: 'xp' | 'scrap'; amount: number; x: number; y: number };
+  'currency:changed': { runTotal: number };
+}
+
+export type GameEventKey = keyof GameEventMap;
+export type GameEventListener<K extends GameEventKey> = (payload: GameEventMap[K]) => void;
+
+export interface EventBus {
+  on<K extends GameEventKey>(key: K, fn: GameEventListener<K>): () => void;
+  off<K extends GameEventKey>(key: K, fn: GameEventListener<K>): void;
+  emit<K extends GameEventKey>(key: K, payload: GameEventMap[K]): void;
+}
+
+export function createEventBus(): EventBus {
+  const listeners = new Map<GameEventKey, Set<(payload: GameEventMap[GameEventKey]) => void>>();
+
+  return {
+    on(key, fn) {
+      const set = listeners.get(key) ?? new Set<(payload: GameEventMap[GameEventKey]) => void>();
+      set.add(fn as (payload: GameEventMap[GameEventKey]) => void);
+      listeners.set(key, set);
+
+      return () => {
+        this.off(key, fn);
+      };
+    },
+
+    off(key, fn) {
+      const set = listeners.get(key);
+      set?.delete(fn as (payload: GameEventMap[GameEventKey]) => void);
+      if (set?.size === 0) {
+        listeners.delete(key);
+      }
+    },
+
+    emit(key, payload) {
+      const set = listeners.get(key);
+      if (!set) {
+        return;
+      }
+
+      for (const listener of [...set]) {
+        try {
+          listener(payload);
+        } catch (error) {
+          console.error(`EventBus listener failed for "${String(key)}"`, error);
+        }
+      }
+    },
+  };
+}
+
