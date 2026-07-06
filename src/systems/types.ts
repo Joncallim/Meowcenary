@@ -30,3 +30,23 @@ export interface UpgradeDefinition {
   description: string;
   maxStacks: number;
 }
+
+export interface SpawnWaveDefinition {
+  startSecond: number;
+  enemyId: string;
+  spawnEveryMs: number;
+  maxAlive: number;
+}
+
+export interface SpawnCurveDefinition {
+  id: string;
+  durationSeconds: number;
+  waves: SpawnWaveDefinition[];
+}
+
+export interface GameData {
+  weapons: WeaponDefinition[];
+  enemies: EnemyDefinition[];
+  upgrades: UpgradeDefinition[];
+  spawnCurves: SpawnCurveDefinition[];
+}

@@ -1,0 +1,163 @@
+import { RuntimeConfig } from '../engine/config';
+
+export interface Settings {
+  muted: boolean;
+  musicVolume: number;
+  sfxVolume: number;
+  reducedMotion: boolean;
+}
+
+export type MetaState = Record<string, never>;
+
+export interface SaveDataV1 {
+  version: 1;
+  settings: Settings;
+  meta: MetaState;
+}
+
+export interface StorageAdapter {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+}
+
+export const DEFAULT_SETTINGS: Settings = {
+  muted: false,
+  musicVolume: 0.7,
+  sfxVolume: 0.8,
+  reducedMotion: false,
+};
+
+export function createDefaultSave(): SaveDataV1 {
+  return {
+    version: 1,
+    settings: { ...DEFAULT_SETTINGS },
+    meta: {},
+  };
+}
+
+export function migrate(raw: unknown): SaveDataV1 {
+  const parsed = parseRawSave(raw);
+  if (!isRecord(parsed)) {
+    return createDefaultSave();
+  }
+
+  switch (parsed.version) {
+    case 1:
+      return migrateV1(parsed);
+    default:
+      return createDefaultSave();
+  }
+}
+
+export class SaveManager {
+  constructor(
+    private readonly storage: StorageAdapter,
+    private readonly key: string = RuntimeConfig.storageKey,
+  ) {}
+
+  load(): SaveDataV1 {
+    const save = migrate(this.storage.getItem(this.key));
+    this.save(save);
+    return save;
+  }
+
+  save(data: SaveDataV1): void {
+    this.storage.setItem(this.key, JSON.stringify(migrate(data)));
+  }
+
+  clear(): void {
+    this.storage.removeItem(this.key);
+  }
+}
+
+export class LocalStorageAdapter implements StorageAdapter {
+  constructor(private readonly localStorageRef: Storage = window.localStorage) {}
+
+  getItem(key: string): string | null {
+    return this.localStorageRef.getItem(key);
+  }
+
+  setItem(key: string, value: string): void {
+    this.localStorageRef.setItem(key, value);
+  }
+
+  removeItem(key: string): void {
+    this.localStorageRef.removeItem(key);
+  }
+}
+
+export class MemoryStorageAdapter implements StorageAdapter {
+  private readonly values = new Map<string, string>();
+
+  getItem(key: string): string | null {
+    return this.values.get(key) ?? null;
+  }
+
+  setItem(key: string, value: string): void {
+    this.values.set(key, value);
+  }
+
+  removeItem(key: string): void {
+    this.values.delete(key);
+  }
+}
+
+function parseRawSave(raw: unknown): unknown {
+  if (typeof raw === 'string') {
+    if (raw.trim() === '') {
+      return null;
+    }
+
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
+  return raw;
+}
+
+function migrateV1(raw: Record<string, unknown>): SaveDataV1 {
+  return {
+    version: 1,
+    settings: migrateSettings(raw.settings),
+    meta: migrateMeta(raw.meta),
+  };
+}
+
+function migrateSettings(raw: unknown): Settings {
+  if (!isRecord(raw)) {
+    return { ...DEFAULT_SETTINGS };
+  }
+
+  return {
+    muted: typeof raw.muted === 'boolean' ? raw.muted : DEFAULT_SETTINGS.muted,
+    musicVolume: clampVolume(raw.musicVolume, DEFAULT_SETTINGS.musicVolume),
+    sfxVolume: clampVolume(raw.sfxVolume, DEFAULT_SETTINGS.sfxVolume),
+    reducedMotion:
+      typeof raw.reducedMotion === 'boolean' ? raw.reducedMotion : DEFAULT_SETTINGS.reducedMotion,
+  };
+}
+
+function migrateMeta(raw: unknown): MetaState {
+  if (!isRecord(raw)) {
+    return {};
+  }
+
+  return {};
+}
+
+function clampVolume(value: unknown, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.min(1, Math.max(0, value));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
