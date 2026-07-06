@@ -32,39 +32,38 @@ export interface EventBus {
 export function createEventBus(): EventBus {
   const listeners = new Map<GameEventKey, Set<(payload: GameEventMap[GameEventKey]) => void>>();
 
-  return {
-    on(key, fn) {
-      const set = listeners.get(key) ?? new Set<(payload: GameEventMap[GameEventKey]) => void>();
-      set.add(fn as (payload: GameEventMap[GameEventKey]) => void);
-      listeners.set(key, set);
+  function off<K extends GameEventKey>(key: K, fn: GameEventListener<K>): void {
+    const set = listeners.get(key);
+    set?.delete(fn as (payload: GameEventMap[GameEventKey]) => void);
+    if (set?.size === 0) {
+      listeners.delete(key);
+    }
+  }
 
-      return () => {
-        this.off(key, fn);
-      };
-    },
+  function on<K extends GameEventKey>(key: K, fn: GameEventListener<K>): () => void {
+    const set = listeners.get(key) ?? new Set<(payload: GameEventMap[GameEventKey]) => void>();
+    set.add(fn as (payload: GameEventMap[GameEventKey]) => void);
+    listeners.set(key, set);
 
-    off(key, fn) {
-      const set = listeners.get(key);
-      set?.delete(fn as (payload: GameEventMap[GameEventKey]) => void);
-      if (set?.size === 0) {
-        listeners.delete(key);
+    return () => {
+      off(key, fn);
+    };
+  }
+
+  function emit<K extends GameEventKey>(key: K, payload: GameEventMap[K]): void {
+    const set = listeners.get(key);
+    if (!set) {
+      return;
+    }
+
+    for (const listener of [...set]) {
+      try {
+        listener(payload);
+      } catch (error) {
+        console.error(`EventBus listener failed for "${String(key)}"`, error);
       }
-    },
+    }
+  }
 
-    emit(key, payload) {
-      const set = listeners.get(key);
-      if (!set) {
-        return;
-      }
-
-      for (const listener of [...set]) {
-        try {
-          listener(payload);
-        } catch (error) {
-          console.error(`EventBus listener failed for "${String(key)}"`, error);
-        }
-      }
-    },
-  };
+  return { on, off, emit };
 }
-

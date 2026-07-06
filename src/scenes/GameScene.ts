@@ -1,18 +1,16 @@
 import Phaser from 'phaser';
+import { GAME_CONTEXT_REGISTRY_KEY, type GameContext } from '../engine/context';
 import { SceneKey } from '../engine/sceneKeys';
+import type { System } from '../engine/system';
 import { AudioManager } from '../systems/audio';
 import { DebugOverlay } from '../systems/debug';
 import { InputController } from '../systems/input';
-import { LocalStorageAdapter, SaveManager, type SaveDataV1 } from '../systems/save';
-import type { GameData } from '../systems/types';
-import { GAME_DATA_REGISTRY_KEY, loadGameData } from '../systems/validation';
 
 export class GameScene extends Phaser.Scene {
   private audioManager?: AudioManager;
   private debugOverlay?: DebugOverlay;
   private inputController?: InputController;
-  private saveData?: SaveDataV1;
-  private saveManager?: SaveManager;
+  private systems: System[] = [];
 
   constructor() {
     super(SceneKey.Game);
@@ -20,14 +18,13 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     const { width, height } = this.scale;
-    const gameData: GameData = this.registry.get(GAME_DATA_REGISTRY_KEY) ?? loadGameData();
+    const ctx = this.getContext();
     this.inputController = new InputController(this);
-    this.saveManager = new SaveManager(new LocalStorageAdapter());
-    this.saveData = this.saveManager.load();
     this.debugOverlay = new DebugOverlay(this);
     this.audioManager = new AudioManager(this);
-    this.audioManager.setMuted(this.saveData.settings.muted);
-    this.audioManager.setVolume(this.saveData.settings.sfxVolume);
+    this.audioManager.setMuted(ctx.settings.muted);
+    this.audioManager.setVolume(ctx.settings.sfxVolume);
+    this.systems = [this.inputController, this.audioManager];
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
 
@@ -45,10 +42,10 @@ export class GameScene extends Phaser.Scene {
         width / 2,
         height / 2 + 12,
         [
-          `Data loaded: ${gameData.weapons.length} weapons`,
-          `${gameData.enemies.length} enemies`,
-          `${gameData.upgrades.length} upgrades`,
-          `${gameData.spawnCurves.length} spawn curves`,
+          `Data loaded: ${ctx.data.weapons.length} weapons`,
+          `${ctx.data.enemies.length} enemies`,
+          `${ctx.data.upgrades.length} upgrades`,
+          `${ctx.data.spawnCurves.length} spawn curves`,
         ].join(', '),
         {
           align: 'center',
@@ -61,23 +58,37 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5);
   }
 
-  update(): void {
-    this.inputController?.update();
+  update(_time: number, delta: number): void {
+    this.systems.forEach((system) => {
+      system.update(delta);
+    });
 
     const move = this.inputController?.getMoveVector() ?? { x: 0, y: 0 };
     const pointer = this.inputController?.getPointer();
     this.debugOverlay?.update([
+      `dtMs: ${delta.toFixed(2)}`,
       `Move: ${move.x.toFixed(2)}, ${move.y.toFixed(2)}`,
       `Pointer: ${pointer ? `${Math.round(pointer.x)}, ${Math.round(pointer.y)}` : 'none'}`,
     ]);
   }
 
   private handleShutdown(): void {
-    this.inputController?.destroy();
+    this.systems.forEach((system) => {
+      system.destroy();
+    });
+    this.systems = [];
     this.debugOverlay?.destroy();
-    this.audioManager?.destroy();
     this.inputController = undefined;
     this.debugOverlay = undefined;
     this.audioManager = undefined;
+  }
+
+  private getContext(): GameContext {
+    const ctx = this.registry.get(GAME_CONTEXT_REGISTRY_KEY) as GameContext | undefined;
+    if (!ctx) {
+      throw new Error('GameContext missing from Phaser registry');
+    }
+
+    return ctx;
   }
 }
