@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import type { System } from '../engine/system';
 import { clampLength, normalize, type Vec2 } from '../engine/vector';
 
 interface InputKeyMap {
@@ -12,7 +13,7 @@ interface InputKeyMap {
   right: Phaser.Input.Keyboard.Key;
 }
 
-export class InputController {
+export class InputController implements System {
   private readonly keys?: InputKeyMap;
   private pointerStart: Vec2 | null = null;
   private pointerCurrent: Vec2 | null = null;
@@ -36,7 +37,7 @@ export class InputController {
     scene.input.on('pointerupoutside', this.handlePointerUp, this);
   }
 
-  update(): void {
+  update(_dtMs: number): void {
     const keyboard = this.getKeyboardVector();
     const pointer = this.getPointerIntent();
     this.moveVector = clampLength({ x: keyboard.x + pointer.x, y: keyboard.y + pointer.y }, 1);

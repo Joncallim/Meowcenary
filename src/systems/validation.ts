@@ -12,7 +12,6 @@ import type {
 } from './types';
 
 const RARITIES = new Set<Rarity>(['common', 'uncommon', 'rare', 'epic', 'legendary']);
-export const GAME_DATA_REGISTRY_KEY = 'meowcenary.gameData';
 const ENEMY_ARCHETYPES = new Set<EnemyDefinition['archetype']>([
   'chaser',
   'charger',

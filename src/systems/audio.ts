@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
+import type { System } from '../engine/system';
 
-export class AudioManager {
+export class AudioManager implements System {
   private muted = false;
   private volume = 1;
 
@@ -22,8 +23,11 @@ export class AudioManager {
     this.volume = Math.min(1, Math.max(0, volume));
   }
 
+  update(_dtMs: number): void {
+    // Audio has no per-frame work in Epic 0.
+  }
+
   destroy(): void {
     this.scene.sound.stopAll();
   }
 }
-
