@@ -58,7 +58,7 @@ export class Projectile {
   }
 
   update(dtMs: number): void {
-    if (!this.active) {
+    if (!this.active || !Number.isFinite(dtMs) || dtMs <= 0) {
       return;
     }
 

@@ -48,6 +48,18 @@ export function replaceMergedWeapons(
   b: WeaponInstance,
   result: WeaponInstance,
 ): WeaponInstance[] {
+  const aCount = list.filter((weapon) => weapon.instanceId === a.instanceId).length;
+  const bCount = list.filter((weapon) => weapon.instanceId === b.instanceId).length;
+  const resultIdAlreadyExists = list.some((weapon) => weapon.instanceId === result.instanceId);
+  if (
+    a.instanceId === b.instanceId ||
+    aCount !== 1 ||
+    bCount !== 1 ||
+    resultIdAlreadyExists
+  ) {
+    return [...list];
+  }
+
   const consumed = new Set([a.instanceId, b.instanceId]);
   return [...list.filter((weapon) => !consumed.has(weapon.instanceId)), result];
 }

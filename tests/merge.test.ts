@@ -117,4 +117,33 @@ describe('weapon merge rules', () => {
 
     expect(replaceMergedWeapons([a, kept, b], a, b, result)).toEqual([kept, result]);
   });
+
+  it('does not mint a result when either input is absent or duplicated', () => {
+    const pistol = registry.weaponById('scrap-pistol-t1');
+    const tier2 = registry.weaponById('scrap-pistol-t2');
+    if (!pistol || !tier2) {
+      throw new Error('missing test weapon');
+    }
+
+    const a = createWeaponInstance(pistol, 'a');
+    const b = createWeaponInstance(pistol, 'b');
+    const result = createWeaponInstance(tier2, 'result');
+
+    expect(replaceMergedWeapons([a], a, b, result)).toEqual([a]);
+    expect(replaceMergedWeapons([a, a, b], a, b, result)).toEqual([a, a, b]);
+  });
+
+  it('does not insert a result whose instance id already exists', () => {
+    const pistol = registry.weaponById('scrap-pistol-t1');
+    const tier2 = registry.weaponById('scrap-pistol-t2');
+    if (!pistol || !tier2) {
+      throw new Error('missing test weapon');
+    }
+
+    const a = createWeaponInstance(pistol, 'a');
+    const b = createWeaponInstance(pistol, 'b');
+    const result = createWeaponInstance(tier2, 'a');
+
+    expect(replaceMergedWeapons([a, b], a, b, result)).toEqual([a, b]);
+  });
 });

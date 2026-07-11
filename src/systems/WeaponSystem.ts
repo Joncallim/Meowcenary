@@ -54,9 +54,22 @@ export class WeaponSystem implements System {
     });
     compactActive(this.projectiles);
 
-    this.pruneCadences(new Set(this.runState.equipped.map((weapon) => weapon.instanceId)));
+    const equippedInstanceIds = new Set<string>();
+    const duplicateInstanceIds = new Set<string>();
+    for (const weapon of this.runState.equipped) {
+      if (equippedInstanceIds.has(weapon.instanceId)) {
+        duplicateInstanceIds.add(weapon.instanceId);
+      }
+      equippedInstanceIds.add(weapon.instanceId);
+    }
+    this.pruneCadences(equippedInstanceIds);
 
     for (const weapon of this.runState.equipped) {
+      if (duplicateInstanceIds.has(weapon.instanceId)) {
+        this.cadences.delete(weapon.instanceId);
+        continue;
+      }
+
       const definition = this.weaponRegistry.weaponById(weapon.defId);
       if (
         !definition ||

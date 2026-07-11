@@ -281,4 +281,28 @@ describe('WeaponSystem', () => {
     harness.system.update(600);
     expect(harness.projectileGroup.added).toHaveLength(1);
   });
+
+  it('fails closed when equipped weapons repeat an instance id', async () => {
+    const harness = await createHarness();
+    const fired = vi.fn();
+    harness.ctx.bus.on('weapon:fired', fired);
+    const [weapon] = harness.runState.equipped;
+    harness.runState.equipped = [weapon, { ...weapon }];
+
+    harness.system.update(650);
+
+    expect(harness.projectileGroup.added).toHaveLength(0);
+    expect(fired).not.toHaveBeenCalled();
+  });
+
+  it('ignores invalid projectile delta without poisoning later range expiry', async () => {
+    const harness = await createHarness();
+
+    harness.system.update(650);
+    const projectile = harness.projectileGroup.added[0];
+    harness.system.update(Number.NaN);
+    harness.system.update(1_000);
+
+    expect(projectile.destroyed).toBe(true);
+  });
 });
