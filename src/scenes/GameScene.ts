@@ -384,6 +384,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showOverlay(text: string): void {
+    this.centerText?.setVisible(false);
     this.overlayText?.setText(text).setVisible(true);
   }
 
