@@ -19,12 +19,22 @@ describe('createCadence', () => {
     expect(cadence.update(20)).toBe(0);
   });
 
-  it('can change interval without discarding accumulated progress', () => {
+  it('preserves fractional progress when changing interval', () => {
     const cadence = createCadence(100);
 
     expect(cadence.update(60)).toBe(0);
     cadence.setInterval(80);
 
-    expect(cadence.update(20)).toBe(1);
+    expect(cadence.update(31)).toBe(0);
+    expect(cadence.update(1)).toBe(1);
+  });
+
+  it('does not emit catch-up bursts when the interval becomes much shorter', () => {
+    const cadence = createCadence(100);
+
+    expect(cadence.update(90)).toBe(0);
+    cadence.setInterval(10);
+
+    expect(cadence.update(1)).toBe(1);
   });
 });

@@ -21,7 +21,10 @@ export function createCadence(intervalMs: number): Cadence {
     },
 
     setInterval(nextIntervalMs) {
-      currentIntervalMs = validateInterval(nextIntervalMs);
+      const validatedIntervalMs = validateInterval(nextIntervalMs);
+      const progress = accumulatedMs / currentIntervalMs;
+      accumulatedMs = progress * validatedIntervalMs;
+      currentIntervalMs = validatedIntervalMs;
     },
 
     reset() {

@@ -27,8 +27,12 @@ export function createWeaponInstance(
 }
 
 export function createDefaultWeaponLoadout(registry: WeaponRegistry): WeaponInstance[] {
-  return ['pistol', 'smg', 'shotgun']
-    .map((family) => registry.weaponByFamilyTier(family, 1))
-    .filter((def): def is WeaponDefinition => def !== undefined)
-    .map((def) => registry.createWeaponInstance(def));
+  return ['pistol', 'smg', 'shotgun'].map((family) => {
+    const definition = registry.weaponByFamilyTier(family, 1);
+    if (!definition) {
+      throw new Error(`Missing starter weapon family "${family}" at tier 1`);
+    }
+
+    return registry.createWeaponInstance(definition);
+  });
 }

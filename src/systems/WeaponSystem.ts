@@ -54,9 +54,16 @@ export class WeaponSystem implements System {
     });
     compactActive(this.projectiles);
 
+    this.pruneCadences(new Set(this.runState.equipped.map((weapon) => weapon.instanceId)));
+
     for (const weapon of this.runState.equipped) {
       const definition = this.weaponRegistry.weaponById(weapon.defId);
-      if (!definition) {
+      if (
+        !definition ||
+        definition.family !== weapon.family ||
+        definition.mergeTier !== weapon.tier
+      ) {
+        this.cadences.delete(weapon.instanceId);
         continue;
       }
 
@@ -75,6 +82,14 @@ export class WeaponSystem implements System {
     });
     this.projectiles.length = 0;
     this.cadences.clear();
+  }
+
+  private pruneCadences(equippedInstanceIds: ReadonlySet<string>): void {
+    for (const instanceId of this.cadences.keys()) {
+      if (!equippedInstanceIds.has(instanceId)) {
+        this.cadences.delete(instanceId);
+      }
+    }
   }
 
   private cadenceFor(weapon: WeaponInstance, intervalMs: number): Cadence {

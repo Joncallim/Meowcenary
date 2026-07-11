@@ -249,4 +249,36 @@ describe('WeaponSystem', () => {
     expect(projectile.body?.velocity).toEqual(velocityBeforePause);
     expect(harness.enemy.takeDamage).not.toHaveBeenCalled();
   });
+
+  it('fails closed when equipped state disagrees with its weapon definition', async () => {
+    const harness = await createHarness();
+    const fired = vi.fn();
+    harness.ctx.bus.on('weapon:fired', fired);
+    harness.runState.equipped[0] = {
+      ...harness.runState.equipped[0],
+      family: 'shotgun',
+      tier: 3,
+    };
+
+    harness.system.update(650);
+
+    expect(harness.projectileGroup.added).toHaveLength(0);
+    expect(fired).not.toHaveBeenCalled();
+  });
+
+  it('drops stale cadence progress when a weapon is unequipped', async () => {
+    const harness = await createHarness();
+    const [weapon] = harness.runState.equipped;
+
+    harness.system.update(600);
+    harness.runState.equipped = [];
+    harness.system.update(1);
+    harness.runState.equipped = [weapon];
+    harness.system.update(50);
+
+    expect(harness.projectileGroup.added).toHaveLength(0);
+
+    harness.system.update(600);
+    expect(harness.projectileGroup.added).toHaveLength(1);
+  });
 });

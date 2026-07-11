@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createDefaultWeaponLoadout } from '../src/gameplay/weapons';
 import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import { loadGameData } from '../src/systems/validation';
 
@@ -37,5 +38,26 @@ describe('DataWeaponRegistry', () => {
 
     expect(registry.createWeaponInstance(pistol).instanceId).toBe('weapon-1');
     expect(registry.createWeaponInstance(pistol).instanceId).toBe('weapon-2');
+  });
+
+  it('creates the complete required starter loadout', () => {
+    const registry = new DataWeaponRegistry(loadGameData());
+
+    expect(createDefaultWeaponLoadout(registry).map((weapon) => weapon.family)).toEqual([
+      'pistol',
+      'smg',
+      'shotgun',
+    ]);
+  });
+
+  it('fails early when a required starter family is missing', () => {
+    const data = loadGameData();
+    const registry = new DataWeaponRegistry({
+      weapons: data.weapons.filter((weapon) => weapon.family !== 'shotgun'),
+    });
+
+    expect(() => createDefaultWeaponLoadout(registry)).toThrow(
+      'Missing starter weapon family "shotgun" at tier 1',
+    );
   });
 });
