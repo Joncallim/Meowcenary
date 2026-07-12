@@ -75,7 +75,12 @@ export class Player {
 
     this.health = Math.max(0, this.health - amount);
     this.invulnerableMs = this.options.invulnerabilityMs;
-    this.sprite.setAlpha(0.45);
+    // Only tint while an invulnerability window is active; update() clears the tint
+    // when the countdown reaches 0. Guarding here avoids a permanently stuck tint
+    // when invulnerabilityMs is 0 (no i-frames), which update() would never restore.
+    if (this.invulnerableMs > 0) {
+      this.sprite.setAlpha(0.45);
+    }
     this.bus.emit('player:damaged', { amount, healthRemaining: this.health });
 
     if (this.health <= 0) {

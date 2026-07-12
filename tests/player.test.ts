@@ -71,4 +71,28 @@ describe('Player', () => {
     player.update(1);
     expect(sprite.alpha).toBe(1);
   });
+
+  it('does not leave the damage tint stuck when invulnerability is disabled', async () => {
+    const { Player } = await import('../src/entities/Player');
+    const sprite = new MockArc(100, 100);
+    const scene = {
+      scale: { width: 200, height: 200 },
+      add: { circle: () => sprite },
+      physics: { add: { existing: () => undefined } },
+    };
+    const input = { getMoveVector: () => ({ x: 0, y: 0 }) };
+    const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
+    runState.status = 'active';
+    const player = new Player(scene as never, input as never, runState, createEventBus(), {
+      baseMaxHealth: 100,
+      baseMoveSpeed: 200,
+      invulnerabilityMs: 0,
+    });
+
+    // With no i-frame window, update() never runs the tint-restore branch, so
+    // takeDamage() must not leave the sprite dimmed.
+    player.takeDamage(10);
+    player.update(16);
+    expect(sprite.alpha).toBe(1);
+  });
 });
