@@ -40,8 +40,14 @@ export class SpawnSystem implements System {
   update(dtMs: number): void {
     if (this.runState.status !== 'active') {
       this.enemies.forEach((enemy) => {
-        enemy.body.setVelocity(0, 0);
+        // Skip enemies destroyed in the physics step that ended the run: they stay
+        // in the array uncompacted (compaction only runs on the active path) and their
+        // Phaser body is undefined after destroy(), so touching it would throw.
+        if (enemy.active) {
+          enemy.body.setVelocity(0, 0);
+        }
       });
+      compactActive(this.enemies);
       return;
     }
 
