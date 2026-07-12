@@ -55,7 +55,7 @@ export class Enemy {
   }
 
   takeDamage(amount: number): boolean {
-    if (!this.active || amount <= 0) {
+    if (!this.active || !Number.isFinite(amount) || amount <= 0) {
       return false;
     }
 

@@ -36,6 +36,11 @@ export function createDefaultSave(): SaveDataV1 {
   };
 }
 
+export function applySettingsPatch(settings: Settings, patch: Partial<Settings>): Settings {
+  Object.assign(settings, migrateSettings({ ...settings, ...patch }, settings));
+  return settings;
+}
+
 export function migrate(raw: unknown): SaveDataV1 {
   const parsed = parseRawSave(raw);
   if (!isRecord(parsed)) {
@@ -153,17 +158,17 @@ function migrateV1(raw: Record<string, unknown>): SaveDataV1 {
   };
 }
 
-function migrateSettings(raw: unknown): Settings {
+function migrateSettings(raw: unknown, fallback: Settings = DEFAULT_SETTINGS): Settings {
   if (!isRecord(raw)) {
-    return { ...DEFAULT_SETTINGS };
+    return { ...fallback };
   }
 
   return {
-    muted: typeof raw.muted === 'boolean' ? raw.muted : DEFAULT_SETTINGS.muted,
-    musicVolume: clampVolume(raw.musicVolume, DEFAULT_SETTINGS.musicVolume),
-    sfxVolume: clampVolume(raw.sfxVolume, DEFAULT_SETTINGS.sfxVolume),
+    muted: typeof raw.muted === 'boolean' ? raw.muted : fallback.muted,
+    musicVolume: clampVolume(raw.musicVolume, fallback.musicVolume),
+    sfxVolume: clampVolume(raw.sfxVolume, fallback.sfxVolume),
     reducedMotion:
-      typeof raw.reducedMotion === 'boolean' ? raw.reducedMotion : DEFAULT_SETTINGS.reducedMotion,
+      typeof raw.reducedMotion === 'boolean' ? raw.reducedMotion : fallback.reducedMotion,
   };
 }
 

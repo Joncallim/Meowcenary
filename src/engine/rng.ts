@@ -5,6 +5,12 @@ export interface Rng {
   weighted<T>(entries: ReadonlyArray<{ item: T; weight: number }>): T;
 }
 
+const MAX_UINT32 = 0xffff_ffff;
+
+export function nextRunSeed(rng: Pick<Rng, 'int'>): number {
+  return rng.int(0, MAX_UINT32);
+}
+
 export function createRng(seed: number): Rng {
   let state = seed >>> 0;
 

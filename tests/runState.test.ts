@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createEventBus } from '../src/engine/eventBus';
 import {
+  canRestartRun,
   createRunState,
   endRun,
   pauseRun,
@@ -10,6 +11,20 @@ import {
 } from '../src/gameplay/runState';
 
 describe('RunState', () => {
+  it('allows restart only after a terminal outcome', () => {
+    const runState = createRunState({ seed: 42, characterId: 'starter', arenaId: 'junkyard' });
+
+    expect(canRestartRun(runState)).toBe(false);
+    runState.status = 'active';
+    expect(canRestartRun(runState)).toBe(false);
+    runState.status = 'paused';
+    expect(canRestartRun(runState)).toBe(false);
+    runState.status = 'won';
+    expect(canRestartRun(runState)).toBe(true);
+    runState.status = 'lost';
+    expect(canRestartRun(runState)).toBe(true);
+  });
+
   it('creates intro run state with initial progression values', () => {
     const runState = createRunState({ seed: 42, characterId: 'starter', arenaId: 'junkyard' });
 

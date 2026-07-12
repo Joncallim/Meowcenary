@@ -5,6 +5,7 @@ import {
   MemoryStorageAdapter,
   SaveManager,
   type StorageAdapter,
+  applySettingsPatch,
   createDefaultSave,
   migrate,
 } from '../src/systems/save';
@@ -55,6 +56,22 @@ describe('SaveManager', () => {
         sfxVolume: 0,
       },
       meta: {},
+    });
+  });
+
+  it('sanitizes live settings patches while preserving shared object identity', () => {
+    const settings = { ...DEFAULT_SETTINGS, sfxVolume: 0.25 };
+
+    const result = applySettingsPatch(settings, {
+      musicVolume: 2,
+      sfxVolume: Number.NaN,
+    });
+
+    expect(result).toBe(settings);
+    expect(settings).toEqual({
+      ...DEFAULT_SETTINGS,
+      musicVolume: 1,
+      sfxVolume: 0.25,
     });
   });
 

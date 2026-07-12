@@ -16,7 +16,7 @@ export class Player {
   private invulnerableMs = 0;
 
   constructor(
-    private readonly scene: Phaser.Scene,
+    scene: Phaser.Scene,
     private readonly input: InputController,
     private readonly runState: RunState,
     private readonly bus: EventBus,
@@ -56,7 +56,12 @@ export class Player {
       return;
     }
 
-    this.invulnerableMs = Math.max(0, this.invulnerableMs - dtMs);
+    if (this.invulnerableMs > 0 && Number.isFinite(dtMs) && dtMs > 0) {
+      this.invulnerableMs = Math.max(0, this.invulnerableMs - dtMs);
+      if (this.invulnerableMs === 0) {
+        this.sprite.setAlpha(1);
+      }
+    }
 
     const move = this.input.getMoveVector();
     const speed = this.runState.stats.resolve('moveSpeed', this.options.baseMoveSpeed);
@@ -64,18 +69,25 @@ export class Player {
   }
 
   takeDamage(amount: number): void {
-    if (this.runState.status !== 'active' || this.invulnerableMs > 0 || amount <= 0) {
+    if (
+      this.runState.status !== 'active' ||
+      this.invulnerableMs > 0 ||
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
       return;
     }
 
     this.health = Math.max(0, this.health - amount);
-    this.invulnerableMs = this.options.invulnerabilityMs;
-    this.sprite.setAlpha(0.45);
-    this.scene.time.delayedCall(this.options.invulnerabilityMs, () => {
-      if (this.sprite.active) {
-        this.sprite.setAlpha(1);
-      }
-    });
+    this.invulnerableMs = Number.isFinite(this.options.invulnerabilityMs)
+      ? Math.max(0, this.options.invulnerabilityMs)
+      : 0;
+    // Only tint while an invulnerability window is active; update() clears the tint
+    // when the countdown reaches 0. Guarding here avoids a permanently stuck tint
+    // when invulnerabilityMs is 0 (no i-frames), which update() would never restore.
+    if (this.invulnerableMs > 0) {
+      this.sprite.setAlpha(0.45);
+    }
     this.bus.emit('player:damaged', { amount, healthRemaining: this.health });
 
     if (this.health <= 0) {

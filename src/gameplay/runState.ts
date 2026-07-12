@@ -1,5 +1,6 @@
 import type { EventBus } from '../engine/eventBus';
 import { ModifierStack } from './stats';
+import type { WeaponInstance } from './weapons';
 import { xpToNext } from './xp';
 
 export type RunStatus = 'intro' | 'active' | 'paused' | 'won' | 'lost';
@@ -18,7 +19,7 @@ export interface RunState {
   kills: number;
   currency: number;
   stats: ModifierStack;
-  equipped: unknown[];
+  equipped: WeaponInstance[];
   upgradeStacks: Record<string, number>;
   pauseReason: PauseReason | null;
   outcome?: RunOutcome;
@@ -91,6 +92,10 @@ export function tickRun(state: RunState, dtMs: number): void {
   }
 
   state.timeMs += dtMs;
+}
+
+export function canRestartRun(state: RunState | undefined): boolean {
+  return state?.status === 'won' || state?.status === 'lost';
 }
 
 export function endRun(state: RunState, outcome: RunOutcome, bus?: EventBus): void {

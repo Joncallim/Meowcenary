@@ -75,6 +75,7 @@ export function validateGameData(raw: {
   assertUniqueIds('enemies.json', enemies);
   assertUniqueIds('upgrades.json', upgrades);
   assertUniqueIds('spawn-curves.json', spawnCurves);
+  assertWeaponTiers(weapons);
   assertSpawnReferences(spawnCurves, new Set(enemies.map((enemy) => enemy.id)));
 
   return { weapons, enemies, upgrades, spawnCurves };
@@ -96,6 +97,10 @@ function checkWeapon(row: unknown): string[] {
   requirePositiveNumber(weapon, 'projectileSpeed', errors);
   requirePositiveNumber(weapon, 'range', errors);
   requirePositiveInteger(weapon, 'mergeTier', errors);
+  requirePositiveInteger(weapon, 'maxTier', errors);
+  requireNonNegativeInteger(weapon, 'pierce', errors);
+  requirePositiveInteger(weapon, 'projectileCount', errors);
+  requireNonNegativeNumber(weapon, 'spreadDeg', errors);
   return errors;
 }
 
@@ -181,6 +186,63 @@ function assertUniqueIds(name: string, rows: ReadonlyArray<{ id: string }>): voi
   throwIfErrors(errors);
 }
 
+function assertWeaponTiers(weapons: readonly WeaponDefinition[]): void {
+  const byFamily = new Map<string, Array<{ weapon: WeaponDefinition; index: number }>>();
+  const errors: string[] = [];
+
+  weapons.forEach((weapon, index) => {
+    if (weapon.mergeTier > weapon.maxTier) {
+      errors.push(
+        `weapons.json[${index}].mergeTier: ${weapon.mergeTier} exceeds maxTier ${weapon.maxTier}`,
+      );
+    }
+
+    const family = byFamily.get(weapon.family) ?? [];
+    family.push({ weapon, index });
+    byFamily.set(weapon.family, family);
+  });
+
+  byFamily.forEach((entries, family) => {
+    const expectedMaxTier = entries[0]?.weapon.maxTier;
+    if (expectedMaxTier === undefined) {
+      return;
+    }
+
+    const tiers = new Map<number, number>();
+    entries.forEach(({ weapon, index }) => {
+      if (weapon.maxTier !== expectedMaxTier) {
+        errors.push(
+          `weapons.json[${index}].maxTier: family "${family}" expected ${expectedMaxTier}`,
+        );
+      }
+
+      const firstIndex = tiers.get(weapon.mergeTier);
+      if (firstIndex !== undefined) {
+        errors.push(
+          `weapons.json[${index}].mergeTier: duplicate tier ${weapon.mergeTier} for family "${family}" first seen at index ${firstIndex}`,
+        );
+        return;
+      }
+
+      tiers.set(weapon.mergeTier, index);
+    });
+
+    for (let tier = 1; tier <= expectedMaxTier; tier += 1) {
+      if (!tiers.has(tier)) {
+        errors.push(`weapons.json: family "${family}" missing mergeTier ${tier}`);
+      }
+    }
+
+    for (const [tier, index] of tiers.entries()) {
+      if (tier < 1 || tier > expectedMaxTier) {
+        errors.push(`weapons.json[${index}].mergeTier: tier ${tier} outside 1..${expectedMaxTier}`);
+      }
+    }
+  });
+
+  throwIfErrors(errors);
+}
+
 function assertSpawnReferences(
   spawnCurves: readonly SpawnCurveDefinition[],
   enemyIds: ReadonlySet<string>,
@@ -221,6 +283,17 @@ function requirePositiveInteger(row: Record<string, unknown>, field: string, err
   const value = readField(row, field);
   if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
     errors.push(`${field}: required positive integer`);
+  }
+}
+
+function requireNonNegativeInteger(
+  row: Record<string, unknown>,
+  field: string,
+  errors: string[],
+): void {
+  const value = readField(row, field);
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    errors.push(`${field}: required non-negative integer`);
   }
 }
 

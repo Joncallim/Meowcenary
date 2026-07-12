@@ -1,12 +1,14 @@
 import Phaser from 'phaser';
 import { GAME_CONTEXT_REGISTRY_KEY, type GameContext } from '../engine/context';
 import { RuntimeConfig } from '../engine/config';
-import { createRng } from '../engine/rng';
+import { createRng, nextRunSeed } from '../engine/rng';
 import { SceneKey } from '../engine/sceneKeys';
 import type { System } from '../engine/system';
 import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
+import { createDefaultWeaponLoadout } from '../gameplay/weapons';
 import {
+  canRestartRun,
   createRunState,
   endRun,
   pauseRun,
@@ -20,7 +22,8 @@ import { DebugOverlay } from '../systems/debug';
 import { DropSystem } from '../systems/DropSystem';
 import { InputController } from '../systems/input';
 import { SpawnSystem } from '../systems/SpawnSystem';
-import { StarterCombatSystem } from '../systems/StarterCombatSystem';
+import { DataWeaponRegistry } from '../systems/weaponRegistry';
+import { WeaponSystem } from '../systems/WeaponSystem';
 
 export class GameScene extends Phaser.Scene {
   private audioManager?: AudioManager;
@@ -47,13 +50,15 @@ export class GameScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const ctx = this.getContext();
     const spawnCurve = ctx.data.spawnCurves[0];
-    const runSeed = ctx.menuRng.int(1, Number.MAX_SAFE_INTEGER);
+    const runSeed = nextRunSeed(ctx.menuRng);
     this.runState = createRunState({
       seed: runSeed,
       characterId: 'starter-meowcenary',
       arenaId: spawnCurve?.id ?? 'arena',
     });
     const runRng = createRng(this.runState.seed);
+    const weaponRegistry = new DataWeaponRegistry(ctx.data);
+    this.runState.equipped = createDefaultWeaponLoadout(weaponRegistry);
 
     this.inputController = new InputController(this);
     this.debugOverlay = new DebugOverlay(this);
@@ -80,7 +85,7 @@ export class GameScene extends Phaser.Scene {
     );
     this.systems = [
       new SpawnSystem(this, ctx, this.runState, runRng, this.player, this.enemies, this.enemyGroup),
-      new StarterCombatSystem(
+      new WeaponSystem(
         this,
         ctx,
         this.runState,
@@ -88,6 +93,7 @@ export class GameScene extends Phaser.Scene {
         this.enemies,
         this.projectileGroup,
         this.enemyGroup,
+        weaponRegistry,
         dropSystem.createXpDrop.bind(dropSystem),
         RuntimeConfig.gameplay.projectile.radius,
       ),
@@ -105,6 +111,10 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-P', this.togglePause, this);
     this.input.keyboard?.on('keydown-ESC', this.togglePause, this);
     this.input.keyboard?.on('keydown-SPACE', this.confirmOverlay, this);
+    if (RuntimeConfig.isDev) {
+      this.input.keyboard?.on('keydown-F8', this.forceLoseRun, this);
+      this.input.keyboard?.on('keydown-F9', this.forceWinRun, this);
+    }
     this.input.on('pointerdown', this.confirmOverlay, this);
     this.unsubscribers.push(
       ctx.bus.on('level:up', ({ level }) => {
@@ -207,6 +217,7 @@ export class GameScene extends Phaser.Scene {
       `Level: ${runState.level} XP: ${runState.xp.toFixed(1)}/${runState.xpToNext}`,
       `Health: ${this.player.health.toFixed(0)}/${this.player.maxHealth.toFixed(0)}`,
       `Enemies: ${this.enemies.length} Kills: ${runState.kills}`,
+      `Weapons: ${runState.equipped.map((weapon) => `${weapon.family} T${weapon.tier}`).join(', ')}`,
       `Move: ${move.x.toFixed(2)}, ${move.y.toFixed(2)}`,
       `Pointer: ${pointer ? `${Math.round(pointer.x)}, ${Math.round(pointer.y)}` : 'none'}`,
     ]);
@@ -221,6 +232,8 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.off('keydown-ESC', this.togglePause, this);
     this.input.keyboard?.off('keydown-SPACE', this.confirmOverlay, this);
     this.input.keyboard?.off('keydown-R', this.restartRun, this);
+    this.input.keyboard?.off('keydown-F8', this.forceLoseRun, this);
+    this.input.keyboard?.off('keydown-F9', this.forceWinRun, this);
     this.input.off('pointerdown', this.confirmOverlay, this);
     this.systems.forEach((system) => {
       system.destroy();
@@ -236,7 +249,7 @@ export class GameScene extends Phaser.Scene {
     this.audioManager = undefined;
     this.runState = undefined;
     if (this.physicsPausedByRun) {
-      this.physics.world.resume();
+      this.physics.world?.resume();
       this.physicsPausedByRun = false;
     }
     this.enemyGroup = undefined;
@@ -316,7 +329,29 @@ export class GameScene extends Phaser.Scene {
   }
 
   private restartRun(): void {
+    if (!canRestartRun(this.runState)) {
+      return;
+    }
+
     this.scene.restart();
+  }
+
+  private forceLoseRun(): void {
+    const runState = this.runState;
+    if (!RuntimeConfig.isDev || !runState || runState.status !== 'active') {
+      return;
+    }
+
+    endRun(runState, 'lost', this.getContext().bus);
+  }
+
+  private forceWinRun(): void {
+    const runState = this.runState;
+    if (!RuntimeConfig.isDev || !runState || runState.status !== 'active') {
+      return;
+    }
+
+    endRun(runState, 'won', this.getContext().bus);
   }
 
   private maybeEndRunForVictory(ctx: GameContext, runState: RunState): void {
@@ -346,6 +381,7 @@ export class GameScene extends Phaser.Scene {
         `Health: ${Math.ceil(this.player.health)} / ${Math.ceil(this.player.maxHealth)}`,
         `Level: ${runState.level}  XP: ${Math.floor(runState.xp)} / ${runState.xpToNext}`,
         `Kills: ${runState.kills}`,
+        `Weapons: ${runState.equipped.map((weapon) => `${weapon.family} T${weapon.tier}`).join(', ')}`,
         'Move: WASD/arrows/drag',
         'Pause: P/Esc',
       ].join('\n'),
@@ -353,6 +389,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showOverlay(text: string): void {
+    this.centerText?.setVisible(false);
     this.overlayText?.setText(text).setVisible(true);
   }
 

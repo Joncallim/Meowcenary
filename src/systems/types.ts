@@ -10,6 +10,10 @@ export interface WeaponDefinition {
   projectileSpeed: number;
   range: number;
   mergeTier: number;
+  maxTier: number;
+  pierce: number;
+  projectileCount: number;
+  spreadDeg: number;
 }
 
 export interface EnemyDefinition {
