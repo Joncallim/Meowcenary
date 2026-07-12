@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_CONTEXT_REGISTRY_KEY, type GameContext } from '../engine/context';
 import { RuntimeConfig } from '../engine/config';
-import { createRng } from '../engine/rng';
+import { createRng, nextRunSeed } from '../engine/rng';
 import { SceneKey } from '../engine/sceneKeys';
 import type { System } from '../engine/system';
 import { Player } from '../entities/Player';
@@ -50,7 +50,7 @@ export class GameScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const ctx = this.getContext();
     const spawnCurve = ctx.data.spawnCurves[0];
-    const runSeed = ctx.menuRng.int(1, Number.MAX_SAFE_INTEGER);
+    const runSeed = nextRunSeed(ctx.menuRng);
     this.runState = createRunState({
       seed: runSeed,
       characterId: 'starter-meowcenary',

@@ -69,12 +69,19 @@ export class Player {
   }
 
   takeDamage(amount: number): void {
-    if (this.runState.status !== 'active' || this.invulnerableMs > 0 || amount <= 0) {
+    if (
+      this.runState.status !== 'active' ||
+      this.invulnerableMs > 0 ||
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
       return;
     }
 
     this.health = Math.max(0, this.health - amount);
-    this.invulnerableMs = this.options.invulnerabilityMs;
+    this.invulnerableMs = Number.isFinite(this.options.invulnerabilityMs)
+      ? Math.max(0, this.options.invulnerabilityMs)
+      : 0;
     // Only tint while an invulnerability window is active; update() clears the tint
     // when the countdown reaches 0. Guarding here avoids a permanently stuck tint
     // when invulnerabilityMs is 0 (no i-frames), which update() would never restore.
