@@ -81,6 +81,11 @@ export class WeaponSystem implements System {
       }
 
       const stats = resolveWeaponStats(this.runState, definition);
+      if (stats.damage <= 0 || stats.projectileSpeed <= 0 || stats.range <= 0) {
+        this.cadences.delete(weapon.instanceId);
+        continue;
+      }
+
       const cadence = this.cadenceFor(weapon, stats.intervalMs);
       const ticks = cadence.update(dtMs);
       for (let i = 0; i < ticks; i += 1) {

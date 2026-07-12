@@ -48,13 +48,15 @@ export function replaceMergedWeapons(
   b: WeaponInstance,
   result: WeaponInstance,
 ): WeaponInstance[] {
-  const aCount = list.filter((weapon) => weapon.instanceId === a.instanceId).length;
-  const bCount = list.filter((weapon) => weapon.instanceId === b.instanceId).length;
+  const aMatches = list.filter((weapon) => weapon.instanceId === a.instanceId);
+  const bMatches = list.filter((weapon) => weapon.instanceId === b.instanceId);
   const resultIdAlreadyExists = list.some((weapon) => weapon.instanceId === result.instanceId);
   if (
     a.instanceId === b.instanceId ||
-    aCount !== 1 ||
-    bCount !== 1 ||
+    aMatches.length !== 1 ||
+    bMatches.length !== 1 ||
+    !sameWeaponInstance(aMatches[0], a) ||
+    !sameWeaponInstance(bMatches[0], b) ||
     resultIdAlreadyExists
   ) {
     return [...list];
@@ -62,4 +64,13 @@ export function replaceMergedWeapons(
 
   const consumed = new Set([a.instanceId, b.instanceId]);
   return [...list.filter((weapon) => !consumed.has(weapon.instanceId)), result];
+}
+
+function sameWeaponInstance(a: WeaponInstance, b: WeaponInstance): boolean {
+  return (
+    a.instanceId === b.instanceId &&
+    a.defId === b.defId &&
+    a.family === b.family &&
+    a.tier === b.tier
+  );
 }

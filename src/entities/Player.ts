@@ -47,10 +47,11 @@ export class Player {
   }
 
   get maxHealth(): number {
-    return this.runState.stats.resolve('maxHealth', this.options.baseMaxHealth);
+    return Math.max(1, this.runState.stats.resolve('maxHealth', this.options.baseMaxHealth));
   }
 
   update(dtMs: number): void {
+    this.health = Math.min(this.health, this.maxHealth);
     if (this.runState.status !== 'active') {
       this.body.setVelocity(0, 0);
       return;
@@ -64,7 +65,7 @@ export class Player {
     }
 
     const move = this.input.getMoveVector();
-    const speed = this.runState.stats.resolve('moveSpeed', this.options.baseMoveSpeed);
+    const speed = Math.max(0, this.runState.stats.resolve('moveSpeed', this.options.baseMoveSpeed));
     this.body.setVelocity(move.x * speed, move.y * speed);
   }
 

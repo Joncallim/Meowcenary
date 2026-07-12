@@ -48,6 +48,19 @@ describe('xp helpers', () => {
     expect(runState.xp).toBe(4);
   });
 
+  it('does not subtract or corrupt XP when the resolved gain is unusable', () => {
+    const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
+    const bus = createEventBus();
+    const gained = vi.fn();
+    bus.on('xp:gained', gained);
+    runState.stats.add({ stat: 'xpGain', op: 'mult', value: -1, sourceId: 'invalid' });
+    startRun(runState);
+
+    expect(applyXp(runState, 2, bus)).toBe(0);
+    expect(runState.xp).toBe(0);
+    expect(gained).not.toHaveBeenCalled();
+  });
+
   it('no-ops when the run is not active', () => {
     const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
 

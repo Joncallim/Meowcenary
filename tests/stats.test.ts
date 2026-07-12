@@ -30,4 +30,16 @@ describe('ModifierStack', () => {
     expect(stats.countBySource('catnip')).toBe(2);
     expect(stats.countBySource('missing')).toBe(0);
   });
+
+  it('rejects non-finite inputs and resolved overflow', () => {
+    const stats = new ModifierStack();
+
+    expect(() =>
+      stats.add({ stat: 'damage', op: 'add', value: Number.NaN, sourceId: 'invalid' }),
+    ).toThrow(/finite/);
+    expect(() => stats.resolve('damage', Number.POSITIVE_INFINITY)).toThrow(/finite/);
+
+    stats.add({ stat: 'damage', op: 'mult', value: 2, sourceId: 'overflow' });
+    expect(() => stats.resolve('damage', Number.MAX_VALUE)).toThrow(/finite/);
+  });
 });

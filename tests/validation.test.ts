@@ -33,6 +33,23 @@ describe('game data validation', () => {
     );
   });
 
+  it('rejects spawn content that cannot produce a playable run', () => {
+    const data = loadGameData();
+
+    const missingCurves = structuredClone(data);
+    missingCurves.spawnCurves = [];
+    expect(() => validateGameData(missingCurves)).toThrow(/at least one spawn curve/);
+
+    const missingWaves = structuredClone(data);
+    missingWaves.spawnCurves[0].waves = [];
+    expect(() => validateGameData(missingWaves)).toThrow(/at least one wave/);
+
+    const unreachableWave = structuredClone(data);
+    unreachableWave.spawnCurves[0].waves[0].startSecond =
+      unreachableWave.spawnCurves[0].durationSeconds;
+    expect(() => validateGameData(unreachableWave)).toThrow(/must be before durationSeconds/);
+  });
+
   it('rejects fractional integer fields', () => {
     const data = loadGameData();
 
@@ -73,6 +90,16 @@ describe('game data validation', () => {
     broken.weapons = broken.weapons.filter((weapon) => weapon.id !== 'scrap-pistol-t2');
 
     expect(() => validateGameData(broken)).toThrow(/family "pistol" missing mergeTier 2/);
+  });
+
+  it('rejects catalogs that cannot build the default starter loadout', () => {
+    const data = loadGameData();
+    const broken = structuredClone(data);
+    broken.weapons = broken.weapons.filter((weapon) => weapon.family !== 'shotgun');
+
+    expect(() => validateGameData(broken)).toThrow(
+      /missing required starter family "shotgun" at mergeTier 1/,
+    );
   });
 
   it('rejects weapon merge tiers above max tier', () => {

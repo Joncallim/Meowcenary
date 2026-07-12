@@ -146,4 +146,19 @@ describe('weapon merge rules', () => {
 
     expect(replaceMergedWeapons([a, b], a, b, result)).toEqual([a, b]);
   });
+
+  it('does not consume current weapons when stale input metadata only matches their ids', () => {
+    const tier1 = registry.weaponById('scrap-pistol-t1');
+    const tier2 = registry.weaponById('scrap-pistol-t2');
+    if (!tier1 || !tier2) {
+      throw new Error('missing test weapon');
+    }
+
+    const currentA = createWeaponInstance(tier2, 'a');
+    const staleA = createWeaponInstance(tier1, 'a');
+    const b = createWeaponInstance(tier1, 'b');
+    const result = createWeaponInstance(tier2, 'result');
+
+    expect(replaceMergedWeapons([currentA, b], staleA, b, result)).toEqual([currentA, b]);
+  });
 });

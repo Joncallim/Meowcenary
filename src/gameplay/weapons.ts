@@ -1,5 +1,7 @@
 import type { WeaponDefinition } from '../systems/types';
 
+export const DEFAULT_WEAPON_FAMILIES = ['pistol', 'smg', 'shotgun'] as const;
+
 export interface WeaponInstance {
   instanceId: string;
   defId: string;
@@ -27,7 +29,7 @@ export function createWeaponInstance(
 }
 
 export function createDefaultWeaponLoadout(registry: WeaponRegistry): WeaponInstance[] {
-  return ['pistol', 'smg', 'shotgun'].map((family) => {
+  return DEFAULT_WEAPON_FAMILIES.map((family) => {
     const definition = registry.weaponByFamilyTier(family, 1);
     if (!definition) {
       throw new Error(`Missing starter weapon family "${family}" at tier 1`);
