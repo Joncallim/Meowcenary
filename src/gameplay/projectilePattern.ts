@@ -25,7 +25,7 @@ export function projectileDirections({
   }
 
   const halfSpreadRad = degreesToRadians(spreadDeg) / 2;
-  const step = count === 1 ? 0 : (halfSpreadRad * 2) / (count - 1);
+  const step = (halfSpreadRad * 2) / (count - 1);
   const baseAngle = Math.atan2(direct.y, direct.x) - halfSpreadRad;
 
   return Array.from({ length: count }, (_, index) =>

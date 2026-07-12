@@ -94,6 +94,10 @@ export function tickRun(state: RunState, dtMs: number): void {
   state.timeMs += dtMs;
 }
 
+export function canRestartRun(state: RunState | undefined): boolean {
+  return state?.status === 'won' || state?.status === 'lost';
+}
+
 export function endRun(state: RunState, outcome: RunOutcome, bus?: EventBus): void {
   if (state.status !== 'active') {
     return;

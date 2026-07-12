@@ -128,6 +128,10 @@ describe('WeaponSystem', () => {
     const projectileGroup = {
       added: [] as MockGameObject[],
       add(sprite: MockGameObject): void {
+        // Faithful to Phaser's PhysicsGroup.add, which re-applies body defaults
+        // (including velocity 0) to every added child. Spawning must therefore set
+        // velocity AFTER the sprite joins the group.
+        sprite.body?.setVelocity(0, 0);
         this.added.push(sprite);
       },
     };
@@ -200,6 +204,20 @@ describe('WeaponSystem', () => {
 
     expect(harness.projectileGroup.added).toHaveLength(3);
     expect(fired).toHaveBeenCalledWith({ weaponId: 'scrap-pistol-t1', x: 0, y: 0 });
+  });
+
+  it('spawns projectiles with a live velocity toward the target after group add', async () => {
+    const harness = await createHarness();
+
+    harness.system.update(650);
+
+    const projectile = harness.projectileGroup.added[0];
+    expect(projectile).toBeDefined();
+    // Enemy sits at (60, 0) and the player at (0, 0), so the shot travels +x.
+    // If spawn() ran before projectileGroup.add(), the group's default-reset would
+    // leave this at (0, 0) and projectiles would never move.
+    expect(projectile.body?.velocity.x).toBeGreaterThan(0);
+    expect(projectile.body?.velocity.y).toBe(0);
   });
 
   it('applies hit, kill, and XP-drop side effects once per projectile/enemy pair', async () => {

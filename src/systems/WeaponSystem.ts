@@ -139,14 +139,16 @@ export class WeaponSystem implements System {
 
     for (const direction of directions) {
       const projectile = new Projectile(this.scene, this.projectileRadius);
+      this.projectiles.push(projectile);
+      // Add to the Arcade group BEFORE spawning: Phaser's PhysicsGroup re-applies its
+      // body defaults (including velocity 0) on add, so spawn() must set velocity last.
+      this.projectileGroup.add(projectile.sprite);
       projectile.spawn(this.player.x, this.player.y, direction, {
         speed: stats.projectileSpeed,
         damage: stats.damage,
         range: stats.range,
         pierce: stats.pierce,
       });
-      this.projectiles.push(projectile);
-      this.projectileGroup.add(projectile.sprite);
     }
 
     this.ctx.bus.emit('weapon:fired', {

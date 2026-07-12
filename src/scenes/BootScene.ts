@@ -3,7 +3,7 @@ import { GAME_CONTEXT_REGISTRY_KEY, type GameContext } from '../engine/context';
 import { createEventBus } from '../engine/eventBus';
 import { createRng } from '../engine/rng';
 import { SceneKey } from '../engine/sceneKeys';
-import { LocalStorageAdapter, SaveManager } from '../systems/save';
+import { applySettingsPatch, LocalStorageAdapter, SaveManager } from '../systems/save';
 import { loadGameData } from '../systems/validation';
 
 export class BootScene extends Phaser.Scene {
@@ -25,7 +25,7 @@ export class BootScene extends Phaser.Scene {
       save,
       settings,
       updateSettings(patch) {
-        Object.assign(settings, patch);
+        applySettingsPatch(settings, patch);
         save.save({ ...save.load(), settings: { ...settings } });
         return settings;
       },
