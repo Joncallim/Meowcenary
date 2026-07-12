@@ -124,7 +124,7 @@ interface Modifier { stat: StatKey; op: 'add' | 'mult'; value: number; sourceId:
 interface ModifierStack {
   add(mod: Modifier): void;
   remove(sourceId: string): void;
-  countBySource(sourceId: string): number;     // for stack limits
+  countBySource(sourceId: string): number;     // diagnostics/removal grouping, not stack authority
   resolve(stat: StatKey, base: number): number; // all 'add' first, then all 'mult'
 }
 ```
@@ -132,6 +132,10 @@ interface ModifierStack {
 Convention: **higher is always better.** Fire cadence is modelled as
 `attackSpeed` (default 1), and effective interval is `baseFireRateMs / attackSpeed`
 — never apply a modifier directly to a `*Ms` field.
+
+`RunState.upgradeStacks` is the authority for upgrade stack limits. A single
+card can add multiple modifiers, so modifier count must never be interpreted as
+the number of times that card was selected.
 
 ### Run state (Epic 1 owns `src/gameplay/runState.ts`)
 
@@ -188,6 +192,41 @@ Rules:
 - Merge helpers live in `src/gameplay/merge.ts` and stay pure.
 - Weapon data lives in `src/data/weapons.json` and is validated at load time.
 
+### Upgrade selection state (Epic 3 owns `src/gameplay/upgrades.ts`)
+
+Upgrade effects are data, but their runtime source identity is assigned when a
+card is chosen:
+
+```ts
+interface UpgradeEffect {
+  stat: StatKey;
+  op: 'add' | 'mult';
+  value: number;
+}
+
+interface UpgradeDefinition {
+  id: string;
+  name: string;
+  rarity: Rarity;
+  target: 'player' | 'weapon' | 'economy' | 'run';
+  description: string;
+  maxStacks: number;
+  effects: UpgradeEffect[];
+}
+```
+
+Rules:
+
+- JSON effects omit `sourceId`; `applyCard` assigns a stable per-stack source.
+- `RunState.upgradeStacks[id]` is the only stack-limit authority.
+- Epic 3 modifiers are run-global. Per-weapon targeting is deferred until a
+  typed weapon-modifier store exists; player copy must describe the real scope.
+- Multi-level gains queue one choice per emitted `level:up`. The run resumes
+  only after every queued choice is resolved.
+- `card:offered` publishes eligible IDs. `card:chosen` is emitted only after a
+  valid currently offered ID has been applied.
+- If no eligible cards remain, the queue advances without deadlocking the run.
+
 ### Save data (Epic 0 owns `src/systems/save.ts`)
 
 ```ts
@@ -209,21 +248,21 @@ so schedules (fire cadence, spawn timing) stay deterministic in tests.
 
 ## Epic Order
 
-| Epic | Issue | Purpose |
-| --- | --- | --- |
-| Epic 0 | #1 Project Foundation | Config, event bus, RNG, data validation, save/settings, input, debug, audio shell, tests, CI. |
-| Epic 1 | #2 Core Gameplay Loop | First playable loop: move, auto-shoot, survive, level up, win or lose; owns RunState + stats primitive. |
-| Epic 2 | #3 Weapons and Merge System | Automatic weapons, projectiles, inventory state, pure merge rules. |
-| Epic 3 | #4 Upgrade Cards | Readable run-only level-up choices that emit real `Modifier`s. |
-| Epic 4 | #5 Enemy AI and Spawn Director | Simple enemy behaviours and data-driven wave pressure. |
-| Epic 5 | #6 Meta Progression | Earned permanent progress: banks RunState rewards, no ads/payments/timers. |
-| Epic 6 | #7 Characters | Selectable characters with starting stats, loadouts, passives, unlock hooks. |
-| Epic 7 | #8 Maps and Arenas | Data-defined arenas, spawn regions, obstacles, hazard hooks. |
-| Epic 8 | #9 Loot and Economy | In-run XP/scrap drops, loot tables, pickup behaviour. |
-| Epic 9 | #10 UI and UX | Readable, controllable on phone and desktop. |
-| Epic 10 | #11 Audio | Respectful, muteable, event-driven sound and music. |
-| Epic 11 | #12 Balancing and Developer Tooling | Fast tuning through data, validation, debug tools, playtest helpers. |
-| Epic 12 | #13 Polish and Performance | Feedback, animation polish, object pooling, reduced motion, performance checks. |
+| Epic | Issue | Status | Purpose |
+| --- | --- | --- | --- |
+| Epic 0 | #1 Project Foundation | Complete | Config, event bus, RNG, data validation, save/settings, input, debug, audio shell, tests, CI. |
+| Epic 1 | #2 Core Gameplay Loop | Complete | First playable loop: move, auto-shoot, survive, level up, win or lose; owns RunState + stats primitive. |
+| Epic 2 | #3 Weapons and Merge System | Complete | Automatic weapons, projectiles, inventory state, pure merge rules. |
+| Epic 3 | #4 Upgrade Cards | Next | Readable run-only level-up choices that emit real `Modifier`s. |
+| Epic 4 | #5 Enemy AI and Spawn Director | Open | Simple enemy behaviours and data-driven wave pressure. |
+| Epic 5 | #6 Meta Progression | Open | Earned permanent progress: banks RunState rewards, no ads/payments/timers. |
+| Epic 6 | #7 Characters | Open | Selectable characters with starting stats, loadouts, passives, unlock hooks. |
+| Epic 7 | #8 Maps and Arenas | Open | Data-defined arenas, spawn regions, obstacles, hazard hooks. |
+| Epic 8 | #9 Loot and Economy | Open | In-run XP/scrap drops, loot tables, pickup behaviour. |
+| Epic 9 | #10 UI and UX | Open | Readable, controllable on phone and desktop. |
+| Epic 10 | #11 Audio | Open | Respectful, muteable, event-driven sound and music. |
+| Epic 11 | #12 Balancing and Developer Tooling | Open | Fast tuning through data, validation, debug tools, playtest helpers. |
+| Epic 12 | #13 Polish and Performance | Open | Feedback, animation polish, object pooling, reduced motion, performance checks. |
 
 ## Cross-Epic Rules
 
@@ -247,9 +286,9 @@ To avoid duplicated logic: **Epic 8** owns *in-run* collection — drops add to
 
 ## Suggested Build Sequence
 
-1. Finish Epic 0 first (event bus, RNG, save, validation, CI are prerequisites).
-2. Build Epic 1 until the game is playable (RunState + stats primitive land here).
-3. Add Epic 2 and Epic 3 for weapon/upgrade depth.
+1. Epic 0 is complete (event bus, RNG, save, validation, CI).
+2. Epic 1 is complete (playable loop, RunState, stats primitive).
+3. Epic 2 is complete; implement Epic 3 next for real upgrade choices.
 4. Add Epic 4 and Epic 8 to improve combat pressure and rewards.
 5. Add Epic 5 and Epic 6 for replayability.
 6. Add Epic 7, Epic 9, and Epic 10 once the core loop is stable.
