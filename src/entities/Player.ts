@@ -16,7 +16,7 @@ export class Player {
   private invulnerableMs = 0;
 
   constructor(
-    private readonly scene: Phaser.Scene,
+    scene: Phaser.Scene,
     private readonly input: InputController,
     private readonly runState: RunState,
     private readonly bus: EventBus,
@@ -56,7 +56,12 @@ export class Player {
       return;
     }
 
-    this.invulnerableMs = Math.max(0, this.invulnerableMs - dtMs);
+    if (this.invulnerableMs > 0 && Number.isFinite(dtMs) && dtMs > 0) {
+      this.invulnerableMs = Math.max(0, this.invulnerableMs - dtMs);
+      if (this.invulnerableMs === 0) {
+        this.sprite.setAlpha(1);
+      }
+    }
 
     const move = this.input.getMoveVector();
     const speed = this.runState.stats.resolve('moveSpeed', this.options.baseMoveSpeed);
@@ -71,11 +76,6 @@ export class Player {
     this.health = Math.max(0, this.health - amount);
     this.invulnerableMs = this.options.invulnerabilityMs;
     this.sprite.setAlpha(0.45);
-    this.scene.time.delayedCall(this.options.invulnerabilityMs, () => {
-      if (this.sprite.active) {
-        this.sprite.setAlpha(1);
-      }
-    });
     this.bus.emit('player:damaged', { amount, healthRemaining: this.health });
 
     if (this.health <= 0) {

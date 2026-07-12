@@ -8,6 +8,7 @@ import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { createDefaultWeaponLoadout } from '../gameplay/weapons';
 import {
+  canRestartRun,
   createRunState,
   endRun,
   pauseRun,
@@ -328,6 +329,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private restartRun(): void {
+    if (!canRestartRun(this.runState)) {
+      return;
+    }
+
     this.scene.restart();
   }
 
