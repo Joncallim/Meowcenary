@@ -23,8 +23,16 @@ export function createRng(seed: number): Rng {
   }
 
   function int(minInclusive: number, maxInclusive: number): number {
+    if (!Number.isFinite(minInclusive) || !Number.isFinite(maxInclusive)) {
+      throw new Error('Rng.int requires finite bounds');
+    }
+
     const min = Math.ceil(Math.min(minInclusive, maxInclusive));
     const max = Math.floor(Math.max(minInclusive, maxInclusive));
+    if (min > max) {
+      throw new Error('Rng.int bounds must contain at least one integer');
+    }
+
     return Math.floor(next() * (max - min + 1)) + min;
   }
 
@@ -41,20 +49,26 @@ export function createRng(seed: number): Rng {
     },
 
     weighted(entries) {
-      const total = entries.reduce((sum, entry) => sum + Math.max(0, entry.weight), 0);
-      if (entries.length === 0 || total <= 0) {
+      const candidates = entries
+        .map((entry) => ({
+          item: entry.item,
+          weight: Number.isFinite(entry.weight) ? Math.max(0, entry.weight) : 0,
+        }))
+        .filter((entry) => entry.weight > 0);
+      const total = candidates.reduce((sum, entry) => sum + entry.weight, 0);
+      if (candidates.length === 0 || !Number.isFinite(total) || total <= 0) {
         throw new Error('Rng.weighted requires at least one positive weight');
       }
 
       let cursor = next() * total;
-      for (const entry of entries) {
-        cursor -= Math.max(0, entry.weight);
+      for (const entry of candidates) {
+        cursor -= entry.weight;
         if (cursor < 0) {
           return entry.item;
         }
       }
 
-      return entries[entries.length - 1].item;
+      return candidates[candidates.length - 1].item;
     },
   };
 }
