@@ -5,7 +5,8 @@
     "rarity": "common",
     "target": "player",
     "description": "Increase movement speed for this run.",
-    "maxStacks": 5
+    "maxStacks": 5,
+    "effects": [{ "stat": "moveSpeed", "op": "mult", "value": 1.08 }]
   },
   {
     "id": "extra-scrap",
@@ -13,14 +14,16 @@
     "rarity": "common",
     "target": "economy",
     "description": "Increase coin drops for this run.",
-    "maxStacks": 3
+    "maxStacks": 3,
+    "effects": [{ "stat": "currencyGain", "op": "mult", "value": 1.25 }]
   },
   {
     "id": "hot-barrel",
     "name": "Hot Barrel",
     "rarity": "uncommon",
     "target": "weapon",
-    "description": "Increase fire rate for one equipped weapon.",
-    "maxStacks": 4
+    "description": "Increase weapon fire rate for this run.",
+    "maxStacks": 4,
+    "effects": [{ "stat": "attackSpeed", "op": "mult", "value": 1.12 }]
   }
 ]

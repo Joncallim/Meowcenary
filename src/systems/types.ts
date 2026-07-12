@@ -1,4 +1,17 @@
+import type { StatKey } from '../gameplay/stats';
+
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+
+/**
+ * A single JSON-safe upgrade effect. It carries no runtime `sourceId`; the
+ * source (`upgrade:<id>:stack:<n>`) is assigned when a card is applied. Epic 3
+ * effects are global run modifiers — never per-weapon.
+ */
+export interface UpgradeEffect {
+  stat: StatKey;
+  op: 'add' | 'mult';
+  value: number;
+}
 
 export interface WeaponDefinition {
   id: string;
@@ -33,6 +46,7 @@ export interface UpgradeDefinition {
   target: 'player' | 'weapon' | 'economy' | 'run';
   description: string;
   maxStacks: number;
+  effects: UpgradeEffect[];
 }
 
 export interface SpawnWaveDefinition {

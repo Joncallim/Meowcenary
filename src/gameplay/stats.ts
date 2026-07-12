@@ -1,17 +1,22 @@
-export type StatKey =
-  | 'moveSpeed'
-  | 'maxHealth'
-  | 'armor'
-  | 'damage'
-  | 'fireRate'
-  | 'attackSpeed'
-  | 'projectileSpeed'
-  | 'projectileCount'
-  | 'range'
-  | 'critChance'
-  | 'pickupRadius'
-  | 'xpGain'
-  | 'currencyGain';
+// Single source of truth for stat keys. The runtime list lets data validation
+// reject unknown effect stats; the StatKey type is derived so the two cannot drift.
+export const STAT_KEYS = [
+  'moveSpeed',
+  'maxHealth',
+  'armor',
+  'damage',
+  'fireRate',
+  'attackSpeed',
+  'projectileSpeed',
+  'projectileCount',
+  'range',
+  'critChance',
+  'pickupRadius',
+  'xpGain',
+  'currencyGain',
+] as const;
+
+export type StatKey = (typeof STAT_KEYS)[number];
 
 export interface Modifier {
   stat: StatKey;
