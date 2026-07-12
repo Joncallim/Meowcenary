@@ -6,10 +6,6 @@ export const RuntimeConfig = {
       baseMoveSpeed: 175,
       invulnerabilityMs: 650,
       pickupRadius: 30,
-      contactDamageCooldownMs: 700,
-    },
-    enemy: {
-      contactRadius: 18,
     },
     projectile: {
       radius: 4,
@@ -19,6 +15,5 @@ export const RuntimeConfig = {
     },
   },
   storageKey: 'meowcenary.save.v1',
-  targetFps: 60,
   isDev: import.meta.env.DEV,
 } as const;
