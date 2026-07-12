@@ -40,10 +40,8 @@ export class DropSystem implements System {
       return;
     }
 
-    const pickupRadius = this.runState.stats.resolve('pickupRadius', this.basePickupRadius);
-    const pickupRadiusSq = pickupRadius * pickupRadius;
     for (const drop of this.drops) {
-      if (drop.active && distanceSq(this.player, drop) <= pickupRadiusSq) {
+      if (drop.active && this.isWithinPickupRadius(drop)) {
         this.collect(drop);
       }
     }
@@ -63,9 +61,17 @@ export class DropSystem implements System {
   ): void {
     const dropGameObject = arcadeGameObject(dropObject);
     const drop = this.drops.find((candidate) => candidate.sprite === dropGameObject);
-    if (drop?.active) {
+    if (drop?.active && this.isWithinPickupRadius(drop)) {
       this.collect(drop);
     }
+  }
+
+  private isWithinPickupRadius(drop: XpDrop): boolean {
+    const pickupRadius = Math.max(
+      0,
+      this.runState.stats.resolve('pickupRadius', this.basePickupRadius),
+    );
+    return distanceSq(this.player, drop) <= pickupRadius * pickupRadius;
   }
 
   private collect(drop: XpDrop): void {

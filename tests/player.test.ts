@@ -40,7 +40,10 @@ class MockArc {
 
 vi.mock('phaser', () => ({ default: {} }));
 
-async function createHarness(invulnerabilityMs = 650) {
+async function createHarness(
+  invulnerabilityMs = 650,
+  moveVector: { x: number; y: number } = { x: 0, y: 0 },
+) {
   const { Player } = await import('../src/entities/Player');
   const sprite = new MockArc(100, 100);
   const scene = {
@@ -48,7 +51,7 @@ async function createHarness(invulnerabilityMs = 650) {
     add: { circle: () => sprite },
     physics: { add: { existing: () => undefined } },
   };
-  const input = { getMoveVector: () => ({ x: 0, y: 0 }) };
+  const input = { getMoveVector: () => ({ ...moveVector }) };
   const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
   runState.status = 'active';
   const player = new Player(scene as never, input as never, runState, createEventBus(), {
@@ -99,5 +102,17 @@ describe('Player', () => {
 
     expect(player.health).toBe(100);
     expect(sprite.alpha).toBe(1);
+  });
+
+  it('clamps invalid resolved movement and max-health domains', async () => {
+    const { player, runState, sprite } = await createHarness(650, { x: 1, y: 0 });
+    runState.stats.add({ stat: 'moveSpeed', op: 'add', value: -500, sourceId: 'slow' });
+    runState.stats.add({ stat: 'maxHealth', op: 'add', value: -500, sourceId: 'frail' });
+
+    player.update(16);
+
+    expect(sprite.body.velocity).toEqual({ x: 0, y: 0 });
+    expect(player.maxHealth).toBe(1);
+    expect(player.health).toBe(1);
   });
 });

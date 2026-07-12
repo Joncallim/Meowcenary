@@ -15,6 +15,10 @@ export function applyXp(runState: RunState, amount: number, bus?: EventBus): num
   }
 
   const gained = amount * runState.stats.resolve('xpGain', 1);
+  if (!Number.isFinite(gained) || gained <= 0) {
+    return 0;
+  }
+
   runState.xp += gained;
   bus?.emit('xp:gained', { amount: gained, total: runState.xp });
 

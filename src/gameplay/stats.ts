@@ -24,6 +24,10 @@ export class ModifierStack {
   private readonly modifiers: Modifier[] = [];
 
   add(modifier: Modifier): void {
+    if (!Number.isFinite(modifier.value)) {
+      throw new Error('Modifier value must be finite');
+    }
+
     this.modifiers.push({ ...modifier });
   }
 
@@ -43,6 +47,10 @@ export class ModifierStack {
   }
 
   resolve(stat: StatKey, baseValue: number): number {
+    if (!Number.isFinite(baseValue)) {
+      throw new Error(`Base value for "${stat}" must be finite`);
+    }
+
     let value = baseValue;
 
     for (const modifier of this.modifiers) {
@@ -55,6 +63,10 @@ export class ModifierStack {
       if (modifier.stat === stat && modifier.op === 'mult') {
         value *= modifier.value;
       }
+    }
+
+    if (!Number.isFinite(value)) {
+      throw new Error(`Resolved value for "${stat}" must be finite`);
     }
 
     return value;

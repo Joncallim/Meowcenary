@@ -2,6 +2,7 @@ import enemiesJson from '../data/enemies.json';
 import spawnCurvesJson from '../data/spawn-curves.json';
 import upgradesJson from '../data/upgrades.json';
 import weaponsJson from '../data/weapons.json';
+import { DEFAULT_WEAPON_FAMILIES } from '../gameplay/weapons';
 import type {
   EnemyDefinition,
   GameData,
@@ -76,6 +77,8 @@ export function validateGameData(raw: {
   assertUniqueIds('upgrades.json', upgrades);
   assertUniqueIds('spawn-curves.json', spawnCurves);
   assertWeaponTiers(weapons);
+  assertStarterWeapons(weapons);
+  assertPlayableSpawnCurves(spawnCurves);
   assertSpawnReferences(spawnCurves, new Set(enemies.map((enemy) => enemy.id)));
 
   return { weapons, enemies, upgrades, spawnCurves };
@@ -243,6 +246,19 @@ function assertWeaponTiers(weapons: readonly WeaponDefinition[]): void {
   throwIfErrors(errors);
 }
 
+function assertStarterWeapons(weapons: readonly WeaponDefinition[]): void {
+  const availableStarters = new Set(
+    weapons
+      .filter((weapon) => weapon.mergeTier === 1)
+      .map((weapon) => weapon.family),
+  );
+  const errors = DEFAULT_WEAPON_FAMILIES
+    .filter((family) => !availableStarters.has(family))
+    .map((family) => `weapons.json: missing required starter family "${family}" at mergeTier 1`);
+
+  throwIfErrors(errors);
+}
+
 function assertSpawnReferences(
   spawnCurves: readonly SpawnCurveDefinition[],
   enemyIds: ReadonlySet<string>,
@@ -254,6 +270,29 @@ function assertSpawnReferences(
       if (!enemyIds.has(wave.enemyId)) {
         errors.push(
           `spawn-curves.json[${curveIndex}].waves[${waveIndex}].enemyId: unknown enemyId "${wave.enemyId}"`,
+        );
+      }
+    });
+  });
+
+  throwIfErrors(errors);
+}
+
+function assertPlayableSpawnCurves(spawnCurves: readonly SpawnCurveDefinition[]): void {
+  const errors: string[] = [];
+  if (spawnCurves.length === 0) {
+    errors.push('spawn-curves.json: at least one spawn curve is required');
+  }
+
+  spawnCurves.forEach((curve, curveIndex) => {
+    if (curve.waves.length === 0) {
+      errors.push(`spawn-curves.json[${curveIndex}].waves: at least one wave is required`);
+    }
+
+    curve.waves.forEach((wave, waveIndex) => {
+      if (wave.startSecond >= curve.durationSeconds) {
+        errors.push(
+          `spawn-curves.json[${curveIndex}].waves[${waveIndex}].startSecond: must be before durationSeconds`,
         );
       }
     });

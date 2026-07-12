@@ -220,6 +220,23 @@ describe('WeaponSystem', () => {
     expect(projectile.body?.velocity.y).toBe(0);
   });
 
+  it('does not fire projectiles with unusable resolved combat stats', async () => {
+    const harness = await createHarness();
+    const fired = vi.fn();
+    harness.ctx.bus.on('weapon:fired', fired);
+    harness.runState.stats.add({
+      stat: 'projectileSpeed',
+      op: 'add',
+      value: -1_000,
+      sourceId: 'invalid-speed',
+    });
+
+    harness.system.update(650);
+
+    expect(harness.projectileGroup.added).toHaveLength(0);
+    expect(fired).not.toHaveBeenCalled();
+  });
+
   it('applies hit, kill, and XP-drop side effects once per projectile/enemy pair', async () => {
     const harness = await createHarness();
     const hit = vi.fn();
