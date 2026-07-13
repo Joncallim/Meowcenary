@@ -167,6 +167,12 @@ const VIEWPORTS = [
   { name: 'small portrait', width: 320, height: 568 },
 ] as const;
 
+const NAME_SEPARATION_VIEWPORTS = [
+  ...VIEWPORTS,
+  { name: 'compact landscape', width: 568, height: 320 },
+  { name: 'extreme compact', width: 320, height: 240 },
+] as const;
+
 const COLLAPSED_DISPLAYS = [
   { name: 'one pixel square', width: 1, height: 1 },
   { name: 'one pixel wide', width: 1, height: 844 },
@@ -396,14 +402,14 @@ describe('Upgrade chooser physical layout', () => {
         const right = card.x + card.width / 2;
         const top = card.y - card.height / 2;
         const bottom = card.y + card.height / 2;
-        const nameRight = left + card.padding + card.nameWidth;
+        const nameRight = left + card.nameX + card.nameWidth;
         const rarityLeft = right - card.padding - card.rarityReserve;
 
         expect(left).toBeGreaterThanOrEqual(0);
         expect(right).toBeLessThanOrEqual(390);
         expect(top).toBeGreaterThan(layout.instructionsY + layout.fonts.instructions);
         expect(bottom).toBeLessThanOrEqual(844);
-        expect(nameRight).toBeLessThan(rarityLeft);
+        expect(nameRight).toBeLessThanOrEqual(rarityLeft + 0.001);
         expect(card.descriptionY).toBeGreaterThan(top + card.padding);
         expect(card.descriptionY + card.descriptionHeight).toBeLessThanOrEqual(
           bottom - card.padding + 0.001,
@@ -442,6 +448,31 @@ describe('Upgrade chooser physical layout', () => {
     expect(landscape.cards[0]?.height).not.toBe(portrait.cards[0]?.height);
   });
 
+  it.each(NAME_SEPARATION_VIEWPORTS)(
+    'keeps rendered names separated from rarity at $name size',
+    (viewport) => {
+      const display = fittedCanvas(viewport.width, viewport.height);
+
+      for (const count of [1, 2, 3]) {
+        const layout = computeUpgradeChooserLayout(
+          390,
+          844,
+          display.width,
+          display.height,
+          count,
+        );
+        layout.cards.forEach((card) => {
+          const left = card.x - card.width / 2;
+          const right = card.x + card.width / 2;
+          const nameRight = left + card.nameX + card.nameWidth;
+          const rarityLeft = right - card.padding - card.rarityReserve;
+
+          expect(nameRight).toBeLessThanOrEqual(rarityLeft + 0.001);
+        });
+      }
+    },
+  );
+
   it.each(COLLAPSED_DISPLAYS)(
     'keeps all created regions safe at $name display size',
     ({ width, height }) => {
@@ -456,6 +487,7 @@ describe('Upgrade chooser physical layout', () => {
           const left = card.x - card.width / 2;
           const right = card.x + card.width / 2;
           const numberRight = left + card.padding + card.numberWidth;
+          const nameRight = left + card.nameX + card.nameWidth;
           const rarityLeft = right - card.padding - card.rarityReserve;
           const values = [
             card.x,
@@ -480,6 +512,7 @@ describe('Upgrade chooser physical layout', () => {
           expect(card.rarityReserve).toBeGreaterThan(0);
           expect(card.descriptionHeight).toBeGreaterThanOrEqual(0);
           expect(numberRight).toBeLessThanOrEqual(rarityLeft + 0.001);
+          expect(nameRight).toBeLessThanOrEqual(rarityLeft + 0.001);
         });
       }
     },
