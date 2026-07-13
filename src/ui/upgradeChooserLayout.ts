@@ -48,6 +48,12 @@ const BASE_LOGICAL_FONT = {
   description: 14,
 } as const;
 
+// Below this scale the fixed portrait canvas is effectively hidden. Keeping a
+// bounded logical scale prevents Phaser Text from receiving zero or inverted
+// wrap/crop regions while still allowing a later resize to rebuild the offer.
+const MIN_LAYOUT_SCALE = 0.25;
+const MIN_REGION_SIZE = 1;
+
 export function computeUpgradeChooserLayout(
   canvasWidth: number,
   canvasHeight: number,
@@ -72,7 +78,7 @@ export function computeUpgradeChooserLayout(
     description: font(BASE_LOGICAL_FONT.description, MIN_PHYSICAL_FONT.description),
   };
   const compactHeader = canvasWidth * displayScale < 220;
-  const headerWidth = Math.max(0, canvasWidth - physical(12));
+  const headerWidth = Math.max(MIN_REGION_SIZE, canvasWidth - physical(12));
   const headingY = physical(compactHeader ? 6 : 12);
   const headingHeight = fonts.heading * (compactHeader ? 2.25 : 1.2);
   const instructionsY = headingY + headingHeight + physical(compactHeader ? 2 : 4);
@@ -84,22 +90,46 @@ export function computeUpgradeChooserLayout(
   const count = Math.max(1, Math.min(3, Math.floor(choiceCount)));
   const availableHeight = Math.max(0, canvasHeight - cardsRegionTop - bottomMargin);
   const maxCardHeight = Math.max(168, physical(150));
-  const cardHeight = Math.min(
-    maxCardHeight,
-    (availableHeight - cardGap * (count - 1)) / count,
+  const cardHeight = Math.max(
+    MIN_REGION_SIZE,
+    Math.min(
+      maxCardHeight,
+      (availableHeight - cardGap * (count - 1)) / count,
+    ),
   );
   const totalCardHeight = cardHeight * count + cardGap * (count - 1);
   const cardsTop = cardsRegionTop + Math.max(0, (availableHeight - totalCardHeight) / 2);
   const sideMargin = Math.max(compactHeader ? 0 : 10, physical(compactHeader ? 4 : 8));
-  const cardWidth = canvasWidth - sideMargin * 2;
-  const padding = Math.max(compactHeader ? 0 : 16, physical(compactHeader ? 4 : 8));
-  const numberWidth = Math.max(fonts.name * 1.35, physical(18));
-  const rarityReserve = Math.max(compactHeader ? 0 : 72, physical(44));
-  const inlineGap = Math.max(compactHeader ? 0 : 8, physical(3));
+  const cardWidth = Math.max(MIN_REGION_SIZE, canvasWidth - sideMargin * 2);
+  const desiredPadding = Math.max(
+    compactHeader ? 0 : 16,
+    physical(compactHeader ? 4 : 8),
+  );
+  const padding = Math.min(desiredPadding, Math.max(0, (cardWidth - 3) / 2));
+  const contentWidth = Math.max(MIN_REGION_SIZE, cardWidth - padding * 2);
+  const desiredNumberWidth = Math.max(fonts.name * 1.35, physical(18));
+  const desiredRarityReserve = Math.max(compactHeader ? 0 : 72, physical(44));
+  const desiredInlineGap = Math.max(compactHeader ? 0 : 8, physical(3));
+  const numberWidth = Math.max(
+    MIN_REGION_SIZE,
+    Math.min(desiredNumberWidth, contentWidth - MIN_REGION_SIZE),
+  );
+  const remainingAfterNumber = Math.max(
+    MIN_REGION_SIZE,
+    contentWidth - numberWidth,
+  );
+  const inlineGap = Math.min(desiredInlineGap, remainingAfterNumber / 3);
+  const rarityReserve = Math.max(
+    MIN_REGION_SIZE,
+    Math.min(
+      desiredRarityReserve,
+      remainingAfterNumber - inlineGap,
+    ),
+  );
   const nameX = padding + numberWidth + inlineGap;
   const nameWidth = Math.max(
     0,
-    cardWidth - padding * 2 - numberWidth - rarityReserve - inlineGap * 2,
+    contentWidth - numberWidth - rarityReserve - inlineGap * 2,
   );
   const nameHeight = Math.max(fonts.name * 1.15, physical(16));
   const rarityHeight = Math.max(fonts.rarity * 1.15, physical(11));
@@ -123,7 +153,10 @@ export function computeUpgradeChooserLayout(
       rarityReserve,
       rarityHeight,
       descriptionY,
-      descriptionHeight: Math.max(0, cardTop + cardHeight - padding - descriptionY),
+      descriptionHeight: Math.max(
+        0,
+        cardTop + cardHeight - padding - descriptionY,
+      ),
     };
   });
 
@@ -149,5 +182,7 @@ function safeDisplayScale(
   const widthScale = displayedWidth / canvasWidth;
   const heightScale = displayedHeight / canvasHeight;
   const scale = Math.min(widthScale, heightScale);
-  return Number.isFinite(scale) && scale > 0 ? scale : 1;
+  return Number.isFinite(scale) && scale > 0
+    ? Math.max(MIN_LAYOUT_SCALE, scale)
+    : MIN_LAYOUT_SCALE;
 }

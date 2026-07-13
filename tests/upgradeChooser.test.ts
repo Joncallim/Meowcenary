@@ -167,6 +167,13 @@ const VIEWPORTS = [
   { name: 'small portrait', width: 320, height: 568 },
 ] as const;
 
+const COLLAPSED_DISPLAYS = [
+  { name: 'one pixel square', width: 1, height: 1 },
+  { name: 'one pixel wide', width: 1, height: 844 },
+  { name: 'one pixel tall', width: 390, height: 1 },
+  { name: 'exact zero', width: 0, height: 0 },
+] as const;
+
 function fittedCanvas(viewportWidth: number, viewportHeight: number) {
   const scale = Math.min(viewportWidth / 390, viewportHeight / 844);
   return { width: 390 * scale, height: 844 * scale, scale };
@@ -219,6 +226,7 @@ class FakeDisplayObject extends FakeEmitter {
     public y: number,
     public width: number,
     public height: number,
+    private readonly onDestroy?: (object: FakeDisplayObject) => void,
   ) {
     super();
   }
@@ -255,19 +263,38 @@ class FakeDisplayObject extends FakeEmitter {
       height: this.height,
     };
   }
-  destroy(): void {}
+  destroy(): void {
+    this.onDestroy?.(this);
+  }
 }
 
 class FakeText extends FakeDisplayObject {
-  constructor(x: number, y: number, text: string, style: { fontSize?: string }) {
+  constructor(
+    x: number,
+    y: number,
+    text: string,
+    style: { fontSize?: string },
+    onDestroy?: (object: FakeDisplayObject) => void,
+    private readonly shouldFailFixedSize?: () => boolean,
+  ) {
     const fontSize = Number.parseFloat(style.fontSize ?? '16');
-    super(x, y, text.length * fontSize * 0.55, fontSize * 1.2);
+    super(x, y, text.length * fontSize * 0.55, fontSize * 1.2, onDestroy);
     this.originX = 0;
     this.originY = 0;
   }
   setFixedSize(width: number, height: number): this {
+    if (this.shouldFailFixedSize?.()) {
+      throw new Error('Injected text sizing failure');
+    }
     this.width = width;
     this.height = height;
+    return this;
+  }
+  setMaxLines(): this { return this; }
+  setWordWrapWidth(width: number | null): this {
+    if (width !== null && width <= 0) {
+      throw new Error('wordWrapWidth < a single character');
+    }
     return this;
   }
   setCrop(): this { return this; }
@@ -275,14 +302,17 @@ class FakeText extends FakeDisplayObject {
 
 class FakeContainer extends FakeDisplayObject {
   private children: FakeDisplayObject[] = [];
-  constructor() { super(0, 0, 0, 0); }
-  add(children: FakeDisplayObject[]): this {
-    this.children.push(...children);
+  constructor(onDestroy?: (object: FakeDisplayObject) => void) {
+    super(0, 0, 0, 0, onDestroy);
+  }
+  add(children: FakeDisplayObject | FakeDisplayObject[]): this {
+    this.children.push(...(Array.isArray(children) ? children : [children]));
     return this;
   }
   destroy(destroyChildren?: boolean): void {
     if (destroyChildren) this.children.forEach((child) => child.destroy());
     this.children = [];
+    super.destroy();
   }
 }
 
@@ -301,16 +331,31 @@ class FakeScale extends FakeEmitter {
 function createFakeScene(displayWidth: number, displayHeight: number) {
   const keyboard = new FakeEmitter();
   const scale = new FakeScale();
+  const children = new Set<FakeDisplayObject>();
+  let failFixedSize = false;
+  const own = <T extends FakeDisplayObject>(object: T): T => {
+    children.add(object);
+    return object;
+  };
+  const remove = (object: FakeDisplayObject): void => {
+    children.delete(object);
+  };
   scale.displaySize = { width: displayWidth, height: displayHeight };
   return {
     input: { keyboard },
     scale,
+    get childCount() { return children.size; },
+    failNextTextFixedSize() { failFixedSize = true; },
     add: {
-      container: () => new FakeContainer(),
+      container: () => own(new FakeContainer(remove)),
       rectangle: (x: number, y: number, width: number, height: number) =>
-        new FakeDisplayObject(x, y, width, height),
+        own(new FakeDisplayObject(x, y, width, height, remove)),
       text: (x: number, y: number, text: string, style: { fontSize?: string }) =>
-        new FakeText(x, y, text, style),
+        own(new FakeText(x, y, text, style, remove, () => {
+          if (!failFixedSize) return false;
+          failFixedSize = false;
+          return true;
+        })),
     },
   };
 }
@@ -396,6 +441,49 @@ describe('Upgrade chooser physical layout', () => {
     expect(landscape.fonts.name).toBeGreaterThan(portrait.fonts.name);
     expect(landscape.cards[0]?.height).not.toBe(portrait.cards[0]?.height);
   });
+
+  it.each(COLLAPSED_DISPLAYS)(
+    'keeps all created regions safe at $name display size',
+    ({ width, height }) => {
+      for (const count of [1, 2, 3]) {
+        const layout = computeUpgradeChooserLayout(390, 844, width, height, count);
+        expect(layout.headerWidth).toBeGreaterThan(0);
+        expect(layout.headingHeight).toBeGreaterThan(0);
+        expect(layout.instructionsHeight).toBeGreaterThan(0);
+        expect(Object.values(layout.fonts).every(Number.isFinite)).toBe(true);
+
+        layout.cards.forEach((card) => {
+          const left = card.x - card.width / 2;
+          const right = card.x + card.width / 2;
+          const numberRight = left + card.padding + card.numberWidth;
+          const rarityLeft = right - card.padding - card.rarityReserve;
+          const values = [
+            card.x,
+            card.y,
+            card.width,
+            card.height,
+            card.padding,
+            card.numberWidth,
+            card.nameX,
+            card.nameWidth,
+            card.nameHeight,
+            card.rarityReserve,
+            card.rarityHeight,
+            card.descriptionY,
+            card.descriptionHeight,
+          ];
+
+          expect(values.every(Number.isFinite)).toBe(true);
+          expect(card.width).toBeGreaterThan(0);
+          expect(card.height).toBeGreaterThan(0);
+          expect(card.numberWidth).toBeGreaterThan(0);
+          expect(card.rarityReserve).toBeGreaterThan(0);
+          expect(card.descriptionHeight).toBeGreaterThanOrEqual(0);
+          expect(numberRight).toBeLessThanOrEqual(rarityLeft + 0.001);
+        });
+      }
+    },
+  );
 });
 
 describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
@@ -422,6 +510,19 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
       () => true,
     );
     return { display, scene, view };
+  }
+
+  async function createRenderedDisplay(
+    displayWidth: number,
+    displayHeight: number,
+    offeredDefinitions: readonly UpgradeDefinition[],
+    select = vi.fn<(offerId: number, choiceIndex: number) => boolean>(() => true),
+  ) {
+    const scene = createFakeScene(displayWidth, displayHeight);
+    const { PhaserUpgradeChooserView } = await import('../src/ui/UpgradeChooser');
+    const view = new PhaserUpgradeChooserView(scene as never);
+    view.render({ offerId: 73, definitions: offeredDefinitions }, select);
+    return { scene, view, select };
   }
 
   it('keeps the rendered compact heading and instructions within 568x320', async () => {
@@ -516,6 +617,84 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
       [card.x, card.y, card.width, card.height].every(Number.isFinite),
     )).toBe(true);
     view.destroy();
+  });
+
+  it.each([1, 2, 3])(
+    'preserves a %i-card offer through repeated tiny-display collapse and recovery',
+    async (count) => {
+      const offered = hostileDefinitions.slice(0, count);
+      const { scene, view, select } = await createRenderedDisplay(390, 844, offered);
+      const enabled = count !== 2;
+      if (!enabled) view.setEnabled(false);
+      const baselineChildren = scene.childCount;
+      const expectedIds = offered.map((definition) => definition.id);
+
+      for (let cycle = 0; cycle < 2; cycle += 1) {
+        for (const display of COLLAPSED_DISPLAYS) {
+          expect(() => scene.scale.refresh(display.width, display.height, true)).not.toThrow();
+          const collapsed = view.diagnostics;
+          expect(collapsed.offerId).toBe(73);
+          expect(collapsed.choiceIds).toEqual(expectedIds);
+          expect(collapsed.keyboardListenerCount).toBe(1);
+          expect(collapsed.resizeListenerCount).toBe(1);
+          expect(collapsed.cards).toHaveLength(count);
+          expect(collapsed.cards.every((card) =>
+            [card.x, card.y, card.width, card.height].every(Number.isFinite) &&
+            card.width > 0 && card.height > 0,
+          )).toBe(true);
+          expect(collapsed.text.every((text) =>
+            [text.x, text.y, text.width, text.height].every(Number.isFinite) &&
+            text.width > 0 && text.height > 0,
+          )).toBe(true);
+          expect(collapsed.cards.every((card) =>
+            enabled
+              ? card.fillAlpha === 1 && card.interactive
+              : card.fillAlpha === 0.58 && !card.interactive,
+          )).toBe(true);
+          expect(scene.childCount).toBeLessThanOrEqual(baselineChildren);
+        }
+
+        expect(() => scene.scale.refresh(390, 844, true)).not.toThrow();
+        expect(view.diagnostics.offerId).toBe(73);
+        expect(view.diagnostics.choiceIds).toEqual(expectedIds);
+        expect(scene.childCount).toBe(baselineChildren);
+      }
+
+      scene.input.keyboard.emit('keydown', { key: '1', repeat: false });
+      expect(select).toHaveBeenCalledTimes(enabled ? 1 : 0);
+      if (enabled) expect(select).toHaveBeenCalledWith(73, 0);
+      view.destroy();
+      expect(scene.childCount).toBe(0);
+      expect(scene.input.keyboard.listenerCount('keydown')).toBe(0);
+      expect(scene.scale.listenerCount('resize')).toBe(0);
+    },
+  );
+
+  it('cleans partial rebuild ownership and restores the same offer', async () => {
+    const offered = hostileDefinitions.slice(0, 3);
+    const { scene, view } = await createRenderedDisplay(390, 844, offered);
+    const baselineChildren = scene.childCount;
+    scene.failNextTextFixedSize();
+
+    expect(() => scene.scale.refresh(1, 1, true)).toThrow(
+      'Injected text sizing failure',
+    );
+    expect(scene.childCount).toBe(0);
+    expect(view.diagnostics.offerId).toBe(73);
+    expect(view.diagnostics.choiceIds).toEqual(
+      offered.map((definition) => definition.id),
+    );
+    expect(view.diagnostics.keyboardListenerCount).toBe(1);
+    expect(view.diagnostics.resizeListenerCount).toBe(1);
+
+    expect(() => scene.scale.refresh(390, 844, true)).not.toThrow();
+    expect(scene.childCount).toBe(baselineChildren);
+    expect(view.diagnostics.cards).toHaveLength(3);
+    expect(view.diagnostics.choiceIds).toEqual(
+      offered.map((definition) => definition.id),
+    );
+    view.destroy();
+    expect(scene.childCount).toBe(0);
   });
 });
 

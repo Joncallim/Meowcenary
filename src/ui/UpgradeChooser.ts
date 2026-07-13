@@ -35,6 +35,7 @@ export class UpgradeChooser {
 
 export interface UpgradeChooserRenderDiagnostics {
   readonly offerId?: number;
+  readonly choiceIds: readonly string[];
   readonly rebuildCount: number;
   readonly displayWidth: number;
   readonly displayHeight: number;
@@ -78,6 +79,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   get diagnostics(): UpgradeChooserRenderDiagnostics {
     return {
       offerId: this.currentOfferId,
+      choiceIds: this.offer?.definitions.map((definition) => definition.id) ?? [],
       rebuildCount: this.rebuildCount,
       displayWidth: this.scene.scale.displaySize.width,
       displayHeight: this.scene.scale.displaySize.height,
@@ -137,158 +139,200 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       this.scene.scale.displaySize.height,
       offer.definitions.length,
     );
-    const root = this.scene.add.container(0, 0).setDepth(CHOOSER_DEPTH).setScrollFactor(0);
-    this.root = root;
-    this.rebuildCount += 1;
+    const root = this.scene.add.container(0, 0);
+    const cardBackgrounds: Phaser.GameObjects.Rectangle[] = [];
+    const renderedText: Array<{ role: string; object: Phaser.GameObjects.Text }> = [];
+    const own = <T extends Phaser.GameObjects.GameObject>(object: T): T => {
+      root.add(object);
+      return object;
+    };
 
-    const backdrop = this.scene.add
-      .rectangle(width / 2, height / 2, width - 20, height - 20, 0x081118, 0.96)
-      .setStrokeStyle(2, 0x2dd4bf, 0.72)
-      .setInteractive();
-    const heading = this.scene.add
-      .text(width / 2, layout.headingY, 'Choose an upgrade', {
+    try {
+      root.setDepth(CHOOSER_DEPTH).setScrollFactor(0);
+
+      const backdrop = own(this.scene.add.rectangle(
+        width / 2,
+        height / 2,
+        width - 20,
+        height - 20,
+        0x081118,
+        0.96,
+      ));
+      backdrop.setStrokeStyle(2, 0x2dd4bf, 0.72).setInteractive();
+      const heading = own(this.scene.add.text(
+        width / 2,
+        layout.headingY,
+        'Choose an upgrade',
+        {
         align: 'center',
         color: '#f7f1d5',
         fontFamily: 'Inter, sans-serif',
         fontSize: `${layout.fonts.heading}px`,
         fontStyle: 'bold',
-        maxLines: 2,
-        wordWrap: { width: layout.headerWidth, useAdvancedWrap: true },
-      })
-      .setOrigin(0.5, 0)
-      .setFixedSize(layout.headerWidth, layout.headingHeight)
-      .setCrop(0, 0, layout.headerWidth, layout.headingHeight);
-    const instructions = this.scene.add
-      .text(width / 2, layout.instructionsY, 'Tap a card or press 1, 2, or 3', {
+        },
+      ));
+      heading
+        .setMaxLines(2)
+        .setWordWrapWidth(layout.headerWidth, true)
+        .setOrigin(0.5, 0)
+        .setFixedSize(layout.headerWidth, layout.headingHeight)
+        .setCrop(0, 0, layout.headerWidth, layout.headingHeight);
+      const instructions = own(this.scene.add.text(
+        width / 2,
+        layout.instructionsY,
+        'Tap a card or press 1, 2, or 3',
+        {
         align: 'center',
         color: '#a5f3fc',
         fontFamily: 'Inter, sans-serif',
         fontSize: `${layout.fonts.instructions}px`,
-        maxLines: 2,
-        wordWrap: { width: layout.headerWidth, useAdvancedWrap: true },
-      })
-      .setOrigin(0.5, 0)
-      .setFixedSize(layout.headerWidth, layout.instructionsHeight)
-      .setCrop(0, 0, layout.headerWidth, layout.instructionsHeight);
-    this.renderedText.push(
-      { role: 'heading', object: heading },
-      { role: 'instructions', object: instructions },
-    );
-    root.add([backdrop, heading, instructions]);
+        },
+      ));
+      instructions
+        .setMaxLines(2)
+        .setWordWrapWidth(layout.headerWidth, true)
+        .setOrigin(0.5, 0)
+        .setFixedSize(layout.headerWidth, layout.instructionsHeight)
+        .setCrop(0, 0, layout.headerWidth, layout.instructionsHeight);
+      renderedText.push(
+        { role: 'heading', object: heading },
+        { role: 'instructions', object: instructions },
+      );
 
-    offer.definitions.forEach((definition, index) => {
-      const cardLayout = layout.cards[index];
-      if (!cardLayout) {
-        return;
-      }
-      const cardLeft = cardLayout.x - cardLayout.width / 2;
-      const cardTop = cardLayout.y - cardLayout.height / 2;
-      const card = this.scene.add
-        .rectangle(
+      offer.definitions.forEach((definition, index) => {
+        const cardLayout = layout.cards[index];
+        if (!cardLayout) {
+          return;
+        }
+        const cardLeft = cardLayout.x - cardLayout.width / 2;
+        const cardTop = cardLayout.y - cardLayout.height / 2;
+        const card = own(this.scene.add.rectangle(
           cardLayout.x,
           cardLayout.y,
           cardLayout.width,
           cardLayout.height,
           0x17303b,
           1,
-        )
-        .setStrokeStyle(2, 0x67e8f9, 0.78)
-        .setInteractive({ useHandCursor: true });
-      card.on(Phaser.Input.Events.POINTER_OVER, () => {
-        if (this.enabled) {
-          card.setFillStyle(0x214756, 1);
-        }
-      });
-      card.on(Phaser.Input.Events.POINTER_OUT, () => {
-        card.setFillStyle(0x17303b, this.enabled ? 1 : 0.58);
-      });
-      card.on(Phaser.Input.Events.POINTER_UP, () => {
-        this.submit(offer.offerId, index);
-      });
+        ));
+        card
+          .setStrokeStyle(2, 0x67e8f9, 0.78)
+          .setInteractive({ useHandCursor: true });
+        card.on(Phaser.Input.Events.POINTER_OVER, () => {
+          if (this.enabled) {
+            card.setFillStyle(0x214756, 1);
+          }
+        });
+        card.on(Phaser.Input.Events.POINTER_OUT, () => {
+          card.setFillStyle(0x17303b, this.enabled ? 1 : 0.58);
+        });
+        card.on(Phaser.Input.Events.POINTER_UP, () => {
+          this.submit(offer.offerId, index);
+        });
 
-      const number = this.scene.add.text(
-        cardLeft + cardLayout.padding,
-        cardTop + cardLayout.padding,
-        `${index + 1}.`,
-        {
-          color: '#ffffff',
-          fontFamily: 'Inter, sans-serif',
-          fontSize: `${layout.fonts.name}px`,
-          fontStyle: 'bold',
-        },
-      )
-        .setFixedSize(cardLayout.numberWidth, cardLayout.nameHeight)
-        .setCrop(0, 0, cardLayout.numberWidth, cardLayout.nameHeight);
-      const name = this.scene.add.text(
-        cardLeft + cardLayout.nameX,
-        cardTop + cardLayout.padding,
-        definition.name,
-        {
-          color: '#ffffff',
-          fontFamily: 'Inter, sans-serif',
-          fontSize: `${layout.fonts.name}px`,
-          fontStyle: 'bold',
-          maxLines: 1,
-          wordWrap: { width: cardLayout.nameWidth, useAdvancedWrap: true },
-        },
-      )
-        .setFixedSize(cardLayout.nameWidth, cardLayout.nameHeight)
-        .setCrop(0, 0, cardLayout.nameWidth, cardLayout.nameHeight)
-        .setVisible(cardLayout.nameWidth > 0);
-      const rarity = this.scene.add
-        .text(cardLeft + cardLayout.width - cardLayout.padding, cardTop + cardLayout.padding, definition.rarity, {
+        const number = own(this.scene.add.text(
+          cardLeft + cardLayout.padding,
+          cardTop + cardLayout.padding,
+          `${index + 1}.`,
+          {
+            color: '#ffffff',
+            fontFamily: 'Inter, sans-serif',
+            fontSize: `${layout.fonts.name}px`,
+            fontStyle: 'bold',
+          },
+        ));
+        number
+          .setFixedSize(cardLayout.numberWidth, cardLayout.nameHeight)
+          .setCrop(0, 0, cardLayout.numberWidth, cardLayout.nameHeight);
+        renderedText.push({ role: `number:${index}`, object: number });
+
+        if (cardLayout.nameWidth > 0) {
+          const name = own(this.scene.add.text(
+            cardLeft + cardLayout.nameX,
+            cardTop + cardLayout.padding,
+            definition.name,
+            {
+              color: '#ffffff',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: `${layout.fonts.name}px`,
+              fontStyle: 'bold',
+            },
+          ));
+          name
+            .setMaxLines(1)
+            .setWordWrapWidth(cardLayout.nameWidth, true)
+            .setFixedSize(cardLayout.nameWidth, cardLayout.nameHeight)
+            .setCrop(0, 0, cardLayout.nameWidth, cardLayout.nameHeight);
+          renderedText.push({ role: `name:${index}`, object: name });
+        }
+
+        const rarity = own(this.scene.add.text(
+          cardLeft + cardLayout.width - cardLayout.padding,
+          cardTop + cardLayout.padding,
+          definition.rarity,
+          {
           align: 'right',
           color: '#fbbf24',
           fontFamily: 'Inter, sans-serif',
           fontSize: `${layout.fonts.rarity}px`,
-        })
-        .setOrigin(1, 0)
-        .setFixedSize(cardLayout.rarityReserve, cardLayout.rarityHeight)
-        .setCrop(0, 0, cardLayout.rarityReserve, cardLayout.rarityHeight);
-      const showDescription =
-        cardLayout.descriptionHeight >= layout.fonts.description * 1.15;
-      const description = this.scene.add.text(
-        cardLeft + cardLayout.padding,
-        cardLayout.descriptionY,
-        definition.description,
-        {
-          color: '#d6f7ff',
-          fontFamily: 'Inter, sans-serif',
-          fontSize: `${layout.fonts.description}px`,
-          lineSpacing: layout.lineSpacing,
-          maxLines: Math.max(
-            1,
-            Math.min(3, Math.floor(cardLayout.descriptionHeight / (layout.fonts.description * 1.2))),
-          ),
-          wordWrap: {
-            width: cardLayout.width - cardLayout.padding * 2,
-            useAdvancedWrap: true,
           },
-        },
-      )
-        .setFixedSize(
-          cardLayout.width - cardLayout.padding * 2,
-          cardLayout.descriptionHeight,
-        )
-        .setCrop(
-          0,
-          0,
-          cardLayout.width - cardLayout.padding * 2,
-          cardLayout.descriptionHeight,
-        )
-        .setVisible(showDescription);
+        ));
+        rarity
+          .setOrigin(1, 0)
+          .setFixedSize(cardLayout.rarityReserve, cardLayout.rarityHeight)
+          .setCrop(0, 0, cardLayout.rarityReserve, cardLayout.rarityHeight);
+        renderedText.push({ role: `rarity:${index}`, object: rarity });
 
-      this.cardBackgrounds.push(card);
-      this.renderedText.push(
-        { role: `number:${index}`, object: number },
-        { role: `name:${index}`, object: name },
-        { role: `rarity:${index}`, object: rarity },
-        { role: `description:${index}`, object: description },
-      );
-      root.add([card, number, name, rarity, description]);
-    });
+        const descriptionWidth = Math.max(
+          0,
+          cardLayout.width - cardLayout.padding * 2,
+        );
+        const showDescription =
+          descriptionWidth > 0 &&
+          cardLayout.descriptionHeight >= layout.fonts.description * 1.15;
+        if (showDescription) {
+          const description = own(this.scene.add.text(
+            cardLeft + cardLayout.padding,
+            cardLayout.descriptionY,
+            definition.description,
+            {
+              color: '#d6f7ff',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: `${layout.fonts.description}px`,
+              lineSpacing: layout.lineSpacing,
+            },
+          ));
+          description
+            .setMaxLines(Math.max(
+              1,
+              Math.min(
+                3,
+                Math.floor(
+                  cardLayout.descriptionHeight /
+                  (layout.fonts.description * 1.2),
+                ),
+              ),
+            ))
+            .setWordWrapWidth(descriptionWidth, true)
+            .setFixedSize(descriptionWidth, cardLayout.descriptionHeight)
+            .setCrop(0, 0, descriptionWidth, cardLayout.descriptionHeight);
+          renderedText.push({
+            role: `description:${index}`,
+            object: description,
+          });
+        }
 
-    this.applyEnabledState();
+        cardBackgrounds.push(card);
+      });
+
+      this.root = root;
+      this.cardBackgrounds = cardBackgrounds;
+      this.renderedText = renderedText;
+      this.rebuildCount += 1;
+      this.applyEnabledState();
+    } catch (error) {
+      root.destroy(true);
+      throw error;
+    }
   }
 
   setEnabled(enabled: boolean): void {
