@@ -153,6 +153,17 @@ describe('offerCards', () => {
     expect(rng.weightedCalls).toEqual([]);
   });
 
+  it.each([
+    ['the same definition reference', (card: UpgradeDefinition) => [card, card]],
+    ['distinct definitions with one id', (card: UpgradeDefinition) => [card, { ...card }]],
+  ])('rejects duplicate IDs from %s before consuming RNG', (_name, duplicateCards) => {
+    const rng = new ScriptedRng();
+    const card = upgrade('duplicate');
+
+    expect(() => offerCards(duplicateCards(card), {}, rng, 2)).toThrow(/duplicate "duplicate"/);
+    expect(rng.weightedCalls).toEqual([]);
+  });
+
   it('exports the complete fixed positive finite rarity table', () => {
     expect(UPGRADE_RARITY_WEIGHTS).toEqual({
       common: 100,
@@ -328,6 +339,40 @@ describe('applyCard', () => {
     expect(run.upgradeStacks).toEqual({});
     expect(resolvedStats(run)).toEqual(statsBefore);
     expect(run.stats.countBySource('upgrade:partial:stack:1')).toBe(0);
+  });
+
+  it('rolls back modifiers when the stack record rejects the commit', () => {
+    const run = createTestRun();
+    Object.freeze(run.upgradeStacks);
+    const statsBefore = resolvedStats(run);
+    let result: boolean | undefined;
+
+    expect(() => {
+      result = applyCard(run, upgrade('frozen-stack'));
+    }).not.toThrow();
+    expect(result).toBe(false);
+    expect(run.upgradeStacks).toEqual({});
+    expect(resolvedStats(run)).toEqual(statsBefore);
+    expect(run.stats.countBySource('upgrade:frozen-stack:stack:1')).toBe(0);
+  });
+
+  it('rejects throwing definition getters without mutation', () => {
+    const run = createTestRun();
+    const card = Object.defineProperty(upgrade('throwing-getter'), 'effects', {
+      get() {
+        throw new Error('getter failed');
+      },
+    });
+    const statsBefore = resolvedStats(run);
+    let result: boolean | undefined;
+
+    expect(() => {
+      result = applyCard(run, card);
+    }).not.toThrow();
+    expect(result).toBe(false);
+    expect(run.upgradeStacks).toEqual({});
+    expect(resolvedStats(run)).toEqual(statsBefore);
+    expect(run.stats.countBySource('upgrade:throwing-getter:stack:1')).toBe(0);
   });
 
   it('rejects a pre-existing derived source without treating modifier count as stack count', () => {

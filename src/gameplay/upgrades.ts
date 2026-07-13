@@ -30,6 +30,7 @@ export function offerCards(
     return [];
   }
 
+  assertUniqueDefinitionIds(definitions);
   const eligible = definitions.filter((definition) => {
     if (!Number.isInteger(definition.maxStacks) || definition.maxStacks <= 0) {
       return false;
@@ -68,8 +69,17 @@ export function applyCard(run: RunState, definition: UpgradeDefinition): boolean
     return false;
   }
 
-  const id = definition.id;
-  const maxStacks = definition.maxStacks;
+  let id: unknown;
+  let maxStacks: unknown;
+  let effects: unknown;
+  try {
+    id = definition.id;
+    maxStacks = definition.maxStacks;
+    effects = definition.effects;
+  } catch {
+    return false;
+  }
+
   if (
     typeof id !== 'string' ||
     id.trim().length === 0 ||
@@ -80,7 +90,14 @@ export function applyCard(run: RunState, definition: UpgradeDefinition): boolean
     return false;
   }
 
-  const currentStack = readStack(run.upgradeStacks, id);
+  let currentStack: number | undefined;
+  let hadStack: boolean;
+  try {
+    hadStack = Object.prototype.hasOwnProperty.call(run.upgradeStacks, id);
+    currentStack = readStack(run.upgradeStacks, id);
+  } catch {
+    return false;
+  }
   if (currentStack === undefined || currentStack >= maxStacks) {
     return false;
   }
@@ -91,11 +108,22 @@ export function applyCard(run: RunState, definition: UpgradeDefinition): boolean
   }
 
   const sourceId = `upgrade:${id}:stack:${nextStack}`;
-  if (sourceId.length === 0 || run.stats.countBySource(sourceId) !== 0) {
+  let sourceCount: number;
+  try {
+    sourceCount = run.stats.countBySource(sourceId);
+  } catch {
+    return false;
+  }
+  if (sourceId.length === 0 || sourceCount !== 0) {
     return false;
   }
 
-  const modifiers = prepareModifiers(definition.effects, sourceId);
+  let modifiers: Modifier[] | undefined;
+  try {
+    modifiers = prepareModifiers(effects, sourceId);
+  } catch {
+    return false;
+  }
   if (!modifiers) {
     return false;
   }
@@ -104,13 +132,28 @@ export function applyCard(run: RunState, definition: UpgradeDefinition): boolean
     modifiers.forEach((modifier) => {
       run.stats.add(modifier);
     });
+    run.upgradeStacks[id] = nextStack;
+    if (run.upgradeStacks[id] !== nextStack) {
+      throw new Error('Upgrade stack commit was not retained');
+    }
   } catch {
     run.stats.remove(sourceId);
+    restoreStack(run.upgradeStacks, id, hadStack, currentStack);
     return false;
   }
 
-  run.upgradeStacks[id] = nextStack;
   return true;
+}
+
+function assertUniqueDefinitionIds(definitions: readonly UpgradeDefinition[]): void {
+  const seen = new Set<string>();
+  for (const definition of definitions) {
+    const id = definition.id;
+    if (seen.has(id)) {
+      throw new Error(`Upgrade offer requires unique definition IDs; duplicate "${id}"`);
+    }
+    seen.add(id);
+  }
 }
 
 function prepareModifiers(effects: unknown, sourceId: string): Modifier[] | undefined {
@@ -153,6 +196,24 @@ function readStack(
 
   const value = stacks[id];
   return Number.isSafeInteger(value) && value >= 0 ? value : undefined;
+}
+
+function restoreStack(
+  stacks: Record<string, number>,
+  id: string,
+  hadStack: boolean,
+  previousStack: number,
+): void {
+  try {
+    if (hadStack) {
+      stacks[id] = previousStack;
+    } else {
+      Reflect.deleteProperty(stacks, id);
+    }
+  } catch {
+    // A hostile stack record may also reject rollback; the modifier source has
+    // still been removed, and ordinary/frozen records retain the prior value.
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
