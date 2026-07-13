@@ -6,9 +6,38 @@ export interface Rng {
 }
 
 const MAX_UINT32 = 0xffff_ffff;
+const FNV1A_OFFSET_BASIS = 0x811c9dc5;
+const FNV1A_PRIME = 0x01000193;
 
 export function nextRunSeed(rng: Pick<Rng, 'int'>): number {
   return rng.int(0, MAX_UINT32);
+}
+
+/**
+ * Derives a stable uint32 seed for one named gameplay stream. The input is the
+ * normalized run seed plus the stream name, hashed with standard 32-bit FNV-1a
+ * over each JavaScript UTF-16 code unit's little-endian bytes, without a BOM.
+ * Owners create one RNG from the result and reuse it.
+ */
+export function deriveRunSeed(seed: number, stream: string): number {
+  if (!Number.isFinite(seed)) {
+    throw new Error('Run seed derivation requires a finite seed');
+  }
+  if (stream.length === 0) {
+    throw new Error('Run seed derivation requires a non-empty stream name');
+  }
+
+  const input = `${seed >>> 0}:${stream}`;
+  let hash = FNV1A_OFFSET_BASIS;
+  for (let index = 0; index < input.length; index += 1) {
+    const codeUnit = input.charCodeAt(index);
+    hash ^= codeUnit & 0xff;
+    hash = Math.imul(hash, FNV1A_PRIME);
+    hash ^= codeUnit >>> 8;
+    hash = Math.imul(hash, FNV1A_PRIME);
+  }
+
+  return hash >>> 0;
 }
 
 export function createRng(seed: number): Rng {

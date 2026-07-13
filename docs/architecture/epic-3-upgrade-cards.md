@@ -20,7 +20,7 @@ systems/UpgradeSystem.ts  <-- pending levels, current offer, pause/resume
         +--> card:offered / card:chosen events
         |
         v
-GameScene minimal chooser  <-- displays choices and sends chooseCard(id)
+GameScene minimal chooser  <-- displays choices and sends chooseCard(offerId, id)
 ```
 
 Epic 9 can replace the minimal chooser without changing offer or application
@@ -112,13 +112,17 @@ so a later effect cannot leave a partial card applied.
 
 ## Runtime Flow
 
-`UpgradeSystem` owns pending level-ups and the current offer:
+One shared coordination group per `RunState` owns the level-up subscription,
+pending levels, current offer, upgrade RNG, and pause lease. `UpgradeSystem`
+instances are lifecycle facades over that group:
 
 1. `level:up` enqueues the emitted level.
 2. If no offer is active, pause with reason `levelUp` and generate one offer.
-3. Emit `card:offered` with eligible IDs.
-4. The minimal chooser calls `chooseCard(upgradeId)`.
-5. Reject IDs not present in the current offer without changing state.
+3. Assign a monotonically increasing per-run `offerId`, then emit
+   `card:offered` with that token and the eligible IDs.
+4. The minimal chooser calls `chooseCard(offerId, upgradeId)`.
+5. Reject stale tokens or IDs not present in the matching current offer without
+   changing state.
 6. Apply the valid card, then emit `card:chosen`.
 7. If another level is queued, generate its offer while remaining paused.
 8. Resume only when the queue is empty.
@@ -126,10 +130,33 @@ so a later effect cannot leave a partial card applied.
 If no cards are eligible, consume that pending level and continue the queue. A
 depleted pool must never leave the run permanently paused.
 
-The coordinator owns event subscriptions and exposes an idempotent `destroy()`
-that unsubscribes and clears pending/current state. `GameScene` must invoke it
-from both Phaser `SHUTDOWN` (stop/restart) and `DESTROY` (direct scene removal)
-lifecycle paths so neither path can retain listeners or pending offers.
+The shared group owns event subscriptions and unresolved state. Duplicate
+facades join the group; destroying one facade preserves the queue, offer, RNG,
+and pause lease while another remains. Destroying the final facade clears the
+group and releases only its own pause lease. `GameScene` must destroy its facade
+from both Phaser `SHUTDOWN` (stop/restart) and `DESTROY` (direct scene removal).
+
+`card:offered` delivery is composable: its payload and ordered choices array are
+runtime-frozen, and the active snapshot remains readable by every listener. One
+immediate valid command may be queued during delivery, but
+application and `card:chosen` wait until all offered listeners return. A
+successful application retires its pending level before chosen listeners run;
+nested levels therefore append after the completed level rather than observing
+it at the queue head.
+
+The facade exposes one atomic display snapshot:
+
+```ts
+interface UpgradeOfferSnapshot {
+  offerId: number;
+  definitions: readonly UpgradeDefinition[];
+}
+```
+
+The first per-run coordination group clones all validated definition fields and
+each effect, then freezes that canonical registry once at construction. Offers,
+active state, snapshots, and application originate from the canonical registry.
+Definitions and effects returned in snapshots remain isolated copies.
 
 ## Randomness
 
@@ -146,7 +173,8 @@ Epic 3 owns a functional text/card chooser sufficient for playtesting. It may
 use Phaser text and keyboard/pointer input, but it only:
 
 - renders the definitions in the current offer;
-- sends the selected ID to `UpgradeSystem.chooseCard`;
+- sends the displayed offer token and selected ID to
+  `UpgradeSystem.chooseCard`;
 - reflects invalid/no-op commands without mutating gameplay state.
 
 Responsive layout, final visuals, inventory integration, and accessibility

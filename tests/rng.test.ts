@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createRng, nextRunSeed } from '../src/engine/rng';
+import { createRng, deriveRunSeed, nextRunSeed } from '../src/engine/rng';
 
 describe('createRng', () => {
   it('gives the same sequence for the same seed', () => {
@@ -61,5 +61,27 @@ describe('createRng', () => {
     const seeds = Array.from({ length: 8 }, () => nextRunSeed(menuRng));
     const lowTwentyOneBits = 0x1f_ffff;
     expect(seeds.some((seed) => (seed & lowTwentyOneBits) !== 0)).toBe(true);
+  });
+
+  it('derives stable, distinct named run streams', () => {
+    expect(deriveRunSeed(1234, 'upgrades')).toBe(1938223080);
+    expect(deriveRunSeed(42, '升级')).toBe(1112862886);
+    expect(deriveRunSeed(42, '🐱')).toBe(2374925705);
+    expect(deriveRunSeed(1234, 'upgrades')).not.toBe(deriveRunSeed(1234, 'spawns'));
+    expect(deriveRunSeed(1234, 'upgrades')).not.toBe(deriveRunSeed(5678, 'upgrades'));
+  });
+
+  it('normalizes finite run seeds to uint32 before derivation', () => {
+    expect(deriveRunSeed(-1, 'upgrades')).toBe(deriveRunSeed(0xffff_ffff, 'upgrades'));
+    expect(deriveRunSeed(1.9, 'upgrades')).toBe(deriveRunSeed(1, 'upgrades'));
+    expect(deriveRunSeed(0x1_0000_0001, 'upgrades')).toBe(deriveRunSeed(1, 'upgrades'));
+    expect(deriveRunSeed(-0, 'upgrades')).toBe(deriveRunSeed(0, 'upgrades'));
+  });
+
+  it('rejects invalid named stream inputs', () => {
+    expect(() => deriveRunSeed(Number.NaN, 'upgrades')).toThrow(/finite seed/);
+    expect(() => deriveRunSeed(Number.POSITIVE_INFINITY, 'upgrades')).toThrow(/finite seed/);
+    expect(() => deriveRunSeed(Number.NEGATIVE_INFINITY, 'upgrades')).toThrow(/finite seed/);
+    expect(() => deriveRunSeed(1234, '')).toThrow(/non-empty stream/);
   });
 });
