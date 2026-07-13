@@ -262,6 +262,38 @@ describe('UpgradeSystem choice handling and ordering', () => {
     expect(events).toEqual(['offered', 'chosen', 'offered', 'chosen', 'resumed']);
   });
 
+  it('handles synchronous enqueue and choice during card:offered without extra draws', () => {
+    let weightedCalls = 0;
+    const { system, runState, bus } = createSystem({
+      definitions: [damageUpgrade],
+      rng: createFirstRng(() => {
+        weightedCalls += 1;
+      }),
+    });
+    const events: string[] = [];
+    let enqueuedDuringOffer = false;
+    bus.on('card:offered', ({ choices }) => {
+      events.push('offered');
+      if (!enqueuedDuringOffer) {
+        enqueuedDuringOffer = true;
+        bus.emit('level:up', { level: 3 });
+      }
+      expect(system.chooseCard(choices[0] ?? '')).toBe(true);
+    });
+    bus.on('card:chosen', () => {
+      events.push('chosen');
+      expect(system.chooseCard('damage-up')).toBe(false);
+    });
+
+    bus.emit('level:up', { level: 2 });
+
+    expect(events).toEqual(['offered', 'chosen', 'offered', 'chosen']);
+    expect(weightedCalls).toBe(2);
+    expect(runState.upgradeStacks['damage-up']).toBe(2);
+    expect(system.pendingCount).toBe(0);
+    expect(runState.status).toBe('active');
+  });
+
   it('emits nothing and preserves pause state for invalid choices', () => {
     const { system, runState, bus } = createSystem();
     let chosenCount = 0;
@@ -289,6 +321,21 @@ describe('UpgradeSystem pause and lifecycle isolation', () => {
 
     expect(runState.status).toBe('paused');
     expect(runState.pauseReason).toBe('manual');
+  });
+
+  it('does not release a level-up pause acquired by another system', () => {
+    const runState = createActiveRun();
+    const bus = createEventBus();
+    const owner = createSystem({ runState, bus, definitions: [damageUpgrade] }).system;
+    bus.emit('level:up', { level: 2 });
+    const observer = createSystem({ runState, bus, definitions: [damageUpgrade] }).system;
+
+    observer.destroy();
+
+    expect(runState.status).toBe('paused');
+    expect(runState.pauseReason).toBe('levelUp');
+    expect(owner.currentOffer[0]?.id).toBe('damage-up');
+    expect(owner.pendingCount).toBe(1);
   });
 
   it('destroys idempotently, clears state, and rejects later commands and events', () => {
@@ -337,5 +384,38 @@ describe('UpgradeSystem pause and lifecycle isolation', () => {
 
     expect(offeredCount).toBe(0);
     expect(system.currentOffer).toEqual([]);
+  });
+
+  it('clears safely when destroyed during card:offered', () => {
+    const { system, runState, bus } = createSystem({ definitions: [damageUpgrade] });
+    let chosenCount = 0;
+    bus.on('card:offered', () => system.destroy());
+    bus.on('card:chosen', () => {
+      chosenCount += 1;
+    });
+
+    bus.emit('level:up', { level: 2 });
+    bus.emit('level:up', { level: 3 });
+
+    expect(chosenCount).toBe(0);
+    expect(system.pendingCount).toBe(0);
+    expect(system.currentOffer).toEqual([]);
+    expect(system.chooseCard('damage-up')).toBe(false);
+    expect(runState.status).toBe('active');
+  });
+
+  it('applies once and clears safely when destroyed during card:chosen', () => {
+    const { system, runState, bus } = createSystem({ definitions: [damageUpgrade] });
+    bus.on('card:chosen', () => system.destroy());
+    bus.emit('level:up', { level: 2 });
+
+    expect(system.chooseCard('damage-up')).toBe(true);
+
+    expect(runState.upgradeStacks['damage-up']).toBe(1);
+    expect(runState.stats.resolve('damage', 10)).toBe(12);
+    expect(system.pendingCount).toBe(0);
+    expect(system.currentOffer).toEqual([]);
+    expect(system.chooseCard('damage-up')).toBe(false);
+    expect(runState.status).toBe('active');
   });
 });

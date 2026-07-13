@@ -26,6 +26,7 @@ export class UpgradeSystem implements System {
   private processing = false;
   private processRequested = false;
   private destroyed = false;
+  private ownsLevelUpPause = false;
 
   constructor(private readonly options: UpgradeSystemOptions) {
     this.unsubscribeLevelUp = options.bus.on('level:up', ({ level }) => {
@@ -80,7 +81,7 @@ export class UpgradeSystem implements System {
     this.unsubscribeLevelUp();
     this.pendingLevels.clear();
     this.activeOffer = [];
-    resumeRun(this.options.runState, this.options.bus, 'levelUp');
+    this.releaseLevelUpPause();
   }
 
   private processPendingLevels(): void {
@@ -101,7 +102,7 @@ export class UpgradeSystem implements System {
           this.activeOffer.length === 0 &&
           this.pendingLevels.current() !== undefined
         ) {
-          pauseRun(this.options.runState, this.options.bus, 'levelUp');
+          this.acquireLevelUpPause();
           if (this.destroyed) {
             break;
           }
@@ -127,11 +128,39 @@ export class UpgradeSystem implements System {
           this.activeOffer.length === 0 &&
           this.pendingLevels.current() === undefined
         ) {
-          resumeRun(this.options.runState, this.options.bus, 'levelUp');
+          this.releaseLevelUpPause();
         }
       } while (this.processRequested && !this.destroyed);
     } finally {
       this.processing = false;
     }
   }
+
+  private acquireLevelUpPause(): void {
+    if (this.ownsLevelUpPause || this.options.runState.status !== 'active') {
+      return;
+    }
+
+    // Reserve ownership before emitting run:paused so reentrant cleanup can
+    // release the transition performed by this instance.
+    this.ownsLevelUpPause = true;
+    pauseRun(this.options.runState, this.options.bus, 'levelUp');
+    if (this.destroyed) {
+      return;
+    }
+    this.ownsLevelUpPause = isLevelUpPaused(this.options.runState);
+  }
+
+  private releaseLevelUpPause(): void {
+    if (!this.ownsLevelUpPause) {
+      return;
+    }
+
+    this.ownsLevelUpPause = false;
+    resumeRun(this.options.runState, this.options.bus, 'levelUp');
+  }
+}
+
+function isLevelUpPaused(runState: RunState): boolean {
+  return runState.status === 'paused' && runState.pauseReason === 'levelUp';
 }
