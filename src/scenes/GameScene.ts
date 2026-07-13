@@ -25,6 +25,7 @@ import { SpawnSystem } from '../systems/SpawnSystem';
 import { UpgradeSystem } from '../systems/UpgradeSystem';
 import { DataWeaponRegistry } from '../systems/weaponRegistry';
 import { WeaponSystem } from '../systems/WeaponSystem';
+import { UpgradeChooser } from '../ui/UpgradeChooser';
 
 export class GameScene extends Phaser.Scene {
   private audioManager?: AudioManager;
@@ -43,6 +44,7 @@ export class GameScene extends Phaser.Scene {
   private overlayText?: Phaser.GameObjects.Text;
   private physicsPausedByRun = false;
   private upgradeSystem?: UpgradeSystem;
+  private upgradeChooser?: UpgradeChooser;
 
   constructor() {
     super(SceneKey.Game);
@@ -92,6 +94,7 @@ export class GameScene extends Phaser.Scene {
       definitions: ctx.data.upgrades,
       rng: upgradeRng,
     });
+    this.upgradeChooser = new UpgradeChooser(this, ctx.bus, this.upgradeSystem);
     this.systems = [
       new SpawnSystem(this, ctx, this.runState, runRng, this.player, this.enemies, this.enemyGroup),
       new WeaponSystem(
@@ -201,11 +204,6 @@ export class GameScene extends Phaser.Scene {
     startRun(this.runState, ctx.bus);
   }
 
-  /** Temporary command seam for Slice 3 smoke tests and the Slice 4 chooser. */
-  chooseUpgrade(offerId: number, upgradeId: string): boolean {
-    return this.upgradeSystem?.chooseCard(offerId, upgradeId) ?? false;
-  }
-
   update(_time: number, delta: number): void {
     const runState = this.runState;
     const ctx = this.getContext();
@@ -249,6 +247,8 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.off('keydown-R', this.restartRun, this);
     this.input.keyboard?.off('keydown-F8', this.forceLoseRun, this);
     this.input.keyboard?.off('keydown-F9', this.forceWinRun, this);
+    this.upgradeChooser?.destroy();
+    this.upgradeChooser = undefined;
     this.systems.forEach((system) => {
       system.destroy();
     });
