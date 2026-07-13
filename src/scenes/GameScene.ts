@@ -202,8 +202,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** Temporary command seam for Slice 3 smoke tests and the Slice 4 chooser. */
-  chooseUpgrade(upgradeId: string): boolean {
-    return this.upgradeSystem?.chooseCard(upgradeId) ?? false;
+  chooseUpgrade(offerId: number, upgradeId: string): boolean {
+    return this.upgradeSystem?.chooseCard(offerId, upgradeId) ?? false;
   }
 
   update(_time: number, delta: number): void {

@@ -79,7 +79,7 @@ interface GameEventMap {
   'projectile:hit':   { x: number; y: number; damage: number; killed: boolean };
   'xp:gained':        { amount: number; total: number };
   'level:up':         { level: number };
-  'card:offered':     { choices: string[] };      // upgrade ids
+  'card:offered':     { offerId: number; choices: string[] }; // token + upgrade ids
   'card:chosen':      { upgradeId: string };
   'weapon:merged':    { fromId: string; toId: string };
   'drop:collected':   { kind: 'xp' | 'scrap'; amount: number; x: number; y: number };
@@ -233,8 +233,15 @@ Rules:
   instruction to select a weapon instance.
 - Multi-level gains queue one choice per emitted `level:up`. The run resumes
   only after every queued choice is resolved.
-- `card:offered` publishes eligible IDs. `card:chosen` is emitted only after a
-  valid currently offered ID has been applied.
+- One coordination group per `RunState` owns the upgrade subscription, FIFO,
+  offer, run-scoped RNG, and pause lease; duplicate `UpgradeSystem` facades join
+  it without duplicating state or draws.
+- `card:offered` publishes a monotonically increasing per-run `offerId` with
+  eligible IDs. Commands require both token and ID, so an old UI command cannot
+  select the same ID from a later offer.
+- Offered-listener commands are deferred until every listener can read the
+  matching snapshot. `card:chosen` is emitted only after a valid current-token
+  choice has been applied and its pending level retired.
 - If no eligible cards remain, the queue advances without deadlocking the run.
 
 ### Save data (Epic 0 owns `src/systems/save.ts`)
