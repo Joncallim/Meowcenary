@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import { STAT_KEYS, type StatKey } from '../src/gameplay/stats';
 import {
   collectValidationErrors,
   loadGameData,
   validateGameData,
 } from '../src/systems/validation';
+
+function withFirstUpgradeEffects(effects: unknown): ReturnType<typeof loadGameData> {
+  const data = structuredClone(loadGameData());
+  (data.upgrades[0] as unknown as { effects: unknown }).effects = effects;
+  return data;
+}
 
 describe('game data validation', () => {
   it('validates starter JSON', () => {
@@ -126,6 +133,102 @@ describe('game data validation', () => {
     const badSpread = structuredClone(data);
     badSpread.weapons[0].spreadDeg = Number.NaN;
     expect(() => validateGameData(badSpread)).toThrow(/weapons\.json\[0\]\.spreadDeg/);
+  });
+
+  it('accepts an upgrade with a single valid effect', () => {
+    const data = withFirstUpgradeEffects([{ stat: 'moveSpeed', op: 'mult', value: 1.1 }]);
+    expect(() => validateGameData(data)).not.toThrow();
+  });
+
+  it('accepts attackSpeed as the canonical fire-cadence upgrade stat', () => {
+    const cadenceStat: StatKey = 'attackSpeed';
+    const data = withFirstUpgradeEffects([{ stat: cadenceStat, op: 'mult', value: 1.1 }]);
+
+    expect(STAT_KEYS).toContain(cadenceStat);
+    expect(() => validateGameData(data)).not.toThrow();
+  });
+
+  it('accepts an upgrade with multiple valid effects', () => {
+    const data = withFirstUpgradeEffects([
+      { stat: 'moveSpeed', op: 'mult', value: 1.1 },
+      { stat: 'damage', op: 'add', value: 3 },
+    ]);
+    expect(() => validateGameData(data)).not.toThrow();
+  });
+
+  it('rejects missing or empty upgrade effects', () => {
+    expect(() => validateGameData(withFirstUpgradeEffects([]))).toThrow(
+      /upgrades\.json\[0\]\.effects/,
+    );
+
+    const missing = structuredClone(loadGameData());
+    Reflect.deleteProperty(missing.upgrades[0], 'effects');
+    expect(() => validateGameData(missing)).toThrow(/upgrades\.json\[0\]\.effects/);
+  });
+
+  it('rejects unknown effect stat keys', () => {
+    expect(() =>
+      validateGameData(withFirstUpgradeEffects([{ stat: 'bogus', op: 'mult', value: 1 }])),
+    ).toThrow(/upgrades\.json\[0\]\.effects\[0\]\.stat/);
+  });
+
+  it('rejects fireRate as an unknown upgrade stat', () => {
+    expect(() =>
+      validateGameData(withFirstUpgradeEffects([{ stat: 'fireRate', op: 'mult', value: 1.1 }])),
+    ).toThrow(/upgrades\.json\[0\]\.effects\[0\]\.stat: unknown stat key/);
+  });
+
+  it('rejects invalid effect operations', () => {
+    expect(() =>
+      validateGameData(withFirstUpgradeEffects([{ stat: 'damage', op: 'divide', value: 1 }])),
+    ).toThrow(/upgrades\.json\[0\]\.effects\[0\]\.op/);
+  });
+
+  it('rejects non-finite and non-number effect values', () => {
+    for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, 'x']) {
+      expect(() =>
+        validateGameData(withFirstUpgradeEffects([{ stat: 'damage', op: 'add', value }])),
+      ).toThrow(/upgrades\.json\[0\]\.effects\[0\]\.value/);
+    }
+  });
+
+  it('rejects malformed effect entries', () => {
+    expect(() => validateGameData(withFirstUpgradeEffects([42]))).toThrow(
+      /upgrades\.json\[0\]\.effects\[0\]: expected object/,
+    );
+  });
+
+  it('rejects zero and negative stack limits', () => {
+    const zero = structuredClone(loadGameData());
+    zero.upgrades[0].maxStacks = 0;
+    expect(() => validateGameData(zero)).toThrow(/upgrades\.json\[0\]\.maxStacks/);
+
+    const negative = structuredClone(loadGameData());
+    negative.upgrades[0].maxStacks = -1;
+    expect(() => validateGameData(negative)).toThrow(/upgrades\.json\[0\]\.maxStacks/);
+  });
+
+  it('rejects duplicate upgrade ids', () => {
+    const data = structuredClone(loadGameData());
+    data.upgrades.push(structuredClone(data.upgrades[0]));
+    expect(() => validateGameData(data)).toThrow(/duplicate id "quick-paws"/);
+  });
+
+  it('accepts the shipped upgrade pool as non-empty, global-scoped effects', () => {
+    const data = loadGameData();
+
+    expect(data.upgrades.length).toBeGreaterThan(0);
+    for (const upgrade of data.upgrades) {
+      expect(upgrade.effects.length).toBeGreaterThan(0);
+      for (const effect of upgrade.effects) {
+        expect(['add', 'mult']).toContain(effect.op);
+        expect(Number.isFinite(effect.value)).toBe(true);
+      }
+      // Epic 3 modifiers are run-global; copy must never claim a single-weapon scope.
+      expect(upgrade.description.toLowerCase()).toContain('this run');
+      expect(upgrade.description.toLowerCase()).not.toMatch(/one\b.*weapon|single weapon/);
+      expect(upgrade.description.toLowerCase()).not.toContain('coin');
+    }
   });
 
   it('can collect row errors without throwing', () => {

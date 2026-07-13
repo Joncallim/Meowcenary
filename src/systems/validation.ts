@@ -2,6 +2,7 @@ import enemiesJson from '../data/enemies.json';
 import spawnCurvesJson from '../data/spawn-curves.json';
 import upgradesJson from '../data/upgrades.json';
 import weaponsJson from '../data/weapons.json';
+import { STAT_KEYS } from '../gameplay/stats';
 import { DEFAULT_WEAPON_FAMILIES } from '../gameplay/weapons';
 import type {
   EnemyDefinition,
@@ -21,6 +22,8 @@ const ENEMY_ARCHETYPES = new Set<EnemyDefinition['archetype']>([
   'boss',
 ]);
 const UPGRADE_TARGETS = new Set<UpgradeDefinition['target']>(['player', 'weapon', 'economy', 'run']);
+const STAT_KEY_SET = new Set<string>(STAT_KEYS);
+const UPGRADE_OPS = new Set(['add', 'mult']);
 
 export type RowCheck = (row: unknown, index: number) => string[];
 
@@ -137,7 +140,35 @@ function checkUpgrade(row: unknown): string[] {
   requireEnum(upgrade, 'target', UPGRADE_TARGETS, errors);
   requireString(upgrade, 'description', errors);
   requirePositiveInteger(upgrade, 'maxStacks', errors);
+  checkUpgradeEffects(upgrade, errors);
   return errors;
+}
+
+function checkUpgradeEffects(upgrade: Record<string, unknown>, errors: string[]): void {
+  const effects = upgrade.effects;
+  if (!Array.isArray(effects) || effects.length === 0) {
+    errors.push('effects: required non-empty array');
+    return;
+  }
+
+  effects.forEach((effect, index) => {
+    if (!isRecord(effect)) {
+      errors.push(`effects[${index}]: expected object`);
+      return;
+    }
+
+    if (typeof effect.stat !== 'string' || !STAT_KEY_SET.has(effect.stat)) {
+      errors.push(`effects[${index}].stat: unknown stat key`);
+    }
+
+    if (typeof effect.op !== 'string' || !UPGRADE_OPS.has(effect.op)) {
+      errors.push(`effects[${index}].op: must be "add" or "mult"`);
+    }
+
+    if (typeof effect.value !== 'number' || !Number.isFinite(effect.value)) {
+      errors.push(`effects[${index}].value: required finite number`);
+    }
+  });
 }
 
 function checkSpawnCurveShape(row: unknown): string[] {
