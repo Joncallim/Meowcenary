@@ -1,12 +1,11 @@
 import Phaser from 'phaser';
 import { GAME_CONTEXT_REGISTRY_KEY, type GameContext } from '../engine/context';
 import { RuntimeConfig } from '../engine/config';
-import { createRng, nextRunSeed } from '../engine/rng';
+import { createRng, deriveRunSeed, nextRunSeed } from '../engine/rng';
 import { SceneKey } from '../engine/sceneKeys';
 import type { System } from '../engine/system';
 import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
-import { PendingLevelUps } from '../gameplay/levelUpQueue';
 import { createDefaultWeaponLoadout } from '../gameplay/weapons';
 import {
   canRestartRun,
@@ -23,6 +22,7 @@ import { DebugOverlay } from '../systems/debug';
 import { DropSystem } from '../systems/DropSystem';
 import { InputController } from '../systems/input';
 import { SpawnSystem } from '../systems/SpawnSystem';
+import { UpgradeSystem } from '../systems/UpgradeSystem';
 import { DataWeaponRegistry } from '../systems/weaponRegistry';
 import { WeaponSystem } from '../systems/WeaponSystem';
 
@@ -42,7 +42,7 @@ export class GameScene extends Phaser.Scene {
   private centerText?: Phaser.GameObjects.Text;
   private overlayText?: Phaser.GameObjects.Text;
   private physicsPausedByRun = false;
-  private readonly pendingLevelUps = new PendingLevelUps();
+  private upgradeSystem?: UpgradeSystem;
 
   constructor() {
     super(SceneKey.Game);
@@ -59,6 +59,7 @@ export class GameScene extends Phaser.Scene {
       arenaId: spawnCurve?.id ?? 'arena',
     });
     const runRng = createRng(this.runState.seed);
+    const upgradeRng = createRng(deriveRunSeed(this.runState.seed, 'upgrades'));
     const weaponRegistry = new DataWeaponRegistry(ctx.data);
     this.runState.equipped = createDefaultWeaponLoadout(weaponRegistry);
 
@@ -85,6 +86,12 @@ export class GameScene extends Phaser.Scene {
       RuntimeConfig.gameplay.xpDrop.radius,
       RuntimeConfig.gameplay.player.pickupRadius,
     );
+    this.upgradeSystem = new UpgradeSystem({
+      runState: this.runState,
+      bus: ctx.bus,
+      definitions: ctx.data.upgrades,
+      rng: upgradeRng,
+    });
     this.systems = [
       new SpawnSystem(this, ctx, this.runState, runRng, this.player, this.enemies, this.enemyGroup),
       new WeaponSystem(
@@ -100,6 +107,7 @@ export class GameScene extends Phaser.Scene {
         RuntimeConfig.gameplay.projectile.radius,
       ),
       dropSystem,
+      this.upgradeSystem,
       this.audioManager,
     ];
 
@@ -112,22 +120,16 @@ export class GameScene extends Phaser.Scene {
     );
     this.input.keyboard?.on('keydown-P', this.togglePause, this);
     this.input.keyboard?.on('keydown-ESC', this.togglePause, this);
-    this.input.keyboard?.on('keydown-SPACE', this.confirmOverlay, this);
     if (RuntimeConfig.isDev) {
       this.input.keyboard?.on('keydown-F8', this.forceLoseRun, this);
       this.input.keyboard?.on('keydown-F9', this.forceWinRun, this);
     }
-    this.input.on('pointerdown', this.confirmOverlay, this);
     this.unsubscribers.push(
-      ctx.bus.on('level:up', ({ level }) => {
-        const shouldPresent = this.pendingLevelUps.enqueue(level);
-        if (!shouldPresent) {
-          return;
-        }
-
-        pauseRun(this.requireRunState(), ctx.bus, 'levelUp');
+      ctx.bus.on('run:paused', () => {
         this.syncPhysicsPause(this.requireRunState());
-        this.showPendingLevelUp(ctx);
+      }),
+      ctx.bus.on('run:resumed', () => {
+        this.syncPhysicsPause(this.requireRunState());
       }),
       ctx.bus.on('run:won', () => {
         this.syncPhysicsPause(this.requireRunState());
@@ -141,6 +143,7 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-R', this.restartRun, this);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
+    this.events.once(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
 
     this.add.rectangle(width / 2, height / 2, width - 24, height - 24, 0x16202a).setStrokeStyle(2, 0x2dd4bf, 0.28);
     this.add
@@ -198,6 +201,11 @@ export class GameScene extends Phaser.Scene {
     startRun(this.runState, ctx.bus);
   }
 
+  /** Temporary command seam for Slice 3 smoke tests and the Slice 4 chooser. */
+  chooseUpgrade(upgradeId: string): boolean {
+    return this.upgradeSystem?.chooseCard(upgradeId) ?? false;
+  }
+
   update(_time: number, delta: number): void {
     const runState = this.runState;
     const ctx = this.getContext();
@@ -230,17 +238,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleShutdown(): void {
+    this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
+    this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
     this.unsubscribers.forEach((unsubscribe) => {
       unsubscribe();
     });
     this.unsubscribers = [];
     this.input.keyboard?.off('keydown-P', this.togglePause, this);
     this.input.keyboard?.off('keydown-ESC', this.togglePause, this);
-    this.input.keyboard?.off('keydown-SPACE', this.confirmOverlay, this);
     this.input.keyboard?.off('keydown-R', this.restartRun, this);
     this.input.keyboard?.off('keydown-F8', this.forceLoseRun, this);
     this.input.keyboard?.off('keydown-F9', this.forceWinRun, this);
-    this.input.off('pointerdown', this.confirmOverlay, this);
     this.systems.forEach((system) => {
       system.destroy();
     });
@@ -253,8 +261,8 @@ export class GameScene extends Phaser.Scene {
     this.inputController = undefined;
     this.debugOverlay = undefined;
     this.audioManager = undefined;
+    this.upgradeSystem = undefined;
     this.runState = undefined;
-    this.pendingLevelUps.clear();
     if (this.physicsPausedByRun) {
       this.physics.world?.resume();
       this.physicsPausedByRun = false;
@@ -316,31 +324,6 @@ export class GameScene extends Phaser.Scene {
       this.syncPhysicsPause(runState);
       this.hideOverlay();
     }
-  }
-
-  private confirmOverlay(): void {
-    const runState = this.runState;
-    if (
-      !runState ||
-      runState.status !== 'paused' ||
-      runState.pauseReason !== 'levelUp' ||
-      !this.overlayText?.visible ||
-      this.pendingLevelUps.current() === undefined
-    ) {
-      return;
-    }
-
-    const ctx = this.getContext();
-    ctx.bus.emit('card:chosen', { upgradeId: 'placeholder-upgrade' });
-    const nextLevel = this.pendingLevelUps.completeCurrent();
-    if (nextLevel !== undefined) {
-      this.showPendingLevelUp(ctx);
-      return;
-    }
-
-    resumeRun(runState, ctx.bus, 'levelUp');
-    this.syncPhysicsPause(runState);
-    this.hideOverlay();
   }
 
   private restartRun(): void {
@@ -410,16 +393,6 @@ export class GameScene extends Phaser.Scene {
 
   private hideOverlay(): void {
     this.overlayText?.setVisible(false);
-  }
-
-  private showPendingLevelUp(ctx: GameContext): void {
-    const level = this.pendingLevelUps.current();
-    if (level === undefined) {
-      return;
-    }
-
-    ctx.bus.emit('card:offered', { choices: ['placeholder-upgrade'] });
-    this.showOverlay(`Level ${level}\nChoose: Field Tune-Up\nSpace / click to continue`);
   }
 
   private syncPhysicsPause(runState: RunState): void {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createRng, nextRunSeed } from '../src/engine/rng';
+import { createRng, deriveRunSeed, nextRunSeed } from '../src/engine/rng';
 
 describe('createRng', () => {
   it('gives the same sequence for the same seed', () => {
@@ -61,5 +61,16 @@ describe('createRng', () => {
     const seeds = Array.from({ length: 8 }, () => nextRunSeed(menuRng));
     const lowTwentyOneBits = 0x1f_ffff;
     expect(seeds.some((seed) => (seed & lowTwentyOneBits) !== 0)).toBe(true);
+  });
+
+  it('derives stable, distinct named run streams', () => {
+    expect(deriveRunSeed(1234, 'upgrades')).toBe(deriveRunSeed(1234, 'upgrades'));
+    expect(deriveRunSeed(1234, 'upgrades')).not.toBe(deriveRunSeed(1234, 'spawns'));
+    expect(deriveRunSeed(1234, 'upgrades')).not.toBe(deriveRunSeed(5678, 'upgrades'));
+  });
+
+  it('rejects invalid named stream inputs', () => {
+    expect(() => deriveRunSeed(Number.NaN, 'upgrades')).toThrow(/finite seed/);
+    expect(() => deriveRunSeed(1234, '')).toThrow(/non-empty stream/);
   });
 });

@@ -23,4 +23,6 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [BootScene, GameScene],
 };
 
-new Phaser.Game(config);
+// Exported as a minimal Slice 3 browser-smoke seam; gameplay ownership remains
+// in the scene and systems rather than on a global window object.
+export const game = new Phaser.Game(config);
