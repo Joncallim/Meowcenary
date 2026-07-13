@@ -136,8 +136,9 @@ and pause lease while another remains. Destroying the final facade clears the
 group and releases only its own pause lease. `GameScene` must destroy its facade
 from both Phaser `SHUTDOWN` (stop/restart) and `DESTROY` (direct scene removal).
 
-`card:offered` delivery is composable: the active snapshot remains readable by
-every listener. One immediate valid command may be queued during delivery, but
+`card:offered` delivery is composable: its payload and ordered choices array are
+runtime-frozen, and the active snapshot remains readable by every listener. One
+immediate valid command may be queued during delivery, but
 application and `card:chosen` wait until all offered listeners return. A
 successful application retires its pending level before chosen listeners run;
 nested levels therefore append after the completed level rather than observing
@@ -152,8 +153,10 @@ interface UpgradeOfferSnapshot {
 }
 ```
 
-Definitions and effects in that snapshot are copies. The group retains the
-original validated definitions for guarded application.
+The first per-run coordination group clones all validated definition fields and
+each effect, then freezes that canonical registry once at construction. Offers,
+active state, snapshots, and application originate from the canonical registry.
+Definitions and effects returned in snapshots remain isolated copies.
 
 ## Randomness
 
