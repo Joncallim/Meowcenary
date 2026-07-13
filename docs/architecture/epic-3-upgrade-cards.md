@@ -54,12 +54,14 @@ Validation must reject:
 - empty effects;
 - unknown stat keys or operations;
 - non-finite numeric values;
-- non-positive `maxStacks`;
+- non-positive or non-integer `maxStacks`;
 - duplicate upgrade IDs.
 
 Player-facing descriptions must match actual scope. Epic 3 applies global run
 modifiers, so a card cannot claim to modify only one equipped weapon. Targeted
 weapon-instance modifiers require a future typed store and are out of scope.
+`target` remains classification/presentation metadata in Epic 3; it must not
+select a weapon instance or change the run-global application path.
 
 `currencyGain` is valid data but has no visible consumer until Epic 8 adds scrap
 drops. The initial offer pool should prioritize effects consumed by the current
@@ -85,8 +87,14 @@ function applyCard(run: RunState, definition: UpgradeDefinition): boolean;
 replacement using rarity weights. It returns fewer than `count` only when the
 eligible pool is smaller. It never mutates definitions or stack state.
 
-`applyCard` validates the stack limit again, increments
-`run.upgradeStacks[definition.id]`, and adds each effect with a stable source:
+The rarity-weight table is complete and fixed for Epic 3: `common: 100`,
+`uncommon: 60`, `rare: 30`, `epic: 10`, and `legendary: 3`. Every supported
+rarity therefore maps to a positive finite weight. `offerCards` must reject an
+invalid or non-finite total before calling the injected RNG; it must never pass
+zero, invalid, or overflowed totals to `Rng.weighted`.
+
+`applyCard` validates the stack limit again, derives the next one-based stack
+number, and assigns each effect a stable source:
 
 ```text
 upgrade:<definition id>:stack:<one-based stack number>
@@ -95,6 +103,12 @@ upgrade:<definition id>:stack:<one-based stack number>
 The boolean result reports whether application occurred. Stack limits come
 only from `upgradeStacks`; modifier count is not equivalent because one card
 can contain several effects.
+
+Application is transactional. `applyCard` preflights the stack limit and every
+effect before mutating either `upgradeStacks` or `ModifierStack`. A maxed or
+invalid definition returns `false` without mutation. Only after the complete
+preflight succeeds may it add every effect and commit the one stack increment,
+so a later effect cannot leave a partial card applied.
 
 ## Runtime Flow
 
@@ -112,16 +126,19 @@ can contain several effects.
 If no cards are eligible, consume that pending level and continue the queue. A
 depleted pool must never leave the run permanently paused.
 
-The coordinator owns event subscriptions and exposes `destroy()` so scene
-restart cannot retain listeners or pending offers.
+The coordinator owns event subscriptions and exposes an idempotent `destroy()`
+that unsubscribes and clears pending/current state. `GameScene` must invoke it
+from both Phaser `SHUTDOWN` (stop/restart) and `DESTROY` (direct scene removal)
+lifecycle paths so neither path can retain listeners or pending offers.
 
 ## Randomness
 
-Card generation receives a run-scoped RNG created once for the upgrade stream.
-Do not create a new RNG for every offer and do not use `GameContext.menuRng`.
-The implementation should add a deterministic named-stream seed helper if card
-offers need to remain independent from spawn RNG consumption; do not use an
-undocumented XOR constant in scene code.
+Card generation receives a dedicated run-scoped RNG created once for the named
+upgrade stream. Its seed is derived deterministically from `RunState.seed` by a
+documented and tested engine helper. Do not create a new RNG for every offer,
+reuse the spawn stream, or use `GameContext.menuRng`. The named stream keeps the
+offer sequence independent from spawn RNG consumption; do not hide derivation
+behind an undocumented XOR constant in scene code.
 
 ## Minimal UI Boundary
 
@@ -152,9 +169,12 @@ Each slice must keep lint, tests, and production build green.
 - Choices are distinct and maxed upgrades are excluded.
 - Invalid or stale choices do nothing and keep the current offer active.
 - One valid choice produces one stack increment and the declared modifiers.
+- A failed multi-effect application leaves stacks and modifiers unchanged.
 - Multi-level XP produces one resolved choice per level in FIFO order.
 - No eligible cards cannot deadlock the run.
 - Manual pause cannot resolve or resume a level-up pause.
-- Scene restart leaves no upgrade listeners or pending selections behind.
+- Scene restart and direct destruction leave no upgrade listeners or pending
+  selections behind; repeated cleanup is harmless.
+- Spawn-stream consumption does not change the named upgrade offer sequence.
 - At least one shipped card visibly changes movement or combat in a browser
   playtest.
