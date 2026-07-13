@@ -6,6 +6,7 @@ import { SceneKey } from '../engine/sceneKeys';
 import type { System } from '../engine/system';
 import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
+import { PendingLevelUps } from '../gameplay/levelUpQueue';
 import { createDefaultWeaponLoadout } from '../gameplay/weapons';
 import {
   canRestartRun,
@@ -41,6 +42,7 @@ export class GameScene extends Phaser.Scene {
   private centerText?: Phaser.GameObjects.Text;
   private overlayText?: Phaser.GameObjects.Text;
   private physicsPausedByRun = false;
+  private readonly pendingLevelUps = new PendingLevelUps();
 
   constructor() {
     super(SceneKey.Game);
@@ -118,10 +120,14 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointerdown', this.confirmOverlay, this);
     this.unsubscribers.push(
       ctx.bus.on('level:up', ({ level }) => {
+        const shouldPresent = this.pendingLevelUps.enqueue(level);
+        if (!shouldPresent) {
+          return;
+        }
+
         pauseRun(this.requireRunState(), ctx.bus, 'levelUp');
         this.syncPhysicsPause(this.requireRunState());
-        ctx.bus.emit('card:offered', { choices: ['placeholder-upgrade'] });
-        this.showOverlay(`Level ${level}\nChoose: Field Tune-Up\nSpace / click to continue`);
+        this.showPendingLevelUp(ctx);
       }),
       ctx.bus.on('run:won', () => {
         this.syncPhysicsPause(this.requireRunState());
@@ -248,6 +254,7 @@ export class GameScene extends Phaser.Scene {
     this.debugOverlay = undefined;
     this.audioManager = undefined;
     this.runState = undefined;
+    this.pendingLevelUps.clear();
     if (this.physicsPausedByRun) {
       this.physics.world?.resume();
       this.physicsPausedByRun = false;
@@ -317,13 +324,21 @@ export class GameScene extends Phaser.Scene {
       !runState ||
       runState.status !== 'paused' ||
       runState.pauseReason !== 'levelUp' ||
-      !this.overlayText?.visible
+      !this.overlayText?.visible ||
+      this.pendingLevelUps.current() === undefined
     ) {
       return;
     }
 
-    this.getContext().bus.emit('card:chosen', { upgradeId: 'placeholder-upgrade' });
-    resumeRun(runState, this.getContext().bus, 'levelUp');
+    const ctx = this.getContext();
+    ctx.bus.emit('card:chosen', { upgradeId: 'placeholder-upgrade' });
+    const nextLevel = this.pendingLevelUps.completeCurrent();
+    if (nextLevel !== undefined) {
+      this.showPendingLevelUp(ctx);
+      return;
+    }
+
+    resumeRun(runState, ctx.bus, 'levelUp');
     this.syncPhysicsPause(runState);
     this.hideOverlay();
   }
@@ -395,6 +410,16 @@ export class GameScene extends Phaser.Scene {
 
   private hideOverlay(): void {
     this.overlayText?.setVisible(false);
+  }
+
+  private showPendingLevelUp(ctx: GameContext): void {
+    const level = this.pendingLevelUps.current();
+    if (level === undefined) {
+      return;
+    }
+
+    ctx.bus.emit('card:offered', { choices: ['placeholder-upgrade'] });
+    this.showOverlay(`Level ${level}\nChoose: Field Tune-Up\nSpace / click to continue`);
   }
 
   private syncPhysicsPause(runState: RunState): void {

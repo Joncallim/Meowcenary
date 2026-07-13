@@ -1,5 +1,16 @@
 # Roadmap
 
+## Current Position
+
+- Epic 0 / Foundation: complete (#1).
+- Epic 1 / Core Gameplay Loop: complete (#2).
+- Epic 2 / Weapons and Merge System: complete (#3).
+- Epic 3 / Upgrade Cards: next (#4).
+
+The current `main` branch is the clean post-Epic-2 baseline. The placeholder
+level-up acknowledgement remains intentionally minimal and is replaced by Epic
+3's seeded card offers and applied run modifiers.
+
 ## Milestone 0: Foundation
 
 - Vite, Phaser, TypeScript scaffold.
