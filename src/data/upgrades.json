@@ -13,7 +13,7 @@
     "name": "Extra Scrap",
     "rarity": "common",
     "target": "economy",
-    "description": "Increase coin drops for this run.",
+    "description": "Increase scrap gained for this run.",
     "maxStacks": 3,
     "effects": [{ "stat": "currencyGain", "op": "mult", "value": 1.25 }]
   },

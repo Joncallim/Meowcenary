@@ -210,7 +210,9 @@ describe('game data validation', () => {
         expect(Number.isFinite(effect.value)).toBe(true);
       }
       // Epic 3 modifiers are run-global; copy must never claim a single-weapon scope.
+      expect(upgrade.description.toLowerCase()).toContain('this run');
       expect(upgrade.description.toLowerCase()).not.toMatch(/one\b.*weapon|single weapon/);
+      expect(upgrade.description.toLowerCase()).not.toContain('coin');
     }
   });
 
