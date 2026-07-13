@@ -13,7 +13,7 @@ export interface GameEventMap {
   'projectile:hit': { x: number; y: number; damage: number; killed: boolean };
   'xp:gained': { amount: number; total: number };
   'level:up': { level: number };
-  'card:offered': { offerId: number; choices: string[] };
+  'card:offered': { offerId: number; choices: readonly string[] };
   'card:chosen': { upgradeId: string };
   'weapon:merged': { fromId: string; toId: string };
   'drop:collected': { kind: 'xp' | 'scrap'; amount: number; x: number; y: number };

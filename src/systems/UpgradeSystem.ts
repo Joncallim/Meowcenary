@@ -97,6 +97,7 @@ export class UpgradeSystem implements System {
 }
 
 class UpgradeCoordinationGroup {
+  private readonly options: UpgradeSystemOptions;
   private readonly members = new Set<UpgradeSystem>();
   private readonly pendingLevels = new PendingLevelUps();
   private readonly unsubscribeLevelUp: () => void;
@@ -113,8 +114,12 @@ class UpgradeCoordinationGroup {
   private ownsLevelUpPause = false;
   private disposed = false;
 
-  constructor(private readonly options: UpgradeSystemOptions) {
-    this.unsubscribeLevelUp = options.bus.on('level:up', ({ level }) => {
+  constructor(options: UpgradeSystemOptions) {
+    this.options = {
+      ...options,
+      definitions: canonicalDefinitions(options.definitions),
+    };
+    this.unsubscribeLevelUp = this.options.bus.on('level:up', ({ level }) => {
       if (!this.isLive) {
         return;
       }
@@ -122,7 +127,7 @@ class UpgradeCoordinationGroup {
       this.pendingLevels.enqueue(level);
       this.requestProcessing();
     });
-    this.unsubscribeRunResumed = options.bus.on('run:resumed', () => {
+    this.unsubscribeRunResumed = this.options.bus.on('run:resumed', () => {
       this.ownsLevelUpPause = false;
       if (this.hasUnresolvedWork) {
         this.ensureLevelUpPause();
@@ -294,10 +299,11 @@ class UpgradeCoordinationGroup {
     this.deliveringOffer = true;
     this.queuedChoice = undefined;
     try {
-      this.options.bus.emit('card:offered', {
+      const payload = Object.freeze({
         offerId: offer.offerId,
-        choices: offer.definitions.map((definition) => definition.id),
+        choices: Object.freeze(offer.definitions.map((definition) => definition.id)),
       });
+      this.options.bus.emit('card:offered', payload);
     } finally {
       this.deliveringOffer = false;
     }
@@ -425,4 +431,18 @@ function snapshotDefinitions(
     ...definition,
     effects: definition.effects.map((effect) => ({ ...effect })),
   }));
+}
+
+function canonicalDefinitions(
+  definitions: readonly UpgradeDefinition[],
+): readonly UpgradeDefinition[] {
+  const canonical = definitions.map((definition) => {
+    const effects = definition.effects.map((effect) => Object.freeze({ ...effect }));
+    Object.freeze(effects);
+    return Object.freeze({
+      ...definition,
+      effects,
+    });
+  });
+  return Object.freeze(canonical);
 }

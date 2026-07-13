@@ -125,7 +125,7 @@ describe('UpgradeSystem queue and offers', () => {
     let stateWhenOffered: string | undefined;
     let reasonWhenOffered: string | null | undefined;
     let offeredId: number | undefined;
-    let offeredChoices: string[] = [];
+    let offeredChoices: readonly string[] = [];
     bus.on('card:offered', ({ offerId, choices }) => {
       stateWhenOffered = runState.status;
       reasonWhenOffered = runState.pauseReason;
@@ -146,7 +146,7 @@ describe('UpgradeSystem queue and offers', () => {
   it('preserves FIFO levels and waits for each prior choice', () => {
     const { system, runState, bus } = createSystem({ definitions: [damageUpgrade] });
     const offered: string[][] = [];
-    bus.on('card:offered', ({ choices }) => offered.push(choices));
+    bus.on('card:offered', ({ choices }) => offered.push([...choices]));
 
     bus.emit('level:up', { level: 2 });
     bus.emit('level:up', { level: 3 });
@@ -680,6 +680,61 @@ describe('UpgradeSystem explicit pause lease', () => {
 });
 
 describe('UpgradeSystem offer identity and composable delivery', () => {
+  it('isolates later offered listeners from hostile choice mutation', () => {
+    const { system, runState, bus } = createSystem({ offerCount: 2 });
+    const immediateResults: boolean[] = [];
+    const laterChoices: Array<readonly string[]> = [];
+    let mutationRejected = false;
+    let payloadFrozen = false;
+
+    bus.on('card:offered', (payload) => {
+      payloadFrozen = Object.isFrozen(payload) && Object.isFrozen(payload.choices);
+      try {
+        (payload.choices as string[]).splice(0, payload.choices.length);
+      } catch {
+        mutationRejected = true;
+      }
+      immediateResults.push(system.chooseCard(payload.offerId, payload.choices[0] ?? ''));
+    });
+    bus.on('card:offered', ({ choices }) => {
+      laterChoices.push([...choices]);
+    });
+
+    bus.emit('level:up', { level: 2 });
+
+    expect(mutationRejected).toBe(true);
+    expect(payloadFrozen).toBe(true);
+    expect(laterChoices).toEqual([['damage-up', 'speed-up']]);
+    expect(immediateResults).toEqual([true]);
+    expect(runState.upgradeStacks['damage-up']).toBe(1);
+    expect(runState.status).toBe('active');
+  });
+
+  it('applies the frozen canonical definition after caller-owned data is mutated', () => {
+    const callerDefinition: UpgradeDefinition = {
+      ...damageUpgrade,
+      effects: damageUpgrade.effects.map((effect) => ({ ...effect })),
+    };
+    const { system, runState, bus } = createSystem({ definitions: [callerDefinition] });
+    let offeredValue: number | undefined;
+
+    bus.on('card:offered', () => {
+      offeredValue = system.currentOffer[0]?.effects[0]?.value;
+      callerDefinition.id = 'tampered';
+      callerDefinition.target = 'economy';
+      callerDefinition.effects[0]!.value = 999;
+    });
+
+    bus.emit('level:up', { level: 2 });
+
+    expect(offeredValue).toBe(2);
+    expect(system.currentOffer[0]).toMatchObject({ id: 'damage-up', target: 'weapon' });
+    expect(system.currentOffer[0]?.effects[0]?.value).toBe(2);
+    expect(system.chooseCard(system.currentOfferId ?? -1, 'damage-up')).toBe(true);
+    expect(runState.upgradeStacks['damage-up']).toBe(1);
+    expect(runState.stats.resolve('damage', 10)).toBe(12);
+  });
+
   it('rejects an old token when the same upgrade ID appears in the next offer', () => {
     const { system, runState, bus } = createSystem({ definitions: [damageUpgrade] });
     bus.emit('level:up', { level: 2 });
