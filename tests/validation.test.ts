@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { STAT_KEYS, type StatKey } from '../src/gameplay/stats';
 import {
   collectValidationErrors,
   loadGameData,
@@ -139,6 +140,14 @@ describe('game data validation', () => {
     expect(() => validateGameData(data)).not.toThrow();
   });
 
+  it('accepts attackSpeed as the canonical fire-cadence upgrade stat', () => {
+    const cadenceStat: StatKey = 'attackSpeed';
+    const data = withFirstUpgradeEffects([{ stat: cadenceStat, op: 'mult', value: 1.1 }]);
+
+    expect(STAT_KEYS).toContain(cadenceStat);
+    expect(() => validateGameData(data)).not.toThrow();
+  });
+
   it('accepts an upgrade with multiple valid effects', () => {
     const data = withFirstUpgradeEffects([
       { stat: 'moveSpeed', op: 'mult', value: 1.1 },
@@ -161,6 +170,12 @@ describe('game data validation', () => {
     expect(() =>
       validateGameData(withFirstUpgradeEffects([{ stat: 'bogus', op: 'mult', value: 1 }])),
     ).toThrow(/upgrades\.json\[0\]\.effects\[0\]\.stat/);
+  });
+
+  it('rejects fireRate as an unknown upgrade stat', () => {
+    expect(() =>
+      validateGameData(withFirstUpgradeEffects([{ stat: 'fireRate', op: 'mult', value: 1.1 }])),
+    ).toThrow(/upgrades\.json\[0\]\.effects\[0\]\.stat: unknown stat key/);
   });
 
   it('rejects invalid effect operations', () => {
