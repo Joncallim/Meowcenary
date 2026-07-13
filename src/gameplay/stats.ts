@@ -5,7 +5,6 @@ export const STAT_KEYS = [
   'maxHealth',
   'armor',
   'damage',
-  'fireRate',
   'attackSpeed',
   'projectileSpeed',
   'projectileCount',
