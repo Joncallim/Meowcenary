@@ -33,6 +33,9 @@ export class UpgradeSystem implements System {
       if (this.destroyed) {
         return;
       }
+      if (!this.ownsLevelUpPause && isLevelUpPaused(options.runState)) {
+        return;
+      }
 
       this.pendingLevels.enqueue(level);
       this.processPendingLevels();
@@ -40,7 +43,10 @@ export class UpgradeSystem implements System {
   }
 
   get currentOffer(): readonly UpgradeDefinition[] {
-    return [...this.activeOffer];
+    return this.activeOffer.map((definition) => ({
+      ...definition,
+      effects: definition.effects.map((effect) => ({ ...effect })),
+    }));
   }
 
   get pendingLevel(): number | undefined {

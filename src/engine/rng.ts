@@ -15,8 +15,9 @@ export function nextRunSeed(rng: Pick<Rng, 'int'>): number {
 
 /**
  * Derives a stable uint32 seed for one named gameplay stream. The input is the
- * normalized run seed plus the stream name, hashed as UTF-16 code units with
- * standard 32-bit FNV-1a. Owners create one RNG from the result and reuse it.
+ * normalized run seed plus the stream name, hashed with standard 32-bit FNV-1a
+ * over each JavaScript UTF-16 code unit's little-endian bytes, without a BOM.
+ * Owners create one RNG from the result and reuse it.
  */
 export function deriveRunSeed(seed: number, stream: string): number {
   if (!Number.isFinite(seed)) {
