@@ -7,9 +7,9 @@ import {
   type UpgradeChooserOffer,
   type UpgradeChooserView,
 } from './upgradeChooserController';
+import { computeUpgradeChooserLayout } from './upgradeChooserLayout';
 
 const CHOOSER_DEPTH = 1_000;
-const CARD_GAP = 12;
 
 export class UpgradeChooser {
   private readonly controller: UpgradeChooserController;
@@ -31,12 +31,15 @@ class PhaserUpgradeChooserView implements UpgradeChooserView {
   private root?: Phaser.GameObjects.Container;
   private cardBackgrounds: Phaser.GameObjects.Rectangle[] = [];
   private select?: (offerId: number, choiceIndex: number) => boolean;
+  private offer?: UpgradeChooserOffer;
   private currentOfferId?: number;
   private enabled = false;
   private destroyed = false;
 
   constructor(private readonly scene: Phaser.Scene) {
     scene.input.keyboard?.on('keydown', this.handleKeyDown, this);
+    scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
+    scene.scale.on(Phaser.Scale.Events.ORIENTATION_CHANGE, this.handleScaleChange, this);
   }
 
   render(
@@ -48,11 +51,28 @@ class PhaserUpgradeChooserView implements UpgradeChooserView {
     }
 
     this.clear();
+    this.offer = offer;
     this.currentOfferId = offer.offerId;
     this.select = select;
     this.enabled = true;
 
+    this.buildDisplay();
+  }
+
+  private buildDisplay(): void {
+    const offer = this.offer;
+    if (this.destroyed || !offer) {
+      return;
+    }
+
     const { width, height } = this.scene.scale;
+    const layout = computeUpgradeChooserLayout(
+      width,
+      height,
+      this.scene.scale.displaySize.width,
+      this.scene.scale.displaySize.height,
+      offer.definitions.length,
+    );
     const root = this.scene.add.container(0, 0).setDepth(CHOOSER_DEPTH).setScrollFactor(0);
     this.root = root;
 
@@ -61,37 +81,40 @@ class PhaserUpgradeChooserView implements UpgradeChooserView {
       .setStrokeStyle(2, 0x2dd4bf, 0.72)
       .setInteractive();
     const heading = this.scene.add
-      .text(width / 2, 92, 'Choose an upgrade', {
+      .text(width / 2, layout.headingY, 'Choose an upgrade', {
         align: 'center',
         color: '#f7f1d5',
         fontFamily: 'Inter, sans-serif',
-        fontSize: '24px',
+        fontSize: `${layout.fonts.heading}px`,
         fontStyle: 'bold',
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5, 0);
     const instructions = this.scene.add
-      .text(width / 2, 130, 'Tap a card or press 1, 2, or 3', {
+      .text(width / 2, layout.instructionsY, 'Tap a card or press 1, 2, or 3', {
         align: 'center',
         color: '#a5f3fc',
         fontFamily: 'Inter, sans-serif',
-        fontSize: '13px',
+        fontSize: `${layout.fonts.instructions}px`,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5, 0);
     root.add([backdrop, heading, instructions]);
 
-    const cardWidth = width - 44;
-    const availableHeight = height - 210;
-    const cardHeight = Math.min(
-      168,
-      Math.floor((availableHeight - CARD_GAP * (offer.definitions.length - 1)) / offer.definitions.length),
-    );
-    const totalHeight = cardHeight * offer.definitions.length + CARD_GAP * (offer.definitions.length - 1);
-    const top = 160 + Math.max(0, (availableHeight - totalHeight) / 2);
-
     offer.definitions.forEach((definition, index) => {
-      const y = top + cardHeight / 2 + index * (cardHeight + CARD_GAP);
+      const cardLayout = layout.cards[index];
+      if (!cardLayout) {
+        return;
+      }
+      const cardLeft = cardLayout.x - cardLayout.width / 2;
+      const cardTop = cardLayout.y - cardLayout.height / 2;
       const card = this.scene.add
-        .rectangle(width / 2, y, cardWidth, cardHeight, 0x17303b, 1)
+        .rectangle(
+          cardLayout.x,
+          cardLayout.y,
+          cardLayout.width,
+          cardLayout.height,
+          0x17303b,
+          1,
+        )
         .setStrokeStyle(2, 0x67e8f9, 0.78)
         .setInteractive({ useHandCursor: true });
       card.on(Phaser.Input.Events.POINTER_OVER, () => {
@@ -107,40 +130,49 @@ class PhaserUpgradeChooserView implements UpgradeChooserView {
       });
 
       const name = this.scene.add.text(
-        width / 2 - cardWidth / 2 + 16,
-        y - cardHeight / 2 + 18,
+        cardLeft + cardLayout.padding,
+        cardTop + cardLayout.padding,
         `${index + 1}. ${definition.name}`,
         {
           color: '#ffffff',
           fontFamily: 'Inter, sans-serif',
-          fontSize: '18px',
+          fontSize: `${layout.fonts.name}px`,
           fontStyle: 'bold',
+          maxLines: 2,
+          wordWrap: { width: cardLayout.nameWidth, useAdvancedWrap: true },
         },
       );
       const rarity = this.scene.add
-        .text(width / 2 + cardWidth / 2 - 16, y - cardHeight / 2 + 22, definition.rarity, {
+        .text(cardLeft + cardLayout.width - cardLayout.padding, cardTop + cardLayout.padding, definition.rarity, {
           color: '#fbbf24',
           fontFamily: 'Inter, sans-serif',
-          fontSize: '12px',
+          fontSize: `${layout.fonts.rarity}px`,
         })
         .setOrigin(1, 0);
       const description = this.scene.add.text(
-        width / 2 - cardWidth / 2 + 16,
-        y - cardHeight / 2 + 54,
+        cardLeft + cardLayout.padding,
+        cardLayout.descriptionY,
         definition.description,
         {
           color: '#d6f7ff',
           fontFamily: 'Inter, sans-serif',
-          fontSize: '14px',
-          lineSpacing: 4,
+          fontSize: `${layout.fonts.description}px`,
+          lineSpacing: layout.lineSpacing,
           maxLines: 3,
-          wordWrap: { width: cardWidth - 32, useAdvancedWrap: true },
+          wordWrap: {
+            width: cardLayout.width - cardLayout.padding * 2,
+            useAdvancedWrap: true,
+          },
         },
       );
 
       this.cardBackgrounds.push(card);
       root.add([card, name, rarity, description]);
     });
+
+    if (!this.enabled) {
+      this.cardBackgrounds.forEach((card) => card.disableInteractive());
+    }
   }
 
   setEnabled(enabled: boolean): void {
@@ -163,6 +195,11 @@ class PhaserUpgradeChooserView implements UpgradeChooserView {
     this.enabled = false;
     this.currentOfferId = undefined;
     this.select = undefined;
+    this.offer = undefined;
+    this.destroyDisplay();
+  }
+
+  private destroyDisplay(): void {
     this.cardBackgrounds = [];
     this.root?.destroy(true);
     this.root = undefined;
@@ -175,6 +212,8 @@ class PhaserUpgradeChooserView implements UpgradeChooserView {
 
     this.destroyed = true;
     this.scene.input.keyboard?.off('keydown', this.handleKeyDown, this);
+    this.scene.scale.off(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
+    this.scene.scale.off(Phaser.Scale.Events.ORIENTATION_CHANGE, this.handleScaleChange, this);
     this.clear();
   }
 
@@ -187,6 +226,15 @@ class PhaserUpgradeChooserView implements UpgradeChooserView {
     if (choiceIndex !== undefined) {
       this.submit(this.currentOfferId, choiceIndex);
     }
+  };
+
+  private readonly handleScaleChange = (): void => {
+    if (this.destroyed || !this.offer) {
+      return;
+    }
+
+    this.destroyDisplay();
+    this.buildDisplay();
   };
 
   private submit(offerId: number, choiceIndex: number): void {

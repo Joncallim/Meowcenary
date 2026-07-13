@@ -11,6 +11,7 @@ import {
   type UpgradeChooserSource,
   type UpgradeChooserView,
 } from '../src/ui/upgradeChooserController';
+import { computeUpgradeChooserLayout } from '../src/ui/upgradeChooserLayout';
 
 const definitions: UpgradeDefinition[] = [
   {
@@ -140,6 +141,101 @@ function createFirstRng(): Rng {
     },
   };
 }
+
+const VIEWPORTS = [
+  { name: 'portrait', width: 390, height: 844 },
+  { name: 'landscape', width: 844, height: 390 },
+  { name: 'desktop', width: 1280, height: 720 },
+  { name: 'small portrait', width: 320, height: 568 },
+] as const;
+
+function fittedCanvas(viewportWidth: number, viewportHeight: number) {
+  const scale = Math.min(viewportWidth / 390, viewportHeight / 844);
+  return { width: 390 * scale, height: 844 * scale, scale };
+}
+
+describe('Upgrade chooser physical layout', () => {
+  it.each(VIEWPORTS)('keeps readable typography at $name size', (viewport) => {
+    const display = fittedCanvas(viewport.width, viewport.height);
+    const layout = computeUpgradeChooserLayout(
+      390,
+      844,
+      display.width,
+      display.height,
+      3,
+    );
+
+    expect(layout.displayScale).toBeCloseTo(display.scale);
+    expect(layout.fonts.heading * display.scale).toBeGreaterThanOrEqual(18);
+    expect(layout.fonts.instructions * display.scale).toBeGreaterThanOrEqual(11);
+    expect(layout.fonts.name * display.scale).toBeGreaterThanOrEqual(14);
+    expect(layout.fonts.rarity * display.scale).toBeGreaterThanOrEqual(10);
+    expect(layout.fonts.description * display.scale).toBeGreaterThanOrEqual(12);
+  });
+
+  it.each(VIEWPORTS)('keeps one, two, and three cards bounded at $name size', (viewport) => {
+    const display = fittedCanvas(viewport.width, viewport.height);
+
+    for (const count of [1, 2, 3]) {
+      const layout = computeUpgradeChooserLayout(
+        390,
+        844,
+        display.width,
+        display.height,
+        count,
+      );
+      expect(layout.cards).toHaveLength(count);
+      layout.cards.forEach((card, index) => {
+        const left = card.x - card.width / 2;
+        const right = card.x + card.width / 2;
+        const top = card.y - card.height / 2;
+        const bottom = card.y + card.height / 2;
+        const nameRight = left + card.padding + card.nameWidth;
+        const rarityLeft = right - card.padding - card.rarityReserve;
+
+        expect(left).toBeGreaterThanOrEqual(0);
+        expect(right).toBeLessThanOrEqual(390);
+        expect(top).toBeGreaterThan(layout.instructionsY + layout.fonts.instructions);
+        expect(bottom).toBeLessThanOrEqual(844);
+        expect(nameRight).toBeLessThan(rarityLeft);
+        expect(card.descriptionY).toBeGreaterThan(top + card.padding);
+        expect(card.descriptionY + card.descriptionHeight).toBeLessThanOrEqual(
+          bottom - card.padding + 0.001,
+        );
+        expect(card.descriptionHeight * display.scale).toBeGreaterThanOrEqual(40);
+
+        const previous = layout.cards[index - 1];
+        if (previous) {
+          expect(top).toBeGreaterThan(previous.y + previous.height / 2);
+        }
+      });
+    }
+  });
+
+  it('recomputes an active three-card offer across orientation changes', () => {
+    const portraitDisplay = fittedCanvas(390, 844);
+    const landscapeDisplay = fittedCanvas(844, 390);
+    const portrait = computeUpgradeChooserLayout(
+      390,
+      844,
+      portraitDisplay.width,
+      portraitDisplay.height,
+      3,
+    );
+    const landscape = computeUpgradeChooserLayout(
+      390,
+      844,
+      landscapeDisplay.width,
+      landscapeDisplay.height,
+      3,
+    );
+
+    expect(portrait.cards).toHaveLength(landscape.cards.length);
+    expect(landscape.displayScale).toBeLessThan(portrait.displayScale);
+    expect(landscape.fonts.name).toBeGreaterThan(portrait.fonts.name);
+    expect(landscape.cards[0]?.height).not.toBe(portrait.cards[0]?.height);
+  });
+});
 
 describe('UpgradeChooserController rendering', () => {
   it.each([1, 2, 3])('renders an ordered offer containing %i choice(s)', (count) => {
