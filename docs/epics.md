@@ -89,8 +89,10 @@ interface GameEventMap {
 
 ### Seeded RNG (Epic 0 owns `src/engine/rng.ts`)
 
-All randomness (card offers, loot, spawn jitter, crits) flows through one
-seeded generator so runs are reproducible and rules are testable.
+All randomness (card offers, loot, spawn jitter, crits) flows through
+deterministic run-scoped streams derived from the run seed so runs are
+reproducible and rules are testable. A stream is created once per owner and is
+not recreated per decision.
 
 ```ts
 interface Rng {
@@ -100,11 +102,14 @@ interface Rng {
   weighted<T>(entries: ReadonlyArray<{ item: T; weight: number }>): T;
 }
 function createRng(seed: number): Rng;         // deterministic (mulberry32)
+function deriveRunSeed(seed: number, stream: string): number; // stable named stream
 ```
 
 Never call `Math.random()` in gameplay code. The run seed lives in `RunState`.
 `GameContext.menuRng` is boot/menu-scoped only; combat, loot, spawns, and cards
-must create/use a run-scoped RNG from `RunState.seed`.
+must create/use run-scoped RNGs from `RunState.seed`. Named streams are derived
+by the shared helper rather than scene-local constants so one subsystem's RNG
+consumption cannot silently perturb another's sequence.
 
 ### Stats and modifiers (primitive owned by Epic 1 `src/gameplay/stats.ts`)
 
@@ -219,8 +224,13 @@ Rules:
 
 - JSON effects omit `sourceId`; `applyCard` assigns a stable per-stack source.
 - `RunState.upgradeStacks[id]` is the only stack-limit authority.
+- `maxStacks` is a positive integer.
+- `applyCard` preflights every effect and applies a card transactionally; a
+  `false` result leaves both stack history and modifiers unchanged.
 - Epic 3 modifiers are run-global. Per-weapon targeting is deferred until a
   typed weapon-modifier store exists; player copy must describe the real scope.
+- `target` is classification/presentation metadata in Epic 3, not an
+  instruction to select a weapon instance.
 - Multi-level gains queue one choice per emitted `level:up`. The run resumes
   only after every queued choice is resolved.
 - `card:offered` publishes eligible IDs. `card:chosen` is emitted only after a
