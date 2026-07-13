@@ -4,16 +4,23 @@ export interface UpgradeChooserCardLayout {
   width: number;
   height: number;
   padding: number;
+  numberWidth: number;
+  nameX: number;
   nameWidth: number;
+  nameHeight: number;
   rarityReserve: number;
+  rarityHeight: number;
   descriptionY: number;
   descriptionHeight: number;
 }
 
 export interface UpgradeChooserLayout {
   displayScale: number;
+  headerWidth: number;
   headingY: number;
+  headingHeight: number;
   instructionsY: number;
+  instructionsHeight: number;
   fonts: {
     heading: number;
     instructions: number;
@@ -64,11 +71,16 @@ export function computeUpgradeChooserLayout(
     rarity: font(BASE_LOGICAL_FONT.rarity, MIN_PHYSICAL_FONT.rarity),
     description: font(BASE_LOGICAL_FONT.description, MIN_PHYSICAL_FONT.description),
   };
-  const headingY = physical(12);
-  const instructionsY = headingY + fonts.heading * 1.2 + physical(4);
-  const cardsRegionTop = instructionsY + fonts.instructions * 1.2 + physical(10);
-  const bottomMargin = physical(8);
-  const cardGap = Math.max(12, physical(6));
+  const compactHeader = canvasWidth * displayScale < 220;
+  const headerWidth = Math.max(0, canvasWidth - physical(12));
+  const headingY = physical(compactHeader ? 6 : 12);
+  const headingHeight = fonts.heading * (compactHeader ? 2.25 : 1.2);
+  const instructionsY = headingY + headingHeight + physical(compactHeader ? 2 : 4);
+  const instructionsHeight = fonts.instructions * (compactHeader ? 2.4 : 1.2);
+  const cardsRegionTop =
+    instructionsY + instructionsHeight + physical(compactHeader ? 5 : 10);
+  const bottomMargin = physical(compactHeader ? 4 : 8);
+  const cardGap = Math.max(compactHeader ? 0 : 12, physical(compactHeader ? 4 : 6));
   const count = Math.max(1, Math.min(3, Math.floor(choiceCount)));
   const availableHeight = Math.max(0, canvasHeight - cardsRegionTop - bottomMargin);
   const maxCardHeight = Math.max(168, physical(150));
@@ -78,16 +90,20 @@ export function computeUpgradeChooserLayout(
   );
   const totalCardHeight = cardHeight * count + cardGap * (count - 1);
   const cardsTop = cardsRegionTop + Math.max(0, (availableHeight - totalCardHeight) / 2);
-  const sideMargin = Math.max(10, physical(8));
+  const sideMargin = Math.max(compactHeader ? 0 : 10, physical(compactHeader ? 4 : 8));
   const cardWidth = canvasWidth - sideMargin * 2;
-  const padding = Math.max(16, physical(8));
-  const rarityReserve = Math.max(72, physical(54));
-  const nameRarityGap = Math.max(8, physical(6));
+  const padding = Math.max(compactHeader ? 0 : 16, physical(compactHeader ? 4 : 8));
+  const numberWidth = Math.max(fonts.name * 1.35, physical(18));
+  const rarityReserve = Math.max(compactHeader ? 0 : 72, physical(44));
+  const inlineGap = Math.max(compactHeader ? 0 : 8, physical(3));
+  const nameX = padding + numberWidth + inlineGap;
   const nameWidth = Math.max(
-    physical(48),
-    cardWidth - padding * 2 - rarityReserve - nameRarityGap,
+    0,
+    cardWidth - padding * 2 - numberWidth - rarityReserve - inlineGap * 2,
   );
-  const descriptionOffset = padding + Math.max(fonts.name * 2.35, physical(38));
+  const nameHeight = Math.max(fonts.name * 1.15, physical(16));
+  const rarityHeight = Math.max(fonts.rarity * 1.15, physical(11));
+  const descriptionOffset = padding + Math.max(nameHeight, rarityHeight) + physical(2);
   const lineSpacing = Math.max(4, physical(2));
 
   const cards = Array.from({ length: count }, (_, index) => {
@@ -100,8 +116,12 @@ export function computeUpgradeChooserLayout(
       width: cardWidth,
       height: cardHeight,
       padding,
+      numberWidth,
+      nameX,
       nameWidth,
+      nameHeight,
       rarityReserve,
+      rarityHeight,
       descriptionY,
       descriptionHeight: Math.max(0, cardTop + cardHeight - padding - descriptionY),
     };
@@ -109,8 +129,11 @@ export function computeUpgradeChooserLayout(
 
   return {
     displayScale,
+    headerWidth,
     headingY,
+    headingHeight,
     instructionsY,
+    instructionsHeight,
     fonts,
     lineSpacing,
     cards,

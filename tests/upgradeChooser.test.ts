@@ -13,6 +13,24 @@ import {
 } from '../src/ui/upgradeChooserController';
 import { computeUpgradeChooserLayout } from '../src/ui/upgradeChooserLayout';
 
+vi.mock('phaser', () => ({
+  default: {
+    Input: {
+      Events: {
+        POINTER_OVER: 'pointerover',
+        POINTER_OUT: 'pointerout',
+        POINTER_UP: 'pointerup',
+      },
+    },
+    Scale: {
+      Events: {
+        RESIZE: 'resize',
+        ORIENTATION_CHANGE: 'orientationchange',
+      },
+    },
+  },
+}));
+
 const definitions: UpgradeDefinition[] = [
   {
     id: 'quick-paws',
@@ -154,6 +172,149 @@ function fittedCanvas(viewportWidth: number, viewportHeight: number) {
   return { width: 390 * scale, height: 844 * scale, scale };
 }
 
+type FakeListener = { callback: (...args: unknown[]) => void; context?: unknown };
+
+class FakeEmitter {
+  private readonly listeners = new Map<string, FakeListener[]>();
+
+  on(event: string, callback: (...args: unknown[]) => void, context?: unknown): this {
+    const listeners = this.listeners.get(event) ?? [];
+    listeners.push({ callback, context });
+    this.listeners.set(event, listeners);
+    return this;
+  }
+
+  off(event: string, callback: (...args: unknown[]) => void, context?: unknown): this {
+    const listeners = this.listeners.get(event) ?? [];
+    this.listeners.set(
+      event,
+      listeners.filter(
+        (listener) => listener.callback !== callback || listener.context !== context,
+      ),
+    );
+    return this;
+  }
+
+  emit(event: string, ...args: unknown[]): this {
+    [...(this.listeners.get(event) ?? [])].forEach((listener) => {
+      listener.callback.apply(listener.context, args);
+    });
+    return this;
+  }
+
+  listenerCount(event: string): number {
+    return this.listeners.get(event)?.length ?? 0;
+  }
+}
+
+class FakeDisplayObject extends FakeEmitter {
+  visible = true;
+  input?: { enabled: boolean };
+  fillAlpha = 1;
+  protected originX = 0.5;
+  protected originY = 0.5;
+
+  constructor(
+    public x: number,
+    public y: number,
+    public width: number,
+    public height: number,
+  ) {
+    super();
+  }
+
+  setDepth(): this { return this; }
+  setScrollFactor(): this { return this; }
+  setStrokeStyle(): this { return this; }
+  setOrigin(x: number, y: number): this {
+    this.originX = x;
+    this.originY = y;
+    return this;
+  }
+  setInteractive(): this {
+    this.input = { enabled: true };
+    return this;
+  }
+  disableInteractive(): this {
+    if (this.input) this.input.enabled = false;
+    return this;
+  }
+  setFillStyle(_color: number, alpha = 1): this {
+    this.fillAlpha = alpha;
+    return this;
+  }
+  setVisible(visible: boolean): this {
+    this.visible = visible;
+    return this;
+  }
+  getBounds() {
+    return {
+      x: this.x - this.width * this.originX,
+      y: this.y - this.height * this.originY,
+      width: this.width,
+      height: this.height,
+    };
+  }
+  destroy(): void {}
+}
+
+class FakeText extends FakeDisplayObject {
+  constructor(x: number, y: number, text: string, style: { fontSize?: string }) {
+    const fontSize = Number.parseFloat(style.fontSize ?? '16');
+    super(x, y, text.length * fontSize * 0.55, fontSize * 1.2);
+    this.originX = 0;
+    this.originY = 0;
+  }
+  setFixedSize(width: number, height: number): this {
+    this.width = width;
+    this.height = height;
+    return this;
+  }
+  setCrop(): this { return this; }
+}
+
+class FakeContainer extends FakeDisplayObject {
+  private children: FakeDisplayObject[] = [];
+  constructor() { super(0, 0, 0, 0); }
+  add(children: FakeDisplayObject[]): this {
+    this.children.push(...children);
+    return this;
+  }
+  destroy(destroyChildren?: boolean): void {
+    if (destroyChildren) this.children.forEach((child) => child.destroy());
+    this.children = [];
+  }
+}
+
+class FakeScale extends FakeEmitter {
+  readonly width = 390;
+  readonly height = 844;
+  displaySize = { width: 390, height: 844 };
+
+  refresh(displayWidth: number, displayHeight: number, orientationChanged = false): void {
+    this.displaySize = { width: displayWidth, height: displayHeight };
+    if (orientationChanged) this.emit('orientationchange');
+    this.emit('resize');
+  }
+}
+
+function createFakeScene(displayWidth: number, displayHeight: number) {
+  const keyboard = new FakeEmitter();
+  const scale = new FakeScale();
+  scale.displaySize = { width: displayWidth, height: displayHeight };
+  return {
+    input: { keyboard },
+    scale,
+    add: {
+      container: () => new FakeContainer(),
+      rectangle: (x: number, y: number, width: number, height: number) =>
+        new FakeDisplayObject(x, y, width, height),
+      text: (x: number, y: number, text: string, style: { fontSize?: string }) =>
+        new FakeText(x, y, text, style),
+    },
+  };
+}
+
 describe('Upgrade chooser physical layout', () => {
   it.each(VIEWPORTS)('keeps readable typography at $name size', (viewport) => {
     const display = fittedCanvas(viewport.width, viewport.height);
@@ -234,6 +395,127 @@ describe('Upgrade chooser physical layout', () => {
     expect(landscape.displayScale).toBeLessThan(portrait.displayScale);
     expect(landscape.fonts.name).toBeGreaterThan(portrait.fonts.name);
     expect(landscape.cards[0]?.height).not.toBe(portrait.cards[0]?.height);
+  });
+});
+
+describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
+  const hostileDefinitions: UpgradeDefinition[] = definitions.map((definition, index) => ({
+    ...definition,
+    name: index === 0
+      ? 'UNBROKEN_SUPER_LONG_UPGRADE_NAME_猫猫猫猫猫猫猫猫猫猫'
+      : `${definition.name}\nWITH AN EXTRA LINE`,
+    description:
+      'A hostile unbroken description_without_any_safe_break_points_猫猫猫猫猫猫\nwith several forced lines\nthat must never escape its card.',
+  }));
+
+  async function createRenderedView(
+    viewportWidth: number,
+    viewportHeight: number,
+    offeredDefinitions: readonly UpgradeDefinition[] = hostileDefinitions,
+  ) {
+    const display = fittedCanvas(viewportWidth, viewportHeight);
+    const scene = createFakeScene(display.width, display.height);
+    const { PhaserUpgradeChooserView } = await import('../src/ui/UpgradeChooser');
+    const view = new PhaserUpgradeChooserView(scene as never);
+    view.render(
+      { offerId: 73, definitions: offeredDefinitions },
+      () => true,
+    );
+    return { display, scene, view };
+  }
+
+  it('keeps the rendered compact heading and instructions within 568x320', async () => {
+    const { display, view } = await createRenderedView(568, 320);
+    const diagnostics = view.diagnostics;
+    const heading = diagnostics.text.find((text) => text.role === 'heading')!;
+    const instructions = diagnostics.text.find((text) => text.role === 'instructions')!;
+
+    for (const text of [heading, instructions]) {
+      expect(text.x * display.scale).toBeGreaterThanOrEqual(0);
+      expect((text.x + text.width) * display.scale).toBeLessThanOrEqual(
+        display.width + 0.001,
+      );
+    }
+    expect(instructions.y).toBeGreaterThanOrEqual(heading.y + heading.height);
+    expect(diagnostics.cards[0]!.y).toBeGreaterThanOrEqual(
+      instructions.y + instructions.height,
+    );
+    view.destroy();
+  });
+
+  it.each([1, 2, 3])(
+    'hard-bounds hostile rendered text for a %i-card offer at 320x240',
+    async (count) => {
+      const { view } = await createRenderedView(320, 240, hostileDefinitions.slice(0, count));
+      const diagnostics = view.diagnostics;
+
+      expect(diagnostics.cards).toHaveLength(count);
+      diagnostics.cards.forEach((card, index) => {
+        const cardText = diagnostics.text.filter((text) => text.role.endsWith(`:${index}`));
+        const number = cardText.find((text) => text.role === `number:${index}`)!;
+        expect(number.visible).toBe(true);
+        expect(number.width).toBeGreaterThan(0);
+        cardText.filter((text) => text.visible).forEach((text) => {
+          expect(text.x).toBeGreaterThanOrEqual(card.x - 0.001);
+          expect(text.y).toBeGreaterThanOrEqual(card.y - 0.001);
+          expect(text.x + text.width).toBeLessThanOrEqual(card.x + card.width + 0.001);
+          expect(text.y + text.height).toBeLessThanOrEqual(card.y + card.height + 0.001);
+        });
+      });
+      view.destroy();
+    },
+  );
+
+  it('preserves disabled fill and input state through an orientation refresh', async () => {
+    const { scene, view } = await createRenderedView(390, 844);
+    view.setEnabled(false);
+    const before = view.diagnostics;
+    const landscape = fittedCanvas(844, 390);
+    scene.scale.refresh(landscape.width, landscape.height, true);
+    const after = view.diagnostics;
+
+    expect(before.cards.every((card) => card.fillAlpha === 0.58 && !card.interactive)).toBe(true);
+    expect(after.cards.every((card) => card.fillAlpha === 0.58 && !card.interactive)).toBe(true);
+    expect(after.offerId).toBe(73);
+    expect(after.rebuildCount).toBe(before.rebuildCount + 1);
+    view.destroy();
+  });
+
+  it('rebuilds once per refresh and cleans exact keyboard and scale listeners', async () => {
+    const { scene, view } = await createRenderedView(390, 844);
+    expect(view.diagnostics.keyboardListenerCount).toBe(1);
+    expect(view.diagnostics.resizeListenerCount).toBe(1);
+
+    for (let index = 0; index < 4; index += 1) {
+      const before = view.diagnostics.rebuildCount;
+      const next = index % 2 === 0 ? fittedCanvas(844, 390) : fittedCanvas(390, 844);
+      scene.scale.refresh(next.width, next.height, true);
+      expect(view.diagnostics.rebuildCount).toBe(before + 1);
+      expect(view.diagnostics.keyboardListenerCount).toBe(1);
+      expect(view.diagnostics.resizeListenerCount).toBe(1);
+    }
+
+    view.destroy();
+    expect(scene.input.keyboard.listenerCount('keydown')).toBe(0);
+    expect(scene.scale.listenerCount('resize')).toBe(0);
+  });
+
+  it('stays finite at zero displayed size and recovers on resize', async () => {
+    const scene = createFakeScene(0, 0);
+    const { PhaserUpgradeChooserView } = await import('../src/ui/UpgradeChooser');
+    const view = new PhaserUpgradeChooserView(scene as never);
+    view.render({ offerId: 9, definitions: definitions.slice(0, 1) }, () => true);
+
+    expect(view.diagnostics.text.every((text) =>
+      [text.x, text.y, text.width, text.height].every(Number.isFinite),
+    )).toBe(true);
+    const recovered = fittedCanvas(320, 568);
+    scene.scale.refresh(recovered.width, recovered.height, true);
+    expect(view.diagnostics.displayWidth).toBeGreaterThan(0);
+    expect(view.diagnostics.cards.every((card) =>
+      [card.x, card.y, card.width, card.height].every(Number.isFinite),
+    )).toBe(true);
+    view.destroy();
   });
 });
 
