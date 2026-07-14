@@ -4,7 +4,7 @@ export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 
 /**
  * A single JSON-safe upgrade effect. It carries no runtime `sourceId`; the
- * source (`upgrade:<id>:stack:<n>`) is assigned when a card is applied. Epic 3
+ * source (`card:<id>:<stack>`) is assigned when a card is applied. Epic 3
  * effects are global run modifiers — never per-weapon.
  */
 export interface UpgradeEffect {
@@ -140,6 +140,20 @@ export interface UpgradeDefinition {
   effects: UpgradeEffect[];
 }
 
+export interface MetaUpgradeCost {
+  readonly base: number;
+  readonly growth: number;
+}
+
+export interface MetaUpgradeDefinition {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly maxLevel: number;
+  readonly cost: MetaUpgradeCost;
+  readonly effects: readonly UpgradeEffect[];
+}
+
 export interface SpawnWaveDefinition {
   startSecond: number;
   enemyId: string;
@@ -163,5 +177,6 @@ export interface GameData {
   weapons: WeaponDefinition[];
   enemies: EnemyDefinition[];
   upgrades: UpgradeDefinition[];
+  metaUpgrades: MetaUpgradeDefinition[];
   spawnCurves: SpawnCurveDefinition[];
 }

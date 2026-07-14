@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { GameContext } from '../src/engine/context';
+import { createGameContext, type GameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
 import { createRunState } from '../src/gameplay/runState';
 import type { RunState } from '../src/gameplay/runState';
 import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
+import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { loadGameData } from '../src/systems/validation';
-import { DEFAULT_SETTINGS, MemoryStorageAdapter, SaveManager } from '../src/systems/save';
+import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { isSpawnableEnemyDefinition } from '../src/systems/types';
 import type { SpawnableEnemyDefinition } from '../src/systems/types';
 
@@ -108,18 +109,14 @@ describe('WeaponSystem', () => {
     runState.status = 'active';
     runState.equipped = [registry.createWeaponInstance(pistol)];
 
-    const settings = { ...DEFAULT_SETTINGS };
-    const ctx: GameContext = {
+    const metaUpgrades = new DataMetaUpgradeRegistry(data);
+    const ctx = createGameContext({
       bus: createEventBus(),
       menuRng: createRng(1),
       data,
-      save: new SaveManager(new MemoryStorageAdapter(), 'weapon-system-test'),
-      settings,
-      updateSettings(patch) {
-        Object.assign(settings, patch);
-        return settings;
-      },
-    };
+      metaUpgrades,
+      save: new SaveManager(new MemoryStorageAdapter(), 'weapon-system-test', metaUpgrades.maxLevels()),
+    });
 
     const enemySprite = new MockGameObject(60, 0);
     const enemy = {

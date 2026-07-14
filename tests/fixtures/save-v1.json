@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "settings": {
+    "muted": true,
+    "musicVolume": 0.4,
+    "sfxVolume": 0.6,
+    "reducedMotion": true
+  },
+  "meta": {}
+}

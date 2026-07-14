@@ -1,151 +1,171 @@
 import { describe, expect, it } from 'vitest';
+import v1Fixture from './fixtures/save-v1.json';
 import {
   DEFAULT_SETTINGS,
   LocalStorageAdapter,
   MemoryStorageAdapter,
   SaveManager,
-  type StorageAdapter,
   applySettingsPatch,
+  createDefaultMeta,
   createDefaultSave,
   migrate,
+  sanitizeMeta,
+  type StorageAdapter,
 } from '../src/systems/save';
 
-const saveKey = 'test-save';
+const key = 'test-save';
+const limits = Object.freeze({ 'reinforced-vest': 5 });
 
-describe('SaveManager', () => {
-  it('recovers empty storage to default', () => {
-    const manager = new SaveManager(new MemoryStorageAdapter(), saveKey);
-
-    expect(manager.load()).toEqual(createDefaultSave());
+describe('Save V2 migration and persistence', () => {
+  it('creates fresh deeply frozen V2 defaults', () => {
+    const first = createDefaultSave();
+    const second = createDefaultSave();
+    expect(first).toEqual({ version: 2, settings: DEFAULT_SETTINGS, meta: createDefaultMeta() });
+    expect(first).not.toBe(second);
+    expect(first.meta).not.toBe(second.meta);
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.isFrozen(first.settings)).toBe(true);
+    expect(Object.isFrozen(first.meta.unlocks)).toBe(true);
+    expect(Object.isFrozen(first.meta.permanentUpgrades)).toBe(true);
   });
 
-  it('recovers corrupt JSON to default', () => {
-    const storage = new MemoryStorageAdapter();
-    storage.setItem(saveKey, '{broken');
-    const manager = new SaveManager(storage, saveKey);
-
-    expect(manager.load()).toEqual(createDefaultSave());
+  it('migrates valid V1 and independently recovers corrupt V1 settings', () => {
+    expect(migrate(v1Fixture, limits)).toMatchObject({
+      version: 2,
+      settings: v1Fixture.settings,
+      meta: { scrap: 0, unlocks: [], permanentUpgrades: {} },
+    });
+    expect(migrate({ version: 1, settings: { muted: true, musicVolume: 'bad' }, meta: { old: 1 } }, limits).settings)
+      .toEqual({ ...DEFAULT_SETTINGS, muted: true });
   });
 
-  it('recovers unknown versions to default', () => {
-    expect(migrate({ version: 999, settings: {}, meta: {} })).toEqual(createDefaultSave());
-  });
-
-  it('round-trips a valid save', () => {
-    const storage = new MemoryStorageAdapter();
-    const manager = new SaveManager(storage, saveKey);
-    const save = {
-      version: 1 as const,
-      settings: {
-        ...DEFAULT_SETTINGS,
-        muted: true,
-        musicVolume: 1.5,
-        sfxVolume: -1,
+  it('recovers V2 fields independently and is stable across repeated migration', () => {
+    const migrated = migrate({
+      version: 2,
+      settings: { ...DEFAULT_SETTINGS, muted: true, musicVolume: 4, sfxVolume: Number.NaN },
+      meta: {
+        scrap: 12,
+        unlocks: ['character:cat', 'bad', 'character:cat', 'future:thing'],
+        permanentUpgrades: {
+          'reinforced-vest': 99,
+          'future-upgrade': 7,
+          'bad:id': 2,
+          zero: 0,
+          fractional: 1.5,
+        },
       },
-      meta: {},
-    };
-
-    manager.save(save);
-
-    expect(manager.load()).toEqual({
-      version: 1,
-      settings: {
-        ...DEFAULT_SETTINGS,
-        muted: true,
-        musicVolume: 1,
-        sfxVolume: 0,
+    }, limits);
+    expect(migrated).toEqual({
+      version: 2,
+      settings: { ...DEFAULT_SETTINGS, muted: true, musicVolume: 1 },
+      meta: {
+        scrap: 12,
+        unlocks: ['character:cat', 'future:thing'],
+        permanentUpgrades: { 'reinforced-vest': 5, 'future-upgrade': 7 },
       },
-      meta: {},
     });
+    expect(migrate(migrated, limits)).toEqual(migrated);
   });
 
-  it('sanitizes live settings patches while preserving shared object identity', () => {
-    const settings = { ...DEFAULT_SETTINGS, sfxVolume: 0.25 };
+  it.each(['', '{broken', 'null', '[]', '{}'])(
+    'returns a complete default for malformed or versionless input %j',
+    (raw) => expect(migrate(raw, limits)).toEqual(createDefaultSave()),
+  );
 
-    const result = applySettingsPatch(settings, {
-      musicVolume: 2,
-      sfxVolume: Number.NaN,
-    });
-
-    expect(result).toBe(settings);
-    expect(settings).toEqual({
-      ...DEFAULT_SETTINGS,
-      musicVolume: 1,
-      sfxVolume: 0.25,
-    });
+  it.each([
+    {}, { version: 0 }, { version: -1 }, { version: 1.5 }, { version: Number.NaN }, { version: 3.5 },
+  ])('returns complete defaults for invalid versions', (raw) => {
+    expect(migrate(raw, limits)).toEqual(createDefaultSave());
   });
 
-  it('does not write while loading', () => {
-    const storage = new CountingStorageAdapter();
-    storage.setItem(saveKey, JSON.stringify(createDefaultSave()));
+  it('does not read inherited versions or prototype-polluting record keys', () => {
+    const inherited = Object.create({ version: 2 });
+    inherited.settings = { ...DEFAULT_SETTINGS, muted: true };
+    expect(migrate(inherited, limits)).toEqual(createDefaultSave());
+    const upgrades = Object.create(null) as Record<string, number>;
+    Object.defineProperty(upgrades, '__proto__', { value: 3, enumerable: true });
+    upgrades['safe-upgrade'] = 2;
+    expect(sanitizeMeta({ scrap: 1, unlocks: [], permanentUpgrades: upgrades }, limits))
+      .toEqual({ scrap: 1, unlocks: [], permanentUpgrades: { 'safe-upgrade': 2 } });
+  });
+
+  it('remains total for hostile accessors and proxies', () => {
+    const accessor = Object.defineProperty({}, 'version', { enumerable: true, get() { throw new Error('no'); } });
+    expect(migrate(accessor, limits)).toEqual(createDefaultSave());
+    const proxy = new Proxy({}, { getPrototypeOf() { throw new Error('no'); } });
+    expect(migrate(proxy, limits)).toEqual(createDefaultSave());
+  });
+
+  it('keeps valid patch values immutable and invalid patch fields at current values', () => {
+    const current = migrate({ version: 2, settings: { ...DEFAULT_SETTINGS, sfxVolume: 0.25 }, meta: {} }).settings;
+    const next = applySettingsPatch(current, { musicVolume: 2, sfxVolume: Number.NaN });
+    expect(next).toEqual({ ...DEFAULT_SETTINGS, musicVolume: 1, sfxVolume: 0.25 });
+    expect(next).not.toBe(current);
+    expect(applySettingsPatch(next, { sfxVolume: Number.NaN })).toBe(next);
+    expect(Object.isFrozen(next)).toBe(true);
+  });
+
+  it('loads once without writing and accurately reports save/clear', () => {
+    const storage = new CountingStorage();
+    storage.setItem(key, JSON.stringify(v1Fixture));
     storage.setCalls = 0;
-
-    const manager = new SaveManager(storage, saveKey);
-
-    expect(manager.load()).toEqual(createDefaultSave());
+    const manager = new SaveManager(storage, key, limits);
+    expect(manager.load().version).toBe(2);
+    expect(storage.getCalls).toBe(1);
     expect(storage.setCalls).toBe(0);
+    expect(manager.save(createDefaultSave())).toBe(true);
+    expect(storage.setCalls).toBe(1);
+    expect(manager.clear()).toBe(true);
   });
 
-  it('recovers when storage operations throw', () => {
-    const manager = new SaveManager(new ThrowingStorageAdapter(), saveKey);
-
+  it('write-protects future saves until successful explicit clear', () => {
+    const storage = new CountingStorage();
+    storage.setItem(key, JSON.stringify({ version: 3, settings: { muted: true }, meta: { scrap: 99 } }));
+    storage.setCalls = 0;
+    const manager = new SaveManager(storage, key, limits);
     expect(manager.load()).toEqual(createDefaultSave());
-    expect(() => manager.save(createDefaultSave())).not.toThrow();
-    expect(() => manager.clear()).not.toThrow();
+    expect(manager.save(createDefaultSave())).toBe(false);
+    expect(storage.setCalls).toBe(0);
+    storage.removeItem(key);
+    expect(manager.load()).toEqual(createDefaultSave());
+    expect(manager.save(createDefaultSave())).toBe(false);
+    expect(manager.clear()).toBe(true);
+    expect(manager.save(createDefaultSave())).toBe(true);
   });
 
-  it('localStorage adapter treats storage failures as non-fatal', () => {
-    const adapter = new LocalStorageAdapter(new ThrowingStorage());
-
-    expect(adapter.getItem(saveKey)).toBeNull();
-    expect(() => adapter.setItem(saveKey, '{}')).not.toThrow();
-    expect(() => adapter.removeItem(saveKey)).not.toThrow();
+  it('recovers from storage exceptions and localStorage adapter reports failures', () => {
+    const manager = new SaveManager(new ThrowingAdapter(), key, limits);
+    expect(manager.load()).toEqual(createDefaultSave());
+    expect(manager.save(createDefaultSave())).toBe(false);
+    expect(manager.clear()).toBe(false);
+    const local = new LocalStorageAdapter(new ThrowingStorage());
+    expect(local.getItem(key)).toBeNull();
+    expect(local.setItem(key, '{}')).toBe(false);
+    expect(local.removeItem(key)).toBe(false);
   });
 });
 
-class CountingStorageAdapter extends MemoryStorageAdapter {
+class CountingStorage extends MemoryStorageAdapter {
+  getCalls = 0;
   setCalls = 0;
-
-  override setItem(key: string, value: string): void {
+  override getItem(key: string): string | null { this.getCalls += 1; return super.getItem(key); }
+  override setItem(key: string, value: string): boolean {
     this.setCalls += 1;
-    super.setItem(key, value);
+    return super.setItem(key, value);
   }
 }
 
-class ThrowingStorageAdapter implements StorageAdapter {
-  getItem(): string | null {
-    throw new Error('blocked');
-  }
-
-  setItem(): void {
-    throw new Error('blocked');
-  }
-
-  removeItem(): void {
-    throw new Error('blocked');
-  }
+class ThrowingAdapter implements StorageAdapter {
+  getItem(): string | null { throw new Error('blocked'); }
+  setItem(): boolean { throw new Error('blocked'); }
+  removeItem(): boolean { throw new Error('blocked'); }
 }
 
 class ThrowingStorage implements Storage {
   readonly length = 0;
-
-  clear(): void {
-    throw new Error('blocked');
-  }
-
-  getItem(): string | null {
-    throw new Error('blocked');
-  }
-
-  key(): string | null {
-    throw new Error('blocked');
-  }
-
-  removeItem(): void {
-    throw new Error('blocked');
-  }
-
-  setItem(): void {
-    throw new Error('blocked');
-  }
+  clear(): void { throw new Error('blocked'); }
+  getItem(): string | null { throw new Error('blocked'); }
+  key(): string | null { throw new Error('blocked'); }
+  removeItem(): void { throw new Error('blocked'); }
+  setItem(): void { throw new Error('blocked'); }
 }
