@@ -66,10 +66,19 @@ export function chargerStep(
       throw new Error('Charger movement dt crosses too many state transitions');
     }
     if (state === 'pursuing') {
-      if (distanceSq(pos, target) > definition.attack.triggerRange ** 2) {
-        pos = chaseStep(pos, target, definition.speed, remainingMs);
-        remainingMs = 0;
-        continue;
+      const distanceSquared = distanceSq(pos, target);
+      if (distanceSquared > definition.attack.triggerRange ** 2) {
+        const distance = Math.hypot(target.x - pos.x, target.y - pos.y);
+        const timeToTriggerMs =
+          ((distance - definition.attack.triggerRange) / definition.speed) * 1_000;
+        if (timeToTriggerMs > remainingMs) {
+          pos = chaseStep(pos, target, definition.speed, remainingMs);
+          remainingMs = 0;
+          continue;
+        }
+
+        pos = chaseStep(pos, target, definition.speed, timeToTriggerMs);
+        remainingMs = Math.max(0, remainingMs - timeToTriggerMs);
       }
       state = 'winding';
       stateTimerMs = definition.attack.telegraphMs;

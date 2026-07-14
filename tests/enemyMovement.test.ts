@@ -50,9 +50,9 @@ describe('enemy movement', () => {
   });
 
   it('pursues outside trigger range and winds without moving inside it', () => {
-    const outside = chargerStep(pursuing(), { x: 200, y: 0 }, charger, 500);
+    const outside = chargerStep(pursuing(), { x: 200, y: 0 }, charger, 400);
     expect(outside).toEqual({
-      pos: { x: 50, y: 0 },
+      pos: { x: 40, y: 0 },
       state: 'pursuing',
       stateTimerMs: 0,
       dashDirection: { x: 0, y: 0 },
@@ -65,6 +65,26 @@ describe('enemy movement', () => {
       stateTimerMs: 550,
       dashDirection: { x: 0, y: 0 },
     });
+  });
+
+  it('carries trigger-boundary crossing time into windup without frame dependence', () => {
+    const single = chargerStep(pursuing(), { x: 200, y: 0 }, charger, 600);
+    const atBoundary = chargerStep(pursuing(), { x: 200, y: 0 }, charger, 500);
+    const chunked = chargerStep(atBoundary, { x: 200, y: 0 }, charger, 100);
+
+    expect(atBoundary).toEqual({
+      pos: { x: 50, y: 0 },
+      state: 'winding',
+      stateTimerMs: 650,
+      dashDirection: { x: 0, y: 0 },
+    });
+    expect(single).toEqual({
+      pos: { x: 50, y: 0 },
+      state: 'winding',
+      stateTimerMs: 550,
+      dashDirection: { x: 0, y: 0 },
+    });
+    expect(single).toEqual(chunked);
   });
 
   it('locks dash direction after telegraph and ignores later target movement', () => {
