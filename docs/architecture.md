@@ -41,6 +41,7 @@ flowchart TD
 | Upgrades | Run-only upgrade choices, stacks, and modifiers | Permanent progression |
 | Loot | XP, currency, chests, and reward tables | Paid rewards or ad multipliers |
 | Save | Local persistence, settings, migrations, and meta state | Run-time combat decisions |
+| Progression | Pure purchase, unlock, reward, and permanent-modifier rules | In-run loot generation or final UI rendering |
 | UI | HUD, menus, cards, inventory, settings | Core gameplay calculations |
 | Audio | Music, SFX, mute, and volume | Gameplay rules |
 | Debug | Developer-only visibility and cheats | Production player progression |
@@ -69,6 +70,7 @@ Epic-specific data contracts:
 - [Epic 4 Slice 3: enemy movement and charger timing](architecture/epic-4-enemy-movement.md)
 - [Epic 4 Slice 4: deterministic spawn director](architecture/epic-4-spawn-director.md)
 - [Epic 4 Slice 5: spawn and difficulty integration](architecture/epic-4-spawn-integration.md)
+- [Epic 5: meta progression](architecture/epic-5-meta-progression.md)
 
 ## AI Handoff Pattern
 
