@@ -1,7 +1,12 @@
 import Phaser from 'phaser';
 import type { EventBus } from '../engine/eventBus';
-import { towards, type Vec2 } from '../engine/vector';
-import type { ResolvedEnemyDefinition } from '../systems/types';
+import type { Vec2 } from '../engine/vector';
+import {
+  chaseStep,
+  chargerStep,
+  type ChargerMovementDefinition,
+} from '../gameplay/enemyMovement';
+import type { ResolvedEnemyDefinition, SpawnableEnemyArchetype } from '../systems/types';
 import type { Player } from './Player';
 
 let nextEnemyInstanceId = 1;
@@ -28,6 +33,8 @@ export class Enemy implements EnemyInstance {
   readonly definition: Readonly<ResolvedEnemyDefinition>;
   state: EnemyState = 'pursuing';
   stateTimerMs = 0;
+  private dashDirection: Vec2 = { x: 0, y: 0 };
+  private dashOrigin: Vec2 = { x: 0, y: 0 };
 
   constructor(
     scene: Phaser.Scene,
@@ -81,13 +88,44 @@ export class Enemy implements EnemyInstance {
     return this.sprite.body as Phaser.Physics.Arcade.Body;
   }
 
-  update(player: Player): void {
+  update(player: Player, dtMs: number): void {
     if (!this.active || !player.active) {
       return;
     }
+    if (!Number.isFinite(dtMs) || dtMs <= 0) {
+      this.body.setVelocity(0, 0);
+      return;
+    }
 
-    const direction = towards(this, player);
-    this.body.setVelocity(direction.x * this.definition.speed, direction.y * this.definition.speed);
+    const chargerDefinition = asChargerMovementDefinition(this.definition);
+    if (chargerDefinition) {
+      const result = chargerStep(
+        {
+          pos: this.pos,
+          state: this.state,
+          stateTimerMs: this.stateTimerMs,
+          dashDirection: this.dashDirection,
+          dashOrigin: this.dashOrigin,
+        },
+        { x: player.x, y: player.y },
+        chargerDefinition,
+        dtMs,
+      );
+      this.state = result.state;
+      this.stateTimerMs = result.stateTimerMs;
+      this.dashDirection = result.dashDirection;
+      this.dashOrigin = result.dashOrigin;
+      this.applyPosition(result.pos);
+      return;
+    }
+
+    if (pursuitArchetype(this.definition) !== undefined) {
+      const next = chaseStep(this.pos, player, this.definition.speed, dtMs);
+      this.applyPosition(next);
+      return;
+    }
+
+    this.body.setVelocity(0, 0);
   }
 
   takeDamage(amount: number): boolean {
@@ -134,6 +172,45 @@ export class Enemy implements EnemyInstance {
     body?.setVelocity(0, 0);
     this.sprite.destroy();
   }
+
+  private applyPosition(next: Vec2): void {
+    if (!Number.isFinite(next.x) || !Number.isFinite(next.y)) {
+      throw new Error('Enemy runtime position must remain finite');
+    }
+    // Arcade Physics steps before GameScene.update. Resetting applies the pure
+    // displacement to both sprite and body now and clears velocity, so the
+    // published phase/timer never gets a frame ahead of physical movement.
+    this.body.reset(next.x, next.y);
+  }
+}
+
+function pursuitArchetype(
+  definition: Readonly<ResolvedEnemyDefinition>,
+): Exclude<SpawnableEnemyArchetype, 'charger'> | undefined {
+  if (definition.archetype === 'chaser' || definition.archetype === 'tank') {
+    return definition.archetype;
+  }
+  if (
+    definition.archetype === 'elite' &&
+    (definition.baseArchetype === 'chaser' || definition.baseArchetype === 'tank')
+  ) {
+    return definition.baseArchetype;
+  }
+  return undefined;
+}
+
+function asChargerMovementDefinition(
+  definition: Readonly<ResolvedEnemyDefinition>,
+): ChargerMovementDefinition | undefined {
+  if (definition.archetype === 'charger') return definition;
+  if (
+    definition.archetype === 'elite' &&
+    definition.baseArchetype === 'charger' &&
+    'attack' in definition
+  ) {
+    return definition;
+  }
+  return undefined;
 }
 
 function deepFreeze<T>(value: T): T {

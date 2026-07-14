@@ -66,6 +66,7 @@ Epic-specific data contracts:
 
 - [Epic 4 Slice 1: enemy data and spawn curves](architecture/epic-4-enemy-data.md)
 - [Epic 4 Slice 2: enemy runtime state and lifecycle](architecture/epic-4-enemy-runtime.md)
+- [Epic 4 Slice 3: enemy movement and charger timing](architecture/epic-4-enemy-movement.md)
 
 ## AI Handoff Pattern
 

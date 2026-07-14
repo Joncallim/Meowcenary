@@ -5,21 +5,31 @@ import type { ResolvedEnemyDefinition } from '../src/systems/types';
 class MockBody {
   velocity = { x: 0, y: 0 };
 
+  constructor(private readonly owner: MockArc) {}
+
   setCircle(): void {}
 
   setVelocity(x: number, y: number): void {
     this.velocity = { x, y };
   }
+
+  reset(x: number, y: number): void {
+    this.owner.x = x;
+    this.owner.y = y;
+    this.velocity = { x: 0, y: 0 };
+  }
 }
 
 class MockArc {
   active = true;
-  body: MockBody | undefined = new MockBody();
+  body: MockBody | undefined;
 
   constructor(
     public x: number,
     public y: number,
-  ) {}
+  ) {
+    this.body = new MockBody(this);
+  }
 
   setDepth(): this {
     return this;
@@ -109,18 +119,157 @@ describe('Enemy', () => {
     source.speed = 99;
     source.xpValue = 99;
 
-    first.enemy.update({ active: true, x: 20, y: 20 } as never);
+    first.enemy.update({ active: true, x: 20, y: 20 } as never, 1_000);
 
     expect(first.enemy.defId).toBe('test-enemy');
     expect(first.enemy.archetype).toBe('chaser');
     expect(first.enemy.xpValue).toBe(1);
-    expect(first.sprite.body?.velocity).toEqual({ x: 1, y: 0 });
+    expect(first.enemy.pos).toEqual({ x: 11, y: 20 });
+    expect(first.sprite.body?.velocity).toEqual({ x: 0, y: 0 });
     expect(sibling.enemy.defId).toBe('test-enemy');
     expect(sibling.enemy.archetype).toBe('chaser');
     expect(sibling.enemy.xpValue).toBe(1);
     expect(Object.isFrozen(first.enemy.definition)).toBe(true);
     expect(Reflect.set(first.enemy.definition, 'xpValue', 500)).toBe(false);
     expect(sibling.enemy.xpValue).toBe(1);
+  });
+
+  it('runs charger windup, dash, and cooldown state through the pure movement helper', async () => {
+    const definition: ResolvedEnemyDefinition = {
+      id: 'test-charger',
+      name: 'Test Charger',
+      archetype: 'charger',
+      health: 10,
+      damage: 1,
+      speed: 100,
+      xpValue: 1,
+      scrapValue: 1,
+      contactDamage: true,
+      attack: {
+        triggerRange: 150,
+        telegraphMs: 650,
+        dashSpeed: 260,
+        dashDurationMs: 700,
+        cooldownMs: 1_200,
+      },
+    };
+    const { enemy, sprite } = await createEnemy(createEventBus(), definition);
+    const player = { active: true, x: 100, y: 20 } as never;
+
+    enemy.update(player, 1);
+    expect(enemy.state).toBe('winding');
+    expect(enemy.stateTimerMs).toBe(649);
+    expect(sprite.body?.velocity).toEqual({ x: 0, y: 0 });
+
+    enemy.update(player, 649);
+    expect(enemy.state).toBe('attacking');
+    expect(enemy.stateTimerMs).toBe(700);
+
+    enemy.update(player, 100);
+    expect(enemy.state).toBe('attacking');
+    expect(enemy.stateTimerMs).toBe(600);
+    expect(enemy.pos).toEqual({ x: 36, y: 20 });
+    expect(sprite.body?.velocity).toEqual({ x: 0, y: 0 });
+
+    enemy.update(player, 600);
+    expect(enemy.state).toBe('idle');
+    expect(enemy.stateTimerMs).toBe(1_200);
+    expect(enemy.pos).toEqual({ x: 192, y: 20 });
+    expect(sprite.body?.velocity).toEqual({ x: 0, y: 0 });
+
+    enemy.update(player, 1_200);
+    expect(enemy.state).toBe('pursuing');
+    expect(enemy.stateTimerMs).toBe(0);
+    expect(sprite.body?.velocity).toEqual({ x: 0, y: 0 });
+  });
+
+  it('keeps Phaser-order charger position and phases identical across frame chunks', async () => {
+    const definition: ResolvedEnemyDefinition = {
+      id: 'frame-charger',
+      name: 'Frame Charger',
+      archetype: 'charger',
+      health: 10,
+      damage: 1,
+      speed: 100,
+      xpValue: 1,
+      scrapValue: 1,
+      contactDamage: true,
+      attack: {
+        triggerRange: 150,
+        telegraphMs: 650,
+        dashSpeed: 260,
+        dashDurationMs: 700,
+        cooldownMs: 1_200,
+      },
+    };
+    const coarse = await createEnemy(createEventBus(), definition);
+    const fine = await createEnemy(createEventBus(), definition);
+    const player = { active: true, x: 100, y: 20 } as never;
+
+    function advance(
+      enemy: typeof coarse.enemy,
+      sprite: MockArc,
+      dtMs: number,
+      frames: number,
+    ): void {
+      for (let frame = 0; frame < frames; frame += 1) {
+        // Mirrors Phaser Arcade ordering: consume prior velocity before scene update.
+        const velocity = sprite.body?.velocity ?? { x: 0, y: 0 };
+        sprite.x += velocity.x * (dtMs / 1_000);
+        sprite.y += velocity.y * (dtMs / 1_000);
+        enemy.update(player, dtMs);
+      }
+    }
+
+    advance(coarse.enemy, coarse.sprite, 50, 28);
+    advance(fine.enemy, fine.sprite, 10, 140);
+
+    expect(coarse.enemy.pos.x).toBeCloseTo(192);
+    expect(coarse.enemy.pos).toEqual(fine.enemy.pos);
+    expect(coarse.enemy.state).toBe('idle');
+    expect(coarse.enemy.state).toBe(fine.enemy.state);
+    expect(coarse.enemy.stateTimerMs).toBe(1_150);
+    expect(coarse.enemy.stateTimerMs).toBe(fine.enemy.stateTimerMs);
+    expect(coarse.sprite.body?.velocity).toEqual({ x: 0, y: 0 });
+    expect(fine.sprite.body?.velocity).toEqual({ x: 0, y: 0 });
+  });
+
+  it('fails closed for a subnormal runtime delta without writing non-finite velocity', async () => {
+    const { enemy, sprite } = await createEnemy();
+    sprite.body?.setVelocity(20, 20);
+
+    expect(() =>
+      enemy.update({ active: true, x: 100, y: 20 } as never, Number.MIN_VALUE),
+    ).not.toThrow();
+    expect(enemy.pos).toEqual({ x: 10, y: 20 });
+    expect(sprite.body?.velocity).toEqual({ x: 0, y: 0 });
+    expect(Number.isFinite(sprite.body?.velocity.x)).toBe(true);
+    expect(Number.isFinite(sprite.body?.velocity.y)).toBe(true);
+    expect(enemy.state).toBe('pursuing');
+  });
+
+  it('keeps deferred shell behavior and invalid frame deltas stopped', async () => {
+    const boss: ResolvedEnemyDefinition = {
+      id: 'test-boss',
+      name: 'Test Boss',
+      archetype: 'boss',
+      health: 100,
+      damage: 10,
+      speed: 50,
+      xpValue: 10,
+      scrapValue: 10,
+      contactDamage: false,
+    };
+    const { enemy: bossEnemy, sprite: bossSprite } = await createEnemy(createEventBus(), boss);
+    bossSprite.body?.setVelocity(20, 20);
+
+    bossEnemy.update({ active: true, x: 100, y: 20 } as never, 16);
+    expect(bossSprite.body?.velocity).toEqual({ x: 0, y: 0 });
+
+    const { enemy: chaser, sprite: chaserSprite } = await createEnemy();
+    chaserSprite.body?.setVelocity(20, 20);
+    chaser.update({ active: true, x: 100, y: 20 } as never, Number.NaN);
+    expect(chaserSprite.body?.velocity).toEqual({ x: 0, y: 0 });
   });
 
   it('emits accepted damage and transitions lethal damage to dead exactly once', async () => {
