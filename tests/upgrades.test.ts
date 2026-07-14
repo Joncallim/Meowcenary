@@ -198,7 +198,7 @@ describe('applyCard', () => {
     expect(applyCard(run, card)).toBe(true);
     expect(run.upgradeStacks).toEqual({ 'quick-paws': 1 });
     expect(run.stats.resolve('moveSpeed', 100)).toBeCloseTo(110);
-    expect(run.stats.countBySource('upgrade:quick-paws:stack:1')).toBe(1);
+    expect(run.stats.countBySource('card:quick-paws:1')).toBe(1);
   });
 
   it('applies every effect from one selection under one source and one selected stack', () => {
@@ -216,7 +216,7 @@ describe('applyCard', () => {
     expect(run.stats.resolve('damage', 10)).toBe(13);
     expect(run.stats.resolve('attackSpeed', 1)).toBe(1.2);
     expect(run.stats.resolve('projectileCount', 1)).toBe(2);
-    expect(run.stats.countBySource('upgrade:multi:stack:1')).toBe(3);
+    expect(run.stats.countBySource('card:multi:1')).toBe(3);
   });
 
   it('uses successive source IDs and increments exactly once per selection', () => {
@@ -232,8 +232,8 @@ describe('applyCard', () => {
     expect(applyCard(run, card)).toBe(true);
 
     expect(run.upgradeStacks.repeat).toBe(2);
-    expect(run.stats.countBySource('upgrade:repeat:stack:1')).toBe(2);
-    expect(run.stats.countBySource('upgrade:repeat:stack:2')).toBe(2);
+    expect(run.stats.countBySource('card:repeat:1')).toBe(2);
+    expect(run.stats.countBySource('card:repeat:2')).toBe(2);
     expect(run.stats.resolve('damage', 10)).toBe(14);
   });
 
@@ -306,7 +306,7 @@ describe('applyCard', () => {
     expect(run.upgradeStacks).toEqual(stacksBefore);
     expect(resolvedStats(run)).toEqual(statsBefore);
     expect(run.stats.countBySource('baseline')).toBe(1);
-    expect(run.stats.countBySource('upgrade:bad:stack:1')).toBe(0);
+    expect(run.stats.countBySource('card:bad:1')).toBe(0);
   });
 
   it.each([Number.NaN, Number.POSITIVE_INFINITY, -1, 1.5, '1', undefined])(
@@ -321,7 +321,7 @@ describe('applyCard', () => {
       expect(applyCard(run, card)).toBe(false);
       expect(run.upgradeStacks).toEqual(stacksBefore);
       expect(resolvedStats(run)).toEqual(statsBefore);
-      expect(run.stats.countBySource('upgrade:bad-stack:stack:1')).toBe(0);
+      expect(run.stats.countBySource('card:bad-stack:1')).toBe(0);
     },
   );
 
@@ -338,7 +338,7 @@ describe('applyCard', () => {
     expect(applyCard(run, card)).toBe(false);
     expect(run.upgradeStacks).toEqual({});
     expect(resolvedStats(run)).toEqual(statsBefore);
-    expect(run.stats.countBySource('upgrade:partial:stack:1')).toBe(0);
+    expect(run.stats.countBySource('card:partial:1')).toBe(0);
   });
 
   it('rolls back modifiers when the stack record rejects the commit', () => {
@@ -353,7 +353,7 @@ describe('applyCard', () => {
     expect(result).toBe(false);
     expect(run.upgradeStacks).toEqual({});
     expect(resolvedStats(run)).toEqual(statsBefore);
-    expect(run.stats.countBySource('upgrade:frozen-stack:stack:1')).toBe(0);
+    expect(run.stats.countBySource('card:frozen-stack:1')).toBe(0);
   });
 
   it('rejects throwing definition getters without mutation', () => {
@@ -372,12 +372,12 @@ describe('applyCard', () => {
     expect(result).toBe(false);
     expect(run.upgradeStacks).toEqual({});
     expect(resolvedStats(run)).toEqual(statsBefore);
-    expect(run.stats.countBySource('upgrade:throwing-getter:stack:1')).toBe(0);
+    expect(run.stats.countBySource('card:throwing-getter:1')).toBe(0);
   });
 
   it('rejects a pre-existing derived source without treating modifier count as stack count', () => {
     const run = createTestRun();
-    const sourceId = 'upgrade:collision:stack:1';
+    const sourceId = 'card:collision:1';
     run.stats.add({ stat: 'damage', op: 'add', value: 5, sourceId });
     const statsBefore = resolvedStats(run);
 

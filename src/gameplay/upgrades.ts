@@ -107,7 +107,7 @@ export function applyCard(run: RunState, definition: UpgradeDefinition): boolean
     return false;
   }
 
-  const sourceId = `upgrade:${id}:stack:${nextStack}`;
+  const sourceId = `card:${id}:${nextStack}`;
   let sourceCount: number;
   try {
     sourceCount = run.stats.countBySource(sourceId);
