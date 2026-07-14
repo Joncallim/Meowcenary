@@ -128,7 +128,13 @@ describe('WeaponSystem', () => {
       y: 0,
       sprite: enemySprite,
       definition: { id: dustMite.id, xpValue: dustMite.xpValue },
-      takeDamage: vi.fn(() => {
+      takeDamage: vi.fn((amount: number) => {
+        ctx.bus.emit('enemy:damaged', {
+          instanceId: enemy.instanceId,
+          amount,
+          x: enemy.x,
+          y: enemy.y,
+        });
         enemy.active = false;
         enemySprite.active = false;
         return true;
@@ -248,8 +254,10 @@ describe('WeaponSystem', () => {
 
   it('applies hit, kill, and XP-drop side effects once per projectile/enemy pair', async () => {
     const harness = await createHarness();
+    const damaged = vi.fn();
     const hit = vi.fn();
     const killed = vi.fn();
+    harness.ctx.bus.on('enemy:damaged', damaged);
     harness.ctx.bus.on('projectile:hit', hit);
     harness.ctx.bus.on('enemy:killed', killed);
 
@@ -262,13 +270,18 @@ describe('WeaponSystem', () => {
     harness.overlap?.(projectile, harness.enemy.sprite);
 
     expect(harness.enemy.takeDamage).toHaveBeenCalledTimes(1);
+    expect(damaged).toHaveBeenCalledTimes(1);
     expect(hit).toHaveBeenCalledTimes(1);
     expect(killed).toHaveBeenCalledWith({
       instanceId: 1,
       enemyId: 'dust-mite',
+      xpValue: 1,
       x: 60,
       y: 0,
     });
+    expect(killed).toHaveBeenCalledTimes(1);
+    expect(damaged.mock.invocationCallOrder[0]).toBeLessThan(hit.mock.invocationCallOrder[0]);
+    expect(hit.mock.invocationCallOrder[0]).toBeLessThan(killed.mock.invocationCallOrder[0]);
     expect(harness.runState.kills).toBe(1);
     expect(harness.createXpDrop).toHaveBeenCalledWith(60, 0, 1);
   });

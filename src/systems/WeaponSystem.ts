@@ -199,6 +199,7 @@ export class WeaponSystem implements System {
     this.ctx.bus.emit('enemy:killed', {
       instanceId: enemy.instanceId,
       enemyId: enemy.definition.id,
+      xpValue: enemy.definition.xpValue,
       x: hitX,
       y: hitY,
     });

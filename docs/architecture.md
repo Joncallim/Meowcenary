@@ -65,6 +65,7 @@ Use TypeScript interfaces and validation so bad data fails early.
 Epic-specific data contracts:
 
 - [Epic 4 Slice 1: enemy data and spawn curves](architecture/epic-4-enemy-data.md)
+- [Epic 4 Slice 2: enemy runtime state and lifecycle](architecture/epic-4-enemy-runtime.md)
 
 ## AI Handoff Pattern
 

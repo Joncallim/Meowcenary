@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRunState } from '../src/gameplay/runState';
+import { loadGameData } from '../src/systems/validation';
 
 vi.mock('phaser', () => ({ default: {} }));
 
@@ -42,5 +43,62 @@ describe('SpawnSystem', () => {
     expect(() => system.update(16)).not.toThrow();
     expect(activeBody.velocity).toEqual({ x: 0, y: 0 });
     expect(enemies).toEqual([activeEnemy]);
+  });
+
+  it('publishes one spawned event after adding the runtime enemy to its group', async () => {
+    const { SpawnSystem } = await import('../src/systems/SpawnSystem');
+    const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
+    runState.status = 'active';
+    const bus = createEventBus();
+    const spawned = vi.fn();
+    bus.on('enemy:spawned', spawned);
+
+    class SpawnBody {
+      velocity = { x: 0, y: 0 };
+      setCircle(): void {}
+      setVelocity(x: number, y: number): void { this.velocity = { x, y }; }
+    }
+    class SpawnArc {
+      active = true;
+      body = new SpawnBody();
+      constructor(public x: number, public y: number) {}
+      setDepth(): this { return this; }
+      destroy(): void { this.active = false; }
+    }
+
+    const scene = {
+      scale: { width: 800, height: 600 },
+      add: { circle: (x: number, y: number) => new SpawnArc(x, y) },
+      physics: { add: { existing: () => undefined } },
+    };
+    const enemies: Array<{ instanceId: number; defId: string; pos: { x: number; y: number } }> = [];
+    const enemyGroup = { add: vi.fn() };
+    const ctx = { bus, data: loadGameData() };
+    const rng = { int: (min: number) => min };
+    const player = { active: true, x: 400, y: 300 };
+    const system = new SpawnSystem(
+      scene as never,
+      ctx as never,
+      runState,
+      rng as never,
+      player as never,
+      enemies as never,
+      enemyGroup as never,
+    );
+
+    system.update(1600);
+
+    expect(enemies).toHaveLength(1);
+    expect(enemyGroup.add).toHaveBeenCalledTimes(1);
+    expect(spawned).toHaveBeenCalledTimes(1);
+    expect(enemyGroup.add.mock.invocationCallOrder[0]).toBeLessThan(
+      spawned.mock.invocationCallOrder[0],
+    );
+    expect(spawned).toHaveBeenCalledWith({
+      instanceId: enemies[0].instanceId,
+      enemyId: enemies[0].defId,
+      x: enemies[0].pos.x,
+      y: enemies[0].pos.y,
+    });
   });
 });
