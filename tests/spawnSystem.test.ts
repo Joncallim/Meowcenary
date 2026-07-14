@@ -6,21 +6,31 @@ import { loadGameData } from '../src/systems/validation';
 class SpawnBody {
   velocity = { x: 0, y: 0 };
 
+  constructor(private readonly owner: SpawnArc) {}
+
   setCircle(): void {}
 
   setVelocity(x: number, y: number): void {
     this.velocity = { x, y };
   }
+
+  reset(x: number, y: number): void {
+    this.owner.x = x;
+    this.owner.y = y;
+    this.velocity = { x: 0, y: 0 };
+  }
 }
 
 class SpawnArc {
   active = true;
-  body: SpawnBody | undefined = new SpawnBody();
+  body: SpawnBody | undefined;
 
   constructor(
     public x: number,
     public y: number,
-  ) {}
+  ) {
+    this.body = new SpawnBody(this);
+  }
 
   setDepth(): this {
     return this;
