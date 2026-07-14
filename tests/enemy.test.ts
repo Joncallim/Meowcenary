@@ -49,6 +49,8 @@ describe('Enemy', () => {
         damage: 1,
         speed: 1,
         xpValue: 1,
+        scrapValue: 1,
+        contactDamage: true,
       },
       10,
       20,

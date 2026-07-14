@@ -29,15 +29,102 @@ export interface WeaponDefinition {
   spreadDeg: number;
 }
 
-export interface EnemyDefinition {
+export type EnemyArchetype = 'chaser' | 'charger' | 'ranged' | 'tank' | 'elite' | 'boss';
+export type SpawnableEnemyArchetype = 'chaser' | 'charger' | 'tank';
+export type DirectEnemyArchetype = Exclude<EnemyArchetype, 'elite'>;
+
+interface EnemyIdentity {
   id: string;
   name: string;
-  archetype: 'chaser' | 'charger' | 'ranged' | 'tank' | 'boss';
+  archetype: EnemyArchetype;
+}
+
+export interface EnemyStats {
   health: number;
   damage: number;
   speed: number;
   xpValue: number;
+  scrapValue: number;
 }
+
+export interface ChargerAttackDefinition {
+  triggerRange: number;
+  telegraphMs: number;
+  dashSpeed: number;
+  dashDurationMs: number;
+  cooldownMs: number;
+}
+
+export interface RangedAttackDefinition {
+  range: number;
+  telegraphMs: number;
+  cooldownMs: number;
+}
+
+export interface ChaserEnemyDefinition extends EnemyIdentity, EnemyStats {
+  archetype: 'chaser';
+  contactDamage: true;
+}
+
+export interface ChargerEnemyDefinition extends EnemyIdentity, EnemyStats {
+  archetype: 'charger';
+  contactDamage: true;
+  attack: ChargerAttackDefinition;
+}
+
+export interface RangedEnemyDefinition extends EnemyIdentity, EnemyStats {
+  archetype: 'ranged';
+  contactDamage: false;
+  attack: RangedAttackDefinition;
+}
+
+export interface TankEnemyDefinition extends EnemyIdentity, EnemyStats {
+  archetype: 'tank';
+  contactDamage: true;
+}
+
+export interface BossEnemyDefinition extends EnemyIdentity, EnemyStats {
+  archetype: 'boss';
+  contactDamage: false;
+}
+
+export interface EliteEnemyDefinition extends EnemyIdentity {
+  archetype: 'elite';
+  baseEnemyId: string;
+}
+
+export type SpawnableEnemyDefinition =
+  | ChaserEnemyDefinition
+  | ChargerEnemyDefinition
+  | TankEnemyDefinition;
+
+export type DirectEnemyDefinition =
+  | SpawnableEnemyDefinition
+  | RangedEnemyDefinition
+  | BossEnemyDefinition;
+
+type AnyEnemyDefinition = DirectEnemyDefinition | EliteEnemyDefinition;
+
+/**
+ * The full discriminated union is available with `EnemyDefinition<EnemyArchetype>`.
+ * The default remains direct-only for the pre-Epic-4 runtime, which cannot spawn
+ * elite shells until a later slice resolves them through DataEnemyRegistry.
+ */
+export type EnemyDefinition<
+  Archetype extends EnemyArchetype = DirectEnemyArchetype,
+> = Extract<AnyEnemyDefinition, { archetype: Archetype }>;
+
+export type ResolvedEliteEnemyDefinition<
+  Base extends SpawnableEnemyDefinition = SpawnableEnemyDefinition,
+> = Base extends SpawnableEnemyDefinition
+  ? Omit<Base, 'archetype'> & {
+      archetype: 'elite';
+      baseEnemyId: string;
+      baseArchetype: Base['archetype'];
+    }
+  : never;
+
+export type ResolvedEnemyDefinition = DirectEnemyDefinition | ResolvedEliteEnemyDefinition;
 
 export interface UpgradeDefinition {
   id: string;
@@ -59,12 +146,20 @@ export interface SpawnWaveDefinition {
 export interface SpawnCurveDefinition {
   id: string;
   durationSeconds: number;
+  scaling: EnemyScalingDefinition;
   waves: SpawnWaveDefinition[];
 }
 
-export interface GameData {
+export interface EnemyScalingDefinition {
+  healthPerMinute: number;
+  damagePerMinute: number;
+}
+
+export interface GameData<
+  Enemy extends EnemyDefinition<EnemyArchetype> = EnemyDefinition,
+> {
   weapons: WeaponDefinition[];
-  enemies: EnemyDefinition[];
+  enemies: Enemy[];
   upgrades: UpgradeDefinition[];
   spawnCurves: SpawnCurveDefinition[];
 }
