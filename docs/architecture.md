@@ -72,6 +72,10 @@ Epic-specific data contracts:
 - [Epic 4 Slice 5: spawn and difficulty integration](architecture/epic-4-spawn-integration.md)
 - [Epic 5: meta progression](architecture/epic-5-meta-progression.md)
 
+The Epic 5 document is the implementation source of truth for save V2,
+permanent modifier ordering, finished-run banking, and the Epics 6/8/9
+boundaries. It supersedes older backlog wording where those contracts differ.
+
 ## AI Handoff Pattern
 
 Every feature should move through the same simple flow:

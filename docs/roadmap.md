@@ -5,11 +5,14 @@
 - Epic 0 / Foundation: complete (#1).
 - Epic 1 / Core Gameplay Loop: complete (#2).
 - Epic 2 / Weapons and Merge System: complete (#3).
-- Epic 3 / Upgrade Cards: next (#4).
+- Epic 3 / Upgrade Cards: complete (#4).
+- Epic 4 / Enemy AI and Spawn Director: complete (#5).
+- Epic 5 / Meta Progression: next (#6).
 
-The current `main` branch is the clean post-Epic-2 baseline. The placeholder
-level-up acknowledgement remains intentionally minimal and is replaced by Epic
-3's seeded card offers and applied run modifiers.
+The current `main` branch is the clean post-Epic-4 baseline. Epic 5 follows the
+seven implementation slices in
+[`architecture/epic-5-meta-progression.md`](architecture/epic-5-meta-progression.md)
+and can ship before Epic 8 because zero-currency finished runs are valid.
 
 ## Milestone 0: Foundation
 
