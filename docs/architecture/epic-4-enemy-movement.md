@@ -2,8 +2,10 @@
 
 Slice 3 adds deterministic movement rules without adding spawn policy. Pure
 helpers live in `src/gameplay/enemyMovement.ts`; `Enemy` only translates their
-planned displacement into Phaser velocity and publishes the resulting runtime
-state.
+planned displacement into an immediate Phaser body reset and publishes the
+resulting runtime state. Arcade Physics runs before `GameScene.update`, so this
+same-step reset keeps sprite position, body position, zero residual velocity,
+phase, and timer synchronized for every frame size.
 
 ## Movement contract
 

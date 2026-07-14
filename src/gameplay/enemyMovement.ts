@@ -14,6 +14,7 @@ export interface ChargerMovementSnapshot {
   readonly state: EnemyMovementState;
   readonly stateTimerMs: number;
   readonly dashDirection: Vec2;
+  readonly dashOrigin: Vec2;
 }
 
 export interface ChargerStepResult extends ChargerMovementSnapshot {}
@@ -28,7 +29,10 @@ export function chaseStep(pos: Vec2, target: Vec2, speed: number, dtMs: number):
 
   const deltaX = target.x - pos.x;
   const deltaY = target.y - pos.y;
+  assertFinite(deltaX, 'Enemy movement delta');
+  assertFinite(deltaY, 'Enemy movement delta');
   const distance = Math.hypot(deltaX, deltaY);
+  assertFinite(distance, 'Enemy movement distance');
   if (distance === 0) return { ...pos };
 
   const travel = speed * (dtMs / 1_000);
@@ -36,10 +40,12 @@ export function chaseStep(pos: Vec2, target: Vec2, speed: number, dtMs: number):
   if (travel >= distance) return { ...target };
 
   const scale = travel / distance;
-  return {
+  const result = {
     x: pos.x + deltaX * scale,
     y: pos.y + deltaY * scale,
   };
+  assertFiniteVector(result, 'Enemy movement result');
+  return result;
 }
 
 export function chargerStep(
@@ -50,13 +56,19 @@ export function chargerStep(
 ): ChargerStepResult {
   validateChargerInputs(snapshot, target, definition, dtMs);
   if (snapshot.state === 'dead') {
-    return { ...snapshot, pos: { ...snapshot.pos }, dashDirection: { ...snapshot.dashDirection } };
+    return {
+      ...snapshot,
+      pos: { ...snapshot.pos },
+      dashDirection: { ...snapshot.dashDirection },
+      dashOrigin: { ...snapshot.dashOrigin },
+    };
   }
 
   let pos = { ...snapshot.pos };
   let state = snapshot.state;
   let stateTimerMs = Math.max(0, snapshot.stateTimerMs);
   let dashDirection = { ...snapshot.dashDirection };
+  let dashOrigin = { ...snapshot.dashOrigin };
   let remainingMs = Math.max(0, dtMs);
 
   // One update can cross winding, dash, and cooldown boundaries. Durations are
@@ -69,8 +81,10 @@ export function chargerStep(
       const distanceSquared = distanceSq(pos, target);
       if (distanceSquared > definition.attack.triggerRange ** 2) {
         const distance = Math.hypot(target.x - pos.x, target.y - pos.y);
+        assertFinite(distance, 'Charger pursuit distance');
         const timeToTriggerMs =
           ((distance - definition.attack.triggerRange) / definition.speed) * 1_000;
+        assertFinite(timeToTriggerMs, 'Charger trigger time');
         if (timeToTriggerMs > remainingMs) {
           pos = chaseStep(pos, target, definition.speed, remainingMs);
           remainingMs = 0;
@@ -94,18 +108,24 @@ export function chargerStep(
       state = 'attacking';
       stateTimerMs = definition.attack.dashDurationMs;
       dashDirection = towards(pos, target);
+      dashOrigin = { ...pos };
+      assertFiniteVector(dashDirection, 'Charger dash direction');
       continue;
     }
 
     if (state === 'attacking') {
       const consumed = Math.min(remainingMs, stateTimerMs);
-      const travel = definition.attack.dashSpeed * (consumed / 1_000);
+      const nextTimerMs = stateTimerMs - consumed;
+      const elapsedDashMs = definition.attack.dashDurationMs - nextTimerMs;
+      const travel = definition.attack.dashSpeed * (elapsedDashMs / 1_000);
+      assertFinite(travel, 'Charger dash travel');
       pos = {
-        x: pos.x + dashDirection.x * travel,
-        y: pos.y + dashDirection.y * travel,
+        x: dashOrigin.x + dashDirection.x * travel,
+        y: dashOrigin.y + dashDirection.y * travel,
       };
+      assertFiniteVector(pos, 'Charger dash result');
       remainingMs -= consumed;
-      stateTimerMs -= consumed;
+      stateTimerMs = nextTimerMs;
       if (stateTimerMs > 0) continue;
 
       state = 'idle';
@@ -121,13 +141,18 @@ export function chargerStep(
 
       state = 'pursuing';
       dashDirection = { x: 0, y: 0 };
+      dashOrigin = { ...pos };
       continue;
     }
 
     remainingMs = 0;
   }
 
-  return { pos, state, stateTimerMs, dashDirection };
+  assertFiniteVector(pos, 'Charger movement result');
+  assertFinite(stateTimerMs, 'Charger state timer result');
+  assertFiniteVector(dashDirection, 'Charger dash direction result');
+  assertFiniteVector(dashOrigin, 'Charger dash origin result');
+  return { pos, state, stateTimerMs, dashDirection, dashOrigin };
 }
 
 function validateChargerInputs(
@@ -138,6 +163,7 @@ function validateChargerInputs(
 ): void {
   assertFiniteVector(snapshot.pos, 'Charger position');
   assertFiniteVector(snapshot.dashDirection, 'Charger dash direction');
+  assertFiniteVector(snapshot.dashOrigin, 'Charger dash origin');
   assertFiniteVector(target, 'Charger target');
   assertFinite(snapshot.stateTimerMs, 'Charger state timer');
   assertFinite(dtMs, 'Charger movement dt');

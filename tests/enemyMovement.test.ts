@@ -23,6 +23,7 @@ function pursuing(pos = { x: 0, y: 0 }): ChargerMovementSnapshot {
     state: 'pursuing',
     stateTimerMs: 0,
     dashDirection: { x: 0, y: 0 },
+    dashOrigin: { ...pos },
   };
 }
 
@@ -47,6 +48,14 @@ describe('enemy movement', () => {
     expect(() => chaseStep({ x: Number.NaN, y: 0 }, { x: 1, y: 0 }, 1, 1)).toThrow();
     expect(() => chaseStep({ x: 0, y: 0 }, { x: 1, y: 0 }, -1, 1)).toThrow();
     expect(() => chaseStep({ x: 0, y: 0 }, { x: 1, y: 0 }, 1, Infinity)).toThrow();
+    expect(() =>
+      chaseStep(
+        { x: -Number.MAX_VALUE, y: 0 },
+        { x: Number.MAX_VALUE, y: 0 },
+        1,
+        1,
+      ),
+    ).toThrow();
   });
 
   it('pursues outside trigger range and winds without moving inside it', () => {
@@ -56,6 +65,7 @@ describe('enemy movement', () => {
       state: 'pursuing',
       stateTimerMs: 0,
       dashDirection: { x: 0, y: 0 },
+      dashOrigin: { x: 0, y: 0 },
     });
 
     const inside = chargerStep(pursuing(), { x: 100, y: 0 }, charger, 100);
@@ -64,6 +74,7 @@ describe('enemy movement', () => {
       state: 'winding',
       stateTimerMs: 550,
       dashDirection: { x: 0, y: 0 },
+      dashOrigin: { x: 0, y: 0 },
     });
   });
 
@@ -77,12 +88,14 @@ describe('enemy movement', () => {
       state: 'winding',
       stateTimerMs: 650,
       dashDirection: { x: 0, y: 0 },
+      dashOrigin: { x: 0, y: 0 },
     });
     expect(single).toEqual({
       pos: { x: 50, y: 0 },
       state: 'winding',
       stateTimerMs: 550,
       dashDirection: { x: 0, y: 0 },
+      dashOrigin: { x: 0, y: 0 },
     });
     expect(single).toEqual(chunked);
   });
@@ -109,6 +122,7 @@ describe('enemy movement', () => {
     expect(result.state).toBe('pursuing');
     expect(result.stateTimerMs).toBe(0);
     expect(result.dashDirection).toEqual({ x: 0, y: 0 });
+    expect(result.dashOrigin).toEqual({ x: 182, y: 0 });
     expect(result).toEqual(chunked);
   });
 
@@ -118,6 +132,7 @@ describe('enemy movement', () => {
       state: 'dead',
       stateTimerMs: 12,
       dashDirection: { x: 1, y: 0 },
+      dashOrigin: { x: 4, y: 5 },
     };
     const before = structuredClone(snapshot);
     const result = chargerStep(snapshot, { x: 100, y: 100 }, charger, 1_000);
@@ -146,5 +161,33 @@ describe('enemy movement', () => {
         1,
       ),
     ).toThrow();
+
+    const attacking: ChargerMovementSnapshot = {
+      pos: { x: 0, y: 0 },
+      state: 'attacking',
+      stateTimerMs: Number.MAX_SAFE_INTEGER,
+      dashDirection: { x: 1, y: 0 },
+      dashOrigin: { x: 0, y: 0 },
+    };
+    const extremeDash: ChargerMovementDefinition = {
+      speed: 1,
+      attack: {
+        triggerRange: 1,
+        telegraphMs: 1,
+        dashSpeed: Number.MAX_VALUE,
+        dashDurationMs: Number.MAX_SAFE_INTEGER,
+        cooldownMs: 1,
+      },
+    };
+    expect(() =>
+      chargerStep(attacking, { x: 1, y: 0 }, extremeDash, Number.MAX_SAFE_INTEGER),
+    ).toThrow();
+    expect(attacking).toEqual({
+      pos: { x: 0, y: 0 },
+      state: 'attacking',
+      stateTimerMs: Number.MAX_SAFE_INTEGER,
+      dashDirection: { x: 1, y: 0 },
+      dashOrigin: { x: 0, y: 0 },
+    });
   });
 });

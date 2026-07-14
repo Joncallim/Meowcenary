@@ -34,6 +34,7 @@ export class Enemy implements EnemyInstance {
   state: EnemyState = 'pursuing';
   stateTimerMs = 0;
   private dashDirection: Vec2 = { x: 0, y: 0 };
+  private dashOrigin: Vec2 = { x: 0, y: 0 };
 
   constructor(
     scene: Phaser.Scene,
@@ -104,6 +105,7 @@ export class Enemy implements EnemyInstance {
           state: this.state,
           stateTimerMs: this.stateTimerMs,
           dashDirection: this.dashDirection,
+          dashOrigin: this.dashOrigin,
         },
         { x: player.x, y: player.y },
         chargerDefinition,
@@ -112,13 +114,14 @@ export class Enemy implements EnemyInstance {
       this.state = result.state;
       this.stateTimerMs = result.stateTimerMs;
       this.dashDirection = result.dashDirection;
-      this.setVelocityForStep(result.pos, dtMs);
+      this.dashOrigin = result.dashOrigin;
+      this.applyPosition(result.pos);
       return;
     }
 
     if (pursuitArchetype(this.definition) !== undefined) {
       const next = chaseStep(this.pos, player, this.definition.speed, dtMs);
-      this.setVelocityForStep(next, dtMs);
+      this.applyPosition(next);
       return;
     }
 
@@ -170,9 +173,14 @@ export class Enemy implements EnemyInstance {
     this.sprite.destroy();
   }
 
-  private setVelocityForStep(next: Vec2, dtMs: number): void {
-    const seconds = dtMs / 1_000;
-    this.body.setVelocity((next.x - this.x) / seconds, (next.y - this.y) / seconds);
+  private applyPosition(next: Vec2): void {
+    if (!Number.isFinite(next.x) || !Number.isFinite(next.y)) {
+      throw new Error('Enemy runtime position must remain finite');
+    }
+    // Arcade Physics steps before GameScene.update. Resetting applies the pure
+    // displacement to both sprite and body now and clears velocity, so the
+    // published phase/timer never gets a frame ahead of physical movement.
+    this.body.reset(next.x, next.y);
   }
 }
 
