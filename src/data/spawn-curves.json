@@ -2,6 +2,10 @@
   {
     "id": "junkyard-intro",
     "durationSeconds": 300,
+    "scaling": {
+      "healthPerMinute": 0.18,
+      "damagePerMinute": 0.10
+    },
     "waves": [
       { "startSecond": 0, "enemyId": "dust-mite", "spawnEveryMs": 1600, "maxAlive": 12 },
       { "startSecond": 60, "enemyId": "junk-rusher", "spawnEveryMs": 2400, "maxAlive": 6 },

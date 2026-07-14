@@ -62,6 +62,10 @@ Good data candidates:
 
 Use TypeScript interfaces and validation so bad data fails early.
 
+Epic-specific data contracts:
+
+- [Epic 4 Slice 1: enemy data and spawn curves](architecture/epic-4-enemy-data.md)
+
 ## AI Handoff Pattern
 
 Every feature should move through the same simple flow:

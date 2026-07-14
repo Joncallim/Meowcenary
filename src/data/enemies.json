@@ -6,7 +6,9 @@
     "health": 10,
     "damage": 5,
     "speed": 68,
-    "xpValue": 1
+    "xpValue": 1,
+    "scrapValue": 1,
+    "contactDamage": true
   },
   {
     "id": "junk-rusher",
@@ -15,7 +17,16 @@
     "health": 18,
     "damage": 8,
     "speed": 112,
-    "xpValue": 2
+    "xpValue": 2,
+    "scrapValue": 2,
+    "contactDamage": true,
+    "attack": {
+      "triggerRange": 150,
+      "telegraphMs": 650,
+      "dashSpeed": 260,
+      "dashDurationMs": 700,
+      "cooldownMs": 1200
+    }
   },
   {
     "id": "trash-brute",
@@ -24,6 +35,8 @@
     "health": 72,
     "damage": 14,
     "speed": 42,
-    "xpValue": 6
+    "xpValue": 6,
+    "scrapValue": 5,
+    "contactDamage": true
   }
 ]

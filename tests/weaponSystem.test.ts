@@ -7,6 +7,8 @@ import type { RunState } from '../src/gameplay/runState';
 import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import { loadGameData } from '../src/systems/validation';
 import { DEFAULT_SETTINGS, MemoryStorageAdapter, SaveManager } from '../src/systems/save';
+import { isSpawnableEnemyDefinition } from '../src/systems/types';
+import type { SpawnableEnemyDefinition } from '../src/systems/types';
 
 class MockGameObject {
   active = true;
@@ -87,6 +89,13 @@ describe('WeaponSystem', () => {
   async function createHarness(): Promise<TestHarness & { system: { update(dtMs: number): void } }> {
     const { WeaponSystem } = await import('../src/systems/WeaponSystem');
     const data = loadGameData();
+    const dustMite = data.enemies.find(
+      (enemy): enemy is SpawnableEnemyDefinition =>
+        enemy.id === 'dust-mite' && isSpawnableEnemyDefinition(enemy),
+    );
+    if (!dustMite) {
+      throw new Error('missing validated dust-mite');
+    }
     const registry = new DataWeaponRegistry(data);
     const pistol = registry.weaponById('scrap-pistol-t1');
     if (!pistol) {
@@ -118,7 +127,7 @@ describe('WeaponSystem', () => {
       x: 60,
       y: 0,
       sprite: enemySprite,
-      definition: { id: 'dust-mite', xpValue: 1 },
+      definition: { id: dustMite.id, xpValue: dustMite.xpValue },
       takeDamage: vi.fn(() => {
         enemy.active = false;
         enemySprite.active = false;
@@ -245,6 +254,7 @@ describe('WeaponSystem', () => {
     harness.ctx.bus.on('enemy:killed', killed);
 
     harness.system.update(650);
+    expect(harness.enemy.definition.xpValue).toBeGreaterThan(0);
     const projectile = harness.projectileGroup.added[0];
     harness.overlap?.(projectile, harness.enemy.sprite);
     harness.enemy.active = true;

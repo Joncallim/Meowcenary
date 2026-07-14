@@ -6,7 +6,11 @@ import type { System } from '../engine/system';
 import type { RunState } from '../gameplay/runState';
 import { Enemy } from '../entities/Enemy';
 import type { Player } from '../entities/Player';
-import type { EnemyDefinition, SpawnWaveDefinition } from './types';
+import {
+  isSpawnableEnemyDefinition,
+  type SpawnableEnemyDefinition,
+  type SpawnWaveDefinition,
+} from './types';
 
 interface WaveRuntime {
   definition: SpawnWaveDefinition;
@@ -14,7 +18,7 @@ interface WaveRuntime {
 }
 
 export class SpawnSystem implements System {
-  private readonly enemiesById = new Map<string, EnemyDefinition>();
+  private readonly enemiesById = new Map<string, SpawnableEnemyDefinition>();
   private readonly waves: WaveRuntime[];
 
   constructor(
@@ -27,7 +31,9 @@ export class SpawnSystem implements System {
     private readonly enemyGroup: Phaser.Physics.Arcade.Group,
   ) {
     this.ctx.data.enemies.forEach((enemy) => {
-      this.enemiesById.set(enemy.id, enemy);
+      if (isSpawnableEnemyDefinition(enemy)) {
+        this.enemiesById.set(enemy.id, enemy);
+      }
     });
     const curve = this.ctx.data.spawnCurves[0];
     this.waves =
