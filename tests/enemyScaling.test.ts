@@ -44,6 +44,12 @@ describe('scaleEnemy', () => {
     expect(scaled).toEqual({ maxHealth: 10, damage: 5, speed: 68, xpValue: 1, scrapValue: 1 });
     expect(dustMite).toEqual(before);
     expect(scaled).not.toBe(dustMite);
+
+    const fractional = scaleEnemy(dustMite, 30_000.5, scaling);
+    const minutes = 30_000.5 / 60_000;
+    expect(fractional.maxHealth).toBeCloseTo(10 * (1 + 0.18 * minutes));
+    expect(fractional.damage).toBeCloseTo(5 * (1 + 0.1 * minutes));
+    expect(dustMite).toEqual(before);
   });
 
   it('throws for non-finite input or result', () => {
@@ -54,6 +60,10 @@ describe('scaleEnemy', () => {
     }
     expect(() => scaleEnemy({ ...dustMite, health: Number.NaN }, 0, scaling)).toThrow(/finite/);
     expect(() => scaleEnemy(dustMite, 0, { ...scaling, damagePerMinute: Number.POSITIVE_INFINITY })).toThrow(/finite/);
+    for (const invalidRate of [-0.01, 1.01]) {
+      expect(() => scaleEnemy(dustMite, 0, { ...scaling, healthPerMinute: invalidRate })).toThrow(/0 through 1/);
+      expect(() => scaleEnemy(dustMite, 0, { ...scaling, damagePerMinute: invalidRate })).toThrow(/0 through 1/);
+    }
     expect(() => scaleEnemy({ ...dustMite, health: Number.MAX_VALUE }, Number.MAX_VALUE, { healthPerMinute: 1, damagePerMinute: 1 })).toThrow(/result must be finite/);
   });
 });

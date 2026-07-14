@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { Enemy as RuntimeEnemy } from '../src/entities/Enemy';
 import { STAT_KEYS, type StatKey } from '../src/gameplay/stats';
+import type { EnemyDefinition, GameData } from '../src/systems/types';
 import {
   collectValidationErrors,
   loadGameData,
@@ -306,6 +308,21 @@ describe('game data validation', () => {
     expect(() => validateGameData(withEnemies(enemies))).not.toThrow();
   });
 
+  it('exposes elite through the default public union while legacy runtime stays direct-only', () => {
+    const elite: Extract<EnemyDefinition, { archetype: 'elite' }> = {
+      id: 'typed-elite',
+      name: 'Typed Elite',
+      archetype: 'elite',
+      baseEnemyId: 'dust-mite',
+    };
+    const catalogEnemy: GameData['enemies'][number] = elite;
+    expect(catalogEnemy.archetype).toBe('elite');
+
+    // @ts-expect-error Unresolved elite shells cannot enter the legacy Phaser entity.
+    const legacyRuntimeEnemy: ConstructorParameters<typeof RuntimeEnemy>[1] = elite;
+    expect(legacyRuntimeEnemy.archetype).toBe('elite');
+  });
+
   it('accepts unknown and fails closed for malformed roots and catalogs', () => {
     for (const raw of [null, [], 'data', 42]) {
       expect(() => validateGameData(raw)).toThrow(/expected object/);
@@ -378,6 +395,21 @@ describe('game data validation', () => {
     }
   });
 
+  it('requires positive XP for every directly spawnable archetype', () => {
+    for (const archetype of ['chaser', 'charger', 'tank']) {
+      const rows = [enemyFixture('chaser'), enemyFixture('charger'), enemyFixture('tank')];
+      const target = rows.find((row) => row.archetype === archetype);
+      if (!target) throw new Error(`missing ${archetype} fixture`);
+      target.xpValue = 0;
+      expect(() => validateGameData(withEnemies(rows))).toThrow(new RegExp(`${archetype}-fixture.*|xpValue`));
+    }
+
+    expect(() => validateGameData(withEnemies([
+      enemyFixture('chaser'), enemyFixture('charger'), enemyFixture('tank'),
+      enemyFixture('ranged', { xpValue: 0 }), enemyFixture('boss', { xpValue: 0 }),
+    ]))).not.toThrow();
+  });
+
   it('enforces charger and ranged attack contracts', () => {
     const badChargers = [
       enemyFixture('charger', { attack: undefined }),
@@ -426,6 +458,37 @@ describe('game data validation', () => {
     expect(() => validateGameData(withEnemies([...direct, chainBase, chain]))).toThrow(/direct chaser, charger, or tank/);
   });
 
+  it('uses one spawnability decision for curves and elite bases across all archetypes', () => {
+    const archetypes = ['chaser', 'charger', 'ranged', 'tank', 'elite', 'boss'] as const;
+    const spawnable = new Set(['chaser', 'charger', 'tank']);
+
+    for (const archetype of archetypes) {
+      const rows = archetypes.map((entry) => enemyFixture(entry));
+      const candidateId = `${archetype}-fixture`;
+
+      const curveData = withEnemies(rows) as Record<string, any>;
+      curveData.spawnCurves[0].waves = [
+        { startSecond: 0, enemyId: candidateId, spawnEveryMs: 1000, maxAlive: 1 },
+      ];
+      if (spawnable.has(archetype)) {
+        expect(() => validateGameData(curveData)).not.toThrow();
+      } else {
+        expect(() => validateGameData(curveData)).toThrow(/direct chaser, charger, or tank/);
+      }
+
+      const eliteBaseRows = archetypes.map((entry) => enemyFixture(entry));
+      const eliteRow = eliteBaseRows.find((row) => row.archetype === 'elite');
+      if (!eliteRow) throw new Error('missing elite fixture');
+      eliteRow.baseEnemyId = candidateId;
+      const eliteData = withEnemies(eliteBaseRows);
+      if (spawnable.has(archetype)) {
+        expect(() => validateGameData(eliteData)).not.toThrow();
+      } else {
+        expect(() => validateGameData(eliteData)).toThrow(/baseEnemyId/);
+      }
+    }
+  });
+
   it('enforces curve identity, duration, scaling, ordering, cadence, and cap constraints', () => {
     const mutateCurve = (mutate: (curve: Record<string, any>) => void): unknown => {
       const data = structuredClone(loadGameData()) as unknown as { spawnCurves: Record<string, any>[] };
@@ -450,6 +513,48 @@ describe('game data validation', () => {
       [mutateCurve((curve) => { curve.waves = [{ startSecond: 0, enemyId: 'dust-mite', spawnEveryMs: 300000, maxAlive: 1 }]; }), /first due spawn must be before curve end/],
     ];
     for (const [data, pattern] of cases) expect(() => validateGameData(data)).toThrow(pattern);
+  });
+
+  it('rejects prototype-inherited required fields at their exact paths', () => {
+    const healthDescriptor = Object.getOwnPropertyDescriptor(Object.prototype, 'health');
+    const cooldownDescriptor = Object.getOwnPropertyDescriptor(Object.prototype, 'cooldownMs');
+    try {
+      Object.defineProperty(Object.prototype, 'health', { value: 10, configurable: true });
+      const missingHealth = structuredClone(loadGameData()) as unknown as { enemies: Record<string, unknown>[] };
+      delete missingHealth.enemies[0].health;
+      expect(() => validateGameData(missingHealth)).toThrow(/enemies\.json\[0\]\.health/);
+
+      Object.defineProperty(Object.prototype, 'cooldownMs', { value: 1200, configurable: true });
+      const inheritedTiming = structuredClone(loadGameData()) as unknown as {
+        enemies: Array<{ attack?: Record<string, unknown> }>;
+      };
+      delete inheritedTiming.enemies[1].attack?.cooldownMs;
+      expect(() => validateGameData(inheritedTiming)).toThrow(/enemies\.json\[1\]\.attack\.cooldownMs/);
+    } finally {
+      if (healthDescriptor) Object.defineProperty(Object.prototype, 'health', healthDescriptor);
+      else Reflect.deleteProperty(Object.prototype, 'health');
+      if (cooldownDescriptor) Object.defineProperty(Object.prototype, 'cooldownMs', cooldownDescriptor);
+      else Reflect.deleteProperty(Object.prototype, 'cooldownMs');
+    }
+  });
+
+  it('accepts the safe-integer boundary and rejects the first unsafe integer', () => {
+    const accepted = structuredClone(loadGameData());
+    if (accepted.enemies[0].archetype !== 'chaser') throw new Error('missing chaser');
+    accepted.enemies[0].xpValue = Number.MAX_SAFE_INTEGER;
+    if (accepted.enemies[1].archetype !== 'charger') throw new Error('missing charger');
+    accepted.enemies[1].attack.cooldownMs = Number.MAX_SAFE_INTEGER;
+    expect(() => validateGameData(accepted)).not.toThrow();
+
+    const unsafeReward = structuredClone(loadGameData());
+    if (unsafeReward.enemies[0].archetype !== 'chaser') throw new Error('missing chaser');
+    unsafeReward.enemies[0].scrapValue = Number.MAX_SAFE_INTEGER + 1;
+    expect(() => validateGameData(unsafeReward)).toThrow(/scrapValue/);
+
+    const unsafeTiming = structuredClone(loadGameData());
+    if (unsafeTiming.enemies[1].archetype !== 'charger') throw new Error('missing charger');
+    unsafeTiming.enemies[1].attack.cooldownMs = Number.MAX_SAFE_INTEGER + 1;
+    expect(() => validateGameData(unsafeTiming)).toThrow(/attack\.cooldownMs/);
   });
 
   it('allows equal starts in JSON tie order and overlapping persistent layers', () => {

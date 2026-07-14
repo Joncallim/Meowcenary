@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { EventBus } from '../engine/eventBus';
 import { towards } from '../engine/vector';
-import type { EnemyDefinition } from '../systems/types';
+import type { DirectEnemyDefinition } from '../systems/types';
 import type { Player } from './Player';
 
 let nextEnemyInstanceId = 1;
@@ -13,7 +13,7 @@ export class Enemy {
 
   constructor(
     scene: Phaser.Scene,
-    readonly definition: EnemyDefinition,
+    readonly definition: DirectEnemyDefinition,
     x: number,
     y: number,
     private readonly bus: EventBus,
@@ -85,7 +85,7 @@ export class Enemy {
   }
 }
 
-function enemyColor(archetype: EnemyDefinition['archetype']): number {
+function enemyColor(archetype: DirectEnemyDefinition['archetype']): number {
   switch (archetype) {
     case 'charger':
       return 0xf97316;

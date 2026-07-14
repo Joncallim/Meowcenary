@@ -8,6 +8,11 @@ export interface ScaledEnemyStats {
   scrapValue: number;
 }
 
+/**
+ * Applies the curve's additive per-minute pressure at spawn time. Scheduling
+ * jitter may produce fractional milliseconds. Times before the run starts are
+ * intentionally clamped to zero so they receive exactly the base stats.
+ */
 export function scaleEnemy(
   definition: EnemyStats,
   scheduledAtMs: number,
@@ -25,6 +30,14 @@ export function scaleEnemy(
   ];
   if (inputs.some((value) => !Number.isFinite(value))) {
     throw new Error('Enemy scaling inputs must be finite');
+  }
+  if (
+    scaling.healthPerMinute < 0 ||
+    scaling.healthPerMinute > 1 ||
+    scaling.damagePerMinute < 0 ||
+    scaling.damagePerMinute > 1
+  ) {
+    throw new Error('Enemy scaling rates must be from 0 through 1');
   }
 
   const minutes = Math.max(0, scheduledAtMs) / 60_000;

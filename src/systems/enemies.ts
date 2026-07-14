@@ -1,10 +1,11 @@
 import type {
   EnemyDefinition,
-  EnemyArchetype,
   ResolvedEliteEnemyDefinition,
   ResolvedEnemyDefinition,
   SpawnableEnemyDefinition,
 } from './types';
+import { isSpawnableEnemyDefinition } from './types';
+import { validateEnemyCatalog } from './validation';
 
 export const ELITE_MULTIPLIERS = Object.freeze({
   health: 2,
@@ -14,15 +15,14 @@ export const ELITE_MULTIPLIERS = Object.freeze({
   scrapValue: 2,
 } as const);
 
-const SPAWNABLE_ARCHETYPES = new Set(['chaser', 'charger', 'tank']);
-
 export class DataEnemyRegistry {
-  private readonly byId = new Map<string, EnemyDefinition<EnemyArchetype>>();
+  private readonly byId = new Map<string, EnemyDefinition>();
   private readonly resolved = new Map<string, ResolvedEnemyDefinition>();
-  private readonly snapshot: readonly EnemyDefinition<EnemyArchetype>[];
+  private readonly snapshot: readonly EnemyDefinition[];
 
-  constructor(data: { enemies: readonly EnemyDefinition<EnemyArchetype>[] }) {
-    const canonical = data.enemies.map((enemy) => deepFreeze(structuredClone(enemy)));
+  constructor(data: { enemies: unknown }) {
+    const validated = validateEnemyCatalog(data.enemies);
+    const canonical = validated.map((enemy) => deepFreeze(structuredClone(enemy)));
 
     for (const enemy of canonical) {
       if (this.byId.has(enemy.id)) {
@@ -44,13 +44,13 @@ export class DataEnemyRegistry {
       if (!base) {
         throw new Error(`Elite "${enemy.id}" references missing base "${enemy.baseEnemyId}"`);
       }
-      if (!SPAWNABLE_ARCHETYPES.has(base.archetype)) {
+      if (!isSpawnableEnemyDefinition(base)) {
         throw new Error(
           `Elite "${enemy.id}" base must be a direct chaser, charger, or tank`,
         );
       }
 
-      const spawnableBase = base as SpawnableEnemyDefinition;
+      const spawnableBase = base;
       const resolved = {
         ...spawnableBase,
         id: enemy.id,
@@ -70,7 +70,7 @@ export class DataEnemyRegistry {
     this.snapshot = Object.freeze([...canonical]);
   }
 
-  enemyById(id: string): EnemyDefinition<EnemyArchetype> | undefined {
+  enemyById(id: string): EnemyDefinition | undefined {
     return this.byId.get(id);
   }
 
@@ -80,12 +80,10 @@ export class DataEnemyRegistry {
 
   spawnableById(id: string): SpawnableEnemyDefinition | undefined {
     const enemy = this.byId.get(id);
-    return enemy && SPAWNABLE_ARCHETYPES.has(enemy.archetype)
-      ? enemy as SpawnableEnemyDefinition
-      : undefined;
+    return enemy && isSpawnableEnemyDefinition(enemy) ? enemy : undefined;
   }
 
-  all(): readonly EnemyDefinition<EnemyArchetype>[] {
+  all(): readonly EnemyDefinition[] {
     return this.snapshot;
   }
 }

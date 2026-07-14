@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DataEnemyRegistry, ELITE_MULTIPLIERS } from '../src/systems/enemies';
-import type { EnemyArchetype, EnemyDefinition } from '../src/systems/types';
+import type { EnemyDefinition } from '../src/systems/types';
 import { loadGameData } from '../src/systems/validation';
 
 const elite = {
@@ -82,9 +82,9 @@ describe('DataEnemyRegistry', () => {
 
   it('defensively rejects duplicate ids and invalid elite bases', () => {
     const shipped = loadGameData().enemies;
-    expect(() => new DataEnemyRegistry({ enemies: [...shipped, shipped[0]] })).toThrow(/Duplicate enemy id/);
+    expect(() => new DataEnemyRegistry({ enemies: [...shipped, shipped[0]] })).toThrow(/duplicate id/);
 
-    const invalids: EnemyDefinition<EnemyArchetype>[] = [
+    const invalids: EnemyDefinition[] = [
       { ...elite, baseEnemyId: 'elite-dust-mite' },
       { ...elite, baseEnemyId: 'missing' },
       { ...elite, baseEnemyId: 'ranged-shell' },
@@ -95,7 +95,77 @@ describe('DataEnemyRegistry', () => {
       attack: { range: 1, telegraphMs: 1, cooldownMs: 1 },
     };
     expect(() => new DataEnemyRegistry({ enemies: [...shipped, invalids[0]] })).toThrow(/cannot reference itself/);
-    expect(() => new DataEnemyRegistry({ enemies: [...shipped, invalids[1]] })).toThrow(/missing base/);
+    expect(() => new DataEnemyRegistry({ enemies: [...shipped, invalids[1]] })).toThrow(/unknown enemyId/);
     expect(() => new DataEnemyRegistry({ enemies: [...shipped, ranged, invalids[2]] })).toThrow(/direct chaser/);
+  });
+
+  it('validates the complete catalog before constructing canonical state', () => {
+    const shipped = structuredClone(loadGameData().enemies) as unknown as Record<string, unknown>[];
+    const cases: unknown[] = [];
+
+    const missing = structuredClone(shipped);
+    delete missing[0].health;
+    cases.push(missing);
+
+    const unknown = structuredClone(shipped);
+    unknown[0].surprise = true;
+    cases.push(unknown);
+
+    const invalid = structuredClone(shipped);
+    invalid[0].health = -1;
+    cases.push(invalid);
+
+    const nonFinite = structuredClone(shipped);
+    nonFinite[0].damage = Number.NaN;
+    cases.push(nonFinite);
+
+    const sparse = new Array(shipped.length + 1);
+    shipped.forEach((enemy, index) => { sparse[index] = enemy; });
+    cases.push(sparse);
+
+    const cyclic = structuredClone(shipped);
+    cyclic[0].cycle = cyclic[0];
+    cases.push(cyclic);
+
+    for (const enemies of cases) {
+      let registry: DataEnemyRegistry | undefined;
+      expect(() => { registry = new DataEnemyRegistry({ enemies }); }).toThrow();
+      expect(registry).toBeUndefined();
+    }
+  });
+
+  it('leaves rejected caller input untouched', () => {
+    const enemies = structuredClone(loadGameData().enemies) as unknown as Record<string, unknown>[];
+    enemies[0].health = -1;
+    enemies[0].surprise = 'preserve me';
+    const before = structuredClone(enemies);
+
+    expect(() => new DataEnemyRegistry({ enemies })).toThrow();
+    expect(enemies).toEqual(before);
+  });
+
+  it('uses the shared spawnability authority for all six archetypes', () => {
+    const data = loadGameData();
+    const shells: EnemyDefinition[] = [
+      {
+        id: 'ranged-shell', name: 'Ranged shell', archetype: 'ranged', health: 1,
+        damage: 0, speed: 0, xpValue: 0, scrapValue: 0, contactDamage: false,
+        attack: { range: 1, telegraphMs: 1, cooldownMs: 1 },
+      },
+      { id: 'boss-shell', name: 'Boss shell', archetype: 'boss', health: 1, damage: 0, speed: 0, xpValue: 0, scrapValue: 0, contactDamage: false },
+      elite,
+    ];
+    const registry = new DataEnemyRegistry({ enemies: [...data.enemies, ...shells] });
+    const expected = new Map([
+      ['dust-mite', true],
+      ['junk-rusher', true],
+      ['trash-brute', true],
+      ['ranged-shell', false],
+      ['elite-dust-mite', false],
+      ['boss-shell', false],
+    ]);
+    for (const [id, isSpawnable] of expected) {
+      expect(registry.spawnableById(id) !== undefined).toBe(isSpawnable);
+    }
   });
 });

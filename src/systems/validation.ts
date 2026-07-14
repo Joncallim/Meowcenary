@@ -13,6 +13,7 @@ import type {
   UpgradeDefinition,
   WeaponDefinition,
 } from './types';
+import { isSpawnableEnemyDefinition } from './types';
 
 const RARITIES = new Set<Rarity>(['common', 'uncommon', 'rare', 'epic', 'legendary']);
 const ENEMY_ARCHETYPES = new Set<EnemyArchetype>([
@@ -23,7 +24,6 @@ const ENEMY_ARCHETYPES = new Set<EnemyArchetype>([
   'elite',
   'boss',
 ]);
-const SPAWNABLE_ARCHETYPES = new Set(['chaser', 'charger', 'tank']);
 const UPGRADE_TARGETS = new Set<UpgradeDefinition['target']>(['player', 'weapon', 'economy', 'run']);
 const STAT_KEY_SET = new Set<string>(STAT_KEYS);
 const UPGRADE_OPS = new Set(['add', 'mult']);
@@ -82,10 +82,10 @@ export function loadGameData(): GameData {
     enemies: enemiesJson,
     upgrades: upgradesJson,
     spawnCurves: spawnCurvesJson,
-  }) as GameData;
+  });
 }
 
-export function validateGameData(raw: unknown): GameData<EnemyDefinition<EnemyArchetype>> {
+export function validateGameData(raw: unknown): GameData {
   const rootErrors = jsonSafetyErrors(raw, 'game-data').map((error) =>
     error
       .replace(/^game-data\.weapons/, 'weapons.json')
@@ -105,26 +105,32 @@ export function validateGameData(raw: unknown): GameData<EnemyDefinition<EnemyAr
   }
   throwIfErrors(rootErrors);
 
-  const weapons = validate<WeaponDefinition>('weapons.json', raw.weapons, checkWeapon);
-  const enemies = validate<EnemyDefinition<EnemyArchetype>>('enemies.json', raw.enemies, checkEnemy);
-  const upgrades = validate<UpgradeDefinition>('upgrades.json', raw.upgrades, checkUpgrade);
+  const weapons = validate<WeaponDefinition>('weapons.json', readOwnField(raw, 'weapons'), checkWeapon);
+  const enemies = validateEnemyCatalog(readOwnField(raw, 'enemies'));
+  const upgrades = validate<UpgradeDefinition>('upgrades.json', readOwnField(raw, 'upgrades'), checkUpgrade);
   const spawnCurves = validate<SpawnCurveDefinition>(
     'spawn-curves.json',
-    raw.spawnCurves,
+    readOwnField(raw, 'spawnCurves'),
     checkSpawnCurveShape,
   );
 
   assertUniqueIds('weapons.json', weapons);
-  assertUniqueIds('enemies.json', enemies);
   assertUniqueIds('upgrades.json', upgrades);
   assertUniqueIds('spawn-curves.json', spawnCurves);
   assertWeaponTiers(weapons);
   assertStarterWeapons(weapons);
-  assertEliteReferences(enemies);
   assertPlayableSpawnCurves(spawnCurves);
   assertSpawnReferences(spawnCurves, enemies);
 
   return { weapons, enemies, upgrades, spawnCurves };
+}
+
+export function validateEnemyCatalog(raw: unknown): EnemyDefinition[] {
+  throwIfErrors(jsonSafetyErrors(raw, 'enemies.json'));
+  const enemies = validate<EnemyDefinition>('enemies.json', raw, checkEnemy);
+  assertUniqueIds('enemies.json', enemies);
+  assertEliteReferences(enemies);
+  return enemies;
 }
 
 function checkWeapon(row: unknown): string[] {
@@ -154,14 +160,15 @@ function checkEnemy(row: unknown): string[] {
   requireString(row, 'name', errors);
   requireEnum(row, 'archetype', ENEMY_ARCHETYPES, errors);
 
-  if (row.archetype === 'elite') {
+  const archetype = readOwnField(row, 'archetype');
+  if (archetype === 'elite') {
     rejectUnknownFields(row, ELITE_ENEMY_FIELDS, errors);
     requireString(row, 'baseEnemyId', errors);
     return errors;
   }
 
   const allowedFields = new Set(DIRECT_ENEMY_FIELDS);
-  if (row.archetype === 'charger' || row.archetype === 'ranged') allowedFields.add('attack');
+  if (archetype === 'charger' || archetype === 'ranged') allowedFields.add('attack');
   rejectUnknownFields(row, allowedFields, errors);
   requirePositiveNumber(row, 'health', errors);
   requireNonNegativeNumber(row, 'damage', errors);
@@ -169,49 +176,57 @@ function checkEnemy(row: unknown): string[] {
   requireNonNegativeInteger(row, 'xpValue', errors);
   requireNonNegativeInteger(row, 'scrapValue', errors);
 
-  if (SPAWNABLE_ARCHETYPES.has(String(row.archetype))) {
+  if (
+    typeof archetype === 'string' &&
+    isSpawnableEnemyDefinition(row as unknown as EnemyDefinition)
+  ) {
     requirePositiveNumber(row, 'damage', errors);
     requirePositiveNumber(row, 'speed', errors);
+    requirePositiveInteger(row, 'xpValue', errors);
     requireLiteral(row, 'contactDamage', true, errors);
-  } else if (row.archetype === 'ranged' || row.archetype === 'boss') {
+  } else if (archetype === 'ranged' || archetype === 'boss') {
     requireLiteral(row, 'contactDamage', false, errors);
   } else {
     errors.push('archetype: invalid value');
   }
 
-  if (row.archetype === 'charger') checkChargerAttack(row, errors);
-  if (row.archetype === 'ranged') checkRangedAttack(row, errors);
+  if (archetype === 'charger') checkChargerAttack(row, errors);
+  if (archetype === 'ranged') checkRangedAttack(row, errors);
   return errors;
 }
 
 function checkChargerAttack(enemy: Record<string, unknown>, errors: string[]): void {
-  if (!isRecord(enemy.attack)) {
+  const attack = readOwnField(enemy, 'attack');
+  if (!isRecord(attack)) {
     errors.push('attack: required object');
     return;
   }
   const attackErrors: string[] = [];
-  rejectUnknownFields(enemy.attack, CHARGER_ATTACK_FIELDS, attackErrors);
-  requirePositiveNumber(enemy.attack, 'triggerRange', attackErrors);
-  requirePositiveInteger(enemy.attack, 'telegraphMs', attackErrors);
-  requirePositiveNumber(enemy.attack, 'dashSpeed', attackErrors);
-  requirePositiveInteger(enemy.attack, 'dashDurationMs', attackErrors);
-  requirePositiveInteger(enemy.attack, 'cooldownMs', attackErrors);
-  if (isFiniteNumber(enemy.attack.dashSpeed) && isFiniteNumber(enemy.speed) && enemy.attack.dashSpeed <= enemy.speed) {
+  rejectUnknownFields(attack, CHARGER_ATTACK_FIELDS, attackErrors);
+  requirePositiveNumber(attack, 'triggerRange', attackErrors);
+  requirePositiveInteger(attack, 'telegraphMs', attackErrors);
+  requirePositiveNumber(attack, 'dashSpeed', attackErrors);
+  requirePositiveInteger(attack, 'dashDurationMs', attackErrors);
+  requirePositiveInteger(attack, 'cooldownMs', attackErrors);
+  const dashSpeed = readOwnField(attack, 'dashSpeed');
+  const baseSpeed = readOwnField(enemy, 'speed');
+  if (isFiniteNumber(dashSpeed) && isFiniteNumber(baseSpeed) && dashSpeed <= baseSpeed) {
     attackErrors.push('dashSpeed: must exceed base speed');
   }
   errors.push(...attackErrors.map((error) => `attack.${error}`));
 }
 
 function checkRangedAttack(enemy: Record<string, unknown>, errors: string[]): void {
-  if (!isRecord(enemy.attack)) {
+  const attack = readOwnField(enemy, 'attack');
+  if (!isRecord(attack)) {
     errors.push('attack: required object');
     return;
   }
   const attackErrors: string[] = [];
-  rejectUnknownFields(enemy.attack, RANGED_ATTACK_FIELDS, attackErrors);
-  requirePositiveNumber(enemy.attack, 'range', attackErrors);
-  requirePositiveInteger(enemy.attack, 'telegraphMs', attackErrors);
-  requirePositiveInteger(enemy.attack, 'cooldownMs', attackErrors);
+  rejectUnknownFields(attack, RANGED_ATTACK_FIELDS, attackErrors);
+  requirePositiveNumber(attack, 'range', attackErrors);
+  requirePositiveInteger(attack, 'telegraphMs', attackErrors);
+  requirePositiveInteger(attack, 'cooldownMs', attackErrors);
   errors.push(...attackErrors.map((error) => `attack.${error}`));
 }
 
@@ -230,7 +245,7 @@ function checkUpgrade(row: unknown): string[] {
 }
 
 function checkUpgradeEffects(upgrade: Record<string, unknown>, errors: string[]): void {
-  const effects = upgrade.effects;
+  const effects = readOwnField(upgrade, 'effects');
   if (!Array.isArray(effects) || effects.length === 0) {
     errors.push('effects: required non-empty array');
     return;
@@ -247,13 +262,16 @@ function checkUpgradeEffects(upgrade: Record<string, unknown>, errors: string[])
     }
     const effectErrors: string[] = [];
     rejectUnknownFields(effect, UPGRADE_EFFECT_FIELDS, effectErrors);
-    if (typeof effect.stat !== 'string' || !STAT_KEY_SET.has(effect.stat)) {
+    const stat = readOwnField(effect, 'stat');
+    const op = readOwnField(effect, 'op');
+    const value = readOwnField(effect, 'value');
+    if (typeof stat !== 'string' || !STAT_KEY_SET.has(stat)) {
       effectErrors.push('stat: unknown stat key');
     }
-    if (typeof effect.op !== 'string' || !UPGRADE_OPS.has(effect.op)) {
+    if (typeof op !== 'string' || !UPGRADE_OPS.has(op)) {
       effectErrors.push('op: must be "add" or "mult"');
     }
-    if (!isFiniteNumber(effect.value)) effectErrors.push('value: required finite number');
+    if (!isFiniteNumber(value)) effectErrors.push('value: required finite number');
     errors.push(...effectErrors.map((error) => `effects[${index}].${error}`));
   }
 }
@@ -265,26 +283,28 @@ function checkSpawnCurveShape(row: unknown): string[] {
   requireString(row, 'id', errors);
   requireIntegerInRange(row, 'durationSeconds', 1, 3600, errors);
 
-  if (!isRecord(row.scaling)) {
+  const scaling = readOwnField(row, 'scaling');
+  if (!isRecord(scaling)) {
     errors.push('scaling: required object');
   } else {
     const scalingErrors: string[] = [];
-    rejectUnknownFields(row.scaling, SCALING_FIELDS, scalingErrors);
-    requireNumberInRange(row.scaling, 'healthPerMinute', 0, 1, scalingErrors);
-    requireNumberInRange(row.scaling, 'damagePerMinute', 0, 1, scalingErrors);
+    rejectUnknownFields(scaling, SCALING_FIELDS, scalingErrors);
+    requireNumberInRange(scaling, 'healthPerMinute', 0, 1, scalingErrors);
+    requireNumberInRange(scaling, 'damagePerMinute', 0, 1, scalingErrors);
     errors.push(...scalingErrors.map((error) => `scaling.${error}`));
   }
 
-  if (!Array.isArray(row.waves)) {
+  const waves = readOwnField(row, 'waves');
+  if (!Array.isArray(waves)) {
     errors.push('waves: required array');
     return errors;
   }
-  for (let index = 0; index < row.waves.length; index += 1) {
-    if (!(index in row.waves)) {
+  for (let index = 0; index < waves.length; index += 1) {
+    if (!(index in waves)) {
       errors.push(`waves[${index}]: sparse array entry`);
       continue;
     }
-    const wave = row.waves[index];
+    const wave = waves[index];
     if (!isRecord(wave)) {
       errors.push(`waves[${index}]: expected object`);
       continue;
@@ -314,7 +334,7 @@ function assertUniqueIds(name: string, rows: ReadonlyArray<{ id: string }>): voi
   throwIfErrors(errors);
 }
 
-function assertEliteReferences(enemies: readonly EnemyDefinition<EnemyArchetype>[]): void {
+function assertEliteReferences(enemies: readonly EnemyDefinition[]): void {
   const byId = new Map(enemies.map((enemy) => [enemy.id, enemy]));
   const errors: string[] = [];
   enemies.forEach((enemy, index) => {
@@ -324,7 +344,7 @@ function assertEliteReferences(enemies: readonly EnemyDefinition<EnemyArchetype>
       errors.push(`enemies.json[${index}].baseEnemyId: elite cannot reference itself`);
     } else if (!base) {
       errors.push(`enemies.json[${index}].baseEnemyId: unknown enemyId "${enemy.baseEnemyId}"`);
-    } else if (!SPAWNABLE_ARCHETYPES.has(base.archetype)) {
+    } else if (!isSpawnableEnemyDefinition(base)) {
       errors.push(`enemies.json[${index}].baseEnemyId: must reference a direct chaser, charger, or tank`);
     }
   });
@@ -378,7 +398,7 @@ function assertStarterWeapons(weapons: readonly WeaponDefinition[]): void {
 
 function assertSpawnReferences(
   curves: readonly SpawnCurveDefinition[],
-  enemies: readonly EnemyDefinition<EnemyArchetype>[],
+  enemies: readonly EnemyDefinition[],
 ): void {
   const byId = new Map(enemies.map((enemy) => [enemy.id, enemy]));
   const errors: string[] = [];
@@ -386,7 +406,7 @@ function assertSpawnReferences(
     const enemy = byId.get(wave.enemyId);
     if (!enemy) {
       errors.push(`spawn-curves.json[${curveIndex}].waves[${waveIndex}].enemyId: unknown enemyId "${wave.enemyId}"`);
-    } else if (!SPAWNABLE_ARCHETYPES.has(enemy.archetype)) {
+    } else if (!isSpawnableEnemyDefinition(enemy)) {
       errors.push(`spawn-curves.json[${curveIndex}].waves[${waveIndex}].enemyId: must reference a direct chaser, charger, or tank`);
     }
   }));
@@ -442,52 +462,52 @@ function requireRecord(value: unknown): string[] {
 }
 
 function requireString(row: Record<string, unknown>, field: string, errors: string[]): void {
-  const value = row[field];
+  const value = readOwnField(row, field);
   if (typeof value !== 'string' || value.length === 0 || value.trim() !== value) {
     errors.push(`${field}: required nonempty trimmed string`);
   }
 }
 
 function requirePositiveNumber(row: Record<string, unknown>, field: string, errors: string[]): void {
-  const value = row[field];
+  const value = readOwnField(row, field);
   if (!isFiniteNumber(value) || value <= 0) errors.push(`${field}: required positive number`);
 }
 
 function requireNonNegativeNumber(row: Record<string, unknown>, field: string, errors: string[]): void {
-  const value = row[field];
+  const value = readOwnField(row, field);
   if (!isFiniteNumber(value) || value < 0) errors.push(`${field}: required non-negative number`);
 }
 
 function requirePositiveInteger(row: Record<string, unknown>, field: string, errors: string[]): void {
-  const value = row[field];
-  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+  const value = readOwnField(row, field);
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
     errors.push(`${field}: required positive integer`);
   }
 }
 
 function requireNonNegativeInteger(row: Record<string, unknown>, field: string, errors: string[]): void {
-  const value = row[field];
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+  const value = readOwnField(row, field);
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
     errors.push(`${field}: required non-negative integer`);
   }
 }
 
 function requireIntegerInRange(row: Record<string, unknown>, field: string, min: number, max: number, errors: string[]): void {
-  const value = row[field];
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < min || value > max) {
+  const value = readOwnField(row, field);
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < min || value > max) {
     errors.push(`${field}: required integer from ${min} through ${max}`);
   }
 }
 
 function requireNumberInRange(row: Record<string, unknown>, field: string, min: number, max: number, errors: string[]): void {
-  const value = row[field];
+  const value = readOwnField(row, field);
   if (!isFiniteNumber(value) || value < min || value > max) {
     errors.push(`${field}: required finite number from ${min} through ${max}`);
   }
 }
 
 function requireLiteral(row: Record<string, unknown>, field: string, expected: boolean, errors: string[]): void {
-  if (row[field] !== expected) errors.push(`${field}: must be ${String(expected)}`);
+  if (readOwnField(row, field) !== expected) errors.push(`${field}: must be ${String(expected)}`);
 }
 
 function requireRarity(row: Record<string, unknown>, field: string, errors: string[]): void {
@@ -495,7 +515,7 @@ function requireRarity(row: Record<string, unknown>, field: string, errors: stri
 }
 
 function requireEnum<T extends string>(row: Record<string, unknown>, field: string, allowed: ReadonlySet<T>, errors: string[]): void {
-  const value = row[field];
+  const value = readOwnField(row, field);
   if (typeof value !== 'string' || !allowed.has(value as T)) errors.push(`${field}: invalid value`);
 }
 
@@ -520,6 +540,10 @@ function jsonSafetyErrors(value: unknown, path: string, active = new WeakSet<obj
   }
   active.delete(value);
   return errors;
+}
+
+function readOwnField(row: Record<string, unknown>, field: string): unknown {
+  return Object.hasOwn(row, field) ? row[field] : undefined;
 }
 
 function isFiniteNumber(value: unknown): value is number {

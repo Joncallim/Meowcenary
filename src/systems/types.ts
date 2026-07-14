@@ -30,7 +30,8 @@ export interface WeaponDefinition {
 }
 
 export type EnemyArchetype = 'chaser' | 'charger' | 'ranged' | 'tank' | 'elite' | 'boss';
-export type SpawnableEnemyArchetype = 'chaser' | 'charger' | 'tank';
+export const SPAWNABLE_ENEMY_ARCHETYPES = ['chaser', 'charger', 'tank'] as const;
+export type SpawnableEnemyArchetype = (typeof SPAWNABLE_ENEMY_ARCHETYPES)[number];
 export type DirectEnemyArchetype = Exclude<EnemyArchetype, 'elite'>;
 
 interface EnemyIdentity {
@@ -103,16 +104,19 @@ export type DirectEnemyDefinition =
   | RangedEnemyDefinition
   | BossEnemyDefinition;
 
-type AnyEnemyDefinition = DirectEnemyDefinition | EliteEnemyDefinition;
+export type EnemyDefinition = DirectEnemyDefinition | EliteEnemyDefinition;
 
-/**
- * The full discriminated union is available with `EnemyDefinition<EnemyArchetype>`.
- * The default remains direct-only for the pre-Epic-4 runtime, which cannot spawn
- * elite shells until a later slice resolves them through DataEnemyRegistry.
- */
-export type EnemyDefinition<
-  Archetype extends EnemyArchetype = DirectEnemyArchetype,
-> = Extract<AnyEnemyDefinition, { archetype: Archetype }>;
+export function isSpawnableEnemyArchetype(
+  archetype: EnemyArchetype,
+): archetype is SpawnableEnemyArchetype {
+  return (SPAWNABLE_ENEMY_ARCHETYPES as readonly EnemyArchetype[]).includes(archetype);
+}
+
+export function isSpawnableEnemyDefinition(
+  definition: EnemyDefinition,
+): definition is SpawnableEnemyDefinition {
+  return isSpawnableEnemyArchetype(definition.archetype);
+}
 
 export type ResolvedEliteEnemyDefinition<
   Base extends SpawnableEnemyDefinition = SpawnableEnemyDefinition,
@@ -155,11 +159,9 @@ export interface EnemyScalingDefinition {
   damagePerMinute: number;
 }
 
-export interface GameData<
-  Enemy extends EnemyDefinition<EnemyArchetype> = EnemyDefinition,
-> {
+export interface GameData {
   weapons: WeaponDefinition[];
-  enemies: Enemy[];
+  enemies: EnemyDefinition[];
   upgrades: UpgradeDefinition[];
   spawnCurves: SpawnCurveDefinition[];
 }
