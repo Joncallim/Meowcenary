@@ -1,25 +1,22 @@
-import Phaser from 'phaser';
-import { createCadence, type Cadence } from '../engine/cadence';
 import type { GameContext } from '../engine/context';
 import type { Rng } from '../engine/rng';
 import type { System } from '../engine/system';
 import type { RunState } from '../gameplay/runState';
 import { Enemy } from '../entities/Enemy';
 import type { Player } from '../entities/Player';
+import { scaleEnemy } from '../gameplay/enemyScaling';
 import {
-  isSpawnableEnemyDefinition,
-  type SpawnableEnemyDefinition,
-  type SpawnWaveDefinition,
-} from './types';
-
-interface WaveRuntime {
-  definition: SpawnWaveDefinition;
-  cadence: Cadence;
-}
+  createSpawnDirector,
+  type SpawnDirector,
+  type SpawnRequest,
+} from '../gameplay/spawnDirector';
+import { DataEnemyRegistry } from './enemies';
+import type { EnemyScalingDefinition, SpawnableEnemyDefinition } from './types';
 
 export class SpawnSystem implements System {
-  private readonly enemiesById = new Map<string, SpawnableEnemyDefinition>();
-  private readonly waves: WaveRuntime[];
+  private readonly registry?: DataEnemyRegistry;
+  private readonly director?: SpawnDirector;
+  private readonly scaling?: EnemyScalingDefinition;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -30,17 +27,19 @@ export class SpawnSystem implements System {
     private readonly enemies: Enemy[],
     private readonly enemyGroup: Phaser.Physics.Arcade.Group,
   ) {
-    this.ctx.data.enemies.forEach((enemy) => {
-      if (isSpawnableEnemyDefinition(enemy)) {
-        this.enemiesById.set(enemy.id, enemy);
-      }
-    });
     const curve = this.ctx.data.spawnCurves[0];
-    this.waves =
-      curve?.waves.map((definition) => ({
-        definition,
-        cadence: createCadence(definition.spawnEveryMs),
-      })) ?? [];
+    if (curve) {
+      this.registry = new DataEnemyRegistry(this.ctx.data);
+      this.director = createSpawnDirector(curve, this.rng);
+      this.scaling = Object.freeze(structuredClone(curve.scaling));
+    }
+    this.scene.physics.add.overlap(
+      this.player.sprite,
+      this.enemyGroup,
+      this.handlePlayerEnemyOverlap,
+      undefined,
+      this,
+    );
   }
 
   update(dtMs: number): void {
@@ -61,16 +60,17 @@ export class SpawnSystem implements System {
       enemy.update(this.player, dtMs);
     });
 
-    const elapsedSeconds = this.runState.timeMs / 1000;
-    for (const wave of this.waves) {
-      if (elapsedSeconds < wave.definition.startSecond) {
-        continue;
-      }
-
-      const ticks = wave.cadence.update(dtMs);
-      for (let i = 0; i < ticks; i += 1) {
-        this.spawnFromWave(wave.definition);
-      }
+    const activeCounts = Object.create(null) as Record<string, number>;
+    for (const enemy of this.enemies) {
+      if (enemy.active) activeCounts[enemy.defId] = (activeCounts[enemy.defId] ?? 0) + 1;
+    }
+    const requests =
+      this.director?.update(dtMs, {
+        activeCounts,
+        spawnPoint: (rng) => this.spawnPoint(rng),
+      }) ?? [];
+    for (const request of requests) {
+      this.spawn(request);
     }
 
     compactActive(this.enemies);
@@ -83,21 +83,26 @@ export class SpawnSystem implements System {
     this.enemies.length = 0;
   }
 
-  private spawnFromWave(wave: SpawnWaveDefinition): void {
-    const aliveForWave = this.enemies.filter(
-      (enemy) => enemy.active && enemy.defId === wave.enemyId,
-    ).length;
-    if (aliveForWave >= wave.maxAlive) {
-      return;
-    }
+  private spawn(request: SpawnRequest): void {
+    const definition = this.registry?.spawnableById(request.enemyId);
+    if (!definition || !this.scaling) return;
 
-    const definition = this.enemiesById.get(wave.enemyId);
-    if (!definition) {
-      return;
-    }
-
-    const point = this.spawnPoint();
-    const enemy = new Enemy(this.scene, definition, point.x, point.y, this.ctx.bus);
+    const scaled = scaleEnemy(definition, request.scheduledAtMs, this.scaling);
+    const runtimeDefinition: SpawnableEnemyDefinition = {
+      ...definition,
+      health: scaled.maxHealth,
+      damage: scaled.damage,
+      speed: scaled.speed,
+      xpValue: scaled.xpValue,
+      scrapValue: scaled.scrapValue,
+    };
+    const enemy = new Enemy(
+      this.scene,
+      runtimeDefinition,
+      request.pos.x,
+      request.pos.y,
+      this.ctx.bus,
+    );
     this.enemies.push(enemy);
     this.enemyGroup.add(enemy.sprite);
     this.ctx.bus.emit('enemy:spawned', {
@@ -108,31 +113,55 @@ export class SpawnSystem implements System {
     });
   }
 
-  private spawnPoint(): { x: number; y: number } {
+  private spawnPoint(rng: Pick<Rng, 'int'>): { x: number; y: number } {
     const margin = 28;
     const width = this.scene.scale.width;
     const height = this.scene.scale.height;
-    const side = this.rng.int(0, 3);
+    const side = rng.int(0, 3);
 
     if (side === 0) {
-      return { x: this.rng.int(0, width), y: -margin };
+      return { x: rng.int(0, width), y: -margin };
     }
     if (side === 1) {
-      return { x: width + margin, y: this.rng.int(0, height) };
+      return { x: width + margin, y: rng.int(0, height) };
     }
     if (side === 2) {
-      return { x: this.rng.int(0, width), y: height + margin };
+      return { x: rng.int(0, width), y: height + margin };
     }
-    return { x: -margin, y: this.rng.int(0, height) };
+    return { x: -margin, y: rng.int(0, height) };
+  }
+
+  private handlePlayerEnemyOverlap(_playerObject: unknown, enemyObject: unknown): void {
+    if (this.runState.status !== 'active') return;
+    const enemyGameObject = unwrapGameObject(enemyObject);
+    const enemy = this.enemies.find((candidate) => candidate.sprite === enemyGameObject);
+    if (
+      !enemy?.active ||
+      enemy.state === 'dead' ||
+      !enemy.definition.contactDamage ||
+      !this.player.active
+    ) {
+      return;
+    }
+    this.player.takeDamage(enemy.definition.damage);
   }
 }
 
-function compactActive<T extends { active: boolean }>(items: T[]): void {
+function unwrapGameObject(value: unknown): unknown {
+  if (typeof value === 'object' && value !== null && 'gameObject' in value) {
+    return (value as { gameObject: unknown }).gameObject;
+  }
+  return value;
+}
+
+function compactActive<T extends { active: boolean; destroy(): void }>(items: T[]): void {
   let writeIndex = 0;
   for (const item of items) {
     if (item.active) {
       items[writeIndex] = item;
       writeIndex += 1;
+    } else {
+      item.destroy();
     }
   }
   items.length = writeIndex;
