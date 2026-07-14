@@ -77,6 +77,8 @@ interface TestHarness {
     x: number;
     y: number;
     sprite: MockGameObject;
+    defId: string;
+    xpValue: number;
     definition: { id: string; xpValue: number };
     takeDamage: ReturnType<typeof vi.fn>;
   };
@@ -127,8 +129,16 @@ describe('WeaponSystem', () => {
       x: 60,
       y: 0,
       sprite: enemySprite,
+      defId: dustMite.id,
+      xpValue: dustMite.xpValue,
       definition: { id: dustMite.id, xpValue: dustMite.xpValue },
-      takeDamage: vi.fn(() => {
+      takeDamage: vi.fn((amount: number) => {
+        ctx.bus.emit('enemy:damaged', {
+          instanceId: enemy.instanceId,
+          amount,
+          x: enemy.x,
+          y: enemy.y,
+        });
         enemy.active = false;
         enemySprite.active = false;
         return true;
@@ -248,13 +258,17 @@ describe('WeaponSystem', () => {
 
   it('applies hit, kill, and XP-drop side effects once per projectile/enemy pair', async () => {
     const harness = await createHarness();
+    const damaged = vi.fn();
     const hit = vi.fn();
     const killed = vi.fn();
+    harness.ctx.bus.on('enemy:damaged', damaged);
     harness.ctx.bus.on('projectile:hit', hit);
     harness.ctx.bus.on('enemy:killed', killed);
 
     harness.system.update(650);
     expect(harness.enemy.definition.xpValue).toBeGreaterThan(0);
+    harness.enemy.definition.id = 'mutated-enemy';
+    harness.enemy.definition.xpValue = 999;
     const projectile = harness.projectileGroup.added[0];
     harness.overlap?.(projectile, harness.enemy.sprite);
     harness.enemy.active = true;
@@ -262,15 +276,53 @@ describe('WeaponSystem', () => {
     harness.overlap?.(projectile, harness.enemy.sprite);
 
     expect(harness.enemy.takeDamage).toHaveBeenCalledTimes(1);
+    expect(damaged).toHaveBeenCalledTimes(1);
     expect(hit).toHaveBeenCalledTimes(1);
     expect(killed).toHaveBeenCalledWith({
       instanceId: 1,
       enemyId: 'dust-mite',
+      xpValue: 1,
       x: 60,
       y: 0,
     });
+    expect(killed).toHaveBeenCalledTimes(1);
+    expect(damaged.mock.invocationCallOrder[0]).toBeLessThan(hit.mock.invocationCallOrder[0]);
+    expect(hit.mock.invocationCallOrder[0]).toBeLessThan(killed.mock.invocationCallOrder[0]);
     expect(harness.runState.kills).toBe(1);
     expect(harness.createXpDrop).toHaveBeenCalledWith(60, 0, 1);
+  });
+
+  it('does not classify synchronous cleanup during damage as a combat kill', async () => {
+    const harness = await createHarness();
+    const damaged = vi.fn();
+    const hit = vi.fn();
+    const killed = vi.fn();
+    harness.ctx.bus.on('enemy:damaged', damaged);
+    harness.ctx.bus.on('projectile:hit', hit);
+    harness.ctx.bus.on('enemy:killed', killed);
+    harness.enemy.takeDamage.mockImplementationOnce((amount: number) => {
+      harness.ctx.bus.emit('enemy:damaged', {
+        instanceId: harness.enemy.instanceId,
+        amount,
+        x: harness.enemy.x,
+        y: harness.enemy.y,
+      });
+      harness.enemy.active = false;
+      harness.enemy.sprite.active = false;
+      return false;
+    });
+
+    harness.system.update(650);
+    const projectile = harness.projectileGroup.added[0];
+    harness.overlap?.(projectile, harness.enemy.sprite);
+
+    expect(harness.enemy.takeDamage).toHaveBeenCalledTimes(1);
+    expect(damaged).toHaveBeenCalledTimes(1);
+    expect(hit).toHaveBeenCalledWith({ x: 60, y: 0, damage: 8, killed: false });
+    expect(damaged.mock.invocationCallOrder[0]).toBeLessThan(hit.mock.invocationCallOrder[0]);
+    expect(killed).not.toHaveBeenCalled();
+    expect(harness.runState.kills).toBe(0);
+    expect(harness.createXpDrop).not.toHaveBeenCalled();
   });
 
   it('does not advance cadence, projectiles, or overlap damage while paused', async () => {

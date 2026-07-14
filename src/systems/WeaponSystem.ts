@@ -198,11 +198,12 @@ export class WeaponSystem implements System {
     this.runState.kills += 1;
     this.ctx.bus.emit('enemy:killed', {
       instanceId: enemy.instanceId,
-      enemyId: enemy.definition.id,
+      enemyId: enemy.defId,
+      xpValue: enemy.xpValue,
       x: hitX,
       y: hitY,
     });
-    this.createXpDrop(hitX, hitY, enemy.definition.xpValue);
+    this.createXpDrop(hitX, hitY, enemy.xpValue);
   }
 }
 
