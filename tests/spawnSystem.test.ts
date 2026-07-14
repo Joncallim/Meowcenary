@@ -1,104 +1,218 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createEventBus } from '../src/engine/eventBus';
-import { createRunState } from '../src/gameplay/runState';
+import { createRunState, type RunStatus } from '../src/gameplay/runState';
 import { loadGameData } from '../src/systems/validation';
+
+class SpawnBody {
+  velocity = { x: 0, y: 0 };
+
+  setCircle(): void {}
+
+  setVelocity(x: number, y: number): void {
+    this.velocity = { x, y };
+  }
+}
+
+class SpawnArc {
+  active = true;
+  body: SpawnBody | undefined = new SpawnBody();
+
+  constructor(
+    public x: number,
+    public y: number,
+  ) {}
+
+  setDepth(): this {
+    return this;
+  }
+
+  destroy(): void {
+    this.active = false;
+    this.body = undefined;
+  }
+}
 
 vi.mock('phaser', () => ({ default: {} }));
 
+interface HarnessOptions {
+  status?: RunStatus;
+  enemies?: unknown[];
+}
+
+async function createHarness(options: HarnessOptions = {}) {
+  const { SpawnSystem } = await import('../src/systems/SpawnSystem');
+  const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
+  runState.status = options.status ?? 'active';
+  const bus = createEventBus();
+  const data = loadGameData();
+  const enemies = options.enemies ?? [];
+  const enemyGroup = { add: vi.fn() };
+  const player = {
+    active: true,
+    x: 400,
+    y: 300,
+    sprite: { kind: 'player' },
+    takeDamage: vi.fn(),
+  };
+  let overlap: ((playerObject: unknown, enemyObject: unknown) => void) | undefined;
+  const scene = {
+    scale: { width: 800, height: 600 },
+    add: { circle: (x: number, y: number) => new SpawnArc(x, y) },
+    physics: {
+      add: {
+        existing: () => undefined,
+        overlap(
+          _playerObject: unknown,
+          _enemyGroup: unknown,
+          callback: (playerObject: unknown, enemyObject: unknown) => void,
+          _processCallback: unknown,
+          context: unknown,
+        ): void {
+          overlap = callback.bind(context);
+        },
+      },
+    },
+  };
+  const rng = { int: (min: number) => min };
+  const system = new SpawnSystem(
+    scene as never,
+    { bus, data } as never,
+    runState,
+    rng as never,
+    player as never,
+    enemies as never,
+    enemyGroup as never,
+  );
+
+  return { system, runState, bus, data, enemies, enemyGroup, player, overlap };
+}
+
 describe('SpawnSystem', () => {
   it('freezes active enemies without touching destroyed ones while not active', async () => {
-    const { SpawnSystem } = await import('../src/systems/SpawnSystem');
-
-    const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
-    runState.status = 'won';
-
     const activeBody = {
       velocity: { x: 40, y: -20 },
       setVelocity(x: number, y: number): void {
         this.velocity = { x, y };
       },
     };
-    const activeEnemy = { active: true, body: activeBody };
-    // Mirrors a Phaser sprite after destroy(): the body reference becomes undefined.
-    const destroyedEnemy = { active: false, body: undefined as unknown };
-    const enemies = [destroyedEnemy, activeEnemy] as never;
+    const activeEnemy = { active: true, body: activeBody, destroy: vi.fn() };
+    const destroyedEnemy = { active: false, body: undefined as unknown, destroy: vi.fn() };
+    const harness = await createHarness({ status: 'won', enemies: [destroyedEnemy, activeEnemy] });
 
-    const ctx = {
-      bus: createEventBus(),
-      data: { enemies: [], spawnCurves: [] },
-    } as never;
-
-    const system = new SpawnSystem(
-      {} as never,
-      ctx,
-      runState,
-      {} as never,
-      {} as never,
-      enemies,
-      {} as never,
-    );
-
-    // A destroyed enemy left in the array on the win/lose transition must not crash
-    // the freeze pass, and live enemies must still be stopped.
-    expect(() => system.update(16)).not.toThrow();
+    expect(() => harness.system.update(16)).not.toThrow();
     expect(activeBody.velocity).toEqual({ x: 0, y: 0 });
-    expect(enemies).toEqual([activeEnemy]);
+    expect(harness.enemies).toEqual([activeEnemy]);
+    expect(destroyedEnemy.destroy).toHaveBeenCalledTimes(1);
   });
 
   it('publishes one spawned event after adding the runtime enemy to its group', async () => {
-    const { SpawnSystem } = await import('../src/systems/SpawnSystem');
-    const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
-    runState.status = 'active';
-    const bus = createEventBus();
+    const harness = await createHarness();
     const spawned = vi.fn();
-    bus.on('enemy:spawned', spawned);
+    harness.bus.on('enemy:spawned', spawned);
 
-    class SpawnBody {
-      velocity = { x: 0, y: 0 };
-      setCircle(): void {}
-      setVelocity(x: number, y: number): void { this.velocity = { x, y }; }
-    }
-    class SpawnArc {
-      active = true;
-      body = new SpawnBody();
-      constructor(public x: number, public y: number) {}
-      setDepth(): this { return this; }
-      destroy(): void { this.active = false; }
-    }
+    harness.system.update(1_600);
 
-    const scene = {
-      scale: { width: 800, height: 600 },
-      add: { circle: (x: number, y: number) => new SpawnArc(x, y) },
-      physics: { add: { existing: () => undefined } },
-    };
-    const enemies: Array<{ instanceId: number; defId: string; pos: { x: number; y: number } }> = [];
-    const enemyGroup = { add: vi.fn() };
-    const ctx = { bus, data: loadGameData() };
-    const rng = { int: (min: number) => min };
-    const player = { active: true, x: 400, y: 300 };
-    const system = new SpawnSystem(
-      scene as never,
-      ctx as never,
-      runState,
-      rng as never,
-      player as never,
-      enemies as never,
-      enemyGroup as never,
-    );
-
-    system.update(1600);
-
-    expect(enemies).toHaveLength(1);
-    expect(enemyGroup.add).toHaveBeenCalledTimes(1);
+    expect(harness.enemies).toHaveLength(1);
+    expect(harness.enemyGroup.add).toHaveBeenCalledTimes(1);
     expect(spawned).toHaveBeenCalledTimes(1);
-    expect(enemyGroup.add.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(harness.enemyGroup.add.mock.invocationCallOrder[0]).toBeLessThan(
       spawned.mock.invocationCallOrder[0],
     );
+    const enemy = harness.enemies[0] as {
+      instanceId: number;
+      defId: string;
+      pos: { x: number; y: number };
+    };
     expect(spawned).toHaveBeenCalledWith({
-      instanceId: enemies[0].instanceId,
-      enemyId: enemies[0].defId,
-      x: enemies[0].pos.x,
-      y: enemies[0].pos.y,
+      instanceId: enemy.instanceId,
+      enemyId: enemy.defId,
+      x: enemy.pos.x,
+      y: enemy.pos.y,
     });
+  });
+
+  it('scales batched spawns from stable snapshots at each exact cadence timestamp', async () => {
+    const harness = await createHarness();
+    const source = harness.data.enemies.find((enemy) => enemy.id === 'dust-mite');
+    if (!source || source.archetype === 'elite') throw new Error('missing dust-mite');
+    source.health = 999;
+    source.damage = 999;
+    harness.data.spawnCurves[0].scaling.healthPerMinute = 1;
+    harness.data.spawnCurves[0].scaling.damagePerMinute = 1;
+
+    harness.system.update(3_200);
+
+    expect(harness.enemies).toHaveLength(2);
+    const spawned = harness.enemies as Array<{
+      maxHealth: number;
+      definition: { health: number; damage: number };
+    }>;
+    expect(spawned[0].maxHealth).toBeCloseTo(10 * (1 + 0.18 * (1_600 / 60_000)));
+    expect(spawned[0].definition.damage).toBeCloseTo(5 * (1 + 0.1 * (1_600 / 60_000)));
+    expect(spawned[1].maxHealth).toBeCloseTo(10 * (1 + 0.18 * (3_200 / 60_000)));
+    expect(spawned[1].definition.damage).toBeCloseTo(5 * (1 + 0.1 * (3_200 / 60_000)));
+    expect(source.health).toBe(999);
+    expect(source.damage).toBe(999);
+  });
+
+  it('enforces runtime active counts and replaces capacity without backlog', async () => {
+    const harness = await createHarness();
+
+    harness.system.update(30_000);
+    expect(harness.enemies).toHaveLength(12);
+    expect(harness.enemyGroup.add).toHaveBeenCalledTimes(12);
+
+    const removed = harness.enemies[0] as { destroy(): void };
+    removed.destroy();
+    harness.system.update(1_600);
+
+    expect(harness.enemies).toHaveLength(12);
+    expect(harness.enemyGroup.add).toHaveBeenCalledTimes(13);
+  });
+
+  it('does not advance spawn time while the run is paused', async () => {
+    const harness = await createHarness({ status: 'paused' });
+
+    harness.system.update(10_000);
+    expect(harness.enemies).toHaveLength(0);
+    harness.runState.status = 'active';
+    harness.system.update(1_599);
+    expect(harness.enemies).toHaveLength(0);
+    harness.system.update(1);
+    expect(harness.enemies).toHaveLength(1);
+  });
+
+  it('applies scaled contact damage only from live contact enemies during active play', async () => {
+    const harness = await createHarness();
+    harness.system.update(1_600);
+    const enemy = harness.enemies[0] as {
+      active: boolean;
+      state: string;
+      sprite: unknown;
+      definition: { contactDamage: boolean; damage: number };
+    };
+
+    harness.overlap?.(harness.player.sprite, { gameObject: enemy.sprite });
+    expect(harness.player.takeDamage).toHaveBeenCalledWith(enemy.definition.damage);
+    expect(enemy.definition.damage).toBeGreaterThan(5);
+
+    harness.runState.status = 'paused';
+    harness.overlap?.(harness.player.sprite, enemy.sprite);
+    expect(harness.player.takeDamage).toHaveBeenCalledTimes(1);
+
+    harness.runState.status = 'active';
+    const shell = {
+      active: true,
+      state: 'pursuing',
+      sprite: { kind: 'shell' },
+      definition: { contactDamage: false, damage: 999 },
+    };
+    harness.enemies.push(shell);
+    harness.overlap?.(harness.player.sprite, shell.sprite);
+    expect(harness.player.takeDamage).toHaveBeenCalledTimes(1);
+
+    enemy.state = 'dead';
+    harness.overlap?.(harness.player.sprite, enemy.sprite);
+    expect(harness.player.takeDamage).toHaveBeenCalledTimes(1);
   });
 });

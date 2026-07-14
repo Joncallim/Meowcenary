@@ -60,7 +60,7 @@ export class GameScene extends Phaser.Scene {
       characterId: 'starter-meowcenary',
       arenaId: spawnCurve?.id ?? 'arena',
     });
-    const runRng = createRng(this.runState.seed);
+    const spawnRng = createRng(deriveRunSeed(this.runState.seed, 'spawns'));
     const upgradeRng = createRng(deriveRunSeed(this.runState.seed, 'upgrades'));
     const weaponRegistry = new DataWeaponRegistry(ctx.data);
     this.runState.equipped = createDefaultWeaponLoadout(weaponRegistry);
@@ -96,7 +96,7 @@ export class GameScene extends Phaser.Scene {
     });
     this.upgradeChooser = new UpgradeChooser(this, ctx.bus, this.upgradeSystem);
     this.systems = [
-      new SpawnSystem(this, ctx, this.runState, runRng, this.player, this.enemies, this.enemyGroup),
+      new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup),
       new WeaponSystem(
         this,
         ctx,
@@ -114,13 +114,6 @@ export class GameScene extends Phaser.Scene {
       this.audioManager,
     ];
 
-    this.physics.add.overlap(
-      this.player.sprite,
-      this.enemyGroup,
-      this.handlePlayerEnemyOverlap,
-      undefined,
-      this,
-    );
     this.input.keyboard?.on('keydown-P', this.togglePause, this);
     this.input.keyboard?.on('keydown-ESC', this.togglePause, this);
     if (RuntimeConfig.isDev) {
@@ -292,19 +285,6 @@ export class GameScene extends Phaser.Scene {
     return this.runState;
   }
 
-  private handlePlayerEnemyOverlap(
-    _playerObject: unknown,
-    enemyObject: unknown,
-  ): void {
-    const enemyGameObject = arcadeGameObject(enemyObject);
-    const enemy = this.enemies.find((candidate) => candidate.sprite === enemyGameObject);
-    if (!enemy || !this.player) {
-      return;
-    }
-
-    this.player.takeDamage(enemy.definition.damage);
-  }
-
   private togglePause(): void {
     const runState = this.runState;
     if (!runState) {
@@ -415,19 +395,4 @@ function formatClock(ms: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
-
-function arcadeGameObject(value: unknown): Phaser.GameObjects.GameObject | undefined {
-  if (value instanceof Phaser.GameObjects.GameObject) {
-    return value;
-  }
-
-  if (
-    value instanceof Phaser.Physics.Arcade.Body ||
-    value instanceof Phaser.Physics.Arcade.StaticBody
-  ) {
-    return value.gameObject;
-  }
-
-  return undefined;
 }
