@@ -51,6 +51,14 @@ export class DataEnemyRegistry {
       }
 
       const spawnableBase = base;
+      const resolvedStats = {
+        health: spawnableBase.health * ELITE_MULTIPLIERS.health,
+        damage: spawnableBase.damage * ELITE_MULTIPLIERS.damage,
+        speed: spawnableBase.speed * ELITE_MULTIPLIERS.speed,
+        xpValue: spawnableBase.xpValue * ELITE_MULTIPLIERS.xpValue,
+        scrapValue: spawnableBase.scrapValue * ELITE_MULTIPLIERS.scrapValue,
+      };
+      assertValidResolvedStats(enemy.id, spawnableBase.id, resolvedStats);
       const resolved = {
         ...spawnableBase,
         id: enemy.id,
@@ -58,11 +66,7 @@ export class DataEnemyRegistry {
         archetype: 'elite' as const,
         baseEnemyId: enemy.baseEnemyId,
         baseArchetype: spawnableBase.archetype,
-        health: spawnableBase.health * ELITE_MULTIPLIERS.health,
-        damage: spawnableBase.damage * ELITE_MULTIPLIERS.damage,
-        speed: spawnableBase.speed * ELITE_MULTIPLIERS.speed,
-        xpValue: spawnableBase.xpValue * ELITE_MULTIPLIERS.xpValue,
-        scrapValue: spawnableBase.scrapValue * ELITE_MULTIPLIERS.scrapValue,
+        ...resolvedStats,
       } as ResolvedEliteEnemyDefinition;
       this.resolved.set(enemy.id, deepFreeze(resolved));
     }
@@ -85,6 +89,33 @@ export class DataEnemyRegistry {
 
   all(): readonly EnemyDefinition[] {
     return this.snapshot;
+  }
+}
+
+function assertValidResolvedStats(
+  eliteId: string,
+  baseId: string,
+  stats: {
+    health: number;
+    damage: number;
+    speed: number;
+    xpValue: number;
+    scrapValue: number;
+  },
+): void {
+  const checks: ReadonlyArray<[keyof typeof stats, boolean]> = [
+    ['health', Number.isFinite(stats.health) && stats.health > 0],
+    ['damage', Number.isFinite(stats.damage) && stats.damage > 0],
+    ['speed', Number.isFinite(stats.speed) && stats.speed > 0],
+    ['xpValue', Number.isSafeInteger(stats.xpValue) && stats.xpValue > 0],
+    ['scrapValue', Number.isSafeInteger(stats.scrapValue) && stats.scrapValue >= 0],
+  ];
+  for (const [stat, valid] of checks) {
+    if (!valid) {
+      throw new Error(
+        `Elite "${eliteId}" base "${baseId}" produced invalid resolved stat "${stat}"`,
+      );
+    }
   }
 }
 

@@ -168,4 +168,57 @@ describe('DataEnemyRegistry', () => {
       expect(registry.spawnableById(id) !== undefined).toBe(isSpawnable);
     }
   });
+
+  it('rejects every elite-derived stat overflow without returning partial state or mutating input', () => {
+    const overflowCases: ReadonlyArray<[string, number]> = [
+      ['health', Number.MAX_VALUE],
+      ['damage', Number.MAX_VALUE],
+      ['speed', Number.MAX_VALUE],
+      ['xpValue', Number.MAX_SAFE_INTEGER],
+      ['scrapValue', Number.MAX_SAFE_INTEGER],
+    ];
+
+    for (const [stat, value] of overflowCases) {
+      const enemies = structuredClone(loadGameData().enemies);
+      const base = enemies.find((enemy) => enemy.id === 'dust-mite');
+      if (base?.archetype !== 'chaser') throw new Error('missing dust-mite chaser');
+      base[stat as keyof typeof base] = value as never;
+      const input = { enemies: [...enemies, elite] };
+      const before = structuredClone(input);
+      let registry: DataEnemyRegistry | undefined;
+
+      expect(() => { registry = new DataEnemyRegistry(input); }).toThrow(
+        new RegExp(`Elite "elite-dust-mite" base "dust-mite".*"${stat}"`),
+      );
+      expect(registry).toBeUndefined();
+      expect(input).toEqual(before);
+    }
+  });
+
+  it('publishes large elite-derived values when every result remains valid', () => {
+    const enemies = structuredClone(loadGameData().enemies);
+    const base = enemies.find((enemy) => enemy.id === 'dust-mite');
+    if (base?.archetype !== 'chaser') throw new Error('missing dust-mite chaser');
+    base.health = Number.MAX_VALUE / 4;
+    base.damage = Number.MAX_VALUE / 4;
+    base.speed = Number.MAX_VALUE / 4;
+    base.xpValue = Math.floor(Number.MAX_SAFE_INTEGER / 2);
+    base.scrapValue = Math.floor(Number.MAX_SAFE_INTEGER / 2);
+    const input = { enemies: [...enemies, elite] };
+    const before = structuredClone(input);
+
+    const resolved = new DataEnemyRegistry(input).resolvedById('elite-dust-mite');
+    if (!resolved || resolved.archetype !== 'elite') throw new Error('missing resolved elite');
+    expect(Number.isFinite(resolved.health)).toBe(true);
+    expect(Number.isFinite(resolved.damage)).toBe(true);
+    expect(Number.isFinite(resolved.speed)).toBe(true);
+    expect(Number.isSafeInteger(resolved.xpValue)).toBe(true);
+    expect(Number.isSafeInteger(resolved.scrapValue)).toBe(true);
+    expect(resolved).toMatchObject({
+      health: Number.MAX_VALUE / 2,
+      xpValue: Math.floor(Number.MAX_SAFE_INTEGER / 2) * 2,
+      scrapValue: Math.floor(Number.MAX_SAFE_INTEGER / 2) * 2,
+    });
+    expect(input).toEqual(before);
+  });
 });

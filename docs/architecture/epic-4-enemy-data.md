@@ -47,6 +47,9 @@ Elite resolution preserves `archetype: 'elite'`, records the base archetype,
 and inherits contact behavior and attack configuration. It applies these fixed
 multipliers without changing the base: health `2`, damage `1.5`, speed `1.1`,
 XP `2`, and scrap `2`.
+Registry construction rejects an elite if any multiplied combat stat is not
+finite and positive, if multiplied XP is not a positive safe integer, or if
+multiplied scrap is not a nonnegative safe integer.
 
 ## Spawn curves
 
