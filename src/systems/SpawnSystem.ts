@@ -85,7 +85,7 @@ export class SpawnSystem implements System {
 
   private spawnFromWave(wave: SpawnWaveDefinition): void {
     const aliveForWave = this.enemies.filter(
-      (enemy) => enemy.active && enemy.definition.id === wave.enemyId,
+      (enemy) => enemy.active && enemy.defId === wave.enemyId,
     ).length;
     if (aliveForWave >= wave.maxAlive) {
       return;
@@ -102,7 +102,7 @@ export class SpawnSystem implements System {
     this.enemyGroup.add(enemy.sprite);
     this.ctx.bus.emit('enemy:spawned', {
       instanceId: enemy.instanceId,
-      enemyId: definition.id,
+      enemyId: enemy.defId,
       x: enemy.x,
       y: enemy.y,
     });

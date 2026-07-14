@@ -22,7 +22,9 @@ zero health, and reset the state timer. Removal is idempotent.
 The constructor accepts stat-bearing `ResolvedEnemyDefinition` values. This
 keeps unresolved elite shells out of the runtime while preserving the complete
 archetype identity for a future registry-resolved elite path. Slice 2 does not
-wire shell or elite spawning.
+wire shell or elite spawning. Each instance deep-clones and freezes its resolved
+definition so runtime identity, movement inputs, and rewards remain stable if a
+caller later mutates its source, and sibling instances share no mutable state.
 
 ## Lifecycle events
 
