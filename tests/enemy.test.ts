@@ -109,7 +109,7 @@ describe('Enemy', () => {
     source.speed = 99;
     source.xpValue = 99;
 
-    first.enemy.update({ active: true, x: 20, y: 20 } as never);
+    first.enemy.update({ active: true, x: 20, y: 20 } as never, 1_000);
 
     expect(first.enemy.defId).toBe('test-enemy');
     expect(first.enemy.archetype).toBe('chaser');
@@ -121,6 +121,77 @@ describe('Enemy', () => {
     expect(Object.isFrozen(first.enemy.definition)).toBe(true);
     expect(Reflect.set(first.enemy.definition, 'xpValue', 500)).toBe(false);
     expect(sibling.enemy.xpValue).toBe(1);
+  });
+
+  it('runs charger windup, dash, and cooldown state through the pure movement helper', async () => {
+    const definition: ResolvedEnemyDefinition = {
+      id: 'test-charger',
+      name: 'Test Charger',
+      archetype: 'charger',
+      health: 10,
+      damage: 1,
+      speed: 100,
+      xpValue: 1,
+      scrapValue: 1,
+      contactDamage: true,
+      attack: {
+        triggerRange: 150,
+        telegraphMs: 650,
+        dashSpeed: 260,
+        dashDurationMs: 700,
+        cooldownMs: 1_200,
+      },
+    };
+    const { enemy, sprite } = await createEnemy(createEventBus(), definition);
+    const player = { active: true, x: 100, y: 20 } as never;
+
+    enemy.update(player, 1);
+    expect(enemy.state).toBe('winding');
+    expect(enemy.stateTimerMs).toBe(649);
+    expect(sprite.body?.velocity).toEqual({ x: 0, y: 0 });
+
+    enemy.update(player, 649);
+    expect(enemy.state).toBe('attacking');
+    expect(enemy.stateTimerMs).toBe(700);
+
+    enemy.update(player, 100);
+    expect(enemy.state).toBe('attacking');
+    expect(enemy.stateTimerMs).toBe(600);
+    expect(sprite.body?.velocity).toEqual({ x: 260, y: 0 });
+
+    enemy.update(player, 600);
+    expect(enemy.state).toBe('idle');
+    expect(enemy.stateTimerMs).toBe(1_200);
+    expect(sprite.body?.velocity).toEqual({ x: 260, y: 0 });
+
+    enemy.update(player, 1_200);
+    expect(enemy.state).toBe('pursuing');
+    expect(enemy.stateTimerMs).toBe(0);
+    expect(sprite.body?.velocity).toEqual({ x: 0, y: 0 });
+  });
+
+  it('keeps deferred shell behavior and invalid frame deltas stopped', async () => {
+    const boss: ResolvedEnemyDefinition = {
+      id: 'test-boss',
+      name: 'Test Boss',
+      archetype: 'boss',
+      health: 100,
+      damage: 10,
+      speed: 50,
+      xpValue: 10,
+      scrapValue: 10,
+      contactDamage: false,
+    };
+    const { enemy: bossEnemy, sprite: bossSprite } = await createEnemy(createEventBus(), boss);
+    bossSprite.body?.setVelocity(20, 20);
+
+    bossEnemy.update({ active: true, x: 100, y: 20 } as never, 16);
+    expect(bossSprite.body?.velocity).toEqual({ x: 0, y: 0 });
+
+    const { enemy: chaser, sprite: chaserSprite } = await createEnemy();
+    chaserSprite.body?.setVelocity(20, 20);
+    chaser.update({ active: true, x: 100, y: 20 } as never, Number.NaN);
+    expect(chaserSprite.body?.velocity).toEqual({ x: 0, y: 0 });
   });
 
   it('emits accepted damage and transitions lethal damage to dead exactly once', async () => {

@@ -58,7 +58,7 @@ export class SpawnSystem implements System {
     }
 
     this.enemies.forEach((enemy) => {
-      enemy.update(this.player);
+      enemy.update(this.player, dtMs);
     });
 
     const elapsedSeconds = this.runState.timeMs / 1000;
