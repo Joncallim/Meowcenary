@@ -529,17 +529,50 @@ function jsonSafetyErrors(value: unknown, path: string, active = new WeakSet<obj
   active.add(value);
   const errors: string[] = [];
   if (Array.isArray(value)) {
+    for (const key of Reflect.ownKeys(value)) {
+      if (key === 'length') continue;
+      if (typeof key !== 'string' || !isCanonicalArrayIndex(key, value.length)) {
+        errors.push(`${path}.${String(key)}: non-index array property is not JSON-safe`);
+      }
+    }
     for (let index = 0; index < value.length; index += 1) {
-      if (!(index in value)) errors.push(`${path}[${index}]: sparse array entry`);
-      else errors.push(...jsonSafetyErrors(value[index], `${path}[${index}]`, active));
+      const itemPath = `${path}[${index}]`;
+      const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+      if (!descriptor) errors.push(`${itemPath}: sparse array entry`);
+      else errors.push(...jsonPropertySafetyErrors(descriptor, itemPath, active));
     }
   } else {
-    for (const [key, child] of Object.entries(value)) {
-      errors.push(...jsonSafetyErrors(child, `${path}.${key}`, active));
+    for (const key of Reflect.ownKeys(value)) {
+      if (typeof key !== 'string') {
+        errors.push(`${path}.${String(key)}: symbol-keyed property is not JSON-safe`);
+        continue;
+      }
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (descriptor) {
+        errors.push(...jsonPropertySafetyErrors(descriptor, `${path}.${key}`, active));
+      }
     }
   }
   active.delete(value);
   return errors;
+}
+
+function jsonPropertySafetyErrors(
+  descriptor: PropertyDescriptor,
+  path: string,
+  active: WeakSet<object>,
+): string[] {
+  if (!descriptor.enumerable) return [`${path}: property must be enumerable`];
+  if (!Object.hasOwn(descriptor, 'value')) {
+    return [`${path}: accessor property is not JSON-safe`];
+  }
+  return jsonSafetyErrors(descriptor.value, path, active);
+}
+
+function isCanonicalArrayIndex(key: string, length: number): boolean {
+  if (!/^(0|[1-9]\d*)$/.test(key)) return false;
+  const index = Number(key);
+  return Number.isSafeInteger(index) && index >= 0 && index < length;
 }
 
 function readOwnField(row: Record<string, unknown>, field: string): unknown {

@@ -221,4 +221,72 @@ describe('DataEnemyRegistry', () => {
     });
     expect(input).toEqual(before);
   });
+
+  it('rejects a non-enumerable required field without changing its descriptor', () => {
+    const enemies = structuredClone(loadGameData().enemies);
+    const base = enemies.find((enemy) => enemy.id === 'dust-mite');
+    if (base?.archetype !== 'chaser') throw new Error('missing dust-mite chaser');
+    Object.defineProperty(base, 'health', {
+      value: 10,
+      enumerable: false,
+      writable: true,
+      configurable: true,
+    });
+    const before = Object.getOwnPropertyDescriptor(base, 'health');
+    let registry: DataEnemyRegistry | undefined;
+
+    expect(() => { registry = new DataEnemyRegistry({ enemies }); }).toThrow(
+      /enemies\.json\[0\]\.health: property must be enumerable/,
+    );
+    expect(registry).toBeUndefined();
+    expect(Object.getOwnPropertyDescriptor(base, 'health')).toEqual(before);
+  });
+
+  it('rejects a stateful getter without invoking it or returning partial state', () => {
+    const enemies = structuredClone(loadGameData().enemies);
+    const base = enemies.find((enemy) => enemy.id === 'dust-mite');
+    if (base?.archetype !== 'chaser') throw new Error('missing dust-mite chaser');
+    let reads = 0;
+    Object.defineProperty(base, 'health', {
+      enumerable: true,
+      configurable: true,
+      get() {
+        reads += 1;
+        return reads <= 2 ? 10 : -1;
+      },
+    });
+    const before = Object.getOwnPropertyDescriptor(base, 'health');
+    let registry: DataEnemyRegistry | undefined;
+
+    expect(() => { registry = new DataEnemyRegistry({ enemies }); }).toThrow(
+      /enemies\.json\[0\]\.health: accessor property is not JSON-safe/,
+    );
+    expect(reads).toBe(0);
+    expect(registry).toBeUndefined();
+    expect(Object.getOwnPropertyDescriptor(base, 'health')).toEqual(before);
+  });
+
+  it('rejects nested accessors at their deterministic path without invoking them', () => {
+    const enemies = structuredClone(loadGameData().enemies);
+    const charger = enemies.find((enemy) => enemy.id === 'junk-rusher');
+    if (charger?.archetype !== 'charger') throw new Error('missing junk-rusher charger');
+    let reads = 0;
+    Object.defineProperty(charger.attack, 'cooldownMs', {
+      enumerable: true,
+      configurable: true,
+      get() {
+        reads += 1;
+        return reads <= 2 ? 1200 : -1;
+      },
+    });
+    const before = Object.getOwnPropertyDescriptor(charger.attack, 'cooldownMs');
+    let registry: DataEnemyRegistry | undefined;
+
+    expect(() => { registry = new DataEnemyRegistry({ enemies }); }).toThrow(
+      /enemies\.json\[1\]\.attack\.cooldownMs: accessor property is not JSON-safe/,
+    );
+    expect(reads).toBe(0);
+    expect(registry).toBeUndefined();
+    expect(Object.getOwnPropertyDescriptor(charger.attack, 'cooldownMs')).toEqual(before);
+  });
 });

@@ -29,7 +29,9 @@ XP and scrap are nonnegative safe integers, except directly spawnable enemies
 require positive XP, damage, and speed. Charger attack numbers are positive;
 millisecond fields are positive safe integers and dash speed exceeds base
 speed. Ranged range is positive and its timing fields are positive safe
-integers. Required values must be own properties, not inherited values.
+integers. JSON data must use enumerable, string-keyed data properties; accessors,
+non-enumerable fields, symbol keys, inherited values, and custom array properties
+are rejected recursively before canonical cloning.
 
 The single direct-spawnability authority is
 `SPAWNABLE_ENEMY_ARCHETYPES`: chaser, charger, and tank. Spawn curves, elite
