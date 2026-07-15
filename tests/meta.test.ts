@@ -19,6 +19,18 @@ describe('pure meta progression rules', () => {
     expect(costOf(vest, 5)).toBeNull();
   });
 
+  it.each([
+    ['reinforced-vest', [10, 16, 26, 41, 66]],
+    ['quick-paws-training', [15, 24, 38, 61, 98]],
+    ['sharpened-ammo', [20, 34, 58, 98, 167]],
+    ['magnetic-whiskers', [10, 15, 23, 34, 51]],
+  ] as const)('pins the exact cost trajectory for %s', (id, expectedCosts) => {
+    const definition = registry.metaUpgradeById(id)!;
+    const levels = Array.from({ length: definition.maxLevel }, (_, level) => level);
+    expect(levels.map((level) => costOf(definition, level))).toEqual(expectedCosts);
+    expect(costOf(definition, definition.maxLevel)).toBeNull();
+  });
+
   it('reports unknown, insufficient, max-level, and successful purchase contracts', () => {
     const empty = createDefaultMeta();
     expect(canPurchase(empty, 'unknown', registry)).toEqual({

@@ -1,5 +1,5 @@
 import type { GameContext } from '../engine/context';
-import { canPurchase, costOf, purchase, type PurchaseFailureReason } from '../gameplay/meta';
+import { canPurchase, purchase, type PurchaseFailureReason } from '../gameplay/meta';
 import type { MetaState } from '../systems/save';
 
 export interface MetaUpgradeView {
@@ -24,14 +24,13 @@ export class ProgressionController {
       scrap: meta.scrap,
       upgrades: Object.freeze(this.context.metaUpgrades.all().map((definition) => {
         const check = canPurchase(meta, definition.id, this.context.metaUpgrades);
-        const currentLevel = check.currentLevel;
         return Object.freeze({
           id: definition.id,
           name: definition.name,
           description: definition.description,
-          currentLevel,
+          currentLevel: check.currentLevel,
           maxLevel: definition.maxLevel,
-          nextCost: costOf(definition, currentLevel),
+          nextCost: check.cost,
           canPurchase: check.ok,
         });
       })),

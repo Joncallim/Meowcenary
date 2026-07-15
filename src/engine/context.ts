@@ -22,7 +22,6 @@ export interface GameContext {
   readonly menuRng: Rng;
   readonly data: GameData;
   readonly metaUpgrades: MetaUpgradeRegistry;
-  readonly save: SaveManager;
   readonly saveData: SaveData;
   readonly settings: Settings;
   updateSettings(patch: Readonly<Partial<Settings>>): PersistenceUpdate<Settings>;
@@ -45,7 +44,6 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     menuRng: options.menuRng,
     data: options.data,
     metaUpgrades: options.metaUpgrades,
-    save: options.save,
     get saveData() { return current; },
     get settings() { return current.settings; },
     updateSettings(patch) {

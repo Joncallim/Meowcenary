@@ -16,6 +16,7 @@ import type {
   WeaponDefinition,
 } from './types';
 import { isSpawnableEnemyDefinition } from './types';
+import { isContentId } from './ids';
 
 const RARITIES = new Set<Rarity>(['common', 'uncommon', 'rare', 'epic', 'legendary']);
 const ENEMY_ARCHETYPES = new Set<EnemyArchetype>([
@@ -53,7 +54,6 @@ const CURVE_FIELDS = new Set(['id', 'durationSeconds', 'scaling', 'waves']);
 const SCALING_FIELDS = new Set(['healthPerMinute', 'damagePerMinute']);
 const WAVE_FIELDS = new Set(['startSecond', 'enemyId', 'spawnEveryMs', 'maxAlive']);
 const ROOT_FIELDS = new Set(['weapons', 'enemies', 'upgrades', 'metaUpgrades', 'spawnCurves']);
-const CONTENT_ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
 export type RowCheck = (row: unknown, index: number) => string[];
 
@@ -269,7 +269,7 @@ function checkMetaUpgrade(row: unknown): string[] {
   rejectUnknownFields(row, META_UPGRADE_FIELDS, errors);
   requireString(row, 'id', errors);
   const id = readOwnField(row, 'id');
-  if (typeof id === 'string' && !CONTENT_ID.test(id)) errors.push('id: invalid content id');
+  if (typeof id === 'string' && !isContentId(id)) errors.push('id: invalid content id');
   requireString(row, 'name', errors);
   requireString(row, 'description', errors);
   requireIntegerInRange(row, 'maxLevel', 1, 100, errors);
@@ -287,7 +287,10 @@ function checkMetaUpgrade(row: unknown): string[] {
     }
     const maxLevel = readOwnField(row, 'maxLevel');
     const base = readOwnField(cost, 'base');
-    if (typeof maxLevel === 'number' && Number.isSafeInteger(maxLevel) && isFiniteNumber(base) && isFiniteNumber(growth)) {
+    if (
+      typeof maxLevel === 'number' && Number.isSafeInteger(maxLevel) && maxLevel >= 1 && maxLevel <= 100 &&
+      isFiniteNumber(base) && isFiniteNumber(growth)
+    ) {
       for (let level = 0; level < maxLevel; level += 1) {
         const nextCost = Math.round(base * growth ** level);
         if (!Number.isSafeInteger(nextCost) || nextCost <= 0) {

@@ -5,8 +5,10 @@ Status: implementation-ready architecture for Epic 5 / issue #6.
 This document is the repository source of truth for Epic 5. It incorporates the
 corrections established by PR #34 and supersedes conflicting Epic 5 issue text,
 the older shared-save wording in `docs/epics.md`, and the old Epic 3 modifier
-source spelling. It defines architecture only; the seven implementation slices
-below must land as separate, reviewable PRs.
+source spelling. It defines architecture only. The seven implementation slices
+below are dependency-ordered implementation and review checkpoints; they
+describe file ownership, tests, and acceptance criteria, not mandatory PR
+topology.
 
 ## Decision summary
 
@@ -331,7 +333,6 @@ export interface GameContext {
   readonly menuRng: Rng;
   readonly data: GameData;
   readonly metaUpgrades: MetaUpgradeRegistry;
-  readonly save: SaveManager;
   readonly saveData: SaveData;
   readonly settings: Settings;
 
@@ -363,6 +364,12 @@ export function createGameContext(
 snapshot in a private closure. Both `saveData` and `settings` are getters:
 `ctx.settings === ctx.saveData.settings` is always true for the current read.
 There is no separately copied settings object.
+
+`SaveManager` is a `CreateGameContextOptions` dependency only; it is not part
+of the `GameContext` public surface. Publishing it would let a caller invoke
+`load`/`save`/`clear` directly, creating a competing snapshot that `saveData`
+never observes. Runtime persistence is exclusively available through
+`updateSettings`, `updateMeta`, and `resetProgression`.
 
 `updateSettings` sanitizes the merged patch using the current settings as the
 field fallback, builds a new root snapshot with the existing meta, assigns it as
@@ -1086,7 +1093,7 @@ Deferred: save state, purchases, modifier application, runtime, controller.
 
 ### Slice 2: V2 save schema and migration
 
-Prerequisites: Slice 1 merged.
+Prerequisites: Checkpoint 1 complete.
 
 Create:
 
@@ -1120,7 +1127,7 @@ Deferred: context ownership and gameplay rules.
 
 ### Slice 3: pure progression rules
 
-Prerequisites: Slices 1-2 merged.
+Prerequisites: Checkpoints 1-2 complete.
 
 Create:
 
@@ -1147,7 +1154,7 @@ Deferred: persistence integration and scene flow.
 
 ### Slice 4: GameContext current snapshot
 
-Prerequisites: Slices 1-3 merged.
+Prerequisites: Checkpoints 1-3 complete.
 
 Modify:
 
@@ -1172,7 +1179,7 @@ Deferred: run modifiers, terminal banking, UI.
 
 ### Slice 5: ordered run-start integration and source namespaces
 
-Prerequisites: Slices 1-4 merged.
+Prerequisites: Checkpoints 1-4 complete.
 
 Create:
 
@@ -1204,7 +1211,7 @@ Deferred: Epic 6 character implementation and Epic 8 currency generation.
 
 ### Slice 6: terminal reward banking and lifecycle idempotency
 
-Prerequisites: Slices 1-5 merged.
+Prerequisites: Checkpoints 1-5 complete.
 
 Create:
 
@@ -1233,7 +1240,7 @@ Deferred: persistent transaction history, cloud durability, run-summary UI.
 
 ### Slice 7: headless controller and integration cleanup
 
-Prerequisites: Slices 1-6 merged.
+Prerequisites: Checkpoints 1-6 complete.
 
 Create:
 
@@ -1367,20 +1374,10 @@ No unresolved architecture decision remains. Later human product judgment is
 limited to balance tuning and final Epic 9 presentation, neither of which blocks
 Epic 5 implementation.
 
-## Recommended PR sequence
+## Implementation ordering
 
-Implement and merge in this order, rebasing each branch on the newly updated
-`main` rather than keeping a long-lived stacked chain:
-
-1. `agent/epic-5-slice-1-meta-data`
-2. `agent/epic-5-slice-2-save-v2`
-3. `agent/epic-5-slice-3-pure-rules`
-4. `agent/epic-5-slice-4-context`
-5. `agent/epic-5-slice-5-run-start`
-6. `agent/epic-5-slice-6-banking`
-7. `agent/epic-5-slice-7-controller`
-
-Every PR includes its tests, reports `npm run lint`, `npm test`,
-`npm run build`, and `git diff --check`, and states the explicit deferred work
-from its slice. Do not begin the next slice until review findings on the current
-public contract are resolved.
+Land the seven checkpoints above in dependency order, each green on
+`npm run lint`, `npm test`, `npm run build`, and `git diff --check` before the
+next begins. This is a checkpoint order, not a required PR topology: the
+checkpoints may land as one PR or several, provided each checkpoint's
+acceptance criteria and deferred work are satisfied before the next starts.

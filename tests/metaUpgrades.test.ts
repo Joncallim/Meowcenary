@@ -32,6 +32,7 @@ describe('meta upgrade validation and registry', () => {
     ['untrimmed name', { name: ' Test Upgrade' }],
     ['empty description', { description: '' }],
     ['excessive max', { maxLevel: 101 }],
+    ['huge unsafe max', { maxLevel: Number.MAX_SAFE_INTEGER }],
     ['fractional base', { cost: { base: 1.5, growth: 1.5 } }],
   ])('rejects %s', (_label, patch) => {
     const valid = definition();

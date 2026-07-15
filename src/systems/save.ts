@@ -1,4 +1,5 @@
 import { RuntimeConfig } from '../engine/config';
+import { isContentId, isUnlockId } from './ids';
 
 export interface Settings {
   readonly muted: boolean;
@@ -43,9 +44,6 @@ export const DEFAULT_SETTINGS: Settings = Object.freeze({
   reducedMotion: false,
 });
 
-const CONTENT_ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
-const UNLOCK_ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*:[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
-
 export function createDefaultMeta(): MetaState {
   return freezeMeta({ scrap: 0, unlocks: [], permanentUpgrades: {} });
 }
@@ -76,13 +74,14 @@ export function sanitizeMeta(raw: unknown, maxLevels: MetaUpgradeMaxLevels): Met
 
 function sanitizeMetaRecord(raw: unknown, maxLevels: MetaUpgradeMaxLevels): MetaState {
   if (!isPlainRecord(raw)) return createDefaultMeta();
-  const scrap = isNonNegativeSafeInteger(readOwn(raw, 'scrap')) ? readOwn(raw, 'scrap') as number : 0;
+  const scrapRaw = readOwn(raw, 'scrap');
+  const scrap = isNonNegativeSafeInteger(scrapRaw) ? scrapRaw : 0;
   const unlocksRaw = readOwn(raw, 'unlocks');
   const unlocks: string[] = [];
   const seenUnlocks = new Set<string>();
   if (Array.isArray(unlocksRaw)) {
     for (const id of unlocksRaw) {
-      if (typeof id === 'string' && UNLOCK_ID.test(id) && !seenUnlocks.has(id)) {
+      if (typeof id === 'string' && isUnlockId(id) && !seenUnlocks.has(id)) {
         seenUnlocks.add(id);
         unlocks.push(id);
       }
@@ -94,7 +93,7 @@ function sanitizeMetaRecord(raw: unknown, maxLevels: MetaUpgradeMaxLevels): Meta
   if (isPlainRecord(upgradesRaw)) {
     for (const id of Object.keys(upgradesRaw)) {
       const level = readOwn(upgradesRaw, id);
-      if (!CONTENT_ID.test(id) || !Number.isSafeInteger(level) || (level as number) <= 0) continue;
+      if (!isContentId(id) || !Number.isSafeInteger(level) || (level as number) <= 0) continue;
       const max = readOwnMaxLevel(maxLevels, id);
       permanentUpgrades[id] = max === undefined ? level as number : Math.min(level as number, max);
     }
@@ -222,13 +221,13 @@ export class MemoryStorageAdapter implements StorageAdapter {
 
 function sanitizeSettings(raw: unknown, fallback: Settings): Settings {
   if (!isPlainRecord(raw)) return freezeSettings(fallback);
+  const mutedRaw = readOwn(raw, 'muted');
+  const reducedMotionRaw = readOwn(raw, 'reducedMotion');
   return freezeSettings({
-    muted: typeof readOwn(raw, 'muted') === 'boolean' ? readOwn(raw, 'muted') as boolean : fallback.muted,
+    muted: typeof mutedRaw === 'boolean' ? mutedRaw : fallback.muted,
     musicVolume: clampVolume(readOwn(raw, 'musicVolume'), fallback.musicVolume),
     sfxVolume: clampVolume(readOwn(raw, 'sfxVolume'), fallback.sfxVolume),
-    reducedMotion: typeof readOwn(raw, 'reducedMotion') === 'boolean'
-      ? readOwn(raw, 'reducedMotion') as boolean
-      : fallback.reducedMotion,
+    reducedMotion: typeof reducedMotionRaw === 'boolean' ? reducedMotionRaw : fallback.reducedMotion,
   });
 }
 

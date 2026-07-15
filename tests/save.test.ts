@@ -133,6 +133,37 @@ describe('Save V2 migration and persistence', () => {
     expect(manager.save(createDefaultSave())).toBe(true);
   });
 
+  it('reads a meta descriptor-backed field once so an alternating proxy cannot smuggle an invalid published value', () => {
+    let scrapCalls = 0;
+    const raw = new Proxy({ unlocks: [], permanentUpgrades: {} } as Record<string, unknown>, {
+      getOwnPropertyDescriptor(target, prop) {
+        if (prop === 'scrap') {
+          scrapCalls += 1;
+          return { value: scrapCalls === 1 ? 5 : -1, writable: true, enumerable: true, configurable: true };
+        }
+        return Reflect.getOwnPropertyDescriptor(target, prop);
+      },
+    });
+    expect(sanitizeMeta(raw, limits).scrap).toBe(5);
+    expect(scrapCalls).toBe(1);
+  });
+
+  it('reads a settings descriptor-backed boolean once so an alternating proxy cannot smuggle an invalid published value', () => {
+    let mutedCalls = 0;
+    const settingsRaw = new Proxy({ musicVolume: 0.5, sfxVolume: 0.5, reducedMotion: false } as Record<string, unknown>, {
+      getOwnPropertyDescriptor(target, prop) {
+        if (prop === 'muted') {
+          mutedCalls += 1;
+          return { value: mutedCalls === 1 ? true : 'not-a-boolean', writable: true, enumerable: true, configurable: true };
+        }
+        return Reflect.getOwnPropertyDescriptor(target, prop);
+      },
+    });
+    const result = migrate({ version: 2, settings: settingsRaw, meta: {} }, limits);
+    expect(result.settings.muted).toBe(true);
+    expect(mutedCalls).toBe(1);
+  });
+
   it('recovers from storage exceptions and localStorage adapter reports failures', () => {
     const manager = new SaveManager(new ThrowingAdapter(), key, limits);
     expect(manager.load()).toEqual(createDefaultSave());
