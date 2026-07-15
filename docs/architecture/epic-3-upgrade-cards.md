@@ -97,8 +97,12 @@ zero, invalid, or overflowed totals to `Rng.weighted`.
 number, and assigns each effect a stable source:
 
 ```text
-upgrade:<definition id>:stack:<one-based stack number>
+card:<definition id>:<one-based stack number>
 ```
+
+Epic 5 fixes the cross-epic source namespaces. This spelling is part of the
+run-start ordering contract and replaces the earlier
+`upgrade:<id>:stack:<n>` implementation.
 
 The boolean result reports whether application occurred. Stack limits come
 only from `upgradeStacks`; modifier count is not equivalent because one card

@@ -1,9 +1,10 @@
 # Epic Architecture Index
 
 This file gives a simple overview of the Meowcenary backlog and defines the
-**shared contracts** every epic builds on. The GitHub issues are the source of
-truth for each epic's implementation plan; this file is the source of truth for
-the module names, data shapes, and events they share.
+**shared contracts** every epic builds on. GitHub issues are the default source
+for each epic's implementation plan; a linked repository architecture document
+may explicitly supersede older issue wording, as Epic 5 does. This file is the
+source of truth for the module names, data shapes, and events epics share.
 
 ## Documentation Standard
 
@@ -223,6 +224,8 @@ interface UpgradeDefinition {
 Rules:
 
 - JSON effects omit `sourceId`; `applyCard` assigns a stable per-stack source.
+- The source is `card:<upgradeId>:<one-based stack>`; Epic 5 owns the shared
+  namespace contract with permanent and character modifiers.
 - `RunState.upgradeStacks[id]` is the only stack-limit authority.
 - `maxStacks` is a positive integer.
 - `applyCard` preflights every effect and applies a card transactionally; a
@@ -244,18 +247,31 @@ Rules:
   choice has been applied and its pending level retired.
 - If no eligible cards remain, the queue advances without deadlocking the run.
 
-### Save data (Epic 0 owns `src/systems/save.ts`)
+### Save data (Epic 0 storage seam, Epic 5 current schema)
 
 ```ts
-interface SaveDataV1 { version: 1; settings: Settings; meta: MetaState; }
+interface SaveDataV1 {
+  version: 1;
+  settings: Settings;
+  meta: Readonly<Record<string, never>>;
+}
+interface MetaState {
+  scrap: number;
+  unlocks: readonly string[];
+  permanentUpgrades: Readonly<Record<string, number>>;
+}
+interface SaveDataV2 { version: 2; settings: Settings; meta: MetaState; }
+type SaveData = SaveDataV2;
 interface Settings { muted: boolean; musicVolume: number; sfxVolume: number; reducedMotion: boolean; }
-// MetaState starts empty ({}-shaped) in Epic 0 and is extended by Epic 5.
 ```
 
 `SaveManager` takes a `StorageAdapter` (LocalStorage in the browser, in-memory
-in tests) and runs `migrate(raw: unknown): SaveDataV1`, which repairs or resets
-corrupt data. Every content epic that persists data bumps `version` and adds a
-migration step — it never mutates the shape in place.
+in tests). Epic 5 adds the linear `SaveDataV1` to `SaveDataV2` migration and
+keeps V1's empty meta meaning unchanged. Unknown future versions fail closed to
+a default current save. `GameContext` owns the current loaded snapshot and is
+the only runtime persistence boundary. See
+[`architecture/epic-5-meta-progression.md`](architecture/epic-5-meta-progression.md)
+for exact recovery and mutation contracts.
 
 ### Time source
 
@@ -270,9 +286,9 @@ so schedules (fire cadence, spawn timing) stay deterministic in tests.
 | Epic 0 | #1 Project Foundation | Complete | Config, event bus, RNG, data validation, save/settings, input, debug, audio shell, tests, CI. |
 | Epic 1 | #2 Core Gameplay Loop | Complete | First playable loop: move, auto-shoot, survive, level up, win or lose; owns RunState + stats primitive. |
 | Epic 2 | #3 Weapons and Merge System | Complete | Automatic weapons, projectiles, inventory state, pure merge rules. |
-| Epic 3 | #4 Upgrade Cards | Next | Readable run-only level-up choices that emit real `Modifier`s. |
-| Epic 4 | #5 Enemy AI and Spawn Director | Open | Simple enemy behaviours and data-driven wave pressure. |
-| Epic 5 | #6 Meta Progression | Open | Earned permanent progress: banks RunState rewards, no ads/payments/timers. |
+| Epic 3 | #4 Upgrade Cards | Complete | Readable run-only level-up choices that emit real `Modifier`s. |
+| Epic 4 | #5 Enemy AI and Spawn Director | Complete | Simple enemy behaviours and data-driven wave pressure. |
+| Epic 5 | #6 Meta Progression | Next | Earned permanent progress: banks RunState rewards, no ads/payments/timers. |
 | Epic 6 | #7 Characters | Open | Selectable characters with starting stats, loadouts, passives, unlock hooks. |
 | Epic 7 | #8 Maps and Arenas | Open | Data-defined arenas, spawn regions, obstacles, hazard hooks. |
 | Epic 8 | #9 Loot and Economy | Open | In-run XP/scrap drops, loot tables, pickup behaviour. |
@@ -296,18 +312,20 @@ so schedules (fire cadence, spawn timing) stay deterministic in tests.
 ### Reward-calculation boundary (Epic 8 vs Epic 5)
 
 To avoid duplicated logic: **Epic 8** owns *in-run* collection — drops add to
-`RunState.currency` and `RunState.xp` while the run is live. **Epic 5** owns
-*end-of-run banking* — `computeRunReward(runState)` converts the finished
-`RunState` into persistent `MetaState` changes exactly once, at `run:won` /
-`run:lost`. Neither epic reimplements the other's half.
+`RunState.currency` and `RunState.xp` while the run is live. **Epic 5** can ship
+first and owns *end-of-run banking* of the current currency, including zero.
+One `ProgressionSystem` funnels both `run:won` and `run:lost` into one guarded
+banking method; scenes do not implement reward or persistence rules. Epic 8
+later changes only how currency is generated and never writes `MetaState`.
 
 ## Suggested Build Sequence
 
 1. Epic 0 is complete (event bus, RNG, save, validation, CI).
 2. Epic 1 is complete (playable loop, RunState, stats primitive).
-3. Epic 2 is complete; implement Epic 3 next for real upgrade choices.
-4. Add Epic 4 and Epic 8 to improve combat pressure and rewards.
-5. Add Epic 5 and Epic 6 for replayability.
-6. Add Epic 7, Epic 9, and Epic 10 once the core loop is stable.
+3. Epics 2, 3, and 4 are complete.
+4. Implement Epic 5 from its seven architecture slices; it does not wait for
+   Epic 8.
+5. Add Epic 6 against Epic 5's unlock and run-start seams.
+6. Add Epics 7, 8, 9, and 10 as their dependencies become available.
 7. Use Epic 11 throughout tuning.
 8. Save Epic 12 for late-stage polish and performance.
