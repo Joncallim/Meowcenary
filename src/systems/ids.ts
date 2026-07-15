@@ -1,0 +1,10 @@
+const CONTENT_ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+const UNLOCK_ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*:[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+
+export function isContentId(value: string): boolean {
+  return CONTENT_ID.test(value);
+}
+
+export function isUnlockId(value: string): boolean {
+  return UNLOCK_ID.test(value);
+}

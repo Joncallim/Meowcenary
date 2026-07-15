@@ -7,9 +7,9 @@ import type { System } from '../engine/system';
 import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { createDefaultWeaponLoadout } from '../gameplay/weapons';
+import { prepareRun } from '../gameplay/runStart';
 import {
   canRestartRun,
-  createRunState,
   endRun,
   pauseRun,
   resumeRun,
@@ -23,6 +23,7 @@ import { DropSystem } from '../systems/DropSystem';
 import { InputController } from '../systems/input';
 import { SpawnSystem } from '../systems/SpawnSystem';
 import { UpgradeSystem } from '../systems/UpgradeSystem';
+import { ProgressionSystem } from '../systems/ProgressionSystem';
 import { DataWeaponRegistry } from '../systems/weaponRegistry';
 import { WeaponSystem } from '../systems/WeaponSystem';
 import { UpgradeChooser } from '../ui/UpgradeChooser';
@@ -55,15 +56,28 @@ export class GameScene extends Phaser.Scene {
     const ctx = this.getContext();
     const spawnCurve = ctx.data.spawnCurves[0];
     const runSeed = nextRunSeed(ctx.menuRng);
-    this.runState = createRunState({
-      seed: runSeed,
-      characterId: 'starter-meowcenary',
-      arenaId: spawnCurve?.id ?? 'arena',
+    const weaponRegistry = new DataWeaponRegistry(ctx.data);
+    const prepared = prepareRun({
+      state: {
+        seed: runSeed,
+        characterId: 'starter-meowcenary',
+        arenaId: spawnCurve?.id ?? 'arena',
+      },
+      basePlayer: {
+        maxHealth: RuntimeConfig.gameplay.player.baseMaxHealth,
+        moveSpeed: RuntimeConfig.gameplay.player.baseMoveSpeed,
+      },
+      meta: ctx.saveData.meta,
+      metaUpgrades: ctx.metaUpgrades,
+      character: {
+        baseStats: {},
+        passiveModifiers: [],
+        startingWeapons: createDefaultWeaponLoadout(weaponRegistry),
+      },
     });
+    this.runState = prepared.run;
     const spawnRng = createRng(deriveRunSeed(this.runState.seed, 'spawns'));
     const upgradeRng = createRng(deriveRunSeed(this.runState.seed, 'upgrades'));
-    const weaponRegistry = new DataWeaponRegistry(ctx.data);
-    this.runState.equipped = createDefaultWeaponLoadout(weaponRegistry);
 
     this.inputController = new InputController(this);
     this.debugOverlay = new DebugOverlay(this);
@@ -75,8 +89,8 @@ export class GameScene extends Phaser.Scene {
     this.projectileGroup = this.physics.add.group();
     this.dropGroup = this.physics.add.group();
     this.player = new Player(this, this.inputController, this.runState, ctx.bus, {
-      baseMaxHealth: RuntimeConfig.gameplay.player.baseMaxHealth,
-      baseMoveSpeed: RuntimeConfig.gameplay.player.baseMoveSpeed,
+      baseMaxHealth: prepared.basePlayer.maxHealth,
+      baseMoveSpeed: prepared.basePlayer.moveSpeed,
       invulnerabilityMs: RuntimeConfig.gameplay.player.invulnerabilityMs,
     });
     const dropSystem = new DropSystem(
@@ -96,6 +110,7 @@ export class GameScene extends Phaser.Scene {
     });
     this.upgradeChooser = new UpgradeChooser(this, ctx.bus, this.upgradeSystem);
     this.systems = [
+      new ProgressionSystem({ runState: this.runState, bus: ctx.bus, context: ctx }),
       new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup),
       new WeaponSystem(
         this,

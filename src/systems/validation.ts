@@ -1,4 +1,5 @@
 import enemiesJson from '../data/enemies.json';
+import metaUpgradesJson from '../data/meta-upgrades.json';
 import spawnCurvesJson from '../data/spawn-curves.json';
 import upgradesJson from '../data/upgrades.json';
 import weaponsJson from '../data/weapons.json';
@@ -8,12 +9,14 @@ import type {
   EnemyDefinition,
   EnemyArchetype,
   GameData,
+  MetaUpgradeDefinition,
   Rarity,
   SpawnCurveDefinition,
   UpgradeDefinition,
   WeaponDefinition,
 } from './types';
 import { isSpawnableEnemyDefinition } from './types';
+import { isContentId } from './ids';
 
 const RARITIES = new Set<Rarity>(['common', 'uncommon', 'rare', 'epic', 'legendary']);
 const ENEMY_ARCHETYPES = new Set<EnemyArchetype>([
@@ -36,6 +39,8 @@ const UPGRADE_FIELDS = new Set([
   'id', 'name', 'rarity', 'target', 'description', 'maxStacks', 'effects',
 ]);
 const UPGRADE_EFFECT_FIELDS = new Set(['stat', 'op', 'value']);
+const META_UPGRADE_FIELDS = new Set(['id', 'name', 'description', 'maxLevel', 'cost', 'effects']);
+const META_UPGRADE_COST_FIELDS = new Set(['base', 'growth']);
 const DIRECT_ENEMY_FIELDS = new Set([
   'id', 'name', 'archetype', 'health', 'damage', 'speed', 'xpValue', 'scrapValue',
   'contactDamage',
@@ -48,7 +53,7 @@ const RANGED_ATTACK_FIELDS = new Set(['range', 'telegraphMs', 'cooldownMs']);
 const CURVE_FIELDS = new Set(['id', 'durationSeconds', 'scaling', 'waves']);
 const SCALING_FIELDS = new Set(['healthPerMinute', 'damagePerMinute']);
 const WAVE_FIELDS = new Set(['startSecond', 'enemyId', 'spawnEveryMs', 'maxAlive']);
-const ROOT_FIELDS = new Set(['weapons', 'enemies', 'upgrades', 'spawnCurves']);
+const ROOT_FIELDS = new Set(['weapons', 'enemies', 'upgrades', 'metaUpgrades', 'spawnCurves']);
 
 export type RowCheck = (row: unknown, index: number) => string[];
 
@@ -81,6 +86,7 @@ export function loadGameData(): GameData {
     weapons: weaponsJson,
     enemies: enemiesJson,
     upgrades: upgradesJson,
+    metaUpgrades: metaUpgradesJson,
     spawnCurves: spawnCurvesJson,
   });
 }
@@ -91,6 +97,7 @@ export function validateGameData(raw: unknown): GameData {
       .replace(/^game-data\.weapons/, 'weapons.json')
       .replace(/^game-data\.enemies/, 'enemies.json')
       .replace(/^game-data\.upgrades/, 'upgrades.json')
+      .replace(/^game-data\.metaUpgrades/, 'meta-upgrades.json')
       .replace(/^game-data\.spawnCurves/, 'spawn-curves.json'),
   );
   if (!isRecord(raw)) {
@@ -108,6 +115,7 @@ export function validateGameData(raw: unknown): GameData {
   const weapons = validate<WeaponDefinition>('weapons.json', readOwnField(raw, 'weapons'), checkWeapon);
   const enemies = validateEnemyCatalog(readOwnField(raw, 'enemies'));
   const upgrades = validate<UpgradeDefinition>('upgrades.json', readOwnField(raw, 'upgrades'), checkUpgrade);
+  const metaUpgrades = validateMetaUpgradeCatalog(readOwnField(raw, 'metaUpgrades'));
   const spawnCurves = validate<SpawnCurveDefinition>(
     'spawn-curves.json',
     readOwnField(raw, 'spawnCurves'),
@@ -122,7 +130,18 @@ export function validateGameData(raw: unknown): GameData {
   assertPlayableSpawnCurves(spawnCurves);
   assertSpawnReferences(spawnCurves, enemies);
 
-  return { weapons, enemies, upgrades, spawnCurves };
+  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves };
+}
+
+export function validateMetaUpgradeCatalog(raw: unknown): MetaUpgradeDefinition[] {
+  throwIfErrors(jsonSafetyErrors(raw, 'meta-upgrades.json'));
+  const definitions = validate<MetaUpgradeDefinition>(
+    'meta-upgrades.json',
+    raw,
+    checkMetaUpgrade,
+  );
+  assertUniqueIds('meta-upgrades.json', definitions);
+  return definitions;
 }
 
 export function validateEnemyCatalog(raw: unknown): EnemyDefinition[] {
@@ -241,6 +260,75 @@ function checkUpgrade(row: unknown): string[] {
   requireString(row, 'description', errors);
   requirePositiveInteger(row, 'maxStacks', errors);
   checkUpgradeEffects(row, errors);
+  return errors;
+}
+
+function checkMetaUpgrade(row: unknown): string[] {
+  const errors = requireRecord(row);
+  if (!isRecord(row)) return errors;
+  rejectUnknownFields(row, META_UPGRADE_FIELDS, errors);
+  requireString(row, 'id', errors);
+  const id = readOwnField(row, 'id');
+  if (typeof id === 'string' && !isContentId(id)) errors.push('id: invalid content id');
+  requireString(row, 'name', errors);
+  requireString(row, 'description', errors);
+  requireIntegerInRange(row, 'maxLevel', 1, 100, errors);
+
+  const cost = readOwnField(row, 'cost');
+  if (!isRecord(cost)) {
+    errors.push('cost: required object');
+  } else {
+    const costErrors: string[] = [];
+    rejectUnknownFields(cost, META_UPGRADE_COST_FIELDS, costErrors);
+    requirePositiveInteger(cost, 'base', costErrors);
+    const growth = readOwnField(cost, 'growth');
+    if (!isFiniteNumber(growth) || growth < 1) {
+      costErrors.push('growth: required finite number at least 1');
+    }
+    const maxLevel = readOwnField(row, 'maxLevel');
+    const base = readOwnField(cost, 'base');
+    if (
+      typeof maxLevel === 'number' && Number.isSafeInteger(maxLevel) && maxLevel >= 1 && maxLevel <= 100 &&
+      isFiniteNumber(base) && isFiniteNumber(growth)
+    ) {
+      for (let level = 0; level < maxLevel; level += 1) {
+        const nextCost = Math.round(base * growth ** level);
+        if (!Number.isSafeInteger(nextCost) || nextCost <= 0) {
+          costErrors.push(`level ${level}: rounded cost must be a positive safe integer`);
+          break;
+        }
+      }
+    }
+    errors.push(...costErrors.map((error) => `cost.${error}`));
+  }
+
+  const effects = readOwnField(row, 'effects');
+  checkUpgradeEffects(row, errors);
+  if (Array.isArray(effects)) {
+    const seen = new Set<string>();
+    effects.forEach((effect, index) => {
+      if (!isRecord(effect)) return;
+      const stat = readOwnField(effect, 'stat');
+      const op = readOwnField(effect, 'op');
+      const value = readOwnField(effect, 'value');
+      const pair = `${String(stat)}:${String(op)}`;
+      if (seen.has(pair)) errors.push(`effects[${index}]: duplicate stat/op pair`);
+      seen.add(pair);
+      if (op === 'add' && isFiniteNumber(value) && value <= 0) {
+        errors.push(`effects[${index}].value: add value must be positive`);
+      }
+      if (op === 'mult' && isFiniteNumber(value) && value <= 1) {
+        errors.push(`effects[${index}].value: mult value must exceed 1`);
+      }
+      const maxLevel = readOwnField(row, 'maxLevel');
+      if (typeof maxLevel === 'number' && Number.isSafeInteger(maxLevel) && isFiniteNumber(value)) {
+        const aggregate = op === 'add' ? value * maxLevel : value ** maxLevel;
+        if (!Number.isFinite(aggregate)) {
+          errors.push(`effects[${index}].value: aggregate must remain finite`);
+        }
+      }
+    });
+  }
   return errors;
 }
 
