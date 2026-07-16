@@ -42,6 +42,7 @@ flowchart TD
 | Loot | XP, currency, chests, and reward tables | Paid rewards or ad multipliers |
 | Save | Local persistence, settings, migrations, and meta state | Run-time combat decisions |
 | Progression | Pure purchase, unlock, reward, and permanent-modifier rules | In-run loot generation or final UI rendering |
+| Characters | Character data, registry, selection state, run-contribution resolution, and the reactive-passive lifecycle seam | Weapon/enemy internals, save schema, or final selection-screen UI |
 | UI | HUD, menus, cards, inventory, settings | Core gameplay calculations |
 | Audio | Music, SFX, mute, and volume | Gameplay rules |
 | Debug | Developer-only visibility and cheats | Production player progression |
@@ -71,10 +72,15 @@ Epic-specific data contracts:
 - [Epic 4 Slice 4: deterministic spawn director](architecture/epic-4-spawn-director.md)
 - [Epic 4 Slice 5: spawn and difficulty integration](architecture/epic-4-spawn-integration.md)
 - [Epic 5: meta progression](architecture/epic-5-meta-progression.md)
+- [Epic 6: characters](architecture/epic-6-characters.md)
 
 The Epic 5 document is the implementation source of truth for save V2,
 permanent modifier ordering, finished-run banking, and the Epics 6/8/9
 boundaries. It supersedes older backlog wording where those contracts differ.
+The Epic 6 document is the implementation source of truth for the pre-run
+`RunRequest` configuration boundary, the character data/registry/selection
+contracts, and the reactive-passive lifecycle seam. It supersedes older Epic 6
+issue wording where those contracts differ.
 
 ## AI Handoff Pattern
 
