@@ -1,4 +1,6 @@
 import type { StatKey } from '../gameplay/stats';
+import type { UnlockRule } from '../gameplay/meta';
+import type { PlayerBaseStats } from '../gameplay/runStart';
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 
@@ -173,10 +175,51 @@ export interface EnemyScalingDefinition {
   damagePerMinute: number;
 }
 
+export const CHARACTER_PASSIVE_EVENTS = [
+  'enemy:killed',
+  'player:damaged',
+  'level:up',
+  'xp:gained',
+] as const;
+export type CharacterPassiveEvent = (typeof CHARACTER_PASSIVE_EVENTS)[number];
+
+export interface CharacterStaticPassiveDefinition {
+  readonly id: string;
+  readonly kind: 'static';
+  readonly name: string;
+  readonly description: string;
+  readonly effects: readonly UpgradeEffect[];
+}
+
+export interface CharacterReactivePassiveDefinition {
+  readonly id: string;
+  readonly kind: 'reactive';
+  readonly name: string;
+  readonly description: string;
+  readonly event: CharacterPassiveEvent;
+  readonly handlerId: string;
+}
+
+export type CharacterPassiveDefinition =
+  | CharacterStaticPassiveDefinition
+  | CharacterReactivePassiveDefinition;
+
+export interface CharacterDefinition {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly baseStats: Readonly<PlayerBaseStats>;
+  readonly startingWeaponIds: readonly string[];
+  readonly passives: readonly CharacterPassiveDefinition[];
+  readonly unlock: UnlockRule;
+  readonly cosmeticSkinIds: readonly string[];
+}
+
 export interface GameData {
   weapons: WeaponDefinition[];
   enemies: EnemyDefinition[];
   upgrades: UpgradeDefinition[];
   metaUpgrades: MetaUpgradeDefinition[];
   spawnCurves: SpawnCurveDefinition[];
+  characters: CharacterDefinition[];
 }

@@ -1,3 +1,4 @@
+import charactersJson from '../data/characters.json';
 import enemiesJson from '../data/enemies.json';
 import metaUpgradesJson from '../data/meta-upgrades.json';
 import spawnCurvesJson from '../data/spawn-curves.json';
@@ -6,6 +7,7 @@ import weaponsJson from '../data/weapons.json';
 import { STAT_KEYS } from '../gameplay/stats';
 import { DEFAULT_WEAPON_FAMILIES } from '../gameplay/weapons';
 import type {
+  CharacterDefinition,
   EnemyDefinition,
   EnemyArchetype,
   GameData,
@@ -16,7 +18,8 @@ import type {
   WeaponDefinition,
 } from './types';
 import { isSpawnableEnemyDefinition } from './types';
-import { isContentId } from './ids';
+import { CHARACTER_PASSIVE_EVENTS } from './types';
+import { isContentId, isUnlockId } from './ids';
 
 const RARITIES = new Set<Rarity>(['common', 'uncommon', 'rare', 'epic', 'legendary']);
 const ENEMY_ARCHETYPES = new Set<EnemyArchetype>([
@@ -53,7 +56,16 @@ const RANGED_ATTACK_FIELDS = new Set(['range', 'telegraphMs', 'cooldownMs']);
 const CURVE_FIELDS = new Set(['id', 'durationSeconds', 'scaling', 'waves']);
 const SCALING_FIELDS = new Set(['healthPerMinute', 'damagePerMinute']);
 const WAVE_FIELDS = new Set(['startSecond', 'enemyId', 'spawnEveryMs', 'maxAlive']);
-const ROOT_FIELDS = new Set(['weapons', 'enemies', 'upgrades', 'metaUpgrades', 'spawnCurves']);
+const ROOT_FIELDS = new Set(['weapons', 'enemies', 'upgrades', 'metaUpgrades', 'spawnCurves', 'characters']);
+const CHARACTER_FIELDS = new Set([
+  'id', 'name', 'description', 'baseStats', 'startingWeaponIds', 'passives',
+  'unlock', 'cosmeticSkinIds',
+]);
+const CHARACTER_BASE_STATS_FIELDS = new Set(['maxHealth', 'moveSpeed']);
+const CHARACTER_STATIC_PASSIVE_FIELDS = new Set(['id', 'kind', 'name', 'description', 'effects']);
+const CHARACTER_REACTIVE_PASSIVE_FIELDS = new Set(['id', 'kind', 'name', 'description', 'event', 'handlerId']);
+const CHARACTER_UNLOCK_DEFAULT_FIELDS = new Set(['type']);
+const CHARACTER_UNLOCK_META_FIELDS = new Set(['type', 'requiresUnlockId']);
 
 export type RowCheck = (row: unknown, index: number) => string[];
 
@@ -88,6 +100,7 @@ export function loadGameData(): GameData {
     upgrades: upgradesJson,
     metaUpgrades: metaUpgradesJson,
     spawnCurves: spawnCurvesJson,
+    characters: charactersJson,
   });
 }
 
@@ -98,7 +111,8 @@ export function validateGameData(raw: unknown): GameData {
       .replace(/^game-data\.enemies/, 'enemies.json')
       .replace(/^game-data\.upgrades/, 'upgrades.json')
       .replace(/^game-data\.metaUpgrades/, 'meta-upgrades.json')
-      .replace(/^game-data\.spawnCurves/, 'spawn-curves.json'),
+      .replace(/^game-data\.spawnCurves/, 'spawn-curves.json')
+      .replace(/^game-data\.characters/, 'characters.json'),
   );
   if (!isRecord(raw)) {
     rootErrors.push('game-data: expected object');
@@ -121,6 +135,7 @@ export function validateGameData(raw: unknown): GameData {
     readOwnField(raw, 'spawnCurves'),
     checkSpawnCurveShape,
   );
+  const characters = validateCharacterCatalog(readOwnField(raw, 'characters'));
 
   assertUniqueIds('weapons.json', weapons);
   assertUniqueIds('upgrades.json', upgrades);
@@ -129,8 +144,9 @@ export function validateGameData(raw: unknown): GameData {
   assertStarterWeapons(weapons);
   assertPlayableSpawnCurves(spawnCurves);
   assertSpawnReferences(spawnCurves, enemies);
+  assertCharacterWeaponReferences(characters, weapons);
 
-  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves };
+  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters };
 }
 
 export function validateMetaUpgradeCatalog(raw: unknown): MetaUpgradeDefinition[] {
@@ -150,6 +166,14 @@ export function validateEnemyCatalog(raw: unknown): EnemyDefinition[] {
   assertUniqueIds('enemies.json', enemies);
   assertEliteReferences(enemies);
   return enemies;
+}
+
+export function validateCharacterCatalog(raw: unknown): CharacterDefinition[] {
+  throwIfErrors(jsonSafetyErrors(raw, 'characters.json'));
+  const characters = validate<CharacterDefinition>('characters.json', raw, checkCharacter);
+  assertUniqueIds('characters.json', characters);
+  assertCharacterDefaultExists(characters);
+  return characters;
 }
 
 function checkWeapon(row: unknown): string[] {
@@ -212,6 +236,214 @@ function checkEnemy(row: unknown): string[] {
   if (archetype === 'charger') checkChargerAttack(row, errors);
   if (archetype === 'ranged') checkRangedAttack(row, errors);
   return errors;
+}
+
+function checkCharacter(row: unknown): string[] {
+  const errors = requireRecord(row);
+  if (!isRecord(row)) return errors;
+  rejectUnknownFields(row, CHARACTER_FIELDS, errors);
+
+  requireString(row, 'id', errors);
+  const id = readOwnField(row, 'id');
+  if (typeof id === 'string' && !isContentId(id)) errors.push('id: invalid content id');
+  requireString(row, 'name', errors);
+  requireString(row, 'description', errors);
+
+  const baseStats = readOwnField(row, 'baseStats');
+  if (!isRecord(baseStats)) {
+    errors.push('baseStats: required object');
+  } else {
+    const baseStatsErrors: string[] = [];
+    rejectUnknownFields(baseStats, CHARACTER_BASE_STATS_FIELDS, baseStatsErrors);
+    requirePositiveNumber(baseStats, 'maxHealth', baseStatsErrors);
+    requirePositiveNumber(baseStats, 'moveSpeed', baseStatsErrors);
+    errors.push(...baseStatsErrors.map((error) => `baseStats.${error}`));
+  }
+
+  const startingWeaponIds = readOwnField(row, 'startingWeaponIds');
+  if (!Array.isArray(startingWeaponIds)) {
+    errors.push('startingWeaponIds: required array');
+  } else if (startingWeaponIds.length < 1 || startingWeaponIds.length > 6) {
+    errors.push('startingWeaponIds: must have 1-6 entries');
+  } else {
+    const seenIds = new Set<string>();
+    for (let index = 0; index < startingWeaponIds.length; index += 1) {
+      if (!(index in startingWeaponIds)) {
+        errors.push(`startingWeaponIds[${index}]: sparse array entry`);
+        continue;
+      }
+      const weaponId = startingWeaponIds[index];
+      if (typeof weaponId !== 'string' || weaponId.length === 0 || weaponId.trim() !== weaponId) {
+        errors.push(`startingWeaponIds[${index}]: required nonempty trimmed string`);
+      } else if (seenIds.has(weaponId)) {
+        errors.push(`startingWeaponIds[${index}]: duplicate weapon id "${weaponId}"`);
+      } else {
+        seenIds.add(weaponId);
+      }
+    }
+  }
+
+  const passives = readOwnField(row, 'passives');
+  if (!Array.isArray(passives)) {
+    errors.push('passives: required array');
+  } else {
+    const seenPassiveIds = new Set<string>();
+    for (let index = 0; index < passives.length; index += 1) {
+      if (!(index in passives)) {
+        errors.push(`passives[${index}]: sparse array entry`);
+        continue;
+      }
+      const passive = passives[index];
+      if (!isRecord(passive)) {
+        errors.push(`passives[${index}]: expected object`);
+        continue;
+      }
+      const kind = readOwnField(passive, 'kind');
+      if (kind === 'static') {
+        checkCharacterStaticPassive(passive, seenPassiveIds, `passives[${index}]`, errors);
+      } else if (kind === 'reactive') {
+        checkCharacterReactivePassive(passive, seenPassiveIds, `passives[${index}]`, errors);
+      } else {
+        errors.push(`passives[${index}].kind: must be "static" or "reactive"`);
+      }
+    }
+  }
+
+  const unlock = readOwnField(row, 'unlock');
+  if (!isRecord(unlock)) {
+    errors.push('unlock: required object');
+  } else {
+    const unlockErrors: string[] = [];
+    const unlockType = readOwnField(unlock, 'type');
+    if (unlockType === 'default') {
+      rejectUnknownFields(unlock, CHARACTER_UNLOCK_DEFAULT_FIELDS, unlockErrors);
+    } else if (unlockType === 'meta') {
+      rejectUnknownFields(unlock, CHARACTER_UNLOCK_META_FIELDS, unlockErrors);
+      requireString(unlock, 'requiresUnlockId', unlockErrors);
+      const requiresUnlockId = readOwnField(unlock, 'requiresUnlockId');
+      if (typeof requiresUnlockId === 'string' && !isUnlockId(requiresUnlockId)) {
+        unlockErrors.push('requiresUnlockId: invalid unlock id');
+      }
+    } else {
+      unlockErrors.push('type: must be "default" or "meta"');
+    }
+    errors.push(...unlockErrors.map((error) => `unlock.${error}`));
+  }
+
+  const cosmeticSkinIds = readOwnField(row, 'cosmeticSkinIds');
+  if (!Array.isArray(cosmeticSkinIds)) {
+    errors.push('cosmeticSkinIds: required array');
+  } else {
+    const seenSkinIds = new Set<string>();
+    for (let index = 0; index < cosmeticSkinIds.length; index += 1) {
+      if (!(index in cosmeticSkinIds)) {
+        errors.push(`cosmeticSkinIds[${index}]: sparse array entry`);
+        continue;
+      }
+      const skinId = cosmeticSkinIds[index];
+      if (typeof skinId !== 'string' || skinId.length === 0 || skinId.trim() !== skinId) {
+        errors.push(`cosmeticSkinIds[${index}]: required nonempty trimmed string`);
+      } else if (!isContentId(skinId)) {
+        errors.push(`cosmeticSkinIds[${index}]: invalid content id`);
+      } else if (seenSkinIds.has(skinId)) {
+        errors.push(`cosmeticSkinIds[${index}]: duplicate skin id "${skinId}"`);
+      } else {
+        seenSkinIds.add(skinId);
+      }
+    }
+  }
+
+  return errors;
+}
+
+function checkCharacterStaticPassive(
+  passive: Record<string, unknown>,
+  seenPassiveIds: Set<string>,
+  path: string,
+  errors: string[],
+): void {
+  const passiveErrors: string[] = [];
+  rejectUnknownFields(passive, CHARACTER_STATIC_PASSIVE_FIELDS, passiveErrors);
+
+  requireString(passive, 'id', passiveErrors);
+  const pid = readOwnField(passive, 'id');
+  if (typeof pid === 'string' && !isContentId(pid)) passiveErrors.push('id: invalid content id');
+  if (typeof pid === 'string' && seenPassiveIds.has(pid)) {
+    passiveErrors.push(`id: duplicate passive id "${pid}"`);
+  }
+  if (typeof pid === 'string') seenPassiveIds.add(pid);
+
+  requireString(passive, 'name', passiveErrors);
+  requireString(passive, 'description', passiveErrors);
+
+  const effects = readOwnField(passive, 'effects');
+  if (!Array.isArray(effects) || effects.length === 0) {
+    passiveErrors.push('effects: required non-empty array');
+  } else {
+    const seenPairs = new Set<string>();
+    for (let index = 0; index < effects.length; index += 1) {
+      if (!(index in effects)) {
+        passiveErrors.push(`effects[${index}]: sparse array entry`);
+        continue;
+      }
+      const effect = effects[index];
+      if (!isRecord(effect)) {
+        passiveErrors.push(`effects[${index}]: expected object`);
+        continue;
+      }
+      const effectErrors: string[] = [];
+      rejectUnknownFields(effect, UPGRADE_EFFECT_FIELDS, effectErrors);
+      const stat = readOwnField(effect, 'stat');
+      const op = readOwnField(effect, 'op');
+      const value = readOwnField(effect, 'value');
+      if (typeof stat !== 'string' || !STAT_KEY_SET.has(stat)) {
+        effectErrors.push('stat: unknown stat key');
+      }
+      if (typeof op !== 'string' || !UPGRADE_OPS.has(op)) {
+        effectErrors.push('op: must be "add" or "mult"');
+      }
+      if (!isFiniteNumber(value)) effectErrors.push('value: required finite number');
+      if (typeof stat === 'string' && typeof op === 'string') {
+        const pair = `${stat}:${op}`;
+        if (seenPairs.has(pair)) effectErrors.push('duplicate stat/op pair');
+        seenPairs.add(pair);
+      }
+      passiveErrors.push(...effectErrors.map((error) => `effects[${index}]: ${error}`));
+    }
+  }
+
+  errors.push(...passiveErrors.map((error) => `${path}.${error}`));
+}
+
+function checkCharacterReactivePassive(
+  passive: Record<string, unknown>,
+  seenPassiveIds: Set<string>,
+  path: string,
+  errors: string[],
+): void {
+  const passiveErrors: string[] = [];
+  rejectUnknownFields(passive, CHARACTER_REACTIVE_PASSIVE_FIELDS, passiveErrors);
+
+  requireString(passive, 'id', passiveErrors);
+  const pid = readOwnField(passive, 'id');
+  if (typeof pid === 'string' && !isContentId(pid)) passiveErrors.push('id: invalid content id');
+  if (typeof pid === 'string' && seenPassiveIds.has(pid)) {
+    passiveErrors.push(`id: duplicate passive id "${pid}"`);
+  }
+  if (typeof pid === 'string') seenPassiveIds.add(pid);
+
+  requireString(passive, 'name', passiveErrors);
+  requireString(passive, 'description', passiveErrors);
+
+  const event = readOwnField(passive, 'event');
+  const eventSet = new Set<string>(CHARACTER_PASSIVE_EVENTS);
+  if (typeof event !== 'string' || !eventSet.has(event)) {
+    passiveErrors.push('event: must be one of enemy:killed, player:damaged, level:up, xp:gained');
+  }
+
+  requireString(passive, 'handlerId', passiveErrors);
+
+  errors.push(...passiveErrors.map((error) => `${path}.${error}`));
 }
 
 function checkChargerAttack(enemy: Record<string, unknown>, errors: string[]): void {
@@ -535,6 +767,34 @@ function assertPlayableSpawnCurves(curves: readonly SpawnCurveDefinition[]): voi
     if (totalMaxAlive > 256) {
       errors.push(`spawn-curves.json[${curveIndex}].waves: combined maxAlive ${totalMaxAlive} exceeds 256`);
     }
+  });
+  throwIfErrors(errors);
+}
+
+function assertCharacterDefaultExists(characters: readonly CharacterDefinition[]): void {
+  const errors: string[] = [];
+  if (!characters.some((character) => character.unlock.type === 'default')) {
+    errors.push('characters.json: at least one character must have unlock.type "default"');
+  }
+  throwIfErrors(errors);
+}
+
+function assertCharacterWeaponReferences(
+  characters: readonly CharacterDefinition[],
+  weapons: readonly WeaponDefinition[],
+): void {
+  const weaponIds = new Set(weapons.map((weapon) => weapon.id));
+  const errors: string[] = [];
+  characters.forEach((character, index) => {
+    let hasError = false;
+    for (const weaponId of character.startingWeaponIds) {
+      if (!weaponIds.has(weaponId)) {
+        errors.push(`characters.json[${index}].startingWeaponIds: unknown weapon id "${weaponId}"`);
+        hasError = true;
+        break;
+      }
+    }
+    if (hasError) return;
   });
   throwIfErrors(errors);
 }

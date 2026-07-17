@@ -1,0 +1,38 @@
+[
+  {
+    "id": "scrap-tabby",
+    "name": "Scrap Tabby",
+    "description": "A balanced junkyard scavenger who gets by on a little bit of everything.",
+    "baseStats": { "maxHealth": 100, "moveSpeed": 175 },
+    "startingWeaponIds": ["scrap-pistol-t1", "can-smg-t1", "bolt-shotgun-t1"],
+    "passives": [
+      {
+        "id": "scrap-hoarder",
+        "kind": "static",
+        "name": "Scrap Hoarder",
+        "description": "Picks up scrap and XP from a little further away.",
+        "effects": [{ "stat": "pickupRadius", "op": "add", "value": 15 }]
+      }
+    ],
+    "unlock": { "type": "default" },
+    "cosmeticSkinIds": []
+  },
+  {
+    "id": "bolt-hound",
+    "name": "Bolt Hound",
+    "description": "A wiry, high-speed striker who trades toughness for tempo.",
+    "baseStats": { "maxHealth": 80, "moveSpeed": 205 },
+    "startingWeaponIds": ["can-smg-t1"],
+    "passives": [
+      {
+        "id": "quick-tail",
+        "kind": "static",
+        "name": "Quick Tail",
+        "description": "Moves 5% faster on top of an already brisk pace.",
+        "effects": [{ "stat": "moveSpeed", "op": "mult", "value": 1.05 }]
+      }
+    ],
+    "unlock": { "type": "meta", "requiresUnlockId": "achievement:first-victory" },
+    "cosmeticSkinIds": []
+  }
+]
