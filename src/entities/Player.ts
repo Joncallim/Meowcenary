@@ -8,6 +8,8 @@ export interface PlayerOptions {
   baseMaxHealth: number;
   baseMoveSpeed: number;
   invulnerabilityMs: number;
+  spawnX: number;
+  spawnY: number;
 }
 
 export class Player {
@@ -22,9 +24,8 @@ export class Player {
     private readonly bus: EventBus,
     private readonly options: PlayerOptions,
   ) {
-    const { width, height } = scene.scale;
     this.health = this.maxHealth;
-    this.sprite = scene.add.circle(width / 2, height / 2, 14, 0xf7c948).setDepth(5);
+    this.sprite = scene.add.circle(options.spawnX, options.spawnY, 14, 0xf7c948).setDepth(5);
     scene.physics.add.existing(this.sprite);
     this.body.setCircle(14);
     this.body.setCollideWorldBounds(true);
@@ -91,6 +92,17 @@ export class Player {
     }
     this.bus.emit('player:damaged', { amount, healthRemaining: this.health });
 
+    if (this.health <= 0) {
+      this.bus.emit('player:died', {});
+      endRun(this.runState, 'lost', this.bus);
+      this.body.setVelocity(0, 0);
+    }
+  }
+
+  takeEnvironmentalDamage(amount: number): void {
+    if (this.runState.status !== 'active' || !Number.isFinite(amount) || amount <= 0) return;
+    this.health = Math.max(0, this.health - amount);
+    this.bus.emit('player:damaged', { amount, healthRemaining: this.health });
     if (this.health <= 0) {
       this.bus.emit('player:died', {});
       endRun(this.runState, 'lost', this.bus);

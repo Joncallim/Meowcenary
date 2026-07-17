@@ -4,9 +4,11 @@ import metaUpgradesJson from '../data/meta-upgrades.json';
 import spawnCurvesJson from '../data/spawn-curves.json';
 import upgradesJson from '../data/upgrades.json';
 import weaponsJson from '../data/weapons.json';
+import arenasJson from '../data/arenas.json';
 import { STAT_KEYS } from '../gameplay/stats';
 import { DEFAULT_WEAPON_FAMILIES } from '../gameplay/weapons';
 import type {
+  ArenaDefinition,
   CharacterDefinition,
   EnemyDefinition,
   EnemyArchetype,
@@ -56,7 +58,7 @@ const RANGED_ATTACK_FIELDS = new Set(['range', 'telegraphMs', 'cooldownMs']);
 const CURVE_FIELDS = new Set(['id', 'durationSeconds', 'scaling', 'waves']);
 const SCALING_FIELDS = new Set(['healthPerMinute', 'damagePerMinute']);
 const WAVE_FIELDS = new Set(['startSecond', 'enemyId', 'spawnEveryMs', 'maxAlive']);
-const ROOT_FIELDS = new Set(['weapons', 'enemies', 'upgrades', 'metaUpgrades', 'spawnCurves', 'characters']);
+const ROOT_FIELDS = new Set(['weapons', 'enemies', 'upgrades', 'metaUpgrades', 'spawnCurves', 'characters', 'arenas']);
 const CHARACTER_FIELDS = new Set([
   'id', 'name', 'description', 'baseStats', 'startingWeaponIds', 'passives',
   'unlock', 'cosmeticSkinIds',
@@ -64,8 +66,15 @@ const CHARACTER_FIELDS = new Set([
 const CHARACTER_BASE_STATS_FIELDS = new Set(['maxHealth', 'moveSpeed']);
 const CHARACTER_STATIC_PASSIVE_FIELDS = new Set(['id', 'kind', 'name', 'description', 'effects']);
 const CHARACTER_REACTIVE_PASSIVE_FIELDS = new Set(['id', 'kind', 'name', 'description', 'event', 'handlerId']);
-const CHARACTER_UNLOCK_DEFAULT_FIELDS = new Set(['type']);
-const CHARACTER_UNLOCK_META_FIELDS = new Set(['type', 'requiresUnlockId']);
+const ARENA_FIELDS = new Set(['id', 'name', 'size', 'spawnCurveId', 'spawnRegions', 'obstacles', 'hazards', 'unlock']);
+const ARENA_SIZE_FIELDS = new Set(['width', 'height']);
+const REGION_RING_FIELDS = new Set(['kind', 'cx', 'cy', 'minRadius', 'maxRadius']);
+const REGION_RECT_FIELDS = new Set(['kind', 'x', 'y', 'w', 'h']);
+const REGION_EDGES_FIELDS = new Set(['kind', 'margin']);
+const OBSTACLE_FIELDS = new Set(['x', 'y', 'w', 'h']);
+const HAZARD_FIELDS = new Set(['id', 'kind', 'x', 'y', 'w', 'h', 'damagePerSecond']);
+const UNLOCK_DEFAULT_FIELDS = new Set(['type']);
+const UNLOCK_META_FIELDS = new Set(['type', 'requiresUnlockId']);
 
 export type RowCheck = (row: unknown, index: number) => string[];
 
@@ -101,6 +110,7 @@ export function loadGameData(): GameData {
     metaUpgrades: metaUpgradesJson,
     spawnCurves: spawnCurvesJson,
     characters: charactersJson,
+    arenas: arenasJson,
   });
 }
 
@@ -112,7 +122,8 @@ export function validateGameData(raw: unknown): GameData {
       .replace(/^game-data\.upgrades/, 'upgrades.json')
       .replace(/^game-data\.metaUpgrades/, 'meta-upgrades.json')
       .replace(/^game-data\.spawnCurves/, 'spawn-curves.json')
-      .replace(/^game-data\.characters/, 'characters.json'),
+      .replace(/^game-data\.characters/, 'characters.json')
+      .replace(/^game-data\.arenas/, 'arenas.json'),
   );
   if (!isRecord(raw)) {
     rootErrors.push('game-data: expected object');
@@ -136,6 +147,7 @@ export function validateGameData(raw: unknown): GameData {
     checkSpawnCurveShape,
   );
   const characters = validateCharacterCatalog(readOwnField(raw, 'characters'));
+  const arenas = validateArenaCatalog(readOwnField(raw, 'arenas'));
 
   assertUniqueIds('weapons.json', weapons);
   assertUniqueIds('upgrades.json', upgrades);
@@ -145,8 +157,9 @@ export function validateGameData(raw: unknown): GameData {
   assertPlayableSpawnCurves(spawnCurves);
   assertSpawnReferences(spawnCurves, enemies);
   assertCharacterWeaponReferences(characters, weapons);
+  assertArenaSpawnCurveReferences(arenas, spawnCurves);
 
-  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters };
+  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas };
 }
 
 export function validateMetaUpgradeCatalog(raw: unknown): MetaUpgradeDefinition[] {
@@ -168,12 +181,274 @@ export function validateEnemyCatalog(raw: unknown): EnemyDefinition[] {
   return enemies;
 }
 
+export function validateArenaCatalog(raw: unknown): ArenaDefinition[] {
+  throwIfErrors(jsonSafetyErrors(raw, 'arenas.json'));
+  const arenas = validate<ArenaDefinition>('arenas.json', raw, checkArena);
+  assertUniqueIds('arenas.json', arenas);
+  assertArenaDefaultExists(arenas);
+  return arenas;
+}
+
 export function validateCharacterCatalog(raw: unknown): CharacterDefinition[] {
   throwIfErrors(jsonSafetyErrors(raw, 'characters.json'));
   const characters = validate<CharacterDefinition>('characters.json', raw, checkCharacter);
   assertUniqueIds('characters.json', characters);
   assertCharacterDefaultExists(characters);
   return characters;
+}
+
+function checkUnlockRule(unlock: Record<string, unknown>, errors: string[]): void {
+  const unlockType = readOwnField(unlock, 'type');
+  if (unlockType === 'default') {
+    rejectUnknownFields(unlock, UNLOCK_DEFAULT_FIELDS, errors);
+  } else if (unlockType === 'meta') {
+    rejectUnknownFields(unlock, UNLOCK_META_FIELDS, errors);
+    requireString(unlock, 'requiresUnlockId', errors);
+    const requiresUnlockId = readOwnField(unlock, 'requiresUnlockId');
+    if (typeof requiresUnlockId === 'string' && !isUnlockId(requiresUnlockId)) {
+      errors.push('requiresUnlockId: invalid unlock id');
+    }
+  } else {
+    errors.push('type: must be "default" or "meta"');
+  }
+}
+
+function checkArena(row: unknown): string[] {
+  const errors = requireRecord(row);
+  if (!isRecord(row)) return errors;
+  rejectUnknownFields(row, ARENA_FIELDS, errors);
+
+  requireString(row, 'id', errors);
+  const id = readOwnField(row, 'id');
+  if (typeof id === 'string' && !isContentId(id)) errors.push('id: invalid content id');
+  requireString(row, 'name', errors);
+
+  const size = readOwnField(row, 'size');
+  if (!isRecord(size)) {
+    errors.push('size: required object');
+  } else {
+    const sizeErrors: string[] = [];
+    rejectUnknownFields(size, ARENA_SIZE_FIELDS, sizeErrors);
+    requireIntegerInRange(size, 'width', 256, 16384, sizeErrors);
+    requireIntegerInRange(size, 'height', 256, 16384, sizeErrors);
+    errors.push(...sizeErrors.map((error) => `size.${error}`));
+  }
+
+  requireString(row, 'spawnCurveId', errors);
+
+  const spawnRegions = readOwnField(row, 'spawnRegions');
+  const spawnRegionList: unknown[] = Array.isArray(spawnRegions) ? spawnRegions : [];
+  if (!Array.isArray(spawnRegions) || spawnRegions.length < 1) {
+    errors.push('spawnRegions: required array with at least one entry');
+  } else {
+    const arenaWidth = isRecord(size) ? readOwnField(size, 'width') : undefined;
+    const arenaHeight = isRecord(size) ? readOwnField(size, 'height') : undefined;
+    const w = typeof arenaWidth === 'number' ? arenaWidth : 0;
+    const h = typeof arenaHeight === 'number' ? arenaHeight : 0;
+    for (let index = 0; index < spawnRegions.length; index += 1) {
+      if (!(index in spawnRegions)) {
+        errors.push(`spawnRegions[${index}]: sparse array entry`);
+        continue;
+      }
+      const region = spawnRegions[index];
+      if (!isRecord(region)) {
+        errors.push(`spawnRegions[${index}]: expected object`);
+        continue;
+      }
+      const kind = readOwnField(region, 'kind');
+      const regionErrors: string[] = [];
+      if (kind === 'ring') {
+        rejectUnknownFields(region, REGION_RING_FIELDS, regionErrors);
+        requireNonNegativeNumber(region, 'cx', regionErrors);
+        requireNonNegativeNumber(region, 'cy', regionErrors);
+        requireNonNegativeNumber(region, 'minRadius', regionErrors);
+        requirePositiveNumber(region, 'maxRadius', regionErrors);
+        const minR = readOwnField(region, 'minRadius');
+        const maxR = readOwnField(region, 'maxRadius');
+        if (isFiniteNumber(minR) && isFiniteNumber(maxR) && maxR <= minR) {
+          regionErrors.push('maxRadius: must exceed minRadius');
+        }
+        const cx = readOwnField(region, 'cx');
+        const cy = readOwnField(region, 'cy');
+        if (isFiniteNumber(cx) && w > 0 && (cx < 0 || cx > w)) regionErrors.push('cx: must be within arena width');
+        if (isFiniteNumber(cy) && h > 0 && (cy < 0 || cy > h)) regionErrors.push('cy: must be within arena height');
+        if (isFiniteNumber(maxR) && w > 0 && h > 0 && maxR > Math.max(w, h)) {
+          regionErrors.push('maxRadius: must not exceed arena extent');
+        }
+      } else if (kind === 'rect') {
+        rejectUnknownFields(region, REGION_RECT_FIELDS, regionErrors);
+        requireNonNegativeNumber(region, 'x', regionErrors);
+        requireNonNegativeNumber(region, 'y', regionErrors);
+        requirePositiveNumber(region, 'w', regionErrors);
+        requirePositiveNumber(region, 'h', regionErrors);
+        const rx = readOwnField(region, 'x');
+        const ry = readOwnField(region, 'y');
+        const rw = readOwnField(region, 'w');
+        const rh = readOwnField(region, 'h');
+        if (isFiniteNumber(rx) && isFiniteNumber(rw) && w > 0 && rx + rw > w) {
+          regionErrors.push('x + w: must not exceed arena width');
+        }
+        if (isFiniteNumber(ry) && isFiniteNumber(rh) && h > 0 && ry + rh > h) {
+          regionErrors.push('y + h: must not exceed arena height');
+        }
+      } else if (kind === 'edges') {
+        rejectUnknownFields(region, REGION_EDGES_FIELDS, regionErrors);
+        requireNonNegativeNumber(region, 'margin', regionErrors);
+        const margin = readOwnField(region, 'margin');
+        if (isFiniteNumber(margin) && w > 0 && h > 0 && margin > Math.min(w, h) / 2) {
+          regionErrors.push('margin: must not exceed half the smaller arena dimension');
+        }
+      } else {
+        regionErrors.push('kind: must be "ring", "rect", or "edges"');
+      }
+      errors.push(...regionErrors.map((error) => `spawnRegions[${index}].${error}`));
+    }
+  }
+
+  const obstacles = readOwnField(row, 'obstacles');
+  if (!Array.isArray(obstacles)) {
+    errors.push('obstacles: required array');
+  } else {
+    const arenaWidth = isRecord(size) ? readOwnField(size, 'width') : undefined;
+    const arenaHeight = isRecord(size) ? readOwnField(size, 'height') : undefined;
+    const w = typeof arenaWidth === 'number' ? arenaWidth : 0;
+    const h = typeof arenaHeight === 'number' ? arenaHeight : 0;
+    for (let index = 0; index < obstacles.length; index += 1) {
+      if (!(index in obstacles)) {
+        errors.push(`obstacles[${index}]: sparse array entry`);
+        continue;
+      }
+      const obstacle = obstacles[index];
+      if (!isRecord(obstacle)) {
+        errors.push(`obstacles[${index}]: expected object`);
+        continue;
+      }
+      const obsErrors: string[] = [];
+      rejectUnknownFields(obstacle, OBSTACLE_FIELDS, obsErrors);
+      requireNonNegativeNumber(obstacle, 'x', obsErrors);
+      requireNonNegativeNumber(obstacle, 'y', obsErrors);
+      requirePositiveNumber(obstacle, 'w', obsErrors);
+      requirePositiveNumber(obstacle, 'h', obsErrors);
+      const ox = readOwnField(obstacle, 'x');
+      const oy = readOwnField(obstacle, 'y');
+      const ow = readOwnField(obstacle, 'w');
+      const oh = readOwnField(obstacle, 'h');
+      if (isFiniteNumber(ox) && isFiniteNumber(ow) && w > 0 && ox + ow > w) {
+        obsErrors.push('x + w: must not exceed arena width');
+      }
+      if (isFiniteNumber(oy) && isFiniteNumber(oh) && h > 0 && oy + oh > h) {
+        obsErrors.push('y + h: must not exceed arena height');
+      }
+      if (isFiniteNumber(ox) && isFiniteNumber(oy) && isFiniteNumber(ow) && isFiniteNumber(oh) && w > 0 && h > 0) {
+        const centreX = w / 2;
+        const centreY = h / 2;
+        if (centreX >= ox && centreX <= ox + ow && centreY >= oy && centreY <= oy + oh) {
+          obsErrors.push('obstacle must not contain arena centre');
+        }
+      }
+      errors.push(...obsErrors.map((error) => `obstacles[${index}].${error}`));
+    }
+
+    // Check obstacles don't fully cover any rect/ring spawn region's bounding box
+    for (let rIdx = 0; rIdx < spawnRegionList.length; rIdx += 1) {
+      const region = spawnRegionList[rIdx];
+      if (!isRecord(region)) continue;
+      const kind = readOwnField(region, 'kind');
+      if (kind !== 'rect' && kind !== 'ring') continue;
+
+      let minX = 0, minY = 0, maxX = 0, maxY = 0;
+      if (kind === 'rect') {
+        const rx = readOwnField(region, 'x');
+        const ry = readOwnField(region, 'y');
+        const rw = readOwnField(region, 'w');
+        const rh = readOwnField(region, 'h');
+        if (isFiniteNumber(rx) && isFiniteNumber(ry) && isFiniteNumber(rw) && isFiniteNumber(rh)) {
+          minX = rx; minY = ry; maxX = rx + rw; maxY = ry + rh;
+        }
+      } else if (kind === 'ring') {
+        const cx = readOwnField(region, 'cx');
+        const cy = readOwnField(region, 'cy');
+        const maxR = readOwnField(region, 'maxRadius');
+        if (isFiniteNumber(cx) && isFiniteNumber(cy) && isFiniteNumber(maxR)) {
+          minX = cx - maxR; minY = cy - maxR; maxX = cx + maxR; maxY = cy + maxR;
+        }
+      }
+
+      for (let oIdx = 0; oIdx < obstacles.length; oIdx += 1) {
+        const obstacle = obstacles[oIdx];
+        if (!isRecord(obstacle)) continue;
+        const ox = readOwnField(obstacle, 'x');
+        const oy = readOwnField(obstacle, 'y');
+        const ow = readOwnField(obstacle, 'w');
+        const oh = readOwnField(obstacle, 'h');
+        if (isFiniteNumber(ox) && isFiniteNumber(oy) && isFiniteNumber(ow) && isFiniteNumber(oh)) {
+          if (ox <= minX && oy <= minY && ox + ow >= maxX && oy + oh >= maxY) {
+            errors.push(`obstacles[${oIdx}]: must not fully cover spawnRegions[${rIdx}] (${kind})`);
+          }
+        }
+      }
+    }
+  }
+
+  const hazards = readOwnField(row, 'hazards');
+  if (!Array.isArray(hazards)) {
+    errors.push('hazards: required array');
+  } else {
+    const arenaWidth = isRecord(size) ? readOwnField(size, 'width') : undefined;
+    const arenaHeight = isRecord(size) ? readOwnField(size, 'height') : undefined;
+    const w = typeof arenaWidth === 'number' ? arenaWidth : 0;
+    const h = typeof arenaHeight === 'number' ? arenaHeight : 0;
+    const seenHazardIds = new Set<string>();
+    for (let index = 0; index < hazards.length; index += 1) {
+      if (!(index in hazards)) {
+        errors.push(`hazards[${index}]: sparse array entry`);
+        continue;
+      }
+      const hazard = hazards[index];
+      if (!isRecord(hazard)) {
+        errors.push(`hazards[${index}]: expected object`);
+        continue;
+      }
+      const hazErrors: string[] = [];
+      rejectUnknownFields(hazard, HAZARD_FIELDS, hazErrors);
+      requireString(hazard, 'id', hazErrors);
+      const hid = readOwnField(hazard, 'id');
+      if (typeof hid === 'string' && !isContentId(hid)) hazErrors.push('id: invalid content id');
+      if (typeof hid === 'string' && seenHazardIds.has(hid)) hazErrors.push(`id: duplicate hazard id "${hid}"`);
+      if (typeof hid === 'string') seenHazardIds.add(hid);
+      requireString(hazard, 'kind', hazErrors);
+      requireNonNegativeNumber(hazard, 'x', hazErrors);
+      requireNonNegativeNumber(hazard, 'y', hazErrors);
+      requirePositiveNumber(hazard, 'w', hazErrors);
+      requirePositiveNumber(hazard, 'h', hazErrors);
+      const hx = readOwnField(hazard, 'x');
+      const hy = readOwnField(hazard, 'y');
+      const hw = readOwnField(hazard, 'w');
+      const hh = readOwnField(hazard, 'h');
+      if (isFiniteNumber(hx) && isFiniteNumber(hw) && w > 0 && hx + hw > w) {
+        hazErrors.push('x + w: must not exceed arena width');
+      }
+      if (isFiniteNumber(hy) && isFiniteNumber(hh) && h > 0 && hy + hh > h) {
+        hazErrors.push('y + h: must not exceed arena height');
+      }
+      const dps = readOwnField(hazard, 'damagePerSecond');
+      if (!isFiniteNumber(dps) || dps <= 0 || dps > 1000) {
+        hazErrors.push('damagePerSecond: required finite number in (0, 1000]');
+      }
+      errors.push(...hazErrors.map((error) => `hazards[${index}].${error}`));
+    }
+  }
+
+  const unlock = readOwnField(row, 'unlock');
+  if (!isRecord(unlock)) {
+    errors.push('unlock: required object');
+  } else {
+    const unlockErrors: string[] = [];
+    checkUnlockRule(unlock, unlockErrors);
+    errors.push(...unlockErrors.map((error) => `unlock.${error}`));
+  }
+
+  return errors;
 }
 
 function checkWeapon(row: unknown): string[] {
@@ -314,19 +589,7 @@ function checkCharacter(row: unknown): string[] {
     errors.push('unlock: required object');
   } else {
     const unlockErrors: string[] = [];
-    const unlockType = readOwnField(unlock, 'type');
-    if (unlockType === 'default') {
-      rejectUnknownFields(unlock, CHARACTER_UNLOCK_DEFAULT_FIELDS, unlockErrors);
-    } else if (unlockType === 'meta') {
-      rejectUnknownFields(unlock, CHARACTER_UNLOCK_META_FIELDS, unlockErrors);
-      requireString(unlock, 'requiresUnlockId', unlockErrors);
-      const requiresUnlockId = readOwnField(unlock, 'requiresUnlockId');
-      if (typeof requiresUnlockId === 'string' && !isUnlockId(requiresUnlockId)) {
-        unlockErrors.push('requiresUnlockId: invalid unlock id');
-      }
-    } else {
-      unlockErrors.push('type: must be "default" or "meta"');
-    }
+    checkUnlockRule(unlock, unlockErrors);
     errors.push(...unlockErrors.map((error) => `unlock.${error}`));
   }
 
@@ -779,6 +1042,14 @@ function assertCharacterDefaultExists(characters: readonly CharacterDefinition[]
   throwIfErrors(errors);
 }
 
+function assertArenaDefaultExists(arenas: readonly ArenaDefinition[]): void {
+  const errors: string[] = [];
+  if (!arenas.some((arena) => arena.unlock.type === 'default')) {
+    errors.push('arenas.json: at least one arena must have unlock.type "default"');
+  }
+  throwIfErrors(errors);
+}
+
 function assertCharacterWeaponReferences(
   characters: readonly CharacterDefinition[],
   weapons: readonly WeaponDefinition[],
@@ -791,6 +1062,20 @@ function assertCharacterWeaponReferences(
         errors.push(`characters.json[${index}].startingWeaponIds: unknown weapon id "${weaponId}"`);
         break;
       }
+    }
+  });
+  throwIfErrors(errors);
+}
+
+function assertArenaSpawnCurveReferences(
+  arenas: readonly ArenaDefinition[],
+  curves: readonly SpawnCurveDefinition[],
+): void {
+  const ids = new Set(curves.map((c) => c.id));
+  const errors: string[] = [];
+  arenas.forEach((arena, index) => {
+    if (!ids.has(arena.spawnCurveId)) {
+      errors.push(`arenas.json[${index}].spawnCurveId: unknown spawnCurveId "${arena.spawnCurveId}"`);
     }
   });
   throwIfErrors(errors);

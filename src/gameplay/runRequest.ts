@@ -1,6 +1,8 @@
 import type { GameContext } from '../engine/context';
 import type { Rng } from '../engine/rng';
 import { nextRunSeed } from '../engine/rng';
+import { canSelectCharacter } from './characterSelection';
+import { canSelectArena } from './arenaSelection';
 
 export interface RunRequest {
   readonly characterId: string;
@@ -20,6 +22,16 @@ export function createRunRequest(options: {
   });
 }
 
-export function defaultArenaId(ctx: Pick<GameContext, 'data'>): string {
-  return ctx.data.spawnCurves[0]?.id ?? 'arena';
+export function assembleRunRequest(ctx: GameContext, rng: Pick<Rng, 'int'>): RunRequest {
+  const character = ctx.characters.characterById(ctx.selectedCharacterId);
+  const characterId = character && canSelectCharacter(character, ctx.saveData.meta)
+    ? ctx.selectedCharacterId
+    : ctx.characters.defaultCharacterId();
+
+  const arena = ctx.arenas.arenaById(ctx.selectedArenaId);
+  const arenaId = arena && canSelectArena(arena, ctx.saveData.meta)
+    ? ctx.selectedArenaId
+    : ctx.arenas.defaultArenaId();
+
+  return createRunRequest({ characterId, arenaId, rng });
 }

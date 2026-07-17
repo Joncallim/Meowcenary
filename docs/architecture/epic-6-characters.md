@@ -1310,21 +1310,19 @@ existing pattern).
 - **Epic 12 (Polish and Performance):** wire real character art (spritesheet
   loading, animation keys, mirroring) against the path contract in §16;
   replace the placeholder circle in `Player` once art exists.
-- **Product decision, not architecture:** whether/when `bolt-hound`'s
-  `achievement:first-victory` unlock is ever granted (i.e., whether Epic 6
-  ships with a permanently locked second character until a later
-  achievement/milestone epic exists, or whether the initial catalog should
-  instead ship two `unlock.type: 'default'` characters). Either choice is
-  implementable without touching this document; §26 flags it as the one
-  open product call.
+- **Product decision, RESOLVED (post-Epic-6 review):** `bolt-hound` stays gated
+  behind `achievement:first-victory`, and that unlock is now grantable —
+  `computeRunReward` grants it on every `run:won`, so winning any run unlocks
+  the character. `bolt-hound` is not shipped as a second default. This is a
+  reward-path change in `src/gameplay/meta.ts`, not an architecture change to
+  this document.
 
 ## Readiness assessment
 
-**IMPLEMENTATION READY**, with one flagged product choice that does not block
-implementation: whether `bolt-hound` stays gated behind an
-as-yet-ungrantable achievement unlock, or ships unlocked, is a content choice
-(see §26) that can be changed by editing one JSON field
-(`"unlock": { "type": "default" }`) without touching any contract in this
-document. Every interface, validation rule, file path, event, and test
-listed above is exact and does not require an implementation agent to invent
-a shape, a namespace, an ordering, or a recovery model.
+**IMPLEMENTATION READY.** The one product choice flagged during design — whether
+`bolt-hound` stays gated behind the achievement unlock — was resolved in the
+post-Epic-6 review: it stays gated, and `achievement:first-victory` is now
+granted on `run:won` (see §26), so the character is earned by winning a run.
+Every interface, validation rule, file path, event, and test listed above is
+exact and does not require an implementation agent to invent a shape, a
+namespace, an ordering, or a recovery model.

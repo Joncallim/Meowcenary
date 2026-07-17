@@ -10,8 +10,9 @@ import {
   type SpawnDirector,
   type SpawnRequest,
 } from '../gameplay/spawnDirector';
+import { spawnPoint } from '../gameplay/spawnRegion';
 import { DataEnemyRegistry } from './enemies';
-import type { EnemyScalingDefinition, SpawnableEnemyDefinition } from './types';
+import type { ArenaDefinition, EnemyScalingDefinition, SpawnableEnemyDefinition, SpawnCurveDefinition } from './types';
 
 export class SpawnSystem implements System {
   private readonly registry?: DataEnemyRegistry;
@@ -26,13 +27,12 @@ export class SpawnSystem implements System {
     private readonly player: Player,
     private readonly enemies: Enemy[],
     private readonly enemyGroup: Phaser.Physics.Arcade.Group,
+    private readonly arena: Readonly<ArenaDefinition>,
+    curve: Readonly<SpawnCurveDefinition>,
   ) {
-    const curve = this.ctx.data.spawnCurves[0];
-    if (curve) {
-      this.registry = new DataEnemyRegistry(this.ctx.data);
-      this.director = createSpawnDirector(curve, this.rng);
-      this.scaling = Object.freeze(structuredClone(curve.scaling));
-    }
+    this.registry = new DataEnemyRegistry(this.ctx.data);
+    this.director = createSpawnDirector(curve, this.rng);
+    this.scaling = Object.freeze(structuredClone(curve.scaling));
     this.scene.physics.add.overlap(
       this.player.sprite,
       this.enemyGroup,
@@ -45,9 +45,6 @@ export class SpawnSystem implements System {
   update(dtMs: number): void {
     if (this.runState.status !== 'active') {
       this.enemies.forEach((enemy) => {
-        // Skip enemies destroyed in the physics step that ended the run: they stay
-        // in the array uncompacted (compaction only runs on the active path) and their
-        // Phaser body is undefined after destroy(), so touching it would throw.
         if (enemy.active) {
           enemy.body.setVelocity(0, 0);
         }
@@ -67,7 +64,7 @@ export class SpawnSystem implements System {
     const requests =
       this.director?.update(dtMs, {
         activeCounts,
-        spawnPoint: (rng) => this.spawnPoint(rng),
+        spawnPoint: (rng) => spawnPoint(this.arena, rng),
       }) ?? [];
     for (const request of requests) {
       this.spawn(request);
@@ -111,24 +108,6 @@ export class SpawnSystem implements System {
       x: enemy.x,
       y: enemy.y,
     });
-  }
-
-  private spawnPoint(rng: Pick<Rng, 'int'>): { x: number; y: number } {
-    const margin = 28;
-    const width = this.scene.scale.width;
-    const height = this.scene.scale.height;
-    const side = rng.int(0, 3);
-
-    if (side === 0) {
-      return { x: rng.int(0, width), y: -margin };
-    }
-    if (side === 1) {
-      return { x: width + margin, y: rng.int(0, height) };
-    }
-    if (side === 2) {
-      return { x: rng.int(0, width), y: height + margin };
-    }
-    return { x: -margin, y: rng.int(0, height) };
   }
 
   private handlePlayerEnemyOverlap(_playerObject: unknown, enemyObject: unknown): void {

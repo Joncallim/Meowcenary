@@ -3,6 +3,7 @@ import { CharacterSelectionController } from '../src/ui/characterSelectionContro
 import { createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
+import { DataArenaRegistry } from '../src/systems/arenas';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
@@ -10,16 +11,18 @@ import { loadGameData } from '../src/systems/validation';
 import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import { resolveCharacterRunContribution } from '../src/gameplay/characterContribution';
 import { prepareRun } from '../src/gameplay/runStart';
+import { assembleRunRequest } from '../src/gameplay/runRequest';
 import { RuntimeConfig } from '../src/engine/config';
 
 describe('character selection integration', () => {
   it('end-to-end: select a non-default character and observe its stats/loadout on RunState', () => {
     const data = loadGameData();
+    const arenas = new DataArenaRegistry(data);
     const metaUpgrades = new DataMetaUpgradeRegistry(data);
     const characters = new DataCharacterRegistry(data);
     const save = new SaveManager(new MemoryStorageAdapter(), 'integration-test', metaUpgrades.maxLevels());
     const context = createGameContext({
-      bus: createEventBus(), menuRng: createRng(1), data, metaUpgrades, characters, save,
+      bus: createEventBus(), menuRng: createRng(1), data, arenas, metaUpgrades, characters, save,
     });
 
     context.updateMeta((meta) => ({
@@ -32,7 +35,7 @@ describe('character selection integration', () => {
     expect(selectResult.ok).toBe(true);
 
     const rng = createRng(42);
-    const request = controller.buildRunRequest(rng);
+    const request = assembleRunRequest(context, rng);
     expect(request.characterId).toBe('bolt-hound');
 
     const character = characters.characterById(request.characterId);
@@ -52,7 +55,7 @@ describe('character selection integration', () => {
     });
 
     expect(prepared.run.characterId).toBe('bolt-hound');
-    expect(prepared.run.arenaId).toBe('junkyard-intro');
+    expect(prepared.run.arenaId).toBe('junkyard-lot');
 
     // bolt-hound has base maxHealth 80 (overriding default 100)
     expect(prepared.basePlayer.maxHealth).toBe(80);
@@ -69,16 +72,16 @@ describe('character selection integration', () => {
 
   it('restart: same character and arena, different seed', () => {
     const data = loadGameData();
+    const arenas = new DataArenaRegistry(data);
     const metaUpgrades = new DataMetaUpgradeRegistry(data);
     const characters = new DataCharacterRegistry(data);
     const save = new SaveManager(new MemoryStorageAdapter(), 'restart-test', metaUpgrades.maxLevels());
     const context = createGameContext({
-      bus: createEventBus(), menuRng: createRng(1), data, metaUpgrades, characters, save,
+      bus: createEventBus(), menuRng: createRng(1), data, arenas, metaUpgrades, characters, save,
     });
 
-    const controller = new CharacterSelectionController(context);
     const rng = createRng(42);
-    const request1 = controller.buildRunRequest(rng);
+    const request1 = assembleRunRequest(context, rng);
 
     const character = characters.characterById(request1.characterId);
     if (!character) throw new Error('missing character');
@@ -93,7 +96,7 @@ describe('character selection integration', () => {
     });
 
     // Simulate restart: new RunRequest, same ctx
-    const request2 = controller.buildRunRequest(rng);
+    const request2 = assembleRunRequest(context, rng);
 
     const character2 = characters.characterById(request2.characterId);
     if (!character2) throw new Error('missing character');
@@ -114,15 +117,15 @@ describe('character selection integration', () => {
 
   it('default character (scrap-tabby) has correct starting weapons and passive', () => {
     const data = loadGameData();
+    const arenas = new DataArenaRegistry(data);
     const metaUpgrades = new DataMetaUpgradeRegistry(data);
     const characters = new DataCharacterRegistry(data);
     const save = new SaveManager(new MemoryStorageAdapter(), 'default-test', metaUpgrades.maxLevels());
     const context = createGameContext({
-      bus: createEventBus(), menuRng: createRng(1), data, metaUpgrades, characters, save,
+      bus: createEventBus(), menuRng: createRng(1), data, arenas, metaUpgrades, characters, save,
     });
 
-    const controller = new CharacterSelectionController(context);
-    const request = controller.buildRunRequest(createRng(42));
+    const request = assembleRunRequest(context, createRng(42));
 
     const character = characters.characterById(request.characterId);
     if (!character) throw new Error('missing character');

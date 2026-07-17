@@ -8,14 +8,20 @@
 - Epic 3 / Upgrade Cards: complete (#4).
 - Epic 4 / Enemy AI and Spawn Director: complete (#5).
 - Epic 5 / Meta Progression: complete (#6).
-- Epic 6 / Characters: next (#7).
+- Epic 6 / Characters: complete (#7).
+- Epic 7 / Maps and Arenas: next (#8).
 
-The current `main` branch is the clean post-Epic-5 baseline. Epic 6 follows the
-seven implementation slices in
-[`architecture/epic-6-characters.md`](architecture/epic-6-characters.md), which
-establishes the pre-run `RunRequest` configuration boundary, the character
-data/registry/selection contracts, and the reactive-passive lifecycle seam
-that Epics 7 and 9 build on.
+The current `main` branch is the clean post-Epic-6 baseline (merged PR #36).
+Epic 7 follows the seven implementation slices in
+[`architecture/epic-7-maps-and-arenas.md`](architecture/epic-7-maps-and-arenas.md),
+which adds the arena data/registry/selection contracts, the pure
+`spawnPoint(arena, rng)` bridge into Epic 4's spawn director, arena world
+bounds, static obstacles, and an optional hazard shell. Epic 7 extends the
+pre-run `RunRequest` boundary Epic 6 established — arena selection follows the
+identical `GameContext` pattern used for characters — and closes the
+pre-existing duplication where `SpawnSystem` re-derived `spawnCurves[0]`
+instead of consuming `RunState.arenaId`. Each slice ships as its own
+architecture PR and as a sub-issue under the Epic 7 umbrella (#8).
 
 ## Milestone 0: Foundation
 

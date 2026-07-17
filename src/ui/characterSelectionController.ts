@@ -1,8 +1,5 @@
 import type { GameContext, SelectCharacterFailureReason } from '../engine/context';
-import type { RunRequest } from '../gameplay/runRequest';
-import { createRunRequest, defaultArenaId } from '../gameplay/runRequest';
 import { canSelectCharacter } from '../gameplay/characterSelection';
-import type { Rng } from '../engine/rng';
 
 export interface CharacterOptionView {
   readonly id: string;
@@ -61,20 +58,5 @@ export class CharacterSelectionController {
       return Object.freeze({ ok: true, snapshot });
     }
     return Object.freeze({ ok: false, reason: result.reason, snapshot });
-  }
-
-  /** Builds a RunRequest from the current selection, falling back to the default
-   *  if the selected character is no longer selectable. This defensive re-check
-   *  is defense-in-depth against the GameContext interface contract: the concrete
-   *  implementation already revalidates on every meta mutation, but a mock or
-   *  alternate implementation of GameContext may not. */
-  buildRunRequest(rng: Pick<Rng, 'int'>): RunRequest {
-    const arenaId = defaultArenaId(this.context);
-    const selectedId = this.context.selectedCharacterId;
-    const character = this.context.characters.characterById(selectedId);
-    const characterId = character && canSelectCharacter(character, this.context.saveData.meta)
-      ? selectedId
-      : this.context.characters.defaultCharacterId();
-    return createRunRequest({ characterId, arenaId, rng });
   }
 }

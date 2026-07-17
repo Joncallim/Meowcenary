@@ -47,6 +47,8 @@ vi.mock('phaser', () => ({ default: {} }));
 interface HarnessOptions {
   status?: RunStatus;
   enemies?: unknown[];
+  arena?: Record<string, unknown>;
+  curve?: Record<string, unknown>;
 }
 
 async function createHarness(options: HarnessOptions = {}) {
@@ -83,7 +85,19 @@ async function createHarness(options: HarnessOptions = {}) {
       },
     },
   };
-  const rng = { int: (min: number) => min };
+  const rng = { int: (min: number) => min, next: () => 0.5 };
+  const arenaFixture = options.arena ?? {
+    id: 'test', name: 'Test', size: { width: 390, height: 844 },
+    spawnCurveId: 'curve',
+    spawnRegions: [{ kind: 'edges' as const, margin: 28 }],
+    obstacles: [], hazards: [],
+    unlock: { type: 'default' as const },
+  };
+  const curveFixture = options.curve ?? {
+    id: 'curve', durationSeconds: 360,
+    scaling: { healthPerMinute: 0.18, damagePerMinute: 0.10 },
+    waves: [{ startSecond: 0, enemyId: 'dust-mite', spawnEveryMs: 1600, maxAlive: 12 }],
+  };
   const system = new SpawnSystem(
     scene as never,
     { bus, data } as never,
@@ -92,6 +106,8 @@ async function createHarness(options: HarnessOptions = {}) {
     player as never,
     enemies as never,
     enemyGroup as never,
+    arenaFixture as never,
+    curveFixture as never,
   );
 
   return { system, runState, bus, data, enemies, enemyGroup, player, overlap };
@@ -147,8 +163,6 @@ describe('SpawnSystem', () => {
     if (!source || source.archetype === 'elite') throw new Error('missing dust-mite');
     source.health = 999;
     source.damage = 999;
-    harness.data.spawnCurves[0].scaling.healthPerMinute = 1;
-    harness.data.spawnCurves[0].scaling.damagePerMinute = 1;
 
     harness.system.update(3_200);
 
