@@ -49,6 +49,7 @@ export class GameScene extends Phaser.Scene {
   private physicsPausedByRun = false;
   private upgradeSystem?: UpgradeSystem;
   private upgradeChooser?: UpgradeChooser;
+  private characterController?: CharacterSelectionController;
 
   constructor() {
     super(SceneKey.Game);
@@ -58,6 +59,7 @@ export class GameScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const ctx = this.getContext();
     const characterController = new CharacterSelectionController(ctx);
+    this.characterController = characterController;
     const request = characterController.buildRunRequest(ctx.menuRng);
     const character = ctx.characters.characterById(request.characterId);
     if (!character) {
@@ -144,6 +146,7 @@ export class GameScene extends Phaser.Scene {
     if (RuntimeConfig.isDev) {
       this.input.keyboard?.on('keydown-F8', this.forceLoseRun, this);
       this.input.keyboard?.on('keydown-F9', this.forceWinRun, this);
+      this.input.keyboard?.on('keydown-C', this.cycleCharacterDev, this);
     }
     this.unsubscribers.push(
       ctx.bus.on('run:paused', () => {
@@ -265,6 +268,7 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.off('keydown-R', this.restartRun, this);
     this.input.keyboard?.off('keydown-F8', this.forceLoseRun, this);
     this.input.keyboard?.off('keydown-F9', this.forceWinRun, this);
+    this.input.keyboard?.off('keydown-C', this.cycleCharacterDev, this);
     this.upgradeChooser?.destroy();
     this.upgradeChooser = undefined;
     this.systems.forEach((system) => {
@@ -280,6 +284,7 @@ export class GameScene extends Phaser.Scene {
     this.debugOverlay = undefined;
     this.audioManager = undefined;
     this.upgradeSystem = undefined;
+    this.characterController = undefined;
     this.runState = undefined;
     if (this.physicsPausedByRun) {
       this.physics.world?.resume();
@@ -355,6 +360,30 @@ export class GameScene extends Phaser.Scene {
     }
 
     endRun(runState, 'won', this.getContext().bus);
+  }
+
+  private cycleCharacterDev(): void {
+    if (!RuntimeConfig.isDev || !this.characterController) return;
+
+    const snapshot = this.characterController.snapshot();
+    const currentIndex = snapshot.characters.findIndex((c) => c.selected);
+    if (currentIndex < 0) return;
+
+    const count = snapshot.characters.length;
+    for (let offset = 1; offset <= count; offset += 1) {
+      const candidate = snapshot.characters[(currentIndex + offset) % count];
+      if (candidate.locked) continue;
+
+      const result = this.characterController.select(candidate.id, snapshot.revision);
+      if (result.ok) {
+        console.log(
+          `[dev] Character cycled to "${candidate.name}" (${candidate.id}). Restart to apply.`,
+        );
+      } else {
+        console.warn(`[dev] Failed to select "${candidate.name}":`, result.reason);
+      }
+      return;
+    }
   }
 
   private maybeEndRunForVictory(ctx: GameContext, runState: RunState): void {
