@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
+import { isUnlocked } from '../src/gameplay/meta';
 import { prepareRun } from '../src/gameplay/runStart';
 import { createRunState } from '../src/gameplay/runState';
 import { ProgressionSystem } from '../src/systems/ProgressionSystem';
@@ -35,6 +36,30 @@ describe('meta progression integration', () => {
     const next = prepared(context.saveData.meta, metaUpgrades);
     expect(next.stats.resolve('maxHealth', 100)).toBe(110);
     expect(context.saveData.meta.scrap).toBe(15);
+  });
+
+  it('grants the first-victory unlock on a win, making bolt-hound selectable', () => {
+    const data = loadGameData();
+    const metaUpgrades = new DataMetaUpgradeRegistry(data);
+    const characters = new DataCharacterRegistry(data);
+    const bus = createEventBus();
+    const context = createGameContext({
+      bus, menuRng: createRng(1), data, metaUpgrades, characters,
+      save: new SaveManager(new MemoryStorageAdapter(), 'first-victory', metaUpgrades.maxLevels()),
+    });
+
+    // bolt-hound is gated behind achievement:first-victory before any win.
+    expect(context.selectCharacter('bolt-hound', context.selectionRevision))
+      .toMatchObject({ ok: false, reason: 'locked' });
+
+    const won = createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'junkyard-lot' });
+    won.status = 'won';
+    new ProgressionSystem({ runState: won, bus, context }).bankFinishedRun();
+    expect(isUnlocked(context.saveData.meta, 'achievement:first-victory')).toBe(true);
+
+    // Winning grants the unlock, so the character can now be selected.
+    expect(context.selectCharacter('bolt-hound', context.selectionRevision))
+      .toMatchObject({ ok: true, characterId: 'bolt-hound' });
   });
 });
 

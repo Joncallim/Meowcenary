@@ -65,9 +65,18 @@ export function addUnlocks(meta: MetaState, ids: readonly string[]): MetaState {
   return next.length === meta.unlocks.length ? meta : freezeMeta({ ...meta, unlocks: next });
 }
 
+/**
+ * Unlock granted the first time a run is won. Referenced by `bolt-hound`'s
+ * `unlock.requiresUnlockId` in `characters.json`; this is the single grant
+ * point. Re-granting on later victories is a no-op because `addUnlocks` dedupes.
+ */
+export const FIRST_VICTORY_UNLOCK_ID = 'achievement:first-victory';
+
 export function computeRunReward(run: Readonly<RunState>): RunReward | null {
   if (run.status !== 'won' && run.status !== 'lost') return null;
-  return freeze({ scrap: sanitizeScrap(run.currency), unlocks: Object.freeze([]) });
+  const unlocks: readonly string[] =
+    run.status === 'won' ? Object.freeze([FIRST_VICTORY_UNLOCK_ID]) : Object.freeze([]);
+  return freeze({ scrap: sanitizeScrap(run.currency), unlocks });
 }
 
 export function bankReward(meta: MetaState, reward: Readonly<RunReward>): MetaState {
