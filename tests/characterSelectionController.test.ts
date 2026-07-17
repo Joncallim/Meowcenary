@@ -93,4 +93,24 @@ describe('CharacterSelectionController', () => {
     const request = controller.buildRunRequest(rng);
     expect(request.arenaId).toBe('junkyard-intro');
   });
+
+  it('buildRunRequest falls back to default when selected character becomes locked', () => {
+    const { context, controller } = setup();
+    // Unlock bolt-hound, select it, then remove the unlock
+    context.updateMeta((meta) => ({
+      ...meta,
+      unlocks: [...meta.unlocks, 'achievement:first-victory'],
+    }));
+    const revision = context.selectionRevision;
+    const selectResult = controller.select('bolt-hound', revision);
+    expect(selectResult.ok).toBe(true);
+
+    // Now reset progression, removing the unlock
+    context.resetProgression();
+
+    const rng = createRng(42);
+    const request = controller.buildRunRequest(rng);
+    // Should fall back to default since bolt-hound is now locked
+    expect(request.characterId).toBe('scrap-tabby');
+  });
 });

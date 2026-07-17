@@ -438,7 +438,7 @@ function checkCharacterReactivePassive(
   const event = readOwnField(passive, 'event');
   const eventSet = new Set<string>(CHARACTER_PASSIVE_EVENTS);
   if (typeof event !== 'string' || !eventSet.has(event)) {
-    passiveErrors.push('event: must be one of enemy:killed, player:damaged, level:up, xp:gained');
+    passiveErrors.push(`event: must be one of ${CHARACTER_PASSIVE_EVENTS.join(', ')}`);
   }
 
   requireString(passive, 'handlerId', passiveErrors);
@@ -786,15 +786,12 @@ function assertCharacterWeaponReferences(
   const weaponIds = new Set(weapons.map((weapon) => weapon.id));
   const errors: string[] = [];
   characters.forEach((character, index) => {
-    let hasError = false;
     for (const weaponId of character.startingWeaponIds) {
       if (!weaponIds.has(weaponId)) {
         errors.push(`characters.json[${index}].startingWeaponIds: unknown weapon id "${weaponId}"`);
-        hasError = true;
         break;
       }
     }
-    if (hasError) return;
   });
   throwIfErrors(errors);
 }

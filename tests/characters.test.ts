@@ -127,8 +127,11 @@ describe('DataCharacterRegistry', () => {
     expect(registry.defaultCharacterId()).toBe('scrap-tabby');
   });
 
-  it('content ids on shipped characters satisfy the id validator', () => {
-    expect(isContentId(scrapTabby.id)).toBe(true);
-    expect(isContentId(boltHound.id)).toBe(true);
+  it('shipped character ids pass content id validation', async () => {
+    const { loadGameData } = await import('../src/systems/validation');
+    const data = loadGameData();
+    for (const character of data.characters) {
+      expect(isContentId(character.id)).toBe(true);
+    }
   });
 });

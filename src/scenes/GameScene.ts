@@ -373,6 +373,10 @@ export class GameScene extends Phaser.Scene {
     for (let offset = 1; offset <= count; offset += 1) {
       const candidate = snapshot.characters[(currentIndex + offset) % count];
       if (candidate.locked) continue;
+      if (candidate.id === snapshot.selectedCharacterId) {
+        console.log('[dev] No other unlocked character available.');
+        return;
+      }
 
       const result = this.characterController.select(candidate.id, snapshot.revision);
       if (result.ok) {

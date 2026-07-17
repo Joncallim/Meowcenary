@@ -64,8 +64,17 @@ export class CharacterSelectionController {
   }
 
   buildRunRequest(rng: Pick<Rng, 'int'>): RunRequest {
+    const selectedId = this.context.selectedCharacterId;
+    const character = this.context.characters.characterById(selectedId);
+    if (character && canSelectCharacter(character, this.context.saveData.meta)) {
+      return createRunRequest({
+        characterId: selectedId,
+        arenaId: defaultArenaId(this.context),
+        rng,
+      });
+    }
     return createRunRequest({
-      characterId: this.context.selectedCharacterId,
+      characterId: this.context.characters.defaultCharacterId(),
       arenaId: defaultArenaId(this.context),
       rng,
     });

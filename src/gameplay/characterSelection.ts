@@ -1,5 +1,4 @@
 import type { CharacterDefinition } from '../systems/types';
-import type { CharacterLookup, CharacterRegistry } from '../systems/characters';
 import type { MetaState } from '../systems/save';
 import { isUnlocked } from '../gameplay/meta';
 
@@ -12,14 +11,17 @@ export function canSelectCharacter(
 }
 
 export function selectableCharacters(
-  registry: CharacterLookup & Pick<CharacterRegistry, 'all'>,
+  registry: {
+    all(): readonly Readonly<CharacterDefinition>[];
+    characterById(id: string): Readonly<CharacterDefinition> | undefined;
+  },
   meta: Readonly<MetaState>,
 ): readonly Readonly<CharacterDefinition>[] {
   return registry.all().filter((character) => canSelectCharacter(character, meta));
 }
 
 export function defaultCharacterId(
-  registry: Pick<CharacterRegistry, 'all'>,
+  registry: { all(): readonly Readonly<CharacterDefinition>[] },
 ): string {
   const character = registry.all().find((character) => character.unlock.type === 'default');
   if (!character) {

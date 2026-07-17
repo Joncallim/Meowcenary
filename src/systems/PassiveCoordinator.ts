@@ -18,6 +18,9 @@ export class PassiveCoordinator implements System {
   private readonly bus: EventBus;
   private readonly unsubscribers: Array<() => void> = [];
   private destroyed = false;
+  /** Guard is per-coordinator (per-character), not per-event — a handler
+   *  that emits an event a sibling passive on this character also subscribes
+   *  to will have that sibling's dispatch dropped too. */
   private dispatching = false;
 
   constructor(options: PassiveCoordinatorOptions) {

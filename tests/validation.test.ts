@@ -851,5 +851,29 @@ describe('game data validation', () => {
       const dup = withCharacters([characterFixture(), characterFixture({ id: 'test-cat' })]);
       expect(() => validateGameData(dup)).toThrow(/duplicate id "test-cat"/);
     });
+
+    it('rejects sparse arrays in nested character arrays', () => {
+      const data = structuredClone(loadGameData()) as unknown as { characters: unknown[] };
+      const sparsePassives = new Array(1);
+      const char = characterFixture() as Record<string, unknown>;
+      char.passives = sparsePassives;
+      data.characters = [char, characterFixture({ id: 'test-cat-2' })];
+      expect(() => validateGameData(data)).toThrow(/sparse array entry/);
+    });
+
+    it('rejects prototype-inherited base stats fields at their exact paths', () => {
+      const maxHealthDescriptor = Object.getOwnPropertyDescriptor(Object.prototype, 'maxHealth');
+      try {
+        Object.defineProperty(Object.prototype, 'maxHealth', { value: 100, configurable: true });
+        const data = structuredClone(loadGameData()) as unknown as {
+          characters: Array<{ id: string; name: string; description: string; baseStats: Record<string, unknown>; startingWeaponIds: string[]; passives: unknown[]; unlock: Record<string, unknown>; cosmeticSkinIds: string[] }>;
+        };
+        delete data.characters[0].baseStats.maxHealth;
+        expect(() => validateGameData(data)).toThrow(/characters\.json\[0\]\.baseStats\.maxHealth/);
+      } finally {
+        if (maxHealthDescriptor) Object.defineProperty(Object.prototype, 'maxHealth', maxHealthDescriptor);
+        else Reflect.deleteProperty(Object.prototype, 'maxHealth');
+      }
+    });
   });
 });

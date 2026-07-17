@@ -1,5 +1,6 @@
 import type { CharacterDefinition, GameData } from './types';
 import { validateCharacterCatalog } from './validation';
+import { defaultCharacterId as resolveDefaultCharacterId } from '../gameplay/characterSelection';
 
 export interface CharacterLookup {
   characterById(id: string): Readonly<CharacterDefinition> | undefined;
@@ -37,11 +38,7 @@ export class DataCharacterRegistry implements CharacterRegistry {
   }
 
   defaultCharacterId(): string {
-    const character = this.snapshot.find((character) => character.unlock.type === 'default');
-    if (!character) {
-      throw new Error('Character catalog has no default character');
-    }
-    return character.id;
+    return resolveDefaultCharacterId(this);
   }
 }
 
