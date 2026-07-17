@@ -6,6 +6,7 @@ import { prepareRun } from '../src/gameplay/runStart';
 import { createRunState } from '../src/gameplay/runState';
 import { ProgressionSystem } from '../src/systems/ProgressionSystem';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
+import { DataCharacterRegistry } from '../src/systems/characters';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
 import { ProgressionController } from '../src/ui/progressionController';
@@ -14,9 +15,10 @@ describe('meta progression integration', () => {
   it('banks a run, purchases from the current snapshot, and applies it only to the next run', () => {
     const data = loadGameData();
     const metaUpgrades = new DataMetaUpgradeRegistry(data);
+    const characters = new DataCharacterRegistry(data);
     const bus = createEventBus();
     const context = createGameContext({
-      bus, menuRng: createRng(1), data, metaUpgrades,
+      bus, menuRng: createRng(1), data, metaUpgrades, characters,
       save: new SaveManager(new MemoryStorageAdapter(), 'integration', metaUpgrades.maxLevels()),
     });
     const active = prepared(context.saveData.meta, metaUpgrades);

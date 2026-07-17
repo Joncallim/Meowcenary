@@ -6,6 +6,7 @@ import { createRunState } from '../src/gameplay/runState';
 import type { RunState } from '../src/gameplay/runState';
 import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
+import { DataCharacterRegistry } from '../src/systems/characters';
 import { loadGameData } from '../src/systems/validation';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { isSpawnableEnemyDefinition } from '../src/systems/types';
@@ -110,11 +111,13 @@ describe('WeaponSystem', () => {
     runState.equipped = [registry.createWeaponInstance(pistol)];
 
     const metaUpgrades = new DataMetaUpgradeRegistry(data);
+    const characters = new DataCharacterRegistry(data);
     const ctx = createGameContext({
       bus: createEventBus(),
       menuRng: createRng(1),
       data,
       metaUpgrades,
+      characters,
       save: new SaveManager(new MemoryStorageAdapter(), 'weapon-system-test', metaUpgrades.maxLevels()),
     });
 
