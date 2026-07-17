@@ -58,6 +58,15 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
   let current = options.save.load();
   let selectedCharacterId = options.characters.defaultCharacterId();
   let selectionRevision = 1;
+
+  function revalidateSelection(): void {
+    const def = options.characters.characterById(selectedCharacterId);
+    if (def && !canSelectCharacter(def, current.meta)) {
+      selectedCharacterId = options.characters.defaultCharacterId();
+      selectionRevision += 1;
+    }
+  }
+
   const context: GameContext = {
     bus: options.bus,
     menuRng: options.menuRng,
@@ -77,7 +86,9 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       const transformed = transform(current.meta);
       const meta = sanitizeMeta(transformed, options.metaUpgrades.maxLevels());
       current = Object.freeze({ version: 2, settings: current.settings, meta });
-      return Object.freeze({ value: meta, persisted: options.save.save(current) });
+      const persisted = options.save.save(current);
+      revalidateSelection();
+      return Object.freeze({ value: meta, persisted });
     },
     resetProgression() { return context.updateMeta(() => createDefaultMeta()); },
     selectCharacter(characterId: string, expectedRevision: number): SelectCharacterResult {

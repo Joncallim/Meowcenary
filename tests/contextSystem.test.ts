@@ -143,6 +143,45 @@ describe('GameContext persistence boundary', () => {
       expect(result.reason).toBe('stale-selection');
     }
   });
+
+  it('revalidates selectedCharacterId to default after resetProgression clears unlocks', () => {
+    const { context } = setup();
+    // Unlock and select bolt-hound
+    context.updateMeta((meta) => ({
+      ...meta,
+      unlocks: [...meta.unlocks, 'achievement:first-victory'],
+    }));
+    context.selectCharacter('bolt-hound', context.selectionRevision);
+    expect(context.selectedCharacterId).toBe('bolt-hound');
+
+    // Reset progression — this calls updateMeta which now revalidates
+    context.resetProgression();
+
+    // selectedCharacterId must have been reset to the default
+    expect(context.selectedCharacterId).toBe('scrap-tabby');
+    // Revision must have bumped once for the select + once for the revalidation
+    expect(context.selectionRevision).toBe(3);
+  });
+
+  it('updateMeta revalidates selection: locked character resets to default', () => {
+    const { context } = setup();
+    context.updateMeta((meta) => ({
+      ...meta,
+      unlocks: [...meta.unlocks, 'achievement:first-victory'],
+    }));
+    context.selectCharacter('bolt-hound', context.selectionRevision);
+    expect(context.selectedCharacterId).toBe('bolt-hound');
+    const revisionBefore = context.selectionRevision;
+
+    // Remove the unlock via a direct meta transform
+    context.updateMeta((meta) => ({
+      ...meta,
+      unlocks: meta.unlocks.filter((id) => id !== 'achievement:first-victory'),
+    }));
+
+    expect(context.selectedCharacterId).toBe('scrap-tabby');
+    expect(context.selectionRevision).toBe(revisionBefore + 1);
+  });
 });
 
 class CountingStorage extends MemoryStorageAdapter {
