@@ -582,4 +582,298 @@ describe('game data validation', () => {
       expect(() => validateGameData(data)).toThrow(/must reference a direct chaser, charger, or tank/);
     }
   });
+
+  describe('character data validation', () => {
+    function characterFixture(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+      return {
+        id: 'test-cat',
+        name: 'Test Cat',
+        description: 'A test cat.',
+        baseStats: { maxHealth: 100, moveSpeed: 175 },
+        startingWeaponIds: ['scrap-pistol-t1'],
+        passives: [],
+        unlock: { type: 'default' as const },
+        cosmeticSkinIds: [],
+        ...overrides,
+      };
+    }
+
+    function withCharacters(characters: Record<string, unknown>[]): unknown {
+      const data = structuredClone(loadGameData()) as unknown as Record<string, unknown>;
+      data.characters = characters;
+      return data;
+    }
+
+    it('validates shipped characters.json', () => {
+      const data = loadGameData();
+      expect(data.characters.length).toBeGreaterThan(0);
+      expect(data.characters[0].id).toBe('scrap-tabby');
+      expect(data.characters[1].id).toBe('bolt-hound');
+    });
+
+    it('requires the characters field', () => {
+      const data = structuredClone(loadGameData()) as unknown as Record<string, unknown>;
+      delete data.characters;
+      expect(() => validateGameData(data)).toThrow(/characters: required field/);
+    });
+
+    it('fails missing character fields with file, index, and field', () => {
+      const data = structuredClone(loadGameData()) as unknown as { characters: Record<string, unknown>[] };
+      delete data.characters[0].name;
+      expect(() => validateGameData(data)).toThrow(/characters\.json\[0\]\.name/);
+    });
+
+    it('rejects unknown character fields', () => {
+      expect(() => validateGameData(withCharacters([
+        characterFixture({ surprise: true }),
+      ]))).toThrow(/surprise: unknown field/);
+    });
+
+    it('rejects bad character id', () => {
+      expect(() => validateGameData(withCharacters([
+        characterFixture({ id: ' bad' }),
+      ]))).toThrow(/id: invalid content id/);
+      expect(() => validateGameData(withCharacters([
+        characterFixture({ id: '' }),
+      ]))).toThrow(/id: required nonempty trimmed string/);
+    });
+
+    it('rejects bad base stats', () => {
+      expect(() => validateGameData(withCharacters([
+        characterFixture({ baseStats: { maxHealth: -1, moveSpeed: 100 } }),
+      ]))).toThrow(/baseStats\.maxHealth/);
+      expect(() => validateGameData(withCharacters([
+        characterFixture({ baseStats: { maxHealth: 100, moveSpeed: 0 } }),
+      ]))).toThrow(/baseStats\.moveSpeed/);
+      expect(() => validateGameData(withCharacters([
+        characterFixture({ baseStats: { maxHealth: 100, moveSpeed: 100, surprise: 1 } }),
+      ]))).toThrow(/baseStats\.surprise: unknown field/);
+    });
+
+    it('rejects invalid starting weapon ids (length, duplicates, empty)', () => {
+      expect(() => validateGameData(withCharacters([
+        characterFixture({ startingWeaponIds: [] }),
+      ]))).toThrow(/startingWeaponIds: must have 1-6 entries/);
+
+      expect(() => validateGameData(withCharacters([
+        characterFixture({ startingWeaponIds: ['scrap-pistol-t1', 'scrap-pistol-t1'] }),
+      ]))).toThrow(/duplicate weapon id/);
+
+      expect(() => validateGameData(withCharacters([
+        characterFixture({ startingWeaponIds: [''] }),
+      ]))).toThrow(/startingWeaponIds\[0\]: required nonempty trimmed string/);
+    });
+
+    it('rejects unknown weapon id references', () => {
+      expect(() => validateGameData(withCharacters([
+        characterFixture({ startingWeaponIds: ['nonexistent-weapon'] }),
+      ]))).toThrow(/unknown weapon id/);
+    });
+
+    it('rejects bad unlock rules', () => {
+      expect(() => validateGameData(withCharacters([
+        characterFixture({ unlock: { type: 'bogus' } }),
+      ]))).toThrow(/unlock\.type: must be "default" or "meta"/);
+
+      expect(() => validateGameData(withCharacters([
+        characterFixture({ unlock: { type: 'meta' } }),
+      ]))).toThrow(/unlock\.requiresUnlockId/);
+
+      expect(() => validateGameData(withCharacters([
+        characterFixture({ unlock: { type: 'meta', requiresUnlockId: 'bad' } }),
+      ]))).toThrow(/unlock\.requiresUnlockId: invalid unlock id/);
+    });
+
+    it('rejects bad cosmetic skin ids', () => {
+      expect(() => validateGameData(withCharacters([
+        characterFixture({ cosmeticSkinIds: ['dupe', 'dupe'] }),
+      ]))).toThrow(/cosmeticSkinIds\[1\]: duplicate skin id/);
+
+      expect(() => validateGameData(withCharacters([
+        characterFixture({ cosmeticSkinIds: [''] }),
+      ]))).toThrow(/cosmeticSkinIds\[0\]: required nonempty trimmed string/);
+    });
+
+    it('validates static passives', () => {
+      const withStaticPassive = characterFixture({
+        id: 'test-cat-2',
+        passives: [
+          {
+            id: 'scrap-hoarder',
+            kind: 'static',
+            name: 'Scrap Hoarder',
+            description: 'Test passive.',
+            effects: [{ stat: 'pickupRadius', op: 'add', value: 15 }],
+          },
+        ],
+      });
+      expect(() => validateGameData(withCharacters([characterFixture(), withStaticPassive]))).not.toThrow();
+    });
+
+    it('rejects static passive with invalid effects', () => {
+      const withBadEffect = characterFixture({
+        id: 'test-cat-2',
+        passives: [
+          {
+            id: 'test-passive',
+            kind: 'static',
+            name: 'Test',
+            description: 'Test.',
+            effects: [{ stat: 'bogus', op: 'add', value: 1 }],
+          },
+        ],
+      });
+      expect(() => validateGameData(withCharacters([characterFixture(), withBadEffect])))
+        .toThrow(/stat: unknown stat key/);
+    });
+
+    it('rejects static passive with empty effects', () => {
+      const withEmptyEffects = characterFixture({
+        id: 'test-cat-2',
+        passives: [
+          {
+            id: 'test-passive',
+            kind: 'static',
+            name: 'Test',
+            description: 'Test.',
+            effects: [],
+          },
+        ],
+      });
+      expect(() => validateGameData(withCharacters([characterFixture(), withEmptyEffects])))
+        .toThrow(/effects: required non-empty array/);
+    });
+
+    it('rejects static passive with duplicate stat/op pairs', () => {
+      const withDupEffect = characterFixture({
+        id: 'test-cat-2',
+        passives: [
+          {
+            id: 'test-passive',
+            kind: 'static',
+            name: 'Test',
+            description: 'Test.',
+            effects: [
+              { stat: 'moveSpeed', op: 'mult', value: 1.1 },
+              { stat: 'moveSpeed', op: 'mult', value: 1.2 },
+            ],
+          },
+        ],
+      });
+      expect(() => validateGameData(withCharacters([characterFixture(), withDupEffect])))
+        .toThrow(/effects\[1\]: duplicate stat\/op pair/);
+    });
+
+    it('rejects duplicate passive id within one character', () => {
+      const withDupPassive = characterFixture({
+        passives: [
+          {
+            id: 'dup-passive',
+            kind: 'static',
+            name: 'First',
+            description: 'A.',
+            effects: [{ stat: 'moveSpeed', op: 'add', value: 10 }],
+          },
+          {
+            id: 'dup-passive',
+            kind: 'static',
+            name: 'Second',
+            description: 'B.',
+            effects: [{ stat: 'damage', op: 'add', value: 5 }],
+          },
+        ],
+      });
+      expect(() => validateGameData(withCharacters([withDupPassive])))
+        .toThrow(/id: duplicate passive id/);
+    });
+
+    it('validates reactive passive shape', () => {
+      const withReactive = characterFixture({
+        id: 'test-cat-2',
+        passives: [
+          {
+            id: 'reactive-one',
+            kind: 'reactive',
+            name: 'Reactive',
+            description: 'Test.',
+            event: 'enemy:killed',
+            handlerId: 'test-handler',
+          },
+        ],
+      });
+      expect(() => validateGameData(withCharacters([characterFixture(), withReactive]))).not.toThrow();
+    });
+
+    it('rejects reactive passive with bad event', () => {
+      const withBadEvent = characterFixture({
+        id: 'test-cat-2',
+        passives: [
+          {
+            id: 'test-passive',
+            kind: 'reactive',
+            name: 'Test',
+            description: 'Test.',
+            event: 'run:won',
+            handlerId: 'test-handler',
+          },
+        ],
+      });
+      expect(() => validateGameData(withCharacters([characterFixture(), withBadEvent])))
+        .toThrow(/event: must be one of/);
+    });
+
+    it('rejects unknown fields on reactive passives', () => {
+      const withExtraField = characterFixture({
+        id: 'test-cat-2',
+        passives: [
+          {
+            id: 'test-passive',
+            kind: 'reactive',
+            name: 'Test',
+            description: 'Test.',
+            event: 'enemy:killed',
+            handlerId: 'test-handler',
+            effects: [],
+          },
+        ],
+      });
+      expect(() => validateGameData(withCharacters([characterFixture(), withExtraField])))
+        .toThrow(/effects: unknown field/);
+    });
+
+    it('rejects catalog with no default character', () => {
+      const noDefault = characterFixture({ id: 'fighter', unlock: { type: 'meta', requiresUnlockId: 'achievement:test' } });
+      expect(() => validateGameData(withCharacters([noDefault])))
+        .toThrow(/at least one character must have unlock\.type "default"/);
+    });
+
+    it('rejects duplicate character ids', () => {
+      const dup = withCharacters([characterFixture(), characterFixture({ id: 'test-cat' })]);
+      expect(() => validateGameData(dup)).toThrow(/duplicate id "test-cat"/);
+    });
+
+    it('rejects sparse arrays in nested character arrays', () => {
+      const data = structuredClone(loadGameData()) as unknown as { characters: unknown[] };
+      const sparsePassives = new Array(1);
+      const char = characterFixture() as Record<string, unknown>;
+      char.passives = sparsePassives;
+      data.characters = [char, characterFixture({ id: 'test-cat-2' })];
+      expect(() => validateGameData(data)).toThrow(/sparse array entry/);
+    });
+
+    it('rejects prototype-inherited base stats fields at their exact paths', () => {
+      const maxHealthDescriptor = Object.getOwnPropertyDescriptor(Object.prototype, 'maxHealth');
+      try {
+        Object.defineProperty(Object.prototype, 'maxHealth', { value: 100, configurable: true });
+        const data = structuredClone(loadGameData()) as unknown as {
+          characters: Array<{ id: string; name: string; description: string; baseStats: Record<string, unknown>; startingWeaponIds: string[]; passives: unknown[]; unlock: Record<string, unknown>; cosmeticSkinIds: string[] }>;
+        };
+        delete data.characters[0].baseStats.maxHealth;
+        expect(() => validateGameData(data)).toThrow(/characters\.json\[0\]\.baseStats\.maxHealth/);
+      } finally {
+        if (maxHealthDescriptor) Object.defineProperty(Object.prototype, 'maxHealth', maxHealthDescriptor);
+        else Reflect.deleteProperty(Object.prototype, 'maxHealth');
+      }
+    });
+  });
 });

@@ -5,6 +5,7 @@ import { createRng } from '../src/engine/rng';
 import { createRunState } from '../src/gameplay/runState';
 import { ProgressionSystem } from '../src/systems/ProgressionSystem';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
+import { DataCharacterRegistry } from '../src/systems/characters';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import type { StorageAdapter } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
@@ -55,9 +56,10 @@ describe('ProgressionSystem terminal lifecycle', () => {
   it('reports persistence failure without crashing or retrying the handled run', () => {
     const data = loadGameData();
     const metaUpgrades = new DataMetaUpgradeRegistry(data);
+    const characters = new DataCharacterRegistry(data);
     const bus = createEventBus();
     const context = createGameContext({
-      bus, menuRng: createRng(1), data, metaUpgrades,
+      bus, menuRng: createRng(1), data, metaUpgrades, characters,
       save: new SaveManager(new FailingWrites(), 'failed', metaUpgrades.maxLevels()),
     });
     const run = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
@@ -78,11 +80,12 @@ class FailingWrites implements StorageAdapter {
 function setup() {
   const data = loadGameData();
   const metaUpgrades = new DataMetaUpgradeRegistry(data);
+  const characters = new DataCharacterRegistry(data);
   const bus = createEventBus();
   return {
     bus,
     context: createGameContext({
-      bus, menuRng: createRng(1), data, metaUpgrades,
+      bus, menuRng: createRng(1), data, metaUpgrades, characters,
       save: new SaveManager(new MemoryStorageAdapter(), 'progression-system', metaUpgrades.maxLevels()),
     }),
   };

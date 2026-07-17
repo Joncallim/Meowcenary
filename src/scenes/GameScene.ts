@@ -1,12 +1,11 @@
 import Phaser from 'phaser';
 import { GAME_CONTEXT_REGISTRY_KEY, type GameContext } from '../engine/context';
 import { RuntimeConfig } from '../engine/config';
-import { createRng, deriveRunSeed, nextRunSeed } from '../engine/rng';
+import { createRng, deriveRunSeed } from '../engine/rng';
 import { SceneKey } from '../engine/sceneKeys';
 import type { System } from '../engine/system';
 import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
-import { createDefaultWeaponLoadout } from '../gameplay/weapons';
 import { prepareRun } from '../gameplay/runStart';
 import {
   canRestartRun,
@@ -27,6 +26,10 @@ import { ProgressionSystem } from '../systems/ProgressionSystem';
 import { DataWeaponRegistry } from '../systems/weaponRegistry';
 import { WeaponSystem } from '../systems/WeaponSystem';
 import { UpgradeChooser } from '../ui/UpgradeChooser';
+import { CharacterSelectionController } from '../ui/characterSelectionController';
+import { resolveCharacterRunContribution } from '../gameplay/characterContribution';
+import { PassiveCoordinator } from '../systems/PassiveCoordinator';
+import { DEFAULT_PASSIVE_HANDLERS, createPassiveHandlerRegistry } from '../gameplay/characterPassives';
 
 export class GameScene extends Phaser.Scene {
   private audioManager?: AudioManager;
@@ -46,6 +49,7 @@ export class GameScene extends Phaser.Scene {
   private physicsPausedByRun = false;
   private upgradeSystem?: UpgradeSystem;
   private upgradeChooser?: UpgradeChooser;
+  private characterController?: CharacterSelectionController;
 
   constructor() {
     super(SceneKey.Game);
@@ -54,14 +58,20 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     const { width, height } = this.scale;
     const ctx = this.getContext();
-    const spawnCurve = ctx.data.spawnCurves[0];
-    const runSeed = nextRunSeed(ctx.menuRng);
+    const characterController = new CharacterSelectionController(ctx);
+    this.characterController = characterController;
+    const request = characterController.buildRunRequest(ctx.menuRng);
+    const character = ctx.characters.characterById(request.characterId);
+    if (!character) {
+      throw new Error(`Selected character "${request.characterId}" is missing from the registry`);
+    }
     const weaponRegistry = new DataWeaponRegistry(ctx.data);
+    const contribution = resolveCharacterRunContribution(character, weaponRegistry);
     const prepared = prepareRun({
       state: {
-        seed: runSeed,
-        characterId: 'starter-meowcenary',
-        arenaId: spawnCurve?.id ?? 'arena',
+        seed: request.seed,
+        characterId: request.characterId,
+        arenaId: request.arenaId,
       },
       basePlayer: {
         maxHealth: RuntimeConfig.gameplay.player.baseMaxHealth,
@@ -69,11 +79,7 @@ export class GameScene extends Phaser.Scene {
       },
       meta: ctx.saveData.meta,
       metaUpgrades: ctx.metaUpgrades,
-      character: {
-        baseStats: {},
-        passiveModifiers: [],
-        startingWeapons: createDefaultWeaponLoadout(weaponRegistry),
-      },
+      character: contribution,
     });
     this.runState = prepared.run;
     const spawnRng = createRng(deriveRunSeed(this.runState.seed, 'spawns'));
@@ -111,6 +117,12 @@ export class GameScene extends Phaser.Scene {
     this.upgradeChooser = new UpgradeChooser(this, ctx.bus, this.upgradeSystem);
     this.systems = [
       new ProgressionSystem({ runState: this.runState, bus: ctx.bus, context: ctx }),
+      new PassiveCoordinator({
+        runState: this.runState,
+        bus: ctx.bus,
+        character,
+        handlers: createPassiveHandlerRegistry(DEFAULT_PASSIVE_HANDLERS),
+      }),
       new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup),
       new WeaponSystem(
         this,
@@ -134,6 +146,7 @@ export class GameScene extends Phaser.Scene {
     if (RuntimeConfig.isDev) {
       this.input.keyboard?.on('keydown-F8', this.forceLoseRun, this);
       this.input.keyboard?.on('keydown-F9', this.forceWinRun, this);
+      this.input.keyboard?.on('keydown-C', this.cycleCharacterDev, this);
     }
     this.unsubscribers.push(
       ctx.bus.on('run:paused', () => {
@@ -255,6 +268,7 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.off('keydown-R', this.restartRun, this);
     this.input.keyboard?.off('keydown-F8', this.forceLoseRun, this);
     this.input.keyboard?.off('keydown-F9', this.forceWinRun, this);
+    this.input.keyboard?.off('keydown-C', this.cycleCharacterDev, this);
     this.upgradeChooser?.destroy();
     this.upgradeChooser = undefined;
     this.systems.forEach((system) => {
@@ -270,6 +284,7 @@ export class GameScene extends Phaser.Scene {
     this.debugOverlay = undefined;
     this.audioManager = undefined;
     this.upgradeSystem = undefined;
+    this.characterController = undefined;
     this.runState = undefined;
     if (this.physicsPausedByRun) {
       this.physics.world?.resume();
@@ -345,6 +360,34 @@ export class GameScene extends Phaser.Scene {
     }
 
     endRun(runState, 'won', this.getContext().bus);
+  }
+
+  private cycleCharacterDev(): void {
+    if (!RuntimeConfig.isDev || !this.characterController) return;
+
+    const snapshot = this.characterController.snapshot();
+    const currentIndex = snapshot.characters.findIndex((c) => c.selected);
+    if (currentIndex < 0) return;
+
+    const count = snapshot.characters.length;
+    for (let offset = 1; offset <= count; offset += 1) {
+      const candidate = snapshot.characters[(currentIndex + offset) % count];
+      if (candidate.locked) continue;
+      if (candidate.id === snapshot.selectedCharacterId) {
+        console.log('[dev] No other unlocked character available.');
+        return;
+      }
+
+      const result = this.characterController.select(candidate.id, snapshot.revision);
+      if (result.ok) {
+        console.log(
+          `[dev] Character cycled to "${candidate.name}" (${candidate.id}). Restart to apply.`,
+        );
+      } else {
+        console.warn(`[dev] Failed to select "${candidate.name}":`, result.reason);
+      }
+      return;
+    }
   }
 
   private maybeEndRunForVictory(ctx: GameContext, runState: RunState): void {

@@ -7,12 +7,15 @@
 - Epic 2 / Weapons and Merge System: complete (#3).
 - Epic 3 / Upgrade Cards: complete (#4).
 - Epic 4 / Enemy AI and Spawn Director: complete (#5).
-- Epic 5 / Meta Progression: next (#6).
+- Epic 5 / Meta Progression: complete (#6).
+- Epic 6 / Characters: next (#7).
 
-The current `main` branch is the clean post-Epic-4 baseline. Epic 5 follows the
+The current `main` branch is the clean post-Epic-5 baseline. Epic 6 follows the
 seven implementation slices in
-[`architecture/epic-5-meta-progression.md`](architecture/epic-5-meta-progression.md)
-and can ship before Epic 8 because zero-currency finished runs are valid.
+[`architecture/epic-6-characters.md`](architecture/epic-6-characters.md), which
+establishes the pre-run `RunRequest` configuration boundary, the character
+data/registry/selection contracts, and the reactive-passive lifecycle seam
+that Epics 7 and 9 build on.
 
 ## Milestone 0: Foundation
 

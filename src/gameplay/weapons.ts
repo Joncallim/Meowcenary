@@ -27,14 +27,3 @@ export function createWeaponInstance(
     tier: def.mergeTier,
   };
 }
-
-export function createDefaultWeaponLoadout(registry: WeaponRegistry): WeaponInstance[] {
-  return DEFAULT_WEAPON_FAMILIES.map((family) => {
-    const definition = registry.weaponByFamilyTier(family, 1);
-    if (!definition) {
-      throw new Error(`Missing starter weapon family "${family}" at tier 1`);
-    }
-
-    return registry.createWeaponInstance(definition);
-  });
-}

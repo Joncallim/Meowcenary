@@ -3,7 +3,7 @@
 This file gives a simple overview of the Meowcenary backlog and defines the
 **shared contracts** every epic builds on. GitHub issues are the default source
 for each epic's implementation plan; a linked repository architecture document
-may explicitly supersede older issue wording, as Epic 5 does. This file is the
+may explicitly supersede older issue wording, as Epic 5 and Epic 6 do. This file is the
 source of truth for the module names, data shapes, and events epics share.
 
 ## Documentation Standard
@@ -288,8 +288,8 @@ so schedules (fire cadence, spawn timing) stay deterministic in tests.
 | Epic 2 | #3 Weapons and Merge System | Complete | Automatic weapons, projectiles, inventory state, pure merge rules. |
 | Epic 3 | #4 Upgrade Cards | Complete | Readable run-only level-up choices that emit real `Modifier`s. |
 | Epic 4 | #5 Enemy AI and Spawn Director | Complete | Simple enemy behaviours and data-driven wave pressure. |
-| Epic 5 | #6 Meta Progression | Next | Earned permanent progress: banks RunState rewards, no ads/payments/timers. |
-| Epic 6 | #7 Characters | Open | Selectable characters with starting stats, loadouts, passives, unlock hooks. |
+| Epic 5 | #6 Meta Progression | Complete | Earned permanent progress: banks RunState rewards, no ads/payments/timers. |
+| Epic 6 | #7 Characters | Next | Selectable characters with starting stats, loadouts, passives, unlock hooks. |
 | Epic 7 | #8 Maps and Arenas | Open | Data-defined arenas, spawn regions, obstacles, hazard hooks. |
 | Epic 8 | #9 Loot and Economy | Open | In-run XP/scrap drops, loot tables, pickup behaviour. |
 | Epic 9 | #10 UI and UX | Open | Readable, controllable on phone and desktop. |
