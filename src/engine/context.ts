@@ -59,6 +59,10 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
   let selectedCharacterId = options.characters.defaultCharacterId();
   let selectionRevision = 1;
 
+  /** After a meta mutation, if the currently-selected character is no longer
+   *  selectable (e.g. its unlock was removed), silently reset to the default.
+   *  This is a side-effect of updateMeta/resetProgression — consumers watching
+   *  selectionRevision will see a bump when this fires. */
   function revalidateSelection(): void {
     const def = options.characters.characterById(selectedCharacterId);
     if (def && !canSelectCharacter(def, current.meta)) {

@@ -63,6 +63,11 @@ export class CharacterSelectionController {
     return Object.freeze({ ok: false, reason: result.reason, snapshot });
   }
 
+  /** Builds a RunRequest from the current selection, falling back to the default
+   *  if the selected character is no longer selectable. This defensive re-check
+   *  is defense-in-depth against the GameContext interface contract: the concrete
+   *  implementation already revalidates on every meta mutation, but a mock or
+   *  alternate implementation of GameContext may not. */
   buildRunRequest(rng: Pick<Rng, 'int'>): RunRequest {
     const arenaId = defaultArenaId(this.context);
     const selectedId = this.context.selectedCharacterId;
