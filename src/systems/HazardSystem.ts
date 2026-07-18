@@ -52,9 +52,12 @@ export class HazardSystem implements System {
     for (const hazard of this.hazards) {
       if (this.runState.status !== 'active') break;
 
-      const inHazard =
-        px + r >= hazard.x && px - r <= hazard.x + hazard.w &&
-        py + r >= hazard.y && py - r <= hazard.y + hazard.h;
+      // Circle-rect intersection: clamp centre to rect, compare squared distance
+      const closestX = Math.max(hazard.x, Math.min(px, hazard.x + hazard.w));
+      const closestY = Math.max(hazard.y, Math.min(py, hazard.y + hazard.h));
+      const dx = px - closestX;
+      const dy = py - closestY;
+      const inHazard = dx * dx + dy * dy < r * r;
 
       if (!inHazard) continue;
 

@@ -22,6 +22,7 @@ import type {
 import { isSpawnableEnemyDefinition } from './types';
 import { CHARACTER_PASSIVE_EVENTS } from './types';
 import { isContentId, isUnlockId } from './ids';
+import { findRectWitness } from '../gameplay/spawnRegion';
 
 const RARITIES = new Set<Rarity>(['common', 'uncommon', 'rare', 'epic', 'legendary']);
 const ENEMY_ARCHETYPES = new Set<EnemyArchetype>([
@@ -99,6 +100,7 @@ export function collectValidationErrors(name: string, rows: unknown, check: RowC
       errors.push(`${name}[${index}].${fieldError}`);
     }
   }
+
   return errors;
 }
 
@@ -272,9 +274,6 @@ function checkArena(row: unknown): string[] {
         const cy = readOwnField(region, 'cy');
         if (isFiniteNumber(cx) && w > 0 && (cx < 0 || cx > w)) regionErrors.push('cx: must be within arena width');
         if (isFiniteNumber(cy) && h > 0 && (cy < 0 || cy > h)) regionErrors.push('cy: must be within arena height');
-        if (isFiniteNumber(maxR) && w > 0 && h > 0 && maxR > Math.max(w, h)) {
-          regionErrors.push('maxRadius: must not exceed arena extent');
-        }
         // Reject impossible rings: minRadius must not exceed max distance from
         // centre to any arena corner, otherwise no point on the annulus is in bounds.
         if (isFiniteNumber(cx) && isFiniteNumber(cy) && isFiniteNumber(minR) && w > 0 && h > 0) {
@@ -459,6 +458,42 @@ function checkArena(row: unknown): string[] {
     const unlockErrors: string[] = [];
     checkUnlockRule(unlock, unlockErrors);
     errors.push(...unlockErrors.map((error) => `unlock.${error}`));
+  }
+
+  // Reject rect regions fully covered by obstacles (deterministic witness)
+  if (errors.length === 0) {
+    const arenaObstacles: Array<{ x: number; y: number; w: number; h: number }> = [];
+    const obstaclesRaw = readOwnField(row, 'obstacles');
+    if (Array.isArray(obstaclesRaw)) {
+      for (const o of obstaclesRaw) {
+        if (!isRecord(o)) continue;
+        const ox = readOwnField(o, 'x');
+        const oy = readOwnField(o, 'y');
+        const ow = readOwnField(o, 'w');
+        const oh = readOwnField(o, 'h');
+        if (isFiniteNumber(ox) && isFiniteNumber(oy) && isFiniteNumber(ow) && isFiniteNumber(oh)) {
+          arenaObstacles.push({ x: ox, y: oy, w: ow, h: oh });
+        }
+      }
+    }
+    for (let rIdx = 0; rIdx < spawnRegionList.length; rIdx += 1) {
+      const region = spawnRegionList[rIdx];
+      if (!isRecord(region)) continue;
+      const kind = readOwnField(region, 'kind');
+      if (kind !== 'rect') continue;
+      const rx = readOwnField(region, 'x');
+      const ry = readOwnField(region, 'y');
+      const rw = readOwnField(region, 'w');
+      const rh = readOwnField(region, 'h');
+      if (!isFiniteNumber(rx) || !isFiniteNumber(ry) || !isFiniteNumber(rw) || !isFiniteNumber(rh)) continue;
+      const witness = findRectWitness(
+        { x: rx, y: ry, w: rw, h: rh },
+        arenaObstacles,
+      );
+      if (!witness) {
+        errors.push(`spawnRegions[${rIdx}]: rect region fully covered by obstacles — no spawnable point`);
+      }
+    }
   }
 
   return errors;
@@ -1196,6 +1231,7 @@ function jsonSafetyErrors(value: unknown, path: string, active = new WeakSet<obj
       }
     }
   }
+
   active.delete(value);
   return errors;
 }

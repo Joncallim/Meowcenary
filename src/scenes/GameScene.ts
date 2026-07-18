@@ -216,7 +216,7 @@ export class GameScene extends Phaser.Scene {
       arena.size.width / 2, arena.size.height / 2,
       arena.size.width - 24, arena.size.height - 24,
       0x16202a,
-    ).setStrokeStyle(2, 0x2dd4bf, 0.28);
+    ).setStrokeStyle(2, 0x2dd4bf, 0.28).setDepth(-1);
     this.add
       .text(
         width / 2,
