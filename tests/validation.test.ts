@@ -938,6 +938,29 @@ describe('game data validation', () => {
       ]))).toThrow(/required integer from 256/);
     });
 
+    it('rejects a catalog with too many obstacles (bounds the witness scan)', () => {
+      const tooMany = Array.from({ length: 257 }, (_, i) => ({ x: i, y: 0, w: 1, h: 1 }));
+      expect(() => validateGameData(withArenas([
+        arenaFixture({ obstacles: tooMany }),
+      ]))).toThrow(/obstacles: too many entries \(max 256\)/);
+    });
+
+    it('rejects a catalog with too many spawn regions', () => {
+      const tooMany = Array.from({ length: 17 }, () => ({ kind: 'edges', margin: 28 }));
+      expect(() => validateGameData(withArenas([
+        arenaFixture({ spawnRegions: tooMany }),
+      ]))).toThrow(/spawnRegions: too many entries \(max 16\)/);
+    });
+
+    it('rejects a catalog with too many hazards', () => {
+      const tooMany = Array.from({ length: 65 }, (_, i) => ({
+        id: `haz-${i}`, kind: 'acid', x: 0, y: 0, w: 1, h: 1, damagePerSecond: 5,
+      }));
+      expect(() => validateGameData(withArenas([
+        arenaFixture({ hazards: tooMany }),
+      ]))).toThrow(/hazards: too many entries \(max 64\)/);
+    });
+
     it('accepts rings with deterministic in-bounds witnesses', () => {
       expect(() => validateGameData(withArenas([
         arenaFixture({

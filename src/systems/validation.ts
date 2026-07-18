@@ -74,6 +74,14 @@ const REGION_RECT_FIELDS = new Set(['kind', 'x', 'y', 'w', 'h']);
 const REGION_EDGES_FIELDS = new Set(['kind', 'margin']);
 const OBSTACLE_FIELDS = new Set(['x', 'y', 'w', 'h']);
 const HAZARD_FIELDS = new Set(['id', 'kind', 'x', 'y', 'w', 'h', 'damagePerSecond']);
+// Catalog-count ceilings. The spawn-witness search (findRectWitness/findRingWitness)
+// partitions the arena at obstacle edges — cost grows super-linearly with the
+// obstacle count — so an unbounded catalog could make boot-time validation hang.
+// These caps keep the witness (and the per-entry/coverage scans) bounded, in the
+// same spirit as the existing size/maxAlive bounds.
+const MAX_SPAWN_REGIONS = 16;
+const MAX_OBSTACLES = 256;
+const MAX_HAZARDS = 64;
 const UNLOCK_DEFAULT_FIELDS = new Set(['type']);
 const UNLOCK_META_FIELDS = new Set(['type', 'requiresUnlockId']);
 
@@ -242,6 +250,8 @@ function checkArena(row: unknown): string[] {
   const spawnRegionList: unknown[] = Array.isArray(spawnRegions) ? spawnRegions : [];
   if (!Array.isArray(spawnRegions) || spawnRegions.length < 1) {
     errors.push('spawnRegions: required array with at least one entry');
+  } else if (spawnRegions.length > MAX_SPAWN_REGIONS) {
+    errors.push(`spawnRegions: too many entries (max ${MAX_SPAWN_REGIONS})`);
   } else {
     const arenaWidth = isRecord(size) ? readOwnField(size, 'width') : undefined;
     const arenaHeight = isRecord(size) ? readOwnField(size, 'height') : undefined;
@@ -320,6 +330,8 @@ function checkArena(row: unknown): string[] {
   const obstacles = readOwnField(row, 'obstacles');
   if (!Array.isArray(obstacles)) {
     errors.push('obstacles: required array');
+  } else if (obstacles.length > MAX_OBSTACLES) {
+    errors.push(`obstacles: too many entries (max ${MAX_OBSTACLES})`);
   } else {
     const arenaWidth = isRecord(size) ? readOwnField(size, 'width') : undefined;
     const arenaHeight = isRecord(size) ? readOwnField(size, 'height') : undefined;
@@ -361,8 +373,10 @@ function checkArena(row: unknown): string[] {
       errors.push(...obsErrors.map((error) => `obstacles[${index}].${error}`));
     }
 
-    // Check obstacles don't fully cover any rect/ring spawn region's bounding box
-    for (let rIdx = 0; rIdx < spawnRegionList.length; rIdx += 1) {
+    // Check obstacles don't fully cover any rect/ring spawn region's bounding box.
+    // Bounded by MAX_SPAWN_REGIONS so an over-cap catalog (already flagged above)
+    // cannot make this coverage scan super-linear.
+    for (let rIdx = 0; rIdx < spawnRegionList.length && rIdx < MAX_SPAWN_REGIONS; rIdx += 1) {
       const region = spawnRegionList[rIdx];
       if (!isRecord(region)) continue;
       const kind = readOwnField(region, 'kind');
@@ -405,6 +419,8 @@ function checkArena(row: unknown): string[] {
   const hazards = readOwnField(row, 'hazards');
   if (!Array.isArray(hazards)) {
     errors.push('hazards: required array');
+  } else if (hazards.length > MAX_HAZARDS) {
+    errors.push(`hazards: too many entries (max ${MAX_HAZARDS})`);
   } else {
     const arenaWidth = isRecord(size) ? readOwnField(size, 'width') : undefined;
     const arenaHeight = isRecord(size) ? readOwnField(size, 'height') : undefined;
