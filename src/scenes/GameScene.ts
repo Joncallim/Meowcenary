@@ -227,7 +227,8 @@ export class GameScene extends Phaser.Scene {
           wordWrap: { width: width - 48 },
         },
       )
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setScrollFactor(0);
     this.hudText = this.add
       .text(12, 54, '', {
         color: '#d6f7ff',

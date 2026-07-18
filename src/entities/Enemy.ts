@@ -177,9 +177,8 @@ export class Enemy implements EnemyInstance {
     if (!Number.isFinite(next.x) || !Number.isFinite(next.y)) {
       throw new Error('Enemy runtime position must remain finite');
     }
-    // Charger dash/windup states move instantly — body.reset is correct for
-    // these single-frame teleports. Chaser pursuit uses velocity-based movement
-    // so Arcade Physics colliders (obstacles) separate the enemy properly.
+    // Charger dash → body.reset (directional lunge, designed to reach target).
+    // Chaser pursuit → velocity-based (Arcade Physics collides with obstacles).
     if (immediate) {
       this.body.reset(next.x, next.y);
       return;

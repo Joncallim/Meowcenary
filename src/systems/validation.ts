@@ -275,18 +275,6 @@ function checkArena(row: unknown): string[] {
         if (isFiniteNumber(maxR) && w > 0 && h > 0 && maxR > Math.max(w, h)) {
           regionErrors.push('maxRadius: must not exceed arena extent');
         }
-        // Verify at least one cardinal point at mid-radius is in bounds
-        if (isFiniteNumber(cx) && isFiniteNumber(cy) && isFiniteNumber(minR) && isFiniteNumber(maxR) && w > 0 && h > 0) {
-          const midR = (minR + maxR) / 2;
-          const inBounds = [0, Math.PI / 2, Math.PI, -Math.PI / 2].some((a) => {
-            const px = cx + midR * Math.cos(a);
-            const py = cy + midR * Math.sin(a);
-            return px >= 0 && px <= w && py >= 0 && py <= h;
-          });
-          if (!inBounds) {
-            regionErrors.push('region must have at least one spawnable point within arena bounds');
-          }
-        }
       } else if (kind === 'rect') {
         rejectUnknownFields(region, REGION_RECT_FIELDS, regionErrors);
         requireNonNegativeNumber(region, 'x', regionErrors);

@@ -3,6 +3,7 @@ import type { Vec2 } from '../engine/vector';
 import type { ArenaDefinition, SpawnRegion } from '../systems/types';
 
 const MAX_ATTEMPTS = 8;
+const FALLBACK_BUDGET = 128;
 
 export function spawnPoint(arena: Readonly<ArenaDefinition>, rng: Rng): Vec2 {
   const regions = arena.spawnRegions;
@@ -15,14 +16,7 @@ export function spawnPoint(arena: Readonly<ArenaDefinition>, rng: Rng): Vec2 {
     }
   }
 
-  const fallback = fallbackPoint(region, arena);
-  if (!isValidPoint(fallback, region, arena)) {
-    throw new Error(
-      `spawnPoint: exhausted all candidates for region kind "${region.kind}" ` +
-      `in arena; validation should have rejected this configuration`,
-    );
-  }
-  return fallback;
+  return searchFallback(region, arena, rng);
 }
 
 function samplePoint(region: SpawnRegion, arena: Readonly<ArenaDefinition>, rng: Rng): Vec2 {
@@ -79,54 +73,6 @@ function inAnyObstacle(
   return false;
 }
 
-function fallbackPoint(region: SpawnRegion, arena: Readonly<ArenaDefinition>): Vec2 {
-  const { width, height } = arena.size;
-
-  switch (region.kind) {
-    case 'ring': {
-      const midR = (region.minRadius + region.maxRadius) / 2;
-      const steps = 32;
-      const radii = [midR, region.minRadius, region.maxRadius,
-        (region.minRadius + midR) / 2, (midR + region.maxRadius) / 2,
-        region.minRadius + (midR - region.minRadius) / 4,
-        midR + (region.maxRadius - midR) / 4];
-      for (let i = 0; i < steps; i += 1) {
-        const a = (2 * Math.PI * i) / steps;
-        for (const r of radii) {
-          const p = { x: region.cx + r * Math.cos(a), y: region.cy + r * Math.sin(a) };
-          if (isValidPoint(p, region, arena)) return p;
-        }
-      }
-      const x = Math.max(0, Math.min(width, region.cx + midR));
-      return { x, y: Math.max(0, Math.min(height, region.cy)) };
-    }
-    case 'rect': {
-      const maxStep = Math.max(1, Math.min(region.w, region.h, 4));
-      for (let step = 1; step <= maxStep; step *= 2) {
-        for (let sx = region.x; sx <= region.x + region.w; sx += step) {
-          for (let sy = region.y; sy <= region.y + region.h; sy += step) {
-            const p = { x: sx, y: sy };
-            if (isValidPoint(p, region, arena)) return p;
-          }
-        }
-      }
-      // Half-unit precision pass for thin strips
-      const halfW = region.w / 2;
-      const halfH = region.h / 2;
-      for (const dx of [0, halfW, region.w]) {
-        for (const dy of [0, halfH, region.h]) {
-          const p = { x: region.x + dx, y: region.y + dy };
-          if (isValidPoint(p, region, arena)) return p;
-        }
-      }
-      return { x: region.x + region.w / 2, y: region.y + region.h / 2 };
-    }
-    case 'edges': {
-      return { x: width / 2, y: -region.margin };
-    }
-  }
-}
-
 function isValidPoint(p: Vec2, region: SpawnRegion, arena: Readonly<ArenaDefinition>): boolean {
   if (!isInsideSpawnableBand(p, region, arena)) return false;
   if (region.kind !== 'edges' && inAnyObstacle(p, arena.obstacles)) return false;
@@ -137,4 +83,107 @@ function isValidPoint(p: Vec2, region: SpawnRegion, arena: Readonly<ArenaDefinit
     if (dist < region.minRadius - 1e-9 || dist > region.maxRadius + 1e-9) return false;
   }
   return true;
+}
+
+/**
+ * Fixed-budget stratified fallback search. Uses deterministic logarithmic-step
+ * sweep (capped at FALLBACK_BUDGET calls to isValidPoint) followed by random
+ * exploration. If all attempts exhaust, throws a descriptive error.
+ */
+function searchFallback(
+  region: SpawnRegion,
+  arena: Readonly<ArenaDefinition>,
+  rng: Rng,
+): Vec2 {
+  let checks = 0;
+
+  const tryPoint = (p: Vec2): Vec2 | null => {
+    checks += 1;
+    return isValidPoint(p, region, arena) ? p : null;
+  };
+
+  switch (region.kind) {
+    case 'ring': {
+      const midR = (region.minRadius + region.maxRadius) / 2;
+      const radii = [midR, region.minRadius, region.maxRadius,
+        (region.minRadius + midR) / 2, (midR + region.maxRadius) / 2];
+      // Stratified sweep: 32 angles × radii
+      for (let i = 0; i < 32 && checks < FALLBACK_BUDGET / 2; i += 1) {
+        const a = (2 * Math.PI * i) / 32;
+        for (const r of radii) {
+          if (checks >= FALLBACK_BUDGET / 2) break;
+          const found = tryPoint({ x: region.cx + r * Math.cos(a), y: region.cy + r * Math.sin(a) });
+          if (found) return found;
+        }
+      }
+      // Random scatter for the rest of the budget
+      while (checks < FALLBACK_BUDGET) {
+        const found = tryPoint(samplePoint(region, arena, rng));
+        if (found) return found;
+      }
+      break;
+    }
+    case 'rect': {
+      // Coarse-to-fine sweep: log2 steps, max tile count ≈ log2(maxDim)^2
+      const maxDim = Math.max(region.w, region.h);
+      const levels = Math.max(4, Math.ceil(Math.log2(maxDim + 1)));
+      for (let level = levels; level >= 0 && checks < FALLBACK_BUDGET; level -= 1) {
+        const step = Math.max(1, Math.pow(2, level));
+        for (let sx = region.x; sx <= region.x + region.w && checks < FALLBACK_BUDGET; sx += step) {
+          for (let sy = region.y; sy <= region.y + region.h && checks < FALLBACK_BUDGET; sy += step) {
+            const found = tryPoint({ x: sx, y: sy });
+            if (found) return found;
+          }
+        }
+      }
+      // Half-unit precision pass at corners/edges
+      const pts = [
+        { x: region.x, y: region.y },
+        { x: region.x + region.w, y: region.y },
+        { x: region.x, y: region.y + region.h },
+        { x: region.x + region.w, y: region.y + region.h },
+        { x: region.x + region.w / 2, y: region.y },
+        { x: region.x + region.w / 2, y: region.y + region.h },
+        { x: region.x, y: region.y + region.h / 2 },
+        { x: region.x + region.w, y: region.y + region.h / 2 },
+      ];
+      for (const p of pts) {
+        if (checks >= FALLBACK_BUDGET) break;
+        const found = tryPoint(p);
+        if (found) return found;
+      }
+      // Random scatter for remaining budget
+      while (checks < FALLBACK_BUDGET) {
+        const found = tryPoint(samplePoint(region, arena, rng));
+        if (found) return found;
+      }
+      break;
+    }
+    case 'edges': {
+      const { width, height } = arena.size;
+      const margin = region.margin;
+      // Try all four edge midpoints first
+      const edgePts = [
+        { x: width / 2, y: -margin },
+        { x: width + margin, y: height / 2 },
+        { x: width / 2, y: height + margin },
+        { x: -margin, y: height / 2 },
+      ];
+      for (const p of edgePts) {
+        const found = tryPoint(p);
+        if (found) return found;
+      }
+      // Random scatter
+      while (checks < FALLBACK_BUDGET) {
+        const found = tryPoint(samplePoint(region, arena, rng));
+        if (found) return found;
+      }
+      break;
+    }
+  }
+
+  throw new Error(
+    `spawnPoint: exhausted ${FALLBACK_BUDGET} fallback candidates for region kind ` +
+    `"${region.kind}" in arena; validation should have rejected or data is pathological`,
+  );
 }
