@@ -46,6 +46,7 @@ export class HazardSystem implements System {
       if (!inHazard) continue;
 
       const damage = hazard.damagePerSecond * dtMs / 1000;
+      if (!Number.isFinite(damage) || damage <= 0) continue;
       this.player.takeEnvironmentalDamage(damage);
       this.bus.emit('hazard:triggered', {
         hazardId: hazard.id,

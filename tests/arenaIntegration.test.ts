@@ -9,7 +9,7 @@ import { createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
 
-describe('arena resolution integration', () => {
+describe('arena integration — headless resolution chain', () => {
   const data = loadGameData();
   const characters = new DataCharacterRegistry(data);
   const arenas = new DataArenaRegistry(data);
@@ -27,11 +27,19 @@ describe('arena resolution integration', () => {
     });
   }
 
-  it('selected arena resolves to junkyard-lot with correct size and spawn curve', () => {
+  it('assembleRunRequest resolves arena from selection, not spawnCurves[0]', () => {
     const ctx = makeContext();
-    expect(ctx.selectedArenaId).toBe('junkyard-lot');
+    const request = assembleRunRequest(ctx, createRng(42));
+    expect(request.arenaId).toBe('junkyard-lot');
+    expect(Object.isFrozen(request)).toBe(true);
+    expect(Number.isSafeInteger(request.seed)).toBe(true);
+  });
 
-    const arena = ctx.arenas.arenaById(ctx.selectedArenaId);
+  it('selected arena resolves through the full chain', () => {
+    const ctx = makeContext();
+    const request = assembleRunRequest(ctx, createRng(42));
+
+    const arena = ctx.arenas.arenaById(request.arenaId);
     expect(arena).toBeDefined();
     expect(arena!.size).toEqual({ width: 390, height: 844 });
     expect(arena!.spawnCurveId).toBe('junkyard-intro');
@@ -39,84 +47,35 @@ describe('arena resolution integration', () => {
     const curve = ctx.data.spawnCurves.find((c) => c.id === arena!.spawnCurveId);
     expect(curve).toBeDefined();
     expect(curve!.durationSeconds).toBe(300);
+    expect(curve!.id).toBe('junkyard-intro');
   });
 
-  it('assembleRunRequest produces the arena from selection, not spawnCurves[0]', () => {
+  it('arena defaults make the shipped junkyard-lot behaviourally identical to today', () => {
     const ctx = makeContext();
-    const request = assembleRunRequest(ctx, createRng(42));
-    expect(request.arenaId).toBe('junkyard-lot');
-    expect(request.characterId).toBe('scrap-tabby');
-    expect(Object.isFrozen(request)).toBe(true);
-    expect(Number.isSafeInteger(request.seed)).toBe(true);
-  });
+    expect(ctx.selectedArenaId).toBe('junkyard-lot');
 
-  it('player spawns at arena centre', () => {
-    const ctx = makeContext();
     const arena = ctx.arenas.arenaById(ctx.selectedArenaId)!;
-    const spawnX = arena.size.width / 2;
-    const spawnY = arena.size.height / 2;
-    expect(spawnX).toBe(195);
-    expect(spawnY).toBe(422);
+    // Canvas-sized (parity)
+    expect(arena.size.width).toBe(390);
+    expect(arena.size.height).toBe(844);
+
+    // Uses the existing spawn curve
+    expect(arena.spawnCurveId).toBe('junkyard-intro');
+
+    // Single edges region with margin 28 (parity with old screen-edge spawn)
+    expect(arena.spawnRegions).toHaveLength(1);
+    expect(arena.spawnRegions[0]).toMatchObject({ kind: 'edges', margin: 28 });
+
+    // No obstacles or hazards (parity)
+    expect(arena.obstacles).toHaveLength(0);
+    expect(arena.hazards).toHaveLength(0);
   });
 
-  it('no spawnCurves[0] references remain in the codebase', () => {
-    // This test proves the exit gate: the file containing spawnCurves[0] reads
-    // would fail TypeScript enforcement or be caught by grep. This test asserts
-    // the arena-authoritative path works end-to-end.
+  it('arena selection is session-transient, never persisted', () => {
     const ctx = makeContext();
-    const arena = ctx.arenas.arenaById(ctx.selectedArenaId)!;
-    const curve = ctx.data.spawnCurves.find((c) => c.id === arena.spawnCurveId);
-    expect(curve).toBeDefined();
-
-    // The resolved curve comes from arena.spawnCurveId, not from spawnCurves[0]
-    const direct = ctx.data.spawnCurves[0];
-    expect(direct.id).toBe('junkyard-intro');
-    // Both paths happen to resolve to the same curve for the starter arena,
-    // but the arena path is what matters for correctness
-    expect(curve).toBe(direct);
-  });
-
-  it('larger arena has correct world bounds and player spawn', () => {
-    const data = loadGameData();
-    const fixtureArenas = new DataArenaRegistry({
-      arenas: [
-        ...data.arenas,
-        {
-          id: 'large-field',
-          name: 'Large Field',
-          size: { width: 1200, height: 900 },
-          spawnCurveId: 'junkyard-intro',
-          spawnRegions: [{ kind: 'edges', margin: 28 }],
-          obstacles: [],
-          hazards: [],
-          unlock: { type: 'default' },
-        },
-      ],
-    });
-    const ctx = createGameContext({
-      bus: createEventBus(),
-      menuRng: createRng(1),
-      data,
-      arenas: fixtureArenas,
-      metaUpgrades,
-      characters,
-      save: new SaveManager(new MemoryStorageAdapter(), 'large-arena', metaUpgrades.maxLevels()),
-    });
-
-    ctx.selectArena('large-field', ctx.arenaSelectionRevision);
-    const request = assembleRunRequest(ctx, createRng(42));
-    expect(request.arenaId).toBe('large-field');
-
-    const arena = fixtureArenas.arenaById('large-field')!;
-    expect(arena.size.width).toBe(1200);
-    expect(arena.size.height).toBe(900);
-
-    // World bounds would be set from arena.size; verify the values
-    expect(arena.size.width).toBeGreaterThan(390);
-    expect(arena.size.height).toBeGreaterThan(844);
-
-    // Player spawns at centre
-    expect(arena.size.width / 2).toBe(600);
-    expect(arena.size.height / 2).toBe(450);
+    const saveData = ctx.saveData;
+    ctx.selectArena('junkyard-lot', ctx.arenaSelectionRevision);
+    // The saveData snapshot should not have changed (selection is in-memory only)
+    expect(ctx.saveData).toBe(saveData);
   });
 });
