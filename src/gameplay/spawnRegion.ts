@@ -89,7 +89,7 @@ function isInsideRing(p: Vec2, region: RingRegion): boolean {
 
 function isValidPoint(p: Vec2, region: SpawnRegion, arena: Readonly<ArenaDefinition>): boolean {
   if (!isInsideSpawnableBand(p, region, arena)) return false;
-  if (region.kind !== 'edges' && inAnyObstacle(p, arena.obstacles)) return false;
+  if (inAnyObstacle(p, arena.obstacles)) return false;
   if (region.kind === 'ring' && !isInsideRing(p, region)) return false;
   return true;
 }
