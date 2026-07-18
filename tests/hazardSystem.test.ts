@@ -51,10 +51,15 @@ describe('HazardSystem', () => {
     });
   });
 
-  it('deals nothing when player is outside all hazards', () => {
+  it('deals nothing when the player body is just outside a hazard corner', () => {
     const bus = createEventBus();
-    const player = makePlayer({ x: 0, y: 0 });
+    // Hazard corner is (50,50). Centre (40,40) is sqrt(10^2+10^2)=14.14px away —
+    // outside the r=14 body circle, but INSIDE an r-expanded bounding box. This
+    // only stays a no-op under a true circle-rect test; a bounding-box regression
+    // would wrongly damage here.
+    const player = makePlayer({ x: 40, y: 40 });
     const runState = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
+    runState.status = 'active';
     const system = new HazardSystem({
       scene: {} as never,
       runState,
@@ -65,6 +70,25 @@ describe('HazardSystem', () => {
 
     system.update(1000);
     expect(player.takeEnvironmentalDamage).not.toHaveBeenCalled();
+  });
+
+  it('deals damage when the player body overlaps a hazard corner', () => {
+    const bus = createEventBus();
+    // Centre (41,41) is sqrt(9^2+9^2)=12.73px from the (50,50) corner — inside the
+    // r=14 body circle, so the corner overlap must register as damage.
+    const player = makePlayer({ x: 41, y: 41 });
+    const runState = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
+    runState.status = 'active';
+    const system = new HazardSystem({
+      scene: {} as never,
+      runState,
+      bus,
+      player: player as never,
+      hazards: [hazard],
+    });
+
+    system.update(1000);
+    expect(player.takeEnvironmentalDamage).toHaveBeenCalledWith(10);
   });
 
   it('is a no-op when hazards array is empty', () => {
@@ -142,6 +166,10 @@ describe('HazardSystem', () => {
     const bus = createEventBus();
     const player = makePlayer({ x: 100, y: 100 });
     const runState = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
+    // Active run + player inside the hazard: the ONLY reason nothing happens below
+    // is the bad dtMs. Without this the status guard would mask a missing dtMs/damage
+    // guard, so the test would pass even against broken code.
+    runState.status = 'active';
 
     const system = new HazardSystem({
       scene: {} as never,
@@ -160,6 +188,12 @@ describe('HazardSystem', () => {
 
     expect(player.takeEnvironmentalDamage).not.toHaveBeenCalled();
     expect(triggered).not.toHaveBeenCalled();
+
+    // Positive control: the fixture is otherwise live — a valid tick DOES apply
+    // damage and emit exactly once, so the no-ops above are attributable to dtMs.
+    system.update(1000);
+    expect(player.takeEnvironmentalDamage).toHaveBeenCalledTimes(1);
+    expect(triggered).toHaveBeenCalledTimes(1);
   });
 
   it('destroy is idempotent', () => {
