@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createRng } from '../src/engine/rng';
+import { createRng, type Rng } from '../src/engine/rng';
 import { spawnPoint } from '../src/gameplay/spawnRegion';
 import type { ArenaDefinition } from '../src/systems/types';
 
@@ -13,6 +13,21 @@ const canvasArena: ArenaDefinition = {
   hazards: [],
   unlock: { type: 'default' },
 };
+
+function sequenceRng(values: readonly number[]): Rng {
+  let index = 0;
+  return {
+    next() {
+      const value = values[index];
+      index += 1;
+      if (value === undefined) throw new Error('sequenceRng exhausted');
+      return value;
+    },
+    int() { return 0; },
+    pick<T>(items: readonly T[]) { return items[0]; },
+    weighted<T>(entries: ReadonlyArray<{ item: T; weight: number }>) { return entries[0].item; },
+  };
+}
 
 describe('spawnPoint', () => {
   it('edges region produces points matching the four screen-edge branches', () => {
@@ -108,42 +123,36 @@ describe('spawnPoint', () => {
         insideObstacleCount += 1;
       }
     }
-    // With 8 retry attempts, most points should avoid the obstacle
-    // The fallback may still land inside due to the rect center being within the obstacle.
-    // For this test, we verify the vast majority avoid it.
-    expect(insideObstacleCount).toBeLessThanOrEqual(50);
+    expect(insideObstacleCount).toBe(0);
   });
 
-  it('never returns a point on an obstacle edge (inclusive check)', () => {
-    // Ring with obstacle edge at x=275 — spawn must not return (275,y)
+  it('rejects a deterministic candidate exactly on an obstacle edge', () => {
     const arena: ArenaDefinition = {
       id: 'test', name: 'Test', size: { width: 400, height: 400 },
       spawnCurveId: 'test', hazards: [], unlock: { type: 'default' },
       spawnRegions: [{ kind: 'ring', cx: 200, cy: 200, minRadius: 50, maxRadius: 100 }],
       obstacles: [{ x: 275, y: 150, w: 50, h: 100 }],
     };
-    // Try 500 seeds — none should land inside or on an obstacle edge
-    for (let seed = 1; seed <= 500; seed += 1) {
-      const rng = createRng(seed);
-      const p = spawnPoint(arena, rng);
-      // Inclusive obstacle overlap test (>=, <=)
-      const inObs = (
-        p.x >= 275 && p.x <= 325 &&
-        p.y >= 150 && p.y <= 250
-      );
-      expect(inObs).toBe(false);
-    }
+
+    // First candidate: angle 0, radius 75 => (275, 200), exactly on the
+    // obstacle's left edge. Second candidate is the opposite valid point.
+    const p = spawnPoint(arena, sequenceRng([0, 0.5, 0.5, 0.5]));
+
+    expect(p.x).toBeCloseTo(125);
+    expect(p.y).toBeCloseTo(200);
+    expect(p.x >= 275 && p.x <= 325 && p.y >= 150 && p.y <= 250).toBe(false);
   });
 
-  it('bottom-edge ring throws for zero seeds with independent scatter budget', () => {
+  it('returns total points for a bottom-edge ring', () => {
     const arena: ArenaDefinition = {
       id: 'test', name: 'Test', size: { width: 400, height: 400 },
       spawnCurveId: 'test', hazards: [], unlock: { type: 'default' },
       spawnRegions: [{ kind: 'ring', cx: 200, cy: 400, minRadius: 390, maxRadius: 400 }],
       obstacles: [],
     };
-    // All 100 seeds must return valid points (independent scatter budget)
-    for (let seed = 1; seed <= 100; seed += 1) {
+    // Includes the former first failure at seed 146; the deterministic witness
+    // makes the result total rather than probabilistic.
+    for (let seed = 1; seed <= 1_000; seed += 1) {
       const rng = createRng(seed);
       const p = spawnPoint(arena, rng);
       expect(Number.isFinite(p.x)).toBe(true);
@@ -158,6 +167,33 @@ describe('spawnPoint', () => {
       expect(dist).toBeGreaterThanOrEqual(389.99);
       expect(dist).toBeLessThanOrEqual(400.01);
     }
+  });
+
+  it('uses a deterministic witness for a narrow obstacle-constrained ring arc', () => {
+    const obstacles = [
+      { x: 40, y: 40, w: 60, h: 120 },
+      { x: 100, y: 40, w: 60, h: 59 },
+      { x: 100, y: 101, w: 60, h: 59 },
+      { x: 100, y: 99, w: 49, h: 2 },
+    ];
+    const arena: ArenaDefinition = {
+      id: 'test', name: 'Test', size: { width: 400, height: 400 },
+      spawnCurveId: 'test', hazards: [], unlock: { type: 'default' },
+      spawnRegions: [{ kind: 'ring', cx: 100, cy: 100, minRadius: 50, maxRadius: 60 }],
+      obstacles,
+    };
+
+    // All eight random samples target the covered left arc; fallback must find
+    // the narrow open strip at x=149..160, y=99..101 deterministically.
+    const p = spawnPoint(arena, sequenceRng(Array(16).fill(0.5)));
+    const distance = Math.hypot(p.x - 100, p.y - 100);
+
+    expect(distance).toBeGreaterThanOrEqual(50);
+    expect(distance).toBeLessThanOrEqual(60);
+    expect(obstacles.some((obstacle) =>
+      p.x >= obstacle.x && p.x <= obstacle.x + obstacle.w &&
+      p.y >= obstacle.y && p.y <= obstacle.y + obstacle.h,
+    )).toBe(false);
   });
 
   it('corner ring (0,0,500,550) in 400x400 has valid points', () => {

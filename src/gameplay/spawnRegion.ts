@@ -3,8 +3,16 @@ import type { Vec2 } from '../engine/vector';
 import type { ArenaDefinition, SpawnRegion } from '../systems/types';
 
 const MAX_ATTEMPTS = 8;
-const RING_SWEEP_BUDGET = 32;  // max angles × radii checked in deterministic sweep
-const SCATTER_ATTEMPTS = 16;   // separate random fallback budget
+const SCATTER_ATTEMPTS = 16;
+
+type ObstacleBounds = {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+};
+
+type RingRegion = Extract<SpawnRegion, { readonly kind: 'ring' }>;
 
 export function spawnPoint(arena: Readonly<ArenaDefinition>, rng: Rng): Vec2 {
   const regions = arena.spawnRegions;
@@ -64,7 +72,7 @@ function isInsideSpawnableBand(
 
 function inAnyObstacle(
   p: Vec2,
-  obstacles: ReadonlyArray<{ readonly x: number; readonly y: number; readonly w: number; readonly h: number }>,
+  obstacles: readonly ObstacleBounds[],
 ): boolean {
   for (const o of obstacles) {
     if (p.x >= o.x && p.x <= o.x + o.w && p.y >= o.y && p.y <= o.y + o.h) {
@@ -74,15 +82,15 @@ function inAnyObstacle(
   return false;
 }
 
+function isInsideRing(p: Vec2, region: RingRegion): boolean {
+  const distance = Math.hypot(p.x - region.cx, p.y - region.cy);
+  return distance >= region.minRadius - 1e-9 && distance <= region.maxRadius + 1e-9;
+}
+
 function isValidPoint(p: Vec2, region: SpawnRegion, arena: Readonly<ArenaDefinition>): boolean {
   if (!isInsideSpawnableBand(p, region, arena)) return false;
   if (region.kind !== 'edges' && inAnyObstacle(p, arena.obstacles)) return false;
-  if (region.kind === 'ring') {
-    const dx = p.x - region.cx;
-    const dy = p.y - region.cy;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < region.minRadius - 1e-9 || dist > region.maxRadius + 1e-9) return false;
-  }
+  if (region.kind === 'ring' && !isInsideRing(p, region)) return false;
   return true;
 }
 
@@ -96,7 +104,7 @@ function isValidPoint(p: Vec2, region: SpawnRegion, arena: Readonly<ArenaDefinit
  */
 export function findRectWitness(
   region: { readonly x: number; readonly y: number; readonly w: number; readonly h: number },
-  obstacles: ReadonlyArray<{ readonly x: number; readonly y: number; readonly w: number; readonly h: number }>,
+  obstacles: readonly ObstacleBounds[],
 ): Vec2 | null {
   const xs = new Set<number>([region.x, region.x + region.w]);
   const ys = new Set<number>([region.y, region.y + region.h]);
@@ -126,10 +134,130 @@ export function findRectWitness(
   return null;
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(value, max));
+}
+
+function distanceFromRingCentre(p: Vec2, region: RingRegion): number {
+  return Math.hypot(p.x - region.cx, p.y - region.cy);
+}
+
+function pointAtRadiusInCell(
+  region: RingRegion,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+): Vec2 | null {
+  const nearest = {
+    x: clamp(region.cx, x1, x2),
+    y: clamp(region.cy, y1, y2),
+  };
+  const corners = [
+    { x: x1, y: y1 },
+    { x: x2, y: y1 },
+    { x: x1, y: y2 },
+    { x: x2, y: y2 },
+  ];
+  const farthest = corners.reduce((best, candidate) =>
+    distanceFromRingCentre(candidate, region) > distanceFromRingCentre(best, region)
+      ? candidate
+      : best,
+  );
+
+  const nearestRadius = distanceFromRingCentre(nearest, region);
+  const farthestRadius = distanceFromRingCentre(farthest, region);
+  const lowRadius = Math.max(region.minRadius, nearestRadius);
+  const highRadius = Math.min(region.maxRadius, farthestRadius);
+  if (lowRadius > highRadius + 1e-9) return null;
+
+  const targetRadius = (lowRadius + highRadius) / 2;
+  if (Math.abs(targetRadius - nearestRadius) <= 1e-9) return nearest;
+  if (Math.abs(targetRadius - farthestRadius) <= 1e-9) return farthest;
+
+  let low = 0;
+  let high = 1;
+  for (let iteration = 0; iteration < 64; iteration += 1) {
+    const t = (low + high) / 2;
+    const candidate = {
+      x: nearest.x + (farthest.x - nearest.x) * t,
+      y: nearest.y + (farthest.y - nearest.y) * t,
+    };
+    if (distanceFromRingCentre(candidate, region) < targetRadius) low = t;
+    else high = t;
+  }
+
+  return {
+    x: nearest.x + (farthest.x - nearest.x) * high,
+    y: nearest.y + (farthest.y - nearest.y) * high,
+  };
+}
+
+/**
+ * Deterministic witness for a ring region inside arena bounds and outside the
+ * union of axis-aligned obstacles. Obstacle edges partition the arena into
+ * cells whose interiors have constant coverage. For each open cell, the
+ * minimum and maximum distance to the ring centre prove whether the annulus
+ * intersects it; a monotonic segment search then constructs the witness.
+ */
+export function findRingWitness(
+  region: RingRegion,
+  size: { readonly width: number; readonly height: number },
+  obstacles: readonly ObstacleBounds[],
+): Vec2 | null {
+  const isValid = (p: Vec2): boolean =>
+    p.x >= 0 && p.x <= size.width &&
+    p.y >= 0 && p.y <= size.height &&
+    !inAnyObstacle(p, obstacles) &&
+    isInsideRing(p, region);
+
+  const xs = new Set<number>([0, size.width]);
+  const ys = new Set<number>([0, size.height]);
+  for (const obstacle of obstacles) {
+    if (obstacle.x + obstacle.w <= 0 || obstacle.x >= size.width) continue;
+    if (obstacle.y + obstacle.h <= 0 || obstacle.y >= size.height) continue;
+    xs.add(clamp(obstacle.x, 0, size.width));
+    xs.add(clamp(obstacle.x + obstacle.w, 0, size.width));
+    ys.add(clamp(obstacle.y, 0, size.height));
+    ys.add(clamp(obstacle.y + obstacle.h, 0, size.height));
+  }
+
+  const sortedX = [...xs].sort((a, b) => a - b);
+  const sortedY = [...ys].sort((a, b) => a - b);
+
+  for (const corner of [
+    { x: 0, y: 0 },
+    { x: size.width, y: 0 },
+    { x: 0, y: size.height },
+    { x: size.width, y: size.height },
+  ]) {
+    if (isValid(corner)) return corner;
+  }
+
+  for (let xIndex = 0; xIndex < sortedX.length - 1; xIndex += 1) {
+    const x1 = sortedX[xIndex];
+    const x2 = sortedX[xIndex + 1];
+    if (x2 <= x1) continue;
+    for (let yIndex = 0; yIndex < sortedY.length - 1; yIndex += 1) {
+      const y1 = sortedY[yIndex];
+      const y2 = sortedY[yIndex + 1];
+      if (y2 <= y1) continue;
+
+      const midpoint = { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
+      if (inAnyObstacle(midpoint, obstacles)) continue;
+
+      const witness = pointAtRadiusInCell(region, x1, y1, x2, y2);
+      if (witness && isValid(witness)) return witness;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Fallback search for spawn points.
  * - Rect: uses the deterministic cell-sweep witness (findRectWitness).
- * - Ring: stratified sweep (independent budget) + random scatter.
+ * - Ring: deterministic cell-sweep witness (findRingWitness).
  * - Edges: edge midpoints + random scatter.
  */
 function searchFallback(
@@ -150,27 +278,12 @@ function searchFallback(
   }
 
   if (region.kind === 'ring') {
-    const midR = (region.minRadius + region.maxRadius) / 2;
-    const radii = [midR, region.minRadius, region.maxRadius,
-      (region.minRadius + midR) / 2, (midR + region.maxRadius) / 2];
-
-    // Deterministic sweep: 32 angles, full ring coverage
-    let checks = 0;
-    for (let i = 0; i < 32 && checks < RING_SWEEP_BUDGET; i += 1) {
-      const a = (2 * Math.PI * i) / 32;
-      for (const r of radii) {
-        if (checks >= RING_SWEEP_BUDGET) break;
-        const p = { x: region.cx + r * Math.cos(a), y: region.cy + r * Math.sin(a) };
-        if (isValidPoint(p, region, arena)) return p;
-        checks += 1;
-      }
-    }
-
-    // Independent random scatter budget (not shared with sweep)
-    for (let attempt = 0; attempt < SCATTER_ATTEMPTS; attempt += 1) {
-      const p = samplePoint(region, arena, rng);
-      if (isValidPoint(p, region, arena)) return p;
-    }
+    const witness = findRingWitness(region, arena.size, arena.obstacles);
+    if (witness && isValidPoint(witness, region, arena)) return witness;
+    throw new Error(
+      `spawnPoint: ring region has no spawnable point — ` +
+      `validation should have rejected`,
+    );
   } else {
     // Edges
     const { width, height } = arena.size;

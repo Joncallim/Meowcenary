@@ -938,6 +938,41 @@ describe('game data validation', () => {
       ]))).toThrow(/required integer from 256/);
     });
 
+    it('accepts rings with deterministic in-bounds witnesses', () => {
+      expect(() => validateGameData(withArenas([
+        arenaFixture({
+          spawnRegions: [{ kind: 'ring', cx: 200, cy: 400, minRadius: 390, maxRadius: 400 }],
+        }),
+      ]))).not.toThrow();
+
+      expect(() => validateGameData(withArenas([
+        arenaFixture({
+          spawnRegions: [{ kind: 'ring', cx: 0, cy: 0, minRadius: 500, maxRadius: 550 }],
+        }),
+      ]))).not.toThrow();
+    });
+
+    it('rejects a ring covered by an obstacle union with no witness', () => {
+      const almostCoveringObstacles = [
+        { x: 40, y: 40, w: 60, h: 120 },
+        { x: 100, y: 40, w: 60, h: 59 },
+        { x: 100, y: 101, w: 60, h: 59 },
+        { x: 100, y: 99, w: 49, h: 2 },
+      ];
+      const ring = { kind: 'ring', cx: 100, cy: 100, minRadius: 50, maxRadius: 60 };
+
+      expect(() => validateGameData(withArenas([
+        arenaFixture({ spawnRegions: [ring], obstacles: almostCoveringObstacles }),
+      ]))).not.toThrow();
+
+      expect(() => validateGameData(withArenas([
+        arenaFixture({
+          spawnRegions: [ring],
+          obstacles: [...almostCoveringObstacles, { x: 149, y: 99, w: 11, h: 2 }],
+        }),
+      ]))).toThrow(/ring region has no spawnable point/);
+    });
+
     it('rejects unknown spawnCurveId', () => {
       expect(() => validateGameData(withArenas([
         arenaFixture({ spawnCurveId: 'nonexistent-curve' }),
