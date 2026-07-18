@@ -212,7 +212,11 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
 
-    this.add.rectangle(width / 2, height / 2, width - 24, height - 24, 0x16202a).setStrokeStyle(2, 0x2dd4bf, 0.28);
+    this.add.rectangle(
+      arena.size.width / 2, arena.size.height / 2,
+      arena.size.width - 24, arena.size.height - 24,
+      0x16202a,
+    ).setStrokeStyle(2, 0x2dd4bf, 0.28);
     this.add
       .text(
         width / 2,

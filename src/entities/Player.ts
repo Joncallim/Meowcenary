@@ -47,6 +47,11 @@ export class Player {
     return this.sprite.body as Phaser.Physics.Arcade.Body;
   }
 
+  get bodyRadius(): number {
+    const body = this.sprite.body as Phaser.Physics.Arcade.Body | undefined;
+    return body?.halfWidth ?? 14;
+  }
+
   get maxHealth(): number {
     return Math.max(1, this.runState.stats.resolve('maxHealth', this.options.baseMaxHealth));
   }

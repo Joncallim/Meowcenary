@@ -17,6 +17,7 @@ export class HazardSystem implements System {
   private readonly runState: RunState;
   private readonly bus: EventBus;
   private readonly player: Player;
+  private readonly visuals: Phaser.GameObjects.Rectangle[] = [];
   private destroyed = false;
 
   constructor(options: HazardSystemOptions) {
@@ -24,6 +25,17 @@ export class HazardSystem implements System {
     this.runState = options.runState;
     this.bus = options.bus;
     this.player = options.player;
+
+    if (options.scene.add && options.hazards.length > 0) {
+      for (const h of options.hazards) {
+        const rect = options.scene.add.rectangle(
+          h.x + h.w / 2, h.y + h.h / 2, h.w, h.h,
+          0xff4444,
+          0.18,
+        ).setDepth(0);
+        this.visuals.push(rect);
+      }
+    }
   }
 
   update(dtMs: number): void {
@@ -35,13 +47,14 @@ export class HazardSystem implements System {
 
     const px = this.player.x;
     const py = this.player.y;
+    const r = this.player.bodyRadius;
 
     for (const hazard of this.hazards) {
       if (this.runState.status !== 'active') break;
 
       const inHazard =
-        px >= hazard.x && px <= hazard.x + hazard.w &&
-        py >= hazard.y && py <= hazard.y + hazard.h;
+        px + r >= hazard.x && px - r <= hazard.x + hazard.w &&
+        py + r >= hazard.y && py - r <= hazard.y + hazard.h;
 
       if (!inHazard) continue;
 
@@ -59,5 +72,9 @@ export class HazardSystem implements System {
 
   destroy(): void {
     this.destroyed = true;
+    for (const rect of this.visuals) {
+      rect.destroy();
+    }
+    this.visuals.length = 0;
   }
 }

@@ -275,6 +275,19 @@ function checkArena(row: unknown): string[] {
         if (isFiniteNumber(maxR) && w > 0 && h > 0 && maxR > Math.max(w, h)) {
           regionErrors.push('maxRadius: must not exceed arena extent');
         }
+        // Reject impossible rings: minRadius must not exceed max distance from
+        // centre to any arena corner, otherwise no point on the annulus is in bounds.
+        if (isFiniteNumber(cx) && isFiniteNumber(cy) && isFiniteNumber(minR) && w > 0 && h > 0) {
+          const cornerDist = Math.max(
+            Math.hypot(cx, cy),
+            Math.hypot(w - cx, cy),
+            Math.hypot(cx, h - cy),
+            Math.hypot(w - cx, h - cy),
+          );
+          if (minR > cornerDist + 1e-9) {
+            regionErrors.push('minRadius: annulus has no intersection with arena bounds');
+          }
+        }
       } else if (kind === 'rect') {
         rejectUnknownFields(region, REGION_RECT_FIELDS, regionErrors);
         requireNonNegativeNumber(region, 'x', regionErrors);

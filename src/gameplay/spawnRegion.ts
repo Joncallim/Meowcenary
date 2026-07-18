@@ -124,19 +124,19 @@ function searchFallback(
       break;
     }
     case 'rect': {
-      // Coarse-to-fine sweep: log2 steps, max tile count ≈ log2(maxDim)^2
+      const COARSE_BUDGET = 40;
+      const EDGE_BUDGET = 8;
+      // Coarse grid: max 40 points across the region
       const maxDim = Math.max(region.w, region.h);
-      const levels = Math.max(4, Math.ceil(Math.log2(maxDim + 1)));
-      for (let level = levels; level >= 0 && checks < FALLBACK_BUDGET; level -= 1) {
-        const step = Math.max(1, Math.pow(2, level));
-        for (let sx = region.x; sx <= region.x + region.w && checks < FALLBACK_BUDGET; sx += step) {
-          for (let sy = region.y; sy <= region.y + region.h && checks < FALLBACK_BUDGET; sy += step) {
+      for (let step = Math.max(2, Math.ceil(maxDim / 5)); step >= 2 && checks < COARSE_BUDGET; step = Math.floor(step / 2)) {
+        for (let sx = region.x; sx <= region.x + region.w && checks < COARSE_BUDGET; sx += step) {
+          for (let sy = region.y; sy <= region.y + region.h && checks < COARSE_BUDGET; sy += step) {
             const found = tryPoint({ x: sx, y: sy });
             if (found) return found;
           }
         }
       }
-      // Half-unit precision pass at corners/edges
+      // Edge/corner pass
       const pts = [
         { x: region.x, y: region.y },
         { x: region.x + region.w, y: region.y },
@@ -148,11 +148,11 @@ function searchFallback(
         { x: region.x + region.w, y: region.y + region.h / 2 },
       ];
       for (const p of pts) {
-        if (checks >= FALLBACK_BUDGET) break;
+        if (checks >= COARSE_BUDGET + EDGE_BUDGET) break;
         const found = tryPoint(p);
         if (found) return found;
       }
-      // Random scatter for remaining budget
+      // Random scatter — guaranteed budget
       while (checks < FALLBACK_BUDGET) {
         const found = tryPoint(samplePoint(region, arena, rng));
         if (found) return found;

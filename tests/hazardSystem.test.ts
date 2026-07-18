@@ -9,6 +9,7 @@ function makePlayer(overrides: Record<string, unknown> = {}) {
     active: true,
     x: 100,
     y: 100,
+    bodyRadius: 14,
     takeEnvironmentalDamage: vi.fn(),
     takeDamage: vi.fn(),
     ...overrides,
