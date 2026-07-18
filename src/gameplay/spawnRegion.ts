@@ -3,6 +3,8 @@ import type { Vec2 } from '../engine/vector';
 import type { ArenaDefinition, SpawnRegion } from '../systems/types';
 
 const MAX_ATTEMPTS = 8;
+const RING_SWEEP_BUDGET = 32;  // max angles × radii checked in deterministic sweep
+const SCATTER_ATTEMPTS = 16;   // separate random fallback budget
 
 export function spawnPoint(arena: Readonly<ArenaDefinition>, rng: Rng): Vec2 {
   const regions = arena.spawnRegions;
@@ -65,7 +67,7 @@ function inAnyObstacle(
   obstacles: ReadonlyArray<{ readonly x: number; readonly y: number; readonly w: number; readonly h: number }>,
 ): boolean {
   for (const o of obstacles) {
-    if (p.x > o.x && p.x < o.x + o.w && p.y > o.y && p.y < o.y + o.h) {
+    if (p.x >= o.x && p.x <= o.x + o.w && p.y >= o.y && p.y <= o.y + o.h) {
       return true;
     }
   }
@@ -88,23 +90,16 @@ function isValidPoint(p: Vec2, region: SpawnRegion, arena: Readonly<ArenaDefinit
  * Deterministic cell-sweep witness for rect spawn regions.
  * Collects X/Y cut points from region bounds and obstacle edges clipped to the
  * region, builds a sorted unique axis list, then inspects the midpoint of every
- * cell with positive area. Returns the first valid midpoint, or null if the
- * region is fully covered by obstacles.
- *
- * Used both by `searchFallback` (runtime) and by `checkArena` (validation)
- * so the proof of spawnability is shared.
+ * cell with positive area. Uses the shared `inAnyObstacle` predicate so edge
+ * semantics match runtime collision. Returns the first valid midpoint, or null
+ * if the region is fully covered by obstacles.
  */
 export function findRectWitness(
   region: { readonly x: number; readonly y: number; readonly w: number; readonly h: number },
   obstacles: ReadonlyArray<{ readonly x: number; readonly y: number; readonly w: number; readonly h: number }>,
 ): Vec2 | null {
-  const x1 = region.x;
-  const x2 = region.x + region.w;
-  const y1 = region.y;
-  const y2 = region.y + region.h;
-
-  const xs = new Set<number>([x1, x2]);
-  const ys = new Set<number>([y1, y2]);
+  const xs = new Set<number>([region.x, region.x + region.w]);
+  const ys = new Set<number>([region.y, region.y + region.h]);
 
   for (const o of obstacles) {
     if (o.x + o.w <= region.x || o.x >= region.x + region.w) continue;
@@ -122,15 +117,9 @@ export function findRectWitness(
     const cx = (sortedX[ix] + sortedX[ix + 1]) / 2;
     for (let iy = 0; iy < sortedY.length - 1; iy += 1) {
       const cy = (sortedY[iy] + sortedY[iy + 1]) / 2;
-      // Use strict interior check to avoid obstacle edges
-      let blocked = false;
-      for (const o of obstacles) {
-        if (cx > o.x && cx < o.x + o.w && cy > o.y && cy < o.y + o.h) {
-          blocked = true;
-          break;
-        }
-      }
-      if (!blocked) return { x: cx, y: cy };
+      // Cell midpoints are interior to positive-area cut intervals;
+      // use shared predicate for consistent edge semantics.
+      if (!inAnyObstacle({ x: cx, y: cy }, obstacles)) return { x: cx, y: cy };
     }
   }
 
@@ -138,10 +127,10 @@ export function findRectWitness(
 }
 
 /**
- * Fallback search for spawn points. For rect regions, uses the deterministic
- * cell-sweep witness (findRectWitness). For ring/edges, uses stratified sweep
- * followed by random scatter. Throws if no valid point is found — which should
- * not happen if validation accepted the region.
+ * Fallback search for spawn points.
+ * - Rect: uses the deterministic cell-sweep witness (findRectWitness).
+ * - Ring: stratified sweep (independent budget) + random scatter.
+ * - Edges: edge midpoints + random scatter.
  */
 function searchFallback(
   region: SpawnRegion,
@@ -160,30 +149,30 @@ function searchFallback(
     );
   }
 
-  // Ring and edges use stratified sweep + random scatter
-  let checks = 0;
-  const tryPoint = (p: Vec2): Vec2 | null => {
-    if (checks >= 64) return null;
-    checks += 1;
-    return isValidPoint(p, region, arena) ? p : null;
-  };
-
   if (region.kind === 'ring') {
     const midR = (region.minRadius + region.maxRadius) / 2;
     const radii = [midR, region.minRadius, region.maxRadius,
       (region.minRadius + midR) / 2, (midR + region.maxRadius) / 2];
-    for (let i = 0; i < 32; i += 1) {
+
+    // Deterministic sweep: 32 angles, full ring coverage
+    let checks = 0;
+    for (let i = 0; i < 32 && checks < RING_SWEEP_BUDGET; i += 1) {
       const a = (2 * Math.PI * i) / 32;
       for (const r of radii) {
-        const found = tryPoint({ x: region.cx + r * Math.cos(a), y: region.cy + r * Math.sin(a) });
-        if (found) return found;
+        if (checks >= RING_SWEEP_BUDGET) break;
+        const p = { x: region.cx + r * Math.cos(a), y: region.cy + r * Math.sin(a) };
+        if (isValidPoint(p, region, arena)) return p;
+        checks += 1;
       }
     }
-    while (checks < 64) {
-      const found = tryPoint(samplePoint(region, arena, rng));
-      if (found) return found;
+
+    // Independent random scatter budget (not shared with sweep)
+    for (let attempt = 0; attempt < SCATTER_ATTEMPTS; attempt += 1) {
+      const p = samplePoint(region, arena, rng);
+      if (isValidPoint(p, region, arena)) return p;
     }
   } else {
+    // Edges
     const { width, height } = arena.size;
     const margin = region.margin;
     for (const p of [
@@ -192,12 +181,11 @@ function searchFallback(
       { x: width / 2, y: height + margin },
       { x: -margin, y: height / 2 },
     ]) {
-      const found = tryPoint(p);
-      if (found) return found;
+      if (isValidPoint(p, region, arena)) return p;
     }
-    while (checks < 64) {
-      const found = tryPoint(samplePoint(region, arena, rng));
-      if (found) return found;
+    for (let attempt = 0; attempt < SCATTER_ATTEMPTS; attempt += 1) {
+      const p = samplePoint(region, arena, rng);
+      if (isValidPoint(p, region, arena)) return p;
     }
   }
 

@@ -113,4 +113,72 @@ describe('spawnPoint', () => {
     // For this test, we verify the vast majority avoid it.
     expect(insideObstacleCount).toBeLessThanOrEqual(50);
   });
+
+  it('never returns a point on an obstacle edge (inclusive check)', () => {
+    // Ring with obstacle edge at x=275 — spawn must not return (275,y)
+    const arena: ArenaDefinition = {
+      id: 'test', name: 'Test', size: { width: 400, height: 400 },
+      spawnCurveId: 'test', hazards: [], unlock: { type: 'default' },
+      spawnRegions: [{ kind: 'ring', cx: 200, cy: 200, minRadius: 50, maxRadius: 100 }],
+      obstacles: [{ x: 275, y: 150, w: 50, h: 100 }],
+    };
+    // Try 500 seeds — none should land inside or on an obstacle edge
+    for (let seed = 1; seed <= 500; seed += 1) {
+      const rng = createRng(seed);
+      const p = spawnPoint(arena, rng);
+      // Inclusive obstacle overlap test (>=, <=)
+      const inObs = (
+        p.x >= 275 && p.x <= 325 &&
+        p.y >= 150 && p.y <= 250
+      );
+      expect(inObs).toBe(false);
+    }
+  });
+
+  it('bottom-edge ring throws for zero seeds with independent scatter budget', () => {
+    const arena: ArenaDefinition = {
+      id: 'test', name: 'Test', size: { width: 400, height: 400 },
+      spawnCurveId: 'test', hazards: [], unlock: { type: 'default' },
+      spawnRegions: [{ kind: 'ring', cx: 200, cy: 400, minRadius: 390, maxRadius: 400 }],
+      obstacles: [],
+    };
+    // All 100 seeds must return valid points (independent scatter budget)
+    for (let seed = 1; seed <= 100; seed += 1) {
+      const rng = createRng(seed);
+      const p = spawnPoint(arena, rng);
+      expect(Number.isFinite(p.x)).toBe(true);
+      expect(Number.isFinite(p.y)).toBe(true);
+      // Must be in bounds
+      expect(p.x).toBeGreaterThanOrEqual(0);
+      expect(p.x).toBeLessThanOrEqual(400);
+      expect(p.y).toBeGreaterThanOrEqual(0);
+      expect(p.y).toBeLessThanOrEqual(400);
+      // Must be on the annulus
+      const dist = Math.sqrt((p.x - 200) ** 2 + (p.y - 400) ** 2);
+      expect(dist).toBeGreaterThanOrEqual(389.99);
+      expect(dist).toBeLessThanOrEqual(400.01);
+    }
+  });
+
+  it('corner ring (0,0,500,550) in 400x400 has valid points', () => {
+    const arena: ArenaDefinition = {
+      id: 'test', name: 'Test', size: { width: 400, height: 400 },
+      spawnCurveId: 'test', hazards: [], unlock: { type: 'default' },
+      spawnRegions: [{ kind: 'ring', cx: 0, cy: 0, minRadius: 500, maxRadius: 550 }],
+      obstacles: [],
+    };
+    for (let seed = 1; seed <= 50; seed += 1) {
+      const rng = createRng(seed);
+      const p = spawnPoint(arena, rng);
+      expect(Number.isFinite(p.x)).toBe(true);
+      expect(Number.isFinite(p.y)).toBe(true);
+      expect(p.x).toBeGreaterThanOrEqual(0);
+      expect(p.x).toBeLessThanOrEqual(400);
+      expect(p.y).toBeGreaterThanOrEqual(0);
+      expect(p.y).toBeLessThanOrEqual(400);
+      const dist = Math.sqrt((p.x - 0) ** 2 + (p.y - 0) ** 2);
+      expect(dist).toBeGreaterThanOrEqual(499.99);
+      expect(dist).toBeLessThanOrEqual(550.01);
+    }
+  });
 });
