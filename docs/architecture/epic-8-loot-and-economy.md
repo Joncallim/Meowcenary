@@ -280,7 +280,7 @@ already reads `enemy.xpValue`. `PassiveCoordinator` and every other
 `enemy:killed` listener are unaffected (added fields are read only by
 `DropSystem`).
 
-### 4.6 Poolable drop entity (`src/entities/Drop.ts`, replaces `XpDrop.ts`)
+### 4.6 Poolable drop entity (`src/entities/Drop.ts`; `XpDrop.ts` is deleted in Slice 4 alongside the `DropSystem` rework — deleting it earlier would break the compile between slices)
 
 ```ts
 export type DropKind = 'xp' | 'scrap' | 'chest';
@@ -436,8 +436,8 @@ merge.
 | --- | --- | --- | --- |
 | 1 | Loot table data model, validation & registry (+ enemy `lootTableId` field) | `loot-tables.json`, `types.ts`, `validation.ts`, `lootTables.ts`, tests | none (post-Epic-7 `main`) |
 | 2 | Pure loot resolver | `gameplay/loot.ts`, tests | 1 |
-| 3 | Poolable `Drop` entity + magnet geometry | `entities/Drop.ts`, delete `XpDrop.ts`, tests | 1 |
-| 4 | Kill-to-loot pipeline: payload extension, `Enemy` getters, `WeaponSystem` slim-down, `DropSystem` rework (xp+scrap), `config.ts` drop section, `GameScene` rewiring, HUD line | `eventBus.ts`, `Enemy.ts`, `WeaponSystem.ts`, `DropSystem.ts`, `config.ts`, `GameScene.ts`, migrated tests | 1, 2, 3 |
+| 3 | Poolable `Drop` entity + magnet geometry | `entities/Drop.ts`, tests | 1 |
+| 4 | Kill-to-loot pipeline: payload extension, `Enemy` getters, `WeaponSystem` slim-down, `DropSystem` rework (xp+scrap), `config.ts` drop section, `GameScene` rewiring, HUD line, delete `XpDrop.ts` | `eventBus.ts`, `Enemy.ts`, `WeaponSystem.ts`, `DropSystem.ts`, `config.ts`, `GameScene.ts`, migrated tests | 1, 2, 3 |
 | 5 | Chest shell + integration harness + dev hotkey + docs sign-off | `DropSystem.ts` (chest collect), integration tests, `GameScene.ts` (F10 dev-only), `epics.md`, `roadmap.md` | 4 |
 
 Slices 2 and 3 are independent of each other and can be implemented in
