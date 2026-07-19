@@ -95,6 +95,7 @@ describe('HazardSystem', () => {
     const bus = createEventBus();
     const player = makePlayer();
     const runState = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
+    runState.status = 'active';
     const system = new HazardSystem({
       scene: {} as never,
       runState,
@@ -200,6 +201,7 @@ describe('HazardSystem', () => {
     const bus = createEventBus();
     const player = makePlayer({ x: 100, y: 100 });
     const runState = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
+    runState.status = 'active';
 
     const system = new HazardSystem({
       scene: {} as never,

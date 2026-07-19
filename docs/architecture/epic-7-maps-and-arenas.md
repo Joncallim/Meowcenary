@@ -225,6 +225,14 @@ scoping.
   (in-bounds, not covering a `rect`/`ring` region or the arena centre) is checked
   per-row inside `validateArenaCatalog`.
 
+
+- **Witness-based feasibility checks:** validation deterministically proves that
+  every `rect` and `ring` spawn region has at least one valid spawn point by
+  running a shared cell-sweep routine (`findRectWitness` / `findRingWitness`).
+  For `edges` regions, every edge midpoint is checked against obstacles.
+  Catalog-level caps reject arenas exceeding `MAX_SPAWN_REGIONS=16`,
+  `MAX_OBSTACLES=256`, or `MAX_HAZARDS=64` to bound the witness-scan cost.
+
 ### 4.4 Pure selection rules (`src/gameplay/arenaSelection.ts`)
 
 ```ts

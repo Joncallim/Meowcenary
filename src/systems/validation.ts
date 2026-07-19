@@ -535,6 +535,28 @@ function checkArena(row: unknown): string[] {
           errors.push(`spawnRegions[${rIdx}]: ring region has no spawnable point`);
         }
       }
+      if (kind === 'edges') {
+        const margin = readOwnField(region, 'margin');
+        if (!isFiniteNumber(margin)) continue;
+        const sizeRecord = readOwnField(row, 'size');
+        const wArg = isRecord(sizeRecord) ? readOwnField(sizeRecord, 'width') : undefined;
+        const hArg = isRecord(sizeRecord) ? readOwnField(sizeRecord, 'height') : undefined;
+        if (!isFiniteNumber(wArg) || !isFiniteNumber(hArg)) continue;
+        const edgePts = [
+          { x: wArg / 2, y: -margin },
+          { x: wArg + margin, y: hArg / 2 },
+          { x: wArg / 2, y: hArg + margin },
+          { x: -margin, y: hArg / 2 },
+        ];
+        const allBlocked = edgePts.every((p) =>
+          arenaObstacles.some((o: { x: number; y: number; w: number; h: number }) =>
+            p.x >= o.x && p.x <= o.x + o.w && p.y >= o.y && p.y <= o.y + o.h,
+          ),
+        );
+        if (allBlocked) {
+          errors.push(`spawnRegions[${rIdx}]: edges region has no spawnable point — all edge midpoints obstructed`);
+        }
+      }
     }
   }
 

@@ -126,27 +126,22 @@ describe('arena data-level integration', () => {
     scenery.destroy();
   });
 
-  it('spawnPoint produces obstacle-free points in all regions (50 seeds)', () => {
-    const ctx = makeContext();
-    ctx.selectArena('large-test-field', ctx.arenaSelectionRevision);
-    const arena = ctx.arenas.arenaById('large-test-field')!;
-
+  it('spawnPoint produces obstacle-free points (rect region overlapping obstacle, 50 seeds)', () => {
+    const arena = {
+      id: 'overlap-test', name: 'Overlap Test', size: { width: 400, height: 400 },
+      spawnCurveId: 'junkyard-intro',
+      spawnRegions: [{ kind: 'rect' as const, x: 200, y: 100, w: 200, h: 200 }],
+      obstacles: [{ x: 250, y: 150, w: 100, h: 100 }],
+      hazards: [],
+      unlock: { type: 'default' as const },
+    };
     for (let seed = 1; seed <= 50; seed += 1) {
       const rng = createRng(seed);
       const p = spawnPoint(arena, rng);
       expect(Number.isFinite(p.x)).toBe(true);
       expect(Number.isFinite(p.y)).toBe(true);
-
-      // Edges band: [-28, 1228] × [-28, 928]
-      expect(p.x).toBeGreaterThanOrEqual(-28);
-      expect(p.x).toBeLessThanOrEqual(1228);
-      expect(p.y).toBeGreaterThanOrEqual(-28);
-      expect(p.y).toBeLessThanOrEqual(928);
-
-      // Must NOT overlap any obstacle (inclusive check matches Arcade collision)
-      const inObs1 = p.x >= 500 && p.x <= 580 && p.y >= 200 && p.y <= 500;
-      const inObs2 = p.x >= 700 && p.x <= 900 && p.y >= 400 && p.y <= 460;
-      expect(inObs1 || inObs2).toBe(false);
+      const inObs = p.x >= 250 && p.x <= 350 && p.y >= 150 && p.y <= 250;
+      expect(inObs).toBe(false);
     }
   });
 
@@ -193,5 +188,17 @@ describe('arena data-level integration', () => {
     expect(witness!.x).toBeGreaterThan(0);
     expect(witness!.x).toBeLessThan(100);
     expect(witness!.y).toBeCloseTo(50, 0);
+  });
+
+  it('arena selection persists across 5 simulated restarts', () => {
+    const ctx = makeContext();
+    ctx.selectArena('large-test-field', ctx.arenaSelectionRevision);
+    for (let restart = 1; restart <= 5; restart += 1) {
+      const request = assembleRunRequest(ctx, createRng(100 + restart));
+      expect(request.arenaId).toBe('large-test-field');
+      const arena = ctx.arenas.arenaById(request.arenaId)!;
+      expect(arena.size.width).toBe(1200);
+      expect(arena.size.height).toBe(900);
+    }
   });
 });
