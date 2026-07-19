@@ -9,10 +9,13 @@
 - Epic 4 / Enemy AI and Spawn Director: complete (#5).
 - Epic 5 / Meta Progression: complete (#6).
 - Epic 6 / Characters: complete (#7).
-- Epic 7 / Maps and Arenas: next (#8).
+- Epic 7 / Maps and Arenas: complete (#8).
 
-The current `main` branch is the clean post-Epic-6 baseline (merged PR #36).
-Epic 7 follows the seven implementation slices in
+Epic 7 was implemented in the consolidated PR #51 and merged.
+Epic 8 is next.
+
+The current `main` branch is the clean post-Epic-7 baseline.
+The Epic 7 architecture is documented in
 [`architecture/epic-7-maps-and-arenas.md`](architecture/epic-7-maps-and-arenas.md),
 which adds the arena data/registry/selection contracts, the pure
 `spawnPoint(arena, rng)` bridge into Epic 4's spawn director, arena world

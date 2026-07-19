@@ -292,7 +292,7 @@ so schedules (fire cadence, spawn timing) stay deterministic in tests.
 | Epic 4 | #5 Enemy AI and Spawn Director | Complete | Simple enemy behaviours and data-driven wave pressure. |
 | Epic 5 | #6 Meta Progression | Complete | Earned permanent progress: banks RunState rewards, no ads/payments/timers. |
 | Epic 6 | #7 Characters | Complete | Selectable characters with starting stats, loadouts, passives, unlock hooks. |
-| Epic 7 | #8 Maps and Arenas | In Progress | Data-defined arenas, spawn regions, obstacles, hazard hooks. |
+| Epic 7 | #8 Maps and Arenas | Complete | Data-defined arenas, spawn regions, obstacles, hazard hooks. |
 | Epic 8 | #9 Loot and Economy | Open | In-run XP/scrap drops, loot tables, pickup behaviour. |
 | Epic 9 | #10 UI and UX | Open | Readable, controllable on phone and desktop. |
 | Epic 10 | #11 Audio | Open | Respectful, muteable, event-driven sound and music. |
