@@ -14,6 +14,17 @@
 Epic 7 was implemented in the consolidated PR #51 and merged.
 Epic 8 is next.
 
+Epic 8 (Loot and Economy, #9) is planned in
+[`architecture/epic-8-loot-and-economy.md`](architecture/epic-8-loot-and-economy.md).
+It moves kill-to-loot onto the event bus (an enriched `enemy:killed` payload
+consumed by `DropSystem`), adds the fail-closed `loot-tables.json` catalog with
+a pure seeded resolver, replaces `XpDrop` with a poolable magnet `Drop` entity,
+and activates the scrap economy (`currencyGain`, `currency:changed`) that
+Epic 5 banks at run end. Epic 8 adds no new events and no save-schema change;
+chests and rare drops ship as validated content shells, exactly as Epic 7
+shipped hazards. Each of its five slices ships as its own architecture PR and
+as a sub-issue under the Epic 8 umbrella (#9).
+
 The current `main` branch is the clean post-Epic-7 baseline.
 The Epic 7 architecture is documented in
 [`architecture/epic-7-maps-and-arenas.md`](architecture/epic-7-maps-and-arenas.md),
