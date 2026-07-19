@@ -124,8 +124,12 @@ describe('Enemy', () => {
     expect(first.enemy.defId).toBe('test-enemy');
     expect(first.enemy.archetype).toBe('chaser');
     expect(first.enemy.xpValue).toBe(1);
-    expect(first.enemy.pos).toEqual({ x: 11, y: 20 });
-    expect(first.sprite.body?.velocity).toEqual({ x: 0, y: 0 });
+    // Velocity-based movement: position unchanged until physics step
+    expect(first.enemy.pos).toEqual({ x: 10, y: 20 });
+    // Velocity set toward target
+    const v = first.sprite.body?.velocity;
+    expect(v?.x).toBeCloseTo(1, 0);
+    expect(v?.y).toBeCloseTo(0, 0);
     expect(sibling.enemy.defId).toBe('test-enemy');
     expect(sibling.enemy.archetype).toBe('chaser');
     expect(sibling.enemy.xpValue).toBe(1);

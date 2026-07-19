@@ -2,8 +2,10 @@ import type { EventBus } from './eventBus';
 import type { Rng } from './rng';
 import type { GameData } from '../systems/types';
 import type { CharacterRegistry } from '../systems/characters';
+import type { ArenaRegistry } from '../systems/arenas';
 import type { MetaUpgradeRegistry } from '../systems/metaUpgrades';
 import { canSelectCharacter } from '../gameplay/characterSelection';
+import { canSelectArena } from '../gameplay/arenaSelection';
 import {
   applySettingsPatch,
   createDefaultMeta,
@@ -28,6 +30,11 @@ export type SelectCharacterResult =
       readonly revision: number;
     };
 
+export type SelectArenaFailureReason = 'unknown-arena' | 'locked' | 'stale-selection';
+export type SelectArenaResult =
+  | { readonly ok: true; readonly arenaId: string; readonly revision: number }
+  | { readonly ok: false; readonly reason: SelectArenaFailureReason; readonly arenaId: string; readonly revision: number };
+
 export interface GameContext {
   readonly bus: EventBus;
   /** Boot/menu scoped only; gameplay RNG comes from RunState.seed. */
@@ -39,10 +46,14 @@ export interface GameContext {
   readonly characters: CharacterRegistry;
   readonly selectedCharacterId: string;
   readonly selectionRevision: number;
+  readonly arenas: ArenaRegistry;
+  readonly selectedArenaId: string;
+  readonly arenaSelectionRevision: number;
   updateSettings(patch: Readonly<Partial<Settings>>): PersistenceUpdate<Settings>;
   updateMeta(transform: (meta: MetaState) => MetaState): PersistenceUpdate<MetaState>;
   resetProgression(): PersistenceUpdate<MetaState>;
   selectCharacter(characterId: string, expectedRevision: number): SelectCharacterResult;
+  selectArena(arenaId: string, expectedRevision: number): SelectArenaResult;
 }
 
 export interface CreateGameContextOptions {
@@ -52,12 +63,15 @@ export interface CreateGameContextOptions {
   readonly metaUpgrades: MetaUpgradeRegistry;
   readonly save: SaveManager;
   readonly characters: CharacterRegistry;
+  readonly arenas: ArenaRegistry;
 }
 
 export function createGameContext(options: CreateGameContextOptions): GameContext {
   let current = options.save.load();
   let selectedCharacterId = options.characters.defaultCharacterId();
   let selectionRevision = 1;
+  let selectedArenaId = options.arenas.defaultArenaId();
+  let arenaSelectionRevision = 1;
 
   /** After a meta mutation, if the currently-selected character is no longer
    *  selectable (e.g. its unlock was removed), silently reset to the default.
@@ -69,6 +83,11 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       selectedCharacterId = options.characters.defaultCharacterId();
       selectionRevision += 1;
     }
+    const adef = options.arenas.arenaById(selectedArenaId);
+    if (adef && !canSelectArena(adef, current.meta)) {
+      selectedArenaId = options.arenas.defaultArenaId();
+      arenaSelectionRevision += 1;
+    }
   }
 
   const context: GameContext = {
@@ -77,10 +96,13 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     data: options.data,
     metaUpgrades: options.metaUpgrades,
     characters: options.characters,
+    arenas: options.arenas,
     get saveData() { return current; },
     get settings() { return current.settings; },
     get selectedCharacterId() { return selectedCharacterId; },
     get selectionRevision() { return selectionRevision; },
+    get selectedArenaId() { return selectedArenaId; },
+    get arenaSelectionRevision() { return arenaSelectionRevision; },
     updateSettings(patch) {
       const settings = applySettingsPatch(current.settings, patch);
       current = Object.freeze({ version: 2, settings, meta: current.meta });
@@ -127,6 +149,39 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       selectedCharacterId = characterId;
       selectionRevision += 1;
       return { ok: true, characterId, revision: selectionRevision };
+    },
+    selectArena(arenaId: string, expectedRevision: number): SelectArenaResult {
+      const def = options.arenas.arenaById(arenaId);
+      if (!def) {
+        return {
+          ok: false,
+          reason: 'unknown-arena',
+          arenaId: selectedArenaId,
+          revision: arenaSelectionRevision,
+        };
+      }
+      if (expectedRevision !== arenaSelectionRevision) {
+        return {
+          ok: false,
+          reason: 'stale-selection',
+          arenaId: selectedArenaId,
+          revision: arenaSelectionRevision,
+        };
+      }
+      if (!canSelectArena(def, current.meta)) {
+        return {
+          ok: false,
+          reason: 'locked',
+          arenaId: selectedArenaId,
+          revision: arenaSelectionRevision,
+        };
+      }
+      if (arenaId === selectedArenaId) {
+        return { ok: true, arenaId, revision: arenaSelectionRevision };
+      }
+      selectedArenaId = arenaId;
+      arenaSelectionRevision += 1;
+      return { ok: true, arenaId, revision: arenaSelectionRevision };
     },
   };
   return context;

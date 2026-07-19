@@ -3,6 +3,7 @@ import { createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
 import type { System } from '../src/engine/system';
+import { DataArenaRegistry } from '../src/systems/arenas';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
@@ -182,6 +183,161 @@ describe('GameContext persistence boundary', () => {
     expect(context.selectedCharacterId).toBe('scrap-tabby');
     expect(context.selectionRevision).toBe(revisionBefore + 1);
   });
+
+  it('selectedArenaId defaults to the registry default with arenaSelectionRevision === 1', () => {
+    const { context } = setup();
+    expect(context.selectedArenaId).toBe('junkyard-lot');
+    expect(context.arenaSelectionRevision).toBe(1);
+  });
+
+  it('selectArena rejects unknown arenas', () => {
+    const { context } = setup();
+    const result = context.selectArena('nonexistent', context.arenaSelectionRevision);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe('unknown-arena');
+      expect(result.arenaId).toBe('junkyard-lot');
+    }
+  });
+
+  it('selectArena rejects stale revisions', () => {
+    const { context } = setup();
+    const result = context.selectArena('junkyard-lot', 2);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe('stale-selection');
+      expect(result.arenaId).toBe('junkyard-lot');
+    }
+  });
+
+  it('selectArena rejects locked arenas', () => {
+    const data = loadGameData();
+    const arenas = new DataArenaRegistry({
+      arenas: [
+        ...data.arenas,
+        {
+          id: 'voltage-alley',
+          name: 'Voltage Alley',
+          size: { width: 800, height: 600 },
+          spawnCurveId: 'junkyard-intro',
+          spawnRegions: [{ kind: 'edges', margin: 28 }],
+          obstacles: [],
+          hazards: [],
+          unlock: { type: 'meta', requiresUnlockId: 'achievement:first-victory' },
+        },
+      ],
+    });
+    const metaUpgrades = new DataMetaUpgradeRegistry(data);
+    const characters = new DataCharacterRegistry(data);
+    const save = new SaveManager(new CountingStorage(), 'arena-locked', metaUpgrades.maxLevels());
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data,
+      arenas, metaUpgrades, save, characters,
+    });
+    const result = context.selectArena('voltage-alley', context.arenaSelectionRevision);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe('locked');
+      expect(result.arenaId).toBe('junkyard-lot');
+    }
+  });
+
+  it('selectArena same arena returns ok: true without bumping revision', () => {
+    const { context } = setup();
+    const result = context.selectArena('junkyard-lot', context.arenaSelectionRevision);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.arenaId).toBe('junkyard-lot');
+      expect(result.revision).toBe(context.arenaSelectionRevision);
+    }
+  });
+
+  it('selectArena with valid change bumps arenaSelectionRevision by exactly 1', () => {
+    const data = loadGameData();
+    const arenas = new DataArenaRegistry({
+      arenas: [
+        ...data.arenas,
+        {
+          id: 'voltage-alley',
+          name: 'Voltage Alley',
+          size: { width: 800, height: 600 },
+          spawnCurveId: 'junkyard-intro',
+          spawnRegions: [{ kind: 'edges', margin: 28 }],
+          obstacles: [],
+          hazards: [],
+          unlock: { type: 'meta', requiresUnlockId: 'achievement:first-victory' },
+        },
+      ],
+    });
+    const metaUpgrades = new DataMetaUpgradeRegistry(data);
+    const characters = new DataCharacterRegistry(data);
+    const save = new SaveManager(new CountingStorage(), 'arena-change', metaUpgrades.maxLevels());
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data,
+      arenas, metaUpgrades, save, characters,
+    });
+    context.updateMeta((meta) => ({
+      ...meta,
+      unlocks: [...meta.unlocks, 'achievement:first-victory'],
+    }));
+    const revision = context.arenaSelectionRevision;
+    const result = context.selectArena('voltage-alley', revision);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.arenaId).toBe('voltage-alley');
+      expect(result.revision).toBe(revision + 1);
+      expect(context.selectedArenaId).toBe('voltage-alley');
+      expect(context.arenaSelectionRevision).toBe(revision + 1);
+    }
+  });
+
+  it('selectArena never calls save.save', () => {
+    const { context, storage } = setup();
+    const callsBefore = storage.setCalls;
+    context.selectArena('junkyard-lot', context.arenaSelectionRevision);
+    expect(storage.setCalls).toBe(callsBefore);
+  });
+
+  it('updateMeta that removes an arena unlock resets selection to default and bumps arenaSelectionRevision', () => {
+    const data = loadGameData();
+    const arenas = new DataArenaRegistry({
+      arenas: [
+        ...data.arenas,
+        {
+          id: 'voltage-alley',
+          name: 'Voltage Alley',
+          size: { width: 800, height: 600 },
+          spawnCurveId: 'junkyard-intro',
+          spawnRegions: [{ kind: 'edges', margin: 28 }],
+          obstacles: [],
+          hazards: [],
+          unlock: { type: 'meta', requiresUnlockId: 'achievement:first-victory' },
+        },
+      ],
+    });
+    const metaUpgrades = new DataMetaUpgradeRegistry(data);
+    const characters = new DataCharacterRegistry(data);
+    const save = new SaveManager(new CountingStorage(), 'arena-revalidate', metaUpgrades.maxLevels());
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data,
+      arenas, metaUpgrades, save, characters,
+    });
+    context.updateMeta((meta) => ({
+      ...meta,
+      unlocks: [...meta.unlocks, 'achievement:first-victory'],
+    }));
+    context.selectArena('voltage-alley', context.arenaSelectionRevision);
+    expect(context.selectedArenaId).toBe('voltage-alley');
+    const revisionBefore = context.arenaSelectionRevision;
+
+    context.updateMeta((meta) => ({
+      ...meta,
+      unlocks: meta.unlocks.filter((id) => id !== 'achievement:first-victory'),
+    }));
+
+    expect(context.selectedArenaId).toBe('junkyard-lot');
+    expect(context.arenaSelectionRevision).toBe(revisionBefore + 1);
+  });
 });
 
 class CountingStorage extends MemoryStorageAdapter {
@@ -195,6 +351,7 @@ class CountingStorage extends MemoryStorageAdapter {
 
 function setup() {
   const data = loadGameData();
+  const arenas = new DataArenaRegistry(data);
   const registry = new DataMetaUpgradeRegistry(data);
   const characters = new DataCharacterRegistry(data);
   const storage = new CountingStorage();
@@ -203,7 +360,7 @@ function setup() {
     storage,
     context: createGameContext({
       bus: createEventBus(), menuRng: createRng(1), data,
-      metaUpgrades: registry, save, characters,
+      arenas, metaUpgrades: registry, save, characters,
     }),
   };
 }

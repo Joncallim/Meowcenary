@@ -54,13 +54,16 @@ async function createHarness(
   const input = { getMoveVector: () => ({ ...moveVector }) };
   const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
   runState.status = 'active';
-  const player = new Player(scene as never, input as never, runState, createEventBus(), {
+  const bus = createEventBus();
+  const player = new Player(scene as never, input as never, runState, bus, {
     baseMaxHealth: 100,
     baseMoveSpeed: 200,
     invulnerabilityMs,
+    spawnX: 400,
+    spawnY: 300,
   });
 
-  return { player, runState, sprite };
+  return { player, runState, sprite, bus };
 }
 
 describe('Player', () => {
@@ -114,5 +117,47 @@ describe('Player', () => {
     expect(sprite.body.velocity).toEqual({ x: 0, y: 0 });
     expect(player.maxHealth).toBe(1);
     expect(player.health).toBe(1);
+  });
+
+  it('takeEnvironmentalDamage applies continuous damage without i-frames', async () => {
+    const { player, sprite, bus } = await createHarness();
+    const damaged = vi.fn();
+    bus.on('player:damaged', damaged);
+
+    player.takeEnvironmentalDamage(15);
+    expect(player.health).toBe(85);
+    expect(damaged).toHaveBeenCalledWith({ amount: 15, healthRemaining: 85 });
+
+    // No invulnerability window — second hit lands immediately
+    player.takeEnvironmentalDamage(10);
+    expect(player.health).toBe(75);
+    expect(damaged).toHaveBeenCalledTimes(2);
+
+    // No tint change (alpha stays at 1)
+    expect(sprite.alpha).toBe(1);
+  });
+
+  it('takeEnvironmentalDamage lethal hit emits player:died and ends the run', async () => {
+    const { player, runState, sprite, bus } = await createHarness();
+    const died = vi.fn();
+    const lost = vi.fn();
+    bus.on('player:died', died);
+    bus.on('run:lost', lost);
+
+    player.takeEnvironmentalDamage(200);
+    expect(player.health).toBe(0);
+    expect(died).toHaveBeenCalledTimes(1);
+    expect(lost).toHaveBeenCalledTimes(1);
+    expect(runState.status).toBe('lost');
+
+    // Body velocity zeroed
+    expect(sprite.body.velocity).toEqual({ x: 0, y: 0 });
+  });
+
+  it('takeEnvironmentalDamage is no-op when run is not active', async () => {
+    const { player, runState } = await createHarness();
+    runState.status = 'won';
+    player.takeEnvironmentalDamage(50);
+    expect(player.health).toBe(100);
   });
 });

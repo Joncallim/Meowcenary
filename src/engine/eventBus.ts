@@ -18,6 +18,7 @@ export interface GameEventMap {
   'weapon:merged': { fromId: string; toId: string };
   'drop:collected': { kind: 'xp' | 'scrap'; amount: number; x: number; y: number };
   'currency:changed': { runTotal: number };
+  'hazard:triggered': { hazardId: string; damage: number; x: number; y: number };
 }
 
 export type GameEventKey = keyof GameEventMap;

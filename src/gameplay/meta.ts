@@ -65,9 +65,19 @@ export function addUnlocks(meta: MetaState, ids: readonly string[]): MetaState {
   return next.length === meta.unlocks.length ? meta : freezeMeta({ ...meta, unlocks: next });
 }
 
+/**
+ * Cross-epic boundary: this reward grant is a post-Epic-6 resolution (per
+ * epic-6-characters.md §26), not an Epic 7 arena/hazard feature. It ships
+ * alongside Epic 7 because character-selection tests require an unlock-gated
+ * character, and bolt-hound's testability depends on this being grantable.
+ */
+export const FIRST_VICTORY_UNLOCK_ID = 'achievement:first-victory';
+
 export function computeRunReward(run: Readonly<RunState>): RunReward | null {
   if (run.status !== 'won' && run.status !== 'lost') return null;
-  return freeze({ scrap: sanitizeScrap(run.currency), unlocks: Object.freeze([]) });
+  const unlocks: readonly string[] =
+    run.status === 'won' ? Object.freeze([FIRST_VICTORY_UNLOCK_ID]) : Object.freeze([]);
+  return freeze({ scrap: sanitizeScrap(run.currency), unlocks });
 }
 
 export function bankReward(meta: MetaState, reward: Readonly<RunReward>): MetaState {

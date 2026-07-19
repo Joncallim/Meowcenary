@@ -3,6 +3,7 @@ import { CharacterSelectionController } from '../src/ui/characterSelectionContro
 import { createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
+import { DataArenaRegistry } from '../src/systems/arenas';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
@@ -10,11 +11,12 @@ import { loadGameData } from '../src/systems/validation';
 
 function setup() {
   const data = loadGameData();
+  const arenas = new DataArenaRegistry(data);
   const metaUpgrades = new DataMetaUpgradeRegistry(data);
   const characters = new DataCharacterRegistry(data);
   const save = new SaveManager(new MemoryStorageAdapter(), 'controller-test', metaUpgrades.maxLevels());
   const context = createGameContext({
-    bus: createEventBus(), menuRng: createRng(1), data, metaUpgrades, characters, save,
+    bus: createEventBus(), menuRng: createRng(1), data, arenas, metaUpgrades, characters, save,
   });
   return { context, controller: new CharacterSelectionController(context) };
 }
@@ -75,42 +77,5 @@ describe('CharacterSelectionController', () => {
       expect(result.snapshot.revision).toBe(revision + 1);
       expect(result.snapshot.characters.find((c) => c.id === 'bolt-hound')?.selected).toBe(true);
     }
-  });
-
-  it('buildRunRequest produces deterministic frozen request from current selection', () => {
-    const { controller } = setup();
-    const rng = createRng(42);
-    const request = controller.buildRunRequest(rng);
-    expect(Object.isFrozen(request)).toBe(true);
-    expect(request.characterId).toBe('scrap-tabby');
-    expect(request.arenaId).toBe('junkyard-intro');
-    expect(Number.isSafeInteger(request.seed)).toBe(true);
-  });
-
-  it('buildRunRequest uses character-driven arena id', () => {
-    const { controller } = setup();
-    const rng = createRng(99);
-    const request = controller.buildRunRequest(rng);
-    expect(request.arenaId).toBe('junkyard-intro');
-  });
-
-  it('buildRunRequest falls back to default when selected character becomes locked', () => {
-    const { context, controller } = setup();
-    // Unlock bolt-hound, select it, then remove the unlock
-    context.updateMeta((meta) => ({
-      ...meta,
-      unlocks: [...meta.unlocks, 'achievement:first-victory'],
-    }));
-    const revision = context.selectionRevision;
-    const selectResult = controller.select('bolt-hound', revision);
-    expect(selectResult.ok).toBe(true);
-
-    // Now reset progression, removing the unlock
-    context.resetProgression();
-
-    const rng = createRng(42);
-    const request = controller.buildRunRequest(rng);
-    // Should fall back to default since bolt-hound is now locked
-    expect(request.characterId).toBe('scrap-tabby');
   });
 });

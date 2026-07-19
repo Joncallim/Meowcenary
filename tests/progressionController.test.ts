@@ -3,6 +3,7 @@ import { createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
 import { ProgressionController } from '../src/ui/progressionController';
+import { DataArenaRegistry } from '../src/systems/arenas';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
@@ -37,10 +38,11 @@ describe('headless ProgressionController', () => {
 
 export function setup() {
   const data = loadGameData();
+  const arenas = new DataArenaRegistry(data);
   const metaUpgrades = new DataMetaUpgradeRegistry(data);
   const characters = new DataCharacterRegistry(data);
   const context = createGameContext({
-    bus: createEventBus(), menuRng: createRng(1), data, metaUpgrades, characters,
+    bus: createEventBus(), menuRng: createRng(1), data, arenas, metaUpgrades, characters,
     save: new SaveManager(new MemoryStorageAdapter(), 'controller', metaUpgrades.maxLevels()),
   });
   return { context, controller: new ProgressionController(context) };

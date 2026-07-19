@@ -4,9 +4,11 @@ import { RuntimeConfig } from '../engine/config';
 import { createRng, deriveRunSeed } from '../engine/rng';
 import { SceneKey } from '../engine/sceneKeys';
 import type { System } from '../engine/system';
+import type { SpawnCurveDefinition } from '../systems/types';
 import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
+import { assembleRunRequest } from '../gameplay/runRequest';
 import {
   canRestartRun,
   endRun,
@@ -21,14 +23,17 @@ import { DebugOverlay } from '../systems/debug';
 import { DropSystem } from '../systems/DropSystem';
 import { InputController } from '../systems/input';
 import { SpawnSystem } from '../systems/SpawnSystem';
+import { buildArenaScenery, type ArenaScenery } from '../systems/arenaScenery';
 import { UpgradeSystem } from '../systems/UpgradeSystem';
 import { ProgressionSystem } from '../systems/ProgressionSystem';
 import { DataWeaponRegistry } from '../systems/weaponRegistry';
 import { WeaponSystem } from '../systems/WeaponSystem';
 import { UpgradeChooser } from '../ui/UpgradeChooser';
 import { CharacterSelectionController } from '../ui/characterSelectionController';
+import { ArenaSelectionController } from '../ui/arenaSelectionController';
 import { resolveCharacterRunContribution } from '../gameplay/characterContribution';
 import { PassiveCoordinator } from '../systems/PassiveCoordinator';
+import { HazardSystem } from '../systems/HazardSystem';
 import { DEFAULT_PASSIVE_HANDLERS, createPassiveHandlerRegistry } from '../gameplay/characterPassives';
 
 export class GameScene extends Phaser.Scene {
@@ -50,6 +55,9 @@ export class GameScene extends Phaser.Scene {
   private upgradeSystem?: UpgradeSystem;
   private upgradeChooser?: UpgradeChooser;
   private characterController?: CharacterSelectionController;
+  private arenaController?: ArenaSelectionController;
+  private spawnCurve?: Readonly<SpawnCurveDefinition>;
+  private arenaScenery?: ArenaScenery;
 
   constructor() {
     super(SceneKey.Game);
@@ -60,7 +68,18 @@ export class GameScene extends Phaser.Scene {
     const ctx = this.getContext();
     const characterController = new CharacterSelectionController(ctx);
     this.characterController = characterController;
-    const request = characterController.buildRunRequest(ctx.menuRng);
+    this.arenaController = new ArenaSelectionController(ctx);
+    const request = assembleRunRequest(ctx, ctx.menuRng);
+
+    const arena = ctx.arenas.arenaById(request.arenaId);
+    if (!arena) {
+      throw new Error(`Selected arena "${request.arenaId}" is missing from the registry`);
+    }
+    const curve = ctx.data.spawnCurves.find((c) => c.id === arena.spawnCurveId);
+    if (!curve) {
+      throw new Error(`Arena "${arena.id}" references missing spawn curve "${arena.spawnCurveId}"`);
+    }
+    this.spawnCurve = curve;
     const character = ctx.characters.characterById(request.characterId);
     if (!character) {
       throw new Error(`Selected character "${request.characterId}" is missing from the registry`);
@@ -94,11 +113,27 @@ export class GameScene extends Phaser.Scene {
     this.enemyGroup = this.physics.add.group();
     this.projectileGroup = this.physics.add.group();
     this.dropGroup = this.physics.add.group();
+
+    this.physics.world.setBounds(0, 0, arena.size.width, arena.size.height);
+    this.cameras.main.setBounds(0, 0, arena.size.width, arena.size.height);
+
     this.player = new Player(this, this.inputController, this.runState, ctx.bus, {
       baseMaxHealth: prepared.basePlayer.maxHealth,
       baseMoveSpeed: prepared.basePlayer.moveSpeed,
       invulnerabilityMs: RuntimeConfig.gameplay.player.invulnerabilityMs,
+      spawnX: arena.size.width / 2,
+      spawnY: arena.size.height / 2,
     });
+
+    if (arena.size.width > this.scale.width || arena.size.height > this.scale.height) {
+      this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
+    }
+
+    this.arenaScenery = buildArenaScenery(this, arena);
+    if (this.arenaScenery.obstacleGroup.children?.size > 0) {
+      this.physics.add.collider(this.player.sprite, this.arenaScenery.obstacleGroup);
+      this.physics.add.collider(this.enemyGroup, this.arenaScenery.obstacleGroup);
+    }
     const dropSystem = new DropSystem(
       this,
       ctx,
@@ -123,7 +158,14 @@ export class GameScene extends Phaser.Scene {
         character,
         handlers: createPassiveHandlerRegistry(DEFAULT_PASSIVE_HANDLERS),
       }),
-      new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup),
+      new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup, arena, curve),
+      new HazardSystem({
+        scene: this,
+        runState: this.runState,
+        bus: ctx.bus,
+        player: this.player,
+        hazards: arena.hazards,
+      }),
       new WeaponSystem(
         this,
         ctx,
@@ -147,6 +189,7 @@ export class GameScene extends Phaser.Scene {
       this.input.keyboard?.on('keydown-F8', this.forceLoseRun, this);
       this.input.keyboard?.on('keydown-F9', this.forceWinRun, this);
       this.input.keyboard?.on('keydown-C', this.cycleCharacterDev, this);
+      this.input.keyboard?.on('keydown-M', this.cycleArenaDev, this);
     }
     this.unsubscribers.push(
       ctx.bus.on('run:paused', () => {
@@ -169,7 +212,11 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
 
-    this.add.rectangle(width / 2, height / 2, width - 24, height - 24, 0x16202a).setStrokeStyle(2, 0x2dd4bf, 0.28);
+    this.add.rectangle(
+      arena.size.width / 2, arena.size.height / 2,
+      arena.size.width - 24, arena.size.height - 24,
+      0x16202a,
+    ).setStrokeStyle(2, 0x2dd4bf, 0.28).setDepth(-1);
     this.add
       .text(
         width / 2,
@@ -184,7 +231,8 @@ export class GameScene extends Phaser.Scene {
           wordWrap: { width: width - 48 },
         },
       )
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setScrollFactor(0);
     this.hudText = this.add
       .text(12, 54, '', {
         color: '#d6f7ff',
@@ -204,7 +252,8 @@ export class GameScene extends Phaser.Scene {
         padding: { x: 12, y: 10 },
       })
       .setDepth(200)
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setScrollFactor(0);
     this.time.delayedCall(2200, () => {
       this.centerText?.setVisible(false);
     });
@@ -220,6 +269,7 @@ export class GameScene extends Phaser.Scene {
       })
       .setDepth(300)
       .setOrigin(0.5)
+      .setScrollFactor(0)
       .setVisible(false);
 
     startRun(this.runState, ctx.bus);
@@ -269,6 +319,7 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.off('keydown-F8', this.forceLoseRun, this);
     this.input.keyboard?.off('keydown-F9', this.forceWinRun, this);
     this.input.keyboard?.off('keydown-C', this.cycleCharacterDev, this);
+    this.input.keyboard?.off('keydown-M', this.cycleArenaDev, this);
     this.upgradeChooser?.destroy();
     this.upgradeChooser = undefined;
     this.systems.forEach((system) => {
@@ -285,6 +336,10 @@ export class GameScene extends Phaser.Scene {
     this.audioManager = undefined;
     this.upgradeSystem = undefined;
     this.characterController = undefined;
+    this.arenaController = undefined;
+    this.spawnCurve = undefined;
+    this.arenaScenery?.destroy();
+    this.arenaScenery = undefined;
     this.runState = undefined;
     if (this.physicsPausedByRun) {
       this.physics.world?.resume();
@@ -390,8 +445,36 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private cycleArenaDev(): void {
+    if (!RuntimeConfig.isDev || !this.arenaController) return;
+
+    const snapshot = this.arenaController.snapshot();
+    const currentIndex = snapshot.arenas.findIndex((a) => a.selected);
+    if (currentIndex < 0) return;
+
+    const count = snapshot.arenas.length;
+    for (let offset = 1; offset <= count; offset += 1) {
+      const candidate = snapshot.arenas[(currentIndex + offset) % count];
+      if (candidate.locked) continue;
+      if (candidate.id === snapshot.selectedArenaId) {
+        console.log('[dev] No other unlocked arena available.');
+        return;
+      }
+
+      const result = this.arenaController.select(candidate.id, snapshot.revision);
+      if (result.ok) {
+        console.log(
+          `[dev] Arena cycled to "${candidate.name}" (${candidate.id}). Restart to apply.`,
+        );
+      } else {
+        console.warn(`[dev] Failed to select "${candidate.name}":`, result.reason);
+      }
+      return;
+    }
+  }
+
   private maybeEndRunForVictory(ctx: GameContext, runState: RunState): void {
-    const durationSeconds = ctx.data.spawnCurves[0]?.durationSeconds;
+    const durationSeconds = this.spawnCurve?.durationSeconds;
     if (
       runState.status === 'active' &&
       durationSeconds !== undefined &&
@@ -406,7 +489,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    const durationSeconds = this.getContext().data.spawnCurves[0]?.durationSeconds ?? 0;
+    const durationSeconds = this.spawnCurve?.durationSeconds ?? 0;
     const remainingSeconds = Math.max(0, Math.ceil(durationSeconds - runState.timeMs / 1000));
     this.hudText.setText(
       [

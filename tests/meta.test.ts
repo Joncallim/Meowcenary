@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createRunState } from '../src/gameplay/runState';
 import {
   addUnlocks, bankReward, canPurchase, computeRunReward, costOf,
-  isUnlocked, permanentModifiers, purchase,
+  FIRST_VICTORY_UNLOCK_ID, isUnlocked, permanentModifiers, purchase,
 } from '../src/gameplay/meta';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { createDefaultMeta, sanitizeMeta, type MetaState } from '../src/systems/save';
@@ -69,7 +69,23 @@ describe('pure meta progression rules', () => {
   ] as const)('computes %s currency %s as %s scrap', (status, currency, scrap) => {
     const run = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
     run.status = status; run.currency = currency; run.xp = 999; run.level = 99; run.kills = 99;
-    expect(computeRunReward(run)).toEqual({ scrap, unlocks: [] });
+    const unlocks = status === 'won' ? [FIRST_VICTORY_UNLOCK_ID] : [];
+    expect(computeRunReward(run)).toEqual({ scrap, unlocks });
+  });
+
+  it('grants the first-victory unlock on a win, gated behind actually winning', () => {
+    const won = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
+    won.status = 'won';
+    expect(computeRunReward(won)).toEqual({ scrap: 0, unlocks: [FIRST_VICTORY_UNLOCK_ID] });
+
+    const lost = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
+    lost.status = 'lost';
+    expect(computeRunReward(lost)).toEqual({ scrap: 0, unlocks: [] });
+
+    const first = bankReward(createDefaultMeta(), computeRunReward(won)!);
+    expect(isUnlocked(first, FIRST_VICTORY_UNLOCK_ID)).toBe(true);
+    const second = bankReward(first, computeRunReward(won)!);
+    expect(second.unlocks).toEqual([FIRST_VICTORY_UNLOCK_ID]);
   });
 
   it('rejects non-terminal rewards and banks purely with saturation and unlock dedupe', () => {

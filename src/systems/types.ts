@@ -215,6 +215,44 @@ export interface CharacterDefinition {
   readonly cosmeticSkinIds: readonly string[];
 }
 
+export interface ArenaSize {
+  readonly width: number;
+  readonly height: number;
+}
+
+export type SpawnRegion =
+  | { readonly kind: 'ring'; readonly cx: number; readonly cy: number; readonly minRadius: number; readonly maxRadius: number }
+  | { readonly kind: 'rect'; readonly x: number; readonly y: number; readonly w: number; readonly h: number }
+  | { readonly kind: 'edges'; readonly margin: number };
+
+export interface ObstacleDefinition {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+
+export interface HazardDefinition {
+  readonly id: string;
+  readonly kind: string;
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+  readonly damagePerSecond: number;
+}
+
+export interface ArenaDefinition {
+  readonly id: string;
+  readonly name: string;
+  readonly size: ArenaSize;
+  readonly spawnCurveId: string;
+  readonly spawnRegions: readonly SpawnRegion[];
+  readonly obstacles: readonly ObstacleDefinition[];
+  readonly hazards: readonly HazardDefinition[];
+  readonly unlock: UnlockRule;
+}
+
 export interface GameData {
   weapons: WeaponDefinition[];
   enemies: EnemyDefinition[];
@@ -222,4 +260,5 @@ export interface GameData {
   metaUpgrades: MetaUpgradeDefinition[];
   spawnCurves: SpawnCurveDefinition[];
   characters: CharacterDefinition[];
+  arenas: ArenaDefinition[];
 }

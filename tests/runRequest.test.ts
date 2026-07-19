@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { createRunRequest, defaultArenaId } from '../src/gameplay/runRequest';
+import { createRunRequest, assembleRunRequest } from '../src/gameplay/runRequest';
 import { createRng } from '../src/engine/rng';
+import { DataCharacterRegistry } from '../src/systems/characters';
+import { DataArenaRegistry } from '../src/systems/arenas';
 import { loadGameData } from '../src/systems/validation';
 
 describe('runRequest', () => {
@@ -33,15 +35,47 @@ describe('runRequest', () => {
     expect(Number.isSafeInteger(request.seed)).toBe(true);
   });
 
-  it('defaultArenaId matches the existing fallback expression', () => {
+  it('assembleRunRequest reads live selections', () => {
     const data = loadGameData();
-    const ctx = { data };
-    const existing = data.spawnCurves[0]?.id ?? 'arena';
-    expect(defaultArenaId(ctx)).toBe(existing);
+    const characters = new DataCharacterRegistry(data);
+    const arenas = new DataArenaRegistry(data);
+
+    // Create minimal GameContext-style object for testing
+    const ctx = {
+      characters,
+      arenas,
+      selectedCharacterId: 'scrap-tabby',
+      selectedArenaId: 'junkyard-lot',
+      saveData: { meta: { unlocks: [] } as any },
+      selectionRevision: 1,
+      arenaSelectionRevision: 1,
+    } as any;
+
+    const rng = createRng(42);
+    const request = assembleRunRequest(ctx, rng);
+    expect(request.characterId).toBe('scrap-tabby');
+    expect(request.arenaId).toBe('junkyard-lot');
+    expect(Object.isFrozen(request)).toBe(true);
+    expect(Number.isSafeInteger(request.seed)).toBe(true);
   });
 
-  it('defaultArenaId returns "arena" when no spawn curves exist', () => {
-    const ctx = { data: { spawnCurves: [] } };
-    expect(defaultArenaId(ctx as any)).toBe('arena');
+  it('assembleRunRequest falls back to defaults when selection is locked', () => {
+    const data = loadGameData();
+    const characters = new DataCharacterRegistry(data);
+    const arenas = new DataArenaRegistry(data);
+
+    const ctx = {
+      characters,
+      arenas,
+      selectedCharacterId: 'bolt-hound',
+      selectedArenaId: 'unknown-arena',
+      saveData: { meta: { unlocks: [] } as any },
+    } as any;
+
+    const rng = createRng(42);
+    const request = assembleRunRequest(ctx, rng);
+    expect(request.characterId).toBe('scrap-tabby');
+    expect(request.arenaId).toBe('junkyard-lot');
+    expect(Object.isFrozen(request)).toBe(true);
   });
 });

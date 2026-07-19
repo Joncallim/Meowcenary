@@ -60,6 +60,16 @@ function withEnemies(enemies: Record<string, unknown>[]): unknown {
       { startSecond: 0, enemyId: 'tank-fixture', spawnEveryMs: 1000, maxAlive: 1 },
     ],
   }];
+  data.arenas = [{
+    id: 'fixture-arena',
+    name: 'Fixture Arena',
+    size: { width: 390, height: 844 },
+    spawnCurveId: 'fixture-curve',
+    spawnRegions: [{ kind: 'edges', margin: 28 }],
+    obstacles: [],
+    hazards: [],
+    unlock: { type: 'default' },
+  }];
   return data;
 }
 
@@ -874,6 +884,166 @@ describe('game data validation', () => {
         if (maxHealthDescriptor) Object.defineProperty(Object.prototype, 'maxHealth', maxHealthDescriptor);
         else Reflect.deleteProperty(Object.prototype, 'maxHealth');
       }
+    });
+  });
+
+  describe('arena validation', () => {
+    function withArenas(arenas: Record<string, unknown>[]): unknown {
+      const data = structuredClone(loadGameData()) as unknown as Record<string, unknown>;
+      data.arenas = arenas;
+      return data;
+    }
+
+    function arenaFixture(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+      return {
+        id: 'test-arena',
+        name: 'Test Arena',
+        size: { width: 400, height: 400 },
+        spawnCurveId: 'junkyard-intro',
+        spawnRegions: [{ kind: 'edges', margin: 28 }],
+        obstacles: [],
+        hazards: [],
+        unlock: { type: 'default' },
+        ...overrides,
+      };
+    }
+
+    it('accepts the shipped arenas.json', () => {
+      const data = loadGameData();
+      expect(data.arenas.length).toBeGreaterThan(0);
+      expect(data.arenas[0].id).toBe('junkyard-lot');
+    });
+
+    it('requires the arenas field', () => {
+      const data = structuredClone(loadGameData()) as unknown as Record<string, unknown>;
+      delete data.arenas;
+      expect(() => validateGameData(data)).toThrow(/arenas: required field/);
+    });
+
+    it('rejects empty spawnRegions', () => {
+      expect(() => validateGameData(withArenas([
+        arenaFixture({ spawnRegions: [] }),
+      ]))).toThrow(/required array with at least one entry/);
+    });
+
+    it('rejects bad arena id', () => {
+      expect(() => validateGameData(withArenas([
+        arenaFixture({ id: '' }),
+      ]))).toThrow(/required nonempty trimmed string/);
+    });
+
+    it('rejects bad size bounds', () => {
+      expect(() => validateGameData(withArenas([
+        arenaFixture({ size: { width: 10, height: 10 } }),
+      ]))).toThrow(/required integer from 256/);
+    });
+
+    it('rejects a catalog with too many obstacles (bounds the witness scan)', () => {
+      const tooMany = Array.from({ length: 257 }, (_, i) => ({ x: i, y: 0, w: 1, h: 1 }));
+      expect(() => validateGameData(withArenas([
+        arenaFixture({ obstacles: tooMany }),
+      ]))).toThrow(/obstacles: too many entries \(max 256\)/);
+    });
+
+    it('rejects a catalog with too many spawn regions', () => {
+      const tooMany = Array.from({ length: 17 }, () => ({ kind: 'edges', margin: 28 }));
+      expect(() => validateGameData(withArenas([
+        arenaFixture({ spawnRegions: tooMany }),
+      ]))).toThrow(/spawnRegions: too many entries \(max 16\)/);
+    });
+
+    it('rejects a catalog with too many hazards', () => {
+      const tooMany = Array.from({ length: 65 }, (_, i) => ({
+        id: `haz-${i}`, kind: 'acid', x: 0, y: 0, w: 1, h: 1, damagePerSecond: 5,
+      }));
+      expect(() => validateGameData(withArenas([
+        arenaFixture({ hazards: tooMany }),
+      ]))).toThrow(/hazards: too many entries \(max 64\)/);
+    });
+
+    it('accepts rings with deterministic in-bounds witnesses', () => {
+      expect(() => validateGameData(withArenas([
+        arenaFixture({
+          spawnRegions: [{ kind: 'ring', cx: 200, cy: 400, minRadius: 390, maxRadius: 400 }],
+        }),
+      ]))).not.toThrow();
+
+      expect(() => validateGameData(withArenas([
+        arenaFixture({
+          spawnRegions: [{ kind: 'ring', cx: 0, cy: 0, minRadius: 500, maxRadius: 550 }],
+        }),
+      ]))).not.toThrow();
+    });
+
+    it('rejects a ring covered by an obstacle union with no witness', () => {
+      const almostCoveringObstacles = [
+        { x: 40, y: 40, w: 60, h: 120 },
+        { x: 100, y: 40, w: 60, h: 59 },
+        { x: 100, y: 101, w: 60, h: 59 },
+        { x: 100, y: 99, w: 49, h: 2 },
+      ];
+      const ring = { kind: 'ring', cx: 100, cy: 100, minRadius: 50, maxRadius: 60 };
+
+      expect(() => validateGameData(withArenas([
+        arenaFixture({ spawnRegions: [ring], obstacles: almostCoveringObstacles }),
+      ]))).not.toThrow();
+
+      expect(() => validateGameData(withArenas([
+        arenaFixture({
+          spawnRegions: [ring],
+          obstacles: [...almostCoveringObstacles, { x: 149, y: 99, w: 11, h: 2 }],
+        }),
+      ]))).toThrow(/ring region has no spawnable point/);
+    });
+
+    it('rejects unknown spawnCurveId', () => {
+      expect(() => validateGameData(withArenas([
+        arenaFixture({ spawnCurveId: 'nonexistent-curve' }),
+      ]))).toThrow(/unknown spawnCurveId/);
+    });
+
+    it('rejects obstacle that contains arena centre', () => {
+      expect(() => validateGameData(withArenas([
+        arenaFixture({
+          obstacles: [{ x: 0, y: 0, w: 400, h: 400 }],
+        }),
+      ]))).toThrow(/must not contain arena centre/);
+    });
+
+    it('rejects no default arena', () => {
+      expect(() => validateGameData(withArenas([
+        arenaFixture({
+          id: 'locked-arena',
+          unlock: { type: 'meta', requiresUnlockId: 'arena:locked' },
+        }),
+      ]))).toThrow(/at least one arena must have unlock\.type "default"/);
+    });
+
+    it('rejects duplicate arena ids', () => {
+      expect(() => validateGameData(withArenas([
+        arenaFixture(), arenaFixture({ name: 'Duplicate' }),
+      ]))).toThrow(/duplicate id/);
+    });
+
+    it('rejects bad hazard fields', () => {
+      expect(() => validateGameData(withArenas([
+        arenaFixture({
+          hazards: [{ id: '', kind: 'acid', x: 0, y: 0, w: 100, h: 100, damagePerSecond: -1 }],
+        }),
+      ]))).toThrow(/damagePerSecond/);
+    });
+
+    it('rejects duplicate hazard ids within an arena', () => {
+      const haz = { id: 'pool', kind: 'acid', x: 10, y: 10, w: 10, h: 10, damagePerSecond: 5 };
+      expect(() => validateGameData(withArenas([
+        arenaFixture({ hazards: [haz, haz] }),
+      ]))).toThrow(/duplicate hazard id/);
+    });
+
+    it('rejects malformed unlock rule', () => {
+      expect(() => validateGameData(withArenas([
+        arenaFixture({ unlock: { type: 'bad' } }),
+      ]))).toThrow(/must be "default" or "meta"/);
     });
   });
 });

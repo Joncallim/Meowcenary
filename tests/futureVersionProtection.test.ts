@@ -4,6 +4,7 @@ import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
 import { createRunState } from '../src/gameplay/runState';
 import { ProgressionSystem } from '../src/systems/ProgressionSystem';
+import { DataArenaRegistry } from '../src/systems/arenas';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
@@ -23,6 +24,7 @@ class CountingStorage extends MemoryStorageAdapter {
 
 function setup() {
   const data = loadGameData();
+  const arenas = new DataArenaRegistry(data);
   const metaUpgrades = new DataMetaUpgradeRegistry(data);
   const storage = new CountingStorage();
   storage.setItem(key, futurePayload);
@@ -30,7 +32,7 @@ function setup() {
   const characters = new DataCharacterRegistry(data);
   const bus = createEventBus();
   const context = createGameContext({
-    bus, menuRng: createRng(1), data, metaUpgrades, characters,
+    bus, menuRng: createRng(1), data, arenas, metaUpgrades, characters,
     save: new SaveManager(storage, key, metaUpgrades.maxLevels()),
   });
   return { context, controller: new ProgressionController(context), bus, storage };

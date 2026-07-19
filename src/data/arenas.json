@@ -1,0 +1,12 @@
+[
+  {
+    "id": "junkyard-lot",
+    "name": "Junkyard Lot",
+    "size": { "width": 390, "height": 844 },
+    "spawnCurveId": "junkyard-intro",
+    "spawnRegions": [{ "kind": "edges", "margin": 28 }],
+    "obstacles": [],
+    "hazards": [],
+    "unlock": { "type": "default" }
+  }
+]

@@ -3,8 +3,8 @@
 This file gives a simple overview of the Meowcenary backlog and defines the
 **shared contracts** every epic builds on. GitHub issues are the default source
 for each epic's implementation plan; a linked repository architecture document
-may explicitly supersede older issue wording, as Epic 5 and Epic 6 do. This file is the
-source of truth for the module names, data shapes, and events epics share.
+may explicitly supersede older issue wording, as Epics 5, 6, and 7 do. This file
+is the source of truth for the module names, data shapes, and events epics share.
 
 ## Documentation Standard
 
@@ -41,9 +41,10 @@ src/
     pool.ts          Generic object Pool<T> (added in Epic 12)
   entities/      Phaser display/physics objects: Player, Enemy, Projectile, Drop
   gameplay/      Pure run rules (no Phaser imports): runState, stats, xp,
-                 targeting, weapons, merge, upgrades, spawnDirector, loot, reward
+                 targeting, weapons, merge, upgrades, spawnDirector, loot, reward,
+                 characterSelection, arenaSelection (Epic 7), spawnRegion (Epic 7)
   systems/       Phaser-aware coordinators: input, save, validation, weapons,
-                 enemies, debug, audio, types.ts
+                 enemies, arenas (Epic 7), debug, audio, types.ts
   scenes/        BootScene, GameScene (thin coordinators only)
   ui/            hud, cards, inventory, menus, settings
   data/          *.json gameplay definitions
@@ -85,6 +86,7 @@ interface GameEventMap {
   'weapon:merged':    { fromId: string; toId: string };
   'drop:collected':   { kind: 'xp' | 'scrap'; amount: number; x: number; y: number };
   'currency:changed': { runTotal: number };
+  'hazard:triggered': { hazardId: string; damage: number; x: number; y: number }; // Epic 7; damage applied this tick
 }
 ```
 
@@ -289,8 +291,8 @@ so schedules (fire cadence, spawn timing) stay deterministic in tests.
 | Epic 3 | #4 Upgrade Cards | Complete | Readable run-only level-up choices that emit real `Modifier`s. |
 | Epic 4 | #5 Enemy AI and Spawn Director | Complete | Simple enemy behaviours and data-driven wave pressure. |
 | Epic 5 | #6 Meta Progression | Complete | Earned permanent progress: banks RunState rewards, no ads/payments/timers. |
-| Epic 6 | #7 Characters | Next | Selectable characters with starting stats, loadouts, passives, unlock hooks. |
-| Epic 7 | #8 Maps and Arenas | Open | Data-defined arenas, spawn regions, obstacles, hazard hooks. |
+| Epic 6 | #7 Characters | Complete | Selectable characters with starting stats, loadouts, passives, unlock hooks. |
+| Epic 7 | #8 Maps and Arenas | In Progress | Data-defined arenas, spawn regions, obstacles, hazard hooks. |
 | Epic 8 | #9 Loot and Economy | Open | In-run XP/scrap drops, loot tables, pickup behaviour. |
 | Epic 9 | #10 UI and UX | Open | Readable, controllable on phone and desktop. |
 | Epic 10 | #11 Audio | Open | Respectful, muteable, event-driven sound and music. |
@@ -325,7 +327,9 @@ later changes only how currency is generated and never writes `MetaState`.
 3. Epics 2, 3, and 4 are complete.
 4. Implement Epic 5 from its seven architecture slices; it does not wait for
    Epic 8.
-5. Add Epic 6 against Epic 5's unlock and run-start seams.
-6. Add Epics 7, 8, 9, and 10 as their dependencies become available.
+5. Epic 6 is complete (character selection, the pre-run `RunRequest` boundary,
+   and the reactive-passive seam).
+6. Add Epic 7 against Epic 6's `RunRequest`/`GameContext` selection seams, then
+   Epics 8, 9, and 10 as their dependencies become available.
 7. Use Epic 11 throughout tuning.
 8. Save Epic 12 for late-stage polish and performance.
