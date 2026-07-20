@@ -54,30 +54,20 @@ describe('resolveLoot', () => {
     expect(grants).toEqual([{ kind: 'scrap', amount: 7 }]);
   });
 
-  it('returns an empty array when the drawn entry is nothing', () => {
-    const grants = resolveLoot('nothing-only', lookupOf(nothingTable), createRng(1));
-    expect(grants).toEqual([]);
+  it('returns an empty array for nothing and a chest grant for a chest entry', () => {
+    expect(resolveLoot('nothing-only', lookupOf(nothingTable), createRng(1))).toEqual([]);
+    expect(resolveLoot('chest-only', lookupOf(chestTable), createRng(1))).toEqual([
+      { kind: 'chest', amount: 0, tableId: 'inner-table' },
+    ]);
   });
 
-  it('returns a chest grant with amount 0 and the referenced tableId', () => {
-    const grants = resolveLoot('chest-only', lookupOf(chestTable), createRng(1));
-    expect(grants).toEqual([{ kind: 'chest', amount: 0, tableId: 'inner-table' }]);
-  });
-
-  it('uses the exact weighted algorithm: cursor = next()*total, subtract in order', () => {
-    const rng = { next: vi.fn(() => 0.5) };
-    const grants = resolveLoot('mixed', lookupOf(mixedTable), rng);
+  it('consumes rng.next() exactly once and uses the weighted algorithm', () => {
+    const next = vi.fn(() => 0.5);
+    const grants = resolveLoot('mixed', lookupOf(mixedTable), { next });
     // total = 6, cursor = 3.0 -> after xp (1) -> 2.0, after scrap (2) -> 0.0,
     // after nothing (3) -> -3.0 selects the nothing entry.
-    expect(rng.next).toHaveBeenCalledOnce();
-    expect(grants).toEqual([]);
-  });
-
-  it('consumes rng.next() exactly once per call', () => {
-    const next = vi.fn(() => 0);
-    const rng = { next };
-    resolveLoot('mixed', lookupOf(mixedTable), rng);
     expect(next).toHaveBeenCalledOnce();
+    expect(grants).toEqual([]);
   });
 
   it('is deterministic under the same seeded RNG', () => {
@@ -128,25 +118,21 @@ describe('resolveKillLoot', () => {
     expect(grants).toEqual([{ kind: 'xp', amount: 12 }]);
   });
 
-  it('falls back to defaultLoot when no lootTableId is provided', () => {
-    const info: LootSourceInfo = { xpValue: 4, scrapValue: 6 };
-    const grants = resolveKillLoot(info, lookupOf(), createRng(1));
-    expect(grants).toEqual([
+  it('falls back to defaultLoot when no lootTableId is provided or the table is missing', () => {
+    const infoNoTable: LootSourceInfo = { xpValue: 4, scrapValue: 6 };
+    expect(resolveKillLoot(infoNoTable, lookupOf(), createRng(1))).toEqual([
+      { kind: 'xp', amount: 4 },
+      { kind: 'scrap', amount: 6 },
+    ]);
+
+    const infoMissing: LootSourceInfo = { xpValue: 4, scrapValue: 6, lootTableId: 'missing' };
+    expect(resolveKillLoot(infoMissing, lookupOf(), createRng(1))).toEqual([
       { kind: 'xp', amount: 4 },
       { kind: 'scrap', amount: 6 },
     ]);
   });
 
-  it('falls back to defaultLoot when the referenced table does not exist', () => {
-    const info: LootSourceInfo = { xpValue: 4, scrapValue: 6, lootTableId: 'missing' };
-    const grants = resolveKillLoot(info, lookupOf(), createRng(1));
-    expect(grants).toEqual([
-      { kind: 'xp', amount: 4 },
-      { kind: 'scrap', amount: 6 },
-    ]);
-  });
-
-  it('never throws, even when the lookup is empty and values are zero', () => {
+  it('never throws, even when the lookup fails and values are zero', () => {
     const info: LootSourceInfo = { xpValue: 0, scrapValue: 0, lootTableId: 'missing' };
     expect(() => resolveKillLoot(info, lookupOf(), createRng(1))).not.toThrow();
     expect(resolveKillLoot(info, lookupOf(), createRng(1))).toEqual([]);
