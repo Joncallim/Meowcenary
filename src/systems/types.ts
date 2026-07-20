@@ -48,6 +48,8 @@ export interface EnemyStats {
   speed: number;
   xpValue: number;
   scrapValue: number;
+  /** Optional loot table for this enemy. Elites inherit the base's id. */
+  lootTableId?: string;
 }
 
 export interface ChargerAttackDefinition {
@@ -156,6 +158,20 @@ export interface MetaUpgradeDefinition {
   readonly effects: readonly UpgradeEffect[];
 }
 
+export type LootKind = 'xp' | 'scrap' | 'chest' | 'nothing';
+
+export interface LootEntry {
+  readonly kind: LootKind;
+  readonly amount: number;
+  readonly weight: number;
+  readonly tableId?: string;
+}
+
+export interface LootTable {
+  readonly id: string;
+  readonly entries: readonly LootEntry[];
+}
+
 export interface SpawnWaveDefinition {
   startSecond: number;
   enemyId: string;
@@ -261,4 +277,5 @@ export interface GameData {
   spawnCurves: SpawnCurveDefinition[];
   characters: CharacterDefinition[];
   arenas: ArenaDefinition[];
+  lootTables: LootTable[];
 }
