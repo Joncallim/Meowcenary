@@ -52,7 +52,7 @@ describe('PassiveCoordinator', () => {
     });
 
     const coord = new PassiveCoordinator({ runState: run, bus, character: c, handlers });
-    bus.emit('enemy:killed', { instanceId: 1, enemyId: 'd', xpValue: 10, scrapValue: 0, x: 0, y: 0 });
+    bus.emit('enemy:killed', { instanceId: 1, enemyId: 'd', xpValue: 10, scrapValue: 10, x: 0, y: 0 });
 
     expect(calls).toHaveLength(1);
     expect(calls[0].sourceId).toBe('character:test-cat:test-passive');
@@ -99,7 +99,7 @@ describe('PassiveCoordinator', () => {
     });
 
     const coord = new PassiveCoordinator({ runState: run, bus, character: c, handlers });
-    bus.emit('enemy:killed', { instanceId: 1, enemyId: 'd', xpValue: 10, scrapValue: 0, x: 0, y: 0 });
+    bus.emit('enemy:killed', { instanceId: 1, enemyId: 'd', xpValue: 10, scrapValue: 10, x: 0, y: 0 });
 
     expect(order).toEqual([
       'character:test-cat:first',
@@ -115,7 +115,7 @@ describe('PassiveCoordinator', () => {
     let reentered = false;
 
     const handler: PassiveHandler<CharacterPassiveEvent> = (_ctx, _payload) => {
-      bus.emit('enemy:killed', { instanceId: 3, enemyId: 'e', xpValue: 20, scrapValue: 0, x: 10, y: 10 });
+      bus.emit('enemy:killed', { instanceId: 3, enemyId: 'e', xpValue: 20, scrapValue: 20, x: 10, y: 10 });
       reentered = true;
     };
 
@@ -125,7 +125,7 @@ describe('PassiveCoordinator', () => {
     });
 
     const coord = new PassiveCoordinator({ runState: run, bus, character: c, handlers });
-    bus.emit('enemy:killed', { instanceId: 1, enemyId: 'd', xpValue: 10, scrapValue: 0, x: 0, y: 0 });
+    bus.emit('enemy:killed', { instanceId: 1, enemyId: 'd', xpValue: 10, scrapValue: 10, x: 0, y: 0 });
 
     expect(reentered).toBe(true);
     expect(consoleSpy).toHaveBeenCalledWith(
@@ -158,7 +158,7 @@ describe('PassiveCoordinator', () => {
     });
 
     const coord = new PassiveCoordinator({ runState: run, bus, character: c, handlers });
-    bus.emit('enemy:killed', { instanceId: 1, enemyId: 'd', xpValue: 10, scrapValue: 0, x: 0, y: 0 });
+    bus.emit('enemy:killed', { instanceId: 1, enemyId: 'd', xpValue: 10, scrapValue: 10, x: 0, y: 0 });
 
     expect(siblingFired).toBe(true);
     expect(consoleSpy).toHaveBeenCalledWith(
@@ -185,7 +185,7 @@ describe('PassiveCoordinator', () => {
     const coord1 = new PassiveCoordinator({ runState: run, bus, character: c, handlers });
     const coord2 = new PassiveCoordinator({ runState: run, bus, character: c, handlers });
 
-    bus.emit('enemy:killed', { instanceId: 1, enemyId: 'd', xpValue: 10, scrapValue: 0, x: 0, y: 0 });
+    bus.emit('enemy:killed', { instanceId: 1, enemyId: 'd', xpValue: 10, scrapValue: 10, x: 0, y: 0 });
     expect(calls).toHaveLength(1);
 
     coord1.destroy();
@@ -218,11 +218,11 @@ describe('PassiveCoordinator', () => {
     });
 
     const coord = new PassiveCoordinator({ runState: run, bus, character: c, handlers });
-    bus.emit('enemy:killed', { instanceId: 1, enemyId: 'd', xpValue: 10, scrapValue: 0, x: 0, y: 0 });
+    bus.emit('enemy:killed', { instanceId: 1, enemyId: 'd', xpValue: 10, scrapValue: 10, x: 0, y: 0 });
     expect(callCount).toBe(1);
 
     coord.destroy();
-    bus.emit('enemy:killed', { instanceId: 2, enemyId: 'e', xpValue: 20, scrapValue: 0, x: 10, y: 10 });
+    bus.emit('enemy:killed', { instanceId: 2, enemyId: 'e', xpValue: 20, scrapValue: 20, x: 10, y: 10 });
     expect(callCount).toBe(1);
   });
 
@@ -239,15 +239,15 @@ describe('PassiveCoordinator', () => {
     const coord = new PassiveCoordinator({ runState: run, bus, character: c, handlers });
 
     run.status = 'paused';
-    bus.emit('enemy:killed', { instanceId: 1, enemyId: 'd', xpValue: 10, scrapValue: 0, x: 0, y: 0 });
+    bus.emit('enemy:killed', { instanceId: 1, enemyId: 'd', xpValue: 10, scrapValue: 10, x: 0, y: 0 });
     expect(callCount).toBe(0);
 
     run.status = 'won';
-    bus.emit('enemy:killed', { instanceId: 2, enemyId: 'e', xpValue: 20, scrapValue: 0, x: 10, y: 10 });
+    bus.emit('enemy:killed', { instanceId: 2, enemyId: 'e', xpValue: 20, scrapValue: 20, x: 10, y: 10 });
     expect(callCount).toBe(0);
 
     run.status = 'active';
-    bus.emit('enemy:killed', { instanceId: 3, enemyId: 'f', xpValue: 30, scrapValue: 0, x: 20, y: 20 });
+    bus.emit('enemy:killed', { instanceId: 3, enemyId: 'f', xpValue: 30, scrapValue: 30, x: 20, y: 20 });
     expect(callCount).toBe(1);
 
     coord.destroy();
@@ -278,7 +278,7 @@ describe('PassiveCoordinator', () => {
     });
 
     const coord = new PassiveCoordinator({ runState: run, bus, character: c, handlers });
-    bus.emit('enemy:killed', { instanceId: 1, enemyId: 'd', xpValue: 10, scrapValue: 0, x: 0, y: 0 });
+    bus.emit('enemy:killed', { instanceId: 1, enemyId: 'd', xpValue: 10, scrapValue: 10, x: 0, y: 0 });
     expect(ctxKeys).toEqual(['bus', 'run', 'sourceId']);
     coord.destroy();
   });
@@ -303,7 +303,7 @@ describe('PassiveCoordinator', () => {
     });
 
     const coord = new PassiveCoordinator({ runState: run, bus, character: c, handlers });
-    bus.emit('enemy:killed', { instanceId: 1, enemyId: 'd', xpValue: 10, scrapValue: 0, x: 0, y: 0 });
+    bus.emit('enemy:killed', { instanceId: 1, enemyId: 'd', xpValue: 10, scrapValue: 10, x: 0, y: 0 });
     expect(callCount).toBe(1);
     coord.destroy();
   });

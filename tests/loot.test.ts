@@ -94,6 +94,14 @@ describe('resolveLoot', () => {
     expect(() => resolveLoot('zero-weight', lookupOf(zeroWeightTable), createRng(1))).toThrow(
       /invalid total weight/,
     );
+
+    const explicitZeroTable: LootTable = {
+      id: 'explicit-zero',
+      entries: [{ kind: 'nothing', amount: 0, weight: 0 }],
+    };
+    expect(() =>
+      resolveLoot('explicit-zero', lookupOf(explicitZeroTable), createRng(1)),
+    ).toThrow(/invalid total weight/);
   });
 });
 

@@ -39,8 +39,10 @@ export function resolveLoot(
     }
   }
 
-  // Floating-point edge guard: the loop should always terminate for a valid
-  // table, but if it does not, return the final entry so the call never throws.
+  // Floating-point safety net: unreachable with validated catalogue data
+  // (finite non-negative weights, totalWeight > 0). Prevents non-deterministic
+  // selection if weights are pathologically large or suffer floating-point
+  // rounding. The caller never sees this fallback in practice.
   const last = entries[entries.length - 1];
   return last ? entryToGrants(last) : [];
 }
@@ -51,6 +53,9 @@ function entryToGrants(entry: Readonly<LootEntry>): readonly LootGrant[] {
   }
 
   if (entry.kind === 'chest') {
+    // Catalogue validation guarantees every chest entry has a tableId;
+    // this guard is unreachable with validated data but keeps the resolver
+    // defensive against malformed LootEntry objects at runtime.
     if (entry.tableId === undefined) {
       throw new Error('Chest loot entry is missing a tableId');
     }
