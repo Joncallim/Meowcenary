@@ -1,0 +1,18 @@
+[
+  {
+    "id": "chest-standard",
+    "entries": [
+      { "kind": "xp", "amount": 15, "weight": 55 },
+      { "kind": "scrap", "amount": 10, "weight": 35 },
+      { "kind": "scrap", "amount": 40, "weight": 10 }
+    ]
+  },
+  {
+    "id": "brute-cache",
+    "entries": [
+      { "kind": "xp", "amount": 6, "weight": 60 },
+      { "kind": "scrap", "amount": 5, "weight": 30 },
+      { "kind": "chest", "amount": 0, "weight": 10, "tableId": "chest-standard" }
+    ]
+  }
+]
