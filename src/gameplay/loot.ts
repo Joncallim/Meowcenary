@@ -8,11 +8,9 @@ export interface LootSourceInfo {
   readonly lootTableId?: string;
 }
 
-export interface LootGrant {
-  readonly kind: 'xp' | 'scrap' | 'chest';
-  readonly amount: number;
-  readonly tableId?: string;
-}
+export type LootGrant =
+  | { readonly kind: 'xp' | 'scrap'; readonly amount: number }
+  | { readonly kind: 'chest'; readonly amount: 0; readonly tableId: string };
 
 export function resolveLoot(
   tableId: string,
@@ -53,6 +51,10 @@ function entryToGrants(entry: Readonly<LootEntry>): readonly LootGrant[] {
   }
 
   if (entry.kind === 'chest') {
+    if (entry.tableId === undefined) {
+      throw new Error('Chest loot entry is missing a tableId');
+    }
+
     return [
       {
         kind: 'chest',
@@ -87,13 +89,10 @@ export function resolveKillLoot(
   rng: Pick<Rng, 'next'>,
 ): readonly LootGrant[] {
   if (info.lootTableId) {
-    const table = lookup.lootTableById(info.lootTableId);
-    if (table) {
-      try {
-        return resolveLoot(info.lootTableId, lookup, rng);
-      } catch {
-        // Soft-fail back to the guaranteed default payout for this kill.
-      }
+    try {
+      return resolveLoot(info.lootTableId, lookup, rng);
+    } catch {
+      // Soft-fail back to the guaranteed default payout for this kill.
     }
   }
   return defaultLoot(info);

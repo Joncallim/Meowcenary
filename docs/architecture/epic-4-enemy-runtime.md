@@ -33,8 +33,9 @@ caller later mutates its source, and sibling instances share no mutable state.
 - `Enemy.takeDamage` emits `enemy:damaged` only for accepted positive finite
   damage while the instance is live.
 - After lethal damage, `WeaponSystem` increments the run kill count and emits
-  `enemy:killed` once with instance ID, definition ID, XP value, and the hit
-  position. XP drop creation remains the existing coordinator side effect.
+  `enemy:killed` once with instance ID, definition ID, XP value, scrap value,
+  optional loot table ID, and the hit position. XP drop creation remains the
+  existing coordinator side effect.
 
 The combat ordering remains `enemy:damaged`, `projectile:hit`, then
 `enemy:killed`. Cleanup removal does not emit a combat kill event. Event payload

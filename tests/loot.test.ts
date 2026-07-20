@@ -84,6 +84,17 @@ describe('resolveLoot', () => {
     expect(table.entries).toEqual(mixedTable.entries);
     expect(mutableEntries).toEqual(mixedTable.entries);
   });
+
+  it('throws when the requested table is not found', () => {
+    expect(() => resolveLoot('missing', lookupOf(), createRng(1))).toThrow(/not found/);
+  });
+
+  it('throws when the table has zero total weight', () => {
+    const zeroWeightTable: LootTable = { id: 'zero-weight', entries: [] };
+    expect(() => resolveLoot('zero-weight', lookupOf(zeroWeightTable), createRng(1))).toThrow(
+      /invalid total weight/,
+    );
+  });
 });
 
 describe('defaultLoot', () => {
