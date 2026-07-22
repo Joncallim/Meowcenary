@@ -148,6 +148,7 @@ existing event covers it (Epic 8 adds none — it extends one payload).
 ## First Steps for Any Agent
 
 1. This file. 2. `docs/epics.md` (shared contracts). 3. The epic's
-`docs/architecture/epic-N-*.md` if it exists. 4. `src/engine/eventBus.ts`,
+`docs/architecture/epic-N-*.md` if it exists; for Epic 8 Slice 3, use
+`docs/architecture/epic-8-slice-3-drop.md`. 4. `src/engine/eventBus.ts`,
 `src/systems/types.ts`, `src/engine/context.ts`. 5. Target file + its test.
 6. `npm run test` baseline → implement → `lint && test && build`.

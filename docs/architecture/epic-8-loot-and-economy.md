@@ -445,7 +445,7 @@ merge.
 | --- | --- | --- | --- |
 | 1 | Loot table data model, validation & registry (+ enemy `lootTableId` field) — **merged #58** | `loot-tables.json`, `types.ts`, `validation.ts`, `lootTables.ts`, tests | none (post-Epic-7 `main`) |
 | 2 | Pure loot resolver — **merged #59** | `gameplay/loot.ts`, tests; payload + `Enemy.scrapValue` seams landed early | 1 |
-| 3 | Poolable `Drop` entity + magnet geometry | `entities/Drop.ts`, tests | 1 |
+| 3 | [Poolable `Drop` entity + magnet geometry](epic-8-slice-3-drop.md) — **implementation-ready** | `entities/Drop.ts`, tests | 1 |
 | 4 | Kill-to-loot pipeline: payload extension, `Enemy` getters, `WeaponSystem` slim-down, `DropSystem` rework (xp+scrap), `config.ts` drop section, `GameScene` rewiring, HUD line, delete `XpDrop.ts` | `eventBus.ts`, `Enemy.ts`, `WeaponSystem.ts`, `DropSystem.ts`, `config.ts`, `GameScene.ts`, migrated tests | 1, 2, 3 |
 | 5 | Chest shell + integration harness + dev hotkey + docs sign-off | `DropSystem.ts` (chest collect), integration tests, `GameScene.ts` (F10 dev-only), `epics.md`, `roadmap.md` | 4 |
 
