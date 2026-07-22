@@ -3,7 +3,7 @@
 This file gives a simple overview of the Meowcenary backlog and defines the
 **shared contracts** every epic builds on. GitHub issues are the default source
 for each epic's implementation plan; a linked repository architecture document
-may explicitly supersede older issue wording, as Epics 5, 6, and 7 do. This file
+may explicitly supersede older issue wording, as Epics 5, 6, 7, and 8 do. This file
 is the source of truth for the module names, data shapes, and events epics share.
 
 ## Documentation Standard
@@ -44,7 +44,8 @@ src/
                  targeting, weapons, merge, upgrades, spawnDirector, loot, reward,
                  characterSelection, arenaSelection (Epic 7), spawnRegion (Epic 7)
   systems/       Phaser-aware coordinators: input, save, validation, weapons,
-                 enemies, arenas (Epic 7), debug, audio, types.ts
+                 enemies, arenas (Epic 7), lootTables (Epic 8), debug, audio,
+                 types.ts
   scenes/        BootScene, GameScene (thin coordinators only)
   ui/            hud, cards, inventory, menus, settings
   data/          *.json gameplay definitions
@@ -293,7 +294,7 @@ so schedules (fire cadence, spawn timing) stay deterministic in tests.
 | Epic 5 | #6 Meta Progression | Complete | Earned permanent progress: banks RunState rewards, no ads/payments/timers. |
 | Epic 6 | #7 Characters | Complete | Selectable characters with starting stats, loadouts, passives, unlock hooks. |
 | Epic 7 | #8 Maps and Arenas | Complete | Data-defined arenas, spawn regions, obstacles, hazard hooks. |
-| Epic 8 | #9 Loot and Economy | Open | In-run XP/scrap drops, loot tables, pickup behaviour. |
+| Epic 8 | #9 Loot and Economy | In progress | Slices 1–2 complete; Slice 3 adds the poolable magnet `Drop`; architecture in [`architecture/epic-8-loot-and-economy.md`](architecture/epic-8-loot-and-economy.md). |
 | Epic 9 | #10 UI and UX | Open | Readable, controllable on phone and desktop. |
 | Epic 10 | #11 Audio | Open | Respectful, muteable, event-driven sound and music. |
 | Epic 11 | #12 Balancing and Developer Tooling | Open | Fast tuning through data, validation, debug tools, playtest helpers. |
@@ -314,11 +315,14 @@ so schedules (fire cadence, spawn timing) stay deterministic in tests.
 ### Reward-calculation boundary (Epic 8 vs Epic 5)
 
 To avoid duplicated logic: **Epic 8** owns *in-run* collection — drops add to
-`RunState.currency` and `RunState.xp` while the run is live. **Epic 5** can ship
-first and owns *end-of-run banking* of the current currency, including zero.
-One `ProgressionSystem` funnels both `run:won` and `run:lost` into one guarded
+`RunState.currency` and `RunState.xp` while the run is live. **Epic 5** (shipped)
+owns *end-of-run banking* of the current currency, including zero. One
+`ProgressionSystem` funnels both `run:won` and `run:lost` into one guarded
 banking method; scenes do not implement reward or persistence rules. Epic 8
-later changes only how currency is generated and never writes `MetaState`.
+changes only how currency is generated — drops resolved from the enriched
+`enemy:killed` payload through `src/gameplay/loot.ts` — and never writes
+`MetaState`. See
+[`architecture/epic-8-loot-and-economy.md`](architecture/epic-8-loot-and-economy.md).
 
 ## Suggested Build Sequence
 
@@ -329,7 +333,10 @@ later changes only how currency is generated and never writes `MetaState`.
    Epic 8.
 5. Epic 6 is complete (character selection, the pre-run `RunRequest` boundary,
    and the reactive-passive seam).
-6. Add Epic 7 against Epic 6's `RunRequest`/`GameContext` selection seams, then
-   Epics 8, 9, and 10 as their dependencies become available.
-7. Use Epic 11 throughout tuning.
-8. Save Epic 12 for late-stage polish and performance.
+6. Epic 7 is complete (arena data, selection, spawn regions, world bounds,
+   obstacle and hazard shells).
+7. Continue Epic 8 from Slice 3 (poolable drop, event-driven kill pipeline,
+   chest shell); Slices 1–2 (loot data and pure resolver) are complete. Then
+   implement Epics 9 and 10 as their dependencies become available.
+8. Use Epic 11 throughout tuning.
+9. Save Epic 12 for late-stage polish and performance.
