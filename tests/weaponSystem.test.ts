@@ -82,7 +82,8 @@ interface TestHarness {
     sprite: MockGameObject;
     defId: string;
     xpValue: number;
-    definition: { id: string; xpValue: number };
+    scrapValue: number;
+    definition: { id: string; xpValue: number; scrapValue: number; lootTableId?: string };
     takeDamage: ReturnType<typeof vi.fn>;
   };
   overlap?: (projectileObject: unknown, enemyObject: unknown) => void;
@@ -134,7 +135,13 @@ describe('WeaponSystem', () => {
       sprite: enemySprite,
       defId: dustMite.id,
       xpValue: dustMite.xpValue,
-      definition: { id: dustMite.id, xpValue: dustMite.xpValue },
+      scrapValue: dustMite.scrapValue,
+      definition: {
+        id: dustMite.id,
+        xpValue: dustMite.xpValue,
+        scrapValue: dustMite.scrapValue,
+        lootTableId: dustMite.lootTableId,
+      },
       takeDamage: vi.fn((amount: number) => {
         ctx.bus.emit('enemy:damaged', {
           instanceId: enemy.instanceId,
@@ -285,6 +292,7 @@ describe('WeaponSystem', () => {
       instanceId: 1,
       enemyId: 'dust-mite',
       xpValue: 1,
+      scrapValue: 1,
       x: 60,
       y: 0,
     });

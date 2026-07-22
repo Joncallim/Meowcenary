@@ -200,6 +200,8 @@ export class WeaponSystem implements System {
       instanceId: enemy.instanceId,
       enemyId: enemy.defId,
       xpValue: enemy.xpValue,
+      scrapValue: enemy.scrapValue,
+      ...(enemy.definition.lootTableId ? { lootTableId: enemy.definition.lootTableId } : {}),
       x: hitX,
       y: hitY,
     });

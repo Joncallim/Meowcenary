@@ -76,7 +76,7 @@ interface GameEventMap {
   'player:died':      Record<string, never>;
   'enemy:spawned':    { instanceId: number; enemyId: string; x: number; y: number };
   'enemy:damaged':    { instanceId: number; amount: number; x: number; y: number };
-  'enemy:killed':     { instanceId: number; enemyId: string; xpValue: number; x: number; y: number };
+  'enemy:killed':     { instanceId: number; enemyId: string; xpValue: number; scrapValue: number; lootTableId?: string; x: number; y: number };
   'weapon:fired':     { weaponId: string; x: number; y: number };
   'projectile:hit':   { x: number; y: number; damage: number; killed: boolean };
   'xp:gained':        { amount: number; total: number };

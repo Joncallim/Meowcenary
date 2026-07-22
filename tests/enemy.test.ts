@@ -102,6 +102,8 @@ describe('Enemy', () => {
     expect(enemy.maxHealth).toBe(10);
     expect(enemy.state).toBe('pursuing');
     expect(enemy.stateTimerMs).toBe(0);
+    expect(enemy.xpValue).toBe(1);
+    expect(enemy.scrapValue).toBe(1);
     expect(enemy.pos).toEqual({ x: 10, y: 20 });
 
     sprite.x = 30;
@@ -124,6 +126,7 @@ describe('Enemy', () => {
     expect(first.enemy.defId).toBe('test-enemy');
     expect(first.enemy.archetype).toBe('chaser');
     expect(first.enemy.xpValue).toBe(1);
+    expect(first.enemy.scrapValue).toBe(1);
     // Velocity-based movement: position unchanged until physics step
     expect(first.enemy.pos).toEqual({ x: 10, y: 20 });
     // Velocity set toward target
@@ -133,6 +136,7 @@ describe('Enemy', () => {
     expect(sibling.enemy.defId).toBe('test-enemy');
     expect(sibling.enemy.archetype).toBe('chaser');
     expect(sibling.enemy.xpValue).toBe(1);
+    expect(sibling.enemy.scrapValue).toBe(1);
     expect(Object.isFrozen(first.enemy.definition)).toBe(true);
     expect(Reflect.set(first.enemy.definition, 'xpValue', 500)).toBe(false);
     expect(sibling.enemy.xpValue).toBe(1);
