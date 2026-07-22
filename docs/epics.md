@@ -77,7 +77,7 @@ interface GameEventMap {
   'player:died':      Record<string, never>;
   'enemy:spawned':    { instanceId: number; enemyId: string; x: number; y: number };
   'enemy:damaged':    { instanceId: number; amount: number; x: number; y: number };
-  'enemy:killed':     { instanceId: number; enemyId: string; xpValue: number; scrapValue: number; lootTableId?: string; x: number; y: number }; // Epic 8 payload extension
+  'enemy:killed':     { instanceId: number; enemyId: string; xpValue: number; scrapValue: number; lootTableId?: string; x: number; y: number };
   'weapon:fired':     { weaponId: string; x: number; y: number };
   'projectile:hit':   { x: number; y: number; damage: number; killed: boolean };
   'xp:gained':        { amount: number; total: number };
@@ -294,7 +294,7 @@ so schedules (fire cadence, spawn timing) stay deterministic in tests.
 | Epic 5 | #6 Meta Progression | Complete | Earned permanent progress: banks RunState rewards, no ads/payments/timers. |
 | Epic 6 | #7 Characters | Complete | Selectable characters with starting stats, loadouts, passives, unlock hooks. |
 | Epic 7 | #8 Maps and Arenas | Complete | Data-defined arenas, spawn regions, obstacles, hazard hooks. |
-| Epic 8 | #9 Loot and Economy | Planned | In-run XP/scrap drops, loot tables, magnet pickup, chest shell; architecture in [`architecture/epic-8-loot-and-economy.md`](architecture/epic-8-loot-and-economy.md). |
+| Epic 8 | #9 Loot and Economy | In progress | Slices 1–2 complete; Slice 3 adds the poolable magnet `Drop`; architecture in [`architecture/epic-8-loot-and-economy.md`](architecture/epic-8-loot-and-economy.md). |
 | Epic 9 | #10 UI and UX | Open | Readable, controllable on phone and desktop. |
 | Epic 10 | #11 Audio | Open | Respectful, muteable, event-driven sound and music. |
 | Epic 11 | #12 Balancing and Developer Tooling | Open | Fast tuning through data, validation, debug tools, playtest helpers. |
@@ -335,8 +335,8 @@ changes only how currency is generated — drops resolved from the enriched
    and the reactive-passive seam).
 6. Epic 7 is complete (arena data, selection, spawn regions, world bounds,
    obstacle and hazard shells).
-7. Implement Epic 8 from its five architecture slices (loot data, pure
-   resolver, poolable drop, event-driven kill pipeline, chest shell), then
-   Epics 9 and 10 as their dependencies become available.
+7. Continue Epic 8 from Slice 3 (poolable drop, event-driven kill pipeline,
+   chest shell); Slices 1–2 (loot data and pure resolver) are complete. Then
+   implement Epics 9 and 10 as their dependencies become available.
 8. Use Epic 11 throughout tuning.
 9. Save Epic 12 for late-stage polish and performance.

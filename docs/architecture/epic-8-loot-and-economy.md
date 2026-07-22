@@ -1,16 +1,17 @@
 # Epic 8: Loot and Economy — Architecture Overview
 
-Status: implementation-ready architecture for Epic 8 / issue #9. This document
-is the repository **source of truth** for Epic 8 and the index for its five
-per-slice architecture PRs. It supersedes conflicting issue-#9 wording in one
-place: the issue's `Drop.update(dtMs, playerPos, pickupRadius)` sketch gains a
+Status: implementation-ready architecture for Epic 8 / issue #9. Slices 1 and
+2 are merged; Slice 3 is next. This document is the repository **source of
+truth** for Epic 8 and the index for its five focused slices. It supersedes
+conflicting issue-#9 wording in one place: the issue's
+`Drop.update(dtMs, playerPos, pickupRadius)` sketch gains a
 `magnetSpeed` parameter so tuning stays in `RuntimeConfig` rather than being
 hard-coded in the entity.
 
 Epic 8 is implemented as **five dependency-ordered slices**, each shipped as
-its own sub-issue under #9 and its own architecture PR. This overview freezes
-the shared contracts every slice depends on; each slice PR carries the exact,
-self-contained implementation spec for that slice.
+its own sub-issue under #9 and a focused implementation PR. This overview
+freezes the shared contracts every slice depends on; each sub-issue carries the
+exact, self-contained implementation spec for that slice.
 
 ## 1. Decision summary
 
@@ -56,15 +57,20 @@ self-contained implementation spec for that slice.
 - **No save-schema change, no `MetaState` writes, no new dependencies.**
   Epic 5 keeps exclusive ownership of end-of-run banking.
 
-## 2. Repository baseline (post-Epic-7 `main`, merged PR #51)
+## 2. Repository baseline (after Epic 8 Slices 1–2, merged PRs #58 and #59)
 
 - `RunState.currency` exists (`src/gameplay/runState.ts`) and is read by
   Epic 5's `computeRunReward`/`bankReward`; nothing writes it mid-run.
-- `scrapValue` is already present end-to-end in the enemy pipeline:
+- `scrapValue` is present end-to-end in the enemy pipeline:
   `enemies.json`, `EnemyStats` (`src/systems/types.ts`), enemy validation,
   `scaleEnemy` (unscaled), `ELITE_MULTIPLIERS.scrapValue` (×2), and
-  `SpawnSystem`'s runtime definition. Only the `Enemy` entity does not expose
-  it (no getter) and no kill payload carries it.
+  `SpawnSystem`'s runtime definition. Slice 2 added `Enemy.scrapValue` and the
+  enriched `enemy:killed` payload early; the legacy XP-drop side effect remains
+  until Slice 4.
+- Slice 1 added the required, fail-closed `loot-tables.json` catalog,
+  `LootEntry`/`LootTable` types, validation and cross-catalog references, and
+  the immutable `DataLootTableRegistry`. Slice 2 added the pure resolver in
+  `src/gameplay/loot.ts`.
 - `DropSystem` (`src/systems/DropSystem.ts`) owns XP-drop lifecycle: it is
   constructed with a `createXpDrop`-shaped factory consumed by `WeaponSystem`,
   registers the player×dropGroup physics overlap, collects instantly when a
@@ -74,9 +80,10 @@ self-contained implementation spec for that slice.
 - `XpDrop` (`src/entities/XpDrop.ts`) is a minimal non-poolable entity:
   circle sprite, arcade body, `active`/`x`/`y`/`body`/`destroy()`.
 - `WeaponSystem.handleProjectileEnemyOverlap` emits `enemy:killed` with
-  `{ instanceId, enemyId, xpValue, x, y }` and then calls
-  `this.createXpDrop(hitX, hitY, enemy.xpValue)`. `XpDropFactory` is exported
-  from `WeaponSystem.ts` and bound in `GameScene` (`dropSystem.createXpDrop.bind(...)`).
+  `{ instanceId, enemyId, xpValue, scrapValue, lootTableId?, x, y }` and then
+  calls `this.createXpDrop(hitX, hitY, enemy.xpValue)`. `XpDropFactory` is
+  exported from `WeaponSystem.ts` and bound in `GameScene`
+  (`dropSystem.createXpDrop.bind(...)`).
 - `applyXp` (`src/gameplay/xp.ts`) already applies `xpGain` and emits
   `xp:gained` / `level:up`. `ModifierStack` already supports `currencyGain`
   and `pickupRadius`; the `extra-scrap` card (`currencyGain ×1.25`) and the
@@ -87,12 +94,11 @@ self-contained implementation spec for that slice.
   in `GameScene` and injected; `DataEnemyRegistry` inside `SpawnSystem`.
   Epic 8 follows the `GameScene`-injection precedent for
   `DataLootTableRegistry` so a future chest/UI surface can share it.
-- `PassiveCoordinator` subscribes to `enemy:killed`; its tests emit the
-  current payload shape (~15 sites) and gain the new required field
-  mechanically.
-- Validation (`src/systems/validation.ts`) has the catalog pattern Epic 8
-  reuses: `ROOT_FIELDS`, per-catalog `validate*Catalog`, `MAX_*` caps to
-  bound scans, `assertUniqueIds`, and cross-catalog `assert*References`
+- `PassiveCoordinator` subscribes to `enemy:killed`; its tests already include
+  the required `scrapValue` field.
+- Validation (`src/systems/validation.ts`) now includes the Epic 8 catalog
+  pattern: `lootTables` in `ROOT_FIELDS`, `validateLootTableCatalog`, bounded
+  `MAX_*` caps, unique IDs, chest-safety checks, and enemy→table references
   running only from `validateGameData`.
 - The HUD (`GameScene.updateHud`) shows status/time/health/level/XP/kills/
   weapons; no scrap line exists. Epic 9 owns real UI; Epic 8 adds one
@@ -213,9 +219,10 @@ minimal interface the pure resolver depends on.
     construction — no graph walk is needed.
 - `assertEnemyLootTableReferences(enemies, lootTables)` runs only from
   `validateGameData`, after both catalogs validate (mirrors
-  `assertCharacterWeaponReferences`): every defined `enemy.lootTableId` —
-  including on elite rows — must exist in the loot catalog. Enemies without
-  the field are skipped.
+  `assertCharacterWeaponReferences`): every defined direct-enemy
+  `lootTableId` must exist in the loot catalog. Elite rows cannot declare the
+  field; they inherit the resolved base definition. Enemies without the field
+  are skipped.
 - `checkEnemy` treats `lootTableId` as an optional non-empty string when
   present (absent is the common case).
 
@@ -228,28 +235,29 @@ export interface LootSourceInfo {
   readonly lootTableId?: string;
 }
 
-export interface LootGrant {
-  readonly kind: 'xp' | 'scrap' | 'chest';
-  readonly amount: number;
-  readonly tableId?: string;   // chest grants only
-}
+export type LootGrant =
+  | { readonly kind: 'xp' | 'scrap'; readonly amount: number }
+  | { readonly kind: 'chest'; readonly amount: 0; readonly tableId: string };
 
 export function resolveLoot(
-  table: Readonly<LootTable>,
-  rng: Pick<Rng, 'next'>,
-): LootGrant[];
-
-export function defaultLoot(source: Readonly<LootSourceInfo>): LootGrant[];
-
-export function resolveKillLoot(
-  source: Readonly<LootSourceInfo>,
+  tableId: string,
   tables: LootTableLookup,
   rng: Pick<Rng, 'next'>,
-): LootGrant[];
+): readonly LootGrant[];
+
+export function defaultLoot(info: LootSourceInfo): readonly LootGrant[];
+
+export function resolveKillLoot(
+  info: LootSourceInfo,
+  lookup: LootTableLookup,
+  rng: Pick<Rng, 'next'>,
+): readonly LootGrant[];
 ```
 
-- `resolveLoot` makes **one** weighted draw with `rng.next()` over
-  `entry.weight` (weights need not sum to 1; total is validated `> 0`).
+- `resolveLoot` resolves `tableId` through `tables`, then makes **one** weighted
+  draw with `rng.next()` over `entry.weight` (weights need not sum to 1; total
+  is validated `> 0`). A direct call throws for a missing or malformed table;
+  `resolveKillLoot` owns the runtime fail-soft boundary.
   `'nothing'` yields `[]`; `'xp'`/`'scrap'` yield one grant with the entry
   amount; `'chest'` yields one grant carrying `tableId`.
 - `defaultLoot` is deterministic and consumes no RNG:
@@ -259,7 +267,7 @@ export function resolveKillLoot(
   exists in `tables`; otherwise the default path. A set-but-missing
   `lootTableId` fails soft to `defaultLoot` — validation is the integrity
   gate; a live run must never crash on loot.
-- Chest-open resolution (Slice 5) reuses `resolveLoot` on the chest table
+- Chest-open resolution (Slice 5) reuses `resolveLoot(tableId, tables, rng)`
   and filters any `kind: 'chest'` grants defensively (validation already
   guarantees none exist).
 
@@ -274,11 +282,12 @@ export function resolveKillLoot(
 };
 ```
 
-`Enemy` gains `scrapValue` and `lootTableId` getters reading its frozen
-definition; `WeaponSystem` spreads them into the payload exactly where it
-already reads `enemy.xpValue`. `PassiveCoordinator` and every other
-`enemy:killed` listener are unaffected (added fields are read only by
-`DropSystem`).
+Slice 2 landed the payload extension and `Enemy.scrapValue` getter early.
+`WeaponSystem` reads optional `lootTableId` from the frozen definition and
+spreads it into the payload exactly where it already reads `enemy.xpValue`.
+Slice 4 may add the convenience getter while removing the legacy XP-drop
+factory. `PassiveCoordinator` and every other `enemy:killed` listener are
+unaffected (the new fields are read only by `DropSystem`).
 
 ### 4.6 Poolable drop entity (`src/entities/Drop.ts`; `XpDrop.ts` is deleted in Slice 4 alongside the `DropSystem` rework — deleting it earlier would break the compile between slices)
 
@@ -428,22 +437,23 @@ balancing — Epic 8 ships the shell exactly as Epic 7 shipped hazards.
 
 ## 6. Dependency-ordered slice index
 
-Each slice is a sub-issue under #9 and a standalone architecture PR. Prereqs
+Each slice is a sub-issue under #9 and a focused implementation PR. Prereqs
 are strict: a slice's PR should not be implemented before its prerequisites
 merge.
 
 | # | Slice | Creates / modifies | Prereqs |
 | --- | --- | --- | --- |
-| 1 | Loot table data model, validation & registry (+ enemy `lootTableId` field) | `loot-tables.json`, `types.ts`, `validation.ts`, `lootTables.ts`, tests | none (post-Epic-7 `main`) |
-| 2 | Pure loot resolver | `gameplay/loot.ts`, tests | 1 |
+| 1 | Loot table data model, validation & registry (+ enemy `lootTableId` field) — **merged #58** | `loot-tables.json`, `types.ts`, `validation.ts`, `lootTables.ts`, tests | none (post-Epic-7 `main`) |
+| 2 | Pure loot resolver — **merged #59** | `gameplay/loot.ts`, tests; payload + `Enemy.scrapValue` seams landed early | 1 |
 | 3 | Poolable `Drop` entity + magnet geometry | `entities/Drop.ts`, tests | 1 |
 | 4 | Kill-to-loot pipeline: payload extension, `Enemy` getters, `WeaponSystem` slim-down, `DropSystem` rework (xp+scrap), `config.ts` drop section, `GameScene` rewiring, HUD line, delete `XpDrop.ts` | `eventBus.ts`, `Enemy.ts`, `WeaponSystem.ts`, `DropSystem.ts`, `config.ts`, `GameScene.ts`, migrated tests | 1, 2, 3 |
 | 5 | Chest shell + integration harness + dev hotkey + docs sign-off | `DropSystem.ts` (chest collect), integration tests, `GameScene.ts` (F10 dev-only), `epics.md`, `roadmap.md` | 4 |
 
-Slices 2 and 3 are independent of each other and can be implemented in
-parallel once Slice 1 merges. Slices 1–4 leave the shipped run behaviourally
-identical except that kills now also spawn guaranteed scrap drops; Slice 5 is
-an additive shell no shipped content exercises.
+Slice 3 is now the next independent unit. Slice 4 must treat the payload and
+`Enemy.scrapValue` changes from #59 as already complete and avoid reimplementing
+them. Slices 1–4 leave the shipped run behaviourally identical except that
+kills spawn guaranteed scrap drops once Slice 4 lands; Slice 5 is an additive
+shell no shipped content exercises.
 
 ## 7. Dependency and data-flow map
 

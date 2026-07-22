@@ -5,6 +5,7 @@ import spawnCurvesJson from '../data/spawn-curves.json';
 import upgradesJson from '../data/upgrades.json';
 import weaponsJson from '../data/weapons.json';
 import arenasJson from '../data/arenas.json';
+import lootTablesJson from '../data/loot-tables.json';
 import { STAT_KEYS } from '../gameplay/stats';
 import { DEFAULT_WEAPON_FAMILIES } from '../gameplay/weapons';
 import type {
@@ -13,6 +14,7 @@ import type {
   EnemyDefinition,
   EnemyArchetype,
   GameData,
+  LootTable,
   MetaUpgradeDefinition,
   Rarity,
   SpawnCurveDefinition,
@@ -49,7 +51,7 @@ const META_UPGRADE_FIELDS = new Set(['id', 'name', 'description', 'maxLevel', 'c
 const META_UPGRADE_COST_FIELDS = new Set(['base', 'growth']);
 const DIRECT_ENEMY_FIELDS = new Set([
   'id', 'name', 'archetype', 'health', 'damage', 'speed', 'xpValue', 'scrapValue',
-  'contactDamage',
+  'contactDamage', 'lootTableId',
 ]);
 const ELITE_ENEMY_FIELDS = new Set(['id', 'name', 'archetype', 'baseEnemyId']);
 const CHARGER_ATTACK_FIELDS = new Set([
@@ -59,7 +61,7 @@ const RANGED_ATTACK_FIELDS = new Set(['range', 'telegraphMs', 'cooldownMs']);
 const CURVE_FIELDS = new Set(['id', 'durationSeconds', 'scaling', 'waves']);
 const SCALING_FIELDS = new Set(['healthPerMinute', 'damagePerMinute']);
 const WAVE_FIELDS = new Set(['startSecond', 'enemyId', 'spawnEveryMs', 'maxAlive']);
-const ROOT_FIELDS = new Set(['weapons', 'enemies', 'upgrades', 'metaUpgrades', 'spawnCurves', 'characters', 'arenas']);
+const ROOT_FIELDS = new Set(['weapons', 'enemies', 'upgrades', 'metaUpgrades', 'spawnCurves', 'characters', 'arenas', 'lootTables']);
 const CHARACTER_FIELDS = new Set([
   'id', 'name', 'description', 'baseStats', 'startingWeaponIds', 'passives',
   'unlock', 'cosmeticSkinIds',
@@ -74,6 +76,11 @@ const REGION_RECT_FIELDS = new Set(['kind', 'x', 'y', 'w', 'h']);
 const REGION_EDGES_FIELDS = new Set(['kind', 'margin']);
 const OBSTACLE_FIELDS = new Set(['x', 'y', 'w', 'h']);
 const HAZARD_FIELDS = new Set(['id', 'kind', 'x', 'y', 'w', 'h', 'damagePerSecond']);
+const LOOT_KINDS = new Set(['xp', 'scrap', 'chest', 'nothing']);
+const LOOT_FIELDS = new Set(['id', 'entries']);
+const LOOT_ENTRY_FIELDS = new Set(['kind', 'amount', 'weight', 'tableId']);
+const MAX_LOOT_TABLES = 64;
+const MAX_LOOT_ENTRIES = 32;
 // Catalog-count ceilings. The spawn-witness search (findRectWitness/findRingWitness)
 // partitions the arena at obstacle edges — cost grows super-linearly with the
 // obstacle count — so an unbounded catalog could make boot-time validation hang.
@@ -121,6 +128,7 @@ export function loadGameData(): GameData {
     spawnCurves: spawnCurvesJson,
     characters: charactersJson,
     arenas: arenasJson,
+    lootTables: lootTablesJson,
   });
 }
 
@@ -133,7 +141,8 @@ export function validateGameData(raw: unknown): GameData {
       .replace(/^game-data\.metaUpgrades/, 'meta-upgrades.json')
       .replace(/^game-data\.spawnCurves/, 'spawn-curves.json')
       .replace(/^game-data\.characters/, 'characters.json')
-      .replace(/^game-data\.arenas/, 'arenas.json'),
+      .replace(/^game-data\.arenas/, 'arenas.json')
+      .replace(/^game-data\.lootTables/, 'loot-tables.json'),
   );
   if (!isRecord(raw)) {
     rootErrors.push('game-data: expected object');
@@ -158,6 +167,7 @@ export function validateGameData(raw: unknown): GameData {
   );
   const characters = validateCharacterCatalog(readOwnField(raw, 'characters'));
   const arenas = validateArenaCatalog(readOwnField(raw, 'arenas'));
+  const lootTables = validateLootTableCatalog(readOwnField(raw, 'lootTables'));
 
   assertUniqueIds('weapons.json', weapons);
   assertUniqueIds('upgrades.json', upgrades);
@@ -168,8 +178,9 @@ export function validateGameData(raw: unknown): GameData {
   assertSpawnReferences(spawnCurves, enemies);
   assertCharacterWeaponReferences(characters, weapons);
   assertArenaSpawnCurveReferences(arenas, spawnCurves);
+  assertEnemyLootTableReferences(enemies, lootTables);
 
-  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas };
+  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables };
 }
 
 export function validateMetaUpgradeCatalog(raw: unknown): MetaUpgradeDefinition[] {
@@ -205,6 +216,17 @@ export function validateCharacterCatalog(raw: unknown): CharacterDefinition[] {
   assertUniqueIds('characters.json', characters);
   assertCharacterDefaultExists(characters);
   return characters;
+}
+
+export function validateLootTableCatalog(raw: unknown): LootTable[] {
+  throwIfErrors(jsonSafetyErrors(raw, 'loot-tables.json'));
+  if (Array.isArray(raw) && raw.length > MAX_LOOT_TABLES) {
+    throw new Error(`loot-tables.json: too many entries (max ${MAX_LOOT_TABLES})`);
+  }
+  const tables = validate<LootTable>('loot-tables.json', raw, checkLootTable);
+  assertUniqueIds('loot-tables.json', tables);
+  assertChestTargetsChestSafe(tables);
+  return tables;
 }
 
 function checkUnlockRule(unlock: Record<string, unknown>, errors: string[]): void {
@@ -563,6 +585,65 @@ function checkArena(row: unknown): string[] {
   return errors;
 }
 
+function checkLootTable(row: unknown): string[] {
+  const errors = requireRecord(row);
+  if (!isRecord(row)) return errors;
+  rejectUnknownFields(row, LOOT_FIELDS, errors);
+  requireString(row, 'id', errors);
+  const id = readOwnField(row, 'id');
+  if (typeof id === 'string' && !isContentId(id)) errors.push('id: invalid content id');
+
+  const entries = readOwnField(row, 'entries');
+  if (!Array.isArray(entries)) {
+    errors.push('entries: required array');
+  } else if (entries.length > MAX_LOOT_ENTRIES) {
+    errors.push(`entries: too many entries (max ${MAX_LOOT_ENTRIES})`);
+  } else {
+    let totalWeight = 0;
+    for (let index = 0; index < entries.length; index += 1) {
+      if (!(index in entries)) {
+        errors.push(`entries[${index}]: sparse array entry`);
+        continue;
+      }
+      const entry = entries[index];
+      if (!isRecord(entry)) {
+        errors.push(`entries[${index}]: expected object`);
+        continue;
+      }
+      const entryErrors: string[] = [];
+      rejectUnknownFields(entry, LOOT_ENTRY_FIELDS, entryErrors);
+      const kind = readOwnField(entry, 'kind');
+      requireEnum(entry, 'kind', LOOT_KINDS, entryErrors);
+      if (kind === 'xp' || kind === 'scrap') {
+        requirePositiveInteger(entry, 'amount', entryErrors);
+      } else if (kind === 'chest' || kind === 'nothing') {
+        const amount = readOwnField(entry, 'amount');
+        if (typeof amount !== 'number' || !Number.isSafeInteger(amount) || amount !== 0) {
+          entryErrors.push('amount: must be 0');
+        }
+      }
+      requireNonNegativeNumber(entry, 'weight', entryErrors);
+      const weight = readOwnField(entry, 'weight');
+      if (isFiniteNumber(weight) && weight >= 0) {
+        totalWeight += weight;
+      }
+      const tableId = readOwnField(entry, 'tableId');
+      if (kind !== 'chest' && tableId !== undefined) {
+        entryErrors.push('tableId: only chest entries may reference a table');
+      }
+      if (kind === 'chest') {
+        requireString(entry, 'tableId', entryErrors);
+      }
+      errors.push(...entryErrors.map((error) => `entries[${index}].${error}`));
+    }
+    if (totalWeight <= 0) {
+      errors.push('entries: total weight must be greater than 0');
+    }
+  }
+
+  return errors;
+}
+
 function checkWeapon(row: unknown): string[] {
   const errors = requireRecord(row);
   if (!isRecord(row)) return errors;
@@ -605,6 +686,13 @@ function checkEnemy(row: unknown): string[] {
   requireNonNegativeNumber(row, 'speed', errors);
   requireNonNegativeInteger(row, 'xpValue', errors);
   requireNonNegativeInteger(row, 'scrapValue', errors);
+
+  const lootTableId = readOwnField(row, 'lootTableId');
+  if (lootTableId !== undefined) {
+    if (typeof lootTableId !== 'string' || lootTableId.length === 0 || lootTableId.trim() !== lootTableId) {
+      errors.push('lootTableId: must be a non-empty trimmed string');
+    }
+  }
 
   if (
     typeof archetype === 'string' &&
@@ -1189,6 +1277,49 @@ function assertArenaSpawnCurveReferences(
     if (!ids.has(arena.spawnCurveId)) {
       errors.push(`arenas.json[${index}].spawnCurveId: unknown spawnCurveId "${arena.spawnCurveId}"`);
     }
+  });
+  throwIfErrors(errors);
+}
+
+function assertEnemyLootTableReferences(
+  enemies: readonly EnemyDefinition[],
+  lootTables: readonly LootTable[],
+): void {
+  const ids = new Set(lootTables.map((table) => table.id));
+  const errors: string[] = [];
+  enemies.forEach((enemy, index) => {
+    if ('lootTableId' in enemy && typeof enemy.lootTableId === 'string') {
+      if (!ids.has(enemy.lootTableId)) {
+        errors.push(`enemies.json[${index}].lootTableId: unknown loot table id "${enemy.lootTableId}"`);
+      }
+    }
+  });
+  throwIfErrors(errors);
+}
+
+function assertChestTargetsChestSafe(tables: readonly LootTable[]): void {
+  const ids = new Set(tables.map((table) => table.id));
+  const chestUnsafeIds = new Set(
+    tables
+      .filter((table) => table.entries.some((entry) => entry.kind === 'chest'))
+      .map((table) => table.id),
+  );
+  const errors: string[] = [];
+  tables.forEach((table, tableIndex) => {
+    table.entries.forEach((entry, entryIndex) => {
+      if (entry.kind !== 'chest' || entry.tableId === undefined) return;
+      if (!ids.has(entry.tableId)) {
+        errors.push(
+          `loot-tables.json[${tableIndex}].entries[${entryIndex}].tableId: unknown table id "${entry.tableId}"`,
+        );
+        return;
+      }
+      if (chestUnsafeIds.has(entry.tableId)) {
+        errors.push(
+          `loot-tables.json[${tableIndex}].entries[${entryIndex}].tableId: target "${entry.tableId}" contains a chest entry and is not chest-safe`,
+        );
+      }
+    });
   });
   throwIfErrors(errors);
 }

@@ -72,6 +72,10 @@ export class Enemy implements EnemyInstance {
     return this.definition.xpValue;
   }
 
+  get scrapValue(): number {
+    return this.definition.scrapValue;
+  }
+
   get pos(): Vec2 {
     return { x: this.x, y: this.y };
   }

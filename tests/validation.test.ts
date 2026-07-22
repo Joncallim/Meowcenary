@@ -1046,4 +1046,165 @@ describe('game data validation', () => {
       ]))).toThrow(/must be "default" or "meta"/);
     });
   });
+
+  describe('loot table data validation', () => {
+    function lootTableFixture(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+      return {
+        id: 'test-table',
+        entries: [{ kind: 'xp', amount: 1, weight: 1 }],
+        ...overrides,
+      };
+    }
+
+    function withLootTables(tables: Record<string, unknown>[]): unknown {
+      const data = structuredClone(loadGameData()) as unknown as Record<string, unknown>;
+      data.lootTables = tables;
+      return data;
+    }
+
+    it('accepts the shipped loot-tables.json', () => {
+      const data = loadGameData();
+      expect(data.lootTables.length).toBe(2);
+      expect(data.lootTables[0].id).toBe('chest-standard');
+      expect(data.lootTables[1].id).toBe('brute-cache');
+    });
+
+    it('requires the lootTables field', () => {
+      const data = structuredClone(loadGameData()) as unknown as Record<string, unknown>;
+      delete data.lootTables;
+      expect(() => validateGameData(data)).toThrow(/lootTables: required field/);
+    });
+
+    it('rejects bad loot table id', () => {
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ id: '' }),
+      ]))).toThrow(/required nonempty trimmed string/);
+
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ id: ' bad' }),
+      ]))).toThrow(/id: invalid content id/);
+    });
+
+    it('rejects unknown fields', () => {
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ surprise: true }),
+      ]))).toThrow(/surprise: unknown field/);
+
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ entries: [{ kind: 'xp', amount: 1, weight: 1, extra: 1 }] }),
+      ]))).toThrow(/extra: unknown field/);
+    });
+
+    it('rejects bad kind', () => {
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ entries: [{ kind: 'gold', amount: 0, weight: 1 }] }),
+      ]))).toThrow(/kind: invalid value/);
+    });
+
+    it('rejects negative weight', () => {
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ entries: [{ kind: 'xp', amount: 1, weight: -1 }] }),
+      ]))).toThrow(/weight: required non-negative number/);
+    });
+
+    it('rejects zero total weight', () => {
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ entries: [{ kind: 'xp', amount: 1, weight: 0 }] }),
+      ]))).toThrow(/total weight must be greater than 0/);
+    });
+
+    it('requires xp/scrap amount >= 1', () => {
+      for (const kind of ['xp', 'scrap']) {
+        expect(() => validateGameData(withLootTables([
+          lootTableFixture({ entries: [{ kind, amount: 0, weight: 1 }] }),
+        ]))).toThrow(/amount: required positive integer/);
+      }
+    });
+
+    it('requires chest/nothing amount === 0', () => {
+      const chestEntry: Record<string, unknown> = { kind: 'chest', amount: 1, weight: 1, tableId: 'test-table' };
+      const nothingEntry: Record<string, unknown> = { kind: 'nothing', amount: 1, weight: 1 };
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ entries: [chestEntry] }),
+      ]))).toThrow(/amount: must be 0/);
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ entries: [nothingEntry] }),
+      ]))).toThrow(/amount: must be 0/);
+    });
+
+    it('rejects chest without tableId', () => {
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ entries: [{ kind: 'chest', amount: 0, weight: 1 }] }),
+      ]))).toThrow(/tableId: required nonempty trimmed string/);
+    });
+
+    it('rejects tableId on non-chest entries', () => {
+      for (const kind of ['xp', 'scrap', 'nothing']) {
+        expect(() => validateGameData(withLootTables([
+          lootTableFixture({ entries: [{ kind, amount: kind === 'nothing' ? 0 : 1, weight: 1, tableId: 'test-table' }] }),
+        ]))).toThrow(/tableId: only chest entries may reference a table/);
+      }
+    });
+
+    it('rejects unknown chest tableId', () => {
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ entries: [{ kind: 'chest', amount: 0, weight: 1, tableId: 'missing' }] }),
+      ]))).toThrow(/unknown table id/);
+    });
+
+    it('rejects chest-unsafe target (target containing chest entries)', () => {
+      const selfReferencing: Record<string, unknown> = {
+        id: 'chest-unsafe',
+        entries: [{ kind: 'chest', amount: 0, weight: 1, tableId: 'chest-unsafe' }],
+      };
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture(),
+        selfReferencing,
+      ]))).toThrow(/not chest-safe/);
+    });
+
+    it('rejects duplicate loot table ids', () => {
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture(), lootTableFixture({ id: 'test-table' }),
+      ]))).toThrow(/duplicate id "test-table"/);
+    });
+
+    it('rejects too many loot tables', () => {
+      const tooMany = Array.from({ length: 65 }, (_, index) => lootTableFixture({ id: `table-${index}` }));
+      expect(() => validateGameData(withLootTables(tooMany))).toThrow(/too many entries \(max 64\)/);
+    });
+
+    it('rejects too many entries per table', () => {
+      const tooMany = Array.from({ length: 33 }, () => ({ kind: 'xp', amount: 1, weight: 1 }));
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ entries: tooMany }),
+      ]))).toThrow(/entries: too many entries \(max 32\)/);
+    });
+
+    it('rejects unknown enemy lootTableId', () => {
+      const data = structuredClone(loadGameData()) as unknown as { enemies: Record<string, unknown>[] };
+      data.enemies[0].lootTableId = 'missing-table';
+      expect(() => validateGameData(data)).toThrow(/unknown loot table id/);
+    });
+
+    it('rejects bad enemy lootTableId shape', () => {
+      const data = structuredClone(loadGameData()) as unknown as { enemies: Record<string, unknown>[] };
+      data.enemies[0].lootTableId = '';
+      expect(() => validateGameData(data)).toThrow(/lootTableId: must be a non-empty trimmed string/);
+    });
+
+    it('rejects lootTableId on elite enemies', () => {
+      const enemies = [
+        enemyFixture('chaser'), enemyFixture('charger'), enemyFixture('tank'),
+        enemyFixture('elite', { lootTableId: 'test-table' }),
+      ];
+      expect(() => validateGameData(withEnemies(enemies))).toThrow(/lootTableId: unknown field/);
+    });
+
+    it('allows optional lootTableId on direct enemies', () => {
+      const data = structuredClone(loadGameData()) as unknown as { enemies: Record<string, unknown>[] };
+      data.enemies[0].lootTableId = 'chest-standard';
+      expect(() => validateGameData(data)).not.toThrow();
+    });
+  });
 });

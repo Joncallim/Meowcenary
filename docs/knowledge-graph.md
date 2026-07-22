@@ -1,8 +1,9 @@
 # Meowcenary Knowledge Graph
 
 > Token-optimized repo map. Read this before any implementation work.
-> Current state: **Epics 0–7 complete** (main @ PR #51). Epic 8 planned —
-> see `docs/architecture/epic-8-loot-and-economy.md`. 590 tests / 51 files green.
+> Current state: **Epics 0–7 complete; Epic 8 Slices 1–2 merged** (PRs #58–59).
+> Slice 3 is next; see `docs/architecture/epic-8-loot-and-economy.md`.
+> 632 tests / 53 files green.
 
 ## Stack
 
@@ -16,23 +17,24 @@ Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly
 | Dir | Status | Rules | Contents |
 |-----|--------|-------|----------|
 | `src/engine/` | ✅ | **No Phaser** (pure, unit-tested) | `config` `eventBus` `rng` `vector` `cadence` `context` `sceneKeys` `system` |
-| `src/gameplay/` | ✅ | **No Phaser** (pure rules) | `runState` `runStart` `runRequest` `stats` `xp` `targeting` `weapons` `weaponStats` `merge` `upgrades` `levelUpQueue` `projectilePattern` `enemyMovement` `enemyScaling` `spawnDirector` `spawnRegion` `meta` `characterSelection` `characterContribution` `characterPassives` `arenaSelection` |
+| `src/gameplay/` | ✅ | **No Phaser** (pure rules) | `runState` `runStart` `runRequest` `stats` `xp` `targeting` `weapons` `weaponStats` `merge` `upgrades` `levelUpQueue` `projectilePattern` `enemyMovement` `enemyScaling` `spawnDirector` `spawnRegion` `loot` `meta` `characterSelection` `characterContribution` `characterPassives` `arenaSelection` |
 | `src/entities/` | ✅ | May use Phaser (display objects) | `Player` `Enemy` `Projectile` `XpDrop` |
-| `src/systems/` | ✅ | May use Phaser (coordinators) | `types` `validation` `save` `input` `audio` `debug` `ids` `enemies` `characters` `arenas` `metaUpgrades` `weaponRegistry` `SpawnSystem` `WeaponSystem` `UpgradeSystem` `DropSystem` `ProgressionSystem` `PassiveCoordinator` `HazardSystem` `arenaScenery` |
+| `src/systems/` | ✅ | May use Phaser (coordinators) | `types` `validation` `save` `input` `audio` `debug` `ids` `enemies` `characters` `arenas` `lootTables` `metaUpgrades` `weaponRegistry` `SpawnSystem` `WeaponSystem` `UpgradeSystem` `DropSystem` `ProgressionSystem` `PassiveCoordinator` `HazardSystem` `arenaScenery` |
 | `src/scenes/` | ✅ | Thin coordinators only | `BootScene` `GameScene` |
 | `src/ui/` | ✅ | May use Phaser | `UpgradeChooser` `upgradeChooserController` `upgradeChooserLayout` `characterSelectionController` `arenaSelectionController` `progressionController` |
-| `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` |
-| `tests/` | ✅ 590 tests | Vitest; mock Phaser via `vi.mock` | 51 files incl. integration harnesses |
+| `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` `loot-tables` |
+| `tests/` | ✅ 632 tests | Vitest; mock Phaser via `vi.mock` | 53 files incl. integration harnesses |
 | `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..8}-*.md` |
 
-Epic 8 will add: `src/data/loot-tables.json`, `src/gameplay/loot.ts`,
-`src/systems/lootTables.ts`, `src/entities/Drop.ts` (replaces `XpDrop.ts`).
+Epic 8 Slices 1–2 added `src/data/loot-tables.json`, `src/gameplay/loot.ts`,
+and `src/systems/lootTables.ts`. Slice 3 adds `src/entities/Drop.ts`; Slice 4
+then replaces `XpDrop.ts` in the runtime pipeline.
 
-## Runtime Shape (post-Epic-7)
+## Runtime Shape (after Epic 8 Slice 2)
 
 ```
 main.ts → Phaser.Game([BootScene, GameScene])
-BootScene: loadGameData() (7 catalogs, fail-closed) → registries
+BootScene: loadGameData() (8 catalogs, fail-closed) → registries
            (characters, arenas, metaUpgrades) → createGameContext → registry
 GameScene.create():
   assembleRunRequest(ctx, menuRng) → { characterId, arenaId, seed }
@@ -65,7 +67,7 @@ enemy:spawned/damaged/killed        weapon:fired   projectile:hit
 xp:gained  level:up  card:offered(offerId+choices)/chosen  weapon:merged
 drop:collected(kind xp|scrap)  currency:changed  hazard:triggered
 ```
-Epic 8 extends `enemy:killed` with `scrapValue` + optional `lootTableId`
+Epic 8 Slice 2 extended `enemy:killed` with `scrapValue` + optional `lootTableId`
 (no new events). Rules: systems emit; audio/UI/debug subscribe; map is additive.
 
 ### RunState (`src/gameplay/runState.ts`)
@@ -96,7 +98,7 @@ Linear V1→V2 migration; unknown future versions fail closed. Unlock namespaces
 
 ## How to Iterate (recipes)
 
-**New data catalog** (Epic 8 loot tables follows exactly this):
+**New data catalog** (Epic 8 loot tables followed exactly this):
 1. `src/data/x.json` + types in `src/systems/types.ts` + `GameData` field.
 2. `validateXCatalog` in `validation.ts` (+`ROOT_FIELDS`, `MAX_*` caps, `assertUniqueIds`);
    cross-catalog refs via `assert*References` **only in `validateGameData`**.
@@ -140,7 +142,7 @@ existing event covers it (Epic 8 adds none — it extends one payload).
 | 5 | ✅ | Meta progression, SaveDataV2, banking (`computeRunReward`/`bankReward`) |
 | 6 | ✅ | Characters, `RunRequest`, reactive passives |
 | 7 | ✅ | Arenas: data/selection/`spawnPoint`/world bounds/obstacles/hazards (PR #51) |
-| 8 | 📐 Planned | Loot & economy — `docs/architecture/epic-8-loot-and-economy.md`, 5 slices |
+| 8 | 🚧 Slices 1–2 complete | Loot data + pure resolver merged; Slice 3 poolable magnet `Drop` is next |
 | 9–12 | Open | UI/UX, audio, balancing/tools, polish/perf (pooling `Drop`+`Projectile`) |
 
 ## First Steps for Any Agent
