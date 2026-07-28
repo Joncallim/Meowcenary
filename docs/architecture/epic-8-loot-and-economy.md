@@ -313,13 +313,23 @@ export class Drop {
 
 - Shape mirrors `Projectile`: constructed disabled (`body.enable = false`,
   inactive/invisible sprite); `spawn` positions, sets kind visuals
-  (`xp` = `0x7dd3fc` today's sky, `scrap` = `0xfbbf24` amber,
+  (`xp` = `0x7dd3fc` today's sky, `scrap` = `0xd1d5db` light grey — chosen
+  over an earlier green candidate for accessibility; see
+  `epic-8-slice-3-drop.md` §6 for the color-vision-deficiency analysis,
   `chest` = `0xf472b6` pink; depth 2 preserved), enables the body;
   `reset` disables and hides.
 - `update` homes only: when `distanceSq(drop, playerPos) <= pickupRadius^2`
   and `pickupRadius > 0`, set velocity toward the player at `magnetSpeed`;
   otherwise velocity 0. Non-finite `dtMs <= 0` is a no-op. Collection is **not**
   the entity's job — the existing physics overlap fires on contact.
+- `magnetSpeed` must stay above the player's maximum attainable `moveSpeed`
+  (base × every stackable passive/meta/card multiplier), or a fully built
+  fast character can outrun a homing drop indefinitely once Slice 4 makes
+  collection depend on physical overlap rather than radius alone. At
+  current data (`bolt-hound`: 205 base × 1.05 passive × 1.03⁵ meta ×
+  1.08⁵ cards ≈ 366.6), `magnetSpeed` must clear ~367; re-check this
+  ceiling whenever `moveSpeed` base values, passives, or stack limits
+  change.
 - Drops ignore obstacles and world bounds (no colliders); they exist where
   the kill happened and home once in range.
 
@@ -383,7 +393,7 @@ export class DropSystem implements System {
 // config.ts
 gameplay: {
   // ...player, projectile...
-  drop: { radius: 8, magnetSpeed: 300 },   // replaces xpDrop
+  drop: { radius: 8, magnetSpeed: 450 },   // replaces xpDrop; must exceed max attainable moveSpeed (~367, see §4.6)
 }
 
 // GameScene.create()
@@ -445,7 +455,7 @@ merge.
 | --- | --- | --- | --- |
 | 1 | Loot table data model, validation & registry (+ enemy `lootTableId` field) — **merged #58** | `loot-tables.json`, `types.ts`, `validation.ts`, `lootTables.ts`, tests | none (post-Epic-7 `main`) |
 | 2 | Pure loot resolver — **merged #59** | `gameplay/loot.ts`, tests; payload + `Enemy.scrapValue` seams landed early | 1 |
-| 3 | Poolable `Drop` entity + magnet geometry | `entities/Drop.ts`, tests | 1 |
+| 3 | [Poolable `Drop` entity + magnet geometry](epic-8-slice-3-drop.md) — **merged #60** | `entities/Drop.ts`, tests | 1 |
 | 4 | Kill-to-loot pipeline: payload extension, `Enemy` getters, `WeaponSystem` slim-down, `DropSystem` rework (xp+scrap), `config.ts` drop section, `GameScene` rewiring, HUD line, delete `XpDrop.ts` | `eventBus.ts`, `Enemy.ts`, `WeaponSystem.ts`, `DropSystem.ts`, `config.ts`, `GameScene.ts`, migrated tests | 1, 2, 3 |
 | 5 | Chest shell + integration harness + dev hotkey + docs sign-off | `DropSystem.ts` (chest collect), integration tests, `GameScene.ts` (F10 dev-only), `epics.md`, `roadmap.md` | 4 |
 
@@ -506,6 +516,32 @@ flowchart LR
 - **Epic 12 (polish/perf):** pools `Drop` (shape already matches
   `Projectile`), adds pickup/scatter/chest effects, and may add drop
   despawn caps. No gameplay change expected.
+
+  Two measured caveats for whoever picks this up, recorded during the
+  Slice 3 review so the rationale is not lost:
+
+  - **Pooling alone will not buy the expected frame time.** `Drop`'s hot
+    path is cheap: `update()` measured ~18 ns/call, so 400 simultaneous
+    drops cost ~0.007 ms/frame against a 16.67 ms budget (~0.04%).
+    Hand-inlining the vector math is ~3.4x faster in isolation but saves
+    ~0.005 ms/frame — not worth deviating from §4.6's instruction to reuse
+    `distanceSq`/`towards`. The real cost is rendering: `Phaser.GameObjects.Arc`
+    is **not** sprite-batched — `ArcWebGLRenderer` runs
+    `pipelines.preBatch()` → `FillPathWebGL` → `postBatch` per instance, so
+    cost scales with the number of rendered drops. Pooling recycles
+    CPU-side objects but does not reduce batch flushes. If drop count
+    becomes a frame-time problem, the fix is a texture/atlas-backed sprite,
+    which is a **change to the frozen `Drop` contract** (§4.6 commits to
+    `Arc`), not a drop-in optimisation.
+  - **A despawn/expiry timer is a contract amendment, not an addition.**
+    `Drop` has no `spawnedAt`/age field, and `update()` deliberately treats
+    `dtMs` as a validity gate that is never integrated (see the Slice 3 work
+    package §7). Adding a TTL therefore requires both a new field on the
+    frozen public contract and a change to `update()`'s documented
+    semantics. Until then, uncollected drops persist for the whole run,
+    each holding an enabled Arcade body in the per-frame player×dropGroup
+    overlap check plus its own draw call — this, not the vector math, is
+    the unbounded-growth risk.
 
 ## 9. Global acceptance criteria (all slices)
 
