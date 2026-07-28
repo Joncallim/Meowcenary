@@ -1,17 +1,19 @@
 # Epic 7: Maps and Arenas — Architecture Overview
 
-Status: implementation-ready architecture for Epic 7 / issue #8. This document
-is the repository **source of truth** for Epic 7 and the index for its seven
-per-slice architecture PRs. It supersedes conflicting Epic 7 issue text — in
+Status: **complete and merged** (issue #8). This document is the repository
+**source of truth** for Epic 7. It supersedes conflicting Epic 7 issue text — in
 particular the `unlock: { type; requiresUnlockId?: string }` optional-field
 shape (Epic 7 reuses the required `UnlockRule` union exactly as Epic 6 did) and
 any wording that implies arena selection needs a new storage key or a
 `SaveDataV3`.
 
-Epic 7 is implemented as **seven dependency-ordered slices**, each shipped as
-its own sub-issue under #8 and its own architecture PR. This overview freezes
-the shared contracts every slice depends on; each slice PR carries the exact,
-self-contained implementation spec for that slice.
+Epic 7 was architected as **seven dependency-ordered slices** and shipped as the
+single consolidated PR #51; the per-slice sub-issues (#45–#50) were closed in
+favour of that PR, so no standalone per-slice architecture documents exist in
+this repository. This overview is therefore the whole Epic 7 spec: where the
+slice table below names a slice, read the corresponding section of this document
+for its frozen contracts and the implementation in `src/` for its exact
+semantics.
 
 ## 1. Decision summary
 
@@ -258,8 +260,12 @@ export function spawnPoint(arena: Readonly<ArenaDefinition>, rng: Rng): Vec2;
 Phaser-free. Picks one of `arena.spawnRegions` uniformly with `rng.int`, samples
 a point for that region kind, and returns finite `Vec2` world coordinates. This
 is exactly the `ctx.spawnPoint` the director calls, so the director never learns
-region types. Full semantics (per-kind sampling, obstacle-avoidance retry,
-fallbacks, the in-bounds invariant) are frozen in the Slice 3 doc.
+region types. Full semantics (per-kind sampling, obstacle-avoidance retry, the
+deterministic `findRectWitness`/`findRingWitness` fallbacks, and the in-bounds
+invariant) live in `src/gameplay/spawnRegion.ts` and `tests/spawnRegion.test.ts`.
+Note that `edges` regions intentionally sample the `margin` band *outside*
+`arena.size` — that is the off-screen spawn band, and it is the one place a
+returned point is not within world bounds.
 
 ### 4.6 `GameContext` additions (`src/engine/context.ts`)
 
@@ -343,8 +349,9 @@ Epic 7 to be correct.
 
 ## 6. Dependency-ordered slice index
 
-Each slice is a sub-issue under #8 and a standalone architecture PR. Prereqs are
-strict: a slice's PR should not be implemented before its prerequisites merge.
+All seven slices are implemented and merged (PR #51). The table is kept as the
+build order and as the map from each slice to the files it owns; the "Prereqs"
+column records the dependency order that was followed.
 
 | # | Slice | Creates / modifies | Prereqs |
 | --- | --- | --- | --- |
