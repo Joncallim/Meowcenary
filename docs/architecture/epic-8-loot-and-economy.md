@@ -456,14 +456,17 @@ merge.
 | 1 | Loot table data model, validation & registry (+ enemy `lootTableId` field) — **merged #58** | `loot-tables.json`, `types.ts`, `validation.ts`, `lootTables.ts`, tests | none (post-Epic-7 `main`) |
 | 2 | Pure loot resolver — **merged #59** | `gameplay/loot.ts`, tests; payload + `Enemy.scrapValue` seams landed early | 1 |
 | 3 | [Poolable `Drop` entity + magnet geometry](epic-8-slice-3-drop.md) — **merged #60** | `entities/Drop.ts`, tests | 1 |
-| 4 | Kill-to-loot pipeline: payload extension, `Enemy` getters, `WeaponSystem` slim-down, `DropSystem` rework (xp+scrap), `config.ts` drop section, `GameScene` rewiring, HUD line, delete `XpDrop.ts` | `eventBus.ts`, `Enemy.ts`, `WeaponSystem.ts`, `DropSystem.ts`, `config.ts`, `GameScene.ts`, migrated tests | 1, 2, 3 |
+| 4 | [Kill-to-loot pipeline](epic-8-slice-4-kill-to-loot.md): `WeaponSystem` slim-down, `DropSystem` rework (xp+scrap), `config.ts` drop section, `GameScene` rewiring, HUD line, delete `XpDrop.ts` — **ready** | `WeaponSystem.ts`, `DropSystem.ts`, `config.ts`, `GameScene.ts`, `Enemy.ts` (optional getter), migrated tests | 1, 2, 3 |
 | 5 | Chest shell + integration harness + dev hotkey + docs sign-off | `DropSystem.ts` (chest collect), integration tests, `GameScene.ts` (F10 dev-only), `epics.md`, `roadmap.md` | 4 |
 
-Slice 3 is now the next independent unit. Slice 4 must treat the payload and
-`Enemy.scrapValue` changes from #59 as already complete and avoid reimplementing
-them. Slices 1–4 leave the shipped run behaviourally identical except that
-kills spawn guaranteed scrap drops once Slice 4 lands; Slice 5 is an additive
-shell no shipped content exercises.
+Slice 4 is now the next unit and is specified in full in
+[`epic-8-slice-4-kill-to-loot.md`](epic-8-slice-4-kill-to-loot.md). It must
+treat the `enemy:killed` payload extension and `Enemy.scrapValue` from #59 as
+already complete — `eventBus.ts` needs **no** change in Epic 8 from here on, and
+issue #56's contrary wording is stale (see that document §2.1). Slices 1–4 leave
+the shipped run behaviourally identical except that kills spawn guaranteed scrap
+drops once Slice 4 lands, and collection moves to physics-overlap-only; Slice 5
+is an additive shell no shipped content exercises.
 
 ## 7. Dependency and data-flow map
 
