@@ -6,7 +6,7 @@ export type DropKind = 'xp' | 'scrap' | 'chest';
 
 const DROP_COLORS: Record<DropKind, number> = {
   xp: 0x7dd3fc,
-  scrap: 0xfbbf24,
+  scrap: 0x4ade80,
   chest: 0xf472b6,
 };
 
@@ -61,6 +61,8 @@ export class Drop {
     }
 
     if (
+      !Number.isFinite(this.x) ||
+      !Number.isFinite(this.y) ||
       !Number.isFinite(playerPos.x) ||
       !Number.isFinite(playerPos.y) ||
       !Number.isFinite(pickupRadius) ||
@@ -89,8 +91,11 @@ export class Drop {
     this.kind = 'xp';
     this.amount = 0;
     this.tableId = undefined;
-    this.body.setVelocity(0, 0);
-    this.body.enable = false;
+    const body = this.sprite.body as Phaser.Physics.Arcade.Body | null;
+    if (body) {
+      body.setVelocity(0, 0);
+      body.enable = false;
+    }
     this.sprite.setActive(false).setVisible(false);
   }
 

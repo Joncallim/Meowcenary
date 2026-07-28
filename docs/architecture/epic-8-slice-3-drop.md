@@ -1,7 +1,7 @@
 # Epic 8 Slice 3: Poolable Drop Entity and Magnet Geometry
 
-Status: **implementation-ready handoff** for Epic 8 Slice 3 / issue #55.
-Architecture baseline: `main` at `c3bfbea` after PRs #58, #59, and #52.
+Status: **implemented and merged** via #60, closing Epic 8 Slice 3 / issue
+#55. Architecture baseline: `main` at `c3bfbea` after PRs #58, #59, and #52.
 
 This document is the implementation work package for Kimi K3 or DeepSeek.
 It refines the Epic 8 overview §4.6 into an exact, bounded coding task. When
@@ -117,6 +117,13 @@ export class Drop {
 Do not add options objects, factories, interfaces, events, or exports beyond
 `DropKind` and `Drop` in this slice.
 
+`DropKind` intentionally duplicates the `kind` member of `LootGrant`
+(`src/gameplay/loot.ts`) rather than importing it: §3 forbids this entity
+from depending on `gameplay/loot`. Slice 4's `spawnDrop(x, y, grant:
+LootGrant)` maps between the two and will fail to compile if they diverge,
+so do not "fix" the duplication by importing `LootGrant['kind']` here or by
+loosening either type.
+
 ## 5. State model
 
 | State | Class fields | Sprite | Body |
@@ -152,8 +159,11 @@ Use these exact fill colors:
 | Kind | Color |
 | --- | --- |
 | `xp` | `0x7dd3fc` |
-| `scrap` | `0xfbbf24` |
+| `scrap` | `0x4ade80` |
 | `chest` | `0xf472b6` |
+
+`scrap` uses green (not amber) so it stays visually distinct from the
+player's `0xf7c948` gold sprite at small on-screen radii.
 
 The sprite is a circle at depth 2. Keep the color map private to the module.
 Do not add labels, outlines, tweens, animation, particles, textures, or audio.

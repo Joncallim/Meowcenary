@@ -313,13 +313,22 @@ export class Drop {
 
 - Shape mirrors `Projectile`: constructed disabled (`body.enable = false`,
   inactive/invisible sprite); `spawn` positions, sets kind visuals
-  (`xp` = `0x7dd3fc` today's sky, `scrap` = `0xfbbf24` amber,
+  (`xp` = `0x7dd3fc` today's sky, `scrap` = `0x4ade80` green — chosen for
+  hue separation from the player's `0xf7c948` gold,
   `chest` = `0xf472b6` pink; depth 2 preserved), enables the body;
   `reset` disables and hides.
 - `update` homes only: when `distanceSq(drop, playerPos) <= pickupRadius^2`
   and `pickupRadius > 0`, set velocity toward the player at `magnetSpeed`;
   otherwise velocity 0. Non-finite `dtMs <= 0` is a no-op. Collection is **not**
   the entity's job — the existing physics overlap fires on contact.
+- `magnetSpeed` must stay above the player's maximum attainable `moveSpeed`
+  (base × every stackable passive/meta/card multiplier), or a fully built
+  fast character can outrun a homing drop indefinitely once Slice 4 makes
+  collection depend on physical overlap rather than radius alone. At
+  current data (`bolt-hound`: 205 base × 1.05 passive × 1.03⁵ meta ×
+  1.08⁵ cards ≈ 366.6), `magnetSpeed` must clear ~367; re-check this
+  ceiling whenever `moveSpeed` base values, passives, or stack limits
+  change.
 - Drops ignore obstacles and world bounds (no colliders); they exist where
   the kill happened and home once in range.
 
@@ -383,7 +392,7 @@ export class DropSystem implements System {
 // config.ts
 gameplay: {
   // ...player, projectile...
-  drop: { radius: 8, magnetSpeed: 300 },   // replaces xpDrop
+  drop: { radius: 8, magnetSpeed: 450 },   // replaces xpDrop; must exceed max attainable moveSpeed (~367, see §4.6)
 }
 
 // GameScene.create()
@@ -445,7 +454,7 @@ merge.
 | --- | --- | --- | --- |
 | 1 | Loot table data model, validation & registry (+ enemy `lootTableId` field) — **merged #58** | `loot-tables.json`, `types.ts`, `validation.ts`, `lootTables.ts`, tests | none (post-Epic-7 `main`) |
 | 2 | Pure loot resolver — **merged #59** | `gameplay/loot.ts`, tests; payload + `Enemy.scrapValue` seams landed early | 1 |
-| 3 | [Poolable `Drop` entity + magnet geometry](epic-8-slice-3-drop.md) — **implementation-ready** | `entities/Drop.ts`, tests | 1 |
+| 3 | [Poolable `Drop` entity + magnet geometry](epic-8-slice-3-drop.md) — **merged #60** | `entities/Drop.ts`, tests | 1 |
 | 4 | Kill-to-loot pipeline: payload extension, `Enemy` getters, `WeaponSystem` slim-down, `DropSystem` rework (xp+scrap), `config.ts` drop section, `GameScene` rewiring, HUD line, delete `XpDrop.ts` | `eventBus.ts`, `Enemy.ts`, `WeaponSystem.ts`, `DropSystem.ts`, `config.ts`, `GameScene.ts`, migrated tests | 1, 2, 3 |
 | 5 | Chest shell + integration harness + dev hotkey + docs sign-off | `DropSystem.ts` (chest collect), integration tests, `GameScene.ts` (F10 dev-only), `epics.md`, `roadmap.md` | 4 |
 

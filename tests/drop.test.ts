@@ -6,6 +6,7 @@ class MockGameObject {
   destroyed = false;
   fillColor = 0;
   depth = 0;
+  body: unknown = undefined;
 
   constructor(
     public x = 0,
@@ -40,6 +41,10 @@ class MockGameObject {
 
   destroy(): void {
     this.destroyed = true;
+    // Mirrors real Phaser: GameObject.destroy() nulls the body and flips active/visible.
+    this.body = undefined;
+    this.active = false;
+    this.visible = false;
   }
 }
 
@@ -96,7 +101,7 @@ describe('Drop', () => {
 
   it.each([
     ['xp', 0x7dd3fc],
-    ['scrap', 0xfbbf24],
+    ['scrap', 0x4ade80],
     ['chest', 0xf472b6],
   ] as const)('uses the exact %s color', async (kind, color) => {
     const drop = await createDrop();
@@ -110,6 +115,7 @@ describe('Drop', () => {
     const drop = await createDrop();
 
     drop.spawn(1, 2, 'chest', 5, 'table-a');
+    expect(drop.tableId).toBe('table-a');
     drop.body.setVelocity(9, 9);
     drop.reset();
     drop.spawn(3, 4, 'scrap', 7);
@@ -151,6 +157,25 @@ describe('Drop', () => {
 
     expect(drop.active).toBe(false);
     expect((drop.sprite as unknown as MockArc).destroyed).toBe(true);
+  });
+
+  it('reset() after the sprite is destroyed does not throw', async () => {
+    const drop = await createDrop();
+    drop.spawn(1, 2, 'xp', 5);
+
+    drop.destroy();
+
+    expect(() => drop.reset()).not.toThrow();
+    expect(drop.active).toBe(false);
+  });
+
+  it('restores the body circle radius on spawn even if it was reset externally', async () => {
+    const drop = await createDrop(5);
+
+    drop.body.setCircle(0);
+    drop.spawn(1, 2, 'xp', 5);
+
+    expect(drop.body.radius).toBe(5);
   });
 
   it('homes toward the player inside the pickup radius', async () => {
@@ -252,6 +277,15 @@ describe('Drop', () => {
 
     drop.body.setVelocity(7, 7);
     drop.update(16, { x: 3, y: 4 }, 10, NaN);
+    expect(drop.body.velocity).toEqual({ x: 0, y: 0 });
+  });
+
+  it('zeroes velocity rather than writing non-finite values when its own position is non-finite', async () => {
+    const drop = await createDrop();
+    drop.spawn(NaN, 0, 'xp', 1);
+
+    drop.update(16, { x: 3, y: 4 }, 10, 100);
+
     expect(drop.body.velocity).toEqual({ x: 0, y: 0 });
   });
 });
