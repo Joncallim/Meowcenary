@@ -137,6 +137,19 @@ loosening either type.
 The class-level `active` field is authoritative for reuse and must remain in
 sync with `sprite.active` during class-owned transitions.
 
+**Exception — Phaser-owned teardown.** `sprite.active` can veto `update()`
+even while the class field is still `true`. Phaser may destroy the sprite
+without going through `Drop.destroy()` (scene teardown via `DisplayList`,
+`group.clear(true, true)`), and because `active` is a plain field rather than
+a getter over `sprite.active` — unlike the `XpDrop` it replaces — it cannot
+self-correct. `GameObject.destroy()` sets `body = undefined`, so an `update()`
+guarded only on the class field would dereference a destroyed body. `update()`
+therefore returns early when **either** flag is false. The class field remains
+authoritative for *reuse* decisions (spawn/reset/pooling); `sprite.active` is
+authoritative for *liveness*. The two are expected to agree in all
+class-owned transitions; disagreement means Phaser tore the sprite down
+underneath the entity, and the correct response is a silent no-op.
+
 ### Spawn reinitialization
 
 Every `spawn` call must overwrite all reusable state:
@@ -239,6 +252,22 @@ are expected.
 - call `sprite.destroy()`;
 - do not add pooling, group removal, event emission, or a reset-before-destroy
   protocol.
+
+### Post-destroy policy
+
+`GameObject.destroy()` sets `body = undefined`, so every method that touches
+the body needs a deliberate stance. These three differ on purpose — do not
+"harmonise" them:
+
+| Method | After the sprite is destroyed | Why |
+| --- | --- | --- |
+| `reset()` | **Safe.** Clears payload fields unconditionally, then guards the body writes. | §9 requires reset to always be safe to call, and pooled cleanup runs during teardown when sprite state is unknown. |
+| `update()` | **Safe (no-op).** Returns early via the `sprite.active` check in §5. | Per-frame call; a destroyed sprite must never crash the game loop. |
+| `spawn()` | **Throws.** Body access is intentionally unguarded. | Spawning a destroyed entity means the pool handed out a dead object. That is a caller bug, and failing loudly beats silently producing an invisible drop that never collects. |
+
+Verified by test: `reset()` after `destroy()` does not throw. `update()` is
+covered by the inactive-drop cases. `spawn()`-after-`destroy()` is deliberately
+left to throw and is not tested for a specific message.
 
 ## 10. Test architecture
 

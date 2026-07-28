@@ -517,6 +517,32 @@ flowchart LR
   `Projectile`), adds pickup/scatter/chest effects, and may add drop
   despawn caps. No gameplay change expected.
 
+  Two measured caveats for whoever picks this up, recorded during the
+  Slice 3 review so the rationale is not lost:
+
+  - **Pooling alone will not buy the expected frame time.** `Drop`'s hot
+    path is cheap: `update()` measured ~18 ns/call, so 400 simultaneous
+    drops cost ~0.007 ms/frame against a 16.67 ms budget (~0.04%).
+    Hand-inlining the vector math is ~3.4x faster in isolation but saves
+    ~0.005 ms/frame — not worth deviating from §4.6's instruction to reuse
+    `distanceSq`/`towards`. The real cost is rendering: `Phaser.GameObjects.Arc`
+    is **not** sprite-batched — `ArcWebGLRenderer` runs
+    `pipelines.preBatch()` → `FillPathWebGL` → `postBatch` per instance, so
+    cost scales with the number of rendered drops. Pooling recycles
+    CPU-side objects but does not reduce batch flushes. If drop count
+    becomes a frame-time problem, the fix is a texture/atlas-backed sprite,
+    which is a **change to the frozen `Drop` contract** (§4.6 commits to
+    `Arc`), not a drop-in optimisation.
+  - **A despawn/expiry timer is a contract amendment, not an addition.**
+    `Drop` has no `spawnedAt`/age field, and `update()` deliberately treats
+    `dtMs` as a validity gate that is never integrated (see the Slice 3 work
+    package §7). Adding a TTL therefore requires both a new field on the
+    frozen public contract and a change to `update()`'s documented
+    semantics. Until then, uncollected drops persist for the whole run,
+    each holding an enabled Arcade body in the per-frame player×dropGroup
+    overlap check plus its own draw call — this, not the vector math, is
+    the unbounded-growth risk.
+
 ## 9. Global acceptance criteria (all slices)
 
 - `loot-tables.json` is a required, fail-closed catalog with one
