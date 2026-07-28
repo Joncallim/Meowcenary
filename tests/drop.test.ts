@@ -101,7 +101,7 @@ describe('Drop', () => {
 
   it.each([
     ['xp', 0x7dd3fc],
-    ['scrap', 0x4ade80],
+    ['scrap', 0xd1d5db],
     ['chest', 0xf472b6],
   ] as const)('uses the exact %s color', async (kind, color) => {
     const drop = await createDrop();

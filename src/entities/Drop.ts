@@ -6,7 +6,7 @@ export type DropKind = 'xp' | 'scrap' | 'chest';
 
 const DROP_COLORS: Record<DropKind, number> = {
   xp: 0x7dd3fc,
-  scrap: 0x4ade80,
+  scrap: 0xd1d5db,
   chest: 0xf472b6,
 };
 
@@ -52,7 +52,7 @@ export class Drop {
   }
 
   update(dtMs: number, playerPos: Vec2, pickupRadius: number, magnetSpeed: number): void {
-    if (!this.active) {
+    if (!this.active || !this.sprite.active) {
       return;
     }
 

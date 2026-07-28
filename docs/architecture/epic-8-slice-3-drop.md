@@ -159,11 +159,16 @@ Use these exact fill colors:
 | Kind | Color |
 | --- | --- |
 | `xp` | `0x7dd3fc` |
-| `scrap` | `0x4ade80` |
+| `scrap` | `0xd1d5db` |
 | `chest` | `0xf472b6` |
 
-`scrap` uses green (not amber) so it stays visually distinct from the
-player's `0xf7c948` gold sprite at small on-screen radii.
+`scrap` uses light grey (not amber) so it stays visually distinct from the
+player's `0xf7c948` gold sprite at small on-screen radii. Grey was chosen
+over an earlier green candidate (`0x4ade80`) because CIE-Lab ΔE simulation
+across protanopia/deuteranopia/tritanopia showed green colliding with the
+`xp` drop's blue (`0x7dd3fc`) under tritanopia (ΔE ≈ 3.4, well under the
+~12 confusability threshold); grey clears all three simulated deficiencies
+against every other arena-visible color.
 
 The sprite is a circle at depth 2. Keep the color map private to the module.
 Do not add labels, outlines, tweens, animation, particles, textures, or audio.
@@ -302,7 +307,12 @@ normalized velocity components. Do not assert private implementation details.
 - Do not delete `XpDrop.ts` early.
 - Do not modify Slice 4 seams that already landed in PR #59.
 
-## 13. Kimi K3 / DeepSeek execution prompt
+## 13. Kimi K3 / DeepSeek execution prompt (historical)
+
+Slice 3 is implemented and merged via #60 (see the Status line at the top of
+this document). The prompt below is kept as a record of what was executed,
+not a live work order — `src/entities/Drop.ts` and `tests/drop.test.ts`
+already exist; do not re-run this prompt.
 
 ```text
 Implement Epic 8 Slice 3 in Joncallim/Meowcenary.

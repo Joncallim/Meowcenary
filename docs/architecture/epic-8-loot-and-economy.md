@@ -313,8 +313,9 @@ export class Drop {
 
 - Shape mirrors `Projectile`: constructed disabled (`body.enable = false`,
   inactive/invisible sprite); `spawn` positions, sets kind visuals
-  (`xp` = `0x7dd3fc` today's sky, `scrap` = `0x4ade80` green — chosen for
-  hue separation from the player's `0xf7c948` gold,
+  (`xp` = `0x7dd3fc` today's sky, `scrap` = `0xd1d5db` light grey — chosen
+  over an earlier green candidate for accessibility; see
+  `epic-8-slice-3-drop.md` §6 for the color-vision-deficiency analysis,
   `chest` = `0xf472b6` pink; depth 2 preserved), enables the body;
   `reset` disables and hides.
 - `update` homes only: when `distanceSq(drop, playerPos) <= pickupRadius^2`
