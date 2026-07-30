@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type Phaser from 'phaser';
 import { createEventBus } from '../src/engine/eventBus';
 import type { GameContext } from '../src/engine/context';
+import { createRng, deriveRunSeed, type Rng } from '../src/engine/rng';
 import { createRunState, type RunState } from '../src/gameplay/runState';
 import type { LootTableLookup } from '../src/systems/lootTables';
 import type { Player } from '../src/entities/Player';
@@ -84,13 +85,14 @@ interface TestSystem {
   player: Player;
   overlapCallback?: (playerObject: unknown, dropObject: unknown) => void;
   addedSprites: MockGameObject[];
-  lootTables: { lootTableById: ReturnType<typeof vi.fn> };
-  rng: { next: ReturnType<typeof vi.fn> };
+  groupAddStates: Array<{ active: boolean; x: number; y: number }>;
+  rng: Pick<Rng, 'next'>;
 }
 
 async function createSystem(options: {
   status?: RunState['status'];
   lootTables?: LootTableLookup;
+  rng?: Pick<Rng, 'next'>;
 } = {}): Promise<TestSystem> {
   const { DropSystem } = await import('../src/systems/DropSystem');
   const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
@@ -102,6 +104,7 @@ async function createSystem(options: {
     callback?: (playerObject: unknown, dropObject: unknown) => void;
   } = {};
   const addedSprites: MockGameObject[] = [];
+  const groupAddStates: Array<{ active: boolean; x: number; y: number }> = [];
   const scene = {
     add: {
       circle: () => new MockArc(0, 0),
@@ -132,13 +135,14 @@ async function createSystem(options: {
   const player = { x: 0, y: 0, sprite: new MockArc(0, 0) } as unknown as Player;
   const dropGroup = {
     add: (sprite: MockGameObject) => {
+      groupAddStates.push({ active: sprite.active, x: sprite.x, y: sprite.y });
       addedSprites.push(sprite);
     },
   } as unknown as Phaser.Physics.Arcade.Group;
   const lootTables = options.lootTables ?? { lootTableById: vi.fn() };
   // A concrete RNG value ensures resolveLoot traverses the weighted-selection
   // path instead of the floating-point safety-net fallback.
-  const rng = { next: vi.fn(() => 0.3) };
+  const rng = options.rng ?? { next: vi.fn(() => 0.3) };
 
   const system = new DropSystem({
     scene: scene as unknown as Phaser.Scene,
@@ -164,7 +168,7 @@ async function createSystem(options: {
       return overlapState.callback;
     },
     addedSprites,
-    lootTables: lootTables as { lootTableById: ReturnType<typeof vi.fn> },
+    groupAddStates,
     rng,
   };
 }
@@ -205,7 +209,18 @@ describe('DropSystem', () => {
     expect(amounts).toEqual([2, 3]);
   });
 
-  it('produces identical table-path drops for identical RNG state and kill order', async () => {
+  it('adds a disabled drop to the Physics Group before spawn initializes it', async () => {
+    const { system, groupAddStates } = await createSystem();
+
+    const drop = system.spawnDrop(25, 30, { kind: 'scrap', amount: 2 });
+
+    expect(groupAddStates).toEqual([{ active: false, x: 0, y: 0 }]);
+    expect(drop.active).toBe(true);
+    expect(drop.x).toBe(25);
+    expect(drop.y).toBe(30);
+  });
+
+  it('produces identical table-path drops for identical seed and kill order', async () => {
     const table = {
       id: 'test-table',
       entries: [
@@ -216,41 +231,34 @@ describe('DropSystem', () => {
     const lootTables = {
       lootTableById: vi.fn((id: string) => (id === table.id ? table : undefined)),
     };
-    const first = await createSystem({ lootTables });
-    const second = await createSystem({ lootTables });
+    const seed = deriveRunSeed(42, 'loot');
+    const first = await createSystem({ lootTables, rng: createRng(seed) });
+    const second = await createSystem({ lootTables, rng: createRng(seed) });
     const firstCollected = vi.fn();
     const secondCollected = vi.fn();
     first.bus.on('drop:collected', firstCollected);
     second.bus.on('drop:collected', secondCollected);
 
-    first.bus.emit('enemy:killed', {
-      instanceId: 1,
-      enemyId: 'any',
-      xpValue: 1,
-      scrapValue: 1,
-      lootTableId: table.id,
-      x: 10,
-      y: 20,
-    });
-    second.bus.emit('enemy:killed', {
-      instanceId: 1,
-      enemyId: 'any',
-      xpValue: 1,
-      scrapValue: 1,
-      lootTableId: table.id,
-      x: 10,
-      y: 20,
-    });
+    for (let instanceId = 1; instanceId <= 4; instanceId += 1) {
+      const payload = {
+        instanceId,
+        enemyId: 'any',
+        xpValue: 1,
+        scrapValue: 1,
+        lootTableId: table.id,
+        x: instanceId * 10,
+        y: instanceId * 20,
+      };
+      first.bus.emit('enemy:killed', payload);
+      second.bus.emit('enemy:killed', payload);
+    }
 
-    expect(first.addedSprites).toHaveLength(1);
-    expect(second.addedSprites).toHaveLength(1);
-    expect(first.addedSprites[0].x).toBe(second.addedSprites[0].x);
-    expect(first.addedSprites[0].y).toBe(second.addedSprites[0].y);
-    first.overlapCallback?.(null, first.addedSprites[0]);
-    second.overlapCallback?.(null, second.addedSprites[0]);
+    expect(first.addedSprites).toHaveLength(4);
+    expect(second.addedSprites).toHaveLength(4);
+    first.addedSprites.forEach((sprite) => first.overlapCallback?.(null, sprite));
+    second.addedSprites.forEach((sprite) => second.overlapCallback?.(null, sprite));
     expect(firstCollected.mock.calls).toEqual(secondCollected.mock.calls);
-    expect(first.rng.next).toHaveBeenCalledOnce();
-    expect(second.rng.next).toHaveBeenCalledOnce();
+    expect(firstCollected).toHaveBeenCalledTimes(4);
   });
 
   it('consumes no RNG on the default path', async () => {
@@ -332,12 +340,12 @@ describe('DropSystem', () => {
     expect(collected).toHaveBeenCalledWith({ kind: 'scrap', amount: 7, x: 0, y: 0 });
   });
 
-  it.each([-1, Number.NaN])(
+  it.each([-1, 0, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
     'does not write currency or emit currency:changed when currencyGain is %s',
     async (currencyGain) => {
       const { system, runState, bus, overlapCallback } = await createSystem();
-      if (Number.isNaN(currencyGain)) {
-        vi.spyOn(runState.stats, 'resolve').mockReturnValue(Number.NaN);
+      if (!Number.isFinite(currencyGain)) {
+        vi.spyOn(runState.stats, 'resolve').mockReturnValue(currencyGain);
       } else {
         runState.stats.add({ stat: 'currencyGain', op: 'mult', value: currencyGain, sourceId: 'test' });
       }

@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import type { GameContext } from '../engine/context';
+import type { GameEventListener } from '../engine/eventBus';
+import type { Rng } from '../engine/rng';
 import type { System } from '../engine/system';
 import { Drop } from '../entities/Drop';
 import type { Player } from '../entities/Player';
@@ -8,7 +10,6 @@ import type { LootGrant } from '../gameplay/loot';
 import type { RunState } from '../gameplay/runState';
 import { applyXp } from '../gameplay/xp';
 import type { LootTableLookup } from './lootTables';
-import type { Rng } from '../engine/rng';
 
 export interface DropSystemOptions {
   readonly scene: Phaser.Scene;
@@ -67,9 +68,11 @@ export class DropSystem implements System {
    */
   spawnDrop(x: number, y: number, grant: LootGrant): Drop {
     const drop = new Drop(this.scene, this.dropRadius);
-    drop.spawn(x, y, grant.kind, grant.amount, grant.kind === 'chest' ? grant.tableId : undefined);
     this.drops.push(drop);
+    // PhysicsGroup.add reapplies body defaults. Insert first so spawn owns the
+    // final position, body shape, enablement, and velocity, like Projectile.
     this.dropGroup.add(drop.sprite);
+    drop.spawn(x, y, grant.kind, grant.amount, grant.kind === 'chest' ? grant.tableId : undefined);
     return drop;
   }
 
@@ -94,15 +97,7 @@ export class DropSystem implements System {
     this.drops.length = 0;
   }
 
-  private handleEnemyKilled = (payload: {
-    instanceId: number;
-    enemyId: string;
-    xpValue: number;
-    scrapValue: number;
-    lootTableId?: string;
-    x: number;
-    y: number;
-  }): void => {
+  private readonly handleEnemyKilled: GameEventListener<'enemy:killed'> = (payload) => {
     if (this.runState.status !== 'active') {
       return;
     }

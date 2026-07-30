@@ -294,7 +294,7 @@ so schedules (fire cadence, spawn timing) stay deterministic in tests.
 | Epic 5 | #6 Meta Progression | Complete | Earned permanent progress: banks RunState rewards, no ads/payments/timers. |
 | Epic 6 | #7 Characters | Complete | Selectable characters with starting stats, loadouts, passives, unlock hooks. |
 | Epic 7 | #8 Maps and Arenas | Complete | Data-defined arenas, spawn regions, obstacles, hazard hooks. |
-| Epic 8 | #9 Loot and Economy | In progress | Slices 1–2 complete; Slice 3 adds the poolable magnet `Drop`; architecture in [`architecture/epic-8-loot-and-economy.md`](architecture/epic-8-loot-and-economy.md). |
+| Epic 8 | #9 Loot and Economy | In progress | Slices 1–3 merged; Slice 4's event-driven kill-to-loot implementation is in PR #61; architecture in [`architecture/epic-8-loot-and-economy.md`](architecture/epic-8-loot-and-economy.md). |
 | Epic 9 | #10 UI and UX | Open | Readable, controllable on phone and desktop. |
 | Epic 10 | #11 Audio | Open | Respectful, muteable, event-driven sound and music. |
 | Epic 11 | #12 Balancing and Developer Tooling | Open | Fast tuning through data, validation, debug tools, playtest helpers. |
@@ -335,8 +335,8 @@ changes only how currency is generated — drops resolved from the enriched
    and the reactive-passive seam).
 6. Epic 7 is complete (arena data, selection, spawn regions, world bounds,
    obstacle and hazard shells).
-7. Continue Epic 8 from Slice 3 (poolable drop, event-driven kill pipeline,
-   chest shell); Slices 1–2 (loot data and pure resolver) are complete. Then
-   implement Epics 9 and 10 as their dependencies become available.
+7. Complete Epic 8 Slice 4 in PR #61, then Slice 5 (chest shell and integration
+   harness); Slices 1–3 are merged. Then implement Epics 9 and 10 as their
+   dependencies become available.
 8. Use Epic 11 throughout tuning.
 9. Save Epic 12 for late-stage polish and performance.

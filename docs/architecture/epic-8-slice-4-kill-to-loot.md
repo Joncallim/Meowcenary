@@ -1,14 +1,17 @@
 # Epic 8 Slice 4: Kill-to-Loot Pipeline
 
-Status: **implementation-ready**. Epic 8 Slice 4 / issue #56. Architecture
-baseline: `main` at `74104b7`, after PRs #58 (Slice 1), #59 (Slice 2), #60
-(Slice 3), and #51 (Epic 7).
+Status: **implementation delivered for review in PR #61**. Epic 8 Slice 4 /
+issue #56. Implementation baseline: `main` at `c4ec822`, after PRs #58
+(Slice 1), #59 (Slice 2), #60 (Slice 3), and #51 (Epic 7), plus this
+architecture handoff.
 
-This document is the implementation work package for the slice. It refines the
-Epic 8 overview §4.5, §4.7, and §4.8 into an exact, bounded coding task. When
-this document and issue #56 differ, **this document is authoritative** — issue
-#56 was written against the pre-#59 baseline and three of its statements are now
-stale. §2.1 lists every divergence.
+This document is the architecture contract and implementation work package for
+the slice. PR #61 is the delivery vehicle for the complete implementation,
+tests, and architecture sign-off; it is not a docs-only architecture PR. The
+contract refines the Epic 8 overview §4.5, §4.7, and §4.8 into an exact,
+bounded coding task. When this document and issue #56 differ, **this document
+is authoritative** — issue #56 was written against the pre-#59 baseline and
+three of its statements are now stale. §2.1 lists every divergence.
 
 ## 1. Outcome
 
@@ -66,6 +69,26 @@ hand-off must follow this document, not the issue.
 The issue also lists "enriched `enemy:killed` emission" as `WeaponSystem` work.
 That emission already exists at [`WeaponSystem.ts:199-205`](../../src/systems/WeaponSystem.ts).
 The only `WeaponSystem` work in this slice is **deletion** (§5.2).
+
+### 2.2 PR #61 implementation-audit amendments
+
+The architecture pass over the implementation pins three details that a
+follow-up agent must preserve:
+
+1. **Physics Group insertion precedes `Drop.spawn`.**
+   `Phaser.Physics.Arcade.Group.add` reapplies body defaults, including
+   enablement and velocity. Follow the repository's `Projectile` precedent:
+   construct → retain → add to the group → spawn. `spawn` must own the final
+   position, body shape, enablement, and velocity.
+2. **The kill handler is typed from `GameEventMap`.**
+   Use `GameEventListener<'enemy:killed'>` instead of duplicating the payload
+   shape inside `DropSystem`; future event-contract drift must fail at compile
+   time.
+3. **Determinism coverage uses the real named RNG stream.**
+   The table-path system test creates two RNGs from the same
+   `deriveRunSeed(seed, 'loot')`, feeds the same ordered kills, and compares the
+   collected grant sequence. A constant RNG stub does not prove the
+   seed-and-order contract.
 
 ## 3. Scope and ownership
 
@@ -253,9 +276,9 @@ so a kill resolved during teardown cannot spawn orphan drops.
 ```ts
 spawnDrop(x: number, y: number, grant: LootGrant): Drop {
   const drop = new Drop(this.scene, this.dropRadius);
-  drop.spawn(x, y, grant.kind, grant.amount, grant.kind === 'chest' ? grant.tableId : undefined);
   this.drops.push(drop);
   this.dropGroup.add(drop.sprite);
+  drop.spawn(x, y, grant.kind, grant.amount, grant.kind === 'chest' ? grant.tableId : undefined);
   return drop;
 }
 ```
@@ -267,8 +290,10 @@ chest branch — narrow on `grant.kind`, do not cast. `Drop.spawn` already ignor
 (Slice 3 §4): this call site is the compile-time check that they have not
 diverged. If it fails to compile, fix the divergence — do not add a cast.
 
-Construct-then-`spawn` (rather than a positioning constructor) is what makes the
-pool swap in Epic 12 a one-line change here.
+Construct, retain, and add to the Physics Group before `spawn`. Phaser reapplies
+group body defaults on insertion, so `spawn` must run last and own the final
+body state. This mirrors `WeaponSystem`'s projectile ordering and keeps the pool
+swap in Epic 12 localized to this method.
 
 ### 7.3 update
 
@@ -462,25 +487,32 @@ additions" item is stale — verify, then leave it alone.
 - Do not modify `Drop.ts` or `loot.ts`; if you think you must, the contract has
   drifted and that is a stop-and-report.
 
-## 12. Handoff prompt
+## 12. Implementation and delivery handoff
 
-> Implement Epic 8 Slice 4 (kill-to-loot pipeline) in the Meowcenary repo,
-> working directly on `main` (this repo keeps exactly one branch).
+Use this prompt for a lower-tier agent continuing or validating PR #61:
+
+> Complete Epic 8 Slice 4 (kill-to-loot pipeline) on
+> `agent/epic-8-slice-4-kill-to-loot`, the head branch of PR #61. Keep all
+> implementation, tests, and architecture corrections in that PR; do not open
+> a separate architecture-only PR.
 >
 > `docs/architecture/epic-8-slice-4-kill-to-loot.md` is authoritative and
 > supersedes issue #56 wherever they differ — §2.1 lists the three stale items,
 > including a magnet-speed value in the issue that would ship a live bug.
 >
-> Read §2 before writing code: `gameplay/loot.ts`, `entities/Drop.ts`, and
-> `systems/lootTables.ts` are already complete and must not be modified. The
-> enriched `enemy:killed` payload already ships. This slice is a rework of
-> `DropSystem`, a deletion pass on `WeaponSystem`, a config swap, and scene
-> rewiring.
+> Read §2 and inspect the current PR diff before writing code:
+> `gameplay/loot.ts`, `entities/Drop.ts`, and `systems/lootTables.ts` are
+> already complete and must not be modified. The enriched `enemy:killed`
+> payload already ships. This slice is a rework of `DropSystem`, a deletion
+> pass on `WeaponSystem`, a config swap, scene wiring, focused tests, and
+> documentation status updates.
 >
 > §4 describes the one intentional behaviour change (collection becomes
 > overlap-only) and why today's `dropSystem.test.ts` must be rewritten rather
-> than deleted. §9 lists required coverage. §10 is the acceptance gate; §11 is
-> the reviewer-trap list.
+> than deleted. Preserve the Physics Group ordering and event-derived handler
+> typing in §2.2. §9 lists required coverage. §10 is the acceptance gate; §11
+> is the reviewer-trap list.
 >
-> Keep `npm test`, `npx tsc --noEmit`, `npm run build`, and `git diff --check`
-> green.
+> Before handing back, run the focused DropSystem/WeaponSystem tests, the full
+> Vitest suite, `npx tsc --noEmit`, `npm run build`, `git diff --check`, and
+> the stale-seam grep from §10. Report exact counts and the tested commit.
