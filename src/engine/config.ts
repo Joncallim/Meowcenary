@@ -10,8 +10,9 @@ export const RuntimeConfig = {
     projectile: {
       radius: 4,
     },
-    xpDrop: {
+    drop: {
       radius: 8,
+      magnetSpeed: 450,
     },
   },
   storageKey: 'meowcenary.save.v1',

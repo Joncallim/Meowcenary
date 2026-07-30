@@ -88,7 +88,6 @@ interface TestHarness {
   };
   overlap?: (projectileObject: unknown, enemyObject: unknown) => void;
   projectileGroup: { added: MockGameObject[]; add: (sprite: MockGameObject) => void };
-  createXpDrop: ReturnType<typeof vi.fn>;
 }
 
 describe('WeaponSystem', () => {
@@ -189,7 +188,6 @@ describe('WeaponSystem', () => {
       },
     };
     const player = { active: true, x: 0, y: 0, sprite: new MockGameObject(0, 0) };
-    const createXpDrop = vi.fn();
     const system = new WeaponSystem(
       scene as never,
       ctx,
@@ -199,7 +197,6 @@ describe('WeaponSystem', () => {
       projectileGroup as never,
       {} as never,
       registry,
-      createXpDrop,
       4,
     );
 
@@ -210,7 +207,6 @@ describe('WeaponSystem', () => {
       enemy,
       overlap,
       projectileGroup,
-      createXpDrop,
     };
   }
 
@@ -266,7 +262,7 @@ describe('WeaponSystem', () => {
     expect(fired).not.toHaveBeenCalled();
   });
 
-  it('applies hit, kill, and XP-drop side effects once per projectile/enemy pair', async () => {
+  it('applies hit, kill, and enemy:killed side effects once per projectile/enemy pair', async () => {
     const harness = await createHarness();
     const damaged = vi.fn();
     const hit = vi.fn();
@@ -300,7 +296,6 @@ describe('WeaponSystem', () => {
     expect(damaged.mock.invocationCallOrder[0]).toBeLessThan(hit.mock.invocationCallOrder[0]);
     expect(hit.mock.invocationCallOrder[0]).toBeLessThan(killed.mock.invocationCallOrder[0]);
     expect(harness.runState.kills).toBe(1);
-    expect(harness.createXpDrop).toHaveBeenCalledWith(60, 0, 1);
   });
 
   it('does not classify synchronous cleanup during damage as a combat kill', async () => {
@@ -333,7 +328,6 @@ describe('WeaponSystem', () => {
     expect(damaged.mock.invocationCallOrder[0]).toBeLessThan(hit.mock.invocationCallOrder[0]);
     expect(killed).not.toHaveBeenCalled();
     expect(harness.runState.kills).toBe(0);
-    expect(harness.createXpDrop).not.toHaveBeenCalled();
   });
 
   it('does not advance cadence, projectiles, or overlap damage while paused', async () => {
