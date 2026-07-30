@@ -309,8 +309,14 @@ update(dtMs: number): void {
 
 - Resolve `pickupRadius` **once per tick**, not once per drop — it is the same
   value for every drop and `resolve` walks the whole modifier list.
-- The `Math.max(0, …)` clamp is required and is what the rewritten negative-
-  clamp test pins (§9.1).
+- The `Math.max(0, …)` clamp is belt-and-braces, not load-bearing:
+  `Drop.update` already no-ops for any `pickupRadius <= 0` (§2), so a negative
+  value reaches the same zero-velocity outcome with or without this clamp.
+  Keep it anyway — it documents the invariant at the call site and protects
+  any future caller of `Drop.update` that lacks `Drop`'s own guard. The
+  rewritten test in §9.1 pins the clamped **argument** `DropSystem` passes,
+  not the resulting velocity, precisely because asserting velocity alone
+  would pass via `Drop`'s guard even if this clamp were deleted.
 - `update` must **not** collect. Collection is the overlap callback's job alone.
 
 ### 7.4 Collection
@@ -404,10 +410,16 @@ squaring it positive") pins a behaviour that §4 deliberately changes: it assert
 a drop inside a *negative* radius is not collected by `update()`. Under
 overlap-only collection that assertion no longer describes the system.
 
-**Preserve its intent, not its mechanism.** The clamp still matters — it is what
-stops `pickupRadius = -20` from being squared into a 400-unit magnet. Rewrite it
-to assert that `Drop.update` receives a clamped `0` (spy on the drop, or assert
-zero velocity), rather than asserting non-collection.
+**Preserve its intent, not its mechanism.** Rewrite it to assert that
+`Drop.update` receives a clamped `0`, rather than asserting non-collection.
+
+**Spy on the drop; do not assert zero velocity.** `Drop.update` already returns
+before any squaring or distance check whenever `pickupRadius <= 0` (§2), so a
+negative value never reaches the squaring step with or without `DropSystem`'s
+own clamp — asserting the resulting velocity is `0` would pass either way and
+prove nothing about `DropSystem`. Spy on `Drop.prototype.update` and assert the
+third argument it receives is exactly `0`; that is the only way to pin the
+clamp `DropSystem.update` itself is responsible for.
 
 Required coverage:
 
@@ -423,9 +435,14 @@ Required coverage:
 | Non-finite / ≤0 `currencyGain` result | No currency write, no `currency:changed`, but `drop:collected` still emitted |
 | Magnet radius from stats | Resolved radius forwarded to `Drop.update` |
 | Negative radius clamp | Clamped to `0` (rewritten test above) |
-| Paused run | `update` no-ops; `enemy:killed` spawns nothing |
+| Paused / won / lost run | `update` no-ops; `enemy:killed` spawns nothing in any non-`active` status |
+| `update()` never collects | A drop already inside the pickup radius is not collected by `update()` alone — only the overlap callback collects |
 | `destroy()` | Unsubscribes — a later `enemy:killed` spawns no drops |
 | Chest grant collection | No `drop:collected`, no currency/xp change, drop destroyed (§7.5) |
+| `currency:changed` is cumulative | Two successive scrap collections report the running total (`[2, 7]`), not each collection's delta |
+| Fractional `currencyGain` | A non-integer result (e.g. `4.5`) is not floored mid-run |
+| Non-finite/≤0 `xpGain` result | No `xp:gained`, but `drop:collected` still emitted at face value (mirrors the scrap-side coverage) |
+| `magnetSpeed` ceiling | Exceeds the max attainable player `moveSpeed` derived from the shipped character/upgrade/meta-upgrade catalogue (§6) |
 
 ### 9.2 tests/weaponSystem.test.ts — trim
 
