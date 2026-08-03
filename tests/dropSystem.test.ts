@@ -7,82 +7,17 @@ import { createRng, deriveRunSeed, type Rng } from '../src/engine/rng';
 import { createRunState, type RunState } from '../src/gameplay/runState';
 import type { LootTableLookup } from '../src/systems/lootTables';
 import type { Player } from '../src/entities/Player';
+// Must precede any import whose transitive dependencies resolve Phaser at module
+// evaluation time (e.g. Drop). The mock registration in __mocks__/phaser is a
+// side-effectful import; ordering it first guarantees the mock is installed
+// before the real Phaser module is ever requested.
+import { MockArc, MockBody, MockGameObject } from './__mocks__/phaser';
 import { Drop } from '../src/entities/Drop';
 import type { DropSystem } from '../src/systems/DropSystem';
 import type { LootGrant } from '../src/gameplay/loot';
 import charactersJson from '../src/data/characters.json';
 import metaUpgradesJson from '../src/data/meta-upgrades.json';
 import upgradesJson from '../src/data/upgrades.json';
-
-class MockGameObject {
-  active = true;
-  visible = true;
-  destroyed = false;
-  depth = 0;
-  fillColor?: number;
-  body?: MockBody;
-
-  constructor(
-    public x = 0,
-    public y = 0,
-  ) {}
-
-  setDepth(depth: number): this {
-    this.depth = depth;
-    return this;
-  }
-
-  setActive(active: boolean): this {
-    this.active = active;
-    return this;
-  }
-
-  setVisible(visible: boolean): this {
-    this.visible = visible;
-    return this;
-  }
-
-  setPosition(x: number, y: number): this {
-    this.x = x;
-    this.y = y;
-    return this;
-  }
-
-  setFillStyle(color: number): this {
-    this.fillColor = color;
-    return this;
-  }
-
-  destroy(): void {
-    this.active = false;
-    this.destroyed = true;
-  }
-}
-
-class MockArc extends MockGameObject {}
-
-class MockBody {
-  enable = true;
-  velocity = { x: 0, y: 0 };
-  circleRadius?: number;
-
-  constructor(readonly gameObject: MockGameObject) {}
-
-  setCircle(radius: number): void {
-    this.circleRadius = radius;
-  }
-
-  setVelocity(x: number, y: number): void {
-    this.velocity = { x, y };
-  }
-}
-
-vi.mock('phaser', () => ({
-  default: {
-    GameObjects: { GameObject: MockGameObject },
-    Physics: { Arcade: { Body: MockBody, StaticBody: MockBody } },
-  },
-}));
 
 interface TestSystem {
   system: DropSystem;

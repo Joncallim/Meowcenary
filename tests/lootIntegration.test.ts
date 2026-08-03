@@ -9,76 +9,11 @@ import type { GameContext } from '../src/engine/context';
 import type { Player } from '../src/entities/Player';
 import type { LootTableLookup } from '../src/systems/lootTables';
 import type { DropSystem } from '../src/systems/DropSystem';
-
-class MockGameObject {
-  active = true;
-  visible = true;
-  destroyed = false;
-  depth = 0;
-  fillColor?: number;
-  body?: MockBody;
-
-  constructor(
-    public x = 0,
-    public y = 0,
-  ) {}
-
-  setDepth(depth: number): this {
-    this.depth = depth;
-    return this;
-  }
-
-  setActive(active: boolean): this {
-    this.active = active;
-    return this;
-  }
-
-  setVisible(visible: boolean): this {
-    this.visible = visible;
-    return this;
-  }
-
-  setPosition(x: number, y: number): this {
-    this.x = x;
-    this.y = y;
-    return this;
-  }
-
-  setFillStyle(color: number): this {
-    this.fillColor = color;
-    return this;
-  }
-
-  destroy(): void {
-    this.active = false;
-    this.destroyed = true;
-  }
-}
-
-class MockArc extends MockGameObject {}
-
-class MockBody {
-  enable = true;
-  velocity = { x: 0, y: 0 };
-  circleRadius?: number;
-
-  constructor(readonly gameObject: MockGameObject) {}
-
-  setCircle(radius: number): void {
-    this.circleRadius = radius;
-  }
-
-  setVelocity(x: number, y: number): void {
-    this.velocity = { x, y };
-  }
-}
-
-vi.mock('phaser', () => ({
-  default: {
-    GameObjects: { GameObject: MockGameObject },
-    Physics: { Arcade: { Body: MockBody, StaticBody: MockBody } },
-  },
-}));
+// Must precede any import whose transitive dependencies resolve Phaser at module
+// evaluation time. The mock registration in __mocks__/phaser is a side-effectful
+// import; ordering it first guarantees the mock is installed before the real
+// Phaser module is ever requested.
+import { MockArc, MockBody, MockGameObject } from './__mocks__/phaser';
 
 const BRUTE_KILL = {
   instanceId: 1,
@@ -93,6 +28,11 @@ const BRUTE_KILL = {
 // Pre-computed against deriveRunSeed(seed, 'loot') + the shipped table weights.
 // brute-cache weights: xp 6 (60), scrap 5 (30), chest → chest-standard (10).
 // chest-standard weights: xp 15 (55), scrap 10 (35), scrap 40 (10).
+//
+// If a designer changes these weights, recompute the seeds by running
+// `deriveRunSeed(seed, 'loot')` with different `seed` values until the desired
+// outcome is hit, then update the constants below. A quick way to explore is to
+// create a harness with a candidate seed and inspect the resolved drop kind.
 const SEED_CHEST_XP_15 = 7;
 const SEED_CHEST_SCRAP_10 = 12;
 const SEED_CHEST_SCRAP_40 = 79;

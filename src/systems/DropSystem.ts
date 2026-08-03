@@ -5,7 +5,7 @@ import type { Rng } from '../engine/rng';
 import type { System } from '../engine/system';
 import { Drop } from '../entities/Drop';
 import type { Player } from '../entities/Player';
-import { resolveKillLoot, resolveLoot } from '../gameplay/loot';
+import { resolveKillLoot, resolveLootFromTable } from '../gameplay/loot';
 import type { LootGrant } from '../gameplay/loot';
 import type { RunState } from '../gameplay/runState';
 import { applyXp } from '../gameplay/xp';
@@ -162,30 +162,52 @@ export class DropSystem implements System {
 
   private collectChest(drop: Drop): void {
     const { tableId } = drop;
-    if (tableId !== undefined) {
-      let grants: readonly LootGrant[];
-      try {
-        grants = resolveLoot(tableId, this.lootTables, this.rng);
-      } catch {
-        grants = []; // fail soft — strictness belongs to validation
-      }
-      for (const grant of grants) {
-        if (grant.kind === 'chest') {
-          continue; // defensive: validation guarantees chest-safe targets
-        }
-        if (grant.kind === 'xp') {
-          this.applyXpGrant(grant.amount);
-        } else {
-          this.applyScrapGrant(grant.amount);
-        }
-        this.ctx.bus.emit('drop:collected', {
-          kind: grant.kind,
-          amount: grant.amount,
-          x: drop.x,
-          y: drop.y,
-        });
-      }
+    if (tableId === undefined) {
+      drop.destroy();
+      return;
     }
+
+    const table = this.lootTables.lootTableById(tableId);
+    if (table === undefined) {
+      // Fail soft at runtime, but never silently: a chest referencing a missing
+      // table is either a stale reference or a data-config bug. The diagnostic
+      // trace makes it discoverable without crashing the run.
+      console.warn(`[DropSystem] Chest drop references missing loot table "${tableId}"`);
+      drop.destroy();
+      return;
+    }
+
+    let grants: readonly LootGrant[];
+    try {
+      grants = resolveLootFromTable(table, this.rng);
+    } catch (error) {
+      // Fail soft at runtime, but never silently: unexpected resolver failures
+      // (e.g. a broken RNG or a corrupted table) must leave a diagnostic trace.
+      console.warn(`[DropSystem] Failed to resolve chest loot table "${tableId}":`, error);
+      grants = [];
+    }
+
+    for (const grant of grants) {
+      if (grant.kind === 'chest') {
+        continue; // defensive: validation guarantees chest-safe targets
+      }
+      if (grant.kind === 'xp') {
+        this.applyXpGrant(grant.amount);
+      } else if (grant.kind === 'scrap') {
+        this.applyScrapGrant(grant.amount);
+      } else {
+        // 'nothing' entries are excluded by entryToGrants(); skip any other
+        // unrecognized grant kind rather than treating it as scrap.
+        continue;
+      }
+      this.ctx.bus.emit('drop:collected', {
+        kind: grant.kind,
+        amount: grant.amount,
+        x: drop.x,
+        y: drop.y,
+      });
+    }
+
     drop.destroy();
   }
 }
