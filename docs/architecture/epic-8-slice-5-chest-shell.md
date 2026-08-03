@@ -1,6 +1,6 @@
 # Epic 8 Slice 5: Chest Shell + Integration Harness + Docs Sign-Off
 
-Status: **architecture handoff — implementation proceeds in this PR in one
+Status: **architecture handoff — implementation proceeds in PR #62 in one
 pass.** Epic 8 Slice 5 / issue #57. Implementation baseline: `main` at
 `cd3300b`, after PRs #58 (Slice 1), #59 (Slice 2), #60 (Slice 3), and #61
 (Slice 4).
