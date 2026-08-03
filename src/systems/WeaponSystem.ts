@@ -5,14 +5,11 @@ import type { System } from '../engine/system';
 import type { Enemy } from '../entities/Enemy';
 import type { Player } from '../entities/Player';
 import { Projectile } from '../entities/Projectile';
-import type { XpDrop } from '../entities/XpDrop';
 import { projectileDirections } from '../gameplay/projectilePattern';
 import type { RunState } from '../gameplay/runState';
 import { nearestTarget } from '../gameplay/targeting';
 import { resolveWeaponStats, type EffectiveWeaponStats } from '../gameplay/weaponStats';
 import type { WeaponInstance, WeaponRegistry } from '../gameplay/weapons';
-
-export type XpDropFactory = (x: number, y: number, amount: number) => XpDrop;
 
 interface WeaponCadenceRuntime {
   intervalMs: number;
@@ -32,7 +29,6 @@ export class WeaponSystem implements System {
     private readonly projectileGroup: Phaser.Physics.Arcade.Group,
     private readonly enemyGroup: Phaser.Physics.Arcade.Group,
     private readonly weaponRegistry: WeaponRegistry,
-    private readonly createXpDrop: XpDropFactory,
     private readonly projectileRadius: number,
   ) {
     this.scene.physics.add.overlap(
@@ -205,7 +201,6 @@ export class WeaponSystem implements System {
       x: hitX,
       y: hitY,
     });
-    this.createXpDrop(hitX, hitY, enemy.xpValue);
   }
 }
 

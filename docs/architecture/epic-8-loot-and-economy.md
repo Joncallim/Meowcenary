@@ -1,9 +1,9 @@
 # Epic 8: Loot and Economy — Architecture Overview
 
-Status: implementation-ready architecture for Epic 8 / issue #9. Slices 1 and
-2 are merged; Slice 3 is next. This document is the repository **source of
-truth** for Epic 8 and the index for its five focused slices. It supersedes
-conflicting issue-#9 wording in one place: the issue's
+Status: implementation in progress for Epic 8 / issue #9. Slices 1–3 are
+merged; Slice 4 is implemented for review in PR #61. This document is the
+repository **source of truth** for Epic 8 and the index for its five focused
+slices. It supersedes conflicting issue-#9 wording in one place: the issue's
 `Drop.update(dtMs, playerPos, pickupRadius)` sketch gains a
 `magnetSpeed` parameter so tuning stays in `RuntimeConfig` rather than being
 hard-coded in the entity.
@@ -57,7 +57,7 @@ exact, self-contained implementation spec for that slice.
 - **No save-schema change, no `MetaState` writes, no new dependencies.**
   Epic 5 keeps exclusive ownership of end-of-run banking.
 
-## 2. Repository baseline (after Epic 8 Slices 1–2, merged PRs #58 and #59)
+## 2. Slice 4 implementation baseline (Slices 1–3 merged)
 
 - `RunState.currency` exists (`src/gameplay/runState.ts`) and is read by
   Epic 5's `computeRunReward`/`bankReward`; nothing writes it mid-run.
@@ -71,6 +71,9 @@ exact, self-contained implementation spec for that slice.
   `LootEntry`/`LootTable` types, validation and cross-catalog references, and
   the immutable `DataLootTableRegistry`. Slice 2 added the pure resolver in
   `src/gameplay/loot.ts`.
+- Slice 3 added the pool-ready `Drop` entity with explicit lifecycle state,
+  kind-specific presentation, and velocity-only magnet homing. It intentionally
+  left the legacy `XpDrop` runtime path in place for Slice 4 to replace.
 - `DropSystem` (`src/systems/DropSystem.ts`) owns XP-drop lifecycle: it is
   constructed with a `createXpDrop`-shaped factory consumed by `WeaponSystem`,
   registers the player×dropGroup physics overlap, collects instantly when a
@@ -456,17 +459,17 @@ merge.
 | 1 | Loot table data model, validation & registry (+ enemy `lootTableId` field) — **merged #58** | `loot-tables.json`, `types.ts`, `validation.ts`, `lootTables.ts`, tests | none (post-Epic-7 `main`) |
 | 2 | Pure loot resolver — **merged #59** | `gameplay/loot.ts`, tests; payload + `Enemy.scrapValue` seams landed early | 1 |
 | 3 | [Poolable `Drop` entity + magnet geometry](epic-8-slice-3-drop.md) — **merged #60** | `entities/Drop.ts`, tests | 1 |
-| 4 | [Kill-to-loot pipeline](epic-8-slice-4-kill-to-loot.md): `WeaponSystem` slim-down, `DropSystem` rework (xp+scrap), `config.ts` drop section, `GameScene` rewiring, HUD line, delete `XpDrop.ts` — **ready** | `WeaponSystem.ts`, `DropSystem.ts`, `config.ts`, `GameScene.ts`, `Enemy.ts` (optional getter), migrated tests | 1, 2, 3 |
+| 4 | [Kill-to-loot pipeline](epic-8-slice-4-kill-to-loot.md): `WeaponSystem` slim-down, `DropSystem` rework (xp+scrap), `config.ts` drop section, `GameScene` rewiring, HUD line, delete `XpDrop.ts` — **implementation in PR #61** | `WeaponSystem.ts`, `DropSystem.ts`, `config.ts`, `GameScene.ts`, migrated tests and architecture sign-off | 1, 2, 3 |
 | 5 | Chest shell + integration harness + dev hotkey + docs sign-off | `DropSystem.ts` (chest collect), integration tests, `GameScene.ts` (F10 dev-only), `epics.md`, `roadmap.md` | 4 |
 
-Slice 4 is now the next unit and is specified in full in
-[`epic-8-slice-4-kill-to-loot.md`](epic-8-slice-4-kill-to-loot.md). It must
-treat the `enemy:killed` payload extension and `Enemy.scrapValue` from #59 as
-already complete — `eventBus.ts` needs **no** change in Epic 8 from here on, and
-issue #56's contrary wording is stale (see that document §2.1). Slices 1–4 leave
-the shipped run behaviourally identical except that kills spawn guaranteed scrap
-drops once Slice 4 lands, and collection moves to physics-overlap-only; Slice 5
-is an additive shell no shipped content exercises.
+Slice 4 is implemented for review in PR #61 and specified in full in
+[`epic-8-slice-4-kill-to-loot.md`](epic-8-slice-4-kill-to-loot.md). The PR
+treats the `enemy:killed` payload extension and `Enemy.scrapValue` from #59 as
+already complete — `eventBus.ts` needs **no** change in Epic 8 from here on,
+and issue #56's contrary wording is stale (see that document §2.1). Once Slice
+4 lands, the shipped run gains guaranteed scrap drops and collection becomes
+physics-overlap-only; Slice 5 remains an additive shell no shipped content
+exercises.
 
 ## 7. Dependency and data-flow map
 

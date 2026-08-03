@@ -1,31 +1,78 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type Phaser from 'phaser';
 import { createEventBus } from '../src/engine/eventBus';
-import { createRunState } from '../src/gameplay/runState';
+import type { GameContext } from '../src/engine/context';
+import { RuntimeConfig } from '../src/engine/config';
+import { createRng, deriveRunSeed, type Rng } from '../src/engine/rng';
+import { createRunState, type RunState } from '../src/gameplay/runState';
+import type { LootTableLookup } from '../src/systems/lootTables';
+import type { Player } from '../src/entities/Player';
+import { Drop } from '../src/entities/Drop';
+import type { DropSystem } from '../src/systems/DropSystem';
+import charactersJson from '../src/data/characters.json';
+import metaUpgradesJson from '../src/data/meta-upgrades.json';
+import upgradesJson from '../src/data/upgrades.json';
 
 class MockGameObject {
   active = true;
+  visible = true;
+  destroyed = false;
+  depth = 0;
+  fillColor?: number;
+  body?: MockBody;
 
   constructor(
-    readonly x: number,
-    readonly y: number,
+    public x = 0,
+    public y = 0,
   ) {}
-}
 
-class MockBody {
-  constructor(readonly gameObject: MockGameObject) {}
+  setDepth(depth: number): this {
+    this.depth = depth;
+    return this;
+  }
 
-  setCircle(): void {}
-}
+  setActive(active: boolean): this {
+    this.active = active;
+    return this;
+  }
 
-class MockArc extends MockGameObject {
-  body = new MockBody(this);
+  setVisible(visible: boolean): this {
+    this.visible = visible;
+    return this;
+  }
 
-  setDepth(): this {
+  setPosition(x: number, y: number): this {
+    this.x = x;
+    this.y = y;
+    return this;
+  }
+
+  setFillStyle(color: number): this {
+    this.fillColor = color;
     return this;
   }
 
   destroy(): void {
     this.active = false;
+    this.destroyed = true;
+  }
+}
+
+class MockArc extends MockGameObject {}
+
+class MockBody {
+  enable = true;
+  velocity = { x: 0, y: 0 };
+  circleRadius?: number;
+
+  constructor(readonly gameObject: MockGameObject) {}
+
+  setCircle(radius: number): void {
+    this.circleRadius = radius;
+  }
+
+  setVelocity(x: number, y: number): void {
+    this.velocity = { x, y };
   }
 }
 
@@ -36,51 +83,534 @@ vi.mock('phaser', () => ({
   },
 }));
 
-describe('DropSystem', () => {
-  it('clamps a negative resolved pickup radius instead of squaring it positive', async () => {
-    const { DropSystem } = await import('../src/systems/DropSystem');
-    const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
-    runState.status = 'active';
-    runState.stats.add({ stat: 'pickupRadius', op: 'add', value: -20, sourceId: 'invalid' });
-    const bus = createEventBus();
-    const collected = vi.fn();
-    bus.on('drop:collected', collected);
-    let overlap: ((playerObject: unknown, dropObject: unknown) => void) | undefined;
-    const scene = {
-      add: { circle: (x: number, y: number) => new MockArc(x, y) },
-      physics: {
-        add: {
-          existing: () => undefined,
-          overlap(
-            _player: unknown,
-            _group: unknown,
-            callback: (playerObject: unknown, dropObject: unknown) => void,
-            _process: unknown,
-            context: unknown,
-          ): void {
-            overlap = callback.bind(context);
-          },
+interface TestSystem {
+  system: DropSystem;
+  runState: RunState;
+  bus: ReturnType<typeof createEventBus>;
+  player: Player;
+  overlapCallback?: (playerObject: unknown, dropObject: unknown) => void;
+  addedSprites: MockGameObject[];
+  groupAddStates: Array<{ active: boolean; x: number; y: number }>;
+  rng: Pick<Rng, 'next'>;
+}
+
+async function createSystem(options: {
+  status?: RunState['status'];
+  lootTables?: LootTableLookup;
+  rng?: Pick<Rng, 'next'>;
+} = {}): Promise<TestSystem> {
+  const { DropSystem } = await import('../src/systems/DropSystem');
+  const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
+  runState.status = options.status ?? 'active';
+  const bus = createEventBus();
+  const ctx = { bus } as unknown as GameContext;
+
+  const overlapState: {
+    callback?: (playerObject: unknown, dropObject: unknown) => void;
+  } = {};
+  const addedSprites: MockGameObject[] = [];
+  const groupAddStates: Array<{ active: boolean; x: number; y: number }> = [];
+  const scene = {
+    add: {
+      circle: () => new MockArc(0, 0),
+    },
+    physics: {
+      add: {
+        existing: (sprite: MockGameObject) => {
+          sprite.body = new MockBody(sprite);
+        },
+        overlap: (
+          _player: unknown,
+          _group: unknown,
+          callback: (playerObject: unknown, dropObject: unknown) => void,
+          _processCallback: unknown,
+          context: unknown,
+        ) => {
+          overlapState.callback = callback.bind(context);
+          return {
+            destroy: () => {
+              overlapState.callback = undefined;
+            },
+          };
         },
       },
-    };
-    const player = { x: 0, y: 0, sprite: new MockArc(0, 0) };
-    const dropGroup = { add: () => undefined };
-    const system = new DropSystem(
-      scene as never,
-      { bus } as never,
-      runState,
-      player as never,
-      dropGroup as never,
-      4,
-      10,
-    );
-    const drop = system.createXpDrop(5, 0, 1);
+    },
+  };
 
-    system.update();
-    overlap?.(player.sprite, drop.sprite);
+  const player = { x: 0, y: 0, sprite: new MockArc(0, 0) } as unknown as Player;
+  const dropGroup = {
+    add: (sprite: MockGameObject) => {
+      groupAddStates.push({ active: sprite.active, x: sprite.x, y: sprite.y });
+      addedSprites.push(sprite);
+    },
+  } as unknown as Phaser.Physics.Arcade.Group;
+  const lootTables = options.lootTables ?? { lootTableById: vi.fn() };
+  // A concrete RNG value ensures resolveLoot traverses the weighted-selection
+  // path instead of the floating-point safety-net fallback.
+  const rng = options.rng ?? { next: vi.fn(() => 0.3) };
 
+  const system = new DropSystem({
+    scene: scene as unknown as Phaser.Scene,
+    ctx,
+    runState,
+    player,
+    dropGroup,
+    lootTables,
+    rng,
+    dropRadius: 4,
+    magnetSpeed: 450,
+    basePickupRadius: 10,
+  });
+
+  return {
+    system,
+    runState,
+    bus,
+    player,
+    // Returning a getter rather than the value binds assertions to the mock's
+    // current callback state.
+    get overlapCallback() {
+      return overlapState.callback;
+    },
+    addedSprites,
+    groupAddStates,
+    rng,
+  };
+}
+
+describe('DropSystem', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('spawns one xp and one scrap drop at the kill point on the default path', async () => {
+    const { bus, addedSprites, overlapCallback } = await createSystem();
+    const collected = vi.fn();
+    bus.on('drop:collected', collected);
+
+    bus.emit('enemy:killed', {
+      instanceId: 1,
+      enemyId: 'dust-mite',
+      xpValue: 3,
+      scrapValue: 2,
+      x: 100,
+      y: 200,
+    });
+
+    expect(addedSprites).toHaveLength(2);
+    expect(addedSprites[0].x).toBe(100);
+    expect(addedSprites[0].y).toBe(200);
+    expect(addedSprites[1].x).toBe(100);
+    expect(addedSprites[1].y).toBe(200);
+
+    addedSprites[0].active = true;
+    addedSprites[1].active = true;
+    overlapCallback?.(null, addedSprites[0]);
+    overlapCallback?.(null, addedSprites[1]);
+
+    const kinds = collected.mock.calls.map(([payload]) => payload.kind).sort();
+    expect(kinds).toEqual(['scrap', 'xp']);
+    const amounts = collected.mock.calls.map(([payload]) => payload.amount).sort((a, b) => a - b);
+    expect(amounts).toEqual([2, 3]);
+  });
+
+  it('adds a disabled drop to the Physics Group before spawn initializes it', async () => {
+    const { system, groupAddStates } = await createSystem();
+
+    const drop = system.spawnDrop(25, 30, { kind: 'scrap', amount: 2 });
+
+    expect(groupAddStates).toEqual([{ active: false, x: 0, y: 0 }]);
     expect(drop.active).toBe(true);
+    expect(drop.x).toBe(25);
+    expect(drop.y).toBe(30);
+  });
+
+  it('produces identical table-path drops for identical seed and kill order', async () => {
+    const table = {
+      id: 'test-table',
+      entries: [
+        { kind: 'xp' as const, amount: 7, weight: 1 },
+        { kind: 'scrap' as const, amount: 11, weight: 1 },
+      ],
+    };
+    const lootTables = {
+      lootTableById: vi.fn((id: string) => (id === table.id ? table : undefined)),
+    };
+    const seed = deriveRunSeed(42, 'loot');
+    const first = await createSystem({ lootTables, rng: createRng(seed) });
+    const second = await createSystem({ lootTables, rng: createRng(seed) });
+    const firstCollected = vi.fn();
+    const secondCollected = vi.fn();
+    first.bus.on('drop:collected', firstCollected);
+    second.bus.on('drop:collected', secondCollected);
+
+    for (let instanceId = 1; instanceId <= 4; instanceId += 1) {
+      const payload = {
+        instanceId,
+        enemyId: 'any',
+        xpValue: 1,
+        scrapValue: 1,
+        lootTableId: table.id,
+        x: instanceId * 10,
+        y: instanceId * 20,
+      };
+      first.bus.emit('enemy:killed', payload);
+      second.bus.emit('enemy:killed', payload);
+    }
+
+    expect(first.addedSprites).toHaveLength(4);
+    expect(second.addedSprites).toHaveLength(4);
+    first.addedSprites.forEach((sprite) => first.overlapCallback?.(null, sprite));
+    second.addedSprites.forEach((sprite) => second.overlapCallback?.(null, sprite));
+    expect(firstCollected.mock.calls).toEqual(secondCollected.mock.calls);
+    expect(firstCollected).toHaveBeenCalledTimes(4);
+    // Guards against a degenerate/non-advancing RNG: two constant streams would
+    // also agree trivially, so require the resolved grants to actually vary.
+    const kinds = new Set(firstCollected.mock.calls.map(([payload]) => payload.kind));
+    expect(kinds.size).toBeGreaterThan(1);
+  });
+
+  it('consumes no RNG on the default path', async () => {
+    const { bus, rng, addedSprites } = await createSystem();
+
+    bus.emit('enemy:killed', {
+      instanceId: 1,
+      enemyId: 'dust-mite',
+      xpValue: 1,
+      scrapValue: 1,
+      x: 0,
+      y: 0,
+    });
+
+    expect(addedSprites).toHaveLength(2);
+    expect(rng.next).not.toHaveBeenCalled();
+  });
+
+  it('falls back to default loot when the referenced table is missing', async () => {
+    const { bus, addedSprites, overlapCallback } = await createSystem();
+    const collected = vi.fn();
+    bus.on('drop:collected', collected);
+
+    bus.emit('enemy:killed', {
+      instanceId: 1,
+      enemyId: 'dust-mite',
+      xpValue: 4,
+      scrapValue: 5,
+      lootTableId: 'missing-table',
+      x: 0,
+      y: 0,
+    });
+
+    expect(addedSprites).toHaveLength(2);
+    addedSprites[0].active = true;
+    addedSprites[1].active = true;
+    overlapCallback?.(null, addedSprites[0]);
+    overlapCallback?.(null, addedSprites[1]);
+
+    const amounts = collected.mock.calls.map(([payload]) => payload.amount).sort((a, b) => a - b);
+    expect(amounts).toEqual([4, 5]);
+  });
+
+  it('applies xpGain and emits xp:gained when collecting xp', async () => {
+    const { system, runState, bus, overlapCallback } = await createSystem();
+    runState.stats.add({ stat: 'xpGain', op: 'mult', value: 2, sourceId: 'test' });
+    const xpGained = vi.fn();
+    bus.on('xp:gained', xpGained);
+
+    const drop = system.spawnDrop(0, 0, { kind: 'xp', amount: 2 });
+    overlapCallback?.(null, drop.sprite);
+
+    expect(runState.xp).toBe(4);
+    expect(xpGained).toHaveBeenCalledWith({ amount: 4, total: 4 });
+  });
+
+  it('applies currencyGain and emits currency:changed with the post-add total for scrap', async () => {
+    const { system, runState, bus, overlapCallback } = await createSystem();
+    runState.stats.add({ stat: 'currencyGain', op: 'mult', value: 3, sourceId: 'test' });
+    const currencyChanged = vi.fn();
+    bus.on('currency:changed', currencyChanged);
+
+    const drop = system.spawnDrop(0, 0, { kind: 'scrap', amount: 4 });
+    overlapCallback?.(null, drop.sprite);
+
+    expect(runState.currency).toBe(12);
+    expect(currencyChanged).toHaveBeenCalledWith({ runTotal: 12 });
+  });
+
+  it('emits drop:collected with the face value under a non-1 multiplier', async () => {
+    const { system, runState, bus, overlapCallback } = await createSystem();
+    runState.stats.add({ stat: 'currencyGain', op: 'mult', value: 2, sourceId: 'test' });
+    const collected = vi.fn();
+    bus.on('drop:collected', collected);
+
+    const drop = system.spawnDrop(0, 0, { kind: 'scrap', amount: 7 });
+    overlapCallback?.(null, drop.sprite);
+
+    expect(collected).toHaveBeenCalledWith({ kind: 'scrap', amount: 7, x: 0, y: 0 });
+  });
+
+  it.each([-1, 0, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    'does not write currency or emit currency:changed when currencyGain is %s',
+    async (currencyGain) => {
+      const { system, runState, bus, overlapCallback } = await createSystem();
+      if (!Number.isFinite(currencyGain)) {
+        vi.spyOn(runState.stats, 'resolve').mockReturnValue(currencyGain);
+      } else {
+        runState.stats.add({ stat: 'currencyGain', op: 'mult', value: currencyGain, sourceId: 'test' });
+      }
+      const currencyChanged = vi.fn();
+      bus.on('currency:changed', currencyChanged);
+      const collected = vi.fn();
+      bus.on('drop:collected', collected);
+
+      const drop = system.spawnDrop(0, 0, { kind: 'scrap', amount: 5 });
+      overlapCallback?.(null, drop.sprite);
+
+      expect(runState.currency).toBe(0);
+      expect(currencyChanged).not.toHaveBeenCalled();
+      expect(collected).toHaveBeenCalledWith({ kind: 'scrap', amount: 5, x: 0, y: 0 });
+    },
+  );
+
+  it('forwards the resolved pickup radius to Drop.update', async () => {
+    const { system, bus, player, runState, addedSprites } = await createSystem();
+    runState.stats.add({ stat: 'pickupRadius', op: 'add', value: 15, sourceId: 'test' });
+
+    bus.emit('enemy:killed', {
+      instanceId: 1,
+      enemyId: 'dust-mite',
+      xpValue: 1,
+      scrapValue: 0,
+      x: 0,
+      y: 0,
+    });
+
+    // Place the drop inside the magnet radius (base 10 + 15 = 25).
+    const movablePlayer = player as { x: number; y: number };
+    movablePlayer.x = 20;
+    movablePlayer.y = 0;
+    addedSprites[0].x = 0;
+    addedSprites[0].y = 0;
+
+    system.update(16);
+
+    expect(addedSprites[0].body?.velocity.x).toBeGreaterThan(0);
+  });
+
+  it('clamps a negative resolved pickup radius to zero before forwarding it to Drop.update', async () => {
+    // Drop.update() already no-ops for pickupRadius <= 0 on its own, so asserting
+    // zero velocity here would pass even if DropSystem's own clamp were deleted.
+    // Spying on Drop.update pins the clamped argument DropSystem is responsible for.
+    const { system, bus, runState } = await createSystem();
+    runState.stats.add({ stat: 'pickupRadius', op: 'add', value: -20, sourceId: 'invalid' });
+    const updateSpy = vi.spyOn(Drop.prototype, 'update');
+
+    bus.emit('enemy:killed', {
+      instanceId: 1,
+      enemyId: 'dust-mite',
+      xpValue: 1,
+      scrapValue: 0,
+      x: 0,
+      y: 0,
+    });
+
+    system.update(16);
+
+    expect(updateSpy).toHaveBeenCalled();
+    expect(updateSpy.mock.calls[0][2]).toBe(0);
+    updateSpy.mockRestore();
+  });
+
+  it('no-ops update and enemy:killed handling while the run is paused', async () => {
+    const { system, runState, bus, player, addedSprites } = await createSystem();
+    const drop = system.spawnDrop(0, 0, { kind: 'xp', amount: 1 });
+    const movablePlayer = player as { x: number; y: number };
+    movablePlayer.x = 5;
+    runState.status = 'paused';
+
+    system.update(16);
+
+    bus.emit('enemy:killed', {
+      instanceId: 1,
+      enemyId: 'dust-mite',
+      xpValue: 1,
+      scrapValue: 1,
+      x: 0,
+      y: 0,
+    });
+
+    expect(drop.body.velocity.x).toBe(0);
+    expect(drop.body.velocity.y).toBe(0);
+    expect(addedSprites).toHaveLength(1);
+  });
+
+  it.each(['paused', 'won', 'lost'] as const)(
+    'ignores enemy:killed while run status is %s',
+    async (status) => {
+      const { system, addedSprites, bus } = await createSystem({ status });
+
+      bus.emit('enemy:killed', {
+        instanceId: 1,
+        enemyId: 'dust-mite',
+        xpValue: 1,
+        scrapValue: 1,
+        x: 0,
+        y: 0,
+      });
+
+      expect(addedSprites).toHaveLength(0);
+      void system;
+    },
+  );
+
+  it('unsubscribes from enemy:killed on destroy', async () => {
+    const { system, bus, addedSprites } = await createSystem();
+
+    system.destroy();
+
+    bus.emit('enemy:killed', {
+      instanceId: 1,
+      enemyId: 'dust-mite',
+      xpValue: 1,
+      scrapValue: 1,
+      x: 0,
+      y: 0,
+    });
+
+    expect(addedSprites).toHaveLength(0);
+  });
+
+  it('destroys a chest drop without granting or emitting drop:collected', async () => {
+    const { system, runState, bus, overlapCallback } = await createSystem();
+    const collected = vi.fn();
+    bus.on('drop:collected', collected);
+    const currencyChanged = vi.fn();
+    bus.on('currency:changed', currencyChanged);
+
+    const drop = system.spawnDrop(0, 0, { kind: 'chest', amount: 0, tableId: 'chest-table' });
+    overlapCallback?.(null, drop.sprite);
+
+    expect(drop.active).toBe(false);
+    expect((drop.sprite as unknown as MockGameObject).destroyed).toBe(true);
+    expect(runState.currency).toBe(0);
     expect(runState.xp).toBe(0);
     expect(collected).not.toHaveBeenCalled();
+    expect(currencyChanged).not.toHaveBeenCalled();
+  });
+
+  it('collects a drop via overlap even when pickupRadius is clamped to zero', async () => {
+    const { system, runState, bus, overlapCallback } = await createSystem();
+    runState.stats.add({ stat: 'pickupRadius', op: 'add', value: -20, sourceId: 'test' });
+    const collected = vi.fn();
+    bus.on('drop:collected', collected);
+
+    const drop = system.spawnDrop(0, 0, { kind: 'xp', amount: 5 });
+    overlapCallback?.(null, drop.sprite);
+
+    expect(collected).toHaveBeenCalledWith({ kind: 'xp', amount: 5, x: 0, y: 0 });
+  });
+
+  it('does not collect a drop sitting inside the pickup radius from update() alone', async () => {
+    // Collection is overlap-only (§4 of the slice contract): update() must move
+    // drops toward the player but never collect them, even when a drop is
+    // already within the resolved pickup radius.
+    const { system, runState, bus, player } = await createSystem();
+    const collected = vi.fn();
+    bus.on('drop:collected', collected);
+
+    const drop = system.spawnDrop(0, 0, { kind: 'scrap', amount: 3 });
+    (player as { x: number; y: number }).x = 1;
+
+    system.update(16);
+    system.update(16);
+
+    expect(collected).not.toHaveBeenCalled();
+    expect(drop.active).toBe(true);
+    expect(runState.currency).toBe(0);
+  });
+
+  it('carries the cumulative post-add total across successive scrap collections', async () => {
+    // A single collection can't distinguish the post-add total from the delta
+    // when currency starts at 0 (both read as the same number); two
+    // collections are required to pin runTotal as cumulative.
+    const { system, runState, bus, overlapCallback } = await createSystem();
+    const currencyChanged = vi.fn();
+    bus.on('currency:changed', currencyChanged);
+
+    overlapCallback?.(null, system.spawnDrop(0, 0, { kind: 'scrap', amount: 2 }).sprite);
+    overlapCallback?.(null, system.spawnDrop(0, 0, { kind: 'scrap', amount: 5 }).sprite);
+
+    expect(currencyChanged.mock.calls.map(([payload]) => payload.runTotal)).toEqual([2, 7]);
+    expect(runState.currency).toBe(7);
+  });
+
+  it('does not floor a fractional currencyGain result mid-run', async () => {
+    const { system, runState, bus, overlapCallback } = await createSystem();
+    runState.stats.add({ stat: 'currencyGain', op: 'mult', value: 1.5, sourceId: 'test' });
+    const currencyChanged = vi.fn();
+    bus.on('currency:changed', currencyChanged);
+
+    overlapCallback?.(null, system.spawnDrop(0, 0, { kind: 'scrap', amount: 3 }).sprite);
+
+    expect(runState.currency).toBeCloseTo(4.5, 10);
+    expect(currencyChanged).toHaveBeenCalledWith({ runTotal: 4.5 });
+  });
+
+  it.each([0, Number.NaN])(
+    'emits drop:collected for xp at face value even when xpGain resolves to %s',
+    async (xpGain) => {
+      const { system, runState, bus, overlapCallback } = await createSystem();
+      vi.spyOn(runState.stats, 'resolve').mockReturnValue(xpGain);
+      const collected = vi.fn();
+      const xpGained = vi.fn();
+      bus.on('drop:collected', collected);
+      bus.on('xp:gained', xpGained);
+
+      overlapCallback?.(null, system.spawnDrop(0, 0, { kind: 'xp', amount: 5 }).sprite);
+
+      expect(runState.xp).toBe(0);
+      expect(xpGained).not.toHaveBeenCalled();
+      expect(collected).toHaveBeenCalledWith({ kind: 'xp', amount: 5, x: 0, y: 0 });
+    },
+  );
+
+  it('keeps magnetSpeed above the max attainable player moveSpeed', () => {
+    // §6 of the slice contract requires magnetSpeed to exceed every attainable
+    // moveSpeed so a drop can never be outrun once collection is overlap-only.
+    // Deriving the ceiling from the shipped catalogue (rather than hardcoding
+    // the current ~366.6) means a future balance change that lowers the
+    // ceiling below RuntimeConfig's value fails this test instead of shipping
+    // an uncollectable drop silently.
+    const isMoveSpeedMult = (effect: { stat: string; op: string }) =>
+      effect.stat === 'moveSpeed' && effect.op === 'mult';
+
+    const fastestBaseMoveSpeed = Math.max(...charactersJson.map((character) => character.baseStats.moveSpeed));
+    let ceilingMultiplier = 1;
+    for (const character of charactersJson) {
+      for (const passive of character.passives ?? []) {
+        for (const effect of passive.effects ?? []) {
+          if (isMoveSpeedMult(effect)) {
+            ceilingMultiplier *= effect.value;
+          }
+        }
+      }
+    }
+    for (const metaUpgrade of metaUpgradesJson) {
+      for (const effect of metaUpgrade.effects) {
+        if (isMoveSpeedMult(effect)) {
+          ceilingMultiplier *= effect.value ** metaUpgrade.maxLevel;
+        }
+      }
+    }
+    for (const upgrade of upgradesJson) {
+      for (const effect of upgrade.effects) {
+        if (isMoveSpeedMult(effect)) {
+          ceilingMultiplier *= effect.value ** upgrade.maxStacks;
+        }
+      }
+    }
+
+    const maxAttainableMoveSpeed = fastestBaseMoveSpeed * ceilingMultiplier;
+    expect(RuntimeConfig.gameplay.drop.magnetSpeed).toBeGreaterThan(maxAttainableMoveSpeed);
   });
 });

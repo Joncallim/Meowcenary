@@ -27,6 +27,7 @@ import { buildArenaScenery, type ArenaScenery } from '../systems/arenaScenery';
 import { UpgradeSystem } from '../systems/UpgradeSystem';
 import { ProgressionSystem } from '../systems/ProgressionSystem';
 import { DataWeaponRegistry } from '../systems/weaponRegistry';
+import { DataLootTableRegistry } from '../systems/lootTables';
 import { WeaponSystem } from '../systems/WeaponSystem';
 import { UpgradeChooser } from '../ui/UpgradeChooser';
 import { CharacterSelectionController } from '../ui/characterSelectionController';
@@ -103,6 +104,8 @@ export class GameScene extends Phaser.Scene {
     this.runState = prepared.run;
     const spawnRng = createRng(deriveRunSeed(this.runState.seed, 'spawns'));
     const upgradeRng = createRng(deriveRunSeed(this.runState.seed, 'upgrades'));
+    const lootRng = createRng(deriveRunSeed(this.runState.seed, 'loot'));
+    const lootTables = new DataLootTableRegistry(ctx.data);
 
     this.inputController = new InputController(this);
     this.debugOverlay = new DebugOverlay(this);
@@ -134,15 +137,18 @@ export class GameScene extends Phaser.Scene {
       this.physics.add.collider(this.player.sprite, this.arenaScenery.obstacleGroup);
       this.physics.add.collider(this.enemyGroup, this.arenaScenery.obstacleGroup);
     }
-    const dropSystem = new DropSystem(
-      this,
+    const dropSystem = new DropSystem({
+      scene: this,
       ctx,
-      this.runState,
-      this.player,
-      this.dropGroup,
-      RuntimeConfig.gameplay.xpDrop.radius,
-      RuntimeConfig.gameplay.player.pickupRadius,
-    );
+      runState: this.runState,
+      player: this.player,
+      dropGroup: this.dropGroup,
+      lootTables,
+      rng: lootRng,
+      dropRadius: RuntimeConfig.gameplay.drop.radius,
+      magnetSpeed: RuntimeConfig.gameplay.drop.magnetSpeed,
+      basePickupRadius: RuntimeConfig.gameplay.player.pickupRadius,
+    });
     this.upgradeSystem = new UpgradeSystem({
       runState: this.runState,
       bus: ctx.bus,
@@ -175,7 +181,6 @@ export class GameScene extends Phaser.Scene {
         this.projectileGroup,
         this.enemyGroup,
         weaponRegistry,
-        dropSystem.createXpDrop.bind(dropSystem),
         RuntimeConfig.gameplay.projectile.radius,
       ),
       dropSystem,
@@ -500,6 +505,7 @@ export class GameScene extends Phaser.Scene {
         `Health: ${Math.ceil(this.player.health)} / ${Math.ceil(this.player.maxHealth)}`,
         `Level: ${runState.level}  XP: ${Math.floor(runState.xp)} / ${runState.xpToNext}`,
         `Kills: ${runState.kills}`,
+        `Scrap: ${Math.floor(runState.currency)}`,
         `Weapons: ${runState.equipped.map((weapon) => `${weapon.family} T${weapon.tier}`).join(', ')}`,
         'Move: WASD/arrows/drag',
         'Pause: P/Esc',

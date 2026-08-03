@@ -1,9 +1,9 @@
 # Meowcenary Knowledge Graph
 
 > Token-optimized repo map. Read this before any implementation work.
-> Current state: **Epics 0–7 complete; Epic 8 Slices 1–2 merged** (PRs #58–59).
-> Slice 3 is next; see `docs/architecture/epic-8-loot-and-economy.md`.
-> 632 tests / 53 files green.
+> Current state: **Epics 0–7 complete; Epic 8 Slices 1–4 implemented** (PRs #58–61).
+> Slice 5 is next; see `docs/architecture/epic-8-loot-and-economy.md`.
+> 682 tests / 54 files green.
 
 ## Stack
 
@@ -18,19 +18,20 @@ Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly
 |-----|--------|-------|----------|
 | `src/engine/` | ✅ | **No Phaser** (pure, unit-tested) | `config` `eventBus` `rng` `vector` `cadence` `context` `sceneKeys` `system` |
 | `src/gameplay/` | ✅ | **No Phaser** (pure rules) | `runState` `runStart` `runRequest` `stats` `xp` `targeting` `weapons` `weaponStats` `merge` `upgrades` `levelUpQueue` `projectilePattern` `enemyMovement` `enemyScaling` `spawnDirector` `spawnRegion` `loot` `meta` `characterSelection` `characterContribution` `characterPassives` `arenaSelection` |
-| `src/entities/` | ✅ | May use Phaser (display objects) | `Player` `Enemy` `Projectile` `XpDrop` |
+| `src/entities/` | ✅ | May use Phaser (display objects) | `Player` `Enemy` `Projectile` `Drop` |
 | `src/systems/` | ✅ | May use Phaser (coordinators) | `types` `validation` `save` `input` `audio` `debug` `ids` `enemies` `characters` `arenas` `lootTables` `metaUpgrades` `weaponRegistry` `SpawnSystem` `WeaponSystem` `UpgradeSystem` `DropSystem` `ProgressionSystem` `PassiveCoordinator` `HazardSystem` `arenaScenery` |
 | `src/scenes/` | ✅ | Thin coordinators only | `BootScene` `GameScene` |
 | `src/ui/` | ✅ | May use Phaser | `UpgradeChooser` `upgradeChooserController` `upgradeChooserLayout` `characterSelectionController` `arenaSelectionController` `progressionController` |
 | `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` `loot-tables` |
-| `tests/` | ✅ 632 tests | Vitest; mock Phaser via `vi.mock` | 53 files incl. integration harnesses |
+| `tests/` | ✅ 682 tests | Vitest; mock Phaser via `vi.mock` | 54 files incl. integration harnesses |
 | `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..8}-*.md` |
 
-Epic 8 Slices 1–2 added `src/data/loot-tables.json`, `src/gameplay/loot.ts`,
-and `src/systems/lootTables.ts`. Slice 3 adds `src/entities/Drop.ts`; Slice 4
-then replaces `XpDrop.ts` in the runtime pipeline.
+Epic 8 Slices 1–4 added `src/data/loot-tables.json`, `src/gameplay/loot.ts`,
+and `src/systems/lootTables.ts` (Slices 1–2). Slice 3 added `src/entities/Drop.ts`;
+Slice 4 rewired the kill-to-loot pipeline, deleting `XpDrop.ts`, enriching
+`DropSystem` with event-driven loot resolution, and activating scrap collection.
 
-## Runtime Shape (after Epic 8 Slice 2)
+## Runtime Shape (after Epic 8 Slice 4)
 
 ```
 main.ts → Phaser.Game([BootScene, GameScene])
@@ -40,7 +41,7 @@ GameScene.create():
   assembleRunRequest(ctx, menuRng) → { characterId, arenaId, seed }
   arena = ctx.arenas.arenaById(arenaId); curve = arena.spawnCurveId → curve
   prepareRun({ state, basePlayer, meta, metaUpgrades, character }) → runState
-  rng streams: createRng(deriveRunSeed(seed, 'spawns' | 'upgrades'))
+  rng streams: createRng(deriveRunSeed(seed, 'spawns' | 'upgrades' | 'loot'))
   physics.world/camera bounds = arena.size; player spawns at arena centre
   systems = [ProgressionSystem, PassiveCoordinator, SpawnSystem,
              HazardSystem, WeaponSystem, DropSystem, UpgradeSystem, AudioManager]
@@ -142,7 +143,7 @@ existing event covers it (Epic 8 adds none — it extends one payload).
 | 5 | ✅ | Meta progression, SaveDataV2, banking (`computeRunReward`/`bankReward`) |
 | 6 | ✅ | Characters, `RunRequest`, reactive passives |
 | 7 | ✅ | Arenas: data/selection/`spawnPoint`/world bounds/obstacles/hazards (PR #51) |
-| 8 | 🚧 Slices 1–2 complete | Loot data + pure resolver merged; Slice 3 poolable magnet `Drop` is next |
+| 8 | 🚧 Slice 4 under review | Slices 1–3 merged; event-driven kill-to-loot pipeline in PR #61 |
 | 9–12 | Open | UI/UX, audio, balancing/tools, polish/perf (pooling `Drop`+`Projectile`) |
 
 ## First Steps for Any Agent
