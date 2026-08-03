@@ -5,7 +5,7 @@ import type { Rng } from '../engine/rng';
 import type { System } from '../engine/system';
 import { Drop } from '../entities/Drop';
 import type { Player } from '../entities/Player';
-import { resolveKillLoot } from '../gameplay/loot';
+import { resolveKillLoot, resolveLoot } from '../gameplay/loot';
 import type { LootGrant } from '../gameplay/loot';
 import type { RunState } from '../gameplay/runState';
 import { applyXp } from '../gameplay/xp';
@@ -133,31 +133,59 @@ export class DropSystem implements System {
 
     const { kind, amount } = drop;
     switch (kind) {
-      case 'xp': {
-        applyXp(this.runState, amount, this.ctx.bus);
+      case 'xp':
+        this.applyXpGrant(amount);
         break;
-      }
-      case 'scrap': {
-        const gained = amount * this.runState.stats.resolve('currencyGain', 1);
-        if (Number.isFinite(gained) && gained > 0) {
-          this.runState.currency += gained;
-          this.ctx.bus.emit('currency:changed', { runTotal: this.runState.currency });
-        }
+      case 'scrap':
+        this.applyScrapGrant(amount);
         break;
-      }
-      case 'chest': {
-        // Chest collection is Slice 5. The chest is destroyed with no grant.
-        drop.destroy();
-        return;
-      }
+      case 'chest':
+        this.collectChest(drop);
+        return; // the chest itself never emits drop:collected
     }
 
-    this.ctx.bus.emit('drop:collected', {
-      kind,
-      amount,
-      x: drop.x,
-      y: drop.y,
-    });
+    this.ctx.bus.emit('drop:collected', { kind, amount, x: drop.x, y: drop.y });
+    drop.destroy();
+  }
+
+  private applyXpGrant(amount: number): void {
+    applyXp(this.runState, amount, this.ctx.bus);
+  }
+
+  private applyScrapGrant(amount: number): void {
+    const gained = amount * this.runState.stats.resolve('currencyGain', 1);
+    if (Number.isFinite(gained) && gained > 0) {
+      this.runState.currency += gained;
+      this.ctx.bus.emit('currency:changed', { runTotal: this.runState.currency });
+    }
+  }
+
+  private collectChest(drop: Drop): void {
+    const { tableId } = drop;
+    if (tableId !== undefined) {
+      let grants: readonly LootGrant[];
+      try {
+        grants = resolveLoot(tableId, this.lootTables, this.rng);
+      } catch {
+        grants = []; // fail soft — strictness belongs to validation
+      }
+      for (const grant of grants) {
+        if (grant.kind === 'chest') {
+          continue; // defensive: validation guarantees chest-safe targets
+        }
+        if (grant.kind === 'xp') {
+          this.applyXpGrant(grant.amount);
+        } else {
+          this.applyScrapGrant(grant.amount);
+        }
+        this.ctx.bus.emit('drop:collected', {
+          kind: grant.kind,
+          amount: grant.amount,
+          x: drop.x,
+          y: drop.y,
+        });
+      }
+    }
     drop.destroy();
   }
 }

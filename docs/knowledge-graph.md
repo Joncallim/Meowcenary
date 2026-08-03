@@ -1,9 +1,8 @@
 # Meowcenary Knowledge Graph
 
 > Token-optimized repo map. Read this before any implementation work.
-> Current state: **Epics 0–7 complete; Epic 8 Slices 1–4 implemented** (PRs #58–61).
-> Slice 5 is next; see `docs/architecture/epic-8-loot-and-economy.md`.
-> 682 tests / 54 files green.
+> Current state: **Epics 0–8 complete** (PRs #58–62).
+> 699 tests / 55 files green.
 
 ## Stack
 
@@ -23,15 +22,17 @@ Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly
 | `src/scenes/` | ✅ | Thin coordinators only | `BootScene` `GameScene` |
 | `src/ui/` | ✅ | May use Phaser | `UpgradeChooser` `upgradeChooserController` `upgradeChooserLayout` `characterSelectionController` `arenaSelectionController` `progressionController` |
 | `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` `loot-tables` |
-| `tests/` | ✅ 682 tests | Vitest; mock Phaser via `vi.mock` | 54 files incl. integration harnesses |
+| `tests/` | ✅ 699 tests | Vitest; mock Phaser via `vi.mock` | 55 files incl. integration harnesses |
 | `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..8}-*.md` |
 
-Epic 8 Slices 1–4 added `src/data/loot-tables.json`, `src/gameplay/loot.ts`,
+Epic 8 Slices 1–5 added `src/data/loot-tables.json`, `src/gameplay/loot.ts`,
 and `src/systems/lootTables.ts` (Slices 1–2). Slice 3 added `src/entities/Drop.ts`;
 Slice 4 rewired the kill-to-loot pipeline, deleting `XpDrop.ts`, enriching
 `DropSystem` with event-driven loot resolution, and activating scrap collection.
+Slice 5 added the chest collection shell, the headless loot integration harness,
+and the F10 dev-only chest-spawn hotkey in `GameScene`.
 
-## Runtime Shape (after Epic 8 Slice 4)
+## Runtime Shape (after Epic 8)
 
 ```
 main.ts → Phaser.Game([BootScene, GameScene])
@@ -143,7 +144,7 @@ existing event covers it (Epic 8 adds none — it extends one payload).
 | 5 | ✅ | Meta progression, SaveDataV2, banking (`computeRunReward`/`bankReward`) |
 | 6 | ✅ | Characters, `RunRequest`, reactive passives |
 | 7 | ✅ | Arenas: data/selection/`spawnPoint`/world bounds/obstacles/hazards (PR #51) |
-| 8 | 🚧 Slice 4 under review | Slices 1–3 merged; event-driven kill-to-loot pipeline in PR #61 |
+| 8 | ✅ | Slices 1–5 merged; event-driven kill-to-loot pipeline, chest shell, integration harness (PRs #58–62) |
 | 9–12 | Open | UI/UX, audio, balancing/tools, polish/perf (pooling `Drop`+`Projectile`) |
 
 ## First Steps for Any Agent

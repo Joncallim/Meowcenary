@@ -9,6 +9,7 @@ import type { LootTableLookup } from '../src/systems/lootTables';
 import type { Player } from '../src/entities/Player';
 import { Drop } from '../src/entities/Drop';
 import type { DropSystem } from '../src/systems/DropSystem';
+import type { LootGrant } from '../src/gameplay/loot';
 import charactersJson from '../src/data/characters.json';
 import metaUpgradesJson from '../src/data/meta-upgrades.json';
 import upgradesJson from '../src/data/upgrades.json';
@@ -480,23 +481,187 @@ describe('DropSystem', () => {
     expect(addedSprites).toHaveLength(0);
   });
 
-  it('destroys a chest drop without granting or emitting drop:collected', async () => {
-    const { system, runState, bus, overlapCallback } = await createSystem();
+  it('collects a chest drop by resolving its table and granting xp', async () => {
+    const lootTables = {
+      lootTableById: vi.fn((id: string) =>
+        id === 'chest-table'
+          ? { id: 'chest-table', entries: [{ kind: 'xp' as const, amount: 9, weight: 1 }] }
+          : undefined),
+    };
+    const { system, runState, bus, overlapCallback } = await createSystem({ lootTables });
+    runState.xpToNext = 1000;
     const collected = vi.fn();
     bus.on('drop:collected', collected);
+
+    const drop = system.spawnDrop(12, 34, { kind: 'chest', amount: 0, tableId: 'chest-table' });
+    overlapCallback?.(null, drop.sprite);
+
+    expect(drop.active).toBe(false);
+    expect((drop.sprite as unknown as MockGameObject).destroyed).toBe(true);
+    expect(runState.xp).toBe(9);
+    expect(collected).toHaveBeenCalledTimes(1);
+    expect(collected).toHaveBeenCalledWith({ kind: 'xp', amount: 9, x: 12, y: 34 });
+    expect(collected.mock.calls.some(([payload]) => payload.kind === 'chest')).toBe(false);
+  });
+
+  it('collects a chest drop by resolving its table and granting scrap', async () => {
+    const lootTables = {
+      lootTableById: vi.fn((id: string) =>
+        id === 'chest-table'
+          ? { id: 'chest-table', entries: [{ kind: 'scrap' as const, amount: 13, weight: 1 }] }
+          : undefined),
+    };
+    const { system, runState, bus, overlapCallback } = await createSystem({ lootTables });
+    const collected = vi.fn();
     const currencyChanged = vi.fn();
+    bus.on('drop:collected', collected);
+    bus.on('currency:changed', currencyChanged);
+
+    const drop = system.spawnDrop(10, 20, { kind: 'chest', amount: 0, tableId: 'chest-table' });
+    overlapCallback?.(null, drop.sprite);
+
+    expect(runState.currency).toBe(13);
+    expect(currencyChanged).toHaveBeenCalledWith({ runTotal: 13 });
+    expect(collected).toHaveBeenCalledWith({ kind: 'scrap', amount: 13, x: 10, y: 20 });
+  });
+
+  it('applies currencyGain to chest-granted scrap exactly like direct scrap', async () => {
+    const lootTables = {
+      lootTableById: vi.fn((id: string) =>
+        id === 'chest-table'
+          ? { id: 'chest-table', entries: [{ kind: 'scrap' as const, amount: 8, weight: 1 }] }
+          : undefined),
+    };
+    const { system, runState, bus, overlapCallback } = await createSystem({ lootTables });
+    runState.stats.add({ stat: 'currencyGain', op: 'mult', value: 2.5, sourceId: 'test' });
+    const collected = vi.fn();
+    const currencyChanged = vi.fn();
+    bus.on('drop:collected', collected);
     bus.on('currency:changed', currencyChanged);
 
     const drop = system.spawnDrop(0, 0, { kind: 'chest', amount: 0, tableId: 'chest-table' });
     overlapCallback?.(null, drop.sprite);
 
-    expect(drop.active).toBe(false);
-    expect((drop.sprite as unknown as MockGameObject).destroyed).toBe(true);
+    expect(runState.currency).toBe(20);
+    expect(currencyChanged).toHaveBeenCalledWith({ runTotal: 20 });
+    expect(collected).toHaveBeenCalledWith({ kind: 'scrap', amount: 8, x: 0, y: 0 });
+  });
+
+  it('consumes exactly one rng.next() per chest open', async () => {
+    const table = {
+      id: 'chest-table',
+      entries: [{ kind: 'xp' as const, amount: 1, weight: 1 }],
+    };
+    const lootTables = {
+      lootTableById: vi.fn((id: string) => (id === table.id ? table : undefined)),
+    };
+    const rng = { next: vi.fn(() => 0.3) };
+    const { system, overlapCallback } = await createSystem({ lootTables, rng });
+
+    const drop = system.spawnDrop(0, 0, { kind: 'chest', amount: 0, tableId: table.id });
+    overlapCallback?.(null, drop.sprite);
+
+    expect(rng.next).toHaveBeenCalledTimes(1);
+  });
+
+  it('filters a nested chest grant and grants nothing', async () => {
+    const lootTables = {
+      lootTableById: vi.fn((id: string) =>
+        id === 'chest-table'
+          ? {
+              id: 'chest-table',
+              entries: [{ kind: 'chest' as const, amount: 0, weight: 1, tableId: 'nested' }],
+            }
+          : undefined),
+    };
+    const { system, runState, bus, overlapCallback } = await createSystem({ lootTables });
+    const collected = vi.fn();
+    bus.on('drop:collected', collected);
+
+    const drop = system.spawnDrop(0, 0, { kind: 'chest', amount: 0, tableId: 'chest-table' });
+    overlapCallback?.(null, drop.sprite);
+
     expect(runState.currency).toBe(0);
     expect(runState.xp).toBe(0);
     expect(collected).not.toHaveBeenCalled();
-    expect(currencyChanged).not.toHaveBeenCalled();
+    expect(drop.active).toBe(false);
   });
+
+  it('fails soft when the chest table is missing', async () => {
+    const lootTables = {
+      lootTableById: vi.fn(() => undefined),
+    };
+    const { system, runState, bus, overlapCallback } = await createSystem({ lootTables });
+    const collected = vi.fn();
+    bus.on('drop:collected', collected);
+
+    const drop = system.spawnDrop(0, 0, { kind: 'chest', amount: 0, tableId: 'missing' });
+    expect(() => overlapCallback?.(null, drop.sprite)).not.toThrow();
+
+    expect(runState.currency).toBe(0);
+    expect(runState.xp).toBe(0);
+    expect(collected).not.toHaveBeenCalled();
+    expect(drop.active).toBe(false);
+  });
+
+  it('grants nothing when a chest drop has no tableId', async () => {
+    const { system, runState, bus, overlapCallback } = await createSystem();
+    const collected = vi.fn();
+    bus.on('drop:collected', collected);
+
+    // The production LootGrant type requires tableId for chests; this cast
+    // exercises the defensive no-tableId path in collectChest.
+    const drop = system.spawnDrop(0, 0, { kind: 'chest', amount: 0 } as unknown as LootGrant);
+    overlapCallback?.(null, drop.sprite);
+
+    expect(runState.currency).toBe(0);
+    expect(runState.xp).toBe(0);
+    expect(collected).not.toHaveBeenCalled();
+    expect(drop.active).toBe(false);
+  });
+
+  it('grants nothing when the chest table resolves to nothing', async () => {
+    const lootTables = {
+      lootTableById: vi.fn((id: string) =>
+        id === 'chest-table'
+          ? { id: 'chest-table', entries: [{ kind: 'nothing' as const, amount: 0, weight: 1 }] }
+          : undefined),
+    };
+    const { system, runState, bus, overlapCallback } = await createSystem({ lootTables });
+    const collected = vi.fn();
+    bus.on('drop:collected', collected);
+
+    const drop = system.spawnDrop(0, 0, { kind: 'chest', amount: 0, tableId: 'chest-table' });
+    overlapCallback?.(null, drop.sprite);
+
+    expect(runState.currency).toBe(0);
+    expect(runState.xp).toBe(0);
+    expect(collected).not.toHaveBeenCalled();
+    expect(drop.active).toBe(false);
+  });
+
+  it.each(['paused', 'won', 'lost'] as const)(
+    'does not resolve a chest when run status is %s',
+    async (status) => {
+      const lootTables = {
+        lootTableById: vi.fn((id: string) =>
+          id === 'chest-table'
+            ? { id: 'chest-table', entries: [{ kind: 'xp' as const, amount: 99, weight: 1 }] }
+            : undefined),
+      };
+      const { system, runState, bus, overlapCallback } = await createSystem({ status, lootTables });
+      const collected = vi.fn();
+      bus.on('drop:collected', collected);
+
+      const drop = system.spawnDrop(0, 0, { kind: 'chest', amount: 0, tableId: 'chest-table' });
+      overlapCallback?.(null, drop.sprite);
+
+      expect(runState.currency).toBe(0);
+      expect(runState.xp).toBe(0);
+      expect(collected).not.toHaveBeenCalled();
+      expect(drop.active).toBe(true);
+    },
+  );
 
   it('collects a drop via overlap even when pickupRadius is clamped to zero', async () => {
     const { system, runState, bus, overlapCallback } = await createSystem();

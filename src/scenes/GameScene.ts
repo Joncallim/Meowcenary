@@ -53,6 +53,7 @@ export class GameScene extends Phaser.Scene {
   private centerText?: Phaser.GameObjects.Text;
   private overlayText?: Phaser.GameObjects.Text;
   private physicsPausedByRun = false;
+  private dropSystem?: DropSystem;
   private upgradeSystem?: UpgradeSystem;
   private upgradeChooser?: UpgradeChooser;
   private characterController?: CharacterSelectionController;
@@ -137,7 +138,7 @@ export class GameScene extends Phaser.Scene {
       this.physics.add.collider(this.player.sprite, this.arenaScenery.obstacleGroup);
       this.physics.add.collider(this.enemyGroup, this.arenaScenery.obstacleGroup);
     }
-    const dropSystem = new DropSystem({
+    this.dropSystem = new DropSystem({
       scene: this,
       ctx,
       runState: this.runState,
@@ -183,7 +184,7 @@ export class GameScene extends Phaser.Scene {
         weaponRegistry,
         RuntimeConfig.gameplay.projectile.radius,
       ),
-      dropSystem,
+      this.dropSystem,
       this.upgradeSystem,
       this.audioManager,
     ];
@@ -195,6 +196,7 @@ export class GameScene extends Phaser.Scene {
       this.input.keyboard?.on('keydown-F9', this.forceWinRun, this);
       this.input.keyboard?.on('keydown-C', this.cycleCharacterDev, this);
       this.input.keyboard?.on('keydown-M', this.cycleArenaDev, this);
+      this.input.keyboard?.on('keydown-F10', this.spawnChestDev, this);
     }
     this.unsubscribers.push(
       ctx.bus.on('run:paused', () => {
@@ -325,12 +327,14 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.off('keydown-F9', this.forceWinRun, this);
     this.input.keyboard?.off('keydown-C', this.cycleCharacterDev, this);
     this.input.keyboard?.off('keydown-M', this.cycleArenaDev, this);
+    this.input.keyboard?.off('keydown-F10', this.spawnChestDev, this);
     this.upgradeChooser?.destroy();
     this.upgradeChooser = undefined;
     this.systems.forEach((system) => {
       system.destroy();
     });
     this.systems = [];
+    this.dropSystem = undefined;
     this.player?.destroy();
     this.player = undefined;
     this.enemies.length = 0;
@@ -476,6 +480,23 @@ export class GameScene extends Phaser.Scene {
       }
       return;
     }
+  }
+
+  private spawnChestDev(): void {
+    if (
+      !RuntimeConfig.isDev ||
+      !this.runState ||
+      this.runState.status !== 'active' ||
+      !this.player ||
+      !this.dropSystem
+    ) {
+      return;
+    }
+
+    const x = this.player.x + 48;
+    const y = this.player.y;
+    this.dropSystem.spawnDrop(x, y, { kind: 'chest', amount: 0, tableId: 'chest-standard' });
+    console.log(`[dev] Chest spawned at (${Math.round(x)}, ${Math.round(y)}) — walk over it to open.`);
   }
 
   private maybeEndRunForVictory(ctx: GameContext, runState: RunState): void {

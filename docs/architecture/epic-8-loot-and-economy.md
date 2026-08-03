@@ -1,8 +1,7 @@
 # Epic 8: Loot and Economy — Architecture Overview
 
-Status: implementation in progress for Epic 8 / issue #9. Slices 1–3 are
-merged; Slice 4 is implemented for review in PR #61. This document is the
-repository **source of truth** for Epic 8 and the index for its five focused
+Status: **complete**. Slices 1–5 are merged in PRs #58–62. This document is
+the repository **source of truth** for Epic 8 and the index for its five focused
 slices. It supersedes conflicting issue-#9 wording in one place: the issue's
 `Drop.update(dtMs, playerPos, pickupRadius)` sketch gains a
 `magnetSpeed` parameter so tuning stays in `RuntimeConfig` rather than being
@@ -459,17 +458,14 @@ merge.
 | 1 | Loot table data model, validation & registry (+ enemy `lootTableId` field) — **merged #58** | `loot-tables.json`, `types.ts`, `validation.ts`, `lootTables.ts`, tests | none (post-Epic-7 `main`) |
 | 2 | Pure loot resolver — **merged #59** | `gameplay/loot.ts`, tests; payload + `Enemy.scrapValue` seams landed early | 1 |
 | 3 | [Poolable `Drop` entity + magnet geometry](epic-8-slice-3-drop.md) — **merged #60** | `entities/Drop.ts`, tests | 1 |
-| 4 | [Kill-to-loot pipeline](epic-8-slice-4-kill-to-loot.md): `WeaponSystem` slim-down, `DropSystem` rework (xp+scrap), `config.ts` drop section, `GameScene` rewiring, HUD line, delete `XpDrop.ts` — **implementation in PR #61** | `WeaponSystem.ts`, `DropSystem.ts`, `config.ts`, `GameScene.ts`, migrated tests and architecture sign-off | 1, 2, 3 |
-| 5 | Chest shell + integration harness + dev hotkey + docs sign-off | `DropSystem.ts` (chest collect), integration tests, `GameScene.ts` (F10 dev-only), `epics.md`, `roadmap.md` | 4 |
+| 4 | [Kill-to-loot pipeline](epic-8-slice-4-kill-to-loot.md): `WeaponSystem` slim-down, `DropSystem` rework (xp+scrap), `config.ts` drop section, `GameScene` rewiring, HUD line, delete `XpDrop.ts` — **merged #61** | `WeaponSystem.ts`, `DropSystem.ts`, `config.ts`, `GameScene.ts`, migrated tests and architecture sign-off | 1, 2, 3 |
+| 5 | Chest shell + integration harness + dev hotkey + docs sign-off — **merged #62** | `DropSystem.ts` (chest collect), integration tests, `GameScene.ts` (F10 dev-only), `epics.md`, `roadmap.md` | 4 |
 
-Slice 4 is implemented for review in PR #61 and specified in full in
-[`epic-8-slice-4-kill-to-loot.md`](epic-8-slice-4-kill-to-loot.md). The PR
-treats the `enemy:killed` payload extension and `Enemy.scrapValue` from #59 as
-already complete — `eventBus.ts` needs **no** change in Epic 8 from here on,
-and issue #56's contrary wording is stale (see that document §2.1). Once Slice
-4 lands, the shipped run gains guaranteed scrap drops and collection becomes
-physics-overlap-only; Slice 5 remains an additive shell no shipped content
-exercises.
+All five slices are merged. The shipped run now has guaranteed xp+scrap drops
+with overlap-only collection, and the scrap economy is live. The chest shell is
+proven by the integration harness and the F10 dev hotkey; no shipped content
+exercises it. Chests and rare drops remain validated content shells, exactly as
+Epic 7 shipped hazards.
 
 ## 7. Dependency and data-flow map
 

@@ -12,8 +12,9 @@
 - Epic 7 / Maps and Arenas: complete (#8).
 
 Epic 7 was implemented in the consolidated PR #51 and merged.
-Epic 8 is underway: Slices 1–3 merged in PRs #58–60; Slice 4's complete
-event-driven kill-to-loot implementation is under review in PR #61.
+Epic 8 is complete: Slices 1–5 merged in PRs #58–62, implementing the
+event-driven kill-to-loot pipeline, poolable magnet `Drop`, activated scrap
+economy, chest shell, integration harness, and dev hotkey.
 
 Epic 8 (Loot and Economy, #9) is specified in
 [`architecture/epic-8-loot-and-economy.md`](architecture/epic-8-loot-and-economy.md).
@@ -26,10 +27,8 @@ chests and rare drops ship as validated content shells, exactly as Epic 7
 shipped hazards. Each of its five slices ships as a focused implementation PR
 and as a sub-issue under the Epic 8 umbrella (#9).
 
-The current `main` branch contains Epic 8's loot catalog/registry, pure
-resolver, enriched kill payload, and poolable magnet `Drop`. PR #61 rewires
-the runtime to that architecture, activates scrap collection, and removes the
-legacy `XpDrop` path.
+`main` now holds the complete Epic 8: event-driven kill-to-loot, live scrap
+economy, and the fixture/hotkey-proven chest shell.
 The Epic 7 architecture is documented in
 [`architecture/epic-7-maps-and-arenas.md`](architecture/epic-7-maps-and-arenas.md),
 which adds the arena data/registry/selection contracts, the pure
