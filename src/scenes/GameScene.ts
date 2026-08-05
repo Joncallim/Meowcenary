@@ -30,8 +30,6 @@ import { DataWeaponRegistry } from '../systems/weaponRegistry';
 import { DataLootTableRegistry } from '../systems/lootTables';
 import { WeaponSystem } from '../systems/WeaponSystem';
 import { UpgradeChooser } from '../ui/UpgradeChooser';
-import { CharacterSelectionController } from '../ui/characterSelectionController';
-import { ArenaSelectionController } from '../ui/arenaSelectionController';
 import { resolveCharacterRunContribution } from '../gameplay/characterContribution';
 import { PassiveCoordinator } from '../systems/PassiveCoordinator';
 import { HazardSystem } from '../systems/HazardSystem';
@@ -56,8 +54,6 @@ export class GameScene extends Phaser.Scene {
   private dropSystem?: DropSystem;
   private upgradeSystem?: UpgradeSystem;
   private upgradeChooser?: UpgradeChooser;
-  private characterController?: CharacterSelectionController;
-  private arenaController?: ArenaSelectionController;
   private spawnCurve?: Readonly<SpawnCurveDefinition>;
   private arenaScenery?: ArenaScenery;
 
@@ -68,9 +64,6 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     const { width, height } = this.scale;
     const ctx = this.getContext();
-    const characterController = new CharacterSelectionController(ctx);
-    this.characterController = characterController;
-    this.arenaController = new ArenaSelectionController(ctx);
     const request = assembleRunRequest(ctx, ctx.menuRng);
 
     const arena = ctx.arenas.arenaById(request.arenaId);
@@ -194,8 +187,6 @@ export class GameScene extends Phaser.Scene {
     if (RuntimeConfig.isDev) {
       this.input.keyboard?.on('keydown-F8', this.forceLoseRun, this);
       this.input.keyboard?.on('keydown-F9', this.forceWinRun, this);
-      this.input.keyboard?.on('keydown-C', this.cycleCharacterDev, this);
-      this.input.keyboard?.on('keydown-M', this.cycleArenaDev, this);
       this.input.keyboard?.on('keydown-F10', this.spawnChestDev, this);
     }
     this.unsubscribers.push(
@@ -325,8 +316,6 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.off('keydown-R', this.restartRun, this);
     this.input.keyboard?.off('keydown-F8', this.forceLoseRun, this);
     this.input.keyboard?.off('keydown-F9', this.forceWinRun, this);
-    this.input.keyboard?.off('keydown-C', this.cycleCharacterDev, this);
-    this.input.keyboard?.off('keydown-M', this.cycleArenaDev, this);
     this.input.keyboard?.off('keydown-F10', this.spawnChestDev, this);
     this.upgradeChooser?.destroy();
     this.upgradeChooser = undefined;
@@ -344,8 +333,6 @@ export class GameScene extends Phaser.Scene {
     this.debugOverlay = undefined;
     this.audioManager = undefined;
     this.upgradeSystem = undefined;
-    this.characterController = undefined;
-    this.arenaController = undefined;
     this.spawnCurve = undefined;
     this.arenaScenery?.destroy();
     this.arenaScenery = undefined;
@@ -424,62 +411,6 @@ export class GameScene extends Phaser.Scene {
     }
 
     endRun(runState, 'won', this.getContext().bus);
-  }
-
-  private cycleCharacterDev(): void {
-    if (!RuntimeConfig.isDev || !this.characterController) return;
-
-    const snapshot = this.characterController.snapshot();
-    const currentIndex = snapshot.characters.findIndex((c) => c.selected);
-    if (currentIndex < 0) return;
-
-    const count = snapshot.characters.length;
-    for (let offset = 1; offset <= count; offset += 1) {
-      const candidate = snapshot.characters[(currentIndex + offset) % count];
-      if (candidate.locked) continue;
-      if (candidate.id === snapshot.selectedCharacterId) {
-        console.log('[dev] No other unlocked character available.');
-        return;
-      }
-
-      const result = this.characterController.select(candidate.id, snapshot.revision);
-      if (result.ok) {
-        console.log(
-          `[dev] Character cycled to "${candidate.name}" (${candidate.id}). Restart to apply.`,
-        );
-      } else {
-        console.warn(`[dev] Failed to select "${candidate.name}":`, result.reason);
-      }
-      return;
-    }
-  }
-
-  private cycleArenaDev(): void {
-    if (!RuntimeConfig.isDev || !this.arenaController) return;
-
-    const snapshot = this.arenaController.snapshot();
-    const currentIndex = snapshot.arenas.findIndex((a) => a.selected);
-    if (currentIndex < 0) return;
-
-    const count = snapshot.arenas.length;
-    for (let offset = 1; offset <= count; offset += 1) {
-      const candidate = snapshot.arenas[(currentIndex + offset) % count];
-      if (candidate.locked) continue;
-      if (candidate.id === snapshot.selectedArenaId) {
-        console.log('[dev] No other unlocked arena available.');
-        return;
-      }
-
-      const result = this.arenaController.select(candidate.id, snapshot.revision);
-      if (result.ok) {
-        console.log(
-          `[dev] Arena cycled to "${candidate.name}" (${candidate.id}). Restart to apply.`,
-        );
-      } else {
-        console.warn(`[dev] Failed to select "${candidate.name}":`, result.reason);
-      }
-      return;
-    }
   }
 
   private spawnChestDev(): void {

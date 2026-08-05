@@ -33,6 +33,6 @@ export class BootScene extends Phaser.Scene {
     });
 
     this.registry.set(GAME_CONTEXT_REGISTRY_KEY, ctx);
-    this.scene.start(SceneKey.Game);
+    this.scene.start(SceneKey.Menu);
   }
 }

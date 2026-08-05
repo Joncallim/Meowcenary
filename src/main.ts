@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { RuntimeConfig } from './engine/config';
 import { BootScene } from './scenes/BootScene';
+import { MenuScene } from './scenes/MenuScene';
 import { GameScene } from './scenes/GameScene';
 import './styles.css';
 
@@ -20,7 +21,7 @@ const config: Phaser.Types.Core.GameConfig = {
       debug: RuntimeConfig.isDev,
     },
   },
-  scene: [BootScene, GameScene],
+  scene: [BootScene, MenuScene, GameScene],
 };
 
 // Exported as a narrow ESM browser lifecycle/smoke seam. Upgrade selection now

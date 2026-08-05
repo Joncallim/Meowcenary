@@ -1,5 +1,6 @@
 export const SceneKey = {
   Boot: 'BootScene',
+  Menu: 'MenuScene',
   Game: 'GameScene',
 } as const;
 
