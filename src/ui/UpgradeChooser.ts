@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { EventBus } from '../engine/eventBus';
 import type { UpgradeSystem } from '../systems/UpgradeSystem';
+import { FocusStroke, ThemeColor, ThemeDepth, ThemeFont } from './theme';
 import {
   choiceIndexForNumberKey,
   UpgradeChooserController,
@@ -9,14 +10,20 @@ import {
 } from './upgradeChooserController';
 import { computeUpgradeChooserLayout } from './upgradeChooserLayout';
 
-const CHOOSER_DEPTH = 1_000;
+const CHOOSER_DEPTH = ThemeDepth.upgradeChooser;
+const CARD_STROKE = { color: ThemeColor.primaryDim, alpha: 0.78, width: 2 } as const;
 
 export class UpgradeChooser {
   private readonly controller: UpgradeChooserController;
   private readonly view: PhaserUpgradeChooserView;
 
-  constructor(scene: Phaser.Scene, bus: EventBus, upgradeSystem: UpgradeSystem) {
-    this.view = new PhaserUpgradeChooserView(scene);
+  constructor(
+    scene: Phaser.Scene,
+    bus: EventBus,
+    upgradeSystem: UpgradeSystem,
+    readReducedMotion: () => boolean = () => false,
+  ) {
+    this.view = new PhaserUpgradeChooserView(scene, readReducedMotion);
     this.controller = new UpgradeChooserController(
       bus,
       upgradeSystem,
@@ -42,9 +49,11 @@ export interface UpgradeChooserRenderDiagnostics {
   readonly keyboardListenerCount: number;
   readonly resizeListenerCount: number;
   readonly interactiveCardCount: number;
+  readonly reducedMotion: boolean;
   readonly cards: readonly {
     readonly fillAlpha: number;
     readonly interactive: boolean;
+    readonly focused: boolean;
     readonly x: number;
     readonly y: number;
     readonly width: number;
@@ -70,8 +79,13 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   private enabled = false;
   private destroyed = false;
   private rebuildCount = 0;
+  private focusIndex = 0;
+  private reducedMotion = false;
 
-  constructor(private readonly scene: Phaser.Scene) {
+  constructor(
+    private readonly scene: Phaser.Scene,
+    private readonly readReducedMotion: () => boolean = () => false,
+  ) {
     scene.input.keyboard?.on('keydown', this.handleKeyDown, this);
     scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
   }
@@ -86,9 +100,11 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       keyboardListenerCount: this.scene.input.keyboard?.listenerCount('keydown') ?? 0,
       resizeListenerCount: this.scene.scale.listenerCount(Phaser.Scale.Events.RESIZE),
       interactiveCardCount: this.cardBackgrounds.filter((card) => card.input?.enabled).length,
-      cards: this.cardBackgrounds.map((card) => ({
+      reducedMotion: this.reducedMotion,
+      cards: this.cardBackgrounds.map((card, index) => ({
         fillAlpha: card.fillAlpha,
         interactive: card.input?.enabled ?? false,
+        focused: index === this.focusIndex,
         x: card.getBounds().x,
         y: card.getBounds().y,
         width: card.getBounds().width,
@@ -131,6 +147,11 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       return;
     }
 
+    // reducedMotion is read at every render/rebuild. There are no optional
+    // tween durations today; any animation added later must be gated through
+    // reducedMotionDuration so it never delays a card command.
+    this.reducedMotion = this.readReducedMotion();
+
     const { width, height } = this.scene.scale;
     const layout = computeUpgradeChooserLayout(
       width,
@@ -155,10 +176,10 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         height / 2,
         width - 20,
         height - 20,
-        0x081118,
+        ThemeColor.surface,
         0.96,
       ));
-      backdrop.setStrokeStyle(2, 0x2dd4bf, 0.72).setInteractive();
+      backdrop.setStrokeStyle(2, ThemeColor.primary, 0.72).setInteractive();
       const heading = own(this.scene.add.text(
         width / 2,
         layout.headingY,
@@ -166,7 +187,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         {
         align: 'center',
         color: '#f7f1d5',
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: ThemeFont.family,
         fontSize: `${layout.fonts.heading}px`,
         fontStyle: 'bold',
         },
@@ -184,7 +205,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         {
         align: 'center',
         color: '#a5f3fc',
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: ThemeFont.family,
         fontSize: `${layout.fonts.instructions}px`,
         },
       ));
@@ -211,19 +232,19 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           cardLayout.y,
           cardLayout.width,
           cardLayout.height,
-          0x17303b,
+          ThemeColor.card,
           1,
         ));
         card
-          .setStrokeStyle(2, 0x67e8f9, 0.78)
+          .setStrokeStyle(CARD_STROKE.width, CARD_STROKE.color, CARD_STROKE.alpha)
           .setInteractive({ useHandCursor: true });
         card.on(Phaser.Input.Events.POINTER_OVER, () => {
           if (this.enabled) {
-            card.setFillStyle(0x214756, 1);
+            card.setFillStyle(ThemeColor.cardHover, 1);
           }
         });
         card.on(Phaser.Input.Events.POINTER_OUT, () => {
-          card.setFillStyle(0x17303b, this.enabled ? 1 : 0.58);
+          card.setFillStyle(ThemeColor.card, this.enabled ? 1 : 0.58);
         });
         card.on(Phaser.Input.Events.POINTER_UP, () => {
           this.submit(offer.offerId, index);
@@ -235,7 +256,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           `${index + 1}.`,
           {
             color: '#ffffff',
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: ThemeFont.family,
             fontSize: `${layout.fonts.name}px`,
             fontStyle: 'bold',
           },
@@ -252,7 +273,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
             definition.name,
             {
               color: '#ffffff',
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: ThemeFont.family,
               fontSize: `${layout.fonts.name}px`,
               fontStyle: 'bold',
             },
@@ -272,7 +293,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           {
           align: 'right',
           color: '#fbbf24',
-          fontFamily: 'Inter, sans-serif',
+          fontFamily: ThemeFont.family,
           fontSize: `${layout.fonts.rarity}px`,
           },
         ));
@@ -296,7 +317,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
             definition.description,
             {
               color: '#d6f7ff',
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: ThemeFont.family,
               fontSize: `${layout.fonts.description}px`,
               lineSpacing: layout.lineSpacing,
             },
@@ -328,7 +349,12 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       this.cardBackgrounds = cardBackgrounds;
       this.renderedText = renderedText;
       this.rebuildCount += 1;
+      this.focusIndex = Math.min(
+        this.focusIndex,
+        Math.max(0, cardBackgrounds.length - 1),
+      );
       this.applyEnabledState();
+      this.applyFocusStroke();
     } catch (error) {
       root.destroy(true);
       throw error;
@@ -346,7 +372,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
 
   private applyEnabledState(): void {
     this.cardBackgrounds.forEach((card) => {
-      card.setFillStyle(0x17303b, this.enabled ? 1 : 0.58);
+      card.setFillStyle(ThemeColor.card, this.enabled ? 1 : 0.58);
       if (this.enabled) {
         card.setInteractive({ useHandCursor: true });
       } else {
@@ -355,11 +381,35 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     });
   }
 
+  /** Visible shared focus treatment: the focused card carries the theme focus
+   *  stroke; movement is presentation-only and activation still routes through
+   *  the captured offer token. */
+  private moveFocus(direction: 1 | -1): void {
+    const count = this.cardBackgrounds.length;
+    if (count === 0) {
+      return;
+    }
+    this.focusIndex = (this.focusIndex + direction + count) % count;
+    this.applyFocusStroke();
+  }
+
+  private applyFocusStroke(): void {
+    this.cardBackgrounds.forEach((card, index) => {
+      const focused = index === this.focusIndex;
+      card.setStrokeStyle(
+        focused ? FocusStroke.width : CARD_STROKE.width,
+        focused ? FocusStroke.color : CARD_STROKE.color,
+        focused ? FocusStroke.alpha : CARD_STROKE.alpha,
+      );
+    });
+  }
+
   clear(): void {
     this.enabled = false;
     this.currentOfferId = undefined;
     this.select = undefined;
     this.offer = undefined;
+    this.focusIndex = 0;
     this.destroyDisplay();
   }
 
@@ -382,7 +432,27 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   }
 
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
-    if (event.repeat || !this.enabled || this.currentOfferId === undefined) {
+    if (this.destroyed || !this.enabled || this.currentOfferId === undefined) {
+      return;
+    }
+
+    // Arrow keys move a wrapping presentation-only focus index.
+    if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+      this.moveFocus(-1);
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+      this.moveFocus(1);
+      return;
+    }
+
+    // Repeat keydown events never cause an activation command.
+    if (event.repeat) {
+      return;
+    }
+
+    if (event.key === 'Enter' || event.key === ' ') {
+      this.submit(this.currentOfferId, this.focusIndex);
       return;
     }
 

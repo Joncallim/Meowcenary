@@ -10,7 +10,6 @@ import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
 import { assembleRunRequest } from '../gameplay/runRequest';
 import {
-  canRestartRun,
   endRun,
   startRun,
   tickRun,
@@ -23,7 +22,7 @@ import { InputController } from '../systems/input';
 import { SpawnSystem } from '../systems/SpawnSystem';
 import { buildArenaScenery, type ArenaScenery } from '../systems/arenaScenery';
 import { UpgradeSystem } from '../systems/UpgradeSystem';
-import { ProgressionSystem } from '../systems/ProgressionSystem';
+import { ProgressionSystem, type BankedRun } from '../systems/ProgressionSystem';
 import { DataWeaponRegistry } from '../systems/weaponRegistry';
 import { DataLootTableRegistry } from '../systems/lootTables';
 import { WeaponSystem } from '../systems/WeaponSystem';
@@ -33,6 +32,11 @@ import { HudController, PhaserHudView, createHudSource } from '../ui/hud';
 import { ControlsView } from '../ui/controls';
 import { InventoryController } from '../ui/inventory';
 import { PauseController, PhaserPauseView } from '../ui/pause';
+import {
+  PhaserRunSummaryView,
+  RunSummaryController,
+  type RunSummarySource,
+} from '../ui/runSummary';
 import { logicalCanvasViewport } from '../ui/layout';
 import { PassiveCoordinator } from '../systems/PassiveCoordinator';
 import { HazardSystem } from '../systems/HazardSystem';
@@ -50,7 +54,6 @@ export class GameScene extends Phaser.Scene {
   private enemyGroup?: Phaser.Physics.Arcade.Group;
   private projectileGroup?: Phaser.Physics.Arcade.Group;
   private dropGroup?: Phaser.Physics.Arcade.Group;
-  private overlayText?: Phaser.GameObjects.Text;
   private physicsPausedByRun = false;
   private hudController?: HudController;
   private controlsView?: ControlsView;
@@ -60,6 +63,9 @@ export class GameScene extends Phaser.Scene {
   private dropSystem?: DropSystem;
   private upgradeSystem?: UpgradeSystem;
   private upgradeChooser?: UpgradeChooser;
+  private progressionSystem?: ProgressionSystem;
+  private runSummaryController?: RunSummaryController;
+  private runSummaryView?: PhaserRunSummaryView;
   private spawnCurve?: Readonly<SpawnCurveDefinition>;
   private arenaScenery?: ArenaScenery;
 
@@ -68,7 +74,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
-    const { width, height } = this.scale;
+    const { width } = this.scale;
     const ctx = this.getContext();
     const request = assembleRunRequest(ctx, ctx.menuRng);
 
@@ -191,9 +197,19 @@ export class GameScene extends Phaser.Scene {
       definitions: ctx.data.upgrades,
       rng: upgradeRng,
     });
-    this.upgradeChooser = new UpgradeChooser(this, ctx.bus, this.upgradeSystem);
+    this.upgradeChooser = new UpgradeChooser(
+      this,
+      ctx.bus,
+      this.upgradeSystem,
+      () => this.getContext().settings.reducedMotion,
+    );
+    this.progressionSystem = new ProgressionSystem({
+      runState: this.runState,
+      bus: ctx.bus,
+      context: ctx,
+    });
     this.systems = [
-      new ProgressionSystem({ runState: this.runState, bus: ctx.bus, context: ctx }),
+      this.progressionSystem,
       new PassiveCoordinator({
         runState: this.runState,
         bus: ctx.bus,
@@ -225,6 +241,25 @@ export class GameScene extends Phaser.Scene {
       this.audioManager,
     ];
 
+    // The run summary source is getter-backed so banking (which happens first
+    // in listener order) is visible to the summary's later snapshot reads.
+    const scene = this;
+    const runSummarySource: RunSummarySource = {
+      get runState(): Readonly<RunState> {
+        return scene.requireRunState();
+      },
+      get lastBankedRun(): BankedRun | null {
+        return scene.progressionSystem?.lastBankedRun ?? null;
+      },
+    };
+    this.runSummaryController = new RunSummaryController(runSummarySource);
+    this.runSummaryView = new PhaserRunSummaryView({
+      scene: this,
+      viewport,
+      bus: ctx.bus,
+      controller: this.runSummaryController,
+    });
+
     this.input.keyboard?.on('keydown-P', this.handlePauseKey, this);
     this.input.keyboard?.on('keydown-ESC', this.handlePauseKey, this);
     if (RuntimeConfig.isDev) {
@@ -241,14 +276,11 @@ export class GameScene extends Phaser.Scene {
       }),
       ctx.bus.on('run:won', () => {
         this.syncPhysicsPause(this.requireRunState());
-        this.showOverlay('Run Complete\nYou survived the wave.\nPress R to restart');
       }),
       ctx.bus.on('run:lost', () => {
         this.syncPhysicsPause(this.requireRunState());
-        this.showOverlay('Run Failed\nPress R to restart');
       }),
     );
-    this.input.keyboard?.on('keydown-R', this.restartRun, this);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
@@ -274,21 +306,6 @@ export class GameScene extends Phaser.Scene {
       )
       .setOrigin(0.5)
       .setScrollFactor(0);
-
-    this.overlayText = this.add
-      .text(width / 2, height / 2, '', {
-        align: 'center',
-        backgroundColor: 'rgba(11, 17, 23, 0.86)',
-        color: '#ffffff',
-        fontFamily: 'Inter, sans-serif',
-        fontSize: '18px',
-        lineSpacing: 8,
-        padding: { x: 18, y: 16 },
-      })
-      .setDepth(300)
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setVisible(false);
 
     startRun(this.runState, ctx.bus);
   }
@@ -333,7 +350,6 @@ export class GameScene extends Phaser.Scene {
     this.unsubscribers = [];
     this.input.keyboard?.off('keydown-P', this.handlePauseKey, this);
     this.input.keyboard?.off('keydown-ESC', this.handlePauseKey, this);
-    this.input.keyboard?.off('keydown-R', this.restartRun, this);
     this.input.keyboard?.off('keydown-F8', this.forceLoseRun, this);
     this.input.keyboard?.off('keydown-F9', this.forceWinRun, this);
     this.input.keyboard?.off('keydown-F10', this.spawnChestDev, this);
@@ -346,10 +362,14 @@ export class GameScene extends Phaser.Scene {
     this.pauseController?.destroy();
     this.pauseController = undefined;
     this.inventoryController = undefined;
+    this.runSummaryView?.destroy();
+    this.runSummaryView = undefined;
+    this.runSummaryController = undefined;
     this.systems.forEach((system) => {
       system.destroy();
     });
     this.systems = [];
+    this.progressionSystem = undefined;
     this.hudController = undefined;
     this.dropSystem = undefined;
     this.player?.destroy();
@@ -372,7 +392,6 @@ export class GameScene extends Phaser.Scene {
     this.enemyGroup = undefined;
     this.projectileGroup = undefined;
     this.dropGroup = undefined;
-    this.overlayText = undefined;
   }
 
   private getContext(): GameContext {
@@ -411,14 +430,6 @@ export class GameScene extends Phaser.Scene {
       controller.pause();
     }
     this.pauseView?.render(controller.snapshot());
-  }
-
-  private restartRun(): void {
-    if (!canRestartRun(this.runState)) {
-      return;
-    }
-
-    this.scene.restart();
   }
 
   private forceLoseRun(): void {
@@ -465,10 +476,6 @@ export class GameScene extends Phaser.Scene {
     ) {
       endRun(runState, 'won', ctx.bus);
     }
-  }
-
-  private showOverlay(text: string): void {
-    this.overlayText?.setText(text).setVisible(true);
   }
 
   private syncPhysicsPause(runState: RunState): void {

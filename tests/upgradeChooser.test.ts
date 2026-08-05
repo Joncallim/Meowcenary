@@ -731,6 +731,117 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
   });
 });
 
+describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
+  async function createFocusView(
+    count = 3,
+    readReducedMotion: () => boolean = () => false,
+  ) {
+    const scene = createFakeScene(390, 844);
+    const { PhaserUpgradeChooserView } = await import('../src/ui/UpgradeChooser');
+    const view = new PhaserUpgradeChooserView(scene as never, readReducedMotion);
+    const select = vi.fn<(offerId: number, choiceIndex: number) => boolean>(() => true);
+    view.render({ offerId: 73, definitions: definitions.slice(0, count) }, select);
+    return { scene, view, select };
+  }
+
+  const focused = (view: { diagnostics: { cards: readonly { focused: boolean }[] } }) =>
+    view.diagnostics.cards.map((card) => card.focused);
+
+  it('arrows move a wrapping focus across the cards', async () => {
+    const { scene, view } = await createFocusView();
+    expect(focused(view)).toEqual([true, false, false]);
+    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
+    expect(focused(view)).toEqual([false, true, false]);
+    scene.input.keyboard.emit('keydown', { key: 'ArrowRight', repeat: false });
+    expect(focused(view)).toEqual([false, false, true]);
+    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
+    expect(focused(view)).toEqual([true, false, false]);
+    scene.input.keyboard.emit('keydown', { key: 'ArrowUp', repeat: false });
+    expect(focused(view)).toEqual([false, false, true]);
+    view.destroy();
+  });
+
+  it('Enter and Space activate the focused card with the captured offer token', async () => {
+    const { scene, view, select } = await createFocusView();
+    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
+    scene.input.keyboard.emit('keydown', { key: 'Enter', repeat: false });
+    expect(select).toHaveBeenCalledWith(73, 1);
+    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
+    scene.input.keyboard.emit('keydown', { key: ' ', repeat: false });
+    expect(select).toHaveBeenCalledWith(73, 2);
+    view.destroy();
+  });
+
+  it('number keys submit their own index regardless of focus', async () => {
+    const { scene, view, select } = await createFocusView();
+    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
+    scene.input.keyboard.emit('keydown', { key: '1', repeat: false });
+    expect(select).toHaveBeenCalledWith(73, 0);
+    view.destroy();
+  });
+
+  it('repeated arrows still move focus but repeated activation keys never submit', async () => {
+    const { scene, view, select } = await createFocusView();
+    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: true });
+    expect(focused(view)).toEqual([false, true, false]);
+    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: true });
+    expect(focused(view)).toEqual([false, false, true]);
+    scene.input.keyboard.emit('keydown', { key: 'Enter', repeat: true });
+    scene.input.keyboard.emit('keydown', { key: ' ', repeat: true });
+    scene.input.keyboard.emit('keydown', { key: '1', repeat: true });
+    scene.input.keyboard.emit('keydown', { key: '2', repeat: true });
+    expect(select).not.toHaveBeenCalled();
+    view.destroy();
+  });
+
+  it('setEnabled(false) blocks focus movement and activation', async () => {
+    const { scene, view, select } = await createFocusView();
+    view.setEnabled(false);
+    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
+    scene.input.keyboard.emit('keydown', { key: 'Enter', repeat: false });
+    scene.input.keyboard.emit('keydown', { key: '1', repeat: false });
+    expect(focused(view)).toEqual([true, false, false]);
+    expect(select).not.toHaveBeenCalled();
+    view.destroy();
+  });
+
+  it('rereads reducedMotion on every resize rebuild', async () => {
+    let reducedMotion = false;
+    const { scene, view } = await createFocusView(2, () => reducedMotion);
+    expect(view.diagnostics.reducedMotion).toBe(false);
+    reducedMotion = true;
+    scene.scale.refresh(844, 390, true);
+    expect(view.diagnostics.reducedMotion).toBe(true);
+    reducedMotion = false;
+    scene.scale.refresh(390, 844, true);
+    expect(view.diagnostics.reducedMotion).toBe(false);
+    view.destroy();
+  });
+
+  it('resets focus to the first card when a new offer renders', async () => {
+    const { scene, view } = await createFocusView(3);
+    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
+    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
+    expect(focused(view)).toEqual([false, false, true]);
+    view.render({ offerId: 74, definitions: definitions.slice(0, 2) }, () => true);
+    expect(view.diagnostics.offerId).toBe(74);
+    expect(focused(view)).toEqual([true, false]);
+    view.destroy();
+  });
+
+  it('keeps the focus index across resize rebuilds', async () => {
+    const { scene, view } = await createFocusView(3);
+    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
+    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
+    expect(focused(view)).toEqual([false, false, true]);
+    scene.scale.refresh(844, 390, true);
+    expect(focused(view)).toEqual([false, false, true]);
+    scene.scale.refresh(390, 844, true);
+    expect(focused(view)).toEqual([false, false, true]);
+    view.destroy();
+  });
+});
+
 describe('UpgradeChooserController rendering', () => {
   it.each([1, 2, 3])('renders an ordered offer containing %i choice(s)', (count) => {
     const harness = createHarness();
