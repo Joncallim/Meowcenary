@@ -14,6 +14,8 @@ export interface UpgradeChooserCardLayout {
   descriptionHeight: number;
 }
 
+import { safeDisplayScale, type UiViewport } from './layout';
+
 export interface UpgradeChooserLayout {
   displayScale: number;
   headerWidth: number;
@@ -48,10 +50,6 @@ const BASE_LOGICAL_FONT = {
   description: 14,
 } as const;
 
-// Below this scale the fixed portrait canvas is effectively hidden. Keeping a
-// bounded logical scale prevents Phaser Text from receiving zero or inverted
-// wrap/crop regions while still allowing a later resize to rebuild the offer.
-const MIN_LAYOUT_SCALE = 0.25;
 const MIN_REGION_SIZE = 1;
 
 export function computeUpgradeChooserLayout(
@@ -61,12 +59,13 @@ export function computeUpgradeChooserLayout(
   displayedHeight: number,
   choiceCount: number,
 ): UpgradeChooserLayout {
-  const displayScale = safeDisplayScale(
+  const viewport: UiViewport = {
     canvasWidth,
     canvasHeight,
-    displayedWidth,
-    displayedHeight,
-  );
+    displayWidth: displayedWidth,
+    displayHeight: displayedHeight,
+  };
+  const displayScale = safeDisplayScale(viewport);
   const physical = (pixels: number): number => pixels / displayScale;
   const font = (base: number, minimumPhysical: number): number =>
     Math.max(base, physical(minimumPhysical));
@@ -173,16 +172,3 @@ export function computeUpgradeChooserLayout(
   };
 }
 
-function safeDisplayScale(
-  canvasWidth: number,
-  canvasHeight: number,
-  displayedWidth: number,
-  displayedHeight: number,
-): number {
-  const widthScale = displayedWidth / canvasWidth;
-  const heightScale = displayedHeight / canvasHeight;
-  const scale = Math.min(widthScale, heightScale);
-  return Number.isFinite(scale) && scale > 0
-    ? Math.max(MIN_LAYOUT_SCALE, scale)
-    : MIN_LAYOUT_SCALE;
-}
