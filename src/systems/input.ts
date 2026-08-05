@@ -13,11 +13,21 @@ interface InputKeyMap {
   right: Phaser.Input.Keyboard.Key;
 }
 
+export type InputMode = 'keyboard' | 'pointer';
+
+export interface InputPresentationSnapshot {
+  readonly mode: InputMode;
+  readonly pointerStart: Readonly<Vec2> | null;
+  readonly pointerCurrent: Readonly<Vec2> | null;
+  readonly moveVector: Readonly<Vec2>;
+}
+
 export class InputController implements System {
   private readonly keys?: InputKeyMap;
   private pointerStart: Vec2 | null = null;
   private pointerCurrent: Vec2 | null = null;
   private moveVector: Vec2 = { x: 0, y: 0 };
+  private mode: InputMode = 'pointer';
 
   constructor(private readonly scene: Phaser.Scene) {
     this.keys = scene.input.keyboard?.addKeys({
@@ -41,6 +51,10 @@ export class InputController implements System {
     const keyboard = this.getKeyboardVector();
     const pointer = this.getPointerIntent();
     this.moveVector = clampLength({ x: keyboard.x + pointer.x, y: keyboard.y + pointer.y }, 1);
+
+    if (keyboard.x !== 0 || keyboard.y !== 0) {
+      this.mode = 'keyboard';
+    }
   }
 
   getMoveVector(): Vec2 {
@@ -49,6 +63,16 @@ export class InputController implements System {
 
   getPointer(): Vec2 | null {
     return this.pointerCurrent ? { ...this.pointerCurrent } : null;
+  }
+
+  getPresentationSnapshot(): InputPresentationSnapshot {
+    const snapshot: InputPresentationSnapshot = {
+      mode: this.mode,
+      pointerStart: this.pointerStart ? Object.freeze({ ...this.pointerStart }) : null,
+      pointerCurrent: this.pointerCurrent ? Object.freeze({ ...this.pointerCurrent }) : null,
+      moveVector: Object.freeze({ ...this.moveVector }),
+    };
+    return Object.freeze(snapshot);
   }
 
   destroy(): void {
@@ -83,6 +107,7 @@ export class InputController implements System {
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
+    this.mode = 'pointer';
     this.pointerStart = pointerToVec2(pointer);
     this.pointerCurrent = pointerToVec2(pointer);
   }

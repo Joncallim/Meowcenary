@@ -31,6 +31,9 @@ import { DataLootTableRegistry } from '../systems/lootTables';
 import { WeaponSystem } from '../systems/WeaponSystem';
 import { UpgradeChooser } from '../ui/UpgradeChooser';
 import { resolveCharacterRunContribution } from '../gameplay/characterContribution';
+import { HudController, PhaserHudView, createHudSource } from '../ui/hud';
+import { ControlsView } from '../ui/controls';
+import { logicalCanvasViewport } from '../ui/layout';
 import { PassiveCoordinator } from '../systems/PassiveCoordinator';
 import { HazardSystem } from '../systems/HazardSystem';
 import { DEFAULT_PASSIVE_HANDLERS, createPassiveHandlerRegistry } from '../gameplay/characterPassives';
@@ -47,10 +50,10 @@ export class GameScene extends Phaser.Scene {
   private enemyGroup?: Phaser.Physics.Arcade.Group;
   private projectileGroup?: Phaser.Physics.Arcade.Group;
   private dropGroup?: Phaser.Physics.Arcade.Group;
-  private hudText?: Phaser.GameObjects.Text;
-  private centerText?: Phaser.GameObjects.Text;
   private overlayText?: Phaser.GameObjects.Text;
   private physicsPausedByRun = false;
+  private hudController?: HudController;
+  private controlsView?: ControlsView;
   private dropSystem?: DropSystem;
   private upgradeSystem?: UpgradeSystem;
   private upgradeChooser?: UpgradeChooser;
@@ -126,6 +129,25 @@ export class GameScene extends Phaser.Scene {
       this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
     }
 
+    const viewport = logicalCanvasViewport();
+    this.hudController = new HudController(
+      ctx.bus,
+      createHudSource({
+        runState: this.runState,
+        player: this.player,
+        durationMs: this.spawnCurve.durationSeconds * 1000,
+        weaponRegistry,
+      }),
+      new PhaserHudView({ scene: this, viewport }),
+    );
+    this.controlsView = new ControlsView({
+      scene: this,
+      input: this.inputController,
+      viewport,
+      reducedMotion: ctx.settings.reducedMotion,
+      onPauseRequested: () => this.togglePause(),
+    });
+
     this.arenaScenery = buildArenaScenery(this, arena);
     if (this.arenaScenery.obstacleGroup.children?.size > 0) {
       this.physics.add.collider(this.player.sprite, this.arenaScenery.obstacleGroup);
@@ -179,6 +201,7 @@ export class GameScene extends Phaser.Scene {
       ),
       this.dropSystem,
       this.upgradeSystem,
+      this.hudController,
       this.audioManager,
     ];
 
@@ -231,30 +254,7 @@ export class GameScene extends Phaser.Scene {
       )
       .setOrigin(0.5)
       .setScrollFactor(0);
-    this.hudText = this.add
-      .text(12, 54, '', {
-        color: '#d6f7ff',
-        fontFamily: 'Inter, sans-serif',
-        fontSize: '13px',
-        lineSpacing: 3,
-      })
-      .setDepth(100)
-      .setScrollFactor(0);
-    this.centerText = this.add
-      .text(width / 2, height / 2, 'WASD / arrows / drag to move\nAuto-fire starts when enemies are near\nP or Esc pauses', {
-        align: 'center',
-        backgroundColor: 'rgba(11, 17, 23, 0.72)',
-        color: '#f7f1d5',
-        fontFamily: 'Inter, sans-serif',
-        fontSize: '15px',
-        padding: { x: 12, y: 10 },
-      })
-      .setDepth(200)
-      .setOrigin(0.5)
-      .setScrollFactor(0);
-    this.time.delayedCall(2200, () => {
-      this.centerText?.setVisible(false);
-    });
+
     this.overlayText = this.add
       .text(width / 2, height / 2, '', {
         align: 'center',
@@ -289,7 +289,7 @@ export class GameScene extends Phaser.Scene {
       system.update(delta);
     });
 
-    this.updateHud(runState);
+    this.controlsView?.update(delta);
     const move = this.inputController.getMoveVector();
     const pointer = this.inputController.getPointer();
     this.debugOverlay?.update([
@@ -319,10 +319,13 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.off('keydown-F10', this.spawnChestDev, this);
     this.upgradeChooser?.destroy();
     this.upgradeChooser = undefined;
+    this.controlsView?.destroy();
+    this.controlsView = undefined;
     this.systems.forEach((system) => {
       system.destroy();
     });
     this.systems = [];
+    this.hudController = undefined;
     this.dropSystem = undefined;
     this.player?.destroy();
     this.player = undefined;
@@ -344,8 +347,6 @@ export class GameScene extends Phaser.Scene {
     this.enemyGroup = undefined;
     this.projectileGroup = undefined;
     this.dropGroup = undefined;
-    this.hudText = undefined;
-    this.centerText = undefined;
     this.overlayText = undefined;
   }
 
@@ -441,32 +442,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private updateHud(runState: RunState): void {
-    if (!this.hudText || !this.player) {
-      return;
-    }
-
-    const durationSeconds = this.spawnCurve?.durationSeconds ?? 0;
-    const remainingSeconds = Math.max(0, Math.ceil(durationSeconds - runState.timeMs / 1000));
-    this.hudText.setText(
-      [
-        `Status: ${runState.status}`,
-        `Pause: ${runState.pauseReason ?? 'none'}`,
-        `Time: ${formatClock(runState.timeMs)} / ${formatClock(durationSeconds * 1000)}`,
-        `Survive: ${remainingSeconds}s`,
-        `Health: ${Math.ceil(this.player.health)} / ${Math.ceil(this.player.maxHealth)}`,
-        `Level: ${runState.level}  XP: ${Math.floor(runState.xp)} / ${runState.xpToNext}`,
-        `Kills: ${runState.kills}`,
-        `Scrap: ${Math.floor(runState.currency)}`,
-        `Weapons: ${runState.equipped.map((weapon) => `${weapon.family} T${weapon.tier}`).join(', ')}`,
-        'Move: WASD/arrows/drag',
-        'Pause: P/Esc',
-      ].join('\n'),
-    );
-  }
-
   private showOverlay(text: string): void {
-    this.centerText?.setVisible(false);
     this.overlayText?.setText(text).setVisible(true);
   }
 
@@ -487,11 +463,4 @@ export class GameScene extends Phaser.Scene {
       this.physicsPausedByRun = false;
     }
   }
-}
-
-function formatClock(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
