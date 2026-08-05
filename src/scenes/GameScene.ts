@@ -12,8 +12,6 @@ import { assembleRunRequest } from '../gameplay/runRequest';
 import {
   canRestartRun,
   endRun,
-  pauseRun,
-  resumeRun,
   startRun,
   tickRun,
   type RunState,
@@ -33,6 +31,8 @@ import { UpgradeChooser } from '../ui/UpgradeChooser';
 import { resolveCharacterRunContribution } from '../gameplay/characterContribution';
 import { HudController, PhaserHudView, createHudSource } from '../ui/hud';
 import { ControlsView } from '../ui/controls';
+import { InventoryController } from '../ui/inventory';
+import { PauseController, PhaserPauseView } from '../ui/pause';
 import { logicalCanvasViewport } from '../ui/layout';
 import { PassiveCoordinator } from '../systems/PassiveCoordinator';
 import { HazardSystem } from '../systems/HazardSystem';
@@ -54,6 +54,9 @@ export class GameScene extends Phaser.Scene {
   private physicsPausedByRun = false;
   private hudController?: HudController;
   private controlsView?: ControlsView;
+  private pauseController?: PauseController;
+  private inventoryController?: InventoryController;
+  private pauseView?: PhaserPauseView;
   private dropSystem?: DropSystem;
   private upgradeSystem?: UpgradeSystem;
   private upgradeChooser?: UpgradeChooser;
@@ -145,7 +148,24 @@ export class GameScene extends Phaser.Scene {
       input: this.inputController,
       viewport,
       reducedMotion: ctx.settings.reducedMotion,
-      onPauseRequested: () => this.togglePause(),
+      onPauseRequested: () => this.handlePauseKey(),
+    });
+
+    this.inventoryController = new InventoryController({
+      runState: this.runState,
+      bus: ctx.bus,
+      weaponRegistry,
+    });
+    this.pauseController = new PauseController({
+      runState: this.runState,
+      bus: ctx.bus,
+      inventory: this.inventoryController,
+    });
+    this.pauseView = new PhaserPauseView({
+      scene: this,
+      viewport,
+      controller: this.pauseController,
+      inventory: this.inventoryController,
     });
 
     this.arenaScenery = buildArenaScenery(this, arena);
@@ -205,8 +225,8 @@ export class GameScene extends Phaser.Scene {
       this.audioManager,
     ];
 
-    this.input.keyboard?.on('keydown-P', this.togglePause, this);
-    this.input.keyboard?.on('keydown-ESC', this.togglePause, this);
+    this.input.keyboard?.on('keydown-P', this.handlePauseKey, this);
+    this.input.keyboard?.on('keydown-ESC', this.handlePauseKey, this);
     if (RuntimeConfig.isDev) {
       this.input.keyboard?.on('keydown-F8', this.forceLoseRun, this);
       this.input.keyboard?.on('keydown-F9', this.forceWinRun, this);
@@ -311,8 +331,8 @@ export class GameScene extends Phaser.Scene {
       unsubscribe();
     });
     this.unsubscribers = [];
-    this.input.keyboard?.off('keydown-P', this.togglePause, this);
-    this.input.keyboard?.off('keydown-ESC', this.togglePause, this);
+    this.input.keyboard?.off('keydown-P', this.handlePauseKey, this);
+    this.input.keyboard?.off('keydown-ESC', this.handlePauseKey, this);
     this.input.keyboard?.off('keydown-R', this.restartRun, this);
     this.input.keyboard?.off('keydown-F8', this.forceLoseRun, this);
     this.input.keyboard?.off('keydown-F9', this.forceWinRun, this);
@@ -321,6 +341,11 @@ export class GameScene extends Phaser.Scene {
     this.upgradeChooser = undefined;
     this.controlsView?.destroy();
     this.controlsView = undefined;
+    this.pauseView?.destroy();
+    this.pauseView = undefined;
+    this.pauseController?.destroy();
+    this.pauseController = undefined;
+    this.inventoryController = undefined;
     this.systems.forEach((system) => {
       system.destroy();
     });
@@ -367,25 +392,25 @@ export class GameScene extends Phaser.Scene {
     return this.runState;
   }
 
-  private togglePause(): void {
-    const runState = this.runState;
-    if (!runState) {
+  /** P/Escape and the HUD pause button delegate here. Escape from inventory
+   *  returns to pause; Escape from pause resumes; from a closed panel P opens
+   *  the manual pause. A level-up pause is never stolen (PauseController
+   *  rejects it), and the upgrade chooser remains the only level-up surface. */
+  private handlePauseKey(): void {
+    const controller = this.pauseController;
+    if (!controller) {
       return;
     }
 
-    const ctx = this.getContext();
-    if (runState.status === 'active') {
-      pauseRun(runState, ctx.bus, 'manual');
-      this.syncPhysicsPause(runState);
-      this.showOverlay('Paused\nP / Esc to resume');
-      return;
+    const panel = controller.snapshot().panel;
+    if (panel === 'inventory') {
+      controller.back();
+    } else if (panel === 'pause') {
+      controller.resume();
+    } else {
+      controller.pause();
     }
-
-    if (runState.status === 'paused' && runState.pauseReason === 'manual') {
-      resumeRun(runState, ctx.bus, 'manual');
-      this.syncPhysicsPause(runState);
-      this.hideOverlay();
-    }
+    this.pauseView?.render(controller.snapshot());
   }
 
   private restartRun(): void {
@@ -444,10 +469,6 @@ export class GameScene extends Phaser.Scene {
 
   private showOverlay(text: string): void {
     this.overlayText?.setText(text).setVisible(true);
-  }
-
-  private hideOverlay(): void {
-    this.overlayText?.setVisible(false);
   }
 
   private syncPhysicsPause(runState: RunState): void {
