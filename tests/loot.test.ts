@@ -103,6 +103,33 @@ describe('resolveLoot', () => {
       resolveLoot('explicit-zero', lookupOf(explicitZeroTable), createRng(1)),
     ).toThrow(/invalid total weight/);
   });
+
+  it.each([
+    ['xp with a NaN amount', { kind: 'xp', amount: Number.NaN, weight: 1 }],
+    ['scrap with a non-positive amount', { kind: 'scrap', amount: 0, weight: 1 }],
+    ['an unknown kind', { kind: 'mystery', amount: 1, weight: 1 }],
+  ])('rejects %s from a malformed runtime table', (_label, entry) => {
+    const malformedTable = {
+      id: 'malformed',
+      entries: [entry],
+    } as unknown as LootTable;
+
+    expect(() => resolveLoot('malformed', lookupOf(malformedTable), createRng(1))).toThrow();
+  });
+
+  it('rejects malformed entry weights and RNG draws', () => {
+    const negativeWeightTable = {
+      id: 'negative-weight',
+      entries: [{ kind: 'xp', amount: 1, weight: -1 }],
+    } as LootTable;
+
+    expect(() => resolveLoot('negative-weight', lookupOf(negativeWeightTable), createRng(1))).toThrow(
+      /invalid entry weight/,
+    );
+    expect(() => resolveLoot('xp-only', lookupOf(xpTable), { next: () => Number.NaN })).toThrow(
+      /invalid RNG draw/,
+    );
+  });
 });
 
 describe('defaultLoot', () => {
@@ -155,5 +182,22 @@ describe('resolveKillLoot', () => {
     const info: LootSourceInfo = { xpValue: 0, scrapValue: 0, lootTableId: 'missing' };
     expect(() => resolveKillLoot(info, lookupOf(), createRng(1))).not.toThrow();
     expect(resolveKillLoot(info, lookupOf(), createRng(1))).toEqual([]);
+  });
+
+  it('fails soft to default loot when the runtime table resolves a malformed grant', () => {
+    const malformedTable = {
+      id: 'malformed',
+      entries: [{ kind: 'xp', amount: Number.NaN, weight: 1 }],
+    } as LootTable;
+    const info: LootSourceInfo = { xpValue: 4, scrapValue: 2, lootTableId: malformedTable.id };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    expect(resolveKillLoot(info, lookupOf(malformedTable), createRng(1))).toEqual([
+      { kind: 'xp', amount: 4 },
+      { kind: 'scrap', amount: 2 },
+    ]);
+    expect(warn).toHaveBeenCalledOnce();
+
+    warn.mockRestore();
   });
 });

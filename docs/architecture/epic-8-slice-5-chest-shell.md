@@ -1,9 +1,8 @@
 # Epic 8 Slice 5: Chest Shell + Integration Harness + Docs Sign-Off
 
-Status: **architecture handoff — implementation proceeds in PR #62 in one
-pass.** Epic 8 Slice 5 / issue #57. Implementation baseline: `main` at
-`cd3300b`, after PRs #58 (Slice 1), #59 (Slice 2), #60 (Slice 3), and #61
-(Slice 4).
+Status: **implemented and merged via PR #62.** Epic 8 Slice 5 / issue #57.
+The closeout audit on 2026-08-05 verified the implementation on `main` and
+hardened the malformed-runtime-table boundary before closing Epic 8 / issue #9.
 
 This document is the architecture contract and implementation work package for
 the slice. The PR is the delivery vehicle for the complete implementation,
@@ -201,9 +200,10 @@ Pinned details, each of which is a reviewer trap:
   seeds + kill order ⇒ identical drops including chest opens" hold. Do not
   create a second stream and do not re-seed.
 - **Fail soft, never crash a live run.** A missing/malformed table makes
-  `resolveLoot` throw; catch it and grant nothing. Validation is the
-  integrity gate; collection mirrors `resolveKillLoot`'s soft boundary. No
-  `console` noise in the system.
+  `resolveLootFromTable` throw; catch it and grant nothing. Validation is the
+  primary integrity gate; the runtime resolver also rejects invalid weights,
+  RNG draws, kinds, and grant amounts before a grant can be applied or emitted.
+  The soft boundary leaves a targeted `console.warn` diagnostic.
 - **A missing `tableId` on a chest drop grants nothing** (destroy, no
   events). `spawnDrop` always sets it for chest grants from resolution; the
   guard covers hand-built drops.
@@ -388,43 +388,43 @@ emits `kind: 'chest'`.
 
 All Slice 4 cases stay intact.
 
-## 8. Docs sign-off (Epic 8 completion)
+## 8. Docs sign-off (Epic 8 completion — delivered)
 
-Part of this slice per issue #57. Make exactly these edits; replace `#NN`
-with this PR's number where marked.
+Part of this slice per issue #57. The following edits were delivered in PR
+#62; the list is retained as the completion record.
 
 - `docs/epics.md`
   - Epic Order table, Epic 8 row (line 297): Status → **Complete**; text →
-    "Slices 1–5 merged in PRs #58–61 and #NN; event-driven kill-to-loot, live
+    "Slices 1–5 merged in PRs #58–61 and #62; event-driven kill-to-loot, live
     scrap economy, fixture-proven chest shell; architecture in
     [`architecture/epic-8-loot-and-economy.md`](architecture/epic-8-loot-and-economy.md)."
   - Suggested Build Sequence, item 7 (lines 338–340): → "Epic 8 is complete
-    (Slices 1–5, PRs #58–61 and #NN). Then implement Epics 9 and 10 as their
+    (Slices 1–5, PRs #58–61 and #62). Then implement Epics 9 and 10 as their
     dependencies become available."
 - `docs/roadmap.md`
   - Current Position: add "Epic 8 / Loot and Economy: complete (#9)." to the
     list; replace the "Epic 8 is underway … under review in PR #61" sentence
     (lines 15–16) with "Epic 8 completed across five slices (PRs #58–61 and
-    #NN); Epic 9 (UI and UX) is next."
+    #62); Epic 9 (UI and UX) is next."
   - Replace the stale "The current `main` branch contains … PR #61 rewires …"
     paragraph (lines 29–32) with a sentence stating `main` now holds the
     complete Epic 8: event-driven kill-to-loot, live scrap economy, and the
     fixture/hotkey-proven chest shell.
 - `docs/knowledge-graph.md`
   - Header (lines 4–5): → "Current state: **Epics 0–8 complete** (Epic 8 via
-    PRs #58–61 and #NN). Epic 9 is next …" Update the test-count line at
+    PRs #58–61 and #62). Epic 9 is next …" Update the test-count line at
     delivery.
   - Slice-summary paragraph (lines 29–32): add one sentence — Slice 5 added
     chest collection (immediate xp/scrap grants), the dev-only F10 chest
     hotkey, and the loot integration harness.
   - Runtime Shape heading (line 34): "(after Epic 8 Slice 4)" → "(after Epic 8)".
   - Epic Pipeline table, row 8 (line 146): → `| 8 | ✅ | Loot & economy:
-    event-driven kill-to-loot, scrap economy, chest shell (PRs #58–61, #NN) |`
+    event-driven kill-to-loot, scrap economy, chest shell (PRs #58–61, #62) |`
 - `docs/architecture/epic-8-loot-and-economy.md`
   - Status header (lines 3–9): → "Epic 8 complete: all five slices merged
-    (PRs #58–61 and #NN)." Keep the supersession note.
+    (PRs #58–61 and #62)." Keep the supersession note.
   - §6 slice table: Slice 4 row → "— **merged #61**" (stale today); Slice 5
-    row → append "— **merged #NN**".
+    row → append "— **merged #62**".
   - Post-table paragraph (lines 465–472): rewrite to final state — Slices 1–5
     are merged; the shipped run has guaranteed xp+scrap drops with
     overlap-only collection; the chest shell is proven by fixtures and the
@@ -433,30 +433,30 @@ with this PR's number where marked.
     these status edits.
 - `docs/architecture.md`: no change required — it indexes the Epic 8
   overview, which stays the epic's source of truth.
-- This document's Status line: → "implemented and merged via #NN" at
+- This document's Status line: → "implemented and merged via #62" at
   delivery.
 
 ## 9. Acceptance checklist
 
-- [ ] A collected chest resolves its table with the `'loot'` stream and
+- [x] A collected chest resolves its table with the `'loot'` stream and
       grants xp/scrap immediately; one `drop:collected` per grant, kinds
       `'xp' | 'scrap'` only, face values, at the chest's position.
-- [ ] Chest grants apply `xpGain`/`currencyGain` exactly like direct drops;
+- [x] Chest grants apply `xpGain`/`currencyGain` exactly like direct drops;
       `currency:changed` carries the post-add total; no mid-run rounding.
-- [ ] Recursion is impossible and defended: nested chest grants filtered,
+- [x] Recursion is impossible and defended: nested chest grants filtered,
       missing table/tableId fail soft, no throw, drop always destroyed.
-- [ ] One `rng.next()` per chest open on the shared stream; identical seeds +
+- [x] One `rng.next()` per chest open on the shared stream; identical seeds +
       kill/collect order ⇒ identical drops and grants (harness-proven).
-- [ ] F10 spawns a `chest-standard` chest next to the player in `npm run
+- [x] F10 spawns a `chest-standard` chest next to the player in `npm run
       dev`; it is unregistered in production builds; no new `DropSystem` API.
-- [ ] `tests/lootIntegration.test.ts` green with the §6.2 seeds; interim
+- [x] `tests/lootIntegration.test.ts` green with the §6.2 seeds; interim
       chest test rewritten; all Slice 4 tests intact.
-- [ ] No new events, no `GameEventMap` change, no `MetaState` writes, no
+- [x] No new events, no `GameEventMap` change, no `MetaState` writes, no
       `Math.random()`, no shipped enemy gains a `lootTableId`, no data/config
       changes.
-- [ ] `docs/epics.md`, `docs/roadmap.md`, `docs/knowledge-graph.md`, and the
+- [x] `docs/epics.md`, `docs/roadmap.md`, `docs/knowledge-graph.md`, and the
       Epic 8 overview reflect Epic 8 completion.
-- [ ] `npm test`, `npx tsc --noEmit`, `npm run build`, and `git diff --check`
+- [x] `npm test`, `npx tsc --noEmit`, `npm run build`, and `git diff --check`
       all green.
 - [ ] Manual playtest (dev build): drops visible on the 390×844 canvas,
       magnet pickup feels right at the shipped `magnetSpeed` **450** (§2.1),
@@ -470,27 +470,29 @@ with this PR's number where marked.
 - Do not follow a nested chest grant — filter it; recursion defence lives at
   collection, validation owns the guarantee.
 - Do not let a chest open throw on a missing table — fail soft; never crash a
-  live run. Do not log from `DropSystem`.
+  live run. Emit a targeted warning so stale or corrupted runtime data is not
+  silent.
 - Do not create a second RNG stream for chests and do not re-seed; chest
   opens draw from the shared `'loot'` stream in event order.
 - Do not apply `currencyGain`/`xpGain` inside `resolveLoot`, and do not floor
   `RunState.currency` mid-run.
 - Do not attach `lootTableId` to a shipped enemy (Epic 11 owns that); the
   hotkey spawns `chest-standard` directly and needs no data change.
-- Do not modify `loot.ts`, `Drop.ts`, `lootTables.ts`, `validation.ts`,
-  `eventBus.ts`, or `config.ts`; if you think you must, that is a
-  stop-and-report contract drift.
-- Do not extract a shared Phaser-mock module for the harness; keep test mocks
-  local per repo style.
+- Keep `Drop.ts`, `lootTables.ts`, `validation.ts`, `eventBus.ts`, and
+  `config.ts` outside chest-collection fixes unless a new contract requires
+  them. `loot.ts` owns the shared runtime grant-validation boundary.
+- Reuse `tests/__mocks__/phaser.ts` for DropSystem and loot-integration tests;
+  load its side-effectful mock before modules that resolve Phaser.
 - Do not register F10 outside the `RuntimeConfig.isDev` block, and do not
   forget the `handleShutdown` removal — a leaked binding double-spawns after
   `restartRun`.
 - Do not use the issue's `magnetSpeed 300` anywhere (§2.1).
 - Do not leave the Slice 4 interim chest test in place — rewrite it (§7.1).
 
-## 11. Implementation and delivery handoff
+## 11. Historical implementation and delivery handoff
 
-Use this prompt for the agent implementing this PR in one pass:
+The prompt below records the original PR #62 handoff. The implementation is
+already merged; do not re-run it as a new work package.
 
 > Complete Epic 8 Slice 5 (chest shell + integration harness + docs
 > sign-off) on `agent/epic-8-slice-5-chest-shell`, the head branch of this
