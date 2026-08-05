@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createEventBus } from '../src/engine/eventBus';
+import { createEventBus, type GameEventMap } from '../src/engine/eventBus';
 import { createRunState, startRun } from '../src/gameplay/runState';
 import type { Player } from '../src/entities/Player';
 import type { DataWeaponRegistry } from '../src/systems/weaponRegistry';
@@ -67,6 +67,20 @@ function createHarness(source?: HudSource, view?: FakeHudView) {
   return { bus, source: resolvedSource, view: resolvedView, controller };
 }
 
+// Correctly-shaped payloads per event so the bus type parameter is exercised
+// (the listeners ignore the payload and only mark the model dirty).
+const eventPayloads = {
+  'player:damaged': { amount: 1, healthRemaining: 99 },
+  'xp:gained': { amount: 1, total: 1 },
+  'level:up': { level: 2 },
+  'currency:changed': { runTotal: 10 },
+  'weapon:merged': { fromId: 'def-a', toId: 'def-b' },
+  'run:paused': {},
+  'run:resumed': {},
+  'run:won': { timeMs: 1000, level: 2, kills: 3 },
+  'run:lost': { timeMs: 1000, level: 2, kills: 3 },
+} as const satisfies Partial<GameEventMap>;
+
 describe('HudController', () => {
   it('renders on the first update', () => {
     const { controller, view } = createHarness();
@@ -93,24 +107,16 @@ describe('HudController', () => {
     expect(view.renders).toHaveLength(2);
   });
 
-  it.each([
-    'player:damaged',
-    'xp:gained',
-    'level:up',
-    'currency:changed',
-    'weapon:merged',
-    'run:paused',
-    'run:resumed',
-    'run:won',
-    'run:lost',
-  ] as const)('marks dirty and re-renders after %s', (event) => {
+  it.each(
+    Object.keys(eventPayloads) as Array<keyof typeof eventPayloads>,
+  )('marks dirty and re-renders after %s', (event) => {
     const source = createMutableSource();
     const { bus, controller, view } = createHarness(source);
     controller.update(16);
     expect(view.renders).toHaveLength(1);
 
     source.snapshotValue.currency += 1;
-    bus.emit(event, {} as never);
+    bus.emit(event, eventPayloads[event]);
     controller.update(16);
 
     expect(view.renders).toHaveLength(2);
@@ -166,13 +172,18 @@ describe('HudController', () => {
     expect(freshView.renders).toHaveLength(2);
   });
 
-  it('destroys the view exactly once', () => {
+  it('destroys the view exactly once and update after destroy is a no-op', () => {
     const { controller, view } = createHarness();
+    controller.update(16);
+    expect(view.renders).toHaveLength(1);
 
     controller.destroy();
     controller.destroy();
 
     expect(view.destroyCount).toBe(1);
+
+    controller.update(16);
+    expect(view.renders).toHaveLength(1);
   });
 });
 

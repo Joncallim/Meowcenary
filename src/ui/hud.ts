@@ -63,6 +63,10 @@ export class HudController implements System {
   }
 
   update(_dtMs: number): void {
+    if (this.disposed) {
+      return;
+    }
+
     const snapshot = this.source.snapshot();
     const wholeSecond = Math.floor(snapshot.timeMs / 1000);
     if (wholeSecond !== this.lastWholeSecond) {
