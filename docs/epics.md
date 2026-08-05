@@ -3,7 +3,7 @@
 This file gives a simple overview of the Meowcenary backlog and defines the
 **shared contracts** every epic builds on. GitHub issues are the default source
 for each epic's implementation plan; a linked repository architecture document
-may explicitly supersede older issue wording, as Epics 5, 6, 7, and 8 do. This file
+may explicitly supersede older issue wording, as Epics 5, 6, 7, 8, and 9 do. This file
 is the source of truth for the module names, data shapes, and events epics share.
 
 ## Documentation Standard
@@ -295,7 +295,7 @@ so schedules (fire cadence, spawn timing) stay deterministic in tests.
 | Epic 6 | #7 Characters | Complete | Selectable characters with starting stats, loadouts, passives, unlock hooks. |
 | Epic 7 | #8 Maps and Arenas | Complete | Data-defined arenas, spawn regions, obstacles, hazard hooks. |
 | Epic 8 | #9 Loot and Economy | Complete | Event-driven kill-to-loot pipeline, poolable `Drop` entity, activated scrap economy, chest shell, integration harness, and dev hotkey; architecture in [`architecture/epic-8-loot-and-economy.md`](architecture/epic-8-loot-and-economy.md). |
-| Epic 9 | #10 UI and UX | Open | Readable, controllable on phone and desktop. |
+| Epic 9 | #10 UI and UX | Architecture ready | Single-branch production menu, HUD, settings, touch presentation, pause/inventory, chooser integration, and run summary; architecture in [`architecture/epic-9-ui-and-ux.md`](architecture/epic-9-ui-and-ux.md). |
 | Epic 10 | #11 Audio | Open | Respectful, muteable, event-driven sound and music. |
 | Epic 11 | #12 Balancing and Developer Tooling | Open | Fast tuning through data, validation, debug tools, playtest helpers. |
 | Epic 12 | #13 Polish and Performance | Open | Feedback, animation polish, object pooling, reduced motion, performance checks. |
@@ -310,7 +310,8 @@ so schedules (fire cadence, spawn timing) stay deterministic in tests.
 - All randomness flows through the seeded `Rng`; never call `Math.random()`.
 - All stat changes flow through `ModifierStack`; never hand-roll multipliers.
 - No ads, paid power, subscriptions, energy systems, or manipulative pacing.
-- Implement each epic in small PRs rather than one large rewrite.
+- Implement each epic in reviewable slices. Epic 9 is an explicit maintainer
+  exception: its six slices stay on one branch and one eventual delivery PR.
 
 ### Reward-calculation boundary (Epic 8 vs Epic 5)
 
@@ -335,7 +336,8 @@ changes only how currency is generated — drops resolved from the enriched
    and the reactive-passive seam).
 6. Epic 7 is complete (arena data, selection, spawn regions, world bounds,
    obstacle and hazard shells).
-7. Epic 8 is complete (PRs #58–62). Implement Epics 9 and 10 as their
-   dependencies become available.
+7. Epic 8 is complete (PRs #58–63). Implement Epic 9 from the single-branch
+   architecture in [`architecture/epic-9-ui-and-ux.md`](architecture/epic-9-ui-and-ux.md),
+   then Epic 10 as its dependencies become available.
 8. Use Epic 11 throughout tuning.
 9. Save Epic 12 for late-stage polish and performance.

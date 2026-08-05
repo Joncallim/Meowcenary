@@ -76,6 +76,7 @@ Epic-specific data contracts:
 - [Epic 6: characters](architecture/epic-6-characters.md)
 - [Epic 7: maps and arenas](architecture/epic-7-maps-and-arenas.md)
 - [Epic 8: loot and economy](architecture/epic-8-loot-and-economy.md)
+- [Epic 9: UI and UX](architecture/epic-9-ui-and-ux.md)
 
 The Epic 5 document is the implementation source of truth for save V2,
 permanent modifier ordering, finished-run banking, and the Epics 6/8/9
@@ -93,6 +94,11 @@ overview document.
 The Epic 8 document is the implementation source of truth for loot-table data,
 pure resolution, pool-ready drops, the event-driven kill pipeline, and the
 chest shell. It supersedes older Epic 8 issue wording where contracts differ.
+The Epic 9 document is the implementation source of truth for production menu
+and scene flow, HUD/read models, settings UI, touch presentation, pause and
+inventory/merge UI, upgrade-chooser integration, and terminal run summary. It
+supersedes issue #10 where that issue predates current offer-token, progression,
+selection, input, and banking seams.
 
 ## AI Handoff Pattern
 

@@ -10,6 +10,8 @@
 - Epic 5 / Meta Progression: complete (#6).
 - Epic 6 / Characters: complete (#7).
 - Epic 7 / Maps and Arenas: complete (#8).
+- Epic 8 / Loot and Economy: complete (#9).
+- Epic 9 / UI and UX: architecture ready; implementation pending (#10).
 
 Epic 7 was implemented in the consolidated PR #51 and merged.
 Epic 8 is complete: Slices 1–5 merged in PRs #58–62, implementing the
@@ -29,6 +31,13 @@ and as a sub-issue under the Epic 8 umbrella (#9).
 
 `main` now holds the complete Epic 8: event-driven kill-to-loot, live scrap
 economy, and the fixture/hotkey-proven chest shell.
+Epic 9 is specified in
+[`architecture/epic-9-ui-and-ux.md`](architecture/epic-9-ui-and-ux.md) as six
+dependency-ordered implementation/review gates on the single branch
+`agent/epic-9-ui-and-ux`. The architecture freezes production menu routing,
+HUD/read models, settings, touch presentation, pause/inventory merge ownership,
+upgrade-chooser preservation, and run-summary banking boundaries for handoff to
+Kimi K2.7 and DeepSeek V4 Pro.
 The Epic 7 architecture is documented in
 [`architecture/epic-7-maps-and-arenas.md`](architecture/epic-7-maps-and-arenas.md),
 which adds the arena data/registry/selection contracts, the pure

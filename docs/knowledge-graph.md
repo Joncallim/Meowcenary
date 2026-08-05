@@ -1,7 +1,8 @@
 # Meowcenary Knowledge Graph
 
 > Token-optimized repo map. Read this before any implementation work.
-> Current state: **Epics 0–8 complete** (PRs #58–62).
+> Current state: **Epics 0–8 complete** (PRs #58–63).
+> Epic 9 architecture is implementation-ready on `agent/epic-9-ui-and-ux`.
 > 707 tests / 55 files green.
 
 ## Stack
@@ -23,7 +24,7 @@ Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly
 | `src/ui/` | ✅ | May use Phaser | `UpgradeChooser` `upgradeChooserController` `upgradeChooserLayout` `characterSelectionController` `arenaSelectionController` `progressionController` |
 | `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` `loot-tables` |
 | `tests/` | ✅ 707 tests | Vitest; mock Phaser via `vi.mock` | 55 files incl. integration harnesses |
-| `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..8}-*.md` |
+| `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..9}-*.md` |
 
 Epic 8 Slices 1–5 added `src/data/loot-tables.json`, `src/gameplay/loot.ts`,
 and `src/systems/lootTables.ts` (Slices 1–2). Slice 3 added `src/entities/Drop.ts`;
@@ -134,7 +135,7 @@ existing event covers it (Epic 8 adds none — it extends one payload).
 
 ## Cross-Cutting Rules
 
-1. No Phaser in `engine/`/`gameplay/`. 2. Scenes stay thin. 3. Tuning in `src/data/*.json` + `RuntimeConfig`. 4. Feedback via EventBus only. 5. All randomness via seeded run-scoped streams. 6. All stat changes via `ModifierStack`. 7. Save migrations are linear; never mutate shape in place. 8. No ads/paid power/energy/manipulative pacing. 9. Small PRs per slice.
+1. No Phaser in `engine/`/`gameplay/`. 2. Scenes stay thin. 3. Tuning in `src/data/*.json` + `RuntimeConfig`. 4. Feedback via EventBus only. 5. All randomness via seeded run-scoped streams. 6. All stat changes via `ModifierStack`. 7. Save migrations are linear; never mutate shape in place. 8. No ads/paid power/energy/manipulative pacing. 9. Use reviewable slices; Epic 9 is the explicit single-branch/single-delivery-PR exception defined by its architecture.
 
 ## Epic Pipeline
 
@@ -145,7 +146,8 @@ existing event covers it (Epic 8 adds none — it extends one payload).
 | 6 | ✅ | Characters, `RunRequest`, reactive passives |
 | 7 | ✅ | Arenas: data/selection/`spawnPoint`/world bounds/obstacles/hazards (PR #51) |
 | 8 | ✅ | Slices 1–5 merged; event-driven kill-to-loot pipeline, chest shell, integration harness (PRs #58–62) |
-| 9–12 | Open | UI/UX, audio, balancing/tools, polish/perf (pooling `Drop`+`Projectile`) |
+| 9 | Architecture ready | One branch: menu, HUD, settings, controls, pause/inventory, chooser, summary; see `epic-9-ui-and-ux.md` |
+| 10–12 | Open | Audio, balancing/tools, polish/perf (pooling `Drop`+`Projectile`) |
 
 ## First Steps for Any Agent
 
