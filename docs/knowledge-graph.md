@@ -2,7 +2,7 @@
 
 > Token-optimized repo map. Read this before any implementation work.
 > Current state: **Epics 0–8 complete** (PRs #58–62).
-> 699 tests / 55 files green.
+> 707 tests / 55 files green.
 
 ## Stack
 
@@ -22,7 +22,7 @@ Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly
 | `src/scenes/` | ✅ | Thin coordinators only | `BootScene` `GameScene` |
 | `src/ui/` | ✅ | May use Phaser | `UpgradeChooser` `upgradeChooserController` `upgradeChooserLayout` `characterSelectionController` `arenaSelectionController` `progressionController` |
 | `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` `loot-tables` |
-| `tests/` | ✅ 699 tests | Vitest; mock Phaser via `vi.mock` | 55 files incl. integration harnesses |
+| `tests/` | ✅ 707 tests | Vitest; mock Phaser via `vi.mock` | 55 files incl. integration harnesses |
 | `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..8}-*.md` |
 
 Epic 8 Slices 1–5 added `src/data/loot-tables.json`, `src/gameplay/loot.ts`,

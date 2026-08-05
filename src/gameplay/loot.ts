@@ -24,13 +24,21 @@ export function resolveLootFromTable(
   const entries = table.entries;
   let totalWeight = 0;
   for (const entry of entries) {
+    if (!Number.isFinite(entry.weight) || entry.weight < 0) {
+      throw new Error(`Loot table "${table.id}" has an invalid entry weight`);
+    }
     totalWeight += entry.weight;
   }
   if (!Number.isFinite(totalWeight) || totalWeight <= 0) {
     throw new Error(`Loot table "${table.id}" has invalid total weight`);
   }
 
-  let cursor = rng.next() * totalWeight;
+  const draw = rng.next();
+  if (!Number.isFinite(draw) || draw < 0 || draw >= 1) {
+    throw new Error(`Loot table "${table.id}" received an invalid RNG draw`);
+  }
+
+  let cursor = draw * totalWeight;
   for (const entry of entries) {
     cursor -= entry.weight;
     if (cursor < 0) {
@@ -59,33 +67,40 @@ export function resolveLoot(
 }
 
 function entryToGrants(entry: Readonly<LootEntry>): readonly LootGrant[] {
-  if (entry.kind === 'nothing') {
-    return [];
+  switch (entry.kind) {
+    case 'nothing':
+      if (entry.amount !== 0) {
+        throw new Error('Nothing loot entry must have amount 0');
+      }
+      return [];
+    case 'chest':
+      if (entry.amount !== 0) {
+        throw new Error('Chest loot entry must have amount 0');
+      }
+      if (typeof entry.tableId !== 'string' || entry.tableId.length === 0) {
+        throw new Error('Chest loot entry is missing a tableId');
+      }
+      return [
+        {
+          kind: 'chest',
+          amount: 0,
+          tableId: entry.tableId,
+        },
+      ];
+    case 'xp':
+    case 'scrap':
+      if (!Number.isFinite(entry.amount) || entry.amount <= 0) {
+        throw new Error(`${entry.kind} loot entry has an invalid amount`);
+      }
+      return [
+        {
+          kind: entry.kind,
+          amount: entry.amount,
+        },
+      ];
+    default:
+      throw new Error(`Unknown loot entry kind: ${String(entry.kind)}`);
   }
-
-  if (entry.kind === 'chest') {
-    // Catalogue validation guarantees every chest entry has a tableId;
-    // this guard is unreachable with validated data but keeps the resolver
-    // defensive against malformed LootEntry objects at runtime.
-    if (entry.tableId === undefined) {
-      throw new Error('Chest loot entry is missing a tableId');
-    }
-
-    return [
-      {
-        kind: 'chest',
-        amount: 0,
-        tableId: entry.tableId,
-      },
-    ];
-  }
-
-  return [
-    {
-      kind: entry.kind,
-      amount: entry.amount,
-    },
-  ];
 }
 
 export function defaultLoot(info: LootSourceInfo): readonly LootGrant[] {

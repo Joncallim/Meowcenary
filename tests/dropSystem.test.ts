@@ -539,6 +539,43 @@ describe('DropSystem', () => {
     expect(drop.active).toBe(false);
   });
 
+  it.each([
+    ['xp with a NaN amount', { kind: 'xp', amount: Number.NaN, weight: 1 }],
+    ['scrap with a non-positive amount', { kind: 'scrap', amount: 0, weight: 1 }],
+    ['an unknown grant kind', { kind: 'mystery', amount: 1, weight: 1 }],
+  ])('fails soft when a chest table contains %s', async (_label, entry) => {
+    const lootTables = {
+      lootTableById: vi.fn((id: string) =>
+        id === 'malformed-table' ? { id: 'malformed-table', entries: [entry] } : undefined,
+      ),
+    } as unknown as LootTableLookup;
+    const { system, runState, bus, overlapCallback } = await createSystem({ lootTables });
+    const collected = vi.fn();
+    const currencyChanged = vi.fn();
+    const xpGained = vi.fn();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    bus.on('drop:collected', collected);
+    bus.on('currency:changed', currencyChanged);
+    bus.on('xp:gained', xpGained);
+
+    const drop = system.spawnDrop(0, 0, {
+      kind: 'chest',
+      amount: 0,
+      tableId: 'malformed-table',
+    });
+    expect(() => overlapCallback?.(null, drop.sprite)).not.toThrow();
+
+    expect(runState.currency).toBe(0);
+    expect(runState.xp).toBe(0);
+    expect(collected).not.toHaveBeenCalled();
+    expect(currencyChanged).not.toHaveBeenCalled();
+    expect(xpGained).not.toHaveBeenCalled();
+    expect(drop.active).toBe(false);
+    expect(warn).toHaveBeenCalledOnce();
+
+    warn.mockRestore();
+  });
+
   it('grants nothing when a chest drop has no tableId', async () => {
     const { system, runState, bus, overlapCallback } = await createSystem();
     const collected = vi.fn();
