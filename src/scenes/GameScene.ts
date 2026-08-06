@@ -201,7 +201,7 @@ export class GameScene extends Phaser.Scene {
       this,
       ctx.bus,
       this.upgradeSystem,
-      () => this.getContext().settings.reducedMotion,
+      () => ctx.settings.reducedMotion,
     );
     this.progressionSystem = new ProgressionSystem({
       runState: this.runState,

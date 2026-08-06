@@ -456,7 +456,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       return;
     }
 
-    const choiceIndex = choiceIndexForNumberKey(event.key, event.repeat);
+    const choiceIndex = choiceIndexForNumberKey(event.key);
     if (choiceIndex !== undefined) {
       this.submit(this.currentOfferId, choiceIndex);
     }

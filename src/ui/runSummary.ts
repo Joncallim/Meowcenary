@@ -144,83 +144,93 @@ export class PhaserRunSummaryView {
     const buttonWidth = Math.max(180, width - margin * 4);
 
     const root = scene.add.container(0, 0);
-    root.setDepth(ThemeDepth.pauseSummary);
-    root.setScrollFactor(0);
-    this.root = root;
 
-    // Interactive full-screen backdrop: the top-most interactive object eats
-    // pointer events so nothing below the summary stays interactive.
-    const backdrop = scene.add.rectangle(
-      width / 2,
-      height / 2,
-      width,
-      height,
-      ThemeColor.background,
-      0.9,
-    );
-    backdrop.setInteractive();
-    backdrop.setScrollFactor(0);
-    root.add(backdrop);
+    try {
+      root.setDepth(ThemeDepth.pauseSummary);
+      root.setScrollFactor(0);
 
-    const centerX = width / 2;
-    const heading = this.addText(
-      centerX,
-      height * 0.12,
-      snapshot.outcome === 'won' ? 'Run Complete' : 'Run Failed',
-      'heading',
-    );
-    heading.setOrigin(0.5);
-    root.add(heading);
-
-    const labelSize = physicalToLogical(ThemeFont.labelMin, viewport);
-    const rowGap = labelSize + physicalToLogical(8, viewport);
-    const rows: ReadonlyArray<readonly [string, string]> = [
-      ['Time', formatTime(snapshot.timeMs)],
-      ['Level', formatNumber(snapshot.level)],
-      ['Kills', formatNumber(snapshot.kills)],
-      ['Run scrap', formatNumber(snapshot.runCurrency)],
-      ['Banked scrap', formatNumber(snapshot.bankedScrap)],
-      ['Total scrap', formatNumber(snapshot.totalScrap)],
-    ];
-    let y = height * 0.2;
-    rows.forEach(([label, value]) => {
-      const rowLabel = this.addText(margin, y, label, 'body');
-      rowLabel.setOrigin(0, 0.5);
-      root.add(rowLabel);
-      const rowValue = this.addText(width - margin, y, value, 'body');
-      rowValue.setOrigin(1, 0.5);
-      root.add(rowValue);
-      y += rowGap;
-    });
-    y += physicalToLogical(8, viewport);
-
-    if (!snapshot.persistenceSucceeded) {
-      const warning = this.addText(centerX, y, 'Not saved — this session only', 'notice');
-      warning.setOrigin(0.5);
-      root.add(warning);
-      y += rowGap;
-    }
-
-    if (snapshot.unlockedIds.length > 0) {
-      const unlocked = this.addText(
-        centerX,
-        y,
-        `Unlocked: ${snapshot.unlockedIds.join(', ')}`,
-        'body',
+      // Interactive full-screen backdrop: the top-most interactive object eats
+      // pointer events so nothing below the summary stays interactive.
+      const backdrop = scene.add.rectangle(
+        width / 2,
+        height / 2,
+        width,
+        height,
+        ThemeColor.background,
+        0.9,
       );
-      unlocked.setOrigin(0.5);
-      root.add(unlocked);
+      backdrop.setInteractive();
+      backdrop.setScrollFactor(0);
+      root.add(backdrop);
+
+      const centerX = width / 2;
+      const heading = this.addText(
+        centerX,
+        height * 0.12,
+        snapshot.outcome === 'won' ? 'Run Complete' : 'Run Failed',
+        'heading',
+      );
+      heading.setOrigin(0.5);
+      root.add(heading);
+
+      const labelSize = physicalToLogical(ThemeFont.labelMin, viewport);
+      const rowGap = labelSize + physicalToLogical(8, viewport);
+      const rows: ReadonlyArray<readonly [string, string]> = [
+        ['Time', formatTime(snapshot.timeMs)],
+        ['Level', formatNumber(snapshot.level)],
+        ['Kills', formatNumber(snapshot.kills)],
+        ['Run scrap', formatNumber(snapshot.runCurrency)],
+        ['Banked scrap', formatNumber(snapshot.bankedScrap)],
+        ['Total scrap', formatNumber(snapshot.totalScrap)],
+      ];
+      let y = height * 0.2;
+      rows.forEach(([label, value]) => {
+        const rowLabel = this.addText(margin, y, label, 'body');
+        rowLabel.setOrigin(0, 0.5);
+        root.add(rowLabel);
+        const rowValue = this.addText(width - margin, y, value, 'body');
+        rowValue.setOrigin(1, 0.5);
+        root.add(rowValue);
+        y += rowGap;
+      });
+      y += physicalToLogical(8, viewport);
+
+      if (!snapshot.persistenceSucceeded) {
+        const warning = this.addText(centerX, y, 'Not saved — this session only', 'notice');
+        warning.setOrigin(0.5);
+        root.add(warning);
+        y += rowGap;
+      }
+
+      if (snapshot.unlockedIds.length > 0) {
+        const unlocked = this.addText(
+          centerX,
+          y,
+          `Unlocked: ${snapshot.unlockedIds.join(', ')}`,
+          'body',
+        );
+        unlocked.setOrigin(0.5);
+        root.add(unlocked);
+      }
+
+      const retryY = height - margin - hitTarget * 2 - 20;
+      this.addButton(root, centerX, retryY, buttonWidth, 'Retry', () => {
+        this.scenePlugin.restart();
+      }, true);
+      this.addButton(root, centerX, retryY + hitTarget + 12, buttonWidth, 'Main Menu', () => {
+        this.scenePlugin.start(SceneKey.Menu);
+      });
+
+      this.addHint(root, margin, height - margin - 14, 'R to retry');
+
+      // The root is only published once the display tree is fully built, so a
+      // failed render leaves the view invisible and a later terminal event can
+      // retry from a clean slate.
+      this.root = root;
+    } catch (error) {
+      root.destroy(true);
+      throw error;
     }
-
-    const retryY = height - margin - hitTarget * 2 - 20;
-    this.addButton(root, centerX, retryY, buttonWidth, 'Retry', () => {
-      this.scenePlugin.restart();
-    }, true);
-    this.addButton(root, centerX, retryY + hitTarget + 12, buttonWidth, 'Main Menu', () => {
-      this.scenePlugin.start(SceneKey.Menu);
-    });
-
-    this.addHint(root, margin, height - margin - 14, 'R to retry');
   }
 
   private addText(

@@ -215,6 +215,7 @@ describe('PhaserRunSummaryView', () => {
 
   function createFakeScene() {
     const objects: Array<ReturnType<typeof fakeObject>> = [];
+    let failNextText = false;
     const own = <T>(object: T): T => {
       const candidate = object as ReturnType<typeof fakeObject>;
       if (!objects.includes(candidate)) {
@@ -322,12 +323,21 @@ describe('PhaserRunSummaryView', () => {
           objects.push(container);
           return container;
         },
-        text: (_x: number, _y: number, text: string) => own(fakeObject('text', text)),
+        text: (_x: number, _y: number, text: string) => {
+          if (failNextText) {
+            failNextText = false;
+            throw new Error('Injected text factory failure');
+          }
+          return own(fakeObject('text', text));
+        },
         rectangle: (_x: number, _y: number, width: number, height: number) =>
           own(fakeObject('rect', '', width, height)),
       },
       get objects() {
         return objects;
+      },
+      failNextText() {
+        failNextText = true;
       },
     };
     return scene;
@@ -421,6 +431,30 @@ describe('PhaserRunSummaryView', () => {
       ]),
     );
     expect(textContents(scene)).not.toContain('Unlocked:');
+  });
+
+  it('cleans the partial tree and stays hidden when text construction throws', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const { bus, scene, view } = createHarness({ banked: bankedRun() });
+      scene.failNextText();
+
+      bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+      expect(errorSpy).toHaveBeenCalledWith(
+        'EventBus listener failed for "run:won"',
+        expect.objectContaining({ message: 'Injected text factory failure' }),
+      );
+      expect(view.visible).toBe(false);
+      expect(scene.objects.every((object) => object.state.destroyed)).toBe(true);
+
+      // A later terminal event retries from a clean slate.
+      bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+      expect(view.visible).toBe(true);
+      expect(textContents(scene)).toContain('Run Complete');
+      view.destroy();
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it('gates the R retry shortcut on visibility and ignores repeats', () => {
