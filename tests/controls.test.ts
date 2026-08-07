@@ -150,8 +150,8 @@ function createFakeScene() {
   return scene;
 }
 
-function createHarness(options: { reducedMotion?: boolean } = {}) {
-  const { reducedMotion = false } = options;
+function createHarness(options: { readReducedMotion?: () => boolean } = {}) {
+  const { readReducedMotion = () => false } = options;
   const scene = createFakeScene();
   const events = new FakeEmitter();
   const keyboard = new FakeKeyboard();
@@ -163,7 +163,7 @@ function createHarness(options: { reducedMotion?: boolean } = {}) {
     scene: scene as never,
     input: controller,
     viewport: logicalCanvasViewport(),
-    reducedMotion,
+    readReducedMotion,
     onPauseRequested,
   });
   // GameScene runs InputController.update before the view update each frame.
@@ -264,9 +264,27 @@ describe('ControlsView hints', () => {
   });
 
   it('with reduced motion the hint disappears immediately without a tween', () => {
-    const { scene, view } = createHarness({ reducedMotion: true });
+    const { scene, view } = createHarness({ readReducedMotion: () => true });
     const hintText = scene.objects[2];
 
+    view.update(2200);
+
+    expect(hintText.state.alpha).toBe(0);
+    expect(scene.tweenConfigs).toHaveLength(0);
+  });
+
+  it('rereads the reduced-motion getter at fade time', () => {
+    let reducedMotion = false;
+    const { scene, view } = createHarness({ readReducedMotion: () => reducedMotion });
+    const hintText = scene.objects[2];
+
+    // Accumulate time below the display duration with the setting still off.
+    view.update(1000);
+    expect(scene.tweenConfigs).toHaveLength(0);
+
+    // The preference flips before the fade is due; the getter-backed setting
+    // must be honoured without constructing the view again.
+    reducedMotion = true;
     view.update(2200);
 
     expect(hintText.state.alpha).toBe(0);

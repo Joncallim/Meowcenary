@@ -3,7 +3,8 @@ import { GAME_CONTEXT_REGISTRY_KEY, type GameContext } from '../engine/context';
 
 import { SceneKey } from '../engine/sceneKeys';
 import { logicalCanvasViewport, minimumHitTarget } from '../ui/layout';
-import { MainMenuController, type MainMenuSnapshot, type MenuPanel } from '../ui/menus';
+import { MainMenuController, type MainMenuSnapshot } from '../ui/menus';
+import { cycleVolumeStep } from '../ui/settings';
 import { ThemeColor, ThemeDepth, ThemeFont } from '../ui/theme';
 
 const MENU_DEPTH = ThemeDepth.pauseSummary;
@@ -46,65 +47,109 @@ export class MenuScene extends Phaser.Scene {
 
   private render(snapshot: MainMenuSnapshot): void {
     this.root?.destroy(true);
+    this.root = undefined;
     this.focusables = [];
     this.focusIndex = -1;
 
     const root = this.add.container(0, 0);
     root.setDepth(MENU_DEPTH).setScrollFactor(0);
-    this.root = root;
 
     const margin = 16;
     const width = this.scale.width;
     const hitTarget = minimumHitTarget(logicalCanvasViewport());
 
-    const title = this.add.text(width / 2, 28, 'Meowcenary', {
-      align: 'center',
-      color: '#f7f1d5',
-      fontFamily: ThemeFont.family,
-      fontSize: `${ThemeFont.headingMin}px`,
-      fontStyle: '700',
-    });
-    title.setOrigin(0.5).setScrollFactor(0);
-    root.add(title);
-
-    if (snapshot.notice) {
-      const notice = this.add.text(width / 2, 58, snapshot.notice, {
+    try {
+      const title = this.own(root, this.add.text(width / 2, 28, 'Meowcenary', {
         align: 'center',
-        color: '#f87171',
+        color: '#f7f1d5',
         fontFamily: ThemeFont.family,
-        fontSize: `${ThemeFont.bodyMin}px`,
-        wordWrap: { width: width - margin * 2 },
-      });
-      notice.setOrigin(0.5, 0).setScrollFactor(0);
-      root.add(notice);
+        fontSize: `${ThemeFont.headingMin}px`,
+        fontStyle: '700',
+      }));
+      title.setOrigin(0.5).setScrollFactor(0);
+
+      if (snapshot.notice) {
+        const notice = this.own(root, this.add.text(width / 2, 58, snapshot.notice, {
+          align: 'center',
+          color: '#f87171',
+          fontFamily: ThemeFont.family,
+          fontSize: `${ThemeFont.bodyMin}px`,
+          wordWrap: { width: width - margin * 2 },
+        }));
+        notice.setOrigin(0.5, 0).setScrollFactor(0);
+      }
+
+      const contentTop = snapshot.notice ? 86 : 64;
+
+      switch (snapshot.panel) {
+        case 'home':
+          this.renderHome(root, snapshot, width, contentTop, margin, hitTarget);
+          break;
+        case 'character':
+          this.renderCharacter(root, snapshot, width, contentTop, margin, hitTarget);
+          break;
+        case 'arena':
+          this.renderArena(root, snapshot, width, contentTop, margin, hitTarget);
+          break;
+        case 'progression':
+          this.renderProgression(root, snapshot, width, contentTop, margin, hitTarget);
+          break;
+        case 'settings':
+          this.renderSettings(root, snapshot, width, contentTop, margin, hitTarget);
+          break;
+        case 'reset-confirmation':
+          this.renderResetConfirmation(root, snapshot, width, contentTop, margin, hitTarget);
+          break;
+        default:
+          break;
+      }
+
+      this.applyFocus();
+
+      // The root is only published once the display tree is fully built and
+      // focused, so a failed render leaves the menu without a published root
+      // and the next render can retry from a clean slate.
+      this.root = root;
+    } catch (error) {
+      root.destroy(true);
+      this.focusables = [];
+      this.focusIndex = -1;
+      // The menu is the whole scene: always leave a visible recovery hint so
+      // a failed render never results in a blank screen. Esc retries through
+      // handleBack -> render.
+      this.renderFallback();
+      throw error;
     }
+  }
 
-    const contentTop = snapshot.notice ? 86 : 64;
-
-    switch (snapshot.panel) {
-      case 'home':
-        this.renderHome(root, snapshot, width, contentTop, margin, hitTarget);
-        break;
-      case 'character':
-        this.renderCharacter(root, snapshot, width, contentTop, margin, hitTarget);
-        break;
-      case 'arena':
-        this.renderArena(root, snapshot, width, contentTop, margin, hitTarget);
-        break;
-      case 'progression':
-        this.renderProgression(root, snapshot, width, contentTop, margin, hitTarget);
-        break;
-      case 'settings':
-        this.renderSettings(root, snapshot, width, contentTop, margin, hitTarget);
-        break;
-      case 'reset-confirmation':
-        this.renderResetConfirmation(root, snapshot, width, contentTop, margin, hitTarget);
-        break;
-      default:
-        break;
+  /** Last-resort display when a render fails. Best effort — if even this
+   *  fails the scene stays empty rather than throwing a second error. */
+  private renderFallback(): void {
+    try {
+      const fallback = this.add.container(0, 0);
+      const own = <T extends Phaser.GameObjects.GameObject>(object: T): T => {
+        fallback.add(object);
+        return object;
+      };
+      fallback.setDepth(MENU_DEPTH).setScrollFactor(0);
+      own(
+        this.add.text(
+          this.scale.width / 2,
+          this.scale.height / 2,
+          'Something went wrong — press Esc to retry',
+          {
+            align: 'center',
+            color: '#f87171',
+            fontFamily: ThemeFont.family,
+            fontSize: `${ThemeFont.bodyMin}px`,
+            wordWrap: { width: Math.max(1, this.scale.width - 32) },
+          },
+        ),
+      ).setOrigin(0.5).setScrollFactor(0);
+      this.root = fallback;
+    } catch {
+      this.root = undefined;
     }
-
-    this.applyFocus();
   }
 
   private renderHome(
@@ -123,38 +168,34 @@ export class MenuScene extends Phaser.Scene {
       `Scrap: ${snapshot.progression.scrap}`,
     ];
 
-    const info = this.add.text(margin, top, infoLines.join('\n'), {
+    const info = this.own(root, this.add.text(margin, top, infoLines.join('\n'), {
       color: '#d6f7ff',
       fontFamily: ThemeFont.family,
       fontSize: `${ThemeFont.labelMin}px`,
       lineSpacing: 4,
       wordWrap: { width: width - margin * 2 },
-    });
+    }));
     info.setScrollFactor(0);
-    root.add(info);
 
-    const buttons = ['Start', 'Character', 'Arena', 'Progression', 'Settings'] as const;
+    const buttons: ReadonlyArray<{ readonly label: string; readonly action: () => void }> = [
+      { label: 'Start', action: () => this.scene.start(SceneKey.Game) },
+      { label: 'Character', action: () => this.render(this.requireController().open('character')) },
+      { label: 'Arena', action: () => this.render(this.requireController().open('arena')) },
+      { label: 'Progression', action: () => this.render(this.requireController().open('progression')) },
+      { label: 'Settings', action: () => this.render(this.requireController().open('settings')) },
+    ];
     let y = top + info.height + 24;
-    buttons.forEach((label) => {
-      const button = this.addButton(root, width / 2, y, label, hitTarget, () => {
-        if (label === 'Start') {
-          this.scene.start(SceneKey.Game);
-          return;
-        }
-        const panel = label.toLowerCase() as MenuPanel;
-        const next = this.requireController().open(panel as Exclude<MenuPanel, 'reset-confirmation'>);
-        this.render(next);
-      });
+    buttons.forEach(({ label, action }) => {
+      const button = this.addButton(root, width / 2, y, label, hitTarget, action);
       y += button.height + 12;
     });
 
-    const hints = this.add.text(margin, this.scale.height - margin - 14, '↑/↓ • Enter • Esc', {
+    const hints = this.own(root, this.add.text(margin, this.scale.height - margin - 14, '↑/↓ • Enter • Esc', {
       color: '#a5f3fc',
       fontFamily: ThemeFont.family,
       fontSize: `${ThemeFont.bodyMin}px`,
-    });
+    }));
     hints.setScrollFactor(0);
-    root.add(hints);
   }
 
   private renderCharacter(
@@ -175,14 +216,13 @@ export class MenuScene extends Phaser.Scene {
         this.render(next);
       });
       if (character.description) {
-        const desc = this.add.text(margin + 12, y + button.height + 2, character.description, {
+        const desc = this.own(root, this.add.text(margin + 12, y + button.height + 2, character.description, {
           color: '#a5f3fc',
           fontFamily: ThemeFont.family,
           fontSize: `${ThemeFont.bodyMin}px`,
           wordWrap: { width: width - margin * 2 - 12 },
-        });
+        }));
         desc.setScrollFactor(0);
-        root.add(desc);
         y += desc.height + 8;
       }
       y += button.height + 16;
@@ -234,14 +274,13 @@ export class MenuScene extends Phaser.Scene {
       });
       y += hitTarget + 8;
       if (upgrade.description) {
-        const desc = this.add.text(margin + 12, y, upgrade.description, {
+        const desc = this.own(root, this.add.text(margin + 12, y, upgrade.description, {
           color: '#a5f3fc',
           fontFamily: ThemeFont.family,
           fontSize: `${ThemeFont.bodyMin}px`,
           wordWrap: { width: width - margin * 2 - 12 },
-        });
+        }));
         desc.setScrollFactor(0);
-        root.add(desc);
         y += desc.height + 8;
       }
     });
@@ -274,11 +313,11 @@ export class MenuScene extends Phaser.Scene {
       },
       {
         label: `Music Volume: ${Math.round(settings.musicVolume * 100)}%`,
-        action: () => this.requireController().setSettings({ musicVolume: Math.min(1, settings.musicVolume + 0.1) }),
+        action: () => this.requireController().setSettings({ musicVolume: cycleVolumeStep(settings.musicVolume) }),
       },
       {
         label: `SFX Volume: ${Math.round(settings.sfxVolume * 100)}%`,
-        action: () => this.requireController().setSettings({ sfxVolume: Math.min(1, settings.sfxVolume + 0.1) }),
+        action: () => this.requireController().setSettings({ sfxVolume: cycleVolumeStep(settings.sfxVolume) }),
       },
       {
         label: `Reduced Motion: ${settings.reducedMotion ? 'On' : 'Off'}`,
@@ -308,14 +347,13 @@ export class MenuScene extends Phaser.Scene {
     const heading = this.addHeading(root, width / 2, top, 'Reset all progression?');
     let y = top + heading.height + 24;
 
-    const warning = this.add.text(margin, y, 'This cannot be undone.', {
+    const warning = this.own(root, this.add.text(margin, y, 'This cannot be undone.', {
       color: '#f87171',
       fontFamily: ThemeFont.family,
       fontSize: `${ThemeFont.labelMin}px`,
       wordWrap: { width: width - margin * 2 },
-    });
+    }));
     warning.setScrollFactor(0);
-    root.add(warning);
     y += warning.height + 24;
 
     this.addButton(root, width / 2, y, 'Confirm Reset', hitTarget, () => {
@@ -332,6 +370,17 @@ export class MenuScene extends Phaser.Scene {
     this.addBackButton(root, width, margin, hitTarget);
   }
 
+  /** Parents a freshly created display object immediately, so a mid-chain
+   *  failure (setOrigin, setStyle, ...) can never leave it orphaned on the
+   *  scene's display list outside the container the failure path destroys. */
+  private own<T extends Phaser.GameObjects.GameObject>(
+    root: Phaser.GameObjects.Container,
+    object: T,
+  ): T {
+    root.add(object);
+    return object;
+  }
+
   private addButton(
     root: Phaser.GameObjects.Container,
     x: number,
@@ -340,19 +389,25 @@ export class MenuScene extends Phaser.Scene {
     minHeight: number,
     callback: () => void,
   ): Phaser.GameObjects.Text {
-    const text = this.add.text(x, y, label, {
+    const text = this.own(root, this.add.text(x, y, label, {
       color: '#f7f1d5',
       fontFamily: ThemeFont.family,
       fontSize: `${ThemeFont.labelMin}px`,
       backgroundColor: 'rgba(23, 48, 59, 0.86)',
       padding: { x: 10, y: 8 },
-    });
+    }));
     text.setOrigin(x === this.scale.width / 2 ? 0.5 : 0, 0);
     text.setScrollFactor(0);
 
     const bounds = text.getBounds();
     if (bounds.height < minHeight) {
-      text.setPadding(10, (minHeight - bounds.height) / 2 + 8);
+      // Phaser Text bounds (width/height, and therefore getBounds()) already
+      // include the current padding on both axes, so the delta
+      // (minHeight - bounds.height) undercounts by exactly the existing top
+      // padding. Topping the delta up with the current text.padding.top makes
+      // the final height land exactly on minHeight; without it the button
+      // would come out 2 × padding.top too short.
+      text.setPadding(10, (minHeight - bounds.height) / 2 + (text.padding.top ?? 8));
     }
 
     text.setInteractive({ useHandCursor: true });
@@ -367,7 +422,6 @@ export class MenuScene extends Phaser.Scene {
       callback();
     });
 
-    root.add(text);
     this.focusables.push(text);
     if (this.focusIndex < 0) {
       this.focusIndex = 0;
@@ -381,15 +435,14 @@ export class MenuScene extends Phaser.Scene {
     y: number,
     text: string,
   ): Phaser.GameObjects.Text {
-    const heading = this.add.text(x, y, text, {
+    const heading = this.own(root, this.add.text(x, y, text, {
       align: 'center',
       color: '#f7f1d5',
       fontFamily: ThemeFont.family,
       fontSize: `${ThemeFont.headingMin}px`,
       fontStyle: '700',
-    });
+    }));
     heading.setOrigin(0.5, 0).setScrollFactor(0);
-    root.add(heading);
     return heading;
   }
 

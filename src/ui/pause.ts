@@ -7,6 +7,7 @@ import {
   type MergeFailureReason,
 } from './inventory';
 import { minimumHitTarget, physicalToLogical, type UiViewport } from './layout';
+import { createModalTextHelpers, type ModalTextHelpers } from './modal';
 import { ThemeColor, ThemeDepth, ThemeFont } from './theme';
 
 export type PausePanel = 'closed' | 'pause' | 'inventory';
@@ -106,6 +107,7 @@ export class PhaserPauseView {
   private readonly viewport: UiViewport;
   private readonly controller: PauseController;
   private readonly inventory: InventoryController;
+  private readonly modal: ModalTextHelpers;
   private root?: Phaser.GameObjects.Container;
   private notice?: string;
   private disposed = false;
@@ -115,6 +117,7 @@ export class PhaserPauseView {
     this.viewport = options.viewport;
     this.controller = options.controller;
     this.inventory = options.inventory;
+    this.modal = createModalTextHelpers(options.scene, options.viewport);
     this.render(this.controller.snapshot());
   }
 
@@ -141,21 +144,32 @@ export class PhaserPauseView {
     const buttonWidth = Math.max(180, width - margin * 4);
 
     const root = scene.add.container(0, 0);
-    root.setDepth(ThemeDepth.pauseSummary);
-    root.setScrollFactor(0);
-    this.root = root;
 
-    // Interactive full-screen backdrop: the top-most interactive object eats
-    // pointer events so nothing below the modal stays interactive.
-    const backdrop = scene.add.rectangle(width / 2, height / 2, width, height, ThemeColor.background, 0.9);
-    backdrop.setInteractive();
-    backdrop.setScrollFactor(0);
-    root.add(backdrop);
+    try {
+      root.setDepth(ThemeDepth.pauseSummary);
+      root.setScrollFactor(0);
 
-    if (snapshot.panel === 'pause') {
-      this.renderPausePanel(root, width, height, margin, hitTarget, buttonWidth);
-    } else {
-      this.renderInventoryPanel(root, snapshot.inventory, width, height, margin, hitTarget, buttonWidth);
+      // Interactive full-screen backdrop: the top-most interactive object eats
+      // pointer events so nothing below the modal stays interactive. Parented
+      // immediately so a failed chain call cannot orphan it.
+      const backdrop = scene.add.rectangle(width / 2, height / 2, width, height, ThemeColor.background, 0.9);
+      root.add(backdrop);
+      backdrop.setInteractive();
+      backdrop.setScrollFactor(0);
+
+      if (snapshot.panel === 'pause') {
+        this.renderPausePanel(root, width, height, margin, hitTarget, buttonWidth);
+      } else {
+        this.renderInventoryPanel(root, snapshot.inventory, width, height, margin, hitTarget, buttonWidth);
+      }
+
+      // The root is only published once the display tree is fully built, so a
+      // failed render leaves the view invisible and a later render can retry
+      // from a clean slate.
+      this.root = root;
+    } catch (error) {
+      root.destroy(true);
+      throw error;
     }
   }
 
@@ -178,22 +192,22 @@ export class PhaserPauseView {
     buttonWidth: number,
   ): void {
     const centerX = width / 2;
-    const heading = this.addText(centerX, height * 0.22, 'Paused', 'heading');
-    heading.setOrigin(0.5);
+    const heading = this.modal.addText(centerX, height * 0.22, 'Paused', 'heading');
     root.add(heading);
+    heading.setOrigin(0.5);
 
     let y = height * 0.34;
-    this.addButton(root, centerX, y, buttonWidth, 'Resume', () => {
+    this.modal.addButton(root, centerX, y, buttonWidth, 'Resume', () => {
       this.controller.resume();
       this.render(this.controller.snapshot());
     });
     y += hitTarget + 16;
-    this.addButton(root, centerX, y, buttonWidth, 'Inventory', () => {
+    this.modal.addButton(root, centerX, y, buttonWidth, 'Inventory', () => {
       this.controller.openInventory();
       this.render(this.controller.snapshot());
     });
 
-    this.addHint(root, margin, height - margin - 14, 'P / Esc to resume');
+    this.modal.addHint(root, margin, height - margin - 14, 'P / Esc to resume');
   }
 
   private renderInventoryPanel(
@@ -206,21 +220,21 @@ export class PhaserPauseView {
     buttonWidth: number,
   ): void {
     const centerX = width / 2;
-    const heading = this.addText(centerX, margin + 16, 'Inventory', 'heading');
-    heading.setOrigin(0.5);
+    const heading = this.modal.addText(centerX, margin + 16, 'Inventory', 'heading');
     root.add(heading);
+    heading.setOrigin(0.5);
 
     const headingSize = physicalToLogical(ThemeFont.headingMin, this.viewport);
     const labelSize = physicalToLogical(ThemeFont.labelMin, this.viewport);
-    const guide = this.addText(centerX, margin + 16 + headingSize + 12, 'Select two matching weapons to merge', 'body');
-    guide.setOrigin(0.5);
+    const guide = this.modal.addText(centerX, margin + 16 + headingSize + 12, 'Select two matching weapons to merge', 'body');
     root.add(guide);
+    guide.setOrigin(0.5);
 
     const rowWidth = width - margin * 2;
     let y = margin + 16 + headingSize + labelSize + 40;
     snapshot.weapons.forEach((weapon) => {
       const label = `${weapon.selected ? '✓' : ' '} T${weapon.tier} ${weapon.name}`;
-      this.addButton(root, centerX, y, rowWidth, label, () => {
+      this.modal.addButton(root, centerX, y, rowWidth, label, () => {
         this.inventory.toggle(weapon.instanceId);
         this.render(this.controller.snapshot());
       }, weapon.selected);
@@ -228,95 +242,24 @@ export class PhaserPauseView {
     });
 
     if (this.notice) {
-      const notice = this.addText(centerX, y + 10, this.notice, 'notice');
-      notice.setOrigin(0.5);
+      const notice = this.modal.addText(centerX, y + 10, this.notice, 'notice');
       root.add(notice);
+      notice.setOrigin(0.5);
       y += physicalToLogical(ThemeFont.bodyMin, this.viewport) + 10;
     }
 
     const mergeY = height - margin - hitTarget * 2 - 20;
-    this.addButton(root, centerX, mergeY, buttonWidth, 'Merge Selected', () => {
+    this.modal.addButton(root, centerX, mergeY, buttonWidth, 'Merge Selected', () => {
       const result = this.inventory.mergeSelected();
       this.notice = result.ok ? undefined : mergeFailureCopy(result.reason);
       this.render(this.controller.snapshot());
     });
-    this.addButton(root, centerX, mergeY + hitTarget + 12, buttonWidth, '< Back', () => {
+    this.modal.addButton(root, centerX, mergeY + hitTarget + 12, buttonWidth, '< Back', () => {
       this.controller.back();
       this.render(this.controller.snapshot());
     });
 
-    this.addHint(root, margin, height - margin - 14, 'Esc returns to pause');
-  }
-
-  private addText(
-    x: number,
-    y: number,
-    text: string,
-    kind: 'heading' | 'body' | 'notice',
-  ): Phaser.GameObjects.Text {
-    const viewport = this.viewport;
-    const style =
-      kind === 'heading'
-        ? {
-            color: '#f7f1d5',
-            fontFamily: ThemeFont.family,
-            fontSize: `${physicalToLogical(ThemeFont.headingMin, viewport)}px`,
-            fontStyle: '700',
-          }
-        : kind === 'notice'
-          ? {
-              color: '#f87171',
-              fontFamily: ThemeFont.family,
-              fontSize: `${physicalToLogical(ThemeFont.bodyMin, viewport)}px`,
-            }
-          : {
-              color: '#d6f7ff',
-              fontFamily: ThemeFont.family,
-              fontSize: `${physicalToLogical(ThemeFont.labelMin, viewport)}px`,
-            };
-    const textObject = this.scene.add.text(x, y, text, style);
-    textObject.setScrollFactor(0);
-    return textObject;
-  }
-
-  private addButton(
-    root: Phaser.GameObjects.Container,
-    x: number,
-    y: number,
-    width: number,
-    label: string,
-    onActivate: () => void,
-    emphasized = false,
-  ): void {
-    const viewport = this.viewport;
-    const hitTarget = minimumHitTarget(viewport);
-    const rect = this.scene.add.rectangle(
-      x,
-      y,
-      width,
-      hitTarget,
-      emphasized ? ThemeColor.cardHover : ThemeColor.card,
-    );
-    rect.setStrokeStyle(physicalToLogical(2, viewport), emphasized ? ThemeColor.primary : ThemeColor.muted, 0.9);
-    rect.setScrollFactor(0);
-    rect.setInteractive();
-    rect.on(Phaser.Input.Events.POINTER_UP, onActivate);
-
-    const text = this.scene.add.text(x, y, label, {
-      color: '#f7f1d5',
-      fontFamily: ThemeFont.family,
-      fontSize: `${physicalToLogical(ThemeFont.labelMin, viewport)}px`,
-    });
-    text.setOrigin(0.5);
-    text.setScrollFactor(0);
-
-    root.add([rect, text]);
-  }
-
-  private addHint(root: Phaser.GameObjects.Container, x: number, y: number, text: string): void {
-    const hint = this.addText(x, y, text, 'body');
-    hint.setOrigin(0, 1);
-    root.add(hint);
+    this.modal.addHint(root, margin, height - margin - 14, 'Esc returns to pause');
   }
 }
 

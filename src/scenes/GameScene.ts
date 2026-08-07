@@ -153,7 +153,7 @@ export class GameScene extends Phaser.Scene {
       scene: this,
       input: this.inputController,
       viewport,
-      reducedMotion: ctx.settings.reducedMotion,
+      readReducedMotion: () => ctx.settings.reducedMotion,
       onPauseRequested: () => this.handlePauseKey(),
     });
 

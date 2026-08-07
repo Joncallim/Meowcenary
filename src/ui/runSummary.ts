@@ -5,6 +5,7 @@ import type { RunOutcome, RunState } from '../gameplay/runState';
 import type { BankedRun } from '../systems/ProgressionSystem';
 import { formatNumber, formatTime } from './format';
 import { minimumHitTarget, physicalToLogical, type UiViewport } from './layout';
+import { createModalTextHelpers, type ModalTextHelpers } from './modal';
 import { ThemeColor, ThemeDepth, ThemeFont } from './theme';
 
 export interface RunSummarySnapshot {
@@ -78,6 +79,7 @@ export class PhaserRunSummaryView {
   private readonly scenePlugin: Phaser.Scenes.ScenePlugin;
   private readonly viewport: UiViewport;
   private readonly controller: RunSummaryController;
+  private readonly modal: ModalTextHelpers;
   private readonly unsubscribers: Array<() => void>;
   private root?: Phaser.GameObjects.Container;
   private disposed = false;
@@ -89,6 +91,7 @@ export class PhaserRunSummaryView {
     this.scenePlugin = options.scene.scene;
     this.viewport = options.viewport;
     this.controller = options.controller;
+    this.modal = createModalTextHelpers(options.scene, options.viewport);
     this.unsubscribers = [
       options.bus.on('run:won', this.handleTerminal),
       options.bus.on('run:lost', this.handleTerminal),
@@ -151,6 +154,7 @@ export class PhaserRunSummaryView {
 
       // Interactive full-screen backdrop: the top-most interactive object eats
       // pointer events so nothing below the summary stays interactive.
+      // Parented immediately so a failed chain call cannot orphan it.
       const backdrop = scene.add.rectangle(
         width / 2,
         height / 2,
@@ -159,19 +163,19 @@ export class PhaserRunSummaryView {
         ThemeColor.background,
         0.9,
       );
+      root.add(backdrop);
       backdrop.setInteractive();
       backdrop.setScrollFactor(0);
-      root.add(backdrop);
 
       const centerX = width / 2;
-      const heading = this.addText(
+      const heading = this.modal.addText(
         centerX,
         height * 0.12,
         snapshot.outcome === 'won' ? 'Run Complete' : 'Run Failed',
         'heading',
       );
-      heading.setOrigin(0.5);
       root.add(heading);
+      heading.setOrigin(0.5);
 
       const labelSize = physicalToLogical(ThemeFont.labelMin, viewport);
       const rowGap = labelSize + physicalToLogical(8, viewport);
@@ -185,43 +189,43 @@ export class PhaserRunSummaryView {
       ];
       let y = height * 0.2;
       rows.forEach(([label, value]) => {
-        const rowLabel = this.addText(margin, y, label, 'body');
-        rowLabel.setOrigin(0, 0.5);
+        const rowLabel = this.modal.addText(margin, y, label, 'body');
         root.add(rowLabel);
-        const rowValue = this.addText(width - margin, y, value, 'body');
-        rowValue.setOrigin(1, 0.5);
+        rowLabel.setOrigin(0, 0.5);
+        const rowValue = this.modal.addText(width - margin, y, value, 'body');
         root.add(rowValue);
+        rowValue.setOrigin(1, 0.5);
         y += rowGap;
       });
       y += physicalToLogical(8, viewport);
 
       if (!snapshot.persistenceSucceeded) {
-        const warning = this.addText(centerX, y, 'Not saved — this session only', 'notice');
-        warning.setOrigin(0.5);
+        const warning = this.modal.addText(centerX, y, 'Not saved — this session only', 'notice');
         root.add(warning);
+        warning.setOrigin(0.5);
         y += rowGap;
       }
 
       if (snapshot.unlockedIds.length > 0) {
-        const unlocked = this.addText(
+        const unlocked = this.modal.addText(
           centerX,
           y,
           `Unlocked: ${snapshot.unlockedIds.join(', ')}`,
           'body',
         );
-        unlocked.setOrigin(0.5);
         root.add(unlocked);
+        unlocked.setOrigin(0.5);
       }
 
       const retryY = height - margin - hitTarget * 2 - 20;
-      this.addButton(root, centerX, retryY, buttonWidth, 'Retry', () => {
+      this.modal.addButton(root, centerX, retryY, buttonWidth, 'Retry', () => {
         this.scenePlugin.restart();
       }, true);
-      this.addButton(root, centerX, retryY + hitTarget + 12, buttonWidth, 'Main Menu', () => {
+      this.modal.addButton(root, centerX, retryY + hitTarget + 12, buttonWidth, 'Main Menu', () => {
         this.scenePlugin.start(SceneKey.Menu);
       });
 
-      this.addHint(root, margin, height - margin - 14, 'R to retry');
+      this.modal.addHint(root, margin, height - margin - 14, 'R to retry');
 
       // The root is only published once the display tree is fully built, so a
       // failed render leaves the view invisible and a later terminal event can
@@ -231,76 +235,5 @@ export class PhaserRunSummaryView {
       root.destroy(true);
       throw error;
     }
-  }
-
-  private addText(
-    x: number,
-    y: number,
-    text: string,
-    kind: 'heading' | 'body' | 'notice',
-  ): Phaser.GameObjects.Text {
-    const viewport = this.viewport;
-    const style =
-      kind === 'heading'
-        ? {
-            color: '#f7f1d5',
-            fontFamily: ThemeFont.family,
-            fontSize: `${physicalToLogical(ThemeFont.headingMin, viewport)}px`,
-            fontStyle: '700',
-          }
-        : kind === 'notice'
-          ? {
-              color: '#f87171',
-              fontFamily: ThemeFont.family,
-              fontSize: `${physicalToLogical(ThemeFont.bodyMin, viewport)}px`,
-            }
-          : {
-              color: '#d6f7ff',
-              fontFamily: ThemeFont.family,
-              fontSize: `${physicalToLogical(ThemeFont.labelMin, viewport)}px`,
-            };
-    const textObject = this.scene.add.text(x, y, text, style);
-    textObject.setScrollFactor(0);
-    return textObject;
-  }
-
-  private addButton(
-    root: Phaser.GameObjects.Container,
-    x: number,
-    y: number,
-    width: number,
-    label: string,
-    onActivate: () => void,
-    emphasized = false,
-  ): void {
-    const viewport = this.viewport;
-    const hitTarget = minimumHitTarget(viewport);
-    const rect = this.scene.add.rectangle(
-      x,
-      y,
-      width,
-      hitTarget,
-      emphasized ? ThemeColor.cardHover : ThemeColor.card,
-    );
-    rect.setStrokeStyle(physicalToLogical(2, viewport), emphasized ? ThemeColor.primary : ThemeColor.muted, 0.9);
-    rect.setScrollFactor(0);
-    rect.setInteractive();
-    rect.on(Phaser.Input.Events.POINTER_UP, onActivate);
-
-    const text = this.scene.add.text(x, y, label, {
-      color: '#f7f1d5',
-      fontFamily: ThemeFont.family,
-      fontSize: `${physicalToLogical(ThemeFont.labelMin, viewport)}px`,
-    });
-    text.setOrigin(0.5);
-    text.setScrollFactor(0);
-
-    root.add([rect, text]);
-  }
-
-  private addHint(root: Phaser.GameObjects.Container, x: number, y: number, text: string): void {
-    const hint = this.addText(x, y, text, 'body');
-    hint.setOrigin(0, 1);
-    root.add(hint);
   }
 }

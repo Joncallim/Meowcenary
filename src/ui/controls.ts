@@ -12,7 +12,7 @@ export interface ControlsViewOptions {
   readonly scene: Phaser.Scene;
   readonly input: InputController;
   readonly viewport: UiViewport;
-  readonly reducedMotion: boolean;
+  readonly readReducedMotion: () => boolean;
   readonly onPauseRequested: () => void;
 }
 
@@ -20,7 +20,7 @@ export class ControlsView {
   private readonly scene: Phaser.Scene;
   private readonly input: InputController;
   private readonly onPauseRequested: () => void;
-  private readonly reducedMotion: boolean;
+  private readonly readReducedMotion: () => boolean;
   private readonly stickBase: Phaser.GameObjects.Arc;
   private readonly stickThumb: Phaser.GameObjects.Arc;
   private readonly hintText: Phaser.GameObjects.Text;
@@ -31,11 +31,11 @@ export class ControlsView {
   private disposed = false;
 
   constructor(options: ControlsViewOptions) {
-    const { scene, input, viewport, reducedMotion, onPauseRequested } = options;
+    const { scene, input, viewport, readReducedMotion, onPauseRequested } = options;
     this.scene = scene;
     this.input = input;
     this.onPauseRequested = onPauseRequested;
-    this.reducedMotion = reducedMotion;
+    this.readReducedMotion = readReducedMotion;
 
     const margin = physicalToLogical(12, viewport);
     const fontSize = physicalToLogical(ThemeFont.bodyMin, viewport);
@@ -143,7 +143,9 @@ export class ControlsView {
 
     if (this.hintElapsedMs >= HINT_DURATION_MS) {
       this.hintFaded = true;
-      const fadeMs = reducedMotionDuration(HINT_FADE_MS, this.reducedMotion);
+      // The setting is re-read at fade time so a toggled preference is
+      // honoured without restarting the run.
+      const fadeMs = reducedMotionDuration(HINT_FADE_MS, this.readReducedMotion());
       if (fadeMs <= 0) {
         this.hintText.setAlpha(0);
         return;

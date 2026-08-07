@@ -345,7 +345,6 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         cardBackgrounds.push(card);
       });
 
-      this.root = root;
       this.cardBackgrounds = cardBackgrounds;
       this.renderedText = renderedText;
       this.rebuildCount += 1;
@@ -355,8 +354,21 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       );
       this.applyEnabledState();
       this.applyFocusStroke();
+
+      // The root is only published once the display tree is fully built and
+      // styled, so a failed render leaves the chooser without a published
+      // root and a later render can retry from a clean slate.
+      this.root = root;
     } catch (error) {
       root.destroy(true);
+      // Partial reset is intentional: only the arrays that reference destroyed
+      // objects are cleared. offer/currentOfferId/select/enabled are retained
+      // so a later resize rebuild via handleScaleChange() retries the same
+      // offer, and the render() path resets them through clear(). A full reset
+      // here would break resize-recovery and the test asserting
+      // diagnostics.offerId survives a failed rebuild.
+      this.cardBackgrounds = [];
+      this.renderedText = [];
       throw error;
     }
   }

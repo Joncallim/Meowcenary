@@ -262,6 +262,7 @@ describe('PhaserPauseView', () => {
 
   function createFakeScene() {
     const objects: Array<ReturnType<typeof fakeObject>> = [];
+    let failNextText = false;
     const own = <T>(object: T): T => {
       const candidate = object as ReturnType<typeof fakeObject>;
       if (!objects.includes(candidate)) {
@@ -348,12 +349,21 @@ describe('PhaserPauseView', () => {
           objects.push(container);
           return container;
         },
-        text: (_x: number, _y: number, text: string) => own(fakeObject('text', text)),
+        text: (_x: number, _y: number, text: string) => {
+          if (failNextText) {
+            failNextText = false;
+            throw new Error('Injected text factory failure');
+          }
+          return own(fakeObject('text', text));
+        },
         rectangle: (_x: number, _y: number, width: number, height: number) =>
           own(fakeObject('rect', '', width, height)),
       },
       get objects() {
         return objects;
+      },
+      failNextText() {
+        failNextText = true;
       },
     };
     return scene;
@@ -436,6 +446,21 @@ describe('PhaserPauseView', () => {
 
     // The handler re-renders the panel with the failure notice.
     expect(textContents(scene)).toEqual(expect.arrayContaining(['Select two weapons']));
+  });
+
+  it('cleans the partial tree and stays hidden when text construction throws', () => {
+    const { scene, view, controller } = createView();
+    controller.pause();
+    scene.failNextText();
+
+    expect(() => view.render(controller.snapshot())).toThrow('Injected text factory failure');
+    expect(scene.objects.every((object) => object.state.destroyed)).toBe(true);
+
+    // A later render retries from a clean slate.
+    view.render(controller.snapshot());
+    expect(textContents(scene)).toEqual(
+      expect.arrayContaining(['Paused', 'Resume', 'Inventory']),
+    );
   });
 
   it('destroy cleans up every object and render after destroy is a no-op', () => {

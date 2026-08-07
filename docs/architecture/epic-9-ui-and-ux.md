@@ -556,6 +556,20 @@ export class RunSummaryController {
 No view may subscribe without storing its unsubscribe function. No view may
 outlive its scene or retain destroyed Phaser objects.
 
+Render-failure ownership convention (all modal/menu surfaces): every display
+object is parented into its container immediately after construction and before
+any chained mutation (`setOrigin`, `setInteractive`, `setScrollFactor`, ...), so
+a mid-chain failure can never orphan an object on the scene display list outside
+the container the failure path destroys. The container is only published to the
+view field once the whole tree is built and styled; a failed render destroys the
+partial container and leaves the view without a published root, so the next
+render (menu: Esc via `handleBack`; pause/summary: next snapshot; chooser:
+resize or next offer) retries from a clean slate. `MenuScene.renderFallback`
+additionally keeps a best-effort visible recovery hint on the screen. The
+chooser's failure path deliberately keeps `offer`/`currentOfferId`/`select`/
+`enabled` so a resize rebuild can retry the same offer; only the arrays
+referencing destroyed objects are cleared.
+
 ## 13. Single-branch slice plan
 
 All work stays on `agent/epic-9-ui-and-ux`.

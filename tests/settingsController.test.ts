@@ -11,7 +11,7 @@ import {
   type StorageAdapter,
 } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
-import { SettingsController } from '../src/ui/settings';
+import { cycleVolumeStep, SettingsController } from '../src/ui/settings';
 
 function setup(storage?: StorageAdapter) {
   const data = loadGameData();
@@ -120,5 +120,39 @@ describe('SettingsController', () => {
     const { controller } = setup();
     expect(Object.isFrozen(controller.snapshot())).toBe(true);
     expect(Object.isFrozen(controller.set({ muted: true }))).toBe(true);
+  });
+});
+
+describe('cycleVolumeStep', () => {
+  it('steps the volume up by 0.1', () => {
+    expect(cycleVolumeStep(0)).toBe(0.1);
+    expect(cycleVolumeStep(0.3)).toBe(0.4);
+    expect(cycleVolumeStep(0.9)).toBe(1);
+  });
+
+  it('wraps from the top of the range back to 0', () => {
+    expect(cycleVolumeStep(1)).toBe(0);
+  });
+
+  it('snaps every value below 1 up to exactly 1 instead of wrapping early', () => {
+    // Values between grid points (float drift, future adjustments) must not
+    // skip 100%: the wrap threshold is symmetric at the top of the range.
+    expect(cycleVolumeStep(0.94)).toBe(1);
+    expect(cycleVolumeStep(0.95)).toBe(1);
+    expect(cycleVolumeStep(0.99)).toBe(1);
+  });
+
+  it('cycles a ten-step sweep 0 -> 1 -> 0 -> 0.1', () => {
+    let volume = 0;
+    for (let step = 0; step < 10; step += 1) {
+      volume = cycleVolumeStep(volume);
+    }
+    expect(volume).toBe(1);
+
+    volume = cycleVolumeStep(volume);
+    expect(volume).toBe(0);
+
+    volume = cycleVolumeStep(volume);
+    expect(volume).toBe(0.1);
   });
 });
