@@ -3,7 +3,7 @@
 This file gives a simple overview of the Meowcenary backlog and defines the
 **shared contracts** every epic builds on. GitHub issues are the default source
 for each epic's implementation plan; a linked repository architecture document
-may explicitly supersede older issue wording, as Epics 5, 6, 7, 8, and 9 do. This file
+may explicitly supersede older issue wording, as Epics 5, 6, 7, 8, 9, and 10 do. This file
 is the source of truth for the module names, data shapes, and events epics share.
 
 ## Documentation Standard
@@ -38,6 +38,7 @@ src/
     rng.ts           Seeded Rng + createRng(seed)
     vector.ts        Vec2 + math helpers
     cadence.ts       Cadence accumulator for fixed-interval ticks
+    cooldown.ts      Pure shouldPlay cooldown gate (added in Epic 10)
     pool.ts          Generic object Pool<T> (added in Epic 12)
   entities/      Phaser display/physics objects: Player, Enemy, Projectile, Drop
   gameplay/      Pure run rules (no Phaser imports): runState, stats, xp,
@@ -88,6 +89,10 @@ interface GameEventMap {
   'drop:collected':   { kind: 'xp' | 'scrap'; amount: number; x: number; y: number };
   'currency:changed': { runTotal: number };
   'hazard:triggered': { hazardId: string; damage: number; x: number; y: number }; // Epic 7; damage applied this tick
+  'settings:changed': { settings: Settings };      // Epic 10; emitted only by GameContext.updateSettings on identity change
+  'ui:navigate':      Record<string, never>;       // Epic 10; view focus/selection movement
+  'ui:confirm':       Record<string, never>;       // Epic 10; UI control activation
+  'ui:back':          Record<string, never>;       // Epic 10; back/dismiss/resume navigation
 }
 ```
 
@@ -296,7 +301,7 @@ so schedules (fire cadence, spawn timing) stay deterministic in tests.
 | Epic 7 | #8 Maps and Arenas | Complete | Data-defined arenas, spawn regions, obstacles, hazard hooks. |
 | Epic 8 | #9 Loot and Economy | Complete | Event-driven kill-to-loot pipeline, poolable `Drop` entity, activated scrap economy, chest shell, integration harness, and dev hotkey; architecture in [`architecture/epic-8-loot-and-economy.md`](architecture/epic-8-loot-and-economy.md). |
 | Epic 9 | #10 UI and UX | Architecture ready | Single-branch production menu, HUD, settings, touch presentation, pause/inventory, chooser integration, and run summary; architecture in [`architecture/epic-9-ui-and-ux.md`](architecture/epic-9-ui-and-ux.md). |
-| Epic 10 | #11 Audio | Open | Respectful, muteable, event-driven sound and music. |
+| Epic 10 | #11 Audio | Architecture ready | Single-branch event-driven SFX/music, autoplay unlock, per-key cooldowns, live settings via `settings:changed`, and a placeholder asset pipeline; architecture in [`architecture/epic-10-audio.md`](architecture/epic-10-audio.md). |
 | Epic 11 | #12 Balancing and Developer Tooling | Open | Fast tuning through data, validation, debug tools, playtest helpers. |
 | Epic 12 | #13 Polish and Performance | Open | Feedback, animation polish, object pooling, reduced motion, performance checks. |
 
@@ -310,8 +315,9 @@ so schedules (fire cadence, spawn timing) stay deterministic in tests.
 - All randomness flows through the seeded `Rng`; never call `Math.random()`.
 - All stat changes flow through `ModifierStack`; never hand-roll multipliers.
 - No ads, paid power, subscriptions, energy systems, or manipulative pacing.
-- Implement each epic in reviewable slices. Epic 9 is an explicit maintainer
-  exception: its six slices stay on one branch and one eventual delivery PR.
+- Implement each epic in reviewable slices. Epics 9 and 10 are explicit
+  maintainer exceptions: their slices stay on one branch and one eventual
+  delivery PR.
 
 ### Reward-calculation boundary (Epic 8 vs Epic 5)
 
@@ -338,6 +344,7 @@ changes only how currency is generated — drops resolved from the enriched
    obstacle and hazard shells).
 7. Epic 8 is complete (PRs #58–63). Implement Epic 9 from the single-branch
    architecture in [`architecture/epic-9-ui-and-ux.md`](architecture/epic-9-ui-and-ux.md),
-   then Epic 10 as its dependencies become available.
+   then Epic 10 from the single-branch architecture in
+   [`architecture/epic-10-audio.md`](architecture/epic-10-audio.md).
 8. Use Epic 11 throughout tuning.
 9. Save Epic 12 for late-stage polish and performance.

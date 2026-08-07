@@ -77,6 +77,7 @@ Epic-specific data contracts:
 - [Epic 7: maps and arenas](architecture/epic-7-maps-and-arenas.md)
 - [Epic 8: loot and economy](architecture/epic-8-loot-and-economy.md)
 - [Epic 9: UI and UX](architecture/epic-9-ui-and-ux.md)
+- [Epic 10: audio](architecture/epic-10-audio.md)
 
 The Epic 5 document is the implementation source of truth for save V2,
 permanent modifier ordering, finished-run banking, and the Epics 6/8/9
@@ -99,6 +100,12 @@ and scene flow, HUD/read models, settings UI, touch presentation, pause and
 inventory/merge UI, upgrade-chooser integration, and terminal run summary. It
 supersedes issue #10 where that issue predates current offer-token, progression,
 selection, input, and banking seams.
+The Epic 10 document is the implementation source of truth for the shared
+game-scoped audio manager, audio asset/map data and validation, the pure
+cooldown gate, the `settings:changed` live-settings seam, additive `ui:*`
+sound events, the autoplay unlock policy, and the placeholder asset pipeline.
+It supersedes issue #11 where that issue predates the current audio shell,
+settings, and menu seams.
 
 ## AI Handoff Pattern
 
