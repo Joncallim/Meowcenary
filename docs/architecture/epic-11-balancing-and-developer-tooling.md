@@ -42,8 +42,10 @@ players:
   console (`console.table`): outcome, time, level, kills, currency, upgrades
   taken, and average DPS. No network, no PII, no player-facing change.
 
-Epic 11 changes **no** shipped balance values, **no** event payloads, **no**
-save schema, and adds **no** new bus events.
+Epic 11 changes **no** shipped balance values, **no** event payload *shapes*,
+**no** save schema, and adds **no** new bus events. One payload *semantic* is
+pinned as part of the tooling contract: `enemy:damaged`'s `amount` reports the
+health actually removed — never the raw hit (§7).
 
 ## 2. Architecture-pass findings and frozen corrections
 
@@ -118,14 +120,16 @@ through these corrections; each is evidence-backed against `main`.
    half the job.** `DebugOverlay` (`src/systems/debug.ts`) renders FPS plus
    caller-supplied lines; `GameScene.update` already passes run status/time,
    level/XP, health, enemy count/kills, weapons, and input state
-   (`GameScene.ts:326–335`). Missing per issue #12: projectile count, drop
+   (`GameScene.ts:326–335`).    Missing per issue #12: projectile count, drop
    count, rough DPS. Frozen design (§7): keep the overlay line-driven and
    read-only; add a pure `DpsMeter` (`src/gameplay/metrics.ts`) owned by
    `GameScene` and fed from `enemy:damaged` payloads at `runState.timeMs`
    (never `Date.now`/`performance.now`); counts come from
-   `group.getLength()`. Whether the F3 overlay should remain reachable in
-   production builds is decision point D4 — this architecture keeps the
-   status quo.
+   `group.getLength()`. `enemy:damaged.amount` is *effective* damage — the
+   health actually removed, capped at the enemy's remaining health (§7) —
+   so the meter never overcounts overkill. Whether the F3 overlay should
+   remain reachable in production builds is decision point D4 — this
+   architecture keeps the status quo.
 10. **The Epic 9 run summary is player-facing UI; the playtest summary is a
     separate dev channel.** `RunSummaryController`/`PhaserRunSummaryView`
     render in-canvas at run end. Epic 11 adds no UI: a
@@ -248,61 +252,87 @@ tests.
 catalog-root lines at its boundary (`game-data.enemies: required field` →
 `enemies.json`) so issues group by file; lines naming no catalog — unknown
 root fields, a non-object aggregate (`game-data: expected object`), the
-`audio` pair itself — keep the prefix as a distinct root category. Each
-remap pattern requires a separator (`:`, `.`, or `[`) after the catalog
-name, so a future root field that prefix-extends a catalog (e.g.
-`game-data.weaponsV2`, flaggable by `jsonSafetyErrors` before
-`rejectUnknownFields` runs) never mis-remaps to a file name.
+`audio` pair itself — keep the prefix as a distinct root category. The
+remap rules are **derived from the descriptor table** (one rule per
+descriptor: `rootKey`, or `rootKey.subKey` for the audio pair → `file`),
+so adding a catalog automatically extends the remap — there is no second
+registration point to forget. Each pattern requires a separator (`:`, `.`,
+or `[`) after the catalog name, so a future root field that prefix-extends
+a catalog (e.g. `game-data.weaponsV2`, flaggable by `jsonSafetyErrors`
+before `rejectUnknownFields` runs) never mis-remaps to a file name.
+
+**Dotted file-level errors.** Object-backed catalogs (audio) emit dotted
+file-level lines without a row index — `audio-assets.json.sfx: required
+array` maps to `{ file: 'audio-assets.json', index: -1, field: 'sfx',
+message: 'required array' }` instead of swallowing the dotted path into
+the file name. The matcher's file-name alternative is also built from the
+descriptor table (escaped), so a colon or dot inside a future catalog file
+name cannot split the capture groups.
 
 ### 5.2 Descriptor table (maintainer note from the Epic 0 review)
 
 ```ts
 interface CatalogDescriptor {
-  readonly key: string;          // GameData assembly key ('weapons', …, audio pair)
+  readonly key: string;          // GameData assembly key ('weapons', …, 'audio-assets')
   readonly file: string;         // 'weapons.json' — used in messages, unchanged
+  readonly rootKey: string;      // aggregate root field ('audio' for the audio pair)
+  readonly subKey?: string;      // audio pair only: 'assets' | 'map'
+  readonly data: unknown;        // shipped JSON import (assembly + root derivation)
   readonly read: (raw: Record<string, unknown>) => unknown; // locate rows in the aggregate
-  readonly validateCatalog: (rows: unknown) => unknown;     // FULL per-file pipeline (throws)
+  readonly validateRows: (rows: unknown) => unknown;        // per-file row pipeline (throws)
 }
 ```
 
 One `CATALOG_DESCRIPTORS` entry per data file, in today's exact validation
 order: weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters,
-arenas, lootTables, audio-assets, audio-map. Each descriptor's
-`validateCatalog` owns that file's *complete* pipeline — row checks,
-uniqueness, and catalog-level assertions — so adding a future file is one
-entry (the drift the maintainer flagged: today uniqueness/assembly are
-separate edits).
+arenas, lootTables, audio-assets, audio-map. The descriptor is the
+**single registration point**: root requirements (`ROOT_FIELDS`,
+`AUDIO_ROOT_FIELDS`), the shipped-data aggregate (`shippedGameData`, shared
+by `loadGameData` and `validateAllData`), and the root-phase remap rules
+(§5.1) are all **derived from the table** — so adding a catalog is literally
+one entry, with no second manual registration point that can drift (the
+maintainer's Epic 0 concern). The table is declared `as const satisfies
+readonly CatalogDescriptor[]`; the inlined `validateRows` lambdas carry
+explicit return annotations (e.g. `(rows): WeaponDefinition[] => …`), so a
+row pipeline that returns the wrong shape fails to compile.
 
-To make that true for the three files whose assertions currently live inline
-in `validateGameData`, extract (behavior-identical, newly exported):
-`validateWeaponCatalog` (= `validate` + `assertUniqueIds` +
-`assertWeaponTiers` + `assertStarterWeapons`), `validateUpgradeCatalog`
-(= `validate` + `assertUniqueIds`), and `validateSpawnCurveCatalog`
-(= `validate` + `assertUniqueIds` + `assertPlayableSpawnCurves`). The existing
-`validateEnemy/MetaUpgrade/Character/Arena/LootTable/AudioAssets/AudioMap`
-catalog functions are reused unchanged. Audio descriptors read
-`raw.audio.assets` / `raw.audio.map`; the map descriptor keeps the Epic 10
-normalized-array round-trip fallback (`validateNormalizedAudioMap` when given
-an array).
+The pipeline is **two-phase** (this supersedes the earlier draft's
+"complete pipeline inside each descriptor" design):
 
-The extracted validators are **intentionally public**: they are the per-file
-pipeline entry points behind the descriptor table, pinned by the focused
-tests, and available for future per-file tooling (e.g. a per-file validation
-CLI) without widening the descriptor contract.
+- **Phase A — row pipelines.** Every descriptor's `validateRows` runs in
+  descriptor order: `validate` row checks plus the per-file uniqueness and
+  catalog assertions that live inside the extracted per-file functions
+  (`validateEnemyCatalog`, `validateMetaUpgradeCatalog`,
+  `validateCharacterCatalog`, `validateArenaCatalog`,
+  `validateLootTableCatalog`, `validateAudioAssets`,
+  `validateAudioMapCatalog`), unchanged from before. Audio descriptors read
+  `raw.audio.assets` / `raw.audio.map`; the map descriptor keeps the Epic 10
+  normalized-array round-trip fallback (`validateNormalizedAudioMap` when
+  given an array).
+- **Phase B — catalog-level assertions.** The assertions boot runs after
+  every catalog's rows are valid (weapons/upgrades/spawn-curves only) live
+  in one flat, frozen sequence, `CATALOG_LEVEL_ASSERTIONS`: unique-ids for
+  weapons, upgrades, and spawn-curves, then `assertWeaponTiers`,
+  `assertStarterWeapons`, `assertPlayableSpawnCurves`. Every assertion key
+  is checked against the descriptor table at module load (and pinned by a
+  focused test), so a renamed descriptor key fails fast instead of silently
+  asserting `undefined` rows.
 
 ### 5.3 Throwing boot path — external behavior frozen
 
 `validateGameData` keeps its signature, its throw-on-error contract, its exact
 message strings, and its first-error order. Internally it becomes: root-shape
 phase (extracted verbatim into an `assertGameDataRoot` helper shared with the
-collector) → loop descriptors (each may throw, in descriptor order = today's
-order) → the five cross-reference assertions in today's order
-(`assertSpawnReferences`, `assertCharacterWeaponReferences`,
-`assertArenaSpawnCurveReferences`, `assertEnemyLootTableReferences`,
-`assertAudioMapReferences`) → assemble `GameData`. TypeScript's excess/missing
-property checking on the assembly literal makes the "returned object" edit
-compile-checked, closing the maintainer's third drift point. The entire
-existing `tests/validation.test.ts` must pass **unmodified** — it is the pin.
+collector) → **phase A**: every descriptor's `validateRows` in descriptor
+order (each may throw, in descriptor order = today's order) → **phase B**:
+`CATALOG_LEVEL_ASSERTIONS` in its flat frozen order (§5.2) → the five
+cross-reference assertions in today's order (`assertSpawnReferences`,
+`assertCharacterWeaponReferences`, `assertArenaSpawnCurveReferences`,
+`assertEnemyLootTableReferences`, `assertAudioMapReferences`) → assemble
+`GameData`. TypeScript's excess/missing property checking on the assembly
+literal makes the "returned object" edit compile-checked, closing the
+maintainer's third drift point. The entire existing `tests/validation.test.ts`
+must pass **unmodified** — it is the pin.
 
 ### 5.4 Collecting path
 
@@ -310,11 +340,16 @@ existing `tests/validation.test.ts` must pass **unmodified** — it is the pin.
 
 1. Root phase: run `assertGameDataRoot` inside try/catch; on failure map the
    lines and stop (root failures mask per-file reads, mirroring boot).
-2. Per-file phase: for each descriptor, run `validateCatalog(read(raw))`
+2. Per-file phase: for each descriptor, run `validateRows(read(raw))`
    inside try/catch and collect. A bad file therefore never aborts later
    files (issue #12's requirement).
-3. Cross-reference phase: only when the per-file phase produced **zero**
-   issues (the assertions require successfully typed catalogs), run the five
+3. Catalog-level assertion phase: only when the per-file phase produced
+   **zero** issues, run `CATALOG_LEVEL_ASSERTIONS` in boot order (§5.2),
+   each in its own try/catch, and collect. Phase order is frozen: any row
+   error in any file wins over every assertion error, so a later file's row
+   error is reported before a weapons assertion error.
+4. Cross-reference phase: only when every earlier phase was clean (the
+   assertions require successfully typed catalogs), run the five
    assertions, each in its own try/catch, and collect.
 
 Line mapping at the boundary (validators keep returning today's strings):
@@ -323,6 +358,10 @@ Line mapping at the boundary (validators keep returning today's strings):
 - `file[index].field: message` → `{ file, index, field, message }`;
 - `file: message` → `{ file, index: -1, field: '', message }`;
 - `file[index]: message` → `{ file, index, field: '', message }`;
+- `file.field: message` → `{ file, index: -1, field, message }` — dotted
+  file-level errors from object-backed catalogs (e.g.
+  `audio-assets.json.sfx: required array`); the matcher's file-name
+  alternative is built from the descriptor table (§5.1);
 - anything else → `{ file: '(unknown)', index: -1, field: '', message: line }`.
 
 Field paths keep their nested form (`spawnRegions[1].kind`,
@@ -427,6 +466,17 @@ dropped, never thrown. Samples are timestamped with `runState.timeMs` at
 event time, keeping the meter deterministic under the repo's time-source
 rule.
 
+**Effective-damage contract.** `enemy:damaged` payloads report the health
+**actually removed**: `Enemy.takeDamage` caps `amount` at the enemy's
+remaining health (`Math.min(amount, health)`), so a lethal overkill hit
+reports only the removed remainder — never more than the enemy's pre-hit
+health. The meter therefore sums effective damage: `windowDps` and
+`totalDamage` never overcount overkill, and any future consumer of the same
+event (a DPS meter, analytics) cannot double-count lethal hits. The
+`GameEventMap` entry is documented accordingly, and `weaponSystem.test.ts`'s
+simplified `takeDamage` mock applies the same cap so the test harness stays
+faithful to the real enemy.
+
 `GameScene` owns one meter, feeds it from an `enemy:damaged` subscription
 (unsubscriber joins the existing `unsubscribers` array), and adds lines:
 `Projectiles: <projectileGroup.getLength()> Drops: <dropGroup.getLength()>`
@@ -506,7 +556,7 @@ Epic 12 work.
 | `weightedPick` | delegates to `rng.weighted` (spy), propagates the empty-selection error |
 | Scaler exactness | `costOf` table for every shipped meta-upgrade level unchanged; `scaleEnemy` outputs identical to the inline reference formula across a time sweep; `xpToNext` levels 1–10 unchanged |
 | `validateAllData` | shipped data returns `[]`; two broken catalogs both report (no abort); `{file, index, field, message}` mapping incl. nested field paths; file-level error → `index: -1, field: ''`; unparseable line → `(unknown)` fallback |
-| Collecting phases | cross-refs skipped when a per-file phase is dirty; clean catalogs + dangling `enemyId` wave → attributed cross-ref issue; root failure masks per-file phase; root-phase catalog lines remap to JSON file names (`game-data.enemies` → `enemies.json`) while lines naming no catalog keep the `game-data.` prefix |
+| Collecting phases | cross-refs skipped when a per-file phase is dirty; clean catalogs + dangling `enemyId` wave → attributed cross-ref issue; root failure masks per-file phase; root-phase catalog lines remap to JSON file names (`game-data.enemies` → `enemies.json`) while lines naming no catalog keep the `game-data.` prefix; a later file's row error beats a catalog-level assertion error (phase order); dotted object-backed file errors map to their field (`audio-assets.json.sfx` → `{ file, index: -1, field: 'sfx' }`); every descriptor derives a remap rule; every `CATALOG_LEVEL_ASSERTIONS` key names a descriptor |
 | Boot regression | `tests/validation.test.ts` passes unmodified; multiple-bad-files input still throws the weapons error first (order pin) |
 | `readDebugFlags` | empty/missing params → defaults; master switch alone → enabled, neutral values; each param parses; invalid/out-of-range/non-numeric → per-field default; never throws |
 | `debugCheatsActive` | `enabled && isDev` true; either false → false (both `isDev` branches via the explicit parameter) |
@@ -575,9 +625,10 @@ under equivalently named test files. The full gate is mandatory.
 - [ ] Dev runs end with exactly one `console.table` playtest summary
       containing outcome, time, level, kills, currency, upgrades taken, and
       average DPS. No network, no PII.
-- [ ] No new bus events, no payload changes, no new `StatKey`, no save-schema
-      change, no shipped data retuning, no new dependencies;
-      `engine/`/`gameplay/` stay Phaser-free.
+- [ ] No new bus events, no payload *shape* changes (the `enemy:damaged`
+      `amount` semantic is pinned to effective damage in §7), no new
+      `StatKey`, no save-schema change, no shipped data retuning, no new
+      dependencies; `engine/`/`gameplay/` stay Phaser-free.
 - [ ] Baseline 934 tests / 68 files plus new tests, `npm run lint`,
       `npm run build`, and `git diff --check` are green.
 - [ ] Manual matrix (§11) is recorded honestly, including the production
@@ -593,7 +644,14 @@ under equivalently named test files. The full gate is mandatory.
   remap to the remaining root lines at its own boundary (§5.1/§5.4), and
   root lines naming no catalog keep the `game-data.` prefix by design.
 - Do not let `validateAllData` throw, and do not run cross-reference
-  assertions when any catalog failed — they require typed rows.
+  assertions when any catalog failed — they require typed rows. Catalog-level
+  assertions (§5.2) run only after every per-file row phase is clean; do not
+  interleave them with row pipelines or change their flat frozen order.
+- Do not hand-edit `remapRootPhaseLine`'s patterns or the dotted-file matcher
+  (§5.1/§5.4) — both are derived from the descriptor table; the table is the
+  only registration point. Do not add a `CATALOG_LEVEL_ASSERTIONS` key that
+  names no descriptor (module load throws), and do not remove the derivation
+  tests from `validateAllData.test.ts`.
 - Do not route `scaleEnemy` through `growth`; its linear formula is the
   shipped balance curve (§2.2).
 - Do not add a god-mode, multiplier, or spawn-rate branch to `Player`,

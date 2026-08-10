@@ -9,6 +9,9 @@ export interface GameEventMap {
   'player:damaged': { amount: number; healthRemaining: number };
   'player:died': Record<string, never>;
   'enemy:spawned': { instanceId: number; enemyId: string; x: number; y: number };
+  // amount is the health actually removed — capped at the enemy's remaining
+  // health (never exceeds the enemy's pre-hit health), so overkill from
+  // high-damage hits is not double-counted by dev-tooling meters (Epic 11 §7).
   'enemy:damaged': { instanceId: number; amount: number; x: number; y: number };
   'enemy:killed': { instanceId: number; enemyId: string; xpValue: number; scrapValue: number; lootTableId?: string; x: number; y: number };
   'weapon:fired': { weaponId: string; x: number; y: number };

@@ -139,7 +139,11 @@ export class Enemy implements EnemyInstance {
 
     const x = this.x;
     const y = this.y;
-    const nextHealth = Math.max(0, this.health - amount);
+    // amount is capped at remaining health: the event payload reports the
+    // health actually removed, so dev-tooling meters (Epic 11 §7) never
+    // overcount overkill from high-damage hits on low-health enemies.
+    const applied = Math.min(amount, this.health);
+    const nextHealth = this.health - applied;
     const killed = nextHealth === 0;
 
     this.health = nextHealth;
@@ -150,7 +154,7 @@ export class Enemy implements EnemyInstance {
 
     this.bus.emit('enemy:damaged', {
       instanceId: this.instanceId,
-      amount,
+      amount: applied,
       x,
       y,
     });

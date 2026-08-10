@@ -81,6 +81,7 @@ interface TestHarness {
     y: number;
     sprite: MockGameObject;
     defId: string;
+    health: number;
     xpValue: number;
     scrapValue: number;
     definition: { id: string; xpValue: number; scrapValue: number; lootTableId?: string };
@@ -141,10 +142,16 @@ describe('WeaponSystem', () => {
         scrapValue: dustMite.scrapValue,
         lootTableId: dustMite.lootTableId,
       },
+      health: dustMite.health,
       takeDamage: vi.fn((amount: number) => {
+        // Faithful to Enemy.takeDamage (Epic 11 §7): the payload reports the
+        // health actually removed — capped at the enemy's remaining health —
+        // so the mock's enemy:damaged events match the real enemy.
+        const applied = Math.min(amount, enemy.health);
+        enemy.health -= applied;
         ctx.bus.emit('enemy:damaged', {
           instanceId: enemy.instanceId,
-          amount,
+          amount: applied,
           x: enemy.x,
           y: enemy.y,
         });
@@ -307,9 +314,12 @@ describe('WeaponSystem', () => {
     harness.ctx.bus.on('projectile:hit', hit);
     harness.ctx.bus.on('enemy:killed', killed);
     harness.enemy.takeDamage.mockImplementationOnce((amount: number) => {
+      // Same effective-damage cap as the default mock (Epic 11 §7).
+      const applied = Math.min(amount, harness.enemy.health);
+      harness.enemy.health -= applied;
       harness.ctx.bus.emit('enemy:damaged', {
         instanceId: harness.enemy.instanceId,
-        amount,
+        amount: applied,
         x: harness.enemy.x,
         y: harness.enemy.y,
       });

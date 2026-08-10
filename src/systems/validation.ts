@@ -70,12 +70,6 @@ const RANGED_ATTACK_FIELDS = new Set(['range', 'telegraphMs', 'cooldownMs']);
 const CURVE_FIELDS = new Set(['id', 'durationSeconds', 'scaling', 'waves']);
 const SCALING_FIELDS = new Set(['healthPerMinute', 'damagePerMinute']);
 const WAVE_FIELDS = new Set(['startSecond', 'enemyId', 'spawnEveryMs', 'maxAlive']);
-const ROOT_FIELDS = new Set(['weapons', 'enemies', 'upgrades', 'metaUpgrades', 'spawnCurves', 'characters', 'arenas', 'lootTables', 'audio']);
-const AUDIO_ROOT_FIELDS = new Set(['assets', 'map']);
-const AUDIO_ROOT_FIELD_FILE_NAMES: Record<'assets' | 'map', string> = {
-  assets: 'audio-assets.json',
-  map: 'audio-map.json',
-};
 const CHARACTER_FIELDS = new Set([
   'id', 'name', 'description', 'baseStats', 'startingWeaponIds', 'passives',
   'unlock', 'cosmeticSkinIds',
@@ -130,80 +124,168 @@ export interface ValidationIssue {
 }
 
 /** One entry per data file, in today's exact validation order (Epic 11 §5.2).
- *  Each descriptor's validateCatalog owns that file's complete pipeline —
- *  row checks, uniqueness, and catalog-level assertions — so adding a future
- *  file is one entry instead of three edits. */
+ *  The descriptor is the single registration point for a catalog: the
+ *  aggregate root field, the shipped JSON import, and the per-file row
+ *  pipeline. Root requirements (ROOT_FIELDS/AUDIO_ROOT_FIELDS), the shipped
+ *  aggregate (shippedGameData), and the root-phase remap rules are all
+ *  derived from the table, so adding a catalog is one entry. Catalog-level
+ *  assertions that boot runs after every catalog's rows are validated
+ *  (weapons/upgrades/spawn-curves only) live in the separate
+ *  CATALOG_LEVEL_ASSERTIONS phase, preserving the frozen first-error order
+ *  across multi-error inputs (§5.3).
+ *
+ *  The table is declared `as const satisfies` so each entry keeps its own
+ *  row type: an inlined validateRows lambda's explicit return annotation
+ *  (e.g. (rows): WeaponDefinition[] => …) is therefore compile-checked
+ *  against the pipeline body and against the descriptor contract. */
 interface CatalogDescriptor {
-  readonly key: string;          // GameData assembly key ('weapons', …, audio pair)
+  readonly key: string;          // GameData assembly key ('weapons', …, 'audio-assets')
   readonly file: string;         // 'weapons.json' — used in messages, unchanged
+  readonly rootKey: string;      // aggregate root field ('audio' for the audio pair)
+  readonly subKey?: string;      // audio pair only: 'assets' | 'map'
+  readonly data: unknown;        // shipped JSON import (assembly + root derivation)
   readonly read: (raw: Record<string, unknown>) => unknown; // locate rows in the aggregate
-  readonly validateCatalog: (rows: unknown) => unknown;     // FULL per-file pipeline (throws)
+  readonly validateRows: (rows: unknown) => unknown;        // per-file row pipeline (throws)
 }
 
-export const CATALOG_DESCRIPTORS: readonly CatalogDescriptor[] = [
+export const CATALOG_DESCRIPTORS = [
   {
     key: 'weapons',
     file: 'weapons.json',
+    rootKey: 'weapons',
+    data: weaponsJson,
     read: (raw) => readOwnField(raw, 'weapons'),
-    validateCatalog: validateWeaponCatalog,
+    validateRows: (rows): WeaponDefinition[] => {
+      throwIfErrors(jsonSafetyErrors(rows, 'weapons.json'));
+      return validate<WeaponDefinition>('weapons.json', rows, checkWeapon);
+    },
   },
   {
     key: 'enemies',
     file: 'enemies.json',
+    rootKey: 'enemies',
+    data: enemiesJson,
     read: (raw) => readOwnField(raw, 'enemies'),
-    validateCatalog: validateEnemyCatalog,
+    validateRows: validateEnemyCatalog,
   },
   {
     key: 'upgrades',
     file: 'upgrades.json',
+    rootKey: 'upgrades',
+    data: upgradesJson,
     read: (raw) => readOwnField(raw, 'upgrades'),
-    validateCatalog: validateUpgradeCatalog,
+    validateRows: (rows): UpgradeDefinition[] => {
+      throwIfErrors(jsonSafetyErrors(rows, 'upgrades.json'));
+      return validate<UpgradeDefinition>('upgrades.json', rows, checkUpgrade);
+    },
   },
   {
     key: 'metaUpgrades',
     file: 'meta-upgrades.json',
+    rootKey: 'metaUpgrades',
+    data: metaUpgradesJson,
     read: (raw) => readOwnField(raw, 'metaUpgrades'),
-    validateCatalog: validateMetaUpgradeCatalog,
+    validateRows: validateMetaUpgradeCatalog,
   },
   {
     key: 'spawnCurves',
     file: 'spawn-curves.json',
+    rootKey: 'spawnCurves',
+    data: spawnCurvesJson,
     read: (raw) => readOwnField(raw, 'spawnCurves'),
-    validateCatalog: validateSpawnCurveCatalog,
+    validateRows: (rows): SpawnCurveDefinition[] => {
+      throwIfErrors(jsonSafetyErrors(rows, 'spawn-curves.json'));
+      return validate<SpawnCurveDefinition>('spawn-curves.json', rows, checkSpawnCurveShape);
+    },
   },
   {
     key: 'characters',
     file: 'characters.json',
+    rootKey: 'characters',
+    data: charactersJson,
     read: (raw) => readOwnField(raw, 'characters'),
-    validateCatalog: validateCharacterCatalog,
+    validateRows: validateCharacterCatalog,
   },
   {
     key: 'arenas',
     file: 'arenas.json',
+    rootKey: 'arenas',
+    data: arenasJson,
     read: (raw) => readOwnField(raw, 'arenas'),
-    validateCatalog: validateArenaCatalog,
+    validateRows: validateArenaCatalog,
   },
   {
     key: 'lootTables',
     file: 'loot-tables.json',
+    rootKey: 'lootTables',
+    data: lootTablesJson,
     read: (raw) => readOwnField(raw, 'lootTables'),
-    validateCatalog: validateLootTableCatalog,
+    validateRows: validateLootTableCatalog,
   },
   {
     key: 'audio-assets',
     file: 'audio-assets.json',
+    rootKey: 'audio',
+    subKey: 'assets',
+    data: audioAssetsJson,
     read: (raw) => readAudioSubField(raw, 'assets'),
-    validateCatalog: validateAudioAssets,
+    validateRows: validateAudioAssets,
   },
   {
     key: 'audio-map',
     file: 'audio-map.json',
+    rootKey: 'audio',
+    subKey: 'map',
+    data: audioMapJson,
     read: (raw) => readAudioSubField(raw, 'map'),
     // Epic 10 §6.2 round-trip: accept the normalized AudioMapEntry[] shape as
     // well as the { events: [...] } file wrapper.
-    validateCatalog: (rows) => (Array.isArray(rows) ? validateNormalizedAudioMap(rows) : validateAudioMapCatalog(rows)),
+    validateRows: (rows): AudioMapEntry[] => (Array.isArray(rows) ? validateNormalizedAudioMap(rows) : validateAudioMapCatalog(rows)),
   },
+] as const satisfies readonly CatalogDescriptor[];
+
+/** Root requirements derived from the descriptor table: one aggregate root
+ *  field per descriptor (the audio pair collapses to a single 'audio' root
+ *  with its two sub-files), so adding a catalog cannot be rejected as an
+ *  unknown root field (Epic 11 §5.2). */
+const ROOT_FIELDS = new Set(CATALOG_DESCRIPTORS.map((descriptor) => descriptor.rootKey));
+// The `'subKey' in descriptor` predicate narrows the as-const union to the
+// audio pair, whose members declare the sub-file key.
+const AUDIO_DESCRIPTORS = CATALOG_DESCRIPTORS.filter(
+  (descriptor): descriptor is (typeof CATALOG_DESCRIPTORS)[number] & { readonly subKey: 'assets' | 'map' } =>
+    'subKey' in descriptor,
+);
+const AUDIO_ROOT_FIELDS = new Set(AUDIO_DESCRIPTORS.map((descriptor) => descriptor.subKey));
+
+/** Catalog-level assertions in the boot path's exact flat order (frozen
+ *  first-error order, Epic 11 §5.3): boot validates every catalog's rows
+ *  first, then runs this sequence — grouping the assertions per descriptor
+ *  would fire weapons assertions before a later file's row errors, changing
+ *  which error is reported first on multi-error inputs. Exported so the
+ *  focused test can pin every key to a catalog descriptor. */
+export const CATALOG_LEVEL_ASSERTIONS: ReadonlyArray<{
+  readonly key: string;
+  readonly assert: (rows: unknown) => void;
+}> = [
+  { key: 'weapons', assert: (rows) => assertUniqueIds('weapons.json', rows as WeaponDefinition[]) },
+  { key: 'upgrades', assert: (rows) => assertUniqueIds('upgrades.json', rows as UpgradeDefinition[]) },
+  { key: 'spawnCurves', assert: (rows) => assertUniqueIds('spawn-curves.json', rows as SpawnCurveDefinition[]) },
+  { key: 'weapons', assert: (rows) => assertWeaponTiers(rows as WeaponDefinition[]) },
+  { key: 'weapons', assert: (rows) => assertStarterWeapons(rows as WeaponDefinition[]) },
+  { key: 'spawnCurves', assert: (rows) => assertPlayableSpawnCurves(rows as SpawnCurveDefinition[]) },
 ];
+
+// Drift guard: every assertion key must name a descriptor. Throwing at module
+// load fails fast in CI when a descriptor's key is renamed and this list is
+// not updated, instead of silently asserting undefined at runtime (the
+// focused test pins the same invariant).
+for (const assertion of CATALOG_LEVEL_ASSERTIONS) {
+  if (!CATALOG_DESCRIPTORS.some((descriptor) => descriptor.key === assertion.key)) {
+    throw new Error(
+      `CATALOG_LEVEL_ASSERTIONS references unknown catalog key "${assertion.key}" — add a catalog descriptor or fix the key`,
+    );
+  }
+}
 
 function readAudioSubField(raw: Record<string, unknown>, field: 'assets' | 'map'): unknown {
   const audio = readOwnField(raw, 'audio');
@@ -237,29 +319,42 @@ export function collectValidationErrors(name: string, rows: unknown, check: RowC
   return errors;
 }
 
+/** Shipped-data aggregate assembled from the descriptor table: one root
+ *  field per descriptor, with the audio pair nested under 'audio'. Because
+ *  loadGameData and validateAllData share this single assembly, adding a
+ *  catalog is one descriptor entry and the shipped data cannot drift from
+ *  what the root phase accepts (Epic 11 §5.2). */
+function shippedGameData(): Record<string, unknown> {
+  const root: Record<string, unknown> = {};
+  const audio: Record<string, unknown> = {};
+  for (const descriptor of CATALOG_DESCRIPTORS) {
+    if ('subKey' in descriptor) {
+      audio[descriptor.subKey] = descriptor.data;
+    } else {
+      root[descriptor.rootKey] = descriptor.data;
+    }
+  }
+  return { ...root, audio };
+}
+
 export function loadGameData(): GameData {
-  return validateGameData({
-    weapons: weaponsJson,
-    enemies: enemiesJson,
-    upgrades: upgradesJson,
-    metaUpgrades: metaUpgradesJson,
-    spawnCurves: spawnCurvesJson,
-    characters: charactersJson,
-    arenas: arenasJson,
-    lootTables: lootTablesJson,
-    audio: {
-      assets: audioAssetsJson,
-      map: audioMapJson,
-    },
-  });
+  return validateGameData(shippedGameData());
 }
 
 export function validateGameData(raw: unknown): GameData {
   assertGameDataRoot(raw);
   const record = raw as Record<string, unknown>;
   const catalogs: Record<string, unknown> = {};
+  // Phase A: every catalog's row pipeline in descriptor order. Boot throws
+  // on the first failure, so later catalogs are never read (frozen).
   for (const descriptor of CATALOG_DESCRIPTORS) {
-    catalogs[descriptor.key] = descriptor.validateCatalog(descriptor.read(record));
+    catalogs[descriptor.key] = descriptor.validateRows(descriptor.read(record));
+  }
+  // Phase B: catalog-level assertions in the boot path's exact flat order.
+  // Boot validates every catalog's rows before any of these run (frozen
+  // first-error order, Epic 11 §5.3).
+  for (const { key, assert } of CATALOG_LEVEL_ASSERTIONS) {
+    assert(catalogs[key]);
   }
 
   const weapons = catalogs.weapons as WeaponDefinition[];
@@ -305,16 +400,40 @@ function assertGameDataRoot(raw: unknown): void {
     rootErrors.push('game-data.audio: expected object');
   } else {
     rejectUnknownFields(audioRaw, AUDIO_ROOT_FIELDS, rootErrors, 'game-data.audio');
-    for (const field of AUDIO_ROOT_FIELDS) {
-      if (!Object.hasOwn(audioRaw, field)) {
+    for (const descriptor of AUDIO_DESCRIPTORS) {
+      if (!Object.hasOwn(audioRaw, descriptor.subKey as string)) {
         // Audio sub-records map to their own files; report required-field
         // errors under the JSON name (Epic 10 §6.2 remapping).
-        rootErrors.push(`${AUDIO_ROOT_FIELD_FILE_NAMES[field as 'assets' | 'map']}: required field`);
+        rootErrors.push(`${descriptor.file}: required field`);
       }
     }
   }
   throwIfErrors(rootErrors);
 }
+
+/** Root-phase remap rules derived from the descriptor table: each
+ *  descriptor's aggregate path — `rootKey`, or `rootKey.subKey` for the
+ *  audio pair — maps to its JSON file name. Derived, so adding a catalog
+ *  descriptor automatically extends the remap: there is no second manual
+ *  registration point to forget (Epic 11 §5.1/§5.2). */
+const ROOT_REMAP_RULES: ReadonlyArray<readonly [aggregatePath: string, file: string]> =
+  CATALOG_DESCRIPTORS.map((descriptor) => [
+    'subKey' in descriptor ? `${descriptor.rootKey}.${descriptor.subKey}` : descriptor.rootKey,
+    descriptor.file,
+  ]);
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Dotted file-level lines from object-backed catalogs
+ *  (e.g. 'audio-assets.json.sfx: required array') attribute the dotted path
+ *  as the field. The file-name alternative is built from the descriptor
+ *  table (escaped), so adding a catalog extends the matcher and a colon or
+ *  dot inside a future file name cannot split the capture groups. */
+const DOTTED_FILE_PATTERN = new RegExp(
+  `^(${CATALOG_DESCRIPTORS.map((descriptor) => escapeRegExp(descriptor.file)).join('|')})\\.(.+): (.*)$`,
+);
 
 /** Maps an aggregate `game-data.` catalog path to its JSON file name.
  *  Boot messages are frozen (Epic 11 §5.3) and keep the prefix; the
@@ -327,20 +446,19 @@ function assertGameDataRoot(raw: unknown): void {
  *  name, so a future root field that prefix-extends a catalog (e.g.
  *  `game-data.weaponsV2`, which jsonSafetyErrors flags before
  *  rejectUnknownFields runs) stays in the root category instead of
- *  mis-remapping to `weapons.jsonV2`. Exported so the 10 patterns and
- *  their idempotency are pinned by focused unit tests. */
+ *  mis-remapping to `weapons.jsonV2`. Exported so the descriptor-derived
+ *  patterns and their idempotency are pinned by focused unit tests. */
 export function remapRootPhaseLine(line: string): string {
-  return line
-    .replace(/^game-data\.weapons(?=[:.\[])/, 'weapons.json')
-    .replace(/^game-data\.enemies(?=[:.\[])/, 'enemies.json')
-    .replace(/^game-data\.upgrades(?=[:.\[])/, 'upgrades.json')
-    .replace(/^game-data\.metaUpgrades(?=[:.\[])/, 'meta-upgrades.json')
-    .replace(/^game-data\.spawnCurves(?=[:.\[])/, 'spawn-curves.json')
-    .replace(/^game-data\.characters(?=[:.\[])/, 'characters.json')
-    .replace(/^game-data\.arenas(?=[:.\[])/, 'arenas.json')
-    .replace(/^game-data\.lootTables(?=[:.\[])/, 'loot-tables.json')
-    .replace(/^game-data\.audio\.assets(?=[:.\[])/, 'audio-assets.json')
-    .replace(/^game-data\.audio\.map(?=[:.\[])/, 'audio-map.json');
+  let remapped = line;
+  for (const [aggregatePath, file] of ROOT_REMAP_RULES) {
+    remapped = remapped.replace(
+      new RegExp(`^game-data\\.${escapeRegExp(aggregatePath)}(?=[:.\\[])`),
+      // Replacer function: file names are safe today, but a future `$`
+      // in a file name must not be interpreted as a substitution token.
+      () => file,
+    );
+  }
+  return remapped;
 }
 
 /** Applies remapRootPhaseLine to every line of a thrown root-phase message
@@ -354,29 +472,17 @@ function remapRootPhaseMessage(message: string): string {
 }
 
 /** Aggregate, non-throwing validation of the shipped catalogs (Epic 11 §5.1).
- *  Runs the exact boot pipeline — root shape, per-file pipelines in
- *  descriptor order, then the five cross-references — and returns structured
- *  issues instead of throwing. */
+ *  Runs the exact boot pipeline — root shape, per-file row phase in
+ *  descriptor order, the catalog-level assertion phase in boot order, then
+ *  the five cross-references — and returns structured issues instead of
+ *  throwing. */
 export function validateAllData(): ValidationIssue[] {
-  return collectGameDataErrors({
-    weapons: weaponsJson,
-    enemies: enemiesJson,
-    upgrades: upgradesJson,
-    metaUpgrades: metaUpgradesJson,
-    spawnCurves: spawnCurvesJson,
-    characters: charactersJson,
-    arenas: arenasJson,
-    lootTables: lootTablesJson,
-    audio: {
-      assets: audioAssetsJson,
-      map: audioMapJson,
-    },
-  });
+  return collectGameDataErrors(shippedGameData());
 }
 
 /** Injectable core behind validateAllData (Epic 11 §5.4). Never throws.
  *  A bad file reports its issues and does not abort later files; the
- *  cross-reference phase runs only when every per-file phase was clean. */
+ *  cross-reference phase runs only when every earlier phase was clean. */
 export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
   try {
     assertGameDataRoot(raw);
@@ -394,12 +500,22 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
   const perFileIssues: ValidationIssue[] = [];
   for (const descriptor of CATALOG_DESCRIPTORS) {
     try {
-      catalogs[descriptor.key] = descriptor.validateCatalog(descriptor.read(record));
+      catalogs[descriptor.key] = descriptor.validateRows(descriptor.read(record));
     } catch (error) {
       perFileIssues.push(...mapValidationErrorLines(error));
     }
   }
   if (perFileIssues.length > 0) return perFileIssues;
+
+  const catalogIssues: ValidationIssue[] = [];
+  for (const { key, assert } of CATALOG_LEVEL_ASSERTIONS) {
+    try {
+      assert(catalogs[key]);
+    } catch (error) {
+      catalogIssues.push(...mapValidationErrorLines(error));
+    }
+  }
+  if (catalogIssues.length > 0) return catalogIssues;
 
   const weapons = catalogs.weapons as WeaponDefinition[];
   const enemies = catalogs.enemies as EnemyDefinition[];
@@ -454,35 +570,19 @@ function mapLineToIssue(line: string): ValidationIssue {
   if (row) {
     return { file: row[1], index: Number(row[2]), field: '', message: row[3] };
   }
+  // Object-backed catalogs emit dotted file-level errors without a row index
+  // (e.g. 'audio-assets.json.sfx: required array'); attribute the dotted
+  // path as the field instead of swallowing it into the file name (the
+  // file-name alternative is built from the descriptor table, §5.4).
+  const fileField = DOTTED_FILE_PATTERN.exec(line);
+  if (fileField) {
+    return { file: fileField[1], index: -1, field: fileField[2], message: fileField[3] };
+  }
   const fileLevel = /^([^:]+): (.*)$/.exec(line);
   if (fileLevel) {
     return { file: fileLevel[1], index: -1, field: '', message: fileLevel[2] };
   }
   return { file: '(unknown)', index: -1, field: '', message: line };
-}
-
-export function validateWeaponCatalog(raw: unknown): WeaponDefinition[] {
-  throwIfErrors(jsonSafetyErrors(raw, 'weapons.json'));
-  const weapons = validate<WeaponDefinition>('weapons.json', raw, checkWeapon);
-  assertUniqueIds('weapons.json', weapons);
-  assertWeaponTiers(weapons);
-  assertStarterWeapons(weapons);
-  return weapons;
-}
-
-export function validateUpgradeCatalog(raw: unknown): UpgradeDefinition[] {
-  throwIfErrors(jsonSafetyErrors(raw, 'upgrades.json'));
-  const upgrades = validate<UpgradeDefinition>('upgrades.json', raw, checkUpgrade);
-  assertUniqueIds('upgrades.json', upgrades);
-  return upgrades;
-}
-
-export function validateSpawnCurveCatalog(raw: unknown): SpawnCurveDefinition[] {
-  throwIfErrors(jsonSafetyErrors(raw, 'spawn-curves.json'));
-  const spawnCurves = validate<SpawnCurveDefinition>('spawn-curves.json', raw, checkSpawnCurveShape);
-  assertUniqueIds('spawn-curves.json', spawnCurves);
-  assertPlayableSpawnCurves(spawnCurves);
-  return spawnCurves;
 }
 
 export function validateMetaUpgradeCatalog(raw: unknown): MetaUpgradeDefinition[] {

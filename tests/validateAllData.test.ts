@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import {
   CATALOG_DESCRIPTORS,
+  CATALOG_LEVEL_ASSERTIONS,
   collectGameDataErrors,
   loadGameData,
   mapValidationErrorLines,
@@ -9,6 +10,7 @@ import {
   validateGameData,
   type ValidationIssue,
 } from '../src/systems/validation';
+import type { WeaponDefinition } from '../src/systems/types';
 
 function mutableData(): Record<string, any> {
   return structuredClone(loadGameData()) as unknown as Record<string, any>;
@@ -122,6 +124,53 @@ describe('validateAllData', () => {
         message: 'unknown enemyId "missing-enemy"',
       },
     ]);
+  });
+
+  it('reports a later file row error before any catalog-level assertion', () => {
+    // Phase order (Epic 11 §5.3): every per-file row pipeline runs before
+    // the catalog-level assertion phase, so a spawn-curves row error must
+    // be the only report even when the weapons catalog would fail
+    // assertWeaponTiers (mergeTier 99 passes the row checks).
+    const data = mutableData();
+    data.weapons[0].mergeTier = 99;
+    data.spawnCurves[0].waves[0].maxAlive = 0;
+
+    expect(collectGameDataErrors(data)).toEqual([
+      {
+        file: 'spawn-curves.json',
+        index: 0,
+        field: 'waves[0].maxAlive',
+        message: 'required integer from 1 through 256',
+      },
+    ]);
+  });
+
+  it('attributes dotted object-backed file errors to their field', () => {
+    const data = mutableData();
+    data.audio.assets.sfx = 'not-an-array';
+
+    expect(collectGameDataErrors(data)).toEqual([
+      { file: 'audio-assets.json', index: -1, field: 'sfx', message: 'required array' },
+    ]);
+  });
+
+  it('keys every catalog-level assertion to a catalog descriptor', () => {
+    // Drift guard pin: a descriptor key rename must not silently leave a
+    // CATALOG_LEVEL_ASSERTIONS entry asserting undefined rows (Epic 11 §5.3).
+    const descriptorKeys = new Set<string>(CATALOG_DESCRIPTORS.map((descriptor) => descriptor.key));
+    for (const assertion of CATALOG_LEVEL_ASSERTIONS) {
+      expect(descriptorKeys.has(assertion.key)).toBe(true);
+    }
+  });
+
+  it('types the weapons row pipeline to WeaponDefinition[] at compile time', () => {
+    // CATALOG_DESCRIPTORS is declared `as const`, so index access keeps the
+    // per-descriptor validateRows return type (position [0] = weapons is
+    // pinned by the ordering test above). If the inlined lambda's return
+    // annotation drifts from the catalog row type, this file fails to
+    // compile (Epic 11 review, Finding 4).
+    expectTypeOf(CATALOG_DESCRIPTORS[0].validateRows).returns.toEqualTypeOf<WeaponDefinition[]>();
+    expect(CATALOG_DESCRIPTORS[0].file).toBe('weapons.json');
   });
 
   it('masks per-file phases when the root shape fails', () => {
@@ -241,6 +290,19 @@ describe('remapRootPhaseLine', () => {
   it('remaps every catalog-root line to its JSON file name', () => {
     for (const [input, expected] of catalogLines) {
       expect(remapRootPhaseLine(input)).toBe(expected);
+    }
+  });
+
+  it('derives a remap rule from every catalog descriptor', () => {
+    // Adding a catalog must not leave the root-phase remap stale: each
+    // descriptor's aggregate path (rootKey, or rootKey.subKey for the audio
+    // pair) has to remap to its JSON file name (Epic 11 §5.1/§5.2).
+    for (const descriptor of CATALOG_DESCRIPTORS) {
+      const aggregatePath = 'subKey' in descriptor
+        ? `${descriptor.rootKey}.${descriptor.subKey}`
+        : descriptor.rootKey;
+      expect(remapRootPhaseLine(`game-data.${aggregatePath}: required field`))
+        .toBe(`${descriptor.file}: required field`);
     }
   });
 
