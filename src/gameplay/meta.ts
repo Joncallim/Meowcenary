@@ -4,6 +4,7 @@ import type { MetaUpgradeDefinition } from '../systems/types';
 import type { MetaState } from '../systems/save';
 import type { MetaUpgradeLookup } from '../systems/metaUpgrades';
 import { isUnlockId } from '../systems/ids';
+import { growth } from './curves';
 
 export type PurchaseFailureReason = 'unknown-upgrade' | 'insufficient-scrap' | 'max-level';
 export type PurchaseCheck =
@@ -18,7 +19,7 @@ export type UnlockRule = { readonly type: 'default' } |
 
 export function costOf(definition: Readonly<MetaUpgradeDefinition>, currentLevel: number): number | null {
   if (!Number.isSafeInteger(currentLevel) || currentLevel < 0 || currentLevel >= definition.maxLevel) return null;
-  const cost = Math.round(definition.cost.base * definition.cost.growth ** currentLevel);
+  const cost = Math.round(growth(definition.cost.base, definition.cost.growth, currentLevel));
   return Number.isSafeInteger(cost) && cost > 0 ? cost : null;
 }
 
