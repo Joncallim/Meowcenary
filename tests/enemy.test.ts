@@ -304,6 +304,15 @@ describe('Enemy', () => {
     expect(enemy.stateTimerMs).toBe(0);
     expect(enemy.active).toBe(false);
     expect(damaged).toHaveBeenCalledTimes(2);
+    // Overkill is reported as the health actually removed — the 99-damage
+    // hit on 6 remaining health emits amount: 6, never more than the
+    // pre-hit health (Epic 11 §7).
+    expect(damaged).toHaveBeenLastCalledWith({
+      instanceId: enemy.instanceId,
+      amount: 6,
+      x: 10,
+      y: 20,
+    });
     expect(enemy.takeDamage(1)).toBe(false);
     expect(damaged).toHaveBeenCalledTimes(2);
     expect(killed).not.toHaveBeenCalled();

@@ -52,6 +52,20 @@ describe('scaleEnemy', () => {
     expect(dustMite).toEqual(before);
   });
 
+  it('is output-identical to the inline linear formula across a time sweep (Epic 11 reroute pin)', () => {
+    const dustMite = registry.resolvedById('dust-mite');
+    if (!dustMite) throw new Error('missing dust-mite');
+    for (const minutes of [0, 0.5, 1, 2.5, 5, 10, 20, 30]) {
+      const scheduledAtMs = minutes * 60_000;
+      const scaled = scaleEnemy(dustMite, scheduledAtMs, scaling);
+      expect(scaled.maxHealth).toBe(dustMite.health * (1 + scaling.healthPerMinute * minutes));
+      expect(scaled.damage).toBe(dustMite.damage * (1 + scaling.damagePerMinute * minutes));
+      expect(scaled.speed).toBe(dustMite.speed);
+      expect(scaled.xpValue).toBe(dustMite.xpValue);
+      expect(scaled.scrapValue).toBe(dustMite.scrapValue);
+    }
+  });
+
   it('throws for non-finite input or result', () => {
     const dustMite = registry.resolvedById('dust-mite');
     if (!dustMite) throw new Error('missing dust-mite');

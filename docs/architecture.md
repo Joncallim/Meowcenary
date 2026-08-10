@@ -78,6 +78,7 @@ Epic-specific data contracts:
 - [Epic 8: loot and economy](architecture/epic-8-loot-and-economy.md)
 - [Epic 9: UI and UX](architecture/epic-9-ui-and-ux.md)
 - [Epic 10: audio](architecture/epic-10-audio.md)
+- [Epic 11: balancing and developer tooling](architecture/epic-11-balancing-and-developer-tooling.md)
 
 The Epic 5 document is the implementation source of truth for save V2,
 permanent modifier ordering, finished-run banking, and the Epics 6/8/9
@@ -106,6 +107,12 @@ cooldown gate, the `settings:changed` live-settings seam, additive `ui:*`
 sound events, the autoplay unlock policy, and the placeholder asset pipeline.
 It supersedes issue #11 where that issue predates the current audio shell,
 settings, and menu seams.
+The Epic 11 document is the implementation source of truth for aggregate data
+validation and the descriptor-driven validator wiring, the shared curve
+helpers, the development-gated cheat flags, the debug-overlay run metrics,
+and the local playtest summary. It supersedes issue #12 where that issue
+predates the live validation, linear enemy-scaling, spawn-director, and debug
+seams.
 
 ## AI Handoff Pattern
 
