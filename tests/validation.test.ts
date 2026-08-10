@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Enemy as RuntimeEnemy } from '../src/entities/Enemy';
 import { STAT_KEYS, type StatKey } from '../src/gameplay/stats';
+import { RuntimeConfig } from '../src/engine/config';
 import type { EnemyDefinition, GameData } from '../src/systems/types';
 import {
   collectValidationErrors,
@@ -77,6 +78,41 @@ function withFirstUpgradeEffects(effects: unknown): ReturnType<typeof loadGameDa
   const data = structuredClone(loadGameData());
   (data.upgrades[0] as unknown as { effects: unknown }).effects = effects;
   return data;
+}
+
+/** validateGameData output normalizes audio.map from the file wrapper
+ *  ({ events: [...] }) to the AudioMapEntry[] contract; these helpers rebuild
+ *  the raw input shape for clone-valid → mutate → assert-throws recipes. */
+function audioInputShape(audio: { assets: unknown; map: readonly Record<string, unknown>[] }): Record<string, unknown> {
+  return { assets: audio.assets, map: { events: [...audio.map] } };
+}
+
+function withAudioAssets(assets: unknown): unknown {
+  const data = structuredClone(loadGameData()) as unknown as {
+    audio: { assets: unknown; map: readonly Record<string, unknown>[] };
+  };
+  return { ...data, audio: audioInputShape({ assets, map: data.audio.map }) };
+}
+
+function withAudioMap(map: unknown): unknown {
+  const data = structuredClone(loadGameData()) as unknown as {
+    audio: { assets: unknown; map: readonly Record<string, unknown>[] };
+  };
+  return { ...data, audio: audioInputShape({ assets: data.audio.assets, map: map as readonly Record<string, unknown>[] }) };
+}
+
+type MutableAudio = {
+  audio: {
+    assets: { sfx: Array<Record<string, unknown>>; music: Array<Record<string, unknown>> };
+    map: { events: Array<Record<string, unknown>> };
+  };
+};
+
+function mutableAudio(): MutableAudio {
+  const data = structuredClone(loadGameData()) as unknown as {
+    audio: { assets: unknown; map: readonly Record<string, unknown>[] };
+  };
+  return { ...data, audio: audioInputShape(data.audio) } as unknown as MutableAudio;
 }
 
 describe('game data validation', () => {
@@ -1205,6 +1241,170 @@ describe('game data validation', () => {
       const data = structuredClone(loadGameData()) as unknown as { enemies: Record<string, unknown>[] };
       data.enemies[0].lootTableId = 'chest-standard';
       expect(() => validateGameData(data)).not.toThrow();
+    });
+  });
+
+  describe('audio data validation', () => {
+    it('validates the boot audio catalog and map', () => {
+      const data = loadGameData();
+      expect(data.audio.assets.sfx).toHaveLength(12);
+      expect(data.audio.assets.music).toHaveLength(2);
+      expect(data.audio.map).toHaveLength(12);
+      expect(data.audio.assets.music.map((m) => m.key)).toEqual(
+        expect.arrayContaining(['music-menu', 'music-run']),
+      );
+      expect(() => validateGameData(data)).not.toThrow();
+    });
+
+    it('pins player:damaged cooldown to the invulnerability window', () => {
+      const entry = loadGameData().audio.map.find((e) => e.event === 'player:damaged');
+      expect(entry?.cooldownMs).toBe(RuntimeConfig.gameplay.player.invulnerabilityMs);
+    });
+
+    it('rejects an unknown event key', () => {
+      const data = mutableAudio();
+      data.audio.map.events[0].event = 'bogus:event';
+      expect(() => validateGameData(data)).toThrow(/audio-map\.json\[0\]\.event/);
+    });
+
+    it('rejects a settings:changed entry (manager-owned)', () => {
+      const data = mutableAudio();
+      data.audio.map.events[0].event = 'settings:changed';
+      expect(() => validateGameData(data)).toThrow(/manager-owned/);
+    });
+
+    it('rejects unknown fields in the catalog and map records', () => {
+      const data = mutableAudio();
+      data.audio.assets.sfx[0].surprise = true;
+      expect(() => validateGameData(data)).toThrow(/audio-assets\.json\[0\]\.surprise: unknown field/);
+
+      const data2 = mutableAudio();
+      data2.audio.map.events[0].surprise = true;
+      expect(() => validateGameData(data2)).toThrow(/audio-map\.json\[0\]\.surprise: unknown field/);
+
+      const data3 = mutableAudio();
+      (data3.audio as unknown as Record<string, unknown>).surprise = true;
+      expect(() => validateGameData(data3)).toThrow(/game-data\.audio\.surprise: unknown field/);
+
+      const data4 = mutableAudio();
+      (data4.audio.map as unknown as Record<string, unknown>).surprise = true;
+      expect(() => validateGameData(data4)).toThrow(/audio-map\.json\.surprise: unknown field/);
+    });
+
+    it('rejects a map entry without any action', () => {
+      const data = mutableAudio();
+      delete data.audio.map.events[0].sfxKey;
+      expect(() => validateGameData(data)).toThrow(/sfxKey or stopMusic/);
+    });
+
+    it('rejects musicFadeMs without stopMusic', () => {
+      const data = mutableAudio();
+      data.audio.map.events[0].musicFadeMs = 600;
+      expect(() => validateGameData(data)).toThrow(/musicFadeMs: requires stopMusic: true/);
+    });
+
+    it('rejects non-positive and out-of-range numbers', () => {
+      const zeroCooldown = mutableAudio();
+      zeroCooldown.audio.map.events[0].cooldownMs = 0;
+      expect(() => validateGameData(zeroCooldown)).toThrow(/cooldownMs/);
+
+      const hugeCooldown = mutableAudio();
+      hugeCooldown.audio.map.events[0].cooldownMs = 60_001;
+      expect(() => validateGameData(hugeCooldown)).toThrow(/cooldownMs/);
+
+      const zeroFade = mutableAudio();
+      zeroFade.audio.map.events[0].stopMusic = true;
+      zeroFade.audio.map.events[0].musicFadeMs = 0;
+      expect(() => validateGameData(zeroFade)).toThrow(/musicFadeMs/);
+    });
+
+    it('rejects a duplicate event', () => {
+      const data = mutableAudio();
+      data.audio.map.events[1].event = 'weapon:fired';
+      expect(() => validateGameData(data)).toThrow(/duplicate event "weapon:fired"/);
+    });
+
+    it('rejects a duplicate sfxKey', () => {
+      const data = mutableAudio();
+      data.audio.map.events[1].sfxKey = 'sfx-weapon-fired';
+      expect(() => validateGameData(data)).toThrow(/duplicate sfxKey "sfx-weapon-fired"/);
+    });
+
+    it('rejects an sfxKey missing from audio-assets.json (cross-ref)', () => {
+      const data = mutableAudio();
+      data.audio.map.events[0].sfxKey = 'sfx-does-not-exist';
+      expect(() => validateGameData(data)).toThrow(/unknown sfx key "sfx-does-not-exist"/);
+    });
+
+    it('rejects a url that violates the assets/audio/<key>.wav convention', () => {
+      const data = mutableAudio();
+      data.audio.assets.sfx[0].url = 'assets/audio/sfx-wrong.wav';
+      expect(() => validateGameData(data)).toThrow(/url: must equal "assets\/audio\/<key>\.wav"/);
+    });
+
+    it('rejects a key with the wrong prefix', () => {
+      const musicMisplaced = mutableAudio();
+      musicMisplaced.audio.assets.music[0] = {
+        key: 'sfx-menu',
+        url: 'assets/audio/sfx-menu.wav',
+      };
+      expect(() => validateGameData(musicMisplaced)).toThrow(/prefixed "music-"/);
+
+      const sfxMisplaced = mutableAudio();
+      sfxMisplaced.audio.assets.sfx[0] = {
+        key: 'music-run',
+        url: 'assets/audio/music-run.wav',
+      };
+      expect(() => validateGameData(sfxMisplaced)).toThrow(/prefixed "sfx-"/);
+    });
+
+    it('rejects a missing required music key', () => {
+      const noMenu = mutableAudio();
+      noMenu.audio.assets.music = noMenu.audio.assets.music.filter((m) => m.key !== 'music-menu');
+      expect(() => validateGameData(noMenu)).toThrow(/missing required music key "music-menu"/);
+
+      const noRun = mutableAudio();
+      noRun.audio.assets.music = noRun.audio.assets.music.filter((m) => m.key !== 'music-run');
+      expect(() => validateGameData(noRun)).toThrow(/missing required music key "music-run"/);
+    });
+
+    it('rejects a missing or malformed audio root', () => {
+      const missingAssets = mutableAudio();
+      delete (missingAssets.audio as unknown as Record<string, unknown>).assets;
+      expect(() => validateGameData(missingAssets)).toThrow(/audio-assets\.json: required field/);
+
+      const missingMap = mutableAudio();
+      delete (missingMap.audio as unknown as Record<string, unknown>).map;
+      expect(() => validateGameData(missingMap)).toThrow(/audio-map\.json: required field/);
+
+      const missingAudio = structuredClone(loadGameData()) as unknown as Record<string, unknown>;
+      delete missingAudio.audio;
+      expect(() => validateGameData(missingAudio)).toThrow(/game-data\.audio: required field/);
+
+      const emptyWrapper = mutableAudio();
+      (emptyWrapper.audio as unknown as Record<string, unknown>).map = {};
+      expect(() => validateGameData(emptyWrapper)).toThrow(/audio-map\.json\.events: required field/);
+    });
+
+    it('rejects too many sfx entries', () => {
+      const tooMany = Array.from({ length: 65 }, (_, index) => ({
+        key: `sfx-bulk-${index}`,
+        url: `assets/audio/sfx-bulk-${index}.wav`,
+      }));
+      expect(() => validateGameData(withAudioAssets({
+        sfx: tooMany,
+        music: loadGameData().audio.assets.music,
+      }))).toThrow(/too many entries \(max 64\)/);
+    });
+
+    it('rejects too many map entries', () => {
+      const tooMany = Array.from({ length: 65 }, () => ({
+        event: 'ui:confirm',
+        sfxKey: 'sfx-ui-confirm',
+      }));
+      expect(() => validateGameData(withAudioMap(tooMany))).toThrow(
+        /audio-map\.json\.events: too many entries \(max 64\)/,
+      );
     });
   });
 });

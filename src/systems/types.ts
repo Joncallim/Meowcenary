@@ -1,6 +1,7 @@
 import type { StatKey } from '../gameplay/stats';
 import type { UnlockRule } from '../gameplay/meta';
 import type { PlayerBaseStats } from '../gameplay/runStart';
+import type { GameEventKey } from '../engine/eventBus';
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 
@@ -172,6 +173,35 @@ export interface LootTable {
   readonly entries: readonly LootEntry[];
 }
 
+export interface AudioSfxAsset {
+  readonly key: string;
+  readonly url: string;
+}
+
+export interface AudioMusicAsset {
+  readonly key: string;
+  readonly url: string;
+}
+
+export interface AudioAssetCatalog {
+  readonly sfx: readonly AudioSfxAsset[];
+  readonly music: readonly AudioMusicAsset[];
+}
+
+/** One event → audio action row in audio-map.json (Epic 10 §6.2). */
+export interface AudioMapEntry {
+  readonly event: GameEventKey;
+  readonly sfxKey?: string;
+  readonly cooldownMs?: number;
+  readonly stopMusic?: boolean;
+  readonly musicFadeMs?: number;
+}
+
+export interface AudioData {
+  readonly assets: AudioAssetCatalog;
+  readonly map: readonly AudioMapEntry[];
+}
+
 export interface SpawnWaveDefinition {
   startSecond: number;
   enemyId: string;
@@ -278,4 +308,5 @@ export interface GameData {
   characters: CharacterDefinition[];
   arenas: ArenaDefinition[];
   lootTables: LootTable[];
+  readonly audio: AudioData;
 }

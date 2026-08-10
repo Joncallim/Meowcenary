@@ -6,10 +6,19 @@ import upgradesJson from '../data/upgrades.json';
 import weaponsJson from '../data/weapons.json';
 import arenasJson from '../data/arenas.json';
 import lootTablesJson from '../data/loot-tables.json';
+import audioAssetsJson from '../data/audio-assets.json';
+import audioMapJson from '../data/audio-map.json';
 import { STAT_KEYS } from '../gameplay/stats';
 import { DEFAULT_WEAPON_FAMILIES } from '../gameplay/weapons';
+import { GAME_EVENT_KEYS } from '../engine/eventBus';
+import { RuntimeConfig } from '../engine/config';
 import type {
   ArenaDefinition,
+  AudioAssetCatalog,
+  AudioData,
+  AudioMapEntry,
+  AudioMusicAsset,
+  AudioSfxAsset,
   CharacterDefinition,
   EnemyDefinition,
   EnemyArchetype,
@@ -61,7 +70,12 @@ const RANGED_ATTACK_FIELDS = new Set(['range', 'telegraphMs', 'cooldownMs']);
 const CURVE_FIELDS = new Set(['id', 'durationSeconds', 'scaling', 'waves']);
 const SCALING_FIELDS = new Set(['healthPerMinute', 'damagePerMinute']);
 const WAVE_FIELDS = new Set(['startSecond', 'enemyId', 'spawnEveryMs', 'maxAlive']);
-const ROOT_FIELDS = new Set(['weapons', 'enemies', 'upgrades', 'metaUpgrades', 'spawnCurves', 'characters', 'arenas', 'lootTables']);
+const ROOT_FIELDS = new Set(['weapons', 'enemies', 'upgrades', 'metaUpgrades', 'spawnCurves', 'characters', 'arenas', 'lootTables', 'audio']);
+const AUDIO_ROOT_FIELDS = new Set(['assets', 'map']);
+const AUDIO_ROOT_FIELD_FILE_NAMES: Record<'assets' | 'map', string> = {
+  assets: 'audio-assets.json',
+  map: 'audio-map.json',
+};
 const CHARACTER_FIELDS = new Set([
   'id', 'name', 'description', 'baseStats', 'startingWeaponIds', 'passives',
   'unlock', 'cosmeticSkinIds',
@@ -81,6 +95,16 @@ const LOOT_FIELDS = new Set(['id', 'entries']);
 const LOOT_ENTRY_FIELDS = new Set(['kind', 'amount', 'weight', 'tableId']);
 const MAX_LOOT_TABLES = 64;
 const MAX_LOOT_ENTRIES = 32;
+const AUDIO_ASSET_CATALOG_FIELDS = new Set(['sfx', 'music']);
+const AUDIO_ASSET_ENTRY_FIELDS = new Set(['key', 'url']);
+const AUDIO_MAP_FIELDS = new Set(['events']);
+const AUDIO_MAP_ENTRY_FIELDS = new Set(['event', 'sfxKey', 'cooldownMs', 'stopMusic', 'musicFadeMs']);
+const AUDIO_EVENT_KEY_SET = new Set<string>(GAME_EVENT_KEYS);
+const MAX_AUDIO_SFX = 64;
+const MAX_AUDIO_MUSIC = 8;
+const MAX_AUDIO_MAP_ENTRIES = 64;
+const MAX_AUDIO_COOLDOWN_MS = 60_000;
+const MAX_AUDIO_FADE_MS = 10_000;
 // Catalog-count ceilings. The spawn-witness search (findRectWitness/findRingWitness)
 // partitions the arena at obstacle edges — cost grows super-linearly with the
 // obstacle count — so an unbounded catalog could make boot-time validation hang.
@@ -129,6 +153,10 @@ export function loadGameData(): GameData {
     characters: charactersJson,
     arenas: arenasJson,
     lootTables: lootTablesJson,
+    audio: {
+      assets: audioAssetsJson,
+      map: audioMapJson,
+    },
   });
 }
 
@@ -142,7 +170,9 @@ export function validateGameData(raw: unknown): GameData {
       .replace(/^game-data\.spawnCurves/, 'spawn-curves.json')
       .replace(/^game-data\.characters/, 'characters.json')
       .replace(/^game-data\.arenas/, 'arenas.json')
-      .replace(/^game-data\.lootTables/, 'loot-tables.json'),
+      .replace(/^game-data\.lootTables/, 'loot-tables.json')
+      .replace(/^game-data\.audio\.assets/, 'audio-assets.json')
+      .replace(/^game-data\.audio\.map/, 'audio-map.json'),
   );
   if (!isRecord(raw)) {
     rootErrors.push('game-data: expected object');
@@ -152,6 +182,19 @@ export function validateGameData(raw: unknown): GameData {
   for (const field of ROOT_FIELDS) {
     if (!Object.hasOwn(raw, field)) {
       rootErrors.push(`game-data.${field}: required field`);
+    }
+  }
+  const audioRaw = readOwnField(raw, 'audio');
+  if (!isRecord(audioRaw)) {
+    rootErrors.push('game-data.audio: expected object');
+  } else {
+    rejectUnknownFields(audioRaw, AUDIO_ROOT_FIELDS, rootErrors, 'game-data.audio');
+    for (const field of AUDIO_ROOT_FIELDS) {
+      if (!Object.hasOwn(audioRaw, field)) {
+        // Audio sub-records map to their own files; report required-field
+        // errors under the JSON name (Epic 10 §6.2 remapping).
+        rootErrors.push(`${AUDIO_ROOT_FIELD_FILE_NAMES[field as 'assets' | 'map']}: required field`);
+      }
     }
   }
   throwIfErrors(rootErrors);
@@ -168,6 +211,14 @@ export function validateGameData(raw: unknown): GameData {
   const characters = validateCharacterCatalog(readOwnField(raw, 'characters'));
   const arenas = validateArenaCatalog(readOwnField(raw, 'arenas'));
   const lootTables = validateLootTableCatalog(readOwnField(raw, 'lootTables'));
+  const audioAssets = validateAudioAssets(isRecord(audioRaw) ? readOwnField(audioRaw, 'assets') : undefined);
+  const audioMapRaw = isRecord(audioRaw) ? readOwnField(audioRaw, 'map') : undefined;
+  // validateGameData output normalizes audio.map to AudioMapEntry[]; accept
+  // that shape (clone-valid → mutate → re-validate round-trip) as well as the
+  // { events: [...] } file wrapper (Epic 10 §6.2).
+  const audioMap = Array.isArray(audioMapRaw)
+    ? validateNormalizedAudioMap(audioMapRaw)
+    : validateAudioMapCatalog(audioMapRaw);
 
   assertUniqueIds('weapons.json', weapons);
   assertUniqueIds('upgrades.json', upgrades);
@@ -179,8 +230,10 @@ export function validateGameData(raw: unknown): GameData {
   assertCharacterWeaponReferences(characters, weapons);
   assertArenaSpawnCurveReferences(arenas, spawnCurves);
   assertEnemyLootTableReferences(enemies, lootTables);
+  assertAudioMapReferences(audioMap, audioAssets);
 
-  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables };
+  const audio: AudioData = { assets: audioAssets, map: audioMap };
+  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, audio };
 }
 
 export function validateMetaUpgradeCatalog(raw: unknown): MetaUpgradeDefinition[] {
@@ -227,6 +280,69 @@ export function validateLootTableCatalog(raw: unknown): LootTable[] {
   assertUniqueIds('loot-tables.json', tables);
   assertChestTargetsChestSafe(tables);
   return tables;
+}
+
+export function validateAudioAssets(raw: unknown): AudioAssetCatalog {
+  throwIfErrors(jsonSafetyErrors(raw, 'audio-assets.json'));
+  if (!isRecord(raw)) {
+    throw new Error('Invalid game data:\naudio-assets.json: expected object');
+  }
+  const errors: string[] = [];
+  rejectUnknownFields(raw, AUDIO_ASSET_CATALOG_FIELDS, errors, 'audio-assets.json');
+  for (const field of AUDIO_ASSET_CATALOG_FIELDS) {
+    if (!Object.hasOwn(raw, field)) errors.push(`audio-assets.json.${field}: required field`);
+  }
+  const sfx = readOwnField(raw, 'sfx');
+  const music = readOwnField(raw, 'music');
+  if (!Array.isArray(sfx)) {
+    errors.push('audio-assets.json.sfx: required array');
+  } else if (sfx.length > MAX_AUDIO_SFX) {
+    errors.push(`audio-assets.json.sfx: too many entries (max ${MAX_AUDIO_SFX})`);
+  }
+  if (!Array.isArray(music)) {
+    errors.push('audio-assets.json.music: required array');
+  } else if (music.length > MAX_AUDIO_MUSIC) {
+    errors.push(`audio-assets.json.music: too many entries (max ${MAX_AUDIO_MUSIC})`);
+  }
+  throwIfErrors(errors);
+
+  const sfxList = validate<AudioSfxAsset>('audio-assets.json', sfx, (row) => checkAudioAsset(row, 'sfx-'));
+  const musicList = validate<AudioMusicAsset>('audio-assets.json', music, (row) => checkAudioAsset(row, 'music-'));
+  assertAudioAssetUniqueness(sfxList, musicList);
+  assertAudioDefaults({ sfx: sfxList, music: musicList });
+  return { sfx: sfxList, music: musicList };
+}
+
+export function validateAudioMapCatalog(raw: unknown): AudioMapEntry[] {
+  throwIfErrors(jsonSafetyErrors(raw, 'audio-map.json'));
+  if (!isRecord(raw)) {
+    throw new Error('Invalid game data:\naudio-map.json: expected object');
+  }
+  const errors: string[] = [];
+  rejectUnknownFields(raw, AUDIO_MAP_FIELDS, errors, 'audio-map.json');
+  if (!Object.hasOwn(raw, 'events')) errors.push('audio-map.json.events: required field');
+  const eventsRaw = readOwnField(raw, 'events');
+  if (!Array.isArray(eventsRaw)) {
+    errors.push('audio-map.json.events: required array');
+  } else if (eventsRaw.length > MAX_AUDIO_MAP_ENTRIES) {
+    errors.push(`audio-map.json.events: too many entries (max ${MAX_AUDIO_MAP_ENTRIES})`);
+  }
+  throwIfErrors(errors);
+
+  const map = validate<AudioMapEntry>('audio-map.json', eventsRaw, checkAudioMapEntry);
+  assertAudioMapUniqueness(map);
+  assertPlayerDamagedCadence(map);
+  return map;
+}
+
+/** Round-trip path for already-normalized data (audio.map is AudioMapEntry[]):
+ *  same entry-level rules, uniqueness, and cadence pin as the file wrapper
+ *  path, minus the { events } root-record checks. */
+function validateNormalizedAudioMap(raw: unknown): AudioMapEntry[] {
+  const map = validate<AudioMapEntry>('audio-map.json', raw, checkAudioMapEntry);
+  assertAudioMapUniqueness(map);
+  assertPlayerDamagedCadence(map);
+  return map;
 }
 
 function checkUnlockRule(unlock: Record<string, unknown>, errors: string[]): void {
@@ -580,6 +696,75 @@ function checkArena(row: unknown): string[] {
         }
       }
     }
+  }
+
+  return errors;
+}
+
+function checkAudioAsset(row: unknown, requiredPrefix: string): string[] {
+  const errors = requireRecord(row);
+  if (!isRecord(row)) return errors;
+  rejectUnknownFields(row, AUDIO_ASSET_ENTRY_FIELDS, errors);
+  requireString(row, 'key', errors);
+  const key = readOwnField(row, 'key');
+  if (typeof key === 'string') {
+    if (!key.startsWith(requiredPrefix) || !isContentId(key)) {
+      errors.push(`key: must be a content id prefixed "${requiredPrefix}"`);
+    } else if (readOwnField(row, 'url') !== `assets/audio/${key}.wav`) {
+      errors.push('url: must equal "assets/audio/<key>.wav"');
+    }
+  }
+  requireString(row, 'url', errors);
+  return errors;
+}
+
+function checkAudioMapEntry(row: unknown): string[] {
+  const errors = requireRecord(row);
+  if (!isRecord(row)) return errors;
+  rejectUnknownFields(row, AUDIO_MAP_ENTRY_FIELDS, errors);
+
+  const event = readOwnField(row, 'event');
+  requireString(row, 'event', errors);
+  if (typeof event === 'string') {
+    if (!AUDIO_EVENT_KEY_SET.has(event)) {
+      errors.push('event: unknown event key');
+    } else if (event === 'settings:changed') {
+      errors.push('event: "settings:changed" is manager-owned and cannot be mapped');
+    }
+  }
+
+  const sfxKey = readOwnField(row, 'sfxKey');
+  if (sfxKey !== undefined) {
+    if (typeof sfxKey !== 'string' || sfxKey.length === 0 || sfxKey.trim() !== sfxKey) {
+      errors.push('sfxKey: required nonempty trimmed string');
+    }
+  }
+
+  const cooldownMs = readOwnField(row, 'cooldownMs');
+  if (
+    cooldownMs !== undefined &&
+    (typeof cooldownMs !== 'number' || !Number.isSafeInteger(cooldownMs) || cooldownMs <= 0 || cooldownMs > MAX_AUDIO_COOLDOWN_MS)
+  ) {
+    errors.push(`cooldownMs: required positive integer at most ${MAX_AUDIO_COOLDOWN_MS}`);
+  }
+
+  const stopMusic = readOwnField(row, 'stopMusic');
+  if (stopMusic !== undefined && stopMusic !== true) {
+    errors.push('stopMusic: must be literal true when present');
+  }
+
+  const musicFadeMs = readOwnField(row, 'musicFadeMs');
+  if (musicFadeMs !== undefined) {
+    if (typeof musicFadeMs !== 'number' || !Number.isSafeInteger(musicFadeMs) || musicFadeMs <= 0 || musicFadeMs > MAX_AUDIO_FADE_MS) {
+      errors.push(`musicFadeMs: required positive integer at most ${MAX_AUDIO_FADE_MS}`);
+    }
+    if (stopMusic !== true) {
+      errors.push('musicFadeMs: requires stopMusic: true');
+    }
+  }
+
+  if (sfxKey === undefined && stopMusic !== true) {
+    errors.push('row: entry must define sfxKey or stopMusic');
   }
 
   return errors;
@@ -1320,6 +1505,95 @@ function assertChestTargetsChestSafe(tables: readonly LootTable[]): void {
         );
       }
     });
+  });
+  throwIfErrors(errors);
+}
+
+function assertAudioAssetUniqueness(
+  sfx: readonly AudioSfxAsset[],
+  music: readonly AudioMusicAsset[],
+): void {
+  const seen = new Map<string, string>();
+  const errors: string[] = [];
+  const lists: ReadonlyArray<[string, readonly { key: string }[]]> = [
+    ['sfx', sfx],
+    ['music', music],
+  ];
+  for (const [source, list] of lists) {
+    list.forEach((asset) => {
+      const firstSource = seen.get(asset.key);
+      if (firstSource !== undefined) {
+        errors.push(`audio-assets.json: duplicate key "${asset.key}" (${firstSource} and ${source})`);
+      } else {
+        seen.set(asset.key, source);
+      }
+    });
+  }
+  throwIfErrors(errors);
+}
+
+/** Scenes reference the music-menu / music-run literals directly (Epic 10
+ *  §4.5); validation guarantees both exist in audio-assets.json. */
+export function assertAudioDefaults(assets: AudioAssetCatalog): void {
+  const musicKeys = new Set(assets.music.map((music) => music.key));
+  const errors: string[] = [];
+  if (!musicKeys.has('music-menu')) {
+    errors.push('audio-assets.json: missing required music key "music-menu"');
+  }
+  if (!musicKeys.has('music-run')) {
+    errors.push('audio-assets.json: missing required music key "music-run"');
+  }
+  throwIfErrors(errors);
+}
+
+function assertAudioMapUniqueness(map: readonly AudioMapEntry[]): void {
+  const seenEvents = new Map<string, number>();
+  const seenSfxKeys = new Map<string, number>();
+  const errors: string[] = [];
+  map.forEach((entry, index) => {
+    const firstEvent = seenEvents.get(entry.event);
+    if (firstEvent !== undefined) {
+      errors.push(`audio-map.json[${index}].event: duplicate event "${entry.event}" first seen at index ${firstEvent}`);
+    } else {
+      seenEvents.set(entry.event, index);
+    }
+    if (entry.sfxKey !== undefined) {
+      const firstSfx = seenSfxKeys.get(entry.sfxKey);
+      if (firstSfx !== undefined) {
+        errors.push(`audio-map.json[${index}].sfxKey: duplicate sfxKey "${entry.sfxKey}" first seen at index ${firstSfx}`);
+      } else {
+        seenSfxKeys.set(entry.sfxKey, index);
+      }
+    }
+  });
+  throwIfErrors(errors);
+}
+
+/** player:damaged is not a free tunable: its cooldown must equal the i-frame
+ *  window (Epic 10 §2.11) so the single event-level gate collapses both
+ *  emission paths to the cadence the game already presents visually. */
+function assertPlayerDamagedCadence(map: readonly AudioMapEntry[]): void {
+  const entry = map.find((candidate) => candidate.event === 'player:damaged');
+  if (entry === undefined) return;
+  const expected = RuntimeConfig.gameplay.player.invulnerabilityMs;
+  if (entry.cooldownMs !== expected) {
+    throw new Error(
+      `Invalid game data:\naudio-map.json: player:damaged cooldownMs must equal RuntimeConfig.gameplay.player.invulnerabilityMs (${expected})`,
+    );
+  }
+}
+
+/** Cross-catalog check, run only from validateGameData (Epic 10 §6.2). */
+export function assertAudioMapReferences(
+  map: readonly AudioMapEntry[],
+  assets: AudioAssetCatalog,
+): void {
+  const sfxKeys = new Set(assets.sfx.map((sfx) => sfx.key));
+  const errors: string[] = [];
+  map.forEach((entry, index) => {
+    if (entry.sfxKey !== undefined && !sfxKeys.has(entry.sfxKey)) {
+      errors.push(`audio-map.json[${index}].sfxKey: unknown sfx key "${entry.sfxKey}"`);
+    }
   });
   throwIfErrors(errors);
 }

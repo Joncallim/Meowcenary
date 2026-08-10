@@ -3,6 +3,7 @@
 > Token-optimized repo map. Read this before any implementation work.
 > Current state: **Epics 0–8 complete** (PRs #58–63).
 > Epic 9 architecture is implementation-ready on `agent/epic-9-ui-and-ux`.
+> Epic 10 architecture is implementation-ready on `agent/epic-10-audio`.
 > 707 tests / 55 files green.
 
 ## Stack
@@ -24,7 +25,7 @@ Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly
 | `src/ui/` | ✅ | May use Phaser | `UpgradeChooser` `upgradeChooserController` `upgradeChooserLayout` `characterSelectionController` `arenaSelectionController` `progressionController` |
 | `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` `loot-tables` |
 | `tests/` | ✅ 707 tests | Vitest; mock Phaser via `vi.mock` | 55 files incl. integration harnesses |
-| `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..9}-*.md` |
+| `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..10}-*.md` |
 
 Epic 8 Slices 1–5 added `src/data/loot-tables.json`, `src/gameplay/loot.ts`,
 and `src/systems/lootTables.ts` (Slices 1–2). Slice 3 added `src/entities/Drop.ts`;
@@ -147,7 +148,8 @@ existing event covers it (Epic 8 adds none — it extends one payload).
 | 7 | ✅ | Arenas: data/selection/`spawnPoint`/world bounds/obstacles/hazards (PR #51) |
 | 8 | ✅ | Slices 1–5 merged; event-driven kill-to-loot pipeline, chest shell, integration harness (PRs #58–62) |
 | 9 | Architecture ready | One branch: menu, HUD, settings, controls, pause/inventory, chooser, summary; see `epic-9-ui-and-ux.md` |
-| 10–12 | Open | Audio, balancing/tools, polish/perf (pooling `Drop`+`Projectile`) |
+| 10 | Architecture ready | One branch: shared `AudioManager`, event-mapped SFX/music, cooldowns, live settings; see `epic-10-audio.md` |
+| 11–12 | Open | Balancing/tools, polish/perf (pooling `Drop`+`Projectile`) |
 
 ## First Steps for Any Agent
 

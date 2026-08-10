@@ -12,6 +12,7 @@
 - Epic 7 / Maps and Arenas: complete (#8).
 - Epic 8 / Loot and Economy: complete (#9).
 - Epic 9 / UI and UX: architecture ready; implementation pending (#10).
+- Epic 10 / Audio: architecture ready; implementation pending (#11).
 
 Epic 7 was implemented in the consolidated PR #51 and merged.
 Epic 8 is complete: Slices 1–5 merged in PRs #58–62, implementing the
@@ -38,6 +39,14 @@ dependency-ordered implementation/review gates on the single branch
 HUD/read models, settings, touch presentation, pause/inventory merge ownership,
 upgrade-chooser preservation, and run-summary banking boundaries for handoff to
 Kimi K2.7 and DeepSeek V4 Pro.
+Epic 10 is specified in
+[`architecture/epic-10-audio.md`](architecture/epic-10-audio.md) as five
+dependency-ordered implementation/review gates on the single branch
+`agent/epic-10-audio`. The architecture freezes the game-scoped shared
+`AudioManager`, validated audio asset/map data, the pure `shouldPlay` cooldown
+gate, the `settings:changed` live-settings seam, additive `ui:*` sound events,
+the autoplay unlock policy (drop one-shots, defer music), and the placeholder
+asset pipeline.
 The Epic 7 architecture is documented in
 [`architecture/epic-7-maps-and-arenas.md`](architecture/epic-7-maps-and-arenas.md),
 which adds the arena data/registry/selection contracts, the pure

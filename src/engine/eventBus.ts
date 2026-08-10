@@ -1,3 +1,5 @@
+import type { Settings } from '../systems/save';
+
 export interface GameEventMap {
   'run:start': { characterId: string; arenaId: string; seed: number };
   'run:paused': Record<string, never>;
@@ -19,10 +21,33 @@ export interface GameEventMap {
   'drop:collected': { kind: 'xp' | 'scrap'; amount: number; x: number; y: number };
   'currency:changed': { runTotal: number };
   'hazard:triggered': { hazardId: string; damage: number; x: number; y: number };
+  // Epic 10: emitted only by GameContext.updateSettings (identity change).
+  'settings:changed': { settings: Settings };
+  // Epic 10: UI interaction sounds, emitted only from the view/scene dispatch
+  // points listed in docs/architecture/epic-10-audio.md §10.
+  'ui:navigate': Record<string, never>;
+  'ui:confirm': Record<string, never>;
+  'ui:back': Record<string, never>;
 }
 
 export type GameEventKey = keyof GameEventMap;
 export type GameEventListener<K extends GameEventKey> = (payload: GameEventMap[K]) => void;
+
+/** Runtime key list for validation. `satisfies` rejects entries that are not
+ *  real keys; `_assertExhaustive` fails to compile when a GameEventMap key is
+ *  missing from the list. Both directions are compile-time checked. */
+export const GAME_EVENT_KEYS = [
+  'run:start', 'run:paused', 'run:resumed', 'run:won', 'run:lost',
+  'player:damaged', 'player:died',
+  'enemy:spawned', 'enemy:damaged', 'enemy:killed',
+  'weapon:fired', 'projectile:hit',
+  'xp:gained', 'level:up', 'card:offered', 'card:chosen', 'weapon:merged',
+  'drop:collected', 'currency:changed', 'hazard:triggered',
+  'settings:changed', 'ui:navigate', 'ui:confirm', 'ui:back',
+] as const satisfies readonly GameEventKey[];
+
+type _MissingKeys = Exclude<GameEventKey, (typeof GAME_EVENT_KEYS)[number]>;
+export const _assertExhaustive: _MissingKeys extends never ? true : never = true;
 
 export interface EventBus {
   on<K extends GameEventKey>(key: K, fn: GameEventListener<K>): () => void;
