@@ -1337,7 +1337,7 @@ Complete during implementation; do not fabricate values.
 - Slice 4 commit: `139dd81` — exactly-one UI command events
 - Slice 5 commit: `e9c945c` — deterministic placeholders, asset tests, docs closeout
 - delivery PR: `#68`
-- final head SHA: `TBD` (recorded in the follow-up delivery-record commit)
+- final head SHA (at time of writing): `32d5a91` — the delivery-record commit; all gates verified on this head
 - baseline tests/files: `978 / 70` (post-PR-66 baseline on this branch, before Slice 3)
 - final tests/files: `1040 / 73` (after Slice 5; Slice 3 → 998/72, Slice 4 → 1023/72)
 - lint/typecheck: `green` (every slice gate)
