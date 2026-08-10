@@ -675,23 +675,21 @@ At implementation completion, replace this section with:
 Until then, the status remains **implementation-ready architecture**, not
 Epic 11 complete.
 
-## 17. Decisions requiring human input
+## 17. Decisions — resolved by the maintainer (2026-08-10)
 
-Frozen defaults below ship unless the maintainer says otherwise; none block
-implementation.
+All four decision points are resolved; the frozen contracts in §§2–9 stand as
+written.
 
-- **D1 — Epic 10 merged partially.** PR #65 contains slices 1–2 only; scene
-  wiring, `ui:*` emission, and placeholder assets are absent from `main`
-  (§2.11). Recommended: schedule the Epic 10 remainder as its own
-  single-branch PR before or alongside Epic 11 slice 5; Epic 11 does not
-  depend on it.
-- **D2 — Cheat toggling is boot-time only** (URL params, no mid-run switch;
-  §2.7). If mid-run toggling is wanted later, it is a small additive
-  extension to `DebugCheatSystem` (modifier reconciliation), explicitly not
-  in this epic.
-- **D3 — Playtest summary prints in dev builds only.** Preview/production
-  builds stay silent. A `?summary=1`-style opt-in for preview builds was
-  considered and rejected to keep production consoles clean.
-- **D4 — The F3 debug overlay remains reachable in production builds**
-  (status quo). Hiding it in production would be a one-line gate but changes
-  shipped behavior; left to the maintainer.
+- **D1 — Epic 10 remainder: scheduled.** PR #65 merged slices 1–2 only
+  (§2.11). The remaining slices (context/scene wiring, `ui:*` emission,
+  placeholder assets) are tracked in issue #67 and ship as the **next
+  delivery PR immediately after this one**, ahead of Epic 12. Epic 11 does
+  not depend on it.
+- **D2 — Confirmed.** Cheat toggling is boot-time only (URL params, no
+  mid-run switch; §2.7). If mid-run toggling is wanted later, it is a small
+  additive extension to `DebugCheatSystem` (modifier reconciliation),
+  explicitly not in this epic.
+- **D3 — Confirmed.** The playtest summary prints in development builds
+  only; preview/production builds stay silent.
+- **D4 — Confirmed.** The F3 debug overlay remains reachable in production
+  builds (status quo).

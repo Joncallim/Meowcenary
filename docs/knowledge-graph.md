@@ -3,7 +3,8 @@
 > Token-optimized repo map. Read this before any implementation work.
 > Current state: **Epics 0–9 complete** (Epic 9 in PR #64). Epic 10 slices
 > 1–2 merged (PR #65): audio data/events + unwired game-scoped
-> `AudioManager`; scene wiring and placeholders remain outstanding.
+> `AudioManager`; scene wiring and placeholders tracked in #67 — the next
+> delivery PR after #66.
 > Epic 11 architecture is implementation-ready on
 > `agent/epic-11-balancing-and-developer-tooling`.
 > 934 tests / 68 files green.
@@ -150,7 +151,7 @@ existing event covers it (Epic 8 adds none — it extends one payload).
 | 7 | ✅ | Arenas: data/selection/`spawnPoint`/world bounds/obstacles/hazards (PR #51) |
 | 8 | ✅ | Slices 1–5 merged; event-driven kill-to-loot pipeline, chest shell, integration harness (PRs #58–62) |
 | 9 | ✅ | Merged (PR #64): menu, HUD, settings, controls, pause/inventory, chooser, summary |
-| 10 | ⚠️ Partial | Slices 1–2 merged (PR #65): data/events + unwired `AudioManager`; wiring/placeholders outstanding; see `epic-10-audio.md` |
+| 10 | ⚠️ Partial | Slices 1–2 merged (PR #65): data/events + unwired `AudioManager`; wiring/placeholders tracked in #67 (next PR after #66); see `epic-10-audio.md` |
 | 11 | Architecture ready | One branch: aggregate validation, curve helpers, dev cheats, overlay metrics, playtest summary; see `epic-11-balancing-and-developer-tooling.md` |
 | 12 | Open | Polish/perf (pooling `Drop`+`Projectile`) |
 

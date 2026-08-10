@@ -13,7 +13,8 @@
 - Epic 8 / Loot and Economy: complete (#9).
 - Epic 9 / UI and UX: merged (PR #64) (#10).
 - Epic 10 / Audio: contracts and game-scoped AudioManager merged (PR #65);
-  scene wiring, UI events, and placeholder assets remain outstanding (#11).
+  scene wiring, UI events, and placeholder assets tracked in #67 — the next
+  delivery PR after Epic 11's.
 - Epic 11 / Balancing and Developer Tooling: architecture ready (#12).
 
 Epic 7 was implemented in the consolidated PR #51 and merged.
@@ -49,7 +50,8 @@ dependency-ordered implementation/review gates on the single branch
 gate, the `settings:changed` live-settings seam, additive `ui:*` sound events,
 the autoplay unlock policy (drop one-shots, defer music), and the placeholder
 asset pipeline. PR #65 merged slices 1–2 (data/event contracts and the
-unwired manager); the remaining slices ship separately.
+unwired manager); the remaining slices are tracked in #67 and scheduled as
+the next delivery PR after Epic 11's (#66).
 Epic 11 is specified in
 [`architecture/epic-11-balancing-and-developer-tooling.md`](architecture/epic-11-balancing-and-developer-tooling.md)
 as five dependency-ordered implementation/review gates on the single branch
