@@ -106,10 +106,26 @@ included). Read issue #11 through these corrections:
     Phaser. Epic 10 introduces `public/assets/audio/`, a BootScene `preload`
     driven by validated JSON, and a fail-safe convention enforced by
     validation: every asset URL must equal `assets/audio/<key>.wav` (§6, §11).
-11. **The initial map extends the issue's list.** Added:
-    `player:damaged` (core feedback the issue's "SFX for … hits" implies),
-    and the three `ui:*` entries. Documented exclusions (§6.3) remain
-    unmapped on purpose; mapping them later is a data-only change.
+11. **The initial map extends the issue's list — and `player:damaged` needs
+    its cadence solved, not guessed.** The issue's "SFX for … hits" implies
+    a player-hit sound, but `player:damaged` has two emission paths with
+    very different cadences (`src/entities/Player.ts`): `takeDamage` is
+    gated by the 650 ms invulnerability window
+    (`RuntimeConfig.gameplay.player.invulnerabilityMs`), while
+    `takeEnvironmentalDamage` (hazards, via `HazardSystem`) bypasses
+    i-frames and emits **every simulation frame** while the player stands in
+    a hazard (~60 emits/sec). Frozen solution: map `player:damaged` with
+    `cooldownMs` exactly equal to `invulnerabilityMs` (currently 650). With
+    the `>=` boundary this can never mask a legitimate contact hit — that
+    path physically cannot emit faster than the cooldown — and it collapses
+    the environmental path to the same one-blip-per-i-frame cadence the game
+    already presents visually. A data↔config consistency test pins the
+    equality so retuning i-frames surfaces the audio value immediately
+    (§14). Emitter code is not touched: Epic 10 changes no gameplay rules or
+    event payloads, and the single event-level gate covers both paths
+    (source-discriminated audio remains a non-goal). Also added beyond the
+    issue's list: the three `ui:*` entries. Documented exclusions (§6.3)
+    remain unmapped on purpose; mapping them later is a data-only change.
 
 ## 3. Ownership and non-goals
 
@@ -299,7 +315,7 @@ Validation (`validateAudioAssets`, house style: `jsonSafetyErrors` →
     { "event": "weapon:fired",    "sfxKey": "sfx-weapon-fired",    "cooldownMs": 90 },
     { "event": "projectile:hit",  "sfxKey": "sfx-projectile-hit",  "cooldownMs": 90 },
     { "event": "enemy:killed",    "sfxKey": "sfx-enemy-killed",    "cooldownMs": 60 },
-    { "event": "player:damaged",  "sfxKey": "sfx-player-damaged",  "cooldownMs": 250 },
+    { "event": "player:damaged",  "sfxKey": "sfx-player-damaged",  "cooldownMs": 650 },
     { "event": "drop:collected",  "sfxKey": "sfx-drop-collected",  "cooldownMs": 60 },
     { "event": "level:up",        "sfxKey": "sfx-level-up" },
     { "event": "card:chosen",     "sfxKey": "sfx-card-chosen" },
@@ -346,8 +362,10 @@ Validation (`validateAudioMapCatalog` + `validateGameData` cross-refs):
   subscription internally — §8);
 - every `sfxKey` must exist in `audio-assets.json` `sfx` (cross-catalog,
   `assertAudioMapReferences`, in `validateGameData` only);
-- cooldown values above are starting tunables — they are data, adjustable in
-  Epic 11 without code changes.
+- `player:damaged.cooldownMs` is **not** a free tunable: it must equal
+  `RuntimeConfig.gameplay.player.invulnerabilityMs` (§2.11; consistency
+  test in §14). All other cooldown values are starting tunables — data,
+  adjustable in Epic 11 without code changes.
 
 ### 6.3 Deliberately unmapped events
 
@@ -355,7 +373,9 @@ Validation (`validateAudioMapCatalog` + `validateGameData` cross-refs):
 sounds), `player:died` (`run:lost` follows immediately), `enemy:spawned`,
 `enemy:damaged` (`projectile:hit` covers), `xp:gained` (`drop:collected`
 covers), `card:offered` (`level:up` covers), `weapon:merged`,
-`currency:changed`, `hazard:triggered`, `settings:changed` (manager-owned).
+`currency:changed`, `hazard:triggered` (its damage is already audible
+through `player:damaged` at the i-frame cadence — §2.11),
+`settings:changed` (manager-owned).
 Adding any of these later is a data change plus, at most, an asset row.
 
 ## 7. Cooldown primitive (`src/engine/cooldown.ts`, new)
@@ -592,6 +612,7 @@ work (no tuning tools, no pooling, no final assets).
 | `shouldPlay` | undefined → true; `cooldownMs <= 0` → true; 1 ms under → false; exact boundary → true; non-finite `nowMs` → false; non-finite `lastPlayedMs` → true |
 | `GAME_EVENT_KEYS` | unique entries; contains the 4 new keys; compile-time exhaustiveness file typechecks |
 | Audio validation | valid boot data passes (incl. audio); bad `event` rejected; unknown fields rejected; entry without action rejected; `musicFadeMs` without `stopMusic` rejected; non-positive/out-of-range numbers rejected; duplicate event rejected; duplicate `sfxKey` rejected; `sfxKey` missing from assets rejected (cross-ref); URL≠convention rejected; wrong key prefix rejected; `settings:changed` entry rejected; missing `music-menu`/`music-run` rejected |
+| `player:damaged` cadence | map cooldown equals `RuntimeConfig.gameplay.player.invulnerabilityMs` (data↔config consistency; fails loudly when i-frames are retuned) |
 | `AudioManager` | init-twice throws; mapped event dispatches `sound.play(key, { volume: sfxVolume })`; cooldown gates via `update`-driven clock and resets after expiry; missing key no-throw + warn-once; muted gate does not consume cooldown; locked gate drops SFX; `playMusic` while locked defers and `'unlocked'` flushes exactly once; same-key `playMusic` no-op; replacement stops previous; `stopMusic(0)` immediate; fade ramp progresses per `update` and stops at completion; `applySettings` live-updates music mute/volume (not mid-fade volume) and later SFX volume; `destroy` unsubscribes (post-destroy emits dispatch nothing), stops music, never calls `stopAll`, and is idempotent |
 | `settings:changed` | `updateSettings` emits once with the new snapshot on real change; no emit on identity-equal patch; emit still fires when `persisted === false`; no other emitter exists |
 
@@ -684,6 +705,10 @@ under equivalently named test files. The full gate is mandatory.
   clock advances only via `update(dtMs)`.
 - Do not let `play` consume cooldown while muted, and do not special-case
   `sfxVolume === 0` (volume 0 still dispatches; `muted` is the hard gate).
+- Do not retune or remove the `player:damaged` cooldown independently of
+  `invulnerabilityMs`, and do not split player-damage audio by source
+  (contact vs hazard) — the single i-frame-matched gate is the frozen
+  solution for both emission paths (§2.11).
 - Do not map `settings:changed` in `audio-map.json` (validation rejects it);
   the manager owns that subscription.
 - Do not add `musicKey` to map entries or start music from the map; scenes
