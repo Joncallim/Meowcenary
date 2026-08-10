@@ -1,6 +1,7 @@
 import type { Rng } from '../engine/rng';
 import type { Vec2 } from '../engine/vector';
 import type { ArenaDefinition, SpawnRegion } from '../systems/types';
+import { clamp } from './curves';
 
 const MAX_ATTEMPTS = 8;
 const SCATTER_ATTEMPTS = 16;
@@ -132,10 +133,6 @@ export function findRectWitness(
   }
 
   return null;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(value, max));
 }
 
 function distanceFromRingCentre(p: Vec2, region: RingRegion): number {

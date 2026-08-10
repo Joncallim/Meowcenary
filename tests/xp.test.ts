@@ -10,6 +10,15 @@ describe('xp helpers', () => {
     expect(xpToNext(0)).toBe(xpToNext(1));
   });
 
+  it('pins levels 1-10 unchanged after the Epic 11 curve reroute', () => {
+    const expected = Array.from({ length: 10 }, (_, index) =>
+      Math.ceil(5 * 1.35 ** index),
+    );
+    expect(Array.from({ length: 10 }, (_, index) => xpToNext(index + 1))).toEqual(expected);
+    expect(xpToNext(1)).toBe(5);
+    expect(xpToNext(10)).toBe(75);
+  });
+
   it('applies XP and emits gained events', () => {
     const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
     const bus = createEventBus();

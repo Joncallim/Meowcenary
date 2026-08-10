@@ -1,12 +1,13 @@
 import type { EventBus } from '../engine/eventBus';
 import type { RunState } from './runState';
+import { growth } from './curves';
 
 const XP_BASE = 5;
 const XP_GROWTH = 1.35;
 
 export function xpToNext(level: number): number {
   const safeLevel = Math.max(1, Math.floor(level));
-  return Math.ceil(XP_BASE * XP_GROWTH ** (safeLevel - 1));
+  return Math.ceil(growth(XP_BASE, XP_GROWTH, safeLevel - 1));
 }
 
 export function applyXp(runState: RunState, amount: number, bus?: EventBus): number {

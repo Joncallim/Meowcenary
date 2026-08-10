@@ -43,10 +43,11 @@ src/
   entities/      Phaser display/physics objects: Player, Enemy, Projectile, Drop
   gameplay/      Pure run rules (no Phaser imports): runState, stats, xp,
                  targeting, weapons, merge, upgrades, spawnDirector, loot, reward,
-                 characterSelection, arenaSelection (Epic 7), spawnRegion (Epic 7)
+                 characterSelection, arenaSelection (Epic 7), spawnRegion (Epic 7),
+                 curves, metrics (Epic 11)
   systems/       Phaser-aware coordinators: input, save, validation, weapons,
                  enemies, arenas (Epic 7), lootTables (Epic 8), debug, audio,
-                 types.ts
+                 playtestSummary (Epic 11), types.ts
   scenes/        BootScene, GameScene (thin coordinators only)
   ui/            hud, cards, inventory, menus, settings
   data/          *.json gameplay definitions
@@ -302,7 +303,7 @@ so schedules (fire cadence, spawn timing) stay deterministic in tests.
 | Epic 8 | #9 Loot and Economy | Complete | Event-driven kill-to-loot pipeline, poolable `Drop` entity, activated scrap economy, chest shell, integration harness, and dev hotkey; architecture in [`architecture/epic-8-loot-and-economy.md`](architecture/epic-8-loot-and-economy.md). |
 | Epic 9 | #10 UI and UX | Architecture ready | Single-branch production menu, HUD, settings, touch presentation, pause/inventory, chooser integration, and run summary; architecture in [`architecture/epic-9-ui-and-ux.md`](architecture/epic-9-ui-and-ux.md). |
 | Epic 10 | #11 Audio | Architecture ready | Single-branch event-driven SFX/music, autoplay unlock, per-key cooldowns, live settings via `settings:changed`, and a placeholder asset pipeline; architecture in [`architecture/epic-10-audio.md`](architecture/epic-10-audio.md). |
-| Epic 11 | #12 Balancing and Developer Tooling | Open | Fast tuning through data, validation, debug tools, playtest helpers. |
+| Epic 11 | #12 Balancing and Developer Tooling | Architecture ready | Single-branch aggregate data validation, shared curve helpers, dev-gated cheat flags, overlay run metrics, and local playtest summary; architecture in [`architecture/epic-11-balancing-and-developer-tooling.md`](architecture/epic-11-balancing-and-developer-tooling.md). |
 | Epic 12 | #13 Polish and Performance | Open | Feedback, animation polish, object pooling, reduced motion, performance checks. |
 
 ## Cross-Epic Rules

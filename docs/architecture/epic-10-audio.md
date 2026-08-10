@@ -8,6 +8,12 @@ Baseline: `main` at `7194237` (Epic 9 slices 1–5 plus review fixes; 875 tests 
 It supersedes issue #11 where the issue describes the Epic 0 audio shell or
 predates the Epic 9 settings/menu seams.
 
+Delivery status (2026-08-10): slices 1–2 (data/event contracts, the unwired
+game-scoped `AudioManager`) merged in PR #65; issue #11 auto-closed on merge.
+Slices 3–5 (context/scene wiring, `ui:*` emission, placeholder assets) are
+tracked in issue #67 and scheduled as the next delivery PR after PR #66
+(Epic 11), ahead of Epic 12.
+
 Epic 10 is one branch and one eventual delivery PR. The five slices in §13 are
 ordered commit and review gates on that same branch; they are not separate
 branches or PRs. Every intermediate commit must compile and keep the existing

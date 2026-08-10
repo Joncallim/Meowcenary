@@ -1,4 +1,5 @@
 import type { EnemyScalingDefinition, EnemyStats } from '../systems/types';
+import { linearGrowth } from './curves';
 
 export interface ScaledEnemyStats {
   maxHealth: number;
@@ -42,8 +43,8 @@ export function scaleEnemy(
 
   const minutes = Math.max(0, scheduledAtMs) / 60_000;
   const result: ScaledEnemyStats = {
-    maxHealth: definition.health * (1 + scaling.healthPerMinute * minutes),
-    damage: definition.damage * (1 + scaling.damagePerMinute * minutes),
+    maxHealth: linearGrowth(definition.health, scaling.healthPerMinute, minutes),
+    damage: linearGrowth(definition.damage, scaling.damagePerMinute, minutes),
     speed: definition.speed,
     xpValue: definition.xpValue,
     scrapValue: definition.scrapValue,
