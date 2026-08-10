@@ -1,10 +1,12 @@
 # Meowcenary Knowledge Graph
 
 > Token-optimized repo map. Read this before any implementation work.
-> Current state: **Epics 0–8 complete** (PRs #58–63).
-> Epic 9 architecture is implementation-ready on `agent/epic-9-ui-and-ux`.
-> Epic 10 architecture is implementation-ready on `agent/epic-10-audio`.
-> 707 tests / 55 files green.
+> Current state: **Epics 0–9 complete** (Epic 9 in PR #64). Epic 10 slices
+> 1–2 merged (PR #65): audio data/events + unwired game-scoped
+> `AudioManager`; scene wiring and placeholders remain outstanding.
+> Epic 11 architecture is implementation-ready on
+> `agent/epic-11-balancing-and-developer-tooling`.
+> 934 tests / 68 files green.
 
 ## Stack
 
@@ -24,8 +26,8 @@ Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly
 | `src/scenes/` | ✅ | Thin coordinators only | `BootScene` `GameScene` |
 | `src/ui/` | ✅ | May use Phaser | `UpgradeChooser` `upgradeChooserController` `upgradeChooserLayout` `characterSelectionController` `arenaSelectionController` `progressionController` |
 | `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` `loot-tables` |
-| `tests/` | ✅ 707 tests | Vitest; mock Phaser via `vi.mock` | 55 files incl. integration harnesses |
-| `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..10}-*.md` |
+| `tests/` | ✅ 934 tests | Vitest; mock Phaser via `vi.mock` | 68 files incl. integration harnesses |
+| `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..11}-*.md` |
 
 Epic 8 Slices 1–5 added `src/data/loot-tables.json`, `src/gameplay/loot.ts`,
 and `src/systems/lootTables.ts` (Slices 1–2). Slice 3 added `src/entities/Drop.ts`;
@@ -147,9 +149,10 @@ existing event covers it (Epic 8 adds none — it extends one payload).
 | 6 | ✅ | Characters, `RunRequest`, reactive passives |
 | 7 | ✅ | Arenas: data/selection/`spawnPoint`/world bounds/obstacles/hazards (PR #51) |
 | 8 | ✅ | Slices 1–5 merged; event-driven kill-to-loot pipeline, chest shell, integration harness (PRs #58–62) |
-| 9 | Architecture ready | One branch: menu, HUD, settings, controls, pause/inventory, chooser, summary; see `epic-9-ui-and-ux.md` |
-| 10 | Architecture ready | One branch: shared `AudioManager`, event-mapped SFX/music, cooldowns, live settings; see `epic-10-audio.md` |
-| 11–12 | Open | Balancing/tools, polish/perf (pooling `Drop`+`Projectile`) |
+| 9 | ✅ | Merged (PR #64): menu, HUD, settings, controls, pause/inventory, chooser, summary |
+| 10 | ⚠️ Partial | Slices 1–2 merged (PR #65): data/events + unwired `AudioManager`; wiring/placeholders outstanding; see `epic-10-audio.md` |
+| 11 | Architecture ready | One branch: aggregate validation, curve helpers, dev cheats, overlay metrics, playtest summary; see `epic-11-balancing-and-developer-tooling.md` |
+| 12 | Open | Polish/perf (pooling `Drop`+`Projectile`) |
 
 ## First Steps for Any Agent
 

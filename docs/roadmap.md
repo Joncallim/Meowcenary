@@ -11,8 +11,10 @@
 - Epic 6 / Characters: complete (#7).
 - Epic 7 / Maps and Arenas: complete (#8).
 - Epic 8 / Loot and Economy: complete (#9).
-- Epic 9 / UI and UX: architecture ready; implementation pending (#10).
-- Epic 10 / Audio: architecture ready; implementation pending (#11).
+- Epic 9 / UI and UX: merged (PR #64) (#10).
+- Epic 10 / Audio: contracts and game-scoped AudioManager merged (PR #65);
+  scene wiring, UI events, and placeholder assets remain outstanding (#11).
+- Epic 11 / Balancing and Developer Tooling: architecture ready (#12).
 
 Epic 7 was implemented in the consolidated PR #51 and merged.
 Epic 8 is complete: Slices 1–5 merged in PRs #58–62, implementing the
@@ -46,7 +48,17 @@ dependency-ordered implementation/review gates on the single branch
 `AudioManager`, validated audio asset/map data, the pure `shouldPlay` cooldown
 gate, the `settings:changed` live-settings seam, additive `ui:*` sound events,
 the autoplay unlock policy (drop one-shots, defer music), and the placeholder
-asset pipeline.
+asset pipeline. PR #65 merged slices 1–2 (data/event contracts and the
+unwired manager); the remaining slices ship separately.
+Epic 11 is specified in
+[`architecture/epic-11-balancing-and-developer-tooling.md`](architecture/epic-11-balancing-and-developer-tooling.md)
+as five dependency-ordered implementation/review gates on the single branch
+`agent/epic-11-balancing-and-developer-tooling`. The architecture freezes the
+descriptor-driven aggregate validation runner, the shared pure curve helpers
+(with behavior-identical rerouting of `costOf`, `scaleEnemy`, and
+`xpToNext`), the development-gated cheat flags applied through existing
+modifier/spawn seams, the read-only overlay run metrics, and the local
+console playtest summary.
 The Epic 7 architecture is documented in
 [`architecture/epic-7-maps-and-arenas.md`](architecture/epic-7-maps-and-arenas.md),
 which adds the arena data/registry/selection contracts, the pure
