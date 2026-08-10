@@ -321,19 +321,26 @@ function assertGameDataRoot(raw: unknown): void {
  *  collecting path applies this per-line remap so issues group by file.
  *  Lines naming no catalog (unknown root fields, a non-object aggregate,
  *  the audio pair itself) are returned unchanged — the documented root
- *  category (Epic 11 §5.1). */
-function remapRootPhaseLine(line: string): string {
+ *  category (Epic 11 §5.1).
+ *
+ *  Each pattern requires a separator (`:`, `.`, or `[`) after the catalog
+ *  name, so a future root field that prefix-extends a catalog (e.g.
+ *  `game-data.weaponsV2`, which jsonSafetyErrors flags before
+ *  rejectUnknownFields runs) stays in the root category instead of
+ *  mis-remapping to `weapons.jsonV2`. Exported so the 10 patterns and
+ *  their idempotency are pinned by focused unit tests. */
+export function remapRootPhaseLine(line: string): string {
   return line
-    .replace(/^game-data\.weapons/, 'weapons.json')
-    .replace(/^game-data\.enemies/, 'enemies.json')
-    .replace(/^game-data\.upgrades/, 'upgrades.json')
-    .replace(/^game-data\.metaUpgrades/, 'meta-upgrades.json')
-    .replace(/^game-data\.spawnCurves/, 'spawn-curves.json')
-    .replace(/^game-data\.characters/, 'characters.json')
-    .replace(/^game-data\.arenas/, 'arenas.json')
-    .replace(/^game-data\.lootTables/, 'loot-tables.json')
-    .replace(/^game-data\.audio\.assets/, 'audio-assets.json')
-    .replace(/^game-data\.audio\.map/, 'audio-map.json');
+    .replace(/^game-data\.weapons(?=[:.\[])/, 'weapons.json')
+    .replace(/^game-data\.enemies(?=[:.\[])/, 'enemies.json')
+    .replace(/^game-data\.upgrades(?=[:.\[])/, 'upgrades.json')
+    .replace(/^game-data\.metaUpgrades(?=[:.\[])/, 'meta-upgrades.json')
+    .replace(/^game-data\.spawnCurves(?=[:.\[])/, 'spawn-curves.json')
+    .replace(/^game-data\.characters(?=[:.\[])/, 'characters.json')
+    .replace(/^game-data\.arenas(?=[:.\[])/, 'arenas.json')
+    .replace(/^game-data\.lootTables(?=[:.\[])/, 'loot-tables.json')
+    .replace(/^game-data\.audio\.assets(?=[:.\[])/, 'audio-assets.json')
+    .replace(/^game-data\.audio\.map(?=[:.\[])/, 'audio-map.json');
 }
 
 /** Applies remapRootPhaseLine to every line of a thrown root-phase message

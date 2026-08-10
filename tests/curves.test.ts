@@ -27,6 +27,9 @@ describe('lerp', () => {
     // MAX_VALUE. Matches the growth/linearGrowth result guards.
     expect(() => lerp(Number.MAX_VALUE, 0, -1)).toThrow(/result must be finite/);
     expect(() => lerp(1, Number.MAX_VALUE, 2)).toThrow(/result must be finite/);
+    // Overflow in the subtraction itself: (b - a) = -Infinity before the
+    // multiplication runs, so the result guard must fire on that path too.
+    expect(() => lerp(Number.MAX_VALUE, -Number.MAX_VALUE, 2)).toThrow(/result must be finite/);
   });
 });
 

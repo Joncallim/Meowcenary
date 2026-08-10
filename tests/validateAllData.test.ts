@@ -4,6 +4,7 @@ import {
   collectGameDataErrors,
   loadGameData,
   mapValidationErrorLines,
+  remapRootPhaseLine,
   validateAllData,
   validateGameData,
   type ValidationIssue,
@@ -145,6 +146,26 @@ describe('validateAllData', () => {
     ]);
   });
 
+  it('maps a non-JSON-safe catalog value to its file via the root-phase remap', () => {
+    // jsonSafetyErrors emits `game-data.weapons: non-JSON-safe number`
+    // inside assertGameDataRoot, which remaps it to the file name; the
+    // collector's boundary remap must leave that line unchanged
+    // (idempotency, Epic 11 §5.4).
+    expect(collectGameDataErrors({
+      weapons: NaN,
+      enemies: [],
+      upgrades: [],
+      metaUpgrades: [],
+      spawnCurves: [],
+      characters: [],
+      arenas: [],
+      lootTables: [],
+      audio: { assets: {}, map: [] },
+    })).toEqual([
+      { file: 'weapons.json', index: -1, field: '', message: 'non-JSON-safe number' },
+    ]);
+  });
+
   it('attributes a non-object aggregate to the game-data root category', () => {
     expect(collectGameDataErrors(42)).toEqual([
       { file: 'game-data', index: -1, field: '', message: 'expected object' },
@@ -198,5 +219,57 @@ describe('validateAllData', () => {
     expect(issues[0].index).toBe(0);
     expect(issues[0].field).toBe('damage');
     expect(issues[0].message).toBe('required positive number');
+  });
+});
+
+describe('remapRootPhaseLine', () => {
+  // The 10 explicit catalog-root patterns (Epic 11 §5.1/§5.4), each with
+  // the root-phase line shape that reaches the remap today.
+  const catalogLines: ReadonlyArray<readonly [string, string]> = [
+    ['game-data.weapons: required field', 'weapons.json: required field'],
+    ['game-data.enemies: required field', 'enemies.json: required field'],
+    ['game-data.upgrades: required field', 'upgrades.json: required field'],
+    ['game-data.metaUpgrades: required field', 'meta-upgrades.json: required field'],
+    ['game-data.spawnCurves: required field', 'spawn-curves.json: required field'],
+    ['game-data.characters: required field', 'characters.json: required field'],
+    ['game-data.arenas: required field', 'arenas.json: required field'],
+    ['game-data.lootTables: required field', 'loot-tables.json: required field'],
+    ['game-data.audio.assets: required field', 'audio-assets.json: required field'],
+    ['game-data.audio.map: required field', 'audio-map.json: required field'],
+  ];
+
+  it('remaps every catalog-root line to its JSON file name', () => {
+    for (const [input, expected] of catalogLines) {
+      expect(remapRootPhaseLine(input)).toBe(expected);
+    }
+  });
+
+  it('is idempotent: applying it twice equals applying it once', () => {
+    // Idempotency is load-bearing: assertGameDataRoot remaps the
+    // jsonSafetyErrors lines, then the collector remaps the whole thrown
+    // message again (§5.4). A destructive second pass would corrupt
+    // already-remapped lines.
+    for (const [input] of catalogLines) {
+      expect(remapRootPhaseLine(remapRootPhaseLine(input))).toBe(remapRootPhaseLine(input));
+    }
+    // Row-indexed and already-remapped lines (as produced by the first
+    // remap inside assertGameDataRoot) are stable too.
+    expect(remapRootPhaseLine(remapRootPhaseLine('weapons.json: required field'))).toBe('weapons.json: required field');
+    expect(remapRootPhaseLine(remapRootPhaseLine('weapons.json[0].damage: bad'))).toBe('weapons.json[0].damage: bad');
+  });
+
+  it('keeps lines naming no catalog unchanged', () => {
+    // Unknown root fields, the non-object aggregate, the audio pair, and a
+    // prefix-extension root (which jsonSafetyErrors can flag before
+    // rejectUnknownFields runs) all stay in the root category.
+    const nonCatalogLines = [
+      'game-data.surprise: unknown field',
+      'game-data: expected object',
+      'game-data.audio: expected object',
+      'game-data.weaponsV2: non-JSON-safe number',
+    ];
+    for (const line of nonCatalogLines) {
+      expect(remapRootPhaseLine(line)).toBe(line);
+    }
   });
 });

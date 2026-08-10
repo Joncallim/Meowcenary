@@ -248,7 +248,11 @@ tests.
 catalog-root lines at its boundary (`game-data.enemies: required field` →
 `enemies.json`) so issues group by file; lines naming no catalog — unknown
 root fields, a non-object aggregate (`game-data: expected object`), the
-`audio` pair itself — keep the prefix as a distinct root category.
+`audio` pair itself — keep the prefix as a distinct root category. Each
+remap pattern requires a separator (`:`, `.`, or `[`) after the catalog
+name, so a future root field that prefix-extends a catalog (e.g.
+`game-data.weaponsV2`, flaggable by `jsonSafetyErrors` before
+`rejectUnknownFields` runs) never mis-remaps to a file name.
 
 ### 5.2 Descriptor table (maintainer note from the Epic 0 review)
 
