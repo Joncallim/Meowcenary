@@ -15,7 +15,6 @@ import {
   tickRun,
   type RunState,
 } from '../gameplay/runState';
-import { AudioManager } from '../systems/audio';
 import { DebugOverlay } from '../systems/debug';
 import { DropSystem } from '../systems/DropSystem';
 import { InputController } from '../systems/input';
@@ -43,7 +42,6 @@ import { HazardSystem } from '../systems/HazardSystem';
 import { DEFAULT_PASSIVE_HANDLERS, createPassiveHandlerRegistry } from '../gameplay/characterPassives';
 
 export class GameScene extends Phaser.Scene {
-  private audioManager?: AudioManager;
   private debugOverlay?: DebugOverlay;
   private inputController?: InputController;
   private player?: Player;
@@ -115,9 +113,6 @@ export class GameScene extends Phaser.Scene {
 
     this.inputController = new InputController(this);
     this.debugOverlay = new DebugOverlay(this);
-    this.audioManager = new AudioManager(this);
-    this.audioManager.setMuted(ctx.settings.muted);
-    this.audioManager.setVolume(ctx.settings.sfxVolume);
 
     this.enemyGroup = this.physics.add.group();
     this.projectileGroup = this.physics.add.group();
@@ -238,7 +233,6 @@ export class GameScene extends Phaser.Scene {
       this.dropSystem,
       this.upgradeSystem,
       this.hudController,
-      this.audioManager,
     ];
 
     // The run summary source is getter-backed so banking (which happens first
@@ -379,7 +373,6 @@ export class GameScene extends Phaser.Scene {
     this.inputController?.destroy();
     this.inputController = undefined;
     this.debugOverlay = undefined;
-    this.audioManager = undefined;
     this.upgradeSystem = undefined;
     this.spawnCurve = undefined;
     this.arenaScenery?.destroy();
