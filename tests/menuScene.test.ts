@@ -369,7 +369,7 @@ function createHarness(options: { create?: boolean; audio?: boolean } = { create
     menuScene.create();
   }
 
-  return { menuScene, ...helpers, audioFake };
+  return { menuScene, ...helpers, audioFake, bus: context.bus };
 }
 
 describe('MenuScene', () => {
@@ -554,5 +554,91 @@ describe('MenuScene audio lifecycle', () => {
     expect(textContents()).toEqual(expect.arrayContaining(['Start', 'Character']));
     expect(input.listenerCount('pointerdown')).toBe(0);
     expect(keyboard.listenerCount('keydown')).toBe(0);
+  });
+});
+
+describe('MenuScene UI command events', () => {
+  const recordEvents = (bus: ReturnType<typeof createEventBus>) => {
+    const events: string[] = [];
+    bus.on('ui:navigate', () => events.push('ui:navigate'));
+    bus.on('ui:confirm', () => events.push('ui:confirm'));
+    bus.on('ui:back', () => events.push('ui:back'));
+    return events;
+  };
+
+  it('emits exactly one ui:navigate when focus actually moves', () => {
+    const { keyboard, bus } = createHarness();
+    const events = recordEvents(bus);
+
+    keyboard.keydown('ArrowDown');
+
+    expect(events).toEqual(['ui:navigate']);
+  });
+
+  it('emits nothing when a focus move does not change the index', () => {
+    const { menuScene, keyboard, bus } = createHarness();
+    const events = recordEvents(bus);
+    // A single-item focus list cannot move: the wrap-around lands on the same
+    // index, so no navigate cue may fire.
+    const seams = menuScene as unknown as {
+      focusables: Array<ReturnType<typeof fakeObject>>;
+      focusIndex: number;
+    };
+    seams.focusables = [fakeObject('text', 'only', 100, 32)];
+    seams.focusIndex = 0;
+
+    keyboard.keydown('ArrowDown');
+
+    expect(events).toEqual([]);
+  });
+
+  it('emits exactly one ui:confirm on a pointer-activated button', () => {
+    const harness = createHarness();
+    const events = recordEvents(harness.bus);
+
+    harness.buttonByLabel('Start')!.state.handlers['pointerup']!();
+
+    expect(events).toEqual(['ui:confirm']);
+  });
+
+  it('emits exactly one ui:confirm for Enter and Space activation, never two', () => {
+    const harness = createHarness();
+    const events = recordEvents(harness.bus);
+
+    harness.keyboard.keydown('Enter');
+    expect(events).toEqual(['ui:confirm']);
+
+    events.length = 0;
+    harness.keyboard.keydown('Space');
+    expect(events).toEqual(['ui:confirm']);
+  });
+
+  it('emits ui:confirm for the panel button and ui:back for < Back, never a second confirm', () => {
+    const harness = createHarness();
+    const events = recordEvents(harness.bus);
+
+    harness.buttonByLabel('Character')!.state.handlers['pointerup']!();
+    harness.buttonByLabel('< Back')!.state.handlers['pointerup']!();
+
+    expect(events).toEqual(['ui:confirm', 'ui:back']);
+  });
+
+  it('emits exactly one ui:back from Esc', () => {
+    const harness = createHarness();
+    const events = recordEvents(harness.bus);
+
+    harness.keyboard.keydown('Escape');
+
+    expect(events).toEqual(['ui:back']);
+  });
+
+  it('emits nothing on pointer hover', () => {
+    const harness = createHarness();
+    const events = recordEvents(harness.bus);
+
+    harness.buttonByLabel('Start')!.state.handlers['pointerover']!();
+    harness.buttonByLabel('Start')!.state.handlers['pointerout']!();
+
+    expect(events).toEqual([]);
   });
 });

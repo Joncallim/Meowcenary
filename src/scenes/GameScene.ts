@@ -168,6 +168,7 @@ export class GameScene extends Phaser.Scene {
     this.pauseView = new PhaserPauseView({
       scene: this,
       viewport,
+      bus: ctx.bus,
       controller: this.pauseController,
       inventory: this.inventoryController,
     });
@@ -466,12 +467,22 @@ export class GameScene extends Phaser.Scene {
     }
 
     const panel = controller.snapshot().panel;
+    let accepted = false;
+    let event: 'ui:confirm' | 'ui:back';
+
     if (panel === 'inventory') {
-      controller.back();
+      accepted = controller.back();
+      event = 'ui:back';
     } else if (panel === 'pause') {
-      controller.resume();
+      accepted = controller.resume();
+      event = 'ui:back';
     } else {
-      controller.pause();
+      accepted = controller.pause();
+      event = 'ui:confirm';
+    }
+
+    if (accepted) {
+      this.getContext().bus.emit(event, {});
     }
     this.pauseView?.render(controller.snapshot());
   }

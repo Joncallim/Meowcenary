@@ -375,6 +375,7 @@ describe('PhaserPauseView', () => {
     const view = new PhaserPauseView({
       scene: scene as never,
       viewport: logicalCanvasViewport(),
+      bus: harness.bus,
       controller: harness.controller,
       inventory: harness.inventory,
     });
@@ -385,6 +386,25 @@ describe('PhaserPauseView', () => {
     scene.objects
       .filter((object) => object.state.kind === 'text')
       .map((object) => object.state.text);
+
+  /** Records ordered ui:* command events from the real local bus. */
+  const recordEvents = (bus: ReturnType<typeof createEventBus>) => {
+    const events: string[] = [];
+    bus.on('ui:navigate', () => events.push('ui:navigate'));
+    bus.on('ui:confirm', () => events.push('ui:confirm'));
+    bus.on('ui:back', () => events.push('ui:back'));
+    return events;
+  };
+
+  /** Live interactive modal buttons in creation order (destroyed render
+   *  leftovers are excluded). */
+  const liveButtons = (scene: ReturnType<typeof createFakeScene>) =>
+    scene.objects.filter(
+      (object) =>
+        object.state.kind === 'rect' &&
+        object.state.handlers['pointerup'] &&
+        !object.state.destroyed,
+    );
 
   it('renders nothing while the panel is closed', () => {
     const { scene } = createView();
@@ -477,5 +497,101 @@ describe('PhaserPauseView', () => {
     const count = scene.objects.length;
     view.render(controller.snapshot());
     expect(scene.objects.length).toBe(count);
+  });
+
+  describe('command events', () => {
+  it('emits exactly one ui:back for an accepted Resume', () => {
+    const { scene, view, controller, bus } = createView();
+    const events = recordEvents(bus);
+    controller.pause();
+    view.render(controller.snapshot());
+
+    liveButtons(scene)[0]!.state.handlers['pointerup']!();
+
+    expect(events).toEqual(['ui:back']);
+    expect(controller.snapshot().panel).toBe('closed');
+  });
+
+  it('emits exactly one ui:confirm for an accepted Inventory command', () => {
+    const { scene, view, controller, bus } = createView();
+    const events = recordEvents(bus);
+    controller.pause();
+    view.render(controller.snapshot());
+
+    liveButtons(scene)[1]!.state.handlers['pointerup']!();
+
+    expect(events).toEqual(['ui:confirm']);
+    expect(controller.snapshot().panel).toBe('inventory');
+  });
+
+  it('emits exactly one ui:navigate when a weapon row selection actually changes', () => {
+    const { run, scene, view, controller, bus } = createView();
+    run.equipped = [instance('scrap-pistol-t1', 'a'), instance('can-smg-t1', 'b')];
+    controller.pause();
+    controller.openInventory();
+    view.render(controller.snapshot());
+    const events = recordEvents(bus);
+
+    liveButtons(scene)[0]!.state.handlers['pointerup']!();
+
+    expect(events).toEqual(['ui:navigate']);
+  });
+
+  it('emits exactly one ui:confirm on a successful merge', () => {
+    const { run, scene, view, controller, bus } = createView();
+    run.equipped = [instance('scrap-pistol-t1', 'a'), instance('scrap-pistol-t1', 'b')];
+    controller.pause();
+    controller.openInventory();
+    view.render(controller.snapshot());
+    const events = recordEvents(bus);
+
+    liveButtons(scene)[0]!.state.handlers['pointerup']!(); // select a → ui:navigate
+    liveButtons(scene)[1]!.state.handlers['pointerup']!(); // select b → ui:navigate
+    liveButtons(scene)[2]!.state.handlers['pointerup']!(); // Merge Selected → ui:confirm
+
+    expect(events).toEqual(['ui:navigate', 'ui:navigate', 'ui:confirm']);
+    expect(textContents(scene)).not.toContain('Select two weapons');
+  });
+
+  it('emits exactly one ui:confirm even when the merge fails', () => {
+    const { scene, view, controller, bus } = createView();
+    controller.pause();
+    controller.openInventory();
+    view.render(controller.snapshot());
+    const events = recordEvents(bus);
+
+    // No weapons equipped: the first live control is Merge Selected.
+    liveButtons(scene)[0]!.state.handlers['pointerup']!();
+
+    expect(events).toEqual(['ui:confirm']);
+    expect(textContents(scene)).toEqual(expect.arrayContaining(['Select two weapons']));
+  });
+
+  it('emits exactly one ui:back for the Back button', () => {
+    const { scene, view, controller, bus } = createView();
+    controller.pause();
+    controller.openInventory();
+    view.render(controller.snapshot());
+    const events = recordEvents(bus);
+
+    const buttons = liveButtons(scene);
+    buttons[buttons.length - 1]!.state.handlers['pointerup']!();
+
+    expect(events).toEqual(['ui:back']);
+    expect(controller.snapshot().panel).toBe('pause');
+  });
+
+  it('emits nothing when the controller rejects a command (disposed fixture)', () => {
+    const { scene, view, controller, bus } = createView();
+    controller.pause();
+    view.render(controller.snapshot());
+    const events = recordEvents(bus);
+    controller.destroy();
+
+    liveButtons(scene)[0]!.state.handlers['pointerup']!();
+
+    expect(events).toEqual([]);
+    expect(controller.snapshot().panel).toBe('pause');
+  });
   });
 });

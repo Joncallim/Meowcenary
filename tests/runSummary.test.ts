@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
+import { SceneKey } from '../src/engine/sceneKeys';
 import {
   createRunState,
   endRun,
@@ -489,7 +490,101 @@ describe('PhaserRunSummaryView', () => {
     buttons[0]!.state.handlers['pointerup']();
     expect(scene.scene.restart).toHaveBeenCalledTimes(1);
     buttons[1]!.state.handlers['pointerup']();
-    expect(scene.scene.start).toHaveBeenCalledWith('MenuScene');
+    expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
+  });
+
+  describe('command events', () => {
+    const recordEvents = (bus: ReturnType<typeof createEventBus>) => {
+      const events: string[] = [];
+      bus.on('ui:confirm', () => events.push('ui:confirm'));
+      bus.on('ui:back', () => events.push('ui:back'));
+      bus.on('ui:navigate', () => events.push('ui:navigate'));
+      return events;
+    };
+
+    const liveButtons = (scene: ReturnType<typeof createFakeScene>) =>
+      scene.objects.filter(
+        (object) =>
+          object.state.kind === 'rect' &&
+          object.state.handlers['pointerup'] &&
+          !object.state.destroyed,
+      );
+
+    it('emits one confirm and restarts once from the Retry button', () => {
+      const { bus, scene } = createHarness({ banked: bankedRun() });
+      bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+      const events = recordEvents(bus);
+
+      liveButtons(scene)[0]!.state.handlers['pointerup']();
+
+      expect(events).toEqual(['ui:confirm']);
+      expect(scene.scene.restart).toHaveBeenCalledTimes(1);
+    });
+
+    it('emits one confirm and restarts once from the R shortcut', () => {
+      const { bus, scene } = createHarness({ banked: bankedRun() });
+      bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+      const events = recordEvents(bus);
+
+      scene.input.keyboard.keydown({ key: 'R', repeat: false });
+
+      expect(events).toEqual(['ui:confirm']);
+      expect(scene.scene.restart).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores repeated R keydown events entirely', () => {
+      const { bus, scene } = createHarness({ banked: bankedRun() });
+      bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+      const events = recordEvents(bus);
+
+      scene.input.keyboard.keydown({ key: 'R', repeat: true });
+
+      expect(events).toEqual([]);
+      expect(scene.scene.restart).not.toHaveBeenCalled();
+    });
+
+    it('ignores R while hidden or after destroy', () => {
+      const { bus, scene, view } = createHarness({ banked: bankedRun() });
+      const events = recordEvents(bus);
+
+      // Hidden: no terminal event has rendered the summary yet.
+      scene.input.keyboard.keydown({ key: 'R', repeat: false });
+      expect(events).toEqual([]);
+
+      bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+      scene.input.keyboard.keydown({ key: 'R', repeat: false });
+      expect(events).toEqual(['ui:confirm']);
+
+      // After destroy: the same R command emits nothing and restarts nothing.
+      view.destroy();
+      scene.input.keyboard.keydown({ key: 'R', repeat: false });
+      expect(events).toEqual(['ui:confirm']);
+      expect(scene.scene.restart).toHaveBeenCalledTimes(1);
+    });
+
+    it('emits one confirm and starts the menu scene from Main Menu', () => {
+      const { bus, scene } = createHarness({ banked: bankedRun() });
+      bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+      const events = recordEvents(bus);
+
+      liveButtons(scene)[1]!.state.handlers['pointerup']();
+
+      expect(events).toEqual(['ui:confirm']);
+      expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
+    });
+
+    it('button callbacks emit nothing after the view is destroyed', () => {
+      const { bus, scene, view } = createHarness({ banked: bankedRun() });
+      bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+      const events = recordEvents(bus);
+      view.destroy();
+
+      liveButtons(scene).forEach((button) => button.state.handlers['pointerup']());
+
+      expect(events).toEqual([]);
+      expect(scene.scene.restart).not.toHaveBeenCalled();
+      expect(scene.scene.start).not.toHaveBeenCalled();
+    });
   });
 
   it('destroy unsubscribes bus and keyboard and cleans every object idempotently', () => {

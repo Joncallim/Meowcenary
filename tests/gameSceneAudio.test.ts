@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createEventBus } from '../src/engine/eventBus';
 import { GAME_CONTEXT_REGISTRY_KEY } from '../src/engine/context';
 import { GameScene } from '../src/scenes/GameScene';
 import {
@@ -35,9 +36,22 @@ interface AudioSeams {
   removeAudioUnlockListeners: () => void;
   getAudioManager: () => AudioManager | undefined;
   handleShutdown: () => void;
+  handlePauseKey: () => void;
+  pauseController:
+    | {
+        snapshot: () => { panel: 'closed' | 'pause' | 'inventory'; inventory: unknown };
+        pause: () => boolean;
+        resume: () => boolean;
+        back: () => boolean;
+      }
+    | undefined;
+  pauseView: { render: (snapshot: unknown) => void } | undefined;
 }
 
-function createFakeEnvironment(audioFake?: { unlock: ReturnType<typeof vi.fn>; destroy: ReturnType<typeof vi.fn> }) {
+function createFakeEnvironment(
+  audioFake?: { unlock: ReturnType<typeof vi.fn>; destroy: ReturnType<typeof vi.fn> },
+  context?: { bus: ReturnType<typeof createEventBus> },
+) {
   const keyboardListeners = new Map<
     string,
     Array<{ handler: () => void; context: unknown; once: boolean }>
@@ -117,7 +131,7 @@ function createFakeEnvironment(audioFake?: { unlock: ReturnType<typeof vi.fn>; d
   Object.assign(scene, {
     registry: {
       get: (key: string) => {
-        if (key === GAME_CONTEXT_REGISTRY_KEY) return undefined;
+        if (key === GAME_CONTEXT_REGISTRY_KEY) return context;
         if (key === AUDIO_MANAGER_REGISTRY_KEY) return audioFake;
         return undefined;
       },
@@ -222,5 +236,70 @@ describe('GameScene audio lifecycle seams', () => {
     expect(input.listenerCount('pointerdown')).toBe(0);
     expect(keyboard.listenerCount('keydown')).toBe(0);
     expect(audioFake.unlock).not.toHaveBeenCalled();
+  });
+});
+
+describe('GameScene handlePauseKey command events', () => {
+  function createPauseFixture(panel: 'closed' | 'pause' | 'inventory', accepted: boolean) {
+    const bus = createEventBus();
+    const events: string[] = [];
+    bus.on('ui:confirm', () => events.push('ui:confirm'));
+    bus.on('ui:back', () => events.push('ui:back'));
+    const snapshot = { panel, inventory: {} };
+    const controller = {
+      snapshot: vi.fn(() => snapshot),
+      pause: vi.fn(() => accepted),
+      resume: vi.fn(() => accepted),
+      back: vi.fn(() => accepted),
+    };
+    const render = vi.fn();
+    const { seams } = createFakeEnvironment(undefined, { bus });
+    seams.pauseController = controller;
+    seams.pauseView = { render };
+    return { seams, controller, render, events };
+  }
+
+  it('emits ui:confirm exactly once when a closed panel accepts pause', () => {
+    const { seams, controller, render, events } = createPauseFixture('closed', true);
+
+    seams.handlePauseKey();
+
+    expect(controller.pause).toHaveBeenCalledTimes(1);
+    expect(events).toEqual(['ui:confirm']);
+    expect(render).toHaveBeenCalledWith(controller.snapshot());
+  });
+
+  it('emits ui:back exactly once when the inventory panel accepts back', () => {
+    const { seams, controller, events } = createPauseFixture('inventory', true);
+
+    seams.handlePauseKey();
+
+    expect(controller.back).toHaveBeenCalledTimes(1);
+    expect(events).toEqual(['ui:back']);
+  });
+
+  it('emits ui:back exactly once when the pause panel accepts resume', () => {
+    const { seams, controller, events } = createPauseFixture('pause', true);
+
+    seams.handlePauseKey();
+
+    expect(controller.resume).toHaveBeenCalledTimes(1);
+    expect(events).toEqual(['ui:back']);
+  });
+
+  it('emits nothing when the controller rejects the command', () => {
+    const { seams, controller, render, events } = createPauseFixture('closed', false);
+
+    seams.handlePauseKey();
+
+    expect(controller.pause).toHaveBeenCalledTimes(1);
+    expect(events).toEqual([]);
+    expect(render).toHaveBeenCalledTimes(1); // the panel still re-renders
+  });
+
+  it('does nothing without a pause controller', () => {
+    const { seams } = createFakeEnvironment();
+
+    expect(() => seams.handlePauseKey()).not.toThrow();
   });
 });
