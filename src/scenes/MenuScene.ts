@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_CONTEXT_REGISTRY_KEY, type GameContext } from '../engine/context';
 
 import { SceneKey } from '../engine/sceneKeys';
+import { AudioManager, AUDIO_MANAGER_REGISTRY_KEY } from '../systems/audio';
 import { logicalCanvasViewport, minimumHitTarget } from '../ui/layout';
 import { MainMenuController, type MainMenuSnapshot } from '../ui/menus';
 import { cycleVolumeStep } from '../ui/settings';
@@ -14,6 +15,7 @@ export class MenuScene extends Phaser.Scene {
   private root?: Phaser.GameObjects.Container;
   private focusables: Phaser.GameObjects.Text[] = [];
   private focusIndex = -1;
+  private audioManager?: AudioManager;
 
   constructor() {
     super(SceneKey.Menu);
@@ -41,8 +43,18 @@ export class MenuScene extends Phaser.Scene {
 
     this.render(this.controller.snapshot());
 
+    // A missing audio registry entry is tolerated; the scene stays
+    // functional and silent.
+    this.audioManager = this.getAudioManager();
+    this.audioManager?.playMusic('music-menu');
+    this.installAudioUnlockListeners();
+
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
+  }
+
+  update(_time: number, delta: number): void {
+    this.audioManager?.update(delta);
   }
 
   private render(snapshot: MainMenuSnapshot): void {
@@ -485,6 +497,7 @@ export class MenuScene extends Phaser.Scene {
   private handleShutdown(): void {
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
+    this.removeAudioUnlockListeners();
     this.input.keyboard?.off('keydown-ESC', this.handleBack, this);
     this.input.keyboard?.off('keydown-UP', this.handleFocusMove, this);
     this.input.keyboard?.off('keydown-DOWN', this.handleFocusMove, this);
@@ -495,6 +508,9 @@ export class MenuScene extends Phaser.Scene {
     this.focusables = [];
     this.focusIndex = -1;
     this.controller = undefined;
+    // The manager is game-scoped and Boot-owned: shutdown only drops this
+    // scene's reference — never destroy/stopMusic/stopAll.
+    this.audioManager = undefined;
   }
 
   private getContext(): GameContext {
@@ -510,5 +526,38 @@ export class MenuScene extends Phaser.Scene {
       throw new Error('MainMenuController missing from MenuScene');
     }
     return this.controller;
+  }
+
+  private readonly handleAudioUnlock = (): void => {
+    this.removeAudioUnlockListeners();
+    this.audioManager?.unlock();
+  };
+
+  private installAudioUnlockListeners(): void {
+    if (!this.audioManager) {
+      return;
+    }
+    this.removeAudioUnlockListeners();
+    this.input.once(
+      Phaser.Input.Events.POINTER_DOWN,
+      this.handleAudioUnlock,
+      this,
+    );
+    this.input.keyboard?.once('keydown', this.handleAudioUnlock, this);
+  }
+
+  private removeAudioUnlockListeners(): void {
+    this.input.off(
+      Phaser.Input.Events.POINTER_DOWN,
+      this.handleAudioUnlock,
+      this,
+    );
+    this.input.keyboard?.off('keydown', this.handleAudioUnlock, this);
+  }
+
+  private getAudioManager(): AudioManager | undefined {
+    return this.registry.get(AUDIO_MANAGER_REGISTRY_KEY) as
+      | AudioManager
+      | undefined;
   }
 }

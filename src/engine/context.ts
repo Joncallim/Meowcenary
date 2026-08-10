@@ -104,9 +104,21 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     get selectedArenaId() { return selectedArenaId; },
     get arenaSelectionRevision() { return arenaSelectionRevision; },
     updateSettings(patch) {
-      const settings = applySettingsPatch(current.settings, patch);
+      const previousSettings = current.settings;
+      const settings = applySettingsPatch(previousSettings, patch);
       current = Object.freeze({ version: 2, settings, meta: current.meta });
-      return Object.freeze({ value: settings, persisted: options.save.save(current) });
+      const persisted = options.save.save(current);
+
+      // Identity equality (never patch-object equality) decides emission: a
+      // no-op or sanitized-to-current patch emits nothing, and a real
+      // in-memory change emits even when persistence failed. Assignment
+      // happens before emission so listeners reading context.settings observe
+      // the same object carried in the payload.
+      if (settings !== previousSettings) {
+        options.bus.emit('settings:changed', { settings });
+      }
+
+      return Object.freeze({ value: settings, persisted });
     },
     updateMeta(transform) {
       const transformed = transform(current.meta);
