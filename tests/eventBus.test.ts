@@ -1,5 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createEventBus } from '../src/engine/eventBus';
+import { createEventBus, GAME_EVENT_KEYS } from '../src/engine/eventBus';
+
+describe('GAME_EVENT_KEYS', () => {
+  it('contains every key exactly once', () => {
+    expect(new Set(GAME_EVENT_KEYS).size).toBe(GAME_EVENT_KEYS.length);
+  });
+
+  it('contains the four Epic 10 keys', () => {
+    for (const key of ['settings:changed', 'ui:navigate', 'ui:confirm', 'ui:back']) {
+      expect(GAME_EVENT_KEYS).toContain(key);
+    }
+  });
+
+  it('has the pinned 24-key contract (compile-time exhaustiveness typechecks)', () => {
+    expect(GAME_EVENT_KEYS).toHaveLength(24);
+  });
+});
 
 describe('createEventBus', () => {
   it('returns an unsubscribe function that works when on is destructured', () => {
