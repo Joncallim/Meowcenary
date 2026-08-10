@@ -425,6 +425,23 @@ describe('AudioManager music', () => {
     expect(runMusic.isPlaying).toBe(false);
     expect(sound.added[1].isPlaying).toBe(true);
   });
+
+  it('restarts a fading loop when the same key is requested during a fade', () => {
+    const { audio, sound } = createHarness();
+
+    audio.playMusic('music-run');
+    const firstLoop = sound.added[0];
+    audio.stopMusic(600);
+    audio.update(100);
+    expect(firstLoop.isPlaying).toBe(true);
+
+    audio.playMusic('music-run');
+
+    expect(firstLoop.isPlaying).toBe(false);
+    expect(sound.added[1].isPlaying).toBe(true);
+    expect(sound.added[1].key).toBe('music-run');
+  });
+
 });
 
 describe('AudioManager settings', () => {

@@ -132,10 +132,13 @@ export class AudioManager implements System {
   }
 
   /** Scene-selected, manager-executed: menu/run loops (§4.5). Same-key calls
-   *  are no-ops; while locked the key is deferred, never played. */
+   *  are no-ops unless a fade is active (Retry during run-end fade restarts
+   *  the loop fresh); while locked the key is deferred, never played. */
   playMusic(musicKey: string): void {
     if (this.destroyed || !this.initialized) return;
-    if (musicKey === this.currentMusicKey || musicKey === this.pendingMusicKey) return;
+    // Same-key is a true no-op only when no fade owns the ramp; during a fade we
+    // cancel it and restart fresh so a Retry/restart always replays music.
+    if (!this.fade && (musicKey === this.currentMusicKey || musicKey === this.pendingMusicKey)) return;
     if (!this.scene.cache.audio.exists(musicKey)) {
       this.warnOnce(musicKey);
       return;
