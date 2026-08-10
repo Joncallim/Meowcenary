@@ -128,8 +128,26 @@ describe('validateAllData', () => {
     Reflect.deleteProperty(data, 'enemies');
     data.weapons[0].damage = -1;
 
+    // The boot message keeps the frozen `game-data.enemies` text (Epic 11
+    // §5.3); the collector remaps catalog-root lines to JSON file names so
+    // issues group by file (§5.1).
     expect(collectGameDataErrors(data)).toEqual([
-      { file: 'game-data.enemies', index: -1, field: '', message: 'required field' },
+      { file: 'enemies.json', index: -1, field: '', message: 'required field' },
+    ]);
+  });
+
+  it('keeps the game-data. prefix for root lines naming no catalog', () => {
+    const data = mutableData();
+    (data as Record<string, unknown>).surprise = 1;
+
+    expect(collectGameDataErrors(data)).toEqual([
+      { file: 'game-data.surprise', index: -1, field: '', message: 'unknown field' },
+    ]);
+  });
+
+  it('attributes a non-object aggregate to the game-data root category', () => {
+    expect(collectGameDataErrors(42)).toEqual([
+      { file: 'game-data', index: -1, field: '', message: 'expected object' },
     ]);
   });
 

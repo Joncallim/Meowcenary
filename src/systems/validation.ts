@@ -119,7 +119,9 @@ const UNLOCK_META_FIELDS = new Set(['type', 'requiresUnlockId']);
 /** Structured validation issue (Epic 11 §5.1). `file` is the JSON file name
  *  (e.g. 'weapons.json') or '(unknown)' for unparseable lines; `index` is the
  *  catalog row index, -1 for file-level errors; `field` is the dotted field
- *  path (may embed [i]), '' for file-level errors. */
+ *  path (may embed [i]), '' for file-level errors. Root-phase failures that
+ *  name no catalog — unknown root fields, a non-object aggregate — keep the
+ *  frozen `game-data.` prefix as a distinct root category (Epic 11 §5.3). */
 export interface ValidationIssue {
   readonly file: string;
   readonly index: number;
@@ -283,21 +285,11 @@ export function validateGameData(raw: unknown): GameData {
 
 /** Root-shape phase, shared by the throwing boot path and the collecting
  *  path (Epic 11 §5.3). Behavior is frozen: same messages, same throw order.
- *  Audio sub-record names remap to their JSON file names (Epic 10 §6.2). */
+ *  Audio sub-record names remap to their JSON file names (Epic 10 §6.2).
+ *  The remap lives in remapRootPhaseLine so the collector can apply it to
+ *  the other root lines at its boundary (§5.4). */
 function assertGameDataRoot(raw: unknown): void {
-  const rootErrors = jsonSafetyErrors(raw, 'game-data').map((error) =>
-    error
-      .replace(/^game-data\.weapons/, 'weapons.json')
-      .replace(/^game-data\.enemies/, 'enemies.json')
-      .replace(/^game-data\.upgrades/, 'upgrades.json')
-      .replace(/^game-data\.metaUpgrades/, 'meta-upgrades.json')
-      .replace(/^game-data\.spawnCurves/, 'spawn-curves.json')
-      .replace(/^game-data\.characters/, 'characters.json')
-      .replace(/^game-data\.arenas/, 'arenas.json')
-      .replace(/^game-data\.lootTables/, 'loot-tables.json')
-      .replace(/^game-data\.audio\.assets/, 'audio-assets.json')
-      .replace(/^game-data\.audio\.map/, 'audio-map.json'),
-  );
+  const rootErrors = jsonSafetyErrors(raw, 'game-data').map(remapRootPhaseLine);
   if (!isRecord(raw)) {
     rootErrors.push('game-data: expected object');
     throw new Error(`Invalid game data:\n${rootErrors.join('\n')}`);
@@ -322,6 +314,36 @@ function assertGameDataRoot(raw: unknown): void {
     }
   }
   throwIfErrors(rootErrors);
+}
+
+/** Maps an aggregate `game-data.` catalog path to its JSON file name.
+ *  Boot messages are frozen (Epic 11 §5.3) and keep the prefix; the
+ *  collecting path applies this per-line remap so issues group by file.
+ *  Lines naming no catalog (unknown root fields, a non-object aggregate,
+ *  the audio pair itself) are returned unchanged — the documented root
+ *  category (Epic 11 §5.1). */
+function remapRootPhaseLine(line: string): string {
+  return line
+    .replace(/^game-data\.weapons/, 'weapons.json')
+    .replace(/^game-data\.enemies/, 'enemies.json')
+    .replace(/^game-data\.upgrades/, 'upgrades.json')
+    .replace(/^game-data\.metaUpgrades/, 'meta-upgrades.json')
+    .replace(/^game-data\.spawnCurves/, 'spawn-curves.json')
+    .replace(/^game-data\.characters/, 'characters.json')
+    .replace(/^game-data\.arenas/, 'arenas.json')
+    .replace(/^game-data\.lootTables/, 'loot-tables.json')
+    .replace(/^game-data\.audio\.assets/, 'audio-assets.json')
+    .replace(/^game-data\.audio\.map/, 'audio-map.json');
+}
+
+/** Applies remapRootPhaseLine to every line of a thrown root-phase message
+ *  before issue mapping (idempotent for lines assertGameDataRoot already
+ *  remapped). */
+function remapRootPhaseMessage(message: string): string {
+  return message
+    .split('\n')
+    .map(remapRootPhaseLine)
+    .join('\n');
 }
 
 /** Aggregate, non-throwing validation of the shipped catalogs (Epic 11 §5.1).
@@ -352,8 +374,12 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
   try {
     assertGameDataRoot(raw);
   } catch (error) {
-    // Root failures mask per-file reads, mirroring boot.
-    return mapValidationErrorLines(error);
+    // Root failures mask per-file reads, mirroring boot. The thrown message
+    // is the frozen boot text with `game-data.` prefixes (Epic 11 §5.3);
+    // remap catalog-root lines to JSON file names so issues group by file
+    // (§5.1). Lines naming no catalog keep the prefix as the root category.
+    const message = error instanceof Error ? error.message : String(error);
+    return mapValidationErrorLines(remapRootPhaseMessage(message));
   }
   const record = raw as Record<string, unknown>;
 

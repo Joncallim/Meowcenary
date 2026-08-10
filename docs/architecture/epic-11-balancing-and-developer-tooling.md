@@ -185,8 +185,11 @@ style (`enemyScaling`, `stats.resolve` throw on non-finite):
 
 ```ts
 export function lerp(a: number, b: number, t: number): number;
-// a + (b - a) * t. All inputs finite or throw. t is deliberately NOT clamped:
-// extrapolation is a caller decision (callers compose with clamp).
+// a + (b - a) * t. All inputs finite or throw; a non-finite result throws
+// (same result guard as growth/linearGrowth — large-but-finite inputs can
+// overflow, e.g. lerp(Number.MAX_VALUE, 0, -1) === Infinity). t is
+// deliberately NOT clamped: extrapolation is a caller decision (callers
+// compose with clamp).
 
 export function clamp(value: number, min: number, max: number): number;
 // All inputs finite or throw; min > max throws. Equivalent to
@@ -203,8 +206,11 @@ export function weightedPick<T>(
   rng: Rng,
 ): T;
 // Thin delegate to rng.weighted (zero/negative weights and empty selection
-// keep the existing Rng error behavior). Exists so balance tables read as
-// curve helpers and call sites stay uniform.
+// keep the existing Rng error behavior — Rng is the single validation
+// surface, so no finite-weight guard is added here). Exists so balance
+// tables read as curve helpers and call sites stay uniform. Deliberately
+// public with no production caller yet (exercised by tests only); reserved
+// for future balance-table call sites.
 ```
 
 Reroutes (all output-identical; pinned by §11 exactness tests):
@@ -237,6 +243,13 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[]; // injec
 `collectGameDataErrors` is the injectable core used by the broken-fixture
 tests.
 
+**Root-phase attribution.** `assertGameDataRoot`'s messages are frozen
+(§5.3) and carry the aggregate `game-data.` prefix. The collector remaps
+catalog-root lines at its boundary (`game-data.enemies: required field` →
+`enemies.json`) so issues group by file; lines naming no catalog — unknown
+root fields, a non-object aggregate (`game-data: expected object`), the
+`audio` pair itself — keep the prefix as a distinct root category.
+
 ### 5.2 Descriptor table (maintainer note from the Epic 0 review)
 
 ```ts
@@ -267,6 +280,11 @@ catalog functions are reused unchanged. Audio descriptors read
 `raw.audio.assets` / `raw.audio.map`; the map descriptor keeps the Epic 10
 normalized-array round-trip fallback (`validateNormalizedAudioMap` when given
 an array).
+
+The extracted validators are **intentionally public**: they are the per-file
+pipeline entry points behind the descriptor table, pinned by the focused
+tests, and available for future per-file tooling (e.g. a per-file validation
+CLI) without widening the descriptor contract.
 
 ### 5.3 Throwing boot path — external behavior frozen
 
@@ -477,14 +495,14 @@ Epic 12 work.
 
 | Area | Required evidence |
 | --- | --- |
-| `lerp` | endpoints, midpoint, `t` outside [0, 1] extrapolates, non-finite inputs throw |
+| `lerp` | endpoints, midpoint, `t` outside [0, 1] extrapolates, non-finite inputs throw, overflowed (non-finite) result throws |
 | `clamp` | inside/below/above, min > max throws, non-finite throws |
 | `growth` | `rate ** step` exactness (e.g. `growth(2, 2, 10) === 2048`), step 0 = base, fractional step, non-finite result throws |
 | `linearGrowth` | zero rate = base, negative rate allowed, matches `base * (1 + r * s)` exactly |
 | `weightedPick` | delegates to `rng.weighted` (spy), propagates the empty-selection error |
 | Scaler exactness | `costOf` table for every shipped meta-upgrade level unchanged; `scaleEnemy` outputs identical to the inline reference formula across a time sweep; `xpToNext` levels 1–10 unchanged |
 | `validateAllData` | shipped data returns `[]`; two broken catalogs both report (no abort); `{file, index, field, message}` mapping incl. nested field paths; file-level error → `index: -1, field: ''`; unparseable line → `(unknown)` fallback |
-| Collecting phases | cross-refs skipped when a per-file phase is dirty; clean catalogs + dangling `enemyId` wave → attributed cross-ref issue; root failure masks per-file phase |
+| Collecting phases | cross-refs skipped when a per-file phase is dirty; clean catalogs + dangling `enemyId` wave → attributed cross-ref issue; root failure masks per-file phase; root-phase catalog lines remap to JSON file names (`game-data.enemies` → `enemies.json`) while lines naming no catalog keep the `game-data.` prefix |
 | Boot regression | `tests/validation.test.ts` passes unmodified; multiple-bad-files input still throws the weapons error first (order pin) |
 | `readDebugFlags` | empty/missing params → defaults; master switch alone → enabled, neutral values; each param parses; invalid/out-of-range/non-numeric → per-field default; never throws |
 | `debugCheatsActive` | `enabled && isDev` true; either false → false (both `isDev` branches via the explicit parameter) |
@@ -565,7 +583,11 @@ under equivalently named test files. The full gate is mandatory.
 
 - Do not change any validation message string, the throw site, or the
   first-error order in `validateGameData`; `tests/validation.test.ts` pins
-  them.
+  them. In particular do not extend the catalog remap inside
+  `assertGameDataRoot` beyond the `jsonSafetyErrors` lines it already
+  covers (frozen boot behavior, §5.3) — the collector applies the same
+  remap to the remaining root lines at its own boundary (§5.1/§5.4), and
+  root lines naming no catalog keep the `game-data.` prefix by design.
 - Do not let `validateAllData` throw, and do not run cross-reference
   assertions when any catalog failed — they require typed rows.
 - Do not route `scaleEnemy` through `growth`; its linear formula is the

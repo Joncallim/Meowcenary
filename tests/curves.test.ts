@@ -21,6 +21,13 @@ describe('lerp', () => {
       expect(() => lerp(1, 1, bad)).toThrow(/finite/);
     }
   });
+
+  it('throws when the result overflows to non-finite', () => {
+    // Three finite inputs whose arithmetic overflows: (b - a) * t exceeds
+    // MAX_VALUE. Matches the growth/linearGrowth result guards.
+    expect(() => lerp(Number.MAX_VALUE, 0, -1)).toThrow(/result must be finite/);
+    expect(() => lerp(1, Number.MAX_VALUE, 2)).toThrow(/result must be finite/);
+  });
 });
 
 describe('clamp', () => {
