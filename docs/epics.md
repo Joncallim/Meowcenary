@@ -302,8 +302,8 @@ so schedules (fire cadence, spawn timing) stay deterministic in tests.
 | Epic 7 | #8 Maps and Arenas | Complete | Data-defined arenas, spawn regions, obstacles, hazard hooks. |
 | Epic 8 | #9 Loot and Economy | Complete | Event-driven kill-to-loot pipeline, poolable `Drop` entity, activated scrap economy, chest shell, integration harness, and dev hotkey; architecture in [`architecture/epic-8-loot-and-economy.md`](architecture/epic-8-loot-and-economy.md). |
 | Epic 9 | #10 UI and UX | Architecture ready | Single-branch production menu, HUD, settings, touch presentation, pause/inventory, chooser integration, and run summary; architecture in [`architecture/epic-9-ui-and-ux.md`](architecture/epic-9-ui-and-ux.md). |
-| Epic 10 | #11 Audio | Architecture ready | Single-branch event-driven SFX/music, autoplay unlock, per-key cooldowns, live settings via `settings:changed`, and a placeholder asset pipeline; architecture in [`architecture/epic-10-audio.md`](architecture/epic-10-audio.md). |
-| Epic 11 | #12 Balancing and Developer Tooling | Architecture ready | Single-branch aggregate data validation, shared curve helpers, dev-gated cheat flags, overlay run metrics, and local playtest summary; architecture in [`architecture/epic-11-balancing-and-developer-tooling.md`](architecture/epic-11-balancing-and-developer-tooling.md). |
+| Epic 10 | #11 Audio | Complete | Single-branch event-driven SFX/music, autoplay unlock, per-key cooldowns, live settings via `settings:changed`, and the deterministic placeholder asset pipeline; contracts in [`architecture/epic-10-audio.md`](architecture/epic-10-audio.md), slices 3–5 delivery in [`architecture/epic-10-audio-remainder.md`](architecture/epic-10-audio-remainder.md). |
+| Epic 11 | #12 Balancing and Developer Tooling | Complete | Single-branch aggregate data validation, shared curve helpers, dev-gated cheat flags, overlay run metrics, and local playtest summary; architecture in [`architecture/epic-11-balancing-and-developer-tooling.md`](architecture/epic-11-balancing-and-developer-tooling.md). |
 | Epic 12 | #13 Polish and Performance | Open | Feedback, animation polish, object pooling, reduced motion, performance checks. |
 
 ## Cross-Epic Rules
@@ -316,7 +316,7 @@ so schedules (fire cadence, spawn timing) stay deterministic in tests.
 - All randomness flows through the seeded `Rng`; never call `Math.random()`.
 - All stat changes flow through `ModifierStack`; never hand-roll multipliers.
 - No ads, paid power, subscriptions, energy systems, or manipulative pacing.
-- Implement each epic in reviewable slices. Epics 9 and 10 are explicit
+- Implement each epic in reviewable slices. Epics 9, 10, and 11 are explicit
   maintainer exceptions: their slices stay on one branch and one eventual
   delivery PR.
 

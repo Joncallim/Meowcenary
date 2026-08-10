@@ -1,13 +1,12 @@
 # Meowcenary Knowledge Graph
 
 > Token-optimized repo map. Read this before any implementation work.
-> Current state: **Epics 0–9 complete** (Epic 9 in PR #64). Epic 10 slices
-> 1–2 merged (PR #65): audio data/events + unwired game-scoped
-> `AudioManager`; scene wiring and placeholders tracked in #67 — the next
-> delivery PR after #66.
-> Epic 11 architecture is implementation-ready on
-> `agent/epic-11-balancing-and-developer-tooling`.
-> 934 tests / 68 files green.
+> Current state: **Epics 0–11 complete**. Epic 10 merged in two delivery PRs:
+> #65 (slices 1–2: audio data/events + game-scoped `AudioManager`) and #68
+> (slices 3–5: `settings:changed` wiring, Boot-owned manager publication,
+> scene lifecycle wiring, exactly-one `ui:*` command events, deterministic
+> placeholder WAVs, and docs closeout). Epic 11 merged in PR #66.
+> 1023 tests / 72 files green.
 
 ## Stack
 
@@ -24,10 +23,12 @@ Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly
 | `src/gameplay/` | ✅ | **No Phaser** (pure rules) | `runState` `runStart` `runRequest` `stats` `xp` `targeting` `weapons` `weaponStats` `merge` `upgrades` `levelUpQueue` `projectilePattern` `enemyMovement` `enemyScaling` `spawnDirector` `spawnRegion` `loot` `meta` `characterSelection` `characterContribution` `characterPassives` `arenaSelection` |
 | `src/entities/` | ✅ | May use Phaser (display objects) | `Player` `Enemy` `Projectile` `Drop` |
 | `src/systems/` | ✅ | May use Phaser (coordinators) | `types` `validation` `save` `input` `audio` `debug` `ids` `enemies` `characters` `arenas` `lootTables` `metaUpgrades` `weaponRegistry` `SpawnSystem` `WeaponSystem` `UpgradeSystem` `DropSystem` `ProgressionSystem` `PassiveCoordinator` `HazardSystem` `arenaScenery` |
-| `src/scenes/` | ✅ | Thin coordinators only | `BootScene` `GameScene` |
-| `src/ui/` | ✅ | May use Phaser | `UpgradeChooser` `upgradeChooserController` `upgradeChooserLayout` `characterSelectionController` `arenaSelectionController` `progressionController` |
-| `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` `loot-tables` |
-| `tests/` | ✅ 934 tests | Vitest; mock Phaser via `vi.mock` | 68 files incl. integration harnesses |
+| `src/scenes/` | ✅ | Thin coordinators only | `BootScene` `MenuScene` `GameScene` |
+| `src/ui/` | ✅ | May use Phaser | `UpgradeChooser` `upgradeChooserController` `upgradeChooserLayout` `characterSelectionController` `arenaSelectionController` `progressionController` `pause` `runSummary` `menus` `settings` `hud` `controls` `inventory` `modal` `layout` `theme` `format` |
+| `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` `loot-tables` `audio-assets` `audio-map` |
+| `scripts/` | ✅ | Node 18+ built-ins only, deterministic | `generate-audio-placeholders.mjs` |
+| `public/assets/audio/` | ✅ | 14 committed deterministic WAVs (12 SFX + 2 music) | one `.wav` per `audio-assets.json` key |
+| `tests/` | ✅ 1023 tests | Vitest; mock Phaser via `vi.mock` | 72 files incl. integration harnesses |
 | `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..11}-*.md` |
 
 Epic 8 Slices 1–5 added `src/data/loot-tables.json`, `src/gameplay/loot.ts`,
@@ -37,12 +38,18 @@ Slice 4 rewired the kill-to-loot pipeline, deleting `XpDrop.ts`, enriching
 Slice 5 added the chest collection shell, the headless loot integration harness,
 and the F10 dev-only chest-spawn hotkey in `GameScene`.
 
-## Runtime Shape (after Epic 8)
+## Runtime Shape (after Epic 10/11)
 
 ```
-main.ts → Phaser.Game([BootScene, GameScene])
-BootScene: loadGameData() (8 catalogs, fail-closed) → registries
+main.ts → Phaser.Game([BootScene, MenuScene, GameScene])
+BootScene: preload() loads every audio-assets.json URL (best-effort)
+           → loadGameData() (10 catalogs, fail-closed) → registries
            (characters, arenas, metaUpgrades) → createGameContext → registry
+           → one AudioManager(this) init(ctx.bus, ctx.settings, ctx.data.audio)
+           → registry[AUDIO_MANAGER_REGISTRY_KEY] → start MenuScene
+MenuScene.create(): fetch ctx + AudioManager → playMusic('music-menu')
+           → first-gesture unlock pair (POINTER_DOWN once + keydown once,
+           cross-removed) → update(delta) forwards to the manager
 GameScene.create():
   assembleRunRequest(ctx, menuRng) → { characterId, arenaId, seed }
   arena = ctx.arenas.arenaById(arenaId); curve = arena.spawnCurveId → curve
@@ -50,9 +57,12 @@ GameScene.create():
   rng streams: createRng(deriveRunSeed(seed, 'spawns' | 'upgrades' | 'loot'))
   physics.world/camera bounds = arena.size; player spawns at arena centre
   systems = [ProgressionSystem, PassiveCoordinator, SpawnSystem,
-             HazardSystem, WeaponSystem, DropSystem, UpgradeSystem, AudioManager]
+             HazardSystem, WeaponSystem, DropSystem, UpgradeSystem]
+  (AudioManager is NOT in systems — Boot owns it; scenes only cache the
+  registry reference and clear it in handleShutdown, never destroy it)
+  audio wiring right before startRun: playMusic('music-run') + unlock pair
 GameScene.update(delta): tickRun → maybeEndRunForVictory (curve.durationSeconds)
-  → systems.forEach(update) → HUD/debug
+  → systems.forEach(update) → audioManager.update(delta) → HUD/debug
 ```
 
 ## Contracts (current, frozen)
@@ -67,15 +77,20 @@ GameScene.update(delta): tickRun → maybeEndRunForVictory (curve.durationSecond
 `updateMeta(transform)` sanitizes → persists → revalidates selections. Only
 persistence boundary. `menuRng` is boot/menu only.
 
-### GameEventMap (21 events, `src/engine/eventBus.ts`)
+### GameEventMap (24 events, `src/engine/eventBus.ts`)
 ```
 run:start/paused/resumed/won/lost   player:damaged/died
 enemy:spawned/damaged/killed        weapon:fired   projectile:hit
 xp:gained  level:up  card:offered(offerId+choices)/chosen  weapon:merged
 drop:collected(kind xp|scrap)  currency:changed  hazard:triggered
+settings:changed(settings)   ui:navigate   ui:confirm   ui:back
 ```
 Epic 8 Slice 2 extended `enemy:killed` with `scrapValue` + optional `lootTableId`
-(no new events). Rules: systems emit; audio/UI/debug subscribe; map is additive.
+(no new events). Epic 10 added the last four events: `settings:changed` is
+emitted only by `GameContext.updateSettings` on settings-identity change;
+`ui:*` are emitted only from MenuScene, GameScene, PhaserPauseView, and
+PhaserRunSummaryView dispatch points (controllers and `ui/modal.ts` stay
+headless). Rules: systems emit; audio/UI/debug subscribe; map is additive.
 
 ### RunState (`src/gameplay/runState.ts`)
 ```ts
@@ -139,7 +154,7 @@ existing event covers it (Epic 8 adds none — it extends one payload).
 
 ## Cross-Cutting Rules
 
-1. No Phaser in `engine/`/`gameplay/`. 2. Scenes stay thin. 3. Tuning in `src/data/*.json` + `RuntimeConfig`. 4. Feedback via EventBus only. 5. All randomness via seeded run-scoped streams. 6. All stat changes via `ModifierStack`. 7. Save migrations are linear; never mutate shape in place. 8. No ads/paid power/energy/manipulative pacing. 9. Use reviewable slices; Epic 9 is the explicit single-branch/single-delivery-PR exception defined by its architecture.
+1. No Phaser in `engine/`/`gameplay/`. 2. Scenes stay thin. 3. Tuning in `src/data/*.json` + `RuntimeConfig`. 4. Feedback via EventBus only. 5. All randomness via seeded run-scoped streams. 6. All stat changes via `ModifierStack`. 7. Save migrations are linear; never mutate shape in place. 8. No ads/paid power/energy/manipulative pacing. 9. Use reviewable slices; Epics 9, 10, and 11 are the explicit single-branch/single-delivery-PR exceptions defined by their architecture documents.
 
 ## Epic Pipeline
 
@@ -151,8 +166,8 @@ existing event covers it (Epic 8 adds none — it extends one payload).
 | 7 | ✅ | Arenas: data/selection/`spawnPoint`/world bounds/obstacles/hazards (PR #51) |
 | 8 | ✅ | Slices 1–5 merged; event-driven kill-to-loot pipeline, chest shell, integration harness (PRs #58–62) |
 | 9 | ✅ | Merged (PR #64): menu, HUD, settings, controls, pause/inventory, chooser, summary |
-| 10 | ⚠️ Partial | Slices 1–2 merged (PR #65): data/events + unwired `AudioManager`; wiring/placeholders tracked in #67 (next PR after #66); see `epic-10-audio.md` |
-| 11 | Architecture ready | One branch: aggregate validation, curve helpers, dev cheats, overlay metrics, playtest summary; see `epic-11-balancing-and-developer-tooling.md` |
+| 10 | ✅ | Merged: #65 (slices 1–2, data/events + `AudioManager`) + #68 (slices 3–5, wiring/`ui:*`/placeholders); see `epic-10-audio.md` + `epic-10-audio-remainder.md` |
+| 11 | ✅ | Merged (PR #66): aggregate validation, curve helpers, dev cheats, overlay metrics, playtest summary; see `epic-11-balancing-and-developer-tooling.md` |
 | 12 | Open | Polish/perf (pooling `Drop`+`Projectile`) |
 
 ## First Steps for Any Agent

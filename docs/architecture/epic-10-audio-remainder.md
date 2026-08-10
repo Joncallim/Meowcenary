@@ -1329,25 +1329,25 @@ Use this prompt after all three implementation commits are present:
 
 Complete during implementation; do not fabricate values.
 
-- PR #66 merge commit: `TBD`
-- post-PR-66 `origin/main` implementation baseline: `TBD`
-- branch sync commit: `TBD`
-- architecture commit: `TBD`
-- Slice 3 commit: `TBD`
-- Slice 4 commit: `TBD`
-- Slice 5 commit: `TBD`
-- delivery PR: `TBD`
-- final head SHA: `TBD`
-- baseline tests/files: `TBD`
-- final tests/files: `TBD`
-- lint/typecheck: `TBD`
-- production build: `TBD`
-- `git diff --check`: `TBD`
-- hosted CI: `TBD`
-- generator regeneration diff: `TBD`
-- source audits: `TBD`
-- manual matrix: `TBD`
-- explicitly deferred/unrun: `TBD`
+- PR #66 merge commit: `1f22858` (Epic 11 squash-merged into `main`)
+- post-PR-66 `origin/main` implementation baseline: `1f22858`
+- branch sync commit: `38a6100` (merge of `origin/main` into `agent/epic-10-audio-remainder`)
+- architecture commit: `6c1a28c`
+- Slice 3 commit: `7f938c6` — settings:changed, Boot manager publication, scene lifecycle wiring
+- Slice 4 commit: `139dd81` — exactly-one UI command events
+- Slice 5 commit: `TBD` (this commit)
+- delivery PR: `#68`
+- final head SHA: `TBD` (recorded in the follow-up delivery-record commit)
+- baseline tests/files: `978 / 70` (post-PR-66 baseline on this branch, before Slice 3)
+- final tests/files: `TBD` (after Slice 5; recorded in the follow-up commit)
+- lint/typecheck: `green` (every slice gate)
+- production build: `green` (every slice gate)
+- `git diff --check`: `clean` (every slice gate)
+- hosted CI: `unrun` — no hosted CI evidence in this delivery environment
+- generator regeneration diff: `zero byte changes` (two consecutive runs, §8.5)
+- source audits: `pass` — `new AudioManager` in BootScene only; no `stopAll`; `ui:*` emitters only in MenuScene, GameScene, PhaserPauseView, PhaserRunSummaryView
+- manual matrix: `unrun` — no interactive browser session available in the implementation environment; rows requiring one (first-gesture unlock, settings live apply, combat cues, F8/F9 dev, Retry, menu↔game cycles, no-assets boot, 390×844 emulation, real mobile) were not executed and must not be claimed. The production-preview asset-serve check is runnable headlessly (§11 final commands) and is recorded in the follow-up commit.
+- explicitly deferred/unrun: hosted CI; interactive browser manual matrix (§10) including real mobile; final sound design and mixing (out of scope, §2.7).
 
 Until every acceptance criterion has evidence, status remains
 **implementation-ready**, not Epic 10 complete.
