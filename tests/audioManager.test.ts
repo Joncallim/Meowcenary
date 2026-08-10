@@ -188,6 +188,7 @@ describe('AudioManager init', () => {
     audio.stopMusic(100);
     audio.applySettings(SETTINGS);
     audio.update(16);
+    sound.locked = true; // even a locked sound manager is never poked pre-init
     audio.unlock();
     expect(sound.playedSfx).toHaveLength(0);
     expect(sound.added).toHaveLength(0);
@@ -334,6 +335,47 @@ describe('AudioManager music', () => {
     expect(() => audio.stopMusic(500)).not.toThrow();
   });
 
+  it('treats non-finite fadeMs as an immediate stop', () => {
+    const { audio, sound } = createHarness();
+
+    audio.playMusic('music-run');
+    audio.stopMusic(Number.NaN);
+    expect(sound.added[0].isPlaying).toBe(false);
+
+    audio.playMusic('music-run');
+    audio.stopMusic(Number.POSITIVE_INFINITY);
+    expect(sound.added[1].isPlaying).toBe(false);
+
+    audio.playMusic('music-run');
+    audio.stopMusic(Number.NEGATIVE_INFINITY);
+    expect(sound.added[2].isPlaying).toBe(false);
+
+    // undefined coerces to NaN under Number.isFinite — the defensive path
+    // that would otherwise create a broken, never-completing fade.
+    audio.playMusic('music-run');
+    audio.stopMusic(undefined as unknown as number);
+    expect(sound.added[3].isPlaying).toBe(false);
+  });
+
+  it('clamps a non-finite music volume before the fade ramp', () => {
+    for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      const { audio, sound } = createHarness();
+
+      audio.playMusic('music-run');
+      const music = sound.added[0];
+      // A rogue MusicLoop instance (the manager does not control its
+      // volume): the value must never leak into the fade ramp.
+      music.volume = value;
+
+      audio.stopMusic(300);
+      audio.update(150); // t = 1/2 → fromVolume * 0.5, never NaN
+      expect(music.volume).toBe(0);
+
+      audio.update(150);
+      expect(music.isPlaying).toBe(false);
+    }
+  });
+
   it('ramps the volume down over the fade and stops at completion', () => {
     const { audio, sound } = createHarness();
 
@@ -432,9 +474,44 @@ describe('AudioManager settings', () => {
     audio.playMusic('music-run');
     expect(sound.added[0].playCalls[0].volume).toBe(0);
   });
+
+  it('clamps non-finite volume settings to 0', () => {
+    for (const value of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      const { audio, bus, sound } = createHarness();
+
+      audio.applySettings({ ...SETTINGS, sfxVolume: value, musicVolume: value });
+      bus.emit('weapon:fired', WEAPON_FIRED);
+      expect(sound.playedSfx[0].config.volume).toBe(0);
+
+      audio.playMusic('music-run');
+      expect(sound.added[0].playCalls[0].volume).toBe(0);
+    }
+  });
 });
 
 describe('AudioManager run-end mapping', () => {
+  it('leaves music playing on SFX-only events and fades only on stopMusic entries', () => {
+    const { audio, bus, sound } = createHarness();
+
+    audio.playMusic('music-run');
+    const music = sound.added[0];
+
+    // weapon:fired has no stopMusic opt-in — it must never touch the loop.
+    bus.emit('weapon:fired', WEAPON_FIRED);
+    expect(music.isPlaying).toBe(true);
+
+    // run:won opts in — the music fades under the stinger.
+    bus.emit('run:won', RUN_WON);
+    expect(sound.playedSfx).toEqual([
+      { key: 'sfx-weapon-fired', config: { volume: 0.8 } },
+      { key: 'sfx-run-won', config: { volume: 0.8 } },
+    ]);
+    expect(music.isPlaying).toBe(true);
+
+    audio.update(600);
+    expect(music.isPlaying).toBe(false);
+  });
+
   it('fades the run music under the terminal stinger', () => {
     const { audio, bus, sound } = createHarness();
 
@@ -449,6 +526,24 @@ describe('AudioManager run-end mapping', () => {
 
     audio.update(600);
     expect(music.isPlaying).toBe(false);
+  });
+
+  it('handles a stopMusic-only entry without sfxKey', () => {
+    const map: readonly AudioMapEntry[] = [
+      { event: 'run:won', stopMusic: true, musicFadeMs: 300 },
+    ];
+    const { audio, bus, sound } = createHarness(map);
+
+    audio.playMusic('music-run');
+    bus.emit('run:won', RUN_WON);
+
+    // No sfxKey — nothing dispatches; the stopMusic branch acts alone.
+    expect(sound.playedSfx).toHaveLength(0);
+    // The music is in a fade, never hard-stopped.
+    expect(sound.added[0].isPlaying).toBe(true);
+
+    audio.update(300);
+    expect(sound.added[0].isPlaying).toBe(false);
   });
 
   it('applies stopMusic before the stinger dispatch, in that order', () => {

@@ -189,7 +189,8 @@ Frozen ownership rules:
    stay lightweight). GameScene's current construction block
    (`new AudioManager(this)` + `setMuted`/`setVolume`), its `systems`-array
    entry, and its shutdown `stopAll()` path are removed. The
-   `private audioManager?: AudioManager` field remains as the fetch cache and
+   `private audioManager?: AudioManager` field is re-added as the fetch
+   cache (Slice 2 dropped it with the wiring block; Slice 3 restores it) and
    is cleared — not destroyed — in `handleShutdown`.
 3. **The manager is game-scoped but scene-fed for time.** Both interactive
    scenes forward `update(delta)` to it (cooldown clock + fade ramp).
@@ -438,8 +439,9 @@ Frozen behavior:
    → return;
    otherwise `scene.sound.play(key, { volume: sfxVolume })` and record
    `lastPlayed.set(key, nowMs)`.
-3. **Map-event handling**: on a mapped event, apply `stopMusic` first
-   (`stopMusic(entry.musicFadeMs ?? 0)`), then `play(entry.sfxKey)` — the
+3. **Map-event handling**: only entries that opt in with `stopMusic: true`
+   stop the music first (`stopMusic(entry.musicFadeMs ?? 0)`), then
+   `play(entry.sfxKey)` — SFX-only entries never touch a playing loop, the
    stinger always dispatches even if the fade logic misbehaves, and test
    order is deterministic.
 4. **playMusic(musicKey)**: no-op when destroyed/uninitialized, when the key
@@ -452,8 +454,9 @@ Frozen behavior:
 5. **unlock flush**: the `'unlocked'` handler marks unlocked and, if a
    `pendingMusicKey` exists, starts it through the normal path (missing asset
    → drop + log once). One-shot SFX are never replayed retroactively.
-6. **stopMusic(fadeMs = 0)**: no current music → no-op. `fadeMs <= 0` → stop
-   immediately. Otherwise register a fade `{ fromVolume, elapsedMs: 0,
+6. **stopMusic(fadeMs = 0)**: no current music → no-op. Non-finite
+   (`NaN`/±Infinity) or non-positive `fadeMs` → stop immediately. Otherwise
+   register a fade `{ fromVolume, elapsedMs: 0,
    durationMs: fadeMs }`; `update(dtMs)` ramps `setVolume(from * (1 - t))`
    and stops the sound at `t >= 1`. **No scene tweens** — tweens are
    scene-owned and would strand a game-scoped sound mid-fade on scene
@@ -464,7 +467,7 @@ Frozen behavior:
    `setMute(muted)` always and `setVolume(musicVolume)` only when no fade is
    running (never fight the ramp); sfx volume applies to subsequent `play`
    calls. Called by `init` and by the `settings:changed` subscription.
-8. **unlock()**: guarded delegate — if destroyed, return; read
+8. **unlock()**: guarded delegate — if destroyed/uninitialized, return; read
    `scene.sound`; if it exposes `locked === true` and an `unlock` function,
    call it (Phaser arms its body listeners; its auto-arm at boot usually
    beats us — §2.3). Never resume an AudioContext directly, never add
@@ -513,8 +516,10 @@ preload(): void {
 ### 9.3 GameScene
 
 - remove the Epic 0 wiring block (`new AudioManager`, `setMuted`,
-  `setVolume`) and the `systems` entry; keep
-  `private audioManager?: AudioManager` as the fetch cache;
+  `setVolume`) and the `systems` entry; add
+  `private audioManager?: AudioManager` as the fetch cache (Slice 2 dropped
+  the field with the wiring block; Slice 3 re-adds it via the registry
+  fetch);
 - `create`: fetch; `audioManager?.playMusic('music-run')`;
 - `update`: after `systems.forEach(...)`, call
   `this.audioManager?.update(delta)`;
@@ -613,7 +618,7 @@ work (no tuning tools, no pooling, no final assets).
 | `GAME_EVENT_KEYS` | unique entries; contains the 4 new keys; compile-time exhaustiveness file typechecks |
 | Audio validation | valid boot data passes (incl. audio); bad `event` rejected; unknown fields rejected; entry without action rejected; `musicFadeMs` without `stopMusic` rejected; non-positive/out-of-range numbers rejected; duplicate event rejected; duplicate `sfxKey` rejected; `sfxKey` missing from assets rejected (cross-ref); URL≠convention rejected; wrong key prefix rejected; `settings:changed` entry rejected; missing `music-menu`/`music-run` rejected |
 | `player:damaged` cadence | map cooldown equals `RuntimeConfig.gameplay.player.invulnerabilityMs` (data↔config consistency; fails loudly when i-frames are retuned) |
-| `AudioManager` | init-twice throws; mapped event dispatches `sound.play(key, { volume: sfxVolume })`; cooldown gates via `update`-driven clock and resets after expiry; missing key no-throw + warn-once; muted gate does not consume cooldown; locked gate drops SFX; `playMusic` while locked defers and `'unlocked'` flushes exactly once; same-key `playMusic` no-op; replacement stops previous; `stopMusic(0)` immediate; fade ramp progresses per `update` and stops at completion; `applySettings` live-updates music mute/volume (not mid-fade volume) and later SFX volume; `destroy` unsubscribes (post-destroy emits dispatch nothing), stops music, never calls `stopAll`, and is idempotent |
+| `AudioManager` | init-twice throws; mapped event dispatches `sound.play(key, { volume: sfxVolume })`; cooldown gates via `update`-driven clock and resets after expiry; missing key no-throw + warn-once; muted gate does not consume cooldown; locked gate drops SFX; `playMusic` while locked defers and `'unlocked'` flushes exactly once; same-key `playMusic` no-op; replacement stops previous; `stopMusic(0)`/non-finite `fadeMs` immediate; fade ramp progresses per `update` and stops at completion; `applySettings` live-updates music mute/volume (not mid-fade volume) and later SFX volume, clamping non-finite volumes to 0; `destroy` unsubscribes (post-destroy emits dispatch nothing), stops music, never calls `stopAll`, and is idempotent |
 | `settings:changed` | `updateSettings` emits once with the new snapshot on real change; no emit on identity-equal patch; emit still fires when `persisted === false`; no other emitter exists |
 
 ### Scene and integration tests

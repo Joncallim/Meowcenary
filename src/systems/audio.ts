@@ -10,10 +10,13 @@ import type { Settings } from './save';
  * Game-scoped audio manager (Epic 10, docs/architecture/epic-10-audio.md §8).
  *
  * One instance per game lifetime, constructed and inited by BootScene and
- * published under AUDIO_MANAGER_REGISTRY_KEY. Scenes only fetch it, forward
- * `update(dtMs)`, call `playMusic`, and wire the first-gesture `unlock` —
- * they never construct, init, or destroy it, and shutdown never touches
- * `sound.stopAll()` (that is the global manager).
+ * published under AUDIO_MANAGER_REGISTRY_KEY — BootScene wiring lands in
+ * Slice 3 (docs/architecture/epic-10-audio.md §9.1); until then this class
+ * is deliberately unwired and the game is silent by design (§13 slice
+ * table, Slice 2 row). Scenes only fetch it, forward `update(dtMs)`, call
+ * `playMusic`, and wire the first-gesture `unlock` — they never construct,
+ * init, or destroy it, and shutdown never touches `sound.stopAll()` (that
+ * is the global manager).
  *
  * Frozen behavior: mapped bus events drive SFX (and run-end music
  * stop/fade); per-key cooldowns gate SFX through the pure `shouldPlay` and
@@ -25,6 +28,10 @@ import type { Settings } from './save';
  * harness in tests is pure TS.
  */
 
+// TODO(Slice 3): BootScene constructs, inits (bus, settings, ctx.data.audio),
+// and publishes this under AUDIO_MANAGER_REGISTRY_KEY per
+// docs/architecture/epic-10-audio.md §9.1. Until that slice lands the key is
+// exported but never read at runtime — audio silent by design.
 export const AUDIO_MANAGER_REGISTRY_KEY = 'meowcenary.audioManager';
 
 interface MusicFade {
@@ -48,7 +55,11 @@ interface MusicLoop {
 }
 
 function clamp01(value: number): number {
-  return Math.min(1, Math.max(0, value));
+  // Non-finite values (NaN, ±Infinity) clamp to 0 — same Number.isFinite gate
+  // as save.ts clampVolume, but with a hard 0 instead of a fallback (runtime
+  // should default to silence; persisted defaults are the save layer's
+  // concern). NaN must never reach Phaser's setVolume/play.
+  return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
 }
 
 export class AudioManager implements System {
@@ -60,6 +71,10 @@ export class AudioManager implements System {
   private muted = false;
   private musicVolume = 1;
   private sfxVolume = 1;
+  // Monotonic session clock advanced only by update(dtMs); never resets.
+  // Overflow is theoretical (~285k years of continuous play past
+  // MAX_SAFE_INTEGER ms) — no concern for session-scoped use, and cooldown
+  // logic compares differences, never absolute magnitudes.
   private nowMs = 0;
   private currentMusic?: MusicLoop;
   private currentMusicKey?: string;
@@ -139,9 +154,10 @@ export class AudioManager implements System {
     this.pendingMusicKey = undefined;
   }
 
-  /** `fadeMs <= 0` stops immediately; otherwise the volume ramps to zero in
-   *  `update(dtMs)` (never tweens — tweens are scene-owned and would strand a
-   *  game-scoped sound on scene shutdown). */
+  /** Non-finite (`NaN`/±Infinity) or non-positive `fadeMs` stops immediately;
+   *  otherwise the volume ramps to zero in `update(dtMs)` (never tweens —
+   *  tweens are scene-owned and would strand a game-scoped sound on scene
+   *  shutdown). */
   stopMusic(fadeMs = 0): void {
     if (this.destroyed || !this.initialized) return;
     const music = this.currentMusic;
@@ -149,14 +165,18 @@ export class AudioManager implements System {
       this.fade = undefined;
       return;
     }
-    if (fadeMs <= 0) {
+    if (!Number.isFinite(fadeMs) || fadeMs <= 0) {
       music.stop();
       this.currentMusic = undefined;
       this.currentMusicKey = undefined;
       this.fade = undefined;
       return;
     }
-    this.fade = { fromVolume: music.volume, elapsedMs: 0, durationMs: fadeMs };
+    // Belt-and-suspenders: fromVolume is read from the MusicLoop instance the
+    // manager does not fully control, so it is clamped the same way as every
+    // volume that enters through the public surface (clamp01 never lets NaN
+    // reach the fade ramp).
+    this.fade = { fromVolume: clamp01(music.volume), elapsedMs: 0, durationMs: fadeMs };
   }
 
   /** Live settings: mute always applies; music volume is deferred while a
@@ -179,7 +199,7 @@ export class AudioManager implements System {
    *  Never resumes an AudioContext and never adds DOM listeners here. Safe to
    *  call any number of times. */
   unlock(): void {
-    if (this.destroyed) return;
+    if (this.destroyed || !this.initialized) return;
     const sound = this.scene.sound as { readonly locked?: boolean; unlock?: () => void };
     if (sound.locked === true && typeof sound.unlock === 'function') {
       sound.unlock();
@@ -209,11 +229,22 @@ export class AudioManager implements System {
     this.fade = undefined;
   }
 
-  /** On a mapped event the music stop/fade applies first, then the stinger —
-   *  the stinger always dispatches even if the fade logic misbehaves. */
+  /** On a mapped event with `stopMusic: true` (an opt-in, §6.2) the music
+   *  stop/fade applies first, then the stinger — the stinger always
+   *  dispatches even if the fade logic misbehaves. SFX-only entries never
+   *  touch music, so combat/UI events cannot kill a playing loop. (The Slice
+   *  2 version called stopMusic unconditionally — a bug that would
+   *  hard-stop a playing loop on every SFX-only event; the opt-in gate
+   *  fixes it.) */
   private handleMappedEvent(entry: AudioMapEntry): void {
-    if (this.destroyed) return;
-    this.stopMusic(entry.musicFadeMs ?? 0);
+    // The !this.initialized path never fires in practice: subscriptions are
+    // registered in init, synchronously, after initialized = true, and bus
+    // emissions arrive only later (game ticks or user input). The pair is
+    // kept for guard-order consistency with the public API methods.
+    if (this.destroyed || !this.initialized) return;
+    if (entry.stopMusic) {
+      this.stopMusic(entry.musicFadeMs ?? 0);
+    }
     if (entry.sfxKey !== undefined) {
       this.play(entry.sfxKey);
     }
@@ -222,8 +253,14 @@ export class AudioManager implements System {
   /** Phaser emits 'unlocked' on the update tick after the gesture-driven
    *  resume resolves, with `locked` already false — mirroring that order
    *  (set locked = false, then emit) is what tests do. Only deferred music is
-   *  flushed here; one-shots are never replayed retroactively. */
+   *  flushed here; one-shots are never replayed retroactively. Design note:
+   *  the pending key is cleared before the flush, so a failed flush (missing
+   *  asset → warn + drop) loses it permanently — deliberately not retried;
+   *  the next playMusic call starts fresh. */
   private readonly handleUnlocked = (): void => {
+    // Same guard rationale as handleMappedEvent: the 'unlocked' listener is
+    // registered in init after initialized = true, so the uninitialized
+    // branch is dead-but-safe guard-order consistency.
     if (this.destroyed || !this.initialized) return;
     const key = this.pendingMusicKey;
     if (key === undefined) return;
