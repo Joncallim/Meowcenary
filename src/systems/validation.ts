@@ -116,6 +116,98 @@ const MAX_HAZARDS = 64;
 const UNLOCK_DEFAULT_FIELDS = new Set(['type']);
 const UNLOCK_META_FIELDS = new Set(['type', 'requiresUnlockId']);
 
+/** Structured validation issue (Epic 11 §5.1). `file` is the JSON file name
+ *  (e.g. 'weapons.json') or '(unknown)' for unparseable lines; `index` is the
+ *  catalog row index, -1 for file-level errors; `field` is the dotted field
+ *  path (may embed [i]), '' for file-level errors. */
+export interface ValidationIssue {
+  readonly file: string;
+  readonly index: number;
+  readonly field: string;
+  readonly message: string;
+}
+
+/** One entry per data file, in today's exact validation order (Epic 11 §5.2).
+ *  Each descriptor's validateCatalog owns that file's complete pipeline —
+ *  row checks, uniqueness, and catalog-level assertions — so adding a future
+ *  file is one entry instead of three edits. */
+interface CatalogDescriptor {
+  readonly key: string;          // GameData assembly key ('weapons', …, audio pair)
+  readonly file: string;         // 'weapons.json' — used in messages, unchanged
+  readonly read: (raw: Record<string, unknown>) => unknown; // locate rows in the aggregate
+  readonly validateCatalog: (rows: unknown) => unknown;     // FULL per-file pipeline (throws)
+}
+
+export const CATALOG_DESCRIPTORS: readonly CatalogDescriptor[] = [
+  {
+    key: 'weapons',
+    file: 'weapons.json',
+    read: (raw) => readOwnField(raw, 'weapons'),
+    validateCatalog: validateWeaponCatalog,
+  },
+  {
+    key: 'enemies',
+    file: 'enemies.json',
+    read: (raw) => readOwnField(raw, 'enemies'),
+    validateCatalog: validateEnemyCatalog,
+  },
+  {
+    key: 'upgrades',
+    file: 'upgrades.json',
+    read: (raw) => readOwnField(raw, 'upgrades'),
+    validateCatalog: validateUpgradeCatalog,
+  },
+  {
+    key: 'metaUpgrades',
+    file: 'meta-upgrades.json',
+    read: (raw) => readOwnField(raw, 'metaUpgrades'),
+    validateCatalog: validateMetaUpgradeCatalog,
+  },
+  {
+    key: 'spawnCurves',
+    file: 'spawn-curves.json',
+    read: (raw) => readOwnField(raw, 'spawnCurves'),
+    validateCatalog: validateSpawnCurveCatalog,
+  },
+  {
+    key: 'characters',
+    file: 'characters.json',
+    read: (raw) => readOwnField(raw, 'characters'),
+    validateCatalog: validateCharacterCatalog,
+  },
+  {
+    key: 'arenas',
+    file: 'arenas.json',
+    read: (raw) => readOwnField(raw, 'arenas'),
+    validateCatalog: validateArenaCatalog,
+  },
+  {
+    key: 'lootTables',
+    file: 'loot-tables.json',
+    read: (raw) => readOwnField(raw, 'lootTables'),
+    validateCatalog: validateLootTableCatalog,
+  },
+  {
+    key: 'audio-assets',
+    file: 'audio-assets.json',
+    read: (raw) => readAudioSubField(raw, 'assets'),
+    validateCatalog: validateAudioAssets,
+  },
+  {
+    key: 'audio-map',
+    file: 'audio-map.json',
+    read: (raw) => readAudioSubField(raw, 'map'),
+    // Epic 10 §6.2 round-trip: accept the normalized AudioMapEntry[] shape as
+    // well as the { events: [...] } file wrapper.
+    validateCatalog: (rows) => (Array.isArray(rows) ? validateNormalizedAudioMap(rows) : validateAudioMapCatalog(rows)),
+  },
+];
+
+function readAudioSubField(raw: Record<string, unknown>, field: 'assets' | 'map'): unknown {
+  const audio = readOwnField(raw, 'audio');
+  return isRecord(audio) ? readOwnField(audio, field) : undefined;
+}
+
 export type RowCheck = (row: unknown, index: number) => string[];
 
 export function validate<T>(name: string, rows: unknown, check: RowCheck): T[] {
@@ -161,6 +253,38 @@ export function loadGameData(): GameData {
 }
 
 export function validateGameData(raw: unknown): GameData {
+  assertGameDataRoot(raw);
+  const record = raw as Record<string, unknown>;
+  const catalogs: Record<string, unknown> = {};
+  for (const descriptor of CATALOG_DESCRIPTORS) {
+    catalogs[descriptor.key] = descriptor.validateCatalog(descriptor.read(record));
+  }
+
+  const weapons = catalogs.weapons as WeaponDefinition[];
+  const enemies = catalogs.enemies as EnemyDefinition[];
+  const upgrades = catalogs.upgrades as UpgradeDefinition[];
+  const metaUpgrades = catalogs.metaUpgrades as MetaUpgradeDefinition[];
+  const spawnCurves = catalogs.spawnCurves as SpawnCurveDefinition[];
+  const characters = catalogs.characters as CharacterDefinition[];
+  const arenas = catalogs.arenas as ArenaDefinition[];
+  const lootTables = catalogs.lootTables as LootTable[];
+  const audioAssets = catalogs['audio-assets'] as AudioAssetCatalog;
+  const audioMap = catalogs['audio-map'] as AudioMapEntry[];
+
+  assertSpawnReferences(spawnCurves, enemies);
+  assertCharacterWeaponReferences(characters, weapons);
+  assertArenaSpawnCurveReferences(arenas, spawnCurves);
+  assertEnemyLootTableReferences(enemies, lootTables);
+  assertAudioMapReferences(audioMap, audioAssets);
+
+  const audio: AudioData = { assets: audioAssets, map: audioMap };
+  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, audio };
+}
+
+/** Root-shape phase, shared by the throwing boot path and the collecting
+ *  path (Epic 11 §5.3). Behavior is frozen: same messages, same throw order.
+ *  Audio sub-record names remap to their JSON file names (Epic 10 §6.2). */
+function assertGameDataRoot(raw: unknown): void {
   const rootErrors = jsonSafetyErrors(raw, 'game-data').map((error) =>
     error
       .replace(/^game-data\.weapons/, 'weapons.json')
@@ -198,42 +322,134 @@ export function validateGameData(raw: unknown): GameData {
     }
   }
   throwIfErrors(rootErrors);
+}
 
-  const weapons = validate<WeaponDefinition>('weapons.json', readOwnField(raw, 'weapons'), checkWeapon);
-  const enemies = validateEnemyCatalog(readOwnField(raw, 'enemies'));
-  const upgrades = validate<UpgradeDefinition>('upgrades.json', readOwnField(raw, 'upgrades'), checkUpgrade);
-  const metaUpgrades = validateMetaUpgradeCatalog(readOwnField(raw, 'metaUpgrades'));
-  const spawnCurves = validate<SpawnCurveDefinition>(
-    'spawn-curves.json',
-    readOwnField(raw, 'spawnCurves'),
-    checkSpawnCurveShape,
-  );
-  const characters = validateCharacterCatalog(readOwnField(raw, 'characters'));
-  const arenas = validateArenaCatalog(readOwnField(raw, 'arenas'));
-  const lootTables = validateLootTableCatalog(readOwnField(raw, 'lootTables'));
-  const audioAssets = validateAudioAssets(isRecord(audioRaw) ? readOwnField(audioRaw, 'assets') : undefined);
-  const audioMapRaw = isRecord(audioRaw) ? readOwnField(audioRaw, 'map') : undefined;
-  // validateGameData output normalizes audio.map to AudioMapEntry[]; accept
-  // that shape (clone-valid → mutate → re-validate round-trip) as well as the
-  // { events: [...] } file wrapper (Epic 10 §6.2).
-  const audioMap = Array.isArray(audioMapRaw)
-    ? validateNormalizedAudioMap(audioMapRaw)
-    : validateAudioMapCatalog(audioMapRaw);
+/** Aggregate, non-throwing validation of the shipped catalogs (Epic 11 §5.1).
+ *  Runs the exact boot pipeline — root shape, per-file pipelines in
+ *  descriptor order, then the five cross-references — and returns structured
+ *  issues instead of throwing. */
+export function validateAllData(): ValidationIssue[] {
+  return collectGameDataErrors({
+    weapons: weaponsJson,
+    enemies: enemiesJson,
+    upgrades: upgradesJson,
+    metaUpgrades: metaUpgradesJson,
+    spawnCurves: spawnCurvesJson,
+    characters: charactersJson,
+    arenas: arenasJson,
+    lootTables: lootTablesJson,
+    audio: {
+      assets: audioAssetsJson,
+      map: audioMapJson,
+    },
+  });
+}
 
+/** Injectable core behind validateAllData (Epic 11 §5.4). Never throws.
+ *  A bad file reports its issues and does not abort later files; the
+ *  cross-reference phase runs only when every per-file phase was clean. */
+export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
+  try {
+    assertGameDataRoot(raw);
+  } catch (error) {
+    // Root failures mask per-file reads, mirroring boot.
+    return mapValidationErrorLines(error);
+  }
+  const record = raw as Record<string, unknown>;
+
+  const catalogs: Record<string, unknown> = {};
+  const perFileIssues: ValidationIssue[] = [];
+  for (const descriptor of CATALOG_DESCRIPTORS) {
+    try {
+      catalogs[descriptor.key] = descriptor.validateCatalog(descriptor.read(record));
+    } catch (error) {
+      perFileIssues.push(...mapValidationErrorLines(error));
+    }
+  }
+  if (perFileIssues.length > 0) return perFileIssues;
+
+  const weapons = catalogs.weapons as WeaponDefinition[];
+  const enemies = catalogs.enemies as EnemyDefinition[];
+  const spawnCurves = catalogs.spawnCurves as SpawnCurveDefinition[];
+  const characters = catalogs.characters as CharacterDefinition[];
+  const arenas = catalogs.arenas as ArenaDefinition[];
+  const lootTables = catalogs.lootTables as LootTable[];
+  const audioAssets = catalogs['audio-assets'] as AudioAssetCatalog;
+  const audioMap = catalogs['audio-map'] as AudioMapEntry[];
+
+  const crossReferenceIssues: ValidationIssue[] = [];
+  const assertions: ReadonlyArray<() => void> = [
+    () => assertSpawnReferences(spawnCurves, enemies),
+    () => assertCharacterWeaponReferences(characters, weapons),
+    () => assertArenaSpawnCurveReferences(arenas, spawnCurves),
+    () => assertEnemyLootTableReferences(enemies, lootTables),
+    () => assertAudioMapReferences(audioMap, audioAssets),
+  ];
+  for (const assertion of assertions) {
+    try {
+      assertion();
+    } catch (error) {
+      crossReferenceIssues.push(...mapValidationErrorLines(error));
+    }
+  }
+  return crossReferenceIssues;
+}
+
+/** Maps a thrown validator message (validators keep returning today's
+ *  strings) to structured issues, line by line (Epic 11 §5.4). */
+export function mapValidationErrorLines(error: unknown): ValidationIssue[] {
+  const message = error instanceof Error ? error.message : String(error);
+  const prefix = 'Invalid game data:\n';
+  const body = message.startsWith(prefix) ? message.slice(prefix.length) : message;
+  return body
+    .split('\n')
+    .filter((line) => line.length > 0)
+    .map(mapLineToIssue);
+}
+
+function mapLineToIssue(line: string): ValidationIssue {
+  const rowField = /^([^[]+)\[(\d+)\]\.(.+): (.*)$/.exec(line);
+  if (rowField) {
+    return {
+      file: rowField[1],
+      index: Number(rowField[2]),
+      field: rowField[3],
+      message: rowField[4],
+    };
+  }
+  const row = /^([^[]+)\[(\d+)\]: (.*)$/.exec(line);
+  if (row) {
+    return { file: row[1], index: Number(row[2]), field: '', message: row[3] };
+  }
+  const fileLevel = /^([^:]+): (.*)$/.exec(line);
+  if (fileLevel) {
+    return { file: fileLevel[1], index: -1, field: '', message: fileLevel[2] };
+  }
+  return { file: '(unknown)', index: -1, field: '', message: line };
+}
+
+export function validateWeaponCatalog(raw: unknown): WeaponDefinition[] {
+  throwIfErrors(jsonSafetyErrors(raw, 'weapons.json'));
+  const weapons = validate<WeaponDefinition>('weapons.json', raw, checkWeapon);
   assertUniqueIds('weapons.json', weapons);
-  assertUniqueIds('upgrades.json', upgrades);
-  assertUniqueIds('spawn-curves.json', spawnCurves);
   assertWeaponTiers(weapons);
   assertStarterWeapons(weapons);
-  assertPlayableSpawnCurves(spawnCurves);
-  assertSpawnReferences(spawnCurves, enemies);
-  assertCharacterWeaponReferences(characters, weapons);
-  assertArenaSpawnCurveReferences(arenas, spawnCurves);
-  assertEnemyLootTableReferences(enemies, lootTables);
-  assertAudioMapReferences(audioMap, audioAssets);
+  return weapons;
+}
 
-  const audio: AudioData = { assets: audioAssets, map: audioMap };
-  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, audio };
+export function validateUpgradeCatalog(raw: unknown): UpgradeDefinition[] {
+  throwIfErrors(jsonSafetyErrors(raw, 'upgrades.json'));
+  const upgrades = validate<UpgradeDefinition>('upgrades.json', raw, checkUpgrade);
+  assertUniqueIds('upgrades.json', upgrades);
+  return upgrades;
+}
+
+export function validateSpawnCurveCatalog(raw: unknown): SpawnCurveDefinition[] {
+  throwIfErrors(jsonSafetyErrors(raw, 'spawn-curves.json'));
+  const spawnCurves = validate<SpawnCurveDefinition>('spawn-curves.json', raw, checkSpawnCurveShape);
+  assertUniqueIds('spawn-curves.json', spawnCurves);
+  assertPlayableSpawnCurves(spawnCurves);
+  return spawnCurves;
 }
 
 export function validateMetaUpgradeCatalog(raw: unknown): MetaUpgradeDefinition[] {
