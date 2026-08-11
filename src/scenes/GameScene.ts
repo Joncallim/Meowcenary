@@ -468,17 +468,16 @@ export class GameScene extends Phaser.Scene {
 
     const panel = controller.snapshot().panel;
     let accepted = false;
-    let event: 'ui:confirm' | 'ui:back';
+    // 'closed' is the only panel that maps to ui:confirm; the pause and
+    // inventory panels both resolve via ui:back.
+    const event: 'ui:confirm' | 'ui:back' = panel === 'closed' ? 'ui:confirm' : 'ui:back';
 
     if (panel === 'inventory') {
       accepted = controller.back();
-      event = 'ui:back';
     } else if (panel === 'pause') {
       accepted = controller.resume();
-      event = 'ui:back';
     } else {
       accepted = controller.pause();
-      event = 'ui:confirm';
     }
 
     if (accepted) {

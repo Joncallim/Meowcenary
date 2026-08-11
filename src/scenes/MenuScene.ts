@@ -489,6 +489,10 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private handleFocusMove(event: KeyboardEvent): void {
+    // OS key-repeat events fire at ~30Hz while a key is held; each genuine
+    // index change emits a ui:navigate bus event, so repeats must be ignored
+    // to avoid focus spinning around the list at repeat rate.
+    if (event.repeat) return;
     if (this.focusables.length === 0) return;
     const delta = event.key === 'ArrowDown' ? 1 : -1;
     const previousIndex = this.focusIndex;

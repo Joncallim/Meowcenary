@@ -94,6 +94,12 @@ describe('BootScene audio wiring', () => {
   it('publishes the context first, then one initialized manager, then starts Menu', () => {
     const { boot, registryValues, start } = createBoot();
 
+    // The shared hoisted counters accumulate across tests and repeats, so
+    // snapshot them and assert the delta this create() contributes instead
+    // of assuming this test runs first.
+    const instanceStart = bootState.instanceCount;
+    const callsStart = bootState.initCalls.length;
+
     boot.create();
 
     const ctx = registryValues.get(GAME_CONTEXT_REGISTRY_KEY) as GameContext | undefined;
@@ -106,20 +112,22 @@ describe('BootScene audio wiring', () => {
 
     // Exactly one manager constructed and inited per Boot create, and the
     // inited instance is the published one.
-    expect(bootState.instanceCount).toBe(1);
-    expect(bootState.initCalls).toHaveLength(1);
-    expect(bootState.initCalls[0]!.instance).toBe(manager);
+    expect(bootState.instanceCount).toBe(instanceStart + 1);
+    expect(bootState.initCalls).toHaveLength(callsStart + 1);
+    expect(bootState.initCalls[callsStart]!.instance).toBe(manager);
   });
 
   it('inits the manager with the exact context bus, settings, and audio data references', () => {
     const { boot, registryValues } = createBoot();
 
+    // initCalls accumulate across tests in this file, so capture the index
+    // this create() will write before invoking it instead of assuming the
+    // call is the last one.
+    const initIndex = bootState.initCalls.length;
     boot.create();
 
     const ctx = registryValues.get(GAME_CONTEXT_REGISTRY_KEY) as GameContext;
-    // initCalls accumulate across tests in this file, so take the last one —
-    // the create() this test just ran.
-    const args = bootState.initCalls.at(-1)!.args;
+    const args = bootState.initCalls[initIndex]!.args;
     // "Exact references": identity, not value equality (the bus is a closure
     // object whose functions never compare equal under toEqual).
     expect(args[0]).toBe(ctx.bus);

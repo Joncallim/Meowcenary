@@ -169,13 +169,13 @@ function createFakeScene(
     listenerCount(event: string): number {
       return keyboardListeners.get(event)?.length ?? 0;
     },
-    keydown(key: string): void {
+    keydown(key: string, repeat = false): void {
       const name = keyNames[key] ?? key.toUpperCase();
       const fire = (event: string): void => {
         const list = keyboardListeners.get(event) ?? [];
         keyboardListeners.set(event, list.filter((entry) => !entry.once));
         [...list].forEach((entry) => {
-          entry.handler.call(entry.context, { key, repeat: false });
+          entry.handler.call(entry.context, { key, repeat });
         });
       };
       fire(`keydown-${name}`);
@@ -590,6 +590,25 @@ describe('MenuScene UI command events', () => {
     keyboard.keydown('ArrowDown');
 
     expect(events).toEqual([]);
+  });
+
+  it('ignores OS key-repeat events: no navigate emission and no focus movement', () => {
+    const { menuScene, keyboard, bus } = createHarness();
+    const events = recordEvents(bus);
+    const seams = menuScene as unknown as {
+      focusables: Array<ReturnType<typeof fakeObject>>;
+      focusIndex: number;
+    };
+    const startIndex = seams.focusIndex;
+
+    // Holding ArrowDown fires repeat events at OS rate; none may move focus
+    // or emit a ui:navigate bus event.
+    keyboard.keydown('ArrowDown', true);
+    keyboard.keydown('ArrowDown', true);
+    keyboard.keydown('ArrowDown', true);
+
+    expect(events).toEqual([]);
+    expect(seams.focusIndex).toBe(startIndex);
   });
 
   it('emits exactly one ui:confirm on a pointer-activated button', () => {
