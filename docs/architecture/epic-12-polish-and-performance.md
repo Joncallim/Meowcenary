@@ -1277,35 +1277,71 @@ Use this prompt after implementation slices are present:
 
 ## 20. Delivery record
 
-Status: **architecture ready; implementation not yet delivered**.
-
-Populate this section during implementation/review. Do not mark Epic 12 complete until mandatory evidence is present.
+Status: **delivered — automated evidence complete; manual browser/viewport/performance rows are honestly recorded as unverified because no real browser environment is available in this execution context**.
 
 - architecture baseline SHA: `de3f919649543cd082ed72fb1dadbfd0253122d4`
-- architecture commit SHA: **populate after commit**
-- delivery PR: **populate after PR creation**
-- Slice 1 SHA / focused result: **pending**
-- Slice 2 SHA / focused result: **pending**
-- Slice 3 SHA / focused result: **pending**
-- Slice 4 SHA / focused result: **pending**
-- Slice 4B enemy-pooling decision: **pending profiling evidence**
-- Slice 4B SHA if triggered: **N/A until triggered**
-- Slice 5 SHA / closeout result: **pending**
-- review-fix SHAs and findings: **pending**
-- exact final test count / files: **pending**
-- shuffled/repeated result: **pending**
-- lint/typecheck: **pending**
-- build: **pending**
-- `git diff --check`: **pending**
-- Epic 11 production cheat/summary sentinels: **pending**
-- dev browser matrix: **pending**
-- preview matrix: **pending**
-- reduced-motion matrix: **pending**
-- viewport matrix: **pending**
-- performance/profile evidence: **pending**
-- hosted CI: **pending**
-- Issue #13 closure: **not closed**
-- final verdict: **NOT READY — architecture only**
+- architecture commit SHA: `644c26c` (`docs: mark Epic 12 architecture ready`)
+- implementation commit SHA: `97cf171` (`Epic 12: implement polish and performance (pooling, feedback, perf, responsive sizing)`)
+- delivery PR: #71, https://github.com/Joncallim/Meowcenary/pull/71
+- Slice 1 SHA / focused result: `97cf171` — generic pool + motion policy (`tests/pool.test.ts` 11/11, `tests/motion.test.ts` 4/4)
+- Slice 2 SHA / focused result: `97cf171` — projectile/drop pooling (`tests/weaponSystem.test.ts` 13/13, `tests/dropSystem.test.ts` 46/46, `tests/lootIntegration.test.ts` 7/7)
+- Slice 3 SHA / focused result: `97cf171` — combat feedback (`tests/feedback.test.ts` 14/14)
+- Slice 4 SHA / focused result: `97cf171` — performance sampler + F3 diagnostics (`tests/perf.test.ts` 11/11)
+- Slice 4B enemy-pooling decision: **not triggered**. Browser Performance/Memory profiling tools are unavailable in this environment, so §10 condition 3 (a profile attributing spikes to repeated `Enemy` construction/destruction) cannot be proven. `Enemy` remains unchanged.
+- Slice 4B SHA if triggered: **N/A**
+- Slice 5 SHA / closeout result: `97cf171` — responsive sizing and layout tests green; this §20 update is committed as a docs-only closeout after automated gates
+- review-fix SHAs and findings: none required — the diff against the architecture baseline was audited for pool strictness, add-once PhysicsGroup behavior, drop payload snapshot ordering, unchanged combat/loot RNG and event order, no gameplay hard caps, feedback subscriber-only boundary, zero gameplay RNG in cosmetics, live reduced-motion cancellation, system teardown across Retry/scene transitions, system active counts vs group length, PerfSampler rollover/budget edge cases, Epic 11 audio/debug/summary preservation, and real `ScaleManager.displaySize` handling; no in-scope defects were found
+- exact final test count / files: **1184 tests / 80 test files passed**
+- shuffled/repeated result: `npm test -- --sequence.shuffle` executed three independent runs, each **1184/1184 passed** (Vitest 3.2.6 does not expose a `--sequence.repeats` flag, so the repeat was performed by invoking the shuffled command three times)
+- lint/typecheck: `npm run lint` (`tsc --noEmit`) → **clean**
+- build: `npm run build` → **success**
+- `git diff --check`: **clean**
+- Epic 11 production cheat/summary sentinels: **absent** from `dist/assets/*.js` (`[cheats]`, `debug:cheats`, `[playtest] run summary` not found)
+- dev browser matrix: **unverified** — no browser runtime available in this environment
+- preview matrix: **unverified** — no browser runtime available in this environment
+- reduced-motion matrix: **unverified** — no browser runtime available in this environment
+- viewport matrix: **unverified** — no browser runtime available in this environment
+- performance/profile evidence: **unverified** — no browser profiling tools available; F3 sampler code and counters are present and unit-tested, but no real-device FPS/profile data was collected
+- hosted CI: **unverified** — not executed in this environment
+- Issue #13 closure: **not closed** — pending maintainer review/merge
+- final verdict: **READY FOR REVIEW — automated gates pass; manual browser/accessibility/responsiveness/performance evidence is documented as unverified and must be completed before merge/closure**
+
+### §14 manual matrix status
+
+All rows below were **not executed** in this environment and are recorded as **unverified**. They must be run in a real browser before Epic 12 is merged.
+
+| §14.1 functional/polish matrix row | Status | Evidence |
+| --- | --- | --- |
+| normal combat | unverified | no browser runtime |
+| reduced motion OFF | unverified | no browser runtime |
+| toggle reduced motion ON mid-run | unverified | no browser runtime |
+| reduced motion ON from menu | unverified | no browser runtime |
+| toggle reduced motion OFF mid-run | unverified | no browser runtime |
+| dense wave | unverified | no browser runtime |
+| pause/level-up | unverified | no browser runtime |
+| Retry | unverified | no browser runtime |
+| Menu → Game → Menu → Game | unverified | no browser runtime |
+| preview normal combat | unverified | no browser runtime |
+| preview reduced motion | unverified | no browser runtime |
+| preview F3 | unverified | no browser runtime |
+
+| §14.2 viewport matrix row | Status | Evidence |
+| --- | --- | --- |
+| 390×844 portrait | unverified | no browser runtime |
+| 360×640 portrait | unverified | no browser runtime |
+| 844×390 landscape/resized browser | unverified | no browser runtime |
+| 1280×720 desktop | unverified | no browser runtime |
+| 1920×1080 desktop | unverified | no browser runtime |
+
+| §14.3 performance/profile row | Status | Evidence |
+| --- | --- | --- |
+| quiet period sampled FPS | unverified | no browser runtime |
+| busy late-wave sampled FPS/slow ratio | unverified | no browser runtime |
+| active/allocated projectile/drop/FX counts | unverified | no browser runtime |
+| browser Performance profile (busy period) | unverified | no profiling tools available |
+| reduced motion repeat | unverified | no browser runtime |
+| GC/allocation correlation with enemy construction | unverified | no profiling tools available |
+| §10 enemy-pooling trigger decision | **not triggered** (recorded above) | condition 3 unprovable in this environment |
 
 ---
 
