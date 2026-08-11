@@ -125,6 +125,7 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
   private readonly levelRect: Phaser.GameObjects.Rectangle;
   private damageTimerMs = 0;
   private levelTimerMs = 0;
+  private levelPulseDurationMs = 0;
   private dropped = 0;
 
   constructor(options: PhaserFeedbackRendererOptions) {
@@ -217,7 +218,9 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
   }
 
   levelUp(heavyMotion: boolean): void {
-    this.levelTimerMs = Math.max(this.levelTimerMs, heavyMotion ? 180 : 90);
+    const duration = heavyMotion ? 180 : 90;
+    this.levelTimerMs = Math.max(this.levelTimerMs, duration);
+    this.levelPulseDurationMs = Math.max(this.levelPulseDurationMs, duration);
     const alpha = 0.22;
     this.levelRect.setStrokeStyle(2, KILL_COLOR, alpha);
   }
@@ -256,8 +259,13 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
 
     if (this.levelTimerMs > 0) {
       this.levelTimerMs = Math.max(0, this.levelTimerMs - dtMs);
-      const ratio = this.levelTimerMs / (this.levelTimerMs > 90 ? 180 : 90);
-      this.levelRect.setStrokeStyle(2, KILL_COLOR, 0.22 * ratio);
+      if (this.levelPulseDurationMs > 0) {
+        const ratio = this.levelTimerMs / this.levelPulseDurationMs;
+        this.levelRect.setStrokeStyle(2, KILL_COLOR, 0.22 * ratio);
+        if (this.levelTimerMs <= 0) {
+          this.levelPulseDurationMs = 0;
+        }
+      }
     }
   }
 
