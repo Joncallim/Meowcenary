@@ -1353,7 +1353,10 @@ before the maintainer merges and closes Issue #69.
   `playtestSummary.test.ts` 17/17; full suite after slice 1133 tests / 76 files
 - review-fix commit SHAs: none required — no independent review findings
   were fixed on this branch (independent review remains a pre-merge gate)
-- final branch head SHA: `fca164f36fd16d7045f73be7a1a9c5e0e6eac91b`
+- delivery-record commit SHA: `17ae7da` (docs-only `Epic 11 · Slice 5:
+  delivery record and closeout` — this §16 record)
+- final branch head SHA: `17ae7da` — see `git log` on
+  `agent/epic-11-remainder` for the full chain
 - delivery PR number and URL: #70, https://github.com/Joncallim/Meowcenary/pull/70
 - exact final test count and test-file count: **1133 tests / 76 test files**
 - shuffled/repeated test result:
