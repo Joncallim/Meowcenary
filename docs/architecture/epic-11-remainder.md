@@ -1351,8 +1351,16 @@ before the maintainer merges and closes Issue #69.
 - Slice 5 commit SHA: `fca164f36fd16d7045f73be7a1a9c5e0e6eac91b`
   (`Epic 11 · Slice 5: playtest summary and tuning closeout`) — focused
   `playtestSummary.test.ts` 17/17; full suite after slice 1133 tests / 76 files
-- review-fix commit SHAs: none required — no independent review findings
-  were fixed on this branch (independent review remains a pre-merge gate)
+- review-fix commit SHAs: none required — the §15 self-review pass audited
+  the diff against §§6–13 (direct-DEV gates, source-ID cleanup, curve
+  identity, effective damage/run clock, meter edge cases, listener order,
+  exactly-once logging, PR #68 audio/UI seams) and confirmed no defects
+  (independent review remains a pre-merge gate)
+- break-a-JSON data check: **verified 2026-08-11** — `weapons.json[0].damage`
+  set to `-1`; `validateAllData` reported
+  `weapons.json[0].damage: required positive number` (exact file/field);
+  corruption reverted before any commit; working tree clean after revert;
+  validation suite 25/25 green afterwards
 - delivery-record commit SHA: `17ae7da` (docs-only `Epic 11 · Slice 5:
   delivery record and closeout` — this §16 record)
 - final branch head SHA: the tip of `agent/epic-11-remainder` at merge time
@@ -1384,11 +1392,9 @@ before the maintainer merges and closes Issue #69.
   - preview rows (cheat URLs inert, no summary on win/loss, F3 available,
     PR #68 audio/UI unchanged): **unverified** — requires `npm run preview`
     and a browser
-  - break-a-JSON data check: **unverified** — requires a manual
-    break/revert cycle; aggregate validation behavior is covered by the
-    existing `validateAllData.test.ts`/`validation.test.ts` regressions
-  - clean check after revert: **unverified** (working tree is clean except
-    intended delivery changes at final commit)
+  - break-a-JSON data check: **verified** — see the break-a-JSON row above
+  - clean check after revert: **verified** — working tree clean at final
+    commit; the corrupted JSON was reverted and appears nowhere in the diff
 - explicitly deferred limitations:
   - a single lethal hit can still end a god-mode run before the next
     active-update refill (accepted, §2.7);
