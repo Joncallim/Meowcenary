@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { createCadence, type Cadence } from '../engine/cadence';
 import type { GameContext } from '../engine/context';
+import { createPool, type Pool } from '../engine/pool';
 import type { System } from '../engine/system';
 import type { Enemy } from '../entities/Enemy';
 import type { Player } from '../entities/Player';
@@ -17,7 +18,10 @@ interface WeaponCadenceRuntime {
 }
 
 export class WeaponSystem implements System {
-  private readonly projectiles: Projectile[] = [];
+  private readonly projectilePool: Pool<Projectile>;
+  private readonly liveProjectiles = new Set<Projectile>();
+  private readonly ownedProjectiles: Projectile[] = [];
+  private readonly projectileBySprite = new Map<Phaser.GameObjects.GameObject, Projectile>();
   private readonly cadences = new Map<string, WeaponCadenceRuntime>();
 
   constructor(
@@ -31,6 +35,21 @@ export class WeaponSystem implements System {
     private readonly weaponRegistry: WeaponRegistry,
     private readonly projectileRadius: number,
   ) {
+    this.projectilePool = createPool(
+      () => {
+        const projectile = new Projectile(this.scene, this.projectileRadius);
+        this.ownedProjectiles.push(projectile);
+        this.projectileBySprite.set(projectile.sprite, projectile);
+
+        // Preserve the existing Phaser invariant: a PhysicsGroup re-applies body
+        // defaults on add. Add exactly once while the projectile is disabled;
+        // every later spawn owns final position/velocity.
+        this.projectileGroup.add(projectile.sprite);
+        return projectile;
+      },
+      (projectile) => projectile.reset(),
+    );
+
     this.scene.physics.add.overlap(
       this.projectileGroup,
       this.enemyGroup,
@@ -40,15 +59,25 @@ export class WeaponSystem implements System {
     );
   }
 
+  get activeProjectileCount(): number {
+    return this.projectilePool.active();
+  }
+
+  get allocatedProjectileCount(): number {
+    return this.ownedProjectiles.length;
+  }
+
   update(dtMs: number): void {
     if (this.runState.status !== 'active') {
       return;
     }
 
-    this.projectiles.forEach((projectile) => {
+    for (const projectile of this.liveProjectiles) {
       projectile.update(dtMs);
-    });
-    compactActive(this.projectiles);
+      if (!projectile.active) {
+        this.releaseProjectile(projectile);
+      }
+    }
 
     const equippedInstanceIds = new Set<string>();
     const duplicateInstanceIds = new Set<string>();
@@ -91,11 +120,20 @@ export class WeaponSystem implements System {
   }
 
   destroy(): void {
-    this.projectiles.forEach((projectile) => {
+    for (const projectile of this.ownedProjectiles) {
       projectile.destroy();
-    });
-    this.projectiles.length = 0;
+    }
+    this.ownedProjectiles.length = 0;
+    this.liveProjectiles.clear();
+    this.projectileBySprite.clear();
     this.cadences.clear();
+  }
+
+  private releaseProjectile(projectile: Projectile): void {
+    if (!this.liveProjectiles.delete(projectile)) {
+      return;
+    }
+    this.projectilePool.release(projectile);
   }
 
   private pruneCadences(equippedInstanceIds: ReadonlySet<string>): void {
@@ -139,11 +177,8 @@ export class WeaponSystem implements System {
     });
 
     for (const direction of directions) {
-      const projectile = new Projectile(this.scene, this.projectileRadius);
-      this.projectiles.push(projectile);
-      // Add to the Arcade group BEFORE spawning: Phaser's PhysicsGroup re-applies its
-      // body defaults (including velocity 0) on add, so spawn() must set velocity last.
-      this.projectileGroup.add(projectile.sprite);
+      const projectile = this.projectilePool.acquire();
+      this.liveProjectiles.add(projectile);
       projectile.spawn(this.player.x, this.player.y, direction, {
         speed: stats.projectileSpeed,
         damage: stats.damage,
@@ -166,7 +201,7 @@ export class WeaponSystem implements System {
 
     const projectileGameObject = arcadeGameObject(projectileObject);
     const enemyGameObject = arcadeGameObject(enemyObject);
-    const projectile = this.projectiles.find((candidate) => candidate.sprite === projectileGameObject);
+    const projectile = projectileGameObject ? this.projectileBySprite.get(projectileGameObject) : undefined;
     const enemy = this.enemies.find((candidate) => candidate.sprite === enemyGameObject);
     if (!projectile?.active || !enemy?.active) {
       return;
@@ -188,6 +223,9 @@ export class WeaponSystem implements System {
     });
 
     if (!killed) {
+      if (!projectile.active) {
+        this.releaseProjectile(projectile);
+      }
       return;
     }
 
@@ -201,6 +239,10 @@ export class WeaponSystem implements System {
       x: hitX,
       y: hitY,
     });
+
+    if (!projectile.active) {
+      this.releaseProjectile(projectile);
+    }
   }
 }
 
@@ -217,17 +259,4 @@ function arcadeGameObject(value: unknown): Phaser.GameObjects.GameObject | undef
   }
 
   return undefined;
-}
-
-function compactActive<T extends { active: boolean; destroy(): void }>(items: T[]): void {
-  let writeIndex = 0;
-  for (const item of items) {
-    if (item.active) {
-      items[writeIndex] = item;
-      writeIndex += 1;
-    } else {
-      item.destroy();
-    }
-  }
-  items.length = writeIndex;
 }

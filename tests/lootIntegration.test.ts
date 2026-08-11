@@ -130,7 +130,7 @@ describe('loot integration', () => {
   });
 
   it('full pipeline: kill → chest drop → +15 xp', async () => {
-    const { bus, addedSprites, overlapCallback, runState } = await createHarness({ seed: SEED_CHEST_XP_15 });
+    const { bus, addedSprites, overlapCallback, runState, system } = await createHarness({ seed: SEED_CHEST_XP_15 });
     const collected = vi.fn();
     const xpGained = vi.fn();
     bus.on('drop:collected', collected);
@@ -151,11 +151,14 @@ describe('loot integration', () => {
     expect(collected).toHaveBeenCalledTimes(1);
     expect(collected).toHaveBeenCalledWith({ kind: 'xp', amount: 15, x: 120, y: 240 });
     expect(collected.mock.calls.some(([payload]) => payload.kind === 'chest')).toBe(false);
-    expect(drop.destroyed).toBe(true);
+    expect(drop.active).toBe(false);
+    expect(drop.destroyed).toBe(false);
+    expect(system.activeDropCount).toBe(0);
+    expect(system.allocatedDropCount).toBe(1);
   });
 
   it('full pipeline: kill → chest drop → +10 scrap', async () => {
-    const { bus, addedSprites, overlapCallback, runState } = await createHarness({ seed: SEED_CHEST_SCRAP_10 });
+    const { bus, addedSprites, overlapCallback, runState, system } = await createHarness({ seed: SEED_CHEST_SCRAP_10 });
     const collected = vi.fn();
     const currencyChanged = vi.fn();
     bus.on('drop:collected', collected);
@@ -173,7 +176,10 @@ describe('loot integration', () => {
     expect(currencyChanged).toHaveBeenCalledWith({ runTotal: 10 });
     expect(collected).toHaveBeenCalledTimes(1);
     expect(collected).toHaveBeenCalledWith({ kind: 'scrap', amount: 10, x: 120, y: 240 });
-    expect(drop.destroyed).toBe(true);
+    expect(drop.active).toBe(false);
+    expect(drop.destroyed).toBe(false);
+    expect(system.activeDropCount).toBe(0);
+    expect(system.allocatedDropCount).toBe(1);
   });
 
   it('full pipeline: kill → chest drop → +40 scrap', async () => {
@@ -266,7 +272,9 @@ describe('loot integration', () => {
     expect(currencyChanged).not.toHaveBeenCalled();
     expect(xpGained).not.toHaveBeenCalled();
     expect(drop.active).toBe(false);
-    expect((drop.sprite as unknown as MockGameObject).destroyed).toBe(true);
+    expect((drop.sprite as unknown as MockGameObject).destroyed).toBe(false);
+    expect(system.activeDropCount).toBe(0);
+    expect(system.allocatedDropCount).toBe(1);
   });
 
   it('fails soft when the chest table is missing', async () => {
@@ -285,6 +293,8 @@ describe('loot integration', () => {
     expect(runState.xp).toBe(0);
     expect(collected).not.toHaveBeenCalled();
     expect(drop.active).toBe(false);
-    expect((drop.sprite as unknown as MockGameObject).destroyed).toBe(true);
+    expect((drop.sprite as unknown as MockGameObject).destroyed).toBe(false);
+    expect(system.activeDropCount).toBe(0);
+    expect(system.allocatedDropCount).toBe(1);
   });
 });

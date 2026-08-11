@@ -36,9 +36,11 @@ export const FocusStroke = {
   width: 2,
 } as const;
 
+import { motionDuration } from '../engine/motion';
+
 export function reducedMotionDuration(
   baseMs: number,
   reducedMotion: boolean,
 ): number {
-  return reducedMotion ? 0 : baseMs;
+  return motionDuration(baseMs, reducedMotion);
 }

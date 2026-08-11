@@ -48,7 +48,9 @@ import { PassiveCoordinator } from '../systems/PassiveCoordinator';
 import { HazardSystem } from '../systems/HazardSystem';
 import { DEFAULT_PASSIVE_HANDLERS, createPassiveHandlerRegistry } from '../gameplay/characterPassives';
 import { createDpsMeter, type DpsMeter } from '../gameplay/metrics';
+import { createPerfSampler, type PerfSampler } from '../gameplay/perf';
 import { PlaytestSummarySystem } from '../systems/playtestSummary';
+import { FeedbackSystem, PhaserFeedbackRenderer } from '../systems/feedback';
 
 export class GameScene extends Phaser.Scene {
   private debugOverlay?: DebugOverlay;
@@ -75,6 +77,9 @@ export class GameScene extends Phaser.Scene {
   private runSummaryView?: PhaserRunSummaryView;
   private spawnCurve?: Readonly<SpawnCurveDefinition>;
   private arenaScenery?: ArenaScenery;
+  private weaponSystem?: WeaponSystem;
+  private feedbackSystem?: FeedbackSystem;
+  private perfSampler?: PerfSampler;
   // Non-owning cache of the Boot-constructed, game-scoped manager.
   private audioManager?: AudioManager;
   private dpsMeter?: DpsMeter;
@@ -166,7 +171,10 @@ export class GameScene extends Phaser.Scene {
       this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
     }
 
-    const viewport = logicalCanvasViewport();
+    const viewport = logicalCanvasViewport(
+      this.scale.displaySize.width,
+      this.scale.displaySize.height,
+    );
     this.hudController = new HudController(
       ctx.bus,
       createHudSource({
@@ -255,6 +263,31 @@ export class GameScene extends Phaser.Scene {
             dpsMeter,
           })
         : undefined;
+    this.weaponSystem = new WeaponSystem(
+      this,
+      ctx,
+      this.runState,
+      this.player,
+      this.enemies,
+      this.projectileGroup,
+      this.enemyGroup,
+      weaponRegistry,
+      RuntimeConfig.gameplay.projectile.radius,
+    );
+    this.feedbackSystem = new FeedbackSystem({
+      bus: ctx.bus,
+      settings: ctx.settings,
+      renderer: new PhaserFeedbackRenderer({
+        scene: this,
+        maxEffects: RuntimeConfig.performance.maxFeedbackEffects,
+        maxHeavyEffects: RuntimeConfig.performance.maxHeavyFeedbackEffects,
+      }),
+    });
+    this.perfSampler = createPerfSampler(
+      RuntimeConfig.performance.sampleWindowFrames,
+      RuntimeConfig.performance.targetFps,
+    );
+
     this.systems = [
       this.progressionSystem,
       new PassiveCoordinator({
@@ -271,17 +304,8 @@ export class GameScene extends Phaser.Scene {
         player: this.player,
         hazards: arena.hazards,
       }),
-      new WeaponSystem(
-        this,
-        ctx,
-        this.runState,
-        this.player,
-        this.enemies,
-        this.projectileGroup,
-        this.enemyGroup,
-        weaponRegistry,
-        RuntimeConfig.gameplay.projectile.radius,
-      ),
+      this.feedbackSystem,
+      this.weaponSystem,
       this.dropSystem,
       this.upgradeSystem,
       ...(debugCheatSystem ? [debugCheatSystem] : []),
@@ -372,6 +396,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    this.perfSampler?.recordFrame(delta);
     this.inputController.update(delta);
     tickRun(runState, delta);
     this.maybeEndRunForVictory(ctx, runState);
@@ -388,13 +413,20 @@ export class GameScene extends Phaser.Scene {
     this.controlsView?.update(delta);
     const move = this.inputController.getMoveVector();
     const pointer = this.inputController.getPointer();
+    const perf = this.perfSampler?.snapshot();
+    const perfLine = perf
+      ? `Frame(${perf.sampleCount}): ${perf.averageFrameMs.toFixed(1)}ms ~${perf.averageFps.toFixed(1)}fps slow ${Math.round(perf.overBudgetRatio * 100)}%`
+      : 'Frame: --';
     this.debugOverlay?.update([
       `dtMs: ${delta.toFixed(2)}`,
+      perfLine,
       `Run: ${runState.status} ${Math.floor(runState.timeMs / 1000)}s`,
       `Level: ${runState.level} XP: ${runState.xp.toFixed(1)}/${runState.xpToNext}`,
       `Health: ${this.player.health.toFixed(0)}/${this.player.maxHealth.toFixed(0)}`,
       `Enemies: ${this.enemies.length} Kills: ${runState.kills}`,
-      `Projectiles: ${this.projectileGroup?.getLength() ?? 0} Drops: ${this.dropGroup?.getLength() ?? 0}`,
+      `Projectiles: ${this.weaponSystem?.activeProjectileCount ?? 0} active / ${this.weaponSystem?.allocatedProjectileCount ?? 0} allocated`,
+      `Drops: ${this.dropSystem?.activeDropCount ?? 0} active / ${this.dropSystem?.allocatedDropCount ?? 0} allocated`,
+      `FX: ${this.feedbackSystem?.activeEffectCount ?? 0} active / ${this.feedbackSystem?.allocatedEffectCount ?? 0} allocated / ${this.feedbackSystem?.droppedEffectCount ?? 0} dropped`,
       `DPS(5s): ${(this.dpsMeter?.windowDps(runState.timeMs) ?? 0).toFixed(1)}`,
       `Weapons: ${runState.equipped.map((weapon) => `${weapon.family} T${weapon.tier}`).join(', ')}`,
       `Move: ${move.x.toFixed(2)}, ${move.y.toFixed(2)}`,
@@ -442,6 +474,9 @@ export class GameScene extends Phaser.Scene {
     this.inputController = undefined;
     this.debugOverlay = undefined;
     this.upgradeSystem = undefined;
+    this.weaponSystem = undefined;
+    this.feedbackSystem = undefined;
+    this.perfSampler = undefined;
     this.spawnCurve = undefined;
     this.arenaScenery?.destroy();
     this.arenaScenery = undefined;

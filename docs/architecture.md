@@ -131,13 +131,13 @@ DPS/overlay metrics, local playtest summary, and the tuning guide) on the
 single branch `agent/epic-11-remainder` and supersedes the older Epic 11
 document's remaining-slice instructions where they differ.
 The Epic 12 document is the implementation source of truth for final polish and
-performance. It freezes subscriber-only deterministic combat feedback, shared
-reduced-motion policy, strict generic pooling, behavior-preserving projectile
-and drop reuse, F3 performance/pool diagnostics, an evidence gate before any
-enemy-pooling refactor, and FIT-based responsive/browser verification. It
-supersedes issue #13 where that older wording would otherwise allow gameplay
-entity caps or speculative enemy pooling to change current combat/economy
-semantics.
+performance. It was delivered in PR #71 and freezes subscriber-only deterministic
+combat feedback, shared reduced-motion policy, strict generic pooling,
+behavior-preserving projectile and drop reuse, F3 performance/pool diagnostics,
+an evidence-gated decision to defer enemy pooling, and FIT-based
+responsive/browser verification. It supersedes issue #13 where that older wording
+would otherwise allow gameplay entity caps or speculative enemy pooling to change
+current combat/economy semantics.
 
 ## AI Handoff Pattern
 

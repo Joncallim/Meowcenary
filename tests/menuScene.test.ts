@@ -246,7 +246,7 @@ function createFakeScene(
         return undefined;
       },
     },
-    scale: { width: 390, height: 844 },
+    scale: { width: 390, height: 844, displaySize: { width: 390, height: 844 } },
     add: {
       container(_x: number, _y: number) {
         const base = fakeObject('container');

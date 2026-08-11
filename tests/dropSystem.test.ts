@@ -432,7 +432,9 @@ describe('DropSystem', () => {
     overlapCallback?.(null, drop.sprite);
 
     expect(drop.active).toBe(false);
-    expect((drop.sprite as unknown as MockGameObject).destroyed).toBe(true);
+    expect((drop.sprite as unknown as MockGameObject).destroyed).toBe(false);
+    expect(system.activeDropCount).toBe(0);
+    expect(system.allocatedDropCount).toBe(1);
     expect(runState.xp).toBe(9);
     expect(collected).toHaveBeenCalledTimes(1);
     expect(collected).toHaveBeenCalledWith({ kind: 'xp', amount: 9, x: 12, y: 34 });
@@ -749,5 +751,94 @@ describe('DropSystem', () => {
 
     const maxAttainableMoveSpeed = fastestBaseMoveSpeed * ceilingMultiplier;
     expect(RuntimeConfig.gameplay.drop.magnetSpeed).toBeGreaterThan(maxAttainableMoveSpeed);
+  });
+
+  it('reuses the exact drop object and sprite after collection', async () => {
+    const { system, overlapCallback } = await createSystem();
+
+    const first = system.spawnDrop(10, 20, { kind: 'scrap', amount: 3 });
+    const firstSprite = first.sprite as unknown as MockGameObject;
+    overlapCallback?.(null, firstSprite);
+
+    const second = system.spawnDrop(30, 40, { kind: 'xp', amount: 7 });
+    const secondSprite = second.sprite as unknown as MockGameObject;
+
+    expect(second).toBe(first);
+    expect(secondSprite).toBe(firstSprite);
+    expect(second.kind).toBe('xp');
+    expect(second.amount).toBe(7);
+    expect(second.x).toBe(30);
+    expect(second.y).toBe(40);
+    expect(system.activeDropCount).toBe(1);
+    expect(system.allocatedDropCount).toBe(1);
+  });
+
+  it('adds the drop sprite to the Physics Group only on first allocation', async () => {
+    const { system, addedSprites, overlapCallback } = await createSystem();
+
+    const first = system.spawnDrop(0, 0, { kind: 'xp', amount: 1 });
+    overlapCallback?.(null, first.sprite);
+    system.spawnDrop(0, 0, { kind: 'scrap', amount: 2 });
+
+    expect(addedSprites).toHaveLength(1);
+  });
+
+  it('resets drop kind, amount, tableId, and velocity between uses', async () => {
+    const lootTables = {
+      lootTableById: vi.fn((id: string) =>
+        id === 'chest-table'
+          ? { id: 'chest-table', entries: [{ kind: 'xp' as const, amount: 4, weight: 1 }] }
+          : undefined),
+    };
+    const { system, overlapCallback } = await createSystem({ lootTables });
+
+    const chest = system.spawnDrop(5, 6, { kind: 'chest', amount: 0, tableId: 'chest-table' });
+    (chest.sprite.body as unknown as MockBody).setVelocity(12, 34);
+    overlapCallback?.(null, chest.sprite);
+
+    const next = system.spawnDrop(7, 8, { kind: 'scrap', amount: 9 });
+
+    expect(next.tableId).toBeUndefined();
+    expect(next.kind).toBe('scrap');
+    expect(next.amount).toBe(9);
+    expect((next.sprite.body as unknown as MockBody).velocity).toEqual({ x: 0, y: 0 });
+  });
+
+  it('returns active and allocated counts to expected values after collection', async () => {
+    const { system, overlapCallback } = await createSystem();
+
+    const drop = system.spawnDrop(1, 2, { kind: 'xp', amount: 1 });
+    expect(system.activeDropCount).toBe(1);
+    expect(system.allocatedDropCount).toBe(1);
+
+    overlapCallback?.(null, drop.sprite);
+
+    expect(system.activeDropCount).toBe(0);
+    expect(system.allocatedDropCount).toBe(1);
+  });
+
+  it('destroys all owned drops and removes the enemy:killed listener on destroy', async () => {
+    const { system, bus, addedSprites } = await createSystem();
+
+    system.spawnDrop(0, 0, { kind: 'xp', amount: 1 });
+    system.spawnDrop(0, 0, { kind: 'scrap', amount: 1 });
+    expect(addedSprites).toHaveLength(2);
+
+    system.destroy();
+
+    addedSprites.forEach((sprite) => {
+      expect(sprite.destroyed).toBe(true);
+    });
+    expect(system.allocatedDropCount).toBe(0);
+
+    bus.emit('enemy:killed', {
+      instanceId: 1,
+      enemyId: 'dust-mite',
+      xpValue: 1,
+      scrapValue: 1,
+      x: 0,
+      y: 0,
+    });
+    expect(addedSprites).toHaveLength(2);
   });
 });

@@ -74,7 +74,9 @@ export class MenuScene extends Phaser.Scene {
 
     const margin = 16;
     const width = this.scale.width;
-    const hitTarget = minimumHitTarget(logicalCanvasViewport());
+    const hitTarget = minimumHitTarget(
+      logicalCanvasViewport(this.scale.displaySize.width, this.scale.displaySize.height),
+    );
 
     try {
       const title = this.own(root, this.add.text(width / 2, 28, 'Meowcenary', {

@@ -15,6 +15,12 @@ export const RuntimeConfig = {
       magnetSpeed: 450,
     },
   },
+  performance: {
+    targetFps: 60,
+    sampleWindowFrames: 120,
+    maxFeedbackEffects: 96,
+    maxHeavyFeedbackEffects: 72,
+  },
   storageKey: 'meowcenary.save.v1',
   isDev: import.meta.env.DEV,
 } as const;

@@ -40,14 +40,15 @@ src/
     cadence.ts       Cadence accumulator for fixed-interval ticks
     cooldown.ts      Pure shouldPlay cooldown gate (added in Epic 10)
     pool.ts          Generic object Pool<T> (added in Epic 12)
+    motion.ts        Shared reduced-motion policy helpers (added in Epic 12)
   entities/      Phaser display/physics objects: Player, Enemy, Projectile, Drop
   gameplay/      Pure run rules (no Phaser imports): runState, stats, xp,
                  targeting, weapons, merge, upgrades, spawnDirector, loot, reward,
                  characterSelection, arenaSelection (Epic 7), spawnRegion (Epic 7),
-                 curves, metrics (Epic 11)
+                 curves, metrics (Epic 11), perf (Epic 12)
   systems/       Phaser-aware coordinators: input, save, validation, weapons,
                  enemies, arenas (Epic 7), lootTables (Epic 8), debug, audio,
-                 playtestSummary (Epic 11), types.ts
+                 playtestSummary (Epic 11), feedback (Epic 12), types.ts
   scenes/        BootScene, GameScene (thin coordinators only)
   ui/            hud, cards, inventory, menus, settings
   data/          *.json gameplay definitions
@@ -304,7 +305,7 @@ so schedules (fire cadence, spawn timing) stay deterministic in tests.
 | Epic 9 | #10 UI and UX | Architecture ready | Single-branch production menu, HUD, settings, touch presentation, pause/inventory, chooser integration, and run summary; architecture in [`architecture/epic-9-ui-and-ux.md`](architecture/epic-9-ui-and-ux.md). |
 | Epic 10 | #11 Audio | Complete | Single-branch event-driven SFX/music, autoplay unlock, per-key cooldowns, live settings via `settings:changed`, and the deterministic placeholder asset pipeline; contracts in [`architecture/epic-10-audio.md`](architecture/epic-10-audio.md), slices 3–5 delivery in [`architecture/epic-10-audio-remainder.md`](architecture/epic-10-audio-remainder.md). |
 | Epic 11 | #12 Balancing and Developer Tooling | Complete | Slices 1–2 (aggregate data validation, shared curve helpers) merged in PR #66; slices 3–5 (dev-gated cheat flags, rolling DPS/overlay metrics, local playtest summary, tuning guide) merged in PR #70; architecture in [`architecture/epic-11-balancing-and-developer-tooling.md`](architecture/epic-11-balancing-and-developer-tooling.md), slices 3–5 delivery in [`architecture/epic-11-remainder.md`](architecture/epic-11-remainder.md). |
-| Epic 12 | #13 Polish and Performance | Open | Feedback, animation polish, object pooling, reduced motion, performance checks. |
+| Epic 12 | #13 Polish and Performance | Complete | Single-branch PR #71: generic pooling, projectile/drop reuse, deterministic event-driven combat feedback, reduced-motion policy, fixed-window `PerfSampler`, F3 diagnostics, FIT-responsive sizing; architecture in [`architecture/epic-12-polish-and-performance.md`](architecture/epic-12-polish-and-performance.md). |
 
 ## Cross-Epic Rules
 
