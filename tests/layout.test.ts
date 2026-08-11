@@ -83,4 +83,21 @@ describe('minimumHitTarget', () => {
     expect(Number.isFinite(minimumHitTarget(vp))).toBe(true);
     expect(minimumHitTarget(vp)).toBeGreaterThan(0);
   });
+
+  it('maps 44 physical pixels to at least 44 logical pixels on a 360x640 display', () => {
+    const vp = viewport(360, 640);
+    expect(minimumHitTarget(vp) * safeDisplayScale(vp)).toBeGreaterThanOrEqual(43.999);
+  });
+
+  it('preserves the canonical 1:1 mapping at the logical canvas size', () => {
+    const vp = viewport(CANVAS.width, CANVAS.height);
+    expect(safeDisplayScale(vp)).toBe(1);
+    expect(minimumHitTarget(vp)).toBe(44);
+  });
+
+  it('uses the minimum fail-safe scale for invalid display dimensions', () => {
+    const vp = viewport(Number.NaN, Number.NaN);
+    expect(safeDisplayScale(vp)).toBe(0.25);
+    expect(Number.isFinite(minimumHitTarget(vp))).toBe(true);
+  });
 });

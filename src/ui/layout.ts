@@ -26,11 +26,14 @@ export function minimumHitTarget(viewport: UiViewport): number {
   return physicalToLogical(44, viewport);
 }
 
-export function logicalCanvasViewport(): UiViewport {
+export function logicalCanvasViewport(
+  displayWidth: number = RuntimeConfig.canvas.width,
+  displayHeight: number = RuntimeConfig.canvas.height,
+): UiViewport {
   return {
     canvasWidth: RuntimeConfig.canvas.width,
     canvasHeight: RuntimeConfig.canvas.height,
-    displayWidth: RuntimeConfig.canvas.width,
-    displayHeight: RuntimeConfig.canvas.height,
+    displayWidth,
+    displayHeight,
   };
 }

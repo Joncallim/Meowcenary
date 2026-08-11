@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { GameContext } from '../engine/context';
 import type { GameEventListener } from '../engine/eventBus';
+import { createPool, type Pool } from '../engine/pool';
 import type { Rng } from '../engine/rng';
 import type { System } from '../engine/system';
 import { Drop } from '../entities/Drop';
@@ -35,7 +36,10 @@ export class DropSystem implements System {
   private readonly dropRadius: number;
   private readonly magnetSpeed: number;
   private readonly basePickupRadius: number;
-  private readonly drops: Drop[] = [];
+  private readonly dropPool: Pool<Drop>;
+  private readonly liveDrops = new Set<Drop>();
+  private readonly ownedDrops: Drop[] = [];
+  private readonly dropBySprite = new Map<Phaser.GameObjects.GameObject, Drop>();
   private readonly unsubscribeEnemyKilled: () => void;
 
   constructor(options: DropSystemOptions) {
@@ -50,6 +54,20 @@ export class DropSystem implements System {
     this.magnetSpeed = options.magnetSpeed;
     this.basePickupRadius = options.basePickupRadius;
 
+    this.dropPool = createPool(
+      () => {
+        const drop = new Drop(this.scene, this.dropRadius);
+        this.ownedDrops.push(drop);
+        this.dropBySprite.set(drop.sprite, drop);
+
+        // PhysicsGroup.add reapplies body defaults. Insert first so spawn owns the
+        // final position, body shape, enablement, and velocity, like Projectile.
+        this.dropGroup.add(drop.sprite);
+        return drop;
+      },
+      (drop) => drop.reset(),
+    );
+
     this.scene.physics.add.overlap(
       this.player.sprite,
       this.dropGroup,
@@ -61,17 +79,22 @@ export class DropSystem implements System {
     this.unsubscribeEnemyKilled = this.ctx.bus.on('enemy:killed', this.handleEnemyKilled);
   }
 
+  get activeDropCount(): number {
+    return this.dropPool.active();
+  }
+
+  get allocatedDropCount(): number {
+    return this.ownedDrops.length;
+  }
+
   /**
    * Spawns a drop at the given position. In production this is called from the
    * `enemy:killed` handler so that loot tables and RNG are respected; tests may
    * call it directly to bypass loot resolution and exercise collection logic.
    */
   spawnDrop(x: number, y: number, grant: LootGrant): Drop {
-    const drop = new Drop(this.scene, this.dropRadius);
-    this.drops.push(drop);
-    // PhysicsGroup.add reapplies body defaults. Insert first so spawn owns the
-    // final position, body shape, enablement, and velocity, like Projectile.
-    this.dropGroup.add(drop.sprite);
+    const drop = this.dropPool.acquire();
+    this.liveDrops.add(drop);
     drop.spawn(x, y, grant.kind, grant.amount, grant.kind === 'chest' ? grant.tableId : undefined);
     return drop;
   }
@@ -83,18 +106,19 @@ export class DropSystem implements System {
 
     const pickupRadius = Math.max(0, this.runState.stats.resolve('pickupRadius', this.basePickupRadius));
     const playerPos = { x: this.player.x, y: this.player.y };
-    for (const drop of this.drops) {
+    for (const drop of this.liveDrops) {
       drop.update(dtMs, playerPos, pickupRadius, this.magnetSpeed);
     }
-    compactActive(this.drops);
   }
 
   destroy(): void {
     this.unsubscribeEnemyKilled();
-    this.drops.forEach((drop) => {
+    for (const drop of this.ownedDrops) {
       drop.destroy();
-    });
-    this.drops.length = 0;
+    }
+    this.ownedDrops.length = 0;
+    this.liveDrops.clear();
+    this.dropBySprite.clear();
   }
 
   private readonly handleEnemyKilled: GameEventListener<'enemy:killed'> = (payload) => {
@@ -118,7 +142,7 @@ export class DropSystem implements System {
     dropObject: unknown,
   ): void {
     const dropGameObject = arcadeGameObject(dropObject);
-    const drop = this.drops.find((candidate) => candidate.sprite === dropGameObject);
+    const drop = dropGameObject ? this.dropBySprite.get(dropGameObject) : undefined;
     if (!drop?.active) {
       return;
     }
@@ -131,7 +155,7 @@ export class DropSystem implements System {
       return;
     }
 
-    const { kind, amount } = drop;
+    const { kind, amount, x, y } = drop;
     switch (kind) {
       case 'xp':
         this.applyXpGrant(amount);
@@ -144,8 +168,8 @@ export class DropSystem implements System {
         return; // the chest itself never emits drop:collected
     }
 
-    this.ctx.bus.emit('drop:collected', { kind, amount, x: drop.x, y: drop.y });
-    drop.destroy();
+    this.ctx.bus.emit('drop:collected', { kind, amount, x, y });
+    this.releaseDrop(drop);
   }
 
   private applyXpGrant(amount: number): void {
@@ -161,9 +185,9 @@ export class DropSystem implements System {
   }
 
   private collectChest(drop: Drop): void {
-    const { tableId } = drop;
+    const { tableId, x, y } = drop;
     if (tableId === undefined) {
-      drop.destroy();
+      this.releaseDrop(drop);
       return;
     }
 
@@ -173,7 +197,7 @@ export class DropSystem implements System {
       // table is either a stale reference or a data-config bug. The diagnostic
       // trace makes it discoverable without crashing the run.
       console.warn(`[DropSystem] Chest drop references missing loot table "${tableId}"`);
-      drop.destroy();
+      this.releaseDrop(drop);
       return;
     }
 
@@ -203,12 +227,19 @@ export class DropSystem implements System {
       this.ctx.bus.emit('drop:collected', {
         kind: grant.kind,
         amount: grant.amount,
-        x: drop.x,
-        y: drop.y,
+        x,
+        y,
       });
     }
 
-    drop.destroy();
+    this.releaseDrop(drop);
+  }
+
+  private releaseDrop(drop: Drop): void {
+    if (!this.liveDrops.delete(drop)) {
+      return;
+    }
+    this.dropPool.release(drop);
   }
 }
 
@@ -225,15 +256,4 @@ function arcadeGameObject(value: unknown): Phaser.GameObjects.GameObject | undef
   }
 
   return undefined;
-}
-
-function compactActive<T extends { active: boolean }>(items: T[]): void {
-  let writeIndex = 0;
-  for (const item of items) {
-    if (item.active) {
-      items[writeIndex] = item;
-      writeIndex += 1;
-    }
-  }
-  items.length = writeIndex;
 }

@@ -47,6 +47,7 @@ flowchart TD
 | UI | HUD, menus, cards, inventory, settings | Core gameplay calculations |
 | Audio | Music, SFX, mute, and volume | Gameplay rules |
 | Debug | Developer-only visibility and cheats | Production player progression |
+| Feedback | Event-driven visual cues, reduced-motion presentation, cosmetic effect lifetime/caps | Combat outcomes, balance, rewards, progression, gameplay RNG |
 
 ## Data-Driven Gameplay
 
@@ -81,6 +82,7 @@ Epic-specific data contracts:
 - [Epic 10 issue #67 delivery handoff](architecture/epic-10-audio-remainder.md)
 - [Epic 11: balancing and developer tooling](architecture/epic-11-balancing-and-developer-tooling.md)
 - [Epic 11 issue #69 delivery handoff](architecture/epic-11-remainder.md)
+- [Epic 12: polish and performance](architecture/epic-12-polish-and-performance.md)
 
 The Epic 5 document is the implementation source of truth for save V2,
 permanent modifier ordering, finished-run banking, and the Epics 6/8/9
@@ -128,6 +130,14 @@ is the implementation/delivery record for Issue #69. PR #66 delivered slices
 DPS/overlay metrics, local playtest summary, and the tuning guide) on the
 single branch `agent/epic-11-remainder` and supersedes the older Epic 11
 document's remaining-slice instructions where they differ.
+The Epic 12 document is the implementation source of truth for final polish and
+performance. It was delivered in PR #71 and freezes subscriber-only deterministic
+combat feedback, shared reduced-motion policy, strict generic pooling,
+behavior-preserving projectile and drop reuse, F3 performance/pool diagnostics,
+an evidence-gated decision to defer enemy pooling, and FIT-based
+responsive/browser verification. It supersedes issue #13 where that older wording
+would otherwise allow gameplay entity caps or speculative enemy pooling to change
+current combat/economy semantics.
 
 ## AI Handoff Pattern
 

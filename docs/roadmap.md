@@ -18,8 +18,9 @@
 - Epic 11 / Balancing and Developer Tooling: complete — slices 1–2 merged in
   PR #66; slices 3–5 (dev-only cheat flags, rolling DPS/overlay metrics, local
   playtest summary, tuning guide) merged in PR #70 (#12).
-- Epic 12 / Polish and Performance: open (#13), sequenced after the Epic 11
-  remainder.
+- Epic 12 / Polish and Performance: complete — generic pooling, projectile/drop
+  reuse, event-driven combat feedback, reduced-motion policy, `PerfSampler`, F3
+  diagnostics, and FIT-responsive sizing merged in PR #71 (#13).
 
 Epic 7 was implemented in the consolidated PR #51 and merged.
 Epic 8 is complete: Slices 1–5 merged in PRs #58–62, implementing the
@@ -68,7 +69,15 @@ summary, tuning guidance, and delivery closeout — on the single branch
 `agent/epic-11-remainder` per its executable work package
 [`architecture/epic-11-remainder.md`](architecture/epic-11-remainder.md).
 Epic 11 is complete.
-Epic 12 (Polish and Performance, #13) follows next.
+Epic 12 is specified in
+[`architecture/epic-12-polish-and-performance.md`](architecture/epic-12-polish-and-performance.md)
+as the final single-branch delivery package. It was delivered in PR #71 with
+subscriber-only combat feedback, live reduced-motion policy, strict generic
+pooling, behavior-preserving projectile/drop reuse, F3 performance visibility,
+an evidence-gated decision to defer enemy pooling, and FIT-based
+responsive/browser verification. It explicitly forbids gameplay projectile/drop
+caps because those would change combat or economy rather than merely improve
+lifetime management.
 
 The Epic 7 architecture is documented in
 [`architecture/epic-7-maps-and-arenas.md`](architecture/epic-7-maps-and-arenas.md),

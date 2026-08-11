@@ -4,6 +4,7 @@ import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
 import { createRunState } from '../src/gameplay/runState';
 import type { RunState } from '../src/gameplay/runState';
+import type { WeaponSystem } from '../src/systems/WeaponSystem';
 import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { DataArenaRegistry } from '../src/systems/arenas';
@@ -89,11 +90,16 @@ interface TestHarness {
   };
   overlap?: (projectileObject: unknown, enemyObject: unknown) => void;
   projectileGroup: { added: MockGameObject[]; add: (sprite: MockGameObject) => void };
+  system: WeaponSystem;
 }
 
+// Forward declaration so the harness can be typed against the real class.
+let WeaponSystemCtor: typeof WeaponSystem;
+
 describe('WeaponSystem', () => {
-  async function createHarness(): Promise<TestHarness & { system: { update(dtMs: number): void } }> {
-    const { WeaponSystem } = await import('../src/systems/WeaponSystem');
+  async function createHarness(): Promise<TestHarness> {
+    const module = await import('../src/systems/WeaponSystem');
+    WeaponSystemCtor = module.WeaponSystem;
     const data = loadGameData();
     const dustMite = data.enemies.find(
       (enemy): enemy is SpawnableEnemyDefinition =>
@@ -195,7 +201,7 @@ describe('WeaponSystem', () => {
       },
     };
     const player = { active: true, x: 0, y: 0, sprite: new MockGameObject(0, 0) };
-    const system = new WeaponSystem(
+    const system = new WeaponSystemCtor(
       scene as never,
       ctx,
       runState,
@@ -381,6 +387,8 @@ describe('WeaponSystem', () => {
   it('drops stale cadence progress when a weapon is unequipped', async () => {
     const harness = await createHarness();
     const [weapon] = harness.runState.equipped;
+    const fired = vi.fn();
+    harness.ctx.bus.on('weapon:fired', fired);
 
     harness.system.update(600);
     harness.runState.equipped = [];
@@ -388,10 +396,10 @@ describe('WeaponSystem', () => {
     harness.runState.equipped = [weapon];
     harness.system.update(50);
 
-    expect(harness.projectileGroup.added).toHaveLength(0);
+    expect(fired).not.toHaveBeenCalled();
 
     harness.system.update(600);
-    expect(harness.projectileGroup.added).toHaveLength(1);
+    expect(fired).toHaveBeenCalledTimes(1);
   });
 
   it('fails closed when equipped weapons repeat an instance id', async () => {
@@ -407,14 +415,82 @@ describe('WeaponSystem', () => {
     expect(fired).not.toHaveBeenCalled();
   });
 
-  it('ignores invalid projectile delta without poisoning later range expiry', async () => {
+  it('releases projectiles on range expiry and reuses the same sprite on later fire', async () => {
     const harness = await createHarness();
+    const weapon = harness.runState.equipped[0];
 
     harness.system.update(650);
     const projectile = harness.projectileGroup.added[0];
+    const sprite = projectile;
+    expect(harness.system.activeProjectileCount).toBe(1);
+    expect(harness.system.allocatedProjectileCount).toBe(1);
+
+    // Prevent a second fire so we can age the projectile to expiry in isolation.
+    harness.runState.equipped = [];
     harness.system.update(Number.NaN);
     harness.system.update(1_000);
 
-    expect(projectile.destroyed).toBe(true);
+    expect(projectile.active).toBe(false);
+    expect(harness.system.activeProjectileCount).toBe(0);
+    expect(harness.system.allocatedProjectileCount).toBe(1);
+
+    harness.runState.equipped = [weapon];
+    harness.system.update(650);
+    const reused = harness.projectileGroup.added[1] ?? projectile;
+    expect(reused).toBe(sprite);
+    expect(harness.system.activeProjectileCount).toBe(1);
+    expect(harness.system.allocatedProjectileCount).toBe(1);
+  });
+
+  it('reuses projectiles after a piercing kill and keeps fresh hit/damage state', async () => {
+    const harness = await createHarness();
+
+    harness.system.update(650);
+    const firstSprite = harness.projectileGroup.added[0];
+    harness.overlap?.(firstSprite, harness.enemy.sprite);
+
+    harness.enemy.active = true;
+    harness.enemy.sprite.active = true;
+    harness.enemy.health = harness.enemy.definition.scrapValue + 100;
+    harness.system.update(650);
+    const secondSprite = harness.projectileGroup.added[1] ?? firstSprite;
+
+    expect(harness.system.activeProjectileCount).toBe(1);
+    expect(secondSprite).toBe(firstSprite);
+    expect(secondSprite.body?.velocity.x).toBeGreaterThan(0);
+  });
+
+  it('ignores repeated overlap with a released projectile', async () => {
+    const harness = await createHarness();
+    const hit = vi.fn();
+    harness.ctx.bus.on('projectile:hit', hit);
+
+    harness.system.update(650);
+    const projectile = harness.projectileGroup.added[0];
+    harness.overlap?.(projectile, harness.enemy.sprite);
+    hit.mockClear();
+
+    harness.enemy.active = true;
+    harness.enemy.sprite.active = true;
+    harness.overlap?.(projectile, harness.enemy.sprite);
+
+    expect(hit).not.toHaveBeenCalled();
+  });
+
+  it('destroys every owned projectile exactly once on system teardown', async () => {
+    const harness = await createHarness();
+
+    harness.system.update(650);
+    harness.system.update(650);
+    const destroyed = harness.projectileGroup.added.map((sprite) => sprite.destroyed);
+    expect(destroyed.every((flag) => !flag)).toBe(true);
+    expect(harness.system.allocatedProjectileCount).toBe(2);
+
+    harness.system.destroy();
+
+    harness.projectileGroup.added.forEach((sprite) => {
+      expect(sprite.destroyed).toBe(true);
+    });
+    expect(harness.system.allocatedProjectileCount).toBe(0);
   });
 });
