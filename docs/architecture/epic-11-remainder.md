@@ -1355,9 +1355,9 @@ before the maintainer merges and closes Issue #69.
   were fixed on this branch (independent review remains a pre-merge gate)
 - delivery-record commit SHA: `17ae7da` (docs-only `Epic 11 · Slice 5:
   delivery record and closeout` — this §16 record)
-- final branch head SHA: `a70ae5d` (branch tip at record finalization; every
-  commit after the Slice 5 code commit `fca164f` is a docs-only closeout or
-  record correction)
+- final branch head SHA: the tip of `agent/epic-11-remainder` at merge time
+  (last code commit `fca164f`; every later commit — including this record's
+  finalization — is a docs-only closeout correction)
 - delivery PR number and URL: #70, https://github.com/Joncallim/Meowcenary/pull/70
 - exact final test count and test-file count: **1133 tests / 76 test files**
 - shuffled/repeated test result:
