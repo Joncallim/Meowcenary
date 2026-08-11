@@ -1277,7 +1277,7 @@ Use this prompt after implementation slices are present:
 
 ## 20. Delivery record
 
-Status: **delivered — automated evidence complete; manual browser/viewport/performance rows are honestly recorded as unverified because no real browser environment is available in this execution context**.
+Status: **complete and merged** — PR #71 was merged into `main` as `b0c30ff` on 2026-08-11, closing Issue #13. Automated evidence is complete; manual browser/viewport/performance rows remain honestly recorded as unverified (no real browser environment was available during implementation) and must be completed during release-candidate QA.
 
 - architecture baseline SHA: `de3f919649543cd082ed72fb1dadbfd0253122d4`
 - architecture commit SHA: `644c26c` (`docs: mark Epic 12 architecture ready`)
@@ -1290,7 +1290,7 @@ Status: **delivered — automated evidence complete; manual browser/viewport/per
 - Slice 4B enemy-pooling decision: **not triggered**. Browser Performance/Memory profiling tools are unavailable in this environment, so §10 condition 3 (a profile attributing spikes to repeated `Enemy` construction/destruction) cannot be proven. `Enemy` remains unchanged.
 - Slice 4B SHA if triggered: **N/A**
 - Slice 5 SHA / closeout result: `97cf171` — responsive sizing and layout tests green; this §20 update is committed as a docs-only closeout after automated gates
-- review-fix SHAs and findings: none required — the diff against the architecture baseline was audited for pool strictness, add-once PhysicsGroup behavior, drop payload snapshot ordering, unchanged combat/loot RNG and event order, no gameplay hard caps, feedback subscriber-only boundary, zero gameplay RNG in cosmetics, live reduced-motion cancellation, system teardown across Retry/scene transitions, system active counts vs group length, PerfSampler rollover/budget edge cases, Epic 11 audio/debug/summary preservation, and real `ScaleManager.displaySize` handling; no in-scope defects were found
+- review-fix SHAs and findings: `d2a7488` (`Epic 12 review fix: correct level pulse ratio denominator`) — the independent review audit found the level-up border pulse ratio derived its fade denominator from the current timer value (`levelTimerMs > 90 ? 180 : 90`), flipping from 180 to 90 when a heavy-motion pulse crossed the 90 ms boundary and producing a visible re-brightening artifact; fixed by tracking the intended full pulse duration in `levelPulseDurationMs`. All other audited areas (pool strictness, add-once PhysicsGroup behavior, drop payload snapshot ordering, unchanged combat/loot RNG and event order, no gameplay hard caps, feedback subscriber-only boundary, zero gameplay RNG in cosmetics, live reduced-motion cancellation, system teardown across Retry/scene transitions, system active counts vs group length, PerfSampler rollover/budget edge cases, Epic 11 audio/debug/summary preservation, and real `ScaleManager.displaySize` handling) were clean.
 - exact final test count / files: **1184 tests / 80 test files passed**
 - shuffled/repeated result: `npm test -- --sequence.shuffle` executed three independent runs, each **1184/1184 passed** (Vitest 3.2.6 does not expose a `--sequence.repeats` flag, so the repeat was performed by invoking the shuffled command three times)
 - lint/typecheck: `npm run lint` (`tsc --noEmit`) → **clean**
@@ -1302,13 +1302,13 @@ Status: **delivered — automated evidence complete; manual browser/viewport/per
 - reduced-motion matrix: **unverified** — no browser runtime available in this environment
 - viewport matrix: **unverified** — no browser runtime available in this environment
 - performance/profile evidence: **unverified** — no browser profiling tools available; F3 sampler code and counters are present and unit-tested, but no real-device FPS/profile data was collected
-- hosted CI: **unverified** — not executed in this environment
-- Issue #13 closure: **not closed** — pending maintainer review/merge
-- final verdict: **READY FOR REVIEW — automated gates pass; manual browser/accessibility/responsiveness/performance evidence is documented as unverified and must be completed before merge/closure**
+- hosted CI: **passed** — GitHub Actions `Node` job (lint + test + build) ran against head `d2a7488` and completed successfully
+- Issue #13 closure: **closed** via the PR #71 merge (`b0c30ff`)
+- final verdict: **COMPLETE — merged into `main` as `b0c30ff`, closing Issue #13; automated gates passed; manual browser/accessibility/responsiveness/performance evidence remains documented as unverified and is a release-candidate QA responsibility**
 
 ### §14 manual matrix status
 
-All rows below were **not executed** in this environment and are recorded as **unverified**. They must be run in a real browser before Epic 12 is merged.
+All rows below were **not executed** in this environment and are recorded as **unverified**. They must be run in a real browser during release-candidate QA (Epic 12 is merged into `main`; this matrix remains the open QA item).
 
 | §14.1 functional/polish matrix row | Status | Evidence |
 | --- | --- | --- |
