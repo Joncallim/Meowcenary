@@ -48,6 +48,7 @@ import { PassiveCoordinator } from '../systems/PassiveCoordinator';
 import { HazardSystem } from '../systems/HazardSystem';
 import { DEFAULT_PASSIVE_HANDLERS, createPassiveHandlerRegistry } from '../gameplay/characterPassives';
 import { createDpsMeter, type DpsMeter } from '../gameplay/metrics';
+import { PlaytestSummarySystem } from '../systems/playtestSummary';
 
 export class GameScene extends Phaser.Scene {
   private debugOverlay?: DebugOverlay;
@@ -244,6 +245,16 @@ export class GameScene extends Phaser.Scene {
             flags: debugFlags,
           })
         : undefined;
+    // Development-only local playtest summary, constructed after
+    // ProgressionSystem so banking still runs first in listener order.
+    const playtestSummarySystem =
+      import.meta.env.DEV
+        ? new PlaytestSummarySystem({
+            runState: this.runState,
+            bus: ctx.bus,
+            dpsMeter,
+          })
+        : undefined;
     this.systems = [
       this.progressionSystem,
       new PassiveCoordinator({
@@ -275,6 +286,7 @@ export class GameScene extends Phaser.Scene {
       this.upgradeSystem,
       ...(debugCheatSystem ? [debugCheatSystem] : []),
       this.hudController,
+      ...(playtestSummarySystem ? [playtestSummarySystem] : []),
     ];
 
     // The run summary source is getter-backed so banking (which happens first

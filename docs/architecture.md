@@ -123,10 +123,11 @@ predates the live validation, linear enemy-scaling, spawn-director, and debug
 seams.
 The Epic 11 remainder document
 ([`architecture/epic-11-remainder.md`](architecture/epic-11-remainder.md))
-is the executable implementation/delivery handoff for Issue #69. PR #66
-delivered slices 1–2 only; the remainder document freezes slices 3–5 against
-the post-Epic-10 `GameScene` and supersedes the older Epic 11 document's
-remaining-slice instructions where they differ.
+is the implementation/delivery record for Issue #69. PR #66 delivered slices
+1–2 only; PR #70 delivered slices 3–5 (development-only cheat flags, rolling
+DPS/overlay metrics, local playtest summary, and the tuning guide) on the
+single branch `agent/epic-11-remainder` and supersedes the older Epic 11
+document's remaining-slice instructions where they differ.
 
 ## AI Handoff Pattern
 

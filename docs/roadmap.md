@@ -15,9 +15,9 @@
 - Epic 10 / Audio: complete — contracts and game-scoped `AudioManager` merged
   in PR #65; scene wiring, UI events, and placeholder assets merged in PR #68
   (#11).
-- Epic 11 / Balancing and Developer Tooling: slices 1–2 complete in PR #66;
-  slices 3–5 are the current delivery work in Issue #69, specified by
-  [`architecture/epic-11-remainder.md`](architecture/epic-11-remainder.md).
+- Epic 11 / Balancing and Developer Tooling: complete — slices 1–2 merged in
+  PR #66; slices 3–5 (dev-only cheat flags, rolling DPS/overlay metrics, local
+  playtest summary, tuning guide) merged in PR #70 (#12).
 - Epic 12 / Polish and Performance: open (#13), sequenced after the Epic 11
   remainder.
 
@@ -62,12 +62,13 @@ Epic 10 is complete.
 Epic 11's overall contracts are specified in
 [`architecture/epic-11-balancing-and-developer-tooling.md`](architecture/epic-11-balancing-and-developer-tooling.md).
 PR #66 delivered the descriptor-driven aggregate validator and shared curve
-helpers (slices 1–2). Issue #69 owns the remaining development-only cheat
-flags, read-only overlay metrics, local playtest summary, tuning guidance, and
-delivery closeout. Its executable work package is
-[`architecture/epic-11-remainder.md`](architecture/epic-11-remainder.md) on
-the single branch `agent/epic-11-remainder`.
-Epic 12 (Polish and Performance, #13) follows after that delivery.
+helpers (slices 1–2). PR #70 delivered Issue #69's remaining work — the
+development-only cheat flags, read-only overlay metrics, local playtest
+summary, tuning guidance, and delivery closeout — on the single branch
+`agent/epic-11-remainder` per its executable work package
+[`architecture/epic-11-remainder.md`](architecture/epic-11-remainder.md).
+Epic 11 is complete.
+Epic 12 (Polish and Performance, #13) follows next.
 
 The Epic 7 architecture is documented in
 [`architecture/epic-7-maps-and-arenas.md`](architecture/epic-7-maps-and-arenas.md),
