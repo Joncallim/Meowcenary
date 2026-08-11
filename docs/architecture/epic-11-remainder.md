@@ -1,10 +1,12 @@
 # Epic 11 Remainder — Issue #69 Architecture and Implementation Handoff
 
-Status: **implementation-ready architecture** for Issue #69. This is the
+Status: **delivered** — implementation and delivery record for Issue #69
+(automated evidence complete; the §11 browser/preview/CI rows and the
+independent review pass in §16 remain as pre-merge gates). This was the
 architecture work package for the single delivery branch
 `agent/epic-11-remainder`. All implementation, review fixes, evidence, and
-documentation closeout for Epic 11 slices 3–5 must be appended to that branch
-and its one delivery PR.
+documentation closeout for Epic 11 slices 3–5 were appended to that branch
+and its one delivery PR (#70).
 
 Architecture baseline: `main` at
 `025a20832e04b2a7ba069768bd26c13264784ac7` (Epic 10 completed in PR #68;
@@ -1329,33 +1331,78 @@ Use this prompt after all three implementation commits are on the same branch:
 
 ## 16. Delivery record
 
-Status: **not yet delivered**.
+Status: **delivered (automated evidence complete; browser/preview/CI rows
+pending external execution)**. All three slices are implemented, committed,
+and green on `agent/epic-11-remainder`; the remaining manual/preview/hosted-CI
+rows below are explicitly unverified in this record and must be completed
+before the maintainer merges and closes Issue #69.
 
-Replace this section at completion with all fields below:
-
-- architecture baseline SHA;
-- implementation baseline SHA (if `main` advanced);
-- architecture commit SHA;
-- Slice 3 commit SHA and focused/full counts;
-- Slice 4 commit SHA and focused/full counts;
-- Slice 5 commit SHA and focused/full counts;
-- review-fix commit SHAs;
-- final branch head SHA;
-- delivery PR number and URL;
-- exact final test count and test-file count;
-- shuffled/repeated test result;
-- lint/typecheck result;
-- production build result;
-- `git diff --check` result;
-- cheat and summary bundle-sentinel results;
-- hosted CI run/check result;
-- every §11 browser/preview/data-check row;
-- explicitly deferred limitations;
-- Issue #69 closure result;
-- final documentation status.
-
-Until every mandatory item is recorded, Epic 11 is **partially delivered:
-slices 1–2 complete, slices 3–5 pending**.
+- architecture baseline SHA: `025a20832e04b2a7ba069768bd26c13264784ac7`
+- implementation baseline SHA: none — `main` did not advance; the branch is
+  the baseline plus the architecture commit only
+- architecture commit SHA: `14321ef40c8c101c8c2684a416921a2b6ffeb844`
+  (`docs: architect Epic 11 remainder`)
+- Slice 3 commit SHA: `d9d00ff42c007fe8cfe92df082fc4d45977230bb`
+  (`Epic 11 · Slice 3: development-only debug cheats`) — focused
+  `debugCheats.test.ts` 52/52; full suite after slice 1093 tests / 74 files
+- Slice 4 commit SHA: `935683154694f62bca9c97d7faaa7ae2d59c4822`
+  (`Epic 11 · Slice 4: rolling DPS and overlay metrics`) — focused
+  `metrics.test.ts` 23/23; full suite after slice 1116 tests / 75 files
+- Slice 5 commit SHA: `fca164f36fd16d7045f73be7a1a9c5e0e6eac91b`
+  (`Epic 11 · Slice 5: playtest summary and tuning closeout`) — focused
+  `playtestSummary.test.ts` 17/17; full suite after slice 1133 tests / 76 files
+- review-fix commit SHAs: none required — no independent review findings
+  were fixed on this branch (independent review remains a pre-merge gate)
+- final branch head SHA: `fca164f36fd16d7045f73be7a1a9c5e0e6eac91b`
+- delivery PR number and URL: #70, https://github.com/Joncallim/Meowcenary/pull/70
+- exact final test count and test-file count: **1133 tests / 76 test files**
+- shuffled/repeated test result:
+  `npm test -- --sequence.shuffle --sequence.repeats=3` → **1133/1133 passed**
+- lint/typecheck result: `npm run lint` (tsc --noEmit) → **clean**
+- production build result: `npm run build` → **success**
+  (`index-BI4rSQ7t.js` 157.71 kB gzip 45.11 kB; phaser chunk unchanged)
+- `git diff --check` result: **clean**
+- cheat and summary bundle-sentinel results: **both PASS** — the production
+  bundle contains neither `[cheats]`/`debug:cheats` nor
+  `[playtest] run summary` (the summary module is dead-code-eliminated by the
+  direct `import.meta.env.DEV` gate; bundle hash is identical to the
+  pre-Slice-5 build)
+- hosted CI run/check result: `.github/workflows/ci.yml` runs lint + test on
+  push/PR; **not run from the implementation environment — unverified until
+  the branch is pushed to PR #70**
+- every §11 browser/preview/data-check row:
+  - dev browser rows (no query, full cheat query, `god=1` without master,
+    invalid/out-of-range values, F3 during combat, pause >5 s, win, loss,
+    Retry, Menu round-trip): **unverified** — no browser environment in the
+    implementation run; automated equivalents are covered by
+    `debugCheats.test.ts`, `metrics.test.ts`, `playtestSummary.test.ts`,
+    `gameSceneAudio.test.ts`, and the full suite
+  - preview rows (cheat URLs inert, no summary on win/loss, F3 available,
+    PR #68 audio/UI unchanged): **unverified** — requires `npm run preview`
+    and a browser
+  - break-a-JSON data check: **unverified** — requires a manual
+    break/revert cycle; aggregate validation behavior is covered by the
+    existing `validateAllData.test.ts`/`validation.test.ts` regressions
+  - clean check after revert: **unverified** (working tree is clean except
+    intended delivery changes at final commit)
+- explicitly deferred limitations:
+  - a single lethal hit can still end a god-mode run before the next
+    active-update refill (accepted, §2.7);
+  - spawn pressure still saturates at existing `maxAlive` caps under the
+    cadence cheat (accepted, §2.6);
+  - cheated development currency may bank into the developer's local save
+    (accepted, §2.12/R6);
+  - no mid-run cheat toggles and no cheat UI (out of scope, §3);
+  - F3 group counts reflect live group membership, not pooled capacity
+    (no pooling until Epic 12).
+- Issue #69 closure result: **not closed** — the delivery PR must be merged
+  by the maintainer after the unverified rows above are completed
+- final documentation status: Epic 11 marked complete in
+  `docs/epics.md`, `docs/roadmap.md`, `docs/knowledge-graph.md`,
+  `docs/architecture.md`, and
+  `docs/architecture/epic-11-balancing-and-developer-tooling.md`; this
+  document is the implementation/delivery record; `docs/knowledge-graph.md`
+  carries the corrected final test/file counts and PR attribution
 
 ## 17. Frozen decision ledger
 
