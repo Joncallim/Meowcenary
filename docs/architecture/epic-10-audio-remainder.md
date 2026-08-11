@@ -1336,10 +1336,11 @@ Complete during implementation; do not fabricate values.
 - Slice 3 commit: `7f938c6` — settings:changed, Boot manager publication, scene lifecycle wiring
 - Slice 4 commit: `139dd81` — exactly-one UI command events
 - Slice 5 commit: `e9c945c` — deterministic placeholders, asset tests, docs closeout
+- review-fix commit: `1f4fd6d` — PR #68 review findings 1–3 (OS key-repeat guard on menu focus move; delta-based bootScene hoisted-state assertions; ternary-derived pause event type); full gates re-run green on this head
 - delivery PR: `#68`
-- final head SHA (at time of writing): `32d5a91` — the delivery-record commit; all gates verified on this head
+- final head SHA (at time of writing): `1f4fd6d` — the review-fix commit; all gates verified on this head
 - baseline tests/files: `978 / 70` (post-PR-66 baseline on this branch, before Slice 3)
-- final tests/files: `1040 / 73` (after Slice 5; Slice 3 → 998/72, Slice 4 → 1023/72)
+- final tests/files: `1041 / 73` (after review fixes; Slice 3 → 998/72, Slice 4 → 1023/72, Slice 5 → 1040/73, review-fix → 1041/73)
 - lint/typecheck: `green` (every slice gate)
 - production build: `green` (every slice gate)
 - `git diff --check`: `clean` (every slice gate)
