@@ -15,8 +15,11 @@
 - Epic 10 / Audio: complete — contracts and game-scoped `AudioManager` merged
   in PR #65; scene wiring, UI events, and placeholder assets merged in PR #68
   (#11).
-- Epic 11 / Balancing and Developer Tooling: complete (PR #66) (#12).
-- Epic 12 / Polish and Performance: open (#13) — the next untouched epic.
+- Epic 11 / Balancing and Developer Tooling: slices 1–2 complete in PR #66;
+  slices 3–5 are the current delivery work in Issue #69, specified by
+  [`architecture/epic-11-remainder.md`](architecture/epic-11-remainder.md).
+- Epic 12 / Polish and Performance: open (#13), sequenced after the Epic 11
+  remainder.
 
 Epic 7 was implemented in the consolidated PR #51 and merged.
 Epic 8 is complete: Slices 1–5 merged in PRs #58–62, implementing the
@@ -56,16 +59,16 @@ wiring, exactly-one `ui:*` command events, deterministic placeholder WAVs, and
 docs closeout), delivered on `agent/epic-10-audio-remainder` per
 [`architecture/epic-10-audio-remainder.md`](architecture/epic-10-audio-remainder.md).
 Epic 10 is complete.
-Epic 11 is specified in
-[`architecture/epic-11-balancing-and-developer-tooling.md`](architecture/epic-11-balancing-and-developer-tooling.md)
-as five dependency-ordered implementation/review gates on the single branch
-`agent/epic-11-balancing-and-developer-tooling`. The architecture freezes the
-descriptor-driven aggregate validation runner, the shared pure curve helpers
-(with behavior-identical rerouting of `costOf`, `scaleEnemy`, and
-`xpToNext`), the development-gated cheat flags applied through existing
-modifier/spawn seams, the read-only overlay run metrics, and the local
-console playtest summary. Epic 11 merged in PR #66 and is complete.
-Epic 12 (Polish and Performance, #13) is the next untouched epic.
+Epic 11's overall contracts are specified in
+[`architecture/epic-11-balancing-and-developer-tooling.md`](architecture/epic-11-balancing-and-developer-tooling.md).
+PR #66 delivered the descriptor-driven aggregate validator and shared curve
+helpers (slices 1–2). Issue #69 owns the remaining development-only cheat
+flags, read-only overlay metrics, local playtest summary, tuning guidance, and
+delivery closeout. Its executable work package is
+[`architecture/epic-11-remainder.md`](architecture/epic-11-remainder.md) on
+the single branch `agent/epic-11-remainder`.
+Epic 12 (Polish and Performance, #13) follows after that delivery.
+
 The Epic 7 architecture is documented in
 [`architecture/epic-7-maps-and-arenas.md`](architecture/epic-7-maps-and-arenas.md),
 which adds the arena data/registry/selection contracts, the pure
