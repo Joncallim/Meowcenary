@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createGameContext } from '../src/engine/context';
+import { GAME_CONTEXT_REGISTRY_KEY, createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
 import { SceneKey } from '../src/engine/sceneKeys';
 import { MenuScene } from '../src/scenes/MenuScene';
+import { AUDIO_MANAGER_REGISTRY_KEY } from '../src/systems/audio';
 import { DataArenaRegistry } from '../src/systems/arenas';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
@@ -14,6 +15,7 @@ vi.mock('phaser', () => ({
   default: {
     Input: {
       Events: {
+        POINTER_DOWN: 'pointerdown',
         POINTER_OVER: 'pointerover',
         POINTER_OUT: 'pointerout',
         POINTER_UP: 'pointerup',
@@ -114,7 +116,10 @@ function fakeObject(
 
 type FakeObject = ReturnType<typeof fakeObject>;
 
-function createFakeScene(context: ReturnType<typeof createGameContext>) {
+function createFakeScene(
+  context: ReturnType<typeof createGameContext>,
+  audioFake?: { playMusic: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn>; unlock: ReturnType<typeof vi.fn> },
+) {
   const objects: FakeObject[] = [];
   let failNextText = false;
   const register = <T>(object: T): T => {
@@ -127,7 +132,7 @@ function createFakeScene(context: ReturnType<typeof createGameContext>) {
 
   const keyboardListeners = new Map<
     string,
-    Array<{ handler: (event: { key: string; repeat: boolean }) => void; context: unknown }>
+    Array<{ handler: (event: { key: string; repeat: boolean }) => void; context: unknown; once: boolean }>
   >();
   const keyNames: Record<string, string> = {
     ArrowUp: 'UP',
@@ -143,7 +148,16 @@ function createFakeScene(context: ReturnType<typeof createGameContext>) {
       context?: unknown,
     ): void {
       const list = keyboardListeners.get(event) ?? [];
-      list.push({ handler, context });
+      list.push({ handler, context, once: false });
+      keyboardListeners.set(event, list);
+    },
+    once(
+      event: string,
+      handler: (event: { key: string; repeat: boolean }) => void,
+      context?: unknown,
+    ): void {
+      const list = keyboardListeners.get(event) ?? [];
+      list.push({ handler, context, once: true });
       keyboardListeners.set(event, list);
     },
     off(event: string, handler: (event: { key: string; repeat: boolean }) => void): void {
@@ -152,10 +166,72 @@ function createFakeScene(context: ReturnType<typeof createGameContext>) {
         (keyboardListeners.get(event) ?? []).filter((entry) => entry.handler !== handler),
       );
     },
-    keydown(key: string): void {
+    listenerCount(event: string): number {
+      return keyboardListeners.get(event)?.length ?? 0;
+    },
+    keydown(key: string, repeat = false): void {
       const name = keyNames[key] ?? key.toUpperCase();
-      [...(keyboardListeners.get(`keydown-${name}`) ?? [])].forEach((entry) => {
-        entry.handler.call(entry.context, { key, repeat: false });
+      const fire = (event: string): void => {
+        const list = keyboardListeners.get(event) ?? [];
+        keyboardListeners.set(event, list.filter((entry) => !entry.once));
+        [...list].forEach((entry) => {
+          entry.handler.call(entry.context, { key, repeat });
+        });
+      };
+      fire(`keydown-${name}`);
+      fire('keydown');
+    },
+  };
+
+  const inputListeners = new Map<
+    string,
+    Array<{ handler: () => void; context: unknown; once: boolean }>
+  >();
+  const input = {
+    once(event: string, handler: () => void, context?: unknown): void {
+      const list = inputListeners.get(event) ?? [];
+      list.push({ handler, context, once: true });
+      inputListeners.set(event, list);
+    },
+    off(event: string, handler: () => void): void {
+      inputListeners.set(
+        event,
+        (inputListeners.get(event) ?? []).filter((entry) => entry.handler !== handler),
+      );
+    },
+    listenerCount(event: string): number {
+      return inputListeners.get(event)?.length ?? 0;
+    },
+    pointerDown(): void {
+      const list = inputListeners.get('pointerdown') ?? [];
+      inputListeners.set('pointerdown', list.filter((entry) => !entry.once));
+      [...list].forEach((entry) => {
+        entry.handler.call(entry.context);
+      });
+    },
+  };
+
+  const lifecycleListeners = new Map<
+    string,
+    Array<{ handler: () => void; context: unknown; once: boolean }>
+  >();
+  const lifecycle = {
+    once(event: string, handler: () => void, context?: unknown): void {
+      const list = lifecycleListeners.get(event) ?? [];
+      list.push({ handler, context, once: true });
+      lifecycleListeners.set(event, list);
+    },
+    off(event: string, handler: () => void): void {
+      lifecycleListeners.set(
+        event,
+        (lifecycleListeners.get(event) ?? []).filter((entry) => entry.handler !== handler),
+      );
+    },
+    emit(event: string): void {
+      const list = lifecycleListeners.get(event) ?? [];
+      lifecycleListeners.set(event, list.filter((entry) => !entry.once));
+      [...list].forEach((entry) => {
+        entry.handler.call(entry.context);
       });
     },
   };
@@ -163,7 +239,13 @@ function createFakeScene(context: ReturnType<typeof createGameContext>) {
   const sceneStart = vi.fn();
 
   const environment = {
-    registry: { get: () => context },
+    registry: {
+      get: (key: string) => {
+        if (key === GAME_CONTEXT_REGISTRY_KEY) return context;
+        if (key === AUDIO_MANAGER_REGISTRY_KEY) return audioFake;
+        return undefined;
+      },
+    },
     scale: { width: 390, height: 844 },
     add: {
       container(_x: number, _y: number) {
@@ -222,8 +304,8 @@ function createFakeScene(context: ReturnType<typeof createGameContext>) {
         return register(fakeObject('rect', '', width, height));
       },
     },
-    input: { keyboard },
-    events: { once: vi.fn(), off: vi.fn() },
+    input: { keyboard, ...input },
+    events: lifecycle,
     scene: { start: sceneStart },
   };
 
@@ -231,6 +313,8 @@ function createFakeScene(context: ReturnType<typeof createGameContext>) {
     environment,
     objects,
     keyboard,
+    input,
+    lifecycle,
     sceneStart,
     /** Arms the fake add.text factory to throw once on its next call, then
      *  recover, mirroring the pause/runSummary failure-injection tests. */
@@ -253,7 +337,7 @@ function createFakeScene(context: ReturnType<typeof createGameContext>) {
   };
 }
 
-function createHarness(options: { create?: boolean } = { create: true }) {
+function createHarness(options: { create?: boolean; audio?: boolean } = { create: true }) {
   const data = loadGameData();
   const arenas = new DataArenaRegistry(data);
   const metaUpgrades = new DataMetaUpgradeRegistry(data);
@@ -272,14 +356,20 @@ function createHarness(options: { create?: boolean } = { create: true }) {
     ),
   });
 
-  const { environment, ...helpers } = createFakeScene(context);
+  // A missing audio registry entry must preserve all existing behavior: the
+  // scene stays functional and silent.
+  const audioFake = options.audio === false
+    ? undefined
+    : { playMusic: vi.fn(), update: vi.fn(), unlock: vi.fn() };
+
+  const { environment, ...helpers } = createFakeScene(context, audioFake);
   const menuScene = new MenuScene();
   Object.assign(menuScene, environment);
   if (options.create !== false) {
     menuScene.create();
   }
 
-  return { menuScene, ...helpers };
+  return { menuScene, ...helpers, audioFake, bus: context.bus };
 }
 
 describe('MenuScene', () => {
@@ -378,5 +468,196 @@ describe('MenuScene', () => {
 
     harness.buttonByLabel('Start')!.state.handlers['pointerup']!();
     expect(harness.sceneStart).toHaveBeenCalledWith(SceneKey.Game);
+  });
+});
+
+describe('MenuScene audio lifecycle', () => {
+  it('selects the menu music loop exactly once during create', () => {
+    const { audioFake } = createHarness();
+
+    expect(audioFake!.playMusic).toHaveBeenCalledTimes(1);
+    expect(audioFake!.playMusic).toHaveBeenCalledWith('music-menu');
+  });
+
+  it('forwards update delta to the audio manager', () => {
+    const { menuScene, audioFake } = createHarness();
+
+    menuScene.update(0, 17);
+
+    expect(audioFake!.update).toHaveBeenCalledTimes(1);
+    expect(audioFake!.update).toHaveBeenCalledWith(17);
+  });
+
+  it('unlocks once on the first pointer gesture and cross-removes the keyboard listener', () => {
+    const { input, keyboard, audioFake } = createHarness();
+    expect(input.listenerCount('pointerdown')).toBe(1);
+    expect(keyboard.listenerCount('keydown')).toBe(1);
+
+    input.pointerDown();
+
+    expect(audioFake!.unlock).toHaveBeenCalledTimes(1);
+    expect(input.listenerCount('pointerdown')).toBe(0);
+    expect(keyboard.listenerCount('keydown')).toBe(0);
+
+    // A second gesture must never unlock again or accumulate listeners.
+    input.pointerDown();
+    keyboard.keydown('Enter');
+    expect(audioFake!.unlock).toHaveBeenCalledTimes(1);
+  });
+
+  it('unlocks once on the first key gesture and cross-removes the pointer listener', () => {
+    const { input, keyboard, audioFake } = createHarness();
+
+    keyboard.keydown('Enter');
+
+    expect(audioFake!.unlock).toHaveBeenCalledTimes(1);
+    expect(input.listenerCount('pointerdown')).toBe(0);
+    expect(keyboard.listenerCount('keydown')).toBe(0);
+
+    keyboard.keydown('Enter');
+    input.pointerDown();
+    expect(audioFake!.unlock).toHaveBeenCalledTimes(1);
+  });
+
+  it('removes the unlock pair on shutdown before any gesture', () => {
+    const { lifecycle, input, keyboard, audioFake } = createHarness();
+
+    lifecycle.emit('shutdown');
+
+    expect(input.listenerCount('pointerdown')).toBe(0);
+    expect(keyboard.listenerCount('keydown')).toBe(0);
+    expect(audioFake!.unlock).not.toHaveBeenCalled();
+  });
+
+  it('never accumulates unlock listeners across create/shutdown visits', () => {
+    const { menuScene, lifecycle, input, keyboard, audioFake } = createHarness();
+
+    menuScene.create();
+    expect(input.listenerCount('pointerdown')).toBe(1);
+    expect(keyboard.listenerCount('keydown')).toBe(1);
+
+    lifecycle.emit('shutdown');
+    expect(input.listenerCount('pointerdown')).toBe(0);
+    expect(keyboard.listenerCount('keydown')).toBe(0);
+
+    menuScene.create();
+    expect(input.listenerCount('pointerdown')).toBe(1);
+    expect(keyboard.listenerCount('keydown')).toBe(1);
+    // Initial harness create plus the two explicit visits.
+    expect(audioFake!.playMusic).toHaveBeenCalledTimes(3);
+  });
+
+  it('tolerates a missing audio registry entry and stays silent', () => {
+    const { audioFake, input, keyboard, textContents } = createHarness({ audio: false });
+
+    expect(audioFake).toBeUndefined();
+    expect(textContents()).toEqual(expect.arrayContaining(['Start', 'Character']));
+    expect(input.listenerCount('pointerdown')).toBe(0);
+    expect(keyboard.listenerCount('keydown')).toBe(0);
+  });
+});
+
+describe('MenuScene UI command events', () => {
+  const recordEvents = (bus: ReturnType<typeof createEventBus>) => {
+    const events: string[] = [];
+    bus.on('ui:navigate', () => events.push('ui:navigate'));
+    bus.on('ui:confirm', () => events.push('ui:confirm'));
+    bus.on('ui:back', () => events.push('ui:back'));
+    return events;
+  };
+
+  it('emits exactly one ui:navigate when focus actually moves', () => {
+    const { keyboard, bus } = createHarness();
+    const events = recordEvents(bus);
+
+    keyboard.keydown('ArrowDown');
+
+    expect(events).toEqual(['ui:navigate']);
+  });
+
+  it('emits nothing when a focus move does not change the index', () => {
+    const { menuScene, keyboard, bus } = createHarness();
+    const events = recordEvents(bus);
+    // A single-item focus list cannot move: the wrap-around lands on the same
+    // index, so no navigate cue may fire.
+    const seams = menuScene as unknown as {
+      focusables: Array<ReturnType<typeof fakeObject>>;
+      focusIndex: number;
+    };
+    seams.focusables = [fakeObject('text', 'only', 100, 32)];
+    seams.focusIndex = 0;
+
+    keyboard.keydown('ArrowDown');
+
+    expect(events).toEqual([]);
+  });
+
+  it('ignores OS key-repeat events: no navigate emission and no focus movement', () => {
+    const { menuScene, keyboard, bus } = createHarness();
+    const events = recordEvents(bus);
+    const seams = menuScene as unknown as {
+      focusables: Array<ReturnType<typeof fakeObject>>;
+      focusIndex: number;
+    };
+    const startIndex = seams.focusIndex;
+
+    // Holding ArrowDown fires repeat events at OS rate; none may move focus
+    // or emit a ui:navigate bus event.
+    keyboard.keydown('ArrowDown', true);
+    keyboard.keydown('ArrowDown', true);
+    keyboard.keydown('ArrowDown', true);
+
+    expect(events).toEqual([]);
+    expect(seams.focusIndex).toBe(startIndex);
+  });
+
+  it('emits exactly one ui:confirm on a pointer-activated button', () => {
+    const harness = createHarness();
+    const events = recordEvents(harness.bus);
+
+    harness.buttonByLabel('Start')!.state.handlers['pointerup']!();
+
+    expect(events).toEqual(['ui:confirm']);
+  });
+
+  it('emits exactly one ui:confirm for Enter and Space activation, never two', () => {
+    const harness = createHarness();
+    const events = recordEvents(harness.bus);
+
+    harness.keyboard.keydown('Enter');
+    expect(events).toEqual(['ui:confirm']);
+
+    events.length = 0;
+    harness.keyboard.keydown('Space');
+    expect(events).toEqual(['ui:confirm']);
+  });
+
+  it('emits ui:confirm for the panel button and ui:back for < Back, never a second confirm', () => {
+    const harness = createHarness();
+    const events = recordEvents(harness.bus);
+
+    harness.buttonByLabel('Character')!.state.handlers['pointerup']!();
+    harness.buttonByLabel('< Back')!.state.handlers['pointerup']!();
+
+    expect(events).toEqual(['ui:confirm', 'ui:back']);
+  });
+
+  it('emits exactly one ui:back from Esc', () => {
+    const harness = createHarness();
+    const events = recordEvents(harness.bus);
+
+    harness.keyboard.keydown('Escape');
+
+    expect(events).toEqual(['ui:back']);
+  });
+
+  it('emits nothing on pointer hover', () => {
+    const harness = createHarness();
+    const events = recordEvents(harness.bus);
+
+    harness.buttonByLabel('Start')!.state.handlers['pointerover']!();
+    harness.buttonByLabel('Start')!.state.handlers['pointerout']!();
+
+    expect(events).toEqual([]);
   });
 });

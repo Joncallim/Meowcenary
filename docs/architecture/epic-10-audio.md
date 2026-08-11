@@ -1,18 +1,22 @@
 # Epic 10: Audio — Architecture and Implementation Handoff
 
-Status: **implementation-ready architecture** for Epic 10 / issue #11 on the
-single delivery branch `agent/epic-10-audio`.
+Status: **complete** for Epic 10 / issue #11. The frozen behavioral contracts
+in §§1–12 remain authoritative; the implementation delivery (slices 3–5)
+is recorded in [`epic-10-audio-remainder.md`](epic-10-audio-remainder.md),
+which supersedes §§13–19 below for the remaining slices.
 
 Baseline: `main` at `7194237` (Epic 9 slices 1–5 plus review fixes; 875 tests /
 66 files green). This document is the repository source of truth for Epic 10.
 It supersedes issue #11 where the issue describes the Epic 0 audio shell or
 predates the Epic 9 settings/menu seams.
 
-Delivery status (2026-08-10): slices 1–2 (data/event contracts, the unwired
-game-scoped `AudioManager`) merged in PR #65; issue #11 auto-closed on merge.
-Slices 3–5 (context/scene wiring, `ui:*` emission, placeholder assets) are
-tracked in issue #67 and scheduled as the next delivery PR after PR #66
-(Epic 11), ahead of Epic 12.
+Delivery status (2026-08-11): Epic 10 is complete. PR #65 merged slices 1–2
+(data/event contracts, the unwired game-scoped `AudioManager`); PR #68 merged
+slices 3–5 (settings/scene lifecycle wiring, exactly-one `ui:*` command
+events, deterministic placeholder assets, and docs closeout) on the single
+delivery branch `agent/epic-10-audio-remainder`, closing issue #67. See
+[`epic-10-audio-remainder.md`](epic-10-audio-remainder.md) §17 for the full
+delivery record and §10 for the manual matrix.
 
 Epic 10 is one branch and one eventual delivery PR. The five slices in §13 are
 ordered commit and review gates on that same branch; they are not separate
@@ -797,15 +801,14 @@ branch:
 
 ## 19. Final delivery record
 
-At implementation completion, replace this section with:
+Epic 10 is complete. The slices 3–5 delivery evidence lives in
+[`epic-10-audio-remainder.md`](epic-10-audio-remainder.md) §17:
 
-- the final branch head and delivery PR number;
-- slice commit SHAs;
-- exact test/file count, lint/typecheck, build, and diff-check results;
-- hosted CI results;
-- manual matrix evidence (including the no-assets run and mobile unlock);
-- any explicitly deferred product limitations;
-- issue #11 closure evidence.
-
-Until then, the status remains **implementation-ready architecture**, not
-Epic 10 complete.
+- delivery PR: #68 (`agent/epic-10-audio-remainder`), closing issue #67;
+- slice commits: Slice 3 (settings/Boot/scene wiring), Slice 4 (exactly-one
+  `ui:*` events), Slice 5 (deterministic placeholders + docs closeout) — SHAs
+  in the remainder document;
+- final test/file count, lint/typecheck, build, diff-check, generator
+  reproducibility, source audits, and the honest manual matrix (including the
+  no-assets run and any unrun rows);
+- issue #11 closed on PR #65; issue #67 closes on PR #68 via `Resolves #67`.

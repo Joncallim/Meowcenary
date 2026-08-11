@@ -95,16 +95,20 @@ type PauseSnapshot = ReturnType<PauseController['snapshot']>;
 export interface PhaserPauseViewOptions {
   readonly scene: Phaser.Scene;
   readonly viewport: UiViewport;
+  readonly bus: EventBus;
   readonly controller: PauseController;
   readonly inventory: InventoryController;
 }
 
 /** Manual-pause surface: pause panel, inventory/merge child panel, and the
  *  full-screen interactive backdrop that keeps HUD/world controls below the
- *  modal non-interactive (priority order in the Epic 9 architecture doc). */
+ *  modal non-interactive (priority order in the Epic 9 architecture doc).
+ *  Emits exactly one `ui:*` command event per accepted user command; the
+ *  controller itself stays headless. */
 export class PhaserPauseView {
   private readonly scene: Phaser.Scene;
   private readonly viewport: UiViewport;
+  private readonly bus: EventBus;
   private readonly controller: PauseController;
   private readonly inventory: InventoryController;
   private readonly modal: ModalTextHelpers;
@@ -115,6 +119,7 @@ export class PhaserPauseView {
   constructor(options: PhaserPauseViewOptions) {
     this.scene = options.scene;
     this.viewport = options.viewport;
+    this.bus = options.bus;
     this.controller = options.controller;
     this.inventory = options.inventory;
     this.modal = createModalTextHelpers(options.scene, options.viewport);
@@ -198,12 +203,16 @@ export class PhaserPauseView {
 
     let y = height * 0.34;
     this.modal.addButton(root, centerX, y, buttonWidth, 'Resume', () => {
-      this.controller.resume();
+      if (this.controller.resume()) {
+        this.bus.emit('ui:back', {});
+      }
       this.render(this.controller.snapshot());
     });
     y += hitTarget + 16;
     this.modal.addButton(root, centerX, y, buttonWidth, 'Inventory', () => {
-      this.controller.openInventory();
+      if (this.controller.openInventory()) {
+        this.bus.emit('ui:confirm', {});
+      }
       this.render(this.controller.snapshot());
     });
 
@@ -235,7 +244,11 @@ export class PhaserPauseView {
     snapshot.weapons.forEach((weapon) => {
       const label = `${weapon.selected ? '✓' : ' '} T${weapon.tier} ${weapon.name}`;
       this.modal.addButton(root, centerX, y, rowWidth, label, () => {
-        this.inventory.toggle(weapon.instanceId);
+        const next = this.inventory.toggle(weapon.instanceId);
+        const selectedAfter = next.selectedInstanceIds.includes(weapon.instanceId);
+        if (selectedAfter !== weapon.selected) {
+          this.bus.emit('ui:navigate', {});
+        }
         this.render(this.controller.snapshot());
       }, weapon.selected);
       y += hitTarget + 8;
@@ -251,11 +264,16 @@ export class PhaserPauseView {
     const mergeY = height - margin - hitTarget * 2 - 20;
     this.modal.addButton(root, centerX, mergeY, buttonWidth, 'Merge Selected', () => {
       const result = this.inventory.mergeSelected();
+      // Exactly one confirm cue regardless of result: a failed merge still
+      // confirms the command.
+      this.bus.emit('ui:confirm', {});
       this.notice = result.ok ? undefined : mergeFailureCopy(result.reason);
       this.render(this.controller.snapshot());
     });
     this.modal.addButton(root, centerX, mergeY + hitTarget + 12, buttonWidth, '< Back', () => {
-      this.controller.back();
+      if (this.controller.back()) {
+        this.bus.emit('ui:back', {});
+      }
       this.render(this.controller.snapshot());
     });
 

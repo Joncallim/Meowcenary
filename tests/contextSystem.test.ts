@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
@@ -55,6 +55,62 @@ describe('GameContext persistence boundary', () => {
     const system: System = { update: (dt) => calls.push(dt), destroy: () => { calls.push(-1); } };
     system.update(16.67); system.destroy();
     expect(calls).toEqual([16.67, -1]);
+  });
+
+  it('emits settings:changed exactly once on a real settings change with the same settings object everywhere', () => {
+    const { context } = setup();
+    const emitted: unknown[] = [];
+    const unsubscribe = context.bus.on('settings:changed', (payload) => {
+      emitted.push(payload.settings);
+    });
+    try {
+      const result = context.updateSettings({ muted: true });
+
+      expect(emitted).toHaveLength(1);
+      expect(emitted[0]).toBe(result.value);
+      expect(emitted[0]).toBe(context.settings);
+      expect(emitted[0]).toBe(context.saveData.settings);
+      expect(context.settings).toBe(context.saveData.settings);
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it('emits nothing when a no-op/sanitized-to-current patch is applied', () => {
+    const { context } = setup();
+    const emitSpy = vi.fn();
+    const unsubscribe = context.bus.on('settings:changed', emitSpy);
+    try {
+      const result = context.updateSettings({});
+      expect(emitSpy).not.toHaveBeenCalled();
+      expect(result.value).toBe(context.settings);
+
+      // Sanitized-to-current: NaN volumes clamp to the current values.
+      context.updateSettings({ musicVolume: Number.NaN });
+      expect(emitSpy).not.toHaveBeenCalled();
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it('still emits settings:changed once when persistence fails', () => {
+    const { context, storage } = setup();
+    storage.succeed = false;
+    const emitted: unknown[] = [];
+    const unsubscribe = context.bus.on('settings:changed', (payload) => {
+      emitted.push(payload.settings);
+    });
+    try {
+      const result = context.updateSettings({ sfxVolume: 0.25 });
+
+      expect(result.persisted).toBe(false);
+      expect(result.value.sfxVolume).toBe(0.25);
+      expect(emitted).toHaveLength(1);
+      expect(emitted[0]).toBe(result.value);
+      expect(context.settings.sfxVolume).toBe(0.25);
+    } finally {
+      unsubscribe();
+    }
   });
 
   it('defaults selectedCharacterId to the registry default', () => {

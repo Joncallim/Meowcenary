@@ -78,6 +78,7 @@ export class PhaserRunSummaryView {
   private readonly scene: Phaser.Scene;
   private readonly scenePlugin: Phaser.Scenes.ScenePlugin;
   private readonly viewport: UiViewport;
+  private readonly bus: EventBus;
   private readonly controller: RunSummaryController;
   private readonly modal: ModalTextHelpers;
   private readonly unsubscribers: Array<() => void>;
@@ -90,6 +91,7 @@ export class PhaserRunSummaryView {
     // an explicit plugin reference for restart/navigation commands.
     this.scenePlugin = options.scene.scene;
     this.viewport = options.viewport;
+    this.bus = options.bus;
     this.controller = options.controller;
     this.modal = createModalTextHelpers(options.scene, options.viewport);
     this.unsubscribers = [
@@ -129,8 +131,26 @@ export class PhaserRunSummaryView {
     if (this.disposed || event.repeat || !this.visible) {
       return;
     }
-    this.scenePlugin.restart();
+    this.retry();
   };
+
+  /** One shared Retry command for the button and the R shortcut: exactly one
+   *  confirm cue, then the scene restart. */
+  private retry(): void {
+    if (this.disposed || !this.visible) {
+      return;
+    }
+    this.bus.emit('ui:confirm', {});
+    this.scenePlugin.restart();
+  }
+
+  private returnToMenu(): void {
+    if (this.disposed || !this.visible) {
+      return;
+    }
+    this.bus.emit('ui:confirm', {});
+    this.scenePlugin.start(SceneKey.Menu);
+  }
 
   private render(snapshot: RunSummarySnapshot): void {
     if (this.disposed) {
@@ -219,10 +239,10 @@ export class PhaserRunSummaryView {
 
       const retryY = height - margin - hitTarget * 2 - 20;
       this.modal.addButton(root, centerX, retryY, buttonWidth, 'Retry', () => {
-        this.scenePlugin.restart();
+        this.retry();
       }, true);
       this.modal.addButton(root, centerX, retryY + hitTarget + 12, buttonWidth, 'Main Menu', () => {
-        this.scenePlugin.start(SceneKey.Menu);
+        this.returnToMenu();
       });
 
       this.modal.addHint(root, margin, height - margin - 14, 'R to retry');

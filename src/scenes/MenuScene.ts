@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import { GAME_CONTEXT_REGISTRY_KEY, type GameContext } from '../engine/context';
+import type { EventBus } from '../engine/eventBus';
 
 import { SceneKey } from '../engine/sceneKeys';
+import { AudioManager, AUDIO_MANAGER_REGISTRY_KEY } from '../systems/audio';
 import { logicalCanvasViewport, minimumHitTarget } from '../ui/layout';
 import { MainMenuController, type MainMenuSnapshot } from '../ui/menus';
 import { cycleVolumeStep } from '../ui/settings';
@@ -9,11 +11,16 @@ import { ThemeColor, ThemeDepth, ThemeFont } from '../ui/theme';
 
 const MENU_DEPTH = ThemeDepth.pauseSummary;
 
+/** The two audible command events a menu button can produce. */
+type MenuAudioEvent = 'ui:confirm' | 'ui:back';
+
 export class MenuScene extends Phaser.Scene {
   private controller?: MainMenuController;
   private root?: Phaser.GameObjects.Container;
   private focusables: Phaser.GameObjects.Text[] = [];
   private focusIndex = -1;
+  private bus?: EventBus;
+  private audioManager?: AudioManager;
 
   constructor() {
     super(SceneKey.Menu);
@@ -21,6 +28,7 @@ export class MenuScene extends Phaser.Scene {
 
   create(): void {
     const ctx = this.getContext();
+    this.bus = ctx.bus;
     this.controller = new MainMenuController(ctx);
 
     this.add
@@ -41,8 +49,18 @@ export class MenuScene extends Phaser.Scene {
 
     this.render(this.controller.snapshot());
 
+    // A missing audio registry entry is tolerated; the scene stays
+    // functional and silent.
+    this.audioManager = this.getAudioManager();
+    this.audioManager?.playMusic('music-menu');
+    this.installAudioUnlockListeners();
+
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
+  }
+
+  update(_time: number, delta: number): void {
+    this.audioManager?.update(delta);
   }
 
   private render(snapshot: MainMenuSnapshot): void {
@@ -388,6 +406,7 @@ export class MenuScene extends Phaser.Scene {
     label: string,
     minHeight: number,
     callback: () => void,
+    audioEvent: MenuAudioEvent = 'ui:confirm',
   ): Phaser.GameObjects.Text {
     const text = this.own(root, this.add.text(x, y, label, {
       color: '#f7f1d5',
@@ -419,6 +438,9 @@ export class MenuScene extends Phaser.Scene {
     });
     text.on(Phaser.Input.Events.POINTER_UP, () => {
       this.focusIndex = this.focusables.indexOf(text);
+      // The single command boundary: pointer clicks and synthetic
+      // Enter/Space activation both land here and emit exactly one event.
+      this.bus?.emit(audioEvent, {});
       callback();
     });
 
@@ -455,18 +477,29 @@ export class MenuScene extends Phaser.Scene {
     this.addButton(root, margin, this.scale.height - margin - hitTarget, '< Back', hitTarget, () => {
       const next = this.requireController().back();
       this.render(next);
-    });
+    }, 'ui:back');
   }
 
   private handleBack(): void {
+    // Home Esc is still a back command; it emits even when the controller
+    // refuses (already home).
+    this.bus?.emit('ui:back', {});
     const next = this.requireController().back();
     this.render(next);
   }
 
   private handleFocusMove(event: KeyboardEvent): void {
+    // OS key-repeat events fire at ~30Hz while a key is held; each genuine
+    // index change emits a ui:navigate bus event, so repeats must be ignored
+    // to avoid focus spinning around the list at repeat rate.
+    if (event.repeat) return;
     if (this.focusables.length === 0) return;
     const delta = event.key === 'ArrowDown' ? 1 : -1;
+    const previousIndex = this.focusIndex;
     this.focusIndex = (this.focusIndex + delta + this.focusables.length) % this.focusables.length;
+    if (this.focusIndex !== previousIndex) {
+      this.bus?.emit('ui:navigate', {});
+    }
     this.applyFocus();
   }
 
@@ -485,6 +518,7 @@ export class MenuScene extends Phaser.Scene {
   private handleShutdown(): void {
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
+    this.removeAudioUnlockListeners();
     this.input.keyboard?.off('keydown-ESC', this.handleBack, this);
     this.input.keyboard?.off('keydown-UP', this.handleFocusMove, this);
     this.input.keyboard?.off('keydown-DOWN', this.handleFocusMove, this);
@@ -495,6 +529,9 @@ export class MenuScene extends Phaser.Scene {
     this.focusables = [];
     this.focusIndex = -1;
     this.controller = undefined;
+    // The manager is game-scoped and Boot-owned: shutdown only drops this
+    // scene's reference — never destroy/stopMusic/stopAll.
+    this.audioManager = undefined;
   }
 
   private getContext(): GameContext {
@@ -510,5 +547,38 @@ export class MenuScene extends Phaser.Scene {
       throw new Error('MainMenuController missing from MenuScene');
     }
     return this.controller;
+  }
+
+  private readonly handleAudioUnlock = (): void => {
+    this.removeAudioUnlockListeners();
+    this.audioManager?.unlock();
+  };
+
+  private installAudioUnlockListeners(): void {
+    if (!this.audioManager) {
+      return;
+    }
+    this.removeAudioUnlockListeners();
+    this.input.once(
+      Phaser.Input.Events.POINTER_DOWN,
+      this.handleAudioUnlock,
+      this,
+    );
+    this.input.keyboard?.once('keydown', this.handleAudioUnlock, this);
+  }
+
+  private removeAudioUnlockListeners(): void {
+    this.input.off(
+      Phaser.Input.Events.POINTER_DOWN,
+      this.handleAudioUnlock,
+      this,
+    );
+    this.input.keyboard?.off('keydown', this.handleAudioUnlock, this);
+  }
+
+  private getAudioManager(): AudioManager | undefined {
+    return this.registry.get(AUDIO_MANAGER_REGISTRY_KEY) as
+      | AudioManager
+      | undefined;
   }
 }

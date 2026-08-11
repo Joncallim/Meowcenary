@@ -5,6 +5,7 @@ import { createRng, deriveRunSeed } from '../engine/rng';
 import { SceneKey } from '../engine/sceneKeys';
 import type { System } from '../engine/system';
 import type { SpawnCurveDefinition } from '../systems/types';
+import { AudioManager, AUDIO_MANAGER_REGISTRY_KEY } from '../systems/audio';
 import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
@@ -66,6 +67,8 @@ export class GameScene extends Phaser.Scene {
   private runSummaryView?: PhaserRunSummaryView;
   private spawnCurve?: Readonly<SpawnCurveDefinition>;
   private arenaScenery?: ArenaScenery;
+  // Non-owning cache of the Boot-constructed, game-scoped manager.
+  private audioManager?: AudioManager;
 
   constructor() {
     super(SceneKey.Game);
@@ -165,6 +168,7 @@ export class GameScene extends Phaser.Scene {
     this.pauseView = new PhaserPauseView({
       scene: this,
       viewport,
+      bus: ctx.bus,
       controller: this.pauseController,
       inventory: this.inventoryController,
     });
@@ -301,6 +305,13 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0);
 
+    // Audio wiring after the display tree is constructed, immediately before
+    // the run starts: fetch the shared manager, select the run loop, and arm
+    // the first-gesture unlock pair. A missing registry entry is tolerated.
+    this.audioManager = this.getAudioManager();
+    this.audioManager?.playMusic('music-run');
+    this.installAudioUnlockListeners();
+
     startRun(this.runState, ctx.bus);
   }
 
@@ -319,6 +330,10 @@ export class GameScene extends Phaser.Scene {
     this.systems.forEach((system) => {
       system.update(delta);
     });
+    // The manager's deterministic clock stays aligned with the active scene
+    // update so terminal music fades continue while the summary remains
+    // visible.
+    this.audioManager?.update(delta);
 
     this.controlsView?.update(delta);
     const move = this.inputController.getMoveVector();
@@ -338,6 +353,7 @@ export class GameScene extends Phaser.Scene {
   private handleShutdown(): void {
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
+    this.removeAudioUnlockListeners();
     this.unsubscribers.forEach((unsubscribe) => {
       unsubscribe();
     });
@@ -385,6 +401,9 @@ export class GameScene extends Phaser.Scene {
     this.enemyGroup = undefined;
     this.projectileGroup = undefined;
     this.dropGroup = undefined;
+    // The manager is game-scoped and Boot-owned: shutdown only drops this
+    // scene's reference — never destroy/stopMusic/stopAll.
+    this.audioManager = undefined;
   }
 
   private getContext(): GameContext {
@@ -394,6 +413,39 @@ export class GameScene extends Phaser.Scene {
     }
 
     return ctx;
+  }
+
+  private readonly handleAudioUnlock = (): void => {
+    this.removeAudioUnlockListeners();
+    this.audioManager?.unlock();
+  };
+
+  private installAudioUnlockListeners(): void {
+    if (!this.audioManager) {
+      return;
+    }
+    this.removeAudioUnlockListeners();
+    this.input.once(
+      Phaser.Input.Events.POINTER_DOWN,
+      this.handleAudioUnlock,
+      this,
+    );
+    this.input.keyboard?.once('keydown', this.handleAudioUnlock, this);
+  }
+
+  private removeAudioUnlockListeners(): void {
+    this.input.off(
+      Phaser.Input.Events.POINTER_DOWN,
+      this.handleAudioUnlock,
+      this,
+    );
+    this.input.keyboard?.off('keydown', this.handleAudioUnlock, this);
+  }
+
+  private getAudioManager(): AudioManager | undefined {
+    return this.registry.get(AUDIO_MANAGER_REGISTRY_KEY) as
+      | AudioManager
+      | undefined;
   }
 
   private requireRunState(): RunState {
@@ -415,12 +467,21 @@ export class GameScene extends Phaser.Scene {
     }
 
     const panel = controller.snapshot().panel;
+    let accepted = false;
+    // 'closed' is the only panel that maps to ui:confirm; the pause and
+    // inventory panels both resolve via ui:back.
+    const event: 'ui:confirm' | 'ui:back' = panel === 'closed' ? 'ui:confirm' : 'ui:back';
+
     if (panel === 'inventory') {
-      controller.back();
+      accepted = controller.back();
     } else if (panel === 'pause') {
-      controller.resume();
+      accepted = controller.resume();
     } else {
-      controller.pause();
+      accepted = controller.pause();
+    }
+
+    if (accepted) {
+      this.getContext().bus.emit(event, {});
     }
     this.pauseView?.render(controller.snapshot());
   }
