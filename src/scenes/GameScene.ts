@@ -47,6 +47,7 @@ import { logicalCanvasViewport } from '../ui/layout';
 import { PassiveCoordinator } from '../systems/PassiveCoordinator';
 import { HazardSystem } from '../systems/HazardSystem';
 import { DEFAULT_PASSIVE_HANDLERS, createPassiveHandlerRegistry } from '../gameplay/characterPassives';
+import { createDpsMeter, type DpsMeter } from '../gameplay/metrics';
 
 export class GameScene extends Phaser.Scene {
   private debugOverlay?: DebugOverlay;
@@ -75,6 +76,7 @@ export class GameScene extends Phaser.Scene {
   private arenaScenery?: ArenaScenery;
   // Non-owning cache of the Boot-constructed, game-scoped manager.
   private audioManager?: AudioManager;
+  private dpsMeter?: DpsMeter;
 
   constructor() {
     super(SceneKey.Game);
@@ -126,6 +128,16 @@ export class GameScene extends Phaser.Scene {
       character: contribution,
     });
     this.runState = prepared.run;
+    // Run-clock-stamped effective-damage meter. The listener captures the
+    // run-state local so it never re-reads scene state after shutdown.
+    const dpsMeter = createDpsMeter();
+    this.dpsMeter = dpsMeter;
+    const runStateForMetrics = this.runState;
+    this.unsubscribers.push(
+      ctx.bus.on('enemy:damaged', ({ amount }) => {
+        dpsMeter.record(amount, runStateForMetrics.timeMs);
+      }),
+    );
     const spawnRng = createRng(deriveRunSeed(this.runState.seed, 'spawns'));
     const upgradeRng = createRng(deriveRunSeed(this.runState.seed, 'upgrades'));
     const lootRng = createRng(deriveRunSeed(this.runState.seed, 'loot'));
@@ -370,6 +382,8 @@ export class GameScene extends Phaser.Scene {
       `Level: ${runState.level} XP: ${runState.xp.toFixed(1)}/${runState.xpToNext}`,
       `Health: ${this.player.health.toFixed(0)}/${this.player.maxHealth.toFixed(0)}`,
       `Enemies: ${this.enemies.length} Kills: ${runState.kills}`,
+      `Projectiles: ${this.projectileGroup?.getLength() ?? 0} Drops: ${this.dropGroup?.getLength() ?? 0}`,
+      `DPS(5s): ${(this.dpsMeter?.windowDps(runState.timeMs) ?? 0).toFixed(1)}`,
       `Weapons: ${runState.equipped.map((weapon) => `${weapon.family} T${weapon.tier}`).join(', ')}`,
       `Move: ${move.x.toFixed(2)}, ${move.y.toFixed(2)}`,
       `Pointer: ${pointer ? `${Math.round(pointer.x)}, ${Math.round(pointer.y)}` : 'none'}`,
@@ -420,6 +434,7 @@ export class GameScene extends Phaser.Scene {
     this.arenaScenery?.destroy();
     this.arenaScenery = undefined;
     this.runState = undefined;
+    this.dpsMeter = undefined;
     if (this.physicsPausedByRun) {
       this.physics.world?.resume();
       this.physicsPausedByRun = false;
