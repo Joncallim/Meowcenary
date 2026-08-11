@@ -80,6 +80,7 @@ Epic-specific data contracts:
 - [Epic 10: audio](architecture/epic-10-audio.md)
 - [Epic 10 issue #67 delivery handoff](architecture/epic-10-audio-remainder.md)
 - [Epic 11: balancing and developer tooling](architecture/epic-11-balancing-and-developer-tooling.md)
+- [Epic 11 issue #69 delivery handoff](architecture/epic-11-remainder.md)
 
 The Epic 5 document is the implementation source of truth for save V2,
 permanent modifier ordering, finished-run banking, and the Epics 6/8/9
@@ -120,6 +121,13 @@ helpers, the development-gated cheat flags, the debug-overlay run metrics,
 and the local playtest summary. It supersedes issue #12 where that issue
 predates the live validation, linear enemy-scaling, spawn-director, and debug
 seams.
+The Epic 11 remainder document
+([`architecture/epic-11-remainder.md`](architecture/epic-11-remainder.md))
+is the implementation/delivery record for Issue #69. PR #66 delivered slices
+1–2 only; PR #70 delivered slices 3–5 (development-only cheat flags, rolling
+DPS/overlay metrics, local playtest summary, and the tuning guide) on the
+single branch `agent/epic-11-remainder` and supersedes the older Epic 11
+document's remaining-slice instructions where they differ.
 
 ## AI Handoff Pattern
 

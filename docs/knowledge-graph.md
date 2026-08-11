@@ -5,8 +5,11 @@
 > #65 (slices 1–2: audio data/events + game-scoped `AudioManager`) and #68
 > (slices 3–5: `settings:changed` wiring, Boot-owned manager publication,
 > scene lifecycle wiring, exactly-one `ui:*` command events, deterministic
-> placeholder WAVs, and docs closeout). Epic 11 merged in PR #66.
-> 1023 tests / 72 files green.
+> placeholder WAVs, and docs closeout). Epic 11 merged in two delivery PRs:
+> #66 (slices 1–2: aggregate validation + shared curve helpers) and #70
+> (slices 3–5: dev-only cheat flags, rolling DPS/overlay metrics, local
+> playtest summary, tuning guide, and closeout).
+> 1133 tests / 76 files green.
 
 ## Stack
 
@@ -20,15 +23,15 @@ Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly
 | Dir | Status | Rules | Contents |
 |-----|--------|-------|----------|
 | `src/engine/` | ✅ | **No Phaser** (pure, unit-tested) | `config` `eventBus` `rng` `vector` `cadence` `context` `sceneKeys` `system` |
-| `src/gameplay/` | ✅ | **No Phaser** (pure rules) | `runState` `runStart` `runRequest` `stats` `xp` `targeting` `weapons` `weaponStats` `merge` `upgrades` `levelUpQueue` `projectilePattern` `enemyMovement` `enemyScaling` `spawnDirector` `spawnRegion` `loot` `meta` `characterSelection` `characterContribution` `characterPassives` `arenaSelection` |
+| `src/gameplay/` | ✅ | **No Phaser** (pure rules) | `runState` `runStart` `runRequest` `stats` `xp` `targeting` `weapons` `weaponStats` `merge` `upgrades` `levelUpQueue` `projectilePattern` `enemyMovement` `enemyScaling` `spawnDirector` `spawnRegion` `loot` `meta` `characterSelection` `characterContribution` `characterPassives` `arenaSelection` `metrics` |
 | `src/entities/` | ✅ | May use Phaser (display objects) | `Player` `Enemy` `Projectile` `Drop` |
-| `src/systems/` | ✅ | May use Phaser (coordinators) | `types` `validation` `save` `input` `audio` `debug` `ids` `enemies` `characters` `arenas` `lootTables` `metaUpgrades` `weaponRegistry` `SpawnSystem` `WeaponSystem` `UpgradeSystem` `DropSystem` `ProgressionSystem` `PassiveCoordinator` `HazardSystem` `arenaScenery` |
+| `src/systems/` | ✅ | May use Phaser (coordinators) | `types` `validation` `save` `input` `audio` `debug` `ids` `enemies` `characters` `arenas` `lootTables` `metaUpgrades` `weaponRegistry` `SpawnSystem` `WeaponSystem` `UpgradeSystem` `DropSystem` `ProgressionSystem` `PassiveCoordinator` `HazardSystem` `arenaScenery` `playtestSummary` |
 | `src/scenes/` | ✅ | Thin coordinators only | `BootScene` `MenuScene` `GameScene` |
 | `src/ui/` | ✅ | May use Phaser | `UpgradeChooser` `upgradeChooserController` `upgradeChooserLayout` `characterSelectionController` `arenaSelectionController` `progressionController` `pause` `runSummary` `menus` `settings` `hud` `controls` `inventory` `modal` `layout` `theme` `format` |
 | `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` `loot-tables` `audio-assets` `audio-map` |
 | `scripts/` | ✅ | Node 18+ built-ins only, deterministic | `generate-audio-placeholders.mjs` |
 | `public/assets/audio/` | ✅ | 14 committed deterministic WAVs (12 SFX + 2 music) | one `.wav` per `audio-assets.json` key |
-| `tests/` | ✅ 1023 tests | Vitest; mock Phaser via `vi.mock` | 72 files incl. integration harnesses |
+| `tests/` | ✅ 1133 tests | Vitest; mock Phaser via `vi.mock` | 76 files incl. integration harnesses |
 | `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..11}-*.md` |
 
 Epic 8 Slices 1–5 added `src/data/loot-tables.json`, `src/gameplay/loot.ts`,
@@ -56,13 +59,23 @@ GameScene.create():
   prepareRun({ state, basePlayer, meta, metaUpgrades, character }) → runState
   rng streams: createRng(deriveRunSeed(seed, 'spawns' | 'upgrades' | 'loot'))
   physics.world/camera bounds = arena.size; player spawns at arena centre
+  dpsMeter = createDpsMeter(); subscribes enemy:damaged (stamped with
+  runState.timeMs, effective damage only) — dev and production
   systems = [ProgressionSystem, PassiveCoordinator, SpawnSystem,
-             HazardSystem, WeaponSystem, DropSystem, UpgradeSystem]
+             HazardSystem, WeaponSystem, DropSystem, UpgradeSystem,
+             (DebugCheatSystem, dev-only), HudController,
+             (PlaytestSummarySystem, dev-only)]
+  (dev-only cheats: ?cheats=1&god=1&xp=4&scrap=3&spawn=2 — cached URL flags,
+  direct import.meta.env.DEV gates, directorCurve = copied faster-cadence
+  curve for SpawnSystem only, XP/scrap via ModifierStack 'debug:cheats')
   (AudioManager is NOT in systems — Boot owns it; scenes only cache the
   registry reference and clear it in handleShutdown, never destroy it)
   audio wiring right before startRun: playMusic('music-run') + unlock pair
 GameScene.update(delta): tickRun → maybeEndRunForVictory (curve.durationSeconds)
   → systems.forEach(update) → audioManager.update(delta) → HUD/debug
+  (F3 lines incl. projectile/drop group counts and DPS(5s) from dpsMeter)
+terminal event: ProgressionSystem banks first; dev PlaytestSummarySystem
+  prints exactly one local console summary (row + optional upgrade table)
 ```
 
 ## Contracts (current, frozen)
@@ -167,7 +180,7 @@ existing event covers it (Epic 8 adds none — it extends one payload).
 | 8 | ✅ | Slices 1–5 merged; event-driven kill-to-loot pipeline, chest shell, integration harness (PRs #58–62) |
 | 9 | ✅ | Merged (PR #64): menu, HUD, settings, controls, pause/inventory, chooser, summary |
 | 10 | ✅ | Merged: #65 (slices 1–2, data/events + `AudioManager`) + #68 (slices 3–5, wiring/`ui:*`/placeholders); see `epic-10-audio.md` + `epic-10-audio-remainder.md` |
-| 11 | ✅ | Merged (PR #66): aggregate validation, curve helpers, dev cheats, overlay metrics, playtest summary; see `epic-11-balancing-and-developer-tooling.md` |
+| 11 | ✅ | Merged: #66 (slices 1–2, aggregate validation + curve helpers) + #70 (slices 3–5, dev cheats + metrics + playtest summary); see `epic-11-balancing-and-developer-tooling.md` + `epic-11-remainder.md` |
 | 12 | Open | Polish/perf (pooling `Drop`+`Projectile`) |
 
 ## First Steps for Any Agent

@@ -1,7 +1,13 @@
 # Epic 11: Balancing and Developer Tooling — Architecture and Implementation Handoff
 
-Status: **implementation-ready architecture** for Epic 11 / issue #12 on the
-single delivery branch `agent/epic-11-balancing-and-developer-tooling`.
+Status: **Epic 11 complete**. Slices 1–2 (aggregate validation and shared
+curve helpers) merged in PR #66; slices 3–5 (development-only cheat flags,
+rolling DPS/overlay metrics, local playtest summary, tuning guide) merged in
+PR #70 from the single branch `agent/epic-11-remainder`. Slices 3–5 were
+frozen and delivered per the executable work package in
+[`epic-11-remainder.md`](epic-11-remainder.md), which is the implementation
+and delivery record for Issue #69 and supersedes this document's remaining
+slice sections where wording differs.
 
 Baseline: `main` at `8985d52` (Epic 10 audio contracts + `AudioManager`,
 934 tests / 68 files green, verified at branch time). This document is the
@@ -745,19 +751,21 @@ branch:
 
 ## 16. Final delivery record
 
-At implementation completion, replace this section with:
+Epic 11 is complete.
 
-- the final branch head and delivery PR number;
-- slice commit SHAs;
-- exact test/file count, lint/typecheck, build, and diff-check results;
-- hosted CI results;
-- manual matrix evidence (including the production preview and
-  break-a-JSON runs);
-- any explicitly deferred product limitations;
-- issue #12 closure evidence.
+- Slices 1–2: PR #66, branch `agent/epic-11-balancing-and-developer-tooling`
+  (aggregate validation, descriptor-driven validator wiring, shared curve
+  helpers).
+- Slices 3–5: PR #70, branch `agent/epic-11-remainder`, tracked by Issue #69
+  (development-only cheat flags, rolling DPS/overlay metrics, local playtest
+  summary, tuning guide, and closeout). The full delivery record — slice
+  commit SHAs, test/file counts, lint/typecheck, build, diff-check, bundle
+  sentinels, manual/preview matrix, and deviations — is recorded in
+  [`epic-11-remainder.md`](epic-11-remainder.md) §16.
+- Issue #12 closed via PR #66; Issue #69 closed via PR #70.
 
-Until then, the status remains **implementation-ready architecture**, not
-Epic 11 complete.
+Any explicitly deferred product limitations are recorded in the remainder
+document's delivery record.
 
 ## 17. Decisions — resolved by the maintainer (2026-08-10)
 

@@ -16,7 +16,13 @@ import {
   tickRun,
   type RunState,
 } from '../gameplay/runState';
-import { DebugOverlay } from '../systems/debug';
+import {
+  DebugCheatSystem,
+  DebugOverlay,
+  debugCheatsActive,
+  getDebugFlags,
+  scaleSpawnCurveIntervals,
+} from '../systems/debug';
 import { DropSystem } from '../systems/DropSystem';
 import { InputController } from '../systems/input';
 import { SpawnSystem } from '../systems/SpawnSystem';
@@ -41,6 +47,8 @@ import { logicalCanvasViewport } from '../ui/layout';
 import { PassiveCoordinator } from '../systems/PassiveCoordinator';
 import { HazardSystem } from '../systems/HazardSystem';
 import { DEFAULT_PASSIVE_HANDLERS, createPassiveHandlerRegistry } from '../gameplay/characterPassives';
+import { createDpsMeter, type DpsMeter } from '../gameplay/metrics';
+import { PlaytestSummarySystem } from '../systems/playtestSummary';
 
 export class GameScene extends Phaser.Scene {
   private debugOverlay?: DebugOverlay;
@@ -69,6 +77,7 @@ export class GameScene extends Phaser.Scene {
   private arenaScenery?: ArenaScenery;
   // Non-owning cache of the Boot-constructed, game-scoped manager.
   private audioManager?: AudioManager;
+  private dpsMeter?: DpsMeter;
 
   constructor() {
     super(SceneKey.Game);
@@ -88,6 +97,17 @@ export class GameScene extends Phaser.Scene {
       throw new Error(`Arena "${arena.id}" references missing spawn curve "${arena.spawnCurveId}"`);
     }
     this.spawnCurve = curve;
+    // Development-only debug cheats. The flags are cached once per page by
+    // getDebugFlags, and the master `?cheats=1` switch is required. The
+    // original curve stays authoritative for HUD/victory duration; only
+    // SpawnSystem receives the optional faster-cadence copy.
+    const debugFlags = import.meta.env.DEV ? getDebugFlags() : undefined;
+    const cheatsActive =
+      debugFlags !== undefined && debugCheatsActive(debugFlags, true);
+    const directorCurve =
+      cheatsActive && debugFlags
+        ? scaleSpawnCurveIntervals(curve, debugFlags.spawnMultiplier)
+        : curve;
     const character = ctx.characters.characterById(request.characterId);
     if (!character) {
       throw new Error(`Selected character "${request.characterId}" is missing from the registry`);
@@ -109,6 +129,16 @@ export class GameScene extends Phaser.Scene {
       character: contribution,
     });
     this.runState = prepared.run;
+    // Run-clock-stamped effective-damage meter. The listener captures the
+    // run-state local so it never re-reads scene state after shutdown.
+    const dpsMeter = createDpsMeter();
+    this.dpsMeter = dpsMeter;
+    const runStateForMetrics = this.runState;
+    this.unsubscribers.push(
+      ctx.bus.on('enemy:damaged', ({ amount }) => {
+        dpsMeter.record(amount, runStateForMetrics.timeMs);
+      }),
+    );
     const spawnRng = createRng(deriveRunSeed(this.runState.seed, 'spawns'));
     const upgradeRng = createRng(deriveRunSeed(this.runState.seed, 'upgrades'));
     const lootRng = createRng(deriveRunSeed(this.runState.seed, 'loot'));
@@ -207,6 +237,24 @@ export class GameScene extends Phaser.Scene {
       bus: ctx.bus,
       context: ctx,
     });
+    const debugCheatSystem =
+      cheatsActive && debugFlags
+        ? new DebugCheatSystem({
+            runState: this.runState,
+            player: this.player,
+            flags: debugFlags,
+          })
+        : undefined;
+    // Development-only local playtest summary, constructed after
+    // ProgressionSystem so banking still runs first in listener order.
+    const playtestSummarySystem =
+      import.meta.env.DEV
+        ? new PlaytestSummarySystem({
+            runState: this.runState,
+            bus: ctx.bus,
+            dpsMeter,
+          })
+        : undefined;
     this.systems = [
       this.progressionSystem,
       new PassiveCoordinator({
@@ -215,7 +263,7 @@ export class GameScene extends Phaser.Scene {
         character,
         handlers: createPassiveHandlerRegistry(DEFAULT_PASSIVE_HANDLERS),
       }),
-      new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup, arena, curve),
+      new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup, arena, directorCurve),
       new HazardSystem({
         scene: this,
         runState: this.runState,
@@ -236,7 +284,9 @@ export class GameScene extends Phaser.Scene {
       ),
       this.dropSystem,
       this.upgradeSystem,
+      ...(debugCheatSystem ? [debugCheatSystem] : []),
       this.hudController,
+      ...(playtestSummarySystem ? [playtestSummarySystem] : []),
     ];
 
     // The run summary source is getter-backed so banking (which happens first
@@ -344,6 +394,8 @@ export class GameScene extends Phaser.Scene {
       `Level: ${runState.level} XP: ${runState.xp.toFixed(1)}/${runState.xpToNext}`,
       `Health: ${this.player.health.toFixed(0)}/${this.player.maxHealth.toFixed(0)}`,
       `Enemies: ${this.enemies.length} Kills: ${runState.kills}`,
+      `Projectiles: ${this.projectileGroup?.getLength() ?? 0} Drops: ${this.dropGroup?.getLength() ?? 0}`,
+      `DPS(5s): ${(this.dpsMeter?.windowDps(runState.timeMs) ?? 0).toFixed(1)}`,
       `Weapons: ${runState.equipped.map((weapon) => `${weapon.family} T${weapon.tier}`).join(', ')}`,
       `Move: ${move.x.toFixed(2)}, ${move.y.toFixed(2)}`,
       `Pointer: ${pointer ? `${Math.round(pointer.x)}, ${Math.round(pointer.y)}` : 'none'}`,
@@ -394,6 +446,7 @@ export class GameScene extends Phaser.Scene {
     this.arenaScenery?.destroy();
     this.arenaScenery = undefined;
     this.runState = undefined;
+    this.dpsMeter = undefined;
     if (this.physicsPausedByRun) {
       this.physics.world?.resume();
       this.physicsPausedByRun = false;
