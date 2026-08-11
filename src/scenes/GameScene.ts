@@ -16,7 +16,13 @@ import {
   tickRun,
   type RunState,
 } from '../gameplay/runState';
-import { DebugOverlay } from '../systems/debug';
+import {
+  DebugCheatSystem,
+  DebugOverlay,
+  debugCheatsActive,
+  getDebugFlags,
+  scaleSpawnCurveIntervals,
+} from '../systems/debug';
 import { DropSystem } from '../systems/DropSystem';
 import { InputController } from '../systems/input';
 import { SpawnSystem } from '../systems/SpawnSystem';
@@ -88,6 +94,17 @@ export class GameScene extends Phaser.Scene {
       throw new Error(`Arena "${arena.id}" references missing spawn curve "${arena.spawnCurveId}"`);
     }
     this.spawnCurve = curve;
+    // Development-only debug cheats. The flags are cached once per page by
+    // getDebugFlags, and the master `?cheats=1` switch is required. The
+    // original curve stays authoritative for HUD/victory duration; only
+    // SpawnSystem receives the optional faster-cadence copy.
+    const debugFlags = import.meta.env.DEV ? getDebugFlags() : undefined;
+    const cheatsActive =
+      debugFlags !== undefined && debugCheatsActive(debugFlags, true);
+    const directorCurve =
+      cheatsActive && debugFlags
+        ? scaleSpawnCurveIntervals(curve, debugFlags.spawnMultiplier)
+        : curve;
     const character = ctx.characters.characterById(request.characterId);
     if (!character) {
       throw new Error(`Selected character "${request.characterId}" is missing from the registry`);
@@ -207,6 +224,14 @@ export class GameScene extends Phaser.Scene {
       bus: ctx.bus,
       context: ctx,
     });
+    const debugCheatSystem =
+      cheatsActive && debugFlags
+        ? new DebugCheatSystem({
+            runState: this.runState,
+            player: this.player,
+            flags: debugFlags,
+          })
+        : undefined;
     this.systems = [
       this.progressionSystem,
       new PassiveCoordinator({
@@ -215,7 +240,7 @@ export class GameScene extends Phaser.Scene {
         character,
         handlers: createPassiveHandlerRegistry(DEFAULT_PASSIVE_HANDLERS),
       }),
-      new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup, arena, curve),
+      new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup, arena, directorCurve),
       new HazardSystem({
         scene: this,
         runState: this.runState,
@@ -236,6 +261,7 @@ export class GameScene extends Phaser.Scene {
       ),
       this.dropSystem,
       this.upgradeSystem,
+      ...(debugCheatSystem ? [debugCheatSystem] : []),
       this.hudController,
     ];
 
