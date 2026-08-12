@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import type { Vec2 } from '../engine/vector';
 import { distanceSq, towards } from '../engine/vector';
+import type { ActorArtBinding } from '../systems/types';
+import { createStaticArtSprite } from './actorView';
 
 export type DropKind = 'xp' | 'scrap' | 'chest';
 
@@ -22,10 +24,12 @@ export class Drop {
   amount = 0;
   tableId?: string;
   private readonly glint: Phaser.GameObjects.Arc;
+  private readonly artSprite?: Phaser.GameObjects.Sprite;
 
   constructor(
     scene: Phaser.Scene,
     private readonly radius: number,
+    art?: Readonly<ActorArtBinding>,
   ) {
     this.sprite = scene.add.circle(0, 0, radius, DROP_COLORS.xp).setDepth(2).setActive(false).setVisible(false);
     // Display-only white highlight, constructed once per pooled drop and
@@ -38,6 +42,7 @@ export class Drop {
     scene.physics.add.existing(this.sprite);
     this.body.setCircle(radius);
     this.body.enable = false;
+    this.artSprite = createStaticArtSprite(scene, art, 3);
   }
 
   get x(): number {
@@ -58,8 +63,10 @@ export class Drop {
     this.amount = amount;
     this.tableId = kind === 'chest' ? tableId : undefined;
 
-    this.sprite.setPosition(x, y).setFillStyle(DROP_COLORS[kind]).setActive(true).setVisible(true);
-    this.glint.setPosition(x - GLINT_OFFSET_X, y - GLINT_OFFSET_Y).setActive(true).setVisible(true);
+    const useArt = kind === 'xp' && this.artSprite !== undefined;
+    this.sprite.setPosition(x, y).setFillStyle(DROP_COLORS[kind]).setActive(true).setVisible(!useArt);
+    this.glint.setPosition(x - GLINT_OFFSET_X, y - GLINT_OFFSET_Y).setActive(true).setVisible(!useArt);
+    this.artSprite?.setPosition(x, y).setActive(useArt).setVisible(useArt);
     this.body.enable = true;
     this.body.setCircle(this.radius);
     this.body.setVelocity(0, 0);
@@ -73,6 +80,7 @@ export class Drop {
     // Arcade physics integrates before the scene update, so the body position
     // is the rendered frame's position — the glint follows exactly.
     this.glint.setPosition(this.sprite.x - GLINT_OFFSET_X, this.sprite.y - GLINT_OFFSET_Y);
+    this.artSprite?.setPosition(this.sprite.x, this.sprite.y);
 
     if (!Number.isFinite(dtMs) || dtMs <= 0) {
       return;
@@ -116,11 +124,13 @@ export class Drop {
     }
     this.sprite.setActive(false).setVisible(false);
     this.glint.setActive(false).setVisible(false);
+    this.artSprite?.setActive(false).setVisible(false);
   }
 
   destroy(): void {
     this.active = false;
     this.glint.destroy();
+    this.artSprite?.destroy();
     this.sprite.destroy();
   }
 }

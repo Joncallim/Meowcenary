@@ -11,6 +11,7 @@ import type { LootGrant } from '../gameplay/loot';
 import type { RunState } from '../gameplay/runState';
 import { applyXp } from '../gameplay/xp';
 import type { LootTableLookup } from './lootTables';
+import type { ActorArtBinding } from './types';
 
 export interface DropSystemOptions {
   readonly scene: Phaser.Scene;
@@ -23,6 +24,7 @@ export interface DropSystemOptions {
   readonly dropRadius: number;
   readonly magnetSpeed: number;
   readonly basePickupRadius: number;
+  readonly xpArt?: Readonly<ActorArtBinding>;
 }
 
 export class DropSystem implements System {
@@ -56,7 +58,7 @@ export class DropSystem implements System {
 
     this.dropPool = createPool(
       () => {
-        const drop = new Drop(this.scene, this.dropRadius);
+        const drop = new Drop(this.scene, this.dropRadius, options.xpArt);
         this.ownedDrops.push(drop);
         this.dropBySprite.set(drop.sprite, drop);
 

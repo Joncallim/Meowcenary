@@ -139,11 +139,12 @@ an evidence-gated decision to defer enemy pooling, and FIT-based
 responsive/browser verification. It supersedes issue #13 where that older wording
 would otherwise allow gameplay entity caps or speculative enemy pooling to change
 current combat/economy semantics.
-The Epic 13 document is the implementation source of truth for physics-debug
-diagnostics gating, the actor-view presentation boundary, body-dimension
-invariants, the actor-art catalog and Aseprite asset pipeline, and charger
-environment clipping. It supersedes issue #72 where that wording predates the
-live presentation, pooling, and debug seams.
+The Epic 13 document is the implementation source of truth and PR #79 delivery
+record for physics-debug diagnostics gating, the actor-view presentation
+boundary, body-dimension invariants, the validated actor-art catalog and
+AI-directed Pixelorama asset pipeline, and deterministic charger environment
+clipping. It supersedes issue #72 where that wording predates the live
+presentation, pooling, and debug seams.
 
 ## AI Handoff Pattern
 

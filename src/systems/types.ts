@@ -202,6 +202,28 @@ export interface AudioData {
   readonly map: readonly AudioMapEntry[];
 }
 
+export type ActorArtKind = 'character' | 'enemy' | 'projectile' | 'drop';
+
+export interface ActorArtClip {
+  readonly start: number;
+  readonly end: number;
+  readonly frameRate: number;
+}
+
+export interface ActorArtBinding {
+  readonly id: string;
+  readonly kind: ActorArtKind;
+  readonly textureKey: string;
+  readonly url: string;
+  readonly frame: { readonly width: number; readonly height: number };
+  readonly displayDiameter: number;
+  readonly clips?: Readonly<Record<string, ActorArtClip>>;
+}
+
+export interface ActorArtCatalog {
+  readonly bindings: readonly ActorArtBinding[];
+}
+
 export interface SpawnWaveDefinition {
   startSecond: number;
   enemyId: string;
@@ -309,4 +331,5 @@ export interface GameData {
   arenas: ArenaDefinition[];
   lootTables: LootTable[];
   readonly audio: AudioData;
+  readonly actorArt: ActorArtCatalog;
 }

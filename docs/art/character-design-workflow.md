@@ -5,7 +5,7 @@ repo-ready asset. It keeps concepts, naming, frame layouts, and file paths
 consistent across sessions. It builds on the
 [Visual Style Guide](./style-guide.md), the
 [Character Asset Standard](./character-asset-standard.md), and the
-[Aseprite Workflow](./aseprite-workflow.md), and it produces the data described
+[Pixelorama Workflow](./pixelorama-workflow.md), and it produces the data described
 by Epic 6 (Characters, issue #7).
 
 Follow the steps in order. Do not skip the brief.
@@ -35,14 +35,14 @@ Write a short brief before any art. Capture:
 The character sheet is the hand-off artifact for production. Keep it short and
 concrete.
 
-## 3. Aseprite Production Pass
+## 3. Pixelorama Production Pass
 
-- Create the `.aseprite` source file at the path defined in the
+- Create the `.pxo` source file at the path defined in the
   [Character Asset Standard](./character-asset-standard.md).
 - Use the standard frame size (48×48) and the required animation tags.
 - Export a PNG spritesheet and JSON metadata to the standard `public/` paths.
 
-See [`aseprite-workflow.md`](./aseprite-workflow.md) for tooling, Lua scripts,
+See [`pixelorama-workflow.md`](./pixelorama-workflow.md) for tooling, builder scripts,
 and CLI commands.
 
 ## 4. Codex/GPT-5.5 Integration Pass
@@ -70,10 +70,10 @@ and CLI commands.
 
 - **Claude/Opus** — character taste, concepts, naming, visual consistency, and
   critique. Owns the brief, the concept pass, and the character sheet.
-- **Claude Code** — repo docs, Aseprite Lua scripts, export commands, file
+- **Claude Code** — repo docs, Pixelorama project builders, export commands, file
   organisation, and review. Can produce placeholder sprites to prove the
   pipeline, but does not claim final visual quality without exported previews.
 - **Codex/GPT-5.5** — TypeScript integration, validation, asset loading, and
   tests.
-- **Human / Aseprite** — final art judgment and polish. The human is the final
-  authority on whether the art is good enough to keep.
+- **AI visual review / Pixelorama** — final art judgment and polish against
+  exported previews at the real game viewport; a human review is optional.

@@ -4,6 +4,7 @@ import { BootScene } from './scenes/BootScene';
 import { MenuScene } from './scenes/MenuScene';
 import { GameScene } from './scenes/GameScene';
 import './styles.css';
+import { physicsDebugEnabled } from './systems/debug';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -18,7 +19,7 @@ const config: Phaser.Types.Core.GameConfig = {
   physics: {
     default: 'arcade',
     arcade: {
-      debug: RuntimeConfig.isDev,
+      debug: physicsDebugEnabled(globalThis.location?.search ?? '', RuntimeConfig.isDev),
     },
   },
   scene: [BootScene, MenuScene, GameScene],

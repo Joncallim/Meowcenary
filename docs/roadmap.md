@@ -21,10 +21,11 @@
 - Epic 12 / Polish and Performance: complete — generic pooling, projectile/drop
   reuse, event-driven combat feedback, reduced-motion policy, `PerfSampler`, F3
   diagnostics, and FIT-responsive sizing merged in PR #71 (#13).
-- Epic 13 / Presentation Runtime and Physics Stability: architecture ready (#72) —
-  physics-debug opt-in, the actor-view presentation seam, the `actor-art.json`
-  catalog, Aseprite-produced proving sprites for every current actor plus one
-  projectile and one pickup, and charger environment clipping; architecture in
+- Epic 13 / Presentation Runtime and Physics Stability: complete on PR #79
+  (#72) — physics-debug opt-in, the actor-view presentation seam, the
+  `actor-art.json` catalog, AI-directed Pixelorama sprites for every current
+  actor plus one projectile and one pickup, and deterministic charger
+  environment clipping; architecture and delivery record in
   [`architecture/epic-13-presentation-runtime.md`](architecture/epic-13-presentation-runtime.md);
   delivery on the single branch `agent/epic-13-presentation-runtime`.
 

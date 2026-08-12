@@ -3,6 +3,8 @@ import type { EventBus } from '../engine/eventBus';
 import type { RunState } from '../gameplay/runState';
 import { endRun } from '../gameplay/runState';
 import type { InputController } from '../systems/input';
+import type { ActorArtBinding } from '../systems/types';
+import { PlaceholderView, createAnimatedActorView, type ActorView } from './actorView';
 
 export interface PlayerOptions {
   baseMaxHealth: number;
@@ -20,14 +22,14 @@ const EAR_RADIUS = 4.5;
 const SHADOW_RADIUS = 13;
 const SHADOW_OFFSET_Y = 15;
 const SHADOW_ALPHA = 0.32;
+export const PLAYER_BODY_RADIUS = 14;
 
 export class Player {
   readonly sprite: Phaser.GameObjects.Arc;
   health: number;
-  private readonly leftEar: Phaser.GameObjects.Arc;
-  private readonly rightEar: Phaser.GameObjects.Arc;
-  private readonly shadow: Phaser.GameObjects.Arc;
+  private readonly view: ActorView;
   private invulnerableMs = 0;
+  private facing: 1 | -1 = 1;
 
   constructor(
     scene: Phaser.Scene,
@@ -35,30 +37,49 @@ export class Player {
     private readonly runState: RunState,
     private readonly bus: EventBus,
     private readonly options: PlayerOptions,
+    art?: Readonly<ActorArtBinding>,
   ) {
     this.health = this.maxHealth;
     this.sprite = scene.add
-      .circle(options.spawnX, options.spawnY, 14, BODY_COLOR)
+      .circle(options.spawnX, options.spawnY, PLAYER_BODY_RADIUS, BODY_COLOR)
       .setStrokeStyle(3, OUTLINE_COLOR, 1)
       .setDepth(5);
     scene.physics.add.existing(this.sprite);
-    this.body.setCircle(14);
+    this.body.setCircle(PLAYER_BODY_RADIUS);
     this.body.setCollideWorldBounds(true);
 
     // Presentation layers: the body sprite stays the only physics body; ears
     // and shadow are display-only and are glued to the body in update().
-    this.leftEar = scene.add
+    const leftEar = scene.add
       .circle(options.spawnX - EAR_OFFSET_X, options.spawnY - EAR_OFFSET_Y, EAR_RADIUS, BODY_COLOR)
       .setStrokeStyle(2, OUTLINE_COLOR, 1)
       .setDepth(5);
-    this.rightEar = scene.add
+    const rightEar = scene.add
       .circle(options.spawnX + EAR_OFFSET_X, options.spawnY - EAR_OFFSET_Y, EAR_RADIUS, BODY_COLOR)
       .setStrokeStyle(2, OUTLINE_COLOR, 1)
       .setDepth(5);
-    this.shadow = scene.add
+    const shadow = scene.add
       .circle(options.spawnX, options.spawnY + SHADOW_OFFSET_Y, SHADOW_RADIUS, 0x000000)
       .setAlpha(SHADOW_ALPHA)
       .setDepth(3);
+    this.view = createAnimatedActorView(
+      scene,
+      this.sprite,
+      { node: shadow, dy: SHADOW_OFFSET_Y },
+      art,
+      5,
+    ) ?? new PlaceholderView(
+      this.sprite,
+      [
+        { node: leftEar, dx: -EAR_OFFSET_X, dy: -EAR_OFFSET_Y, flashes: true },
+        { node: rightEar, dx: EAR_OFFSET_X, dy: -EAR_OFFSET_Y, flashes: true },
+      ],
+      { node: shadow, dy: SHADOW_OFFSET_Y },
+    );
+    if (this.view instanceof PlaceholderView === false) {
+      leftEar.destroy();
+      rightEar.destroy();
+    }
   }
 
   get active(): boolean {
@@ -79,7 +100,7 @@ export class Player {
 
   get bodyRadius(): number {
     const body = this.sprite.body as Phaser.Physics.Arcade.Body | undefined;
-    return body?.halfWidth ?? 14;
+    return body?.halfWidth ?? PLAYER_BODY_RADIUS;
   }
 
   get maxHealth(): number {
@@ -88,7 +109,9 @@ export class Player {
 
   update(dtMs: number): void {
     this.health = Math.min(this.health, this.maxHealth);
-    this.syncPresentation();
+    const move = this.input.getMoveVector();
+    if (move.x !== 0) this.facing = move.x < 0 ? -1 : 1;
+    this.view.update(this.currentPose(move));
     if (this.runState.status !== 'active') {
       this.body.setVelocity(0, 0);
       return;
@@ -97,11 +120,10 @@ export class Player {
     if (this.invulnerableMs > 0 && Number.isFinite(dtMs) && dtMs > 0) {
       this.invulnerableMs = Math.max(0, this.invulnerableMs - dtMs);
       if (this.invulnerableMs === 0) {
-        this.setBodyAlpha(1);
+        this.view.update(this.currentPose());
       }
     }
 
-    const move = this.input.getMoveVector();
     const speed = Math.max(0, this.runState.stats.resolve('moveSpeed', this.options.baseMoveSpeed));
     this.body.setVelocity(move.x * speed, move.y * speed);
   }
@@ -124,7 +146,7 @@ export class Player {
     // when the countdown reaches 0. Guarding here avoids a permanently stuck tint
     // when invulnerabilityMs is 0 (no i-frames), which update() would never restore.
     if (this.invulnerableMs > 0) {
-      this.setBodyAlpha(0.45);
+      this.view.update(this.currentPose());
     }
     this.bus.emit('player:damaged', { amount, healthRemaining: this.health });
 
@@ -147,26 +169,20 @@ export class Player {
   }
 
   destroy(): void {
-    this.leftEar.destroy();
-    this.rightEar.destroy();
-    this.shadow.destroy();
+    this.view.destroy();
     this.sprite.destroy();
   }
 
   /** Glue the display-only ears and ground shadow to the physics-driven body.
    *  Arcade physics integrates before the scene update, so reading the body
    *  position here is already the rendered frame's position. */
-  private syncPresentation(): void {
-    this.shadow.setPosition(this.x, this.y + SHADOW_OFFSET_Y);
-    this.leftEar.setPosition(this.x - EAR_OFFSET_X, this.y - EAR_OFFSET_Y);
-    this.rightEar.setPosition(this.x + EAR_OFFSET_X, this.y - EAR_OFFSET_Y);
-  }
-
-  /** Damage tint covers the body and ears together so the head reads as one
-   *  silhouette; the ground shadow is never tinted. */
-  private setBodyAlpha(alpha: number): void {
-    this.sprite.setAlpha(alpha);
-    this.leftEar.setAlpha(alpha);
-    this.rightEar.setAlpha(alpha);
+  private currentPose(move = this.input.getMoveVector()) {
+    return {
+      x: this.x,
+      y: this.y,
+      facing: this.facing,
+      moving: this.runState.status === 'active' && (move.x !== 0 || move.y !== 0),
+      alpha: this.invulnerableMs > 0 ? 0.45 : 1,
+    } as const;
   }
 }

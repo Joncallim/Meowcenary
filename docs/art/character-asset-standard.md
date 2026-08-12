@@ -4,7 +4,7 @@ This is the exact first-pass standard for character assets. Every character
 follows it so filenames, frame layouts, and animation tags never drift. It is
 the source of truth referenced by the
 [Character Design Workflow](./character-design-workflow.md) and the
-[Aseprite Workflow](./aseprite-workflow.md).
+[Pixelorama Workflow](./pixelorama-workflow.md).
 
 `<character-id>` is the kebab-case id from the character sheet (e.g.
 `scrap-tabby`). The same id is used in every path and filename below and as the
@@ -14,7 +14,7 @@ character's data `id` in Epic 6's `characters.json`.
 
 | Artifact | Path |
 | --- | --- |
-| Source (`.aseprite`) | `assets-src/characters/<character-id>/source/<character-id>.aseprite` |
+| Source (`.pxo`) | `assets-src/characters/<character-id>/source/<character-id>.pxo` |
 | Exported spritesheet | `public/assets/characters/<character-id>/<character-id>.png` |
 | Exported metadata | `public/assets/characters/<character-id>/<character-id>.json` |
 | Preview GIF / PNG contact sheet | `assets-src/characters/<character-id>/preview/` |
@@ -65,8 +65,8 @@ Order and name layers consistently:
 - `weapon`
 - `shadow`
 - `notes` — non-exported working notes / guides. Keep this layer **hidden** in
-  the source and pass `--ignore-layer notes` on export, so guide marks are never
-  baked into the spritesheet (see [`aseprite-workflow.md`](./aseprite-workflow.md)).
+  the source so guide marks are never baked into the spritesheet (see
+  [`pixelorama-workflow.md`](./pixelorama-workflow.md)).
 
 ## Export Requirements
 

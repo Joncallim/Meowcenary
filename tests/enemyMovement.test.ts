@@ -143,6 +143,44 @@ describe('enemy movement', () => {
     expect(snapshot).toEqual(before);
   });
 
+  it('clamps an active dash to inset world bounds without changing its timer', () => {
+    const attacking: ChargerMovementSnapshot = {
+      pos: { x: 80, y: 50 }, state: 'attacking', stateTimerMs: 600,
+      dashDirection: { x: 1, y: 0 }, dashOrigin: { x: 80, y: 50 },
+    };
+    const result = chargerStep(attacking, { x: 200, y: 50 }, charger, 500, {
+      bounds: { x: 0, y: 0, width: 100, height: 100 }, obstacles: [], bodyRadius: 13,
+    });
+    expect(result.pos).toEqual({ x: 87, y: 50 });
+    expect(result.state).toBe('attacking');
+    expect(result.stateTimerMs).toBe(100);
+  });
+
+  it('stops a large-dt dash at expanded-obstacle contact without tunneling', () => {
+    const attacking: ChargerMovementSnapshot = {
+      pos: { x: 46, y: 50 }, state: 'attacking', stateTimerMs: 600,
+      dashDirection: { x: 1, y: 0 }, dashOrigin: { x: 20, y: 50 },
+    };
+    const result = chargerStep(attacking, { x: 200, y: 50 }, charger, 500, {
+      bounds: { x: 0, y: 0, width: 300, height: 100 },
+      obstacles: [{ x: 100, y: 40, w: 20, h: 20 }], bodyRadius: 13,
+    });
+    expect(result.pos.x).toBeCloseTo(87);
+    expect(result.pos.y).toBe(50);
+    expect(result.state).toBe('idle');
+    expect(result.stateTimerMs).toBeCloseTo(1_200 - (500 - (41 / 260) * 1_000));
+
+    const toContact = chargerStep(attacking, { x: 200, y: 50 }, charger, (41 / 260) * 1_000, {
+      bounds: { x: 0, y: 0, width: 300, height: 100 },
+      obstacles: [{ x: 100, y: 40, w: 20, h: 20 }], bodyRadius: 13,
+    });
+    const chunked = chargerStep(toContact, { x: 200, y: 50 }, charger, 500 - (41 / 260) * 1_000, {
+      bounds: { x: 0, y: 0, width: 300, height: 100 },
+      obstacles: [{ x: 100, y: 40, w: 20, h: 20 }], bodyRadius: 13,
+    });
+    expect(result).toEqual(chunked);
+  });
+
   it('rejects invalid charger timing and movement inputs', () => {
     expect(() => chargerStep(pursuing(), { x: 1, y: 1 }, charger, Number.NaN)).toThrow();
     expect(() =>

@@ -11,6 +11,7 @@ import type { RunState } from '../gameplay/runState';
 import { nearestTarget } from '../gameplay/targeting';
 import { resolveWeaponStats, type EffectiveWeaponStats } from '../gameplay/weaponStats';
 import type { WeaponInstance, WeaponRegistry } from '../gameplay/weapons';
+import type { ActorArtBinding } from './types';
 
 interface WeaponCadenceRuntime {
   intervalMs: number;
@@ -34,10 +35,11 @@ export class WeaponSystem implements System {
     private readonly enemyGroup: Phaser.Physics.Arcade.Group,
     private readonly weaponRegistry: WeaponRegistry,
     private readonly projectileRadius: number,
+    private readonly projectileArt?: Readonly<ActorArtBinding>,
   ) {
     this.projectilePool = createPool(
       () => {
-        const projectile = new Projectile(this.scene, this.projectileRadius);
+        const projectile = new Projectile(this.scene, this.projectileRadius, this.projectileArt);
         this.ownedProjectiles.push(projectile);
         this.projectileBySprite.set(projectile.sprite, projectile);
 

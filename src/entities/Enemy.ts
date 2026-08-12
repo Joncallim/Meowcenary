@@ -7,7 +7,10 @@ import {
   type ChargerMovementDefinition,
 } from '../gameplay/enemyMovement';
 import type { ResolvedEnemyDefinition, SpawnableEnemyArchetype } from '../systems/types';
+import type { ActorArtBinding } from '../systems/types';
 import type { Player } from './Player';
+import { PlaceholderView, createAnimatedActorView, type ActorView } from './actorView';
+import type { ChargerEnvironment } from '../gameplay/enemyMovement';
 
 let nextEnemyInstanceId = 1;
 
@@ -15,6 +18,7 @@ const OUTLINE_COLOR = 0x0a0f14;
 const SHADOW_RADIUS = 12;
 const SHADOW_OFFSET_Y = 14;
 const SHADOW_ALPHA = 0.28;
+export const ENEMY_BODY_RADIUS = 13;
 
 /** One display-only accent per archetype so silhouettes differ at a glance
  *  (style guide: readable at phone scale, distinct shapes). Elites inherit the
@@ -64,11 +68,11 @@ export class Enemy implements EnemyInstance {
   readonly definition: Readonly<ResolvedEnemyDefinition>;
   state: EnemyState = 'pursuing';
   stateTimerMs = 0;
-  private readonly accent: Phaser.GameObjects.Arc;
-  private readonly shadow: Phaser.GameObjects.Arc;
+  private readonly view: ActorView;
   private presentationDestroyed = false;
   private dashDirection: Vec2 = { x: 0, y: 0 };
   private dashOrigin: Vec2 = { x: 0, y: 0 };
+  private facing: 1 | -1 = 1;
 
   constructor(
     scene: Phaser.Scene,
@@ -76,28 +80,42 @@ export class Enemy implements EnemyInstance {
     x: number,
     y: number,
     private readonly bus: EventBus,
+    art?: Readonly<ActorArtBinding>,
+    private readonly environment?: ChargerEnvironment,
   ) {
     nextEnemyInstanceId += 1;
     this.definition = deepFreeze(structuredClone(definition));
     this.health = this.definition.health;
     this.maxHealth = this.definition.health;
-    this.sprite = scene.add.circle(x, y, 13, enemyColor(this.definition.archetype))
+    this.sprite = scene.add.circle(x, y, ENEMY_BODY_RADIUS, enemyColor(this.definition.archetype))
       .setStrokeStyle(3, OUTLINE_COLOR, 1)
       .setDepth(4);
     scene.physics.add.existing(this.sprite);
-    this.body.setCircle(13);
+    this.body.setCircle(ENEMY_BODY_RADIUS);
 
     // Presentation layers: display-only (no physics body), glued to the body
     // in update(). The body sprite stays the only object physics touches.
     const accent = accentStyle(this.definition);
-    this.accent = scene.add.circle(x, y, accent.radius, accent.fill).setDepth(4);
+    const accentNode = scene.add.circle(x, y, accent.radius, accent.fill).setDepth(4);
     if (accent.stroke) {
-      this.accent.setStrokeStyle(accent.stroke.width, accent.stroke.color, accent.stroke.alpha);
+      accentNode.setStrokeStyle(accent.stroke.width, accent.stroke.color, accent.stroke.alpha);
     }
-    this.shadow = scene.add.circle(x, y, SHADOW_RADIUS, 0x000000)
+    const shadow = scene.add.circle(x, y, SHADOW_RADIUS, 0x000000)
       .setAlpha(SHADOW_ALPHA)
       .setDepth(2);
-    this.syncPresentation();
+    this.view = createAnimatedActorView(
+      scene,
+      this.sprite,
+      { node: shadow, dy: SHADOW_OFFSET_Y },
+      art,
+      4,
+    ) ?? new PlaceholderView(
+      this.sprite,
+      [{ node: accentNode, dx: 0, dy: 0, flashes: false }],
+      { node: shadow, dy: SHADOW_OFFSET_Y },
+    );
+    if (this.view instanceof PlaceholderView === false) accentNode.destroy();
+    this.syncPresentation(false);
   }
 
   get active(): boolean {
@@ -144,9 +162,9 @@ export class Enemy implements EnemyInstance {
     if (!this.active || !player.active) {
       return;
     }
-    this.syncPresentation();
     if (!Number.isFinite(dtMs) || dtMs <= 0) {
       this.body.setVelocity(0, 0);
+      this.syncPresentation(false);
       return;
     }
 
@@ -163,24 +181,26 @@ export class Enemy implements EnemyInstance {
         { x: player.x, y: player.y },
         chargerDefinition,
         dtMs,
+        this.environment,
       );
       this.state = result.state;
       this.stateTimerMs = result.stateTimerMs;
       this.dashDirection = result.dashDirection;
       this.dashOrigin = result.dashOrigin;
       this.applyPosition(result.pos, dtMs, true);
-      this.syncPresentation();
+      this.syncPresentation(this.state === 'attacking');
       return;
     }
 
     if (pursuitArchetype(this.definition) !== undefined) {
       const next = chaseStep(this.pos, player, this.definition.speed, dtMs);
       this.applyPosition(next, dtMs);
-      this.syncPresentation();
+      this.syncPresentation(Math.hypot(this.body.velocity.x, this.body.velocity.y) > 0.01);
       return;
     }
 
     this.body.setVelocity(0, 0);
+    this.syncPresentation(false);
   }
 
   takeDamage(amount: number): boolean {
@@ -236,9 +256,10 @@ export class Enemy implements EnemyInstance {
   /** Glue the display-only accent and ground shadow to the physics-driven
    *  body. Arcade physics integrates before the scene update, so the body
    *  position read here is the rendered frame's position. */
-  private syncPresentation(): void {
-    this.shadow.setPosition(this.x, this.y + SHADOW_OFFSET_Y);
-    this.accent.setPosition(this.x, this.y);
+  private syncPresentation(moving: boolean): void {
+    const horizontal = this.state === 'attacking' ? this.dashDirection.x : this.body.velocity.x;
+    if (horizontal !== 0) this.facing = horizontal < 0 ? -1 : 1;
+    this.view.update({ x: this.x, y: this.y, facing: this.facing, moving, alpha: 1 });
   }
 
   private destroyPresentation(): void {
@@ -246,8 +267,7 @@ export class Enemy implements EnemyInstance {
       return;
     }
     this.presentationDestroyed = true;
-    this.accent.destroy();
-    this.shadow.destroy();
+    this.view.destroy();
   }
 
   private applyPosition(next: Vec2, dtMs: number, immediate = false): void {

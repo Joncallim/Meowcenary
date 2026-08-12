@@ -19,6 +19,12 @@ export interface ChargerMovementSnapshot {
 
 export interface ChargerStepResult extends ChargerMovementSnapshot {}
 
+export interface ChargerEnvironment {
+  readonly bounds: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
+  readonly obstacles: ReadonlyArray<{ readonly x: number; readonly y: number; readonly w: number; readonly h: number }>;
+  readonly bodyRadius: number;
+}
+
 export function chaseStep(pos: Vec2, target: Vec2, speed: number, dtMs: number): Vec2 {
   assertFiniteVector(pos, 'Enemy position');
   assertFiniteVector(target, 'Enemy target');
@@ -53,8 +59,9 @@ export function chargerStep(
   target: Vec2,
   definition: ChargerMovementDefinition,
   dtMs: number,
+  env?: ChargerEnvironment,
 ): ChargerStepResult {
-  validateChargerInputs(snapshot, target, definition, dtMs);
+  validateChargerInputs(snapshot, target, definition, dtMs, env);
   if (snapshot.state === 'dead') {
     return {
       ...snapshot,
@@ -114,6 +121,7 @@ export function chargerStep(
     }
 
     if (state === 'attacking') {
+      const previousPos = { ...pos };
       const consumed = Math.min(remainingMs, stateTimerMs);
       const nextTimerMs = stateTimerMs - consumed;
       const elapsedDashMs = definition.attack.dashDurationMs - nextTimerMs;
@@ -124,6 +132,22 @@ export function chargerStep(
         y: dashOrigin.y + dashDirection.y * travel,
       };
       assertFiniteVector(pos, 'Charger dash result');
+      if (env) {
+        const hit = earliestObstacleHit(previousPos, pos, env);
+        if (hit) {
+          pos = hit;
+          const distanceToHit = Math.hypot(hit.x - previousPos.x, hit.y - previousPos.y);
+          const consumedAtHitMs = Math.min(
+            consumed,
+            (distanceToHit / definition.attack.dashSpeed) * 1_000,
+          );
+          remainingMs -= consumedAtHitMs;
+          state = 'idle';
+          stateTimerMs = definition.attack.cooldownMs;
+          continue;
+        }
+        pos = clampToBounds(pos, env);
+      }
       remainingMs -= consumed;
       stateTimerMs = nextTimerMs;
       if (stateTimerMs > 0) continue;
@@ -160,6 +184,7 @@ function validateChargerInputs(
   target: Vec2,
   definition: ChargerMovementDefinition,
   dtMs: number,
+  env?: ChargerEnvironment,
 ): void {
   assertFiniteVector(snapshot.pos, 'Charger position');
   assertFiniteVector(snapshot.dashDirection, 'Charger dash direction');
@@ -178,6 +203,68 @@ function validateChargerInputs(
   if (values.some((value) => !Number.isFinite(value) || value <= 0)) {
     throw new Error('Charger movement definition must contain positive finite values');
   }
+  if (env) validateEnvironment(env);
+}
+
+function validateEnvironment(env: ChargerEnvironment): void {
+  const values = [env.bounds.x, env.bounds.y, env.bounds.width, env.bounds.height, env.bodyRadius];
+  if (values.some((value) => !Number.isFinite(value)) || env.bounds.width <= 0 ||
+      env.bounds.height <= 0 || env.bodyRadius <= 0 || env.bodyRadius * 2 > env.bounds.width ||
+      env.bodyRadius * 2 > env.bounds.height) {
+    throw new Error('Charger environment must contain finite usable bounds and radius');
+  }
+  for (const obstacle of env.obstacles) {
+    if ([obstacle.x, obstacle.y, obstacle.w, obstacle.h].some((value) => !Number.isFinite(value)) ||
+        obstacle.w <= 0 || obstacle.h <= 0) {
+      throw new Error('Charger environment obstacles must be finite positive rectangles');
+    }
+  }
+}
+
+function clampToBounds(pos: Vec2, env: ChargerEnvironment): Vec2 {
+  const minX = env.bounds.x + env.bodyRadius;
+  const maxX = env.bounds.x + env.bounds.width - env.bodyRadius;
+  const minY = env.bounds.y + env.bodyRadius;
+  const maxY = env.bounds.y + env.bounds.height - env.bodyRadius;
+  return { x: Math.min(maxX, Math.max(minX, pos.x)), y: Math.min(maxY, Math.max(minY, pos.y)) };
+}
+
+function earliestObstacleHit(from: Vec2, to: Vec2, env: ChargerEnvironment): Vec2 | undefined {
+  let earliest = Number.POSITIVE_INFINITY;
+  for (const obstacle of env.obstacles) {
+    const minX = obstacle.x - env.bodyRadius;
+    const maxX = obstacle.x + obstacle.w + env.bodyRadius;
+    const minY = obstacle.y - env.bodyRadius;
+    const maxY = obstacle.y + obstacle.h + env.bodyRadius;
+    const t = segmentAabbHit(from, to, minX, minY, maxX, maxY);
+    if (t !== undefined && t < earliest) earliest = t;
+  }
+  if (!Number.isFinite(earliest)) return undefined;
+  return {
+    x: from.x + (to.x - from.x) * earliest,
+    y: from.y + (to.y - from.y) * earliest,
+  };
+}
+
+function segmentAabbHit(
+  from: Vec2, to: Vec2, minX: number, minY: number, maxX: number, maxY: number,
+): number | undefined {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  let enter = 0;
+  let exit = 1;
+  for (const [origin, delta, min, max] of [[from.x, dx, minX, maxX], [from.y, dy, minY, maxY]] as const) {
+    if (delta === 0) {
+      if (origin < min || origin > max) return undefined;
+      continue;
+    }
+    const first = (min - origin) / delta;
+    const second = (max - origin) / delta;
+    enter = Math.max(enter, Math.min(first, second));
+    exit = Math.min(exit, Math.max(first, second));
+    if (enter > exit) return undefined;
+  }
+  return enter >= 0 && enter <= 1 ? enter : undefined;
 }
 
 function assertFiniteVector(value: Vec2, label: string): void {

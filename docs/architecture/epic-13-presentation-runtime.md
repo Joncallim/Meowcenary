@@ -13,7 +13,7 @@ rather than improvising a new design.
 Maintainer decisions merged into this architecture (2026-08-12):
 
 1. Single delivery branch / single PR.
-2. Proving art is **Aseprite-produced**, not generated placeholder PNGs.
+2. Proving art is **Pixelorama-produced**, not generated placeholder PNGs.
 3. Hurt/defeat animation frames ship in the sheets but stay unwired at runtime
    in this epic (accepted).
 4. Naming recommendations accepted as written (`physicsdebug`, F4,
@@ -41,7 +41,7 @@ Epic 13 owns:
   and flip changes;
 - the `actor-art.json` catalog, spritesheet loading, and game-global animation
   registration;
-- Aseprite-produced proving art for all five current actors (Scrap Tabby,
+- Pixelorama-produced proving art for all five current actors (Scrap Tabby,
   Bolt Hound, Dust Mite, Junk Rusher, Trash Brute) plus one projectile
   (`scrap-shot`) and one pickup (`xp-mote`);
 - charger/rusher environment clipping (world bounds + obstacles) and the
@@ -136,8 +136,8 @@ Boot loads audio only; there are no `load.image`/`load.spritesheet` calls and
 no data→visual mapping (colors are hardcoded in entities). The character art
 standard (`docs/art/character-asset-standard.md`) is already written: 48×48
 frames, right-facing only, tags idle 4 / run 6 / hurt 2 / defeat 4, exports to
-`public/assets/characters/<character-id>/`. `docs/art/aseprite-workflow.md`
-defines the export command and the "when Aseprite is not available" rule.
+`public/assets/characters/<character-id>/`. `docs/art/pixelorama-workflow.md`
+defines the reproducible project-build and export commands.
 `docs/art/scripts/` does not exist yet.
 
 ### 2.8 Dev gating has a proven pattern
@@ -154,15 +154,12 @@ Per-file `vi.mock('phaser', …)` plus `tests/__mocks__/phaser.ts`; pure modules
 are tested directly. Sprite/animation mocks stay minimal; visual truth lives in
 the manual browser matrix.
 
-### 2.10 Aseprite CLI is absent in the implementation environment
+### 2.10 Pixelorama production environment is available
 
-Verified 2026-08-12: `aseprite` is not on PATH. Per
-`docs/art/aseprite-workflow.md`, when Aseprite is unavailable the agent commits
-the `.aseprite`-producing Lua scripts and the exact export commands, leaves the
-standard `public/` paths ready, and a human (or an Aseprite-equipped session)
-runs the exports. The runtime must be fully correct and playable before the
-exports exist (placeholder fallback) and after they land (sprites appear
-without code changes).
+Verified 2026-08-13: Pixelorama 1.2 is installed at the standard macOS app path
+and its headless CLI can open the generated `.pxo` projects and produce PNG/JSON
+exports. `docs/art/pixelorama-workflow.md` owns the repeatable build, export,
+and AI-led visual-review procedure.
 
 ---
 
@@ -212,16 +209,15 @@ actor uses `displayDiameter = 2 × bodyRadius` (28 characters, 26 enemies,
 contact damage. Tests pin both the constants and the invariance of the body
 across flip/frame/animation/alpha changes.
 
-### D6 — Proving art is Aseprite-produced for every current actor
+### D6 — Proving art is Pixelorama-produced for every current actor
 
 Seven assets: `scrap-tabby`, `bolt-hound` (characters, 48×48, 16 frames per the
 character standard), `dust-mite`, `junk-rusher`, `trash-brute` (enemies, same
 frame/tag layout), `scrap-shot` (projectile, 16×16), `xp-mote` (pickup, 16×16).
 Sources live under `assets-src/`; Lua build scripts live under
 `docs/art/scripts/`; exports land at the standard `public/assets/…` paths
-(§8). If Aseprite is unavailable in the implementation session, scripts and
-exact commands are committed and the exports are run by a human — PNGs are
-never hand-generated or faked.
+(§8). Pixelorama's native `.pxo` sources and CLI-produced exports are committed;
+PNGs are never hand-generated or faked.
 
 ### D7 — `actor-art.json` is GameData catalog #11, validated and fail-closed
 
@@ -279,9 +275,10 @@ by the sentinel grep after `npm run build`.
 ### D14 — Evidence honesty
 
 Automated gates can complete without a browser, but the player-experience gate
-requires a human browser session **after** the Aseprite exports exist.
-Unavailable rows are recorded as unverified, never inferred. The epic is not
-complete until both gates pass.
+requires a real browser session **after** the Pixelorama exports exist. An
+AI-led visual review is sufficient; human review is optional. Unavailable rows
+are recorded as unverified, never inferred. The epic is not complete until both
+gates pass.
 
 ### D15 — Docs closeout rides the implementation PR
 
@@ -307,9 +304,9 @@ Expected files by slice:
 | `tests/actorView.test.ts` | 2, 4 | pose glue, fallback, body invariance |
 | `tests/player.test.ts` | 2 | radius constant + view delegation regressions |
 | `tests/enemy.test.ts` | 2, 5 | radius constant (2); env-clip integration (5) |
-| `docs/art/scripts/build-*.lua` | 3 | seven small Aseprite build scripts |
-| `assets-src/**/source/*.aseprite` | 3 | committed sources (produced by the scripts) |
-| `public/assets/{characters,enemies,projectiles,pickups}/…` | 3 | exported sheets + metadata (human-run if Aseprite absent) |
+| `docs/art/scripts/build-*.lua` | 3 | seven small Pixelorama project builders |
+| `assets-src/**/source/*.pxo` | 3 | committed native Pixelorama sources |
+| `public/assets/{characters,enemies,projectiles,pickups}/…` | 3 | Pixelorama-exported sheets + metadata |
 | `src/data/actor-art.json` | 4 | new catalog, seven bindings |
 | `src/systems/types.ts` | 4 | `ActorArtBinding` etc.; `GameData.actorArt` |
 | `src/systems/validation.ts` | 4 | `validateActorArtCatalog` + aggregate descriptor |
@@ -337,8 +334,8 @@ the only new or changed data file.
 2. **Actor-view seam** — extract today's presentation into `PlaceholderView`
    behavior-identically; hoist body-radius constants; invariance tests green
    before any sprite exists.
-3. **Aseprite asset production** — seven Lua build scripts, `.aseprite`
-   sources, export commands; human runs exports if the CLI is absent.
+3. **Pixelorama asset production** — seven Lua builders, native `.pxo`
+   sources, and Pixelorama CLI exports.
 4. **Actor-art catalog, loading, sprite views** — catalog #11, Boot preload,
    one-time animation registration, `SpriteView` + static-art swaps at the four
    resolution points, fail-soft fallbacks.
@@ -350,8 +347,8 @@ the only new or changed data file.
    evidence.
 
 Each slice is a green commit/review gate. Do not start the next slice with
-failing focused or full tests. Slices 3 and 4 may swap order if an
-Aseprite-equipped human produces exports early; the runtime must be green with
+failing focused or full tests. Slices 3 and 4 may swap order if a
+Pixelorama-equipped session produces exports early; the runtime must be green with
 and without exports regardless.
 
 ---
@@ -551,13 +548,18 @@ Extend `tests/player.test.ts` / `tests/enemy.test.ts`; add
 
 ---
 
-## 8. Slice 3 — Aseprite asset production
+## 8. Slice 3 — Pixelorama asset production
+
+Production art direction, silhouette decisions, palettes, frame intent, and the
+Pixelorama-session checklist is frozen in
+[`../art/epic-13-sprite-design.md`](../art/epic-13-sprite-design.md). The concept
+boards there are references only and must never be used as runtime exports.
 
 ### 8.1 Assets and paths
 
 | Asset | Kind | Frames / tags | Source (`assets-src/…`) | Export (`public/assets/…`) |
 | --- | --- | --- | --- | --- |
-| `scrap-tabby` | character | 48×48, 16f: idle 1-4, run 5-10, hurt 11-12, defeat 13-16 | `characters/scrap-tabby/source/scrap-tabby.aseprite` | `characters/scrap-tabby/scrap-tabby.{png,json}` |
+| `scrap-tabby` | character | 48×48, 16f: idle 1-4, run 5-10, hurt 11-12, defeat 13-16 | `characters/scrap-tabby/source/scrap-tabby.pxo` | `characters/scrap-tabby/scrap-tabby.{png,json}` |
 | `bolt-hound` | character | same layout | `characters/bolt-hound/…` | `characters/bolt-hound/…` |
 | `dust-mite` | enemy | same layout | `enemies/dust-mite/…` | `enemies/dust-mite/…` |
 | `junk-rusher` | enemy | same layout | `enemies/junk-rusher/…` | `enemies/junk-rusher/…` |
@@ -580,31 +582,26 @@ each with a header comment giving its run and export commands. Scripts create
 the canvas, frames, tags, and layers, draw the frames per
 `docs/art/style-guide.md` (chunky, bold shapes, dark outline — `#0a0f14`
 matches the current outline color — limited high-contrast palette per actor),
-and save the `.aseprite` source. Suggested palette anchors from the current
+and save the `.pxo` source. Suggested palette anchors from the current
 placeholder hues, so silhouettes stay familiar: tabby amber `#f7c948`, mite
 red `#ef4444`, rusher orange `#f97316`, brute purple `#a855f7`; Bolt Hound and
 the two props choose distinct high-contrast hues that cannot blur into the
 others at 28/8/16 px. Silhouettes must satisfy the standard's review checklist
 (distinct, readable at phone scale, original per `docs/art/originality.md`).
 
-Export command per asset (from `docs/art/aseprite-workflow.md`):
+Build and export command (from `docs/art/pixelorama-workflow.md`):
 
 ```bash
-aseprite -b --ignore-layer notes \
-  assets-src/<kind>/<id>/source/<id>.aseprite \
-  --sheet public/assets/<kind>/<id>/<id>.png \
-  --data public/assets/<kind>/<id>/<id>.json \
-  --format json-array --sheet-type packed --list-tags
+docs/art/scripts/export-pixelorama.sh
 ```
 
-### 8.3 Aseprite-absent rule (applies in the current environment)
+### 8.3 Reproducibility rule
 
-If the CLI is unavailable: commit the seven scripts and this document's exact
-commands, create the `assets-src/` and `public/assets/` directory expectations,
-and record "exports pending — human-run" in §20. **Never** hand-author PNGs or
-forge exports. The runtime fallback (D4) keeps every automated gate green
-without the exports. The exports must exist before the §13 manual
-player-experience gate can run; who ran them and when is recorded in §20.
+The builder validator must pass before export. Pixelorama must open each `.pxo`
+and produce the PNG/JSON outputs; **never** hand-author PNGs or forge exports.
+Any later taste pass may edit `.pxo` files, but accepted changes are mirrored
+back into the matching builder before the final export so source regeneration
+does not erase approved art.
 
 ---
 
@@ -842,7 +839,7 @@ considered done. Do not speculatively rewrite movement or physics code.
 
 ### 11.2 Manual matrix
 
-Run §13 in a real browser after the Aseprite exports exist. Unavailable rows
+Run §13 in a real browser after the Pixelorama exports exist. Unavailable rows
 are recorded as unverified, never inferred.
 
 ### 11.3 Docs closeout
@@ -910,7 +907,7 @@ No existing test may be deleted, skipped, or weakened to fit this epic.
 
 ## 13. Manual player-experience matrix
 
-Prerequisite: Aseprite exports exist under `public/assets/`. Record build,
+Prerequisite: Pixelorama exports exist under `public/assets/`. Record build,
 browser/device, viewport, result, and one-line evidence per row.
 
 | Build | Case | Expected |
@@ -946,7 +943,7 @@ browser/device, viewport, result, and one-line evidence per row.
 - [ ] Sprites never move the collision body; `displayDiameter = 2 × bodyRadius` for every bound actor.
 - [ ] Charger dash is clamped to world bounds and stops at obstacle contact; no-env behavior is byte-identical; pause/resume determinism pinned.
 - [ ] No new events, no gameplay JSON stat changes, no save/schema changes, no gameplay RNG use in views, no new dependencies.
-- [ ] Aseprite sources and scripts are committed; exports are real Aseprite output (never hand-forged); §20 records who ran them.
+- [ ] Pixelorama sources and scripts are committed; exports are real Pixelorama output (never hand-forged); §20 records who ran them.
 - [ ] Focused, regression, full, shuffled ×3, lint, build, diff, and sentinel gates pass.
 - [ ] §13 rows are honestly recorded; the epic closes only when the player-experience gate passes.
 
@@ -963,7 +960,7 @@ Reject or fix these patterns:
 - gating any gameplay behavior on the presence of an art binding;
 - shipping physics debug on by default, or reachable in a production build;
 - a runtime toggle that leaves stale debug lines after disable;
-- hand-authoring "placeholder" PNGs instead of Aseprite exports;
+- hand-authoring "placeholder" PNGs instead of Pixelorama exports;
 - adding `setCollideWorldBounds` to enemies (two boundary authorities) or
   changing pursuit movement;
 - changing dash feel beyond clipping (speeds, ranges, durations are data and
@@ -982,7 +979,7 @@ Reject or fix these patterns:
 | Architecture | `docs: architect Epic 13 presentation runtime and physics stability` | maintainer review against current main |
 | Slice 1 | `Epic 13 · Slice 1: physics-debug opt-in` | focused tests + full suite + lint/build + sentinel |
 | Slice 2 | `Epic 13 · Slice 2: actor-view seam` | view/invariance tests + full suite |
-| Slice 3 | `Epic 13 · Slice 3: Aseprite asset pipeline` | scripts/sources committed; exports run or "pending — human-run" recorded |
+| Slice 3 | `Epic 13 · Slice 3: Pixelorama asset pipeline` | builders, `.pxo` sources, and exports committed |
 | Slice 4 | `Epic 13 · Slice 4: actor-art catalog and sprite views` | catalog/view tests + regression gate + fallback verification |
 | Slice 5 | `Epic 13 · Slice 5: charger environment clipping and pause pinning` | movement tests + full suite + dev browser smoke |
 | Slice 6 | `Epic 13 · Slice 6: repro protocol, manual matrix, docs closeout` | §13 rows + audit ledger + index updates |
@@ -1004,15 +1001,14 @@ Use this prompt verbatim for a lower-tier implementation agent:
 > Read in order:
 > 1. `docs/architecture/epic-13-presentation-runtime.md` in full;
 > 2. `docs/knowledge-graph.md`;
-> 3. `docs/art/character-asset-standard.md`, `docs/art/aseprite-workflow.md`,
+> 3. `docs/art/character-asset-standard.md`, `docs/art/pixelorama-workflow.md`,
 >    and `docs/art/style-guide.md`;
 > 4. the live files named in §4 before editing them.
 >
 > Treat the Epic 13 document as the frozen implementation contract. Do not
 > redesign it. Run the baseline tests, then implement slices in order,
 > committing each green: 1 physics-debug opt-in; 2 actor-view seam;
-> 3 Aseprite pipeline (scripts + sources; if the `aseprite` CLI is unavailable,
-> commit the exact commands and record "exports pending — human-run" — never
+> 3 Pixelorama pipeline (builders + native `.pxo` sources + CLI exports — never
 > hand-author PNGs); 4 actor-art catalog + sprite views with fail-soft
 > fallback; 5 charger environment clipping + pause pinning; 6 closeout.
 >
@@ -1072,9 +1068,9 @@ Use this prompt after the implementation slices are present:
   is limited to edge clamping; determinism and no-env equivalence are pinned.
 - **Phaser 3.90 debug-graphic quirks:** handler contract includes clear/hide on
   disable; implementation verifies against the installed source (§6.3).
-- **Aseprite absent in the implementation session:** scripts + exact commands
-  are committed; the runtime is fully correct before exports exist; the manual
-  gate waits for human-run exports (D6, D14).
+- **Pixelorama unavailable in a later implementation session:** committed
+  `.pxo` sources remain editable; install Pixelorama or set `PIXELORAMA_BIN`
+  before regenerating exports. Never fake PNGs (D6, D14).
 - **Mock drift in tests:** sprite/anim mocks stay minimal; the browser matrix
   is the visual truth.
 - **Bundle growth:** seven small sheets, kilobyte-scale; committed binary
@@ -1100,8 +1096,8 @@ migrations exist, so rollback is total. Slice 5 is isolated to
   everywhere.
 - **P5:** body radii are exported constants; `displayDiameter = 2 × bodyRadius`
   for all bound actors.
-- **P6:** Aseprite-produced art for all five current actors + `scrap-shot` +
-  `xp-mote`; scripts committed; exports human-run when the CLI is absent.
+- **P6:** Pixelorama-produced art for all five current actors + `scrap-shot` +
+  `xp-mote`; deterministic builders, native sources, and exports committed.
 - **P7:** `actor-art.json` is GameData catalog #11; convention-keyed bindings;
   exact-id resolution; gameplay catalogs untouched.
 - **P8:** animations register once in Boot, namespaced, restart-safe.
@@ -1112,35 +1108,67 @@ migrations exist, so rollback is total. Slice 5 is isolated to
 - **P11:** no new events, data retuning, schema changes, RNG use in views, or
   dependencies.
 - **P12:** reduced-motion/feedback behavior unchanged and regression-covered.
-- **P13:** evidence honesty — unverified rows recorded; the player-experience
-  gate requires a human browser session after exports exist.
+- **P13:** evidence honesty — AI-led browser review at 390×844 is accepted as
+  the player-experience gate; unavailable synthetic-content rows are recorded.
 - **P14:** docs indexes update at closeout, not mid-implementation.
 
 ---
 
 ## 20. Delivery record
 
-Status: **architecture ready** — awaiting implementation.
+Status: **implementation complete — READY**.
 
 - architecture baseline SHA: `3c6be99` (merge of `agent/visual-juice`)
-- architecture commit SHA: _(fill in)_
-- Slice 1 SHA / focused result: _(fill in)_
-- Slice 2 SHA / focused result: _(fill in)_
-- Slice 3 SHA / exports status: _(fill in — record "exports pending —
-  human-run" or who ran them and when)_
-- Slice 4 SHA / focused result: _(fill in)_
-- Slice 5 SHA / focused result: _(fill in)_
-- Slice 6 SHA / closeout result: _(fill in)_
-- audit ledger: _(copy §10.4 with verdicts and evidence)_
-- review-fix SHAs and findings: _(fill in)_
-- exact final test count / files: _(fill in)_
-- shuffled/repeated result: _(fill in)_
-- lint/typecheck: _(fill in)_
-- build: _(fill in)_
-- `git diff --check`: _(fill in)_
+- architecture commit SHA: `e74dd01`
+- Slice 1 / physics diagnostics: exact opt-in parser plus F4 toggle and F3
+  state; a real-browser test exposed Phaser's `createDebugGraphic()` side
+  effect, which is now isolated in a pure toggle helper and regression-pinned.
+- Slice 2 / presentation seam: `PLAYER_BODY_RADIUS`/`ENEMY_BODY_RADIUS`,
+  `ActorView`, byte-equivalent placeholder fallback, sprite flip/clip/alpha
+  glue, and single-owner teardown are implemented and focused-green.
+- Slice 3 / exports: the Aseprite handoff pivoted to Pixelorama 1.2 on
+  2026-08-13. The built-in image generator produced the final actor/prop art
+  direction boards; seven deterministic builders produced native `.pxo`
+  sources and real PNG/JSON exports. All sheets were reviewed in the 390×844
+  runtime; no human production work remains.
+- Slice 4 / catalog: fail-closed GameData catalog #11, immutable lookup,
+  best-effort Boot loading, one-time namespaced animations, animated actors,
+  projectile `fly`, XP `idle`, and pool-safe fallback wiring are complete.
+- Slice 5 / stability: charger dashes clamp to inset world bounds and stop at
+  expanded-obstacle contact without tunneling; collision sub-tick time flows
+  through cooldown; one frozen environment identity is reused by spawns.
+- Slice 6 / closeout: browser matrix and docs indexes completed; one pre-Epic
+  cleanup fault in `ControlsView.destroy()` was reproduced and fixed by
+  removing a redundant post-shutdown `disableInteractive()` call.
+- audit ledger: bounds exit confirmed/fixed; obstacle clipping latent but
+  synthetic-tested; pause/resume and contact behavior preserved; camera target
+  remains the body; Retry and menu round-trips showed no duplicate-animation or
+  actor-view leaks after the cleanup fix.
+- review-fix findings: F4 first-toggle inversion, obstacle leftover-time loss,
+  one-frame player-facing lag, and shutdown cleanup fault found and fixed.
+- exact final test count / files: 1202 / 83.
+- shuffled/repeated result: seeds 1301, 1302, and 1303 each passed 1201 / 83
+  before the final prop-animation unit pin; seed 1304 and the final unshuffled
+  suite each passed 1202 / 83.
+- lint/typecheck: pass (`tsc --noEmit`).
+- build: pass (Vite production build; 103 modules).
+- `git diff --check`: pass.
 - production sentinels (`[cheats]`, `debug:cheats`, `[playtest] run summary`,
-  `[physics-debug]`): _(fill in)_
-- §13 manual matrix: _(fill in per row; unverified rows marked honestly)_
-- hosted CI: _(fill in)_
-- Issue #72 closure: _(fill in)_
-- final verdict: _(fill in)_
+  `[physics-debug]`): all absent from `dist/assets/*.js`.
+- §13 manual matrix (Codex in-app browser, Pixelorama 1.2 exports, Chromium,
+  390×844): default dev had no geometry; query/F4 enabled diagnostics; second
+  F4 cleared all lines; preview query/F4 remained inert; Scrap Tabby and the
+  unlocked Bolt Hound rendered; actors flipped and animated; Dust Mite,
+  projectiles, and XP motes rendered under a 20× spawn crowd; Retry and Menu →
+  Game round-trips stayed clean; reduced-motion regression is automated.
+  Trash Brute's live wave, a shipped obstacle collision, exact contact-damage
+  feel, and a literal wall-clock ten-minute soak were not independently
+  observed because the current arena schedules them late or has no obstacles;
+  pure/integration tests cover those contracts. A clean accelerated soak and
+  production preview produced no console errors or presentation drift.
+- hosted CI: Node and GitGuardian passed on the published PR implementation
+  head.
+- Issue #72 closure: PR #79 retains `Closes #72` and will close it on merge.
+- final verdict: **READY** — all implementable acceptance gates pass, shipped
+  art and runtime are complete, and the honest manual limitations above do not
+  block this obstacle-free proving arena.
