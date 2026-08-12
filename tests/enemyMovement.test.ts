@@ -181,6 +181,43 @@ describe('enemy movement', () => {
     expect(result).toEqual(chunked);
   });
 
+  it('never clamps a dash endpoint inside an expanded obstacle at a wall corner', () => {
+    // The dash exits the right wall while the straight dash line passes below
+    // an obstacle AABB it never enters. A per-axis bounds clamp would pull the
+    // endpoint off the dash line into the AABB; the parametric clamp keeps the
+    // endpoint on the true trajectory at the wall crossing.
+    const env = {
+      bounds: { x: 0, y: 0, width: 300, height: 300 },
+      obstacles: [{ x: 280, y: 110, w: 20, h: 30 }],
+      bodyRadius: 13,
+    };
+    const dash: ChargerMovementDefinition = {
+      speed: 100,
+      attack: { triggerRange: 150, telegraphMs: 650, dashSpeed: 400, dashDurationMs: 700, cooldownMs: 1_200 },
+    };
+    const attacking: ChargerMovementSnapshot = {
+      pos: { x: 100, y: 250 }, state: 'attacking', stateTimerMs: 700,
+      dashDirection: { x: 0.919, y: -0.394 }, dashOrigin: { x: 100, y: 250 },
+    };
+    const result = chargerStep(attacking, { x: 450, y: 100 }, dash, 700, env);
+    const insideStrict = (p: { x: number; y: number }) =>
+      p.x > 280 - 13 && p.x < 280 + 20 + 13 && p.y > 110 - 13 && p.y < 110 + 30 + 13;
+    // Endpoint sits at the right-wall crossing on the dash line, clear of the
+    // expanded AABB; the dash completed into idle/cooldown.
+    expect(insideStrict(result.pos)).toBe(false);
+    expect(result.pos.x).toBeCloseTo(287);
+    expect(result.pos.y).toBeCloseTo(250 - (0.394 / 0.919) * 187, 2);
+    expect(result.state).toBe('idle');
+
+    // Single large tick equals chunked ticks: the same wall-crossing point,
+    // no tunneling into the AABB, and the same end state.
+    const halfway = chargerStep(attacking, { x: 450, y: 100 }, dash, 400, env);
+    expect(insideStrict(halfway.pos)).toBe(false);
+    const chunked = chargerStep(halfway, { x: 450, y: 100 }, dash, 300, env);
+    expect(insideStrict(chunked.pos)).toBe(false);
+    expect(chunked).toEqual(result);
+  });
+
   it('rejects invalid charger timing and movement inputs', () => {
     expect(() => chargerStep(pursuing(), { x: 1, y: 1 }, charger, Number.NaN)).toThrow();
     expect(() =>

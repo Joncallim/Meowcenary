@@ -133,6 +133,13 @@ export function chargerStep(
       };
       assertFiniteVector(pos, 'Charger dash result');
       if (env) {
+        // Clamp the dash endpoint to the inset bounds along the dash line
+        // (parametric, not per-axis) and only then test the effective segment
+        // against expanded obstacle AABBs. A per-axis clamp can pull the
+        // endpoint off the dash line and into an obstacle AABB the dash never
+        // crossed; the parametric clamp keeps the tested segment on the true
+        // trajectory, so the result is chunk-stable and never overlaps.
+        pos = clampSegmentToBounds(previousPos, pos, env);
         const hit = earliestObstacleHit(previousPos, pos, env);
         if (hit) {
           pos = hit;
@@ -146,7 +153,6 @@ export function chargerStep(
           stateTimerMs = definition.attack.cooldownMs;
           continue;
         }
-        pos = clampToBounds(pos, env);
       }
       remainingMs -= consumed;
       stateTimerMs = nextTimerMs;
@@ -221,12 +227,33 @@ function validateEnvironment(env: ChargerEnvironment): void {
   }
 }
 
-function clampToBounds(pos: Vec2, env: ChargerEnvironment): Vec2 {
+function clampSegmentToBounds(from: Vec2, to: Vec2, env: ChargerEnvironment): Vec2 {
   const minX = env.bounds.x + env.bodyRadius;
   const maxX = env.bounds.x + env.bounds.width - env.bodyRadius;
   const minY = env.bounds.y + env.bodyRadius;
   const maxY = env.bounds.y + env.bounds.height - env.bodyRadius;
-  return { x: Math.min(maxX, Math.max(minX, pos.x)), y: Math.min(maxY, Math.max(minY, pos.y)) };
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  let exit = 1;
+  for (const [origin, delta, min, max] of [[from.x, dx, minX, maxX], [from.y, dy, minY, maxY]] as const) {
+    if (delta === 0) {
+      if (origin < min || origin > max) {
+        // Segment lies laterally outside the inset bounds: clamp the endpoint
+        // per-axis as a defensive fallback (valid states start in bounds).
+        return {
+          x: Math.min(maxX, Math.max(minX, to.x)),
+          y: Math.min(maxY, Math.max(minY, to.y)),
+        };
+      }
+      continue;
+    }
+    const first = (min - origin) / delta;
+    const second = (max - origin) / delta;
+    // The endpoint leaves the inset bounds at the nearest boundary crossing.
+    exit = Math.min(exit, Math.max(first, second));
+  }
+  const t = Math.min(1, Math.max(0, exit));
+  return { x: from.x + dx * t, y: from.y + dy * t };
 }
 
 function earliestObstacleHit(from: Vec2, to: Vec2, env: ChargerEnvironment): Vec2 | undefined {
