@@ -4,10 +4,10 @@ import { createRunState } from '../src/gameplay/runState';
 
 class MockBody {
   velocity = { x: 0, y: 0 };
-
-  setCircle(): void {}
-
-  setCollideWorldBounds(): void {}
+  setCircle = vi.fn();
+  setCollideWorldBounds = vi.fn();
+  setPosition = vi.fn();
+  setSize = vi.fn();
 
   setVelocity(x: number, y: number): void {
     this.velocity = { x, y };
@@ -18,6 +18,7 @@ class MockArc {
   active = true;
   alpha = 1;
   body = new MockBody();
+  destroyCount = 0;
 
   constructor(
     public x: number,
@@ -57,6 +58,7 @@ class MockArc {
 
   destroy(): void {
     this.active = false;
+    this.destroyCount += 1;
   }
 }
 
@@ -91,7 +93,7 @@ async function createHarness(
     spawnY: 300,
   });
 
-  return { player, runState, sprite: circles[0], bus };
+  return { player, runState, sprite: circles[0], circles, bus };
 }
 
 describe('Player', () => {
@@ -187,5 +189,46 @@ describe('Player', () => {
     runState.status = 'won';
     player.takeEnvironmentalDamage(50);
     expect(player.health).toBe(100);
+  });
+
+  it('pins the exported body radius with exactly one construction-time setCircle', async () => {
+    const { PLAYER_BODY_RADIUS } = await import('../src/entities/Player');
+    expect(PLAYER_BODY_RADIUS).toBe(14);
+    const { sprite } = await createHarness();
+    expect(sprite.body.setCircle).toHaveBeenCalledTimes(1);
+    expect(sprite.body.setCircle).toHaveBeenCalledWith(PLAYER_BODY_RADIUS);
+    expect(sprite.body.setCollideWorldBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it('never lets presentation poses touch the body size or position APIs', async () => {
+    const { player, sprite } = await createHarness(650, { x: 1, y: 0 });
+
+    // Flips, movement toggles, and hurt-flash alpha changes across updates.
+    player.takeDamage(10);
+    player.update(16);
+    player.update(16);
+    player.takeDamage(10);
+    player.update(700);
+    player.update(16);
+
+    expect(sprite.body.setCircle).toHaveBeenCalledTimes(1);
+    expect(sprite.body.setPosition).not.toHaveBeenCalled();
+    expect(sprite.body.setSize).not.toHaveBeenCalled();
+    expect(sprite.alpha).toBe(1);
+  });
+
+  it('destroys view-owned layers and the body proxy exactly once', async () => {
+    const { player, circles } = await createHarness();
+    player.update(16);
+    player.takeDamage(10);
+
+    player.destroy();
+
+    // circles order: body, left ear, right ear, shadow.
+    expect(circles).toHaveLength(4);
+    for (const circle of circles) {
+      expect(circle.destroyCount).toBe(1);
+    }
+    expect(circles[0].active).toBe(false);
   });
 });

@@ -19,7 +19,9 @@ class MockGameObject {
   visible = true;
   destroyed = false;
   alpha = 1;
+  rotation = 0;
   body?: MockBody;
+  played: string[] = [];
 
   constructor(
     public x = 0,
@@ -52,6 +54,24 @@ class MockGameObject {
   setPosition(x: number, y: number): this {
     this.x = x;
     this.y = y;
+    return this;
+  }
+
+  setOrigin(): this {
+    return this;
+  }
+
+  setScale(): this {
+    return this;
+  }
+
+  setRotation(rotation: number): this {
+    this.rotation = rotation;
+    return this;
+  }
+
+  play(key: string): this {
+    this.played.push(key);
     return this;
   }
 
@@ -502,5 +522,103 @@ describe('WeaponSystem', () => {
       expect(sprite.destroyed).toBe(true);
     });
     expect(harness.system.allocatedProjectileCount).toBe(0);
+  });
+
+  describe('projectile art binding (Epic 13 §9.4)', () => {
+    const shotBinding = {
+      id: 'projectile:default',
+      kind: 'projectile',
+      textureKey: 'art-projectile-scrap-shot',
+      url: 'assets/projectiles/scrap-shot/scrap-shot.png',
+      frame: { width: 16, height: 16 },
+      displayDiameter: 8,
+      clips: { fly: { start: 0, end: 1, frameRate: 12 } },
+    } as const;
+
+    async function createArtProjectile() {
+      const { Projectile } = await import('../src/entities/Projectile');
+      const sprites: MockGameObject[] = [];
+      const scene = {
+        add: {
+          circle: (x: number, y: number) => {
+            const circle = new MockGameObject(x, y);
+            sprites.push(circle);
+            return circle;
+          },
+          sprite: () => {
+            const sprite = new MockGameObject();
+            sprites.push(sprite);
+            return sprite;
+          },
+        },
+        textures: { exists: (key: string) => key === shotBinding.textureKey },
+        anims: { exists: (key: string) => key === 'art:projectile:default:fly' },
+        physics: { add: { existing: (sprite: MockGameObject) => { sprite.body = new MockBody(sprite); } } },
+      };
+      const projectile = new Projectile(scene as never, 4, shotBinding);
+      const [circle, glow, artSprite] = sprites;
+      return { projectile, circle, glow, artSprite };
+    }
+
+    it('hides the circle and halo once and tracks the sprite with rotation', async () => {
+      const { projectile, circle, glow, artSprite } = await createArtProjectile();
+      expect(artSprite).toBeDefined();
+      expect(circle.visible).toBe(false);
+      expect(glow.visible).toBe(false);
+      expect(artSprite.visible).toBe(false);
+      expect(artSprite.played).toEqual(['art:projectile:default:fly']);
+
+      projectile.spawn(10, 20, { x: 0, y: -1 }, { speed: 300, damage: 5, range: 100, pierce: 0 });
+      expect(circle.visible).toBe(false);
+      expect(glow.visible).toBe(false);
+      expect(artSprite.active).toBe(true);
+      expect(artSprite.visible).toBe(true);
+      expect([artSprite.x, artSprite.y]).toEqual([10, 20]);
+      expect(artSprite.rotation).toBeCloseTo(-Math.PI / 2);
+      expect(circle.body?.velocity.y).toBeLessThan(0);
+
+      projectile.update(16);
+      expect([artSprite.x, artSprite.y]).toEqual([circle.x, circle.y]);
+    });
+
+    it('resets pooled art visibility and re-aims rotation on reuse', async () => {
+      const { projectile, artSprite } = await createArtProjectile();
+      projectile.spawn(10, 20, { x: 1, y: 0 }, { speed: 300, damage: 5, range: 100, pierce: 0 });
+      expect(artSprite.visible).toBe(true);
+
+      projectile.reset();
+      expect(artSprite.active).toBe(false);
+      expect(artSprite.visible).toBe(false);
+
+      projectile.spawn(30, 40, { x: 0, y: 1 }, { speed: 300, damage: 5, range: 100, pierce: 0 });
+      expect(artSprite.visible).toBe(true);
+      expect([artSprite.x, artSprite.y]).toEqual([30, 40]);
+      expect(artSprite.rotation).toBeCloseTo(Math.PI / 2);
+    });
+
+    it('keeps the geometric circle and halo when no binding is present', async () => {
+      const { Projectile } = await import('../src/entities/Projectile');
+      const circles: MockGameObject[] = [];
+      const scene = {
+        add: {
+          circle: (x: number, y: number) => {
+            const circle = new MockGameObject(x, y);
+            circles.push(circle);
+            return circle;
+          },
+          sprite: () => {
+            throw new Error('no sprite should be created without a binding');
+          },
+        },
+        textures: { exists: () => false },
+        anims: { exists: () => false },
+        physics: { add: { existing: (sprite: MockGameObject) => { sprite.body = new MockBody(sprite); } } },
+      };
+      const projectile = new Projectile(scene as never, 4, undefined);
+      expect(circles).toHaveLength(2);
+      projectile.spawn(0, 0, { x: 1, y: 0 }, { speed: 300, damage: 5, range: 100, pierce: 0 });
+      expect(circles[0].visible).toBe(true);
+      expect(circles[1].visible).toBe(true);
+    });
   });
 });
