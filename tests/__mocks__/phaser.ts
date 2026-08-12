@@ -9,7 +9,11 @@ export class MockGameObject {
   visible = true;
   destroyed = false;
   depth = 0;
+  alpha = 1;
   fillColor?: number;
+  strokeWidth = 0;
+  strokeColor?: number;
+  strokeAlpha = 0;
   body?: MockBody;
 
   constructor(
@@ -19,6 +23,18 @@ export class MockGameObject {
 
   setDepth(depth: number): this {
     this.depth = depth;
+    return this;
+  }
+
+  setAlpha(alpha: number): this {
+    this.alpha = alpha;
+    return this;
+  }
+
+  setStrokeStyle(width: number, color: number, alpha: number): this {
+    this.strokeWidth = width;
+    this.strokeColor = color;
+    this.strokeAlpha = alpha;
     return this;
   }
 

@@ -18,6 +18,7 @@ class MockGameObject {
   active = true;
   visible = true;
   destroyed = false;
+  alpha = 1;
   body?: MockBody;
 
   constructor(
@@ -26,6 +27,15 @@ class MockGameObject {
   ) {}
 
   setDepth(): this {
+    return this;
+  }
+
+  setAlpha(alpha: number): this {
+    this.alpha = alpha;
+    return this;
+  }
+
+  setStrokeStyle(): this {
     return this;
   }
 

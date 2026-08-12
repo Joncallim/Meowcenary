@@ -5,6 +5,7 @@ class MockGameObject {
   visible = true;
   destroyed = false;
   fillColor = 0;
+  alpha = 1;
   depth = 0;
   body: unknown = undefined;
 
@@ -15,6 +16,15 @@ class MockGameObject {
 
   setDepth(depth: number): this {
     this.depth = depth;
+    return this;
+  }
+
+  setAlpha(alpha: number): this {
+    this.alpha = alpha;
+    return this;
+  }
+
+  setStrokeStyle(): this {
     return this;
   }
 

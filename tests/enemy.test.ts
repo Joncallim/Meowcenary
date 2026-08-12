@@ -22,6 +22,7 @@ class MockBody {
 
 class MockArc {
   active = true;
+  alpha = 1;
   body: MockBody | undefined;
 
   constructor(
@@ -32,6 +33,33 @@ class MockArc {
   }
 
   setDepth(): this {
+    return this;
+  }
+
+  setAlpha(alpha: number): this {
+    this.alpha = alpha;
+    return this;
+  }
+
+  setStrokeStyle(): this {
+    return this;
+  }
+
+  setPosition(x: number, y: number): this {
+    this.x = x;
+    this.y = y;
+    return this;
+  }
+
+  setVisible(): this {
+    return this;
+  }
+
+  setActive(): this {
+    return this;
+  }
+
+  setFillStyle(): this {
     return this;
   }
 
@@ -56,7 +84,7 @@ function enemyDefinition(): ResolvedEnemyDefinition {
   };
 }
 
-describe('Enemy', () => {
+  describe('Enemy', () => {
   async function createEnemy(
     bus = createEventBus(),
     definition = enemyDefinition(),
@@ -65,9 +93,15 @@ describe('Enemy', () => {
     sprite: MockArc;
   }> {
     const { Enemy } = await import('../src/entities/Enemy');
-    const sprite = new MockArc(10, 20);
+    const circles: MockArc[] = [];
     const scene = {
-      add: { circle: () => sprite },
+      add: {
+        circle: (x: number, y: number) => {
+          const arc = new MockArc(x, y);
+          circles.push(arc);
+          return arc;
+        },
+      },
       physics: { add: { existing: () => undefined } },
     };
     return {
@@ -78,7 +112,7 @@ describe('Enemy', () => {
         20,
         bus,
       ),
-      sprite,
+      sprite: circles[0],
     };
   }
 
