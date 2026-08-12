@@ -303,7 +303,7 @@ describe('ControlsView pause button', () => {
     expect(onPauseRequested).toHaveBeenCalledTimes(1);
   });
 
-  it('destroy removes the listener, disables interactivity, and destroys every object', () => {
+  it('destroy removes the listener and destroys every object', () => {
     const { scene, view, onPauseRequested } = createHarness();
     const pauseButton = scene.objects[3];
 
@@ -311,7 +311,6 @@ describe('ControlsView pause button', () => {
     pauseButton.emit('pointerdown');
 
     expect(onPauseRequested).not.toHaveBeenCalled();
-    expect(pauseButton.state.interactive).toBe(false);
     expect(scene.objects.every((object) => object.state.destroyed)).toBe(true);
 
     // Double destroy is a no-op.

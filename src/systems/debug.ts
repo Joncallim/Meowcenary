@@ -45,6 +45,35 @@ export class DebugOverlay {
   }
 }
 
+/** Development-only physics diagnostics opt-in. First value wins. */
+export function physicsDebugEnabled(search: string, isDev: boolean): boolean {
+  if (!isDev) return false;
+  try {
+    return new URLSearchParams(search).get('physicsdebug') === '1';
+  } catch {
+    return false;
+  }
+}
+
+export interface PhysicsDebugWorld {
+  drawDebug: boolean;
+  debugGraphic?: {
+    setVisible(visible: boolean): unknown;
+    clear(): unknown;
+  };
+  createDebugGraphic(): unknown;
+}
+
+/** Toggle without depending on Phaser's createDebugGraphic side effect. */
+export function togglePhysicsDebugWorld(world: PhysicsDebugWorld): boolean {
+  const next = !world.drawDebug;
+  if (!world.debugGraphic) world.createDebugGraphic();
+  world.drawDebug = next;
+  world.debugGraphic?.setVisible(next);
+  if (!next) world.debugGraphic?.clear();
+  return next;
+}
+
 export interface DebugFlags {
   readonly enabled: boolean;
   readonly godMode: boolean;
@@ -215,4 +244,3 @@ export class DebugCheatSystem implements System {
     this.runState.stats.remove(DEBUG_CHEAT_SOURCE);
   }
 }
-

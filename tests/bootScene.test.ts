@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { GAME_CONTEXT_REGISTRY_KEY, type GameContext } from '../src/engine/context';
 import { SceneKey } from '../src/engine/sceneKeys';
 import audioAssetsJson from '../src/data/audio-assets.json';
+import actorArtJson from '../src/data/actor-art.json';
 import { BootScene } from '../src/scenes/BootScene';
 import { AudioManager, AUDIO_MANAGER_REGISTRY_KEY } from '../src/systems/audio';
 
@@ -57,17 +58,20 @@ vi.mock('../src/systems/audio', async (importOriginal) => {
 function createFakeScene() {
   const registryValues = new Map<string, unknown>();
   const loadAudio = vi.fn();
+  const loadSpritesheet = vi.fn();
   const start = vi.fn();
   const scene = {
-    load: { audio: loadAudio },
+    load: { audio: loadAudio, spritesheet: loadSpritesheet },
     registry: { set: (key: string, value: unknown) => registryValues.set(key, value) },
     scene: { start },
     sound: {
       on: vi.fn(),
       off: vi.fn(),
     },
+    textures: { exists: vi.fn(() => false) },
+    anims: { exists: vi.fn(() => false), create: vi.fn(), generateFrameNumbers: vi.fn(), remove: vi.fn() },
   };
-  return { scene, loadAudio, start, registryValues };
+  return { scene, loadAudio, loadSpritesheet, start, registryValues };
 }
 
 function createBoot() {
@@ -79,7 +83,7 @@ function createBoot() {
 
 describe('BootScene audio wiring', () => {
   it('preloads every audio catalog row in [...sfx, ...music] order with exact key/url', () => {
-    const { boot, loadAudio } = createBoot();
+    const { boot, loadAudio, loadSpritesheet } = createBoot();
 
     boot.preload();
 
@@ -89,6 +93,11 @@ describe('BootScene audio wiring', () => {
     ]);
     expect(loadAudio).toHaveBeenCalledTimes(expected.length);
     expect(loadAudio.mock.calls).toEqual(expected);
+    expect(loadSpritesheet.mock.calls).toEqual(actorArtJson.bindings.map((binding) => [
+      binding.textureKey,
+      binding.url,
+      { frameWidth: binding.frame.width, frameHeight: binding.frame.height },
+    ]));
   });
 
   it('publishes the context first, then one initialized manager, then starts Menu', () => {

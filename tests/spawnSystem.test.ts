@@ -77,6 +77,7 @@ interface HarnessOptions {
   enemies?: unknown[];
   arena?: Record<string, unknown>;
   curve?: Record<string, unknown>;
+  actorArt?: unknown;
 }
 
 async function createHarness(options: HarnessOptions = {}) {
@@ -136,6 +137,7 @@ async function createHarness(options: HarnessOptions = {}) {
     enemyGroup as never,
     arenaFixture as never,
     curveFixture as never,
+    options.actorArt as never,
   );
 
   return { system, runState, bus, data, enemies, enemyGroup, player, overlap };
@@ -183,6 +185,26 @@ describe('SpawnSystem', () => {
       x: enemy.pos.x,
       y: enemy.pos.y,
     });
+  });
+
+  it('builds one frozen environment and reuses its identity for every spawned enemy', async () => {
+    const obstacle = { x: 100, y: 120, w: 30, h: 40 };
+    const harness = await createHarness({
+      arena: {
+        id: 'test', name: 'Test', size: { width: 390, height: 844 },
+        spawnCurveId: 'curve', spawnRegions: [{ kind: 'edges', margin: 28 }],
+        obstacles: [obstacle], hazards: [], unlock: { type: 'default' },
+      },
+    });
+
+    harness.system.update(3_200);
+    const spawned = harness.enemies as Array<{ environment?: unknown }>;
+    const firstEnvironment = spawned[0].environment;
+    expect(firstEnvironment).toBeDefined();
+    expect(spawned[1].environment).toBe(firstEnvironment);
+    expect(Object.isFrozen(firstEnvironment)).toBe(true);
+    expect(Object.isFrozen((firstEnvironment as { obstacles: unknown[] }).obstacles[0])).toBe(true);
+    expect((firstEnvironment as { obstacles: Array<{ x: number }> }).obstacles[0]).not.toBe(obstacle);
   });
 
   it('scales batched spawns from stable snapshots at each exact cadence timestamp', async () => {

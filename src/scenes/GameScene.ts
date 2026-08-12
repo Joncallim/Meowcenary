@@ -22,6 +22,7 @@ import {
   debugCheatsActive,
   getDebugFlags,
   scaleSpawnCurveIntervals,
+  togglePhysicsDebugWorld,
 } from '../systems/debug';
 import { DropSystem } from '../systems/DropSystem';
 import { InputController } from '../systems/input';
@@ -51,6 +52,7 @@ import { createDpsMeter, type DpsMeter } from '../gameplay/metrics';
 import { createPerfSampler, type PerfSampler } from '../gameplay/perf';
 import { PlaytestSummarySystem } from '../systems/playtestSummary';
 import { FeedbackSystem, PhaserFeedbackRenderer } from '../systems/feedback';
+import { DataActorArtRegistry } from '../systems/actorArt';
 
 export class GameScene extends Phaser.Scene {
   private debugOverlay?: DebugOverlay;
@@ -93,6 +95,7 @@ export class GameScene extends Phaser.Scene {
     const { width } = this.scale;
     const ctx = this.getContext();
     const request = assembleRunRequest(ctx, ctx.menuRng);
+    const actorArt = new DataActorArtRegistry(ctx.data);
 
     const arena = ctx.arenas.arenaById(request.arenaId);
     if (!arena) {
@@ -166,7 +169,7 @@ export class GameScene extends Phaser.Scene {
       invulnerabilityMs: RuntimeConfig.gameplay.player.invulnerabilityMs,
       spawnX: arena.size.width / 2,
       spawnY: arena.size.height / 2,
-    });
+    }, actorArt.bindingById(`character:${request.characterId}`));
 
     if (arena.size.width > this.scale.width || arena.size.height > this.scale.height) {
       this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
@@ -228,6 +231,7 @@ export class GameScene extends Phaser.Scene {
       dropRadius: RuntimeConfig.gameplay.drop.radius,
       magnetSpeed: RuntimeConfig.gameplay.drop.magnetSpeed,
       basePickupRadius: RuntimeConfig.gameplay.player.pickupRadius,
+      xpArt: actorArt.bindingById('drop:xp'),
     });
     this.upgradeSystem = new UpgradeSystem({
       runState: this.runState,
@@ -274,6 +278,7 @@ export class GameScene extends Phaser.Scene {
       this.enemyGroup,
       weaponRegistry,
       RuntimeConfig.gameplay.projectile.radius,
+      actorArt.bindingById('projectile:default'),
     );
     this.feedbackSystem = new FeedbackSystem({
       bus: ctx.bus,
@@ -297,7 +302,7 @@ export class GameScene extends Phaser.Scene {
         character,
         handlers: createPassiveHandlerRegistry(DEFAULT_PASSIVE_HANDLERS),
       }),
-      new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup, arena, directorCurve),
+      new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup, arena, directorCurve, actorArt),
       new HazardSystem({
         scene: this,
         runState: this.runState,
@@ -336,6 +341,7 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-P', this.handlePauseKey, this);
     this.input.keyboard?.on('keydown-ESC', this.handlePauseKey, this);
     if (RuntimeConfig.isDev) {
+      this.input.keyboard?.on('keydown-F4', this.togglePhysicsDebug, this);
       this.input.keyboard?.on('keydown-F8', this.forceLoseRun, this);
       this.input.keyboard?.on('keydown-F9', this.forceWinRun, this);
       this.input.keyboard?.on('keydown-F10', this.spawnChestDev, this);
@@ -421,6 +427,7 @@ export class GameScene extends Phaser.Scene {
       : 'Frame: --';
     this.debugOverlay?.update([
       `dtMs: ${delta.toFixed(2)}`,
+      `PhysDebug: ${this.physics.world.drawDebug ? 'on' : 'off'}`,
       perfLine,
       `Run: ${runState.status} ${Math.floor(runState.timeMs / 1000)}s`,
       `Level: ${runState.level} XP: ${runState.xp.toFixed(1)}/${runState.xpToNext}`,
@@ -446,6 +453,7 @@ export class GameScene extends Phaser.Scene {
     this.unsubscribers = [];
     this.input.keyboard?.off('keydown-P', this.handlePauseKey, this);
     this.input.keyboard?.off('keydown-ESC', this.handlePauseKey, this);
+    this.input.keyboard?.off('keydown-F4', this.togglePhysicsDebug, this);
     this.input.keyboard?.off('keydown-F8', this.forceLoseRun, this);
     this.input.keyboard?.off('keydown-F9', this.forceWinRun, this);
     this.input.keyboard?.off('keydown-F10', this.spawnChestDev, this);
@@ -587,6 +595,12 @@ export class GameScene extends Phaser.Scene {
     }
 
     endRun(runState, 'lost', this.getContext().bus);
+  }
+
+  private togglePhysicsDebug(): void {
+    if (!RuntimeConfig.isDev) return;
+    const next = togglePhysicsDebugWorld(this.physics.world);
+    console.info(`[physics-debug] ${next ? 'on' : 'off'}`);
   }
 
   private forceWinRun(): void {

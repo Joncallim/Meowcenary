@@ -1,7 +1,7 @@
 # Meowcenary Knowledge Graph
 
 > Token-optimized repo map. Read this before any implementation work.
-> Current state: **Epics 0–12 complete**. Epic 10 merged in two delivery PRs:
+> Current state: **Epics 0–13 complete; Epic 13 merged in PR #79**. Epic 10 merged in two delivery PRs:
 > #65 (slices 1–2: audio data/events + game-scoped `AudioManager`) and #68
 > (slices 3–5: `settings:changed` wiring, Boot-owned manager publication,
 > scene lifecycle wiring, exactly-one `ui:*` command events, deterministic
@@ -11,7 +11,9 @@
 > playtest summary, tuning guide, and closeout). Epic 12 merged in PR #71:
 > generic pooling, projectile/drop reuse, event-driven combat feedback,
 > reduced-motion policy, fixed-window `PerfSampler`, F3 diagnostics, and
-> FIT-responsive sizing. 1184 tests / 80 files green.
+> FIT-responsive sizing. Epic 13 added the presentation runtime, actor-art
+> catalog #11, seven Pixelorama assets, opt-in physics diagnostics, and charger
+> clipping. 1216 tests / 83 files green locally.
 
 ## Stack
 
@@ -26,15 +28,15 @@ Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly
 |-----|--------|-------|----------|
 | `src/engine/` | ✅ | **No Phaser** (pure, unit-tested) | `config` `eventBus` `rng` `vector` `cadence` `context` `sceneKeys` `system` `pool` `motion` |
 | `src/gameplay/` | ✅ | **No Phaser** (pure rules) | `runState` `runStart` `runRequest` `stats` `xp` `targeting` `weapons` `weaponStats` `merge` `upgrades` `levelUpQueue` `projectilePattern` `enemyMovement` `enemyScaling` `spawnDirector` `spawnRegion` `loot` `meta` `characterSelection` `characterContribution` `characterPassives` `arenaSelection` `metrics` `perf` |
-| `src/entities/` | ✅ | May use Phaser (display objects) | `Player` `Enemy` `Projectile` `Drop` |
-| `src/systems/` | ✅ | May use Phaser (coordinators) | `types` `validation` `save` `input` `audio` `debug` `ids` `enemies` `characters` `arenas` `lootTables` `metaUpgrades` `weaponRegistry` `SpawnSystem` `WeaponSystem` `UpgradeSystem` `DropSystem` `ProgressionSystem` `PassiveCoordinator` `HazardSystem` `arenaScenery` `playtestSummary` `feedback` |
+| `src/entities/` | ✅ | May use Phaser (display objects) | `Player` `Enemy` `Projectile` `Drop` `actorView` |
+| `src/systems/` | ✅ | May use Phaser (coordinators) | `types` `validation` `save` `input` `audio` `debug` `actorArt` `ids` `enemies` `characters` `arenas` `lootTables` `metaUpgrades` `weaponRegistry` `SpawnSystem` `WeaponSystem` `UpgradeSystem` `DropSystem` `ProgressionSystem` `PassiveCoordinator` `HazardSystem` `arenaScenery` `playtestSummary` `feedback` |
 | `src/scenes/` | ✅ | Thin coordinators only | `BootScene` `MenuScene` `GameScene` |
 | `src/ui/` | ✅ | May use Phaser | `UpgradeChooser` `upgradeChooserController` `upgradeChooserLayout` `characterSelectionController` `arenaSelectionController` `progressionController` `pause` `runSummary` `menus` `settings` `hud` `controls` `inventory` `modal` `layout` `theme` `format` |
-| `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` `loot-tables` `audio-assets` `audio-map` |
+| `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` `loot-tables` `audio-assets` `audio-map` `actor-art` |
 | `scripts/` | ✅ | Node 18+ built-ins only, deterministic | `generate-audio-placeholders.mjs` |
 | `public/assets/audio/` | ✅ | 14 committed deterministic WAVs (12 SFX + 2 music) | one `.wav` per `audio-assets.json` key |
-| `tests/` | ✅ 1184 tests | Vitest; mock Phaser via `vi.mock` | 80 files incl. integration harnesses |
-| `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..12}-*.md` |
+| `tests/` | ✅ 1216 tests | Vitest; mock Phaser via `vi.mock` | 83 files incl. integration harnesses |
+| `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..13}-*.md` |
 
 Epic 8 Slices 1–5 added `src/data/loot-tables.json`, `src/gameplay/loot.ts`,
 and `src/systems/lootTables.ts` (Slices 1–2). Slice 3 added `src/entities/Drop.ts`;
@@ -50,12 +52,22 @@ combat feedback and reduced-motion gating; extended F3 with sampled frame health
 and active/allocated counts; and fed `ScaleManager.displaySize` into
 `logicalCanvasViewport`.
 
-## Runtime Shape (after Epic 10/11)
+Epic 13 added `src/entities/actorView.ts`, `src/systems/actorArt.ts`, and
+`src/data/actor-art.json`; Boot preloads seven spritesheets and registers
+namespaced animations once, while physics arcs stay authoritative and hidden
+only when art is available. Pixelorama 1.2 sources live under `assets-src/`,
+deterministic builders/export tooling under `docs/art/scripts/`, and runtime
+PNG/JSON sheets under `public/assets/`. F4/`?physicsdebug=1` are development-only
+diagnostics; pure charger motion clamps dashes to inset bounds and expanded
+obstacle AABBs without tunneling.
+
+## Runtime Shape (after Epic 13)
 
 ```
 main.ts → Phaser.Game([BootScene, MenuScene, GameScene])
-BootScene: preload() loads every audio-assets.json URL (best-effort)
-           → loadGameData() (10 catalogs, fail-closed) → registries
+BootScene: preload() loads audio plus seven actor-art spritesheets (best-effort)
+           → loadGameData() (11 catalogs, fail-closed) → registries
+           → register namespaced actor animations once
            (characters, arenas, metaUpgrades) → createGameContext → registry
            → one AudioManager(this) init(ctx.bus, ctx.settings, ctx.data.audio)
            → registry[AUDIO_MANAGER_REGISTRY_KEY] → start MenuScene
@@ -194,6 +206,7 @@ existing event covers it (Epic 8 adds none — it extends one payload).
 | 10 | ✅ | Merged: #65 (slices 1–2, data/events + `AudioManager`) + #68 (slices 3–5, wiring/`ui:*`/placeholders); see `epic-10-audio.md` + `epic-10-audio-remainder.md` |
 | 11 | ✅ | Merged: #66 (slices 1–2, aggregate validation + curve helpers) + #70 (slices 3–5, dev cheats + metrics + playtest summary); see `epic-11-balancing-and-developer-tooling.md` + `epic-11-remainder.md` |
 | 12 | ✅ | Merged: PR #71 (polish + performance: pooling, feedback, reduced motion, perf sampler, responsive sizing); see `epic-12-polish-and-performance.md` |
+| 13 | ✅ | Merged: PR #79 (actor-view seam, catalog #11, seven Pixelorama assets, opt-in physics debug, deterministic charger clipping); see `epic-13-presentation-runtime.md` |
 
 ## First Steps for Any Agent
 

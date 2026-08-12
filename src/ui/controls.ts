@@ -97,7 +97,6 @@ export class ControlsView {
     }
     this.disposed = true;
     this.pauseButton.off('pointerdown', this.handlePausePointerDown, this);
-    this.pauseButton.disableInteractive();
     this.stickBase.destroy();
     this.stickThumb.destroy();
     this.hintText.destroy();

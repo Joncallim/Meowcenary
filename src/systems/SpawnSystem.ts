@@ -2,7 +2,7 @@ import type { GameContext } from '../engine/context';
 import type { Rng } from '../engine/rng';
 import type { System } from '../engine/system';
 import type { RunState } from '../gameplay/runState';
-import { Enemy } from '../entities/Enemy';
+import { Enemy, ENEMY_BODY_RADIUS } from '../entities/Enemy';
 import type { Player } from '../entities/Player';
 import { scaleEnemy } from '../gameplay/enemyScaling';
 import {
@@ -13,11 +13,14 @@ import {
 import { spawnPoint } from '../gameplay/spawnRegion';
 import { DataEnemyRegistry } from './enemies';
 import type { ArenaDefinition, EnemyScalingDefinition, SpawnableEnemyDefinition, SpawnCurveDefinition } from './types';
+import type { ActorArtLookup } from './actorArt';
+import type { ChargerEnvironment } from '../gameplay/enemyMovement';
 
 export class SpawnSystem implements System {
   private readonly registry?: DataEnemyRegistry;
   private readonly director?: SpawnDirector;
   private readonly scaling?: EnemyScalingDefinition;
+  private readonly environment: ChargerEnvironment;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -29,10 +32,16 @@ export class SpawnSystem implements System {
     private readonly enemyGroup: Phaser.Physics.Arcade.Group,
     private readonly arena: Readonly<ArenaDefinition>,
     curve: Readonly<SpawnCurveDefinition>,
+    private readonly actorArt?: ActorArtLookup,
   ) {
     this.registry = new DataEnemyRegistry(this.ctx.data);
     this.director = createSpawnDirector(curve, this.rng);
     this.scaling = Object.freeze(structuredClone(curve.scaling));
+    this.environment = deepFreeze({
+      bounds: { x: 0, y: 0, width: arena.size.width, height: arena.size.height },
+      obstacles: structuredClone(arena.obstacles),
+      bodyRadius: ENEMY_BODY_RADIUS,
+    });
     this.scene.physics.add.overlap(
       this.player.sprite,
       this.enemyGroup,
@@ -99,6 +108,8 @@ export class SpawnSystem implements System {
       request.pos.x,
       request.pos.y,
       this.ctx.bus,
+      this.actorArt?.bindingById(`enemy:${definition.id}`),
+      this.environment,
     );
     this.enemies.push(enemy);
     this.enemyGroup.add(enemy.sprite);
@@ -124,6 +135,12 @@ export class SpawnSystem implements System {
     }
     this.player.takeDamage(enemy.definition.damage);
   }
+}
+
+function deepFreeze<T>(value: T): T {
+  if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return value;
+  for (const child of Object.values(value)) deepFreeze(child);
+  return Object.freeze(value);
 }
 
 function unwrapGameObject(value: unknown): unknown {

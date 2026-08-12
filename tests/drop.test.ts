@@ -7,7 +7,9 @@ class MockGameObject {
   fillColor = 0;
   alpha = 1;
   depth = 0;
+  scaleValue = 1;
   body: unknown = undefined;
+  played: string[] = [];
 
   constructor(
     public x = 0,
@@ -46,6 +48,20 @@ class MockGameObject {
 
   setFillStyle(color: number): this {
     this.fillColor = color;
+    return this;
+  }
+
+  setOrigin(): this {
+    return this;
+  }
+
+  setScale(scale: number): this {
+    this.scaleValue = scale;
+    return this;
+  }
+
+  play(key: string): this {
+    this.played.push(key);
     return this;
   }
 
@@ -297,5 +313,78 @@ describe('Drop', () => {
     drop.update(16, { x: 3, y: 4 }, 10, 100);
 
     expect(drop.body.velocity).toEqual({ x: 0, y: 0 });
+  });
+
+  describe('xp art binding (Epic 13 §9.4)', () => {
+    const xpBinding = {
+      id: 'drop:xp',
+      kind: 'drop',
+      textureKey: 'art-drop-xp-mote',
+      url: 'assets/pickups/xp-mote/xp-mote.png',
+      frame: { width: 16, height: 16 },
+      displayDiameter: 16,
+      clips: { idle: { start: 0, end: 3, frameRate: 8 } },
+    } as const;
+
+    async function createArtDrop() {
+      const { Drop } = await import('../src/entities/Drop');
+      const sprites: MockGameObject[] = [];
+      const scene = {
+        add: {
+          circle: (x: number, y: number) => new MockArc(x, y),
+          sprite: () => {
+            const sprite = new MockGameObject();
+            sprites.push(sprite);
+            return sprite;
+          },
+        },
+        textures: { exists: (key: string) => key === xpBinding.textureKey },
+        anims: { exists: (key: string) => key === 'art:drop:xp:idle' },
+        physics: { add: { existing: () => undefined } },
+      };
+      const drop = new Drop(scene as never, 8, xpBinding);
+      return { drop, sprite: sprites[0], circles: sprites as MockGameObject[] };
+    }
+
+    it('shows the sprite for xp and the geometric circle for scrap and chest', async () => {
+      const { drop, sprite } = await createArtDrop();
+      expect(sprite).toBeDefined();
+      expect(sprite.visible).toBe(false);
+      expect(sprite.played).toEqual(['art:drop:xp:idle']);
+
+      drop.spawn(10, 20, 'xp', 5);
+      expect(drop.sprite.visible).toBe(false);
+      expect(sprite.active).toBe(true);
+      expect(sprite.visible).toBe(true);
+      expect([sprite.x, sprite.y]).toEqual([10, 20]);
+
+      drop.spawn(11, 21, 'scrap', 5);
+      expect(drop.sprite.visible).toBe(true);
+      expect(sprite.visible).toBe(false);
+
+      drop.spawn(12, 22, 'chest', 5);
+      expect(drop.sprite.visible).toBe(true);
+      expect(sprite.visible).toBe(false);
+    });
+
+    it('keeps pooled reuse free of stale art visibility and tears art down once', async () => {
+      const { drop, sprite } = await createArtDrop();
+
+      drop.spawn(1, 2, 'xp', 5);
+      drop.reset();
+      expect(sprite.visible).toBe(false);
+
+      drop.spawn(3, 4, 'scrap', 5);
+      expect(sprite.visible).toBe(false);
+      drop.reset();
+
+      drop.spawn(5, 6, 'xp', 5);
+      expect(sprite.visible).toBe(true);
+      expect([sprite.x, sprite.y]).toEqual([5, 6]);
+
+      drop.destroy();
+      expect(sprite.destroyed).toBe(true);
+      expect((drop.sprite as unknown as MockArc).destroyed).toBe(true);
+    });
   });
 });
