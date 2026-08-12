@@ -291,6 +291,12 @@ function segmentAabbHit(
     exit = Math.min(exit, Math.max(first, second));
     if (enter > exit) return undefined;
   }
+  // A segment starting exactly on the boundary reports enter = 0 with
+  // exit ≈ 0 while moving OUT of the AABB: it is leaving a resting contact,
+  // not colliding. Only treat zero-time contact as a hit when the segment
+  // moves into (or stays inside) the AABB — otherwise a charger resting on an
+  // obstacle face from a prior collision is pinned into an instant-idle loop.
+  if (enter === 0 && exit <= 1e-6) return undefined;
   return enter >= 0 && enter <= 1 ? enter : undefined;
 }
 

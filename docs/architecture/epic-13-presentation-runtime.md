@@ -1161,12 +1161,20 @@ Status: **implementation complete — READY**.
      `setPosition`/`setSize` calls across pose sequences, and single-owner
      teardown of view layers and the body proxy. Slice 4 drop/projectile
      art-gating and pooled-reuse visibility tests were added as well.
-- exact final test count / files: 1215 / 83.
+  4. Codex connector P2 review comment (PR #79): a dash starting exactly on an
+     expanded obstacle boundary while pointing away from the obstacle reported
+     a spurious t=0 collision (`enter` starts at 0, so boundary points read as
+     inside), pinning the charger into an instant-idle loop. Zero-time contact
+     is now only treated as a hit when the segment moves into (or stays inside)
+     the AABB; outward motion from a resting contact is free to leave.
+     Regression-pinned with an on-boundary outward/inward pair.
+- exact final test count / files: 1216 / 83.
 - shuffled/repeated result: seeds 1301, 1302, and 1303 each passed 1201 / 83
   before the final prop-animation unit pin; seed 1304 and the final unshuffled
   suite each passed 1202 / 83. After the independent review fixes, the full
   suite passed 1215 / 83 and the shuffled rerun (seeds 1401, 1402, 1403)
-  passed 1215 / 83 each.
+  passed 1215 / 83 each; the Codex-comment fix brought the final suite to
+  1216 / 83 with the same shuffled seeds passing 1216 / 83 each.
 - lint/typecheck: pass (`tsc --noEmit`).
 - build: pass (Vite production build; 103 modules).
 - `git diff --check`: pass.

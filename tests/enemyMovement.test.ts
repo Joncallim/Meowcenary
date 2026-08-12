@@ -218,6 +218,39 @@ describe('enemy movement', () => {
     expect(chunked).toEqual(result);
   });
 
+  it('lets a dash starting on the expanded boundary move away from the obstacle', () => {
+    // A charger that stopped at a prior collision rests exactly on the
+    // expanded AABB face. A new dash pointing away from the obstacle must not
+    // re-report that resting contact as a collision (enter starts at 0 and
+    // boundary points read as inside): it would pin the charger into an
+    // instant-idle loop.
+    const env = {
+      bounds: { x: 0, y: 0, width: 300, height: 100 },
+      obstacles: [{ x: 100, y: 40, w: 20, h: 20 }],
+      bodyRadius: 13,
+    };
+    const onBoundary: ChargerMovementSnapshot = {
+      pos: { x: 87, y: 50 }, state: 'attacking', stateTimerMs: 600,
+      dashDirection: { x: -1, y: 0 }, dashOrigin: { x: 87, y: 50 },
+    };
+    const leaving = chargerStep(onBoundary, { x: 0, y: 50 }, charger, 50, env);
+    expect(leaving.state).toBe('attacking');
+    // 50ms consumed → 150ms elapsed dash → 39px traveled from the origin.
+    expect(leaving.pos.x).toBeCloseTo(87 - 260 * (150 / 1_000));
+    expect(leaving.pos.y).toBe(50);
+
+    // Dashing into the obstacle it is already touching still stops at once.
+    const entering = chargerStep(
+      { ...onBoundary, dashDirection: { x: 1, y: 0 } },
+      { x: 200, y: 50 },
+      charger,
+      50,
+      env,
+    );
+    expect(entering.state).toBe('idle');
+    expect(entering.pos).toEqual({ x: 87, y: 50 });
+  });
+
   it('rejects invalid charger timing and movement inputs', () => {
     expect(() => chargerStep(pursuing(), { x: 1, y: 1 }, charger, Number.NaN)).toThrow();
     expect(() =>
