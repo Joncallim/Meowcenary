@@ -21,6 +21,12 @@
 - Epic 12 / Polish and Performance: complete — generic pooling, projectile/drop
   reuse, event-driven combat feedback, reduced-motion policy, `PerfSampler`, F3
   diagnostics, and FIT-responsive sizing merged in PR #71 (#13).
+- Epic 13 / Presentation Runtime and Physics Stability: architecture ready (#72) —
+  physics-debug opt-in, the actor-view presentation seam, the `actor-art.json`
+  catalog, Aseprite-produced proving sprites for every current actor plus one
+  projectile and one pickup, and charger environment clipping; architecture in
+  [`architecture/epic-13-presentation-runtime.md`](architecture/epic-13-presentation-runtime.md);
+  delivery on the single branch `agent/epic-13-presentation-runtime`.
 
 Epic 7 was implemented in the consolidated PR #51 and merged.
 Epic 8 is complete: Slices 1–5 merged in PRs #58–62, implementing the

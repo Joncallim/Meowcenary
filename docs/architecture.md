@@ -83,6 +83,7 @@ Epic-specific data contracts:
 - [Epic 11: balancing and developer tooling](architecture/epic-11-balancing-and-developer-tooling.md)
 - [Epic 11 issue #69 delivery handoff](architecture/epic-11-remainder.md)
 - [Epic 12: polish and performance](architecture/epic-12-polish-and-performance.md)
+- [Epic 13: presentation runtime and physics stability](architecture/epic-13-presentation-runtime.md)
 
 The Epic 5 document is the implementation source of truth for save V2,
 permanent modifier ordering, finished-run banking, and the Epics 6/8/9
@@ -138,6 +139,11 @@ an evidence-gated decision to defer enemy pooling, and FIT-based
 responsive/browser verification. It supersedes issue #13 where that older wording
 would otherwise allow gameplay entity caps or speculative enemy pooling to change
 current combat/economy semantics.
+The Epic 13 document is the implementation source of truth for physics-debug
+diagnostics gating, the actor-view presentation boundary, body-dimension
+invariants, the actor-art catalog and Aseprite asset pipeline, and charger
+environment clipping. It supersedes issue #72 where that wording predates the
+live presentation, pooling, and debug seams.
 
 ## AI Handoff Pattern
 
