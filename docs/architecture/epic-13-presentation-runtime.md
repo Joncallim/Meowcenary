@@ -1146,10 +1146,27 @@ Status: **implementation complete — READY**.
   actor-view leaks after the cleanup fix.
 - review-fix findings: F4 first-toggle inversion, obstacle leftover-time loss,
   one-frame player-facing lag, and shutdown cleanup fault found and fixed.
-- exact final test count / files: 1202 / 83.
+- independent review-fix findings (review pass on the implementation head):
+  1. Charger dash wall-corner overlap — the per-axis bounds clamp could pull a
+     dash endpoint off the dash line and inside an expanded obstacle AABB the
+     trajectory never crossed. Fixed with a parametric clamp along the dash
+     line plus obstacle testing of the effective segment; regression-pinned
+     (single-tick and chunked, no-tunneling assertions).
+  2. Enemy presentation wiring — chargers showed the idle clip while pursuing
+     (velocity is always zeroed by `body.reset`) and winding did not face the
+     target. Fixed by driving the run clip from observed displacement and
+     resolving winding facing from the target; pinned by sprite-view tests.
+  3. Missing Slice 2 entity pins added: exported body-radius constants with
+     exactly one construction-time `setCircle`, no view-issued
+     `setPosition`/`setSize` calls across pose sequences, and single-owner
+     teardown of view layers and the body proxy. Slice 4 drop/projectile
+     art-gating and pooled-reuse visibility tests were added as well.
+- exact final test count / files: 1215 / 83.
 - shuffled/repeated result: seeds 1301, 1302, and 1303 each passed 1201 / 83
   before the final prop-animation unit pin; seed 1304 and the final unshuffled
-  suite each passed 1202 / 83.
+  suite each passed 1202 / 83. After the independent review fixes, the full
+  suite passed 1215 / 83 and the shuffled rerun (seeds 1401, 1402, 1403)
+  passed 1215 / 83 each.
 - lint/typecheck: pass (`tsc --noEmit`).
 - build: pass (Vite production build; 103 modules).
 - `git diff --check`: pass.
@@ -1170,5 +1187,6 @@ Status: **implementation complete — READY**.
   head.
 - Issue #72 closure: PR #79 retains `Closes #72` and will close it on merge.
 - final verdict: **READY** — all implementable acceptance gates pass, shipped
-  art and runtime are complete, and the honest manual limitations above do not
-  block this obstacle-free proving arena.
+  art and runtime are complete, the independent review fixes above are
+  regression-pinned and gate-green, and the honest manual limitations above do
+  not block this obstacle-free proving arena.

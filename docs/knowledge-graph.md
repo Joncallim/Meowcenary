@@ -13,7 +13,7 @@
 > reduced-motion policy, fixed-window `PerfSampler`, F3 diagnostics, and
 > FIT-responsive sizing. Epic 13 added the presentation runtime, actor-art
 > catalog #11, seven Pixelorama assets, opt-in physics diagnostics, and charger
-> clipping. 1202 tests / 83 files green locally.
+> clipping. 1215 tests / 83 files green locally.
 
 ## Stack
 
@@ -35,7 +35,7 @@ Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly
 | `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` `loot-tables` `audio-assets` `audio-map` `actor-art` |
 | `scripts/` | ✅ | Node 18+ built-ins only, deterministic | `generate-audio-placeholders.mjs` |
 | `public/assets/audio/` | ✅ | 14 committed deterministic WAVs (12 SFX + 2 music) | one `.wav` per `audio-assets.json` key |
-| `tests/` | ✅ 1202 tests | Vitest; mock Phaser via `vi.mock` | 83 files incl. integration harnesses |
+| `tests/` | ✅ 1215 tests | Vitest; mock Phaser via `vi.mock` | 83 files incl. integration harnesses |
 | `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..13}-*.md` |
 
 Epic 8 Slices 1–5 added `src/data/loot-tables.json`, `src/gameplay/loot.ts`,
