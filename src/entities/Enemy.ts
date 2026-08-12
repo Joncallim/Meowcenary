@@ -73,6 +73,7 @@ export class Enemy implements EnemyInstance {
   private dashDirection: Vec2 = { x: 0, y: 0 };
   private dashOrigin: Vec2 = { x: 0, y: 0 };
   private facing: 1 | -1 = 1;
+  private presentationPos: Vec2 | undefined;
 
   constructor(
     scene: Phaser.Scene,
@@ -188,7 +189,9 @@ export class Enemy implements EnemyInstance {
       this.dashDirection = result.dashDirection;
       this.dashOrigin = result.dashOrigin;
       this.applyPosition(result.pos, dtMs, true);
-      this.syncPresentation(this.state === 'attacking');
+      // Charger dashes use body.reset, so velocity never reflects motion:
+      // the run clip is driven by actual displacement (dash or pursuit).
+      this.syncPresentation(this.state === 'attacking', player);
       return;
     }
 
@@ -255,11 +258,28 @@ export class Enemy implements EnemyInstance {
 
   /** Glue the display-only accent and ground shadow to the physics-driven
    *  body. Arcade physics integrates before the scene update, so the body
-   *  position read here is the rendered frame's position. */
-  private syncPresentation(moving: boolean): void {
-    const horizontal = this.state === 'attacking' ? this.dashDirection.x : this.body.velocity.x;
-    if (horizontal !== 0) this.facing = horizontal < 0 ? -1 : 1;
-    this.view.update({ x: this.x, y: this.y, facing: this.facing, moving, alpha: 1 });
+   *  position read here is the rendered frame's position.
+   *
+   *  Facing rules (Epic 13 §7.5): pursuit and idle face the velocity x;
+   *  winding is stationary but faces the target; attacking faces the dash
+   *  direction x. `moving` is the explicit state signal merged with observed
+   *  displacement so chargers (body.reset application, zero velocity) still
+   *  show the run clip while pursuing or dashing. */
+  private syncPresentation(moving: boolean, target?: Player): void {
+    if (this.state === 'attacking' && this.dashDirection.x !== 0) {
+      this.facing = this.dashDirection.x < 0 ? -1 : 1;
+    } else if (this.state === 'winding' && target) {
+      const horizontal = target.x - this.x;
+      if (horizontal !== 0) this.facing = horizontal < 0 ? -1 : 1;
+    } else if (this.body.velocity.x !== 0) {
+      this.facing = this.body.velocity.x < 0 ? -1 : 1;
+    }
+    const current = { x: this.x, y: this.y };
+    const moved = this.presentationPos
+      ? Math.hypot(current.x - this.presentationPos.x, current.y - this.presentationPos.y) > 0.01
+      : false;
+    this.presentationPos = current;
+    this.view.update({ x: current.x, y: current.y, facing: this.facing, moving: moving || moved, alpha: 1 });
   }
 
   private destroyPresentation(): void {

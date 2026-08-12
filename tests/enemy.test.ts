@@ -4,10 +4,11 @@ import type { ResolvedEnemyDefinition } from '../src/systems/types';
 
 class MockBody {
   velocity = { x: 0, y: 0 };
+  setCircle = vi.fn();
+  setPosition = vi.fn();
+  setSize = vi.fn();
 
   constructor(private readonly owner: MockArc) {}
-
-  setCircle(): void {}
 
   setVelocity(x: number, y: number): void {
     this.velocity = { x, y };
@@ -276,6 +277,167 @@ function enemyDefinition(): ResolvedEnemyDefinition {
     expect(fine.sprite.body?.velocity).toEqual({ x: 0, y: 0 });
   });
 
+  describe('presentation wiring (Epic 13 §7.5)', () => {
+    class SpriteNode {
+      flipX = false;
+      plays: string[] = [];
+
+      constructor(
+        public x: number,
+        public y: number,
+      ) {}
+
+      setDepth(): this {
+        return this;
+      }
+
+      setOrigin(): this {
+        return this;
+      }
+
+      setScale(): this {
+        return this;
+      }
+
+      setPosition(x: number, y: number): this {
+        this.x = x;
+        this.y = y;
+        return this;
+      }
+
+      setFlipX(value: boolean): this {
+        this.flipX = value;
+        return this;
+      }
+
+      setAlpha(): this {
+        return this;
+      }
+
+      play(key: string): this {
+        this.plays.push(key);
+        return this;
+      }
+
+      destroy(): void {}
+    }
+
+    const artBinding = {
+      id: 'enemy:test-charger',
+      kind: 'enemy',
+      textureKey: 'sheet',
+      url: 'assets/x.png',
+      frame: { width: 48, height: 48 },
+      displayDiameter: 26,
+      clips: {
+        idle: { start: 0, end: 3, frameRate: 6 },
+        run: { start: 4, end: 9, frameRate: 10 },
+      },
+    } as const;
+
+    async function createArtEnemy(
+      definition: ResolvedEnemyDefinition,
+      spawnX: number,
+    ): Promise<{ enemy: InstanceType<typeof import('../src/entities/Enemy').Enemy>; sprite: SpriteNode }> {
+      const { Enemy } = await import('../src/entities/Enemy');
+      const sprites: SpriteNode[] = [];
+      const scene = {
+        add: {
+          circle: (x: number, y: number) => new MockArc(x, y),
+          sprite: (x: number, y: number) => {
+            const sprite = new SpriteNode(x, y);
+            sprites.push(sprite);
+            return sprite;
+          },
+        },
+        textures: { exists: () => true },
+        anims: { exists: () => true },
+        physics: { add: { existing: () => undefined } },
+      };
+      return {
+        enemy: new Enemy(scene as never, definition, spawnX, 20, createEventBus(), artBinding),
+        sprite: sprites[0],
+      };
+    }
+
+    it('shows the run clip while a charger pursues and the idle clip once stopped', async () => {
+      const definition: ResolvedEnemyDefinition = {
+        id: 'test-charger',
+        name: 'Test Charger',
+        archetype: 'charger',
+        health: 10,
+        damage: 1,
+        speed: 100,
+        xpValue: 1,
+        scrapValue: 1,
+        contactDamage: true,
+        attack: {
+          triggerRange: 150,
+          telegraphMs: 650,
+          dashSpeed: 260,
+          dashDurationMs: 700,
+          cooldownMs: 1_200,
+        },
+      };
+      const { enemy, sprite } = await createArtEnemy(definition, 10);
+      expect(sprite.plays).toEqual(['art:enemy:test-charger:idle']);
+
+      // Far target: pursuit moves the charger each tick despite zeroed velocity.
+      enemy.update({ active: true, x: 400, y: 20 } as never, 16);
+      expect(enemy.state).toBe('pursuing');
+      expect(sprite.plays).toContain('art:enemy:test-charger:run');
+
+      // Winding is stationary: the clip returns to idle.
+      enemy.update({ active: true, x: 100, y: 20 } as never, 16);
+      expect(enemy.state).toBe('winding');
+      const playsAfterWinding = sprite.plays.filter(
+        (key) => key === 'art:enemy:test-charger:idle',
+      ).length;
+      expect(playsAfterWinding).toBe(2);
+    });
+
+    it('faces the target while winding and the dash direction while attacking', async () => {
+      const definition: ResolvedEnemyDefinition = {
+        id: 'test-charger',
+        name: 'Test Charger',
+        archetype: 'charger',
+        health: 10,
+        damage: 1,
+        speed: 100,
+        xpValue: 1,
+        scrapValue: 1,
+        contactDamage: true,
+        attack: {
+          triggerRange: 150,
+          telegraphMs: 650,
+          dashSpeed: 260,
+          dashDurationMs: 700,
+          cooldownMs: 1_200,
+        },
+      };
+      // Target left of the spawn point: winding faces left (flipX true).
+      const leftFacing = await createArtEnemy(definition, 10);
+      leftFacing.enemy.update({ active: true, x: -60, y: 20 } as never, 16);
+      expect(leftFacing.enemy.state).toBe('winding');
+      expect(leftFacing.sprite.flipX).toBe(true);
+
+      // Target right of the spawn point: winding faces right (flipX false).
+      const rightFacing = await createArtEnemy(definition, 10);
+      rightFacing.enemy.update({ active: true, x: 60, y: 20 } as never, 16);
+      expect(rightFacing.enemy.state).toBe('winding');
+      expect(rightFacing.sprite.flipX).toBe(false);
+
+      // Complete the telegraph: attacking adopts the locked dash direction.
+      rightFacing.enemy.update({ active: true, x: 60, y: 20 } as never, 650);
+      expect(rightFacing.enemy.state).toBe('attacking');
+      expect(rightFacing.sprite.flipX).toBe(false);
+
+      leftFacing.enemy.update({ active: true, x: -60, y: 20 } as never, 650);
+      expect(leftFacing.enemy.state).toBe('attacking');
+      expect(leftFacing.sprite.flipX).toBe(true);
+    });
+  });
+
   it('fails closed for a subnormal runtime delta without writing non-finite velocity', async () => {
     const { enemy, sprite } = await createEnemy();
     sprite.body?.setVelocity(20, 20);
@@ -393,6 +555,49 @@ function enemyDefinition(): ResolvedEnemyDefinition {
     expect(enemy.active).toBe(false);
     expect(damaged).not.toHaveBeenCalled();
     expect(killed).not.toHaveBeenCalled();
+  });
+
+  it('pins the exported body radius with exactly one construction-time setCircle', async () => {
+    const { ENEMY_BODY_RADIUS } = await import('../src/entities/Enemy');
+    expect(ENEMY_BODY_RADIUS).toBe(13);
+    const { sprite } = await createEnemy();
+    expect(sprite.body?.setCircle).toHaveBeenCalledTimes(1);
+    expect(sprite.body?.setCircle).toHaveBeenCalledWith(ENEMY_BODY_RADIUS);
+  });
+
+  it('never lets presentation poses touch the body size or position APIs', async () => {
+    const definition: ResolvedEnemyDefinition = {
+      id: 'test-charger',
+      name: 'Test Charger',
+      archetype: 'charger',
+      health: 10,
+      damage: 1,
+      speed: 100,
+      xpValue: 1,
+      scrapValue: 1,
+      contactDamage: true,
+      attack: {
+        triggerRange: 150,
+        telegraphMs: 650,
+        dashSpeed: 260,
+        dashDurationMs: 700,
+        cooldownMs: 1_200,
+      },
+    };
+    const { enemy, sprite } = await createEnemy(createEventBus(), definition);
+    const player = { active: true, x: 100, y: 20 } as never;
+
+    // Pursue, wind, dash, idle, and damage-tint transitions across updates.
+    enemy.update(player, 16);
+    enemy.update(player, 16);
+    enemy.update(player, 700);
+    enemy.update(player, 100);
+    enemy.update(player, 600);
+    enemy.update(player, 1_200);
+
+    expect(sprite.body?.setCircle).toHaveBeenCalledTimes(1);
+    expect(sprite.body?.setPosition).not.toHaveBeenCalled();
+    expect(sprite.body?.setSize).not.toHaveBeenCalled();
   });
 
   it('returns the committed nonlethal outcome when a damage listener performs cleanup', async () => {
