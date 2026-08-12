@@ -1,7 +1,7 @@
 # Meowcenary Knowledge Graph
 
 > Token-optimized repo map. Read this before any implementation work.
-> Current state: **Epics 0–12 complete; Epic 13 complete on PR #79**. Epic 10 merged in two delivery PRs:
+> Current state: **Epics 0–13 complete; Epic 13 merged in PR #79**. Epic 10 merged in two delivery PRs:
 > #65 (slices 1–2: audio data/events + game-scoped `AudioManager`) and #68
 > (slices 3–5: `settings:changed` wiring, Boot-owned manager publication,
 > scene lifecycle wiring, exactly-one `ui:*` command events, deterministic
@@ -206,7 +206,7 @@ existing event covers it (Epic 8 adds none — it extends one payload).
 | 10 | ✅ | Merged: #65 (slices 1–2, data/events + `AudioManager`) + #68 (slices 3–5, wiring/`ui:*`/placeholders); see `epic-10-audio.md` + `epic-10-audio-remainder.md` |
 | 11 | ✅ | Merged: #66 (slices 1–2, aggregate validation + curve helpers) + #70 (slices 3–5, dev cheats + metrics + playtest summary); see `epic-11-balancing-and-developer-tooling.md` + `epic-11-remainder.md` |
 | 12 | ✅ | Merged: PR #71 (polish + performance: pooling, feedback, reduced motion, perf sampler, responsive sizing); see `epic-12-polish-and-performance.md` |
-| 13 | ✅ | PR #79: actor-view seam, catalog #11, seven Pixelorama assets, opt-in physics debug, deterministic charger clipping; see `epic-13-presentation-runtime.md` |
+| 13 | ✅ | Merged: PR #79 (actor-view seam, catalog #11, seven Pixelorama assets, opt-in physics debug, deterministic charger clipping); see `epic-13-presentation-runtime.md` |
 
 ## First Steps for Any Agent
 

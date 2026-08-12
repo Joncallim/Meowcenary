@@ -1193,7 +1193,7 @@ Status: **implementation complete — READY**.
   production preview produced no console errors or presentation drift.
 - hosted CI: Node and GitGuardian passed on the published PR implementation
   head.
-- Issue #72 closure: PR #79 retains `Closes #72` and will close it on merge.
+- Issue #72 closure: closed by PR #79 (retained `Closes #72`).
 - final verdict: **READY** — all implementable acceptance gates pass, shipped
   art and runtime are complete, the independent review fixes above are
   regression-pinned and gate-green, and the honest manual limitations above do
