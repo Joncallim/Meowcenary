@@ -20,8 +20,8 @@ class MockArc {
   body = new MockBody();
 
   constructor(
-    readonly x: number,
-    readonly y: number,
+    public x: number,
+    public y: number,
   ) {}
 
   setDepth(): this {
@@ -30,6 +30,28 @@ class MockArc {
 
   setAlpha(alpha: number): this {
     this.alpha = alpha;
+    return this;
+  }
+
+  setStrokeStyle(): this {
+    return this;
+  }
+
+  setPosition(x: number, y: number): this {
+    this.x = x;
+    this.y = y;
+    return this;
+  }
+
+  setVisible(): this {
+    return this;
+  }
+
+  setActive(): this {
+    return this;
+  }
+
+  setFillStyle(): this {
     return this;
   }
 
@@ -45,10 +67,16 @@ async function createHarness(
   moveVector: { x: number; y: number } = { x: 0, y: 0 },
 ) {
   const { Player } = await import('../src/entities/Player');
-  const sprite = new MockArc(100, 100);
+  const circles: MockArc[] = [];
   const scene = {
     scale: { width: 200, height: 200 },
-    add: { circle: () => sprite },
+    add: {
+      circle: (x: number, y: number) => {
+        const arc = new MockArc(x, y);
+        circles.push(arc);
+        return arc;
+      },
+    },
     physics: { add: { existing: () => undefined } },
   };
   const input = { getMoveVector: () => ({ ...moveVector }) };
@@ -63,7 +91,7 @@ async function createHarness(
     spawnY: 300,
   });
 
-  return { player, runState, sprite, bus };
+  return { player, runState, sprite: circles[0], bus };
 }
 
 describe('Player', () => {

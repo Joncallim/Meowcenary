@@ -4,7 +4,7 @@ import { RuntimeConfig } from '../engine/config';
 import { createRng, deriveRunSeed } from '../engine/rng';
 import { SceneKey } from '../engine/sceneKeys';
 import type { System } from '../engine/system';
-import type { SpawnCurveDefinition } from '../systems/types';
+import type { ArenaDefinition, SpawnCurveDefinition } from '../systems/types';
 import { AudioManager, AUDIO_MANAGER_REGISTRY_KEY } from '../systems/audio';
 import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
@@ -77,6 +77,7 @@ export class GameScene extends Phaser.Scene {
   private runSummaryView?: PhaserRunSummaryView;
   private spawnCurve?: Readonly<SpawnCurveDefinition>;
   private arenaScenery?: ArenaScenery;
+  private floorDressing: Phaser.GameObjects.GameObject[] = [];
   private weaponSystem?: WeaponSystem;
   private feedbackSystem?: FeedbackSystem;
   private perfSampler?: PerfSampler;
@@ -362,6 +363,7 @@ export class GameScene extends Phaser.Scene {
       arena.size.width - 24, arena.size.height - 24,
       0x16202a,
     ).setStrokeStyle(2, 0x2dd4bf, 0.28).setDepth(-1);
+    this.buildFloorDressing(arena);
     this.add
       .text(
         width / 2,
@@ -480,6 +482,10 @@ export class GameScene extends Phaser.Scene {
     this.spawnCurve = undefined;
     this.arenaScenery?.destroy();
     this.arenaScenery = undefined;
+    for (const object of this.floorDressing) {
+      object.destroy();
+    }
+    this.floorDressing = [];
     this.runState = undefined;
     this.dpsMeter = undefined;
     if (this.physicsPausedByRun) {
@@ -618,6 +624,32 @@ export class GameScene extends Phaser.Scene {
     ) {
       endRun(runState, 'won', ctx.bus);
     }
+  }
+
+  /** Static, deterministic floor dressing so the arena reads as a place rather
+   *  than a void. Seeded from the arena id — never from run RNG — so the layout
+   *  is stable per arena and gameplay determinism is untouched. */
+  private buildFloorDressing(arena: Readonly<ArenaDefinition>): void {
+    const floorRng = createRng(deriveRunSeed(1, `floor:${arena.id}`));
+    const debrisPalette = [0x1b2834, 0x22313f, 0x2a3a4a];
+    const dressing: Phaser.GameObjects.GameObject[] = [];
+
+    for (let i = 0; i < 48; i += 1) {
+      const x = Math.floor(floorRng.next() * arena.size.width);
+      const y = Math.floor(floorRng.next() * arena.size.height);
+      const radius = 1 + Math.floor(floorRng.next() * 1.5);
+      const color = debrisPalette[Math.floor(floorRng.next() * debrisPalette.length)];
+      const alpha = 0.35 + floorRng.next() * 0.25;
+      dressing.push(this.add.circle(x, y, radius, color).setAlpha(alpha).setDepth(-2));
+    }
+    // Faint teal sparkles echo the arena border accent color.
+    for (let i = 0; i < 6; i += 1) {
+      const x = Math.floor(floorRng.next() * arena.size.width);
+      const y = Math.floor(floorRng.next() * arena.size.height);
+      dressing.push(this.add.circle(x, y, 1.5, 0x2dd4bf).setAlpha(0.12).setDepth(-2));
+    }
+
+    this.floorDressing = dressing;
   }
 
   private syncPhysicsPause(runState: RunState): void {

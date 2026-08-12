@@ -13,6 +13,7 @@ export class Projectile {
   readonly sprite: Phaser.GameObjects.Arc;
   active = false;
   damage = 0;
+  private readonly glow: Phaser.GameObjects.Arc;
   private speed = 0;
   private range = 0;
   private pierce = 0;
@@ -24,6 +25,13 @@ export class Projectile {
     private readonly radius: number,
   ) {
     this.sprite = scene.add.circle(0, 0, radius, 0x8bd3ff).setDepth(3).setActive(false).setVisible(false);
+    // Display-only soft halo, constructed once per pooled projectile and
+    // toggled with the body. No physics body.
+    this.glow = scene.add.circle(0, 0, radius + 3, 0x8bd3ff)
+      .setAlpha(0.22)
+      .setDepth(2)
+      .setActive(false)
+      .setVisible(false);
     scene.physics.add.existing(this.sprite);
     this.body.setCircle(radius);
     this.body.enable = false;
@@ -52,6 +60,7 @@ export class Projectile {
     this.hitEnemyIds.clear();
 
     this.sprite.setPosition(x, y).setActive(true).setVisible(true);
+    this.glow.setPosition(x, y).setActive(true).setVisible(true);
     this.body.enable = true;
     this.body.setCircle(this.radius);
     this.body.setVelocity(normalized.x * this.speed, normalized.y * this.speed);
@@ -62,6 +71,9 @@ export class Projectile {
       return;
     }
 
+    // Arcade physics integrates before the scene update, so the body position
+    // is the rendered frame's position — the halo follows exactly.
+    this.glow.setPosition(this.sprite.x, this.sprite.y);
     this.traveled += this.speed * (dtMs / 1000);
     if (this.traveled >= this.range) {
       this.reset();
@@ -96,11 +108,13 @@ export class Projectile {
     this.hitEnemyIds.clear();
     this.body.setVelocity(0, 0);
     this.body.enable = false;
+    this.glow.setActive(false).setVisible(false);
     this.sprite.setActive(false).setVisible(false);
   }
 
   destroy(): void {
     this.active = false;
+    this.glow.destroy();
     this.sprite.destroy();
   }
 }

@@ -23,6 +23,7 @@ class SpawnBody {
 
 class SpawnArc {
   active = true;
+  alpha = 1;
   body: SpawnBody | undefined;
 
   constructor(
@@ -33,6 +34,33 @@ class SpawnArc {
   }
 
   setDepth(): this {
+    return this;
+  }
+
+  setAlpha(alpha: number): this {
+    this.alpha = alpha;
+    return this;
+  }
+
+  setStrokeStyle(): this {
+    return this;
+  }
+
+  setPosition(x: number, y: number): this {
+    this.x = x;
+    this.y = y;
+    return this;
+  }
+
+  setVisible(): this {
+    return this;
+  }
+
+  setActive(): this {
+    return this;
+  }
+
+  setFillStyle(): this {
     return this;
   }
 

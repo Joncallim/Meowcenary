@@ -10,18 +10,31 @@ const DROP_COLORS: Record<DropKind, number> = {
   chest: 0xf472b6,
 };
 
+const GLINT_OFFSET_X = 3;
+const GLINT_OFFSET_Y = 3;
+const GLINT_RADIUS = 2.5;
+const GLINT_ALPHA = 0.9;
+
 export class Drop {
   readonly sprite: Phaser.GameObjects.Arc;
   active = false;
   kind: DropKind = 'xp';
   amount = 0;
   tableId?: string;
+  private readonly glint: Phaser.GameObjects.Arc;
 
   constructor(
     scene: Phaser.Scene,
     private readonly radius: number,
   ) {
     this.sprite = scene.add.circle(0, 0, radius, DROP_COLORS.xp).setDepth(2).setActive(false).setVisible(false);
+    // Display-only white highlight, constructed once per pooled drop and
+    // toggled with the body. No physics body.
+    this.glint = scene.add.circle(0, 0, GLINT_RADIUS, 0xffffff)
+      .setAlpha(GLINT_ALPHA)
+      .setDepth(3)
+      .setActive(false)
+      .setVisible(false);
     scene.physics.add.existing(this.sprite);
     this.body.setCircle(radius);
     this.body.enable = false;
@@ -46,6 +59,7 @@ export class Drop {
     this.tableId = kind === 'chest' ? tableId : undefined;
 
     this.sprite.setPosition(x, y).setFillStyle(DROP_COLORS[kind]).setActive(true).setVisible(true);
+    this.glint.setPosition(x - GLINT_OFFSET_X, y - GLINT_OFFSET_Y).setActive(true).setVisible(true);
     this.body.enable = true;
     this.body.setCircle(this.radius);
     this.body.setVelocity(0, 0);
@@ -55,6 +69,10 @@ export class Drop {
     if (!this.active || !this.sprite.active) {
       return;
     }
+
+    // Arcade physics integrates before the scene update, so the body position
+    // is the rendered frame's position — the glint follows exactly.
+    this.glint.setPosition(this.sprite.x - GLINT_OFFSET_X, this.sprite.y - GLINT_OFFSET_Y);
 
     if (!Number.isFinite(dtMs) || dtMs <= 0) {
       return;
@@ -97,10 +115,12 @@ export class Drop {
       body.enable = false;
     }
     this.sprite.setActive(false).setVisible(false);
+    this.glint.setActive(false).setVisible(false);
   }
 
   destroy(): void {
     this.active = false;
+    this.glint.destroy();
     this.sprite.destroy();
   }
 }
