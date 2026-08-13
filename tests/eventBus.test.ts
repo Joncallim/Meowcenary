@@ -12,8 +12,14 @@ describe('GAME_EVENT_KEYS', () => {
     }
   });
 
-  it('has the pinned 24-key contract (compile-time exhaustiveness typechecks)', () => {
-    expect(GAME_EVENT_KEYS).toHaveLength(24);
+  it('contains the two Epic 14 acquisition keys', () => {
+    for (const key of ['weapon:acquired', 'weapon:pickup-blocked']) {
+      expect(GAME_EVENT_KEYS).toContain(key);
+    }
+  });
+
+  it('has the pinned 26-key contract (compile-time exhaustiveness typechecks)', () => {
+    expect(GAME_EVENT_KEYS).toHaveLength(26);
   });
 });
 

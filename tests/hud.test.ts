@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createEventBus, type GameEventMap } from '../src/engine/eventBus';
 import { createRunState, startRun } from '../src/gameplay/runState';
+import { WEAPON_RACK_CAPACITY } from '../src/gameplay/weaponRack';
 import type { Player } from '../src/entities/Player';
 import type { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import {
@@ -75,6 +76,7 @@ const eventPayloads = {
   'level:up': { level: 2 },
   'currency:changed': { runTotal: 10 },
   'weapon:merged': { fromId: 'def-a', toId: 'def-b' },
+  'weapon:acquired': { definitionId: 'def-a', instanceId: 'i1', rackCount: 1, rackCapacity: 6, x: 0, y: 0 },
   'run:paused': {},
   'run:resumed': {},
   'run:won': { timeMs: 1000, level: 2, kills: 3 },
@@ -361,6 +363,40 @@ describe('PhaserHudView', () => {
       expect(rectangle.state.scaleX).toBeGreaterThanOrEqual(0);
       expect(rectangle.state.scaleX).toBeLessThanOrEqual(1);
     });
+  });
+
+  it('reports the rack capacity label from 0/6 through 6/6 (Epic 14 §D13)', () => {
+    const scene = createFakeScene();
+    const view = new PhaserHudView({ scene: scene as never, viewport: logicalCanvasViewport() });
+
+    for (let count = 0; count <= WEAPON_RACK_CAPACITY; count += 1) {
+      const weapons = Array.from({ length: count }, (_, index) => ({
+        instanceId: `w${index}`,
+        name: 'Scrap Pistol I',
+        tier: 1,
+      }));
+      view.render({
+        status: 'active',
+        timeMs: 0,
+        durationMs: 1_000,
+        health: 100,
+        maxHealth: 100,
+        level: 1,
+        xp: 0,
+        xpToNext: 100,
+        kills: 0,
+        currency: 0,
+        weapons,
+      });
+
+      const weaponText = scene.objects.find((object) =>
+        'state' in object && typeof object.state.text === 'string' && object.state.text.startsWith('Weapons '),
+      );
+      const expected = count > 0
+        ? `Weapons ${count}/${WEAPON_RACK_CAPACITY}: ${Array.from({ length: count }, () => 'T1 Scrap Pistol I').join('  ')}`
+        : `Weapons 0/${WEAPON_RACK_CAPACITY}`;
+      expect(weaponText?.state.text).toBe(expected);
+    }
   });
 
   it('destroys its container and children', () => {

@@ -141,8 +141,11 @@ describe('character selection integration', () => {
     });
 
     expect(prepared.run.characterId).toBe('scrap-tabby');
-    expect(prepared.run.equipped).toHaveLength(3);
-    expect(prepared.run.equipped.map((w) => w.family)).toEqual(['pistol', 'smg', 'shotgun']);
+    // Epic 14 §D3: current playable characters start with exactly one T1 weapon.
+    expect(prepared.run.equipped).toHaveLength(1);
+    expect(prepared.run.equipped.map((w) => w.family)).toEqual(['pistol']);
+    expect(prepared.run.equipped[0].defId).toBe('scrap-pistol-t1');
+    expect(prepared.run.equipped[0].tier).toBe(1);
 
     const hoarderSource = 'character:scrap-tabby:scrap-hoarder';
     expect(prepared.run.stats.countBySource(hoarderSource)).toBe(1);

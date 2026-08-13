@@ -655,21 +655,58 @@ The second command should show no production changes in those frozen files. If i
 
 Implementation agent must update this section before requesting final review.
 
-- [ ] Gate A complete — loot/data contract
-- [ ] Gate B complete — rack admission core
-- [ ] Gate C complete — world pickup/full-rack path
-- [ ] Gate D complete — deterministic reward director
-- [ ] Gate E complete — one-weapon starts + HUD capacity
-- [ ] `npm test`
-- [ ] shuffled Vitest suite (seed `14073`)
-- [ ] `npm run lint`
-- [ ] `npm run build`
-- [ ] `git diff --check origin/main...HEAD`
-- [ ] frozen-file diff reviewed
-- [ ] manual Golden Run acceptance §9 complete
-- [ ] PR remains within Epic 14 scope
+- [x] Gate A complete — loot/data contract
+- [x] Gate B complete — rack admission core
+- [x] Gate C complete — world pickup/full-rack path
+- [x] Gate D complete — deterministic reward director
+- [x] Gate E complete — one-weapon starts + HUD capacity
+- [x] `npm test`
+- [x] shuffled Vitest suite (seed `14073`)
+- [x] `npm run lint`
+- [x] `npm run build`
+- [x] `git diff --check origin/main...HEAD`
+- [x] frozen-file diff reviewed
+- [ ] manual Golden Run acceptance §9 — interactive browser pass pending reviewer/local execution (see notes below)
+- [x] PR remains within Epic 14 scope
 
-Record exact commands/results and any intentional deviations here.
+### Recorded results (implementation agent, 2026-08-13)
+
+Automated gates (run from the repository root on the delivery branch):
+
+- `npm test` → 85 files / 1288 tests passed.
+- `npx vitest run --sequence.shuffle --sequence.seed=14073` → 85 files / 1288 tests passed.
+- `npm run lint` (`tsc --noEmit`) → clean.
+- `npm run build` (`tsc --noEmit && vite build`) → clean, bundle built.
+- `git diff --check origin/main...HEAD` → clean (plus a manual trailing-whitespace scan of the five new files).
+- `git diff origin/main...HEAD -- src/gameplay/merge.ts src/systems/WeaponSystem.ts src/systems/save.ts package.json` → no production changes in those frozen files; the same holds for `runState.ts`, `runStart.ts`, `characterContribution.ts`, `weaponRegistry.ts`, `inventory.ts`, and `pause.ts`.
+
+Reviewer-trap scans on the new/modified gameplay paths:
+
+- No `Math.random()` in `weaponRack.ts`, `weaponRewards.ts`, `WeaponRewardSystem.ts`, `DropSystem.ts`, `Drop.ts`, `GameScene.ts`, or `hud.ts`.
+- `GameScene` derives exactly one `weapon-rewards` stream and passes it only to `WeaponRewardSystem`; `lootRng` still feeds only `DropSystem`.
+- Exactly one `DataWeaponRegistry` per run is constructed in `GameScene`; `DropSystem` and `WeaponRewardSystem` receive it (never construct one).
+- `createWeaponInstance` runs only inside `grantWeaponToRack` after definition + capacity checks (no ID burn on rejection).
+- `WeaponRewardSystem` never touches `runState.equipped`; it only requests world drops through the injected `spawnDrop` callback.
+- Full-rack pickups are blocked in place (not released/hidden/replaced); no auto-merge or discard exists.
+- Weapon grants carry only `definitionId`; weapons never emit `drop:collected`; chests respawn weapon grants as physical drops.
+- No save version/schema, dependency, actor-art, or final-UI changes.
+
+Delivery delta (frozen-file discovery, none required): no frozen file needed a change; all contracts were satisfied with the file set listed in §4.
+
+Manual Golden Run acceptance (§9): the interactive browser pass must be
+executed on a fresh save with normal gameplay — steps 1–10 (one-weapon Scrap
+Tabby start, 20–40 s physical first reward, duplicate collection,
+pause→Inventory merge to `Scrap Pistol II`, later T1 pool rewards, six-slot
+rack, seventh-weapon no-loss blocking, merge-then-collect unblock,
+XP/scrap/chest regression, and seeded schedule reproduction). The implementation
+agent executed the deterministic/harness portions (schedule deadlines,
+definition sequences, full-rack blocking, and unblock after merge) as automated
+tests in `tests/weaponRewards.test.ts` and `tests/dropSystem.test.ts`, but the
+interactive pass itself requires a browser session on a fresh save and remains
+for the reviewer/local execution before the PR leaves draft: run `npm run dev`,
+start a run with Scrap Tabby, and walk through §9 steps 1–10.
+
+Deviations from the contract: none intentional. All automated gates and the reviewer-trap scan above are satisfied; §5–§8 test matrices are covered by the committed suites.
 
 ## 14. Lower-tier implementation prompt
 

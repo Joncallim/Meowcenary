@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type Phaser from 'phaser';
 import { loadGameData } from '../src/systems/validation';
 import { DataLootTableRegistry } from '../src/systems/lootTables';
+import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng, deriveRunSeed } from '../src/engine/rng';
 import { createRunState, type RunState } from '../src/gameplay/runState';
@@ -99,6 +100,7 @@ async function createHarness(options: {
   const data = loadGameData();
   const lootTables = options.lootTables ?? new DataLootTableRegistry(data);
   const rng = createRng(deriveRunSeed(options.seed, 'loot'));
+  const weaponRegistry = new DataWeaponRegistry(data);
 
   const system = new DropSystem({
     scene: scene as unknown as Phaser.Scene,
@@ -107,6 +109,7 @@ async function createHarness(options: {
     player,
     dropGroup,
     lootTables,
+    weaponRegistry,
     rng,
     dropRadius: 4,
     magnetSpeed: 450,

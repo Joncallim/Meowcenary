@@ -25,6 +25,11 @@ const chestTable: LootTable = {
   entries: [{ kind: 'chest', amount: 0, weight: 1, tableId: 'inner-table' }],
 };
 
+const weaponTable: LootTable = {
+  id: 'weapon-only',
+  entries: [{ kind: 'weapon', weight: 1, definitionId: 'scrap-pistol-t1' }],
+};
+
 const mixedTable: LootTable = {
   id: 'mixed',
   entries: [
@@ -59,6 +64,23 @@ describe('resolveLoot', () => {
     expect(resolveLoot('chest-only', lookupOf(chestTable), createRng(1))).toEqual([
       { kind: 'chest', amount: 0, tableId: 'inner-table' },
     ]);
+  });
+
+  it('resolves a weapon entry to a weapon grant carrying only the definition id', () => {
+    const grants = resolveLoot('weapon-only', lookupOf(weaponTable), createRng(1));
+    expect(grants).toEqual([{ kind: 'weapon', definitionId: 'scrap-pistol-t1' }]);
+    // Epic 14 §D4: the definition id must never be represented in amount.
+    expect('amount' in grants[0]).toBe(false);
+  });
+
+  it('rejects a malformed weapon entry from a runtime table', () => {
+    const malformedTable = {
+      id: 'malformed-weapon',
+      entries: [{ kind: 'weapon', weight: 1, definitionId: '' }],
+    } as unknown as LootTable;
+    expect(() => resolveLoot('malformed-weapon', lookupOf(malformedTable), createRng(1))).toThrow(
+      /missing a definitionId/,
+    );
   });
 
   it('consumes rng.next() exactly once and uses the weighted algorithm', () => {

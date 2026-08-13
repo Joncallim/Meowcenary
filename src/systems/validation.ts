@@ -86,9 +86,9 @@ const REGION_RECT_FIELDS = new Set(['kind', 'x', 'y', 'w', 'h']);
 const REGION_EDGES_FIELDS = new Set(['kind', 'margin']);
 const OBSTACLE_FIELDS = new Set(['x', 'y', 'w', 'h']);
 const HAZARD_FIELDS = new Set(['id', 'kind', 'x', 'y', 'w', 'h', 'damagePerSecond']);
-const LOOT_KINDS = new Set(['xp', 'scrap', 'chest', 'nothing']);
+const LOOT_KINDS = new Set(['xp', 'scrap', 'chest', 'weapon', 'nothing']);
 const LOOT_FIELDS = new Set(['id', 'entries']);
-const LOOT_ENTRY_FIELDS = new Set(['kind', 'amount', 'weight', 'tableId']);
+const LOOT_ENTRY_FIELDS = new Set(['kind', 'amount', 'weight', 'tableId', 'definitionId']);
 const MAX_LOOT_TABLES = 64;
 const MAX_LOOT_ENTRIES = 32;
 const AUDIO_ASSET_CATALOG_FIELDS = new Set(['sfx', 'music']);
@@ -391,6 +391,7 @@ export function validateGameData(raw: unknown): GameData {
   assertCharacterWeaponReferences(characters, weapons);
   assertArenaSpawnCurveReferences(arenas, spawnCurves);
   assertEnemyLootTableReferences(enemies, lootTables);
+  assertLootWeaponReferences(lootTables, weapons);
   assertAudioMapReferences(audioMap, audioAssets);
 
   const audio: AudioData = { assets: audioAssets, map: audioMap };
@@ -551,6 +552,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertCharacterWeaponReferences(characters, weapons),
     () => assertArenaSpawnCurveReferences(arenas, spawnCurves),
     () => assertEnemyLootTableReferences(enemies, lootTables),
+    () => assertLootWeaponReferences(lootTables, weapons),
     () => assertAudioMapReferences(audioMap, audioAssets),
   ];
   for (const assertion of assertions) {
@@ -1169,6 +1171,15 @@ function checkLootTable(row: unknown): string[] {
       requireEnum(entry, 'kind', LOOT_KINDS, entryErrors);
       if (kind === 'xp' || kind === 'scrap') {
         requirePositiveInteger(entry, 'amount', entryErrors);
+      } else if (kind === 'weapon') {
+        requireString(entry, 'definitionId', entryErrors);
+        const definitionId = readOwnField(entry, 'definitionId');
+        if (typeof definitionId === 'string' && !isContentId(definitionId)) {
+          entryErrors.push('definitionId: invalid content id');
+        }
+        if (readOwnField(entry, 'amount') !== undefined) {
+          entryErrors.push('amount: weapon entries must not define an amount');
+        }
       } else if (kind === 'chest' || kind === 'nothing') {
         const amount = readOwnField(entry, 'amount');
         if (typeof amount !== 'number' || !Number.isSafeInteger(amount) || amount !== 0) {
@@ -1186,6 +1197,10 @@ function checkLootTable(row: unknown): string[] {
       }
       if (kind === 'chest') {
         requireString(entry, 'tableId', entryErrors);
+      }
+      const definitionId = readOwnField(entry, 'definitionId');
+      if (kind !== 'weapon' && definitionId !== undefined) {
+        entryErrors.push('definitionId: only weapon entries may define a definitionId');
       }
       errors.push(...entryErrors.map((error) => `entries[${index}].${error}`));
     }
@@ -1846,6 +1861,28 @@ function assertEnemyLootTableReferences(
         errors.push(`enemies.json[${index}].lootTableId: unknown loot table id "${enemy.lootTableId}"`);
       }
     }
+  });
+  throwIfErrors(errors);
+}
+
+/** Every weapon loot entry must resolve to one WeaponDefinition; an unknown
+ *  ID is a data validation error before run creation (Epic 14 §5.2). Runtime
+ *  invalid-ID handling in DropSystem remains for defense in depth. */
+function assertLootWeaponReferences(
+  lootTables: readonly LootTable[],
+  weapons: readonly WeaponDefinition[],
+): void {
+  const weaponIds = new Set(weapons.map((weapon) => weapon.id));
+  const errors: string[] = [];
+  lootTables.forEach((table, tableIndex) => {
+    table.entries.forEach((entry, entryIndex) => {
+      if (entry.kind !== 'weapon') return;
+      if (!weaponIds.has(entry.definitionId)) {
+        errors.push(
+          `loot-tables.json[${tableIndex}].entries[${entryIndex}].definitionId: unknown weapon id "${entry.definitionId}"`,
+        );
+      }
+    });
   });
   throwIfErrors(errors);
 }

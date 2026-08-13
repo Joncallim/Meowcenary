@@ -159,14 +159,16 @@ export interface MetaUpgradeDefinition {
   readonly effects: readonly UpgradeEffect[];
 }
 
-export type LootKind = 'xp' | 'scrap' | 'chest' | 'nothing';
+export type LootKind = 'xp' | 'scrap' | 'chest' | 'weapon' | 'nothing';
 
-export interface LootEntry {
-  readonly kind: LootKind;
-  readonly amount: number;
-  readonly weight: number;
-  readonly tableId?: string;
-}
+/** Discriminated loot-table entry (Epic 14 §D4). Weapon entries carry only a
+ *  stable definition ID — never family/tier/display name or a runtime
+ *  WeaponInstance — and must not define `amount` or `tableId`. */
+export type LootEntry =
+  | { readonly kind: 'xp' | 'scrap'; readonly amount: number; readonly weight: number }
+  | { readonly kind: 'chest'; readonly amount: 0; readonly weight: number; readonly tableId: string }
+  | { readonly kind: 'weapon'; readonly weight: number; readonly definitionId: string }
+  | { readonly kind: 'nothing'; readonly amount: 0; readonly weight: number };
 
 export interface LootTable {
   readonly id: string;

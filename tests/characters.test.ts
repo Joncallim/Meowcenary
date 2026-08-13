@@ -134,4 +134,20 @@ describe('DataCharacterRegistry', () => {
       expect(isContentId(character.id)).toBe(true);
     }
   });
+
+  it('shipped characters each start with exactly one valid T1 weapon that fits the rack (Epic 14 §D3)', async () => {
+    const { loadGameData } = await import('../src/systems/validation');
+    const { WEAPON_RACK_CAPACITY } = await import('../src/gameplay/weaponRack');
+    const data = loadGameData();
+    const weaponsById = new Map(data.weapons.map((weapon) => [weapon.id, weapon]));
+
+    expect(data.characters.length).toBeGreaterThan(0);
+    for (const character of data.characters) {
+      expect(character.startingWeaponIds).toHaveLength(1);
+      const definition = weaponsById.get(character.startingWeaponIds[0]);
+      expect(definition).toBeDefined();
+      expect(definition?.mergeTier).toBe(1);
+      expect(character.startingWeaponIds.length).toBeLessThanOrEqual(WEAPON_RACK_CAPACITY);
+    }
+  });
 });

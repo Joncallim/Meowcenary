@@ -10,6 +10,8 @@ import { resolveKillLoot, resolveLootFromTable } from '../gameplay/loot';
 import type { LootGrant } from '../gameplay/loot';
 import type { RunState } from '../gameplay/runState';
 import { applyXp } from '../gameplay/xp';
+import { grantWeaponToRack, WEAPON_RACK_CAPACITY } from '../gameplay/weaponRack';
+import type { WeaponRegistry } from '../gameplay/weapons';
 import type { LootTableLookup } from './lootTables';
 import type { ActorArtBinding } from './types';
 
@@ -20,6 +22,9 @@ export interface DropSystemOptions {
   readonly player: Player;
   readonly dropGroup: Phaser.Physics.Arcade.Group;
   readonly lootTables: LootTableLookup;
+  /** The run-scoped weapon registry shared with starting loadout, inventory,
+   *  and WeaponSystem (Epic 14 §D6) — never a second per-run registry. */
+  readonly weaponRegistry: Pick<WeaponRegistry, 'weaponById' | 'createWeaponInstance'>;
   readonly rng: Pick<Rng, 'next'>;
   readonly dropRadius: number;
   readonly magnetSpeed: number;
@@ -34,6 +39,7 @@ export class DropSystem implements System {
   private readonly player: Player;
   private readonly dropGroup: Phaser.Physics.Arcade.Group;
   private readonly lootTables: LootTableLookup;
+  private readonly weaponRegistry: Pick<WeaponRegistry, 'weaponById' | 'createWeaponInstance'>;
   private readonly rng: Pick<Rng, 'next'>;
   private readonly dropRadius: number;
   private readonly magnetSpeed: number;
@@ -51,6 +57,7 @@ export class DropSystem implements System {
     this.player = options.player;
     this.dropGroup = options.dropGroup;
     this.lootTables = options.lootTables;
+    this.weaponRegistry = options.weaponRegistry;
     this.rng = options.rng;
     this.dropRadius = options.dropRadius;
     this.magnetSpeed = options.magnetSpeed;
@@ -97,13 +104,24 @@ export class DropSystem implements System {
   spawnDrop(x: number, y: number, grant: LootGrant): Drop {
     const drop = this.dropPool.acquire();
     this.liveDrops.add(drop);
-    drop.spawn(x, y, grant.kind, grant.amount, grant.kind === 'chest' ? grant.tableId : undefined);
+    drop.spawn(x, y, grant);
     return drop;
   }
 
   update(dtMs: number): void {
     if (this.runState.status !== 'active') {
       return;
+    }
+
+    // Epic 14 §D8: a blocked weapon drop becomes collectible again as soon as
+    // rack capacity is available (e.g. the player paused and merged). Clearing
+    // the flag lets the drop magnetize and be collected normally.
+    if (this.runState.equipped.length < WEAPON_RACK_CAPACITY) {
+      for (const drop of this.liveDrops) {
+        if (drop.pickupBlocked) {
+          drop.setPickupBlocked(false);
+        }
+      }
     }
 
     const pickupRadius = Math.max(0, this.runState.stats.resolve('pickupRadius', this.basePickupRadius));
@@ -156,22 +174,80 @@ export class DropSystem implements System {
     if (this.runState.status !== 'active' || !drop.active) {
       return;
     }
+    if (drop.pickupBlocked) {
+      // Full-rack path: the drop stays in the world; repeated overlap
+      // callbacks must not re-process or re-emit it.
+      return;
+    }
 
-    const { kind, amount, x, y } = drop;
-    switch (kind) {
+    const grant = drop.grant;
+    if (!grant) {
+      return;
+    }
+    const { x, y } = drop;
+    switch (grant.kind) {
       case 'xp':
-        this.applyXpGrant(amount);
+        this.applyXpGrant(grant.amount);
         break;
       case 'scrap':
-        this.applyScrapGrant(amount);
+        this.applyScrapGrant(grant.amount);
         break;
       case 'chest':
         this.collectChest(drop);
         return; // the chest itself never emits drop:collected
+      case 'weapon':
+        this.collectWeapon(drop, grant.definitionId);
+        return; // weapons never emit drop:collected (Epic 14 §D8)
     }
 
-    this.ctx.bus.emit('drop:collected', { kind, amount, x, y });
+    this.ctx.bus.emit('drop:collected', { kind: grant.kind, amount: grant.amount, x, y });
     this.releaseDrop(drop);
+  }
+
+  /**
+   * Epic 14 §D8 world-pickup weapon admission — the only world-pickup rack
+   * mutation path. A valid seventh weapon is never consumed: the physical
+   * drop remains in the world and becomes collectible after a merge frees a
+   * slot. Invalid definitions fail soft so corrupted data cannot create a
+   * permanent poison object.
+   */
+  private collectWeapon(drop: Drop, definitionId: string): void {
+    const result = grantWeaponToRack(this.runState, definitionId, this.weaponRegistry);
+    const { x, y } = drop;
+    switch (result.status) {
+      case 'added':
+        // Acquired: emitted after the rack assignment, before the physical
+        // drop returns to the pool (Epic 14 §6 invariant 1).
+        this.ctx.bus.emit('weapon:acquired', {
+          definitionId,
+          instanceId: result.weapon.instanceId,
+          rackCount: result.rackCount,
+          rackCapacity: WEAPON_RACK_CAPACITY,
+          x,
+          y,
+        });
+        this.releaseDrop(drop);
+        return;
+      case 'rack-full':
+        // No mutation, no instance allocation, no release: leave the reward
+        // visibly in the world and block further overlap processing.
+        drop.setPickupBlocked(true);
+        this.ctx.bus.emit('weapon:pickup-blocked', {
+          definitionId,
+          reason: 'rack-full',
+          rackCount: result.rackCount,
+          rackCapacity: WEAPON_RACK_CAPACITY,
+          x,
+          y,
+        });
+        return;
+      case 'invalid-definition':
+        console.warn(
+          `[DropSystem] Weapon drop references unknown weapon definition "${definitionId}"; releasing the invalid pickup`,
+        );
+        this.releaseDrop(drop);
+        return;
+    }
   }
 
   private applyXpGrant(amount: number): void {
@@ -187,7 +263,9 @@ export class DropSystem implements System {
   }
 
   private collectChest(drop: Drop): void {
-    const { tableId, x, y } = drop;
+    const chestGrant = drop.grant;
+    const { x, y } = drop;
+    const tableId = chestGrant?.kind === 'chest' ? chestGrant.tableId : undefined;
     if (tableId === undefined) {
       this.releaseDrop(drop);
       return;
@@ -216,6 +294,13 @@ export class DropSystem implements System {
     for (const grant of grants) {
       if (grant.kind === 'chest') {
         continue; // defensive: validation guarantees chest-safe targets
+      }
+      if (grant.kind === 'weapon') {
+        // Epic 14 §D9: physical acquisition remains mandatory for every
+        // weapon-grant source — spawn a world drop instead of admitting the
+        // weapon directly into the rack. No drop:collected for weapons.
+        this.spawnDrop(x, y, grant);
+        continue;
       }
       if (grant.kind === 'xp') {
         this.applyXpGrant(grant.amount);

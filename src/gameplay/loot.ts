@@ -10,7 +10,8 @@ export interface LootSourceInfo {
 
 export type LootGrant =
   | { readonly kind: 'xp' | 'scrap'; readonly amount: number }
-  | { readonly kind: 'chest'; readonly amount: 0; readonly tableId: string };
+  | { readonly kind: 'chest'; readonly amount: 0; readonly tableId: string }
+  | { readonly kind: 'weapon'; readonly definitionId: string };
 
 /**
  * Weighted-selection core shared by resolveLoot, resolveKillLoot, and
@@ -87,6 +88,16 @@ function entryToGrants(entry: Readonly<LootEntry>): readonly LootGrant[] {
           tableId: entry.tableId,
         },
       ];
+    case 'weapon':
+      if (typeof entry.definitionId !== 'string' || entry.definitionId.length === 0) {
+        throw new Error('Weapon loot entry is missing a definitionId');
+      }
+      return [
+        {
+          kind: 'weapon',
+          definitionId: entry.definitionId,
+        },
+      ];
     case 'xp':
     case 'scrap':
       if (!Number.isFinite(entry.amount) || entry.amount <= 0) {
@@ -99,7 +110,12 @@ function entryToGrants(entry: Readonly<LootEntry>): readonly LootGrant[] {
         },
       ];
     default:
-      throw new Error(`Unknown loot entry kind: ${String(entry.kind)}`);
+      // Runtime guard for unvalidated data: the compile-time union is
+      // exhaustive, so this branch sees `never`; keep a diagnostic throw for
+      // malformed runtime tables without crashing on the typed path.
+      throw new Error(
+        `Unknown loot entry kind: ${String((entry as { kind?: unknown }).kind)}`,
+      );
   }
 }
 
