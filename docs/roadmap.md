@@ -28,10 +28,12 @@
   environment clipping; architecture and delivery record in
   [`architecture/epic-13-presentation-runtime.md`](architecture/epic-13-presentation-runtime.md);
   delivered on the single branch `agent/epic-13-presentation-runtime`.
-- Epic 14 / Weapon Acquisition and Rack Economy: architecture ready in draft
-  PR #80 (#73) on `agent/epic-14-weapon-acquisition`; the executable contract is
-  [`architecture/epic-14-weapon-acquisition-and-rack-economy.md`](architecture/epic-14-weapon-acquisition-and-rack-economy.md).
-  Implementation is intentionally not started in the architecture pass.
+- Epic 14 / Weapon Acquisition and Rack Economy: implementation delivered in
+  draft PR #80 (#73) on the single branch `agent/epic-14-weapon-acquisition`;
+  architecture and delivery record in
+  [`architecture/epic-14-weapon-acquisition-and-rack-economy.md`](architecture/epic-14-weapon-acquisition-and-rack-economy.md);
+  the PR stays draft until the §9 manual Golden Run acceptance pass is
+  executed and recorded in the delivery record.
 
 Epic 7 was implemented in the consolidated PR #51 and merged.
 Epic 8 is complete: Slices 1–5 merged in PRs #58–62, implementing the
@@ -97,7 +99,8 @@ weapon grants keyed by stable definition ID, capacity-checked fresh instance
 creation through the shared run registry, physical no-loss full-rack pickups,
 a dedicated seeded `weapon-rewards` stream, a guaranteed early duplicate, and
 strict boundaries that leave final rack UX, art, feedback, and pacing to
-Epics 15–18. PR #80 is draft until implementation and its delivery record pass.
+Epics 15–18. PR #80 stays draft until the §9 manual Golden Run acceptance
+pass is executed and recorded in §13.
 
 The Epic 7 architecture is documented in
 [`architecture/epic-7-maps-and-arenas.md`](architecture/epic-7-maps-and-arenas.md),
