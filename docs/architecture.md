@@ -146,12 +146,13 @@ boundary, body-dimension invariants, the validated actor-art catalog and
 AI-directed Pixelorama asset pipeline, and deterministic charger environment
 clipping. It supersedes issue #72 where that wording predates the live
 presentation, pooling, and debug seams.
-The Epic 14 document is the implementation source of truth for Issue #73 and PR
-#80. It freezes the six-slot authoritative `RunState.equipped` rack, one-weapon
+The Epic 14 document is the implementation source of truth and PR #80 delivery
+record for the six-slot authoritative `RunState.equipped` rack, one-weapon
 starts, stable-definition weapon grants, atomic capacity-checked admission,
 physical no-loss full-rack pickups, a dedicated `weapon-rewards` run RNG stream,
 the guaranteed early duplicate, and the boundary that keeps final rack UI, art,
-feedback, and pacing in Epics 15–18.
+feedback, and pacing in Epics 15–18. It supersedes issue #73 where that wording
+predates the live rack, reward-stream, and pickup seams.
 
 ## AI Handoff Pattern
 

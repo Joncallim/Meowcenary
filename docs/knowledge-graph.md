@@ -1,7 +1,7 @@
 # Meowcenary Knowledge Graph
 
 > Token-optimized repo map. Read this before any implementation work.
-> Current state: **Epics 0–13 complete; Epic 13 merged in PR #79**. Epic 10 merged in two delivery PRs:
+> Current state: **Epics 0–14 complete; Epic 13 merged in PR #79; Epic 14 merged in PR #80**. Epic 10 merged in two delivery PRs:
 > #65 (slices 1–2: audio data/events + game-scoped `AudioManager`) and #68
 > (slices 3–5: `settings:changed` wiring, Boot-owned manager publication,
 > scene lifecycle wiring, exactly-one `ui:*` command events, deterministic
@@ -13,7 +13,9 @@
 > reduced-motion policy, fixed-window `PerfSampler`, F3 diagnostics, and
 > FIT-responsive sizing. Epic 13 added the presentation runtime, actor-art
 > catalog #11, seven Pixelorama assets, opt-in physics diagnostics, and charger
-> clipping. 1216 tests / 83 files green locally.
+> clipping. Epic 14 added the weapon acquisition loop: the six-slot
+> authoritative rack, capacity-checked admission, no-loss full-rack pickups,
+> and the seeded `weapon-rewards` stream. 1291 tests / 85 files green locally.
 
 ## Stack
 
@@ -27,16 +29,16 @@ Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly
 | Dir | Status | Rules | Contents |
 |-----|--------|-------|----------|
 | `src/engine/` | ✅ | **No Phaser** (pure, unit-tested) | `config` `eventBus` `rng` `vector` `cadence` `context` `sceneKeys` `system` `pool` `motion` |
-| `src/gameplay/` | ✅ | **No Phaser** (pure rules) | `runState` `runStart` `runRequest` `stats` `xp` `targeting` `weapons` `weaponStats` `merge` `upgrades` `levelUpQueue` `projectilePattern` `enemyMovement` `enemyScaling` `spawnDirector` `spawnRegion` `loot` `meta` `characterSelection` `characterContribution` `characterPassives` `arenaSelection` `metrics` `perf` |
+| `src/gameplay/` | ✅ | **No Phaser** (pure rules) | `runState` `runStart` `runRequest` `stats` `xp` `targeting` `weapons` `weaponStats` `merge` `upgrades` `levelUpQueue` `projectilePattern` `enemyMovement` `enemyScaling` `spawnDirector` `spawnRegion` `loot` `meta` `characterSelection` `characterContribution` `characterPassives` `arenaSelection` `metrics` `perf` `weaponRack` `weaponRewards` |
 | `src/entities/` | ✅ | May use Phaser (display objects) | `Player` `Enemy` `Projectile` `Drop` `actorView` |
-| `src/systems/` | ✅ | May use Phaser (coordinators) | `types` `validation` `save` `input` `audio` `debug` `actorArt` `ids` `enemies` `characters` `arenas` `lootTables` `metaUpgrades` `weaponRegistry` `SpawnSystem` `WeaponSystem` `UpgradeSystem` `DropSystem` `ProgressionSystem` `PassiveCoordinator` `HazardSystem` `arenaScenery` `playtestSummary` `feedback` |
+| `src/systems/` | ✅ | May use Phaser (coordinators) | `types` `validation` `save` `input` `audio` `debug` `actorArt` `ids` `enemies` `characters` `arenas` `lootTables` `metaUpgrades` `weaponRegistry` `SpawnSystem` `WeaponSystem` `UpgradeSystem` `DropSystem` `ProgressionSystem` `PassiveCoordinator` `HazardSystem` `arenaScenery` `playtestSummary` `feedback` `WeaponRewardSystem` |
 | `src/scenes/` | ✅ | Thin coordinators only | `BootScene` `MenuScene` `GameScene` |
 | `src/ui/` | ✅ | May use Phaser | `UpgradeChooser` `upgradeChooserController` `upgradeChooserLayout` `characterSelectionController` `arenaSelectionController` `progressionController` `pause` `runSummary` `menus` `settings` `hud` `controls` `inventory` `modal` `layout` `theme` `format` |
 | `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` `loot-tables` `audio-assets` `audio-map` `actor-art` |
 | `scripts/` | ✅ | Node 18+ built-ins only, deterministic | `generate-audio-placeholders.mjs` |
 | `public/assets/audio/` | ✅ | 14 committed deterministic WAVs (12 SFX + 2 music) | one `.wav` per `audio-assets.json` key |
-| `tests/` | ✅ 1216 tests | Vitest; mock Phaser via `vi.mock` | 83 files incl. integration harnesses |
-| `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..13}-*.md` |
+| `tests/` | ✅ 1291 tests | Vitest; mock Phaser via `vi.mock` | 85 files incl. integration harnesses |
+| `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..14}-*.md` |
 
 Epic 8 Slices 1–5 added `src/data/loot-tables.json`, `src/gameplay/loot.ts`,
 and `src/systems/lootTables.ts` (Slices 1–2). Slice 3 added `src/entities/Drop.ts`;
@@ -61,7 +63,15 @@ PNG/JSON sheets under `public/assets/`. F4/`?physicsdebug=1` are development-onl
 diagnostics; pure charger motion clamps dashes to inset bounds and expanded
 obstacle AABBs without tunneling.
 
-## Runtime Shape (after Epic 13)
+Epic 14 added `src/gameplay/weaponRack.ts`, `src/gameplay/weaponRewards.ts`,
+and `src/systems/WeaponRewardSystem.ts`; `RunState.equipped` becomes the
+six-slot authoritative rack, weapon grants pass definition + capacity checks
+before fresh instance creation through the shared `DataWeaponRegistry`,
+full-rack pickups stay in-world (no silent loss), and a dedicated seeded
+`weapon-rewards` stream (never the `loot` stream) schedules the guaranteed
+early duplicate and later T1 pool rewards.
+
+## Runtime Shape (after Epic 14)
 
 ```
 main.ts → Phaser.Game([BootScene, MenuScene, GameScene])
@@ -78,14 +88,15 @@ GameScene.create():
   assembleRunRequest(ctx, menuRng) → { characterId, arenaId, seed }
   arena = ctx.arenas.arenaById(arenaId); curve = arena.spawnCurveId → curve
   prepareRun({ state, basePlayer, meta, metaUpgrades, character }) → runState
-  rng streams: createRng(deriveRunSeed(seed, 'spawns' | 'upgrades' | 'loot'))
+  rng streams: createRng(deriveRunSeed(seed, 'spawns' | 'upgrades' | 'loot'
+                          | 'weapon-rewards'))
   physics.world/camera bounds = arena.size; player spawns at arena centre
   dpsMeter = createDpsMeter(); subscribes enemy:damaged (stamped with
   runState.timeMs, effective damage only) — dev and production
   systems = [ProgressionSystem, PassiveCoordinator, SpawnSystem,
-             HazardSystem, FeedbackSystem, WeaponSystem, DropSystem,
-             UpgradeSystem, (DebugCheatSystem, dev-only), HudController,
-             (PlaytestSummarySystem, dev-only)]
+             HazardSystem, FeedbackSystem, WeaponSystem, WeaponRewardSystem,
+             DropSystem, UpgradeSystem, (DebugCheatSystem, dev-only),
+             HudController, (PlaytestSummarySystem, dev-only)]
   perfSampler = createPerfSampler(windowFrames, targetFps) — records delta
   (dev-only cheats: ?cheats=1&god=1&xp=4&scrap=3&spawn=2 — cached URL flags,
   direct import.meta.env.DEV gates, directorCurve = copied faster-cadence
@@ -114,16 +125,20 @@ terminal event: ProgressionSystem banks first; dev PlaytestSummarySystem
 `updateMeta(transform)` sanitizes → persists → revalidates selections. Only
 persistence boundary. `menuRng` is boot/menu only.
 
-### GameEventMap (24 events, `src/engine/eventBus.ts`)
+### GameEventMap (26 events, `src/engine/eventBus.ts`)
 ```
 run:start/paused/resumed/won/lost   player:damaged/died
 enemy:spawned/damaged/killed        weapon:fired   projectile:hit
 xp:gained  level:up  card:offered(offerId+choices)/chosen  weapon:merged
 drop:collected(kind xp|scrap)  currency:changed  hazard:triggered
+weapon:acquired(definitionId,instanceId,rackCount/rackCapacity,x,y)
+weapon:pickup-blocked(definitionId,reason:rack-full,...)
 settings:changed(settings)   ui:navigate   ui:confirm   ui:back
 ```
 Epic 8 Slice 2 extended `enemy:killed` with `scrapValue` + optional `lootTableId`
-(no new events). Epic 10 added the last four events: `settings:changed` is
+(no new events). Epic 10 added `settings:changed` plus the `ui:*` events.
+Epic 14 added `weapon:acquired` and `weapon:pickup-blocked` (rack acquisition
+signals; weapons never emit `drop:collected`). `settings:changed` is
 emitted only by `GameContext.updateSettings` on settings-identity change;
 `ui:*` are emitted only from MenuScene, GameScene, PhaserPauseView, and
 PhaserRunSummaryView dispatch points (controllers and `ui/modal.ts` stay
@@ -207,6 +222,7 @@ existing event covers it (Epic 8 adds none — it extends one payload).
 | 11 | ✅ | Merged: #66 (slices 1–2, aggregate validation + curve helpers) + #70 (slices 3–5, dev cheats + metrics + playtest summary); see `epic-11-balancing-and-developer-tooling.md` + `epic-11-remainder.md` |
 | 12 | ✅ | Merged: PR #71 (polish + performance: pooling, feedback, reduced motion, perf sampler, responsive sizing); see `epic-12-polish-and-performance.md` |
 | 13 | ✅ | Merged: PR #79 (actor-view seam, catalog #11, seven Pixelorama assets, opt-in physics debug, deterministic charger clipping); see `epic-13-presentation-runtime.md` |
+| 14 | ✅ | Merged: PR #80 (six-slot rack, one-T1-weapon starts, capacity-checked admission, no-loss full-rack pickups, seeded `weapon-rewards` stream, guaranteed early duplicate, `n/6` HUD capacity); see `epic-14-weapon-acquisition-and-rack-economy.md` |
 
 ## First Steps for Any Agent
 

@@ -2,7 +2,7 @@
 
 **Issue:** #73 · **PR:** #80 · **Branch:** `agent/epic-14-weapon-acquisition` · **Base:** `main` at Epic 13 merge `3318865a095f232c9b6c095a6e1ec89e048850d0`
 
-> Architecture status: **READY FOR IMPLEMENTATION**.
+> Status: **complete and merged** — PR #80 merged into `main` as `1140335` on 2026-08-14, closing Issue #73. This document is the implementation source of truth and PR #80 delivery record.
 >
 > This document is the executable implementation contract for Epic 14. A lower-tier implementation agent should not need another architecture pass. If live code conflicts with this document, stop and resolve the conflict in this PR before inventing a new design.
 
@@ -21,7 +21,7 @@ A fresh run must:
 7. never silently destroy a valid seventh weapon when the rack is full; and
 8. produce the same weapon-reward schedule and reward-definition sequence for the same run seed.
 
-The PR is **ready for review**: implementation and all automated gates are complete. The manual Golden Run acceptance pass (§9) is recorded in §13 as pending reviewer/local execution. `Closes #73` belongs on the PR, but the issue closes only when the completed PR merges.
+The PR merged on 2026-08-14, closing Issue #73 via `Closes #73`. The manual Golden Run acceptance pass (§9) is recorded in §13 as pending reviewer/local execution.
 
 ## 2. Live baseline verified before architecture freeze
 
@@ -659,6 +659,8 @@ The second command should show no production changes in those frozen files. If i
 
 ## 13. Delivery record
 
+Status: **complete and merged** — PR #80 merged into `main` as `1140335` on 2026-08-14, closing Issue #73.
+
 Implementation agent must update this section before requesting final review.
 
 - [x] Gate A complete — loot/data contract
@@ -729,6 +731,7 @@ for the reviewer/local execution: run `npm run dev`,
 start a run with Scrap Tabby, and walk through §9 steps 1–10.
 
 Deviations from the contract: none intentional. All automated gates and the reviewer-trap scan above are satisfied; §5–§8 test matrices are covered by the committed suites.
+- Issue #73 closure: closed by PR #80 (retained `Closes #73`).
 
 ## 14. Lower-tier implementation prompt
 
