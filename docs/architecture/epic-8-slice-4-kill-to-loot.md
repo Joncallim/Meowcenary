@@ -504,9 +504,10 @@ additions" item is stale — verify, then leave it alone.
 - Do not modify `Drop.ts` or `loot.ts`; if you think you must, the contract has
   drifted and that is a stop-and-report.
 
-## 12. Implementation and delivery handoff
+## 12. Implementation and delivery handoff (historical)
 
-Use this prompt for a lower-tier agent continuing or validating PR #61:
+The implementation is complete and merged via PR #61. This prompt is kept as a
+record of what was executed, not a live work order — do not re-run it.
 
 > Complete Epic 8 Slice 4 (kill-to-loot pipeline) on
 > `agent/epic-8-slice-4-kill-to-loot`, the head branch of PR #61. Keep all

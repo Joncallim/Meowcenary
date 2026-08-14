@@ -739,9 +739,10 @@ under equivalently named test files. The full gate is mandatory.
 - Do not open slice branches or slice PRs. This epic is explicitly one branch
   and one delivery PR.
 
-## 17. Implementation-agent handoff
+## 17. Implementation-agent handoff (historical)
 
-Use this prompt after the architecture commit is present on the remote branch:
+The implementation is complete and merged via PR #65. This prompt is kept as a
+record of what was executed, not a live work order — do not re-run it.
 
 > Implement Epic 10 Audio in `/Users/jonathanlim/Documents/GitHub/Meowcenary`
 > on the existing branch `agent/epic-10-audio`. The entire epic stays on this
@@ -771,10 +772,10 @@ Use this prompt after the architecture commit is present on the remote branch:
 > SHAs, any unrun browser checks, and any deviations. Do not mark Epic 10
 > complete in docs until every §15 criterion has evidence.
 
-## 18. Review and hardening handoff
+## 18. Review and hardening handoff (historical)
 
-Use this prompt after the implementation commits are present on the same
-branch:
+The review is complete and the delivery merged via PR #65. This prompt is kept
+as a record of what was executed, not a live work order — do not re-run it.
 
 > Review and harden Epic 10 on `agent/epic-10-audio`; do not create another
 > branch or PR. Diff from the architecture baseline `7194237` and read

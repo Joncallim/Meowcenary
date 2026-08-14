@@ -683,9 +683,10 @@ under equivalently named test files. The full gate is mandatory.
 - Do not open slice branches or slice PRs. This epic is explicitly one branch
   and one delivery PR.
 
-## 14. Implementation-agent handoff
+## 14. Implementation-agent handoff (historical)
 
-Use this prompt after the architecture commit is present on the remote branch:
+The implementation is complete and merged via PR #66. This prompt is kept as a
+record of what was executed, not a live work order — do not re-run it.
 
 > Implement Epic 11 Balancing and Developer Tooling in
 > `/Users/jonathanlim/Documents/GitHub/Meowcenary` on the existing branch
@@ -718,10 +719,10 @@ Use this prompt after the architecture commit is present on the remote branch:
 > deviations. Do not mark Epic 11 complete in docs until every §12 criterion
 > has evidence.
 
-## 15. Review and hardening handoff
+## 15. Review and hardening handoff (historical)
 
-Use this prompt after the implementation commits are present on the same
-branch:
+The review is complete and the delivery merged via PR #66. This prompt is kept
+as a record of what was executed, not a live work order — do not re-run it.
 
 > Review and harden Epic 11 on
 > `agent/epic-11-balancing-and-developer-tooling`; do not create another

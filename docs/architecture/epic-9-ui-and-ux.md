@@ -703,9 +703,10 @@ under equivalently named test files. The full gate is mandatory.
   gamepad/remapping, or broad refactors.
 - Do not open slice branches or slice PRs. This epic is explicitly one branch.
 
-## 17. Kimi K2.7 implementation handoff
+## 17. Kimi K2.7 implementation handoff (historical)
 
-Use this prompt after the architecture commit is present on the remote branch:
+The implementation is complete and merged via PR #64. This prompt is kept as a
+record of what was executed, not a live work order — do not re-run it.
 
 > Implement Epic 9 UI and UX in `/Users/jonathanlim/Documents/GitHub/Meowcenary`
 > on the existing branch `agent/epic-9-ui-and-ux`. The entire epic stays on
@@ -732,10 +733,10 @@ Use this prompt after the architecture commit is present on the remote branch:
 > persistence warnings. Do not mark Epic 9 complete in docs until every global
 > criterion has evidence.
 
-## 18. DeepSeek V4 Pro review and hardening handoff
+## 18. DeepSeek V4 Pro review and hardening handoff (historical)
 
-Use this prompt after Kimi's implementation commits are present on the same
-branch:
+The review is complete and the delivery merged via PR #64. This prompt is kept
+as a record of what was executed, not a live work order — do not re-run it.
 
 > Review and harden Epic 9 on `agent/epic-9-ui-and-ux`; do not create another
 > branch or PR. Diff from the architecture baseline `e7999cd` and read

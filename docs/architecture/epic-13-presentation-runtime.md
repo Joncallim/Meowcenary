@@ -990,9 +990,10 @@ trail.
 
 ---
 
-## 17. Implementation-agent handoff
+## 17. Implementation-agent handoff (historical)
 
-Use this prompt verbatim for a lower-tier implementation agent:
+The implementation is complete and merged via PR #79. This prompt is kept as a
+record of what was executed, not a live work order — do not re-run it.
 
 > Implement Epic 13 / Issue #72 in the Meowcenary repository on the existing
 > branch `agent/epic-13-presentation-runtime`. Do not create another branch or
@@ -1025,9 +1026,10 @@ Use this prompt verbatim for a lower-tier implementation agent:
 
 ---
 
-## 18. Independent review and hardening handoff
+## 18. Independent review and hardening handoff (historical)
 
-Use this prompt after the implementation slices are present:
+The review is complete and the delivery merged via PR #79. This prompt is kept
+as a record of what was executed, not a live work order — do not re-run it.
 
 > Review and harden Epic 13 / Issue #72 on
 > `agent/epic-13-presentation-runtime`. Do not create another branch or PR.

@@ -1241,9 +1241,10 @@ Do not squash away slice boundaries before review; they are part of the audit tr
 
 ---
 
-## 18. Implementation-agent handoff
+## 18. Implementation-agent handoff (historical)
 
-Use this prompt verbatim for a lower-tier implementation agent:
+The implementation is complete and merged via PR #71. This prompt is kept as a
+record of what was executed, not a live work order — do not re-run it.
 
 > Implement Epic 12 / Issue #13 in the Meowcenary repository on the existing branch `agent/epic-12-polish-and-performance`. Do not create another branch or PR.
 >
@@ -1261,9 +1262,10 @@ Use this prompt verbatim for a lower-tier implementation agent:
 
 ---
 
-## 19. Independent review and hardening handoff
+## 19. Independent review and hardening handoff (historical)
 
-Use this prompt after implementation slices are present:
+The review is complete and the delivery merged via PR #71. This prompt is kept
+as a record of what was executed, not a live work order — do not re-run it.
 
 > Review and harden Epic 12 / Issue #13 on `agent/epic-12-polish-and-performance`. Do not create another branch or PR. Diff from architecture baseline `de3f919649543cd082ed72fb1dadbfd0253122d4` and read `docs/architecture/epic-12-polish-and-performance.md` in full before reviewing code.
 >

@@ -1261,9 +1261,10 @@ close it earlier.
 - Do not claim mobile/manual/CI evidence that was not run.
 - Do not open slice branches or a second delivery PR.
 
-## 15. Implementation-agent handoff
+## 15. Implementation-agent handoff (historical)
 
-Use this prompt verbatim after PR #66 has merged:
+The implementation is complete and merged via PR #68. This prompt is kept as a
+record of what was executed, not a live work order — do not re-run it.
 
 > Implement Issue #67, the Epic 10 audio remainder, in the existing local
 > Meowcenary checkout on branch `agent/epic-10-audio-remainder`. Do not create
@@ -1297,9 +1298,10 @@ Use this prompt verbatim after PR #66 has merged:
 > PR, and report exact SHAs, counts, CI, manual evidence, and any genuinely
 > unrun row.
 
-## 16. Review-and-hardening handoff
+## 16. Review-and-hardening handoff (historical)
 
-Use this prompt after all three implementation commits are present:
+The review is complete and the delivery merged via PR #68. This prompt is kept
+as a record of what was executed, not a live work order — do not re-run it.
 
 > Review and harden Issue #67 on
 > `agent/epic-10-audio-remainder`; do not create another branch or PR. Read

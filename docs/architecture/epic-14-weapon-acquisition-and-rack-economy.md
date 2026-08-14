@@ -733,14 +733,16 @@ start a run with Scrap Tabby, and walk through §9 steps 1–10.
 Deviations from the contract: none intentional. All automated gates and the reviewer-trap scan above are satisfied; §5–§8 test matrices are covered by the committed suites.
 - Issue #73 closure: closed by PR #80 (retained `Closes #73`).
 
-## 14. Lower-tier implementation prompt
+## 14. Lower-tier implementation prompt (historical)
 
-Use this prompt verbatim or preserve every constraint when handing the PR to an implementation agent:
+The implementation is complete and merged via PR #80. This prompt is kept as a
+record of what was executed, not a live work order — do not re-run it.
 
 > Implement Epic 14 / Issue #73 on the existing branch `agent/epic-14-weapon-acquisition` and PR #80. Read `docs/architecture/epic-14-weapon-acquisition-and-rack-economy.md` completely before editing. Treat every Frozen Decision, file-ownership rule, gate, test requirement, reviewer trap, and non-goal as binding. Work Gates A→F in order. Do not redesign architecture. Do not use `Math.random`, do not reuse the `loot` RNG stream for weapon rewards, do not create a second weapon registry, do not allocate an instance before admission succeeds, do not change merge or WeaponSystem production logic, and never silently consume a full-rack weapon pickup. Keep the PR draft until all automated gates and the manual Golden Run pass are recorded in the delivery record.
 
-## 15. Architecture-review prompt
+## 15. Architecture-review prompt (historical)
 
-For the final architecture/reviewer pass:
+The review is complete and the delivery merged via PR #80. This prompt is kept
+as a record of what was executed, not a live work order — do not re-run it.
 
 > Review PR #80 orthogonally against Issue #73 and `docs/architecture/epic-14-weapon-acquisition-and-rack-economy.md`. Check ownership boundaries, determinism/RNG isolation, instance identity, six-slot capacity, full-rack no-loss behavior, physical pickup integrity, event ordering, validation, merge invariants, system update order, regression risk to XP/scrap/chest behavior, UI scope leakage into Epic 15, presentation leakage into Epics 16/17, save/dependency drift, tests, and manual Golden Run evidence. Treat any silent seventh-weapon loss, RNG coupling, premature instance allocation, second registry, direct `WeaponSystem` activation, direct chest-to-rack weapon grant, or undocumented frozen-file change as merge-blocking.

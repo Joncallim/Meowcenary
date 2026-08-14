@@ -489,10 +489,10 @@ Part of this slice per issue #57. The following edits were delivered in PR
 - Do not use the issue's `magnetSpeed 300` anywhere (§2.1).
 - Do not leave the Slice 4 interim chest test in place — rewrite it (§7.1).
 
-## 11. Historical implementation and delivery handoff
+## 11. Implementation and delivery handoff (historical)
 
-The prompt below records the original PR #62 handoff. The implementation is
-already merged; do not re-run it as a new work package.
+The implementation is complete and merged via PR #62. This prompt is kept as a
+record of what was executed, not a live work order — do not re-run it.
 
 > Complete Epic 8 Slice 5 (chest shell + integration harness + docs
 > sign-off) on `agent/epic-8-slice-5-chest-shell`, the head branch of this

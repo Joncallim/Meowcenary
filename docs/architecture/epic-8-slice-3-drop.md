@@ -338,10 +338,8 @@ normalized velocity components. Do not assert private implementation details.
 
 ## 13. Kimi K3 / DeepSeek execution prompt (historical)
 
-Slice 3 is implemented and merged via #60 (see the Status line at the top of
-this document). The prompt below is kept as a record of what was executed,
-not a live work order — `src/entities/Drop.ts` and `tests/drop.test.ts`
-already exist; do not re-run this prompt.
+The implementation is complete and merged via PR #60. This prompt is kept as a
+record of what was executed, not a live work order — do not re-run it.
 
 ```text
 Implement Epic 8 Slice 3 in Joncallim/Meowcenary.

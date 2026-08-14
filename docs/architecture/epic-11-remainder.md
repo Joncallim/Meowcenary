@@ -1271,9 +1271,10 @@ in the PR diff.
 - Do not start Epic 12 or retune data in this PR.
 - Do not create slice branches, slice PRs, or new dependencies.
 
-## 14. Implementation-agent handoff
+## 14. Implementation-agent handoff (historical)
 
-Use this prompt verbatim after the architecture commit is on the branch:
+The implementation is complete and merged via PR #70. This prompt is kept as a
+record of what was executed, not a live work order — do not re-run it.
 
 > Implement Issue #69, the Epic 11 remainder, in the Meowcenary repository on
 > the existing branch `agent/epic-11-remainder`. Do not create another branch
@@ -1303,9 +1304,10 @@ Use this prompt verbatim after the architecture commit is on the branch:
 > “unverified,” never “passed.” Do not mark Epic 11 complete until every
 > acceptance item has evidence.
 
-## 15. Review and hardening handoff
+## 15. Review and hardening handoff (historical)
 
-Use this prompt after all three implementation commits are on the same branch:
+The review is complete and the delivery merged via PR #70. This prompt is kept
+as a record of what was executed, not a live work order — do not re-run it.
 
 > Review and harden Issue #69 on `agent/epic-11-remainder`. Do not create a
 > branch or PR. Diff from architecture baseline
