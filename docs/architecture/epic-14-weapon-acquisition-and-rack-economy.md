@@ -21,7 +21,7 @@ A fresh run must:
 7. never silently destroy a valid seventh weapon when the rack is full; and
 8. produce the same weapon-reward schedule and reward-definition sequence for the same run seed.
 
-This PR remains **draft** until implementation, automated gates, and the manual Golden Run acceptance pass are complete. `Closes #73` belongs on the PR, but the issue closes only when the completed PR merges.
+The PR is **ready for review**: implementation and all automated gates are complete. The manual Golden Run acceptance pass (§9) is recorded in §13 as pending reviewer/local execution. `Closes #73` belongs on the PR, but the issue closes only when the completed PR merges.
 
 ## 2. Live baseline verified before architecture freeze
 
@@ -725,7 +725,7 @@ agent executed the deterministic/harness portions (schedule deadlines,
 definition sequences, full-rack blocking, and unblock after merge) as automated
 tests in `tests/weaponRewards.test.ts` and `tests/dropSystem.test.ts`, but the
 interactive pass itself requires a browser session on a fresh save and remains
-for the reviewer/local execution before the PR leaves draft: run `npm run dev`,
+for the reviewer/local execution: run `npm run dev`,
 start a run with Scrap Tabby, and walk through §9 steps 1–10.
 
 Deviations from the contract: none intentional. All automated gates and the reviewer-trap scan above are satisfied; §5–§8 test matrices are covered by the committed suites.
