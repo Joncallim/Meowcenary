@@ -621,7 +621,10 @@ export class GameScene extends Phaser.Scene {
 
   /** HUD rack control and I key. Opens the rack directly from active play,
    *  moves from pause into the rack, or returns from the rack to pause. */
-  private handleInventoryKey(): void {
+  private handleInventoryKey(event?: KeyboardEvent): void {
+    if (event?.repeat) {
+      return;
+    }
     const controller = this.pauseController;
     if (!controller) {
       return;

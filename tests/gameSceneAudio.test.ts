@@ -37,12 +37,15 @@ interface AudioSeams {
   getAudioManager: () => AudioManager | undefined;
   handleShutdown: () => void;
   handlePauseKey: () => void;
+  handleInventoryKey: (event?: KeyboardEvent) => void;
   pauseController:
     | {
         snapshot: () => { panel: 'closed' | 'pause' | 'inventory'; inventory: unknown };
         pause: () => boolean;
         resume: () => boolean;
         back: () => boolean;
+        openInventory: () => boolean;
+        openInventoryFromRun: () => boolean;
       }
     | undefined;
   pauseView: { render: (snapshot: unknown) => void } | undefined;
@@ -251,6 +254,8 @@ describe('GameScene handlePauseKey command events', () => {
       pause: vi.fn(() => accepted),
       resume: vi.fn(() => accepted),
       back: vi.fn(() => accepted),
+      openInventory: vi.fn(() => accepted),
+      openInventoryFromRun: vi.fn(() => accepted),
     };
     const render = vi.fn();
     const { seams } = createFakeEnvironment(undefined, { bus });
@@ -301,5 +306,34 @@ describe('GameScene handlePauseKey command events', () => {
     const { seams } = createFakeEnvironment();
 
     expect(() => seams.handlePauseKey()).not.toThrow();
+  });
+});
+
+describe('GameScene handleInventoryKey command events', () => {
+  it('ignores repeated I-key events before routing or rendering', () => {
+    const bus = createEventBus();
+    const events: string[] = [];
+    bus.on('ui:confirm', () => events.push('ui:confirm'));
+    bus.on('ui:back', () => events.push('ui:back'));
+    const controller = {
+      snapshot: vi.fn(() => ({ panel: 'closed' as const, inventory: {} })),
+      pause: vi.fn(() => true),
+      resume: vi.fn(() => true),
+      back: vi.fn(() => true),
+      openInventory: vi.fn(() => true),
+      openInventoryFromRun: vi.fn(() => true),
+    };
+    const render = vi.fn();
+    const { seams } = createFakeEnvironment(undefined, { bus });
+    seams.pauseController = controller;
+    seams.pauseView = { render };
+
+    seams.handleInventoryKey({ repeat: true } as KeyboardEvent);
+
+    expect(controller.openInventoryFromRun).not.toHaveBeenCalled();
+    expect(controller.openInventory).not.toHaveBeenCalled();
+    expect(controller.back).not.toHaveBeenCalled();
+    expect(render).not.toHaveBeenCalled();
+    expect(events).toEqual([]);
   });
 });
