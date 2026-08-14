@@ -5,6 +5,10 @@ export interface UiViewport {
   readonly canvasHeight: number;
   readonly displayWidth: number;
   readonly displayHeight: number;
+  /** Browser/container size before FIT pillarboxing. Display orientation can
+   *  differ from the fitted canvas orientation on wide screens. */
+  readonly containerWidth?: number;
+  readonly containerHeight?: number;
 }
 
 const MIN_LAYOUT_SCALE = 0.25;
@@ -29,11 +33,15 @@ export function minimumHitTarget(viewport: UiViewport): number {
 export function logicalCanvasViewport(
   displayWidth: number = RuntimeConfig.canvas.width,
   displayHeight: number = RuntimeConfig.canvas.height,
+  containerWidth: number = displayWidth,
+  containerHeight: number = displayHeight,
 ): UiViewport {
   return {
     canvasWidth: RuntimeConfig.canvas.width,
     canvasHeight: RuntimeConfig.canvas.height,
     displayWidth,
     displayHeight,
+    containerWidth,
+    containerHeight,
   };
 }

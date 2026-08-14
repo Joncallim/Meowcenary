@@ -29,6 +29,24 @@ export function canMerge(
   );
 }
 
+/**
+ * Read-only rack query for UI/HUD affordances. Eligibility remains owned by
+ * `canMerge`; callers never duplicate family/tier/definition rules.
+ */
+export function hasMergeablePair(
+  list: readonly WeaponInstance[],
+  registry: Pick<WeaponRegistry, 'weaponById' | 'weaponByFamilyTier'>,
+): boolean {
+  for (let first = 0; first < list.length; first += 1) {
+    for (let second = first + 1; second < list.length; second += 1) {
+      if (canMerge(list[first]!, list[second]!, registry)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 export function mergeResult(
   a: WeaponInstance,
   b: WeaponInstance,

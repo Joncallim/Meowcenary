@@ -1,14 +1,11 @@
 import Phaser from 'phaser';
 import type { EventBus } from '../engine/eventBus';
 import { pauseRun, resumeRun, type RunState } from '../gameplay/runState';
-import {
-  InventoryController,
-  type InventorySnapshot,
-  type MergeFailureReason,
-} from './inventory';
+import { InventoryController, type InventorySnapshot } from './inventory';
 import { minimumHitTarget, physicalToLogical, type UiViewport } from './layout';
 import { createModalTextHelpers, type ModalTextHelpers } from './modal';
-import { ThemeColor, ThemeDepth, ThemeFont } from './theme';
+import { ThemeColor, ThemeDepth } from './theme';
+import { PhaserWeaponRackPanel } from './weaponRackView';
 
 export type PausePanel = 'closed' | 'pause' | 'inventory';
 
@@ -41,25 +38,40 @@ export class PauseController {
   }
 
   resume(): boolean {
-    if (this.disposed) {
+    if (
+      this.disposed ||
+      this.runState.status !== 'paused' ||
+      this.runState.pauseReason !== 'manual'
+    ) {
       return false;
     }
-    // Never resume or replace a level-up pause.
-    if (this.runState.status !== 'paused' || this.runState.pauseReason !== 'manual') {
-      return false;
-    }
+    this.inventory.clearSelection();
     resumeRun(this.runState, this.bus, 'manual');
     this.panel = 'closed';
     return true;
   }
 
   openInventory(): boolean {
-    if (this.disposed || this.panel !== 'pause') {
+    if (
+      this.disposed ||
+      this.panel !== 'pause' ||
+      this.runState.status !== 'paused' ||
+      this.runState.pauseReason !== 'manual'
+    ) {
       return false;
     }
-    if (this.runState.status !== 'paused' || this.runState.pauseReason !== 'manual') {
+    this.inventory.clearSelection();
+    this.panel = 'inventory';
+    return true;
+  }
+
+  /** HUD/I-key entry point: pauses and opens the rack in one accepted command. */
+  openInventoryFromRun(): boolean {
+    if (this.disposed || this.panel !== 'closed' || this.runState.status !== 'active') {
       return false;
     }
+    this.inventory.clearSelection();
+    pauseRun(this.runState, this.bus, 'manual');
     this.panel = 'inventory';
     return true;
   }
@@ -69,6 +81,7 @@ export class PauseController {
       return false;
     }
     if (this.panel === 'inventory') {
+      this.inventory.clearSelection();
       this.panel = 'pause';
       return true;
     }
@@ -87,6 +100,7 @@ export class PauseController {
 
   destroy(): void {
     this.disposed = true;
+    this.inventory.clearSelection();
   }
 }
 
@@ -100,20 +114,18 @@ export interface PhaserPauseViewOptions {
   readonly inventory: InventoryController;
 }
 
-/** Manual-pause surface: pause panel, inventory/merge child panel, and the
- *  full-screen interactive backdrop that keeps HUD/world controls below the
- *  modal non-interactive (priority order in the Epic 9 architecture doc).
- *  Emits exactly one `ui:*` command event per accepted user command; the
- *  controller itself stays headless. */
+/**
+ * Manual-pause shell. The responsive weapon-rack child panel is isolated in
+ * `weaponRackView.ts`; this class owns only modal lifecycle and routing.
+ */
 export class PhaserPauseView {
   private readonly scene: Phaser.Scene;
-  private readonly viewport: UiViewport;
+  private viewport: UiViewport;
   private readonly bus: EventBus;
   private readonly controller: PauseController;
-  private readonly inventory: InventoryController;
-  private readonly modal: ModalTextHelpers;
+  private modal: ModalTextHelpers;
+  private readonly weaponRack: PhaserWeaponRackPanel;
   private root?: Phaser.GameObjects.Container;
-  private notice?: string;
   private disposed = false;
 
   constructor(options: PhaserPauseViewOptions) {
@@ -121,8 +133,18 @@ export class PhaserPauseView {
     this.viewport = options.viewport;
     this.bus = options.bus;
     this.controller = options.controller;
-    this.inventory = options.inventory;
     this.modal = createModalTextHelpers(options.scene, options.viewport);
+    this.weaponRack = new PhaserWeaponRackPanel({
+      scene: options.scene,
+      viewport: options.viewport,
+      bus: options.bus,
+      inventory: options.inventory,
+      modal: this.modal,
+      isOpen: () => this.controller.snapshot().panel === 'inventory',
+      onBack: () => this.controller.back(),
+      requestRender: () => this.render(this.controller.snapshot()),
+    });
+    options.scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
     this.render(this.controller.snapshot());
   }
 
@@ -130,12 +152,11 @@ export class PhaserPauseView {
     if (this.disposed) {
       return;
     }
+    this.syncLayoutContext();
     this.root?.destroy(true);
     this.root = undefined;
-    // The merge failure notice lives inside the inventory panel; it survives
-    // re-renders (e.g. row toggles) and clears once the panel is left.
     if (snapshot.panel !== 'inventory') {
-      this.notice = undefined;
+      this.weaponRack.reset();
     }
     if (snapshot.panel === 'closed') {
       return;
@@ -147,17 +168,19 @@ export class PhaserPauseView {
     const margin = physicalToLogical(12, viewport);
     const hitTarget = minimumHitTarget(viewport);
     const buttonWidth = Math.max(180, width - margin * 4);
-
     const root = scene.add.container(0, 0);
 
     try {
       root.setDepth(ThemeDepth.pauseSummary);
       root.setScrollFactor(0);
-
-      // Interactive full-screen backdrop: the top-most interactive object eats
-      // pointer events so nothing below the modal stays interactive. Parented
-      // immediately so a failed chain call cannot orphan it.
-      const backdrop = scene.add.rectangle(width / 2, height / 2, width, height, ThemeColor.background, 0.9);
+      const backdrop = scene.add.rectangle(
+        width / 2,
+        height / 2,
+        width,
+        height,
+        ThemeColor.background,
+        0.94,
+      );
       root.add(backdrop);
       backdrop.setInteractive();
       backdrop.setScrollFactor(0);
@@ -165,12 +188,12 @@ export class PhaserPauseView {
       if (snapshot.panel === 'pause') {
         this.renderPausePanel(root, width, height, margin, hitTarget, buttonWidth);
       } else {
-        this.renderInventoryPanel(root, snapshot.inventory, width, height, margin, hitTarget, buttonWidth);
+        this.weaponRack.render(
+          root,
+          snapshot.inventory,
+          width,
+        );
       }
-
-      // The root is only published once the display tree is fully built, so a
-      // failed render leaves the view invisible and a later render can retry
-      // from a clean slate.
       this.root = root;
     } catch (error) {
       root.destroy(true);
@@ -183,9 +206,48 @@ export class PhaserPauseView {
       return;
     }
     this.disposed = true;
+    this.scene.scale.off(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
+    this.weaponRack.destroy();
     this.root?.destroy(true);
     this.root = undefined;
-    this.notice = undefined;
+  }
+
+  private readonly handleScaleChange = (): void => {
+    if (this.disposed) {
+      return;
+    }
+    this.syncLayoutContext();
+    this.render(this.controller.snapshot());
+  };
+
+  private syncLayoutContext(): void {
+    const scale = this.scene.scale;
+    const next: UiViewport = {
+      canvasWidth: positiveFinite(scale.width, this.viewport.canvasWidth),
+      canvasHeight: positiveFinite(scale.height, this.viewport.canvasHeight),
+      displayWidth: positiveFinite(
+        scale.displaySize.width,
+        this.viewport.displayWidth,
+      ),
+      displayHeight: positiveFinite(
+        scale.displaySize.height,
+        this.viewport.displayHeight,
+      ),
+      containerWidth: positiveFinite(
+        scale.parentSize.width,
+        this.viewport.containerWidth ?? this.viewport.displayWidth,
+      ),
+      containerHeight: positiveFinite(
+        scale.parentSize.height,
+        this.viewport.containerHeight ?? this.viewport.displayHeight,
+      ),
+    };
+    if (sameViewport(this.viewport, next)) {
+      return;
+    }
+    this.viewport = next;
+    this.modal = createModalTextHelpers(this.scene, next);
+    this.weaponRack.updateLayoutContext(next, this.modal);
   }
 
   private renderPausePanel(
@@ -209,7 +271,7 @@ export class PhaserPauseView {
       this.render(this.controller.snapshot());
     });
     y += hitTarget + 16;
-    this.modal.addButton(root, centerX, y, buttonWidth, 'Inventory', () => {
+    this.modal.addButton(root, centerX, y, buttonWidth, 'Weapon Rack', () => {
       if (this.controller.openInventory()) {
         this.bus.emit('ui:confirm', {});
       }
@@ -218,80 +280,17 @@ export class PhaserPauseView {
 
     this.modal.addHint(root, margin, height - margin - 14, 'P / Esc to resume');
   }
-
-  private renderInventoryPanel(
-    root: Phaser.GameObjects.Container,
-    snapshot: InventorySnapshot,
-    width: number,
-    height: number,
-    margin: number,
-    hitTarget: number,
-    buttonWidth: number,
-  ): void {
-    const centerX = width / 2;
-    const heading = this.modal.addText(centerX, margin + 16, 'Inventory', 'heading');
-    root.add(heading);
-    heading.setOrigin(0.5);
-
-    const headingSize = physicalToLogical(ThemeFont.headingMin, this.viewport);
-    const labelSize = physicalToLogical(ThemeFont.labelMin, this.viewport);
-    const guide = this.modal.addText(centerX, margin + 16 + headingSize + 12, 'Select two matching weapons to merge', 'body');
-    root.add(guide);
-    guide.setOrigin(0.5);
-
-    const rowWidth = width - margin * 2;
-    let y = margin + 16 + headingSize + labelSize + 40;
-    snapshot.weapons.forEach((weapon) => {
-      const label = `${weapon.selected ? '✓' : ' '} T${weapon.tier} ${weapon.name}`;
-      this.modal.addButton(root, centerX, y, rowWidth, label, () => {
-        const next = this.inventory.toggle(weapon.instanceId);
-        const selectedAfter = next.selectedInstanceIds.includes(weapon.instanceId);
-        if (selectedAfter !== weapon.selected) {
-          this.bus.emit('ui:navigate', {});
-        }
-        this.render(this.controller.snapshot());
-      }, weapon.selected);
-      y += hitTarget + 8;
-    });
-
-    if (this.notice) {
-      const notice = this.modal.addText(centerX, y + 10, this.notice, 'notice');
-      root.add(notice);
-      notice.setOrigin(0.5);
-      y += physicalToLogical(ThemeFont.bodyMin, this.viewport) + 10;
-    }
-
-    const mergeY = height - margin - hitTarget * 2 - 20;
-    this.modal.addButton(root, centerX, mergeY, buttonWidth, 'Merge Selected', () => {
-      const result = this.inventory.mergeSelected();
-      // Exactly one confirm cue regardless of result: a failed merge still
-      // confirms the command.
-      this.bus.emit('ui:confirm', {});
-      this.notice = result.ok ? undefined : mergeFailureCopy(result.reason);
-      this.render(this.controller.snapshot());
-    });
-    this.modal.addButton(root, centerX, mergeY + hitTarget + 12, buttonWidth, '< Back', () => {
-      if (this.controller.back()) {
-        this.bus.emit('ui:back', {});
-      }
-      this.render(this.controller.snapshot());
-    });
-
-    this.modal.addHint(root, margin, height - margin - 14, 'Esc returns to pause');
-  }
 }
 
-function mergeFailureCopy(reason: MergeFailureReason): string {
-  switch (reason) {
-    case 'run-not-manual-paused':
-      return 'Run must be paused';
-    case 'weapon-not-found':
-      return 'Select two weapons';
-    case 'same-instance':
-      return 'Select two different weapons';
-    case 'not-mergeable':
-      return 'Weapons cannot be merged';
-    case 'stale-inventory':
-      return 'Inventory changed; retry';
-  }
+function positiveFinite(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function sameViewport(a: UiViewport, b: UiViewport): boolean {
+  return a.canvasWidth === b.canvasWidth
+    && a.canvasHeight === b.canvasHeight
+    && a.displayWidth === b.displayWidth
+    && a.displayHeight === b.displayHeight
+    && a.containerWidth === b.containerWidth
+    && a.containerHeight === b.containerHeight;
 }

@@ -35,6 +35,12 @@
   architecture and delivery record in
   [`architecture/epic-14-weapon-acquisition-and-rack-economy.md`](architecture/epic-14-weapon-acquisition-and-rack-economy.md);
   delivered on the single branch `agent/epic-14-weapon-acquisition`.
+- Epic 15 / Inventory and Merge Experience: draft implementation on
+  `codex/epic-15-inventory-merge` (#74) — immutable six-slot rack read model,
+  authoritative compatibility highlighting, allocation-free next-tier preview,
+  direct merge-ready HUD entry, tap/keyboard commands, and responsive
+  portrait/landscape presentation; architecture and delivery record in
+  [`architecture/epic-15-inventory-and-merge-experience.md`](architecture/epic-15-inventory-and-merge-experience.md).
 
 Epic 7 was implemented in the consolidated PR #51 and merged.
 Epic 8 is complete: Slices 1–5 merged in PRs #58–62, implementing the

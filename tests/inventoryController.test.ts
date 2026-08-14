@@ -52,7 +52,7 @@ describe('InventoryController snapshot', () => {
 
     const snapshot = controller.snapshot();
 
-    expect(snapshot.weapons).toEqual([
+    expect(snapshot.weapons).toMatchObject([
       {
         instanceId: 'a',
         definitionId: 'scrap-pistol-t1',
@@ -60,6 +60,7 @@ describe('InventoryController snapshot', () => {
         family: 'pistol',
         tier: 1,
         selected: false,
+        selectionState: 'merge-ready',
         mergeableWith: ['b'],
       },
       {
@@ -69,6 +70,7 @@ describe('InventoryController snapshot', () => {
         family: 'pistol',
         tier: 1,
         selected: false,
+        selectionState: 'merge-ready',
         mergeableWith: ['a'],
       },
       {
@@ -78,13 +80,27 @@ describe('InventoryController snapshot', () => {
         family: 'smg',
         tier: 1,
         selected: false,
+        selectionState: 'neutral',
         mergeableWith: [],
       },
     ]);
+    expect(snapshot.capacity).toBe(6);
+    expect(snapshot.slots).toHaveLength(6);
+    expect(snapshot.slots.slice(3)).toEqual([null, null, null]);
+    expect(snapshot.mergeReady).toBe(true);
+    expect(snapshot.weapons[0].iconId).toBe('weapon:pistol');
+    expect(snapshot.weapons[0].stats).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'damage', value: 8, formatted: '8' }),
+        expect.objectContaining({ key: 'rate', formatted: '1.54/s' }),
+      ]),
+    );
     expect(snapshot.selectedInstanceIds).toEqual([]);
     expect(Object.isFrozen(snapshot)).toBe(true);
     expect(Object.isFrozen(snapshot.weapons[0])).toBe(true);
+    expect(Object.isFrozen(snapshot.weapons[0].stats)).toBe(true);
     expect(Object.isFrozen(snapshot.weapons[0].mergeableWith)).toBe(true);
+    expect(Object.isFrozen(snapshot.slots)).toBe(true);
     expect(Object.isFrozen(snapshot.selectedInstanceIds)).toBe(true);
   });
 
@@ -99,7 +115,10 @@ describe('InventoryController snapshot', () => {
     expect(snapshot.weapons).toHaveLength(2);
     snapshot.weapons.forEach((weapon) => {
       expect(Object.keys(weapon).sort()).toEqual(
-        ['definitionId', 'family', 'instanceId', 'mergeableWith', 'name', 'selected', 'tier'].sort(),
+        [
+          'definitionId', 'family', 'iconId', 'instanceId', 'mergeableWith',
+          'name', 'rarity', 'selected', 'selectionState', 'stats', 'tier',
+        ].sort(),
       );
     });
   });
@@ -127,7 +146,7 @@ describe('InventoryController selection', () => {
     expect(snapshot.selectedInstanceIds).toEqual([]);
   });
 
-  it('keeps only the two most recently selected instances', () => {
+  it('starts a new pair when a third weapon is selected', () => {
     const run = createPausedRun([
       instance('scrap-pistol-t1', 'a'),
       instance('scrap-pistol-t1', 'b'),
@@ -139,7 +158,102 @@ describe('InventoryController selection', () => {
     controller.toggle('b');
     const snapshot = controller.toggle('c');
 
-    expect(snapshot.selectedInstanceIds).toEqual(['b', 'c']);
+    expect(snapshot.selectedInstanceIds).toEqual(['c']);
+  });
+
+  it('highlights authoritative partners and replaces an incompatible second tap', () => {
+    const run = createPausedRun([
+      instance('scrap-pistol-t1', 'a'),
+      instance('scrap-pistol-t1', 'b'),
+      instance('can-smg-t1', 'c'),
+    ]);
+    const { controller } = createController(run);
+
+    let snapshot = controller.toggle('a');
+    expect(snapshot.weapons.find((weapon) => weapon.instanceId === 'a')).toMatchObject({
+      selected: true,
+      selectionOrder: 1,
+      selectionState: 'selected',
+    });
+    expect(snapshot.weapons.find((weapon) => weapon.instanceId === 'b')?.selectionState).toBe('compatible');
+    expect(snapshot.weapons.find((weapon) => weapon.instanceId === 'c')?.selectionState).toBe('incompatible');
+
+    snapshot = controller.toggle('c');
+    expect(snapshot.selectedInstanceIds).toEqual(['c']);
+    expect(snapshot.preview).toBeUndefined();
+  });
+
+  it('previews the exact next tier and definition-derived deltas without allocating', () => {
+    const run = createPausedRun([
+      instance('scrap-pistol-t1', 'a'),
+      instance('scrap-pistol-t1', 'b'),
+    ]);
+    const { controller } = createController(run);
+
+    controller.toggle('a');
+    const snapshot = controller.toggle('b');
+
+    expect(snapshot.preview).toMatchObject({
+      inputs: [
+        { definitionId: 'scrap-pistol-t1', tier: 1 },
+        { definitionId: 'scrap-pistol-t1', tier: 1 },
+      ],
+      result: {
+        definitionId: 'scrap-pistol-t2',
+        name: 'Scrap Pistol II',
+        tier: 2,
+      },
+      deltas: expect.arrayContaining([
+        expect.objectContaining({
+          key: 'damage',
+          before: 8,
+          after: 12,
+          formattedBefore: '8',
+          formattedAfter: '12',
+        }),
+      ]),
+    });
+    expect(Object.isFrozen(snapshot.preview)).toBe(true);
+    expect(Object.isFrozen(snapshot.preview?.deltas)).toBe(true);
+
+    const definition = registry.weaponById('scrap-pistol-t1');
+    if (!definition) throw new Error('missing pistol definition');
+    expect(registry.createWeaponInstance(definition).instanceId).toBe('weapon-1');
+  });
+
+  it('keeps small fire-rate upgrades distinguishable in the preview', () => {
+    const run = createPausedRun([
+      instance('bolt-shotgun-t1', 'a'),
+      instance('bolt-shotgun-t1', 'b'),
+    ]);
+    const { controller } = createController(run);
+
+    controller.toggle('a');
+    const snapshot = controller.toggle('b');
+    const rate = snapshot.preview?.deltas.find((delta) => delta.key === 'rate');
+
+    expect(rate).toMatchObject({
+      formattedBefore: '0.95/s',
+      formattedAfter: '1.02/s',
+    });
+    expect(rate?.formattedBefore).not.toBe(rate?.formattedAfter);
+  });
+
+  it('invalidates stale selection and preview on the next snapshot', () => {
+    const run = createPausedRun([
+      instance('scrap-pistol-t1', 'a'),
+      instance('scrap-pistol-t1', 'b'),
+    ]);
+    const { controller } = createController(run);
+    controller.toggle('a');
+    controller.toggle('b');
+    expect(controller.snapshot().preview).toBeDefined();
+
+    run.equipped = [run.equipped[0]!];
+    const snapshot = controller.snapshot();
+
+    expect(snapshot.selectedInstanceIds).toEqual(['a']);
+    expect(snapshot.preview).toBeUndefined();
   });
 
   it('clearSelection resets the selection', () => {
@@ -304,7 +418,7 @@ describe('InventoryController mergeSelected failures', () => {
     expect(withEmitSpy(bus)).not.toHaveBeenCalled();
   });
 
-  it('rejects pairs that are not mergeable', () => {
+  it('never enables an incompatible or max-tier pair', () => {
     const mismatched = createPausedRun([
       instance('scrap-pistol-t1', 'a'),
       instance('can-smg-t1', 'b'),
@@ -315,8 +429,10 @@ describe('InventoryController mergeSelected failures', () => {
     const result = mismatchedController.mergeSelected();
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.reason).toBe('not-mergeable');
+      expect(result.reason).toBe('weapon-not-found');
     }
+    expect(mismatchedController.snapshot().selectedInstanceIds).toEqual(['b']);
+    expect(mismatchedController.snapshot().preview).toBeUndefined();
 
     const maxTier = createPausedRun([
       instance('scrap-pistol-t3', 'a'),
@@ -328,8 +444,10 @@ describe('InventoryController mergeSelected failures', () => {
     const maxResult = maxTierController.mergeSelected();
     expect(maxResult.ok).toBe(false);
     if (!maxResult.ok) {
-      expect(maxResult.reason).toBe('not-mergeable');
+      expect(maxResult.reason).toBe('weapon-not-found');
     }
+    expect(maxTierController.snapshot().selectedInstanceIds).toEqual(['b']);
+    expect(maxTierController.snapshot().preview).toBeUndefined();
   });
 
   it('returns stale-inventory when the equipped array cannot be replaced exactly', () => {
@@ -431,7 +549,7 @@ describe('InventoryController mergeSelected failures', () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.snapshot.selectedInstanceIds).toEqual(['a', 'b']);
+      expect(result.snapshot.selectedInstanceIds).toEqual(['b']);
       expect(result.snapshot.weapons).toHaveLength(2);
     }
   });

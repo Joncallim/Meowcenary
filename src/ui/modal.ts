@@ -19,6 +19,7 @@ export interface ModalTextHelpers {
     label: string,
     onActivate: () => void,
     emphasized?: boolean,
+    enabled?: boolean,
   ): void;
   addHint(
     root: Phaser.GameObjects.Container,
@@ -81,6 +82,7 @@ export function createModalTextHelpers(
     label: string,
     onActivate: () => void,
     emphasized = false,
+    enabled = true,
   ): void => {
     const hitTarget = minimumHitTarget(viewport);
     const rect = scene.add.rectangle(
@@ -88,16 +90,30 @@ export function createModalTextHelpers(
       y,
       width,
       hitTarget,
-      emphasized ? ThemeColor.cardHover : ThemeColor.card,
+      enabled
+        ? emphasized
+          ? ThemeColor.cardHover
+          : ThemeColor.card
+        : ThemeColor.surface,
     );
     root.add(rect);
-    rect.setStrokeStyle(physicalToLogical(2, viewport), emphasized ? ThemeColor.primary : ThemeColor.muted, 0.9);
+    rect.setStrokeStyle(
+      physicalToLogical(2, viewport),
+      enabled
+        ? emphasized
+          ? ThemeColor.primary
+          : ThemeColor.muted
+        : ThemeColor.card,
+      enabled ? 0.9 : 0.55,
+    );
     rect.setScrollFactor(0);
-    rect.setInteractive();
-    rect.on(Phaser.Input.Events.POINTER_UP, onActivate);
+    if (enabled) {
+      rect.setInteractive();
+      rect.on(Phaser.Input.Events.POINTER_UP, onActivate);
+    }
 
     const text = scene.add.text(x, y, label, {
-      color: '#f7f1d5',
+      color: enabled ? '#f7f1d5' : '#78909c',
       fontFamily: ThemeFont.family,
       fontSize: `${physicalToLogical(ThemeFont.labelMin, viewport)}px`,
     });

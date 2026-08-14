@@ -15,7 +15,12 @@ import {
 } from '../src/ui/hud';
 import { logicalCanvasViewport } from '../src/ui/layout';
 
-vi.mock('phaser', () => ({ default: {} }));
+vi.mock('phaser', () => ({
+  default: {
+    Input: { Events: { POINTER_UP: 'pointerup' } },
+    Scale: { Events: { RESIZE: 'resize' } },
+  },
+}));
 
 class FakeHudView implements HudView {
   readonly renders: HudSnapshot[] = [];
@@ -50,6 +55,7 @@ function createMutableSource(initial: Partial<HudSnapshot> = {}): HudSource & { 
     kills: 0,
     currency: 0,
     weapons: defaultWeapons,
+    mergeReady: false,
     ...initial,
   };
   return {
@@ -201,7 +207,25 @@ describe('createHudSource', () => {
     return {
       weaponById(id: string) {
         if (id === 'def-pistol') {
-          return { id: 'def-pistol', name: 'Plasma Pistol', family: 'pistol', mergeTier: 1 } as ReturnType<DataWeaponRegistry['weaponById']>;
+          return {
+            id: 'def-pistol',
+            name: 'Plasma Pistol',
+            family: 'pistol',
+            mergeTier: 1,
+            maxTier: 2,
+          } as ReturnType<DataWeaponRegistry['weaponById']>;
+        }
+        return undefined;
+      },
+      weaponByFamilyTier(family: string, tier: number) {
+        if (family === 'pistol' && tier === 2) {
+          return {
+            id: 'def-pistol-t2',
+            name: 'Plasma Pistol II',
+            family: 'pistol',
+            mergeTier: 2,
+            maxTier: 2,
+          } as ReturnType<DataWeaponRegistry['weaponByFamilyTier']>;
         }
         return undefined;
       },
@@ -229,6 +253,25 @@ describe('createHudSource', () => {
     ]);
     expect(Object.isFrozen(snapshot)).toBe(true);
     expect(Object.isFrozen(snapshot.weapons[0])).toBe(true);
+    expect(snapshot.mergeReady).toBe(false);
+  });
+
+  it('reports merge-ready iff the authoritative rack contains a valid pair', () => {
+    const runState = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
+    runState.equipped = [
+      { instanceId: 'i1', defId: 'def-pistol', family: 'pistol', tier: 1 },
+      { instanceId: 'i2', defId: 'def-pistol', family: 'pistol', tier: 1 },
+    ];
+    const source = createHudSource({
+      runState,
+      player: createPlayer(),
+      durationMs: 60_000,
+      weaponRegistry: createWeaponRegistry(),
+    });
+
+    expect(source.snapshot().mergeReady).toBe(true);
+    runState.equipped = [runState.equipped[0]!];
+    expect(source.snapshot().mergeReady).toBe(false);
   });
 
   it('reflects current run state on every snapshot', () => {
@@ -260,18 +303,22 @@ describe('createHudSource', () => {
 
 describe('PhaserHudView', () => {
   function createFakeScene() {
+    let resize: { handler: () => void; context: unknown } | undefined;
     const objects: Array<ReturnType<typeof fakeObject>> = [];
     const own = <T>(object: T): T => {
       objects.push(object as ReturnType<typeof fakeObject>);
       return object;
     };
 
-    function fakeObject() {
+    function fakeObject(kind = 'object', width = 0, height = 0, x = 0, y = 0) {
       const state: Record<string, unknown> = {
+        kind,
         visible: true,
         alpha: 1,
-        x: 0,
-        y: 0,
+        x,
+        y,
+        width,
+        height,
         scaleX: 1,
         scaleY: 1,
         text: '',
@@ -295,6 +342,8 @@ describe('PhaserHudView', () => {
         setStrokeStyle() { return api; },
         setInteractive() { state.interactive = true; return api; },
         disableInteractive() { state.interactive = false; return api; },
+        on() { return api; },
+        off() { return api; },
         destroy() { state.destroyed = true; },
       };
       return api;
@@ -303,7 +352,7 @@ describe('PhaserHudView', () => {
     const scene = {
       add: {
         container: () => {
-          const base = fakeObject();
+          const base = fakeObject('container');
           const container = {
             // Object spread snapshots the state getter into a data property,
             // so delegate back to base (whose getter reads the closure state)
@@ -327,11 +376,37 @@ describe('PhaserHudView', () => {
           objects.push(container);
           return container;
         },
-        text: (_x: number, _y: number, text: string) => own(fakeObject()).setText(text),
-        rectangle: () => own(fakeObject()),
-        arc: () => own(fakeObject()),
+        text: (x: number, y: number, text: string) => own(fakeObject('text', 0, 0, x, y)).setText(text),
+        rectangle: (x: number, y: number, width: number, height: number) =>
+          own(fakeObject('rect', width, height, x, y)),
+        arc: (x: number, y: number) => own(fakeObject('arc', 0, 0, x, y)),
+      },
+      scale: {
+        width: 390,
+        height: 844,
+        displaySize: { width: 390, height: 844 },
+        parentSize: { width: 390, height: 844 },
+        on(event: string, handler: () => void, context: unknown) {
+          if (event === 'resize') resize = { handler, context };
+        },
+        off(event: string, handler: () => void, context: unknown) {
+          if (event === 'resize' && resize?.handler === handler && resize.context === context) {
+            resize = undefined;
+          }
+        },
+        listenerCount(event: string) {
+          return event === 'resize' && resize ? 1 : 0;
+        },
       },
       get objects() { return objects; },
+      resize(displayWidth: number, displayHeight: number) {
+        const fitScale = Math.min(displayWidth / 390, displayHeight / 844);
+        scene.scale.displaySize.width = 390 * fitScale;
+        scene.scale.displaySize.height = 844 * fitScale;
+        scene.scale.parentSize.width = displayWidth;
+        scene.scale.parentSize.height = displayHeight;
+        resize?.handler.call(resize.context);
+      },
     };
     return scene;
   }
@@ -353,6 +428,7 @@ describe('PhaserHudView', () => {
         kills: 0,
         currency: Number.NaN,
         weapons: [],
+        mergeReady: false,
       })
     ).not.toThrow();
 
@@ -387,14 +463,18 @@ describe('PhaserHudView', () => {
         kills: 0,
         currency: 0,
         weapons,
+        mergeReady: count === 2,
       });
 
       const weaponText = scene.objects.find((object) =>
-        'state' in object && typeof object.state.text === 'string' && object.state.text.startsWith('Weapons '),
+        'state' in object && typeof object.state.text === 'string' && object.state.text.startsWith('Rack '),
       );
-      const expected = count > 0
-        ? `Weapons ${count}/${WEAPON_RACK_CAPACITY}: ${Array.from({ length: count }, () => 'T1 Scrap Pistol I').join('  ')}`
-        : `Weapons 0/${WEAPON_RACK_CAPACITY}`;
+      const expectedState = count === 2
+        ? 'MERGE READY'
+        : count === WEAPON_RACK_CAPACITY
+          ? 'RACK FULL'
+          : 'TAP TO INSPECT';
+      const expected = `Rack ${count}/${WEAPON_RACK_CAPACITY}  •  ${expectedState}`;
       expect(weaponText?.state.text).toBe(expected);
     }
   });
@@ -406,5 +486,46 @@ describe('PhaserHudView', () => {
     view.destroy();
 
     expect(scene.objects.every((object) => object.state.destroyed)).toBe(true);
+    expect(scene.scale.listenerCount('resize')).toBe(0);
+  });
+
+  it('rebuilds the HUD and preserves a 44px rack target after a wide resize', () => {
+    const scene = createFakeScene();
+    const view = new PhaserHudView({
+      scene: scene as never,
+      viewport: logicalCanvasViewport(),
+      onInventoryRequested: vi.fn(),
+    });
+    view.render({
+      status: 'active',
+      timeMs: 1_000,
+      durationMs: 60_000,
+      health: 100,
+      maxHealth: 100,
+      level: 2,
+      xp: 10,
+      xpToNext: 100,
+      kills: 3,
+      currency: 12,
+      weapons: [{ instanceId: 'w1', name: 'Bolt Shotgun II', tier: 2 }],
+      mergeReady: false,
+    });
+    const oldObjects = scene.objects.filter((object) => !object.state.destroyed);
+
+    scene.resize(844, 390);
+
+    expect(oldObjects.every((object) => object.state.destroyed)).toBe(true);
+    expect(scene.scale.listenerCount('resize')).toBe(1);
+    const rack = scene.objects.find((object) =>
+      object.state.kind === 'rect' && object.state.interactive && !object.state.destroyed,
+    );
+    const fitScale = 390 / 844;
+    expect(Number(rack?.state.height) * fitScale).toBeCloseTo(44, 5);
+    const weaponText = scene.objects.find((object) =>
+      object.state.kind === 'text'
+        && object.state.text === 'Rack 1/6  •  TAP TO INSPECT'
+        && !object.state.destroyed,
+    );
+    expect(weaponText).toBeDefined();
   });
 });

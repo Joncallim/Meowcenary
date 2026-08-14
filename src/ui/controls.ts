@@ -7,6 +7,7 @@ import { reducedMotionDuration, ThemeColor, ThemeDepth, ThemeFont } from './them
 const STICK_RADIUS = 64;
 const HINT_DURATION_MS = 2200;
 const HINT_FADE_MS = 400;
+const HUD_RACK_CLEARANCE_PX = 52;
 
 export interface ControlsViewOptions {
   readonly scene: Phaser.Scene;
@@ -19,12 +20,13 @@ export interface ControlsViewOptions {
 export class ControlsView {
   private readonly scene: Phaser.Scene;
   private readonly input: InputController;
+  private viewport: UiViewport;
   private readonly onPauseRequested: () => void;
   private readonly readReducedMotion: () => boolean;
   private readonly stickBase: Phaser.GameObjects.Arc;
   private readonly stickThumb: Phaser.GameObjects.Arc;
-  private readonly hintText: Phaser.GameObjects.Text;
-  private readonly pauseButton: Phaser.GameObjects.Rectangle;
+  private hintText!: Phaser.GameObjects.Text;
+  private pauseButton!: Phaser.GameObjects.Rectangle;
   private hintElapsedMs = 0;
   private hintFaded = false;
   private lastMode: InputMode = 'pointer';
@@ -34,12 +36,9 @@ export class ControlsView {
     const { scene, input, viewport, readReducedMotion, onPauseRequested } = options;
     this.scene = scene;
     this.input = input;
+    this.viewport = viewport;
     this.onPauseRequested = onPauseRequested;
     this.readReducedMotion = readReducedMotion;
-
-    const margin = physicalToLogical(12, viewport);
-    const fontSize = physicalToLogical(ThemeFont.bodyMin, viewport);
-    const pauseSize = physicalToLogical(44, viewport);
 
     this.stickBase = scene.add.arc(0, 0, STICK_RADIUS, 0, 360, false, ThemeColor.cream, 0.18);
     this.stickBase.setDepth(ThemeDepth.transientHint);
@@ -51,10 +50,23 @@ export class ControlsView {
     this.stickThumb.setScrollFactor(0);
     this.stickThumb.setVisible(false);
 
+    this.buildViewportControls();
+    this.scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
+  }
+
+  private buildViewportControls(): void {
+    const { scene, viewport } = this;
+    const margin = physicalToLogical(12, viewport);
+    const fontSize = physicalToLogical(ThemeFont.bodyMin, viewport);
+    const pauseSize = physicalToLogical(44, viewport);
+
     this.hintText = scene.add.text(
       viewport.canvasWidth / 2,
-      viewport.canvasHeight - margin - fontSize * 2,
-      'Drag to move • Tap pause',
+      viewport.canvasHeight
+        - margin
+        - physicalToLogical(HUD_RACK_CLEARANCE_PX, viewport)
+        - fontSize * 2,
+      this.lastMode === 'pointer' ? 'Drag to move • Tap pause' : 'WASD / arrows • P / Esc',
       {
         align: 'center',
         color: '#f7f1d5',
@@ -65,6 +77,9 @@ export class ControlsView {
     this.hintText.setOrigin(0.5);
     this.hintText.setDepth(ThemeDepth.transientHint);
     this.hintText.setScrollFactor(0);
+    if (this.hintFaded) {
+      this.hintText.setAlpha(0);
+    }
 
     this.pauseButton = scene.add.rectangle(
       viewport.canvasWidth - margin - pauseSize / 2,
@@ -96,12 +111,45 @@ export class ControlsView {
       return;
     }
     this.disposed = true;
-    this.pauseButton.off('pointerdown', this.handlePausePointerDown, this);
+    this.scene.scale.off(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
+    this.destroyViewportControls();
     this.stickBase.destroy();
     this.stickThumb.destroy();
+  }
+
+  private destroyViewportControls(): void {
+    this.scene.tweens.killTweensOf(this.hintText);
+    this.pauseButton.off('pointerdown', this.handlePausePointerDown, this);
     this.hintText.destroy();
     this.pauseButton.destroy();
   }
+
+  private readonly handleScaleChange = (): void => {
+    if (this.disposed) {
+      return;
+    }
+    const scale = this.scene.scale;
+    const next: UiViewport = {
+      canvasWidth: positiveFinite(scale.width, this.viewport.canvasWidth),
+      canvasHeight: positiveFinite(scale.height, this.viewport.canvasHeight),
+      displayWidth: positiveFinite(scale.displaySize.width, this.viewport.displayWidth),
+      displayHeight: positiveFinite(scale.displaySize.height, this.viewport.displayHeight),
+      containerWidth: positiveFinite(
+        scale.parentSize.width,
+        this.viewport.containerWidth ?? this.viewport.displayWidth,
+      ),
+      containerHeight: positiveFinite(
+        scale.parentSize.height,
+        this.viewport.containerHeight ?? this.viewport.displayHeight,
+      ),
+    };
+    if (sameViewport(this.viewport, next)) {
+      return;
+    }
+    this.destroyViewportControls();
+    this.viewport = next;
+    this.buildViewportControls();
+  };
 
   private updateStick(snapshot: InputPresentationSnapshot): void {
     const active = snapshot.pointerStart !== null && snapshot.pointerCurrent !== null;
@@ -161,4 +209,17 @@ export class ControlsView {
   private handlePausePointerDown(): void {
     this.onPauseRequested();
   }
+}
+
+function positiveFinite(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function sameViewport(a: UiViewport, b: UiViewport): boolean {
+  return a.canvasWidth === b.canvasWidth
+    && a.canvasHeight === b.canvasHeight
+    && a.displayWidth === b.displayWidth
+    && a.displayHeight === b.displayHeight
+    && a.containerWidth === b.containerWidth
+    && a.containerHeight === b.containerHeight;
 }
