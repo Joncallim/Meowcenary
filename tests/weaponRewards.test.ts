@@ -74,6 +74,11 @@ function createHarness(options: {
   arenaBounds?: { width: number; height: number };
   obstacles?: Array<{ x: number; y: number; w: number; h: number }>;
   lootTableLookup?: LootTableLookup;
+  /** Mirrors `RuntimeConfig.gameplay.player.pickupRadius`. */
+  basePickupRadius?: number;
+  /** Applied to the run's ModifierStack before the system is constructed,
+   *  e.g. Scrap Tabby's +15 pickup radius passive. */
+  pickupRadiusModifier?: number;
 } = {}): Harness {
   const runState = createRunState({
     seed: options.seed ?? 1,
@@ -81,6 +86,14 @@ function createHarness(options: {
     arenaId: 'arena',
   });
   runState.status = 'active';
+  if (options.pickupRadiusModifier !== undefined) {
+    runState.stats.add({
+      stat: 'pickupRadius',
+      op: 'add',
+      value: options.pickupRadiusModifier,
+      sourceId: 'test-passive',
+    });
+  }
   const startingId = options.startingDefinitionId;
   if (startingId !== undefined) {
     const def = weaponRegistry.weaponById(startingId);
@@ -94,6 +107,7 @@ function createHarness(options: {
     lootTables: options.lootTableLookup ?? lootTables,
     config: CONFIG,
     dropRadius: 8,
+    basePickupRadius: options.basePickupRadius ?? 30,
     spawnDrop: (x, y, grant) => {
       spawns.push({ x, y, definitionId: grant.kind === 'weapon' ? grant.definitionId : '' });
     },
@@ -377,6 +391,7 @@ describe('WeaponRewardSystem placement (Epic 14 §D12)', () => {
       lootTables,
       config: CONFIG,
       dropRadius: 8,
+      basePickupRadius: 30,
       spawnDrop: (x, y) => { spawns.push({ x, y }); },
       playerPosition: () => ({ x: 300, y: 300 }),
       arenaBounds: { width: 900, height: 900 },
@@ -409,7 +424,7 @@ describe('WeaponRewardSystem placement (Epic 14 §D12)', () => {
     expect([harness.spawns[0].x, harness.spawns[0].y]).toEqual([8, 8]);
   });
 
-  it('skips obstacle-expanded candidates in cycle order and falls back to the player position', () => {
+  it('skips obstacle-expanded candidates in cycle order', () => {
     // Obstacle covering the first candidate (+64, 0) expanded by radius 8.
     const obstacles = [{ x: 300 + CONFIG.spawnOffset - 8, y: 292, w: 16, h: 16 }];
     const harness = createHarness({
@@ -426,8 +441,47 @@ describe('WeaponRewardSystem placement (Epic 14 §D12)', () => {
     expect([harness.spawns[0].x, harness.spawns[0].y]).toEqual([300, 300 + CONFIG.spawnOffset]);
   });
 
-  it('falls back to the bounded player position with a warning when every candidate is blocked', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  it('rejects a clamped candidate that loses player separation and continues the cycle', () => {
+    // Review fix (P2): the player stands just inside the right arena edge, so
+    // the first cycle candidate (+64, 0) clamps to (892, 300) — 22 px from the
+    // player, inside the resolved pickup radius. Such a drop would be
+    // collected automatically on the next physics step, so it must be
+    // rejected and the cycle must continue to the next candidate.
+    const harness = createHarness({
+      seed: 47,
+      startingDefinitionId: STARTING_ID,
+      playerPosition: () => ({ x: 870, y: 300 }),
+    });
+    const { runState } = harness;
+
+    runState.timeMs = 40_000;
+    harness.system.update(0);
+
+    expect([harness.spawns[0].x, harness.spawns[0].y]).toEqual([870, 300 + CONFIG.spawnOffset]);
+  });
+
+  it('resolves the player separation from the run pickup radius, including passive modifiers', () => {
+    // Scrap Tabby's +15 passive raises the magnet radius to 45. The first
+    // candidate clamps to (892, 300) — 40 px away, outside the base 30 px
+    // radius but inside the boosted one — so it is rejected.
+    const harness = createHarness({
+      seed: 49,
+      startingDefinitionId: STARTING_ID,
+      playerPosition: () => ({ x: 852, y: 300 }),
+      pickupRadiusModifier: 15,
+    });
+    const { runState } = harness;
+
+    runState.timeMs = 40_000;
+    harness.system.update(0);
+
+    expect([harness.spawns[0].x, harness.spawns[0].y]).toEqual([852, 300 + CONFIG.spawnOffset]);
+  });
+
+  it('tries diagonal fallback positions when every cycle candidate is blocked', () => {
+    // Obstacles covering all four cardinal candidates: the cycle is fully
+    // blocked, so the fallback tries the diagonal positions and the drop
+    // still spawns 90 px away instead of on the player.
     const margin = 8;
     const obstacles = [
       { x: 300 + CONFIG.spawnOffset - margin, y: 300 - margin, w: 2 * margin, h: 2 * margin },
@@ -435,6 +489,7 @@ describe('WeaponRewardSystem placement (Epic 14 §D12)', () => {
       { x: 300 - CONFIG.spawnOffset - margin, y: 300 - margin, w: 2 * margin, h: 2 * margin },
       { x: 300 - margin, y: 300 - CONFIG.spawnOffset - margin, w: 2 * margin, h: 2 * margin },
     ];
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const harness = createHarness({
       seed: 61,
       startingDefinitionId: STARTING_ID,
@@ -447,7 +502,53 @@ describe('WeaponRewardSystem placement (Epic 14 §D12)', () => {
     runState.timeMs = 40_000;
     harness.system.update(0);
 
-    expect([harness.spawns[0].x, harness.spawns[0].y]).toEqual([300, 300]);
+    expect([harness.spawns[0].x, harness.spawns[0].y]).toEqual([
+      300 + CONFIG.spawnOffset,
+      300 + CONFIG.spawnOffset,
+    ]);
+    expect(warn).not.toHaveBeenCalled();
+
+    warn.mockRestore();
+  });
+
+  it('warns and uses the furthest candidate when all eight positions are blocked', () => {
+    // Degenerate arena: obstacles cover every cycle and diagonal candidate.
+    // The fallback must never drop the reward on the player — it picks the
+    // clamped candidate furthest from the player (a diagonal, 90 px away).
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const margin = 8;
+    const at = (dx: number, dy: number) => ({
+      x: 300 + dx - margin,
+      y: 300 + dy - margin,
+      w: 2 * margin,
+      h: 2 * margin,
+    });
+    const obstacles = [
+      at(CONFIG.spawnOffset, 0),
+      at(0, CONFIG.spawnOffset),
+      at(-CONFIG.spawnOffset, 0),
+      at(0, -CONFIG.spawnOffset),
+      at(CONFIG.spawnOffset, CONFIG.spawnOffset),
+      at(CONFIG.spawnOffset, -CONFIG.spawnOffset),
+      at(-CONFIG.spawnOffset, -CONFIG.spawnOffset),
+      at(-CONFIG.spawnOffset, CONFIG.spawnOffset),
+    ];
+    const harness = createHarness({
+      seed: 63,
+      startingDefinitionId: STARTING_ID,
+      obstacles,
+      playerPosition: () => ({ x: 300, y: 300 }),
+      arenaBounds: { width: 900, height: 900 },
+    });
+    const { runState } = harness;
+
+    runState.timeMs = 40_000;
+    harness.system.update(0);
+
+    expect([harness.spawns[0].x, harness.spawns[0].y]).toEqual([
+      300 + CONFIG.spawnOffset,
+      300 + CONFIG.spawnOffset,
+    ]);
     expect(warn).toHaveBeenCalledOnce();
     expect(warn.mock.calls[0][0]).toContain('falling back');
 

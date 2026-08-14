@@ -247,6 +247,7 @@ export class GameScene extends Phaser.Scene {
       lootTables,
       config: RuntimeConfig.gameplay.weaponRewards,
       dropRadius: RuntimeConfig.gameplay.drop.radius,
+      basePickupRadius: RuntimeConfig.gameplay.player.pickupRadius,
       spawnDrop: (x, y, grant) => this.dropSystem!.spawnDrop(x, y, grant),
       playerPosition: () => ({ x: this.player!.x, y: this.player!.y }),
       arenaBounds: { width: arena.size.width, height: arena.size.height },

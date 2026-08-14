@@ -307,7 +307,9 @@ Weapon placement must not consume extra RNG draws, because presentation/position
 3: (0, -spawnOffset)
 ```
 
-Clamp the point inside arena bounds by at least the existing drop radius. If the clamped candidate lies inside an obstacle expanded by the drop radius, try the remaining cycle positions in order; if all four are invalid, fall back to the player's current bounded position and log a warning. The current Golden Run arena should normally take the first candidate.
+Clamp the point inside arena bounds by at least the existing drop radius. Reject any candidate that, after clamping, lies within the player's collection radius — the greater of the run's resolved pickup radius (base `pickupRadius` plus character passives such as Scrap Tabby's +15) and the physical contact radius (player body radius + drop radius) — because such a drop would be collected automatically on the next physics step instead of remaining visible for a physical pickup. A near-edge clamp can otherwise pull a 64 px offset candidate back inside that radius.
+
+If the clamped candidate lies inside an obstacle expanded by the drop radius or within the player's collection radius, try the remaining cycle positions in order; if all four cycle positions are invalid, try the four diagonal positions at the same offset (`(±spawnOffset, ±spawnOffset)`); if all eight are invalid, fall back to the clamped candidate furthest from the player and log a warning. The current Golden Run arena should normally take the first candidate.
 
 `spawnOffset = 64` deliberately exceeds the current default pickup radius (including Scrap Tabby's +15 passive) so the first reward is visible before magnet collection under normal conditions.
 
@@ -499,7 +501,11 @@ Every row below is required. Prefer focused unit tests before integration tests.
 - next deadline advances from prior deadline, not current frame time;
 - coarse time jump processes all due rewards deterministically;
 - pause/no active update does not alter schedule;
-- malformed/missing reward table fails soft once per due reward and advances rather than retry-spamming.
+- malformed/missing reward table fails soft once per due reward and advances rather than retry-spamming;
+- placement is the deterministic four-position cycle keyed by `rewardIndex` and consumes no reward RNG;
+- a clamped candidate that lands within the player's collection radius (resolved pickup radius, including passives, or physical contact radius) is rejected and the cycle continues;
+- when every cycle candidate is blocked, the diagonal fallback positions preserve the required separation;
+- in the degenerate all-eight-blocked case, the fallback is the clamped candidate furthest from the player with a warning — never the player's own position.
 
 ### 8.3 Existing `tests/loot.test.ts`
 
@@ -679,6 +685,22 @@ Automated gates (run from the repository root on the delivery branch):
 - `npm run build` (`tsc --noEmit && vite build`) → clean, bundle built.
 - `git diff --check origin/main...HEAD` → clean (plus a manual trailing-whitespace scan of the five new files).
 - `git diff origin/main...HEAD -- src/gameplay/merge.ts src/systems/WeaponSystem.ts src/systems/save.ts package.json` → no production changes in those frozen files; the same holds for `runState.ts`, `runStart.ts`, `characterContribution.ts`, `weaponRegistry.ts`, `inventory.ts`, and `pause.ts`.
+
+### Codex review fix (2026-08-14) — preserve player separation after clamping
+
+Codex P2 finding (review thread on §D12): clamping a `spawnOffset` candidate back inside the arena bounds can land it within the player's pickup or physical-overlap radius, and the all-invalid fallback dropped the reward directly on the player's bounded position. Either way the guaranteed reward is collected automatically on the next physics step instead of remaining visible for a physical pickup.
+
+Fix, pinned in `tests/weaponRewards.test.ts`:
+
+1. `WeaponRewardSystem` snapshots a minimum player separation at construction: the greater of the run's resolved pickup radius (`basePickupRadius` option, mirroring `DropSystem`, plus character passives such as Scrap Tabby's +15) and the physical contact radius (`PLAYER_BODY_RADIUS` + `dropRadius`).
+2. A clamped candidate is accepted only when it is strictly outside that radius and outside obstacles expanded by the drop radius; separation-lost candidates are rejected in cycle order.
+3. When all four cycle positions are invalid, the fallback tries the four diagonal positions at `spawnOffset`, preserving separation; when all eight are invalid (degenerate arena), the fallback is the clamped candidate furthest from the player with a warning — never the player's own position.
+
+Post-fix automated gates (85 files / 1291 tests):
+
+- `npm test` → 1291 passed; shuffled suite (seed `14073`) → 1291 passed.
+- `npm run lint`, `npm run build`, `git diff --check origin/main...HEAD` → clean.
+- Frozen files unchanged; no reward RNG consumption added (placement remains draw-free).
 
 Reviewer-trap scans on the new/modified gameplay paths:
 
