@@ -619,20 +619,27 @@ describe('PhaserPauseView', () => {
       expect(rectangle.state.y + rectangle.state.height / 2).toBeLessThanOrEqual(844);
     }
     const compactSlots = liveRectangles.filter(
-      (object) => object.state.width < 120 && object.state.height > 120,
+      (object) => object.state.width < 140 && object.state.height > 120,
     );
     expect(compactSlots).toHaveLength(6);
   });
 
   it('shows every changed stat in a compact four-delta merge preview', () => {
     const { run, scene, view, controller } = createView();
-    run.equipped = [instance('bolt-shotgun-t2', 'a'), instance('bolt-shotgun-t2', 'b')];
+    run.equipped = [
+      instance('bolt-shotgun-t2', 'a'),
+      instance('bolt-shotgun-t2', 'b'),
+      instance('can-smg-t2', 'c'),
+    ];
     controller.pause();
     controller.openInventory();
     view.render(controller.snapshot());
     scene.resize(844, 390);
 
+    expect(textContents(scene)).toContain('Merge ready.');
+
     liveButtons(scene)[0]!.state.handlers['pointerup']!();
+    expect(textContents(scene)).toEqual(expect.arrayContaining(['PICK 1', 'MATCH', 'NO MATCH']));
     liveButtons(scene)[1]!.state.handlers['pointerup']!();
 
     expect(textContents(scene)).toEqual(expect.arrayContaining([

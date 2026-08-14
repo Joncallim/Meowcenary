@@ -42,8 +42,10 @@ export function computeWeaponRackLayout(
   const orientationWidth = viewport.containerWidth ?? viewport.displayWidth;
   const orientationHeight = viewport.containerHeight ?? viewport.displayHeight;
   const compact = orientationWidth > orientationHeight;
-  const margin = physical(12);
-  const gap = physical(8);
+  // Short landscape phones have only ~148 physical pixels of fitted canvas
+  // width. A compact 4px margin and 2px gutter still leave three 44px cards.
+  const margin = physical(compact ? 4 : 12);
+  const gap = physical(compact ? 2 : 8);
   const hitTarget = minimumHitTarget(viewport);
   const headingSize = physical(ThemeFont.headingMin);
   const labelSize = physical(ThemeFont.labelMin);
@@ -97,7 +99,7 @@ export function computeWeaponRackLayout(
   const available = Math.max(2, previewBottom - gridTop);
   const rowGaps = gap * (rows - 1);
   const desiredCardHeight = physical(106);
-  const minimumPreviewHeight = physical(compact ? 122 : 84);
+  const minimumPreviewHeight = physical(compact ? 122 : 144);
   const desiredGridHeight = desiredCardHeight * rows + rowGaps;
   const cardHeight = available - desiredGridHeight - gap >= minimumPreviewHeight
     ? desiredCardHeight

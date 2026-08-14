@@ -7,7 +7,7 @@ import {
   type InventoryWeaponView,
   type MergeFailureReason,
 } from './inventory';
-import { physicalToLogical, type UiViewport } from './layout';
+import { physicalToLogical, safeDisplayScale, type UiViewport } from './layout';
 import type { ModalTextHelpers } from './modal';
 import { ThemeColor, ThemeFont } from './theme';
 import { computeWeaponRackLayout } from './weaponRackLayout';
@@ -79,7 +79,7 @@ export class PhaserWeaponRackPanel {
     const guide = this.modal.addText(
       layout.margin,
       layout.guideY,
-      this.guideCopy(snapshot),
+      this.guideCopy(snapshot, layout.compact),
       'body',
     );
     root.add(guide);
@@ -235,23 +235,41 @@ export class PhaserWeaponRackPanel {
     );
     root.add(tier);
     const stateLabel = this.addCardText(
-      x + width / 2 - 8,
-      top + 7,
-      compact ? compactSelectionLabel(weapon) : selectionLabel(weapon),
+      compact ? x : x + width / 2 - 8,
+      compact ? top + physicalToLogical(18, this.viewport) : top + 7,
+      selectionLabel(weapon),
       state === 'selected' || state === 'merge-ready' ? 'gold' : 'muted',
-      width / 2,
+      compact ? width - physicalToLogical(4, this.viewport) : width / 2,
+      compact ? ThemeFont.labelMin : ThemeFont.bodyMin,
     );
     root.add(stateLabel);
-    stateLabel.setOrigin(1, 0);
+    stateLabel.setOrigin(compact ? 0.5 : 1, 0);
+    if (compact) {
+      const availableStateWidth = width - physicalToLogical(6, this.viewport);
+      if (Number.isFinite(stateLabel.width) && stateLabel.width > availableStateWidth) {
+        stateLabel.setScale(availableStateWidth / stateLabel.width, 1);
+      }
+    }
 
     if (compact) {
-      this.renderWeaponGlyph(root, weapon.iconId, x, y + 2, stroke, true);
+      const dense = height * safeDisplayScale(this.viewport) < 70;
+      if (!dense) {
+        this.renderWeaponGlyph(
+          root,
+          weapon.iconId,
+          x,
+          y + physicalToLogical(5, this.viewport),
+          stroke,
+          true,
+        );
+      }
       const family = this.addCardText(
         x,
-        y + height / 2 - physicalToLogical(20, this.viewport),
+        y + height / 2 - physicalToLogical(dense ? 17 : 20, this.viewport),
         compactWeaponLabel(weapon.family),
         'primary',
         width - 8,
+        dense ? ThemeFont.labelMin : ThemeFont.bodyMin,
       );
       root.add(family);
       family.setOrigin(0.5, 0);
@@ -436,6 +454,7 @@ export class PhaserWeaponRackPanel {
     text: string,
     tone: 'primary' | 'muted' | 'gold' | 'danger',
     wrapWidth: number,
+    physicalFontSize: number = ThemeFont.bodyMin,
   ): Phaser.GameObjects.Text {
     const colors = {
       primary: '#f7f1d5',
@@ -446,7 +465,7 @@ export class PhaserWeaponRackPanel {
     const object = this.scene.add.text(x, y, text, {
       color: colors[tone],
       fontFamily: ThemeFont.family,
-      fontSize: `${physicalToLogical(ThemeFont.bodyMin, this.viewport)}px`,
+      fontSize: `${physicalToLogical(physicalFontSize, this.viewport)}px`,
       fontStyle: tone === 'primary' || tone === 'gold' ? '700' : '400',
       wordWrap: { width: Math.max(1, wrapWidth) },
     });
@@ -489,7 +508,22 @@ export class PhaserWeaponRackPanel {
     this.requestRender();
   }
 
-  private guideCopy(snapshot: InventorySnapshot): string {
+  private guideCopy(snapshot: InventorySnapshot, compact: boolean): string {
+    if (compact) {
+      if (this.confirmation) {
+        return 'Weapon active.';
+      }
+      if (snapshot.preview) {
+        return 'Review, then merge.';
+      }
+      if (snapshot.selectedInstanceIds.length === 1) {
+        return 'Choose MATCH.';
+      }
+      if (snapshot.weapons.length >= snapshot.capacity) {
+        return snapshot.mergeReady ? 'FULL — MERGE.' : 'FULL — REWARD WAITS.';
+      }
+      return snapshot.mergeReady ? 'Merge ready.' : 'Choose weapon.';
+    }
     if (this.confirmation) {
       return 'Your upgraded weapon is already active.';
     }
@@ -523,21 +557,6 @@ export class PhaserWeaponRackPanel {
       event.preventDefault();
       this.commitMerge();
     }
-  }
-}
-
-function compactSelectionLabel(weapon: InventoryWeaponView): string {
-  switch (weapon.selectionState) {
-    case 'selected':
-      return `${weapon.selectionOrder ?? ''}`;
-    case 'compatible':
-      return '✓';
-    case 'incompatible':
-      return '×';
-    case 'merge-ready':
-      return '+';
-    case 'neutral':
-      return '';
   }
 }
 

@@ -49,6 +49,30 @@ describe('computeWeaponRackLayout', () => {
     expectRectInsideCanvas(layout.backAction, 390, 844);
   });
 
+  it('preserves targets and all-delta preview space on a 568x320 phone', () => {
+    const viewport = logicalCanvasViewport(148, 320, 568, 320);
+    const layout = computeWeaponRackLayout(viewport, 6);
+    const scale = safeDisplayScale(viewport);
+
+    expect(layout.compact).toBe(true);
+    expect(layout.cardWidth * scale).toBeGreaterThanOrEqual(44);
+    expect(layout.cardHeight * scale).toBeGreaterThanOrEqual(44);
+    expect(layout.preview.height * scale).toBeGreaterThanOrEqual(122);
+    expect(layout.mergeAction.width * scale).toBeGreaterThanOrEqual(44);
+    expect(layout.backAction.width * scale).toBeGreaterThanOrEqual(44);
+  });
+
+  it('reserves every delta row on a 320x568 portrait phone', () => {
+    const viewport = logicalCanvasViewport(263, 568, 320, 568);
+    const layout = computeWeaponRackLayout(viewport, 6);
+    const scale = safeDisplayScale(viewport);
+
+    expect(layout.compact).toBe(false);
+    expect(layout.cardWidth * scale).toBeGreaterThanOrEqual(44);
+    expect(layout.cardHeight * scale).toBeGreaterThanOrEqual(44);
+    expect(layout.preview.height * scale).toBeGreaterThanOrEqual(144);
+  });
+
   it('recomputes physical metrics when display orientation changes', () => {
     const portrait = computeWeaponRackLayout(logicalCanvasViewport(390, 844), 6);
     const landscape = computeWeaponRackLayout(
