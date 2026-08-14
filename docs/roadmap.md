@@ -35,12 +35,18 @@
   architecture and delivery record in
   [`architecture/epic-14-weapon-acquisition-and-rack-economy.md`](architecture/epic-14-weapon-acquisition-and-rack-economy.md);
   delivered on the single branch `agent/epic-14-weapon-acquisition`.
-- Epic 15 / Inventory and Merge Experience: draft implementation on
-  `codex/epic-15-inventory-merge` (#74) — immutable six-slot rack read model,
+- Epic 15 / Inventory and Merge Experience: complete — merged in PR #81 (#74)
+  — immutable six-slot rack read model,
   authoritative compatibility highlighting, allocation-free next-tier preview,
   direct merge-ready HUD entry, tap/keyboard commands, and responsive
   portrait/landscape presentation; architecture and delivery record in
   [`architecture/epic-15-inventory-and-merge-experience.md`](architecture/epic-15-inventory-and-merge-experience.md).
+- Epic 16 / Visual Identity and Junkyard World: architecture and selected art
+  direction in progress on `codex/epic-16-visual-identity` (#75) — one visual
+  manifest, explicit weapon/pickup art references, pooled presentation,
+  authored world data, and a camera-traversable Junkyard Lot; implementation
+  contract in
+  [`architecture/epic-16-visual-identity-and-junkyard-world.md`](architecture/epic-16-visual-identity-and-junkyard-world.md).
 
 Epic 7 was implemented in the consolidated PR #51 and merged.
 Epic 8 is complete: Slices 1–5 merged in PRs #58–62, implementing the
