@@ -624,6 +624,25 @@ describe('PhaserPauseView', () => {
     expect(compactSlots).toHaveLength(6);
   });
 
+  it('shows every changed stat in a compact four-delta merge preview', () => {
+    const { run, scene, view, controller } = createView();
+    run.equipped = [instance('bolt-shotgun-t2', 'a'), instance('bolt-shotgun-t2', 'b')];
+    controller.pause();
+    controller.openInventory();
+    view.render(controller.snapshot());
+    scene.resize(844, 390);
+
+    liveButtons(scene)[0]!.state.handlers['pointerup']!();
+    liveButtons(scene)[1]!.state.handlers['pointerup']!();
+
+    expect(textContents(scene)).toEqual(expect.arrayContaining([
+      'DMG  7 → 9',
+      'RATE  1.02/s → 1.11/s',
+      'SHOTS  ×5 → ×6',
+      'PIERCE  0 → 1',
+    ]));
+  });
+
   describe('command events', () => {
   it('emits exactly one ui:back for an accepted Resume', () => {
     const { scene, view, controller, bus } = createView();

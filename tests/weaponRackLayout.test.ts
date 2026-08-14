@@ -40,6 +40,7 @@ describe('computeWeaponRackLayout', () => {
     expect(layout.rows).toBe(2);
     expect(layout.keyHintY).toBeUndefined();
     expect(layout.cardHeight * scale).toBeGreaterThanOrEqual(44);
+    expect(layout.preview.height * scale).toBeGreaterThanOrEqual(122);
     expect(gridBottom).toBeLessThanOrEqual(layout.preview.y);
     expect(layout.preview.y + layout.preview.height).toBeLessThanOrEqual(
       layout.mergeAction.y - layout.mergeAction.height / 2,

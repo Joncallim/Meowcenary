@@ -322,7 +322,7 @@ function statViews(definition: WeaponDefinition): InventoryStatView[] {
   const rate = 1000 / definition.fireRateMs;
   return [
     Object.freeze({ key: 'damage', label: 'DMG', value: definition.damage, formatted: formatStat(definition.damage) }),
-    Object.freeze({ key: 'rate', label: 'RATE', value: rate, formatted: `${rate.toFixed(1)}/s` }),
+    Object.freeze({ key: 'rate', label: 'RATE', value: rate, formatted: `${rate.toFixed(2)}/s` }),
     Object.freeze({ key: 'projectiles', label: 'SHOTS', value: definition.projectileCount, formatted: `×${definition.projectileCount}` }),
     Object.freeze({ key: 'pierce', label: 'PIERCE', value: definition.pierce, formatted: formatStat(definition.pierce) }),
   ];

@@ -92,7 +92,7 @@ describe('InventoryController snapshot', () => {
     expect(snapshot.weapons[0].stats).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: 'damage', value: 8, formatted: '8' }),
-        expect.objectContaining({ key: 'rate', formatted: '1.5/s' }),
+        expect.objectContaining({ key: 'rate', formatted: '1.54/s' }),
       ]),
     );
     expect(snapshot.selectedInstanceIds).toEqual([]);
@@ -219,6 +219,24 @@ describe('InventoryController selection', () => {
     const definition = registry.weaponById('scrap-pistol-t1');
     if (!definition) throw new Error('missing pistol definition');
     expect(registry.createWeaponInstance(definition).instanceId).toBe('weapon-1');
+  });
+
+  it('keeps small fire-rate upgrades distinguishable in the preview', () => {
+    const run = createPausedRun([
+      instance('bolt-shotgun-t1', 'a'),
+      instance('bolt-shotgun-t1', 'b'),
+    ]);
+    const { controller } = createController(run);
+
+    controller.toggle('a');
+    const snapshot = controller.toggle('b');
+    const rate = snapshot.preview?.deltas.find((delta) => delta.key === 'rate');
+
+    expect(rate).toMatchObject({
+      formattedBefore: '0.95/s',
+      formattedAfter: '1.02/s',
+    });
+    expect(rate?.formattedBefore).not.toBe(rate?.formattedAfter);
   });
 
   it('invalidates stale selection and preview on the next snapshot', () => {

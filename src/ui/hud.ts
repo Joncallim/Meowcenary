@@ -169,25 +169,81 @@ export interface HudViewOptions {
 }
 
 export class PhaserHudView implements HudView {
-  private readonly container: Phaser.GameObjects.Container;
-  private readonly statusText: Phaser.GameObjects.Text;
-  private readonly timeText: Phaser.GameObjects.Text;
-  private readonly healthBarFill: Phaser.GameObjects.Rectangle;
-  private readonly healthBarWidth: number;
-  private readonly healthText: Phaser.GameObjects.Text;
-  private readonly xpBarFill: Phaser.GameObjects.Rectangle;
-  private readonly xpBarWidth: number;
-  private readonly levelText: Phaser.GameObjects.Text;
-  private readonly scrapText: Phaser.GameObjects.Text;
-  private readonly killsText: Phaser.GameObjects.Text;
-  private readonly rackButton: Phaser.GameObjects.Rectangle;
-  private readonly rackStrokeWidth: number;
-  private readonly weaponText: Phaser.GameObjects.Text;
+  private readonly scene: Phaser.Scene;
+  private viewport: UiViewport;
+  private container!: Phaser.GameObjects.Container;
+  private statusText!: Phaser.GameObjects.Text;
+  private timeText!: Phaser.GameObjects.Text;
+  private healthBarFill!: Phaser.GameObjects.Rectangle;
+  private healthText!: Phaser.GameObjects.Text;
+  private xpBarFill!: Phaser.GameObjects.Rectangle;
+  private levelText!: Phaser.GameObjects.Text;
+  private scrapText!: Phaser.GameObjects.Text;
+  private killsText!: Phaser.GameObjects.Text;
+  private rackButton!: Phaser.GameObjects.Rectangle;
+  private rackStrokeWidth = 1;
+  private weaponText!: Phaser.GameObjects.Text;
   private readonly onInventoryRequested?: () => void;
+  private lastSnapshot?: HudSnapshot;
+  private disposed = false;
 
   constructor(options: HudViewOptions) {
-    const { scene, viewport } = options;
+    this.scene = options.scene;
+    this.viewport = options.viewport;
     this.onInventoryRequested = options.onInventoryRequested;
+    this.buildDisplay();
+    this.scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
+  }
+
+  render(snapshot: HudSnapshot): void {
+    if (this.disposed) {
+      return;
+    }
+    this.lastSnapshot = snapshot;
+    const safeHealth = Math.max(0, Number.isFinite(snapshot.health) ? snapshot.health : 0);
+    const safeMaxHealth = Math.max(1, Number.isFinite(snapshot.maxHealth) ? snapshot.maxHealth : 1);
+    const healthRatio = Math.min(1, safeHealth / safeMaxHealth);
+    this.healthBarFill.setScale(healthRatio, 1);
+
+    const safeXp = Math.max(0, Number.isFinite(snapshot.xp) ? snapshot.xp : 0);
+    const safeXpToNext = Math.max(1, Number.isFinite(snapshot.xpToNext) ? snapshot.xpToNext : 1);
+    const xpRatio = Math.min(1, safeXp / safeXpToNext);
+    this.xpBarFill.setScale(xpRatio, 1);
+
+    this.statusText.setText(capitalize(snapshot.status));
+    this.timeText.setText(`${formatTime(snapshot.timeMs)} / ${formatTime(snapshot.durationMs)}`);
+    this.healthText.setText(
+      `Health ${formatNumber(Math.ceil(safeHealth))} / ${formatNumber(Math.ceil(safeMaxHealth))}`,
+    );
+    this.levelText.setText(`Level ${snapshot.level}`);
+    this.killsText.setText(`Kills ${formatNumber(snapshot.kills)}`);
+    this.scrapText.setText(`Scrap ${formatNumber(Math.floor(snapshot.currency))}`);
+    const rackState = snapshot.mergeReady
+      ? 'MERGE READY'
+      : snapshot.weapons.length >= WEAPON_RACK_CAPACITY
+        ? 'RACK FULL'
+        : 'TAP TO INSPECT';
+    this.weaponText.setText(
+      `Rack ${snapshot.weapons.length}/${WEAPON_RACK_CAPACITY}  •  ${rackState}`,
+    );
+    this.rackButton.setStrokeStyle(
+      this.rackStrokeWidth,
+      snapshot.mergeReady ? ThemeColor.gold : ThemeColor.primaryDim,
+      snapshot.mergeReady ? 1 : 0.9,
+    );
+  }
+
+  destroy(): void {
+    if (this.disposed) {
+      return;
+    }
+    this.disposed = true;
+    this.scene.scale.off(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
+    this.destroyDisplay();
+  }
+
+  private buildDisplay(): void {
+    const { scene, viewport } = this;
     const margin = physicalToLogical(12, viewport);
     const fontSize = physicalToLogical(ThemeFont.bodyMin, viewport);
     const labelSize = physicalToLogical(ThemeFont.labelMin, viewport);
@@ -224,11 +280,11 @@ export class PhaserHudView implements HudView {
 
     const barTop = margin + fontSize * 1.4;
     const barHeight = physicalToLogical(8, viewport);
-    this.healthBarWidth = Math.max(1, canvasWidth - margin * 2);
+    const healthBarWidth = Math.max(1, canvasWidth - margin * 2);
     const healthBarBg = scene.add.rectangle(
-      margin + this.healthBarWidth / 2,
+      margin + healthBarWidth / 2,
       barTop + barHeight / 2,
-      this.healthBarWidth,
+      healthBarWidth,
       barHeight,
       0x334155,
     );
@@ -237,7 +293,7 @@ export class PhaserHudView implements HudView {
     this.healthBarFill = scene.add.rectangle(
       margin,
       barTop + barHeight / 2,
-      this.healthBarWidth,
+      healthBarWidth,
       barHeight,
       ThemeColor.danger,
     );
@@ -250,11 +306,11 @@ export class PhaserHudView implements HudView {
     this.healthText.setDepth(ThemeDepth.hud);
 
     const xpTop = barTop + barHeight + labelSize + physicalToLogical(8, viewport);
-    this.xpBarWidth = Math.max(1, canvasWidth - margin * 2);
+    const xpBarWidth = Math.max(1, canvasWidth - margin * 2);
     const xpBarBg = scene.add.rectangle(
-      margin + this.xpBarWidth / 2,
+      margin + xpBarWidth / 2,
       xpTop + barHeight / 2,
-      this.xpBarWidth,
+      xpBarWidth,
       barHeight,
       0x334155,
     );
@@ -263,7 +319,7 @@ export class PhaserHudView implements HudView {
     this.xpBarFill = scene.add.rectangle(
       margin,
       xpTop + barHeight / 2,
-      this.xpBarWidth,
+      xpBarWidth,
       barHeight,
       ThemeColor.primary,
     );
@@ -336,41 +392,7 @@ export class PhaserHudView implements HudView {
     ]);
   }
 
-  render(snapshot: HudSnapshot): void {
-    const safeHealth = Math.max(0, Number.isFinite(snapshot.health) ? snapshot.health : 0);
-    const safeMaxHealth = Math.max(1, Number.isFinite(snapshot.maxHealth) ? snapshot.maxHealth : 1);
-    const healthRatio = Math.min(1, safeHealth / safeMaxHealth);
-    this.healthBarFill.setScale(healthRatio, 1);
-
-    const safeXp = Math.max(0, Number.isFinite(snapshot.xp) ? snapshot.xp : 0);
-    const safeXpToNext = Math.max(1, Number.isFinite(snapshot.xpToNext) ? snapshot.xpToNext : 1);
-    const xpRatio = Math.min(1, safeXp / safeXpToNext);
-    this.xpBarFill.setScale(xpRatio, 1);
-
-    this.statusText.setText(capitalize(snapshot.status));
-    this.timeText.setText(`${formatTime(snapshot.timeMs)} / ${formatTime(snapshot.durationMs)}`);
-    this.healthText.setText(
-      `Health ${formatNumber(Math.ceil(safeHealth))} / ${formatNumber(Math.ceil(safeMaxHealth))}`,
-    );
-    this.levelText.setText(`Level ${snapshot.level}`);
-    this.killsText.setText(`Kills ${formatNumber(snapshot.kills)}`);
-    this.scrapText.setText(`Scrap ${formatNumber(Math.floor(snapshot.currency))}`);
-    const rackState = snapshot.mergeReady
-      ? 'MERGE READY'
-      : snapshot.weapons.length >= WEAPON_RACK_CAPACITY
-        ? 'RACK FULL'
-        : 'TAP TO INSPECT';
-    this.weaponText.setText(
-      `Rack ${snapshot.weapons.length}/${WEAPON_RACK_CAPACITY}  •  ${rackState}`,
-    );
-    this.rackButton.setStrokeStyle(
-      this.rackStrokeWidth,
-      snapshot.mergeReady ? ThemeColor.gold : ThemeColor.primaryDim,
-      snapshot.mergeReady ? 1 : 0.9,
-    );
-  }
-
-  destroy(): void {
+  private destroyDisplay(): void {
     if (this.onInventoryRequested) {
       this.rackButton.off(
         Phaser.Input.Events.POINTER_UP,
@@ -381,9 +403,53 @@ export class PhaserHudView implements HudView {
     this.container.destroy(true);
   }
 
+  private readonly handleScaleChange = (): void => {
+    if (this.disposed) {
+      return;
+    }
+    const scale = this.scene.scale;
+    const next: UiViewport = {
+      canvasWidth: positiveFinite(scale.width, this.viewport.canvasWidth),
+      canvasHeight: positiveFinite(scale.height, this.viewport.canvasHeight),
+      displayWidth: positiveFinite(scale.displaySize.width, this.viewport.displayWidth),
+      displayHeight: positiveFinite(scale.displaySize.height, this.viewport.displayHeight),
+      containerWidth: positiveFinite(
+        scale.parentSize.width,
+        this.viewport.containerWidth ?? this.viewport.displayWidth,
+      ),
+      containerHeight: positiveFinite(
+        scale.parentSize.height,
+        this.viewport.containerHeight ?? this.viewport.displayHeight,
+      ),
+    };
+    if (sameViewport(this.viewport, next)) {
+      return;
+    }
+
+    this.destroyDisplay();
+    this.viewport = next;
+    this.buildDisplay();
+    if (this.lastSnapshot) {
+      this.render(this.lastSnapshot);
+    }
+  };
+
   private handleInventoryRequested(): void {
     this.onInventoryRequested?.();
   }
+}
+
+function positiveFinite(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function sameViewport(a: UiViewport, b: UiViewport): boolean {
+  return a.canvasWidth === b.canvasWidth
+    && a.canvasHeight === b.canvasHeight
+    && a.displayWidth === b.displayWidth
+    && a.displayHeight === b.displayHeight
+    && a.containerWidth === b.containerWidth
+    && a.containerHeight === b.containerHeight;
 }
 
 function capitalize(value: string): string {

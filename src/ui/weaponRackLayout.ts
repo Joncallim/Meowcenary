@@ -97,7 +97,7 @@ export function computeWeaponRackLayout(
   const available = Math.max(2, previewBottom - gridTop);
   const rowGaps = gap * (rows - 1);
   const desiredCardHeight = physical(106);
-  const minimumPreviewHeight = physical(compact ? 100 : 84);
+  const minimumPreviewHeight = physical(compact ? 122 : 84);
   const desiredGridHeight = desiredCardHeight * rows + rowGaps;
   const cardHeight = available - desiredGridHeight - gap >= minimumPreviewHeight
     ? desiredCardHeight

@@ -81,6 +81,10 @@ pierce from the current `WeaponDefinition`. The preview compares one input
 definition to the exact next-tier definition. It does not duplicate weapon
 constants in UI code and does not apply or mutate run modifiers.
 
+Every changed stat is rendered in both portrait and compact layouts. Attack
+rate uses two-decimal display precision so small but real definition changes
+cannot collapse into the same before/after label.
+
 ### D5 — Tap-first, keyboard-capable, no drag
 
 - Cards use the existing 44-physical-pixel minimum target rule.
@@ -103,6 +107,10 @@ The HUD shows `Rack n/6` plus one text state:
 The control opens the rack directly through `PauseController`; the HUD never
 changes run or inventory state itself. Text backs every color change so the
 affordance is not color-only.
+
+The HUD listens to the Phaser resize lifecycle and rebuilds from the current
+FIT display metrics. This keeps the direct rack affordance at the shared
+44-physical-pixel minimum after phone rotation or browser resize.
 
 ### D7 — Full-rack behavior stays physical
 
@@ -236,7 +244,7 @@ Verify on 390×844 portrait and a desktop/landscape FIT viewport:
 - [x] responsive rack, direct HUD entry, and keyboard path implemented;
 - [x] code-rendered temporary iconography implemented;
 - [x] final Epic 16/17 art scope preserved;
-- [x] automated gates recorded: lint, production build, 86 files / 1,303 tests,
+- [x] automated gates recorded: lint, production build, 86 files / 1,306 tests,
   and three shuffled full-suite seeds all pass;
 - [x] browser viewport evidence recorded at 390x844 and FIT-scaled 844x390 with
   live open-panel rotation rebuilding between 2x3 and compact 3x2 layouts;

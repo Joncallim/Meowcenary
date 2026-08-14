@@ -399,6 +399,9 @@ export class PhaserWeaponRackPanel {
     }
 
     const preview = snapshot.preview;
+    const resultOffset = compact ? 22 : 25;
+    const deltaOffset = compact ? 43 : 53;
+    const deltaStep = compact ? 16 : 21;
     const equation = this.addCardText(
       x + inset,
       y + inset,
@@ -409,16 +412,16 @@ export class PhaserWeaponRackPanel {
     root.add(equation);
     const result = this.addCardText(
       x + inset,
-      y + inset + physicalToLogical(25, this.viewport),
+      y + inset + physicalToLogical(resultOffset, this.viewport),
       preview.result.name,
       'primary',
       width - inset * 2,
     );
     root.add(result);
-    preview.deltas.slice(0, compact ? 2 : 3).forEach((delta, index) => {
+    preview.deltas.forEach((delta, index) => {
       const line = this.addCardText(
         x + inset,
-        y + inset + physicalToLogical(53 + index * 21, this.viewport),
+        y + inset + physicalToLogical(deltaOffset + index * deltaStep, this.viewport),
         `${delta.label}  ${delta.formattedBefore} → ${delta.formattedAfter}`,
         'muted',
         width - inset * 2,
