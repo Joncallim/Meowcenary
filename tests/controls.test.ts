@@ -19,6 +19,7 @@ vi.mock('phaser', () => ({
         },
       },
     },
+    Scale: { Events: { RESIZE: 'resize' } },
   },
 }));
 
@@ -73,6 +74,7 @@ function pointerAt(x: number, y: number, isDown = true) {
 }
 
 function createFakeScene() {
+  let resize: { callback: () => void; context?: unknown } | undefined;
   const objects: Array<ReturnType<typeof fakeObject>> = [];
   const tweenConfigs: Array<{ targets: unknown; alpha: number; duration: number }> = [];
 
@@ -81,12 +83,14 @@ function createFakeScene() {
     return object;
   }
 
-  function fakeObject() {
+  function fakeObject(x = 0, y = 0, width = 0, height = 0) {
     const state: Record<string, unknown> = {
       visible: true,
       alpha: 1,
-      x: 0,
-      y: 0,
+      x,
+      y,
+      width,
+      height,
       text: '',
       interactive: false,
       destroyed: false,
@@ -136,16 +140,43 @@ function createFakeScene() {
   const scene = {
     add: {
       arc: () => own(fakeObject()),
-      text: (_x: number, _y: number, text: string) => own(fakeObject()).setText(text),
-      rectangle: () => own(fakeObject()),
+      text: (x: number, y: number, text: string) => own(fakeObject(x, y)).setText(text),
+      rectangle: (x: number, y: number, width: number, height: number) =>
+        own(fakeObject(x, y, width, height)),
     },
     tweens: {
       add(config: { targets: unknown; alpha: number; duration: number }) {
         tweenConfigs.push(config);
       },
+      killTweensOf() {},
+    },
+    scale: {
+      width: 390,
+      height: 844,
+      displaySize: { width: 390, height: 844 },
+      parentSize: { width: 390, height: 844 },
+      on(event: string, callback: () => void, context?: unknown) {
+        if (event === 'resize') resize = { callback, context };
+      },
+      off(event: string, callback: () => void, context?: unknown) {
+        if (event === 'resize' && resize?.callback === callback && resize.context === context) {
+          resize = undefined;
+        }
+      },
+      listenerCount(event: string) {
+        return event === 'resize' && resize ? 1 : 0;
+      },
     },
     get objects() { return objects; },
     get tweenConfigs() { return tweenConfigs; },
+    resize(displayWidth: number, displayHeight: number) {
+      const fitScale = Math.min(displayWidth / 390, displayHeight / 844);
+      scene.scale.displaySize.width = 390 * fitScale;
+      scene.scale.displaySize.height = 844 * fitScale;
+      scene.scale.parentSize.width = displayWidth;
+      scene.scale.parentSize.height = displayHeight;
+      resize?.callback.call(resize.context);
+    },
   };
   return scene;
 }
@@ -214,6 +245,27 @@ describe('ControlsView virtual stick', () => {
 });
 
 describe('ControlsView hints', () => {
+  it('repositions the hint and rebuilds the pause target after rotation', () => {
+    const { scene, view } = createHarness();
+    const oldHint = scene.objects[2];
+    const oldPause = scene.objects[3];
+
+    scene.resize(844, 390);
+
+    expect(oldHint.state.destroyed).toBe(true);
+    expect(oldPause.state.destroyed).toBe(true);
+    expect(scene.scale.listenerCount('resize')).toBe(1);
+    const hint = scene.objects[4];
+    const pause = scene.objects[5];
+    const fitScale = 390 / 844;
+    expect(Number(hint.state.y) * fitScale).toBeCloseTo(302, 5);
+    expect(Number(pause.state.width) * fitScale).toBeCloseTo(44, 5);
+    expect(Number(pause.state.height) * fitScale).toBeCloseTo(44, 5);
+
+    view.destroy();
+    expect(scene.scale.listenerCount('resize')).toBe(0);
+  });
+
   it('starts with pointer-mode copy and switches on mode change', () => {
     const { scene, keyboard, tick } = createHarness();
     const hintText = scene.objects[2];

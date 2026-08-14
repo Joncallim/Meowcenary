@@ -163,6 +163,8 @@ geometry, cream text, teal actions, and gold merge emphasis.
 - `physicalToLogical()` preserves readable text and 44-pixel touch targets;
 - the pause surface rebuilds from current FIT and container dimensions on
   Phaser resize events, including phone rotation;
+- HUD and transient controls rebuild from the same resize lifecycle, keeping
+  the rack, pause target, and onboarding hint separated at current metrics;
 - the reading and command order is identical to portrait.
 
 Each occupied card always communicates state in text:
@@ -249,7 +251,7 @@ Verify on 390×844 portrait and a desktop/landscape FIT viewport:
 - [x] responsive rack, direct HUD entry, and keyboard path implemented;
 - [x] code-rendered temporary iconography implemented;
 - [x] final Epic 16/17 art scope preserved;
-- [x] automated gates recorded: lint, production build, 86 files / 1,308 tests,
+- [x] automated gates recorded: lint, production build, 86 files / 1,309 tests,
   and three shuffled full-suite seeds all pass;
 - [x] browser viewport evidence recorded at 390x844 and FIT-scaled 844x390 with
   live open-panel rotation rebuilding between 2x3 and compact 3x2 layouts;
