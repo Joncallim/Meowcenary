@@ -120,10 +120,10 @@ export interface PhaserPauseViewOptions {
  */
 export class PhaserPauseView {
   private readonly scene: Phaser.Scene;
-  private readonly viewport: UiViewport;
+  private viewport: UiViewport;
   private readonly bus: EventBus;
   private readonly controller: PauseController;
-  private readonly modal: ModalTextHelpers;
+  private modal: ModalTextHelpers;
   private readonly weaponRack: PhaserWeaponRackPanel;
   private root?: Phaser.GameObjects.Container;
   private disposed = false;
@@ -144,6 +144,7 @@ export class PhaserPauseView {
       onBack: () => this.controller.back(),
       requestRender: () => this.render(this.controller.snapshot()),
     });
+    options.scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
     this.render(this.controller.snapshot());
   }
 
@@ -151,6 +152,7 @@ export class PhaserPauseView {
     if (this.disposed) {
       return;
     }
+    this.syncLayoutContext();
     this.root?.destroy(true);
     this.root = undefined;
     if (snapshot.panel !== 'inventory') {
@@ -190,9 +192,6 @@ export class PhaserPauseView {
           root,
           snapshot.inventory,
           width,
-          height,
-          margin,
-          hitTarget,
         );
       }
       this.root = root;
@@ -207,9 +206,48 @@ export class PhaserPauseView {
       return;
     }
     this.disposed = true;
+    this.scene.scale.off(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
     this.weaponRack.destroy();
     this.root?.destroy(true);
     this.root = undefined;
+  }
+
+  private readonly handleScaleChange = (): void => {
+    if (this.disposed) {
+      return;
+    }
+    this.syncLayoutContext();
+    this.render(this.controller.snapshot());
+  };
+
+  private syncLayoutContext(): void {
+    const scale = this.scene.scale;
+    const next: UiViewport = {
+      canvasWidth: positiveFinite(scale.width, this.viewport.canvasWidth),
+      canvasHeight: positiveFinite(scale.height, this.viewport.canvasHeight),
+      displayWidth: positiveFinite(
+        scale.displaySize.width,
+        this.viewport.displayWidth,
+      ),
+      displayHeight: positiveFinite(
+        scale.displaySize.height,
+        this.viewport.displayHeight,
+      ),
+      containerWidth: positiveFinite(
+        scale.parentSize.width,
+        this.viewport.containerWidth ?? this.viewport.displayWidth,
+      ),
+      containerHeight: positiveFinite(
+        scale.parentSize.height,
+        this.viewport.containerHeight ?? this.viewport.displayHeight,
+      ),
+    };
+    if (sameViewport(this.viewport, next)) {
+      return;
+    }
+    this.viewport = next;
+    this.modal = createModalTextHelpers(this.scene, next);
+    this.weaponRack.updateLayoutContext(next, this.modal);
   }
 
   private renderPausePanel(
@@ -242,4 +280,17 @@ export class PhaserPauseView {
 
     this.modal.addHint(root, margin, height - margin - 14, 'P / Esc to resume');
   }
+}
+
+function positiveFinite(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function sameViewport(a: UiViewport, b: UiViewport): boolean {
+  return a.canvasWidth === b.canvasWidth
+    && a.canvasHeight === b.canvasHeight
+    && a.displayWidth === b.displayWidth
+    && a.displayHeight === b.displayHeight
+    && a.containerWidth === b.containerWidth
+    && a.containerHeight === b.containerHeight;
 }

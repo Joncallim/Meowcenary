@@ -21,6 +21,11 @@ vi.mock('phaser', () => ({
         POINTER_UP: 'pointerup',
       },
     },
+    Scale: {
+      Events: {
+        RESIZE: 'resize',
+      },
+    },
   },
 }));
 
@@ -276,6 +281,8 @@ describe('PhaserPauseView', () => {
   interface FakeState {
     kind: 'container' | 'text' | 'rect';
     text: string;
+    x: number;
+    y: number;
     width: number;
     height: number;
     interactive: boolean;
@@ -289,6 +296,9 @@ describe('PhaserPauseView', () => {
     let keydown:
       | { handler: (event: KeyboardEvent) => void; context: unknown }
       | undefined;
+    let resize:
+      | { handler: () => void; context: unknown }
+      | undefined;
     const own = <T>(object: T): T => {
       const candidate = object as ReturnType<typeof fakeObject>;
       if (!objects.includes(candidate)) {
@@ -297,10 +307,19 @@ describe('PhaserPauseView', () => {
       return object;
     };
 
-    function fakeObject(kind: FakeState['kind'], text = '', width = 0, height = 0) {
+    function fakeObject(
+      kind: FakeState['kind'],
+      text = '',
+      width = 0,
+      height = 0,
+      x = 0,
+      y = 0,
+    ) {
       const state: FakeState = {
         kind,
         text,
+        x,
+        y,
         width,
         height,
         interactive: false,
@@ -375,15 +394,15 @@ describe('PhaserPauseView', () => {
           objects.push(container);
           return container;
         },
-        text: (_x: number, _y: number, text: string) => {
+        text: (x: number, y: number, text: string) => {
           if (failNextText) {
             failNextText = false;
             throw new Error('Injected text factory failure');
           }
-          return own(fakeObject('text', text));
+          return own(fakeObject('text', text, 0, 0, x, y));
         },
-        rectangle: (_x: number, _y: number, width: number, height: number) =>
-          own(fakeObject('rect', '', width, height)),
+        rectangle: (x: number, y: number, width: number, height: number) =>
+          own(fakeObject('rect', '', width, height, x, y)),
       },
       input: {
         keyboard: {
@@ -401,6 +420,27 @@ describe('PhaserPauseView', () => {
           },
         },
       },
+      scale: {
+        width: 390,
+        height: 844,
+        displaySize: { width: 390, height: 844 },
+        parentSize: { width: 390, height: 844 },
+        on(event: string, handler: () => void, context: unknown) {
+          if (event === 'resize') resize = { handler, context };
+        },
+        off(event: string, handler: () => void, context: unknown) {
+          if (
+            event === 'resize' &&
+            resize?.handler === handler &&
+            resize.context === context
+          ) {
+            resize = undefined;
+          }
+        },
+        listenerCount(event: string) {
+          return event === 'resize' && resize ? 1 : 0;
+        },
+      },
       get objects() {
         return objects;
       },
@@ -416,6 +456,14 @@ describe('PhaserPauseView', () => {
           },
         } as KeyboardEvent);
         return prevented;
+      },
+      resize(displayWidth: number, displayHeight: number) {
+        const fitScale = Math.min(displayWidth / 390, displayHeight / 844);
+        scene.scale.displaySize.width = 390 * fitScale;
+        scene.scale.displaySize.height = 844 * fitScale;
+        scene.scale.parentSize.width = displayWidth;
+        scene.scale.parentSize.height = displayHeight;
+        resize?.handler.call(resize.context);
       },
     };
     return scene;
@@ -543,11 +591,37 @@ describe('PhaserPauseView', () => {
 
     view.destroy();
     expect(scene.objects.every((object) => object.state.destroyed)).toBe(true);
+    expect(scene.scale.listenerCount('resize')).toBe(0);
 
     view.destroy(); // idempotent
     const count = scene.objects.length;
     view.render(controller.snapshot());
     expect(scene.objects.length).toBe(count);
+  });
+
+  it('rebuilds a bounded compact rack from the live display size on resize', () => {
+    const { run, scene, view, controller } = createView();
+    run.equipped = [instance('scrap-pistol-t1', 'a'), instance('can-smg-t1', 'b')];
+    controller.pause();
+    controller.openInventory();
+    view.render(controller.snapshot());
+    const oldObjects = scene.objects.filter((object) => !object.state.destroyed);
+
+    scene.resize(844, 390);
+
+    expect(oldObjects.every((object) => object.state.destroyed)).toBe(true);
+    expect(scene.scale.listenerCount('resize')).toBe(1);
+    const liveRectangles = scene.objects.filter(
+      (object) => object.state.kind === 'rect' && !object.state.destroyed,
+    );
+    for (const rectangle of liveRectangles) {
+      expect(rectangle.state.y - rectangle.state.height / 2).toBeGreaterThanOrEqual(0);
+      expect(rectangle.state.y + rectangle.state.height / 2).toBeLessThanOrEqual(844);
+    }
+    const compactSlots = liveRectangles.filter(
+      (object) => object.state.width < 120 && object.state.height > 120,
+    );
+    expect(compactSlots).toHaveLength(6);
   });
 
   describe('command events', () => {

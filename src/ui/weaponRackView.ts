@@ -10,6 +10,7 @@ import {
 import { physicalToLogical, type UiViewport } from './layout';
 import type { ModalTextHelpers } from './modal';
 import { ThemeColor, ThemeFont } from './theme';
+import { computeWeaponRackLayout } from './weaponRackLayout';
 
 export interface PhaserWeaponRackPanelOptions {
   readonly scene: Phaser.Scene;
@@ -35,10 +36,10 @@ interface MergeConfirmation {
  */
 export class PhaserWeaponRackPanel {
   private readonly scene: Phaser.Scene;
-  private readonly viewport: UiViewport;
+  private viewport: UiViewport;
   private readonly bus: EventBus;
   private readonly inventory: InventoryController;
-  private readonly modal: ModalTextHelpers;
+  private modal: ModalTextHelpers;
   private readonly isOpen: () => boolean;
   private readonly onBack: () => boolean;
   private readonly requestRender: () => void;
@@ -62,89 +63,104 @@ export class PhaserWeaponRackPanel {
     root: Phaser.GameObjects.Container,
     snapshot: InventorySnapshot,
     width: number,
-    height: number,
-    margin: number,
-    hitTarget: number,
   ): void {
-    const headingSize = physicalToLogical(ThemeFont.headingMin, this.viewport);
-    const labelSize = physicalToLogical(ThemeFont.labelMin, this.viewport);
-    const heading = this.modal.addText(margin, margin, 'Weapon Rack', 'heading');
+    const layout = computeWeaponRackLayout(this.viewport, snapshot.capacity);
+    const heading = this.modal.addText(layout.margin, layout.margin, 'Weapon Rack', 'heading');
     root.add(heading);
     const count = this.modal.addText(
-      width - margin,
-      margin + 2,
+      width - layout.margin,
+      layout.margin + 2,
       `${snapshot.weapons.length}/${snapshot.capacity}`,
       'body',
     );
     root.add(count);
     count.setOrigin(1, 0);
 
-    const guideY = margin + headingSize + 8;
-    const guide = this.modal.addText(margin, guideY, this.guideCopy(snapshot), 'body');
-    root.add(guide);
-    const keyHint = this.modal.addText(
-      margin,
-      guideY + labelSize + 4,
-      'Keys 1–6 • Enter merges',
+    const guide = this.modal.addText(
+      layout.margin,
+      layout.guideY,
+      this.guideCopy(snapshot),
       'body',
     );
-    root.add(keyHint);
-    keyHint.setOrigin(0, 0);
-
-    const gridTop = margin + headingSize + labelSize * 2 + 26;
-    const gap = physicalToLogical(8, this.viewport);
-    const columns = 2;
-    const gridWidth = width - margin * 2;
-    const cardWidth = (gridWidth - gap * (columns - 1)) / columns;
-    const cardHeight = physicalToLogical(106, this.viewport);
+    root.add(guide);
+    if (layout.keyHintY !== undefined) {
+      const keyHint = this.modal.addText(
+        layout.margin,
+        layout.keyHintY,
+        'Keys 1–6 • Enter merges',
+        'body',
+      );
+      root.add(keyHint);
+      keyHint.setOrigin(0, 0);
+    }
 
     snapshot.slots.forEach((weapon, index) => {
-      const column = index % columns;
-      const row = Math.floor(index / columns);
-      const x = margin + cardWidth / 2 + column * (cardWidth + gap);
-      const y = gridTop + cardHeight / 2 + row * (cardHeight + gap);
-      this.renderRackSlot(root, weapon, index, x, y, cardWidth, cardHeight);
+      const column = index % layout.columns;
+      const row = Math.floor(index / layout.columns);
+      const x = layout.margin
+        + layout.cardWidth / 2
+        + column * (layout.cardWidth + layout.gap);
+      const y = layout.gridTop
+        + layout.cardHeight / 2
+        + row * (layout.cardHeight + layout.gap);
+      this.renderRackSlot(
+        root,
+        weapon,
+        index,
+        x,
+        y,
+        layout.cardWidth,
+        layout.cardHeight,
+        layout.compact,
+      );
     });
 
-    const rows = Math.ceil(snapshot.capacity / columns);
-    const gridBottom = gridTop + rows * cardHeight + (rows - 1) * gap;
-    const actionWidth = width - margin * 2;
-    const actionX = width / 2;
-    const mergeY = height - margin - hitTarget * 2 - 20;
-    const backY = mergeY + hitTarget + 12;
-    const previewTop = gridBottom + gap;
-    const previewBottom = mergeY - hitTarget / 2 - gap;
-    const previewX = margin;
-    const previewWidth = width - margin * 2;
     this.renderPreview(
       root,
       snapshot,
-      previewX,
-      previewTop,
-      previewWidth,
-      Math.max(1, previewBottom - previewTop),
+      layout.preview.x,
+      layout.preview.y,
+      layout.preview.width,
+      layout.preview.height,
+      layout.compact,
     );
 
     const canCommit = snapshot.preview !== undefined;
     const mergeLabel = snapshot.preview
-      ? `MERGE → ${snapshot.preview.result.name}`
-      : 'SELECT A MATCHING PAIR';
+      ? layout.compact
+        ? `MERGE T${snapshot.preview.result.tier}`
+        : `MERGE → ${snapshot.preview.result.name}`
+      : layout.compact
+        ? 'PICK PAIR'
+        : 'SELECT A MATCHING PAIR';
     this.modal.addButton(
       root,
-      actionX,
-      mergeY,
-      actionWidth,
+      layout.mergeAction.x,
+      layout.mergeAction.y,
+      layout.mergeAction.width,
       mergeLabel,
       () => this.commitMerge(),
       canCommit,
       canCommit,
     );
-    this.modal.addButton(root, actionX, backY, actionWidth, '< Back', () => {
-      if (this.onBack()) {
-        this.bus.emit('ui:back', {});
-      }
-      this.requestRender();
-    });
+    this.modal.addButton(
+      root,
+      layout.backAction.x,
+      layout.backAction.y,
+      layout.backAction.width,
+      '< Back',
+      () => {
+        if (this.onBack()) {
+          this.bus.emit('ui:back', {});
+        }
+        this.requestRender();
+      },
+    );
+  }
+
+  updateLayoutContext(viewport: UiViewport, modal: ModalTextHelpers): void {
+    this.viewport = viewport;
+    this.modal = modal;
   }
 
   reset(): void {
@@ -169,13 +185,20 @@ export class PhaserWeaponRackPanel {
     y: number,
     width: number,
     height: number,
+    compact: boolean,
   ): void {
     const strokeWidth = physicalToLogical(2, this.viewport);
     if (!weapon) {
       const slot = this.scene.add.rectangle(x, y, width, height, ThemeColor.surface, 0.72);
       root.add(slot);
       slot.setStrokeStyle(strokeWidth, ThemeColor.card, 0.75);
-      const empty = this.addCardText(x, y, `${index + 1}  EMPTY SLOT`, 'muted', width - 16);
+      const empty = this.addCardText(
+        x,
+        y,
+        compact ? `${index + 1} —` : `${index + 1}  EMPTY SLOT`,
+        'muted',
+        width - 16,
+      );
       root.add(empty);
       empty.setOrigin(0.5);
       return;
@@ -206,7 +229,7 @@ export class PhaserWeaponRackPanel {
     const tier = this.addCardText(
       left + 8,
       top + 7,
-      `${index + 1} · T${weapon.tier}`,
+      compact ? `${index + 1}·T${weapon.tier}` : `${index + 1} · T${weapon.tier}`,
       'muted',
       width / 2,
     );
@@ -214,14 +237,28 @@ export class PhaserWeaponRackPanel {
     const stateLabel = this.addCardText(
       x + width / 2 - 8,
       top + 7,
-      selectionLabel(weapon),
+      compact ? compactSelectionLabel(weapon) : selectionLabel(weapon),
       state === 'selected' || state === 'merge-ready' ? 'gold' : 'muted',
       width / 2,
     );
     root.add(stateLabel);
     stateLabel.setOrigin(1, 0);
 
-    this.renderWeaponGlyph(root, weapon.iconId, left + 28, y + 2, stroke);
+    if (compact) {
+      this.renderWeaponGlyph(root, weapon.iconId, x, y + 2, stroke, true);
+      const family = this.addCardText(
+        x,
+        y + height / 2 - physicalToLogical(20, this.viewport),
+        compactWeaponLabel(weapon.family),
+        'primary',
+        width - 8,
+      );
+      root.add(family);
+      family.setOrigin(0.5, 0);
+      return;
+    }
+
+    this.renderWeaponGlyph(root, weapon.iconId, left + 28, y + 2, stroke, false);
     const name = this.addCardText(
       left + 54,
       top + 31,
@@ -255,8 +292,9 @@ export class PhaserWeaponRackPanel {
     x: number,
     y: number,
     color: number,
+    compact: boolean,
   ): void {
-    const unit = physicalToLogical(2, this.viewport);
+    const unit = physicalToLogical(compact ? 1 : 2, this.viewport);
     const addPart = (offsetX: number, offsetY: number, width: number, height: number) => {
       const part = this.scene.add.rectangle(
         x + offsetX * unit,
@@ -292,6 +330,7 @@ export class PhaserWeaponRackPanel {
     y: number,
     width: number,
     height: number,
+    compact: boolean,
   ): void {
     const panel = this.scene.add.rectangle(
       x + width / 2,
@@ -376,7 +415,7 @@ export class PhaserWeaponRackPanel {
       width - inset * 2,
     );
     root.add(result);
-    preview.deltas.slice(0, 3).forEach((delta, index) => {
+    preview.deltas.slice(0, compact ? 2 : 3).forEach((delta, index) => {
       const line = this.addCardText(
         x + inset,
         y + inset + physicalToLogical(53 + index * 21, this.viewport),
@@ -481,6 +520,34 @@ export class PhaserWeaponRackPanel {
       event.preventDefault();
       this.commitMerge();
     }
+  }
+}
+
+function compactSelectionLabel(weapon: InventoryWeaponView): string {
+  switch (weapon.selectionState) {
+    case 'selected':
+      return `${weapon.selectionOrder ?? ''}`;
+    case 'compatible':
+      return '✓';
+    case 'incompatible':
+      return '×';
+    case 'merge-ready':
+      return '+';
+    case 'neutral':
+      return '';
+  }
+}
+
+function compactWeaponLabel(family: string): string {
+  switch (family) {
+    case 'shotgun':
+      return 'S-GUN';
+    case 'pistol':
+      return 'PISTOL';
+    case 'smg':
+      return 'SMG';
+    default:
+      return family.slice(0, 6).toUpperCase();
   }
 }
 

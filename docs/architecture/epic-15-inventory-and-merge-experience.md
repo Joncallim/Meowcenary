@@ -2,7 +2,7 @@
 
 **Issue:** #74 · **Branch:** `codex/epic-15-inventory-merge` · **Base:** `main` after Epic 14 / PR #80
 
-> Status: **implemented in a draft pull request; not merged**. This document is
+> Status: **implemented in a ready pull request; not merged**. This document is
 > the architecture contract and delivery record for the branch.
 
 ## 1. Outcome
@@ -19,8 +19,9 @@ weapon rack. On the canonical 390×844 portrait canvas a player can:
 6. see the upgraded weapon and freed capacity immediately.
 
 Phaser FIT keeps the logical canvas at 390×844 in portrait and landscape
-browser windows. The same two-column rack is therefore scaled and pillarboxed
-in landscape; physical-size compensation keeps text and touch targets usable.
+browser windows. The rack uses the fitted canvas scale for physical-size
+compensation and the live browser/container orientation for layout: portrait is
+2×3, while a wide FIT display uses a compact 3×2 rack and one action row.
 
 ## 2. Baseline and constraints
 
@@ -142,9 +143,13 @@ geometry, cream text, teal actions, and gold merge emphasis.
 
 ### Landscape and desktop
 
-- the logical 390×844 canvas and two-column rack remain authoritative;
+- the logical 390×844 canvas remains authoritative;
 - FIT scales and pillarboxes the canvas without clipping or horizontal scroll;
+- live container orientation selects a compact three-column, two-row rack and
+  side-by-side actions on wide displays;
 - `physicalToLogical()` preserves readable text and 44-pixel touch targets;
+- the pause surface rebuilds from current FIT and container dimensions on
+  Phaser resize events, including phone rotation;
 - the reading and command order is identical to portrait.
 
 Each occupied card always communicates state in text:
@@ -165,6 +170,7 @@ decorative animation is required for correctness.
 | `src/ui/inventory.ts` | immutable rack/read-model/preview and merge command |
 | `src/ui/pause.ts` | manual-pause modal lifecycle and routing |
 | `src/ui/weaponRackView.ts` | responsive rack rendering and input mapping |
+| `src/ui/weaponRackLayout.ts` | pure FIT/container-aware rack geometry |
 | `src/ui/hud.ts` | merge-ready read model and direct rack affordance |
 | `src/ui/modal.ts` | disabled action presentation |
 | `src/scenes/GameScene.ts` | thin command wiring for HUD and `I` |
@@ -230,8 +236,8 @@ Verify on 390×844 portrait and a desktop/landscape FIT viewport:
 - [x] responsive rack, direct HUD entry, and keyboard path implemented;
 - [x] code-rendered temporary iconography implemented;
 - [x] final Epic 16/17 art scope preserved;
-- [x] automated gates recorded: lint, production build, 85 files / 1,298 tests,
+- [x] automated gates recorded: lint, production build, 86 files / 1,303 tests,
   and three shuffled full-suite seeds all pass;
 - [x] browser viewport evidence recorded at 390x844 and FIT-scaled 844x390 with
-  the rack visible, usable, and unclipped;
+  live open-panel rotation rebuilding between 2x3 and compact 3x2 layouts;
 - [ ] reviewer approval and merge — deliberately outside this task.
