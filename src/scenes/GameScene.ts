@@ -192,7 +192,11 @@ export class GameScene extends Phaser.Scene {
         durationMs: this.spawnCurve.durationSeconds * 1000,
         weaponRegistry,
       }),
-      new PhaserHudView({ scene: this, viewport }),
+      new PhaserHudView({
+        scene: this,
+        viewport,
+        onInventoryRequested: () => this.handleInventoryKey(),
+      }),
     );
     this.controlsView = new ControlsView({
       scene: this,
@@ -364,6 +368,7 @@ export class GameScene extends Phaser.Scene {
 
     this.input.keyboard?.on('keydown-P', this.handlePauseKey, this);
     this.input.keyboard?.on('keydown-ESC', this.handlePauseKey, this);
+    this.input.keyboard?.on('keydown-I', this.handleInventoryKey, this);
     if (RuntimeConfig.isDev) {
       this.input.keyboard?.on('keydown-F4', this.togglePhysicsDebug, this);
       this.input.keyboard?.on('keydown-F8', this.forceLoseRun, this);
@@ -477,6 +482,7 @@ export class GameScene extends Phaser.Scene {
     this.unsubscribers = [];
     this.input.keyboard?.off('keydown-P', this.handlePauseKey, this);
     this.input.keyboard?.off('keydown-ESC', this.handlePauseKey, this);
+    this.input.keyboard?.off('keydown-I', this.handleInventoryKey, this);
     this.input.keyboard?.off('keydown-F4', this.togglePhysicsDebug, this);
     this.input.keyboard?.off('keydown-F8', this.forceLoseRun, this);
     this.input.keyboard?.off('keydown-F9', this.forceWinRun, this);
@@ -610,6 +616,28 @@ export class GameScene extends Phaser.Scene {
     if (accepted) {
       this.getContext().bus.emit(event, {});
     }
+    this.pauseView?.render(controller.snapshot());
+  }
+
+  /** HUD rack control and I key. Opens the rack directly from active play,
+   *  moves from pause into the rack, or returns from the rack to pause. */
+  private handleInventoryKey(): void {
+    const controller = this.pauseController;
+    if (!controller) {
+      return;
+    }
+
+    const panel = controller.snapshot().panel;
+    const accepted = panel === 'inventory'
+      ? controller.back()
+      : panel === 'pause'
+        ? controller.openInventory()
+        : controller.openInventoryFromRun();
+    if (!accepted) {
+      return;
+    }
+
+    this.getContext().bus.emit(panel === 'inventory' ? 'ui:back' : 'ui:confirm', {});
     this.pauseView?.render(controller.snapshot());
   }
 

@@ -165,6 +165,28 @@ describe('PauseController openInventory', () => {
     expect(controller.openInventory()).toBe(false);
     expect(controller.snapshot().panel).toBe('pause');
   });
+
+  it('opens directly from an active run and owns one manual pause', () => {
+    const { run, bus, controller } = createHarness();
+    const pausedSpy = vi.fn();
+    bus.on('run:paused', pausedSpy);
+
+    expect(controller.openInventoryFromRun()).toBe(true);
+    expect(run.status).toBe('paused');
+    expect(run.pauseReason).toBe('manual');
+    expect(controller.snapshot().panel).toBe('inventory');
+    expect(pausedSpy).toHaveBeenCalledTimes(1);
+    expect(controller.openInventoryFromRun()).toBe(false);
+  });
+
+  it('refuses direct open during a level-up pause', () => {
+    const { run, controller } = createHarness();
+    pauseRun(run, undefined, 'levelUp');
+
+    expect(controller.openInventoryFromRun()).toBe(false);
+    expect(controller.snapshot().panel).toBe('closed');
+    expect(run.pauseReason).toBe('levelUp');
+  });
 });
 
 describe('PauseController back and Escape routing', () => {
@@ -225,6 +247,7 @@ describe('PauseController lifecycle', () => {
     expect(controller.pause()).toBe(false);
     expect(controller.resume()).toBe(false);
     expect(controller.openInventory()).toBe(false);
+    expect(controller.openInventoryFromRun()).toBe(false);
     expect(controller.back()).toBe(false);
     expect(run.status).toBe('paused');
     expect(run.pauseReason).toBe('manual');
@@ -263,6 +286,9 @@ describe('PhaserPauseView', () => {
   function createFakeScene() {
     const objects: Array<ReturnType<typeof fakeObject>> = [];
     let failNextText = false;
+    let keydown:
+      | { handler: (event: KeyboardEvent) => void; context: unknown }
+      | undefined;
     const own = <T>(object: T): T => {
       const candidate = object as ReturnType<typeof fakeObject>;
       if (!objects.includes(candidate)) {
@@ -359,11 +385,37 @@ describe('PhaserPauseView', () => {
         rectangle: (_x: number, _y: number, width: number, height: number) =>
           own(fakeObject('rect', '', width, height)),
       },
+      input: {
+        keyboard: {
+          on(event: string, handler: (event: KeyboardEvent) => void, context: unknown) {
+            if (event === 'keydown') keydown = { handler, context };
+          },
+          off(event: string, handler: (event: KeyboardEvent) => void, context: unknown) {
+            if (
+              event === 'keydown' &&
+              keydown?.handler === handler &&
+              keydown.context === context
+            ) {
+              keydown = undefined;
+            }
+          },
+        },
+      },
       get objects() {
         return objects;
       },
       failNextText() {
         failNextText = true;
+      },
+      triggerKey(key: string) {
+        let prevented = false;
+        keydown?.handler.call(keydown.context, {
+          key,
+          preventDefault: () => {
+            prevented = true;
+          },
+        } as KeyboardEvent);
+        return prevented;
       },
     };
     return scene;
@@ -423,10 +475,10 @@ describe('PhaserPauseView', () => {
     );
     expect(backdrop).toBeDefined();
     expect(backdrop?.state.interactive).toBe(true);
-    expect(textContents(scene)).toEqual(expect.arrayContaining(['Paused', 'Resume', 'Inventory']));
+    expect(textContents(scene)).toEqual(expect.arrayContaining(['Paused', 'Resume', 'Weapon Rack']));
   });
 
-  it('renders the inventory panel with weapon rows and the merge surface', () => {
+  it('renders the six-slot visual rack and disabled merge surface', () => {
     const { run, scene, view, controller } = createView();
     run.equipped = [instance('scrap-pistol-t1', 'a'), instance('can-smg-t1', 'b')];
     controller.pause();
@@ -435,11 +487,13 @@ describe('PhaserPauseView', () => {
 
     expect(textContents(scene)).toEqual(
       expect.arrayContaining([
-        'Inventory',
-        'Select two matching weapons to merge',
-        expect.stringContaining('T1 Scrap Pistol I'),
-        expect.stringContaining('T1 Can SMG I'),
-        'Merge Selected',
+        'Weapon Rack',
+        '2/6',
+        'Scrap Pistol I',
+        'Can SMG I',
+        '3  EMPTY SLOT',
+        '6  EMPTY SLOT',
+        'SELECT A MATCHING PAIR',
         '< Back',
       ]),
     );
@@ -447,25 +501,22 @@ describe('PhaserPauseView', () => {
       (object) =>
         object.state.kind === 'rect' && object.state.interactive && object.state.handlers['pointerup'],
     );
-    // Two weapon rows plus the Merge and Back buttons.
-    expect(rows).toHaveLength(4);
+    // Two weapon cards plus Back. Merge is visibly disabled without a preview.
+    expect(rows).toHaveLength(3);
   });
 
-  it('shows a failure notice when the merge control fails', () => {
-    const { scene, view, controller } = createView();
+  it('does not expose an interactive merge command without a valid pair', () => {
+    const { scene, view, controller, bus } = createView();
+    const events = recordEvents(bus);
     controller.pause();
     controller.openInventory();
     view.render(controller.snapshot());
 
-    // No weapons equipped: the first interactive control is Merge Selected.
-    const mergeButton = scene.objects.find(
-      (object) => object.state.kind === 'rect' && object.state.handlers['pointerup'],
+    expect(textContents(scene)).toEqual(
+      expect.arrayContaining(['No compatible pair in the rack yet.', 'SELECT A MATCHING PAIR']),
     );
-    expect(mergeButton).toBeDefined();
-    mergeButton?.state.handlers['pointerup']();
-
-    // The handler re-renders the panel with the failure notice.
-    expect(textContents(scene)).toEqual(expect.arrayContaining(['Select two weapons']));
+    expect(liveButtons(scene)).toHaveLength(1); // Back only.
+    expect(events).toEqual([]);
   });
 
   it('cleans the partial tree and stays hidden when text construction throws', () => {
@@ -479,7 +530,7 @@ describe('PhaserPauseView', () => {
     // A later render retries from a clean slate.
     view.render(controller.snapshot());
     expect(textContents(scene)).toEqual(
-      expect.arrayContaining(['Paused', 'Resume', 'Inventory']),
+      expect.arrayContaining(['Paused', 'Resume', 'Weapon Rack']),
     );
   });
 
@@ -546,25 +597,60 @@ describe('PhaserPauseView', () => {
     const events = recordEvents(bus);
 
     liveButtons(scene)[0]!.state.handlers['pointerup']!(); // select a → ui:navigate
+    expect(textContents(scene)).toEqual(
+      expect.arrayContaining(['PICK 1', 'MATCH', 'Choose a highlighted match.']),
+    );
     liveButtons(scene)[1]!.state.handlers['pointerup']!(); // select b → ui:navigate
+    expect(textContents(scene)).toEqual(
+      expect.arrayContaining([
+        'T1 + T1 → T2',
+        'Scrap Pistol II',
+        'DMG  8 → 12',
+        'MERGE → Scrap Pistol II',
+      ]),
+    );
     liveButtons(scene)[2]!.state.handlers['pointerup']!(); // Merge Selected → ui:confirm
 
     expect(events).toEqual(['ui:navigate', 'ui:navigate', 'ui:confirm']);
-    expect(textContents(scene)).not.toContain('Select two weapons');
+    expect(textContents(scene)).toEqual(
+      expect.arrayContaining([
+        'MERGE COMPLETE',
+        'Scrap Pistol II',
+        '1 SLOT FREED • 1/6 occupied',
+      ]),
+    );
   });
 
-  it('emits exactly one ui:confirm even when the merge fails', () => {
+  it('emits no merge command event while the action is disabled', () => {
     const { scene, view, controller, bus } = createView();
     controller.pause();
     controller.openInventory();
     view.render(controller.snapshot());
     const events = recordEvents(bus);
 
-    // No weapons equipped: the first live control is Merge Selected.
-    liveButtons(scene)[0]!.state.handlers['pointerup']!();
+    expect(liveButtons(scene)).toHaveLength(1); // Back only.
+    expect(events).toEqual([]);
+    expect(textContents(scene)).toEqual(
+      expect.arrayContaining(['SELECT A MATCHING PAIR']),
+    );
+  });
 
-    expect(events).toEqual(['ui:confirm']);
-    expect(textContents(scene)).toEqual(expect.arrayContaining(['Select two weapons']));
+  it('supports number-key selection and Enter commit through the same commands', () => {
+    const { run, scene, view, controller, bus } = createView();
+    run.equipped = [instance('scrap-pistol-t1', 'a'), instance('scrap-pistol-t1', 'b')];
+    controller.pause();
+    controller.openInventory();
+    view.render(controller.snapshot());
+    const events = recordEvents(bus);
+
+    expect(scene.triggerKey('1')).toBe(true);
+    expect(scene.triggerKey('2')).toBe(true);
+    expect(controller.snapshot().inventory.preview?.result.definitionId).toBe('scrap-pistol-t2');
+    expect(scene.triggerKey('Enter')).toBe(true);
+
+    expect(run.equipped).toHaveLength(1);
+    expect(run.equipped[0]?.defId).toBe('scrap-pistol-t2');
+    expect(events).toEqual(['ui:navigate', 'ui:navigate', 'ui:confirm']);
   });
 
   it('emits exactly one ui:back for the Back button', () => {

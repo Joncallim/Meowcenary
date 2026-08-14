@@ -7,6 +7,7 @@ import { reducedMotionDuration, ThemeColor, ThemeDepth, ThemeFont } from './them
 const STICK_RADIUS = 64;
 const HINT_DURATION_MS = 2200;
 const HINT_FADE_MS = 400;
+const HUD_RACK_CLEARANCE_PX = 52;
 
 export interface ControlsViewOptions {
   readonly scene: Phaser.Scene;
@@ -53,7 +54,10 @@ export class ControlsView {
 
     this.hintText = scene.add.text(
       viewport.canvasWidth / 2,
-      viewport.canvasHeight - margin - fontSize * 2,
+      viewport.canvasHeight
+        - margin
+        - physicalToLogical(HUD_RACK_CLEARANCE_PX, viewport)
+        - fontSize * 2,
       'Drag to move • Tap pause',
       {
         align: 'center',

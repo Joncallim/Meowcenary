@@ -50,6 +50,7 @@ function createMutableSource(initial: Partial<HudSnapshot> = {}): HudSource & { 
     kills: 0,
     currency: 0,
     weapons: defaultWeapons,
+    mergeReady: false,
     ...initial,
   };
   return {
@@ -201,7 +202,25 @@ describe('createHudSource', () => {
     return {
       weaponById(id: string) {
         if (id === 'def-pistol') {
-          return { id: 'def-pistol', name: 'Plasma Pistol', family: 'pistol', mergeTier: 1 } as ReturnType<DataWeaponRegistry['weaponById']>;
+          return {
+            id: 'def-pistol',
+            name: 'Plasma Pistol',
+            family: 'pistol',
+            mergeTier: 1,
+            maxTier: 2,
+          } as ReturnType<DataWeaponRegistry['weaponById']>;
+        }
+        return undefined;
+      },
+      weaponByFamilyTier(family: string, tier: number) {
+        if (family === 'pistol' && tier === 2) {
+          return {
+            id: 'def-pistol-t2',
+            name: 'Plasma Pistol II',
+            family: 'pistol',
+            mergeTier: 2,
+            maxTier: 2,
+          } as ReturnType<DataWeaponRegistry['weaponByFamilyTier']>;
         }
         return undefined;
       },
@@ -229,6 +248,25 @@ describe('createHudSource', () => {
     ]);
     expect(Object.isFrozen(snapshot)).toBe(true);
     expect(Object.isFrozen(snapshot.weapons[0])).toBe(true);
+    expect(snapshot.mergeReady).toBe(false);
+  });
+
+  it('reports merge-ready iff the authoritative rack contains a valid pair', () => {
+    const runState = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
+    runState.equipped = [
+      { instanceId: 'i1', defId: 'def-pistol', family: 'pistol', tier: 1 },
+      { instanceId: 'i2', defId: 'def-pistol', family: 'pistol', tier: 1 },
+    ];
+    const source = createHudSource({
+      runState,
+      player: createPlayer(),
+      durationMs: 60_000,
+      weaponRegistry: createWeaponRegistry(),
+    });
+
+    expect(source.snapshot().mergeReady).toBe(true);
+    runState.equipped = [runState.equipped[0]!];
+    expect(source.snapshot().mergeReady).toBe(false);
   });
 
   it('reflects current run state on every snapshot', () => {
@@ -353,6 +391,7 @@ describe('PhaserHudView', () => {
         kills: 0,
         currency: Number.NaN,
         weapons: [],
+        mergeReady: false,
       })
     ).not.toThrow();
 
@@ -387,14 +426,18 @@ describe('PhaserHudView', () => {
         kills: 0,
         currency: 0,
         weapons,
+        mergeReady: count === 2,
       });
 
       const weaponText = scene.objects.find((object) =>
-        'state' in object && typeof object.state.text === 'string' && object.state.text.startsWith('Weapons '),
+        'state' in object && typeof object.state.text === 'string' && object.state.text.startsWith('Rack '),
       );
-      const expected = count > 0
-        ? `Weapons ${count}/${WEAPON_RACK_CAPACITY}: ${Array.from({ length: count }, () => 'T1 Scrap Pistol I').join('  ')}`
-        : `Weapons 0/${WEAPON_RACK_CAPACITY}`;
+      const expectedState = count === 2
+        ? 'MERGE READY'
+        : count === WEAPON_RACK_CAPACITY
+          ? 'RACK FULL'
+          : 'TAP TO INSPECT';
+      const expected = `Rack ${count}/${WEAPON_RACK_CAPACITY}  •  ${expectedState}`;
       expect(weaponText?.state.text).toBe(expected);
     }
   });
