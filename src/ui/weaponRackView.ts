@@ -545,6 +545,9 @@ export class PhaserWeaponRackPanel {
     if (this.disposed || !this.isOpen()) {
       return;
     }
+    if (event.repeat) {
+      return;
+    }
     if (/^[1-6]$/.test(event.key)) {
       const weapon = this.inventory.snapshot().slots[Number(event.key) - 1];
       if (weapon) {

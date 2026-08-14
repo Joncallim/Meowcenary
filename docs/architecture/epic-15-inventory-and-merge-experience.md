@@ -90,6 +90,8 @@ cannot collapse into the same before/after label.
 - Cards use the existing 44-physical-pixel minimum target rule.
 - Pointer/touch uses one `pointerup` command path.
 - Number keys 1–6 select rack slots; Enter commits a valid preview.
+- Browser key-repeat events are ignored so held number keys cannot toggle a
+  selection or duplicate navigation feedback.
 - `I` opens the rack directly from active play and returns to pause from the
   rack.
 - `Esc` keeps the established rack → pause → run back path.
@@ -251,7 +253,7 @@ Verify on 390×844 portrait and a desktop/landscape FIT viewport:
 - [x] responsive rack, direct HUD entry, and keyboard path implemented;
 - [x] code-rendered temporary iconography implemented;
 - [x] final Epic 16/17 art scope preserved;
-- [x] automated gates recorded: lint, production build, 86 files / 1,309 tests,
+- [x] automated gates recorded: lint, production build, 86 files / 1,310 tests,
   and three shuffled full-suite seeds all pass;
 - [x] browser viewport evidence recorded at 390x844 and FIT-scaled 844x390 with
   live open-panel rotation rebuilding between 2x3 and compact 3x2 layouts;

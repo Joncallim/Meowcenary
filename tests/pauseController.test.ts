@@ -447,10 +447,11 @@ describe('PhaserPauseView', () => {
       failNextText() {
         failNextText = true;
       },
-      triggerKey(key: string) {
+      triggerKey(key: string, repeat = false) {
         let prevented = false;
         keydown?.handler.call(keydown.context, {
           key,
+          repeat,
           preventDefault: () => {
             prevented = true;
           },
@@ -751,6 +752,21 @@ describe('PhaserPauseView', () => {
     expect(run.equipped).toHaveLength(1);
     expect(run.equipped[0]?.defId).toBe('scrap-pistol-t2');
     expect(events).toEqual(['ui:navigate', 'ui:navigate', 'ui:confirm']);
+  });
+
+  it('ignores repeated number-key events without toggling selection', () => {
+    const { run, scene, view, controller, bus } = createView();
+    run.equipped = [instance('scrap-pistol-t1', 'a')];
+    controller.pause();
+    controller.openInventory();
+    view.render(controller.snapshot());
+    const events = recordEvents(bus);
+
+    expect(scene.triggerKey('1')).toBe(true);
+    expect(scene.triggerKey('1', true)).toBe(false);
+
+    expect(controller.snapshot().inventory.selectedInstanceIds).toEqual(['a']);
+    expect(events).toEqual(['ui:navigate']);
   });
 
   it('emits exactly one ui:back for the Back button', () => {
