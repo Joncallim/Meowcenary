@@ -1,15 +1,19 @@
 import Phaser from 'phaser';
 import type { Vec2 } from '../engine/vector';
 import { distanceSq, towards } from '../engine/vector';
+import type { LootGrant } from '../gameplay/loot';
 import type { ActorArtBinding } from '../systems/types';
 import { createStaticArtSprite } from './actorView';
 
-export type DropKind = 'xp' | 'scrap' | 'chest';
+export type DropKind = LootGrant['kind'];
 
 const DROP_COLORS: Record<DropKind, number> = {
   xp: 0x7dd3fc,
   scrap: 0xd1d5db,
   chest: 0xf472b6,
+  // Epic 14 §D7: distinct placeholder geometric color only — no weapon sprite
+  // assets, actor-art rows, or animations (Epic 16 owns final pickup art).
+  weapon: 0xfbbf24,
 };
 
 const GLINT_OFFSET_X = 3;
@@ -20,9 +24,8 @@ const GLINT_ALPHA = 0.9;
 export class Drop {
   readonly sprite: Phaser.GameObjects.Arc;
   active = false;
-  kind: DropKind = 'xp';
-  amount = 0;
-  tableId?: string;
+  private grantValue?: LootGrant;
+  private blocked = false;
   private readonly glint: Phaser.GameObjects.Arc;
   private readonly artSprite?: Phaser.GameObjects.Sprite;
 
@@ -57,12 +60,31 @@ export class Drop {
     return this.sprite.body as Phaser.Physics.Arcade.Body;
   }
 
-  spawn(x: number, y: number, kind: DropKind, amount: number, tableId?: string): void {
-    this.active = true;
-    this.kind = kind;
-    this.amount = amount;
-    this.tableId = kind === 'chest' ? tableId : undefined;
+  /** The authoritative pickup payload (Epic 14 §D7). Undefined while pooled. */
+  get grant(): LootGrant | undefined {
+    return this.grantValue;
+  }
 
+  /** True while the drop is deliberately left in the world (full rack). A
+   *  blocked drop must not magnetize or be collected. */
+  get pickupBlocked(): boolean {
+    return this.blocked;
+  }
+
+  /** Blocks/unblocks pickup. Blocking zeroes velocity so the drop stays put. */
+  setPickupBlocked(blocked: boolean): void {
+    this.blocked = blocked;
+    if (blocked) {
+      this.body.setVelocity(0, 0);
+    }
+  }
+
+  spawn(x: number, y: number, grant: LootGrant): void {
+    this.active = true;
+    this.grantValue = { ...grant };
+    this.blocked = false;
+
+    const kind = grant.kind;
     const useArt = kind === 'xp' && this.artSprite !== undefined;
     this.sprite.setPosition(x, y).setFillStyle(DROP_COLORS[kind]).setActive(true).setVisible(!useArt);
     this.glint.setPosition(x - GLINT_OFFSET_X, y - GLINT_OFFSET_Y).setActive(true).setVisible(!useArt);
@@ -81,6 +103,11 @@ export class Drop {
     // is the rendered frame's position — the glint follows exactly.
     this.glint.setPosition(this.sprite.x - GLINT_OFFSET_X, this.sprite.y - GLINT_OFFSET_Y);
     this.artSprite?.setPosition(this.sprite.x, this.sprite.y);
+
+    if (this.blocked) {
+      this.body.setVelocity(0, 0);
+      return;
+    }
 
     if (!Number.isFinite(dtMs) || dtMs <= 0) {
       return;
@@ -114,9 +141,8 @@ export class Drop {
 
   reset(): void {
     this.active = false;
-    this.kind = 'xp';
-    this.amount = 0;
-    this.tableId = undefined;
+    this.grantValue = undefined;
+    this.blocked = false;
     const body = this.sprite.body as Phaser.Physics.Arcade.Body | null;
     if (body) {
       body.setVelocity(0, 0);

@@ -22,6 +22,25 @@ export interface GameEventMap {
   'card:chosen': { upgradeId: string };
   'weapon:merged': { fromId: string; toId: string };
   'drop:collected': { kind: 'xp' | 'scrap'; amount: number; x: number; y: number };
+  // Epic 14: rack acquisition signals. `weapon:acquired` fires after the rack
+  // assignment and before the collected drop returns to the pool; weapons
+  // never emit `drop:collected`.
+  'weapon:acquired': {
+    definitionId: string;
+    instanceId: string;
+    rackCount: number;
+    rackCapacity: number;
+    x: number;
+    y: number;
+  };
+  'weapon:pickup-blocked': {
+    definitionId: string;
+    reason: 'rack-full';
+    rackCount: number;
+    rackCapacity: number;
+    x: number;
+    y: number;
+  };
   'currency:changed': { runTotal: number };
   'hazard:triggered': { hazardId: string; damage: number; x: number; y: number };
   // Epic 10: emitted only by GameContext.updateSettings (identity change).
@@ -45,7 +64,9 @@ export const GAME_EVENT_KEYS = [
   'enemy:spawned', 'enemy:damaged', 'enemy:killed',
   'weapon:fired', 'projectile:hit',
   'xp:gained', 'level:up', 'card:offered', 'card:chosen', 'weapon:merged',
-  'drop:collected', 'currency:changed', 'hazard:triggered',
+  'drop:collected',
+  'weapon:acquired', 'weapon:pickup-blocked',
+  'currency:changed', 'hazard:triggered',
   'settings:changed', 'ui:navigate', 'ui:confirm', 'ui:back',
 ] as const satisfies readonly GameEventKey[];
 

@@ -14,5 +14,13 @@
       { "kind": "scrap", "amount": 5, "weight": 30 },
       { "kind": "chest", "amount": 0, "weight": 10, "tableId": "chest-standard" }
     ]
+  },
+  {
+    "id": "weapon-world",
+    "entries": [
+      { "kind": "weapon", "definitionId": "scrap-pistol-t1", "weight": 1 },
+      { "kind": "weapon", "definitionId": "can-smg-t1", "weight": 1 },
+      { "kind": "weapon", "definitionId": "bolt-shotgun-t1", "weight": 1 }
+    ]
   }
 ]

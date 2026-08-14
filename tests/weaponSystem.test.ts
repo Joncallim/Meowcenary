@@ -4,6 +4,7 @@ import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
 import { createRunState } from '../src/gameplay/runState';
 import type { RunState } from '../src/gameplay/runState';
+import { createWeaponInstance } from '../src/gameplay/weapons';
 import type { WeaponSystem } from '../src/systems/WeaponSystem';
 import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
@@ -522,6 +523,71 @@ describe('WeaponSystem', () => {
       expect(sprite.destroyed).toBe(true);
     });
     expect(harness.system.allocatedProjectileCount).toBe(0);
+  });
+
+  describe('rack acquisition through existing behavior (Epic 14 §8.5)', () => {
+    it('keeps cadence for all six valid rack instances', async () => {
+      const harness = await createHarness();
+      const fired = vi.fn();
+      harness.ctx.bus.on('weapon:fired', fired);
+      const weaponRegistry = new DataWeaponRegistry(loadGameData());
+      const pistol = weaponRegistry.weaponById('scrap-pistol-t1');
+      if (!pistol) throw new Error('missing pistol');
+
+      harness.runState.equipped = Array.from({ length: 6 }, () => weaponRegistry.createWeaponInstance(pistol));
+      harness.system.update(650);
+
+      expect(fired).toHaveBeenCalledTimes(6);
+      fired.mock.calls.forEach(([payload]) => {
+        expect(payload.weaponId).toBe('scrap-pistol-t1');
+      });
+    });
+
+    it('appends an acquired instance that fires on the normal next update', async () => {
+      const harness = await createHarness();
+      const fired = vi.fn();
+      harness.ctx.bus.on('weapon:fired', fired);
+      const pistol = new DataWeaponRegistry(loadGameData()).weaponById('scrap-pistol-t1');
+      if (!pistol) throw new Error('missing pistol');
+
+      harness.system.update(600);
+      expect(fired).not.toHaveBeenCalled();
+
+      // Distinct instance id: the harness already holds weapon-1, and a fresh
+      // registry would mint a colliding id (WeaponSystem fails closed on
+      // duplicate instance ids by design).
+      harness.runState.equipped = [...harness.runState.equipped, createWeaponInstance(pistol, 'acquired-1')];
+      harness.system.update(650);
+
+      // First instance completes its 650ms interval; the fresh instance fires
+      // once on its first interval too — no acquisition code poked cadences.
+      expect(fired).toHaveBeenCalledTimes(2);
+    });
+
+    it('merge replacement prunes source cadences and fires the fresh result', async () => {
+      const harness = await createHarness();
+      const fired = vi.fn();
+      harness.ctx.bus.on('weapon:fired', fired);
+      const data = loadGameData();
+      const weaponRegistry = new DataWeaponRegistry(data);
+      const pistol = weaponRegistry.weaponById('scrap-pistol-t1');
+      const pistolT2 = weaponRegistry.weaponById('scrap-pistol-t2');
+      if (!pistol || !pistolT2) throw new Error('missing pistols');
+
+      harness.runState.equipped = [
+        weaponRegistry.createWeaponInstance(pistol),
+        weaponRegistry.createWeaponInstance(pistol),
+      ];
+      harness.system.update(650);
+      expect(fired).toHaveBeenCalledTimes(2);
+
+      fired.mockClear();
+      harness.runState.equipped = [weaponRegistry.createWeaponInstance(pistolT2)];
+      harness.system.update(650);
+
+      expect(fired).toHaveBeenCalledTimes(1);
+      expect(fired.mock.calls[0][0].weaponId).toBe('scrap-pistol-t2');
+    });
   });
 
   describe('projectile art binding (Epic 13 §9.4)', () => {

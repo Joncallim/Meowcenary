@@ -15,6 +15,8 @@ import { MockArc, MockBody, MockGameObject } from './__mocks__/phaser';
 import { Drop } from '../src/entities/Drop';
 import type { DropSystem } from '../src/systems/DropSystem';
 import type { LootGrant } from '../src/gameplay/loot';
+import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
+import { loadGameData } from '../src/systems/validation';
 import charactersJson from '../src/data/characters.json';
 import metaUpgradesJson from '../src/data/meta-upgrades.json';
 import upgradesJson from '../src/data/upgrades.json';
@@ -34,6 +36,7 @@ async function createSystem(options: {
   status?: RunState['status'];
   lootTables?: LootTableLookup;
   rng?: Pick<Rng, 'next'>;
+  weaponRegistry?: Pick<DataWeaponRegistry, 'weaponById' | 'createWeaponInstance'>;
 } = {}): Promise<TestSystem> {
   const { DropSystem } = await import('../src/systems/DropSystem');
   const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
@@ -84,6 +87,7 @@ async function createSystem(options: {
   // A concrete RNG value ensures resolveLoot traverses the weighted-selection
   // path instead of the floating-point safety-net fallback.
   const rng = options.rng ?? { next: vi.fn(() => 0.3) };
+  const weaponRegistry = options.weaponRegistry ?? new DataWeaponRegistry(loadGameData());
 
   const system = new DropSystem({
     scene: scene as unknown as Phaser.Scene,
@@ -92,6 +96,7 @@ async function createSystem(options: {
     player,
     dropGroup,
     lootTables,
+    weaponRegistry,
     rng,
     dropRadius: 4,
     magnetSpeed: 450,
@@ -507,7 +512,7 @@ describe('DropSystem', () => {
         id === 'chest-table'
           ? {
               id: 'chest-table',
-              entries: [{ kind: 'chest' as const, amount: 0, weight: 1, tableId: 'nested' }],
+              entries: [{ kind: 'chest' as const, amount: 0, weight: 1, tableId: 'nested' }] as const,
             }
           : undefined),
     };
@@ -598,7 +603,7 @@ describe('DropSystem', () => {
     const lootTables = {
       lootTableById: vi.fn((id: string) =>
         id === 'chest-table'
-          ? { id: 'chest-table', entries: [{ kind: 'nothing' as const, amount: 0, weight: 1 }] }
+          ? { id: 'chest-table', entries: [{ kind: 'nothing' as const, amount: 0, weight: 1 }] as const }
           : undefined),
     };
     const { system, runState, bus, overlapCallback } = await createSystem({ lootTables });
@@ -765,8 +770,7 @@ describe('DropSystem', () => {
 
     expect(second).toBe(first);
     expect(secondSprite).toBe(firstSprite);
-    expect(second.kind).toBe('xp');
-    expect(second.amount).toBe(7);
+    expect(second.grant).toEqual({ kind: 'xp', amount: 7 });
     expect(second.x).toBe(30);
     expect(second.y).toBe(40);
     expect(system.activeDropCount).toBe(1);
@@ -783,7 +787,7 @@ describe('DropSystem', () => {
     expect(addedSprites).toHaveLength(1);
   });
 
-  it('resets drop kind, amount, tableId, and velocity between uses', async () => {
+  it('resets drop grant state and velocity between uses', async () => {
     const lootTables = {
       lootTableById: vi.fn((id: string) =>
         id === 'chest-table'
@@ -798,9 +802,8 @@ describe('DropSystem', () => {
 
     const next = system.spawnDrop(7, 8, { kind: 'scrap', amount: 9 });
 
-    expect(next.tableId).toBeUndefined();
-    expect(next.kind).toBe('scrap');
-    expect(next.amount).toBe(9);
+    expect(next.grant).toEqual({ kind: 'scrap', amount: 9 });
+    expect(next.pickupBlocked).toBe(false);
     expect((next.sprite.body as unknown as MockBody).velocity).toEqual({ x: 0, y: 0 });
   });
 
@@ -840,5 +843,203 @@ describe('DropSystem', () => {
       y: 0,
     });
     expect(addedSprites).toHaveLength(2);
+  });
+
+  describe('weapon pickup path (Epic 14 §D8)', () => {
+    function fullRack(runState: RunState, registry: DataWeaponRegistry): void {
+      const def = registry.weaponById('scrap-pistol-t1');
+      if (!def) throw new Error('missing pistol');
+      runState.equipped = Array.from({ length: 6 }, () => registry.createWeaponInstance(def));
+    }
+
+    it('collecting a weapon drop admits exactly one instance and releases the drop', async () => {
+      const { system, runState, bus, overlapCallback } = await createSystem();
+      const acquired = vi.fn();
+      bus.on('weapon:acquired', acquired);
+      const collected = vi.fn();
+      bus.on('drop:collected', collected);
+
+      const drop = system.spawnDrop(5, 6, { kind: 'weapon', definitionId: 'scrap-pistol-t1' });
+      overlapCallback?.(null, drop.sprite);
+
+      expect(runState.equipped).toHaveLength(1);
+      expect(runState.equipped[0].defId).toBe('scrap-pistol-t1');
+      expect(runState.equipped[0].tier).toBe(1);
+      expect(acquired).toHaveBeenCalledTimes(1);
+      expect(acquired.mock.calls[0][0]).toMatchObject({
+        definitionId: 'scrap-pistol-t1',
+        rackCount: 1,
+        rackCapacity: 6,
+        x: 5,
+        y: 6,
+      });
+      expect(acquired.mock.calls[0][0].instanceId).toBe(runState.equipped[0].instanceId);
+      expect(collected).not.toHaveBeenCalled();
+      expect(drop.active).toBe(false);
+      expect(system.activeDropCount).toBe(0);
+    });
+
+    it('leaves a valid seventh weapon in the world, blocks it, and does not allocate', async () => {
+      const registry = new DataWeaponRegistry(loadGameData());
+      const createSpy = vi.spyOn(registry, 'createWeaponInstance');
+      const { system, runState, bus, overlapCallback } = await createSystem({ weaponRegistry: registry });
+      fullRack(runState, registry);
+      createSpy.mockClear();
+      const blocked = vi.fn();
+      bus.on('weapon:pickup-blocked', blocked);
+
+      const drop = system.spawnDrop(9, 9, { kind: 'weapon', definitionId: 'can-smg-t1' });
+      overlapCallback?.(null, drop.sprite);
+
+      expect(runState.equipped).toHaveLength(6);
+      expect(createSpy).not.toHaveBeenCalled();
+      expect(drop.active).toBe(true);
+      expect(drop.pickupBlocked).toBe(true);
+      expect(system.activeDropCount).toBe(1);
+      expect(blocked).toHaveBeenCalledTimes(1);
+      expect(blocked.mock.calls[0][0]).toEqual({
+        definitionId: 'can-smg-t1',
+        reason: 'rack-full',
+        rackCount: 6,
+        rackCapacity: 6,
+        x: 9,
+        y: 9,
+      });
+      createSpy.mockRestore();
+    });
+
+    it('does not spam blocked events for repeated overlap while blocked', async () => {
+      const { system, runState, bus, overlapCallback } = await createSystem();
+      const registry = new DataWeaponRegistry(loadGameData());
+      fullRack(runState, registry);
+      const blocked = vi.fn();
+      bus.on('weapon:pickup-blocked', blocked);
+
+      const drop = system.spawnDrop(0, 0, { kind: 'weapon', definitionId: 'can-smg-t1' });
+      overlapCallback?.(null, drop.sprite);
+      overlapCallback?.(null, drop.sprite);
+      overlapCallback?.(null, drop.sprite);
+
+      expect(blocked).toHaveBeenCalledTimes(1);
+      expect(drop.pickupBlocked).toBe(true);
+      expect(runState.equipped).toHaveLength(6);
+    });
+
+    it('does not magnetize a blocked drop during update', async () => {
+      const { system, runState, player, overlapCallback } = await createSystem();
+      const registry = new DataWeaponRegistry(loadGameData());
+      fullRack(runState, registry);
+
+      const drop = system.spawnDrop(0, 0, { kind: 'weapon', definitionId: 'can-smg-t1' });
+      overlapCallback?.(null, drop.sprite);
+      (player as { x: number; y: number }).x = 1;
+
+      system.update(16);
+
+      expect(drop.body.velocity).toEqual({ x: 0, y: 0 });
+      expect(drop.pickupBlocked).toBe(true);
+    });
+
+    it('unblocks after a merge frees capacity and a later overlap admits the drop', async () => {
+      const { system, runState, bus, overlapCallback } = await createSystem();
+      const registry = new DataWeaponRegistry(loadGameData());
+      fullRack(runState, registry);
+      const acquired = vi.fn();
+      bus.on('weapon:acquired', acquired);
+
+      const drop = system.spawnDrop(0, 0, { kind: 'weapon', definitionId: 'can-smg-t1' });
+      overlapCallback?.(null, drop.sprite);
+      expect(drop.pickupBlocked).toBe(true);
+
+      // Simulate a manual-pause merge: six → five.
+      runState.equipped = runState.equipped.slice(0, 5);
+      system.update(16);
+
+      expect(drop.pickupBlocked).toBe(false);
+      overlapCallback?.(null, drop.sprite);
+
+      expect(runState.equipped).toHaveLength(6);
+      expect(runState.equipped[5].defId).toBe('can-smg-t1');
+      expect(acquired).toHaveBeenCalledTimes(1);
+      expect(drop.active).toBe(false);
+    });
+
+    it('fails soft for an invalid definition: warns, releases, and does not mutate the rack', async () => {
+      const { system, runState, bus, overlapCallback } = await createSystem();
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const acquired = vi.fn();
+      bus.on('weapon:acquired', acquired);
+
+      const drop = system.spawnDrop(0, 0, { kind: 'weapon', definitionId: 'missing-weapon' });
+      overlapCallback?.(null, drop.sprite);
+
+      expect(runState.equipped).toHaveLength(0);
+      expect(acquired).not.toHaveBeenCalled();
+      expect(drop.active).toBe(false);
+      expect(system.activeDropCount).toBe(0);
+      expect(warn).toHaveBeenCalledOnce();
+      expect(warn.mock.calls[0][0]).toContain('missing-weapon');
+
+      warn.mockRestore();
+    });
+
+    it('respawns a physical weapon drop from a chest weapon grant instead of mutating the rack', async () => {
+      const lootTables = {
+        lootTableById: vi.fn((id: string) =>
+          id === 'weapon-chest'
+            ? {
+                id: 'weapon-chest',
+                entries: [{ kind: 'weapon' as const, weight: 1, definitionId: 'scrap-pistol-t1' }],
+              }
+            : undefined),
+      };
+      const { system, runState, bus, overlapCallback, addedSprites } = await createSystem({ lootTables });
+      const acquired = vi.fn();
+      bus.on('weapon:acquired', acquired);
+      const collected = vi.fn();
+      bus.on('drop:collected', collected);
+
+      const chest = system.spawnDrop(12, 34, { kind: 'chest', amount: 0, tableId: 'weapon-chest' });
+      overlapCallback?.(null, chest.sprite);
+
+      // The chest itself is released; the weapon grant became a world drop.
+      expect(chest.active).toBe(false);
+      expect(runState.equipped).toHaveLength(0);
+      expect(acquired).not.toHaveBeenCalled();
+      expect(collected).not.toHaveBeenCalled();
+      expect(addedSprites).toHaveLength(2);
+      expect(addedSprites[1].x).toBe(12);
+      expect(addedSprites[1].y).toBe(34);
+
+      // The physical drop is then collectible through the normal path.
+      addedSprites[1].active = true;
+      overlapCallback?.(null, addedSprites[1]);
+      expect(runState.equipped).toHaveLength(1);
+      expect(acquired).toHaveBeenCalledTimes(1);
+    });
+
+    it('never emits collection events when a chest resolves a weapon grant', async () => {
+      const lootTables = {
+        lootTableById: vi.fn((id: string) =>
+          id === 'weapon-chest'
+            ? {
+                id: 'weapon-chest',
+                entries: [{ kind: 'weapon' as const, weight: 1, definitionId: 'can-smg-t1' }],
+              }
+            : undefined),
+      };
+      const { system, runState, bus, overlapCallback } = await createSystem({ lootTables });
+      const events: string[] = [];
+      bus.on('xp:gained', () => events.push('xp:gained'));
+      bus.on('currency:changed', () => events.push('currency:changed'));
+      bus.on('drop:collected', () => events.push('drop:collected'));
+
+      const chest = system.spawnDrop(1, 2, { kind: 'chest', amount: 0, tableId: 'weapon-chest' });
+      overlapCallback?.(null, chest.sprite);
+
+      expect(events).toEqual([]);
+      expect(runState.xp).toBe(0);
+      expect(runState.currency).toBe(0);
+    });
   });
 });

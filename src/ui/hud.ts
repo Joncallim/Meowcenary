@@ -3,6 +3,7 @@ import type { EventBus } from '../engine/eventBus';
 import type { System } from '../engine/system';
 import type { Player } from '../entities/Player';
 import type { RunState, RunStatus } from '../gameplay/runState';
+import { WEAPON_RACK_CAPACITY } from '../gameplay/weaponRack';
 import type { DataWeaponRegistry } from '../systems/weaponRegistry';
 import { formatNumber, formatTime } from './format';
 import { physicalToLogical, type UiViewport } from './layout';
@@ -55,6 +56,7 @@ export class HudController implements System {
       bus.on('level:up', () => this.markDirty()),
       bus.on('currency:changed', () => this.markDirty()),
       bus.on('weapon:merged', () => this.markDirty()),
+      bus.on('weapon:acquired', () => this.markDirty()),
       bus.on('run:paused', () => this.markDirty()),
       bus.on('run:resumed', () => this.markDirty()),
       bus.on('run:won', () => this.markDirty()),
@@ -320,8 +322,8 @@ export class PhaserHudView implements HudView {
     this.scrapText.setText(`Scrap ${formatNumber(Math.floor(snapshot.currency))}`);
     this.weaponText.setText(
       snapshot.weapons.length > 0
-        ? snapshot.weapons.map((weapon) => `T${weapon.tier} ${weapon.name}`).join('  ')
-        : 'No weapons',
+        ? `Weapons ${snapshot.weapons.length}/${WEAPON_RACK_CAPACITY}: ${snapshot.weapons.map((weapon) => `T${weapon.tier} ${weapon.name}`).join('  ')}`
+        : `Weapons 0/${WEAPON_RACK_CAPACITY}`,
     );
   }
 

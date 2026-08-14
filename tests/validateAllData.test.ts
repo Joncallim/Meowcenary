@@ -126,6 +126,24 @@ describe('validateAllData', () => {
     ]);
   });
 
+  it('attributes loot weapon cross-reference issues to their table, row, and field', () => {
+    const data = mutableData();
+    data.lootTables[0].entries[0] = {
+      kind: 'weapon',
+      weight: 1,
+      definitionId: 'missing-weapon',
+    };
+
+    expect(collectGameDataErrors(data)).toEqual([
+      {
+        file: 'loot-tables.json',
+        index: 0,
+        field: 'entries[0].definitionId',
+        message: 'unknown weapon id "missing-weapon"',
+      },
+    ]);
+  });
+
   it('reports a later file row error before any catalog-level assertion', () => {
     // Phase order (Epic 11 §5.3): every per-file row pipeline runs before
     // the catalog-level assertion phase, so a spawn-curves row error must

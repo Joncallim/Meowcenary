@@ -39,7 +39,7 @@ flowchart TD
 | Enemies | Enemy movement, damage, death, and rewards | Global difficulty curves |
 | Spawn Director | When and where enemies appear | Enemy rendering details |
 | Upgrades | Run-only upgrade choices, stacks, and modifiers | Permanent progression |
-| Loot | XP, currency, chests, and reward tables | Paid rewards or ad multipliers |
+| Loot | XP, currency, chests, weapon reward grants, and reward tables | Paid rewards or ad multipliers |
 | Save | Local persistence, settings, migrations, and meta state | Run-time combat decisions |
 | Progression | Pure purchase, unlock, reward, and permanent-modifier rules | In-run loot generation or final UI rendering |
 | Characters | Character data, registry, selection state, run-contribution resolution, and the reactive-passive lifecycle seam | Weapon/enemy internals, save schema, or final selection-screen UI |
@@ -84,6 +84,7 @@ Epic-specific data contracts:
 - [Epic 11 issue #69 delivery handoff](architecture/epic-11-remainder.md)
 - [Epic 12: polish and performance](architecture/epic-12-polish-and-performance.md)
 - [Epic 13: presentation runtime and physics stability](architecture/epic-13-presentation-runtime.md)
+- [Epic 14: weapon acquisition and rack economy](architecture/epic-14-weapon-acquisition-and-rack-economy.md)
 
 The Epic 5 document is the implementation source of truth for save V2,
 permanent modifier ordering, finished-run banking, and the Epics 6/8/9
@@ -145,6 +146,12 @@ boundary, body-dimension invariants, the validated actor-art catalog and
 AI-directed Pixelorama asset pipeline, and deterministic charger environment
 clipping. It supersedes issue #72 where that wording predates the live
 presentation, pooling, and debug seams.
+The Epic 14 document is the implementation source of truth for Issue #73 and PR
+#80. It freezes the six-slot authoritative `RunState.equipped` rack, one-weapon
+starts, stable-definition weapon grants, atomic capacity-checked admission,
+physical no-loss full-rack pickups, a dedicated `weapon-rewards` run RNG stream,
+the guaranteed early duplicate, and the boundary that keeps final rack UI, art,
+feedback, and pacing in Epics 15–18.
 
 ## AI Handoff Pattern
 

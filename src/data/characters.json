@@ -4,7 +4,7 @@
     "name": "Scrap Tabby",
     "description": "A balanced junkyard scavenger who gets by on a little bit of everything.",
     "baseStats": { "maxHealth": 100, "moveSpeed": 175 },
-    "startingWeaponIds": ["scrap-pistol-t1", "can-smg-t1", "bolt-shotgun-t1"],
+    "startingWeaponIds": ["scrap-pistol-t1"],
     "passives": [
       {
         "id": "scrap-hoarder",

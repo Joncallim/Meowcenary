@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { Enemy as RuntimeEnemy } from '../src/entities/Enemy';
 import { STAT_KEYS, type StatKey } from '../src/gameplay/stats';
 import { RuntimeConfig } from '../src/engine/config';
+import { resolveLoot } from '../src/gameplay/loot';
+import { createRng } from '../src/engine/rng';
+import { DataLootTableRegistry } from '../src/systems/lootTables';
 import type { EnemyDefinition, GameData } from '../src/systems/types';
 import {
   collectValidationErrors,
@@ -1100,9 +1103,10 @@ describe('game data validation', () => {
 
     it('accepts the shipped loot-tables.json', () => {
       const data = loadGameData();
-      expect(data.lootTables.length).toBe(2);
+      expect(data.lootTables.length).toBe(3);
       expect(data.lootTables[0].id).toBe('chest-standard');
       expect(data.lootTables[1].id).toBe('brute-cache');
+      expect(data.lootTables[2].id).toBe('weapon-world');
     });
 
     it('requires the lootTables field', () => {
@@ -1180,6 +1184,57 @@ describe('game data validation', () => {
           lootTableFixture({ entries: [{ kind, amount: kind === 'nothing' ? 0 : 1, weight: 1, tableId: 'test-table' }] }),
         ]))).toThrow(/tableId: only chest entries may reference a table/);
       }
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ entries: [{ kind: 'weapon', weight: 1, definitionId: 'scrap-pistol-t1', tableId: 'test-table' }] }),
+      ]))).toThrow(/tableId: only chest entries may reference a table/);
+    });
+
+    it('accepts a valid weapon entry', () => {
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ entries: [{ kind: 'weapon', weight: 1, definitionId: 'scrap-pistol-t1' }] }),
+      ]))).not.toThrow();
+    });
+
+    it('rejects a weapon entry with an amount', () => {
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ entries: [{ kind: 'weapon', amount: 1, weight: 1, definitionId: 'scrap-pistol-t1' }] }),
+      ]))).toThrow(/amount: weapon entries must not define an amount/);
+    });
+
+    it('rejects a weapon entry with a missing or malformed definitionId', () => {
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ entries: [{ kind: 'weapon', weight: 1 }] }),
+      ]))).toThrow(/definitionId: required nonempty trimmed string/);
+
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ entries: [{ kind: 'weapon', weight: 1, definitionId: ' bad ' }] }),
+      ]))).toThrow(/definitionId: required nonempty trimmed string/);
+
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ entries: [{ kind: 'weapon', weight: 1, definitionId: 'Scrap_Pistol' }] }),
+      ]))).toThrow(/definitionId: invalid content id/);
+    });
+
+    it('rejects definitionId on non-weapon entries', () => {
+      for (const kind of ['xp', 'scrap', 'chest', 'nothing']) {
+        expect(() => validateGameData(withLootTables([
+          lootTableFixture({
+            entries: [{
+              kind,
+              amount: kind === 'chest' || kind === 'nothing' ? 0 : 1,
+              weight: 1,
+              definitionId: 'scrap-pistol-t1',
+              ...(kind === 'chest' ? { tableId: 'test-table' } : {}),
+            }],
+          }),
+        ]))).toThrow(/definitionId: only weapon entries may define a definitionId/);
+      }
+    });
+
+    it('rejects a weapon entry referencing an unknown weapon definition', () => {
+      expect(() => validateGameData(withLootTables([
+        lootTableFixture({ entries: [{ kind: 'weapon', weight: 1, definitionId: 'missing-weapon' }] }),
+      ]))).toThrow(/definitionId: unknown weapon id "missing-weapon"/);
     });
 
     it('rejects unknown chest tableId', () => {
@@ -1241,6 +1296,51 @@ describe('game data validation', () => {
       const data = structuredClone(loadGameData()) as unknown as { enemies: Record<string, unknown>[] };
       data.enemies[0].lootTableId = 'chest-standard';
       expect(() => validateGameData(data)).not.toThrow();
+    });
+  });
+
+  describe('shipped weapon-world table (Epic 14 §5.3)', () => {
+    const T1_IDS = ['scrap-pistol-t1', 'can-smg-t1', 'bolt-shotgun-t1'] as const;
+    const T2_T3_IDS = ['scrap-pistol-t2', 'scrap-pistol-t3', 'can-smg-t2', 'can-smg-t3', 'bolt-shotgun-t2', 'bolt-shotgun-t3'];
+
+    it('exists exactly once in the shipped catalog', () => {
+      const tables = loadGameData().lootTables.filter((table) => table.id === 'weapon-world');
+      expect(tables).toHaveLength(1);
+    });
+
+    it('contains only weapon entries with positive weights covering every current T1 definition', () => {
+      const table = loadGameData().lootTables.find((candidate) => candidate.id === 'weapon-world');
+      expect(table).toBeDefined();
+      const ids = new Set(table?.entries.map((entry) => {
+        expect(entry.kind).toBe('weapon');
+        if (entry.kind !== 'weapon') throw new Error('unreachable');
+        expect(entry.weight).toBeGreaterThan(0);
+        return entry.definitionId;
+      }));
+      for (const id of T1_IDS) {
+        expect(ids.has(id)).toBe(true);
+      }
+    });
+
+    it('never contains a T2/T3 definition', () => {
+      const table = loadGameData().lootTables.find((candidate) => candidate.id === 'weapon-world');
+      const ids = new Set(table?.entries.map((entry) => (entry.kind === 'weapon' ? entry.definitionId : '')));
+      for (const id of T2_T3_IDS) {
+        expect(ids.has(id)).toBe(false);
+      }
+    });
+
+    it('seeded weighted resolution returns only valid T1 definition ids', () => {
+      const data = loadGameData();
+      const lookup = new DataLootTableRegistry(data);
+      for (const seed of [1, 7, 42, 2024, 14073]) {
+        const grants = resolveLoot('weapon-world', lookup, createRng(seed));
+        expect(grants).toHaveLength(1);
+        const [grant] = grants;
+        expect(grant).toBeDefined();
+        if (grant.kind !== 'weapon') throw new Error('weapon-world must resolve a weapon grant');
+        expect(T1_IDS).toContain(grant.definitionId);
+      }
     });
   });
 

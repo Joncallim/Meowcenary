@@ -25,6 +25,7 @@ import {
   togglePhysicsDebugWorld,
 } from '../systems/debug';
 import { DropSystem } from '../systems/DropSystem';
+import { WeaponRewardSystem } from '../systems/WeaponRewardSystem';
 import { InputController } from '../systems/input';
 import { SpawnSystem } from '../systems/SpawnSystem';
 import { buildArenaScenery, type ArenaScenery } from '../systems/arenaScenery';
@@ -72,6 +73,7 @@ export class GameScene extends Phaser.Scene {
   private inventoryController?: InventoryController;
   private pauseView?: PhaserPauseView;
   private dropSystem?: DropSystem;
+  private weaponRewardSystem?: WeaponRewardSystem;
   private upgradeSystem?: UpgradeSystem;
   private upgradeChooser?: UpgradeChooser;
   private progressionSystem?: ProgressionSystem;
@@ -151,6 +153,9 @@ export class GameScene extends Phaser.Scene {
     const spawnRng = createRng(deriveRunSeed(this.runState.seed, 'spawns'));
     const upgradeRng = createRng(deriveRunSeed(this.runState.seed, 'upgrades'));
     const lootRng = createRng(deriveRunSeed(this.runState.seed, 'loot'));
+    // Epic 14 §D10: dedicated stream for scheduled weapon rewards so their
+    // draws never perturb the established loot/spawn/upgrade sequences.
+    const weaponRewardRng = createRng(deriveRunSeed(this.runState.seed, 'weapon-rewards'));
     const lootTables = new DataLootTableRegistry(ctx.data);
 
     this.inputController = new InputController(this);
@@ -227,11 +232,26 @@ export class GameScene extends Phaser.Scene {
       player: this.player,
       dropGroup: this.dropGroup,
       lootTables,
+      weaponRegistry,
       rng: lootRng,
       dropRadius: RuntimeConfig.gameplay.drop.radius,
       magnetSpeed: RuntimeConfig.gameplay.drop.magnetSpeed,
       basePickupRadius: RuntimeConfig.gameplay.player.pickupRadius,
       xpArt: actorArt.bindingById('drop:xp'),
+    });
+    // Constructed after DropSystem so the injected callback can request world
+    // drops through the one physical pickup boundary (Epic 14 §D6/D8).
+    this.weaponRewardSystem = new WeaponRewardSystem({
+      runState: this.runState,
+      rng: weaponRewardRng,
+      lootTables,
+      config: RuntimeConfig.gameplay.weaponRewards,
+      dropRadius: RuntimeConfig.gameplay.drop.radius,
+      basePickupRadius: RuntimeConfig.gameplay.player.pickupRadius,
+      spawnDrop: (x, y, grant) => this.dropSystem!.spawnDrop(x, y, grant),
+      playerPosition: () => ({ x: this.player!.x, y: this.player!.y }),
+      arenaBounds: { width: arena.size.width, height: arena.size.height },
+      obstacles: arena.obstacles,
     });
     this.upgradeSystem = new UpgradeSystem({
       runState: this.runState,
@@ -312,6 +332,10 @@ export class GameScene extends Phaser.Scene {
       }),
       this.feedbackSystem,
       this.weaponSystem,
+      // Immediately before DropSystem so a reward spawned this update enters
+      // the ordinary drop update/physics lifecycle in the same frame without
+      // ever touching the rack directly (Epic 14 §7).
+      this.weaponRewardSystem,
       this.dropSystem,
       this.upgradeSystem,
       ...(debugCheatSystem ? [debugCheatSystem] : []),
@@ -476,6 +500,7 @@ export class GameScene extends Phaser.Scene {
     this.progressionSystem = undefined;
     this.hudController = undefined;
     this.dropSystem = undefined;
+    this.weaponRewardSystem = undefined;
     this.player?.destroy();
     this.player = undefined;
     this.enemies.length = 0;

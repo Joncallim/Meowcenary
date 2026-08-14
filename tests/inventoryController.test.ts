@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRunState, pauseRun, startRun, type RunState } from '../src/gameplay/runState';
+import { grantWeaponToRack } from '../src/gameplay/weaponRack';
 import { createWeaponInstance, type WeaponInstance } from '../src/gameplay/weapons';
 import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import { loadGameData } from '../src/systems/validation';
@@ -433,6 +434,56 @@ describe('InventoryController mergeSelected failures', () => {
       expect(result.snapshot.selectedInstanceIds).toEqual(['a', 'b']);
       expect(result.snapshot.weapons).toHaveLength(2);
     }
+  });
+});
+
+describe('rack capacity integration (Epic 14 §8.6)', () => {
+  it('merges six to five, admits a fresh weapon back to six, and merges again with one event each', () => {
+    const equipped = Array.from({ length: 5 }, (_) => minted('scrap-pistol-t1'));
+    equipped.push(instance('can-smg-t1', 'smg'));
+    const run = createPausedRun(equipped);
+    const { bus, controller } = createController(run);
+    const mergedSpy = vi.fn();
+    bus.on('weapon:merged', mergedSpy);
+
+    // Six weapons, one mergeable pistol pair.
+    expect(run.equipped).toHaveLength(6);
+    controller.toggle(equipped[0].instanceId);
+    controller.toggle(equipped[1].instanceId);
+    const firstMerge = controller.mergeSelected();
+    expect(firstMerge.ok).toBe(true);
+    expect(run.equipped).toHaveLength(5);
+    expect(mergedSpy).toHaveBeenCalledTimes(1);
+
+    // A fresh valid weapon is admitted back to six through the shared grant path.
+    const admission = grantWeaponToRack(run, 'bolt-shotgun-t1', registry);
+    expect(admission.status).toBe('added');
+    expect(run.equipped).toHaveLength(6);
+
+    // A second merge still creates a fresh next-tier instance with one event.
+    const pistols = run.equipped.filter((weapon) => weapon.family === 'pistol' && weapon.tier === 1);
+    expect(pistols.length).toBeGreaterThanOrEqual(2);
+    controller.toggle(pistols[0].instanceId);
+    controller.toggle(pistols[1].instanceId);
+    const secondMerge = controller.mergeSelected();
+    expect(secondMerge.ok).toBe(true);
+    if (!secondMerge.ok) throw new Error('expected a successful merge');
+    expect(run.equipped).toHaveLength(5);
+    expect(mergedSpy).toHaveBeenCalledTimes(2);
+    expect(secondMerge.snapshot.weapons.some((weapon) => weapon.instanceId === secondMerge.resultInstanceId)).toBe(true);
+    const result = secondMerge.snapshot.weapons.find((weapon) => weapon.instanceId === secondMerge.resultInstanceId);
+    expect(result?.tier).toBe(2);
+  });
+
+  it('rejects admission beyond six and keeps the merge path authoritative', () => {
+    const equipped = Array.from({ length: 6 }, (_) => minted('scrap-pistol-t1'));
+    const run = createPausedRun(equipped);
+    const { controller } = createController(run);
+
+    const admission = grantWeaponToRack(run, 'bolt-shotgun-t1', registry);
+    expect(admission.status).toBe('rack-full');
+    expect(run.equipped).toHaveLength(6);
+    void controller;
   });
 });
 
