@@ -1,11 +1,11 @@
 # Epic 16 — Visual Identity and Junkyard World
 
-**Issue:** #75 · **Branch:** `codex/epic-16-visual-identity` · **Base:** Epic 15 merge commit `1da5ed8`
+**Issue:** #75 · **Architecture PR:** #82 · **Base:** Epic 15 merge commit `1da5ed8`
 
 > Status: **implementation-ready architecture and selected art direction; not
-> implemented**. This is the baseline commit for a draft delivery PR. Issue #75
-> remains open until the Golden Run passes every automated and visual gate in
-> this document.
+> implemented**. PR #82 is the reviewable architecture/art baseline only; its
+> merge does not complete or close Issue #75. Runtime delivery remains open
+> until the Golden Run passes every automated and visual gate in this document.
 
 ## 1. Outcome
 
@@ -124,19 +124,32 @@ export interface VisualArtCatalog {
 `bindingById()` and one frozen `all()` snapshot. Paths and texture keys exist
 only in this catalog.
 
+Visual IDs use a kind prefix followed by one or more colon-delimited kebab-case
+segments: `/^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)+$/`. The first segment
+must equal `kind`, so IDs such as `weapon-icon:pistol:t1` are valid while
+wrong-kind, empty-segment, path-like, whitespace, and uppercase IDs fail.
+
 All Golden Run rows have `required: true`. Optional art is allowed only for
 future non-Golden content and must have a specified geometric fallback at its
 consumer. Required art never silently falls back.
 
 ### D2 — Boot owns all loading and required-asset failure
 
-`BootScene.preload()` iterates the visual catalog:
+`BootScene.preload()` first constructs a validated `DataVisualArtRegistry`
+from the imported JSON and stores that immutable preload plan on the scene. It
+must not iterate unvalidated raw bindings before `loadGameData()` runs. It then
+iterates the validated catalog:
 
 - `image` rows call `this.load.image()`;
 - `spritesheet` rows call `this.load.spritesheet()` with the declared frame;
 - a loader error records the failed texture key; and
 - `create()` validates that every required texture exists before creating
   animations or starting `MenuScene`.
+
+Register the loader-error listener before enqueueing files and remove it on
+loader completion or scene teardown. `create()` still calls aggregate
+`loadGameData()` so weapon/arena cross-references are validated before context
+creation; catalog-only preload validation does not replace that aggregate gate.
 
 A missing required texture must produce one clear error naming its manifest ID,
 texture key, and URL. Do not catch it and continue with geometry.
@@ -229,12 +242,23 @@ remain unchanged. Only normal `Pool.acquire()` growth may construct a new
 pooled projectile; firing code must not directly construct a texture, sprite,
 animation, projectile, or pool.
 
+`WeaponSystem` records the owning pool for every created projectile in a
+`Map<Projectile, Pool<Projectile>>`. Reset/release looks up that exact owner;
+it must not infer a pool from the current rack or the most recently fired
+weapon, either of which can change before a projectile expires.
+
+Acquire starts the declared `fly` clip from its first frame. Reset stops the
+clip, restores frame zero, clears rotation/alpha/visibility/active state, and
+then returns the projectile to its recorded owner pool.
+
 ### D7 — One pooled drop can switch among prebuilt visual kinds
 
 `Drop` receives a frozen binding map at construction and creates at most one
 inactive art sprite for each required drop kind: XP, scrap, chest, and weapon.
 `spawn()` activates exactly one sprite based on `LootGrant.kind`; `reset()`
-hides and deactivates all of them and clears the existing payload/block state.
+hides and deactivates all of them, stops each clip at frame zero, and clears the
+existing payload/block state. Each spawn starts the selected `idle` clip from
+its first frame; hidden alternatives do not continue animating.
 
 This preserves one physical body and the existing no-loss full-rack contract.
 The weapon crate remains visible and stationary while blocked. The system does
@@ -250,30 +274,43 @@ The existing 48x48 Epic 13 sheets remain the first-pass Golden Run actor art.
 Do not redraw them merely because Epic 16 is an art epic. Audit them at runtime
 size; revise only a concrete failed visual gate.
 
-Add their existing hurt/defeat frame ranges to the visual catalog. Replace the
-boolean `moving` presentation choice with an explicit pose state:
+Add their existing hurt/defeat frame ranges to the visual catalog. Locomotion
+continues to use `ActorPose` position/facing/moving data. One-shot presentation
+is explicit on the view:
 
 ```ts
-export type ActorClipState = 'idle' | 'run' | 'hurt' | 'defeat';
-
-export interface ActorPose {
-  readonly x: number;
-  readonly y: number;
-  readonly facing: 1 | -1;
-  readonly clip: ActorClipState;
-  readonly alpha: number;
+export interface ActorView {
+  update(pose: ActorPose): void;
+  playOneShot(clip: 'hurt' | 'defeat'): void;
+  destroy(): void;
 }
 ```
 
-Clip priority is `defeat > hurt > run > idle`. Actor entities choose the pose
-from their existing lifecycle/damage state; no animation completion controls
-health, invulnerability, death, pooling, movement, or event timing. A hurt clip
-returns to locomotion presentation only; defeat remains on its final frame
-until the existing entity reset/release path.
+`SpriteView` keeps transform/facing/alpha synchronized while a one-shot owns the
+clip. Priority is `defeat > hurt > run > idle`; an animation-complete callback
+returns hurt to the latest locomotion clip and leaves defeat on its final
+frame. `PlaceholderView.playOneShot()` is a no-op. Every accepted player-damage
+path invokes hurt; lethal contact or environmental damage invokes defeat before
+the existing lost-run path, and the player body remains governed by existing
+run-state/physics code.
 
-`SpriteView` must remove animation listeners on destroy/reset. Body diameter,
-offset, position, velocity, visibility authority, overlap, and world-bound
-behavior stay exactly as Epic 13 defines them.
+Enemy death needs a different seam. Today `Enemy.takeDamage()` destroys the
+enemy and its view synchronously before `WeaponSystem` emits `enemy:killed`, so
+delaying that destroy to show art would change active counts, overlap, reward,
+and compaction timing. Do not do that. Add a presentation-only
+`DefeatPresentationSystem` that subscribes to the existing `enemy:killed`
+event, resolves `enemy:<enemyId>`, and acquires a display-only corpse sprite
+from a binding-keyed pool at the event coordinates. It plays `defeat` once and
+releases on animation completion, with a declared clip-duration timeout as the
+defensive fallback. The corpse has no physics body and never appears in the
+enemy array or active-enemy diagnostics.
+
+No animation completion controls health, invulnerability, death, rewards,
+pooling of gameplay entities, movement, run state, or event timing.
+
+`SpriteView` and `DefeatPresentationSystem` remove animation listeners on
+destroy/reset. Body diameter, offset, position, velocity, visibility authority,
+overlap, and world-bound behavior stay exactly as Epic 13 defines them.
 
 ### D9 — Arena render data is separate from collision data
 
@@ -295,7 +332,7 @@ export interface ArenaDecorationDefinition {
   readonly x: number;
   readonly y: number;
   readonly flipX?: boolean;
-  readonly layer: 'ground' | 'low' | 'high';
+  readonly layer: 'ground' | 'low';
 }
 
 export interface ArenaObstacleSkinDefinition {
@@ -337,9 +374,11 @@ Set Junkyard Lot to **768x1344**: a 24x42 grid of 32px tiles, roughly two
 canonical canvas widths and 1.6 canonical heights. This is large enough to
 establish travel and landmarks but small enough for a focused first arena.
 
-Keep the player start at the center and reserve a collider-free 180x240 start
-plaza. Use two collidable landmarks outside that plaza and outside edge spawn
-lanes. All other authored props are non-colliding.
+Keep the player start at the center and reserve a collider-free 192x256 start
+plaza. Increase the edge spawn-region margin to 48px so 13px-radius enemies do
+not overlap the inward face of 32px boundary art. Use two collidable landmarks
+outside that plaza and outside edge spawn lanes. All other authored props are
+non-colliding.
 
 Existing world-bound, camera-follow, spawn-region, weapon-reward clamp, HUD,
 pause, and FIT behavior already read `arena.size`; tests must prove those seams
@@ -432,6 +471,7 @@ through `DataVisualArtRegistry`.
 | `src/systems/visualArt.ts` | immutable registry and animation creation |
 | `src/scenes/BootScene.ts` | preload and required-texture gate |
 | `src/entities/actorView.ts` | clip-aware sprite presentation only |
+| `src/systems/defeatPresentation.ts` | pooled, physics-free enemy defeat clips from `enemy:killed` |
 | `src/entities/Projectile.ts` | one binding per pooled projectile |
 | `src/entities/Drop.ts` | prebuilt kind-art nodes on one pooled body |
 | `src/systems/WeaponSystem.ts` | binding-keyed projectile pools and shot presentation call |
@@ -450,8 +490,9 @@ Production files intentionally outside the change:
 
 ## 6. Implementation slices and commit gates
 
-Use one delivery branch and the existing draft PR. Every slice begins from a
-green previous slice and is independently reviewable.
+After PR #82 merges, create one runtime branch from that merged architecture
+baseline and keep all five slices in one draft delivery PR for Issue #75. Every
+slice begins from a green previous slice and is independently reviewable.
 
 ### Slice 1 — Manifest and validation migration
 
@@ -490,13 +531,15 @@ existing bodies, camera travel, retry teardown, and portrait/desktop screenshots
 
 ### Slice 5 — Actor state adoption and Golden Run closeout
 
-Expose hurt/defeat clips, adopt clip priority without gameplay timing changes,
+Expose hurt/defeat clips, adopt one-shot hurt priority, add the pooled
+physics-free enemy defeat presenter without delaying entity destruction,
 audit/revise existing actors only where evidence fails, then update status and
 delivery records.
 
-Gate: hurt/defeat/reset tests, hitbox snapshots unchanged, full and shuffled
-suites, lint, build, art validation, browser playtest matrix, and an independent
-review against this document.
+Gate: hurt/defeat/reset and kill-order tests, proof that enemy destruction and
+`enemy:killed` ordering are unchanged, hitbox snapshots unchanged, full and
+shuffled suites, lint, build, art validation, browser playtest matrix, and an
+independent review against this document.
 
 Do not start the next slice while the previous gate is red. Do not squash away
 the slice boundaries before review.
@@ -522,6 +565,10 @@ the slice boundaries before review.
   the pre-Epic-16 baseline;
 - every pooled object creates display nodes only at construction, resets all
   visual state, and rejoins its physics group at most once;
+- each expired projectile returns to its construction-time art pool even if
+  the rack changes while it is live;
+- enemy defeat art is physics-free and does not delay enemy destruction,
+  rewards, active counts, or compaction;
 - blocked weapon drops remain present and collectible after a merge frees room;
 - rack state/selection/preview/merge behavior and 44px targets are unchanged;
 - decorations create zero physics bodies and consume zero RNG;
@@ -559,7 +606,7 @@ off and on where animation/feedback could interact.
 | Teardown | Retry and Menu round-trips do not duplicate scenery, animations, or art nodes. |
 
 Record screenshots and any manual-only rows in the delivery section before
-marking the PR ready.
+marking the runtime delivery PR ready.
 
 ## 9. Reviewer traps
 
@@ -574,6 +621,7 @@ Reviewers should actively reject:
 - pooled nodes that retain the previous family/kind, rotation, animation,
   alpha, visibility, or active state;
 - animation completion changing gameplay health/death/pool timing;
+- retaining a dead enemy gameplay entity merely to finish its defeat clip;
 - art dimensions, origins, or overhang resizing/offsetting physics bodies;
 - decorative props with physics bodies or invisible colliders;
 - random world dressing, especially `Math.random()` or a run RNG stream;
@@ -592,8 +640,10 @@ Reviewers should actively reject:
 - [x] original Epic 16 visual identity board generated and planted.
 - [x] production sizes, silhouettes, tier language, composition, and
   originality rules recorded.
+- [x] architecture baseline marked ready in PR #82 after exact-source and
+  artifact review.
 - [ ] runtime manifest migration and required-asset gate.
 - [ ] production Pixelorama sources/exports.
 - [ ] weapon, projectile, pickup, actor-state, and world wiring.
 - [ ] automated, browser, and independent-review gates.
-- [ ] ready review, approval, and merge.
+- [ ] runtime delivery review, approval, and merge.

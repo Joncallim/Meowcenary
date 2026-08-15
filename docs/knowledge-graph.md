@@ -1,7 +1,7 @@
 # Meowcenary Knowledge Graph
 
 > Token-optimized repo map. Read this before any implementation work.
-> Current state: **Epics 0–15 complete; Epic 15 merged in PR #81; Epic 16 architecture and art direction are in progress**. Epic 10 merged in two delivery PRs:
+> Current state: **Epics 0–15 complete; Epic 15 merged in PR #81; Epic 16 architecture and art direction are in PR #82 with runtime implementation pending**. Epic 10 merged in two delivery PRs:
 > #65 (slices 1–2: audio data/events + game-scoped `AudioManager`) and #68
 > (slices 3–5: `settings:changed` wiring, Boot-owned manager publication,
 > scene lifecycle wiring, exactly-one `ui:*` command events, deterministic
@@ -233,7 +233,7 @@ existing event covers it (Epic 8 adds none — it extends one payload).
 | 13 | ✅ | Merged: PR #79 (actor-view seam, catalog #11, seven Pixelorama assets, opt-in physics debug, deterministic charger clipping); see `epic-13-presentation-runtime.md` |
 | 14 | ✅ | Merged: PR #80 (six-slot rack, one-T1-weapon starts, capacity-checked admission, no-loss full-rack pickups, seeded `weapon-rewards` stream, guaranteed early duplicate, `n/6` HUD capacity); see `epic-14-weapon-acquisition-and-rack-economy.md` |
 | 15 | ✅ | Merged: PR #81 (immutable rack read model, exact merge preview, direct HUD entry, responsive 2x3/3x2 rack, tap and repeat-safe keyboard controls); see `epic-15-inventory-and-merge-experience.md` |
-| 16 | 🟡 | Architecture and selected art direction on `codex/epic-16-visual-identity`; runtime implementation pending; see `epic-16-visual-identity-and-junkyard-world.md` |
+| 16 | 🟡 | Architecture and selected art direction in PR #82; runtime implementation pending; see `epic-16-visual-identity-and-junkyard-world.md` |
 
 ## First Steps for Any Agent
 

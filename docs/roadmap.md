@@ -42,7 +42,7 @@
   portrait/landscape presentation; architecture and delivery record in
   [`architecture/epic-15-inventory-and-merge-experience.md`](architecture/epic-15-inventory-and-merge-experience.md).
 - Epic 16 / Visual Identity and Junkyard World: architecture and selected art
-  direction in progress on `codex/epic-16-visual-identity` (#75) — one visual
+  direction established in PR #82; runtime implementation pending (#75) — one visual
   manifest, explicit weapon/pickup art references, pooled presentation,
   authored world data, and a camera-traversable Junkyard Lot; implementation
   contract in
