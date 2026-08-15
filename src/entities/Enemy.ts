@@ -7,7 +7,7 @@ import {
   type ChargerMovementDefinition,
 } from '../gameplay/enemyMovement';
 import type { ResolvedEnemyDefinition, SpawnableEnemyArchetype } from '../systems/types';
-import type { ActorArtBinding } from '../systems/types';
+import type { VisualArtBinding } from '../systems/types';
 import type { Player } from './Player';
 import { PlaceholderView, createAnimatedActorView, type ActorView } from './actorView';
 import type { ChargerEnvironment } from '../gameplay/enemyMovement';
@@ -81,7 +81,7 @@ export class Enemy implements EnemyInstance {
     x: number,
     y: number,
     private readonly bus: EventBus,
-    art?: Readonly<ActorArtBinding>,
+    art?: Readonly<VisualArtBinding>,
     private readonly environment?: ChargerEnvironment,
   ) {
     nextEnemyInstanceId += 1;

@@ -327,11 +327,12 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       kind: 'enemy',
       textureKey: 'sheet',
       url: 'assets/x.png',
-      frame: { width: 48, height: 48 },
-      displayDiameter: 26,
+      required: true,
+      load: { type: 'spritesheet', frame: { width: 48, height: 48 } },
+      display: { width: 26, height: 26 },
       clips: {
-        idle: { start: 0, end: 3, frameRate: 6 },
-        run: { start: 4, end: 9, frameRate: 10 },
+        idle: { start: 0, end: 3, frameRate: 6, repeat: -1 },
+        run: { start: 4, end: 9, frameRate: 10, repeat: -1 },
       },
     } as const;
 

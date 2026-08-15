@@ -13,7 +13,7 @@ import { applyXp } from '../gameplay/xp';
 import { grantWeaponToRack, WEAPON_RACK_CAPACITY } from '../gameplay/weaponRack';
 import type { WeaponRegistry } from '../gameplay/weapons';
 import type { LootTableLookup } from './lootTables';
-import type { ActorArtBinding } from './types';
+import type { VisualArtBinding } from './types';
 
 export interface DropSystemOptions {
   readonly scene: Phaser.Scene;
@@ -29,7 +29,7 @@ export interface DropSystemOptions {
   readonly dropRadius: number;
   readonly magnetSpeed: number;
   readonly basePickupRadius: number;
-  readonly xpArt?: Readonly<ActorArtBinding>;
+  readonly xpArt?: Readonly<VisualArtBinding>;
 }
 
 export class DropSystem implements System {

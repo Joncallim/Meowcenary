@@ -745,7 +745,8 @@ Reviewers should actively reject:
   originality rules recorded.
 - [x] architecture baseline marked ready in PR #82 after exact-source and
   artifact review.
-- [ ] runtime manifest migration and required-asset gate.
+- [x] runtime manifest migration and required-asset gate (Slice 1: 1,318 tests,
+  lint, and production build green).
 - [ ] production Pixelorama sources/exports.
 - [ ] weapon, projectile, pickup, actor-state, and world wiring.
 - [ ] automated, browser, and independent-review gates.

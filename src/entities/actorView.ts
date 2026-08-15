@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import { actorAnimationKey } from '../systems/actorArt';
-import type { ActorArtBinding } from '../systems/types';
+import { visualAnimationKey } from '../systems/visualArt';
+import type { VisualArtBinding } from '../systems/types';
 
 export interface ActorPose {
   readonly x: number;
@@ -79,37 +79,50 @@ export function createAnimatedActorView(
   scene: Phaser.Scene,
   body: Phaser.GameObjects.Arc,
   shadow: { readonly node: Phaser.GameObjects.Arc; readonly dy: number },
-  binding: Readonly<ActorArtBinding> | undefined,
+  binding: Readonly<VisualArtBinding> | undefined,
   depth: number,
 ): SpriteView | undefined {
-  if (!binding?.clips?.idle || !binding.clips.run || !scene.textures.exists(binding.textureKey)) {
+  if (binding?.load.type !== 'spritesheet' || !binding.clips?.idle || !binding.clips.run ||
+      !scene.textures.exists(binding.textureKey)) {
     return undefined;
   }
-  const idle = actorAnimationKey(binding.id, 'idle');
-  const run = actorAnimationKey(binding.id, 'run');
+  const idle = visualAnimationKey(binding.id, 'idle');
+  const run = visualAnimationKey(binding.id, 'run');
   if (!scene.anims.exists(idle) || !scene.anims.exists(run)) return undefined;
   const sprite = scene.add.sprite(body.x, body.y, binding.textureKey, 0)
     .setDepth(depth)
     .setOrigin(0.5)
-    .setScale(binding.displayDiameter / binding.frame.width);
+    .setScale(
+      binding.display.width / binding.load.frame.width,
+      binding.display.height / binding.load.frame.height,
+    );
   return new SpriteView(body, shadow, sprite, { idle, run });
 }
 
 export function createStaticArtSprite(
   scene: Phaser.Scene,
-  binding: Readonly<ActorArtBinding> | undefined,
+  binding: Readonly<VisualArtBinding> | undefined,
   depth: number,
 ): Phaser.GameObjects.Sprite | undefined {
   if (!binding || !scene.textures.exists(binding.textureKey)) return undefined;
-  const sprite = scene.add.sprite(0, 0, binding.textureKey, 0)
+  const frame = binding.load.type === 'spritesheet' ? 0 : undefined;
+  const sprite = scene.add.sprite(0, 0, binding.textureKey, frame)
     .setDepth(depth)
-    .setOrigin(0.5)
-    .setScale(binding.displayDiameter / binding.frame.width)
+    .setOrigin(0.5);
+  if (binding.load.type === 'spritesheet') {
+    sprite.setScale(
+      binding.display.width / binding.load.frame.width,
+      binding.display.height / binding.load.frame.height,
+    );
+  } else {
+    sprite.setDisplaySize(binding.display.width, binding.display.height);
+  }
+  sprite
     .setActive(false)
     .setVisible(false);
   const clipName = binding.kind === 'projectile' ? 'fly' : 'idle';
   if (binding.clips?.[clipName]) {
-    const animation = actorAnimationKey(binding.id, clipName);
+    const animation = visualAnimationKey(binding.id, clipName);
     if (scene.anims.exists(animation)) sprite.play(animation);
   }
   return sprite;

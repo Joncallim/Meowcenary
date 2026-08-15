@@ -144,7 +144,7 @@ would otherwise allow gameplay entity caps or speculative enemy pooling to chang
 current combat/economy semantics.
 The Epic 13 document is the implementation source of truth and PR #79 delivery
 record for physics-debug diagnostics gating, the actor-view presentation
-boundary, body-dimension invariants, the validated actor-art catalog and
+boundary, body-dimension invariants, the validated visual-art catalog and
 AI-directed Pixelorama asset pipeline, and deterministic charger environment
 clipping. It supersedes issue #72 where that wording predates the live
 presentation, pooling, and debug seams.

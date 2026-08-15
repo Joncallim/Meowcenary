@@ -596,9 +596,10 @@ describe('WeaponSystem', () => {
       kind: 'projectile',
       textureKey: 'art-projectile-scrap-shot',
       url: 'assets/projectiles/scrap-shot/scrap-shot.png',
-      frame: { width: 16, height: 16 },
-      displayDiameter: 8,
-      clips: { fly: { start: 0, end: 1, frameRate: 12 } },
+      required: true,
+      load: { type: 'spritesheet', frame: { width: 16, height: 16 } },
+      display: { width: 8, height: 8 },
+      clips: { fly: { start: 0, end: 1, frameRate: 12, repeat: -1 } },
     } as const;
 
     async function createArtProjectile() {

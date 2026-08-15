@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { Vec2 } from '../engine/vector';
 import { normalize } from '../engine/vector';
-import type { ActorArtBinding } from '../systems/types';
+import type { VisualArtBinding } from '../systems/types';
 import { createStaticArtSprite } from './actorView';
 
 export interface ProjectileSpawnOptions {
@@ -26,7 +26,7 @@ export class Projectile {
   constructor(
     scene: Phaser.Scene,
     private readonly radius: number,
-    art?: Readonly<ActorArtBinding>,
+    art?: Readonly<VisualArtBinding>,
   ) {
     this.sprite = scene.add.circle(0, 0, radius, 0x8bd3ff).setDepth(3).setActive(false).setVisible(false);
     // Display-only soft halo, constructed once per pooled projectile and

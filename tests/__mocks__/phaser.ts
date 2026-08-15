@@ -54,6 +54,10 @@ export class MockGameObject {
     return this;
   }
 
+  setDisplaySize(): this {
+    return this;
+  }
+
   setFillStyle(color: number): this {
     this.fillColor = color;
     return this;

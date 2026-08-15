@@ -3,7 +3,7 @@ import type { EventBus } from '../engine/eventBus';
 import type { RunState } from '../gameplay/runState';
 import { endRun } from '../gameplay/runState';
 import type { InputController } from '../systems/input';
-import type { ActorArtBinding } from '../systems/types';
+import type { VisualArtBinding } from '../systems/types';
 import { PlaceholderView, createAnimatedActorView, type ActorView } from './actorView';
 
 export interface PlayerOptions {
@@ -37,7 +37,7 @@ export class Player {
     private readonly runState: RunState,
     private readonly bus: EventBus,
     private readonly options: PlayerOptions,
-    art?: Readonly<ActorArtBinding>,
+    art?: Readonly<VisualArtBinding>,
   ) {
     this.health = this.maxHealth;
     this.sprite = scene.add

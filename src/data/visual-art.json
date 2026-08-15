@@ -1,0 +1,93 @@
+{
+  "bindings": [
+    {
+      "id": "character:scrap-tabby",
+      "kind": "character",
+      "textureKey": "art-character-scrap-tabby",
+      "url": "assets/characters/scrap-tabby/scrap-tabby.png",
+      "required": true,
+      "load": { "type": "spritesheet", "frame": { "width": 48, "height": 48 } },
+      "display": { "width": 28, "height": 28 },
+      "clips": {
+        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
+        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 }
+      }
+    },
+    {
+      "id": "character:bolt-hound",
+      "kind": "character",
+      "textureKey": "art-character-bolt-hound",
+      "url": "assets/characters/bolt-hound/bolt-hound.png",
+      "required": true,
+      "load": { "type": "spritesheet", "frame": { "width": 48, "height": 48 } },
+      "display": { "width": 28, "height": 28 },
+      "clips": {
+        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
+        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 }
+      }
+    },
+    {
+      "id": "enemy:dust-mite",
+      "kind": "enemy",
+      "textureKey": "art-enemy-dust-mite",
+      "url": "assets/enemies/dust-mite/dust-mite.png",
+      "required": true,
+      "load": { "type": "spritesheet", "frame": { "width": 48, "height": 48 } },
+      "display": { "width": 26, "height": 26 },
+      "clips": {
+        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
+        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 }
+      }
+    },
+    {
+      "id": "enemy:junk-rusher",
+      "kind": "enemy",
+      "textureKey": "art-enemy-junk-rusher",
+      "url": "assets/enemies/junk-rusher/junk-rusher.png",
+      "required": true,
+      "load": { "type": "spritesheet", "frame": { "width": 48, "height": 48 } },
+      "display": { "width": 26, "height": 26 },
+      "clips": {
+        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
+        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 }
+      }
+    },
+    {
+      "id": "enemy:trash-brute",
+      "kind": "enemy",
+      "textureKey": "art-enemy-trash-brute",
+      "url": "assets/enemies/trash-brute/trash-brute.png",
+      "required": true,
+      "load": { "type": "spritesheet", "frame": { "width": 48, "height": 48 } },
+      "display": { "width": 26, "height": 26 },
+      "clips": {
+        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
+        "run": { "start": 4, "end": 9, "frameRate": 8, "repeat": -1 }
+      }
+    },
+    {
+      "id": "projectile:default",
+      "kind": "projectile",
+      "textureKey": "art-projectile-scrap-shot",
+      "url": "assets/projectiles/scrap-shot/scrap-shot.png",
+      "required": true,
+      "load": { "type": "spritesheet", "frame": { "width": 16, "height": 16 } },
+      "display": { "width": 8, "height": 8 },
+      "clips": {
+        "fly": { "start": 0, "end": 1, "frameRate": 12, "repeat": -1 }
+      }
+    },
+    {
+      "id": "drop:xp",
+      "kind": "drop",
+      "textureKey": "art-drop-xp-mote",
+      "url": "assets/pickups/xp-mote/xp-mote.png",
+      "required": true,
+      "load": { "type": "spritesheet", "frame": { "width": 16, "height": 16 } },
+      "display": { "width": 16, "height": 16 },
+      "clips": {
+        "idle": { "start": 0, "end": 3, "frameRate": 8, "repeat": -1 }
+      }
+    }
+  ]
+}

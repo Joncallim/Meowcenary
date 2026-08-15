@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { GAME_CONTEXT_REGISTRY_KEY, type GameContext } from '../src/engine/context';
 import { SceneKey } from '../src/engine/sceneKeys';
 import audioAssetsJson from '../src/data/audio-assets.json';
-import actorArtJson from '../src/data/actor-art.json';
+import visualArtJson from '../src/data/visual-art.json';
 import { BootScene } from '../src/scenes/BootScene';
 import { AudioManager, AUDIO_MANAGER_REGISTRY_KEY } from '../src/systems/audio';
 
@@ -58,20 +58,49 @@ vi.mock('../src/systems/audio', async (importOriginal) => {
 function createFakeScene() {
   const registryValues = new Map<string, unknown>();
   const loadAudio = vi.fn();
+  const loadImage = vi.fn();
   const loadSpritesheet = vi.fn();
   const start = vi.fn();
+  const createEmitter = () => {
+    const handlers = new Map<string, Set<(...args: unknown[]) => void>>();
+    const onceHandlers = new Map<string, Set<(...args: unknown[]) => void>>();
+    const on = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      const listeners = handlers.get(event) ?? new Set();
+      listeners.add(handler);
+      handlers.set(event, listeners);
+    });
+    const once = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      const listeners = onceHandlers.get(event) ?? new Set();
+      listeners.add(handler);
+      onceHandlers.set(event, listeners);
+    });
+    const off = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      handlers.get(event)?.delete(handler);
+      onceHandlers.get(event)?.delete(handler);
+    });
+    const emit = (event: string, ...args: unknown[]) => {
+      for (const handler of [...(handlers.get(event) ?? [])]) handler(...args);
+      const once = [...(onceHandlers.get(event) ?? [])];
+      onceHandlers.delete(event);
+      for (const handler of once) handler(...args);
+    };
+    return { on, once, off, emit };
+  };
+  const loadEvents = createEmitter();
+  const sceneEvents = createEmitter();
   const scene = {
-    load: { audio: loadAudio, spritesheet: loadSpritesheet },
+    load: { audio: loadAudio, image: loadImage, spritesheet: loadSpritesheet, ...loadEvents },
+    events: sceneEvents,
     registry: { set: (key: string, value: unknown) => registryValues.set(key, value) },
     scene: { start },
     sound: {
       on: vi.fn(),
       off: vi.fn(),
     },
-    textures: { exists: vi.fn(() => false) },
+    textures: { exists: vi.fn((_key: string) => true) },
     anims: { exists: vi.fn(() => false), create: vi.fn(), generateFrameNumbers: vi.fn(), remove: vi.fn() },
   };
-  return { scene, loadAudio, loadSpritesheet, start, registryValues };
+  return { scene, loadAudio, loadImage, loadSpritesheet, loadEvents, sceneEvents, start, registryValues };
 }
 
 function createBoot() {
@@ -81,9 +110,9 @@ function createBoot() {
   return { boot, ...fake };
 }
 
-describe('BootScene audio wiring', () => {
+describe('BootScene loading and startup wiring', () => {
   it('preloads every audio catalog row in [...sfx, ...music] order with exact key/url', () => {
-    const { boot, loadAudio, loadSpritesheet } = createBoot();
+    const { boot, loadAudio, loadImage, loadSpritesheet, loadEvents } = createBoot();
 
     boot.preload();
 
@@ -93,11 +122,80 @@ describe('BootScene audio wiring', () => {
     ]);
     expect(loadAudio).toHaveBeenCalledTimes(expected.length);
     expect(loadAudio.mock.calls).toEqual(expected);
-    expect(loadSpritesheet.mock.calls).toEqual(actorArtJson.bindings.map((binding) => [
+    expect(loadImage).not.toHaveBeenCalled();
+    expect(loadSpritesheet.mock.calls).toEqual(visualArtJson.bindings.map((binding) => [
       binding.textureKey,
       binding.url,
-      { frameWidth: binding.frame.width, frameHeight: binding.frame.height },
+      { frameWidth: binding.load.frame.width, frameHeight: binding.load.frame.height },
     ]));
+    expect(loadEvents.on).toHaveBeenCalledWith('loaderror', expect.any(Function));
+    expect(loadEvents.on.mock.invocationCallOrder[0]).toBeLessThan(loadAudio.mock.invocationCallOrder[0]!);
+  });
+
+  it('validates the manifest before registering listeners or enqueueing files', () => {
+    const binding = visualArtJson.bindings[0] as unknown as { required: unknown };
+    const original = binding.required;
+    binding.required = 'yes';
+    try {
+      const { boot, loadAudio, loadImage, loadSpritesheet, loadEvents } = createBoot();
+      expect(() => boot.preload()).toThrow(/visual-art\.json.*required: required boolean/s);
+      expect(loadEvents.on).not.toHaveBeenCalled();
+      expect(loadAudio).not.toHaveBeenCalled();
+      expect(loadImage).not.toHaveBeenCalled();
+      expect(loadSpritesheet).not.toHaveBeenCalled();
+    } finally {
+      binding.required = original;
+    }
+  });
+
+  it('uses image loading for a validated static binding and removes load listeners on completion', () => {
+    const binding = visualArtJson.bindings[6] as unknown as Record<string, unknown>;
+    const originalLoad = binding.load;
+    const originalClips = binding.clips;
+    binding.load = { type: 'image' };
+    Reflect.deleteProperty(binding, 'clips');
+    try {
+      const { boot, loadImage, loadSpritesheet, loadEvents } = createBoot();
+      boot.preload();
+      expect(loadImage).toHaveBeenCalledWith(binding.textureKey, binding.url);
+      expect(loadSpritesheet).toHaveBeenCalledTimes(visualArtJson.bindings.length - 1);
+      loadEvents.emit('complete');
+      expect(loadEvents.off).toHaveBeenCalledWith('loaderror', expect.any(Function));
+    } finally {
+      binding.load = originalLoad;
+      binding.clips = originalClips;
+    }
+  });
+
+  it('stops startup when a required texture is missing and identifies its manifest row', () => {
+    const { boot, scene } = createBoot();
+    scene.textures.exists.mockImplementation((key: string) => key !== 'art-character-scrap-tabby');
+
+    expect(() => boot.create()).toThrow(
+      /id="character:scrap-tabby", textureKey="art-character-scrap-tabby", url="assets\/characters\/scrap-tabby\/scrap-tabby\.png"/,
+    );
+  });
+
+  it('records a loader file error even if a stale texture with the same key exists', () => {
+    const { boot, loadEvents } = createBoot();
+    boot.preload();
+    loadEvents.emit('loaderror', { key: 'art-character-scrap-tabby' });
+
+    expect(() => boot.create()).toThrow(/Required visual art failed to load.*character:scrap-tabby/);
+  });
+
+  it('allows a missing texture only when that manifest row is explicitly optional', () => {
+    const binding = visualArtJson.bindings[0] as unknown as { required: boolean; textureKey: string };
+    const original = binding.required;
+    binding.required = false;
+    try {
+      const { boot, scene, start } = createBoot();
+      scene.textures.exists.mockImplementation((key: string) => key !== binding.textureKey);
+      expect(() => boot.create()).not.toThrow();
+      expect(start).toHaveBeenCalledWith(SceneKey.Menu);
+    } finally {
+      binding.required = original;
+    }
   });
 
   it('publishes the context first, then one initialized manager, then starts Menu', () => {

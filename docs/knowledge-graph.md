@@ -1,7 +1,7 @@
 # Meowcenary Knowledge Graph
 
 > Token-optimized repo map. Read this before any implementation work.
-> Current state: **Epics 0–15 complete; Epic 15 merged in PR #81; Epic 16 architecture and art direction are in PR #82 with runtime implementation pending**. Epic 10 merged in two delivery PRs:
+> Current state: **Epics 0–15 complete; Epic 15 merged in PR #81; Epic 16 architecture and art direction merged in PR #82, with runtime implementation in progress**. Epic 10 merged in two delivery PRs:
 > #65 (slices 1–2: audio data/events + game-scoped `AudioManager`) and #68
 > (slices 3–5: `settings:changed` wiring, Boot-owned manager publication,
 > scene lifecycle wiring, exactly-one `ui:*` command events, deterministic
@@ -11,7 +11,7 @@
 > playtest summary, tuning guide, and closeout). Epic 12 merged in PR #71:
 > generic pooling, projectile/drop reuse, event-driven combat feedback,
 > reduced-motion policy, fixed-window `PerfSampler`, F3 diagnostics, and
-> FIT-responsive sizing. Epic 13 added the presentation runtime, actor-art
+> FIT-responsive sizing. Epic 13 added the presentation runtime, visual-art
 > catalog #11, seven Pixelorama assets, opt-in physics diagnostics, and charger
 > clipping. Epic 14 added the weapon acquisition loop: the six-slot
 > authoritative rack, capacity-checked admission, no-loss full-rack pickups,
@@ -33,10 +33,10 @@ Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly
 | `src/engine/` | ✅ | **No Phaser** (pure, unit-tested) | `config` `eventBus` `rng` `vector` `cadence` `context` `sceneKeys` `system` `pool` `motion` |
 | `src/gameplay/` | ✅ | **No Phaser** (pure rules) | `runState` `runStart` `runRequest` `stats` `xp` `targeting` `weapons` `weaponStats` `merge` `upgrades` `levelUpQueue` `projectilePattern` `enemyMovement` `enemyScaling` `spawnDirector` `spawnRegion` `loot` `meta` `characterSelection` `characterContribution` `characterPassives` `arenaSelection` `metrics` `perf` `weaponRack` `weaponRewards` |
 | `src/entities/` | ✅ | May use Phaser (display objects) | `Player` `Enemy` `Projectile` `Drop` `actorView` |
-| `src/systems/` | ✅ | May use Phaser (coordinators) | `types` `validation` `save` `input` `audio` `debug` `actorArt` `ids` `enemies` `characters` `arenas` `lootTables` `metaUpgrades` `weaponRegistry` `SpawnSystem` `WeaponSystem` `UpgradeSystem` `DropSystem` `ProgressionSystem` `PassiveCoordinator` `HazardSystem` `arenaScenery` `playtestSummary` `feedback` `WeaponRewardSystem` |
+| `src/systems/` | ✅ | May use Phaser (coordinators) | `types` `validation` `save` `input` `audio` `debug` `visualArt` `ids` `enemies` `characters` `arenas` `lootTables` `metaUpgrades` `weaponRegistry` `SpawnSystem` `WeaponSystem` `UpgradeSystem` `DropSystem` `ProgressionSystem` `PassiveCoordinator` `HazardSystem` `arenaScenery` `playtestSummary` `feedback` `WeaponRewardSystem` |
 | `src/scenes/` | ✅ | Thin coordinators only | `BootScene` `MenuScene` `GameScene` |
 | `src/ui/` | ✅ | May use Phaser | `UpgradeChooser` `upgradeChooserController` `upgradeChooserLayout` `characterSelectionController` `arenaSelectionController` `progressionController` `pause` `runSummary` `menus` `settings` `hud` `controls` `inventory` `weaponRackView` `weaponRackLayout` `modal` `layout` `theme` `format` |
-| `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` `loot-tables` `audio-assets` `audio-map` `actor-art` |
+| `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` `loot-tables` `audio-assets` `audio-map` `visual-art` |
 | `scripts/` | ✅ | Node 18+ built-ins only, deterministic | `generate-audio-placeholders.mjs` |
 | `public/assets/audio/` | ✅ | 14 committed deterministic WAVs (12 SFX + 2 music) | one `.wav` per `audio-assets.json` key |
 | `tests/` | ✅ 1311 tests | Vitest; mock Phaser via `vi.mock` | 86 files incl. integration harnesses |
@@ -56,8 +56,8 @@ combat feedback and reduced-motion gating; extended F3 with sampled frame health
 and active/allocated counts; and fed `ScaleManager.displaySize` into
 `logicalCanvasViewport`.
 
-Epic 13 added `src/entities/actorView.ts`, `src/systems/actorArt.ts`, and
-`src/data/actor-art.json`; Boot preloads seven spritesheets and registers
+Epic 13 added `src/entities/actorView.ts`, `src/systems/visualArt.ts`, and
+`src/data/visual-art.json`; Boot preloads seven spritesheets and registers
 namespaced animations once, while physics arcs stay authoritative and hidden
 only when art is available. Pixelorama 1.2 sources live under `assets-src/`,
 deterministic builders/export tooling under `docs/art/scripts/`, and runtime
@@ -80,13 +80,14 @@ the HUD, and rebuilds rack/HUD/control presentation from live FIT metrics. The
 temporary code-rendered weapon glyph IDs are the seam Epic 16 replaces with
 validated production art.
 
-## Runtime Shape (after Epic 15)
+## Runtime Shape (Epic 16 Slice 1)
 
 ```
 main.ts → Phaser.Game([BootScene, MenuScene, GameScene])
-BootScene: preload() loads audio plus seven actor-art spritesheets (best-effort)
-           → loadGameData() (11 catalogs, fail-closed) → registries
-           → register namespaced actor animations once
+BootScene: preload() validates one immutable visual-art load plan, registers
+           load-failure cleanup, then loads audio plus seven visual spritesheets
+           → loadGameData() (11 catalogs, fail-closed) → required-texture gate
+           → register declared namespaced visual animations once
            (characters, arenas, metaUpgrades) → createGameContext → registry
            → one AudioManager(this) init(ctx.bus, ctx.settings, ctx.data.audio)
            → registry[AUDIO_MANAGER_REGISTRY_KEY] → start MenuScene

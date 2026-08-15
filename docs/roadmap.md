@@ -23,7 +23,7 @@
   diagnostics, and FIT-responsive sizing merged in PR #71 (#13).
 - Epic 13 / Presentation Runtime and Physics Stability: complete — merged in
   PR #79 (#72) — physics-debug opt-in, the actor-view presentation seam, the
-  `actor-art.json` catalog, AI-directed Pixelorama sprites for every current
+  `visual-art.json` catalog, AI-directed Pixelorama sprites for every current
   actor plus one projectile and one pickup, and deterministic charger
   environment clipping; architecture and delivery record in
   [`architecture/epic-13-presentation-runtime.md`](architecture/epic-13-presentation-runtime.md);

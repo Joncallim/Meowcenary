@@ -204,26 +204,42 @@ export interface AudioData {
   readonly map: readonly AudioMapEntry[];
 }
 
-export type ActorArtKind = 'character' | 'enemy' | 'projectile' | 'drop';
+export type VisualArtKind =
+  | 'character'
+  | 'enemy'
+  | 'projectile'
+  | 'drop'
+  | 'weapon-icon'
+  | 'weapon-held'
+  | 'world';
 
-export interface ActorArtClip {
+export type VisualArtLoad =
+  | { readonly type: 'image' }
+  | {
+      readonly type: 'spritesheet';
+      readonly frame: { readonly width: number; readonly height: number };
+    };
+
+export interface VisualArtClip {
   readonly start: number;
   readonly end: number;
   readonly frameRate: number;
+  readonly repeat: -1 | 0;
 }
 
-export interface ActorArtBinding {
+export interface VisualArtBinding {
   readonly id: string;
-  readonly kind: ActorArtKind;
+  readonly kind: VisualArtKind;
   readonly textureKey: string;
   readonly url: string;
-  readonly frame: { readonly width: number; readonly height: number };
-  readonly displayDiameter: number;
-  readonly clips?: Readonly<Record<string, ActorArtClip>>;
+  readonly required: boolean;
+  readonly load: VisualArtLoad;
+  readonly display: { readonly width: number; readonly height: number };
+  readonly clips?: Readonly<Record<string, VisualArtClip>>;
 }
 
-export interface ActorArtCatalog {
-  readonly bindings: readonly ActorArtBinding[];
+export interface VisualArtCatalog {
+  readonly bindings: readonly VisualArtBinding[];
 }
 
 export interface SpawnWaveDefinition {
@@ -333,5 +349,5 @@ export interface GameData {
   arenas: ArenaDefinition[];
   lootTables: LootTable[];
   readonly audio: AudioData;
-  readonly actorArt: ActorArtCatalog;
+  readonly visualArt: VisualArtCatalog;
 }

@@ -53,7 +53,7 @@ import { createDpsMeter, type DpsMeter } from '../gameplay/metrics';
 import { createPerfSampler, type PerfSampler } from '../gameplay/perf';
 import { PlaytestSummarySystem } from '../systems/playtestSummary';
 import { FeedbackSystem, PhaserFeedbackRenderer } from '../systems/feedback';
-import { DataActorArtRegistry } from '../systems/actorArt';
+import { DataVisualArtRegistry } from '../systems/visualArt';
 
 export class GameScene extends Phaser.Scene {
   private debugOverlay?: DebugOverlay;
@@ -97,7 +97,7 @@ export class GameScene extends Phaser.Scene {
     const { width } = this.scale;
     const ctx = this.getContext();
     const request = assembleRunRequest(ctx, ctx.menuRng);
-    const actorArt = new DataActorArtRegistry(ctx.data);
+    const visualArt = new DataVisualArtRegistry(ctx.data);
 
     const arena = ctx.arenas.arenaById(request.arenaId);
     if (!arena) {
@@ -174,7 +174,7 @@ export class GameScene extends Phaser.Scene {
       invulnerabilityMs: RuntimeConfig.gameplay.player.invulnerabilityMs,
       spawnX: arena.size.width / 2,
       spawnY: arena.size.height / 2,
-    }, actorArt.bindingById(`character:${request.characterId}`));
+    }, visualArt.bindingById(`character:${request.characterId}`));
 
     if (arena.size.width > this.scale.width || arena.size.height > this.scale.height) {
       this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
@@ -241,7 +241,7 @@ export class GameScene extends Phaser.Scene {
       dropRadius: RuntimeConfig.gameplay.drop.radius,
       magnetSpeed: RuntimeConfig.gameplay.drop.magnetSpeed,
       basePickupRadius: RuntimeConfig.gameplay.player.pickupRadius,
-      xpArt: actorArt.bindingById('drop:xp'),
+      xpArt: visualArt.bindingById('drop:xp'),
     });
     // Constructed after DropSystem so the injected callback can request world
     // drops through the one physical pickup boundary (Epic 14 §D6/D8).
@@ -302,7 +302,7 @@ export class GameScene extends Phaser.Scene {
       this.enemyGroup,
       weaponRegistry,
       RuntimeConfig.gameplay.projectile.radius,
-      actorArt.bindingById('projectile:default'),
+      visualArt.bindingById('projectile:default'),
     );
     this.feedbackSystem = new FeedbackSystem({
       bus: ctx.bus,
@@ -326,7 +326,7 @@ export class GameScene extends Phaser.Scene {
         character,
         handlers: createPassiveHandlerRegistry(DEFAULT_PASSIVE_HANDLERS),
       }),
-      new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup, arena, directorCurve, actorArt),
+      new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup, arena, directorCurve, visualArt),
       new HazardSystem({
         scene: this,
         runState: this.runState,

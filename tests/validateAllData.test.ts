@@ -228,7 +228,7 @@ describe('validateAllData', () => {
       arenas: [],
       lootTables: [],
       audio: { assets: {}, map: [] },
-      actorArt: { bindings: [] },
+      visualArt: { bindings: [] },
     })).toEqual([
       { file: 'weapons.json', index: -1, field: '', message: 'non-JSON-safe number' },
     ]);
@@ -267,7 +267,7 @@ describe('validateAllData', () => {
       'lootTables',
       'audio-assets',
       'audio-map',
-      'actorArt',
+      'visualArt',
     ]);
   });
 
@@ -292,7 +292,7 @@ describe('validateAllData', () => {
 });
 
 describe('remapRootPhaseLine', () => {
-  // The 10 explicit catalog-root patterns (Epic 11 §5.1/§5.4), each with
+  // The 11 explicit catalog-root patterns (Epic 11 §5.1/§5.4), each with
   // the root-phase line shape that reaches the remap today.
   const catalogLines: ReadonlyArray<readonly [string, string]> = [
     ['game-data.weapons: required field', 'weapons.json: required field'],
@@ -305,6 +305,7 @@ describe('remapRootPhaseLine', () => {
     ['game-data.lootTables: required field', 'loot-tables.json: required field'],
     ['game-data.audio.assets: required field', 'audio-assets.json: required field'],
     ['game-data.audio.map: required field', 'audio-map.json: required field'],
+    ['game-data.visualArt: required field', 'visual-art.json: required field'],
   ];
 
   it('remaps every catalog-root line to its JSON file name', () => {

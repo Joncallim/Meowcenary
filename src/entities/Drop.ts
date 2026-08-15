@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { Vec2 } from '../engine/vector';
 import { distanceSq, towards } from '../engine/vector';
 import type { LootGrant } from '../gameplay/loot';
-import type { ActorArtBinding } from '../systems/types';
+import type { VisualArtBinding } from '../systems/types';
 import { createStaticArtSprite } from './actorView';
 
 export type DropKind = LootGrant['kind'];
@@ -12,7 +12,7 @@ const DROP_COLORS: Record<DropKind, number> = {
   scrap: 0xd1d5db,
   chest: 0xf472b6,
   // Epic 14 §D7: distinct placeholder geometric color only — no weapon sprite
-  // assets, actor-art rows, or animations (Epic 16 owns final pickup art).
+  // assets, visual-art rows, or animations (Epic 16 owns final pickup art).
   weapon: 0xfbbf24,
 };
 
@@ -32,7 +32,7 @@ export class Drop {
   constructor(
     scene: Phaser.Scene,
     private readonly radius: number,
-    art?: Readonly<ActorArtBinding>,
+    art?: Readonly<VisualArtBinding>,
   ) {
     this.sprite = scene.add.circle(0, 0, radius, DROP_COLORS.xp).setDepth(2).setActive(false).setVisible(false);
     // Display-only white highlight, constructed once per pooled drop and
