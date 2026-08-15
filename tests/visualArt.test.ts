@@ -2,7 +2,13 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { visualAnimationKey, DataVisualArtRegistry, ensureVisualAnimations } from '../src/systems/visualArt';
-import { assertWeaponArtReferences, loadGameData, validateVisualArtCatalog } from '../src/systems/validation';
+import {
+  assertActorAndDropArtReferences,
+  assertWeaponArtReferences,
+  loadGameData,
+  validateGameData,
+  validateVisualArtCatalog,
+} from '../src/systems/validation';
 
 describe('visual art', () => {
   it('loads immutable required bindings whose shipped PNGs exist', () => {
@@ -115,5 +121,30 @@ describe('visual art', () => {
     expect(() => assertWeaponArtReferences(weapons, data.visualArt)).toThrow(/expected weapon-held binding/);
     expect(() => assertWeaponArtReferences(weapons, data.visualArt)).toThrow(/duplicate first seen/);
     expect(() => assertWeaponArtReferences(weapons, data.visualArt)).toThrow(/family "smg" must share/);
+  });
+
+  it('requires complete four-state art for every actor and all runtime pickup kinds', () => {
+    const data = loadGameData();
+    const withoutActor = structuredClone(data.visualArt) as any;
+    withoutActor.bindings = withoutActor.bindings
+      .filter((binding: { id: string }) => binding.id !== 'enemy:dust-mite');
+    expect(() => validateGameData({ ...data, visualArt: withoutActor }))
+      .toThrow(/missing required visual-art id "enemy:dust-mite"/);
+
+    const withoutPickup = structuredClone(data.visualArt) as any;
+    withoutPickup.bindings = withoutPickup.bindings
+      .filter((binding: { id: string }) => binding.id !== 'drop:weapon');
+    expect(() => assertActorAndDropArtReferences(data.characters, data.enemies, withoutPickup))
+      .toThrow(/drop:weapon: missing required pickup binding/);
+
+    const loopingDefeat = structuredClone(data.visualArt) as any;
+    loopingDefeat.bindings.find((binding: { id: string }) =>
+      binding.id === 'character:scrap-tabby').clips.defeat.repeat = -1;
+    expect(() => assertActorAndDropArtReferences(data.characters, data.enemies, loopingDefeat))
+      .toThrow(/defeat must use frames 12-15 with repeat 0/);
+
+    const futureCharacters = [...data.characters, { ...data.characters[0], id: 'future-cat' }];
+    expect(() => assertActorAndDropArtReferences(futureCharacters, data.enemies, data.visualArt))
+      .toThrow(/missing required visual-art id "character:future-cat"/);
   });
 });

@@ -15,6 +15,26 @@ import { TEST_ARENA_VISUAL } from './helpers/arena';
 
 type MutableData = ReturnType<typeof loadGameData>;
 
+function addFixtureActorArt(
+  data: Record<string, unknown>,
+  kind: 'character' | 'enemy',
+  rows: readonly Record<string, unknown>[],
+): void {
+  const visualArt = data.visualArt as { bindings: Array<Record<string, unknown>> };
+  const template = visualArt.bindings.find((binding) => binding.kind === kind);
+  if (!template) throw new Error(`Missing ${kind} art fixture template`);
+  const ids = [...new Set(rows.map((row) => row.id).filter((id): id is string => typeof id === 'string'))];
+  ids.forEach((id, index) => {
+    const artId = `${kind}:${id}`;
+    if (visualArt.bindings.some((binding) => binding.id === artId)) return;
+    visualArt.bindings.push({
+      ...structuredClone(template),
+      id: artId,
+      textureKey: `fixture-${kind}-${index}`,
+    });
+  });
+}
+
 function enemyFixture(archetype: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
   const base: Record<string, unknown> = {
     id: `${archetype}-fixture`,
@@ -55,6 +75,7 @@ function enemyFixture(archetype: string, overrides: Record<string, unknown> = {}
 function withEnemies(enemies: Record<string, unknown>[]): unknown {
   const data = structuredClone(loadGameData()) as unknown as Record<string, unknown>;
   data.enemies = enemies;
+  addFixtureActorArt(data, 'enemy', enemies);
   data.spawnCurves = [{
     id: 'fixture-curve',
     durationSeconds: 60,
@@ -652,6 +673,7 @@ describe('game data validation', () => {
     function withCharacters(characters: Record<string, unknown>[]): unknown {
       const data = structuredClone(loadGameData()) as unknown as Record<string, unknown>;
       data.characters = characters;
+      addFixtureActorArt(data, 'character', characters);
       return data;
     }
 

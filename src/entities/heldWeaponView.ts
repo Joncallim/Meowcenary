@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { VisualArtBinding } from '../systems/types';
+import { VisualDepth } from '../systems/visualDepths';
 
 export interface HeldWeaponPresentation {
   show(binding: Readonly<VisualArtBinding>, x: number, y: number, angle: number): void;
@@ -16,7 +17,7 @@ export class HeldWeaponView implements HeldWeaponPresentation {
 
   constructor(scene: Phaser.Scene, private readonly visibleMs = 110) {
     this.image = scene.add.image(0, 0, '__DEFAULT')
-      .setDepth(6)
+      .setDepth(VisualDepth.heldWeapon)
       .setOrigin(0.18, 0.5)
       .setActive(false)
       .setVisible(false);

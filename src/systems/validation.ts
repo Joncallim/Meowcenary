@@ -407,6 +407,7 @@ export function validateGameData(raw: unknown): GameData {
   assertEnemyLootTableReferences(enemies, lootTables);
   assertLootWeaponReferences(lootTables, weapons);
   assertAudioMapReferences(audioMap, audioAssets);
+  assertActorAndDropArtReferences(characters, enemies, visualArt);
   assertWeaponArtReferences(weapons, visualArt);
   assertArenaVisualReferences(arenas, visualArt);
 
@@ -571,6 +572,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertEnemyLootTableReferences(enemies, lootTables),
     () => assertLootWeaponReferences(lootTables, weapons),
     () => assertAudioMapReferences(audioMap, audioAssets),
+    () => assertActorAndDropArtReferences(characters, enemies, visualArt),
     () => assertWeaponArtReferences(weapons, visualArt),
     () => assertArenaVisualReferences(arenas, visualArt),
   ];
@@ -2257,6 +2259,77 @@ export function assertWeaponArtReferences(
       familyProjectile.set(weapon.family, weapon.art.projectileId);
     }
   });
+  throwIfErrors(errors);
+}
+
+/** Actor catalogs and the fixed runtime grant union must never silently fall
+ * back after a manifest row is removed. Requiring the shared four-state actor
+ * sheet contract here also makes future character/enemy additions fail at the
+ * data boundary until their production presentation is supplied. */
+export function assertActorAndDropArtReferences(
+  characters: readonly CharacterDefinition[],
+  enemies: readonly EnemyDefinition[],
+  catalog: VisualArtCatalog,
+): void {
+  const byId = new Map(catalog.bindings.map((binding) => [binding.id, binding]));
+  const errors: string[] = [];
+  const actorClips = {
+    idle: { start: 0, end: 3, repeat: -1 },
+    run: { start: 4, end: 9, repeat: -1 },
+    hurt: { start: 10, end: 11, repeat: 0 },
+    defeat: { start: 12, end: 15, repeat: 0 },
+  } as const;
+
+  const checkActor = (id: string, expectedKind: 'character' | 'enemy', path: string): void => {
+    const binding = byId.get(id);
+    if (!binding) {
+      errors.push(`${path}: missing required visual-art id "${id}"`);
+      return;
+    }
+    if (binding.kind !== expectedKind) {
+      errors.push(`${path}: expected ${expectedKind} binding, got ${binding.kind}`);
+      return;
+    }
+    if (!binding.required) errors.push(`${path}: actor art must be required`);
+    if (binding.load.type !== 'spritesheet') {
+      errors.push(`${path}: actor art must be a spritesheet`);
+      return;
+    }
+    for (const [clipName, expected] of Object.entries(actorClips)) {
+      const clip = binding.clips?.[clipName];
+      if (!clip) {
+        errors.push(`${path}: missing required ${clipName} clip`);
+      } else if (clip.start !== expected.start || clip.end !== expected.end ||
+          clip.repeat !== expected.repeat) {
+        errors.push(
+          `${path}: ${clipName} must use frames ${expected.start}-${expected.end} ` +
+          `with repeat ${expected.repeat}`,
+        );
+      }
+    }
+  };
+
+  characters.forEach((character, index) =>
+    checkActor(`character:${character.id}`, 'character', `characters.json[${index}].visualArt`));
+  enemies.forEach((enemy, index) =>
+    checkActor(`enemy:${enemy.id}`, 'enemy', `enemies.json[${index}].visualArt`));
+
+  for (const kind of ['xp', 'scrap', 'chest', 'weapon'] as const) {
+    const id = `drop:${kind}`;
+    const binding = byId.get(id);
+    const path = `visual-art.json.${id}`;
+    if (!binding) {
+      errors.push(`${path}: missing required pickup binding`);
+    } else if (binding.kind !== 'drop') {
+      errors.push(`${path}: expected drop binding, got ${binding.kind}`);
+    } else {
+      if (!binding.required) errors.push(`${path}: pickup art must be required`);
+      if (binding.load.type !== 'spritesheet' || !binding.clips?.idle) {
+        errors.push(`${path}: pickup art must provide an idle spritesheet clip`);
+      }
+    }
+  }
+
   throwIfErrors(errors);
 }
 

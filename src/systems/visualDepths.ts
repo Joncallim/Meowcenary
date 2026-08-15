@@ -1,10 +1,13 @@
 export const VisualDepth = Object.freeze({
-  floor: -3,
-  groundDecoration: -2,
+  floor: -4,
+  groundDecoration: -3,
+  lowDecoration: -2,
   boundary: 0,
-  lowDecoration: 1,
-  obstacle: 2,
+  obstacle: 1,
+  dropBody: 2,
   pickup: 3,
-  actor: 5,
+  projectile: 3,
+  enemy: 4,
+  player: 5,
   heldWeapon: 6,
 });

@@ -5,6 +5,7 @@ import type { System } from '../engine/system';
 import type { VisualArtBinding } from './types';
 import type { VisualArtLookup } from './visualArt';
 import { visualAnimationKey } from './visualArt';
+import { VisualDepth } from './visualDepths';
 
 interface DefeatPresentation {
   readonly sprite: Phaser.GameObjects.Sprite;
@@ -96,7 +97,7 @@ export class DefeatPresentationSystem implements System {
     pool = createPool(
       () => {
         const sprite = this.options.scene.add.sprite(0, 0, binding.textureKey, binding.clips!.defeat!.start)
-          .setDepth(4)
+          .setDepth(VisualDepth.enemy)
           .setOrigin(0.5)
           .setScale(
             binding.display.width / (binding.load.type === 'spritesheet' ? binding.load.frame.width : 1),
