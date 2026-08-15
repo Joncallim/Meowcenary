@@ -129,6 +129,11 @@ segments: `/^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)+$/`. The first segment
 must equal `kind`, so IDs such as `weapon-icon:pistol:t1` are valid while
 wrong-kind, empty-segment, path-like, whitespace, and uppercase IDs fail.
 
+`image` bindings must not declare clips. `spritesheet` bindings require frame
+dimensions and may declare only in-range clips with explicit repeat behavior.
+Display width/height, frame width/height, URLs, texture keys, clip names/ranges,
+and catalog size remain bounded by validation; texture keys and IDs are unique.
+
 All Golden Run rows have `required: true`. Optional art is allowed only for
 future non-Golden content and must have a specified geometric fallback at its
 consumer. Required art never silently falls back.
@@ -305,8 +310,21 @@ releases on animation completion, with a declared clip-duration timeout as the
 defensive fallback. The corpse has no physics body and never appears in the
 enemy array or active-enemy diagnostics.
 
+Add `RuntimeConfig.performance.maxDefeatPresentations: 24`. The system exposes
+active/allocated counts for tests and F3 diagnostics. At the cap it omits the
+new cosmetic corpse and increments a dropped-presentation counter; it never
+delays, queues, or changes a kill. Twenty-four covers the current Golden Run
+maximum of 21 simultaneously live enemies while keeping future burst behavior
+explicitly bounded.
+
 No animation completion controls health, invulnerability, death, rewards,
 pooling of gameplay entities, movement, run state, or event timing.
+
+While the player defeat one-shot owns the clip, presentation alpha is forced to
+1 even if lethal contact damage also started an invulnerability window. The
+underlying invulnerability timer is not cleared or changed; this prevents the
+terminal pose from remaining permanently dim after `runState` becomes lost and
+the timer stops advancing.
 
 `SpriteView` and `DefeatPresentationSystem` remove animation listeners on
 destroy/reset. Body diameter, offset, position, velocity, visibility authority,
@@ -361,6 +379,12 @@ Their art may overhang only where the result cannot imply a blocked lane.
 Validation rejects duplicate decoration/obstacle IDs, out-of-bounds anchors,
 unknown/wrong-kind art IDs, unknown or repeated obstacle-skin references, and
 missing skins for required Golden Run obstacles.
+
+Golden Run world roles are also strict: floor references start
+`world:junkyard-floor:`, boundary references start
+`world:junkyard-boundary:`, decorations start `world:prop:`, and obstacle skins
+start `world:landmark:`. A generic `world` kind alone is not enough to accept a
+landmark as a floor tile or a stain as a collider skin.
 
 The floor is filled on the fixed 32px grid. Variant selection uses only tile
 coordinates and the ordered `floorArtIds` array; it does not consume an RNG.
@@ -569,6 +593,10 @@ the slice boundaries before review.
   the rack changes while it is live;
 - enemy defeat art is physics-free and does not delay enemy destruction,
   rewards, active counts, or compaction;
+- live enemy defeat presentations never exceed 24; cap shedding is cosmetic
+  and visible in diagnostics;
+- lethal contact damage leaves the player defeat pose fully opaque without
+  changing the existing invulnerability timer;
 - blocked weapon drops remain present and collectible after a merge frees room;
 - rack state/selection/preview/merge behavior and 44px targets are unchanged;
 - decorations create zero physics bodies and consume zero RNG;
@@ -622,6 +650,7 @@ Reviewers should actively reject:
   alpha, visibility, or active state;
 - animation completion changing gameplay health/death/pool timing;
 - retaining a dead enemy gameplay entity merely to finish its defeat clip;
+- an uncapped defeat-sprite pool or cap handling that affects kill/reward flow;
 - art dimensions, origins, or overhang resizing/offsetting physics bodies;
 - decorative props with physics bodies or invisible colliders;
 - random world dressing, especially `Math.random()` or a run RNG stream;
