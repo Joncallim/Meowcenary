@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import type { EventBus } from '../engine/eventBus';
 import type { RunState } from '../gameplay/runState';
 import { endRun } from '../gameplay/runState';
+import { PLAYER_BODY_RADIUS } from '../engine/bodyDimensions';
+export { PLAYER_BODY_RADIUS } from '../engine/bodyDimensions';
 import type { InputController } from '../systems/input';
 import type { VisualArtBinding } from '../systems/types';
 import { PlaceholderView, createAnimatedActorView, type ActorView } from './actorView';
@@ -22,7 +24,6 @@ const EAR_RADIUS = 4.5;
 const SHADOW_RADIUS = 13;
 const SHADOW_OFFSET_Y = 15;
 const SHADOW_ALPHA = 0.32;
-export const PLAYER_BODY_RADIUS = 14;
 
 export class Player {
   readonly sprite: Phaser.GameObjects.Arc;

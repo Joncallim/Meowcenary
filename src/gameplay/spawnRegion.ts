@@ -2,6 +2,7 @@ import type { Rng } from '../engine/rng';
 import type { Vec2 } from '../engine/vector';
 import type { ArenaDefinition, SpawnRegion } from '../systems/types';
 import { clamp } from './curves';
+import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 
 const MAX_ATTEMPTS = 8;
 const SCATTER_ATTEMPTS = 16;
@@ -53,6 +54,17 @@ function samplePoint(region: SpawnRegion, arena: Readonly<ArenaDefinition>, rng:
         default: return { x: -margin, y: rng.int(0, height) };
       }
     }
+    case 'edge-lanes': {
+      const lane = region.lanes[rng.int(0, region.lanes.length - 1)]!;
+      const coordinate = lane.offset + ENEMY_BODY_RADIUS + rng.next() *
+        (lane.width - ENEMY_BODY_RADIUS * 2);
+      switch (lane.side) {
+        case 'top': return { x: coordinate, y: region.inset };
+        case 'right': return { x: arena.size.width - region.inset, y: coordinate };
+        case 'bottom': return { x: coordinate, y: arena.size.height - region.inset };
+        case 'left': return { x: region.inset, y: coordinate };
+      }
+    }
   }
 }
 
@@ -63,7 +75,7 @@ function isInsideSpawnableBand(
 ): boolean {
   const { width, height } = arena.size;
 
-  if (region.kind === 'ring' || region.kind === 'rect') {
+  if (region.kind === 'ring' || region.kind === 'rect' || region.kind === 'edge-lanes') {
     return p.x >= 0 && p.x <= width && p.y >= 0 && p.y <= height;
   }
 
@@ -281,7 +293,7 @@ function searchFallback(
       `spawnPoint: ring region has no spawnable point — ` +
       `validation should have rejected`,
     );
-  } else {
+  } else if (region.kind === 'edges') {
     // Edges
     const { width, height } = arena.size;
     const margin = region.margin;
@@ -295,6 +307,18 @@ function searchFallback(
     }
     for (let attempt = 0; attempt < SCATTER_ATTEMPTS; attempt += 1) {
       const p = samplePoint(region, arena, rng);
+      if (isValidPoint(p, region, arena)) return p;
+    }
+  } else {
+    for (const lane of region.lanes) {
+      const coordinate = lane.offset + lane.width / 2;
+      const p = lane.side === 'top'
+        ? { x: coordinate, y: region.inset }
+        : lane.side === 'right'
+          ? { x: arena.size.width - region.inset, y: coordinate }
+          : lane.side === 'bottom'
+            ? { x: coordinate, y: arena.size.height - region.inset }
+            : { x: region.inset, y: coordinate };
       if (isValidPoint(p, region, arena)) return p;
     }
   }

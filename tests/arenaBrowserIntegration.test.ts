@@ -10,6 +10,8 @@ import { createRng } from '../src/engine/rng';
 import { buildArenaScenery } from '../src/systems/arenaScenery';
 import { spawnPoint, findRectWitness } from '../src/gameplay/spawnRegion';
 import { assembleRunRequest } from '../src/gameplay/runRequest';
+import { TEST_ARENA_VISUAL } from './helpers/arena';
+import { DataVisualArtRegistry } from '../src/systems/visualArt';
 
 const LARGE_ARENA = {
   id: 'large-test-field',
@@ -21,12 +23,13 @@ const LARGE_ARENA = {
     { kind: 'edges' as const, margin: 28 },
   ],
   obstacles: [
-    { x: 500, y: 200, w: 80, h: 300 },
-    { x: 700, y: 400, w: 200, h: 60 },
+    { id: 'press', x: 500, y: 200, w: 80, h: 300 },
+    { id: 'stack', x: 700, y: 400, w: 200, h: 60 },
   ],
   hazards: [
     { id: 'acid-pool', kind: 'acid', x: 50, y: 50, w: 200, h: 200, damagePerSecond: 15 },
   ],
+  visual: TEST_ARENA_VISUAL,
   unlock: { type: 'default' as const },
 };
 
@@ -72,11 +75,10 @@ describe('arena data-level integration', () => {
   it('buildArenaScenery creates correct obstacle bodies from data', () => {
     const mockScene = {
       add: {
-        rectangle: vi.fn((_x: number, _y: number, _w: number, _h: number) => ({
-          setStrokeStyle: vi.fn().mockReturnValue({
-            setDepth: vi.fn().mockReturnValue({}),
-          }),
-        })),
+        rectangle: vi.fn(() => {
+          const node = { setVisible: vi.fn(() => node) };
+          return node;
+        }),
       },
       physics: {
         add: {
@@ -97,8 +99,8 @@ describe('arena data-level integration', () => {
     const scenery = buildArenaScenery(mockScene as never, arena);
     expect(mockScene.add.rectangle).toHaveBeenCalledTimes(2);
     // Obstacle top-left→Phaser centre conversion
-    expect(mockScene.add.rectangle).toHaveBeenCalledWith(540, 350, 80, 300, 0x2a3642);
-    expect(mockScene.add.rectangle).toHaveBeenCalledWith(800, 430, 200, 60, 0x2a3642);
+    expect(mockScene.add.rectangle).toHaveBeenCalledWith(540, 350, 80, 300, 0x000000, 0);
+    expect(mockScene.add.rectangle).toHaveBeenCalledWith(800, 430, 200, 60, 0x000000, 0);
 
     scenery.destroy();
   });
@@ -126,13 +128,63 @@ describe('arena data-level integration', () => {
     scenery.destroy();
   });
 
+  it('renders the authored grid, exact visual gates, and only two authoritative colliders', () => {
+    const data = loadGameData();
+    const arena = data.arenas[0];
+    const images: Array<{ textureKey: string; destroyed: boolean }> = [];
+    const addImage = vi.fn((_x: number, _y: number, textureKey: string) => {
+      const node = {
+        textureKey,
+        destroyed: false,
+        setDisplaySize: vi.fn(() => node), setDepth: vi.fn(() => node),
+        setRotation: vi.fn(() => node), setFlipX: vi.fn(() => node),
+        destroy: vi.fn(() => { node.destroyed = true; }),
+      };
+      images.push(node);
+      return node;
+    });
+    const rectangles: unknown[] = [];
+    const addRectangle = vi.fn(() => {
+      const node = { setVisible: vi.fn(() => node) };
+      rectangles.push(node);
+      return node;
+    });
+    const group = { add: vi.fn(), destroy: vi.fn(), children: { size: 2 } };
+    const scene = {
+      add: { image: addImage, rectangle: addRectangle },
+      textures: { exists: () => true },
+      physics: { add: { existing: vi.fn(), staticGroup: vi.fn(() => group) } },
+    };
+
+    const scenery = buildArenaScenery(
+      scene as never,
+      arena,
+      new DataVisualArtRegistry(data),
+    );
+
+    const floorCount = (arena.size.width / 32) * (arena.size.height / 32);
+    const boundaryCount = (arena.size.width / 32) * 2 + (arena.size.height / 32 - 2) * 2;
+    expect(addImage).toHaveBeenCalledTimes(
+      floorCount + boundaryCount + arena.visual.decorations.length + arena.obstacles.length,
+    );
+    expect(images.filter((image) => image.textureKey === 'art-world-junkyard-boundary-gate')).toHaveLength(12);
+    expect(addRectangle).toHaveBeenCalledTimes(2);
+    expect(scene.physics.add.existing).toHaveBeenCalledTimes(2);
+    expect(group.add).toHaveBeenCalledTimes(2);
+
+    scenery.destroy();
+    expect(images.every((image) => image.destroyed)).toBe(true);
+    expect(group.destroy).toHaveBeenCalledWith(true);
+  });
+
   it('spawnPoint produces obstacle-free points (rect region overlapping obstacle, 50 seeds)', () => {
     const arena = {
       id: 'overlap-test', name: 'Overlap Test', size: { width: 400, height: 400 },
       spawnCurveId: 'junkyard-intro',
       spawnRegions: [{ kind: 'rect' as const, x: 200, y: 100, w: 200, h: 200 }],
-      obstacles: [{ x: 250, y: 150, w: 100, h: 100 }],
+      obstacles: [{ id: 'block', x: 250, y: 150, w: 100, h: 100 }],
       hazards: [],
+      visual: TEST_ARENA_VISUAL,
       unlock: { type: 'default' as const },
     };
     for (let seed = 1; seed <= 50; seed += 1) {
@@ -150,7 +202,7 @@ describe('arena data-level integration', () => {
       ...LARGE_ARENA,
       size: { width: 400, height: 400 },
       spawnRegions: [{ kind: 'edges', margin: 0 }],
-      obstacles: [{ x: 50, y: 0, w: 100, h: 50 }],
+      obstacles: [{ id: 'edge-block', x: 50, y: 0, w: 100, h: 50 }],
       hazards: [],
     });
     ctx.selectArena('large-test-field', ctx.arenaSelectionRevision);

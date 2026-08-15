@@ -41,7 +41,7 @@ describe('arena integration — headless resolution chain', () => {
 
     const arena = ctx.arenas.arenaById(request.arenaId);
     expect(arena).toBeDefined();
-    expect(arena!.size).toEqual({ width: 390, height: 844 });
+    expect(arena!.size).toEqual({ width: 768, height: 1344 });
     expect(arena!.spawnCurveId).toBe('junkyard-intro');
 
     const curve = ctx.data.spawnCurves.find((c) => c.id === arena!.spawnCurveId);
@@ -50,25 +50,36 @@ describe('arena integration — headless resolution chain', () => {
     expect(curve!.id).toBe('junkyard-intro');
   });
 
-  it('arena defaults make the shipped junkyard-lot behaviourally identical to today', () => {
+  it('ships the authored junkyard traversal and exact body-safe gate contract', () => {
     const ctx = makeContext();
     expect(ctx.selectedArenaId).toBe('junkyard-lot');
 
     const arena = ctx.arenas.arenaById(ctx.selectedArenaId)!;
-    // Canvas-sized (parity)
-    expect(arena.size.width).toBe(390);
-    expect(arena.size.height).toBe(844);
+    expect(arena.size).toEqual({ width: 768, height: 1344 });
 
     // Uses the existing spawn curve
     expect(arena.spawnCurveId).toBe('junkyard-intro');
 
-    // Single edges region with margin 28 (parity with old screen-edge spawn)
     expect(arena.spawnRegions).toHaveLength(1);
-    expect(arena.spawnRegions[0]).toMatchObject({ kind: 'edges', margin: 28 });
+    expect(arena.spawnRegions[0]).toEqual({
+      kind: 'edge-lanes', inset: 20,
+      lanes: [
+        { side: 'top', offset: 160, width: 96 },
+        { side: 'right', offset: 896, width: 96 },
+        { side: 'bottom', offset: 512, width: 96 },
+        { side: 'left', offset: 320, width: 96 },
+      ],
+    });
 
-    // No obstacles or hazards (parity)
-    expect(arena.obstacles).toHaveLength(0);
+    expect(arena.obstacles.map((obstacle) => obstacle.id)).toEqual([
+      'hanging-press', 'barrel-power-stack',
+    ]);
+    expect(arena.obstacles.every((obstacle) =>
+      obstacle.x + obstacle.w <= 288 || obstacle.x >= 480 ||
+      obstacle.y + obstacle.h <= 544 || obstacle.y >= 800,
+    )).toBe(true);
     expect(arena.hazards).toHaveLength(0);
+    expect(arena.visual.obstacleSkins).toHaveLength(2);
   });
 
   it('arena selection is session-transient, never persisted', () => {

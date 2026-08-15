@@ -2,11 +2,48 @@
   {
     "id": "junkyard-lot",
     "name": "Junkyard Lot",
-    "size": { "width": 390, "height": 844 },
+    "size": { "width": 768, "height": 1344 },
     "spawnCurveId": "junkyard-intro",
-    "spawnRegions": [{ "kind": "edges", "margin": 28 }],
-    "obstacles": [],
+    "spawnRegions": [{
+      "kind": "edge-lanes",
+      "inset": 20,
+      "lanes": [
+        { "side": "top", "offset": 160, "width": 96 },
+        { "side": "right", "offset": 896, "width": 96 },
+        { "side": "bottom", "offset": 512, "width": 96 },
+        { "side": "left", "offset": 320, "width": 96 }
+      ]
+    }],
+    "obstacles": [
+      { "id": "hanging-press", "x": 96, "y": 384, "w": 64, "h": 64 },
+      { "id": "barrel-power-stack", "x": 608, "y": 960, "w": 64, "h": 64 }
+    ],
     "hazards": [],
+    "visual": {
+      "floorArtIds": [
+        "world:junkyard-floor:base",
+        "world:junkyard-floor:patch-a",
+        "world:junkyard-floor:patch-b"
+      ],
+      "boundary": {
+        "straightArtId": "world:junkyard-boundary:straight",
+        "cornerArtId": "world:junkyard-boundary:corner",
+        "patchArtId": "world:junkyard-boundary:patch",
+        "gateArtId": "world:junkyard-boundary:gate"
+      },
+      "decorations": [
+        { "id": "north-tyres", "artId": "world:prop:tyre-pile", "x": 96, "y": 160, "layer": "low" },
+        { "id": "east-crate", "artId": "world:prop:crate", "x": 640, "y": 224, "flipX": true, "layer": "low" },
+        { "id": "west-engine", "artId": "world:prop:engine-block", "x": 128, "y": 768, "layer": "low" },
+        { "id": "east-scrap", "artId": "world:prop:scrap-heap", "x": 640, "y": 640, "layer": "low" },
+        { "id": "south-oil", "artId": "world:prop:oil-stain", "x": 256, "y": 992, "layer": "ground" },
+        { "id": "south-warning", "artId": "world:prop:warning-sign", "x": 544, "y": 1120, "layer": "low" }
+      ],
+      "obstacleSkins": [
+        { "obstacleId": "hanging-press", "artId": "world:landmark:hanging-press" },
+        { "obstacleId": "barrel-power-stack", "artId": "world:landmark:barrel-power-stack" }
+      ]
+    },
     "unlock": { "type": "default" }
   }
 ]

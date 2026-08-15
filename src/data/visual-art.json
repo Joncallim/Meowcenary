@@ -214,6 +214,81 @@
       "url": "assets/pickups/drop-weapon/drop-weapon.png", "required": true,
       "load": { "type": "spritesheet", "frame": { "width": 20, "height": 20 } },
       "display": { "width": 20, "height": 20 }, "clips": { "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 } }
+    },
+    {
+      "id": "world:junkyard-floor:base", "kind": "world", "textureKey": "art-world-junkyard-floor-base",
+      "url": "assets/world/junkyard-floor-base/junkyard-floor-base.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+    },
+    {
+      "id": "world:junkyard-floor:patch-a", "kind": "world", "textureKey": "art-world-junkyard-floor-patch-a",
+      "url": "assets/world/junkyard-floor-patch-a/junkyard-floor-patch-a.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+    },
+    {
+      "id": "world:junkyard-floor:patch-b", "kind": "world", "textureKey": "art-world-junkyard-floor-patch-b",
+      "url": "assets/world/junkyard-floor-patch-b/junkyard-floor-patch-b.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+    },
+    {
+      "id": "world:junkyard-boundary:straight", "kind": "world", "textureKey": "art-world-junkyard-boundary-straight",
+      "url": "assets/world/junkyard-boundary-straight/junkyard-boundary-straight.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+    },
+    {
+      "id": "world:junkyard-boundary:corner", "kind": "world", "textureKey": "art-world-junkyard-boundary-corner",
+      "url": "assets/world/junkyard-boundary-corner/junkyard-boundary-corner.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+    },
+    {
+      "id": "world:junkyard-boundary:patch", "kind": "world", "textureKey": "art-world-junkyard-boundary-patch",
+      "url": "assets/world/junkyard-boundary-patch/junkyard-boundary-patch.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+    },
+    {
+      "id": "world:junkyard-boundary:gate", "kind": "world", "textureKey": "art-world-junkyard-boundary-gate",
+      "url": "assets/world/junkyard-boundary-gate/junkyard-boundary-gate.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+    },
+    {
+      "id": "world:prop:tyre-pile", "kind": "world", "textureKey": "art-world-prop-tyre-pile",
+      "url": "assets/world/prop-tyre-pile/prop-tyre-pile.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+    },
+    {
+      "id": "world:prop:crate", "kind": "world", "textureKey": "art-world-prop-crate",
+      "url": "assets/world/prop-crate/prop-crate.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+    },
+    {
+      "id": "world:prop:engine-block", "kind": "world", "textureKey": "art-world-prop-engine-block",
+      "url": "assets/world/prop-engine-block/prop-engine-block.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+    },
+    {
+      "id": "world:prop:scrap-heap", "kind": "world", "textureKey": "art-world-prop-scrap-heap",
+      "url": "assets/world/prop-scrap-heap/prop-scrap-heap.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+    },
+    {
+      "id": "world:prop:oil-stain", "kind": "world", "textureKey": "art-world-prop-oil-stain",
+      "url": "assets/world/prop-oil-stain/prop-oil-stain.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+    },
+    {
+      "id": "world:prop:warning-sign", "kind": "world", "textureKey": "art-world-prop-warning-sign",
+      "url": "assets/world/prop-warning-sign/prop-warning-sign.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+    },
+    {
+      "id": "world:landmark:hanging-press", "kind": "world", "textureKey": "art-world-landmark-hanging-press",
+      "url": "assets/world/landmark-hanging-press/landmark-hanging-press.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 64, "height": 64 }
+    },
+    {
+      "id": "world:landmark:barrel-power-stack", "kind": "world", "textureKey": "art-world-landmark-barrel-power-stack",
+      "url": "assets/world/landmark-barrel-power-stack/landmark-barrel-power-stack.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 64, "height": 64 }
     }
   ]
 }

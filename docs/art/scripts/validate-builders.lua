@@ -213,6 +213,25 @@ for _, kind in ipairs({ "scrap", "chest", "weapon" }) do
   })
 end
 
+local worldAssets = {
+  { "junkyard-floor-base", 32 }, { "junkyard-floor-patch-a", 32 },
+  { "junkyard-floor-patch-b", 32 }, { "junkyard-boundary-straight", 32 },
+  { "junkyard-boundary-corner", 32 }, { "junkyard-boundary-patch", 32 },
+  { "junkyard-boundary-gate", 32 }, { "prop-tyre-pile", 32 },
+  { "prop-crate", 32 }, { "prop-engine-block", 32 }, { "prop-scrap-heap", 32 },
+  { "prop-oil-stain", 32 }, { "prop-warning-sign", 32 },
+  { "landmark-hanging-press", 64 }, { "landmark-barrel-power-stack", 64 },
+}
+for _, asset in ipairs(worldAssets) do
+  local id, size = asset[1], asset[2]
+  table.insert(contracts, {
+    script = "docs/art/scripts/build-" .. id .. ".lua",
+    width = size, height = size, frames = 1,
+    layers = { "body", "notes" }, hidden = { notes = true }, populated = { "body" },
+    tags = {}, savedAs = string.format("assets-src/world/%s/source/%s.pxo", id, id),
+  })
+end
+
 local function layerMap(sprite)
   local result = {}
   for _, layer in ipairs(sprite.layers) do result[layer.name] = layer end

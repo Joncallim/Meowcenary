@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import type { EventBus } from '../engine/eventBus';
+import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
+export { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 import type { Vec2 } from '../engine/vector';
 import {
   chaseStep,
@@ -18,7 +20,6 @@ const OUTLINE_COLOR = 0x0a0f14;
 const SHADOW_RADIUS = 12;
 const SHADOW_OFFSET_Y = 14;
 const SHADOW_ALPHA = 0.28;
-export const ENEMY_BODY_RADIUS = 13;
 
 /** One display-only accent per archetype so silhouettes differ at a glance
  *  (style guide: readable at phone scale, distinct shapes). Elites inherit the

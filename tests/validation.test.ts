@@ -11,6 +11,7 @@ import {
   loadGameData,
   validateGameData,
 } from '../src/systems/validation';
+import { TEST_ARENA_VISUAL } from './helpers/arena';
 
 type MutableData = ReturnType<typeof loadGameData>;
 
@@ -72,6 +73,7 @@ function withEnemies(enemies: Record<string, unknown>[]): unknown {
     spawnRegions: [{ kind: 'edges', margin: 28 }],
     obstacles: [],
     hazards: [],
+    visual: TEST_ARENA_VISUAL,
     unlock: { type: 'default' },
   }];
   return data;
@@ -934,7 +936,7 @@ describe('game data validation', () => {
     }
 
     function arenaFixture(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-      return {
+      const fixture: Record<string, unknown> = {
         id: 'test-arena',
         name: 'Test Arena',
         size: { width: 400, height: 400 },
@@ -942,9 +944,27 @@ describe('game data validation', () => {
         spawnRegions: [{ kind: 'edges', margin: 28 }],
         obstacles: [],
         hazards: [],
+        visual: TEST_ARENA_VISUAL,
         unlock: { type: 'default' },
         ...overrides,
       };
+      if (Array.isArray(fixture.obstacles)) {
+        const normalizedObstacles = fixture.obstacles.map((obstacle, index) =>
+          typeof obstacle === 'object' && obstacle !== null
+            ? { id: `obstacle-${index}`, ...obstacle }
+            : obstacle);
+        fixture.obstacles = normalizedObstacles;
+        fixture.visual = {
+          ...TEST_ARENA_VISUAL,
+          obstacleSkins: normalizedObstacles.map((obstacle, index) => ({
+            obstacleId: typeof obstacle === 'object' && obstacle !== null && 'id' in obstacle
+              ? String(obstacle.id)
+              : `obstacle-${index}`,
+            artId: 'world:landmark:hanging-press',
+          })),
+        };
+      }
+      return fixture;
     }
 
     it('accepts the shipped arenas.json', () => {
@@ -1033,6 +1053,29 @@ describe('game data validation', () => {
           obstacles: [...almostCoveringObstacles, { x: 149, y: 99, w: 11, h: 2 }],
         }),
       ]))).toThrow(/ring region has no spawnable point/);
+    });
+
+    it('enforces aligned, body-safe inside-edge lanes clear of obstacles', () => {
+      const misaligned = structuredClone(loadGameData()) as any;
+      misaligned.arenas[0].spawnRegions[0].lanes[0].offset = 161;
+      expect(() => validateGameData(misaligned)).toThrow(/offset: must align to the 32px grid/);
+
+      const obstructed = structuredClone(loadGameData()) as any;
+      obstructed.arenas[0].obstacles[0] = {
+        ...obstructed.arenas[0].obstacles[0],
+        x: 176, y: 0, w: 64, h: 64,
+      };
+      expect(() => validateGameData(obstructed)).toThrow(/body-radius spawn strip intersects an obstacle/);
+    });
+
+    it('rejects world-role drift and unskinned collision landmarks', () => {
+      const wrongRole = structuredClone(loadGameData()) as any;
+      wrongRole.arenas[0].visual.floorArtIds[0] = 'world:prop:crate';
+      expect(() => validateGameData(wrongRole)).toThrow(/art id must start "world:junkyard-floor:"/);
+
+      const missingSkin = structuredClone(loadGameData()) as any;
+      missingSkin.arenas[0].visual.obstacleSkins.pop();
+      expect(() => validateGameData(missingSkin)).toThrow(/missing skin for obstacle/);
     });
 
     it('rejects unknown spawnCurveId', () => {

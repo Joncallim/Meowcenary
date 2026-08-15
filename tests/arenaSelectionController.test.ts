@@ -8,6 +8,7 @@ import { loadGameData } from '../src/systems/validation';
 import { createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
+import { TEST_ARENA_VISUAL } from './helpers/arena';
 
 function setup() {
   const data = loadGameData();
@@ -34,6 +35,7 @@ function setupWithFixture() {
         spawnRegions: [{ kind: 'edges', margin: 28 }],
         obstacles: [],
         hazards: [],
+        visual: TEST_ARENA_VISUAL,
         unlock: { type: 'meta', requiresUnlockId: 'achievement:first-victory' },
       },
     ],

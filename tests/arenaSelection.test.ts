@@ -4,6 +4,7 @@ import { DataArenaRegistry } from '../src/systems/arenas';
 import type { ArenaDefinition } from '../src/systems/types';
 import type { MetaState } from '../src/systems/save';
 import { createDefaultMeta } from '../src/systems/save';
+import { TEST_ARENA_VISUAL } from './helpers/arena';
 
 function makeMeta(unlocks: string[] = []): MetaState {
   return { ...createDefaultMeta(), unlocks };
@@ -17,6 +18,7 @@ const defaultArena: ArenaDefinition = {
   spawnRegions: [{ kind: 'edges', margin: 28 }],
   obstacles: [],
   hazards: [],
+  visual: TEST_ARENA_VISUAL,
   unlock: { type: 'default' },
 };
 
@@ -28,6 +30,7 @@ const lockedArena: ArenaDefinition = {
   spawnRegions: [{ kind: 'edges', margin: 28 }],
   obstacles: [],
   hazards: [],
+  visual: TEST_ARENA_VISUAL,
   unlock: { type: 'meta', requiresUnlockId: 'arena:warehouse' },
 };
 

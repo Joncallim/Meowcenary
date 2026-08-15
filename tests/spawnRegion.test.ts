@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createRng, type Rng } from '../src/engine/rng';
 import { spawnPoint } from '../src/gameplay/spawnRegion';
 import type { ArenaDefinition } from '../src/systems/types';
+import { TEST_ARENA_VISUAL } from './helpers/arena';
 
 const canvasArena: ArenaDefinition = {
   id: 'test',
@@ -11,6 +12,7 @@ const canvasArena: ArenaDefinition = {
   spawnRegions: [{ kind: 'edges', margin: 28 }],
   obstacles: [],
   hazards: [],
+  visual: TEST_ARENA_VISUAL,
   unlock: { type: 'default' },
 };
 
@@ -110,7 +112,7 @@ describe('spawnPoint', () => {
       ...canvasArena,
       size: { width: 400, height: 400 },
       spawnRegions: [{ kind: 'rect', x: 0, y: 0, w: 200, h: 200 }],
-      obstacles: [{ x: 50, y: 50, w: 100, h: 100 }],
+      obstacles: [{ id: 'block', x: 50, y: 50, w: 100, h: 100 }],
     };
     const rng = createRng(55);
     let insideObstacleCount = 0;
@@ -131,7 +133,8 @@ describe('spawnPoint', () => {
       id: 'test', name: 'Test', size: { width: 400, height: 400 },
       spawnCurveId: 'test', hazards: [], unlock: { type: 'default' },
       spawnRegions: [{ kind: 'ring', cx: 200, cy: 200, minRadius: 50, maxRadius: 100 }],
-      obstacles: [{ x: 275, y: 150, w: 50, h: 100 }],
+      obstacles: [{ id: 'block', x: 275, y: 150, w: 50, h: 100 }],
+      visual: TEST_ARENA_VISUAL,
     };
 
     // First candidate: angle 0, radius 75 => (275, 200), exactly on the
@@ -149,6 +152,7 @@ describe('spawnPoint', () => {
       spawnCurveId: 'test', hazards: [], unlock: { type: 'default' },
       spawnRegions: [{ kind: 'ring', cx: 200, cy: 400, minRadius: 390, maxRadius: 400 }],
       obstacles: [],
+      visual: TEST_ARENA_VISUAL,
     };
     // Includes the former first failure at seed 146; the deterministic witness
     // makes the result total rather than probabilistic.
@@ -171,16 +175,17 @@ describe('spawnPoint', () => {
 
   it('uses a deterministic witness for a narrow obstacle-constrained ring arc', () => {
     const obstacles = [
-      { x: 40, y: 40, w: 60, h: 120 },
-      { x: 100, y: 40, w: 60, h: 59 },
-      { x: 100, y: 101, w: 60, h: 59 },
-      { x: 100, y: 99, w: 49, h: 2 },
+      { id: 'left', x: 40, y: 40, w: 60, h: 120 },
+      { id: 'top', x: 100, y: 40, w: 60, h: 59 },
+      { id: 'bottom', x: 100, y: 101, w: 60, h: 59 },
+      { id: 'strip', x: 100, y: 99, w: 49, h: 2 },
     ];
     const arena: ArenaDefinition = {
       id: 'test', name: 'Test', size: { width: 400, height: 400 },
       spawnCurveId: 'test', hazards: [], unlock: { type: 'default' },
       spawnRegions: [{ kind: 'ring', cx: 100, cy: 100, minRadius: 50, maxRadius: 60 }],
       obstacles,
+      visual: TEST_ARENA_VISUAL,
     };
 
     // All eight random samples target the covered left arc; fallback must find
@@ -202,6 +207,7 @@ describe('spawnPoint', () => {
       spawnCurveId: 'test', hazards: [], unlock: { type: 'default' },
       spawnRegions: [{ kind: 'ring', cx: 0, cy: 0, minRadius: 500, maxRadius: 550 }],
       obstacles: [],
+      visual: TEST_ARENA_VISUAL,
     };
     for (let seed = 1; seed <= 50; seed += 1) {
       const rng = createRng(seed);
@@ -216,5 +222,40 @@ describe('spawnPoint', () => {
       expect(dist).toBeGreaterThanOrEqual(499.99);
       expect(dist).toBeLessThanOrEqual(550.01);
     }
+  });
+
+  it('samples all inside-edge lanes within body-safe intervals', () => {
+    const arena: ArenaDefinition = {
+      ...canvasArena,
+      size: { width: 768, height: 1344 },
+      spawnRegions: [{
+        kind: 'edge-lanes', inset: 20,
+        lanes: [
+          { side: 'top', offset: 160, width: 96 },
+          { side: 'right', offset: 896, width: 96 },
+          { side: 'bottom', offset: 512, width: 96 },
+          { side: 'left', offset: 320, width: 96 },
+        ],
+      }],
+    };
+    let nextSide = 0;
+    const rng: Rng = {
+      next: () => 0.5,
+      int: (_min, max) => {
+        if (max === 0) return 0;
+        const side = nextSide;
+        nextSide = (nextSide + 1) % (max + 1);
+        return side;
+      },
+      pick: <T>(items: readonly T[]) => items[0]!,
+      weighted: <T>(entries: ReadonlyArray<{ item: T; weight: number }>) => entries[0]!.item,
+    };
+    const points = Array.from({ length: 4 }, () => spawnPoint(arena, rng));
+    expect(points).toEqual([
+      { x: 208, y: 20 },
+      { x: 748, y: 944 },
+      { x: 560, y: 1324 },
+      { x: 20, y: 368 },
+    ]);
   });
 });
