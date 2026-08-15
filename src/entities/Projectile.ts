@@ -3,6 +3,7 @@ import type { Vec2 } from '../engine/vector';
 import { normalize } from '../engine/vector';
 import type { VisualArtBinding } from '../systems/types';
 import { visualAnimationKey } from '../systems/visualArt';
+import { VisualDepth } from '../systems/visualDepths';
 import { createStaticArtSprite } from './actorView';
 
 export interface ProjectileSpawnOptions {
@@ -29,18 +30,21 @@ export class Projectile {
     private readonly radius: number,
     private readonly art?: Readonly<VisualArtBinding>,
   ) {
-    this.sprite = scene.add.circle(0, 0, radius, 0x8bd3ff).setDepth(3).setActive(false).setVisible(false);
+    this.sprite = scene.add.circle(0, 0, radius, 0x8bd3ff)
+      .setDepth(VisualDepth.projectile)
+      .setActive(false)
+      .setVisible(false);
     // Display-only soft halo, constructed once per pooled projectile and
     // toggled with the body. No physics body.
     this.glow = scene.add.circle(0, 0, radius + 3, 0x8bd3ff)
       .setAlpha(0.22)
-      .setDepth(2)
+      .setDepth(VisualDepth.dropBody)
       .setActive(false)
       .setVisible(false);
     scene.physics.add.existing(this.sprite);
     this.body.setCircle(radius);
     this.body.enable = false;
-    this.artSprite = createStaticArtSprite(scene, art, 3);
+    this.artSprite = createStaticArtSprite(scene, art, VisualDepth.projectile);
     if (this.artSprite) {
       this.sprite.setVisible(false);
       this.glow.setVisible(false);

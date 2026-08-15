@@ -10,6 +10,7 @@ import {
 } from '../gameplay/enemyMovement';
 import type { ResolvedEnemyDefinition, SpawnableEnemyArchetype } from '../systems/types';
 import type { VisualArtBinding } from '../systems/types';
+import { VisualDepth } from '../systems/visualDepths';
 import type { Player } from './Player';
 import { PlaceholderView, createAnimatedActorView, type ActorView } from './actorView';
 import type { ChargerEnvironment } from '../gameplay/enemyMovement';
@@ -91,26 +92,26 @@ export class Enemy implements EnemyInstance {
     this.maxHealth = this.definition.health;
     this.sprite = scene.add.circle(x, y, ENEMY_BODY_RADIUS, enemyColor(this.definition.archetype))
       .setStrokeStyle(3, OUTLINE_COLOR, 1)
-      .setDepth(4);
+      .setDepth(VisualDepth.enemy);
     scene.physics.add.existing(this.sprite);
     this.body.setCircle(ENEMY_BODY_RADIUS);
 
     // Presentation layers: display-only (no physics body), glued to the body
     // in update(). The body sprite stays the only object physics touches.
     const accent = accentStyle(this.definition);
-    const accentNode = scene.add.circle(x, y, accent.radius, accent.fill).setDepth(4);
+    const accentNode = scene.add.circle(x, y, accent.radius, accent.fill).setDepth(VisualDepth.enemy);
     if (accent.stroke) {
       accentNode.setStrokeStyle(accent.stroke.width, accent.stroke.color, accent.stroke.alpha);
     }
     const shadow = scene.add.circle(x, y, SHADOW_RADIUS, 0x000000)
       .setAlpha(SHADOW_ALPHA)
-      .setDepth(2);
+      .setDepth(VisualDepth.lowDecoration);
     this.view = createAnimatedActorView(
       scene,
       this.sprite,
       { node: shadow, dy: SHADOW_OFFSET_Y },
       art,
-      4,
+      VisualDepth.enemy,
     ) ?? new PlaceholderView(
       this.sprite,
       [{ node: accentNode, dx: 0, dy: 0, flashes: false }],

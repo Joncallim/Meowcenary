@@ -5,6 +5,7 @@ import type { LootGrant } from '../gameplay/loot';
 import type { VisualArtBinding } from '../systems/types';
 import { createStaticArtSprite } from './actorView';
 import { visualAnimationKey } from '../systems/visualArt';
+import { VisualDepth } from '../systems/visualDepths';
 
 export type DropKind = LootGrant['kind'];
 export type DropArtBindings = Readonly<Partial<Record<DropKind, Readonly<VisualArtBinding>>>>;
@@ -13,8 +14,8 @@ const DROP_COLORS: Record<DropKind, number> = {
   xp: 0x7dd3fc,
   scrap: 0xd1d5db,
   chest: 0xf472b6,
-  // Epic 14 §D7: distinct placeholder geometric color only — no weapon sprite
-  // assets, visual-art rows, or animations (Epic 16 owns final pickup art).
+  // Retained as an isolated-test fallback; production boot requires art for
+  // every drop kind before gameplay can start.
   weapon: 0xfbbf24,
 };
 
@@ -37,19 +38,22 @@ export class Drop {
     private readonly radius: number,
     private readonly artByKind: DropArtBindings = Object.freeze({}),
   ) {
-    this.sprite = scene.add.circle(0, 0, radius, DROP_COLORS.xp).setDepth(2).setActive(false).setVisible(false);
+    this.sprite = scene.add.circle(0, 0, radius, DROP_COLORS.xp)
+      .setDepth(VisualDepth.dropBody)
+      .setActive(false)
+      .setVisible(false);
     // Display-only white highlight, constructed once per pooled drop and
     // toggled with the body. No physics body.
     this.glint = scene.add.circle(0, 0, GLINT_RADIUS, 0xffffff)
       .setAlpha(GLINT_ALPHA)
-      .setDepth(3)
+      .setDepth(VisualDepth.pickup)
       .setActive(false)
       .setVisible(false);
     scene.physics.add.existing(this.sprite);
     this.body.setCircle(radius);
     this.body.enable = false;
     for (const kind of ['xp', 'scrap', 'chest', 'weapon'] as const) {
-      const sprite = createStaticArtSprite(scene, artByKind[kind], 3);
+      const sprite = createStaticArtSprite(scene, artByKind[kind], VisualDepth.pickup);
       if (sprite) this.artSprites.set(kind, sprite);
     }
   }

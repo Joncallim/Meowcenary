@@ -6,6 +6,7 @@ import { PLAYER_BODY_RADIUS } from '../engine/bodyDimensions';
 export { PLAYER_BODY_RADIUS } from '../engine/bodyDimensions';
 import type { InputController } from '../systems/input';
 import type { VisualArtBinding } from '../systems/types';
+import { VisualDepth } from '../systems/visualDepths';
 import { PlaceholderView, createAnimatedActorView, type ActorView } from './actorView';
 
 export interface PlayerOptions {
@@ -44,7 +45,7 @@ export class Player {
     this.sprite = scene.add
       .circle(options.spawnX, options.spawnY, PLAYER_BODY_RADIUS, BODY_COLOR)
       .setStrokeStyle(3, OUTLINE_COLOR, 1)
-      .setDepth(5);
+      .setDepth(VisualDepth.player);
     scene.physics.add.existing(this.sprite);
     this.body.setCircle(PLAYER_BODY_RADIUS);
     this.body.setCollideWorldBounds(true);
@@ -54,21 +55,21 @@ export class Player {
     const leftEar = scene.add
       .circle(options.spawnX - EAR_OFFSET_X, options.spawnY - EAR_OFFSET_Y, EAR_RADIUS, BODY_COLOR)
       .setStrokeStyle(2, OUTLINE_COLOR, 1)
-      .setDepth(5);
+      .setDepth(VisualDepth.player);
     const rightEar = scene.add
       .circle(options.spawnX + EAR_OFFSET_X, options.spawnY - EAR_OFFSET_Y, EAR_RADIUS, BODY_COLOR)
       .setStrokeStyle(2, OUTLINE_COLOR, 1)
-      .setDepth(5);
+      .setDepth(VisualDepth.player);
     const shadow = scene.add
       .circle(options.spawnX, options.spawnY + SHADOW_OFFSET_Y, SHADOW_RADIUS, 0x000000)
       .setAlpha(SHADOW_ALPHA)
-      .setDepth(3);
+      .setDepth(VisualDepth.lowDecoration);
     this.view = createAnimatedActorView(
       scene,
       this.sprite,
       { node: shadow, dy: SHADOW_OFFSET_Y },
       art,
-      5,
+      VisualDepth.player,
     ) ?? new PlaceholderView(
       this.sprite,
       [
