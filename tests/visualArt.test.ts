@@ -90,8 +90,15 @@ describe('visual art', () => {
     const expectedAnimationCount = registry.all()
       .filter((binding) => binding.load.type === 'spritesheet' && !binding.textureKey.includes('bolt-hound'))
       .reduce((count, binding) => count + Object.keys(binding.clips ?? {}).length, 0);
+    const expectedRepeats = registry.all()
+      .filter((binding) => binding.load.type === 'spritesheet' && !binding.textureKey.includes('bolt-hound'))
+      .flatMap((binding) => Object.values(binding.clips ?? {}).map((clip) => clip.repeat))
+      .sort((left, right) => left - right);
     expect(create).toHaveBeenCalledTimes(expectedAnimationCount);
-    expect(create.mock.calls.every(([config]) => config.repeat === -1)).toBe(true);
+    expect(create.mock.calls.map(([config]) => config.repeat).sort((left, right) => left - right))
+      .toEqual(expectedRepeats);
+    expect(expectedRepeats).toContain(-1);
+    expect(expectedRepeats).toContain(0);
     expect(keys.has(visualAnimationKey('character:scrap-tabby', 'run'))).toBe(true);
     expect([...keys].some((key) => key.includes('bolt-hound'))).toBe(false);
   });

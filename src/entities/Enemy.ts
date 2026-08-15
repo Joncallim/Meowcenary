@@ -227,6 +227,8 @@ export class Enemy implements EnemyInstance {
       this.stateTimerMs = 0;
     }
 
+    if (!killed) this.view.playOneShot('hurt');
+
     this.bus.emit('enemy:damaged', {
       instanceId: this.instanceId,
       amount: applied,

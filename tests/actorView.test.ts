@@ -10,6 +10,7 @@ class Node {
   destroyed = false;
   flipX = false;
   plays: string[] = [];
+  listeners = new Map<string, (...args: any[]) => void>();
   setPosition(x: number, y: number): this { this.x = x; this.y = y; return this; }
   setAlpha(alpha: number): this { this.alpha = alpha; return this; }
   setVisible(visible: boolean): this { this.visible = visible; return this; }
@@ -20,6 +21,9 @@ class Node {
   setDisplaySize(): this { return this; }
   setActive(): this { return this; }
   play(key: string): this { this.plays.push(key); return this; }
+  on(event: string, listener: (...args: any[]) => void): this { this.listeners.set(event, listener); return this; }
+  off(event: string): this { this.listeners.delete(event); return this; }
+  complete(key: string): void { this.listeners.get('animationcomplete')?.({ key }); }
   destroy(): void { this.destroyed = true; }
 }
 
@@ -58,6 +62,31 @@ describe('actor views', () => {
     expect(sprite.plays).toEqual(['idle', 'run', 'idle']);
     expect(sprite.flipX).toBe(false);
     expect([shadow.x, shadow.y]).toEqual([11, 34]);
+  });
+
+  it('prioritizes defeat over hurt and restores the latest locomotion after hurt', async () => {
+    const { SpriteView } = await import('../src/entities/actorView');
+    const body = new Node();
+    const shadow = new Node();
+    const sprite = new Node();
+    const view = new SpriteView(body as never, { node: shadow as never, dy: 14 }, sprite as never, {
+      idle: 'idle', run: 'run', hurt: 'hurt', defeat: 'defeat',
+    });
+    view.update({ x: 1, y: 2, facing: 1, moving: true, alpha: 1 });
+    view.playOneShot('hurt');
+    view.update({ x: 2, y: 3, facing: -1, moving: false, alpha: 0.45 });
+    expect(sprite.plays).toEqual(['idle', 'run', 'hurt']);
+    sprite.complete('hurt');
+    expect(sprite.plays.at(-1)).toBe('idle');
+
+    view.playOneShot('defeat');
+    view.update({ x: 3, y: 4, facing: 1, moving: true, alpha: 0.2 });
+    view.playOneShot('hurt');
+    sprite.complete('defeat');
+    expect(sprite.plays.at(-1)).toBe('defeat');
+    expect(sprite.alpha).toBe(1);
+    view.destroy();
+    expect(sprite.listeners.has('animationcomplete')).toBe(false);
   });
 
   it('builds inactive static art without advancing pooled animation and falls back when absent', async () => {

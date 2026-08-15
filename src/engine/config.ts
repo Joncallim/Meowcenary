@@ -29,6 +29,7 @@ export const RuntimeConfig = {
     sampleWindowFrames: 120,
     maxFeedbackEffects: 96,
     maxHeavyFeedbackEffects: 72,
+    maxDefeatPresentations: 24,
   },
   storageKey: 'meowcenary.save.v1',
   isDev: import.meta.env.DEV,

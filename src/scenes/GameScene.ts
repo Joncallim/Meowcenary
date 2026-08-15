@@ -55,6 +55,7 @@ import { PlaytestSummarySystem } from '../systems/playtestSummary';
 import { FeedbackSystem, PhaserFeedbackRenderer } from '../systems/feedback';
 import { DataVisualArtRegistry } from '../systems/visualArt';
 import { HeldWeaponView } from '../entities/heldWeaponView';
+import { DefeatPresentationSystem } from '../systems/defeatPresentation';
 
 export class GameScene extends Phaser.Scene {
   private debugOverlay?: DebugOverlay;
@@ -84,6 +85,7 @@ export class GameScene extends Phaser.Scene {
   private arenaScenery?: ArenaScenery;
   private weaponSystem?: WeaponSystem;
   private feedbackSystem?: FeedbackSystem;
+  private defeatPresentationSystem?: DefeatPresentationSystem;
   private perfSampler?: PerfSampler;
   // Non-owning cache of the Boot-constructed, game-scoped manager.
   private audioManager?: AudioManager;
@@ -320,6 +322,12 @@ export class GameScene extends Phaser.Scene {
         maxHeavyEffects: RuntimeConfig.performance.maxHeavyFeedbackEffects,
       }),
     });
+    this.defeatPresentationSystem = new DefeatPresentationSystem({
+      scene: this,
+      bus: ctx.bus,
+      visualArt,
+      maxPresentations: RuntimeConfig.performance.maxDefeatPresentations,
+    });
     this.perfSampler = createPerfSampler(
       RuntimeConfig.performance.sampleWindowFrames,
       RuntimeConfig.performance.targetFps,
@@ -342,6 +350,7 @@ export class GameScene extends Phaser.Scene {
         hazards: arena.hazards,
       }),
       this.feedbackSystem,
+      this.defeatPresentationSystem,
       this.weaponSystem,
       // Immediately before DropSystem so a reward spawned this update enters
       // the ordinary drop update/physics lifecycle in the same frame without
@@ -466,6 +475,7 @@ export class GameScene extends Phaser.Scene {
       `Projectiles: ${this.weaponSystem?.activeProjectileCount ?? 0} active / ${this.weaponSystem?.allocatedProjectileCount ?? 0} allocated`,
       `Drops: ${this.dropSystem?.activeDropCount ?? 0} active / ${this.dropSystem?.allocatedDropCount ?? 0} allocated`,
       `FX: ${this.feedbackSystem?.activeEffectCount ?? 0} active / ${this.feedbackSystem?.allocatedEffectCount ?? 0} allocated / ${this.feedbackSystem?.droppedEffectCount ?? 0} dropped`,
+      `Defeats: ${this.defeatPresentationSystem?.activePresentationCount ?? 0} active / ${this.defeatPresentationSystem?.allocatedPresentationCount ?? 0} allocated / ${this.defeatPresentationSystem?.droppedPresentationCount ?? 0} dropped`,
       `DPS(5s): ${(this.dpsMeter?.windowDps(runState.timeMs) ?? 0).toFixed(1)}`,
       `Weapons: ${runState.equipped.map((weapon) => `${weapon.family} T${weapon.tier}`).join(', ')}`,
       `Move: ${move.x.toFixed(2)}, ${move.y.toFixed(2)}`,
@@ -518,6 +528,7 @@ export class GameScene extends Phaser.Scene {
     this.upgradeSystem = undefined;
     this.weaponSystem = undefined;
     this.feedbackSystem = undefined;
+    this.defeatPresentationSystem = undefined;
     this.perfSampler = undefined;
     this.spawnCurve = undefined;
     this.arenaScenery?.destroy();

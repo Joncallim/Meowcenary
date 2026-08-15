@@ -149,6 +149,7 @@ export class Player {
     if (this.invulnerableMs > 0) {
       this.view.update(this.currentPose());
     }
+    this.view.playOneShot(this.health <= 0 ? 'defeat' : 'hurt');
     this.bus.emit('player:damaged', { amount, healthRemaining: this.health });
 
     if (this.health <= 0) {
@@ -161,6 +162,7 @@ export class Player {
   takeEnvironmentalDamage(amount: number): void {
     if (this.runState.status !== 'active' || !Number.isFinite(amount) || amount <= 0) return;
     this.health = Math.max(0, this.health - amount);
+    this.view.playOneShot(this.health <= 0 ? 'defeat' : 'hurt');
     this.bus.emit('player:damaged', { amount, healthRemaining: this.health });
     if (this.health <= 0) {
       this.bus.emit('player:died', {});

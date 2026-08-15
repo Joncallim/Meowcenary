@@ -12,6 +12,7 @@ export interface ActorPose {
 
 export interface ActorView {
   update(pose: ActorPose): void;
+  playOneShot(clip: 'hurt' | 'defeat'): void;
   destroy(): void;
 }
 
@@ -38,6 +39,8 @@ export class PlaceholderView implements ActorView {
     this.shadow.node.setPosition(pose.x, pose.y + this.shadow.dy);
   }
 
+  playOneShot(): void {}
+
   destroy(): void {
     for (const layer of this.layers) layer.node.destroy();
     this.shadow.node.destroy();
@@ -46,33 +49,57 @@ export class PlaceholderView implements ActorView {
 
 export class SpriteView implements ActorView {
   private moving = false;
+  private oneShot?: 'hurt' | 'defeat';
 
   constructor(
     body: Phaser.GameObjects.Arc,
     private readonly shadow: { readonly node: Phaser.GameObjects.Arc; readonly dy: number },
     private readonly sprite: Phaser.GameObjects.Sprite,
-    private readonly clips: { readonly idle: string; readonly run: string },
+    private readonly clips: {
+      readonly idle: string;
+      readonly run: string;
+      readonly hurt?: string;
+      readonly defeat?: string;
+    },
   ) {
     body.setVisible(false);
     this.sprite.play(this.clips.idle);
+    this.sprite.on('animationcomplete', this.handleAnimationComplete, this);
   }
 
   update(pose: ActorPose): void {
     this.sprite
       .setPosition(pose.x, pose.y)
       .setFlipX(pose.facing === -1)
-      .setAlpha(pose.alpha);
+      .setAlpha(this.oneShot === 'defeat' ? 1 : pose.alpha);
     this.shadow.node.setPosition(pose.x, pose.y + this.shadow.dy);
-    if (pose.moving !== this.moving) {
-      this.moving = pose.moving;
+    const movementChanged = pose.moving !== this.moving;
+    this.moving = pose.moving;
+    if (movementChanged && this.oneShot === undefined) {
       this.sprite.play(pose.moving ? this.clips.run : this.clips.idle);
     }
   }
 
+  playOneShot(clip: 'hurt' | 'defeat'): void {
+    if (this.oneShot === 'defeat' || (clip === 'hurt' && !this.clips.hurt) ||
+        (clip === 'defeat' && !this.clips.defeat)) return;
+    this.oneShot = clip;
+    if (clip === 'defeat') this.sprite.setAlpha(1);
+    this.sprite.play(this.clips[clip]!);
+  }
+
   destroy(): void {
+    this.sprite.off('animationcomplete', this.handleAnimationComplete, this);
     this.sprite.destroy();
     this.shadow.node.destroy();
   }
+
+  private readonly handleAnimationComplete = (animation: Phaser.Animations.Animation): void => {
+    if (this.oneShot === undefined || animation.key !== this.clips[this.oneShot]) return;
+    if (this.oneShot === 'defeat') return;
+    this.oneShot = undefined;
+    this.sprite.play(this.moving ? this.clips.run : this.clips.idle);
+  };
 }
 
 export function createAnimatedActorView(
@@ -96,7 +123,14 @@ export function createAnimatedActorView(
       binding.display.width / binding.load.frame.width,
       binding.display.height / binding.load.frame.height,
     );
-  return new SpriteView(body, shadow, sprite, { idle, run });
+  const hurt = binding.clips.hurt ? visualAnimationKey(binding.id, 'hurt') : undefined;
+  const defeat = binding.clips.defeat ? visualAnimationKey(binding.id, 'defeat') : undefined;
+  return new SpriteView(body, shadow, sprite, {
+    idle,
+    run,
+    ...(hurt && scene.anims.exists(hurt) ? { hurt } : {}),
+    ...(defeat && scene.anims.exists(defeat) ? { defeat } : {}),
+  });
 }
 
 export function createStaticArtSprite(

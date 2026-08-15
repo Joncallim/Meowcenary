@@ -10,7 +10,9 @@
       "display": { "width": 28, "height": 28 },
       "clips": {
         "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
-        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 }
+        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 },
+        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
+        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
       }
     },
     {
@@ -23,7 +25,9 @@
       "display": { "width": 28, "height": 28 },
       "clips": {
         "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
-        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 }
+        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 },
+        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
+        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
       }
     },
     {
@@ -36,7 +40,9 @@
       "display": { "width": 26, "height": 26 },
       "clips": {
         "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
-        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 }
+        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 },
+        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
+        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
       }
     },
     {
@@ -49,7 +55,9 @@
       "display": { "width": 26, "height": 26 },
       "clips": {
         "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
-        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 }
+        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 },
+        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
+        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
       }
     },
     {
@@ -62,7 +70,9 @@
       "display": { "width": 26, "height": 26 },
       "clips": {
         "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
-        "run": { "start": 4, "end": 9, "frameRate": 8, "repeat": -1 }
+        "run": { "start": 4, "end": 9, "frameRate": 8, "repeat": -1 },
+        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
+        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
       }
     },
     {
