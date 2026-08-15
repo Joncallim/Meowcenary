@@ -551,18 +551,23 @@ through `DataVisualArtRegistry`.
 | `src/data/weapons.json` | explicit icon/held/projectile references |
 | `src/data/arenas.json` | larger bounds, authored render data, collision data |
 | `src/engine/bodyDimensions.ts` | shared Phaser-free player/enemy radius constants; values unchanged |
+| `src/engine/config.ts` | bounded defeat-presentation cap |
 | `src/gameplay/spawnRegion.ts` | pure inside-edge lane sampling; existing director unchanged |
 | `src/systems/types.ts` | visual, weapon-art, and arena-visual contracts |
 | `src/systems/validation.ts` | shape, reference, completeness, and bounds validation |
 | `src/systems/visualArt.ts` | immutable registry and animation creation |
 | `src/scenes/BootScene.ts` | preload and required-texture gate |
+| `src/scenes/GameScene.ts` | thin wiring for art consumers, defeat presentation, and `ArenaWorldView` |
 | `src/entities/actorView.ts` | clip-aware sprite presentation only |
+| `src/entities/Player.ts` | hurt/defeat view calls on existing damage paths; physics unchanged |
+| `src/entities/Enemy.ts` | nonlethal hurt view call; lethal destroy behavior unchanged |
 | `src/systems/defeatPresentation.ts` | pooled, physics-free enemy defeat clips from `enemy:killed` |
 | `src/entities/Projectile.ts` | one binding per pooled projectile |
 | `src/entities/Drop.ts` | prebuilt kind-art nodes on one pooled body |
 | `src/systems/WeaponSystem.ts` | binding-keyed projectile pools and shot presentation call |
 | `src/systems/DropSystem.ts` | inject four required drop bindings |
 | `src/systems/arenaScenery.ts` | authored `ArenaWorldView` and static obstacle group |
+| `src/ui/inventory.ts` | pass explicit definition icon IDs through immutable summaries |
 | `src/ui/weaponRackView.ts` | resolved texture rendering inside unchanged Epic 15 cards |
 | `docs/art/scripts/` | deterministic source builders and export validation |
 | `assets-src/`, `public/assets/` | editable sources and shipped exports |
