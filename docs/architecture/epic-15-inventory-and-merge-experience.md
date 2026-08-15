@@ -2,8 +2,8 @@
 
 **Issue:** #74 · **Branch:** `codex/epic-15-inventory-merge` · **Base:** `main` after Epic 14 / PR #80
 
-> Status: **implemented in a ready pull request; not merged**. This document is
-> the architecture contract and delivery record for the branch.
+> Status: **complete — merged in PR #81 on 2026-08-15**. This document is the
+> architecture contract and delivery record.
 
 ## 1. Outcome
 
@@ -257,4 +257,6 @@ Verify on 390×844 portrait and a desktop/landscape FIT viewport:
   and three shuffled full-suite seeds all pass;
 - [x] browser viewport evidence recorded at 390x844 and FIT-scaled 844x390 with
   live open-panel rotation rebuilding between 2x3 and compact 3x2 layouts;
-- [ ] reviewer approval and merge — deliberately outside this task.
+- [x] all 11 Codex review threads fixed with regression evidence and resolved;
+- [x] exact merge head `5feffed` received a clean Codex review; and
+- [x] merged in PR #81 as merge commit `1da5ed8`; Issue #74 closed.

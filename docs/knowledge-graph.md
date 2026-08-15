@@ -1,7 +1,7 @@
 # Meowcenary Knowledge Graph
 
 > Token-optimized repo map. Read this before any implementation work.
-> Current state: **Epics 0–14 complete; Epic 13 merged in PR #79; Epic 14 merged in PR #80**. Epic 10 merged in two delivery PRs:
+> Current state: **Epics 0–15 complete; Epic 15 merged in PR #81; Epic 16 architecture and art direction are in PR #82 with runtime implementation pending**. Epic 10 merged in two delivery PRs:
 > #65 (slices 1–2: audio data/events + game-scoped `AudioManager`) and #68
 > (slices 3–5: `settings:changed` wiring, Boot-owned manager publication,
 > scene lifecycle wiring, exactly-one `ui:*` command events, deterministic
@@ -15,7 +15,9 @@
 > catalog #11, seven Pixelorama assets, opt-in physics diagnostics, and charger
 > clipping. Epic 14 added the weapon acquisition loop: the six-slot
 > authoritative rack, capacity-checked admission, no-loss full-rack pickups,
-> and the seeded `weapon-rewards` stream. 1291 tests / 85 files green locally.
+> and the seeded `weapon-rewards` stream. Epic 15 added the immutable rack read
+> model, responsive tap/keyboard merge surface, and direct HUD entry. 1311
+> tests / 86 files were green at the Epic 15 merge head.
 
 ## Stack
 
@@ -33,12 +35,12 @@ Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly
 | `src/entities/` | ✅ | May use Phaser (display objects) | `Player` `Enemy` `Projectile` `Drop` `actorView` |
 | `src/systems/` | ✅ | May use Phaser (coordinators) | `types` `validation` `save` `input` `audio` `debug` `actorArt` `ids` `enemies` `characters` `arenas` `lootTables` `metaUpgrades` `weaponRegistry` `SpawnSystem` `WeaponSystem` `UpgradeSystem` `DropSystem` `ProgressionSystem` `PassiveCoordinator` `HazardSystem` `arenaScenery` `playtestSummary` `feedback` `WeaponRewardSystem` |
 | `src/scenes/` | ✅ | Thin coordinators only | `BootScene` `MenuScene` `GameScene` |
-| `src/ui/` | ✅ | May use Phaser | `UpgradeChooser` `upgradeChooserController` `upgradeChooserLayout` `characterSelectionController` `arenaSelectionController` `progressionController` `pause` `runSummary` `menus` `settings` `hud` `controls` `inventory` `modal` `layout` `theme` `format` |
+| `src/ui/` | ✅ | May use Phaser | `UpgradeChooser` `upgradeChooserController` `upgradeChooserLayout` `characterSelectionController` `arenaSelectionController` `progressionController` `pause` `runSummary` `menus` `settings` `hud` `controls` `inventory` `weaponRackView` `weaponRackLayout` `modal` `layout` `theme` `format` |
 | `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` `loot-tables` `audio-assets` `audio-map` `actor-art` |
 | `scripts/` | ✅ | Node 18+ built-ins only, deterministic | `generate-audio-placeholders.mjs` |
 | `public/assets/audio/` | ✅ | 14 committed deterministic WAVs (12 SFX + 2 music) | one `.wav` per `audio-assets.json` key |
-| `tests/` | ✅ 1291 tests | Vitest; mock Phaser via `vi.mock` | 85 files incl. integration harnesses |
-| `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..14}-*.md` |
+| `tests/` | ✅ 1311 tests | Vitest; mock Phaser via `vi.mock` | 86 files incl. integration harnesses |
+| `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..16}-*.md` |
 
 Epic 8 Slices 1–5 added `src/data/loot-tables.json`, `src/gameplay/loot.ts`,
 and `src/systems/lootTables.ts` (Slices 1–2). Slice 3 added `src/entities/Drop.ts`;
@@ -71,7 +73,14 @@ full-rack pickups stay in-world (no silent loss), and a dedicated seeded
 `weapon-rewards` stream (never the `loot` stream) schedules the guaranteed
 early duplicate and later T1 pool rewards.
 
-## Runtime Shape (after Epic 14)
+Epic 15 added `src/ui/inventory.ts`, `src/ui/weaponRackView.ts`, and
+`src/ui/weaponRackLayout.ts`; it exposes one immutable six-slot read model,
+delegates eligibility/mutation to the existing merge rules, opens directly from
+the HUD, and rebuilds rack/HUD/control presentation from live FIT metrics. The
+temporary code-rendered weapon glyph IDs are the seam Epic 16 replaces with
+validated production art.
+
+## Runtime Shape (after Epic 15)
 
 ```
 main.ts → Phaser.Game([BootScene, MenuScene, GameScene])
@@ -223,6 +232,8 @@ existing event covers it (Epic 8 adds none — it extends one payload).
 | 12 | ✅ | Merged: PR #71 (polish + performance: pooling, feedback, reduced motion, perf sampler, responsive sizing); see `epic-12-polish-and-performance.md` |
 | 13 | ✅ | Merged: PR #79 (actor-view seam, catalog #11, seven Pixelorama assets, opt-in physics debug, deterministic charger clipping); see `epic-13-presentation-runtime.md` |
 | 14 | ✅ | Merged: PR #80 (six-slot rack, one-T1-weapon starts, capacity-checked admission, no-loss full-rack pickups, seeded `weapon-rewards` stream, guaranteed early duplicate, `n/6` HUD capacity); see `epic-14-weapon-acquisition-and-rack-economy.md` |
+| 15 | ✅ | Merged: PR #81 (immutable rack read model, exact merge preview, direct HUD entry, responsive 2x3/3x2 rack, tap and repeat-safe keyboard controls); see `epic-15-inventory-and-merge-experience.md` |
+| 16 | 🟡 | Architecture and selected art direction in PR #82; runtime implementation pending; see `epic-16-visual-identity-and-junkyard-world.md` |
 
 ## First Steps for Any Agent
 

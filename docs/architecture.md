@@ -86,6 +86,7 @@ Epic-specific data contracts:
 - [Epic 13: presentation runtime and physics stability](architecture/epic-13-presentation-runtime.md)
 - [Epic 14: weapon acquisition and rack economy](architecture/epic-14-weapon-acquisition-and-rack-economy.md)
 - [Epic 15: inventory and merge experience](architecture/epic-15-inventory-and-merge-experience.md)
+- [Epic 16: visual identity and Junkyard world](architecture/epic-16-visual-identity-and-junkyard-world.md)
 
 The Epic 5 document is the implementation source of truth for save V2,
 permanent modifier ordering, finished-run banking, and the Epics 6/8/9
@@ -154,11 +155,18 @@ physical no-loss full-rack pickups, a dedicated `weapon-rewards` run RNG stream,
 the guaranteed early duplicate, and the boundary that keeps final rack UI, art,
 feedback, and pacing in Epics 15–18. It supersedes issue #73 where that wording
 predates the live rack, reward-stream, and pickup seams.
-The Epic 15 document is the implementation source of truth for the immutable
+The Epic 15 document is the implementation source of truth and PR #81 delivery
+record for the immutable
 six-slot rack read model, allocation-free next-tier preview, tap/keyboard
 selection contract, direct HUD entry, responsive rack presentation, and the
 boundary that keeps final weapon art and weapon-specific feedback in Epics 16
 and 17.
+The Epic 16 document is the implementation source of truth for the planned
+single visual manifest, required-asset preload gate, data-referenced weapon and
+pickup art, pooled visual switching, actor clip adoption, authored arena render
+data, enlarged Junkyard Lot, and the physics/presentation invariants that keep
+art from changing gameplay. Its selected visual-design packet is reference
+material for deterministic Pixelorama production, not a runtime asset.
 
 ## AI Handoff Pattern
 
