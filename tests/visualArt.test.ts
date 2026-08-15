@@ -5,7 +5,7 @@ import { visualAnimationKey, DataVisualArtRegistry, ensureVisualAnimations } fro
 import { loadGameData, validateVisualArtCatalog } from '../src/systems/validation';
 
 describe('visual art', () => {
-  it('loads seven immutable required bindings whose shipped PNGs exist', () => {
+  it('loads immutable required bindings whose shipped PNGs exist', () => {
     const registry = new DataVisualArtRegistry(loadGameData());
     expect(registry.all()).toHaveLength(7);
     const tabby = registry.bindingById('character:scrap-tabby');
