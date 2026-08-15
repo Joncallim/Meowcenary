@@ -161,12 +161,13 @@ six-slot rack read model, allocation-free next-tier preview, tap/keyboard
 selection contract, direct HUD entry, responsive rack presentation, and the
 boundary that keeps final weapon art and weapon-specific feedback in Epics 16
 and 17.
-The Epic 16 document is the implementation source of truth for the planned
-single visual manifest, required-asset preload gate, data-referenced weapon and
-pickup art, pooled visual switching, actor clip adoption, authored arena render
-data, enlarged Junkyard Lot, and the physics/presentation invariants that keep
-art from changing gameplay. Its selected visual-design packet is reference
-material for deterministic Pixelorama production, not a runtime asset.
+The Epic 16 document is the implementation source of truth and PR #83 delivery
+record for the single 46-binding visual manifest, required-asset preload gate,
+data-referenced actor/weapon/pickup art, pooled projectile/drop/defeat
+presentation, actor clip adoption, authored arena render data, enlarged
+Junkyard Lot, and the physics/presentation invariants that keep art from
+changing gameplay. Its selected visual-design packet remains reference material;
+all runtime pixels come from deterministic Pixelorama sources and exports.
 
 ## AI Handoff Pattern
 

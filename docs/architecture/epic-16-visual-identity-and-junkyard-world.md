@@ -747,7 +747,23 @@ Reviewers should actively reject:
   artifact review.
 - [x] runtime manifest migration and required-asset gate (Slice 1: 1,318 tests,
   lint, and production build green).
-- [ ] production Pixelorama sources/exports.
-- [ ] weapon, projectile, pickup, actor-state, and world wiring.
-- [ ] automated, browser, and independent-review gates.
+- [x] production Pixelorama sources/exports (46 validated source/export chains).
+- [x] weapon, projectile, pickup, actor-state, defeat, and world wiring.
+- [x] automated, browser, and orthogonal-review implementation gates.
 - [ ] runtime delivery review, approval, and merge.
+
+Runtime delivery evidence for PR #83:
+
+- one manifest drives all 46 required bindings; validation checks the catalog
+  cap, source metadata, builder output, PNG dimensions, frame chains, and
+  cross-catalog actor/drop completeness;
+- weapon, projectile, drop, and defeat presentation reuse bounded pools, while
+  all display ordering uses the shared `VisualDepth` contract;
+- the authored 768×1344 world uses deterministic render data, physics-free
+  decoration, honest landmark colliders, and validated body-safe edge lanes;
+- browser passes covered 390×844 and 1280×720 FIT layouts, reduced motion,
+  grayscale silhouettes, physics alignment, traversal, Retry, and Menu
+  round-trips with no console errors; and
+- the orthogonal pass fixed target-coordinate preservation, camera-safe
+  teardown, HUD overlap, named visual depths, and fail-closed future actor/drop
+  art coverage before the delivery branch was published.

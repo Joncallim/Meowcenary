@@ -194,16 +194,23 @@ describe('BootScene loading and startup wiring', () => {
   });
 
   it('allows a missing texture only when that manifest row is explicitly optional', () => {
-    const binding = visualArtJson.bindings[0] as unknown as { required: boolean; textureKey: string };
-    const original = binding.required;
-    binding.required = false;
+    const binding = {
+      id: 'world:test-optional',
+      kind: 'world',
+      textureKey: 'art-world-test-optional',
+      url: 'assets/world/test-optional.png',
+      required: false,
+      load: { type: 'image' },
+      display: { width: 16, height: 16 },
+    } as const;
+    visualArtJson.bindings.push(binding as unknown as (typeof visualArtJson.bindings)[number]);
     try {
       const { boot, scene, start } = createBoot();
       scene.textures.exists.mockImplementation((key: string) => key !== binding.textureKey);
       expect(() => boot.create()).not.toThrow();
       expect(start).toHaveBeenCalledWith(SceneKey.Menu);
     } finally {
-      binding.required = original;
+      visualArtJson.bindings.pop();
     }
   });
 

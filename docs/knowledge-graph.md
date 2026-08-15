@@ -1,7 +1,7 @@
 # Meowcenary Knowledge Graph
 
 > Token-optimized repo map. Read this before any implementation work.
-> Current state: **Epics 0–15 complete; Epic 15 merged in PR #81; Epic 16 architecture and art direction merged in PR #82, with runtime implementation in progress**. Epic 10 merged in two delivery PRs:
+> Current state: **Epics 0–15 complete; Epic 15 merged in PR #81; Epic 16 architecture and art direction merged in PR #82, with complete runtime delivery in PR #83 awaiting review/merge**. Epic 10 merged in two delivery PRs:
 > #65 (slices 1–2: audio data/events + game-scoped `AudioManager`) and #68
 > (slices 3–5: `settings:changed` wiring, Boot-owned manager publication,
 > scene lifecycle wiring, exactly-one `ui:*` command events, deterministic
@@ -32,14 +32,15 @@ Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly
 |-----|--------|-------|----------|
 | `src/engine/` | ✅ | **No Phaser** (pure, unit-tested) | `config` `eventBus` `rng` `vector` `cadence` `context` `sceneKeys` `system` `pool` `motion` |
 | `src/gameplay/` | ✅ | **No Phaser** (pure rules) | `runState` `runStart` `runRequest` `stats` `xp` `targeting` `weapons` `weaponStats` `merge` `upgrades` `levelUpQueue` `projectilePattern` `enemyMovement` `enemyScaling` `spawnDirector` `spawnRegion` `loot` `meta` `characterSelection` `characterContribution` `characterPassives` `arenaSelection` `metrics` `perf` `weaponRack` `weaponRewards` |
-| `src/entities/` | ✅ | May use Phaser (display objects) | `Player` `Enemy` `Projectile` `Drop` `actorView` |
-| `src/systems/` | ✅ | May use Phaser (coordinators) | `types` `validation` `save` `input` `audio` `debug` `visualArt` `ids` `enemies` `characters` `arenas` `lootTables` `metaUpgrades` `weaponRegistry` `SpawnSystem` `WeaponSystem` `UpgradeSystem` `DropSystem` `ProgressionSystem` `PassiveCoordinator` `HazardSystem` `arenaScenery` `playtestSummary` `feedback` `WeaponRewardSystem` |
+| `src/entities/` | ✅ | May use Phaser (display objects) | `Player` `Enemy` `Projectile` `Drop` `actorView` `heldWeaponView` |
+| `src/systems/` | ✅ | May use Phaser (coordinators) | `types` `validation` `save` `input` `audio` `debug` `visualArt` `visualDepths` `ids` `enemies` `characters` `arenas` `lootTables` `metaUpgrades` `weaponRegistry` `SpawnSystem` `WeaponSystem` `UpgradeSystem` `DropSystem` `ProgressionSystem` `PassiveCoordinator` `HazardSystem` `arenaScenery` `playtestSummary` `feedback` `defeatPresentation` `WeaponRewardSystem` |
 | `src/scenes/` | ✅ | Thin coordinators only | `BootScene` `MenuScene` `GameScene` |
 | `src/ui/` | ✅ | May use Phaser | `UpgradeChooser` `upgradeChooserController` `upgradeChooserLayout` `characterSelectionController` `arenaSelectionController` `progressionController` `pause` `runSummary` `menus` `settings` `hud` `controls` `inventory` `weaponRackView` `weaponRackLayout` `modal` `layout` `theme` `format` |
 | `src/data/` | ✅ | JSON, validated at boot | `weapons` `enemies` `upgrades` `meta-upgrades` `spawn-curves` `characters` `arenas` `loot-tables` `audio-assets` `audio-map` `visual-art` |
-| `scripts/` | ✅ | Node 18+ built-ins only, deterministic | `generate-audio-placeholders.mjs` |
+| `scripts/` | ✅ | Node 18+ built-ins only, deterministic | audio generation plus visual-art validation |
 | `public/assets/audio/` | ✅ | 14 committed deterministic WAVs (12 SFX + 2 music) | one `.wav` per `audio-assets.json` key |
-| `tests/` | ✅ 1311 tests | Vitest; mock Phaser via `vi.mock` | 86 files incl. integration harnesses |
+| `assets-src/`, `public/assets/` | ✅ | Pixelorama source of truth plus validated runtime exports | 46 visual source/export chains |
+| `tests/` | ✅ 1336 tests | Vitest; mock Phaser via `vi.mock` | 88 files incl. integration harnesses |
 | `docs/` | ✅ | Design + per-epic architecture | `epics.md` `roadmap.md` `architecture/epic-{3..16}-*.md` |
 
 Epic 8 Slices 1–5 added `src/data/loot-tables.json`, `src/gameplay/loot.ts`,
@@ -76,16 +77,22 @@ early duplicate and later T1 pool rewards.
 Epic 15 added `src/ui/inventory.ts`, `src/ui/weaponRackView.ts`, and
 `src/ui/weaponRackLayout.ts`; it exposes one immutable six-slot read model,
 delegates eligibility/mutation to the existing merge rules, opens directly from
-the HUD, and rebuilds rack/HUD/control presentation from live FIT metrics. The
-temporary code-rendered weapon glyph IDs are the seam Epic 16 replaces with
-validated production art.
+the HUD, and rebuilds rack/HUD/control presentation from live FIT metrics.
 
-## Runtime Shape (Epic 16 Slice 1)
+Epic 16 completed that presentation seam with one fail-closed 46-binding visual
+manifest and matching deterministic Pixelorama source/export chains. Weapons,
+projectiles, pickups, hurt/defeat clips, pooled defeat presentations, and the
+authored 768×1344 Junkyard Lot now use explicit data references. Named depth
+layers, bounded pools, body-size invariants, deterministic world dressing, and
+cross-catalog actor/drop completeness checks keep future content scalable
+without allowing art to change combat or collision behavior.
+
+## Runtime Shape (Epic 16)
 
 ```
 main.ts → Phaser.Game([BootScene, MenuScene, GameScene])
 BootScene: preload() validates one immutable visual-art load plan, registers
-           load-failure cleanup, then loads audio plus seven visual spritesheets
+           load-failure cleanup, then loads audio plus all 46 visual bindings
            → loadGameData() (11 catalogs, fail-closed) → required-texture gate
            → register declared namespaced visual animations once
            (characters, arenas, metaUpgrades) → createGameContext → registry
@@ -104,8 +111,9 @@ GameScene.create():
   dpsMeter = createDpsMeter(); subscribes enemy:damaged (stamped with
   runState.timeMs, effective damage only) — dev and production
   systems = [ProgressionSystem, PassiveCoordinator, SpawnSystem,
-             HazardSystem, FeedbackSystem, WeaponSystem, WeaponRewardSystem,
-             DropSystem, UpgradeSystem, (DebugCheatSystem, dev-only),
+             HazardSystem, FeedbackSystem, DefeatPresentationSystem,
+             WeaponSystem, WeaponRewardSystem, DropSystem, UpgradeSystem,
+             (DebugCheatSystem, dev-only),
              HudController, (PlaytestSummarySystem, dev-only)]
   perfSampler = createPerfSampler(windowFrames, targetFps) — records delta
   (dev-only cheats: ?cheats=1&god=1&xp=4&scrap=3&spawn=2 — cached URL flags,
@@ -118,7 +126,7 @@ GameScene.update(delta): perfSampler.recordFrame(delta) → tickRun
   → maybeEndRunForVictory (curve.durationSeconds) → systems.forEach(update)
   → audioManager.update(delta) → HUD/debug
   (F3 lines incl. sampled frame ms/FPS/slow%, enemy/kill counts,
-   projectile/drop/FX active/allocated counts, and DPS(5s))
+   projectile/drop/FX/defeat active/allocated counts, and DPS(5s))
 terminal event: ProgressionSystem banks first; dev PlaytestSummarySystem
   prints exactly one local console summary (row + optional upgrade table)
 ```

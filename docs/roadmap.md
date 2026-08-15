@@ -41,11 +41,11 @@
   direct merge-ready HUD entry, tap/keyboard commands, and responsive
   portrait/landscape presentation; architecture and delivery record in
   [`architecture/epic-15-inventory-and-merge-experience.md`](architecture/epic-15-inventory-and-merge-experience.md).
-- Epic 16 / Visual Identity and Junkyard World: architecture and selected art
-  direction established in PR #82; runtime implementation pending (#75) — one visual
-  manifest, explicit weapon/pickup art references, pooled presentation,
-  authored world data, and a camera-traversable Junkyard Lot; implementation
-  contract in
+- Epic 16 / Visual Identity and Junkyard World: runtime implementation complete
+  in PR #83 and awaiting review/merge (#75) — one validated 46-binding visual
+  manifest, explicit actor/weapon/pickup art references, pooled projectile/drop/
+  defeat presentation, authored world data, and a camera-traversable Junkyard
+  Lot; architecture and delivery record in
   [`architecture/epic-16-visual-identity-and-junkyard-world.md`](architecture/epic-16-visual-identity-and-junkyard-world.md).
 
 Epic 7 was implemented in the consolidated PR #51 and merged.
