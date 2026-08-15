@@ -299,6 +299,12 @@ path invokes hurt; lethal contact or environmental damage invokes defeat before
 the existing lost-run path, and the player body remains governed by existing
 run-state/physics code.
 
+For enemies, accepted nonlethal `Enemy.takeDamage()` calls
+`view.playOneShot('hurt')` after health is updated and immediately before the
+existing `enemy:damaged` emission. Lethal damage skips hurt and continues
+through the immediate destroy plus separate defeat-presenter path below. This
+adds no enemy state/timer and does not reorder any existing event.
+
 Enemy death needs a different seam. Today `Enemy.takeDamage()` destroys the
 enemy and its view synchronously before `WeaponSystem` emits `enemy:killed`, so
 delaying that destroy to show art would change active counts, overlap, reward,
@@ -366,6 +372,7 @@ export interface ArenaVisualDefinition {
     readonly straightArtId: string;
     readonly cornerArtId: string;
     readonly patchArtId: string;
+    readonly gateArtId: string;
   };
   readonly decorations: readonly ArenaDecorationDefinition[];
   readonly obstacleSkins: readonly ArenaObstacleSkinDefinition[];
@@ -388,9 +395,10 @@ landmark as a floor tile or a stain as a collider skin.
 
 The floor is filled on the fixed 32px grid. Variant selection uses only tile
 coordinates and the ordered `floorArtIds` array; it does not consume an RNG.
-The boundary uses corner art at corners, straight art along each edge, and a
-fixed coordinate rule for sparse patch frames. Rotation is restricted to
-quarter turns, so the inner wall edge stays visually honest.
+The boundary uses corner art at corners, straight art along each edge, a fixed
+coordinate rule for sparse patch frames, and gate art only at validated spawn
+lanes. Rotation is restricted to quarter turns, so the inner wall edge stays
+visually honest.
 
 ### D10 — Junkyard Lot becomes a camera-traversable authored world
 
@@ -399,15 +407,67 @@ canonical canvas widths and 1.6 canonical heights. This is large enough to
 establish travel and landmarks but small enough for a focused first arena.
 
 Keep the player start at the center and reserve a collider-free 192x256 start
-plaza. Increase the edge spawn-region margin to 48px so 13px-radius enemies do
-not overlap the inward face of 32px boundary art. Use two collidable landmarks
-outside that plaza and outside edge spawn lanes. All other authored props are
-non-colliding.
+plaza. Use two collidable landmarks outside that plaza and outside spawn lanes.
+All other authored props are non-colliding.
 
-Existing world-bound, camera-follow, spawn-region, weapon-reward clamp, HUD,
-pause, and FIT behavior already read `arena.size`; tests must prove those seams
-continue to do so. Do not add camera zoom, minimap, procedural world generation,
-or a second arena.
+The existing `edges` region deliberately returns coordinates outside
+`arena.size`; it cannot coexist with a continuous solid-looking wall because
+enemies do not collide with world bounds. Junkyard Lot therefore replaces its
+`edges` row with a pure, data-driven inside-edge lane region:
+
+```ts
+export interface EdgeSpawnLane {
+  readonly side: 'top' | 'right' | 'bottom' | 'left';
+  readonly offset: number;
+  readonly width: number;
+}
+
+export interface EdgeLanesSpawnRegion {
+  readonly kind: 'edge-lanes';
+  readonly inset: number;
+  readonly lanes: readonly EdgeSpawnLane[];
+}
+```
+
+Append `EdgeLanesSpawnRegion` to the existing `SpawnRegion` union; the `ring`,
+`rect`, and `edges` variants remain valid and behavior-identical.
+
+Junkyard Lot defines exactly four non-overlapping 96px lanes with `inset: 20`:
+
+| Side | Offset | Width |
+| --- | ---: | ---: |
+| top | 160 | 96 |
+| right | 896 | 96 |
+| bottom | 512 | 96 |
+| left | 320 | 96 |
+
+Offsets and widths align to the 32px boundary grid. `spawnPoint()` selects a
+lane with the run spawn RNG, samples its center coordinate from
+`[offset + ENEMY_BODY_RADIUS, offset + width - ENEMY_BODY_RADIUS]`, and places
+the enemy center at the inset coordinate inside the arena (`y=inset`,
+`x=width-inset`, `y=height-inset`, or `x=inset`). A 13px body is therefore fully
+inside both the arena and the visual gate from its first frame. Sampling stays
+Phaser-free and the spawn director remains unchanged.
+
+`ArenaWorldView` omits straight wall tiles across those lane intervals and
+draws `gateArtId` as a one-way junk chute/turnstile. The player still collides
+with the authoritative world bounds; enemies emerge on the playable side of
+the chute and never pass through wall art. Validation requires one lane per
+side, 32px-aligned offsets/widths, `inset >= ENEMY_BODY_RADIUS`, widths at least
+two body diameters, in-range non-overlapping intervals, no intersection between
+the sampled center strip and body-radius-expanded obstacles, and an exact
+visual gate for every lane.
+
+Validation must not import `src/entities/Enemy.ts` merely to read its Phaser-
+coupled constant. Hoist the unchanged player/enemy radii (`14`/`13`) into a
+Phaser-free `src/engine/bodyDimensions.ts`; entities and pure validation import
+that one authority, with compatibility re-exports if existing callers require
+them. This is an ownership move only and may not change either body.
+
+Existing world-bound, camera-follow, weapon-reward clamp, HUD, pause, and FIT
+behavior already read `arena.size`; tests must prove those seams continue to do
+so. The new region is the only spawn-geometry extension. Do not add camera zoom,
+minimap, procedural world generation, or a second arena.
 
 Replace `GameScene.buildFloorDressing()` with the authored `ArenaWorldView`.
 Decoration placement comes only from validated arena data. It consumes no run
@@ -476,7 +536,7 @@ The exact IDs are frozen so UI, data, builders, and runtime cannot drift.
 ### Junkyard Lot
 
 - `world:junkyard-floor:{base|patch-a|patch-b}`
-- `world:junkyard-boundary:{straight|corner|patch}`
+- `world:junkyard-boundary:{straight|corner|patch|gate}`
 - `world:prop:{tyre-pile|crate|engine-block|scrap-heap|oil-stain|warning-sign}`
 - `world:landmark:{hanging-press|barrel-power-stack}`
 
@@ -490,6 +550,8 @@ through `DataVisualArtRegistry`.
 | `src/data/visual-art.json` | one visual load/display/clip manifest |
 | `src/data/weapons.json` | explicit icon/held/projectile references |
 | `src/data/arenas.json` | larger bounds, authored render data, collision data |
+| `src/engine/bodyDimensions.ts` | shared Phaser-free player/enemy radius constants; values unchanged |
+| `src/gameplay/spawnRegion.ts` | pure inside-edge lane sampling; existing director unchanged |
 | `src/systems/types.ts` | visual, weapon-art, and arena-visual contracts |
 | `src/systems/validation.ts` | shape, reference, completeness, and bounds validation |
 | `src/systems/visualArt.ts` | immutable registry and animation creation |
@@ -550,8 +612,9 @@ teardown, active/allocated metrics, and dense-combat phone readability.
 Build floor/boundary/prop/landmark sources, extend arena validation/data, enlarge
 the arena, and replace geometric/random dressing with `ArenaWorldView`.
 
-Gate: bounds/spawn/clamp tests, decorations have no bodies, obstacle skins match
-existing bodies, camera travel, retry teardown, and portrait/desktop screenshots.
+Gate: bounds/inside-edge-lane/clamp tests, all four lanes align to visual gates,
+decorations have no bodies, obstacle skins match existing bodies, camera travel,
+retry teardown, and portrait/desktop screenshots.
 
 ### Slice 5 — Actor state adoption and Golden Run closeout
 
@@ -560,10 +623,11 @@ physics-free enemy defeat presenter without delaying entity destruction,
 audit/revise existing actors only where evidence fails, then update status and
 delivery records.
 
-Gate: hurt/defeat/reset and kill-order tests, proof that enemy destruction and
-`enemy:killed` ordering are unchanged, hitbox snapshots unchanged, full and
-shuffled suites, lint, build, art validation, browser playtest matrix, and an
-independent review against this document.
+Gate: nonlethal enemy/player hurt, lethal defeat/reset, and kill-order tests;
+proof that enemy destruction and existing damage/kill event ordering are
+unchanged; hitbox snapshots unchanged; full and shuffled suites, lint, build,
+art validation, browser playtest matrix, and an independent review against this
+document.
 
 Do not start the next slice while the previous gate is red. Do not squash away
 the slice boundaries before review.
@@ -601,6 +665,8 @@ the slice boundaries before review.
 - rack state/selection/preview/merge behavior and 44px targets are unchanged;
 - decorations create zero physics bodies and consume zero RNG;
 - obstacle skins resolve one-to-one with authoritative collision rectangles;
+- `edge-lanes` samples deterministic, fully in-bounds body centers only through
+  validated visual gates; existing `edges` semantics remain unchanged;
 - camera, spawn, world bounds, and reward clamps use the enlarged arena size;
 - Retry/Menu/shutdown leave no old view nodes, animations, listeners, or bodies.
 
@@ -651,12 +717,15 @@ Reviewers should actively reject:
 - animation completion changing gameplay health/death/pool timing;
 - retaining a dead enemy gameplay entity merely to finish its defeat clip;
 - an uncapped defeat-sprite pool or cap handling that affects kill/reward flow;
+- omitting the nonlethal enemy-hurt call or turning hurt into gameplay state;
 - art dimensions, origins, or overhang resizing/offsetting physics bodies;
 - decorative props with physics bodies or invisible colliders;
 - random world dressing, especially `Math.random()` or a run RNG stream;
 - tier differentiation that works only through color, labels, or fine detail;
 - world enlargement without revalidating spawn, reward clamp, camera, and
   center-start semantics;
+- outside-edge spawns crossing solid boundary art, or visual gates not backed
+  by validated inside-edge lanes;
 - generated concept pixels shipped as runtime assets; and
 - closing Issue #75 before the complete Golden Run experience matrix passes.
 

@@ -118,8 +118,10 @@ The production arena is a navigable lot, not a uniform carpet of detail.
   near boundaries and landmarks. Do not place decoration so it looks solid
   across an open movement lane.
 - Oil stains and tiny debris are ground decals. They must never imply a hazard.
-- The boundary is continuous and visibly impassable. Corner and patch variants
-  may break repetition but must preserve a consistent inner edge.
+- The boundary is continuous and visibly impassable except at four authored
+  one-way monster chutes aligned to validated inside-edge spawn lanes. Corner
+  and patch variants may break repetition but must preserve a consistent inner
+  edge; enemies never phase through a wall tile.
 - Keep enemy silhouettes clear: background values stay darker and less
   saturated than actors, pickups and projectiles.
 
