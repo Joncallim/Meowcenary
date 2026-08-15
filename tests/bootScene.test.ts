@@ -122,12 +122,19 @@ describe('BootScene loading and startup wiring', () => {
     ]);
     expect(loadAudio).toHaveBeenCalledTimes(expected.length);
     expect(loadAudio.mock.calls).toEqual(expected);
-    expect(loadImage).not.toHaveBeenCalled();
-    expect(loadSpritesheet.mock.calls).toEqual(visualArtJson.bindings.map((binding) => [
-      binding.textureKey,
-      binding.url,
-      { frameWidth: binding.load.frame.width, frameHeight: binding.load.frame.height },
-    ]));
+    expect(loadImage.mock.calls).toEqual(visualArtJson.bindings
+      .filter((binding) => binding.load.type === 'image')
+      .map((binding) => [binding.textureKey, binding.url]));
+    expect(loadSpritesheet.mock.calls).toEqual(visualArtJson.bindings
+      .filter((binding) => binding.load.type === 'spritesheet')
+      .map((binding) => [
+        binding.textureKey,
+        binding.url,
+        {
+          frameWidth: (binding.load as { frame: { width: number; height: number } }).frame.width,
+          frameHeight: (binding.load as { frame: { width: number; height: number } }).frame.height,
+        },
+      ]));
     expect(loadEvents.on).toHaveBeenCalledWith('loaderror', expect.any(Function));
     expect(loadEvents.on.mock.invocationCallOrder[0]).toBeLessThan(loadAudio.mock.invocationCallOrder[0]!);
   });
@@ -158,7 +165,9 @@ describe('BootScene loading and startup wiring', () => {
       const { boot, loadImage, loadSpritesheet, loadEvents } = createBoot();
       boot.preload();
       expect(loadImage).toHaveBeenCalledWith(binding.textureKey, binding.url);
-      expect(loadSpritesheet).toHaveBeenCalledTimes(visualArtJson.bindings.length - 1);
+      expect(loadSpritesheet).toHaveBeenCalledTimes(
+        visualArtJson.bindings.filter((row) => row.load.type === 'spritesheet').length,
+      );
       loadEvents.emit('complete');
       expect(loadEvents.off).toHaveBeenCalledWith('loaderror', expect.any(Function));
     } finally {

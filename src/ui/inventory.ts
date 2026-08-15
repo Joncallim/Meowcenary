@@ -311,7 +311,7 @@ function weaponSummary(
     definitionId: instance.defId,
     name: definition?.name ?? instance.defId,
     family: instance.family,
-    iconId: `weapon:${instance.family}`,
+    iconId: definition?.art.iconId ?? `weapon:${instance.family}`,
     rarity: definition?.rarity ?? 'common',
     tier: instance.tier,
     stats: Object.freeze(definition ? statViews(definition) : []),

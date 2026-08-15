@@ -60,7 +60,7 @@ describe('actor views', () => {
     expect([shadow.x, shadow.y]).toEqual([11, 34]);
   });
 
-  it('starts the declared static prop clip and falls back when the texture is absent', async () => {
+  it('builds inactive static art without advancing pooled animation and falls back when absent', async () => {
     const { createStaticArtSprite } = await import('../src/entities/actorView');
     const sprite = new Node();
     const binding = {
@@ -76,7 +76,7 @@ describe('actor views', () => {
       add: { sprite: () => sprite },
     };
     expect(createStaticArtSprite(scene as never, binding, 3)).toBe(sprite);
-    expect(sprite.plays).toEqual(['art:drop:xp:idle']);
+    expect(sprite.plays).toEqual([]);
     expect(createStaticArtSprite(scene as never, { ...binding, textureKey: 'missing' }, 3)).toBeUndefined();
   });
 });

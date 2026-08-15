@@ -120,10 +120,5 @@ export function createStaticArtSprite(
   sprite
     .setActive(false)
     .setVisible(false);
-  const clipName = binding.kind === 'projectile' ? 'fly' : 'idle';
-  if (binding.clips?.[clipName]) {
-    const animation = visualAnimationKey(binding.id, clipName);
-    if (scene.anims.exists(animation)) sprite.play(animation);
-  }
   return sprite;
 }

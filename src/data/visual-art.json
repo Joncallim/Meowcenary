@@ -88,6 +88,114 @@
       "clips": {
         "idle": { "start": 0, "end": 3, "frameRate": 8, "repeat": -1 }
       }
+    },
+    {
+      "id": "weapon-icon:pistol:t1", "kind": "weapon-icon", "textureKey": "art-weapon-icon-pistol-t1",
+      "url": "assets/weapon-icons/weapon-icon-pistol-t1/weapon-icon-pistol-t1.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 20 }
+    },
+    {
+      "id": "weapon-icon:pistol:t2", "kind": "weapon-icon", "textureKey": "art-weapon-icon-pistol-t2",
+      "url": "assets/weapon-icons/weapon-icon-pistol-t2/weapon-icon-pistol-t2.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 20 }
+    },
+    {
+      "id": "weapon-icon:pistol:t3", "kind": "weapon-icon", "textureKey": "art-weapon-icon-pistol-t3",
+      "url": "assets/weapon-icons/weapon-icon-pistol-t3/weapon-icon-pistol-t3.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 20 }
+    },
+    {
+      "id": "weapon-icon:smg:t1", "kind": "weapon-icon", "textureKey": "art-weapon-icon-smg-t1",
+      "url": "assets/weapon-icons/weapon-icon-smg-t1/weapon-icon-smg-t1.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 20 }
+    },
+    {
+      "id": "weapon-icon:smg:t2", "kind": "weapon-icon", "textureKey": "art-weapon-icon-smg-t2",
+      "url": "assets/weapon-icons/weapon-icon-smg-t2/weapon-icon-smg-t2.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 20 }
+    },
+    {
+      "id": "weapon-icon:smg:t3", "kind": "weapon-icon", "textureKey": "art-weapon-icon-smg-t3",
+      "url": "assets/weapon-icons/weapon-icon-smg-t3/weapon-icon-smg-t3.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 20 }
+    },
+    {
+      "id": "weapon-icon:shotgun:t1", "kind": "weapon-icon", "textureKey": "art-weapon-icon-shotgun-t1",
+      "url": "assets/weapon-icons/weapon-icon-shotgun-t1/weapon-icon-shotgun-t1.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 20 }
+    },
+    {
+      "id": "weapon-icon:shotgun:t2", "kind": "weapon-icon", "textureKey": "art-weapon-icon-shotgun-t2",
+      "url": "assets/weapon-icons/weapon-icon-shotgun-t2/weapon-icon-shotgun-t2.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 20 }
+    },
+    {
+      "id": "weapon-icon:shotgun:t3", "kind": "weapon-icon", "textureKey": "art-weapon-icon-shotgun-t3",
+      "url": "assets/weapon-icons/weapon-icon-shotgun-t3/weapon-icon-shotgun-t3.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 32, "height": 20 }
+    },
+    {
+      "id": "weapon-held:pistol:t1", "kind": "weapon-held", "textureKey": "art-weapon-held-pistol-t1",
+      "url": "assets/held-weapons/weapon-held-pistol-t1/weapon-held-pistol-t1.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 28, "height": 18 }
+    },
+    {
+      "id": "weapon-held:pistol:t2", "kind": "weapon-held", "textureKey": "art-weapon-held-pistol-t2",
+      "url": "assets/held-weapons/weapon-held-pistol-t2/weapon-held-pistol-t2.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 28, "height": 18 }
+    },
+    {
+      "id": "weapon-held:pistol:t3", "kind": "weapon-held", "textureKey": "art-weapon-held-pistol-t3",
+      "url": "assets/held-weapons/weapon-held-pistol-t3/weapon-held-pistol-t3.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 28, "height": 18 }
+    },
+    {
+      "id": "weapon-held:smg:t1", "kind": "weapon-held", "textureKey": "art-weapon-held-smg-t1",
+      "url": "assets/held-weapons/weapon-held-smg-t1/weapon-held-smg-t1.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 28, "height": 18 }
+    },
+    {
+      "id": "weapon-held:smg:t2", "kind": "weapon-held", "textureKey": "art-weapon-held-smg-t2",
+      "url": "assets/held-weapons/weapon-held-smg-t2/weapon-held-smg-t2.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 28, "height": 18 }
+    },
+    {
+      "id": "weapon-held:smg:t3", "kind": "weapon-held", "textureKey": "art-weapon-held-smg-t3",
+      "url": "assets/held-weapons/weapon-held-smg-t3/weapon-held-smg-t3.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 28, "height": 18 }
+    },
+    {
+      "id": "weapon-held:shotgun:t1", "kind": "weapon-held", "textureKey": "art-weapon-held-shotgun-t1",
+      "url": "assets/held-weapons/weapon-held-shotgun-t1/weapon-held-shotgun-t1.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 28, "height": 18 }
+    },
+    {
+      "id": "weapon-held:shotgun:t2", "kind": "weapon-held", "textureKey": "art-weapon-held-shotgun-t2",
+      "url": "assets/held-weapons/weapon-held-shotgun-t2/weapon-held-shotgun-t2.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 28, "height": 18 }
+    },
+    {
+      "id": "weapon-held:shotgun:t3", "kind": "weapon-held", "textureKey": "art-weapon-held-shotgun-t3",
+      "url": "assets/held-weapons/weapon-held-shotgun-t3/weapon-held-shotgun-t3.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 28, "height": 18 }
+    },
+    {
+      "id": "projectile:pistol", "kind": "projectile", "textureKey": "art-projectile-pistol",
+      "url": "assets/projectiles/projectile-pistol/projectile-pistol.png", "required": true,
+      "load": { "type": "spritesheet", "frame": { "width": 16, "height": 16 } },
+      "display": { "width": 8, "height": 8 }, "clips": { "fly": { "start": 0, "end": 1, "frameRate": 12, "repeat": -1 } }
+    },
+    {
+      "id": "projectile:smg", "kind": "projectile", "textureKey": "art-projectile-smg",
+      "url": "assets/projectiles/projectile-smg/projectile-smg.png", "required": true,
+      "load": { "type": "spritesheet", "frame": { "width": 16, "height": 16 } },
+      "display": { "width": 7, "height": 7 }, "clips": { "fly": { "start": 0, "end": 1, "frameRate": 16, "repeat": -1 } }
+    },
+    {
+      "id": "projectile:shotgun", "kind": "projectile", "textureKey": "art-projectile-shotgun",
+      "url": "assets/projectiles/projectile-shotgun/projectile-shotgun.png", "required": true,
+      "load": { "type": "spritesheet", "frame": { "width": 16, "height": 16 } },
+      "display": { "width": 9, "height": 9 }, "clips": { "fly": { "start": 0, "end": 1, "frameRate": 10, "repeat": -1 } }
     }
   ]
 }

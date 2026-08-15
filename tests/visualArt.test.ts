@@ -2,12 +2,12 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { visualAnimationKey, DataVisualArtRegistry, ensureVisualAnimations } from '../src/systems/visualArt';
-import { loadGameData, validateVisualArtCatalog } from '../src/systems/validation';
+import { assertWeaponArtReferences, loadGameData, validateVisualArtCatalog } from '../src/systems/validation';
 
 describe('visual art', () => {
   it('loads immutable required bindings whose shipped PNGs exist', () => {
     const registry = new DataVisualArtRegistry(loadGameData());
-    expect(registry.all()).toHaveLength(7);
+    expect(registry.all()).toHaveLength(loadGameData().visualArt.bindings.length);
     const tabby = registry.bindingById('character:scrap-tabby');
     expect(tabby?.display).toEqual({ width: 28, height: 28 });
     expect(tabby?.load).toEqual({
@@ -87,9 +87,26 @@ describe('visual art', () => {
     };
     ensureVisualAnimations(scene as never, registry);
     ensureVisualAnimations(scene as never, registry);
-    expect(create).toHaveBeenCalledTimes(10);
+    const expectedAnimationCount = registry.all()
+      .filter((binding) => binding.load.type === 'spritesheet' && !binding.textureKey.includes('bolt-hound'))
+      .reduce((count, binding) => count + Object.keys(binding.clips ?? {}).length, 0);
+    expect(create).toHaveBeenCalledTimes(expectedAnimationCount);
     expect(create.mock.calls.every(([config]) => config.repeat === -1)).toBe(true);
     expect(keys.has(visualAnimationKey('character:scrap-tabby', 'run'))).toBe(true);
     expect([...keys].some((key) => key.includes('bolt-hound'))).toBe(false);
+  });
+
+  it('rejects missing, wrong-kind, duplicate, and cross-tier weapon art drift', () => {
+    const data = loadGameData();
+    const weapons = structuredClone(data.weapons) as any[];
+    weapons[0].art.iconId = 'missing:icon';
+    weapons[1].art.heldId = 'drop:xp';
+    weapons[2].art.iconId = weapons[1].art.iconId;
+    weapons[4].art.projectileId = 'projectile:pistol';
+
+    expect(() => assertWeaponArtReferences(weapons, data.visualArt)).toThrow(/unknown visual-art id/);
+    expect(() => assertWeaponArtReferences(weapons, data.visualArt)).toThrow(/expected weapon-held binding/);
+    expect(() => assertWeaponArtReferences(weapons, data.visualArt)).toThrow(/duplicate first seen/);
+    expect(() => assertWeaponArtReferences(weapons, data.visualArt)).toThrow(/family "smg" must share/);
   });
 });

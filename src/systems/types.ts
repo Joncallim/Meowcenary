@@ -30,6 +30,11 @@ export interface WeaponDefinition {
   pierce: number;
   projectileCount: number;
   spreadDeg: number;
+  art: {
+    readonly iconId: string;
+    readonly heldId: string;
+    readonly projectileId: string;
+  };
 }
 
 export type EnemyArchetype = 'chaser' | 'charger' | 'ranged' | 'tank' | 'elite' | 'boss';

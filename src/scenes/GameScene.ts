@@ -54,6 +54,7 @@ import { createPerfSampler, type PerfSampler } from '../gameplay/perf';
 import { PlaytestSummarySystem } from '../systems/playtestSummary';
 import { FeedbackSystem, PhaserFeedbackRenderer } from '../systems/feedback';
 import { DataVisualArtRegistry } from '../systems/visualArt';
+import { HeldWeaponView } from '../entities/heldWeaponView';
 
 export class GameScene extends Phaser.Scene {
   private debugOverlay?: DebugOverlay;
@@ -222,6 +223,7 @@ export class GameScene extends Phaser.Scene {
       bus: ctx.bus,
       controller: this.pauseController,
       inventory: this.inventoryController,
+      visualArt,
     });
 
     this.arenaScenery = buildArenaScenery(this, arena);
@@ -302,7 +304,8 @@ export class GameScene extends Phaser.Scene {
       this.enemyGroup,
       weaponRegistry,
       RuntimeConfig.gameplay.projectile.radius,
-      visualArt.bindingById('projectile:default'),
+      visualArt,
+      new HeldWeaponView(this),
     );
     this.feedbackSystem = new FeedbackSystem({
       bus: ctx.bus,

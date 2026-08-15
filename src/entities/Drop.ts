@@ -4,6 +4,7 @@ import { distanceSq, towards } from '../engine/vector';
 import type { LootGrant } from '../gameplay/loot';
 import type { VisualArtBinding } from '../systems/types';
 import { createStaticArtSprite } from './actorView';
+import { visualAnimationKey } from '../systems/visualArt';
 
 export type DropKind = LootGrant['kind'];
 
@@ -32,7 +33,7 @@ export class Drop {
   constructor(
     scene: Phaser.Scene,
     private readonly radius: number,
-    art?: Readonly<VisualArtBinding>,
+    private readonly art?: Readonly<VisualArtBinding>,
   ) {
     this.sprite = scene.add.circle(0, 0, radius, DROP_COLORS.xp).setDepth(2).setActive(false).setVisible(false);
     // Display-only white highlight, constructed once per pooled drop and
@@ -88,7 +89,10 @@ export class Drop {
     const useArt = kind === 'xp' && this.artSprite !== undefined;
     this.sprite.setPosition(x, y).setFillStyle(DROP_COLORS[kind]).setActive(true).setVisible(!useArt);
     this.glint.setPosition(x - GLINT_OFFSET_X, y - GLINT_OFFSET_Y).setActive(true).setVisible(!useArt);
-    this.artSprite?.setPosition(x, y).setActive(useArt).setVisible(useArt);
+    this.artSprite?.stop().setFrame(0).setPosition(x, y).setActive(useArt).setVisible(useArt);
+    if (useArt && this.art?.clips?.idle) {
+      this.artSprite?.play(visualAnimationKey(this.art.id, 'idle'));
+    }
     this.body.enable = true;
     this.body.setCircle(this.radius);
     this.body.setVelocity(0, 0);
@@ -150,7 +154,7 @@ export class Drop {
     }
     this.sprite.setActive(false).setVisible(false);
     this.glint.setActive(false).setVisible(false);
-    this.artSprite?.setActive(false).setVisible(false);
+    this.artSprite?.stop().setFrame(0).setActive(false).setVisible(false);
   }
 
   destroy(): void {

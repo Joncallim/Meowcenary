@@ -52,8 +52,9 @@ const UPGRADE_OPS = new Set(['add', 'mult']);
 
 const WEAPON_FIELDS = new Set([
   'id', 'name', 'family', 'rarity', 'fireRateMs', 'damage', 'projectileSpeed', 'range',
-  'mergeTier', 'maxTier', 'pierce', 'projectileCount', 'spreadDeg',
+  'mergeTier', 'maxTier', 'pierce', 'projectileCount', 'spreadDeg', 'art',
 ]);
+const WEAPON_ART_FIELDS = new Set(['iconId', 'heldId', 'projectileId']);
 const UPGRADE_FIELDS = new Set([
   'id', 'name', 'rarity', 'target', 'description', 'maxStacks', 'effects',
 ]);
@@ -398,6 +399,7 @@ export function validateGameData(raw: unknown): GameData {
   assertEnemyLootTableReferences(enemies, lootTables);
   assertLootWeaponReferences(lootTables, weapons);
   assertAudioMapReferences(audioMap, audioAssets);
+  assertWeaponArtReferences(weapons, visualArt);
 
   const audio: AudioData = { assets: audioAssets, map: audioMap };
   return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, audio, visualArt };
@@ -550,6 +552,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
   const lootTables = catalogs.lootTables as LootTable[];
   const audioAssets = catalogs['audio-assets'] as AudioAssetCatalog;
   const audioMap = catalogs['audio-map'] as AudioMapEntry[];
+  const visualArt = catalogs.visualArt as VisualArtCatalog;
 
   const crossReferenceIssues: ValidationIssue[] = [];
   const assertions: ReadonlyArray<() => void> = [
@@ -559,6 +562,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertEnemyLootTableReferences(enemies, lootTables),
     () => assertLootWeaponReferences(lootTables, weapons),
     () => assertAudioMapReferences(audioMap, audioAssets),
+    () => assertWeaponArtReferences(weapons, visualArt),
   ];
   for (const assertion of assertions) {
     try {
@@ -1234,6 +1238,17 @@ function checkWeapon(row: unknown): string[] {
   requireNonNegativeInteger(row, 'pierce', errors);
   requirePositiveInteger(row, 'projectileCount', errors);
   requireNonNegativeNumber(row, 'spreadDeg', errors);
+  const art = readOwnField(row, 'art');
+  if (!isRecord(art)) {
+    errors.push('art: required object');
+  } else {
+    const artErrors: string[] = [];
+    rejectUnknownFields(art, WEAPON_ART_FIELDS, artErrors);
+    requireString(art, 'iconId', artErrors);
+    requireString(art, 'heldId', artErrors);
+    requireString(art, 'projectileId', artErrors);
+    errors.push(...artErrors.map((error) => `art.${error}`));
+  }
   return errors;
 }
 
@@ -2003,6 +2018,56 @@ export function assertAudioMapReferences(
   map.forEach((entry, index) => {
     if (entry.sfxKey !== undefined && !sfxKeys.has(entry.sfxKey)) {
       errors.push(`audio-map.json[${index}].sfxKey: unknown sfx key "${entry.sfxKey}"`);
+    }
+  });
+  throwIfErrors(errors);
+}
+
+/** Every weapon definition owns its UI and held silhouette, while all tiers
+ * in a family deliberately share one projectile presentation. */
+export function assertWeaponArtReferences(
+  weapons: readonly WeaponDefinition[],
+  catalog: VisualArtCatalog,
+): void {
+  const byId = new Map(catalog.bindings.map((binding) => [binding.id, binding]));
+  const firstIcon = new Map<string, number>();
+  const firstHeld = new Map<string, number>();
+  const familyProjectile = new Map<string, string>();
+  const errors: string[] = [];
+  const roles = [
+    ['iconId', 'weapon-icon'],
+    ['heldId', 'weapon-held'],
+    ['projectileId', 'projectile'],
+  ] as const;
+
+  weapons.forEach((weapon, index) => {
+    for (const [field, expectedKind] of roles) {
+      const artId = weapon.art[field];
+      const binding = byId.get(artId);
+      if (!binding) {
+        errors.push(`weapons.json[${index}].art.${field}: unknown visual-art id "${artId}"`);
+      } else if (binding.kind !== expectedKind) {
+        errors.push(`weapons.json[${index}].art.${field}: expected ${expectedKind} binding, got ${binding.kind}`);
+      } else if (!binding.required) {
+        errors.push(`weapons.json[${index}].art.${field}: weapon art must be required`);
+      }
+    }
+
+    for (const [field, seen] of [['iconId', firstIcon], ['heldId', firstHeld]] as const) {
+      const artId = weapon.art[field];
+      const first = seen.get(artId);
+      if (first !== undefined) {
+        errors.push(`weapons.json[${index}].art.${field}: duplicate first seen at index ${first}`);
+      } else {
+        seen.set(artId, index);
+      }
+    }
+
+    const expectedProjectile = familyProjectile.get(weapon.family);
+    if (expectedProjectile !== undefined && expectedProjectile !== weapon.art.projectileId) {
+      errors.push(`weapons.json[${index}].art.projectileId: family "${weapon.family}" must share "${expectedProjectile}"`);
+    } else {
+      familyProjectile.set(weapon.family, weapon.art.projectileId);
     }
   });
   throwIfErrors(errors);

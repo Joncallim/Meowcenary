@@ -175,6 +175,33 @@ local contracts = {
   },
 }
 
+local weaponFamilies = { "pistol", "smg", "shotgun" }
+for _, family in ipairs(weaponFamilies) do
+  for tier = 1, 3 do
+    for _, presentation in ipairs({
+      { kind = "icon", directory = "weapon-icons", width = 32, height = 20 },
+      { kind = "held", directory = "held-weapons", width = 32, height = 20 },
+    }) do
+      local id = string.format("weapon-%s-%s-t%d", presentation.kind, family, tier)
+      table.insert(contracts, {
+        script = "docs/art/scripts/build-" .. id .. ".lua",
+        width = presentation.width, height = presentation.height, frames = 1,
+        layers = { "body", "notes" }, hidden = { notes = true }, populated = { "body" },
+        tags = {},
+        savedAs = string.format("assets-src/%s/%s/source/%s.pxo", presentation.directory, id, id),
+      })
+    end
+  end
+  local id = "projectile-" .. family
+  table.insert(contracts, {
+    script = "docs/art/scripts/build-" .. id .. ".lua",
+    width = 16, height = 16, frames = 2,
+    layers = { "body", "notes" }, hidden = { notes = true }, populated = { "body" },
+    tags = { fly = { 1, 2 } },
+    savedAs = string.format("assets-src/projectiles/%s/source/%s.pxo", id, id),
+  })
+end
+
 local function layerMap(sprite)
   local result = {}
   for _, layer in ipairs(sprite.layers) do result[layer.name] = layer end
@@ -402,4 +429,4 @@ for _, contract in ipairs(contracts) do
   io.write("PASS ", contract.script, "\n")
 end
 
-io.write("All Epic 13 builder contracts passed.\n")
+io.write("All visual-art builder contracts passed.\n")

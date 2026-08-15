@@ -66,6 +66,14 @@ class MockGameObject {
     return this;
   }
 
+  stop(): this {
+    return this;
+  }
+
+  setFrame(): this {
+    return this;
+  }
+
   destroy(): void {
     this.destroyed = true;
     // Mirrors real Phaser: GameObject.destroy() nulls the body and flips active/visible.
@@ -400,13 +408,14 @@ describe('Drop', () => {
       const { drop, sprite } = await createArtDrop();
       expect(sprite).toBeDefined();
       expect(sprite.visible).toBe(false);
-      expect(sprite.played).toEqual(['art:drop:xp:idle']);
+      expect(sprite.played).toEqual([]);
 
       drop.spawn(10, 20, { kind: 'xp', amount: 5 });
       expect(drop.sprite.visible).toBe(false);
       expect(sprite.active).toBe(true);
       expect(sprite.visible).toBe(true);
       expect([sprite.x, sprite.y]).toEqual([10, 20]);
+      expect(sprite.played).toEqual(['art:drop:xp:idle']);
 
       drop.spawn(11, 21, { kind: 'scrap', amount: 5 });
       expect(drop.sprite.visible).toBe(true);

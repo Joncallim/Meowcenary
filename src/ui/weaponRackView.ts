@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { EventBus } from '../engine/eventBus';
 import type { Rarity } from '../systems/types';
+import type { VisualArtLookup } from '../systems/visualArt';
 import {
   InventoryController,
   type InventorySnapshot,
@@ -21,6 +22,7 @@ export interface PhaserWeaponRackPanelOptions {
   readonly isOpen: () => boolean;
   readonly onBack: () => boolean;
   readonly requestRender: () => void;
+  readonly visualArt?: VisualArtLookup;
 }
 
 interface MergeConfirmation {
@@ -43,6 +45,7 @@ export class PhaserWeaponRackPanel {
   private readonly isOpen: () => boolean;
   private readonly onBack: () => boolean;
   private readonly requestRender: () => void;
+  private readonly visualArt?: VisualArtLookup;
   private notice?: string;
   private confirmation?: MergeConfirmation;
   private disposed = false;
@@ -56,6 +59,7 @@ export class PhaserWeaponRackPanel {
     this.isOpen = options.isOpen;
     this.onBack = options.onBack;
     this.requestRender = options.requestRender;
+    this.visualArt = options.visualArt;
     options.scene.input?.keyboard?.on('keydown', this.handleKeyDown, this);
   }
 
@@ -312,6 +316,13 @@ export class PhaserWeaponRackPanel {
     color: number,
     compact: boolean,
   ): void {
+    const binding = this.visualArt?.bindingById(iconId);
+    if (binding?.kind === 'weapon-icon' && this.scene.textures.exists(binding.textureKey)) {
+      const image = this.scene.add.image(x, y, binding.textureKey)
+        .setDisplaySize(binding.display.width, binding.display.height);
+      root.add(image);
+      return;
+    }
     const unit = physicalToLogical(compact ? 1 : 2, this.viewport);
     const addPart = (offsetX: number, offsetY: number, width: number, height: number) => {
       const part = this.scene.add.rectangle(
@@ -325,12 +336,12 @@ export class PhaserWeaponRackPanel {
       root.add(part);
     };
 
-    if (iconId.endsWith(':smg')) {
+    if (iconId.includes(':smg')) {
       addPart(0, 0, 12, 5);
       addPart(8, -1, 7, 2);
       addPart(-8, -1, 5, 3);
       addPart(1, 5, 3, 5);
-    } else if (iconId.endsWith(':shotgun')) {
+    } else if (iconId.includes(':shotgun')) {
       addPart(1, -1, 17, 3);
       addPart(11, -2, 7, 1.5);
       addPart(-9, 1, 6, 5);

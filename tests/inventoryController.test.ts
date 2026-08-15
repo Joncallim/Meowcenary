@@ -88,7 +88,7 @@ describe('InventoryController snapshot', () => {
     expect(snapshot.slots).toHaveLength(6);
     expect(snapshot.slots.slice(3)).toEqual([null, null, null]);
     expect(snapshot.mergeReady).toBe(true);
-    expect(snapshot.weapons[0].iconId).toBe('weapon:pistol');
+    expect(snapshot.weapons[0].iconId).toBe('weapon-icon:pistol:t1');
     expect(snapshot.weapons[0].stats).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: 'damage', value: 8, formatted: '8' }),
