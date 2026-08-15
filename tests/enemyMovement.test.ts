@@ -33,6 +33,12 @@ describe('enemy movement', () => {
     expect(chaseStep({ x: 0, y: 0 }, { x: 3, y: 4 }, 10, 1_000)).toEqual({ x: 3, y: 4 });
   });
 
+  it('preserves prototype-backed entity coordinates when catching the target', () => {
+    const target = Object.create({ x: 3, y: 4 }) as { x: number; y: number };
+
+    expect(chaseStep({ x: 0, y: 0 }, target, 10, 1_000)).toEqual({ x: 3, y: 4 });
+  });
+
   it('keeps chase inputs isolated and handles stopped time or speed', () => {
     const pos = { x: 2, y: 3 };
     const target = { x: 10, y: 3 };

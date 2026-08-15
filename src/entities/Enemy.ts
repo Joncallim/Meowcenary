@@ -295,7 +295,10 @@ export class Enemy implements EnemyInstance {
 
   private applyPosition(next: Vec2, dtMs: number, immediate = false): void {
     if (!Number.isFinite(next.x) || !Number.isFinite(next.y)) {
-      throw new Error('Enemy runtime position must remain finite');
+      throw new Error(
+        `Enemy runtime position must remain finite (enemy=${this.defId}, next=${next.x},${next.y}, ` +
+        `current=${this.x},${this.y}, dtMs=${dtMs}, immediate=${immediate})`,
+      );
     }
     // Charger dash → body.reset (directional lunge, designed to reach target).
     // Chaser pursuit → velocity-based (Arcade Physics collides with obstacles).

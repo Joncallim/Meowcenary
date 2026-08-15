@@ -226,7 +226,7 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
   }
 
   cancelHeavyMotion(): void {
-    this.scene.cameras.main.shakeEffect.reset();
+    this.scene.cameras?.main?.shakeEffect?.reset();
     for (const dot of [...this.liveDots]) {
       if (dot.heavy) {
         this.releaseDot(dot);
@@ -270,7 +270,10 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
   }
 
   destroy(): void {
-    this.scene.cameras.main.shakeEffect.reset();
+    // Phaser clears CameraManager.main before late scene-shutdown callbacks in
+    // some transitions. Feedback teardown still owns its display nodes even
+    // when there is no remaining shake effect to reset.
+    this.scene.cameras?.main?.shakeEffect?.reset();
     for (const dot of this.ownedDots) {
       dot.sprite.destroy();
     }

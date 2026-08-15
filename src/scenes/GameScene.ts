@@ -96,7 +96,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
-    const { width } = this.scale;
     const ctx = this.getContext();
     const request = assembleRunRequest(ctx, ctx.menuRng);
     const visualArt = new DataVisualArtRegistry(ctx.data);
@@ -408,23 +407,6 @@ export class GameScene extends Phaser.Scene {
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
-
-    this.add
-      .text(
-        width / 2,
-        28,
-        'Meowcenary',
-        {
-          align: 'center',
-          color: '#f7f1d5',
-          fontFamily: 'Inter, sans-serif',
-          fontSize: '22px',
-          fontStyle: '700',
-          wordWrap: { width: width - 48 },
-        },
-      )
-      .setOrigin(0.5)
-      .setScrollFactor(0);
 
     // Audio wiring after the display tree is constructed, immediately before
     // the run starts: fetch the shared manager, select the run loop, and arm
