@@ -196,6 +196,24 @@
       "url": "assets/projectiles/projectile-shotgun/projectile-shotgun.png", "required": true,
       "load": { "type": "spritesheet", "frame": { "width": 16, "height": 16 } },
       "display": { "width": 9, "height": 9 }, "clips": { "fly": { "start": 0, "end": 1, "frameRate": 10, "repeat": -1 } }
+    },
+    {
+      "id": "drop:scrap", "kind": "drop", "textureKey": "art-drop-scrap",
+      "url": "assets/pickups/drop-scrap/drop-scrap.png", "required": true,
+      "load": { "type": "spritesheet", "frame": { "width": 20, "height": 20 } },
+      "display": { "width": 18, "height": 18 }, "clips": { "idle": { "start": 0, "end": 3, "frameRate": 7, "repeat": -1 } }
+    },
+    {
+      "id": "drop:chest", "kind": "drop", "textureKey": "art-drop-chest",
+      "url": "assets/pickups/drop-chest/drop-chest.png", "required": true,
+      "load": { "type": "spritesheet", "frame": { "width": 20, "height": 20 } },
+      "display": { "width": 20, "height": 20 }, "clips": { "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 } }
+    },
+    {
+      "id": "drop:weapon", "kind": "drop", "textureKey": "art-drop-weapon",
+      "url": "assets/pickups/drop-weapon/drop-weapon.png", "required": true,
+      "load": { "type": "spritesheet", "frame": { "width": 20, "height": 20 } },
+      "display": { "width": 20, "height": 20 }, "clips": { "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 } }
     }
   ]
 }

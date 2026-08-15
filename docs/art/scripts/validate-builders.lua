@@ -202,6 +202,17 @@ for _, family in ipairs(weaponFamilies) do
   })
 end
 
+for _, kind in ipairs({ "scrap", "chest", "weapon" }) do
+  local id = "drop-" .. kind
+  table.insert(contracts, {
+    script = "docs/art/scripts/build-" .. id .. ".lua",
+    width = 20, height = 20, frames = 4,
+    layers = { "body", "notes" }, hidden = { notes = true }, populated = { "body" },
+    tags = { idle = { 1, 4 } },
+    savedAs = string.format("assets-src/pickups/%s/source/%s.pxo", id, id),
+  })
+end
+
 local function layerMap(sprite)
   local result = {}
   for _, layer in ipairs(sprite.layers) do result[layer.name] = layer end

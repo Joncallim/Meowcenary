@@ -243,7 +243,12 @@ export class GameScene extends Phaser.Scene {
       dropRadius: RuntimeConfig.gameplay.drop.radius,
       magnetSpeed: RuntimeConfig.gameplay.drop.magnetSpeed,
       basePickupRadius: RuntimeConfig.gameplay.player.pickupRadius,
-      xpArt: visualArt.bindingById('drop:xp'),
+      artByKind: Object.freeze({
+        xp: visualArt.bindingById('drop:xp'),
+        scrap: visualArt.bindingById('drop:scrap'),
+        chest: visualArt.bindingById('drop:chest'),
+        weapon: visualArt.bindingById('drop:weapon'),
+      }),
     });
     // Constructed after DropSystem so the injected callback can request world
     // drops through the one physical pickup boundary (Epic 14 §D6/D8).
