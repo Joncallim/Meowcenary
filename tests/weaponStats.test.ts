@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createRunState } from '../src/gameplay/runState';
 import { resolveWeaponStats } from '../src/gameplay/weaponStats';
+import { projectileDirections } from '../src/gameplay/projectilePattern';
 import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import { loadGameData } from '../src/systems/validation';
 
@@ -14,6 +15,36 @@ describe('weapon stats', () => {
     }
     return def;
   }
+
+  function weaponById(id: string) {
+    const def = registry.weaponById(id);
+    if (!def) {
+      throw new Error(`missing weapon: ${id}`);
+    }
+    return def;
+  }
+
+  it('gives SMG T3 a tight double-tap — the immediately perceptible, non-numeric tier-3 change (D2)', () => {
+    const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
+    const stats = resolveWeaponStats(runState, weaponById('can-smg-t3'));
+
+    expect(stats.projectileCount).toBe(2);
+    // Tight and forward-biased, not a shotgun-width fan (bolt-shotgun spreads 34-42deg).
+    expect(stats.spreadDeg).toBeGreaterThan(0);
+    expect(stats.spreadDeg).toBeLessThan(15);
+
+    const directions = projectileDirections({
+      origin: { x: 0, y: 0 },
+      target: { x: 100, y: 0 },
+      projectileCount: stats.projectileCount,
+      spreadDeg: stats.spreadDeg,
+    });
+    expect(directions).toHaveLength(2);
+    // Both shots stay forward-biased: neither strays far from the straight-line target.
+    for (const dir of directions) {
+      expect(dir.x).toBeGreaterThan(0.99);
+    }
+  });
 
   it('reduces interval as attackSpeed increases', () => {
     const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
