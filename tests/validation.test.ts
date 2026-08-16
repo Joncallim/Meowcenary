@@ -1480,9 +1480,9 @@ describe('game data validation', () => {
   describe('audio data validation', () => {
     it('validates the boot audio catalog and map', () => {
       const data = loadGameData();
-      expect(data.audio.assets.sfx).toHaveLength(18);
+      expect(data.audio.assets.sfx).toHaveLength(19);
       expect(data.audio.assets.music).toHaveLength(2);
-      expect(data.audio.map).toHaveLength(12);
+      expect(data.audio.map).toHaveLength(13);
       expect(data.audio.assets.music.map((m) => m.key)).toEqual(
         expect.arrayContaining(['music-menu', 'music-run']),
       );

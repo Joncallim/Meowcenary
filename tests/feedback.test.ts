@@ -13,6 +13,7 @@ function createFakeRenderer(): FeedbackRenderer & {
   enemyKilledCalls: Array<{ x: number; y: number; heavyMotion: boolean }>;
   playerDamagedCalls: boolean[];
   levelUpCalls: boolean[];
+  weaponMergedCalls: Array<{ toTier: number; heavyMotion: boolean }>;
   cancelHeavyMotionCalls: number;
   updateCalls: number[];
   destroyed: boolean;
@@ -23,6 +24,7 @@ function createFakeRenderer(): FeedbackRenderer & {
     enemyKilledCalls: [],
     playerDamagedCalls: [],
     levelUpCalls: [],
+    weaponMergedCalls: [],
     cancelHeavyMotionCalls: 0,
     updateCalls: [],
     destroyed: false,
@@ -43,6 +45,9 @@ function createFakeRenderer(): FeedbackRenderer & {
     },
     levelUp(heavyMotion: boolean) {
       this.levelUpCalls.push(heavyMotion);
+    },
+    weaponMerged(toTier: number, heavyMotion: boolean) {
+      this.weaponMergedCalls.push({ toTier, heavyMotion });
     },
     cancelHeavyMotion() {
       this.cancelHeavyMotionCalls += 1;
@@ -120,6 +125,13 @@ describe('FeedbackSystem', () => {
     expect(renderer.levelUpCalls).toEqual([true]);
   });
 
+  it('routes weapon:merged to the renderer with the result tier', () => {
+    const { bus, renderer } = createSystem();
+    bus.emit('weapon:merged', { fromId: 'def-a', toId: 'def-b', toTier: 3 });
+
+    expect(renderer.weaponMergedCalls).toEqual([{ toTier: 3, heavyMotion: true }]);
+  });
+
   it('passes heavyMotion=true when reduced motion is off', () => {
     const { bus, renderer } = createSystem(false);
     bus.emit('projectile:hit', { weaponId: 'w', family: 'pistol', tier: 1, x: 0, y: 0, damage: 1, killed: false });
@@ -140,6 +152,13 @@ describe('FeedbackSystem', () => {
     expect(renderer.enemyKilledCalls[0].heavyMotion).toBe(false);
     expect(renderer.playerDamagedCalls[0]).toBe(false);
     expect(renderer.levelUpCalls[0]).toBe(false);
+  });
+
+  it('passes heavyMotion=false for weapon:merged when reduced motion is on', () => {
+    const { bus, renderer } = createSystem(true);
+    bus.emit('weapon:merged', { fromId: 'def-a', toId: 'def-b', toTier: 2 });
+
+    expect(renderer.weaponMergedCalls).toEqual([{ toTier: 2, heavyMotion: false }]);
   });
 
   it('updates reduced motion live from settings:changed and cancels heavy motion when enabling it', () => {
@@ -250,7 +269,7 @@ describe('PhaserFeedbackRenderer lifecycle', () => {
     Reflect.deleteProperty(scene.cameras, 'main');
 
     expect(() => renderer.destroy()).not.toThrow();
-    expect(nodes).toHaveLength(2);
+    expect(nodes).toHaveLength(3);
     expect(nodes.every((node) => node.destroyed)).toBe(true);
   });
 });
@@ -332,5 +351,79 @@ describe('PhaserFeedbackRenderer weapon-feel presentation', () => {
     // hit color/radius, so a projectile:hit for content missing a weapon-feel
     // entry never silently disappears from combat feedback.
     expect(active[1].fillColor).toBe(0xf7f1d5);
+  });
+});
+
+describe('PhaserFeedbackRenderer weapon-merged presentation', () => {
+  class FakeRect {
+    strokeAlpha?: number;
+    setDepth(): this { return this; }
+    setAlpha(): this { return this; }
+    setScrollFactor(): this { return this; }
+    setStrokeStyle(_width: number, _color: number, alpha: number): this {
+      this.strokeAlpha = alpha;
+      return this;
+    }
+    destroy(): void {}
+  }
+
+  function makeScene(): { scene: unknown; rects: FakeRect[] } {
+    const rects: FakeRect[] = [];
+    const scene = {
+      scale: { width: 390, height: 844 },
+      add: {
+        circle: () => ({
+          setDepth() { return this; }, setActive() { return this; }, setVisible() { return this; },
+          setAlpha() { return this; }, setPosition() { return this; }, setFillStyle() { return this; },
+          setRadius() { return this; }, destroy() {},
+        }),
+        rectangle: () => {
+          const rect = new FakeRect();
+          rects.push(rect);
+          return rect;
+        },
+      },
+      cameras: { main: { shakeEffect: { reset: vi.fn() } } },
+    };
+    return { scene, rects };
+  }
+
+  // rects[0] = damageRect, rects[1] = levelRect, rects[2] = mergeRect (construction order).
+  it('scales the merge pulse alpha up with tier', () => {
+    const { scene, rects } = makeScene();
+    const renderer = new PhaserFeedbackRenderer({ scene: scene as never, maxEffects: 8, maxHeavyEffects: 4 });
+    const mergeRect = rects[2];
+
+    renderer.weaponMerged(2, false);
+    const tier2Alpha = mergeRect.strokeAlpha;
+
+    renderer.weaponMerged(3, false);
+    const tier3Alpha = mergeRect.strokeAlpha;
+
+    expect(tier2Alpha).toBeGreaterThan(0);
+    expect(tier3Alpha).toBeGreaterThan(tier2Alpha!);
+  });
+
+  it('clamps an out-of-range tier instead of producing a runaway pulse', () => {
+    const { scene, rects } = makeScene();
+    const renderer = new PhaserFeedbackRenderer({ scene: scene as never, maxEffects: 8, maxHeavyEffects: 4 });
+    const mergeRect = rects[2];
+
+    renderer.weaponMerged(99, false);
+
+    expect(mergeRect.strokeAlpha).toBeCloseTo(0.28 + 2 * 0.06);
+  });
+
+  it('decays the merge pulse to zero over update()', () => {
+    const { scene, rects } = makeScene();
+    const renderer = new PhaserFeedbackRenderer({ scene: scene as never, maxEffects: 8, maxHeavyEffects: 4 });
+    const mergeRect = rects[2];
+
+    renderer.weaponMerged(1, false);
+    expect(mergeRect.strokeAlpha).toBeGreaterThan(0);
+
+    renderer.update(200);
+
+    expect(mergeRect.strokeAlpha).toBe(0);
   });
 });

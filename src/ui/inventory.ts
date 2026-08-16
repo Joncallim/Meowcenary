@@ -232,7 +232,7 @@ export class InventoryController {
 
     run.equipped = replaced;
     this.selectedInstanceIds = [];
-    this.bus.emit('weapon:merged', { fromId: a.defId, toId: result.defId });
+    this.bus.emit('weapon:merged', { fromId: a.defId, toId: result.defId, toTier: result.tier });
 
     return { ok: true, snapshot: this.snapshot(), resultInstanceId: result.instanceId };
   }

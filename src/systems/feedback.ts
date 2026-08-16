@@ -16,6 +16,10 @@ export interface FeedbackRenderer {
   enemyKilled(x: number, y: number, heavyMotion: boolean): void;
   playerDamaged(heavyMotion: boolean): void;
   levelUp(heavyMotion: boolean): void;
+  /** Epic 17: tier-up moment on a rack merge. Screen-space like levelUp
+   *  (merges happen from a paused menu, not a world position) — toTier
+   *  scales intensity so higher tiers read as more significant. */
+  weaponMerged(toTier: number, heavyMotion: boolean): void;
   cancelHeavyMotion(): void;
   update(dtMs: number): void;
   destroy(): void;
@@ -66,6 +70,9 @@ export class FeedbackSystem implements System {
       }),
       options.bus.on('level:up', () => {
         this.renderer.levelUp(shouldUseHeavyMotion(this.reducedMotion));
+      }),
+      options.bus.on('weapon:merged', ({ toTier }) => {
+        this.renderer.weaponMerged(toTier, shouldUseHeavyMotion(this.reducedMotion));
       }),
       options.bus.on('settings:changed', ({ settings }) => {
         const wasReduced = this.reducedMotion;
@@ -122,12 +129,20 @@ const BURST_DIRECTIONS = [
 const HIT_COLOR = 0xf7f1d5; // cream
 const KILL_COLOR = 0x2dd4bf; // teal
 const DANGER_COLOR = 0xf87171; // danger red
+const MERGE_COLOR = 0xfacc15; // amber power-up, distinct from kill/danger
 const FEEDBACK_DEPTH = 60;
 const OVERLAY_DEPTH = 90;
 const MUZZLE_HIT_RADIUS_FALLBACK = 4;
 
 function hexToColor(hex: string): number {
   return Number.parseInt(hex.slice(1), 16);
+}
+
+/** Weapons only merge to tier 2 or 3 (mergeTier is always >= 2 for a merge
+ *  result), but clamp defensively so a future tier range never produces a
+ *  negative or runaway pulse. */
+function clampMergeTier(tier: number): number {
+  return Math.min(3, Math.max(1, Math.round(tier)));
 }
 
 export class PhaserFeedbackRenderer implements FeedbackRenderer {
@@ -140,9 +155,13 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
   private readonly liveDots = new Set<FeedbackDot>();
   private readonly damageRect: Phaser.GameObjects.Rectangle;
   private readonly levelRect: Phaser.GameObjects.Rectangle;
+  private readonly mergeRect: Phaser.GameObjects.Rectangle;
   private damageTimerMs = 0;
   private levelTimerMs = 0;
   private levelPulseDurationMs = 0;
+  private mergeTimerMs = 0;
+  private mergePulseDurationMs = 0;
+  private mergePeakAlpha = 0;
   private dropped = 0;
 
   constructor(options: PhaserFeedbackRendererOptions) {
@@ -189,6 +208,10 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
       .setScrollFactor(0);
     this.levelRect = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0)
       .setStrokeStyle(2, KILL_COLOR, 0)
+      .setDepth(OVERLAY_DEPTH)
+      .setScrollFactor(0);
+    this.mergeRect = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0)
+      .setStrokeStyle(3, MERGE_COLOR, 0)
       .setDepth(OVERLAY_DEPTH)
       .setScrollFactor(0);
   }
@@ -252,6 +275,17 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
     this.levelRect.setStrokeStyle(2, KILL_COLOR, alpha);
   }
 
+  weaponMerged(toTier: number, heavyMotion: boolean): void {
+    const tier = clampMergeTier(toTier);
+    const baseDuration = heavyMotion ? 220 : 110;
+    const duration = baseDuration + (tier - 1) * 40;
+    this.mergeTimerMs = Math.max(this.mergeTimerMs, duration);
+    this.mergePulseDurationMs = Math.max(this.mergePulseDurationMs, duration);
+    const alpha = 0.28 + (tier - 1) * 0.06;
+    this.mergePeakAlpha = Math.max(this.mergePeakAlpha, alpha);
+    this.mergeRect.setStrokeStyle(3, MERGE_COLOR, this.mergePeakAlpha);
+  }
+
   cancelHeavyMotion(): void {
     this.scene.cameras?.main?.shakeEffect?.reset();
     for (const dot of [...this.liveDots]) {
@@ -294,6 +328,18 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
         }
       }
     }
+
+    if (this.mergeTimerMs > 0) {
+      this.mergeTimerMs = Math.max(0, this.mergeTimerMs - dtMs);
+      if (this.mergePulseDurationMs > 0) {
+        const ratio = this.mergeTimerMs / this.mergePulseDurationMs;
+        this.mergeRect.setStrokeStyle(3, MERGE_COLOR, this.mergePeakAlpha * ratio);
+        if (this.mergeTimerMs <= 0) {
+          this.mergePulseDurationMs = 0;
+          this.mergePeakAlpha = 0;
+        }
+      }
+    }
   }
 
   destroy(): void {
@@ -308,6 +354,7 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
     this.liveDots.clear();
     this.damageRect.destroy();
     this.levelRect.destroy();
+    this.mergeRect.destroy();
   }
 
   private liveHeavyCount(): number {

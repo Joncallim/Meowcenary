@@ -81,7 +81,7 @@ const eventPayloads = {
   'xp:gained': { amount: 1, total: 1 },
   'level:up': { level: 2 },
   'currency:changed': { runTotal: 10 },
-  'weapon:merged': { fromId: 'def-a', toId: 'def-b' },
+  'weapon:merged': { fromId: 'def-a', toId: 'def-b', toTier: 2 },
   'weapon:acquired': { definitionId: 'def-a', instanceId: 'i1', rackCount: 1, rackCapacity: 6, x: 0, y: 0 },
   'run:paused': {},
   'run:resumed': {},

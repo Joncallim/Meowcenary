@@ -66,6 +66,13 @@ const SFX_PROFILES = {
     { durationMs: 90, startHz: 660, endHz: 660, gain: 0.32, noiseMix: 0.00 },
     { durationMs: 140, startHz: 880, endHz: 880, gain: 0.35, noiseMix: 0.00 },
   ],
+  // Epic 17: a short metallic clink (scrap locking into place) followed by a
+  // rising power-surge sweep, distinct from sfx-level-up's flat ascending
+  // chime — reads as "the gun changed", not "the run progressed".
+  'sfx-weapon-merged': [
+    { durationMs: 60, startHz: 900, endHz: 700, gain: 0.28, noiseMix: 0.35 },
+    { durationMs: 180, startHz: 520, endHz: 1040, gain: 0.34, noiseMix: 0.00 },
+  ],
   'sfx-card-chosen': [
     { durationMs: 70, startHz: 520, endHz: 520, gain: 0.28, noiseMix: 0.00 },
     { durationMs: 100, startHz: 780, endHz: 780, gain: 0.32, noiseMix: 0.00 },
