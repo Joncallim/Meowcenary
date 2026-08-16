@@ -319,7 +319,7 @@ Pure gameplay systems receive `dtMs`; they must not read Phaser clocks directly.
 
 ## Epic Order
 
-| Epic | Issue | Status | Purpose |
+| Epic / Gate | Issue | Status | Purpose |
 | --- | --- | --- | --- |
 | Epic 0 | #1 Project Foundation | Complete | Config, event bus, RNG, validation, save/settings, input, debug/audio shells, CI. |
 | Epic 1 | #2 Core Gameplay Loop | Complete | Movement, auto-combat, XP, level-up, win/loss; owns RunState + stats primitive. |
@@ -337,10 +337,12 @@ Pure gameplay systems receive `dtMs`; they must not read Phaser clocks directly.
 | Epic 13 | #72 Presentation Runtime and Physics Stability | Complete · PR #79 | Physics-debug gating, actor-view seam, art catalog/pipeline, movement stability. |
 | Epic 14 | #73 Weapon Acquisition and Rack Economy | Complete · PR #80 | Six-slot run rack, weapon pickups, no-loss full rack, deterministic reward stream. |
 | Epic 15 | #74 Inventory and Merge Experience | Complete · PR #81 | Visual rack, merge compatibility/preview, HUD entry, mobile-first tap interaction. |
-| Epic 16 | #75 Visual Identity and Junkyard World | Implementation PR #83 open | Production actor/weapon/pickup/world art and coherent Junkyard presentation. |
+| Epic 16 | #75 Visual Identity and Junkyard World | Complete · PRs #82/#83 | Production actor/weapon/pickup/world art and coherent Junkyard presentation. |
 | Epic 17 | #76 Combat Feel and Weapon Identity | Open | Make weapon families/tiers and current enemy threats perceptually distinct and satisfying. |
 | Epic 18 | #77 Build Variety and Golden Run Pacing | Open · amended | Expand rotating upgrade pool, stack/ownership indicators, placeholder card imagery, and tune one replayable Golden Run. |
-| Epic 19 | #78 Player UX and Alpha 2 Gate | Open · amended | Holistic Alpha 2 gate: touch ergonomics + full controller-only journey + shared logical input/actions. |
+| Epic 19 | #78 Player UX and Alpha 2 Gate | Open · amended | Holistic Alpha 2 player gate: touch ergonomics + full controller-only journey + shared logical input/actions. |
+| **Alpha 2 certification gate** | **#94** | **Open · blocked by Epic 19** | Full repository architecture/quality/maintainability audit + remediation; fix all P0/P1 and downstream-relevant P2 findings before Alpha 3 architecture. |
+| **Alpha 3 shared foundation gate** | **#92** | **Open · blocked by #94** | Freeze Stage/ResolvedRunPlan, Save V3, shared conditions/grants, catalog/conformance, content-version and bundle seams from the certified Alpha 2 baseline. |
 | Epic 20 | #85 Contracts, Objectives, and Stage Progression | Open · Alpha 3 | Objective-based stage ladder, ~3-minute frontier pressure, chapter/boss-stage cadence. |
 | Epic 21 | #86 Enemy Roster Expansion and Boss Framework | Open · Alpha 3 | ~8 behavioral archetypes, projectile threats, encounter composition, unique bosses. |
 | Epic 22 | #91 Achievements, Mastery, and Platform Sync | Open · Alpha 3 | Game-owned standard/incremental/hidden/mastery achievements; offline/web authority; optional Game Center/Google Play mirrors. |
@@ -371,6 +373,7 @@ Pure gameplay systems receive `dtMs`; they must not read Phaser clocks directly.
   readability, touch ergonomics, and controller focus/navigation.
 - New persistent systems need explicit migration-safe ownership and must have a
   unique progression role.
+- After Epic 19, #94 is a mandatory fix gate: credible downstream debt is remediated rather than knowingly passed into #92.
 
 ## Progression-Layer Boundary
 
@@ -402,13 +405,13 @@ banking or unlocks.
 
 ## Suggested Build Sequence
 
-1. Epics 0–15 are complete foundations for the current product.
-2. Finish Epic 16 runtime delivery and merge/close it only when its player-facing gates pass.
-3. Epic 17: make the existing weapons/enemies feel distinct.
-4. Epic 18: expand upgrade-card variety/presentation and tune the Golden Run.
-5. Epic 19: run holistic Alpha 2 QA, including real-device touch combat and full controller-only validation; freeze shared logical actions and movement-only vs movement+dash based on evidence.
-6. **Do not begin broad Alpha 3 content until Epic 19's Golden Run/input gate passes.**
-7. Epic 20: introduce contracts/stage progression.
+1. Epics 0–16 are complete foundations for the current product.
+2. Epic 17: make the existing weapons/enemies feel distinct while preserving a reusable effect seam where actual Alpha 2 behavior needs it.
+3. Epic 18: expand upgrade-card variety/presentation and tune the Golden Run.
+4. Epic 19: run holistic Alpha 2 player-experience QA, including real-device touch combat and full controller-only validation; freeze shared logical actions and movement-only vs movement+dash based on evidence.
+5. **Stop feature work and execute #94 against the fully merged post-Epic-19 `main`.** Perform the exhaustive orthogonal architecture/code-quality/modularity/reuse/testing/performance/portability/security/documentation audit, fix all P0/P1 and downstream-relevant P2 findings, rerun full validation, and complete an independent re-review.
+6. **Only after #94 closes PASS, complete #92** against the certified Alpha 2 baseline.
+7. Epic 20: introduce contracts/stage progression from #92's shared contracts.
 8. Epic 21: expand enemy behaviors and bosses against the stage framework.
 9. Epic 22: establish game-owned achievements/mastery + optional platform-sync adapters before downstream systems depend on achievement IDs.
 10. Epic 23: build the persistent Gunsmith as a separate between-run progression system.
