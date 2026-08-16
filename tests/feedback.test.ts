@@ -11,9 +11,11 @@ function createFakeRenderer(): FeedbackRenderer & {
   muzzleFlashCalls: Array<{ x: number; y: number; family: string }>;
   projectileHitCalls: Array<{ x: number; y: number; family: string; heavyMotion: boolean }>;
   enemyKilledCalls: Array<{ x: number; y: number; heavyMotion: boolean }>;
-  playerDamagedCalls: boolean[];
+  playerDamagedCalls: Array<{ amount: number; heavyMotion: boolean }>;
   levelUpCalls: boolean[];
   weaponMergedCalls: Array<{ toTier: number; heavyMotion: boolean }>;
+  enemyDashedCalls: Array<{ x: number; y: number; dirX: number; dirY: number; heavyMotion: boolean }>;
+  enemyHeavyStepCalls: Array<{ x: number; y: number; heavyMotion: boolean }>;
   cancelHeavyMotionCalls: number;
   updateCalls: number[];
   destroyed: boolean;
@@ -25,6 +27,8 @@ function createFakeRenderer(): FeedbackRenderer & {
     playerDamagedCalls: [],
     levelUpCalls: [],
     weaponMergedCalls: [],
+    enemyDashedCalls: [],
+    enemyHeavyStepCalls: [],
     cancelHeavyMotionCalls: 0,
     updateCalls: [],
     destroyed: false,
@@ -40,14 +44,20 @@ function createFakeRenderer(): FeedbackRenderer & {
     enemyKilled(x: number, y: number, heavyMotion: boolean) {
       this.enemyKilledCalls.push({ x, y, heavyMotion });
     },
-    playerDamaged(heavyMotion: boolean) {
-      this.playerDamagedCalls.push(heavyMotion);
+    playerDamaged(amount: number, heavyMotion: boolean) {
+      this.playerDamagedCalls.push({ amount, heavyMotion });
     },
     levelUp(heavyMotion: boolean) {
       this.levelUpCalls.push(heavyMotion);
     },
     weaponMerged(toTier: number, heavyMotion: boolean) {
       this.weaponMergedCalls.push({ toTier, heavyMotion });
+    },
+    enemyDashed(x: number, y: number, dirX: number, dirY: number, heavyMotion: boolean) {
+      this.enemyDashedCalls.push({ x, y, dirX, dirY, heavyMotion });
+    },
+    enemyHeavyStep(x: number, y: number, heavyMotion: boolean) {
+      this.enemyHeavyStepCalls.push({ x, y, heavyMotion });
     },
     cancelHeavyMotion() {
       this.cancelHeavyMotionCalls += 1;
@@ -111,11 +121,11 @@ describe('FeedbackSystem', () => {
     expect(renderer.enemyKilledCalls).toEqual([{ x: 56, y: 78, heavyMotion: true }]);
   });
 
-  it('routes player:damaged to the renderer', () => {
+  it('routes player:damaged to the renderer with the raw damage amount', () => {
     const { bus, renderer } = createSystem();
     bus.emit('player:damaged', { amount: 10, healthRemaining: 90 });
 
-    expect(renderer.playerDamagedCalls).toEqual([true]);
+    expect(renderer.playerDamagedCalls).toEqual([{ amount: 10, heavyMotion: true }]);
   });
 
   it('routes level:up to the renderer', () => {
@@ -138,7 +148,7 @@ describe('FeedbackSystem', () => {
     bus.emit('player:damaged', { amount: 1, healthRemaining: 99 });
 
     expect(renderer.projectileHitCalls[0].heavyMotion).toBe(true);
-    expect(renderer.playerDamagedCalls[0]).toBe(true);
+    expect(renderer.playerDamagedCalls[0].heavyMotion).toBe(true);
   });
 
   it('passes heavyMotion=false when reduced motion is on', () => {
@@ -150,7 +160,7 @@ describe('FeedbackSystem', () => {
 
     expect(renderer.projectileHitCalls[0].heavyMotion).toBe(false);
     expect(renderer.enemyKilledCalls[0].heavyMotion).toBe(false);
-    expect(renderer.playerDamagedCalls[0]).toBe(false);
+    expect(renderer.playerDamagedCalls[0].heavyMotion).toBe(false);
     expect(renderer.levelUpCalls[0]).toBe(false);
   });
 
@@ -159,6 +169,26 @@ describe('FeedbackSystem', () => {
     bus.emit('weapon:merged', { fromId: 'def-a', toId: 'def-b', toTier: 2 });
 
     expect(renderer.weaponMergedCalls).toEqual([{ toTier: 2, heavyMotion: false }]);
+  });
+
+  it('routes enemy:dashed to the renderer with heavy-motion gating', () => {
+    const active = createSystem(false);
+    active.bus.emit('enemy:dashed', { x: 1, y: 2, dirX: 1, dirY: 0 });
+    expect(active.renderer.enemyDashedCalls).toEqual([{ x: 1, y: 2, dirX: 1, dirY: 0, heavyMotion: true }]);
+
+    const reduced = createSystem(true);
+    reduced.bus.emit('enemy:dashed', { x: 1, y: 2, dirX: 1, dirY: 0 });
+    expect(reduced.renderer.enemyDashedCalls).toEqual([{ x: 1, y: 2, dirX: 1, dirY: 0, heavyMotion: false }]);
+  });
+
+  it('routes enemy:heavyStep to the renderer with heavy-motion gating', () => {
+    const active = createSystem(false);
+    active.bus.emit('enemy:heavyStep', { x: 5, y: 6 });
+    expect(active.renderer.enemyHeavyStepCalls).toEqual([{ x: 5, y: 6, heavyMotion: true }]);
+
+    const reduced = createSystem(true);
+    reduced.bus.emit('enemy:heavyStep', { x: 5, y: 6 });
+    expect(reduced.renderer.enemyHeavyStepCalls).toEqual([{ x: 5, y: 6, heavyMotion: false }]);
   });
 
   it('updates reduced motion live from settings:changed and cancels heavy motion when enabling it', () => {
@@ -425,5 +455,70 @@ describe('PhaserFeedbackRenderer weapon-merged presentation', () => {
     renderer.update(200);
 
     expect(mergeRect.strokeAlpha).toBe(0);
+  });
+});
+
+describe('PhaserFeedbackRenderer enemy weight presentation (Epic 17 D7)', () => {
+  function makeScene(): { scene: unknown; shake: ReturnType<typeof vi.fn> } {
+    const shake = vi.fn();
+    const scene = {
+      scale: { width: 390, height: 844 },
+      add: {
+        circle: () => ({
+          setDepth() { return this; }, setActive() { return this; }, setVisible() { return this; },
+          setAlpha() { return this; }, setPosition() { return this; }, setFillStyle() { return this; },
+          setRadius() { return this; }, destroy() {},
+        }),
+        rectangle: () => ({
+          setAlpha() { return this; }, setDepth() { return this; },
+          setScrollFactor() { return this; }, setStrokeStyle() { return this; },
+        }),
+      },
+      cameras: { main: { shakeEffect: { reset: vi.fn() }, shake } },
+    };
+    return { scene, shake };
+  }
+
+  it('drops a staggered dash trail only under heavy motion', () => {
+    const { scene } = makeScene();
+    const renderer = new PhaserFeedbackRenderer({ scene: scene as never, maxEffects: 8, maxHeavyEffects: 8 });
+
+    renderer.enemyDashed(0, 0, 1, 0, false);
+    expect(renderer.activeEffectCount).toBe(0);
+
+    renderer.enemyDashed(0, 0, 1, 0, true);
+    expect(renderer.activeEffectCount).toBe(3);
+  });
+
+  it('drops a landing pulse only under heavy motion', () => {
+    const { scene } = makeScene();
+    const renderer = new PhaserFeedbackRenderer({ scene: scene as never, maxEffects: 8, maxHeavyEffects: 8 });
+
+    renderer.enemyHeavyStep(0, 0, false);
+    expect(renderer.activeEffectCount).toBe(0);
+
+    renderer.enemyHeavyStep(0, 0, true);
+    expect(renderer.activeEffectCount).toBe(1);
+  });
+
+  it('scales the player-damaged shake weight with the raw damage amount, capped, only under heavy motion', () => {
+    const { scene, shake } = makeScene();
+    const renderer = new PhaserFeedbackRenderer({ scene: scene as never, maxEffects: 8, maxHeavyEffects: 8 });
+
+    renderer.playerDamaged(5, false);
+    expect(shake).not.toHaveBeenCalled();
+
+    renderer.playerDamaged(5, true);
+    const [dustMiteDuration, dustMiteIntensity] = shake.mock.calls[0]!;
+
+    renderer.playerDamaged(14, true);
+    const [bruteDuration, bruteIntensity] = shake.mock.calls[1]!;
+    expect(bruteIntensity).toBeGreaterThan(dustMiteIntensity);
+    expect(bruteDuration).toBeGreaterThan(dustMiteDuration);
+
+    renderer.playerDamaged(100_000, true);
+    const [cappedDuration, cappedIntensity] = shake.mock.calls[2]!;
+    expect(cappedIntensity).toBeLessThanOrEqual(0.006);
+    expect(cappedDuration).toBeLessThanOrEqual(160);
   });
 });

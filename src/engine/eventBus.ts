@@ -14,6 +14,12 @@ export interface GameEventMap {
   // high-damage hits is not double-counted by dev-tooling meters (Epic 11 §7).
   'enemy:damaged': { instanceId: number; amount: number; x: number; y: number };
   'enemy:killed': { instanceId: number; enemyId: string; xpValue: number; scrapValue: number; lootTableId?: string; x: number; y: number };
+  // Epic 17 (D7): cosmetic-only presentation cues, fired directly by Enemy at
+  // the moments FeedbackSystem needs — a charger's winding→attacking edge
+  // (once, not every frame) and a tank's pursuit-step cadence. Both are
+  // presentation-only; nothing subscribes for gameplay logic.
+  'enemy:dashed': { x: number; y: number; dirX: number; dirY: number };
+  'enemy:heavyStep': { x: number; y: number };
   // family/tier (Epic 17) are cosmetic-only duplicates of data WeaponSystem
   // already holds at the emit site — listeners key presentation/audio off
   // them without a weaponRegistry lookup, same as enemy:killed carrying
@@ -68,7 +74,7 @@ export type GameEventListener<K extends GameEventKey> = (payload: GameEventMap[K
 export const GAME_EVENT_KEYS = [
   'run:start', 'run:paused', 'run:resumed', 'run:won', 'run:lost',
   'player:damaged', 'player:died',
-  'enemy:spawned', 'enemy:damaged', 'enemy:killed',
+  'enemy:spawned', 'enemy:damaged', 'enemy:killed', 'enemy:dashed', 'enemy:heavyStep',
   'weapon:fired', 'projectile:hit',
   'xp:gained', 'level:up', 'card:offered', 'card:chosen', 'weapon:merged',
   'drop:collected',
