@@ -1,0 +1,23 @@
+[
+  {
+    "family": "pistol",
+    "muzzle": { "color": "#fbbf24", "radius": 5, "lifetimeMs": 70 },
+    "impact": { "color": "#fbbf24", "radius": 5 },
+    "recoilPx": 3,
+    "sfxTierVolumeMultiplier": [1.0, 1.12, 1.28]
+  },
+  {
+    "family": "smg",
+    "muzzle": { "color": "#38bdf8", "radius": 4, "lifetimeMs": 50 },
+    "impact": { "color": "#38bdf8", "radius": 4 },
+    "recoilPx": 1.5,
+    "sfxTierVolumeMultiplier": [1.0, 1.08, 1.18]
+  },
+  {
+    "family": "shotgun",
+    "muzzle": { "color": "#f97316", "radius": 8, "lifetimeMs": 90 },
+    "impact": { "color": "#f97316", "radius": 7 },
+    "recoilPx": 6,
+    "sfxTierVolumeMultiplier": [1.0, 1.15, 1.35]
+  }
+]

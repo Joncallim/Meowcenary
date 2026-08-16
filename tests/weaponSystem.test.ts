@@ -287,7 +287,7 @@ describe('WeaponSystem', () => {
     harness.system.update(650);
 
     expect(harness.projectileGroup.added).toHaveLength(3);
-    expect(fired).toHaveBeenCalledWith({ weaponId: 'scrap-pistol-t1', x: 0, y: 0 });
+    expect(fired).toHaveBeenCalledWith({ weaponId: 'scrap-pistol-t1', family: 'pistol', tier: 1, x: 0, y: 0 });
   });
 
   it('spawns projectiles with a live velocity toward the target after group add', async () => {
@@ -386,7 +386,9 @@ describe('WeaponSystem', () => {
 
     expect(harness.enemy.takeDamage).toHaveBeenCalledTimes(1);
     expect(damaged).toHaveBeenCalledTimes(1);
-    expect(hit).toHaveBeenCalledWith({ x: 60, y: 0, damage: 8, killed: false });
+    expect(hit).toHaveBeenCalledWith({
+      weaponId: 'scrap-pistol-t1', family: 'pistol', tier: 1, x: 60, y: 0, damage: 8, killed: false,
+    });
     expect(damaged.mock.invocationCallOrder[0]).toBeLessThan(hit.mock.invocationCallOrder[0]);
     expect(killed).not.toHaveBeenCalled();
     expect(harness.runState.kills).toBe(0);
@@ -584,8 +586,8 @@ describe('WeaponSystem', () => {
 
     harness.system.update(650);
 
-    expect(heldWeapon.show).toHaveBeenCalledWith(heldBinding, 0, 0, 0);
-    expect(fired).toHaveBeenCalledWith({ weaponId: 'scrap-pistol-t1', x: 0, y: 0 });
+    expect(heldWeapon.show).toHaveBeenCalledWith(heldBinding, 0, 0, 0, 3);
+    expect(fired).toHaveBeenCalledWith({ weaponId: 'scrap-pistol-t1', family: 'pistol', tier: 1, x: 0, y: 0 });
     harness.system.destroy();
     expect(heldWeapon.destroy).toHaveBeenCalledTimes(1);
   });
@@ -700,7 +702,7 @@ describe('WeaponSystem', () => {
       expect(artSprite.visible).toBe(false);
       expect(artSprite.played).toEqual([]);
 
-      projectile.spawn(10, 20, { x: 0, y: -1 }, { speed: 300, damage: 5, range: 100, pierce: 0 });
+      projectile.spawn(10, 20, { x: 0, y: -1 }, { speed: 300, damage: 5, range: 100, pierce: 0, weaponId: 'w', family: 'pistol', tier: 1 });
       expect(circle.visible).toBe(false);
       expect(glow.visible).toBe(false);
       expect(artSprite.active).toBe(true);
@@ -716,14 +718,14 @@ describe('WeaponSystem', () => {
 
     it('resets pooled art visibility and re-aims rotation on reuse', async () => {
       const { projectile, artSprite } = await createArtProjectile();
-      projectile.spawn(10, 20, { x: 1, y: 0 }, { speed: 300, damage: 5, range: 100, pierce: 0 });
+      projectile.spawn(10, 20, { x: 1, y: 0 }, { speed: 300, damage: 5, range: 100, pierce: 0, weaponId: 'w', family: 'pistol', tier: 1 });
       expect(artSprite.visible).toBe(true);
 
       projectile.reset();
       expect(artSprite.active).toBe(false);
       expect(artSprite.visible).toBe(false);
 
-      projectile.spawn(30, 40, { x: 0, y: 1 }, { speed: 300, damage: 5, range: 100, pierce: 0 });
+      projectile.spawn(30, 40, { x: 0, y: 1 }, { speed: 300, damage: 5, range: 100, pierce: 0, weaponId: 'w', family: 'pistol', tier: 1 });
       expect(artSprite.visible).toBe(true);
       expect([artSprite.x, artSprite.y]).toEqual([30, 40]);
       expect(artSprite.rotation).toBeCloseTo(Math.PI / 2);
@@ -749,7 +751,7 @@ describe('WeaponSystem', () => {
       };
       const projectile = new Projectile(scene as never, 4, undefined);
       expect(circles).toHaveLength(2);
-      projectile.spawn(0, 0, { x: 1, y: 0 }, { speed: 300, damage: 5, range: 100, pierce: 0 });
+      projectile.spawn(0, 0, { x: 1, y: 0 }, { speed: 300, damage: 5, range: 100, pierce: 0, weaponId: 'w', family: 'pistol', tier: 1 });
       expect(circles[0].visible).toBe(true);
       expect(circles[1].visible).toBe(true);
     });

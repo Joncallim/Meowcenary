@@ -12,7 +12,7 @@ import type { RunState } from '../gameplay/runState';
 import { nearestTarget } from '../gameplay/targeting';
 import { resolveWeaponStats, type EffectiveWeaponStats } from '../gameplay/weaponStats';
 import type { WeaponInstance, WeaponRegistry } from '../gameplay/weapons';
-import type { WeaponDefinition } from './types';
+import type { WeaponDefinition, WeaponFeelDefinition } from './types';
 import type { VisualArtLookup } from './visualArt';
 
 interface WeaponCadenceRuntime {
@@ -27,6 +27,7 @@ export class WeaponSystem implements System {
   private readonly ownedProjectiles: Projectile[] = [];
   private readonly projectileBySprite = new Map<Phaser.GameObjects.GameObject, Projectile>();
   private readonly cadences = new Map<string, WeaponCadenceRuntime>();
+  private readonly weaponFeelByFamily: ReadonlyMap<string, WeaponFeelDefinition>;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -41,6 +42,8 @@ export class WeaponSystem implements System {
     private readonly visualArt?: VisualArtLookup,
     private readonly heldWeapon?: HeldWeaponPresentation,
   ) {
+    this.weaponFeelByFamily = new Map(ctx.data.weaponFeel.map((entry) => [entry.family, entry]));
+
     for (const projectileArtId of new Set(ctx.data.weapons.map((weapon) => weapon.art.projectileId))) {
       const binding = visualArt?.bindingById(projectileArtId);
       let pool: Pool<Projectile>;
@@ -202,6 +205,9 @@ export class WeaponSystem implements System {
         damage: stats.damage,
         range: stats.range,
         pierce: stats.pierce,
+        weaponId: definition.id,
+        family: definition.family,
+        tier: definition.mergeTier,
       });
     }
 
@@ -212,11 +218,14 @@ export class WeaponSystem implements System {
         this.player.x,
         this.player.y,
         Math.atan2(target.y - this.player.y, target.x - this.player.x),
+        this.weaponFeelByFamily.get(definition.family)?.recoilPx,
       );
     }
 
     this.ctx.bus.emit('weapon:fired', {
       weaponId: definition.id,
+      family: definition.family,
+      tier: definition.mergeTier,
       x: this.player.x,
       y: this.player.y,
     });
@@ -235,7 +244,12 @@ export class WeaponSystem implements System {
       return;
     }
 
+    // Captured before registerHit(), which resets the projectile (clearing
+    // these presentation-only fields) once pierce is exhausted.
     const damage = projectile.damage;
+    const weaponId = projectile.weaponId;
+    const family = projectile.family;
+    const tier = projectile.tier;
     if (!projectile.registerHit(enemy.instanceId)) {
       return;
     }
@@ -244,6 +258,9 @@ export class WeaponSystem implements System {
     const hitY = enemy.y;
     const killed = enemy.takeDamage(damage);
     this.ctx.bus.emit('projectile:hit', {
+      weaponId,
+      family,
+      tier,
       x: hitX,
       y: hitY,
       damage,

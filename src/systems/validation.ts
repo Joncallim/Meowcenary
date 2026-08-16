@@ -4,6 +4,7 @@ import metaUpgradesJson from '../data/meta-upgrades.json';
 import spawnCurvesJson from '../data/spawn-curves.json';
 import upgradesJson from '../data/upgrades.json';
 import weaponsJson from '../data/weapons.json';
+import weaponFeelJson from '../data/weapon-feel.json';
 import arenasJson from '../data/arenas.json';
 import lootTablesJson from '../data/loot-tables.json';
 import audioAssetsJson from '../data/audio-assets.json';
@@ -31,6 +32,7 @@ import type {
   SpawnCurveDefinition,
   UpgradeDefinition,
   WeaponDefinition,
+  WeaponFeelDefinition,
 } from './types';
 import { isSpawnableEnemyDefinition } from './types';
 import { CHARACTER_PASSIVE_EVENTS } from './types';
@@ -56,6 +58,9 @@ const WEAPON_FIELDS = new Set([
   'mergeTier', 'maxTier', 'pierce', 'projectileCount', 'spreadDeg', 'art',
 ]);
 const WEAPON_ART_FIELDS = new Set(['iconId', 'heldId', 'projectileId']);
+const WEAPON_FEEL_FIELDS = new Set(['family', 'muzzle', 'impact', 'recoilPx', 'sfxTierVolumeMultiplier']);
+const WEAPON_FEEL_MUZZLE_FIELDS = new Set(['color', 'radius', 'lifetimeMs']);
+const WEAPON_FEEL_IMPACT_FIELDS = new Set(['color', 'radius']);
 const UPGRADE_FIELDS = new Set([
   'id', 'name', 'rarity', 'target', 'description', 'maxStacks', 'effects',
 ]);
@@ -182,6 +187,17 @@ export const CATALOG_DESCRIPTORS = [
     validateRows: (rows): WeaponDefinition[] => {
       throwIfErrors(jsonSafetyErrors(rows, 'weapons.json'));
       return validate<WeaponDefinition>('weapons.json', rows, checkWeapon);
+    },
+  },
+  {
+    key: 'weaponFeel',
+    file: 'weapon-feel.json',
+    rootKey: 'weaponFeel',
+    data: weaponFeelJson,
+    read: (raw) => readOwnField(raw, 'weaponFeel'),
+    validateRows: (rows): WeaponFeelDefinition[] => {
+      throwIfErrors(jsonSafetyErrors(rows, 'weapon-feel.json'));
+      return validate<WeaponFeelDefinition>('weapon-feel.json', rows, checkWeaponFeel);
     },
   },
   {
@@ -390,6 +406,7 @@ export function validateGameData(raw: unknown): GameData {
   }
 
   const weapons = catalogs.weapons as WeaponDefinition[];
+  const weaponFeel = catalogs.weaponFeel as WeaponFeelDefinition[];
   const enemies = catalogs.enemies as EnemyDefinition[];
   const upgrades = catalogs.upgrades as UpgradeDefinition[];
   const metaUpgrades = catalogs.metaUpgrades as MetaUpgradeDefinition[];
@@ -409,10 +426,11 @@ export function validateGameData(raw: unknown): GameData {
   assertAudioMapReferences(audioMap, audioAssets);
   assertActorAndDropArtReferences(characters, enemies, visualArt);
   assertWeaponArtReferences(weapons, visualArt);
+  assertWeaponFeelReferences(weapons, weaponFeel);
   assertArenaVisualReferences(arenas, visualArt);
 
   const audio: AudioData = { assets: audioAssets, map: audioMap };
-  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, audio, visualArt };
+  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt };
 }
 
 /** Root-shape phase, shared by the throwing boot path and the collecting
@@ -555,6 +573,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
   if (catalogIssues.length > 0) return catalogIssues;
 
   const weapons = catalogs.weapons as WeaponDefinition[];
+  const weaponFeel = catalogs.weaponFeel as WeaponFeelDefinition[];
   const enemies = catalogs.enemies as EnemyDefinition[];
   const spawnCurves = catalogs.spawnCurves as SpawnCurveDefinition[];
   const characters = catalogs.characters as CharacterDefinition[];
@@ -574,6 +593,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertAudioMapReferences(audioMap, audioAssets),
     () => assertActorAndDropArtReferences(characters, enemies, visualArt),
     () => assertWeaponArtReferences(weapons, visualArt),
+    () => assertWeaponFeelReferences(weapons, weaponFeel),
     () => assertArenaVisualReferences(arenas, visualArt),
   ];
   for (const assertion of assertions) {
@@ -1436,6 +1456,50 @@ function checkWeapon(row: unknown): string[] {
   return errors;
 }
 
+function checkWeaponFeel(row: unknown): string[] {
+  const errors = requireRecord(row);
+  if (!isRecord(row)) return errors;
+  rejectUnknownFields(row, WEAPON_FEEL_FIELDS, errors);
+  requireString(row, 'family', errors);
+  requirePositiveNumber(row, 'recoilPx', errors);
+
+  const muzzle = readOwnField(row, 'muzzle');
+  if (!isRecord(muzzle)) {
+    errors.push('muzzle: required object');
+  } else {
+    const muzzleErrors: string[] = [];
+    rejectUnknownFields(muzzle, WEAPON_FEEL_MUZZLE_FIELDS, muzzleErrors);
+    requireHexColor(muzzle, 'color', muzzleErrors);
+    requirePositiveNumber(muzzle, 'radius', muzzleErrors);
+    requirePositiveNumber(muzzle, 'lifetimeMs', muzzleErrors);
+    errors.push(...muzzleErrors.map((error) => `muzzle.${error}`));
+  }
+
+  const impact = readOwnField(row, 'impact');
+  if (!isRecord(impact)) {
+    errors.push('impact: required object');
+  } else {
+    const impactErrors: string[] = [];
+    rejectUnknownFields(impact, WEAPON_FEEL_IMPACT_FIELDS, impactErrors);
+    requireHexColor(impact, 'color', impactErrors);
+    requirePositiveNumber(impact, 'radius', impactErrors);
+    errors.push(...impactErrors.map((error) => `impact.${error}`));
+  }
+
+  const multipliers = readOwnField(row, 'sfxTierVolumeMultiplier');
+  if (!Array.isArray(multipliers) || multipliers.length !== 3) {
+    errors.push('sfxTierVolumeMultiplier: required array of exactly 3 entries');
+  } else {
+    multipliers.forEach((value, index) => {
+      if (!isFiniteNumber(value) || value <= 0) {
+        errors.push(`sfxTierVolumeMultiplier[${index}]: required positive number`);
+      }
+    });
+  }
+
+  return errors;
+}
+
 function checkEnemy(row: unknown): string[] {
   const errors = requireRecord(row);
   if (!isRecord(row)) return errors;
@@ -2192,6 +2256,39 @@ function assertPlayerDamagedCadence(map: readonly AudioMapEntry[]): void {
   }
 }
 
+/** Epic 17: exactly one presentation-only weapon-feel entry per weapon
+ *  family actually used in weapons.json — no missing family (Boot fails
+ *  closed rather than falling back to an implicit default), no orphan entry
+ *  for a family nothing uses. */
+export function assertWeaponFeelReferences(
+  weapons: readonly WeaponDefinition[],
+  weaponFeel: readonly WeaponFeelDefinition[],
+): void {
+  const usedFamilies = new Set(weapons.map((weapon) => weapon.family));
+  const feelFamilies = new Map<string, number>();
+  const errors: string[] = [];
+
+  weaponFeel.forEach((entry, index) => {
+    const first = feelFamilies.get(entry.family);
+    if (first !== undefined) {
+      errors.push(`weapon-feel.json[${index}].family: duplicate, first seen at index ${first}`);
+    } else {
+      feelFamilies.set(entry.family, index);
+    }
+    if (!usedFamilies.has(entry.family)) {
+      errors.push(`weapon-feel.json[${index}].family: "${entry.family}" is not used by any weapon`);
+    }
+  });
+
+  for (const family of usedFamilies) {
+    if (!feelFamilies.has(family)) {
+      errors.push(`weapon-feel.json: missing entry for weapon family "${family}"`);
+    }
+  }
+
+  throwIfErrors(errors);
+}
+
 /** Cross-catalog check, run only from validateGameData (Epic 10 §6.2). */
 export function assertAudioMapReferences(
   map: readonly AudioMapEntry[],
@@ -2585,6 +2682,15 @@ function requireRarity(row: Record<string, unknown>, field: string, errors: stri
 function requireEnum<T extends string>(row: Record<string, unknown>, field: string, allowed: ReadonlySet<T>, errors: string[]): void {
   const value = readOwnField(row, field);
   if (typeof value !== 'string' || !allowed.has(value as T)) errors.push(`${field}: invalid value`);
+}
+
+const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/;
+
+function requireHexColor(row: Record<string, unknown>, field: string, errors: string[]): void {
+  const value = readOwnField(row, field);
+  if (typeof value !== 'string' || !HEX_COLOR_PATTERN.test(value)) {
+    errors.push(`${field}: required lowercase #rrggbb color`);
+  }
 }
 
 function jsonSafetyErrors(value: unknown, path: string, active = new WeakSet<object>()): string[] {

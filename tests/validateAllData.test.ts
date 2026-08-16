@@ -220,6 +220,7 @@ describe('validateAllData', () => {
     // (idempotency, Epic 11 §5.4).
     expect(collectGameDataErrors({
       weapons: NaN,
+      weaponFeel: [],
       enemies: [],
       upgrades: [],
       metaUpgrades: [],
@@ -258,6 +259,7 @@ describe('validateAllData', () => {
   it('orders descriptors like the boot pipeline', () => {
     expect(CATALOG_DESCRIPTORS.map((descriptor) => descriptor.key)).toEqual([
       'weapons',
+      'weaponFeel',
       'enemies',
       'upgrades',
       'metaUpgrades',
