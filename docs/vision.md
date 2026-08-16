@@ -65,7 +65,11 @@ Alpha 2 does **not** need the full long-term roster, armour system, achievement/
 
 ## Alpha 3 — Depth & Progression Direction
 
-After Alpha 2, the game expands through seven coordinated epics:
+Before any Alpha 3 runtime implementation, **Issue #92 — Alpha 3 Shared Foundation Contracts** must freeze the cross-system architecture in [`architecture/alpha-3-shared-foundation.md`](architecture/alpha-3-shared-foundation.md).
+
+That foundation owns decisions that must be made once rather than independently inside seven later epics: Stage/Contract as the content-composition root, Stage/Objective-owned completion, the stage-oriented resolved-run-plan seam, Save V3 domain ownership and V2 compatibility, existing-ID preservation, shared condition/reward vocabularies, catalog/conformance registration, content-version semantics, deterministic pools, and the future asset-bundle seam.
+
+After that gate, the game expands through seven coordinated epics:
 
 - **Epic 20 — Contracts, Objectives, and Stage Progression (#85):** objective-based stages, escalating ~3-minute frontier pressure, chapter progression, and regular boss milestones.
 - **Epic 21 — Enemy Roster Expansion and Boss Framework (#86):** roughly eight behavioral enemy archetypes, ranged/projectile threats, elites where useful, and unique bosses.
