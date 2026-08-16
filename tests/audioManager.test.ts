@@ -31,7 +31,7 @@ const SETTINGS: Settings = {
   reducedMotion: false,
 };
 
-const WEAPON_FIRED = { weaponId: 'w1', x: 0, y: 0 } as const;
+const WEAPON_FIRED = { weaponId: 'w1', family: 'pistol', tier: 1, x: 0, y: 0 } as const;
 const RUN_WON = { timeMs: 60_000, level: 5, kills: 10 } as const;
 
 class FakeAudioCache {

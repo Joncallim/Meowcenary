@@ -8,7 +8,8 @@ import {
 } from '../src/systems/feedback';
 
 function createFakeRenderer(): FeedbackRenderer & {
-  projectileHitCalls: Array<{ x: number; y: number; heavyMotion: boolean }>;
+  muzzleFlashCalls: Array<{ x: number; y: number; family: string }>;
+  projectileHitCalls: Array<{ x: number; y: number; family: string; heavyMotion: boolean }>;
   enemyKilledCalls: Array<{ x: number; y: number; heavyMotion: boolean }>;
   playerDamagedCalls: boolean[];
   levelUpCalls: boolean[];
@@ -17,6 +18,7 @@ function createFakeRenderer(): FeedbackRenderer & {
   destroyed: boolean;
 } {
   return {
+    muzzleFlashCalls: [],
     projectileHitCalls: [],
     enemyKilledCalls: [],
     playerDamagedCalls: [],
@@ -27,8 +29,11 @@ function createFakeRenderer(): FeedbackRenderer & {
     activeEffectCount: 0,
     allocatedEffectCount: 0,
     droppedEffectCount: 0,
-    projectileHit(x: number, y: number, heavyMotion: boolean) {
-      this.projectileHitCalls.push({ x, y, heavyMotion });
+    muzzleFlash(x: number, y: number, family: string) {
+      this.muzzleFlashCalls.push({ x, y, family });
+    },
+    projectileHit(x: number, y: number, family: string, heavyMotion: boolean) {
+      this.projectileHitCalls.push({ x, y, family, heavyMotion });
     },
     enemyKilled(x: number, y: number, heavyMotion: boolean) {
       this.enemyKilledCalls.push({ x, y, heavyMotion });
@@ -79,9 +84,9 @@ describe('FeedbackSystem', () => {
 
   it('routes projectile:hit to the renderer with exact coordinates', () => {
     const { bus, renderer } = createSystem();
-    bus.emit('projectile:hit', { x: 12, y: 34, damage: 5, killed: false });
+    bus.emit('projectile:hit', { weaponId: 'w', family: 'pistol', tier: 1, x: 12, y: 34, damage: 5, killed: false });
 
-    expect(renderer.projectileHitCalls).toEqual([{ x: 12, y: 34, heavyMotion: true }]);
+    expect(renderer.projectileHitCalls).toEqual([{ x: 12, y: 34, family: 'pistol', heavyMotion: true }]);
     expect(renderer.enemyKilledCalls).toHaveLength(0);
     expect(renderer.playerDamagedCalls).toHaveLength(0);
     expect(renderer.levelUpCalls).toHaveLength(0);
@@ -117,7 +122,7 @@ describe('FeedbackSystem', () => {
 
   it('passes heavyMotion=true when reduced motion is off', () => {
     const { bus, renderer } = createSystem(false);
-    bus.emit('projectile:hit', { x: 0, y: 0, damage: 1, killed: false });
+    bus.emit('projectile:hit', { weaponId: 'w', family: 'pistol', tier: 1, x: 0, y: 0, damage: 1, killed: false });
     bus.emit('player:damaged', { amount: 1, healthRemaining: 99 });
 
     expect(renderer.projectileHitCalls[0].heavyMotion).toBe(true);
@@ -126,7 +131,7 @@ describe('FeedbackSystem', () => {
 
   it('passes heavyMotion=false when reduced motion is on', () => {
     const { bus, renderer } = createSystem(true);
-    bus.emit('projectile:hit', { x: 0, y: 0, damage: 1, killed: false });
+    bus.emit('projectile:hit', { weaponId: 'w', family: 'pistol', tier: 1, x: 0, y: 0, damage: 1, killed: false });
     bus.emit('enemy:killed', { instanceId: 1, enemyId: 'a', xpValue: 1, scrapValue: 1, x: 0, y: 0 });
     bus.emit('player:damaged', { amount: 1, healthRemaining: 99 });
     bus.emit('level:up', { level: 2 });
@@ -145,7 +150,7 @@ describe('FeedbackSystem', () => {
 
     expect(renderer.cancelHeavyMotionCalls).toBe(1);
 
-    bus.emit('projectile:hit', { x: 0, y: 0, damage: 1, killed: false });
+    bus.emit('projectile:hit', { weaponId: 'w', family: 'pistol', tier: 1, x: 0, y: 0, damage: 1, killed: false });
     expect(renderer.projectileHitCalls[0].heavyMotion).toBe(false);
   });
 
@@ -188,7 +193,7 @@ describe('FeedbackSystem', () => {
     system.destroy();
     system.destroy();
 
-    bus.emit('projectile:hit', { x: 0, y: 0, damage: 1, killed: false });
+    bus.emit('projectile:hit', { weaponId: 'w', family: 'pistol', tier: 1, x: 0, y: 0, damage: 1, killed: false });
     bus.emit('enemy:killed', { instanceId: 1, enemyId: 'a', xpValue: 1, scrapValue: 1, x: 0, y: 0 });
     bus.emit('player:damaged', { amount: 1, healthRemaining: 99 });
     bus.emit('level:up', { level: 2 });
@@ -204,7 +209,7 @@ describe('FeedbackSystem', () => {
     const emitSpy = vi.spyOn(bus, 'emit');
 
     // Trigger feedback with the same events it listens to; it must not re-emit them.
-    bus.emit('projectile:hit', { x: 0, y: 0, damage: 1, killed: false });
+    bus.emit('projectile:hit', { weaponId: 'w', family: 'pistol', tier: 1, x: 0, y: 0, damage: 1, killed: false });
     bus.emit('enemy:killed', { instanceId: 1, enemyId: 'a', xpValue: 1, scrapValue: 1, x: 0, y: 0 });
     bus.emit('player:damaged', { amount: 1, healthRemaining: 99 });
     bus.emit('level:up', { level: 2 });
@@ -247,5 +252,85 @@ describe('PhaserFeedbackRenderer lifecycle', () => {
     expect(() => renderer.destroy()).not.toThrow();
     expect(nodes).toHaveLength(2);
     expect(nodes.every((node) => node.destroyed)).toBe(true);
+  });
+});
+
+describe('PhaserFeedbackRenderer weapon-feel presentation', () => {
+  class FakeCircle {
+    fillColor?: number;
+    radius?: number;
+    setDepth(): this { return this; }
+    setActive(): this { return this; }
+    setVisible(): this { return this; }
+    setAlpha(): this { return this; }
+    setScrollFactor(): this { return this; }
+    setStrokeStyle(): this { return this; }
+    setPosition(): this { return this; }
+    setFillStyle(color: number): this { this.fillColor = color; return this; }
+    setRadius(radius: number): this { this.radius = radius; return this; }
+    destroy(): void {}
+  }
+
+  function makeScene(): { scene: unknown; circles: FakeCircle[] } {
+    const circles: FakeCircle[] = [];
+    const scene = {
+      scale: { width: 390, height: 844 },
+      add: {
+        circle: () => {
+          const circle = new FakeCircle();
+          circles.push(circle);
+          return circle;
+        },
+        rectangle: () => ({
+          setAlpha() { return this; }, setDepth() { return this; },
+          setScrollFactor() { return this; }, setStrokeStyle() { return this; },
+        }),
+      },
+      cameras: { main: { shakeEffect: { reset: vi.fn() } } },
+    };
+    return { scene, circles };
+  }
+
+  const weaponFeel = [
+    { family: 'pistol', muzzle: { color: '#fbbf24', radius: 5, lifetimeMs: 70 }, impact: { color: '#fbbf24', radius: 5 }, recoilPx: 3, sfxTierVolumeMultiplier: [1, 1, 1] as const },
+    { family: 'shotgun', muzzle: { color: '#f97316', radius: 8, lifetimeMs: 90 }, impact: { color: '#f97316', radius: 7 }, recoilPx: 6, sfxTierVolumeMultiplier: [1, 1, 1] as const },
+  ];
+
+  it('draws a muzzle flash using the firing family color/radius', () => {
+    const { scene, circles } = makeScene();
+    const renderer = new PhaserFeedbackRenderer({ scene: scene as never, maxEffects: 8, maxHeavyEffects: 4, weaponFeel });
+
+    renderer.muzzleFlash(10, 20, 'shotgun');
+
+    const active = circles.filter((c) => c.fillColor !== undefined);
+    expect(active).toHaveLength(1);
+    expect(active[0].fillColor).toBe(0xf97316);
+    expect(active[0].radius).toBe(8);
+  });
+
+  it('draws nothing for a muzzle flash with an unknown family rather than guessing', () => {
+    const { scene, circles } = makeScene();
+    const renderer = new PhaserFeedbackRenderer({ scene: scene as never, maxEffects: 8, maxHeavyEffects: 4, weaponFeel });
+
+    renderer.muzzleFlash(10, 20, 'railgun');
+
+    expect(circles.filter((c) => c.fillColor !== undefined)).toHaveLength(0);
+  });
+
+  it('colors the impact cue by family and falls back for an unknown family', () => {
+    const { scene, circles } = makeScene();
+    const renderer = new PhaserFeedbackRenderer({ scene: scene as never, maxEffects: 8, maxHeavyEffects: 4, weaponFeel });
+
+    renderer.projectileHit(0, 0, 'pistol', false);
+    renderer.projectileHit(0, 0, 'railgun', false);
+
+    const active = circles.filter((c) => c.fillColor !== undefined);
+    expect(active).toHaveLength(2);
+    expect(active[0].fillColor).toBe(0xfbbf24);
+    expect(active[0].radius).toBe(5);
+    // Unknown family still renders (unlike muzzleFlash) using the pre-Epic-17
+    // hit color/radius, so a projectile:hit for content missing a weapon-feel
+    // entry never silently disappears from combat feedback.
+    expect(active[1].fillColor).toBe(0xf7f1d5);
   });
 });

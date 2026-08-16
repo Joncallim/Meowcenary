@@ -3,7 +3,7 @@ import type { VisualArtBinding } from '../systems/types';
 import { VisualDepth } from '../systems/visualDepths';
 
 export interface HeldWeaponPresentation {
-  show(binding: Readonly<VisualArtBinding>, x: number, y: number, angle: number): void;
+  show(binding: Readonly<VisualArtBinding>, x: number, y: number, angle: number, recoilPx?: number): void;
   update(dtMs: number): void;
   destroy(): void;
 }
@@ -23,13 +23,19 @@ export class HeldWeaponView implements HeldWeaponPresentation {
       .setVisible(false);
   }
 
-  show(binding: Readonly<VisualArtBinding>, x: number, y: number, angle: number): void {
+  /** recoilPx (Epic 17, presentation-only) kicks the muzzle a few pixels
+   *  back along the firing angle for the flash's visible window — a static
+   *  offset, not an animated tween, per this codebase's dt-driven cosmetic
+   *  convention. */
+  show(binding: Readonly<VisualArtBinding>, x: number, y: number, angle: number, recoilPx = 0): void {
     if (binding.kind !== 'weapon-held') return;
     const pointsLeft = Math.cos(angle) < 0;
+    const recoilX = x - Math.cos(angle) * recoilPx;
+    const recoilY = y - Math.sin(angle) * recoilPx;
     this.image
       .setTexture(binding.textureKey)
       .setDisplaySize(binding.display.width, binding.display.height)
-      .setPosition(x, y)
+      .setPosition(recoilX, recoilY)
       .setRotation(angle + (pointsLeft ? Math.PI : 0))
       .setFlipY(pointsLeft)
       .setActive(true)

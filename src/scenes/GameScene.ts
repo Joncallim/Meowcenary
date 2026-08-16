@@ -319,6 +319,7 @@ export class GameScene extends Phaser.Scene {
         scene: this,
         maxEffects: RuntimeConfig.performance.maxFeedbackEffects,
         maxHeavyEffects: RuntimeConfig.performance.maxHeavyFeedbackEffects,
+        weaponFeel: ctx.data.weaponFeel,
       }),
     });
     this.defeatPresentationSystem = new DefeatPresentationSystem({

@@ -264,6 +264,62 @@ describe('game data validation', () => {
     expect(() => validateGameData(badSpread)).toThrow(/weapons\.json\[0\]\.spreadDeg/);
   });
 
+  it('validates shipped weapon-feel entries, one per weapon family', () => {
+    const data = loadGameData();
+
+    expect(data.weaponFeel.map((entry) => entry.family).sort()).toEqual([
+      'pistol', 'shotgun', 'smg',
+    ]);
+  });
+
+  it('rejects a weapon-feel entry missing a family used by weapons.json', () => {
+    const data = loadGameData();
+    const broken = structuredClone(data);
+    broken.weaponFeel = broken.weaponFeel.filter((entry: { family: string }) => entry.family !== 'smg');
+
+    expect(() => validateGameData(broken)).toThrow(/missing entry for weapon family "smg"/);
+  });
+
+  it('rejects a weapon-feel entry for a family no weapon uses', () => {
+    const data = loadGameData();
+    const broken = structuredClone(data);
+    broken.weaponFeel.push({ ...broken.weaponFeel[0], family: 'railgun' });
+
+    expect(() => validateGameData(broken)).toThrow(/"railgun" is not used by any weapon/);
+  });
+
+  it('rejects a duplicate weapon-feel family', () => {
+    const data = loadGameData();
+    const broken = structuredClone(data);
+    broken.weaponFeel.push({ ...broken.weaponFeel[0] });
+
+    expect(() => validateGameData(broken)).toThrow(/family: duplicate, first seen at index 0/);
+  });
+
+  it('rejects malformed weapon-feel fields', () => {
+    const data = loadGameData();
+
+    const badColor = structuredClone(data) as any;
+    badColor.weaponFeel[0].muzzle.color = 'orange';
+    expect(() => validateGameData(badColor)).toThrow(/weapon-feel\.json\[0\]\.muzzle\.color/);
+
+    const badRecoil = structuredClone(data) as any;
+    badRecoil.weaponFeel[0].recoilPx = 0;
+    expect(() => validateGameData(badRecoil)).toThrow(/weapon-feel\.json\[0\]\.recoilPx/);
+
+    const badMultipliers = structuredClone(data) as any;
+    badMultipliers.weaponFeel[0].sfxTierVolumeMultiplier = [1, 2];
+    expect(() => validateGameData(badMultipliers)).toThrow(
+      /sfxTierVolumeMultiplier: required array of exactly 3 entries/,
+    );
+
+    const negativeMultiplier = structuredClone(data) as any;
+    negativeMultiplier.weaponFeel[0].sfxTierVolumeMultiplier = [1, 1, -1];
+    expect(() => validateGameData(negativeMultiplier)).toThrow(
+      /sfxTierVolumeMultiplier\[2\]: required positive number/,
+    );
+  });
+
   it('accepts an upgrade with a single valid effect', () => {
     const data = withFirstUpgradeEffects([{ stat: 'moveSpeed', op: 'mult', value: 1.1 }]);
     expect(() => validateGameData(data)).not.toThrow();

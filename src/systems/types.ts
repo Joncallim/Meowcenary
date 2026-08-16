@@ -37,6 +37,20 @@ export interface WeaponDefinition {
   };
 }
 
+/**
+ * Presentation-only per-family combat feel (Epic 17). Never read by gameplay
+ * resolution (`weaponStats.ts`, `Projectile`) — cosmetics/audio only. Exactly
+ * one entry per `WeaponDefinition.family` value in `weapons.json`.
+ */
+export interface WeaponFeelDefinition {
+  readonly family: string;
+  readonly muzzle: { readonly color: string; readonly radius: number; readonly lifetimeMs: number };
+  readonly impact: { readonly color: string; readonly radius: number };
+  readonly recoilPx: number;
+  /** One multiplier per tier, index 0 = T1. */
+  readonly sfxTierVolumeMultiplier: readonly [number, number, number];
+}
+
 export type EnemyArchetype = 'chaser' | 'charger' | 'ranged' | 'tank' | 'elite' | 'boss';
 export const SPAWNABLE_ENEMY_ARCHETYPES = ['chaser', 'charger', 'tank'] as const;
 export type SpawnableEnemyArchetype = (typeof SPAWNABLE_ENEMY_ARCHETYPES)[number];
@@ -394,6 +408,7 @@ export interface GameData {
   characters: CharacterDefinition[];
   arenas: ArenaDefinition[];
   lootTables: LootTable[];
+  weaponFeel: WeaponFeelDefinition[];
   readonly audio: AudioData;
   readonly visualArt: VisualArtCatalog;
 }

@@ -14,8 +14,12 @@ export interface GameEventMap {
   // high-damage hits is not double-counted by dev-tooling meters (Epic 11 §7).
   'enemy:damaged': { instanceId: number; amount: number; x: number; y: number };
   'enemy:killed': { instanceId: number; enemyId: string; xpValue: number; scrapValue: number; lootTableId?: string; x: number; y: number };
-  'weapon:fired': { weaponId: string; x: number; y: number };
-  'projectile:hit': { x: number; y: number; damage: number; killed: boolean };
+  // family/tier (Epic 17) are cosmetic-only duplicates of data WeaponSystem
+  // already holds at the emit site — listeners key presentation/audio off
+  // them without a weaponRegistry lookup, same as enemy:killed carrying
+  // enemyId rather than making listeners resolve the archetype.
+  'weapon:fired': { weaponId: string; family: string; tier: number; x: number; y: number };
+  'projectile:hit': { weaponId: string; family: string; tier: number; x: number; y: number; damage: number; killed: boolean };
   'xp:gained': { amount: number; total: number };
   'level:up': { level: number };
   'card:offered': { offerId: number; choices: readonly string[] };

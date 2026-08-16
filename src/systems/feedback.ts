@@ -4,9 +4,15 @@ import { createPool, type Pool } from '../engine/pool';
 import { shouldUseHeavyMotion } from '../engine/motion';
 import type { Settings } from '../systems/save';
 import type { System } from '../engine/system';
+import type { WeaponFeelDefinition } from './types';
 
 export interface FeedbackRenderer {
-  projectileHit(x: number, y: number, heavyMotion: boolean): void;
+  /** Epic 17: family-keyed muzzle puff. Unknown/missing family draws nothing
+   *  rather than guessing a color — validation guarantees every weapon
+   *  family used in weapons.json has a weapon-feel entry, so "unknown" only
+   *  happens in isolated-unit-test harnesses that skip the real catalog. */
+  muzzleFlash(x: number, y: number, family: string): void;
+  projectileHit(x: number, y: number, family: string, heavyMotion: boolean): void;
   enemyKilled(x: number, y: number, heavyMotion: boolean): void;
   playerDamaged(heavyMotion: boolean): void;
   levelUp(heavyMotion: boolean): void;
@@ -46,8 +52,11 @@ export class FeedbackSystem implements System {
     this.reducedMotion = options.settings.reducedMotion;
 
     this.unsubscribe.push(
-      options.bus.on('projectile:hit', ({ x, y }) => {
-        this.renderer.projectileHit(x, y, shouldUseHeavyMotion(this.reducedMotion));
+      options.bus.on('weapon:fired', ({ x, y, family }) => {
+        this.renderer.muzzleFlash(x, y, family);
+      }),
+      options.bus.on('projectile:hit', ({ x, y, family }) => {
+        this.renderer.projectileHit(x, y, family, shouldUseHeavyMotion(this.reducedMotion));
       }),
       options.bus.on('enemy:killed', ({ x, y }) => {
         this.renderer.enemyKilled(x, y, shouldUseHeavyMotion(this.reducedMotion));
@@ -85,6 +94,8 @@ export interface PhaserFeedbackRendererOptions {
   readonly scene: Phaser.Scene;
   readonly maxEffects: number;
   readonly maxHeavyEffects: number;
+  /** Epic 17: presentation-only family colors/sizes for muzzle/impact cues. */
+  readonly weaponFeel?: readonly WeaponFeelDefinition[];
 }
 
 interface FeedbackDot {
@@ -113,11 +124,17 @@ const KILL_COLOR = 0x2dd4bf; // teal
 const DANGER_COLOR = 0xf87171; // danger red
 const FEEDBACK_DEPTH = 60;
 const OVERLAY_DEPTH = 90;
+const MUZZLE_HIT_RADIUS_FALLBACK = 4;
+
+function hexToColor(hex: string): number {
+  return Number.parseInt(hex.slice(1), 16);
+}
 
 export class PhaserFeedbackRenderer implements FeedbackRenderer {
   private readonly scene: Phaser.Scene;
   private readonly maxEffects: number;
   private readonly maxHeavyEffects: number;
+  private readonly weaponFeelByFamily: ReadonlyMap<string, WeaponFeelDefinition>;
   private readonly dotPool: Pool<FeedbackDot>;
   private readonly ownedDots: FeedbackDot[] = [];
   private readonly liveDots = new Set<FeedbackDot>();
@@ -132,6 +149,7 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
     this.scene = options.scene;
     this.maxEffects = options.maxEffects;
     this.maxHeavyEffects = options.maxHeavyEffects;
+    this.weaponFeelByFamily = new Map((options.weaponFeel ?? []).map((entry) => [entry.family, entry]));
 
     this.dotPool = createPool(
       () => {
@@ -187,14 +205,23 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
     return this.dropped;
   }
 
-  projectileHit(x: number, y: number, heavyMotion: boolean): void {
-    this.spawnStationary(x, y, HIT_COLOR, 4, 80);
+  muzzleFlash(x: number, y: number, family: string): void {
+    const feel = this.weaponFeelByFamily.get(family);
+    if (!feel) return;
+    this.spawnStationary(x, y, hexToColor(feel.muzzle.color), feel.muzzle.radius, feel.muzzle.lifetimeMs);
+  }
+
+  projectileHit(x: number, y: number, family: string, heavyMotion: boolean): void {
+    const feel = this.weaponFeelByFamily.get(family);
+    const color = feel ? hexToColor(feel.impact.color) : HIT_COLOR;
+    const radius = feel ? feel.impact.radius : MUZZLE_HIT_RADIUS_FALLBACK;
+    this.spawnStationary(x, y, color, radius, 80);
     if (!heavyMotion) {
       return;
     }
     for (let i = 0; i < Math.min(3, BURST_DIRECTIONS.length); i += 1) {
       const dir = BURST_DIRECTIONS[i];
-      this.spawnMoving(x, y, HIT_COLOR, 2, 90, 120, dir.x, dir.y);
+      this.spawnMoving(x, y, color, 2, 90, 120, dir.x, dir.y);
     }
   }
 
