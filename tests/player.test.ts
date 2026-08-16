@@ -262,6 +262,21 @@ describe('Player', () => {
     expect(environmentalHarness.artSprites[0]?.alpha).toBe(1);
   });
 
+  it('does not restart an in-progress hurt clip on continuous environmental damage', async () => {
+    // Regression: hazard damage applies every frame with no throttle, and
+    // Phaser's sprite.play() restarts an already-playing animation by
+    // default, so re-triggering 'hurt' every frame would loop it at frame 0
+    // forever and permanently block movement animation from resuming.
+    const { player, artSprites } = await createHarness(650, { x: 0, y: 0 }, playerArt);
+
+    player.takeEnvironmentalDamage(1);
+    player.takeEnvironmentalDamage(1);
+    player.takeEnvironmentalDamage(1);
+
+    expect(artSprites[0]?.plays.filter((key) => key === 'art:character:scrap-tabby:hurt'))
+      .toHaveLength(1);
+  });
+
   it('takeEnvironmentalDamage is no-op when run is not active', async () => {
     const { player, runState } = await createHarness();
     runState.status = 'won';

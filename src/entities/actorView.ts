@@ -83,6 +83,11 @@ export class SpriteView implements ActorView {
   playOneShot(clip: 'hurt' | 'defeat'): void {
     if (this.oneShot === 'defeat' || (clip === 'hurt' && !this.clips.hurt) ||
         (clip === 'defeat' && !this.clips.defeat)) return;
+    // Already mid-playback of this exact clip: Phaser's play() restarts an
+    // already-playing animation by default, so re-triggering every frame
+    // (e.g. continuous hazard damage) would loop it at frame 0 forever and
+    // never fire animationcomplete. Let it run to completion instead.
+    if (this.oneShot === clip) return;
     this.oneShot = clip;
     if (clip === 'defeat') this.sprite.setAlpha(1);
     this.sprite.play(this.clips[clip]!);
