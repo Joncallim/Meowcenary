@@ -35,7 +35,7 @@ import type {
 import { isSpawnableEnemyDefinition } from './types';
 import { CHARACTER_PASSIVE_EVENTS } from './types';
 import { isContentId, isUnlockId } from './ids';
-import { findRectWitness, findRingWitness } from '../gameplay/spawnRegion';
+import { findEdgeLaneWitness, findRectWitness, findRingWitness } from '../gameplay/spawnRegion';
 import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 
 const RARITIES = new Set<Rarity>(['common', 'uncommon', 'rare', 'epic', 'legendary']);
@@ -1159,37 +1159,21 @@ function checkArena(row: unknown): string[] {
           const side = readOwnField(lane, 'side');
           const offset = readOwnField(lane, 'offset');
           const laneWidth = readOwnField(lane, 'width');
-          if (typeof side !== 'string' || !isFiniteNumber(offset) || !isFiniteNumber(laneWidth)) return;
-          const low = offset + ENEMY_BODY_RADIUS;
-          const high = offset + laneWidth - ENEMY_BODY_RADIUS;
-          const coordinate = side === 'top' || side === 'left'
-            ? inset
-            : (side === 'right' ? width - inset : height - inset);
-          const horizontal = side === 'top' || side === 'bottom';
-          // An obstacle only matters if it actually crosses the lane's fixed
-          // cross-axis line; among those, the strip is unspawnable only if
-          // their combined spans fully cover [low, high] — a single obstacle
-          // clipping one end still leaves the rest of the strip spawnable.
-          const spans = arenaObstacles
-            .map((obstacle) => ({
-              x: obstacle.x - ENEMY_BODY_RADIUS,
-              y: obstacle.y - ENEMY_BODY_RADIUS,
-              w: obstacle.w + ENEMY_BODY_RADIUS * 2,
-              h: obstacle.h + ENEMY_BODY_RADIUS * 2,
-            }))
-            .filter((expanded) => horizontal
-              ? coordinate >= expanded.y && coordinate <= expanded.y + expanded.h
-              : coordinate >= expanded.x && coordinate <= expanded.x + expanded.w)
-            .map((expanded) => (horizontal
-              ? [expanded.x, expanded.x + expanded.w]
-              : [expanded.y, expanded.y + expanded.h]) as [number, number]);
-          const cuts = [...new Set([low, high, ...spans.flat().filter((c) => c > low && c < high)])]
-            .sort((a, b) => a - b);
-          const blocked = cuts.length > 1 && cuts.slice(0, -1).every((cut, i) => {
-            const mid = (cut + cuts[i + 1]!) / 2;
-            return spans.some(([start, end]) => mid >= start && mid <= end);
-          });
-          if (blocked) errors.push(`spawnRegions[${rIdx}].lanes[${laneIndex}]: body-radius spawn strip fully covered by obstacles`);
+          if (
+            typeof side !== 'string' || !isFiniteNumber(offset) || !isFiniteNumber(laneWidth) ||
+            (side !== 'top' && side !== 'right' && side !== 'bottom' && side !== 'left')
+          ) return;
+          // Reuse the same witness the runtime fallback uses (spawnPoint's
+          // searchFallback) so "validation passed" and "runtime can find a
+          // point" mean exactly the same thing — a single obstacle clipping
+          // one end of the strip still leaves the rest spawnable.
+          const witness = findEdgeLaneWitness(
+            { side, offset, width: laneWidth },
+            inset,
+            { width, height },
+            arenaObstacles,
+          );
+          if (!witness) errors.push(`spawnRegions[${rIdx}].lanes[${laneIndex}]: body-radius spawn strip fully covered by obstacles`);
         });
       }
     }

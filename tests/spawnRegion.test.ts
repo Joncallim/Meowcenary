@@ -258,4 +258,32 @@ describe('spawnPoint', () => {
       { x: 20, y: 368 },
     ]);
   });
+
+  it('falls back to open ground when an edge-lane midpoint is blocked but the strip is not', () => {
+    // Lane's body-safe strip is [173, 243]. This obstacle sits on the exact
+    // midpoint (offset + width/2 = 208, the point a midpoint-only fallback
+    // would try) but leaves the ends of the strip open.
+    const arena: ArenaDefinition = {
+      ...canvasArena,
+      size: { width: 768, height: 1344 },
+      obstacles: [{ id: 'clip', x: 195, y: 0, w: 26, h: 64 }],
+      spawnRegions: [{
+        kind: 'edge-lanes', inset: 20,
+        lanes: [{ side: 'top', offset: 160, width: 96 }],
+      }],
+    };
+    // Every random draw lands exactly on the blocked midpoint, exhausting
+    // spawnPoint's random attempts and forcing the deterministic fallback.
+    const rng: Rng = {
+      next: () => 0.5,
+      int: () => 0,
+      pick: <T>(items: readonly T[]) => items[0]!,
+      weighted: <T>(entries: ReadonlyArray<{ item: T; weight: number }>) => entries[0]!.item,
+    };
+    const point = spawnPoint(arena, rng);
+    expect(point.y).toBe(20);
+    expect(point.x).toBeGreaterThanOrEqual(173);
+    expect(point.x).toBeLessThanOrEqual(243);
+    expect(point.x < 195 || point.x > 221).toBe(true);
+  });
 });
