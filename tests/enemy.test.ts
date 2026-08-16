@@ -466,6 +466,131 @@ function enemyDefinition(): ResolvedEnemyDefinition {
     });
   });
 
+  describe('Epic 17 (D7): telegraph and weight presentation', () => {
+    const chargerDefinition: ResolvedEnemyDefinition = {
+      id: 'test-charger',
+      name: 'Test Charger',
+      archetype: 'charger',
+      health: 10,
+      damage: 1,
+      speed: 100,
+      xpValue: 1,
+      scrapValue: 1,
+      contactDamage: true,
+      attack: {
+        triggerRange: 150,
+        telegraphMs: 650,
+        dashSpeed: 260,
+        dashDurationMs: 700,
+        cooldownMs: 1_200,
+      },
+    };
+
+    it('pulses the code-drawn accent node through the winding telegraph and rests at full alpha elsewhere', async () => {
+      const { telegraphPulseAlpha } = await import('../src/entities/actorView');
+      const bus = createEventBus();
+      const circles: MockArc[] = [];
+      const scene = {
+        add: {
+          circle: (x: number, y: number) => {
+            const arc = new MockArc(x, y);
+            circles.push(arc);
+            return arc;
+          },
+        },
+        physics: { add: { existing: () => undefined } },
+      };
+      const { Enemy } = await import('../src/entities/Enemy');
+      const enemy = new Enemy(scene as never, chargerDefinition, 10, 20, bus);
+      const accent = circles[1]!;
+      const player = { active: true, x: 100, y: 20 } as never;
+
+      expect(accent.alpha).toBe(1);
+
+      enemy.update(player, 1);
+      expect(enemy.state).toBe('winding');
+      const progress = 1 - enemy.stateTimerMs / chargerDefinition.attack.telegraphMs;
+      expect(accent.alpha).toBeCloseTo(telegraphPulseAlpha(progress));
+
+      enemy.update(player, 649);
+      expect(enemy.state).toBe('attacking');
+      expect(accent.alpha).toBe(1);
+    });
+
+    it('emits enemy:dashed exactly once at the winding-to-attacking edge with the locked dash direction', async () => {
+      const bus = createEventBus();
+      const dashed = vi.fn();
+      bus.on('enemy:dashed', dashed);
+      const { enemy } = await createEnemy(bus, chargerDefinition);
+      const player = { active: true, x: 100, y: 20 } as never;
+
+      enemy.update(player, 1);
+      expect(enemy.state).toBe('winding');
+      expect(dashed).not.toHaveBeenCalled();
+
+      enemy.update(player, 649);
+      expect(enemy.state).toBe('attacking');
+      expect(dashed).toHaveBeenCalledTimes(1);
+      const [call] = dashed.mock.calls[0]!;
+      expect(call.x).toBeCloseTo(enemy.pos.x);
+      expect(call.y).toBeCloseTo(enemy.pos.y);
+      expect(call.dirX).toBeCloseTo(1);
+      expect(call.dirY).toBeCloseTo(0);
+
+      enemy.update(player, 100);
+      expect(enemy.state).toBe('attacking');
+      expect(dashed).toHaveBeenCalledTimes(1);
+    });
+
+    it('emits enemy:heavyStep on a fixed-distance cadence for the tank archetype only', async () => {
+      const tankDefinition: ResolvedEnemyDefinition = {
+        id: 'test-tank',
+        name: 'Test Tank',
+        archetype: 'tank',
+        health: 72,
+        damage: 14,
+        speed: 480,
+        xpValue: 6,
+        scrapValue: 5,
+        contactDamage: true,
+      };
+      const bus = createEventBus();
+      const heavyStep = vi.fn();
+      bus.on('enemy:heavyStep', heavyStep);
+      const { enemy } = await createEnemy(bus, tankDefinition);
+      const player = { active: true, x: 10_000, y: 20 } as never;
+
+      // 480px/s * 100ms = 48px per tick, matching the interval exactly.
+      enemy.update(player, 100);
+      expect(heavyStep).toHaveBeenCalledTimes(1);
+      enemy.update(player, 100);
+      expect(heavyStep).toHaveBeenCalledTimes(2);
+    });
+
+    it('never emits enemy:heavyStep for a chaser covering the same distance', async () => {
+      const fastChaser: ResolvedEnemyDefinition = {
+        id: 'test-fast-chaser',
+        name: 'Test Fast Chaser',
+        archetype: 'chaser',
+        health: 10,
+        damage: 1,
+        speed: 480,
+        xpValue: 1,
+        scrapValue: 1,
+        contactDamage: true,
+      };
+      const bus = createEventBus();
+      const heavyStep = vi.fn();
+      bus.on('enemy:heavyStep', heavyStep);
+      const { enemy } = await createEnemy(bus, fastChaser);
+      const player = { active: true, x: 10_000, y: 20 } as never;
+
+      enemy.update(player, 100);
+      enemy.update(player, 100);
+      expect(heavyStep).not.toHaveBeenCalled();
+    });
+  });
+
   it('fails closed for a subnormal runtime delta without writing non-finite velocity', async () => {
     const { enemy, sprite } = await createEnemy();
     sprite.body?.setVelocity(20, 20);

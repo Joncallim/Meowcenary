@@ -21,6 +21,10 @@ const OUTLINE_COLOR = 0x0a0f14;
 const SHADOW_RADIUS = 12;
 const SHADOW_OFFSET_Y = 14;
 const SHADOW_ALPHA = 0.28;
+/** Epic 17 (D7): Trash Brute's "lower-frequency" landing-pulse cadence — at
+ *  its 42px/s pursuit speed this reads roughly once per second, distinctly
+ *  slower than a chaser/charger's footfall would be. */
+const HEAVY_STEP_INTERVAL_PX = 48;
 
 /** One display-only accent per archetype so silhouettes differ at a glance
  *  (style guide: readable at phone scale, distinct shapes). Elites inherit the
@@ -31,8 +35,16 @@ interface AccentStyle {
   readonly stroke?: { readonly width: number; readonly color: number; readonly alpha: number };
 }
 
+/** Elites inherit their base archetype's presentation everywhere it matters
+ *  (accent shape, weight cues) — one shared resolution point. */
+function effectiveArchetype(
+  def: Readonly<ResolvedEnemyDefinition>,
+): Exclude<ResolvedEnemyDefinition['archetype'], 'elite'> {
+  return def.archetype === 'elite' ? def.baseArchetype : def.archetype;
+}
+
 function accentStyle(def: Readonly<ResolvedEnemyDefinition>): AccentStyle {
-  const effective = def.archetype === 'elite' ? def.baseArchetype : def.archetype;
+  const effective = effectiveArchetype(def);
   switch (effective) {
     case 'charger':
       return { radius: 5, fill: 0xfff3c4 }; // bright core — reads "armed"
@@ -76,6 +88,10 @@ export class Enemy implements EnemyInstance {
   private dashOrigin: Vec2 = { x: 0, y: 0 };
   private facing: 1 | -1 = 1;
   private presentationPos: Vec2 | undefined;
+  /** Epic 17 (D7): distance accumulated since the last Trash Brute landing
+   *  pulse — a movement-cadence accumulator, not a duplicate of the
+   *  winding-telegraph's stateTimerMs (D7 forbids only the latter). */
+  private heavyStepAccumPx = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -114,7 +130,7 @@ export class Enemy implements EnemyInstance {
       VisualDepth.enemy,
     ) ?? new PlaceholderView(
       this.sprite,
-      [{ node: accentNode, dx: 0, dy: 0, flashes: false }],
+      [{ node: accentNode, dx: 0, dy: 0, flashes: false, telegraphTint: true }],
       { node: shadow, dy: SHADOW_OFFSET_Y },
     );
     if (this.view instanceof PlaceholderView === false) accentNode.destroy();
@@ -186,11 +202,23 @@ export class Enemy implements EnemyInstance {
         dtMs,
         this.environment,
       );
+      // Epic 17 (D7): fires once at the pursuing/winding → attacking edge,
+      // not every frame — FeedbackSystem owns the heavy-motion gate and the
+      // pooled trail dots, Enemy just reports the moment.
+      const enteredAttack = this.state !== 'attacking' && result.state === 'attacking';
       this.state = result.state;
       this.stateTimerMs = result.stateTimerMs;
       this.dashDirection = result.dashDirection;
       this.dashOrigin = result.dashOrigin;
       this.applyPosition(result.pos, dtMs, true);
+      if (enteredAttack) {
+        this.bus.emit('enemy:dashed', {
+          x: this.x,
+          y: this.y,
+          dirX: this.dashDirection.x,
+          dirY: this.dashDirection.y,
+        });
+      }
       // Charger dashes use body.reset, so velocity never reflects motion:
       // the run clip is driven by actual displacement (dash or pursuit).
       this.syncPresentation(this.state === 'attacking', player);
@@ -198,8 +226,12 @@ export class Enemy implements EnemyInstance {
     }
 
     if (pursuitArchetype(this.definition) !== undefined) {
-      const next = chaseStep(this.pos, player, this.definition.speed, dtMs);
+      const previous = this.pos;
+      const next = chaseStep(previous, player, this.definition.speed, dtMs);
       this.applyPosition(next, dtMs);
+      if (this.state === 'pursuing') {
+        this.accumulateHeavyStep(Math.hypot(next.x - previous.x, next.y - previous.y));
+      }
       this.syncPresentation(Math.hypot(this.body.velocity.x, this.body.velocity.y) > 0.01);
       return;
     }
@@ -283,7 +315,46 @@ export class Enemy implements EnemyInstance {
       ? Math.hypot(current.x - this.presentationPos.x, current.y - this.presentationPos.y) > 0.01
       : false;
     this.presentationPos = current;
-    this.view.update({ x: current.x, y: current.y, facing: this.facing, moving: moving || moved, alpha: 1 });
+    const telegraph = this.telegraphProgress();
+    this.view.update({
+      x: current.x,
+      y: current.y,
+      facing: this.facing,
+      moving: moving || moved,
+      alpha: 1,
+      ...(telegraph !== undefined ? { telegraph } : {}),
+    });
+  }
+
+  /** Epic 17 (D7): 0→1 as the winding charge completes, derived purely from
+   *  the already-authoritative stateTimerMs (which counts DOWN from
+   *  attack.telegraphMs) — never a second countdown. */
+  private telegraphProgress(): number | undefined {
+    if (this.state !== 'winding') {
+      return undefined;
+    }
+    const chargerDefinition = asChargerMovementDefinition(this.definition);
+    const telegraphMs = chargerDefinition?.attack.telegraphMs;
+    if (!telegraphMs || telegraphMs <= 0) {
+      return undefined;
+    }
+    const remaining = Math.min(telegraphMs, Math.max(0, this.stateTimerMs));
+    return 1 - remaining / telegraphMs;
+  }
+
+  /** Epic 17 (D7): Trash Brute-only landing pulse, cadenced by distance
+   *  travelled rather than a timer — reports the moment to FeedbackSystem,
+   *  which owns the heavy-motion gate and the pooled cue. */
+  private accumulateHeavyStep(distancePx: number): void {
+    if (effectiveArchetype(this.definition) !== 'tank' || !Number.isFinite(distancePx)) {
+      return;
+    }
+    this.heavyStepAccumPx += distancePx;
+    if (this.heavyStepAccumPx < HEAVY_STEP_INTERVAL_PX) {
+      return;
+    }
+    this.heavyStepAccumPx -= HEAVY_STEP_INTERVAL_PX;
+    this.bus.emit('enemy:heavyStep', { x: this.x, y: this.y });
   }
 
   private destroyPresentation(): void {
