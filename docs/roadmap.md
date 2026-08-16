@@ -23,7 +23,7 @@
 
 ### Alpha 2 — Golden Run
 
-Alpha 2 deliberately finishes **one genuinely good Golden Run** before broad content expansion. The purpose is to prove the combat/build loop, visual identity, touch experience, and replayability rather than hide a weak core behind more content.
+Alpha 2 deliberately finishes **one genuinely good Golden Run** before broad content expansion. The purpose is to prove the combat/build loop, visual identity, touch experience, controller experience, and replayability rather than hide a weak core behind more content.
 
 - **Epic 16 / Visual Identity and Junkyard World (#75):** architecture/art direction established in PR #82; runtime implementation is currently in open PR #83.
 - **Epic 17 / Combat Feel and Weapon Identity (#76):** open; make pistol/SMG/shotgun tiers and existing enemy threats feel distinct and satisfying.
@@ -33,18 +33,22 @@ Alpha 2 deliberately finishes **one genuinely good Golden Run** before broad con
   - clear already-owned/current-stack/max-stack indicators;
   - placeholder imagery/icon metadata and resolvable placeholder visuals for every card;
   - temporary card upgrades remain distinct from the future persistent Gunsmith.
-- **Epic 19 / Player UX and Alpha 2 Gate (#78):** open; now explicitly validates the portrait touchscreen combat loop:
-  - auto-fire remains primary;
-  - compare anchored/floating movement controls;
+- **Epic 19 / Player UX and Alpha 2 Gate (#78):** open; now explicitly validates both portrait touchscreen combat and complete controller-only play:
+  - auto-fire remains primary across touch, keyboard, and controller;
+  - compare anchored/floating touch movement controls;
   - prove movement/positioning provides sufficient agency;
   - introduce one simple dash/evade only if playtesting shows movement-only is materially passive;
-  - reserve a future right-thumb ability slot without pulling the full character-ability system into Alpha 2.
+  - freeze a platform-neutral logical input/action layer for movement, UI navigation, confirm/back, pause, inventory, dash, and future ability actions;
+  - require the full launch → menu → run → upgrade → merge → settings → summary → Retry/Menu journey to work controller-only with no touch/mouse fallback;
+  - validate controller deadzones, focus navigation, disconnect/reconnect, input-source switching, and no double-fire;
+  - reserve a future ability action/slot without pulling the full character-ability system into Alpha 2;
+  - do **not** introduce required right-stick/manual aiming.
 
-Alpha 2 ends only when the Golden Run passes a real player-experience gate. It is not a release-candidate gate by automated tests alone.
+Alpha 2 ends only when the Golden Run passes a real player-experience gate on touch and controller. It is not a release-candidate gate by automated tests alone.
 
 ## Alpha 3 — Depth & Progression
 
-Once Epic 19 passes, Meowcenary expands from one proof-of-fun run into a deeper stage/progression game. The new phase is intentionally split so each system has a clear purpose.
+Once Epic 19 passes, Meowcenary expands from one proof-of-fun run into a deeper stage/progression game. The phase is intentionally split so each system has one clear responsibility.
 
 ### Epic 20 — Contracts, Objectives, and Stage Progression (#85)
 
@@ -56,7 +60,8 @@ Core direction:
 - frontier stages should become severely hostile around the intended ~3-minute clear window rather than allowing indefinite kiting;
 - completing the objective makes the stage clearable; optional extra-risk greed may continue only if it remains a real risk/reward choice;
 - initial chapter cadence targets four normal stages followed by a boss stage;
-- stage clears become progression/unlock sources for later characters, equipment, Gunsmith content, and chapters.
+- stage clears become progression/unlock sources for achievements/mastery, characters, equipment, Gunsmith content, and chapters;
+- stage selection and clear/retry/next-stage flow remain controller-, keyboard-, pointer-, and touch-navigable.
 
 ### Epic 21 — Enemy Roster Expansion and Boss Framework (#86)
 
@@ -73,9 +78,26 @@ Initial direction targets roughly eight archetypes:
 7. Shielded enemy.
 8. Splitter / disruptor.
 
-Bosses are unique milestone encounters with small readable movesets, not giant normal enemies with inflated HP. Boss stages integrate with Epic 20 and award meaningful progression unlocks.
+Bosses are unique milestone encounters with small readable movesets, not giant normal enemies with inflated HP. Boss stages integrate with Epic 20 and emit authoritative facts that Epic 22 can use for achievements/mastery.
 
-### Epic 22 — Persistent Gunsmith and Weapon-Part Crafting (#87)
+### Epic 22 — Achievements, Mastery, and Platform Sync (#91)
+
+Create one game-owned achievement/mastery system before the persistent systems that depend on it.
+
+Core direction:
+
+- stable validated Meowcenary achievement IDs;
+- standard, incremental, hidden, and mastery achievements;
+- persistent authoritative local progress/completion state;
+- achievement-triggered unlock hooks;
+- in-game achievement/mastery gallery and progress read models;
+- web/offline behavior works without any platform account;
+- optional adapters mirror eligible progress to Apple Game Center and Google Play Games;
+- native platform state is **never** the source of truth for gameplay progression;
+- failed/offline platform sync never revokes or blocks a locally earned unlock;
+- achievement UI remains fully controller/touch/keyboard navigable.
+
+### Epic 23 — Persistent Gunsmith and Weapon-Part Crafting (#87)
 
 Make persistent weapon engineering one of Meowcenary's deepest long-term loops.
 
@@ -91,9 +113,9 @@ The Gunsmith is **outside combat** and centers on a persistent gun with componen
 
 A separate part inventory supports upgrading, merging, and bounded trait infusion. Parts should often change behavior rather than only add tiny stats. Example: transferring a fire/flamethrower trait into a conventional barrel can produce an incendiary barrel.
 
-The Gunsmith is deliberately separate from temporary run cards and the short-term six-slot run rack.
+Achievement/mastery-gated blueprints and traits consume Epic 22's local authoritative state. The Gunsmith is deliberately separate from temporary run cards and the short-term six-slot run rack.
 
-### Epic 23 — Mercenary Roster Expansion (#88)
+### Epic 24 — Mercenary Roster Expansion (#88)
 
 Expand beyond the initial small cast to **more than three playable characters**, with an initial target of roughly eight.
 
@@ -102,11 +124,11 @@ Each character should have a clear identity through:
 - base stats;
 - passive;
 - starting weapon/build tendency;
-- one simple active ability / active-ability slot that consumes Epic 19's touch-control direction.
+- one simple active ability using Epic 19's shared logical input action layer.
 
-Later characters are primarily unlocked through stages, bosses, achievements, or mastery rather than simply bought with enough currency.
+Later characters are primarily unlocked through stages, bosses, Epic 22 achievements/mastery, or mastery goals rather than simply bought with enough currency. Character selection and abilities remain first-class controller, keyboard, and touch interactions.
 
-### Epic 24 — Armour Sets and Equipment Progression (#89)
+### Epic 25 — Armour Sets and Equipment Progression (#89)
 
 Add a persistent equipment layer with four initial slots:
 
@@ -122,9 +144,9 @@ Progression rule:
 - **Coins improve owned equipment.**
 - **Gameplay accomplishment unlocks higher-tier equipment access.**
 
-Higher tiers should come from stage/chapter progress, bosses, achievements, or mastery rather than currency alone.
+Higher tiers should come from stage/chapter progress, bosses, Epic 22 achievements/mastery rather than currency alone. Equipment management must be fully usable controller-only with no required drag/touch gesture.
 
-### Epic 25 — Meta Progression Rebalance and Depth Integration (#90)
+### Epic 26 — Meta Progression Rebalance and Depth Integration (#90)
 
 Integrate the new persistent systems so they feel like one game rather than several feature menus.
 
@@ -134,12 +156,44 @@ This epic defines the final responsibility of:
 - coins/scrap;
 - stage progression;
 - bosses;
-- achievements/mastery;
+- game-owned achievements/mastery;
+- optional native achievement mirrors;
 - Gunsmith parts/traits;
 - armour/equipment;
 - mercenary unlocks.
 
 It should simplify or retire legacy permanent-upgrade paths that no longer have a unique role and prevent the easiest-stage grind from becoming the dominant progression strategy.
+
+## Input / Platform Boundary
+
+Meowcenary's gameplay and UI should consume **logical actions**, not platform-specific buttons or touch widgets.
+
+Target relationship:
+
+```text
+Touch ───────┐
+Keyboard ────┼─> shared logical actions ─> gameplay/UI commands
+Controller ──┘
+```
+
+Core actions include movement vector, confirm, back, pause, inventory, navigation, optional dash, and future character ability. Native iOS/Android packaging may supply additional input adapters later, but it must not fork gameplay rules.
+
+Controller players use the same automatic combat model as touch players. Right-stick/manual aiming is not required.
+
+## Achievement / Platform Boundary
+
+```text
+Gameplay facts
+      ↓
+Meowcenary Achievement/Mastery State  ← authoritative
+      ↓
+┌──────────────┬────────────────┬──────────────────┐
+│ Web / local  │ Apple mirror   │ Google Play     │
+│              │ Game Center    │ Games mirror    │
+└──────────────┴────────────────┴──────────────────┘
+```
+
+Platform achievement services are optional mirrors. A platform sync failure must never block a local achievement, stage unlock, Gunsmith blueprint, character, or armour unlock.
 
 ## Product Loop After Alpha 3
 
@@ -153,7 +207,7 @@ Enter stage → fulfil objective → survive escalating pressure → clear/extra
 
 ### Progression loop — hours
 
-Advance stages → defeat bosses → unlock mercenaries/gear/parts → upgrade armour → engineer persistent guns → return to harder contracts.
+Advance stages → defeat bosses → complete achievements/mastery → unlock mercenaries/gear/parts → upgrade armour → engineer persistent guns → return to harder contracts.
 
 ## Progression Boundaries
 
@@ -161,10 +215,11 @@ Keep these systems distinct:
 
 - **Upgrade cards:** temporary within-contract build direction.
 - **Run weapon rack/merging:** temporary combat escalation during a run.
+- **Achievements/mastery:** persistent game-owned accomplishment/progression primitive, with optional native platform mirroring.
 - **Gunsmith:** persistent weapon engineering between runs.
 - **Armour/equipment:** persistent mercenary loadout/set progression.
 - **Mercenaries:** distinct playable identities/passives/abilities.
-- **Stages/bosses/achievements:** milestone progression and unlock gates.
+- **Stages/bosses:** content milestones and authoritative accomplishment facts.
 - **Coins/scrap:** improve appropriate owned gear/items; currency alone must not bypass every milestone gate.
 
 ## Milestone History
@@ -210,12 +265,13 @@ Keep these systems distinct:
 - Weapon acquisition and merge UX.
 - Combat feel.
 - Build variety and pacing.
-- Alpha 2 player-experience gate.
+- Touch + controller Alpha 2 player-experience gate.
 
 ### Milestone 5: Depth & Progression
 
 - Contract/stage ladder.
 - Expanded enemy roster and bosses.
+- Achievements/mastery + optional platform mirroring.
 - Persistent Gunsmith.
 - Expanded mercenary roster.
 - Armour/equipment sets.
@@ -223,6 +279,7 @@ Keep these systems distinct:
 
 ## Explicitly Later
 
+- Native iOS/Android packaging/store delivery after the shared input and persistent-state contracts are stable.
 - Online accounts.
 - Cloud saves.
 - Leaderboards.
