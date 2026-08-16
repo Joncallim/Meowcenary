@@ -25,8 +25,30 @@ const SFX_PROFILES = {
   'sfx-weapon-fired': [
     { durationMs: 120, startHz: 880, endHz: 440, gain: 0.42, noiseMix: 0.00 },
   ],
+  // Epic 17: family-distinct fire/impact character, matching each family's
+  // Slice 1 presentation identity (pistol: punchy; SMG: thin/rapid;
+  // shotgun: heavy/boomy). Same profile shape as the generic keys above,
+  // which stay as the sfxKeyByFamily fallback.
+  'sfx-weapon-fired-pistol': [
+    { durationMs: 100, startHz: 950, endHz: 480, gain: 0.42, noiseMix: 0.05 },
+  ],
+  'sfx-weapon-fired-smg': [
+    { durationMs: 55, startHz: 1100, endHz: 900, gain: 0.30, noiseMix: 0.10 },
+  ],
+  'sfx-weapon-fired-shotgun': [
+    { durationMs: 160, startHz: 300, endHz: 140, gain: 0.48, noiseMix: 0.45 },
+  ],
   'sfx-projectile-hit': [
     { durationMs: 100, startHz: 180, endHz: 90, gain: 0.34, noiseMix: 0.55 },
+  ],
+  'sfx-projectile-hit-pistol': [
+    { durationMs: 90, startHz: 200, endHz: 100, gain: 0.34, noiseMix: 0.50 },
+  ],
+  'sfx-projectile-hit-smg': [
+    { durationMs: 55, startHz: 260, endHz: 140, gain: 0.26, noiseMix: 0.50 },
+  ],
+  'sfx-projectile-hit-shotgun': [
+    { durationMs: 140, startHz: 140, endHz: 60, gain: 0.40, noiseMix: 0.55 },
   ],
   'sfx-enemy-killed': [
     { durationMs: 90, startHz: 220, endHz: 440, gain: 0.32, noiseMix: 0.00 },

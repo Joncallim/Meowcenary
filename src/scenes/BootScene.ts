@@ -87,7 +87,7 @@ export class BootScene extends Phaser.Scene {
     // Boot, initialized once, and published for Menu/Game to fetch. There is
     // no Boot shutdown hook for the manager; scenes never destroy it.
     const audio = new AudioManager(this);
-    audio.init(ctx.bus, ctx.settings, ctx.data.audio);
+    audio.init(ctx.bus, ctx.settings, ctx.data.audio, ctx.data.weaponFeel);
     this.registry.set(AUDIO_MANAGER_REGISTRY_KEY, audio);
 
     this.scene.start(SceneKey.Menu);

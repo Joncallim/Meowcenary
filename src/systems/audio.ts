@@ -1,10 +1,24 @@
 import type Phaser from 'phaser';
 import type { System } from '../engine/system';
-import type { EventBus } from '../engine/eventBus';
+import type { EventBus, GameEventKey, GameEventMap } from '../engine/eventBus';
 import { shouldPlay } from '../engine/cooldown';
 import { RuntimeConfig } from '../engine/config';
-import type { AudioData, AudioMapEntry } from './types';
+import type { AudioData, AudioMapEntry, WeaponFeelDefinition } from './types';
 import type { Settings } from './save';
+
+/** Epic 17: the only two events whose payload carries `family`/`tier`.
+ *  Narrowing here (rather than widening GameEventMap's shared shape) keeps
+ *  every other mapped event exactly as payload-agnostic as it was before. */
+const FAMILY_KEYED_EVENTS = new Set<GameEventKey>(['weapon:fired', 'projectile:hit']);
+
+function eventFamilyTier(
+  event: GameEventKey,
+  payload: GameEventMap[GameEventKey],
+): { family: string; tier: number } | undefined {
+  if (!FAMILY_KEYED_EVENTS.has(event)) return undefined;
+  const { family, tier } = payload as GameEventMap['weapon:fired'] | GameEventMap['projectile:hit'];
+  return { family, tier };
+}
 
 /**
  * Game-scoped audio manager (Epic 10, docs/architecture/epic-10-audio.md §8).
@@ -67,6 +81,7 @@ export class AudioManager implements System {
   private readonly lastPlayed = new Map<string, number>();
   private readonly cooldownMsByKey = new Map<string, number>();
   private readonly warnedKeys = new Set<string>();
+  private readonly weaponFeelByFamily = new Map<string, WeaponFeelDefinition>();
   private readonly unsubscribers: Array<() => void> = [];
   private muted = false;
   private musicVolume = 1;
@@ -88,7 +103,7 @@ export class AudioManager implements System {
   }
 
   /** Exactly once per manager lifetime; a second call is a wiring bug. */
-  init(bus: EventBus, settings: Settings, audio: AudioData): void {
+  init(bus: EventBus, settings: Settings, audio: AudioData, weaponFeel: readonly WeaponFeelDefinition[] = []): void {
     if (this.destroyed) return;
     if (this.initialized) {
       throw new Error('AudioManager.init called twice');
@@ -96,12 +111,24 @@ export class AudioManager implements System {
     this.initialized = true;
 
     this.applySettings(settings);
+    for (const entry of weaponFeel) {
+      this.weaponFeelByFamily.set(entry.family, entry);
+    }
 
     for (const entry of audio.map) {
+      const cooldownMs = entry.cooldownMs ?? 0;
       if (entry.sfxKey !== undefined) {
-        this.cooldownMsByKey.set(entry.sfxKey, entry.cooldownMs ?? 0);
+        this.cooldownMsByKey.set(entry.sfxKey, cooldownMs);
       }
-      this.unsubscribers.push(bus.on(entry.event, () => this.handleMappedEvent(entry)));
+      // Each family-keyed variant gets its own independent cooldown clock
+      // (lastPlayed is tracked per resolved sfxKey), all using the entry's
+      // one configured duration — so e.g. pistol and shotgun fire SFX from a
+      // multi-weapon rack never gate each other out, but each still can't
+      // spam faster than cooldownMs against itself.
+      for (const familyKey of Object.values(entry.sfxKeyByFamily ?? {})) {
+        this.cooldownMsByKey.set(familyKey, cooldownMs);
+      }
+      this.unsubscribers.push(bus.on(entry.event, (payload) => this.handleMappedEvent(entry, payload)));
     }
     this.unsubscribers.push(
       bus.on('settings:changed', ({ settings: next }) => {
@@ -115,8 +142,11 @@ export class AudioManager implements System {
   }
 
   /** Guard order: destroyed/uninitialized → asset missing → locked → muted
-   *  → cooldown. The muted and locked gates never consume the cooldown. */
-  play(sfxKey: string): void {
+   *  → cooldown. The muted and locked gates never consume the cooldown.
+   *  `volumeMultiplier` (Epic 17) scales this one play only — it is never
+   *  persisted, never affects `sfxVolume` itself, and defaults to 1 so every
+   *  pre-Epic-17 caller is unaffected. */
+  play(sfxKey: string, volumeMultiplier = 1): void {
     if (this.destroyed || !this.initialized) return;
     if (!this.scene.cache.audio.exists(sfxKey)) {
       this.warnOnce(sfxKey);
@@ -127,7 +157,7 @@ export class AudioManager implements System {
     if (!shouldPlay(this.lastPlayed.get(sfxKey), this.nowMs, this.cooldownMsByKey.get(sfxKey) ?? 0)) {
       return;
     }
-    this.scene.sound.play(sfxKey, { volume: this.sfxVolume });
+    this.scene.sound.play(sfxKey, { volume: clamp01(this.sfxVolume * volumeMultiplier) });
     this.lastPlayed.set(sfxKey, this.nowMs);
   }
 
@@ -239,7 +269,7 @@ export class AudioManager implements System {
    *  2 version called stopMusic unconditionally — a bug that would
    *  hard-stop a playing loop on every SFX-only event; the opt-in gate
    *  fixes it.) */
-  private handleMappedEvent(entry: AudioMapEntry): void {
+  private handleMappedEvent(entry: AudioMapEntry, payload: GameEventMap[GameEventKey]): void {
     // The !this.initialized path never fires in practice: subscriptions are
     // registered in init, synchronously, after initialized = true, and bus
     // emissions arrive only later (game ticks or user input). The pair is
@@ -248,9 +278,18 @@ export class AudioManager implements System {
     if (entry.stopMusic) {
       this.stopMusic(entry.musicFadeMs ?? 0);
     }
-    if (entry.sfxKey !== undefined) {
-      this.play(entry.sfxKey);
-    }
+
+    // Epic 17: family-keyed events resolve a per-family key (falling back to
+    // the entry's plain sfxKey) plus a per-tier volume multiplier. Every
+    // other event is untouched — familyTier is undefined, so this collapses
+    // to exactly the pre-Epic-17 sfxKey/volume-1 behavior.
+    const familyTier = eventFamilyTier(entry.event, payload);
+    const sfxKey = (familyTier && entry.sfxKeyByFamily?.[familyTier.family]) ?? entry.sfxKey;
+    if (sfxKey === undefined) return;
+    const multiplier = familyTier
+      ? this.weaponFeelByFamily.get(familyTier.family)?.sfxTierVolumeMultiplier[familyTier.tier - 1] ?? 1
+      : 1;
+    this.play(sfxKey, multiplier);
   }
 
   /** Phaser emits 'unlocked' on the update tick after the gesture-driven

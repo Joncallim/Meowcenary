@@ -1480,7 +1480,7 @@ describe('game data validation', () => {
   describe('audio data validation', () => {
     it('validates the boot audio catalog and map', () => {
       const data = loadGameData();
-      expect(data.audio.assets.sfx).toHaveLength(12);
+      expect(data.audio.assets.sfx).toHaveLength(18);
       expect(data.audio.assets.music).toHaveLength(2);
       expect(data.audio.map).toHaveLength(12);
       expect(data.audio.assets.music.map((m) => m.key)).toEqual(
@@ -1567,6 +1567,37 @@ describe('game data validation', () => {
       const data = mutableAudio();
       data.audio.map.events[0].sfxKey = 'sfx-does-not-exist';
       expect(() => validateGameData(data)).toThrow(/unknown sfx key "sfx-does-not-exist"/);
+    });
+
+    it('accepts the shipped sfxKeyByFamily entries for weapon:fired and projectile:hit', () => {
+      const fired = loadGameData().audio.map.find((entry) => entry.event === 'weapon:fired');
+      expect(fired?.sfxKeyByFamily).toEqual({
+        pistol: 'sfx-weapon-fired-pistol',
+        smg: 'sfx-weapon-fired-smg',
+        shotgun: 'sfx-weapon-fired-shotgun',
+      });
+    });
+
+    it('rejects a non-object sfxKeyByFamily', () => {
+      const data = mutableAudio();
+      data.audio.map.events[0].sfxKeyByFamily = 'pistol';
+      expect(() => validateGameData(data)).toThrow(/sfxKeyByFamily: required object/);
+    });
+
+    it('rejects an sfxKeyByFamily value missing from audio-assets.json (cross-ref)', () => {
+      const data = mutableAudio();
+      data.audio.map.events[0].sfxKeyByFamily = { pistol: 'sfx-does-not-exist' };
+      expect(() => validateGameData(data)).toThrow(
+        /sfxKeyByFamily\.pistol: unknown sfx key "sfx-does-not-exist"/,
+      );
+    });
+
+    it('rejects an sfxKeyByFamily key for a family no weapon uses (cross-ref)', () => {
+      const data = mutableAudio();
+      data.audio.map.events[0].sfxKeyByFamily = { railgun: 'sfx-weapon-fired' };
+      expect(() => validateGameData(data)).toThrow(
+        /sfxKeyByFamily\.railgun: family is not used by any weapon/,
+      );
     });
 
     it('rejects a url that violates the assets/audio/<key>.wav convention', () => {

@@ -1,7 +1,9 @@
 {
   "events": [
-    { "event": "weapon:fired",    "sfxKey": "sfx-weapon-fired",    "cooldownMs": 90 },
-    { "event": "projectile:hit",  "sfxKey": "sfx-projectile-hit",  "cooldownMs": 90 },
+    { "event": "weapon:fired",    "sfxKey": "sfx-weapon-fired",    "cooldownMs": 90,
+      "sfxKeyByFamily": { "pistol": "sfx-weapon-fired-pistol", "smg": "sfx-weapon-fired-smg", "shotgun": "sfx-weapon-fired-shotgun" } },
+    { "event": "projectile:hit",  "sfxKey": "sfx-projectile-hit",  "cooldownMs": 90,
+      "sfxKeyByFamily": { "pistol": "sfx-projectile-hit-pistol", "smg": "sfx-projectile-hit-smg", "shotgun": "sfx-projectile-hit-shotgun" } },
     { "event": "enemy:killed",    "sfxKey": "sfx-enemy-killed",    "cooldownMs": 60 },
     { "event": "player:damaged",  "sfxKey": "sfx-player-damaged",  "cooldownMs": 650 },
     { "event": "drop:collected",  "sfxKey": "sfx-drop-collected",  "cooldownMs": 60 },

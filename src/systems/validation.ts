@@ -108,7 +108,7 @@ const MAX_LOOT_ENTRIES = 32;
 const AUDIO_ASSET_CATALOG_FIELDS = new Set(['sfx', 'music']);
 const AUDIO_ASSET_ENTRY_FIELDS = new Set(['key', 'url']);
 const AUDIO_MAP_FIELDS = new Set(['events']);
-const AUDIO_MAP_ENTRY_FIELDS = new Set(['event', 'sfxKey', 'cooldownMs', 'stopMusic', 'musicFadeMs']);
+const AUDIO_MAP_ENTRY_FIELDS = new Set(['event', 'sfxKey', 'sfxKeyByFamily', 'cooldownMs', 'stopMusic', 'musicFadeMs']);
 const AUDIO_EVENT_KEY_SET = new Set<string>(GAME_EVENT_KEYS);
 const MAX_AUDIO_SFX = 64;
 const MAX_AUDIO_MUSIC = 8;
@@ -423,7 +423,7 @@ export function validateGameData(raw: unknown): GameData {
   assertArenaSpawnCurveReferences(arenas, spawnCurves);
   assertEnemyLootTableReferences(enemies, lootTables);
   assertLootWeaponReferences(lootTables, weapons);
-  assertAudioMapReferences(audioMap, audioAssets);
+  assertAudioMapReferences(audioMap, audioAssets, weapons);
   assertActorAndDropArtReferences(characters, enemies, visualArt);
   assertWeaponArtReferences(weapons, visualArt);
   assertWeaponFeelReferences(weapons, weaponFeel);
@@ -590,7 +590,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertArenaSpawnCurveReferences(arenas, spawnCurves),
     () => assertEnemyLootTableReferences(enemies, lootTables),
     () => assertLootWeaponReferences(lootTables, weapons),
-    () => assertAudioMapReferences(audioMap, audioAssets),
+    () => assertAudioMapReferences(audioMap, audioAssets, weapons),
     () => assertActorAndDropArtReferences(characters, enemies, visualArt),
     () => assertWeaponArtReferences(weapons, visualArt),
     () => assertWeaponFeelReferences(weapons, weaponFeel),
@@ -1320,6 +1320,22 @@ function checkAudioMapEntry(row: unknown): string[] {
   if (sfxKey !== undefined) {
     if (typeof sfxKey !== 'string' || sfxKey.length === 0 || sfxKey.trim() !== sfxKey) {
       errors.push('sfxKey: required nonempty trimmed string');
+    }
+  }
+
+  const sfxKeyByFamily = readOwnField(row, 'sfxKeyByFamily');
+  if (sfxKeyByFamily !== undefined) {
+    if (!isRecord(sfxKeyByFamily)) {
+      errors.push('sfxKeyByFamily: required object');
+    } else {
+      for (const [family, key] of Object.entries(sfxKeyByFamily)) {
+        if (family.length === 0 || family.trim() !== family) {
+          errors.push(`sfxKeyByFamily.${family}: family key must be a nonempty trimmed string`);
+        }
+        if (typeof key !== 'string' || key.length === 0 || key.trim() !== key) {
+          errors.push(`sfxKeyByFamily.${family}: required nonempty trimmed string`);
+        }
+      }
     }
   }
 
@@ -2293,12 +2309,22 @@ export function assertWeaponFeelReferences(
 export function assertAudioMapReferences(
   map: readonly AudioMapEntry[],
   assets: AudioAssetCatalog,
+  weapons: readonly WeaponDefinition[] = [],
 ): void {
   const sfxKeys = new Set(assets.sfx.map((sfx) => sfx.key));
+  const weaponFamilies = new Set(weapons.map((weapon) => weapon.family));
   const errors: string[] = [];
   map.forEach((entry, index) => {
     if (entry.sfxKey !== undefined && !sfxKeys.has(entry.sfxKey)) {
       errors.push(`audio-map.json[${index}].sfxKey: unknown sfx key "${entry.sfxKey}"`);
+    }
+    for (const [family, key] of Object.entries(entry.sfxKeyByFamily ?? {})) {
+      if (!sfxKeys.has(key)) {
+        errors.push(`audio-map.json[${index}].sfxKeyByFamily.${family}: unknown sfx key "${key}"`);
+      }
+      if (!weaponFamilies.has(family)) {
+        errors.push(`audio-map.json[${index}].sfxKeyByFamily.${family}: family is not used by any weapon`);
+      }
     }
   });
   throwIfErrors(errors);

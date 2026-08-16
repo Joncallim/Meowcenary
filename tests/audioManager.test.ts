@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { createEventBus, type EventBus } from '../src/engine/eventBus';
 import { AudioManager } from '../src/systems/audio';
-import type { AudioMapEntry, AudioData } from '../src/systems/types';
+import type { AudioMapEntry, AudioData, WeaponFeelDefinition } from '../src/systems/types';
 import type { Settings } from '../src/systems/save';
 
 // AudioManager is runtime-Phaser-free (type-only imports), so the harness
@@ -10,6 +10,8 @@ import type { Settings } from '../src/systems/save';
 
 const ALL_KEYS = new Set([
   'sfx-weapon-fired',
+  'sfx-weapon-fired-pistol',
+  'sfx-weapon-fired-shotgun',
   'sfx-projectile-hit',
   'sfx-enemy-killed',
   'sfx-run-won',
@@ -22,6 +24,25 @@ const ALL_KEYS = new Set([
 const DEFAULT_MAP: readonly AudioMapEntry[] = [
   { event: 'weapon:fired', sfxKey: 'sfx-weapon-fired', cooldownMs: 90 },
   { event: 'run:won', sfxKey: 'sfx-run-won', stopMusic: true, musicFadeMs: 600 },
+];
+
+const FAMILY_MAP: readonly AudioMapEntry[] = [
+  {
+    event: 'weapon:fired',
+    sfxKey: 'sfx-weapon-fired',
+    cooldownMs: 90,
+    sfxKeyByFamily: { pistol: 'sfx-weapon-fired-pistol', shotgun: 'sfx-weapon-fired-shotgun' },
+  },
+];
+
+const WEAPON_FEEL: readonly WeaponFeelDefinition[] = [
+  {
+    family: 'pistol',
+    muzzle: { color: '#fbbf24', radius: 5, lifetimeMs: 70 },
+    impact: { color: '#fbbf24', radius: 5 },
+    recoilPx: 3,
+    sfxTierVolumeMultiplier: [0.5, 0.75, 1],
+  },
 ];
 
 const SETTINGS: Settings = {
@@ -146,12 +167,13 @@ interface Harness {
 function createHarness(
   map: readonly AudioMapEntry[] = DEFAULT_MAP,
   log?: string[],
+  weaponFeel: readonly WeaponFeelDefinition[] = [],
 ): Harness {
   const bus = createEventBus();
   const sound = new FakeSoundManager(log);
   const scene = { sound, cache: { audio: new FakeAudioCache(ALL_KEYS) } } as never;
   const audio = new AudioManager(scene);
-  audio.init(bus, SETTINGS, { assets: { sfx: [], music: [] }, map });
+  audio.init(bus, SETTINGS, { assets: { sfx: [], music: [] }, map }, weaponFeel);
   return { audio, bus, sound };
 }
 
@@ -264,6 +286,60 @@ describe('AudioManager mapped SFX', () => {
     audio.update(90);
     bus.emit('weapon:fired', WEAPON_FIRED);
     expect(sound.playedSfx).toHaveLength(2);
+  });
+});
+
+describe('AudioManager family/tier SFX (Epic 17)', () => {
+  it('resolves the family-specific key over the plain sfxKey', () => {
+    const { bus, sound } = createHarness(FAMILY_MAP);
+
+    bus.emit('weapon:fired', { weaponId: 'w', family: 'pistol', tier: 1, x: 0, y: 0 });
+
+    expect(sound.playedSfx).toEqual([{ key: 'sfx-weapon-fired-pistol', config: { volume: 0.8 } }]);
+  });
+
+  it('falls back to the plain sfxKey for a family with no override', () => {
+    const { bus, sound } = createHarness(FAMILY_MAP);
+
+    bus.emit('weapon:fired', { weaponId: 'w', family: 'smg', tier: 1, x: 0, y: 0 });
+
+    expect(sound.playedSfx).toEqual([{ key: 'sfx-weapon-fired', config: { volume: 0.8 } }]);
+  });
+
+  it('scales volume by the family+tier multiplier from weapon-feel data', () => {
+    const { bus, sound } = createHarness(FAMILY_MAP, undefined, WEAPON_FEEL);
+
+    bus.emit('weapon:fired', { weaponId: 'w', family: 'pistol', tier: 2, x: 0, y: 0 });
+
+    // sfxVolume 0.8 * tier-2 multiplier 0.75 = 0.6
+    expect(sound.playedSfx).toHaveLength(1);
+    expect(sound.playedSfx[0].key).toBe('sfx-weapon-fired-pistol');
+    expect(sound.playedSfx[0].config.volume).toBeCloseTo(0.6);
+  });
+
+  it('uses a volume multiplier of 1 when no weapon-feel entry exists for the family', () => {
+    const { bus, sound } = createHarness(FAMILY_MAP); // no weaponFeel passed
+
+    bus.emit('weapon:fired', { weaponId: 'w', family: 'pistol', tier: 2, x: 0, y: 0 });
+
+    expect(sound.playedSfx).toEqual([{ key: 'sfx-weapon-fired-pistol', config: { volume: 0.8 } }]);
+  });
+
+  it('gates each family-specific key on its own independent cooldown', () => {
+    const { audio, bus, sound } = createHarness(FAMILY_MAP);
+
+    bus.emit('weapon:fired', { weaponId: 'w', family: 'pistol', tier: 1, x: 0, y: 0 });
+    // A different family's key is unaffected by pistol's cooldown, even at the same nowMs.
+    bus.emit('weapon:fired', { weaponId: 'w', family: 'shotgun', tier: 1, x: 0, y: 0 });
+    expect(sound.playedSfx.map((p) => p.key)).toEqual(['sfx-weapon-fired-pistol', 'sfx-weapon-fired-shotgun']);
+
+    // But repeating the same family immediately is still gated.
+    bus.emit('weapon:fired', { weaponId: 'w', family: 'pistol', tier: 1, x: 0, y: 0 });
+    expect(sound.playedSfx).toHaveLength(2);
+
+    audio.update(90);
+    bus.emit('weapon:fired', { weaponId: 'w', family: 'pistol', tier: 1, x: 0, y: 0 });
+    expect(sound.playedSfx).toHaveLength(3);
   });
 });
 

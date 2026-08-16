@@ -213,6 +213,10 @@ export interface AudioAssetCatalog {
 export interface AudioMapEntry {
   readonly event: GameEventKey;
   readonly sfxKey?: string;
+  /** Epic 17: per-family override, keyed by the event payload's `family`
+   *  field (only `weapon:fired`/`projectile:hit` carry one). Falls back to
+   *  `sfxKey` when the family has no entry here. */
+  readonly sfxKeyByFamily?: Readonly<Record<string, string>>;
   readonly cooldownMs?: number;
   readonly stopMusic?: boolean;
   readonly musicFadeMs?: number;
