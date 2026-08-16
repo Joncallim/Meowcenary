@@ -177,6 +177,54 @@ describe('arena data-level integration', () => {
     expect(group.destroy).toHaveBeenCalledWith(true);
   });
 
+  it('tiles a non-32-aligned arena with no floor gap and a correctly placed corner', () => {
+    const data = loadGameData();
+    const arena = {
+      id: 'uneven-test',
+      name: 'Uneven Test',
+      size: { width: 100, height: 96 },
+      spawnCurveId: 'junkyard-intro',
+      spawnRegions: [{ kind: 'edges' as const, margin: 28 }],
+      obstacles: [],
+      hazards: [],
+      visual: TEST_ARENA_VISUAL,
+      unlock: { type: 'default' as const },
+    };
+    const calls: Array<{ x: number; textureKey: string }> = [];
+    const addImage = vi.fn((x: number, _y: number, textureKey: string) => {
+      const node = {
+        textureKey,
+        setDisplaySize: vi.fn(() => node), setDepth: vi.fn(() => node),
+        setRotation: vi.fn(() => node), setFlipX: vi.fn(() => node),
+        destroy: vi.fn(),
+      };
+      calls.push({ x, textureKey });
+      return node;
+    });
+    const group = { add: vi.fn(), destroy: vi.fn(), children: { size: 0 } };
+    const scene = {
+      add: { image: addImage, rectangle: vi.fn(() => ({ setVisible: vi.fn() })) },
+      textures: { exists: () => true },
+      physics: { add: { existing: vi.fn(), staticGroup: vi.fn(() => group) } },
+    };
+
+    buildArenaScenery(scene as never, arena, new DataVisualArtRegistry(data));
+
+    // width 100 is not a multiple of 32: ceil(100/32) = 4 columns, so the
+    // last column's tile centre (112) sits past the 100px edge rather than
+    // leaving a gap short of it.
+    const floorXs = calls.filter((c) => c.textureKey === 'art-world-junkyard-floor-base').map((c) => c.x);
+    expect(Math.max(...floorXs)).toBeGreaterThan(100 - 16);
+
+    // The terminal-column corner check must use the same ceil'd column count,
+    // so both top and bottom rows still land a corner tile on the true last column.
+    const cornerXs = calls
+      .filter((c) => c.textureKey === 'art-world-junkyard-boundary-corner')
+      .map((c) => c.x);
+    expect(cornerXs).toHaveLength(4);
+    expect(new Set(cornerXs)).toEqual(new Set([16, 112]));
+  });
+
   it('spawnPoint produces obstacle-free points (rect region overlapping obstacle, 50 seeds)', () => {
     const arena = {
       id: 'overlap-test', name: 'Overlap Test', size: { width: 400, height: 400 },

@@ -62,8 +62,10 @@ export class ArenaWorldView implements ArenaScenery {
 
   private buildFloor(): void {
     const ids = this.arena.visual.floorArtIds;
-    for (let row = 0; row < this.arena.size.height / TILE_SIZE; row += 1) {
-      for (let column = 0; column < this.arena.size.width / TILE_SIZE; column += 1) {
+    const rows = Math.ceil(this.arena.size.height / TILE_SIZE);
+    const columns = Math.ceil(this.arena.size.width / TILE_SIZE);
+    for (let row = 0; row < rows; row += 1) {
+      for (let column = 0; column < columns; column += 1) {
         const artId = ids[(column * 31 + row * 17) % ids.length]!;
         this.addImage(
           artId,
@@ -78,21 +80,22 @@ export class ArenaWorldView implements ArenaScenery {
   private buildBoundary(): void {
     const edgeLanes = this.arena.spawnRegions.find((region) => region.kind === 'edge-lanes');
     const lanes = edgeLanes?.kind === 'edge-lanes' ? edgeLanes.lanes : [];
-    const columns = this.arena.size.width / TILE_SIZE;
-    const rows = this.arena.size.height / TILE_SIZE;
+    const columns = Math.ceil(this.arena.size.width / TILE_SIZE);
+    const rows = Math.ceil(this.arena.size.height / TILE_SIZE);
     for (let column = 0; column < columns; column += 1) {
-      this.addBoundaryTile('top', column, column * TILE_SIZE + TILE_SIZE / 2, TILE_SIZE / 2, lanes);
-      this.addBoundaryTile('bottom', column, column * TILE_SIZE + TILE_SIZE / 2, this.arena.size.height - TILE_SIZE / 2, lanes);
+      this.addBoundaryTile('top', column, columns, column * TILE_SIZE + TILE_SIZE / 2, TILE_SIZE / 2, lanes);
+      this.addBoundaryTile('bottom', column, columns, column * TILE_SIZE + TILE_SIZE / 2, this.arena.size.height - TILE_SIZE / 2, lanes);
     }
     for (let row = 1; row < rows - 1; row += 1) {
-      this.addBoundaryTile('left', row, TILE_SIZE / 2, row * TILE_SIZE + TILE_SIZE / 2, lanes);
-      this.addBoundaryTile('right', row, this.arena.size.width - TILE_SIZE / 2, row * TILE_SIZE + TILE_SIZE / 2, lanes);
+      this.addBoundaryTile('left', row, columns, TILE_SIZE / 2, row * TILE_SIZE + TILE_SIZE / 2, lanes);
+      this.addBoundaryTile('right', row, columns, this.arena.size.width - TILE_SIZE / 2, row * TILE_SIZE + TILE_SIZE / 2, lanes);
     }
   }
 
   private addBoundaryTile(
     side: EdgeSpawnLane['side'],
     index: number,
+    columnCount: number,
     x: number,
     y: number,
     lanes: readonly EdgeSpawnLane[],
@@ -101,7 +104,7 @@ export class ArenaWorldView implements ArenaScenery {
     const lane = lanes.find((candidate) =>
       candidate.side === side && coordinate >= candidate.offset && coordinate < candidate.offset + candidate.width);
     const terminal = side === 'top' || side === 'bottom'
-      ? index === 0 || index === this.arena.size.width / TILE_SIZE - 1
+      ? index === 0 || index === columnCount - 1
       : false;
     const boundary = this.arena.visual.boundary;
     const artId = lane
