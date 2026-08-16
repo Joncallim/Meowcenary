@@ -1,7 +1,7 @@
 # Meowcenary Knowledge Graph
 
 > Token-optimized repo map. Read this before implementation work.
-> Current state: **Epics 0–16 complete; Epic 16 runtime merged in PR #83 (46-binding visual-art manifest, presentation pooling, authored Junkyard Lot); Epics 17–19 are the remaining Alpha 2 Golden Run work. Alpha 3 runtime is gated by Issue #92, then Epics 20–26.**
+> Current state: **Epics 0–16 complete; Epic 16 runtime merged in PR #83 (46-binding visual-art manifest, presentation pooling, authored Junkyard Lot); Epics 17–19 are the remaining Alpha 2 Golden Run work. After Epic 19, Issue #94 performs a full repository certification/remediation audit. Alpha 3 architecture #92 is blocked by #94; Alpha 3 runtime then proceeds through Epics 20–26.**
 
 ## Read Order
 
@@ -10,8 +10,9 @@
 3. `docs/roadmap.md`.
 4. `docs/architecture.md`.
 5. Most specific epic architecture document.
-6. For Alpha 3: `docs/architecture/alpha-3-shared-foundation.md` + `alpha-3-content-extensibility-contract.md`.
-7. Live source + tests.
+6. Post-Epic-19 closeout: Issue #94.
+7. For Alpha 3 after #94 passes: `docs/architecture/alpha-3-shared-foundation.md` + `alpha-3-content-extensibility-contract.md`.
+8. Live source + tests.
 
 Open implementation branches are branch implementation truth only; they do not supersede newer planning already landed on `main`.
 
@@ -38,7 +39,7 @@ Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly
 
 ### Input
 
-Current live input is keyboard + pointer/touch. UI keyboard handling is still distributed across views/scenes. Epic 19 must freeze one shared logical action layer; do not bolt gamepad branches onto every view.
+Current live input remains an Alpha 2 transition area until Epic 19 freezes one shared logical action layer. Do not bolt gamepad branches onto every view.
 
 ### Stage ownership
 
@@ -66,13 +67,13 @@ Stage/Objective owns success/failure. Arena describes the physical world.
 
 ### Persistence
 
-Current Save V2 meta state is intentionally small: scrap + unlocks + permanent-upgrade levels. Do not append stage/achievement/Gunsmith/character/equipment state one field at a time. Issue #92 freezes Save V3 domain ownership and V2 migration first.
+Current Save V2 meta state is intentionally small: scrap + unlocks + permanent-upgrade levels. Do not append stage/achievement/Gunsmith/character/equipment state one field at a time. Issue #92 freezes Save V3 domain ownership and V2 migration only **after #94 certifies/remediates the final Alpha 2 baseline**.
 
 Preserve existing shipped content IDs; do not mass-rename `scrap-tabby`, `junkyard-lot`, weapon IDs, etc. for namespace aesthetics.
 
 ### Weapon registry
 
-Before persistent Gunsmith work, reconcile the weapon registry's static-definition immutability/validation with the validated immutable-registry convention used by characters/arenas/loot. Do not create a generic registry framework unless later domains prove enough repetition.
+If the weapon registry's static-definition immutability/validation still differs materially from validated immutable registries after Epic 19, #94 treats that as repository debt and fixes it before #92. Do not knowingly carry the inconsistency into persistent Gunsmith planning.
 
 ## Alpha 2 Routing
 
@@ -124,9 +125,53 @@ Requirements:
 - deadzones, focus, disconnect/reconnect, active-input switching, duplicate suppression;
 - reserve `ability` for Epic 24.
 
+## Mandatory Post-Alpha-2 Repository Certification — #94
+
+After Epic 19 is merged and its player-experience gate passes, **stop feature/Alpha 3 architecture work** and execute Issue #94 against current `main`.
+
+#94 is a complete multi-axis repository audit **and remediation gate**, not a findings report.
+
+Review scope includes, at minimum:
+
+- architecture/domain ownership;
+- coding best practices and TypeScript/API quality;
+- modularity, cohesion, coupling, file/function structure;
+- reusability/extensibility and abstraction quality;
+- data/catalog/registry/validation design;
+- persistence/migrations/data integrity;
+- determinism/RNG/time/event ordering;
+- state machines/reentrancy/idempotency;
+- input parity and controller/touch architecture;
+- UI/read models/accessibility/responsiveness;
+- gameplay/physics systemic correctness;
+- lifecycle/cleanup/leaks;
+- performance/memory/allocation/pooling;
+- error handling/failure recovery;
+- test architecture and adversarial coverage;
+- build/CI/configuration/dependencies/security;
+- browser/mobile/future native-wrapper portability;
+- visual/audio asset pipeline;
+- dead code/legacy scaffolding/duplication;
+- documentation/planning truth;
+- naming/ID/semantic consistency;
+- developer/AI-agent ergonomics;
+- final cross-axis interaction review.
+
+### Non-deferral rule
+
+> **Anything with credible downstream implications is fixed in #94, even if it does not directly affect Alpha 3's first slices.**
+
+Downstream implications include future cost to correctness, architecture, maintainability, modularity, reuse, tests, determinism, performance, portability, security, developer/agent quality, debugging, content authoring, or refactoring.
+
+P0/P1 findings must be fixed. Downstream-relevant P2 findings also default to **must fix**. Deferral is permitted only for genuinely isolated/local issues with explicit evidence that they create no credible downstream cost and that fixing them now would be disproportionate.
+
+#94 requires remediation plus a second independent orthogonal pass. It closes only with an explicit **PASS** verdict and no unresolved P0/P1 or downstream-relevant P2 findings.
+
+The output of #94 is the certified Alpha 2 baseline that #92 must consume.
+
 ## Alpha 3 Mandatory Foundation — #92
 
-No Epic 20 runtime implementation before `docs/architecture/alpha-3-shared-foundation.md` is reviewed/frozen.
+#92 is blocked by #94. Do not begin its implementation-ready architecture pass until #94 closes PASS.
 
 #92 owns shared cross-epic contracts:
 
@@ -151,6 +196,9 @@ Also inherit `alpha-3-content-extensibility-contract.md`:
 
 ```text
 Epic 19 Alpha 2 Gate
+        |
+        v
+#94 Full Repository Certification + Remediation
         |
         v
 #92 Shared Alpha 3 Foundation
@@ -192,7 +240,7 @@ Game-owned standard/incremental/hidden/mastery achievements. Local state authori
 
 ### Epic 23
 
-Persistent gun/parts/traits, crafting outside combat, bounded infusion, explicit part pools. Reuse approved combat-effect semantics from real Epic 17/18 work. Reconcile weapon registry immutability before persistent build state depends on it.
+Persistent gun/parts/traits, crafting outside combat, bounded infusion, explicit part pools. Reuse approved combat-effect semantics from real Epic 17/18 work. #94 removes any material Alpha 2 weapon-registry/definition debt before persistent build state depends on it.
 
 ### Epic 24
 
@@ -252,7 +300,7 @@ New Alpha 3 validators may move into focused modules; preserve the current aggre
 
 ## Documentation Rule
 
-Permanent Alpha 3 architecture docs link shared contracts instead of copying them. Keep large CI/browser/manual execution evidence in the PR/checks or concise `docs/delivery/` records.
+Permanent architecture docs link shared contracts instead of copying them. Keep large CI/browser/manual execution evidence in the PR/checks or concise `docs/delivery/` records.
 
 ## First Steps for Any Agent
 
@@ -263,4 +311,4 @@ Permanent Alpha 3 architecture docs link shared contracts instead of copying the
 5. Live source + tests.
 6. Baseline validation -> implement -> lint/test/build/content-specific gates.
 
-For Epics 20–26: stop before runtime work unless #92 is complete and the Epic has a dedicated architecture document.
+After Epic 19: stop and execute #94 before #92. For Epics 20–26: stop before runtime work unless #94 passed, #92 is complete, and the Epic has a dedicated architecture document.
