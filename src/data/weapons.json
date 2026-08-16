@@ -12,7 +12,8 @@
     "maxTier": 3,
     "pierce": 0,
     "projectileCount": 1,
-    "spreadDeg": 0
+    "spreadDeg": 0,
+    "art": { "iconId": "weapon-icon:pistol:t1", "heldId": "weapon-held:pistol:t1", "projectileId": "projectile:pistol" }
   },
   {
     "id": "scrap-pistol-t2",
@@ -27,7 +28,8 @@
     "maxTier": 3,
     "pierce": 0,
     "projectileCount": 1,
-    "spreadDeg": 0
+    "spreadDeg": 0,
+    "art": { "iconId": "weapon-icon:pistol:t2", "heldId": "weapon-held:pistol:t2", "projectileId": "projectile:pistol" }
   },
   {
     "id": "scrap-pistol-t3",
@@ -42,7 +44,8 @@
     "maxTier": 3,
     "pierce": 1,
     "projectileCount": 1,
-    "spreadDeg": 0
+    "spreadDeg": 0,
+    "art": { "iconId": "weapon-icon:pistol:t3", "heldId": "weapon-held:pistol:t3", "projectileId": "projectile:pistol" }
   },
   {
     "id": "can-smg-t1",
@@ -57,7 +60,8 @@
     "maxTier": 3,
     "pierce": 0,
     "projectileCount": 1,
-    "spreadDeg": 0
+    "spreadDeg": 0,
+    "art": { "iconId": "weapon-icon:smg:t1", "heldId": "weapon-held:smg:t1", "projectileId": "projectile:smg" }
   },
   {
     "id": "can-smg-t2",
@@ -72,7 +76,8 @@
     "maxTier": 3,
     "pierce": 0,
     "projectileCount": 1,
-    "spreadDeg": 0
+    "spreadDeg": 0,
+    "art": { "iconId": "weapon-icon:smg:t2", "heldId": "weapon-held:smg:t2", "projectileId": "projectile:smg" }
   },
   {
     "id": "can-smg-t3",
@@ -87,7 +92,8 @@
     "maxTier": 3,
     "pierce": 0,
     "projectileCount": 1,
-    "spreadDeg": 0
+    "spreadDeg": 0,
+    "art": { "iconId": "weapon-icon:smg:t3", "heldId": "weapon-held:smg:t3", "projectileId": "projectile:smg" }
   },
   {
     "id": "bolt-shotgun-t1",
@@ -102,7 +108,8 @@
     "maxTier": 3,
     "pierce": 0,
     "projectileCount": 4,
-    "spreadDeg": 34
+    "spreadDeg": 34,
+    "art": { "iconId": "weapon-icon:shotgun:t1", "heldId": "weapon-held:shotgun:t1", "projectileId": "projectile:shotgun" }
   },
   {
     "id": "bolt-shotgun-t2",
@@ -117,7 +124,8 @@
     "maxTier": 3,
     "pierce": 0,
     "projectileCount": 5,
-    "spreadDeg": 38
+    "spreadDeg": 38,
+    "art": { "iconId": "weapon-icon:shotgun:t2", "heldId": "weapon-held:shotgun:t2", "projectileId": "projectile:shotgun" }
   },
   {
     "id": "bolt-shotgun-t3",
@@ -132,6 +140,7 @@
     "maxTier": 3,
     "pierce": 1,
     "projectileCount": 6,
-    "spreadDeg": 42
+    "spreadDeg": 42,
+    "art": { "iconId": "weapon-icon:shotgun:t3", "heldId": "weapon-held:shotgun:t3", "projectileId": "projectile:shotgun" }
   }
 ]

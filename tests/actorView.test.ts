@@ -10,6 +10,7 @@ class Node {
   destroyed = false;
   flipX = false;
   plays: string[] = [];
+  listeners = new Map<string, (...args: any[]) => void>();
   setPosition(x: number, y: number): this { this.x = x; this.y = y; return this; }
   setAlpha(alpha: number): this { this.alpha = alpha; return this; }
   setVisible(visible: boolean): this { this.visible = visible; return this; }
@@ -17,8 +18,12 @@ class Node {
   setDepth(): this { return this; }
   setOrigin(): this { return this; }
   setScale(): this { return this; }
+  setDisplaySize(): this { return this; }
   setActive(): this { return this; }
   play(key: string): this { this.plays.push(key); return this; }
+  on(event: string, listener: (...args: any[]) => void): this { this.listeners.set(event, listener); return this; }
+  off(event: string): this { this.listeners.delete(event); return this; }
+  complete(key: string): void { this.listeners.get('animationcomplete')?.({ key }); }
   destroy(): void { this.destroyed = true; }
 }
 
@@ -59,13 +64,40 @@ describe('actor views', () => {
     expect([shadow.x, shadow.y]).toEqual([11, 34]);
   });
 
-  it('starts the declared static prop clip and falls back when the texture is absent', async () => {
+  it('prioritizes defeat over hurt and restores the latest locomotion after hurt', async () => {
+    const { SpriteView } = await import('../src/entities/actorView');
+    const body = new Node();
+    const shadow = new Node();
+    const sprite = new Node();
+    const view = new SpriteView(body as never, { node: shadow as never, dy: 14 }, sprite as never, {
+      idle: 'idle', run: 'run', hurt: 'hurt', defeat: 'defeat',
+    });
+    view.update({ x: 1, y: 2, facing: 1, moving: true, alpha: 1 });
+    view.playOneShot('hurt');
+    view.update({ x: 2, y: 3, facing: -1, moving: false, alpha: 0.45 });
+    expect(sprite.plays).toEqual(['idle', 'run', 'hurt']);
+    sprite.complete('hurt');
+    expect(sprite.plays.at(-1)).toBe('idle');
+
+    view.playOneShot('defeat');
+    view.update({ x: 3, y: 4, facing: 1, moving: true, alpha: 0.2 });
+    view.playOneShot('hurt');
+    sprite.complete('defeat');
+    expect(sprite.plays.at(-1)).toBe('defeat');
+    expect(sprite.alpha).toBe(1);
+    view.destroy();
+    expect(sprite.listeners.has('animationcomplete')).toBe(false);
+  });
+
+  it('builds inactive static art without advancing pooled animation and falls back when absent', async () => {
     const { createStaticArtSprite } = await import('../src/entities/actorView');
     const sprite = new Node();
     const binding = {
       id: 'drop:xp', kind: 'drop', textureKey: 'xp', url: 'assets/xp.png',
-      frame: { width: 16, height: 16 }, displayDiameter: 16,
-      clips: { idle: { start: 0, end: 3, frameRate: 8 } },
+      required: true,
+      load: { type: 'spritesheet', frame: { width: 16, height: 16 } },
+      display: { width: 16, height: 16 },
+      clips: { idle: { start: 0, end: 3, frameRate: 8, repeat: -1 } },
     } as const;
     const scene = {
       textures: { exists: (key: string) => key === 'xp' },
@@ -73,7 +105,7 @@ describe('actor views', () => {
       add: { sprite: () => sprite },
     };
     expect(createStaticArtSprite(scene as never, binding, 3)).toBe(sprite);
-    expect(sprite.plays).toEqual(['art:drop:xp:idle']);
+    expect(sprite.plays).toEqual([]);
     expect(createStaticArtSprite(scene as never, { ...binding, textureKey: 'missing' }, 3)).toBeUndefined();
   });
 });

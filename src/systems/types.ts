@@ -30,6 +30,11 @@ export interface WeaponDefinition {
   pierce: number;
   projectileCount: number;
   spreadDeg: number;
+  art: {
+    readonly iconId: string;
+    readonly heldId: string;
+    readonly projectileId: string;
+  };
 }
 
 export type EnemyArchetype = 'chaser' | 'charger' | 'ranged' | 'tank' | 'elite' | 'boss';
@@ -204,26 +209,42 @@ export interface AudioData {
   readonly map: readonly AudioMapEntry[];
 }
 
-export type ActorArtKind = 'character' | 'enemy' | 'projectile' | 'drop';
+export type VisualArtKind =
+  | 'character'
+  | 'enemy'
+  | 'projectile'
+  | 'drop'
+  | 'weapon-icon'
+  | 'weapon-held'
+  | 'world';
 
-export interface ActorArtClip {
+export type VisualArtLoad =
+  | { readonly type: 'image' }
+  | {
+      readonly type: 'spritesheet';
+      readonly frame: { readonly width: number; readonly height: number };
+    };
+
+export interface VisualArtClip {
   readonly start: number;
   readonly end: number;
   readonly frameRate: number;
+  readonly repeat: -1 | 0;
 }
 
-export interface ActorArtBinding {
+export interface VisualArtBinding {
   readonly id: string;
-  readonly kind: ActorArtKind;
+  readonly kind: VisualArtKind;
   readonly textureKey: string;
   readonly url: string;
-  readonly frame: { readonly width: number; readonly height: number };
-  readonly displayDiameter: number;
-  readonly clips?: Readonly<Record<string, ActorArtClip>>;
+  readonly required: boolean;
+  readonly load: VisualArtLoad;
+  readonly display: { readonly width: number; readonly height: number };
+  readonly clips?: Readonly<Record<string, VisualArtClip>>;
 }
 
-export interface ActorArtCatalog {
-  readonly bindings: readonly ActorArtBinding[];
+export interface VisualArtCatalog {
+  readonly bindings: readonly VisualArtBinding[];
 }
 
 export interface SpawnWaveDefinition {
@@ -293,13 +314,53 @@ export interface ArenaSize {
 export type SpawnRegion =
   | { readonly kind: 'ring'; readonly cx: number; readonly cy: number; readonly minRadius: number; readonly maxRadius: number }
   | { readonly kind: 'rect'; readonly x: number; readonly y: number; readonly w: number; readonly h: number }
-  | { readonly kind: 'edges'; readonly margin: number };
+  | { readonly kind: 'edges'; readonly margin: number }
+  | {
+      readonly kind: 'edge-lanes';
+      readonly inset: number;
+      readonly lanes: readonly EdgeSpawnLane[];
+    };
+
+export interface EdgeSpawnLane {
+  readonly side: 'top' | 'right' | 'bottom' | 'left';
+  readonly offset: number;
+  readonly width: number;
+}
 
 export interface ObstacleDefinition {
+  readonly id: string;
   readonly x: number;
   readonly y: number;
   readonly w: number;
   readonly h: number;
+}
+
+export interface ArenaDecorationDefinition {
+  readonly id: string;
+  readonly artId: string;
+  readonly x: number;
+  readonly y: number;
+  readonly flipX?: boolean;
+  readonly layer: 'ground' | 'low';
+}
+
+export interface ArenaObstacleSkinDefinition {
+  readonly obstacleId: string;
+  readonly artId: string;
+  readonly offsetX?: number;
+  readonly offsetY?: number;
+}
+
+export interface ArenaVisualDefinition {
+  readonly floorArtIds: readonly string[];
+  readonly boundary: {
+    readonly straightArtId: string;
+    readonly cornerArtId: string;
+    readonly patchArtId: string;
+    readonly gateArtId: string;
+  };
+  readonly decorations: readonly ArenaDecorationDefinition[];
+  readonly obstacleSkins: readonly ArenaObstacleSkinDefinition[];
 }
 
 export interface HazardDefinition {
@@ -320,6 +381,7 @@ export interface ArenaDefinition {
   readonly spawnRegions: readonly SpawnRegion[];
   readonly obstacles: readonly ObstacleDefinition[];
   readonly hazards: readonly HazardDefinition[];
+  readonly visual: ArenaVisualDefinition;
   readonly unlock: UnlockRule;
 }
 
@@ -333,5 +395,5 @@ export interface GameData {
   arenas: ArenaDefinition[];
   lootTables: LootTable[];
   readonly audio: AudioData;
-  readonly actorArt: ActorArtCatalog;
+  readonly visualArt: VisualArtCatalog;
 }

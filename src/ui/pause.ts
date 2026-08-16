@@ -6,6 +6,7 @@ import { minimumHitTarget, physicalToLogical, type UiViewport } from './layout';
 import { createModalTextHelpers, type ModalTextHelpers } from './modal';
 import { ThemeColor, ThemeDepth } from './theme';
 import { PhaserWeaponRackPanel } from './weaponRackView';
+import type { VisualArtLookup } from '../systems/visualArt';
 
 export type PausePanel = 'closed' | 'pause' | 'inventory';
 
@@ -112,6 +113,7 @@ export interface PhaserPauseViewOptions {
   readonly bus: EventBus;
   readonly controller: PauseController;
   readonly inventory: InventoryController;
+  readonly visualArt?: VisualArtLookup;
 }
 
 /**
@@ -143,6 +145,7 @@ export class PhaserPauseView {
       isOpen: () => this.controller.snapshot().panel === 'inventory',
       onBack: () => this.controller.back(),
       requestRender: () => this.render(this.controller.snapshot()),
+      visualArt: options.visualArt,
     });
     options.scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
     this.render(this.controller.snapshot());

@@ -13,21 +13,13 @@ fi
 
 lua docs/art/scripts/validate-builders.lua --write
 
-assets=(
-  "characters/scrap-tabby"
-  "characters/bolt-hound"
-  "enemies/dust-mite"
-  "enemies/junk-rusher"
-  "enemies/trash-brute"
-  "projectiles/scrap-shot"
-  "pickups/xp-mote"
-)
-
-for asset in "${assets[@]}"; do
+node -e 'const m=require("./src/data/visual-art.json"); for (const row of m.bindings) console.log(row.url.replace(/^assets\//, "").replace(/\/[^/]+\.png$/, ""))' |
+while IFS= read -r asset; do
   kind="${asset%%/*}"
   id="${asset##*/}"
   source="$repo_root/assets-src/$kind/$id/source/$id.pxo"
   output="$repo_root/public/assets/$kind/$id/$id.png"
+  mkdir -p "$(dirname "$output")"
   "$pixelorama_bin" --headless --quit -- \
     --spritesheet --output "$output" --json --export "$source"
   node docs/art/scripts/normalize-pixelorama-metadata.mjs \

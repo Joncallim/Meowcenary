@@ -8,14 +8,14 @@ import arenasJson from '../data/arenas.json';
 import lootTablesJson from '../data/loot-tables.json';
 import audioAssetsJson from '../data/audio-assets.json';
 import audioMapJson from '../data/audio-map.json';
-import actorArtJson from '../data/actor-art.json';
+import visualArtJson from '../data/visual-art.json';
 import { STAT_KEYS } from '../gameplay/stats';
 import { DEFAULT_WEAPON_FAMILIES } from '../gameplay/weapons';
 import { GAME_EVENT_KEYS } from '../engine/eventBus';
 import { RuntimeConfig } from '../engine/config';
 import type {
   ArenaDefinition,
-  ActorArtCatalog,
+  VisualArtCatalog,
   AudioAssetCatalog,
   AudioData,
   AudioMapEntry,
@@ -35,7 +35,8 @@ import type {
 import { isSpawnableEnemyDefinition } from './types';
 import { CHARACTER_PASSIVE_EVENTS } from './types';
 import { isContentId, isUnlockId } from './ids';
-import { findRectWitness, findRingWitness } from '../gameplay/spawnRegion';
+import { findEdgeLaneWitness, findRectWitness, findRingWitness } from '../gameplay/spawnRegion';
+import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 
 const RARITIES = new Set<Rarity>(['common', 'uncommon', 'rare', 'epic', 'legendary']);
 const ENEMY_ARCHETYPES = new Set<EnemyArchetype>([
@@ -52,8 +53,9 @@ const UPGRADE_OPS = new Set(['add', 'mult']);
 
 const WEAPON_FIELDS = new Set([
   'id', 'name', 'family', 'rarity', 'fireRateMs', 'damage', 'projectileSpeed', 'range',
-  'mergeTier', 'maxTier', 'pierce', 'projectileCount', 'spreadDeg',
+  'mergeTier', 'maxTier', 'pierce', 'projectileCount', 'spreadDeg', 'art',
 ]);
+const WEAPON_ART_FIELDS = new Set(['iconId', 'heldId', 'projectileId']);
 const UPGRADE_FIELDS = new Set([
   'id', 'name', 'rarity', 'target', 'description', 'maxStacks', 'effects',
 ]);
@@ -79,12 +81,19 @@ const CHARACTER_FIELDS = new Set([
 const CHARACTER_BASE_STATS_FIELDS = new Set(['maxHealth', 'moveSpeed']);
 const CHARACTER_STATIC_PASSIVE_FIELDS = new Set(['id', 'kind', 'name', 'description', 'effects']);
 const CHARACTER_REACTIVE_PASSIVE_FIELDS = new Set(['id', 'kind', 'name', 'description', 'event', 'handlerId']);
-const ARENA_FIELDS = new Set(['id', 'name', 'size', 'spawnCurveId', 'spawnRegions', 'obstacles', 'hazards', 'unlock']);
+const ARENA_FIELDS = new Set(['id', 'name', 'size', 'spawnCurveId', 'spawnRegions', 'obstacles', 'hazards', 'unlock', 'visual']);
 const ARENA_SIZE_FIELDS = new Set(['width', 'height']);
 const REGION_RING_FIELDS = new Set(['kind', 'cx', 'cy', 'minRadius', 'maxRadius']);
 const REGION_RECT_FIELDS = new Set(['kind', 'x', 'y', 'w', 'h']);
 const REGION_EDGES_FIELDS = new Set(['kind', 'margin']);
-const OBSTACLE_FIELDS = new Set(['x', 'y', 'w', 'h']);
+const REGION_EDGE_LANES_FIELDS = new Set(['kind', 'inset', 'lanes']);
+const EDGE_LANE_FIELDS = new Set(['side', 'offset', 'width']);
+const EDGE_LANE_SIDES = new Set(['top', 'right', 'bottom', 'left']);
+const OBSTACLE_FIELDS = new Set(['id', 'x', 'y', 'w', 'h']);
+const ARENA_VISUAL_FIELDS = new Set(['floorArtIds', 'boundary', 'decorations', 'obstacleSkins']);
+const ARENA_BOUNDARY_FIELDS = new Set(['straightArtId', 'cornerArtId', 'patchArtId', 'gateArtId']);
+const ARENA_DECORATION_FIELDS = new Set(['id', 'artId', 'x', 'y', 'flipX', 'layer']);
+const ARENA_OBSTACLE_SKIN_FIELDS = new Set(['obstacleId', 'artId', 'offsetX', 'offsetY']);
 const HAZARD_FIELDS = new Set(['id', 'kind', 'x', 'y', 'w', 'h', 'damagePerSecond']);
 const LOOT_KINDS = new Set(['xp', 'scrap', 'chest', 'weapon', 'nothing']);
 const LOOT_FIELDS = new Set(['id', 'entries']);
@@ -101,14 +110,19 @@ const MAX_AUDIO_MUSIC = 8;
 const MAX_AUDIO_MAP_ENTRIES = 64;
 const MAX_AUDIO_COOLDOWN_MS = 60_000;
 const MAX_AUDIO_FADE_MS = 10_000;
-const MAX_ACTOR_ART_BINDINGS = 64;
-const ACTOR_ART_ROOT_FIELDS = new Set(['bindings']);
-const ACTOR_ART_BINDING_FIELDS = new Set([
-  'id', 'kind', 'textureKey', 'url', 'frame', 'displayDiameter', 'clips',
+const MAX_VISUAL_ART_BINDINGS = 256;
+const MAX_VISUAL_ART_CLIPS = 16;
+const VISUAL_ART_ROOT_FIELDS = new Set(['bindings']);
+const VISUAL_ART_BINDING_FIELDS = new Set([
+  'id', 'kind', 'textureKey', 'url', 'required', 'load', 'display', 'clips',
 ]);
-const ACTOR_ART_FRAME_FIELDS = new Set(['width', 'height']);
-const ACTOR_ART_CLIP_FIELDS = new Set(['start', 'end', 'frameRate']);
-const ACTOR_ART_KINDS = new Set(['character', 'enemy', 'projectile', 'drop']);
+const VISUAL_ART_IMAGE_LOAD_FIELDS = new Set(['type']);
+const VISUAL_ART_SPRITESHEET_LOAD_FIELDS = new Set(['type', 'frame']);
+const VISUAL_ART_DIMENSION_FIELDS = new Set(['width', 'height']);
+const VISUAL_ART_CLIP_FIELDS = new Set(['start', 'end', 'frameRate', 'repeat']);
+const VISUAL_ART_KINDS = new Set([
+  'character', 'enemy', 'projectile', 'drop', 'weapon-icon', 'weapon-held', 'world',
+]);
 // Catalog-count ceilings. The spawn-witness search (findRectWitness/findRingWitness)
 // partitions the arena at obstacle edges — cost grows super-linearly with the
 // obstacle count — so an unbounded catalog could make boot-time validation hang.
@@ -253,12 +267,12 @@ export const CATALOG_DESCRIPTORS = [
     validateRows: (rows): AudioMapEntry[] => (Array.isArray(rows) ? validateNormalizedAudioMap(rows) : validateAudioMapCatalog(rows)),
   },
   {
-    key: 'actorArt',
-    file: 'actor-art.json',
-    rootKey: 'actorArt',
-    data: actorArtJson,
-    read: (raw) => readOwnField(raw, 'actorArt'),
-    validateRows: validateActorArtCatalog,
+    key: 'visualArt',
+    file: 'visual-art.json',
+    rootKey: 'visualArt',
+    data: visualArtJson,
+    read: (raw) => readOwnField(raw, 'visualArt'),
+    validateRows: validateVisualArtCatalog,
   },
 ] as const satisfies readonly CatalogDescriptor[];
 
@@ -385,7 +399,7 @@ export function validateGameData(raw: unknown): GameData {
   const lootTables = catalogs.lootTables as LootTable[];
   const audioAssets = catalogs['audio-assets'] as AudioAssetCatalog;
   const audioMap = catalogs['audio-map'] as AudioMapEntry[];
-  const actorArt = catalogs.actorArt as ActorArtCatalog;
+  const visualArt = catalogs.visualArt as VisualArtCatalog;
 
   assertSpawnReferences(spawnCurves, enemies);
   assertCharacterWeaponReferences(characters, weapons);
@@ -393,9 +407,12 @@ export function validateGameData(raw: unknown): GameData {
   assertEnemyLootTableReferences(enemies, lootTables);
   assertLootWeaponReferences(lootTables, weapons);
   assertAudioMapReferences(audioMap, audioAssets);
+  assertActorAndDropArtReferences(characters, enemies, visualArt);
+  assertWeaponArtReferences(weapons, visualArt);
+  assertArenaVisualReferences(arenas, visualArt);
 
   const audio: AudioData = { assets: audioAssets, map: audioMap };
-  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, audio, actorArt };
+  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, audio, visualArt };
 }
 
 /** Root-shape phase, shared by the throwing boot path and the collecting
@@ -545,6 +562,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
   const lootTables = catalogs.lootTables as LootTable[];
   const audioAssets = catalogs['audio-assets'] as AudioAssetCatalog;
   const audioMap = catalogs['audio-map'] as AudioMapEntry[];
+  const visualArt = catalogs.visualArt as VisualArtCatalog;
 
   const crossReferenceIssues: ValidationIssue[] = [];
   const assertions: ReadonlyArray<() => void> = [
@@ -554,6 +572,9 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertEnemyLootTableReferences(enemies, lootTables),
     () => assertLootWeaponReferences(lootTables, weapons),
     () => assertAudioMapReferences(audioMap, audioAssets),
+    () => assertActorAndDropArtReferences(characters, enemies, visualArt),
+    () => assertWeaponArtReferences(weapons, visualArt),
+    () => assertArenaVisualReferences(arenas, visualArt),
   ];
   for (const assertion of assertions) {
     try {
@@ -828,8 +849,48 @@ function checkArena(row: unknown): string[] {
         if (isFiniteNumber(margin) && w > 0 && h > 0 && margin > Math.min(w, h) / 2) {
           regionErrors.push('margin: must not exceed half the smaller arena dimension');
         }
+      } else if (kind === 'edge-lanes') {
+        rejectUnknownFields(region, REGION_EDGE_LANES_FIELDS, regionErrors);
+        requireNumberInRange(region, 'inset', ENEMY_BODY_RADIUS, Math.min(w, h) / 2, regionErrors);
+        const lanes = readOwnField(region, 'lanes');
+        if (!Array.isArray(lanes) || lanes.length !== 4) {
+          regionErrors.push('lanes: required array with exactly one lane per side');
+        } else {
+          const seenSides = new Set<string>();
+          lanes.forEach((lane, laneIndex) => {
+            if (!isRecord(lane)) {
+              regionErrors.push(`lanes[${laneIndex}]: expected object`);
+              return;
+            }
+            const laneErrors: string[] = [];
+            rejectUnknownFields(lane, EDGE_LANE_FIELDS, laneErrors);
+            requireEnum(lane, 'side', EDGE_LANE_SIDES, laneErrors);
+            requireNonNegativeNumber(lane, 'offset', laneErrors);
+            requirePositiveNumber(lane, 'width', laneErrors);
+            const side = readOwnField(lane, 'side');
+            const offset = readOwnField(lane, 'offset');
+            const width = readOwnField(lane, 'width');
+            if (typeof side === 'string') {
+              if (seenSides.has(side)) laneErrors.push(`side: duplicate lane side "${side}"`);
+              seenSides.add(side);
+            }
+            if (isFiniteNumber(offset) && offset % 32 !== 0) laneErrors.push('offset: must align to the 32px grid');
+            if (isFiniteNumber(width)) {
+              if (width % 32 !== 0) laneErrors.push('width: must align to the 32px grid');
+              if (width < ENEMY_BODY_RADIUS * 2) laneErrors.push(`width: must be at least ${ENEMY_BODY_RADIUS * 2}`);
+            }
+            const extent = side === 'top' || side === 'bottom' ? w : h;
+            if (isFiniteNumber(offset) && isFiniteNumber(width) && extent > 0 && offset + width > extent) {
+              laneErrors.push('offset + width: must not exceed its arena edge');
+            }
+            regionErrors.push(...laneErrors.map((error) => `lanes[${laneIndex}].${error}`));
+          });
+          for (const side of EDGE_LANE_SIDES) {
+            if (!seenSides.has(side)) regionErrors.push(`lanes: missing side "${side}"`);
+          }
+        }
       } else {
-        regionErrors.push('kind: must be "ring", "rect", or "edges"');
+        regionErrors.push('kind: must be "ring", "rect", "edges", or "edge-lanes"');
       }
       errors.push(...regionErrors.map((error) => `spawnRegions[${index}].${error}`));
     }
@@ -845,6 +906,7 @@ function checkArena(row: unknown): string[] {
     const arenaHeight = isRecord(size) ? readOwnField(size, 'height') : undefined;
     const w = typeof arenaWidth === 'number' ? arenaWidth : 0;
     const h = typeof arenaHeight === 'number' ? arenaHeight : 0;
+    const seenObstacleIds = new Set<string>();
     for (let index = 0; index < obstacles.length; index += 1) {
       if (!(index in obstacles)) {
         errors.push(`obstacles[${index}]: sparse array entry`);
@@ -857,6 +919,13 @@ function checkArena(row: unknown): string[] {
       }
       const obsErrors: string[] = [];
       rejectUnknownFields(obstacle, OBSTACLE_FIELDS, obsErrors);
+      requireString(obstacle, 'id', obsErrors);
+      const obstacleId = readOwnField(obstacle, 'id');
+      if (typeof obstacleId === 'string') {
+        if (!isContentId(obstacleId)) obsErrors.push('id: invalid content id');
+        if (seenObstacleIds.has(obstacleId)) obsErrors.push(`id: duplicate obstacle id "${obstacleId}"`);
+        seenObstacleIds.add(obstacleId);
+      }
       requireNonNegativeNumber(obstacle, 'x', obsErrors);
       requireNonNegativeNumber(obstacle, 'y', obsErrors);
       requirePositiveNumber(obstacle, 'w', obsErrors);
@@ -975,6 +1044,19 @@ function checkArena(row: unknown): string[] {
     }
   }
 
+  const visual = readOwnField(row, 'visual');
+  if (!isRecord(visual)) {
+    errors.push('visual: required object');
+  } else {
+    const arenaWidth = isRecord(size) ? readOwnField(size, 'width') : undefined;
+    const arenaHeight = isRecord(size) ? readOwnField(size, 'height') : undefined;
+    errors.push(...checkArenaVisual(
+      visual,
+      isFiniteNumber(arenaWidth) ? arenaWidth : 0,
+      isFiniteNumber(arenaHeight) ? arenaHeight : 0,
+    ).map((error) => `visual.${error}`));
+  }
+
   const unlock = readOwnField(row, 'unlock');
   if (!isRecord(unlock)) {
     errors.push('unlock: required object');
@@ -1065,9 +1147,120 @@ function checkArena(row: unknown): string[] {
           errors.push(`spawnRegions[${rIdx}]: edges region has no spawnable point — all edge midpoints obstructed`);
         }
       }
+      if (kind === 'edge-lanes') {
+        const inset = readOwnField(region, 'inset');
+        const lanes = readOwnField(region, 'lanes');
+        const sizeRecord = readOwnField(row, 'size');
+        const width = isRecord(sizeRecord) ? readOwnField(sizeRecord, 'width') : undefined;
+        const height = isRecord(sizeRecord) ? readOwnField(sizeRecord, 'height') : undefined;
+        if (!isFiniteNumber(inset) || !isFiniteNumber(width) || !isFiniteNumber(height) || !Array.isArray(lanes)) continue;
+        lanes.forEach((lane, laneIndex) => {
+          if (!isRecord(lane)) return;
+          const side = readOwnField(lane, 'side');
+          const offset = readOwnField(lane, 'offset');
+          const laneWidth = readOwnField(lane, 'width');
+          if (
+            typeof side !== 'string' || !isFiniteNumber(offset) || !isFiniteNumber(laneWidth) ||
+            (side !== 'top' && side !== 'right' && side !== 'bottom' && side !== 'left')
+          ) return;
+          // Reuse the same witness the runtime fallback uses (spawnPoint's
+          // searchFallback) so "validation passed" and "runtime can find a
+          // point" mean exactly the same thing — a single obstacle clipping
+          // one end of the strip still leaves the rest spawnable.
+          const witness = findEdgeLaneWitness(
+            { side, offset, width: laneWidth },
+            inset,
+            { width, height },
+            arenaObstacles,
+          );
+          if (!witness) errors.push(`spawnRegions[${rIdx}].lanes[${laneIndex}]: body-radius spawn strip fully covered by obstacles`);
+        });
+      }
     }
   }
 
+  return errors;
+}
+
+function checkArenaVisual(row: Record<string, unknown>, arenaWidth: number, arenaHeight: number): string[] {
+  const errors: string[] = [];
+  rejectUnknownFields(row, ARENA_VISUAL_FIELDS, errors);
+  const floorArtIds = readOwnField(row, 'floorArtIds');
+  if (!Array.isArray(floorArtIds) || floorArtIds.length < 1 || floorArtIds.length > 8) {
+    errors.push('floorArtIds: required array with 1 through 8 entries');
+  } else {
+    floorArtIds.forEach((value, index) => {
+      if (typeof value !== 'string' || value.length === 0) errors.push(`floorArtIds[${index}]: required string`);
+    });
+  }
+
+  const boundary = readOwnField(row, 'boundary');
+  if (!isRecord(boundary)) {
+    errors.push('boundary: required object');
+  } else {
+    const boundaryErrors: string[] = [];
+    rejectUnknownFields(boundary, ARENA_BOUNDARY_FIELDS, boundaryErrors);
+    for (const field of ARENA_BOUNDARY_FIELDS) requireString(boundary, field, boundaryErrors);
+    errors.push(...boundaryErrors.map((error) => `boundary.${error}`));
+  }
+
+  const decorations = readOwnField(row, 'decorations');
+  if (!Array.isArray(decorations) || decorations.length > 128) {
+    errors.push('decorations: required array with at most 128 entries');
+  } else {
+    const seen = new Set<string>();
+    decorations.forEach((decoration, index) => {
+      if (!isRecord(decoration)) {
+        errors.push(`decorations[${index}]: expected object`);
+        return;
+      }
+      const rowErrors: string[] = [];
+      rejectUnknownFields(decoration, ARENA_DECORATION_FIELDS, rowErrors);
+      requireString(decoration, 'id', rowErrors);
+      requireString(decoration, 'artId', rowErrors);
+      requireNumberInRange(decoration, 'x', 0, arenaWidth, rowErrors);
+      requireNumberInRange(decoration, 'y', 0, arenaHeight, rowErrors);
+      requireEnum(decoration, 'layer', new Set(['ground', 'low']), rowErrors);
+      const id = readOwnField(decoration, 'id');
+      if (typeof id === 'string') {
+        if (!isContentId(id)) rowErrors.push('id: invalid content id');
+        if (seen.has(id)) rowErrors.push(`id: duplicate decoration id "${id}"`);
+        seen.add(id);
+      }
+      const flipX = readOwnField(decoration, 'flipX');
+      if (flipX !== undefined && typeof flipX !== 'boolean') rowErrors.push('flipX: expected boolean');
+      errors.push(...rowErrors.map((error) => `decorations[${index}].${error}`));
+    });
+  }
+
+  const skins = readOwnField(row, 'obstacleSkins');
+  if (!Array.isArray(skins) || skins.length > MAX_OBSTACLES) {
+    errors.push(`obstacleSkins: required array with at most ${MAX_OBSTACLES} entries`);
+  } else {
+    const seen = new Set<string>();
+    skins.forEach((skin, index) => {
+      if (!isRecord(skin)) {
+        errors.push(`obstacleSkins[${index}]: expected object`);
+        return;
+      }
+      const rowErrors: string[] = [];
+      rejectUnknownFields(skin, ARENA_OBSTACLE_SKIN_FIELDS, rowErrors);
+      requireString(skin, 'obstacleId', rowErrors);
+      requireString(skin, 'artId', rowErrors);
+      const obstacleId = readOwnField(skin, 'obstacleId');
+      if (typeof obstacleId === 'string') {
+        if (seen.has(obstacleId)) rowErrors.push(`obstacleId: duplicate skin for "${obstacleId}"`);
+        seen.add(obstacleId);
+      }
+      for (const field of ['offsetX', 'offsetY'] as const) {
+        const value = readOwnField(skin, field);
+        if (value !== undefined && (!isFiniteNumber(value) || Math.abs(value) > 256)) {
+          rowErrors.push(`${field}: expected finite number from -256 through 256`);
+        }
+      }
+      errors.push(...rowErrors.map((error) => `obstacleSkins[${index}].${error}`));
+    });
+  }
   return errors;
 }
 
@@ -1229,6 +1422,17 @@ function checkWeapon(row: unknown): string[] {
   requireNonNegativeInteger(row, 'pierce', errors);
   requirePositiveInteger(row, 'projectileCount', errors);
   requireNonNegativeNumber(row, 'spreadDeg', errors);
+  const art = readOwnField(row, 'art');
+  if (!isRecord(art)) {
+    errors.push('art: required object');
+  } else {
+    const artErrors: string[] = [];
+    rejectUnknownFields(art, WEAPON_ART_FIELDS, artErrors);
+    requireString(art, 'iconId', artErrors);
+    requireString(art, 'heldId', artErrors);
+    requireString(art, 'projectileId', artErrors);
+    errors.push(...artErrors.map((error) => `art.${error}`));
+  }
   return errors;
 }
 
@@ -2003,17 +2207,185 @@ export function assertAudioMapReferences(
   throwIfErrors(errors);
 }
 
-export function validateActorArtCatalog(raw: unknown): ActorArtCatalog {
+/** Every weapon definition owns its UI and held silhouette, while all tiers
+ * in a family deliberately share one projectile presentation. */
+export function assertWeaponArtReferences(
+  weapons: readonly WeaponDefinition[],
+  catalog: VisualArtCatalog,
+): void {
+  const byId = new Map(catalog.bindings.map((binding) => [binding.id, binding]));
+  const firstIcon = new Map<string, number>();
+  const firstHeld = new Map<string, number>();
+  const familyProjectile = new Map<string, string>();
+  const errors: string[] = [];
+  const roles = [
+    ['iconId', 'weapon-icon'],
+    ['heldId', 'weapon-held'],
+    ['projectileId', 'projectile'],
+  ] as const;
+
+  weapons.forEach((weapon, index) => {
+    for (const [field, expectedKind] of roles) {
+      const artId = weapon.art[field];
+      const binding = byId.get(artId);
+      if (!binding) {
+        errors.push(`weapons.json[${index}].art.${field}: unknown visual-art id "${artId}"`);
+      } else if (binding.kind !== expectedKind) {
+        errors.push(`weapons.json[${index}].art.${field}: expected ${expectedKind} binding, got ${binding.kind}`);
+      } else if (!binding.required) {
+        errors.push(`weapons.json[${index}].art.${field}: weapon art must be required`);
+      }
+    }
+
+    for (const [field, seen] of [['iconId', firstIcon], ['heldId', firstHeld]] as const) {
+      const artId = weapon.art[field];
+      const first = seen.get(artId);
+      if (first !== undefined) {
+        errors.push(`weapons.json[${index}].art.${field}: duplicate first seen at index ${first}`);
+      } else {
+        seen.set(artId, index);
+      }
+    }
+
+    const expectedProjectile = familyProjectile.get(weapon.family);
+    if (expectedProjectile !== undefined && expectedProjectile !== weapon.art.projectileId) {
+      errors.push(`weapons.json[${index}].art.projectileId: family "${weapon.family}" must share "${expectedProjectile}"`);
+    } else {
+      familyProjectile.set(weapon.family, weapon.art.projectileId);
+    }
+  });
+  throwIfErrors(errors);
+}
+
+/** Actor catalogs and the fixed runtime grant union must never silently fall
+ * back after a manifest row is removed. Requiring the shared four-state actor
+ * sheet contract here also makes future character/enemy additions fail at the
+ * data boundary until their production presentation is supplied. */
+export function assertActorAndDropArtReferences(
+  characters: readonly CharacterDefinition[],
+  enemies: readonly EnemyDefinition[],
+  catalog: VisualArtCatalog,
+): void {
+  const byId = new Map(catalog.bindings.map((binding) => [binding.id, binding]));
+  const errors: string[] = [];
+  const actorClips = {
+    idle: { start: 0, end: 3, repeat: -1 },
+    run: { start: 4, end: 9, repeat: -1 },
+    hurt: { start: 10, end: 11, repeat: 0 },
+    defeat: { start: 12, end: 15, repeat: 0 },
+  } as const;
+
+  const checkActor = (id: string, expectedKind: 'character' | 'enemy', path: string): void => {
+    const binding = byId.get(id);
+    if (!binding) {
+      errors.push(`${path}: missing required visual-art id "${id}"`);
+      return;
+    }
+    if (binding.kind !== expectedKind) {
+      errors.push(`${path}: expected ${expectedKind} binding, got ${binding.kind}`);
+      return;
+    }
+    if (!binding.required) errors.push(`${path}: actor art must be required`);
+    if (binding.load.type !== 'spritesheet') {
+      errors.push(`${path}: actor art must be a spritesheet`);
+      return;
+    }
+    for (const [clipName, expected] of Object.entries(actorClips)) {
+      const clip = binding.clips?.[clipName];
+      if (!clip) {
+        errors.push(`${path}: missing required ${clipName} clip`);
+      } else if (clip.start !== expected.start || clip.end !== expected.end ||
+          clip.repeat !== expected.repeat) {
+        errors.push(
+          `${path}: ${clipName} must use frames ${expected.start}-${expected.end} ` +
+          `with repeat ${expected.repeat}`,
+        );
+      }
+    }
+  };
+
+  characters.forEach((character, index) =>
+    checkActor(`character:${character.id}`, 'character', `characters.json[${index}].visualArt`));
+  enemies.forEach((enemy, index) =>
+    checkActor(`enemy:${enemy.id}`, 'enemy', `enemies.json[${index}].visualArt`));
+
+  for (const kind of ['xp', 'scrap', 'chest', 'weapon'] as const) {
+    const id = `drop:${kind}`;
+    const binding = byId.get(id);
+    const path = `visual-art.json.${id}`;
+    if (!binding) {
+      errors.push(`${path}: missing required pickup binding`);
+    } else if (binding.kind !== 'drop') {
+      errors.push(`${path}: expected drop binding, got ${binding.kind}`);
+    } else {
+      if (!binding.required) errors.push(`${path}: pickup art must be required`);
+      if (binding.load.type !== 'spritesheet' || !binding.clips?.idle) {
+        errors.push(`${path}: pickup art must provide an idle spritesheet clip`);
+      }
+    }
+  }
+
+  throwIfErrors(errors);
+}
+
+export function assertArenaVisualReferences(
+  arenas: readonly ArenaDefinition[],
+  catalog: VisualArtCatalog,
+): void {
+  const byId = new Map(catalog.bindings.map((binding) => [binding.id, binding]));
+  const errors: string[] = [];
+  const check = (arenaIndex: number, path: string, artId: string, prefix: string): void => {
+    const binding = byId.get(artId);
+    if (!binding) {
+      errors.push(`arenas.json[${arenaIndex}].visual.${path}: unknown visual-art id "${artId}"`);
+    } else if (binding.kind !== 'world') {
+      errors.push(`arenas.json[${arenaIndex}].visual.${path}: expected world binding, got ${binding.kind}`);
+    } else if (!artId.startsWith(prefix)) {
+      errors.push(`arenas.json[${arenaIndex}].visual.${path}: art id must start "${prefix}"`);
+    } else if (!binding.required) {
+      errors.push(`arenas.json[${arenaIndex}].visual.${path}: world art must be required`);
+    }
+  };
+
+  arenas.forEach((arena, arenaIndex) => {
+    arena.visual.floorArtIds.forEach((artId, index) =>
+      check(arenaIndex, `floorArtIds[${index}]`, artId, 'world:junkyard-floor:'));
+    for (const [field, artId] of Object.entries(arena.visual.boundary)) {
+      check(arenaIndex, `boundary.${field}`, artId, 'world:junkyard-boundary:');
+    }
+    arena.visual.decorations.forEach((decoration, index) =>
+      check(arenaIndex, `decorations[${index}].artId`, decoration.artId, 'world:prop:'));
+
+    const obstacleIds = new Set(arena.obstacles.map((obstacle) => obstacle.id));
+    const skinnedIds = new Set<string>();
+    arena.visual.obstacleSkins.forEach((skin, index) => {
+      if (!obstacleIds.has(skin.obstacleId)) {
+        errors.push(`arenas.json[${arenaIndex}].visual.obstacleSkins[${index}].obstacleId: unknown obstacle "${skin.obstacleId}"`);
+      }
+      skinnedIds.add(skin.obstacleId);
+      check(arenaIndex, `obstacleSkins[${index}].artId`, skin.artId, 'world:landmark:');
+    });
+    for (const obstacleId of obstacleIds) {
+      if (!skinnedIds.has(obstacleId)) {
+        errors.push(`arenas.json[${arenaIndex}].visual.obstacleSkins: missing skin for obstacle "${obstacleId}"`);
+      }
+    }
+  });
+  throwIfErrors(errors);
+}
+
+export function validateVisualArtCatalog(raw: unknown): VisualArtCatalog {
+  throwIfErrors(jsonSafetyErrors(raw, 'visual-art.json'));
   const errors: string[] = [];
   if (!isRecord(raw)) {
-    throw new Error('Invalid game data:\nactor-art.json: expected object');
+    throw new Error('Invalid game data:\nvisual-art.json: expected object');
   }
-  rejectUnknownFields(raw, ACTOR_ART_ROOT_FIELDS, errors);
+  rejectUnknownFields(raw, VISUAL_ART_ROOT_FIELDS, errors);
   const bindings = readOwnField(raw, 'bindings');
   if (!Array.isArray(bindings)) {
     errors.push('bindings: required array');
-  } else if (bindings.length > MAX_ACTOR_ART_BINDINGS) {
-    errors.push(`bindings: exceeds maximum ${MAX_ACTOR_ART_BINDINGS}`);
+  } else if (bindings.length > MAX_VISUAL_ART_BINDINGS) {
+    errors.push(`bindings: exceeds maximum ${MAX_VISUAL_ART_BINDINGS}`);
   }
 
   const ids = new Map<string, number>();
@@ -2026,26 +2398,33 @@ export function validateActorArtCatalog(raw: unknown): ActorArtCatalog {
         return;
       }
       const rowErrors: string[] = [];
-      rejectUnknownFields(binding, ACTOR_ART_BINDING_FIELDS, rowErrors);
+      rejectUnknownFields(binding, VISUAL_ART_BINDING_FIELDS, rowErrors);
       requireString(binding, 'id', rowErrors);
       requireString(binding, 'kind', rowErrors);
       requireString(binding, 'textureKey', rowErrors);
       requireString(binding, 'url', rowErrors);
-      requireNumberInRange(binding, 'displayDiameter', 4, 128, rowErrors);
 
       const id = readOwnField(binding, 'id');
       const kind = readOwnField(binding, 'kind');
       const textureKey = readOwnField(binding, 'textureKey');
       const url = readOwnField(binding, 'url');
-      if (typeof id === 'string' && !/^(character|enemy|projectile|drop):[a-z0-9-]+$/.test(id)) {
-        rowErrors.push('id: invalid actor-art id');
+      const required = readOwnField(binding, 'required');
+      if (required !== true && required !== false) {
+        rowErrors.push('required: required boolean');
       }
-      if (typeof kind !== 'string' || !ACTOR_ART_KINDS.has(kind)) {
-        rowErrors.push('kind: unknown actor-art kind');
+      if (typeof id === 'string' &&
+          (id.length > 128 || !/^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)+$/.test(id))) {
+        rowErrors.push('id: invalid visual-art id');
+      }
+      if (typeof kind !== 'string' || !VISUAL_ART_KINDS.has(kind)) {
+        rowErrors.push('kind: unknown visual-art kind');
       } else if (typeof id === 'string' && !id.startsWith(`${kind}:`)) {
         rowErrors.push('kind: must match id prefix');
       }
       if (typeof textureKey === 'string') {
+        if (!/^[a-z0-9][a-z0-9-]{0,95}$/.test(textureKey)) {
+          rowErrors.push('textureKey: invalid bounded kebab-case key');
+        }
         const first = textureKeys.get(textureKey);
         if (first !== undefined) rowErrors.push(`textureKey: duplicate first seen at index ${first}`);
         else textureKeys.set(textureKey, index);
@@ -2055,27 +2434,58 @@ export function validateActorArtCatalog(raw: unknown): ActorArtCatalog {
         if (first !== undefined) rowErrors.push(`id: duplicate first seen at index ${first}`);
         else ids.set(id, index);
       }
-      if (typeof url === 'string' && !/^assets\/[a-z0-9/-]+\.png$/.test(url)) {
+      if (typeof url === 'string' &&
+          (url.length > 256 || !/^assets\/[a-z0-9][a-z0-9/-]*\.png$/.test(url))) {
         rowErrors.push('url: must be a relative assets PNG path');
       }
 
-      const frame = readOwnField(binding, 'frame');
-      if (!isRecord(frame)) {
-        rowErrors.push('frame: required object');
+      const load = readOwnField(binding, 'load');
+      const loadType = isRecord(load) ? readOwnField(load, 'type') : undefined;
+      if (!isRecord(load)) {
+        rowErrors.push('load: required object');
+      } else if (loadType === 'image') {
+        rejectUnknownFields(load, VISUAL_ART_IMAGE_LOAD_FIELDS, rowErrors, 'load');
+      } else if (loadType === 'spritesheet') {
+        const loadErrors: string[] = [];
+        rejectUnknownFields(load, VISUAL_ART_SPRITESHEET_LOAD_FIELDS, loadErrors);
+        const frame = readOwnField(load, 'frame');
+        if (!isRecord(frame)) {
+          loadErrors.push('frame: required object');
+        } else {
+          const frameErrors: string[] = [];
+          rejectUnknownFields(frame, VISUAL_ART_DIMENSION_FIELDS, frameErrors);
+          requireIntegerInRange(frame, 'width', 1, 2048, frameErrors);
+          requireIntegerInRange(frame, 'height', 1, 2048, frameErrors);
+          loadErrors.push(...frameErrors.map((error) => `frame.${error}`));
+        }
+        rowErrors.push(...loadErrors.map((error) => `load.${error}`));
       } else {
-        const frameErrors: string[] = [];
-        rejectUnknownFields(frame, ACTOR_ART_FRAME_FIELDS, frameErrors);
-        requireIntegerInRange(frame, 'width', 8, 128, frameErrors);
-        requireIntegerInRange(frame, 'height', 8, 128, frameErrors);
-        rowErrors.push(...frameErrors.map((error) => `frame.${error}`));
+        rowErrors.push('load.type: must be image or spritesheet');
+      }
+
+      const display = readOwnField(binding, 'display');
+      if (!isRecord(display)) {
+        rowErrors.push('display: required object');
+      } else {
+        const displayErrors: string[] = [];
+        rejectUnknownFields(display, VISUAL_ART_DIMENSION_FIELDS, displayErrors);
+        requireNumberInRange(display, 'width', 1, 4096, displayErrors);
+        requireNumberInRange(display, 'height', 1, 4096, displayErrors);
+        rowErrors.push(...displayErrors.map((error) => `display.${error}`));
       }
 
       const clips = readOwnField(binding, 'clips');
       if (clips !== undefined && !isRecord(clips)) {
         rowErrors.push('clips: expected object');
       } else if (isRecord(clips)) {
+        if (loadType !== 'spritesheet') {
+          rowErrors.push('clips: allowed only for spritesheet loads');
+        }
+        if (Object.keys(clips).length > MAX_VISUAL_ART_CLIPS) {
+          rowErrors.push(`clips: exceeds maximum ${MAX_VISUAL_ART_CLIPS}`);
+        }
         for (const [name, clip] of Object.entries(clips)) {
-          if (!/^[a-z][a-z0-9-]*$/.test(name)) {
+          if (name.length > 64 || !/^[a-z][a-z0-9-]*$/.test(name)) {
             rowErrors.push(`clips.${name}: invalid clip name`);
             continue;
           }
@@ -2084,10 +2494,12 @@ export function validateActorArtCatalog(raw: unknown): ActorArtCatalog {
             continue;
           }
           const clipErrors: string[] = [];
-          rejectUnknownFields(clip, ACTOR_ART_CLIP_FIELDS, clipErrors);
-          requireNonNegativeInteger(clip, 'start', clipErrors);
-          requireNonNegativeInteger(clip, 'end', clipErrors);
+          rejectUnknownFields(clip, VISUAL_ART_CLIP_FIELDS, clipErrors);
+          requireIntegerInRange(clip, 'start', 0, 255, clipErrors);
+          requireIntegerInRange(clip, 'end', 0, 255, clipErrors);
           requireNumberInRange(clip, 'frameRate', 1, 60, clipErrors);
+          const repeat = readOwnField(clip, 'repeat');
+          if (repeat !== -1 && repeat !== 0) clipErrors.push('repeat: must be -1 or 0');
           const start = readOwnField(clip, 'start');
           const end = readOwnField(clip, 'end');
           if (typeof start === 'number' && typeof end === 'number' && start > end) {
@@ -2097,14 +2509,14 @@ export function validateActorArtCatalog(raw: unknown): ActorArtCatalog {
         }
       }
       if ((kind === 'character' || kind === 'enemy') &&
-          (!isRecord(clips) || !isRecord(clips.idle) || !isRecord(clips.run))) {
+          (loadType !== 'spritesheet' || !isRecord(clips) || !isRecord(clips.idle) || !isRecord(clips.run))) {
         rowErrors.push('clips: character and enemy bindings require idle and run');
       }
       errors.push(...rowErrors.map((error) => `${prefix}.${error}`));
     });
   }
-  throwIfErrors(errors.map((error) => `actor-art.json.${error}`));
-  return raw as unknown as ActorArtCatalog;
+  throwIfErrors(errors.map((error) => `visual-art.json.${error}`));
+  return raw as unknown as VisualArtCatalog;
 }
 
 function rejectUnknownFields(row: Record<string, unknown>, allowed: ReadonlySet<string>, errors: string[], prefix = ''): void {

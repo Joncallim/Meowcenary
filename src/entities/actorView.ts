@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import { actorAnimationKey } from '../systems/actorArt';
-import type { ActorArtBinding } from '../systems/types';
+import { visualAnimationKey } from '../systems/visualArt';
+import type { VisualArtBinding } from '../systems/types';
 
 export interface ActorPose {
   readonly x: number;
@@ -12,6 +12,7 @@ export interface ActorPose {
 
 export interface ActorView {
   update(pose: ActorPose): void;
+  playOneShot(clip: 'hurt' | 'defeat'): void;
   destroy(): void;
 }
 
@@ -38,6 +39,8 @@ export class PlaceholderView implements ActorView {
     this.shadow.node.setPosition(pose.x, pose.y + this.shadow.dy);
   }
 
+  playOneShot(): void {}
+
   destroy(): void {
     for (const layer of this.layers) layer.node.destroy();
     this.shadow.node.destroy();
@@ -46,71 +49,115 @@ export class PlaceholderView implements ActorView {
 
 export class SpriteView implements ActorView {
   private moving = false;
+  private oneShot?: 'hurt' | 'defeat';
 
   constructor(
     body: Phaser.GameObjects.Arc,
     private readonly shadow: { readonly node: Phaser.GameObjects.Arc; readonly dy: number },
     private readonly sprite: Phaser.GameObjects.Sprite,
-    private readonly clips: { readonly idle: string; readonly run: string },
+    private readonly clips: {
+      readonly idle: string;
+      readonly run: string;
+      readonly hurt?: string;
+      readonly defeat?: string;
+    },
   ) {
     body.setVisible(false);
     this.sprite.play(this.clips.idle);
+    this.sprite.on('animationcomplete', this.handleAnimationComplete, this);
   }
 
   update(pose: ActorPose): void {
     this.sprite
       .setPosition(pose.x, pose.y)
       .setFlipX(pose.facing === -1)
-      .setAlpha(pose.alpha);
+      .setAlpha(this.oneShot === 'defeat' ? 1 : pose.alpha);
     this.shadow.node.setPosition(pose.x, pose.y + this.shadow.dy);
-    if (pose.moving !== this.moving) {
-      this.moving = pose.moving;
+    const movementChanged = pose.moving !== this.moving;
+    this.moving = pose.moving;
+    if (movementChanged && this.oneShot === undefined) {
       this.sprite.play(pose.moving ? this.clips.run : this.clips.idle);
     }
   }
 
+  playOneShot(clip: 'hurt' | 'defeat'): void {
+    if (this.oneShot === 'defeat' || (clip === 'hurt' && !this.clips.hurt) ||
+        (clip === 'defeat' && !this.clips.defeat)) return;
+    // Already mid-playback of this exact clip: Phaser's play() restarts an
+    // already-playing animation by default, so re-triggering every frame
+    // (e.g. continuous hazard damage) would loop it at frame 0 forever and
+    // never fire animationcomplete. Let it run to completion instead.
+    if (this.oneShot === clip) return;
+    this.oneShot = clip;
+    if (clip === 'defeat') this.sprite.setAlpha(1);
+    this.sprite.play(this.clips[clip]!);
+  }
+
   destroy(): void {
+    this.sprite.off('animationcomplete', this.handleAnimationComplete, this);
     this.sprite.destroy();
     this.shadow.node.destroy();
   }
+
+  private readonly handleAnimationComplete = (animation: Phaser.Animations.Animation): void => {
+    if (this.oneShot === undefined || animation.key !== this.clips[this.oneShot]) return;
+    if (this.oneShot === 'defeat') return;
+    this.oneShot = undefined;
+    this.sprite.play(this.moving ? this.clips.run : this.clips.idle);
+  };
 }
 
 export function createAnimatedActorView(
   scene: Phaser.Scene,
   body: Phaser.GameObjects.Arc,
   shadow: { readonly node: Phaser.GameObjects.Arc; readonly dy: number },
-  binding: Readonly<ActorArtBinding> | undefined,
+  binding: Readonly<VisualArtBinding> | undefined,
   depth: number,
 ): SpriteView | undefined {
-  if (!binding?.clips?.idle || !binding.clips.run || !scene.textures.exists(binding.textureKey)) {
+  if (binding?.load.type !== 'spritesheet' || !binding.clips?.idle || !binding.clips.run ||
+      !scene.textures.exists(binding.textureKey)) {
     return undefined;
   }
-  const idle = actorAnimationKey(binding.id, 'idle');
-  const run = actorAnimationKey(binding.id, 'run');
+  const idle = visualAnimationKey(binding.id, 'idle');
+  const run = visualAnimationKey(binding.id, 'run');
   if (!scene.anims.exists(idle) || !scene.anims.exists(run)) return undefined;
   const sprite = scene.add.sprite(body.x, body.y, binding.textureKey, 0)
     .setDepth(depth)
     .setOrigin(0.5)
-    .setScale(binding.displayDiameter / binding.frame.width);
-  return new SpriteView(body, shadow, sprite, { idle, run });
+    .setScale(
+      binding.display.width / binding.load.frame.width,
+      binding.display.height / binding.load.frame.height,
+    );
+  const hurt = binding.clips.hurt ? visualAnimationKey(binding.id, 'hurt') : undefined;
+  const defeat = binding.clips.defeat ? visualAnimationKey(binding.id, 'defeat') : undefined;
+  return new SpriteView(body, shadow, sprite, {
+    idle,
+    run,
+    ...(hurt && scene.anims.exists(hurt) ? { hurt } : {}),
+    ...(defeat && scene.anims.exists(defeat) ? { defeat } : {}),
+  });
 }
 
 export function createStaticArtSprite(
   scene: Phaser.Scene,
-  binding: Readonly<ActorArtBinding> | undefined,
+  binding: Readonly<VisualArtBinding> | undefined,
   depth: number,
 ): Phaser.GameObjects.Sprite | undefined {
   if (!binding || !scene.textures.exists(binding.textureKey)) return undefined;
-  const sprite = scene.add.sprite(0, 0, binding.textureKey, 0)
+  const frame = binding.load.type === 'spritesheet' ? 0 : undefined;
+  const sprite = scene.add.sprite(0, 0, binding.textureKey, frame)
     .setDepth(depth)
-    .setOrigin(0.5)
-    .setScale(binding.displayDiameter / binding.frame.width)
+    .setOrigin(0.5);
+  if (binding.load.type === 'spritesheet') {
+    sprite.setScale(
+      binding.display.width / binding.load.frame.width,
+      binding.display.height / binding.load.frame.height,
+    );
+  } else {
+    sprite.setDisplaySize(binding.display.width, binding.display.height);
+  }
+  sprite
     .setActive(false)
     .setVisible(false);
-  const clipName = binding.kind === 'projectile' ? 'fly' : 'idle';
-  if (binding.clips?.[clipName]) {
-    const animation = actorAnimationKey(binding.id, clipName);
-    if (scene.anims.exists(animation)) sprite.play(animation);
-  }
   return sprite;
 }

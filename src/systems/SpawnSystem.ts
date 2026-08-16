@@ -13,7 +13,7 @@ import {
 import { spawnPoint } from '../gameplay/spawnRegion';
 import { DataEnemyRegistry } from './enemies';
 import type { ArenaDefinition, EnemyScalingDefinition, SpawnableEnemyDefinition, SpawnCurveDefinition } from './types';
-import type { ActorArtLookup } from './actorArt';
+import type { VisualArtLookup } from './visualArt';
 import type { ChargerEnvironment } from '../gameplay/enemyMovement';
 
 export class SpawnSystem implements System {
@@ -32,7 +32,7 @@ export class SpawnSystem implements System {
     private readonly enemyGroup: Phaser.Physics.Arcade.Group,
     private readonly arena: Readonly<ArenaDefinition>,
     curve: Readonly<SpawnCurveDefinition>,
-    private readonly actorArt?: ActorArtLookup,
+    private readonly visualArt?: VisualArtLookup,
   ) {
     this.registry = new DataEnemyRegistry(this.ctx.data);
     this.director = createSpawnDirector(curve, this.rng);
@@ -108,7 +108,7 @@ export class SpawnSystem implements System {
       request.pos.x,
       request.pos.y,
       this.ctx.bus,
-      this.actorArt?.bindingById(`enemy:${definition.id}`),
+      this.visualArt?.bindingById(`enemy:${definition.id}`),
       this.environment,
     );
     this.enemies.push(enemy);

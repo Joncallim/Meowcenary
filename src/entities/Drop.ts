@@ -2,17 +2,20 @@ import Phaser from 'phaser';
 import type { Vec2 } from '../engine/vector';
 import { distanceSq, towards } from '../engine/vector';
 import type { LootGrant } from '../gameplay/loot';
-import type { ActorArtBinding } from '../systems/types';
+import type { VisualArtBinding } from '../systems/types';
 import { createStaticArtSprite } from './actorView';
+import { visualAnimationKey } from '../systems/visualArt';
+import { VisualDepth } from '../systems/visualDepths';
 
 export type DropKind = LootGrant['kind'];
+export type DropArtBindings = Readonly<Partial<Record<DropKind, Readonly<VisualArtBinding>>>>;
 
 const DROP_COLORS: Record<DropKind, number> = {
   xp: 0x7dd3fc,
   scrap: 0xd1d5db,
   chest: 0xf472b6,
-  // Epic 14 §D7: distinct placeholder geometric color only — no weapon sprite
-  // assets, actor-art rows, or animations (Epic 16 owns final pickup art).
+  // Retained as an isolated-test fallback; production boot requires art for
+  // every drop kind before gameplay can start.
   weapon: 0xfbbf24,
 };
 
@@ -27,25 +30,32 @@ export class Drop {
   private grantValue?: LootGrant;
   private blocked = false;
   private readonly glint: Phaser.GameObjects.Arc;
-  private readonly artSprite?: Phaser.GameObjects.Sprite;
+  private readonly artSprites = new Map<DropKind, Phaser.GameObjects.Sprite>();
+  private activeArt?: Phaser.GameObjects.Sprite;
 
   constructor(
     scene: Phaser.Scene,
     private readonly radius: number,
-    art?: Readonly<ActorArtBinding>,
+    private readonly artByKind: DropArtBindings = Object.freeze({}),
   ) {
-    this.sprite = scene.add.circle(0, 0, radius, DROP_COLORS.xp).setDepth(2).setActive(false).setVisible(false);
+    this.sprite = scene.add.circle(0, 0, radius, DROP_COLORS.xp)
+      .setDepth(VisualDepth.dropBody)
+      .setActive(false)
+      .setVisible(false);
     // Display-only white highlight, constructed once per pooled drop and
     // toggled with the body. No physics body.
     this.glint = scene.add.circle(0, 0, GLINT_RADIUS, 0xffffff)
       .setAlpha(GLINT_ALPHA)
-      .setDepth(3)
+      .setDepth(VisualDepth.pickup)
       .setActive(false)
       .setVisible(false);
     scene.physics.add.existing(this.sprite);
     this.body.setCircle(radius);
     this.body.enable = false;
-    this.artSprite = createStaticArtSprite(scene, art, 3);
+    for (const kind of ['xp', 'scrap', 'chest', 'weapon'] as const) {
+      const sprite = createStaticArtSprite(scene, artByKind[kind], VisualDepth.pickup);
+      if (sprite) this.artSprites.set(kind, sprite);
+    }
   }
 
   get x(): number {
@@ -85,10 +95,18 @@ export class Drop {
     this.blocked = false;
 
     const kind = grant.kind;
-    const useArt = kind === 'xp' && this.artSprite !== undefined;
+    for (const sprite of this.artSprites.values()) {
+      sprite.stop().setFrame(0).setActive(false).setVisible(false);
+    }
+    this.activeArt = this.artSprites.get(kind);
+    const useArt = this.activeArt !== undefined;
     this.sprite.setPosition(x, y).setFillStyle(DROP_COLORS[kind]).setActive(true).setVisible(!useArt);
     this.glint.setPosition(x - GLINT_OFFSET_X, y - GLINT_OFFSET_Y).setActive(true).setVisible(!useArt);
-    this.artSprite?.setPosition(x, y).setActive(useArt).setVisible(useArt);
+    this.activeArt?.setPosition(x, y).setActive(true).setVisible(true);
+    const binding = this.artByKind[kind];
+    if (this.activeArt && binding?.clips?.idle) {
+      this.activeArt.play(visualAnimationKey(binding.id, 'idle'));
+    }
     this.body.enable = true;
     this.body.setCircle(this.radius);
     this.body.setVelocity(0, 0);
@@ -102,7 +120,7 @@ export class Drop {
     // Arcade physics integrates before the scene update, so the body position
     // is the rendered frame's position — the glint follows exactly.
     this.glint.setPosition(this.sprite.x - GLINT_OFFSET_X, this.sprite.y - GLINT_OFFSET_Y);
-    this.artSprite?.setPosition(this.sprite.x, this.sprite.y);
+    this.activeArt?.setPosition(this.sprite.x, this.sprite.y);
 
     if (this.blocked) {
       this.body.setVelocity(0, 0);
@@ -150,13 +168,18 @@ export class Drop {
     }
     this.sprite.setActive(false).setVisible(false);
     this.glint.setActive(false).setVisible(false);
-    this.artSprite?.setActive(false).setVisible(false);
+    for (const sprite of this.artSprites.values()) {
+      sprite.stop().setFrame(0).setActive(false).setVisible(false);
+    }
+    this.activeArt = undefined;
   }
 
   destroy(): void {
     this.active = false;
     this.glint.destroy();
-    this.artSprite?.destroy();
+    for (const sprite of this.artSprites.values()) sprite.destroy();
+    this.artSprites.clear();
+    this.activeArt = undefined;
     this.sprite.destroy();
   }
 }

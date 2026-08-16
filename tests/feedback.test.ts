@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEventBus, type EventBus } from '../src/engine/eventBus';
 import type { Settings } from '../src/systems/save';
-import { FeedbackSystem, type FeedbackRenderer } from '../src/systems/feedback';
+import {
+  FeedbackSystem,
+  PhaserFeedbackRenderer,
+  type FeedbackRenderer,
+} from '../src/systems/feedback';
 
 function createFakeRenderer(): FeedbackRenderer & {
   projectileHitCalls: Array<{ x: number; y: number; heavyMotion: boolean }>;
@@ -207,5 +211,41 @@ describe('FeedbackSystem', () => {
 
     expect(renderer.projectileHitCalls).toHaveLength(1);
     expect(emitSpy).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe('PhaserFeedbackRenderer lifecycle', () => {
+  it('destroys owned nodes after Phaser has already cleared the main camera', () => {
+    class Node {
+      destroyed = false;
+      setDepth(): this { return this; }
+      setActive(): this { return this; }
+      setVisible(): this { return this; }
+      setAlpha(): this { return this; }
+      setScrollFactor(): this { return this; }
+      setStrokeStyle(): this { return this; }
+      destroy(): void { this.destroyed = true; }
+    }
+    const nodes: Node[] = [];
+    const makeNode = () => {
+      const node = new Node();
+      nodes.push(node);
+      return node;
+    };
+    const scene = {
+      scale: { width: 390, height: 844 },
+      add: { circle: makeNode, rectangle: makeNode },
+      cameras: { main: { shakeEffect: { reset: vi.fn() } } },
+    };
+    const renderer = new PhaserFeedbackRenderer({
+      scene: scene as never,
+      maxEffects: 4,
+      maxHeavyEffects: 2,
+    });
+    Reflect.deleteProperty(scene.cameras, 'main');
+
+    expect(() => renderer.destroy()).not.toThrow();
+    expect(nodes).toHaveLength(2);
+    expect(nodes.every((node) => node.destroyed)).toBe(true);
   });
 });

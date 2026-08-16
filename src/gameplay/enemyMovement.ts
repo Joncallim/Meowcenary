@@ -43,7 +43,10 @@ export function chaseStep(pos: Vec2, target: Vec2, speed: number, dtMs: number):
 
   const travel = speed * (dtMs / 1_000);
   if (!Number.isFinite(travel)) throw new Error('Enemy movement result must be finite');
-  if (travel >= distance) return { ...target };
+  // Callers may provide a Vec2-compatible entity whose x/y accessors live on
+  // its prototype. Spreading that object drops the accessors and returns an
+  // empty position exactly when the chaser reaches its target.
+  if (travel >= distance) return { x: target.x, y: target.y };
 
   const scale = travel / distance;
   const result = {

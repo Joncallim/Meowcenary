@@ -11,8 +11,29 @@ import {
   loadGameData,
   validateGameData,
 } from '../src/systems/validation';
+import { TEST_ARENA_VISUAL } from './helpers/arena';
 
 type MutableData = ReturnType<typeof loadGameData>;
+
+function addFixtureActorArt(
+  data: Record<string, unknown>,
+  kind: 'character' | 'enemy',
+  rows: readonly Record<string, unknown>[],
+): void {
+  const visualArt = data.visualArt as { bindings: Array<Record<string, unknown>> };
+  const template = visualArt.bindings.find((binding) => binding.kind === kind);
+  if (!template) throw new Error(`Missing ${kind} art fixture template`);
+  const ids = [...new Set(rows.map((row) => row.id).filter((id): id is string => typeof id === 'string'))];
+  ids.forEach((id, index) => {
+    const artId = `${kind}:${id}`;
+    if (visualArt.bindings.some((binding) => binding.id === artId)) return;
+    visualArt.bindings.push({
+      ...structuredClone(template),
+      id: artId,
+      textureKey: `fixture-${kind}-${index}`,
+    });
+  });
+}
 
 function enemyFixture(archetype: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
   const base: Record<string, unknown> = {
@@ -54,6 +75,7 @@ function enemyFixture(archetype: string, overrides: Record<string, unknown> = {}
 function withEnemies(enemies: Record<string, unknown>[]): unknown {
   const data = structuredClone(loadGameData()) as unknown as Record<string, unknown>;
   data.enemies = enemies;
+  addFixtureActorArt(data, 'enemy', enemies);
   data.spawnCurves = [{
     id: 'fixture-curve',
     durationSeconds: 60,
@@ -72,6 +94,7 @@ function withEnemies(enemies: Record<string, unknown>[]): unknown {
     spawnRegions: [{ kind: 'edges', margin: 28 }],
     obstacles: [],
     hazards: [],
+    visual: TEST_ARENA_VISUAL,
     unlock: { type: 'default' },
   }];
   return data;
@@ -650,6 +673,7 @@ describe('game data validation', () => {
     function withCharacters(characters: Record<string, unknown>[]): unknown {
       const data = structuredClone(loadGameData()) as unknown as Record<string, unknown>;
       data.characters = characters;
+      addFixtureActorArt(data, 'character', characters);
       return data;
     }
 
@@ -934,7 +958,7 @@ describe('game data validation', () => {
     }
 
     function arenaFixture(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-      return {
+      const fixture: Record<string, unknown> = {
         id: 'test-arena',
         name: 'Test Arena',
         size: { width: 400, height: 400 },
@@ -942,9 +966,27 @@ describe('game data validation', () => {
         spawnRegions: [{ kind: 'edges', margin: 28 }],
         obstacles: [],
         hazards: [],
+        visual: TEST_ARENA_VISUAL,
         unlock: { type: 'default' },
         ...overrides,
       };
+      if (Array.isArray(fixture.obstacles)) {
+        const normalizedObstacles = fixture.obstacles.map((obstacle, index) =>
+          typeof obstacle === 'object' && obstacle !== null
+            ? { id: `obstacle-${index}`, ...obstacle }
+            : obstacle);
+        fixture.obstacles = normalizedObstacles;
+        fixture.visual = {
+          ...TEST_ARENA_VISUAL,
+          obstacleSkins: normalizedObstacles.map((obstacle, index) => ({
+            obstacleId: typeof obstacle === 'object' && obstacle !== null && 'id' in obstacle
+              ? String(obstacle.id)
+              : `obstacle-${index}`,
+            artId: 'world:landmark:hanging-press',
+          })),
+        };
+      }
+      return fixture;
     }
 
     it('accepts the shipped arenas.json', () => {
@@ -1033,6 +1075,41 @@ describe('game data validation', () => {
           obstacles: [...almostCoveringObstacles, { x: 149, y: 99, w: 11, h: 2 }],
         }),
       ]))).toThrow(/ring region has no spawnable point/);
+    });
+
+    it('enforces aligned, body-safe inside-edge lanes clear of obstacles', () => {
+      const misaligned = structuredClone(loadGameData()) as any;
+      misaligned.arenas[0].spawnRegions[0].lanes[0].offset = 161;
+      expect(() => validateGameData(misaligned)).toThrow(/offset: must align to the 32px grid/);
+
+      const obstructed = structuredClone(loadGameData()) as any;
+      obstructed.arenas[0].obstacles[0] = {
+        ...obstructed.arenas[0].obstacles[0],
+        x: 176, y: 0, w: 64, h: 64,
+      };
+      expect(() => validateGameData(obstructed)).toThrow(/body-radius spawn strip fully covered by obstacles/);
+    });
+
+    it('accepts an inside-edge lane obstacle that only clips one end of the strip', () => {
+      const clipped = structuredClone(loadGameData()) as any;
+      // Lane 0 is the top lane: offset 160, width 96, body-safe strip [173, 243].
+      // This obstacle's body-expanded span is [163, 217] — it overlaps the
+      // strip's low end but leaves [217, 243] open, so the lane stays spawnable.
+      clipped.arenas[0].obstacles[0] = {
+        ...clipped.arenas[0].obstacles[0],
+        x: 176, y: 0, w: 28, h: 64,
+      };
+      expect(() => validateGameData(clipped)).not.toThrow();
+    });
+
+    it('rejects world-role drift and unskinned collision landmarks', () => {
+      const wrongRole = structuredClone(loadGameData()) as any;
+      wrongRole.arenas[0].visual.floorArtIds[0] = 'world:prop:crate';
+      expect(() => validateGameData(wrongRole)).toThrow(/art id must start "world:junkyard-floor:"/);
+
+      const missingSkin = structuredClone(loadGameData()) as any;
+      missingSkin.arenas[0].visual.obstacleSkins.pop();
+      expect(() => validateGameData(missingSkin)).toThrow(/missing skin for obstacle/);
     });
 
     it('rejects unknown spawnCurveId', () => {

@@ -77,7 +77,7 @@ interface HarnessOptions {
   enemies?: unknown[];
   arena?: Record<string, unknown>;
   curve?: Record<string, unknown>;
-  actorArt?: unknown;
+  visualArt?: unknown;
 }
 
 async function createHarness(options: HarnessOptions = {}) {
@@ -137,7 +137,7 @@ async function createHarness(options: HarnessOptions = {}) {
     enemyGroup as never,
     arenaFixture as never,
     curveFixture as never,
-    options.actorArt as never,
+    options.visualArt as never,
   );
 
   return { system, runState, bus, data, enemies, enemyGroup, player, overlap };

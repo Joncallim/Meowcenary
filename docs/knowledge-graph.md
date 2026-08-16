@@ -1,7 +1,7 @@
 # Meowcenary Knowledge Graph
 
 > Token-optimized repo map. Read this before implementation work.
-> Current state: **Epics 0–15 complete; Epic 16 architecture/art direction merged in PR #82 and runtime PR #83 is open but must sync current `main` before merge; Epics 17–19 are the remaining Alpha 2 Golden Run work. Alpha 3 runtime is gated by Issue #92, then Epics 20–26.**
+> Current state: **Epics 0–16 complete; Epic 16 runtime merged in PR #83 (46-binding visual-art manifest, presentation pooling, authored Junkyard Lot); Epics 17–19 are the remaining Alpha 2 Golden Run work. Alpha 3 runtime is gated by Issue #92, then Epics 20–26.**
 
 ## Read Order
 
@@ -32,12 +32,9 @@ Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly
 - versioned save migration + one persistent mutation boundary.
 - six-slot run rack + deterministic weapon reward stream.
 - controller/touch work deliberately centralized into Epic 19 rather than scattered device branches.
+- one fail-closed visual-art manifest (`src/data/visual-art.json`, `src/systems/visualArt.ts`) drives every actor/weapon/pickup/world sprite; pooled presentation (`src/entities/heldWeaponView.ts`, `src/systems/defeatPresentation.ts`, `src/systems/arenaScenery.ts`) stays physics-free and cannot change combat/collision behavior.
 
 ## Known Current Gaps / Transition Risks
-
-### PR #83
-
-Epic 16 runtime work is complete on its branch but the PR is currently non-mergeable after newer `main` planning changes. Sync `main`, preserve newer shared planning, retain Epic-16-specific delivery updates, rerun the full Epic 16 gate, then merge before Epic 17 implementation.
 
 ### Input
 

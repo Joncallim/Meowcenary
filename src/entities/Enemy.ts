@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import type { EventBus } from '../engine/eventBus';
+import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
+export { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 import type { Vec2 } from '../engine/vector';
 import {
   chaseStep,
@@ -7,7 +9,8 @@ import {
   type ChargerMovementDefinition,
 } from '../gameplay/enemyMovement';
 import type { ResolvedEnemyDefinition, SpawnableEnemyArchetype } from '../systems/types';
-import type { ActorArtBinding } from '../systems/types';
+import type { VisualArtBinding } from '../systems/types';
+import { VisualDepth } from '../systems/visualDepths';
 import type { Player } from './Player';
 import { PlaceholderView, createAnimatedActorView, type ActorView } from './actorView';
 import type { ChargerEnvironment } from '../gameplay/enemyMovement';
@@ -18,7 +21,6 @@ const OUTLINE_COLOR = 0x0a0f14;
 const SHADOW_RADIUS = 12;
 const SHADOW_OFFSET_Y = 14;
 const SHADOW_ALPHA = 0.28;
-export const ENEMY_BODY_RADIUS = 13;
 
 /** One display-only accent per archetype so silhouettes differ at a glance
  *  (style guide: readable at phone scale, distinct shapes). Elites inherit the
@@ -81,7 +83,7 @@ export class Enemy implements EnemyInstance {
     x: number,
     y: number,
     private readonly bus: EventBus,
-    art?: Readonly<ActorArtBinding>,
+    art?: Readonly<VisualArtBinding>,
     private readonly environment?: ChargerEnvironment,
   ) {
     nextEnemyInstanceId += 1;
@@ -90,26 +92,26 @@ export class Enemy implements EnemyInstance {
     this.maxHealth = this.definition.health;
     this.sprite = scene.add.circle(x, y, ENEMY_BODY_RADIUS, enemyColor(this.definition.archetype))
       .setStrokeStyle(3, OUTLINE_COLOR, 1)
-      .setDepth(4);
+      .setDepth(VisualDepth.enemy);
     scene.physics.add.existing(this.sprite);
     this.body.setCircle(ENEMY_BODY_RADIUS);
 
     // Presentation layers: display-only (no physics body), glued to the body
     // in update(). The body sprite stays the only object physics touches.
     const accent = accentStyle(this.definition);
-    const accentNode = scene.add.circle(x, y, accent.radius, accent.fill).setDepth(4);
+    const accentNode = scene.add.circle(x, y, accent.radius, accent.fill).setDepth(VisualDepth.enemy);
     if (accent.stroke) {
       accentNode.setStrokeStyle(accent.stroke.width, accent.stroke.color, accent.stroke.alpha);
     }
     const shadow = scene.add.circle(x, y, SHADOW_RADIUS, 0x000000)
       .setAlpha(SHADOW_ALPHA)
-      .setDepth(2);
+      .setDepth(VisualDepth.lowDecoration);
     this.view = createAnimatedActorView(
       scene,
       this.sprite,
       { node: shadow, dy: SHADOW_OFFSET_Y },
       art,
-      4,
+      VisualDepth.enemy,
     ) ?? new PlaceholderView(
       this.sprite,
       [{ node: accentNode, dx: 0, dy: 0, flashes: false }],
@@ -226,6 +228,8 @@ export class Enemy implements EnemyInstance {
       this.stateTimerMs = 0;
     }
 
+    if (!killed) this.view.playOneShot('hurt');
+
     this.bus.emit('enemy:damaged', {
       instanceId: this.instanceId,
       amount: applied,
@@ -292,7 +296,10 @@ export class Enemy implements EnemyInstance {
 
   private applyPosition(next: Vec2, dtMs: number, immediate = false): void {
     if (!Number.isFinite(next.x) || !Number.isFinite(next.y)) {
-      throw new Error('Enemy runtime position must remain finite');
+      throw new Error(
+        `Enemy runtime position must remain finite (enemy=${this.defId}, next=${next.x},${next.y}, ` +
+        `current=${this.x},${this.y}, dtMs=${dtMs}, immediate=${immediate})`,
+      );
     }
     // Charger dash → body.reset (directional lunge, designed to reach target).
     // Chaser pursuit → velocity-based (Arcade Physics collides with obstacles).

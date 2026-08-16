@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import type { Vec2 } from '../engine/vector';
 import { normalize } from '../engine/vector';
-import type { ActorArtBinding } from '../systems/types';
+import type { VisualArtBinding } from '../systems/types';
+import { visualAnimationKey } from '../systems/visualArt';
+import { VisualDepth } from '../systems/visualDepths';
 import { createStaticArtSprite } from './actorView';
 
 export interface ProjectileSpawnOptions {
@@ -26,20 +28,23 @@ export class Projectile {
   constructor(
     scene: Phaser.Scene,
     private readonly radius: number,
-    art?: Readonly<ActorArtBinding>,
+    private readonly art?: Readonly<VisualArtBinding>,
   ) {
-    this.sprite = scene.add.circle(0, 0, radius, 0x8bd3ff).setDepth(3).setActive(false).setVisible(false);
+    this.sprite = scene.add.circle(0, 0, radius, 0x8bd3ff)
+      .setDepth(VisualDepth.projectile)
+      .setActive(false)
+      .setVisible(false);
     // Display-only soft halo, constructed once per pooled projectile and
     // toggled with the body. No physics body.
     this.glow = scene.add.circle(0, 0, radius + 3, 0x8bd3ff)
       .setAlpha(0.22)
-      .setDepth(2)
+      .setDepth(VisualDepth.dropBody)
       .setActive(false)
       .setVisible(false);
     scene.physics.add.existing(this.sprite);
     this.body.setCircle(radius);
     this.body.enable = false;
-    this.artSprite = createStaticArtSprite(scene, art, 3);
+    this.artSprite = createStaticArtSprite(scene, art, VisualDepth.projectile);
     if (this.artSprite) {
       this.sprite.setVisible(false);
       this.glow.setVisible(false);
@@ -75,6 +80,8 @@ export class Projectile {
     this.body.setCircle(this.radius);
     this.body.setVelocity(normalized.x * this.speed, normalized.y * this.speed);
     if (this.artSprite) {
+      this.artSprite.stop().setFrame(0).setAlpha(1);
+      if (this.art?.clips?.fly) this.artSprite.play(visualAnimationKey(this.art.id, 'fly'));
       this.artSprite.setRotation(Math.atan2(normalized.y, normalized.x));
     }
   }
@@ -123,7 +130,7 @@ export class Projectile {
     this.body.setVelocity(0, 0);
     this.body.enable = false;
     this.glow.setActive(false).setVisible(false);
-    this.artSprite?.setActive(false).setVisible(false);
+    this.artSprite?.stop().setFrame(0).setRotation(0).setAlpha(1).setActive(false).setVisible(false);
     this.sprite.setActive(false).setVisible(false);
   }
 

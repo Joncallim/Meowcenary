@@ -319,6 +319,9 @@ function enemyDefinition(): ResolvedEnemyDefinition {
         return this;
       }
 
+      on(): this { return this; }
+      off(): this { return this; }
+
       destroy(): void {}
     }
 
@@ -327,17 +330,21 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       kind: 'enemy',
       textureKey: 'sheet',
       url: 'assets/x.png',
-      frame: { width: 48, height: 48 },
-      displayDiameter: 26,
+      required: true,
+      load: { type: 'spritesheet', frame: { width: 48, height: 48 } },
+      display: { width: 26, height: 26 },
       clips: {
-        idle: { start: 0, end: 3, frameRate: 6 },
-        run: { start: 4, end: 9, frameRate: 10 },
+        idle: { start: 0, end: 3, frameRate: 6, repeat: -1 },
+        run: { start: 4, end: 9, frameRate: 10, repeat: -1 },
+        hurt: { start: 10, end: 11, frameRate: 12, repeat: 0 },
+        defeat: { start: 12, end: 15, frameRate: 8, repeat: 0 },
       },
     } as const;
 
     async function createArtEnemy(
       definition: ResolvedEnemyDefinition,
       spawnX: number,
+      bus = createEventBus(),
     ): Promise<{ enemy: InstanceType<typeof import('../src/entities/Enemy').Enemy>; sprite: SpriteNode }> {
       const { Enemy } = await import('../src/entities/Enemy');
       const sprites: SpriteNode[] = [];
@@ -355,7 +362,7 @@ function enemyDefinition(): ResolvedEnemyDefinition {
         physics: { add: { existing: () => undefined } },
       };
       return {
-        enemy: new Enemy(scene as never, definition, spawnX, 20, createEventBus(), artBinding),
+        enemy: new Enemy(scene as never, definition, spawnX, 20, bus, artBinding),
         sprite: sprites[0],
       };
     }
@@ -394,6 +401,27 @@ function enemyDefinition(): ResolvedEnemyDefinition {
         (key) => key === 'art:enemy:test-charger:idle',
       ).length;
       expect(playsAfterWinding).toBe(2);
+    });
+
+    it('plays hurt before nonlethal damage emission and skips it on lethal destroy', async () => {
+      const definition: ResolvedEnemyDefinition = {
+        id: 'test-charger', name: 'Test Charger', archetype: 'charger',
+        health: 10, damage: 1, speed: 100, xpValue: 1, scrapValue: 1, contactDamage: true,
+        attack: {
+          triggerRange: 150, telegraphMs: 650, dashSpeed: 260,
+          dashDurationMs: 700, cooldownMs: 1_200,
+        },
+      };
+      const bus = createEventBus();
+      const { enemy, sprite } = await createArtEnemy(definition, 10, bus);
+      const presentationsAtDamage: string[] = [];
+      bus.on('enemy:damaged', () => presentationsAtDamage.push(sprite.plays.at(-1) ?? 'none'));
+
+      expect(enemy.takeDamage(2)).toBe(false);
+      expect(presentationsAtDamage).toEqual(['art:enemy:test-charger:hurt']);
+      const hurtCount = sprite.plays.filter((key) => key.endsWith(':hurt')).length;
+      expect(enemy.takeDamage(99)).toBe(true);
+      expect(sprite.plays.filter((key) => key.endsWith(':hurt'))).toHaveLength(hurtCount);
     });
 
     it('faces the target while winding and the dash direction while attacking', async () => {

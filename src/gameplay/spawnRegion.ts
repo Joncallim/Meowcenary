@@ -2,6 +2,7 @@ import type { Rng } from '../engine/rng';
 import type { Vec2 } from '../engine/vector';
 import type { ArenaDefinition, SpawnRegion } from '../systems/types';
 import { clamp } from './curves';
+import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 
 const MAX_ATTEMPTS = 8;
 const SCATTER_ATTEMPTS = 16;
@@ -14,6 +15,7 @@ type ObstacleBounds = {
 };
 
 type RingRegion = Extract<SpawnRegion, { readonly kind: 'ring' }>;
+type EdgeLane = Extract<SpawnRegion, { readonly kind: 'edge-lanes' }>['lanes'][number];
 
 export function spawnPoint(arena: Readonly<ArenaDefinition>, rng: Rng): Vec2 {
   const regions = arena.spawnRegions;
@@ -53,6 +55,17 @@ function samplePoint(region: SpawnRegion, arena: Readonly<ArenaDefinition>, rng:
         default: return { x: -margin, y: rng.int(0, height) };
       }
     }
+    case 'edge-lanes': {
+      const lane = region.lanes[rng.int(0, region.lanes.length - 1)]!;
+      const coordinate = lane.offset + ENEMY_BODY_RADIUS + rng.next() *
+        (lane.width - ENEMY_BODY_RADIUS * 2);
+      switch (lane.side) {
+        case 'top': return { x: coordinate, y: region.inset };
+        case 'right': return { x: arena.size.width - region.inset, y: coordinate };
+        case 'bottom': return { x: coordinate, y: arena.size.height - region.inset };
+        case 'left': return { x: region.inset, y: coordinate };
+      }
+    }
   }
 }
 
@@ -63,7 +76,7 @@ function isInsideSpawnableBand(
 ): boolean {
   const { width, height } = arena.size;
 
-  if (region.kind === 'ring' || region.kind === 'rect') {
+  if (region.kind === 'ring' || region.kind === 'rect' || region.kind === 'edge-lanes') {
     return p.x >= 0 && p.x <= width && p.y >= 0 && p.y <= height;
   }
 
@@ -132,6 +145,59 @@ export function findRectWitness(
     }
   }
 
+  return null;
+}
+
+/**
+ * Deterministic witness for a single edge-lane's body-safe strip. The lane's
+ * side and the region's inset fix one axis (the cross-axis coordinate); only
+ * the along-lane axis varies over [low, high]. Obstacles that actually cross
+ * the fixed coordinate (expanded by the enemy body radius) partition that
+ * interval into cells; the first cell whose midpoint clears every such
+ * obstacle is the witness. One-dimensional sibling of findRectWitness's
+ * cell-sweep, and the single source of truth both validation and runtime
+ * fallback use so "spawnable" means the same thing in both places.
+ */
+export function findEdgeLaneWitness(
+  lane: EdgeLane,
+  inset: number,
+  arenaSize: { readonly width: number; readonly height: number },
+  obstacles: readonly ObstacleBounds[],
+): Vec2 | null {
+  const low = lane.offset + ENEMY_BODY_RADIUS;
+  const high = lane.offset + lane.width - ENEMY_BODY_RADIUS;
+  if (low > high) return null;
+
+  const horizontal = lane.side === 'top' || lane.side === 'bottom';
+  const coordinate = lane.side === 'top' || lane.side === 'left'
+    ? inset
+    : lane.side === 'right' ? arenaSize.width - inset : arenaSize.height - inset;
+
+  const spans: Array<[number, number]> = [];
+  for (const o of obstacles) {
+    const expanded = {
+      x: o.x - ENEMY_BODY_RADIUS, y: o.y - ENEMY_BODY_RADIUS,
+      w: o.w + ENEMY_BODY_RADIUS * 2, h: o.h + ENEMY_BODY_RADIUS * 2,
+    };
+    const crosses = horizontal
+      ? coordinate >= expanded.y && coordinate <= expanded.y + expanded.h
+      : coordinate >= expanded.x && coordinate <= expanded.x + expanded.w;
+    if (crosses) {
+      spans.push(horizontal ? [expanded.x, expanded.x + expanded.w] : [expanded.y, expanded.y + expanded.h]);
+    }
+  }
+
+  const covered = (point: number): boolean => spans.some(([start, end]) => point >= start && point <= end);
+  const cuts = [...new Set([low, high, ...spans.flat().filter((c) => c > low && c < high)])]
+    .sort((a, b) => a - b);
+
+  for (let i = 0; i < cuts.length - 1; i += 1) {
+    const mid = (cuts[i]! + cuts[i + 1]!) / 2;
+    if (!covered(mid)) return horizontal ? { x: mid, y: coordinate } : { x: coordinate, y: mid };
+  }
+  if (low === high && !covered(low)) {
+    return horizontal ? { x: low, y: coordinate } : { x: coordinate, y: low };
+  }
   return null;
 }
 
@@ -256,6 +322,7 @@ export function findRingWitness(
  * - Rect: uses the deterministic cell-sweep witness (findRectWitness).
  * - Ring: deterministic cell-sweep witness (findRingWitness).
  * - Edges: edge midpoints + random scatter.
+ * - Edge-lanes: deterministic per-lane witness (findEdgeLaneWitness).
  */
 function searchFallback(
   region: SpawnRegion,
@@ -281,7 +348,7 @@ function searchFallback(
       `spawnPoint: ring region has no spawnable point — ` +
       `validation should have rejected`,
     );
-  } else {
+  } else if (region.kind === 'edges') {
     // Edges
     const { width, height } = arena.size;
     const margin = region.margin;
@@ -296,6 +363,11 @@ function searchFallback(
     for (let attempt = 0; attempt < SCATTER_ATTEMPTS; attempt += 1) {
       const p = samplePoint(region, arena, rng);
       if (isValidPoint(p, region, arena)) return p;
+    }
+  } else {
+    for (const lane of region.lanes) {
+      const witness = findEdgeLaneWitness(lane, region.inset, arena.size, arena.obstacles);
+      if (witness && isValidPoint(witness, region, arena)) return witness;
     }
   }
 

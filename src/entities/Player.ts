@@ -2,8 +2,11 @@ import Phaser from 'phaser';
 import type { EventBus } from '../engine/eventBus';
 import type { RunState } from '../gameplay/runState';
 import { endRun } from '../gameplay/runState';
+import { PLAYER_BODY_RADIUS } from '../engine/bodyDimensions';
+export { PLAYER_BODY_RADIUS } from '../engine/bodyDimensions';
 import type { InputController } from '../systems/input';
-import type { ActorArtBinding } from '../systems/types';
+import type { VisualArtBinding } from '../systems/types';
+import { VisualDepth } from '../systems/visualDepths';
 import { PlaceholderView, createAnimatedActorView, type ActorView } from './actorView';
 
 export interface PlayerOptions {
@@ -22,7 +25,6 @@ const EAR_RADIUS = 4.5;
 const SHADOW_RADIUS = 13;
 const SHADOW_OFFSET_Y = 15;
 const SHADOW_ALPHA = 0.32;
-export const PLAYER_BODY_RADIUS = 14;
 
 export class Player {
   readonly sprite: Phaser.GameObjects.Arc;
@@ -37,13 +39,13 @@ export class Player {
     private readonly runState: RunState,
     private readonly bus: EventBus,
     private readonly options: PlayerOptions,
-    art?: Readonly<ActorArtBinding>,
+    art?: Readonly<VisualArtBinding>,
   ) {
     this.health = this.maxHealth;
     this.sprite = scene.add
       .circle(options.spawnX, options.spawnY, PLAYER_BODY_RADIUS, BODY_COLOR)
       .setStrokeStyle(3, OUTLINE_COLOR, 1)
-      .setDepth(5);
+      .setDepth(VisualDepth.player);
     scene.physics.add.existing(this.sprite);
     this.body.setCircle(PLAYER_BODY_RADIUS);
     this.body.setCollideWorldBounds(true);
@@ -53,21 +55,21 @@ export class Player {
     const leftEar = scene.add
       .circle(options.spawnX - EAR_OFFSET_X, options.spawnY - EAR_OFFSET_Y, EAR_RADIUS, BODY_COLOR)
       .setStrokeStyle(2, OUTLINE_COLOR, 1)
-      .setDepth(5);
+      .setDepth(VisualDepth.player);
     const rightEar = scene.add
       .circle(options.spawnX + EAR_OFFSET_X, options.spawnY - EAR_OFFSET_Y, EAR_RADIUS, BODY_COLOR)
       .setStrokeStyle(2, OUTLINE_COLOR, 1)
-      .setDepth(5);
+      .setDepth(VisualDepth.player);
     const shadow = scene.add
       .circle(options.spawnX, options.spawnY + SHADOW_OFFSET_Y, SHADOW_RADIUS, 0x000000)
       .setAlpha(SHADOW_ALPHA)
-      .setDepth(3);
+      .setDepth(VisualDepth.lowDecoration);
     this.view = createAnimatedActorView(
       scene,
       this.sprite,
       { node: shadow, dy: SHADOW_OFFSET_Y },
       art,
-      5,
+      VisualDepth.player,
     ) ?? new PlaceholderView(
       this.sprite,
       [
@@ -148,6 +150,7 @@ export class Player {
     if (this.invulnerableMs > 0) {
       this.view.update(this.currentPose());
     }
+    this.view.playOneShot(this.health <= 0 ? 'defeat' : 'hurt');
     this.bus.emit('player:damaged', { amount, healthRemaining: this.health });
 
     if (this.health <= 0) {
@@ -160,6 +163,7 @@ export class Player {
   takeEnvironmentalDamage(amount: number): void {
     if (this.runState.status !== 'active' || !Number.isFinite(amount) || amount <= 0) return;
     this.health = Math.max(0, this.health - amount);
+    this.view.playOneShot(this.health <= 0 ? 'defeat' : 'hurt');
     this.bus.emit('player:damaged', { amount, healthRemaining: this.health });
     if (this.health <= 0) {
       this.bus.emit('player:died', {});

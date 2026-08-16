@@ -85,8 +85,8 @@ The playable loop is well past the original MVP. Shipped and playable today:
 - Level-up upgrade cards, meta progression, and local saves.
 - Selectable characters and data-defined arenas.
 - An event-driven loot/economy loop (XP, scrap, chests) and live audio.
-- Dev-only balancing tools, performance pooling, and a presentation layer (pooled actor/projectile/pickup art) separate from gameplay logic.
+- Dev-only balancing tools, performance pooling, and a data-driven visual identity — a validated art manifest, pooled weapon/pickup/defeat presentation, and a camera-traversable Junkyard Lot — kept separate from gameplay logic.
 
-In progress: Epic 16 is establishing one coherent visual identity — readable rack/weapon/projectile art and a larger, camera-traversable Junkyard Lot — without changing any combat, economy, merge, pause, or UI rules. See [`docs/roadmap.md`](docs/roadmap.md) for exact epic-by-epic status and [`docs/epics.md`](docs/epics.md) for the shared contracts every epic builds on.
+Next up is Alpha 2's Golden Run push: combat feel, build variety, and the touch/controller gate. See [`docs/roadmap.md`](docs/roadmap.md) for exact epic-by-epic status and [`docs/epics.md`](docs/epics.md) for the shared contracts every epic builds on.
 
 Paid upgrades, ads, subscriptions, online accounts, and social features are explicitly out of scope for now.

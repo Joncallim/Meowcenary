@@ -11,6 +11,8 @@ class MockGameObject {
   scaleValue = 1;
   body: unknown = undefined;
   played: string[] = [];
+  stopped = 0;
+  frame = -1;
 
   constructor(
     public x = 0,
@@ -63,6 +65,16 @@ class MockGameObject {
 
   play(key: string): this {
     this.played.push(key);
+    return this;
+  }
+
+  stop(): this {
+    this.stopped += 1;
+    return this;
+  }
+
+  setFrame(frame: number): this {
+    this.frame = frame;
     return this;
   }
 
@@ -370,9 +382,10 @@ describe('Drop', () => {
       kind: 'drop',
       textureKey: 'art-drop-xp-mote',
       url: 'assets/pickups/xp-mote/xp-mote.png',
-      frame: { width: 16, height: 16 },
-      displayDiameter: 16,
-      clips: { idle: { start: 0, end: 3, frameRate: 8 } },
+      required: true,
+      load: { type: 'spritesheet', frame: { width: 16, height: 16 } },
+      display: { width: 16, height: 16 },
+      clips: { idle: { start: 0, end: 3, frameRate: 8, repeat: -1 } },
     } as const;
 
     async function createArtDrop() {
@@ -391,7 +404,7 @@ describe('Drop', () => {
         anims: { exists: (key: string) => key === 'art:drop:xp:idle' },
         physics: { add: { existing: () => undefined } },
       };
-      const drop = new Drop(scene as never, 8, xpBinding);
+      const drop = new Drop(scene as never, 8, Object.freeze({ xp: xpBinding }));
       return { drop, sprite: sprites[0], circles: sprites as MockGameObject[] };
     }
 
@@ -399,13 +412,14 @@ describe('Drop', () => {
       const { drop, sprite } = await createArtDrop();
       expect(sprite).toBeDefined();
       expect(sprite.visible).toBe(false);
-      expect(sprite.played).toEqual(['art:drop:xp:idle']);
+      expect(sprite.played).toEqual([]);
 
       drop.spawn(10, 20, { kind: 'xp', amount: 5 });
       expect(drop.sprite.visible).toBe(false);
       expect(sprite.active).toBe(true);
       expect(sprite.visible).toBe(true);
       expect([sprite.x, sprite.y]).toEqual([10, 20]);
+      expect(sprite.played).toEqual(['art:drop:xp:idle']);
 
       drop.spawn(11, 21, { kind: 'scrap', amount: 5 });
       expect(drop.sprite.visible).toBe(true);
@@ -439,5 +453,50 @@ describe('Drop', () => {
       expect(sprite.destroyed).toBe(true);
       expect((drop.sprite as unknown as MockArc).destroyed).toBe(true);
     });
+  });
+
+  it('prebuilds four kind sprites once and switches pooled presentation without allocation', async () => {
+    const { Drop } = await import('../src/entities/Drop');
+    const kinds = ['xp', 'scrap', 'chest', 'weapon'] as const;
+    const bindings = Object.freeze(Object.fromEntries(kinds.map((kind) => [kind, {
+      id: `drop:${kind}`, kind: 'drop', textureKey: `art-${kind}`, url: `assets/${kind}.png`,
+      required: true, load: { type: 'spritesheet', frame: { width: 20, height: 20 } },
+      display: { width: 20, height: 20 },
+      clips: { idle: { start: 0, end: 3, frameRate: 8, repeat: -1 } },
+    }]))) as never;
+    const sprites: MockGameObject[] = [];
+    const scene = {
+      add: {
+        circle: (x: number, y: number) => new MockArc(x, y),
+        sprite: () => {
+          const sprite = new MockGameObject();
+          sprites.push(sprite);
+          return sprite;
+        },
+      },
+      textures: { exists: () => true },
+      anims: { exists: () => true },
+      physics: { add: { existing: () => undefined } },
+    };
+    const drop = new Drop(scene as never, 8, bindings);
+    expect(sprites).toHaveLength(4);
+
+    const grants: LootGrant[] = [
+      { kind: 'xp', amount: 1 },
+      { kind: 'scrap', amount: 1 },
+      { kind: 'chest', amount: 0, tableId: 'table' },
+      { kind: 'weapon', definitionId: 'scrap-pistol-t1' },
+    ];
+    grants.forEach((grant, index) => {
+      drop.spawn(10 + index, 20 + index, grant);
+      expect(sprites.filter((sprite) => sprite.active && sprite.visible)).toHaveLength(1);
+      expect(sprites[index]?.played.at(-1)).toBe(`art:drop:${grant.kind}:idle`);
+      expect(sprites).toHaveLength(4);
+    });
+
+    drop.reset();
+    expect(sprites.every((sprite) => !sprite.active && !sprite.visible && sprite.frame === 0)).toBe(true);
+    drop.destroy();
+    expect(sprites.every((sprite) => sprite.destroyed)).toBe(true);
   });
 });

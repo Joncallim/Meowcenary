@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
+import { TEST_ARENA_VISUAL } from './helpers/arena';
 import type { System } from '../src/engine/system';
 import { DataArenaRegistry } from '../src/systems/arenas';
 import { DataCharacterRegistry } from '../src/systems/characters';
@@ -279,6 +280,7 @@ describe('GameContext persistence boundary', () => {
           spawnRegions: [{ kind: 'edges', margin: 28 }],
           obstacles: [],
           hazards: [],
+          visual: TEST_ARENA_VISUAL,
           unlock: { type: 'meta', requiresUnlockId: 'achievement:first-victory' },
         },
       ],
@@ -321,6 +323,7 @@ describe('GameContext persistence boundary', () => {
           spawnRegions: [{ kind: 'edges', margin: 28 }],
           obstacles: [],
           hazards: [],
+          visual: TEST_ARENA_VISUAL,
           unlock: { type: 'meta', requiresUnlockId: 'achievement:first-victory' },
         },
       ],
@@ -367,6 +370,7 @@ describe('GameContext persistence boundary', () => {
           spawnRegions: [{ kind: 'edges', margin: 28 }],
           obstacles: [],
           hazards: [],
+          visual: TEST_ARENA_VISUAL,
           unlock: { type: 'meta', requiresUnlockId: 'achievement:first-victory' },
         },
       ],

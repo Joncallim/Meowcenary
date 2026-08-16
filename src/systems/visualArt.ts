@@ -1,41 +1,41 @@
 import type Phaser from 'phaser';
-import type { ActorArtBinding, GameData } from './types';
-import { validateActorArtCatalog } from './validation';
+import type { VisualArtBinding } from './types';
+import { validateVisualArtCatalog } from './validation';
 
-export interface ActorArtLookup {
-  bindingById(id: string): Readonly<ActorArtBinding> | undefined;
-  all(): readonly Readonly<ActorArtBinding>[];
+export interface VisualArtLookup {
+  bindingById(id: string): Readonly<VisualArtBinding> | undefined;
+  all(): readonly Readonly<VisualArtBinding>[];
 }
 
-export class DataActorArtRegistry implements ActorArtLookup {
-  private readonly byId = new Map<string, Readonly<ActorArtBinding>>();
-  private readonly snapshot: readonly Readonly<ActorArtBinding>[];
+export class DataVisualArtRegistry implements VisualArtLookup {
+  private readonly byId = new Map<string, Readonly<VisualArtBinding>>();
+  private readonly snapshot: readonly Readonly<VisualArtBinding>[];
 
-  constructor(data: Pick<GameData, 'actorArt'>) {
-    const catalog = validateActorArtCatalog(data.actorArt);
+  constructor(data: { readonly visualArt: unknown }) {
+    const catalog = validateVisualArtCatalog(data.visualArt);
     const canonical = catalog.bindings.map((binding) => deepFreeze(structuredClone(binding)));
     for (const binding of canonical) this.byId.set(binding.id, binding);
     this.snapshot = Object.freeze(canonical);
   }
 
-  bindingById(id: string): Readonly<ActorArtBinding> | undefined {
+  bindingById(id: string): Readonly<VisualArtBinding> | undefined {
     return this.byId.get(id);
   }
 
-  all(): readonly Readonly<ActorArtBinding>[] {
+  all(): readonly Readonly<VisualArtBinding>[] {
     return this.snapshot;
   }
 }
 
-export function actorAnimationKey(bindingId: string, clipName: string): string {
+export function visualAnimationKey(bindingId: string, clipName: string): string {
   return `art:${bindingId}:${clipName}`;
 }
 
-export function ensureActorAnimations(scene: Phaser.Scene, registry: ActorArtLookup): void {
+export function ensureVisualAnimations(scene: Phaser.Scene, registry: VisualArtLookup): void {
   for (const binding of registry.all()) {
-    if (!binding.clips || !scene.textures.exists(binding.textureKey)) continue;
+    if (binding.load.type !== 'spritesheet' || !binding.clips || !scene.textures.exists(binding.textureKey)) continue;
     for (const [clipName, clip] of Object.entries(binding.clips)) {
-      const key = actorAnimationKey(binding.id, clipName);
+      const key = visualAnimationKey(binding.id, clipName);
       if (scene.anims.exists(key)) continue;
       const animation = scene.anims.create({
         key,
@@ -44,7 +44,7 @@ export function ensureActorAnimations(scene: Phaser.Scene, registry: ActorArtLoo
           end: clip.end,
         }),
         frameRate: clip.frameRate,
-        repeat: -1,
+        repeat: clip.repeat,
       });
       if (!animation || animation.frames.length === 0) scene.anims.remove(key);
     }

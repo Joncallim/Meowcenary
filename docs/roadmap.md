@@ -4,10 +4,11 @@
 
 ### Complete foundations / MVP systems
 
-- Epics 0–15 are complete.
+- Epics 0–16 are complete.
 - Epic 13 merged in PR #79.
 - Epic 14 merged in PR #80.
 - Epic 15 merged in PR #81.
+- Epic 16 merged in PR #83.
 
 ### Alpha 2 — Golden Run
 
@@ -15,9 +16,11 @@ Alpha 2 finishes **one genuinely good Golden Run** before broad content expansio
 
 #### Epic 16 — Visual Identity and Junkyard World (#75)
 
-Architecture/art direction is merged in PR #82. Runtime implementation is in PR #83.
-
-**Current gate:** PR #83 must sync current `main`, deliberately resolve planning-document conflicts, rerun its automated/art/browser gate, and become mergeable before Epic 17 implementation proceeds. Newer planning on `main` is authoritative; the PR should retain only its Epic-16-specific implementation/delivery updates when resolving shared docs.
+Complete — architecture/art direction merged in PR #82; runtime merged in PR #83: one
+validated 46-binding visual manifest, explicit actor/weapon/pickup art references,
+pooled projectile/drop/defeat presentation, authored world data, and a
+camera-traversable Junkyard Lot; architecture and delivery record in
+[`architecture/epic-16-visual-identity-and-junkyard-world.md`](architecture/epic-16-visual-identity-and-junkyard-world.md).
 
 #### Epic 17 — Combat Feel and Weapon Identity (#76)
 

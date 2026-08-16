@@ -14,6 +14,8 @@ import { loadGameData } from '../src/systems/validation';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { isSpawnableEnemyDefinition } from '../src/systems/types';
 import type { SpawnableEnemyDefinition } from '../src/systems/types';
+import type { HeldWeaponPresentation } from '../src/entities/heldWeaponView';
+import type { VisualArtLookup } from '../src/systems/visualArt';
 
 class MockGameObject {
   active = true;
@@ -68,6 +70,14 @@ class MockGameObject {
 
   setRotation(rotation: number): this {
     this.rotation = rotation;
+    return this;
+  }
+
+  stop(): this {
+    return this;
+  }
+
+  setFrame(): this {
     return this;
   }
 
@@ -128,7 +138,10 @@ interface TestHarness {
 let WeaponSystemCtor: typeof WeaponSystem;
 
 describe('WeaponSystem', () => {
-  async function createHarness(): Promise<TestHarness> {
+  async function createHarness(options: {
+    visualArt?: VisualArtLookup;
+    heldWeapon?: HeldWeaponPresentation;
+  } = {}): Promise<TestHarness> {
     const module = await import('../src/systems/WeaponSystem');
     WeaponSystemCtor = module.WeaponSystem;
     const data = loadGameData();
@@ -242,6 +255,8 @@ describe('WeaponSystem', () => {
       {} as never,
       registry,
       4,
+      options.visualArt,
+      options.heldWeapon,
     );
 
     return {
@@ -525,6 +540,56 @@ describe('WeaponSystem', () => {
     expect(harness.system.allocatedProjectileCount).toBe(0);
   });
 
+  it('releases each projectile to its creation pool even after the rack family changes', async () => {
+    const harness = await createHarness();
+    const registry = new DataWeaponRegistry(loadGameData());
+    const pistol = registry.weaponById('scrap-pistol-t1');
+    const smg = registry.weaponById('can-smg-t1');
+    if (!pistol || !smg) throw new Error('missing test weapons');
+
+    harness.runState.equipped = [createWeaponInstance(pistol, 'pistol')];
+    harness.system.update(650);
+    harness.runState.equipped = [];
+    harness.system.update(1_000);
+
+    harness.runState.equipped = [createWeaponInstance(smg, 'smg')];
+    harness.system.update(145);
+    harness.runState.equipped = [];
+    harness.system.update(1_000);
+
+    harness.runState.equipped = [createWeaponInstance(pistol, 'pistol-again')];
+    harness.system.update(650);
+
+    expect(harness.projectileGroup.added).toHaveLength(2);
+    expect(harness.system.allocatedProjectileCount).toBe(2);
+    expect(harness.system.activeProjectileCount).toBe(1);
+  });
+
+  it('presents the definition-owned held silhouette without changing fire events', async () => {
+    const heldBinding = {
+      id: 'weapon-held:pistol:t1', kind: 'weapon-held', textureKey: 'held',
+      url: 'assets/held.png', required: true, load: { type: 'image' },
+      display: { width: 28, height: 18 },
+    } as const;
+    const heldWeapon = {
+      show: vi.fn(), update: vi.fn(), destroy: vi.fn(),
+    } satisfies HeldWeaponPresentation;
+    const visualArt: VisualArtLookup = {
+      bindingById: (id) => id === heldBinding.id ? heldBinding : undefined,
+      all: () => [heldBinding],
+    };
+    const harness = await createHarness({ visualArt, heldWeapon });
+    const fired = vi.fn();
+    harness.ctx.bus.on('weapon:fired', fired);
+
+    harness.system.update(650);
+
+    expect(heldWeapon.show).toHaveBeenCalledWith(heldBinding, 0, 0, 0);
+    expect(fired).toHaveBeenCalledWith({ weaponId: 'scrap-pistol-t1', x: 0, y: 0 });
+    harness.system.destroy();
+    expect(heldWeapon.destroy).toHaveBeenCalledTimes(1);
+  });
+
   describe('rack acquisition through existing behavior (Epic 14 §8.5)', () => {
     it('keeps cadence for all six valid rack instances', async () => {
       const harness = await createHarness();
@@ -596,9 +661,10 @@ describe('WeaponSystem', () => {
       kind: 'projectile',
       textureKey: 'art-projectile-scrap-shot',
       url: 'assets/projectiles/scrap-shot/scrap-shot.png',
-      frame: { width: 16, height: 16 },
-      displayDiameter: 8,
-      clips: { fly: { start: 0, end: 1, frameRate: 12 } },
+      required: true,
+      load: { type: 'spritesheet', frame: { width: 16, height: 16 } },
+      display: { width: 8, height: 8 },
+      clips: { fly: { start: 0, end: 1, frameRate: 12, repeat: -1 } },
     } as const;
 
     async function createArtProjectile() {
@@ -632,13 +698,14 @@ describe('WeaponSystem', () => {
       expect(circle.visible).toBe(false);
       expect(glow.visible).toBe(false);
       expect(artSprite.visible).toBe(false);
-      expect(artSprite.played).toEqual(['art:projectile:default:fly']);
+      expect(artSprite.played).toEqual([]);
 
       projectile.spawn(10, 20, { x: 0, y: -1 }, { speed: 300, damage: 5, range: 100, pierce: 0 });
       expect(circle.visible).toBe(false);
       expect(glow.visible).toBe(false);
       expect(artSprite.active).toBe(true);
       expect(artSprite.visible).toBe(true);
+      expect(artSprite.played).toEqual(['art:projectile:default:fly']);
       expect([artSprite.x, artSprite.y]).toEqual([10, 20]);
       expect(artSprite.rotation).toBeCloseTo(-Math.PI / 2);
       expect(circle.body?.velocity.y).toBeLessThan(0);

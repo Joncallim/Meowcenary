@@ -4,7 +4,7 @@ import { RuntimeConfig } from '../engine/config';
 import { createRng, deriveRunSeed } from '../engine/rng';
 import { SceneKey } from '../engine/sceneKeys';
 import type { System } from '../engine/system';
-import type { ArenaDefinition, SpawnCurveDefinition } from '../systems/types';
+import type { SpawnCurveDefinition } from '../systems/types';
 import { AudioManager, AUDIO_MANAGER_REGISTRY_KEY } from '../systems/audio';
 import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
@@ -53,7 +53,9 @@ import { createDpsMeter, type DpsMeter } from '../gameplay/metrics';
 import { createPerfSampler, type PerfSampler } from '../gameplay/perf';
 import { PlaytestSummarySystem } from '../systems/playtestSummary';
 import { FeedbackSystem, PhaserFeedbackRenderer } from '../systems/feedback';
-import { DataActorArtRegistry } from '../systems/actorArt';
+import { DataVisualArtRegistry } from '../systems/visualArt';
+import { HeldWeaponView } from '../entities/heldWeaponView';
+import { DefeatPresentationSystem } from '../systems/defeatPresentation';
 
 export class GameScene extends Phaser.Scene {
   private debugOverlay?: DebugOverlay;
@@ -81,9 +83,9 @@ export class GameScene extends Phaser.Scene {
   private runSummaryView?: PhaserRunSummaryView;
   private spawnCurve?: Readonly<SpawnCurveDefinition>;
   private arenaScenery?: ArenaScenery;
-  private floorDressing: Phaser.GameObjects.GameObject[] = [];
   private weaponSystem?: WeaponSystem;
   private feedbackSystem?: FeedbackSystem;
+  private defeatPresentationSystem?: DefeatPresentationSystem;
   private perfSampler?: PerfSampler;
   // Non-owning cache of the Boot-constructed, game-scoped manager.
   private audioManager?: AudioManager;
@@ -94,10 +96,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
-    const { width } = this.scale;
     const ctx = this.getContext();
     const request = assembleRunRequest(ctx, ctx.menuRng);
-    const actorArt = new DataActorArtRegistry(ctx.data);
+    const visualArt = new DataVisualArtRegistry(ctx.data);
 
     const arena = ctx.arenas.arenaById(request.arenaId);
     if (!arena) {
@@ -174,7 +175,7 @@ export class GameScene extends Phaser.Scene {
       invulnerabilityMs: RuntimeConfig.gameplay.player.invulnerabilityMs,
       spawnX: arena.size.width / 2,
       spawnY: arena.size.height / 2,
-    }, actorArt.bindingById(`character:${request.characterId}`));
+    }, visualArt.bindingById(`character:${request.characterId}`));
 
     if (arena.size.width > this.scale.width || arena.size.height > this.scale.height) {
       this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
@@ -222,9 +223,10 @@ export class GameScene extends Phaser.Scene {
       bus: ctx.bus,
       controller: this.pauseController,
       inventory: this.inventoryController,
+      visualArt,
     });
 
-    this.arenaScenery = buildArenaScenery(this, arena);
+    this.arenaScenery = buildArenaScenery(this, arena, visualArt);
     if (this.arenaScenery.obstacleGroup.children?.size > 0) {
       this.physics.add.collider(this.player.sprite, this.arenaScenery.obstacleGroup);
       this.physics.add.collider(this.enemyGroup, this.arenaScenery.obstacleGroup);
@@ -241,7 +243,12 @@ export class GameScene extends Phaser.Scene {
       dropRadius: RuntimeConfig.gameplay.drop.radius,
       magnetSpeed: RuntimeConfig.gameplay.drop.magnetSpeed,
       basePickupRadius: RuntimeConfig.gameplay.player.pickupRadius,
-      xpArt: actorArt.bindingById('drop:xp'),
+      artByKind: Object.freeze({
+        xp: visualArt.bindingById('drop:xp'),
+        scrap: visualArt.bindingById('drop:scrap'),
+        chest: visualArt.bindingById('drop:chest'),
+        weapon: visualArt.bindingById('drop:weapon'),
+      }),
     });
     // Constructed after DropSystem so the injected callback can request world
     // drops through the one physical pickup boundary (Epic 14 §D6/D8).
@@ -302,7 +309,8 @@ export class GameScene extends Phaser.Scene {
       this.enemyGroup,
       weaponRegistry,
       RuntimeConfig.gameplay.projectile.radius,
-      actorArt.bindingById('projectile:default'),
+      visualArt,
+      new HeldWeaponView(this),
     );
     this.feedbackSystem = new FeedbackSystem({
       bus: ctx.bus,
@@ -312,6 +320,12 @@ export class GameScene extends Phaser.Scene {
         maxEffects: RuntimeConfig.performance.maxFeedbackEffects,
         maxHeavyEffects: RuntimeConfig.performance.maxHeavyFeedbackEffects,
       }),
+    });
+    this.defeatPresentationSystem = new DefeatPresentationSystem({
+      scene: this,
+      bus: ctx.bus,
+      visualArt,
+      maxPresentations: RuntimeConfig.performance.maxDefeatPresentations,
     });
     this.perfSampler = createPerfSampler(
       RuntimeConfig.performance.sampleWindowFrames,
@@ -326,7 +340,7 @@ export class GameScene extends Phaser.Scene {
         character,
         handlers: createPassiveHandlerRegistry(DEFAULT_PASSIVE_HANDLERS),
       }),
-      new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup, arena, directorCurve, actorArt),
+      new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup, arena, directorCurve, visualArt),
       new HazardSystem({
         scene: this,
         runState: this.runState,
@@ -335,6 +349,7 @@ export class GameScene extends Phaser.Scene {
         hazards: arena.hazards,
       }),
       this.feedbackSystem,
+      this.defeatPresentationSystem,
       this.weaponSystem,
       // Immediately before DropSystem so a reward spawned this update enters
       // the ordinary drop update/physics lifecycle in the same frame without
@@ -393,29 +408,6 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
 
-    this.add.rectangle(
-      arena.size.width / 2, arena.size.height / 2,
-      arena.size.width - 24, arena.size.height - 24,
-      0x16202a,
-    ).setStrokeStyle(2, 0x2dd4bf, 0.28).setDepth(-1);
-    this.buildFloorDressing(arena);
-    this.add
-      .text(
-        width / 2,
-        28,
-        'Meowcenary',
-        {
-          align: 'center',
-          color: '#f7f1d5',
-          fontFamily: 'Inter, sans-serif',
-          fontSize: '22px',
-          fontStyle: '700',
-          wordWrap: { width: width - 48 },
-        },
-      )
-      .setOrigin(0.5)
-      .setScrollFactor(0);
-
     // Audio wiring after the display tree is constructed, immediately before
     // the run starts: fetch the shared manager, select the run loop, and arm
     // the first-gesture unlock pair. A missing registry entry is tolerated.
@@ -465,6 +457,7 @@ export class GameScene extends Phaser.Scene {
       `Projectiles: ${this.weaponSystem?.activeProjectileCount ?? 0} active / ${this.weaponSystem?.allocatedProjectileCount ?? 0} allocated`,
       `Drops: ${this.dropSystem?.activeDropCount ?? 0} active / ${this.dropSystem?.allocatedDropCount ?? 0} allocated`,
       `FX: ${this.feedbackSystem?.activeEffectCount ?? 0} active / ${this.feedbackSystem?.allocatedEffectCount ?? 0} allocated / ${this.feedbackSystem?.droppedEffectCount ?? 0} dropped`,
+      `Defeats: ${this.defeatPresentationSystem?.activePresentationCount ?? 0} active / ${this.defeatPresentationSystem?.allocatedPresentationCount ?? 0} allocated / ${this.defeatPresentationSystem?.droppedPresentationCount ?? 0} dropped`,
       `DPS(5s): ${(this.dpsMeter?.windowDps(runState.timeMs) ?? 0).toFixed(1)}`,
       `Weapons: ${runState.equipped.map((weapon) => `${weapon.family} T${weapon.tier}`).join(', ')}`,
       `Move: ${move.x.toFixed(2)}, ${move.y.toFixed(2)}`,
@@ -517,14 +510,11 @@ export class GameScene extends Phaser.Scene {
     this.upgradeSystem = undefined;
     this.weaponSystem = undefined;
     this.feedbackSystem = undefined;
+    this.defeatPresentationSystem = undefined;
     this.perfSampler = undefined;
     this.spawnCurve = undefined;
     this.arenaScenery?.destroy();
     this.arenaScenery = undefined;
-    for (const object of this.floorDressing) {
-      object.destroy();
-    }
-    this.floorDressing = [];
     this.runState = undefined;
     this.dpsMeter = undefined;
     if (this.physicsPausedByRun) {
@@ -694,32 +684,6 @@ export class GameScene extends Phaser.Scene {
     ) {
       endRun(runState, 'won', ctx.bus);
     }
-  }
-
-  /** Static, deterministic floor dressing so the arena reads as a place rather
-   *  than a void. Seeded from the arena id — never from run RNG — so the layout
-   *  is stable per arena and gameplay determinism is untouched. */
-  private buildFloorDressing(arena: Readonly<ArenaDefinition>): void {
-    const floorRng = createRng(deriveRunSeed(1, `floor:${arena.id}`));
-    const debrisPalette = [0x1b2834, 0x22313f, 0x2a3a4a];
-    const dressing: Phaser.GameObjects.GameObject[] = [];
-
-    for (let i = 0; i < 48; i += 1) {
-      const x = Math.floor(floorRng.next() * arena.size.width);
-      const y = Math.floor(floorRng.next() * arena.size.height);
-      const radius = 1 + Math.floor(floorRng.next() * 1.5);
-      const color = debrisPalette[Math.floor(floorRng.next() * debrisPalette.length)];
-      const alpha = 0.35 + floorRng.next() * 0.25;
-      dressing.push(this.add.circle(x, y, radius, color).setAlpha(alpha).setDepth(-2));
-    }
-    // Faint teal sparkles echo the arena border accent color.
-    for (let i = 0; i < 6; i += 1) {
-      const x = Math.floor(floorRng.next() * arena.size.width);
-      const y = Math.floor(floorRng.next() * arena.size.height);
-      dressing.push(this.add.circle(x, y, 1.5, 0x2dd4bf).setAlpha(0.12).setDepth(-2));
-    }
-
-    this.floorDressing = dressing;
   }
 
   private syncPhysicsPause(runState: RunState): void {

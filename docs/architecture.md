@@ -147,7 +147,16 @@ Epic-specific data contracts:
 - [Epic 15: inventory and merge experience](architecture/epic-15-inventory-and-merge-experience.md)
 - [Epic 16: visual identity and Junkyard world](architecture/epic-16-visual-identity-and-junkyard-world.md)
 
-Existing dedicated architecture documents remain implementation truth for their delivered scopes and supersede older issue wording where they differ. Epic 16 runtime work remains in open PR #83 until merged.
+Existing dedicated architecture documents remain implementation truth for
+their delivered scopes and supersede older issue wording where they differ.
+The Epic 16 document is the implementation source of truth and PR #83
+delivery record for the single 46-binding visual manifest, required-asset
+preload gate, data-referenced actor/weapon/pickup art, pooled
+projectile/drop/defeat presentation, actor clip adoption, authored arena
+render data, enlarged Junkyard Lot, and the physics/presentation invariants
+that keep art from changing gameplay. Its selected visual-design packet
+remains reference material; all runtime pixels come from deterministic
+Pixelorama sources and exports.
 
 ## Alpha 2 Forward Contracts
 

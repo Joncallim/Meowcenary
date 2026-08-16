@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRunState } from '../src/gameplay/runState';
+import type { VisualArtBinding } from '../src/systems/types';
 
 class MockBody {
   velocity = { x: 0, y: 0 };
@@ -19,6 +20,9 @@ class MockArc {
   alpha = 1;
   body = new MockBody();
   destroyCount = 0;
+  flipX = false;
+  plays: string[] = [];
+  listeners = new Map<string, (...args: any[]) => void>();
 
   constructor(
     public x: number,
@@ -48,11 +52,39 @@ class MockArc {
     return this;
   }
 
+  setOrigin(): this {
+    return this;
+  }
+
+  setScale(): this {
+    return this;
+  }
+
+  setFlipX(flipX: boolean): this {
+    this.flipX = flipX;
+    return this;
+  }
+
   setActive(): this {
     return this;
   }
 
   setFillStyle(): this {
+    return this;
+  }
+
+  play(key: string): this {
+    this.plays.push(key);
+    return this;
+  }
+
+  on(event: string, listener: (...args: any[]) => void): this {
+    this.listeners.set(event, listener);
+    return this;
+  }
+
+  off(event: string, listener: (...args: any[]) => void): this {
+    if (this.listeners.get(event) === listener) this.listeners.delete(event);
     return this;
   }
 
@@ -67,9 +99,11 @@ vi.mock('phaser', () => ({ default: {} }));
 async function createHarness(
   invulnerabilityMs = 650,
   moveVector: { x: number; y: number } = { x: 0, y: 0 },
+  art?: Readonly<VisualArtBinding>,
 ) {
   const { Player } = await import('../src/entities/Player');
   const circles: MockArc[] = [];
+  const artSprites: MockArc[] = [];
   const scene = {
     scale: { width: 200, height: 200 },
     add: {
@@ -78,7 +112,14 @@ async function createHarness(
         circles.push(arc);
         return arc;
       },
+      sprite: (x: number, y: number) => {
+        const sprite = new MockArc(x, y);
+        artSprites.push(sprite);
+        return sprite;
+      },
     },
+    anims: { exists: () => true },
+    textures: { exists: () => true },
     physics: { add: { existing: () => undefined } },
   };
   const input = { getMoveVector: () => ({ ...moveVector }) };
@@ -91,10 +132,23 @@ async function createHarness(
     invulnerabilityMs,
     spawnX: 400,
     spawnY: 300,
-  });
+  }, art);
 
-  return { player, runState, sprite: circles[0], circles, bus };
+  return { player, runState, sprite: circles[0], circles, artSprites, bus };
 }
+
+const playerArt = {
+  id: 'character:scrap-tabby', kind: 'character', textureKey: 'tabby',
+  url: 'assets/characters/scrap-tabby/scrap-tabby.png', required: true,
+  load: { type: 'spritesheet', frame: { width: 48, height: 48 } },
+  display: { width: 28, height: 28 },
+  clips: {
+    idle: { start: 0, end: 3, frameRate: 6, repeat: -1 },
+    run: { start: 4, end: 9, frameRate: 10, repeat: -1 },
+    hurt: { start: 10, end: 11, frameRate: 12, repeat: 0 },
+    defeat: { start: 12, end: 15, frameRate: 8, repeat: 0 },
+  },
+} as const satisfies VisualArtBinding;
 
 describe('Player', () => {
   it('keeps the damage indicator and invulnerability countdown paused with the run', async () => {
@@ -182,6 +236,45 @@ describe('Player', () => {
 
     // Body velocity zeroed
     expect(sprite.body.velocity).toEqual({ x: 0, y: 0 });
+  });
+
+  it('plays hurt before damage emission and makes lethal defeat fully visible', async () => {
+    const hurtHarness = await createHarness(650, { x: 0, y: 0 }, playerArt);
+    const playedAtDamage: string[] = [];
+    hurtHarness.bus.on('player:damaged', () => {
+      playedAtDamage.push(hurtHarness.artSprites[0]?.plays.at(-1) ?? 'none');
+    });
+    hurtHarness.player.takeDamage(10);
+    expect(playedAtDamage).toEqual(['art:character:scrap-tabby:hurt']);
+
+    const defeatHarness = await createHarness(650, { x: 0, y: 0 }, playerArt);
+    defeatHarness.player.takeDamage(200);
+    expect(defeatHarness.artSprites[0]?.plays.at(-1)).toBe('art:character:scrap-tabby:defeat');
+    expect(defeatHarness.artSprites[0]?.alpha).toBe(1);
+
+    const environmentalHarness = await createHarness(650, { x: 0, y: 0 }, playerArt);
+    environmentalHarness.player.takeEnvironmentalDamage(10);
+    expect(environmentalHarness.artSprites[0]?.plays.at(-1))
+      .toBe('art:character:scrap-tabby:hurt');
+    environmentalHarness.player.takeEnvironmentalDamage(100);
+    expect(environmentalHarness.artSprites[0]?.plays.at(-1))
+      .toBe('art:character:scrap-tabby:defeat');
+    expect(environmentalHarness.artSprites[0]?.alpha).toBe(1);
+  });
+
+  it('does not restart an in-progress hurt clip on continuous environmental damage', async () => {
+    // Regression: hazard damage applies every frame with no throttle, and
+    // Phaser's sprite.play() restarts an already-playing animation by
+    // default, so re-triggering 'hurt' every frame would loop it at frame 0
+    // forever and permanently block movement animation from resuming.
+    const { player, artSprites } = await createHarness(650, { x: 0, y: 0 }, playerArt);
+
+    player.takeEnvironmentalDamage(1);
+    player.takeEnvironmentalDamage(1);
+    player.takeEnvironmentalDamage(1);
+
+    expect(artSprites[0]?.plays.filter((key) => key === 'art:character:scrap-tabby:hurt'))
+      .toHaveLength(1);
   });
 
   it('takeEnvironmentalDamage is no-op when run is not active', async () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DataArenaRegistry } from '../src/systems/arenas';
 import type { ArenaDefinition } from '../src/systems/types';
+import { TEST_ARENA_VISUAL } from './helpers/arena';
 
 const junkyardLot: ArenaDefinition = {
   id: 'junkyard-lot',
@@ -10,6 +11,7 @@ const junkyardLot: ArenaDefinition = {
   spawnRegions: [{ kind: 'edges', margin: 28 }],
   obstacles: [],
   hazards: [],
+  visual: TEST_ARENA_VISUAL,
   unlock: { type: 'default' },
 };
 
@@ -21,6 +23,7 @@ const lockedArena: ArenaDefinition = {
   spawnRegions: [{ kind: 'edges', margin: 28 }],
   obstacles: [],
   hazards: [],
+  visual: TEST_ARENA_VISUAL,
   unlock: { type: 'meta', requiresUnlockId: 'arena:warehouse' },
 };
 
