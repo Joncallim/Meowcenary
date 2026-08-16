@@ -1,7 +1,13 @@
 {
   "sfx": [
     { "key": "sfx-weapon-fired", "url": "assets/audio/sfx-weapon-fired.wav" },
+    { "key": "sfx-weapon-fired-pistol", "url": "assets/audio/sfx-weapon-fired-pistol.wav" },
+    { "key": "sfx-weapon-fired-smg", "url": "assets/audio/sfx-weapon-fired-smg.wav" },
+    { "key": "sfx-weapon-fired-shotgun", "url": "assets/audio/sfx-weapon-fired-shotgun.wav" },
     { "key": "sfx-projectile-hit", "url": "assets/audio/sfx-projectile-hit.wav" },
+    { "key": "sfx-projectile-hit-pistol", "url": "assets/audio/sfx-projectile-hit-pistol.wav" },
+    { "key": "sfx-projectile-hit-smg", "url": "assets/audio/sfx-projectile-hit-smg.wav" },
+    { "key": "sfx-projectile-hit-shotgun", "url": "assets/audio/sfx-projectile-hit-shotgun.wav" },
     { "key": "sfx-enemy-killed", "url": "assets/audio/sfx-enemy-killed.wav" },
     { "key": "sfx-player-damaged", "url": "assets/audio/sfx-player-damaged.wav" },
     { "key": "sfx-drop-collected", "url": "assets/audio/sfx-drop-collected.wav" },
