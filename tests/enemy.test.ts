@@ -281,11 +281,22 @@ function enemyDefinition(): ResolvedEnemyDefinition {
     class SpriteNode {
       flipX = false;
       plays: string[] = [];
+      tint: number | undefined;
 
       constructor(
         public x: number,
         public y: number,
       ) {}
+
+      setTint(color: number): this {
+        this.tint = color;
+        return this;
+      }
+
+      clearTint(): this {
+        this.tint = undefined;
+        return this;
+      }
 
       setDepth(): this {
         return this;
@@ -517,6 +528,79 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       expect(accent.alpha).toBe(1);
     });
 
+    it('tints the sprite through the winding telegraph when real art has no windup clip — the actual shipped enemy:junk-rusher shape', async () => {
+      // Regression coverage for a gap found in Epic 17 closeout review: a
+      // charger with full idle/run/hurt/defeat art (but no windup clip, e.g.
+      // enemy:junk-rusher's real binding) builds a SpriteView, and Enemy's
+      // constructor destroys the PlaceholderView accent node whenever a
+      // SpriteView exists — so without SpriteView's own tint fallback, the
+      // only charger archetype in the game would show zero telegraph cue.
+      class SpriteNode {
+        tint: number | undefined;
+        plays: string[] = [];
+        x = 0;
+        y = 0;
+        setDepth(): this { return this; }
+        setOrigin(): this { return this; }
+        setScale(): this { return this; }
+        setPosition(x: number, y: number): this { this.x = x; this.y = y; return this; }
+        setFlipX(): this { return this; }
+        setAlpha(): this { return this; }
+        setTint(color: number): this { this.tint = color; return this; }
+        clearTint(): this { this.tint = undefined; return this; }
+        play(key: string): this { this.plays.push(key); return this; }
+        on(): this { return this; }
+        off(): this { return this; }
+        destroy(): void {}
+      }
+      const sprites: SpriteNode[] = [];
+      const scene = {
+        add: {
+          circle: (x: number, y: number) => new MockArc(x, y),
+          sprite: () => {
+            const sprite = new SpriteNode();
+            sprites.push(sprite);
+            return sprite;
+          },
+        },
+        textures: { exists: () => true },
+        anims: { exists: () => true },
+        physics: { add: { existing: () => undefined } },
+      };
+      const junkRusherBinding = {
+        id: 'enemy:junk-rusher',
+        kind: 'enemy',
+        textureKey: 'sheet',
+        url: 'assets/junk-rusher.png',
+        required: true,
+        load: { type: 'spritesheet', frame: { width: 48, height: 48 } },
+        display: { width: 26, height: 26 },
+        clips: {
+          idle: { start: 0, end: 3, frameRate: 6, repeat: -1 },
+          run: { start: 4, end: 9, frameRate: 10, repeat: -1 },
+          hurt: { start: 10, end: 11, frameRate: 12, repeat: 0 },
+          defeat: { start: 12, end: 15, frameRate: 8, repeat: 0 },
+        },
+      } as const;
+      const { telegraphTintColor } = await import('../src/entities/actorView');
+      const { Enemy } = await import('../src/entities/Enemy');
+      const bus = createEventBus();
+      const enemy = new Enemy(scene as never, chargerDefinition, 10, 20, bus, junkRusherBinding);
+      const sprite = sprites[0]!;
+      const player = { active: true, x: 100, y: 20 } as never;
+
+      expect(sprite.tint).toBeUndefined();
+
+      enemy.update(player, 1);
+      expect(enemy.state).toBe('winding');
+      const progress = 1 - enemy.stateTimerMs / chargerDefinition.attack.telegraphMs;
+      expect(sprite.tint).toBe(telegraphTintColor(progress));
+
+      enemy.update(player, 649);
+      expect(enemy.state).toBe('attacking');
+      expect(sprite.tint).toBeUndefined();
+    });
+
     it('emits enemy:dashed exactly once at the winding-to-attacking edge with the locked dash direction', async () => {
       const bus = createEventBus();
       const dashed = vi.fn();
@@ -542,7 +626,19 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       expect(dashed).toHaveBeenCalledTimes(1);
     });
 
-    it('emits enemy:heavyStep on a fixed-distance cadence for the tank archetype only', async () => {
+    // Mirrors Phaser Arcade ordering (see "keeps Phaser-order charger
+    // position..." above): velocity computed by one update() call only moves
+    // the sprite once the *next* frame's physics step runs, before the next
+    // update() call reads position. Heavy-step cadence must be driven off
+    // this actually-resolved displacement, not the velocity-based branch's
+    // unobstructed intended target — see the regression test below.
+    function advance(sprite: MockArc, dtMs: number): void {
+      const velocity = sprite.body?.velocity ?? { x: 0, y: 0 };
+      sprite.x += velocity.x * (dtMs / 1_000);
+      sprite.y += velocity.y * (dtMs / 1_000);
+    }
+
+    it('emits enemy:heavyStep on a fixed-distance cadence for the tank archetype only, driven by actually resolved movement', async () => {
       const tankDefinition: ResolvedEnemyDefinition = {
         id: 'test-tank',
         name: 'Test Tank',
@@ -557,14 +653,55 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       const bus = createEventBus();
       const heavyStep = vi.fn();
       bus.on('enemy:heavyStep', heavyStep);
-      const { enemy } = await createEnemy(bus, tankDefinition);
+      const { enemy, sprite } = await createEnemy(bus, tankDefinition);
       const player = { active: true, x: 10_000, y: 20 } as never;
 
-      // 480px/s * 100ms = 48px per tick, matching the interval exactly.
+      // First tick only sets velocity; the sprite has not physically moved
+      // yet, so no heavy step is due despite the pursuit target being far away.
+      enemy.update(player, 100);
+      expect(heavyStep).not.toHaveBeenCalled();
+
+      // 480px/s * 100ms = 48px resolved this frame, matching the interval exactly.
+      advance(sprite, 100);
       enemy.update(player, 100);
       expect(heavyStep).toHaveBeenCalledTimes(1);
+
+      advance(sprite, 100);
       enemy.update(player, 100);
       expect(heavyStep).toHaveBeenCalledTimes(2);
+    });
+
+    it('stops emitting enemy:heavyStep once the tank stops actually resolving movement (e.g. blocked by an obstacle)', async () => {
+      const tankDefinition: ResolvedEnemyDefinition = {
+        id: 'test-tank',
+        name: 'Test Tank',
+        archetype: 'tank',
+        health: 72,
+        damage: 14,
+        speed: 480,
+        xpValue: 6,
+        scrapValue: 5,
+        contactDamage: true,
+      };
+      const bus = createEventBus();
+      const heavyStep = vi.fn();
+      bus.on('enemy:heavyStep', heavyStep);
+      const { enemy, sprite } = await createEnemy(bus, tankDefinition);
+      const player = { active: true, x: 10_000, y: 20 } as never;
+
+      enemy.update(player, 100);
+      advance(sprite, 100);
+      enemy.update(player, 100);
+      expect(heavyStep).toHaveBeenCalledTimes(1);
+
+      // Blocked: velocity keeps getting set toward the far target each tick
+      // (chaseStep is obstacle-agnostic), but nothing external ever advances
+      // the sprite — simulating an Arcade collision resolving displacement to
+      // zero. No further heavy steps should fire while genuinely stuck.
+      enemy.update(player, 100);
+      enemy.update(player, 100);
+      enemy.update(player, 100);
+      expect(heavyStep).toHaveBeenCalledTimes(1);
     });
 
     it('never emits enemy:heavyStep for a chaser covering the same distance', async () => {
@@ -582,10 +719,13 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       const bus = createEventBus();
       const heavyStep = vi.fn();
       bus.on('enemy:heavyStep', heavyStep);
-      const { enemy } = await createEnemy(bus, fastChaser);
+      const { enemy, sprite } = await createEnemy(bus, fastChaser);
       const player = { active: true, x: 10_000, y: 20 } as never;
 
       enemy.update(player, 100);
+      advance(sprite, 100);
+      enemy.update(player, 100);
+      advance(sprite, 100);
       enemy.update(player, 100);
       expect(heavyStep).not.toHaveBeenCalled();
     });

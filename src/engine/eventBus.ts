@@ -83,6 +83,12 @@ export const GAME_EVENT_KEYS = [
   'settings:changed', 'ui:navigate', 'ui:confirm', 'ui:back',
 ] as const satisfies readonly GameEventKey[];
 
+/** Epic 17 (D4/D5): the only events whose payload carries `family`/`tier`.
+ *  Single source of truth for both `AudioManager.eventFamilyTier` (runtime
+ *  resolution) and `validation.ts` (boot-time `sfxKeyByFamily` fails closed
+ *  if attached to any other event, rather than silently no-oping). */
+export const FAMILY_TIER_EVENT_KEYS = ['weapon:fired', 'projectile:hit'] as const satisfies readonly GameEventKey[];
+
 type _MissingKeys = Exclude<GameEventKey, (typeof GAME_EVENT_KEYS)[number]>;
 export const _assertExhaustive: _MissingKeys extends never ? true : never = true;
 

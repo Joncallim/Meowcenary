@@ -12,7 +12,7 @@ import audioMapJson from '../data/audio-map.json';
 import visualArtJson from '../data/visual-art.json';
 import { STAT_KEYS } from '../gameplay/stats';
 import { DEFAULT_WEAPON_FAMILIES } from '../gameplay/weapons';
-import { GAME_EVENT_KEYS } from '../engine/eventBus';
+import { GAME_EVENT_KEYS, FAMILY_TIER_EVENT_KEYS } from '../engine/eventBus';
 import { RuntimeConfig } from '../engine/config';
 import type {
   ArenaDefinition,
@@ -1472,6 +1472,30 @@ function checkWeapon(row: unknown): string[] {
   return errors;
 }
 
+/** Shared shape for weapon-feel.json's muzzle/impact sub-objects: both
+ *  require a hex color and a positive radius; muzzle additionally requires a
+ *  positive lifetimeMs. Returns prefixed errors ready to concat onto the
+ *  caller's error list. */
+function checkColorRadiusSubObject(
+  row: Record<string, unknown>,
+  prefix: 'muzzle' | 'impact',
+  allowedFields: ReadonlySet<string>,
+  extraPositiveNumberFields: readonly string[] = [],
+): string[] {
+  const value = readOwnField(row, prefix);
+  if (!isRecord(value)) {
+    return [`${prefix}: required object`];
+  }
+  const subErrors: string[] = [];
+  rejectUnknownFields(value, allowedFields, subErrors);
+  requireHexColor(value, 'color', subErrors);
+  requirePositiveNumber(value, 'radius', subErrors);
+  for (const field of extraPositiveNumberFields) {
+    requirePositiveNumber(value, field, subErrors);
+  }
+  return subErrors.map((error) => `${prefix}.${error}`);
+}
+
 function checkWeaponFeel(row: unknown): string[] {
   const errors = requireRecord(row);
   if (!isRecord(row)) return errors;
@@ -1479,28 +1503,8 @@ function checkWeaponFeel(row: unknown): string[] {
   requireString(row, 'family', errors);
   requirePositiveNumber(row, 'recoilPx', errors);
 
-  const muzzle = readOwnField(row, 'muzzle');
-  if (!isRecord(muzzle)) {
-    errors.push('muzzle: required object');
-  } else {
-    const muzzleErrors: string[] = [];
-    rejectUnknownFields(muzzle, WEAPON_FEEL_MUZZLE_FIELDS, muzzleErrors);
-    requireHexColor(muzzle, 'color', muzzleErrors);
-    requirePositiveNumber(muzzle, 'radius', muzzleErrors);
-    requirePositiveNumber(muzzle, 'lifetimeMs', muzzleErrors);
-    errors.push(...muzzleErrors.map((error) => `muzzle.${error}`));
-  }
-
-  const impact = readOwnField(row, 'impact');
-  if (!isRecord(impact)) {
-    errors.push('impact: required object');
-  } else {
-    const impactErrors: string[] = [];
-    rejectUnknownFields(impact, WEAPON_FEEL_IMPACT_FIELDS, impactErrors);
-    requireHexColor(impact, 'color', impactErrors);
-    requirePositiveNumber(impact, 'radius', impactErrors);
-    errors.push(...impactErrors.map((error) => `impact.${error}`));
-  }
+  errors.push(...checkColorRadiusSubObject(row, 'muzzle', WEAPON_FEEL_MUZZLE_FIELDS, ['lifetimeMs']));
+  errors.push(...checkColorRadiusSubObject(row, 'impact', WEAPON_FEEL_IMPACT_FIELDS));
 
   const multipliers = readOwnField(row, 'sfxTierVolumeMultiplier');
   if (!Array.isArray(multipliers) || multipliers.length !== 3) {
@@ -2313,10 +2317,21 @@ export function assertAudioMapReferences(
 ): void {
   const sfxKeys = new Set(assets.sfx.map((sfx) => sfx.key));
   const weaponFamilies = new Set(weapons.map((weapon) => weapon.family));
+  const familyTierEvents = new Set<string>(FAMILY_TIER_EVENT_KEYS);
   const errors: string[] = [];
   map.forEach((entry, index) => {
     if (entry.sfxKey !== undefined && !sfxKeys.has(entry.sfxKey)) {
       errors.push(`audio-map.json[${index}].sfxKey: unknown sfx key "${entry.sfxKey}"`);
+    }
+    if (entry.sfxKeyByFamily !== undefined && !familyTierEvents.has(entry.event)) {
+      // Fails closed rather than silently no-oping: AudioManager only reads
+      // family/tier off weapon:fired/projectile:hit payloads (D4/D5), so a
+      // sfxKeyByFamily on any other event would validate its keys fine yet
+      // never fire at runtime.
+      errors.push(
+        `audio-map.json[${index}].sfxKeyByFamily: event "${entry.event}" does not carry family/tier — ` +
+        `only ${[...familyTierEvents].join(', ')} do`,
+      );
     }
     for (const [family, key] of Object.entries(entry.sfxKeyByFamily ?? {})) {
       if (!sfxKeys.has(key)) {

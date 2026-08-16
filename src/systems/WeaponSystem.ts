@@ -12,7 +12,7 @@ import type { RunState } from '../gameplay/runState';
 import { nearestTarget } from '../gameplay/targeting';
 import { resolveWeaponStats, type EffectiveWeaponStats } from '../gameplay/weaponStats';
 import type { WeaponInstance, WeaponRegistry } from '../gameplay/weapons';
-import type { WeaponDefinition, WeaponFeelDefinition } from './types';
+import { weaponFeelByFamily, type WeaponDefinition, type WeaponFeelDefinition } from './types';
 import type { VisualArtLookup } from './visualArt';
 
 interface WeaponCadenceRuntime {
@@ -42,7 +42,7 @@ export class WeaponSystem implements System {
     private readonly visualArt?: VisualArtLookup,
     private readonly heldWeapon?: HeldWeaponPresentation,
   ) {
-    this.weaponFeelByFamily = new Map(ctx.data.weaponFeel.map((entry) => [entry.family, entry]));
+    this.weaponFeelByFamily = weaponFeelByFamily(ctx.data.weaponFeel);
 
     for (const projectileArtId of new Set(ctx.data.weapons.map((weapon) => weapon.art.projectileId))) {
       const binding = visualArt?.bindingById(projectileArtId);

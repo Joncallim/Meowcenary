@@ -30,6 +30,23 @@ export function telegraphPulseAlpha(progress: number): number {
   return 0.4 + 0.6 * clamped * pulse;
 }
 
+/** Epic 17 (D7): SpriteView's own windup fallback for a binding with full
+ *  idle/run/hurt/defeat art but no `windup` clip (e.g. `enemy:junk-rusher`
+ *  today) — the accent-node pulse only exists on PlaceholderView, and a
+ *  sprite with real art never builds one (see Enemy's constructor), so the
+ *  sprite needs a self-contained cue. Lerps from no tint toward a warning
+ *  color as the charge completes; no oscillation (unlike the accent pulse)
+ *  since tinting a full sprite at 6Hz reads as a glitch, not a charge-up.
+ *  Pure function, no timers. */
+const TELEGRAPH_TINT_COLOR = { r: 0xff, g: 0x4d, b: 0x4d }; // warning red
+export function telegraphTintColor(progress: number): number {
+  const clamped = Math.min(1, Math.max(0, progress));
+  const r = Math.round(0xff + (TELEGRAPH_TINT_COLOR.r - 0xff) * clamped);
+  const g = Math.round(0xff + (TELEGRAPH_TINT_COLOR.g - 0xff) * clamped);
+  const b = Math.round(0xff + (TELEGRAPH_TINT_COLOR.b - 0xff) * clamped);
+  return (r << 16) | (g << 8) | b;
+}
+
 export interface GluedLayer {
   readonly node: Phaser.GameObjects.Arc;
   readonly dx: number;
@@ -106,6 +123,16 @@ export class SpriteView implements ActorView {
     this.locomotion = nextLocomotion;
     if (locomotionChanged && this.oneShot === undefined) {
       this.sprite.play(this.clips[nextLocomotion] ?? this.clips.idle);
+    }
+    // Epic 17 (D7): tint fallback only when there's no windup clip to lean on
+    // instead — a binding with a real windup animation tells its own story,
+    // and a sprite with full base art but no windup clip (e.g.
+    // enemy:junk-rusher today) would otherwise show no telegraph at all,
+    // since it never builds the PlaceholderView accent node.
+    if (pose.telegraph !== undefined && !this.clips.windup) {
+      this.sprite.setTint(telegraphTintColor(pose.telegraph));
+    } else {
+      this.sprite.clearTint();
     }
   }
 

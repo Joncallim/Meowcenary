@@ -460,3 +460,57 @@ Epic 13/16 art pipeline exactly:
 - **Do not** hardcode family/tier branches in `GameScene` — every decision
   point in this document resolves at `WeaponSystem`/`Enemy`/`FeedbackSystem`,
   where the data already lives.
+
+## 11. Current delivery record
+
+- [x] Architecture baseline reviewed and merged (PR #96).
+- [x] Slice 1 — weapon presentation identity, code-drawn muzzle/impact/recoil
+  (PR #97).
+- [x] Slice 2 — family/tier weapon audio via `sfxKeyByFamily` and tier volume
+  multipliers (PR #99).
+- [x] Slice 3 — tier-up presentation on merge (PR #100).
+- [x] Slice 4 — enemy telegraph and weight presentation (PR #101).
+- [x] Slice 5 — SMG double-tap data change and Golden Run closeout: full
+  suite green under two independently shuffled seeds, lint/build/art:validate
+  clean (PR #102).
+- [x] Post-merge orthogonal closeout review across all five slices, three
+  independent passes, fixes applied on top of `main`.
+
+Closeout review findings and fixes:
+
+- Trash Brute's `enemy:heavyStep` cadence was measuring the *intended*
+  (obstacle-agnostic) `chaseStep` target delta instead of actually-resolved
+  displacement, so a Brute stuck against an obstacle kept cosmetically
+  "walking." Fixed by sourcing the distance from the same
+  current-vs-`presentationPos` delta `syncPresentation` already computes for
+  the `moving` flag.
+- `enemyHeavyStep`'s landing-pulse dot wasn't marked `heavy`, so it evaded
+  `maxHeavyEffects` and didn't retract via `cancelHeavyMotion()` when reduced
+  motion was toggled on mid-run, unlike the dash trail's dots. Fixed by
+  threading a `heavy` flag through `spawnStationary`.
+- `sfxKeyByFamily` validated cleanly on any event, including ones whose
+  payload never carries `family`/`tier`, so a misconfigured entry would
+  silently never fire rather than failing closed at boot. Fixed by cross-
+  checking `entry.event` against a shared `FAMILY_TIER_EVENT_KEYS` constant
+  (single source of truth with `AudioManager.eventFamilyTier`).
+- **Junk Rusher showed zero winding telegraph in the shipped game.**
+  `enemy:junk-rusher` already ships full idle/run/hurt/defeat art (Epic 13),
+  so `Enemy` builds a `SpriteView` and destroys the `PlaceholderView` accent
+  node the D7 fallback pulse depends on — and no `windup` clip was ever added
+  to close the gap the other way. Fixed by giving `SpriteView` its own
+  self-contained fallback: a sprite tint lerping toward a warning color as
+  the charge completes, used only when no `windup` clip is present. This was
+  the most significant finding — the sole charger-archetype enemy in the game
+  had no perceptible telegraph despite the player-experience matrix (§8)
+  claiming "Rusher charge clearly telegraphed."
+- Two small DRY cleanups: `weapon-feel.json`'s muzzle/impact validation
+  shared one helper instead of two near-identical blocks; the
+  family→`WeaponFeelDefinition` lookup map, previously built independently in
+  `WeaponSystem`, `AudioManager`, and `PhaserFeedbackRenderer`, now goes
+  through one shared `weaponFeelByFamily()` helper.
+- Minor: muzzle/impact hex colors are now parsed once per family at
+  construction instead of on every `muzzleFlash`/`projectileHit` call.
+
+All fixes shipped with full regression coverage (new tests in
+`actorView.test.ts`, `enemy.test.ts`, `feedback.test.ts`, `validation.test.ts`)
+and the full suite, lint, build, and `art:validate` green throughout.

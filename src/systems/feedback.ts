@@ -4,7 +4,7 @@ import { createPool, type Pool } from '../engine/pool';
 import { shouldUseHeavyMotion } from '../engine/motion';
 import type { Settings } from '../systems/save';
 import type { System } from '../engine/system';
-import type { WeaponFeelDefinition } from './types';
+import { weaponFeelByFamily, type WeaponFeelDefinition } from './types';
 
 export interface FeedbackRenderer {
   /** Epic 17: family-keyed muzzle puff. Unknown/missing family draws nothing
@@ -190,11 +190,19 @@ function damageShakeDurationMs(amount: number): number {
   return Math.min(DAMAGE_SHAKE_MAX_DURATION_MS, DAMAGE_SHAKE_BASE_DURATION_MS + extra);
 }
 
+interface PresentationColors {
+  readonly muzzleColor: number;
+  readonly impactColor: number;
+}
+
 export class PhaserFeedbackRenderer implements FeedbackRenderer {
   private readonly scene: Phaser.Scene;
   private readonly maxEffects: number;
   private readonly maxHeavyEffects: number;
   private readonly weaponFeelByFamily: ReadonlyMap<string, WeaponFeelDefinition>;
+  // Precomputed once per family rather than re-parsing the hex string on
+  // every muzzleFlash/projectileHit call — a hot path at high fire rates.
+  private readonly presentationColorsByFamily: ReadonlyMap<string, PresentationColors>;
   private readonly dotPool: Pool<FeedbackDot>;
   private readonly ownedDots: FeedbackDot[] = [];
   private readonly liveDots = new Set<FeedbackDot>();
@@ -213,7 +221,13 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
     this.scene = options.scene;
     this.maxEffects = options.maxEffects;
     this.maxHeavyEffects = options.maxHeavyEffects;
-    this.weaponFeelByFamily = new Map((options.weaponFeel ?? []).map((entry) => [entry.family, entry]));
+    this.weaponFeelByFamily = weaponFeelByFamily(options.weaponFeel ?? []);
+    this.presentationColorsByFamily = new Map(
+      [...this.weaponFeelByFamily].map(([family, feel]) => [
+        family,
+        { muzzleColor: hexToColor(feel.muzzle.color), impactColor: hexToColor(feel.impact.color) },
+      ]),
+    );
 
     this.dotPool = createPool(
       () => {
@@ -276,12 +290,15 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
   muzzleFlash(x: number, y: number, family: string): void {
     const feel = this.weaponFeelByFamily.get(family);
     if (!feel) return;
-    this.spawnStationary(x, y, hexToColor(feel.muzzle.color), feel.muzzle.radius, feel.muzzle.lifetimeMs);
+    // presentationColorsByFamily is built from the same keys as
+    // weaponFeelByFamily in the constructor, so a hit here always resolves.
+    const colors = this.presentationColorsByFamily.get(family)!;
+    this.spawnStationary(x, y, colors.muzzleColor, feel.muzzle.radius, feel.muzzle.lifetimeMs);
   }
 
   projectileHit(x: number, y: number, family: string, heavyMotion: boolean): void {
     const feel = this.weaponFeelByFamily.get(family);
-    const color = feel ? hexToColor(feel.impact.color) : HIT_COLOR;
+    const color = feel ? this.presentationColorsByFamily.get(family)!.impactColor : HIT_COLOR;
     const radius = feel ? feel.impact.radius : MUZZLE_HIT_RADIUS_FALLBACK;
     this.spawnStationary(x, y, color, radius, 80);
     if (!heavyMotion) {
@@ -346,7 +363,11 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
     if (!heavyMotion) {
       return;
     }
-    this.spawnStationary(x, y, HEAVY_STEP_COLOR, 7, 220);
+    // heavy: true — this cue only ever spawns under heavy motion, so it must
+    // count against maxHeavyEffects and retract immediately via
+    // cancelHeavyMotion() when reduced motion is toggled on mid-run, exactly
+    // like the dash trail's spawnMoving dots.
+    this.spawnStationary(x, y, HEAVY_STEP_COLOR, 7, 220, true);
   }
 
   cancelHeavyMotion(): void {
@@ -428,8 +449,15 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
     return count;
   }
 
-  private spawnStationary(x: number, y: number, color: number, radius: number, lifetimeMs: number): void {
-    if (this.liveDots.size >= this.maxEffects) {
+  private spawnStationary(
+    x: number,
+    y: number,
+    color: number,
+    radius: number,
+    lifetimeMs: number,
+    heavy = false,
+  ): void {
+    if (this.liveDots.size >= this.maxEffects || (heavy && this.liveHeavyCount() >= this.maxHeavyEffects)) {
       this.dropped += 1;
       return;
     }
@@ -439,7 +467,7 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
     dot.vx = 0;
     dot.vy = 0;
     dot.startAlpha = color === HIT_COLOR ? 0.90 : 0.85;
-    dot.heavy = false;
+    dot.heavy = heavy;
     dot.sprite.setPosition(x, y);
     dot.sprite.setFillStyle(color);
     dot.sprite.setRadius(radius);

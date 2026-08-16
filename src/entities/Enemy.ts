@@ -226,12 +226,8 @@ export class Enemy implements EnemyInstance {
     }
 
     if (pursuitArchetype(this.definition) !== undefined) {
-      const previous = this.pos;
-      const next = chaseStep(previous, player, this.definition.speed, dtMs);
+      const next = chaseStep(this.pos, player, this.definition.speed, dtMs);
       this.applyPosition(next, dtMs);
-      if (this.state === 'pursuing') {
-        this.accumulateHeavyStep(Math.hypot(next.x - previous.x, next.y - previous.y));
-      }
       this.syncPresentation(Math.hypot(this.body.velocity.x, this.body.velocity.y) > 0.01);
       return;
     }
@@ -311,10 +307,12 @@ export class Enemy implements EnemyInstance {
       this.facing = this.body.velocity.x < 0 ? -1 : 1;
     }
     const current = { x: this.x, y: this.y };
-    const moved = this.presentationPos
-      ? Math.hypot(current.x - this.presentationPos.x, current.y - this.presentationPos.y) > 0.01
-      : false;
+    const distanceSincePresentation = this.presentationPos
+      ? Math.hypot(current.x - this.presentationPos.x, current.y - this.presentationPos.y)
+      : 0;
+    const moved = distanceSincePresentation > 0.01;
     this.presentationPos = current;
+    this.accumulateHeavyStep(distanceSincePresentation);
     const telegraph = this.telegraphProgress();
     this.view.update({
       x: current.x,
@@ -342,11 +340,15 @@ export class Enemy implements EnemyInstance {
     return 1 - remaining / telegraphMs;
   }
 
-  /** Epic 17 (D7): Trash Brute-only landing pulse, cadenced by distance
-   *  travelled rather than a timer — reports the moment to FeedbackSystem,
-   *  which owns the heavy-motion gate and the pooled cue. */
+  /** Epic 17 (D7): Trash Brute-only landing pulse, cadenced by *actually
+   *  resolved* distance travelled (the same current-vs-presentationPos delta
+   *  syncPresentation already computes for the moving flag) rather than a
+   *  timer or the pursuit branch's unobstructed chaseStep target — so a
+   *  Brute stuck against an obstacle correctly stops pulsing instead of
+   *  reading as still walking. Reports the moment to FeedbackSystem, which
+   *  owns the heavy-motion gate and the pooled cue. */
   private accumulateHeavyStep(distancePx: number): void {
-    if (effectiveArchetype(this.definition) !== 'tank' || !Number.isFinite(distancePx)) {
+    if (effectiveArchetype(this.definition) !== 'tank' || this.state !== 'pursuing' || !Number.isFinite(distancePx)) {
       return;
     }
     this.heavyStepAccumPx += distancePx;
