@@ -24,7 +24,11 @@ camera-traversable Junkyard Lot; architecture and delivery record in
 
 #### Epic 17 — Combat Feel and Weapon Identity (#76)
 
-Make pistol/SMG/shotgun tiers and current enemy threats perceptually distinct and satisfying.
+Architecture ready; runtime implementation not yet started. Make
+pistol/SMG/shotgun tiers and current enemy threats perceptually distinct and
+satisfying through presentation and audio identity over existing gameplay
+state, plus one small SMG tier-differentiation data change; architecture in
+[`architecture/epic-17-combat-feel-and-weapon-identity.md`](architecture/epic-17-combat-feel-and-weapon-identity.md).
 
 Additional cross-epic constraint:
 

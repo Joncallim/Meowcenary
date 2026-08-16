@@ -337,8 +337,8 @@ Pure gameplay systems receive `dtMs`; they must not read Phaser clocks directly.
 | Epic 13 | #72 Presentation Runtime and Physics Stability | Complete · PR #79 | Physics-debug gating, actor-view seam, art catalog/pipeline, movement stability. |
 | Epic 14 | #73 Weapon Acquisition and Rack Economy | Complete · PR #80 | Six-slot run rack, weapon pickups, no-loss full rack, deterministic reward stream. |
 | Epic 15 | #74 Inventory and Merge Experience | Complete · PR #81 | Visual rack, merge compatibility/preview, HUD entry, mobile-first tap interaction. |
-| Epic 16 | #75 Visual Identity and Junkyard World | Implementation PR #83 open | Production actor/weapon/pickup/world art and coherent Junkyard presentation. |
-| Epic 17 | #76 Combat Feel and Weapon Identity | Open | Make weapon families/tiers and current enemy threats perceptually distinct and satisfying. |
+| Epic 16 | #75 Visual Identity and Junkyard World | Complete · PR #83 | Production actor/weapon/pickup/world art and coherent Junkyard presentation. |
+| Epic 17 | #76 Combat Feel and Weapon Identity | Architecture ready | Weapon family/tier presentation and audio identity, enemy telegraph presentation, and one SMG tier data change; architecture in [`architecture/epic-17-combat-feel-and-weapon-identity.md`](architecture/epic-17-combat-feel-and-weapon-identity.md). |
 | Epic 18 | #77 Build Variety and Golden Run Pacing | Open · amended | Expand rotating upgrade pool, stack/ownership indicators, placeholder card imagery, and tune one replayable Golden Run. |
 | Epic 19 | #78 Player UX and Alpha 2 Gate | Open · amended | Holistic Alpha 2 gate: touch ergonomics + full controller-only journey + shared logical input/actions. |
 | Epic 20 | #85 Contracts, Objectives, and Stage Progression | Open · Alpha 3 | Objective-based stage ladder, ~3-minute frontier pressure, chapter/boss-stage cadence. |

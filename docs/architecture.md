@@ -146,6 +146,7 @@ Epic-specific data contracts:
 - [Epic 14: weapon acquisition and rack economy](architecture/epic-14-weapon-acquisition-and-rack-economy.md)
 - [Epic 15: inventory and merge experience](architecture/epic-15-inventory-and-merge-experience.md)
 - [Epic 16: visual identity and Junkyard world](architecture/epic-16-visual-identity-and-junkyard-world.md)
+- [Epic 17: combat feel and weapon identity](architecture/epic-17-combat-feel-and-weapon-identity.md)
 
 Existing dedicated architecture documents remain implementation truth for
 their delivered scopes and supersede older issue wording where they differ.
