@@ -10,11 +10,14 @@ class Node {
   destroyed = false;
   flipX = false;
   plays: string[] = [];
+  tint: number | undefined;
   listeners = new Map<string, (...args: any[]) => void>();
   setPosition(x: number, y: number): this { this.x = x; this.y = y; return this; }
   setAlpha(alpha: number): this { this.alpha = alpha; return this; }
   setVisible(visible: boolean): this { this.visible = visible; return this; }
   setFlipX(value: boolean): this { this.flipX = value; return this; }
+  setTint(color: number): this { this.tint = color; return this; }
+  clearTint(): this { this.tint = undefined; return this; }
   setDepth(): this { return this; }
   setOrigin(): this { return this; }
   setScale(): this { return this; }
@@ -102,6 +105,63 @@ describe('actor views', () => {
 
     noWindup.update({ x: 0, y: 0, facing: 1, moving: true, alpha: 1, telegraph: 0.9 });
     expect(noWindupSprite.plays).toEqual(['idle', 'run']);
+  });
+
+  it('bounds telegraphTintColor between no-tint white and the warning color across the full progress range', async () => {
+    const { telegraphTintColor } = await import('../src/entities/actorView');
+    expect(telegraphTintColor(0)).toBe(0xffffff);
+    expect(telegraphTintColor(1)).toBe(0xff4d4d);
+    for (let progress = 0; progress <= 1; progress += 0.1) {
+      const color = telegraphTintColor(progress);
+      const r = (color >> 16) & 0xff;
+      const g = (color >> 8) & 0xff;
+      const b = color & 0xff;
+      expect(r).toBe(0xff); // the red channel never moves — 0xff both ends
+      expect(g).toBeLessThanOrEqual(0xff);
+      expect(g).toBeGreaterThanOrEqual(0x4d);
+      expect(b).toBeLessThanOrEqual(0xff);
+      expect(b).toBeGreaterThanOrEqual(0x4d);
+    }
+    // Out-of-range input is clamped rather than producing an invalid color.
+    expect(telegraphTintColor(-1)).toBe(telegraphTintColor(0));
+    expect(telegraphTintColor(2)).toBe(telegraphTintColor(1));
+  });
+
+  it('tints the sprite through the winding telegraph when there is no windup clip, and clears it otherwise (Epic 17 D7 gap fix)', async () => {
+    const { SpriteView, telegraphTintColor } = await import('../src/entities/actorView');
+    const sprite = new Node();
+    // Mirrors enemy:junk-rusher's actual shipped binding: full idle/run/hurt/
+    // defeat art, no windup clip — the exact shape that previously left the
+    // charger with zero telegraph cue (PlaceholderView's accent node is
+    // destroyed whenever real art exists, per Enemy's constructor).
+    const view = new SpriteView(new Node() as never, { node: new Node() as never, dy: 0 }, sprite as never, {
+      idle: 'idle', run: 'run', hurt: 'hurt', defeat: 'defeat',
+    });
+
+    view.update({ x: 0, y: 0, facing: 1, moving: false, alpha: 1 });
+    expect(sprite.tint).toBeUndefined();
+
+    view.update({ x: 0, y: 0, facing: 1, moving: false, alpha: 1, telegraph: 0.3 });
+    expect(sprite.tint).toBe(telegraphTintColor(0.3));
+
+    view.update({ x: 0, y: 0, facing: 1, moving: false, alpha: 1, telegraph: 0.9 });
+    expect(sprite.tint).toBe(telegraphTintColor(0.9));
+
+    // Telegraph ends (attacking/pursuing again): tint clears.
+    view.update({ x: 0, y: 0, facing: 1, moving: true, alpha: 1 });
+    expect(sprite.tint).toBeUndefined();
+  });
+
+  it('does not tint the sprite when a real windup clip is present — the clip itself carries the telegraph', async () => {
+    const { SpriteView } = await import('../src/entities/actorView');
+    const sprite = new Node();
+    const view = new SpriteView(new Node() as never, { node: new Node() as never, dy: 0 }, sprite as never, {
+      idle: 'idle', run: 'run', windup: 'windup',
+    });
+
+    view.update({ x: 0, y: 0, facing: 1, moving: false, alpha: 1, telegraph: 0.5 });
+    expect(sprite.plays.at(-1)).toBe('windup');
+    expect(sprite.tint).toBeUndefined();
   });
 
   it('flips sprite and switches clips only on moving edges', async () => {

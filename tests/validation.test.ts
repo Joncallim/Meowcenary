@@ -1600,6 +1600,16 @@ describe('game data validation', () => {
       );
     });
 
+    it('rejects sfxKeyByFamily on an event whose payload does not carry family/tier (fails closed, D4/D5)', () => {
+      const data = mutableAudio();
+      const enemyKilled = data.audio.map.events.find((entry) => entry.event === 'enemy:killed');
+      if (!enemyKilled) throw new Error('missing enemy:killed audio-map entry');
+      enemyKilled.sfxKeyByFamily = { pistol: 'sfx-weapon-fired-pistol' };
+      expect(() => validateGameData(data)).toThrow(
+        /sfxKeyByFamily: event "enemy:killed" does not carry family\/tier/,
+      );
+    });
+
     it('rejects a url that violates the assets/audio/<key>.wav convention', () => {
       const data = mutableAudio();
       data.audio.assets.sfx[0].url = 'assets/audio/sfx-wrong.wav';

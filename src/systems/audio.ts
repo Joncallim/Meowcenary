@@ -1,15 +1,15 @@
 import type Phaser from 'phaser';
 import type { System } from '../engine/system';
-import type { EventBus, GameEventKey, GameEventMap } from '../engine/eventBus';
+import { FAMILY_TIER_EVENT_KEYS, type EventBus, type GameEventKey, type GameEventMap } from '../engine/eventBus';
 import { shouldPlay } from '../engine/cooldown';
 import { RuntimeConfig } from '../engine/config';
-import type { AudioData, AudioMapEntry, WeaponFeelDefinition } from './types';
+import { weaponFeelByFamily, type AudioData, type AudioMapEntry, type WeaponFeelDefinition } from './types';
 import type { Settings } from './save';
 
 /** Epic 17: the only two events whose payload carries `family`/`tier`.
  *  Narrowing here (rather than widening GameEventMap's shared shape) keeps
  *  every other mapped event exactly as payload-agnostic as it was before. */
-const FAMILY_KEYED_EVENTS = new Set<GameEventKey>(['weapon:fired', 'projectile:hit']);
+const FAMILY_KEYED_EVENTS = new Set<GameEventKey>(FAMILY_TIER_EVENT_KEYS);
 
 function eventFamilyTier(
   event: GameEventKey,
@@ -81,7 +81,8 @@ export class AudioManager implements System {
   private readonly lastPlayed = new Map<string, number>();
   private readonly cooldownMsByKey = new Map<string, number>();
   private readonly warnedKeys = new Set<string>();
-  private readonly weaponFeelByFamily = new Map<string, WeaponFeelDefinition>();
+  // Assigned exactly once by init() (enforced below); read-only thereafter.
+  private weaponFeelByFamily: ReadonlyMap<string, WeaponFeelDefinition> = new Map();
   private readonly unsubscribers: Array<() => void> = [];
   private muted = false;
   private musicVolume = 1;
@@ -111,9 +112,7 @@ export class AudioManager implements System {
     this.initialized = true;
 
     this.applySettings(settings);
-    for (const entry of weaponFeel) {
-      this.weaponFeelByFamily.set(entry.family, entry);
-    }
+    this.weaponFeelByFamily = weaponFeelByFamily(weaponFeel);
 
     for (const entry of audio.map) {
       const cooldownMs = entry.cooldownMs ?? 0;

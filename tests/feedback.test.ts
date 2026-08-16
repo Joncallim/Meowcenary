@@ -501,6 +501,32 @@ describe('PhaserFeedbackRenderer enemy weight presentation (Epic 17 D7)', () => 
     expect(renderer.activeEffectCount).toBe(1);
   });
 
+  it('retracts the landing pulse immediately when reduced motion cancels heavy motion', () => {
+    const { scene } = makeScene();
+    const renderer = new PhaserFeedbackRenderer({ scene: scene as never, maxEffects: 8, maxHeavyEffects: 8 });
+
+    renderer.enemyHeavyStep(0, 0, true);
+    expect(renderer.activeEffectCount).toBe(1);
+
+    renderer.cancelHeavyMotion();
+    expect(renderer.activeEffectCount).toBe(0);
+  });
+
+  it('counts the landing pulse against maxHeavyEffects, independent of the dash trail', () => {
+    const { scene } = makeScene();
+    const renderer = new PhaserFeedbackRenderer({ scene: scene as never, maxEffects: 20, maxHeavyEffects: 2 });
+
+    renderer.enemyHeavyStep(0, 0, true);
+    renderer.enemyHeavyStep(0, 0, true);
+    expect(renderer.activeEffectCount).toBe(2);
+    expect(renderer.droppedEffectCount).toBe(0);
+
+    // A third heavy effect (of any kind) is dropped once the shared heavy cap is hit.
+    renderer.enemyHeavyStep(0, 0, true);
+    expect(renderer.activeEffectCount).toBe(2);
+    expect(renderer.droppedEffectCount).toBe(1);
+  });
+
   it('scales the player-damaged shake weight with the raw damage amount, capped, only under heavy motion', () => {
     const { scene, shake } = makeScene();
     const renderer = new PhaserFeedbackRenderer({ scene: scene as never, maxEffects: 8, maxHeavyEffects: 8 });

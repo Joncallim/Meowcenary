@@ -51,6 +51,22 @@ export interface WeaponFeelDefinition {
   readonly sfxTierVolumeMultiplier: readonly [number, number, number];
 }
 
+/** Single source of truth for the family→definition lookup that
+ *  `WeaponSystem`, `AudioManager`, and `PhaserFeedbackRenderer` each build
+ *  independently from the same `weaponFeel` array — keeps their keying
+ *  semantics (last entry wins on a duplicate family) from drifting apart.
+ *  `validation.ts` already guarantees exactly one entry per family in the
+ *  shipped catalog; duplicates only arise in ad-hoc test fixtures. */
+export function weaponFeelByFamily(
+  entries: readonly WeaponFeelDefinition[],
+): ReadonlyMap<string, WeaponFeelDefinition> {
+  const map = new Map<string, WeaponFeelDefinition>();
+  for (const entry of entries) {
+    map.set(entry.family, entry);
+  }
+  return map;
+}
+
 export type EnemyArchetype = 'chaser' | 'charger' | 'ranged' | 'tank' | 'elite' | 'boss';
 export const SPAWNABLE_ENEMY_ARCHETYPES = ['chaser', 'charger', 'tank'] as const;
 export type SpawnableEnemyArchetype = (typeof SPAWNABLE_ENEMY_ARCHETYPES)[number];

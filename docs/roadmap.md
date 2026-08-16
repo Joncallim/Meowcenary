@@ -4,11 +4,12 @@
 
 ### Complete foundations / MVP systems
 
-- Epics 0–16 are complete.
+- Epics 0–17 are complete.
 - Epic 13 merged in PR #79.
 - Epic 14 merged in PR #80.
 - Epic 15 merged in PR #81.
 - Epic 16 merged in PR #83.
+- Epic 17 merged in PRs #96–#102.
 
 ### Alpha 2 — Golden Run
 
@@ -24,10 +25,12 @@ camera-traversable Junkyard Lot; architecture and delivery record in
 
 #### Epic 17 — Combat Feel and Weapon Identity (#76)
 
-Architecture ready; runtime implementation not yet started. Make
-pistol/SMG/shotgun tiers and current enemy threats perceptually distinct and
-satisfying through presentation and audio identity over existing gameplay
-state, plus one small SMG tier-differentiation data change; architecture in
+Complete — architecture merged in PR #96; runtime merged in PRs #97–#102
+across five slices, plus a post-merge orthogonal closeout review. Pistol/SMG/
+shotgun tiers and current enemy threats are now perceptually distinct
+through code-drawn presentation (muzzle flash, recoil, impact, tier-up pulse,
+enemy telegraph/weight cues) and family/tier audio identity, plus the SMG
+tier-3 double-tap data change; architecture and delivery record in
 [`architecture/epic-17-combat-feel-and-weapon-identity.md`](architecture/epic-17-combat-feel-and-weapon-identity.md).
 
 Additional cross-epic constraint:

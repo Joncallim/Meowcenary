@@ -22,6 +22,7 @@ class MockArc {
   destroyCount = 0;
   flipX = false;
   plays: string[] = [];
+  tint: number | undefined;
   listeners = new Map<string, (...args: any[]) => void>();
 
   constructor(
@@ -62,6 +63,16 @@ class MockArc {
 
   setFlipX(flipX: boolean): this {
     this.flipX = flipX;
+    return this;
+  }
+
+  setTint(color: number): this {
+    this.tint = color;
+    return this;
+  }
+
+  clearTint(): this {
+    this.tint = undefined;
     return this;
   }
 
