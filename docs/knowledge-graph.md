@@ -1,7 +1,7 @@
 # Meowcenary Knowledge Graph
 
 > Token-optimized repo map. Read this before implementation work.
-> Current state: **Epics 0–16 complete; Epic 16 runtime merged in PR #83 (46-binding visual-art manifest, presentation pooling, authored Junkyard Lot); Epics 17–19 are the remaining Alpha 2 Golden Run work. After Epic 19, Issue #94 performs a full repository certification/remediation audit. Alpha 3 architecture #92 is blocked by #94; Alpha 3 runtime then proceeds through Epics 20–26.**
+> Current state: **Epics 0–16 complete; Epic 16 runtime merged in PR #83 (46-binding visual-art manifest, presentation pooling, authored Junkyard Lot); Epic 17 architecture is ready (runtime not started); Epics 18–19 are the remaining Alpha 2 Golden Run work. After Epic 19, Issue #94 performs a full repository certification/remediation audit. Alpha 3 architecture #92 is blocked by #94; Alpha 3 runtime then proceeds through Epics 20–26.**
 
 ## Read Order
 
@@ -78,6 +78,8 @@ If the weapon registry's static-definition immutability/validation still differs
 ## Alpha 2 Routing
 
 ### Epic 17 (#76) — combat feel / shared effect seam
+
+Architecture ready in [`architecture/epic-17-combat-feel-and-weapon-identity.md`](architecture/epic-17-combat-feel-and-weapon-identity.md): presentation/audio identity over existing gameplay state, no new effect engine (pierce already satisfies the pattern), one SMG tier data change. Runtime not yet implemented.
 
 - pistol/SMG/shotgun must be distinguishable by feel;
 - new gameplay-affecting behavioral effects use a small reusable effect vocabulary;
