@@ -18,14 +18,8 @@ describe('GAME_EVENT_KEYS', () => {
     }
   });
 
-  it('contains the two Epic 17 (D7) enemy presentation keys', () => {
-    for (const key of ['enemy:dashed', 'enemy:heavyStep']) {
-      expect(GAME_EVENT_KEYS).toContain(key);
-    }
-  });
-
-  it('has the pinned 28-key contract (compile-time exhaustiveness typechecks)', () => {
-    expect(GAME_EVENT_KEYS).toHaveLength(28);
+  it('has the pinned 26-key contract (compile-time exhaustiveness typechecks)', () => {
+    expect(GAME_EVENT_KEYS).toHaveLength(26);
   });
 });
 

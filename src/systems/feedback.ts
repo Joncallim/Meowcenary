@@ -14,19 +14,12 @@ export interface FeedbackRenderer {
   muzzleFlash(x: number, y: number, family: string): void;
   projectileHit(x: number, y: number, family: string, heavyMotion: boolean): void;
   enemyKilled(x: number, y: number, heavyMotion: boolean): void;
-  /** Epic 17 (D7): amount scales the heavy-motion shake weight so a Trash
-   *  Brute hit reads as heavier than a Dust Mite's — light/no-shake
-   *  behavior under reduced motion is unchanged. */
-  playerDamaged(amount: number, heavyMotion: boolean): void;
+  playerDamaged(heavyMotion: boolean): void;
   levelUp(heavyMotion: boolean): void;
   /** Epic 17: tier-up moment on a rack merge. Screen-space like levelUp
    *  (merges happen from a paused menu, not a world position) — toTier
    *  scales intensity so higher tiers read as more significant. */
   weaponMerged(toTier: number, heavyMotion: boolean): void;
-  /** Epic 17 (D7): pooled, heavy-gated motion trail on a charger's dash. */
-  enemyDashed(x: number, y: number, dirX: number, dirY: number, heavyMotion: boolean): void;
-  /** Epic 17 (D7): Trash Brute's periodic landing pulse while pursuing. */
-  enemyHeavyStep(x: number, y: number, heavyMotion: boolean): void;
   cancelHeavyMotion(): void;
   update(dtMs: number): void;
   destroy(): void;
@@ -72,20 +65,14 @@ export class FeedbackSystem implements System {
       options.bus.on('enemy:killed', ({ x, y }) => {
         this.renderer.enemyKilled(x, y, shouldUseHeavyMotion(this.reducedMotion));
       }),
-      options.bus.on('player:damaged', ({ amount }) => {
-        this.renderer.playerDamaged(amount, shouldUseHeavyMotion(this.reducedMotion));
+      options.bus.on('player:damaged', () => {
+        this.renderer.playerDamaged(shouldUseHeavyMotion(this.reducedMotion));
       }),
       options.bus.on('level:up', () => {
         this.renderer.levelUp(shouldUseHeavyMotion(this.reducedMotion));
       }),
       options.bus.on('weapon:merged', ({ toTier }) => {
         this.renderer.weaponMerged(toTier, shouldUseHeavyMotion(this.reducedMotion));
-      }),
-      options.bus.on('enemy:dashed', ({ x, y, dirX, dirY }) => {
-        this.renderer.enemyDashed(x, y, dirX, dirY, shouldUseHeavyMotion(this.reducedMotion));
-      }),
-      options.bus.on('enemy:heavyStep', ({ x, y }) => {
-        this.renderer.enemyHeavyStep(x, y, shouldUseHeavyMotion(this.reducedMotion));
       }),
       options.bus.on('settings:changed', ({ settings }) => {
         const wasReduced = this.reducedMotion;
@@ -143,20 +130,9 @@ const HIT_COLOR = 0xf7f1d5; // cream
 const KILL_COLOR = 0x2dd4bf; // teal
 const DANGER_COLOR = 0xf87171; // danger red
 const MERGE_COLOR = 0xfacc15; // amber power-up, distinct from kill/danger
-const DASH_TRAIL_COLOR = 0xd6d3d1; // kicked-up junkyard dust
-const HEAVY_STEP_COLOR = 0x92613a; // scrap-dust thud, distinct from dash trail
 const FEEDBACK_DEPTH = 60;
 const OVERLAY_DEPTH = 90;
 const MUZZLE_HIT_RADIUS_FALLBACK = 4;
-
-// Epic 17 (D7): a charger's dash trail is a fixed, staggered comet-tail —
-// speed/lifetime vary per ghost so they recede rather than overlap. All
-// spawn from the same origin, so a single event drives the whole cue.
-const DASH_TRAIL_STEPS = [
-  { speed: 60, lifetimeMs: 120 },
-  { speed: 40, lifetimeMs: 160 },
-  { speed: 24, lifetimeMs: 200 },
-] as const;
 
 function hexToColor(hex: string): number {
   return Number.parseInt(hex.slice(1), 16);
@@ -167,27 +143,6 @@ function hexToColor(hex: string): number {
  *  negative or runaway pulse. */
 function clampMergeTier(tier: number): number {
   return Math.min(3, Math.max(1, Math.round(tier)));
-}
-
-// Epic 17 (D7): player:damaged shake scales from this dust-mite-sized
-// baseline so a Trash Brute's 14-damage contact hit reads as heavier than a
-// dust mite's 5 — bounded so cheats/environmental spikes never run away.
-const DAMAGE_SHAKE_REFERENCE_AMOUNT = 5;
-const DAMAGE_SHAKE_BASE_INTENSITY = 0.0025;
-const DAMAGE_SHAKE_BASE_DURATION_MS = 90;
-const DAMAGE_SHAKE_INTENSITY_PER_POINT = 0.00025;
-const DAMAGE_SHAKE_DURATION_PER_POINT_MS = 4;
-const DAMAGE_SHAKE_MAX_INTENSITY = 0.006;
-const DAMAGE_SHAKE_MAX_DURATION_MS = 160;
-
-function damageShakeIntensity(amount: number): number {
-  const extra = Math.max(0, amount - DAMAGE_SHAKE_REFERENCE_AMOUNT) * DAMAGE_SHAKE_INTENSITY_PER_POINT;
-  return Math.min(DAMAGE_SHAKE_MAX_INTENSITY, DAMAGE_SHAKE_BASE_INTENSITY + extra);
-}
-
-function damageShakeDurationMs(amount: number): number {
-  const extra = Math.max(0, amount - DAMAGE_SHAKE_REFERENCE_AMOUNT) * DAMAGE_SHAKE_DURATION_PER_POINT_MS;
-  return Math.min(DAMAGE_SHAKE_MAX_DURATION_MS, DAMAGE_SHAKE_BASE_DURATION_MS + extra);
 }
 
 export class PhaserFeedbackRenderer implements FeedbackRenderer {
@@ -304,11 +259,11 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
     }
   }
 
-  playerDamaged(amount: number, heavyMotion: boolean): void {
+  playerDamaged(heavyMotion: boolean): void {
     this.damageTimerMs = Math.max(this.damageTimerMs, 120);
     this.damageRect.setAlpha(0.16);
     if (heavyMotion) {
-      this.scene.cameras.main.shake(damageShakeDurationMs(amount), damageShakeIntensity(amount), true);
+      this.scene.cameras.main.shake(90, 0.0025, true);
     }
   }
 
@@ -329,24 +284,6 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
     const alpha = 0.28 + (tier - 1) * 0.06;
     this.mergePeakAlpha = Math.max(this.mergePeakAlpha, alpha);
     this.mergeRect.setStrokeStyle(3, MERGE_COLOR, this.mergePeakAlpha);
-  }
-
-  enemyDashed(x: number, y: number, dirX: number, dirY: number, heavyMotion: boolean): void {
-    if (!heavyMotion) {
-      return;
-    }
-    const behindX = -dirX;
-    const behindY = -dirY;
-    for (const step of DASH_TRAIL_STEPS) {
-      this.spawnMoving(x, y, DASH_TRAIL_COLOR, 3, step.speed, step.lifetimeMs, behindX, behindY);
-    }
-  }
-
-  enemyHeavyStep(x: number, y: number, heavyMotion: boolean): void {
-    if (!heavyMotion) {
-      return;
-    }
-    this.spawnStationary(x, y, HEAVY_STEP_COLOR, 7, 220);
   }
 
   cancelHeavyMotion(): void {

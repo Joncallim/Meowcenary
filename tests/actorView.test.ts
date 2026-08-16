@@ -47,63 +47,6 @@ describe('actor views', () => {
     expect(ear.destroyed && accent.destroyed && shadow.destroyed).toBe(true);
   });
 
-  it('pulses a telegraph-tinted layer during winding and holds full alpha otherwise (Epic 17 D7)', async () => {
-    const { PlaceholderView, telegraphPulseAlpha } = await import('../src/entities/actorView');
-    const body = new Node();
-    const accent = new Node();
-    const shadow = new Node();
-    const view = new PlaceholderView(body as never, [
-      { node: accent as never, dx: 0, dy: 0, flashes: false, telegraphTint: true },
-    ], { node: shadow as never, dy: 0 });
-
-    view.update({ x: 0, y: 0, facing: 1, moving: false, alpha: 1, telegraph: 0.5 });
-    expect(accent.alpha).toBeCloseTo(telegraphPulseAlpha(0.5));
-
-    view.update({ x: 0, y: 0, facing: 1, moving: false, alpha: 1 });
-    expect(accent.alpha).toBe(1);
-  });
-
-  it('bounds telegraphPulseAlpha to [0.4, 1] across the full progress range', async () => {
-    const { telegraphPulseAlpha } = await import('../src/entities/actorView');
-    for (let progress = 0; progress <= 1; progress += 0.05) {
-      const alpha = telegraphPulseAlpha(progress);
-      expect(alpha).toBeGreaterThanOrEqual(0.4);
-      expect(alpha).toBeLessThanOrEqual(1);
-    }
-    // Out-of-range input is clamped rather than producing an unbounded value.
-    expect(telegraphPulseAlpha(-1)).toBe(telegraphPulseAlpha(0));
-    expect(telegraphPulseAlpha(2)).toBe(telegraphPulseAlpha(1));
-  });
-
-  it('prefers the windup clip over run/idle while telegraphing, and falls back without one', async () => {
-    const { SpriteView } = await import('../src/entities/actorView');
-    const body = new Node();
-    const shadow = new Node();
-    const sprite = new Node();
-    const view = new SpriteView(body as never, { node: shadow as never, dy: 0 }, sprite as never, {
-      idle: 'idle', run: 'run', windup: 'windup',
-    });
-
-    view.update({ x: 0, y: 0, facing: 1, moving: false, alpha: 1, telegraph: 0.1 });
-    expect(sprite.plays.at(-1)).toBe('windup');
-
-    // Telegraph ends: falls back to idle/run based on moving, same as before.
-    view.update({ x: 0, y: 0, facing: 1, moving: true, alpha: 1 });
-    expect(sprite.plays.at(-1)).toBe('run');
-
-    // No windup clip on the binding: winding falls back to idle/run untouched
-    // (already idle while stationary, so no extra play() call fires).
-    const noWindupSprite = new Node();
-    const noWindup = new SpriteView(new Node() as never, { node: new Node() as never, dy: 0 }, noWindupSprite as never, {
-      idle: 'idle', run: 'run',
-    });
-    noWindup.update({ x: 0, y: 0, facing: 1, moving: false, alpha: 1, telegraph: 0.9 });
-    expect(noWindupSprite.plays).toEqual(['idle']);
-
-    noWindup.update({ x: 0, y: 0, facing: 1, moving: true, alpha: 1, telegraph: 0.9 });
-    expect(noWindupSprite.plays).toEqual(['idle', 'run']);
-  });
-
   it('flips sprite and switches clips only on moving edges', async () => {
     const { SpriteView } = await import('../src/entities/actorView');
     const body = new Node();
