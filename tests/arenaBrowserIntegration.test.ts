@@ -225,6 +225,50 @@ describe('arena data-level integration', () => {
     expect(new Set(cornerXs)).toEqual(new Set([16, 112]));
   });
 
+  it('mirrors the asymmetric corner art so only the left corners flip', () => {
+    const data = loadGameData();
+    const arena = data.arenas[0];
+    const calls: Array<{ x: number; y: number; textureKey: string; flipX: boolean }> = [];
+    const addImage = vi.fn((x: number, y: number, textureKey: string) => {
+      let flipX = false;
+      const node = {
+        textureKey,
+        setDisplaySize: vi.fn(() => node), setDepth: vi.fn(() => node),
+        setRotation: vi.fn(() => node),
+        setFlipX: vi.fn((value: boolean) => { flipX = value; return node; }),
+        destroy: vi.fn(),
+      };
+      calls.push({
+        x,
+        y,
+        textureKey,
+        get flipX() { return flipX; },
+      });
+      return node;
+    });
+    const group = { add: vi.fn(), destroy: vi.fn(), children: { size: 2 } };
+    const scene = {
+      add: { image: addImage, rectangle: vi.fn(() => ({ setVisible: vi.fn() })) },
+      textures: { exists: () => true },
+      physics: { add: { existing: vi.fn(), staticGroup: vi.fn(() => group) } },
+    };
+
+    buildArenaScenery(scene as never, arena, new DataVisualArtRegistry(data));
+
+    const corners = calls.filter((c) => c.textureKey === 'art-world-junkyard-boundary-corner');
+    expect(corners).toHaveLength(4);
+    const minX = Math.min(...corners.map((c) => c.x));
+    const minY = Math.min(...corners.map((c) => c.y));
+
+    for (const corner of corners) {
+      const isLeft = corner.x === minX;
+      const isTop = corner.y === minY;
+      // Rotation alone (top-left -> bottom-right) needs no flip; the other
+      // diagonal (top-right, bottom-left) needs the accent mirrored.
+      expect(corner.flipX).toBe(isLeft !== isTop);
+    }
+  });
+
   it('spawnPoint produces obstacle-free points (rect region overlapping obstacle, 50 seeds)', () => {
     const arena = {
       id: 'overlap-test', name: 'Overlap Test', size: { width: 400, height: 400 },

@@ -1087,7 +1087,19 @@ describe('game data validation', () => {
         ...obstructed.arenas[0].obstacles[0],
         x: 176, y: 0, w: 64, h: 64,
       };
-      expect(() => validateGameData(obstructed)).toThrow(/body-radius spawn strip intersects an obstacle/);
+      expect(() => validateGameData(obstructed)).toThrow(/body-radius spawn strip fully covered by obstacles/);
+    });
+
+    it('accepts an inside-edge lane obstacle that only clips one end of the strip', () => {
+      const clipped = structuredClone(loadGameData()) as any;
+      // Lane 0 is the top lane: offset 160, width 96, body-safe strip [173, 243].
+      // This obstacle's body-expanded span is [163, 217] — it overlaps the
+      // strip's low end but leaves [217, 243] open, so the lane stays spawnable.
+      clipped.arenas[0].obstacles[0] = {
+        ...clipped.arenas[0].obstacles[0],
+        x: 176, y: 0, w: 28, h: 64,
+      };
+      expect(() => validateGameData(clipped)).not.toThrow();
     });
 
     it('rejects world-role drift and unskinned collision landmarks', () => {

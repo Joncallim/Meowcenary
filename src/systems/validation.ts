@@ -1165,20 +1165,31 @@ function checkArena(row: unknown): string[] {
           const coordinate = side === 'top' || side === 'left'
             ? inset
             : (side === 'right' ? width - inset : height - inset);
-          const blocked = arenaObstacles.some((obstacle) => {
-            const expanded = {
+          const horizontal = side === 'top' || side === 'bottom';
+          // An obstacle only matters if it actually crosses the lane's fixed
+          // cross-axis line; among those, the strip is unspawnable only if
+          // their combined spans fully cover [low, high] — a single obstacle
+          // clipping one end still leaves the rest of the strip spawnable.
+          const spans = arenaObstacles
+            .map((obstacle) => ({
               x: obstacle.x - ENEMY_BODY_RADIUS,
               y: obstacle.y - ENEMY_BODY_RADIUS,
               w: obstacle.w + ENEMY_BODY_RADIUS * 2,
               h: obstacle.h + ENEMY_BODY_RADIUS * 2,
-            };
-            return side === 'top' || side === 'bottom'
-              ? coordinate >= expanded.y && coordinate <= expanded.y + expanded.h &&
-                  high >= expanded.x && low <= expanded.x + expanded.w
-              : coordinate >= expanded.x && coordinate <= expanded.x + expanded.w &&
-                  high >= expanded.y && low <= expanded.y + expanded.h;
+            }))
+            .filter((expanded) => horizontal
+              ? coordinate >= expanded.y && coordinate <= expanded.y + expanded.h
+              : coordinate >= expanded.x && coordinate <= expanded.x + expanded.w)
+            .map((expanded) => (horizontal
+              ? [expanded.x, expanded.x + expanded.w]
+              : [expanded.y, expanded.y + expanded.h]) as [number, number]);
+          const cuts = [...new Set([low, high, ...spans.flat().filter((c) => c > low && c < high)])]
+            .sort((a, b) => a - b);
+          const blocked = cuts.length > 1 && cuts.slice(0, -1).every((cut, i) => {
+            const mid = (cut + cuts[i + 1]!) / 2;
+            return spans.some(([start, end]) => mid >= start && mid <= end);
           });
-          if (blocked) errors.push(`spawnRegions[${rIdx}].lanes[${laneIndex}]: body-radius spawn strip intersects an obstacle`);
+          if (blocked) errors.push(`spawnRegions[${rIdx}].lanes[${laneIndex}]: body-radius spawn strip fully covered by obstacles`);
         });
       }
     }

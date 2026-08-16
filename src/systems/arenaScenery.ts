@@ -118,7 +118,12 @@ export class ArenaWorldView implements ArenaScenery {
       : side === 'bottom' ? Math.PI
         : side === 'left' ? -Math.PI / 2
           : 0;
-    this.addImage(artId, x, y, VisualDepth.boundary, rotation);
+    // The corner art is an asymmetric top-left corner (wall trim on top, accent
+    // post on the left). Rotation alone reaches the diagonally opposite corner
+    // (bottom-right); the other two need an additional horizontal flip so the
+    // accent post lands against the correct wall.
+    const flipX = terminal && (side === 'bottom') !== (index === columnCount - 1);
+    this.addImage(artId, x, y, VisualDepth.boundary, rotation, flipX);
   }
 
   private buildDecorations(): void {
