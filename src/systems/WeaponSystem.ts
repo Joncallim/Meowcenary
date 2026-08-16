@@ -83,7 +83,7 @@ export class WeaponSystem implements System {
   }
 
   update(dtMs: number): void {
-    this.heldWeapon?.update(dtMs);
+    this.heldWeapon?.update(dtMs, this.player.x, this.player.y);
     if (this.runState.status !== 'active') {
       return;
     }

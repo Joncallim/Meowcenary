@@ -131,6 +131,7 @@ interface TestHarness {
   };
   overlap?: (projectileObject: unknown, enemyObject: unknown) => void;
   projectileGroup: { added: MockGameObject[]; add: (sprite: MockGameObject) => void };
+  player: { x: number; y: number };
   system: WeaponSystem;
 }
 
@@ -266,6 +267,7 @@ describe('WeaponSystem', () => {
       enemy,
       overlap,
       projectileGroup,
+      player,
     };
   }
 
@@ -587,7 +589,15 @@ describe('WeaponSystem', () => {
     harness.system.update(650);
 
     expect(heldWeapon.show).toHaveBeenCalledWith(heldBinding, 0, 0, 0, 3);
+    expect(heldWeapon.update).toHaveBeenCalledWith(650, 0, 0);
     expect(fired).toHaveBeenCalledWith({ weaponId: 'scrap-pistol-t1', family: 'pistol', tier: 1, x: 0, y: 0 });
+
+    // The presentation must track the player's live position on every update.
+    harness.player.x = 24;
+    harness.player.y = 48;
+    harness.system.update(16);
+    expect(heldWeapon.update).toHaveBeenCalledWith(16, 24, 48);
+
     harness.system.destroy();
     expect(heldWeapon.destroy).toHaveBeenCalledTimes(1);
   });
