@@ -53,7 +53,7 @@ Input boundary with Epic 19:
 
 #### Epic 19 — Player UX and Alpha 2 Gate (#78)
 
-Final Alpha 2 gate:
+Final Alpha 2 player-experience gate:
 
 - auto-fire stays primary across touch, keyboard, and controller;
 - compare/validate portrait touch movement and thumb ergonomics;
@@ -64,17 +64,35 @@ Final Alpha 2 gate:
 - reserve a future ability action/slot without implementing the full character ability system;
 - no required right-stick/manual aiming.
 
-Alpha 2 ends only when the Golden Run passes a real player-experience gate on touch and controller, not merely automated tests.
+Epic 19 ends only when the Golden Run passes a real player-experience gate on touch and controller, not merely automated tests.
+
+### Mandatory Alpha 2 repository certification — Issue #94
+
+After Epic 19 is merged and its player-experience gate passes, complete **Alpha 2 Closeout: Full Repository Architecture, Quality, and Maintainability Audit (#94)** against the fully merged `main` branch.
+
+#94 is deliberately broader than an Alpha 3 readiness check. It is a whole-codebase certification and remediation gate covering implementation **and** planning across architecture, coding practice, modularity, cohesion/coupling, reusability/extensibility, TypeScript/API quality, state ownership, persistence, determinism, input, UI/accessibility, gameplay/physics, lifecycle/leaks, performance/memory, error recovery, testing quality, CI/build/configuration, dependencies/security, browser/mobile/native-wrapper portability, asset pipelines, documentation truth, dead code/duplication, naming/IDs, developer/agent ergonomics, and cross-system interactions.
+
+Default rule:
+
+> **Findings with credible downstream implications are fixed here, not merely recorded or deferred.**
+
+A finding is downstream-relevant if it creates credible future cost to correctness, maintainability, modularity, reusability, testability, performance, portability, security, agent/developer quality, debugging, content authoring, or future refactoring—even if it does not directly affect Alpha 3's first slices.
+
+Deferral is exceptional and requires evidence that the finding is genuinely isolated/local, creates no credible downstream cost, and would be disproportionately risky/costly to fix now.
+
+#94 requires multiple independent orthogonal passes, a finding ledger, remediation, full regression/manual/lifecycle validation, and a final independent re-review. It closes only with no unresolved P0/P1 or downstream-relevant P2 findings and an explicit **PASS** verdict that the repository is a trusted baseline for any subsequent development phase.
+
+**Architecture #92 is blocked by #94.** #92 must architect from the remediated/certified Alpha 2 codebase rather than compensate for known debt.
 
 ---
 
 ## Alpha 3 — Depth & Progression
 
-Alpha 3 expands the proven combat/build loop into a stage/progression game.
+Alpha 3 expands the certified Alpha 2 combat/build baseline into a stage/progression game.
 
 ### Mandatory shared architecture gate — Issue #92
 
-Before **any Epic 20 runtime implementation**, complete **Architecture: Alpha 3 Shared Foundation Contracts (#92)**.
+After #94 passes, complete **Architecture: Alpha 3 Shared Foundation Contracts (#92)** before any Epic 20 runtime implementation.
 
 Authoritative shared documents:
 
@@ -120,7 +138,7 @@ Core direction:
 - stage facts feed Epic 22 rather than maintaining duplicate achievement counters;
 - another stage using existing primitives must be data/assets-only.
 
-Epic 20 is blocked by #92.
+Epic 20 is blocked by #92, which is blocked by #94.
 
 ### Epic 21 — Enemy Roster Expansion and Boss Framework (#86)
 
@@ -164,7 +182,7 @@ Persistent weapon engineering outside combat:
 - explicit part/reward pools;
 - ordinary new parts using existing slot/effect/trait primitives are data/assets-only.
 
-Before this epic, reconcile `DataWeaponRegistry`'s static-definition mutability/validation behavior with the validated immutable-registry pattern used elsewhere; do not copy the inconsistency into the persistent Gunsmith design.
+Any weapon-registry immutability/validation inconsistency that remains after Epic 19 belongs in #94 and should be fixed there rather than deliberately carried into #92/Epic 23.
 
 ### Epic 24 — Mercenary Roster Expansion (#88)
 
@@ -242,7 +260,7 @@ Keep these roles distinct:
 - Milestone 1 — Playable combat slice.
 - Milestone 2 — Weapon/upgrade depth.
 - Milestone 3 — Meta progression shell.
-- Milestone 4 / Alpha 2 — Golden Run presentation, acquisition/merge UX, combat feel, build variety, touch/controller gate.
+- Milestone 4 / Alpha 2 — Golden Run presentation, acquisition/merge UX, combat feel, build variety, touch/controller gate, then full repository certification #94.
 - Milestone 5 / Alpha 3 — shared foundation #92, stage ladder, enemy/boss expansion, achievements/mastery, Gunsmith, larger roster, equipment, integrated progression.
 
 ## Explicitly Later
