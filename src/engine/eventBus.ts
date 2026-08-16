@@ -24,7 +24,10 @@ export interface GameEventMap {
   'level:up': { level: number };
   'card:offered': { offerId: number; choices: readonly string[] };
   'card:chosen': { upgradeId: string };
-  'weapon:merged': { fromId: string; toId: string };
+  // toTier (Epic 17): the merge result's tier, already known by the caller
+  // (WeaponInstance.tier) — scales the tier-up presentation's intensity so a
+  // T3 merge reads as more significant than a T1->T2 one.
+  'weapon:merged': { fromId: string; toId: string; toTier: number };
   'drop:collected': { kind: 'xp' | 'scrap'; amount: number; x: number; y: number };
   // Epic 14: rack acquisition signals. `weapon:acquired` fires after the rack
   // assignment and before the collected drop returns to the pool; weapons

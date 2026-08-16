@@ -12,6 +12,7 @@
     { "key": "sfx-player-damaged", "url": "assets/audio/sfx-player-damaged.wav" },
     { "key": "sfx-drop-collected", "url": "assets/audio/sfx-drop-collected.wav" },
     { "key": "sfx-level-up", "url": "assets/audio/sfx-level-up.wav" },
+    { "key": "sfx-weapon-merged", "url": "assets/audio/sfx-weapon-merged.wav" },
     { "key": "sfx-card-chosen", "url": "assets/audio/sfx-card-chosen.wav" },
     { "key": "sfx-run-won", "url": "assets/audio/sfx-run-won.wav" },
     { "key": "sfx-run-lost", "url": "assets/audio/sfx-run-lost.wav" },

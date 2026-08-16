@@ -8,6 +8,7 @@
     { "event": "player:damaged",  "sfxKey": "sfx-player-damaged",  "cooldownMs": 650 },
     { "event": "drop:collected",  "sfxKey": "sfx-drop-collected",  "cooldownMs": 60 },
     { "event": "level:up",        "sfxKey": "sfx-level-up" },
+    { "event": "weapon:merged",   "sfxKey": "sfx-weapon-merged" },
     { "event": "card:chosen",     "sfxKey": "sfx-card-chosen" },
     { "event": "run:won",         "sfxKey": "sfx-run-won",  "stopMusic": true, "musicFadeMs": 600 },
     { "event": "run:lost",        "sfxKey": "sfx-run-lost", "stopMusic": true, "musicFadeMs": 600 },

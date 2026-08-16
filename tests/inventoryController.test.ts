@@ -308,7 +308,7 @@ describe('InventoryController mergeSelected success', () => {
     });
 
     expect(emitSpy).toHaveBeenCalledTimes(1);
-    expect(emitSpy).toHaveBeenCalledWith({ fromId: 'scrap-pistol-t1', toId: 'scrap-pistol-t2' });
+    expect(emitSpy).toHaveBeenCalledWith({ fromId: 'scrap-pistol-t1', toId: 'scrap-pistol-t2', toTier: 2 });
   });
 
   it('merges a t2 pair into t3', () => {
