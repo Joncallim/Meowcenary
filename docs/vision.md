@@ -41,6 +41,7 @@ The Alpha 2 Golden Run exists to prove the combat/build/input loop before the br
 - Input devices feed a shared logical-action model; device/platform adapters do not create separate gameplay rules.
 - Persistent progression must be earned through play, not manipulative retention pressure.
 - Meowcenary owns achievement/mastery state. Game Center/Google Play Games are optional mirrors, never progression authorities.
+- Alpha 3 content must be deliberately extensible: ordinary new instances of an existing content type should be data/assets work, not gameplay-runtime rewrites.
 
 ## Alpha 2 Definition
 
@@ -73,6 +74,8 @@ After Alpha 2, the game expands through seven coordinated epics:
 - **Epic 24 — Mercenary Roster Expansion (#88):** more than three playable characters; initial target around eight, each with a distinct passive/start identity and a simple active ability using the shared input-action model.
 - **Epic 25 — Armour Sets and Equipment Progression (#89):** Helmet/Armour/Gloves/Boots, roughly eight set families, 2/4-piece bonuses, coin upgrades, and progression/boss/achievement-gated higher tiers.
 - **Epic 26 — Meta Progression Rebalance and Depth Integration (#90):** make stages, bosses, achievements/mastery, coins, armour, characters, and Gunsmith rewards form one coherent earned progression system.
+
+All seven Alpha 3 epics are additionally governed by [`architecture/alpha-3-content-extensibility-contract.md`](architecture/alpha-3-content-extensibility-contract.md). Their dedicated architecture passes must preserve stable IDs, typed registries, shared unlock/reward primitives, deterministic explicit content pools, migration-safe sparse persistence, ID-driven assets, and generic conformance tests.
 
 ## Achievement Direction
 
@@ -109,6 +112,28 @@ Controller support means more than left-stick movement. Menus, upgrade choices, 
 
 Native iOS/Android wrappers can later provide additional device/platform adapters without rewriting combat or UI rules.
 
+## Content Extensibility Direction
+
+Meowcenary should grow by **authoring content on top of stable systems**, not by special-casing each new item.
+
+The default rule is:
+
+> Adding another instance of an existing content type should require validated data + assets, not gameplay-system source changes.
+
+Examples:
+
+- another stage using existing objective/encounter/difficulty/reward primitives;
+- another enemy variant using an existing registered behavior;
+- another boss assembled from existing registered abilities/phases;
+- another achievement using existing metrics/conditions/reward grants;
+- another Gunsmith part using existing slot/effect/trait primitives;
+- another mercenary using existing passive/ability hooks;
+- another armour set using existing effect/set-bonus primitives.
+
+New code is appropriate only for a genuinely new mechanic. Once that mechanic is registered and tested, future content using it should again be data-only.
+
+Stable IDs, content packs/chapters, explicit deterministic pools, shared condition/reward vocabularies, save-schema/content-version separation, bundle-aware asset manifests, and catalog-wide conformance tests are the long-term authoring foundation. Avoid turning this into a general-purpose game engine or scripting platform before real use cases require it.
+
 ## Progression Boundaries
 
 The major systems must remain distinct:
@@ -134,4 +159,5 @@ The major systems must remain distinct:
 - Enemy archetypes and bosses are distinguishable by behavior, not just stats.
 - Achievements/mastery provide meaningful goals/unlock paths without becoming a checklist grind or platform-account dependency.
 - Persistent Gunsmith/armour/character progression gives the player concrete reasons to replay without becoming a grind treadmill.
+- New levels, enemies, achievements, parts, characters, and equipment using existing mechanics can be added without core-runtime edits or save-schema churn.
 - The player can feel both a run build and a long-term loadout getting stronger without needing a tutorial wall.
