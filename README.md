@@ -1,8 +1,8 @@
 # Meowcenary
 
-A browser-first roguelite survivor about an over-armed animal mercenary building ridiculous weapons from scrap.
+A browser-first roguelite survivor about an over-armed animal mercenary scavenging a junkyard and merging scrap into ridiculous weapons.
 
-Meowcenary is inspired by the accessible loops of Gun Hero, Archero, and Vampire Survivors, but it is not a clone. The product direction is: simple controls, automatic combat, quick runs, readable upgrades, data-driven balancing, and no ads or paid progression.
+Meowcenary is inspired by the accessible loops of Gun Hero, Archero, and Vampire Survivors, but it is not a clone. The product direction is: simple controls, automatic combat, quick runs, readable upgrades, data-driven balancing, and no ads or paid progression. The run takes place in a single coherent world — the Junkyard Lot — with a matching visual identity for the mercenary, its weapons, and everything it fights.
 
 ## Design Goals
 
@@ -51,9 +51,13 @@ src/
   ui/            HUD and menus
 
 docs/
-  architecture.md
-  roadmap.md
-  vision.md
+  architecture.md    Engineering boundaries and system ownership
+  epics.md           Shared contracts and the epic-by-epic backlog index
+  ai-workflow.md     Feature lifecycle and agent handoff prompt template
+  roadmap.md         Milestone history and current epic status
+  vision.md          Pitch, player fantasy, and MVP success criteria
+  architecture/      Per-epic implementation contracts
+  art/               Art direction and production references
 ```
 
 ## Local Development
@@ -74,15 +78,15 @@ npm run lint      # Type-check without emitting files
 
 ## Current Scope
 
-The initial milestone is a no-ads MVP:
+The playable loop is well past the original MVP. Shipped and playable today:
 
-- One arena.
-- One playable character.
-- Automatic firing.
-- Enemy waves.
-- XP and level-up choices.
-- Basic weapon definitions.
-- Basic upgrade cards.
-- Local run completion and save shell.
+- Movement, automatic targeting/firing, enemy waves, and win/loss runs.
+- A six-slot weapon rack with capacity-checked pickups and a merge system for growing weapon tiers.
+- Level-up upgrade cards, meta progression, and local saves.
+- Selectable characters and data-defined arenas.
+- An event-driven loot/economy loop (XP, scrap, chests) and live audio.
+- Dev-only balancing tools, performance pooling, and a data-driven visual identity — a validated art manifest, pooled weapon/pickup/defeat presentation, and a camera-traversable Junkyard Lot — kept separate from gameplay logic.
+
+Next up is Alpha 2's Golden Run push: combat feel, build variety, and the touch/controller gate. See [`docs/roadmap.md`](docs/roadmap.md) for exact epic-by-epic status and [`docs/epics.md`](docs/epics.md) for the shared contracts every epic builds on.
 
 Paid upgrades, ads, subscriptions, online accounts, and social features are explicitly out of scope for now.

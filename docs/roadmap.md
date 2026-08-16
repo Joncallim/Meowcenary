@@ -2,187 +2,253 @@
 
 ## Current Position
 
-- Epic 0 / Foundation: complete (#1).
-- Epic 1 / Core Gameplay Loop: complete (#2).
-- Epic 2 / Weapons and Merge System: complete (#3).
-- Epic 3 / Upgrade Cards: complete (#4).
-- Epic 4 / Enemy AI and Spawn Director: complete (#5).
-- Epic 5 / Meta Progression: complete (#6).
-- Epic 6 / Characters: complete (#7).
-- Epic 7 / Maps and Arenas: complete (#8).
-- Epic 8 / Loot and Economy: complete (#9).
-- Epic 9 / UI and UX: merged (PR #64) (#10).
-- Epic 10 / Audio: complete — contracts and game-scoped `AudioManager` merged
-  in PR #65; scene wiring, UI events, and placeholder assets merged in PR #68
-  (#11).
-- Epic 11 / Balancing and Developer Tooling: complete — slices 1–2 merged in
-  PR #66; slices 3–5 (dev-only cheat flags, rolling DPS/overlay metrics, local
-  playtest summary, tuning guide) merged in PR #70 (#12).
-- Epic 12 / Polish and Performance: complete — generic pooling, projectile/drop
-  reuse, event-driven combat feedback, reduced-motion policy, `PerfSampler`, F3
-  diagnostics, and FIT-responsive sizing merged in PR #71 (#13).
-- Epic 13 / Presentation Runtime and Physics Stability: complete — merged in
-  PR #79 (#72) — physics-debug opt-in, the actor-view presentation seam, the
-  `visual-art.json` catalog, AI-directed Pixelorama sprites for every current
-  actor plus one projectile and one pickup, and deterministic charger
-  environment clipping; architecture and delivery record in
-  [`architecture/epic-13-presentation-runtime.md`](architecture/epic-13-presentation-runtime.md);
-  delivered on the single branch `agent/epic-13-presentation-runtime`.
-- Epic 14 / Weapon Acquisition and Rack Economy: complete — merged in
-  PR #80 (#73) — the six-slot authoritative rack, one-T1-weapon starts,
-  capacity-checked weapon admission, physical no-loss full-rack pickups, the
-  dedicated seeded `weapon-rewards` stream, and the guaranteed early duplicate;
-  architecture and delivery record in
-  [`architecture/epic-14-weapon-acquisition-and-rack-economy.md`](architecture/epic-14-weapon-acquisition-and-rack-economy.md);
-  delivered on the single branch `agent/epic-14-weapon-acquisition`.
-- Epic 15 / Inventory and Merge Experience: complete — merged in PR #81 (#74)
-  — immutable six-slot rack read model,
-  authoritative compatibility highlighting, allocation-free next-tier preview,
-  direct merge-ready HUD entry, tap/keyboard commands, and responsive
-  portrait/landscape presentation; architecture and delivery record in
-  [`architecture/epic-15-inventory-and-merge-experience.md`](architecture/epic-15-inventory-and-merge-experience.md).
-- Epic 16 / Visual Identity and Junkyard World: runtime implementation complete
-  in PR #83 and awaiting review/merge (#75) — one validated 46-binding visual
-  manifest, explicit actor/weapon/pickup art references, pooled projectile/drop/
-  defeat presentation, authored world data, and a camera-traversable Junkyard
-  Lot; architecture and delivery record in
-  [`architecture/epic-16-visual-identity-and-junkyard-world.md`](architecture/epic-16-visual-identity-and-junkyard-world.md).
+### Complete foundations / MVP systems
 
-Epic 7 was implemented in the consolidated PR #51 and merged.
-Epic 8 is complete: Slices 1–5 merged in PRs #58–62, implementing the
-event-driven kill-to-loot pipeline, poolable magnet `Drop`, activated scrap
-economy, chest shell, integration harness, and dev hotkey.
+- Epics 0–16 are complete.
+- Epic 13 merged in PR #79.
+- Epic 14 merged in PR #80.
+- Epic 15 merged in PR #81.
+- Epic 16 merged in PR #83.
 
-Epic 8 (Loot and Economy, #9) is specified in
-[`architecture/epic-8-loot-and-economy.md`](architecture/epic-8-loot-and-economy.md).
-It moves kill-to-loot onto the event bus (an enriched `enemy:killed` payload
-consumed by `DropSystem`), adds the fail-closed `loot-tables.json` catalog with
-a pure seeded resolver, replaces `XpDrop` with a poolable magnet `Drop` entity,
-and activates the scrap economy (`currencyGain`, `currency:changed`) that
-Epic 5 banks at run end. Epic 8 adds no new events and no save-schema change;
-chests and rare drops ship as validated content shells, exactly as Epic 7
-shipped hazards. Each of its five slices ships as a focused implementation PR
-and as a sub-issue under the Epic 8 umbrella (#9).
+### Alpha 2 — Golden Run
 
-`main` now holds the complete Epic 8: event-driven kill-to-loot, live scrap
-economy, and the fixture/hotkey-proven chest shell.
-Epic 9 is specified in
-[`architecture/epic-9-ui-and-ux.md`](architecture/epic-9-ui-and-ux.md) as six
-dependency-ordered implementation/review gates on the single branch
-`agent/epic-9-ui-and-ux`. The architecture freezes production menu routing,
-HUD/read models, settings, touch presentation, pause/inventory merge ownership,
-upgrade-chooser preservation, and run-summary banking boundaries for handoff to
-Kimi K2.7 and DeepSeek V4 Pro.
-Epic 10 is specified in
-[`architecture/epic-10-audio.md`](architecture/epic-10-audio.md) as five
-dependency-ordered implementation/review gates on the single branch
-`agent/epic-10-audio`. The architecture freezes the game-scoped shared
-`AudioManager`, validated audio asset/map data, the pure `shouldPlay` cooldown
-gate, the `settings:changed` live-settings seam, additive `ui:*` sound events,
-the autoplay unlock policy (drop one-shots, defer music), and the placeholder
-asset pipeline. PR #65 merged slices 1–2 (data/event contracts and the
-unwired manager); PR #68 merged slices 3–5 (settings and scene lifecycle
-wiring, exactly-one `ui:*` command events, deterministic placeholder WAVs, and
-docs closeout), delivered on `agent/epic-10-audio-remainder` per
-[`architecture/epic-10-audio-remainder.md`](architecture/epic-10-audio-remainder.md).
-Epic 10 is complete.
-Epic 11's overall contracts are specified in
-[`architecture/epic-11-balancing-and-developer-tooling.md`](architecture/epic-11-balancing-and-developer-tooling.md).
-PR #66 delivered the descriptor-driven aggregate validator and shared curve
-helpers (slices 1–2). PR #70 delivered Issue #69's remaining work — the
-development-only cheat flags, read-only overlay metrics, local playtest
-summary, tuning guidance, and delivery closeout — on the single branch
-`agent/epic-11-remainder` per its executable work package
-[`architecture/epic-11-remainder.md`](architecture/epic-11-remainder.md).
-Epic 11 is complete.
-Epic 12 is specified in
-[`architecture/epic-12-polish-and-performance.md`](architecture/epic-12-polish-and-performance.md)
-as the final single-branch delivery package. It was delivered in PR #71 with
-subscriber-only combat feedback, live reduced-motion policy, strict generic
-pooling, behavior-preserving projectile/drop reuse, F3 performance visibility,
-an evidence-gated decision to defer enemy pooling, and FIT-based
-responsive/browser verification. It explicitly forbids gameplay projectile/drop
-caps because those would change combat or economy rather than merely improve
-lifetime management.
-Epic 14 is specified in
-[`architecture/epic-14-weapon-acquisition-and-rack-economy.md`](architecture/epic-14-weapon-acquisition-and-rack-economy.md)
-as the single-branch work package for Issue #73. It freezes the existing
-`RunState.equipped` array as a six-slot active rack, one-T1-weapon starts,
-weapon grants keyed by stable definition ID, capacity-checked fresh instance
-creation through the shared run registry, physical no-loss full-rack pickups,
-a dedicated seeded `weapon-rewards` stream, a guaranteed early duplicate, and
-strict boundaries that leave final rack UX, art, feedback, and pacing to
-Epics 15–18. It was delivered on the single branch
-`agent/epic-14-weapon-acquisition` and merged in PR #80; the §9 manual Golden
-Run acceptance pass is recorded in §13 as pending reviewer/local execution.
+Alpha 2 finishes **one genuinely good Golden Run** before broad content expansion. It proves combat/build feel, visual identity, touchscreen ergonomics, controller parity, replayability, and a readable player journey.
 
-The Epic 7 architecture is documented in
-[`architecture/epic-7-maps-and-arenas.md`](architecture/epic-7-maps-and-arenas.md),
-which adds the arena data/registry/selection contracts, the pure
-`spawnPoint(arena, rng)` bridge into Epic 4's spawn director, arena world
-bounds, static obstacles, and an optional hazard shell. Epic 7 extends the
-pre-run `RunRequest` boundary Epic 6 established — arena selection follows the
-identical `GameContext` pattern used for characters — and closes the
-pre-existing duplication where `SpawnSystem` re-derived `spawnCurves[0]`
-instead of consuming `RunState.arenaId`. Each slice ships as its own
-architecture PR and as a sub-issue under the Epic 7 umbrella (#8).
+#### Epic 16 — Visual Identity and Junkyard World (#75)
 
-## Milestone 0: Foundation
+Complete — architecture/art direction merged in PR #82; runtime merged in PR #83: one
+validated 46-binding visual manifest, explicit actor/weapon/pickup art references,
+pooled projectile/drop/defeat presentation, authored world data, and a
+camera-traversable Junkyard Lot; architecture and delivery record in
+[`architecture/epic-16-visual-identity-and-junkyard-world.md`](architecture/epic-16-visual-identity-and-junkyard-world.md).
 
-- Vite, Phaser, TypeScript scaffold.
-- Scene shell.
-- Data loading.
-- Repository standards.
-- Issue backlog.
+#### Epic 17 — Combat Feel and Weapon Identity (#76)
 
-## Milestone 1: Playable Combat Slice
+Make pistol/SMG/shotgun tiers and current enemy threats perceptually distinct and satisfying.
 
-- Player movement.
-- Auto targeting and auto firing.
-- Enemy spawning.
-- Damage and death.
-- XP drops.
-- Level-up choice screen.
+Additional cross-epic constraint:
 
-## Milestone 2: Weapon and Upgrade Depth
+- if Epic 17 introduces gameplay-affecting behavioral weapon effects, create a **small reusable combat-effect vocabulary** and one authoritative resolution path;
+- do not hard-code family/tier/content IDs in `GameScene`;
+- do not create an Epic-17-only effect system that Epic 18 cards or Epic 23 Gunsmith parts later have to replace;
+- generalize only effects actually needed by Alpha 2 content—do not implement speculative Gunsmith traits early.
 
-- Weapon framework.
-- Projectile variants.
-- Merge rules.
-- Upgrade card generation.
-- Weapon synergies.
-- Run summary.
+#### Epic 18 — Build Variety and Golden Run Pacing (#77)
 
-## Milestone 3: Meta Progression
+Expand the rotating upgrade-card experience and tune the Golden Run:
 
-- Local save system.
-- Persistent currency.
-- Permanent upgrades.
-- Character unlock shell.
-- Weapon unlock shell.
+- ~15–20 meaningful upgrade definitions;
+- normally 4–5 visible choices per offer;
+- owned/current/max-stack indicators;
+- placeholder imagery/icon metadata + resolvable placeholder visuals;
+- richer effects/build directions through approved shared effect contracts;
+- temporary cards remain separate from persistent Gunsmith progression.
 
-## Milestone 4: Content Expansion
+Input boundary with Epic 19:
 
-- Multiple enemy archetypes.
-- Boss framework.
-- Arena variants.
-- More upgrade families.
-- Better economy tuning.
+- the upgrade engine may offer 4–5 cards;
+- touch may select a visible card directly;
+- keyboard/controller use generic focus/navigation + confirm;
+- number keys may remain optional shortcuts, but do **not** make `1`–`5` the ownership model for card selection.
 
-## Milestone 5: Polish and Release Candidate
+#### Epic 19 — Player UX and Alpha 2 Gate (#78)
 
-- Responsive mobile controls.
-- UI polish.
-- Particles and combat feedback.
-- Audio.
-- Accessibility settings.
-- Performance pass.
+Final Alpha 2 gate:
+
+- auto-fire stays primary across touch, keyboard, and controller;
+- compare/validate portrait touch movement and thumb ergonomics;
+- movement/positioning must provide enough agency; one simple dash/evade is allowed only if playtesting proves it necessary;
+- freeze one platform-neutral logical input/action layer;
+- full launch → menu → run → upgrade → rack/merge → settings → summary → Retry/Menu journey must work controller-only;
+- validate deadzones, focus navigation, disconnect/reconnect, mixed-input switching, and duplicate-command suppression;
+- reserve a future ability action/slot without implementing the full character ability system;
+- no required right-stick/manual aiming.
+
+Alpha 2 ends only when the Golden Run passes a real player-experience gate on touch and controller, not merely automated tests.
+
+---
+
+## Alpha 3 — Depth & Progression
+
+Alpha 3 expands the proven combat/build loop into a stage/progression game.
+
+### Mandatory shared architecture gate — Issue #92
+
+Before **any Epic 20 runtime implementation**, complete **Architecture: Alpha 3 Shared Foundation Contracts (#92)**.
+
+Authoritative shared documents:
+
+- [`architecture/alpha-3-shared-foundation.md`](architecture/alpha-3-shared-foundation.md)
+- [`architecture/alpha-3-content-extensibility-contract.md`](architecture/alpha-3-content-extensibility-contract.md)
+
+#92 freezes shared concerns once so Epics 20–26 do not independently invent competing versions of them:
+
+- Stage/Contract as the Alpha 3 content-composition root;
+- explicit evolution from current `{ characterId, arenaId, seed }` run requests to stage-oriented resolved run plans;
+- Stage/Objective state—not Arena/SpawnCurve duration—as the normal Alpha 3 victory owner;
+- Save V3 domain ownership and V2 migration, including preservation of `achievement:first-victory` / Bolt Hound access;
+- preservation of existing shipped bare content IDs rather than aesthetic mass-renaming;
+- one shared unlock/condition vocabulary;
+- one shared durable reward/grant vocabulary;
+- catalog/registry/conformance registration patterns;
+- modular future Alpha 3 validators while preserving the aggregate descriptor boundary;
+- explicit deterministic content pools;
+- save-schema version separate from content/catalog/balance version;
+- future chapter asset-bundle seam built on the validated manifest approach;
+- future `content:validate` command contract, implemented only when enough real Alpha 3 catalogs exist;
+- architecture documents kept durable/lean, with large execution evidence kept in PR/checks or concise `docs/delivery/` records.
+
+Default extensibility rule:
+
+> **Adding another instance of an existing content type should require validated data + assets, not core gameplay-system source changes.**
+
+Every Epic 20–26 retains its required **data-only second fixture** proof.
+
+### Epic 20 — Contracts, Objectives, and Stage Progression (#85)
+
+Replace the single endurance-format structure with a stage/contract ladder.
+
+Core direction:
+
+- stage selection becomes the normal Alpha 3 run entry point;
+- a stage composes reusable arena + objective + encounter + difficulty + reward + unlock references;
+- Arena remains the physical world definition, not the owner of stage encounter/victory/reward semantics;
+- Stage/Objective owns success/failure state;
+- objective families initially include kill, collect, survive, and elite/target contracts;
+- frontier stages become severely hostile around the intended ~3-minute clear window;
+- initial chapter cadence targets four normal stages + boss Stage 5;
+- stage facts feed Epic 22 rather than maintaining duplicate achievement counters;
+- another stage using existing primitives must be data/assets-only.
+
+Epic 20 is blocked by #92.
+
+### Epic 21 — Enemy Roster Expansion and Boss Framework (#86)
+
+Expand toward roughly eight behaviorally distinct archetypes:
+
+1. Grunt / swarm.
+2. Runner / flanker.
+3. Brute.
+4. Shooter / projectile enemy.
+5. Charger.
+6. Spawner.
+7. Shielded enemy.
+8. Splitter / disruptor.
+
+Bosses are unique milestone encounters with small readable movesets, not inflated normal enemies. Enemy/boss definitions reference reusable registered behaviors/abilities and explicit encounter pools. New variants/boss compositions using existing primitives must be data/assets-only.
+
+### Epic 22 — Achievements, Mastery, and Platform Sync (#91)
+
+Create one game-owned achievement/mastery system:
+
+- standard, incremental, hidden, and mastery achievements;
+- sparse persistent local progress;
+- exactly-once completion/rewards;
+- in-game gallery/progress read models;
+- achievement-triggered unlocks through the shared #92 grant vocabulary;
+- optional Game Center / Google Play Games mirrors;
+- native services never become progression authority;
+- ordinary new achievements using existing metric/condition/grant primitives are data-only.
+
+Epic 21 architecture must expose authoritative combat/boss facts for Epic 22 rather than forcing achievement-specific counters into boss code.
+
+### Epic 23 — Persistent Gunsmith and Weapon-Part Crafting (#87)
+
+Persistent weapon engineering outside combat:
+
+- modular receiver/core, barrel, optic, stock, trigger, magazine, underbarrel/specialist slots;
+- persistent part inventory/builds;
+- bounded merge/upgrade/trait infusion;
+- hybrid behavior such as an incendiary conventional barrel;
+- reuse the approved combat-effect semantics established by real Epic 17/18 needs rather than creating a parallel damage/effect model;
+- explicit part/reward pools;
+- ordinary new parts using existing slot/effect/trait primitives are data/assets-only.
+
+Before this epic, reconcile `DataWeaponRegistry`'s static-definition mutability/validation behavior with the validated immutable-registry pattern used elsewhere; do not copy the inconsistency into the persistent Gunsmith design.
+
+### Epic 24 — Mercenary Roster Expansion (#88)
+
+Expand beyond three characters; initial target ~8:
+
+- distinct base/passive/start identities;
+- one simple active ability using Epic 19 logical actions;
+- progression/boss/achievement/mastery unlocks;
+- data-defined characters referencing registered passive/ability primitives;
+- ordinary new characters using existing primitives are data/assets-only.
+
+### Epic 25 — Armour Sets and Equipment Progression (#89)
+
+Persistent Helmet / Armour / Gloves / Boots system:
+
+- target ~8 set families;
+- 2-piece + 4-piece bonuses;
+- coins improve owned equipment;
+- progression/boss/achievement/mastery unlocks higher tiers;
+- registered effect/set-bonus primitives;
+- ordinary new items/sets are data/assets-only;
+- no required drag/touch-only management flow.
+
+### Epic 26 — Meta Progression Rebalance and Depth Integration (#90)
+
+Integrate all persistent systems into one clear economy/progression model:
+
+- give each resource/system one purpose;
+- consume the shared #92 condition/grant contracts rather than inventing a second progression grammar;
+- simplify/retire redundant legacy permanent-upgrade paths;
+- prevent easiest-stage grinding from being dominant;
+- ensure boss/milestone rewards are meaningfully stronger than ordinary farming;
+- all between-run progression remains controller navigable.
+
+---
+
+## Input / Platform Boundary
+
+```text
+Touch ───────┐
+Keyboard ────┼─> shared logical actions ─> gameplay/UI commands
+Controller ──┘
+```
+
+Native iOS/Android wrappers may provide additional device adapters later, but do not fork gameplay rules. Controller players use the same automatic combat model; required right-stick/manual aiming remains out of scope.
+
+## Achievement / Platform Boundary
+
+```text
+Gameplay facts
+      ↓
+Meowcenary Achievement/Mastery State  ← authoritative
+      ↓
+web/local | Game Center mirror | Google Play Games mirror
+```
+
+Platform sync failure never blocks/revokes a local achievement, stage unlock, blueprint, character, or equipment unlock.
+
+## Progression Boundaries
+
+Keep these roles distinct:
+
+- **Upgrade cards:** temporary run build direction.
+- **Run rack/merges:** temporary combat escalation.
+- **Stages/bosses:** content milestones + authoritative accomplishment facts.
+- **Achievements/mastery:** game-owned accomplishment/unlock primitive.
+- **Gunsmith:** persistent weapon engineering.
+- **Armour/equipment:** persistent loadout/set progression.
+- **Mercenaries:** persistent playable identities/passives/abilities.
+- **Coins/scrap:** improve appropriate owned content; never universal milestone bypass.
+
+## Milestone History
+
+- Milestone 0 — Foundation.
+- Milestone 1 — Playable combat slice.
+- Milestone 2 — Weapon/upgrade depth.
+- Milestone 3 — Meta progression shell.
+- Milestone 4 / Alpha 2 — Golden Run presentation, acquisition/merge UX, combat feel, build variety, touch/controller gate.
+- Milestone 5 / Alpha 3 — shared foundation #92, stage ladder, enemy/boss expansion, achievements/mastery, Gunsmith, larger roster, equipment, integrated progression.
 
 ## Explicitly Later
 
-- Online accounts.
-- Cloud saves.
+- Native iOS/Android packaging/store delivery after input + persistent-state contracts stabilize.
+- Online accounts / cloud saves.
 - Leaderboards.
 - Co-op.
-- Cosmetic store.
-- Any monetisation.
+- Cosmetic store / any monetisation.

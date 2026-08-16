@@ -2,9 +2,9 @@
 
 This file gives a simple overview of the Meowcenary backlog and defines the
 **shared contracts** every epic builds on. GitHub issues are the default source
-for each epic's implementation plan; a linked repository architecture document
-may explicitly supersede older issue wording, as Epics 5, 6, 7, 8, 9, and 10 do. This file
-is the source of truth for the module names, data shapes, and events epics share.
+for each epic's product scope; a linked repository architecture document may
+explicitly supersede older issue wording. This file is the cross-epic source of
+truth for shared module names, data shapes, boundaries, and sequencing.
 
 ## Documentation Standard
 
@@ -14,120 +14,98 @@ Every epic should use the same structure:
 2. **Owns** — what this epic is responsible for.
 3. **Does Not Own** — what belongs somewhere else.
 4. **Contracts** — the exact modules, types, data files, and events this epic
-   adds or consumes. This is the part that makes the epic implementable.
+   adds or consumes.
 5. **Architecture Rules** — boundaries that keep the code simple.
-6. **Implementation Plan** — the order Codex/GPT-5.5 should build in.
-7. **Tests and Checks** — how to verify the work.
-8. **Done When** — the definition of done.
-9. **Codex Handoff** — short instructions for the implementation agent.
+6. **Implementation Plan** — dependency-ordered slices.
+7. **Tests and Checks** — automated and manual verification.
+8. **Done When** — definition of done.
+9. **Codex Handoff** — implementation-agent instructions.
 
 Keep documentation practical. Avoid long theory, duplicated design notes, or
-vague wording. When an epic needs a type or event that already exists in the
-Shared Foundation Contracts below, **reference it by name — do not redefine it.**
+vague wording. When an epic needs a type or event that already exists below,
+**reference it by name — do not redefine it.**
 
 ## Repository Layout (canonical)
-
-Epics must place code in these paths so ownership stays obvious:
 
 ```text
 src/
   engine/        Framework-agnostic primitives (no Phaser imports)
-    config.ts        RuntimeConfig constants
-    sceneKeys.ts     SceneKey values
-    eventBus.ts      Typed event emitter + GameEventMap
-    rng.ts           Seeded Rng + createRng(seed)
-    vector.ts        Vec2 + math helpers
-    cadence.ts       Cadence accumulator for fixed-interval ticks
-    cooldown.ts      Pure shouldPlay cooldown gate (added in Epic 10)
-    pool.ts          Generic object Pool<T> (added in Epic 12)
-    motion.ts        Shared reduced-motion policy helpers (added in Epic 12)
-  entities/      Phaser display/physics objects: Player, Enemy, Projectile, Drop
-  gameplay/      Pure run rules (no Phaser imports): runState, stats, xp,
-                 targeting, weapons, merge, upgrades, spawnDirector, loot, reward,
-                 characterSelection, arenaSelection (Epic 7), spawnRegion (Epic 7),
-                 curves, metrics (Epic 11), perf (Epic 12)
-  systems/       Phaser-aware coordinators: input, save, validation, weapons,
-                 enemies, arenas (Epic 7), lootTables (Epic 8), debug, audio,
-                 playtestSummary (Epic 11), feedback (Epic 12), types.ts
-  scenes/        BootScene, GameScene (thin coordinators only)
-  ui/            hud, cards, inventory, menus, settings
-  data/          *.json gameplay definitions
-tests/           *.test.ts (Vitest)
+    config.ts
+    sceneKeys.ts
+    eventBus.ts
+    rng.ts
+    vector.ts
+    cadence.ts
+    cooldown.ts
+    pool.ts
+    motion.ts
+    context.ts
+  entities/      Phaser display/physics objects
+  gameplay/      Pure run/progression rules (no Phaser imports)
+  systems/       Phaser-aware coordinators + registries/validation/save
+  scenes/        BootScene, MenuScene, GameScene — thin coordinators only
+  ui/            HUD, cards, rack/inventory, menus, settings, future meta UI
+  data/          Validated gameplay definitions
+tests/           Vitest
 ```
 
 Rule of thumb: anything under `engine/` and `gameplay/` **must not import
-Phaser** so it stays unit-testable. `entities/`, `systems/`, `scenes/`, and
-`ui/` may use Phaser.
+Phaser**. `entities/`, `systems/`, `scenes/`, and `ui/` may use Phaser.
 
 ## Shared Foundation Contracts
 
-These are defined once (mostly in Epic 0 and Epic 1) and reused everywhere.
+### Event bus
 
-### Event bus (Epic 0 owns `src/engine/eventBus.ts`)
+Gameplay systems emit; audio/UI/debug/feedback subscribe. Systems do not call
+each other directly for presentation feedback. `GameEventMap` is additive and
+must remain typed.
 
-A tiny typed emitter: `on`, `off`, `emit`. Gameplay systems **emit**; audio, UI,
-debug, and polish **subscribe**. Systems never call each other directly for
-feedback. The event map is additive — each epic appends its events:
+Current event families include:
 
-```ts
-interface GameEventMap {
-  'run:start':        { characterId: string; arenaId: string; seed: number };
-  'run:paused':       Record<string, never>;
-  'run:resumed':      Record<string, never>;
-  'run:won':          { timeMs: number; level: number; kills: number };
-  'run:lost':         { timeMs: number; level: number; kills: number };
-  'player:damaged':   { amount: number; healthRemaining: number };
-  'player:died':      Record<string, never>;
-  'enemy:spawned':    { instanceId: number; enemyId: string; x: number; y: number };
-  'enemy:damaged':    { instanceId: number; amount: number; x: number; y: number };
-  'enemy:killed':     { instanceId: number; enemyId: string; xpValue: number; scrapValue: number; lootTableId?: string; x: number; y: number };
-  'weapon:fired':     { weaponId: string; x: number; y: number };
-  'projectile:hit':   { x: number; y: number; damage: number; killed: boolean };
-  'xp:gained':        { amount: number; total: number };
-  'level:up':         { level: number };
-  'card:offered':     { offerId: number; choices: readonly string[] }; // token + upgrade ids
-  'card:chosen':      { upgradeId: string };
-  'weapon:merged':    { fromId: string; toId: string };
-  'drop:collected':   { kind: 'xp' | 'scrap'; amount: number; x: number; y: number };
-  'currency:changed': { runTotal: number };
-  'hazard:triggered': { hazardId: string; damage: number; x: number; y: number }; // Epic 7; damage applied this tick
-  'settings:changed': { settings: Settings };      // Epic 10; emitted only by GameContext.updateSettings on identity change
-  'ui:navigate':      Record<string, never>;       // Epic 10; view focus/selection movement
-  'ui:confirm':       Record<string, never>;       // Epic 10; UI control activation
-  'ui:back':          Record<string, never>;       // Epic 10; back/dismiss/resume navigation
-}
+```text
+run:start / paused / resumed / won / lost
+player:damaged / died
+enemy:spawned / damaged / killed
+weapon:fired / merged / acquired / pickup-blocked
+projectile:hit
+xp:gained / level:up / card:offered / card:chosen
+drop:collected / currency:changed / hazard:triggered
+settings:changed
+ui:navigate / ui:confirm / ui:back
 ```
 
-### Seeded RNG (Epic 0 owns `src/engine/rng.ts`)
+When a new epic needs a signal, extend an existing payload where that is the
+real domain event; add a new event only for a genuinely new domain action.
 
-All randomness (card offers, loot, spawn jitter, crits) flows through
-deterministic run-scoped streams derived from the run seed so runs are
-reproducible and rules are testable. A stream is created once per owner and is
-not recreated per decision.
+Epic 22 may add achievement/mastery domain signals only where no existing
+authoritative fact is sufficient. Achievement progress must never be derived
+from cosmetic feedback events when an authoritative gameplay/progression fact
+exists.
+
+### Seeded RNG
+
+All gameplay randomness flows through deterministic run-scoped streams derived
+from the run seed.
 
 ```ts
 interface Rng {
-  next(): number;                              // [0, 1)
+  next(): number;
   int(minInclusive: number, maxInclusive: number): number;
   pick<T>(items: readonly T[]): T;
   weighted<T>(entries: ReadonlyArray<{ item: T; weight: number }>): T;
 }
-function createRng(seed: number): Rng;         // deterministic (mulberry32)
-function deriveRunSeed(seed: number, stream: string): number; // stable named stream
+
+function createRng(seed: number): Rng;
+function deriveRunSeed(seed: number, stream: string): number;
 ```
 
-Never call `Math.random()` in gameplay code. The run seed lives in `RunState`.
-`GameContext.menuRng` is boot/menu-scoped only; combat, loot, spawns, and cards
-must create/use run-scoped RNGs from `RunState.seed`. Named streams are derived
-by the shared helper rather than scene-local constants so one subsystem's RNG
-consumption cannot silently perturb another's sequence.
+Never call `Math.random()` in gameplay code. `GameContext.menuRng` is menu-only.
+Subsystems own named streams so one subsystem's RNG consumption cannot silently
+perturb another.
 
-### Stats and modifiers (primitive owned by Epic 1 `src/gameplay/stats.ts`)
+### Stats and modifiers
 
-One shared way to combine base stats with additive/multiplicative modifiers.
-Epic 3 (upgrades), Epic 5 (permanent upgrades), and Epic 6 (character passives)
-all *produce* `Modifier`s; weapons, player, and loot *read* resolved values.
-Nobody invents their own multiplier bag.
+One shared `ModifierStack` combines base stats and effects.
 
 ```ts
 type StatKey =
@@ -135,28 +113,29 @@ type StatKey =
   | 'damage' | 'attackSpeed' | 'projectileSpeed' | 'projectileCount' | 'range'
   | 'critChance' | 'pickupRadius' | 'xpGain' | 'currencyGain';
 
-interface Modifier { stat: StatKey; op: 'add' | 'mult'; value: number; sourceId: string; }
+interface Modifier {
+  stat: StatKey;
+  op: 'add' | 'mult';
+  value: number;
+  sourceId: string;
+}
 
 interface ModifierStack {
   add(mod: Modifier): void;
   remove(sourceId: string): void;
-  countBySource(sourceId: string): number;     // diagnostics/removal grouping, not stack authority
-  resolve(stat: StatKey, base: number): number; // all 'add' first, then all 'mult'
+  countBySource(sourceId: string): number;
+  resolve(stat: StatKey, base: number): number;
 }
 ```
 
-Convention: **higher is always better.** Fire cadence is modelled as
-`attackSpeed` (default 1), and effective interval is `baseFireRateMs / attackSpeed`
-— never apply a modifier directly to a `*Ms` field.
+All additive modifiers resolve before multiplicative modifiers. Higher is
+better. Fire cadence is represented by `attackSpeed`, not a direct negative
+modifier to an interval field.
 
-`RunState.upgradeStacks` is the authority for upgrade stack limits. A single
-card can add multiple modifiers, so modifier count must never be interpreted as
-the number of times that card was selected.
+`RunState.upgradeStacks` remains the authority for temporary-card stack counts;
+modifier count is not card count.
 
-### Run state (Epic 1 owns `src/gameplay/runState.ts`)
-
-The single mutable object describing the current run. Every gameplay system
-reads and writes it through helper functions, not by reaching into the scene.
+### Run state
 
 ```ts
 type RunStatus = 'intro' | 'active' | 'paused' | 'won' | 'lost';
@@ -173,22 +152,23 @@ interface RunState {
   xp: number;
   xpToNext: number;
   kills: number;
-  currency: number;                 // scrap collected this run (not yet banked)
-  stats: ModifierStack;             // player/global stats
-  equipped: WeaponInstance[];       // Epic 2 populates and types
-  upgradeStacks: Record<string, number>; // Epic 3 populates
+  currency: number;
+  stats: ModifierStack;
+  equipped: WeaponInstance[];
+  upgradeStacks: Record<string, number>;
   pauseReason: PauseReason | null;
   outcome?: RunOutcome;
 }
 ```
 
-When `RunState.status !== 'active'`, gameplay simulation must not advance:
-run timer, spawn cadence, weapon cadence, projectile movement, pickup side
-effects, and damage callbacks all pause.
+When `RunState.status !== 'active'`, gameplay simulation must not advance.
+Future stage/contract state should either be resolved into/alongside RunState by
+a dedicated pure owner or explicitly version RunState in its architecture pass;
+do not hide mission state in `GameScene`.
 
-### Weapon runtime state (Epic 2 owns `src/gameplay/weapons.ts`)
+### Weapon runtime state
 
-Weapon data is static; weapon instances are runtime state. Keep them separate.
+Static definitions and runtime instances remain separate.
 
 ```ts
 interface WeaponInstance {
@@ -199,19 +179,11 @@ interface WeaponInstance {
 }
 ```
 
-Rules:
+`RunState.equipped` is the temporary six-slot active rack. `WeaponSystem` owns
+runtime cadence/projectiles. Run merging stays pure and separate from Epic 23's
+future persistent Gunsmith.
 
-- `WeaponInstance` must stay Phaser-free and serializable.
-- `RunState.equipped` stores weapon instances.
-- `WeaponSystem` owns runtime machinery such as `Cadence`, Phaser groups, and
-  projectile objects; those do not belong in `RunState`.
-- Merge helpers live in `src/gameplay/merge.ts` and stay pure.
-- Weapon data lives in `src/data/weapons.json` and is validated at load time.
-
-### Upgrade selection state (Epic 3 owns `src/gameplay/upgrades.ts`)
-
-Upgrade effects are data, but their runtime source identity is assigned when a
-card is chosen:
+### Upgrade selection state
 
 ```ts
 interface UpgradeEffect {
@@ -231,125 +203,215 @@ interface UpgradeDefinition {
 }
 ```
 
-Rules:
+Rules inherited from Epic 3:
 
-- JSON effects omit `sourceId`; `applyCard` assigns a stable per-stack source.
-- The source is `card:<upgradeId>:<one-based stack>`; Epic 5 owns the shared
-  namespace contract with permanent and character modifiers.
-- `RunState.upgradeStacks[id]` is the only stack-limit authority.
-- `maxStacks` is a positive integer.
-- `applyCard` preflights every effect and applies a card transactionally; a
-  `false` result leaves both stack history and modifiers unchanged.
-- Epic 3 modifiers are run-global. Per-weapon targeting is deferred until a
-  typed weapon-modifier store exists; player copy must describe the real scope.
-- `target` is classification/presentation metadata in Epic 3, not an
-  instruction to select a weapon instance.
-- Multi-level gains queue one choice per emitted `level:up`. The run resumes
-  only after every queued choice is resolved.
-- One coordination group per `RunState` owns the upgrade subscription, FIFO,
-  offer, run-scoped RNG, and pause lease; duplicate `UpgradeSystem` facades join
-  it without duplicating state or draws.
-- `card:offered` publishes a monotonically increasing per-run `offerId` with
-  eligible IDs. Commands require both token and ID, so an old UI command cannot
-  select the same ID from a later offer.
-- Offered-listener commands are deferred until every listener can read the
-  matching snapshot. `card:chosen` is emitted only after a valid current-token
-  choice has been applied and its pending level retired.
-- If no eligible cards remain, the queue advances without deadlocking the run.
+- JSON effects omit `sourceId`; application assigns stable per-stack sources.
+- `RunState.upgradeStacks[id]` is the stack-limit authority.
+- Card application is transactional.
+- Multi-level gains queue one offer per level.
+- `card:offered` uses a per-run monotonically increasing `offerId`; stale-token
+  commands cannot select a later offer.
+- Empty eligible pools cannot deadlock the run.
 
-### Save data (Epic 0 storage seam, Epic 5 current schema)
+Epic 18 extends this presentation/read-model contract without breaking the offer
+ownership semantics:
 
-```ts
-interface SaveDataV1 {
-  version: 1;
-  settings: Settings;
-  meta: Readonly<Record<string, never>>;
-}
-interface MetaState {
-  scrap: number;
-  unlocks: readonly string[];
-  permanentUpgrades: Readonly<Record<string, number>>;
-}
-interface SaveDataV2 { version: 2; settings: Settings; meta: MetaState; }
-type SaveData = SaveDataV2;
-interface Settings { muted: boolean; musicVolume: number; sfxVolume: number; reducedMotion: boolean; }
+- target ~15–20 meaningful upgrade definitions;
+- normally 4–5 visible choices per offer;
+- owned/current/max-stack state is exposed by authoritative read models;
+- every shipped upgrade has placeholder icon/image presentation metadata and a
+  resolvable placeholder visual;
+- final art may replace placeholders without changing gameplay IDs/rules;
+- temporary cards stay separate from persistent Gunsmith progression.
+
+### Unified input/action boundary
+
+Epic 19 owns the Alpha 2 architecture pass that freezes one logical input/action
+model shared by touch, keyboard, and game controllers.
+
+Target relationship:
+
+```text
+Touch ───────┐
+Keyboard ────┼─> input/action adapter ─> logical actions ─> gameplay/UI commands
+Controller ──┘
 ```
 
-`SaveManager` takes a `StorageAdapter` (LocalStorage in the browser, in-memory
-in tests). Epic 5 adds the linear `SaveDataV1` to `SaveDataV2` migration and
-keeps V1's empty meta meaning unchanged. Unknown future versions fail closed to
-a default current save. `GameContext` owns the current loaded snapshot and is
-the only runtime persistence boundary. See
-[`architecture/epic-5-meta-progression.md`](architecture/epic-5-meta-progression.md)
-for exact recovery and mutation contracts.
+Movement remains an analog/vector intent where available. Non-movement actions
+include concepts such as:
 
-### Time source
+```ts
+type GameAction =
+  | 'confirm'
+  | 'back'
+  | 'pause'
+  | 'inventory'
+  | 'dash'
+  | 'ability'
+  | 'navUp'
+  | 'navDown'
+  | 'navLeft'
+  | 'navRight';
+```
 
-Systems in `gameplay/` receive elapsed milliseconds (`dtMs`) as an argument to
-their `update(dtMs, ...)` methods. They must not read Phaser's clock directly,
-so schedules (fire cadence, spawn timing) stay deterministic in tests.
+This type is illustrative until the Epic 19 architecture pass freezes the live
+contract.
+
+Rules:
+
+- Gameplay/UI rules consume logical actions, not Xbox/PlayStation button names,
+  keyboard scan codes, or touch-widget identities.
+- Controller support covers the **entire** player journey, not combat only.
+- Controller-only play must not require pointer hover, drag, touch, or a hidden
+  cursor fallback.
+- Controller connect/disconnect/input-source switching clears stale held state
+  and must not double-confirm or lose focus.
+- Auto-fire remains primary across all devices; required right-stick/manual aim
+  is outside the product direction.
+- Epic 24 character abilities must consume the same logical action layer rather
+  than adding a character-specific device path.
+- Future native wrappers may add input adapters, but do not fork gameplay rules.
+
+### Save and persistent state
+
+Current save ownership remains `SaveManager` + `GameContext` with linear,
+versioned migrations. Existing meta state holds persistent currency, unlocks,
+and legacy permanent-upgrade state.
+
+Post-Alpha-2 epics may require new persistent structures for stage completion,
+achievement/mastery progress, Gunsmith parts/builds, character abilities, and
+equipment ownership. Those must be introduced through explicit versioned
+migrations; do not append ad-hoc LocalStorage keys per feature.
+
+### Achievement/mastery authority
+
+Epic 22 introduces a game-owned persistent achievement/mastery primitive before
+the systems that consume it.
+
+Core boundary:
+
+```text
+authoritative gameplay/progression facts
+                ↓
+Meowcenary achievement/mastery state  ← source of truth
+                ↓
+      optional platform adapters
+        /                    \
+ Apple Game Center      Google Play Games
+```
+
+Rules:
+
+- Meowcenary IDs/state are authoritative for progression and unlocks.
+- Web/offline play earns achievements normally with no platform account.
+- Platform services are best-effort, idempotent mirrors only.
+- Failed/missing platform sync never revokes or blocks locally earned progress.
+- Standard, incremental, hidden, and mastery definitions are planned first-class
+  concepts.
+- Achievement-triggered rewards route through the normal progression/save
+  boundary exactly once.
+- Epics 23–26 reference Epic 22 IDs/state; they do not create parallel
+  achievement counters.
+
+### Time
+
+Pure gameplay systems receive `dtMs`; they must not read Phaser clocks directly.
 
 ## Epic Order
 
 | Epic | Issue | Status | Purpose |
 | --- | --- | --- | --- |
-| Epic 0 | #1 Project Foundation | Complete | Config, event bus, RNG, data validation, save/settings, input, debug, audio shell, tests, CI. |
-| Epic 1 | #2 Core Gameplay Loop | Complete | First playable loop: move, auto-shoot, survive, level up, win or lose; owns RunState + stats primitive. |
-| Epic 2 | #3 Weapons and Merge System | Complete | Automatic weapons, projectiles, inventory state, pure merge rules. |
-| Epic 3 | #4 Upgrade Cards | Complete | Readable run-only level-up choices that emit real `Modifier`s. |
-| Epic 4 | #5 Enemy AI and Spawn Director | Complete | Simple enemy behaviours and data-driven wave pressure. |
-| Epic 5 | #6 Meta Progression | Complete | Earned permanent progress: banks RunState rewards, no ads/payments/timers. |
-| Epic 6 | #7 Characters | Complete | Selectable characters with starting stats, loadouts, passives, unlock hooks. |
-| Epic 7 | #8 Maps and Arenas | Complete | Data-defined arenas, spawn regions, obstacles, hazard hooks. |
-| Epic 8 | #9 Loot and Economy | Complete | Event-driven kill-to-loot pipeline, poolable `Drop` entity, activated scrap economy, chest shell, integration harness, and dev hotkey; architecture in [`architecture/epic-8-loot-and-economy.md`](architecture/epic-8-loot-and-economy.md). |
-| Epic 9 | #10 UI and UX | Architecture ready | Single-branch production menu, HUD, settings, touch presentation, pause/inventory, chooser integration, and run summary; architecture in [`architecture/epic-9-ui-and-ux.md`](architecture/epic-9-ui-and-ux.md). |
-| Epic 10 | #11 Audio | Complete | Single-branch event-driven SFX/music, autoplay unlock, per-key cooldowns, live settings via `settings:changed`, and the deterministic placeholder asset pipeline; contracts in [`architecture/epic-10-audio.md`](architecture/epic-10-audio.md), slices 3–5 delivery in [`architecture/epic-10-audio-remainder.md`](architecture/epic-10-audio-remainder.md). |
-| Epic 11 | #12 Balancing and Developer Tooling | Complete | Slices 1–2 (aggregate data validation, shared curve helpers) merged in PR #66; slices 3–5 (dev-gated cheat flags, rolling DPS/overlay metrics, local playtest summary, tuning guide) merged in PR #70; architecture in [`architecture/epic-11-balancing-and-developer-tooling.md`](architecture/epic-11-balancing-and-developer-tooling.md), slices 3–5 delivery in [`architecture/epic-11-remainder.md`](architecture/epic-11-remainder.md). |
-| Epic 12 | #13 Polish and Performance | Complete | Single-branch PR #71: generic pooling, projectile/drop reuse, deterministic event-driven combat feedback, reduced-motion policy, fixed-window `PerfSampler`, F3 diagnostics, FIT-responsive sizing; architecture in [`architecture/epic-12-polish-and-performance.md`](architecture/epic-12-polish-and-performance.md). |
-| Epic 13 | #72 Presentation Runtime and Physics Stability | Complete · merged in PR #79 | Single-branch delivery on `agent/epic-13-presentation-runtime`: dev-only physics-debug opt-ins, stable body-owned actor-view seam, validated `actor-art.json` catalog #11, AI-directed Pixelorama sources/builders/exports for all five current actors plus one projectile and one pickup, and deterministic charger bounds/obstacle clipping; architecture and evidence in [`architecture/epic-13-presentation-runtime.md`](architecture/epic-13-presentation-runtime.md). |
-| Epic 14 | #73 Weapon Acquisition and Rack Economy | Complete · merged in PR #80 | Single-branch delivery on `agent/epic-14-weapon-acquisition`: six-slot authoritative rack (`WEAPON_RACK_CAPACITY`), one-T1-weapon starts, weapon grants keyed by stable definition ID, capacity-checked admission through the shared run registry, physical no-loss full-rack pickups with blocked-drops, a dedicated seeded `weapon-rewards` stream, a guaranteed early duplicate, and minimal `n/6` HUD capacity; architecture and delivery record in [`architecture/epic-14-weapon-acquisition-and-rack-economy.md`](architecture/epic-14-weapon-acquisition-and-rack-economy.md). |
-| Epic 15 | #74 Inventory and Merge Experience | Draft implementation | Visual six-slot rack, authoritative compatibility states, allocation-free next-tier preview, direct HUD entry, tap/keyboard commands, responsive portrait/landscape presentation, and temporary code-rendered family glyphs; architecture and delivery record in [`architecture/epic-15-inventory-and-merge-experience.md`](architecture/epic-15-inventory-and-merge-experience.md). |
+| Epic 0 | #1 Project Foundation | Complete | Config, event bus, RNG, validation, save/settings, input, debug/audio shells, CI. |
+| Epic 1 | #2 Core Gameplay Loop | Complete | Movement, auto-combat, XP, level-up, win/loss; owns RunState + stats primitive. |
+| Epic 2 | #3 Weapons and Merge System | Complete | Automatic weapons, projectiles, runtime weapon state, pure merge rules. |
+| Epic 3 | #4 Upgrade Cards | Complete | Deterministic run-only level-up choices and modifier application. |
+| Epic 4 | #5 Enemy AI and Spawn Director | Complete | Enemy behavior foundation and data-driven wave pressure. |
+| Epic 5 | #6 Meta Progression | Complete | Earned persistent currency/upgrades/unlocks and migration boundary. |
+| Epic 6 | #7 Characters | Complete | Character data/selection/passive hooks and run contribution. |
+| Epic 7 | #8 Maps and Arenas | Complete | Data-defined arenas, spawn regions, obstacles, hazards. |
+| Epic 8 | #9 Loot and Economy | Complete | Event-driven loot, poolable drops, scrap economy, chest shell. |
+| Epic 9 | #10 UI and UX | Complete · PR #64 | Production menu/HUD/settings/touch/pause/inventory/chooser/summary foundation. |
+| Epic 10 | #11 Audio | Complete · PRs #65/#68 | Game-scoped audio manager, event-driven SFX/music, settings, placeholders. |
+| Epic 11 | #12 Balancing and Developer Tooling | Complete · PRs #66/#70 | Aggregate validation, curves, dev cheats, metrics, summaries. |
+| Epic 12 | #13 Polish and Performance | Complete · PR #71 | Pooling, deterministic feedback, reduced motion, perf/FIT diagnostics. |
+| Epic 13 | #72 Presentation Runtime and Physics Stability | Complete · PR #79 | Physics-debug gating, actor-view seam, art catalog/pipeline, movement stability. |
+| Epic 14 | #73 Weapon Acquisition and Rack Economy | Complete · PR #80 | Six-slot run rack, weapon pickups, no-loss full rack, deterministic reward stream. |
+| Epic 15 | #74 Inventory and Merge Experience | Complete · PR #81 | Visual rack, merge compatibility/preview, HUD entry, mobile-first tap interaction. |
+| Epic 16 | #75 Visual Identity and Junkyard World | Implementation PR #83 open | Production actor/weapon/pickup/world art and coherent Junkyard presentation. |
+| Epic 17 | #76 Combat Feel and Weapon Identity | Open | Make weapon families/tiers and current enemy threats perceptually distinct and satisfying. |
+| Epic 18 | #77 Build Variety and Golden Run Pacing | Open · amended | Expand rotating upgrade pool, stack/ownership indicators, placeholder card imagery, and tune one replayable Golden Run. |
+| Epic 19 | #78 Player UX and Alpha 2 Gate | Open · amended | Holistic Alpha 2 gate: touch ergonomics + full controller-only journey + shared logical input/actions. |
+| Epic 20 | #85 Contracts, Objectives, and Stage Progression | Open · Alpha 3 | Objective-based stage ladder, ~3-minute frontier pressure, chapter/boss-stage cadence. |
+| Epic 21 | #86 Enemy Roster Expansion and Boss Framework | Open · Alpha 3 | ~8 behavioral archetypes, projectile threats, encounter composition, unique bosses. |
+| Epic 22 | #91 Achievements, Mastery, and Platform Sync | Open · Alpha 3 | Game-owned standard/incremental/hidden/mastery achievements; offline/web authority; optional Game Center/Google Play mirrors. |
+| Epic 23 | #87 Persistent Gunsmith and Weapon-Part Crafting | Open · Alpha 3 | Persistent modular guns/parts, out-of-combat crafting, merging, bounded trait infusion. |
+| Epic 24 | #88 Mercenary Roster Expansion | Open · Alpha 3 | >3 playable characters; target ~8 with distinct passives/start identities, simple abilities, controller parity. |
+| Epic 25 | #89 Armour Sets and Equipment Progression | Open · Alpha 3 | Helmet/Armour/Gloves/Boots, ~8 set families, 2/4-piece bonuses, coin upgrades + milestone-tier unlocks. |
+| Epic 26 | #90 Meta Progression Rebalance and Depth Integration | Open · Alpha 3 | Give each reward/progression layer one clear role and integrate stages/bosses/achievements/Gunsmith/armour/characters. |
 
 ## Cross-Epic Rules
 
 - Keep code modular, easy to read, and as simple as possible.
-- `engine/` and `gameplay/` must not import Phaser; keep them pure and tested.
-- Keep Phaser scenes thin; scenes wire systems together and forward `update`.
-- Keep gameplay tuning in `src/data/*.json`; no hidden multipliers in scenes.
-- Feedback flows through the event bus, not direct system-to-system calls.
-- All randomness flows through the seeded `Rng`; never call `Math.random()`.
-- All stat changes flow through `ModifierStack`; never hand-roll multipliers.
-- No ads, paid power, subscriptions, energy systems, or manipulative pacing.
-- Implement each epic in reviewable slices. Epics 9, 10, and 11 are explicit
-  maintainer exceptions: their slices stay on one branch and one eventual
-  delivery PR.
+- `engine/` and `gameplay/` must not import Phaser.
+- Keep Phaser scenes thin.
+- Keep tuning/data definitions in validated data where practical.
+- Feedback flows through the event bus.
+- All randomness flows through seeded run-scoped RNG streams.
+- All ordinary stat changes flow through approved stat/effect contracts; do not
+  hand-roll multiplier bags.
+- Touch, keyboard, and controller input converge on logical actions; device
+  adapters do not own gameplay rules.
+- Controller support is end-to-end UI + gameplay support, not combat-only.
+- No required manual/right-stick aiming.
+- Meowcenary achievement/mastery state is authoritative; native achievement
+  services are optional mirrors only.
+- No ads, paid power, subscriptions, energy systems, forced waiting, or
+  manipulative progression pressure.
+- Product/architecture decisions must be tested against actual phone-scale
+  readability, touch ergonomics, and controller focus/navigation.
+- New persistent systems need explicit migration-safe ownership and must have a
+  unique progression role.
 
-### Reward-calculation boundary (Epic 8 vs Epic 5)
+## Progression-Layer Boundary
 
-To avoid duplicated logic: **Epic 8** owns *in-run* collection — drops add to
-`RunState.currency` and `RunState.xp` while the run is live. **Epic 5** (shipped)
-owns *end-of-run banking* of the current currency, including zero. One
-`ProgressionSystem` funnels both `run:won` and `run:lost` into one guarded
-banking method; scenes do not implement reward or persistence rules. Epic 8
-changes only how currency is generated — drops resolved from the enriched
-`enemy:killed` payload through `src/gameplay/loot.ts` — and never writes
-`MetaState`. See
-[`architecture/epic-8-loot-and-economy.md`](architecture/epic-8-loot-and-economy.md).
+Post-Alpha-2 work must preserve this separation unless a dedicated architecture
+pass deliberately supersedes it:
+
+| Layer | Scope | Purpose |
+| --- | --- | --- |
+| Upgrade cards | Current contract/run | Temporary build direction and run-to-run variety |
+| Six-slot weapon rack / run merges | Current run | Short-term combat escalation |
+| Achievements/mastery | Persistent | Game-owned accomplishment/progression primitive; optional native mirrors |
+| Gunsmith | Persistent | Engineer/personalize guns and parts between runs |
+| Armour/equipment | Persistent | Mercenary loadout, set bonuses, gear upgrading |
+| Mercenary roster | Persistent selection | Distinct passive/active play styles |
+| Stages/bosses | Persistent progression | Content milestones and authoritative accomplishment facts |
+| Coins/scrap | Persistent resource | Improve appropriate owned gear/items; not universal milestone access |
+
+If two systems are doing the same job, simplify one rather than preserving
+feature count.
+
+## Reward-calculation Boundary
+
+In-run loot owns live run rewards. Persistent progression owns exactly-once
+banking/unlocks. Future contract/stage completion must preserve the same
+principle: gameplay systems report authoritative completion/reward facts;
+progression/save code owns durable mutation. Epic 22 may observe those facts for
+achievement/mastery state but never makes platform sync a prerequisite for
+banking or unlocks.
 
 ## Suggested Build Sequence
 
-1. Epic 0 is complete (event bus, RNG, save, validation, CI).
-2. Epic 1 is complete (playable loop, RunState, stats primitive).
-3. Epics 2, 3, and 4 are complete.
-4. Implement Epic 5 from its seven architecture slices; it does not wait for
-   Epic 8.
-5. Epic 6 is complete (character selection, the pre-run `RunRequest` boundary,
-   and the reactive-passive seam).
-6. Epic 7 is complete (arena data, selection, spawn regions, world bounds,
-   obstacle and hazard shells).
-7. Epic 8 is complete (PRs #58–63). Implement Epic 9 from the single-branch
-   architecture in [`architecture/epic-9-ui-and-ux.md`](architecture/epic-9-ui-and-ux.md),
-   then Epic 10 from the single-branch architecture in
-   [`architecture/epic-10-audio.md`](architecture/epic-10-audio.md).
-8. Use Epic 11 throughout tuning.
-9. Save Epic 12 for late-stage polish and performance.
+1. Epics 0–15 are complete foundations for the current product.
+2. Finish Epic 16 runtime delivery and merge/close it only when its player-facing gates pass.
+3. Epic 17: make the existing weapons/enemies feel distinct.
+4. Epic 18: expand upgrade-card variety/presentation and tune the Golden Run.
+5. Epic 19: run holistic Alpha 2 QA, including real-device touch combat and full controller-only validation; freeze shared logical actions and movement-only vs movement+dash based on evidence.
+6. **Do not begin broad Alpha 3 content until Epic 19's Golden Run/input gate passes.**
+7. Epic 20: introduce contracts/stage progression.
+8. Epic 21: expand enemy behaviors and bosses against the stage framework.
+9. Epic 22: establish game-owned achievements/mastery + optional platform-sync adapters before downstream systems depend on achievement IDs.
+10. Epic 23: build the persistent Gunsmith as a separate between-run progression system.
+11. Epic 24: expand the mercenary roster and simple active-ability path using Epic 19's shared input baseline and Epic 22 mastery IDs.
+12. Epic 25: add armour/equipment sets and progression/achievement-gated tiers.
+13. Epic 26: integrate/rebalance the persistent progression economy and simplify redundant legacy progression.
