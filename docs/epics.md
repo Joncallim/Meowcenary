@@ -77,6 +77,11 @@ ui:navigate / ui:confirm / ui:back
 When a new epic needs a signal, extend an existing payload where that is the
 real domain event; add a new event only for a genuinely new domain action.
 
+Epic 22 may add achievement/mastery domain signals only where no existing
+authoritative fact is sufficient. Achievement progress must never be derived
+from cosmetic feedback events when an authoritative gameplay/progression fact
+exists.
+
 ### Seeded RNG
 
 All gameplay randomness flows through deterministic run-scoped streams derived
@@ -135,7 +140,6 @@ modifier count is not card count.
 ```ts
 type RunStatus = 'intro' | 'active' | 'paused' | 'won' | 'lost';
 type PauseReason = 'manual' | 'levelUp';
-
 type RunOutcome = 'won' | 'lost';
 
 interface RunState {
@@ -176,8 +180,8 @@ interface WeaponInstance {
 ```
 
 `RunState.equipped` is the temporary six-slot active rack. `WeaponSystem` owns
-runtime cadence/projectiles. Run merging stays pure and separate from the future
-persistent Gunsmith.
+runtime cadence/projectiles. Run merging stays pure and separate from Epic 23's
+future persistent Gunsmith.
 
 ### Upgrade selection state
 
@@ -220,6 +224,54 @@ ownership semantics:
 - final art may replace placeholders without changing gameplay IDs/rules;
 - temporary cards stay separate from persistent Gunsmith progression.
 
+### Unified input/action boundary
+
+Epic 19 owns the Alpha 2 architecture pass that freezes one logical input/action
+model shared by touch, keyboard, and game controllers.
+
+Target relationship:
+
+```text
+Touch ───────┐
+Keyboard ────┼─> input/action adapter ─> logical actions ─> gameplay/UI commands
+Controller ──┘
+```
+
+Movement remains an analog/vector intent where available. Non-movement actions
+include concepts such as:
+
+```ts
+type GameAction =
+  | 'confirm'
+  | 'back'
+  | 'pause'
+  | 'inventory'
+  | 'dash'
+  | 'ability'
+  | 'navUp'
+  | 'navDown'
+  | 'navLeft'
+  | 'navRight';
+```
+
+This type is illustrative until the Epic 19 architecture pass freezes the live
+contract.
+
+Rules:
+
+- Gameplay/UI rules consume logical actions, not Xbox/PlayStation button names,
+  keyboard scan codes, or touch-widget identities.
+- Controller support covers the **entire** player journey, not combat only.
+- Controller-only play must not require pointer hover, drag, touch, or a hidden
+  cursor fallback.
+- Controller connect/disconnect/input-source switching clears stale held state
+  and must not double-confirm or lose focus.
+- Auto-fire remains primary across all devices; required right-stick/manual aim
+  is outside the product direction.
+- Epic 24 character abilities must consume the same logical action layer rather
+  than adding a character-specific device path.
+- Future native wrappers may add input adapters, but do not fork gameplay rules.
+
 ### Save and persistent state
 
 Current save ownership remains `SaveManager` + `GameContext` with linear,
@@ -227,19 +279,43 @@ versioned migrations. Existing meta state holds persistent currency, unlocks,
 and legacy permanent-upgrade state.
 
 Post-Alpha-2 epics may require new persistent structures for stage completion,
-Gunsmith parts/builds, character mastery/abilities, and equipment ownership.
-Those must be introduced through explicit versioned migrations; do not append
-ad-hoc LocalStorage keys per feature.
+achievement/mastery progress, Gunsmith parts/builds, character abilities, and
+equipment ownership. Those must be introduced through explicit versioned
+migrations; do not append ad-hoc LocalStorage keys per feature.
 
-### Time and input
+### Achievement/mastery authority
+
+Epic 22 introduces a game-owned persistent achievement/mastery primitive before
+the systems that consume it.
+
+Core boundary:
+
+```text
+authoritative gameplay/progression facts
+                ↓
+Meowcenary achievement/mastery state  ← source of truth
+                ↓
+      optional platform adapters
+        /                    \
+ Apple Game Center      Google Play Games
+```
+
+Rules:
+
+- Meowcenary IDs/state are authoritative for progression and unlocks.
+- Web/offline play earns achievements normally with no platform account.
+- Platform services are best-effort, idempotent mirrors only.
+- Failed/missing platform sync never revokes or blocks locally earned progress.
+- Standard, incremental, hidden, and mastery definitions are planned first-class
+  concepts.
+- Achievement-triggered rewards route through the normal progression/save
+  boundary exactly once.
+- Epics 23–26 reference Epic 22 IDs/state; they do not create parallel
+  achievement counters.
+
+### Time
 
 Pure gameplay systems receive `dtMs`; they must not read Phaser clocks directly.
-Input reports intent/commands and never owns rules.
-
-Epic 19 keeps automatic targeting/firing primary and explicitly validates the
-touch control model. If movement-only play is materially passive, a single
-simple dash/evade may be added behind deterministic/pause-safe rule ownership.
-Twin-stick/manual aiming is outside the product direction.
 
 ## Epic Order
 
@@ -264,13 +340,14 @@ Twin-stick/manual aiming is outside the product direction.
 | Epic 16 | #75 Visual Identity and Junkyard World | Implementation PR #83 open | Production actor/weapon/pickup/world art and coherent Junkyard presentation. |
 | Epic 17 | #76 Combat Feel and Weapon Identity | Open | Make weapon families/tiers and current enemy threats perceptually distinct and satisfying. |
 | Epic 18 | #77 Build Variety and Golden Run Pacing | Open · amended | Expand rotating upgrade pool, stack/ownership indicators, placeholder card imagery, and tune one replayable Golden Run. |
-| Epic 19 | #78 Player UX and Alpha 2 Gate | Open · amended | Holistic Alpha 2 player gate plus explicit real-device touchscreen combat/ergonomics validation. |
+| Epic 19 | #78 Player UX and Alpha 2 Gate | Open · amended | Holistic Alpha 2 gate: touch ergonomics + full controller-only journey + shared logical input/actions. |
 | Epic 20 | #85 Contracts, Objectives, and Stage Progression | Open · Alpha 3 | Objective-based stage ladder, ~3-minute frontier pressure, chapter/boss-stage cadence. |
 | Epic 21 | #86 Enemy Roster Expansion and Boss Framework | Open · Alpha 3 | ~8 behavioral archetypes, projectile threats, encounter composition, unique bosses. |
-| Epic 22 | #87 Persistent Gunsmith and Weapon-Part Crafting | Open · Alpha 3 | Persistent modular guns/parts, out-of-combat crafting, merging, bounded trait infusion. |
-| Epic 23 | #88 Mercenary Roster Expansion | Open · Alpha 3 | >3 playable characters; target ~8 with distinct passives/start identities and simple active abilities. |
-| Epic 24 | #89 Armour Sets and Equipment Progression | Open · Alpha 3 | Helmet/Armour/Gloves/Boots, ~8 set families, 2/4-piece bonuses, coin upgrades + milestone-tier unlocks. |
-| Epic 25 | #90 Meta Progression Rebalance and Depth Integration | Open · Alpha 3 | Give each reward/progression layer one clear role and integrate stages/bosses/Gunsmith/armour/characters. |
+| Epic 22 | #91 Achievements, Mastery, and Platform Sync | Open · Alpha 3 | Game-owned standard/incremental/hidden/mastery achievements; offline/web authority; optional Game Center/Google Play mirrors. |
+| Epic 23 | #87 Persistent Gunsmith and Weapon-Part Crafting | Open · Alpha 3 | Persistent modular guns/parts, out-of-combat crafting, merging, bounded trait infusion. |
+| Epic 24 | #88 Mercenary Roster Expansion | Open · Alpha 3 | >3 playable characters; target ~8 with distinct passives/start identities, simple abilities, controller parity. |
+| Epic 25 | #89 Armour Sets and Equipment Progression | Open · Alpha 3 | Helmet/Armour/Gloves/Boots, ~8 set families, 2/4-piece bonuses, coin upgrades + milestone-tier unlocks. |
+| Epic 26 | #90 Meta Progression Rebalance and Depth Integration | Open · Alpha 3 | Give each reward/progression layer one clear role and integrate stages/bosses/achievements/Gunsmith/armour/characters. |
 
 ## Cross-Epic Rules
 
@@ -282,10 +359,16 @@ Twin-stick/manual aiming is outside the product direction.
 - All randomness flows through seeded run-scoped RNG streams.
 - All ordinary stat changes flow through approved stat/effect contracts; do not
   hand-roll multiplier bags.
+- Touch, keyboard, and controller input converge on logical actions; device
+  adapters do not own gameplay rules.
+- Controller support is end-to-end UI + gameplay support, not combat-only.
+- No required manual/right-stick aiming.
+- Meowcenary achievement/mastery state is authoritative; native achievement
+  services are optional mirrors only.
 - No ads, paid power, subscriptions, energy systems, forced waiting, or
   manipulative progression pressure.
 - Product/architecture decisions must be tested against actual phone-scale
-  readability and touch ergonomics.
+  readability, touch ergonomics, and controller focus/navigation.
 - New persistent systems need explicit migration-safe ownership and must have a
   unique progression role.
 
@@ -298,10 +381,11 @@ pass deliberately supersedes it:
 | --- | --- | --- |
 | Upgrade cards | Current contract/run | Temporary build direction and run-to-run variety |
 | Six-slot weapon rack / run merges | Current run | Short-term combat escalation |
+| Achievements/mastery | Persistent | Game-owned accomplishment/progression primitive; optional native mirrors |
 | Gunsmith | Persistent | Engineer/personalize guns and parts between runs |
 | Armour/equipment | Persistent | Mercenary loadout, set bonuses, gear upgrading |
 | Mercenary roster | Persistent selection | Distinct passive/active play styles |
-| Stages/bosses/achievements | Persistent progression | Content milestones and unlock gates |
+| Stages/bosses | Persistent progression | Content milestones and authoritative accomplishment facts |
 | Coins/scrap | Persistent resource | Improve appropriate owned gear/items; not universal milestone access |
 
 If two systems are doing the same job, simplify one rather than preserving
@@ -312,7 +396,9 @@ feature count.
 In-run loot owns live run rewards. Persistent progression owns exactly-once
 banking/unlocks. Future contract/stage completion must preserve the same
 principle: gameplay systems report authoritative completion/reward facts;
-progression/save code owns durable mutation.
+progression/save code owns durable mutation. Epic 22 may observe those facts for
+achievement/mastery state but never makes platform sync a prerequisite for
+banking or unlocks.
 
 ## Suggested Build Sequence
 
@@ -320,11 +406,12 @@ progression/save code owns durable mutation.
 2. Finish Epic 16 runtime delivery and merge/close it only when its player-facing gates pass.
 3. Epic 17: make the existing weapons/enemies feel distinct.
 4. Epic 18: expand upgrade-card variety/presentation and tune the Golden Run.
-5. Epic 19: run holistic Alpha 2 QA, including real-device touch combat validation; freeze movement-only vs movement+dash based on evidence.
-6. **Do not begin broad Alpha 3 content until Epic 19's Golden Run gate passes.**
+5. Epic 19: run holistic Alpha 2 QA, including real-device touch combat and full controller-only validation; freeze shared logical actions and movement-only vs movement+dash based on evidence.
+6. **Do not begin broad Alpha 3 content until Epic 19's Golden Run/input gate passes.**
 7. Epic 20: introduce contracts/stage progression.
 8. Epic 21: expand enemy behaviors and bosses against the stage framework.
-9. Epic 22: build the persistent Gunsmith as a separate between-run progression system.
-10. Epic 23: expand the mercenary roster and simple active-ability path using Epic 19's touch baseline.
-11. Epic 24: add armour/equipment sets and progression-gated tiers.
-12. Epic 25: integrate/rebalance the persistent progression economy and simplify redundant legacy progression.
+9. Epic 22: establish game-owned achievements/mastery + optional platform-sync adapters before downstream systems depend on achievement IDs.
+10. Epic 23: build the persistent Gunsmith as a separate between-run progression system.
+11. Epic 24: expand the mercenary roster and simple active-ability path using Epic 19's shared input baseline and Epic 22 mastery IDs.
+12. Epic 25: add armour/equipment sets and progression/achievement-gated tiers.
+13. Epic 26: integrate/rebalance the persistent progression economy and simplify redundant legacy progression.
