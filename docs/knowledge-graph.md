@@ -1,9 +1,19 @@
 # Meowcenary Knowledge Graph
 
-> Token-optimized repo map. Read this before any implementation work.
-> Current state: **Epics 0–15 complete; Epic 16 architecture/art direction merged in PR #82 and runtime implementation is open in PR #83; Epics 17–19 are the remaining Alpha 2 Golden Run work; Epics 20–26 are the post-Alpha-2 Depth & Progression backlog and must not be implemented before their dedicated architecture passes.**
->
-> Important new routing: Epic 19 freezes the shared touch/keyboard/controller logical-action model and requires a full controller-only Alpha 2 journey. Epic 22 (#91) owns authoritative achievements/mastery and optional Game Center / Google Play Games mirroring. The former Gunsmith/mercenary/armour/integration epics are renumbered to 23–26.
+> Token-optimized repo map. Read this before implementation work.
+> Current state: **Epics 0–15 complete; Epic 16 architecture/art direction merged in PR #82 and runtime PR #83 is open but must sync current `main` before merge; Epics 17–19 are the remaining Alpha 2 Golden Run work. Alpha 3 runtime is gated by Issue #92, then Epics 20–26.**
+
+## Read Order
+
+1. This file.
+2. `docs/epics.md`.
+3. `docs/roadmap.md`.
+4. `docs/architecture.md`.
+5. Most specific epic architecture document.
+6. For Alpha 3: `docs/architecture/alpha-3-shared-foundation.md` + `alpha-3-content-extensibility-contract.md`.
+7. Live source + tests.
+
+Open implementation branches are branch implementation truth only; they do not supersede newer planning already landed on `main`.
 
 ## Stack
 
@@ -12,119 +22,141 @@ Phaser 3.90 + TypeScript 5.8 + Vite 7 + Vitest 3.2
 Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly.
 ```
 
-## Directory Map
+## Current Structural Strengths
 
-| Dir | Status | Rules | Contents |
-|-----|--------|-------|----------|
-| `src/engine/` | ✅ | **No Phaser** | config, events, RNG, vectors, cadence, context, pooling, motion |
-| `src/gameplay/` | ✅ | **No Phaser; pure rules** | run state, stats, XP, targeting, weapons, merge, upgrades, enemy/spawn/loot/meta, rack/rewards |
-| `src/entities/` | ✅ | Phaser allowed | Player, Enemy, Projectile, Drop, actor view |
-| `src/systems/` | ✅ | Phaser-aware coordinators | validation/save/input/audio/debug/registries/game systems |
-| `src/scenes/` | ✅ | Thin coordinators only | BootScene, MenuScene, GameScene |
-| `src/ui/` | ✅ | Phaser allowed | chooser, selection, progression, pause, summary, HUD, controls, rack/inventory, settings |
-| `src/data/` | ✅ | Validated JSON | weapons, enemies, upgrades, meta-upgrades, spawn curves, characters, arenas, loot, audio, actor art |
-| `tests/` | ✅ | Vitest | unit + mocked-Phaser + integration harnesses |
-| `docs/` | ✅ | Planning/architecture truth | vision, epics, roadmap, architecture docs |
+- `engine/` + `gameplay/`: Phaser-free pure/testable rules.
+- `scenes/`: composition/lifecycle owners; must not become content-ID rule engines.
+- descriptor-driven aggregate validation with cross-reference ordering guarantees.
+- immutable validated registries for characters/arenas/loot and similar data domains.
+- named run-scoped RNG streams; never `Math.random()` for gameplay.
+- versioned save migration + one persistent mutation boundary.
+- six-slot run rack + deterministic weapon reward stream.
+- controller/touch work deliberately centralized into Epic 19 rather than scattered device branches.
 
-## Current Runtime Baseline
+## Known Current Gaps / Transition Risks
 
-Epics 13–15 established:
+### PR #83
 
-- stable physics/presentation separation;
-- actor-art catalog + Pixelorama asset pipeline;
-- six-slot run weapon rack;
-- deterministic `weapon-rewards` RNG stream;
-- no-loss full-rack pickup behavior;
-- immutable rack read model and mobile-first merge UX.
+Epic 16 runtime work is complete on its branch but the PR is currently non-mergeable after newer `main` planning changes. Sync `main`, preserve newer shared planning, retain Epic-16-specific delivery updates, rerun the full Epic 16 gate, then merge before Epic 17 implementation.
 
-Epic 16 runtime work in PR #83 extends production visuals/world presentation. Treat PR #83 branch state as implementation truth until merged; do not assume it is on `main`.
+### Input
 
-## Frozen Current Contracts
+Current live input is keyboard + pointer/touch. UI keyboard handling is still distributed across views/scenes. Epic 19 must freeze one shared logical action layer; do not bolt gamepad branches onto every view.
 
-### GameContext
+### Stage ownership
 
-```ts
-{ bus, menuRng, data, metaUpgrades, saveData, settings,
-  characters, selectedCharacterId, selectionRevision, selectCharacter,
-  arenas, selectedArenaId, arenaSelectionRevision, selectArena,
-  updateSettings, updateMeta, resetProgression }
-```
-
-`updateMeta` remains the current persistent mutation boundary until a later architecture pass evolves it.
-
-### GameEventMap
-
-Current event families:
+Current Alpha 2 relationship:
 
 ```text
-run:*   player:*   enemy:*   weapon:*   projectile:hit
-xp:gained   level:up   card:offered/chosen
-drop:collected   currency:changed   hazard:triggered
-settings:changed   ui:navigate/confirm/back
+Arena -> spawnCurveId -> waves + duration -> GameScene duration victory
 ```
 
-Use existing authoritative domain facts before inventing new events.
+This is **not** the Alpha 3 normal stage architecture.
 
-### RunState
+Alpha 3 target:
 
-```ts
-{ status, seed, characterId, arenaId, timeMs, level, xp, xpToNext,
-  kills, currency, stats, equipped: WeaponInstance[], upgradeStacks,
-  pauseReason, outcome? }
+```text
+Stage/Contract
+  -> Arena
+  -> Objective
+  -> Encounter Profile
+  -> Difficulty Profile
+  -> Reward Profile
+  -> optional Boss/Special Encounter
 ```
 
-Simulation advances only while active. `equipped` is the **temporary six-slot run rack**, not persistent Gunsmith state.
+Stage/Objective owns success/failure. Arena describes the physical world.
 
-### Randomness
+### Persistence
 
-All gameplay randomness uses named run-scoped RNG streams. Never use `Math.random()` or `menuRng` for gameplay.
+Current Save V2 meta state is intentionally small: scrap + unlocks + permanent-upgrade levels. Do not append stage/achievement/Gunsmith/character/equipment state one field at a time. Issue #92 freezes Save V3 domain ownership and V2 migration first.
 
-### Saves
+Preserve existing shipped content IDs; do not mass-rename `scrap-tabby`, `junkyard-lot`, weapon IDs, etc. for namespace aesthetics.
 
-Current save schema is V2. All new persistent state requires an explicit linear migration; do not add ad-hoc LocalStorage keys.
+### Weapon registry
 
-## Alpha 2 Routing — Do Not Miss
+Before persistent Gunsmith work, reconcile the weapon registry's static-definition immutability/validation with the validated immutable-registry convention used by characters/arenas/loot. Do not create a generic registry framework unless later domains prove enough repetition.
+
+## Alpha 2 Routing
+
+### Epic 17 (#76) — combat feel / shared effect seam
+
+- pistol/SMG/shotgun must be distinguishable by feel;
+- new gameplay-affecting behavioral effects use a small reusable effect vocabulary;
+- no family/tier/content-ID branches in `GameScene`;
+- Epic 18 may reuse approved effects;
+- Epic 23 later composes the same effect semantics;
+- do not implement speculative Gunsmith traits early.
 
 ### Epic 18 (#77) — upgrade-card expansion
 
-The old three-card pool is no longer the target:
-
 - ~15–20 meaningful temporary upgrades;
-- normally 4–5 choices per offer;
-- authoritative owned/current/max-stack read-model state;
-- placeholder icon/image metadata + resolvable placeholder visual for every card;
-- placeholder assets may later be produced/replaced by Codex without changing gameplay IDs;
-- cards remain run-scoped and separate from Epic 23 Gunsmith progression.
+- normally 4–5 visible choices;
+- authoritative owned/current/max-stack state;
+- placeholder visual for every card;
+- richer behavior/build choices via approved shared effect contracts;
+- cards remain run-scoped and separate from persistent Gunsmith progression.
+
+### Epic 18/19 chooser input seam
+
+The engine may offer 4–5 cards. Do not make `1`–`5` the primary selection architecture.
+
+```text
+Touch -> direct card selection
+Keyboard/Gamepad -> focus navigation + confirm
+Optional number keys -> shortcut only
+```
+
+All routes reach the same authoritative chooser command/token validation.
 
 ### Epic 19 (#78) — touch + controller gate
 
-Alpha 2 must freeze **one shared logical input/action model**.
-
 ```text
 Touch ───────┐
-Keyboard ────┼─> logical action layer ─> gameplay/UI commands
+Keyboard ────┼─> logical action layer -> gameplay/UI commands
 Controller ──┘
 ```
 
 Requirements:
 
-- auto-fire remains primary across all devices;
+- auto-fire remains primary;
 - no required twin-stick/right-stick aiming;
-- compare anchored/floating touch movement where useful;
-- validate movement-only vs one simple dash/evade based on playtest evidence;
-- controller covers menu, selection, gameplay, upgrade chooser, rack/merge, pause/settings, summary, Retry/Menu;
-- controller-only journey requires no mouse/touch/hidden cursor fallback;
-- deadzone/normalization, focus navigation, disconnect/reconnect, input-source switching, and no-double-fire are architecture/test concerns;
-- reserve a logical `ability` action and UI capacity for Epic 24.
+- validate anchored/floating touch movement and sustained ergonomics;
+- one simple dash/evade only if movement-only fails the experience gate;
+- full controller-only menu -> run -> upgrades -> rack/merge -> settings -> summary -> Retry/Menu;
+- deadzones, focus, disconnect/reconnect, active-input switching, duplicate suppression;
+- reserve `ability` for Epic 24.
 
-If any core Alpha 2 journey cannot be completed controller-only, that is a P1 blocker.
+## Alpha 3 Mandatory Foundation — #92
 
-## Alpha 3 Forward Product Graph
+No Epic 20 runtime implementation before `docs/architecture/alpha-3-shared-foundation.md` is reviewed/frozen.
 
-These are planning contracts, not implementation specs.
+#92 owns shared cross-epic contracts:
+
+- Stage/ResolvedRunPlan boundary + Alpha 2 compatibility;
+- Stage/Objective victory ownership;
+- Save V3 domain envelope + V2 migration;
+- existing-ID compatibility;
+- shared condition evaluator;
+- shared reward/grant application;
+- catalog/registry/conformance registration pattern;
+- content version vs save schema version;
+- explicit deterministic pools;
+- future asset-bundle seam;
+- future `content:validate` command contract;
+- architecture vs delivery-evidence split.
+
+Also inherit `alpha-3-content-extensibility-contract.md`:
+
+> Existing-mechanic content additions are data/assets-only and each Epic proves this with a second representative fixture.
+
+## Alpha 3 Product Graph
 
 ```text
-Epic 19 Alpha 2 Input/UX Gate
+Epic 19 Alpha 2 Gate
+        |
+        v
+#92 Shared Alpha 3 Foundation
         |
         v
 Epic 20 Contracts/Stages (#85)
@@ -132,203 +164,106 @@ Epic 20 Contracts/Stages (#85)
         v
 Epic 21 Enemy Roster + Bosses (#86)
         |
-        +---------- authoritative stage/combat/boss facts ----------┐
-                                                                     v
-                                                  Epic 22 Achievements/Mastery (#91)
-                                                    local state = authority
-                                                    web/offline always works
-                                                    Game Center/Google Play mirrors
-                                                            |
-                      ┌─────────────────────────────────────┼──────────────────────────┐
-                      v                                     v                          v
-        Epic 23 Persistent Gunsmith (#87)      Epic 24 Mercenaries (#88)   Epic 25 Armour (#89)
-          parts/builds/traits                    >3; ~8 target               4 slots / ~8 sets
-          achievement blueprints                 mastery/abilities           milestone tiers
-                      └─────────────────────────────────────┬──────────────────────────┘
-                                                            v
-                                          Epic 26 Progression Integration (#90)
+        +---- authoritative stage/combat/boss facts ----+
+                                                         v
+                                      Epic 22 Achievements/Mastery (#91)
+                                              |
+                 +----------------------------+----------------------------+
+                 v                            v                            v
+      Epic 23 Gunsmith (#87)       Epic 24 Mercenaries (#88)    Epic 25 Armour (#89)
+                 +----------------------------+----------------------------+
+                                              v
+                             Epic 26 Progression Integration (#90)
 ```
 
-### Epic 20 — Contracts / Stages
+### Epic 20
 
-- kill / collect / survive / elite-target objectives first;
-- frontier pressure severe around intended ~3-minute clear window;
-- objective completion enables clear/extraction;
-- initial chapter target: four normal stages + boss Stage 5;
-- stage facts feed Epic 22; Epic 20 does not maintain achievement counters;
-- stage UI works through shared logical actions/controller navigation.
+- stage is normal run entry/composition root;
+- objective state owns success/failure;
+- reusable arena/objective/encounter/difficulty/reward profiles;
+- frontier pressure ~3-minute intended clear window;
+- four normal stages + boss Stage 5 initial cadence;
+- new stage with existing primitives = data/assets only.
 
-### Epic 21 — Enemy roster / bosses
+### Epic 21
 
-Target initial behavior set: Grunt, Runner, Brute, Shooter, Charger, Spawner,
-Shielded, Splitter/Disruptor. At least one ranged/projectile archetype. Bosses
-are unique authoritative stateful encounters, not HP-scaled normal enemies.
-Combat/boss facts feed Epic 22.
+Target behaviors: Grunt, Runner, Brute, Shooter, Charger, Spawner, Shielded, Splitter/Disruptor. Bosses compose registered abilities/phases. Explicit encounter pools prevent new global content from perturbing old seeds.
 
-### Epic 22 — achievements / mastery / platform sync
+### Epic 22
 
-**Authority boundary:**
+Game-owned standard/incremental/hidden/mastery achievements. Local state authoritative; Game Center/Google Play mirrors only. Reuse #92 conditions/grants. Combat/stage systems emit authoritative facts; they do not maintain achievement counters.
 
-```text
-Gameplay/progression facts
-       ↓
-Meowcenary achievement state  ← SOURCE OF TRUTH
-       ↓
-local/web | Game Center mirror | Google Play Games mirror
-```
+### Epic 23
 
-- stable Meowcenary IDs;
-- standard, incremental, hidden, mastery types;
-- persistent offline/web progress;
-- exactly-once completion/rewards;
-- in-game gallery/progress surface;
-- platform adapters are best-effort/idempotent;
-- platform sync failure never blocks/revokes local achievements or unlocks;
-- downstream systems reference Epic 22 IDs/state, not platform services;
-- controller/touch/keyboard navigation parity.
+Persistent gun/parts/traits, crafting outside combat, bounded infusion, explicit part pools. Reuse approved combat-effect semantics from real Epic 17/18 work. Reconcile weapon registry immutability before persistent build state depends on it.
 
-### Epic 23 — persistent Gunsmith
+### Epic 24
 
-- crafting/part merging outside active combat;
-- persistent gun with receiver/core, barrel, optic, stock, trigger, magazine, underbarrel/specialist slots;
-- separate part inventory;
-- bounded pure merge/upgrade/trait infusion;
-- representative hybrid: conventional barrel + fire/flamethrower trait → incendiary barrel;
-- achievement-gated blueprints/traits use Epic 22 local state;
-- persistent guns/parts remain separate from `RunState.equipped`.
+>3 mercenaries, target ~8. Distinct base/passive/start identity + one simple active ability through Epic 19 logical actions. Data definitions reference registered passive/ability primitives.
 
-### Epic 24 — expanded mercenaries
+### Epic 25
 
-- more than three; target ~8;
-- distinct base/passive/start identity;
-- one simple active ability consuming Epic 19 logical actions;
-- touch/keyboard/controller parity;
-- stage/boss/Epic-22 achievement/mastery unlocks, not currency alone.
+Helmet/Armour/Gloves/Boots, target ~8 set families, 2/4 bonuses, coin upgrades, milestone-tier unlocks, no touch-only management flow.
 
-### Epic 25 — armour/equipment
+### Epic 26
 
-- Helmet, Armour, Gloves, Boots;
-- target ~8 set families;
-- 2-piece + 4-piece bonuses;
-- coins upgrade owned gear;
-- higher tiers gated by stage/boss/Epic-22 achievement/mastery;
-- controller-only management; no required drag/touch interaction.
+One clear responsibility per persistent layer; shared #92 condition/grant grammar; simplify redundant legacy meta upgrades; prevent easiest-stage grind.
 
-### Epic 26 — integration
-
-Assign one purpose to each persistent layer, simplify redundant legacy systems,
-and prevent easiest-stage grind. Consume local Epic 22 state for unlocks; native
-achievement mirrors never become progression prerequisites. All between-run
-progression surfaces remain controller navigable.
-
-## Progression-Layer Boundary
+## Progression Boundaries
 
 ```text
 RUN-SCOPED
-  XP -> upgrade cards -> temporary build direction
-  weapon pickup -> six-slot rack -> temporary run merges
+  XP -> upgrade cards -> temporary build
+  weapon pickups -> six-slot rack -> temporary merges
 
 PERSISTENT
-  contracts/stages/bosses -> authoritative milestones/facts
-  achievements/mastery -> game-owned progress + unlock primitive
-  Gunsmith -> persistent gun/parts/traits
-  armour -> persistent set/loadout progression
-  mercenaries -> persistent identities/passive/ability
-  coins/scrap -> improve appropriate owned items, NOT universal milestone bypass
+  stages/bosses -> milestone facts/content progress
+  achievements/mastery -> game-owned accomplishment/unlock primitive
+  Gunsmith -> persistent weapon engineering
+  equipment -> persistent loadout/set progression
+  mercenaries -> persistent playable identities
+  coins/scrap -> appropriate owned-item improvement, NOT universal gate bypass
 
-OPTIONAL PLATFORM MIRRORS
-  Game Center / Google Play Games <- achievements only; never gameplay authority
+OPTIONAL MIRRORS
+  Game Center / Google Play Games <- achievements only; never progression authority
 ```
 
-## How to Iterate
+## Content / Catalog Recipe
 
-**New data catalog**
-1. JSON + types + `GameData` field.
-2. Strict validator + cross-catalog refs in aggregate validation.
-3. Immutable registry where appropriate.
-4. Focused validation/immutability tests.
+For a new extensible domain:
 
-**New pure gameplay rule**
-1. `src/gameplay/`, zero Phaser.
-2. Named RNG stream if random.
-3. Shared stat/effect/event contracts.
+1. static JSON/data definition;
+2. focused strict validator;
+3. register in aggregate catalog descriptor boundary;
+4. cross-reference validation;
+5. immutable lookup registry if runtime lookup is needed;
+6. registered code only for genuinely new mechanics;
+7. generic catalog-wide conformance tests;
+8. data-only second fixture.
 
-**New Phaser system**
-1. Implements lifecycle + unsubscribe cleanup.
-2. Scene wires; scene does not own rules.
-3. Respect pause/active state.
+New Alpha 3 validators may move into focused modules; preserve the current aggregate registration/error-order contract.
 
-**New input adapter**
-1. Convert device state → logical movement/actions only.
-2. Pure/testable deadzone/edge/debounce behavior where possible.
-3. No gameplay mutation inside the adapter.
-4. Handle disconnect/reconnect and clear stale held state.
+## Persistent-System Recipe
 
-**New persistent system**
-1. Static definitions + serializable persistent state.
-2. Explicit migration first.
-3. Pure transactional commands.
+1. Static definitions separate from serializable owned/progress state.
+2. Shared Save V3 domain ownership first.
+3. Pure transactional commands/grants.
 4. UI consumes immutable read models.
-5. Prove unique progression role.
+5. Unknown stale IDs fail soft.
+6. Ordinary new content does not trigger schema migrations.
+7. Local game state stays authoritative over platform mirrors.
 
-**New platform adapter**
-1. Local game state is authoritative.
-2. Platform SDK/service behind interface.
-3. Idempotent/retryable report/reconcile.
-4. Failure never blocks gameplay/progression.
+## Documentation Rule
 
-## Test Patterns
-
-- Pure modules: direct unit tests with seeded RNG.
-- Phaser-touching classes: mocked Phaser.
-- Input: deadzones, edge-trigger buttons, focus movement, disconnect/reconnect, mixed-device duplicate suppression.
-- Registries: validate then freeze.
-- Persistence: fresh + old-version migration fixtures.
-- Achievements: monotonic incremental progress, exactly-once completion/reward, sync failure/retry/reconcile.
-- Controller QA: complete menu→run→upgrade→merge→settings→summary→Retry/Menu journey without pointer/touch.
-- Run before committing: `npm run lint && npm run test && npm run build`.
-
-## Cross-Cutting Rules
-
-1. No Phaser in `engine/`/`gameplay/`.
-2. Scenes stay thin.
-3. Tuning in validated data where practical.
-4. Feedback via EventBus.
-5. Gameplay randomness via seeded run-scoped streams.
-6. Stat/effect changes via approved contracts.
-7. Save migrations are linear.
-8. No ads/paid power/energy/manipulative pacing.
-9. Touch readability/ergonomics and controller navigation are acceptance criteria.
-10. Device/platform adapters do not own gameplay truth.
-11. Local Meowcenary achievement/mastery state is authoritative.
-12. Persistent systems require distinct progression roles.
-
-## Epic Pipeline
-
-| Epic | Status | Notes |
-|------|--------|-------|
-| 0–15 | ✅ | Foundation through rack/merge UX complete |
-| 16 | 🟡 | Architecture/art PR #82 merged; runtime PR #83 open |
-| 17 | ⏳ | Combat feel + weapon identity (#76) |
-| 18 | ⏳ | Build variety + expanded cards/stack indicators/placeholders (#77) |
-| 19 | ⏳ | Alpha 2 UX + touch + controller-only action/input gate (#78) |
-| 20 | 🧭 | Contracts/objectives/stages (#85) |
-| 21 | 🧭 | Enemy roster + bosses (#86) |
-| 22 | 🧭 | Achievements/mastery/platform sync (#91) |
-| 23 | 🧭 | Persistent Gunsmith (#87) |
-| 24 | 🧭 | Mercenary roster expansion (#88) |
-| 25 | 🧭 | Armour/equipment sets (#89) |
-| 26 | 🧭 | Progression integration/rebalance (#90) |
-
-`🧭` means product scope exists but implementation waits for a dedicated architecture pass and upstream phase gate.
+Permanent Alpha 3 architecture docs link shared contracts instead of copying them. Keep large CI/browser/manual execution evidence in the PR/checks or concise `docs/delivery/` records.
 
 ## First Steps for Any Agent
 
 1. This file.
-2. `docs/epics.md` shared contracts/sequencing.
-3. `docs/roadmap.md` current phase gate.
-4. The epic's dedicated architecture document if it exists.
-5. Core event/types/context + target files/tests.
-6. Baseline tests → implement → lint/test/build.
+2. `docs/epics.md`.
+3. `docs/roadmap.md`.
+4. Shared/epic architecture docs.
+5. Live source + tests.
+6. Baseline validation -> implement -> lint/test/build/content-specific gates.
 
-For Epics 20–26, stop after steps 1–3 unless a dedicated architecture document has been created. The GitHub issue is product scope, not an implementation spec.
+For Epics 20–26: stop before runtime work unless #92 is complete and the Epic has a dedicated architecture document.
