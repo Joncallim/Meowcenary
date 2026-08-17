@@ -96,3 +96,48 @@ pass should specifically stress a maxed SMG rack alongside the full
 three-family sustained case above, and confirm the projectile pool /
 collision pass stay within budget at that spawn rate before treating this
 ceiling as acceptable.
+
+## Slice 5 closeout — what was and was not verified
+
+Verified in this headless environment (no browser/Phaser runtime
+available):
+
+- Full automated suite green, plus two independently shuffled full-suite
+  reruns green; `tsc --noEmit` (lint), `vite build`, `npm run
+  art:validate`, and `git diff --check` all clean.
+- An independent orthogonal code review across upgrade ownership, modifier
+  scope, determinism, UI lifecycle, validation, weapon-reward placement,
+  and pacing found one real gap (canonical `presentation`/`effects[].scope`
+  were not deep-copied/frozen at `UpgradeSystem` construction, letting a
+  caller retarget an active offer's family scope or displayed icon after
+  the fact by mutating its own original definition objects) — fixed, with
+  a regression test (`tests/upgradeSystem.test.ts`, "cannot have its
+  canonical presentation or effect scope retargeted...").
+- The extreme max-card-stack build cannot produce non-finite weapon stats:
+  `checkRunUpgradeEffects` enforces `mult > 0` and a finite aggregate
+  across `maxStacks` for every card at data-load time, so stacked
+  multiplication/addition chains stay finite by construction.
+- `WeaponRewardSystem`'s live-pickup-radius placement is bounded (a fixed
+  set of deterministic candidate positions plus a guaranteed fallback) and
+  cannot infinite-loop even under a maxed `scrap-magnet` pickup radius.
+
+**Not verified — genuinely unverified, not merely untested**, because they
+require playing the game in a browser, which this implementation session
+cannot do:
+
+- §10's player-experience matrix (readability at 390×844/desktop, "two
+  runs producing visibly different builds," "the final minute feels denser
+  and the build feels stronger," etc.) — these are player-facing claims
+  about lived experience, not code properties, and nothing here should be
+  read as confirming them.
+- The reduced-motion regression and portrait/desktop chooser/rack/combat
+  smoke passes — the existing automated reduced-motion test coverage is
+  unchanged by this epic (no new tweens/animations were added), but a
+  human visual pass was not performed.
+- Any real-seed Golden Run timing evidence (first level-up, first merge,
+  Rusher/Brute pressure windows, etc.) — see "Status: no tuning changes
+  accepted this slice" above.
+
+A future session with browser access should run the player-experience
+matrix and record real seeded evidence in the log above before this epic
+is considered fully closed on its player-facing claims.

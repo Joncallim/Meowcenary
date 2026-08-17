@@ -737,6 +737,44 @@ describe('UpgradeSystem offer identity and composable delivery', () => {
     expect(runState.stats.resolve('damage', 10)).toBe(12);
   });
 
+  it('cannot have its canonical presentation or effect scope retargeted by mutating caller-owned data after construction', () => {
+    const callerDefinition: UpgradeDefinition = {
+      id: 'pistol-power',
+      name: 'Pistol Power',
+      rarity: 'rare',
+      target: 'weapon',
+      description: 'Increase pistol damage for this run.',
+      maxStacks: 3,
+      effects: [
+        { stat: 'damage', op: 'mult', value: 1.2, scope: { kind: 'weapon-family', family: 'pistol' } },
+      ],
+      presentation: { category: 'synergy', iconArtId: 'upgrade-icon:pistol-power' },
+    };
+    const runState = createActiveRun();
+    runState.equipped.push({ instanceId: 'w1', defId: 'pistol-t1', family: 'pistol', tier: 1 });
+    const { system, bus } = createSystem({ runState, definitions: [callerDefinition] });
+
+    bus.on('card:offered', () => {
+      // Mutate the caller-owned nested objects after construction: retarget
+      // the scope's family and swap the presentation's icon/category.
+      (callerDefinition.effects[0]!.scope as { family: string }).family = 'shotgun';
+      (callerDefinition.presentation as { category: string }).category = 'offense';
+      (callerDefinition.presentation as { iconArtId: string }).iconArtId = 'upgrade-icon:tampered';
+    });
+
+    bus.emit('level:up', { level: 2 });
+
+    const choice = system.currentOfferSnapshot?.choices[0];
+    expect(choice?.family).toBe('pistol');
+    expect(choice?.category).toBe('synergy');
+    expect(choice?.iconArtId).toBe('upgrade-icon:pistol-power');
+
+    expect(system.chooseCard(system.currentOfferId ?? -1, 'pistol-power')).toBe(true);
+    expect(runState.stats.resolveWeapon('damage', 10, 'pistol')).toBe(12);
+    // A retargeted scope must never leak the modifier onto another family.
+    expect(runState.stats.resolveWeapon('damage', 10, 'shotgun')).toBe(10);
+  });
+
   it('rejects an old token when the same upgrade ID appears in the next offer', () => {
     const { system, runState, bus } = createSystem({ definitions: [damageUpgrade] });
     bus.emit('level:up', { level: 2 });

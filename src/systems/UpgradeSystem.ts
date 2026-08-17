@@ -503,15 +503,28 @@ function snapshotDefinitions(
   }));
 }
 
+/** Epic 18 (D7): captures one canonical definition set at construction, deep
+ *  copying and freezing every nested object a caller could otherwise retain
+ *  a mutable reference to (`effects[].scope`, `presentation`) — mirrors the
+ *  same discipline `ModifierStack.add()` applies to a modifier's `scope` on
+ *  insertion, so a caller mutating its original definitions after
+ *  construction can never retarget a canonical or active-offer modifier or
+ *  its displayed category/icon. */
 function canonicalDefinitions(
   definitions: readonly UpgradeDefinition[],
 ): readonly UpgradeDefinition[] {
   const canonical = definitions.map((definition) => {
-    const effects = definition.effects.map((effect) => Object.freeze({ ...effect }));
+    const effects = definition.effects.map((effect) =>
+      Object.freeze({
+        ...effect,
+        ...(effect.scope ? { scope: Object.freeze({ ...effect.scope }) } : {}),
+      }),
+    );
     Object.freeze(effects);
     return Object.freeze({
       ...definition,
       effects,
+      presentation: Object.freeze({ ...definition.presentation }),
     });
   });
   return Object.freeze(canonical);
