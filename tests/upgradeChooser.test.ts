@@ -1284,3 +1284,70 @@ describe('Upgrade chooser integration with UpgradeSystem', () => {
     system.destroy();
   });
 });
+
+describe('UpgradeChooser facade seam (Epic 18 D9)', () => {
+  async function createFacade(offerCount = 3) {
+    const runState = createActiveRun();
+    const bus = createEventBus();
+    const system = new UpgradeSystem({
+      runState,
+      bus,
+      definitions: definitions.slice(0, offerCount),
+      rng: createFirstRng(),
+      offerCount,
+    });
+    const scene = createFakeScene(390, 844);
+    const { UpgradeChooser } = await import('../src/ui/UpgradeChooser');
+    // No visual-art lookup: the icon path is exercised elsewhere, and the
+    // facade must work without one.
+    const chooser = new UpgradeChooser(scene as never, bus, system, () => false);
+    return { runState, bus, system, scene, chooser };
+  }
+
+  it('drives a real offer to an applied upgrade through focus + confirm alone', async () => {
+    const { runState, bus, system, chooser } = await createFacade(3);
+    bus.emit('level:up', { level: 2 });
+
+    expect(chooser.diagnostics.choiceIds).toHaveLength(3);
+    const offered = chooser.diagnostics.choiceIds;
+    expect(chooser.diagnostics.cards.map((card) => card.focused)).toEqual([true, false, false]);
+
+    // Navigate to the second card and confirm — no keyboard event involved.
+    chooser.focusNext();
+    expect(chooser.diagnostics.cards.map((card) => card.focused)).toEqual([false, true, false]);
+    expect(chooser.confirmFocused()).toBe(true);
+
+    // The upgrade the focus was sitting on is the one that got applied.
+    expect(runState.upgradeStacks[offered[1]!]).toBe(1);
+    expect(system.currentOfferId).toBeUndefined();
+    chooser.destroy();
+    system.destroy();
+  });
+
+  it('wraps focus and rejects confirm once no offer is active', async () => {
+    const { bus, system, chooser } = await createFacade(3);
+    bus.emit('level:up', { level: 2 });
+
+    chooser.focusPrevious();
+    expect(chooser.diagnostics.cards.map((card) => card.focused)).toEqual([false, false, true]);
+    expect(chooser.confirmFocused()).toBe(true);
+
+    // Offer resolved: the seam is inert until the next offer arrives.
+    expect(chooser.confirmFocused()).toBe(false);
+    chooser.focusNext();
+    expect(chooser.diagnostics.choiceIds).toEqual([]);
+    chooser.destroy();
+    system.destroy();
+  });
+
+  it('is inert after destroy', async () => {
+    const { bus, system, chooser } = await createFacade(2);
+    bus.emit('level:up', { level: 2 });
+    chooser.destroy();
+
+    chooser.focusNext();
+    chooser.focusPrevious();
+    expect(chooser.confirmFocused()).toBe(false);
+    system.destroy();
+  });
+});
