@@ -67,6 +67,14 @@ export class WeaponRewardSystem implements System {
   private readonly startingDefinitionId: string | undefined;
   private rewardIndex = 0;
   private nextRewardAtMs: number;
+  /** Epic 18 (D11): narrow read-only diagnostic, incremented only after
+   *  `spawnDrop` is called successfully. Never inferred from
+   *  `weapon:acquired` — this counts *issuance*, not collection. */
+  private issued = 0;
+
+  get issuedCount(): number {
+    return this.issued;
+  }
 
   constructor(options: WeaponRewardSystemOptions) {
     assertWeaponRewardTiming(options.config);
@@ -120,6 +128,7 @@ export class WeaponRewardSystem implements System {
 
     const position = this.placementFor(this.rewardIndex);
     this.spawnDrop(position.x, position.y, grant);
+    this.issued += 1;
     this.rewardIndex += 1;
   }
 

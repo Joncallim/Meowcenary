@@ -197,6 +197,42 @@ describe('reward schedule helpers', () => {
   });
 });
 
+describe('WeaponRewardSystem issuedCount diagnostic (Epic 18 §D11)', () => {
+  it('starts at zero and increments once per successful spawnDrop call', () => {
+    const harness = createHarness({ seed: 7, startingDefinitionId: STARTING_ID });
+    const expected = expectedSchedule(7, STARTING_ID, 3);
+    expect(harness.system.issuedCount).toBe(0);
+
+    const { runState } = harness;
+    for (const entry of expected) {
+      runState.timeMs = entry.at;
+      harness.system.update(0);
+    }
+
+    expect(harness.system.issuedCount).toBe(harness.spawns.length);
+    expect(harness.system.issuedCount).toBe(expected.length);
+  });
+
+  it('does not increment when a loot-table failure skips spawnDrop', () => {
+    const failingTables: LootTableLookup = {
+      lootTableById: () => undefined,
+    };
+    const harness = createHarness({
+      seed: 9,
+      startingDefinitionId: undefined,
+      lootTableLookup: failingTables,
+    });
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    harness.runState.timeMs = firstWeaponRewardDeadlineMs(rewardRng(9), CONFIG);
+    harness.system.update(0);
+
+    expect(harness.spawns).toHaveLength(0);
+    expect(harness.system.issuedCount).toBe(0);
+    consoleWarn.mockRestore();
+  });
+});
+
 describe('WeaponRewardSystem', () => {
   it('emits reward 0 as the starting definition and later rewards from weapon-world', () => {
     const harness = createHarness({ seed: 7, startingDefinitionId: STARTING_ID });

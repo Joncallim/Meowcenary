@@ -299,6 +299,7 @@ export class GameScene extends Phaser.Scene {
             runState: this.runState,
             bus: ctx.bus,
             dpsMeter,
+            weaponRewardIssuedCount: () => this.weaponRewardSystem?.issuedCount ?? 0,
           })
         : undefined;
     this.weaponSystem = new WeaponSystem(
