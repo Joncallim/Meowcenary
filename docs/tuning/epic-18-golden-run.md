@@ -105,14 +105,33 @@ available):
 - Full automated suite green, plus two independently shuffled full-suite
   reruns green; `tsc --noEmit` (lint), `vite build`, `npm run
   art:validate`, and `git diff --check` all clean.
-- An independent orthogonal code review across upgrade ownership, modifier
-  scope, determinism, UI lifecycle, validation, weapon-reward placement,
-  and pacing found one real gap (canonical `presentation`/`effects[].scope`
-  were not deep-copied/frozen at `UpgradeSystem` construction, letting a
-  caller retarget an active offer's family scope or displayed icon after
-  the fact by mutating its own original definition objects) — fixed, with
-  a regression test (`tests/upgradeSystem.test.ts`, "cannot have its
-  canonical presentation or effect scope retargeted...").
+- Two orthogonal review passes across upgrade ownership, modifier scope,
+  determinism, UI lifecycle, validation, weapon-reward placement, and
+  pacing. Every defect below was fixed, each with a regression test
+  verified to fail without its fix:
+
+  | # | Defect | Impact |
+  | --- | --- | --- |
+  | 1 | Canonical `presentation`/`effects[].scope` not deep-copied at `UpgradeSystem` construction | A caller mutating its own definitions could retarget an active offer's family scope or icon |
+  | 2 | `ModifierStack.resolve()` applied family-scoped modifiers globally | Latent: contradicts D4; `resolve('damage', …)` would have leaked pistol-scoped damage to every family |
+  | 3 | Read-model build sat outside the offer unwind guard | A throw there leaked the level-up pause, deadlocking the run with no offer to resolve |
+  | 4 | `focusPrevious`/`focusNext` guarded only on `destroyed` | The Epic 19 seam could move focus during an in-flight submission, where the keyboard path is inert |
+  | 5 | Stack-state row had no containment clamp or visibility guard | In the 4/5-card modes this epic enables, it rendered outside its card at small viewports |
+  | 6 | Weapon-reward candidate ring fixed at `spawnOffset` | Scrap Tabby's +15 passive plus 4× `scrap-magnet` (~110px) exceeded both rings, so rewards auto-collected instead of staying physical pickups |
+  | 7 | Recorded playtest detail never emitted | Level cadence, per-offer IDs, and acquisition timestamps were collected then dropped, leaving D11's evidence unusable |
+  | 8 | 10 of 18 card icons pixel-identical to another card | 4 accent colors for an 8-card category; defeats §10's "recognizable placeholder icon" |
+  | 9 | Card icons sized from the old number-badge box | Rendered ~21px against a 36px binding and D8's 36–40px logical spec |
+
+  Defects 5, 6, 8 and 9 were introduced by this epic; 2 and 3 were latent
+  contract violations it made reachable. Note that 8 was invisible to every
+  existing gate — `validate-visual-art.mjs` checks dimensions and metadata
+  but never pixel content — so a test now asserts pairwise-distinct icons.
+- A seeded offer simulation over the real 18-card catalog (5 seeds ×
+  12 picks, pistol-only and full-rack) holds offers at 4 cards, yields
+  7–9 distinct chosen IDs against §6's ">=5" target, shows 0.16–0.41
+  consecutive-offer overlap, never offers a family card without that
+  family equipped, and degrades 4→3→2→1 only on true pool exhaustion
+  (43 picks pistol-only, far beyond a 300s run's 8–12).
 - The extreme max-card-stack build cannot produce non-finite weapon stats:
   `checkRunUpgradeEffects` enforces `mult > 0` and a finite aggregate
   across `maxStacks` for every card at data-load time, so stacked
