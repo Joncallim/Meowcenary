@@ -141,10 +141,26 @@ export class WeaponRewardSystem implements System {
    *  radius (resolved pickup radius or physical contact radius). A near-edge
    *  clamp can otherwise pull a spawnOffset candidate back inside the pickup
    *  radius, where the guaranteed reward is collected automatically on the
-   *  next physics step instead of remaining visible for a physical pickup. */
+   *  next physics step instead of remaining visible for a physical pickup.
+   *
+   *  Epic 18 (D10): the candidate ring itself grows with the *live* collection
+   *  radius rather than sitting at a fixed `spawnOffset`. Resolving the radius
+   *  live is not sufficient on its own — Scrap Tabby's +15 `pickupRadius`
+   *  passive plus four `scrap-magnet` stacks resolves to ~110px, past both the
+   *  64px cardinal ring and the ~90px diagonal ring. Every candidate would then
+   *  fail and the degenerate fallback would place the reward inside the
+   *  collection radius, silently skipping the physical-pickup interaction the
+   *  epic explicitly protects. Expanding the ring keeps placement deterministic,
+   *  keyed by rewardIndex, and free of reward RNG. */
   private placementFor(rewardIndex: number): { readonly x: number; readonly y: number } {
     const player = this.playerPosition();
-    const offset = this.config.spawnOffset;
+    // Clears the collection radius by the drop's own radius so the drop body
+    // sits fully outside it; falls back to the configured offset whenever that
+    // is already far enough (the ordinary case).
+    const offset = Math.max(
+      this.config.spawnOffset,
+      this.minPlayerSeparation() + this.dropRadius,
+    );
     const cycle: ReadonlyArray<readonly [dx: number, dy: number]> = [
       [offset, 0],
       [0, offset],

@@ -140,17 +140,23 @@ export function computeUpgradeChooserLayout(
   );
   const nameHeight = Math.max(fonts.name * 1.15, physical(16));
   const rarityHeight = Math.max(fonts.rarity * 1.15, physical(11));
-  const statusHeight = Math.max(fonts.status * 1.15, physical(11));
+  const desiredStatusHeight = Math.max(fonts.status * 1.15, physical(11));
   const headerOffset = padding + Math.max(nameHeight, rarityHeight);
   const statusOffset = headerOffset + physical(2);
-  const descriptionOffset = statusOffset + statusHeight + physical(2);
   const lineSpacing = Math.max(4, physical(2));
 
   const cards = Array.from({ length: count }, (_, index) => {
     const y = cardsTop + cardHeight / 2 + index * (cardHeight + cardGap);
     const cardTop = y - cardHeight / 2;
+    const contentBottom = cardTop + cardHeight - padding;
     const statusY = cardTop + statusOffset;
-    const descriptionY = cardTop + descriptionOffset;
+    // The status row is clamped to the space actually left inside the card
+    // (4/5-card modes make cards much shorter), so a stack-state row can
+    // never escape its card. The view hides it when the clamped height
+    // cannot fit a line; D9's content priority still puts stack state above
+    // the description, which only receives whatever space remains.
+    const statusHeight = Math.max(0, Math.min(desiredStatusHeight, contentBottom - statusY));
+    const descriptionY = statusY + statusHeight + physical(2);
     return {
       x: canvasWidth / 2,
       y,
@@ -166,10 +172,7 @@ export function computeUpgradeChooserLayout(
       statusY,
       statusHeight,
       descriptionY,
-      descriptionHeight: Math.max(
-        0,
-        cardTop + cardHeight - padding - descriptionY,
-      ),
+      descriptionHeight: Math.max(0, contentBottom - descriptionY),
     };
   });
 

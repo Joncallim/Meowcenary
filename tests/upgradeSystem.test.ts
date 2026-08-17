@@ -1036,6 +1036,46 @@ describe('UpgradeSystem RNG and failure boundaries', () => {
     expect(runState.status).toBe('active');
     consoleError.mockRestore();
   });
+
+  it('unwinds a throwing read-model build without retaining a dead pause', () => {
+    const runState = createActiveRun();
+    const bus = createEventBus();
+    // Both offer eligibility and the read model read upgradeStacks. Let the
+    // eligibility pass succeed and fail only the later read-model pass, so
+    // this exercises the read-model build specifically rather than the
+    // already-guarded offerCards() path.
+    let reads = 0;
+    let armed = true;
+    runState.upgradeStacks = new Proxy({} as Record<string, number>, {
+      getOwnPropertyDescriptor(target, key) {
+        reads += 1;
+        if (armed && reads > 1) {
+          throw new Error('hostile stack read');
+        }
+        return Reflect.getOwnPropertyDescriptor(target, key);
+      },
+    });
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { system } = createSystem({ runState, bus, definitions: [damageUpgrade] });
+
+    bus.emit('level:up', { level: 2 });
+
+    expect(consoleError).toHaveBeenCalledWith(
+      'EventBus listener failed for "level:up"',
+      expect.objectContaining({ message: 'hostile stack read' }),
+    );
+    expect(system.pendingCount).toBe(0);
+    expect(system.currentOffer).toEqual([]);
+    expect(runState.status).toBe('active');
+    expect(runState.pauseReason).toBeNull();
+
+    armed = false;
+    bus.emit('level:up', { level: 3 });
+    expect(system.currentOffer).toHaveLength(1);
+    expect(system.chooseCard(system.currentOfferId ?? -1, 'damage-up')).toBe(true);
+    expect(runState.status).toBe('active');
+    consoleError.mockRestore();
+  });
 });
 
 describe('UpgradeSystem offerCount validation (Epic 18 D2)', () => {

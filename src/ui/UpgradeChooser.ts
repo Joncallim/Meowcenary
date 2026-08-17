@@ -341,26 +341,32 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
 
         // Epic 18 (D9 content priority 2): current/max -> next/max stack
         // state, read from the frozen offer snapshot (never recomputed).
+        // Hidden only when the clamped row cannot fit a line at all, the
+        // same containment rule the description below already follows.
         const statusLabel = choice.owned
           ? `${choice.currentStacks}/${choice.maxStacks} -> ${choice.nextStack}/${choice.maxStacks}`
           : `New -> ${choice.nextStack}/${choice.maxStacks}`;
         const statusWidth = Math.max(0, cardLayout.width - cardLayout.padding * 2);
-        const status = own(this.scene.add.text(
-          cardLeft + cardLayout.padding,
-          cardLayout.statusY,
-          statusLabel,
-          {
-            color: '#a5f3fc',
-            fontFamily: ThemeFont.family,
-            fontSize: `${layout.fonts.status}px`,
-          },
-        ));
-        status
-          .setMaxLines(1)
-          .setWordWrapWidth(statusWidth, true)
-          .setFixedSize(statusWidth, cardLayout.statusHeight)
-          .setCrop(0, 0, statusWidth, cardLayout.statusHeight);
-        renderedText.push({ role: `status:${index}`, object: status });
+        const showStatus =
+          statusWidth > 0 && cardLayout.statusHeight >= layout.fonts.status * 1.15;
+        if (showStatus) {
+          const status = own(this.scene.add.text(
+            cardLeft + cardLayout.padding,
+            cardLayout.statusY,
+            statusLabel,
+            {
+              color: '#a5f3fc',
+              fontFamily: ThemeFont.family,
+              fontSize: `${layout.fonts.status}px`,
+            },
+          ));
+          status
+            .setMaxLines(1)
+            .setWordWrapWidth(statusWidth, true)
+            .setFixedSize(statusWidth, cardLayout.statusHeight)
+            .setCrop(0, 0, statusWidth, cardLayout.statusHeight);
+          renderedText.push({ role: `status:${index}`, object: status });
+        }
 
         const descriptionWidth = Math.max(
           0,
@@ -477,26 +483,35 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
 
   /** Epic 18 (D9): the seam Epic 19 will later drive with logical
    *  nav/confirm actions. Presentation-only focus movement; activation still
-   *  routes through the same captured offer token as touch/keyboard. */
+   *  routes through the same captured offer token as touch/keyboard.
+   *
+   *  Guarded identically to `handleKeyDown` so a future action adapter and
+   *  the raw keyboard path stay behaviorally identical — notably, neither
+   *  moves the visible focus while the chooser is disabled (an in-flight
+   *  submission), where the cards are dimmed and non-interactive. */
+  private get acceptsNavigation(): boolean {
+    return !this.destroyed && this.enabled && this.currentOfferId !== undefined;
+  }
+
   focusPrevious(): void {
-    if (this.destroyed) {
+    if (!this.acceptsNavigation) {
       return;
     }
     this.moveFocus(-1);
   }
 
   focusNext(): void {
-    if (this.destroyed) {
+    if (!this.acceptsNavigation) {
       return;
     }
     this.moveFocus(1);
   }
 
   confirmFocused(): boolean {
-    if (this.destroyed || this.currentOfferId === undefined) {
+    if (!this.acceptsNavigation) {
       return false;
     }
-    return this.submit(this.currentOfferId, this.focusIndex);
+    return this.submit(this.currentOfferId!, this.focusIndex);
   }
 
   clear(): void {

@@ -473,8 +473,19 @@ describe('Upgrade chooser physical layout', () => {
         expect(bottom).toBeLessThanOrEqual(844);
         expect(nameRight).toBeLessThanOrEqual(rarityLeft + 0.001);
         expect(card.statusY).toBeGreaterThan(top + card.padding);
-        expect(card.statusHeight).toBeGreaterThan(0);
+        expect(card.statusHeight).toBeGreaterThanOrEqual(0);
         expect(card.descriptionY).toBeGreaterThanOrEqual(card.statusY + card.statusHeight);
+        // Both content rows stay inside the card's padded box when renderable.
+        if (card.statusHeight > 0) {
+          expect(card.statusY + card.statusHeight).toBeLessThanOrEqual(
+            bottom - card.padding + 0.001,
+          );
+        }
+        if (card.descriptionHeight > 0) {
+          expect(card.descriptionY + card.descriptionHeight).toBeLessThanOrEqual(
+            bottom - card.padding + 0.001,
+          );
+        }
 
         const previous = layout.cards[index - 1];
         if (previous) {
@@ -561,6 +572,8 @@ describe('Upgrade chooser physical layout', () => {
             card.nameHeight,
             card.rarityReserve,
             card.rarityHeight,
+            card.statusY,
+            card.statusHeight,
             card.descriptionY,
             card.descriptionHeight,
           ];
@@ -570,7 +583,21 @@ describe('Upgrade chooser physical layout', () => {
           expect(card.height).toBeGreaterThan(0);
           expect(card.numberWidth).toBeGreaterThan(0);
           expect(card.rarityReserve).toBeGreaterThan(0);
+          expect(card.statusHeight).toBeGreaterThanOrEqual(0);
           expect(card.descriptionHeight).toBeGreaterThanOrEqual(0);
+          // A row with height collapses to 0 is never rendered; any row that
+          // *is* renderable must stay inside the card's padded box.
+          const cardBottom = card.y + card.height / 2;
+          if (card.statusHeight > 0) {
+            expect(card.statusY + card.statusHeight).toBeLessThanOrEqual(
+              cardBottom - card.padding + 0.001,
+            );
+          }
+          if (card.descriptionHeight > 0) {
+            expect(card.descriptionY + card.descriptionHeight).toBeLessThanOrEqual(
+              cardBottom - card.padding + 0.001,
+            );
+          }
           expect(numberRight).toBeLessThanOrEqual(rarityLeft + 0.001);
           expect(nameRight).toBeLessThanOrEqual(rarityLeft + 0.001);
         });
@@ -588,6 +615,14 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
     description:
       'A hostile unbroken description_without_any_safe_break_points_猫猫猫猫猫猫\nwith several forced lines\nthat must never escape its card.',
   }));
+
+  /** Epic 18 (D2) enables 4–5 visible cards, so containment checks need more
+   *  than the three shared fixtures. Extra rows reuse the same hostile text
+   *  with distinct IDs so ordering/identity assertions stay meaningful. */
+  const hostileDefinitions5: UpgradeDefinition[] = Array.from({ length: 5 }, (_, index) => {
+    const base = hostileDefinitions[index % hostileDefinitions.length]!;
+    return { ...base, id: `${base.id}-${index}` };
+  });
 
   async function createRenderedView(
     viewportWidth: number,
@@ -637,10 +672,10 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
     view.destroy();
   });
 
-  it.each([1, 2, 3])(
+  it.each([1, 2, 3, 4, 5])(
     'hard-bounds hostile rendered text for a %i-card offer at 320x240',
     async (count) => {
-      const { view } = await createRenderedView(320, 240, hostileDefinitions.slice(0, count));
+      const { view } = await createRenderedView(320, 240, hostileDefinitions5.slice(0, count));
       const diagnostics = view.diagnostics;
 
       expect(diagnostics.cards).toHaveLength(count);
@@ -712,10 +747,10 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
     view.destroy();
   });
 
-  it.each([1, 2, 3])(
+  it.each([1, 2, 3, 4, 5])(
     'preserves a %i-card offer through repeated tiny-display collapse and recovery',
     async (count) => {
-      const offered = hostileDefinitions.slice(0, count);
+      const offered = hostileDefinitions5.slice(0, count);
       const { scene, view, select } = await createRenderedDisplay(390, 844, offered);
       const enabled = count !== 2;
       if (!enabled) view.setEnabled(false);
@@ -887,6 +922,57 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
     expect(view.diagnostics.offerId).toBe(74);
     expect(focused(view)).toEqual([true, false]);
     view.destroy();
+  });
+
+  it('drives the same focus/confirm path as keyboard through the Epic 19 seam', async () => {
+    const { view, select } = await createFocusView(3);
+    view.focusNext();
+    expect(focused(view)).toEqual([false, true, false]);
+    view.focusPrevious();
+    expect(focused(view)).toEqual([true, false, false]);
+    // Wrapping matches the keyboard arrows exactly.
+    view.focusPrevious();
+    expect(focused(view)).toEqual([false, false, true]);
+
+    expect(view.confirmFocused()).toBe(true);
+    expect(select).toHaveBeenCalledWith(73, 2);
+    view.destroy();
+  });
+
+  it('blocks seam focus and confirm while disabled, matching the keyboard path', async () => {
+    const { view, select } = await createFocusView(3);
+    view.setEnabled(false);
+
+    view.focusNext();
+    view.focusPrevious();
+    expect(focused(view)).toEqual([true, false, false]);
+    expect(view.confirmFocused()).toBe(false);
+    expect(select).not.toHaveBeenCalled();
+    view.destroy();
+  });
+
+  it('reports seam confirm rejection when the controller declines the choice', async () => {
+    const scene = createFakeScene(390, 844);
+    const { PhaserUpgradeChooserView } = await import('../src/ui/UpgradeChooser');
+    const view = new PhaserUpgradeChooserView(scene as never);
+    const select = vi.fn<(offerId: number, choiceIndex: number) => boolean>(() => false);
+    view.render({ offerId: 73, choices: toChoices(definitions.slice(0, 2)) }, select);
+
+    expect(view.confirmFocused()).toBe(false);
+    expect(select).toHaveBeenCalledWith(73, 0);
+    view.destroy();
+  });
+
+  it('ignores seam calls after destroy and with no active offer', async () => {
+    const { view, select } = await createFocusView(2);
+    view.clear();
+    view.focusNext();
+    expect(view.confirmFocused()).toBe(false);
+
+    view.destroy();
+    view.focusPrevious();
+    expect(view.confirmFocused()).toBe(false);
+    expect(select).not.toHaveBeenCalled();
   });
 
   it('keeps the focus index across resize rebuilds', async () => {

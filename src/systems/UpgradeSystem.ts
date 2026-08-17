@@ -312,13 +312,24 @@ class UpgradeCoordinationGroup {
             break;
           }
 
+          // Offer generation *and* read-model construction share one unwind
+          // guard: both read caller/run-owned state (rarity weights, stacks,
+          // rack, nested presentation), so either can throw. Leaving the
+          // snapshot outside this guard would leak the level-up pause
+          // acquired above and deadlock the run with no offer to resolve.
           let definitions: UpgradeDefinition[];
+          let snapshot: UpgradeOfferSnapshot;
           try {
             definitions = offerCards(
               this.options.definitions,
               { stacks: this.options.runState.upgradeStacks, equipped: this.options.runState.equipped },
               this.options.rng,
               this.options.offerCount,
+            );
+            snapshot = buildOfferSnapshot(
+              this.nextOfferId,
+              definitions,
+              this.options.runState.upgradeStacks,
             );
           } catch (error) {
             this.unwindOfferFailure();
@@ -335,11 +346,7 @@ class UpgradeCoordinationGroup {
           const offer: ActiveOffer = {
             offerId: this.nextOfferId,
             definitions,
-            snapshot: buildOfferSnapshot(
-              this.nextOfferId,
-              definitions,
-              this.options.runState.upgradeStacks,
-            ),
+            snapshot,
           };
           this.nextOfferId += 1;
           this.activeOffer = offer;

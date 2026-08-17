@@ -104,6 +104,10 @@ export class ModifierStack {
     return this.modifiers.filter((modifier) => modifier.sourceId === sourceId).length;
   }
 
+  /** Epic 18 (D4): keeps the pre-Epic-18 semantics for **unscoped modifiers
+   *  only**. A weapon-family-scoped modifier has no meaning without a family
+   *  to resolve against, so it is skipped here rather than silently applied
+   *  globally — `resolveWeapon()` is the only resolver that may honor scope. */
   resolve(stat: StatKey, baseValue: number): number {
     if (!Number.isFinite(baseValue)) {
       throw new Error(`Base value for "${stat}" must be finite`);
@@ -112,13 +116,13 @@ export class ModifierStack {
     let value = baseValue;
 
     for (const modifier of this.modifiers) {
-      if (modifier.stat === stat && modifier.op === 'add') {
+      if (modifier.stat === stat && modifier.op === 'add' && modifier.scope === undefined) {
         value += modifier.value;
       }
     }
 
     for (const modifier of this.modifiers) {
-      if (modifier.stat === stat && modifier.op === 'mult') {
+      if (modifier.stat === stat && modifier.op === 'mult' && modifier.scope === undefined) {
         value *= modifier.value;
       }
     }

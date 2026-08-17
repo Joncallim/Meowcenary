@@ -43,6 +43,30 @@ describe('ModifierStack', () => {
     expect(() => stats.resolve('damage', Number.MAX_VALUE)).toThrow(/finite/);
   });
 
+  it('ignores family-scoped modifiers in legacy resolve() (Epic 18 D4)', () => {
+    const stats = new ModifierStack();
+    stats.add({ stat: 'damage', op: 'add', value: 5, sourceId: 'global-add' });
+    stats.add({
+      stat: 'damage',
+      op: 'add',
+      value: 100,
+      sourceId: 'pistol-add',
+      scope: { kind: 'weapon-family', family: 'pistol' },
+    });
+    stats.add({
+      stat: 'damage',
+      op: 'mult',
+      value: 10,
+      sourceId: 'pistol-mult',
+      scope: { kind: 'weapon-family', family: 'pistol' },
+    });
+
+    // A scope has no meaning without a family to resolve against, so the
+    // unscoped resolver must never apply one globally.
+    expect(stats.resolve('damage', 10)).toBe(15);
+    expect(stats.resolveWeapon('damage', 10, 'pistol')).toBe(1150);
+  });
+
   describe('resolveWeapon (Epic 18 D4)', () => {
     it('applies an unscoped modifier to any family, identically to resolve()', () => {
       const stats = new ModifierStack();
