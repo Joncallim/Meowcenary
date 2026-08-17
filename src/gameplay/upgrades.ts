@@ -248,7 +248,7 @@ function prepareModifiers(effects: unknown, target: unknown, sourceId: string): 
  *  `undefined` when the upgrade has no scoped effect. Callers rely on
  *  validation already guaranteeing a single shared family per upgrade
  *  (D5) — this reads only the first scoped effect found. */
-function singleScopedFamily(effects: readonly { readonly scope?: { readonly family: string } }[]): string | undefined {
+export function singleScopedFamily(effects: readonly { readonly scope?: { readonly family: string } }[]): string | undefined {
   for (const effect of effects) {
     if (effect.scope) {
       return effect.scope.family;
@@ -257,7 +257,7 @@ function singleScopedFamily(effects: readonly { readonly scope?: { readonly fami
   return undefined;
 }
 
-function readStack(
+export function readStack(
   stacks: Readonly<Record<string, number>>,
   id: string,
 ): number | undefined {

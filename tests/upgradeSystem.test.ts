@@ -999,3 +999,122 @@ describe('UpgradeSystem RNG and failure boundaries', () => {
     consoleError.mockRestore();
   });
 });
+
+describe('UpgradeSystem offerCount validation (Epic 18 D2)', () => {
+  it('accepts every safe integer in 1..5', () => {
+    for (const offerCount of [1, 2, 3, 4, 5]) {
+      const runState = createActiveRun();
+      const bus = createEventBus();
+      expect(() => new UpgradeSystem({
+        runState,
+        bus,
+        definitions: [damageUpgrade],
+        rng: createFirstRng(),
+        offerCount,
+      })).not.toThrow();
+    }
+  });
+
+  it('keeps the three-card compatibility default when offerCount is omitted', () => {
+    const runState = createActiveRun();
+    const bus = createEventBus();
+    const system = new UpgradeSystem({
+      runState,
+      bus,
+      definitions: [damageUpgrade, speedUpgrade],
+      rng: createFirstRng(),
+    });
+
+    bus.emit('level:up', { level: 2 });
+    expect(system.currentOffer).toHaveLength(2);
+  });
+
+  it.each([0, -1, 6, 2.5, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    'fails fast before an unrenderable offer exists for offerCount %s',
+    (offerCount) => {
+      const runState = createActiveRun();
+      const bus = createEventBus();
+      expect(() => new UpgradeSystem({
+        runState,
+        bus,
+        definitions: [damageUpgrade],
+        rng: createFirstRng(),
+        offerCount,
+      })).toThrow(/offerCount must be a safe integer in 1\.\.5/);
+    },
+  );
+});
+
+describe('UpgradeSystem authoritative read model (Epic 18 D7)', () => {
+  const scopedUpgrade: UpgradeDefinition = {
+    id: 'pistol-power',
+    name: 'Pistol Power',
+    rarity: 'rare',
+    target: 'weapon',
+    description: 'Increase pistol damage for this run.',
+    maxStacks: 3,
+    effects: [
+      { stat: 'damage', op: 'mult', value: 1.2, scope: { kind: 'weapon-family', family: 'pistol' } },
+    ],
+    presentation: { category: 'synergy', iconArtId: 'upgrade-icon:pistol-power' },
+  };
+
+  it('builds a frozen read model with owned/stack state and family derived from scope', () => {
+    const runState = createActiveRun();
+    runState.equipped.push({ instanceId: 'w1', defId: 'pistol-t1', family: 'pistol', tier: 1 });
+    const { system, bus } = createSystem({ runState, definitions: [scopedUpgrade] });
+    bus.emit('level:up', { level: 2 });
+
+    const choice = system.currentOfferSnapshot?.choices[0];
+    expect(choice).toEqual({
+      id: 'pistol-power',
+      name: 'Pistol Power',
+      rarity: 'rare',
+      target: 'weapon',
+      description: 'Increase pistol damage for this run.',
+      category: 'synergy',
+      iconArtId: 'upgrade-icon:pistol-power',
+      family: 'pistol',
+      owned: false,
+      currentStacks: 0,
+      maxStacks: 3,
+      nextStack: 1,
+    });
+    expect(Object.isFrozen(choice)).toBe(true);
+  });
+
+  it('reflects owned/currentStacks/nextStack from prior stacks on a later offer', () => {
+    const { system, runState, bus } = createSystem({ definitions: [damageUpgrade] });
+    bus.emit('level:up', { level: 2 });
+    expect(system.chooseCard(system.currentOfferId ?? -1, 'damage-up')).toBe(true);
+    expect(runState.upgradeStacks['damage-up']).toBe(1);
+
+    bus.emit('level:up', { level: 3 });
+    const choice = system.currentOfferSnapshot?.choices[0];
+    expect(choice?.owned).toBe(true);
+    expect(choice?.currentStacks).toBe(1);
+    expect(choice?.nextStack).toBe(2);
+  });
+
+  it('never recomputes the snapshot across repeated getter reads for one active offer', () => {
+    const { system, bus } = createSystem({ definitions: [damageUpgrade] });
+    bus.emit('level:up', { level: 2 });
+
+    const first = system.currentOfferSnapshot;
+    const second = system.currentOfferSnapshot;
+    expect(first).toBe(second);
+    expect(first?.choices).toBe(second?.choices);
+  });
+
+  it('derives card:offered choice IDs from the stored snapshot', () => {
+    const { system, bus } = createSystem({ definitions: [damageUpgrade, speedUpgrade], offerCount: 2 });
+    let offeredChoices: readonly string[] = [];
+    bus.on('card:offered', ({ choices }) => {
+      offeredChoices = choices;
+    });
+
+    bus.emit('level:up', { level: 2 });
+
+    expect(offeredChoices).toEqual(system.currentOfferSnapshot?.choices.map((choice) => choice.id));
+  });
+});

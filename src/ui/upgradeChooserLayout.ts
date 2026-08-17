@@ -10,6 +10,9 @@ export interface UpgradeChooserCardLayout {
   nameHeight: number;
   rarityReserve: number;
   rarityHeight: number;
+  /** Epic 18 (D9 content priority 2): "current/max -> next/max" stack row. */
+  statusY: number;
+  statusHeight: number;
   descriptionY: number;
   descriptionHeight: number;
 }
@@ -28,6 +31,7 @@ export interface UpgradeChooserLayout {
     instructions: number;
     name: number;
     rarity: number;
+    status: number;
     description: number;
   };
   lineSpacing: number;
@@ -39,6 +43,7 @@ const MIN_PHYSICAL_FONT = {
   instructions: 11,
   name: 14,
   rarity: 10,
+  status: 10,
   description: 12,
 } as const;
 
@@ -47,6 +52,7 @@ const BASE_LOGICAL_FONT = {
   instructions: 13,
   name: 18,
   rarity: 12,
+  status: 12,
   description: 14,
 } as const;
 
@@ -74,6 +80,7 @@ export function computeUpgradeChooserLayout(
     instructions: font(BASE_LOGICAL_FONT.instructions, MIN_PHYSICAL_FONT.instructions),
     name: font(BASE_LOGICAL_FONT.name, MIN_PHYSICAL_FONT.name),
     rarity: font(BASE_LOGICAL_FONT.rarity, MIN_PHYSICAL_FONT.rarity),
+    status: font(BASE_LOGICAL_FONT.status, MIN_PHYSICAL_FONT.status),
     description: font(BASE_LOGICAL_FONT.description, MIN_PHYSICAL_FONT.description),
   };
   const compactHeader = canvasWidth * displayScale < 220;
@@ -86,7 +93,8 @@ export function computeUpgradeChooserLayout(
     instructionsY + instructionsHeight + physical(compactHeader ? 5 : 10);
   const bottomMargin = physical(compactHeader ? 4 : 8);
   const cardGap = Math.max(compactHeader ? 0 : 12, physical(compactHeader ? 4 : 6));
-  const count = Math.max(1, Math.min(3, Math.floor(choiceCount)));
+  // Epic 18 (D2/D9): 1–5 cards, no legacy three-card clamp.
+  const count = Math.max(1, Math.min(5, Math.floor(choiceCount)));
   const availableHeight = Math.max(0, canvasHeight - cardsRegionTop - bottomMargin);
   const maxCardHeight = Math.max(168, physical(150));
   const cardHeight = Math.max(
@@ -132,12 +140,16 @@ export function computeUpgradeChooserLayout(
   );
   const nameHeight = Math.max(fonts.name * 1.15, physical(16));
   const rarityHeight = Math.max(fonts.rarity * 1.15, physical(11));
-  const descriptionOffset = padding + Math.max(nameHeight, rarityHeight) + physical(2);
+  const statusHeight = Math.max(fonts.status * 1.15, physical(11));
+  const headerOffset = padding + Math.max(nameHeight, rarityHeight);
+  const statusOffset = headerOffset + physical(2);
+  const descriptionOffset = statusOffset + statusHeight + physical(2);
   const lineSpacing = Math.max(4, physical(2));
 
   const cards = Array.from({ length: count }, (_, index) => {
     const y = cardsTop + cardHeight / 2 + index * (cardHeight + cardGap);
     const cardTop = y - cardHeight / 2;
+    const statusY = cardTop + statusOffset;
     const descriptionY = cardTop + descriptionOffset;
     return {
       x: canvasWidth / 2,
@@ -151,6 +163,8 @@ export function computeUpgradeChooserLayout(
       nameHeight,
       rarityReserve,
       rarityHeight,
+      statusY,
+      statusHeight,
       descriptionY,
       descriptionHeight: Math.max(
         0,

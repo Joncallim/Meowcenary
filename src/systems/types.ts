@@ -210,6 +210,25 @@ export interface UpgradeDefinition {
   presentation: UpgradePresentation;
 }
 
+/** Epic 18 (D7): one authoritative, frozen-at-offer-time read model per
+ *  offered card. Built once from a canonical definition + a safe
+ *  `RunState.upgradeStacks` read; the chooser consumes only this, never raw
+ *  `UpgradeDefinition`/`RunUpgradeEffect` shapes. */
+export interface UpgradeCardReadModel {
+  readonly id: string;
+  readonly name: string;
+  readonly rarity: Rarity;
+  readonly target: UpgradeDefinition['target'];
+  readonly description: string;
+  readonly category: UpgradePresentation['category'];
+  readonly iconArtId: string;
+  readonly family?: string;
+  readonly owned: boolean;
+  readonly currentStacks: number;
+  readonly maxStacks: number;
+  readonly nextStack: number;
+}
+
 export interface MetaUpgradeCost {
   readonly base: number;
   readonly growth: number;
