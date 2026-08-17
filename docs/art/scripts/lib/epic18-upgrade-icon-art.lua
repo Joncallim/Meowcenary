@@ -15,9 +15,13 @@ local GLYPH_COLORS = {
   utility = U.hex("#22d3ee"), economy = U.hex("#fbbf24"), synergy = U.hex("#c084fc"),
 }
 -- Per-card accent variant (index within its category, 1-based) so adjacent
--- cards in one category still read as distinct placeholders.
+-- cards in one category still read as distinct placeholders. There must be at
+-- least as many accents as the largest category holds (synergy ships 8), or
+-- variants wrap and two cards render pixel-identical — which the visual-art
+-- validator cannot catch, since it only checks dimensions and metadata.
 local ACCENT_VARIANTS = {
   U.hex("#fff3c4"), U.hex("#f472b6"), U.hex("#67e8f9"), U.hex("#a3e635"),
+  U.hex("#fb923c"), U.hex("#c4b5fd"), U.hex("#f87171"), U.hex("#34d399"),
 }
 
 local bg = assert(BG_COLORS[spec.category], "unknown upgrade category: " .. tostring(spec.category))
@@ -83,10 +87,21 @@ local drawers = {
   utility = drawUtility, economy = drawEconomy, synergy = drawSynergy,
 }
 
+-- Variant tally along the bottom inset: a second, shape-based distinguishing
+-- dimension so two cards in one category stay distinct even if the accent
+-- palette ever wraps again. Row y=39..40 is clear of every category glyph.
+local function drawVariantPips(img)
+  local pips = math.min(spec.variant, 9)
+  for index = 0, pips - 1 do
+    U.fillRect(img, 6 + index * 4, 39, 3, 2, accent)
+  end
+end
+
 local image = U.getCel(spr, "body", 1).image
 U.clear(image)
 U.fillRect(image, 4, 4, 40, 40, bg)
 drawers[spec.category](image)
+drawVariantPips(image)
 
 spr:saveAs(spec.savedAs)
 EPIC18_UPGRADE_ICON_ART = nil

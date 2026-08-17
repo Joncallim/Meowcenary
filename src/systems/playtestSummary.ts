@@ -155,6 +155,42 @@ export class PlaytestSummarySystem implements System {
     if (Object.keys(runState.upgradeStacks).length > 0) {
       this.logger.table(runState.upgradeStacks);
     }
+
+    // Epic 18 (D11) requires *recording* level-up timestamps, offered IDs per
+    // offerId, and weapon-acquisition timestamps — not just their counts. The
+    // aggregate row answers "did pacing hit its target"; these detail tables
+    // are what a tuning session reads to work out why it did not. Each is
+    // emitted only when it has rows, mirroring the upgradeStacks table above.
+    if (this.levelUps.length > 0) {
+      this.logger.table(
+        this.levelUps.map((entry) => ({
+          level: entry.level,
+          at: formatTime(entry.timeMs),
+          timeMs: entry.timeMs,
+        })),
+      );
+    }
+    if (this.offers.length > 0) {
+      this.logger.table(
+        this.offers.map((offer, index) => ({
+          offerId: offer.offerId,
+          offered: offer.choices.join(', '),
+          // Offers resolve in emission order, so the nth chosen card belongs
+          // to the nth offer; a trailing offer left unresolved by the run
+          // ending simply has no chosen entry.
+          chosen: this.chosenUpgradeIds[index] ?? '(unresolved)',
+        })),
+      );
+    }
+    if (this.weaponAcquisitions.length > 0) {
+      this.logger.table(
+        this.weaponAcquisitions.map((entry) => ({
+          definitionId: entry.definitionId,
+          at: formatTime(entry.timeMs),
+          timeMs: entry.timeMs,
+        })),
+      );
+    }
   }
 }
 

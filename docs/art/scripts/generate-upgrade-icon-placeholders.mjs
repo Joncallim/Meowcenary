@@ -26,7 +26,13 @@ const GLYPH_COLORS = {
   offense: '#ef4444', defense: '#60a5fa', mobility: '#4ade80',
   utility: '#22d3ee', economy: '#fbbf24', synergy: '#c084fc',
 };
-const ACCENT_VARIANTS = ['#fff3c4', '#f472b6', '#67e8f9', '#a3e635'];
+// Must stay identical to lib/epic18-upgrade-icon-art.lua: at least as many
+// accents as the largest category holds (synergy ships 8), or variants wrap
+// and two cards render pixel-identical.
+const ACCENT_VARIANTS = [
+  '#fff3c4', '#f472b6', '#67e8f9', '#a3e635',
+  '#fb923c', '#c4b5fd', '#f87171', '#34d399',
+];
 
 const CARDS = [
   ['quick-paws', 'mobility'],
@@ -249,6 +255,11 @@ for (const [cardId, category] of CARDS) {
   const cardIndex = CARDS.filter(([, cat]) => cat === category).findIndex(([id]) => id === cardId);
   const accent = hex(ACCENT_VARIANTS[cardIndex % ACCENT_VARIANTS.length]);
   DRAWERS[category](canvas, hex(GLYPH_COLORS[category]), accent);
+  // Variant tally, mirroring drawVariantPips() in the paired Lua library.
+  const pips = Math.min(cardIndex + 1, 9);
+  for (let index = 0; index < pips; index += 1) {
+    canvas.fillRect(6 + index * 4, 39, 3, 2, accent);
+  }
 
   writeFileSync(join(outDir, `${exportName}.png`), encodePng(canvas));
   writeFileSync(join(outDir, `${exportName}.json`), `${JSON.stringify(encodeMetadata(exportName))}\n`);

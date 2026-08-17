@@ -315,6 +315,47 @@ describe('PlaytestSummarySystem Epic 18 (D11) evidence', () => {
     expect(row.finalRackFamilies).toBe('pistol:2, smg:1');
   });
 
+  it('emits level cadence, per-offer IDs, and acquisition timestamps as detail tables', () => {
+    const { bus, runState, logger } = createFixture();
+    startRun(runState, bus);
+    runState.timeMs = 18_000;
+    bus.emit('level:up', { level: 2 });
+    bus.emit('card:offered', { offerId: 1, choices: ['quick-paws', 'hot-barrel'] });
+    bus.emit('card:chosen', { upgradeId: 'hot-barrel' });
+    runState.timeMs = 42_000;
+    bus.emit('weapon:acquired', {
+      definitionId: 'can-smg-t1',
+      instanceId: 'w2',
+      rackCount: 2,
+      rackCapacity: 6,
+      x: 0,
+      y: 0,
+    });
+    // A trailing offer the run never resolves must still be reported.
+    bus.emit('card:offered', { offerId: 2, choices: ['split-shot'] });
+    runState.upgradeStacks = { 'hot-barrel': 1 };
+    endRun(runState, 'won', bus);
+
+    const tables = logger.table.mock.calls.map((call) => call[0]);
+    // [0] summary row, [1] upgradeStacks, then the three detail tables.
+    expect(tables[2]).toEqual([{ level: 2, at: '0:18', timeMs: 18_000 }]);
+    expect(tables[3]).toEqual([
+      { offerId: 1, offered: 'quick-paws, hot-barrel', chosen: 'hot-barrel' },
+      { offerId: 2, offered: 'split-shot', chosen: '(unresolved)' },
+    ]);
+    expect(tables[4]).toEqual([
+      { definitionId: 'can-smg-t1', at: '0:42', timeMs: 42_000 },
+    ]);
+  });
+
+  it('omits detail tables entirely when nothing was recorded', () => {
+    const { bus, runState, logger } = createFixture();
+    startRun(runState, bus);
+    endRun(runState, 'won', bus);
+
+    expect(logger.table).toHaveBeenCalledTimes(1);
+  });
+
   it('reports zero offer overlap for a single offer and non-overlapping offers', () => {
     const { bus, runState, logger } = createFixture();
     startRun(runState, bus);
