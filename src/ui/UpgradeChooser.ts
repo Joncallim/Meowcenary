@@ -271,16 +271,23 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         // badge (also a visible touch/keyboard-shortcut hint) when no bound,
         // loaded texture exists for this card's icon.
         const iconBinding = this.visualArt?.bindingById(choice.iconArtId);
-        if (iconBinding?.kind === 'upgrade-icon' && this.scene.textures.exists(iconBinding.textureKey)) {
+        const showIcon =
+          iconBinding?.kind === 'upgrade-icon' &&
+          cardLayout.iconSize > 0 &&
+          this.scene.textures.exists(iconBinding.textureKey);
+        if (showIcon) {
+          // The layout's icon box already honors the binding's declared
+          // display size wherever the card can afford it, and clamps only
+          // when it genuinely cannot — so the icon keeps its D8 sizing at
+          // phone scale instead of shrinking to the old number-badge box.
+          const size = Math.min(cardLayout.iconSize, iconBinding.display.width);
+          const height = Math.min(cardLayout.iconSize, iconBinding.display.height);
           const icon = own(this.scene.add.image(
-            cardLeft + cardLayout.padding + cardLayout.numberWidth / 2,
-            cardTop + cardLayout.padding + cardLayout.nameHeight / 2,
+            cardLeft + cardLayout.padding + size / 2,
+            cardTop + cardLayout.padding + height / 2,
             iconBinding.textureKey,
           ));
-          icon.setDisplaySize(
-            Math.min(iconBinding.display.width, cardLayout.numberWidth, cardLayout.nameHeight),
-            Math.min(iconBinding.display.height, cardLayout.numberWidth, cardLayout.nameHeight),
-          );
+          icon.setDisplaySize(size, height);
         } else {
           const number = own(this.scene.add.text(
             cardLeft + cardLayout.padding,

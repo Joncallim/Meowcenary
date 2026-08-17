@@ -488,6 +488,13 @@ describe('applyCard', () => {
       run.equipped = []; // no pistol equipped — offer eligibility is not re-verified here
 
       expect(applyCard(run, card)).toBe(true);
+
+      // ...and the resulting modifier is latent: inert for every other family
+      // and for the unscoped resolver, becoming live only once a matching
+      // weapon is present again.
+      expect(run.stats.resolveWeapon('damage', 10, 'shotgun')).toBe(10);
+      expect(run.stats.resolve('damage', 10)).toBe(10);
+      expect(run.stats.resolveWeapon('damage', 10, 'pistol')).toBe(15);
     });
 
     it.each([

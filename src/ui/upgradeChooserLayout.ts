@@ -4,7 +4,10 @@ export interface UpgradeChooserCardLayout {
   width: number;
   height: number;
   padding: number;
+  /** Leading-column width: the larger of the number badge and the icon box. */
   numberWidth: number;
+  /** Epic 18 (D8): square icon box, clamped to the card's affordable space. */
+  iconSize: number;
   nameX: number;
   nameWidth: number;
   nameHeight: number;
@@ -117,9 +120,23 @@ export function computeUpgradeChooserLayout(
   const desiredNumberWidth = Math.max(fonts.name * 1.35, physical(18));
   const desiredRarityReserve = Math.max(compactHeader ? 0 : 72, physical(44));
   const desiredInlineGap = Math.max(compactHeader ? 0 : 8, physical(3));
+  // Epic 18 (D8/D9 priority 1): the leading column holds the card icon, whose
+  // binding declares a 36px logical display. Sizing that column from the old
+  // "1." text badge alone would shrink the icon to roughly half its declared
+  // size; it is instead the larger of the text badge and an icon box clamped
+  // to what the card can actually afford in both axes.
+  const desiredIconSize = Math.max(36, physical(28));
+  const iconSize = Math.max(
+    0,
+    Math.min(
+      desiredIconSize,
+      contentWidth / 3,
+      Math.max(0, cardHeight - padding * 2),
+    ),
+  );
   const numberWidth = Math.max(
     MIN_REGION_SIZE,
-    Math.min(desiredNumberWidth, contentWidth - MIN_REGION_SIZE),
+    Math.min(Math.max(desiredNumberWidth, iconSize), contentWidth - MIN_REGION_SIZE),
   );
   const remainingAfterNumber = Math.max(
     MIN_REGION_SIZE,
@@ -141,7 +158,9 @@ export function computeUpgradeChooserLayout(
   const nameHeight = Math.max(fonts.name * 1.15, physical(16));
   const rarityHeight = Math.max(fonts.rarity * 1.15, physical(11));
   const desiredStatusHeight = Math.max(fonts.status * 1.15, physical(11));
-  const headerOffset = padding + Math.max(nameHeight, rarityHeight);
+  // The header row must clear the tallest of its three occupants so the icon
+  // never overlaps the stack-state row below it.
+  const headerOffset = padding + Math.max(nameHeight, rarityHeight, iconSize);
   const statusOffset = headerOffset + physical(2);
   const lineSpacing = Math.max(4, physical(2));
 
@@ -164,6 +183,7 @@ export function computeUpgradeChooserLayout(
       height: cardHeight,
       padding,
       numberWidth,
+      iconSize,
       nameX,
       nameWidth,
       nameHeight,

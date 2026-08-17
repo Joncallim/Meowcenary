@@ -495,6 +495,27 @@ describe('Upgrade chooser physical layout', () => {
     }
   });
 
+  it('gives the card icon its declared D8 display size at portrait phone scale', () => {
+    const display = fittedCanvas(390, 844);
+    for (const count of [1, 2, 3, 4, 5]) {
+      const layout = computeUpgradeChooserLayout(390, 844, display.width, display.height, count);
+      layout.cards.forEach((card) => {
+        // visual-art.json declares 36x36 for every upgrade-icon binding, and
+        // D8 specifies a 36-40px logical display; the leading column must not
+        // shrink it back to the old ~21px number-badge box.
+        expect(card.iconSize).toBeGreaterThanOrEqual(36);
+        // The icon box fits inside the card's padded area in both axes.
+        expect(card.iconSize).toBeLessThanOrEqual(card.height - card.padding * 2 + 0.001);
+        expect(card.padding + card.iconSize).toBeLessThanOrEqual(card.width - card.padding + 0.001);
+        // The name column starts clear of the icon.
+        expect(card.nameX).toBeGreaterThanOrEqual(card.padding + card.iconSize);
+        // The stack row starts below the icon, never overlapping it.
+        const cardTop = card.y - card.height / 2;
+        expect(card.statusY).toBeGreaterThanOrEqual(cardTop + card.padding + card.iconSize);
+      });
+    }
+  });
+
   it('recomputes an active three-card offer across orientation changes', () => {
     const portraitDisplay = fittedCanvas(390, 844);
     const landscapeDisplay = fittedCanvas(844, 390);
