@@ -360,7 +360,7 @@ describe('game data validation', () => {
   it('rejects fireRate as an unknown upgrade stat', () => {
     expect(() =>
       validateGameData(withFirstUpgradeEffects([{ stat: 'fireRate', op: 'mult', value: 1.1 }])),
-    ).toThrow(/upgrades\.json\[0\]\.effects\[0\]\.stat: unknown stat key/);
+    ).toThrow(/upgrades\.json\[0\]\.effects\[0\]\.stat: unknown run-upgrade stat key/);
   });
 
   it('rejects invalid effect operations', () => {

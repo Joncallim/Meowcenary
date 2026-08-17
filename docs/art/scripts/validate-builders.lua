@@ -232,6 +232,24 @@ for _, asset in ipairs(worldAssets) do
   })
 end
 
+-- Epic 18 (D8): one required upgrade-icon binding per shipped run-upgrade
+-- card, all sharing the 48x48 static-image contract.
+local upgradeIconIds = {
+  "quick-paws", "extra-scrap", "hot-barrel", "scrap-magnet", "reinforced-coat",
+  "fast-learner", "heavy-rounds", "long-barrel", "split-shot", "punch-through",
+  "glass-cannon", "run-and-gun", "pistol-deadeye", "pistol-needle-rounds",
+  "smg-overclock", "smg-spray", "shotgun-buckshot", "shotgun-breacher",
+}
+for _, cardId in ipairs(upgradeIconIds) do
+  local id = "upgrade-icon-" .. cardId
+  table.insert(contracts, {
+    script = "docs/art/scripts/build-" .. id .. ".lua",
+    width = 48, height = 48, frames = 1,
+    layers = { "body", "notes" }, hidden = { notes = true }, populated = { "body" },
+    tags = {}, savedAs = string.format("assets-src/upgrade-icons/%s/source/%s.pxo", id, id),
+  })
+end
+
 local function layerMap(sprite)
   local result = {}
   for _, layer in ipairs(sprite.layers) do result[layer.name] = layer end

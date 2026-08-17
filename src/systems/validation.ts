@@ -10,7 +10,7 @@ import lootTablesJson from '../data/loot-tables.json';
 import audioAssetsJson from '../data/audio-assets.json';
 import audioMapJson from '../data/audio-map.json';
 import visualArtJson from '../data/visual-art.json';
-import { STAT_KEYS } from '../gameplay/stats';
+import { STAT_KEYS, RUN_UPGRADE_STAT_KEYS, WEAPON_MODIFIER_STAT_KEYS } from '../gameplay/stats';
 import { DEFAULT_WEAPON_FAMILIES } from '../gameplay/weapons';
 import { GAME_EVENT_KEYS, FAMILY_TIER_EVENT_KEYS } from '../engine/eventBus';
 import { RuntimeConfig } from '../engine/config';
@@ -62,9 +62,18 @@ const WEAPON_FEEL_FIELDS = new Set(['family', 'muzzle', 'impact', 'recoilPx', 's
 const WEAPON_FEEL_MUZZLE_FIELDS = new Set(['color', 'radius', 'lifetimeMs']);
 const WEAPON_FEEL_IMPACT_FIELDS = new Set(['color', 'radius']);
 const UPGRADE_FIELDS = new Set([
-  'id', 'name', 'rarity', 'target', 'description', 'maxStacks', 'effects',
+  'id', 'name', 'rarity', 'target', 'description', 'maxStacks', 'effects', 'presentation',
 ]);
 const UPGRADE_EFFECT_FIELDS = new Set(['stat', 'op', 'value']);
+// Epic 18 (D3/D5): run-upgrade-only effect/scope shape and stat vocabulary —
+// deliberately separate from the legacy UPGRADE_EFFECT_FIELDS/STAT_KEY_SET
+// pair above, which stays wired to checkMetaUpgrade/character passives.
+const RUN_UPGRADE_EFFECT_FIELDS = new Set(['stat', 'op', 'value', 'scope']);
+const RUN_UPGRADE_SCOPE_FIELDS = new Set(['kind', 'family']);
+const RUN_UPGRADE_STAT_KEY_SET = new Set<string>(RUN_UPGRADE_STAT_KEYS);
+const WEAPON_MODIFIER_STAT_KEY_SET = new Set<string>(WEAPON_MODIFIER_STAT_KEYS);
+const UPGRADE_PRESENTATION_FIELDS = new Set(['category', 'iconArtId']);
+const UPGRADE_CATEGORIES = new Set(['offense', 'defense', 'mobility', 'utility', 'economy', 'synergy']);
 const META_UPGRADE_FIELDS = new Set(['id', 'name', 'description', 'maxLevel', 'cost', 'effects']);
 const META_UPGRADE_COST_FIELDS = new Set(['base', 'growth']);
 const DIRECT_ENEMY_FIELDS = new Set([
@@ -428,6 +437,11 @@ export function validateGameData(raw: unknown): GameData {
   assertWeaponArtReferences(weapons, visualArt);
   assertWeaponFeelReferences(weapons, weaponFeel);
   assertArenaVisualReferences(arenas, visualArt);
+  // Epic 18: appended after every pre-existing cross-reference so a
+  // multi-error input's frozen first failure never changes because this
+  // epic exists (§5).
+  assertUpgradeWeaponFamilyReferences(upgrades, weapons);
+  assertUpgradeArtReferences(upgrades, visualArt);
 
   const audio: AudioData = { assets: audioAssets, map: audioMap };
   return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt };
@@ -575,6 +589,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
   const weapons = catalogs.weapons as WeaponDefinition[];
   const weaponFeel = catalogs.weaponFeel as WeaponFeelDefinition[];
   const enemies = catalogs.enemies as EnemyDefinition[];
+  const upgrades = catalogs.upgrades as UpgradeDefinition[];
   const spawnCurves = catalogs.spawnCurves as SpawnCurveDefinition[];
   const characters = catalogs.characters as CharacterDefinition[];
   const arenas = catalogs.arenas as ArenaDefinition[];
@@ -595,6 +610,8 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertWeaponArtReferences(weapons, visualArt),
     () => assertWeaponFeelReferences(weapons, weaponFeel),
     () => assertArenaVisualReferences(arenas, visualArt),
+    () => assertUpgradeWeaponFamilyReferences(upgrades, weapons),
+    () => assertUpgradeArtReferences(upgrades, visualArt),
   ];
   for (const assertion of assertions) {
     try {
@@ -1810,8 +1827,117 @@ function checkUpgrade(row: unknown): string[] {
   requireEnum(row, 'target', UPGRADE_TARGETS, errors);
   requireString(row, 'description', errors);
   requirePositiveInteger(row, 'maxStacks', errors);
-  checkUpgradeEffects(row, errors);
+  checkRunUpgradeEffects(row, errors);
+  checkUpgradePresentation(row, errors);
   return errors;
+}
+
+/** Epic 18 (D8): every shipped card's icon must be exactly
+ *  `upgrade-icon:<upgrade-id>` — a self-consistency check needing only this
+ *  row (existence/kind/required-ness of the actual binding is a
+ *  cross-reference check, `assertUpgradeArtReferences`). */
+function checkUpgradePresentation(row: Record<string, unknown>, errors: string[]): void {
+  const presentation = readOwnField(row, 'presentation');
+  if (!isRecord(presentation)) {
+    errors.push('presentation: required object');
+    return;
+  }
+  const presentationErrors: string[] = [];
+  rejectUnknownFields(presentation, UPGRADE_PRESENTATION_FIELDS, presentationErrors);
+  requireEnum(presentation, 'category', UPGRADE_CATEGORIES, presentationErrors);
+
+  const id = readOwnField(row, 'id');
+  const iconArtId = readOwnField(presentation, 'iconArtId');
+  if (typeof iconArtId !== 'string') {
+    presentationErrors.push('iconArtId: required string');
+  } else if (typeof id === 'string' && iconArtId !== `upgrade-icon:${id}`) {
+    presentationErrors.push(`iconArtId: must be exactly "upgrade-icon:${id}"`);
+  }
+  errors.push(...presentationErrors.map((error) => `presentation.${error}`));
+}
+
+/** Epic 18 (D3/D5): run-upgrade-only effect validator — uses
+ *  RUN_UPGRADE_STAT_KEYS (never legacy STAT_KEYS) and validates the optional
+ *  weapon-family scope. checkMetaUpgrade/character passives keep using the
+ *  legacy checkUpgradeEffects()/STAT_KEY_SET below, unchanged. */
+function checkRunUpgradeEffects(upgrade: Record<string, unknown>, errors: string[]): void {
+  const effects = readOwnField(upgrade, 'effects');
+  if (!Array.isArray(effects) || effects.length === 0) {
+    errors.push('effects: required non-empty array');
+    return;
+  }
+
+  const target = readOwnField(upgrade, 'target');
+  const maxStacks = readOwnField(upgrade, 'maxStacks');
+  let sharedFamily: string | undefined;
+  let sawScope = false;
+
+  for (let index = 0; index < effects.length; index += 1) {
+    if (!(index in effects)) {
+      errors.push(`effects[${index}]: sparse array entry`);
+      continue;
+    }
+    const effect = effects[index];
+    if (!isRecord(effect)) {
+      errors.push(`effects[${index}]: expected object`);
+      continue;
+    }
+    const effectErrors: string[] = [];
+    rejectUnknownFields(effect, RUN_UPGRADE_EFFECT_FIELDS, effectErrors);
+    const stat = readOwnField(effect, 'stat');
+    const op = readOwnField(effect, 'op');
+    const value = readOwnField(effect, 'value');
+    if (typeof stat !== 'string' || !RUN_UPGRADE_STAT_KEY_SET.has(stat)) {
+      effectErrors.push('stat: unknown run-upgrade stat key');
+    }
+    if (typeof op !== 'string' || !UPGRADE_OPS.has(op)) {
+      effectErrors.push('op: must be "add" or "mult"');
+    }
+    if (!isFiniteNumber(value)) {
+      effectErrors.push('value: required finite number');
+    } else if (op === 'mult' && value <= 0) {
+      // D5: mult values must be finite and > 0; sub-1 trade-off multipliers
+      // (e.g. heavy-rounds' attackSpeed x0.94) are intentionally valid.
+      effectErrors.push('value: mult value must be positive');
+    } else if (isFiniteNumber(maxStacks) && Number.isSafeInteger(maxStacks)) {
+      const aggregate = op === 'add' ? value * maxStacks : value ** maxStacks;
+      if (!Number.isFinite(aggregate)) {
+        effectErrors.push('value: aggregate across maxStacks must remain finite');
+      }
+    }
+
+    const scope = readOwnField(effect, 'scope');
+    if (scope !== undefined) {
+      sawScope = true;
+      if (!isRecord(scope)) {
+        effectErrors.push('scope: required object');
+      } else {
+        const scopeErrors: string[] = [];
+        rejectUnknownFields(scope, RUN_UPGRADE_SCOPE_FIELDS, scopeErrors);
+        if (readOwnField(scope, 'kind') !== 'weapon-family') {
+          scopeErrors.push('kind: must be "weapon-family"');
+        }
+        const family = readOwnField(scope, 'family');
+        if (typeof family !== 'string' || family.trim().length === 0) {
+          scopeErrors.push('family: required nonempty trimmed string');
+        } else if (sharedFamily === undefined) {
+          sharedFamily = family;
+        } else if (sharedFamily !== family) {
+          scopeErrors.push('family: every scoped effect in one upgrade must reference the same family');
+        }
+        if (typeof stat === 'string' && !WEAPON_MODIFIER_STAT_KEY_SET.has(stat)) {
+          scopeErrors.push('stat: scope is only valid on a weapon-modifier stat');
+        }
+        effectErrors.push(...scopeErrors.map((error) => `scope.${error}`));
+      }
+    }
+
+    errors.push(...effectErrors.map((error) => `effects[${index}].${error}`));
+  }
+
+  if (sawScope && target !== 'weapon') {
+    errors.push('effects: a scoped effect requires target "weapon"');
+  }
 }
 
 function checkMetaUpgrade(row: unknown): string[] {
@@ -2390,6 +2516,54 @@ export function assertWeaponArtReferences(
       errors.push(`weapons.json[${index}].art.projectileId: family "${weapon.family}" must share "${expectedProjectile}"`);
     } else {
       familyProjectile.set(weapon.family, weapon.art.projectileId);
+    }
+  });
+  throwIfErrors(errors);
+}
+
+/** Epic 18 (D5/D6): scoped run-upgrade families must exist in the validated
+ *  weapon catalog — never DEFAULT_WEAPON_FAMILIES, which is only the starter-
+ *  family invariant, not the authority for every family real data may add. */
+export function assertUpgradeWeaponFamilyReferences(
+  upgrades: readonly UpgradeDefinition[],
+  weapons: readonly WeaponDefinition[],
+): void {
+  const knownFamilies = new Set(weapons.map((weapon) => weapon.family));
+  const errors: string[] = [];
+  upgrades.forEach((upgrade, index) => {
+    for (const effect of upgrade.effects) {
+      if (effect.scope && !knownFamilies.has(effect.scope.family)) {
+        errors.push(
+          `upgrades.json[${index}].effects: scope family "${effect.scope.family}" is not used by any weapon`,
+        );
+      }
+    }
+  });
+  throwIfErrors(errors);
+}
+
+/** Epic 18 (D8): every shipped card's icon must resolve to exactly one
+ *  required `upgrade-icon` binding. checkUpgrade's row-level identity check
+ *  (`iconArtId === upgrade-icon:<own-id>`) already makes "point at another
+ *  card's icon" structurally impossible — this cross-reference confirms the
+ *  binding actually exists, is the right kind, and is required. */
+export function assertUpgradeArtReferences(
+  upgrades: readonly UpgradeDefinition[],
+  catalog: VisualArtCatalog,
+): void {
+  const byId = new Map(catalog.bindings.map((binding) => [binding.id, binding]));
+  const errors: string[] = [];
+  upgrades.forEach((upgrade, index) => {
+    const iconArtId = upgrade.presentation.iconArtId;
+    const binding = byId.get(iconArtId);
+    if (!binding) {
+      errors.push(`upgrades.json[${index}].presentation.iconArtId: unknown visual-art id "${iconArtId}"`);
+    } else if (binding.kind !== 'upgrade-icon') {
+      errors.push(
+        `upgrades.json[${index}].presentation.iconArtId: expected upgrade-icon binding, got ${binding.kind}`,
+      );
+    } else if (!binding.required) {
+      errors.push(`upgrades.json[${index}].presentation.iconArtId: upgrade icon must be required`);
     }
   });
   throwIfErrors(errors);

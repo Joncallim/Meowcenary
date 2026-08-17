@@ -6,7 +6,8 @@
     "target": "player",
     "description": "Increase movement speed for this run.",
     "maxStacks": 5,
-    "effects": [{ "stat": "moveSpeed", "op": "mult", "value": 1.08 }]
+    "effects": [{ "stat": "moveSpeed", "op": "mult", "value": 1.08 }],
+    "presentation": { "category": "mobility", "iconArtId": "upgrade-icon:quick-paws" }
   },
   {
     "id": "extra-scrap",
@@ -15,7 +16,8 @@
     "target": "economy",
     "description": "Increase scrap gained for this run.",
     "maxStacks": 3,
-    "effects": [{ "stat": "currencyGain", "op": "mult", "value": 1.25 }]
+    "effects": [{ "stat": "currencyGain", "op": "mult", "value": 1.25 }],
+    "presentation": { "category": "economy", "iconArtId": "upgrade-icon:extra-scrap" }
   },
   {
     "id": "hot-barrel",
@@ -24,6 +26,191 @@
     "target": "weapon",
     "description": "Increase weapon fire rate for this run.",
     "maxStacks": 4,
-    "effects": [{ "stat": "attackSpeed", "op": "mult", "value": 1.12 }]
+    "effects": [{ "stat": "attackSpeed", "op": "mult", "value": 1.12 }],
+    "presentation": { "category": "offense", "iconArtId": "upgrade-icon:hot-barrel" }
+  },
+  {
+    "id": "scrap-magnet",
+    "name": "Scrap Magnet",
+    "rarity": "common",
+    "target": "player",
+    "description": "Increase pickup radius for this run.",
+    "maxStacks": 4,
+    "effects": [{ "stat": "pickupRadius", "op": "mult", "value": 1.25 }],
+    "presentation": { "category": "utility", "iconArtId": "upgrade-icon:scrap-magnet" }
+  },
+  {
+    "id": "reinforced-coat",
+    "name": "Reinforced Coat",
+    "rarity": "common",
+    "target": "player",
+    "description": "Increase maximum health for this run.",
+    "maxStacks": 4,
+    "effects": [{ "stat": "maxHealth", "op": "mult", "value": 1.12 }],
+    "presentation": { "category": "defense", "iconArtId": "upgrade-icon:reinforced-coat" }
+  },
+  {
+    "id": "fast-learner",
+    "name": "Fast Learner",
+    "rarity": "common",
+    "target": "run",
+    "description": "Increase XP gained for this run.",
+    "maxStacks": 3,
+    "effects": [{ "stat": "xpGain", "op": "mult", "value": 1.15 }],
+    "presentation": { "category": "utility", "iconArtId": "upgrade-icon:fast-learner" }
+  },
+  {
+    "id": "heavy-rounds",
+    "name": "Heavy Rounds",
+    "rarity": "uncommon",
+    "target": "weapon",
+    "description": "Hit harder, fire a little slower, for this run.",
+    "maxStacks": 3,
+    "effects": [
+      { "stat": "damage", "op": "mult", "value": 1.20 },
+      { "stat": "attackSpeed", "op": "mult", "value": 0.94 }
+    ],
+    "presentation": { "category": "offense", "iconArtId": "upgrade-icon:heavy-rounds" }
+  },
+  {
+    "id": "long-barrel",
+    "name": "Long Barrel",
+    "rarity": "uncommon",
+    "target": "weapon",
+    "description": "Increase weapon range and projectile speed for this run.",
+    "maxStacks": 3,
+    "effects": [
+      { "stat": "range", "op": "mult", "value": 1.15 },
+      { "stat": "projectileSpeed", "op": "mult", "value": 1.12 }
+    ],
+    "presentation": { "category": "offense", "iconArtId": "upgrade-icon:long-barrel" }
+  },
+  {
+    "id": "split-shot",
+    "name": "Split Shot",
+    "rarity": "rare",
+    "target": "weapon",
+    "description": "Fire an extra projectile with a wider spread for this run.",
+    "maxStacks": 2,
+    "effects": [
+      { "stat": "projectileCount", "op": "add", "value": 1 },
+      { "stat": "spreadDeg", "op": "add", "value": 4 }
+    ],
+    "presentation": { "category": "offense", "iconArtId": "upgrade-icon:split-shot" }
+  },
+  {
+    "id": "punch-through",
+    "name": "Punch Through",
+    "rarity": "rare",
+    "target": "weapon",
+    "description": "Projectiles pierce one more enemy for this run.",
+    "maxStacks": 2,
+    "effects": [{ "stat": "pierce", "op": "add", "value": 1 }],
+    "presentation": { "category": "offense", "iconArtId": "upgrade-icon:punch-through" }
+  },
+  {
+    "id": "glass-cannon",
+    "name": "Glass Cannon",
+    "rarity": "epic",
+    "target": "run",
+    "description": "Hit much harder, but lower your maximum health, for this run.",
+    "maxStacks": 2,
+    "effects": [
+      { "stat": "damage", "op": "mult", "value": 1.30 },
+      { "stat": "maxHealth", "op": "mult", "value": 0.90 }
+    ],
+    "presentation": { "category": "synergy", "iconArtId": "upgrade-icon:glass-cannon" }
+  },
+  {
+    "id": "run-and-gun",
+    "name": "Run and Gun",
+    "rarity": "uncommon",
+    "target": "run",
+    "description": "Increase movement speed and fire rate together for this run.",
+    "maxStacks": 3,
+    "effects": [
+      { "stat": "moveSpeed", "op": "mult", "value": 1.06 },
+      { "stat": "attackSpeed", "op": "mult", "value": 1.06 }
+    ],
+    "presentation": { "category": "synergy", "iconArtId": "upgrade-icon:run-and-gun" }
+  },
+  {
+    "id": "pistol-deadeye",
+    "name": "Pistol Deadeye",
+    "rarity": "uncommon",
+    "target": "weapon",
+    "description": "Increase pistol damage and range for this run.",
+    "maxStacks": 3,
+    "effects": [
+      { "stat": "damage", "op": "mult", "value": 1.22, "scope": { "kind": "weapon-family", "family": "pistol" } },
+      { "stat": "range", "op": "mult", "value": 1.12, "scope": { "kind": "weapon-family", "family": "pistol" } }
+    ],
+    "presentation": { "category": "synergy", "iconArtId": "upgrade-icon:pistol-deadeye" }
+  },
+  {
+    "id": "pistol-needle-rounds",
+    "name": "Pistol Needle Rounds",
+    "rarity": "rare",
+    "target": "weapon",
+    "description": "Pistol shots pierce one more enemy but hit a little softer, for this run.",
+    "maxStacks": 2,
+    "effects": [
+      { "stat": "pierce", "op": "add", "value": 1, "scope": { "kind": "weapon-family", "family": "pistol" } },
+      { "stat": "damage", "op": "mult", "value": 0.92, "scope": { "kind": "weapon-family", "family": "pistol" } }
+    ],
+    "presentation": { "category": "synergy", "iconArtId": "upgrade-icon:pistol-needle-rounds" }
+  },
+  {
+    "id": "smg-overclock",
+    "name": "SMG Overclock",
+    "rarity": "uncommon",
+    "target": "weapon",
+    "description": "SMG fire rate climbs, damage per shot drops a little, for this run.",
+    "maxStacks": 2,
+    "effects": [
+      { "stat": "attackSpeed", "op": "mult", "value": 1.15, "scope": { "kind": "weapon-family", "family": "smg" } },
+      { "stat": "damage", "op": "mult", "value": 0.95, "scope": { "kind": "weapon-family", "family": "smg" } }
+    ],
+    "presentation": { "category": "synergy", "iconArtId": "upgrade-icon:smg-overclock" }
+  },
+  {
+    "id": "smg-spray",
+    "name": "SMG Spray",
+    "rarity": "rare",
+    "target": "weapon",
+    "description": "SMG fires an extra projectile with a wider spread but a slower rate, for this run.",
+    "maxStacks": 2,
+    "effects": [
+      { "stat": "projectileCount", "op": "add", "value": 1, "scope": { "kind": "weapon-family", "family": "smg" } },
+      { "stat": "spreadDeg", "op": "add", "value": 5, "scope": { "kind": "weapon-family", "family": "smg" } },
+      { "stat": "attackSpeed", "op": "mult", "value": 0.95, "scope": { "kind": "weapon-family", "family": "smg" } }
+    ],
+    "presentation": { "category": "synergy", "iconArtId": "upgrade-icon:smg-spray" }
+  },
+  {
+    "id": "shotgun-buckshot",
+    "name": "Shotgun Buckshot",
+    "rarity": "rare",
+    "target": "weapon",
+    "description": "Shotgun fires an extra pellet with a wider spread for this run.",
+    "maxStacks": 2,
+    "effects": [
+      { "stat": "projectileCount", "op": "add", "value": 1, "scope": { "kind": "weapon-family", "family": "shotgun" } },
+      { "stat": "spreadDeg", "op": "add", "value": 4, "scope": { "kind": "weapon-family", "family": "shotgun" } }
+    ],
+    "presentation": { "category": "synergy", "iconArtId": "upgrade-icon:shotgun-buckshot" }
+  },
+  {
+    "id": "shotgun-breacher",
+    "name": "Shotgun Breacher",
+    "rarity": "uncommon",
+    "target": "weapon",
+    "description": "Shotgun hits much harder up close, but loses range, for this run.",
+    "maxStacks": 3,
+    "effects": [
+      { "stat": "damage", "op": "mult", "value": 1.25, "scope": { "kind": "weapon-family", "family": "shotgun" } },
+      { "stat": "range", "op": "mult", "value": 0.88, "scope": { "kind": "weapon-family", "family": "shotgun" } }
+    ],
+    "presentation": { "category": "synergy", "iconArtId": "upgrade-icon:shotgun-breacher" }
   }
 ]
