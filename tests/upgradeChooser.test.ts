@@ -40,6 +40,7 @@ const definitions: UpgradeDefinition[] = [
     description: 'Increase movement speed for this run.',
     maxStacks: 5,
     effects: [{ stat: 'moveSpeed', op: 'mult', value: 1.08 }],
+    presentation: { category: 'mobility', iconArtId: 'upgrade-icon:quick-paws' },
   },
   {
     id: 'hot-barrel',
@@ -49,6 +50,7 @@ const definitions: UpgradeDefinition[] = [
     description: 'Increase weapon fire rate for this run.',
     maxStacks: 4,
     effects: [{ stat: 'attackSpeed', op: 'mult', value: 1.12 }],
+    presentation: { category: 'offense', iconArtId: 'upgrade-icon:hot-barrel' },
   },
   {
     id: 'extra-scrap',
@@ -58,6 +60,7 @@ const definitions: UpgradeDefinition[] = [
     description: 'Increase scrap gained for this run.',
     maxStacks: 3,
     effects: [{ stat: 'currencyGain', op: 'mult', value: 1.25 }],
+    presentation: { category: 'economy', iconArtId: 'upgrade-icon:extra-scrap' },
   },
 ];
 

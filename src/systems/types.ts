@@ -1,4 +1,4 @@
-import type { StatKey } from '../gameplay/stats';
+import type { RunUpgradeStatKey, StatKey } from '../gameplay/stats';
 import type { UnlockRule } from '../gameplay/meta';
 import type { PlayerBaseStats } from '../gameplay/runStart';
 import type { GameEventKey } from '../engine/eventBus';
@@ -8,12 +8,41 @@ export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 /**
  * A single JSON-safe upgrade effect. It carries no runtime `sourceId`; the
  * source (`card:<id>:<stack>`) is assigned when a card is applied. Epic 3
- * effects are global run modifiers — never per-weapon.
+ * effects are global run modifiers — never per-weapon. This is the
+ * legacy/base shape shared by meta upgrades and character static passives
+ * (Epic 18 D3) — it must never gain weapon-family scope or Epic 18-only
+ * behavior keys; see `RunUpgradeEffect` for run-card-only effects.
  */
 export interface UpgradeEffect {
   stat: StatKey;
   op: 'add' | 'mult';
   value: number;
+}
+
+/** Epic 18 (D3): scope for a run-upgrade weapon-stat modifier. Global when
+ *  absent from `RunUpgradeEffect.scope`. */
+export interface WeaponFamilyScope {
+  readonly kind: 'weapon-family';
+  readonly family: string;
+}
+
+/** Epic 18 (D3): run-only upgrade effect shape — deliberately separate from
+ *  legacy `UpgradeEffect` so weapon-family scope and behavior-only stats
+ *  (`pierce`/`spreadDeg`) cannot leak into meta upgrades or character
+ *  passives. Every scoped effect in one upgrade must reference the same
+ *  family (enforced by validation, D5). */
+export interface RunUpgradeEffect {
+  readonly stat: RunUpgradeStatKey;
+  readonly op: 'add' | 'mult';
+  readonly value: number;
+  readonly scope?: WeaponFamilyScope;
+}
+
+/** Epic 18 (D8): presentation metadata every shipped run-upgrade card
+ *  requires. `iconArtId` must be exactly `upgrade-icon:<upgrade-id>`. */
+export interface UpgradePresentation {
+  readonly category: 'offense' | 'defense' | 'mobility' | 'utility' | 'economy' | 'synergy';
+  readonly iconArtId: string;
 }
 
 export interface WeaponDefinition {
@@ -177,7 +206,8 @@ export interface UpgradeDefinition {
   target: 'player' | 'weapon' | 'economy' | 'run';
   description: string;
   maxStacks: number;
-  effects: UpgradeEffect[];
+  effects: RunUpgradeEffect[];
+  presentation: UpgradePresentation;
 }
 
 export interface MetaUpgradeCost {
@@ -250,7 +280,8 @@ export type VisualArtKind =
   | 'drop'
   | 'weapon-icon'
   | 'weapon-held'
-  | 'world';
+  | 'world'
+  | 'upgrade-icon';
 
 export type VisualArtLoad =
   | { readonly type: 'image' }

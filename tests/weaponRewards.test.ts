@@ -478,6 +478,38 @@ describe('WeaponRewardSystem placement (Epic 14 §D12)', () => {
     expect([harness.spawns[0].x, harness.spawns[0].y]).toEqual([852, 300 + CONFIG.spawnOffset]);
   });
 
+  it('resolves the live pickup radius at each placement, not the radius snapshotted at construction (Epic 18 D10)', () => {
+    // scrap-magnet is picked up mid-run, after construction. A construction-
+    // time snapshot would keep using the base 30px radius for every reward
+    // placed after that; the fix must re-resolve pickupRadius live so the
+    // second reward respects the boosted radius exactly like the passive case.
+    const harness = createHarness({
+      seed: 49,
+      startingDefinitionId: STARTING_ID,
+      playerPosition: () => ({ x: 852, y: 300 }),
+    });
+    const { runState } = harness;
+
+    // Base 30px radius: the first candidate clamps to (892, 300), 40px away —
+    // outside the base radius, so it is accepted at construction-time radius.
+    runState.timeMs = 40_000;
+    harness.system.update(0);
+    expect([harness.spawns[0].x, harness.spawns[0].y]).toEqual([892, 300]);
+
+    // scrap-magnet applied after construction, raising the live radius to 45.
+    runState.stats.add({ stat: 'pickupRadius', op: 'add', value: 15, sourceId: 'card:scrap-magnet:1' });
+
+    const nextDeadline = expectedSchedule(49, STARTING_ID, 2)[1]!.at;
+    runState.timeMs = nextDeadline;
+    harness.system.update(0);
+
+    // Second reward's first candidate (892, 300) is now inside the boosted
+    // 45px radius, so placement must reject it and fall through the cycle —
+    // proving the radius was re-resolved live rather than reused from
+    // construction.
+    expect([harness.spawns[1].x, harness.spawns[1].y]).toEqual([852, 300 + CONFIG.spawnOffset]);
+  });
+
   it('tries diagonal fallback positions when every cycle candidate is blocked', () => {
     // Obstacles covering all four cardinal candidates: the cycle is fully
     // blocked, so the fallback tries the diagonal positions and the drop

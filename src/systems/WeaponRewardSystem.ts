@@ -49,10 +49,11 @@ export class WeaponRewardSystem implements System {
   private readonly lootTables: LootTableLookup;
   private readonly config: WeaponRewardTimingConfig;
   private readonly dropRadius: number;
-  /** Radius within which a drop is collected automatically (magnet pull or
-   *  physical overlap). Snapshotted at construction so placement never
-   *  perturbs the reward-definition sequence (Epic 14 §D12 review fix). */
-  private readonly minPlayerSeparation: number;
+  /** Epic 18 (D10): base pickup radius fed to the live separation
+   *  calculation at each placement — no longer snapshotted at construction,
+   *  since a run-time `pickupRadius` card (`scrap-magnet`) can raise the
+   *  live collection radius above a separation fixed at run start. */
+  private readonly basePickupRadius: number;
   private readonly spawnDrop: (x: number, y: number, grant: LootGrant) => void;
   private readonly playerPosition: () => { readonly x: number; readonly y: number };
   private readonly arenaBounds: { readonly width: number; readonly height: number };
@@ -74,10 +75,7 @@ export class WeaponRewardSystem implements System {
     this.lootTables = options.lootTables;
     this.config = options.config;
     this.dropRadius = options.dropRadius;
-    this.minPlayerSeparation = Math.max(
-      this.runState.stats.resolve('pickupRadius', options.basePickupRadius),
-      PLAYER_BODY_RADIUS + this.dropRadius,
-    );
+    this.basePickupRadius = options.basePickupRadius;
     this.spawnDrop = options.spawnDrop;
     this.playerPosition = options.playerPosition;
     this.arenaBounds = options.arenaBounds;
@@ -195,10 +193,23 @@ export class WeaponRewardSystem implements System {
       return false;
     }
     const distanceSq = (candidate.x - player.x) ** 2 + (candidate.y - player.y) ** 2;
-    const minSeparationSq = this.minPlayerSeparation * this.minPlayerSeparation;
+    const minSeparation = this.minPlayerSeparation();
+    const minSeparationSq = minSeparation * minSeparation;
     // Strictly outside the collection radius: a drop at exactly pickup radius
     // would already be magnetized on the next update.
     return distanceSq > minSeparationSq;
+  }
+
+  /** Epic 18 (D10): resolved fresh at each placement rather than snapshotted
+   *  at construction, so a run-time `pickupRadius` card (`scrap-magnet`)
+   *  cannot leave a scheduled reward inside the live collection radius.
+   *  Placement-only — consumes no RNG, so the reward-definition/deadline
+   *  sequence on the `weapon-rewards` stream is unaffected. */
+  private minPlayerSeparation(): number {
+    return Math.max(
+      this.runState.stats.resolve('pickupRadius', this.basePickupRadius),
+      PLAYER_BODY_RADIUS + this.dropRadius,
+    );
   }
 
   private clampToArenaBounds(x: number, y: number): { readonly x: number; readonly y: number } {

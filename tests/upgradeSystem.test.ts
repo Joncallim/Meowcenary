@@ -20,6 +20,7 @@ const damageUpgrade: UpgradeDefinition = {
   description: 'Increase damage for this run.',
   maxStacks: 20_000,
   effects: [{ stat: 'damage', op: 'add', value: 2 }],
+  presentation: { category: 'offense', iconArtId: 'upgrade-icon:damage-up' },
 };
 
 const speedUpgrade: UpgradeDefinition = {
@@ -30,6 +31,7 @@ const speedUpgrade: UpgradeDefinition = {
   description: 'Increase movement speed for this run.',
   maxStacks: 1,
   effects: [{ stat: 'moveSpeed', op: 'mult', value: 1.1 }],
+  presentation: { category: 'mobility', iconArtId: 'upgrade-icon:speed-up' },
 };
 
 function createFirstRng(onWeighted?: () => void): Rng {
@@ -87,13 +89,13 @@ describe('UpgradeSystem RNG ownership', () => {
 
     const first = offerCards(
       [damageUpgrade, speedUpgrade],
-      {},
+      { stacks: {}, equipped: [] },
       createRng(deriveRunSeed(seed, 'upgrades')),
       2,
     ).map((definition) => definition.id);
     const second = offerCards(
       [damageUpgrade, speedUpgrade],
-      {},
+      { stacks: {}, equipped: [] },
       createRng(deriveRunSeed(seed, 'upgrades')),
       2,
     ).map((definition) => definition.id);
@@ -327,7 +329,7 @@ describe('UpgradeSystem choice handling and ordering', () => {
 
     const exposed = system.currentOffer as UpgradeDefinition[];
     exposed[0]!.id = 'tampered';
-    exposed[0]!.effects[0]!.value = 999;
+    (exposed[0]!.effects[0] as { value: number }).value = 999;
 
     expect(system.currentOffer[0]?.id).toBe('damage-up');
     expect(system.currentOffer[0]?.effects[0]?.value).toBe(2);
@@ -722,7 +724,7 @@ describe('UpgradeSystem offer identity and composable delivery', () => {
       offeredValue = system.currentOffer[0]?.effects[0]?.value;
       callerDefinition.id = 'tampered';
       callerDefinition.target = 'economy';
-      callerDefinition.effects[0]!.value = 999;
+      (callerDefinition.effects[0] as { value: number }).value = 999;
     });
 
     bus.emit('level:up', { level: 2 });

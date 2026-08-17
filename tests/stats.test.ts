@@ -42,4 +42,72 @@ describe('ModifierStack', () => {
     stats.add({ stat: 'damage', op: 'mult', value: 2, sourceId: 'overflow' });
     expect(() => stats.resolve('damage', Number.MAX_VALUE)).toThrow(/finite/);
   });
+
+  describe('resolveWeapon (Epic 18 D4)', () => {
+    it('applies an unscoped modifier to any family, identically to resolve()', () => {
+      const stats = new ModifierStack();
+      stats.add({ stat: 'damage', op: 'add', value: 5, sourceId: 'global' });
+      stats.add({ stat: 'damage', op: 'mult', value: 2, sourceId: 'global-mult' });
+
+      expect(stats.resolveWeapon('damage', 10, 'pistol')).toBe(stats.resolve('damage', 10));
+      expect(stats.resolveWeapon('damage', 10, 'shotgun')).toBe(stats.resolve('damage', 10));
+    });
+
+    it('applies a family-scoped modifier only to the matching family', () => {
+      const stats = new ModifierStack();
+      stats.add({
+        stat: 'damage',
+        op: 'mult',
+        value: 2,
+        sourceId: 'pistol-only',
+        scope: { kind: 'weapon-family', family: 'pistol' },
+      });
+
+      expect(stats.resolveWeapon('damage', 10, 'pistol')).toBe(20);
+      expect(stats.resolveWeapon('damage', 10, 'shotgun')).toBe(10);
+    });
+
+    it('composes global and matching-family effects in two-pass insertion-order add-then-multiply', () => {
+      const stats = new ModifierStack();
+      stats.add({ stat: 'damage', op: 'add', value: 5, sourceId: 'global-add' });
+      stats.add({
+        stat: 'damage',
+        op: 'add',
+        value: 3,
+        sourceId: 'pistol-add',
+        scope: { kind: 'weapon-family', family: 'pistol' },
+      });
+      stats.add({ stat: 'damage', op: 'mult', value: 2, sourceId: 'global-mult' });
+      stats.add({
+        stat: 'damage',
+        op: 'mult',
+        value: 1.5,
+        sourceId: 'pistol-mult',
+        scope: { kind: 'weapon-family', family: 'pistol' },
+      });
+
+      // add pass: 10 + 5 + 3 = 18; mult pass: 18 * 2 * 1.5 = 54.
+      expect(stats.resolveWeapon('damage', 10, 'pistol')).toBe(54);
+      // Non-matching family only sees the unscoped effects: (10 + 5) * 2 = 30.
+      expect(stats.resolveWeapon('damage', 10, 'smg')).toBe(30);
+    });
+
+    it('defensively copies a modifier scope so caller mutation cannot retarget a stored modifier', () => {
+      const stats = new ModifierStack();
+      const scope = { kind: 'weapon-family' as const, family: 'pistol' };
+      stats.add({ stat: 'damage', op: 'add', value: 100, sourceId: 'scoped', scope });
+      scope.family = 'shotgun';
+
+      expect(stats.resolveWeapon('damage', 0, 'pistol')).toBe(100);
+      expect(stats.resolveWeapon('damage', 0, 'shotgun')).toBe(0);
+    });
+
+    it('rejects a non-finite base value and a non-finite resolved aggregate', () => {
+      const stats = new ModifierStack();
+      expect(() => stats.resolveWeapon('damage', Number.NaN, 'pistol')).toThrow(/finite/);
+
+      stats.add({ stat: 'damage', op: 'mult', value: 2, sourceId: 'overflow' });
+      expect(() => stats.resolveWeapon('damage', Number.MAX_VALUE, 'pistol')).toThrow(/finite/);
+    });
+  });
 });

@@ -83,4 +83,59 @@ describe('weapon stats', () => {
     expect(stats.range).toBe(320);
     expect(stats.projectileSpeed).toBe(540);
   });
+
+  describe('weapon-family-scoped modifiers (Epic 18 D4)', () => {
+    it('applies a pistol-scoped damage modifier only to pistol, never to another family', () => {
+      const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
+      runState.stats.add({
+        stat: 'damage',
+        op: 'mult',
+        value: 2,
+        sourceId: 'pistol-scoped',
+        scope: { kind: 'weapon-family', family: 'pistol' },
+      });
+
+      const pistolStats = resolveWeaponStats(runState, pistol());
+      const smgStats = resolveWeaponStats(runState, weaponById('can-smg-t1'));
+
+      expect(pistolStats.damage).toBe(pistol().damage * 2);
+      expect(smgStats.damage).toBe(weaponById('can-smg-t1').damage);
+    });
+
+    it('routes pierce and spreadDeg through modifiers with post-resolution clamps', () => {
+      const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
+      runState.stats.add({ stat: 'pierce', op: 'add', value: 1.9, sourceId: 'punch-through' });
+      runState.stats.add({ stat: 'spreadDeg', op: 'add', value: 4, sourceId: 'split-shot' });
+
+      const stats = resolveWeaponStats(runState, pistol());
+
+      expect(stats.pierce).toBe(pistol().pierce + 1); // floored, never fractional
+      expect(stats.spreadDeg).toBe(pistol().spreadDeg + 4);
+
+      const negative = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
+      negative.stats.add({ stat: 'pierce', op: 'mult', value: 0, sourceId: 'zero' });
+      negative.stats.add({ stat: 'spreadDeg', op: 'mult', value: 0, sourceId: 'zero-spread' });
+
+      expect(resolveWeaponStats(negative, pistol()).pierce).toBe(0);
+      expect(resolveWeaponStats(negative, pistol()).spreadDeg).toBe(0);
+    });
+
+    it('scopes attackSpeed by family so a family-specific fire-rate card does not affect other families', () => {
+      const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
+      runState.stats.add({
+        stat: 'attackSpeed',
+        op: 'mult',
+        value: 2,
+        sourceId: 'smg-overclock',
+        scope: { kind: 'weapon-family', family: 'smg' },
+      });
+
+      const smg = weaponById('can-smg-t1');
+      const pistolStats = resolveWeaponStats(runState, pistol());
+      const smgStats = resolveWeaponStats(runState, smg);
+
+      expect(pistolStats.intervalMs).toBe(pistol().fireRateMs);
+      expect(smgStats.intervalMs).toBe(smg.fireRateMs / 2);
+    });
+  });
 });

@@ -255,7 +255,7 @@ class UpgradeCoordinationGroup {
           try {
             definitions = offerCards(
               this.options.definitions,
-              this.options.runState.upgradeStacks,
+              { stacks: this.options.runState.upgradeStacks, equipped: this.options.runState.equipped },
               this.options.rng,
               this.options.offerCount,
             );
