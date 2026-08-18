@@ -197,6 +197,42 @@ describe('reward schedule helpers', () => {
   });
 });
 
+describe('WeaponRewardSystem issuedCount diagnostic (Epic 18 §D11)', () => {
+  it('starts at zero and increments once per successful spawnDrop call', () => {
+    const harness = createHarness({ seed: 7, startingDefinitionId: STARTING_ID });
+    const expected = expectedSchedule(7, STARTING_ID, 3);
+    expect(harness.system.issuedCount).toBe(0);
+
+    const { runState } = harness;
+    for (const entry of expected) {
+      runState.timeMs = entry.at;
+      harness.system.update(0);
+    }
+
+    expect(harness.system.issuedCount).toBe(harness.spawns.length);
+    expect(harness.system.issuedCount).toBe(expected.length);
+  });
+
+  it('does not increment when a loot-table failure skips spawnDrop', () => {
+    const failingTables: LootTableLookup = {
+      lootTableById: () => undefined,
+    };
+    const harness = createHarness({
+      seed: 9,
+      startingDefinitionId: undefined,
+      lootTableLookup: failingTables,
+    });
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    harness.runState.timeMs = firstWeaponRewardDeadlineMs(rewardRng(9), CONFIG);
+    harness.system.update(0);
+
+    expect(harness.spawns).toHaveLength(0);
+    expect(harness.system.issuedCount).toBe(0);
+    consoleWarn.mockRestore();
+  });
+});
+
 describe('WeaponRewardSystem', () => {
   it('emits reward 0 as the starting definition and later rewards from weapon-world', () => {
     const harness = createHarness({ seed: 7, startingDefinitionId: STARTING_ID });
@@ -476,6 +512,80 @@ describe('WeaponRewardSystem placement (Epic 14 §D12)', () => {
     harness.system.update(0);
 
     expect([harness.spawns[0].x, harness.spawns[0].y]).toEqual([852, 300 + CONFIG.spawnOffset]);
+  });
+
+  it('resolves the live pickup radius at each placement, not the radius snapshotted at construction (Epic 18 D10)', () => {
+    // scrap-magnet is picked up mid-run, after construction. A construction-
+    // time snapshot would keep using the base 30px radius for every reward
+    // placed after that; the fix must re-resolve pickupRadius live so the
+    // second reward respects the boosted radius exactly like the passive case.
+    const harness = createHarness({
+      seed: 49,
+      startingDefinitionId: STARTING_ID,
+      playerPosition: () => ({ x: 852, y: 300 }),
+    });
+    const { runState } = harness;
+
+    // Base 30px radius: the first candidate clamps to (892, 300), 40px away —
+    // outside the base radius, so it is accepted at construction-time radius.
+    runState.timeMs = 40_000;
+    harness.system.update(0);
+    expect([harness.spawns[0].x, harness.spawns[0].y]).toEqual([892, 300]);
+
+    // scrap-magnet applied after construction, raising the live radius to 45.
+    runState.stats.add({ stat: 'pickupRadius', op: 'add', value: 15, sourceId: 'card:scrap-magnet:1' });
+
+    const nextDeadline = expectedSchedule(49, STARTING_ID, 2)[1]!.at;
+    runState.timeMs = nextDeadline;
+    harness.system.update(0);
+
+    // Second reward's first candidate (892, 300) is now inside the boosted
+    // 45px radius, so placement must reject it and fall through the cycle —
+    // proving the radius was re-resolved live rather than reused from
+    // construction.
+    expect([harness.spawns[1].x, harness.spawns[1].y]).toEqual([852, 300 + CONFIG.spawnOffset]);
+  });
+
+  it('keeps a scheduled reward physically collectable at the maximum shipped pickup radius (Epic 18 D10)', () => {
+    // Worst legitimate case: Scrap Tabby's +15 passive plus four scrap-magnet
+    // stacks -> (30 + 15) * 1.25^4 = 109.86px. That exceeds both the 64px
+    // cardinal ring and the ~90.5px diagonal ring, so a fixed-offset ring
+    // would reject every candidate and dump the reward inside the collection
+    // radius, where it is auto-magnetized instead of physically picked up.
+    const harness = createHarness({
+      seed: 49,
+      startingDefinitionId: STARTING_ID,
+      // Centre of a large arena so no candidate is clamped by the bounds.
+      playerPosition: () => ({ x: 1000, y: 1000 }),
+      arenaBounds: { width: 2000, height: 2000 },
+      pickupRadiusModifier: 15,
+    });
+    const { runState } = harness;
+    for (let stack = 1; stack <= 4; stack += 1) {
+      runState.stats.add({
+        stat: 'pickupRadius',
+        op: 'mult',
+        value: 1.25,
+        sourceId: `card:scrap-magnet:${stack}`,
+      });
+    }
+    const liveRadius = runState.stats.resolve('pickupRadius', 30);
+    expect(liveRadius).toBeCloseTo(109.86, 2);
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    runState.timeMs = 40_000;
+    harness.system.update(0);
+
+    expect(harness.spawns).toHaveLength(1);
+    const spawn = harness.spawns[0]!;
+    const distance = Math.hypot(spawn.x - 1000, spawn.y - 1000);
+    // Strictly outside the live collection radius, so the drop stays a
+    // physical pickup rather than being magnetized on the next update.
+    expect(distance).toBeGreaterThan(liveRadius);
+    // And it resolved through the ordinary candidate ring, not the degenerate
+    // "furthest candidate" fallback that warns.
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it('tries diagonal fallback positions when every cycle candidate is blocked', () => {

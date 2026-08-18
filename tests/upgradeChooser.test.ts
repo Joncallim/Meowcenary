@@ -3,7 +3,7 @@ import { createEventBus, type EventBus } from '../src/engine/eventBus';
 import type { Rng } from '../src/engine/rng';
 import { pauseRun, createRunState, startRun, type RunState } from '../src/gameplay/runState';
 import { UpgradeSystem, type UpgradeOfferSnapshot } from '../src/systems/UpgradeSystem';
-import type { UpgradeDefinition } from '../src/systems/types';
+import type { UpgradeCardReadModel, UpgradeDefinition } from '../src/systems/types';
 import {
   choiceIndexForNumberKey,
   UpgradeChooserController,
@@ -40,6 +40,7 @@ const definitions: UpgradeDefinition[] = [
     description: 'Increase movement speed for this run.',
     maxStacks: 5,
     effects: [{ stat: 'moveSpeed', op: 'mult', value: 1.08 }],
+    presentation: { category: 'mobility', iconArtId: 'upgrade-icon:quick-paws' },
   },
   {
     id: 'hot-barrel',
@@ -49,6 +50,7 @@ const definitions: UpgradeDefinition[] = [
     description: 'Increase weapon fire rate for this run.',
     maxStacks: 4,
     effects: [{ stat: 'attackSpeed', op: 'mult', value: 1.12 }],
+    presentation: { category: 'offense', iconArtId: 'upgrade-icon:hot-barrel' },
   },
   {
     id: 'extra-scrap',
@@ -58,8 +60,29 @@ const definitions: UpgradeDefinition[] = [
     description: 'Increase scrap gained for this run.',
     maxStacks: 3,
     effects: [{ stat: 'currencyGain', op: 'mult', value: 1.25 }],
+    presentation: { category: 'economy', iconArtId: 'upgrade-icon:extra-scrap' },
   },
 ];
+
+/** Test-only conversion from raw fixture definitions to the Epic 18 (D7)
+ *  read-model shape the chooser actually consumes. Real production snapshots
+ *  are built by `UpgradeSystem`'s `buildReadModel`; these fixtures never
+ *  exercise stack state, so `owned`/`currentStacks`/`nextStack` are fixed. */
+function toChoices(defs: readonly UpgradeDefinition[]): UpgradeCardReadModel[] {
+  return defs.map((definition) => ({
+    id: definition.id,
+    name: definition.name,
+    rarity: definition.rarity,
+    target: definition.target,
+    description: definition.description,
+    category: definition.presentation.category,
+    iconArtId: definition.presentation.iconArtId,
+    owned: false,
+    currentStacks: 0,
+    maxStacks: definition.maxStacks,
+    nextStack: 1,
+  }));
+}
 
 class FakeView implements UpgradeChooserView {
   readonly renders: Array<{ offerId: number; ids: string[] }> = [];
@@ -78,7 +101,7 @@ class FakeView implements UpgradeChooserView {
   ): void {
     this.renders.push({
       offerId: offer.offerId,
-      ids: offer.definitions.map((definition) => definition.id),
+      ids: offer.choices.map((choice) => choice.id),
     });
     this.handlers.push({ offerId: offer.offerId, select });
     this.onRender?.(offer);
@@ -94,6 +117,12 @@ class FakeView implements UpgradeChooserView {
 
   destroy(): void {
     this.destroyCount += 1;
+  }
+
+  focusPrevious(): void {}
+  focusNext(): void {}
+  confirmFocused(): boolean {
+    return false;
   }
 }
 
@@ -424,6 +453,69 @@ describe('Upgrade chooser physical layout', () => {
     }
   });
 
+  it.each(VIEWPORTS)('keeps four and five cards bounded without a legacy clamp at $name size', (viewport) => {
+    const display = fittedCanvas(viewport.width, viewport.height);
+
+    for (const count of [4, 5]) {
+      const layout = computeUpgradeChooserLayout(390, 844, display.width, display.height, count);
+      expect(layout.cards).toHaveLength(count);
+      layout.cards.forEach((card, index) => {
+        const left = card.x - card.width / 2;
+        const right = card.x + card.width / 2;
+        const top = card.y - card.height / 2;
+        const bottom = card.y + card.height / 2;
+        const nameRight = left + card.nameX + card.nameWidth;
+        const rarityLeft = right - card.padding - card.rarityReserve;
+
+        expect(left).toBeGreaterThanOrEqual(0);
+        expect(right).toBeLessThanOrEqual(390);
+        expect(top).toBeGreaterThan(layout.instructionsY + layout.fonts.instructions);
+        expect(bottom).toBeLessThanOrEqual(844);
+        expect(nameRight).toBeLessThanOrEqual(rarityLeft + 0.001);
+        expect(card.statusY).toBeGreaterThan(top + card.padding);
+        expect(card.statusHeight).toBeGreaterThanOrEqual(0);
+        expect(card.descriptionY).toBeGreaterThanOrEqual(card.statusY + card.statusHeight);
+        // Both content rows stay inside the card's padded box when renderable.
+        if (card.statusHeight > 0) {
+          expect(card.statusY + card.statusHeight).toBeLessThanOrEqual(
+            bottom - card.padding + 0.001,
+          );
+        }
+        if (card.descriptionHeight > 0) {
+          expect(card.descriptionY + card.descriptionHeight).toBeLessThanOrEqual(
+            bottom - card.padding + 0.001,
+          );
+        }
+
+        const previous = layout.cards[index - 1];
+        if (previous) {
+          expect(top).toBeGreaterThan(previous.y + previous.height / 2);
+        }
+      });
+    }
+  });
+
+  it('gives the card icon its declared D8 display size at portrait phone scale', () => {
+    const display = fittedCanvas(390, 844);
+    for (const count of [1, 2, 3, 4, 5]) {
+      const layout = computeUpgradeChooserLayout(390, 844, display.width, display.height, count);
+      layout.cards.forEach((card) => {
+        // visual-art.json declares 36x36 for every upgrade-icon binding, and
+        // D8 specifies a 36-40px logical display; the leading column must not
+        // shrink it back to the old ~21px number-badge box.
+        expect(card.iconSize).toBeGreaterThanOrEqual(36);
+        // The icon box fits inside the card's padded area in both axes.
+        expect(card.iconSize).toBeLessThanOrEqual(card.height - card.padding * 2 + 0.001);
+        expect(card.padding + card.iconSize).toBeLessThanOrEqual(card.width - card.padding + 0.001);
+        // The name column starts clear of the icon.
+        expect(card.nameX).toBeGreaterThanOrEqual(card.padding + card.iconSize);
+        // The stack row starts below the icon, never overlapping it.
+        const cardTop = card.y - card.height / 2;
+        expect(card.statusY).toBeGreaterThanOrEqual(cardTop + card.padding + card.iconSize);
+      });
+    }
+  });
+
   it('recomputes an active three-card offer across orientation changes', () => {
     const portraitDisplay = fittedCanvas(390, 844);
     const landscapeDisplay = fittedCanvas(844, 390);
@@ -453,7 +545,7 @@ describe('Upgrade chooser physical layout', () => {
     (viewport) => {
       const display = fittedCanvas(viewport.width, viewport.height);
 
-      for (const count of [1, 2, 3]) {
+      for (const count of [1, 2, 3, 4, 5]) {
         const layout = computeUpgradeChooserLayout(
           390,
           844,
@@ -476,7 +568,7 @@ describe('Upgrade chooser physical layout', () => {
   it.each(COLLAPSED_DISPLAYS)(
     'keeps all created regions safe at $name display size',
     ({ width, height }) => {
-      for (const count of [1, 2, 3]) {
+      for (const count of [1, 2, 3, 4, 5]) {
         const layout = computeUpgradeChooserLayout(390, 844, width, height, count);
         expect(layout.headerWidth).toBeGreaterThan(0);
         expect(layout.headingHeight).toBeGreaterThan(0);
@@ -501,6 +593,8 @@ describe('Upgrade chooser physical layout', () => {
             card.nameHeight,
             card.rarityReserve,
             card.rarityHeight,
+            card.statusY,
+            card.statusHeight,
             card.descriptionY,
             card.descriptionHeight,
           ];
@@ -510,7 +604,21 @@ describe('Upgrade chooser physical layout', () => {
           expect(card.height).toBeGreaterThan(0);
           expect(card.numberWidth).toBeGreaterThan(0);
           expect(card.rarityReserve).toBeGreaterThan(0);
+          expect(card.statusHeight).toBeGreaterThanOrEqual(0);
           expect(card.descriptionHeight).toBeGreaterThanOrEqual(0);
+          // A row with height collapses to 0 is never rendered; any row that
+          // *is* renderable must stay inside the card's padded box.
+          const cardBottom = card.y + card.height / 2;
+          if (card.statusHeight > 0) {
+            expect(card.statusY + card.statusHeight).toBeLessThanOrEqual(
+              cardBottom - card.padding + 0.001,
+            );
+          }
+          if (card.descriptionHeight > 0) {
+            expect(card.descriptionY + card.descriptionHeight).toBeLessThanOrEqual(
+              cardBottom - card.padding + 0.001,
+            );
+          }
           expect(numberRight).toBeLessThanOrEqual(rarityLeft + 0.001);
           expect(nameRight).toBeLessThanOrEqual(rarityLeft + 0.001);
         });
@@ -529,6 +637,14 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
       'A hostile unbroken description_without_any_safe_break_points_猫猫猫猫猫猫\nwith several forced lines\nthat must never escape its card.',
   }));
 
+  /** Epic 18 (D2) enables 4–5 visible cards, so containment checks need more
+   *  than the three shared fixtures. Extra rows reuse the same hostile text
+   *  with distinct IDs so ordering/identity assertions stay meaningful. */
+  const hostileDefinitions5: UpgradeDefinition[] = Array.from({ length: 5 }, (_, index) => {
+    const base = hostileDefinitions[index % hostileDefinitions.length]!;
+    return { ...base, id: `${base.id}-${index}` };
+  });
+
   async function createRenderedView(
     viewportWidth: number,
     viewportHeight: number,
@@ -539,7 +655,7 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
     const { PhaserUpgradeChooserView } = await import('../src/ui/UpgradeChooser');
     const view = new PhaserUpgradeChooserView(scene as never);
     view.render(
-      { offerId: 73, definitions: offeredDefinitions },
+      { offerId: 73, choices: toChoices(offeredDefinitions) },
       () => true,
     );
     return { display, scene, view };
@@ -554,7 +670,7 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
     const scene = createFakeScene(displayWidth, displayHeight);
     const { PhaserUpgradeChooserView } = await import('../src/ui/UpgradeChooser');
     const view = new PhaserUpgradeChooserView(scene as never);
-    view.render({ offerId: 73, definitions: offeredDefinitions }, select);
+    view.render({ offerId: 73, choices: toChoices(offeredDefinitions) }, select);
     return { scene, view, select };
   }
 
@@ -577,10 +693,10 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
     view.destroy();
   });
 
-  it.each([1, 2, 3])(
+  it.each([1, 2, 3, 4, 5])(
     'hard-bounds hostile rendered text for a %i-card offer at 320x240',
     async (count) => {
-      const { view } = await createRenderedView(320, 240, hostileDefinitions.slice(0, count));
+      const { view } = await createRenderedView(320, 240, hostileDefinitions5.slice(0, count));
       const diagnostics = view.diagnostics;
 
       expect(diagnostics.cards).toHaveLength(count);
@@ -638,7 +754,7 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
     const scene = createFakeScene(0, 0);
     const { PhaserUpgradeChooserView } = await import('../src/ui/UpgradeChooser');
     const view = new PhaserUpgradeChooserView(scene as never);
-    view.render({ offerId: 9, definitions: definitions.slice(0, 1) }, () => true);
+    view.render({ offerId: 9, choices: toChoices(definitions.slice(0, 1)) }, () => true);
 
     expect(view.diagnostics.text.every((text) =>
       [text.x, text.y, text.width, text.height].every(Number.isFinite),
@@ -652,10 +768,10 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
     view.destroy();
   });
 
-  it.each([1, 2, 3])(
+  it.each([1, 2, 3, 4, 5])(
     'preserves a %i-card offer through repeated tiny-display collapse and recovery',
     async (count) => {
-      const offered = hostileDefinitions.slice(0, count);
+      const offered = hostileDefinitions5.slice(0, count);
       const { scene, view, select } = await createRenderedDisplay(390, 844, offered);
       const enabled = count !== 2;
       if (!enabled) view.setEnabled(false);
@@ -740,7 +856,7 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
     const { PhaserUpgradeChooserView } = await import('../src/ui/UpgradeChooser');
     const view = new PhaserUpgradeChooserView(scene as never, readReducedMotion);
     const select = vi.fn<(offerId: number, choiceIndex: number) => boolean>(() => true);
-    view.render({ offerId: 73, definitions: definitions.slice(0, count) }, select);
+    view.render({ offerId: 73, choices: toChoices(definitions.slice(0, count)) }, select);
     return { scene, view, select };
   }
 
@@ -823,10 +939,61 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
     scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
     scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
     expect(focused(view)).toEqual([false, false, true]);
-    view.render({ offerId: 74, definitions: definitions.slice(0, 2) }, () => true);
+    view.render({ offerId: 74, choices: toChoices(definitions.slice(0, 2)) }, () => true);
     expect(view.diagnostics.offerId).toBe(74);
     expect(focused(view)).toEqual([true, false]);
     view.destroy();
+  });
+
+  it('drives the same focus/confirm path as keyboard through the Epic 19 seam', async () => {
+    const { view, select } = await createFocusView(3);
+    view.focusNext();
+    expect(focused(view)).toEqual([false, true, false]);
+    view.focusPrevious();
+    expect(focused(view)).toEqual([true, false, false]);
+    // Wrapping matches the keyboard arrows exactly.
+    view.focusPrevious();
+    expect(focused(view)).toEqual([false, false, true]);
+
+    expect(view.confirmFocused()).toBe(true);
+    expect(select).toHaveBeenCalledWith(73, 2);
+    view.destroy();
+  });
+
+  it('blocks seam focus and confirm while disabled, matching the keyboard path', async () => {
+    const { view, select } = await createFocusView(3);
+    view.setEnabled(false);
+
+    view.focusNext();
+    view.focusPrevious();
+    expect(focused(view)).toEqual([true, false, false]);
+    expect(view.confirmFocused()).toBe(false);
+    expect(select).not.toHaveBeenCalled();
+    view.destroy();
+  });
+
+  it('reports seam confirm rejection when the controller declines the choice', async () => {
+    const scene = createFakeScene(390, 844);
+    const { PhaserUpgradeChooserView } = await import('../src/ui/UpgradeChooser');
+    const view = new PhaserUpgradeChooserView(scene as never);
+    const select = vi.fn<(offerId: number, choiceIndex: number) => boolean>(() => false);
+    view.render({ offerId: 73, choices: toChoices(definitions.slice(0, 2)) }, select);
+
+    expect(view.confirmFocused()).toBe(false);
+    expect(select).toHaveBeenCalledWith(73, 0);
+    view.destroy();
+  });
+
+  it('ignores seam calls after destroy and with no active offer', async () => {
+    const { view, select } = await createFocusView(2);
+    view.clear();
+    view.focusNext();
+    expect(view.confirmFocused()).toBe(false);
+
+    view.destroy();
+    view.focusPrevious();
+    expect(view.confirmFocused()).toBe(false);
+    expect(select).not.toHaveBeenCalled();
   });
 
   it('keeps the focus index across resize rebuilds', async () => {
@@ -846,7 +1013,7 @@ describe('UpgradeChooserController rendering', () => {
   it.each([1, 2, 3])('renders an ordered offer containing %i choice(s)', (count) => {
     const harness = createHarness();
     const offered = definitions.slice(0, count);
-    harness.setSnapshot({ offerId: 11, definitions: offered });
+    harness.setSnapshot({ offerId: 11, choices: toChoices(offered) });
 
     emitOffer(harness.bus, 11, offered);
 
@@ -858,7 +1025,7 @@ describe('UpgradeChooserController rendering', () => {
 
   it('uses event order rather than snapshot storage order', () => {
     const harness = createHarness();
-    harness.setSnapshot({ offerId: 4, definitions });
+    harness.setSnapshot({ offerId: 4, choices: toChoices(definitions) });
     const ordered = [definitions[2]!, definitions[0]!, definitions[1]!];
 
     emitOffer(harness.bus, 4, ordered);
@@ -868,7 +1035,7 @@ describe('UpgradeChooserController rendering', () => {
 
   it('does not render a mismatched or already-resolved snapshot', () => {
     const harness = createHarness();
-    harness.setSnapshot({ offerId: 2, definitions: [definitions[0]!] });
+    harness.setSnapshot({ offerId: 2, choices: toChoices([definitions[0]!]) });
     emitOffer(harness.bus, 1, [definitions[0]!]);
     harness.setSnapshot(undefined);
     emitOffer(harness.bus, 2, [definitions[0]!]);
@@ -879,10 +1046,10 @@ describe('UpgradeChooserController rendering', () => {
 
   it('replaces prior UI and makes its captured handler stale', () => {
     const harness = createHarness();
-    harness.setSnapshot({ offerId: 1, definitions: [definitions[0]!] });
+    harness.setSnapshot({ offerId: 1, choices: toChoices([definitions[0]!]) });
     emitOffer(harness.bus, 1, [definitions[0]!]);
     const stale = harness.view.handlers[0]!;
-    harness.setSnapshot({ offerId: 2, definitions: [definitions[1]!] });
+    harness.setSnapshot({ offerId: 2, choices: toChoices([definitions[1]!]) });
     emitOffer(harness.bus, 2, [definitions[1]!]);
 
     expect(harness.view.renders.map((render) => render.offerId)).toEqual([1, 2]);
@@ -894,23 +1061,25 @@ describe('UpgradeChooserController rendering', () => {
 describe('UpgradeChooserController selection', () => {
   it('submits the captured offer token and pointer-selected upgrade ID', () => {
     const harness = createHarness();
-    harness.setSnapshot({ offerId: 8, definitions: definitions.slice(0, 2) });
+    harness.setSnapshot({ offerId: 8, choices: toChoices(definitions.slice(0, 2)) });
     emitOffer(harness.bus, 8, definitions.slice(0, 2));
 
     expect(harness.view.handlers[0]?.select(8, 1)).toBe(true);
     expect(harness.chooseCard).toHaveBeenCalledWith(8, 'hot-barrel');
   });
 
-  it('maps keyboard 1, 2, and 3 and ignores other or repeated keys', () => {
-    expect(['1', '2', '3'].map((key) => choiceIndexForNumberKey(key))).toEqual([0, 1, 2]);
+  it('maps keyboard 1..5 and ignores other or repeated keys', () => {
+    expect(['1', '2', '3', '4', '5'].map((key) => choiceIndexForNumberKey(key))).toEqual([
+      0, 1, 2, 3, 4,
+    ]);
     expect(choiceIndexForNumberKey('0')).toBeUndefined();
-    expect(choiceIndexForNumberKey('4')).toBeUndefined();
+    expect(choiceIndexForNumberKey('6')).toBeUndefined();
     expect(choiceIndexForNumberKey('1', true)).toBeUndefined();
   });
 
   it.each(['1', '2', '3'])('submits keyboard %s against its visible choice', (key) => {
     const harness = createHarness();
-    harness.setSnapshot({ offerId: 9, definitions });
+    harness.setSnapshot({ offerId: 9, choices: toChoices(definitions) });
     emitOffer(harness.bus, 9, definitions);
     const choiceIndex = choiceIndexForNumberKey(key);
 
@@ -921,7 +1090,7 @@ describe('UpgradeChooserController selection', () => {
 
   it('ignores out-of-range visible indices', () => {
     const harness = createHarness();
-    harness.setSnapshot({ offerId: 3, definitions: [definitions[0]!] });
+    harness.setSnapshot({ offerId: 3, choices: toChoices([definitions[0]!]) });
     emitOffer(harness.bus, 3, [definitions[0]!]);
 
     expect(harness.controller.select(3, 1)).toBe(false);
@@ -930,7 +1099,7 @@ describe('UpgradeChooserController selection', () => {
 
   it('disables immediately after acceptance and rejects duplicate submission', () => {
     const harness = createHarness();
-    harness.setSnapshot({ offerId: 5, definitions: [definitions[0]!] });
+    harness.setSnapshot({ offerId: 5, choices: toChoices([definitions[0]!]) });
     emitOffer(harness.bus, 5, [definitions[0]!]);
 
     expect(harness.controller.select(5, 0)).toBe(true);
@@ -942,7 +1111,7 @@ describe('UpgradeChooserController selection', () => {
   it('keeps a rejected command active and usable', () => {
     const harness = createHarness();
     harness.chooseCard.mockReturnValueOnce(false).mockReturnValueOnce(true);
-    harness.setSnapshot({ offerId: 6, definitions: [definitions[0]!] });
+    harness.setSnapshot({ offerId: 6, choices: toChoices([definitions[0]!]) });
     emitOffer(harness.bus, 6, [definitions[0]!]);
 
     expect(harness.controller.select(6, 0)).toBe(false);
@@ -953,11 +1122,11 @@ describe('UpgradeChooserController selection', () => {
 
   it('requires a new token for consecutive offers with the same upgrade ID', () => {
     const harness = createHarness();
-    harness.setSnapshot({ offerId: 20, definitions: [definitions[0]!] });
+    harness.setSnapshot({ offerId: 20, choices: toChoices([definitions[0]!]) });
     emitOffer(harness.bus, 20, [definitions[0]!]);
     const oldHandler = harness.view.handlers[0]!;
     harness.bus.emit('card:chosen', { upgradeId: 'quick-paws' });
-    harness.setSnapshot({ offerId: 21, definitions: [definitions[0]!] });
+    harness.setSnapshot({ offerId: 21, choices: toChoices([definitions[0]!]) });
     emitOffer(harness.bus, 21, [definitions[0]!]);
 
     expect(oldHandler.select(20, 0)).toBe(false);
@@ -969,7 +1138,7 @@ describe('UpgradeChooserController selection', () => {
 describe('UpgradeChooserController reentrancy and lifecycle', () => {
   it('clears UI when another offered listener resolves synchronously', () => {
     const harness = createHarness();
-    harness.setSnapshot({ offerId: 1, definitions: [definitions[0]!] });
+    harness.setSnapshot({ offerId: 1, choices: toChoices([definitions[0]!]) });
     harness.bus.on('card:offered', () => {
       harness.setSnapshot(undefined);
       harness.bus.emit('card:chosen', { upgradeId: 'quick-paws' });
@@ -986,11 +1155,11 @@ describe('UpgradeChooserController reentrancy and lifecycle', () => {
     harness.chooseCard.mockImplementation(() => {
       harness.setSnapshot(undefined);
       harness.bus.emit('card:chosen', { upgradeId: 'quick-paws' });
-      harness.setSnapshot({ offerId: 2, definitions: [definitions[0]!] });
+      harness.setSnapshot({ offerId: 2, choices: toChoices([definitions[0]!]) });
       emitOffer(harness.bus, 2, [definitions[0]!]);
       return true;
     });
-    harness.setSnapshot({ offerId: 1, definitions: [definitions[0]!] });
+    harness.setSnapshot({ offerId: 1, choices: toChoices([definitions[0]!]) });
     emitOffer(harness.bus, 1, [definitions[0]!]);
 
     expect(harness.controller.select(1, 0)).toBe(true);
@@ -1001,7 +1170,7 @@ describe('UpgradeChooserController reentrancy and lifecycle', () => {
   it('is safe when destroyed during offered delivery and ignores late events', () => {
     const harness = createHarness();
     harness.view.onRender = () => harness.controller.destroy();
-    harness.setSnapshot({ offerId: 1, definitions: [definitions[0]!] });
+    harness.setSnapshot({ offerId: 1, choices: toChoices([definitions[0]!]) });
 
     emitOffer(harness.bus, 1, [definitions[0]!]);
     emitOffer(harness.bus, 2, [definitions[1]!]);
@@ -1015,7 +1184,7 @@ describe('UpgradeChooserController reentrancy and lifecycle', () => {
     const harness = createHarness();
     harness.controller.destroy();
     harness.controller.destroy();
-    harness.setSnapshot({ offerId: 1, definitions: [definitions[0]!] });
+    harness.setSnapshot({ offerId: 1, choices: toChoices([definitions[0]!]) });
     emitOffer(harness.bus, 1, [definitions[0]!]);
 
     expect(harness.view.destroyCount).toBe(1);
@@ -1024,14 +1193,14 @@ describe('UpgradeChooserController reentrancy and lifecycle', () => {
 
   it('restarts with one fresh listener set and rejects the old visual handler', () => {
     const harness = createHarness();
-    harness.setSnapshot({ offerId: 1, definitions: [definitions[0]!] });
+    harness.setSnapshot({ offerId: 1, choices: toChoices([definitions[0]!]) });
     emitOffer(harness.bus, 1, [definitions[0]!]);
     const oldHandler = harness.view.handlers[0]!;
     harness.controller.destroy();
 
     const freshView = new FakeView();
     const freshController = new UpgradeChooserController(harness.bus, harness.source, freshView);
-    harness.setSnapshot({ offerId: 2, definitions: [definitions[1]!] });
+    harness.setSnapshot({ offerId: 2, choices: toChoices([definitions[1]!]) });
     emitOffer(harness.bus, 2, [definitions[1]!]);
 
     expect(harness.view.renders).toHaveLength(1);
@@ -1112,6 +1281,73 @@ describe('Upgrade chooser integration with UpgradeSystem', () => {
     expect(system.pendingCount).toBe(0);
     expect(runState.status).toBe('active');
     chooser.destroy();
+    system.destroy();
+  });
+});
+
+describe('UpgradeChooser facade seam (Epic 18 D9)', () => {
+  async function createFacade(offerCount = 3) {
+    const runState = createActiveRun();
+    const bus = createEventBus();
+    const system = new UpgradeSystem({
+      runState,
+      bus,
+      definitions: definitions.slice(0, offerCount),
+      rng: createFirstRng(),
+      offerCount,
+    });
+    const scene = createFakeScene(390, 844);
+    const { UpgradeChooser } = await import('../src/ui/UpgradeChooser');
+    // No visual-art lookup: the icon path is exercised elsewhere, and the
+    // facade must work without one.
+    const chooser = new UpgradeChooser(scene as never, bus, system, () => false);
+    return { runState, bus, system, scene, chooser };
+  }
+
+  it('drives a real offer to an applied upgrade through focus + confirm alone', async () => {
+    const { runState, bus, system, chooser } = await createFacade(3);
+    bus.emit('level:up', { level: 2 });
+
+    expect(chooser.diagnostics.choiceIds).toHaveLength(3);
+    const offered = chooser.diagnostics.choiceIds;
+    expect(chooser.diagnostics.cards.map((card) => card.focused)).toEqual([true, false, false]);
+
+    // Navigate to the second card and confirm — no keyboard event involved.
+    chooser.focusNext();
+    expect(chooser.diagnostics.cards.map((card) => card.focused)).toEqual([false, true, false]);
+    expect(chooser.confirmFocused()).toBe(true);
+
+    // The upgrade the focus was sitting on is the one that got applied.
+    expect(runState.upgradeStacks[offered[1]!]).toBe(1);
+    expect(system.currentOfferId).toBeUndefined();
+    chooser.destroy();
+    system.destroy();
+  });
+
+  it('wraps focus and rejects confirm once no offer is active', async () => {
+    const { bus, system, chooser } = await createFacade(3);
+    bus.emit('level:up', { level: 2 });
+
+    chooser.focusPrevious();
+    expect(chooser.diagnostics.cards.map((card) => card.focused)).toEqual([false, false, true]);
+    expect(chooser.confirmFocused()).toBe(true);
+
+    // Offer resolved: the seam is inert until the next offer arrives.
+    expect(chooser.confirmFocused()).toBe(false);
+    chooser.focusNext();
+    expect(chooser.diagnostics.choiceIds).toEqual([]);
+    chooser.destroy();
+    system.destroy();
+  });
+
+  it('is inert after destroy', async () => {
+    const { bus, system, chooser } = await createFacade(2);
+    bus.emit('level:up', { level: 2 });
+    chooser.destroy();
+
+    chooser.focusNext();
+    chooser.focusPrevious();
+    expect(chooser.confirmFocused()).toBe(false);
     system.destroy();
   });
 });

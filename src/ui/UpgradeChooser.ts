@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { EventBus } from '../engine/eventBus';
 import type { UpgradeSystem } from '../systems/UpgradeSystem';
+import type { VisualArtLookup } from '../systems/visualArt';
 import { FocusStroke, ThemeColor, ThemeDepth, ThemeFont } from './theme';
 import {
   choiceIndexForNumberKey,
@@ -22,8 +23,9 @@ export class UpgradeChooser {
     bus: EventBus,
     upgradeSystem: UpgradeSystem,
     readReducedMotion: () => boolean = () => false,
+    visualArt?: VisualArtLookup,
   ) {
-    this.view = new PhaserUpgradeChooserView(scene, readReducedMotion);
+    this.view = new PhaserUpgradeChooserView(scene, readReducedMotion, visualArt);
     this.controller = new UpgradeChooserController(
       bus,
       upgradeSystem,
@@ -33,6 +35,20 @@ export class UpgradeChooser {
 
   get diagnostics(): UpgradeChooserRenderDiagnostics {
     return this.view.diagnostics;
+  }
+
+  /** Epic 18 (D9): narrow public navigation/confirm seam Epic 19 can drive
+   *  later without reaching into the Phaser view implementation. */
+  focusPrevious(): void {
+    this.view.focusPrevious();
+  }
+
+  focusNext(): void {
+    this.view.focusNext();
+  }
+
+  confirmFocused(): boolean {
+    return this.view.confirmFocused();
   }
 
   destroy(): void {
@@ -85,6 +101,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly readReducedMotion: () => boolean = () => false,
+    private readonly visualArt?: VisualArtLookup,
   ) {
     scene.input.keyboard?.on('keydown', this.handleKeyDown, this);
     scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
@@ -93,7 +110,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   get diagnostics(): UpgradeChooserRenderDiagnostics {
     return {
       offerId: this.currentOfferId,
-      choiceIds: this.offer?.definitions.map((definition) => definition.id) ?? [],
+      choiceIds: this.offer?.choices.map((choice) => choice.id) ?? [],
       rebuildCount: this.rebuildCount,
       displayWidth: this.scene.scale.displaySize.width,
       displayHeight: this.scene.scale.displaySize.height,
@@ -128,7 +145,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     offer: UpgradeChooserOffer,
     select: (offerId: number, choiceIndex: number) => boolean,
   ): void {
-    if (this.destroyed || offer.definitions.length === 0) {
+    if (this.destroyed || offer.choices.length === 0) {
       return;
     }
 
@@ -158,7 +175,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       height,
       this.scene.scale.displaySize.width,
       this.scene.scale.displaySize.height,
-      offer.definitions.length,
+      offer.choices.length,
     );
     const root = this.scene.add.container(0, 0);
     const cardBackgrounds: Phaser.GameObjects.Rectangle[] = [];
@@ -201,7 +218,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       const instructions = own(this.scene.add.text(
         width / 2,
         layout.instructionsY,
-        'Tap a card or press 1, 2, or 3',
+        'Tap a card or use navigation + confirm',
         {
         align: 'center',
         color: '#a5f3fc',
@@ -220,7 +237,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         { role: 'instructions', object: instructions },
       );
 
-      offer.definitions.forEach((definition, index) => {
+      offer.choices.forEach((choice, index) => {
         const cardLayout = layout.cards[index];
         if (!cardLayout) {
           return;
@@ -250,27 +267,50 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           this.submit(offer.offerId, index);
         });
 
-        const number = own(this.scene.add.text(
-          cardLeft + cardLayout.padding,
-          cardTop + cardLayout.padding,
-          `${index + 1}.`,
-          {
-            color: '#ffffff',
-            fontFamily: ThemeFont.family,
-            fontSize: `${layout.fonts.name}px`,
-            fontStyle: 'bold',
-          },
-        ));
-        number
-          .setFixedSize(cardLayout.numberWidth, cardLayout.nameHeight)
-          .setCrop(0, 0, cardLayout.numberWidth, cardLayout.nameHeight);
-        renderedText.push({ role: `number:${index}`, object: number });
+        // Epic 18 (D9 content priority 1): icon, falling back to a numbered
+        // badge (also a visible touch/keyboard-shortcut hint) when no bound,
+        // loaded texture exists for this card's icon.
+        const iconBinding = this.visualArt?.bindingById(choice.iconArtId);
+        const showIcon =
+          iconBinding?.kind === 'upgrade-icon' &&
+          cardLayout.iconSize > 0 &&
+          this.scene.textures.exists(iconBinding.textureKey);
+        if (showIcon) {
+          // The layout's icon box already honors the binding's declared
+          // display size wherever the card can afford it, and clamps only
+          // when it genuinely cannot — so the icon keeps its D8 sizing at
+          // phone scale instead of shrinking to the old number-badge box.
+          const size = Math.min(cardLayout.iconSize, iconBinding.display.width);
+          const height = Math.min(cardLayout.iconSize, iconBinding.display.height);
+          const icon = own(this.scene.add.image(
+            cardLeft + cardLayout.padding + size / 2,
+            cardTop + cardLayout.padding + height / 2,
+            iconBinding.textureKey,
+          ));
+          icon.setDisplaySize(size, height);
+        } else {
+          const number = own(this.scene.add.text(
+            cardLeft + cardLayout.padding,
+            cardTop + cardLayout.padding,
+            `${index + 1}.`,
+            {
+              color: '#ffffff',
+              fontFamily: ThemeFont.family,
+              fontSize: `${layout.fonts.name}px`,
+              fontStyle: 'bold',
+            },
+          ));
+          number
+            .setFixedSize(cardLayout.numberWidth, cardLayout.nameHeight)
+            .setCrop(0, 0, cardLayout.numberWidth, cardLayout.nameHeight);
+          renderedText.push({ role: `number:${index}`, object: number });
+        }
 
         if (cardLayout.nameWidth > 0) {
           const name = own(this.scene.add.text(
             cardLeft + cardLayout.nameX,
             cardTop + cardLayout.padding,
-            definition.name,
+            choice.name,
             {
               color: '#ffffff',
               fontFamily: ThemeFont.family,
@@ -286,10 +326,12 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           renderedText.push({ role: `name:${index}`, object: name });
         }
 
+        // Epic 18 (D9 content priority 3): rarity plus category/family cue.
+        const rarityLabel = `${choice.rarity} • ${choice.family ?? choice.category}`;
         const rarity = own(this.scene.add.text(
           cardLeft + cardLayout.width - cardLayout.padding,
           cardTop + cardLayout.padding,
-          definition.rarity,
+          rarityLabel,
           {
           align: 'right',
           color: '#fbbf24',
@@ -299,9 +341,39 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         ));
         rarity
           .setOrigin(1, 0)
+          .setMaxLines(1)
           .setFixedSize(cardLayout.rarityReserve, cardLayout.rarityHeight)
           .setCrop(0, 0, cardLayout.rarityReserve, cardLayout.rarityHeight);
         renderedText.push({ role: `rarity:${index}`, object: rarity });
+
+        // Epic 18 (D9 content priority 2): current/max -> next/max stack
+        // state, read from the frozen offer snapshot (never recomputed).
+        // Hidden only when the clamped row cannot fit a line at all, the
+        // same containment rule the description below already follows.
+        const statusLabel = choice.owned
+          ? `${choice.currentStacks}/${choice.maxStacks} -> ${choice.nextStack}/${choice.maxStacks}`
+          : `New -> ${choice.nextStack}/${choice.maxStacks}`;
+        const statusWidth = Math.max(0, cardLayout.width - cardLayout.padding * 2);
+        const showStatus =
+          statusWidth > 0 && cardLayout.statusHeight >= layout.fonts.status * 1.15;
+        if (showStatus) {
+          const status = own(this.scene.add.text(
+            cardLeft + cardLayout.padding,
+            cardLayout.statusY,
+            statusLabel,
+            {
+              color: '#a5f3fc',
+              fontFamily: ThemeFont.family,
+              fontSize: `${layout.fonts.status}px`,
+            },
+          ));
+          status
+            .setMaxLines(1)
+            .setWordWrapWidth(statusWidth, true)
+            .setFixedSize(statusWidth, cardLayout.statusHeight)
+            .setCrop(0, 0, statusWidth, cardLayout.statusHeight);
+          renderedText.push({ role: `status:${index}`, object: status });
+        }
 
         const descriptionWidth = Math.max(
           0,
@@ -314,7 +386,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           const description = own(this.scene.add.text(
             cardLeft + cardLayout.padding,
             cardLayout.descriptionY,
-            definition.description,
+            choice.description,
             {
               color: '#d6f7ff',
               fontFamily: ThemeFont.family,
@@ -416,6 +488,39 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     });
   }
 
+  /** Epic 18 (D9): the seam Epic 19 will later drive with logical
+   *  nav/confirm actions. Presentation-only focus movement; activation still
+   *  routes through the same captured offer token as touch/keyboard.
+   *
+   *  Guarded identically to `handleKeyDown` so a future action adapter and
+   *  the raw keyboard path stay behaviorally identical — notably, neither
+   *  moves the visible focus while the chooser is disabled (an in-flight
+   *  submission), where the cards are dimmed and non-interactive. */
+  private get acceptsNavigation(): boolean {
+    return !this.destroyed && this.enabled && this.currentOfferId !== undefined;
+  }
+
+  focusPrevious(): void {
+    if (!this.acceptsNavigation) {
+      return;
+    }
+    this.moveFocus(-1);
+  }
+
+  focusNext(): void {
+    if (!this.acceptsNavigation) {
+      return;
+    }
+    this.moveFocus(1);
+  }
+
+  confirmFocused(): boolean {
+    if (!this.acceptsNavigation) {
+      return false;
+    }
+    return this.submit(this.currentOfferId!, this.focusIndex);
+  }
+
   clear(): void {
     this.enabled = false;
     this.currentOfferId = undefined;
@@ -483,10 +588,10 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     this.buildDisplay();
   };
 
-  private submit(offerId: number, choiceIndex: number): void {
+  private submit(offerId: number, choiceIndex: number): boolean {
     if (!this.enabled || this.currentOfferId !== offerId || !this.select) {
-      return;
+      return false;
     }
-    this.select(offerId, choiceIndex);
+    return this.select(offerId, choiceIndex);
   }
 }

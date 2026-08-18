@@ -1,7 +1,13 @@
 import type { Rng } from '../engine/rng';
 import type { Rarity, UpgradeDefinition } from '../systems/types';
+import type { WeaponInstance } from './weapons';
 import type { RunState } from './runState';
-import { STAT_KEYS, type Modifier, type StatKey } from './stats';
+import {
+  RUN_UPGRADE_STAT_KEYS,
+  WEAPON_MODIFIER_STAT_KEYS,
+  type Modifier,
+  type RunUpgradeStatKey,
+} from './stats';
 
 export const UPGRADE_RARITY_WEIGHTS = Object.freeze({
   common: 100,
@@ -11,13 +17,22 @@ export const UPGRADE_RARITY_WEIGHTS = Object.freeze({
   legendary: 3,
 } satisfies Record<Rarity, number>);
 
-const STAT_KEY_SET: ReadonlySet<string> = new Set(STAT_KEYS);
+const RUN_UPGRADE_STAT_KEY_SET: ReadonlySet<string> = new Set(RUN_UPGRADE_STAT_KEYS);
+const WEAPON_MODIFIER_STAT_KEY_SET: ReadonlySet<string> = new Set(WEAPON_MODIFIER_STAT_KEYS);
 const UPGRADE_OPS: ReadonlySet<string> = new Set(['add', 'mult']);
 const DEFAULT_OFFER_COUNT = 3;
 
+/** Epic 18 (D6): the minimum offer-time context `offerCards` needs — never
+ *  the whole `RunState`. `equipped` drives family-card eligibility; it is
+ *  read fresh per offer and never cached across offers. */
+export interface UpgradeOfferContext {
+  readonly stacks: Readonly<Record<string, number>>;
+  readonly equipped: readonly WeaponInstance[];
+}
+
 export function offerCards(
   definitions: readonly UpgradeDefinition[],
-  stacks: Readonly<Record<string, number>>,
+  context: UpgradeOfferContext,
   rng: Rng,
   count = DEFAULT_OFFER_COUNT,
 ): UpgradeDefinition[] {
@@ -31,13 +46,19 @@ export function offerCards(
   }
 
   assertUniqueDefinitionIds(definitions);
+  const equippedFamilies = new Set(context.equipped.map((weapon) => weapon.family));
   const eligible = definitions.filter((definition) => {
     if (!Number.isInteger(definition.maxStacks) || definition.maxStacks <= 0) {
       return false;
     }
 
-    const currentStack = readStack(stacks, definition.id);
-    return currentStack !== undefined && currentStack < definition.maxStacks;
+    const currentStack = readStack(context.stacks, definition.id);
+    if (currentStack === undefined || currentStack >= definition.maxStacks) {
+      return false;
+    }
+
+    const family = singleScopedFamily(definition.effects);
+    return family === undefined || equippedFamilies.has(family);
   });
   const offer: UpgradeDefinition[] = [];
 
@@ -72,10 +93,12 @@ export function applyCard(run: RunState, definition: UpgradeDefinition): boolean
   let id: unknown;
   let maxStacks: unknown;
   let effects: unknown;
+  let target: unknown;
   try {
     id = definition.id;
     maxStacks = definition.maxStacks;
     effects = definition.effects;
+    target = definition.target;
   } catch {
     return false;
   }
@@ -120,7 +143,7 @@ export function applyCard(run: RunState, definition: UpgradeDefinition): boolean
 
   let modifiers: Modifier[] | undefined;
   try {
-    modifiers = prepareModifiers(effects, sourceId);
+    modifiers = prepareModifiers(effects, target, sourceId);
   } catch {
     return false;
   }
@@ -156,17 +179,26 @@ function assertUniqueDefinitionIds(definitions: readonly UpgradeDefinition[]): v
   }
 }
 
-function prepareModifiers(effects: unknown, sourceId: string): Modifier[] | undefined {
+/** Epic 18 (D5/D6): structural boundary for `applyCard`'s caller-supplied
+ *  definition — this is not a catalog/art cross-reference re-check (D6
+ *  explicitly forbids re-checking family ownership here), only shape
+ *  validity: known stat, known op, finite value, and — when a scope is
+ *  present — a well-formed `{kind, family}` scoped to a weapon-modifier stat
+ *  on a `weapon`-target upgrade, with every scoped effect in one upgrade
+ *  referencing the same family. */
+function prepareModifiers(effects: unknown, target: unknown, sourceId: string): Modifier[] | undefined {
   if (!Array.isArray(effects) || effects.length === 0) {
     return undefined;
   }
 
   const modifiers: Modifier[] = [];
+  let sharedFamily: string | undefined;
+  let sawScope = false;
   for (const effect of effects) {
     if (
       !isRecord(effect) ||
       typeof effect.stat !== 'string' ||
-      !STAT_KEY_SET.has(effect.stat) ||
+      !RUN_UPGRADE_STAT_KEY_SET.has(effect.stat) ||
       typeof effect.op !== 'string' ||
       !UPGRADE_OPS.has(effect.op) ||
       typeof effect.value !== 'number' ||
@@ -175,18 +207,57 @@ function prepareModifiers(effects: unknown, sourceId: string): Modifier[] | unde
       return undefined;
     }
 
+    let scope: Modifier['scope'];
+    if (effect.scope !== undefined) {
+      sawScope = true;
+      const rawScope = effect.scope;
+      if (
+        !isRecord(rawScope) ||
+        rawScope.kind !== 'weapon-family' ||
+        typeof rawScope.family !== 'string' ||
+        rawScope.family.trim().length === 0 ||
+        !WEAPON_MODIFIER_STAT_KEY_SET.has(effect.stat)
+      ) {
+        return undefined;
+      }
+      if (sharedFamily === undefined) {
+        sharedFamily = rawScope.family;
+      } else if (sharedFamily !== rawScope.family) {
+        return undefined;
+      }
+      scope = { kind: 'weapon-family', family: rawScope.family };
+    }
+
     modifiers.push({
-      stat: effect.stat as StatKey,
+      stat: effect.stat as RunUpgradeStatKey,
       op: effect.op as Modifier['op'],
       value: effect.value,
       sourceId,
+      ...(scope ? { scope } : {}),
     });
+  }
+
+  if (sawScope && target !== 'weapon') {
+    return undefined;
   }
 
   return modifiers;
 }
 
-function readStack(
+/** Returns the one weapon family every scoped effect in `effects` shares, or
+ *  `undefined` when the upgrade has no scoped effect. Callers rely on
+ *  validation already guaranteeing a single shared family per upgrade
+ *  (D5) — this reads only the first scoped effect found. */
+export function singleScopedFamily(effects: readonly { readonly scope?: { readonly family: string } }[]): string | undefined {
+  for (const effect of effects) {
+    if (effect.scope) {
+      return effect.scope.family;
+    }
+  }
+  return undefined;
+}
+
+export function readStack(
   stacks: Readonly<Record<string, number>>,
   id: string,
 ): number | undefined {

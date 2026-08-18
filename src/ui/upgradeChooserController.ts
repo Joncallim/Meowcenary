@@ -1,10 +1,10 @@
 import type { EventBus } from '../engine/eventBus';
 import type { UpgradeOfferSnapshot } from '../systems/UpgradeSystem';
-import type { UpgradeDefinition } from '../systems/types';
+import type { UpgradeCardReadModel } from '../systems/types';
 
 export interface UpgradeChooserOffer {
   offerId: number;
-  definitions: readonly UpgradeDefinition[];
+  choices: readonly UpgradeCardReadModel[];
 }
 
 export interface UpgradeChooserSource {
@@ -20,13 +20,20 @@ export interface UpgradeChooserView {
   setEnabled(enabled: boolean): void;
   clear(): void;
   destroy(): void;
+  /** Epic 18 (D9): narrow public navigation/confirm seam Epic 19 will drive. */
+  focusPrevious(): void;
+  focusNext(): void;
+  confirmFocused(): boolean;
 }
 
+/** Epic 18 (D2/D9): an optional 1–5 shortcut reaching the same authoritative
+ *  token command as touch/keyboard-focus activation — never the sole way to
+ *  choose, and never enumerated in player-facing copy. */
 export function choiceIndexForNumberKey(
   key: string,
   repeat = false,
 ): number | undefined {
-  if (repeat || !/^[1-3]$/.test(key)) {
+  if (repeat || !/^[1-5]$/.test(key)) {
     return undefined;
   }
   return Number.parseInt(key, 10) - 1;
@@ -58,7 +65,7 @@ export class UpgradeChooserController {
   }
 
   get choiceCount(): number {
-    return this.activeOffer?.definitions.length ?? 0;
+    return this.activeOffer?.choices.length ?? 0;
   }
 
   select(offerId: number, choiceIndex: number): boolean {
@@ -70,7 +77,7 @@ export class UpgradeChooserController {
       offer.offerId !== offerId ||
       !Number.isInteger(choiceIndex) ||
       choiceIndex < 0 ||
-      choiceIndex >= offer.definitions.length
+      choiceIndex >= offer.choices.length
     ) {
       return false;
     }
@@ -80,8 +87,8 @@ export class UpgradeChooserController {
       return false;
     }
 
-    const definition = offer.definitions[choiceIndex];
-    if (!definition) {
+    const choice = offer.choices[choiceIndex];
+    if (!choice) {
       return false;
     }
 
@@ -90,7 +97,7 @@ export class UpgradeChooserController {
 
     let accepted: boolean;
     try {
-      accepted = this.source.chooseCard(offerId, definition.id);
+      accepted = this.source.chooseCard(offerId, choice.id);
     } catch (error) {
       if (!this.destroyed && this.activeOffer?.offerId === offerId) {
         this.submitting = false;
@@ -132,8 +139,8 @@ export class UpgradeChooserController {
     }
 
     const snapshot = this.source.currentOfferSnapshot;
-    const definitions = matchingDefinitions(snapshot, payload.offerId, payload.choices);
-    if (!definitions || this.source.currentOfferSnapshot?.offerId !== payload.offerId) {
+    const choices = matchingChoices(snapshot, payload.offerId, payload.choices);
+    if (!choices || this.source.currentOfferSnapshot?.offerId !== payload.offerId) {
       if (this.activeOffer && payload.offerId >= this.activeOffer.offerId) {
         this.clearActiveOffer();
       }
@@ -141,7 +148,7 @@ export class UpgradeChooserController {
     }
 
     this.view.clear();
-    this.activeOffer = { offerId: payload.offerId, definitions };
+    this.activeOffer = { offerId: payload.offerId, choices };
     this.submitting = false;
     this.view.render(this.activeOffer, this.select.bind(this));
 
@@ -167,32 +174,32 @@ export class UpgradeChooserController {
   }
 }
 
-function matchingDefinitions(
+function matchingChoices(
   snapshot: UpgradeOfferSnapshot | undefined,
   offerId: number,
-  choices: readonly string[],
-): readonly UpgradeDefinition[] | undefined {
+  choiceIds: readonly string[],
+): readonly UpgradeCardReadModel[] | undefined {
   if (
     !snapshot ||
     snapshot.offerId !== offerId ||
-    choices.length === 0 ||
-    choices.length !== snapshot.definitions.length
+    choiceIds.length === 0 ||
+    choiceIds.length !== snapshot.choices.length
   ) {
     return undefined;
   }
 
-  const definitionsById = new Map(
-    snapshot.definitions.map((definition) => [definition.id, definition] as const),
+  const choicesById = new Map(
+    snapshot.choices.map((choice) => [choice.id, choice] as const),
   );
   const seen = new Set<string>();
-  const ordered: UpgradeDefinition[] = [];
-  for (const id of choices) {
-    const definition = definitionsById.get(id);
-    if (!definition || seen.has(id)) {
+  const ordered: UpgradeCardReadModel[] = [];
+  for (const id of choiceIds) {
+    const choice = choicesById.get(id);
+    if (!choice || seen.has(id)) {
       return undefined;
     }
     seen.add(id);
-    ordered.push(definition);
+    ordered.push(choice);
   }
   return ordered;
 }

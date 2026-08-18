@@ -23,6 +23,11 @@ export const RuntimeConfig = {
       repeatMaxMs: 45_000,
       spawnOffset: 64,
     },
+    // Epic 18 (D2): four choices is the Alpha 2 default; UpgradeSystem
+    // validates any explicitly supplied offerCount as a safe integer 1..5.
+    upgrades: {
+      offerCount: 4,
+    },
   },
   performance: {
     targetFps: 60,

@@ -269,12 +269,14 @@ export class GameScene extends Phaser.Scene {
       bus: ctx.bus,
       definitions: ctx.data.upgrades,
       rng: upgradeRng,
+      offerCount: RuntimeConfig.gameplay.upgrades.offerCount,
     });
     this.upgradeChooser = new UpgradeChooser(
       this,
       ctx.bus,
       this.upgradeSystem,
       () => ctx.settings.reducedMotion,
+      visualArt,
     );
     this.progressionSystem = new ProgressionSystem({
       runState: this.runState,
@@ -297,6 +299,7 @@ export class GameScene extends Phaser.Scene {
             runState: this.runState,
             bus: ctx.bus,
             dpsMeter,
+            weaponRewardIssuedCount: () => this.weaponRewardSystem?.issuedCount ?? 0,
           })
         : undefined;
     this.weaponSystem = new WeaponSystem(

@@ -3,8 +3,8 @@ import type { Rng } from '../engine/rng';
 import type { System } from '../engine/system';
 import { PendingLevelUps } from '../gameplay/levelUpQueue';
 import { pauseRun, resumeRun, type RunState } from '../gameplay/runState';
-import { applyCard, offerCards } from '../gameplay/upgrades';
-import type { UpgradeDefinition } from './types';
+import { applyCard, offerCards, readStack, singleScopedFamily } from '../gameplay/upgrades';
+import type { UpgradeCardReadModel, UpgradeDefinition } from './types';
 
 export interface UpgradeSystemOptions {
   runState: RunState;
@@ -14,14 +14,67 @@ export interface UpgradeSystemOptions {
   offerCount?: number;
 }
 
+/** Epic 18 (D7): the authoritative, frozen-at-offer-time card presentation.
+ *  `choices` is built once when the offer becomes active and returned
+ *  as-is on every subsequent `currentOfferSnapshot` read — it is never
+ *  recomputed from mutable state per getter call. */
 export interface UpgradeOfferSnapshot {
-  offerId: number;
-  definitions: readonly UpgradeDefinition[];
+  readonly offerId: number;
+  readonly choices: readonly UpgradeCardReadModel[];
 }
 
 interface ActiveOffer {
   offerId: number;
   definitions: UpgradeDefinition[];
+  snapshot: UpgradeOfferSnapshot;
+}
+
+/** Epic 18 (D2): production's presentation boundary. `offerCards()` itself
+ *  stays generic; this validates a *supplied* `offerCount` as a safe
+ *  integer in 1..5 and fails fast rather than silently clamping. An
+ *  omitted `offerCount` keeps `offerCards()`'s own compatibility default. */
+function assertValidOfferCount(offerCount: number | undefined): void {
+  if (offerCount === undefined) {
+    return;
+  }
+  if (!Number.isInteger(offerCount) || offerCount < 1 || offerCount > 5) {
+    throw new Error(
+      `UpgradeSystem offerCount must be a safe integer in 1..5; received ${offerCount}`,
+    );
+  }
+}
+
+function buildReadModel(
+  definition: UpgradeDefinition,
+  stacks: Readonly<Record<string, number>>,
+): UpgradeCardReadModel {
+  const currentStacks = readStack(stacks, definition.id) ?? 0;
+  const family = singleScopedFamily(definition.effects);
+  return Object.freeze({
+    id: definition.id,
+    name: definition.name,
+    rarity: definition.rarity,
+    target: definition.target,
+    description: definition.description,
+    category: definition.presentation.category,
+    iconArtId: definition.presentation.iconArtId,
+    ...(family !== undefined ? { family } : {}),
+    owned: currentStacks > 0,
+    currentStacks,
+    maxStacks: definition.maxStacks,
+    nextStack: currentStacks + 1,
+  });
+}
+
+function buildOfferSnapshot(
+  offerId: number,
+  definitions: readonly UpgradeDefinition[],
+  stacks: Readonly<Record<string, number>>,
+): UpgradeOfferSnapshot {
+  return Object.freeze({
+    offerId,
+    choices: Object.freeze(definitions.map((definition) => buildReadModel(definition, stacks))),
+  });
 }
 
 interface QueuedChoice {
@@ -41,6 +94,7 @@ export class UpgradeSystem implements System {
   private destroyed = false;
 
   constructor(options: UpgradeSystemOptions) {
+    assertValidOfferCount(options.offerCount);
     const existing = coordinationGroups.get(options.runState);
     if (existing) {
       if (existing.isDisposed) {
@@ -58,8 +112,17 @@ export class UpgradeSystem implements System {
     this.group.addMember(this);
   }
 
+  /** Compatibility surface: a defensive clone of the canonical definitions
+   *  backing the active offer. Deep-clones nested `effects[].scope` and
+   *  `presentation` so a caller mutating the returned array cannot alter the
+   *  active offer or an applied modifier. The chooser itself should prefer
+   *  `currentOfferSnapshot`'s frozen read model instead. */
   get currentOffer(): readonly UpgradeDefinition[] {
-    return this.currentOfferSnapshot?.definitions ?? [];
+    if (this.destroyed) {
+      return [];
+    }
+    const definitions = this.group.currentOfferDefinitions;
+    return definitions ? snapshotDefinitions(definitions) : [];
   }
 
   get currentOfferId(): number | undefined {
@@ -143,16 +206,14 @@ class UpgradeCoordinationGroup {
     return this.activeOffer?.offerId;
   }
 
+  /** Epic 18 (D7): returns the snapshot frozen when the active offer was
+   *  created. Never recomputed from mutable state per call. */
   get currentOfferSnapshot(): UpgradeOfferSnapshot | undefined {
-    const offer = this.activeOffer;
-    if (!offer) {
-      return undefined;
-    }
+    return this.activeOffer?.snapshot;
+  }
 
-    return {
-      offerId: offer.offerId,
-      definitions: snapshotDefinitions(offer.definitions),
-    };
+  get currentOfferDefinitions(): readonly UpgradeDefinition[] | undefined {
+    return this.activeOffer?.definitions;
   }
 
   get pendingLevel(): number | undefined {
@@ -251,13 +312,24 @@ class UpgradeCoordinationGroup {
             break;
           }
 
+          // Offer generation *and* read-model construction share one unwind
+          // guard: both read caller/run-owned state (rarity weights, stacks,
+          // rack, nested presentation), so either can throw. Leaving the
+          // snapshot outside this guard would leak the level-up pause
+          // acquired above and deadlock the run with no offer to resolve.
           let definitions: UpgradeDefinition[];
+          let snapshot: UpgradeOfferSnapshot;
           try {
             definitions = offerCards(
               this.options.definitions,
-              this.options.runState.upgradeStacks,
+              { stacks: this.options.runState.upgradeStacks, equipped: this.options.runState.equipped },
               this.options.rng,
               this.options.offerCount,
+            );
+            snapshot = buildOfferSnapshot(
+              this.nextOfferId,
+              definitions,
+              this.options.runState.upgradeStacks,
             );
           } catch (error) {
             this.unwindOfferFailure();
@@ -274,6 +346,7 @@ class UpgradeCoordinationGroup {
           const offer: ActiveOffer = {
             offerId: this.nextOfferId,
             definitions,
+            snapshot,
           };
           this.nextOfferId += 1;
           this.activeOffer = offer;
@@ -301,7 +374,7 @@ class UpgradeCoordinationGroup {
     try {
       const payload = Object.freeze({
         offerId: offer.offerId,
-        choices: Object.freeze(offer.definitions.map((definition) => definition.id)),
+        choices: Object.freeze(offer.snapshot.choices.map((choice) => choice.id)),
       });
       this.options.bus.emit('card:offered', payload);
     } finally {
@@ -429,19 +502,36 @@ function snapshotDefinitions(
 ): UpgradeDefinition[] {
   return definitions.map((definition) => ({
     ...definition,
-    effects: definition.effects.map((effect) => ({ ...effect })),
+    effects: definition.effects.map((effect) => ({
+      ...effect,
+      ...(effect.scope ? { scope: { ...effect.scope } } : {}),
+    })),
+    presentation: { ...definition.presentation },
   }));
 }
 
+/** Epic 18 (D7): captures one canonical definition set at construction, deep
+ *  copying and freezing every nested object a caller could otherwise retain
+ *  a mutable reference to (`effects[].scope`, `presentation`) — mirrors the
+ *  same discipline `ModifierStack.add()` applies to a modifier's `scope` on
+ *  insertion, so a caller mutating its original definitions after
+ *  construction can never retarget a canonical or active-offer modifier or
+ *  its displayed category/icon. */
 function canonicalDefinitions(
   definitions: readonly UpgradeDefinition[],
 ): readonly UpgradeDefinition[] {
   const canonical = definitions.map((definition) => {
-    const effects = definition.effects.map((effect) => Object.freeze({ ...effect }));
+    const effects = definition.effects.map((effect) =>
+      Object.freeze({
+        ...effect,
+        ...(effect.scope ? { scope: Object.freeze({ ...effect.scope }) } : {}),
+      }),
+    );
     Object.freeze(effects);
     return Object.freeze({
       ...definition,
       effects,
+      presentation: Object.freeze({ ...definition.presentation }),
     });
   });
   return Object.freeze(canonical);

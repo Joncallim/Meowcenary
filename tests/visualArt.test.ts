@@ -1,4 +1,5 @@
-import { existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { visualAnimationKey, DataVisualArtRegistry, ensureVisualAnimations } from '../src/systems/visualArt';
@@ -146,5 +147,26 @@ describe('visual art', () => {
     const futureCharacters = [...data.characters, { ...data.characters[0], id: 'future-cat' }];
     expect(() => assertActorAndDropArtReferences(futureCharacters, data.enemies, data.visualArt))
       .toThrow(/missing required visual-art id "character:future-cat"/);
+  });
+
+  it('ships a visually distinct placeholder icon for every upgrade card (Epic 18 D8/§10)', () => {
+    // validate-visual-art.mjs only checks dimensions and metadata, never pixel
+    // content, so two cards silently rendering the same image passes every
+    // other gate. The accent palette must stay at least as large as the
+    // biggest category or variants wrap and collide.
+    const data = loadGameData();
+    const icons = data.visualArt.bindings.filter((binding) => binding.kind === 'upgrade-icon');
+    expect(icons).toHaveLength(data.upgrades.length);
+
+    const byHash = new Map<string, string[]>();
+    for (const binding of icons) {
+      const bytes = readFileSync(resolve('public', binding.url));
+      const hash = createHash('sha256').update(bytes).digest('hex');
+      byHash.set(hash, [...(byHash.get(hash) ?? []), binding.id]);
+    }
+
+    const collisions = [...byHash.values()].filter((ids) => ids.length > 1);
+    expect(collisions).toEqual([]);
+    expect(byHash.size).toBe(icons.length);
   });
 });

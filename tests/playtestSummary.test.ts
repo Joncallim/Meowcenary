@@ -103,6 +103,15 @@ describe('PlaytestSummarySystem', () => {
       currency: 25,
       avgDps: 0.8,
       upgradesTaken: 5,
+      offersSeen: 0,
+      offerOverlapRate: 0,
+      firstMergeTimeMs: undefined,
+      totalMerges: 0,
+      weaponsAcquired: 0,
+      pickupBlocked: 0,
+      weaponRewardsIssued: 0,
+      finalRackSize: 0,
+      finalRackFamilies: '',
     });
   });
 
@@ -230,5 +239,131 @@ describe('PlaytestSummarySystem', () => {
     };
     seam.print('lost');
     expect(logger.info).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('PlaytestSummarySystem Epic 18 (D11) evidence', () => {
+  it('counts offers, merges, acquisitions, and pickup-blocked events', () => {
+    const { bus, runState, logger } = createFixture();
+    startRun(runState, bus);
+    bus.emit('card:offered', { offerId: 1, choices: ['a', 'b'] });
+    bus.emit('card:chosen', { upgradeId: 'a' });
+    bus.emit('card:offered', { offerId: 2, choices: ['a', 'c'] });
+    bus.emit('card:chosen', { upgradeId: 'c' });
+    bus.emit('weapon:merged', { fromId: 'w1', toId: 'w2', toTier: 2 });
+    bus.emit('weapon:merged', { fromId: 'w2', toId: 'w3', toTier: 3 });
+    bus.emit('weapon:acquired', {
+      definitionId: 'pistol-t1',
+      instanceId: 'w1',
+      rackCount: 1,
+      rackCapacity: 4,
+      x: 0,
+      y: 0,
+    });
+    bus.emit('weapon:pickup-blocked', {
+      definitionId: 'pistol-t1',
+      reason: 'rack-full',
+      rackCount: 4,
+      rackCapacity: 4,
+      x: 0,
+      y: 0,
+    });
+    endRun(runState, 'won', bus);
+
+    const row = logger.table.mock.calls[0][0][0] as PlaytestSummaryRow;
+    expect(row.offersSeen).toBe(2);
+    expect(row.offerOverlapRate).toBe(0.5); // second offer shares 'a' out of 2 choices
+    expect(row.totalMerges).toBe(2);
+    expect(row.firstMergeTimeMs).toBe(0);
+    expect(row.weaponsAcquired).toBe(1);
+    expect(row.pickupBlocked).toBe(1);
+  });
+
+  it('reads scheduled weapon-reward issuance from the injected diagnostic', () => {
+    const bus = createEventBus();
+    const runState = createRunState({ seed: 1, characterId: 'cat', arenaId: 'yard' });
+    const logger = createLogger();
+    let issued = 0;
+    const system = new PlaytestSummarySystem({
+      runState,
+      bus,
+      dpsMeter: fakeDpsMeter(0),
+      weaponRewardIssuedCount: () => issued,
+      logger,
+    });
+    startRun(runState, bus);
+    issued = 3;
+    endRun(runState, 'won', bus);
+
+    const row = logger.table.mock.calls[0][0][0] as PlaytestSummaryRow;
+    expect(row.weaponRewardsIssued).toBe(3);
+    system.destroy();
+  });
+
+  it('summarizes the final rack size and per-family distribution', () => {
+    const { bus, runState, logger } = createFixture();
+    runState.equipped.push(
+      { instanceId: 'w1', defId: 'pistol-t1', family: 'pistol', tier: 1 },
+      { instanceId: 'w2', defId: 'pistol-t2', family: 'pistol', tier: 2 },
+      { instanceId: 'w3', defId: 'smg-t1', family: 'smg', tier: 1 },
+    );
+    startRun(runState, bus);
+    endRun(runState, 'won', bus);
+
+    const row = logger.table.mock.calls[0][0][0] as PlaytestSummaryRow;
+    expect(row.finalRackSize).toBe(3);
+    expect(row.finalRackFamilies).toBe('pistol:2, smg:1');
+  });
+
+  it('emits level cadence, per-offer IDs, and acquisition timestamps as detail tables', () => {
+    const { bus, runState, logger } = createFixture();
+    startRun(runState, bus);
+    runState.timeMs = 18_000;
+    bus.emit('level:up', { level: 2 });
+    bus.emit('card:offered', { offerId: 1, choices: ['quick-paws', 'hot-barrel'] });
+    bus.emit('card:chosen', { upgradeId: 'hot-barrel' });
+    runState.timeMs = 42_000;
+    bus.emit('weapon:acquired', {
+      definitionId: 'can-smg-t1',
+      instanceId: 'w2',
+      rackCount: 2,
+      rackCapacity: 6,
+      x: 0,
+      y: 0,
+    });
+    // A trailing offer the run never resolves must still be reported.
+    bus.emit('card:offered', { offerId: 2, choices: ['split-shot'] });
+    runState.upgradeStacks = { 'hot-barrel': 1 };
+    endRun(runState, 'won', bus);
+
+    const tables = logger.table.mock.calls.map((call) => call[0]);
+    // [0] summary row, [1] upgradeStacks, then the three detail tables.
+    expect(tables[2]).toEqual([{ level: 2, at: '0:18', timeMs: 18_000 }]);
+    expect(tables[3]).toEqual([
+      { offerId: 1, offered: 'quick-paws, hot-barrel', chosen: 'hot-barrel' },
+      { offerId: 2, offered: 'split-shot', chosen: '(unresolved)' },
+    ]);
+    expect(tables[4]).toEqual([
+      { definitionId: 'can-smg-t1', at: '0:42', timeMs: 42_000 },
+    ]);
+  });
+
+  it('omits detail tables entirely when nothing was recorded', () => {
+    const { bus, runState, logger } = createFixture();
+    startRun(runState, bus);
+    endRun(runState, 'won', bus);
+
+    expect(logger.table).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports zero offer overlap for a single offer and non-overlapping offers', () => {
+    const { bus, runState, logger } = createFixture();
+    startRun(runState, bus);
+    bus.emit('card:offered', { offerId: 1, choices: ['a', 'b'] });
+    endRun(runState, 'won', bus);
+
+    const row = logger.table.mock.calls[0][0][0] as PlaytestSummaryRow;
+    expect(row.offersSeen).toBe(1);
+    expect(row.offerOverlapRate).toBe(0);
   });
 });

@@ -7,7 +7,9 @@ import {
   applyCard,
   offerCards,
   UPGRADE_RARITY_WEIGHTS,
+  type UpgradeOfferContext,
 } from '../src/gameplay/upgrades';
+import type { WeaponInstance } from '../src/gameplay/weapons';
 import type { Rarity, UpgradeDefinition } from '../src/systems/types';
 
 class ScriptedRng implements Rng {
@@ -50,8 +52,20 @@ function upgrade(
     description: `${id} for this run.`,
     maxStacks: 3,
     effects: [{ stat: 'damage', op: 'add', value: 1 }],
+    presentation: { category: 'offense', iconArtId: `upgrade-icon:${id}` },
     ...overrides,
   };
+}
+
+function context(
+  stacks: Readonly<Record<string, number>> = {},
+  equipped: readonly WeaponInstance[] = [],
+): UpgradeOfferContext {
+  return { stacks, equipped };
+}
+
+function weaponInstance(family: string, instanceId = `${family}-1`): WeaponInstance {
+  return { instanceId, defId: `${family}-t1`, family, tier: 1 };
 }
 
 function createTestRun() {
@@ -73,15 +87,15 @@ describe('offerCards', () => {
   ];
 
   it('returns the same offer for the same RNG seed and state', () => {
-    const first = offerCards(definitions, {}, createRng(1234)).map((card) => card.id);
-    const second = offerCards(definitions, {}, createRng(1234)).map((card) => card.id);
+    const first = offerCards(definitions, context(), createRng(1234)).map((card) => card.id);
+    const second = offerCards(definitions, context(), createRng(1234)).map((card) => card.id);
 
     expect(first).toEqual(second);
   });
 
   it('allows different deterministic RNG evolution to produce a different valid offer', () => {
-    const first = offerCards(definitions, {}, new ScriptedRng([0]), 1);
-    const second = offerCards(definitions, {}, new ScriptedRng([1]), 1);
+    const first = offerCards(definitions, context(), new ScriptedRng([0]), 1);
+    const second = offerCards(definitions, context(), new ScriptedRng([1]), 1);
 
     expect(first.map((card) => card.id)).toEqual(['common-a']);
     expect(second.map((card) => card.id)).toEqual(['common-b']);
@@ -90,7 +104,7 @@ describe('offerCards', () => {
   it('excludes maxed cards and treats missing stack entries as zero', () => {
     const cards = [upgrade('maxed', { maxStacks: 2 }), upgrade('missing')];
 
-    expect(offerCards(cards, { maxed: 2 }, new ScriptedRng(), 3).map((card) => card.id)).toEqual([
+    expect(offerCards(cards, context({ maxed: 2 }), new ScriptedRng(), 3).map((card) => card.id)).toEqual([
       'missing',
     ]);
   });
@@ -103,7 +117,7 @@ describe('offerCards', () => {
     ];
     const rng = new ScriptedRng([1, 1, 0]);
 
-    const offer = offerCards(cards, {}, rng, 3);
+    const offer = offerCards(cards, context(), rng, 3);
 
     expect(offer.map((card) => card.id)).toEqual(['uncommon', 'rare', 'common']);
     expect(new Set(offer.map((card) => card.id)).size).toBe(3);
@@ -115,17 +129,17 @@ describe('offerCards', () => {
   });
 
   it('returns fewer cards only when the eligible pool is smaller', () => {
-    const offer = offerCards([upgrade('a'), upgrade('b')], {}, new ScriptedRng(), 3);
+    const offer = offerCards([upgrade('a'), upgrade('b')], context(), new ScriptedRng(), 3);
 
     expect(offer.map((card) => card.id)).toEqual(['a', 'b']);
   });
 
   it('returns an empty array for an empty pool or non-positive/non-finite count', () => {
-    expect(offerCards([], {}, new ScriptedRng())).toEqual([]);
-    expect(offerCards(definitions, {}, new ScriptedRng(), 0)).toEqual([]);
-    expect(offerCards(definitions, {}, new ScriptedRng(), -1)).toEqual([]);
-    expect(offerCards(definitions, {}, new ScriptedRng(), Number.NaN)).toEqual([]);
-    expect(offerCards(definitions, {}, new ScriptedRng(), Number.POSITIVE_INFINITY)).toEqual([]);
+    expect(offerCards([], context(), new ScriptedRng())).toEqual([]);
+    expect(offerCards(definitions, context(), new ScriptedRng(), 0)).toEqual([]);
+    expect(offerCards(definitions, context(), new ScriptedRng(), -1)).toEqual([]);
+    expect(offerCards(definitions, context(), new ScriptedRng(), Number.NaN)).toEqual([]);
+    expect(offerCards(definitions, context(), new ScriptedRng(), Number.POSITIVE_INFINITY)).toEqual([]);
   });
 
   it('does not mutate definitions, effect arrays, or stack input', () => {
@@ -139,7 +153,7 @@ describe('offerCards', () => {
     const cardsBefore = structuredClone(cards);
     const stacksBefore = structuredClone(stacks);
 
-    expect(() => offerCards(cards, stacks, new ScriptedRng(), 2)).not.toThrow();
+    expect(() => offerCards(cards, context(stacks), new ScriptedRng(), 2)).not.toThrow();
     expect(cards).toEqual(cardsBefore);
     expect(effects).toEqual(cardsBefore[0].effects);
     expect(stacks).toEqual(stacksBefore);
@@ -149,7 +163,7 @@ describe('offerCards', () => {
     const rng = new ScriptedRng();
     const invalid = upgrade('invalid-rarity', { rarity: 'unknown' as Rarity });
 
-    expect(() => offerCards([invalid], {}, rng)).toThrow(/positive finite total rarity weight/);
+    expect(() => offerCards([invalid], context(), rng)).toThrow(/positive finite total rarity weight/);
     expect(rng.weightedCalls).toEqual([]);
   });
 
@@ -160,7 +174,7 @@ describe('offerCards', () => {
     const rng = new ScriptedRng();
     const card = upgrade('duplicate');
 
-    expect(() => offerCards(duplicateCards(card), {}, rng, 2)).toThrow(/duplicate "duplicate"/);
+    expect(() => offerCards(duplicateCards(card), context(), rng, 2)).toThrow(/duplicate "duplicate"/);
     expect(rng.weightedCalls).toEqual([]);
   });
 
@@ -183,8 +197,53 @@ describe('offerCards', () => {
   it('uses only the injected weighted RNG contract', () => {
     const rng = new ScriptedRng([2]);
 
-    expect(offerCards(definitions, {}, rng, 1)[0]).toBe(definitions[2]);
+    expect(offerCards(definitions, context(), rng, 1)[0]).toBe(definitions[2]);
     expect(rng.weightedCalls).toHaveLength(1);
+  });
+
+  describe('family-scoped eligibility (Epic 18 D6)', () => {
+    function familyCard(id: string, family: string): UpgradeDefinition {
+      return upgrade(id, {
+        target: 'weapon',
+        effects: [
+          { stat: 'damage', op: 'mult', value: 1.2, scope: { kind: 'weapon-family', family } },
+        ],
+      });
+    }
+
+    it('excludes a family-scoped card when the family is not equipped', () => {
+      const cards = [familyCard('pistol-only', 'pistol'), upgrade('global')];
+
+      const offer = offerCards(cards, context({}, []), new ScriptedRng(), 2);
+
+      expect(offer.map((card) => card.id)).toEqual(['global']);
+    });
+
+    it('includes a family-scoped card once that family is equipped', () => {
+      const cards = [familyCard('pistol-only', 'pistol'), upgrade('global')];
+
+      const offer = offerCards(cards, context({}, [weaponInstance('pistol')]), new ScriptedRng(), 2);
+
+      expect(offer.map((card) => card.id).sort()).toEqual(['global', 'pistol-only']);
+    });
+
+    it('is not affected by an equipped family that does not match the scope', () => {
+      const cards = [familyCard('pistol-only', 'pistol')];
+
+      const offer = offerCards(cards, context({}, [weaponInstance('shotgun')]), new ScriptedRng(), 1);
+
+      expect(offer).toEqual([]);
+    });
+
+    it('re-derives eligibility fresh per call rather than caching it — different rack states in two calls with equal stacks produce different offers', () => {
+      const cards = [familyCard('pistol-only', 'pistol')];
+
+      const withoutFamily = offerCards(cards, context({}, []), new ScriptedRng(), 1);
+      const withFamily = offerCards(cards, context({}, [weaponInstance('pistol')]), new ScriptedRng(), 1);
+
+      expect(withoutFamily).toEqual([]);
+      expect(withFamily.map((card) => card.id)).toEqual(['pistol-only']);
+    });
   });
 });
 
@@ -401,5 +460,119 @@ describe('applyCard', () => {
     expect(applyCard(run, card)).toBe(true);
     expect(card).toEqual(before);
     expect(effects).toEqual(before.effects);
+  });
+
+  describe('weapon-family scope structural validation (Epic 18 D5/D6)', () => {
+    it('applies a valid scoped effect and stores the scope on the resulting modifier', () => {
+      const run = createTestRun();
+      const card = upgrade('pistol-boost', {
+        target: 'weapon',
+        effects: [
+          { stat: 'damage', op: 'mult', value: 1.5, scope: { kind: 'weapon-family', family: 'pistol' } },
+        ],
+      });
+
+      expect(applyCard(run, card)).toBe(true);
+      expect(run.stats.resolveWeapon('damage', 10, 'pistol')).toBe(15);
+      expect(run.stats.resolveWeapon('damage', 10, 'shotgun')).toBe(10);
+    });
+
+    it('does not re-check current family ownership at apply time — a valid offer stays applicable even if the rack no longer has that family', () => {
+      const run = createTestRun();
+      const card = upgrade('pistol-boost', {
+        target: 'weapon',
+        effects: [
+          { stat: 'damage', op: 'mult', value: 1.5, scope: { kind: 'weapon-family', family: 'pistol' } },
+        ],
+      });
+      run.equipped = []; // no pistol equipped — offer eligibility is not re-verified here
+
+      expect(applyCard(run, card)).toBe(true);
+
+      // ...and the resulting modifier is latent: inert for every other family
+      // and for the unscoped resolver, becoming live only once a matching
+      // weapon is present again.
+      expect(run.stats.resolveWeapon('damage', 10, 'shotgun')).toBe(10);
+      expect(run.stats.resolve('damage', 10)).toBe(10);
+      expect(run.stats.resolveWeapon('damage', 10, 'pistol')).toBe(15);
+    });
+
+    it.each([
+      ['malformed scope kind', { kind: 'family', family: 'pistol' }],
+      ['non-string family', { kind: 'weapon-family', family: 42 }],
+      ['empty family', { kind: 'weapon-family', family: '' }],
+      ['whitespace-only family', { kind: 'weapon-family', family: '   ' }],
+      ['null scope', null],
+    ])('rejects %s without mutating stacks or modifiers', (_name, scope) => {
+      const run = createTestRun();
+      const card = upgrade('bad-scope', {
+        target: 'weapon',
+        effects: [
+          { stat: 'damage', op: 'mult', value: 1.5, scope } as unknown as UpgradeDefinition['effects'][number],
+        ],
+      });
+      const statsBefore = resolvedStats(run);
+
+      expect(applyCard(run, card)).toBe(false);
+      expect(run.upgradeStacks).toEqual({});
+      expect(resolvedStats(run)).toEqual(statsBefore);
+    });
+
+    it('rejects a scoped effect on a non-weapon-modifier stat', () => {
+      const run = createTestRun();
+      const card = upgrade('bad-scope-stat', {
+        target: 'weapon',
+        effects: [
+          { stat: 'moveSpeed', op: 'mult', value: 1.5, scope: { kind: 'weapon-family', family: 'pistol' } },
+        ] as unknown as UpgradeDefinition['effects'],
+      });
+
+      expect(applyCard(run, card)).toBe(false);
+      expect(run.upgradeStacks).toEqual({});
+    });
+
+    it('rejects a scoped effect on a non-weapon-target upgrade', () => {
+      const run = createTestRun();
+      const card = upgrade('bad-target', {
+        target: 'run',
+        effects: [
+          { stat: 'damage', op: 'mult', value: 1.5, scope: { kind: 'weapon-family', family: 'pistol' } },
+        ],
+      });
+
+      expect(applyCard(run, card)).toBe(false);
+      expect(run.upgradeStacks).toEqual({});
+    });
+
+    it('rejects two scoped effects in one card that reference different families', () => {
+      const run = createTestRun();
+      const card = upgrade('mixed-family', {
+        target: 'weapon',
+        effects: [
+          { stat: 'damage', op: 'mult', value: 1.2, scope: { kind: 'weapon-family', family: 'pistol' } },
+          { stat: 'range', op: 'mult', value: 1.1, scope: { kind: 'weapon-family', family: 'shotgun' } },
+        ],
+      });
+      const statsBefore = resolvedStats(run);
+
+      expect(applyCard(run, card)).toBe(false);
+      expect(run.upgradeStacks).toEqual({});
+      expect(resolvedStats(run)).toEqual(statsBefore);
+    });
+
+    it('accepts two scoped effects in one card that share the same family', () => {
+      const run = createTestRun();
+      const card = upgrade('same-family', {
+        target: 'weapon',
+        effects: [
+          { stat: 'damage', op: 'mult', value: 1.2, scope: { kind: 'weapon-family', family: 'smg' } },
+          { stat: 'attackSpeed', op: 'mult', value: 1.1, scope: { kind: 'weapon-family', family: 'smg' } },
+        ],
+      });
+
+      expect(applyCard(run, card)).toBe(true);
+      expect(run.stats.resolveWeapon('damage', 10, 'smg')).toBe(12);
+      expect(run.stats.resolveWeapon('attackSpeed', 1, 'smg')).toBeCloseTo(1.1);
+    });
   });
 });

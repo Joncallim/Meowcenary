@@ -299,6 +299,96 @@
       "id": "world:landmark:barrel-power-stack", "kind": "world", "textureKey": "art-world-landmark-barrel-power-stack",
       "url": "assets/world/landmark-barrel-power-stack/landmark-barrel-power-stack.png", "required": true,
       "load": { "type": "image" }, "display": { "width": 64, "height": 64 }
+    },
+    {
+      "id": "upgrade-icon:quick-paws", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-quick-paws",
+      "url": "assets/upgrade-icons/upgrade-icon-quick-paws/upgrade-icon-quick-paws.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+    },
+    {
+      "id": "upgrade-icon:extra-scrap", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-extra-scrap",
+      "url": "assets/upgrade-icons/upgrade-icon-extra-scrap/upgrade-icon-extra-scrap.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+    },
+    {
+      "id": "upgrade-icon:hot-barrel", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-hot-barrel",
+      "url": "assets/upgrade-icons/upgrade-icon-hot-barrel/upgrade-icon-hot-barrel.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+    },
+    {
+      "id": "upgrade-icon:scrap-magnet", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-scrap-magnet",
+      "url": "assets/upgrade-icons/upgrade-icon-scrap-magnet/upgrade-icon-scrap-magnet.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+    },
+    {
+      "id": "upgrade-icon:reinforced-coat", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-reinforced-coat",
+      "url": "assets/upgrade-icons/upgrade-icon-reinforced-coat/upgrade-icon-reinforced-coat.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+    },
+    {
+      "id": "upgrade-icon:fast-learner", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-fast-learner",
+      "url": "assets/upgrade-icons/upgrade-icon-fast-learner/upgrade-icon-fast-learner.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+    },
+    {
+      "id": "upgrade-icon:heavy-rounds", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-heavy-rounds",
+      "url": "assets/upgrade-icons/upgrade-icon-heavy-rounds/upgrade-icon-heavy-rounds.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+    },
+    {
+      "id": "upgrade-icon:long-barrel", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-long-barrel",
+      "url": "assets/upgrade-icons/upgrade-icon-long-barrel/upgrade-icon-long-barrel.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+    },
+    {
+      "id": "upgrade-icon:split-shot", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-split-shot",
+      "url": "assets/upgrade-icons/upgrade-icon-split-shot/upgrade-icon-split-shot.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+    },
+    {
+      "id": "upgrade-icon:punch-through", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-punch-through",
+      "url": "assets/upgrade-icons/upgrade-icon-punch-through/upgrade-icon-punch-through.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+    },
+    {
+      "id": "upgrade-icon:glass-cannon", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-glass-cannon",
+      "url": "assets/upgrade-icons/upgrade-icon-glass-cannon/upgrade-icon-glass-cannon.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+    },
+    {
+      "id": "upgrade-icon:run-and-gun", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-run-and-gun",
+      "url": "assets/upgrade-icons/upgrade-icon-run-and-gun/upgrade-icon-run-and-gun.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+    },
+    {
+      "id": "upgrade-icon:pistol-deadeye", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-pistol-deadeye",
+      "url": "assets/upgrade-icons/upgrade-icon-pistol-deadeye/upgrade-icon-pistol-deadeye.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+    },
+    {
+      "id": "upgrade-icon:pistol-needle-rounds", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-pistol-needle-rounds",
+      "url": "assets/upgrade-icons/upgrade-icon-pistol-needle-rounds/upgrade-icon-pistol-needle-rounds.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+    },
+    {
+      "id": "upgrade-icon:smg-overclock", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-smg-overclock",
+      "url": "assets/upgrade-icons/upgrade-icon-smg-overclock/upgrade-icon-smg-overclock.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+    },
+    {
+      "id": "upgrade-icon:smg-spray", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-smg-spray",
+      "url": "assets/upgrade-icons/upgrade-icon-smg-spray/upgrade-icon-smg-spray.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+    },
+    {
+      "id": "upgrade-icon:shotgun-buckshot", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-shotgun-buckshot",
+      "url": "assets/upgrade-icons/upgrade-icon-shotgun-buckshot/upgrade-icon-shotgun-buckshot.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+    },
+    {
+      "id": "upgrade-icon:shotgun-breacher", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-shotgun-breacher",
+      "url": "assets/upgrade-icons/upgrade-icon-shotgun-breacher/upgrade-icon-shotgun-breacher.png", "required": true,
+      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
     }
   ]
 }

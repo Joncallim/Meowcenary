@@ -4,12 +4,18 @@ export interface UpgradeChooserCardLayout {
   width: number;
   height: number;
   padding: number;
+  /** Leading-column width: the larger of the number badge and the icon box. */
   numberWidth: number;
+  /** Epic 18 (D8): square icon box, clamped to the card's affordable space. */
+  iconSize: number;
   nameX: number;
   nameWidth: number;
   nameHeight: number;
   rarityReserve: number;
   rarityHeight: number;
+  /** Epic 18 (D9 content priority 2): "current/max -> next/max" stack row. */
+  statusY: number;
+  statusHeight: number;
   descriptionY: number;
   descriptionHeight: number;
 }
@@ -28,6 +34,7 @@ export interface UpgradeChooserLayout {
     instructions: number;
     name: number;
     rarity: number;
+    status: number;
     description: number;
   };
   lineSpacing: number;
@@ -39,6 +46,7 @@ const MIN_PHYSICAL_FONT = {
   instructions: 11,
   name: 14,
   rarity: 10,
+  status: 10,
   description: 12,
 } as const;
 
@@ -47,6 +55,7 @@ const BASE_LOGICAL_FONT = {
   instructions: 13,
   name: 18,
   rarity: 12,
+  status: 12,
   description: 14,
 } as const;
 
@@ -74,6 +83,7 @@ export function computeUpgradeChooserLayout(
     instructions: font(BASE_LOGICAL_FONT.instructions, MIN_PHYSICAL_FONT.instructions),
     name: font(BASE_LOGICAL_FONT.name, MIN_PHYSICAL_FONT.name),
     rarity: font(BASE_LOGICAL_FONT.rarity, MIN_PHYSICAL_FONT.rarity),
+    status: font(BASE_LOGICAL_FONT.status, MIN_PHYSICAL_FONT.status),
     description: font(BASE_LOGICAL_FONT.description, MIN_PHYSICAL_FONT.description),
   };
   const compactHeader = canvasWidth * displayScale < 220;
@@ -86,7 +96,8 @@ export function computeUpgradeChooserLayout(
     instructionsY + instructionsHeight + physical(compactHeader ? 5 : 10);
   const bottomMargin = physical(compactHeader ? 4 : 8);
   const cardGap = Math.max(compactHeader ? 0 : 12, physical(compactHeader ? 4 : 6));
-  const count = Math.max(1, Math.min(3, Math.floor(choiceCount)));
+  // Epic 18 (D2/D9): 1–5 cards, no legacy three-card clamp.
+  const count = Math.max(1, Math.min(5, Math.floor(choiceCount)));
   const availableHeight = Math.max(0, canvasHeight - cardsRegionTop - bottomMargin);
   const maxCardHeight = Math.max(168, physical(150));
   const cardHeight = Math.max(
@@ -109,9 +120,23 @@ export function computeUpgradeChooserLayout(
   const desiredNumberWidth = Math.max(fonts.name * 1.35, physical(18));
   const desiredRarityReserve = Math.max(compactHeader ? 0 : 72, physical(44));
   const desiredInlineGap = Math.max(compactHeader ? 0 : 8, physical(3));
+  // Epic 18 (D8/D9 priority 1): the leading column holds the card icon, whose
+  // binding declares a 36px logical display. Sizing that column from the old
+  // "1." text badge alone would shrink the icon to roughly half its declared
+  // size; it is instead the larger of the text badge and an icon box clamped
+  // to what the card can actually afford in both axes.
+  const desiredIconSize = Math.max(36, physical(28));
+  const iconSize = Math.max(
+    0,
+    Math.min(
+      desiredIconSize,
+      contentWidth / 3,
+      Math.max(0, cardHeight - padding * 2),
+    ),
+  );
   const numberWidth = Math.max(
     MIN_REGION_SIZE,
-    Math.min(desiredNumberWidth, contentWidth - MIN_REGION_SIZE),
+    Math.min(Math.max(desiredNumberWidth, iconSize), contentWidth - MIN_REGION_SIZE),
   );
   const remainingAfterNumber = Math.max(
     MIN_REGION_SIZE,
@@ -132,13 +157,25 @@ export function computeUpgradeChooserLayout(
   );
   const nameHeight = Math.max(fonts.name * 1.15, physical(16));
   const rarityHeight = Math.max(fonts.rarity * 1.15, physical(11));
-  const descriptionOffset = padding + Math.max(nameHeight, rarityHeight) + physical(2);
+  const desiredStatusHeight = Math.max(fonts.status * 1.15, physical(11));
+  // The header row must clear the tallest of its three occupants so the icon
+  // never overlaps the stack-state row below it.
+  const headerOffset = padding + Math.max(nameHeight, rarityHeight, iconSize);
+  const statusOffset = headerOffset + physical(2);
   const lineSpacing = Math.max(4, physical(2));
 
   const cards = Array.from({ length: count }, (_, index) => {
     const y = cardsTop + cardHeight / 2 + index * (cardHeight + cardGap);
     const cardTop = y - cardHeight / 2;
-    const descriptionY = cardTop + descriptionOffset;
+    const contentBottom = cardTop + cardHeight - padding;
+    const statusY = cardTop + statusOffset;
+    // The status row is clamped to the space actually left inside the card
+    // (4/5-card modes make cards much shorter), so a stack-state row can
+    // never escape its card. The view hides it when the clamped height
+    // cannot fit a line; D9's content priority still puts stack state above
+    // the description, which only receives whatever space remains.
+    const statusHeight = Math.max(0, Math.min(desiredStatusHeight, contentBottom - statusY));
+    const descriptionY = statusY + statusHeight + physical(2);
     return {
       x: canvasWidth / 2,
       y,
@@ -146,16 +183,16 @@ export function computeUpgradeChooserLayout(
       height: cardHeight,
       padding,
       numberWidth,
+      iconSize,
       nameX,
       nameWidth,
       nameHeight,
       rarityReserve,
       rarityHeight,
+      statusY,
+      statusHeight,
       descriptionY,
-      descriptionHeight: Math.max(
-        0,
-        cardTop + cardHeight - padding - descriptionY,
-      ),
+      descriptionHeight: Math.max(0, contentBottom - descriptionY),
     };
   });
 
