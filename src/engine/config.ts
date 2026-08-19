@@ -28,6 +28,19 @@ export const RuntimeConfig = {
     upgrades: {
       offerCount: 4,
     },
+    // Epic 19: shared input tuning. Touch stick mode is confirmed floating
+    // (anchored is a dev-only diagnostic); gamepad deadzone/nav threshold and
+    // nav auto-repeat values are initial defaults tuned only with recorded
+    // evidence. Dash is reserved for the Slice 4 movement-agency evidence gate.
+    input: {
+      touchStick: {
+        radius: 64,
+        mode: 'floating',
+        anchored: { centerX: 82, centerY: 700, activationRadius: 120 },
+      },
+      gamepad: { moveDeadzone: 0.25, navThreshold: 0.5 },
+      navRepeat: { delayMs: 400, intervalMs: 150 },
+    },
   },
   performance: {
     targetFps: 60,
