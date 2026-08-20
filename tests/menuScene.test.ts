@@ -1,4 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
+// Must precede any import whose transitive dependencies resolve Phaser at module
+// evaluation time. The mock registration in __mocks__/phaser is a side-effectful
+// import; ordering it first guarantees the mock is installed before the real
+// Phaser module is ever requested.
+import { MockInputPlugin } from './__mocks__/phaser';
 import { GAME_CONTEXT_REGISTRY_KEY, createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
@@ -10,28 +15,6 @@ import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
-
-vi.mock('phaser', () => ({
-  default: {
-    Input: {
-      Events: {
-        POINTER_DOWN: 'pointerdown',
-        POINTER_OVER: 'pointerover',
-        POINTER_OUT: 'pointerout',
-        POINTER_UP: 'pointerup',
-      },
-    },
-    Scenes: {
-      Events: {
-        SHUTDOWN: 'shutdown',
-        DESTROY: 'destroy',
-      },
-    },
-    Scene: class Scene {
-      constructor(public key: string) {}
-    },
-  },
-}));
 
 interface FakeObjectState {
   kind: 'container' | 'text' | 'rect';
@@ -130,86 +113,7 @@ function createFakeScene(
     return object;
   };
 
-  const keyboardListeners = new Map<
-    string,
-    Array<{ handler: (event: { key: string; repeat: boolean }) => void; context: unknown; once: boolean }>
-  >();
-  const keyNames: Record<string, string> = {
-    ArrowUp: 'UP',
-    ArrowDown: 'DOWN',
-    Enter: 'ENTER',
-    Space: 'SPACE',
-    Escape: 'ESC',
-  };
-  const keyboard = {
-    on(
-      event: string,
-      handler: (event: { key: string; repeat: boolean }) => void,
-      context?: unknown,
-    ): void {
-      const list = keyboardListeners.get(event) ?? [];
-      list.push({ handler, context, once: false });
-      keyboardListeners.set(event, list);
-    },
-    once(
-      event: string,
-      handler: (event: { key: string; repeat: boolean }) => void,
-      context?: unknown,
-    ): void {
-      const list = keyboardListeners.get(event) ?? [];
-      list.push({ handler, context, once: true });
-      keyboardListeners.set(event, list);
-    },
-    off(event: string, handler: (event: { key: string; repeat: boolean }) => void): void {
-      keyboardListeners.set(
-        event,
-        (keyboardListeners.get(event) ?? []).filter((entry) => entry.handler !== handler),
-      );
-    },
-    listenerCount(event: string): number {
-      return keyboardListeners.get(event)?.length ?? 0;
-    },
-    keydown(key: string, repeat = false): void {
-      const name = keyNames[key] ?? key.toUpperCase();
-      const fire = (event: string): void => {
-        const list = keyboardListeners.get(event) ?? [];
-        keyboardListeners.set(event, list.filter((entry) => !entry.once));
-        [...list].forEach((entry) => {
-          entry.handler.call(entry.context, { key, repeat });
-        });
-      };
-      fire(`keydown-${name}`);
-      fire('keydown');
-    },
-  };
-
-  const inputListeners = new Map<
-    string,
-    Array<{ handler: () => void; context: unknown; once: boolean }>
-  >();
-  const input = {
-    once(event: string, handler: () => void, context?: unknown): void {
-      const list = inputListeners.get(event) ?? [];
-      list.push({ handler, context, once: true });
-      inputListeners.set(event, list);
-    },
-    off(event: string, handler: () => void): void {
-      inputListeners.set(
-        event,
-        (inputListeners.get(event) ?? []).filter((entry) => entry.handler !== handler),
-      );
-    },
-    listenerCount(event: string): number {
-      return inputListeners.get(event)?.length ?? 0;
-    },
-    pointerDown(): void {
-      const list = inputListeners.get('pointerdown') ?? [];
-      inputListeners.set('pointerdown', list.filter((entry) => !entry.once));
-      [...list].forEach((entry) => {
-        entry.handler.call(entry.context);
-      });
-    },
-  };
+  const input = new MockInputPlugin({ keyboard: true });
 
   const lifecycleListeners = new Map<
     string,
@@ -304,7 +208,7 @@ function createFakeScene(
         return register(fakeObject('rect', '', width, height));
       },
     },
-    input: { keyboard, ...input },
+    input,
     events: lifecycle,
     scene: { start: sceneStart },
   };
@@ -312,8 +216,8 @@ function createFakeScene(
   return {
     environment,
     objects,
-    keyboard,
     input,
+    keyboard: input.keyboard!,
     lifecycle,
     sceneStart,
     /** Arms the fake add.text factory to throw once on its next call, then
@@ -421,10 +325,13 @@ describe('MenuScene', () => {
     const harness = createHarness();
 
     harness.keyboard.keydown('ArrowDown'); // focus moves to Character
+    harness.menuScene.update(0, 16);
     harness.keyboard.keydown('Enter');
+    harness.menuScene.update(0, 16);
     expect(harness.textContents()).toContain('Choose Character');
 
     harness.keyboard.keydown('Escape');
+    harness.menuScene.update(0, 16);
     expect(harness.textContents()).toContain('Start');
     expect(harness.textContents()).not.toContain('Choose Character');
   });
@@ -454,6 +361,7 @@ describe('MenuScene', () => {
     // Esc goes through handleBack -> render and rebuilds the home panel,
     // replacing the fallback root.
     harness.keyboard.keydown('Escape');
+    harness.menuScene.update(0, 16);
     expect(harness.textContents()).toContain('Start');
     expect(harness.textContents()).not.toContain('Something went wrong — press Esc to retry');
 
@@ -488,72 +396,71 @@ describe('MenuScene audio lifecycle', () => {
     expect(audioFake!.update).toHaveBeenCalledWith(17);
   });
 
-  it('unlocks once on the first pointer gesture and cross-removes the keyboard listener', () => {
-    const { input, keyboard, audioFake } = createHarness();
-    expect(input.listenerCount('pointerdown')).toBe(1);
-    expect(keyboard.listenerCount('keydown')).toBe(1);
+  it('unlocks once on the first pointer gesture and cross-removes the action subscription', () => {
+    const { input, keyboard, audioFake, menuScene } = createHarness();
+    expect(input.listenerCount('pointerdown')).toBe(2);
 
-    input.pointerDown();
+    input.pointerDown(10, 10);
 
     expect(audioFake!.unlock).toHaveBeenCalledTimes(1);
-    expect(input.listenerCount('pointerdown')).toBe(0);
-    expect(keyboard.listenerCount('keydown')).toBe(0);
+    expect(input.listenerCount('pointerdown')).toBe(1);
 
-    // A second gesture must never unlock again or accumulate listeners.
-    input.pointerDown();
+    // A subsequent action must never unlock again or accumulate listeners.
     keyboard.keydown('Enter');
+    menuScene.update(0, 16);
+    input.pointerDown(20, 20);
     expect(audioFake!.unlock).toHaveBeenCalledTimes(1);
   });
 
-  it('unlocks once on the first key gesture and cross-removes the pointer listener', () => {
-    const { input, keyboard, audioFake } = createHarness();
+  it('unlocks once on the first logical action and cross-removes the pointer listener', () => {
+    const { input, keyboard, audioFake, menuScene } = createHarness();
+    expect(input.listenerCount('pointerdown')).toBe(2);
 
     keyboard.keydown('Enter');
+    menuScene.update(0, 16);
 
     expect(audioFake!.unlock).toHaveBeenCalledTimes(1);
-    expect(input.listenerCount('pointerdown')).toBe(0);
-    expect(keyboard.listenerCount('keydown')).toBe(0);
+    expect(input.listenerCount('pointerdown')).toBe(1);
 
     keyboard.keydown('Enter');
-    input.pointerDown();
+    menuScene.update(0, 16);
+    input.pointerDown(10, 10);
     expect(audioFake!.unlock).toHaveBeenCalledTimes(1);
   });
 
   it('removes the unlock pair on shutdown before any gesture', () => {
-    const { lifecycle, input, keyboard, audioFake } = createHarness();
+    const { lifecycle, input, audioFake } = createHarness();
 
     lifecycle.emit('shutdown');
 
     expect(input.listenerCount('pointerdown')).toBe(0);
-    expect(keyboard.listenerCount('keydown')).toBe(0);
     expect(audioFake!.unlock).not.toHaveBeenCalled();
   });
 
   it('never accumulates unlock listeners across create/shutdown visits', () => {
-    const { menuScene, lifecycle, input, keyboard, audioFake } = createHarness();
-
-    menuScene.create();
-    expect(input.listenerCount('pointerdown')).toBe(1);
-    expect(keyboard.listenerCount('keydown')).toBe(1);
+    const { menuScene, lifecycle, input, audioFake } = createHarness();
 
     lifecycle.emit('shutdown');
     expect(input.listenerCount('pointerdown')).toBe(0);
-    expect(keyboard.listenerCount('keydown')).toBe(0);
 
     menuScene.create();
-    expect(input.listenerCount('pointerdown')).toBe(1);
-    expect(keyboard.listenerCount('keydown')).toBe(1);
+    expect(input.listenerCount('pointerdown')).toBe(2);
+
+    lifecycle.emit('shutdown');
+    expect(input.listenerCount('pointerdown')).toBe(0);
+
+    menuScene.create();
+    expect(input.listenerCount('pointerdown')).toBe(2);
     // Initial harness create plus the two explicit visits.
     expect(audioFake!.playMusic).toHaveBeenCalledTimes(3);
   });
 
   it('tolerates a missing audio registry entry and stays silent', () => {
-    const { audioFake, input, keyboard, textContents } = createHarness({ audio: false });
+    const { audioFake, input, textContents } = createHarness({ audio: false });
 
     expect(audioFake).toBeUndefined();
     expect(textContents()).toEqual(expect.arrayContaining(['Start', 'Character']));
-    expect(input.listenerCount('pointerdown')).toBe(0);
-    expect(keyboard.listenerCount('keydown')).toBe(0);
+    expect(input.listenerCount('pointerdown')).toBe(1);
   });
 });
 
@@ -567,10 +474,11 @@ describe('MenuScene UI command events', () => {
   };
 
   it('emits exactly one ui:navigate when focus actually moves', () => {
-    const { keyboard, bus } = createHarness();
+    const { keyboard, menuScene, bus } = createHarness();
     const events = recordEvents(bus);
 
     keyboard.keydown('ArrowDown');
+    menuScene.update(0, 16);
 
     expect(events).toEqual(['ui:navigate']);
   });
@@ -588,11 +496,12 @@ describe('MenuScene UI command events', () => {
     seams.focusIndex = 0;
 
     keyboard.keydown('ArrowDown');
+    menuScene.update(0, 16);
 
     expect(events).toEqual([]);
   });
 
-  it('ignores OS key-repeat events: no navigate emission and no focus movement', () => {
+  it('polled held key emits one nav edge; core nav auto-repeat is time-gated (D3)', () => {
     const { menuScene, keyboard, bus } = createHarness();
     const events = recordEvents(bus);
     const seams = menuScene as unknown as {
@@ -601,14 +510,22 @@ describe('MenuScene UI command events', () => {
     };
     const startIndex = seams.focusIndex;
 
-    // Holding ArrowDown fires repeat events at OS rate; none may move focus
-    // or emit a ui:navigate bus event.
+    // Polled adapters read Key.isDown, so OS key-repeat events are irrelevant
+    // by construction. A held ArrowDown emits exactly one navDown edge on the
+    // held transition; repeats come from the pure core only after
+    // navRepeat.delayMs (400ms), never at OS repeat rate.
     keyboard.keydown('ArrowDown', true);
-    keyboard.keydown('ArrowDown', true);
-    keyboard.keydown('ArrowDown', true);
+    menuScene.update(0, 16);
 
-    expect(events).toEqual([]);
-    expect(seams.focusIndex).toBe(startIndex);
+    expect(events).toEqual(['ui:navigate']);
+    expect(seams.focusIndex).toBe(startIndex + 1);
+
+    // Still held, but well under the 400ms repeat delay: no repeat edge.
+    keyboard.keydown('ArrowDown', true);
+    menuScene.update(0, 16);
+    keyboard.keydown('ArrowDown', true);
+    menuScene.update(0, 16);
+    expect(events).toEqual(['ui:navigate']);
   });
 
   it('emits exactly one ui:confirm on a pointer-activated button', () => {
@@ -625,10 +542,14 @@ describe('MenuScene UI command events', () => {
     const events = recordEvents(harness.bus);
 
     harness.keyboard.keydown('Enter');
+    harness.menuScene.update(0, 16);
     expect(events).toEqual(['ui:confirm']);
 
     events.length = 0;
+    harness.keyboard.keyup('Enter');
+    harness.menuScene.update(0, 16);
     harness.keyboard.keydown('Space');
+    harness.menuScene.update(0, 16);
     expect(events).toEqual(['ui:confirm']);
   });
 
@@ -647,6 +568,7 @@ describe('MenuScene UI command events', () => {
     const events = recordEvents(harness.bus);
 
     harness.keyboard.keydown('Escape');
+    harness.menuScene.update(0, 16);
 
     expect(events).toEqual(['ui:back']);
   });

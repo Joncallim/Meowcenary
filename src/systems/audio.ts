@@ -5,7 +5,6 @@ import { shouldPlay } from '../engine/cooldown';
 import { RuntimeConfig } from '../engine/config';
 import { weaponFeelByFamily, type AudioData, type AudioMapEntry, type WeaponFeelDefinition } from './types';
 import type { Settings } from './save';
-
 /** Epic 17: the only two events whose payload carries `family`/`tier`.
  *  Narrowing here (rather than widening GameEventMap's shared shape) keeps
  *  every other mapped event exactly as payload-agnostic as it was before. */
@@ -47,6 +46,13 @@ function eventFamilyTier(
 // docs/architecture/epic-10-audio.md §9.1. Until that slice lands the key is
 // exported but never read at runtime — audio silent by design.
 export const AUDIO_MANAGER_REGISTRY_KEY = 'meowcenary.audioManager';
+
+/** Typed registry accessor for the boot-published AudioManager (Epic 19 P2-5):
+ *  centralizes the cast; a missing entry is tolerated (scenes stay functional
+ *  and silent) and returns undefined rather than throwing. */
+export function getAudioManager(scene: Phaser.Scene): AudioManager | undefined {
+  return scene.registry.get(AUDIO_MANAGER_REGISTRY_KEY) as AudioManager | undefined;
+}
 
 interface MusicFade {
   readonly fromVolume: number;

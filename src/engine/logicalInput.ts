@@ -151,8 +151,10 @@ export class LogicalInputCore {
     }
 
     const magnitude = length(vector);
-    const active = applyRadialDeadzone(magnitude, deadzone) > 0;
-    state.vector = { x: vector.x, y: vector.y };
+    const scaled = applyRadialDeadzone(magnitude, deadzone);
+    const active = scaled > 0;
+    const k = magnitude > 0 ? scaled / magnitude : 0;
+    state.vector = { x: vector.x * k, y: vector.y * k };
 
     if (active && !state.active) {
       state.lastActiveAtMs = this.timeMs;
@@ -256,6 +258,14 @@ export class LogicalInputCore {
   private initializeNavState(action: GameAction, dtMs: number): void {
     if (!NAV_ACTIONS.includes(action)) {
       return;
+    }
+
+    if (this.activeNavAction !== null && this.activeNavAction !== action) {
+      const prior = this.navStates.get(this.activeNavAction);
+      if (prior) {
+        prior.pressedAtMs = null;
+        prior.repeatsEmitted = 0;
+      }
     }
 
     const state = this.navStates.get(action);

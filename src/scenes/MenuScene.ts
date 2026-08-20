@@ -1,13 +1,14 @@
 import Phaser from 'phaser';
-import { GAME_CONTEXT_REGISTRY_KEY, type GameContext } from '../engine/context';
+import { getGameContext, type GameContext } from '../engine/context';
 import type { EventBus } from '../engine/eventBus';
 
 import { SceneKey } from '../engine/sceneKeys';
-import { AudioManager, AUDIO_MANAGER_REGISTRY_KEY } from '../systems/audio';
+import { AudioManager, getAudioManager } from '../systems/audio';
 import { logicalCanvasViewport, minimumHitTarget } from '../ui/layout';
 import { MainMenuController, type MainMenuSnapshot } from '../ui/menus';
 import { cycleVolumeStep } from '../ui/settings';
 import { ThemeColor, ThemeDepth, ThemeFont } from '../ui/theme';
+import { InputController } from '../systems/input';
 
 const MENU_DEPTH = ThemeDepth.pauseSummary;
 
@@ -21,6 +22,8 @@ export class MenuScene extends Phaser.Scene {
   private focusIndex = -1;
   private bus?: EventBus;
   private audioManager?: AudioManager;
+  private inputController?: InputController;
+  private audioUnlockUnsub?: () => void;
 
   constructor() {
     super(SceneKey.Menu);
@@ -41,11 +44,11 @@ export class MenuScene extends Phaser.Scene {
       )
       .setScrollFactor(0);
 
-    this.input.keyboard?.on('keydown-ESC', this.handleBack, this);
-    this.input.keyboard?.on('keydown-UP', this.handleFocusMove, this);
-    this.input.keyboard?.on('keydown-DOWN', this.handleFocusMove, this);
-    this.input.keyboard?.on('keydown-ENTER', this.handleActivate, this);
-    this.input.keyboard?.on('keydown-SPACE', this.handleActivate, this);
+    this.inputController = new InputController(this);
+    this.inputController.onAction('back', () => this.handleBack());
+    this.inputController.onAction('navUp', () => this.handleNavMove(-1));
+    this.inputController.onAction('navDown', () => this.handleNavMove(1));
+    this.inputController.onAction('confirm', () => this.handleActivate());
 
     this.render(this.controller.snapshot());
 
@@ -60,6 +63,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    this.inputController?.update(delta);
     this.audioManager?.update(delta);
   }
 
@@ -490,13 +494,8 @@ export class MenuScene extends Phaser.Scene {
     this.render(next);
   }
 
-  private handleFocusMove(event: KeyboardEvent): void {
-    // OS key-repeat events fire at ~30Hz while a key is held; each genuine
-    // index change emits a ui:navigate bus event, so repeats must be ignored
-    // to avoid focus spinning around the list at repeat rate.
-    if (event.repeat) return;
+  private handleNavMove(delta: number): void {
     if (this.focusables.length === 0) return;
-    const delta = event.key === 'ArrowDown' ? 1 : -1;
     const previousIndex = this.focusIndex;
     this.focusIndex = (this.focusIndex + delta + this.focusables.length) % this.focusables.length;
     if (this.focusIndex !== previousIndex) {
@@ -521,11 +520,8 @@ export class MenuScene extends Phaser.Scene {
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
     this.removeAudioUnlockListeners();
-    this.input.keyboard?.off('keydown-ESC', this.handleBack, this);
-    this.input.keyboard?.off('keydown-UP', this.handleFocusMove, this);
-    this.input.keyboard?.off('keydown-DOWN', this.handleFocusMove, this);
-    this.input.keyboard?.off('keydown-ENTER', this.handleActivate, this);
-    this.input.keyboard?.off('keydown-SPACE', this.handleActivate, this);
+    this.inputController?.destroy();
+    this.inputController = undefined;
     this.root?.destroy(true);
     this.root = undefined;
     this.focusables = [];
@@ -537,11 +533,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private getContext(): GameContext {
-    const ctx = this.registry.get(GAME_CONTEXT_REGISTRY_KEY) as GameContext | undefined;
-    if (!ctx) {
-      throw new Error('GameContext missing from Phaser registry');
-    }
-    return ctx;
+    return getGameContext(this);
   }
 
   private requireController(): MainMenuController {
@@ -561,26 +553,27 @@ export class MenuScene extends Phaser.Scene {
       return;
     }
     this.removeAudioUnlockListeners();
+    this.audioUnlockUnsub = this.inputController!.onAnyAction(() =>
+      this.handleAudioUnlock(),
+    );
     this.input.once(
       Phaser.Input.Events.POINTER_DOWN,
       this.handleAudioUnlock,
       this,
     );
-    this.input.keyboard?.once('keydown', this.handleAudioUnlock, this);
   }
 
   private removeAudioUnlockListeners(): void {
+    this.audioUnlockUnsub?.();
+    this.audioUnlockUnsub = undefined;
     this.input.off(
       Phaser.Input.Events.POINTER_DOWN,
       this.handleAudioUnlock,
       this,
     );
-    this.input.keyboard?.off('keydown', this.handleAudioUnlock, this);
   }
 
   private getAudioManager(): AudioManager | undefined {
-    return this.registry.get(AUDIO_MANAGER_REGISTRY_KEY) as
-      | AudioManager
-      | undefined;
+    return getAudioManager(this);
   }
 }

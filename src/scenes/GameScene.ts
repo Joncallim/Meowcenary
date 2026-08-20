@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
-import { GAME_CONTEXT_REGISTRY_KEY, type GameContext } from '../engine/context';
+import { getGameContext, type GameContext } from '../engine/context';
 import { RuntimeConfig } from '../engine/config';
 import { createRng, deriveRunSeed } from '../engine/rng';
 import { SceneKey } from '../engine/sceneKeys';
 import type { System } from '../engine/system';
 import type { SpawnCurveDefinition } from '../systems/types';
-import { AudioManager, AUDIO_MANAGER_REGISTRY_KEY } from '../systems/audio';
+import { AudioManager, getAudioManager } from '../systems/audio';
 import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
@@ -89,6 +89,7 @@ export class GameScene extends Phaser.Scene {
   private perfSampler?: PerfSampler;
   // Non-owning cache of the Boot-constructed, game-scoped manager.
   private audioManager?: AudioManager;
+  private audioUnlockUnsub?: () => void;
   private dpsMeter?: DpsMeter;
 
   constructor() {
@@ -385,9 +386,9 @@ export class GameScene extends Phaser.Scene {
       controller: this.runSummaryController,
     });
 
-    this.input.keyboard?.on('keydown-P', this.handlePauseKey, this);
-    this.input.keyboard?.on('keydown-ESC', this.handlePauseKey, this);
-    this.input.keyboard?.on('keydown-I', this.handleInventoryKey, this);
+    this.inputController.onAction('pause', () => this.handlePauseKey());
+    this.inputController.onAction('back', () => this.handlePauseKey());
+    this.inputController.onAction('inventory', () => this.handleInventoryKey());
     if (RuntimeConfig.isDev) {
       this.input.keyboard?.on('keydown-F4', this.togglePhysicsDebug, this);
       this.input.keyboard?.on('keydown-F8', this.forceLoseRun, this);
@@ -477,9 +478,6 @@ export class GameScene extends Phaser.Scene {
       unsubscribe();
     });
     this.unsubscribers = [];
-    this.input.keyboard?.off('keydown-P', this.handlePauseKey, this);
-    this.input.keyboard?.off('keydown-ESC', this.handlePauseKey, this);
-    this.input.keyboard?.off('keydown-I', this.handleInventoryKey, this);
     this.input.keyboard?.off('keydown-F4', this.togglePhysicsDebug, this);
     this.input.keyboard?.off('keydown-F8', this.forceLoseRun, this);
     this.input.keyboard?.off('keydown-F9', this.forceWinRun, this);
@@ -534,12 +532,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private getContext(): GameContext {
-    const ctx = this.registry.get(GAME_CONTEXT_REGISTRY_KEY) as GameContext | undefined;
-    if (!ctx) {
-      throw new Error('GameContext missing from Phaser registry');
-    }
-
-    return ctx;
+    return getGameContext(this);
   }
 
   private readonly handleAudioUnlock = (): void => {
@@ -552,27 +545,28 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     this.removeAudioUnlockListeners();
+    this.audioUnlockUnsub = this.inputController!.onAnyAction(() =>
+      this.handleAudioUnlock(),
+    );
     this.input.once(
       Phaser.Input.Events.POINTER_DOWN,
       this.handleAudioUnlock,
       this,
     );
-    this.input.keyboard?.once('keydown', this.handleAudioUnlock, this);
   }
 
   private removeAudioUnlockListeners(): void {
+    this.audioUnlockUnsub?.();
+    this.audioUnlockUnsub = undefined;
     this.input.off(
       Phaser.Input.Events.POINTER_DOWN,
       this.handleAudioUnlock,
       this,
     );
-    this.input.keyboard?.off('keydown', this.handleAudioUnlock, this);
   }
 
   private getAudioManager(): AudioManager | undefined {
-    return this.registry.get(AUDIO_MANAGER_REGISTRY_KEY) as
-      | AudioManager
-      | undefined;
+    return getAudioManager(this);
   }
 
   private requireRunState(): RunState {
@@ -615,10 +609,7 @@ export class GameScene extends Phaser.Scene {
 
   /** HUD rack control and I key. Opens the rack directly from active play,
    *  moves from pause into the rack, or returns from the rack to pause. */
-  private handleInventoryKey(event?: KeyboardEvent): void {
-    if (event?.repeat) {
-      return;
-    }
+  private handleInventoryKey(): void {
     const controller = this.pauseController;
     if (!controller) {
       return;
