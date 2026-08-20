@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import { clampLength } from '../engine/vector';
+import { RuntimeConfig } from '../engine/config';
 import type { InputController, InputMode, InputPresentationSnapshot } from '../systems/input';
 import { physicalToLogical, type UiViewport } from './layout';
 import { reducedMotionDuration, ThemeColor, ThemeDepth, ThemeFont } from './theme';
 
-const STICK_RADIUS = 64;
+const STICK_RADIUS = RuntimeConfig.gameplay.input.touchStick.radius;
 const HINT_DURATION_MS = 2200;
 const HINT_FADE_MS = 400;
 const HUD_RACK_CLEARANCE_PX = 52;
@@ -66,7 +67,7 @@ export class ControlsView {
         - margin
         - physicalToLogical(HUD_RACK_CLEARANCE_PX, viewport)
         - fontSize * 2,
-      this.lastMode === 'pointer' ? 'Drag to move • Tap pause' : 'WASD / arrows • P / Esc',
+      hintForMode(this.lastMode),
       {
         align: 'center',
         color: '#f7f1d5',
@@ -172,9 +173,7 @@ export class ControlsView {
   private updateHint(mode: InputMode, dtMs: number): void {
     if (this.lastMode !== mode) {
       this.lastMode = mode;
-      this.hintText.setText(
-        mode === 'pointer' ? 'Drag to move • Tap pause' : 'WASD / arrows • P / Esc',
-      );
+      this.hintText.setText(hintForMode(mode));
       this.hintElapsedMs = 0;
       this.hintFaded = false;
       this.hintText.setAlpha(1);
@@ -213,6 +212,18 @@ export class ControlsView {
 
 function positiveFinite(value: number, fallback: number): number {
   return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function hintForMode(mode: InputMode): string {
+  switch (mode) {
+    case 'keyboard':
+      return 'WASD / arrows • P / Esc';
+    case 'gamepad':
+      return 'Left stick • A / Start';
+    case 'pointer':
+    default:
+      return 'Drag to move • Tap pause';
+  }
 }
 
 function sameViewport(a: UiViewport, b: UiViewport): boolean {

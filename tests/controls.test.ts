@@ -1,77 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
+// Must precede any import whose transitive dependencies resolve Phaser at module
+// evaluation time. The mock registration in __mocks__/phaser is a side-effectful
+// import; ordering it first guarantees the mock is installed before the real
+// Phaser module is ever requested.
+import { MockInputPlugin, MockGamepad } from './__mocks__/phaser';
 import { InputController } from '../src/systems/input';
 import { ControlsView } from '../src/ui/controls';
 import { logicalCanvasViewport } from '../src/ui/layout';
-
-vi.mock('phaser', () => ({
-  default: {
-    Input: {
-      Keyboard: {
-        KeyCodes: {
-          W: 'KeyW',
-          A: 'KeyA',
-          S: 'KeyS',
-          D: 'KeyD',
-          UP: 'ArrowUp',
-          DOWN: 'ArrowDown',
-          LEFT: 'ArrowLeft',
-          RIGHT: 'ArrowRight',
-        },
-      },
-    },
-    Scale: { Events: { RESIZE: 'resize' } },
-  },
-}));
-
-class FakeEmitter {
-  private readonly listeners = new Map<string, Array<{ callback: (...args: unknown[]) => void; context?: unknown }>>();
-
-  on(event: string, callback: (...args: unknown[]) => void, context?: unknown): this {
-    const listeners = this.listeners.get(event) ?? [];
-    listeners.push({ callback, context });
-    this.listeners.set(event, listeners);
-    return this;
-  }
-
-  off(event: string, callback: (...args: unknown[]) => void, context?: unknown): this {
-    const listeners = this.listeners.get(event) ?? [];
-    this.listeners.set(
-      event,
-      listeners.filter((listener) => listener.callback !== callback || listener.context !== context),
-    );
-    return this;
-  }
-
-  emit(event: string, ...args: unknown[]): this {
-    [...(this.listeners.get(event) ?? [])].forEach((listener) => {
-      listener.callback.apply(listener.context, args);
-    });
-    return this;
-  }
-}
-
-interface FakeKey {
-  isDown: boolean;
-}
-
-class FakeKeyboard {
-  readonly keys: Record<string, FakeKey>;
-
-  constructor() {
-    this.keys = {};
-    for (const name of ['w', 'a', 's', 'd', 'up', 'down', 'left', 'right']) {
-      this.keys[name] = { isDown: false };
-    }
-  }
-
-  addKeys(): Record<string, FakeKey> {
-    return this.keys;
-  }
-}
-
-function pointerAt(x: number, y: number, isDown = true) {
-  return { x, y, isDown };
-}
 
 function createFakeScene() {
   let resize: { callback: () => void; context?: unknown } | undefined;
@@ -181,14 +116,11 @@ function createFakeScene() {
   return scene;
 }
 
-function createHarness(options: { readReducedMotion?: () => boolean } = {}) {
-  const { readReducedMotion = () => false } = options;
+function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: boolean } = {}) {
+  const { readReducedMotion = () => false, gamepad = false } = options;
   const scene = createFakeScene();
-  const events = new FakeEmitter();
-  const keyboard = new FakeKeyboard();
-  const input = events as FakeEmitter & { keyboard: FakeKeyboard };
-  input.keyboard = keyboard;
-  const controller = new InputController({ input } as never);
+  const input = new MockInputPlugin({ keyboard: true, gamepad });
+  const controller = new InputController({ ...scene, input } as never);
   const onPauseRequested = vi.fn();
   const view = new ControlsView({
     scene: scene as never,
@@ -202,41 +134,41 @@ function createHarness(options: { readReducedMotion?: () => boolean } = {}) {
     controller.update(dtMs);
     view.update(dtMs);
   };
-  return { scene, events, controller, keyboard, view, onPauseRequested, tick };
+  return { scene, input, controller, view, onPauseRequested, tick };
 }
 
 describe('ControlsView virtual stick', () => {
   it('starts hidden and shows only during an active pointer gesture', () => {
-    const { scene, events, view } = createHarness();
+    const { scene, input, view } = createHarness();
     const [stickBase, stickThumb] = scene.objects;
 
     expect(stickBase.state.visible).toBe(false);
     expect(stickThumb.state.visible).toBe(false);
 
-    events.emit('pointerdown', pointerAt(100, 100));
+    input.pointerDown(100, 100);
     view.update(16);
     expect(stickBase.state.visible).toBe(true);
     expect(stickThumb.state.visible).toBe(true);
     expect(stickBase.state.x).toBe(100);
     expect(stickBase.state.y).toBe(100);
 
-    events.emit('pointerup', pointerAt(132, 100));
+    input.pointerUp();
     view.update(16);
     expect(stickBase.state.visible).toBe(false);
     expect(stickThumb.state.visible).toBe(false);
   });
 
   it('clamps the stick thumb to the same 64 px radius as the intent math', () => {
-    const { scene, events, view } = createHarness();
+    const { scene, input, view } = createHarness();
     const [, stickThumb] = scene.objects;
 
-    events.emit('pointerdown', pointerAt(100, 100));
-    events.emit('pointermove', pointerAt(300, 100));
+    input.pointerDown(100, 100);
+    input.pointerMove(300, 100);
     view.update(16);
     expect(stickThumb.state.x).toBe(164);
     expect(stickThumb.state.y).toBe(100);
 
-    events.emit('pointermove', pointerAt(300, 300));
+    input.pointerMove(300, 300);
     view.update(16);
     const dx = (stickThumb.state.x as number) - 100;
     const dy = (stickThumb.state.y as number) - 100;
@@ -267,34 +199,47 @@ describe('ControlsView hints', () => {
   });
 
   it('starts with pointer-mode copy and switches on mode change', () => {
-    const { scene, keyboard, tick } = createHarness();
+    const { scene, input, tick } = createHarness();
     const hintText = scene.objects[2];
 
     expect(hintText.state.text).toBe('Drag to move • Tap pause');
 
-    keyboard.keys.d.isDown = true;
+    input.keyboard!.keydown('d');
     tick();
     expect(hintText.state.text).toBe('WASD / arrows • P / Esc');
     expect(hintText.state.alpha).toBe(1);
 
-    keyboard.keys.d.isDown = false;
+    input.keyboard!.keyup('d');
     tick();
     // Idle frames do not flap the copy back.
     expect(hintText.state.text).toBe('WASD / arrows • P / Esc');
   });
 
   it('a pointer gesture restores pointer-mode copy', () => {
-    const { scene, events, keyboard, tick } = createHarness();
+    const { scene, input, tick } = createHarness();
     const hintText = scene.objects[2];
 
-    keyboard.keys.d.isDown = true;
+    input.keyboard!.keydown('d');
     tick();
     expect(hintText.state.text).toBe('WASD / arrows • P / Esc');
 
-    keyboard.keys.d.isDown = false;
-    events.emit('pointerdown', pointerAt(10, 10));
+    input.keyboard!.keyup('d');
+    input.pointerDown(10, 10);
+    input.pointerMove(74, 10);
     tick();
     expect(hintText.state.text).toBe('Drag to move • Tap pause');
+  });
+
+  it('shows the gamepad hint when gamepad input is active', () => {
+    const { scene, input, tick } = createHarness({ gamepad: true });
+    const hintText = scene.objects[2];
+
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+    pad.setLeftStick(1, 0);
+    tick();
+
+    expect(hintText.state.text).toBe('Left stick • A / Start');
   });
 
   it('fades the hint once after the display duration with a tween', () => {
@@ -372,11 +317,11 @@ describe('ControlsView pause button', () => {
 
 describe('ControlsView lifecycle guards', () => {
   it('update after destroy is a no-op', () => {
-    const { scene, events, view } = createHarness();
+    const { scene, input, view } = createHarness();
     const [stickBase] = scene.objects;
 
     view.destroy();
-    events.emit('pointerdown', pointerAt(100, 100));
+    input.pointerDown(100, 100);
     view.update(16);
 
     expect(stickBase.state.visible).toBe(false);

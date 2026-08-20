@@ -16,6 +16,10 @@ const config: Phaser.Types.Core.GameConfig = {
     width: RuntimeConfig.canvas.width,
     height: RuntimeConfig.canvas.height,
   },
+  input: {
+    activePointers: 3,
+    gamepad: true,
+  },
   physics: {
     default: 'arcade',
     arcade: {

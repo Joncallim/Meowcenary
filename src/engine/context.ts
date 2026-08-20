@@ -1,3 +1,4 @@
+import type Phaser from 'phaser';
 import type { EventBus } from './eventBus';
 import type { Rng } from './rng';
 import type { GameData } from '../systems/types';
@@ -17,6 +18,20 @@ import {
 } from '../systems/save';
 
 export const GAME_CONTEXT_REGISTRY_KEY = 'meowcenary.gameContext';
+
+/** Typed registry accessor for the boot-published GameContext (Epic 19 P2-5):
+ *  centralizes the cast and adds a runtime existence check so a missing or
+ *  mis-keyed registry entry fails loudly at the accessor, not at first use. */
+export function getGameContext(scene: Phaser.Scene): GameContext {
+  const ctx = scene.registry.get(GAME_CONTEXT_REGISTRY_KEY) as GameContext | undefined;
+  if (!ctx) {
+    throw new Error(
+      `GameContext missing from Phaser registry under '${GAME_CONTEXT_REGISTRY_KEY}'`,
+    );
+  }
+
+  return ctx;
+}
 
 export interface PersistenceUpdate<T> { readonly value: T; readonly persisted: boolean }
 

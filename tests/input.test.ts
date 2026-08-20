@@ -1,172 +1,146 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Vec2 } from '../src/engine/vector';
+// Must precede any import whose transitive dependencies resolve Phaser at module
+// evaluation time. The mock registration in __mocks__/phaser is a side-effectful
+// import; ordering it first guarantees the mock is installed before the real
+// Phaser module is ever requested.
+import { MockInputPlugin, MockGamepad } from './__mocks__/phaser';
+import type Phaser from 'phaser';
 import { InputController } from '../src/systems/input';
 
-vi.mock('phaser', () => ({
-  default: {
-    Input: {
-      Keyboard: {
-        KeyCodes: {
-          W: 'KeyW',
-          A: 'KeyA',
-          S: 'KeyS',
-          D: 'KeyD',
-          UP: 'ArrowUp',
-          DOWN: 'ArrowDown',
-          LEFT: 'ArrowLeft',
-          RIGHT: 'ArrowRight',
-        },
-      },
-    },
-  },
-}));
-
-class FakeEmitter {
-  private readonly listeners = new Map<string, Array<{ callback: (...args: unknown[]) => void; context?: unknown }>>();
-
-  on(event: string, callback: (...args: unknown[]) => void, context?: unknown): this {
-    const listeners = this.listeners.get(event) ?? [];
-    listeners.push({ callback, context });
-    this.listeners.set(event, listeners);
-    return this;
-  }
-
-  off(event: string, callback: (...args: unknown[]) => void, context?: unknown): this {
-    const listeners = this.listeners.get(event) ?? [];
-    this.listeners.set(
-      event,
-      listeners.filter((listener) => listener.callback !== callback || listener.context !== context),
-    );
-    return this;
-  }
-
-  emit(event: string, ...args: unknown[]): this {
-    [...(this.listeners.get(event) ?? [])].forEach((listener) => {
-      listener.callback.apply(listener.context, args);
-    });
-    return this;
-  }
-
-  listenerCount(event: string): number {
-    return this.listeners.get(event)?.length ?? 0;
-  }
+function createScene(options: { keyboard?: boolean; gamepad?: boolean } = {}) {
+  const input = new MockInputPlugin(options);
+  const scene = { input } as unknown as Phaser.Scene;
+  return { scene, input };
 }
 
-interface FakeKey {
-  isDown: boolean;
+function createController(options: { keyboard?: boolean; gamepad?: boolean } = {}) {
+  const { scene, input } = createScene(options);
+  const controller = new InputController(scene);
+  return { controller, input };
 }
 
-class FakeKeyboard {
-  readonly keys: Record<string, FakeKey>;
+describe('InputController keyboard movement', () => {
+  it('preserves single-key movement and normalized diagonals', () => {
+    const { controller, input } = createController({ keyboard: true });
 
-  constructor() {
-    this.keys = {};
-    for (const name of ['w', 'a', 's', 'd', 'up', 'down', 'left', 'right']) {
-      this.keys[name] = { isDown: false };
-    }
-  }
-
-  addKeys(): Record<string, FakeKey> {
-    return this.keys;
-  }
-}
-
-function createHarness() {
-  const events = new FakeEmitter();
-  const keyboard = new FakeKeyboard();
-  const input = events as FakeEmitter & { keyboard: FakeKeyboard };
-  input.keyboard = keyboard;
-  const controller = new InputController({ input } as never);
-  return { controller, events, keyboard };
-}
-
-function pointerAt(x: number, y: number, isDown = true) {
-  return { x, y, isDown };
-}
-
-function drag(events: FakeEmitter, from: Vec2, to: Vec2) {
-  events.emit('pointerdown', pointerAt(from.x, from.y));
-  events.emit('pointermove', pointerAt(to.x, to.y));
-}
-
-describe('InputController movement', () => {
-  it('preserves keyboard movement: single keys and normalized diagonals', () => {
-    const { controller, keyboard } = createHarness();
-
-    keyboard.keys.d.isDown = true;
+    input.keyboard!.keydown('d');
     controller.update(16);
     expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
 
-    keyboard.keys.d.isDown = false;
-    keyboard.keys.w.isDown = true;
+    input.keyboard!.keyup('d');
+    input.keyboard!.keydown('w');
     controller.update(16);
     expect(controller.getMoveVector()).toEqual({ x: 0, y: -1 });
 
-    keyboard.keys.d.isDown = true;
+    input.keyboard!.keydown('d');
     controller.update(16);
     expect(controller.getMoveVector().x).toBeCloseTo(Math.SQRT1_2, 10);
     expect(controller.getMoveVector().y).toBeCloseTo(-Math.SQRT1_2, 10);
 
-    keyboard.keys.d.isDown = false;
-    keyboard.keys.w.isDown = false;
-    keyboard.keys.left.isDown = true;
-    keyboard.keys.down.isDown = true;
+    input.keyboard!.keyup('d');
+    input.keyboard!.keyup('w');
+    input.keyboard!.keydown('left');
+    input.keyboard!.keydown('down');
     controller.update(16);
     expect(controller.getMoveVector().x).toBeCloseTo(-Math.SQRT1_2, 10);
     expect(controller.getMoveVector().y).toBeCloseTo(Math.SQRT1_2, 10);
   });
 
-  it('preserves pointer drag intent scaled by the 64 px radius', () => {
-    const { controller, events } = createHarness();
+  it('returns a zero vector when no keys are held', () => {
+    const { controller } = createController({ keyboard: true });
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+  });
+});
 
-    drag(events, { x: 100, y: 100 }, { x: 132, y: 100 });
+describe('InputController pointer movement', () => {
+  it('scales pointer drag intent by the configured radius', () => {
+    const { controller, input } = createController();
+
+    input.pointerDown(100, 100);
+    input.pointerMove(132, 100);
     controller.update(16);
     expect(controller.getMoveVector()).toEqual({ x: 0.5, y: 0 });
   });
 
-  it('combines keyboard and pointer intents clamped to unit length', () => {
-    const { controller, events, keyboard } = createHarness();
+  it('clamps combined keyboard and pointer intents to unit length', () => {
+    const { controller, input } = createController({ keyboard: true });
 
-    keyboard.keys.d.isDown = true;
-    drag(events, { x: 100, y: 100 }, { x: 132, y: 100 });
+    input.keyboard!.keydown('d');
+    input.pointerDown(100, 100);
+    input.pointerMove(132, 100);
     controller.update(16);
     expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
   });
 
   it('ignores pointermove outside an active drag', () => {
-    const { controller, events } = createHarness();
+    const { controller, input } = createController();
 
-    events.emit('pointermove', pointerAt(132, 100));
+    input.pointerMove(132, 100);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+  });
+
+  it('pins movement to the pointer that began the gesture and ignores later pointers (D8)', () => {
+    const { controller, input } = createController();
+
+    // Finger 1 starts the stick gesture at (100, 100).
+    input.pointerDown(100, 100);
+    controller.update(16);
+
+    // Finger 2 taps a UI button elsewhere, then drags: it must NOT re-anchor
+    // the stick origin or inject movement.
+    input.pointerDown(200, 200, 1);
+    input.pointerMove(264, 200, 1);
+    controller.update(16);
+
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+    expect(controller.getPresentationSnapshot().pointerStart).toEqual({ x: 100, y: 100 });
+    expect(controller.getPresentationSnapshot().pointerCurrent).toEqual({ x: 100, y: 100 });
+
+    // Releasing the non-pinned finger must NOT end movement.
+    input.pointerUp(1);
+    controller.update(16);
+
+    // The pinned finger still drives movement.
+    input.pointerMove(164, 100);
+    controller.update(16);
+    expect(controller.getMoveVector().x).toBeGreaterThan(0);
+
+    // Releasing the pinned finger ends movement.
+    input.pointerUp();
     controller.update(16);
     expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
   });
 
   it('restores keyboard-only movement after the pointer is released', () => {
-    const { controller, events, keyboard } = createHarness();
+    const { controller, input } = createController({ keyboard: true });
 
-    keyboard.keys.d.isDown = true;
-    drag(events, { x: 100, y: 100 }, { x: 164, y: 100 });
+    input.keyboard!.keydown('d');
+    input.pointerDown(100, 100);
+    input.pointerMove(164, 100);
     controller.update(16);
     expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
 
-    events.emit('pointerup', pointerAt(164, 100));
+    input.pointerUp();
     controller.update(16);
     expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
     expect(controller.getPointer()).toBeNull();
 
-    keyboard.keys.d.isDown = false;
+    input.keyboard!.keyup('d');
     controller.update(16);
     expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
   });
 
   it('returns fresh copies from getMoveVector and getPointer', () => {
-    const { controller, events } = createHarness();
+    const { controller, input } = createController();
 
     const move = controller.getMoveVector();
     move.x = 5;
     expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
 
-    drag(events, { x: 100, y: 100 }, { x: 132, y: 100 });
+    input.pointerDown(100, 100);
+    input.pointerMove(132, 100);
     controller.update(16);
     const pointer = controller.getPointer();
     if (pointer) pointer.x = 999;
@@ -174,9 +148,229 @@ describe('InputController movement', () => {
   });
 });
 
+describe('InputController gamepad adapter', () => {
+  it('reads left-stick movement and applies the deadzone', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    pad.setLeftStick(0.1, 0);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+
+    pad.setLeftStick(1, 0);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+
+    pad.setLeftStick(0, 1);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 1 });
+  });
+
+  it('combines left-stick and d-pad inputs', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    pad.setButton(14, true);
+    controller.update(16);
+    expect(controller.getMoveVector().x).toBeLessThan(0);
+
+    pad.setButton(14, false);
+    pad.setButton(15, true);
+    controller.update(16);
+    expect(controller.getMoveVector().x).toBeGreaterThan(0);
+  });
+
+  it('emits action edges for face and d-pad buttons', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    const handler = vi.fn();
+    controller.onAction('confirm', handler);
+
+    pad.setButton(0, true);
+    controller.update(16);
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenLastCalledWith(expect.objectContaining({ action: 'confirm', source: 'gamepad' }));
+
+    pad.setButton(0, false);
+    controller.update(16);
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('selects gamepad mode on stick movement', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    pad.setLeftStick(1, 0);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+  });
+
+  it('clears gamepad state on disconnect', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    pad.setLeftStick(1, 0);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+
+    input.gamepad!.disconnect(pad);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe('InputController action subscriptions', () => {
+  it('calls per-action handlers only for the subscribed action', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    const pauseHandler = vi.fn();
+    const inventoryHandler = vi.fn();
+    controller.onAction('pause', pauseHandler);
+    controller.onAction('inventory', inventoryHandler);
+
+    input.keyboard!.keydown('p');
+    controller.update(16);
+    expect(pauseHandler).toHaveBeenCalledTimes(1);
+    expect(inventoryHandler).not.toHaveBeenCalled();
+
+    input.keyboard!.keydown('i');
+    controller.update(16);
+    expect(pauseHandler).toHaveBeenCalledTimes(1);
+    expect(inventoryHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onAnyAction handlers for every edge', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    const handler = vi.fn();
+    controller.onAnyAction(handler);
+
+    input.keyboard!.keydown('p');
+    controller.update(16);
+    input.keyboard!.keydown('esc');
+    controller.update(16);
+
+    expect(handler).toHaveBeenCalledTimes(2);
+    expect(handler).toHaveBeenNthCalledWith(1, expect.objectContaining({ action: 'pause' }));
+    expect(handler).toHaveBeenNthCalledWith(2, expect.objectContaining({ action: 'back' }));
+  });
+
+  it('unsubscribe removes the handler', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    const handler = vi.fn();
+    const unsubscribe = controller.onAction('pause', handler);
+    unsubscribe();
+
+    input.keyboard!.keydown('p');
+    controller.update(16);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('does not emit repeated edges while an action is held', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    const handler = vi.fn();
+    controller.onAction('pause', handler);
+
+    input.keyboard!.keydown('p');
+    controller.update(16);
+    controller.update(16);
+    controller.update(16);
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    input.keyboard!.keyup('p');
+    controller.update(16);
+    input.keyboard!.keydown('p');
+    controller.update(16);
+    expect(handler).toHaveBeenCalledTimes(2);
+  });
+
+  it('delivers the current edge to a sibling handler unsubscribed mid-dispatch', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    const calls: string[] = [];
+    let unsubscribeSibling: () => void = () => {};
+    const sibling = vi.fn(() => calls.push('sibling'));
+    const first = vi.fn(() => {
+      calls.push('first');
+      unsubscribeSibling();
+    });
+
+    controller.onAction('pause', first);
+    unsubscribeSibling = controller.onAction('pause', sibling);
+
+    input.keyboard!.keydown('p');
+    controller.update(16);
+
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(sibling).toHaveBeenCalledTimes(1); // still received the in-flight edge
+    expect(calls).toEqual(['first', 'sibling']);
+
+    // The sibling is now unsubscribed; a later edge must not reach it.
+    input.keyboard!.keyup('p');
+    controller.update(16);
+    input.keyboard!.keydown('p');
+    controller.update(16);
+    expect(first).toHaveBeenCalledTimes(2);
+    expect(sibling).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not deliver the in-flight edge to a handler subscribed mid-dispatch', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    const late = vi.fn();
+    const early = vi.fn(() => {
+      controller.onAction('pause', late);
+    });
+    controller.onAction('pause', early);
+
+    input.keyboard!.keydown('p');
+    controller.update(16);
+
+    expect(early).toHaveBeenCalledTimes(1);
+    expect(late).not.toHaveBeenCalled(); // not part of the copied snapshot
+
+    // The late subscriber receives the next genuine edge.
+    input.keyboard!.keyup('p');
+    controller.update(16);
+    input.keyboard!.keydown('p');
+    controller.update(16);
+    expect(late).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not deliver the in-flight edge to an onAnyAction handler subscribed mid-dispatch', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    const late = vi.fn();
+    const early = vi.fn(() => {
+      controller.onAnyAction(late);
+    });
+    controller.onAnyAction(early);
+
+    input.keyboard!.keydown('p');
+    controller.update(16);
+
+    expect(early).toHaveBeenCalledTimes(1);
+    expect(late).not.toHaveBeenCalled();
+
+    input.keyboard!.keyup('p');
+    controller.update(16);
+    input.keyboard!.keydown('p');
+    controller.update(16);
+    expect(late).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('InputController presentation snapshots', () => {
   it('freezes the snapshot and every vector', () => {
-    const { controller } = createHarness();
+    const { controller } = createController();
 
     const idle = controller.getPresentationSnapshot();
     expect(Object.isFrozen(idle)).toBe(true);
@@ -185,8 +379,9 @@ describe('InputController presentation snapshots', () => {
     expect(idle.pointerCurrent).toBeNull();
     expect(idle.moveVector).toEqual({ x: 0, y: 0 });
 
-    const { controller: active, events } = createHarness();
-    drag(events, { x: 100, y: 100 }, { x: 132, y: 100 });
+    const { controller: active, input } = createController();
+    input.pointerDown(100, 100);
+    input.pointerMove(132, 100);
     active.update(16);
 
     const snapshot = active.getPresentationSnapshot();
@@ -197,9 +392,10 @@ describe('InputController presentation snapshots', () => {
   });
 
   it('rejects mutation of the snapshot and its vectors without leaking into the controller', () => {
-    const { controller, events } = createHarness();
+    const { controller, input } = createController();
 
-    drag(events, { x: 100, y: 100 }, { x: 132, y: 100 });
+    input.pointerDown(100, 100);
+    input.pointerMove(132, 100);
     controller.update(16);
 
     const snapshot = controller.getPresentationSnapshot();
@@ -220,10 +416,11 @@ describe('InputController presentation snapshots', () => {
   });
 
   it('reflects live state on every call', () => {
-    const { controller, events } = createHarness();
+    const { controller, input } = createController();
 
     const before = controller.getPresentationSnapshot();
-    drag(events, { x: 200, y: 300 }, { x: 232, y: 300 });
+    input.pointerDown(200, 300);
+    input.pointerMove(232, 300);
     controller.update(16);
 
     const after = controller.getPresentationSnapshot();
@@ -235,24 +432,24 @@ describe('InputController presentation snapshots', () => {
 
 describe('InputController mode switching', () => {
   it('starts in pointer mode', () => {
-    const { controller } = createHarness();
+    const { controller } = createController();
     expect(controller.getPresentationSnapshot().mode).toBe('pointer');
   });
 
   it('a non-zero keyboard vector selects keyboard mode', () => {
-    const { controller, keyboard } = createHarness();
+    const { controller, input } = createController({ keyboard: true });
 
-    keyboard.keys.a.isDown = true;
+    input.keyboard!.keydown('a');
     controller.update(16);
     expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
   });
 
   it('idle updates do not flap the mode back to pointer', () => {
-    const { controller, keyboard } = createHarness();
+    const { controller, input } = createController({ keyboard: true });
 
-    keyboard.keys.a.isDown = true;
+    input.keyboard!.keydown('a');
     controller.update(16);
-    keyboard.keys.a.isDown = false;
+    input.keyboard!.keyup('a');
     controller.update(16);
     controller.update(16);
 
@@ -260,50 +457,61 @@ describe('InputController mode switching', () => {
   });
 
   it('pointer down selects pointer mode and a later keyboard vector returns to keyboard', () => {
-    const { controller, events, keyboard } = createHarness();
+    const { controller, input } = createController({ keyboard: true });
 
-    events.emit('pointerdown', pointerAt(100, 100));
+    input.pointerDown(100, 100);
     expect(controller.getPresentationSnapshot().mode).toBe('pointer');
 
-    keyboard.keys.d.isDown = true;
+    input.keyboard!.keydown('d');
     controller.update(16);
     expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
 
-    events.emit('pointerdown', pointerAt(200, 200));
+    input.pointerUp();
+    controller.update(16);
+
+    input.keyboard!.keyup('d');
+    input.pointerDown(200, 200);
+    input.pointerMove(232, 200);
+    controller.update(16);
     expect(controller.getPresentationSnapshot().mode).toBe('pointer');
   });
 });
 
 describe('InputController joystick clamp', () => {
-  it('maps a 64 px drag to a unit vector', () => {
-    const { controller, events } = createHarness();
+  it('maps a full-radius drag to a unit vector', () => {
+    const { controller, input } = createController();
 
-    drag(events, { x: 100, y: 100 }, { x: 164, y: 100 });
+    input.pointerDown(100, 100);
+    input.pointerMove(164, 100);
     controller.update(16);
     expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
   });
 
-  it('clamps drags beyond the 64 px radius at unit length', () => {
-    const { controller, events } = createHarness();
+  it('clamps drags beyond the radius at unit length', () => {
+    const { controller, input } = createController();
 
-    drag(events, { x: 100, y: 100 }, { x: 228, y: 100 });
+    input.pointerDown(100, 100);
+    input.pointerMove(228, 100);
     controller.update(16);
     expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
 
-    drag(events, { x: 100, y: 100 }, { x: 228, y: 228 });
+    input.pointerDown(100, 100);
+    input.pointerMove(228, 228);
     controller.update(16);
     expect(controller.getMoveVector().x).toBeCloseTo(Math.SQRT1_2, 10);
     expect(controller.getMoveVector().y).toBeCloseTo(Math.SQRT1_2, 10);
   });
 
-  it('scales short drags linearly with the 64 px radius', () => {
-    const { controller, events } = createHarness();
+  it('scales short drags linearly with the radius', () => {
+    const { controller, input } = createController();
 
-    drag(events, { x: 100, y: 100 }, { x: 116, y: 100 });
+    input.pointerDown(100, 100);
+    input.pointerMove(116, 100);
     controller.update(16);
     expect(controller.getMoveVector()).toEqual({ x: 0.25, y: 0 });
 
-    drag(events, { x: 100, y: 100 }, { x: 100, y: 132 });
+    input.pointerDown(100, 100);
+    input.pointerMove(100, 132);
     controller.update(16);
     expect(controller.getMoveVector()).toEqual({ x: 0, y: 0.5 });
   });
@@ -311,34 +519,209 @@ describe('InputController joystick clamp', () => {
 
 describe('InputController destroy', () => {
   it('removes every pointer listener', () => {
-    const { controller, events } = createHarness();
+    const { controller, input } = createController();
 
     for (const event of ['pointerdown', 'pointermove', 'pointerup', 'pointerupoutside']) {
-      expect(events.listenerCount(event)).toBe(1);
+      expect(input.listenerCount(event)).toBe(1);
     }
 
     controller.destroy();
 
     for (const event of ['pointerdown', 'pointermove', 'pointerup', 'pointerupoutside']) {
-      expect(events.listenerCount(event)).toBe(0);
+      expect(input.listenerCount(event)).toBe(0);
     }
   });
 
   it('pointer events after destroy cannot change controller state', () => {
-    const { controller, events, keyboard } = createHarness();
+    const { controller, input } = createController({ keyboard: true });
 
-    keyboard.keys.d.isDown = true;
+    input.keyboard!.keydown('d');
     controller.update(16);
     controller.destroy();
 
-    events.emit('pointerdown', pointerAt(100, 100));
-    events.emit('pointermove', pointerAt(200, 200));
-    events.emit('pointerup', pointerAt(200, 200));
+    input.pointerDown(100, 100);
+    input.pointerMove(200, 200);
+    input.pointerUp();
     controller.update(16);
 
     expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
     expect(controller.getPointer()).toBeNull();
     expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
     expect(controller.getPresentationSnapshot().pointerStart).toBeNull();
+  });
+});
+
+describe('InputController active-mode tracking (Epic 19 D7)', () => {
+  it('switches mode to keyboard on a confirm edge without any movement', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    input.keyboard!.keydown('enter');
+    controller.update(16);
+
+    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+  });
+
+  it('switches mode to gamepad on a face-button edge without any stick movement', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    pad.setButton(0, true); // bottom face button = confirm
+    controller.update(16);
+
+    expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+  });
+
+  it('a bare pointerdown (no move) switches mode to pointer', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    input.keyboard!.keydown('d');
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+
+    input.keyboard!.keyup('d');
+    controller.update(16);
+
+    input.pointerDown(200, 200); // tap, no drag
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+  });
+
+  it('a second-pointer down signals pointer mode without re-anchoring the pinned gesture', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    // Pin pointer 0 to begin the movement gesture.
+    input.pointerDown(100, 100);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+
+    // Switch to keyboard via a keyboard action edge (no movement required).
+    input.keyboard!.keydown('enter');
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+    input.keyboard!.keyup('enter');
+    controller.update(16);
+
+    // A second finger tapping a UI control must signal pointer mode...
+    input.pointerDown(200, 200, 1);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+
+    // ...but must NOT re-anchor the pinned movement gesture.
+    const snapshot = controller.getPresentationSnapshot();
+    expect(snapshot.pointerStart).toEqual({ x: 100, y: 100 });
+    expect(snapshot.pointerCurrent).toEqual({ x: 100, y: 100 });
+
+    // The pinned finger still drives movement.
+    input.pointerMove(164, 100, 0);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+  });
+});
+
+describe('InputController gamepad left-stick navigation (Epic 19 §4)', () => {
+  it('projects a full-right left-stick deflection onto navRight', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    const handler = vi.fn();
+    controller.onAction('navRight', handler);
+
+    pad.setLeftStick(1, 0);
+    controller.update(16);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: 'navRight', source: 'gamepad' }),
+    );
+    expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+  });
+
+  it('projects a full-up left-stick deflection onto navUp', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    const handler = vi.fn();
+    controller.onAction('navUp', handler);
+
+    pad.setLeftStick(0, -1);
+    controller.update(16);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: 'navUp', source: 'gamepad' }),
+    );
+  });
+
+  it('does not project stick deflections at or below navThreshold', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    const handler = vi.fn();
+    controller.onAction('navRight', handler);
+
+    pad.setLeftStick(0.5, 0); // exactly at navThreshold: no projection
+    controller.update(16);
+    expect(handler).not.toHaveBeenCalled();
+
+    pad.setLeftStick(0.51, 0); // just beyond navThreshold
+    controller.update(16);
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('combines D-pad and left-stick projection with OR semantics', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    const leftHandler = vi.fn();
+    const rightHandler = vi.fn();
+    controller.onAction('navLeft', leftHandler);
+    controller.onAction('navRight', rightHandler);
+
+    // D-pad left + stick right in the same frame: both are genuine inputs.
+    pad.setButton(14, true);
+    pad.setLeftStick(1, 0);
+    controller.update(16);
+    expect(leftHandler).toHaveBeenCalledTimes(1);
+    expect(rightHandler).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('InputController polled keyboard actions (Epic 19 D3)', () => {
+  it('emits an action edge for a key already held when the adapter attached', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    const handler = vi.fn();
+    controller.onAction('confirm', handler);
+
+    input.keyboard!.holdKey('enter'); // held before any key event fires
+    controller.update(16);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: 'confirm', source: 'keyboard' }),
+    );
+  });
+
+  it('does not double-fire an edge for a held key across polls', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    const handler = vi.fn();
+    controller.onAction('confirm', handler);
+
+    input.keyboard!.holdKey('enter');
+    controller.update(16);
+    controller.update(16);
+    controller.update(16);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    input.keyboard!.keyup('enter');
+    controller.update(16);
+    expect(handler).toHaveBeenCalledTimes(1);
   });
 });
