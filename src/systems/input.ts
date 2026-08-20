@@ -174,6 +174,10 @@ class PointerAdapter implements InputAdapter {
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
+    // Epic 19 D7: any pointerdown signals pointer mode — including a second
+    // finger tapping a UI control while another pointer is already pinned.
+    this.onPointerDown?.();
+
     // Epic 19 D8: pin movement to the pointer.id that began the gesture.
     // Later pointers never re-anchor movement and stay available to UI.
     if (this.isActive()) {
@@ -183,7 +187,6 @@ class PointerAdapter implements InputAdapter {
     this.pinnedPointerId = pointer.id;
     this.pointerStart = pointerToVec2(pointer);
     this.pointerCurrent = pointerToVec2(pointer);
-    this.onPointerDown?.();
   }
 
   private handlePointerMove(pointer: Phaser.Input.Pointer): void {
@@ -356,12 +359,13 @@ export class InputController implements System {
       this.lastActiveMode = edge.source;
 
       const handlers = this.actionSubscriptions.get(edge.action);
-      if (handlers) {
-        for (const handler of handlers) {
-          handler(edge);
-        }
+      const actionHandlers = [...(handlers ?? [])];
+      const anyHandlers = [...this.anyActionHandlers];
+
+      for (const handler of actionHandlers) {
+        handler(edge);
       }
-      for (const handler of this.anyActionHandlers) {
+      for (const handler of anyHandlers) {
         handler(edge);
       }
     }

@@ -291,6 +291,81 @@ describe('InputController action subscriptions', () => {
     controller.update(16);
     expect(handler).toHaveBeenCalledTimes(2);
   });
+
+  it('delivers the current edge to a sibling handler unsubscribed mid-dispatch', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    const calls: string[] = [];
+    let unsubscribeSibling: () => void = () => {};
+    const sibling = vi.fn(() => calls.push('sibling'));
+    const first = vi.fn(() => {
+      calls.push('first');
+      unsubscribeSibling();
+    });
+
+    controller.onAction('pause', first);
+    unsubscribeSibling = controller.onAction('pause', sibling);
+
+    input.keyboard!.keydown('p');
+    controller.update(16);
+
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(sibling).toHaveBeenCalledTimes(1); // still received the in-flight edge
+    expect(calls).toEqual(['first', 'sibling']);
+
+    // The sibling is now unsubscribed; a later edge must not reach it.
+    input.keyboard!.keyup('p');
+    controller.update(16);
+    input.keyboard!.keydown('p');
+    controller.update(16);
+    expect(first).toHaveBeenCalledTimes(2);
+    expect(sibling).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not deliver the in-flight edge to a handler subscribed mid-dispatch', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    const late = vi.fn();
+    const early = vi.fn(() => {
+      controller.onAction('pause', late);
+    });
+    controller.onAction('pause', early);
+
+    input.keyboard!.keydown('p');
+    controller.update(16);
+
+    expect(early).toHaveBeenCalledTimes(1);
+    expect(late).not.toHaveBeenCalled(); // not part of the copied snapshot
+
+    // The late subscriber receives the next genuine edge.
+    input.keyboard!.keyup('p');
+    controller.update(16);
+    input.keyboard!.keydown('p');
+    controller.update(16);
+    expect(late).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not deliver the in-flight edge to an onAnyAction handler subscribed mid-dispatch', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    const late = vi.fn();
+    const early = vi.fn(() => {
+      controller.onAnyAction(late);
+    });
+    controller.onAnyAction(early);
+
+    input.keyboard!.keydown('p');
+    controller.update(16);
+
+    expect(early).toHaveBeenCalledTimes(1);
+    expect(late).not.toHaveBeenCalled();
+
+    input.keyboard!.keyup('p');
+    controller.update(16);
+    input.keyboard!.keydown('p');
+    controller.update(16);
+    expect(late).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('InputController presentation snapshots', () => {
@@ -512,17 +587,35 @@ describe('InputController active-mode tracking (Epic 19 D7)', () => {
     expect(controller.getPresentationSnapshot().mode).toBe('pointer');
   });
 
-  it('an edge from a second pointer does not flap the mode back to pointer', () => {
-    const { controller, input } = createController({ keyboard: true, gamepad: true });
+  it('a second-pointer down signals pointer mode without re-anchoring the pinned gesture', () => {
+    const { controller, input } = createController({ keyboard: true });
 
+    // Pin pointer 0 to begin the movement gesture.
+    input.pointerDown(100, 100);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+
+    // Switch to keyboard via a keyboard action edge (no movement required).
     input.keyboard!.keydown('enter');
     controller.update(16);
     expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
-
     input.keyboard!.keyup('enter');
     controller.update(16);
+
+    // A second finger tapping a UI control must signal pointer mode...
+    input.pointerDown(200, 200, 1);
     controller.update(16);
-    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+
+    // ...but must NOT re-anchor the pinned movement gesture.
+    const snapshot = controller.getPresentationSnapshot();
+    expect(snapshot.pointerStart).toEqual({ x: 100, y: 100 });
+    expect(snapshot.pointerCurrent).toEqual({ x: 100, y: 100 });
+
+    // The pinned finger still drives movement.
+    input.pointerMove(164, 100, 0);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
   });
 });
 

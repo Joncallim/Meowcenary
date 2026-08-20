@@ -333,9 +333,21 @@ export class LogicalInputCore {
 
       const state = this.navStates.get(action);
       const pressedAt = state?.pressedAtMs ?? Number.NEGATIVE_INFINITY;
-      if (pressedAt > bestTime) {
+      if (bestAction === null || pressedAt > bestTime) {
         bestTime = pressedAt;
         bestAction = action;
+      }
+    }
+
+    if (bestAction !== null) {
+      const state = this.navStates.get(bestAction);
+      if (state && state.pressedAtMs === null) {
+        // A superseded direction re-selected while still held must resume
+        // repeating after a fresh delay (Epic 19 D3). Reset the clock from
+        // NOW — not this.timeMs - dtMs — so no immediate edge fires and no
+        // catch-up burst of missed repeats is emitted.
+        state.pressedAtMs = this.timeMs;
+        state.repeatsEmitted = 0;
       }
     }
 

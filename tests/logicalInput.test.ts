@@ -226,25 +226,25 @@ describe('LogicalInputCore nav repeat', () => {
     expect(edgeCount(olderStillHeld, 'navDown')).toBe(2);
   });
 
-  it('does not burst-catch-up a superseded nav direction when re-selected', () => {
+  it('resumes repeats for a re-selected superseded nav direction after a fresh delay', () => {
     const core = createCore({ delayMs: 200, intervalMs: 100 });
 
     const initial = press(core, 'keyboard', 'navDown', 300); // initial edge + 2 repeats
     expect(edgeCount(initial, 'navDown')).toBe(3);
 
-    press(core, 'keyboard', 'navUp', 50); // switches the active nav direction
-    release(core, 'keyboard', 'navUp', 16); // navDown is re-selected while still held
+    press(core, 'keyboard', 'navUp', 50); // navUp supersedes the still-held navDown
 
-    const afterReselect = core.update(300);
-    expect(edgeCount(afterReselect, 'navDown')).toBe(0); // no catch-up burst
+    // Releasing the newer direction re-selects navDown while it is still held.
+    const reselect = release(core, 'keyboard', 'navUp', 16);
+    expect(edgeCount(reselect, 'navDown')).toBe(0); // no immediate edge on re-selection
 
-    // A fresh press still restarts the repeat delay from zero.
-    release(core, 'keyboard', 'navDown', 16);
-    const repress = press(core, 'keyboard', 'navDown', 100);
-    expect(edgeCount(repress, 'navDown')).toBe(1);
+    // No catch-up burst of missed repeats while the fresh delay elapses.
+    const duringDelay = core.update(199);
+    expect(edgeCount(duringDelay, 'navDown')).toBe(0);
 
-    const afterDelay = core.update(100);
-    expect(edgeCount(afterDelay, 'navDown')).toBe(1);
+    // Repeats resume exactly once after delayMs elapses from re-selection.
+    const firstRepeat = core.update(1);
+    expect(edgeCount(firstRepeat, 'navDown')).toBe(1);
   });
 });
 
