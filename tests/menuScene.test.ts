@@ -33,6 +33,13 @@ interface FakeObjectState {
   style: Record<string, unknown>;
 }
 
+/** Module-scope failure seam shared by fakeObject (setStrokeStyle) and
+ *  createFakeScene (which arms it via the harness API) — round-6. Counts
+ *  down: arm with the number of stroke calls to SKIP before the failure
+ *  (the button-ring init strokes at render start), so the throw lands after
+ *  the hint is assigned. */
+let failNextStroke = 0;
+
 function fakeObject(
   kind: FakeObjectState['kind'],
   text = '',
@@ -91,10 +98,23 @@ function fakeObject(
       return api;
     },
     setText(text: string) {
+      // Real Phaser 3.90 throws on setText after destroy (nulled frame);
+      // mirror so stale refs fail the suite (round-5/6 findings).
+      if (state.destroyed) {
+        throw new Error(`setText called on destroyed object (${state.text ?? ''})`);
+      }
       state.text = text;
       return api;
     },
     setStrokeStyle(width: number, color: number, alpha: number) {
+      if (failNextStroke > 0) {
+        failNextStroke -= 1;
+        // eslint-disable-next-line no-console
+        console.log('stroke call, remaining:', failNextStroke);
+        if (failNextStroke === 0) {
+          throw new Error('Injected stroke failure');
+        }
+      }
       state.strokeWidth = width;
       state.strokeColor = color;
       state.strokeAlpha = alpha;
@@ -260,6 +280,14 @@ function createFakeScene(
      *  recover, mirroring the pause/runSummary failure-injection tests. */
     failNextText() {
       failNextText = true;
+    },
+    /** Arms the fake setStrokeStyle to throw after N strokes (round-6: a
+     *  failure AFTER the hint is assigned — applyFocus runs post-build —
+     *  must clear the stale hint so the next mode transition can't setText()
+     *  destroyed Text). Home has 5 buttons: arm 5 to skip their init strokes,
+     *  failing on applyFocus's stroke call. */
+    failNextStroke(skip = 5) {
+      failNextStroke = skip;
     },
     textContents(): string[] {
       return objects
@@ -606,6 +634,42 @@ describe('MenuScene', () => {
     press('Enter');
     expect(harness.textContents()).toContain('Choose Character');
     expect(events).toEqual(['ui:back', 'ui:navigate', 'ui:confirm']);
+  });
+
+  it('clears the stale hint when a render fails AFTER the hint is assigned (round-6)', () => {
+    const harness = createHarness();
+    const pad = new MockGamepad();
+    harness.input.gamepad!.connect(pad);
+    const press = (key: string) => {
+      harness.keyboard.keydown(key);
+      harness.menuScene.update(0, 16);
+      harness.keyboard.keyup(key);
+      harness.menuScene.update(0, 16);
+    };
+
+    // Home panel (hint created only here). Esc on home is a back no-op that
+    // re-renders the SAME panel — the same-panel rebuild window.
+    expect(harness.textContents()).toContain('Start');
+
+    // The rebuild fails LATE: skip the 5 home buttons' init strokes so the
+    // throw lands on the 6th (applyFocus, after the new hint was created and
+    // assigned at renderHome) but before publication. The catch must clear
+    // this.hint or the next mode transition calls setText() on the destroyed
+    // Text (real Phaser 3.90 nulls the frame on destroy).
+    harness.failNextStroke(6); // 5 buttons' init strokes + 1; fail on applyFocus
+    expect(() => press('Escape')).toThrow('Injected stroke failure');
+    expect(harness.textContents()).toEqual(
+      expect.arrayContaining(['Something went wrong — press Esc to retry']),
+    );
+
+    // Mode transitions through REAL input (gamepad edge → gamepad; pointerdown
+    // → pointer) must neither touch the destroyed hint nor throw.
+    pad.setButton(13, true);
+    expect(() => harness.menuScene.update(0, 16)).not.toThrow();
+    pad.setButton(13, false);
+    harness.menuScene.update(0, 16);
+    harness.input.pointerDown(10, 10, 2);
+    expect(() => harness.menuScene.update(0, 16)).not.toThrow();
   });
 
   it.each([

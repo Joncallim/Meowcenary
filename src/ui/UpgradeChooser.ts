@@ -601,6 +601,10 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     this.committedDisplay = false;
     this.cardBackgrounds = [];
     this.renderedText = [];
+    // The instructions Text lives in the destroyed root; clear the ref so a
+    // failed rebuild (before buildDisplay's try) can't setText() on it
+    // (round-6 adversarial finding).
+    this.instructions = undefined;
     this.root?.destroy(true);
     this.root = undefined;
   }

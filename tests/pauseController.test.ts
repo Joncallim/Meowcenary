@@ -300,6 +300,7 @@ describe('PhaserPauseView', () => {
   function createFakeScene() {
     const objects: Array<ReturnType<typeof fakeObject>> = [];
     let failNextText = false;
+    let failNextRect = false;
     let keydown:
       | { handler: (event: KeyboardEvent) => void; context: unknown }
       | undefined;
@@ -433,8 +434,13 @@ describe('PhaserPauseView', () => {
           }
           return own(fakeObject('text', text, 0, 0, x, y));
         },
-        rectangle: (x: number, y: number, width: number, height: number) =>
-          own(fakeObject('rect', '', width, height, x, y)),
+        rectangle: (x: number, y: number, width: number, height: number) => {
+          if (failNextRect) {
+            failNextRect = false;
+            throw new Error('Injected rectangle factory failure');
+          }
+          return own(fakeObject('rect', '', width, height, x, y));
+        },
       },
       input: {
         keyboard: {
@@ -478,6 +484,9 @@ describe('PhaserPauseView', () => {
       },
       failNextText() {
         failNextText = true;
+      },
+      failNextRect() {
+        failNextRect = true;
       },
       triggerKey(key: string, repeat = false) {
         let prevented = false;
@@ -968,6 +977,31 @@ describe('PhaserPauseView', () => {
     // Every input-mode transition after the resize must neither touch the
     // destroyed hint nor throw.
     for (const nextMode of ['keyboard', 'gamepad', 'pointer'] as const) {
+      mode = nextMode;
+      expect(() => view.refreshInputPresentation()).not.toThrow();
+    }
+  });
+
+  it('clears rack display refs when the parent rebuild fails before the rack renders (round-6)', () => {
+    let mode: InputMode = 'keyboard';
+    const { run, scene, view, controller } = createView({ readInputMode: () => mode });
+    run.equipped = [];
+    controller.pause();
+    controller.openInventory();
+    view.render(controller.snapshot()); // rack committed: hint + targets live
+    view.refreshInputPresentation();
+
+    // Same-panel rebuild fails in the PARENT (backdrop rectangle) — after the
+    // shared root is destroyed, before weaponRack.render() would re-clear its
+    // display refs. The parent must clearDisplay() the rack at teardown or
+    // the next mode transition calls setText() on the destroyed hint.
+    scene.failNextRect();
+    expect(() => view.render(controller.snapshot())).toThrow(
+      'Injected rectangle factory failure',
+    );
+
+    // Mode transitions must neither touch the destroyed hint nor throw.
+    for (const nextMode of ['gamepad', 'pointer', 'keyboard'] as const) {
       mode = nextMode;
       expect(() => view.refreshInputPresentation()).not.toThrow();
     }

@@ -264,6 +264,7 @@ class FakeDisplayObject extends FakeEmitter {
   strokeWidth = 0;
   strokeColor?: number;
   strokeAlpha = 0;
+  destroyed = false;
   protected originX = 0.5;
   protected originY = 0.5;
 
@@ -350,6 +351,11 @@ class FakeText extends FakeDisplayObject {
   }
   setCrop(): this { return this; }
   setText(text: string): this {
+    // Real Phaser 3.90 throws on setText after destroy (nulled frame);
+    // mirror so stale refs fail the suite (round-6 finding).
+    if (this.destroyed) {
+      throw new Error(`setText called on destroyed object (${this.text ?? ''})`);
+    }
     this.text = text;
     return this;
   }

@@ -212,6 +212,16 @@ export class PhaserWeaponRackPanel {
     this.modal = modal;
   }
 
+  /** Clear ONLY display references (round-6: a failed parent rebuild destroys
+   *  the shared root before this.render() would clear them; a stale hint/
+   *  target would crash the next mode transition on destroyed Text). Does
+   *  NOT touch navigator state — D6 preservation survives the rebuild. */
+  clearDisplay(): void {
+    this.focusTargets = [];
+    this.hoveredIndex = -1;
+    this.hint = undefined;
+  }
+
   reset(): void {
     this.notice = undefined;
     this.confirmation = undefined;

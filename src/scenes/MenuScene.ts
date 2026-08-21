@@ -164,6 +164,10 @@ export class MenuScene extends Phaser.Scene {
       root.destroy(true);
       this.focusables = [];
       this.focusRings = [];
+      // The hint was assigned during the failed build and points into the
+      // destroyed root; clear it so the next mode transition can't setText()
+      // on destroyed Text (round-6 adversarial finding).
+      this.hint = undefined;
       // The menu is the whole scene: always leave a visible recovery hint so
       // a failed render never results in a blank screen. Esc retries through
       // handleBack -> render.

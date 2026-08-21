@@ -180,6 +180,11 @@ export class PhaserPauseView {
     // The display is uncommitted from the moment teardown begins until a
     // successful publication below (F1 committed-display gate).
     this.committedDisplay = false;
+    // The rack's display refs (hint, targets) point into the shared root
+    // being destroyed; clear them BEFORE the destroy so a failure between
+    // here and weaponRack.render() leaves no stale Text reference (round-6).
+    // Navigator state is preserved — D6 survives the rebuild.
+    this.weaponRack.clearDisplay();
     this.root?.destroy(true);
     this.root = undefined;
     // Unpublished references are cleared up front: a failed rebuild must
