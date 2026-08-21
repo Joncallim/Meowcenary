@@ -5,6 +5,7 @@ import {
   LogicalInputCore,
   type ActionEdge,
   type GameAction,
+  type InputSource,
   ALL_ACTIONS,
 } from '../engine/logicalInput';
 import type { Vec2 } from '../engine/vector';
@@ -391,6 +392,14 @@ export class InputController implements System {
   private readonly actionSubscriptions = new Map<GameAction, Set<ActionHandler>>();
   private readonly anyActionHandlers = new Set<ActionHandler>();
   private lastActiveMode: InputMode = 'pointer';
+  // Epic 19 D7: a pointerdown is the most recent event when it fires between
+  // polls (Phaser emits it via the scene event emitter), so it must keep
+  // presenting pointer mode until a LATER event acts: an action edge, or
+  // movement beyond deadzone from a DIFFERENT source than the one it
+  // interrupted. While the interrupted movement source stays held, the
+  // pointerdown persists (it is newer than the held movement state).
+  private pointerDownPending = false;
+  private pointerDownMovementSource: InputSource | null = null;
 
   constructor(scene: Phaser.Scene) {
     this.core = new LogicalInputCore({
@@ -402,6 +411,8 @@ export class InputController implements System {
       RuntimeConfig.gameplay.input.touchStick.radius,
       () => {
         this.lastActiveMode = 'pointer';
+        this.pointerDownPending = true;
+        this.pointerDownMovementSource = this.core.getActiveMovementSource();
       },
     );
     this.adapters = [
@@ -424,15 +435,22 @@ export class InputController implements System {
     const edges = this.core.update(dtMs);
 
     const source = this.core.getActiveMovementSource();
-    if (source) {
+    if (source === null) {
+      // The movement the pointerdown interrupted has stopped; any later
+      // movement start is a new D7 event and may re-assert its source.
+      this.pointerDownPending = false;
+    } else if (!this.pointerDownPending || source !== this.pointerDownMovementSource) {
       this.lastActiveMode = source;
+      this.pointerDownMovementSource = source;
     }
 
     for (let i = 0; i < edges.length; i += 1) {
       const edge = edges[i];
       // Epic 19 D7: any action edge changes the active input source, so
-      // menu hints follow keyboard/gamepad activity without movement.
+      // menu hints follow keyboard/gamepad activity without movement. An
+      // edge is a later event than any pending pointerdown and supersedes it.
       this.lastActiveMode = edge.source;
+      this.pointerDownPending = false;
 
       const handlers = this.actionSubscriptions.get(edge.action);
       const actionHandlers = [...(handlers ?? [])];
@@ -470,7 +488,11 @@ export class InputController implements System {
   }
 
   getPresentationSnapshot(): InputPresentationSnapshot {
-    const mode: InputMode = this.core.getActiveMovementSource() ?? this.lastActiveMode;
+    // Epic 19 D7: the presented mode is the temporal last-active source
+    // (movement signal, then each action edge, then pointerdown — later wins
+    // within a poll; between polls the last event wins). It is fully
+    // decoupled from the D4 movement-owner hysteresis in getMoveVector().
+    const mode: InputMode = this.lastActiveMode;
     const pointerStart = this.pointerAdapter.getPointerStart();
     const pointerCurrent = this.pointerAdapter.getPointerCurrent();
     const snapshot: InputPresentationSnapshot = {

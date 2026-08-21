@@ -672,6 +672,77 @@ describe('InputController active-mode tracking (Epic 19 D7)', () => {
     controller.update(16);
     expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
   });
+
+  it('a gamepad confirm edge while keyboard movement is held presents gamepad mode (D4 owner unchanged)', () => {
+    const { controller, input } = createController({ keyboard: true, gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    // Hold keyboard movement: D4 owner is keyboard.
+    input.keyboard!.keydown('d');
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+
+    // An action edge from another device must change the PRESENTED source
+    // (D7) even though movement is still held from the keyboard...
+    pad.setButton(0, true); // bottom face button = confirm
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+
+    // ...while the D4 movement-owner hysteresis is untouched.
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+  });
+
+  it('a keyboard confirm edge while pointer movement is held presents keyboard mode', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    // Hold pointer movement (drag beyond the stick radius).
+    input.pointerDown(100, 100);
+    input.pointerMove(164, 100);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+
+    input.keyboard!.keydown('enter');
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+  });
+
+  it('a bare pointerdown while keyboard movement is held presents pointer mode and persists across polls', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    input.keyboard!.keydown('d');
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+
+    // Bare tap: no drag, no edge. D7: the pointerdown is the most recent
+    // event and must win over the HELD movement state.
+    input.pointerDown(200, 200);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+
+    // The held keyboard movement must not clobber the pointerdown on later
+    // polls — pointer mode persists until a later event acts.
+    controller.update(16);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+  });
+
+  it('an action edge after a pointerdown wins (later event), even while keyboard movement is held', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    input.keyboard!.keydown('d');
+    controller.update(16);
+
+    input.pointerDown(200, 200);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+
+    // The keyboard edge fires AFTER the pointerdown: later wins (D7).
+    input.keyboard!.keydown('enter');
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+  });
 });
 
 describe('InputController gamepad left-stick navigation (Epic 19 §4)', () => {
