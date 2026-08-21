@@ -259,6 +259,7 @@ describe('GameScene routeAction (§5 routing matrix)', () => {
     };
     const render = vi.fn();
     const { seams } = createFakeEnvironment(undefined, { bus });
+    seams.runState = activeRun();
     seams.pauseController = controller;
     seams.pauseView = { render };
     return { seams, controller, render, events };
@@ -280,6 +281,48 @@ describe('GameScene routeAction (§5 routing matrix)', () => {
     seams.routeAction('inventory');
     expect(controller.openInventoryFromRun).toHaveBeenCalledTimes(1);
     expect(events).toEqual(['ui:confirm']);
+  });
+
+  it('discards nav/confirm/dash/ability in the active/closed row without rendering or emitting (F2)', () => {
+    const { seams, controller, render, events } = createPauseFixture('closed', true);
+
+    seams.routeAction('navUp');
+    seams.routeAction('navDown');
+    seams.routeAction('navLeft');
+    seams.routeAction('navRight');
+    seams.routeAction('confirm');
+    seams.routeAction('dash');
+    seams.routeAction('ability');
+
+    expect(controller.pause).not.toHaveBeenCalled();
+    expect(controller.openInventoryFromRun).not.toHaveBeenCalled();
+    expect(render).not.toHaveBeenCalled();
+    expect(events).toEqual([]);
+
+    // G-15: the discarded edges did not wedge the row — the next legal
+    // command (pause) still routes exactly once with its event.
+    seams.routeAction('pause');
+    expect(controller.pause).toHaveBeenCalledTimes(1);
+    expect(events).toEqual(['ui:confirm']);
+    expect(render).toHaveBeenCalledTimes(1);
+  });
+
+  it('discards every action when no runState exists instead of routing through the panel fallback (F2)', () => {
+    const { seams, controller, render, events } = createPauseFixture('pause', true);
+    // Strip the run: an absent runState is a teardown/inconsistent seam and
+    // must never reach the pause panel logic.
+    seams.runState = undefined;
+
+    seams.routeAction('back');
+    seams.routeAction('pause');
+    seams.routeAction('inventory');
+    seams.routeAction('navDown');
+    seams.routeAction('confirm');
+
+    expect(controller.resume).not.toHaveBeenCalled();
+    expect(controller.openInventory).not.toHaveBeenCalled();
+    expect(render).not.toHaveBeenCalled();
+    expect(events).toEqual([]);
   });
 
   it('pause panel: back and pause resume; inventory opens the rack', () => {
@@ -319,6 +362,14 @@ describe('GameScene routeAction (§5 routing matrix)', () => {
     expect(controller.pause).toHaveBeenCalledTimes(1);
     expect(events).toEqual([]);
     expect(render).toHaveBeenCalledTimes(1); // the panel still re-renders
+
+    // G-15: a rejected command is not a terminal state — the next accepted
+    // command through the same row must succeed with its exact event.
+    controller.pause.mockReturnValueOnce(true);
+    seams.routeAction('pause');
+    expect(controller.pause).toHaveBeenCalledTimes(2);
+    expect(events).toEqual(['ui:confirm']);
+    expect(render).toHaveBeenCalledTimes(2);
   });
 
   it('does nothing without a pause controller', () => {
@@ -435,6 +486,7 @@ describe('GameScene routeAction (§5 routing matrix)', () => {
     };
     const render = vi.fn();
     const { seams, input } = createFakeEnvironment(undefined, { bus });
+    seams.runState = activeRun();
     seams.pauseController = controller;
     seams.pauseView = { render };
     // Mirrors the real wiring in GameScene.create().

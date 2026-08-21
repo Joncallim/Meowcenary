@@ -22,12 +22,16 @@ import {
   type RunSummarySnapshot,
   type RunSummarySource,
 } from '../src/ui/runSummary';
+import { FocusStroke } from '../src/ui/theme';
+import type { InputMode } from '../src/systems/input';
 
 vi.mock('phaser', () => ({
   default: {
     Input: {
       Events: {
         POINTER_UP: 'pointerup',
+        POINTER_OVER: 'pointerover',
+        POINTER_OUT: 'pointerout',
       },
     },
   },
@@ -212,6 +216,9 @@ describe('PhaserRunSummaryView', () => {
     interactive: boolean;
     destroyed: boolean;
     handlers: Record<string, () => void>;
+    strokeWidth: number;
+    strokeColor?: number;
+    strokeAlpha: number;
   }
 
   function createFakeScene() {
@@ -234,6 +241,9 @@ describe('PhaserRunSummaryView', () => {
         interactive: false,
         destroyed: false,
         handlers: {},
+        strokeWidth: 0,
+        strokeColor: undefined,
+        strokeAlpha: 0,
       };
       const chain = (key: keyof FakeState, value: FakeState[keyof FakeState]) => {
         (state as unknown as Record<string, unknown>)[key] = value;
@@ -242,6 +252,16 @@ describe('PhaserRunSummaryView', () => {
       const api = {
         get state() {
           return { ...state };
+        },
+        // Real Phaser display objects expose stroke state as properties.
+        get strokeWidth() {
+          return state.strokeWidth;
+        },
+        get strokeColor() {
+          return state.strokeColor;
+        },
+        get strokeAlpha() {
+          return state.strokeAlpha;
         },
         setText(text: string) {
           return chain('text', text);
@@ -255,7 +275,10 @@ describe('PhaserRunSummaryView', () => {
         setDepth() {
           return api;
         },
-        setStrokeStyle() {
+        setStrokeStyle(width: number, color: number, alpha: number) {
+          state.strokeWidth = width;
+          state.strokeColor = color;
+          state.strokeAlpha = alpha;
           return api;
         },
         setInteractive() {
@@ -344,7 +367,11 @@ describe('PhaserRunSummaryView', () => {
     return scene;
   }
 
-  function createHarness(options: { outcome?: 'won' | 'lost'; banked?: BankedRun | null } = {}) {
+  function createHarness(options: {
+    outcome?: 'won' | 'lost';
+    banked?: BankedRun | null;
+    readInputMode?: () => InputMode;
+  } = {}) {
     const run = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
     run.status = options.outcome ?? 'won';
     run.timeMs = 90_000;
@@ -366,6 +393,7 @@ describe('PhaserRunSummaryView', () => {
       viewport: logicalCanvasViewport(),
       bus,
       controller,
+      ...(options.readInputMode ? { readInputMode: options.readInputMode } : {}),
     });
     return { run, bus, scene, view, controller };
   }
@@ -491,6 +519,95 @@ describe('PhaserRunSummaryView', () => {
     expect(scene.scene.restart).toHaveBeenCalledTimes(1);
     buttons[1]!.state.handlers['pointerup']();
     expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
+  });
+
+  it('starts on Retry with exactly one FocusStroke ring in keyboard mode and wraps linearly', () => {
+    const { bus, scene, view } = createHarness({ banked: bankedRun(), readInputMode: () => 'keyboard' });
+    view.refreshInputPresentation();
+    bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+
+    const buttons = scene.objects.filter(
+      (object) => object.state.kind === 'rect' && object.state.handlers['pointerup'] && !object.state.destroyed,
+    );
+    expect(buttons).toHaveLength(2);
+    expect(buttons[0]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(buttons[0]!.state.strokeAlpha).toBe(FocusStroke.alpha);
+    expect(buttons[1]!.state.strokeColor).not.toBe(FocusStroke.color);
+
+    // All four directions wrap linearly on the two-item list.
+    expect(view.moveFocus('up')).toBe(true);
+    expect(buttons[1]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(buttons[0]!.state.strokeColor).not.toBe(FocusStroke.color);
+    expect(view.moveFocus('left')).toBe(true);
+    expect(buttons[0]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(view.moveFocus('down')).toBe(true);
+    expect(buttons[1]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(view.moveFocus('right')).toBe(true);
+    expect(buttons[0]!.state.strokeColor).toBe(FocusStroke.color);
+
+    // The logical confirm reaches the exact focused command.
+    view.moveFocus('down');
+    expect(view.confirmFocused()).toBe(true);
+    expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
+  });
+
+  it('pointer hover moves exactly one ring on summary buttons and emits nothing (F5)', () => {
+    const { bus, scene } = createHarness({ banked: bankedRun() });
+    bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+    const events: string[] = [];
+    bus.on('ui:navigate', () => events.push('ui:navigate'));
+    bus.on('ui:confirm', () => events.push('ui:confirm'));
+
+    const buttons = scene.objects.filter(
+      (object) => object.state.kind === 'rect' && object.state.handlers['pointerup'] && !object.state.destroyed,
+    );
+    expect(buttons[0]!.state.strokeColor).not.toBe(FocusStroke.color);
+
+    buttons[1]!.state.handlers['pointerover']!();
+    expect(buttons[1]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(buttons[0]!.state.strokeColor).not.toBe(FocusStroke.color);
+    expect(events).toEqual([]);
+
+    buttons[1]!.state.handlers['pointerout']!();
+    expect(buttons[1]!.state.strokeColor).not.toBe(FocusStroke.color);
+    expect(events).toEqual([]);
+  });
+
+  it('a repeated visible render preserves the Main Menu focus and the command still works', () => {
+    const { bus, scene, view } = createHarness({ banked: bankedRun(), readInputMode: () => 'keyboard' });
+    view.refreshInputPresentation();
+    bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+    view.moveFocus('down'); // Main Menu
+
+    // Same-panel repeat terminal render: focus identity is preserved.
+    bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+    const buttons = scene.objects.filter(
+      (object) => object.state.kind === 'rect' && object.state.handlers['pointerup'] && !object.state.destroyed,
+    );
+    expect(buttons[1]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(buttons[0]!.state.strokeColor).not.toBe(FocusStroke.color);
+
+    expect(view.confirmFocused()).toBe(true);
+    expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
+  });
+
+  it('switches the hint copy exactly per input mode (F9)', () => {
+    let mode: InputMode = 'pointer';
+    const { bus, scene, view } = createHarness({
+      banked: bankedRun(),
+      readInputMode: () => mode,
+    });
+    bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+    const texts = () =>
+      scene.objects.filter((object) => object.state.kind === 'text').map((object) => object.state.text);
+
+    expect(texts()).toContain('Tap Retry or Main Menu');
+    mode = 'keyboard';
+    view.refreshInputPresentation();
+    expect(texts()).toContain('Arrows • Enter/Space select');
+    mode = 'gamepad';
+    view.refreshInputPresentation();
+    expect(texts()).toContain('D-pad/stick • Bottom face select');
   });
 
   describe('command events', () => {

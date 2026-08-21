@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 // evaluation time. The mock registration in __mocks__/phaser is a side-effectful
 // import; ordering it first guarantees the mock is installed before the real
 // Phaser module is ever requested.
-import { MockInputPlugin } from './__mocks__/phaser';
+import { MockGamepad, MockInputPlugin } from './__mocks__/phaser';
 import { GAME_CONTEXT_REGISTRY_KEY, createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
@@ -15,6 +15,7 @@ import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
+import { FocusStroke } from '../src/ui/theme';
 
 interface FakeObjectState {
   kind: 'container' | 'text' | 'rect';
@@ -25,6 +26,10 @@ interface FakeObjectState {
   destroyed: boolean;
   handlers: Record<string, () => void>;
   padding: { left: number; top: number; right: number; bottom: number };
+  strokeWidth: number;
+  strokeColor?: number;
+  strokeAlpha: number;
+  style: Record<string, unknown>;
 }
 
 function fakeObject(
@@ -43,10 +48,14 @@ function fakeObject(
     destroyed: false,
     handlers: {},
     padding: { ...padding },
+    strokeWidth: 0,
+    strokeColor: undefined,
+    strokeAlpha: 0,
+    style: {},
   };
   const api = {
     get state() {
-      return { ...state, handlers: { ...state.handlers }, padding: { ...state.padding } };
+      return { ...state, handlers: { ...state.handlers }, padding: { ...state.padding }, style: { ...state.style } };
     },
     get width() {
       return state.width;
@@ -57,6 +66,16 @@ function fakeObject(
     get padding() {
       return { ...state.padding };
     },
+    // Real Phaser display objects expose stroke state as properties.
+    get strokeWidth() {
+      return state.strokeWidth;
+    },
+    get strokeColor() {
+      return state.strokeColor;
+    },
+    get strokeAlpha() {
+      return state.strokeAlpha;
+    },
     setOrigin(_x?: number, _y?: number) {
       return api;
     },
@@ -66,7 +85,18 @@ function fakeObject(
     setDepth() {
       return api;
     },
-    setStyle() {
+    setStyle(style: Record<string, unknown>) {
+      state.style = { ...state.style, ...style };
+      return api;
+    },
+    setText(text: string) {
+      state.text = text;
+      return api;
+    },
+    setStrokeStyle(width: number, color: number, alpha: number) {
+      state.strokeWidth = width;
+      state.strokeColor = color;
+      state.strokeAlpha = alpha;
       return api;
     },
     setPadding(left?: number, top?: number, right?: number, bottom?: number) {
@@ -118,7 +148,7 @@ function createFakeScene(
     return object;
   };
 
-  const input = new MockInputPlugin({ keyboard: true });
+  const input = new MockInputPlugin({ keyboard: true, gamepad: true });
 
   const lifecycleListeners = new Map<
     string,
@@ -339,6 +369,225 @@ describe('MenuScene', () => {
     harness.menuScene.update(0, 16);
     expect(harness.textContents()).toContain('Start');
     expect(harness.textContents()).not.toContain('Choose Character');
+  });
+
+  it('navigates and confirms through the real gamepad with zero pointer-plugin calls (F9)', () => {
+    const harness = createHarness();
+    const pad = new MockGamepad();
+    harness.input.gamepad!.connect(pad);
+    const down = vi.spyOn(harness.input, 'pointerDown');
+    const move = vi.spyOn(harness.input, 'pointerMove');
+    const up = vi.spyOn(harness.input, 'pointerUp');
+
+    const press = (position: number) => {
+      pad.setButton(position, true);
+      harness.menuScene.update(0, 16);
+      pad.setButton(position, false);
+      harness.menuScene.update(0, 16);
+    };
+
+    press(13); // D-pad down → Character
+    press(0); // bottom face confirm → Character panel
+    expect(harness.textContents()).toContain('Choose Character');
+    expect(down).not.toHaveBeenCalled();
+    expect(move).not.toHaveBeenCalled();
+    expect(up).not.toHaveBeenCalled();
+
+    press(1); // right face back → home
+    expect(harness.textContents()).toContain('Start');
+    expect(down).not.toHaveBeenCalled();
+    expect(move).not.toHaveBeenCalled();
+    expect(up).not.toHaveBeenCalled();
+  });
+
+  it('shows exactly one FocusStroke ring on the focused menu button; label color is never the focus signal (F9)', () => {
+    const harness = createHarness();
+    const rings = () =>
+      harness.objects.filter(
+        (object) =>
+          object.state.kind === 'rect' &&
+          !object.state.destroyed &&
+          object.state.strokeColor === FocusStroke.color &&
+          object.state.strokeAlpha === FocusStroke.alpha,
+      );
+
+    // Pointer mode shows no persistent ring.
+    expect(rings()).toHaveLength(0);
+
+    harness.keyboard.keydown('ArrowDown');
+    harness.menuScene.update(0, 16);
+    expect(rings()).toHaveLength(1);
+    harness.keyboard.keydown('ArrowDown');
+    harness.menuScene.update(0, 16);
+    expect(rings()).toHaveLength(1);
+
+    // Every button label stays cream regardless of focus.
+    const labels = harness.objects.filter(
+      (object) => object.state.kind === 'text' && object.state.handlers['pointerup'] && !object.state.destroyed,
+    );
+    expect(labels.length).toBeGreaterThanOrEqual(2);
+    labels.forEach((label) => expect(label.state.style.color).toBe('#f7f1d5'));
+  });
+
+  it('preserves the exact settings row through repeated same-panel confirms', () => {
+    const harness = createHarness();
+    const seams = harness.menuScene as unknown as { navigator: { index: number } };
+    // A polled held key emits exactly one edge, so every repeated positional
+    // press must release + poll between presses.
+    const press = (key: string) => {
+      harness.keyboard.keydown(key);
+      harness.menuScene.update(0, 16);
+      harness.keyboard.keyup(key);
+      harness.menuScene.update(0, 16);
+    };
+    // Home → Settings (row 4).
+    for (let i = 0; i < 4; i += 1) press('ArrowDown');
+    press('Enter');
+    expect(harness.textContents()).toContain('Settings');
+
+    // Focus SFX Volume (row 2 of the settings list).
+    press('ArrowDown');
+    press('ArrowDown');
+    expect(seams.navigator.index).toBe(2);
+
+    const sfxText = () =>
+      harness.objects.find(
+        (object) =>
+          object.state.kind === 'text' &&
+          object.state.text.startsWith('SFX Volume:') &&
+          !object.state.destroyed,
+      )!.state.text;
+
+    // Two same-panel confirms: the same row stays focused and its own value
+    // changes twice (G-15 — not just "no reset").
+    press('Enter');
+    expect(seams.navigator.index).toBe(2);
+    const afterFirst = sfxText();
+    press('Enter');
+    expect(seams.navigator.index).toBe(2);
+    const afterSecond = sfxText();
+    expect(afterSecond).not.toBe(afterFirst);
+    expect(harness.textContents()).toContain(afterSecond);
+  });
+
+  it('preserves the exact character row through a same-panel selection', () => {
+    const harness = createHarness();
+    const seams = harness.menuScene as unknown as { navigator: { index: number } };
+    const press = (key: string) => {
+      harness.keyboard.keydown(key);
+      harness.menuScene.update(0, 16);
+      harness.keyboard.keyup(key);
+      harness.menuScene.update(0, 16);
+    };
+    press('ArrowDown');
+    press('Enter');
+    expect(harness.textContents()).toContain('Choose Character');
+    expect(seams.navigator.index).toBe(0);
+
+    // The roster has two characters, so the last selectable row is 1
+    // (row 2 would be < Back).
+    press('ArrowDown');
+    expect(seams.navigator.index).toBe(1);
+    press('Enter');
+    // The row re-renders with its selection marker; the exact row stays focused.
+    expect(harness.textContents()).toContain('Choose Character');
+    expect(seams.navigator.index).toBe(1);
+  });
+
+  it('resets focus to the first target on genuine panel changes', () => {
+    const harness = createHarness();
+    const seams = harness.menuScene as unknown as { navigator: { index: number } };
+    const press = (key: string) => {
+      harness.keyboard.keydown(key);
+      harness.menuScene.update(0, 16);
+      harness.keyboard.keyup(key);
+      harness.menuScene.update(0, 16);
+    };
+    // Home → Settings (row 4), then walk to < Back and return home.
+    for (let i = 0; i < 4; i += 1) press('ArrowDown');
+    press('Enter');
+    expect(seams.navigator.index).toBe(0);
+
+    for (let i = 0; i < 4; i += 1) press('ArrowDown');
+    press('Enter');
+    expect(harness.textContents()).toContain('Start');
+    expect(seams.navigator.index).toBe(0);
+
+    // Home → Character resets to the first character row.
+    press('ArrowDown');
+    press('Enter');
+    expect(harness.textContents()).toContain('Choose Character');
+    expect(seams.navigator.index).toBe(0);
+  });
+
+  it('registers reset-confirmation targets in order and drives them through logical nav/confirm', () => {
+    const harness = createHarness();
+    const seams = harness.menuScene as unknown as { navigator: { index: number } };
+    const press = (key: string) => {
+      harness.keyboard.keydown(key);
+      harness.menuScene.update(0, 16);
+      harness.keyboard.keyup(key);
+      harness.menuScene.update(0, 16);
+    };
+    const buttonLabels = () =>
+      harness.objects
+        .filter(
+          (object) => object.state.kind === 'text' && object.state.handlers['pointerup'] && !object.state.destroyed,
+        )
+        .map((object) => object.state.text);
+
+    // Home → Progression (row 3).
+    for (let i = 0; i < 3; i += 1) press('ArrowDown');
+    press('Enter');
+    expect(harness.textContents()).toContain('Progression — 0 scrap');
+
+    // Walk to Reset Progression and confirm — entirely through nav/confirm.
+    const resetIndex = buttonLabels().indexOf('Reset Progression');
+    expect(resetIndex).toBeGreaterThanOrEqual(0);
+    for (let i = 0; i < resetIndex; i += 1) press('ArrowDown');
+    press('Enter');
+    expect(harness.textContents()).toContain('Reset all progression?');
+
+    // Target order is exactly Confirm Reset, Cancel, < Back.
+    expect(buttonLabels()).toEqual(['Confirm Reset', 'Cancel', '< Back']);
+    expect(seams.navigator.index).toBe(0);
+
+    // The two-step guard still holds: Cancel and < Back are reachable.
+    press('ArrowDown');
+    expect(seams.navigator.index).toBe(1);
+    press('ArrowDown');
+    expect(seams.navigator.index).toBe(2);
+    press('Escape');
+    expect(harness.textContents()).toContain('Progression — 0 scrap');
+  });
+
+  it('switches the home hint exactly per input mode (F9)', () => {
+    const harness = createHarness();
+    const hint = () =>
+      harness.objects.find(
+        (object) =>
+          object.state.kind === 'text' &&
+          !object.state.destroyed &&
+          (object.state.text === 'Tap a choice' ||
+            object.state.text.startsWith('Arrows navigate') ||
+            object.state.text.startsWith('D-pad/stick')),
+      )?.state.text;
+
+    expect(hint()).toBe('Tap a choice');
+
+    harness.keyboard.keydown('ArrowDown');
+    harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('ArrowDown');
+    harness.menuScene.update(0, 16);
+    expect(hint()).toBe('Arrows navigate • Enter/Space select • Esc back');
+
+    const pad = new MockGamepad();
+    harness.input.gamepad!.connect(pad);
+    pad.setButton(13, true);
+    harness.menuScene.update(0, 16);
+    pad.setButton(13, false);
+    harness.menuScene.update(0, 16);
+    expect(hint()).toBe('D-pad/stick • Bottom face select • Right face back');
   });
 
   it('returns home through the back button', () => {

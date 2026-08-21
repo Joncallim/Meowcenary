@@ -119,8 +119,14 @@ class FakeView implements UpgradeChooserView {
     this.destroyCount += 1;
   }
 
-  focusPrevious(): void {}
-  focusNext(): void {}
+  focusPrevious(): boolean {
+    return false;
+  }
+
+  focusNext(): boolean {
+    return false;
+  }
+
   confirmFocused(): boolean {
     return false;
   }
@@ -836,6 +842,12 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
     expect(view.diagnostics.keyboardListenerCount).toBe(1);
     expect(view.diagnostics.resizeListenerCount).toBe(1);
 
+    // F6: no committed root after the failed rebuild — the retained offer
+    // stays non-navigable until a retry publishes a visible display.
+    expect(view.focusNext()).toBe(false);
+    expect(view.focusPrevious()).toBe(false);
+    expect(view.confirmFocused()).toBe(false);
+
     expect(() => scene.scale.refresh(390, 844, true)).not.toThrow();
     expect(scene.childCount).toBe(baselineChildren);
     expect(view.diagnostics.cards).toHaveLength(3);
@@ -909,7 +921,7 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
     view.destroy();
   });
 
-  it('setEnabled(false) blocks focus movement and activation', async () => {
+  it('setEnabled(false) blocks focus movement and activation, then re-enable restores exact navigation/confirmation', async () => {
     const { scene, view, select } = await createFocusView();
     view.setEnabled(false);
     scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
@@ -917,6 +929,15 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
     scene.input.keyboard.emit('keydown', { key: '1', repeat: false });
     expect(focused(view)).toEqual([true, false, false]);
     expect(select).not.toHaveBeenCalled();
+
+    // G-15: the disabled state is not terminal — re-enabling restores the
+    // exact next navigation/confirmation through the same seams.
+    view.setEnabled(true);
+    expect(view.focusNext()).toBe(true);
+    expect(focused(view)).toEqual([false, true, false]);
+    expect(view.confirmFocused()).toBe(true);
+    expect(select).toHaveBeenCalledTimes(1);
+    expect(select).toHaveBeenCalledWith(73, 1);
     view.destroy();
   });
 
@@ -963,8 +984,10 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
     const { view, select } = await createFocusView(3);
     view.setEnabled(false);
 
-    view.focusNext();
-    view.focusPrevious();
+    // Both movement methods report refusal as false, so the facade emits no
+    // ui:navigate while disabled.
+    expect(view.focusNext()).toBe(false);
+    expect(view.focusPrevious()).toBe(false);
     expect(focused(view)).toEqual([true, false, false]);
     expect(view.confirmFocused()).toBe(false);
     expect(select).not.toHaveBeenCalled();
@@ -1319,6 +1342,46 @@ describe('UpgradeChooser facade seam (Epic 18 D9)', () => {
     // The upgrade the focus was sitting on is the one that got applied.
     expect(runState.upgradeStacks[offered[1]!]).toBe(1);
     expect(system.currentOfferId).toBeUndefined();
+    chooser.destroy();
+    system.destroy();
+  });
+
+  it('emits no ui:navigate for boundary or no-offer facade moves (F3)', async () => {
+    const { runState, bus, system, chooser } = await createFacade(1);
+    const events: string[] = [];
+    bus.on('ui:navigate', () => events.push('ui:navigate'));
+    bus.emit('level:up', { level: 2 });
+    expect(chooser.diagnostics.cards).toHaveLength(1);
+
+    // Boundary on a one-card offer: no move, no event.
+    expect(chooser.focusNext()).toBe(false);
+    expect(chooser.focusPrevious()).toBe(false);
+    expect(events).toEqual([]);
+
+    // An accepted confirm resolves the offer; the seam is then no-offer inert.
+    const offeredId = chooser.diagnostics.choiceIds[0]!;
+    expect(chooser.confirmFocused()).toBe(true);
+    expect(runState.upgradeStacks[offeredId]).toBe(1);
+    expect(chooser.focusNext()).toBe(false);
+    expect(chooser.focusPrevious()).toBe(false);
+    expect(events).toEqual([]);
+    chooser.destroy();
+    system.destroy();
+  });
+
+  it('emits exactly one ui:navigate per real facade move (F3)', async () => {
+    const { bus, system, chooser } = await createFacade(2);
+    const events: string[] = [];
+    bus.on('ui:navigate', () => events.push('ui:navigate'));
+    bus.emit('level:up', { level: 2 });
+    expect(chooser.diagnostics.cards).toHaveLength(2);
+
+    expect(chooser.focusNext()).toBe(true);
+    expect(events).toEqual(['ui:navigate']);
+    expect(chooser.diagnostics.cards.map((card) => card.focused)).toEqual([false, true]);
+    expect(chooser.focusPrevious()).toBe(true);
+    expect(events).toEqual(['ui:navigate', 'ui:navigate']);
+    expect(chooser.diagnostics.cards.map((card) => card.focused)).toEqual([true, false]);
     chooser.destroy();
     system.destroy();
   });

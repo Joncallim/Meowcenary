@@ -20,9 +20,11 @@ export interface UpgradeChooserView {
   setEnabled(enabled: boolean): void;
   clear(): void;
   destroy(): void;
-  /** Epic 18 (D9): narrow public navigation/confirm seam Epic 19 will drive. */
-  focusPrevious(): boolean | void;
-  focusNext(): boolean | void;
+  /** Epic 18 (D9): narrow public navigation/confirm seam Epic 19 will drive.
+   *  Each movement method returns whether the logical focus index changed, so
+   *  the facade emits exactly one `ui:navigate` only on a real move. */
+  focusPrevious(): boolean;
+  focusNext(): boolean;
   confirmFocused(): boolean;
 }
 

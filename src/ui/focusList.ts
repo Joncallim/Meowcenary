@@ -61,9 +61,15 @@ export class FocusNavigator {
     const i = this._index;
     let next = i;
     if (this._mode === 'linear') {
+      // Wrap by branching on the endpoints instead of the modular formula
+      // `(i - 1 + count) % count`: for a valid count near MAX_SAFE_INTEGER
+      // the intermediate sum exceeds the safe-integer range and silently
+      // loses precision (round-1 adversarial finding F1). The branch forms
+      // are arithmetically identical for every safe count and never
+      // overflow.
       next = direction === 'up' || direction === 'left'
-        ? (i - 1 + this._count) % this._count
-        : (i + 1) % this._count;
+        ? i === 0 ? this._count - 1 : i - 1
+        : i === this._count - 1 ? 0 : i + 1;
     } else {
       const row = Math.floor(i / this._columns);
       const col = i % this._columns;

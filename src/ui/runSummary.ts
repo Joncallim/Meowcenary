@@ -91,6 +91,7 @@ export class PhaserRunSummaryView {
   private readonly navigator = new FocusNavigator('linear');
   private buttons: import('./modal').ModalButtonHandle[] = [];
   private hint?: Phaser.GameObjects.Text;
+  private hoveredIndex = -1;
   private summaryActive = false;
   private inputMode: InputMode = 'pointer';
   private lastInputMode: InputMode = 'pointer';
@@ -152,6 +153,7 @@ export class PhaserRunSummaryView {
     this.summaryActive = false;
     this.buttons = [];
     this.hint = undefined;
+    this.hoveredIndex = -1;
     this.navigator.setCount(0);
   }
 
@@ -198,6 +200,12 @@ export class PhaserRunSummaryView {
     const wasActive = this.summaryActive;
     this.root?.destroy(true);
     this.root = undefined;
+    // Unpublished references are cleared up front: a failed rebuild must
+    // never leave moveFocus/confirmFocused able to reach destroyed-tree
+    // handles (F6 committed-render transaction).
+    this.buttons = [];
+    this.hint = undefined;
+    this.hoveredIndex = -1;
 
     const { scene, viewport } = this;
     const width = viewport.canvasWidth;
@@ -284,11 +292,18 @@ export class PhaserRunSummaryView {
       const menu = this.modal.addButton(root, centerX, retryY + hitTarget + 12, buttonWidth, 'Main Menu', () => {
         this.returnToMenu();
       });
-      this.buttons = [retry, menu];
-      this.navigator.setCount(this.buttons.length);
+      const buttons = [retry, menu];
+      // F5: summary modal buttons participate in pointer-hover focus —
+      // silent index sync, exactly one FocusStroke ring on hover, cleared on
+      // out, and the logical index is set before pointer-up activation.
+      buttons.forEach((handle, index) => this.wireModalHover(handle, index));
+      const hint = this.modal.addHint(root, margin, height - margin - 14, this.hintCopy());
       if (!wasActive) this.navigator.reset();
-
-      this.hint = this.modal.addHint(root, margin, height - margin - 14, this.hintCopy());
+      this.navigator.setCount(buttons.length);
+      // Stage then publish: the target list, hint, and identity are committed
+      // together with the root only after the whole tree built successfully.
+      this.buttons = buttons;
+      this.hint = hint;
       this.applyFocus();
 
       // The root is only published once the display tree is fully built, so a
@@ -298,13 +313,28 @@ export class PhaserRunSummaryView {
       this.summaryActive = true;
     } catch (error) {
       root.destroy(true);
+      this.buttons = [];
+      this.hint = undefined;
+      this.hoveredIndex = -1;
       throw error;
     }
   }
 
+  private wireModalHover(handle: import('./modal').ModalButtonHandle, index: number): void {
+    handle.target.on(Phaser.Input.Events.POINTER_OVER, () => {
+      this.hoveredIndex = index;
+      this.navigator.setIndex(index);
+      this.applyFocus();
+    });
+    handle.target.on(Phaser.Input.Events.POINTER_OUT, () => {
+      if (this.hoveredIndex === index) this.hoveredIndex = -1;
+      this.applyFocus();
+    });
+  }
+
   private applyFocus(): void {
     this.buttons.forEach((button, index) => {
-      button.setFocusVisible(this.inputMode === 'pointer' ? false : index === this.navigator.index);
+      button.setFocusVisible(this.inputMode === 'pointer' ? index === this.hoveredIndex : index === this.navigator.index);
     });
   }
 

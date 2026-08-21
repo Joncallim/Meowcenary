@@ -10,7 +10,6 @@ import {
   type UpgradeChooserView,
 } from './upgradeChooserController';
 import { computeUpgradeChooserLayout } from './upgradeChooserLayout';
-import { FocusNavigator } from './focusList';
 import type { InputMode } from '../systems/input';
 
 const CHOOSER_DEPTH = ThemeDepth.upgradeChooser;
@@ -19,6 +18,7 @@ const CARD_STROKE = { color: ThemeColor.primaryDim, alpha: 0.78, width: 2 } as c
 export class UpgradeChooser {
   private readonly controller: UpgradeChooserController;
   private readonly view: PhaserUpgradeChooserView;
+  private readonly bus: EventBus;
 
   constructor(
     scene: Phaser.Scene,
@@ -28,6 +28,7 @@ export class UpgradeChooser {
     visualArt?: VisualArtLookup,
     readInputMode: () => InputMode = () => 'pointer',
   ) {
+    this.bus = bus;
     this.view = new PhaserUpgradeChooserView(scene, readReducedMotion, visualArt, readInputMode);
     this.controller = new UpgradeChooserController(
       bus,
@@ -41,13 +42,19 @@ export class UpgradeChooser {
   }
 
   /** Epic 18 (D9): narrow public navigation/confirm seam Epic 19 can drive
-   *  later without reaching into the Phaser view implementation. */
+   *  later without reaching into the Phaser view implementation. Each facade
+   *  move emits exactly one `ui:navigate` only when the logical focus index
+   *  actually changed; boundary/disabled/no-offer moves emit nothing. */
   focusPrevious(): boolean {
-    return this.view.focusPrevious();
+    const moved = this.view.focusPrevious();
+    if (moved) this.bus.emit('ui:navigate', {});
+    return moved;
   }
 
   focusNext(): boolean {
-    return this.view.focusNext();
+    const moved = this.view.focusNext();
+    if (moved) this.bus.emit('ui:navigate', {});
+    return moved;
   }
 
   confirmFocused(): boolean {
@@ -103,7 +110,6 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   private destroyed = false;
   private rebuildCount = 0;
   private focusIndex = 0;
-  private readonly navigator = new FocusNavigator('linear');
   private hoveredIndex = -1;
   private inputMode: InputMode = 'pointer';
   private lastInputMode: InputMode = 'pointer';
@@ -167,7 +173,6 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     this.currentOfferId = offer.offerId;
     this.select = select;
     this.enabled = true;
-    this.navigator.setCount(offer.choices.length);
 
     this.buildDisplay();
   }
@@ -182,6 +187,9 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     // tween durations today; any animation added later must be gated through
     // reducedMotionDuration so it never delays a card command.
     this.reducedMotion = this.readReducedMotion();
+    // Hover belongs to the previous tree's display objects and is never
+    // preserved across a rebuild (§3 committed-render transaction).
+    this.hoveredIndex = -1;
 
     const { width, height } = this.scene.scale;
     const layout = computeUpgradeChooserLayout(
@@ -250,7 +258,9 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         { role: 'heading', object: heading },
         { role: 'instructions', object: instructions },
       );
-      this.instructions = instructions;
+      // Staged: published together with the root, so a failed build never
+      // leaves `instructions` pointing at a destroyed object.
+      const stagedInstructions = instructions;
 
       offer.choices.forEach((choice, index) => {
         const cardLayout = layout.cards[index];
@@ -273,8 +283,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         card.on(Phaser.Input.Events.POINTER_OVER, () => {
           if (this.enabled) {
             this.hoveredIndex = index;
-            this.navigator.setIndex(index);
-            this.focusIndex = this.navigator.index;
+            this.focusIndex = index;
             this.applyFocusStroke();
             card.setFillStyle(ThemeColor.cardHover, 1);
           }
@@ -440,26 +449,34 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
 
       this.cardBackgrounds = cardBackgrounds;
       this.renderedText = renderedText;
+      this.instructions = stagedInstructions;
       this.rebuildCount += 1;
-      this.navigator.setCount(cardBackgrounds.length);
-      this.focusIndex = this.navigator.index;
+      // currentOfferId is the sole chooser identity: a new offer resets
+      // focusIndex to 0 through clear()/render(); a same-offer rebuild
+      // preserves the retained index, clamped to the rebuilt card count.
+      this.focusIndex = Math.min(this.focusIndex, Math.max(0, cardBackgrounds.length - 1));
       this.applyEnabledState();
       this.applyFocusStroke();
 
       // The root is only published once the display tree is fully built and
       // styled, so a failed render leaves the chooser without a published
-      // root and a later render can retry from a clean slate.
+      // root and a later render can retry from a clean slate. Until this
+      // publish, acceptsNavigation stays false and no move/confirm seam can
+      // act on an invisible card.
       this.root = root;
     } catch (error) {
       root.destroy(true);
-      // Partial reset is intentional: only the arrays that reference destroyed
+      // Partial reset is intentional: only the references to destroyed
       // objects are cleared. offer/currentOfferId/select/enabled are retained
       // so a later resize rebuild via handleScaleChange() retries the same
-      // offer, and the render() path resets them through clear(). A full reset
-      // here would break resize-recovery and the test asserting
-      // diagnostics.offerId survives a failed rebuild.
+      // offer, and the render() path resets them through clear(). Because the
+      // root is never published on failure, the chooser stays non-navigable
+      // until a retry commits. A full reset here would break resize-recovery
+      // and the test asserting diagnostics.offerId survives a failed rebuild.
       this.cardBackgrounds = [];
       this.renderedText = [];
+      this.instructions = undefined;
+      this.hoveredIndex = -1;
       throw error;
     }
   }
@@ -486,13 +503,20 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
 
   /** Visible shared focus treatment: the focused card carries the theme focus
    *  stroke; movement is presentation-only and activation still routes through
-   *  the captured offer token. */
+   *  the captured offer token. Linear wrap on the retained `focusIndex`
+   *  (F3/F7): `currentOfferId` is the sole identity, so there is exactly one
+   *  mutable focus owner and the seam reports whether the index changed. */
   private moveFocus(direction: 1 | -1): boolean {
     if (!this.acceptsNavigation) return false;
-    const moved = this.navigator.move(direction < 0 ? 'left' : 'right');
-    this.focusIndex = this.navigator.index;
+    const count = this.cardBackgrounds.length;
+    if (count === 0) return false;
+    const next = direction < 0
+      ? this.focusIndex === 0 ? count - 1 : this.focusIndex - 1
+      : this.focusIndex === count - 1 ? 0 : this.focusIndex + 1;
+    const changed = next !== this.focusIndex;
+    this.focusIndex = next;
     this.applyFocusStroke();
-    return moved;
+    return changed;
   }
 
   private applyFocusStroke(): void {
@@ -515,9 +539,14 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
    *  Guarded identically to `handleKeyDown` so a future action adapter and
    *  the raw keyboard path stay behaviorally identical — notably, neither
    *  moves the visible focus while the chooser is disabled (an in-flight
-   *  submission), where the cards are dimmed and non-interactive. */
+   *  submission) or before a committed visible root exists (a failed
+   *  rebuild leaves the retained offer non-navigable until a retry
+   *  publishes). */
   private get acceptsNavigation(): boolean {
-    return !this.destroyed && this.enabled && this.currentOfferId !== undefined;
+    return !this.destroyed
+      && this.enabled
+      && this.currentOfferId !== undefined
+      && this.root !== undefined;
   }
 
   focusPrevious(): boolean {
@@ -550,7 +579,6 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     this.select = undefined;
     this.offer = undefined;
     this.focusIndex = 0;
-    this.navigator.setCount(0);
     this.hoveredIndex = -1;
     this.instructions = undefined;
     this.destroyDisplay();

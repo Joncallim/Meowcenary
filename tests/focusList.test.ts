@@ -25,8 +25,64 @@ describe('FocusNavigator', () => {
     expect(nav.index).toBe(2);
     expect(nav.move('right')).toBe(true);
     expect(nav.index).toBe(0);
+    // G-15: the one-item boundary emits nothing, and the next legal
+    // multi-item move after state restoration reaches the exact index.
     nav.setCount(1);
     expect(nav.move('up')).toBe(false);
+    nav.setCount(3);
+    nav.setIndex(1);
+    expect(nav.move('right')).toBe(true);
+    expect(nav.index).toBe(2);
+    expect(nav.move('right')).toBe(true);
+    expect(nav.index).toBe(0);
+  });
+
+  it('wraps linear movement without overflowing near MAX_SAFE_INTEGER (independent BigInt oracle)', () => {
+    // F1 regression: `(i - 1 + count) % count` exceeds MAX_SAFE_INTEGER for
+    // large valid counts and silently returns an unchanged index. The oracle
+    // computes the exact modular result with BigInt, independent of the
+    // implementation's arithmetic.
+    const MAX = Number.MAX_SAFE_INTEGER;
+    const oracle = (count: number, index: number, direction: FocusDirection): number => {
+      const c = BigInt(count);
+      const i = BigInt(index);
+      const next = direction === 'up' || direction === 'left'
+        ? (i - 1n + c) % c
+        : (i + 1n) % c;
+      return Number(next);
+    };
+
+    const nav = new FocusNavigator('linear');
+    nav.setCount(MAX);
+    nav.setIndex(MAX - 2);
+    expect(nav.index).toBe(MAX - 2);
+
+    // The probe from the finding: up/left must move, not return false.
+    expect(nav.move('left')).toBe(true);
+    expect(nav.index).toBe(MAX - 3);
+    // Full wrap-around at both ends of the enormous list still lands exactly.
+    nav.setIndex(0);
+    expect(nav.move('left')).toBe(true);
+    expect(nav.index).toBe(MAX - 1);
+    expect(nav.move('down')).toBe(true);
+    expect(nav.index).toBe(0);
+    expect(nav.move('up')).toBe(true);
+    expect(nav.index).toBe(MAX - 1);
+
+    // Bounded sweep across every direction and index in the top of the safe
+    // range, checked against the exact BigInt modular oracle.
+    for (let count = MAX - 8; count <= MAX; count += 1) {
+      for (let index = count - 4; index < count; index += 1) {
+        for (const direction of directions) {
+          nav.setCount(count);
+          nav.setIndex(index);
+          const moved = nav.move(direction);
+          const expected = oracle(count, index, direction);
+          expect(nav.index).toBe(expected);
+          expect(moved).toBe(expected !== index);
+        }
+      }
+    }
   });
 
   it('uses regular row-major grid movement without wrapping', () => {

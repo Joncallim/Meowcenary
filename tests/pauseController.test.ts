@@ -13,12 +13,16 @@ import { loadGameData } from '../src/systems/validation';
 import { InventoryController } from '../src/ui/inventory';
 import { logicalCanvasViewport } from '../src/ui/layout';
 import { PauseController, PhaserPauseView } from '../src/ui/pause';
+import { FocusStroke } from '../src/ui/theme';
+import type { InputMode } from '../src/systems/input';
 
 vi.mock('phaser', () => ({
   default: {
     Input: {
       Events: {
         POINTER_UP: 'pointerup',
+        POINTER_OVER: 'pointerover',
+        POINTER_OUT: 'pointerout',
       },
     },
     Scale: {
@@ -288,6 +292,9 @@ describe('PhaserPauseView', () => {
     interactive: boolean;
     destroyed: boolean;
     handlers: Record<string, () => void>;
+    strokeWidth: number;
+    strokeColor?: number;
+    strokeAlpha: number;
   }
 
   function createFakeScene() {
@@ -325,6 +332,9 @@ describe('PhaserPauseView', () => {
         interactive: false,
         destroyed: false,
         handlers: {},
+        strokeWidth: 0,
+        strokeColor: undefined,
+        strokeAlpha: 0,
       };
       const chain = (key: keyof FakeState, value: FakeState[keyof FakeState]) => {
         (state as unknown as Record<string, unknown>)[key] = value;
@@ -333,6 +343,18 @@ describe('PhaserPauseView', () => {
       const api = {
         get state() {
           return { ...state };
+        },
+        // Real Phaser display objects expose stroke state as properties; the
+        // production views read them (e.g. weaponRackView.registerTarget
+        // captures slot.strokeColor), so the fake must mirror that surface.
+        get strokeWidth() {
+          return state.strokeWidth;
+        },
+        get strokeColor() {
+          return state.strokeColor;
+        },
+        get strokeAlpha() {
+          return state.strokeAlpha;
         },
         setText(text: string) {
           return chain('text', text);
@@ -346,7 +368,10 @@ describe('PhaserPauseView', () => {
         setDepth() {
           return api;
         },
-        setStrokeStyle() {
+        setStrokeStyle(width: number, color: number, alpha: number) {
+          state.strokeWidth = width;
+          state.strokeColor = color;
+          state.strokeAlpha = alpha;
           return api;
         },
         setInteractive() {
@@ -470,7 +495,7 @@ describe('PhaserPauseView', () => {
     return scene;
   }
 
-  function createView() {
+  function createView(options: { readInputMode?: () => InputMode } = {}) {
     const scene = createFakeScene();
     const harness = createHarness();
     const view = new PhaserPauseView({
@@ -479,6 +504,7 @@ describe('PhaserPauseView', () => {
       bus: harness.bus,
       controller: harness.controller,
       inventory: harness.inventory,
+      ...(options.readInputMode ? { readInputMode: options.readInputMode } : {}),
     });
     return { scene, view, ...harness };
   }
@@ -568,6 +594,144 @@ describe('PhaserPauseView', () => {
     expect(events).toEqual([]);
   });
 
+  it('shows exactly one FocusStroke ring on the focused pause button in keyboard mode', () => {
+    const { scene, view, controller } = createView({ readInputMode: () => 'keyboard' });
+    view.refreshInputPresentation();
+    controller.pause();
+    view.render(controller.snapshot());
+
+    const buttons = liveButtons(scene); // [Resume, Weapon Rack]
+    expect(buttons).toHaveLength(2);
+    expect(buttons[0]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(buttons[0]!.state.strokeAlpha).toBe(FocusStroke.alpha);
+    expect(buttons[1]!.state.strokeColor).not.toBe(FocusStroke.color);
+
+    // Linear wrap: down reaches Weapon Rack; the ring moves exactly once.
+    expect(view.moveFocus('down')).toBe(true);
+    expect(buttons[1]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(buttons[0]!.state.strokeColor).not.toBe(FocusStroke.color);
+
+    // The logical confirm still routes the exact focused command.
+    expect(view.confirmFocused()).toBe(true);
+    expect(controller.snapshot().panel).toBe('inventory');
+  });
+
+  it('pointer hover moves exactly one ring on pause buttons and emits no event or command (F5)', () => {
+    const { scene, view, controller, bus } = createView();
+    const events = recordEvents(bus);
+    controller.pause();
+    view.render(controller.snapshot());
+
+    const buttons = liveButtons(scene);
+    expect(buttons[0]!.state.strokeColor).not.toBe(FocusStroke.color);
+
+    buttons[1]!.state.handlers['pointerover']!();
+    expect(buttons[1]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(buttons[0]!.state.strokeColor).not.toBe(FocusStroke.color);
+    expect(events).toEqual([]);
+
+    buttons[1]!.state.handlers['pointerout']!();
+    expect(buttons[1]!.state.strokeColor).not.toBe(FocusStroke.color);
+    expect(events).toEqual([]);
+
+    // Direct pointer activation from the hovered index still routes the command.
+    buttons[1]!.state.handlers['pointerup']!();
+    expect(events).toEqual(['ui:confirm']);
+    expect(controller.snapshot().panel).toBe('inventory');
+  });
+
+  it('applies the empty-rack Back fallback only on genuine entry and preserves live focus on same-panel resize (F4)', () => {
+    const { run, scene, view, controller } = createView({ readInputMode: () => 'keyboard' });
+    view.refreshInputPresentation();
+    run.equipped = [];
+    controller.pause();
+    controller.openInventory();
+    view.render(controller.snapshot());
+
+    // Genuine entry into an entirely empty rack: the fallback focuses Back
+    // (capacity 6 → index 7), the last registered hover target.
+    const hoverTargets = scene.objects.filter(
+      (object) => object.state.handlers['pointerover'] && !object.state.destroyed,
+    );
+    // slots 0..5, Merge (6), Back (7)
+    expect(hoverTargets).toHaveLength(8);
+    expect(hoverTargets[7]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(hoverTargets[6]!.state.strokeColor).not.toBe(FocusStroke.color);
+
+    // Left from Back reaches Merge (grid col 0 means index 6 is Merge).
+    expect(view.moveFocus('left')).toBe(true);
+    expect(hoverTargets[6]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(hoverTargets[7]!.state.strokeColor).not.toBe(FocusStroke.color);
+
+    // Same-inventory resize rebuild preserves the live Merge index — the
+    // empty-rack fallback must not re-run (F4 regression).
+    scene.resize(844, 390);
+    const afterResize = scene.objects.filter(
+      (object) => object.state.handlers['pointerover'] && !object.state.destroyed,
+    );
+    expect(afterResize[6]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(afterResize[7]!.state.strokeColor).not.toBe(FocusStroke.color);
+    // Merge left stays (col 0); right reaches Back — proving the index is 6.
+    expect(view.moveFocus('left')).toBe(false);
+    expect(view.moveFocus('right')).toBe(true);
+  });
+
+  it('shows a pointer-hover ring on rack Merge and Back modal buttons (F5)', () => {
+    const { run, scene, view, controller, bus } = createView();
+    const events = recordEvents(bus);
+    run.equipped = [instance('scrap-pistol-t1', 'a'), instance('scrap-pistol-t1', 'b')];
+    controller.pause();
+    controller.openInventory();
+    view.render(controller.snapshot());
+
+    const modalTargets = scene.objects.filter(
+      (object) =>
+        object.state.kind === 'rect' &&
+        object.state.handlers['pointerover'] &&
+        !object.state.destroyed &&
+        object.state.height <= 60,
+    );
+    // [Merge (disabled, no pointerup), Back (enabled)]
+    expect(modalTargets).toHaveLength(2);
+
+    modalTargets[1]!.state.handlers['pointerover']!();
+    expect(modalTargets[1]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(events).toEqual([]);
+
+    modalTargets[1]!.state.handlers['pointerout']!();
+    expect(modalTargets[1]!.state.strokeColor).not.toBe(FocusStroke.color);
+    expect(events).toEqual([]);
+  });
+
+  it('restores the slot base stroke after keyboard focus moves away', () => {
+    const { run, scene, view, controller } = createView({ readInputMode: () => 'keyboard' });
+    view.refreshInputPresentation();
+    run.equipped = [instance('scrap-pistol-t1', 'a'), instance('can-smg-t1', 'b')];
+    controller.pause();
+    controller.openInventory();
+    view.render(controller.snapshot());
+
+    const slotTargets = scene.objects.filter(
+      (object) =>
+        object.state.kind === 'rect' &&
+        object.state.handlers['pointerover'] &&
+        !object.state.destroyed &&
+        object.state.height > 60,
+    );
+    // Six slot cells in row-major order.
+    expect(slotTargets).toHaveLength(6);
+    // Entry focuses slot 0: its rarity stroke is replaced by FocusStroke.
+    expect(slotTargets[0]!.state.strokeColor).toBe(FocusStroke.color);
+    const baseColor = slotTargets[1]!.state.strokeColor;
+    expect(baseColor).toBeDefined();
+
+    // Down from row 0 col 0 → row 1 col 0 (index 2): slot 0's base rarity
+    // stroke returns exactly.
+    view.moveFocus('down');
+    expect(slotTargets[2]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(slotTargets[0]!.state.strokeColor).toBe(baseColor);
+  });
+
   it('cleans the partial tree and stays hidden when text construction throws', () => {
     const { scene, view, controller } = createView();
     controller.pause();
@@ -575,6 +739,11 @@ describe('PhaserPauseView', () => {
 
     expect(() => view.render(controller.snapshot())).toThrow('Injected text factory failure');
     expect(scene.objects.every((object) => object.state.destroyed)).toBe(true);
+
+    // F6: no committed root after the failed rebuild — every move/confirm
+    // seam refuses instead of acting on destroyed-tree handles.
+    expect(view.moveFocus('down')).toBe(false);
+    expect(view.confirmFocused()).toBe(false);
 
     // A later render retries from a clean slate.
     view.render(controller.snapshot());
@@ -723,7 +892,7 @@ describe('PhaserPauseView', () => {
   });
 
   it('emits no merge command event while the action is disabled', () => {
-    const { scene, view, controller, bus } = createView();
+    const { run, scene, view, controller, bus } = createView();
     controller.pause();
     controller.openInventory();
     view.render(controller.snapshot());
@@ -734,6 +903,41 @@ describe('PhaserPauseView', () => {
     expect(textContents(scene)).toEqual(
       expect.arrayContaining(['SELECT A MATCHING PAIR']),
     );
+
+    // G-15: the disabled no-op is not terminal — equipping a compatible pair
+    // and confirming the now-enabled Merge routes exactly the expected events.
+    run.equipped = [instance('scrap-pistol-t1', 'a'), instance('scrap-pistol-t1', 'b')];
+    view.render(controller.snapshot());
+    expect(liveButtons(scene)).toHaveLength(3); // slot a, slot b, Back
+    liveButtons(scene)[0]!.state.handlers['pointerup']!();
+    liveButtons(scene)[1]!.state.handlers['pointerup']!();
+    expect(liveButtons(scene)).toHaveLength(4); // + enabled Merge
+    liveButtons(scene)[2]!.state.handlers['pointerup']!();
+    expect(events).toEqual(['ui:navigate', 'ui:navigate', 'ui:confirm']);
+    expect(run.equipped).toHaveLength(1);
+    expect(run.equipped[0]?.tier).toBe(2);
+  });
+
+  it('empty-slot confirm is a no-op and the next occupied command still works (G-15)', () => {
+    const { run, view, controller, bus } = createView();
+    run.equipped = [instance('scrap-pistol-t1', 'a'), instance('can-smg-t1', 'b')];
+    controller.pause();
+    controller.openInventory();
+    view.render(controller.snapshot());
+    const events = recordEvents(bus);
+
+    // Down from slot 0 reaches empty slot 2 (two-column grid); its confirm
+    // is a no-op with no event.
+    expect(view.moveFocus('down')).toBe(true);
+    expect(view.confirmFocused()).toBe(false);
+    expect(events).toEqual(['ui:navigate']);
+
+    // The no-op did not wedge the rack: back up and confirming slot 0
+    // selects the weapon with exactly its ui:navigate.
+    expect(view.moveFocus('up')).toBe(true);
+    expect(view.confirmFocused()).toBe(true);
+    expect(controller.snapshot().inventory.selectedInstanceIds).toEqual(['a']);
+    expect(events).toEqual(['ui:navigate', 'ui:navigate', 'ui:navigate']);
   });
 
   it('supports number-key selection and Enter commit through the same commands', () => {

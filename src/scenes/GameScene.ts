@@ -590,35 +590,47 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** Epic 19 §5 run-level routing matrix. Each logical action maps to a
-   *  context-specific command; in the inventory panel only `back` walks back —
-   *  `pause` and `inventory` edges are deliberately discarded there. The
-   *  level-up chooser and run summary are guarded by the PauseController's
-   *  status checks (levelUp pause / terminal status reject every command). */
+   *  context-specific command; a discarded action returns from its matched
+   *  context and must never fall through to a lower-priority row (round-1
+   *  adversarial finding F2). The scene always owns a run in production, so
+   *  an absent runState is a teardown/inconsistent seam and every action is
+   *  discarded immediately — no panel fallback routes commands without a run. */
   private routeAction(action: GameAction): void {
     const runState = this.runState;
-    // The scene always owns a run in production. Keeping the panel-only
-    // fallback here also preserves the narrow audio/routing seam used by
-    // headless tests that exercise PauseController without a full scene run.
+    if (!runState) {
+      return;
+    }
     const direction: FocusDirection | undefined =
       action === 'navUp' ? 'up' : action === 'navDown' ? 'down' :
         action === 'navLeft' ? 'left' : action === 'navRight' ? 'right' : undefined;
-    if (runState && (runState.status === 'won' || runState.status === 'lost')) {
+
+    // 1. Terminal run: summary owns previous/next/confirm. Back, Pause, and
+    //    Inventory are deliberate no-ops in the terminal context.
+    if (runState.status === 'won' || runState.status === 'lost') {
       if (direction) this.runSummaryView?.moveFocus(direction);
       else if (action === 'confirm') this.runSummaryView?.confirmFocused();
       return;
     }
-    if (runState && runState.status === 'paused' && runState.pauseReason === 'levelUp') {
+
+    // 2. Level-up chooser: precedence over any stale manual PauseSnapshot.
+    //    Back/Pause/Inventory are discarded while the chooser owns the pause.
+    if (runState.status === 'paused' && runState.pauseReason === 'levelUp') {
       if (action === 'navUp' || action === 'navLeft') this.upgradeChooser?.focusPrevious();
       else if (action === 'navDown' || action === 'navRight') this.upgradeChooser?.focusNext();
       else if (action === 'confirm') this.upgradeChooser?.confirmFocused();
       return;
     }
+
     const controller = this.pauseController;
     if (!controller) {
       return;
     }
 
     const panel = controller.snapshot().panel;
+
+    // 3. Inventory/rack: nav/confirm delegate to the rack through the Pause
+    //    view; only Back walks back to the pause panel. Pause and Inventory
+    //    edges are discarded here.
     if (panel === 'inventory') {
       if (direction) this.pauseView?.moveFocus(direction);
       else if (action === 'confirm') this.pauseView?.confirmFocused();
@@ -629,6 +641,9 @@ export class GameScene extends Phaser.Scene {
       }
       return;
     }
+
+    // 4. Pause panel: nav/confirm delegate to the Pause view; Back/Pause
+    //    resume; Inventory opens the rack.
     if (panel === 'pause') {
       if (direction) this.pauseView?.moveFocus(direction);
       else if (action === 'confirm') this.pauseView?.confirmFocused();
@@ -643,7 +658,14 @@ export class GameScene extends Phaser.Scene {
       }
       return;
     }
-    if (runState && (runState.status !== 'active' || panel !== 'closed')) return;
+
+    // 5. Active run / no modal: only Back/Pause pause and Inventory
+    //    direct-opens. Nav/confirm/dash/ability and every unmatched action
+    //    are discarded immediately — they must not fall through to a pause
+    //    view render or any other lower-priority command.
+    if (runState.status !== 'active' || panel !== 'closed') {
+      return;
+    }
     let accepted = false;
     let event: 'ui:confirm' | 'ui:back' | null = null;
 
@@ -653,6 +675,8 @@ export class GameScene extends Phaser.Scene {
     } else if (action === 'inventory') {
       accepted = controller.openInventoryFromRun();
       event = 'ui:confirm';
+    } else {
+      return;
     }
 
     if (accepted && event) {

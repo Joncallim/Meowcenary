@@ -83,6 +83,12 @@ export class PhaserWeaponRackPanel {
     const layout = computeWeaponRackLayout(this.viewport, snapshot.capacity);
     this.focusTargets = [];
     this.hoveredIndex = -1;
+    // A freshly reset navigator (index === -1) marks a genuine panel entry:
+    // only then does an entirely empty rack fall back to Back so a reset
+    // still lands on an actionable target. Same-panel re-renders (selection,
+    // preview, merge result, resize) preserve the live index — the F4
+    // empty-rack resize regression (Merge i=6 must survive a rebuild).
+    const freshEntry = this.navigator.index === -1;
     this.navigator.setColumns(layout.columns);
     this.navigator.setCount(snapshot.capacity + 2);
     const heading = this.modal.addText(layout.margin, layout.margin, 'Weapon Rack', 'heading');
@@ -183,7 +189,7 @@ export class PhaserWeaponRackPanel {
       },
     );
     this.registerModalTarget(back, snapshot.capacity + 1);
-    if (snapshot.weapons.length === 0) {
+    if (snapshot.weapons.length === 0 && freshEntry) {
       this.navigator.setIndex(snapshot.capacity + 1);
     }
     this.applyFocus();
@@ -557,6 +563,18 @@ export class PhaserWeaponRackPanel {
   }
 
   private registerModalTarget(handle: ModalButtonHandle, index: number): void {
+    // F5: modal Merge/Back must participate in pointer-hover focus exactly
+    // like slot targets — silent index sync, exactly one FocusStroke ring on
+    // hover, cleared on out, no command/audio event from hovering.
+    handle.target.on(Phaser.Input.Events.POINTER_OVER, () => {
+      this.hoveredIndex = index;
+      this.navigator.setIndex(index);
+      this.applyFocus();
+    });
+    handle.target.on(Phaser.Input.Events.POINTER_OUT, () => {
+      if (this.hoveredIndex === index) this.hoveredIndex = -1;
+      this.applyFocus();
+    });
     this.focusTargets[index] = {
       target: handle.target,
       activate: handle.activate,
