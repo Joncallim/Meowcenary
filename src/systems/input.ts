@@ -279,6 +279,18 @@ class GamepadAdapter implements InputAdapter {
   // per-frame allocation (Epic 19 §6 gate).
   private readonly currentHeld = new Array<boolean>(ALL_ACTIONS.length).fill(false);
   private readonly previousHeld = new Array<boolean>(ALL_ACTIONS.length).fill(false);
+  // Round-10 quarantine flags, one per gamepad slot (Phaser's fixed
+  // MAX_GAMEPADS = 4; grown only at disconnect time — never in the poll
+  // path — if a pad ever reports a larger index). handleDisconnected() marks
+  // the slot; while flagged, update() makes the pad contribute NOTHING until
+  // it reports NEUTRAL (every mapped button released AND the stick inside
+  // the movement deadzone), so stale held state retained on the wrapper
+  // across disconnect/reconnect can never resurrect as fresh crossings —
+  // no phantom confirm edges, no instantly-restored movement (Epic 19 §6
+  // journey-gate row 6). Marking happens at DISCONNECT, not connect: a pad
+  // that never disconnected (a genuinely fresh pad) must keep firing its
+  // first presses immediately.
+  private readonly quarantined = new Array<boolean>(4).fill(false);
   private readonly gamepad: Phaser.Input.Gamepad.GamepadPlugin | null;
 
   constructor(
@@ -316,6 +328,24 @@ class GamepadAdapter implements InputAdapter {
 
         const stickX = pad.leftStick.x ?? pad.axes[0]?.value ?? 0;
         const stickY = pad.leftStick.y ?? pad.axes[1]?.value ?? 0;
+        const stickMagnitude = Math.sqrt(stickX * stickX + stickY * stickY);
+
+        // Round-10 quarantine (Epic 19 §6 journey-gate row 6): a slot marked
+        // by handleDisconnected() contributes NOTHING — buttons read as not
+        // pressed, movement as zero — until the pad reports neutral (all
+        // mapped buttons released AND stick within the movement deadzone).
+        // Stale pressed/deflected values retained on the wrapper across a
+        // reconnect therefore never produce fresh false→true transitions,
+        // and a genuinely-held control through a reconnect requires a
+        // release + re-press to register. Other slots are independent.
+        const slot = pad.index;
+        if (slot < this.quarantined.length && this.quarantined[slot]) {
+          if (this.isPadNeutral(pad, stickMagnitude)) {
+            this.quarantined[slot] = false;
+          } else {
+            continue;
+          }
+        }
 
         // Epic 19 §4: D-pad drives navigation ONLY — it is never mixed into
         // the analog movement vector (movement is left-stick only).
@@ -327,7 +357,6 @@ class GamepadAdapter implements InputAdapter {
         // Epic 19 §4: left-stick digital projection for navigation. A stick
         // deflection beyond navThreshold drives the dominant-axis cardinal nav
         // action, OR-combined with the D-pad buttons.
-        const stickMagnitude = Math.sqrt(stickX * stickX + stickY * stickY);
         if (stickMagnitude > this.navThreshold) {
           const dominantAxisX = Math.abs(stickX) >= Math.abs(stickY);
           if (dominantAxisX) {
@@ -381,10 +410,13 @@ class GamepadAdapter implements InputAdapter {
   }
 
   private handleConnected(): void {
-    // Polling in update() will pick up the new gamepad automatically.
+    // Polling in update() will pick up the new gamepad automatically. A
+    // reconnect is quarantined via the slot flag set by handleDisconnected()
+    // — a fresh pad (never disconnected) stays live immediately, while a
+    // reconnecting pad contributes nothing until it reports neutral.
   }
 
-  private handleDisconnected(): void {
+  private handleDisconnected(pad: Phaser.Input.Gamepad.Gamepad): void {
     this.core.clearSource('gamepad');
     for (let i = 0; i < this.previousHeld.length; i += 1) {
       this.previousHeld[i] = false;
@@ -392,6 +424,34 @@ class GamepadAdapter implements InputAdapter {
     for (let i = 0; i < this.currentHeld.length; i += 1) {
       this.currentHeld[i] = false;
     }
+    // Round-10: mark the slot so the next connect of THIS slot is
+    // quarantined until the pad reports neutral — the wrapper retains its
+    // stale button/stick values across the disconnect, and without the
+    // quarantine the next poll would treat them as fresh crossings (phantom
+    // confirm edges, instantly-restored movement; Epic 19 §6 journey-gate
+    // row 6). Grow-on-disconnect (connect-time allocation, not the poll
+    // path) keeps the per-frame budget at zero.
+    const slot = pad.index;
+    while (this.quarantined.length <= slot) {
+      this.quarantined.push(false);
+    }
+    this.quarantined[slot] = true;
+  }
+
+  /** Round-10: a quarantined pad reports neutral when every mapped button is
+   *  released AND the left stick sits within the movement deadzone — the
+   *  only state in which its retained held state can be safely forgotten.
+   *  Zero-allocation: iterates the precomputed frozen button entries. */
+  private isPadNeutral(pad: Phaser.Input.Gamepad.Gamepad, stickMagnitude: number): boolean {
+    if (stickMagnitude > this.deadzone) {
+      return false;
+    }
+    for (let e = 0; e < GAMEPAD_BUTTON_ENTRIES.length; e += 1) {
+      if (isButtonDown(pad, GAMEPAD_BUTTON_ENTRIES[e][1])) {
+        return false;
+      }
+    }
+    return true;
   }
 }
 

@@ -225,11 +225,102 @@ describe('InputController gamepad adapter', () => {
     controller.update(16);
     expect(confirm).not.toHaveBeenCalled();
 
-    // A reconnected pad works again.
+    // Round-10 quarantine (Epic 19 §6 journey-gate row 6): the SAME wrapper
+    // reconnects with button 0 still pressed and the stick still deflected.
+    // Stale held state must not resurrect as fresh crossings — no phantom
+    // confirm edge, no instantly-restored movement.
     input.gamepad!.connect(pad);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+    expect(confirm).not.toHaveBeenCalled();
+
+    // The quarantine lifts only when the pad reports NEUTRAL: every mapped
+    // button released AND the stick inside the movement deadzone.
+    pad.setButton(0, false);
+    pad.setLeftStick(0, 0);
+    controller.update(16);
+
+    // Fresh crossings work again after the quarantine clears: a release +
+    // re-press is a genuine new confirm edge (exactly one).
+    pad.setButton(0, true);
+    controller.update(16);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(confirm).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: 'confirm', source: 'gamepad' }),
+    );
+    pad.setButton(0, false);
+
+    // A reconnected pad works again.
     pad.setLeftStick(1, 0);
     controller.update(16);
     expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+  });
+
+  it('quarantines a reconnecting pad\'s retained stick until neutral, then permits fresh crossings (journey-gate §6 row 6)', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    pad.setLeftStick(0.8, 0);
+    controller.update(16);
+    expect(controller.getMoveVector().x).toBeGreaterThan(0);
+
+    // Disconnect with the stick still deflected; reconnect the SAME wrapper
+    // (which retains the deflection).
+    input.gamepad!.disconnect(pad);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+
+    input.gamepad!.connect(pad);
+    controller.update(16);
+    // Quarantined: the retained deflection must NOT instantly restore
+    // movement — the pad contributes nothing until it reports neutral.
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+
+    // Center the stick → neutral → quarantine clears.
+    pad.setLeftStick(0, 0);
+    controller.update(16);
+
+    // A fresh deflection is a genuine crossing again.
+    pad.setLeftStick(0.8, 0);
+    controller.update(16);
+    expect(controller.getMoveVector().x).toBeGreaterThan(0);
+  });
+
+  it('quarantine is per-pad: a fresh pad on another slot is unaffected (journey-gate §6 row 6)', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const padA = new MockGamepad(0);
+    input.gamepad!.connect(padA);
+
+    const confirm = vi.fn();
+    controller.onAction('confirm', confirm);
+
+    padA.setButton(0, true);
+    controller.update(16);
+    expect(confirm).toHaveBeenCalledTimes(1);
+
+    // Pad A disconnects and reconnects with button 0 still pressed → its
+    // slot is quarantined and the stale press must not fire again.
+    input.gamepad!.disconnect(padA);
+    input.gamepad!.connect(padA);
+    controller.update(16);
+    expect(confirm).toHaveBeenCalledTimes(1);
+
+    // Pad B connects fresh on ANOTHER slot with confirm already pressed: B
+    // never disconnected, so it is not quarantined and its press is a
+    // genuine crossing that fires normally while A stays suppressed.
+    const padB = new MockGamepad(1);
+    padB.setButton(0, true);
+    input.gamepad!.connect(padB);
+    controller.update(16);
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(confirm).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: 'confirm', source: 'gamepad' }),
+    );
+
+    // A's stale press still contributes nothing.
+    controller.update(16);
+    expect(confirm).toHaveBeenCalledTimes(2);
   });
 
   it('does not crash on a short (non-standard) pad (D5)', () => {
