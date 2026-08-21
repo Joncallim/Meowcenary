@@ -224,6 +224,7 @@ describe('PhaserRunSummaryView', () => {
   function createFakeScene() {
     const objects: Array<ReturnType<typeof fakeObject>> = [];
     let failNextText = false;
+    let failNextStroke = 0;
     const own = <T>(object: T): T => {
       const candidate = object as ReturnType<typeof fakeObject>;
       if (!objects.includes(candidate)) {
@@ -264,6 +265,12 @@ describe('PhaserRunSummaryView', () => {
           return state.strokeAlpha;
         },
         setText(text: string) {
+          // Real Phaser 3.90 throws on setText after destroy (nulled frame);
+          // mirror so stale refs fail the suite (round-8 finding — same
+          // vacuous-guard class as round-7's chooser fake).
+          if (state.destroyed) {
+            throw new Error(`setText called on destroyed object (${state.text ?? ''})`);
+          }
           return chain('text', text);
         },
         setOrigin() {
@@ -276,6 +283,12 @@ describe('PhaserRunSummaryView', () => {
           return api;
         },
         setStrokeStyle(width: number, color: number, alpha: number) {
+          if (failNextStroke > 0) {
+            failNextStroke -= 1;
+            if (failNextStroke === 0) {
+              throw new Error('Injected stroke failure');
+            }
+          }
           state.strokeWidth = width;
           state.strokeColor = color;
           state.strokeAlpha = alpha;
@@ -362,6 +375,9 @@ describe('PhaserRunSummaryView', () => {
       },
       failNextText() {
         failNextText = true;
+      },
+      failNextStroke(skip = 1) {
+        failNextStroke = skip;
       },
     };
     return scene;
@@ -484,6 +500,43 @@ describe('PhaserRunSummaryView', () => {
     } finally {
       errorSpy.mockRestore();
     }
+  });
+
+  it('clears the stale hint when a rebuild fails AFTER the hint is assigned (round-8)', () => {
+    let mode: InputMode = 'keyboard';
+    const { bus, scene, view } = createHarness({
+      banked: bankedRun(),
+      readInputMode: () => mode,
+    });
+    bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+    expect(view.visible).toBe(true);
+
+    // A rebuild fails LATE: skip the base strokes (backdrop + 2 modal
+    // buttons) so the throw lands in applyFocus, AFTER the hint was assigned
+    // (runSummary:306) but before publication. The catch must clear this.hint
+    // or the next mode transition calls setText() on the destroyed Text
+    // (round-8 — the fake now rejects destroyed setText like real Phaser).
+    scene.failNextStroke(4);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+    } finally {
+      errorSpy.mockRestore();
+    }
+    expect(view.visible).toBe(false);
+
+    // Mode transitions must neither touch the destroyed hint nor throw.
+    for (const nextMode of ['gamepad', 'pointer', 'keyboard'] as const) {
+      mode = nextMode;
+      expect(() => view.refreshInputPresentation()).not.toThrow();
+    }
+
+    // G-15: a later terminal event retries from a clean slate and the exact
+    // Retry command works again.
+    bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+    expect(view.visible).toBe(true);
+    expect(textContents(scene)).toContain('Run Complete');
+    view.destroy();
   });
 
   it('gates the R retry shortcut on visibility and ignores repeats', () => {
