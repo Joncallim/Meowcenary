@@ -680,20 +680,43 @@ describe('PhaserPauseView', () => {
     expect(controller.snapshot().panel).toBe('inventory');
   });
 
-  it('pointer-up on a disabled modal button syncs the index but never emits (F2)', () => {
-    const { scene, view, controller, bus } = createView();
+  it('syncs the pointer-up target index before a rejected same-panel activation and retains it for the next command (F2)', () => {
+    const { run, scene, view, controller, bus } = createView({ readInputMode: () => 'keyboard' });
     const events = recordEvents(bus);
     controller.pause();
     view.render(controller.snapshot());
-    const buttons = liveButtons(scene);
+    view.refreshInputPresentation();
+    let buttons = liveButtons(scene);
+    expect(buttons).toHaveLength(2);
 
-    // Different starting index: hover Weapon Rack (index 1), then pointer-up
-    // on Resume (index 0). The single funnel FIRST syncs the logical index to
-    // the activated target, THEN runs its command — Resume resumes the run.
-    buttons[1]!.state.handlers['pointerover']!();
-    expect(controller.snapshot().panel).toBe('pause');
+    // Begin on one logical index (Weapon Rack, 1) through the real logical seam.
+    expect(view.moveFocus('down')).toBe(true);
+    expect(events).toEqual(['ui:navigate']);
+    expect(buttons[1]!.state.strokeWidth).toBe(FocusStroke.width);
+
+    // Force a rejected same-panel activation: the run is resumed externally,
+    // so Resume's command is refused, the panel stays visible, and the
+    // rebuild is a same-panel preserve.
+    run.status = 'active';
+    run.pauseReason = null;
     buttons[0]!.state.handlers['pointerup']!();
-    expect(events).toEqual(['ui:back']);
+    expect(events).toEqual(['ui:navigate']);
+    expect(controller.snapshot().panel).toBe('pause');
+
+    // The pointer-up funnel FIRST synced the logical index to the activated
+    // target: the retained ring is Resume (0), not the stale Weapon Rack (1).
+    buttons = liveButtons(scene); // fresh handles after the same-panel rebuild
+    expect(buttons[0]!.state.strokeWidth).toBe(FocusStroke.width);
+    expect(buttons[0]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(buttons[0]!.state.strokeAlpha).toBe(FocusStroke.alpha);
+    expect(buttons[1]!.state.strokeColor).not.toBe(FocusStroke.color);
+
+    // The rejection consumed nothing: restore the manual pause and the next
+    // legal command acts from the synced Resume index — Resume still resumes.
+    run.status = 'paused';
+    run.pauseReason = 'manual';
+    expect(view.confirmFocused()).toBe(true);
+    expect(events).toEqual(['ui:navigate', 'ui:back']);
     expect(controller.snapshot().panel).toBe('closed');
   });
 

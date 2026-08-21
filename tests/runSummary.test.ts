@@ -503,22 +503,36 @@ describe('PhaserRunSummaryView', () => {
     expect(scene.scene.restart).toHaveBeenCalledTimes(1);
   });
 
-  it('routes the Retry and Main Menu buttons to scene navigation', () => {
-    const { bus, scene } = createHarness({ banked: bankedRun() });
+  it('syncs the pointer-up target index before Main Menu activation and retains it for the next wrap (F2)', () => {
+    let mode: InputMode = 'pointer';
+    const { bus, scene, view } = createHarness({ banked: bankedRun(), readInputMode: () => mode });
     bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
 
     const buttons = scene.objects.filter(
-      (object) =>
-        object.state.kind === 'rect' &&
-        object.state.interactive &&
-        object.state.width < 390 &&
-        object.state.handlers['pointerup'],
+      (object) => object.state.kind === 'rect' && object.state.handlers['pointerup'] && !object.state.destroyed,
     );
     expect(buttons).toHaveLength(2);
-    buttons[0]!.state.handlers['pointerup']();
-    expect(scene.scene.restart).toHaveBeenCalledTimes(1);
-    buttons[1]!.state.handlers['pointerup']();
+    // Default focus is Retry (0). Pointer-up DIRECTLY on Main Menu (1) with
+    // no pointer-over: the single surface funnel FIRST syncs the logical
+    // index to the activated target, THEN runs its command.
+    buttons[1]!.state.handlers['pointerup']!();
     expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
+
+    // The retained navigator now sits on Main Menu: keyboard focus reveals
+    // the exact retained ring BEFORE the next legal action.
+    mode = 'keyboard';
+    view.refreshInputPresentation();
+    expect(buttons[1]!.state.strokeWidth).toBe(FocusStroke.width);
+    expect(buttons[1]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(buttons[1]!.state.strokeAlpha).toBe(FocusStroke.alpha);
+    expect(buttons[0]!.state.strokeColor).not.toBe(FocusStroke.color);
+
+    // Exact subsequent wrap from Main Menu: down wraps to Retry (0).
+    expect(view.moveFocus('down')).toBe(true);
+    expect(buttons[0]!.state.strokeWidth).toBe(FocusStroke.width);
+    expect(buttons[0]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(buttons[0]!.state.strokeAlpha).toBe(FocusStroke.alpha);
+    expect(buttons[1]!.state.strokeColor).not.toBe(FocusStroke.color);
   });
 
   it('starts on Retry with the exact FocusStroke ring in keyboard mode, wraps linearly, and restores the exact base stroke (F4)', () => {

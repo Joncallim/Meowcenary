@@ -356,7 +356,7 @@ function createMenuPhase() {
   bus.on('ui:navigate', () => events.push('ui:navigate'));
   bus.on('ui:confirm', () => events.push('ui:confirm'));
   bus.on('ui:back', () => events.push('ui:back'));
-  return { menuScene, scene, input, pad, press, pointerCalls, textContents, sceneStart: scene.scene.start, bus, events };
+  return { menuScene, scene, input, pad, press, pointerCalls, textContents, sceneStart: scene.scene.start, sceneRestart: scene.scene.restart, bus, events };
 }
 
 // --- Game phase: real owners/views + GameScene.routeAction through one cast ---
@@ -550,6 +550,29 @@ function focusedButtonIndex(scene: ReturnType<typeof createFakeScene>): number {
   );
 }
 
+/** Per-step scene-command counts for exact start/restart DELTA assertions
+ *  (round-3 finding F3): navigation must never trigger a scene transition
+ *  except the three genuine ones (Game start step 5, Retry restart step 13,
+ *  Menu start step 14). */
+function sceneCommands(scene: ReturnType<typeof createFakeScene>): { start: number; restart: number } {
+  return {
+    start: scene.scene.start.mock.calls.length,
+    restart: scene.scene.restart.mock.calls.length,
+  };
+}
+
+function expectSceneDeltas(
+  before: { start: number; restart: number },
+  scene: ReturnType<typeof createFakeScene>,
+  phase: string,
+  expected: { start?: number; restart?: number } = {},
+): { start: number; restart: number } {
+  const after = sceneCommands(scene);
+  expect(after.start - before.start, `${phase}: scene.start delta`).toBe(expected.start ?? 0);
+  expect(after.restart - before.restart, `${phase}: scene.restart delta`).toBe(expected.restart ?? 0);
+  return after;
+}
+
 describe('headless production controller journey', () => {
   it('walks menu → run → level-up → pause → rack merge → summary across real owners with zero pointer input', () => {
     // ------------------------------------------------------------------
@@ -562,6 +585,7 @@ describe('headless production controller journey', () => {
       }).controller.snapshot();
 
     // 1. Menu home: navDown, confirm → Character.
+    let sceneBefore = sceneCommands(menu.scene);
     menu.press(13);
     expect(menu.events).toEqual(['ui:navigate']);
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
@@ -569,7 +593,7 @@ describe('headless production controller journey', () => {
     expect(menu.events).toEqual(['ui:navigate', 'ui:confirm']);
     expect(menu.textContents()).toContain('Choose Character');
     expect(menuSnapshot().panel).toBe('character');
-    expect(menu.sceneStart).not.toHaveBeenCalled();
+    sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 1');
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
     assertZeroPointerCalls(menu.pointerCalls, 'menu step 1');
 
@@ -583,7 +607,7 @@ describe('headless production controller journey', () => {
     expect(menu.events).toEqual(['ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back']);
     expect(menu.textContents()).toContain('Start');
     expect(menuSnapshot().panel).toBe('home');
-    expect(menu.sceneStart).not.toHaveBeenCalled();
+    sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 2');
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
     assertZeroPointerCalls(menu.pointerCalls, 'menu step 2');
 
@@ -599,7 +623,7 @@ describe('headless production controller journey', () => {
     ]);
     expect(menu.textContents()).toContain('Choose Arena');
     expect(menuSnapshot().panel).toBe('arena');
-    expect(menu.sceneStart).not.toHaveBeenCalled();
+    sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 3');
     assertZeroPointerCalls(menu.pointerCalls, 'menu step 3');
 
     // 4. Arena: confirm the visible default, then back → Home.
@@ -615,16 +639,17 @@ describe('headless production controller journey', () => {
     ]);
     expect(menu.textContents()).toContain('Start');
     expect(menuSnapshot().panel).toBe('home');
-    expect(menu.sceneStart).not.toHaveBeenCalled();
+    sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 4');
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
     assertZeroPointerCalls(menu.pointerCalls, 'menu step 4');
 
-    // 5. Home (panel reset): confirm → exactly one Game scene start.
+    // 5. Home (panel reset): confirm → exactly one Game scene start and no
+    //    restart (F3).
     menu.press(0);
     expect(menu.events).toEqual([
       'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:confirm',
     ]);
-    expect(menu.sceneStart).toHaveBeenCalledTimes(1);
+    sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 5', { start: 1 });
     expect(menu.sceneStart).toHaveBeenCalledWith(SceneKey.Game);
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
     assertZeroPointerCalls(menu.pointerCalls, 'menu step 5');
@@ -634,7 +659,7 @@ describe('headless production controller journey', () => {
     // GameScene.routeAction.
     // ------------------------------------------------------------------
     const game = createGamePhase();
-    const scenePlugin = game.scene.scene;
+    sceneBefore = sceneCommands(game.scene);
 
     // 6. A real level:up through UpgradeSystem/UpgradeChooser. The level-up
     //    chooser row is inside the pointer-free journey.
@@ -675,8 +700,8 @@ describe('headless production controller journey', () => {
     expect(chooserCards()[1]!.state.strokeColor).toBe(FocusStroke.color);
     expect(chooserCards()[1]!.state.strokeAlpha).toBe(FocusStroke.alpha);
     expect(chooserCards()[0]!.state.strokeColor).not.toBe(FocusStroke.color);
-    expect(scenePlugin.start).not.toHaveBeenCalled();
-    expect(scenePlugin.restart).not.toHaveBeenCalled();
+    expect(sceneBefore.start).toBe(0);
+    expect(sceneBefore.restart).toBe(0);
 
     // confirm chooses exactly the focused offer token and returns to active
     // play; the authoritative run snapshot reflects the accepted choice. The
@@ -686,6 +711,7 @@ describe('headless production controller journey', () => {
     expect(game.runState.status).toBe('active');
     expect(game.runState.upgradeStacks[offeredIds[1]!]).toBe(1);
     expect(game.upgradeChooser.diagnostics.choiceIds).toEqual([]);
+    sceneBefore = expectSceneDeltas(sceneBefore, game.scene, 'chooser step 6');
     assertZeroPointerCalls(game.pointerCalls, 'chooser step 6');
 
     // 7. Pause (position 9) → manual pause panel with Resume focused.
@@ -696,6 +722,7 @@ describe('headless production controller journey', () => {
     expect(game.pauseController.snapshot().panel).toBe('pause');
     expect(focusedButtonIndex(game.scene)).toBe(0);
     expect(focusRingTargets(game.scene)).toHaveLength(1);
+    sceneBefore = expectSceneDeltas(sceneBefore, game.scene, 'pause entry step 7');
     assertZeroPointerCalls(game.pointerCalls, 'pause entry step 7');
 
     // 8. navDown, confirm → Weapon Rack (one ui:navigate, one ui:confirm).
@@ -707,8 +734,7 @@ describe('headless production controller journey', () => {
     // Genuine rack entry resets to the first occupied slot.
     expect(focusedTargetIndex(game.scene)).toBe(0);
     expect(focusRingTargets(game.scene)).toHaveLength(1);
-    expect(scenePlugin.start).not.toHaveBeenCalled();
-    expect(scenePlugin.restart).not.toHaveBeenCalled();
+    sceneBefore = expectSceneDeltas(sceneBefore, game.scene, 'rack entry step 8');
     assertZeroPointerCalls(game.pointerCalls, 'rack entry step 8');
 
     // 9. Rack: confirm slot 0; navRight, confirm slot 1. The preview exists
@@ -726,6 +752,7 @@ describe('headless production controller journey', () => {
     expect(game.inventory.snapshot().preview?.result.definitionId).toBe('scrap-pistol-t2');
     expect(focusedTargetIndex(game.scene)).toBe(1);
     expect(focusRingTargets(game.scene)).toHaveLength(1);
+    sceneBefore = expectSceneDeltas(sceneBefore, game.scene, 'rack selection step 9');
     assertZeroPointerCalls(game.pointerCalls, 'rack selection step 9');
 
     // 10. Portrait grid (count=8, C=2): from i=1 the path is exactly
@@ -755,6 +782,7 @@ describe('headless production controller journey', () => {
     expect(game.runState.equipped[0]?.tier).toBe(2);
     expect(focusedTargetIndex(game.scene)).toBe(6);
     expect(focusRingTargets(game.scene)).toHaveLength(1);
+    sceneBefore = expectSceneDeltas(sceneBefore, game.scene, 'rack merge step 10');
     assertZeroPointerCalls(game.pointerCalls, 'rack merge step 10');
 
     // 11. back → Pause (selection cleared / panel walk preserved), back →
@@ -767,8 +795,7 @@ describe('headless production controller journey', () => {
     expect(game.pauseController.snapshot().panel).toBe('closed');
     expect(game.runState.status).toBe('active');
     expect(game.events.slice(eventsBeforeMerge)).toEqual(['ui:confirm', 'ui:back', 'ui:back']);
-    expect(scenePlugin.start).not.toHaveBeenCalled();
-    expect(scenePlugin.restart).not.toHaveBeenCalled();
+    sceneBefore = expectSceneDeltas(sceneBefore, game.scene, 'back walk step 11');
     assertZeroPointerCalls(game.pointerCalls, 'back walk step 11');
 
     // 12. End the run: the terminal listener renders the summary with Retry
@@ -784,16 +811,14 @@ describe('headless production controller journey', () => {
     game.press(3); // inventory — discarded
     expect(game.events.length).toBe(eventsBeforeTerminal);
     expect(focusedButtonIndex(game.scene)).toBe(0);
-    expect(scenePlugin.restart).not.toHaveBeenCalled();
-    expect(scenePlugin.start).not.toHaveBeenCalled();
+    sceneBefore = expectSceneDeltas(sceneBefore, game.scene, 'terminal discarded edges step 12');
     assertZeroPointerCalls(game.pointerCalls, 'terminal discarded edges step 12');
 
-    // 13. Retry branch: confirm → exactly one scene restart.
+    // 13. Retry branch: confirm → exactly one scene restart (F3).
     const eventsBeforeRetry = game.events.length;
     game.press(0);
     expect(game.events.slice(eventsBeforeRetry)).toEqual(['ui:confirm']);
-    expect(scenePlugin.restart).toHaveBeenCalledTimes(1);
-    expect(scenePlugin.start).not.toHaveBeenCalled();
+    sceneBefore = expectSceneDeltas(sceneBefore, game.scene, 'retry branch step 13', { restart: 1 });
     assertZeroPointerCalls(game.pointerCalls, 'retry branch step 13');
 
     // ------------------------------------------------------------------
@@ -808,16 +833,17 @@ describe('headless production controller journey', () => {
     expect(focusedButtonIndex(fresh.scene)).toBe(0);
     expect(focusRingTargets(fresh.scene)).toHaveLength(1);
 
-    // navDown → Main Menu, confirm → exactly one Menu scene start.
+    // navDown → Main Menu, confirm → exactly one Menu scene start and no
+    // restart (F3).
     const beforeMenu = fresh.events.length;
+    const sceneBefore14 = sceneCommands(fresh.scene);
     fresh.press(13);
     expect(fresh.events.slice(beforeMenu)).toEqual(['ui:navigate']);
     expect(focusedButtonIndex(fresh.scene)).toBe(1);
     fresh.press(0);
     expect(fresh.events.slice(beforeMenu)).toEqual(['ui:navigate', 'ui:confirm']);
-    expect(fresh.scene.scene.start).toHaveBeenCalledTimes(1);
+    expectSceneDeltas(sceneBefore14, fresh.scene, 'main menu branch step 14', { start: 1 });
     expect(fresh.scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
-    expect(fresh.scene.scene.restart).not.toHaveBeenCalled();
     assertZeroPointerCalls(fresh.pointerCalls, 'main menu branch step 14');
   });
 });
