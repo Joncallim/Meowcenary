@@ -7,6 +7,8 @@ import { formatNumber, formatTime } from './format';
 import { minimumHitTarget, physicalToLogical, type UiViewport } from './layout';
 import { createModalTextHelpers, type ModalTextHelpers } from './modal';
 import { ThemeColor, ThemeDepth, ThemeFont } from './theme';
+import { FocusNavigator, type FocusDirection } from './focusList';
+import type { InputMode } from '../systems/input';
 
 export interface RunSummarySnapshot {
   readonly outcome: RunOutcome;
@@ -68,6 +70,7 @@ export interface PhaserRunSummaryViewOptions {
   readonly viewport: UiViewport;
   readonly bus: EventBus;
   readonly controller: RunSummaryController;
+  readonly readInputMode?: () => InputMode;
 }
 
 /** Terminal win/loss surface: reads the already-banked run and offers Retry or
@@ -80,10 +83,17 @@ export class PhaserRunSummaryView {
   private readonly viewport: UiViewport;
   private readonly bus: EventBus;
   private readonly controller: RunSummaryController;
+  private readonly readInputMode: () => InputMode;
   private readonly modal: ModalTextHelpers;
   private readonly unsubscribers: Array<() => void>;
   private root?: Phaser.GameObjects.Container;
   private disposed = false;
+  private readonly navigator = new FocusNavigator('linear');
+  private buttons: import('./modal').ModalButtonHandle[] = [];
+  private hint?: Phaser.GameObjects.Text;
+  private summaryActive = false;
+  private inputMode: InputMode = 'pointer';
+  private lastInputMode: InputMode = 'pointer';
 
   constructor(options: PhaserRunSummaryViewOptions) {
     this.scene = options.scene;
@@ -93,6 +103,7 @@ export class PhaserRunSummaryView {
     this.viewport = options.viewport;
     this.bus = options.bus;
     this.controller = options.controller;
+    this.readInputMode = options.readInputMode ?? (() => 'pointer');
     this.modal = createModalTextHelpers(options.scene, options.viewport);
     this.unsubscribers = [
       options.bus.on('run:won', this.handleTerminal),
@@ -105,6 +116,30 @@ export class PhaserRunSummaryView {
     return !this.disposed && this.root !== undefined;
   }
 
+  moveFocus(direction: FocusDirection): boolean {
+    if (!this.visible) return false;
+    const moved = this.navigator.move(direction);
+    if (moved) {
+      this.applyFocus();
+      this.bus.emit('ui:navigate', {});
+    }
+    return moved;
+  }
+
+  confirmFocused(): boolean {
+    if (!this.visible) return false;
+    return this.buttons[this.navigator.index]?.activate() ?? false;
+  }
+
+  refreshInputPresentation(): void {
+    const mode = this.readInputMode!();
+    if (mode === this.lastInputMode) return;
+    this.lastInputMode = mode;
+    this.inputMode = mode;
+    if (this.hint) this.hint.setText(this.hintCopy());
+    this.applyFocus();
+  }
+
   destroy(): void {
     if (this.disposed) {
       return;
@@ -114,6 +149,10 @@ export class PhaserRunSummaryView {
     this.scene.input.keyboard?.off('keydown-R', this.handleRetryKey, this);
     this.root?.destroy(true);
     this.root = undefined;
+    this.summaryActive = false;
+    this.buttons = [];
+    this.hint = undefined;
+    this.navigator.setCount(0);
   }
 
   private readonly handleTerminal = (): void => {
@@ -156,6 +195,7 @@ export class PhaserRunSummaryView {
     if (this.disposed) {
       return;
     }
+    const wasActive = this.summaryActive;
     this.root?.destroy(true);
     this.root = undefined;
 
@@ -238,22 +278,41 @@ export class PhaserRunSummaryView {
       }
 
       const retryY = height - margin - hitTarget * 2 - 20;
-      this.modal.addButton(root, centerX, retryY, buttonWidth, 'Retry', () => {
+      const retry = this.modal.addButton(root, centerX, retryY, buttonWidth, 'Retry', () => {
         this.retry();
       }, true);
-      this.modal.addButton(root, centerX, retryY + hitTarget + 12, buttonWidth, 'Main Menu', () => {
+      const menu = this.modal.addButton(root, centerX, retryY + hitTarget + 12, buttonWidth, 'Main Menu', () => {
         this.returnToMenu();
       });
+      this.buttons = [retry, menu];
+      this.navigator.setCount(this.buttons.length);
+      if (!wasActive) this.navigator.reset();
 
-      this.modal.addHint(root, margin, height - margin - 14, 'R to retry');
+      this.hint = this.modal.addHint(root, margin, height - margin - 14, this.hintCopy());
+      this.applyFocus();
 
       // The root is only published once the display tree is fully built, so a
       // failed render leaves the view invisible and a later terminal event can
       // retry from a clean slate.
       this.root = root;
+      this.summaryActive = true;
     } catch (error) {
       root.destroy(true);
       throw error;
+    }
+  }
+
+  private applyFocus(): void {
+    this.buttons.forEach((button, index) => {
+      button.setFocusVisible(this.inputMode === 'pointer' ? false : index === this.navigator.index);
+    });
+  }
+
+  private hintCopy(): string {
+    switch (this.readInputMode!()) {
+      case 'keyboard': return 'Arrows • Enter/Space select';
+      case 'gamepad': return 'D-pad/stick • Bottom face select';
+      default: return 'Tap Retry or Main Menu';
     }
   }
 }

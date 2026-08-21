@@ -3,12 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 // evaluation time. The mock registration in __mocks__/phaser is a side-effectful
 // import; ordering it first guarantees the mock is installed before the real
 // Phaser module is ever requested.
-import { MockInputPlugin } from './__mocks__/phaser';
+import { MockGamepad, MockInputPlugin } from './__mocks__/phaser';
 import { createEventBus } from '../src/engine/eventBus';
 import { GAME_CONTEXT_REGISTRY_KEY, createGameContext } from '../src/engine/context';
 import { createRng } from '../src/engine/rng';
 import { GameScene } from '../src/scenes/GameScene';
-import { InputController } from '../src/systems/input';
+import { InputController, type GameAction } from '../src/systems/input';
+import { createRunState } from '../src/gameplay/runState';
 import { DataArenaRegistry } from '../src/systems/arenas';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
@@ -30,7 +31,8 @@ interface AudioSeams {
   removeAudioUnlockListeners: () => void;
   getAudioManager: () => AudioManager | undefined;
   handleShutdown: () => void;
-  routeAction: (action: 'pause' | 'back' | 'inventory') => void;
+  routeAction: (action: GameAction) => void;
+  runState?: ReturnType<typeof createRunState>;
   pauseController:
     | {
         snapshot: () => { panel: 'closed' | 'pause' | 'inventory'; inventory: unknown };
@@ -42,6 +44,8 @@ interface AudioSeams {
       }
     | undefined;
   pauseView: { render: (snapshot: unknown) => void } | undefined;
+  runSummaryView?: { moveFocus: (direction: string) => boolean; confirmFocused: () => boolean };
+  upgradeChooser?: { focusPrevious: () => boolean; focusNext: () => boolean; confirmFocused: () => boolean };
 }
 
 /** A real factory-created context — the only kind the brand accepts (same
@@ -69,7 +73,7 @@ function createFakeEnvironment(
   },
   context?: { bus: ReturnType<typeof createEventBus> },
 ) {
-  const input = new MockInputPlugin({ keyboard: true });
+  const input = new MockInputPlugin({ keyboard: true, gamepad: true });
 
   // The registry accessor is branded: only factory-created contexts pass
   // isGameContext (Epic 19 round-1 adversarial fix). routeAction fetches
@@ -120,7 +124,9 @@ function createFakeEnvironment(
   const seams = scene as unknown as AudioSeams;
   seams.inputController = inputController;
 
-  return { scene, seams, input, keyboard: input.keyboard!, lifecycle, inputController };
+  const gamepad = new MockGamepad();
+  input.gamepad!.connect(gamepad);
+  return { scene, seams, input, keyboard: input.keyboard!, gamepad, lifecycle, inputController };
 }
 
 function createAudioFake() {
@@ -230,6 +236,13 @@ describe('GameScene audio lifecycle seams', () => {
 });
 
 describe('GameScene routeAction (§5 routing matrix)', () => {
+  function activeRun(status: ReturnType<typeof createRunState>['status'] = 'active') {
+    const state = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
+    state.status = status;
+    state.pauseReason = status === 'paused' ? 'manual' : null;
+    return state;
+  }
+
   function createPauseFixture(panel: 'closed' | 'pause' | 'inventory', accepted: boolean) {
     const bus = createEventBus();
     const events: string[] = [];
@@ -312,6 +325,99 @@ describe('GameScene routeAction (§5 routing matrix)', () => {
     const { seams } = createFakeEnvironment();
 
     expect(() => seams.routeAction('pause')).not.toThrow();
+  });
+
+  it('gives terminal state precedence and does not fall through on discarded edges', () => {
+    const { seams, controller } = createPauseFixture('pause', true);
+    seams.runState = activeRun('won');
+    const summary = {
+      moveFocus: vi.fn(() => true),
+      confirmFocused: vi.fn(() => true),
+    };
+    seams.runSummaryView = summary;
+
+    seams.routeAction('back');
+    seams.routeAction('pause');
+    seams.routeAction('inventory');
+    seams.routeAction('navRight');
+    seams.routeAction('confirm');
+
+    expect(summary.moveFocus).toHaveBeenCalledWith('right');
+    expect(summary.confirmFocused).toHaveBeenCalledTimes(1);
+    expect(controller.resume).not.toHaveBeenCalled();
+    expect(controller.openInventory).not.toHaveBeenCalled();
+  });
+
+  it('gives level-up chooser precedence even when the pause panel seam is stale', () => {
+    const { seams, controller } = createPauseFixture('inventory', true);
+    seams.runState = activeRun('paused');
+    seams.runState.pauseReason = 'levelUp';
+    const chooser = {
+      focusPrevious: vi.fn(() => true),
+      focusNext: vi.fn(() => true),
+      confirmFocused: vi.fn(() => true),
+    };
+    seams.upgradeChooser = chooser;
+
+    seams.routeAction('back');
+    seams.routeAction('pause');
+    seams.routeAction('inventory');
+    seams.routeAction('navLeft');
+    seams.routeAction('navDown');
+    seams.routeAction('confirm');
+
+    expect(chooser.focusPrevious).toHaveBeenCalledTimes(1);
+    expect(chooser.focusNext).toHaveBeenCalledTimes(1);
+    expect(chooser.confirmFocused).toHaveBeenCalledTimes(1);
+    expect(controller.back).not.toHaveBeenCalled();
+  });
+
+  it('delegates pause and inventory navigation/confirm to the owning view', () => {
+    const { seams } = createPauseFixture('pause', true);
+    seams.runState = activeRun('paused');
+    const view = {
+      render: vi.fn(),
+      moveFocus: vi.fn(() => true),
+      confirmFocused: vi.fn(() => true),
+    };
+    seams.pauseView = view;
+
+    seams.routeAction('navUp');
+    seams.routeAction('confirm');
+    expect(view.moveFocus).toHaveBeenCalledWith('up');
+    expect(view.confirmFocused).toHaveBeenCalledTimes(1);
+
+    const fixture = createPauseFixture('inventory', true);
+    fixture.seams.runState = activeRun('paused');
+    fixture.seams.pauseView = view;
+    fixture.seams.routeAction('navRight');
+    fixture.seams.routeAction('confirm');
+    expect(view.moveFocus).toHaveBeenCalledWith('right');
+    expect(view.confirmFocused).toHaveBeenCalledTimes(2);
+  });
+
+  it('routes one real gamepad edge and ignores the held repeat', () => {
+    const bus = createEventBus();
+    const { seams, gamepad, inputController } = createFakeEnvironment(undefined, { bus });
+    const controller = {
+      snapshot: vi.fn(() => ({ panel: 'closed' as const, inventory: {} })),
+      pause: vi.fn(() => true),
+      resume: vi.fn(() => true),
+      back: vi.fn(() => true),
+      openInventory: vi.fn(() => true),
+      openInventoryFromRun: vi.fn(() => true),
+    };
+    seams.pauseController = controller;
+    seams.runState = activeRun();
+    inputController.onAction('inventory', () => seams.routeAction('inventory'));
+
+    gamepad.setButton(3, true);
+    inputController.update(16);
+    inputController.update(16);
+    gamepad.setButton(3, false);
+    inputController.update(16);
+
+    expect(controller.openInventoryFromRun).toHaveBeenCalledTimes(1);
   });
 
   it('routes the real I-key logical action edge through the matrix', () => {

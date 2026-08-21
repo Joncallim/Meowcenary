@@ -10,8 +10,11 @@ import {
 } from './inventory';
 import { physicalToLogical, safeDisplayScale, type UiViewport } from './layout';
 import type { ModalTextHelpers } from './modal';
-import { ThemeColor, ThemeFont } from './theme';
+import { FocusStroke, ThemeColor, ThemeFont } from './theme';
 import { computeWeaponRackLayout } from './weaponRackLayout';
+import { FocusNavigator, type FocusDirection } from './focusList';
+import type { InputMode } from '../systems/input';
+import type { ModalButtonHandle } from './modal';
 
 export interface PhaserWeaponRackPanelOptions {
   readonly scene: Phaser.Scene;
@@ -23,6 +26,7 @@ export interface PhaserWeaponRackPanelOptions {
   readonly onBack: () => boolean;
   readonly requestRender: () => void;
   readonly visualArt?: VisualArtLookup;
+  readonly readInputMode?: () => InputMode;
 }
 
 interface MergeConfirmation {
@@ -49,6 +53,13 @@ export class PhaserWeaponRackPanel {
   private notice?: string;
   private confirmation?: MergeConfirmation;
   private disposed = false;
+  private readonly navigator = new FocusNavigator('grid', 2);
+  private inputMode: InputMode = 'pointer';
+  private lastInputMode: InputMode = 'pointer';
+  private readonly readInputMode: () => InputMode;
+  private focusTargets: Array<{ target: Phaser.GameObjects.Rectangle; activate: () => boolean; setFocusVisible: (visible: boolean) => void }> = [];
+  private hoveredIndex = -1;
+  private hint?: Phaser.GameObjects.Text;
 
   constructor(options: PhaserWeaponRackPanelOptions) {
     this.scene = options.scene;
@@ -60,6 +71,7 @@ export class PhaserWeaponRackPanel {
     this.onBack = options.onBack;
     this.requestRender = options.requestRender;
     this.visualArt = options.visualArt;
+    this.readInputMode = options.readInputMode ?? (() => 'pointer');
     options.scene.input?.keyboard?.on('keydown', this.handleKeyDown, this);
   }
 
@@ -69,6 +81,10 @@ export class PhaserWeaponRackPanel {
     width: number,
   ): void {
     const layout = computeWeaponRackLayout(this.viewport, snapshot.capacity);
+    this.focusTargets = [];
+    this.hoveredIndex = -1;
+    this.navigator.setColumns(layout.columns);
+    this.navigator.setCount(snapshot.capacity + 2);
     const heading = this.modal.addText(layout.margin, layout.margin, 'Weapon Rack', 'heading');
     root.add(heading);
     const count = this.modal.addText(
@@ -91,11 +107,12 @@ export class PhaserWeaponRackPanel {
       const keyHint = this.modal.addText(
         layout.margin,
         layout.keyHintY,
-        'Keys 1–6 • Enter merges',
+        this.hintCopy(),
         'body',
       );
       root.add(keyHint);
       keyHint.setOrigin(0, 0);
+      this.hint = keyHint;
     }
 
     snapshot.slots.forEach((weapon, index) => {
@@ -107,7 +124,7 @@ export class PhaserWeaponRackPanel {
       const y = layout.gridTop
         + layout.cardHeight / 2
         + row * (layout.cardHeight + layout.gap);
-      this.renderRackSlot(
+      const slot = this.renderRackSlot(
         root,
         weapon,
         index,
@@ -117,6 +134,10 @@ export class PhaserWeaponRackPanel {
         layout.cardHeight,
         layout.compact,
       );
+      this.registerTarget(slot, index, weapon ? () => {
+        this.selectWeapon(weapon.instanceId);
+        return true;
+      } : () => false, slot.strokeColor, slot.strokeAlpha);
     });
 
     this.renderPreview(
@@ -137,7 +158,7 @@ export class PhaserWeaponRackPanel {
       : layout.compact
         ? 'PICK PAIR'
         : 'SELECT A MATCHING PAIR';
-    this.modal.addButton(
+    const merge = this.modal.addButton(
       root,
       layout.mergeAction.x,
       layout.mergeAction.y,
@@ -147,7 +168,8 @@ export class PhaserWeaponRackPanel {
       canCommit,
       canCommit,
     );
-    this.modal.addButton(
+    this.registerModalTarget(merge, snapshot.capacity);
+    const back = this.modal.addButton(
       root,
       layout.backAction.x,
       layout.backAction.y,
@@ -160,6 +182,11 @@ export class PhaserWeaponRackPanel {
         this.requestRender();
       },
     );
+    this.registerModalTarget(back, snapshot.capacity + 1);
+    if (snapshot.weapons.length === 0) {
+      this.navigator.setIndex(snapshot.capacity + 1);
+    }
+    this.applyFocus();
   }
 
   updateLayoutContext(viewport: UiViewport, modal: ModalTextHelpers): void {
@@ -170,6 +197,10 @@ export class PhaserWeaponRackPanel {
   reset(): void {
     this.notice = undefined;
     this.confirmation = undefined;
+    this.focusTargets = [];
+    this.hoveredIndex = -1;
+    this.hint = undefined;
+    this.navigator.setCount(0);
   }
 
   destroy(): void {
@@ -190,7 +221,7 @@ export class PhaserWeaponRackPanel {
     width: number,
     height: number,
     compact: boolean,
-  ): void {
+  ): Phaser.GameObjects.Rectangle {
     const strokeWidth = physicalToLogical(2, this.viewport);
     if (!weapon) {
       const slot = this.scene.add.rectangle(x, y, width, height, ThemeColor.surface, 0.72);
@@ -205,7 +236,8 @@ export class PhaserWeaponRackPanel {
       );
       root.add(empty);
       empty.setOrigin(0.5);
-      return;
+      slot.setInteractive();
+      return slot;
     }
 
     const state = weapon.selectionState;
@@ -277,7 +309,7 @@ export class PhaserWeaponRackPanel {
       );
       root.add(family);
       family.setOrigin(0.5, 0);
-      return;
+      return card;
     }
 
     this.renderWeaponGlyph(root, weapon.iconId, left + 28, y + 2, stroke, false);
@@ -306,6 +338,7 @@ export class PhaserWeaponRackPanel {
       width - 64,
     );
     root.add(stats);
+    return card;
   }
 
   private renderWeaponGlyph(
@@ -485,6 +518,10 @@ export class PhaserWeaponRackPanel {
   }
 
   private selectWeapon(instanceId: string): void {
+    const slotIndex = this.inventory.snapshot().slots.findIndex(
+      (weapon) => weapon?.instanceId === instanceId,
+    );
+    if (slotIndex >= 0) this.navigator.setIndex(slotIndex);
     this.confirmation = undefined;
     this.notice = undefined;
     const before = this.inventory.snapshot().selectedInstanceIds.join('|');
@@ -493,6 +530,80 @@ export class PhaserWeaponRackPanel {
       this.bus.emit('ui:navigate', {});
     }
     this.requestRender();
+  }
+
+  moveFocus(direction: FocusDirection): boolean {
+    if (this.disposed || !this.isOpen()) return false;
+    const moved = this.navigator.move(direction);
+    if (moved) {
+      this.applyFocus();
+      this.bus.emit('ui:navigate', {});
+    }
+    return moved;
+  }
+
+  confirmFocused(): boolean {
+    if (this.disposed || !this.isOpen()) return false;
+    return this.focusTargets[this.navigator.index]?.activate() ?? false;
+  }
+
+  refreshInputPresentation(): void {
+    const mode = this.readInputMode();
+    if (mode === this.lastInputMode) return;
+    this.lastInputMode = mode;
+    this.inputMode = mode;
+    if (this.hint) this.hint.setText(this.hintCopy());
+    this.applyFocus();
+  }
+
+  private registerModalTarget(handle: ModalButtonHandle, index: number): void {
+    this.focusTargets[index] = {
+      target: handle.target,
+      activate: handle.activate,
+      setFocusVisible: handle.setFocusVisible,
+    };
+  }
+
+  private registerTarget(
+    target: Phaser.GameObjects.Rectangle,
+    index: number,
+    activate: () => boolean,
+    baseColor: number,
+    baseAlpha: number,
+  ): void {
+    const baseWidth = physicalToLogical(2, this.viewport);
+    target.on(Phaser.Input.Events.POINTER_OVER, () => {
+      this.hoveredIndex = index;
+      this.navigator.setIndex(index);
+      this.applyFocus();
+    });
+    target.on(Phaser.Input.Events.POINTER_OUT, () => {
+      if (this.hoveredIndex === index) this.hoveredIndex = -1;
+      this.applyFocus();
+    });
+    this.focusTargets[index] = {
+      target,
+      activate,
+      setFocusVisible: (visible) => target.setStrokeStyle(
+        visible ? FocusStroke.width : baseWidth,
+        visible ? FocusStroke.color : baseColor,
+        visible ? FocusStroke.alpha : baseAlpha,
+      ),
+    };
+  }
+
+  private applyFocus(): void {
+    this.focusTargets.forEach((entry, index) => {
+      entry?.setFocusVisible(this.inputMode === 'pointer' ? index === this.hoveredIndex : index === this.navigator.index);
+    });
+  }
+
+  private hintCopy(): string {
+    switch (this.readInputMode()) {
+      case 'keyboard': return 'Arrows • Enter/Space select • Esc back';
+      case 'gamepad': return 'D-pad/stick • Bottom face select • Right face back';
+      default: return 'Tap weapons/actions';
+    }
   }
 
   private commitMerge(): void {
@@ -563,13 +674,10 @@ export class PhaserWeaponRackPanel {
       const weapon = this.inventory.snapshot().slots[Number(event.key) - 1];
       if (weapon) {
         event.preventDefault();
+        this.navigator.setIndex(Number(event.key) - 1);
         this.selectWeapon(weapon.instanceId);
       }
       return;
-    }
-    if (event.key === 'Enter' && this.inventory.snapshot().preview) {
-      event.preventDefault();
-      this.commitMerge();
     }
   }
 }

@@ -293,7 +293,7 @@ describe('MenuScene', () => {
         'Arena',
         'Progression',
         'Settings',
-        '↑/↓ • Enter • Esc',
+        'Tap a choice',
       ]),
     );
     expect(objects.filter((object) => object.state.kind === 'container')).toHaveLength(1);
@@ -495,10 +495,11 @@ describe('MenuScene UI command events', () => {
     // index, so no navigate cue may fire.
     const seams = menuScene as unknown as {
       focusables: Array<ReturnType<typeof fakeObject>>;
-      focusIndex: number;
+      navigator: { setCount: (count: number) => void; setIndex: (index: number) => void };
     };
     seams.focusables = [fakeObject('text', 'only', 100, 32)];
-    seams.focusIndex = 0;
+    seams.navigator.setCount(1);
+    seams.navigator.setIndex(0);
 
     keyboard.keydown('ArrowDown');
     menuScene.update(0, 16);
@@ -511,9 +512,9 @@ describe('MenuScene UI command events', () => {
     const events = recordEvents(bus);
     const seams = menuScene as unknown as {
       focusables: Array<ReturnType<typeof fakeObject>>;
-      focusIndex: number;
+      navigator: { index: number };
     };
-    const startIndex = seams.focusIndex;
+    const startIndex = seams.navigator.index;
 
     // Polled adapters read Key.isDown, so OS key-repeat events are irrelevant
     // by construction. A held ArrowDown emits exactly one navDown edge on the
@@ -523,7 +524,7 @@ describe('MenuScene UI command events', () => {
     menuScene.update(0, 16);
 
     expect(events).toEqual(['ui:navigate']);
-    expect(seams.focusIndex).toBe(startIndex + 1);
+    expect(seams.navigator.index).toBe(startIndex + 1);
 
     // Still held, but well under the 400ms repeat delay: no repeat edge.
     keyboard.keydown('ArrowDown', true);

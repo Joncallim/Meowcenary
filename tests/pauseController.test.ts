@@ -747,11 +747,18 @@ describe('PhaserPauseView', () => {
     expect(scene.triggerKey('1')).toBe(true);
     expect(scene.triggerKey('2')).toBe(true);
     expect(controller.snapshot().inventory.preview?.result.definitionId).toBe('scrap-pistol-t2');
-    expect(scene.triggerKey('Enter')).toBe(true);
+    view.moveFocus('down');
+    view.moveFocus('down');
+    view.moveFocus('down');
+    view.moveFocus('left');
+    expect(scene.triggerKey('Enter')).toBe(false);
+    expect(view.confirmFocused()).toBe(true);
 
     expect(run.equipped).toHaveLength(1);
     expect(run.equipped[0]?.defId).toBe('scrap-pistol-t2');
-    expect(events).toEqual(['ui:navigate', 'ui:navigate', 'ui:confirm']);
+    expect(events).toEqual([
+      'ui:navigate', 'ui:navigate', 'ui:navigate', 'ui:navigate', 'ui:navigate', 'ui:navigate', 'ui:confirm',
+    ]);
   });
 
   it('ignores repeated number-key events without toggling selection', () => {

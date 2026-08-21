@@ -1,8 +1,15 @@
 import Phaser from 'phaser';
 import { minimumHitTarget, physicalToLogical, type UiViewport } from './layout';
-import { ThemeColor, ThemeFont } from './theme';
+import { FocusStroke, ThemeColor, ThemeFont } from './theme';
 
 export type ModalTextKind = 'heading' | 'body' | 'notice';
+
+export interface ModalButtonHandle {
+  readonly target: Phaser.GameObjects.Rectangle;
+  readonly enabled: boolean;
+  activate(): boolean;
+  setFocusVisible(visible: boolean): void;
+}
 
 export interface ModalTextHelpers {
   addText(
@@ -20,13 +27,13 @@ export interface ModalTextHelpers {
     onActivate: () => void,
     emphasized?: boolean,
     enabled?: boolean,
-  ): void;
+  ): ModalButtonHandle;
   addHint(
     root: Phaser.GameObjects.Container,
     x: number,
     y: number,
     text: string,
-  ): void;
+  ): Phaser.GameObjects.Text;
 }
 
 /** Shared text and button construction for the full-screen modal surfaces
@@ -71,9 +78,6 @@ export function createModalTextHelpers(
     return textObject;
   };
 
-  // Returns void rather than the button object: modal buttons use a fixed
-  // hitTarget height (unlike MenuScene.addButton, whose caller tracks
-  // text.height for vertical layout), so no height feedback is needed here.
   const addButton = (
     root: Phaser.GameObjects.Container,
     x: number,
@@ -83,7 +87,7 @@ export function createModalTextHelpers(
     onActivate: () => void,
     emphasized = false,
     enabled = true,
-  ): void => {
+  ): ModalButtonHandle => {
     const hitTarget = minimumHitTarget(viewport);
     const rect = scene.add.rectangle(
       x,
@@ -97,19 +101,38 @@ export function createModalTextHelpers(
         : ThemeColor.surface,
     );
     root.add(rect);
-    rect.setStrokeStyle(
-      physicalToLogical(2, viewport),
-      enabled
+    const baseStroke = {
+      width: physicalToLogical(2, viewport),
+      color: enabled
         ? emphasized
           ? ThemeColor.primary
           : ThemeColor.muted
         : ThemeColor.card,
-      enabled ? 0.9 : 0.55,
-    );
+      alpha: enabled ? 0.9 : 0.55,
+    } as const;
+    rect.setStrokeStyle(baseStroke.width, baseStroke.color, baseStroke.alpha);
     rect.setScrollFactor(0);
+    let activated = false;
+    const handle: ModalButtonHandle = {
+      target: rect,
+      enabled,
+      activate: () => {
+        if (!enabled || activated) return false;
+        activated = true;
+        onActivate();
+        return true;
+      },
+      setFocusVisible: (visible) => {
+        rect.setStrokeStyle(
+          visible ? FocusStroke.width : baseStroke.width,
+          visible ? FocusStroke.color : baseStroke.color,
+          visible ? FocusStroke.alpha : baseStroke.alpha,
+        );
+      },
+    };
     if (enabled) {
       rect.setInteractive();
-      rect.on(Phaser.Input.Events.POINTER_UP, onActivate);
+      rect.on(Phaser.Input.Events.POINTER_UP, handle.activate);
     }
 
     const text = scene.add.text(x, y, label, {
@@ -120,6 +143,7 @@ export function createModalTextHelpers(
     root.add(text);
     text.setOrigin(0.5);
     text.setScrollFactor(0);
+    return handle;
   };
 
   const addHint = (
@@ -127,10 +151,11 @@ export function createModalTextHelpers(
     x: number,
     y: number,
     text: string,
-  ): void => {
+  ): Phaser.GameObjects.Text => {
     const hint = addText(x, y, text, 'body');
     root.add(hint);
     hint.setOrigin(0, 1);
+    return hint;
   };
 
   return { addText, addButton, addHint };

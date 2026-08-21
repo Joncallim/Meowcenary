@@ -56,6 +56,7 @@ import { FeedbackSystem, PhaserFeedbackRenderer } from '../systems/feedback';
 import { DataVisualArtRegistry } from '../systems/visualArt';
 import { HeldWeaponView } from '../entities/heldWeaponView';
 import { DefeatPresentationSystem } from '../systems/defeatPresentation';
+import type { FocusDirection } from '../ui/focusList';
 
 export class GameScene extends Phaser.Scene {
   private debugOverlay?: DebugOverlay;
@@ -225,6 +226,7 @@ export class GameScene extends Phaser.Scene {
       controller: this.pauseController,
       inventory: this.inventoryController,
       visualArt,
+      readInputMode: () => this.inputController!.getInputMode(),
     });
 
     this.arenaScenery = buildArenaScenery(this, arena, visualArt);
@@ -278,6 +280,7 @@ export class GameScene extends Phaser.Scene {
       this.upgradeSystem,
       () => ctx.settings.reducedMotion,
       visualArt,
+      () => this.inputController!.getInputMode(),
     );
     this.progressionSystem = new ProgressionSystem({
       runState: this.runState,
@@ -384,11 +387,17 @@ export class GameScene extends Phaser.Scene {
       viewport,
       bus: ctx.bus,
       controller: this.runSummaryController,
+      readInputMode: () => this.inputController!.getInputMode(),
     });
 
     this.inputController.onAction('pause', () => this.routeAction('pause'));
     this.inputController.onAction('back', () => this.routeAction('back'));
     this.inputController.onAction('inventory', () => this.routeAction('inventory'));
+    this.inputController.onAction('navUp', () => this.routeAction('navUp'));
+    this.inputController.onAction('navDown', () => this.routeAction('navDown'));
+    this.inputController.onAction('navLeft', () => this.routeAction('navLeft'));
+    this.inputController.onAction('navRight', () => this.routeAction('navRight'));
+    this.inputController.onAction('confirm', () => this.routeAction('confirm'));
     if (RuntimeConfig.isDev) {
       this.input.keyboard?.on('keydown-F4', this.togglePhysicsDebug, this);
       this.input.keyboard?.on('keydown-F8', this.forceLoseRun, this);
@@ -432,6 +441,9 @@ export class GameScene extends Phaser.Scene {
 
     this.perfSampler?.recordFrame(delta);
     this.inputController.update(delta);
+    this.pauseView?.refreshInputPresentation();
+    this.runSummaryView?.refreshInputPresentation();
+    this.upgradeChooser?.refreshInputPresentation();
     tickRun(runState, delta);
     this.maybeEndRunForVictory(ctx, runState);
     this.syncPhysicsPause(runState);
@@ -583,30 +595,59 @@ export class GameScene extends Phaser.Scene {
    *  level-up chooser and run summary are guarded by the PauseController's
    *  status checks (levelUp pause / terminal status reject every command). */
   private routeAction(action: GameAction): void {
+    const runState = this.runState;
+    // The scene always owns a run in production. Keeping the panel-only
+    // fallback here also preserves the narrow audio/routing seam used by
+    // headless tests that exercise PauseController without a full scene run.
+    const direction: FocusDirection | undefined =
+      action === 'navUp' ? 'up' : action === 'navDown' ? 'down' :
+        action === 'navLeft' ? 'left' : action === 'navRight' ? 'right' : undefined;
+    if (runState && (runState.status === 'won' || runState.status === 'lost')) {
+      if (direction) this.runSummaryView?.moveFocus(direction);
+      else if (action === 'confirm') this.runSummaryView?.confirmFocused();
+      return;
+    }
+    if (runState && runState.status === 'paused' && runState.pauseReason === 'levelUp') {
+      if (action === 'navUp' || action === 'navLeft') this.upgradeChooser?.focusPrevious();
+      else if (action === 'navDown' || action === 'navRight') this.upgradeChooser?.focusNext();
+      else if (action === 'confirm') this.upgradeChooser?.confirmFocused();
+      return;
+    }
     const controller = this.pauseController;
     if (!controller) {
       return;
     }
 
     const panel = controller.snapshot().panel;
+    if (panel === 'inventory') {
+      if (direction) this.pauseView?.moveFocus(direction);
+      else if (action === 'confirm') this.pauseView?.confirmFocused();
+      else if (action === 'back') {
+        const accepted = controller.back();
+        if (accepted) this.getContext().bus.emit('ui:back', {});
+        this.pauseView?.render(controller.snapshot());
+      }
+      return;
+    }
+    if (panel === 'pause') {
+      if (direction) this.pauseView?.moveFocus(direction);
+      else if (action === 'confirm') this.pauseView?.confirmFocused();
+      else if (action === 'back' || action === 'pause') {
+        const accepted = controller.resume();
+        if (accepted) this.getContext().bus.emit('ui:back', {});
+        this.pauseView?.render(controller.snapshot());
+      } else if (action === 'inventory') {
+        const accepted = controller.openInventory();
+        if (accepted) this.getContext().bus.emit('ui:confirm', {});
+        this.pauseView?.render(controller.snapshot());
+      }
+      return;
+    }
+    if (runState && (runState.status !== 'active' || panel !== 'closed')) return;
     let accepted = false;
     let event: 'ui:confirm' | 'ui:back' | null = null;
 
-    if (panel === 'inventory') {
-      if (action === 'back') {
-        accepted = controller.back();
-        event = 'ui:back';
-      }
-      // pause / inventory edges are discarded in the rack (§5).
-    } else if (panel === 'pause') {
-      if (action === 'back' || action === 'pause') {
-        accepted = controller.resume();
-        event = 'ui:back';
-      } else if (action === 'inventory') {
-        accepted = controller.openInventory();
-        event = 'ui:confirm';
-      }
-    } else if (action === 'back' || action === 'pause') {
+    if (action === 'back' || action === 'pause') {
       accepted = controller.pause();
       event = 'ui:confirm';
     } else if (action === 'inventory') {

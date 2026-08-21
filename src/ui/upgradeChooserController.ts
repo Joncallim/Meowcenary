@@ -21,8 +21,8 @@ export interface UpgradeChooserView {
   clear(): void;
   destroy(): void;
   /** Epic 18 (D9): narrow public navigation/confirm seam Epic 19 will drive. */
-  focusPrevious(): void;
-  focusNext(): void;
+  focusPrevious(): boolean | void;
+  focusNext(): boolean | void;
   confirmFocused(): boolean;
 }
 

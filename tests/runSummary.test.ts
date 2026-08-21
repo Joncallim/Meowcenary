@@ -412,7 +412,7 @@ describe('PhaserRunSummaryView', () => {
         'Unlocked: achievement:first-victory',
         'Retry',
         'Main Menu',
-        'R to retry',
+        'Tap Retry or Main Menu',
       ]),
     );
     expect(textContents(scene)).not.toContain('Not saved — this session only');

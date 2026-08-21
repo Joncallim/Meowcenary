@@ -9,6 +9,8 @@ import { MainMenuController, type MainMenuSnapshot } from '../ui/menus';
 import { cycleVolumeStep } from '../ui/settings';
 import { ThemeColor, ThemeDepth, ThemeFont } from '../ui/theme';
 import { InputController } from '../systems/input';
+import { FocusNavigator, type FocusDirection } from '../ui/focusList';
+import { FocusStroke } from '../ui/theme';
 
 const MENU_DEPTH = ThemeDepth.pauseSummary;
 
@@ -19,7 +21,12 @@ export class MenuScene extends Phaser.Scene {
   private controller?: MainMenuController;
   private root?: Phaser.GameObjects.Container;
   private focusables: Phaser.GameObjects.Text[] = [];
-  private focusIndex = -1;
+  private focusRings: Phaser.GameObjects.Rectangle[] = [];
+  private readonly navigator = new FocusNavigator('linear');
+  private hoveredIndex = -1;
+  private committedPanel?: MainMenuSnapshot['panel'];
+  private hint?: Phaser.GameObjects.Text;
+  private lastInputMode: import('../systems/input').InputMode = 'pointer';
   private bus?: EventBus;
   private audioManager?: AudioManager;
   private inputController?: InputController;
@@ -48,6 +55,8 @@ export class MenuScene extends Phaser.Scene {
     this.inputController.onAction('back', () => this.handleBack());
     this.inputController.onAction('navUp', () => this.handleNavMove(-1));
     this.inputController.onAction('navDown', () => this.handleNavMove(1));
+    this.inputController.onAction('navLeft', () => this.handleNavMove('left'));
+    this.inputController.onAction('navRight', () => this.handleNavMove('right'));
     this.inputController.onAction('confirm', () => this.handleActivate());
 
     this.render(this.controller.snapshot());
@@ -64,14 +73,18 @@ export class MenuScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     this.inputController?.update(delta);
+    this.refreshInputPresentation();
     this.audioManager?.update(delta);
   }
 
   private render(snapshot: MainMenuSnapshot): void {
+    const panelChanged = this.committedPanel !== undefined && this.committedPanel !== snapshot.panel;
     this.root?.destroy(true);
     this.root = undefined;
     this.focusables = [];
-    this.focusIndex = -1;
+    this.focusRings = [];
+    this.hoveredIndex = -1;
+    this.hint = undefined;
 
     const root = this.add.container(0, 0);
     root.setDepth(MENU_DEPTH).setScrollFactor(0);
@@ -128,16 +141,19 @@ export class MenuScene extends Phaser.Scene {
           break;
       }
 
+      this.navigator.setCount(this.focusables.length);
+      if (panelChanged) this.navigator.reset();
       this.applyFocus();
 
       // The root is only published once the display tree is fully built and
       // focused, so a failed render leaves the menu without a published root
       // and the next render can retry from a clean slate.
       this.root = root;
+      this.committedPanel = snapshot.panel;
     } catch (error) {
       root.destroy(true);
       this.focusables = [];
-      this.focusIndex = -1;
+      this.focusRings = [];
       // The menu is the whole scene: always leave a visible recovery hint so
       // a failed render never results in a blank screen. Esc retries through
       // handleBack -> render.
@@ -214,12 +230,13 @@ export class MenuScene extends Phaser.Scene {
       y += button.height + 12;
     });
 
-    const hints = this.own(root, this.add.text(margin, this.scale.height - margin - 14, '↑/↓ • Enter • Esc', {
+    const hints = this.own(root, this.add.text(margin, this.scale.height - margin - 14, this.menuHintCopy(), {
       color: '#a5f3fc',
       fontFamily: ThemeFont.family,
       fontSize: `${ThemeFont.bodyMin}px`,
     }));
     hints.setScrollFactor(0);
+    this.hint = hints;
   }
 
   private renderCharacter(
@@ -443,7 +460,7 @@ export class MenuScene extends Phaser.Scene {
       text.setStyle({ backgroundColor: 'rgba(23, 48, 59, 0.86)' });
     });
     text.on(Phaser.Input.Events.POINTER_UP, () => {
-      this.focusIndex = this.focusables.indexOf(text);
+      this.navigator.setIndex(this.focusables.indexOf(text));
       // The single command boundary: pointer clicks and synthetic
       // Enter/Space activation both land here and emit exactly one event.
       this.bus?.emit(audioEvent, {});
@@ -451,9 +468,22 @@ export class MenuScene extends Phaser.Scene {
     });
 
     this.focusables.push(text);
-    if (this.focusIndex < 0) {
-      this.focusIndex = 0;
-    }
+    const ringBounds = text.getBounds();
+    const ring = this.add.rectangle(ringBounds.centerX, ringBounds.centerY, ringBounds.width, ringBounds.height, 0, 0);
+    root.add(ring);
+    ring.setStrokeStyle?.(FocusStroke.width, FocusStroke.color, 0);
+    ring.setScrollFactor(0);
+    this.focusRings.push(ring);
+    const index = this.focusables.length - 1;
+    text.on(Phaser.Input.Events.POINTER_OVER, () => {
+      this.hoveredIndex = index;
+      this.navigator.setIndex(index);
+      this.applyFocus();
+    });
+    text.on(Phaser.Input.Events.POINTER_OUT, () => {
+      if (this.hoveredIndex === index) this.hoveredIndex = -1;
+      this.applyFocus();
+    });
     return text;
   }
 
@@ -494,26 +524,45 @@ export class MenuScene extends Phaser.Scene {
     this.render(next);
   }
 
-  private handleNavMove(delta: number): void {
-    if (this.focusables.length === 0) return;
-    const previousIndex = this.focusIndex;
-    this.focusIndex = (this.focusIndex + delta + this.focusables.length) % this.focusables.length;
-    if (this.focusIndex !== previousIndex) {
+  private handleNavMove(direction: FocusDirection | number): void {
+    const moved = typeof direction === 'number'
+      ? this.navigator.move(direction < 0 ? 'up' : 'down')
+      : this.navigator.move(direction);
+    if (moved) {
       this.bus?.emit('ui:navigate', {});
     }
     this.applyFocus();
   }
 
   private handleActivate(): void {
-    const focused = this.focusables[this.focusIndex];
+    const focused = this.focusables[this.navigator.index];
     focused?.emit(Phaser.Input.Events.POINTER_UP);
   }
 
   private applyFocus(): void {
     this.focusables.forEach((text, index) => {
-      const isFocused = index === this.focusIndex;
-      text.setStyle({ color: isFocused ? '#67e8f9' : '#f7f1d5' });
+      text.setStyle({ color: '#f7f1d5' });
+      const visible = this.inputController?.getInputMode() !== 'pointer'
+        ? index === this.navigator.index
+        : index === this.hoveredIndex;
+      this.focusRings[index]?.setStrokeStyle?.(FocusStroke.width, FocusStroke.color, visible ? FocusStroke.alpha : 0);
     });
+  }
+
+  private refreshInputPresentation(): void {
+    const mode = this.inputController?.getInputMode() ?? 'pointer';
+    if (mode === this.lastInputMode) return;
+    this.lastInputMode = mode;
+    this.hint?.setText?.(this.menuHintCopy());
+    this.applyFocus();
+  }
+
+  private menuHintCopy(): string {
+    switch (this.inputController?.getInputMode() ?? 'pointer') {
+      case 'keyboard': return 'Arrows navigate • Enter/Space select • Esc back';
+      case 'gamepad': return 'D-pad/stick • Bottom face select • Right face back';
+      default: return 'Tap a choice';
+    }
   }
 
   private handleShutdown(): void {
@@ -525,7 +574,10 @@ export class MenuScene extends Phaser.Scene {
     this.root?.destroy(true);
     this.root = undefined;
     this.focusables = [];
-    this.focusIndex = -1;
+    this.focusRings = [];
+    this.navigator.setCount(0);
+    this.committedPanel = undefined;
+    this.hoveredIndex = -1;
     this.controller = undefined;
     // The manager is game-scoped and Boot-owned: shutdown only drops this
     // scene's reference — never destroy/stopMusic/stopAll.

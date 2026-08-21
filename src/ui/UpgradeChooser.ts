@@ -10,6 +10,8 @@ import {
   type UpgradeChooserView,
 } from './upgradeChooserController';
 import { computeUpgradeChooserLayout } from './upgradeChooserLayout';
+import { FocusNavigator } from './focusList';
+import type { InputMode } from '../systems/input';
 
 const CHOOSER_DEPTH = ThemeDepth.upgradeChooser;
 const CARD_STROKE = { color: ThemeColor.primaryDim, alpha: 0.78, width: 2 } as const;
@@ -24,8 +26,9 @@ export class UpgradeChooser {
     upgradeSystem: UpgradeSystem,
     readReducedMotion: () => boolean = () => false,
     visualArt?: VisualArtLookup,
+    readInputMode: () => InputMode = () => 'pointer',
   ) {
-    this.view = new PhaserUpgradeChooserView(scene, readReducedMotion, visualArt);
+    this.view = new PhaserUpgradeChooserView(scene, readReducedMotion, visualArt, readInputMode);
     this.controller = new UpgradeChooserController(
       bus,
       upgradeSystem,
@@ -39,16 +42,20 @@ export class UpgradeChooser {
 
   /** Epic 18 (D9): narrow public navigation/confirm seam Epic 19 can drive
    *  later without reaching into the Phaser view implementation. */
-  focusPrevious(): void {
-    this.view.focusPrevious();
+  focusPrevious(): boolean {
+    return this.view.focusPrevious();
   }
 
-  focusNext(): void {
-    this.view.focusNext();
+  focusNext(): boolean {
+    return this.view.focusNext();
   }
 
   confirmFocused(): boolean {
     return this.view.confirmFocused();
+  }
+
+  refreshInputPresentation(): void {
+    this.view.refreshInputPresentation();
   }
 
   destroy(): void {
@@ -96,12 +103,18 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   private destroyed = false;
   private rebuildCount = 0;
   private focusIndex = 0;
+  private readonly navigator = new FocusNavigator('linear');
+  private hoveredIndex = -1;
+  private inputMode: InputMode = 'pointer';
+  private lastInputMode: InputMode = 'pointer';
+  private instructions?: Phaser.GameObjects.Text;
   private reducedMotion = false;
 
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly readReducedMotion: () => boolean = () => false,
     private readonly visualArt?: VisualArtLookup,
+    private readonly readInputMode: () => InputMode = () => 'pointer',
   ) {
     scene.input.keyboard?.on('keydown', this.handleKeyDown, this);
     scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
@@ -154,6 +167,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     this.currentOfferId = offer.offerId;
     this.select = select;
     this.enabled = true;
+    this.navigator.setCount(offer.choices.length);
 
     this.buildDisplay();
   }
@@ -218,7 +232,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       const instructions = own(this.scene.add.text(
         width / 2,
         layout.instructionsY,
-        'Tap a card or use navigation + confirm',
+        this.instructionCopy(),
         {
         align: 'center',
         color: '#a5f3fc',
@@ -236,6 +250,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         { role: 'heading', object: heading },
         { role: 'instructions', object: instructions },
       );
+      this.instructions = instructions;
 
       offer.choices.forEach((choice, index) => {
         const cardLayout = layout.cards[index];
@@ -257,10 +272,16 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           .setInteractive({ useHandCursor: true });
         card.on(Phaser.Input.Events.POINTER_OVER, () => {
           if (this.enabled) {
+            this.hoveredIndex = index;
+            this.navigator.setIndex(index);
+            this.focusIndex = this.navigator.index;
+            this.applyFocusStroke();
             card.setFillStyle(ThemeColor.cardHover, 1);
           }
         });
         card.on(Phaser.Input.Events.POINTER_OUT, () => {
+          if (this.hoveredIndex === index) this.hoveredIndex = -1;
+          this.applyFocusStroke();
           card.setFillStyle(ThemeColor.card, this.enabled ? 1 : 0.58);
         });
         card.on(Phaser.Input.Events.POINTER_UP, () => {
@@ -420,10 +441,8 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       this.cardBackgrounds = cardBackgrounds;
       this.renderedText = renderedText;
       this.rebuildCount += 1;
-      this.focusIndex = Math.min(
-        this.focusIndex,
-        Math.max(0, cardBackgrounds.length - 1),
-      );
+      this.navigator.setCount(cardBackgrounds.length);
+      this.focusIndex = this.navigator.index;
       this.applyEnabledState();
       this.applyFocusStroke();
 
@@ -468,18 +487,19 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   /** Visible shared focus treatment: the focused card carries the theme focus
    *  stroke; movement is presentation-only and activation still routes through
    *  the captured offer token. */
-  private moveFocus(direction: 1 | -1): void {
-    const count = this.cardBackgrounds.length;
-    if (count === 0) {
-      return;
-    }
-    this.focusIndex = (this.focusIndex + direction + count) % count;
+  private moveFocus(direction: 1 | -1): boolean {
+    if (!this.acceptsNavigation) return false;
+    const moved = this.navigator.move(direction < 0 ? 'left' : 'right');
+    this.focusIndex = this.navigator.index;
     this.applyFocusStroke();
+    return moved;
   }
 
   private applyFocusStroke(): void {
     this.cardBackgrounds.forEach((card, index) => {
-      const focused = index === this.focusIndex;
+      const focused = this.inputMode === 'pointer'
+        ? index === this.hoveredIndex
+        : index === this.focusIndex;
       card.setStrokeStyle(
         focused ? FocusStroke.width : CARD_STROKE.width,
         focused ? FocusStroke.color : CARD_STROKE.color,
@@ -500,18 +520,21 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     return !this.destroyed && this.enabled && this.currentOfferId !== undefined;
   }
 
-  focusPrevious(): void {
-    if (!this.acceptsNavigation) {
-      return;
-    }
-    this.moveFocus(-1);
+  focusPrevious(): boolean {
+    return this.moveFocus(-1);
   }
 
-  focusNext(): void {
-    if (!this.acceptsNavigation) {
-      return;
-    }
-    this.moveFocus(1);
+  focusNext(): boolean {
+    return this.moveFocus(1);
+  }
+
+  refreshInputPresentation(): void {
+    const mode = this.readInputMode();
+    if (mode === this.lastInputMode) return;
+    this.lastInputMode = mode;
+    this.inputMode = mode;
+    if (this.instructions) this.instructions.setText(this.instructionCopy());
+    this.applyFocusStroke();
   }
 
   confirmFocused(): boolean {
@@ -527,6 +550,9 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     this.select = undefined;
     this.offer = undefined;
     this.focusIndex = 0;
+    this.navigator.setCount(0);
+    this.hoveredIndex = -1;
+    this.instructions = undefined;
     this.destroyDisplay();
   }
 
@@ -553,27 +579,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       return;
     }
 
-    // Arrow keys move a wrapping presentation-only focus index.
-    if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-      this.moveFocus(-1);
-      return;
-    }
-    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
-      this.moveFocus(1);
-      return;
-    }
-
-    // Repeat keydown events never cause an activation command.
-    if (event.repeat) {
-      return;
-    }
-
-    if (event.key === 'Enter' || event.key === ' ') {
-      this.submit(this.currentOfferId, this.focusIndex);
-      return;
-    }
-
-    const choiceIndex = choiceIndexForNumberKey(event.key);
+    const choiceIndex = choiceIndexForNumberKey(event.key, event.repeat);
     if (choiceIndex !== undefined) {
       this.submit(this.currentOfferId, choiceIndex);
     }
@@ -593,5 +599,13 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       return false;
     }
     return this.select(offerId, choiceIndex);
+  }
+
+  private instructionCopy(): string {
+    switch (this.readInputMode()) {
+      case 'keyboard': return 'Arrows • Enter/Space choose';
+      case 'gamepad': return 'D-pad/stick • Bottom face choose';
+      default: return 'Tap a card';
+    }
   }
 }

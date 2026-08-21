@@ -863,28 +863,27 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
   const focused = (view: { diagnostics: { cards: readonly { focused: boolean }[] } }) =>
     view.diagnostics.cards.map((card) => card.focused);
 
-  it('arrows move a wrapping focus across the cards', async () => {
-    const { scene, view } = await createFocusView();
+  it('logical focus movement wraps across the cards', async () => {
+    const { view } = await createFocusView();
     expect(focused(view)).toEqual([true, false, false]);
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
+    view.focusNext();
     expect(focused(view)).toEqual([false, true, false]);
-    scene.input.keyboard.emit('keydown', { key: 'ArrowRight', repeat: false });
+    view.focusNext();
     expect(focused(view)).toEqual([false, false, true]);
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
+    view.focusNext();
     expect(focused(view)).toEqual([true, false, false]);
-    scene.input.keyboard.emit('keydown', { key: 'ArrowUp', repeat: false });
+    view.focusPrevious();
     expect(focused(view)).toEqual([false, false, true]);
     view.destroy();
   });
 
-  it('Enter and Space activate the focused card with the captured offer token', async () => {
+  it('logical confirm activates the focused card with the captured offer token', async () => {
     const { scene, view, select } = await createFocusView();
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
-    scene.input.keyboard.emit('keydown', { key: 'Enter', repeat: false });
+    view.focusNext();
+    expect(view.confirmFocused()).toBe(true);
     expect(select).toHaveBeenCalledWith(73, 1);
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
     scene.input.keyboard.emit('keydown', { key: ' ', repeat: false });
-    expect(select).toHaveBeenCalledWith(73, 2);
+    expect(select).not.toHaveBeenCalledWith(73, 2);
     view.destroy();
   });
 
@@ -898,9 +897,9 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
 
   it('repeated arrows still move focus but repeated activation keys never submit', async () => {
     const { scene, view, select } = await createFocusView();
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: true });
+    view.focusNext();
     expect(focused(view)).toEqual([false, true, false]);
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: true });
+    view.focusNext();
     expect(focused(view)).toEqual([false, false, true]);
     scene.input.keyboard.emit('keydown', { key: 'Enter', repeat: true });
     scene.input.keyboard.emit('keydown', { key: ' ', repeat: true });
@@ -935,9 +934,9 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
   });
 
   it('resets focus to the first card when a new offer renders', async () => {
-    const { scene, view } = await createFocusView(3);
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
+    const { view } = await createFocusView(3);
+    view.focusNext();
+    view.focusNext();
     expect(focused(view)).toEqual([false, false, true]);
     view.render({ offerId: 74, choices: toChoices(definitions.slice(0, 2)) }, () => true);
     expect(view.diagnostics.offerId).toBe(74);
@@ -998,8 +997,8 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
 
   it('keeps the focus index across resize rebuilds', async () => {
     const { scene, view } = await createFocusView(3);
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
+    view.focusNext();
+    view.focusNext();
     expect(focused(view)).toEqual([false, false, true]);
     scene.scale.refresh(844, 390, true);
     expect(focused(view)).toEqual([false, false, true]);

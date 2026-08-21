@@ -7,6 +7,9 @@ import { createModalTextHelpers, type ModalTextHelpers } from './modal';
 import { ThemeColor, ThemeDepth } from './theme';
 import { PhaserWeaponRackPanel } from './weaponRackView';
 import type { VisualArtLookup } from '../systems/visualArt';
+import { FocusNavigator, type FocusDirection } from './focusList';
+import type { InputMode } from '../systems/input';
+import type { ModalButtonHandle } from './modal';
 
 export type PausePanel = 'closed' | 'pause' | 'inventory';
 
@@ -114,6 +117,7 @@ export interface PhaserPauseViewOptions {
   readonly controller: PauseController;
   readonly inventory: InventoryController;
   readonly visualArt?: VisualArtLookup;
+  readonly readInputMode?: () => InputMode;
 }
 
 /**
@@ -129,12 +133,20 @@ export class PhaserPauseView {
   private readonly weaponRack: PhaserWeaponRackPanel;
   private root?: Phaser.GameObjects.Container;
   private disposed = false;
+  private readonly navigator = new FocusNavigator('linear');
+  private buttons: ModalButtonHandle[] = [];
+  private hint?: Phaser.GameObjects.Text;
+  private committedPanel: PausePanel = 'closed';
+  private readonly readInputMode: () => InputMode;
+  private inputMode: InputMode = 'pointer';
+  private lastInputMode: InputMode = 'pointer';
 
   constructor(options: PhaserPauseViewOptions) {
     this.scene = options.scene;
     this.viewport = options.viewport;
     this.bus = options.bus;
     this.controller = options.controller;
+    this.readInputMode = options.readInputMode ?? (() => 'pointer');
     this.modal = createModalTextHelpers(options.scene, options.viewport);
     this.weaponRack = new PhaserWeaponRackPanel({
       scene: options.scene,
@@ -146,6 +158,7 @@ export class PhaserPauseView {
       onBack: () => this.controller.back(),
       requestRender: () => this.render(this.controller.snapshot()),
       visualArt: options.visualArt,
+      readInputMode: this.readInputMode,
     });
     options.scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
     this.render(this.controller.snapshot());
@@ -156,12 +169,16 @@ export class PhaserPauseView {
       return;
     }
     this.syncLayoutContext();
+    const panelChanged = snapshot.panel !== this.committedPanel;
     this.root?.destroy(true);
     this.root = undefined;
-    if (snapshot.panel !== 'inventory') {
+    if (snapshot.panel !== 'inventory' || (panelChanged && snapshot.panel === 'inventory')) {
       this.weaponRack.reset();
     }
     if (snapshot.panel === 'closed') {
+      this.navigator.setCount(0);
+      this.buttons = [];
+      this.committedPanel = snapshot.panel;
       return;
     }
 
@@ -197,7 +214,10 @@ export class PhaserPauseView {
           width,
         );
       }
+      if (panelChanged) this.navigator.reset();
+      this.applyFocus();
       this.root = root;
+      this.committedPanel = snapshot.panel;
     } catch (error) {
       root.destroy(true);
       throw error;
@@ -213,6 +233,9 @@ export class PhaserPauseView {
     this.weaponRack.destroy();
     this.root?.destroy(true);
     this.root = undefined;
+    this.buttons = [];
+    this.navigator.setCount(0);
+    this.committedPanel = 'closed';
   }
 
   private readonly handleScaleChange = (): void => {
@@ -267,21 +290,57 @@ export class PhaserPauseView {
     heading.setOrigin(0.5);
 
     let y = height * 0.34;
-    this.modal.addButton(root, centerX, y, buttonWidth, 'Resume', () => {
+    const resume = this.modal.addButton(root, centerX, y, buttonWidth, 'Resume', () => {
       if (this.controller.resume()) {
         this.bus.emit('ui:back', {});
       }
       this.render(this.controller.snapshot());
     });
     y += hitTarget + 16;
-    this.modal.addButton(root, centerX, y, buttonWidth, 'Weapon Rack', () => {
+    const rack = this.modal.addButton(root, centerX, y, buttonWidth, 'Weapon Rack', () => {
       if (this.controller.openInventory()) {
         this.bus.emit('ui:confirm', {});
       }
       this.render(this.controller.snapshot());
     });
 
-    this.modal.addHint(root, margin, height - margin - 14, 'P / Esc to resume');
+    this.buttons = [resume, rack];
+    this.navigator.setCount(this.buttons.length);
+    this.hint = this.modal.addHint(root, margin, height - margin - 14, this.hintCopy());
+  }
+
+  moveFocus(direction: FocusDirection): boolean {
+    if (this.controller.snapshot().panel === 'inventory') return this.weaponRack.moveFocus(direction);
+    const moved = this.navigator.move(direction);
+    if (moved) { this.applyFocus(); this.bus.emit('ui:navigate', {}); }
+    return moved;
+  }
+
+  confirmFocused(): boolean {
+    if (this.controller.snapshot().panel === 'inventory') return this.weaponRack.confirmFocused();
+    return this.buttons[this.navigator.index]?.activate() ?? false;
+  }
+
+  refreshInputPresentation(): void {
+    const mode = this.readInputMode();
+    if (mode === this.lastInputMode) return;
+    this.lastInputMode = mode;
+    this.inputMode = mode;
+    if (this.hint) this.hint.setText(this.hintCopy());
+    this.weaponRack.refreshInputPresentation();
+    this.applyFocus();
+  }
+
+  private applyFocus(): void {
+    this.buttons.forEach((button, index) => button.setFocusVisible(this.inputMode === 'pointer' ? false : index === this.navigator.index));
+  }
+
+  private hintCopy(): string {
+    switch (this.readInputMode()) {
+      case 'keyboard': return 'Arrows • Enter/Space select • P/Esc resume';
+      case 'gamepad': return 'D-pad/stick • Bottom face select • Menu/right face';
+      default: return 'Tap a choice';
+    }
   }
 }
 

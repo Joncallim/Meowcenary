@@ -594,6 +594,7 @@ describe('InputController mode switching', () => {
     input.keyboard!.keydown('a');
     controller.update(16);
     expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+    expect(controller.getInputMode()).toBe('keyboard');
   });
 
   it('idle updates do not flap the mode back to pointer', () => {
