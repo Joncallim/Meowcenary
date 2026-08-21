@@ -5,9 +5,15 @@ import { describe, expect, it, vi } from 'vitest';
 // Phaser module is ever requested.
 import { MockInputPlugin } from './__mocks__/phaser';
 import { createEventBus } from '../src/engine/eventBus';
-import { GAME_CONTEXT_REGISTRY_KEY } from '../src/engine/context';
+import { GAME_CONTEXT_REGISTRY_KEY, createGameContext } from '../src/engine/context';
+import { createRng } from '../src/engine/rng';
 import { GameScene } from '../src/scenes/GameScene';
 import { InputController } from '../src/systems/input';
+import { DataArenaRegistry } from '../src/systems/arenas';
+import { DataCharacterRegistry } from '../src/systems/characters';
+import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
+import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
+import { loadGameData } from '../src/systems/validation';
 import {
   AudioManager,
   AUDIO_MANAGER_REGISTRY_KEY,
@@ -38,6 +44,23 @@ interface AudioSeams {
   pauseView: { render: (snapshot: unknown) => void } | undefined;
 }
 
+/** A real factory-created context — the only kind the brand accepts (same
+ *  construction pattern as tests/menuScene.test.ts). The published bus is
+ *  the caller's bus, preserving listener identity for event assertions. */
+function createBrandedContext(bus: ReturnType<typeof createEventBus>) {
+  const data = loadGameData();
+  const metaUpgrades = new DataMetaUpgradeRegistry(data);
+  return createGameContext({
+    bus,
+    menuRng: createRng(1),
+    data,
+    metaUpgrades,
+    characters: new DataCharacterRegistry(data),
+    arenas: new DataArenaRegistry(data),
+    save: new SaveManager(new MemoryStorageAdapter(), 'game-scene-audio-test', metaUpgrades.maxLevels()),
+  });
+}
+
 function createFakeEnvironment(
   audioFake?: {
     unlock: ReturnType<typeof vi.fn>;
@@ -47,6 +70,13 @@ function createFakeEnvironment(
   context?: { bus: ReturnType<typeof createEventBus> },
 ) {
   const input = new MockInputPlugin({ keyboard: true });
+
+  // The registry accessor is branded: only factory-created contexts pass
+  // isGameContext (Epic 19 round-1 adversarial fix). routeAction fetches
+  // the context through getGameContext, so the fixture must publish a real
+  // one — built around the same bus the test listens on, so bus identity
+  // and event assertions are unchanged.
+  const brandedContext = context ? createBrandedContext(context.bus) : undefined;
 
   const lifecycleListeners = new Map<
     string,
@@ -77,7 +107,7 @@ function createFakeEnvironment(
   Object.assign(scene, {
     registry: {
       get: (key: string) => {
-        if (key === GAME_CONTEXT_REGISTRY_KEY) return context;
+        if (key === GAME_CONTEXT_REGISTRY_KEY) return brandedContext;
         if (key === AUDIO_MANAGER_REGISTRY_KEY) return audioFake;
         return undefined;
       },
@@ -94,7 +124,8 @@ function createFakeEnvironment(
 }
 
 function createAudioFake() {
-  return { unlock: vi.fn(), destroy: vi.fn(), update: vi.fn() };
+  // playMusic is part of the branded surface (scenes call it on create).
+  return { playMusic: vi.fn(), unlock: vi.fn(), destroy: vi.fn(), update: vi.fn() };
 }
 
 describe('GameScene audio lifecycle seams', () => {

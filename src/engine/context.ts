@@ -34,19 +34,21 @@ export function getGameContext(scene: Phaser.Scene): GameContext {
   return ctx;
 }
 
-/** Structural brand: a GameContext must carry the EventBus and save surface.
- *  The registry stores the boot-published instance; any truthy-but-wrong value
- *  (a string, a stale object) is rejected rather than cast. */
+/** Module-private brand: only objects returned by createGameContext are
+ *  accepted as a GameContext. A structurally similar impostor (e.g.
+ *  `{ bus: { on() {} } }`) passes any shape check but crashes later at
+ *  scene creation when menuRng/arenas/data/characters/saveData are touched —
+ *  membership here rejects it at the accessor instead. */
+const branded = new WeakSet<object>();
+
+/** Structural brand: a GameContext must be a factory-created instance.
+ *  The registry stores the boot-published instance; any truthy-but-wrong
+ *  value (a string, a stale object, a bus-shaped impostor) is rejected
+ *  rather than cast. */
 function isGameContext(value: unknown): value is GameContext {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-  const candidate = value as Partial<GameContext>;
-  return (
-    typeof candidate.bus === 'object' &&
-    candidate.bus !== null &&
-    typeof (candidate.bus as { on?: unknown }).on === 'function'
-  );
+  // WeakSet.has throws on primitives — the typeof gate doubles as the
+  // cheap pre-filter.
+  return typeof value === 'object' && value !== null && branded.has(value);
 }
 
 export interface PersistenceUpdate<T> { readonly value: T; readonly persisted: boolean }
@@ -227,5 +229,6 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       return { ok: true, arenaId, revision: arenaSelectionRevision };
     },
   };
+  branded.add(context);
   return context;
 }

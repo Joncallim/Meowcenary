@@ -58,16 +58,20 @@ export function getAudioManager(scene: Phaser.Scene): AudioManager | undefined {
   return isAudioManager(value) ? value : undefined;
 }
 
-/** Structural brand: a real AudioManager exposes unlock + destroy lifecycle
- *  methods. instanceof is deliberately avoided — the boot scene can construct
- *  the manager via a subclass or test double, and the registry stores the
- *  published instance. */
+/** Structural brand: a real AudioManager exposes the scene-consumed surface
+ *  — playMusic (called on scene create), update (the manager clock), unlock
+ *  (first-gesture), and the destroy lifecycle method. instanceof is
+ *  deliberately avoided — the boot scene can construct the manager via a
+ *  subclass or test double, and the registry stores the published instance.
+ *  A playMusic-less impostor is rejected here rather than crashing scene
+ *  create with 'playMusic is not a function'. */
 function isAudioManager(value: unknown): value is AudioManager {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
   const candidate = value as Partial<AudioManager>;
   return (
+    typeof candidate.playMusic === 'function' &&
     typeof candidate.unlock === 'function' &&
     typeof candidate.destroy === 'function' &&
     typeof candidate.update === 'function'
