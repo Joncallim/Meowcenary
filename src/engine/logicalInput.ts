@@ -237,6 +237,13 @@ export class LogicalInputCore {
   }
 
   private updateActions(dtMs: number): void {
+    // Pass 1: settle press/release state. A fresh nav press emits its edge and
+    // supersedes the prior direction's repeat state HERE, before any
+    // held-direction repeat can fire — a due repeat must never share a poll
+    // with the new direction's press edge (Epic 19 D3). A single sequential
+    // pass is unsound: ALL_ACTIONS order puts navUp before navDown, so the
+    // old code emitted navUp's due repeat before reaching the navDown press
+    // that resets it (focus moved twice on one poll).
     for (let i = 0; i < ALL_ACTIONS.length; i += 1) {
       const action = ALL_ACTIONS[i];
       const effective = this.isEffectiveHeld(action);
@@ -247,12 +254,17 @@ export class LogicalInputCore {
           this.emitEdge(action);
           this.initializeNavState(action, dtMs);
         }
-        this.emitNavRepeats(action);
       } else if (wasEffective) {
         this.resetNavState(action);
       }
 
       this.previousEffective.set(action, effective);
+    }
+
+    // Pass 2: emit repeats for the now-final active nav action only. Zero
+    // allocation — same index loops and field writes as the old single pass.
+    if (this.activeNavAction !== null) {
+      this.emitNavRepeats(this.activeNavAction);
     }
 
     this.reconcileActiveNavAction();

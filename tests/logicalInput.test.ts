@@ -199,6 +199,11 @@ describe('LogicalInputCore nav repeat', () => {
     expect(edgeCount(afterRepress, 'navDown')).toBe(1);
   });
 
+  // NOTE: this switch lands 50ms BEFORE navUp's next repeat is due (t=400),
+  // so the old direction is never due on the change poll. The exact-boundary
+  // cases — a due repeat landing on the SAME poll as the new direction's
+  // press edge, in both ALL_ACTIONS orderings — are covered by the two
+  // 'suppresses the held direction's due repeat...' tests below.
   it('resets repeat timer on direction change', () => {
     const core = createCore({ delayMs: 200, intervalMs: 100 });
 
@@ -224,6 +229,49 @@ describe('LogicalInputCore nav repeat', () => {
     const olderStillHeld = core.update(200);
     expect(edgeCount(olderStillHeld, 'navUp')).toBe(0);
     expect(edgeCount(olderStillHeld, 'navDown')).toBe(2);
+  });
+
+  it("suppresses the held direction's due repeat on the poll a new direction is pressed (navUp held -> navDown pressed)", () => {
+    // D3 boundary: navUp is DUE to repeat on this exact poll (t=400) and
+    // navDown is pressed in the same poll. navUp precedes navDown in
+    // ALL_ACTIONS, so a single sequential pass would emit navUp's due repeat
+    // BEFORE seeing the navDown press that supersedes it — focus would move
+    // twice on one poll. The new direction's press edge must be the ONLY nav
+    // output that poll.
+    const core = createCore({ delayMs: 200, intervalMs: 100 });
+
+    press(core, 'keyboard', 'navUp', 300); // t=300: press edge + 2 repeats; next due at t=400
+    const switchEdges = press(core, 'keyboard', 'navDown', 100); // t=400: navUp due AND navDown pressed
+
+    expect(edgeCount(switchEdges, 'navDown')).toBe(1);
+    expect(edgeCount(switchEdges, 'navUp')).toBe(0);
+
+    // navDown's repeat timer started fresh at the press (pressedAtMs=t=300):
+    // first repeat lands at t=500, and navUp never resumes while superseded.
+    expect(edgeCount(core.update(99), 'navDown')).toBe(0); // t=499: elapsed 199 < delayMs
+    expect(edgeCount(core.update(1), 'navDown')).toBe(1); // t=500: first repeat at fresh delay
+    expect(edgeCount(core.update(100), 'navUp')).toBe(0); // navUp stays silenced
+  });
+
+  it("suppresses the held direction's due repeat on the poll a new direction is pressed (navDown held -> navUp pressed)", () => {
+    // Reverse ALL_ACTIONS ordering: the new press (navUp, index 6) is
+    // processed BEFORE the old held action (navDown, index 7). This ordering
+    // was never broken, but it guards the fix against both orderings — e.g.
+    // if ALL_ACTIONS were ever reordered so the old action preceded the new
+    // press, or a single-pass fix regressed this side.
+    const core = createCore({ delayMs: 200, intervalMs: 100 });
+
+    press(core, 'keyboard', 'navDown', 300); // t=300: press edge + 2 repeats; next due at t=400
+    const switchEdges = press(core, 'keyboard', 'navUp', 100); // t=400: navDown due AND navUp pressed
+
+    expect(edgeCount(switchEdges, 'navUp')).toBe(1);
+    expect(edgeCount(switchEdges, 'navDown')).toBe(0);
+
+    // navUp's repeat timer started fresh at the press: first repeat at t=500,
+    // and navDown never resumes while superseded.
+    expect(edgeCount(core.update(99), 'navUp')).toBe(0); // t=499: elapsed 199 < delayMs
+    expect(edgeCount(core.update(1), 'navUp')).toBe(1); // t=500: first repeat at fresh delay
+    expect(edgeCount(core.update(100), 'navDown')).toBe(0); // navDown stays silenced
   });
 
   it('resumes repeats for a re-selected superseded nav direction after a fresh delay', () => {
