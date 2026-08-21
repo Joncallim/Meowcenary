@@ -802,7 +802,9 @@ describe('InputController active-mode tracking (Epic 19 D7)', () => {
   });
 
   it('a movement START after a pointerdown supersedes it even while the pointer retains the D4 owner', () => {
-    const { controller, input } = createController({ keyboard: true });
+    const { controller, input } = createController({ keyboard: true, gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
 
     // Pointer movement becomes the D4 owner (half-radius drag → 0.5).
     input.pointerDown(100, 100);
@@ -816,18 +818,25 @@ describe('InputController active-mode tracking (Epic 19 D7)', () => {
     controller.update(16);
     expect(controller.getPresentationSnapshot().mode).toBe('pointer');
 
-    // ...then a movement START from the keyboard is a NEWER D7 signal and
-    // must present keyboard mode even though D4 keeps the pointer as the
-    // movement owner (hysteresis: the pointer is still beyond its
-    // deadzone). Mutation-sensitive: on the pre-R7 code the
-    // `source !== pointerDownMovementSource` guard never re-asserted
-    // keyboard while the pointer remained the owner — the pointerdown kept
-    // presenting forever.
+    // ...then in ONE poll the pinned pointer STOPS while keyboard AND
+    // gamepad both cross inactive→active. The pointer is no longer a D4
+    // candidate, so the owner is re-selected among the new starters: the
+    // gamepad crossing is the last in adapter poll order (keyboard,
+    // pointer, gamepad) and must win BOTH the D4 vector and the D7 mode.
+    // Mutation-sensitive (round-8): on the pre-epoch code the same-poll
+    // tie was broken by SOURCE_ORDER after wall-clock recency — the
+    // keyboard owned the D4 vector while D7 presented gamepad (the
+    // documented D4/D7 disagreement). The pointerdown is pinned to the
+    // retained pointer owner so the pending-pointerdown presentation
+    // path is live in this sequence.
+    input.pointerUp();
     input.keyboard!.keydown('d');
+    pad.setLeftStick(0.4, 0);
     controller.update(16);
-    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
-    // D4 ownership is untouched: the move vector is still the pointer's.
-    expect(controller.getMoveVector()).toEqual({ x: 0.5, y: 0 });
+    expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+    // D4 ownership follows the same recency rule: gamepad-driven vector.
+    expect(controller.getMoveVector().x).toBeCloseTo(0.2, 10);
+    expect(controller.getMoveVector().y).toBeCloseTo(0, 10);
   });
 
   // Acceptance coverage (NOT mutation-sensitive): this sequence also passed
@@ -1034,6 +1043,58 @@ describe('InputController polled keyboard actions (Epic 19 D3)', () => {
     );
 
     input.keyboard!.keyup('q');
+    controller.update(16);
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('InputController reserved dash mapping (Epic 19 D10)', () => {
+  it('maps Shift to the reserved dash action with no consumer', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    const handler = vi.fn();
+    controller.onAction('dash', handler);
+
+    input.keyboard!.keydown('shift');
+    controller.update(16);
+
+    // One edge on the press crossing...
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: 'dash', source: 'keyboard' }),
+    );
+
+    // ...and NO repeat while held: dash is not a nav action (D10), so the
+    // polled mapping must not emit further edges on later polls.
+    controller.update(16);
+    controller.update(16);
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    input.keyboard!.keyup('shift');
+    controller.update(16);
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('maps gamepad right-shoulder (position 5) to the reserved dash action with no consumer', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    const handler = vi.fn();
+    controller.onAction('dash', handler);
+
+    pad.setButton(5, true);
+    controller.update(16);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: 'dash', source: 'gamepad' }),
+    );
+
+    // Held (no repeat — not a nav action), then released (no edge).
+    controller.update(16);
+    expect(handler).toHaveBeenCalledTimes(1);
+    pad.setButton(5, false);
     controller.update(16);
     expect(handler).toHaveBeenCalledTimes(1);
   });

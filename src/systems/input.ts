@@ -38,6 +38,11 @@ const KEY_ACTION_MAP: Record<string, GameAction | undefined> = {
   p: 'pause',
   i: 'inventory',
   q: 'ability',
+  // Epic 19 D10: the dash action and its §4 mappings are ALWAYS reserved —
+  // keyboard Shift (and gamepad right-shoulder position 5, below) — even
+  // though the gameplay consumer is evidence-gated and absent in this
+  // slice (the edge fires with no consumer).
+  shift: 'dash',
 };
 
 // Reverse index: action -> key names. Multiple keys map to one action
@@ -93,6 +98,8 @@ class KeyboardAdapter implements InputAdapter {
       p: Phaser.Input.Keyboard.KeyCodes.P,
       i: Phaser.Input.Keyboard.KeyCodes.I,
       q: Phaser.Input.Keyboard.KeyCodes.Q,
+      // Epic 19 D10: Shift → dash (reserved mapping; no consumer in this slice).
+      shift: Phaser.Input.Keyboard.KeyCodes.SHIFT,
     };
 
     this.keys = this.keyboard.addKeys(mapping) as Record<string, Phaser.Input.Keyboard.Key>;
@@ -236,6 +243,9 @@ const GAMEPAD_BUTTONS: Readonly<Record<string, number>> = {
   back: 1, // right face position
   ability: 2, // left face position (reserved for Epic 24, D11)
   inventory: 3, // top face position
+  // Epic 19 D10: dash is reserved at the right-shoulder position (index 5)
+  // — frozen §4 mapping, no consumer in this slice.
+  dash: 5, // right-shoulder position
   pause: 9, // Menu position
   navUp: 12,
   navDown: 13,

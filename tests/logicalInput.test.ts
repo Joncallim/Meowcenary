@@ -400,6 +400,51 @@ describe('LogicalInputCore movement ownership', () => {
     expect(core.getMovementVector().y).toBeCloseTo(0, 10);
   });
 
+  it('renormalizes the movement-start epoch near MAX_SAFE_INTEGER (overflow guard)', () => {
+    const core = createCore();
+    // Test seam: movementStartEpoch is private. The repo's tests probe
+    // private state via `as any` casts elsewhere (tests/validation.test.ts);
+    // reaching the threshold through real crossings would need ~9e15
+    // iterations. At MAX_SAFE_INTEGER - 1 the NEXT increment is still
+    // exact, but the one after that lands on 2**53 — past the safe range,
+    // where consecutive increments collide (two crossings share one
+    // activationSeq) and later ones stall (D7 misses starts).
+    (core as unknown as { movementStartEpoch: number }).movementStartEpoch =
+      Number.MAX_SAFE_INTEGER - 1;
+
+    // Same-poll keyboard then gamepad crossings. Pre-fix, the second
+    // increment lands on 2**53 (MAX_SAFE_INTEGER + 1) — the guard must
+    // renormalize instead: active states keep their relative recency
+    // order as small distinct seqs (keyboard 1, gamepad 2).
+    core.setMovementSample('keyboard', 1, 0, 0);
+    core.setMovementSample('gamepad', 0.4, 0, 0.25);
+    core.update(16);
+
+    expect(core.getMovementStartEpoch()).toBe(2);
+    expect(core.getActiveMovementSource()).toBe('gamepad');
+    expect(core.getLastMovementStartSource()).toBe('gamepad');
+    expect(core.getMovementVector().x).toBeCloseTo(0.2, 10);
+    expect(core.getMovementVector().y).toBeCloseTo(0, 10);
+
+    // The total order must keep advancing past the ceiling. Stop both
+    // sources, then restart them in ONE poll (no retained owner, so D4
+    // re-selects): pre-fix the epoch stalls at 2**53 — both crossings
+    // share the seq, D4 (tie broken by SOURCE_ORDER) picks the keyboard
+    // while D7 reports the gamepad — the documented D4/D7 disagreement.
+    core.setMovementSample('keyboard', 0, 0, 0);
+    core.setMovementSample('gamepad', 0, 0, 0);
+    core.update(16);
+    core.setMovementSample('keyboard', 1, 0, 0);
+    core.setMovementSample('gamepad', 0.4, 0, 0.25);
+    core.update(16);
+
+    expect(core.getMovementStartEpoch()).toBe(4);
+    expect(core.getActiveMovementSource()).toBe('gamepad');
+    expect(core.getLastMovementStartSource()).toBe('gamepad');
+    expect(core.getMovementVector().x).toBeCloseTo(0.2, 10);
+    expect(core.getMovementVector().y).toBeCloseTo(0, 10);
+  });
+
   it('does not sum movement vectors across sources', () => {
     const core = createCore();
 

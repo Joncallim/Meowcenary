@@ -184,12 +184,59 @@ export class LogicalInputCore {
       // stamps this crossing for D4 ownership, while lastMovementStartSource
       // feeds D7. Both therefore resolve same-poll starts to the LAST
       // crossing in adapter poll order (keyboard, pointer, gamepad).
+      //
+      // Overflow guard: past Number.MAX_SAFE_INTEGER consecutive increments
+      // collide (two crossings share one activationSeq — broken total
+      // order; later increments stall, so D7 misses starts). Before an
+      // unsafe increment, renumber the ACTIVE states to small unique ranks
+      // preserving their relative recency order (inactive states reset to
+      // 0), then resume the epoch from the max rank. The branch is
+      // unreachable in practice (~9e15 crossings) but keeps the documented
+      // total-order claim absolute; the renumbering lives in a cold method
+      // so the hot poll path stays small and inlineable (§6 gate).
+      if (this.movementStartEpoch >= Number.MAX_SAFE_INTEGER) {
+        this.renormalizeMovementStartEpoch();
+      }
+
       this.movementStartEpoch += 1;
       state.activationSeq = this.movementStartEpoch;
       this.lastMovementStartSource = source;
     }
 
     state.active = active;
+  }
+
+  /** Zero-allocation renormalization for the overflow guard: renumbers the
+   *  ACTIVE movement states to small unique activationSeqs preserving their
+   *  relative recency order (inactive states reset to 0) and sets the epoch
+   *  to the max rank, so the next increment resumes the total order from a
+   *  safe value. The ranks are pairwise comparisons over snapshot scalars
+   *  (SOURCE_ORDER is the fixed 3-entry poll order) — no allocations. */
+  private renormalizeMovementStartEpoch(): void {
+    const st0 = this.movementStates.get(SOURCE_ORDER[0]);
+    const st1 = this.movementStates.get(SOURCE_ORDER[1]);
+    const st2 = this.movementStates.get(SOURCE_ORDER[2]);
+    const seq0 = st0?.activationSeq ?? 0;
+    const seq1 = st1?.activationSeq ?? 0;
+    const seq2 = st2?.activationSeq ?? 0;
+    const active0 = st0?.active ?? false;
+    const active1 = st1?.active ?? false;
+    const active2 = st2?.active ?? false;
+    // Rank = 1 + the count of other ACTIVE states with an older
+    // crossing (strictly smaller seq); inactive states rank 0.
+    const rank0 = active0
+      ? 1 + (active1 && seq1 < seq0 ? 1 : 0) + (active2 && seq2 < seq0 ? 1 : 0)
+      : 0;
+    const rank1 = active1
+      ? 1 + (active0 && seq0 < seq1 ? 1 : 0) + (active2 && seq2 < seq1 ? 1 : 0)
+      : 0;
+    const rank2 = active2
+      ? 1 + (active0 && seq0 < seq2 ? 1 : 0) + (active1 && seq1 < seq2 ? 1 : 0)
+      : 0;
+    if (st0) st0.activationSeq = rank0;
+    if (st1) st1.activationSeq = rank1;
+    if (st2) st2.activationSeq = rank2;
+    this.movementStartEpoch = Math.max(rank0, Math.max(rank1, rank2));
   }
 
   clearSource(source: InputSource): void {

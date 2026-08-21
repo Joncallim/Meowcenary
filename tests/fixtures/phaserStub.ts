@@ -10,6 +10,7 @@ export default {
         W: 'W', A: 'A', S: 'S', D: 'D',
         UP: 'UP', DOWN: 'DOWN', LEFT: 'LEFT', RIGHT: 'RIGHT',
         ENTER: 'ENTER', SPACE: 'SPACE', ESC: 'ESC', P: 'P', I: 'I', Q: 'Q',
+        SHIFT: 'SHIFT',
       },
     },
   },

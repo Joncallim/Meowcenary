@@ -176,6 +176,7 @@ export class MockKeyboardPlugin extends EventEmitter {
       P: 'P',
       I: 'I',
       Q: 'Q',
+      SHIFT: 'SHIFT',
     };
     return codeByKey[upper];
   }
@@ -482,6 +483,7 @@ const MockPhaser = {
         P: 'P',
         I: 'I',
         Q: 'Q',
+        SHIFT: 'SHIFT',
       },
       Key: MockKey,
     },
