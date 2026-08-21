@@ -109,8 +109,6 @@ function fakeObject(
     setStrokeStyle(width: number, color: number, alpha: number) {
       if (failNextStroke > 0) {
         failNextStroke -= 1;
-        // eslint-disable-next-line no-console
-        console.log('stroke call, remaining:', failNextStroke);
         if (failNextStroke === 0) {
           throw new Error('Injected stroke failure');
         }
@@ -1035,6 +1033,17 @@ describe('MenuScene audio lifecycle', () => {
 
     expect(input.listenerCount('pointerdown')).toBe(0);
     expect(audioFake!.unlock).not.toHaveBeenCalled();
+  });
+
+  it('clears the hint reference on shutdown so refresh cannot touch destroyed text (round-9)', () => {
+    const { menuScene, lifecycle } = createHarness();
+    // Menu is the only surface whose shutdown retains a Phaser display ref if
+    // the hint isn't cleared. After shutdown the field must be undefined and
+    // any presentation refresh must be a no-op (not setText on destroyed Text).
+    lifecycle.emit('shutdown');
+    const { hint } = menuScene as unknown as { hint?: unknown };
+    expect(hint).toBeUndefined();
+    expect(() => (menuScene as never as { refreshInputPresentation(): void }).refreshInputPresentation()).not.toThrow();
   });
 
   it('never accumulates unlock listeners across create/shutdown visits', () => {

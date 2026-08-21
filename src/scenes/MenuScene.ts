@@ -591,6 +591,11 @@ export class MenuScene extends Phaser.Scene {
     this.inputController = undefined;
     this.root?.destroy(true);
     this.root = undefined;
+    // Clear the hint reference BEFORE the root destroy: it is the only
+    // Phaser.GameObjects field Menu retains across shutdown, and a stale
+    // reference would let a later presentation refresh call setText() on
+    // destroyed Text (round-9).
+    this.hint = undefined;
     this.focusables = [];
     this.focusRings = [];
     this.navigator.setCount(0);

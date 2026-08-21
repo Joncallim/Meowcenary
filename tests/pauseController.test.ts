@@ -1029,14 +1029,6 @@ describe('PhaserPauseView', () => {
     expect(() => view.render(controller.snapshot())).toThrow(
       'Injected rectangle factory failure',
     );
-    const anyView = view as unknown as Record<string, { hint?: { state?: { destroyed?: boolean; text?: string } } | undefined }>;
-    const rackKeys = Object.keys(anyView).filter((k) => k.toLowerCase().includes('rack'));
-    // eslint-disable-next-line no-console
-    console.log('rack fields:', rackKeys);
-    for (const k of rackKeys) {
-      // eslint-disable-next-line no-console
-      console.log('field', k, 'hint:', anyView[k]?.hint ? { destroyed: anyView[k]?.hint?.state?.destroyed, text: anyView[k]?.hint?.state?.text } : 'undefined');
-    }
 
     // Mode transitions must neither touch the destroyed hint nor throw.
     for (const nextMode of ['gamepad', 'pointer', 'keyboard'] as const) {
