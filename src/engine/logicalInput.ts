@@ -91,6 +91,14 @@ export class LogicalInputCore {
   private timeMs = 0;
   private activeMovementSource: InputSource | null = null;
   private activeNavAction: GameAction | null = null;
+  // Epic 19 D7: movement-START generation. A source crossing inactive→active
+  // is a D7 signal INDEPENDENT of the D4 owner hysteresis (the owner is
+  // retained while it stays beyond deadzone even when another source begins
+  // moving, so the owner alone cannot reveal a movement START). Monotonic
+  // scalar counters — zero per-frame allocation (Epic 19 §6 gate); the
+  // controller diffs the generation across polls to detect a START.
+  private movementStartEpoch = 0;
+  private lastMovementStartSource: InputSource | null = null;
 
   constructor(private readonly options: LogicalInputCoreOptions) {
     for (const source of SOURCE_ORDER) {
@@ -163,6 +171,10 @@ export class LogicalInputCore {
 
     if (active && !state.active) {
       state.lastActiveAtMs = this.timeMs;
+      // Record the movement START (inactive→active crossing) for the D7
+      // presentation tracker — scalar writes, zero allocation (§6 gate).
+      this.movementStartEpoch += 1;
+      this.lastMovementStartSource = source;
     }
 
     state.active = active;
@@ -207,6 +219,20 @@ export class LogicalInputCore {
 
   getActiveMovementSource(): InputSource | null {
     return this.activeMovementSource;
+  }
+
+  /** Monotonic generation advanced on every movement inactive→active
+   *  crossing (a D7 movement START). Zero-allocation scalar read; the D7
+   *  presentation tracker diffs it across polls. */
+  getMovementStartEpoch(): number {
+    return this.movementStartEpoch;
+  }
+
+  /** The source of the most recent movement START. Non-null iff the
+   *  generation advanced since the previous poll (every increment records
+   *  its source). */
+  getLastMovementStartSource(): InputSource | null {
+    return this.lastMovementStartSource;
   }
 
   private updateMovementOwner(): void {

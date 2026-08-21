@@ -743,6 +743,91 @@ describe('InputController active-mode tracking (Epic 19 D7)', () => {
     controller.update(16);
     expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
   });
+
+  it('a gamepad movement START while keyboard retains the D4 owner presents gamepad mode', () => {
+    const { controller, input } = createController({ keyboard: true, gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    // Hold keyboard movement: D4 owner is keyboard.
+    input.keyboard!.keydown('d');
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+
+    // A pointerdown between polls presents pointer mode...
+    input.pointerDown(200, 200);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+
+    // ...then a genuine movement START from the gamepad — stick deflection
+    // above the 0.25 moveDeadzone and below the 0.5 navThreshold (no nav
+    // edge) — must present gamepad mode even though D4 keeps keyboard as
+    // the movement owner (D7 is decoupled from D4 ownership).
+    pad.setLeftStick(0.4, 0);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+
+    // D4 ownership hysteresis is untouched: the move vector stays keyboard.
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+  });
+
+  it('an action edge presentation persists across subsequent no-event polls', () => {
+    const { controller, input } = createController({ keyboard: true, gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    // Hold keyboard movement: D4 owner is keyboard.
+    input.keyboard!.keydown('d');
+    controller.update(16);
+
+    // A gamepad confirm edge presents gamepad mode...
+    pad.setButton(0, true); // bottom face button = confirm
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+
+    // ...and that presentation persists across no-event polls: the held
+    // keyboard movement is a retained D4 owner, not a D7 signal, so it
+    // must not revert the presented mode.
+    for (let i = 0; i < 5; i += 1) {
+      controller.update(16);
+      expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+    }
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+  });
+
+  it('a movement START after a pointerdown supersedes it (later signal wins)', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    input.keyboard!.keydown('d');
+    controller.update(16);
+
+    input.pointerDown(200, 200);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+
+    // Release, then re-press: a movement START after the pointerdown is a
+    // newer D7 signal and wins.
+    input.keyboard!.keyup('d');
+    controller.update(16);
+    input.keyboard!.keydown('d');
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+  });
+
+  it('a pointerdown with no active movement yields to a later movement START', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    // Bare tap with no movement anywhere: the pointerdown is the newest
+    // signal and presents pointer mode...
+    input.pointerDown(200, 200);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+
+    // ...but a movement START is newer than that pointerdown (D7).
+    input.keyboard!.keydown('d');
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+  });
 });
 
 describe('InputController gamepad left-stick navigation (Epic 19 §4)', () => {

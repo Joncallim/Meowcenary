@@ -392,12 +392,19 @@ export class InputController implements System {
   private readonly actionSubscriptions = new Map<GameAction, Set<ActionHandler>>();
   private readonly anyActionHandlers = new Set<ActionHandler>();
   private lastActiveMode: InputMode = 'pointer';
-  // Epic 19 D7: a pointerdown is the most recent event when it fires between
-  // polls (Phaser emits it via the scene event emitter), so it must keep
-  // presenting pointer mode until a LATER event acts: an action edge, or
-  // movement beyond deadzone from a DIFFERENT source than the one it
-  // interrupted. While the interrupted movement source stays held, the
-  // pointerdown persists (it is newer than the held movement state).
+  // Epic 19 D7: a movement START (a source crossing inactive→active) is a
+  // signal in its own right, INDEPENDENT of the D4 owner hysteresis — the
+  // D4 owner is retained while it stays beyond deadzone even when another
+  // source begins moving, so the owner alone cannot reveal a START. The
+  // core advances a monotonic generation exactly on such crossings; the
+  // controller diffs it across polls (scalar comparison, zero allocation —
+  // Epic 19 §6 gate) to learn when a movement START occurred and from
+  // which source.
+  private prevMovementStartEpoch = 0;
+  // A pointerdown between polls is the most recent event when it fires
+  // (Phaser emits it via the scene event emitter), so it keeps presenting
+  // pointer mode until a LATER event acts: an action edge, a movement
+  // START, or the movement it interrupted stopping.
   private pointerDownPending = false;
   private pointerDownMovementSource: InputSource | null = null;
 
@@ -435,13 +442,34 @@ export class InputController implements System {
     const edges = this.core.update(dtMs);
 
     const source = this.core.getActiveMovementSource();
-    if (source === null) {
+
+    // D7 movement-START detection, decoupled from D4 ownership: a source
+    // crossing inactive→active is a signal even when the D4 owner is a
+    // DIFFERENT source retained by hysteresis. Scalar generation diff —
+    // zero allocation (Epic 19 §6 gate).
+    const movementStarted =
+      this.core.getMovementStartEpoch() !== this.prevMovementStartEpoch;
+    if (movementStarted) {
+      this.prevMovementStartEpoch = this.core.getMovementStartEpoch();
+      // The generation advanced only on a crossing, which always records
+      // its source; the null fallback is defensive.
+      const startSource = this.core.getLastMovementStartSource();
+      // A movement START is a newer D7 signal than a between-poll
+      // pointerdown and supersedes it (later wins within a poll).
+      this.lastActiveMode = startSource ?? this.lastActiveMode;
+      this.pointerDownPending = false;
+    } else if (source === null) {
       // The movement the pointerdown interrupted has stopped; any later
       // movement start is a new D7 event and may re-assert its source.
       this.pointerDownPending = false;
-    } else if (!this.pointerDownPending || source !== this.pointerDownMovementSource) {
-      this.lastActiveMode = source;
-      this.pointerDownMovementSource = source;
+    } else if (this.pointerDownPending && source === this.pointerDownMovementSource) {
+      // No new signal: the pointerdown is still newer than the SAME held
+      // movement source — keep presenting pointer mode.
+    } else {
+      // No new signal: a retained D4 owner (even a different one — e.g. an
+      // owner switch without any activation crossing) is not a D7 event —
+      // do NOT touch lastActiveMode. A held owner's continued presence is
+      // never a D7 signal; only STARTs, edges, and pointerdowns are.
     }
 
     for (let i = 0; i < edges.length; i += 1) {
