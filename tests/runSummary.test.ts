@@ -521,25 +521,50 @@ describe('PhaserRunSummaryView', () => {
     expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
   });
 
-  it('starts on Retry with exactly one FocusStroke ring in keyboard mode and wraps linearly', () => {
-    const { bus, scene, view } = createHarness({ banked: bankedRun(), readInputMode: () => 'keyboard' });
-    view.refreshInputPresentation();
+  it('starts on Retry with the exact FocusStroke ring in keyboard mode, wraps linearly, and restores the exact base stroke (F4)', () => {
+    let mode: InputMode = 'pointer';
+    const { bus, scene, view } = createHarness({ banked: bankedRun(), readInputMode: () => mode });
     bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
 
     const buttons = scene.objects.filter(
       (object) => object.state.kind === 'rect' && object.state.handlers['pointerup'] && !object.state.destroyed,
     );
     expect(buttons).toHaveLength(2);
+    // Capture the exact base strokes before keyboard focus applies.
+    const retryBase = {
+      width: buttons[0]!.state.strokeWidth,
+      color: buttons[0]!.state.strokeColor,
+      alpha: buttons[0]!.state.strokeAlpha,
+    };
+    const menuBase = {
+      width: buttons[1]!.state.strokeWidth,
+      color: buttons[1]!.state.strokeColor,
+      alpha: buttons[1]!.state.strokeAlpha,
+    };
+    expect(buttons[0]!.state.strokeColor).not.toBe(FocusStroke.color);
+
+    mode = 'keyboard';
+    view.refreshInputPresentation();
+    // Focused Retry carries ALL THREE FocusStroke theme constants.
+    expect(buttons[0]!.state.strokeWidth).toBe(FocusStroke.width);
     expect(buttons[0]!.state.strokeColor).toBe(FocusStroke.color);
     expect(buttons[0]!.state.strokeAlpha).toBe(FocusStroke.alpha);
     expect(buttons[1]!.state.strokeColor).not.toBe(FocusStroke.color);
 
-    // All four directions wrap linearly on the two-item list.
+    // All four directions wrap linearly on the two-item list; each move
+    // restores the exact base stroke on the target that lost focus.
     expect(view.moveFocus('up')).toBe(true);
+    expect(buttons[1]!.state.strokeWidth).toBe(FocusStroke.width);
     expect(buttons[1]!.state.strokeColor).toBe(FocusStroke.color);
-    expect(buttons[0]!.state.strokeColor).not.toBe(FocusStroke.color);
+    expect(buttons[1]!.state.strokeAlpha).toBe(FocusStroke.alpha);
+    expect(buttons[0]!.state.strokeWidth).toBe(retryBase.width);
+    expect(buttons[0]!.state.strokeColor).toBe(retryBase.color);
+    expect(buttons[0]!.state.strokeAlpha).toBe(retryBase.alpha);
     expect(view.moveFocus('left')).toBe(true);
     expect(buttons[0]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(buttons[1]!.state.strokeWidth).toBe(menuBase.width);
+    expect(buttons[1]!.state.strokeColor).toBe(menuBase.color);
+    expect(buttons[1]!.state.strokeAlpha).toBe(menuBase.alpha);
     expect(view.moveFocus('down')).toBe(true);
     expect(buttons[1]!.state.strokeColor).toBe(FocusStroke.color);
     expect(view.moveFocus('right')).toBe(true);

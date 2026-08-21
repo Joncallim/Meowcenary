@@ -330,6 +330,14 @@ export class PhaserRunSummaryView {
       if (this.hoveredIndex === index) this.hoveredIndex = -1;
       this.applyFocus();
     });
+    // Single surface funnel for pointer activation: FIRST sync the logical
+    // index, THEN activate (round-2 finding F2).
+    handle.target.on(Phaser.Input.Events.POINTER_UP, () => {
+      this.hoveredIndex = index;
+      this.navigator.setIndex(index);
+      this.applyFocus();
+      handle.activate();
+    });
   }
 
   private applyFocus(): void {

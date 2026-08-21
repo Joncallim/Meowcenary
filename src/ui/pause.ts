@@ -138,6 +138,11 @@ export class PhaserPauseView {
   private hint?: Phaser.GameObjects.Text;
   private hoveredIndex = -1;
   private committedPanel: PausePanel = 'closed';
+  /** Explicit committed-display gate retained separately from the root
+   *  reference: false before teardown, true only after a successful render
+   *  publication. Exposed to the rack child so its number shortcuts cannot
+   *  act on a destroyed tree (round-2 finding F1). */
+  private committedDisplay = false;
   private readonly readInputMode: () => InputMode;
   private inputMode: InputMode = 'pointer';
   private lastInputMode: InputMode = 'pointer';
@@ -156,6 +161,7 @@ export class PhaserPauseView {
       inventory: options.inventory,
       modal: this.modal,
       isOpen: () => this.controller.snapshot().panel === 'inventory',
+      hasCommittedRoot: () => this.committedDisplay,
       onBack: () => this.controller.back(),
       requestRender: () => this.render(this.controller.snapshot()),
       visualArt: options.visualArt,
@@ -171,6 +177,9 @@ export class PhaserPauseView {
     }
     this.syncLayoutContext();
     const panelChanged = snapshot.panel !== this.committedPanel;
+    // The display is uncommitted from the moment teardown begins until a
+    // successful publication below (F1 committed-display gate).
+    this.committedDisplay = false;
     this.root?.destroy(true);
     this.root = undefined;
     // Unpublished references are cleared up front: a failed rebuild must
@@ -233,6 +242,7 @@ export class PhaserPauseView {
       this.applyFocus();
       this.root = root;
       this.committedPanel = snapshot.panel;
+      this.committedDisplay = true;
     } catch (error) {
       root.destroy(true);
       this.buttons = [];
@@ -256,6 +266,7 @@ export class PhaserPauseView {
     this.hoveredIndex = -1;
     this.navigator.setCount(0);
     this.committedPanel = 'closed';
+    this.committedDisplay = false;
   }
 
   private readonly handleScaleChange = (): void => {
@@ -342,6 +353,15 @@ export class PhaserPauseView {
     handle.target.on(Phaser.Input.Events.POINTER_OUT, () => {
       if (this.hoveredIndex === index) this.hoveredIndex = -1;
       this.applyFocus();
+    });
+    // Single surface funnel for pointer activation: FIRST sync the logical
+    // index, THEN activate. The handle's enabled guard retains command
+    // suppression for disabled buttons (round-2 finding F2).
+    handle.target.on(Phaser.Input.Events.POINTER_UP, () => {
+      this.hoveredIndex = index;
+      this.navigator.setIndex(index);
+      this.applyFocus();
+      handle.activate();
     });
   }
 

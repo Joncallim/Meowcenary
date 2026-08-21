@@ -25,6 +25,12 @@ export class MenuScene extends Phaser.Scene {
   private readonly navigator = new FocusNavigator('linear');
   private hoveredIndex = -1;
   private committedPanel?: MainMenuSnapshot['panel'];
+  /** Explicit committed-display gate, retained separately from the root
+   *  reference: false before teardown, true only after a render publishes a
+   *  usable focus target list. The fallback root carries no focus targets, so
+   *  a failed same-panel rebuild must not let nav/activate act on the
+   *  retained navigator (round-2 finding F1). */
+  private committedDisplay = false;
   private hint?: Phaser.GameObjects.Text;
   private lastInputMode: import('../systems/input').InputMode = 'pointer';
   private bus?: EventBus;
@@ -79,6 +85,9 @@ export class MenuScene extends Phaser.Scene {
 
   private render(snapshot: MainMenuSnapshot): void {
     const panelChanged = this.committedPanel !== undefined && this.committedPanel !== snapshot.panel;
+    // The display is uncommitted from the moment teardown begins until a
+    // successful publication below (F1 committed-display gate).
+    this.committedDisplay = false;
     this.root?.destroy(true);
     this.root = undefined;
     this.focusables = [];
@@ -150,6 +159,7 @@ export class MenuScene extends Phaser.Scene {
       // and the next render can retry from a clean slate.
       this.root = root;
       this.committedPanel = snapshot.panel;
+      this.committedDisplay = true;
     } catch (error) {
       root.destroy(true);
       this.focusables = [];
@@ -525,6 +535,9 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private handleNavMove(direction: FocusDirection | number): void {
+    // No committed display (never rendered, or a failed rebuild left only the
+    // fallback): the retained navigator must not move or emit (F1).
+    if (!this.committedDisplay) return;
     const moved = typeof direction === 'number'
       ? this.navigator.move(direction < 0 ? 'up' : 'down')
       : this.navigator.move(direction);
@@ -535,6 +548,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private handleActivate(): void {
+    if (!this.committedDisplay) return;
     const focused = this.focusables[this.navigator.index];
     focused?.emit(Phaser.Input.Events.POINTER_UP);
   }
@@ -577,6 +591,7 @@ export class MenuScene extends Phaser.Scene {
     this.focusRings = [];
     this.navigator.setCount(0);
     this.committedPanel = undefined;
+    this.committedDisplay = false;
     this.hoveredIndex = -1;
     this.controller = undefined;
     // The manager is game-scoped and Boot-owned: shutdown only drops this

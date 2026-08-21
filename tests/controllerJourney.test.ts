@@ -352,7 +352,11 @@ function createMenuPhase() {
     scene.objects
       .filter((object) => object.state.kind === 'text' && !object.state.destroyed)
       .map((object) => object.state.text);
-  return { menuScene, input, pad, press, pointerCalls, textContents, sceneStart: scene.scene.start, bus };
+  const events: string[] = [];
+  bus.on('ui:navigate', () => events.push('ui:navigate'));
+  bus.on('ui:confirm', () => events.push('ui:confirm'));
+  bus.on('ui:back', () => events.push('ui:back'));
+  return { menuScene, scene, input, pad, press, pointerCalls, textContents, sceneStart: scene.scene.start, bus, events };
 }
 
 // --- Game phase: real owners/views + GameScene.routeAction through one cast ---
@@ -507,8 +511,21 @@ function liveModalButtons(scene: ReturnType<typeof createFakeScene>) {
   );
 }
 
+/** Rects currently carrying the EXACT FocusStroke ring (width+color+alpha). */
+function focusRingTargets(scene: ReturnType<typeof createFakeScene>) {
+  return scene.objects.filter(
+    (object) =>
+      object.state.kind === 'rect' &&
+      !object.state.destroyed &&
+      object.state.strokeWidth === FocusStroke.width &&
+      object.state.strokeColor === FocusStroke.color &&
+      object.state.strokeAlpha === FocusStroke.alpha,
+  );
+}
+
 /** Focused target index among every pointer-over-registered rack target
- *  (slots 0..capacity-1, Merge, Back) — the ring is the FocusStroke. */
+ *  (slots 0..capacity-1, Merge, Back) — the ring is the exact FocusStroke
+ *  (width/color/alpha; a wrong thickness fails the find). */
 function focusedTargetIndex(scene: ReturnType<typeof createFakeScene>): number {
   const targets = scene.objects.filter(
     (object) =>
@@ -518,14 +535,18 @@ function focusedTargetIndex(scene: ReturnType<typeof createFakeScene>): number {
   );
   return targets.findIndex(
     (target) =>
-      target.state.strokeColor === FocusStroke.color && target.state.strokeAlpha === FocusStroke.alpha,
+      target.state.strokeWidth === FocusStroke.width &&
+      target.state.strokeColor === FocusStroke.color &&
+      target.state.strokeAlpha === FocusStroke.alpha,
   );
 }
 
 function focusedButtonIndex(scene: ReturnType<typeof createFakeScene>): number {
   return liveModalButtons(scene).findIndex(
     (button) =>
-      button.state.strokeColor === FocusStroke.color && button.state.strokeAlpha === FocusStroke.alpha,
+      button.state.strokeWidth === FocusStroke.width &&
+      button.state.strokeColor === FocusStroke.color &&
+      button.state.strokeAlpha === FocusStroke.alpha,
   );
 }
 
@@ -535,42 +556,85 @@ describe('headless production controller journey', () => {
     // Phase A: Menu (brief steps 1-5) through the real MenuScene.
     // ------------------------------------------------------------------
     const menu = createMenuPhase();
+    const menuSnapshot = () =>
+      (menu.menuScene as unknown as {
+        controller: { snapshot: () => import('../src/ui/menus').MainMenuSnapshot };
+      }).controller.snapshot();
 
     // 1. Menu home: navDown, confirm → Character.
     menu.press(13);
+    expect(menu.events).toEqual(['ui:navigate']);
+    expect(focusRingTargets(menu.scene)).toHaveLength(1);
     menu.press(0);
+    expect(menu.events).toEqual(['ui:navigate', 'ui:confirm']);
     expect(menu.textContents()).toContain('Choose Character');
+    expect(menuSnapshot().panel).toBe('character');
+    expect(menu.sceneStart).not.toHaveBeenCalled();
+    expect(focusRingTargets(menu.scene)).toHaveLength(1);
+    assertZeroPointerCalls(menu.pointerCalls, 'menu step 1');
 
     // 2. Character: confirm the visible default (already-selected is a
     //    successful no-op), then back → Home.
     menu.press(0);
+    expect(menu.events).toEqual(['ui:navigate', 'ui:confirm', 'ui:confirm']);
     expect(menu.textContents()).toContain('Choose Character');
+    expect(menuSnapshot().panel).toBe('character');
     menu.press(1);
+    expect(menu.events).toEqual(['ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back']);
     expect(menu.textContents()).toContain('Start');
+    expect(menuSnapshot().panel).toBe('home');
+    expect(menu.sceneStart).not.toHaveBeenCalled();
+    expect(focusRingTargets(menu.scene)).toHaveLength(1);
+    assertZeroPointerCalls(menu.pointerCalls, 'menu step 2');
 
     // 3. Home (panel reset): navDown, navDown, confirm → Arena.
     menu.press(13);
     menu.press(13);
+    expect(menu.events).toEqual([
+      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate',
+    ]);
     menu.press(0);
+    expect(menu.events).toEqual([
+      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm',
+    ]);
     expect(menu.textContents()).toContain('Choose Arena');
+    expect(menuSnapshot().panel).toBe('arena');
+    expect(menu.sceneStart).not.toHaveBeenCalled();
+    assertZeroPointerCalls(menu.pointerCalls, 'menu step 3');
 
     // 4. Arena: confirm the visible default, then back → Home.
     menu.press(0);
+    expect(menu.events).toEqual([
+      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm',
+    ]);
     expect(menu.textContents()).toContain('Choose Arena');
+    expect(menuSnapshot().panel).toBe('arena');
     menu.press(1);
+    expect(menu.events).toEqual([
+      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back',
+    ]);
     expect(menu.textContents()).toContain('Start');
+    expect(menuSnapshot().panel).toBe('home');
+    expect(menu.sceneStart).not.toHaveBeenCalled();
+    expect(focusRingTargets(menu.scene)).toHaveLength(1);
+    assertZeroPointerCalls(menu.pointerCalls, 'menu step 4');
 
     // 5. Home (panel reset): confirm → exactly one Game scene start.
     menu.press(0);
+    expect(menu.events).toEqual([
+      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:confirm',
+    ]);
     expect(menu.sceneStart).toHaveBeenCalledTimes(1);
     expect(menu.sceneStart).toHaveBeenCalledWith(SceneKey.Game);
-    assertZeroPointerCalls(menu.pointerCalls, 'menu phase');
+    expect(focusRingTargets(menu.scene)).toHaveLength(1);
+    assertZeroPointerCalls(menu.pointerCalls, 'menu step 5');
 
     // ------------------------------------------------------------------
     // Phase B: Game (brief steps 6-13) through real owners and the real
     // GameScene.routeAction.
     // ------------------------------------------------------------------
     const game = createGamePhase();
+    const scenePlugin = game.scene.scene;
 
     // 6. A real level:up through UpgradeSystem/UpgradeChooser. The level-up
     //    chooser row is inside the pointer-free journey.
@@ -578,31 +642,61 @@ describe('headless production controller journey', () => {
     expect(game.runState.status).toBe('paused');
     expect(game.runState.pauseReason).toBe('levelUp');
     expect(game.events).toEqual([]);
-    // First offer card focused (diagnostics are the authoritative focus read
-    // before any input has switched the presentation mode).
     const focusedCards = () =>
       game.upgradeChooser.diagnostics.cards.map((card) => card.focused);
     expect(focusedCards()).toEqual([true, false, false]);
     const offeredIds = game.upgradeChooser.diagnostics.choiceIds;
     expect(offeredIds).toHaveLength(3);
+    // Pointer presentation initially: no card carries the actual ring.
+    const chooserCards = () =>
+      game.scene.objects.filter(
+        (object) =>
+          object.state.kind === 'rect' &&
+          object.state.handlers['pointerover'] &&
+          !object.state.destroyed,
+      );
+    const ringedCardIndex = () =>
+      chooserCards().findIndex(
+        (card) =>
+          card.state.strokeWidth === FocusStroke.width &&
+          card.state.strokeColor === FocusStroke.color &&
+          card.state.strokeAlpha === FocusStroke.alpha,
+      );
+    expect(ringedCardIndex()).toBe(-1);
 
-    // navRight focuses the second card (exactly one ui:navigate), confirm
-    // chooses exactly the focused offer token and returns to active play.
+    // navRight focuses the second card (exactly one ui:navigate): the ring is
+    // the ACTUAL rendered FocusStroke on the second card, not just logical
+    // diagnostics, and the exact run snapshot is unchanged.
     game.press(15);
     expect(game.events).toEqual(['ui:navigate']);
     expect(focusedCards()).toEqual([false, true, false]);
+    expect(ringedCardIndex()).toBe(1);
+    expect(chooserCards()[1]!.state.strokeWidth).toBe(FocusStroke.width);
+    expect(chooserCards()[1]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(chooserCards()[1]!.state.strokeAlpha).toBe(FocusStroke.alpha);
+    expect(chooserCards()[0]!.state.strokeColor).not.toBe(FocusStroke.color);
+    expect(scenePlugin.start).not.toHaveBeenCalled();
+    expect(scenePlugin.restart).not.toHaveBeenCalled();
+
+    // confirm chooses exactly the focused offer token and returns to active
+    // play; the authoritative run snapshot reflects the accepted choice. The
+    // accepted choice audio is card:chosen — no ui:confirm is emitted.
     game.press(0);
+    expect(game.events).toEqual(['ui:navigate']);
     expect(game.runState.status).toBe('active');
     expect(game.runState.upgradeStacks[offeredIds[1]!]).toBe(1);
     expect(game.upgradeChooser.diagnostics.choiceIds).toEqual([]);
+    assertZeroPointerCalls(game.pointerCalls, 'chooser step 6');
 
     // 7. Pause (position 9) → manual pause panel with Resume focused.
     game.press(9);
+    expect(game.events).toEqual(['ui:navigate', 'ui:confirm']);
     expect(game.runState.status).toBe('paused');
     expect(game.runState.pauseReason).toBe('manual');
     expect(game.pauseController.snapshot().panel).toBe('pause');
     expect(focusedButtonIndex(game.scene)).toBe(0);
-    assertZeroPointerCalls(game.pointerCalls, 'pause entry');
+    expect(focusRingTargets(game.scene)).toHaveLength(1);
+    assertZeroPointerCalls(game.pointerCalls, 'pause entry step 7');
 
     // 8. navDown, confirm → Weapon Rack (one ui:navigate, one ui:confirm).
     const beforeRack = game.events.length;
@@ -612,19 +706,27 @@ describe('headless production controller journey', () => {
     expect(game.events.slice(beforeRack)).toEqual(['ui:navigate', 'ui:confirm']);
     // Genuine rack entry resets to the first occupied slot.
     expect(focusedTargetIndex(game.scene)).toBe(0);
+    expect(focusRingTargets(game.scene)).toHaveLength(1);
+    expect(scenePlugin.start).not.toHaveBeenCalled();
+    expect(scenePlugin.restart).not.toHaveBeenCalled();
+    assertZeroPointerCalls(game.pointerCalls, 'rack entry step 8');
 
     // 9. Rack: confirm slot 0; navRight, confirm slot 1. The preview exists
     //    and focus remains slot 1 after both same-inventory rerenders.
+    const beforeSlot0 = game.events.length;
     game.press(0);
+    expect(game.events.slice(beforeSlot0)).toEqual(['ui:navigate']);
     expect(game.inventory.snapshot().selectedInstanceIds).toEqual(['a']);
     expect(focusedTargetIndex(game.scene)).toBe(0);
+    const beforeSlot1 = game.events.length;
     game.press(15);
-    expect(focusedTargetIndex(game.scene)).toBe(1);
     game.press(0);
+    expect(game.events.slice(beforeSlot1)).toEqual(['ui:navigate', 'ui:navigate']);
     expect(game.inventory.snapshot().selectedInstanceIds).toEqual(['a', 'b']);
     expect(game.inventory.snapshot().preview?.result.definitionId).toBe('scrap-pistol-t2');
     expect(focusedTargetIndex(game.scene)).toBe(1);
-    assertZeroPointerCalls(game.pointerCalls, 'rack selection');
+    expect(focusRingTargets(game.scene)).toHaveLength(1);
+    assertZeroPointerCalls(game.pointerCalls, 'rack selection step 9');
 
     // 10. Portrait grid (count=8, C=2): from i=1 the path is exactly
     //     [1, 3, 5, 7, 6] — Down, Down, Down (last-row clamp to Back), Left.
@@ -638,6 +740,9 @@ describe('headless production controller journey', () => {
     game.press(14);
     path.push(focusedTargetIndex(game.scene));
     expect([1, ...path]).toEqual([1, 3, 5, 7, 6]);
+    expect(game.events.slice(beforeSlot1)).toEqual([
+      'ui:navigate', 'ui:navigate', 'ui:navigate', 'ui:navigate', 'ui:navigate', 'ui:navigate',
+    ]);
 
     // Confirm on Merge: exactly one weapon:merged, one ui:confirm, one T2
     // weapon, and focus stays Merge i=6 (preservation, not a count clamp).
@@ -649,7 +754,8 @@ describe('headless production controller journey', () => {
     expect(game.runState.equipped).toHaveLength(1);
     expect(game.runState.equipped[0]?.tier).toBe(2);
     expect(focusedTargetIndex(game.scene)).toBe(6);
-    assertZeroPointerCalls(game.pointerCalls, 'rack merge');
+    expect(focusRingTargets(game.scene)).toHaveLength(1);
+    assertZeroPointerCalls(game.pointerCalls, 'rack merge step 10');
 
     // 11. back → Pause (selection cleared / panel walk preserved), back →
     //     active run.
@@ -660,30 +766,35 @@ describe('headless production controller journey', () => {
     game.press(1);
     expect(game.pauseController.snapshot().panel).toBe('closed');
     expect(game.runState.status).toBe('active');
-    assertZeroPointerCalls(game.pointerCalls, 'back walk');
+    expect(game.events.slice(eventsBeforeMerge)).toEqual(['ui:confirm', 'ui:back', 'ui:back']);
+    expect(scenePlugin.start).not.toHaveBeenCalled();
+    expect(scenePlugin.restart).not.toHaveBeenCalled();
+    assertZeroPointerCalls(game.pointerCalls, 'back walk step 11');
 
     // 12. End the run: the terminal listener renders the summary with Retry
     //     focused. Back, Pause, and Inventory each leave it unchanged.
     endRun(game.runState, 'won', game.bus);
+    expect(game.runState.status).toBe('won');
     expect(game.runSummaryView.visible).toBe(true);
     expect(focusedButtonIndex(game.scene)).toBe(0);
+    expect(focusRingTargets(game.scene)).toHaveLength(1);
     const eventsBeforeTerminal = game.events.length;
     game.press(1); // back — the deliberate terminal no-op
     game.press(9); // pause — discarded
     game.press(3); // inventory — discarded
     expect(game.events.length).toBe(eventsBeforeTerminal);
     expect(focusedButtonIndex(game.scene)).toBe(0);
-    expect(game.scene.scene.restart).not.toHaveBeenCalled();
-    expect(game.scene.scene.start).not.toHaveBeenCalled();
-    assertZeroPointerCalls(game.pointerCalls, 'terminal discarded edges');
+    expect(scenePlugin.restart).not.toHaveBeenCalled();
+    expect(scenePlugin.start).not.toHaveBeenCalled();
+    assertZeroPointerCalls(game.pointerCalls, 'terminal discarded edges step 12');
 
     // 13. Retry branch: confirm → exactly one scene restart.
     const eventsBeforeRetry = game.events.length;
     game.press(0);
     expect(game.events.slice(eventsBeforeRetry)).toEqual(['ui:confirm']);
-    expect(game.scene.scene.restart).toHaveBeenCalledTimes(1);
-    expect(game.scene.scene.start).not.toHaveBeenCalled();
-    assertZeroPointerCalls(game.pointerCalls, 'retry branch');
+    expect(scenePlugin.restart).toHaveBeenCalledTimes(1);
+    expect(scenePlugin.start).not.toHaveBeenCalled();
+    assertZeroPointerCalls(game.pointerCalls, 'retry branch step 13');
 
     // ------------------------------------------------------------------
     // Phase C: fresh terminal fixture for the alternate branch (step 14).
@@ -695,6 +806,7 @@ describe('headless production controller journey', () => {
     // discarded in the terminal row) — the Retry ring then appears.
     fresh.press(1);
     expect(focusedButtonIndex(fresh.scene)).toBe(0);
+    expect(focusRingTargets(fresh.scene)).toHaveLength(1);
 
     // navDown → Main Menu, confirm → exactly one Menu scene start.
     const beforeMenu = fresh.events.length;
@@ -702,9 +814,10 @@ describe('headless production controller journey', () => {
     expect(fresh.events.slice(beforeMenu)).toEqual(['ui:navigate']);
     expect(focusedButtonIndex(fresh.scene)).toBe(1);
     fresh.press(0);
+    expect(fresh.events.slice(beforeMenu)).toEqual(['ui:navigate', 'ui:confirm']);
     expect(fresh.scene.scene.start).toHaveBeenCalledTimes(1);
     expect(fresh.scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
     expect(fresh.scene.scene.restart).not.toHaveBeenCalled();
-    assertZeroPointerCalls(fresh.pointerCalls, 'main menu branch');
+    assertZeroPointerCalls(fresh.pointerCalls, 'main menu branch step 14');
   });
 });

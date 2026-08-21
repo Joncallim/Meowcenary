@@ -91,6 +91,7 @@ export interface UpgradeChooserRenderDiagnostics {
   }[];
   readonly text: readonly {
     readonly role: string;
+    readonly text: string;
     readonly visible: boolean;
     readonly x: number;
     readonly y: number;
@@ -111,6 +112,11 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   private rebuildCount = 0;
   private focusIndex = 0;
   private hoveredIndex = -1;
+  /** Explicit committed-display gate retained separately from the root
+   *  reference: false before teardown, true only after a successful
+   *  publication. Number shortcuts and the logical seams must not reach a
+   *  destroyed/invisible tree through the retained offer (round-2 F1). */
+  private committedDisplay = false;
   private inputMode: InputMode = 'pointer';
   private lastInputMode: InputMode = 'pointer';
   private instructions?: Phaser.GameObjects.Text;
@@ -150,6 +156,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         const bounds = object.getBounds();
         return {
           role,
+          text: object.text,
           visible: object.visible,
           x: bounds.x,
           y: bounds.y,
@@ -190,6 +197,9 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     // Hover belongs to the previous tree's display objects and is never
     // preserved across a rebuild (§3 committed-render transaction).
     this.hoveredIndex = -1;
+    // The display is uncommitted from the moment teardown begins until the
+    // successful publication below (F1 committed-display gate).
+    this.committedDisplay = false;
 
     const { width, height } = this.scene.scale;
     const layout = computeUpgradeChooserLayout(
@@ -464,6 +474,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       // publish, acceptsNavigation stays false and no move/confirm seam can
       // act on an invisible card.
       this.root = root;
+      this.committedDisplay = true;
     } catch (error) {
       root.destroy(true);
       // Partial reset is intentional: only the references to destroyed
@@ -546,7 +557,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     return !this.destroyed
       && this.enabled
       && this.currentOfferId !== undefined
-      && this.root !== undefined;
+      && this.committedDisplay;
   }
 
   focusPrevious(): boolean {
@@ -585,6 +596,9 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   }
 
   private destroyDisplay(): void {
+    // Teardown uncommits the display: until the next successful publication,
+    // number shortcuts and logical seams are refused (F1).
+    this.committedDisplay = false;
     this.cardBackgrounds = [];
     this.renderedText = [];
     this.root?.destroy(true);
@@ -603,7 +617,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   }
 
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
-    if (this.destroyed || !this.enabled || this.currentOfferId === undefined) {
+    if (this.destroyed || !this.enabled || this.currentOfferId === undefined || !this.committedDisplay) {
       return;
     }
 

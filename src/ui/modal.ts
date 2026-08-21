@@ -130,10 +130,14 @@ export function createModalTextHelpers(
         );
       },
     };
-    if (enabled) {
-      rect.setInteractive();
-      rect.on(Phaser.Input.Events.POINTER_UP, handle.activate);
-    }
+    // Every modal rectangle stays interactive so disabled buttons (e.g. a
+    // Merge without a preview) still receive pointer-over/out hover focus in
+    // production — installed Phaser only emits pointer events on interactive
+    // objects. Command suppression lives in activate()'s enabled guard. The
+    // pointer-up listener itself is owned by the surface's single funnel
+    // (index sync first, then activation), so the public handle API is
+    // unchanged (round-2 finding F2).
+    rect.setInteractive();
 
     const text = scene.add.text(x, y, label, {
       color: enabled ? '#f7f1d5' : '#78909c',

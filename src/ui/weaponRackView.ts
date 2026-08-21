@@ -23,6 +23,10 @@ export interface PhaserWeaponRackPanelOptions {
   readonly inventory: InventoryController;
   readonly modal: ModalTextHelpers;
   readonly isOpen: () => boolean;
+  /** Parent (Pause view) committed-root state: false during/after a failed
+   *  rebuild, true only after a successful publication. Gates this panel's
+   *  number shortcuts so they cannot act on a destroyed tree (F1). */
+  readonly hasCommittedRoot: () => boolean;
   readonly onBack: () => boolean;
   readonly requestRender: () => void;
   readonly visualArt?: VisualArtLookup;
@@ -47,6 +51,7 @@ export class PhaserWeaponRackPanel {
   private readonly inventory: InventoryController;
   private modal: ModalTextHelpers;
   private readonly isOpen: () => boolean;
+  private readonly hasCommittedRoot: () => boolean;
   private readonly onBack: () => boolean;
   private readonly requestRender: () => void;
   private readonly visualArt?: VisualArtLookup;
@@ -68,6 +73,7 @@ export class PhaserWeaponRackPanel {
     this.inventory = options.inventory;
     this.modal = options.modal;
     this.isOpen = options.isOpen;
+    this.hasCommittedRoot = options.hasCommittedRoot;
     this.onBack = options.onBack;
     this.requestRender = options.requestRender;
     this.visualArt = options.visualArt;
@@ -575,6 +581,15 @@ export class PhaserWeaponRackPanel {
       if (this.hoveredIndex === index) this.hoveredIndex = -1;
       this.applyFocus();
     });
+    // Single surface funnel for pointer activation: FIRST sync the logical
+    // index, THEN activate. The handle's enabled guard retains command
+    // suppression for a disabled Merge (round-2 finding F2).
+    handle.target.on(Phaser.Input.Events.POINTER_UP, () => {
+      this.hoveredIndex = index;
+      this.navigator.setIndex(index);
+      this.applyFocus();
+      handle.activate();
+    });
     this.focusTargets[index] = {
       target: handle.target,
       activate: handle.activate,
@@ -682,7 +697,10 @@ export class PhaserWeaponRackPanel {
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
-    if (this.disposed || !this.isOpen()) {
+    // The parent's committed-root state gates the shortcuts too: after a
+    // failed rebuild the retained isOpen()/panel state is true but there is
+    // no usable display to act on (round-2 finding F1).
+    if (this.disposed || !this.isOpen() || !this.hasCommittedRoot()) {
       return;
     }
     if (event.repeat) {

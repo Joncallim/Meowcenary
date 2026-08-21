@@ -15,6 +15,7 @@ import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
+import type { MainMenuSnapshot } from '../src/ui/menus';
 import { FocusStroke } from '../src/ui/theme';
 
 interface FakeObjectState {
@@ -308,7 +309,7 @@ function createHarness(options: { create?: boolean; audio?: boolean } = { create
     menuScene.create();
   }
 
-  return { menuScene, ...helpers, audioFake, bus: context.bus };
+  return { menuScene, ...helpers, audioFake, bus: context.bus, context };
 }
 
 describe('MenuScene', () => {
@@ -400,7 +401,7 @@ describe('MenuScene', () => {
     expect(up).not.toHaveBeenCalled();
   });
 
-  it('shows exactly one FocusStroke ring on the focused menu button; label color is never the focus signal (F9)', () => {
+  it('shows exactly one FocusStroke ring with exact width/color/alpha on the focused menu button; label color is never the focus signal (F4)', () => {
     const harness = createHarness();
     const rings = () =>
       harness.objects.filter(
@@ -410,16 +411,44 @@ describe('MenuScene', () => {
           object.state.strokeColor === FocusStroke.color &&
           object.state.strokeAlpha === FocusStroke.alpha,
       );
+    const allRings = () =>
+      harness.objects.filter(
+        (object) => object.state.kind === 'rect' && !object.state.destroyed && object.state.strokeWidth > 0,
+      );
 
     // Pointer mode shows no persistent ring.
     expect(rings()).toHaveLength(0);
 
-    harness.keyboard.keydown('ArrowDown');
-    harness.menuScene.update(0, 16);
+    const press = (key: string) => {
+      harness.keyboard.keydown(key);
+      harness.menuScene.update(0, 16);
+      harness.keyboard.keyup(key);
+      harness.menuScene.update(0, 16);
+    };
+
+    press('ArrowDown');
+    const first = rings();
+    expect(first).toHaveLength(1);
+    // The focused ring carries ALL THREE FocusStroke theme constants.
+    expect(first[0]!.state.strokeWidth).toBe(FocusStroke.width);
+    expect(first[0]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(first[0]!.state.strokeAlpha).toBe(FocusStroke.alpha);
+    const focusedIndex = allRings().indexOf(first[0]!);
+
+    press('ArrowDown');
     expect(rings()).toHaveLength(1);
-    harness.keyboard.keydown('ArrowDown');
-    harness.menuScene.update(0, 16);
-    expect(rings()).toHaveLength(1);
+    // The exact base ring state (FocusStroke width/color, alpha 0) is restored
+    // on the target that lost focus.
+    const second = rings();
+    expect(second).toHaveLength(1);
+    expect(second[0]!.state.strokeWidth).toBe(FocusStroke.width);
+    expect(second[0]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(second[0]!.state.strokeAlpha).toBe(FocusStroke.alpha);
+    expect(second[0]).not.toBe(first[0]);
+    const lost = allRings()[focusedIndex]!;
+    expect(lost.state.strokeAlpha).toBe(0);
+    expect(lost.state.strokeWidth).toBe(FocusStroke.width);
+    expect(lost.state.strokeColor).toBe(FocusStroke.color);
 
     // Every button label stays cream regardless of focus.
     const labels = harness.objects.filter(
@@ -518,6 +547,259 @@ describe('MenuScene', () => {
     press('Enter');
     expect(harness.textContents()).toContain('Choose Character');
     expect(seams.navigator.index).toBe(0);
+  });
+
+  it('gates nav and activate after a failed same-panel rebuild and resumes the exact command on retry (F1)', () => {
+    const harness = createHarness();
+    const seams = harness.menuScene as unknown as { navigator: { index: number } };
+    const events: string[] = [];
+    harness.bus.on('ui:navigate', () => events.push('ui:navigate'));
+    harness.bus.on('ui:confirm', () => events.push('ui:confirm'));
+    harness.bus.on('ui:back', () => events.push('ui:back'));
+    const press = (key: string) => {
+      harness.keyboard.keydown(key);
+      harness.menuScene.update(0, 16);
+      harness.keyboard.keyup(key);
+      harness.menuScene.update(0, 16);
+    };
+
+    // Home → Settings, focus SFX Volume (row 2), then a same-panel toggle
+    // fails mid-rebuild: the fallback replaces the tree and the retained
+    // navigator must not move/emit without a committed display.
+    for (let i = 0; i < 4; i += 1) press('ArrowDown');
+    press('Enter');
+    expect(harness.textContents()).toContain('Settings');
+    press('ArrowDown');
+    press('ArrowDown');
+    expect(seams.navigator.index).toBe(2);
+
+    harness.failNextText();
+    events.length = 0; // discard navigation noise before the failure window
+    expect(() => {
+      harness.keyboard.keydown('Enter');
+      harness.menuScene.update(0, 16);
+      harness.keyboard.keyup('Enter');
+      harness.menuScene.update(0, 16);
+    }).toThrow('Injected text factory failure');
+    // The failing command itself emits its ui:confirm before the rebuild
+    // throws; from here on nothing may fire on the fallback.
+    events.length = 0;
+    expect(harness.textContents()).toEqual(
+      expect.arrayContaining(['Something went wrong — press Esc to retry']),
+    );
+
+    // The retained navigator (still index 2, count 5) must not move or emit,
+    // and activate must not fire a command on the fallback.
+    press('ArrowDown');
+    expect(events).toEqual([]);
+    expect(seams.navigator.index).toBe(2);
+    press('Enter');
+    expect(events).toEqual([]);
+
+    // G-15: Esc retries through handleBack → render; the exact next
+    // navigation and confirmation work again on the rebuilt home panel.
+    press('Escape');
+    expect(harness.textContents()).toContain('Start');
+    expect(harness.textContents()).not.toContain('Something went wrong — press Esc to retry');
+    expect(events).toEqual(['ui:back']);
+    press('ArrowDown');
+    press('Enter');
+    expect(harness.textContents()).toContain('Choose Character');
+    expect(events).toEqual(['ui:back', 'ui:navigate', 'ui:confirm']);
+  });
+
+  it.each([
+    { name: 'home', steps: 0, expected: ['Start', 'Character', 'Arena', 'Progression', 'Settings'] },
+    { name: 'character', steps: 1, expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', '< Back'] },
+    { name: 'arena', steps: 2, expected: ['✓ Junkyard Lot', '< Back'] },
+    {
+      name: 'progression',
+      steps: 3,
+      expected: [
+        'Reinforced Vest L0/5 (10 scrap)',
+        'Quick Paws Training L0/5 (15 scrap)',
+        'Sharpened Ammo L0/5 (20 scrap)',
+        'Magnetic Whiskers L0/5 (10 scrap)',
+        'Reset Progression',
+        '< Back',
+      ],
+    },
+    {
+      name: 'settings',
+      steps: 4,
+      expected: ['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', '< Back'],
+    },
+    {
+      name: 'reset-confirmation',
+      steps: 5,
+      expected: ['Confirm Reset', 'Cancel', '< Back'],
+    },
+  ])('registers the exact $name focus-target order/count with exactly one FocusStroke ring (F6)', ({ name, steps, expected }) => {
+    const harness = createHarness();
+    const press = (key: string) => {
+      harness.keyboard.keydown(key);
+      harness.menuScene.update(0, 16);
+      harness.keyboard.keyup(key);
+      harness.menuScene.update(0, 16);
+    };
+    const buttonLabels = () =>
+      harness.objects
+        .filter(
+          (object) => object.state.kind === 'text' && object.state.handlers['pointerup'] && !object.state.destroyed,
+        )
+        .map((object) => object.state.text);
+    const rings = () =>
+      harness.objects.filter(
+        (object) =>
+          object.state.kind === 'rect' &&
+          !object.state.destroyed &&
+          object.state.strokeColor === FocusStroke.color &&
+          object.state.strokeAlpha === FocusStroke.alpha,
+      );
+
+    if (name === 'reset-confirmation') {
+      // Home → Progression → Reset Progression, entirely through nav/confirm.
+      for (let i = 0; i < 3; i += 1) press('ArrowDown');
+      press('Enter');
+      const resetIndex = buttonLabels().indexOf('Reset Progression');
+      expect(resetIndex).toBeGreaterThanOrEqual(0);
+      for (let i = 0; i < resetIndex; i += 1) press('ArrowDown');
+      press('Enter');
+      expect(harness.textContents()).toContain('Reset all progression?');
+    } else {
+      for (let i = 0; i < steps; i += 1) press('ArrowDown');
+      press('Enter');
+    }
+
+    // Exact target order and count.
+    expect(buttonLabels()).toEqual(expected);
+    // Ensure keyboard/gamepad presentation mode is active, then restore index
+    // 0 (home has had no input yet; a move also switches the input mode).
+    press('ArrowDown');
+    press('ArrowUp');
+    // Exactly one ring carrying ALL THREE FocusStroke constants, on index 0.
+    expect(rings()).toHaveLength(1);
+    expect(rings()[0]!.state.strokeWidth).toBe(FocusStroke.width);
+    expect(rings()[0]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(rings()[0]!.state.strokeAlpha).toBe(FocusStroke.alpha);
+    const seams = harness.menuScene as unknown as { navigator: { index: number } };
+    expect(seams.navigator.index).toBe(0);
+  });
+
+  it('preserves the exact arena row through a same-panel selection (F6)', () => {
+    const harness = createHarness();
+    const seams = harness.menuScene as unknown as { navigator: { index: number } };
+    const press = (key: string) => {
+      harness.keyboard.keydown(key);
+      harness.menuScene.update(0, 16);
+      harness.keyboard.keyup(key);
+      harness.menuScene.update(0, 16);
+    };
+    // Home → Arena.
+    press('ArrowDown');
+    press('ArrowDown');
+    press('Enter');
+    expect(harness.textContents()).toContain('Choose Arena');
+    expect(seams.navigator.index).toBe(0);
+
+    // Confirm the visible default: the same-panel re-render preserves the row
+    // and the exact command keeps working (G-15).
+    press('Enter');
+    expect(harness.textContents()).toContain('Choose Arena');
+    expect(seams.navigator.index).toBe(0);
+    press('Enter');
+    expect(harness.textContents()).toContain('Choose Arena');
+    expect(seams.navigator.index).toBe(0);
+    const seams2 = harness.menuScene as unknown as {
+      controller: { snapshot(): MainMenuSnapshot };
+    };
+    expect(seams2.controller.snapshot().arena.selectedArenaId).toBe('junkyard-lot');
+  });
+
+  it('preserves the exact progression row through purchase failure and successful purchase (F6)', () => {
+    const harness = createHarness();
+    const seams = harness.menuScene as unknown as { navigator: { index: number } };
+    const press = (key: string) => {
+      harness.keyboard.keydown(key);
+      harness.menuScene.update(0, 16);
+      harness.keyboard.keyup(key);
+      harness.menuScene.update(0, 16);
+    };
+    const upgradeText = () =>
+      harness.objects.find(
+        (object) =>
+          object.state.kind === 'text' &&
+          object.state.text.startsWith('Reinforced Vest') &&
+          !object.state.destroyed,
+      )!.state.text;
+
+    // Home → Progression; focus the first upgrade (index 0).
+    for (let i = 0; i < 3; i += 1) press('ArrowDown');
+    press('Enter');
+    expect(harness.textContents()).toContain('Progression — 0 scrap');
+    expect(seams.navigator.index).toBe(0);
+
+    // Purchase failure (0 scrap): same row stays focused, notice shown, and
+    // the next confirm still re-attempts the same row (G-15).
+    press('Enter');
+    expect(seams.navigator.index).toBe(0);
+    expect(harness.textContents()).toContain('Not enough scrap');
+    expect(upgradeText()).toBe('Reinforced Vest L0/5 (10 scrap)');
+    press('Enter');
+    expect(seams.navigator.index).toBe(0);
+    expect(harness.textContents()).toContain('Not enough scrap');
+
+    // Successful purchase: seed scrap, then the same row's value changes and
+    // focus is preserved through the persisted re-render.
+    harness.context.updateMeta((meta) => ({ ...meta, scrap: 500 }));
+    press('Enter');
+    expect(seams.navigator.index).toBe(0);
+    expect(upgradeText()).toBe('Reinforced Vest L1/5 (16 scrap)');
+    press('Enter');
+    expect(seams.navigator.index).toBe(0);
+    expect(upgradeText()).toBe('Reinforced Vest L2/5 (26 scrap)');
+  });
+
+  it('clamps the retained index on a same-panel rebuild with fewer targets (F6)', () => {
+    const harness = createHarness();
+    const press = (key: string) => {
+      harness.keyboard.keydown(key);
+      harness.menuScene.update(0, 16);
+      harness.keyboard.keyup(key);
+      harness.menuScene.update(0, 16);
+    };
+    const seams = harness.menuScene as unknown as {
+      navigator: { index: number };
+      controller: { snapshot(): MainMenuSnapshot };
+      render(snapshot: MainMenuSnapshot): void;
+    };
+
+    // Home → Character (3 targets), focus < Back (index 2).
+    press('ArrowDown');
+    press('Enter');
+    press('ArrowDown');
+    press('ArrowDown');
+    expect(seams.navigator.index).toBe(2);
+
+    // Same-panel snapshot with a single-character roster (2 targets): the
+    // retained index clamps to the new last target (1) instead of resetting.
+    const snapshot = seams.controller.snapshot();
+    const shrunk: MainMenuSnapshot = {
+      ...snapshot,
+      panel: 'character',
+      character: {
+        ...snapshot.character,
+        characters: [snapshot.character.characters[0]!],
+      },
+    };
+    seams.render(shrunk);
+    expect(seams.navigator.index).toBe(1);
+
+    // G-15: navigation resumes exactly — down wraps to the first target.
+    press('ArrowDown');
+    expect(seams.navigator.index).toBe(0);
+    press('Enter');
+    expect(harness.textContents()).toContain('Choose Character');
   });
 
   it('registers reset-confirmation targets in order and drives them through logical nav/confirm', () => {
