@@ -101,7 +101,12 @@ type FakeObject = ReturnType<typeof fakeObject>;
 
 function createFakeScene(
   context: ReturnType<typeof createGameContext>,
-  audioFake?: { playMusic: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn>; unlock: ReturnType<typeof vi.fn> },
+  audioFake?: {
+    playMusic: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    unlock: ReturnType<typeof vi.fn>;
+    destroy: ReturnType<typeof vi.fn>;
+  },
 ) {
   const objects: FakeObject[] = [];
   let failNextText = false;
@@ -264,7 +269,7 @@ function createHarness(options: { create?: boolean; audio?: boolean } = { create
   // scene stays functional and silent.
   const audioFake = options.audio === false
     ? undefined
-    : { playMusic: vi.fn(), update: vi.fn(), unlock: vi.fn() };
+    : { playMusic: vi.fn(), update: vi.fn(), unlock: vi.fn(), destroy: vi.fn() };
 
   const { environment, ...helpers } = createFakeScene(context, audioFake);
   const menuScene = new MenuScene();

@@ -1,4 +1,4 @@
-import { ZERO_VEC2, length, type Vec2 } from './vector';
+import { ZERO_VEC2, type Vec2 } from './vector';
 
 export type GameAction =
   | 'confirm'
@@ -132,17 +132,21 @@ export class LogicalInputCore {
   }
 
   isEffectiveHeld(action: GameAction): boolean {
-    for (const source of SOURCE_ORDER) {
-      if (this.held.get(source)?.has(action)) {
+    for (let i = 0; i < SOURCE_ORDER.length; i += 1) {
+      if (this.held.get(SOURCE_ORDER[i])?.has(action)) {
         return true;
       }
     }
     return false;
   }
 
+  /** D4: radial deadzone rescaled [deadzone,1] → [0,1], then length-clamped to
+   *  1. Scalar x/y inputs, mutates the preallocated movement vector in place —
+   *  the poll path performs zero per-frame allocations (Epic 19 §6 gate). */
   setMovementSample(
     source: InputSource,
-    vector: Readonly<Vec2>,
+    x: number,
+    y: number,
     deadzone: number,
   ): void {
     const state = this.movementStates.get(source);
@@ -150,11 +154,12 @@ export class LogicalInputCore {
       return;
     }
 
-    const magnitude = length(vector);
+    const magnitude = Math.sqrt(x * x + y * y);
     const scaled = applyRadialDeadzone(magnitude, deadzone);
     const active = scaled > 0;
     const k = magnitude > 0 ? scaled / magnitude : 0;
-    state.vector = { x: vector.x * k, y: vector.y * k };
+    state.vector.x = x * k;
+    state.vector.y = y * k;
 
     if (active && !state.active) {
       state.lastActiveAtMs = this.timeMs;
@@ -171,7 +176,8 @@ export class LogicalInputCore {
 
     const movement = this.movementStates.get(source);
     if (movement) {
-      movement.vector = { ...ZERO_VEC2 };
+      movement.vector.x = 0;
+      movement.vector.y = 0;
       movement.active = false;
     }
   }
@@ -217,7 +223,8 @@ export class LogicalInputCore {
       let bestSource: InputSource | null = null;
       let bestTime = Number.NEGATIVE_INFINITY;
 
-      for (const source of SOURCE_ORDER) {
+      for (let i = 0; i < SOURCE_ORDER.length; i += 1) {
+        const source = SOURCE_ORDER[i];
         const state = this.movementStates.get(source);
         if (state?.active && state.lastActiveAtMs > bestTime) {
           bestTime = state.lastActiveAtMs;
@@ -230,7 +237,8 @@ export class LogicalInputCore {
   }
 
   private updateActions(dtMs: number): void {
-    for (const action of ALL_ACTIONS) {
+    for (let i = 0; i < ALL_ACTIONS.length; i += 1) {
+      const action = ALL_ACTIONS[i];
       const effective = this.isEffectiveHeld(action);
       const wasEffective = this.previousEffective.get(action) ?? false;
 
@@ -326,7 +334,8 @@ export class LogicalInputCore {
     let bestAction: GameAction | null = null;
     let bestTime = Number.NEGATIVE_INFINITY;
 
-    for (const action of NAV_ACTIONS) {
+    for (let i = 0; i < NAV_ACTIONS.length; i += 1) {
+      const action = NAV_ACTIONS[i];
       if (!this.isEffectiveHeld(action)) {
         continue;
       }
@@ -355,9 +364,9 @@ export class LogicalInputCore {
   }
 
   private firstHoldingSource(action: GameAction): InputSource {
-    for (const source of SOURCE_ORDER) {
-      if (this.held.get(source)?.has(action)) {
-        return source;
+    for (let i = 0; i < SOURCE_ORDER.length; i += 1) {
+      if (this.held.get(SOURCE_ORDER[i])?.has(action)) {
+        return SOURCE_ORDER[i];
       }
     }
     return SOURCE_ORDER[0];

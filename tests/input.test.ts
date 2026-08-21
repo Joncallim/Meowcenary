@@ -167,19 +167,74 @@ describe('InputController gamepad adapter', () => {
     expect(controller.getMoveVector()).toEqual({ x: 0, y: 1 });
   });
 
-  it('combines left-stick and d-pad inputs', () => {
+  it('D-pad drives navigation only; movement comes from the left stick (Epic 19 §4)', () => {
     const { controller, input } = createController({ gamepad: true });
     const pad = new MockGamepad(0);
     input.gamepad!.connect(pad);
 
+    const navLeft = vi.fn();
+    const navRight = vi.fn();
+    controller.onAction('navLeft', navLeft);
+    controller.onAction('navRight', navRight);
+
+    // D-pad left: nav edge, but the analog movement vector stays zero.
     pad.setButton(14, true);
     controller.update(16);
-    expect(controller.getMoveVector().x).toBeLessThan(0);
+    expect(navLeft).toHaveBeenCalledTimes(1);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
 
     pad.setButton(14, false);
     pad.setButton(15, true);
     controller.update(16);
+    expect(navRight).toHaveBeenCalledTimes(1);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+
+    // Left stick still drives movement independently.
+    pad.setButton(15, false);
+    pad.setLeftStick(1, 0);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+  });
+
+  it('ignores disconnected pads still occupying gamepad slots (D2/D3)', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    pad.setLeftStick(0.75, 0);
+    pad.setButton(0, true); // confirm held before disconnect
+    controller.update(16);
     expect(controller.getMoveVector().x).toBeGreaterThan(0);
+
+    // Real Phaser keeps the disconnected wrapper in the slot with stale
+    // values; the adapter must exclude it by the connected flag.
+    input.gamepad!.disconnect(pad);
+    pad.setLeftStick(0.75, 0); // stale state remains on the wrapper
+    pad.setButton(0, true);
+    controller.update(16);
+
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+    const confirm = vi.fn();
+    controller.onAction('confirm', confirm);
+    controller.update(16);
+    expect(confirm).not.toHaveBeenCalled();
+
+    // A reconnected pad works again.
+    input.gamepad!.connect(pad);
+    pad.setLeftStick(1, 0);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+  });
+
+  it('does not crash on a short (non-standard) pad (D5)', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+    pad.clearButtons(); // fewer than 16 buttons — real Phaser isButtonDown throws
+
+    expect(() => controller.update(16)).not.toThrow();
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
   });
 
   it('emits action edges for face and d-pad buttons', () => {
@@ -721,6 +776,25 @@ describe('InputController polled keyboard actions (Epic 19 D3)', () => {
     expect(handler).toHaveBeenCalledTimes(1);
 
     input.keyboard!.keyup('enter');
+    controller.update(16);
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('maps Q to the reserved ability action with no consumer (D11)', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    const handler = vi.fn();
+    controller.onAction('ability', handler);
+
+    input.keyboard!.keydown('q');
+    controller.update(16);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: 'ability', source: 'keyboard' }),
+    );
+
+    input.keyboard!.keyup('q');
     controller.update(16);
     expect(handler).toHaveBeenCalledTimes(1);
   });

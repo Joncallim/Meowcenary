@@ -219,7 +219,8 @@ function hintForMode(mode: InputMode): string {
     case 'keyboard':
       return 'WASD / arrows • P / Esc';
     case 'gamepad':
-      return 'Left stick • A / Start';
+      // Epic 19 D5: positions only — never vendor labels.
+      return 'Left stick • Bottom face / Menu';
     case 'pointer':
     default:
       return 'Drag to move • Tap pause';

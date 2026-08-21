@@ -48,10 +48,30 @@ function eventFamilyTier(
 export const AUDIO_MANAGER_REGISTRY_KEY = 'meowcenary.audioManager';
 
 /** Typed registry accessor for the boot-published AudioManager (Epic 19 P2-5):
- *  centralizes the cast; a missing entry is tolerated (scenes stay functional
- *  and silent) and returns undefined rather than throwing. */
+ *  centralizes the cast AND validates the value at runtime, so a wrong-type
+ *  entry (e.g. a stale object or string under the key) is never handed to
+ *  scenes that would crash calling playMusic/update on it. A missing or
+ *  malformed entry is tolerated (scenes stay functional and silent) and
+ *  returns undefined. */
 export function getAudioManager(scene: Phaser.Scene): AudioManager | undefined {
-  return scene.registry.get(AUDIO_MANAGER_REGISTRY_KEY) as AudioManager | undefined;
+  const value = scene.registry.get(AUDIO_MANAGER_REGISTRY_KEY);
+  return isAudioManager(value) ? value : undefined;
+}
+
+/** Structural brand: a real AudioManager exposes unlock + destroy lifecycle
+ *  methods. instanceof is deliberately avoided — the boot scene can construct
+ *  the manager via a subclass or test double, and the registry stores the
+ *  published instance. */
+function isAudioManager(value: unknown): value is AudioManager {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidate = value as Partial<AudioManager>;
+  return (
+    typeof candidate.unlock === 'function' &&
+    typeof candidate.destroy === 'function' &&
+    typeof candidate.update === 'function'
+  );
 }
 
 interface MusicFade {

@@ -20,17 +20,33 @@ import {
 export const GAME_CONTEXT_REGISTRY_KEY = 'meowcenary.gameContext';
 
 /** Typed registry accessor for the boot-published GameContext (Epic 19 P2-5):
- *  centralizes the cast and adds a runtime existence check so a missing or
- *  mis-keyed registry entry fails loudly at the accessor, not at first use. */
+ *  centralizes the cast AND validates the value at runtime, so a missing,
+ *  mis-keyed, or wrong-type registry entry fails loudly at the accessor, not
+ *  at first use. */
 export function getGameContext(scene: Phaser.Scene): GameContext {
-  const ctx = scene.registry.get(GAME_CONTEXT_REGISTRY_KEY) as GameContext | undefined;
-  if (!ctx) {
+  const ctx = scene.registry.get(GAME_CONTEXT_REGISTRY_KEY);
+  if (!isGameContext(ctx)) {
     throw new Error(
       `GameContext missing from Phaser registry under '${GAME_CONTEXT_REGISTRY_KEY}'`,
     );
   }
 
   return ctx;
+}
+
+/** Structural brand: a GameContext must carry the EventBus and save surface.
+ *  The registry stores the boot-published instance; any truthy-but-wrong value
+ *  (a string, a stale object) is rejected rather than cast. */
+function isGameContext(value: unknown): value is GameContext {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidate = value as Partial<GameContext>;
+  return (
+    typeof candidate.bus === 'object' &&
+    candidate.bus !== null &&
+    typeof (candidate.bus as { on?: unknown }).on === 'function'
+  );
 }
 
 export interface PersistenceUpdate<T> { readonly value: T; readonly persisted: boolean }

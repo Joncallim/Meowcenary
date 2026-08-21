@@ -175,6 +175,7 @@ export class MockKeyboardPlugin extends EventEmitter {
       ESC: 'ESC',
       P: 'P',
       I: 'I',
+      Q: 'Q',
     };
     return codeByKey[upper];
   }
@@ -225,6 +226,14 @@ export class MockGamepad extends EventEmitter {
     if (changed) {
       this.emit(pressed ? 'down' : 'up', index, button.value, button);
     }
+  }
+
+  /** Simulates a short (non-standard) pad: clears buttons so the adapter's
+   *  bounds-safe reads must handle missing entries (real Phaser's
+   *  `isButtonDown` would throw on `this.buttons[index]` — the adapter must
+   *  not call it unguarded). */
+  clearButtons(): void {
+    this.buttons.length = 0;
   }
 
   setLeftStick(x: number, y: number): void {
@@ -297,8 +306,12 @@ export class MockGamepadPlugin extends EventEmitter {
     return this;
   }
 
+  /** Matches real Phaser 3.90 `GamepadPlugin.getAll()`: returns every occupied
+   *  slot, INCLUDING disconnected pads (which keep stale button/stick values
+   *  until refreshPads clears them). The adapter must guard `pad.connected`
+   *  itself; a mock that filters would hide the phantom-input defect. */
   getAll(): MockGamepad[] {
-    return this.gamepads.filter((pad) => pad.connected);
+    return this.gamepads.filter((pad) => pad !== undefined);
   }
 
   getPad(index: number): MockGamepad | undefined {
@@ -306,6 +319,7 @@ export class MockGamepadPlugin extends EventEmitter {
   }
 
   connect(pad: MockGamepad): void {
+    pad.connected = true;
     this.gamepads[pad.index] = pad;
     this.total = this.gamepads.filter((p) => p.connected).length;
     this[`pad${pad.index + 1}` as 'pad1'] = pad;
@@ -467,6 +481,7 @@ const MockPhaser = {
         ESC: 'ESC',
         P: 'P',
         I: 'I',
+        Q: 'Q',
       },
       Key: MockKey,
     },

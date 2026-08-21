@@ -259,7 +259,7 @@ describe('LogicalInputCore movement ownership', () => {
   it('uses the only active movement source', () => {
     const core = createCore();
 
-    core.setMovementSample('keyboard', { x: 1, y: 0 }, 0);
+    core.setMovementSample('keyboard', 1, 0, 0);
     core.update(16);
 
     expect(core.getMovementVector()).toEqual({ x: 1, y: 0 });
@@ -269,15 +269,15 @@ describe('LogicalInputCore movement ownership', () => {
   it('keeps ownership until the active source drops below its deadzone', () => {
     const core = createCore();
 
-    core.setMovementSample('pointer', { x: 1, y: 0 }, 0);
+    core.setMovementSample('pointer', 1, 0, 0);
     core.update(16);
     expect(core.getActiveMovementSource()).toBe('pointer');
 
-    core.setMovementSample('keyboard', { x: 0, y: 1 }, 0);
+    core.setMovementSample('keyboard', 0, 1, 0);
     core.update(16);
     expect(core.getActiveMovementSource()).toBe('pointer');
 
-    core.setMovementSample('pointer', { x: 0, y: 0 }, 0);
+    core.setMovementSample('pointer', 0, 0, 0);
     core.update(16);
     expect(core.getActiveMovementSource()).toBe('keyboard');
   });
@@ -285,17 +285,17 @@ describe('LogicalInputCore movement ownership', () => {
   it('claims ownership by the most recent source to exceed its deadzone', () => {
     const core = createCore();
 
-    core.setMovementSample('keyboard', { x: 1, y: 0 }, 0);
+    core.setMovementSample('keyboard', 1, 0, 0);
     core.update(16);
     expect(core.getActiveMovementSource()).toBe('keyboard');
 
-    core.setMovementSample('keyboard', { x: 0, y: 0 }, 0);
-    core.setMovementSample('gamepad', { x: 0, y: 1 }, 0);
+    core.setMovementSample('keyboard', 0, 0, 0);
+    core.setMovementSample('gamepad', 0, 1, 0);
     core.update(16);
     expect(core.getActiveMovementSource()).toBe('gamepad');
 
-    core.setMovementSample('gamepad', { x: 0, y: 0 }, 0);
-    core.setMovementSample('pointer', { x: -1, y: 0 }, 0);
+    core.setMovementSample('gamepad', 0, 0, 0);
+    core.setMovementSample('pointer', -1, 0, 0);
     core.update(16);
     expect(core.getActiveMovementSource()).toBe('pointer');
   });
@@ -303,8 +303,8 @@ describe('LogicalInputCore movement ownership', () => {
   it('does not sum movement vectors across sources', () => {
     const core = createCore();
 
-    core.setMovementSample('keyboard', { x: 1, y: 0 }, 0);
-    core.setMovementSample('pointer', { x: 0, y: 1 }, 0);
+    core.setMovementSample('keyboard', 1, 0, 0);
+    core.setMovementSample('pointer', 0, 1, 0);
     core.update(16);
 
     const vector = core.getMovementVector();
@@ -316,11 +316,11 @@ describe('LogicalInputCore movement ownership', () => {
   it('applies per-source deadzones independently', () => {
     const core = createCore();
 
-    core.setMovementSample('gamepad', { x: 0.2, y: 0 }, 0.25);
+    core.setMovementSample('gamepad', 0.2, 0, 0.25);
     core.update(16);
     expect(core.getActiveMovementSource()).toBeNull();
 
-    core.setMovementSample('gamepad', { x: 0.5, y: 0 }, 0.25);
+    core.setMovementSample('gamepad', 0.5, 0, 0.25);
     core.update(16);
     expect(core.getActiveMovementSource()).toBe('gamepad');
   });
@@ -328,7 +328,7 @@ describe('LogicalInputCore movement ownership', () => {
   it('clears movement state on source disconnect', () => {
     const core = createCore();
 
-    core.setMovementSample('gamepad', { x: 1, y: 0 }, 0);
+    core.setMovementSample('gamepad', 1, 0, 0);
     core.update(16);
     expect(core.getActiveMovementSource()).toBe('gamepad');
 
@@ -344,12 +344,12 @@ describe('LogicalInputCore determinism and purity', () => {
     const core = createCore();
 
     core.setActionHeld('keyboard', 'confirm', true);
-    core.setMovementSample('pointer', { x: 0.5, y: 0 }, 0);
+    core.setMovementSample('pointer', 0.5, 0, 0);
     const first = core.update(16);
 
     const other = createCore();
     other.setActionHeld('keyboard', 'confirm', true);
-    other.setMovementSample('pointer', { x: 0.5, y: 0 }, 0);
+    other.setMovementSample('pointer', 0.5, 0, 0);
     const second = other.update(16);
 
     expect(first).toEqual(second);
