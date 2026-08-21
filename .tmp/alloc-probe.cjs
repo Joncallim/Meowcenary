@@ -1,4 +1,29 @@
 "use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+
+// tests/fixtures/allocProbe.entry.ts
+var fs = __toESM(require("node:fs"), 1);
 
 // tests/fixtures/phaserStub.ts
 var phaserStub_default = {
@@ -720,16 +745,17 @@ function pointerToVec2(pointer) {
 }
 
 // tests/fixtures/allocProbe.entry.ts
+var PROBE_POLLS = 2e5;
 function makeInput() {
   const listeners = /* @__PURE__ */ new Map();
-  return {
+  const keyRecords2 = {};
+  const input2 = {
     keyboard: {
       addKeys: (mapping) => {
-        const record = {};
         for (const name of Object.keys(mapping)) {
-          record[name] = { isDown: false };
+          keyRecords2[name] = { isDown: false };
         }
-        return record;
+        return keyRecords2;
       },
       removeKey: () => {
       },
@@ -744,37 +770,74 @@ function makeInput() {
       off: () => {
       }
     },
-    on: (event, handler) => {
+    // Context-bound like the real Phaser event emitter: PointerAdapter
+    // registers its handlers with `this` as the third argument.
+    on: (event, handler, context) => {
       const list = listeners.get(event) ?? [];
-      list.push(handler);
+      const wrapped = context !== void 0 ? handler.bind(context) : handler;
+      list.push(wrapped);
       listeners.set(event, list);
     },
     off: () => {
     },
     once: () => {
     },
-    emit: (event) => {
-      for (const h of listeners.get(event) ?? []) h();
+    emit: (event, ...args) => {
+      for (const h of listeners.get(event) ?? []) {
+        h(...args);
+      }
     },
     activePointer: { x: 0, y: 0 },
     pointers: []
   };
+  return { input: input2, keyRecords: keyRecords2 };
 }
 var canary = process.env.ALLOC_CANARY ?? "none";
-var input = makeInput();
+var scenario = process.env.ALLOC_SCENARIO ?? "idle";
+var { input, keyRecords } = makeInput();
 var scene = { input };
 var controller = new InputController(scene);
-for (let i = 0; i < 2e3; i += 1) controller.update(16);
+if (scenario === "keyboard-held") {
+  keyRecords.d.isDown = true;
+  keyRecords.enter.isDown = true;
+} else if (scenario === "gamepad") {
+  const buttons = [];
+  for (let i = 0; i < 16; i += 1) {
+    buttons.push({ pressed: i === 0 });
+  }
+  const pad = {
+    connected: true,
+    leftStick: { x: 0.8, y: 0 },
+    axes: [{ value: 0.8 }, { value: 0 }],
+    buttons
+  };
+  input.gamepad.gamepads[0] = pad;
+} else if (scenario === "pointer") {
+  const start = { id: 1, x: 10, y: 10, isDown: true };
+  const current = { id: 1, x: 300, y: 200, isDown: true };
+  input.emit("pointerdown", start);
+  input.emit("pointermove", current);
+}
+for (let i = 0; i < 2e3; i += 1) {
+  controller.update(0);
+}
+if (typeof gc === "function") {
+  gc();
+  gc();
+}
 var sink = [];
-for (let i = 0; i < 5e4; i += 1) {
-  controller.update(16);
+fs.writeSync(1, "PROBE-START canary=" + canary + " scenario=" + scenario + "\n");
+for (let i = 0; i < PROBE_POLLS; i += 1) {
+  controller.update(0);
   if (canary === "set") {
     sink.push(/* @__PURE__ */ new Set());
   } else if (canary === "array") {
-    sink.push([0, 0, 0]);
+    sink[0] = [0, 0, 0];
   } else if (canary === "object") {
     sink.push({ a: 1, b: 2 });
   }
-  if (sink.length > 1e3) sink.length = 0;
+  if (sink.length > 1e3) {
+    sink.length = 0;
+  }
 }
-console.log("PROBE-DONE canary=" + canary);
+fs.writeSync(1, "PROBE-DONE canary=" + canary + " scenario=" + scenario + "\n");
