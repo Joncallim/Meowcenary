@@ -348,6 +348,58 @@ describe('LogicalInputCore movement ownership', () => {
     expect(core.getActiveMovementSource()).toBe('pointer');
   });
 
+  it('resolves same-poll starts by epoch order: the last-polled source wins (keyboard + gamepad)', () => {
+    const core = createCore();
+
+    // Keyboard and gamepad both cross inactive→active BEFORE one update
+    // (adapter poll order is keyboard, pointer, gamepad). Both would share
+    // the same timeMs, so wall-clock recency cannot rank them — the epoch
+    // sequence must: the gamepad crossing is later in adapter order and
+    // wins D4 ownership (and, via the same epoch, D7 presentation).
+    core.setMovementSample('keyboard', 1, 0, 0);
+    core.setMovementSample('gamepad', 0.4, 0, 0.25);
+    core.update(16);
+
+    expect(core.getActiveMovementSource()).toBe('gamepad');
+    expect(core.getMovementVector().x).toBeCloseTo(0.2, 10);
+    expect(core.getMovementVector().y).toBeCloseTo(0, 10);
+    // The D7 tracker reads the same epoch: identical recency verdict.
+    expect(core.getLastMovementStartSource()).toBe('gamepad');
+    expect(core.getMovementStartEpoch()).toBe(2);
+  });
+
+  it('resolves a same-poll pointer and gamepad start to the gamepad (last polled)', () => {
+    const core = createCore();
+
+    core.setMovementSample('pointer', 0.5, 0, 0);
+    core.setMovementSample('gamepad', 0.4, 0, 0.25);
+    core.update(16);
+
+    expect(core.getActiveMovementSource()).toBe('gamepad');
+    expect(core.getMovementVector().x).toBeCloseTo(0.2, 10);
+    expect(core.getMovementVector().y).toBeCloseTo(0, 10);
+    expect(core.getLastMovementStartSource()).toBe('gamepad');
+  });
+
+  it('keeps single-source starts on that source (activationSeq regression)', () => {
+    const core = createCore();
+
+    core.setMovementSample('keyboard', 1, 0, 0);
+    core.update(16);
+    expect(core.getActiveMovementSource()).toBe('keyboard');
+    expect(core.getMovementVector()).toEqual({ x: 1, y: 0 });
+
+    core.setMovementSample('keyboard', 0, 0, 0);
+    core.update(16);
+    expect(core.getActiveMovementSource()).toBeNull();
+
+    core.setMovementSample('gamepad', 0.4, 0, 0.25);
+    core.update(16);
+    expect(core.getActiveMovementSource()).toBe('gamepad');
+    expect(core.getMovementVector().x).toBeCloseTo(0.2, 10);
+    expect(core.getMovementVector().y).toBeCloseTo(0, 10);
+  });
+
   it('does not sum movement vectors across sources', () => {
     const core = createCore();
 

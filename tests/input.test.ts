@@ -66,11 +66,17 @@ describe('InputController pointer movement', () => {
   it('clamps combined keyboard and pointer intents to unit length', () => {
     const { controller, input } = createController({ keyboard: true });
 
+    // Keyboard D and a full-radius pointer drag cross inactive→active in
+    // ONE poll. The pointer adapter polls after the keyboard adapter, so
+    // the pointer is the most recent crossing: it owns the D4 vector (the
+    // drag is clamped to the stick radius → unit length) AND the D7 mode —
+    // D4 and D7 agree on the same last-polled source (Epic 19 §4).
     input.keyboard!.keydown('d');
     input.pointerDown(100, 100);
-    input.pointerMove(132, 100);
+    input.pointerMove(228, 100); // 128px > 64px radius: clamped to 1.0
     controller.update(16);
     expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
   });
 
   it('ignores pointermove outside an active drag', () => {
@@ -795,26 +801,40 @@ describe('InputController active-mode tracking (Epic 19 D7)', () => {
     expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
   });
 
-  it('a movement START after a pointerdown supersedes it (later signal wins)', () => {
+  it('a movement START after a pointerdown supersedes it even while the pointer retains the D4 owner', () => {
     const { controller, input } = createController({ keyboard: true });
 
-    input.keyboard!.keydown('d');
+    // Pointer movement becomes the D4 owner (half-radius drag → 0.5).
+    input.pointerDown(100, 100);
+    input.pointerMove(132, 100);
     controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
 
+    // A SECOND pointerdown between polls re-presents pointer mode and pins
+    // the pointerdown to the retained pointer owner...
     input.pointerDown(200, 200);
     controller.update(16);
     expect(controller.getPresentationSnapshot().mode).toBe('pointer');
 
-    // Release, then re-press: a movement START after the pointerdown is a
-    // newer D7 signal and wins.
-    input.keyboard!.keyup('d');
-    controller.update(16);
+    // ...then a movement START from the keyboard is a NEWER D7 signal and
+    // must present keyboard mode even though D4 keeps the pointer as the
+    // movement owner (hysteresis: the pointer is still beyond its
+    // deadzone). Mutation-sensitive: on the pre-R7 code the
+    // `source !== pointerDownMovementSource` guard never re-asserted
+    // keyboard while the pointer remained the owner — the pointerdown kept
+    // presenting forever.
     input.keyboard!.keydown('d');
     controller.update(16);
     expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+    // D4 ownership is untouched: the move vector is still the pointer's.
+    expect(controller.getMoveVector()).toEqual({ x: 0.5, y: 0 });
   });
 
-  it('a pointerdown with no active movement yields to a later movement START', () => {
+  // Acceptance coverage (NOT mutation-sensitive): this sequence also passed
+  // on the pre-R7 code — the pointerdown interrupted NO movement, so the
+  // later keyboard START re-asserted keyboard through the plain owner path.
+  // Kept to lock the D7 contract for the null-owner case.
+  it('a pointerdown with no active movement yields to a later movement START (acceptance)', () => {
     const { controller, input } = createController({ keyboard: true });
 
     // Bare tap with no movement anywhere: the pointerdown is the newest
@@ -827,6 +847,69 @@ describe('InputController active-mode tracking (Epic 19 D7)', () => {
     input.keyboard!.keydown('d');
     controller.update(16);
     expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+  });
+
+  it('a same-poll keyboard and gamepad movement START selects the gamepad for BOTH the D4 vector and D7 mode', () => {
+    const { controller, input } = createController({ keyboard: true, gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    // Both sources cross inactive→active within ONE poll (keyboard D
+    // pressed, left stick deflected 0.4 > the 0.25 moveDeadzone). Adapter
+    // poll order is keyboard, pointer, gamepad: the gamepad crossing is the
+    // last movement START and must win BOTH D4 ownership (move vector) and
+    // D7 presentation (mode). Mutation-sensitive: wall-clock recency gave
+    // D4 to keyboard (equal timeMs tie broken by SOURCE_ORDER) while D7
+    // showed gamepad — the round-8 P1 disagreement.
+    input.keyboard!.keydown('d');
+    pad.setLeftStick(0.4, 0);
+    controller.update(16);
+
+    expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+    expect(controller.getMoveVector().x).toBeCloseTo(0.2, 10);
+    expect(controller.getMoveVector().y).toBeCloseTo(0, 10);
+  });
+
+  it('a same-poll pointer drag and gamepad movement START selects the gamepad for BOTH the D4 vector and D7 mode', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    // Pointer drag start and gamepad stick deflection within one poll. The
+    // pointer adapter polls before the gamepad adapter, so the gamepad is
+    // the last-polled crossing and wins D4 ownership and D7 presentation
+    // alike.
+    input.pointerDown(100, 100);
+    input.pointerMove(164, 100);
+    pad.setLeftStick(0.4, 0);
+    controller.update(16);
+
+    expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+    expect(controller.getMoveVector().x).toBeCloseTo(0.2, 10);
+    expect(controller.getMoveVector().y).toBeCloseTo(0, 10);
+  });
+
+  it('a single-source movement START still owns the vector and mode from that source', () => {
+    const { controller, input } = createController({ keyboard: true, gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    input.keyboard!.keydown('d');
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+
+    input.keyboard!.keyup('d');
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+
+    // A single-source gamepad start behaves exactly as before: the owner
+    // and the presented mode are both the gamepad.
+    pad.setLeftStick(0.4, 0);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+    expect(controller.getMoveVector().x).toBeCloseTo(0.2, 10);
+    expect(controller.getMoveVector().y).toBeCloseTo(0, 10);
   });
 });
 

@@ -31,7 +31,15 @@ export interface LogicalInputCoreOptions {
 interface MovementState {
   vector: Vec2;
   active: boolean;
-  lastActiveAtMs: number;
+  // The movementStartEpoch at this state's last inactive→active crossing
+  // (see setMovementSample). Because the epoch advances on EVERY crossing
+  // in adapter poll order, the highest activationSeq among active states is
+  // exactly "the most recent source to exceed its deadzone" — the D4
+  // ownership rule. Scalar, preallocated — zero per-frame allocation. The
+  // epoch is the shared recency clock with the D7 presentation tracker, so
+  // D4 ownership and D7 presentation agree on same-poll movement starts by
+  // construction. Initialized 0 (below any real crossing, which starts at 1).
+  activationSeq: number;
 }
 
 interface NavState {
@@ -117,7 +125,7 @@ export class LogicalInputCore {
       this.movementStates.set(source, {
         vector: { ...ZERO_VEC2 },
         active: false,
-        lastActiveAtMs: Number.NEGATIVE_INFINITY,
+        activationSeq: 0,
       });
     }
   }
@@ -170,10 +178,14 @@ export class LogicalInputCore {
     state.vector.y = y * k;
 
     if (active && !state.active) {
-      state.lastActiveAtMs = this.timeMs;
       // Record the movement START (inactive→active crossing) for the D7
       // presentation tracker — scalar writes, zero allocation (§6 gate).
+      // The epoch is the shared recency clock: the per-state activationSeq
+      // stamps this crossing for D4 ownership, while lastMovementStartSource
+      // feeds D7. Both therefore resolve same-poll starts to the LAST
+      // crossing in adapter poll order (keyboard, pointer, gamepad).
       this.movementStartEpoch += 1;
+      state.activationSeq = this.movementStartEpoch;
       this.lastMovementStartSource = source;
     }
 
@@ -246,14 +258,24 @@ export class LogicalInputCore {
     }
 
     if (this.activeMovementSource === null) {
+      // D4: the most recent source to exceed its deadzone owns the move
+      // vector. activationSeq stamps each inactive→active crossing with the
+      // shared movementStartEpoch (monotonic, advanced in adapter poll
+      // order), so the HIGHEST seq among active states is exactly the last
+      // crossing — the same recency rule the D7 presentation tracker uses.
+      // Unlike wall-clock lastActiveAtMs, the epoch distinguishes same-poll
+      // starts (equal timeMs): the last-polled adapter always wins BOTH D4
+      // ownership and D7 presentation (Epic 19 §4 agreement requirement).
+      // Crossings never share a seq (each advances the epoch), so a strict >
+      // comparison is total; the SOURCE_ORDER tie-break is unreachable.
       let bestSource: InputSource | null = null;
-      let bestTime = Number.NEGATIVE_INFINITY;
+      let bestSeq = 0;
 
       for (let i = 0; i < SOURCE_ORDER.length; i += 1) {
         const source = SOURCE_ORDER[i];
         const state = this.movementStates.get(source);
-        if (state?.active && state.lastActiveAtMs > bestTime) {
-          bestTime = state.lastActiveAtMs;
+        if (state?.active && state.activationSeq > bestSeq) {
+          bestSeq = state.activationSeq;
           bestSource = source;
         }
       }
