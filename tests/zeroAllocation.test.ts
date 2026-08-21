@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import * as childProcess from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 // Must precede any import whose transitive dependencies resolve Phaser at
 // module evaluation time (see tests/input.test.ts for the pattern).
 import { MockInputPlugin, MockGamepad } from './__mocks__/phaser';
@@ -194,4 +197,97 @@ describe('Epic 19 §6 authoritative allocation count', () => {
 
     expect(sets).toBeGreaterThan(0);
   });
+});
+
+/** AUTHORITATIVE Epic 19 §6 gate (round-2 hardened). The counting wrappers
+ *  above cover Set/Map/hypot but NOT array/object literals, spreads, or
+ *  iterator allocations — a per-frame `[0, 0, 0]` sailed through both prior
+ *  gates (verified: 20k per-frame array literals → {sets:0, maps:0,
+ *  hypotCalls:0} and < 512KB heap smoke in 19/20 windows). This gate runs the
+ *  REAL poll path in a child `node --trace-gc` process and counts V8
+ *  Scavenge events: every allocation type — including literals V8 collects
+ *  mid-window — pressures the young generation and must produce scavenges.
+ *  Baseline (canary=none) proves the poll path allocates nothing; the canary
+ *  runs prove the harness detects Set, array, AND object literals (each must
+ *  exceed the baseline) so a regression in any allocation class is caught. */
+describe('Epic 19 §6 authoritative GC-event allocation gate', () => {
+  const probePath = path.join(repoRoot(), 'tests/fixtures/allocProbe.entry.ts');
+  const outfile = path.join(repoRoot(), '.tmp', 'alloc-probe.cjs');
+  const stubPath = path.join(repoRoot(), 'tests/fixtures/phaserStub.ts');
+  let bundled = false;
+
+  function repoRoot(): string {
+    return path.resolve(__dirname, '..');
+  }
+
+  function runProbe(canary: string): number {
+    if (!bundled) {
+      fs.mkdirSync(path.dirname(outfile), { recursive: true });
+      const res = childProcess.spawnSync(
+        path.join(repoRoot(), 'node_modules', '.bin', 'esbuild'),
+        [
+          probePath,
+          '--bundle',
+          '--platform=node',
+          '--format=cjs',
+          '--outfile=' + outfile,
+          '--alias:phaser=' + stubPath,
+          '--define:import.meta.env.DEV=false',
+          '--define:import.meta.env.PROD=true',
+        ],
+        { encoding: 'utf8' },
+      );
+      if (res.status !== 0) {
+        throw new Error('esbuild bundle failed: ' + res.stderr);
+      }
+      bundled = true;
+    }
+
+    const child = childProcess.spawnSync(
+      process.execPath,
+      ['--trace-gc', outfile],
+      {
+        encoding: 'utf8',
+        env: { ...process.env, ALLOC_CANARY: canary },
+        maxBuffer: 64 * 1024 * 1024,
+      },
+    );
+    if (child.status !== 0) {
+      throw new Error('probe child failed: ' + child.stderr);
+    }
+    const done = (child.stdout.match(/PROBE-DONE[^\n]*/) ?? [])[0] ?? 'NO-DONE-MARKER';
+    // --trace-gc writes to stdout in this Node build (verified: 11 Scavenge
+    // lines on stdout, 0 on stderr), so count from stdout.
+    const scavenges = (child.stdout.match(/Scavenge/g) ?? []).length;
+    // eslint-disable-next-line no-console
+    console.log(`[gate] canary=${canary} status=${child.status} ${done} scavenges=${scavenges}`);
+    return scavenges;
+  }
+
+  it('baseline: real poll path performs zero per-frame allocations', () => {
+    // Stable across runs (verified 1-2 scavenges for 50k polls). Any per-frame
+    // allocation in the poll path raises this to 5+ (the array-canary level).
+    const count = runProbe('none');
+    expect(count).toBeLessThanOrEqual(4);
+  }, 60_000);
+
+  it('canary: harness detects per-frame Set allocations', () => {
+    const baseline = runProbe('none');
+    const count = runProbe('set');
+    expect(count).toBeGreaterThan(baseline);
+  }, 60_000);
+
+  it('canary: harness detects per-frame array literals', () => {
+    // The regression class the round-2 review proved invisible to both prior
+    // gates (array literals bypass Set/Map wrappers AND heap smoke).
+    const baseline = runProbe('none');
+    const count = runProbe('array');
+    expect(count).toBeGreaterThan(baseline);
+  }, 60_000);
+
+  it('canary: harness detects per-frame object literals', () => {
+    const baseline = runProbe('none');
+    const count = runProbe('object');
+    expect(count).toBeGreaterThan(baseline);
+  }, 60_000);
 });
