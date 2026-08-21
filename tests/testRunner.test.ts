@@ -10,13 +10,24 @@ import { fileURLToPath } from 'node:url';
 // selection, --run, or a reporter flag must never be mistaken for an explicit
 // allocation selection (which would skip the allocation stage).
 //
-// The marker is the second stage's own file-summary line: the allocation file
-// is EXCLUDED from stage 1, so `zeroAllocation.test.ts (9 tests)` can only be
-// printed by the isolated allocation stage after all nine tests executed.
+// Round-4 finding F1 (an EXPLICIT selection naming the allocation file) is
+// covered by tests/testRunnerExplicit.test.ts, which scripts/test.mjs runs as
+// a separate stage-3 invocation: all eight subprocess regressions in a single
+// vitest run block one worker for ~65s, deterministically tripping vitest's
+// 60s worker RPC timeout ("[vitest-worker]: Timeout calling onTaskUpdate").
+//
+// The marker is the second stage's own file-summary line in its PASSED form:
+// the allocation file is EXCLUDED from stage 1, so `zeroAllocation.test.ts
+// (9 tests)` can only be printed by the isolated allocation stage after all
+// nine tests executed. A filtered run prints `(9 tests | 9 skipped)`, which
+// must never satisfy the gate.
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const runner = path.join(root, 'scripts', 'test.mjs');
 
+// The strict `(9 tests)` form structurally cannot match the skipped form
+// `(9 tests | 9 skipped)` a filtered run prints — the gate is satisfied only
+// when all nine tests actually executed, never when they were skipped.
 const ALL_NINE_RAN = /zeroAllocation\.test\.ts \(9 tests\)/;
 
 function runRunner(args: string[]) {
@@ -47,7 +58,7 @@ function expectAllocationGateRan(args: string[], form: string) {
   expect(result.status, `${form}: runner must exit 0\n${tail}`).toBe(0);
   expect(
     output.match(ALL_NINE_RAN),
-    `${form}: all nine allocation tests must execute in the isolated stage\n${tail}`,
+    `${form}: all nine allocation tests must execute in the PASSED form in the isolated stage (a filtered run prints '(9 tests | 9 skipped)' and must never satisfy the gate)\n${tail}`,
   ).not.toBeNull();
 }
 

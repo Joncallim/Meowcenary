@@ -25,15 +25,24 @@
 //   2. Run the allocation file isolated (single fork) WITHOUT any unrelated
 //      name filter — the gate must never be skipped by a name selection.
 //   3. Run the runner's own subprocess regression tests (tests/testRunner
-//      .test.ts) UNGUARDED: they re-spawn this runner under every selection
-//      form and assert all nine allocation tests still execute. Every Vitest
-//      process spawned by this runner carries MEOWCENARY_TEST_RUNNER_CHILD so
-//      those tests skip themselves inside stages 1-3 of a nested runner —
-//      no recursion — while the top-level stage 3 actually executes them.
-// An explicit selection naming the allocation file runs only that file,
-// still isolated, with the forwarded filter applied to it. The unfiltered CI
-// path (`npm test`) runs stages 1-3 with the zero threshold and every canary
-// unchanged.
+//      .test.ts, then tests/testRunnerExplicit.test.ts) UNGUARDED: they
+//      re-spawn this runner under every selection form and assert all nine
+//      allocation tests still execute. Every Vitest process spawned by this
+//      runner carries MEOWCENARY_TEST_RUNNER_CHILD so those tests skip
+//      themselves inside stages 1-3 of a nested runner — no recursion —
+//      while the top-level stage 3 actually executes them. The two files run
+//      as separate invocations: all eight subprocess tests in one vitest run
+//      block a single worker for ~65s, deterministically tripping vitest's
+//      60s worker RPC timeout (round-4 F1 infra guard).
+// An explicit selection naming the allocation file runs the user's requested
+// selection first — still isolated, with the forwarded filter applied to it
+// (round-4 F1: this used to satisfy the gate, so `-t=FocusNavigator` skipped
+// all nine allocation tests and the runner exited 0). It NEVER satisfies the
+// gate: after any successful forwarded request (relative path, absolute path,
+// or an expanded glob containing the file), stage 2 below always re-runs the
+// allocation file UNFILTERED in its isolated single fork, then stage 3 runs
+// the runner's own subprocess regressions. The unfiltered CI path (`npm
+// test`) runs stages 1-3 with the zero threshold and every canary unchanged.
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,6 +51,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const vitestBin = path.join(root, 'node_modules', '.bin', 'vitest');
 const ALLOC_FILE = 'tests/zeroAllocation.test.ts';
 const RUNNER_TESTS = 'tests/testRunner.test.ts';
+const RUNNER_EXPLICIT_TESTS = 'tests/testRunnerExplicit.test.ts';
 const ALLOC_ISOLATION = ['--pool=forks', '--poolOptions.forks.singleFork'];
 
 /** Options that take NO following value (pure flags). Unknown long options
@@ -137,18 +147,28 @@ const positional = parseForwarded(forwardedRaw);
 const explicitlySelectsAlloc = positional.some(isExplicitAllocSelection);
 
 if (explicitlySelectsAlloc) {
-  // The user asked for the allocation file itself: run it isolated with the
-  // forwarded selection/filter applied, and nothing else.
-  process.exit(runVitest(['run', ...forwarded, ...ALLOC_ISOLATION]));
-}
-
-// Stage 1: the requested ordinary selection, allocation file and runner's own
-// subprocess tests excluded.
-const mainStatus = runVitest([
-  'run', '--exclude', ALLOC_FILE, '--exclude', RUNNER_TESTS, ...forwarded,
-]);
-if (mainStatus !== 0) {
-  process.exit(mainStatus);
+  // The user asked for the allocation file itself (relative path, absolute
+  // path, or an expanded positional list containing it): run the requested
+  // selection isolated so the user sees their chosen tests. This is NOT a
+  // substitute for the gate — the forwarded filter (e.g. -t=FocusNavigator)
+  // may skip every allocation test here, so stage 2 below unconditionally
+  // re-runs the allocation file unfiltered afterwards (round-4 F1). Fail
+  // fast on a real failure in the forwarded run: the gate would also fail
+  // on a genuine regression.
+  const explicitStatus = runVitest(['run', ...forwarded, ...ALLOC_ISOLATION]);
+  if (explicitStatus !== 0) {
+    process.exit(explicitStatus);
+  }
+} else {
+  // Stage 1: the requested ordinary selection, allocation file and the
+  // runner's own subprocess test files excluded.
+  const mainStatus = runVitest([
+    'run', '--exclude', ALLOC_FILE, '--exclude', RUNNER_TESTS,
+    '--exclude', RUNNER_EXPLICIT_TESTS, ...forwarded,
+  ]);
+  if (mainStatus !== 0) {
+    process.exit(mainStatus);
+  }
 }
 
 // Stage 2: the full allocation gate in its isolated single fork, unfiltered
@@ -159,5 +179,13 @@ if (allocStatus !== 0) {
 }
 
 // Stage 3: the runner's own subprocess regression tests, unguarded so they
-// execute at the top level of every run (round-3 F1).
-process.exit(runVitest(['run', RUNNER_TESTS], { guard: false }));
+// execute at the top level of every run (round-3 F1). The round-4
+// explicit-selection regressions run as a SECOND invocation: all eight
+// subprocess tests in a single vitest run block one worker for ~65s,
+// deterministically tripping vitest's 60s worker RPC timeout
+// ("[vitest-worker]: Timeout calling onTaskUpdate").
+const runnerStatus = runVitest(['run', RUNNER_TESTS], { guard: false });
+if (runnerStatus !== 0) {
+  process.exit(runnerStatus);
+}
+process.exit(runVitest(['run', RUNNER_EXPLICIT_TESTS], { guard: false }));
