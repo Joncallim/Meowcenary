@@ -357,6 +357,13 @@ describe('PhaserPauseView', () => {
           return state.strokeAlpha;
         },
         setText(text: string) {
+          // Real Phaser 3.90 destroys the Text texture/frame; setText on a
+          // destroyed Text reaches nulled frame data and throws. Mirror that
+          // so a stale hint reference (portrait→compact resize, round-5
+          // finding) fails the suite instead of silently passing.
+          if (state.destroyed) {
+            throw new Error(`setText called on destroyed object (${state.text ?? ''})`);
+          }
           return chain('text', text);
         },
         setOrigin() {
@@ -939,6 +946,31 @@ describe('PhaserPauseView', () => {
     // G-15: the preserved focus still routes its exact command.
     expect(view.confirmFocused()).toBe(true);
     expect(controller.snapshot().panel).toBe('inventory');
+  });
+
+  it('does not touch a destroyed portrait key hint after a portrait→compact resize (round-5)', () => {
+    let mode: InputMode = 'pointer';
+    const { run, scene, view, controller } = createView({ readInputMode: () => mode });
+    run.equipped = [];
+    controller.pause();
+    controller.openInventory();
+    view.render(controller.snapshot()); // portrait rack (keyHintY defined)
+    view.refreshInputPresentation();
+
+    // Portrait→compact resize destroys the portrait root (incl. its key
+    // hint); the compact render has no keyHintY. The stale this.hint must be
+    // cleared at render teardown, or the mode transitions below call
+    // setText() on the destroyed portrait Text and throw (real Phaser 3.90
+    // nulls the Text frame on destroy; the fake's setText rejects on
+    // destroyed objects to mirror that).
+    scene.resize(844, 390);
+
+    // Every input-mode transition after the resize must neither touch the
+    // destroyed hint nor throw.
+    for (const nextMode of ['keyboard', 'gamepad', 'pointer'] as const) {
+      mode = nextMode;
+      expect(() => view.refreshInputPresentation()).not.toThrow();
+    }
   });
 
   it.each([

@@ -89,6 +89,12 @@ export class PhaserWeaponRackPanel {
     const layout = computeWeaponRackLayout(this.viewport, snapshot.capacity);
     this.focusTargets = [];
     this.hoveredIndex = -1;
+    // A portrait→compact rebuild destroys the portrait root while the
+    // compact render (keyHintY undefined) creates no key hint; the stale
+    // reference must go or the next mode transition calls setText() on a
+    // destroyed Phaser.Text (round-5 adversarial finding). Cleared at
+    // teardown, re-committed only by a successful render below.
+    this.hint = undefined;
     // A freshly reset navigator (index === -1) marks a genuine panel entry:
     // only then does an entirely empty rack fall back to Back so a reset
     // still lands on an actionable target. Same-panel re-renders (selection,
