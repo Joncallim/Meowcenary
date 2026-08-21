@@ -1,4 +1,4 @@
-import { ZERO_VEC2, length, type Vec2 } from './vector';
+import { ZERO_VEC2, type Vec2 } from './vector';
 
 export type GameAction =
   | 'confirm'
@@ -31,7 +31,15 @@ export interface LogicalInputCoreOptions {
 interface MovementState {
   vector: Vec2;
   active: boolean;
-  lastActiveAtMs: number;
+  // The movementStartEpoch at this state's last inactive→active crossing
+  // (see setMovementSample). Because the epoch advances on EVERY crossing
+  // in adapter poll order, the highest activationSeq among active states is
+  // exactly "the most recent source to exceed its deadzone" — the D4
+  // ownership rule. Scalar, preallocated — zero per-frame allocation. The
+  // epoch is the shared recency clock with the D7 presentation tracker, so
+  // D4 ownership and D7 presentation agree on same-poll movement starts by
+  // construction. Initialized 0 (below any real crossing, which starts at 1).
+  activationSeq: number;
 }
 
 interface NavState {
@@ -91,6 +99,14 @@ export class LogicalInputCore {
   private timeMs = 0;
   private activeMovementSource: InputSource | null = null;
   private activeNavAction: GameAction | null = null;
+  // Epic 19 D7: movement-START generation. A source crossing inactive→active
+  // is a D7 signal INDEPENDENT of the D4 owner hysteresis (the owner is
+  // retained while it stays beyond deadzone even when another source begins
+  // moving, so the owner alone cannot reveal a movement START). Monotonic
+  // scalar counters — zero per-frame allocation (Epic 19 §6 gate); the
+  // controller diffs the generation across polls to detect a START.
+  private movementStartEpoch = 0;
+  private lastMovementStartSource: InputSource | null = null;
 
   constructor(private readonly options: LogicalInputCoreOptions) {
     for (const source of SOURCE_ORDER) {
@@ -109,7 +125,7 @@ export class LogicalInputCore {
       this.movementStates.set(source, {
         vector: { ...ZERO_VEC2 },
         active: false,
-        lastActiveAtMs: Number.NEGATIVE_INFINITY,
+        activationSeq: 0,
       });
     }
   }
@@ -132,17 +148,21 @@ export class LogicalInputCore {
   }
 
   isEffectiveHeld(action: GameAction): boolean {
-    for (const source of SOURCE_ORDER) {
-      if (this.held.get(source)?.has(action)) {
+    for (let i = 0; i < SOURCE_ORDER.length; i += 1) {
+      if (this.held.get(SOURCE_ORDER[i])?.has(action)) {
         return true;
       }
     }
     return false;
   }
 
+  /** D4: radial deadzone rescaled [deadzone,1] → [0,1], then length-clamped to
+   *  1. Scalar x/y inputs, mutates the preallocated movement vector in place —
+   *  the poll path performs zero per-frame allocations (Epic 19 §6 gate). */
   setMovementSample(
     source: InputSource,
-    vector: Readonly<Vec2>,
+    x: number,
+    y: number,
     deadzone: number,
   ): void {
     const state = this.movementStates.get(source);
@@ -150,17 +170,73 @@ export class LogicalInputCore {
       return;
     }
 
-    const magnitude = length(vector);
+    const magnitude = Math.sqrt(x * x + y * y);
     const scaled = applyRadialDeadzone(magnitude, deadzone);
     const active = scaled > 0;
     const k = magnitude > 0 ? scaled / magnitude : 0;
-    state.vector = { x: vector.x * k, y: vector.y * k };
+    state.vector.x = x * k;
+    state.vector.y = y * k;
 
     if (active && !state.active) {
-      state.lastActiveAtMs = this.timeMs;
+      // Record the movement START (inactive→active crossing) for the D7
+      // presentation tracker — scalar writes, zero allocation (§6 gate).
+      // The epoch is the shared recency clock: the per-state activationSeq
+      // stamps this crossing for D4 ownership, while lastMovementStartSource
+      // feeds D7. Both therefore resolve same-poll starts to the LAST
+      // crossing in adapter poll order (keyboard, pointer, gamepad).
+      //
+      // Overflow guard: past Number.MAX_SAFE_INTEGER consecutive increments
+      // collide (two crossings share one activationSeq — broken total
+      // order; later increments stall, so D7 misses starts). Before an
+      // unsafe increment, renumber the ACTIVE states to small unique ranks
+      // preserving their relative recency order (inactive states reset to
+      // 0), then resume the epoch from the max rank. The branch is
+      // unreachable in practice (~9e15 crossings) but keeps the documented
+      // total-order claim absolute; the renumbering lives in a cold method
+      // so the hot poll path stays small and inlineable (§6 gate).
+      if (this.movementStartEpoch >= Number.MAX_SAFE_INTEGER) {
+        this.renormalizeMovementStartEpoch();
+      }
+
+      this.movementStartEpoch += 1;
+      state.activationSeq = this.movementStartEpoch;
+      this.lastMovementStartSource = source;
     }
 
     state.active = active;
+  }
+
+  /** Zero-allocation renormalization for the overflow guard: renumbers the
+   *  ACTIVE movement states to small unique activationSeqs preserving their
+   *  relative recency order (inactive states reset to 0) and sets the epoch
+   *  to the max rank, so the next increment resumes the total order from a
+   *  safe value. The ranks are pairwise comparisons over snapshot scalars
+   *  (SOURCE_ORDER is the fixed 3-entry poll order) — no allocations. */
+  private renormalizeMovementStartEpoch(): void {
+    const st0 = this.movementStates.get(SOURCE_ORDER[0]);
+    const st1 = this.movementStates.get(SOURCE_ORDER[1]);
+    const st2 = this.movementStates.get(SOURCE_ORDER[2]);
+    const seq0 = st0?.activationSeq ?? 0;
+    const seq1 = st1?.activationSeq ?? 0;
+    const seq2 = st2?.activationSeq ?? 0;
+    const active0 = st0?.active ?? false;
+    const active1 = st1?.active ?? false;
+    const active2 = st2?.active ?? false;
+    // Rank = 1 + the count of other ACTIVE states with an older
+    // crossing (strictly smaller seq); inactive states rank 0.
+    const rank0 = active0
+      ? 1 + (active1 && seq1 < seq0 ? 1 : 0) + (active2 && seq2 < seq0 ? 1 : 0)
+      : 0;
+    const rank1 = active1
+      ? 1 + (active0 && seq0 < seq1 ? 1 : 0) + (active2 && seq2 < seq1 ? 1 : 0)
+      : 0;
+    const rank2 = active2
+      ? 1 + (active0 && seq0 < seq2 ? 1 : 0) + (active1 && seq1 < seq2 ? 1 : 0)
+      : 0;
+    if (st0) st0.activationSeq = rank0;
+    if (st1) st1.activationSeq = rank1;
+    if (st2) st2.activationSeq = rank2;
+    this.movementStartEpoch = Math.max(rank0, Math.max(rank1, rank2));
   }
 
   clearSource(source: InputSource): void {
@@ -171,7 +247,8 @@ export class LogicalInputCore {
 
     const movement = this.movementStates.get(source);
     if (movement) {
-      movement.vector = { ...ZERO_VEC2 };
+      movement.vector.x = 0;
+      movement.vector.y = 0;
       movement.active = false;
     }
   }
@@ -203,6 +280,20 @@ export class LogicalInputCore {
     return this.activeMovementSource;
   }
 
+  /** Monotonic generation advanced on every movement inactive→active
+   *  crossing (a D7 movement START). Zero-allocation scalar read; the D7
+   *  presentation tracker diffs it across polls. */
+  getMovementStartEpoch(): number {
+    return this.movementStartEpoch;
+  }
+
+  /** The source of the most recent movement START. Non-null iff the
+   *  generation advanced since the previous poll (every increment records
+   *  its source). */
+  getLastMovementStartSource(): InputSource | null {
+    return this.lastMovementStartSource;
+  }
+
   private updateMovementOwner(): void {
     const ownerState =
       this.activeMovementSource !== null
@@ -214,13 +305,24 @@ export class LogicalInputCore {
     }
 
     if (this.activeMovementSource === null) {
+      // D4: the most recent source to exceed its deadzone owns the move
+      // vector. activationSeq stamps each inactive→active crossing with the
+      // shared movementStartEpoch (monotonic, advanced in adapter poll
+      // order), so the HIGHEST seq among active states is exactly the last
+      // crossing — the same recency rule the D7 presentation tracker uses.
+      // Unlike wall-clock lastActiveAtMs, the epoch distinguishes same-poll
+      // starts (equal timeMs): the last-polled adapter always wins BOTH D4
+      // ownership and D7 presentation (Epic 19 §4 agreement requirement).
+      // Crossings never share a seq (each advances the epoch), so a strict >
+      // comparison is total; the SOURCE_ORDER tie-break is unreachable.
       let bestSource: InputSource | null = null;
-      let bestTime = Number.NEGATIVE_INFINITY;
+      let bestSeq = 0;
 
-      for (const source of SOURCE_ORDER) {
+      for (let i = 0; i < SOURCE_ORDER.length; i += 1) {
+        const source = SOURCE_ORDER[i];
         const state = this.movementStates.get(source);
-        if (state?.active && state.lastActiveAtMs > bestTime) {
-          bestTime = state.lastActiveAtMs;
+        if (state?.active && state.activationSeq > bestSeq) {
+          bestSeq = state.activationSeq;
           bestSource = source;
         }
       }
@@ -230,7 +332,15 @@ export class LogicalInputCore {
   }
 
   private updateActions(dtMs: number): void {
-    for (const action of ALL_ACTIONS) {
+    // Pass 1: settle press/release state. A fresh nav press emits its edge and
+    // supersedes the prior direction's repeat state HERE, before any
+    // held-direction repeat can fire — a due repeat must never share a poll
+    // with the new direction's press edge (Epic 19 D3). A single sequential
+    // pass is unsound: ALL_ACTIONS order puts navUp before navDown, so the
+    // old code emitted navUp's due repeat before reaching the navDown press
+    // that resets it (focus moved twice on one poll).
+    for (let i = 0; i < ALL_ACTIONS.length; i += 1) {
+      const action = ALL_ACTIONS[i];
       const effective = this.isEffectiveHeld(action);
       const wasEffective = this.previousEffective.get(action) ?? false;
 
@@ -239,12 +349,17 @@ export class LogicalInputCore {
           this.emitEdge(action);
           this.initializeNavState(action, dtMs);
         }
-        this.emitNavRepeats(action);
       } else if (wasEffective) {
         this.resetNavState(action);
       }
 
       this.previousEffective.set(action, effective);
+    }
+
+    // Pass 2: emit repeats for the now-final active nav action only. Zero
+    // allocation — same index loops and field writes as the old single pass.
+    if (this.activeNavAction !== null) {
+      this.emitNavRepeats(this.activeNavAction);
     }
 
     this.reconcileActiveNavAction();
@@ -326,7 +441,8 @@ export class LogicalInputCore {
     let bestAction: GameAction | null = null;
     let bestTime = Number.NEGATIVE_INFINITY;
 
-    for (const action of NAV_ACTIONS) {
+    for (let i = 0; i < NAV_ACTIONS.length; i += 1) {
+      const action = NAV_ACTIONS[i];
       if (!this.isEffectiveHeld(action)) {
         continue;
       }
@@ -355,9 +471,9 @@ export class LogicalInputCore {
   }
 
   private firstHoldingSource(action: GameAction): InputSource {
-    for (const source of SOURCE_ORDER) {
-      if (this.held.get(source)?.has(action)) {
-        return source;
+    for (let i = 0; i < SOURCE_ORDER.length; i += 1) {
+      if (this.held.get(SOURCE_ORDER[i])?.has(action)) {
+        return SOURCE_ORDER[i];
       }
     }
     return SOURCE_ORDER[0];

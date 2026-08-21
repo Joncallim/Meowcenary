@@ -20,17 +20,35 @@ import {
 export const GAME_CONTEXT_REGISTRY_KEY = 'meowcenary.gameContext';
 
 /** Typed registry accessor for the boot-published GameContext (Epic 19 P2-5):
- *  centralizes the cast and adds a runtime existence check so a missing or
- *  mis-keyed registry entry fails loudly at the accessor, not at first use. */
+ *  centralizes the cast AND validates the value at runtime, so a missing,
+ *  mis-keyed, or wrong-type registry entry fails loudly at the accessor, not
+ *  at first use. */
 export function getGameContext(scene: Phaser.Scene): GameContext {
-  const ctx = scene.registry.get(GAME_CONTEXT_REGISTRY_KEY) as GameContext | undefined;
-  if (!ctx) {
+  const ctx = scene.registry.get(GAME_CONTEXT_REGISTRY_KEY);
+  if (!isGameContext(ctx)) {
     throw new Error(
       `GameContext missing from Phaser registry under '${GAME_CONTEXT_REGISTRY_KEY}'`,
     );
   }
 
   return ctx;
+}
+
+/** Module-private brand: only objects returned by createGameContext are
+ *  accepted as a GameContext. A structurally similar impostor (e.g.
+ *  `{ bus: { on() {} } }`) passes any shape check but crashes later at
+ *  scene creation when menuRng/arenas/data/characters/saveData are touched —
+ *  membership here rejects it at the accessor instead. */
+const branded = new WeakSet<object>();
+
+/** Structural brand: a GameContext must be a factory-created instance.
+ *  The registry stores the boot-published instance; any truthy-but-wrong
+ *  value (a string, a stale object, a bus-shaped impostor) is rejected
+ *  rather than cast. */
+function isGameContext(value: unknown): value is GameContext {
+  // WeakSet.has throws on primitives — the typeof gate doubles as the
+  // cheap pre-filter.
+  return typeof value === 'object' && value !== null && branded.has(value);
 }
 
 export interface PersistenceUpdate<T> { readonly value: T; readonly persisted: boolean }
@@ -211,5 +229,6 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       return { ok: true, arenaId, revision: arenaSelectionRevision };
     },
   };
+  branded.add(context);
   return context;
 }

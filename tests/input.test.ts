@@ -66,11 +66,17 @@ describe('InputController pointer movement', () => {
   it('clamps combined keyboard and pointer intents to unit length', () => {
     const { controller, input } = createController({ keyboard: true });
 
+    // Keyboard D and a full-radius pointer drag cross inactive→active in
+    // ONE poll. The pointer adapter polls after the keyboard adapter, so
+    // the pointer is the most recent crossing: it owns the D4 vector (the
+    // drag is clamped to the stick radius → unit length) AND the D7 mode —
+    // D4 and D7 agree on the same last-polled source (Epic 19 §4).
     input.keyboard!.keydown('d');
     input.pointerDown(100, 100);
-    input.pointerMove(132, 100);
+    input.pointerMove(228, 100); // 128px > 64px radius: clamped to 1.0
     controller.update(16);
     expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
   });
 
   it('ignores pointermove outside an active drag', () => {
@@ -167,19 +173,165 @@ describe('InputController gamepad adapter', () => {
     expect(controller.getMoveVector()).toEqual({ x: 0, y: 1 });
   });
 
-  it('combines left-stick and d-pad inputs', () => {
+  it('D-pad drives navigation only; movement comes from the left stick (Epic 19 §4)', () => {
     const { controller, input } = createController({ gamepad: true });
     const pad = new MockGamepad(0);
     input.gamepad!.connect(pad);
 
+    const navLeft = vi.fn();
+    const navRight = vi.fn();
+    controller.onAction('navLeft', navLeft);
+    controller.onAction('navRight', navRight);
+
+    // D-pad left: nav edge, but the analog movement vector stays zero.
     pad.setButton(14, true);
     controller.update(16);
-    expect(controller.getMoveVector().x).toBeLessThan(0);
+    expect(navLeft).toHaveBeenCalledTimes(1);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
 
     pad.setButton(14, false);
     pad.setButton(15, true);
     controller.update(16);
+    expect(navRight).toHaveBeenCalledTimes(1);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+
+    // Left stick still drives movement independently.
+    pad.setButton(15, false);
+    pad.setLeftStick(1, 0);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+  });
+
+  it('ignores disconnected pads still occupying gamepad slots (D2/D3)', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    pad.setLeftStick(0.75, 0);
+    pad.setButton(0, true); // confirm held before disconnect
+    controller.update(16);
     expect(controller.getMoveVector().x).toBeGreaterThan(0);
+
+    // Real Phaser keeps the disconnected wrapper in the slot with stale
+    // values; the adapter must exclude it by the connected flag.
+    input.gamepad!.disconnect(pad);
+    pad.setLeftStick(0.75, 0); // stale state remains on the wrapper
+    pad.setButton(0, true);
+    controller.update(16);
+
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+    const confirm = vi.fn();
+    controller.onAction('confirm', confirm);
+    controller.update(16);
+    expect(confirm).not.toHaveBeenCalled();
+
+    // Round-10 quarantine (Epic 19 §6 journey-gate row 6): the SAME wrapper
+    // reconnects with button 0 still pressed and the stick still deflected.
+    // Stale held state must not resurrect as fresh crossings — no phantom
+    // confirm edge, no instantly-restored movement.
+    input.gamepad!.connect(pad);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+    expect(confirm).not.toHaveBeenCalled();
+
+    // The quarantine lifts only when the pad reports NEUTRAL: every mapped
+    // button released AND the stick inside the movement deadzone.
+    pad.setButton(0, false);
+    pad.setLeftStick(0, 0);
+    controller.update(16);
+
+    // Fresh crossings work again after the quarantine clears: a release +
+    // re-press is a genuine new confirm edge (exactly one).
+    pad.setButton(0, true);
+    controller.update(16);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(confirm).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: 'confirm', source: 'gamepad' }),
+    );
+    pad.setButton(0, false);
+
+    // A reconnected pad works again.
+    pad.setLeftStick(1, 0);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+  });
+
+  it('quarantines a reconnecting pad\'s retained stick until neutral, then permits fresh crossings (journey-gate §6 row 6)', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    pad.setLeftStick(0.8, 0);
+    controller.update(16);
+    expect(controller.getMoveVector().x).toBeGreaterThan(0);
+
+    // Disconnect with the stick still deflected; reconnect the SAME wrapper
+    // (which retains the deflection).
+    input.gamepad!.disconnect(pad);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+
+    input.gamepad!.connect(pad);
+    controller.update(16);
+    // Quarantined: the retained deflection must NOT instantly restore
+    // movement — the pad contributes nothing until it reports neutral.
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+
+    // Center the stick → neutral → quarantine clears.
+    pad.setLeftStick(0, 0);
+    controller.update(16);
+
+    // A fresh deflection is a genuine crossing again.
+    pad.setLeftStick(0.8, 0);
+    controller.update(16);
+    expect(controller.getMoveVector().x).toBeGreaterThan(0);
+  });
+
+  it('quarantine is per-pad: a fresh pad on another slot is unaffected (journey-gate §6 row 6)', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const padA = new MockGamepad(0);
+    input.gamepad!.connect(padA);
+
+    const confirm = vi.fn();
+    controller.onAction('confirm', confirm);
+
+    padA.setButton(0, true);
+    controller.update(16);
+    expect(confirm).toHaveBeenCalledTimes(1);
+
+    // Pad A disconnects and reconnects with button 0 still pressed → its
+    // slot is quarantined and the stale press must not fire again.
+    input.gamepad!.disconnect(padA);
+    input.gamepad!.connect(padA);
+    controller.update(16);
+    expect(confirm).toHaveBeenCalledTimes(1);
+
+    // Pad B connects fresh on ANOTHER slot with confirm already pressed: B
+    // never disconnected, so it is not quarantined and its press is a
+    // genuine crossing that fires normally while A stays suppressed.
+    const padB = new MockGamepad(1);
+    padB.setButton(0, true);
+    input.gamepad!.connect(padB);
+    controller.update(16);
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(confirm).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: 'confirm', source: 'gamepad' }),
+    );
+
+    // A's stale press still contributes nothing.
+    controller.update(16);
+    expect(confirm).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not crash on a short (non-standard) pad (D5)', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+    pad.clearButtons(); // fewer than 16 buttons — real Phaser isButtonDown throws
+
+    expect(() => controller.update(16)).not.toThrow();
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
   });
 
   it('emits action edges for face and d-pad buttons', () => {
@@ -617,6 +769,248 @@ describe('InputController active-mode tracking (Epic 19 D7)', () => {
     controller.update(16);
     expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
   });
+
+  it('a gamepad confirm edge while keyboard movement is held presents gamepad mode (D4 owner unchanged)', () => {
+    const { controller, input } = createController({ keyboard: true, gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    // Hold keyboard movement: D4 owner is keyboard.
+    input.keyboard!.keydown('d');
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+
+    // An action edge from another device must change the PRESENTED source
+    // (D7) even though movement is still held from the keyboard...
+    pad.setButton(0, true); // bottom face button = confirm
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+
+    // ...while the D4 movement-owner hysteresis is untouched.
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+  });
+
+  it('a keyboard confirm edge while pointer movement is held presents keyboard mode', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    // Hold pointer movement (drag beyond the stick radius).
+    input.pointerDown(100, 100);
+    input.pointerMove(164, 100);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+
+    input.keyboard!.keydown('enter');
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+  });
+
+  it('a bare pointerdown while keyboard movement is held presents pointer mode and persists across polls', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    input.keyboard!.keydown('d');
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+
+    // Bare tap: no drag, no edge. D7: the pointerdown is the most recent
+    // event and must win over the HELD movement state.
+    input.pointerDown(200, 200);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+
+    // The held keyboard movement must not clobber the pointerdown on later
+    // polls — pointer mode persists until a later event acts.
+    controller.update(16);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+  });
+
+  it('an action edge after a pointerdown wins (later event), even while keyboard movement is held', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    input.keyboard!.keydown('d');
+    controller.update(16);
+
+    input.pointerDown(200, 200);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+
+    // The keyboard edge fires AFTER the pointerdown: later wins (D7).
+    input.keyboard!.keydown('enter');
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+  });
+
+  it('a gamepad movement START while keyboard retains the D4 owner presents gamepad mode', () => {
+    const { controller, input } = createController({ keyboard: true, gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    // Hold keyboard movement: D4 owner is keyboard.
+    input.keyboard!.keydown('d');
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+
+    // A pointerdown between polls presents pointer mode...
+    input.pointerDown(200, 200);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+
+    // ...then a genuine movement START from the gamepad — stick deflection
+    // above the 0.25 moveDeadzone and below the 0.5 navThreshold (no nav
+    // edge) — must present gamepad mode even though D4 keeps keyboard as
+    // the movement owner (D7 is decoupled from D4 ownership).
+    pad.setLeftStick(0.4, 0);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+
+    // D4 ownership hysteresis is untouched: the move vector stays keyboard.
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+  });
+
+  it('an action edge presentation persists across subsequent no-event polls', () => {
+    const { controller, input } = createController({ keyboard: true, gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    // Hold keyboard movement: D4 owner is keyboard.
+    input.keyboard!.keydown('d');
+    controller.update(16);
+
+    // A gamepad confirm edge presents gamepad mode...
+    pad.setButton(0, true); // bottom face button = confirm
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+
+    // ...and that presentation persists across no-event polls: the held
+    // keyboard movement is a retained D4 owner, not a D7 signal, so it
+    // must not revert the presented mode.
+    for (let i = 0; i < 5; i += 1) {
+      controller.update(16);
+      expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+    }
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+  });
+
+  it('a movement START after a pointerdown supersedes it even while the pointer retains the D4 owner', () => {
+    const { controller, input } = createController({ keyboard: true, gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    // Pointer movement becomes the D4 owner (half-radius drag → 0.5).
+    input.pointerDown(100, 100);
+    input.pointerMove(132, 100);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+
+    // A SECOND pointerdown between polls re-presents pointer mode and pins
+    // the pointerdown to the retained pointer owner...
+    input.pointerDown(200, 200);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+
+    // ...then in ONE poll the pinned pointer STOPS while keyboard AND
+    // gamepad both cross inactive→active. The pointer is no longer a D4
+    // candidate, so the owner is re-selected among the new starters: the
+    // gamepad crossing is the last in adapter poll order (keyboard,
+    // pointer, gamepad) and must win BOTH the D4 vector and the D7 mode.
+    // Mutation-sensitive (round-8): on the pre-epoch code the same-poll
+    // tie was broken by SOURCE_ORDER after wall-clock recency — the
+    // keyboard owned the D4 vector while D7 presented gamepad (the
+    // documented D4/D7 disagreement). The pointerdown is pinned to the
+    // retained pointer owner so the pending-pointerdown presentation
+    // path is live in this sequence.
+    input.pointerUp();
+    input.keyboard!.keydown('d');
+    pad.setLeftStick(0.4, 0);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+    // D4 ownership follows the same recency rule: gamepad-driven vector.
+    expect(controller.getMoveVector().x).toBeCloseTo(0.2, 10);
+    expect(controller.getMoveVector().y).toBeCloseTo(0, 10);
+  });
+
+  // Acceptance coverage (NOT mutation-sensitive): this sequence also passed
+  // on the pre-R7 code — the pointerdown interrupted NO movement, so the
+  // later keyboard START re-asserted keyboard through the plain owner path.
+  // Kept to lock the D7 contract for the null-owner case.
+  it('a pointerdown with no active movement yields to a later movement START (acceptance)', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    // Bare tap with no movement anywhere: the pointerdown is the newest
+    // signal and presents pointer mode...
+    input.pointerDown(200, 200);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+
+    // ...but a movement START is newer than that pointerdown (D7).
+    input.keyboard!.keydown('d');
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+  });
+
+  it('a same-poll keyboard and gamepad movement START selects the gamepad for BOTH the D4 vector and D7 mode', () => {
+    const { controller, input } = createController({ keyboard: true, gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    // Both sources cross inactive→active within ONE poll (keyboard D
+    // pressed, left stick deflected 0.4 > the 0.25 moveDeadzone). Adapter
+    // poll order is keyboard, pointer, gamepad: the gamepad crossing is the
+    // last movement START and must win BOTH D4 ownership (move vector) and
+    // D7 presentation (mode). Mutation-sensitive: wall-clock recency gave
+    // D4 to keyboard (equal timeMs tie broken by SOURCE_ORDER) while D7
+    // showed gamepad — the round-8 P1 disagreement.
+    input.keyboard!.keydown('d');
+    pad.setLeftStick(0.4, 0);
+    controller.update(16);
+
+    expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+    expect(controller.getMoveVector().x).toBeCloseTo(0.2, 10);
+    expect(controller.getMoveVector().y).toBeCloseTo(0, 10);
+  });
+
+  it('a same-poll pointer drag and gamepad movement START selects the gamepad for BOTH the D4 vector and D7 mode', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    // Pointer drag start and gamepad stick deflection within one poll. The
+    // pointer adapter polls before the gamepad adapter, so the gamepad is
+    // the last-polled crossing and wins D4 ownership and D7 presentation
+    // alike.
+    input.pointerDown(100, 100);
+    input.pointerMove(164, 100);
+    pad.setLeftStick(0.4, 0);
+    controller.update(16);
+
+    expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+    expect(controller.getMoveVector().x).toBeCloseTo(0.2, 10);
+    expect(controller.getMoveVector().y).toBeCloseTo(0, 10);
+  });
+
+  it('a single-source movement START still owns the vector and mode from that source', () => {
+    const { controller, input } = createController({ keyboard: true, gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    input.keyboard!.keydown('d');
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('keyboard');
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+
+    input.keyboard!.keyup('d');
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+
+    // A single-source gamepad start behaves exactly as before: the owner
+    // and the presented mode are both the gamepad.
+    pad.setLeftStick(0.4, 0);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('gamepad');
+    expect(controller.getMoveVector().x).toBeCloseTo(0.2, 10);
+    expect(controller.getMoveVector().y).toBeCloseTo(0, 10);
+  });
 });
 
 describe('InputController gamepad left-stick navigation (Epic 19 §4)', () => {
@@ -721,6 +1115,77 @@ describe('InputController polled keyboard actions (Epic 19 D3)', () => {
     expect(handler).toHaveBeenCalledTimes(1);
 
     input.keyboard!.keyup('enter');
+    controller.update(16);
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('maps Q to the reserved ability action with no consumer (D11)', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    const handler = vi.fn();
+    controller.onAction('ability', handler);
+
+    input.keyboard!.keydown('q');
+    controller.update(16);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: 'ability', source: 'keyboard' }),
+    );
+
+    input.keyboard!.keyup('q');
+    controller.update(16);
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('InputController reserved dash mapping (Epic 19 D10)', () => {
+  it('maps Shift to the reserved dash action with no consumer', () => {
+    const { controller, input } = createController({ keyboard: true });
+
+    const handler = vi.fn();
+    controller.onAction('dash', handler);
+
+    input.keyboard!.keydown('shift');
+    controller.update(16);
+
+    // One edge on the press crossing...
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: 'dash', source: 'keyboard' }),
+    );
+
+    // ...and NO repeat while held: dash is not a nav action (D10), so the
+    // polled mapping must not emit further edges on later polls.
+    controller.update(16);
+    controller.update(16);
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    input.keyboard!.keyup('shift');
+    controller.update(16);
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('maps gamepad right-shoulder (position 5) to the reserved dash action with no consumer', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+
+    const handler = vi.fn();
+    controller.onAction('dash', handler);
+
+    pad.setButton(5, true);
+    controller.update(16);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: 'dash', source: 'gamepad' }),
+    );
+
+    // Held (no repeat — not a nav action), then released (no edge).
+    controller.update(16);
+    expect(handler).toHaveBeenCalledTimes(1);
+    pad.setButton(5, false);
     controller.update(16);
     expect(handler).toHaveBeenCalledTimes(1);
   });

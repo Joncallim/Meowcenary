@@ -199,6 +199,11 @@ describe('LogicalInputCore nav repeat', () => {
     expect(edgeCount(afterRepress, 'navDown')).toBe(1);
   });
 
+  // NOTE: this switch lands 50ms BEFORE navUp's next repeat is due (t=400),
+  // so the old direction is never due on the change poll. The exact-boundary
+  // cases — a due repeat landing on the SAME poll as the new direction's
+  // press edge, in both ALL_ACTIONS orderings — are covered by the two
+  // 'suppresses the held direction's due repeat...' tests below.
   it('resets repeat timer on direction change', () => {
     const core = createCore({ delayMs: 200, intervalMs: 100 });
 
@@ -224,6 +229,49 @@ describe('LogicalInputCore nav repeat', () => {
     const olderStillHeld = core.update(200);
     expect(edgeCount(olderStillHeld, 'navUp')).toBe(0);
     expect(edgeCount(olderStillHeld, 'navDown')).toBe(2);
+  });
+
+  it("suppresses the held direction's due repeat on the poll a new direction is pressed (navUp held -> navDown pressed)", () => {
+    // D3 boundary: navUp is DUE to repeat on this exact poll (t=400) and
+    // navDown is pressed in the same poll. navUp precedes navDown in
+    // ALL_ACTIONS, so a single sequential pass would emit navUp's due repeat
+    // BEFORE seeing the navDown press that supersedes it — focus would move
+    // twice on one poll. The new direction's press edge must be the ONLY nav
+    // output that poll.
+    const core = createCore({ delayMs: 200, intervalMs: 100 });
+
+    press(core, 'keyboard', 'navUp', 300); // t=300: press edge + 2 repeats; next due at t=400
+    const switchEdges = press(core, 'keyboard', 'navDown', 100); // t=400: navUp due AND navDown pressed
+
+    expect(edgeCount(switchEdges, 'navDown')).toBe(1);
+    expect(edgeCount(switchEdges, 'navUp')).toBe(0);
+
+    // navDown's repeat timer started fresh at the press (pressedAtMs=t=300):
+    // first repeat lands at t=500, and navUp never resumes while superseded.
+    expect(edgeCount(core.update(99), 'navDown')).toBe(0); // t=499: elapsed 199 < delayMs
+    expect(edgeCount(core.update(1), 'navDown')).toBe(1); // t=500: first repeat at fresh delay
+    expect(edgeCount(core.update(100), 'navUp')).toBe(0); // navUp stays silenced
+  });
+
+  it("suppresses the held direction's due repeat on the poll a new direction is pressed (navDown held -> navUp pressed)", () => {
+    // Reverse ALL_ACTIONS ordering: the new press (navUp, index 6) is
+    // processed BEFORE the old held action (navDown, index 7). This ordering
+    // was never broken, but it guards the fix against both orderings — e.g.
+    // if ALL_ACTIONS were ever reordered so the old action preceded the new
+    // press, or a single-pass fix regressed this side.
+    const core = createCore({ delayMs: 200, intervalMs: 100 });
+
+    press(core, 'keyboard', 'navDown', 300); // t=300: press edge + 2 repeats; next due at t=400
+    const switchEdges = press(core, 'keyboard', 'navUp', 100); // t=400: navDown due AND navUp pressed
+
+    expect(edgeCount(switchEdges, 'navUp')).toBe(1);
+    expect(edgeCount(switchEdges, 'navDown')).toBe(0);
+
+    // navUp's repeat timer started fresh at the press: first repeat at t=500,
+    // and navDown never resumes while superseded.
+    expect(edgeCount(core.update(99), 'navUp')).toBe(0); // t=499: elapsed 199 < delayMs
+    expect(edgeCount(core.update(1), 'navUp')).toBe(1); // t=500: first repeat at fresh delay
+    expect(edgeCount(core.update(100), 'navDown')).toBe(0); // navDown stays silenced
   });
 
   it('resumes repeats for a re-selected superseded nav direction after a fresh delay', () => {
@@ -259,7 +307,7 @@ describe('LogicalInputCore movement ownership', () => {
   it('uses the only active movement source', () => {
     const core = createCore();
 
-    core.setMovementSample('keyboard', { x: 1, y: 0 }, 0);
+    core.setMovementSample('keyboard', 1, 0, 0);
     core.update(16);
 
     expect(core.getMovementVector()).toEqual({ x: 1, y: 0 });
@@ -269,15 +317,15 @@ describe('LogicalInputCore movement ownership', () => {
   it('keeps ownership until the active source drops below its deadzone', () => {
     const core = createCore();
 
-    core.setMovementSample('pointer', { x: 1, y: 0 }, 0);
+    core.setMovementSample('pointer', 1, 0, 0);
     core.update(16);
     expect(core.getActiveMovementSource()).toBe('pointer');
 
-    core.setMovementSample('keyboard', { x: 0, y: 1 }, 0);
+    core.setMovementSample('keyboard', 0, 1, 0);
     core.update(16);
     expect(core.getActiveMovementSource()).toBe('pointer');
 
-    core.setMovementSample('pointer', { x: 0, y: 0 }, 0);
+    core.setMovementSample('pointer', 0, 0, 0);
     core.update(16);
     expect(core.getActiveMovementSource()).toBe('keyboard');
   });
@@ -285,26 +333,123 @@ describe('LogicalInputCore movement ownership', () => {
   it('claims ownership by the most recent source to exceed its deadzone', () => {
     const core = createCore();
 
-    core.setMovementSample('keyboard', { x: 1, y: 0 }, 0);
+    core.setMovementSample('keyboard', 1, 0, 0);
     core.update(16);
     expect(core.getActiveMovementSource()).toBe('keyboard');
 
-    core.setMovementSample('keyboard', { x: 0, y: 0 }, 0);
-    core.setMovementSample('gamepad', { x: 0, y: 1 }, 0);
+    core.setMovementSample('keyboard', 0, 0, 0);
+    core.setMovementSample('gamepad', 0, 1, 0);
     core.update(16);
     expect(core.getActiveMovementSource()).toBe('gamepad');
 
-    core.setMovementSample('gamepad', { x: 0, y: 0 }, 0);
-    core.setMovementSample('pointer', { x: -1, y: 0 }, 0);
+    core.setMovementSample('gamepad', 0, 0, 0);
+    core.setMovementSample('pointer', -1, 0, 0);
     core.update(16);
     expect(core.getActiveMovementSource()).toBe('pointer');
+  });
+
+  it('resolves same-poll starts by epoch order: the last-polled source wins (keyboard + gamepad)', () => {
+    const core = createCore();
+
+    // Keyboard and gamepad both cross inactive→active BEFORE one update
+    // (adapter poll order is keyboard, pointer, gamepad). Both would share
+    // the same timeMs, so wall-clock recency cannot rank them — the epoch
+    // sequence must: the gamepad crossing is later in adapter order and
+    // wins D4 ownership (and, via the same epoch, D7 presentation).
+    core.setMovementSample('keyboard', 1, 0, 0);
+    core.setMovementSample('gamepad', 0.4, 0, 0.25);
+    core.update(16);
+
+    expect(core.getActiveMovementSource()).toBe('gamepad');
+    expect(core.getMovementVector().x).toBeCloseTo(0.2, 10);
+    expect(core.getMovementVector().y).toBeCloseTo(0, 10);
+    // The D7 tracker reads the same epoch: identical recency verdict.
+    expect(core.getLastMovementStartSource()).toBe('gamepad');
+    expect(core.getMovementStartEpoch()).toBe(2);
+  });
+
+  it('resolves a same-poll pointer and gamepad start to the gamepad (last polled)', () => {
+    const core = createCore();
+
+    core.setMovementSample('pointer', 0.5, 0, 0);
+    core.setMovementSample('gamepad', 0.4, 0, 0.25);
+    core.update(16);
+
+    expect(core.getActiveMovementSource()).toBe('gamepad');
+    expect(core.getMovementVector().x).toBeCloseTo(0.2, 10);
+    expect(core.getMovementVector().y).toBeCloseTo(0, 10);
+    expect(core.getLastMovementStartSource()).toBe('gamepad');
+  });
+
+  it('keeps single-source starts on that source (activationSeq regression)', () => {
+    const core = createCore();
+
+    core.setMovementSample('keyboard', 1, 0, 0);
+    core.update(16);
+    expect(core.getActiveMovementSource()).toBe('keyboard');
+    expect(core.getMovementVector()).toEqual({ x: 1, y: 0 });
+
+    core.setMovementSample('keyboard', 0, 0, 0);
+    core.update(16);
+    expect(core.getActiveMovementSource()).toBeNull();
+
+    core.setMovementSample('gamepad', 0.4, 0, 0.25);
+    core.update(16);
+    expect(core.getActiveMovementSource()).toBe('gamepad');
+    expect(core.getMovementVector().x).toBeCloseTo(0.2, 10);
+    expect(core.getMovementVector().y).toBeCloseTo(0, 10);
+  });
+
+  it('renormalizes the movement-start epoch near MAX_SAFE_INTEGER (overflow guard)', () => {
+    const core = createCore();
+    // Test seam: movementStartEpoch is private. The repo's tests probe
+    // private state via `as any` casts elsewhere (tests/validation.test.ts);
+    // reaching the threshold through real crossings would need ~9e15
+    // iterations. At MAX_SAFE_INTEGER - 1 the NEXT increment is still
+    // exact, but the one after that lands on 2**53 — past the safe range,
+    // where consecutive increments collide (two crossings share one
+    // activationSeq) and later ones stall (D7 misses starts).
+    (core as unknown as { movementStartEpoch: number }).movementStartEpoch =
+      Number.MAX_SAFE_INTEGER - 1;
+
+    // Same-poll keyboard then gamepad crossings. Pre-fix, the second
+    // increment lands on 2**53 (MAX_SAFE_INTEGER + 1) — the guard must
+    // renormalize instead: active states keep their relative recency
+    // order as small distinct seqs (keyboard 1, gamepad 2).
+    core.setMovementSample('keyboard', 1, 0, 0);
+    core.setMovementSample('gamepad', 0.4, 0, 0.25);
+    core.update(16);
+
+    expect(core.getMovementStartEpoch()).toBe(2);
+    expect(core.getActiveMovementSource()).toBe('gamepad');
+    expect(core.getLastMovementStartSource()).toBe('gamepad');
+    expect(core.getMovementVector().x).toBeCloseTo(0.2, 10);
+    expect(core.getMovementVector().y).toBeCloseTo(0, 10);
+
+    // The total order must keep advancing past the ceiling. Stop both
+    // sources, then restart them in ONE poll (no retained owner, so D4
+    // re-selects): pre-fix the epoch stalls at 2**53 — both crossings
+    // share the seq, D4 (tie broken by SOURCE_ORDER) picks the keyboard
+    // while D7 reports the gamepad — the documented D4/D7 disagreement.
+    core.setMovementSample('keyboard', 0, 0, 0);
+    core.setMovementSample('gamepad', 0, 0, 0);
+    core.update(16);
+    core.setMovementSample('keyboard', 1, 0, 0);
+    core.setMovementSample('gamepad', 0.4, 0, 0.25);
+    core.update(16);
+
+    expect(core.getMovementStartEpoch()).toBe(4);
+    expect(core.getActiveMovementSource()).toBe('gamepad');
+    expect(core.getLastMovementStartSource()).toBe('gamepad');
+    expect(core.getMovementVector().x).toBeCloseTo(0.2, 10);
+    expect(core.getMovementVector().y).toBeCloseTo(0, 10);
   });
 
   it('does not sum movement vectors across sources', () => {
     const core = createCore();
 
-    core.setMovementSample('keyboard', { x: 1, y: 0 }, 0);
-    core.setMovementSample('pointer', { x: 0, y: 1 }, 0);
+    core.setMovementSample('keyboard', 1, 0, 0);
+    core.setMovementSample('pointer', 0, 1, 0);
     core.update(16);
 
     const vector = core.getMovementVector();
@@ -316,11 +461,11 @@ describe('LogicalInputCore movement ownership', () => {
   it('applies per-source deadzones independently', () => {
     const core = createCore();
 
-    core.setMovementSample('gamepad', { x: 0.2, y: 0 }, 0.25);
+    core.setMovementSample('gamepad', 0.2, 0, 0.25);
     core.update(16);
     expect(core.getActiveMovementSource()).toBeNull();
 
-    core.setMovementSample('gamepad', { x: 0.5, y: 0 }, 0.25);
+    core.setMovementSample('gamepad', 0.5, 0, 0.25);
     core.update(16);
     expect(core.getActiveMovementSource()).toBe('gamepad');
   });
@@ -328,7 +473,7 @@ describe('LogicalInputCore movement ownership', () => {
   it('clears movement state on source disconnect', () => {
     const core = createCore();
 
-    core.setMovementSample('gamepad', { x: 1, y: 0 }, 0);
+    core.setMovementSample('gamepad', 1, 0, 0);
     core.update(16);
     expect(core.getActiveMovementSource()).toBe('gamepad');
 
@@ -344,12 +489,12 @@ describe('LogicalInputCore determinism and purity', () => {
     const core = createCore();
 
     core.setActionHeld('keyboard', 'confirm', true);
-    core.setMovementSample('pointer', { x: 0.5, y: 0 }, 0);
+    core.setMovementSample('pointer', 0.5, 0, 0);
     const first = core.update(16);
 
     const other = createCore();
     other.setActionHeld('keyboard', 'confirm', true);
-    other.setMovementSample('pointer', { x: 0.5, y: 0 }, 0);
+    other.setMovementSample('pointer', 0.5, 0, 0);
     const second = other.update(16);
 
     expect(first).toEqual(second);

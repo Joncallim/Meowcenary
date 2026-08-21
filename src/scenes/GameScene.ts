@@ -26,7 +26,7 @@ import {
 } from '../systems/debug';
 import { DropSystem } from '../systems/DropSystem';
 import { WeaponRewardSystem } from '../systems/WeaponRewardSystem';
-import { InputController } from '../systems/input';
+import { InputController, type GameAction } from '../systems/input';
 import { SpawnSystem } from '../systems/SpawnSystem';
 import { buildArenaScenery, type ArenaScenery } from '../systems/arenaScenery';
 import { UpgradeSystem } from '../systems/UpgradeSystem';
@@ -197,7 +197,7 @@ export class GameScene extends Phaser.Scene {
       new PhaserHudView({
         scene: this,
         viewport,
-        onInventoryRequested: () => this.handleInventoryKey(),
+        onInventoryRequested: () => this.routeAction('inventory'),
       }),
     );
     this.controlsView = new ControlsView({
@@ -205,7 +205,7 @@ export class GameScene extends Phaser.Scene {
       input: this.inputController,
       viewport,
       readReducedMotion: () => ctx.settings.reducedMotion,
-      onPauseRequested: () => this.handlePauseKey(),
+      onPauseRequested: () => this.routeAction('pause'),
     });
 
     this.inventoryController = new InventoryController({
@@ -386,9 +386,9 @@ export class GameScene extends Phaser.Scene {
       controller: this.runSummaryController,
     });
 
-    this.inputController.onAction('pause', () => this.handlePauseKey());
-    this.inputController.onAction('back', () => this.handlePauseKey());
-    this.inputController.onAction('inventory', () => this.handleInventoryKey());
+    this.inputController.onAction('pause', () => this.routeAction('pause'));
+    this.inputController.onAction('back', () => this.routeAction('back'));
+    this.inputController.onAction('inventory', () => this.routeAction('inventory'));
     if (RuntimeConfig.isDev) {
       this.input.keyboard?.on('keydown-F4', this.togglePhysicsDebug, this);
       this.input.keyboard?.on('keydown-F8', this.forceLoseRun, this);
@@ -577,11 +577,12 @@ export class GameScene extends Phaser.Scene {
     return this.runState;
   }
 
-  /** P/Escape and the HUD pause button delegate here. Escape from inventory
-   *  returns to pause; Escape from pause resumes; from a closed panel P opens
-   *  the manual pause. A level-up pause is never stolen (PauseController
-   *  rejects it), and the upgrade chooser remains the only level-up surface. */
-  private handlePauseKey(): void {
+  /** Epic 19 §5 run-level routing matrix. Each logical action maps to a
+   *  context-specific command; in the inventory panel only `back` walks back —
+   *  `pause` and `inventory` edges are deliberately discarded there. The
+   *  level-up chooser and run summary are guarded by the PauseController's
+   *  status checks (levelUp pause / terminal status reject every command). */
+  private routeAction(action: GameAction): void {
     const controller = this.pauseController;
     if (!controller) {
       return;
@@ -589,43 +590,33 @@ export class GameScene extends Phaser.Scene {
 
     const panel = controller.snapshot().panel;
     let accepted = false;
-    // 'closed' is the only panel that maps to ui:confirm; the pause and
-    // inventory panels both resolve via ui:back.
-    const event: 'ui:confirm' | 'ui:back' = panel === 'closed' ? 'ui:confirm' : 'ui:back';
+    let event: 'ui:confirm' | 'ui:back' | null = null;
 
     if (panel === 'inventory') {
-      accepted = controller.back();
+      if (action === 'back') {
+        accepted = controller.back();
+        event = 'ui:back';
+      }
+      // pause / inventory edges are discarded in the rack (§5).
     } else if (panel === 'pause') {
-      accepted = controller.resume();
-    } else {
+      if (action === 'back' || action === 'pause') {
+        accepted = controller.resume();
+        event = 'ui:back';
+      } else if (action === 'inventory') {
+        accepted = controller.openInventory();
+        event = 'ui:confirm';
+      }
+    } else if (action === 'back' || action === 'pause') {
       accepted = controller.pause();
+      event = 'ui:confirm';
+    } else if (action === 'inventory') {
+      accepted = controller.openInventoryFromRun();
+      event = 'ui:confirm';
     }
 
-    if (accepted) {
+    if (accepted && event) {
       this.getContext().bus.emit(event, {});
     }
-    this.pauseView?.render(controller.snapshot());
-  }
-
-  /** HUD rack control and I key. Opens the rack directly from active play,
-   *  moves from pause into the rack, or returns from the rack to pause. */
-  private handleInventoryKey(): void {
-    const controller = this.pauseController;
-    if (!controller) {
-      return;
-    }
-
-    const panel = controller.snapshot().panel;
-    const accepted = panel === 'inventory'
-      ? controller.back()
-      : panel === 'pause'
-        ? controller.openInventory()
-        : controller.openInventoryFromRun();
-    if (!accepted) {
-      return;
-    }
-
-    this.getContext().bus.emit(panel === 'inventory' ? 'ui:back' : 'ui:confirm', {});
     this.pauseView?.render(controller.snapshot());
   }
 

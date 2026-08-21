@@ -239,7 +239,7 @@ describe('ControlsView hints', () => {
     pad.setLeftStick(1, 0);
     tick();
 
-    expect(hintText.state.text).toBe('Left stick • A / Start');
+    expect(hintText.state.text).toBe('Left stick • Bottom face / Menu');
   });
 
   it('fades the hint once after the display duration with a tween', () => {

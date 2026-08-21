@@ -5,9 +5,15 @@ import { describe, expect, it, vi } from 'vitest';
 // Phaser module is ever requested.
 import { MockInputPlugin } from './__mocks__/phaser';
 import { createEventBus } from '../src/engine/eventBus';
-import { GAME_CONTEXT_REGISTRY_KEY } from '../src/engine/context';
+import { GAME_CONTEXT_REGISTRY_KEY, createGameContext } from '../src/engine/context';
+import { createRng } from '../src/engine/rng';
 import { GameScene } from '../src/scenes/GameScene';
 import { InputController } from '../src/systems/input';
+import { DataArenaRegistry } from '../src/systems/arenas';
+import { DataCharacterRegistry } from '../src/systems/characters';
+import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
+import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
+import { loadGameData } from '../src/systems/validation';
 import {
   AudioManager,
   AUDIO_MANAGER_REGISTRY_KEY,
@@ -24,8 +30,7 @@ interface AudioSeams {
   removeAudioUnlockListeners: () => void;
   getAudioManager: () => AudioManager | undefined;
   handleShutdown: () => void;
-  handlePauseKey: () => void;
-  handleInventoryKey: () => void;
+  routeAction: (action: 'pause' | 'back' | 'inventory') => void;
   pauseController:
     | {
         snapshot: () => { panel: 'closed' | 'pause' | 'inventory'; inventory: unknown };
@@ -39,11 +44,39 @@ interface AudioSeams {
   pauseView: { render: (snapshot: unknown) => void } | undefined;
 }
 
+/** A real factory-created context — the only kind the brand accepts (same
+ *  construction pattern as tests/menuScene.test.ts). The published bus is
+ *  the caller's bus, preserving listener identity for event assertions. */
+function createBrandedContext(bus: ReturnType<typeof createEventBus>) {
+  const data = loadGameData();
+  const metaUpgrades = new DataMetaUpgradeRegistry(data);
+  return createGameContext({
+    bus,
+    menuRng: createRng(1),
+    data,
+    metaUpgrades,
+    characters: new DataCharacterRegistry(data),
+    arenas: new DataArenaRegistry(data),
+    save: new SaveManager(new MemoryStorageAdapter(), 'game-scene-audio-test', metaUpgrades.maxLevels()),
+  });
+}
+
 function createFakeEnvironment(
-  audioFake?: { unlock: ReturnType<typeof vi.fn>; destroy: ReturnType<typeof vi.fn> },
+  audioFake?: {
+    unlock: ReturnType<typeof vi.fn>;
+    destroy: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+  },
   context?: { bus: ReturnType<typeof createEventBus> },
 ) {
   const input = new MockInputPlugin({ keyboard: true });
+
+  // The registry accessor is branded: only factory-created contexts pass
+  // isGameContext (Epic 19 round-1 adversarial fix). routeAction fetches
+  // the context through getGameContext, so the fixture must publish a real
+  // one — built around the same bus the test listens on, so bus identity
+  // and event assertions are unchanged.
+  const brandedContext = context ? createBrandedContext(context.bus) : undefined;
 
   const lifecycleListeners = new Map<
     string,
@@ -74,7 +107,7 @@ function createFakeEnvironment(
   Object.assign(scene, {
     registry: {
       get: (key: string) => {
-        if (key === GAME_CONTEXT_REGISTRY_KEY) return context;
+        if (key === GAME_CONTEXT_REGISTRY_KEY) return brandedContext;
         if (key === AUDIO_MANAGER_REGISTRY_KEY) return audioFake;
         return undefined;
       },
@@ -91,7 +124,8 @@ function createFakeEnvironment(
 }
 
 function createAudioFake() {
-  return { unlock: vi.fn(), destroy: vi.fn() };
+  // playMusic is part of the branded surface (scenes call it on create).
+  return { playMusic: vi.fn(), unlock: vi.fn(), destroy: vi.fn(), update: vi.fn() };
 }
 
 describe('GameScene audio lifecycle seams', () => {
@@ -195,7 +229,7 @@ describe('GameScene audio lifecycle seams', () => {
   });
 });
 
-describe('GameScene handlePauseKey command events', () => {
+describe('GameScene routeAction (§5 routing matrix)', () => {
   function createPauseFixture(panel: 'closed' | 'pause' | 'inventory', accepted: boolean) {
     const bus = createEventBus();
     const events: string[] = [];
@@ -217,38 +251,57 @@ describe('GameScene handlePauseKey command events', () => {
     return { seams, controller, render, events };
   }
 
-  it('emits ui:confirm exactly once when a closed panel accepts pause', () => {
-    const { seams, controller, render, events } = createPauseFixture('closed', true);
+  it('closed panel: back and pause both pause; inventory opens the rack from the run', () => {
+    const { seams, controller, events } = createPauseFixture('closed', true);
 
-    seams.handlePauseKey();
-
+    seams.routeAction('back');
     expect(controller.pause).toHaveBeenCalledTimes(1);
     expect(events).toEqual(['ui:confirm']);
-    expect(render).toHaveBeenCalledWith(controller.snapshot());
+    events.length = 0;
+
+    seams.routeAction('pause');
+    expect(controller.pause).toHaveBeenCalledTimes(2);
+    expect(events).toEqual(['ui:confirm']);
+    events.length = 0;
+
+    seams.routeAction('inventory');
+    expect(controller.openInventoryFromRun).toHaveBeenCalledTimes(1);
+    expect(events).toEqual(['ui:confirm']);
   });
 
-  it('emits ui:back exactly once when the inventory panel accepts back', () => {
+  it('pause panel: back and pause resume; inventory opens the rack', () => {
+    const { seams, controller, events } = createPauseFixture('pause', true);
+
+    seams.routeAction('back');
+    seams.routeAction('pause');
+    expect(controller.resume).toHaveBeenCalledTimes(2);
+    expect(events).toEqual(['ui:back', 'ui:back']);
+    events.length = 0;
+
+    seams.routeAction('inventory');
+    expect(controller.openInventory).toHaveBeenCalledTimes(1);
+    expect(events).toEqual(['ui:confirm']);
+  });
+
+  it('inventory panel: only back walks back; pause and inventory edges are discarded (§5)', () => {
     const { seams, controller, events } = createPauseFixture('inventory', true);
 
-    seams.handlePauseKey();
+    seams.routeAction('pause');
+    seams.routeAction('inventory');
+    expect(controller.back).not.toHaveBeenCalled();
+    expect(controller.pause).not.toHaveBeenCalled();
+    expect(controller.openInventory).not.toHaveBeenCalled();
+    expect(events).toEqual([]);
 
+    seams.routeAction('back');
     expect(controller.back).toHaveBeenCalledTimes(1);
     expect(events).toEqual(['ui:back']);
   });
 
-  it('emits ui:back exactly once when the pause panel accepts resume', () => {
-    const { seams, controller, events } = createPauseFixture('pause', true);
-
-    seams.handlePauseKey();
-
-    expect(controller.resume).toHaveBeenCalledTimes(1);
-    expect(events).toEqual(['ui:back']);
-  });
-
-  it('emits nothing when the controller rejects the command', () => {
+  it('emits nothing when the controller rejects the command, but still re-renders', () => {
     const { seams, controller, render, events } = createPauseFixture('closed', false);
 
-    seams.handlePauseKey();
+    seams.routeAction('pause');
 
     expect(controller.pause).toHaveBeenCalledTimes(1);
     expect(events).toEqual([]);
@@ -258,12 +311,10 @@ describe('GameScene handlePauseKey command events', () => {
   it('does nothing without a pause controller', () => {
     const { seams } = createFakeEnvironment();
 
-    expect(() => seams.handlePauseKey()).not.toThrow();
+    expect(() => seams.routeAction('pause')).not.toThrow();
   });
-});
 
-describe('GameScene handleInventoryKey command events', () => {
-  it('ignores repeated I-key logical actions before routing or rendering', () => {
+  it('routes the real I-key logical action edge through the matrix', () => {
     const bus = createEventBus();
     const events: string[] = [];
     bus.on('ui:confirm', () => events.push('ui:confirm'));
@@ -280,7 +331,8 @@ describe('GameScene handleInventoryKey command events', () => {
     const { seams, input } = createFakeEnvironment(undefined, { bus });
     seams.pauseController = controller;
     seams.pauseView = { render };
-    seams.inputController!.onAction('inventory', () => seams.handleInventoryKey());
+    // Mirrors the real wiring in GameScene.create().
+    seams.inputController!.onAction('inventory', () => seams.routeAction('inventory'));
 
     input.keyboard!.keydown('i');
     seams.inputController!.update(16);
