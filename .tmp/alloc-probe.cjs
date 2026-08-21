@@ -799,16 +799,17 @@ var scene = { input };
 var controller = new InputController(scene);
 if (scenario === "keyboard-held") {
   keyRecords.d.isDown = true;
+  keyRecords.s.isDown = true;
   keyRecords.enter.isDown = true;
 } else if (scenario === "gamepad") {
   const buttons = [];
   for (let i = 0; i < 16; i += 1) {
-    buttons.push({ pressed: i === 0 });
+    buttons.push({ pressed: i === 0 || i === 12 });
   }
   const pad = {
     connected: true,
-    leftStick: { x: 0.8, y: 0 },
-    axes: [{ value: 0.8 }, { value: 0 }],
+    leftStick: { x: 0.8, y: 0.8 },
+    axes: [{ value: 0.8 }, { value: 0.8 }],
     buttons
   };
   input.gamepad.gamepads[0] = pad;
@@ -817,9 +818,42 @@ if (scenario === "keyboard-held") {
   const current = { id: 1, x: 300, y: 200, isDown: true };
   input.emit("pointerdown", start);
   input.emit("pointermove", current);
+} else if (scenario !== "idle") {
+  throw new Error("unknown ALLOC_SCENARIO: " + scenario);
 }
+var seenEdges = [];
+controller.onAnyAction((edge) => {
+  seenEdges.push(edge.action);
+});
 for (let i = 0; i < 2e3; i += 1) {
   controller.update(0);
+}
+if (scenario === "keyboard-held") {
+  controller.update(0);
+  const move = controller.getMoveVector();
+  if (move.x === 0 && move.y === 0) {
+    throw new Error("liveness: keyboard-held scenario produced zero movement");
+  }
+  if (!seenEdges.includes("confirm")) {
+    throw new Error("liveness: keyboard-held scenario produced no confirm edge");
+  }
+} else if (scenario === "gamepad") {
+  controller.update(0);
+  const move = controller.getMoveVector();
+  if (move.x === 0 && move.y === 0) {
+    throw new Error("liveness: gamepad scenario produced zero movement");
+  }
+  if (!seenEdges.some(
+    (action) => action === "navUp" || action === "navDown" || action === "navLeft" || action === "navRight"
+  )) {
+    throw new Error("liveness: gamepad scenario produced no nav edge");
+  }
+} else if (scenario === "pointer") {
+  controller.update(0);
+  const move = controller.getMoveVector();
+  if (move.x === 0 && move.y === 0) {
+    throw new Error("liveness: pointer scenario produced zero movement");
+  }
 }
 if (typeof gc === "function") {
   gc();
