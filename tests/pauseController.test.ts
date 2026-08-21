@@ -300,7 +300,7 @@ describe('PhaserPauseView', () => {
   function createFakeScene() {
     const objects: Array<ReturnType<typeof fakeObject>> = [];
     let failNextText = false;
-    let failNextRect = false;
+    let failNextRect = 0;
     let keydown:
       | { handler: (event: KeyboardEvent) => void; context: unknown }
       | undefined;
@@ -435,9 +435,11 @@ describe('PhaserPauseView', () => {
           return own(fakeObject('text', text, 0, 0, x, y));
         },
         rectangle: (x: number, y: number, width: number, height: number) => {
-          if (failNextRect) {
-            failNextRect = false;
-            throw new Error('Injected rectangle factory failure');
+          if (failNextRect > 0) {
+            failNextRect -= 1;
+            if (failNextRect === 0) {
+              throw new Error('Injected rectangle factory failure');
+            }
           }
           return own(fakeObject('rect', '', width, height, x, y));
         },
@@ -485,8 +487,9 @@ describe('PhaserPauseView', () => {
       failNextText() {
         failNextText = true;
       },
-      failNextRect() {
-        failNextRect = true;
+      failNextRect(skip = 1) {
+        // Round-7: skip N rects (default 1 = the backdrop), fail on the next.
+        failNextRect = skip;
       },
       triggerKey(key: string, repeat = false) {
         let prevented = false;
@@ -999,6 +1002,41 @@ describe('PhaserPauseView', () => {
     expect(() => view.render(controller.snapshot())).toThrow(
       'Injected rectangle factory failure',
     );
+
+    // Mode transitions must neither touch the destroyed hint nor throw.
+    for (const nextMode of ['gamepad', 'pointer', 'keyboard'] as const) {
+      mode = nextMode;
+      expect(() => view.refreshInputPresentation()).not.toThrow();
+    }
+  });
+
+  it('clears rack display refs when rack render fails AFTER publishing the hint (round-7)', () => {
+    let mode: InputMode = 'keyboard';
+    const { run, scene, view, controller } = createView({ readInputMode: () => mode });
+    run.equipped = [];
+    controller.pause();
+    controller.openInventory();
+    view.render(controller.snapshot()); // rack committed: hint + targets live
+    view.refreshInputPresentation();
+
+    // Same-panel rebuild fails INSIDE weaponRack.render() AFTER the hint was
+    // assigned: skip 1 rect (backdrop), fail on the second rect = the first
+    // slot rectangle, created after the hint text. The catch must
+    // clearDisplay() the rack (hint/targets point into the partial root)
+    // before destroying it, or the next mode transition calls setText() on
+    // the destroyed hint.
+    scene.failNextRect(2);
+    expect(() => view.render(controller.snapshot())).toThrow(
+      'Injected rectangle factory failure',
+    );
+    const anyView = view as unknown as Record<string, { hint?: { state?: { destroyed?: boolean; text?: string } } | undefined }>;
+    const rackKeys = Object.keys(anyView).filter((k) => k.toLowerCase().includes('rack'));
+    // eslint-disable-next-line no-console
+    console.log('rack fields:', rackKeys);
+    for (const k of rackKeys) {
+      // eslint-disable-next-line no-console
+      console.log('field', k, 'hint:', anyView[k]?.hint ? { destroyed: anyView[k]?.hint?.state?.destroyed, text: anyView[k]?.hint?.state?.text } : 'undefined');
+    }
 
     // Mode transitions must neither touch the destroyed hint nor throw.
     for (const nextMode of ['gamepad', 'pointer', 'keyboard'] as const) {

@@ -316,6 +316,9 @@ class FakeDisplayObject extends FakeEmitter {
     };
   }
   destroy(): void {
+    // Real Phaser marks the object destroyed BEFORE teardown hooks run; the
+    // destroyed-setText rejection in FakeText depends on this (round-7).
+    this.destroyed = true;
     this.onDestroy?.(this);
   }
 }
@@ -394,6 +397,7 @@ function createFakeScene(displayWidth: number, displayHeight: number) {
   const scale = new FakeScale();
   const children = new Set<FakeDisplayObject>();
   let failFixedSize = false;
+  let failNextContainer = false;
   const own = <T extends FakeDisplayObject>(object: T): T => {
     children.add(object);
     return object;
@@ -408,8 +412,15 @@ function createFakeScene(displayWidth: number, displayHeight: number) {
     get childCount() { return children.size; },
     get objects() { return [...children]; },
     failNextTextFixedSize() { failFixedSize = true; },
+    failNextContainer() { failNextContainer = true; },
     add: {
-      container: () => own(new FakeContainer(remove)),
+      container: () => {
+        if (failNextContainer) {
+          failNextContainer = false;
+          throw new Error('Injected container factory failure');
+        }
+        return own(new FakeContainer(remove));
+      },
       rectangle: (x: number, y: number, width: number, height: number) =>
         own(new FakeDisplayObject(x, y, width, height, remove)),
       text: (x: number, y: number, text: string, style: { fontSize?: string }) =>
@@ -887,6 +898,36 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
     scene.input.keyboard.emit('keydown', { key: '1', repeat: false });
     expect(select).toHaveBeenCalledTimes(1);
     expect(select).toHaveBeenCalledWith(73, 0);
+    view.destroy();
+    expect(scene.childCount).toBe(0);
+  });
+
+  it('does not touch destroyed instructions when a rebuild fails BEFORE buildDisplay assigns them (round-7)', async () => {
+    const offered = hostileDefinitions.slice(0, 3);
+    const { scene, view } = await createRenderedDisplay(390, 844, offered);
+    expect(view.diagnostics.cards).toHaveLength(3);
+
+    // A rebuild whose FIRST step (container factory, before buildDisplay's
+    // try assigns instructions) fails: destroyDisplay already cleared
+    // this.instructions, so a subsequent refresh must not touch a destroyed
+    // Text. The container factory throws BEFORE any instructions Text exists
+    // in the new tree — the pre-try failure window of the round-6 fix.
+    scene.failNextContainer();
+    expect(() => scene.scale.refresh(1, 1, true)).toThrow(
+      'Injected container factory failure',
+    );
+    expect(scene.childCount).toBe(0);
+
+    // refreshInputPresentation in any mode must not throw (instructions is
+    // undefined, not a stale destroyed reference).
+    for (const mode of ['keyboard', 'gamepad', 'pointer'] as const) {
+      (view as unknown as { readInputMode: () => string }).readInputMode = () => mode;
+      expect(() => view.refreshInputPresentation()).not.toThrow();
+    }
+
+    // G-15: a successful retry re-publishes and the exact command works.
+    scene.scale.refresh(390, 844, true);
+    expect(view.diagnostics.cards).toHaveLength(3);
     view.destroy();
     expect(scene.childCount).toBe(0);
   });

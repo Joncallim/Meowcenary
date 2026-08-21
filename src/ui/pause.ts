@@ -249,6 +249,10 @@ export class PhaserPauseView {
       this.committedPanel = snapshot.panel;
       this.committedDisplay = true;
     } catch (error) {
+      // A failure inside weaponRack.render() may have published hint/targets
+      // into the partial root; clear them BEFORE the destroy or the next
+      // mode transition calls setText() on destroyed Text (round-7).
+      this.weaponRack.clearDisplay();
       root.destroy(true);
       this.buttons = [];
       this.hint = undefined;
