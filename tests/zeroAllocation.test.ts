@@ -160,7 +160,7 @@ describe('Epic 19 §6 authoritative allocation count', () => {
  *  <= 4. (3) The array canary overwrites ONE retained slot per iteration
  *  (sink[0] = [0,0,0]) instead of bulk-retaining 1001 arrays, matching the
  *  one-live-array shape of the reviewed regression. (4) The probe runs under
- *  EVERY input scenario (idle, keyboard-held, gamepad, pointer) so the
+ *  EVERY input scenario (idle, keyboard-held, gamepad, pointer, pointer-anchored) so the
  *  gamepad/pointer/keyboard poll branches are actually exercised: a used
  *  allocation in the connected-gamepad branch previously passed all 9 tests
  *  because the probe never ran that branch. Canary runs must exceed the
@@ -237,7 +237,7 @@ describe('Epic 19 §6 authoritative GC-event allocation gate', () => {
     return inWindow;
   }
 
-  const SCENARIOS = ['idle', 'keyboard-held', 'gamepad', 'pointer'] as const;
+  const SCENARIOS = ['idle', 'keyboard-held', 'gamepad', 'pointer', 'pointer-anchored'] as const;
 
   it('baseline: real poll path performs zero per-frame allocations in every input scenario', () => {
     // The zero bound is the detection floor: a single live per-frame

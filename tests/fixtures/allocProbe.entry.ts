@@ -8,7 +8,7 @@
 // triggers scavenges — including allocations that V8 collects before the
 // window ends, which heap-delta measurement misses.
 //
-// ALLOC_SCENARIO=idle|keyboard-held|gamepad|pointer selects the input state
+// ALLOC_SCENARIO=idle|keyboard-held|gamepad|pointer|pointer-anchored selects the input state
 // the REAL poll path runs under, so every adapter branch production can hit
 // is covered by the gate: the neutral idle state alone would let a regression
 // hide in a branch the probe never executes (round-3 finding: a used
@@ -42,6 +42,7 @@
 import * as fs from 'node:fs';
 import type Phaser from 'phaser';
 import { InputController } from '../../src/systems/input';
+import type { TouchStickConfig } from '../../src/engine/config';
 
 // Window length in polls. Calibrated with the gate's --max-semi-space-size
 // so the clean baseline performs ZERO in-window scavenges while a single
@@ -121,7 +122,15 @@ const scenario = process.env.ALLOC_SCENARIO ?? 'idle';
 
 const { input, keyRecords } = makeInput();
 const scene = { input } as unknown as Phaser.Scene;
-const controller = new InputController(scene);
+const anchoredTouchStick: TouchStickConfig = {
+  radius: 64,
+  mode: 'anchored',
+  anchored: { centerX: 82, centerY: 700, activationRadius: 120 },
+};
+const controller = new InputController(
+  scene,
+  scenario === 'pointer-anchored' ? { touchStick: anchoredTouchStick } : undefined,
+);
 
 if (scenario === 'keyboard-held') {
   // Hold movement keys and a confirm key: the keyboard action-poll and
@@ -161,6 +170,13 @@ if (scenario === 'keyboard-held') {
   // clamp, setMovementSample).
   const start: FakePointer = { id: 1, x: 10, y: 10, isDown: true };
   const current: FakePointer = { id: 1, x: 300, y: 200, isDown: true };
+  input.emit('pointerdown', start);
+  input.emit('pointermove', current);
+} else if (scenario === 'pointer-anchored') {
+  // Pin an accepted anchored gesture before the window. The down is inside
+  // the activation circle and current is beyond the shared stick radius.
+  const start: FakePointer = { id: 1, x: 114, y: 700, isDown: true };
+  const current: FakePointer = { id: 1, x: 300, y: 700, isDown: true };
   input.emit('pointerdown', start);
   input.emit('pointermove', current);
 } else if (scenario !== 'idle') {
@@ -213,7 +229,7 @@ if (scenario === 'keyboard-held') {
   ) {
     throw new Error('liveness: gamepad scenario produced no nav edge');
   }
-} else if (scenario === 'pointer') {
+} else if (scenario === 'pointer' || scenario === 'pointer-anchored') {
   controller.update(0);
   const move = controller.getMoveVector();
   if (move.x === 0 && move.y === 0) {

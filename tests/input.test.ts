@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { MockInputPlugin, MockGamepad } from './__mocks__/phaser';
 import type Phaser from 'phaser';
 import { InputController } from '../src/systems/input';
+import { assertTouchStickConfig, type TouchStickConfig } from '../src/engine/config';
 
 function createScene(options: { keyboard?: boolean; gamepad?: boolean } = {}) {
   const input = new MockInputPlugin(options);
@@ -13,9 +14,9 @@ function createScene(options: { keyboard?: boolean; gamepad?: boolean } = {}) {
   return { scene, input };
 }
 
-function createController(options: { keyboard?: boolean; gamepad?: boolean } = {}) {
+function createController(options: { keyboard?: boolean; gamepad?: boolean; touchStick?: TouchStickConfig } = {}) {
   const { scene, input } = createScene(options);
-  const controller = new InputController(scene);
+  const controller = new InputController(scene, { touchStick: options.touchStick });
   return { controller, input };
 }
 
@@ -151,6 +152,88 @@ describe('InputController pointer movement', () => {
     const pointer = controller.getPointer();
     if (pointer) pointer.x = 999;
     expect(controller.getPointer()).toEqual({ x: 132, y: 100 });
+  });
+});
+
+describe('InputController anchored touch stick', () => {
+  const anchored: TouchStickConfig = {
+    radius: 64,
+    mode: 'anchored',
+    anchored: { centerX: 82, centerY: 700, activationRadius: 120 },
+  };
+
+  it('uses the fixed center and accepts inside and boundary pointerdowns', () => {
+    const { controller, input } = createController({ touchStick: anchored });
+    input.pointerDown(82, 700);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+    expect(controller.getPresentationSnapshot().pointerStart).toEqual({ x: 82, y: 700 });
+
+    input.pointerUp();
+    input.pointerDown(202, 700);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+    expect(controller.getPresentationSnapshot().pointerCurrent).toEqual({ x: 202, y: 700 });
+  });
+
+  it('rejects outside starts, keeps D7 pointer activity, and resumes only on a fresh inside down', () => {
+    const { controller, input } = createController({ keyboard: true, touchStick: anchored });
+    input.keyboard!.keydown('d');
+    controller.update(16);
+    input.pointerDown(202.001, 700);
+    input.pointerMove(82, 700);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+    expect(controller.getPresentationSnapshot().pointerStart).toBeNull();
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+
+    input.pointerUp();
+    input.pointerDown(114, 700);
+    controller.update(16);
+    // The existing keyboard owner is retained by D4 until it goes inactive.
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+  });
+
+  it('pins the accepted pointer until its release and keeps D4 ownership rules', () => {
+    const { controller, input } = createController({ keyboard: true, touchStick: anchored });
+    input.pointerDown(114, 700, 0);
+    input.pointerDown(82, 636, 1);
+    input.pointerMove(82, 580, 1);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().pointerCurrent).toEqual({ x: 114, y: 700 });
+    expect(controller.getMoveVector()).toEqual({ x: 0.5, y: 0 });
+
+    input.keyboard!.keydown('d');
+    controller.update(16);
+    // The active pointer remains the D4 owner while keyboard starts later.
+    expect(controller.getMoveVector()).toEqual({ x: 0.5, y: 0 });
+    input.pointerUp(1);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().pointerStart).toEqual({ x: 82, y: 700 });
+    input.pointerUp(0);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().pointerStart).toBeNull();
+  });
+});
+
+describe('TouchStickConfig validation', () => {
+  const valid: TouchStickConfig = {
+    radius: 64, mode: 'floating', anchored: { centerX: 82, centerY: 700, activationRadius: 120 },
+  };
+
+  it('rejects all invalid runtime fields before input listener attachment', () => {
+    const invalid = [
+      { ...valid, radius: 0 }, { ...valid, radius: Number.NaN }, { ...valid, mode: 'invalid' },
+      { ...valid, anchored: { ...valid.anchored, centerX: Infinity } },
+      { ...valid, anchored: { ...valid.anchored, centerY: Number.NaN } },
+      { ...valid, anchored: { ...valid.anchored, activationRadius: 0 } },
+    ] as unknown as TouchStickConfig[];
+    for (const config of invalid) {
+      expect(() => assertTouchStickConfig(config)).toThrow();
+      const { scene, input } = createScene();
+      expect(() => new InputController(scene, { touchStick: config })).toThrow();
+      expect(input.listenerCount('pointerdown')).toBe(0);
+    }
   });
 });
 
@@ -1137,6 +1220,22 @@ describe('InputController polled keyboard actions (Epic 19 D3)', () => {
     input.keyboard!.keyup('q');
     controller.update(16);
     expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('maps standard-layout gamepad position 2 to the reserved ability action (D11)', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+    const handler = vi.fn();
+    controller.onAction('ability', handler);
+
+    pad.setButton(2, true);
+    controller.update(16);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: 'ability', source: 'gamepad' }),
+    );
   });
 });
 
