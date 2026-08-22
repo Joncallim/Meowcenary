@@ -30,10 +30,14 @@
 //      allocation tests still execute. Every Vitest process spawned by this
 //      runner carries MEOWCENARY_TEST_RUNNER_CHILD so those tests skip
 //      themselves inside stages 1-3 of a nested runner — no recursion —
-//      while the top-level stage 3 actually executes them. The two files run
-//      as separate invocations: all eight subprocess tests in one vitest run
-//      block a single worker for ~65s, deterministically tripping vitest's
-//      60s worker RPC timeout (round-4 F1 infra guard).
+//      while the top-level stage 3 actually executes them. Stage 3 runs one
+//      test per invocation: a whole-file invocation blocks one worker for
+//      ~103s on GitHub's 2-core runner, deterministically tripping vitest's
+//      hardcoded 60s worker RPC timeout (round-4 F1 guard was only fast
+//      enough on the dev machine; round-5 CI hardening splits per test).
+//      Every invocation's summary must show "Tests 1 passed" — vitest exits
+//      0 with all tests skipped for a non-matching -t, so a renamed test
+//      fails loudly instead of skipping the stage silently.
 // An explicit selection naming the allocation file runs the user's requested
 // selection first — still isolated, with the forwarded filter applied to it
 // (round-4 F1: this used to satisfy the gate, so `-t=FocusNavigator` skipped
@@ -75,16 +79,30 @@ const SHORT_FLAGS = new Set(['-w', '-u', '-h', '-v']);
 function runVitest(args, options = {}) {
   const result = spawnSync(vitestBin, args, {
     cwd: root,
-    stdio: 'inherit',
+    stdio: options.capture ? ['inherit', 'pipe', 'pipe'] : 'inherit',
+    encoding: options.capture ? 'utf8' : 'buffer',
     // tests/testRunner.test.ts skips itself inside every runner-spawned
     // Vitest process (recursion guard); the unguarded stage-3 invocation
     // below actually runs them.
     env: {
       ...process.env,
+      ...(options.capture ? { NO_COLOR: '1' } : {}),
       ...(options.guard === false ? {} : { MEOWCENARY_TEST_RUNNER_CHILD: '1' }),
     },
   });
-  return result.status ?? 1;
+  if (options.capture) {
+    process.stdout.write(result.stdout ?? '');
+    process.stderr.write(result.stderr ?? '');
+  }
+  return {
+    status: result.status ?? 1,
+    output: options.capture ? `${result.stdout ?? ''}\n${result.stderr ?? ''}` : '',
+  };
+}
+
+/** Escape a test name for use as a vitest --testNamePattern regex. */
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /** Stateful scan of the forwarded arguments. Returns the positional file
@@ -156,8 +174,8 @@ if (explicitlySelectsAlloc) {
   // fast on a real failure in the forwarded run: the gate would also fail
   // on a genuine regression.
   const explicitStatus = runVitest(['run', ...forwarded, ...ALLOC_ISOLATION]);
-  if (explicitStatus !== 0) {
-    process.exit(explicitStatus);
+  if (explicitStatus.status !== 0) {
+    process.exit(explicitStatus.status);
   }
 } else {
   // Stage 1: the requested ordinary selection, allocation file and the
@@ -166,26 +184,68 @@ if (explicitlySelectsAlloc) {
     'run', '--exclude', ALLOC_FILE, '--exclude', RUNNER_TESTS,
     '--exclude', RUNNER_EXPLICIT_TESTS, ...forwarded,
   ]);
-  if (mainStatus !== 0) {
-    process.exit(mainStatus);
+  if (mainStatus.status !== 0) {
+    process.exit(mainStatus.status);
   }
 }
 
 // Stage 2: the full allocation gate in its isolated single fork, unfiltered
 // so a forwarded name filter can never skip it.
 const allocStatus = runVitest(['run', ALLOC_FILE, ...ALLOC_ISOLATION]);
-if (allocStatus !== 0) {
-  process.exit(allocStatus);
+if (allocStatus.status !== 0) {
+  process.exit(allocStatus.status);
 }
 
 // Stage 3: the runner's own subprocess regression tests, unguarded so they
-// execute at the top level of every run (round-3 F1). The round-4
-// explicit-selection regressions run as a SECOND invocation: all eight
-// subprocess tests in a single vitest run block one worker for ~65s,
-// deterministically tripping vitest's 60s worker RPC timeout
-// ("[vitest-worker]: Timeout calling onTaskUpdate").
-const runnerStatus = runVitest(['run', RUNNER_TESTS], { guard: false });
-if (runnerStatus !== 0) {
-  process.exit(runnerStatus);
+// execute at the top level of every run (round-3 F1). Stage 3 runs ONE test
+// per invocation: a whole-file invocation blocks one worker for ~103s on
+// GitHub's 2-core runner, deterministically tripping vitest's hardcoded 60s
+// worker RPC timeout ("[vitest-worker]: Timeout calling onTaskUpdate") even
+// when every test passes (round-5 CI infra finding — the round-4 two-file
+// split was only fast enough on the dev machine). The -t pattern is escaped,
+// and each invocation MUST show vitest's "Tests 1 passed" summary (the other
+// tests in the file show as skipped): vitest exits 0 with every test SKIPPED
+// when a -t pattern matches nothing, so a renamed test or a typo here fails
+// loudly instead of silently bypassing the stage.
+function runSubprocessSuite(file, names) {
+  // In a NESTED runner the test files skip themselves (recursion guard), so
+  // every invocation here is expected to exit 0 with all tests skipped; only
+  // the top-level runner must observe exactly one test passing.
+  const nestedRunner = process.env.MEOWCENARY_TEST_RUNNER_CHILD === '1';
+  for (const name of names) {
+    const { status, output } = runVitest(
+      ['run', file, '-t', escapeRegExp(name)],
+      { guard: false, capture: true },
+    );
+    const summary = output.match(/Tests\s+(\d+) passed/);
+    // Exactly one test must have run and passed. A filtered run prints
+    // "Tests 1 passed | 4 skipped (5)" — the named test ran, the rest were
+    // skipped by the -t filter. A non-matching -t prints "Tests 5 skipped"
+    // (no "passed" segment) and still exits 0, so this check is the only
+    // thing standing between a renamed test and a silently skipped stage.
+    const ranExactlyOne = Boolean(summary) && summary[1] === '1';
+    const nestedSkipOk = nestedRunner && status === 0;
+    if (!(ranExactlyOne || nestedSkipOk)) {
+      console.error(
+        `\n[test.mjs] stage-3 invocation did not behave as expected: '${name}'` +
+        `\n[test.mjs] vitest status=${status}, summary=${summary ? summary[0] : 'none'}` +
+        '\n[test.mjs] A renamed test must update the name list below; the stage is never allowed to skip silently.',
+      );
+      process.exit(1);
+    }
+  }
+  return 0;
 }
-process.exit(runVitest(['run', RUNNER_EXPLICIT_TESTS], { guard: false }));
+
+runSubprocessSuite(RUNNER_TESTS, [
+  'executes all nine allocation tests when a -t name filter is forwarded',
+  'executes all nine allocation tests when an exclusion names the allocation file',
+  'executes all nine allocation tests for an ordinary file selection',
+  'executes all nine allocation tests when the --run flag is forwarded',
+  'executes all nine allocation tests when a reporter flag is forwarded',
+]);
+process.exit(runSubprocessSuite(RUNNER_EXPLICIT_TESTS, [
+  'executes all nine allocation tests when a relative path selects the allocation file with -t=FocusNavigator',
+  'executes all nine allocation tests when an absolute path selects the allocation file with --testNamePattern=FocusNavigator',
+  'executes all nine allocation tests when an expanded positional list contains the allocation file',
+]));
