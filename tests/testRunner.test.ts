@@ -114,17 +114,40 @@ describe('scripts/test.mjs stateful allocation selection (F1)', () => {
     // nested — scripts/test.mjs would then accept every all-skipped stage-3
     // invocation and the subprocess gate would silently never execute. The
     // real nested protocol (this file's runRunner) sets BOTH markers. With
-    // only CHILD leaked, stage 3 must fail loudly (runner exit != 0).
+    // only CHILD leaked, stage 3 must fail loudly — and this test controls
+    // the full scenario: SPAWNED is explicitly REMOVED (an outer SPAWNED
+    // preset would re-enable nested mode and flip this test), and the
+    // assertions pin the failure to the intended cause (clean spawn, clean
+    // signal, exit 1, the allocation gate's passed marker present — stage 2
+    // ran — and the stage-3 refusal message, not a timeout/ENOBUFS/stage-1
+    // accident).
+    const env: Record<string, string | undefined> = {
+      ...process.env,
+      NO_COLOR: '1',
+      MEOWCENARY_TEST_RUNNER_CHILD: '1',
+    };
+    delete env.MEOWCENARY_TEST_RUNNER_SPAWNED;
     const result = spawnSync(process.execPath, [runner, '-t', 'FocusNavigator'], {
       cwd: root,
       encoding: 'utf8',
-      env: { ...process.env, NO_COLOR: '1', MEOWCENARY_TEST_RUNNER_CHILD: '1' },
+      env,
       timeout: 240_000,
     });
-    const tail = `${result.stdout ?? ''}\n${result.stderr ?? ''}`.slice(-1500);
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
+    const tail = output.slice(-2000);
+    expect(result.error, `leaked-CHILD runner must spawn cleanly\n${tail}`).toBeUndefined();
+    expect(result.signal, `leaked-CHILD runner must not die by signal\n${tail}`).toBeNull();
     expect(
       result.status,
-      `leaked CHILD marker must fail loudly, not silently skip stage 3\n${tail}`,
-    ).not.toBe(0);
+      `leaked CHILD marker must fail loudly (exit 1), not silently skip stage 3\n${tail}`,
+    ).toBe(1);
+    expect(
+      output,
+      `the allocation gate (stage 2) must have run before the refusal\n${tail}`,
+    ).toContain('zeroAllocation.test.ts (9 tests)');
+    expect(
+      output,
+      `the refusal must be the stage-3 guard, not an unrelated failure\n${tail}`,
+    ).toContain('stage-3 invocation did not behave as expected');
   }, 240_000);
 });

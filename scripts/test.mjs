@@ -211,12 +211,16 @@ if (allocStatus.status !== 0) {
 // GitHub's 2-core runner, deterministically tripping vitest's hardcoded 60s
 // worker RPC timeout ("[vitest-worker]: Timeout calling onTaskUpdate") even
 // when every test passes (round-5 CI infra finding — the round-4 two-file
-// split was only fast enough on the dev machine). The -t pattern is escaped,
-// and each invocation MUST show vitest's "Tests 1 passed" summary (the other
-// tests in the file show as skipped): vitest exits 0 with every test SKIPPED
-// when a -t pattern matches nothing, so a renamed test or a typo here fails
-// loudly instead of silently bypassing the stage.
-function runSubprocessSuite(file, names, expectedTotal) {
+// split was only fast enough on the dev machine). Each invocation's -t
+// pattern is ANCHORED to the test's exact vitest full name (describe + " " +
+// test name — the matchable form in vitest's getTaskFullName; escapeRegExp
+// is mandatory because describe names contain regex metacharacters such as
+// "(F1)"), and the guard demands ALL of: spawn clean, exit 0, "Tests 1
+// passed", and the file's exact test count. A non-matching -t makes vitest
+// exit 0 with every test SKIPPED, so a renamed/added/removed test fails
+// loudly here instead of silently bypassing the stage (Sol closing
+// 2026-08-22: status+summary+total were all three required).
+function runSubprocessSuite(file, describe, names, expectedTotal) {
   // A NESTED runner (spawned by the subprocess tests themselves) carries BOTH
   // protocol markers — MEOWCENARY_TEST_RUNNER_CHILD and
   // MEOWCENARY_TEST_RUNNER_SPAWNED — and expects its stage-3 invocations to
@@ -230,8 +234,9 @@ function runSubprocessSuite(file, names, expectedTotal) {
     process.env.MEOWCENARY_TEST_RUNNER_CHILD === '1' &&
     process.env.MEOWCENARY_TEST_RUNNER_SPAWNED === '1';
   for (const name of names) {
+    const fullName = `${describe} ${name}`;
     const { status, output, error, signal } = runVitest(
-      ['run', file, '-t', escapeRegExp(name)],
+      ['run', file, '-t', `^${escapeRegExp(fullName)}$`],
       { guard: false, capture: true },
     );
     // Exactly one test must have run, passed, AND the file must have exited
@@ -246,10 +251,13 @@ function runSubprocessSuite(file, names, expectedTotal) {
     const nestedSkipOk = nestedRunner && status === 0 && !error && !signal;
     if (!(ok || nestedSkipOk)) {
       console.error(
-        `\n[test.mjs] stage-3 invocation did not behave as expected: '${name}'` +
+        `\n[test.mjs] stage-3 invocation did not behave as expected: '${fullName}'` +
         `\n[test.mjs] vitest status=${status}, summary=${summary ? summary[0] : 'none'}` +
+        ` (expected total ${expectedTotal})` +
         `${error ? `, spawn error=${error}` : ''}${signal ? `, signal=${signal}` : ''}` +
-        '\n[test.mjs] A renamed test must update the name list below; the stage is never allowed to skip silently.',
+        '\n[test.mjs] Renaming, adding, or removing a runner test requires updating BOTH' +
+        '\n[test.mjs] the test name list AND the file\'s expectedTotal in this stage; the' +
+        '\n[test.mjs] stage is never allowed to skip silently.',
       );
       process.exit(1);
     }
@@ -257,7 +265,10 @@ function runSubprocessSuite(file, names, expectedTotal) {
   return 0;
 }
 
-runSubprocessSuite(RUNNER_TESTS, [
+const RUNNER_DESCRIBE = 'scripts/test.mjs stateful allocation selection (F1)';
+const RUNNER_EXPLICIT_DESCRIBE = 'scripts/test.mjs explicit allocation selection (round-4 F1)';
+
+runSubprocessSuite(RUNNER_TESTS, RUNNER_DESCRIBE, [
   'executes all nine allocation tests when a -t name filter is forwarded',
   'executes all nine allocation tests when an exclusion names the allocation file',
   'executes all nine allocation tests for an ordinary file selection',
@@ -265,7 +276,7 @@ runSubprocessSuite(RUNNER_TESTS, [
   'executes all nine allocation tests when a reporter flag is forwarded',
   'fails loudly when the recursion marker leaks without the spawn token',
 ], 6);
-process.exit(runSubprocessSuite(RUNNER_EXPLICIT_TESTS, [
+process.exit(runSubprocessSuite(RUNNER_EXPLICIT_TESTS, RUNNER_EXPLICIT_DESCRIBE, [
   'executes all nine allocation tests when a relative path selects the allocation file with -t=FocusNavigator',
   'executes all nine allocation tests when an absolute path selects the allocation file with --testNamePattern=FocusNavigator',
   'executes all nine allocation tests when an expanded positional list contains the allocation file',
