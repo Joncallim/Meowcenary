@@ -43,16 +43,11 @@ Additional cross-epic constraint:
 #### Epic 18 — Build Variety and Golden Run Pacing (#77)
 
 Complete — merged in PR #106; the delivered card expansion and Golden Run
-pacing are recorded in the Epic 18 architecture record.
-
-Expand the rotating upgrade-card experience and tune the Golden Run:
-
-- ~15–20 meaningful upgrade definitions;
-- normally 4–5 visible choices per offer;
-- owned/current/max-stack indicators;
-- placeholder imagery/icon metadata + resolvable placeholder visuals;
-- richer effects/build directions through approved shared effect contracts;
-- temporary cards remain separate from persistent Gunsmith progression.
+pacing are recorded in the Epic 18 architecture record. Delivered the rotating
+upgrade-card experience (larger meaningful pool, normally 4–5 visible choices,
+owned/current/max-stack read models, placeholder imagery metadata) and tuned
+Golden Run pacing through approved shared effect contracts; temporary cards
+remain separate from persistent Gunsmith progression.
 
 Input boundary with Epic 19:
 
@@ -71,15 +66,18 @@ Current status is NOT READY while D10 remains PENDING and P-late-wave is
 unverified; controller coverage remains unverified until a real standard-layout
 controller session is recorded.
 
-Final Alpha 2 player-experience gate:
+Delivered state:
 
-- auto-fire stays primary across touch, keyboard, and controller;
-- compare/validate portrait touch movement and thumb ergonomics;
-- movement/positioning must provide enough agency; one simple dash/evade is allowed only if playtesting proves it necessary;
-- freeze one platform-neutral logical input/action layer;
-- full launch → menu → run → upgrade → rack/merge → settings → summary → Retry/Menu journey must work controller-only;
-- validate deadzones, focus navigation, disconnect/reconnect, mixed-input switching, and duplicate-command suppression;
-- reserve a future ability action/slot without implementing the full character ability system;
+- auto-fire stays primary across touch, keyboard, and controller; floating
+  touch is production and anchored is config-only diagnostic;
+- one platform-neutral logical input/action layer is frozen; the full
+  launch → menu → run → upgrade → rack/merge → settings → summary →
+  Retry/Menu journey works controller-only, with deadzones, focus
+  navigation, disconnect/reconnect, mixed-input switching, and
+  duplicate-command suppression automated and gated;
+- the dash/evade decision remains evidence-gated by the maintainer's D10
+  judgment; `ability` stays reserved without implementing the full character
+  ability system;
 - no required right-stick/manual aiming.
 
 Epic 19 ends only when the Golden Run passes a real player-experience gate on touch and controller, not merely automated tests.

@@ -126,7 +126,9 @@ Requirements:
 
 - auto-fire remains primary;
 - no required twin-stick/right-stick aiming;
-- validate anchored/floating touch movement and sustained ergonomics;
+- floating touch is production; anchored remains config-only diagnostic and
+  unverified unless a material floating issue requires it (not an open
+  production choice);
 - one simple dash/evade only if movement-only fails the experience gate;
 - full controller-only menu -> run -> upgrades -> rack/merge -> settings -> summary -> Retry/Menu;
 - deadzones, focus, disconnect/reconnect, active-input switching, duplicate suppression;

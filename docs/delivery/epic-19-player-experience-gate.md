@@ -1,19 +1,24 @@
 # Epic 19 — Player experience gate
 
 **Status:** IN PROGRESS
-**References:** Epic #78; [governing architecture](../architecture/epic-19-player-ux-and-alpha-2-gate.md); Slice 4 merged commit: `b316a6a`; Slice 5 candidate: `agent/epic-19-slice5` (working tree, uncommitted).
+**References:** Epic #78; [governing architecture](../architecture/epic-19-player-ux-and-alpha-2-gate.md); Slice 4 merged commit: `b316a6a`; Slice 5 candidate commit: `cc767f1` (PR #112; tests/docs-only hardening commits on top carry no runtime-affecting diff — see row 7).
 
 This is the compact durable record for the Epic 19 player-experience gate. Rows without a real observer, device, and candidate commit remain `unverified`; automated results do not substitute for human evidence.
 
 ## Automated validation
 
-| Commit | Observer/date | Check | Status | Outcome | Notes | Unverified reason |
-| --- | --- | --- | --- | --- | --- | --- |
-| working tree | Codex / 2026-08-22 | normal `npm test` | pending | not run | Ordinary suite plus fixed stage-2 9 and stage-3 6+3 are recorded separately. | Focused implementation is not yet fully gated. |
-| working tree | Codex / 2026-08-22 | shuffled seed 190501 | pending | not run | Ordinary suite plus fixed stage-2 9 and stage-3 6+3. | Full candidate run pending. |
-| working tree | Codex / 2026-08-22 | shuffled seed 190502 | pending | not run | Ordinary suite plus fixed stage-2 9 and stage-3 6+3. | Full candidate run pending. |
-| working tree | Codex / 2026-08-22 | `npm run lint` / `npm run build` / `npm run art:validate` / `git diff --check` | pending | not run | — | Candidate gates pending. |
-| working tree | unassigned / 2026-08-22 | independent orthogonal review | pending | not dispatched | Read-only full-footprint review artifact required. | Independent reviewer not assigned. |
+Eight separate rows (one per gate). Each test row records the exact candidate commit, observer/date, exit/pass, ordinary files/tests, stage-2 `9 passed`, and stage-3 fixed `6 + 3` all enforced.
+
+| # | Commit | Observer/date | Check | Status | Outcome | Notes | Unverified reason |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | `cc767f1` | Codex / 2026-08-22 | normal full `npm test` | verified | pass | Exit 0; ordinary 99 files / 1635 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. 1635 = 1618 baseline + 16 planned soak tests + the §4.1/§3.1-2 scheduled-vs-control draw-posture test added to the existing controller journey (Sol finding 1). | — |
+| 2 | `cc767f1` | Codex / 2026-08-22 | shuffled full seed `190501` | verified | pass | `--sequence.shuffle --sequence.seed 190501`; exit 0; seed printed; ordinary 99 files / 1635 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
+| 3 | `cc767f1` | Codex / 2026-08-22 | shuffled full seed `190502` | verified | pass | `--sequence.shuffle --sequence.seed 190502`; exit 0; seed printed; ordinary 99 files / 1635 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
+| 4 | `cc767f1` | Codex / 2026-08-22 | `npm run lint` | verified | pass | `tsc --noEmit` exit 0. | — |
+| 5 | `cc767f1` | Codex / 2026-08-22 | `npm run build` | verified | pass | `tsc --noEmit && vite build` exit 0. | — |
+| 6 | `cc767f1` | Codex / 2026-08-22 | `npm run art:validate` | verified | pass | Node + Lua visual-art builder contracts all PASS, exit 0. | — |
+| 7 | `cc767f1` | Codex / 2026-08-22 | `git diff --check` | verified | pass | Clean working tree; no blank-line-at-EOF or whitespace errors. Tests/docs-only hardening commits on top of `cc767f1` carry no runtime-affecting diff, proven by `git diff --exit-code b316a6a -- src package.json vite.config.ts tsconfig.json` (empty across the whole Slice 5 branch). | — |
+| 8 | `cc767f1` | unassigned / 2026-08-22 | independent orthogonal review | pending | not dispatched | Read-only full-footprint review artifact required. | Independent reviewer not assigned. |
 
 ## Device matrix
 
@@ -70,7 +75,7 @@ This is the compact durable record for the Epic 19 player-experience gate. Rows 
 
 | Evidence ID | Device ID | Commit | Observer/date | Check | Method | Status | Observed outcome | Unverified reason | Decision/follow-up |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| P-alloc | desktop-keyboard-chrome | pending | implementer / pending | §6 zero-allocation and runner regressions | `npm test` | unverified | unverified | Candidate commit/gate result not recorded. | Record exact candidate result after validation. |
+| P-alloc | desktop-keyboard-chrome | `cc767f1` | Codex / 2026-08-22 | §6 zero-allocation and runner regressions | `npm test` (rows 1–3) | verified | pass | Normal + seeds 190501/190502 all exit 0; zero-allocation gate 9/9 with zero baselines/canaries; 18,000-poll deterministic proxy and sampler regressions pass (rows 1–3). Automated proxy only — not lived FPS. | — |
 | P-late-wave | unverified | pending | unverified | 4:30–5:00 Golden Run frame posture | real run with input polling | unverified | unverified | Deferred to Slice 5; no human browser run. | Do not infer frame pacing from allocation tests. |
 
 ## §10 experience matrix

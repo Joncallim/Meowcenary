@@ -1,6 +1,16 @@
 // Vitest keeps the query-qualified module separate so importing the production
 // phase factories does not register the journey test a second time.
-import { createMenuPhase, createGamePhase } from './epic19JourneyComposition';
+import { vi } from 'vitest';
+import {
+  createMenuPhase,
+  createGamePhase,
+  focusRingTargets,
+  focusedTargetIndex,
+  focusedButtonIndex,
+  listenerDiagnostics,
+  type ListenerDiagnostics,
+  type FakeScene,
+} from './epic19JourneyComposition';
 import type { MockGamepad, MockInputPlugin } from '../__mocks__/phaser';
 import type { GameContext } from '../../src/engine/context';
 import type { MenuScene } from '../../src/scenes/MenuScene';
@@ -8,11 +18,20 @@ import type { GameScene } from '../../src/scenes/GameScene';
 import type { RunState } from '../../src/gameplay/runState';
 import type { EventBus } from '../../src/engine/eventBus';
 import type { InputController } from '../../src/systems/input';
+import type { PauseController } from '../../src/ui/pause';
+import type { InventoryController } from '../../src/ui/inventory';
+import { FocusStroke } from '../../src/ui/theme';
+import type { StorageAdapter } from '../../src/systems/save';
+import type { MainMenuSnapshot } from '../../src/ui/menus';
 
 export const SOAK_DT_MS = 16;
+// SOAK-07: the performance proxy uses a 60-FPS clock (18,000 × 1000/60 =
+// 300,000 ms = exactly five minutes), never the 16 ms soak step.
 export const PERF_PROXY_DT_MS = 1000 / 60;
 export const PERF_PROXY_POLLS = 18_000;
 export const PERF_LATE_WINDOW_POLLS = 1_800;
+// Re-exported so soaks assert the destroy() baseline contract directly.
+export { ZERO_LISTENER_DIAGNOSTICS } from './epic19JourneyComposition';
 export const EPIC19_SOAK_SEEDS = Object.freeze({
   gamepadLifecycle: 0x19050001,
   mixedInput: 0x19050002,
@@ -53,12 +72,28 @@ export interface Epic19InputDriver {
   sceneCommands(): SceneCommandCounts;
 }
 
-function driver(phase: ReturnType<typeof createMenuPhase> | ReturnType<typeof createGamePhase>): Epic19InputDriver {
+/** Exact FocusStroke/listener/bounds diagnostics shared by both surfaces. */
+export interface Epic19FocusSurface {
+  /** Live rects carrying the EXACT FocusStroke (width+color+alpha). */
+  focusRingCount(): number;
+  /** Bounds of the ringed target (logical canvas units), or null. */
+  focusRingBounds(): { x: number; y: number; width: number; height: number } | null;
+  /** Creation-order index of the ringed rect among live rects. */
+  ringedTargetIndex(): number;
+}
+
+function driver(phase: {
+  scene: FakeScene;
+  input: MockInputPlugin;
+  pad: MockGamepad;
+  update?: (dtMs?: number) => void;
+  menuScene?: MenuScene;
+}): Epic19InputDriver {
   const input = phase.input;
   const pad = phase.pad;
   const poll = (dtMs = SOAK_DT_MS) => {
-    if ('update' in phase) phase.update(dtMs);
-    else phase.menuScene.update(0, dtMs);
+    if (phase.update) phase.update(dtMs);
+    else phase.menuScene!.update(0, dtMs);
   };
   return {
     input, pad, poll,
@@ -75,51 +110,183 @@ function driver(phase: ReturnType<typeof createMenuPhase> | ReturnType<typeof cr
   };
 }
 
-export interface Epic19MenuSoakHarness extends Epic19InputDriver {
-  readonly menuScene: MenuScene; readonly context: GameContext;
-  focusIndex(): number; focusRingCount(): number; textContents(): readonly string[];
-  resizeTo(containerWidth: number, containerHeight: number): void; destroy(): void;
-}
-
-export function createMenuSoakHarness(options: { readonly fixtureSeed: number; readonly storageKey: string }): Epic19MenuSoakHarness {
-  void options;
-  const phase = createMenuPhase();
-  const base = driver(phase);
-  const focus = () => phase.scene.objects.filter((o: any) => o.state.kind === 'rect' && o.state.handlers.pointerover && !o.state.destroyed);
+function focusSurface(scene: FakeScene): Epic19FocusSurface {
+  const ringed = () => focusRingTargets(scene);
   return {
-    ...base, menuScene: phase.menuScene, context: phase.context,
-    focusIndex: () => focus().findIndex((o: any) => o.state.strokeWidth === 2 && o.state.strokeAlpha === 1),
-    focusRingCount: () => focus().filter((o: any) => o.state.strokeWidth === 2 && o.state.strokeAlpha === 1).length,
-    textContents: phase.textContents,
-    resizeTo: (width, height) => {
-      const scale = (phase.scene as any).scale;
-      scale.displaySize.width = 390 * Math.min(width / 390, height / 844);
-      scale.displaySize.height = 844 * Math.min(width / 390, height / 844);
-      scale.parentSize.width = width; scale.parentSize.height = height;
-      (phase.menuScene as any).scale.width = 390; (phase.menuScene as any).scale.height = 844;
-      (phase.scene as any).emitResize?.();
+    focusRingCount: () => ringed().length,
+    focusRingBounds: () => {
+      const target = ringed()[0];
+      if (!target) return null;
+      const bounds = target.getBounds();
+      return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
     },
-    destroy: () => phase.menuScene.events.emit('shutdown'),
+    ringedTargetIndex: () => scene.objects
+      .filter((object) => object.state.kind === 'rect' && !object.state.destroyed)
+      .findIndex((object) =>
+        object.state.strokeWidth === FocusStroke.width &&
+        object.state.strokeColor === FocusStroke.color &&
+        object.state.strokeAlpha === FocusStroke.alpha,
+      ),
   };
 }
 
-export interface Epic19GameSoakHarness extends Epic19InputDriver {
-  readonly gameScene: GameScene; readonly runState: RunState; readonly bus: EventBus; readonly inputController: InputController; readonly context: GameContext;
-  focusSignature(): readonly number[]; resizeTo(containerWidth: number, containerHeight: number): void;
-  openChooser(): readonly string[]; openRackWithMergePair(): void; destroy(): void;
+export interface Epic19MenuSoakHarness extends Epic19InputDriver, Epic19FocusSurface {
+  readonly menuScene: MenuScene;
+  readonly context: GameContext;
+  readonly inputController: InputController;
+  readonly storage: StorageAdapter;
+  readonly storageKey: string;
+  writeCount(): number;
+  menuSnapshot(): MainMenuSnapshot;
+  textContents(): readonly string[];
+  listeners(): ListenerDiagnostics;
+  /** Number of real resize events emitted on the shared scale. */
+  resizeEmitCount(): number;
+  resizeTo(containerWidth: number, containerHeight: number): void;
+  destroy(): void;
 }
 
-export function createGameSoakHarness(options: { readonly fixtureSeed: number; readonly runSeed: number; readonly storageKey: string }): Epic19GameSoakHarness {
-  void options.fixtureSeed; void options.storageKey;
-  const phase = createGamePhase(options.runSeed);
-  const base = driver(phase);
+export function createMenuSoakHarness(options: {
+  readonly fixtureSeed: number;
+  readonly storageKey: string;
+}): Epic19MenuSoakHarness {
+  const phase = createMenuPhase({ fixtureSeed: options.fixtureSeed, storageKey: options.storageKey });
+  const base = driver({ scene: phase.scene, input: phase.input, pad: phase.pad, menuScene: phase.menuScene });
+  const focus = focusSurface(phase.scene);
+  const fitScale = (width: number, height: number) => Math.min(width / 390, height / 844);
   return {
-    ...base, gameScene: phase.scene as unknown as GameScene, runState: phase.runState, bus: phase.bus, context: phase.context,
-    inputController: phase.seams.inputController,
+    ...base, ...focus,
+    menuScene: phase.menuScene,
+    context: phase.context,
+    inputController: phase.inputController,
+    storage: phase.storage,
+    storageKey: phase.storageKey,
+    writeCount: phase.writeCount,
+    menuSnapshot: () => phase.menuController.snapshot(),
+    textContents: phase.textContents,
+    listeners: () => listenerDiagnostics(phase.scene),
+    resizeEmitCount: () => phase.scene.scale.emitCount('resize'),
+    resizeTo: (width, height) => {
+      const scale = phase.scene.scale;
+      const fit = fitScale(width, height);
+      scale.displaySize.width = 390 * fit;
+      scale.displaySize.height = 844 * fit;
+      scale.parentSize.width = width;
+      scale.parentSize.height = height;
+      // The real Phaser resize event, exactly once per resize.
+      scale.emit('resize', scale, { width, height }, { width: 390 * fit, height: 844 * fit }, 1, 390, 844);
+    },
+    destroy: () => phase.destroy(),
+  };
+}
+
+export interface Epic19GameSoakHarness extends Epic19InputDriver, Epic19FocusSurface {
+  readonly gameScene: GameScene;
+  readonly runState: RunState;
+  readonly bus: EventBus;
+  readonly inputController: InputController;
+  readonly pauseController: PauseController;
+  readonly inventory: InventoryController;
+  readonly context: GameContext;
+  readonly storage: StorageAdapter;
+  readonly storageKey: string;
+  writeCount(): number;
+  listeners(): ListenerDiagnostics;
+  /** Chooser card focus flags (index of focused card → 1). */
+  focusSignature(): readonly number[];
+  /** Ringed card index among live chooser cards (rects with pointerover). */
+  chooserRingedCardIndex(): number;
+  /** Ringed rack target index among rack targets (slots, Merge, Back). */
+  focusedRackTargetIndex(): number;
+  /** Ringed modal button index among live modal buttons. */
+  focusedModalButtonIndex(): number;
+  /** Terminal summary surface visibility (Retry/Main Menu). */
+  readonly runSummaryView: { visible: boolean };
+  /** Live chooser render diagnostics (offerId/rebuildCount/reducedMotion…). */
+  chooserDiagnostics(): {
+    readonly offerId?: number;
+    readonly choiceIds: readonly string[];
+    readonly rebuildCount: number;
+    readonly reducedMotion: boolean;
+    readonly cards: readonly { readonly x: number; readonly y: number; readonly width: number; readonly height: number }[];
+  };
+  /** Number of real resize events emitted on the shared scale. */
+  resizeEmitCount(): number;
+  /** Number of surface listener invocations for resize events. */
+  resizeListenerCalls(): number;
+  shakeSpy(): ReturnType<typeof vi.fn>;
+  shakeResetSpy(): ReturnType<typeof vi.fn>;
+  tweenAdds(): ReadonlyArray<Record<string, unknown>>;
+  resizeTo(containerWidth: number, containerHeight: number): void;
+  openChooser(): readonly string[];
+  openPause(): void;
+  openRackWithMergePair(): void;
+  /** Selects both rack slots and moves to the Merge action; returns the
+   *  focused rack target index (Merge = 6 in the portrait 2-column grid). */
+  selectRackPairAndFocusMerge(): number;
+  destroy(): void;
+}
+
+export function createGameSoakHarness(options: {
+  readonly fixtureSeed: number;
+  readonly runSeed: number; // fixed harness identity; scheduler never consumes it
+  readonly storageKey: string;
+}): Epic19GameSoakHarness {
+  const phase = createGamePhase({
+    fixtureSeed: options.fixtureSeed,
+    runSeed: options.runSeed,
+    storageKey: options.storageKey,
+  });
+  const base = driver({ scene: phase.scene, input: phase.input, pad: phase.pad, update: phase.update });
+  const focus = focusSurface(phase.scene);
+  const fitScale = (width: number, height: number) => Math.min(width / 390, height / 844);
+  return {
+    ...base, ...focus,
+    gameScene: phase.scene as unknown as GameScene,
+    runState: phase.runState,
+    bus: phase.bus,
+    inputController: phase.inputController,
+    pauseController: phase.pauseController,
+    inventory: phase.inventory,
+    context: phase.context,
+    storage: phase.storage,
+    storageKey: phase.storageKey,
+    writeCount: phase.writeCount,
+    listeners: () => listenerDiagnostics(phase.scene),
     focusSignature: () => phase.upgradeChooser.diagnostics.cards.map((card: { focused: boolean }) => card.focused ? 1 : 0),
-    resizeTo: () => { /* phase views are resized by their production scale listener in the journey fixture */ },
+    chooserRingedCardIndex: () => focusedTargetIndex(phase.scene),
+    focusedRackTargetIndex: () => focusedTargetIndex(phase.scene),
+    focusedModalButtonIndex: () => focusedButtonIndex(phase.scene),
+    runSummaryView: phase.runSummaryView,
+    chooserDiagnostics: () => phase.upgradeChooser.diagnostics,
+    resizeEmitCount: () => phase.scene.scale.emitCount('resize'),
+    resizeListenerCalls: () => phase.scene.scale.listenerCallCount('resize'),
+    shakeSpy: () => phase.shake,
+    shakeResetSpy: () => phase.shakeEffectReset,
+    tweenAdds: () => phase.tweenAdds,
+    resizeTo: (width, height) => {
+      const scale = phase.scene.scale;
+      const fit = fitScale(width, height);
+      scale.displaySize.width = 390 * fit;
+      scale.displaySize.height = 844 * fit;
+      scale.parentSize.width = width;
+      scale.parentSize.height = height;
+      // The real Phaser resize event, exactly once per resize.
+      scale.emit('resize', scale, { width, height }, { width: 390 * fit, height: 844 * fit }, 1, 390, 844);
+    },
     openChooser: () => { phase.bus.emit('level:up', { level: 2 }); return phase.upgradeChooser.diagnostics.choiceIds; },
+    openPause: () => { phase.press(9); },
     openRackWithMergePair: () => { phase.press(9); phase.press(13); phase.press(0); },
-    destroy: () => { phase.upgradeChooser.destroy(); phase.pauseView.destroy(); phase.runSummaryView.destroy(); phase.seams.inputController.destroy(); },
+    selectRackPairAndFocusMerge: () => {
+      phase.press(0); // select slot 0
+      phase.press(15); // navRight
+      phase.press(0); // select slot 1
+      phase.press(13);
+      phase.press(13);
+      phase.press(13);
+      phase.press(14); // portrait grid: [1,3,5,7] then left to Merge (6)
+      return focusedTargetIndex(phase.scene);
+    },
+    destroy: () => phase.destroy(),
   };
 }

@@ -76,21 +76,9 @@ Keyboard ────┼─> Input / Action Adapter ─> logical actions ─> ga
 Gamepad ─────┘
 ```
 
-Movement remains an analog/vector intent where available. Representative non-movement actions include:
-
-```ts
-type GameAction =
-  | 'confirm'
-  | 'back'
-  | 'pause'
-  | 'inventory'
-  | 'dash'
-  | 'ability'
-  | 'navUp'
-  | 'navDown'
-  | 'navLeft'
-  | 'navRight';
-```
+Movement remains an analog/vector intent where available. The exact additive
+`GameAction` union lives only in the frozen contract — this overview does not
+duplicate it.
 
 ### Input rules
 
@@ -182,17 +170,16 @@ The existing Epic 3 offer-token/stale-command protections stay authoritative whe
 
 ### Epic 19 — touchscreen + controller gate
 
-Issue #78 now makes the full input experience an explicit Alpha 2 gate:
+Issue #78 is delivered through Slices 1–4 and the Slice 5 gate closeout:
 
-- automatic targeting/firing remains primary across touch, keyboard, and controller;
-- floating touch is production; anchored is config-only diagnostic;
-- validate whether movement/positioning alone creates enough agency;
-- if evidence shows movement-only is materially passive, one simple deterministic/pause-safe dash/evade may be introduced as a tightly scoped exception;
-- the shared logical input/action contract and controller deadzone/focus/disconnect semantics are implemented;
-- require controller-only completion of menus, combat, upgrade selection, rack/merge, settings, summary, Retry/Menu;
-- reserve a logical `ability` action/layout slot for Epic 24;
-- do not introduce required twin-stick/manual aiming.
-- Closeout status and real-device evidence come from the [Epic 19 gate record](delivery/epic-19-player-experience-gate.md).
+- the shared logical input/action contract, controller deadzone/focus/
+  disconnect semantics, and the controller-only journey are implemented;
+- floating touch is production; anchored is config-only diagnostic and is not
+  an open production choice;
+- the dash decision is evidence-gated by the maintainer's D10 judgment in the
+  gate record; `ability` remains a mapped/reserved slot with zero consumer;
+- closeout status, D10, and real-device evidence come from the
+  [Epic 19 gate record](delivery/epic-19-player-experience-gate.md).
 
 ## Save and Persistent State
 

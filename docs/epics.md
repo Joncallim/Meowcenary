@@ -232,31 +232,6 @@ source semantics, mappings, routing, and evidence rules are authoritative in
 especially D1–D13 and §§4–6. Delivery status and real-device evidence live in
 [`delivery/epic-19-player-experience-gate.md`](delivery/epic-19-player-experience-gate.md).
 
-Target relationship:
-
-```text
-Touch ───────┐
-Keyboard ────┼─> input/action adapter ─> logical actions ─> gameplay/UI commands
-Controller ──┘
-```
-
-Movement remains an analog/vector intent where available. Non-movement actions
-include concepts such as:
-
-```ts
-type GameAction =
-  | 'confirm'
-  | 'back'
-  | 'pause'
-  | 'inventory'
-  | 'dash'
-  | 'ability'
-  | 'navUp'
-  | 'navDown'
-  | 'navLeft'
-  | 'navRight';
-```
-
 Rules:
 
 - Gameplay/UI rules consume logical actions, not Xbox/PlayStation button names,
