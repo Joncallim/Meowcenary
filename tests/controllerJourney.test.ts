@@ -7,6 +7,7 @@ import {
   expectSceneDeltas,
   focusedTargetIndex,
   focusedButtonIndex,
+  type ScriptedOperation,
 } from './helpers/epic19JourneyComposition';
 import { createFixtureSequence } from './helpers/epic19SoakHarness';
 import { endRun } from '../src/gameplay/runState';
@@ -295,33 +296,114 @@ if (!import.meta.url.includes('?as-harness')) {
   });
 
     // §4.1 / §3.1(2) (SOAK-07): the fixture scheduler selects operations ONLY.
-    // Two harnesses with the same production run seed produce byte-identical
-    // production RNG draw posture — the scheduled one after thousands of
-    // fixture draws, the control one with none — and identical domain effects.
+    // The scheduled harness runs the SAME scripted domain commands as the
+    // control, but every press operation's input delivery (pad / keyboard /
+    // simultaneous source, 0-2 held polls) is drawn LIVE from its fixture
+    // sequence — thousands of real fixture draws interleaved with production
+    // upgrade-RNG draws. The control executes the identical script with fixed
+    // gamepad delivery and zero fixture draws. Identical production-RNG
+    // posture (offer history + draw counts) and identical domain effects then
+    // DEMONSTRATE that the fixture scheduler never consumes, reseeds, or
+    // replaces production RNG. The schedulerDraws()/delivery assertions also
+    // fail if the scheduler input is ignored (the old vacuous shape), because
+    // an ignored sequence draws nothing and never drives keyboard/both
+    // deliveries.
     it('proves the fixture scheduler never consumes or reseeds production RNG (scheduled-vs-control draw posture)', () => {
-      const scheduled = createGamePhase({ runSeed: 4242, storageKey: 'e19-posture-scheduled', fixtureSeed: 0x19 });
-      const control = createGamePhase({ runSeed: 4242, storageKey: 'e19-posture-control', fixtureSeed: 0x42 });
-      const sequence = createFixtureSequence(0x19050042);
-      // Thousands of fixture operation draws must not perturb the production
-      // upgrade RNG derived from the run seed.
-      for (let i = 0; i < 2000; i += 1) {
-        sequence.nextInt(17);
-        sequence.nextBoolean();
-      }
-      scheduled.bus.emit('level:up', { level: 2 });
-      control.bus.emit('level:up', { level: 2 });
+      // --- Menu surface: same script, fixture-driven delivery vs fixed control.
+      const menuScheduled = createMenuPhase({
+        storageKey: 'e19-posture-menu-scheduled',
+        scheduler: createFixtureSequence(0x19050042),
+      });
+      const menuControl = createMenuPhase({ storageKey: 'e19-posture-menu-control' });
+      const menuScript = buildMenuPostureScript();
+      menuScheduled.runScripted(menuScript);
+      menuControl.runScripted(menuScript);
+      // The fixture sequence genuinely drove the scheduled harness: every
+      // press drew its delivery (pad / keyboard / simultaneous all appear),
+      // while the control consumed zero fixture draws.
+      const menuLog = menuScheduled.scriptedLog();
+      expect(menuLog).toHaveLength(menuScript.length);
+      expect(menuScheduled.schedulerDraws()).toBe(2 * pressOpCount(menuScript));
+      expect(menuControl.schedulerDraws()).toBe(0);
+      expect(menuLog.some((entry) => entry.includes('@pad:'))).toBe(true);
+      expect(menuLog.some((entry) => entry.includes('@keyboard:'))).toBe(true);
+      expect(menuLog.some((entry) => entry.includes('@both:'))).toBe(true);
+      // Same domain commands → same domain effects on the menu surface.
+      expect(menuScheduled.events).toEqual(menuControl.events);
+      expect(menuScheduled.events.length).toBeGreaterThan(400);
+      expect(focusRingTargets(menuScheduled.scene)).toHaveLength(1);
+      expect(focusRingTargets(menuControl.scene)).toHaveLength(1);
+      menuScheduled.destroy();
+      menuControl.destroy();
+
+      // --- Game surface: production-RNG posture after thousands of draws.
+      const scheduled = createGamePhase({
+        runSeed: 4242,
+        storageKey: 'e19-posture-scheduled',
+        fixtureSeed: 0x19050042,
+      });
+      const control = createGamePhase({ runSeed: 4242, storageKey: 'e19-posture-control' });
+      const script = buildGamePostureScript();
+
+      // Capture every production offer at generation time. The UpgradeSystem
+      // level:up listener was registered during phase construction, so by the
+      // time these listeners run the fresh 3-card offer is materialized.
+      const scheduledOffers: string[][] = [];
+      const controlOffers: string[][] = [];
+      scheduled.bus.on('level:up', () => {
+        const ids = scheduled.upgradeChooser.diagnostics.choiceIds;
+        if (ids.length > 0) scheduledOffers.push([...ids]);
+      });
+      control.bus.on('level:up', () => {
+        const ids = control.upgradeChooser.diagnostics.choiceIds;
+        if (ids.length > 0) controlOffers.push([...ids]);
+      });
+
+      scheduled.runScripted(script);
+      control.runScripted(script);
+
+      // Thousands of fixture draws were genuinely consumed by the scheduled
+      // harness (all three delivery sources appear) and none by the control.
+      const scheduledLog = scheduled.scriptedLog();
+      expect(scheduledLog).toHaveLength(script.length);
+      expect(scheduled.schedulerDraws()).toBe(2 * pressOpCount(script));
+      expect(scheduled.schedulerDraws()).toBeGreaterThanOrEqual(2000);
+      expect(control.schedulerDraws()).toBe(0);
+      expect(scheduledLog.some((entry) => entry.includes('@pad:'))).toBe(true);
+      expect(scheduledLog.some((entry) => entry.includes('@keyboard:'))).toBe(true);
+      expect(scheduledLog.some((entry) => entry.includes('@both:'))).toBe(true);
+
+      // Production-RNG posture: every offer the run produced is byte-identical
+      // between the harnesses (tens of offers, three cards each) and the
+      // production draw counts match exactly. If the fixture scheduler ever
+      // consumed, reseeded, or replaced the production RNG, the scheduled
+      // offers would diverge at the first affected draw and this comparison
+      // fails.
+      expect(scheduledOffers.length).toBeGreaterThanOrEqual(30);
+      expect(controlOffers.length).toBeGreaterThanOrEqual(30);
+      expect(scheduledOffers).toEqual(controlOffers);
+      expect(scheduled.productionRngDraws()).toBeGreaterThan(0);
+      expect(scheduled.productionRngDraws()).toBe(control.productionRngDraws());
+
+      // Identical domain effects from the identical command script.
+      expect(scheduled.events).toEqual(control.events);
+      expect(scheduled.runState.upgradeStacks).toEqual(control.runState.upgradeStacks);
+
+      // The final offer (chooser open after the last level-up) is directly
+      // comparable, and choosing it in both harnesses yields the same stack
+      // increment and the same resume.
       const scheduledChoices = scheduled.upgradeChooser.diagnostics.choiceIds;
       const controlChoices = control.upgradeChooser.diagnostics.choiceIds;
       expect(scheduledChoices).toHaveLength(3);
       expect(controlChoices).toHaveLength(3);
       expect(scheduledChoices).toEqual(controlChoices);
-      // Identical draws → identical effects: choosing the same card in both
-      // harnesses produces the same stack state and the same resume.
       const target = controlChoices[0]!;
+      const scheduledBefore = scheduled.runState.upgradeStacks[target] ?? 0;
+      const controlBefore = control.runState.upgradeStacks[target] ?? 0;
       scheduled.press(0);
       control.press(0);
-      expect(scheduled.runState.upgradeStacks[target]).toBe(1);
-      expect(control.runState.upgradeStacks[target]).toBe(1);
+      expect(scheduled.runState.upgradeStacks[target]).toBe(scheduledBefore + 1);
+      expect(control.runState.upgradeStacks[target]).toBe(controlBefore + 1);
       expect(scheduled.runState.upgradeStacks).toEqual(control.runState.upgradeStacks);
       expect(scheduled.upgradeChooser.diagnostics.choiceIds).toEqual([]);
       expect(control.upgradeChooser.diagnostics.choiceIds).toEqual([]);
@@ -331,6 +413,51 @@ if (!import.meta.url.includes('?as-harness')) {
       control.destroy();
     });
   });
+}
+
+// Fixed domain-command scripts for the draw-posture proof. The SAME script
+// runs in the scheduled and control harnesses: the scheduled side selects
+// each press operation's input delivery from its fixture sequence, the
+// control uses fixed gamepad delivery with zero fixture draws.
+function pressOpCount(script: readonly ScriptedOperation[]): number {
+  return script.reduce((count, op) => ('press' in op ? count + 1 : count), 0);
+}
+
+function buildMenuPostureScript(): ScriptedOperation[] {
+  const script: ScriptedOperation[] = [];
+  // 480 nav presses — 13 (navDown) and 15 (navRight) both advance the linear
+  // 5-row menu navigator +1 and wrap.
+  for (let i = 0; i < 480; i += 1) {
+    script.push({ press: i % 2 === 0 ? 13 : 15 });
+    if (i % 16 === 15) script.push({ idlePolls: 2 });
+  }
+  return script;
+}
+
+function buildGamePostureScript(): ScriptedOperation[] {
+  const script: ScriptedOperation[] = [];
+  const directions = [15, 13, 14, 12];
+  // 32 full rounds + a final level-up = 33 offers, well below the ~44-round
+  // point where the eligible upgrade pool exhausts (finite maxStacks) and
+  // offer generation legitimately returns zero cards.
+  for (let round = 0; round < 32; round += 1) {
+    // Level-up: the production upgrade RNG draws a fresh 3-card offer.
+    script.push({ levelUp: 2 });
+    // Chooser-open navigation moves focus (one ui:navigate per press).
+    for (let i = 0; i < 10; i += 1) script.push({ press: directions[i % directions.length] });
+    // Confirm chooses exactly the focused card and resumes the run.
+    script.push({ press: 0 });
+    // Active-run navigation is discarded by routeAction — no events — but
+    // every press still draws its delivery from the fixture sequence,
+    // keeping the fixture draw count in the thousands.
+    for (let i = 0; i < 30; i += 1) script.push({ press: directions[(i + 1) % directions.length] });
+    script.push({ idlePolls: 2 });
+  }
+  // One final level-up leaves a fresh chooser open (focus on card 0) so the
+  // last three production offers are directly comparable and choosing card 0
+  // in both harnesses yields the same stack increment.
+  script.push({ levelUp: 2 });
+  return script;
 }
 
 function assertZeroPointerCalls(

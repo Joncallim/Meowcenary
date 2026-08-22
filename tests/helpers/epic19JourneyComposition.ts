@@ -25,7 +25,7 @@ import { createRunState, startRun } from '../../src/gameplay/runState';
 import { createWeaponInstance, type WeaponInstance } from '../../src/gameplay/weapons';
 import { createEventBus } from '../../src/engine/eventBus';
 import { createGameContext, GAME_CONTEXT_REGISTRY_KEY, type GameContext } from '../../src/engine/context';
-import { createRng } from '../../src/engine/rng';
+import { createRng, type Rng } from '../../src/engine/rng';
 import { DataCharacterRegistry } from '../../src/systems/characters';
 import { DataArenaRegistry } from '../../src/systems/arenas';
 import { DataMetaUpgradeRegistry } from '../../src/systems/metaUpgrades';
@@ -44,6 +44,62 @@ import { ControlsView } from '../../src/ui/controls';
 import { logicalCanvasViewport } from '../../src/ui/layout';
 import { FocusStroke } from '../../src/ui/theme';
 import { AUDIO_MANAGER_REGISTRY_KEY } from '../../src/systems/audio';
+
+// ---------------------------------------------------------------------------
+// SOAK-07 (§3.1(2)): the test-only fixture scheduler. A fixed 32-bit
+// LCG/xorshift that selects operations ONLY. It never imports, modifies,
+// reseeds, or consumes the run's gameplay RNG — production run/upgrade RNG
+// ownership and draw order stay untouched. The phase factories consume it as
+// a REAL scheduler input when provided (non-zero fixtureSeed or an explicit
+// `scheduler` option): runScripted() draws the input delivery for every
+// scripted press operation from it. It lives here (not in the soak harness)
+// so the factories can construct/consume it without a module cycle; the
+// harness re-exports it to keep its public surface stable.
+// ---------------------------------------------------------------------------
+export interface FixtureSequence {
+  nextInt(exclusiveMax: number): number;
+  nextBoolean(): boolean;
+}
+
+export function createFixtureSequence(seed: number): FixtureSequence {
+  let state = seed >>> 0;
+  return {
+    nextInt(exclusiveMax) {
+      if (!Number.isSafeInteger(exclusiveMax) || exclusiveMax <= 0) throw new Error('exclusiveMax must be positive');
+      state = Math.imul(state ^ (state >>> 16), 0x45d9f3b) >>> 0;
+      state = Math.imul(state ^ (state >>> 13), 0x45d9f3b) >>> 0;
+      state = (state ^ (state >>> 16)) >>> 0;
+      return state % exclusiveMax;
+    },
+    nextBoolean() { return this.nextInt(2) === 1; },
+  };
+}
+
+/** One deterministic domain command in a posture script. `press` uses the
+ *  standard-layout pad position (0 confirm, 1 back, 3 inventory, 9 pause,
+ *  12-15 nav). The scheduled harness selects each press's input delivery
+ *  (pad / keyboard / simultaneous, 0-2 held polls) from its fixture
+ *  sequence; the control executes the SAME commands with fixed gamepad
+ *  delivery and zero fixture draws. */
+export type ScriptedOperation =
+  | { readonly press: number }
+  | { readonly levelUp: number }
+  | { readonly idlePolls: number };
+
+/** Pad position -> keyboard key name for delivery selection (input.ts
+ *  KEY_ACTION_MAP / GAMEPAD_BUTTONS equivalents). */
+const POSITION_KEYS: Readonly<Record<number, string>> = {
+  0: 'ENTER',
+  1: 'ESC',
+  3: 'I',
+  9: 'P',
+  12: 'UP',
+  13: 'DOWN',
+  14: 'LEFT',
+  15: 'RIGHT',
+};
+
+const DELIVERY_SOURCE_NAMES = ['pad', 'keyboard', 'both'] as const;
 
 export interface FakeObjectState {
   kind: 'container' | 'text' | 'rect' | 'arc' | 'image';
@@ -280,6 +336,9 @@ function createFakeScene(
         entry.handler.call(entry.context);
       });
     },
+    listenerCount(event: string): number {
+      return lifecycleListeners.get(event)?.length ?? 0;
+    },
   };
 
   const scaleListeners = new Map<
@@ -481,6 +540,11 @@ export interface ListenerDiagnostics {
   readonly scaleResize: number;
   readonly keyboardKeydown: number;
   readonly keyboardRetry: number;
+  /** scene.events lifecycle listeners (Phaser.Scenes.Events.SHUTDOWN /
+   *  DESTROY once-listeners: MenuScene/GameScene create() register one each,
+   *  handleShutdown removes both, so destroy() must restore exactly zero). */
+  readonly sceneEventsShutdown: number;
+  readonly sceneEventsDestroy: number;
 }
 
 export const ZERO_LISTENER_DIAGNOSTICS: ListenerDiagnostics = Object.freeze({
@@ -493,6 +557,8 @@ export const ZERO_LISTENER_DIAGNOSTICS: ListenerDiagnostics = Object.freeze({
   scaleResize: 0,
   keyboardKeydown: 0,
   keyboardRetry: 0,
+  sceneEventsShutdown: 0,
+  sceneEventsDestroy: 0,
 });
 
 export function listenerDiagnostics(scene: FakeScene): ListenerDiagnostics {
@@ -506,6 +572,8 @@ export function listenerDiagnostics(scene: FakeScene): ListenerDiagnostics {
     scaleResize: scene.scale.listenerCount('resize'),
     keyboardKeydown: scene.input.keyboard?.listenerCount('keydown') ?? 0,
     keyboardRetry: scene.input.keyboard?.listenerCount('keydown-R') ?? 0,
+    sceneEventsShutdown: scene.events.listenerCount('shutdown'),
+    sceneEventsDestroy: scene.events.listenerCount('destroy'),
   };
 }
 
@@ -513,7 +581,12 @@ export function listenerDiagnostics(scene: FakeScene): ListenerDiagnostics {
 
 export interface MenuPhaseOptions {
   readonly storageKey: string;
+  /** Non-zero seeds a REAL fixture scheduler (§3.1(2) SOAK-07): the factory
+   *  constructs the test-only sequence and runScripted() consumes it to
+   *  select each press operation's input delivery. Zero = no scheduler. */
   readonly fixtureSeed: number;
+  /** Explicit fixture sequence; takes precedence over fixtureSeed. */
+  readonly scheduler?: FixtureSequence;
 }
 
 export interface MenuPhaseResult {
@@ -524,6 +597,15 @@ export interface MenuPhaseResult {
   input: MockInputPlugin;
   pad: MockGamepad;
   press: (position: number) => void;
+  /** Executes a fixed domain-command script. When a fixture scheduler is
+   *  wired, every press operation first draws its input delivery (source +
+   *  held polls) from the fixture sequence; without one, delivery is fixed
+   *  gamepad and no fixture draws occur. */
+  runScripted: (script: readonly ScriptedOperation[]) => void;
+  /** Fixture draws consumed by runScripted (0 without a scheduler). */
+  schedulerDraws: () => number;
+  /** Executed operations with their drawn delivery, in order. */
+  scriptedLog: () => readonly string[];
   pointerCalls: ReturnType<typeof createPointerSpies>;
   textContents: () => readonly string[];
   sceneStart: ReturnType<typeof vi.fn>;
@@ -542,7 +624,26 @@ export interface MenuPhaseResult {
 export function createMenuPhase(options?: Partial<MenuPhaseOptions>): MenuPhaseResult {
   const storageKey = options?.storageKey ?? 'controller-journey-menu';
   const fixtureSeed = options?.fixtureSeed ?? 0;
-  void fixtureSeed; // fixture identity only — never consumed as RNG.
+  // §3.1(2) SOAK-07: the fixture sequence is a REAL scheduler input when
+  // provided. runScripted() consumes it to select each press operation's
+  // input delivery; with no scheduler it uses fixed gamepad delivery and
+  // performs zero fixture draws. The sequence is never connected to any
+  // gameplay RNG — the menu surface owns no production RNG stream.
+  const scheduler: FixtureSequence | undefined =
+    options?.scheduler ?? (fixtureSeed !== 0 ? createFixtureSequence(fixtureSeed) : undefined);
+  let schedulerDrawCount = 0;
+  const countingScheduler: FixtureSequence | undefined = scheduler
+    ? {
+        nextInt(exclusiveMax: number): number {
+          schedulerDrawCount += 1;
+          return scheduler.nextInt(exclusiveMax);
+        },
+        nextBoolean(): boolean {
+          schedulerDrawCount += 1;
+          return scheduler.nextBoolean();
+        },
+      }
+    : undefined;
   const { context, storage, writeCount } = createBrandedContext(
     createEventBus(),
     storageKey,
@@ -569,6 +670,37 @@ export function createMenuPhase(options?: Partial<MenuPhaseOptions>): MenuPhaseR
     pad.setButton(position, false);
     menuScene.update(0, 16);
   };
+  // §3.1(2) SOAK-07 scheduled execution: the SAME scripted domain commands as
+  // the control, but each press operation's input delivery (pad / keyboard /
+  // simultaneous source, 0-2 held polls) is drawn LIVE from the fixture
+  // sequence when one is wired — the fixture draws genuinely drive what the
+  // harness does. Without a scheduler the delivery is fixed gamepad and no
+  // fixture draws occur.
+  const scriptLog: string[] = [];
+  const runScripted = (script: readonly ScriptedOperation[]): void => {
+    for (const operation of script) {
+      if (operation.press !== undefined) {
+        const source = countingScheduler ? countingScheduler.nextInt(3) : 0;
+        const holdPolls = countingScheduler ? countingScheduler.nextInt(3) : 0;
+        const key = POSITION_KEYS[operation.press];
+        if (source !== 1) pad.setButton(operation.press, true);
+        if (source !== 0 && key !== undefined) input.keyboard?.holdKey(key);
+        menuScene.update(0, 16);
+        for (let i = 0; i < holdPolls; i += 1) menuScene.update(0, 16);
+        if (source !== 1) pad.setButton(operation.press, false);
+        if (source !== 0 && key !== undefined) input.keyboard?.keyup(key);
+        menuScene.update(0, 16);
+        scriptLog.push(`press:${operation.press}@${DELIVERY_SOURCE_NAMES[source]}:${holdPolls}`);
+        continue;
+      }
+      if (operation.idlePolls !== undefined) {
+        for (let i = 0; i < operation.idlePolls; i += 1) menuScene.update(0, 16);
+        scriptLog.push(`idle:${operation.idlePolls}`);
+        continue;
+      }
+      throw new Error(`menu runScripted rejects operation ${JSON.stringify(operation)}`);
+    }
+  };
   const textContents = () =>
     scene.objects
       .filter((object) => object.state.kind === 'text' && !object.state.destroyed)
@@ -581,7 +713,9 @@ export function createMenuPhase(options?: Partial<MenuPhaseOptions>): MenuPhaseR
     menuScene.events.emit('shutdown');
   };
   return {
-    menuScene, menuController, inputController, scene, input, pad, press, pointerCalls,
+    menuScene, menuController, inputController, scene, input, pad, press,
+    runScripted, schedulerDraws: () => schedulerDrawCount, scriptedLog: () => scriptLog,
+    pointerCalls,
     textContents, sceneStart: scene.scene.start, sceneRestart: scene.scene.restart,
     bus, events, context, storage, storageKey, writeCount,
     tweens: fake.tweens, tweenAdds: fake.tweenAdds, destroy,
@@ -593,7 +727,12 @@ export function createMenuPhase(options?: Partial<MenuPhaseOptions>): MenuPhaseR
 export interface GamePhaseOptions {
   readonly runSeed: number;
   readonly storageKey: string;
+  /** Non-zero seeds a REAL fixture scheduler (§3.1(2) SOAK-07): the factory
+   *  constructs the test-only sequence and runScripted() consumes it to
+   *  select each press operation's input delivery. Zero = no scheduler. */
   readonly fixtureSeed: number;
+  /** Explicit fixture sequence; takes precedence over fixtureSeed. */
+  readonly scheduler?: FixtureSequence;
 }
 
 export type GameSeams = {
@@ -611,6 +750,20 @@ export interface GamePhaseResult {
   input: MockInputPlugin;
   pad: MockGamepad;
   press: (position: number) => void;
+  /** Executes a fixed domain-command script. When a fixture scheduler is
+   *  wired, every press operation first draws its input delivery (source +
+   *  held polls) from the fixture sequence; without one, delivery is fixed
+   *  gamepad and no fixture draws occur. levelUp operations emit through the
+   *  real bus and drive the production upgrade RNG. */
+  runScripted: (script: readonly ScriptedOperation[]) => void;
+  /** Fixture draws consumed by runScripted (0 without a scheduler). */
+  schedulerDraws: () => number;
+  /** Executed operations with their drawn delivery, in order. */
+  scriptedLog: () => readonly string[];
+  /** Production upgrade-RNG draw count (createRng(runSeed + 1) calls made
+   *  through the UpgradeSystem's rng seam — the scheduled-vs-control posture
+   *  comparison must show identical counts). */
+  productionRngDraws: () => number;
   update: (delta?: number) => void;
   pointerCalls: ReturnType<typeof createPointerSpies>;
   bus: ReturnType<typeof createEventBus>;
@@ -645,7 +798,28 @@ export function createGamePhase(
   const runSeed = normalized.runSeed ?? 7;
   const storageKey = normalized.storageKey ?? `controller-journey-game-${runSeed}`;
   const fixtureSeed = normalized.fixtureSeed ?? 0;
-  void fixtureSeed; // fixture identity only — never consumed as RNG.
+  // §3.1(2) SOAK-07: the fixture sequence is a REAL scheduler input when
+  // provided (non-zero fixtureSeed or an explicit scheduler). runScripted()
+  // consumes it LIVE to select each press operation's input delivery; with
+  // no scheduler it uses fixed gamepad delivery and performs zero fixture
+  // draws. It is never connected to the production RNG below — identical
+  // runSeed means identical production run/upgrade RNG ownership and draw
+  // order in the scheduled and control harnesses.
+  const scheduler: FixtureSequence | undefined =
+    normalized.scheduler ?? (fixtureSeed !== 0 ? createFixtureSequence(fixtureSeed) : undefined);
+  let schedulerDrawCount = 0;
+  const countingScheduler: FixtureSequence | undefined = scheduler
+    ? {
+        nextInt(exclusiveMax: number): number {
+          schedulerDrawCount += 1;
+          return scheduler.nextInt(exclusiveMax);
+        },
+        nextBoolean(): boolean {
+          schedulerDrawCount += 1;
+          return scheduler.nextBoolean();
+        },
+      }
+    : undefined;
   const { context, storage, writeCount } = createBrandedContext(
     createEventBus(),
     storageKey,
@@ -682,11 +856,36 @@ export function createGamePhase(
     inventory,
     readInputMode: () => inputController.getInputMode(),
   });
+  // The production upgrade RNG, exactly createRng(runSeed + 1) as before,
+  // wrapped in a counting seam so the draw-posture test can DEMONSTRATE that
+  // the scheduled and control harnesses made identical numbers of production
+  // draws. The wrapper delegates every call with the same seed/order — the
+  // draw VALUES are byte-identical to the unwrapped RNG.
+  const productionRng = createRng(runSeed + 1);
+  let productionRngDrawCount = 0;
+  const countedProductionRng: Rng = {
+    next(): number {
+      productionRngDrawCount += 1;
+      return productionRng.next();
+    },
+    int(minInclusive: number, maxInclusive: number): number {
+      productionRngDrawCount += 1;
+      return productionRng.int(minInclusive, maxInclusive);
+    },
+    pick<T>(items: readonly T[]): T {
+      productionRngDrawCount += 1;
+      return productionRng.pick(items);
+    },
+    weighted<T>(entries: ReadonlyArray<{ item: T; weight: number }>): T {
+      productionRngDrawCount += 1;
+      return productionRng.weighted(entries);
+    },
+  };
   const upgradeSystem = new UpgradeSystem({
     runState,
     bus,
     definitions: context.data.upgrades,
-    rng: createRng(runSeed + 1),
+    rng: countedProductionRng,
     offerCount: 3,
   });
   const upgradeChooser = new UpgradeChooser(
@@ -756,6 +955,43 @@ export function createGamePhase(
     pad.setButton(position, false);
     update();
   };
+  // §3.1(2) SOAK-07 scheduled execution: the SAME scripted domain commands as
+  // the control, but each press operation's input delivery (pad / keyboard /
+  // simultaneous source, 0-2 held polls) is drawn LIVE from the fixture
+  // sequence when one is wired — the fixture draws genuinely drive what the
+  // harness does. levelUp operations emit through the real bus so production
+  // upgrade-RNG draws interleave with the fixture draws. Without a scheduler
+  // the delivery is fixed gamepad and zero fixture draws occur.
+  const scriptLog: string[] = [];
+  const runScripted = (script: readonly ScriptedOperation[]): void => {
+    for (const operation of script) {
+      if (operation.levelUp !== undefined) {
+        bus.emit('level:up', { level: operation.levelUp });
+        scriptLog.push(`levelUp:${operation.levelUp}`);
+        continue;
+      }
+      if (operation.idlePolls !== undefined) {
+        for (let i = 0; i < operation.idlePolls; i += 1) update();
+        scriptLog.push(`idle:${operation.idlePolls}`);
+        continue;
+      }
+      if (operation.press !== undefined) {
+        const source = countingScheduler ? countingScheduler.nextInt(3) : 0;
+        const holdPolls = countingScheduler ? countingScheduler.nextInt(3) : 0;
+        const key = POSITION_KEYS[operation.press];
+        if (source !== 1) pad.setButton(operation.press, true);
+        if (source !== 0 && key !== undefined) input.keyboard?.holdKey(key);
+        update();
+        for (let i = 0; i < holdPolls; i += 1) update();
+        if (source !== 1) pad.setButton(operation.press, false);
+        if (source !== 0 && key !== undefined) input.keyboard?.keyup(key);
+        update();
+        scriptLog.push(`press:${operation.press}@${DELIVERY_SOURCE_NAMES[source]}:${holdPolls}`);
+        continue;
+      }
+      throw new Error(`game runScripted rejects operation ${JSON.stringify(operation)}`);
+    }
+  };
 
   const events: string[] = [];
   bus.on('ui:navigate', () => events.push('ui:navigate'));
@@ -780,6 +1016,10 @@ export function createGamePhase(
     input,
     pad,
     press,
+    runScripted,
+    schedulerDraws: () => schedulerDrawCount,
+    scriptedLog: () => scriptLog,
+    productionRngDraws: () => productionRngDrawCount,
     update,
     pointerCalls,
     bus,

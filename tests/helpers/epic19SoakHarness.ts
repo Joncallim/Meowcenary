@@ -32,31 +32,16 @@ export const PERF_PROXY_POLLS = 18_000;
 export const PERF_LATE_WINDOW_POLLS = 1_800;
 // Re-exported so soaks assert the destroy() baseline contract directly.
 export { ZERO_LISTENER_DIAGNOSTICS } from './epic19JourneyComposition';
+// The fixture scheduler lives with the phase factories (they construct and
+// consume it as a REAL scheduler input, §3.1(2) SOAK-07); re-exported here
+// so the shared-harness surface stays exactly the §4.1 contract.
+export { createFixtureSequence, type FixtureSequence } from './epic19JourneyComposition';
 export const EPIC19_SOAK_SEEDS = Object.freeze({
   gamepadLifecycle: 0x19050001,
   mixedInput: 0x19050002,
   duplicateSuppression: 0x19050003,
   performanceProxy: 0x19050004,
 });
-
-export interface FixtureSequence {
-  nextInt(exclusiveMax: number): number;
-  nextBoolean(): boolean;
-}
-
-export function createFixtureSequence(seed: number): FixtureSequence {
-  let state = seed >>> 0;
-  return {
-    nextInt(exclusiveMax) {
-      if (!Number.isSafeInteger(exclusiveMax) || exclusiveMax <= 0) throw new Error('exclusiveMax must be positive');
-      state = Math.imul(state ^ (state >>> 16), 0x45d9f3b) >>> 0;
-      state = Math.imul(state ^ (state >>> 13), 0x45d9f3b) >>> 0;
-      state = (state ^ (state >>> 16)) >>> 0;
-      return state % exclusiveMax;
-    },
-    nextBoolean() { return this.nextInt(2) === 1; },
-  };
-}
 
 export interface SceneCommandCounts { readonly start: number; readonly restart: number; }
 export interface Epic19InputDriver {
