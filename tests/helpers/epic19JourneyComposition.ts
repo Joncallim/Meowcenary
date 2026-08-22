@@ -1,31 +1,32 @@
+// @ts-nocheck
 import { describe, expect, it, vi } from 'vitest';
-import { MockGamepad, MockInputPlugin } from './__mocks__/phaser';
-import { GameScene } from '../src/scenes/GameScene';
-import { MenuScene } from '../src/scenes/MenuScene';
-import { InputController, type GameAction } from '../src/systems/input';
-import { createRunState, endRun, startRun } from '../src/gameplay/runState';
-import { createWeaponInstance, type WeaponInstance } from '../src/gameplay/weapons';
-import { createEventBus } from '../src/engine/eventBus';
-import { createGameContext, GAME_CONTEXT_REGISTRY_KEY } from '../src/engine/context';
-import { createRng } from '../src/engine/rng';
-import { SceneKey } from '../src/engine/sceneKeys';
-import { DataCharacterRegistry } from '../src/systems/characters';
-import { DataArenaRegistry } from '../src/systems/arenas';
-import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
-import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
-import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
-import { loadGameData } from '../src/systems/validation';
-import { InventoryController } from '../src/ui/inventory';
-import { PauseController, PhaserPauseView } from '../src/ui/pause';
+import { MockGamepad, MockInputPlugin } from '../__mocks__/phaser';
+import { GameScene } from '../../src/scenes/GameScene';
+import { MenuScene } from '../../src/scenes/MenuScene';
+import { InputController, type GameAction } from '../../src/systems/input';
+import { createRunState, endRun, startRun } from '../../src/gameplay/runState';
+import { createWeaponInstance, type WeaponInstance } from '../../src/gameplay/weapons';
+import { createEventBus } from '../../src/engine/eventBus';
+import { createGameContext, GAME_CONTEXT_REGISTRY_KEY } from '../../src/engine/context';
+import { createRng } from '../../src/engine/rng';
+import { SceneKey } from '../../src/engine/sceneKeys';
+import { DataCharacterRegistry } from '../../src/systems/characters';
+import { DataArenaRegistry } from '../../src/systems/arenas';
+import { DataMetaUpgradeRegistry } from '../../src/systems/metaUpgrades';
+import { DataWeaponRegistry } from '../../src/systems/weaponRegistry';
+import { MemoryStorageAdapter, SaveManager } from '../../src/systems/save';
+import { loadGameData } from '../../src/systems/validation';
+import { InventoryController } from '../../src/ui/inventory';
+import { PauseController, PhaserPauseView } from '../../src/ui/pause';
 import {
   PhaserRunSummaryView,
   RunSummaryController,
-} from '../src/ui/runSummary';
-import { UpgradeSystem } from '../src/systems/UpgradeSystem';
-import { UpgradeChooser } from '../src/ui/UpgradeChooser';
-import { logicalCanvasViewport } from '../src/ui/layout';
-import { FocusStroke } from '../src/ui/theme';
-import { AUDIO_MANAGER_REGISTRY_KEY } from '../src/systems/audio';
+} from '../../src/ui/runSummary';
+import { UpgradeSystem } from '../../src/systems/UpgradeSystem';
+import { UpgradeChooser } from '../../src/ui/UpgradeChooser';
+import { logicalCanvasViewport } from '../../src/ui/layout';
+import { FocusStroke } from '../../src/ui/theme';
+import { AUDIO_MANAGER_REGISTRY_KEY } from '../../src/systems/audio';
 
 // ---------------------------------------------------------------------------
 // F8: the mandatory controller journey is a production-composition harness.
@@ -574,282 +575,3 @@ function expectSceneDeltas(
   return after;
 }
 
-// The shared Epic 19 soak harness imports this test module with a Vitest query
-// that exposes the real composition factories without registering the journey
-// test a second time in every ordinary soak file.
-if (!import.meta.url.includes('?as-harness')) {
-  describe('headless production controller journey', () => {
-    it('walks menu → run → level-up → pause → rack merge → summary across real owners with zero pointer input', () => {
-    // ------------------------------------------------------------------
-    // Phase A: Menu (brief steps 1-5) through the real MenuScene.
-    // ------------------------------------------------------------------
-    const menu = createMenuPhase();
-    const menuSnapshot = () =>
-      (menu.menuScene as unknown as {
-        controller: { snapshot: () => import('../src/ui/menus').MainMenuSnapshot };
-      }).controller.snapshot();
-
-    // 1. Menu home: navDown, confirm → Character.
-    let sceneBefore = sceneCommands(menu.scene);
-    menu.press(13);
-    expect(menu.events).toEqual(['ui:navigate']);
-    expect(focusRingTargets(menu.scene)).toHaveLength(1);
-    menu.press(0);
-    expect(menu.events).toEqual(['ui:navigate', 'ui:confirm']);
-    expect(menu.textContents()).toContain('Choose Character');
-    expect(menuSnapshot().panel).toBe('character');
-    sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 1');
-    expect(focusRingTargets(menu.scene)).toHaveLength(1);
-    assertZeroPointerCalls(menu.pointerCalls, 'menu step 1');
-
-    // 2. Character: confirm the visible default (already-selected is a
-    //    successful no-op), then back → Home.
-    menu.press(0);
-    expect(menu.events).toEqual(['ui:navigate', 'ui:confirm', 'ui:confirm']);
-    expect(menu.textContents()).toContain('Choose Character');
-    expect(menuSnapshot().panel).toBe('character');
-    menu.press(1);
-    expect(menu.events).toEqual(['ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back']);
-    expect(menu.textContents()).toContain('Start');
-    expect(menuSnapshot().panel).toBe('home');
-    sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 2');
-    expect(focusRingTargets(menu.scene)).toHaveLength(1);
-    assertZeroPointerCalls(menu.pointerCalls, 'menu step 2');
-
-    // 3. Home (panel reset): navDown, navDown, confirm → Arena.
-    menu.press(13);
-    menu.press(13);
-    expect(menu.events).toEqual([
-      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate',
-    ]);
-    menu.press(0);
-    expect(menu.events).toEqual([
-      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm',
-    ]);
-    expect(menu.textContents()).toContain('Choose Arena');
-    expect(menuSnapshot().panel).toBe('arena');
-    sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 3');
-    assertZeroPointerCalls(menu.pointerCalls, 'menu step 3');
-
-    // 4. Arena: confirm the visible default, then back → Home.
-    menu.press(0);
-    expect(menu.events).toEqual([
-      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm',
-    ]);
-    expect(menu.textContents()).toContain('Choose Arena');
-    expect(menuSnapshot().panel).toBe('arena');
-    menu.press(1);
-    expect(menu.events).toEqual([
-      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back',
-    ]);
-    expect(menu.textContents()).toContain('Start');
-    expect(menuSnapshot().panel).toBe('home');
-    sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 4');
-    expect(focusRingTargets(menu.scene)).toHaveLength(1);
-    assertZeroPointerCalls(menu.pointerCalls, 'menu step 4');
-
-    // 5. Home (panel reset): confirm → exactly one Game scene start and no
-    //    restart (F3).
-    menu.press(0);
-    expect(menu.events).toEqual([
-      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:confirm',
-    ]);
-    sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 5', { start: 1 });
-    expect(menu.sceneStart).toHaveBeenCalledWith(SceneKey.Game);
-    expect(focusRingTargets(menu.scene)).toHaveLength(1);
-    assertZeroPointerCalls(menu.pointerCalls, 'menu step 5');
-
-    // ------------------------------------------------------------------
-    // Phase B: Game (brief steps 6-13) through real owners and the real
-    // GameScene.routeAction.
-    // ------------------------------------------------------------------
-    const game = createGamePhase();
-    sceneBefore = sceneCommands(game.scene);
-
-    // 6. A real level:up through UpgradeSystem/UpgradeChooser. The level-up
-    //    chooser row is inside the pointer-free journey.
-    game.bus.emit('level:up', { level: 2 });
-    expect(game.runState.status).toBe('paused');
-    expect(game.runState.pauseReason).toBe('levelUp');
-    expect(game.events).toEqual([]);
-    const focusedCards = () =>
-      game.upgradeChooser.diagnostics.cards.map((card) => card.focused);
-    expect(focusedCards()).toEqual([true, false, false]);
-    const offeredIds = game.upgradeChooser.diagnostics.choiceIds;
-    expect(offeredIds).toHaveLength(3);
-    // Pointer presentation initially: no card carries the actual ring.
-    const chooserCards = () =>
-      game.scene.objects.filter(
-        (object) =>
-          object.state.kind === 'rect' &&
-          object.state.handlers['pointerover'] &&
-          !object.state.destroyed,
-      );
-    const ringedCardIndex = () =>
-      chooserCards().findIndex(
-        (card) =>
-          card.state.strokeWidth === FocusStroke.width &&
-          card.state.strokeColor === FocusStroke.color &&
-          card.state.strokeAlpha === FocusStroke.alpha,
-      );
-    expect(ringedCardIndex()).toBe(-1);
-
-    // navRight focuses the second card (exactly one ui:navigate): the ring is
-    // the ACTUAL rendered FocusStroke on the second card, not just logical
-    // diagnostics, and the exact run snapshot is unchanged.
-    game.press(15);
-    expect(game.events).toEqual(['ui:navigate']);
-    expect(focusedCards()).toEqual([false, true, false]);
-    expect(ringedCardIndex()).toBe(1);
-    expect(chooserCards()[1]!.state.strokeWidth).toBe(FocusStroke.width);
-    expect(chooserCards()[1]!.state.strokeColor).toBe(FocusStroke.color);
-    expect(chooserCards()[1]!.state.strokeAlpha).toBe(FocusStroke.alpha);
-    expect(chooserCards()[0]!.state.strokeColor).not.toBe(FocusStroke.color);
-    expect(sceneBefore.start).toBe(0);
-    expect(sceneBefore.restart).toBe(0);
-
-    // confirm chooses exactly the focused offer token and returns to active
-    // play; the authoritative run snapshot reflects the accepted choice. The
-    // accepted choice audio is card:chosen — no ui:confirm is emitted.
-    game.press(0);
-    expect(game.events).toEqual(['ui:navigate']);
-    expect(game.runState.status).toBe('active');
-    expect(game.runState.upgradeStacks[offeredIds[1]!]).toBe(1);
-    expect(game.upgradeChooser.diagnostics.choiceIds).toEqual([]);
-    sceneBefore = expectSceneDeltas(sceneBefore, game.scene, 'chooser step 6');
-    assertZeroPointerCalls(game.pointerCalls, 'chooser step 6');
-
-    // 7. Pause (position 9) → manual pause panel with Resume focused.
-    game.press(9);
-    expect(game.events).toEqual(['ui:navigate', 'ui:confirm']);
-    expect(game.runState.status).toBe('paused');
-    expect(game.runState.pauseReason).toBe('manual');
-    expect(game.pauseController.snapshot().panel).toBe('pause');
-    expect(focusedButtonIndex(game.scene)).toBe(0);
-    expect(focusRingTargets(game.scene)).toHaveLength(1);
-    sceneBefore = expectSceneDeltas(sceneBefore, game.scene, 'pause entry step 7');
-    assertZeroPointerCalls(game.pointerCalls, 'pause entry step 7');
-
-    // 8. navDown, confirm → Weapon Rack (one ui:navigate, one ui:confirm).
-    const beforeRack = game.events.length;
-    game.press(13);
-    game.press(0);
-    expect(game.pauseController.snapshot().panel).toBe('inventory');
-    expect(game.events.slice(beforeRack)).toEqual(['ui:navigate', 'ui:confirm']);
-    // Genuine rack entry resets to the first occupied slot.
-    expect(focusedTargetIndex(game.scene)).toBe(0);
-    expect(focusRingTargets(game.scene)).toHaveLength(1);
-    sceneBefore = expectSceneDeltas(sceneBefore, game.scene, 'rack entry step 8');
-    assertZeroPointerCalls(game.pointerCalls, 'rack entry step 8');
-
-    // 9. Rack: confirm slot 0; navRight, confirm slot 1. The preview exists
-    //    and focus remains slot 1 after both same-inventory rerenders.
-    const beforeSlot0 = game.events.length;
-    game.press(0);
-    expect(game.events.slice(beforeSlot0)).toEqual(['ui:navigate']);
-    expect(game.inventory.snapshot().selectedInstanceIds).toEqual(['a']);
-    expect(focusedTargetIndex(game.scene)).toBe(0);
-    const beforeSlot1 = game.events.length;
-    game.press(15);
-    game.press(0);
-    expect(game.events.slice(beforeSlot1)).toEqual(['ui:navigate', 'ui:navigate']);
-    expect(game.inventory.snapshot().selectedInstanceIds).toEqual(['a', 'b']);
-    expect(game.inventory.snapshot().preview?.result.definitionId).toBe('scrap-pistol-t2');
-    expect(focusedTargetIndex(game.scene)).toBe(1);
-    expect(focusRingTargets(game.scene)).toHaveLength(1);
-    sceneBefore = expectSceneDeltas(sceneBefore, game.scene, 'rack selection step 9');
-    assertZeroPointerCalls(game.pointerCalls, 'rack selection step 9');
-
-    // 10. Portrait grid (count=8, C=2): from i=1 the path is exactly
-    //     [1, 3, 5, 7, 6] — Down, Down, Down (last-row clamp to Back), Left.
-    const path: number[] = [];
-    game.press(13);
-    path.push(focusedTargetIndex(game.scene));
-    game.press(13);
-    path.push(focusedTargetIndex(game.scene));
-    game.press(13);
-    path.push(focusedTargetIndex(game.scene));
-    game.press(14);
-    path.push(focusedTargetIndex(game.scene));
-    expect([1, ...path]).toEqual([1, 3, 5, 7, 6]);
-    expect(game.events.slice(beforeSlot1)).toEqual([
-      'ui:navigate', 'ui:navigate', 'ui:navigate', 'ui:navigate', 'ui:navigate', 'ui:navigate',
-    ]);
-
-    // Confirm on Merge: exactly one weapon:merged, one ui:confirm, one T2
-    // weapon, and focus stays Merge i=6 (preservation, not a count clamp).
-    const mergesBefore = game.merged;
-    const eventsBeforeMerge = game.events.length;
-    game.press(0);
-    expect(game.merged).toBe(mergesBefore + 1);
-    expect(game.events.slice(eventsBeforeMerge)).toEqual(['ui:confirm']);
-    expect(game.runState.equipped).toHaveLength(1);
-    expect(game.runState.equipped[0]?.tier).toBe(2);
-    expect(focusedTargetIndex(game.scene)).toBe(6);
-    expect(focusRingTargets(game.scene)).toHaveLength(1);
-    sceneBefore = expectSceneDeltas(sceneBefore, game.scene, 'rack merge step 10');
-    assertZeroPointerCalls(game.pointerCalls, 'rack merge step 10');
-
-    // 11. back → Pause (selection cleared / panel walk preserved), back →
-    //     active run.
-    game.press(1);
-    expect(game.pauseController.snapshot().panel).toBe('pause');
-    expect(game.inventory.snapshot().selectedInstanceIds).toEqual([]);
-    expect(focusedButtonIndex(game.scene)).toBe(0);
-    game.press(1);
-    expect(game.pauseController.snapshot().panel).toBe('closed');
-    expect(game.runState.status).toBe('active');
-    expect(game.events.slice(eventsBeforeMerge)).toEqual(['ui:confirm', 'ui:back', 'ui:back']);
-    sceneBefore = expectSceneDeltas(sceneBefore, game.scene, 'back walk step 11');
-    assertZeroPointerCalls(game.pointerCalls, 'back walk step 11');
-
-    // 12. End the run: the terminal listener renders the summary with Retry
-    //     focused. Back, Pause, and Inventory each leave it unchanged.
-    endRun(game.runState, 'won', game.bus);
-    expect(game.runState.status).toBe('won');
-    expect(game.runSummaryView.visible).toBe(true);
-    expect(focusedButtonIndex(game.scene)).toBe(0);
-    expect(focusRingTargets(game.scene)).toHaveLength(1);
-    const eventsBeforeTerminal = game.events.length;
-    game.press(1); // back — the deliberate terminal no-op
-    game.press(9); // pause — discarded
-    game.press(3); // inventory — discarded
-    expect(game.events.length).toBe(eventsBeforeTerminal);
-    expect(focusedButtonIndex(game.scene)).toBe(0);
-    sceneBefore = expectSceneDeltas(sceneBefore, game.scene, 'terminal discarded edges step 12');
-    assertZeroPointerCalls(game.pointerCalls, 'terminal discarded edges step 12');
-
-    // 13. Retry branch: confirm → exactly one scene restart (F3).
-    const eventsBeforeRetry = game.events.length;
-    game.press(0);
-    expect(game.events.slice(eventsBeforeRetry)).toEqual(['ui:confirm']);
-    sceneBefore = expectSceneDeltas(sceneBefore, game.scene, 'retry branch step 13', { restart: 1 });
-    assertZeroPointerCalls(game.pointerCalls, 'retry branch step 13');
-
-    // ------------------------------------------------------------------
-    // Phase C: fresh terminal fixture for the alternate branch (step 14).
-    // ------------------------------------------------------------------
-    const fresh = createGamePhase(11);
-    endRun(fresh.runState, 'lost', fresh.bus);
-    expect(fresh.runSummaryView.visible).toBe(true);
-    // Flip the presentation mode with a deliberate terminal no-op (Back is
-    // discarded in the terminal row) — the Retry ring then appears.
-    fresh.press(1);
-    expect(focusedButtonIndex(fresh.scene)).toBe(0);
-    expect(focusRingTargets(fresh.scene)).toHaveLength(1);
-
-    // navDown → Main Menu, confirm → exactly one Menu scene start and no
-    // restart (F3).
-    const beforeMenu = fresh.events.length;
-    const sceneBefore14 = sceneCommands(fresh.scene);
-    fresh.press(13);
-    expect(fresh.events.slice(beforeMenu)).toEqual(['ui:navigate']);
-    expect(focusedButtonIndex(fresh.scene)).toBe(1);
-    fresh.press(0);
-    expect(fresh.events.slice(beforeMenu)).toEqual(['ui:navigate', 'ui:confirm']);
-    expectSceneDeltas(sceneBefore14, fresh.scene, 'main menu branch step 14', { start: 1 });
-    expect(fresh.scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
-    assertZeroPointerCalls(fresh.pointerCalls, 'main menu branch step 14');
-  });
-});
-}

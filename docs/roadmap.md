@@ -4,7 +4,7 @@
 
 ### Complete foundations / MVP systems
 
-- Epics 0–17 are complete.
+- Epics 0–18 are complete; Epic 19 Slices 1–4 are merged and Slice 5 is the active gate closeout.
 - Epic 13 merged in PR #79.
 - Epic 14 merged in PR #80.
 - Epic 15 merged in PR #81.
@@ -42,6 +42,9 @@ Additional cross-epic constraint:
 
 #### Epic 18 — Build Variety and Golden Run Pacing (#77)
 
+Complete — merged in PR #106; the delivered card expansion and Golden Run
+pacing are recorded in the Epic 18 architecture record.
+
 Expand the rotating upgrade-card experience and tune the Golden Run:
 
 - ~15–20 meaningful upgrade definitions;
@@ -59,6 +62,14 @@ Input boundary with Epic 19:
 - number keys may remain optional shortcuts, but do **not** make `1`–`5` the ownership model for card selection.
 
 #### Epic 19 — Player UX and Alpha 2 Gate (#78)
+
+The frozen contract is [`architecture/epic-19-player-ux-and-alpha-2-gate.md`](architecture/epic-19-player-ux-and-alpha-2-gate.md).
+Slices 1–4 delivered the logical core/adapters, focus/controller journey, and
+touch diagnostics/evidence scaffold. Slice 5 closes the automated gate and
+evidence record in [`delivery/epic-19-player-experience-gate.md`](delivery/epic-19-player-experience-gate.md).
+Current status is NOT READY while D10 remains PENDING and P-late-wave is
+unverified; controller coverage remains unverified until a real standard-layout
+controller session is recorded.
 
 Final Alpha 2 player-experience gate:
 

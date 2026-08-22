@@ -226,8 +226,11 @@ ownership semantics:
 
 ### Unified input/action boundary
 
-Epic 19 owns the Alpha 2 architecture pass that freezes one logical input/action
-model shared by touch, keyboard, and game controllers.
+Epic 19's additive-frozen Alpha 2 input vocabulary, analog movement separation,
+source semantics, mappings, routing, and evidence rules are authoritative in
+[`architecture/epic-19-player-ux-and-alpha-2-gate.md`](architecture/epic-19-player-ux-and-alpha-2-gate.md),
+especially D1–D13 and §§4–6. Delivery status and real-device evidence live in
+[`delivery/epic-19-player-experience-gate.md`](delivery/epic-19-player-experience-gate.md).
 
 Target relationship:
 
@@ -253,9 +256,6 @@ type GameAction =
   | 'navLeft'
   | 'navRight';
 ```
-
-This type is illustrative until the Epic 19 architecture pass freezes the live
-contract.
 
 Rules:
 
@@ -339,8 +339,8 @@ Pure gameplay systems receive `dtMs`; they must not read Phaser clocks directly.
 | Epic 15 | #74 Inventory and Merge Experience | Complete · PR #81 | Visual rack, merge compatibility/preview, HUD entry, mobile-first tap interaction. |
 | Epic 16 | #75 Visual Identity and Junkyard World | Complete · PRs #82/#83 | Production actor/weapon/pickup/world art and coherent Junkyard presentation. |
 | Epic 17 | #76 Combat Feel and Weapon Identity | Complete · PRs #96–#102 | Weapon family/tier presentation and audio identity, enemy telegraph presentation, and one SMG tier data change; architecture and delivery record in [`architecture/epic-17-combat-feel-and-weapon-identity.md`](architecture/epic-17-combat-feel-and-weapon-identity.md). |
-| Epic 18 | #77 Build Variety and Golden Run Pacing | Open · amended | Expand rotating upgrade pool, stack/ownership indicators, placeholder card imagery, and tune one replayable Golden Run. |
-| Epic 19 | #78 Player UX and Alpha 2 Gate | Open · amended | Holistic Alpha 2 player gate: touch ergonomics + full controller-only journey + shared logical input/actions. |
+| Epic 18 | #77 Build Variety and Golden Run Pacing | Complete · PR #106 | Delivered the Golden Run/card expansion and pacing record. |
+| Epic 19 | #78 Player UX and Alpha 2 Gate | Open · Slices 1–4 merged; Slice 5/evidence pending | Frozen contract, shared input/focus journey, touch diagnostics, and gate closeout. |
 | **Alpha 2 certification gate** | **#94** | **Open · blocked by Epic 19** | Full repository architecture/quality/maintainability audit + remediation; fix all P0/P1 and downstream-relevant P2 findings before Alpha 3 architecture. |
 | **Alpha 3 shared foundation gate** | **#92** | **Open · blocked by #94** | Freeze Stage/ResolvedRunPlan, Save V3, shared conditions/grants, catalog/conformance, content-version and bundle seams from the certified Alpha 2 baseline. |
 | Epic 20 | #85 Contracts, Objectives, and Stage Progression | Open · Alpha 3 | Objective-based stage ladder, ~3-minute frontier pressure, chapter/boss-stage cadence. |

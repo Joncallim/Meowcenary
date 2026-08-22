@@ -1,7 +1,7 @@
 # Meowcenary Knowledge Graph
 
 > Token-optimized repo map. Read this before implementation work.
-> Current state: **Epics 0–16 complete; Epic 16 runtime merged in PR #83 (46-binding visual-art manifest, presentation pooling, authored Junkyard Lot); Epic 17 architecture is ready (runtime not started); Epics 18–19 are the remaining Alpha 2 Golden Run work. After Epic 19, Issue #94 performs a full repository certification/remediation audit. Alpha 3 architecture #92 is blocked by #94; Alpha 3 runtime then proceeds through Epics 20–26.**
+> Current state: **Epics 0–18 are complete; Epic 19 Slices 1–4 are merged and Slice 5 is closing the gate. The frozen contract and evidence record are authoritative; D10 and lived late-wave evidence remain open. After Epic 19, Issue #94 performs repository certification/remediation. Alpha 3 architecture #92 remains blocked by #94.**
 
 ## Read Order
 
@@ -32,14 +32,19 @@ Node 22, ES2022, strict, noEmit. Canvas 390×844, browser-first, mobile-friendly
 - named run-scoped RNG streams; never `Math.random()` for gameplay.
 - versioned save migration + one persistent mutation boundary.
 - six-slot run rack + deterministic weapon reward stream.
-- controller/touch work deliberately centralized into Epic 19 rather than scattered device branches.
+- the Phaser-free logical core, one InputController adapter boundary, focus journey, and touch configuration are implemented; unresolved real-device rows are evidence gaps, not architecture gaps.
 - one fail-closed visual-art manifest (`src/data/visual-art.json`, `src/systems/visualArt.ts`) drives every actor/weapon/pickup/world sprite; pooled presentation (`src/entities/heldWeaponView.ts`, `src/systems/defeatPresentation.ts`, `src/systems/arenaScenery.ts`) stays physics-free and cannot change combat/collision behavior.
 
 ## Known Current Gaps / Transition Risks
 
 ### Input
 
-Current live input remains an Alpha 2 transition area until Epic 19 freezes one shared logical action layer. Do not bolt gamepad branches onto every view.
+```text
+src/engine/logicalInput.ts -> pure held/edge/coalescing/repeat/movement ownership
+src/systems/input.ts       -> Phaser keyboard/pointer/gamepad adapters + lifecycle
+scenes/views               -> context routing and command owners; no device branches
+```
+The frozen contract is [`architecture/epic-19-player-ux-and-alpha-2-gate.md`](architecture/epic-19-player-ux-and-alpha-2-gate.md); gate truth is [`delivery/epic-19-player-experience-gate.md`](delivery/epic-19-player-experience-gate.md).
 
 ### Stage ownership
 
@@ -79,7 +84,7 @@ If the weapon registry's static-definition immutability/validation still differs
 
 ### Epic 17 (#76) — combat feel / shared effect seam
 
-Architecture ready in [`architecture/epic-17-combat-feel-and-weapon-identity.md`](architecture/epic-17-combat-feel-and-weapon-identity.md): presentation/audio identity over existing gameplay state, no new effect engine (pierce already satisfies the pattern), one SMG tier data change. Runtime not yet implemented.
+Runtime complete in PRs #96–#102; architecture and delivery records define the shipped presentation/audio identity and data changes.
 
 - pistol/SMG/shotgun must be distinguishable by feel;
 - new gameplay-affecting behavioral effects use a small reusable effect vocabulary;
@@ -88,7 +93,7 @@ Architecture ready in [`architecture/epic-17-combat-feel-and-weapon-identity.md`
 - Epic 23 later composes the same effect semantics;
 - do not implement speculative Gunsmith traits early.
 
-### Epic 18 (#77) — upgrade-card expansion
+### Epic 18 (#77) — upgrade-card expansion — complete in PR #106
 
 - ~15–20 meaningful temporary upgrades;
 - normally 4–5 visible choices;
@@ -109,7 +114,7 @@ Optional number keys -> shortcut only
 
 All routes reach the same authoritative chooser command/token validation.
 
-### Epic 19 (#78) — touch + controller gate
+### Epic 19 (#78) — touch + controller gate — Slices 1–4 merged; Slice 5/evidence pending
 
 ```text
 Touch ───────┐
