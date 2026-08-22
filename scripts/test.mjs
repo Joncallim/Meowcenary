@@ -81,6 +81,10 @@ function runVitest(args, options = {}) {
     cwd: root,
     stdio: options.capture ? ['inherit', 'pipe', 'pipe'] : 'inherit',
     encoding: options.capture ? 'utf8' : 'buffer',
+    // Capture mode buffers the whole invocation output; bound it so a noisy
+    // failure can never OOM or hit the 1MB default (ENOBUFS leaves status
+    // null and the run would be misreported as name-pattern drift).
+    maxBuffer: options.capture ? 32 * 1024 * 1024 : undefined,
     // tests/testRunner.test.ts skips itself inside every runner-spawned
     // Vitest process (recursion guard); the unguarded stage-3 invocation
     // below actually runs them.
@@ -97,6 +101,11 @@ function runVitest(args, options = {}) {
   return {
     status: result.status ?? 1,
     output: options.capture ? `${result.stdout ?? ''}\n${result.stderr ?? ''}` : '',
+    // Spawn-level failures (ENOENT, ENOBUFS, signal kill) leave status null;
+    // surface them so the stage-3 guard can reject instead of misreading a
+    // partial summary.
+    error: result.error ? `${result.error.code ?? 'spawn-error'}: ${result.error.message}` : null,
+    signal: result.signal ?? null,
   };
 }
 
@@ -207,28 +216,39 @@ if (allocStatus.status !== 0) {
 // tests in the file show as skipped): vitest exits 0 with every test SKIPPED
 // when a -t pattern matches nothing, so a renamed test or a typo here fails
 // loudly instead of silently bypassing the stage.
-function runSubprocessSuite(file, names) {
-  // In a NESTED runner the test files skip themselves (recursion guard), so
-  // every invocation here is expected to exit 0 with all tests skipped; only
-  // the top-level runner must observe exactly one test passing.
-  const nestedRunner = process.env.MEOWCENARY_TEST_RUNNER_CHILD === '1';
+function runSubprocessSuite(file, names, expectedTotal) {
+  // A NESTED runner (spawned by the subprocess tests themselves) carries BOTH
+  // protocol markers — MEOWCENARY_TEST_RUNNER_CHILD and
+  // MEOWCENARY_TEST_RUNNER_SPAWNED — and expects its stage-3 invocations to
+  // come back all-skipped (the test files self-skip under the recursion
+  // guard): any status-0 invocation is fine there. A top-level run with only
+  // a leaked or preset CHILD marker is NOT nested: its stage-3 invocations
+  // must each show exactly one test passed, or the stage fails loudly —
+  // otherwise an external CHILD=1 would silently skip the whole subprocess
+  // gate (round-5 Sol closing finding #2).
+  const nestedRunner =
+    process.env.MEOWCENARY_TEST_RUNNER_CHILD === '1' &&
+    process.env.MEOWCENARY_TEST_RUNNER_SPAWNED === '1';
   for (const name of names) {
-    const { status, output } = runVitest(
+    const { status, output, error, signal } = runVitest(
       ['run', file, '-t', escapeRegExp(name)],
       { guard: false, capture: true },
     );
-    const summary = output.match(/Tests\s+(\d+) passed/);
-    // Exactly one test must have run and passed. A filtered run prints
-    // "Tests 1 passed | 4 skipped (5)" — the named test ran, the rest were
-    // skipped by the -t filter. A non-matching -t prints "Tests 5 skipped"
-    // (no "passed" segment) and still exits 0, so this check is the only
-    // thing standing between a renamed test and a silently skipped stage.
-    const ranExactlyOne = Boolean(summary) && summary[1] === '1';
-    const nestedSkipOk = nestedRunner && status === 0;
-    if (!(ranExactlyOne || nestedSkipOk)) {
+    // Exactly one test must have run, passed, AND the file must have exited
+    // cleanly: vitest prints the passed summary and still exits non-zero on
+    // teardown failures / unhandled worker errors (the original 60s-RPC
+    // failure printed "Tests 5 passed" then exited 1 — round-5 Sol closing
+    // finding #1). expectedTotal pins the file's test count so a renamed or
+    // added test fails loudly instead of drifting into a different shape.
+    const summary = output.match(/Tests\s+(\d+) passed(?: \| (\d+) skipped)? \((\d+)\)/);
+    const ranExactlyOne = Boolean(summary) && summary[1] === '1' && summary[3] === String(expectedTotal);
+    const ok = status === 0 && ranExactlyOne;
+    const nestedSkipOk = nestedRunner && status === 0 && !error && !signal;
+    if (!(ok || nestedSkipOk)) {
       console.error(
         `\n[test.mjs] stage-3 invocation did not behave as expected: '${name}'` +
         `\n[test.mjs] vitest status=${status}, summary=${summary ? summary[0] : 'none'}` +
+        `${error ? `, spawn error=${error}` : ''}${signal ? `, signal=${signal}` : ''}` +
         '\n[test.mjs] A renamed test must update the name list below; the stage is never allowed to skip silently.',
       );
       process.exit(1);
@@ -243,9 +263,10 @@ runSubprocessSuite(RUNNER_TESTS, [
   'executes all nine allocation tests for an ordinary file selection',
   'executes all nine allocation tests when the --run flag is forwarded',
   'executes all nine allocation tests when a reporter flag is forwarded',
-]);
+  'fails loudly when the recursion marker leaks without the spawn token',
+], 6);
 process.exit(runSubprocessSuite(RUNNER_EXPLICIT_TESTS, [
   'executes all nine allocation tests when a relative path selects the allocation file with -t=FocusNavigator',
   'executes all nine allocation tests when an absolute path selects the allocation file with --testNamePattern=FocusNavigator',
   'executes all nine allocation tests when an expanded positional list contains the allocation file',
-]));
+], 3));

@@ -11,10 +11,18 @@ import { fileURLToPath } from 'node:url';
 // allocation selection (which would skip the allocation stage).
 //
 // Round-4 finding F1 (an EXPLICIT selection naming the allocation file) is
-// covered by tests/testRunnerExplicit.test.ts, which scripts/test.mjs runs as
-// a separate stage-3 invocation: all eight subprocess regressions in a single
-// vitest run block one worker for ~65s, deterministically tripping vitest's
-// 60s worker RPC timeout ("[vitest-worker]: Timeout calling onTaskUpdate").
+// covered by tests/testRunnerExplicit.test.ts. scripts/test.mjs runs stage 3
+// as ONE test per vitest invocation (round-5 CI infra finding: a whole-file
+// invocation blocks one worker for ~103s on GitHub's 2-core runner,
+// deterministically tripping vitest's hardcoded 60s worker RPC timeout
+// ("[vitest-worker]: Timeout calling onTaskUpdate") even when every test
+// passes). Every invocation must show "Tests 1 passed" with the file's exact
+// test count — vitest exits 0 with everything skipped for a non-matching -t,
+// so the summary guard is what stops silent gate skips. The last test below
+// also guards the recursion markers: a top-level run carrying only
+// MEOWCENARY_TEST_RUNNER_CHILD (without MEOWCENARY_TEST_RUNNER_SPAWNED) must
+// fail loudly instead of silently skipping stage 3 (round-5 Sol closing
+// finding #2).
 //
 // The marker is the second stage's own file-summary line in its PASSED form:
 // the allocation file is EXCLUDED from stage 1, so `zeroAllocation.test.ts
@@ -98,5 +106,25 @@ describe('scripts/test.mjs stateful allocation selection (F1)', () => {
 
   maybe('executes all nine allocation tests when a reporter flag is forwarded', () => {
     expectAllocationGateRan(['--reporter=dot', '-t', 'wraps linear movement'], 'reporter flag');
+  }, 240_000);
+
+  maybe('fails loudly when the recursion marker leaks without the spawn token', () => {
+    // Round-5 Sol closing finding #2: an externally preset
+    // MEOWCENARY_TEST_RUNNER_CHILD alone must NOT classify a top-level run as
+    // nested — scripts/test.mjs would then accept every all-skipped stage-3
+    // invocation and the subprocess gate would silently never execute. The
+    // real nested protocol (this file's runRunner) sets BOTH markers. With
+    // only CHILD leaked, stage 3 must fail loudly (runner exit != 0).
+    const result = spawnSync(process.execPath, [runner, '-t', 'FocusNavigator'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, NO_COLOR: '1', MEOWCENARY_TEST_RUNNER_CHILD: '1' },
+      timeout: 240_000,
+    });
+    const tail = `${result.stdout ?? ''}\n${result.stderr ?? ''}`.slice(-1500);
+    expect(
+      result.status,
+      `leaked CHILD marker must fail loudly, not silently skip stage 3\n${tail}`,
+    ).not.toBe(0);
   }, 240_000);
 });

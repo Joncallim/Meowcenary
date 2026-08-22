@@ -18,12 +18,14 @@ import { fileURLToPath } from 'node:url';
 // AFTER it. A skipped-only run (the round-4 bypass, where the runner exited
 // after the forwarded request) fails both checks.
 //
-// This file lives separately from tests/testRunner.test.ts because the runner
-// runs stage 3 as two sequential vitest invocations: all eight subprocess
-// regressions in a single vitest run block one worker for ~65s, which
-// deterministically trips vitest's 60s worker RPC timeout
-// ("[vitest-worker]: Timeout calling onTaskUpdate") even though every test
-// passes.
+// This file lives separately from tests/testRunner.test.ts; scripts/test.mjs
+// runs stage 3 as ONE test per vitest invocation (round-5 CI infra finding: a
+// whole-file invocation blocks one worker for ~103s on GitHub's 2-core
+// runner, deterministically tripping vitest's hardcoded 60s worker RPC
+// timeout ("[vitest-worker]: Timeout calling onTaskUpdate") even though every
+// test passes). Every invocation must show "Tests 1 passed" with the file's
+// exact test count — vitest exits 0 with everything skipped for a
+// non-matching -t, so the summary guard is what stops silent gate skips.
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const runner = path.join(root, 'scripts', 'test.mjs');
