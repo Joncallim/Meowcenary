@@ -129,16 +129,25 @@ describe('Epic 19 §6 authoritative allocation count', () => {
   });
 });
 
-/** AUTHORITATIVE Epic 19 §6 gate (round-3 hardened). The counting wrappers
- *  above cover Set/Map/hypot but NOT array/object literals, spreads, or
- *  iterator allocations — a per-frame `[0, 0, 0]` sailed through both prior
- *  gates (verified: 20k per-frame array literals → {sets:0, maps:0,
- *  hypotCalls:0} and < 512KB heap smoke in 19/20 windows). This gate runs the
- *  REAL poll path in a child `node --trace-gc` process and counts V8
- *  Scavenge events BETWEEN the fixture's PROBE-START/PROBE-DONE markers (raw
- *  fd writes, strictly ordered with the trace lines): every allocation type —
- *  including literals V8 collects mid-window — pressures the young generation
- *  and must produce in-window scavenges.
+/** AUTHORITATIVE Epic 19 §6 gate (round-3 hardened, F11 serialized). The
+ *  counting wrappers above cover Set/Map/hypot but NOT array/object
+ *  literals, spreads, or iterator allocations — a per-frame `[0, 0, 0]`
+ *  sailed through both prior gates (verified: 20k per-frame array literals
+ *  → {sets:0, maps:0, hypotCalls:0} and < 512KB heap smoke in 19/20
+ *  windows). This gate runs the REAL poll path in a child `node --trace-gc`
+ *  process and counts V8 Scavenge events BETWEEN the fixture's
+ *  PROBE-START/PROBE-DONE markers (raw fd writes, strictly ordered with the
+ *  trace lines): every allocation type — including literals V8 collects
+ *  mid-window — pressures the young generation and must produce in-window
+ *  scavenges.
+ *
+ *  F11 (round-1 adversarial): the zero bound is load-dependent when the
+ *  child probe races concurrent Vitest workers, so `npm test` runs this
+ *  file as a dedicated SEQUENTIAL stage (single fork, after the rest of the
+ *  suite — see package.json) and the fixture hardens pre-window settling
+ *  (canary sink + marker buffers allocated before the final full-GC passes,
+ *  zero-copy raw-buffer marker writes). The zero threshold and every canary
+ *  are unchanged.
  *
  *  Round-3 hardening: (1) the measured interval is delimited by the asserted
  *  markers and the heap is settled (gc gc) before PROBE-START, so startup

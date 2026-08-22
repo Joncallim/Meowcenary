@@ -7,6 +7,9 @@ import { createModalTextHelpers, type ModalTextHelpers } from './modal';
 import { ThemeColor, ThemeDepth } from './theme';
 import { PhaserWeaponRackPanel } from './weaponRackView';
 import type { VisualArtLookup } from '../systems/visualArt';
+import { FocusNavigator, type FocusDirection } from './focusList';
+import type { InputMode } from '../systems/input';
+import type { ModalButtonHandle } from './modal';
 
 export type PausePanel = 'closed' | 'pause' | 'inventory';
 
@@ -114,6 +117,7 @@ export interface PhaserPauseViewOptions {
   readonly controller: PauseController;
   readonly inventory: InventoryController;
   readonly visualArt?: VisualArtLookup;
+  readonly readInputMode?: () => InputMode;
 }
 
 /**
@@ -129,12 +133,26 @@ export class PhaserPauseView {
   private readonly weaponRack: PhaserWeaponRackPanel;
   private root?: Phaser.GameObjects.Container;
   private disposed = false;
+  private readonly navigator = new FocusNavigator('linear');
+  private buttons: ModalButtonHandle[] = [];
+  private hint?: Phaser.GameObjects.Text;
+  private hoveredIndex = -1;
+  private committedPanel: PausePanel = 'closed';
+  /** Explicit committed-display gate retained separately from the root
+   *  reference: false before teardown, true only after a successful render
+   *  publication. Exposed to the rack child so its number shortcuts cannot
+   *  act on a destroyed tree (round-2 finding F1). */
+  private committedDisplay = false;
+  private readonly readInputMode: () => InputMode;
+  private inputMode: InputMode = 'pointer';
+  private lastInputMode: InputMode = 'pointer';
 
   constructor(options: PhaserPauseViewOptions) {
     this.scene = options.scene;
     this.viewport = options.viewport;
     this.bus = options.bus;
     this.controller = options.controller;
+    this.readInputMode = options.readInputMode ?? (() => 'pointer');
     this.modal = createModalTextHelpers(options.scene, options.viewport);
     this.weaponRack = new PhaserWeaponRackPanel({
       scene: options.scene,
@@ -143,9 +161,11 @@ export class PhaserPauseView {
       inventory: options.inventory,
       modal: this.modal,
       isOpen: () => this.controller.snapshot().panel === 'inventory',
+      hasCommittedRoot: () => this.committedDisplay,
       onBack: () => this.controller.back(),
       requestRender: () => this.render(this.controller.snapshot()),
       visualArt: options.visualArt,
+      readInputMode: this.readInputMode,
     });
     options.scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
     this.render(this.controller.snapshot());
@@ -156,12 +176,29 @@ export class PhaserPauseView {
       return;
     }
     this.syncLayoutContext();
+    const panelChanged = snapshot.panel !== this.committedPanel;
+    // The display is uncommitted from the moment teardown begins until a
+    // successful publication below (F1 committed-display gate).
+    this.committedDisplay = false;
+    // The rack's display refs (hint, targets) point into the shared root
+    // being destroyed; clear them BEFORE the destroy so a failure between
+    // here and weaponRack.render() leaves no stale Text reference (round-6).
+    // Navigator state is preserved — D6 survives the rebuild.
+    this.weaponRack.clearDisplay();
     this.root?.destroy(true);
     this.root = undefined;
-    if (snapshot.panel !== 'inventory') {
+    // Unpublished references are cleared up front: a failed rebuild must
+    // never leave moveFocus/confirmFocused able to reach destroyed-tree
+    // handles (F6 committed-render transaction).
+    this.buttons = [];
+    this.hint = undefined;
+    this.hoveredIndex = -1;
+    if (snapshot.panel !== 'inventory' || (panelChanged && snapshot.panel === 'inventory')) {
       this.weaponRack.reset();
     }
     if (snapshot.panel === 'closed') {
+      this.navigator.setCount(0);
+      this.committedPanel = snapshot.panel;
       return;
     }
 
@@ -188,8 +225,12 @@ export class PhaserPauseView {
       backdrop.setInteractive();
       backdrop.setScrollFactor(0);
 
+      let buttons: ModalButtonHandle[] = [];
+      let hint: Phaser.GameObjects.Text | undefined;
       if (snapshot.panel === 'pause') {
-        this.renderPausePanel(root, width, height, margin, hitTarget, buttonWidth);
+        const built = this.renderPausePanel(root, width, height, margin, hitTarget, buttonWidth);
+        buttons = built.buttons;
+        hint = built.hint;
       } else {
         this.weaponRack.render(
           root,
@@ -197,9 +238,25 @@ export class PhaserPauseView {
           width,
         );
       }
+      if (panelChanged) this.navigator.reset();
+      if (snapshot.panel === 'pause') this.navigator.setCount(buttons.length);
+      // Stage then publish: the target list, hint, and identity are committed
+      // together with the root only after the whole tree built successfully.
+      this.buttons = buttons;
+      this.hint = hint;
+      this.applyFocus();
       this.root = root;
+      this.committedPanel = snapshot.panel;
+      this.committedDisplay = true;
     } catch (error) {
+      // A failure inside weaponRack.render() may have published hint/targets
+      // into the partial root; clear them BEFORE the destroy or the next
+      // mode transition calls setText() on destroyed Text (round-7).
+      this.weaponRack.clearDisplay();
       root.destroy(true);
+      this.buttons = [];
+      this.hint = undefined;
+      this.hoveredIndex = -1;
       throw error;
     }
   }
@@ -213,6 +270,12 @@ export class PhaserPauseView {
     this.weaponRack.destroy();
     this.root?.destroy(true);
     this.root = undefined;
+    this.buttons = [];
+    this.hint = undefined;
+    this.hoveredIndex = -1;
+    this.navigator.setCount(0);
+    this.committedPanel = 'closed';
+    this.committedDisplay = false;
   }
 
   private readonly handleScaleChange = (): void => {
@@ -260,28 +323,94 @@ export class PhaserPauseView {
     margin: number,
     hitTarget: number,
     buttonWidth: number,
-  ): void {
+  ): { buttons: ModalButtonHandle[]; hint: Phaser.GameObjects.Text } {
     const centerX = width / 2;
     const heading = this.modal.addText(centerX, height * 0.22, 'Paused', 'heading');
     root.add(heading);
     heading.setOrigin(0.5);
 
     let y = height * 0.34;
-    this.modal.addButton(root, centerX, y, buttonWidth, 'Resume', () => {
+    const resume = this.modal.addButton(root, centerX, y, buttonWidth, 'Resume', () => {
       if (this.controller.resume()) {
         this.bus.emit('ui:back', {});
       }
       this.render(this.controller.snapshot());
     });
     y += hitTarget + 16;
-    this.modal.addButton(root, centerX, y, buttonWidth, 'Weapon Rack', () => {
+    const rack = this.modal.addButton(root, centerX, y, buttonWidth, 'Weapon Rack', () => {
       if (this.controller.openInventory()) {
         this.bus.emit('ui:confirm', {});
       }
       this.render(this.controller.snapshot());
     });
 
-    this.modal.addHint(root, margin, height - margin - 14, 'P / Esc to resume');
+    const buttons = [resume, rack];
+    // F5: modal buttons participate in pointer-hover focus — silent index
+    // sync, exactly one FocusStroke ring on hover, cleared on out, and the
+    // logical index is set before the pointer-up activation runs.
+    buttons.forEach((handle, index) => this.wireModalHover(handle, index));
+    const hint = this.modal.addHint(root, margin, height - margin - 14, this.hintCopy());
+    return { buttons, hint };
+  }
+
+  private wireModalHover(handle: ModalButtonHandle, index: number): void {
+    handle.target.on(Phaser.Input.Events.POINTER_OVER, () => {
+      this.hoveredIndex = index;
+      this.navigator.setIndex(index);
+      this.applyFocus();
+    });
+    handle.target.on(Phaser.Input.Events.POINTER_OUT, () => {
+      if (this.hoveredIndex === index) this.hoveredIndex = -1;
+      this.applyFocus();
+    });
+    // Single surface funnel for pointer activation: FIRST sync the logical
+    // index, THEN activate. The handle's enabled guard retains command
+    // suppression for disabled buttons (round-2 finding F2).
+    handle.target.on(Phaser.Input.Events.POINTER_UP, () => {
+      this.hoveredIndex = index;
+      this.navigator.setIndex(index);
+      this.applyFocus();
+      handle.activate();
+    });
+  }
+
+  moveFocus(direction: FocusDirection): boolean {
+    // No committed root (never rendered, or a failed rebuild): refuse.
+    if (!this.root) return false;
+    if (this.controller.snapshot().panel === 'inventory') return this.weaponRack.moveFocus(direction);
+    const moved = this.navigator.move(direction);
+    if (moved) { this.applyFocus(); this.bus.emit('ui:navigate', {}); }
+    return moved;
+  }
+
+  confirmFocused(): boolean {
+    if (!this.root) return false;
+    if (this.controller.snapshot().panel === 'inventory') return this.weaponRack.confirmFocused();
+    return this.buttons[this.navigator.index]?.activate() ?? false;
+  }
+
+  refreshInputPresentation(): void {
+    const mode = this.readInputMode();
+    if (mode === this.lastInputMode) return;
+    this.lastInputMode = mode;
+    this.inputMode = mode;
+    if (this.hint) this.hint.setText(this.hintCopy());
+    this.weaponRack.refreshInputPresentation();
+    this.applyFocus();
+  }
+
+  private applyFocus(): void {
+    this.buttons.forEach((button, index) => button.setFocusVisible(
+      this.inputMode === 'pointer' ? index === this.hoveredIndex : index === this.navigator.index,
+    ));
+  }
+
+  private hintCopy(): string {
+    switch (this.readInputMode()) {
+      case 'keyboard': return 'Arrows • Enter/Space select • P/Esc resume';
+      case 'gamepad': return 'D-pad/stick • Bottom face select • Menu/right face';
+      default: return 'Tap a choice';
+    }
   }
 }
 

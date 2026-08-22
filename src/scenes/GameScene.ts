@@ -56,6 +56,7 @@ import { FeedbackSystem, PhaserFeedbackRenderer } from '../systems/feedback';
 import { DataVisualArtRegistry } from '../systems/visualArt';
 import { HeldWeaponView } from '../entities/heldWeaponView';
 import { DefeatPresentationSystem } from '../systems/defeatPresentation';
+import type { FocusDirection } from '../ui/focusList';
 
 export class GameScene extends Phaser.Scene {
   private debugOverlay?: DebugOverlay;
@@ -225,6 +226,7 @@ export class GameScene extends Phaser.Scene {
       controller: this.pauseController,
       inventory: this.inventoryController,
       visualArt,
+      readInputMode: () => this.inputController!.getInputMode(),
     });
 
     this.arenaScenery = buildArenaScenery(this, arena, visualArt);
@@ -278,6 +280,7 @@ export class GameScene extends Phaser.Scene {
       this.upgradeSystem,
       () => ctx.settings.reducedMotion,
       visualArt,
+      () => this.inputController!.getInputMode(),
     );
     this.progressionSystem = new ProgressionSystem({
       runState: this.runState,
@@ -384,11 +387,17 @@ export class GameScene extends Phaser.Scene {
       viewport,
       bus: ctx.bus,
       controller: this.runSummaryController,
+      readInputMode: () => this.inputController!.getInputMode(),
     });
 
     this.inputController.onAction('pause', () => this.routeAction('pause'));
     this.inputController.onAction('back', () => this.routeAction('back'));
     this.inputController.onAction('inventory', () => this.routeAction('inventory'));
+    this.inputController.onAction('navUp', () => this.routeAction('navUp'));
+    this.inputController.onAction('navDown', () => this.routeAction('navDown'));
+    this.inputController.onAction('navLeft', () => this.routeAction('navLeft'));
+    this.inputController.onAction('navRight', () => this.routeAction('navRight'));
+    this.inputController.onAction('confirm', () => this.routeAction('confirm'));
     if (RuntimeConfig.isDev) {
       this.input.keyboard?.on('keydown-F4', this.togglePhysicsDebug, this);
       this.input.keyboard?.on('keydown-F8', this.forceLoseRun, this);
@@ -432,6 +441,9 @@ export class GameScene extends Phaser.Scene {
 
     this.perfSampler?.recordFrame(delta);
     this.inputController.update(delta);
+    this.pauseView?.refreshInputPresentation();
+    this.runSummaryView?.refreshInputPresentation();
+    this.upgradeChooser?.refreshInputPresentation();
     tickRun(runState, delta);
     this.maybeEndRunForVictory(ctx, runState);
     this.syncPhysicsPause(runState);
@@ -578,40 +590,93 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** Epic 19 §5 run-level routing matrix. Each logical action maps to a
-   *  context-specific command; in the inventory panel only `back` walks back —
-   *  `pause` and `inventory` edges are deliberately discarded there. The
-   *  level-up chooser and run summary are guarded by the PauseController's
-   *  status checks (levelUp pause / terminal status reject every command). */
+   *  context-specific command; a discarded action returns from its matched
+   *  context and must never fall through to a lower-priority row (round-1
+   *  adversarial finding F2). The scene always owns a run in production, so
+   *  an absent runState is a teardown/inconsistent seam and every action is
+   *  discarded immediately — no panel fallback routes commands without a run. */
   private routeAction(action: GameAction): void {
+    const runState = this.runState;
+    if (!runState) {
+      return;
+    }
+    const direction: FocusDirection | undefined =
+      action === 'navUp' ? 'up' : action === 'navDown' ? 'down' :
+        action === 'navLeft' ? 'left' : action === 'navRight' ? 'right' : undefined;
+
+    // 1. Terminal run: summary owns previous/next/confirm. Back, Pause, and
+    //    Inventory are deliberate no-ops in the terminal context.
+    if (runState.status === 'won' || runState.status === 'lost') {
+      if (direction) this.runSummaryView?.moveFocus(direction);
+      else if (action === 'confirm') this.runSummaryView?.confirmFocused();
+      return;
+    }
+
+    // 2. Level-up chooser: precedence over any stale manual PauseSnapshot.
+    //    Back/Pause/Inventory are discarded while the chooser owns the pause.
+    if (runState.status === 'paused' && runState.pauseReason === 'levelUp') {
+      if (action === 'navUp' || action === 'navLeft') this.upgradeChooser?.focusPrevious();
+      else if (action === 'navDown' || action === 'navRight') this.upgradeChooser?.focusNext();
+      else if (action === 'confirm') this.upgradeChooser?.confirmFocused();
+      return;
+    }
+
     const controller = this.pauseController;
     if (!controller) {
       return;
     }
 
     const panel = controller.snapshot().panel;
+
+    // 3. Inventory/rack: nav/confirm delegate to the rack through the Pause
+    //    view; only Back walks back to the pause panel. Pause and Inventory
+    //    edges are discarded here.
+    if (panel === 'inventory') {
+      if (direction) this.pauseView?.moveFocus(direction);
+      else if (action === 'confirm') this.pauseView?.confirmFocused();
+      else if (action === 'back') {
+        const accepted = controller.back();
+        if (accepted) this.getContext().bus.emit('ui:back', {});
+        this.pauseView?.render(controller.snapshot());
+      }
+      return;
+    }
+
+    // 4. Pause panel: nav/confirm delegate to the Pause view; Back/Pause
+    //    resume; Inventory opens the rack.
+    if (panel === 'pause') {
+      if (direction) this.pauseView?.moveFocus(direction);
+      else if (action === 'confirm') this.pauseView?.confirmFocused();
+      else if (action === 'back' || action === 'pause') {
+        const accepted = controller.resume();
+        if (accepted) this.getContext().bus.emit('ui:back', {});
+        this.pauseView?.render(controller.snapshot());
+      } else if (action === 'inventory') {
+        const accepted = controller.openInventory();
+        if (accepted) this.getContext().bus.emit('ui:confirm', {});
+        this.pauseView?.render(controller.snapshot());
+      }
+      return;
+    }
+
+    // 5. Active run / no modal: only Back/Pause pause and Inventory
+    //    direct-opens. Nav/confirm/dash/ability and every unmatched action
+    //    are discarded immediately — they must not fall through to a pause
+    //    view render or any other lower-priority command.
+    if (runState.status !== 'active' || panel !== 'closed') {
+      return;
+    }
     let accepted = false;
     let event: 'ui:confirm' | 'ui:back' | null = null;
 
-    if (panel === 'inventory') {
-      if (action === 'back') {
-        accepted = controller.back();
-        event = 'ui:back';
-      }
-      // pause / inventory edges are discarded in the rack (§5).
-    } else if (panel === 'pause') {
-      if (action === 'back' || action === 'pause') {
-        accepted = controller.resume();
-        event = 'ui:back';
-      } else if (action === 'inventory') {
-        accepted = controller.openInventory();
-        event = 'ui:confirm';
-      }
-    } else if (action === 'back' || action === 'pause') {
+    if (action === 'back' || action === 'pause') {
       accepted = controller.pause();
       event = 'ui:confirm';
     } else if (action === 'inventory') {
       accepted = controller.openInventoryFromRun();
       event = 'ui:confirm';
+    } else {
+      return;
     }
 
     if (accepted && event) {

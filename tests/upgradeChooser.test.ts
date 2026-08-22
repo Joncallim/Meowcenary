@@ -12,6 +12,8 @@ import {
   type UpgradeChooserView,
 } from '../src/ui/upgradeChooserController';
 import { computeUpgradeChooserLayout } from '../src/ui/upgradeChooserLayout';
+import { FocusStroke } from '../src/ui/theme';
+import type { InputMode } from '../src/systems/input';
 
 vi.mock('phaser', () => ({
   default: {
@@ -119,8 +121,14 @@ class FakeView implements UpgradeChooserView {
     this.destroyCount += 1;
   }
 
-  focusPrevious(): void {}
-  focusNext(): void {}
+  focusPrevious(): boolean {
+    return false;
+  }
+
+  focusNext(): boolean {
+    return false;
+  }
+
   confirmFocused(): boolean {
     return false;
   }
@@ -253,6 +261,10 @@ class FakeDisplayObject extends FakeEmitter {
   visible = true;
   input?: { enabled: boolean };
   fillAlpha = 1;
+  strokeWidth = 0;
+  strokeColor?: number;
+  strokeAlpha = 0;
+  destroyed = false;
   protected originX = 0.5;
   protected originY = 0.5;
 
@@ -268,7 +280,12 @@ class FakeDisplayObject extends FakeEmitter {
 
   setDepth(): this { return this; }
   setScrollFactor(): this { return this; }
-  setStrokeStyle(): this { return this; }
+  setStrokeStyle(width: number, color: number, alpha: number): this {
+    this.strokeWidth = width;
+    this.strokeColor = color;
+    this.strokeAlpha = alpha;
+    return this;
+  }
   setOrigin(x: number, y: number): this {
     this.originX = x;
     this.originY = y;
@@ -299,6 +316,9 @@ class FakeDisplayObject extends FakeEmitter {
     };
   }
   destroy(): void {
+    // Real Phaser marks the object destroyed BEFORE teardown hooks run; the
+    // destroyed-setText rejection in FakeText depends on this (round-7).
+    this.destroyed = true;
     this.onDestroy?.(this);
   }
 }
@@ -307,7 +327,7 @@ class FakeText extends FakeDisplayObject {
   constructor(
     x: number,
     y: number,
-    text: string,
+    public text: string,
     style: { fontSize?: string },
     onDestroy?: (object: FakeDisplayObject) => void,
     private readonly shouldFailFixedSize?: () => boolean,
@@ -333,6 +353,15 @@ class FakeText extends FakeDisplayObject {
     return this;
   }
   setCrop(): this { return this; }
+  setText(text: string): this {
+    // Real Phaser 3.90 throws on setText after destroy (nulled frame);
+    // mirror so stale refs fail the suite (round-6 finding).
+    if (this.destroyed) {
+      throw new Error(`setText called on destroyed object (${this.text ?? ''})`);
+    }
+    this.text = text;
+    return this;
+  }
 }
 
 class FakeContainer extends FakeDisplayObject {
@@ -368,6 +397,7 @@ function createFakeScene(displayWidth: number, displayHeight: number) {
   const scale = new FakeScale();
   const children = new Set<FakeDisplayObject>();
   let failFixedSize = false;
+  let failNextContainer = false;
   const own = <T extends FakeDisplayObject>(object: T): T => {
     children.add(object);
     return object;
@@ -380,9 +410,17 @@ function createFakeScene(displayWidth: number, displayHeight: number) {
     input: { keyboard },
     scale,
     get childCount() { return children.size; },
+    get objects() { return [...children]; },
     failNextTextFixedSize() { failFixedSize = true; },
+    failNextContainer() { failNextContainer = true; },
     add: {
-      container: () => own(new FakeContainer(remove)),
+      container: () => {
+        if (failNextContainer) {
+          failNextContainer = false;
+          throw new Error('Injected container factory failure');
+        }
+        return own(new FakeContainer(remove));
+      },
       rectangle: (x: number, y: number, width: number, height: number) =>
         own(new FakeDisplayObject(x, y, width, height, remove)),
       text: (x: number, y: number, text: string, style: { fontSize?: string }) =>
@@ -821,7 +859,7 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
 
   it('cleans partial rebuild ownership and restores the same offer', async () => {
     const offered = hostileDefinitions.slice(0, 3);
-    const { scene, view } = await createRenderedDisplay(390, 844, offered);
+    const { scene, view, select } = await createRenderedDisplay(390, 844, offered);
     const baselineChildren = scene.childCount;
     scene.failNextTextFixedSize();
 
@@ -836,12 +874,60 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
     expect(view.diagnostics.keyboardListenerCount).toBe(1);
     expect(view.diagnostics.resizeListenerCount).toBe(1);
 
+    // F6: no committed root after the failed rebuild — the retained offer
+    // stays non-navigable until a retry publishes a visible display.
+    expect(view.focusNext()).toBe(false);
+    expect(view.focusPrevious()).toBe(false);
+    expect(view.confirmFocused()).toBe(false);
+    // F1: number-key shortcuts must not submit an invisible choice either.
+    scene.input.keyboard.emit('keydown', { key: '1', repeat: false });
+    scene.input.keyboard.emit('keydown', { key: '2', repeat: false });
+    expect(select).not.toHaveBeenCalled();
+
     expect(() => scene.scale.refresh(390, 844, true)).not.toThrow();
     expect(scene.childCount).toBe(baselineChildren);
     expect(view.diagnostics.cards).toHaveLength(3);
     expect(view.diagnostics.choiceIds).toEqual(
       offered.map((definition) => definition.id),
     );
+
+    // G-15: after the retry publishes a committed display, the exact
+    // number-key choice command works again (round-2 finding F1: the
+    // destroyed/enabled/offerId guard alone let number keys submit an
+    // invisible choice after a failed rebuild).
+    scene.input.keyboard.emit('keydown', { key: '1', repeat: false });
+    expect(select).toHaveBeenCalledTimes(1);
+    expect(select).toHaveBeenCalledWith(73, 0);
+    view.destroy();
+    expect(scene.childCount).toBe(0);
+  });
+
+  it('does not touch destroyed instructions when a rebuild fails BEFORE buildDisplay assigns them (round-7)', async () => {
+    const offered = hostileDefinitions.slice(0, 3);
+    const { scene, view } = await createRenderedDisplay(390, 844, offered);
+    expect(view.diagnostics.cards).toHaveLength(3);
+
+    // A rebuild whose FIRST step (container factory, before buildDisplay's
+    // try assigns instructions) fails: destroyDisplay already cleared
+    // this.instructions, so a subsequent refresh must not touch a destroyed
+    // Text. The container factory throws BEFORE any instructions Text exists
+    // in the new tree — the pre-try failure window of the round-6 fix.
+    scene.failNextContainer();
+    expect(() => scene.scale.refresh(1, 1, true)).toThrow(
+      'Injected container factory failure',
+    );
+    expect(scene.childCount).toBe(0);
+
+    // refreshInputPresentation in any mode must not throw (instructions is
+    // undefined, not a stale destroyed reference).
+    for (const mode of ['keyboard', 'gamepad', 'pointer'] as const) {
+      (view as unknown as { readInputMode: () => string }).readInputMode = () => mode;
+      expect(() => view.refreshInputPresentation()).not.toThrow();
+    }
+
+    // G-15: a successful retry re-publishes and the exact command works.
+    scene.scale.refresh(390, 844, true);
+    expect(view.diagnostics.cards).toHaveLength(3);
     view.destroy();
     expect(scene.childCount).toBe(0);
   });
@@ -851,10 +937,11 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
   async function createFocusView(
     count = 3,
     readReducedMotion: () => boolean = () => false,
+    readInputMode: () => InputMode = () => 'pointer',
   ) {
     const scene = createFakeScene(390, 844);
     const { PhaserUpgradeChooserView } = await import('../src/ui/UpgradeChooser');
-    const view = new PhaserUpgradeChooserView(scene as never, readReducedMotion);
+    const view = new PhaserUpgradeChooserView(scene as never, readReducedMotion, undefined, readInputMode);
     const select = vi.fn<(offerId: number, choiceIndex: number) => boolean>(() => true);
     view.render({ offerId: 73, choices: toChoices(definitions.slice(0, count)) }, select);
     return { scene, view, select };
@@ -863,28 +950,46 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
   const focused = (view: { diagnostics: { cards: readonly { focused: boolean }[] } }) =>
     view.diagnostics.cards.map((card) => card.focused);
 
-  it('arrows move a wrapping focus across the cards', async () => {
-    const { scene, view } = await createFocusView();
+  /** The live interactive card rectangles, matched to the diagnostics bounds
+   *  (card rects are the only interactive non-text objects at card size). */
+  const cardObjects = (
+    view: { diagnostics: { cards: readonly { x: number; y: number; width: number; height: number }[] } },
+    scene: ReturnType<typeof createFakeScene>,
+  ) =>
+    view.diagnostics.cards.map((card) => {
+      const object = scene.objects.find(
+        (candidate) =>
+          candidate.input?.enabled === true &&
+          candidate.x === card.x + card.width / 2 &&
+          candidate.y === card.y + card.height / 2 &&
+          candidate.width === card.width &&
+          candidate.height === card.height,
+      );
+      if (!object) throw new Error(`no live card object for diagnostics card ${card.x},${card.y}`);
+      return object;
+    });
+
+  it('logical focus movement wraps across the cards', async () => {
+    const { view } = await createFocusView();
     expect(focused(view)).toEqual([true, false, false]);
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
+    view.focusNext();
     expect(focused(view)).toEqual([false, true, false]);
-    scene.input.keyboard.emit('keydown', { key: 'ArrowRight', repeat: false });
+    view.focusNext();
     expect(focused(view)).toEqual([false, false, true]);
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
+    view.focusNext();
     expect(focused(view)).toEqual([true, false, false]);
-    scene.input.keyboard.emit('keydown', { key: 'ArrowUp', repeat: false });
+    view.focusPrevious();
     expect(focused(view)).toEqual([false, false, true]);
     view.destroy();
   });
 
-  it('Enter and Space activate the focused card with the captured offer token', async () => {
+  it('logical confirm activates the focused card with the captured offer token', async () => {
     const { scene, view, select } = await createFocusView();
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
-    scene.input.keyboard.emit('keydown', { key: 'Enter', repeat: false });
+    view.focusNext();
+    expect(view.confirmFocused()).toBe(true);
     expect(select).toHaveBeenCalledWith(73, 1);
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
     scene.input.keyboard.emit('keydown', { key: ' ', repeat: false });
-    expect(select).toHaveBeenCalledWith(73, 2);
+    expect(select).not.toHaveBeenCalledWith(73, 2);
     view.destroy();
   });
 
@@ -898,9 +1003,9 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
 
   it('repeated arrows still move focus but repeated activation keys never submit', async () => {
     const { scene, view, select } = await createFocusView();
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: true });
+    view.focusNext();
     expect(focused(view)).toEqual([false, true, false]);
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: true });
+    view.focusNext();
     expect(focused(view)).toEqual([false, false, true]);
     scene.input.keyboard.emit('keydown', { key: 'Enter', repeat: true });
     scene.input.keyboard.emit('keydown', { key: ' ', repeat: true });
@@ -910,7 +1015,7 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
     view.destroy();
   });
 
-  it('setEnabled(false) blocks focus movement and activation', async () => {
+  it('setEnabled(false) blocks focus movement and activation, then re-enable restores exact navigation/confirmation', async () => {
     const { scene, view, select } = await createFocusView();
     view.setEnabled(false);
     scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
@@ -918,6 +1023,15 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
     scene.input.keyboard.emit('keydown', { key: '1', repeat: false });
     expect(focused(view)).toEqual([true, false, false]);
     expect(select).not.toHaveBeenCalled();
+
+    // G-15: the disabled state is not terminal — re-enabling restores the
+    // exact next navigation/confirmation through the same seams.
+    view.setEnabled(true);
+    expect(view.focusNext()).toBe(true);
+    expect(focused(view)).toEqual([false, true, false]);
+    expect(view.confirmFocused()).toBe(true);
+    expect(select).toHaveBeenCalledTimes(1);
+    expect(select).toHaveBeenCalledWith(73, 1);
     view.destroy();
   });
 
@@ -935,9 +1049,9 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
   });
 
   it('resets focus to the first card when a new offer renders', async () => {
-    const { scene, view } = await createFocusView(3);
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
+    const { view } = await createFocusView(3);
+    view.focusNext();
+    view.focusNext();
     expect(focused(view)).toEqual([false, false, true]);
     view.render({ offerId: 74, choices: toChoices(definitions.slice(0, 2)) }, () => true);
     expect(view.diagnostics.offerId).toBe(74);
@@ -964,8 +1078,10 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
     const { view, select } = await createFocusView(3);
     view.setEnabled(false);
 
-    view.focusNext();
-    view.focusPrevious();
+    // Both movement methods report refusal as false, so the facade emits no
+    // ui:navigate while disabled.
+    expect(view.focusNext()).toBe(false);
+    expect(view.focusPrevious()).toBe(false);
     expect(focused(view)).toEqual([true, false, false]);
     expect(view.confirmFocused()).toBe(false);
     expect(select).not.toHaveBeenCalled();
@@ -998,13 +1114,91 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
 
   it('keeps the focus index across resize rebuilds', async () => {
     const { scene, view } = await createFocusView(3);
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
-    scene.input.keyboard.emit('keydown', { key: 'ArrowDown', repeat: false });
+    view.focusNext();
+    view.focusNext();
     expect(focused(view)).toEqual([false, false, true]);
     scene.scale.refresh(844, 390, true);
     expect(focused(view)).toEqual([false, false, true]);
     scene.scale.refresh(390, 844, true);
     expect(focused(view)).toEqual([false, false, true]);
+    view.destroy();
+  });
+
+  it('renders the exact FocusStroke width/color/alpha on the focused card and restores the exact base stroke (F4)', async () => {
+    let mode: InputMode = 'pointer';
+    const { scene, view } = await createFocusView(3, () => false, () => mode);
+    const cards = () => cardObjects(view, scene);
+    const baseStrokes = cards().map((card) => ({
+      width: card.strokeWidth,
+      color: card.strokeColor,
+      alpha: card.strokeAlpha,
+    }));
+    // Pointer mode: no card carries the FocusStroke ring.
+    expect(cards()[0]!.strokeColor).not.toBe(FocusStroke.color);
+
+    mode = 'keyboard';
+    view.refreshInputPresentation();
+    // Focused card 0 carries ALL THREE FocusStroke theme constants; the other
+    // cards keep their exact base strokes.
+    expect(cards()[0]!.strokeWidth).toBe(FocusStroke.width);
+    expect(cards()[0]!.strokeColor).toBe(FocusStroke.color);
+    expect(cards()[0]!.strokeAlpha).toBe(FocusStroke.alpha);
+    expect(cards()[1]!.strokeWidth).toBe(baseStrokes[1]!.width);
+    expect(cards()[1]!.strokeColor).toBe(baseStrokes[1]!.color);
+    expect(cards()[1]!.strokeAlpha).toBe(baseStrokes[1]!.alpha);
+
+    // Focus moves: the ring carries all three constants on the new card and
+    // the previous card's exact base stroke is restored.
+    expect(view.focusNext()).toBe(true);
+    expect(cards()[1]!.strokeWidth).toBe(FocusStroke.width);
+    expect(cards()[1]!.strokeColor).toBe(FocusStroke.color);
+    expect(cards()[1]!.strokeAlpha).toBe(FocusStroke.alpha);
+    expect(cards()[0]!.strokeWidth).toBe(baseStrokes[0]!.width);
+    expect(cards()[0]!.strokeColor).toBe(baseStrokes[0]!.color);
+    expect(cards()[0]!.strokeAlpha).toBe(baseStrokes[0]!.alpha);
+    view.destroy();
+  });
+
+  it('switches the exact source-aware instruction copy per input mode (F6)', async () => {
+    let mode: InputMode = 'pointer';
+    const { view } = await createFocusView(3, () => false, () => mode);
+    const instructions = () =>
+      view.diagnostics.text.find((text) => text.role === 'instructions')!.text;
+
+    expect(instructions()).toBe('Tap a card');
+    mode = 'keyboard';
+    view.refreshInputPresentation();
+    expect(instructions()).toBe('Arrows • Enter/Space choose');
+    mode = 'gamepad';
+    view.refreshInputPresentation();
+    expect(instructions()).toBe('D-pad/stick • Bottom face choose');
+    view.destroy();
+  });
+
+  it('pointer hover moves exactly one ring and direct selection submits without a pointer requirement (F6)', async () => {
+    const { scene, view, select } = await createFocusView(3);
+    const cards = () => cardObjects(view, scene);
+
+    // Hover card 1: ring (ALL THREE constants) on card 1 only, logical focus
+    // synced, no submit.
+    cards()[1]!.emit('pointerover');
+    expect(cards()[1]!.strokeWidth).toBe(FocusStroke.width);
+    expect(cards()[1]!.strokeColor).toBe(FocusStroke.color);
+    expect(cards()[1]!.strokeAlpha).toBe(FocusStroke.alpha);
+    expect(cards()[0]!.strokeColor).not.toBe(FocusStroke.color);
+    expect(cards()[2]!.strokeColor).not.toBe(FocusStroke.color);
+    expect(select).not.toHaveBeenCalled();
+    expect(focused(view)).toEqual([false, true, false]);
+
+    // Pointer-out clears the ring without a command.
+    cards()[1]!.emit('pointerout');
+    expect(cards()[1]!.strokeColor).not.toBe(FocusStroke.color);
+    expect(select).not.toHaveBeenCalled();
+
+    // Direct pointer-up submits the exact hovered card index.
+    cards()[1]!.emit('pointerup');
+    expect(select).toHaveBeenCalledTimes(1);
+    expect(select).toHaveBeenCalledWith(73, 1);
     view.destroy();
   });
 });
@@ -1320,6 +1514,46 @@ describe('UpgradeChooser facade seam (Epic 18 D9)', () => {
     // The upgrade the focus was sitting on is the one that got applied.
     expect(runState.upgradeStacks[offered[1]!]).toBe(1);
     expect(system.currentOfferId).toBeUndefined();
+    chooser.destroy();
+    system.destroy();
+  });
+
+  it('emits no ui:navigate for boundary or no-offer facade moves (F3)', async () => {
+    const { runState, bus, system, chooser } = await createFacade(1);
+    const events: string[] = [];
+    bus.on('ui:navigate', () => events.push('ui:navigate'));
+    bus.emit('level:up', { level: 2 });
+    expect(chooser.diagnostics.cards).toHaveLength(1);
+
+    // Boundary on a one-card offer: no move, no event.
+    expect(chooser.focusNext()).toBe(false);
+    expect(chooser.focusPrevious()).toBe(false);
+    expect(events).toEqual([]);
+
+    // An accepted confirm resolves the offer; the seam is then no-offer inert.
+    const offeredId = chooser.diagnostics.choiceIds[0]!;
+    expect(chooser.confirmFocused()).toBe(true);
+    expect(runState.upgradeStacks[offeredId]).toBe(1);
+    expect(chooser.focusNext()).toBe(false);
+    expect(chooser.focusPrevious()).toBe(false);
+    expect(events).toEqual([]);
+    chooser.destroy();
+    system.destroy();
+  });
+
+  it('emits exactly one ui:navigate per real facade move (F3)', async () => {
+    const { bus, system, chooser } = await createFacade(2);
+    const events: string[] = [];
+    bus.on('ui:navigate', () => events.push('ui:navigate'));
+    bus.emit('level:up', { level: 2 });
+    expect(chooser.diagnostics.cards).toHaveLength(2);
+
+    expect(chooser.focusNext()).toBe(true);
+    expect(events).toEqual(['ui:navigate']);
+    expect(chooser.diagnostics.cards.map((card) => card.focused)).toEqual([false, true]);
+    expect(chooser.focusPrevious()).toBe(true);
+    expect(events).toEqual(['ui:navigate', 'ui:navigate']);
+    expect(chooser.diagnostics.cards.map((card) => card.focused)).toEqual([true, false]);
     chooser.destroy();
     system.destroy();
   });

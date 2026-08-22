@@ -585,12 +585,16 @@ export class InputController implements System {
     return current ? { ...current } : null;
   }
 
+  getInputMode(): InputMode {
+    return this.lastActiveMode;
+  }
+
   getPresentationSnapshot(): InputPresentationSnapshot {
     // Epic 19 D7: the presented mode is the temporal last-active source
     // (movement signal, then each action edge, then pointerdown — later wins
     // within a poll; between polls the last event wins). It is fully
     // decoupled from the D4 movement-owner hysteresis in getMoveVector().
-    const mode: InputMode = this.lastActiveMode;
+    const mode: InputMode = this.getInputMode();
     const pointerStart = this.pointerAdapter.getPointerStart();
     const pointerCurrent = this.pointerAdapter.getPointerCurrent();
     const snapshot: InputPresentationSnapshot = {

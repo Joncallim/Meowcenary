@@ -222,13 +222,26 @@ if (scenario === 'keyboard-held') {
 }
 
 // Settle the heap so no startup garbage is collected inside the window.
+// F11 hardening (full-suite reproducibility): every object that could
+// survive into the window — the canary sink, the delimiter marker buffers —
+// is allocated BEFORE the final full-GC passes, and a settling churn
+// promotes/collects any remaining young-gen survivors. After the final
+// gc(), NOTHING allocates until PROBE-START, and the raw-buffer marker
+// writes are zero-copy, so the young generation starts the window empty.
+const sink: unknown[] = [];
+const startMarker = Buffer.from('PROBE-START canary=' + canary + ' scenario=' + scenario + '\n');
+const doneMarker = Buffer.from('PROBE-DONE canary=' + canary + ' scenario=' + scenario + '\n');
 if (typeof gc === 'function') {
+  for (let i = 0; i < 4; i += 1) {
+    // eslint-disable-next-line no-new
+    new Array(1024).fill(0);
+    gc();
+  }
   gc();
   gc();
 }
 
-const sink: unknown[] = [];
-fs.writeSync(1, 'PROBE-START canary=' + canary + ' scenario=' + scenario + '\n');
+fs.writeSync(1, startMarker);
 
 for (let i = 0; i < PROBE_POLLS; i += 1) {
   controller.update(0);
@@ -246,4 +259,4 @@ for (let i = 0; i < PROBE_POLLS; i += 1) {
     sink.length = 0;
   }
 }
-fs.writeSync(1, 'PROBE-DONE canary=' + canary + ' scenario=' + scenario + '\n');
+fs.writeSync(1, doneMarker);
