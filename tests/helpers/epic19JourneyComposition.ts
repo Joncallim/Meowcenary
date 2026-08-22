@@ -927,6 +927,21 @@ export function createGamePhase(
   seams.runSummaryView = runSummaryView;
   seams.upgradeChooser = upgradeChooser;
 
+  // GameScene.create() registers one SHUTDOWN and one DESTROY once-listener
+  // on scene.events and handleShutdown removes both (src/scenes/GameScene.ts:
+  // 422-423, 485-487). The game-phase harness cannot run the full create()
+  // (it would need the entire physics/display graph), so it registers the
+  // SAME two once-listeners with the REAL handleShutdown at build time: the
+  // sceneEventsShutdown/sceneEventsDestroy baseline is genuinely non-zero
+  // and destroy() must clear both. This proves the harness path — the real
+  // create() registration is covered by the menu-phase soaks and the
+  // GameScene unit tests.
+  const gameHandleShutdown = (gameScene as unknown as {
+    handleShutdown: () => void;
+  }).handleShutdown;
+  scene.events.once('shutdown', gameHandleShutdown, gameScene);
+  scene.events.once('destroy', gameHandleShutdown, gameScene);
+
   // The exact GameScene.create() wiring, through the real routeAction.
   inputController.onAction('pause', () => seams.routeAction('pause'));
   inputController.onAction('back', () => seams.routeAction('back'));
@@ -1003,12 +1018,15 @@ export function createGamePhase(
   });
 
   const destroy = () => {
-    upgradeChooser.destroy();
+    // Real GameScene.handleShutdown (registered above exactly as create()
+    // does): removes the SHUTDOWN/DESTROY once-listeners and tears down the
+    // composed real seam owners (upgradeChooser, pauseView, pauseController,
+    // runSummaryView, inputController).
+    scene.events.emit('shutdown');
+    // controlsView and upgradeSystem are harness-owned (not GameScene seams),
+    // so handleShutdown cannot reach them.
     controlsView.destroy();
-    pauseView.destroy();
-    runSummaryView.destroy();
     upgradeSystem.destroy();
-    inputController.destroy();
   };
 
   return {
