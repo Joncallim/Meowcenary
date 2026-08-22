@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { MockInputPlugin, MockGamepad } from './__mocks__/phaser';
 import { InputController } from '../src/systems/input';
 import { ControlsView } from '../src/ui/controls';
+import type { TouchStickConfig } from '../src/engine/config';
 import { logicalCanvasViewport } from '../src/ui/layout';
 
 function createFakeScene() {
@@ -116,11 +117,11 @@ function createFakeScene() {
   return scene;
 }
 
-function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: boolean } = {}) {
-  const { readReducedMotion = () => false, gamepad = false } = options;
+function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: boolean; touchStick?: TouchStickConfig } = {}) {
+  const { readReducedMotion = () => false, gamepad = false, touchStick } = options;
   const scene = createFakeScene();
   const input = new MockInputPlugin({ keyboard: true, gamepad });
-  const controller = new InputController({ ...scene, input } as never);
+  const controller = new InputController({ ...scene, input } as never, { touchStick });
   const onPauseRequested = vi.fn();
   const view = new ControlsView({
     scene: scene as never,
@@ -128,6 +129,7 @@ function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: b
     viewport: logicalCanvasViewport(),
     readReducedMotion,
     onPauseRequested,
+    touchStick,
   });
   // GameScene runs InputController.update before the view update each frame.
   const tick = (dtMs = 16) => {
@@ -173,6 +175,27 @@ describe('ControlsView virtual stick', () => {
     const dx = (stickThumb.state.x as number) - 100;
     const dy = (stickThumb.state.y as number) - 100;
     expect(Math.hypot(dx, dy)).toBeCloseTo(64, 10);
+  });
+  it('uses one injected anchored config for fixed base and shared radius intent', () => {
+    const touchStick: TouchStickConfig = {
+      radius: 40,
+      mode: 'anchored',
+      anchored: { centerX: 82, centerY: 700, activationRadius: 120 },
+    };
+    const { scene, input, controller, tick } = createHarness({ touchStick });
+    const [stickBase, stickThumb] = scene.objects;
+    input.pointerDown(122, 700);
+    tick();
+    expect(stickBase.state.x).toBe(82);
+    expect(stickBase.state.y).toBe(700);
+    expect(stickThumb.state.x).toBe(122);
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+
+    input.pointerUp();
+    input.pointerDown(203, 700);
+    tick();
+    expect(stickBase.state.visible).toBe(false);
+    expect(stickThumb.state.visible).toBe(false);
   });
 });
 

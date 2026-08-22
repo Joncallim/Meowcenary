@@ -1,3 +1,39 @@
+export type TouchStickMode = 'floating' | 'anchored';
+
+export interface AnchoredTouchStickConfig {
+  readonly centerX: number;
+  readonly centerY: number;
+  readonly activationRadius: number;
+}
+
+export interface TouchStickConfig {
+  readonly radius: number;
+  readonly mode: TouchStickMode;
+  readonly anchored: AnchoredTouchStickConfig;
+}
+
+const TOUCH_STICK_CONFIG: TouchStickConfig = {
+  radius: 64,
+  mode: 'floating',
+  anchored: { centerX: 82, centerY: 700, activationRadius: 120 },
+};
+
+/** Validates the config boundary once, before input listeners attach. */
+export function assertTouchStickConfig(config: TouchStickConfig): void {
+  if (!Number.isFinite(config.radius) || config.radius <= 0) {
+    throw new Error('touchStick.radius must be a finite number greater than zero');
+  }
+  if (config.mode !== 'floating' && config.mode !== 'anchored') {
+    throw new Error('touchStick.mode must be floating or anchored');
+  }
+  if (!Number.isFinite(config.anchored.centerX) || !Number.isFinite(config.anchored.centerY)) {
+    throw new Error('touchStick.anchored center must be finite');
+  }
+  if (!Number.isFinite(config.anchored.activationRadius) || config.anchored.activationRadius <= 0) {
+    throw new Error('touchStick.anchored.activationRadius must be a finite number greater than zero');
+  }
+}
+
 export const RuntimeConfig = {
   canvas: { width: 390, height: 844 },
   gameplay: {
@@ -33,11 +69,7 @@ export const RuntimeConfig = {
     // nav auto-repeat values are initial defaults tuned only with recorded
     // evidence. Dash is reserved for the Slice 4 movement-agency evidence gate.
     input: {
-      touchStick: {
-        radius: 64,
-        mode: 'floating',
-        anchored: { centerX: 82, centerY: 700, activationRadius: 120 },
-      },
+      touchStick: TOUCH_STICK_CONFIG,
       gamepad: { moveDeadzone: 0.25, navThreshold: 0.5 },
       navRepeat: { delayMs: 400, intervalMs: 150 },
     },

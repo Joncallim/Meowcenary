@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { System } from '../engine/system';
-import { RuntimeConfig } from '../engine/config';
+import { assertTouchStickConfig, RuntimeConfig, type TouchStickConfig } from '../engine/config';
 import {
   LogicalInputCore,
   type ActionEdge,
@@ -21,6 +21,10 @@ export interface InputPresentationSnapshot {
 }
 
 export type ActionHandler = (edge: ActionEdge) => void;
+
+export interface InputControllerOptions {
+  readonly touchStick?: TouchStickConfig;
+}
 
 interface InputAdapter {
   update(): void;
@@ -154,7 +158,7 @@ class PointerAdapter implements InputAdapter {
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly core: LogicalInputCore,
-    private readonly radius: number,
+    private readonly touchStick: TouchStickConfig,
     private readonly onPointerDown?: () => void,
   ) {
     this.scene.input.on('pointerdown', this.handlePointerDown, this);
@@ -173,12 +177,12 @@ class PointerAdapter implements InputAdapter {
     let dx = this.pointerCurrent.x - this.pointerStart.x;
     let dy = this.pointerCurrent.y - this.pointerStart.y;
     const magnitude = Math.sqrt(dx * dx + dy * dy);
-    if (magnitude > this.radius) {
-      const scale = this.radius / magnitude;
+    if (magnitude > this.touchStick.radius) {
+      const scale = this.touchStick.radius / magnitude;
       dx *= scale;
       dy *= scale;
     }
-    this.core.setMovementSample('pointer', dx / this.radius, dy / this.radius, 0);
+    this.core.setMovementSample('pointer', dx / this.touchStick.radius, dy / this.touchStick.radius, 0);
   }
 
   destroy(): void {
@@ -208,6 +212,19 @@ class PointerAdapter implements InputAdapter {
     // Epic 19 D8: pin movement to the pointer.id that began the gesture.
     // Later pointers never re-anchor movement and stay available to UI.
     if (this.isActive()) {
+      return;
+    }
+
+    if (this.touchStick.mode === 'anchored') {
+      const { centerX, centerY, activationRadius } = this.touchStick.anchored;
+      const dx = pointer.x - centerX;
+      const dy = pointer.y - centerY;
+      if (dx * dx + dy * dy > activationRadius * activationRadius) {
+        return;
+      }
+      this.pinnedPointerId = pointer.id;
+      this.pointerStart = { x: centerX, y: centerY };
+      this.pointerCurrent = pointerToVec2(pointer);
       return;
     }
 
@@ -478,14 +495,16 @@ export class InputController implements System {
   private pointerDownPending = false;
   private pointerDownMovementSource: InputSource | null = null;
 
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene, options?: InputControllerOptions) {
+    const touchStick = options?.touchStick ?? RuntimeConfig.gameplay.input.touchStick;
+    assertTouchStickConfig(touchStick);
     this.core = new LogicalInputCore({
       navRepeat: RuntimeConfig.gameplay.input.navRepeat,
     });
     this.pointerAdapter = new PointerAdapter(
       scene,
       this.core,
-      RuntimeConfig.gameplay.input.touchStick.radius,
+      touchStick,
       () => {
         this.lastActiveMode = 'pointer';
         this.pointerDownPending = true;

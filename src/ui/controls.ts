@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
 import { clampLength } from '../engine/vector';
-import { RuntimeConfig } from '../engine/config';
+import { assertTouchStickConfig, RuntimeConfig, type TouchStickConfig } from '../engine/config';
 import type { InputController, InputMode, InputPresentationSnapshot } from '../systems/input';
 import { physicalToLogical, type UiViewport } from './layout';
 import { reducedMotionDuration, ThemeColor, ThemeDepth, ThemeFont } from './theme';
 
-const STICK_RADIUS = RuntimeConfig.gameplay.input.touchStick.radius;
+
 const HINT_DURATION_MS = 2200;
 const HINT_FADE_MS = 400;
 const HUD_RACK_CLEARANCE_PX = 52;
@@ -16,6 +16,7 @@ export interface ControlsViewOptions {
   readonly viewport: UiViewport;
   readonly readReducedMotion: () => boolean;
   readonly onPauseRequested: () => void;
+  readonly touchStick?: TouchStickConfig;
 }
 
 export class ControlsView {
@@ -24,6 +25,7 @@ export class ControlsView {
   private viewport: UiViewport;
   private readonly onPauseRequested: () => void;
   private readonly readReducedMotion: () => boolean;
+  private readonly stickRadius: number;
   private readonly stickBase: Phaser.GameObjects.Arc;
   private readonly stickThumb: Phaser.GameObjects.Arc;
   private hintText!: Phaser.GameObjects.Text;
@@ -35,18 +37,21 @@ export class ControlsView {
 
   constructor(options: ControlsViewOptions) {
     const { scene, input, viewport, readReducedMotion, onPauseRequested } = options;
+    const touchStick = options.touchStick ?? RuntimeConfig.gameplay.input.touchStick;
+    assertTouchStickConfig(touchStick);
     this.scene = scene;
     this.input = input;
     this.viewport = viewport;
     this.onPauseRequested = onPauseRequested;
     this.readReducedMotion = readReducedMotion;
+    this.stickRadius = touchStick.radius;
 
-    this.stickBase = scene.add.arc(0, 0, STICK_RADIUS, 0, 360, false, ThemeColor.cream, 0.18);
+    this.stickBase = scene.add.arc(0, 0, this.stickRadius, 0, 360, false, ThemeColor.cream, 0.18);
     this.stickBase.setDepth(ThemeDepth.transientHint);
     this.stickBase.setScrollFactor(0);
     this.stickBase.setVisible(false);
 
-    this.stickThumb = scene.add.arc(0, 0, STICK_RADIUS * 0.45, 0, 360, false, ThemeColor.cream, 0.55);
+    this.stickThumb = scene.add.arc(0, 0, this.stickRadius * 0.45, 0, 360, false, ThemeColor.cream, 0.55);
     this.stickThumb.setDepth(ThemeDepth.transientHint);
     this.stickThumb.setScrollFactor(0);
     this.stickThumb.setVisible(false);
@@ -164,7 +169,7 @@ export class ControlsView {
     const start = snapshot.pointerStart;
     const current = snapshot.pointerCurrent;
     const delta = { x: current.x - start.x, y: current.y - start.y };
-    const clamped = clampLength(delta, STICK_RADIUS);
+    const clamped = clampLength(delta, this.stickRadius);
 
     this.stickBase.setPosition(start.x, start.y);
     this.stickThumb.setPosition(start.x + clamped.x, start.y + clamped.y);

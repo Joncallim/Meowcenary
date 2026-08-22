@@ -16,6 +16,9 @@ export interface PlaytestSummarySystemOptions {
 }
 
 export interface PlaytestSummaryRow {
+  readonly seed: number;
+  readonly characterId: string;
+  readonly arenaId: string;
   readonly outcome: RunOutcome;
   readonly time: string;
   readonly timeMs: number;
@@ -131,6 +134,9 @@ export class PlaytestSummarySystem implements System {
     const rack = finalRackDistribution(runState.equipped);
 
     const row: PlaytestSummaryRow = Object.freeze({
+      seed: runState.seed,
+      characterId: runState.characterId,
+      arenaId: runState.arenaId,
       outcome,
       time: formatTime(safeTimeMs),
       timeMs: safeTimeMs,

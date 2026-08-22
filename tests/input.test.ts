@@ -3,9 +3,16 @@ import { describe, expect, it, vi } from 'vitest';
 // evaluation time. The mock registration in __mocks__/phaser is a side-effectful
 // import; ordering it first guarantees the mock is installed before the real
 // Phaser module is ever requested.
-import { MockInputPlugin, MockGamepad } from './__mocks__/phaser';
+import { MockInputPlugin, MockGamepad, MockPointer } from './__mocks__/phaser';
 import type Phaser from 'phaser';
 import { InputController } from '../src/systems/input';
+import { assertTouchStickConfig, type TouchStickConfig } from '../src/engine/config';
+
+const anchored: TouchStickConfig = {
+  radius: 64,
+  mode: 'anchored',
+  anchored: { centerX: 82, centerY: 700, activationRadius: 120 },
+};
 
 function createScene(options: { keyboard?: boolean; gamepad?: boolean } = {}) {
   const input = new MockInputPlugin(options);
@@ -13,9 +20,9 @@ function createScene(options: { keyboard?: boolean; gamepad?: boolean } = {}) {
   return { scene, input };
 }
 
-function createController(options: { keyboard?: boolean; gamepad?: boolean } = {}) {
+function createController(options: { keyboard?: boolean; gamepad?: boolean; touchStick?: TouchStickConfig } = {}) {
   const { scene, input } = createScene(options);
-  const controller = new InputController(scene);
+  const controller = new InputController(scene, { touchStick: options.touchStick });
   return { controller, input };
 }
 
@@ -151,6 +158,156 @@ describe('InputController pointer movement', () => {
     const pointer = controller.getPointer();
     if (pointer) pointer.x = 999;
     expect(controller.getPointer()).toEqual({ x: 132, y: 100 });
+  });
+});
+
+describe('InputController anchored touch stick', () => {
+  it('uses the fixed center and accepts inside and boundary pointerdowns', () => {
+    const { controller, input } = createController({ touchStick: anchored });
+    input.pointerDown(82, 700);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+    expect(controller.getPresentationSnapshot().pointerStart).toEqual({ x: 82, y: 700 });
+
+    input.pointerUp();
+    input.pointerDown(202, 700);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+    expect(controller.getPresentationSnapshot().pointerCurrent).toEqual({ x: 202, y: 700 });
+  });
+
+  it('rejects outside starts, keeps D7 pointer activity, and resumes only on a fresh inside down', () => {
+    const { controller, input } = createController({ keyboard: true, touchStick: anchored });
+    input.keyboard!.keydown('d');
+    controller.update(16);
+    input.pointerDown(202.001, 700);
+    input.pointerMove(82, 700);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().mode).toBe('pointer');
+    expect(controller.getPresentationSnapshot().pointerStart).toBeNull();
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+
+    input.pointerUp();
+    input.pointerDown(114, 700);
+    controller.update(16);
+    // The fresh inside down genuinely pins the anchored gesture: the fixed
+    // center becomes the start and the down position the current pointer.
+    expect(controller.getPresentationSnapshot().pointerStart).toEqual({ x: 82, y: 700 });
+    expect(controller.getPresentationSnapshot().pointerCurrent).toEqual({ x: 114, y: 700 });
+    // The existing keyboard owner is retained by D4 until it goes inactive.
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+
+    // Releasing the keyboard hands the D4 vector to the pinned pointer.
+    input.keyboard!.keyup('d');
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0.5, y: 0 });
+
+    // Releasing the pinned pointer clears the gesture entirely.
+    input.pointerUp();
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().pointerStart).toBeNull();
+    expect(controller.getPresentationSnapshot().pointerCurrent).toBeNull();
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+
+    // Another fresh inside down resumes movement.
+    input.pointerDown(114, 700);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().pointerStart).toEqual({ x: 82, y: 700 });
+    expect(controller.getPresentationSnapshot().pointerCurrent).toEqual({ x: 114, y: 700 });
+    expect(controller.getMoveVector()).toEqual({ x: 0.5, y: 0 });
+  });
+
+  it('pins the accepted pointer until its release and keeps D4 ownership rules', () => {
+    const { controller, input } = createController({ keyboard: true, touchStick: anchored });
+    input.pointerDown(114, 700, 0);
+    input.pointerDown(82, 636, 1);
+    input.pointerMove(82, 580, 1);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().pointerCurrent).toEqual({ x: 114, y: 700 });
+    expect(controller.getMoveVector()).toEqual({ x: 0.5, y: 0 });
+
+    input.keyboard!.keydown('d');
+    controller.update(16);
+    // The active pointer remains the D4 owner while keyboard starts later.
+    expect(controller.getMoveVector()).toEqual({ x: 0.5, y: 0 });
+    input.pointerUp(1);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().pointerStart).toEqual({ x: 82, y: 700 });
+
+    // A second pointer DOWN OUTSIDE the activation circle must not re-anchor
+    // the pinned gesture or inject movement (D8).
+    input.pointerDown(400, 700, 2);
+    input.pointerMove(400, 700, 2);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().pointerStart).toEqual({ x: 82, y: 700 });
+    expect(controller.getPresentationSnapshot().pointerCurrent).toEqual({ x: 114, y: 700 });
+    expect(controller.getMoveVector()).toEqual({ x: 0.5, y: 0 });
+
+    // A real pointerupoutside for a NON-pinned id must not clear the pin...
+    input.emit('pointerupoutside', new MockPointer(400, 700, false, 2));
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().pointerStart).toEqual({ x: 82, y: 700 });
+    expect(controller.getPresentationSnapshot().pointerCurrent).toEqual({ x: 114, y: 700 });
+    expect(controller.getMoveVector()).toEqual({ x: 0.5, y: 0 });
+
+    // ...while a pointerupoutside for the PINNED id clears the gesture and
+    // hands the D4 vector back to the still-held keyboard.
+    input.emit('pointerupoutside', new MockPointer(114, 700, false, 0));
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().pointerStart).toBeNull();
+    expect(controller.getPresentationSnapshot().pointerCurrent).toBeNull();
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+
+    // A fresh inside down after the active release resumes movement.
+    input.keyboard!.keyup('d');
+    controller.update(16);
+    input.pointerDown(114, 700, 0);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().pointerStart).toEqual({ x: 82, y: 700 });
+    expect(controller.getPresentationSnapshot().pointerCurrent).toEqual({ x: 114, y: 700 });
+    expect(controller.getMoveVector()).toEqual({ x: 0.5, y: 0 });
+
+    input.pointerUp(0);
+    controller.update(16);
+    expect(controller.getPresentationSnapshot().pointerStart).toBeNull();
+  });
+});
+
+describe('TouchStickConfig validation', () => {
+  const valid: TouchStickConfig = {
+    radius: 64, mode: 'floating', anchored: { centerX: 82, centerY: 700, activationRadius: 120 },
+  };
+
+  it('rejects all invalid runtime fields before input listener attachment', () => {
+    const invalid = [
+      // radius: zero, negative, non-finite
+      { ...valid, radius: 0 },
+      { ...valid, radius: -64 },
+      { ...valid, radius: Number.NaN },
+      { ...valid, radius: Number.POSITIVE_INFINITY },
+      { ...valid, radius: Number.NEGATIVE_INFINITY },
+      // mode: outside the frozen union
+      { ...valid, mode: 'invalid' },
+      // anchored center coordinates: every non-finite form per axis
+      { ...valid, anchored: { ...valid.anchored, centerX: Infinity } },
+      { ...valid, anchored: { ...valid.anchored, centerX: Number.NaN } },
+      { ...valid, anchored: { ...valid.anchored, centerX: Number.NEGATIVE_INFINITY } },
+      { ...valid, anchored: { ...valid.anchored, centerY: Infinity } },
+      { ...valid, anchored: { ...valid.anchored, centerY: Number.NaN } },
+      { ...valid, anchored: { ...valid.anchored, centerY: Number.NEGATIVE_INFINITY } },
+      // activationRadius: zero, negative, non-finite
+      { ...valid, anchored: { ...valid.anchored, activationRadius: 0 } },
+      { ...valid, anchored: { ...valid.anchored, activationRadius: -120 } },
+      { ...valid, anchored: { ...valid.anchored, activationRadius: Number.NaN } },
+      { ...valid, anchored: { ...valid.anchored, activationRadius: Number.POSITIVE_INFINITY } },
+      { ...valid, anchored: { ...valid.anchored, activationRadius: Number.NEGATIVE_INFINITY } },
+    ] as unknown as TouchStickConfig[];
+    for (const config of invalid) {
+      expect(() => assertTouchStickConfig(config)).toThrow();
+      const { scene, input } = createScene();
+      expect(() => new InputController(scene, { touchStick: config })).toThrow();
+      expect(input.listenerCount('pointerdown')).toBe(0);
+    }
   });
 });
 
@@ -671,8 +828,11 @@ describe('InputController joystick clamp', () => {
 });
 
 describe('InputController destroy', () => {
-  it('removes every pointer listener', () => {
-    const { controller, input } = createController();
+  it.each([
+    { name: 'floating' },
+    { name: 'anchored', touchStick: anchored },
+  ])('removes every pointer listener ($name)', ({ touchStick }) => {
+    const { controller, input } = createController({ touchStick });
 
     for (const event of ['pointerdown', 'pointermove', 'pointerup', 'pointerupoutside']) {
       expect(input.listenerCount(event)).toBe(1);
@@ -1135,6 +1295,29 @@ describe('InputController polled keyboard actions (Epic 19 D3)', () => {
     );
 
     input.keyboard!.keyup('q');
+    controller.update(16);
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('maps standard-layout gamepad position 2 to the reserved ability action (D11)', () => {
+    const { controller, input } = createController({ gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+    const handler = vi.fn();
+    controller.onAction('ability', handler);
+
+    pad.setButton(2, true);
+    controller.update(16);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: 'ability', source: 'gamepad' }),
+    );
+
+    // Held (no repeat — not a nav action), then released (no edge).
+    controller.update(16);
+    expect(handler).toHaveBeenCalledTimes(1);
+    pad.setButton(2, false);
     controller.update(16);
     expect(handler).toHaveBeenCalledTimes(1);
   });

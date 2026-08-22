@@ -95,6 +95,9 @@ describe('PlaytestSummarySystem', () => {
 
     const row = logger.table.mock.calls[0][0][0] as PlaytestSummaryRow;
     expect(row).toEqual({
+      seed: 42,
+      characterId: 'cat',
+      arenaId: 'yard',
       outcome: 'won',
       time: '1:05',
       timeMs: 65000,

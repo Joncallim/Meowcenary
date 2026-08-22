@@ -39,6 +39,8 @@ teaching beat" — no such evidence exists yet.
    (win or loss).
 2. `PlaytestSummarySystem` prints `[playtest] run summary` to the browser
    console exactly once, with one row containing:
+   - Slice 4 identity fields: `seed`, `characterId`, `arenaId` (the actual
+     generated-run identity required for evidence citation);
    - existing fields: `outcome`, `time`, `timeMs`, `level`, `kills`,
      `currency`, `avgDps`, `upgradesTaken`;
    - Epic 18 fields: `offersSeen`, `offerOverlapRate` (mean fraction of a
@@ -49,14 +51,16 @@ teaching beat" — no such evidence exists yet.
      player-collection follow-through), `finalRackSize`,
      `finalRackFamilies`.
    - a second table of final `upgradeStacks` when any were taken.
-3. Repeat across multiple seeds (`?seed=` or the run-start seed shown in
-   dev tooling) and record each row here, in a table appended below, with
-   the seed and character/arena.
+3. Record each generated run's terminal identity in a table appended below,
+   with its `seed` and character/arena. Slice 4 records generated-seed
+   identity only: it does not provide `?seed=`, show a seed elsewhere, select
+   a seed, or replay a seed.
 4. Compare against §6's targets. Only propose a tuning change when several
    seeds agree the target is being missed, and record:
    - the metric and seeds that motivated it;
    - the specific value changed and its owning file;
-   - the before/after evidence from re-running the same seeds.
+   - the before/after evidence from newly generated runs; do not claim paired
+     same-seed replay without separately implemented support.
 5. Make one change at a time — re-measure before stacking a second change,
    so each change's effect is attributable.
 
