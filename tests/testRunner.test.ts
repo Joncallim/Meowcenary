@@ -149,5 +149,19 @@ describe('scripts/test.mjs stateful allocation selection (F1)', () => {
       output,
       `the refusal must be the stage-3 guard, not an unrelated failure\n${tail}`,
     ).toContain('stage-3 invocation did not behave as expected');
+    // Pin the refusal to the INTENDED branch (final Sol gate finding, P2):
+    // the leaked-CHILD run must fail with a clean inner vitest (status=0,
+    // all-skipped summary=none, expected total 6) — NOT with an unrelated
+    // spawn/RPC/collection error (which prints status=1 or spawn error or
+    // signal and would satisfy the generic message alone).
+    expect(
+      output,
+      `the inner vitest must have exited cleanly with the all-skipped form\n${tail}`,
+    ).toContain('vitest status=0, summary=none (expected total 6)');
+    expect(output, `the refusal must carry the all-skipped diagnostic\n${tail}`).toContain(
+      'All stage-3 tests were SKIPPED',
+    );
+    expect(output, `no spawn-level error may be involved\n${tail}`).not.toContain('spawn error=');
+    expect(output, `no signal may be involved\n${tail}`).not.toContain('signal=');
   }, 240_000);
 });

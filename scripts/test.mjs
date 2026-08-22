@@ -250,11 +250,17 @@ function runSubprocessSuite(file, describe, names, expectedTotal) {
     const ok = status === 0 && ranExactlyOne;
     const nestedSkipOk = nestedRunner && status === 0 && !error && !signal;
     if (!(ok || nestedSkipOk)) {
+      const allSkipped = /Tests\s+\d+ skipped/.test(output);
       console.error(
         `\n[test.mjs] stage-3 invocation did not behave as expected: '${fullName}'` +
         `\n[test.mjs] vitest status=${status}, summary=${summary ? summary[0] : 'none'}` +
         ` (expected total ${expectedTotal})` +
         `${error ? `, spawn error=${error}` : ''}${signal ? `, signal=${signal}` : ''}` +
+        (allSkipped && !nestedRunner
+          ? '\n[test.mjs] All stage-3 tests were SKIPPED — a leaked MEOWCENARY_TEST_RUNNER_CHILD' +
+            '\n[test.mjs] marker (without MEOWCENARY_TEST_RUNNER_SPAWNED), or a renamed/missing' +
+            '\n[test.mjs] test name in the stage-3 list.'
+          : '') +
         '\n[test.mjs] Renaming, adding, or removing a runner test requires updating BOTH' +
         '\n[test.mjs] the test name list AND the file\'s expectedTotal in this stage; the' +
         '\n[test.mjs] stage is never allowed to skip silently.',
