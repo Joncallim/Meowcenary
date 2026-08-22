@@ -26,11 +26,11 @@ This is the compact durable record for the Epic 19 player-experience gate. Rows 
 | Evidence ID | J row | Device ID | Seed (if run) | Commit | Observer/date | Status | Outcome | Notes | Unverified reason |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | J1-controller | J1 — controller-only launch → menu → character → arena → Start, pointer-free | desktop-gamepad-chrome | unverified | pending | unverified | unverified | unverified | No real controller journey recorded. | Hardware and observer unavailable. |
-| J2-controller | J2 — controller-only run, movement/auto-fire/level-up/pause/rack merge/back | desktop-gamepad-chrome | unverified | pending | unverified | unverified | unverified | No real controller journey recorded. | Hardware and observer unavailable. |
-| J3-settings | J3 — settings live effect and reload persistence | desktop-keyboard-chrome | unverified | pending | unverified | unverified | unverified | No manual settings row recorded. | Observer unavailable. |
+| J2-controller | J2 — full run movement/auto-fire/level-up/pause/rack merge/back, controller-only | desktop-gamepad-chrome | unverified | pending | unverified | unverified | unverified | No real controller journey recorded. | Hardware and observer unavailable. |
+| J3-settings | J3 — settings mute/volume/reduced-motion live effect plus reload persistence | desktop-keyboard-chrome | unverified | pending | unverified | unverified | unverified | No manual settings row recorded. | Observer unavailable. |
 | J4-terminal | J4 — lose→Retry and win→Main Menu, controller-only | desktop-gamepad-chrome | unverified | pending | unverified | unverified | unverified | No terminal journey recorded. | Hardware and observer unavailable. |
 | J5-touch | J5 — touch parity of J1–J4 via direct selection | android-chrome-touch | unverified | pending | unverified | unverified | unverified | No real touch journey recorded. | Touch hardware unavailable. |
-| J6-reconnect | J6 — disconnect/reconnect, clear held state, no phantom confirm | desktop-gamepad-chrome | unverified | pending | unverified | unverified | unverified | No real soak recorded. | Controller unavailable. |
+| J6-reconnect | J6 — controller disconnect/reconnect mid-run and in menus with held-state clear, no phantom confirm, focus continuity, and no scene restart | desktop-gamepad-chrome | unverified | pending | unverified | unverified | unverified | No real soak recorded. | Controller unavailable. |
 | J7-mixed | J7 — rapid mixed-input soak; Enter + bottom face exactly one card choice | desktop-gamepad-chrome | unverified | pending | unverified | unverified | unverified | No real mixed-input soak recorded. | Controller and observer unavailable. |
 
 ## Touch ergonomics
