@@ -149,6 +149,60 @@ export class MockKeyboardPlugin extends EventEmitter {
     this.keys.delete(code);
   }
 
+  // Real Phaser KeyboardPlugin.on(event, callback, context) binds `this` to
+  // the registered context (M-02: the mock mirrors the plugin, not Node's
+  // EventEmitter). DebugOverlay and GameScene register key handlers with
+  // `this`, so a mock that drops the context would make those handlers no-ops.
+  private readonly listenerWrappers = new Map<
+    string | symbol,
+    Map<(...args: unknown[]) => void, (...args: unknown[]) => void>
+  >();
+
+  on(event: string | symbol, listener: (...args: unknown[]) => void, context?: unknown): this {
+    const wrapped = context !== undefined ? listener.bind(context) : listener;
+    let eventMap = this.listenerWrappers.get(event);
+    if (!eventMap) {
+      eventMap = new Map();
+      this.listenerWrappers.set(event, eventMap);
+    }
+    eventMap.set(listener, wrapped);
+    super.on(event, wrapped);
+    return this;
+  }
+
+  once(event: string | symbol, listener: (...args: unknown[]) => void, context?: unknown): this {
+    const bound = context !== undefined ? listener.bind(context) : listener;
+    const wrapped = (...args: unknown[]) => {
+      this.off(event, listener, context);
+      bound(...args);
+    };
+    let eventMap = this.listenerWrappers.get(event);
+    if (!eventMap) {
+      eventMap = new Map();
+      this.listenerWrappers.set(event, eventMap);
+    }
+    eventMap.set(listener, wrapped);
+    super.on(event, wrapped);
+    return this;
+  }
+
+  off(event: string | symbol, listener?: (...args: unknown[]) => void, context?: unknown): this {
+    if (listener === undefined) {
+      if (context === undefined) {
+        super.removeAllListeners(event);
+        this.listenerWrappers.delete(event);
+      }
+      return this;
+    }
+    const eventMap = this.listenerWrappers.get(event);
+    const wrapped = eventMap?.get(listener);
+    if (wrapped && eventMap) {
+      super.off(event, wrapped);
+      eventMap.delete(listener);
+    }
+    return this;
+  }
+
   keydown(key: string, repeat = false): void {
     this.emit('keydown', { key, repeat });
     const code = this.resolveCode(key);

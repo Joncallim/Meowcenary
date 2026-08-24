@@ -59,6 +59,29 @@ import { HeldWeaponView } from '../entities/heldWeaponView';
 import { DefeatPresentationSystem } from '../systems/defeatPresentation';
 import type { FocusDirection } from '../ui/focusList';
 
+/** U6: the gameplay camera shows canvas/zoom world units — 312×675.2 on the
+ *  390×844 canvas at the 1.25× gameplay zoom. */
+export function zoomedVisibleSize(
+  canvasWidth: number,
+  canvasHeight: number,
+  zoom = GAMEPLAY_ZOOM,
+): { readonly width: number; readonly height: number } {
+  return { width: canvasWidth / zoom, height: canvasHeight / zoom };
+}
+
+/** U6: the camera follows the player exactly when the arena is larger than
+ *  the visible area — including intermediate arenas between the zoomed
+ *  logical canvas (312×675.2) and the full canvas (390×844), where a static
+ *  camera would let the player walk off-screen. */
+export function arenaFollowEnabled(
+  arenaWidth: number,
+  arenaHeight: number,
+  visibleWidth: number,
+  visibleHeight: number,
+): boolean {
+  return arenaWidth > visibleWidth || arenaHeight > visibleHeight;
+}
+
 export class GameScene extends Phaser.Scene {
   private debugOverlay?: DebugOverlay;
   private inputController?: InputController;
@@ -181,12 +204,13 @@ export class GameScene extends Phaser.Scene {
       spawnY: arena.size.height / 2,
     }, visualArt.bindingById(`character:${request.characterId}`));
 
-    const visibleWidth = this.scale.width / GAMEPLAY_ZOOM;
-    const visibleHeight = this.scale.height / GAMEPLAY_ZOOM;
+    const visibleSize = zoomedVisibleSize(this.scale.width, this.scale.height);
     // Fractional zoom must retain subpixel camera motion; Phaser's integer
     // scroll rounding produces a visible sawtooth in the follow trace.
     this.cameras.main.roundPixels = false;
-    if (arena.size.width > visibleWidth || arena.size.height > visibleHeight) {
+    // U6: intermediate arenas (larger than the 312×675.2 visible area but
+    // smaller than the full canvas) MUST follow the player within bounds.
+    if (arenaFollowEnabled(arena.size.width, arena.size.height, visibleSize.width, visibleSize.height)) {
       this.cameras.main.startFollow(this.player.sprite, false, 0.1, 0.1);
     }
     this.cameras.main.setZoom(GAMEPLAY_ZOOM);

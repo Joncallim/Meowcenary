@@ -19,8 +19,9 @@ const REFERENCE_VIEWPORTS = [
 // ---------------------------------------------------------------------------
 // RESIZE-SOAK MATH AUDIT (B2, 2026-08-24): the game-phase harness composes
 // chooser, pause/rack, summary, controls, and feedback in the same zoomed
-// viewport as GameScene. The fake camera records the 1.25× render transform,
-// so target assertions multiply logical bounds by 1.25·FIT.
+// viewport as GameScene. The fake camera records the 1.25× render transform
+// and getBounds() applies it (M-02), so target assertions multiply the
+// already-zoomed logical bounds by FIT only.
 // ---------------------------------------------------------------------------
 interface ScaleLike {
   scale: {
@@ -60,13 +61,15 @@ interface TargetLike {
   getBounds(): { readonly width: number; readonly height: number };
 }
 
-/** The 44px promise is two-dimensional at both the target and return FIT. */
-function assertPhysicalTargets(targets: readonly TargetLike[], fit: number, zoom = GAMEPLAY_ZOOM): void {
+/** The 44px promise is two-dimensional at the return FIT. getBounds() already
+ *  includes the object's own scale AND the recorded camera zoom (M-02), so
+ *  the FIT scale is the only remaining physical multiplier. */
+function assertPhysicalTargets(targets: readonly TargetLike[], fit: number): void {
   expect(targets.length).toBeGreaterThan(0);
   for (const target of targets) {
     const bounds = target.getBounds();
-    expect(bounds.width * fit * zoom).toBeGreaterThanOrEqual(44 - 0.01);
-    expect(bounds.height * fit * zoom).toBeGreaterThanOrEqual(44 - 0.01);
+    expect(bounds.width * fit).toBeGreaterThanOrEqual(44 - 0.01);
+    expect(bounds.height * fit).toBeGreaterThanOrEqual(44 - 0.01);
   }
 }
 
@@ -136,7 +139,7 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     const menuTargets = (menu.menuScene as unknown as { objects: readonly TargetLike[] }).objects
       .filter((object) => object.state.kind === 'text' && object.state.handlers['pointerup'] && !object.state.destroyed);
     expect(menuTargets).toHaveLength(5);
-    assertPhysicalTargets(menuTargets, Math.min(width / 390, height / 844), 1);
+    assertPhysicalTargets(menuTargets, Math.min(width / 390, height / 844));
     const menuRing = menu.focusRingBounds()!;
     expect(menuRing.height).toBeGreaterThan(0);
     expect(menuRing.width).toBeGreaterThan(0);
@@ -155,7 +158,7 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     const returnedMenuTargets = (menu.menuScene as unknown as { objects: readonly TargetLike[] }).objects
       .filter((object) => object.state.kind === 'text' && object.state.handlers['pointerup'] && !object.state.destroyed);
     expect(returnedMenuTargets).toHaveLength(5);
-    assertPhysicalTargets(returnedMenuTargets, 1, 1);
+    assertPhysicalTargets(returnedMenuTargets, 1);
     expect(menu.listeners()).toEqual(menuListeners);
     expect(menu.sceneCommands()).toEqual({ start: 0, restart: 0 });
     menu.destroy();
@@ -190,11 +193,16 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     expect(game.chooserDiagnostics().rebuildCount).toBe(rebuilds + 1);
     expect(game.chooserDiagnostics().offerId).toBe(offerId);
     expect(game.focusSignature()).toEqual([0, 1, 0]);
+    // getBounds() reports RENDERED extents (width/height already include the
+    // recorded camera zoom, M-02), so world-space edges divide the zoom back
+    // out before comparing against the logical canvas.
     for (const card of game.chooserDiagnostics().cards) {
-      expect(card.x - card.width / 2).toBeGreaterThanOrEqual(-1);
-      expect(card.x + card.width / 2).toBeLessThanOrEqual(391);
-      expect(card.y - card.height / 2).toBeGreaterThanOrEqual(-1);
-      expect(card.y + card.height / 2).toBeLessThanOrEqual(845);
+      const worldWidth = card.width / GAMEPLAY_ZOOM;
+      const worldHeight = card.height / GAMEPLAY_ZOOM;
+      expect(card.x - worldWidth / 2).toBeGreaterThanOrEqual(-1);
+      expect(card.x + worldWidth / 2).toBeLessThanOrEqual(391);
+      expect(card.y - worldHeight / 2).toBeGreaterThanOrEqual(-1);
+      expect(card.y + worldHeight / 2).toBeLessThanOrEqual(845);
     }
     // Every surface with a scale listener was invoked exactly once; no
     // duplicate ui:* or hidden command comes from the resize itself.

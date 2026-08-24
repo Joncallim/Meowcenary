@@ -233,6 +233,11 @@ function fakeObject(
   x = 0,
   y = 0,
   initialStyle: Record<string, unknown> = {},
+  // M-02: the scene camera's recorded zoom. getBounds() reflects what RENDERS
+  // (displayWidth = scaleX * width, rendered through the camera zoom), so an
+  // over-zoomed surface is caught by bounds assertions instead of passing on
+  // floor geometry. Standalone conformance objects default to zoom 1.
+  readCameraZoom: () => number = () => 1,
 ) {
   const state: FakeObjectState = {
     kind,
@@ -442,14 +447,16 @@ function fakeObject(
       // Phaser Text bounds include its padding frame; rectangles/containers
       // have no padding, so only text objects grow by the padding inset.
       // The display size includes the object's own scale (real Phaser
-      // Shape.displayWidth = scaleX * width), so a scaled child's bounds
-      // reflect the rendered geometry (M-02).
+      // Shape.displayWidth = scaleX * width), AND the recorded camera zoom
+      // (M-02) — getBounds() measures what RENDERS, so zoomed surfaces are
+      // audited instead of passing on unzoomed floor geometry.
+      const zoom = readCameraZoom();
       const width = (state.kind === 'text'
         ? state.width + padding.left + padding.right
-        : state.width) * state.scaleX;
+        : state.width) * state.scaleX * zoom;
       const height = (state.kind === 'text'
         ? state.height + padding.top + padding.bottom
-        : state.height) * state.scaleY;
+        : state.height) * state.scaleY * zoom;
       return {
         x: state.x,
         y: state.y,
@@ -610,7 +617,7 @@ function createFakeScene(
     },
     add: {
       container(x: number, y: number) {
-        const base = fakeObject('container', '', 0, 0, x, y);
+        const base = fakeObject('container', '', 0, 0, x, y, {}, () => cameraState.zoom);
         const container = {
           ...base,
           get state() {
@@ -638,25 +645,25 @@ function createFakeScene(
         return container;
       },
       text(x: number, y: number, text: string, style: Record<string, unknown> = {}) {
-        return register(fakeObject('text', text, Math.max(24, text.length * 8), 16, x, y, style));
+        return register(fakeObject('text', text, Math.max(24, text.length * 8), 16, x, y, style, () => cameraState.zoom));
       },
       rectangle(x: number, y: number, width: number, height: number) {
-        return register(fakeObject('rect', '', width, height, x, y));
+        return register(fakeObject('rect', '', width, height, x, y, {}, () => cameraState.zoom));
       },
       circle(x: number, y: number, radius: number, fillColor?: number, fillAlpha?: number) {
-        const object = fakeObject('arc', '', radius * 2, radius * 2, x, y);
+        const object = fakeObject('arc', '', radius * 2, radius * 2, x, y, {}, () => cameraState.zoom);
         object.setRadius(radius);
         if (fillColor !== undefined) object.setFillStyle(fillColor, fillAlpha ?? 1);
         return register(object);
       },
       arc(x: number, y: number, radius: number, _start: number, _end: number, _ccw: boolean, fillColor?: number, fillAlpha?: number) {
-        const object = fakeObject('arc', '', radius * 2, radius * 2, x, y);
+        const object = fakeObject('arc', '', radius * 2, radius * 2, x, y, {}, () => cameraState.zoom);
         object.setRadius(radius);
         if (fillColor !== undefined) object.setFillStyle(fillColor, fillAlpha ?? 1);
         return register(object);
       },
       image(x: number, y: number, _textureKey: string) {
-        return register(fakeObject('image', '', 0, 0, x, y));
+        return register(fakeObject('image', '', 0, 0, x, y, {}, () => cameraState.zoom));
       },
     },
     get objects() {

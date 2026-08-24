@@ -320,11 +320,21 @@ export class PhaserPauseView {
       this.fullscreenPendingPanel = this.committedPanel;
     }
     // Phaser emits RESIZE before fullscreen settlement. If that resize already
-    // rebuilt this same committed panel, settlement only publishes state.
+    // rebuilt this same committed panel, settlement only publishes state. The
+    // dedupe identity is the FULL context key captured at the resize boundary
+    // (viewport/panel/state), recomputed here against the pending panel: a
+    // viewport drift that no resize event surfaced falls through to a real
+    // rebuild instead of silently skipping it.
+    const renderedState = this.renderedFullscreenState;
+    const currentKey = (renderedState === 'pending-enter' || renderedState === 'pending-exit')
+      && this.fullscreenPendingPanel !== undefined
+      ? this.fullscreenKey(this.viewport, this.fullscreenPendingPanel, renderedState)
+      : undefined;
     if (this.fullscreenResizeObserved
       && this.fullscreenResizeKey !== undefined
-      && this.renderedFullscreenState !== undefined
-      && (this.renderedFullscreenState === 'pending-enter' || this.renderedFullscreenState === 'pending-exit')) {
+      && currentKey !== undefined
+      && currentKey === this.fullscreenResizeKey
+      && (renderedState === 'pending-enter' || renderedState === 'pending-exit')) {
       this.fullscreenResizeKey = undefined;
       this.fullscreenPendingPanel = undefined;
       this.fullscreenResizeObserved = false;

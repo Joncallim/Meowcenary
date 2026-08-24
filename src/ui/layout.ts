@@ -78,6 +78,21 @@ export function zoomedGameUiViewport(
   };
 }
 
+/** M-07 (U7): map a canvas-space pointer to the LOCAL space of a
+ *  scrollFactor-0 UI root child. Root children live in world space, where the
+ *  gameplay camera zoom maps local coords 1.25× onto the canvas (local =
+ *  pointer / zoom — independent of camera scroll); the unzoomed menu root has
+ *  no origin and scale 1, so its divisor is 1. This is the PRODUCTION
+ *  transform the playtest pointer funnel regressions must drive, not a
+ *  test-local copy. */
+export function pointerToRootLocal(
+  pointer: { readonly x: number; readonly y: number },
+  viewport: Pick<UiViewport, 'originX' | 'originY'>,
+): { readonly x: number; readonly y: number } {
+  const zoom = viewport.originX === undefined ? 1 : GAMEPLAY_ZOOM;
+  return { x: pointer.x / zoom, y: pointer.y / zoom };
+}
+
 function positiveFinite(value: number, fallback: number): number {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }

@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { clampLength } from '../engine/vector';
 import { assertTouchStickConfig, RuntimeConfig, type TouchStickConfig } from '../engine/config';
 import type { InputController, InputMode, InputPresentationSnapshot } from '../systems/input';
-import { physicalToLogical, GAMEPLAY_ZOOM, zoomedGameUiViewport, type UiViewport } from './layout';
+import { pointerToRootLocal, physicalToLogical, GAMEPLAY_ZOOM, zoomedGameUiViewport, type UiViewport } from './layout';
 import { reducedMotionDuration, ThemeColor, ThemeDepth, ThemeFont } from './theme';
 
 
@@ -196,12 +196,14 @@ export class ControlsView {
     // both canvas-space, so both divide — the rendered stick center tracks
     // the finger and the thumb tracks it clamped to the visible radius. The
     // unzoomed (menu/plain) root has no origin and scale 1, so its divisor
-    // is 1.
+    // is 1. The start is mapped through the PRODUCTION pointerToRootLocal
+    // transform (U7) so the playtest regressions drive the same math.
     const zoom = this.viewport.originX === undefined ? 1 : GAMEPLAY_ZOOM;
-    this.stickBase.setPosition(start.x / zoom, start.y / zoom);
+    const local = pointerToRootLocal(start, this.viewport);
+    this.stickBase.setPosition(local.x, local.y);
     this.stickThumb.setPosition(
-      start.x / zoom + clamped.x / zoom,
-      start.y / zoom + clamped.y / zoom,
+      local.x + clamped.x / zoom,
+      local.y + clamped.y / zoom,
     );
   }
 

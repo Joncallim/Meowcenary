@@ -1,13 +1,13 @@
 # Epic 19 — Player experience gate
 
 **Status:** IN PROGRESS
-**References:** Epic #78; [governing architecture](../architecture/epic-19-player-ux-and-alpha-2-gate.md); Slice 4 merged commit: `b316a6a`; final remediation candidate: `ad5aeb9` (recheck required on the final SHA).
+**References:** Epic #78; [governing architecture](../architecture/epic-19-player-ux-and-alpha-2-gate.md); Slice 4 merged commit: `b316a6a`; final remediation candidate: `cacfb69` (the FINAL TESTED candidate — automated rows below pin to it, not to the `ad5aeb9` baseline; this docs revision is a descendant whose newly added regressions are recorded at the next gate cycle).
 
-This is the compact durable record for the Epic 19 player-experience gate. Rows without a real observer, device, and candidate commit remain `unverified`; automated results do not substitute for human evidence.
+This is the compact durable record for the Epic 19 player-experience gate. Rows without a real observer, device, and candidate commit remain `unverified`; automated results do not substitute for human evidence. Automated rows carry NO human observer — the Observer column records the run's provenance (`automated`), never a maintainer or agent.
 
 ## PF convergence recheck (draft)
 
-Maintainer draft, 2026-08-24, against candidate `ad5aeb9`. These verified-fail rows identify required final-candidate rechecks and do not substitute for human device evidence.
+Maintainer draft, 2026-08-24, against candidate `ad5aeb9` (the baseline where these failures were observed). These verified-fail rows identify required final-candidate (`cacfb69`) rechecks and do not substitute for human device evidence.
 
 | PF | Finding / check | Device, input, symptom | Candidate | Observer/date | Final-candidate recheck | Status |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -21,18 +21,18 @@ Maintainer draft, 2026-08-24, against candidate `ad5aeb9`. These verified-fail r
 
 ## Automated validation
 
-Eight separate rows (one per gate). Each test row records the exact candidate commit, observer/date, exit/pass, ordinary files/tests, stage-2 `9 passed`, and stage-3 fixed `6 + 3` all enforced.
+Eight separate rows (one per gate). Each test row records the exact candidate commit, observer/date, exit/pass, ordinary files/tests, stage-2 `9 passed`, and stage-3 fixed `6 + 3` all enforced. All rows pin the FINAL TESTED candidate `cacfb69` (not the `ad5aeb9` baseline) with its real numbers: 101 ordinary files / 1682 tests, stage-2 allocation 9/9, stage-3 fixed 6 + 3, normal plus BOTH shuffled reruns. Automated rows have no human observer — the Observer column is the run's provenance.
 
 | # | Commit | Observer/date | Check | Status | Outcome | Notes | Unverified reason |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `ad5aeb9` | Codex / 2026-08-24 | normal full `npm test` | verified | pass | Exit 0; ordinary 100 files / 1636 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
-| 2 | `ad5aeb9` | Codex / 2026-08-24 | shuffled full seed `190501` | verified | pass | `--sequence.shuffle --sequence.seed 190501`; exit 0; seed printed; ordinary 100 files / 1636 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
-| 3 | `ad5aeb9` | Codex / 2026-08-24 | shuffled full seed `190502` | verified | pass | `--sequence.shuffle --sequence.seed 190502`; exit 0; seed printed; ordinary 100 files / 1636 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
-| 4 | `ad5aeb9` | Codex / 2026-08-24 | `npm run lint` | verified | pass | `tsc --noEmit` exit 0. | — |
-| 5 | `ad5aeb9` | Codex / 2026-08-24 | `npm run build` | verified | pass | `tsc --noEmit && vite build` exit 0. | — |
-| 6 | `ad5aeb9` | Codex / 2026-08-24 | `npm run art:validate` | verified | pass | Node + Lua visual-art builder contracts all PASS, exit 0. | — |
-| 7 | `ad5aeb9` | maintainer / 2026-08-24 | `git diff --check` | pending | pending | Final-candidate recheck required after remediation; earlier runtime observations are not transferred. | Recheck on final SHA. |
-| 8 | `ad5aeb9` | unassigned / 2026-08-24 | independent orthogonal review | pending | not dispatched | Read-only full-footprint review artifact required. | Independent reviewer not assigned. |
+| 1 | `cacfb69` | automated / 2026-08-25 | normal full `npm test` | verified | pass | Exit 0; ordinary 101 files / 1682 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
+| 2 | `cacfb69` | automated / 2026-08-25 | shuffled full seed `190501` | verified | pass | `--sequence.shuffle --sequence.seed 190501`; exit 0; seed printed; ordinary 101 files / 1682 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
+| 3 | `cacfb69` | automated / 2026-08-25 | shuffled full seed `190502` | verified | pass | `--sequence.shuffle --sequence.seed 190502`; exit 0; seed printed; ordinary 101 files / 1682 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
+| 4 | `cacfb69` | automated / 2026-08-25 | `npm run lint` | verified | pass | `tsc --noEmit` exit 0. | — |
+| 5 | `cacfb69` | automated / 2026-08-25 | `npm run build` | verified | pass | `tsc --noEmit && vite build` exit 0. | — |
+| 6 | `cacfb69` | automated / 2026-08-25 | `npm run art:validate` | verified | pass | Node + Lua visual-art builder contracts all PASS, exit 0. | — |
+| 7 | `cacfb69` | maintainer / 2026-08-25 | `git diff --check` | pending | pending | Final-candidate recheck required after remediation; earlier runtime observations are not transferred. | Recheck on final SHA. |
+| 8 | `cacfb69` | unassigned / 2026-08-25 | independent orthogonal review | pending | not dispatched | Read-only full-footprint review artifact required. | Independent reviewer not assigned. |
 
 ## Device matrix
 
@@ -90,7 +90,7 @@ Eight separate rows (one per gate). Each test row records the exact candidate co
 
 | Evidence ID | Device ID | Commit | Observer/date | Check | Method | Status | Observed outcome | Unverified reason | Decision/follow-up |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| P-alloc | desktop-keyboard-chrome | `ad5aeb9` | maintainer / 2026-08-24 | §6 zero-allocation and runner regressions | `npm test` (recheck required) | pending | pending | Automated proxy only — not lived FPS; final-candidate provenance is retained for rerun. | Recheck on final SHA. |
+| P-alloc | desktop-keyboard-chrome | `cacfb69` | automated / 2026-08-25 | §6 zero-allocation and runner regressions | `npm test` | verified | pass | Stage-2 allocation 9/9 + stage-3 fixed 6 + 3 at the final tested candidate. Automated proxy only — not lived FPS. | — |
 | P-late-wave | unverified | pending | unverified | 4:30–5:00 Golden Run frame posture | real run with input polling | unverified | unverified | Deferred to Slice 5; no human browser run. | Do not infer frame pacing from allocation tests. |
 
 ## §10 experience matrix
@@ -99,7 +99,8 @@ Eight separate rows (one per gate). Each test row records the exact candidate co
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | X1-controller-journey | X1 — controller-only whole journey | desktop-gamepad-chrome | pending | unverified | unverified | unverified | No real controller run. |
 | X2-focus | X2 — visible focus across rerender, resize, device switch | desktop-gamepad-chrome | pending | unverified | unverified | unverified | No device/manual observation. |
-| X3-single-command | X3 — one input, one destructive/selection effect | desktop-gamepad-chrome | `ad5aeb9` | maintainer / 2026-08-24 | unverified | Automated mixed-input evidence requires final-candidate recheck; no real-device observation is available. | Automated soak does not verify the absent keyboard+controller device session. |
+| X3-single-command (automated soak) | X3 — one input, one destructive/selection effect | desktop-gamepad-chrome | `cacfb69` | automated / 2026-08-25 | verified | pass | Mixed-input + pointer-funnel regressions green at the final tested candidate (normal + both shuffled reruns). | Automated evidence only — no human observer. |
+| X3-single-command (maintainer) | X3 — one input, one destructive/selection effect | desktop-gamepad-chrome | `cacfb69` | maintainer / 2026-08-25 | unverified | unverified | No real-device observation is available; the automated soak does not verify the absent keyboard+controller device session. | Maintainer playtest session unavailable. |
 | X4-hints | X4 — hints follow last real device | desktop-keyboard-chrome | pending | unverified | unverified | unverified | No manual observation. |
 | X5-one-handed | X5 — one-handed phone comfort/reach | pixel-8-android-chrome | unverified | unverified | unverified | unverified | No touch hardware evidence. |
 | X6-agency | X6 — movement agency | pixel-8-android-chrome | unverified | unverified | unverified | unverified | D10 remains PENDING. |

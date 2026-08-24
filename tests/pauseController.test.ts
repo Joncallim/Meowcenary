@@ -1496,6 +1496,44 @@ describe('PhaserPauseView', () => {
       fullscreen.destroy();
     });
   });
+
+  it('rebuilds at settlement when the viewport drifted since the observed resize (resize-key mismatch)', () => {
+    withDocument(true, () => {
+      const { scale, listeners } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      const { scene, view, controller } = createView({ fullscreen });
+      controller.pause();
+      view.render(controller.snapshot());
+      press(liveButtons(scene)[2]!);
+      expect(fullscreen.snapshot).toBe('pending-enter');
+
+      // The observed resize records its viewport/panel/state key.
+      scene.resize(844, 390);
+      const afterResize = view.renderRebuildCount;
+
+      // The viewport drifts WITHOUT a resize event (a render under a changed
+      // scale that Phaser never surfaced): the settle-time key no longer
+      // matches the captured resize key, so the dedupe must fall through to
+      // a real rebuild instead of silently publishing stale geometry.
+      scene.scale.displaySize.width = 390;
+      scene.scale.displaySize.height = 844;
+      scene.scale.parentSize.width = 390;
+      scene.scale.parentSize.height = 844;
+      view.render(controller.snapshot());
+      const afterDrift = view.renderRebuildCount;
+      expect(afterDrift).toBe(afterResize + 1);
+
+      scale.isFullscreen = true;
+      listeners.get('enterfullscreen')?.();
+      expect(fullscreen.snapshot).toBe('active');
+      // Key mismatch → the settled layout is rendered, not skipped.
+      expect(view.renderRebuildCount).toBe(afterDrift + 1);
+      expect(textContents(scene)).toContain('Exit Fullscreen');
+
+      view.destroy();
+      fullscreen.destroy();
+    });
+  });
 });
 
 
@@ -1667,5 +1705,35 @@ describe('pause fullscreen wiring', () => {
       Object.defineProperty(globalThis, 'document', { configurable: true, value: prior });
       vi.useRealTimers();
     }
+  });
+
+  it('bounds the pending window at 500ms: no settle events transitions pending → idle and clears the timer', () => {
+    vi.useFakeTimers();
+    withDocument(true, () => {
+      const { scale } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      const settled = vi.fn();
+      fullscreen.subscribe(settled);
+      expect(fullscreen.request()).toBe(true);
+      expect(fullscreen.snapshot).toBe('pending-enter');
+      expect(vi.getTimerCount()).toBe(1);
+
+      // No Phaser event arrives within the 500ms bounded window: the
+      // controller must settle itself back to idle instead of hanging.
+      vi.advanceTimersByTime(500);
+      expect(fullscreen.snapshot).toBe('idle');
+      expect(settled).toHaveBeenCalledTimes(2); // pending-enter + timeout settle
+      // The settle cleared the timer — no re-arm, no retry fire.
+      expect(vi.getTimerCount()).toBe(0);
+      expect(scale.startFullscreen).toHaveBeenCalledTimes(1);
+      expect(scale.isFullscreen).toBe(false);
+
+      // A cleared timer means an immediate retry is permitted.
+      expect(fullscreen.request()).toBe(true);
+      expect(fullscreen.snapshot).toBe('pending-enter');
+      fullscreen.destroy();
+      expect(vi.getTimerCount()).toBe(0);
+    });
+    vi.useRealTimers();
   });
 });
