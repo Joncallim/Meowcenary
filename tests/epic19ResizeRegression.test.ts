@@ -5,6 +5,7 @@ import {
   ZERO_LISTENER_DIAGNOSTICS,
 } from './helpers/epic19SoakHarness';
 import { endRun } from '../src/gameplay/runState';
+import { GAMEPLAY_ZOOM, minimumHitTarget, zoomedGameUiViewport } from '../src/ui/layout';
 
 const REFERENCE_VIEWPORTS = [
   { name: 'phone portrait', width: 390, height: 844 },
@@ -13,6 +14,24 @@ const REFERENCE_VIEWPORTS = [
   { name: 'desktop', width: 1280, height: 720 },
 ] as const;
 
+// ---------------------------------------------------------------------------
+// RESIZE-SOAK MATH AUDIT (B2, 2026-08-24):
+//
+// The game-phase harness composes every GameScene UI surface (chooser, pause/
+// rack, run summary, controls) with the NON-zoomed logicalCanvasViewport, and
+// the shared fake camera records setZoom(1.25) but does NOT apply it to
+// object bounds. `assertPhysicalTargets` therefore measures the 44px promise
+// at FIT `s` only — NOT the production 1.25·s scale. That is honest per
+// M-07/M-08: the test asserts exactly what the fake can measure. The 1.25s
+// contract itself is enforced where the fake DOES support it:
+//   - the zoomedUiViewport/44px-logical assertions in the audit test below
+//     (pure factory math, exact arch FIT table values), and
+//   - the AM-3 zoomed-stick regression (controls built under the zoomed
+//     viewport with the recorded camera zoom applied to the measured render).
+// The GameScene UI surfaces under 1.25·s render 1.25× larger than the s-only
+// numbers below, so the physical 44px floor still holds; updating these
+// hardcodes to 1.25·s would be measuring a space the harness does not build.
+// ---------------------------------------------------------------------------
 interface ScaleLike {
   scale: {
     width: number;
@@ -60,6 +79,24 @@ function assertPhysicalTargets(targets: readonly TargetLike[], fit: number): voi
 }
 
 describe('Epic 19 Slice 5 resize/FIT regression', () => {
+  // Resize-soak math audit (B2): the arch FIT table for the zoomed GameScene
+  // UI. The zoomed viewport's logical canvas is invariant 312×675.2 at world
+  // origin (39,84.4); a 44px physical target is 44/(1.25·s) logical and
+  // renders exactly 44px after the camera zoom 1.25 and FIT s.
+  it.each(REFERENCE_VIEWPORTS)('zoomed GameScene UI matches the arch FIT table at $name (audit)', ({ width, height }) => {
+    const fit = Math.min(width / 390, height / 844);
+    const viewport = zoomedGameUiViewport(390 * fit, 844 * fit);
+    expect(viewport.canvasWidth).toBeCloseTo(312, 6);
+    expect(viewport.canvasHeight).toBeCloseTo(675.2, 6);
+    expect(viewport.originX).toBeCloseTo(39, 6);
+    expect(viewport.originY).toBeCloseTo(84.4, 6);
+    // 44px logical per the arch table: 35.2 / 76.1764103 / 21.7487555 /
+    // 41.2622222 at the four viewports.
+    expect(minimumHitTarget(viewport)).toBeCloseTo(44 / (GAMEPLAY_ZOOM * fit), 6);
+    // Rendered physical: logical × camera zoom × FIT = exactly 44.
+    expect(minimumHitTarget(viewport) * GAMEPLAY_ZOOM * fit).toBeCloseTo(44, 6);
+  });
+
   it.each(REFERENCE_VIEWPORTS)('preserves committed focus and command ownership at $name', ({ width, height }) => {
     // --- Menu surface ----------------------------------------------------
     const menu = createMenuSoakHarness({ fixtureSeed: width, storageKey: `e19-resize-menu-${width}` });

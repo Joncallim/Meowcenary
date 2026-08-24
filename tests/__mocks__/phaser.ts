@@ -16,11 +16,19 @@ export class MockGameObject {
   strokeColor?: number;
   strokeAlpha = 0;
   body?: MockBody;
+  scaleX = 1;
+  scaleY = 1;
+  scrollFactorX = 1;
+  scrollFactorY = 1;
 
   constructor(
     public x = 0,
     public y = 0,
   ) {}
+
+  private requireAlive(): void {
+    if (this.destroyed) throw new Error('Phaser fake object operation after destroy');
+  }
 
   setDepth(depth: number): this {
     this.depth = depth;
@@ -52,6 +60,26 @@ export class MockGameObject {
   setPosition(x: number, y: number): this {
     this.x = x;
     this.y = y;
+    return this;
+  }
+
+  /** Records the scale exactly like the real Phaser GameObject: scaleY
+   *  defaults to scaleX. Post-destroy calls are rejected (M-02: a scaled
+   *  child must never mutate after teardown). */
+  setScale(x: number, y: number = x): this {
+    this.requireAlive();
+    this.scaleX = x;
+    this.scaleY = y;
+    return this;
+  }
+
+  /** Records the per-object scroll factor. A parent Container's factor does
+   *  not propagate to children in Phaser, so every interactive screen-space
+   *  child declares its own — the fake records the child value (M-02/M-08). */
+  setScrollFactor(x: number, y: number = x): this {
+    this.requireAlive();
+    this.scrollFactorX = x;
+    this.scrollFactorY = y;
     return this;
   }
 
@@ -506,6 +534,12 @@ const MockPhaser = {
     CENTER_BOTH: 'CENTER_BOTH',
     Events: {
       RESIZE: 'resize',
+      // Phaser 3.90 Scale.Events fullscreen constants (M-02: the fake exposes
+      // the exact strings the FullscreenController binds).
+      ENTER_FULLSCREEN: 'enterfullscreen',
+      LEAVE_FULLSCREEN: 'leavefullscreen',
+      FULLSCREEN_FAILED: 'fullscreenfailed',
+      FULLSCREEN_UNSUPPORTED: 'fullscreenunsupported',
     },
   },
   Scene: class Scene {

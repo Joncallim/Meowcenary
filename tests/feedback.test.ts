@@ -147,6 +147,40 @@ describe('FeedbackSystem', () => {
     expect(renderer.weaponMergedCalls).toEqual([{ toTier: 3, heavyMotion: true }]);
   });
 
+  it('routes card:chosen to the renderer as visible choice feedback', () => {
+    const { bus, renderer } = createSystem();
+    bus.emit('card:chosen', { upgradeId: 'quick-paws' });
+
+    expect(renderer.upgradeChosenCalls).toEqual([true]);
+  });
+
+  it('passes heavyMotion=false for card:chosen when reduced motion is on', () => {
+    const { bus, renderer } = createSystem(true);
+    bus.emit('card:chosen', { upgradeId: 'quick-paws' });
+
+    expect(renderer.upgradeChosenCalls).toEqual([false]);
+  });
+
+  it('does not route other feedback events to upgradeChosen', () => {
+    const { bus, renderer } = createSystem();
+    bus.emit('projectile:hit', { weaponId: 'w', family: 'pistol', tier: 1, x: 0, y: 0, damage: 1, killed: false });
+    bus.emit('level:up', { level: 2 });
+    bus.emit('weapon:merged', { fromId: 'def-a', toId: 'def-b', toTier: 2 });
+    bus.emit('enemy:dashed', { x: 0, y: 0, dirX: 1, dirY: 0 });
+
+    expect(renderer.upgradeChosenCalls).toHaveLength(0);
+  });
+
+  it('unsubscribes the card:chosen listener on destroy', () => {
+    const { bus, renderer, system } = createSystem();
+    system.destroy();
+
+    bus.emit('card:chosen', { upgradeId: 'quick-paws' });
+
+    expect(renderer.upgradeChosenCalls).toHaveLength(0);
+    expect(renderer.destroyed).toBe(true);
+  });
+
   it('passes heavyMotion=true when reduced motion is off', () => {
     const { bus, renderer } = createSystem(false);
     bus.emit('projectile:hit', { weaponId: 'w', family: 'pistol', tier: 1, x: 0, y: 0, damage: 1, killed: false });
@@ -422,6 +456,32 @@ describe('PhaserFeedbackRenderer weapon-merged presentation', () => {
     };
     return { scene, rects };
   }
+
+  it('pulses the level overlay on upgradeChosen and decays it over update', () => {
+    const { scene, rects } = makeScene();
+    const renderer = new PhaserFeedbackRenderer({ scene: scene as never, maxEffects: 8, maxHeavyEffects: 4 });
+    const levelRect = rects[1]; // rects[0]=damage, rects[1]=level, rects[2]=merge
+
+    renderer.upgradeChosen(false);
+    expect(levelRect.strokeAlpha).toBeCloseTo(0.22);
+
+    renderer.update(200);
+    expect(levelRect.strokeAlpha).toBe(0);
+  });
+
+  it('lengthens the upgradeChosen pulse under heavy motion', () => {
+    const { scene, rects } = makeScene();
+    const renderer = new PhaserFeedbackRenderer({ scene: scene as never, maxEffects: 8, maxHeavyEffects: 4 });
+    const levelRect = rects[1];
+
+    renderer.upgradeChosen(true);
+    renderer.update(100);
+    // 180ms heavy pulse still visible at 100ms; the 90ms light pulse is gone.
+    expect(levelRect.strokeAlpha).toBeGreaterThan(0);
+
+    renderer.update(200);
+    expect(levelRect.strokeAlpha).toBe(0);
+  });
 
   // rects[0] = damageRect, rects[1] = levelRect, rects[2] = mergeRect (construction order).
   it('scales the merge pulse alpha up with tier', () => {

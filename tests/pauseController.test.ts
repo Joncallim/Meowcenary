@@ -516,7 +516,7 @@ describe('PhaserPauseView', () => {
     return scene;
   }
 
-  function createView(options: { readInputMode?: () => InputMode } = {}) {
+  function createView(options: { readInputMode?: () => InputMode; fullscreen?: FullscreenController } = {}) {
     const scene = createFakeScene();
     const harness = createHarness();
     const view = new PhaserPauseView({
@@ -526,6 +526,7 @@ describe('PhaserPauseView', () => {
       controller: harness.controller,
       inventory: harness.inventory,
       ...(options.readInputMode ? { readInputMode: options.readInputMode } : {}),
+      ...(options.fullscreen ? { fullscreen: options.fullscreen } : {}),
     });
     return { scene, view, ...harness };
   }
@@ -1394,23 +1395,97 @@ describe('PhaserPauseView', () => {
     expect(events).toEqual([]);
     expect(controller.snapshot().panel).toBe('pause');
   });
+
+  it('adds a third pause action only when available, disables it while pending, and unsubscribes on destroy', () => {
+    withDocument(true, () => {
+      const { scale, listeners } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      const { scene, view, controller } = createView({ fullscreen });
+      controller.pause();
+      view.render(controller.snapshot());
+
+      // Available: exactly three actions (Resume, Weapon Rack, Fullscreen).
+      expect(liveButtons(scene)).toHaveLength(3);
+      expect(textContents(scene)).toContain('Fullscreen');
+      expect(textContents(scene)).not.toContain('Fullscreen…');
+
+      // The fullscreen action uses the existing modal pointer funnel.
+      press(liveButtons(scene)[2]!);
+      expect(fullscreen.snapshot).toBe('pending-enter');
+      expect(scale.startFullscreen).toHaveBeenCalledTimes(1);
+
+      // A rebuild during the pending window renders a DISABLED "Fullscreen…"
+      // action; activating it cannot issue a second request.
+      view.render(controller.snapshot());
+      expect(textContents(scene)).toContain('Fullscreen…');
+      const pendingButtons = liveButtons(scene);
+      expect(pendingButtons).toHaveLength(3);
+      press(pendingButtons[2]!);
+      expect(scale.startFullscreen).toHaveBeenCalledTimes(1);
+      expect(fullscreen.snapshot).toBe('pending-enter');
+
+      // Settlement to active rebuilds the committed panel and enables exit.
+      scale.isFullscreen = true;
+      listeners.get('enterfullscreen')?.();
+      expect(fullscreen.snapshot).toBe('active');
+      expect(textContents(scene)).toContain('Exit Fullscreen');
+      press(liveButtons(scene)[2]!);
+      expect(fullscreen.snapshot).toBe('pending-exit');
+      expect(scale.stopFullscreen).toHaveBeenCalledTimes(1);
+
+      // Destroy unsubscribes the view from fullscreen settlement and scale
+      // resize; the controller's scale events are dropped by fullscreen.destroy.
+      view.destroy();
+      expect(scene.scale.listenerCount('resize')).toBe(0);
+      fullscreen.destroy();
+      expect(listeners.size).toBe(0);
+    });
+  });
+
+  it('omits the third pause action when fullscreen is unavailable', () => {
+    withDocument(false, () => {
+      const { scale } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      const { scene, view, controller } = createView({ fullscreen });
+      controller.pause();
+      view.render(controller.snapshot());
+
+      expect(liveButtons(scene)).toHaveLength(2);
+      expect(textContents(scene)).not.toContain('Fullscreen');
+      view.destroy();
+      fullscreen.destroy();
+    });
+  });
   });
 });
 
 
+function createScale() {
+  const listeners = new Map<string, () => void>();
+  const scale = {
+    isFullscreen: false,
+    startFullscreen: vi.fn(),
+    stopFullscreen: vi.fn(),
+    on: (event: string, listener: () => void) => listeners.set(event, listener),
+    off: (event: string, listener: () => void) => { if (listeners.get(event) === listener) listeners.delete(event); },
+  };
+  return { scale, listeners };
+}
+
+function withDocument(enabled: boolean, run: () => void) {
+  const prior = globalThis.document;
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { fullscreenEnabled: enabled } });
+  try {
+    run();
+  } finally {
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: prior });
+  }
+}
+
 describe('pause fullscreen wiring', () => {
   it('gates requests, exposes pending state, and disposes its subscription', () => {
-    const listeners = new Map<string, () => void>();
-    const scale = {
-      isFullscreen: false,
-      startFullscreen: vi.fn(),
-      stopFullscreen: vi.fn(),
-      on: (event: string, listener: () => void) => listeners.set(event, listener),
-      off: (event: string, listener: () => void) => { if (listeners.get(event) === listener) listeners.delete(event); },
-    };
-    const prior = globalThis.document;
-    Object.defineProperty(globalThis, 'document', { configurable: true, value: { fullscreenEnabled: true } });
-    try {
+    withDocument(true, () => {
+      const { scale, listeners } = createScale();
       const fullscreen = new FullscreenController(scale);
       const settled = vi.fn();
       const unsubscribe = fullscreen.subscribe(settled);
@@ -1425,8 +1500,67 @@ describe('pause fullscreen wiring', () => {
       unsubscribe();
       fullscreen.destroy();
       expect(listeners.size).toBe(0);
-    } finally {
-      Object.defineProperty(globalThis, 'document', { configurable: true, value: prior });
-    }
+    });
+  });
+
+  it('walks the full enter/exit/pending/failed/unsupported/destroy state machine', () => {
+    withDocument(true, () => {
+      const { scale, listeners } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      const settled = vi.fn();
+      fullscreen.subscribe(settled);
+
+      // Enter: request → pending-enter, one accepted gesture only.
+      expect(fullscreen.request()).toBe(true);
+      expect(fullscreen.snapshot).toBe('pending-enter');
+      expect(scale.startFullscreen).toHaveBeenCalledTimes(1);
+      expect(fullscreen.request()).toBe(false); // pending disables
+      scale.isFullscreen = true;
+      listeners.get('enterfullscreen')?.();
+      expect(fullscreen.snapshot).toBe('active');
+
+      // Exit: request → pending-exit → stopFullscreen → settle idle.
+      expect(fullscreen.request()).toBe(true);
+      expect(fullscreen.snapshot).toBe('pending-exit');
+      expect(scale.stopFullscreen).toHaveBeenCalledTimes(1);
+      expect(fullscreen.request()).toBe(false);
+      scale.isFullscreen = false;
+      listeners.get('leavefullscreen')?.();
+      expect(fullscreen.snapshot).toBe('idle');
+
+      // Failed entry settles back to idle without calling anything else.
+      expect(fullscreen.request()).toBe(true);
+      expect(fullscreen.snapshot).toBe('pending-enter');
+      listeners.get('fullscreenfailed')?.();
+      expect(fullscreen.snapshot).toBe('idle');
+      expect(scale.isFullscreen).toBe(false);
+
+      // Unsupported settlement also returns to idle.
+      expect(fullscreen.request()).toBe(true);
+      listeners.get('fullscreenunsupported')?.();
+      expect(fullscreen.snapshot).toBe('idle');
+
+      // Destroy unsubscribes all four scale events and stops transitions.
+      expect(listeners.size).toBe(4);
+      fullscreen.destroy();
+      expect(listeners.size).toBe(0);
+      expect(fullscreen.request()).toBe(false);
+      expect(scale.startFullscreen).toHaveBeenCalledTimes(3);
+      expect(scale.stopFullscreen).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('is available-gated: unsupported requests return false without touching the scale', () => {
+    withDocument(false, () => {
+      const { scale, listeners } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      expect(fullscreen.available).toBe(false);
+      expect(fullscreen.request()).toBe(false);
+      expect(scale.startFullscreen).not.toHaveBeenCalled();
+      expect(scale.stopFullscreen).not.toHaveBeenCalled();
+      expect(fullscreen.snapshot).toBe('idle');
+      fullscreen.destroy();
+      expect(listeners.size).toBe(0);
+    });
   });
 });

@@ -50,17 +50,20 @@ export class ControlsView {
     this.root = add.container?.(viewport.originX ?? 0, viewport.originY ?? 0);
     this.root?.setScrollFactor(0);
 
+    // Exactly ONE zoom compensation: the camera zoom 1.25 magnifies world
+    // units, so the authored radius is divided by the zoom and the arcs are
+    // left at scale 1 — the rendered diameter is 2·(64/1.25)·1.25·s = 128·s
+    // physical px with the visible radius at 64 px (AM-3). A second
+    // compensation (e.g. setScale(0.8)) would shrink the stick to 102.4·s.
     const stickRenderRadius = viewport.originX === undefined
       ? this.stickRadius
       : this.stickRadius / GAMEPLAY_ZOOM;
     this.stickBase = scene.add.arc(0, 0, stickRenderRadius, 0, 360, false, ThemeColor.cream, 0.18);
-    if (viewport.originX !== undefined) this.stickBase.setScale(0.8);
     this.stickBase.setDepth(ThemeDepth.transientHint);
     this.stickBase.setScrollFactor(0);
     this.stickBase.setVisible(false);
 
     this.stickThumb = scene.add.arc(0, 0, stickRenderRadius * 0.45, 0, 360, false, ThemeColor.cream, 0.55);
-    if (viewport.originX !== undefined) this.stickThumb.setScale(0.8);
     this.stickThumb.setDepth(ThemeDepth.transientHint);
     this.stickThumb.setScrollFactor(0);
     this.stickThumb.setVisible(false);
@@ -186,8 +189,19 @@ export class ControlsView {
     const delta = { x: current.x - start.x, y: current.y - start.y };
     const clamped = clampLength(delta, this.stickRadius);
 
-    this.stickBase.setPosition(start.x, start.y);
-    this.stickThumb.setPosition(start.x + clamped.x, start.y + clamped.y);
+    // Root children live in world space, where the gameplay camera zoom maps
+    // local coords 1.25× onto the canvas (M-07: local = pointer/1.25 for
+    // scrollFactor-0 children). The pointer start AND the clamped delta are
+    // both canvas-space, so both divide — the rendered stick center tracks
+    // the finger and the thumb tracks it clamped to the visible radius. The
+    // unzoomed (menu/plain) root has no origin and scale 1, so its divisor
+    // is 1.
+    const zoom = this.viewport.originX === undefined ? 1 : GAMEPLAY_ZOOM;
+    this.stickBase.setPosition(start.x / zoom, start.y / zoom);
+    this.stickThumb.setPosition(
+      start.x / zoom + clamped.x / zoom,
+      start.y / zoom + clamped.y / zoom,
+    );
   }
 
   private updateHint(mode: InputMode, dtMs: number): void {
