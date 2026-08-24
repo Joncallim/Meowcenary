@@ -124,6 +124,17 @@ export type FakeObject = ReturnType<typeof fakeObject>;
 /** The inner fake Scene object (input/scale/events/scene/registry/add/objects). */
 export type FakeScene = ReturnType<typeof createFakeScene>['scene'];
 
+/** Test-only public seam for conformance tests; uses the exact shared fake.
+ * It exists to lock fake lifecycle fidelity rather than duplicate it in a test. */
+export function createSharedFakeObjectForConformance(
+  kind: FakeObjectState['kind'],
+  text = '',
+  width = 0,
+  height = 0,
+) {
+  return fakeObject(kind, text, width, height);
+}
+
 function fakeObject(
   kind: FakeObjectState['kind'],
   text = '',

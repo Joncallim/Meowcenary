@@ -13,6 +13,8 @@ import { FocusNavigator, type FocusDirection } from '../ui/focusList';
 import { FocusStroke } from '../ui/theme';
 
 const MENU_DEPTH = ThemeDepth.pauseSummary;
+/** 44 physical px at the smallest promised FIT (844×390 → 0.462085). */
+const MIN_MENU_BUTTON_LOGICAL_WIDTH = 44 / 0.462085;
 
 /** The two audible command events a menu button can produce. */
 type MenuAudioEvent = 'ui:confirm' | 'ui:back';
@@ -37,6 +39,12 @@ export class MenuScene extends Phaser.Scene {
   private audioManager?: AudioManager;
   private inputController?: InputController;
   private audioUnlockUnsub?: () => void;
+  private rebuildCount = 0;
+
+  /** Number of committed render attempts; resize tests assert one per event. */
+  get renderRebuildCount(): number {
+    return this.rebuildCount;
+  }
 
   constructor() {
     super(SceneKey.Menu);
@@ -89,6 +97,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private render(snapshot: MainMenuSnapshot): void {
+    this.rebuildCount += 1;
     const panelChanged = this.committedPanel !== undefined && this.committedPanel !== snapshot.panel;
     // The display is uncommitted from the moment teardown begins until a
     // successful publication below (F1 committed-display gate).
@@ -461,14 +470,18 @@ export class MenuScene extends Phaser.Scene {
     text.setScrollFactor(0);
 
     const bounds = text.getBounds();
-    if (bounds.height < minHeight) {
-      // Phaser Text bounds (width/height, and therefore getBounds()) already
-      // include the current padding on both axes, so the delta
-      // (minHeight - bounds.height) undercounts by exactly the existing top
-      // padding. Topping the delta up with the current text.padding.top makes
-      // the final height land exactly on minHeight; without it the button
-      // would come out 2 × padding.top too short.
-      text.setPadding(10, (minHeight - bounds.height) / 2 + (text.padding.top ?? 8));
+    const horizontalPadding = bounds.width < MIN_MENU_BUTTON_LOGICAL_WIDTH
+      ? (MIN_MENU_BUTTON_LOGICAL_WIDTH - bounds.width) / 2 + (text.padding.left ?? 10)
+      : (text.padding.left ?? 10);
+    const verticalPadding = bounds.height < minHeight
+      ? (minHeight - bounds.height) / 2 + (text.padding.top ?? 8)
+      : (text.padding.top ?? 8);
+    // Text bounds include padding. The same correction used for height also
+    // applies horizontally: augment padding by half the missing bounds plus
+    // the current inset, so short labels meet the 44px physical width floor
+    // at the worst promised FIT without narrowing longer labels.
+    if (horizontalPadding !== (text.padding.left ?? 10) || verticalPadding !== (text.padding.top ?? 8)) {
+      text.setPadding(horizontalPadding, verticalPadding);
     }
 
     text.setInteractive({ useHandCursor: true });

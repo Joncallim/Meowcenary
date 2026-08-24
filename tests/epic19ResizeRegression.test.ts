@@ -37,6 +37,28 @@ function assertFitFixtureSetup(surface: ScaleLike, width: number, height: number
   return fit;
 }
 
+interface TargetLike {
+  readonly state: {
+    readonly kind: string;
+    readonly width: number;
+    readonly height: number;
+    readonly interactive: boolean;
+    readonly destroyed: boolean;
+    readonly handlers: Record<string, unknown>;
+  };
+  getBounds(): { readonly width: number; readonly height: number };
+}
+
+/** The 44px promise is two-dimensional at both the target and return FIT. */
+function assertPhysicalTargets(targets: readonly TargetLike[], fit: number): void {
+  expect(targets.length).toBeGreaterThan(0);
+  for (const target of targets) {
+    const bounds = target.getBounds();
+    expect(bounds.width * fit).toBeGreaterThanOrEqual(44 - 0.01);
+    expect(bounds.height * fit).toBeGreaterThanOrEqual(44 - 0.01);
+  }
+}
+
 describe('Epic 19 Slice 5 resize/FIT regression', () => {
   it.each(REFERENCE_VIEWPORTS)('preserves committed focus and command ownership at $name', ({ width, height }) => {
     // --- Menu surface ----------------------------------------------------
@@ -50,8 +72,10 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     const menuListeners = menu.listeners();
     expect(menu.focusRingCount()).toBe(1);
     const menuRowRing = menu.ringedTargetIndex();
+    const menuRebuilds = (menu.menuScene as unknown as { renderRebuildCount: number }).renderRebuildCount;
     menu.resizeTo(width, height);
     expect(menu.resizeEmitCount()).toBe(1);
+    expect((menu.menuScene as unknown as { renderRebuildCount: number }).renderRebuildCount).toBe(menuRebuilds + 1);
     assertFitFixtureSetup(menu.menuScene as unknown as ScaleLike, width, height);
     // The MenuScene listener transactionally rebuilds directly from THIS event
     // (no panel detour), preserving focus and listener cardinality.
@@ -59,12 +83,10 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     expect(menu.ringedTargetIndex()).toBe(menuRowRing);
     expect(menu.sceneCommands()).toEqual({ start: 0, restart: 0 });
     expect(menu.listeners()).toEqual(menuListeners);
-    const menuTargets = (menu.menuScene as unknown as { objects: readonly { state: { kind: string; handlers: Record<string, unknown>; destroyed: boolean }; getBounds(): { height: number } }[] }).objects
+    const menuTargets = (menu.menuScene as unknown as { objects: readonly TargetLike[] }).objects
       .filter((object) => object.state.kind === 'text' && object.state.handlers['pointerup'] && !object.state.destroyed);
     expect(menuTargets).toHaveLength(5);
-    for (const target of menuTargets) {
-      expect(target.getBounds().height * Math.min(width / 390, height / 844)).toBeGreaterThanOrEqual(44 - 0.01);
-    }
+    assertPhysicalTargets(menuTargets, Math.min(width / 390, height / 844));
     const menuRing = menu.focusRingBounds()!;
     expect(menuRing.height).toBeGreaterThan(0);
     expect(menuRing.width).toBeGreaterThan(0);
@@ -79,6 +101,11 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     expect(navs).toBe(1);
     menu.resizeTo(390, 844);
     expect(menu.resizeEmitCount()).toBe(2);
+    expect((menu.menuScene as unknown as { renderRebuildCount: number }).renderRebuildCount).toBe(menuRebuilds + 2);
+    const returnedMenuTargets = (menu.menuScene as unknown as { objects: readonly TargetLike[] }).objects
+      .filter((object) => object.state.kind === 'text' && object.state.handlers['pointerup'] && !object.state.destroyed);
+    expect(returnedMenuTargets).toHaveLength(5);
+    assertPhysicalTargets(returnedMenuTargets, 1);
     expect(menu.listeners()).toEqual(menuListeners);
     expect(menu.sceneCommands()).toEqual({ start: 0, restart: 0 });
     menu.destroy();
@@ -126,13 +153,17 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     expect(game.sceneCommands()).toEqual(commands);
     expect(game.listeners()).toEqual(listenersBefore);
     // Controls pause button is a promised 44px target: produced bounds × FIT.
-    const pauseButton = (game.gameScene as unknown as { objects: readonly { state: { kind: string; handlers: Record<string, unknown>; destroyed: boolean; width: number; height: number } }[] }).objects
+    const pauseButton = (game.gameScene as unknown as { objects: readonly TargetLike[] }).objects
       .find((object) => object.state.kind === 'rect' && object.state.handlers['pointerdown'] && !object.state.destroyed);
     expect(pauseButton).toBeDefined();
-    expect(pauseButton!.state.height * Math.min(width / 390, height / 844)).toBeGreaterThanOrEqual(44 - 0.01);
+    assertPhysicalTargets([pauseButton!], Math.min(width / 390, height / 844));
 
     game.resizeTo(390, 844);
     expect(game.chooserDiagnostics().rebuildCount).toBe(rebuilds + 2);
+    const returnedPauseButton = (game.gameScene as unknown as { objects: readonly TargetLike[] }).objects
+      .find((object) => object.state.kind === 'rect' && object.state.handlers['pointerdown'] && !object.state.destroyed);
+    expect(returnedPauseButton).toBeDefined();
+    assertPhysicalTargets([returnedPauseButton!], 1);
     expect(game.chooserDiagnostics().offerId).toBe(offerId);
     expect(game.focusSignature()).toEqual([0, 1, 0]);
     expect(uiEvents).toBe(uiBeforeResize);
@@ -156,16 +187,18 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     // Every rack interactive target promises a 44px minimum (the rack layout
     // guarantees slot and action sizes at these reference viewports — see
     // weaponRackLayout.test.ts): produced logical bounds × FIT scale ≥ 44.
-    const rackTargets = (game.gameScene as unknown as { objects: readonly { state: { kind: string; handlers: Record<string, unknown>; destroyed: boolean; width: number; height: number } }[] }).objects
+    const rackTargets = (game.gameScene as unknown as { objects: readonly TargetLike[] }).objects
       .filter((object) => object.state.kind === 'rect' && object.state.handlers['pointerover'] && !object.state.destroyed);
     expect(rackTargets.length).toBeGreaterThanOrEqual(8); // 6 slots + Merge + Back
-    for (const target of rackTargets) {
-      expect(target.state.height * Math.min(width / 390, height / 844)).toBeGreaterThanOrEqual(44 - 0.01);
-    }
+    assertPhysicalTargets(rackTargets, Math.min(width / 390, height / 844));
     expect(game.focusedRackTargetIndex()).toBe(0); // focus preserved
     expect(uiEvents).toBe(uiBeforeRackResize); // no command from resize
     expect(game.sceneCommands()).toEqual(commands);
     game.resizeTo(390, 844);
+    const returnedRackTargets = (game.gameScene as unknown as { objects: readonly TargetLike[] }).objects
+      .filter((object) => object.state.kind === 'rect' && object.state.handlers['pointerover'] && !object.state.destroyed);
+    expect(returnedRackTargets.length).toBeGreaterThanOrEqual(8);
+    assertPhysicalTargets(returnedRackTargets, 1);
     expect(game.focusedRackTargetIndex()).toBe(0);
     expect(uiEvents).toBe(uiBeforeRackResize);
     // G-15: nav still works in the rack after resizing.
@@ -182,19 +215,24 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     expect(game.runSummaryView.visible).toBe(true);
     expect(game.focusedModalButtonIndex()).toBe(0);
     const summaryListeners = game.listeners();
+    const summaryRebuilds = (game.runSummaryView as unknown as { renderRebuildCount: number }).renderRebuildCount;
     game.resizeTo(width, height);
+    expect((game.runSummaryView as unknown as { renderRebuildCount: number }).renderRebuildCount).toBe(summaryRebuilds + 1);
     expect(game.runSummaryView.visible).toBe(true);
     expect(game.focusedModalButtonIndex()).toBe(0);
     expect(game.listeners()).toEqual(summaryListeners);
-    const summaryButtons = (game.gameScene as unknown as { objects: readonly { state: { kind: string; handlers: Record<string, unknown>; destroyed: boolean; width: number; height: number } }[] }).objects
+    const summaryButtons = (game.gameScene as unknown as { objects: readonly TargetLike[] }).objects
       .filter((object) => object.state.kind === 'rect' && object.state.handlers['pointerup'] && !object.state.destroyed);
     expect(summaryButtons.length).toBe(2); // Retry + Main Menu
-    for (const button of summaryButtons) {
-      expect(button.state.height * Math.min(width / 390, height / 844)).toBeGreaterThanOrEqual(44 - 0.01);
-    }
+    assertPhysicalTargets(summaryButtons, Math.min(width / 390, height / 844));
     // G-15: nav remains live after the direct summary rebuild.
     const summaryNavsBefore = uiEvents;
     game.resizeTo(390, 844);
+    expect((game.runSummaryView as unknown as { renderRebuildCount: number }).renderRebuildCount).toBe(summaryRebuilds + 2);
+    const returnedSummaryButtons = (game.gameScene as unknown as { objects: readonly TargetLike[] }).objects
+      .filter((object) => object.state.kind === 'rect' && object.state.handlers['pointerup'] && !object.state.destroyed);
+    expect(returnedSummaryButtons).toHaveLength(2);
+    assertPhysicalTargets(returnedSummaryButtons, 1);
     expect(game.sceneCommands()).toEqual(commands);
     expect(game.runSummaryView.visible).toBe(true);
     expect(game.focusedModalButtonIndex()).toBe(0);

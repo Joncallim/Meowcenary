@@ -95,6 +95,12 @@ export class PhaserRunSummaryView {
   private summaryActive = false;
   private inputMode: InputMode = 'pointer';
   private lastInputMode: InputMode = 'pointer';
+  private rebuildCount = 0;
+
+  /** Number of summary render attempts; resize tests assert one per event. */
+  get renderRebuildCount(): number {
+    return this.rebuildCount;
+  }
 
   constructor(options: PhaserRunSummaryViewOptions) {
     this.scene = options.scene;
@@ -209,6 +215,7 @@ export class PhaserRunSummaryView {
   }
 
   private render(snapshot: RunSummarySnapshot): void {
+    this.rebuildCount += 1;
     if (this.disposed) {
       return;
     }
