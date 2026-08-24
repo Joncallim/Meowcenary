@@ -67,6 +67,11 @@ export class MenuScene extends Phaser.Scene {
 
     this.render(this.controller.snapshot());
 
+    // FIT changes the physical-to-logical hit-target conversion. Rebuild the
+    // committed panel from the real scale event so every live target is sized
+    // for the new display; render() preserves/clamps same-panel focus.
+    this.scale.on?.(Phaser.Scale.Events.RESIZE, this.handleResize, this);
+
     // A missing audio registry entry is tolerated; the scene stays
     // functional and silent.
     this.audioManager = this.getAudioManager();
@@ -538,6 +543,11 @@ export class MenuScene extends Phaser.Scene {
     this.render(next);
   }
 
+  private readonly handleResize = (): void => {
+    if (!this.controller) return;
+    this.render(this.controller.snapshot());
+  };
+
   private handleNavMove(direction: FocusDirection | number): void {
     // No committed display (never rendered, or a failed rebuild left only the
     // fallback): the retained navigator must not move or emit (F1).
@@ -586,6 +596,7 @@ export class MenuScene extends Phaser.Scene {
   private handleShutdown(): void {
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
+    this.scale.off?.(Phaser.Scale.Events.RESIZE, this.handleResize, this);
     this.removeAudioUnlockListeners();
     this.inputController?.destroy();
     this.inputController = undefined;

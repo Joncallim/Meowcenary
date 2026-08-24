@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 // ---------------------------------------------------------------------------
 // Epic 19 Slice 5 shared production-composition module.
 //
@@ -81,10 +81,11 @@ export function createFixtureSequence(seed: number): FixtureSequence {
  *  (pad / keyboard / simultaneous, 0-2 held polls) from its fixture
  *  sequence; the control executes the SAME commands with fixed gamepad
  *  delivery and zero fixture draws. */
-export type ScriptedOperation =
-  | { readonly press: number }
-  | { readonly levelUp: number }
-  | { readonly idlePolls: number };
+export interface ScriptedOperation {
+  readonly press?: number;
+  readonly levelUp?: number;
+  readonly idlePolls?: number;
+}
 
 /** Pad position -> keyboard key name for delivery selection (input.ts
  *  KEY_ACTION_MAP / GAMEPAD_BUTTONS equivalents). */
@@ -130,6 +131,7 @@ function fakeObject(
   height = 0,
   x = 0,
   y = 0,
+  initialStyle: Record<string, unknown> = {},
 ) {
   const state: FakeObjectState = {
     kind,
@@ -146,11 +148,32 @@ function fakeObject(
     strokeWidth: 0,
     strokeColor: undefined,
     strokeAlpha: 0,
-    style: {},
+    style: { ...initialStyle },
   };
   // Real Phaser Text default padding is zero on all sides (TextStyle.js
   // initializes `this.padding = { left: 0, right: 0, top: 0, bottom: 0 }`).
   const padding = { left: 0, top: 0, right: 0, bottom: 0 };
+  const requireAlive = (): void => {
+    if (state.destroyed) throw new Error('Phaser fake object operation after destroy');
+  };
+  const applyPadding = (left?: number | Record<string, number>, top?: number, right?: number, bottom?: number): void => {
+    if (typeof left === 'object') {
+      const xPadding = left.x;
+      const yPadding = left.y;
+      padding.left = xPadding ?? left.left ?? 0;
+      padding.right = xPadding ?? left.right ?? padding.left;
+      padding.top = yPadding ?? left.top ?? 0;
+      padding.bottom = yPadding ?? left.bottom ?? padding.top;
+      return;
+    }
+    padding.left = left ?? 0;
+    padding.top = top ?? padding.left;
+    padding.right = right ?? padding.left;
+    padding.bottom = bottom ?? padding.top;
+  };
+  if (kind === 'text' && initialStyle.padding && typeof initialStyle.padding === 'object') {
+    applyPadding(initialStyle.padding as Record<string, number>);
+  }
   const api = {
     get state() {
       return { ...state, handlers: { ...state.handlers }, style: { ...state.style } };
@@ -186,85 +209,104 @@ function fakeObject(
         : state.height;
     },
     setOrigin() {
+      requireAlive();
       return api;
     },
     setScrollFactor() {
+      requireAlive();
       return api;
     },
     setDepth() {
+      requireAlive();
       return api;
     },
     setAlpha(alpha: number) {
+      requireAlive();
       state.alpha = alpha;
       return api;
     },
     setPosition(x: number, y: number) {
+      requireAlive();
       state.x = x;
       state.y = y;
       return api;
     },
     setRadius(radius: number) {
+      requireAlive();
       state.radius = radius;
       return api;
     },
     setActive() {
+      requireAlive();
       return api;
     },
     setVisible() {
+      requireAlive();
       return api;
     },
     setStyle(style: Record<string, unknown>) {
+      requireAlive();
       state.style = { ...state.style, ...style };
       return api;
     },
     setText(text: string) {
+      requireAlive();
       state.text = text;
       return api;
     },
     setStrokeStyle(width: number, color: number, alpha: number) {
+      requireAlive();
       state.strokeWidth = width;
       state.strokeColor = color;
       state.strokeAlpha = alpha;
       return api;
     },
     setFillStyle(_color: number, _alpha = 1) {
+      requireAlive();
       return api;
     },
-    setPadding(left?: number, top?: number, right?: number, bottom?: number) {
-      if (left !== undefined) padding.left = left;
-      if (top !== undefined) padding.top = top;
-      if (right !== undefined) padding.right = right;
-      if (bottom !== undefined) padding.bottom = bottom;
+    setPadding(left?: number | Record<string, number>, top?: number, right?: number, bottom?: number) {
+      requireAlive();
+      applyPadding(left, top, right, bottom);
       return api;
     },
     setMaxLines() {
+      requireAlive();
       return api;
     },
     setWordWrapWidth() {
+      requireAlive();
       return api;
     },
     setFixedSize() {
+      requireAlive();
       return api;
     },
     setCrop() {
+      requireAlive();
       return api;
     },
     setScale() {
+      requireAlive();
       return api;
     },
     setInteractive() {
+      requireAlive();
       state.interactive = true;
       return api;
     },
     disableInteractive() {
+      requireAlive();
       state.interactive = false;
       return api;
     },
     on(event: string, handler: (...args: unknown[]) => void) {
+      requireAlive();
       state.handlers = { ...state.handlers, [event]: handler };
       return api;
     },
     off(event: string, handler: (...args: unknown[]) => void) {
+      requireAlive();
       const handlers = { ...state.handlers };
       if (handlers[event] === handler) {
         delete handlers[event];
@@ -273,12 +315,17 @@ function fakeObject(
       return api;
     },
     emit(event: string, ...args: unknown[]) {
+      requireAlive();
       state.handlers[event]?.(...args);
     },
     destroy() {
+      if (state.destroyed) return;
       state.destroyed = true;
+      state.interactive = false;
+      state.handlers = {};
     },
     getBounds() {
+      requireAlive();
       // Phaser Text bounds include its padding frame; rectangles/containers
       // have no padding, so only text objects grow by the padding inset.
       const width = state.kind === 'text'
@@ -449,8 +496,8 @@ function createFakeScene(
         register(container);
         return container;
       },
-      text(x: number, y: number, text: string) {
-        return register(fakeObject('text', text, Math.max(24, text.length * 8), 16, x, y));
+      text(x: number, y: number, text: string, style: Record<string, unknown> = {}) {
+        return register(fakeObject('text', text, Math.max(24, text.length * 8), 16, x, y, style));
       },
       rectangle(x: number, y: number, width: number, height: number) {
         return register(fakeObject('rect', '', width, height, x, y));
@@ -515,15 +562,6 @@ function createPointerSpies(input: MockInputPlugin) {
     move: vi.spyOn(input, 'pointerMove'),
     up: vi.spyOn(input, 'pointerUp'),
   };
-}
-
-function assertZeroPointerCalls(
-  pointerCalls: ReturnType<typeof createPointerSpies>,
-  phase: string,
-) {
-  expect(pointerCalls.down, `${phase}: pointerDown must stay at zero`).not.toHaveBeenCalled();
-  expect(pointerCalls.move, `${phase}: pointerMove must stay at zero`).not.toHaveBeenCalled();
-  expect(pointerCalls.up, `${phase}: pointerUp must stay at zero`).not.toHaveBeenCalled();
 }
 
 /** Exact listener counts on every lifecycle surface the phases attach to.

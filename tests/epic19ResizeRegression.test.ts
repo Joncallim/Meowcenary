@@ -53,28 +53,18 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     menu.resizeTo(width, height);
     expect(menu.resizeEmitCount()).toBe(1);
     assertFitFixtureSetup(menu.menuScene as unknown as ScaleLike, width, height);
-    // The menu scene has no scale listener (it re-renders on panel change):
-    // the resize itself must not move focus, duplicate rings, or transition.
+    // The MenuScene listener transactionally rebuilds directly from THIS event
+    // (no panel detour), preserving focus and listener cardinality.
     expect(menu.focusRingCount()).toBe(1);
     expect(menu.ringedTargetIndex()).toBe(menuRowRing);
     expect(menu.sceneCommands()).toEqual({ start: 0, restart: 0 });
     expect(menu.listeners()).toEqual(menuListeners);
-    // Force a real rebuild at the target viewport (panel round trip): the
-    // menu re-renders on panel change, so its produced targets now reflect
-    // the target FIT scale. Menu buttons size to
-    // (minimumHitTarget + textHeight) / 2 — the production padding formula
-    // undershoots the nominal 44px (a real production property, not a defect
-    // this test may assert away); the ring must stay live and within the
-    // logical canvas. The 44px contract is asserted on the surfaces whose
-    // produced bounds equal the promised minimum (modal buttons, controls
-    // pause button, rack slots). Home rows: Start(0) Character(1) Arena(2)
-    // Progression(3) Settings(4).
-    for (let i = 0; i < 4; i += 1) { menu.padDown(13); menu.poll(); menu.padUp(13); menu.poll(); }
-    menu.padDown(0); menu.poll(); menu.padUp(0); menu.poll(); // → Settings
-    expect(menu.menuSnapshot().panel).toBe('settings');
-    menu.padDown(1); menu.poll(); menu.padUp(1); menu.poll(); // → back Home
-    expect(menu.menuSnapshot().panel).toBe('home');
-    expect(menu.focusRingCount()).toBe(1);
+    const menuTargets = (menu.menuScene as unknown as { objects: readonly { state: { kind: string; handlers: Record<string, unknown>; destroyed: boolean }; getBounds(): { height: number } }[] }).objects
+      .filter((object) => object.state.kind === 'text' && object.state.handlers['pointerup'] && !object.state.destroyed);
+    expect(menuTargets).toHaveLength(5);
+    for (const target of menuTargets) {
+      expect(target.getBounds().height * Math.min(width / 390, height / 844)).toBeGreaterThanOrEqual(44 - 0.01);
+    }
     const menuRing = menu.focusRingBounds()!;
     expect(menuRing.height).toBeGreaterThan(0);
     expect(menuRing.width).toBeGreaterThan(0);
@@ -82,13 +72,14 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     expect(menuRing.x + menuRing.width).toBeLessThanOrEqual(391);
     expect(menuRing.y).toBeGreaterThanOrEqual(-1);
     expect(menuRing.y + menuRing.height).toBeLessThanOrEqual(845);
-    // A valid nav after the rebuild works (committed-display guard true).
+    // G-15: a valid nav after the direct rebuild works (committed-display true).
     let navs = 0;
     menu.context.bus.on('ui:navigate', () => { navs += 1; });
     menu.padDown(13); menu.poll(); menu.padUp(13); menu.poll();
     expect(navs).toBe(1);
     menu.resizeTo(390, 844);
     expect(menu.resizeEmitCount()).toBe(2);
+    expect(menu.listeners()).toEqual(menuListeners);
     expect(menu.sceneCommands()).toEqual({ start: 0, restart: 0 });
     menu.destroy();
     expect(menu.listeners()).toEqual(ZERO_LISTENER_DIAGNOSTICS);
@@ -183,28 +174,25 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     expect(uiEvents).toBe(rackNavsBefore + 1);
     expect(game.focusedRackTargetIndex()).toBe(1);
 
-    // 3. Summary surface: back out, resume, resize, then a fresh summary at
-    //    the target viewport measures its promised 44px modal targets.
+    // 3. Summary surface: back out, resume, open then resize the LIVE summary.
     game.padDown(1); game.poll(); game.padUp(1); game.poll(); // rack → pause
     game.padDown(0); game.poll(); game.padUp(0); game.poll(); // Resume
     expect(game.runState.status).toBe('active');
-    game.resizeTo(width, height);
-    expect(game.sceneCommands()).toEqual(commands);
     endRun(game.runState, 'won', game.bus);
     expect(game.runSummaryView.visible).toBe(true);
     expect(game.focusedModalButtonIndex()).toBe(0);
+    const summaryListeners = game.listeners();
+    game.resizeTo(width, height);
+    expect(game.runSummaryView.visible).toBe(true);
+    expect(game.focusedModalButtonIndex()).toBe(0);
+    expect(game.listeners()).toEqual(summaryListeners);
     const summaryButtons = (game.gameScene as unknown as { objects: readonly { state: { kind: string; handlers: Record<string, unknown>; destroyed: boolean; width: number; height: number } }[] }).objects
       .filter((object) => object.state.kind === 'rect' && object.state.handlers['pointerup'] && !object.state.destroyed);
     expect(summaryButtons.length).toBe(2); // Retry + Main Menu
-    // The summary has no scale listener (production truth): it sizes its
-    // targets at the viewport where it rendered — here the canonical 390×844
-    // viewport at FIT scale 1 — so the produced bounds meet 44 physical px
-    // at that viewport.
     for (const button of summaryButtons) {
-      expect(button.state.height).toBeGreaterThanOrEqual(44 - 0.01);
+      expect(button.state.height * Math.min(width / 390, height / 844)).toBeGreaterThanOrEqual(44 - 0.01);
     }
-    // The summary has no scale listener: a resize leaves it visible, focused,
-    // and command-consistent (G-15: nav still moves its focus).
+    // G-15: nav remains live after the direct summary rebuild.
     const summaryNavsBefore = uiEvents;
     game.resizeTo(390, 844);
     expect(game.sceneCommands()).toEqual(commands);

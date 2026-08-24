@@ -195,6 +195,11 @@ export interface Epic19GameSoakHarness extends Epic19InputDriver, Epic19FocusSur
     readonly reducedMotion: boolean;
     readonly cards: readonly { readonly x: number; readonly y: number; readonly width: number; readonly height: number }[];
   };
+  /** Visible production chooser instruction, not InputController internals. */
+  renderedHint(): string | undefined;
+  /** Fidelity-checked interactive-card pointer semantics (over then up). */
+  pointerOverChooserCard(index: number): void;
+  pointerTapChooserCard(index: number): void;
   /** Number of real resize events emitted on the shared scale. */
   resizeEmitCount(): number;
   /** Number of surface listener invocations for resize events. */
@@ -244,6 +249,20 @@ export function createGameSoakHarness(options: {
     focusedModalButtonIndex: () => focusedButtonIndex(phase.scene),
     runSummaryView: phase.runSummaryView,
     chooserDiagnostics: () => phase.upgradeChooser.diagnostics,
+    renderedHint: () => phase.scene.objects
+      .find((object) => object.state.kind === 'text' && !object.state.destroyed
+        && (object.state.text.includes('choose') || object.state.text === 'Tap a card'))
+      ?.state.text,
+    pointerOverChooserCard: (index) => {
+      const card = phase.scene.objects.filter((object) => object.state.kind === 'rect' && object.state.handlers.pointerover && !object.state.destroyed)[index];
+      if (!card || !card.state.interactive) throw new Error(`missing interactive chooser card ${index}`);
+      card.emit('pointerover');
+    },
+    pointerTapChooserCard: (index) => {
+      const card = phase.scene.objects.filter((object) => object.state.kind === 'rect' && object.state.handlers.pointerup && !object.state.destroyed)[index];
+      if (!card || !card.state.interactive) throw new Error(`missing interactive chooser card ${index}`);
+      card.emit('pointerup');
+    },
     resizeEmitCount: () => phase.scene.scale.emitCount('resize'),
     resizeListenerCalls: () => phase.scene.scale.listenerCallCount('resize'),
     shakeSpy: () => phase.shake,

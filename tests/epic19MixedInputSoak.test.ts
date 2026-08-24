@@ -289,6 +289,9 @@ describe('Epic 19 Slice 5 mixed-input soak', () => {
           oracle.hold('gamepad', 'navRight', false);
           pollOnce();
         } else if (sessionStep === 3) {
+          // A real visible interactive chooser card receives pointer-over;
+          // presentation is asserted from rendered Text, never just mode.
+          h.pointerOverChooserCard(1);
           h.input.pointerDown(50, 300);
           oracle.pointerDown(50, 300);
           pollOnce();
@@ -311,14 +314,16 @@ describe('Epic 19 Slice 5 mixed-input soak', () => {
           expect(h.chooserRingedCardIndex()).toBe(1);
           expect(h.focusRingCount()).toBe(1);
           expect(h.inputController.getInputMode()).toBe('gamepad');
+          expect(h.renderedHint()).toBe('D-pad/stick • Bottom face choose');
           expect(h.chooserDiagnostics().choiceIds).toHaveLength(3);
         }
         if (sessionStep === 4) {
-          // After a pointer switch the ring follows hover (none) — no stale
-          // focus ring survives the mode change.
+          // Pointer mode presents the real hovered target (not a stale
+          // keyboard/gamepad ring) and its rendered touch hint.
           expect(h.inputController.getInputMode()).toBe('pointer');
-          expect(h.chooserRingedCardIndex()).toBe(-1);
-          expect(h.focusRingCount()).toBe(0);
+          expect(h.chooserRingedCardIndex()).toBe(1);
+          expect(h.focusRingCount()).toBe(1);
+          expect(h.renderedHint()).toBe('Tap a card');
         }
         if (sessionStep === 6) {
           // The session confirm chose exactly one card synchronously.
