@@ -45,7 +45,7 @@ import {
   RunSummaryController,
   type RunSummarySource,
 } from '../ui/runSummary';
-import { logicalCanvasViewport } from '../ui/layout';
+import { zoomedGameUiViewport } from '../ui/layout';
 import { PassiveCoordinator } from '../systems/PassiveCoordinator';
 import { HazardSystem } from '../systems/HazardSystem';
 import { DEFAULT_PASSIVE_HANDLERS, createPassiveHandlerRegistry } from '../gameplay/characterPassives';
@@ -184,7 +184,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.cameras.main.setZoom(1.25);
 
-    const viewport = logicalCanvasViewport(
+    const viewport = zoomedGameUiViewport(
       this.scale.displaySize.width,
       this.scale.displaySize.height,
     );
@@ -280,6 +280,7 @@ export class GameScene extends Phaser.Scene {
       () => ctx.settings.reducedMotion,
       visualArt,
       () => this.inputController!.getInputMode(),
+      viewport,
     );
     this.progressionSystem = new ProgressionSystem({
       runState: this.runState,
@@ -326,6 +327,7 @@ export class GameScene extends Phaser.Scene {
         maxEffects: RuntimeConfig.performance.maxFeedbackEffects,
         maxHeavyEffects: RuntimeConfig.performance.maxHeavyFeedbackEffects,
         weaponFeel: ctx.data.weaponFeel,
+        viewport,
       }),
     });
     this.defeatPresentationSystem = new DefeatPresentationSystem({

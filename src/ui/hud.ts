@@ -243,7 +243,7 @@ export class PhaserHudView implements HudView {
       fontSize: `${labelSize}px`,
     };
 
-    this.container = scene.add.container(0, 0);
+    this.container = scene.add.container(viewport.originX ?? 0, viewport.originY ?? 0);
     this.container.setScrollFactor(0);
     this.container.setDepth(ThemeDepth.hud);
 

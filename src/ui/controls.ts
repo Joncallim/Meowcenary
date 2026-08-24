@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { clampLength } from '../engine/vector';
 import { assertTouchStickConfig, RuntimeConfig, type TouchStickConfig } from '../engine/config';
 import type { InputController, InputMode, InputPresentationSnapshot } from '../systems/input';
-import { physicalToLogical, type UiViewport } from './layout';
+import { physicalToLogical, GAMEPLAY_ZOOM, type UiViewport } from './layout';
 import { reducedMotionDuration, ThemeColor, ThemeDepth, ThemeFont } from './theme';
 
 
@@ -26,6 +26,7 @@ export class ControlsView {
   private readonly onPauseRequested: () => void;
   private readonly readReducedMotion: () => boolean;
   private readonly stickRadius: number;
+  private readonly root?: Phaser.GameObjects.Container;
   private readonly stickBase: Phaser.GameObjects.Arc;
   private readonly stickThumb: Phaser.GameObjects.Arc;
   private hintText!: Phaser.GameObjects.Text;
@@ -45,17 +46,26 @@ export class ControlsView {
     this.onPauseRequested = onPauseRequested;
     this.readReducedMotion = readReducedMotion;
     this.stickRadius = touchStick.radius;
+    const add = scene.add as typeof scene.add & { container?: (x: number, y: number) => Phaser.GameObjects.Container };
+    this.root = add.container?.(viewport.originX ?? 0, viewport.originY ?? 0);
+    this.root?.setScrollFactor(0);
 
-    this.stickBase = scene.add.arc(0, 0, this.stickRadius, 0, 360, false, ThemeColor.cream, 0.18);
+    const stickRenderRadius = viewport.originX === undefined
+      ? this.stickRadius
+      : this.stickRadius / GAMEPLAY_ZOOM;
+    this.stickBase = scene.add.arc(0, 0, stickRenderRadius, 0, 360, false, ThemeColor.cream, 0.18);
+    if (viewport.originX !== undefined) this.stickBase.setScale(0.8);
     this.stickBase.setDepth(ThemeDepth.transientHint);
     this.stickBase.setScrollFactor(0);
     this.stickBase.setVisible(false);
 
-    this.stickThumb = scene.add.arc(0, 0, this.stickRadius * 0.45, 0, 360, false, ThemeColor.cream, 0.55);
+    this.stickThumb = scene.add.arc(0, 0, stickRenderRadius * 0.45, 0, 360, false, ThemeColor.cream, 0.55);
+    if (viewport.originX !== undefined) this.stickThumb.setScale(0.8);
     this.stickThumb.setDepth(ThemeDepth.transientHint);
     this.stickThumb.setScrollFactor(0);
     this.stickThumb.setVisible(false);
 
+    this.root?.add([this.stickBase, this.stickThumb]);
     this.buildViewportControls();
     this.scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
   }
@@ -100,6 +110,9 @@ export class ControlsView {
     this.pauseButton.setStrokeStyle(physicalToLogical(2, viewport), ThemeColor.cream, 0.8);
     this.pauseButton.setInteractive();
     this.pauseButton.on('pointerdown', this.handlePausePointerDown, this);
+    // Every interactive/control child owns scrollFactor=0; containers do not
+    // propagate it in Phaser, and hit tests read the child value.
+    this.root?.add([this.hintText, this.pauseButton]);
   }
 
   update(dtMs: number): void {

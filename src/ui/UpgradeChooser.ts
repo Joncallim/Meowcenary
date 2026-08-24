@@ -11,6 +11,7 @@ import {
 } from './upgradeChooserController';
 import { computeUpgradeChooserLayout } from './upgradeChooserLayout';
 import type { InputMode } from '../systems/input';
+import type { UiViewport } from './layout';
 
 const CHOOSER_DEPTH = ThemeDepth.upgradeChooser;
 const CARD_STROKE = { color: ThemeColor.primaryDim, alpha: 0.78, width: 2 } as const;
@@ -27,9 +28,10 @@ export class UpgradeChooser {
     readReducedMotion: () => boolean = () => false,
     visualArt?: VisualArtLookup,
     readInputMode: () => InputMode = () => 'pointer',
+    viewport?: UiViewport,
   ) {
     this.bus = bus;
-    this.view = new PhaserUpgradeChooserView(scene, readReducedMotion, visualArt, readInputMode);
+    this.view = new PhaserUpgradeChooserView(scene, readReducedMotion, visualArt, readInputMode, viewport);
     this.controller = new UpgradeChooserController(
       bus,
       upgradeSystem,
@@ -128,6 +130,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     private readonly readReducedMotion: () => boolean = () => false,
     private readonly visualArt?: VisualArtLookup,
     private readonly readInputMode: () => InputMode = () => 'pointer',
+    private readonly viewport?: UiViewport,
   ) {
     scene.input.keyboard?.on('keydown', this.handleKeyDown, this);
     scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
@@ -210,7 +213,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       this.scene.scale.displaySize.height,
       offer.choices.length,
     );
-    const root = this.scene.add.container(0, 0);
+    const root = this.scene.add.container(this.viewport?.originX ?? 0, this.viewport?.originY ?? 0);
     const cardBackgrounds: Phaser.GameObjects.Rectangle[] = [];
     const renderedText: Array<{ role: string; object: Phaser.GameObjects.Text }> = [];
     const own = <T extends Phaser.GameObjects.GameObject>(object: T): T => {
@@ -310,7 +313,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           if (this.acceptsNavigation && this.currentOfferId === offer.offerId) this.armedPointerId = pointer.id;
         });
         card.on(Phaser.Input.Events.POINTER_UP, (pointer: Phaser.Input.Pointer) => {
-          if (this.armedPointerId !== pointer.id) return;
+          if (this.armedPointerId !== pointer?.id) return;
           this.armedPointerId = undefined;
           if (!this.acceptsNavigation || this.currentOfferId !== offer.offerId || this.focusIndex !== index) return;
           this.submit(offer.offerId, index);

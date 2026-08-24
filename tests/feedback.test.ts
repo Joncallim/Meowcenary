@@ -13,6 +13,7 @@ function createFakeRenderer(): FeedbackRenderer & {
   enemyKilledCalls: Array<{ x: number; y: number; heavyMotion: boolean }>;
   playerDamagedCalls: Array<{ amount: number; heavyMotion: boolean }>;
   levelUpCalls: boolean[];
+  upgradeChosenCalls: boolean[];
   weaponMergedCalls: Array<{ toTier: number; heavyMotion: boolean }>;
   enemyDashedCalls: Array<{ x: number; y: number; dirX: number; dirY: number; heavyMotion: boolean }>;
   enemyHeavyStepCalls: Array<{ x: number; y: number; heavyMotion: boolean }>;
@@ -26,6 +27,7 @@ function createFakeRenderer(): FeedbackRenderer & {
     enemyKilledCalls: [],
     playerDamagedCalls: [],
     levelUpCalls: [],
+    upgradeChosenCalls: [],
     weaponMergedCalls: [],
     enemyDashedCalls: [],
     enemyHeavyStepCalls: [],
@@ -49,6 +51,9 @@ function createFakeRenderer(): FeedbackRenderer & {
     },
     levelUp(heavyMotion: boolean) {
       this.levelUpCalls.push(heavyMotion);
+    },
+    upgradeChosen(heavyMotion: boolean) {
+      this.upgradeChosenCalls.push(heavyMotion);
     },
     weaponMerged(toTier: number, heavyMotion: boolean) {
       this.weaponMergedCalls.push({ toTier, heavyMotion });

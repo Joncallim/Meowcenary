@@ -597,11 +597,11 @@ export class PhaserWeaponRackPanel {
       this.applyFocus();
     });
     handle.target.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
-      if (!this.disposed && this.isOpen() && this.hasCommittedRoot()) armedPointerId = pointer.id;
+      if (!this.disposed && this.isOpen() && this.hasCommittedRoot()) armedPointerId = pointer?.id;
     });
     // A release only commits an arm made by the same pointer inside this target.
     handle.target.on(Phaser.Input.Events.POINTER_UP, (pointer: Phaser.Input.Pointer) => {
-      if (armedPointerId !== pointer.id) return;
+      if (armedPointerId !== pointer?.id) return;
       armedPointerId = undefined;
       if (this.disposed || !this.isOpen() || !this.hasCommittedRoot()) return;
       this.hoveredIndex = index;
@@ -636,10 +636,10 @@ export class PhaserWeaponRackPanel {
       this.applyFocus();
     });
     target.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
-      if (!this.disposed && this.isOpen() && this.hasCommittedRoot()) armedPointerId = pointer.id;
+      if (!this.disposed && this.isOpen() && this.hasCommittedRoot()) armedPointerId = pointer?.id;
     });
     target.on(Phaser.Input.Events.POINTER_UP, (pointer: Phaser.Input.Pointer) => {
-      if (armedPointerId !== pointer.id) return;
+      if (armedPointerId !== pointer?.id) return;
       armedPointerId = undefined;
       if (this.disposed || !this.isOpen() || !this.hasCommittedRoot()) return;
       this.hoveredIndex = index;

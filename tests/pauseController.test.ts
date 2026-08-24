@@ -20,6 +20,7 @@ vi.mock('phaser', () => ({
   default: {
     Input: {
       Events: {
+        POINTER_DOWN: 'pointerdown',
         POINTER_UP: 'pointerup',
         POINTER_OVER: 'pointerover',
         POINTER_OUT: 'pointerout',
@@ -552,6 +553,15 @@ describe('PhaserPauseView', () => {
         !object.state.destroyed,
     );
 
+  /** Drives the rack's arm+commit pointer funnel: pointerdown with a
+   *  captured pointer id arms the target, pointerup with the same id
+   *  commits it (X3 boundary). */
+  const press = (object: ReturnType<typeof createFakeScene>['objects'][number]) => {
+    const handlers = object.state.handlers as unknown as Record<string, (pointer: { id: number }) => void>;
+    handlers['pointerdown']?.({ id: 7 });
+    handlers['pointerup']?.({ id: 7 });
+  };
+
   it('renders nothing while the panel is closed', () => {
     const { scene } = createView();
     expect(scene.objects).toHaveLength(0);
@@ -595,10 +605,11 @@ describe('PhaserPauseView', () => {
       (object) =>
         object.state.kind === 'rect' && object.state.interactive && object.state.handlers['pointerup'],
     );
-    // Two weapon cards plus Merge and Back. Merge is visibly disabled without
-    // a preview but stays interactive for hover: command suppression lives in
-    // the handle's enabled guard (round-2 finding F2).
-    expect(rows).toHaveLength(4);
+    // All six slots (occupied and empty) plus Merge and Back are interactive
+    // targets; empty slots register a no-op activation. Merge is visibly
+    // disabled without a preview but stays interactive for hover: command
+    // suppression lives in the handle's enabled guard (round-2 finding F2).
+    expect(rows).toHaveLength(8);
   });
 
   it('does not expose an interactive merge command without a valid pair', () => {
@@ -611,18 +622,19 @@ describe('PhaserPauseView', () => {
     expect(textContents(scene)).toEqual(
       expect.arrayContaining(['No compatible pair in the rack yet.', 'SELECT A MATCHING PAIR']),
     );
-    // Merge and Back are both registered; the disabled Merge stays
-    // interactive for hover but its funnel cannot emit a command.
-    expect(liveButtons(scene)).toHaveLength(2);
-    expect(liveButtons(scene)[0]!.state.interactive).toBe(true);
-    expect(liveButtons(scene)[1]!.state.interactive).toBe(true);
-    liveButtons(scene)[0]!.state.handlers['pointerup']!(); // disabled Merge
+    // All six slots plus Merge and Back are registered; the disabled Merge
+    // stays interactive for hover but its funnel cannot emit a command. In
+    // creation order: slots 0-5, Merge (6), Back (7).
+    expect(liveButtons(scene)).toHaveLength(8);
+    expect(liveButtons(scene)[6]!.state.interactive).toBe(true);
+    expect(liveButtons(scene)[7]!.state.interactive).toBe(true);
+    press(liveButtons(scene)[6]!); // disabled Merge
     expect(events).toEqual([]);
     expect(controller.snapshot().inventory.selectedInstanceIds).toEqual([]);
     expect(controller.snapshot().panel).toBe('inventory');
 
     // G-15: the disabled no-op is not terminal — Back still walks to pause.
-    liveButtons(scene)[1]!.state.handlers['pointerup']!();
+    press(liveButtons(scene)[7]!);
     expect(events).toEqual(['ui:back']);
     expect(controller.snapshot().panel).toBe('pause');
   });
@@ -1236,11 +1248,12 @@ describe('PhaserPauseView', () => {
     view.render(controller.snapshot());
     const events = recordEvents(bus);
 
-    liveButtons(scene)[0]!.state.handlers['pointerup']!(); // select a → ui:navigate
+    // Creation order: slots 0-5 (a, b occupied), Merge (6), Back (7).
+    press(liveButtons(scene)[0]!); // select a → ui:navigate
     expect(textContents(scene)).toEqual(
       expect.arrayContaining(['PICK 1', 'MATCH', 'Choose a highlighted match.']),
     );
-    liveButtons(scene)[1]!.state.handlers['pointerup']!(); // select b → ui:navigate
+    press(liveButtons(scene)[1]!); // select b → ui:navigate
     expect(textContents(scene)).toEqual(
       expect.arrayContaining([
         'T1 + T1 → T2',
@@ -1249,7 +1262,7 @@ describe('PhaserPauseView', () => {
         'MERGE → Scrap Pistol II',
       ]),
     );
-    liveButtons(scene)[2]!.state.handlers['pointerup']!(); // Merge Selected → ui:confirm
+    press(liveButtons(scene)[6]!); // Merge Selected → ui:confirm
 
     expect(events).toEqual(['ui:navigate', 'ui:navigate', 'ui:confirm']);
     expect(textContents(scene)).toEqual(
@@ -1268,10 +1281,11 @@ describe('PhaserPauseView', () => {
     view.render(controller.snapshot());
     const events = recordEvents(bus);
 
-    // Merge and Back are both registered; the disabled Merge's funnel emits
-    // nothing (activated guard), so no merge command event can leak.
-    expect(liveButtons(scene)).toHaveLength(2);
-    liveButtons(scene)[0]!.state.handlers['pointerup']!(); // disabled Merge
+    // All six slots plus Merge and Back are registered; the disabled Merge's
+    // funnel emits nothing (activated guard), so no merge command event can
+    // leak. In creation order: slots 0-5, Merge (6), Back (7).
+    expect(liveButtons(scene)).toHaveLength(8);
+    press(liveButtons(scene)[6]!); // disabled Merge
     expect(events).toEqual([]);
     expect(textContents(scene)).toEqual(
       expect.arrayContaining(['SELECT A MATCHING PAIR']),
@@ -1281,11 +1295,11 @@ describe('PhaserPauseView', () => {
     // and confirming the now-enabled Merge routes exactly the expected events.
     run.equipped = [instance('scrap-pistol-t1', 'a'), instance('scrap-pistol-t1', 'b')];
     view.render(controller.snapshot());
-    expect(liveButtons(scene)).toHaveLength(4); // slot a, slot b, Merge, Back
-    liveButtons(scene)[0]!.state.handlers['pointerup']!();
-    liveButtons(scene)[1]!.state.handlers['pointerup']!();
-    expect(liveButtons(scene)).toHaveLength(4); // Merge now enabled
-    liveButtons(scene)[2]!.state.handlers['pointerup']!();
+    expect(liveButtons(scene)).toHaveLength(8); // 6 slots + Merge + Back
+    press(liveButtons(scene)[0]!);
+    press(liveButtons(scene)[1]!);
+    expect(liveButtons(scene)).toHaveLength(8); // Merge now enabled
+    press(liveButtons(scene)[6]!);
     expect(events).toEqual(['ui:navigate', 'ui:navigate', 'ui:confirm']);
     expect(run.equipped).toHaveLength(1);
     expect(run.equipped[0]?.tier).toBe(2);

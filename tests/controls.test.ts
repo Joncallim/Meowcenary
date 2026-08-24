@@ -213,7 +213,8 @@ describe('ControlsView hints', () => {
     const hint = scene.objects[4];
     const pause = scene.objects[5];
     const fitScale = 390 / 844;
-    expect(Number(hint.state.y) * fitScale).toBeCloseTo(302, 5);
+    // The strip is gone: the hint owns the bottom safe margin above the stick.
+    expect(Number(hint.state.y) * fitScale).toBeCloseTo(306.8530805687204, 5);
     expect(Number(pause.state.width) * fitScale).toBeCloseTo(44, 5);
     expect(Number(pause.state.height) * fitScale).toBeCloseTo(44, 5);
 

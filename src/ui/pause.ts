@@ -208,7 +208,7 @@ export class PhaserPauseView {
     const margin = physicalToLogical(12, viewport);
     const hitTarget = minimumHitTarget(viewport);
     const buttonWidth = Math.max(180, width - margin * 4);
-    const root = scene.add.container(0, 0);
+    const root = scene.add.container(this.viewport.originX ?? 0, this.viewport.originY ?? 0);
 
     try {
       root.setDepth(ThemeDepth.pauseSummary);

@@ -81,8 +81,6 @@ const eventPayloads = {
   'xp:gained': { amount: 1, total: 1 },
   'level:up': { level: 2 },
   'currency:changed': { runTotal: 10 },
-  'weapon:merged': { fromId: 'def-a', toId: 'def-b', toTier: 2 },
-  'weapon:acquired': { definitionId: 'def-a', instanceId: 'i1', rackCount: 1, rackCapacity: 6, x: 0, y: 0 },
   'run:paused': {},
   'run:resumed': {},
   'run:won': { timeMs: 1000, level: 2, kills: 3 },
@@ -232,46 +230,21 @@ describe('createHudSource', () => {
     } as DataWeaponRegistry;
   }
 
-  it('looks up weapon names from the registry and preserves runtime tiers', () => {
+  it('does not expose weapon inventory in the HUD snapshot', () => {
     const runState = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
-    runState.equipped = [
-      { instanceId: 'i1', defId: 'def-pistol', family: 'pistol', tier: 2 },
-      { instanceId: 'i2', defId: 'def-unknown', family: 'unknown', tier: 1 },
-    ];
-    const source = createHudSource({
-      runState,
-      player: createPlayer(),
-      durationMs: 60_000,
-      weaponRegistry: createWeaponRegistry(),
-    });
-
-    const snapshot = source.snapshot();
-
-    expect(snapshot.weapons).toEqual([
-      { instanceId: 'i1', name: 'Plasma Pistol', tier: 2 },
-      { instanceId: 'i2', name: 'def-unknown', tier: 1 },
-    ]);
-    expect(Object.isFrozen(snapshot)).toBe(true);
-    expect(Object.isFrozen(snapshot.weapons[0])).toBe(true);
+    runState.equipped = [{ instanceId: 'i1', defId: 'def-pistol', family: 'pistol', tier: 2 }];
+    const snapshot = createHudSource({ runState, player: createPlayer(), durationMs: 60_000 }).snapshot();
+    expect(snapshot.weapons).toEqual([]);
     expect(snapshot.mergeReady).toBe(false);
   });
 
-  it('reports merge-ready iff the authoritative rack contains a valid pair', () => {
+  it('does not make HUD merge readiness depend on the authoritative rack', () => {
     const runState = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
     runState.equipped = [
       { instanceId: 'i1', defId: 'def-pistol', family: 'pistol', tier: 1 },
       { instanceId: 'i2', defId: 'def-pistol', family: 'pistol', tier: 1 },
     ];
-    const source = createHudSource({
-      runState,
-      player: createPlayer(),
-      durationMs: 60_000,
-      weaponRegistry: createWeaponRegistry(),
-    });
-
-    expect(source.snapshot().mergeReady).toBe(true);
-    runState.equipped = [runState.equipped[0]!];
-    expect(source.snapshot().mergeReady).toBe(false);
+    expect(createHudSource({ runState, player: createPlayer(), durationMs: 60_000 }).snapshot().mergeReady).toBe(false);
   });
 
   it('reflects current run state on every snapshot', () => {
@@ -441,7 +414,7 @@ describe('PhaserHudView', () => {
     });
   });
 
-  it('reports the rack capacity label from 0/6 through 6/6 (Epic 14 §D13)', () => {
+  it('never renders a rack strip label or interactive rack target at any rack count', () => {
     const scene = createFakeScene();
     const view = new PhaserHudView({ scene: scene as never, viewport: logicalCanvasViewport() });
 
@@ -465,18 +438,15 @@ describe('PhaserHudView', () => {
         weapons,
         mergeReady: count === 2,
       });
-
-      const weaponText = scene.objects.find((object) =>
-        'state' in object && typeof object.state.text === 'string' && object.state.text.startsWith('Rack '),
-      );
-      const expectedState = count === 2
-        ? 'MERGE READY'
-        : count === WEAPON_RACK_CAPACITY
-          ? 'RACK FULL'
-          : 'TAP TO INSPECT';
-      const expected = `Rack ${count}/${WEAPON_RACK_CAPACITY}  •  ${expectedState}`;
-      expect(weaponText?.state.text).toBe(expected);
     }
+
+    // The HUD rack strip is removed: no 'Rack N/6' label, no inventory
+    // command surface survives at any rack occupancy.
+    const rackLabels = scene.objects.filter((object) =>
+      'state' in object && typeof object.state.text === 'string' && object.state.text.startsWith('Rack '),
+    );
+    expect(rackLabels).toHaveLength(0);
+    expect(scene.objects.filter((object) => object.state.interactive)).toHaveLength(0);
   });
 
   it('destroys its container and children', () => {
@@ -489,12 +459,13 @@ describe('PhaserHudView', () => {
     expect(scene.scale.listenerCount('resize')).toBe(0);
   });
 
-  it('rebuilds the HUD and preserves a 44px rack target after a wide resize', () => {
+  it('rebuilds the HUD after a wide resize with no rack target or label and no inventory command', () => {
     const scene = createFakeScene();
+    const onInventoryRequested = vi.fn();
     const view = new PhaserHudView({
       scene: scene as never,
       viewport: logicalCanvasViewport(),
-      onInventoryRequested: vi.fn(),
+      onInventoryRequested,
     });
     view.render({
       status: 'active',
@@ -514,18 +485,22 @@ describe('PhaserHudView', () => {
 
     scene.resize(844, 390);
 
+    // The rebuild still runs and owns its resize listener...
     expect(oldObjects.every((object) => object.state.destroyed)).toBe(true);
     expect(scene.scale.listenerCount('resize')).toBe(1);
-    const rack = scene.objects.find((object) =>
+    // ...but the rack strip is gone: no interactive rack target, no rack
+    // label, and the deprecated inventory callback is never invoked.
+    const rackTargets = scene.objects.filter((object) =>
       object.state.kind === 'rect' && object.state.interactive && !object.state.destroyed,
     );
-    const fitScale = 390 / 844;
-    expect(Number(rack?.state.height) * fitScale).toBeCloseTo(44, 5);
-    const weaponText = scene.objects.find((object) =>
+    expect(rackTargets).toHaveLength(0);
+    const rackText = scene.objects.find((object) =>
       object.state.kind === 'text'
-        && object.state.text === 'Rack 1/6  •  TAP TO INSPECT'
+        && typeof object.state.text === 'string'
+        && object.state.text.startsWith('Rack ')
         && !object.state.destroyed,
     );
-    expect(weaponText).toBeDefined();
+    expect(rackText).toBeUndefined();
+    expect(onInventoryRequested).not.toHaveBeenCalled();
   });
 });
