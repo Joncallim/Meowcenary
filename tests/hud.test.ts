@@ -3,7 +3,6 @@ import { createEventBus, type GameEventMap } from '../src/engine/eventBus';
 import { createRunState, startRun } from '../src/gameplay/runState';
 import { WEAPON_RACK_CAPACITY } from '../src/gameplay/weaponRack';
 import type { Player } from '../src/entities/Player';
-import type { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import {
   HudController,
   PhaserHudView,
@@ -11,7 +10,6 @@ import {
   type HudSnapshot,
   type HudSource,
   type HudView,
-  type HudWeaponView,
 } from '../src/ui/hud';
 import { logicalCanvasViewport } from '../src/ui/layout';
 
@@ -40,9 +38,6 @@ type MutableHudSnapshot = {
 };
 
 function createMutableSource(initial: Partial<HudSnapshot> = {}): HudSource & { snapshotValue: MutableHudSnapshot } {
-  const defaultWeapons: HudWeaponView[] = [
-    { instanceId: 'w1', name: 'Pistol', tier: 1 },
-  ];
   const snapshotValue: MutableHudSnapshot = {
     status: 'active',
     timeMs: 0,
@@ -54,8 +49,6 @@ function createMutableSource(initial: Partial<HudSnapshot> = {}): HudSource & { 
     xpToNext: 100,
     kills: 0,
     currency: 0,
-    weapons: defaultWeapons,
-    mergeReady: false,
     ...initial,
   };
   return {
@@ -201,41 +194,12 @@ describe('createHudSource', () => {
     } as Player;
   }
 
-  function createWeaponRegistry(): DataWeaponRegistry {
-    return {
-      weaponById(id: string) {
-        if (id === 'def-pistol') {
-          return {
-            id: 'def-pistol',
-            name: 'Plasma Pistol',
-            family: 'pistol',
-            mergeTier: 1,
-            maxTier: 2,
-          } as ReturnType<DataWeaponRegistry['weaponById']>;
-        }
-        return undefined;
-      },
-      weaponByFamilyTier(family: string, tier: number) {
-        if (family === 'pistol' && tier === 2) {
-          return {
-            id: 'def-pistol-t2',
-            name: 'Plasma Pistol II',
-            family: 'pistol',
-            mergeTier: 2,
-            maxTier: 2,
-          } as ReturnType<DataWeaponRegistry['weaponByFamilyTier']>;
-        }
-        return undefined;
-      },
-    } as DataWeaponRegistry;
-  }
-
   it('does not expose weapon inventory in the HUD snapshot', () => {
     const runState = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
     runState.equipped = [{ instanceId: 'i1', defId: 'def-pistol', family: 'pistol', tier: 2 }];
     const snapshot = createHudSource({ runState, player: createPlayer(), durationMs: 60_000 }).snapshot();
-    expect(snapshot.weapons).toEqual([]);
-    expect(snapshot.mergeReady).toBe(false);
+    expect('weapons' in snapshot).toBe(false);
+    expect('mergeReady' in snapshot).toBe(false);
   });
 
   it('does not make HUD merge readiness depend on the authoritative rack', () => {
@@ -244,7 +208,7 @@ describe('createHudSource', () => {
       { instanceId: 'i1', defId: 'def-pistol', family: 'pistol', tier: 1 },
       { instanceId: 'i2', defId: 'def-pistol', family: 'pistol', tier: 1 },
     ];
-    expect(createHudSource({ runState, player: createPlayer(), durationMs: 60_000 }).snapshot().mergeReady).toBe(false);
+    expect('mergeReady' in createHudSource({ runState, player: createPlayer(), durationMs: 60_000 }).snapshot()).toBe(false);
   });
 
   it('reflects current run state on every snapshot', () => {
@@ -257,7 +221,6 @@ describe('createHudSource', () => {
       runState,
       player,
       durationMs: 60_000,
-      weaponRegistry: createWeaponRegistry(),
     });
 
     const first = source.snapshot();
@@ -400,8 +363,6 @@ describe('PhaserHudView', () => {
         xpToNext: 0,
         kills: 0,
         currency: Number.NaN,
-        weapons: [],
-        mergeReady: false,
       })
     ).not.toThrow();
 
@@ -419,11 +380,6 @@ describe('PhaserHudView', () => {
     const view = new PhaserHudView({ scene: scene as never, viewport: logicalCanvasViewport() });
 
     for (let count = 0; count <= WEAPON_RACK_CAPACITY; count += 1) {
-      const weapons = Array.from({ length: count }, (_, index) => ({
-        instanceId: `w${index}`,
-        name: 'Scrap Pistol I',
-        tier: 1,
-      }));
       view.render({
         status: 'active',
         timeMs: 0,
@@ -435,8 +391,6 @@ describe('PhaserHudView', () => {
         xpToNext: 100,
         kills: 0,
         currency: 0,
-        weapons,
-        mergeReady: count === 2,
       });
     }
 
@@ -461,11 +415,9 @@ describe('PhaserHudView', () => {
 
   it('rebuilds the HUD after a wide resize with no rack target or label and no inventory command', () => {
     const scene = createFakeScene();
-    const onInventoryRequested = vi.fn();
     const view = new PhaserHudView({
       scene: scene as never,
       viewport: logicalCanvasViewport(),
-      onInventoryRequested,
     });
     view.render({
       status: 'active',
@@ -478,8 +430,6 @@ describe('PhaserHudView', () => {
       xpToNext: 100,
       kills: 3,
       currency: 12,
-      weapons: [{ instanceId: 'w1', name: 'Bolt Shotgun II', tier: 2 }],
-      mergeReady: false,
     });
     const oldObjects = scene.objects.filter((object) => !object.state.destroyed);
 
@@ -501,6 +451,5 @@ describe('PhaserHudView', () => {
         && !object.state.destroyed,
     );
     expect(rackText).toBeUndefined();
-    expect(onInventoryRequested).not.toHaveBeenCalled();
   });
 });

@@ -45,7 +45,7 @@ import {
   RunSummaryController,
   type RunSummarySource,
 } from '../ui/runSummary';
-import { zoomedGameUiViewport } from '../ui/layout';
+import { GAMEPLAY_ZOOM, zoomedGameUiViewport } from '../ui/layout';
 import { FullscreenController } from '../ui/fullscreen';
 import { PassiveCoordinator } from '../systems/PassiveCoordinator';
 import { HazardSystem } from '../systems/HazardSystem';
@@ -181,10 +181,15 @@ export class GameScene extends Phaser.Scene {
       spawnY: arena.size.height / 2,
     }, visualArt.bindingById(`character:${request.characterId}`));
 
-    if (arena.size.width > this.scale.width || arena.size.height > this.scale.height) {
-      this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
+    const visibleWidth = this.scale.width / GAMEPLAY_ZOOM;
+    const visibleHeight = this.scale.height / GAMEPLAY_ZOOM;
+    // Fractional zoom must retain subpixel camera motion; Phaser's integer
+    // scroll rounding produces a visible sawtooth in the follow trace.
+    this.cameras.main.roundPixels = false;
+    if (arena.size.width > visibleWidth || arena.size.height > visibleHeight) {
+      this.cameras.main.startFollow(this.player.sprite, false, 0.1, 0.1);
     }
-    this.cameras.main.setZoom(1.25);
+    this.cameras.main.setZoom(GAMEPLAY_ZOOM);
 
     const viewport = zoomedGameUiViewport(
       this.scale.displaySize.width,

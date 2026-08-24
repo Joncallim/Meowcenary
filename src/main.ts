@@ -34,5 +34,11 @@ const config: Phaser.Types.Core.GameConfig = {
 // Exported as a narrow ESM browser lifecycle/smoke seam. Upgrade selection now
 // uses the visible chooser; gameplay ownership remains in scenes and systems.
 export const game = new Phaser.Game(config);
-const disposeVisualViewport = bindVisualViewportRefresh(game);
+const disposeVisualViewport = bindVisualViewportRefresh(game, () => game.scene.getScenes(true).some((scene) => {
+  const inputController = (scene as unknown as {
+    inputController?: { getPresentationSnapshot(): { pointerStart: unknown; pointerCurrent: unknown } };
+  }).inputController;
+  const snapshot = inputController?.getPresentationSnapshot();
+  return snapshot?.pointerStart !== null && snapshot?.pointerCurrent !== null;
+}));
 game.events.once(Phaser.Core.Events.DESTROY, disposeVisualViewport);

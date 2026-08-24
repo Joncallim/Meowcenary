@@ -42,7 +42,7 @@ import { UpgradeSystem } from '../../src/systems/UpgradeSystem';
 import { FeedbackSystem } from '../../src/systems/feedback';
 import { UpgradeChooser } from '../../src/ui/UpgradeChooser';
 import { ControlsView } from '../../src/ui/controls';
-import { logicalCanvasViewport } from '../../src/ui/layout';
+import { GAMEPLAY_ZOOM, zoomedGameUiViewport } from '../../src/ui/layout';
 import { FocusStroke } from '../../src/ui/theme';
 import { AUDIO_MANAGER_REGISTRY_KEY } from '../../src/systems/audio';
 
@@ -1014,6 +1014,13 @@ export function createGamePhase(
   const scene = fake.scene;
   const gameScene = new GameScene();
   Object.assign(gameScene, scene);
+  scene.cameras.main.setZoom(GAMEPLAY_ZOOM);
+  const gameViewport = zoomedGameUiViewport(
+    scene.scale.displaySize.width,
+    scene.scale.displaySize.height,
+    scene.scale.parentSize.width,
+    scene.scale.parentSize.height,
+  );
 
   const runState = createRunState({ seed: runSeed, characterId: 'scrap-tabby', arenaId: 'arena' });
   startRun(runState);
@@ -1032,7 +1039,7 @@ export function createGamePhase(
   const pauseController = new PauseController({ runState, bus, inventory });
   const pauseView = new PhaserPauseView({
     scene: scene as never,
-    viewport: logicalCanvasViewport(),
+    viewport: gameViewport,
     bus,
     controller: pauseController,
     inventory,
@@ -1097,7 +1104,7 @@ export function createGamePhase(
   });
   const runSummaryView = new PhaserRunSummaryView({
     scene: scene as never,
-    viewport: logicalCanvasViewport(),
+    viewport: gameViewport,
     bus,
     controller: runSummaryController,
     readInputMode: () => inputController.getInputMode(),
@@ -1105,7 +1112,7 @@ export function createGamePhase(
   const controlsView = new ControlsView({
     scene: scene as never,
     input: inputController,
-    viewport: logicalCanvasViewport(),
+    viewport: gameViewport,
     readReducedMotion: () => context.settings.reducedMotion,
     onPauseRequested: () => seams.routeAction('pause'),
   });

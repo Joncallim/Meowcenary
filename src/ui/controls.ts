@@ -83,7 +83,7 @@ export class ControlsView {
       viewport.canvasWidth / 2,
       viewport.canvasHeight
         - margin
-        - this.stickRadius * 2
+        - physicalToLogical(this.stickRadius * 2, viewport)
         - fontSize,
       hintForMode(this.lastMode),
       {
@@ -137,6 +137,7 @@ export class ControlsView {
     this.destroyViewportControls();
     this.stickBase.destroy();
     this.stickThumb.destroy();
+    this.root?.destroy(true);
   }
 
   private destroyViewportControls(): void {

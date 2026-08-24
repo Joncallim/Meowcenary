@@ -312,7 +312,7 @@ describe('ControlsView hints', () => {
     const pause = scene.objects[6];
     const fitScale = 390 / 844;
     // The strip is gone: the hint owns the bottom safe margin above the stick.
-    expect(Number(hint.state.y) * fitScale).toBeCloseTo(306.8530805687204, 5);
+    expect(Number(hint.state.y) * fitScale).toBeCloseTo(238, 5);
     expect(Number(pause.state.width) * fitScale).toBeCloseTo(44, 5);
     expect(Number(pause.state.height) * fitScale).toBeCloseTo(44, 5);
 
@@ -433,7 +433,7 @@ describe('ControlsView pause button', () => {
     // The four control objects are owned by the view; the UI root container
     // is a scene-level object production never destroys.
     expect(scene.objects.slice(1).every((object) => object.state.destroyed)).toBe(true);
-    expect(scene.objects[0].state.destroyed).toBe(false);
+    expect(scene.objects[0].state.destroyed).toBe(true);
 
     // Double destroy is a no-op.
     view.destroy();

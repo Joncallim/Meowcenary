@@ -11,7 +11,7 @@ export class DebugOverlay {
 
   constructor(private readonly scene: Phaser.Scene) {
     this.text = scene.add
-      .text(8, 8, '', {
+      .text(45.4, 90.8, '', {
         backgroundColor: 'rgba(0, 0, 0, 0.65)',
         color: '#d9f99d',
         fontFamily: 'monospace',
@@ -21,6 +21,7 @@ export class DebugOverlay {
       .setDepth(10_000)
       .setScrollFactor(0)
       .setVisible(false);
+    this.text.setScale(1 / 1.25);
 
     scene.input.keyboard?.on('keydown-F3', this.toggle, this);
   }

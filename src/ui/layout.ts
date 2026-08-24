@@ -62,14 +62,22 @@ export function zoomedGameUiViewport(
   containerWidth: number = displayWidth,
   containerHeight: number = displayHeight,
 ): UiViewport {
+  const safeDisplayWidth = positiveFinite(displayWidth, RuntimeConfig.canvas.width);
+  const safeDisplayHeight = positiveFinite(displayHeight, RuntimeConfig.canvas.height);
+  const safeContainerWidth = positiveFinite(containerWidth, safeDisplayWidth);
+  const safeContainerHeight = positiveFinite(containerHeight, safeDisplayHeight);
   return {
     canvasWidth: ZOOMED_UI_WIDTH,
     canvasHeight: ZOOMED_UI_HEIGHT,
-    displayWidth,
-    displayHeight,
-    containerWidth,
-    containerHeight,
+    displayWidth: safeDisplayWidth,
+    displayHeight: safeDisplayHeight,
+    containerWidth: safeContainerWidth,
+    containerHeight: safeContainerHeight,
     originX: ZOOMED_UI_ORIGIN_X,
     originY: ZOOMED_UI_ORIGIN_Y,
   };
+}
+
+function positiveFinite(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
 }

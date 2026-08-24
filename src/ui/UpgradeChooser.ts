@@ -123,7 +123,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   private lastInputMode: InputMode = 'pointer';
   private instructions?: Phaser.GameObjects.Text;
   private reducedMotion = false;
-  private armedPointerId?: number;
+  private readonly armedPointerIds = new Map<number, number>();
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -307,17 +307,17 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           }
         });
         card.on(Phaser.Input.Events.POINTER_OUT, () => {
-          this.armedPointerId = undefined;
+          this.armedPointerIds.forEach((cardIndex, pointerId) => { if (cardIndex === index) this.armedPointerIds.delete(pointerId); });
           if (this.hoveredIndex === index) this.hoveredIndex = -1;
           this.applyFocusStroke();
           card.setFillStyle(ThemeColor.card, this.enabled ? 1 : 0.58);
         });
         card.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
-          if (this.acceptsNavigation && this.currentOfferId === offer.offerId) this.armedPointerId = pointer.id;
+          if (this.acceptsNavigation && this.currentOfferId === offer.offerId) this.armedPointerIds.set(pointer.id, index);
         });
         card.on(Phaser.Input.Events.POINTER_UP, (pointer: Phaser.Input.Pointer) => {
-          if (this.armedPointerId !== pointer?.id) return;
-          this.armedPointerId = undefined;
+          if (this.armedPointerIds.get(pointer?.id) !== index) return;
+          this.armedPointerIds.delete(pointer.id);
           if (!this.acceptsNavigation || this.currentOfferId !== offer.offerId || this.focusIndex !== index) return;
           this.submit(offer.offerId, index);
         });
@@ -614,7 +614,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     // Teardown uncommits the display: until the next successful publication,
     // number shortcuts and logical seams are refused (F1).
     this.committedDisplay = false;
-    this.armedPointerId = undefined;
+    this.armedPointerIds.clear();
     this.cardBackgrounds = [];
     this.renderedText = [];
     // The instructions Text lives in the destroyed root; clear the ref so a
@@ -659,6 +659,17 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         this.scene.scale.parentSize.width,
         this.scene.scale.parentSize.height,
       );
+    } else {
+      const parentWidth = this.scene.scale.parentSize?.width ?? this.scene.scale.displaySize.width;
+      const parentHeight = this.scene.scale.parentSize?.height ?? this.scene.scale.displaySize.height;
+      this.viewport = {
+        canvasWidth: this.scene.scale.width,
+        canvasHeight: this.scene.scale.height,
+        displayWidth: this.scene.scale.displaySize.width,
+        displayHeight: this.scene.scale.displaySize.height,
+        containerWidth: parentWidth,
+        containerHeight: parentHeight,
+      };
     }
     this.destroyDisplay();
     this.buildDisplay();

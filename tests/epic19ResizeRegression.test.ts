@@ -6,6 +6,8 @@ import {
 } from './helpers/epic19SoakHarness';
 import { endRun } from '../src/gameplay/runState';
 import { GAMEPLAY_ZOOM, minimumHitTarget, zoomedGameUiViewport } from '../src/ui/layout';
+import { PhaserFeedbackRenderer } from '../src/systems/feedback';
+import { createSharedFakeSceneForConformance } from './helpers/epic19JourneyComposition';
 
 const REFERENCE_VIEWPORTS = [
   { name: 'phone portrait', width: 390, height: 844 },
@@ -15,22 +17,10 @@ const REFERENCE_VIEWPORTS = [
 ] as const;
 
 // ---------------------------------------------------------------------------
-// RESIZE-SOAK MATH AUDIT (B2, 2026-08-24):
-//
-// The game-phase harness composes every GameScene UI surface (chooser, pause/
-// rack, run summary, controls) with the NON-zoomed logicalCanvasViewport, and
-// the shared fake camera records setZoom(1.25) but does NOT apply it to
-// object bounds. `assertPhysicalTargets` therefore measures the 44px promise
-// at FIT `s` only — NOT the production 1.25·s scale. That is honest per
-// M-07/M-08: the test asserts exactly what the fake can measure. The 1.25s
-// contract itself is enforced where the fake DOES support it:
-//   - the zoomedUiViewport/44px-logical assertions in the audit test below
-//     (pure factory math, exact arch FIT table values), and
-//   - the AM-3 zoomed-stick regression (controls built under the zoomed
-//     viewport with the recorded camera zoom applied to the measured render).
-// The GameScene UI surfaces under 1.25·s render 1.25× larger than the s-only
-// numbers below, so the physical 44px floor still holds; updating these
-// hardcodes to 1.25·s would be measuring a space the harness does not build.
+// RESIZE-SOAK MATH AUDIT (B2, 2026-08-24): the game-phase harness composes
+// chooser, pause/rack, summary, controls, and feedback in the same zoomed
+// viewport as GameScene. The fake camera records the 1.25× render transform,
+// so target assertions multiply logical bounds by 1.25·FIT.
 // ---------------------------------------------------------------------------
 interface ScaleLike {
   scale: {
@@ -59,6 +49,8 @@ function assertFitFixtureSetup(surface: ScaleLike, width: number, height: number
 interface TargetLike {
   readonly state: {
     readonly kind: string;
+    readonly x: number;
+    readonly y: number;
     readonly width: number;
     readonly height: number;
     readonly interactive: boolean;
@@ -69,16 +61,37 @@ interface TargetLike {
 }
 
 /** The 44px promise is two-dimensional at both the target and return FIT. */
-function assertPhysicalTargets(targets: readonly TargetLike[], fit: number): void {
+function assertPhysicalTargets(targets: readonly TargetLike[], fit: number, zoom = GAMEPLAY_ZOOM): void {
   expect(targets.length).toBeGreaterThan(0);
   for (const target of targets) {
     const bounds = target.getBounds();
-    expect(bounds.width * fit).toBeGreaterThanOrEqual(44 - 0.01);
-    expect(bounds.height * fit).toBeGreaterThanOrEqual(44 - 0.01);
+    expect(bounds.width * fit * zoom).toBeGreaterThanOrEqual(44 - 0.01);
+    expect(bounds.height * fit * zoom).toBeGreaterThanOrEqual(44 - 0.01);
   }
 }
 
 describe('Epic 19 Slice 5 resize/FIT regression', () => {
+  it('composes GameScene surfaces in the zoomed root and feedback overlays', () => {
+    const { scene, camera } = createSharedFakeSceneForConformance();
+    camera.setZoom(GAMEPLAY_ZOOM);
+    const viewport = zoomedGameUiViewport(390, 844, 390, 844);
+    expect(viewport.canvasWidth).toBeCloseTo(312, 6);
+    expect(viewport.canvasHeight).toBeCloseTo(675.2, 6);
+    expect(viewport.originX).toBeCloseTo(39, 6);
+    expect(viewport.originY).toBeCloseTo(84.4, 6);
+    const renderer = new PhaserFeedbackRenderer({ scene: scene as never, maxEffects: 4, maxHeavyEffects: 2, viewport });
+    const overlays = (scene as unknown as { objects: readonly TargetLike[] }).objects
+      .filter((object) => object.state.kind === 'rect');
+    expect(overlays).toHaveLength(3);
+    for (const overlay of overlays) {
+      expect(overlay.state.width).toBeCloseTo(312, 6);
+      expect(overlay.state.height).toBeCloseTo(675.2, 6);
+      expect(overlay.state.x).toBeCloseTo(195, 6);
+      expect(overlay.state.y).toBeCloseTo(422, 6);
+    }
+    renderer.destroy();
+  });
+
   // Resize-soak math audit (B2): the arch FIT table for the zoomed GameScene
   // UI. The zoomed viewport's logical canvas is invariant 312×675.2 at world
   // origin (39,84.4); a 44px physical target is 44/(1.25·s) logical and
@@ -123,7 +136,7 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     const menuTargets = (menu.menuScene as unknown as { objects: readonly TargetLike[] }).objects
       .filter((object) => object.state.kind === 'text' && object.state.handlers['pointerup'] && !object.state.destroyed);
     expect(menuTargets).toHaveLength(5);
-    assertPhysicalTargets(menuTargets, Math.min(width / 390, height / 844));
+    assertPhysicalTargets(menuTargets, Math.min(width / 390, height / 844), 1);
     const menuRing = menu.focusRingBounds()!;
     expect(menuRing.height).toBeGreaterThan(0);
     expect(menuRing.width).toBeGreaterThan(0);
@@ -142,7 +155,7 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     const returnedMenuTargets = (menu.menuScene as unknown as { objects: readonly TargetLike[] }).objects
       .filter((object) => object.state.kind === 'text' && object.state.handlers['pointerup'] && !object.state.destroyed);
     expect(returnedMenuTargets).toHaveLength(5);
-    assertPhysicalTargets(returnedMenuTargets, 1);
+    assertPhysicalTargets(returnedMenuTargets, 1, 1);
     expect(menu.listeners()).toEqual(menuListeners);
     expect(menu.sceneCommands()).toEqual({ start: 0, restart: 0 });
     menu.destroy();

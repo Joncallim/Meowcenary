@@ -2,17 +2,22 @@ import type Phaser from 'phaser';
 
 /** Keep Phaser's canvas bounds current while mobile browser chrome moves.
  * Pointer coordinates are deliberately left to Phaser's normal FIT transform. */
-export function bindVisualViewportRefresh(game: Phaser.Game): () => void {
+export function bindVisualViewportRefresh(game: Phaser.Game, isGestureActive: () => boolean = () => false): () => void {
   const viewport = globalThis.visualViewport;
   if (!viewport) return () => undefined;
 
   let frame = 0;
+  let refreshing = false;
   const refresh = (): void => {
-    frame = 0;
-    game.scale.refresh();
+    if (isGestureActive()) {
+      frame = globalThis.requestAnimationFrame(refresh);
+      return;
+    }
+    refreshing = true;
+    try { game.scale.refresh(); } finally { refreshing = false; frame = 0; }
   };
   const schedule = (): void => {
-    if (frame !== 0) return;
+    if (frame !== 0 || refreshing) return;
     frame = globalThis.requestAnimationFrame(refresh);
   };
   viewport.addEventListener('resize', schedule);

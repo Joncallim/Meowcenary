@@ -70,7 +70,7 @@ export class PauseController {
     return true;
   }
 
-  /** HUD/I-key entry point: pauses and opens the rack in one accepted command. */
+  /** Logical-input entry point: pauses and opens the inventory in one command. */
   openInventoryFromRun(): boolean {
     if (this.disposed || this.panel !== 'closed' || this.runState.status !== 'active') {
       return false;
@@ -151,6 +151,12 @@ export class PhaserPauseView {
   private readonly fullscreen?: FullscreenController;
   private unsubscribeFullscreen?: () => void;
   private renderedFullscreenState?: FullscreenState;
+  private fullscreenPendingPanel?: PausePanel;
+  private fullscreenResizeKey?: string;
+  private fullscreenResizeObserved = false;
+  private rebuildCount = 0;
+
+  get renderRebuildCount(): number { return this.rebuildCount; }
 
   constructor(options: PhaserPauseViewOptions) {
     this.scene = options.scene;
@@ -182,6 +188,7 @@ export class PhaserPauseView {
     if (this.disposed) {
       return;
     }
+    this.rebuildCount += 1;
     this.syncLayoutContext();
     const panelChanged = snapshot.panel !== this.committedPanel;
     // The display is uncommitted from the moment teardown begins until a
@@ -293,16 +300,54 @@ export class PhaserPauseView {
       return;
     }
     this.syncLayoutContext();
+    const state = this.fullscreen?.snapshot;
+    if (state === 'pending-enter' || state === 'pending-exit') {
+      // Capture the panel at the transition boundary. This remains stable if
+      // another command changes panels before the eventual settlement.
+      this.fullscreenPendingPanel ??= this.committedPanel;
+      if (this.fullscreenPendingPanel === this.committedPanel) {
+        this.fullscreenResizeKey = this.fullscreenKey(this.viewport, this.committedPanel, state);
+        this.fullscreenResizeObserved = true;
+      }
+    }
     this.render(this.controller.snapshot());
   };
 
   private readonly handleFullscreenSettlement = (): void => {
     if (this.disposed || this.committedPanel === 'closed') return;
-    // Scale RESIZE owns an already-committed fullscreen state, avoiding a
-    // second tree teardown that would reset hover/focus.
+    const state = this.fullscreen?.snapshot;
+    if (state === 'pending-enter' || state === 'pending-exit') {
+      this.fullscreenPendingPanel = this.committedPanel;
+    }
+    // Phaser emits RESIZE before fullscreen settlement. If that resize already
+    // rebuilt this same committed panel, settlement only publishes state.
+    if (this.fullscreenResizeObserved
+      && this.fullscreenResizeKey !== undefined
+      && this.renderedFullscreenState !== undefined
+      && (this.renderedFullscreenState === 'pending-enter' || this.renderedFullscreenState === 'pending-exit')) {
+      this.fullscreenResizeKey = undefined;
+      this.fullscreenPendingPanel = undefined;
+      this.fullscreenResizeObserved = false;
+      const fullscreenButton = this.buttons[2];
+      const settledState = this.fullscreen?.snapshot;
+      if (fullscreenButton && settledState !== undefined) {
+        fullscreenButton.setLabel(settledState === 'active' ? 'Exit Fullscreen' : 'Fullscreen');
+        fullscreenButton.setEnabled(true);
+      }
+      this.renderedFullscreenState = this.fullscreen?.snapshot;
+      return;
+    }
+    this.fullscreenResizeKey = undefined;
+    this.fullscreenPendingPanel = undefined;
+    this.fullscreenResizeObserved = false;
     if (this.renderedFullscreenState === this.fullscreen?.snapshot) return;
     this.render(this.controller.snapshot());
   };
+
+  private fullscreenKey(viewport: UiViewport, panel: PausePanel, state: FullscreenState): string {
+    return [viewport.canvasWidth, viewport.canvasHeight, viewport.displayWidth, viewport.displayHeight,
+      viewport.containerWidth, viewport.containerHeight, viewport.originX, viewport.originY, panel, state].join('|');
+  }
 
   private syncLayoutContext(): void {
     const scale = this.scene.scale;

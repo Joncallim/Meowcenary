@@ -8,7 +8,7 @@ import { bindVisualViewportRefresh } from '../src/platform/visualViewport';
 import { InputController } from '../src/systems/input';
 import { ControlsView } from '../src/ui/controls';
 import { PhaserHudView } from '../src/ui/hud';
-import { logicalCanvasViewport, zoomedGameUiViewport, GAMEPLAY_ZOOM } from '../src/ui/layout';
+import { zoomedGameUiViewport, GAMEPLAY_ZOOM } from '../src/ui/layout';
 
 const REFERENCE_VIEWPORTS = [
   { name: 'phone portrait', width: 390, height: 844 },
@@ -26,6 +26,7 @@ interface FakeSceneObject {
     y: number;
     width: number;
     height: number;
+    interactive: boolean;
     destroyed: boolean;
     handlers: Record<string, (...args: unknown[]) => void>;
   };
@@ -34,6 +35,19 @@ interface FakeSceneObject {
 /** The soak harness exposes the composed fake scene through gameScene. */
 function fakeSceneObjects(h: { gameScene: object }): FakeSceneObject[] {
   return (h.gameScene as unknown as { objects: FakeSceneObject[] }).objects;
+}
+
+function pointerToRootLocal(
+  pointer: { x: number; y: number },
+  camera: { zoom: number; scrollX: number; scrollY: number },
+  canvas: { width: number; height: number },
+  origin: { x: number; y: number },
+): { x: number; y: number } {
+  const halfX = canvas.width / 2;
+  const halfY = canvas.height / 2;
+  const worldX = (pointer.x + camera.scrollX * camera.zoom - halfX) / camera.zoom + halfX;
+  const worldY = (pointer.y + camera.scrollY * camera.zoom - halfY) / camera.zoom + halfY;
+  return { x: worldX - camera.scrollX - origin.x, y: worldY - camera.scrollY - origin.y };
 }
 
 describe('Epic 19 playtest fixes: production-composition pointer merge', () => {
@@ -51,21 +65,72 @@ describe('Epic 19 playtest fixes: production-composition pointer merge', () => {
     // up with the SAME pointer identity commits (registerTarget/
     // registerModalTarget in weaponRackView.ts). Creation order after each
     // render is slots 0-5, Merge (6), Back (7).
-    const tap = (object: { state: { handlers: Record<string, (...args: unknown[]) => void> } }) => {
-      object.state.handlers['pointerdown']?.({ id: 9 });
-      object.state.handlers['pointerup']?.({ id: 9 });
+    const tap = (object: FakeSceneObject): boolean => {
+      if (object.state.destroyed) return false;
+      // Compose the browser coordinate through the same camera transform used
+      // by production root children, then hit-test the live child before
+      // emitting the pointer funnel events.
+      const pointer = {
+        x: (object.state.x + 39 - 195) * GAMEPLAY_ZOOM + 195,
+        y: (object.state.y + 84.4 - 422) * GAMEPLAY_ZOOM + 422,
+      };
+      const local = pointerToRootLocal(pointer, { zoom: GAMEPLAY_ZOOM, scrollX: 0, scrollY: 0 }, { width: 390, height: 844 }, { x: 39, y: 84.4 });
+      expect(Math.abs(local.x - object.state.x)).toBeLessThan(0.001);
+      expect(Math.abs(local.y - object.state.y)).toBeLessThan(0.001);
+      const hit = fakeSceneObjects(h).find((candidate) =>
+        !candidate.state.destroyed
+        && candidate.state.interactive
+        && candidate.state.handlers['pointerover']
+        && Math.abs(local.x - candidate.state.x) <= candidate.state.width / 2
+        && Math.abs(local.y - candidate.state.y) <= candidate.state.height / 2,
+      );
+      expect(hit).toBe(object);
+      if (!hit) throw new Error('pointer hit-test missed live target');
+      hit.state.handlers['pointerdown']?.({ id: 9 });
+      hit.state.handlers['pointerup']?.({ id: 9 });
+      return true;
     };
     const targets = () =>
       fakeSceneObjects(h).filter(
         (object) => object.state.kind === 'rect' && object.state.handlers['pointerover'] && !object.state.destroyed,
       );
 
+    const initialTargets = targets();
+    initialTargets[0]!.state.handlers['pointerup']?.({ id: 7 });
+    expect(h.pauseController.snapshot().inventory.selectedInstanceIds).toEqual([]);
+    initialTargets[0]!.state.handlers['pointerover']?.();
+    initialTargets[0]!.state.handlers['pointerdown']?.({ id: 7 });
+    initialTargets[0]!.state.handlers['pointerup']?.({ id: 8 });
+    expect(h.pauseController.snapshot().inventory.selectedInstanceIds).toEqual([]);
+    initialTargets[0]!.state.handlers['pointerdown']?.({ id: 7 });
+    initialTargets[1]!.state.handlers['pointerup']?.({ id: 7 });
+    expect(h.pauseController.snapshot().inventory.selectedInstanceIds).toEqual([]);
+    initialTargets[0]!.state.handlers['pointerdown']?.({ id: 7 });
+    initialTargets[0]!.state.handlers['pointerout']?.();
+    initialTargets[0]!.state.handlers['pointerup']?.({ id: 7 });
+    expect(h.pauseController.snapshot().inventory.selectedInstanceIds).toEqual([]);
+
     tap(targets()[0]!); // select weapon a
     tap(targets()[1]!); // select weapon b (same def -> merge pair)
     expect(h.pauseController.snapshot().inventory.selectedInstanceIds).toHaveLength(2);
 
     const preMergeTargets = targets();
-    tap(preMergeTargets[6]!); // Merge Selected
+    const merge = preMergeTargets[6]!;
+    const back = preMergeTargets[7]!;
+    // Rack modal targets use the same down/up funnel as cards: an unarmed,
+    // mismatched, or cancelled gesture must not run a command.
+    merge.state.handlers['pointerup']?.({ id: 10 });
+    merge.state.handlers['pointerdown']?.({ id: 10 });
+    merge.state.handlers['pointerup']?.({ id: 11 });
+    merge.state.handlers['pointerdown']?.({ id: 10 });
+    merge.state.handlers['pointerout']?.();
+    merge.state.handlers['pointerup']?.({ id: 10 });
+    back.state.handlers['pointerdown']?.({ id: 12 });
+    back.state.handlers['pointerup']?.({ id: 13 });
+    expect(h.pauseController.snapshot().panel).toBe('inventory');
+    expect(merged).toBe(0);
+
+    tap(merge); // Merge Selected
     expect(merged).toBe(1);
     // ui:confirm is only the existing cue — the domain event is the evidence.
     expect(confirms).toBe(1);
@@ -75,8 +140,8 @@ describe('Epic 19 playtest fixes: production-composition pointer merge', () => {
 
     // A stale/second tap on the destroyed Merge handle cannot refire: the
     // resolved tree was rebuilt and the old handle's handlers are cleared.
-    tap(preMergeTargets[6]!);
-    tap(preMergeTargets[6]!);
+    expect(tap(preMergeTargets[6]!)).toBe(false);
+    expect(tap(preMergeTargets[6]!)).toBe(false);
     expect(merged).toBe(1);
     h.destroy();
     expect(h.listeners()).toEqual(ZERO_LISTENER_DIAGNOSTICS);
@@ -133,6 +198,34 @@ describe('Epic 19 playtest fixes: viewport lifecycle and transform', () => {
       dispose();
       expect(caf).toHaveBeenCalledTimes(1);
       expect(listeners.size).toBe(0);
+    } finally {
+      Object.defineProperty(globalThis, 'visualViewport', { configurable: true, value: prior.vv });
+      globalThis.requestAnimationFrame = prior.raf;
+      globalThis.cancelAnimationFrame = prior.caf;
+    }
+  });
+
+  it('defers a visualViewport refresh during a stick gesture and suppresses re-entrant scheduling', () => {
+    const listeners = new Map<string, () => void>();
+    const visualViewport = { addEventListener: (_event: string, fn: () => void) => listeners.set(_event, fn), removeEventListener: () => {} };
+    const frames: Array<() => void> = [];
+    const prior = { vv: globalThis.visualViewport, raf: globalThis.requestAnimationFrame, caf: globalThis.cancelAnimationFrame };
+    let gestureActive = true;
+    const refresh = vi.fn(() => listeners.get('resize')?.());
+    Object.defineProperty(globalThis, 'visualViewport', { configurable: true, value: visualViewport });
+    globalThis.requestAnimationFrame = ((callback: () => void) => { frames.push(callback); return frames.length; }) as never;
+    globalThis.cancelAnimationFrame = (() => {}) as never;
+    try {
+      const dispose = bindVisualViewportRefresh({ scale: { refresh } } as never, () => gestureActive);
+      listeners.get('resize')!();
+      frames.shift()!();
+      expect(refresh).not.toHaveBeenCalled();
+      expect(frames).toHaveLength(1); // retry is deferred, not a scale refresh
+      gestureActive = false;
+      frames.shift()!();
+      expect(refresh).toHaveBeenCalledTimes(1);
+      expect(frames).toHaveLength(0); // re-entrant resize did not create a loop
+      dispose();
     } finally {
       Object.defineProperty(globalThis, 'visualViewport', { configurable: true, value: prior.vv });
       globalThis.requestAnimationFrame = prior.raf;
@@ -272,9 +365,16 @@ describe('Epic 19 playtest fixes: HUD strip absence', () => {
 describe('Epic 19 playtest fixes: health/pause 8px physical gap', () => {
   it.each(REFERENCE_VIEWPORTS)('keeps an >=8px physical gap at $name', ({ width, height }) => {
     const h = createGameSoakHarness({ fixtureSeed: width, runSeed: height, storageKey: `e19-gap-${width}` });
-    // The harness surfaces use the non-zoomed viewport, so the HUD must
-    // share the same viewport space as the controls pause button.
-    const hud = new PhaserHudView({ scene: h.gameScene as never, viewport: logicalCanvasViewport() });
+    h.resizeTo(width, height);
+    const hud = new PhaserHudView({
+      scene: h.gameScene as never,
+      viewport: zoomedGameUiViewport(
+        h.gameScene.scale.displaySize.width,
+        h.gameScene.scale.displaySize.height,
+        h.gameScene.scale.parentSize.width,
+        h.gameScene.scale.parentSize.height,
+      ),
+    });
     hud.render({
       status: 'active',
       timeMs: 0,
@@ -286,13 +386,7 @@ describe('Epic 19 playtest fixes: health/pause 8px physical gap', () => {
       xpToNext: 100,
       kills: 0,
       currency: 0,
-      // Deprecated fields retained by the HudSnapshot type for old fixtures
-      // (ignored by the HUD after the rack-strip removal).
-      weapons: [],
-      mergeReady: false,
     });
-
-    h.resizeTo(width, height); // rebuilds the HUD and the controls at FIT s
 
     const fit = fitScale(width, height);
     const objects = fakeSceneObjects(h);
@@ -309,7 +403,7 @@ describe('Epic 19 playtest fixes: health/pause 8px physical gap', () => {
     const healthRight = healthBar!.state.x + healthBar!.state.width / 2;
     // The HUD derives rightHudX = canvasWidth − margin − pauseSize − gap with
     // gap = physicalToLogical(8, viewport); the physical gap is exactly 8px.
-    expect((pauseLeft - healthRight) * fit).toBeGreaterThanOrEqual(8 - 0.01);
+    expect((pauseLeft - healthRight) * fit * GAMEPLAY_ZOOM).toBeGreaterThanOrEqual(8 - 0.01);
 
     hud.destroy();
     h.destroy();

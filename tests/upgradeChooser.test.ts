@@ -1205,7 +1205,8 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
     expect(select).not.toHaveBeenCalled();
 
     // Direct pointer-up submits the exact hovered card index.
-    cards()[1]!.emit('pointerup');
+    cards()[1]!.emit('pointerdown', { id: 1 });
+    cards()[1]!.emit('pointerup', { id: 1 });
     expect(select).toHaveBeenCalledTimes(1);
     expect(select).toHaveBeenCalledWith(73, 1);
     view.destroy();

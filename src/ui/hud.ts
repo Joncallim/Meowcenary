@@ -9,10 +9,6 @@ import { formatNumber, formatTime } from './format';
 import { physicalToLogical, zoomedGameUiViewport, type UiViewport } from './layout';
 import { ThemeColor, ThemeDepth, ThemeFont } from './theme';
 
-/** @deprecated HUD no longer renders the rack strip; retained for old fixtures. */
-export interface HudWeaponView { readonly instanceId: string; readonly name: string; readonly tier: number; }
-
-
 export interface HudSnapshot {
   readonly status: RunStatus;
   readonly timeMs: number;
@@ -24,11 +20,6 @@ export interface HudSnapshot {
   readonly xpToNext: number;
   readonly kills: number;
   readonly currency: number;
-  /** @deprecated ignored by HUD after rack strip removal. */
-  readonly weapons: readonly HudWeaponView[];
-  /** @deprecated ignored by HUD after rack strip removal. */
-  readonly mergeReady: boolean;
-
 }
 
 export interface HudSource {
@@ -126,9 +117,6 @@ export interface CreateHudSourceOptions {
   readonly runState: RunState;
   readonly player: Player;
   readonly durationMs: number;
-  /** @deprecated no longer consumed by HUD. */
-  readonly weaponRegistry?: unknown;
-
 }
 
 export function createHudSource(options: CreateHudSourceOptions): HudSource {
@@ -147,10 +135,6 @@ export function createHudSource(options: CreateHudSourceOptions): HudSource {
         xpToNext: runState.xpToNext,
         kills: runState.kills,
         currency: runState.currency,
-        // Kept empty/false for compatibility with old test fixtures; rendering
-        // no longer reads these fields and the HUD has no rack strip.
-        weapons: [],
-        mergeReady: false,
       };
       return Object.freeze(snapshot);
     },
@@ -160,9 +144,6 @@ export function createHudSource(options: CreateHudSourceOptions): HudSource {
 export interface HudViewOptions {
   readonly scene: Phaser.Scene;
   readonly viewport: UiViewport;
-  /** @deprecated callback intentionally unused after rack strip removal. */
-  readonly onInventoryRequested?: () => void;
-
 }
 
 export class PhaserHudView implements HudView {

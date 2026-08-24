@@ -1414,9 +1414,17 @@ describe('PhaserPauseView', () => {
       expect(fullscreen.snapshot).toBe('pending-enter');
       expect(scale.startFullscreen).toHaveBeenCalledTimes(1);
 
+      // Real Phaser emits RESIZE before ENTER_FULLSCREEN. The scale event
+      // must perform the sole transition rebuild; settlement must only publish.
+      const resizeBefore = view.renderRebuildCount;
+      scene.resize(844, 390);
+      const resizeAfter = view.renderRebuildCount;
+      expect(resizeAfter).toBe(resizeBefore + 1);
+
       // A rebuild during the pending window renders a DISABLED "Fullscreen…"
       // action; activating it cannot issue a second request.
       view.render(controller.snapshot());
+      const pendingRenderCount = view.renderRebuildCount;
       expect(textContents(scene)).toContain('Fullscreen…');
       const pendingButtons = liveButtons(scene);
       expect(pendingButtons).toHaveLength(3);
@@ -1424,9 +1432,11 @@ describe('PhaserPauseView', () => {
       expect(scale.startFullscreen).toHaveBeenCalledTimes(1);
       expect(fullscreen.snapshot).toBe('pending-enter');
 
-      // Settlement to active rebuilds the committed panel and enables exit.
       scale.isFullscreen = true;
       listeners.get('enterfullscreen')?.();
+      expect(view.renderRebuildCount).toBe(pendingRenderCount);
+
+      // Settlement to active rebuilds the committed panel and enables exit.
       expect(fullscreen.snapshot).toBe('active');
       expect(textContents(scene)).toContain('Exit Fullscreen');
       press(liveButtons(scene)[2]!);
@@ -1456,6 +1466,35 @@ describe('PhaserPauseView', () => {
       fullscreen.destroy();
     });
   });
+  });
+
+  it('does not rebuild the already-rendered inventory again at fullscreen settlement', () => {
+    withDocument(true, () => {
+      const { scale, listeners } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      const { scene, view, controller } = createView({ fullscreen });
+      controller.pause();
+      view.render(controller.snapshot());
+      press(liveButtons(scene)[2]!);
+      const beforeResize = view.renderRebuildCount;
+
+      // RESIZE is the first Phaser signal. The user can change panels while
+      // the request is pending; settlement must not tear down that fresh rack.
+      scene.resize(844, 390);
+      expect(view.renderRebuildCount).toBe(beforeResize + 1);
+      expect(controller.openInventory()).toBe(true);
+      view.render(controller.snapshot());
+      const afterInventory = view.renderRebuildCount;
+      expect(textContents(scene)).toContain('Weapon Rack');
+
+      scale.isFullscreen = true;
+      listeners.get('enterfullscreen')?.();
+      expect(view.renderRebuildCount).toBe(afterInventory);
+      expect(textContents(scene)).toContain('Weapon Rack');
+
+      view.destroy();
+      fullscreen.destroy();
+    });
   });
 });
 
@@ -1562,5 +1601,71 @@ describe('pause fullscreen wiring', () => {
       fullscreen.destroy();
       expect(listeners.size).toBe(0);
     });
+  });
+
+  it('fails closed when fullscreenEnabled is missing (iOS Safari shape)', () => {
+    const prior = globalThis.document;
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: {} });
+    try {
+      const { scale } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      expect(fullscreen.available).toBe(false);
+      expect(fullscreen.request()).toBe(false);
+      fullscreen.destroy();
+    } finally {
+      Object.defineProperty(globalThis, 'document', { configurable: true, value: prior });
+    }
+  });
+
+  it('excludes iOS user agents even when fullscreenEnabled is truthy', () => {
+    const priorDocument = globalThis.document;
+    const priorNavigator = globalThis.navigator;
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: { fullscreenEnabled: true } });
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)' } });
+    try {
+      const { scale } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      expect(fullscreen.available).toBe(false);
+      expect(fullscreen.request()).toBe(false);
+      fullscreen.destroy();
+    } finally {
+      Object.defineProperty(globalThis, 'document', { configurable: true, value: priorDocument });
+      Object.defineProperty(globalThis, 'navigator', { configurable: true, value: priorNavigator });
+    }
+  });
+
+  it('keeps a shared pending request across a scene restart', () => {
+    withDocument(true, () => {
+      const { scale, listeners } = createScale();
+      const first = new FullscreenController(scale);
+      expect(first.request()).toBe(true);
+      first.destroy();
+      const restarted = new FullscreenController(scale);
+      expect(restarted.snapshot).toBe('pending-enter');
+      expect(restarted.request()).toBe(false);
+      scale.isFullscreen = true;
+      listeners.get('enterfullscreen')?.();
+      expect(restarted.snapshot).toBe('active');
+      restarted.destroy();
+    });
+  });
+
+  it('settles a rejected request without a Phaser failure event and permits retry', async () => {
+    vi.useFakeTimers();
+    const prior = globalThis.document;
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: { fullscreenEnabled: true } });
+    try {
+      const { scale } = createScale();
+      scale.startFullscreen.mockReturnValueOnce(Promise.reject(new Error('gesture denied')));
+      const fullscreen = new FullscreenController(scale);
+      expect(fullscreen.request()).toBe(true);
+      await Promise.resolve();
+      expect(fullscreen.snapshot).toBe('idle');
+      expect(fullscreen.request()).toBe(true);
+      fullscreen.destroy();
+    } finally {
+      Object.defineProperty(globalThis, 'document', { configurable: true, value: prior });
+      vi.useRealTimers();
+    }
   });
 });
