@@ -7,7 +7,7 @@ import { MockInputPlugin, MockGamepad } from './__mocks__/phaser';
 import { InputController } from '../src/systems/input';
 import { ControlsView } from '../src/ui/controls';
 import type { TouchStickConfig } from '../src/engine/config';
-import { logicalCanvasViewport } from '../src/ui/layout';
+import { logicalCanvasViewport, zoomedGameUiViewport, GAMEPLAY_ZOOM } from '../src/ui/layout';
 
 function createFakeScene() {
   let resize: { callback: () => void; context?: unknown } | undefined;
@@ -27,6 +27,11 @@ function createFakeScene() {
       y,
       width,
       height,
+      radius: 0,
+      scaleX: 1,
+      scaleY: 1,
+      scrollFactorX: 1,
+      scrollFactorY: 1,
       text: '',
       interactive: false,
       destroyed: false,
@@ -40,11 +45,21 @@ function createFakeScene() {
       get state() { return { ...state }; },
       setText(text: string) { return chain('text', text); },
       setOrigin() { return api; },
-      setScrollFactor() { return api; },
+      setScrollFactor(x: number, y: number = x) {
+        state.scrollFactorX = x;
+        state.scrollFactorY = y;
+        return api;
+      },
+      setScale(x: number, y: number = x) {
+        state.scaleX = x;
+        state.scaleY = y;
+        return api;
+      },
       setDepth() { return api; },
       setVisible(visible: boolean) { return chain('visible', visible); },
       setAlpha(alpha: number) { return chain('alpha', alpha); },
       setPosition(x: number, y: number) { state.x = x; state.y = y; return api; },
+      setRadius(radius: number) { state.radius = radius; return api; },
       setStrokeStyle() { return api; },
       setInteractive() { state.interactive = true; return api; },
       disableInteractive() { state.interactive = false; return api; },
@@ -75,7 +90,27 @@ function createFakeScene() {
 
   const scene = {
     add: {
-      arc: () => own(fakeObject()),
+      arc: (x: number, y: number, radius: number) =>
+        own(fakeObject(x, y, radius * 2, radius * 2)).setRadius(radius),
+      container: (x = 0, y = 0) => {
+        const base = own(fakeObject(x, y));
+        return {
+          ...base,
+          children: [] as Array<ReturnType<typeof fakeObject>>,
+          add(children: unknown) {
+            const list = Array.isArray(children) ? children : [children];
+            list.forEach((child) => {
+              const object = child as ReturnType<typeof fakeObject>;
+              if (!this.children.includes(object)) this.children.push(object);
+            });
+            return this;
+          },
+          destroy() {
+            this.children.forEach((child) => child.destroy());
+            base.destroy();
+          },
+        };
+      },
       text: (x: number, y: number, text: string) => own(fakeObject(x, y)).setText(text),
       rectangle: (x: number, y: number, width: number, height: number) =>
         own(fakeObject(x, y, width, height)),
@@ -117,8 +152,8 @@ function createFakeScene() {
   return scene;
 }
 
-function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: boolean; touchStick?: TouchStickConfig } = {}) {
-  const { readReducedMotion = () => false, gamepad = false, touchStick } = options;
+function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: boolean; touchStick?: TouchStickConfig; zoomed?: boolean } = {}) {
+  const { readReducedMotion = () => false, gamepad = false, touchStick, zoomed = false } = options;
   const scene = createFakeScene();
   const input = new MockInputPlugin({ keyboard: true, gamepad });
   const controller = new InputController({ ...scene, input } as never, { touchStick });
@@ -126,7 +161,7 @@ function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: b
   const view = new ControlsView({
     scene: scene as never,
     input: controller,
-    viewport: logicalCanvasViewport(),
+    viewport: zoomed ? zoomedGameUiViewport(scene.scale.displaySize.width, scene.scale.displaySize.height) : logicalCanvasViewport(),
     readReducedMotion,
     onPauseRequested,
     touchStick,
@@ -142,7 +177,9 @@ function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: b
 describe('ControlsView virtual stick', () => {
   it('starts hidden and shows only during an active pointer gesture', () => {
     const { scene, input, view } = createHarness();
-    const [stickBase, stickThumb] = scene.objects;
+    // objects[0] is the UI root container (created in both modes, exactly
+    // like production); the stick arcs follow it.
+    const [stickBase, stickThumb] = scene.objects.slice(1);
 
     expect(stickBase.state.visible).toBe(false);
     expect(stickThumb.state.visible).toBe(false);
@@ -162,7 +199,8 @@ describe('ControlsView virtual stick', () => {
 
   it('clamps the stick thumb to the same 64 px radius as the intent math', () => {
     const { scene, input, view } = createHarness();
-    const [, stickThumb] = scene.objects;
+    // [root, stickBase, stickThumb, hint, pause]
+    const stickThumb = scene.objects[2];
 
     input.pointerDown(100, 100);
     input.pointerMove(300, 100);
@@ -183,7 +221,7 @@ describe('ControlsView virtual stick', () => {
       anchored: { centerX: 82, centerY: 700, activationRadius: 120 },
     };
     const { scene, input, controller, tick } = createHarness({ touchStick });
-    const [stickBase, stickThumb] = scene.objects;
+    const [stickBase, stickThumb] = scene.objects.slice(1);
     input.pointerDown(122, 700);
     tick();
     expect(stickBase.state.x).toBe(82);
@@ -199,21 +237,82 @@ describe('ControlsView virtual stick', () => {
   });
 });
 
+describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
+  it('authors the stick radius at 64/1.25 with no arc scale — ONE zoom compensation (M-02/AM-3)', () => {
+    const { scene } = createHarness({ zoomed: true });
+    const [root, stickBase, stickThumb] = scene.objects;
+    // The camera zoom 1.25 grows world units, so the authored radius is
+    // divided by the zoom; the arcs carry NO extra scale — the rendered
+    // diameter is 2·(64/1.25)·1.25·s = 128·s physical px (AM-3 binding).
+    expect(root.state.x).toBeCloseTo(39, 6);
+    expect(root.state.y).toBeCloseTo(84.4, 6);
+    expect(stickBase.state.radius).toBe(64 / GAMEPLAY_ZOOM);
+    expect(stickThumb.state.radius).toBe((64 / GAMEPLAY_ZOOM) * 0.45);
+    expect(stickBase.state.scaleX).toBe(1);
+    expect(stickBase.state.scaleY).toBe(1);
+    expect(stickThumb.state.scaleX).toBe(1);
+    expect(stickThumb.state.scaleY).toBe(1);
+
+    // The unzoomed (menu/plain) controls never shrink the arcs.
+    const plain = createHarness();
+    expect(plain.scene.objects[1].state.radius).toBe(64);
+    expect(plain.scene.objects[1].state.scaleX).toBe(1);
+  });
+
+  it('parents every control child under the zoomed UI root and records each child own scrollFactor 0 (AM-2/M-08)', () => {
+    const { scene } = createHarness({ zoomed: true });
+    const root = scene.objects[0];
+    expect(root.state.x).toBeCloseTo(39, 6);
+    expect(root.state.y).toBeCloseTo(84.4, 6);
+    // Every interactive/control child declares its OWN scroll factor — a
+    // parent Container's factor never propagates in Phaser, and hit tests
+    // read the child value.
+    for (const child of scene.objects.slice(1)) {
+      expect(child.state.scrollFactorX).toBe(0);
+      expect(child.state.scrollFactorY).toBe(0);
+    }
+  });
+
+  it('re-reads the zoomed viewport on resize and rebuilds the controls once', () => {
+    const { scene, view } = createHarness({ zoomed: true });
+    const oldPause = scene.objects[4];
+    expect(oldPause.state.width).toBeCloseTo(44 / GAMEPLAY_ZOOM, 5);
+
+    scene.resize(844, 390);
+
+    expect(oldPause.state.destroyed).toBe(true);
+    expect(scene.scale.listenerCount('resize')).toBe(1);
+    const live = scene.objects.filter((object) => !object.state.destroyed);
+    // Rebuilt tree: root + stickBase + stickThumb + hint + pause.
+    const pause = live[live.length - 1]!;
+    const fit = 390 / 844;
+    // The zoomed viewport's logical canvas is invariant; the 44px target is
+    // 44/(1.25·fit) logical and renders exactly 44px after camera zoom (the
+    // arch FIT table row for 844×390).
+    expect(pause.state.width).toBeCloseTo(44 / (GAMEPLAY_ZOOM * fit), 5);
+
+    view.destroy();
+    expect(scene.scale.listenerCount('resize')).toBe(0);
+  });
+});
+
 describe('ControlsView hints', () => {
   it('repositions the hint and rebuilds the pause target after rotation', () => {
     const { scene, view } = createHarness();
-    const oldHint = scene.objects[2];
-    const oldPause = scene.objects[3];
+    // [root, stickBase, stickThumb, hint, pause]
+    const oldHint = scene.objects[3];
+    const oldPause = scene.objects[4];
 
     scene.resize(844, 390);
 
     expect(oldHint.state.destroyed).toBe(true);
     expect(oldPause.state.destroyed).toBe(true);
     expect(scene.scale.listenerCount('resize')).toBe(1);
-    const hint = scene.objects[4];
-    const pause = scene.objects[5];
+    const hint = scene.objects[5];
+    const pause = scene.objects[6];
     const fitScale = 390 / 844;
-    expect(Number(hint.state.y) * fitScale).toBeCloseTo(302, 5);
+    // The strip is gone: the hint owns the bottom safe margin above the stick.
+    expect(Number(hint.state.y) * fitScale).toBeCloseTo(238, 5);
     expect(Number(pause.state.width) * fitScale).toBeCloseTo(44, 5);
     expect(Number(pause.state.height) * fitScale).toBeCloseTo(44, 5);
 
@@ -223,7 +322,7 @@ describe('ControlsView hints', () => {
 
   it('starts with pointer-mode copy and switches on mode change', () => {
     const { scene, input, tick } = createHarness();
-    const hintText = scene.objects[2];
+    const hintText = scene.objects[3];
 
     expect(hintText.state.text).toBe('Drag to move • Tap pause');
 
@@ -240,7 +339,7 @@ describe('ControlsView hints', () => {
 
   it('a pointer gesture restores pointer-mode copy', () => {
     const { scene, input, tick } = createHarness();
-    const hintText = scene.objects[2];
+    const hintText = scene.objects[3];
 
     input.keyboard!.keydown('d');
     tick();
@@ -255,7 +354,7 @@ describe('ControlsView hints', () => {
 
   it('shows the gamepad hint when gamepad input is active', () => {
     const { scene, input, tick } = createHarness({ gamepad: true });
-    const hintText = scene.objects[2];
+    const hintText = scene.objects[3];
 
     const pad = new MockGamepad(0);
     input.gamepad!.connect(pad);
@@ -267,7 +366,7 @@ describe('ControlsView hints', () => {
 
   it('fades the hint once after the display duration with a tween', () => {
     const { scene, view } = createHarness();
-    const hintText = scene.objects[2];
+    const hintText = scene.objects[3];
 
     view.update(1000);
     expect(hintText.state.alpha).toBe(1);
@@ -285,7 +384,7 @@ describe('ControlsView hints', () => {
 
   it('with reduced motion the hint disappears immediately without a tween', () => {
     const { scene, view } = createHarness({ readReducedMotion: () => true });
-    const hintText = scene.objects[2];
+    const hintText = scene.objects[3];
 
     view.update(2200);
 
@@ -296,7 +395,7 @@ describe('ControlsView hints', () => {
   it('rereads the reduced-motion getter at fade time', () => {
     let reducedMotion = false;
     const { scene, view } = createHarness({ readReducedMotion: () => reducedMotion });
-    const hintText = scene.objects[2];
+    const hintText = scene.objects[3];
 
     // Accumulate time below the display duration with the setting still off.
     view.update(1000);
@@ -315,7 +414,7 @@ describe('ControlsView hints', () => {
 describe('ControlsView pause button', () => {
   it('invokes the pause callback on pointer down', () => {
     const { scene, onPauseRequested } = createHarness();
-    const pauseButton = scene.objects[3];
+    const pauseButton = scene.objects[4];
     expect(pauseButton.state.interactive).toBe(true);
 
     pauseButton.emit('pointerdown');
@@ -325,13 +424,16 @@ describe('ControlsView pause button', () => {
 
   it('destroy removes the listener and destroys every object', () => {
     const { scene, view, onPauseRequested } = createHarness();
-    const pauseButton = scene.objects[3];
+    const pauseButton = scene.objects[4];
 
     view.destroy();
     pauseButton.emit('pointerdown');
 
     expect(onPauseRequested).not.toHaveBeenCalled();
-    expect(scene.objects.every((object) => object.state.destroyed)).toBe(true);
+    // The four control objects are owned by the view; the UI root container
+    // is a scene-level object production never destroys.
+    expect(scene.objects.slice(1).every((object) => object.state.destroyed)).toBe(true);
+    expect(scene.objects[0].state.destroyed).toBe(true);
 
     // Double destroy is a no-op.
     view.destroy();
@@ -341,7 +443,7 @@ describe('ControlsView pause button', () => {
 describe('ControlsView lifecycle guards', () => {
   it('update after destroy is a no-op', () => {
     const { scene, input, view } = createHarness();
-    const [stickBase] = scene.objects;
+    const [stickBase] = scene.objects.slice(1);
 
     view.destroy();
     input.pointerDown(100, 100);

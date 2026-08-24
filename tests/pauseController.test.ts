@@ -13,6 +13,7 @@ import { loadGameData } from '../src/systems/validation';
 import { InventoryController } from '../src/ui/inventory';
 import { logicalCanvasViewport } from '../src/ui/layout';
 import { PauseController, PhaserPauseView } from '../src/ui/pause';
+import { FullscreenController } from '../src/ui/fullscreen';
 import { FocusStroke } from '../src/ui/theme';
 import type { InputMode } from '../src/systems/input';
 
@@ -20,6 +21,7 @@ vi.mock('phaser', () => ({
   default: {
     Input: {
       Events: {
+        POINTER_DOWN: 'pointerdown',
         POINTER_UP: 'pointerup',
         POINTER_OVER: 'pointerover',
         POINTER_OUT: 'pointerout',
@@ -514,7 +516,7 @@ describe('PhaserPauseView', () => {
     return scene;
   }
 
-  function createView(options: { readInputMode?: () => InputMode } = {}) {
+  function createView(options: { readInputMode?: () => InputMode; fullscreen?: FullscreenController } = {}) {
     const scene = createFakeScene();
     const harness = createHarness();
     const view = new PhaserPauseView({
@@ -524,6 +526,7 @@ describe('PhaserPauseView', () => {
       controller: harness.controller,
       inventory: harness.inventory,
       ...(options.readInputMode ? { readInputMode: options.readInputMode } : {}),
+      ...(options.fullscreen ? { fullscreen: options.fullscreen } : {}),
     });
     return { scene, view, ...harness };
   }
@@ -551,6 +554,15 @@ describe('PhaserPauseView', () => {
         object.state.handlers['pointerup'] &&
         !object.state.destroyed,
     );
+
+  /** Drives the rack's arm+commit pointer funnel: pointerdown with a
+   *  captured pointer id arms the target, pointerup with the same id
+   *  commits it (X3 boundary). */
+  const press = (object: ReturnType<typeof createFakeScene>['objects'][number]) => {
+    const handlers = object.state.handlers as unknown as Record<string, (pointer: { id: number }) => void>;
+    handlers['pointerdown']?.({ id: 7 });
+    handlers['pointerup']?.({ id: 7 });
+  };
 
   it('renders nothing while the panel is closed', () => {
     const { scene } = createView();
@@ -595,10 +607,11 @@ describe('PhaserPauseView', () => {
       (object) =>
         object.state.kind === 'rect' && object.state.interactive && object.state.handlers['pointerup'],
     );
-    // Two weapon cards plus Merge and Back. Merge is visibly disabled without
-    // a preview but stays interactive for hover: command suppression lives in
-    // the handle's enabled guard (round-2 finding F2).
-    expect(rows).toHaveLength(4);
+    // All six slots (occupied and empty) plus Merge and Back are interactive
+    // targets; empty slots register a no-op activation. Merge is visibly
+    // disabled without a preview but stays interactive for hover: command
+    // suppression lives in the handle's enabled guard (round-2 finding F2).
+    expect(rows).toHaveLength(8);
   });
 
   it('does not expose an interactive merge command without a valid pair', () => {
@@ -611,18 +624,19 @@ describe('PhaserPauseView', () => {
     expect(textContents(scene)).toEqual(
       expect.arrayContaining(['No compatible pair in the rack yet.', 'SELECT A MATCHING PAIR']),
     );
-    // Merge and Back are both registered; the disabled Merge stays
-    // interactive for hover but its funnel cannot emit a command.
-    expect(liveButtons(scene)).toHaveLength(2);
-    expect(liveButtons(scene)[0]!.state.interactive).toBe(true);
-    expect(liveButtons(scene)[1]!.state.interactive).toBe(true);
-    liveButtons(scene)[0]!.state.handlers['pointerup']!(); // disabled Merge
+    // All six slots plus Merge and Back are registered; the disabled Merge
+    // stays interactive for hover but its funnel cannot emit a command. In
+    // creation order: slots 0-5, Merge (6), Back (7).
+    expect(liveButtons(scene)).toHaveLength(8);
+    expect(liveButtons(scene)[6]!.state.interactive).toBe(true);
+    expect(liveButtons(scene)[7]!.state.interactive).toBe(true);
+    press(liveButtons(scene)[6]!); // disabled Merge
     expect(events).toEqual([]);
     expect(controller.snapshot().inventory.selectedInstanceIds).toEqual([]);
     expect(controller.snapshot().panel).toBe('inventory');
 
     // G-15: the disabled no-op is not terminal — Back still walks to pause.
-    liveButtons(scene)[1]!.state.handlers['pointerup']!();
+    press(liveButtons(scene)[7]!);
     expect(events).toEqual(['ui:back']);
     expect(controller.snapshot().panel).toBe('pause');
   });
@@ -1236,11 +1250,12 @@ describe('PhaserPauseView', () => {
     view.render(controller.snapshot());
     const events = recordEvents(bus);
 
-    liveButtons(scene)[0]!.state.handlers['pointerup']!(); // select a → ui:navigate
+    // Creation order: slots 0-5 (a, b occupied), Merge (6), Back (7).
+    press(liveButtons(scene)[0]!); // select a → ui:navigate
     expect(textContents(scene)).toEqual(
       expect.arrayContaining(['PICK 1', 'MATCH', 'Choose a highlighted match.']),
     );
-    liveButtons(scene)[1]!.state.handlers['pointerup']!(); // select b → ui:navigate
+    press(liveButtons(scene)[1]!); // select b → ui:navigate
     expect(textContents(scene)).toEqual(
       expect.arrayContaining([
         'T1 + T1 → T2',
@@ -1249,7 +1264,7 @@ describe('PhaserPauseView', () => {
         'MERGE → Scrap Pistol II',
       ]),
     );
-    liveButtons(scene)[2]!.state.handlers['pointerup']!(); // Merge Selected → ui:confirm
+    press(liveButtons(scene)[6]!); // Merge Selected → ui:confirm
 
     expect(events).toEqual(['ui:navigate', 'ui:navigate', 'ui:confirm']);
     expect(textContents(scene)).toEqual(
@@ -1268,10 +1283,11 @@ describe('PhaserPauseView', () => {
     view.render(controller.snapshot());
     const events = recordEvents(bus);
 
-    // Merge and Back are both registered; the disabled Merge's funnel emits
-    // nothing (activated guard), so no merge command event can leak.
-    expect(liveButtons(scene)).toHaveLength(2);
-    liveButtons(scene)[0]!.state.handlers['pointerup']!(); // disabled Merge
+    // All six slots plus Merge and Back are registered; the disabled Merge's
+    // funnel emits nothing (activated guard), so no merge command event can
+    // leak. In creation order: slots 0-5, Merge (6), Back (7).
+    expect(liveButtons(scene)).toHaveLength(8);
+    press(liveButtons(scene)[6]!); // disabled Merge
     expect(events).toEqual([]);
     expect(textContents(scene)).toEqual(
       expect.arrayContaining(['SELECT A MATCHING PAIR']),
@@ -1281,11 +1297,11 @@ describe('PhaserPauseView', () => {
     // and confirming the now-enabled Merge routes exactly the expected events.
     run.equipped = [instance('scrap-pistol-t1', 'a'), instance('scrap-pistol-t1', 'b')];
     view.render(controller.snapshot());
-    expect(liveButtons(scene)).toHaveLength(4); // slot a, slot b, Merge, Back
-    liveButtons(scene)[0]!.state.handlers['pointerup']!();
-    liveButtons(scene)[1]!.state.handlers['pointerup']!();
-    expect(liveButtons(scene)).toHaveLength(4); // Merge now enabled
-    liveButtons(scene)[2]!.state.handlers['pointerup']!();
+    expect(liveButtons(scene)).toHaveLength(8); // 6 slots + Merge + Back
+    press(liveButtons(scene)[0]!);
+    press(liveButtons(scene)[1]!);
+    expect(liveButtons(scene)).toHaveLength(8); // Merge now enabled
+    press(liveButtons(scene)[6]!);
     expect(events).toEqual(['ui:navigate', 'ui:navigate', 'ui:confirm']);
     expect(run.equipped).toHaveLength(1);
     expect(run.equipped[0]?.tier).toBe(2);
@@ -1379,5 +1395,345 @@ describe('PhaserPauseView', () => {
     expect(events).toEqual([]);
     expect(controller.snapshot().panel).toBe('pause');
   });
+
+  it('adds a third pause action only when available, disables it while pending, and unsubscribes on destroy', () => {
+    withDocument(true, () => {
+      const { scale, listeners } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      const { scene, view, controller } = createView({ fullscreen });
+      controller.pause();
+      view.render(controller.snapshot());
+
+      // Available: exactly three actions (Resume, Weapon Rack, Fullscreen).
+      expect(liveButtons(scene)).toHaveLength(3);
+      expect(textContents(scene)).toContain('Fullscreen');
+      expect(textContents(scene)).not.toContain('Fullscreen…');
+
+      // The fullscreen action uses the existing modal pointer funnel.
+      press(liveButtons(scene)[2]!);
+      expect(fullscreen.snapshot).toBe('pending-enter');
+      expect(scale.startFullscreen).toHaveBeenCalledTimes(1);
+
+      // Real Phaser emits RESIZE before ENTER_FULLSCREEN. The scale event
+      // must perform the sole transition rebuild; settlement must only publish.
+      const resizeBefore = view.renderRebuildCount;
+      scene.resize(844, 390);
+      const resizeAfter = view.renderRebuildCount;
+      expect(resizeAfter).toBe(resizeBefore + 1);
+
+      // A rebuild during the pending window renders a DISABLED "Fullscreen…"
+      // action; activating it cannot issue a second request.
+      view.render(controller.snapshot());
+      const pendingRenderCount = view.renderRebuildCount;
+      expect(textContents(scene)).toContain('Fullscreen…');
+      const pendingButtons = liveButtons(scene);
+      expect(pendingButtons).toHaveLength(3);
+      press(pendingButtons[2]!);
+      expect(scale.startFullscreen).toHaveBeenCalledTimes(1);
+      expect(fullscreen.snapshot).toBe('pending-enter');
+
+      scale.isFullscreen = true;
+      listeners.get('enterfullscreen')?.();
+      expect(view.renderRebuildCount).toBe(pendingRenderCount);
+
+      // Settlement to active rebuilds the committed panel and enables exit.
+      expect(fullscreen.snapshot).toBe('active');
+      expect(textContents(scene)).toContain('Exit Fullscreen');
+      press(liveButtons(scene)[2]!);
+      expect(fullscreen.snapshot).toBe('pending-exit');
+      expect(scale.stopFullscreen).toHaveBeenCalledTimes(1);
+
+      // Destroy unsubscribes the view from fullscreen settlement and scale
+      // resize; the controller's scale events are dropped by fullscreen.destroy.
+      view.destroy();
+      expect(scene.scale.listenerCount('resize')).toBe(0);
+      fullscreen.destroy();
+      expect(listeners.size).toBe(0);
+    });
+  });
+
+  it('omits the third pause action when fullscreen is unavailable', () => {
+    withDocument(false, () => {
+      const { scale } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      const { scene, view, controller } = createView({ fullscreen });
+      controller.pause();
+      view.render(controller.snapshot());
+
+      expect(liveButtons(scene)).toHaveLength(2);
+      expect(textContents(scene)).not.toContain('Fullscreen');
+      view.destroy();
+      fullscreen.destroy();
+    });
+  });
+  });
+
+  it('does not rebuild the already-rendered inventory again at fullscreen settlement', () => {
+    withDocument(true, () => {
+      const { scale, listeners } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      const { scene, view, controller } = createView({ fullscreen });
+      controller.pause();
+      view.render(controller.snapshot());
+      press(liveButtons(scene)[2]!);
+      const beforeResize = view.renderRebuildCount;
+
+      // RESIZE is the first Phaser signal. The user can change panels while
+      // the request is pending; settlement must not tear down that fresh rack.
+      scene.resize(844, 390);
+      expect(view.renderRebuildCount).toBe(beforeResize + 1);
+      expect(controller.openInventory()).toBe(true);
+      view.render(controller.snapshot());
+      const afterInventory = view.renderRebuildCount;
+      expect(textContents(scene)).toContain('Weapon Rack');
+
+      scale.isFullscreen = true;
+      listeners.get('enterfullscreen')?.();
+      expect(view.renderRebuildCount).toBe(afterInventory);
+      expect(textContents(scene)).toContain('Weapon Rack');
+
+      view.destroy();
+      fullscreen.destroy();
+    });
+  });
+
+  it('rebuilds at settlement when the viewport drifted since the observed resize (resize-key mismatch)', () => {
+    withDocument(true, () => {
+      const { scale, listeners } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      const { scene, view, controller } = createView({ fullscreen });
+      controller.pause();
+      view.render(controller.snapshot());
+      press(liveButtons(scene)[2]!);
+      expect(fullscreen.snapshot).toBe('pending-enter');
+
+      // The observed resize records its viewport/panel/state key.
+      scene.resize(844, 390);
+      const afterResize = view.renderRebuildCount;
+
+      // The viewport drifts WITHOUT a resize event (a render under a changed
+      // scale that Phaser never surfaced): the settle-time key no longer
+      // matches the captured resize key, so the dedupe must fall through to
+      // a real rebuild instead of silently publishing stale geometry.
+      scene.scale.displaySize.width = 390;
+      scene.scale.displaySize.height = 844;
+      scene.scale.parentSize.width = 390;
+      scene.scale.parentSize.height = 844;
+      view.render(controller.snapshot());
+      const afterDrift = view.renderRebuildCount;
+      expect(afterDrift).toBe(afterResize + 1);
+
+      scale.isFullscreen = true;
+      listeners.get('enterfullscreen')?.();
+      expect(fullscreen.snapshot).toBe('active');
+      // Key mismatch → the settled layout is rendered, not skipped.
+      expect(view.renderRebuildCount).toBe(afterDrift + 1);
+      expect(textContents(scene)).toContain('Exit Fullscreen');
+
+      view.destroy();
+      fullscreen.destroy();
+    });
+  });
+});
+
+
+function createScale() {
+  const listeners = new Map<string, () => void>();
+  const scale = {
+    isFullscreen: false,
+    startFullscreen: vi.fn(),
+    stopFullscreen: vi.fn(),
+    on: (event: string, listener: () => void) => listeners.set(event, listener),
+    off: (event: string, listener: () => void) => { if (listeners.get(event) === listener) listeners.delete(event); },
+  };
+  return { scale, listeners };
+}
+
+function withDocument(enabled: boolean, run: () => void) {
+  const prior = globalThis.document;
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { fullscreenEnabled: enabled } });
+  try {
+    run();
+  } finally {
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: prior });
+  }
+}
+
+describe('pause fullscreen wiring', () => {
+  it('gates requests, exposes pending state, and disposes its subscription', () => {
+    withDocument(true, () => {
+      const { scale, listeners } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      const settled = vi.fn();
+      const unsubscribe = fullscreen.subscribe(settled);
+      expect(fullscreen.request()).toBe(true);
+      expect(scale.startFullscreen).toHaveBeenCalledTimes(1);
+      expect(fullscreen.snapshot).toBe('pending-enter');
+      expect(fullscreen.request()).toBe(false);
+      scale.isFullscreen = true;
+      listeners.get('enterfullscreen')?.();
+      expect(fullscreen.snapshot).toBe('active');
+      expect(settled).toHaveBeenCalledTimes(2);
+      unsubscribe();
+      fullscreen.destroy();
+      expect(listeners.size).toBe(0);
+    });
+  });
+
+  it('walks the full enter/exit/pending/failed/unsupported/destroy state machine', () => {
+    withDocument(true, () => {
+      const { scale, listeners } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      const settled = vi.fn();
+      fullscreen.subscribe(settled);
+
+      // Enter: request → pending-enter, one accepted gesture only.
+      expect(fullscreen.request()).toBe(true);
+      expect(fullscreen.snapshot).toBe('pending-enter');
+      expect(scale.startFullscreen).toHaveBeenCalledTimes(1);
+      expect(fullscreen.request()).toBe(false); // pending disables
+      scale.isFullscreen = true;
+      listeners.get('enterfullscreen')?.();
+      expect(fullscreen.snapshot).toBe('active');
+
+      // Exit: request → pending-exit → stopFullscreen → settle idle.
+      expect(fullscreen.request()).toBe(true);
+      expect(fullscreen.snapshot).toBe('pending-exit');
+      expect(scale.stopFullscreen).toHaveBeenCalledTimes(1);
+      expect(fullscreen.request()).toBe(false);
+      scale.isFullscreen = false;
+      listeners.get('leavefullscreen')?.();
+      expect(fullscreen.snapshot).toBe('idle');
+
+      // Failed entry settles back to idle without calling anything else.
+      expect(fullscreen.request()).toBe(true);
+      expect(fullscreen.snapshot).toBe('pending-enter');
+      listeners.get('fullscreenfailed')?.();
+      expect(fullscreen.snapshot).toBe('idle');
+      expect(scale.isFullscreen).toBe(false);
+
+      // Unsupported settlement also returns to idle.
+      expect(fullscreen.request()).toBe(true);
+      listeners.get('fullscreenunsupported')?.();
+      expect(fullscreen.snapshot).toBe('idle');
+
+      // Destroy unsubscribes all four scale events and stops transitions.
+      expect(listeners.size).toBe(4);
+      fullscreen.destroy();
+      expect(listeners.size).toBe(0);
+      expect(fullscreen.request()).toBe(false);
+      expect(scale.startFullscreen).toHaveBeenCalledTimes(3);
+      expect(scale.stopFullscreen).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('is available-gated: unsupported requests return false without touching the scale', () => {
+    withDocument(false, () => {
+      const { scale, listeners } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      expect(fullscreen.available).toBe(false);
+      expect(fullscreen.request()).toBe(false);
+      expect(scale.startFullscreen).not.toHaveBeenCalled();
+      expect(scale.stopFullscreen).not.toHaveBeenCalled();
+      expect(fullscreen.snapshot).toBe('idle');
+      fullscreen.destroy();
+      expect(listeners.size).toBe(0);
+    });
+  });
+
+  it('fails closed when fullscreenEnabled is missing (iOS Safari shape)', () => {
+    const prior = globalThis.document;
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: {} });
+    try {
+      const { scale } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      expect(fullscreen.available).toBe(false);
+      expect(fullscreen.request()).toBe(false);
+      fullscreen.destroy();
+    } finally {
+      Object.defineProperty(globalThis, 'document', { configurable: true, value: prior });
+    }
+  });
+
+  it('excludes iOS user agents even when fullscreenEnabled is truthy', () => {
+    const priorDocument = globalThis.document;
+    const priorNavigator = globalThis.navigator;
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: { fullscreenEnabled: true } });
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)' } });
+    try {
+      const { scale } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      expect(fullscreen.available).toBe(false);
+      expect(fullscreen.request()).toBe(false);
+      fullscreen.destroy();
+    } finally {
+      Object.defineProperty(globalThis, 'document', { configurable: true, value: priorDocument });
+      Object.defineProperty(globalThis, 'navigator', { configurable: true, value: priorNavigator });
+    }
+  });
+
+  it('keeps a shared pending request across a scene restart', () => {
+    withDocument(true, () => {
+      const { scale, listeners } = createScale();
+      const first = new FullscreenController(scale);
+      expect(first.request()).toBe(true);
+      first.destroy();
+      const restarted = new FullscreenController(scale);
+      expect(restarted.snapshot).toBe('pending-enter');
+      expect(restarted.request()).toBe(false);
+      scale.isFullscreen = true;
+      listeners.get('enterfullscreen')?.();
+      expect(restarted.snapshot).toBe('active');
+      restarted.destroy();
+    });
+  });
+
+  it('settles a rejected request without a Phaser failure event and permits retry', async () => {
+    vi.useFakeTimers();
+    const prior = globalThis.document;
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: { fullscreenEnabled: true } });
+    try {
+      const { scale } = createScale();
+      scale.startFullscreen.mockReturnValueOnce(Promise.reject(new Error('gesture denied')));
+      const fullscreen = new FullscreenController(scale);
+      expect(fullscreen.request()).toBe(true);
+      await Promise.resolve();
+      expect(fullscreen.snapshot).toBe('idle');
+      expect(fullscreen.request()).toBe(true);
+      fullscreen.destroy();
+    } finally {
+      Object.defineProperty(globalThis, 'document', { configurable: true, value: prior });
+      vi.useRealTimers();
+    }
+  });
+
+  it('bounds the pending window at 500ms: no settle events transitions pending → idle and clears the timer', () => {
+    vi.useFakeTimers();
+    withDocument(true, () => {
+      const { scale } = createScale();
+      const fullscreen = new FullscreenController(scale);
+      const settled = vi.fn();
+      fullscreen.subscribe(settled);
+      expect(fullscreen.request()).toBe(true);
+      expect(fullscreen.snapshot).toBe('pending-enter');
+      expect(vi.getTimerCount()).toBe(1);
+
+      // No Phaser event arrives within the 500ms bounded window: the
+      // controller must settle itself back to idle instead of hanging.
+      vi.advanceTimersByTime(500);
+      expect(fullscreen.snapshot).toBe('idle');
+      expect(settled).toHaveBeenCalledTimes(2); // pending-enter + timeout settle
+      // The settle cleared the timer — no re-arm, no retry fire.
+      expect(vi.getTimerCount()).toBe(0);
+      expect(scale.startFullscreen).toHaveBeenCalledTimes(1);
+      expect(scale.isFullscreen).toBe(false);
+
+      // A cleared timer means an immediate retry is permitted.
+      expect(fullscreen.request()).toBe(true);
+      expect(fullscreen.snapshot).toBe('pending-enter');
+      fullscreen.destroy();
+      expect(vi.getTimerCount()).toBe(0);
+    });
+    vi.useRealTimers();
   });
 });

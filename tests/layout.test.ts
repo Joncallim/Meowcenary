@@ -4,6 +4,8 @@ import {
   minimumHitTarget,
   physicalToLogical,
   safeDisplayScale,
+  GAMEPLAY_ZOOM,
+  zoomedGameUiViewport,
   type UiViewport,
 } from '../src/ui/layout';
 
@@ -99,5 +101,19 @@ describe('minimumHitTarget', () => {
     const vp = viewport(Number.NaN, Number.NaN);
     expect(safeDisplayScale(vp)).toBe(0.25);
     expect(Number.isFinite(minimumHitTarget(vp))).toBe(true);
+  });
+});
+
+describe('zoomedGameUiViewport', () => {
+  it('uses finite positive display and container dimensions for malformed scale input', () => {
+    const viewport = zoomedGameUiViewport(Number.NaN, 0, Number.POSITIVE_INFINITY, -1);
+    expect(viewport.canvasWidth).toBeCloseTo(CANVAS.width / GAMEPLAY_ZOOM);
+    expect(viewport.canvasHeight).toBeCloseTo(CANVAS.height / GAMEPLAY_ZOOM);
+    expect(viewport.displayWidth).toBe(CANVAS.width);
+    expect(viewport.displayHeight).toBe(CANVAS.height);
+    expect(viewport.containerWidth).toBe(CANVAS.width);
+    expect(viewport.containerHeight).toBe(CANVAS.height);
+    expect(viewport.originX).toBeCloseTo(CANVAS.width * 0.1);
+    expect(viewport.originY).toBeCloseTo(CANVAS.height * 0.1);
   });
 });

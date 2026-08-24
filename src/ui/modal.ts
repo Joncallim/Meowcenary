@@ -8,6 +8,8 @@ export interface ModalButtonHandle {
   readonly target: Phaser.GameObjects.Rectangle;
   readonly enabled: boolean;
   activate(): boolean;
+  setLabel(label: string): void;
+  setEnabled(enabled: boolean): void;
   setFocusVisible(visible: boolean): void;
 }
 
@@ -113,14 +115,38 @@ export function createModalTextHelpers(
     rect.setStrokeStyle(baseStroke.width, baseStroke.color, baseStroke.alpha);
     rect.setScrollFactor(0);
     let activated = false;
+    let enabledState = enabled;
+    const text = scene.add.text(x, y, label, {
+      color: enabled ? '#f7f1d5' : '#78909c',
+      fontFamily: ThemeFont.family,
+      fontSize: `${physicalToLogical(ThemeFont.labelMin, viewport)}px`,
+    });
+    root.add(text);
+    text.setOrigin(0.5);
+    text.setScrollFactor(0);
     const handle: ModalButtonHandle = {
       target: rect,
-      enabled,
+      get enabled() { return enabledState; },
       activate: () => {
-        if (!enabled || activated) return false;
+        if (!enabledState || activated) return false;
         activated = true;
         onActivate();
         return true;
+      },
+      setLabel: (nextLabel) => (text as Phaser.GameObjects.Text & { setText?: (value: string) => unknown }).setText?.(nextLabel),
+      setEnabled: (nextEnabled) => {
+        enabledState = nextEnabled;
+        (rect as Phaser.GameObjects.Rectangle & { setFillStyle?: (color: number) => unknown }).setFillStyle?.(
+          nextEnabled ? emphasized ? ThemeColor.cardHover : ThemeColor.card : ThemeColor.surface,
+        );
+        rect.setStrokeStyle(
+          baseStroke.width,
+          nextEnabled ? emphasized ? ThemeColor.primary : ThemeColor.muted : ThemeColor.card,
+          nextEnabled ? 0.9 : 0.55,
+        );
+        (text as Phaser.GameObjects.Text & { setStyle?: (style: Record<string, unknown>) => unknown }).setStyle?.({
+          color: nextEnabled ? '#f7f1d5' : '#78909c',
+        });
       },
       setFocusVisible: (visible) => {
         rect.setStrokeStyle(
@@ -139,14 +165,6 @@ export function createModalTextHelpers(
     // unchanged (round-2 finding F2).
     rect.setInteractive();
 
-    const text = scene.add.text(x, y, label, {
-      color: enabled ? '#f7f1d5' : '#78909c',
-      fontFamily: ThemeFont.family,
-      fontSize: `${physicalToLogical(ThemeFont.labelMin, viewport)}px`,
-    });
-    root.add(text);
-    text.setOrigin(0.5);
-    text.setScrollFactor(0);
     return handle;
   };
 

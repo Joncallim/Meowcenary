@@ -1,24 +1,38 @@
 # Epic 19 — Player experience gate
 
 **Status:** IN PROGRESS
-**References:** Epic #78; [governing architecture](../architecture/epic-19-player-ux-and-alpha-2-gate.md); Slice 4 merged commit: `b316a6a`; Slice 5 runtime candidate commit: `33f27bc` (PR #112; the final evidence-only descendant cites this tested parent honestly — see row 7).
+**References:** Epic #78; [governing architecture](../architecture/epic-19-player-ux-and-alpha-2-gate.md); Slice 4 merged commit: `b316a6a`; final remediation candidate: `6e64130` (the FINAL TESTED candidate — automated rows below pin to it, not to the `ad5aeb9` baseline; this docs revision is a descendant whose newly added regressions are recorded at the next gate cycle).
 
-This is the compact durable record for the Epic 19 player-experience gate. Rows without a real observer, device, and candidate commit remain `unverified`; automated results do not substitute for human evidence.
+This is the compact durable record for the Epic 19 player-experience gate. Rows without a real observer, device, and candidate commit remain `unverified`; automated results do not substitute for human evidence. Automated rows carry NO human observer — the Observer column records the run's provenance (`automated`), never a maintainer or agent.
+
+## PF convergence recheck (draft)
+
+Maintainer draft, 2026-08-24, against candidate `ad5aeb9` (the baseline where these failures were observed). These verified-fail rows identify required final-candidate (`6e64130`) rechecks and do not substitute for human device evidence.
+
+| PF | Finding / check | Device, input, symptom | Candidate | Observer/date | Final-candidate recheck | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| PF1 | Weapon-rack merge selection | Mac, mouse click-select; rack card selection did not reliably arm/commit Merge | `ad5aeb9` | maintainer / 2026-08-24 | recheck click-select and exactly-one Merge on final SHA | verified-fail → pending |
+| PF2 | Mission-skill selection | Mac, mouse click-select; mission upgrade card did not reliably select | `ad5aeb9` | maintainer / 2026-08-24 | recheck click-select and visible choice feedback on final SHA | verified-fail → pending |
+| PF3 | Touch coordinate/feedback parity | iPhone 15 Pro Max, iOS Safari touch; tap offset and no visible selection feedback | `ad5aeb9` | maintainer / 2026-08-24 | recheck toolbar/viewport positions and feedback on final SHA | verified-fail → pending |
+| PF4 | HUD-strip accidental opens | iPhone 15 Pro Max, touch; lower HUD rack strip opened inventory accidentally | `ad5aeb9` | maintainer / 2026-08-24 | recheck bottom taps and stick drag-release on final SHA | verified-fail → pending |
+| PF5 | iOS fullscreen | iPhone 15 Pro Max, iOS Safari; in-tab fullscreen unavailable | `ad5aeb9` | maintainer / 2026-08-24 | recheck safe dynamic viewport and unsupported omission on final SHA | verified-fail → pending |
+| PF6 | Pause/health overlap | iPhone 15 Pro Max, touch; top-right pause control overlapped health/HUD information | `ad5aeb9` | maintainer / 2026-08-24 | recheck 44px control and physical gutter on final SHA | verified-fail → pending |
+| PF7 | Sprite/UI scale | iPhone 15 Pro Max, iOS Safari; sprites and UI were too small | `ad5aeb9` | maintainer / 2026-08-24 | recheck 1.25× rendering, targets, and pressure windows on final SHA | verified-fail → pending |
 
 ## Automated validation
 
-Eight separate rows (one per gate). Each test row records the exact candidate commit, observer/date, exit/pass, ordinary files/tests, stage-2 `9 passed`, and stage-3 fixed `6 + 3` all enforced.
+Eight separate rows (one per gate). Each test row records the exact candidate commit, observer/date, exit/pass, ordinary files/tests, stage-2 `9 passed`, and stage-3 fixed `6 + 3` all enforced. All rows pin the FINAL TESTED candidate `6e64130` (not the `ad5aeb9` baseline) with its real numbers: 101 ordinary files / 1690 tests, stage-2 allocation 9/9, stage-3 fixed 6 + 3, normal plus BOTH shuffled reruns. Automated rows have no human observer — the Observer column is the run's provenance.
 
 | # | Commit | Observer/date | Check | Status | Outcome | Notes | Unverified reason |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `33f27bc` | Codex / 2026-08-24 | normal full `npm test` | verified | pass | Exit 0; ordinary 100 files / 1636 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
-| 2 | `33f27bc` | Codex / 2026-08-24 | shuffled full seed `190501` | verified | pass | `--sequence.shuffle --sequence.seed 190501`; exit 0; seed printed; ordinary 100 files / 1636 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
-| 3 | `33f27bc` | Codex / 2026-08-24 | shuffled full seed `190502` | verified | pass | `--sequence.shuffle --sequence.seed 190502`; exit 0; seed printed; ordinary 100 files / 1636 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
-| 4 | `33f27bc` | Codex / 2026-08-24 | `npm run lint` | verified | pass | `tsc --noEmit` exit 0. | — |
-| 5 | `33f27bc` | Codex / 2026-08-24 | `npm run build` | verified | pass | `tsc --noEmit && vite build` exit 0. | — |
-| 6 | `33f27bc` | Codex / 2026-08-24 | `npm run art:validate` | verified | pass | Node + Lua visual-art builder contracts all PASS, exit 0. | — |
-| 7 | `33f27bc` | Codex / 2026-08-24 | `git diff --check` | verified | pass | Clean working tree; no whitespace errors. Honest runtime-equivalence check: `git diff --exit-code 5f8cac8..33f27bc -- src package.json vite.config.ts tsconfig.json` exits 1 only for authorized `src/scenes/MenuScene.ts` and `src/ui/runSummary.ts` resize fixes; earlier runtime observations are not transferred. The final docs-only descendant cites this tested runtime parent under the §5.6 provenance rule. | — |
-| 8 | `33f27bc` | unassigned / 2026-08-24 | independent orthogonal review | pending | not dispatched | Read-only full-footprint review artifact required. | Independent reviewer not assigned. |
+| 1 | `6e64130` | automated / 2026-08-25 | normal full `npm test` | verified | pass | Exit 0; ordinary 101 files / 1690 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
+| 2 | `6e64130` | automated / 2026-08-25 | shuffled full seed `190501` | verified | pass | `--sequence.shuffle --sequence.seed 190501`; exit 0; seed printed; ordinary 101 files / 1690 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
+| 3 | `6e64130` | automated / 2026-08-25 | shuffled full seed `190502` | verified | pass | `--sequence.shuffle --sequence.seed 190502`; exit 0; seed printed; ordinary 101 files / 1690 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
+| 4 | `6e64130` | automated / 2026-08-25 | `npm run lint` | verified | pass | `tsc --noEmit` exit 0. | — |
+| 5 | `6e64130` | automated / 2026-08-25 | `npm run build` | verified | pass | `tsc --noEmit && vite build` exit 0. | — |
+| 6 | `6e64130` | automated / 2026-08-25 | `npm run art:validate` | verified | pass | Node + Lua visual-art builder contracts all PASS, exit 0. | — |
+| 7 | `6e64130` | maintainer / 2026-08-25 | `git diff --check` | pending | pending | Final-candidate recheck required after remediation; earlier runtime observations are not transferred. | Recheck on final SHA. |
+| 8 | `6e64130` | unassigned / 2026-08-25 | independent orthogonal review | pending | not dispatched | Read-only full-footprint review artifact required. | Independent reviewer not assigned. |
 
 ## Device matrix
 
@@ -61,21 +75,22 @@ Eight separate rows (one per gate). Each test row records the exact candidate co
 | MA-controller-1 | desktop-gamepad-chrome | controller | unverified | unverified | pending | unverified | unverified | unverified | unverified | unverified | unverified | unverified | No scored human run. |
 
 ### D10 maintainer decision
-- Decision: PENDING
-- Maintainer: unverified
-- Date: unverified
-- Candidate commit: pending
-- Evidence row IDs: unverified
-- Per-device numerator/denominator: unverified
-- Judgment: PENDING — no human movement-agency evidence has been recorded.
-- Pressure-window observations: unverified — Rusher and Brute exposures not recorded.
-- Follow-up: maintainer playtest required; no dash implementation is authorized.
+- Decision: NO_DASH observation, gate pending.
+- Maintainer:
+- Date: 2026-08-24
+- Device: iPhone 15 Pro Max (iOS/Safari versions unrecorded)
+- Candidate commit: `ad5aeb9`
+- Evidence row IDs: PF1–PF7 draft only; no final-candidate human-device run.
+- Pressure-window observations: marathon crossed both Rusher and Brute windows; no repeated unavoidable-damage/death pattern observed.
+- Judgment: NO_DASH lean only — **CONFOUNDER:** threat was low, so absence of deaths does not prove agency; balance follow-up is tracked.
+- Reproducibility/evidence status: unverified — seed was unrecorded.
+- Follow-up: re-run on the final SHA with device/version provenance and a recorded seed; no dash implementation is authorized.
 
 ## Performance
 
 | Evidence ID | Device ID | Commit | Observer/date | Check | Method | Status | Observed outcome | Unverified reason | Decision/follow-up |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| P-alloc | desktop-keyboard-chrome | `33f27bc` | Codex / 2026-08-24 | §6 zero-allocation and runner regressions | `npm test` (rows 1–3) | verified | pass | Normal + seeds 190501/190502 all exit 0; zero-allocation gate 9/9 with zero baselines/canaries; 18,000-poll deterministic proxy and sampler regressions pass (rows 1–3). Automated proxy only — not lived FPS. | — |
+| P-alloc | desktop-keyboard-chrome | `6e64130` | automated / 2026-08-25 | §6 zero-allocation and runner regressions | `npm test` | verified | pass | Stage-2 allocation 9/9 + stage-3 fixed 6 + 3 at the final tested candidate. Automated proxy only — not lived FPS. | — |
 | P-late-wave | unverified | pending | unverified | 4:30–5:00 Golden Run frame posture | real run with input polling | unverified | unverified | Deferred to Slice 5; no human browser run. | Do not infer frame pacing from allocation tests. |
 
 ## §10 experience matrix
@@ -84,7 +99,8 @@ Eight separate rows (one per gate). Each test row records the exact candidate co
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | X1-controller-journey | X1 — controller-only whole journey | desktop-gamepad-chrome | pending | unverified | unverified | unverified | No real controller run. |
 | X2-focus | X2 — visible focus across rerender, resize, device switch | desktop-gamepad-chrome | pending | unverified | unverified | unverified | No device/manual observation. |
-| X3-single-command | X3 — one input, one destructive/selection effect | desktop-gamepad-chrome | `33f27bc` | Codex / 2026-08-24 | unverified | Automated mixed-input evidence is available: 1,024-frame switching soak plus 64 simultaneous Enter + bottom-face trials pass in rows 1–3; no real-device observation is available. | Automated soak does not verify the absent keyboard+controller device session. |
+| X3-single-command (automated soak) | X3 — one input, one destructive/selection effect | desktop-gamepad-chrome | `6e64130` | automated / 2026-08-25 | verified | pass | Mixed-input + pointer-funnel regressions green at the final tested candidate (normal + both shuffled reruns). | Automated evidence only — no human observer. |
+| X3-single-command (maintainer) | X3 — one input, one destructive/selection effect | desktop-gamepad-chrome | `6e64130` | maintainer / 2026-08-25 | unverified | unverified | No real-device observation is available; the automated soak does not verify the absent keyboard+controller device session. | Maintainer playtest session unavailable. |
 | X4-hints | X4 — hints follow last real device | desktop-keyboard-chrome | pending | unverified | unverified | unverified | No manual observation. |
 | X5-one-handed | X5 — one-handed phone comfort/reach | pixel-8-android-chrome | unverified | unverified | unverified | unverified | No touch hardware evidence. |
 | X6-agency | X6 — movement agency | pixel-8-android-chrome | unverified | unverified | unverified | unverified | D10 remains PENDING. |

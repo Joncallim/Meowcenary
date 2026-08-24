@@ -5,6 +5,7 @@ import { MenuScene } from './scenes/MenuScene';
 import { GameScene } from './scenes/GameScene';
 import './styles.css';
 import { physicsDebugEnabled } from './systems/debug';
+import { bindVisualViewportRefresh, isGestureActive } from './platform/visualViewport';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -15,6 +16,7 @@ const config: Phaser.Types.Core.GameConfig = {
     autoCenter: Phaser.Scale.CENTER_BOTH,
     width: RuntimeConfig.canvas.width,
     height: RuntimeConfig.canvas.height,
+    fullscreenTarget: 'game-root',
   },
   input: {
     activePointers: 3,
@@ -32,3 +34,9 @@ const config: Phaser.Types.Core.GameConfig = {
 // Exported as a narrow ESM browser lifecycle/smoke seam. Upgrade selection now
 // uses the visible chooser; gameplay ownership remains in scenes and systems.
 export const game = new Phaser.Game(config);
+// P1: the gesture gate consults the PRODUCTION isGestureActive lambda — a
+// scene without an inputController (e.g. the always-active BootScene) must
+// not read as an active gesture, or scale.refresh() would never run and the
+// refresh arming would re-arm into a per-frame rAF loop.
+const disposeVisualViewport = bindVisualViewportRefresh(game, () => game.scene.getScenes(true).some(isGestureActive));
+game.events.once(Phaser.Core.Events.DESTROY, disposeVisualViewport);

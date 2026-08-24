@@ -4,7 +4,7 @@ import { SceneKey } from '../engine/sceneKeys';
 import type { RunOutcome, RunState } from '../gameplay/runState';
 import type { BankedRun } from '../systems/ProgressionSystem';
 import { formatNumber, formatTime } from './format';
-import { logicalCanvasViewport, minimumHitTarget, physicalToLogical, type UiViewport } from './layout';
+import { logicalCanvasViewport, minimumHitTarget, physicalToLogical, zoomedGameUiViewport, type UiViewport } from './layout';
 import { createModalTextHelpers, type ModalTextHelpers } from './modal';
 import { ThemeColor, ThemeDepth, ThemeFont } from './theme';
 import { FocusNavigator, type FocusDirection } from './focusList';
@@ -185,11 +185,10 @@ export class PhaserRunSummaryView {
 
   private readonly handleResize = (): void => {
     if (this.disposed || !this.summaryActive) return;
-    this.viewport = logicalCanvasViewport(
-      this.scene.scale.displaySize.width,
-      this.scene.scale.displaySize.height,
-      this.scene.scale.parentSize.width,
-      this.scene.scale.parentSize.height,
+    this.viewport = this.viewport.originX === undefined ? logicalCanvasViewport(
+      this.scene.scale.displaySize.width, this.scene.scale.displaySize.height, this.scene.scale.parentSize.width, this.scene.scale.parentSize.height,
+    ) : zoomedGameUiViewport(
+      this.scene.scale.displaySize.width, this.scene.scale.displaySize.height, this.scene.scale.parentSize.width, this.scene.scale.parentSize.height,
     );
     this.modal = createModalTextHelpers(this.scene, this.viewport);
     const snapshot = this.controller.snapshot();
@@ -236,7 +235,7 @@ export class PhaserRunSummaryView {
     const hitTarget = minimumHitTarget(viewport);
     const buttonWidth = Math.max(180, width - margin * 4);
 
-    const root = scene.add.container(0, 0);
+    const root = scene.add.container(viewport.originX ?? 0, viewport.originY ?? 0);
 
     try {
       root.setDepth(ThemeDepth.pauseSummary);

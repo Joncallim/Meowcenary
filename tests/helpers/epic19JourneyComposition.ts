@@ -39,9 +39,10 @@ import {
   RunSummaryController,
 } from '../../src/ui/runSummary';
 import { UpgradeSystem } from '../../src/systems/UpgradeSystem';
+import { FeedbackSystem } from '../../src/systems/feedback';
 import { UpgradeChooser } from '../../src/ui/UpgradeChooser';
 import { ControlsView } from '../../src/ui/controls';
-import { logicalCanvasViewport } from '../../src/ui/layout';
+import { GAMEPLAY_ZOOM, zoomedGameUiViewport } from '../../src/ui/layout';
 import { FocusStroke } from '../../src/ui/theme';
 import { AUDIO_MANAGER_REGISTRY_KEY } from '../../src/systems/audio';
 
@@ -118,6 +119,15 @@ export interface FakeObjectState {
   strokeColor?: number;
   strokeAlpha: number;
   style: Record<string, unknown>;
+  /** M-02: recorded display scale (real Phaser GameObject.scaleX/Y). */
+  scaleX: number;
+  scaleY: number;
+  /** M-02/M-08: recorded per-object scroll factor (a parent Container's
+   *  factor never propagates to children; hit tests read the child value). */
+  scrollFactorX: number;
+  scrollFactorY: number;
+  fillColor?: number;
+  fillAlpha: number;
 }
 
 export type FakeObject = ReturnType<typeof fakeObject>;
@@ -135,6 +145,86 @@ export function createSharedFakeObjectForConformance(
   return fakeObject(kind, text, width, height);
 }
 
+/** M-02: the shared fake scene exposed for conformance and zoomed-surface
+ *  regressions (AM-3 stick rendering, fullscreen scale, camera zoom). Built
+ *  with the exact same factories the phases use — never a copy. */
+export function createSharedFakeSceneForConformance() {
+  const input = new MockInputPlugin({ keyboard: true, gamepad: true });
+  const { context } = createBrandedContext(createEventBus(), 'shared-fake-conformance');
+  const fake = createFakeScene(input, context);
+  return {
+    scene: fake.scene,
+    input,
+    context,
+    scale: fake.scene.scale,
+    camera: fake.scene.cameras.main,
+    tweens: fake.tweens,
+    tweenAdds: fake.tweenAdds,
+    objects: fake.scene.objects,
+  };
+}
+
+/** M-02: real-choice-feedback recording renderer for the composed game
+ *  phase — the funnel regressions assert visible upgradeChosen feedback
+ *  through the exact FeedbackSystem subscription, never a fake-only call. */
+export function createRecordingFeedbackRenderer() {
+  return {
+    muzzleFlashCalls: [] as Array<{ x: number; y: number; family: string }>,
+    projectileHitCalls: [] as Array<{ x: number; y: number; family: string; heavyMotion: boolean }>,
+    enemyKilledCalls: [] as Array<{ x: number; y: number; heavyMotion: boolean }>,
+    playerDamagedCalls: [] as Array<{ amount: number; heavyMotion: boolean }>,
+    levelUpCalls: [] as boolean[],
+    upgradeChosenCalls: [] as boolean[],
+    weaponMergedCalls: [] as Array<{ toTier: number; heavyMotion: boolean }>,
+    enemyDashedCalls: [] as Array<{ x: number; y: number; dirX: number; dirY: number; heavyMotion: boolean }>,
+    enemyHeavyStepCalls: [] as Array<{ x: number; y: number; heavyMotion: boolean }>,
+    cancelHeavyMotionCalls: 0,
+    updateCalls: [] as number[],
+    destroyed: false,
+    activeEffectCount: 0,
+    allocatedEffectCount: 0,
+    droppedEffectCount: 0,
+    muzzleFlash(x: number, y: number, family: string) {
+      this.muzzleFlashCalls.push({ x, y, family });
+    },
+    projectileHit(x: number, y: number, family: string, heavyMotion: boolean) {
+      this.projectileHitCalls.push({ x, y, family, heavyMotion });
+    },
+    enemyKilled(x: number, y: number, heavyMotion: boolean) {
+      this.enemyKilledCalls.push({ x, y, heavyMotion });
+    },
+    playerDamaged(amount: number, heavyMotion: boolean) {
+      this.playerDamagedCalls.push({ amount, heavyMotion });
+    },
+    levelUp(heavyMotion: boolean) {
+      this.levelUpCalls.push(heavyMotion);
+    },
+    upgradeChosen(heavyMotion: boolean) {
+      this.upgradeChosenCalls.push(heavyMotion);
+    },
+    weaponMerged(toTier: number, heavyMotion: boolean) {
+      this.weaponMergedCalls.push({ toTier, heavyMotion });
+    },
+    enemyDashed(x: number, y: number, dirX: number, dirY: number, heavyMotion: boolean) {
+      this.enemyDashedCalls.push({ x, y, dirX, dirY, heavyMotion });
+    },
+    enemyHeavyStep(x: number, y: number, heavyMotion: boolean) {
+      this.enemyHeavyStepCalls.push({ x, y, heavyMotion });
+    },
+    cancelHeavyMotion() {
+      this.cancelHeavyMotionCalls += 1;
+    },
+    update(dtMs: number) {
+      this.updateCalls.push(dtMs);
+    },
+    destroy() {
+      this.destroyed = true;
+    },
+  };
+}
+
+export type RecordingFeedbackRenderer = ReturnType<typeof createRecordingFeedbackRenderer>;
+
 function fakeObject(
   kind: FakeObjectState['kind'],
   text = '',
@@ -143,6 +233,11 @@ function fakeObject(
   x = 0,
   y = 0,
   initialStyle: Record<string, unknown> = {},
+  // M-02: the scene camera's recorded zoom. getBounds() reflects what RENDERS
+  // (displayWidth = scaleX * width, rendered through the camera zoom), so an
+  // over-zoomed surface is caught by bounds assertions instead of passing on
+  // floor geometry. Standalone conformance objects default to zoom 1.
+  readCameraZoom: () => number = () => 1,
 ) {
   const state: FakeObjectState = {
     kind,
@@ -160,6 +255,12 @@ function fakeObject(
     strokeColor: undefined,
     strokeAlpha: 0,
     style: { ...initialStyle },
+    scaleX: 1,
+    scaleY: 1,
+    scrollFactorX: 1,
+    scrollFactorY: 1,
+    fillColor: undefined,
+    fillAlpha: 1,
   };
   // Real Phaser Text default padding is zero on all sides (TextStyle.js
   // initializes `this.padding = { left: 0, right: 0, top: 0, bottom: 0 }`).
@@ -223,8 +324,16 @@ function fakeObject(
       requireAlive();
       return api;
     },
-    setScrollFactor() {
+    setScrollFactor(x: number, y: number = x) {
       requireAlive();
+      state.scrollFactorX = x;
+      state.scrollFactorY = y;
+      return api;
+    },
+    setScale(x: number, y: number = x) {
+      requireAlive();
+      state.scaleX = x;
+      state.scaleY = y;
       return api;
     },
     setDepth() {
@@ -272,8 +381,10 @@ function fakeObject(
       state.strokeAlpha = alpha;
       return api;
     },
-    setFillStyle(_color: number, _alpha = 1) {
+    setFillStyle(color: number, alpha = 1) {
       requireAlive();
+      state.fillColor = color;
+      state.fillAlpha = alpha;
       return api;
     },
     setPadding(left?: number | Record<string, number>, top?: number, right?: number, bottom?: number) {
@@ -294,10 +405,6 @@ function fakeObject(
       return api;
     },
     setCrop() {
-      requireAlive();
-      return api;
-    },
-    setScale() {
       requireAlive();
       return api;
     },
@@ -339,12 +446,17 @@ function fakeObject(
       requireAlive();
       // Phaser Text bounds include its padding frame; rectangles/containers
       // have no padding, so only text objects grow by the padding inset.
-      const width = state.kind === 'text'
+      // The display size includes the object's own scale (real Phaser
+      // Shape.displayWidth = scaleX * width), AND the recorded camera zoom
+      // (M-02) — getBounds() measures what RENDERS, so zoomed surfaces are
+      // audited instead of passing on unzoomed floor geometry.
+      const zoom = readCameraZoom();
+      const width = (state.kind === 'text'
         ? state.width + padding.left + padding.right
-        : state.width;
-      const height = state.kind === 'text'
+        : state.width) * state.scaleX * zoom;
+      const height = (state.kind === 'text'
         ? state.height + padding.top + padding.bottom
-        : state.height;
+        : state.height) * state.scaleY * zoom;
       return {
         x: state.x,
         y: state.y,
@@ -410,6 +522,14 @@ function createFakeScene(
     height: 844,
     displaySize: { width: 390, height: 844 },
     parentSize: { width: 390, height: 844 },
+    // M-02: the fake scale exposes the fullscreen surface the
+    // FullscreenController binds (state + request spies + the real Phaser
+    // event names through the generic emitter). Settlement is driven by the
+    // test via isFullscreen + scale.emit('enterfullscreen'|'leavefullscreen'
+    // |'fullscreenfailed'|'fullscreenunsupported').
+    isFullscreen: false,
+    startFullscreen: vi.fn(),
+    stopFullscreen: vi.fn(),
     on(event: string, handler: (...args: unknown[]) => void, context?: unknown): void {
       const list = scaleListeners.get(event) ?? [];
       list.push({ handler, context });
@@ -456,16 +576,33 @@ function createFakeScene(
     killTweensOf: vi.fn(),
   };
 
+  // M-02: the camera records its zoom exactly like Phaser's Camera#setZoom —
+  // the GameScene sets 1.25 after startFollow, and the AM-3/soak regressions
+  // read the recorded value to compute rendered physical sizes.
+  const cameraState = { zoom: 1, setZoomCalls: 0 };
+  const camera = {
+    get zoom() {
+      return cameraState.zoom;
+    },
+    get setZoomCalls() {
+      return cameraState.setZoomCalls;
+    },
+    setZoom(zoom: number) {
+      cameraState.zoom = zoom;
+      cameraState.setZoomCalls += 1;
+      return camera;
+    },
+    shake,
+    shakeEffect: { reset: shakeEffectReset },
+  };
+
   const scene = {
     input,
     scale,
     events: lifecycle,
     scene: scenePlugin,
     cameras: {
-      main: {
-        shake,
-        shakeEffect: { reset: shakeEffectReset },
-      },
+      main: camera,
     },
     tweens,
     textures: {
@@ -480,7 +617,7 @@ function createFakeScene(
     },
     add: {
       container(x: number, y: number) {
-        const base = fakeObject('container', '', 0, 0, x, y);
+        const base = fakeObject('container', '', 0, 0, x, y, {}, () => cameraState.zoom);
         const container = {
           ...base,
           get state() {
@@ -508,25 +645,25 @@ function createFakeScene(
         return container;
       },
       text(x: number, y: number, text: string, style: Record<string, unknown> = {}) {
-        return register(fakeObject('text', text, Math.max(24, text.length * 8), 16, x, y, style));
+        return register(fakeObject('text', text, Math.max(24, text.length * 8), 16, x, y, style, () => cameraState.zoom));
       },
       rectangle(x: number, y: number, width: number, height: number) {
-        return register(fakeObject('rect', '', width, height, x, y));
+        return register(fakeObject('rect', '', width, height, x, y, {}, () => cameraState.zoom));
       },
       circle(x: number, y: number, radius: number, fillColor?: number, fillAlpha?: number) {
-        const object = fakeObject('arc', '', radius * 2, radius * 2, x, y);
+        const object = fakeObject('arc', '', radius * 2, radius * 2, x, y, {}, () => cameraState.zoom);
         object.setRadius(radius);
         if (fillColor !== undefined) object.setFillStyle(fillColor, fillAlpha ?? 1);
         return register(object);
       },
       arc(x: number, y: number, radius: number, _start: number, _end: number, _ccw: boolean, fillColor?: number, fillAlpha?: number) {
-        const object = fakeObject('arc', '', radius * 2, radius * 2, x, y);
+        const object = fakeObject('arc', '', radius * 2, radius * 2, x, y, {}, () => cameraState.zoom);
         object.setRadius(radius);
         if (fillColor !== undefined) object.setFillStyle(fillColor, fillAlpha ?? 1);
         return register(object);
       },
       image(x: number, y: number, _textureKey: string) {
-        return register(fakeObject('image', '', 0, 0, x, y));
+        return register(fakeObject('image', '', 0, 0, x, y, {}, () => cameraState.zoom));
       },
     },
     get objects() {
@@ -829,6 +966,9 @@ export interface GamePhaseResult {
   runSummaryView: PhaserRunSummaryView;
   controlsView: ControlsView;
   inputController: InputController;
+  /** M-02: recording renderer behind the real FeedbackSystem (upgradeChosen
+   *  and every other bus feedback event). */
+  feedbackRenderer: RecordingFeedbackRenderer;
   storage: StorageAdapter;
   storageKey: string;
   writeCount: () => number;
@@ -881,6 +1021,13 @@ export function createGamePhase(
   const scene = fake.scene;
   const gameScene = new GameScene();
   Object.assign(gameScene, scene);
+  scene.cameras.main.setZoom(GAMEPLAY_ZOOM);
+  const gameViewport = zoomedGameUiViewport(
+    scene.scale.displaySize.width,
+    scene.scale.displaySize.height,
+    scene.scale.parentSize.width,
+    scene.scale.parentSize.height,
+  );
 
   const runState = createRunState({ seed: runSeed, characterId: 'scrap-tabby', arenaId: 'arena' });
   startRun(runState);
@@ -899,7 +1046,7 @@ export function createGamePhase(
   const pauseController = new PauseController({ runState, bus, inventory });
   const pauseView = new PhaserPauseView({
     scene: scene as never,
-    viewport: logicalCanvasViewport(),
+    viewport: gameViewport,
     bus,
     controller: pauseController,
     inventory,
@@ -945,6 +1092,15 @@ export function createGamePhase(
     undefined,
     () => inputController.getInputMode(),
   );
+  // M-02: the composed game phase wires the REAL FeedbackSystem with a
+  // recording renderer, so funnel regressions assert visible upgradeChosen
+  // feedback through the production subscription (never a fake-only call).
+  const feedbackRenderer = createRecordingFeedbackRenderer();
+  const feedbackSystem = new FeedbackSystem({
+    bus,
+    settings: context.settings,
+    renderer: feedbackRenderer,
+  });
   const runSummaryController = new RunSummaryController({
     get runState() {
       return runState;
@@ -955,7 +1111,7 @@ export function createGamePhase(
   });
   const runSummaryView = new PhaserRunSummaryView({
     scene: scene as never,
-    viewport: logicalCanvasViewport(),
+    viewport: gameViewport,
     bus,
     controller: runSummaryController,
     readInputMode: () => inputController.getInputMode(),
@@ -963,7 +1119,7 @@ export function createGamePhase(
   const controlsView = new ControlsView({
     scene: scene as never,
     input: inputController,
-    viewport: logicalCanvasViewport(),
+    viewport: gameViewport,
     readReducedMotion: () => context.settings.reducedMotion,
     onPauseRequested: () => seams.routeAction('pause'),
   });
@@ -1072,10 +1228,11 @@ export function createGamePhase(
     // composed real seam owners (upgradeChooser, pauseView, pauseController,
     // runSummaryView, inputController).
     scene.events.emit('shutdown');
-    // controlsView and upgradeSystem are harness-owned (not GameScene seams),
-    // so handleShutdown cannot reach them.
+    // controlsView, upgradeSystem and feedbackSystem are harness-owned (not
+    // GameScene seams), so handleShutdown cannot reach them.
     controlsView.destroy();
     upgradeSystem.destroy();
+    feedbackSystem.destroy();
   };
 
   return {
@@ -1103,6 +1260,7 @@ export function createGamePhase(
     runSummaryView,
     controlsView,
     inputController,
+    feedbackRenderer,
     storage,
     storageKey,
     writeCount,

@@ -11,6 +11,7 @@ import {
 } from './upgradeChooserController';
 import { computeUpgradeChooserLayout } from './upgradeChooserLayout';
 import type { InputMode } from '../systems/input';
+import { zoomedGameUiViewport, type UiViewport } from './layout';
 
 const CHOOSER_DEPTH = ThemeDepth.upgradeChooser;
 const CARD_STROKE = { color: ThemeColor.primaryDim, alpha: 0.78, width: 2 } as const;
@@ -27,9 +28,10 @@ export class UpgradeChooser {
     readReducedMotion: () => boolean = () => false,
     visualArt?: VisualArtLookup,
     readInputMode: () => InputMode = () => 'pointer',
+    viewport?: UiViewport,
   ) {
     this.bus = bus;
-    this.view = new PhaserUpgradeChooserView(scene, readReducedMotion, visualArt, readInputMode);
+    this.view = new PhaserUpgradeChooserView(scene, readReducedMotion, visualArt, readInputMode, viewport);
     this.controller = new UpgradeChooserController(
       bus,
       upgradeSystem,
@@ -121,12 +123,14 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   private lastInputMode: InputMode = 'pointer';
   private instructions?: Phaser.GameObjects.Text;
   private reducedMotion = false;
+  private readonly armedPointerIds = new Map<number, number>();
 
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly readReducedMotion: () => boolean = () => false,
     private readonly visualArt?: VisualArtLookup,
     private readonly readInputMode: () => InputMode = () => 'pointer',
+    private viewport?: UiViewport,
   ) {
     scene.input.keyboard?.on('keydown', this.handleKeyDown, this);
     scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
@@ -201,15 +205,18 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     // successful publication below (F1 committed-display gate).
     this.committedDisplay = false;
 
-    const { width, height } = this.scene.scale;
+    const width = this.viewport?.canvasWidth ?? this.scene.scale.width;
+    const height = this.viewport?.canvasHeight ?? this.scene.scale.height;
+    const displayWidth = this.viewport?.displayWidth ?? this.scene.scale.displaySize.width;
+    const displayHeight = this.viewport?.displayHeight ?? this.scene.scale.displaySize.height;
     const layout = computeUpgradeChooserLayout(
       width,
       height,
-      this.scene.scale.displaySize.width,
-      this.scene.scale.displaySize.height,
+      displayWidth,
+      displayHeight,
       offer.choices.length,
     );
-    const root = this.scene.add.container(0, 0);
+    const root = this.scene.add.container(this.viewport?.originX ?? 0, this.viewport?.originY ?? 0);
     const cardBackgrounds: Phaser.GameObjects.Rectangle[] = [];
     const renderedText: Array<{ role: string; object: Phaser.GameObjects.Text }> = [];
     const own = <T extends Phaser.GameObjects.GameObject>(object: T): T => {
@@ -228,7 +235,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         ThemeColor.surface,
         0.96,
       ));
-      backdrop.setStrokeStyle(2, ThemeColor.primary, 0.72).setInteractive();
+      backdrop.setStrokeStyle(2, ThemeColor.primary, 0.72).setInteractive().setScrollFactor(0);
       const heading = own(this.scene.add.text(
         width / 2,
         layout.headingY,
@@ -289,6 +296,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         ));
         card
           .setStrokeStyle(CARD_STROKE.width, CARD_STROKE.color, CARD_STROKE.alpha)
+          .setScrollFactor(0)
           .setInteractive({ useHandCursor: true });
         card.on(Phaser.Input.Events.POINTER_OVER, () => {
           if (this.enabled) {
@@ -299,11 +307,18 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           }
         });
         card.on(Phaser.Input.Events.POINTER_OUT, () => {
+          this.armedPointerIds.forEach((cardIndex, pointerId) => { if (cardIndex === index) this.armedPointerIds.delete(pointerId); });
           if (this.hoveredIndex === index) this.hoveredIndex = -1;
           this.applyFocusStroke();
           card.setFillStyle(ThemeColor.card, this.enabled ? 1 : 0.58);
         });
-        card.on(Phaser.Input.Events.POINTER_UP, () => {
+        card.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
+          if (this.acceptsNavigation && this.currentOfferId === offer.offerId) this.armedPointerIds.set(pointer.id, index);
+        });
+        card.on(Phaser.Input.Events.POINTER_UP, (pointer: Phaser.Input.Pointer) => {
+          if (this.armedPointerIds.get(pointer?.id) !== index) return;
+          this.armedPointerIds.delete(pointer.id);
+          if (!this.acceptsNavigation || this.currentOfferId !== offer.offerId || this.focusIndex !== index) return;
           this.submit(offer.offerId, index);
         });
 
@@ -599,6 +614,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     // Teardown uncommits the display: until the next successful publication,
     // number shortcuts and logical seams are refused (F1).
     this.committedDisplay = false;
+    this.armedPointerIds.clear();
     this.cardBackgrounds = [];
     this.renderedText = [];
     // The instructions Text lives in the destroyed root; clear the ref so a
@@ -636,12 +652,31 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       return;
     }
 
+    if (this.viewport?.originX !== undefined) {
+      this.viewport = zoomedGameUiViewport(
+        this.scene.scale.displaySize.width,
+        this.scene.scale.displaySize.height,
+        this.scene.scale.parentSize.width,
+        this.scene.scale.parentSize.height,
+      );
+    } else {
+      const parentWidth = this.scene.scale.parentSize?.width ?? this.scene.scale.displaySize.width;
+      const parentHeight = this.scene.scale.parentSize?.height ?? this.scene.scale.displaySize.height;
+      this.viewport = {
+        canvasWidth: this.scene.scale.width,
+        canvasHeight: this.scene.scale.height,
+        displayWidth: this.scene.scale.displaySize.width,
+        displayHeight: this.scene.scale.displaySize.height,
+        containerWidth: parentWidth,
+        containerHeight: parentHeight,
+      };
+    }
     this.destroyDisplay();
     this.buildDisplay();
   };
 
   private submit(offerId: number, choiceIndex: number): boolean {
-    if (!this.enabled || this.currentOfferId !== offerId || !this.select) {
+    if (this.destroyed || !this.enabled || !this.committedDisplay || this.currentOfferId !== offerId || !this.select) {
       return false;
     }
     return this.select(offerId, choiceIndex);

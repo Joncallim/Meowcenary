@@ -16,11 +16,19 @@ export class MockGameObject {
   strokeColor?: number;
   strokeAlpha = 0;
   body?: MockBody;
+  scaleX = 1;
+  scaleY = 1;
+  scrollFactorX = 1;
+  scrollFactorY = 1;
 
   constructor(
     public x = 0,
     public y = 0,
   ) {}
+
+  private requireAlive(): void {
+    if (this.destroyed) throw new Error('Phaser fake object operation after destroy');
+  }
 
   setDepth(depth: number): this {
     this.depth = depth;
@@ -52,6 +60,26 @@ export class MockGameObject {
   setPosition(x: number, y: number): this {
     this.x = x;
     this.y = y;
+    return this;
+  }
+
+  /** Records the scale exactly like the real Phaser GameObject: scaleY
+   *  defaults to scaleX. Post-destroy calls are rejected (M-02: a scaled
+   *  child must never mutate after teardown). */
+  setScale(x: number, y: number = x): this {
+    this.requireAlive();
+    this.scaleX = x;
+    this.scaleY = y;
+    return this;
+  }
+
+  /** Records the per-object scroll factor. A parent Container's factor does
+   *  not propagate to children in Phaser, so every interactive screen-space
+   *  child declares its own — the fake records the child value (M-02/M-08). */
+  setScrollFactor(x: number, y: number = x): this {
+    this.requireAlive();
+    this.scrollFactorX = x;
+    this.scrollFactorY = y;
     return this;
   }
 
@@ -119,6 +147,60 @@ export class MockKeyboardPlugin extends EventEmitter {
   removeKey(key: MockKey | string | number): void {
     const code = typeof key === 'object' ? key.keyCode : key;
     this.keys.delete(code);
+  }
+
+  // Real Phaser KeyboardPlugin.on(event, callback, context) binds `this` to
+  // the registered context (M-02: the mock mirrors the plugin, not Node's
+  // EventEmitter). DebugOverlay and GameScene register key handlers with
+  // `this`, so a mock that drops the context would make those handlers no-ops.
+  private readonly listenerWrappers = new Map<
+    string | symbol,
+    Map<(...args: unknown[]) => void, (...args: unknown[]) => void>
+  >();
+
+  on(event: string | symbol, listener: (...args: unknown[]) => void, context?: unknown): this {
+    const wrapped = context !== undefined ? listener.bind(context) : listener;
+    let eventMap = this.listenerWrappers.get(event);
+    if (!eventMap) {
+      eventMap = new Map();
+      this.listenerWrappers.set(event, eventMap);
+    }
+    eventMap.set(listener, wrapped);
+    super.on(event, wrapped);
+    return this;
+  }
+
+  once(event: string | symbol, listener: (...args: unknown[]) => void, context?: unknown): this {
+    const bound = context !== undefined ? listener.bind(context) : listener;
+    const wrapped = (...args: unknown[]) => {
+      this.off(event, listener, context);
+      bound(...args);
+    };
+    let eventMap = this.listenerWrappers.get(event);
+    if (!eventMap) {
+      eventMap = new Map();
+      this.listenerWrappers.set(event, eventMap);
+    }
+    eventMap.set(listener, wrapped);
+    super.on(event, wrapped);
+    return this;
+  }
+
+  off(event: string | symbol, listener?: (...args: unknown[]) => void, context?: unknown): this {
+    if (listener === undefined) {
+      if (context === undefined) {
+        super.removeAllListeners(event);
+        this.listenerWrappers.delete(event);
+      }
+      return this;
+    }
+    const eventMap = this.listenerWrappers.get(event);
+    const wrapped = eventMap?.get(listener);
+    if (wrapped && eventMap) {
+      super.off(event, wrapped);
+      eventMap.delete(listener);
+    }
+    return this;
   }
 
   keydown(key: string, repeat = false): void {
@@ -506,6 +588,12 @@ const MockPhaser = {
     CENTER_BOTH: 'CENTER_BOTH',
     Events: {
       RESIZE: 'resize',
+      // Phaser 3.90 Scale.Events fullscreen constants (M-02: the fake exposes
+      // the exact strings the FullscreenController binds).
+      ENTER_FULLSCREEN: 'enterfullscreen',
+      LEAVE_FULLSCREEN: 'leavefullscreen',
+      FULLSCREEN_FAILED: 'fullscreenfailed',
+      FULLSCREEN_UNSUPPORTED: 'fullscreenunsupported',
     },
   },
   Scene: class Scene {

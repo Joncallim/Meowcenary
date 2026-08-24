@@ -2,13 +2,13 @@ import Phaser from 'phaser';
 import { clampLength } from '../engine/vector';
 import { assertTouchStickConfig, RuntimeConfig, type TouchStickConfig } from '../engine/config';
 import type { InputController, InputMode, InputPresentationSnapshot } from '../systems/input';
-import { physicalToLogical, type UiViewport } from './layout';
+import { pointerToRootLocal, physicalToLogical, GAMEPLAY_ZOOM, zoomedGameUiViewport, type UiViewport } from './layout';
 import { reducedMotionDuration, ThemeColor, ThemeDepth, ThemeFont } from './theme';
 
 
 const HINT_DURATION_MS = 2200;
 const HINT_FADE_MS = 400;
-const HUD_RACK_CLEARANCE_PX = 52;
+
 
 export interface ControlsViewOptions {
   readonly scene: Phaser.Scene;
@@ -26,6 +26,7 @@ export class ControlsView {
   private readonly onPauseRequested: () => void;
   private readonly readReducedMotion: () => boolean;
   private readonly stickRadius: number;
+  private readonly root?: Phaser.GameObjects.Container;
   private readonly stickBase: Phaser.GameObjects.Arc;
   private readonly stickThumb: Phaser.GameObjects.Arc;
   private hintText!: Phaser.GameObjects.Text;
@@ -45,17 +46,29 @@ export class ControlsView {
     this.onPauseRequested = onPauseRequested;
     this.readReducedMotion = readReducedMotion;
     this.stickRadius = touchStick.radius;
+    const add = scene.add as typeof scene.add & { container?: (x: number, y: number) => Phaser.GameObjects.Container };
+    this.root = add.container?.(viewport.originX ?? 0, viewport.originY ?? 0);
+    this.root?.setScrollFactor(0);
 
-    this.stickBase = scene.add.arc(0, 0, this.stickRadius, 0, 360, false, ThemeColor.cream, 0.18);
+    // Exactly ONE zoom compensation: the camera zoom 1.25 magnifies world
+    // units, so the authored radius is divided by the zoom and the arcs are
+    // left at scale 1 — the rendered diameter is 2·(64/1.25)·1.25·s = 128·s
+    // physical px with the visible radius at 64 px (AM-3). A second
+    // compensation (e.g. setScale(0.8)) would shrink the stick to 102.4·s.
+    const stickRenderRadius = viewport.originX === undefined
+      ? this.stickRadius
+      : this.stickRadius / GAMEPLAY_ZOOM;
+    this.stickBase = scene.add.arc(0, 0, stickRenderRadius, 0, 360, false, ThemeColor.cream, 0.18);
     this.stickBase.setDepth(ThemeDepth.transientHint);
     this.stickBase.setScrollFactor(0);
     this.stickBase.setVisible(false);
 
-    this.stickThumb = scene.add.arc(0, 0, this.stickRadius * 0.45, 0, 360, false, ThemeColor.cream, 0.55);
+    this.stickThumb = scene.add.arc(0, 0, stickRenderRadius * 0.45, 0, 360, false, ThemeColor.cream, 0.55);
     this.stickThumb.setDepth(ThemeDepth.transientHint);
     this.stickThumb.setScrollFactor(0);
     this.stickThumb.setVisible(false);
 
+    this.root?.add([this.stickBase, this.stickThumb]);
     this.buildViewportControls();
     this.scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
   }
@@ -70,8 +83,8 @@ export class ControlsView {
       viewport.canvasWidth / 2,
       viewport.canvasHeight
         - margin
-        - physicalToLogical(HUD_RACK_CLEARANCE_PX, viewport)
-        - fontSize * 2,
+        - physicalToLogical(this.stickRadius * 2, viewport)
+        - fontSize,
       hintForMode(this.lastMode),
       {
         align: 'center',
@@ -100,6 +113,9 @@ export class ControlsView {
     this.pauseButton.setStrokeStyle(physicalToLogical(2, viewport), ThemeColor.cream, 0.8);
     this.pauseButton.setInteractive();
     this.pauseButton.on('pointerdown', this.handlePausePointerDown, this);
+    // Every interactive/control child owns scrollFactor=0; containers do not
+    // propagate it in Phaser, and hit tests read the child value.
+    this.root?.add([this.hintText, this.pauseButton]);
   }
 
   update(dtMs: number): void {
@@ -121,6 +137,7 @@ export class ControlsView {
     this.destroyViewportControls();
     this.stickBase.destroy();
     this.stickThumb.destroy();
+    this.root?.destroy(true);
   }
 
   private destroyViewportControls(): void {
@@ -135,7 +152,7 @@ export class ControlsView {
       return;
     }
     const scale = this.scene.scale;
-    const next: UiViewport = {
+    const next: UiViewport = this.viewport.originX === undefined ? {
       canvasWidth: positiveFinite(scale.width, this.viewport.canvasWidth),
       canvasHeight: positiveFinite(scale.height, this.viewport.canvasHeight),
       displayWidth: positiveFinite(scale.displaySize.width, this.viewport.displayWidth),
@@ -148,7 +165,9 @@ export class ControlsView {
         scale.parentSize.height,
         this.viewport.containerHeight ?? this.viewport.displayHeight,
       ),
-    };
+    } : zoomedGameUiViewport(
+      scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height,
+    );
     if (sameViewport(this.viewport, next)) {
       return;
     }
@@ -171,8 +190,21 @@ export class ControlsView {
     const delta = { x: current.x - start.x, y: current.y - start.y };
     const clamped = clampLength(delta, this.stickRadius);
 
-    this.stickBase.setPosition(start.x, start.y);
-    this.stickThumb.setPosition(start.x + clamped.x, start.y + clamped.y);
+    // Root children live in world space, where the gameplay camera zoom maps
+    // local coords 1.25× onto the canvas (M-07: local = pointer/1.25 for
+    // scrollFactor-0 children). The pointer start AND the clamped delta are
+    // both canvas-space, so both divide — the rendered stick center tracks
+    // the finger and the thumb tracks it clamped to the visible radius. The
+    // unzoomed (menu/plain) root has no origin and scale 1, so its divisor
+    // is 1. The start is mapped through the PRODUCTION pointerToRootLocal
+    // transform (U7) so the playtest regressions drive the same math.
+    const zoom = this.viewport.originX === undefined ? 1 : GAMEPLAY_ZOOM;
+    const local = pointerToRootLocal(start, this.viewport);
+    this.stickBase.setPosition(local.x, local.y);
+    this.stickThumb.setPosition(
+      local.x + clamped.x / zoom,
+      local.y + clamped.y / zoom,
+    );
   }
 
   private updateHint(mode: InputMode, dtMs: number): void {

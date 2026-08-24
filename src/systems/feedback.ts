@@ -5,6 +5,7 @@ import { shouldUseHeavyMotion } from '../engine/motion';
 import type { Settings } from '../systems/save';
 import type { System } from '../engine/system';
 import { weaponFeelByFamily, type WeaponFeelDefinition } from './types';
+import type { UiViewport } from '../ui/layout';
 
 export interface FeedbackRenderer {
   /** Epic 17: family-keyed muzzle puff. Unknown/missing family draws nothing
@@ -19,6 +20,8 @@ export interface FeedbackRenderer {
    *  behavior under reduced motion is unchanged. */
   playerDamaged(amount: number, heavyMotion: boolean): void;
   levelUp(heavyMotion: boolean): void;
+  /** Visible acknowledgement for a committed upgrade card. */
+  upgradeChosen(heavyMotion: boolean): void;
   /** Epic 17: tier-up moment on a rack merge. Screen-space like levelUp
    *  (merges happen from a paused menu, not a world position) — toTier
    *  scales intensity so higher tiers read as more significant. */
@@ -78,6 +81,9 @@ export class FeedbackSystem implements System {
       options.bus.on('level:up', () => {
         this.renderer.levelUp(shouldUseHeavyMotion(this.reducedMotion));
       }),
+      options.bus.on('card:chosen', () => {
+        this.renderer.upgradeChosen(shouldUseHeavyMotion(this.reducedMotion));
+      }),
       options.bus.on('weapon:merged', ({ toTier }) => {
         this.renderer.weaponMerged(toTier, shouldUseHeavyMotion(this.reducedMotion));
       }),
@@ -116,6 +122,8 @@ export interface PhaserFeedbackRendererOptions {
   readonly maxHeavyEffects: number;
   /** Epic 17: presentation-only family colors/sizes for muzzle/impact cues. */
   readonly weaponFeel?: readonly WeaponFeelDefinition[];
+  /** Zoomed GameScene viewport for screen feedback overlays. */
+  readonly viewport?: UiViewport;
 }
 
 interface FeedbackDot {
@@ -260,16 +268,20 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
       },
     );
 
-    const { width, height } = this.scene.scale;
-    this.damageRect = this.scene.add.rectangle(width / 2, height / 2, width, height, DANGER_COLOR)
+    const viewport = options.viewport;
+    const width = viewport?.canvasWidth ?? this.scene.scale.width;
+    const height = viewport?.canvasHeight ?? this.scene.scale.height;
+    const x = (viewport?.originX ?? 0) + width / 2;
+    const y = (viewport?.originY ?? 0) + height / 2;
+    this.damageRect = this.scene.add.rectangle(x, y, width, height, DANGER_COLOR)
       .setAlpha(0)
       .setDepth(OVERLAY_DEPTH)
       .setScrollFactor(0);
-    this.levelRect = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0)
+    this.levelRect = this.scene.add.rectangle(x, y, width, height, 0x000000, 0)
       .setStrokeStyle(2, KILL_COLOR, 0)
       .setDepth(OVERLAY_DEPTH)
       .setScrollFactor(0);
-    this.mergeRect = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0)
+    this.mergeRect = this.scene.add.rectangle(x, y, width, height, 0x000000, 0)
       .setStrokeStyle(3, MERGE_COLOR, 0)
       .setDepth(OVERLAY_DEPTH)
       .setScrollFactor(0);
@@ -335,6 +347,10 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
     this.levelPulseDurationMs = Math.max(this.levelPulseDurationMs, duration);
     const alpha = 0.22;
     this.levelRect.setStrokeStyle(2, KILL_COLOR, alpha);
+  }
+
+  upgradeChosen(heavyMotion: boolean): void {
+    this.levelUp(heavyMotion);
   }
 
   weaponMerged(toTier: number, heavyMotion: boolean): void {

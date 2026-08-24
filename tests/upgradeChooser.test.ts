@@ -3,6 +3,8 @@ import { createEventBus, type EventBus } from '../src/engine/eventBus';
 import type { Rng } from '../src/engine/rng';
 import { pauseRun, createRunState, startRun, type RunState } from '../src/gameplay/runState';
 import { UpgradeSystem, type UpgradeOfferSnapshot } from '../src/systems/UpgradeSystem';
+import { FeedbackSystem, type FeedbackRenderer } from '../src/systems/feedback';
+import { UpgradeChooser } from '../src/ui/UpgradeChooser';
 import type { UpgradeCardReadModel, UpgradeDefinition } from '../src/systems/types';
 import {
   choiceIndexForNumberKey,
@@ -19,6 +21,7 @@ vi.mock('phaser', () => ({
   default: {
     Input: {
       Events: {
+        POINTER_DOWN: 'pointerdown',
         POINTER_OVER: 'pointerover',
         POINTER_OUT: 'pointerout',
         POINTER_UP: 'pointerup',
@@ -279,7 +282,13 @@ class FakeDisplayObject extends FakeEmitter {
   }
 
   setDepth(): this { return this; }
-  setScrollFactor(): this { return this; }
+  scrollFactorX = 1;
+  scrollFactorY = 1;
+  setScrollFactor(x: number, y: number = x): this {
+    this.scrollFactorX = x;
+    this.scrollFactorY = y;
+    return this;
+  }
   setStrokeStyle(width: number, color: number, alpha: number): this {
     this.strokeWidth = width;
     this.strokeColor = color;
@@ -1196,10 +1205,201 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
     expect(select).not.toHaveBeenCalled();
 
     // Direct pointer-up submits the exact hovered card index.
-    cards()[1]!.emit('pointerup');
+    cards()[1]!.emit('pointerdown', { id: 1 });
+    cards()[1]!.emit('pointerup', { id: 1 });
     expect(select).toHaveBeenCalledTimes(1);
     expect(select).toHaveBeenCalledWith(73, 1);
     view.destroy();
+  });
+});
+
+describe('PhaserUpgradeChooserView pointer funnel (§3-G)', () => {
+  /** Real production composition for the chooser surface: real
+   *  UpgradeChooser (view + controller) over the real UpgradeSystem and
+   *  RunState, with the real FeedbackSystem subscription for visible choice
+   *  feedback. The card tap is driven through the object's own pointer
+   *  handlers with an explicit pointer identity, exactly as Phaser's
+   *  InputManager dispatches it. */
+  function createFunnelHarness() {
+    const scene = createFakeScene(390, 844);
+    const bus = createEventBus();
+    const runState = createActiveRun();
+    const upgradeSystem = new UpgradeSystem({
+      runState,
+      bus,
+      definitions,
+      rng: createFirstRng(),
+      offerCount: 3,
+    });
+    const renderer: FeedbackRenderer & { upgradeChosenCalls: boolean[] } = {
+      upgradeChosenCalls: [],
+      muzzleFlash() {}, projectileHit() {}, enemyKilled() {}, playerDamaged() {},
+      levelUp() {},
+      upgradeChosen(heavyMotion: boolean) { this.upgradeChosenCalls.push(heavyMotion); },
+      weaponMerged() {}, enemyDashed() {}, enemyHeavyStep() {}, cancelHeavyMotion() {},
+      update() {}, destroy() {},
+      activeEffectCount: 0, allocatedEffectCount: 0, droppedEffectCount: 0,
+    };
+    const feedback = new FeedbackSystem({
+      bus,
+      settings: { muted: false, musicVolume: 0.5, sfxVolume: 0.5, reducedMotion: false },
+      renderer,
+    });
+    const chooser = new UpgradeChooser(
+      scene as never,
+      bus,
+      upgradeSystem,
+      () => false,
+      undefined,
+      () => 'pointer',
+    );
+    const chosen: string[] = [];
+    let confirms = 0;
+    bus.on('card:chosen', (event: { upgradeId: string }) => chosen.push(event.upgradeId));
+    bus.on('ui:confirm', () => { confirms += 1; });
+    // Interactive objects in creation order: the backdrop first, then the
+    // three cards. Only the cards carry the pointer funnel handlers.
+    const cards = () =>
+      scene.objects
+        .filter((object) => object.input?.enabled === true && !object.destroyed)
+        .slice(1);
+    // Real Phaser InputManager dispatches pointerover BEFORE pointerdown on a
+    // fresh touch (hit test → over → down), which syncs the chooser's logical
+    // focus index; the release then commits through the armed pointer id.
+    const tap = (card: FakeDisplayObject, id = 7) => {
+      card.emit('pointerover');
+      card.emit('pointerdown', { id });
+      card.emit('pointerup', { id });
+    };
+    return {
+      scene, bus, runState, chooser, feedback, renderer, chosen, cards, tap,
+      confirms: () => confirms,
+    };
+  }
+
+  it('a real down+up card tap commits exactly one card:chosen with the captured pointer identity', () => {
+    const h = createFunnelHarness();
+    h.bus.emit('level:up', { level: 2 });
+    const cards = h.cards();
+    expect(cards).toHaveLength(3);
+
+    h.tap(cards[1]!, 7);
+
+    expect(h.chosen).toHaveLength(1);
+    expect(h.runState.upgradeStacks[h.chosen[0]!]).toBe(1);
+    expect(h.confirms()).toBe(0); // ui:confirm is never the evidence
+    expect(h.renderer.upgradeChosenCalls).toEqual([true]); // visible feedback
+    expect(h.chooser.diagnostics.choiceIds).toEqual([]); // offer resolved
+    h.chooser.destroy();
+    h.feedback.destroy();
+  });
+
+  it('an unarmed up, a cross-pointer release, and a cross-card release never commit (X3)', () => {
+    const h = createFunnelHarness();
+    h.bus.emit('level:up', { level: 2 });
+    const cards = h.cards();
+
+    // Up with no preceding down: nothing was armed.
+    cards[0]!.emit('pointerup', { id: 7 });
+    expect(h.chosen).toHaveLength(0);
+
+    // Down with one pointer, up with a different one: identity mismatch.
+    cards[0]!.emit('pointerover');
+    cards[0]!.emit('pointerdown', { id: 7 });
+    cards[0]!.emit('pointerup', { id: 8 });
+    expect(h.chosen).toHaveLength(0);
+
+    // Down on card 0, release on card 1: only the armed card may commit.
+    cards[0]!.emit('pointerover');
+    cards[0]!.emit('pointerdown', { id: 7 });
+    cards[1]!.emit('pointerup', { id: 7 });
+    expect(h.chosen).toHaveLength(0);
+
+    // G-15: the negatives are not terminal — a proper arm+commit still works.
+    h.tap(cards[0]!);
+    expect(h.chosen).toHaveLength(1);
+    h.chooser.destroy();
+    h.feedback.destroy();
+  });
+
+  it('a pointer-out disarms so a drag release cannot command the card', () => {
+    const h = createFunnelHarness();
+    h.bus.emit('level:up', { level: 2 });
+    const cards = h.cards();
+
+    cards[0]!.emit('pointerover');
+    cards[0]!.emit('pointerdown', { id: 7 });
+    cards[0]!.emit('pointerout'); // leaves the card: arm cleared
+    cards[0]!.emit('pointerup', { id: 7 });
+    expect(h.chosen).toHaveLength(0);
+
+    // A later proper tap on another card still commits.
+    h.tap(cards[1]!, 9);
+    expect(h.chosen).toHaveLength(1);
+    h.chooser.destroy();
+    h.feedback.destroy();
+  });
+
+  it('a committed-failure blocks taps and a successful retry restores the exact tap (G-15)', () => {
+    const h = createFunnelHarness();
+    h.bus.emit('level:up', { level: 2 });
+    expect(h.cards()).toHaveLength(3);
+
+    // Fail the next text sizing: the resize rebuild throws, the display is
+    // uncommitted, and the retained offer has no live cards to tap.
+    h.scene.failNextTextFixedSize();
+    expect(() => h.scene.scale.refresh(844, 390, true)).toThrow('Injected text sizing failure');
+    expect(h.cards()).toHaveLength(0);
+    expect(h.chooser.diagnostics.offerId).toBeTypeOf('number');
+    expect(h.chooser.diagnostics.choiceIds).toHaveLength(3); // retained offer
+
+    // G-15: a successful rebuild publishes a committed display again.
+    expect(() => h.scene.scale.refresh(390, 844, true)).not.toThrow();
+    const cards = h.cards();
+    expect(cards).toHaveLength(3);
+    h.tap(cards[2]!);
+    expect(h.chosen).toHaveLength(1);
+    expect(h.runState.upgradeStacks[h.chosen[0]!]).toBe(1);
+    h.chooser.destroy();
+    h.feedback.destroy();
+  });
+
+  it('a stale release cannot refire the resolved choice and a new offer needs a fresh tap (captured token)', () => {
+    const h = createFunnelHarness();
+    h.bus.emit('level:up', { level: 2 });
+    const first = h.cards();
+    h.tap(first[0]!, 7);
+    expect(h.chosen).toHaveLength(1);
+
+    // The resolved tree is destroyed; stale ups on the old handles cannot
+    // refire (the arm is consumed and the offer token is cleared).
+    first[0]!.emit('pointerup', { id: 7 });
+    first[1]!.emit('pointerup', { id: 7 });
+    expect(h.chosen).toHaveLength(1);
+
+    // G-15: a later offer remains selectable with a fresh arm+commit.
+    h.bus.emit('level:up', { level: 3 });
+    const second = h.cards();
+    expect(second).toHaveLength(3);
+    h.tap(second[2]!, 11);
+    expect(h.chosen).toHaveLength(2);
+    expect(h.chosen[1]).not.toBe(h.chosen[0]);
+    expect(h.runState.upgradeStacks[h.chosen[1]!]).toBe(1);
+    h.chooser.destroy();
+    h.feedback.destroy();
+  });
+
+  it('every interactive chooser card declares its own scrollFactor 0 (M-08)', () => {
+    const h = createFunnelHarness();
+    h.bus.emit('level:up', { level: 2 });
+    const cards = h.cards();
+    expect(cards.length).toBeGreaterThan(0);
+    for (const card of cards) {
+      expect(card.scrollFactorX).toBe(0);
+      expect(card.scrollFactorY).toBe(0);
+    }
+    h.chooser.destroy();
+    h.feedback.destroy();
   });
 });
 
