@@ -4,7 +4,7 @@ import { SceneKey } from '../engine/sceneKeys';
 import type { RunOutcome, RunState } from '../gameplay/runState';
 import type { BankedRun } from '../systems/ProgressionSystem';
 import { formatNumber, formatTime } from './format';
-import { minimumHitTarget, physicalToLogical, type UiViewport } from './layout';
+import { logicalCanvasViewport, minimumHitTarget, physicalToLogical, type UiViewport } from './layout';
 import { createModalTextHelpers, type ModalTextHelpers } from './modal';
 import { ThemeColor, ThemeDepth, ThemeFont } from './theme';
 import { FocusNavigator, type FocusDirection } from './focusList';
@@ -80,11 +80,11 @@ export interface PhaserRunSummaryViewOptions {
 export class PhaserRunSummaryView {
   private readonly scene: Phaser.Scene;
   private readonly scenePlugin: Phaser.Scenes.ScenePlugin;
-  private readonly viewport: UiViewport;
+  private viewport: UiViewport;
   private readonly bus: EventBus;
   private readonly controller: RunSummaryController;
   private readonly readInputMode: () => InputMode;
-  private readonly modal: ModalTextHelpers;
+  private modal: ModalTextHelpers;
   private readonly unsubscribers: Array<() => void>;
   private root?: Phaser.GameObjects.Container;
   private disposed = false;
@@ -95,6 +95,12 @@ export class PhaserRunSummaryView {
   private summaryActive = false;
   private inputMode: InputMode = 'pointer';
   private lastInputMode: InputMode = 'pointer';
+  private rebuildCount = 0;
+
+  /** Number of summary render attempts; resize tests assert one per event. */
+  get renderRebuildCount(): number {
+    return this.rebuildCount;
+  }
 
   constructor(options: PhaserRunSummaryViewOptions) {
     this.scene = options.scene;
@@ -111,6 +117,7 @@ export class PhaserRunSummaryView {
       options.bus.on('run:lost', this.handleTerminal),
     ];
     this.scene.input.keyboard?.on('keydown-R', this.handleRetryKey, this);
+    this.scene.scale?.on?.(Phaser.Scale.Events.RESIZE, this.handleResize, this);
   }
 
   get visible(): boolean {
@@ -148,6 +155,7 @@ export class PhaserRunSummaryView {
     this.disposed = true;
     this.unsubscribers.forEach((unsubscribe) => unsubscribe());
     this.scene.input.keyboard?.off('keydown-R', this.handleRetryKey, this);
+    this.scene.scale?.off?.(Phaser.Scale.Events.RESIZE, this.handleResize, this);
     this.root?.destroy(true);
     this.root = undefined;
     this.summaryActive = false;
@@ -175,6 +183,19 @@ export class PhaserRunSummaryView {
     this.retry();
   };
 
+  private readonly handleResize = (): void => {
+    if (this.disposed || !this.summaryActive) return;
+    this.viewport = logicalCanvasViewport(
+      this.scene.scale.displaySize.width,
+      this.scene.scale.displaySize.height,
+      this.scene.scale.parentSize.width,
+      this.scene.scale.parentSize.height,
+    );
+    this.modal = createModalTextHelpers(this.scene, this.viewport);
+    const snapshot = this.controller.snapshot();
+    if (snapshot) this.render(snapshot);
+  };
+
   /** One shared Retry command for the button and the R shortcut: exactly one
    *  confirm cue, then the scene restart. */
   private retry(): void {
@@ -194,6 +215,7 @@ export class PhaserRunSummaryView {
   }
 
   private render(snapshot: RunSummarySnapshot): void {
+    this.rebuildCount += 1;
     if (this.disposed) {
       return;
     }

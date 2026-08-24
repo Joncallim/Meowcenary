@@ -61,7 +61,12 @@ flowchart TD
 
 ## Unified Input / Action Architecture
 
-Epic 19 freezes the concrete Alpha 2 version of this boundary.
+The concrete Alpha 2 boundary is frozen by
+[`architecture/epic-19-player-ux-and-alpha-2-gate.md`](architecture/epic-19-player-ux-and-alpha-2-gate.md).
+Movement is a separate analog vector intent; the additive-frozen `GameAction`,
+`InputSource`, mappings, ownership/coalescing, routing, focus, lifecycle, and
+evidence contracts are D1–D13 and §§4–10 there. This overview does not duplicate
+the union and cannot extend it.
 
 Conceptually:
 
@@ -71,23 +76,9 @@ Keyboard ────┼─> Input / Action Adapter ─> logical actions ─> ga
 Gamepad ─────┘
 ```
 
-Movement remains an analog/vector intent where available. Representative non-movement actions include:
-
-```ts
-type GameAction =
-  | 'confirm'
-  | 'back'
-  | 'pause'
-  | 'inventory'
-  | 'dash'
-  | 'ability'
-  | 'navUp'
-  | 'navDown'
-  | 'navLeft'
-  | 'navRight';
-```
-
-This type is illustrative until the Epic 19 architecture pass freezes the exact live contract.
+Movement remains an analog/vector intent where available. The exact additive
+`GameAction` union lives only in the frozen contract — this overview does not
+duplicate it.
 
 ### Input rules
 
@@ -147,6 +138,8 @@ Epic-specific data contracts:
 - [Epic 15: inventory and merge experience](architecture/epic-15-inventory-and-merge-experience.md)
 - [Epic 16: visual identity and Junkyard world](architecture/epic-16-visual-identity-and-junkyard-world.md)
 - [Epic 17: combat feel and weapon identity](architecture/epic-17-combat-feel-and-weapon-identity.md)
+- [Epic 18: build variety and Golden Run pacing](architecture/epic-18-build-variety-and-golden-run-pacing.md)
+- [Epic 19: player UX and Alpha 2 gate](architecture/epic-19-player-ux-and-alpha-2-gate.md)
 
 Existing dedicated architecture documents remain implementation truth for
 their delivered scopes and supersede older issue wording where they differ.
@@ -177,16 +170,16 @@ The existing Epic 3 offer-token/stale-command protections stay authoritative whe
 
 ### Epic 19 — touchscreen + controller gate
 
-Issue #78 now makes the full input experience an explicit Alpha 2 gate:
+Issue #78 is delivered through Slices 1–4 and the Slice 5 gate closeout:
 
-- automatic targeting/firing remains primary across touch, keyboard, and controller;
-- compare anchored versus floating virtual-stick behavior on real displayed phone sizes;
-- validate whether movement/positioning alone creates enough agency;
-- if evidence shows movement-only is materially passive, one simple deterministic/pause-safe dash/evade may be introduced as a tightly scoped exception;
-- freeze the shared logical input/action contract and controller deadzone/focus/disconnect semantics;
-- require controller-only completion of menus, combat, upgrade selection, rack/merge, settings, summary, Retry/Menu;
-- reserve a logical `ability` action/layout slot for Epic 24;
-- do not introduce required twin-stick/manual aiming.
+- the shared logical input/action contract, controller deadzone/focus/
+  disconnect semantics, and the controller-only journey are implemented;
+- floating touch is production; anchored is config-only diagnostic and is not
+  an open production choice;
+- the dash decision is evidence-gated by the maintainer's D10 judgment in the
+  gate record; `ability` remains a mapped/reserved slot with zero consumer;
+- closeout status, D10, and real-device evidence come from the
+  [Epic 19 gate record](delivery/epic-19-player-experience-gate.md).
 
 ## Save and Persistent State
 
