@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import type { EventBus } from '../engine/eventBus';
 import { pauseRun, resumeRun, type RunState } from '../gameplay/runState';
 import { InventoryController, type InventorySnapshot } from './inventory';
-import { minimumHitTarget, physicalToLogical, type UiViewport } from './layout';
+import { minimumHitTarget, physicalToLogical, zoomedGameUiViewport, type UiViewport } from './layout';
+import type { FullscreenController, FullscreenState } from './fullscreen';
 import { createModalTextHelpers, type ModalTextHelpers } from './modal';
 import { ThemeColor, ThemeDepth } from './theme';
 import { PhaserWeaponRackPanel } from './weaponRackView';
@@ -118,6 +119,7 @@ export interface PhaserPauseViewOptions {
   readonly inventory: InventoryController;
   readonly visualArt?: VisualArtLookup;
   readonly readInputMode?: () => InputMode;
+  readonly fullscreen?: FullscreenController;
 }
 
 /**
@@ -146,12 +148,16 @@ export class PhaserPauseView {
   private readonly readInputMode: () => InputMode;
   private inputMode: InputMode = 'pointer';
   private lastInputMode: InputMode = 'pointer';
+  private readonly fullscreen?: FullscreenController;
+  private unsubscribeFullscreen?: () => void;
+  private renderedFullscreenState?: FullscreenState;
 
   constructor(options: PhaserPauseViewOptions) {
     this.scene = options.scene;
     this.viewport = options.viewport;
     this.bus = options.bus;
     this.controller = options.controller;
+    this.fullscreen = options.fullscreen;
     this.readInputMode = options.readInputMode ?? (() => 'pointer');
     this.modal = createModalTextHelpers(options.scene, options.viewport);
     this.weaponRack = new PhaserWeaponRackPanel({
@@ -168,6 +174,7 @@ export class PhaserPauseView {
       readInputMode: this.readInputMode,
     });
     options.scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
+    this.unsubscribeFullscreen = this.fullscreen?.subscribe(this.handleFullscreenSettlement);
     this.render(this.controller.snapshot());
   }
 
@@ -248,6 +255,7 @@ export class PhaserPauseView {
       this.root = root;
       this.committedPanel = snapshot.panel;
       this.committedDisplay = true;
+      this.renderedFullscreenState = this.fullscreen?.snapshot;
     } catch (error) {
       // A failure inside weaponRack.render() may have published hint/targets
       // into the partial root; clear them BEFORE the destroy or the next
@@ -267,6 +275,8 @@ export class PhaserPauseView {
     }
     this.disposed = true;
     this.scene.scale.off(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
+    this.unsubscribeFullscreen?.();
+    this.unsubscribeFullscreen = undefined;
     this.weaponRack.destroy();
     this.root?.destroy(true);
     this.root = undefined;
@@ -286,28 +296,21 @@ export class PhaserPauseView {
     this.render(this.controller.snapshot());
   };
 
+  private readonly handleFullscreenSettlement = (): void => {
+    if (this.disposed || this.committedPanel === 'closed') return;
+    // Scale RESIZE owns an already-committed fullscreen state, avoiding a
+    // second tree teardown that would reset hover/focus.
+    if (this.renderedFullscreenState === this.fullscreen?.snapshot) return;
+    this.render(this.controller.snapshot());
+  };
+
   private syncLayoutContext(): void {
     const scale = this.scene.scale;
-    const next: UiViewport = {
-      canvasWidth: positiveFinite(scale.width, this.viewport.canvasWidth),
-      canvasHeight: positiveFinite(scale.height, this.viewport.canvasHeight),
-      displayWidth: positiveFinite(
-        scale.displaySize.width,
-        this.viewport.displayWidth,
-      ),
-      displayHeight: positiveFinite(
-        scale.displaySize.height,
-        this.viewport.displayHeight,
-      ),
-      containerWidth: positiveFinite(
-        scale.parentSize.width,
-        this.viewport.containerWidth ?? this.viewport.displayWidth,
-      ),
-      containerHeight: positiveFinite(
-        scale.parentSize.height,
-        this.viewport.containerHeight ?? this.viewport.displayHeight,
-      ),
-    };
+    const next: UiViewport = this.viewport.originX === undefined ? {
+      canvasWidth: positiveFinite(scale.width, this.viewport.canvasWidth), canvasHeight: positiveFinite(scale.height, this.viewport.canvasHeight),
+      displayWidth: positiveFinite(scale.displaySize.width, this.viewport.displayWidth), displayHeight: positiveFinite(scale.displaySize.height, this.viewport.displayHeight),
+      containerWidth: positiveFinite(scale.parentSize.width, this.viewport.containerWidth ?? this.viewport.displayWidth), containerHeight: positiveFinite(scale.parentSize.height, this.viewport.containerHeight ?? this.viewport.displayHeight),
+    } : zoomedGameUiViewport(scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height);
     if (sameViewport(this.viewport, next)) {
       return;
     }
@@ -345,6 +348,15 @@ export class PhaserPauseView {
     });
 
     const buttons = [resume, rack];
+    if (this.fullscreen?.available) {
+      y += hitTarget + 16;
+      const state = this.fullscreen.snapshot;
+      const pending = state === 'pending-enter' || state === 'pending-exit';
+      const label = pending ? 'Fullscreen…' : state === 'active' ? 'Exit Fullscreen' : 'Fullscreen';
+      buttons.push(this.modal.addButton(root, centerX, y, buttonWidth, label, () => {
+        this.fullscreen?.request();
+      }, false, !pending));
+    }
     // F5: modal buttons participate in pointer-hover focus — silent index
     // sync, exactly one FocusStroke ring on hover, cleared on out, and the
     // logical index is set before the pointer-up activation runs.

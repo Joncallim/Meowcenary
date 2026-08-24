@@ -46,6 +46,7 @@ import {
   type RunSummarySource,
 } from '../ui/runSummary';
 import { zoomedGameUiViewport } from '../ui/layout';
+import { FullscreenController } from '../ui/fullscreen';
 import { PassiveCoordinator } from '../systems/PassiveCoordinator';
 import { HazardSystem } from '../systems/HazardSystem';
 import { DEFAULT_PASSIVE_HANDLERS, createPassiveHandlerRegistry } from '../gameplay/characterPassives';
@@ -75,6 +76,7 @@ export class GameScene extends Phaser.Scene {
   private pauseController?: PauseController;
   private inventoryController?: InventoryController;
   private pauseView?: PhaserPauseView;
+  private fullscreenController?: FullscreenController;
   private dropSystem?: DropSystem;
   private weaponRewardSystem?: WeaponRewardSystem;
   private upgradeSystem?: UpgradeSystem;
@@ -218,6 +220,7 @@ export class GameScene extends Phaser.Scene {
       bus: ctx.bus,
       inventory: this.inventoryController,
     });
+    this.fullscreenController = new FullscreenController(this.scale);
     this.pauseView = new PhaserPauseView({
       scene: this,
       viewport,
@@ -226,6 +229,7 @@ export class GameScene extends Phaser.Scene {
       inventory: this.inventoryController,
       visualArt,
       readInputMode: () => this.inputController!.getInputMode(),
+      fullscreen: this.fullscreenController,
     });
 
     this.arenaScenery = buildArenaScenery(this, arena, visualArt);
@@ -503,6 +507,8 @@ export class GameScene extends Phaser.Scene {
     this.pauseView = undefined;
     this.pauseController?.destroy();
     this.pauseController = undefined;
+    this.fullscreenController?.destroy();
+    this.fullscreenController = undefined;
     this.inventoryController = undefined;
     this.runSummaryView?.destroy();
     this.runSummaryView = undefined;

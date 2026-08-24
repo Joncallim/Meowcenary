@@ -1,7 +1,7 @@
 export type FullscreenState = 'idle' | 'pending-enter' | 'active' | 'pending-exit';
 
 export interface FullscreenScale {
-  readonly fullscreen: boolean;
+  readonly isFullscreen: boolean;
   startFullscreen(): void;
   stopFullscreen(): void;
   on(event: string, listener: () => void): unknown;
@@ -15,13 +15,13 @@ export class FullscreenController {
   private disposed = false;
   private readonly settle = (): void => {
     if (this.disposed) return;
-    this.setState(this.scale.fullscreen ? 'active' : 'idle');
+    this.setState(this.scale.isFullscreen ? 'active' : 'idle');
   };
 
   constructor(private readonly scale: FullscreenScale, private readonly events = {
     enter: 'enterfullscreen', leave: 'leavefullscreen', failed: 'fullscreenfailed', unsupported: 'fullscreenunsupported',
   }) {
-    this.state = scale.fullscreen ? 'active' : 'idle';
+    this.state = scale.isFullscreen ? 'active' : 'idle';
     scale.on(events.enter, this.settle);
     scale.on(events.leave, this.settle);
     scale.on(events.failed, this.settle);

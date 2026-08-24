@@ -11,7 +11,7 @@ import {
 } from './upgradeChooserController';
 import { computeUpgradeChooserLayout } from './upgradeChooserLayout';
 import type { InputMode } from '../systems/input';
-import type { UiViewport } from './layout';
+import { zoomedGameUiViewport, type UiViewport } from './layout';
 
 const CHOOSER_DEPTH = ThemeDepth.upgradeChooser;
 const CARD_STROKE = { color: ThemeColor.primaryDim, alpha: 0.78, width: 2 } as const;
@@ -130,7 +130,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     private readonly readReducedMotion: () => boolean = () => false,
     private readonly visualArt?: VisualArtLookup,
     private readonly readInputMode: () => InputMode = () => 'pointer',
-    private readonly viewport?: UiViewport,
+    private viewport?: UiViewport,
   ) {
     scene.input.keyboard?.on('keydown', this.handleKeyDown, this);
     scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
@@ -205,12 +205,15 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     // successful publication below (F1 committed-display gate).
     this.committedDisplay = false;
 
-    const { width, height } = this.scene.scale;
+    const width = this.viewport?.canvasWidth ?? this.scene.scale.width;
+    const height = this.viewport?.canvasHeight ?? this.scene.scale.height;
+    const displayWidth = this.viewport?.displayWidth ?? this.scene.scale.displaySize.width;
+    const displayHeight = this.viewport?.displayHeight ?? this.scene.scale.displaySize.height;
     const layout = computeUpgradeChooserLayout(
       width,
       height,
-      this.scene.scale.displaySize.width,
-      this.scene.scale.displaySize.height,
+      displayWidth,
+      displayHeight,
       offer.choices.length,
     );
     const root = this.scene.add.container(this.viewport?.originX ?? 0, this.viewport?.originY ?? 0);
@@ -649,6 +652,14 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       return;
     }
 
+    if (this.viewport?.originX !== undefined) {
+      this.viewport = zoomedGameUiViewport(
+        this.scene.scale.displaySize.width,
+        this.scene.scale.displaySize.height,
+        this.scene.scale.parentSize.width,
+        this.scene.scale.parentSize.height,
+      );
+    }
     this.destroyDisplay();
     this.buildDisplay();
   };

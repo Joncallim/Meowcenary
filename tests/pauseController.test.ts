@@ -13,6 +13,7 @@ import { loadGameData } from '../src/systems/validation';
 import { InventoryController } from '../src/ui/inventory';
 import { logicalCanvasViewport } from '../src/ui/layout';
 import { PauseController, PhaserPauseView } from '../src/ui/pause';
+import { FullscreenController } from '../src/ui/fullscreen';
 import { FocusStroke } from '../src/ui/theme';
 import type { InputMode } from '../src/systems/input';
 
@@ -1393,5 +1394,39 @@ describe('PhaserPauseView', () => {
     expect(events).toEqual([]);
     expect(controller.snapshot().panel).toBe('pause');
   });
+  });
+});
+
+
+describe('pause fullscreen wiring', () => {
+  it('gates requests, exposes pending state, and disposes its subscription', () => {
+    const listeners = new Map<string, () => void>();
+    const scale = {
+      isFullscreen: false,
+      startFullscreen: vi.fn(),
+      stopFullscreen: vi.fn(),
+      on: (event: string, listener: () => void) => listeners.set(event, listener),
+      off: (event: string, listener: () => void) => { if (listeners.get(event) === listener) listeners.delete(event); },
+    };
+    const prior = globalThis.document;
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: { fullscreenEnabled: true } });
+    try {
+      const fullscreen = new FullscreenController(scale);
+      const settled = vi.fn();
+      const unsubscribe = fullscreen.subscribe(settled);
+      expect(fullscreen.request()).toBe(true);
+      expect(scale.startFullscreen).toHaveBeenCalledTimes(1);
+      expect(fullscreen.snapshot).toBe('pending-enter');
+      expect(fullscreen.request()).toBe(false);
+      scale.isFullscreen = true;
+      listeners.get('enterfullscreen')?.();
+      expect(fullscreen.snapshot).toBe('active');
+      expect(settled).toHaveBeenCalledTimes(2);
+      unsubscribe();
+      fullscreen.destroy();
+      expect(listeners.size).toBe(0);
+    } finally {
+      Object.defineProperty(globalThis, 'document', { configurable: true, value: prior });
+    }
   });
 });

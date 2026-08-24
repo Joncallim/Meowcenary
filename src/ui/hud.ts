@@ -6,7 +6,7 @@ import type { Player } from '../entities/Player';
 import type { RunState, RunStatus } from '../gameplay/runState';
 
 import { formatNumber, formatTime } from './format';
-import { physicalToLogical, type UiViewport } from './layout';
+import { physicalToLogical, zoomedGameUiViewport, type UiViewport } from './layout';
 import { ThemeColor, ThemeDepth, ThemeFont } from './theme';
 
 /** @deprecated HUD no longer renders the rack strip; retained for old fixtures. */
@@ -356,7 +356,7 @@ export class PhaserHudView implements HudView {
       return;
     }
     const scale = this.scene.scale;
-    const next: UiViewport = {
+    const next: UiViewport = this.viewport.originX === undefined ? {
       canvasWidth: positiveFinite(scale.width, this.viewport.canvasWidth),
       canvasHeight: positiveFinite(scale.height, this.viewport.canvasHeight),
       displayWidth: positiveFinite(scale.displaySize.width, this.viewport.displayWidth),
@@ -369,7 +369,9 @@ export class PhaserHudView implements HudView {
         scale.parentSize.height,
         this.viewport.containerHeight ?? this.viewport.displayHeight,
       ),
-    };
+    } : zoomedGameUiViewport(
+      scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height,
+    );
     if (sameViewport(this.viewport, next)) {
       return;
     }

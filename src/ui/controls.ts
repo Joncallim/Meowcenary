@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { clampLength } from '../engine/vector';
 import { assertTouchStickConfig, RuntimeConfig, type TouchStickConfig } from '../engine/config';
 import type { InputController, InputMode, InputPresentationSnapshot } from '../systems/input';
-import { physicalToLogical, GAMEPLAY_ZOOM, type UiViewport } from './layout';
+import { physicalToLogical, GAMEPLAY_ZOOM, zoomedGameUiViewport, type UiViewport } from './layout';
 import { reducedMotionDuration, ThemeColor, ThemeDepth, ThemeFont } from './theme';
 
 
@@ -148,7 +148,7 @@ export class ControlsView {
       return;
     }
     const scale = this.scene.scale;
-    const next: UiViewport = {
+    const next: UiViewport = this.viewport.originX === undefined ? {
       canvasWidth: positiveFinite(scale.width, this.viewport.canvasWidth),
       canvasHeight: positiveFinite(scale.height, this.viewport.canvasHeight),
       displayWidth: positiveFinite(scale.displaySize.width, this.viewport.displayWidth),
@@ -161,7 +161,9 @@ export class ControlsView {
         scale.parentSize.height,
         this.viewport.containerHeight ?? this.viewport.displayHeight,
       ),
-    };
+    } : zoomedGameUiViewport(
+      scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height,
+    );
     if (sameViewport(this.viewport, next)) {
       return;
     }
