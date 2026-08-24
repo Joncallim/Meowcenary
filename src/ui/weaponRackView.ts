@@ -264,7 +264,7 @@ export class PhaserWeaponRackPanel {
       );
       root.add(empty);
       empty.setOrigin(0.5);
-      slot.setInteractive();
+      slot.setScrollFactor(0).setInteractive();
       return slot;
     }
 
@@ -285,8 +285,8 @@ export class PhaserWeaponRackPanel {
     const card = this.scene.add.rectangle(x, y, width, height, fill, alpha);
     root.add(card);
     card.setStrokeStyle(strokeWidth, stroke, state === 'incompatible' ? 0.42 : 0.95);
-    card.setInteractive();
-    card.on(Phaser.Input.Events.POINTER_UP, () => this.selectWeapon(weapon.instanceId));
+    // Phaser input reads a child's scroll factor; Containers do not propagate it.
+    card.setScrollFactor(0).setInteractive({ useHandCursor: true });
 
     const left = x - width / 2;
     const top = y - height / 2;
@@ -585,22 +585,25 @@ export class PhaserWeaponRackPanel {
   }
 
   private registerModalTarget(handle: ModalButtonHandle, index: number): void {
-    // F5: modal Merge/Back must participate in pointer-hover focus exactly
-    // like slot targets — silent index sync, exactly one FocusStroke ring on
-    // hover, cleared on out, no command/audio event from hovering.
+    let armedPointerId: number | undefined;
     handle.target.on(Phaser.Input.Events.POINTER_OVER, () => {
       this.hoveredIndex = index;
       this.navigator.setIndex(index);
       this.applyFocus();
     });
     handle.target.on(Phaser.Input.Events.POINTER_OUT, () => {
+      armedPointerId = undefined;
       if (this.hoveredIndex === index) this.hoveredIndex = -1;
       this.applyFocus();
     });
-    // Single surface funnel for pointer activation: FIRST sync the logical
-    // index, THEN activate. The handle's enabled guard retains command
-    // suppression for a disabled Merge (round-2 finding F2).
-    handle.target.on(Phaser.Input.Events.POINTER_UP, () => {
+    handle.target.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
+      if (!this.disposed && this.isOpen() && this.hasCommittedRoot()) armedPointerId = pointer.id;
+    });
+    // A release only commits an arm made by the same pointer inside this target.
+    handle.target.on(Phaser.Input.Events.POINTER_UP, (pointer: Phaser.Input.Pointer) => {
+      if (armedPointerId !== pointer.id) return;
+      armedPointerId = undefined;
+      if (this.disposed || !this.isOpen() || !this.hasCommittedRoot()) return;
       this.hoveredIndex = index;
       this.navigator.setIndex(index);
       this.applyFocus();
@@ -620,6 +623,7 @@ export class PhaserWeaponRackPanel {
     baseColor: number,
     baseAlpha: number,
   ): void {
+    let armedPointerId: number | undefined;
     const baseWidth = physicalToLogical(2, this.viewport);
     target.on(Phaser.Input.Events.POINTER_OVER, () => {
       this.hoveredIndex = index;
@@ -627,8 +631,21 @@ export class PhaserWeaponRackPanel {
       this.applyFocus();
     });
     target.on(Phaser.Input.Events.POINTER_OUT, () => {
+      armedPointerId = undefined;
       if (this.hoveredIndex === index) this.hoveredIndex = -1;
       this.applyFocus();
+    });
+    target.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
+      if (!this.disposed && this.isOpen() && this.hasCommittedRoot()) armedPointerId = pointer.id;
+    });
+    target.on(Phaser.Input.Events.POINTER_UP, (pointer: Phaser.Input.Pointer) => {
+      if (armedPointerId !== pointer.id) return;
+      armedPointerId = undefined;
+      if (this.disposed || !this.isOpen() || !this.hasCommittedRoot()) return;
+      this.hoveredIndex = index;
+      this.navigator.setIndex(index);
+      this.applyFocus();
+      activate();
     });
     this.focusTargets[index] = {
       target,

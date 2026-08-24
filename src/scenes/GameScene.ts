@@ -182,6 +182,7 @@ export class GameScene extends Phaser.Scene {
     if (arena.size.width > this.scale.width || arena.size.height > this.scale.height) {
       this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
     }
+    this.cameras.main.setZoom(1.25);
 
     const viewport = logicalCanvasViewport(
       this.scale.displaySize.width,
@@ -193,12 +194,10 @@ export class GameScene extends Phaser.Scene {
         runState: this.runState,
         player: this.player,
         durationMs: this.spawnCurve.durationSeconds * 1000,
-        weaponRegistry,
       }),
       new PhaserHudView({
         scene: this,
         viewport,
-        onInventoryRequested: () => this.routeAction('inventory'),
       }),
     );
     this.controlsView = new ControlsView({

@@ -8,7 +8,7 @@ import { reducedMotionDuration, ThemeColor, ThemeDepth, ThemeFont } from './them
 
 const HINT_DURATION_MS = 2200;
 const HINT_FADE_MS = 400;
-const HUD_RACK_CLEARANCE_PX = 52;
+
 
 export interface ControlsViewOptions {
   readonly scene: Phaser.Scene;
@@ -70,8 +70,8 @@ export class ControlsView {
       viewport.canvasWidth / 2,
       viewport.canvasHeight
         - margin
-        - physicalToLogical(HUD_RACK_CLEARANCE_PX, viewport)
-        - fontSize * 2,
+        - this.stickRadius * 2
+        - fontSize,
       hintForMode(this.lastMode),
       {
         align: 'center',

@@ -2,19 +2,16 @@ import Phaser from 'phaser';
 import type { EventBus } from '../engine/eventBus';
 import type { System } from '../engine/system';
 import type { Player } from '../entities/Player';
-import { hasMergeablePair } from '../gameplay/merge';
+
 import type { RunState, RunStatus } from '../gameplay/runState';
-import { WEAPON_RACK_CAPACITY } from '../gameplay/weaponRack';
-import type { DataWeaponRegistry } from '../systems/weaponRegistry';
+
 import { formatNumber, formatTime } from './format';
 import { physicalToLogical, type UiViewport } from './layout';
 import { ThemeColor, ThemeDepth, ThemeFont } from './theme';
 
-export interface HudWeaponView {
-  readonly instanceId: string;
-  readonly name: string;
-  readonly tier: number;
-}
+/** @deprecated HUD no longer renders the rack strip; retained for old fixtures. */
+export interface HudWeaponView { readonly instanceId: string; readonly name: string; readonly tier: number; }
+
 
 export interface HudSnapshot {
   readonly status: RunStatus;
@@ -27,8 +24,11 @@ export interface HudSnapshot {
   readonly xpToNext: number;
   readonly kills: number;
   readonly currency: number;
+  /** @deprecated ignored by HUD after rack strip removal. */
   readonly weapons: readonly HudWeaponView[];
+  /** @deprecated ignored by HUD after rack strip removal. */
   readonly mergeReady: boolean;
+
 }
 
 export interface HudSource {
@@ -57,8 +57,7 @@ export class HudController implements System {
       bus.on('xp:gained', () => this.markDirty()),
       bus.on('level:up', () => this.markDirty()),
       bus.on('currency:changed', () => this.markDirty()),
-      bus.on('weapon:merged', () => this.markDirty()),
-      bus.on('weapon:acquired', () => this.markDirty()),
+
       bus.on('run:paused', () => this.markDirty()),
       bus.on('run:resumed', () => this.markDirty()),
       bus.on('run:won', () => this.markDirty()),
@@ -119,8 +118,7 @@ function buildRenderKey(snapshot: HudSnapshot): string {
     snapshot.xpToNext,
     snapshot.kills,
     snapshot.currency.toFixed(2),
-    snapshot.mergeReady,
-    snapshot.weapons.map((weapon) => `${weapon.instanceId}:${weapon.name}:${weapon.tier}`).join(','),
+
   ].join('|');
 }
 
@@ -128,21 +126,16 @@ export interface CreateHudSourceOptions {
   readonly runState: RunState;
   readonly player: Player;
   readonly durationMs: number;
-  readonly weaponRegistry: DataWeaponRegistry;
+  /** @deprecated no longer consumed by HUD. */
+  readonly weaponRegistry?: unknown;
+
 }
 
 export function createHudSource(options: CreateHudSourceOptions): HudSource {
-  const { runState, player, durationMs, weaponRegistry } = options;
+  const { runState, player, durationMs } = options;
   return {
     snapshot(): HudSnapshot {
-      const weapons = runState.equipped.map((instance) => {
-        const def = weaponRegistry.weaponById(instance.defId);
-        return Object.freeze({
-          instanceId: instance.instanceId,
-          name: def?.name ?? instance.defId,
-          tier: instance.tier,
-        });
-      });
+
       const snapshot: HudSnapshot = {
         status: runState.status,
         timeMs: runState.timeMs,
@@ -154,8 +147,10 @@ export function createHudSource(options: CreateHudSourceOptions): HudSource {
         xpToNext: runState.xpToNext,
         kills: runState.kills,
         currency: runState.currency,
-        weapons,
-        mergeReady: hasMergeablePair(runState.equipped, weaponRegistry),
+        // Kept empty/false for compatibility with old test fixtures; rendering
+        // no longer reads these fields and the HUD has no rack strip.
+        weapons: [],
+        mergeReady: false,
       };
       return Object.freeze(snapshot);
     },
@@ -165,7 +160,9 @@ export function createHudSource(options: CreateHudSourceOptions): HudSource {
 export interface HudViewOptions {
   readonly scene: Phaser.Scene;
   readonly viewport: UiViewport;
+  /** @deprecated callback intentionally unused after rack strip removal. */
   readonly onInventoryRequested?: () => void;
+
 }
 
 export class PhaserHudView implements HudView {
@@ -180,17 +177,14 @@ export class PhaserHudView implements HudView {
   private levelText!: Phaser.GameObjects.Text;
   private scrapText!: Phaser.GameObjects.Text;
   private killsText!: Phaser.GameObjects.Text;
-  private rackButton!: Phaser.GameObjects.Rectangle;
-  private rackStrokeWidth = 1;
-  private weaponText!: Phaser.GameObjects.Text;
-  private readonly onInventoryRequested?: () => void;
+
   private lastSnapshot?: HudSnapshot;
   private disposed = false;
 
   constructor(options: HudViewOptions) {
     this.scene = options.scene;
     this.viewport = options.viewport;
-    this.onInventoryRequested = options.onInventoryRequested;
+
     this.buildDisplay();
     this.scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
   }
@@ -218,19 +212,7 @@ export class PhaserHudView implements HudView {
     this.levelText.setText(`Level ${snapshot.level}`);
     this.killsText.setText(`Kills ${formatNumber(snapshot.kills)}`);
     this.scrapText.setText(`Scrap ${formatNumber(Math.floor(snapshot.currency))}`);
-    const rackState = snapshot.mergeReady
-      ? 'MERGE READY'
-      : snapshot.weapons.length >= WEAPON_RACK_CAPACITY
-        ? 'RACK FULL'
-        : 'TAP TO INSPECT';
-    this.weaponText.setText(
-      `Rack ${snapshot.weapons.length}/${WEAPON_RACK_CAPACITY}  •  ${rackState}`,
-    );
-    this.rackButton.setStrokeStyle(
-      this.rackStrokeWidth,
-      snapshot.mergeReady ? ThemeColor.gold : ThemeColor.primaryDim,
-      snapshot.mergeReady ? 1 : 0.9,
-    );
+
   }
 
   destroy(): void {
@@ -248,7 +230,6 @@ export class PhaserHudView implements HudView {
     const fontSize = physicalToLogical(ThemeFont.bodyMin, viewport);
     const labelSize = physicalToLogical(ThemeFont.labelMin, viewport);
     const canvasWidth = viewport.canvasWidth;
-    const canvasHeight = viewport.canvasHeight;
 
     const textStyle = {
       color: '#d6f7ff',
@@ -270,7 +251,8 @@ export class PhaserHudView implements HudView {
     this.statusText.setScrollFactor(0);
     this.statusText.setDepth(ThemeDepth.hud);
 
-    this.timeText = scene.add.text(canvasWidth - margin, margin, '', {
+    const rightHudX = canvasWidth - margin - physicalToLogical(44, viewport) - physicalToLogical(8, viewport);
+    this.timeText = scene.add.text(rightHudX, margin, '', {
       ...textStyle,
       align: 'right',
     });
@@ -280,7 +262,7 @@ export class PhaserHudView implements HudView {
 
     const barTop = margin + fontSize * 1.4;
     const barHeight = physicalToLogical(8, viewport);
-    const healthBarWidth = Math.max(1, canvasWidth - margin * 2);
+    const healthBarWidth = Math.max(1, rightHudX - margin);
     const healthBarBg = scene.add.rectangle(
       margin + healthBarWidth / 2,
       barTop + barHeight / 2,
@@ -331,7 +313,7 @@ export class PhaserHudView implements HudView {
     this.levelText.setScrollFactor(0);
     this.levelText.setDepth(ThemeDepth.hud);
 
-    this.killsText = scene.add.text(canvasWidth - margin, barTop, '', {
+    this.killsText = scene.add.text(rightHudX, barTop, '', {
       ...labelStyle,
       align: 'right',
     });
@@ -339,7 +321,7 @@ export class PhaserHudView implements HudView {
     this.killsText.setScrollFactor(0);
     this.killsText.setDepth(ThemeDepth.hud);
 
-    this.scrapText = scene.add.text(canvasWidth - margin, barTop + labelSize + physicalToLogical(4, viewport), '', {
+    this.scrapText = scene.add.text(rightHudX, barTop + labelSize + physicalToLogical(4, viewport), '', {
       ...labelStyle,
       align: 'right',
     });
@@ -347,34 +329,7 @@ export class PhaserHudView implements HudView {
     this.scrapText.setScrollFactor(0);
     this.scrapText.setDepth(ThemeDepth.hud);
 
-    const rackHeight = physicalToLogical(44, viewport);
-    this.rackStrokeWidth = physicalToLogical(2, viewport);
-    const rackWidth = Math.max(1, canvasWidth - margin * 2);
-    const rackY = canvasHeight - margin - rackHeight / 2;
-    this.rackButton = scene.add.rectangle(
-      canvasWidth / 2,
-      rackY,
-      rackWidth,
-      rackHeight,
-      ThemeColor.surface,
-      0.88,
-    );
-    this.rackButton.setScrollFactor(0);
-    this.rackButton.setDepth(ThemeDepth.hud);
-    this.rackButton.setStrokeStyle(this.rackStrokeWidth, ThemeColor.primaryDim, 0.9);
-    if (this.onInventoryRequested) {
-      this.rackButton.setInteractive();
-      this.rackButton.on(Phaser.Input.Events.POINTER_UP, this.handleInventoryRequested, this);
-    }
 
-    this.weaponText = scene.add.text(canvasWidth / 2, rackY, '', {
-      ...textStyle,
-      align: 'center',
-      fontStyle: '700',
-    });
-    this.weaponText.setOrigin(0.5);
-    this.weaponText.setScrollFactor(0);
-    this.weaponText.setDepth(ThemeDepth.hud);
 
     this.container.add([
       this.statusText,
@@ -387,19 +342,12 @@ export class PhaserHudView implements HudView {
       this.levelText,
       this.killsText,
       this.scrapText,
-      this.rackButton,
-      this.weaponText,
+
     ]);
   }
 
   private destroyDisplay(): void {
-    if (this.onInventoryRequested) {
-      this.rackButton.off(
-        Phaser.Input.Events.POINTER_UP,
-        this.handleInventoryRequested,
-        this,
-      );
-    }
+
     this.container.destroy(true);
   }
 
@@ -434,9 +382,7 @@ export class PhaserHudView implements HudView {
     }
   };
 
-  private handleInventoryRequested(): void {
-    this.onInventoryRequested?.();
-  }
+
 }
 
 function positiveFinite(value: number, fallback: number): number {

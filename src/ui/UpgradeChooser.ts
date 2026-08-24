@@ -121,6 +121,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   private lastInputMode: InputMode = 'pointer';
   private instructions?: Phaser.GameObjects.Text;
   private reducedMotion = false;
+  private armedPointerId?: number;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -228,7 +229,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         ThemeColor.surface,
         0.96,
       ));
-      backdrop.setStrokeStyle(2, ThemeColor.primary, 0.72).setInteractive();
+      backdrop.setStrokeStyle(2, ThemeColor.primary, 0.72).setInteractive().setScrollFactor(0);
       const heading = own(this.scene.add.text(
         width / 2,
         layout.headingY,
@@ -289,6 +290,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         ));
         card
           .setStrokeStyle(CARD_STROKE.width, CARD_STROKE.color, CARD_STROKE.alpha)
+          .setScrollFactor(0)
           .setInteractive({ useHandCursor: true });
         card.on(Phaser.Input.Events.POINTER_OVER, () => {
           if (this.enabled) {
@@ -299,11 +301,18 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           }
         });
         card.on(Phaser.Input.Events.POINTER_OUT, () => {
+          this.armedPointerId = undefined;
           if (this.hoveredIndex === index) this.hoveredIndex = -1;
           this.applyFocusStroke();
           card.setFillStyle(ThemeColor.card, this.enabled ? 1 : 0.58);
         });
-        card.on(Phaser.Input.Events.POINTER_UP, () => {
+        card.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
+          if (this.acceptsNavigation && this.currentOfferId === offer.offerId) this.armedPointerId = pointer.id;
+        });
+        card.on(Phaser.Input.Events.POINTER_UP, (pointer: Phaser.Input.Pointer) => {
+          if (this.armedPointerId !== pointer.id) return;
+          this.armedPointerId = undefined;
+          if (!this.acceptsNavigation || this.currentOfferId !== offer.offerId || this.focusIndex !== index) return;
           this.submit(offer.offerId, index);
         });
 
@@ -599,6 +608,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     // Teardown uncommits the display: until the next successful publication,
     // number shortcuts and logical seams are refused (F1).
     this.committedDisplay = false;
+    this.armedPointerId = undefined;
     this.cardBackgrounds = [];
     this.renderedText = [];
     // The instructions Text lives in the destroyed root; clear the ref so a
@@ -641,7 +651,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   };
 
   private submit(offerId: number, choiceIndex: number): boolean {
-    if (!this.enabled || this.currentOfferId !== offerId || !this.select) {
+    if (this.destroyed || !this.enabled || !this.committedDisplay || this.currentOfferId !== offerId || !this.select) {
       return false;
     }
     return this.select(offerId, choiceIndex);
