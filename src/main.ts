@@ -5,6 +5,7 @@ import { MenuScene } from './scenes/MenuScene';
 import { GameScene } from './scenes/GameScene';
 import './styles.css';
 import { physicsDebugEnabled } from './systems/debug';
+import { bindVisualViewportRefresh } from './platform/visualViewport';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -15,6 +16,7 @@ const config: Phaser.Types.Core.GameConfig = {
     autoCenter: Phaser.Scale.CENTER_BOTH,
     width: RuntimeConfig.canvas.width,
     height: RuntimeConfig.canvas.height,
+    fullscreenTarget: 'game-root',
   },
   input: {
     activePointers: 3,
@@ -32,3 +34,5 @@ const config: Phaser.Types.Core.GameConfig = {
 // Exported as a narrow ESM browser lifecycle/smoke seam. Upgrade selection now
 // uses the visible chooser; gameplay ownership remains in scenes and systems.
 export const game = new Phaser.Game(config);
+const disposeVisualViewport = bindVisualViewportRefresh(game);
+game.events.once(Phaser.Core.Events.DESTROY, disposeVisualViewport);
