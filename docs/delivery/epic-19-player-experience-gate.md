@@ -1,7 +1,7 @@
 # Epic 19 — Player experience gate
 
 **Status:** IN PROGRESS
-**References:** Epic #78; [governing architecture](../architecture/epic-19-player-ux-and-alpha-2-gate.md); Slice 4 merged commit: `b316a6a`; final runtime candidate: `609547d` (the FINAL TESTED production commit; automated rows below pin to it, not to the `ad5aeb9` baseline). This documentation-only descendant records the results without changing that tested runtime.
+**References:** Epic #78; [governing architecture](../architecture/epic-19-player-ux-and-alpha-2-gate.md); Slice 4 merged commit: `b316a6a`; final runtime candidate: `609547d` (the FINAL TESTED production commit; automated rows below pin to it, not to the `ad5aeb9` baseline). Automated rows are re-verified at the tests-only verification descendant `e488de5` (production runtime byte-identical to `609547d`); this documentation-only descendant records the results without changing that tested runtime.
 
 This is the compact durable record for the Epic 19 player-experience gate. Rows without a real observer, device, and candidate commit remain `unverified`; automated results do not substitute for human evidence. Automated rows carry NO human observer — the Observer column records the run's provenance (`automated`), never a maintainer or agent.
 
@@ -34,17 +34,17 @@ Maintainer draft, 2026-08-24, against candidate `ad5aeb9` (the baseline where th
 
 ## Automated validation
 
-Eight separate rows (one per gate). Each test row records the exact candidate commit, observer/date, exit/pass, ordinary files/tests, stage-2 `9 passed`, and stage-3 fixed `6 + 3` all enforced. All rows pin the FINAL TESTED candidate `609547d` (not the `ad5aeb9` baseline) with its real numbers: 103 ordinary files / 1717 tests, stage-2 allocation 9/9, stage-3 fixed 6 + 3, normal plus BOTH shuffled reruns. Automated rows have no human observer — the Observer column is the run's provenance.
+Eight separate rows (one per gate). Each test row records the exact candidate commit, observer/date, exit/pass, ordinary files/tests, stage-2 `9 passed`, and stage-3 fixed `6 + 3` all enforced. All rows pin the FINAL TESTED runtime parent `609547d` (not the `ad5aeb9` baseline) and are re-verified at the tests-only verification descendant `e488de5` (runtime byte-identical) with its real numbers: 103 ordinary files / 1718 tests (+1 over the parent: the rack card-composition order test), stage-2 allocation 9/9, stage-3 fixed 6 + 3, normal plus BOTH shuffled reruns. Automated rows have no human observer — the Observer column is the run's provenance.
 
 | # | Commit | Observer/date | Check | Status | Outcome | Notes | Unverified reason |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `609547d` | automated / 2026-08-25 | normal full `npm test` | verified | pass | Exit 0; ordinary 103 files / 1717 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
-| 2 | `609547d` | automated / 2026-08-25 | shuffled full seed `190501` | verified | pass | `--sequence.shuffle --sequence.seed 190501`; exit 0; seed printed; ordinary 103 files / 1717 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
-| 3 | `609547d` | automated / 2026-08-25 | shuffled full seed `190502` | verified | pass | `--sequence.shuffle --sequence.seed 190502`; exit 0; seed printed; ordinary 103 files / 1717 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
-| 4 | `609547d` | automated / 2026-08-25 | `npm run lint` | verified | pass | `tsc --noEmit` exit 0. | — |
-| 5 | `609547d` | automated / 2026-08-25 | `npm run build` | verified | pass | `tsc --noEmit && vite build` exit 0. | — |
-| 6 | `609547d` | automated / 2026-08-25 | `npm run art:validate` | verified | pass | Node + Lua visual-art builder contracts all PASS, exit 0. | — |
-| 7 | `609547d` | automated / 2026-08-25 | `git diff --check` | verified | pass | Exit 0; checked final runtime candidate before this documentation-only descendant. | — |
+| 1 | `e488de5` (verification descendant of `609547d`) | automated / 2026-08-25 | normal full `npm test` | verified | pass | Exit 0; ordinary 103 files / 1718 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
+| 2 | `e488de5` (verification descendant of `609547d`) | automated / 2026-08-25 | shuffled full seed `190501` | verified | pass | `--sequence.shuffle --sequence.seed 190501`; exit 0; seed printed; ordinary 103 files / 1718 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
+| 3 | `e488de5` (verification descendant of `609547d`) | automated / 2026-08-25 | shuffled full seed `190502` | verified | pass | `--sequence.shuffle --sequence.seed 190502`; exit 0; seed printed; ordinary 103 files / 1718 tests; stage-2 allocation 9 passed; stage-3 fixed 6 + 3 enforced. | — |
+| 4 | `e488de5` (verification descendant of `609547d`) | automated / 2026-08-25 | `npm run lint` | verified | pass | `tsc --noEmit` exit 0. | — |
+| 5 | `e488de5` (verification descendant of `609547d`) | automated / 2026-08-25 | `npm run build` | verified | pass | `tsc --noEmit && vite build` exit 0. | — |
+| 6 | `e488de5` (verification descendant of `609547d`) | automated / 2026-08-25 | `npm run art:validate` | verified | pass | Node + Lua visual-art builder contracts all PASS, exit 0. | — |
+| 7 | `e488de5` (verification descendant of `609547d`) | automated / 2026-08-25 | `git diff --check` | verified | pass | Exit 0; checked the tests-only verification descendant before this documentation-only revision. | — |
 | 8 | `609547d` | unassigned / 2026-08-25 | independent orthogonal review | pending | not dispatched | Read-only full-footprint review artifact required. | Independent reviewer not assigned. |
 
 ## Device matrix
@@ -103,7 +103,7 @@ Eight separate rows (one per gate). Each test row records the exact candidate co
 
 | Evidence ID | Device ID | Commit | Observer/date | Check | Method | Status | Observed outcome | Unverified reason | Decision/follow-up |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| P-alloc | desktop-keyboard-chrome | `609547d` | automated / 2026-08-25 | §6 zero-allocation and runner regressions | `npm test` | verified | pass | Stage-2 allocation 9/9 + stage-3 fixed 6 + 3 at the final tested candidate. Automated proxy only — not lived FPS. | — |
+| P-alloc | desktop-keyboard-chrome | `e488de5` (verification descendant of `609547d`) | automated / 2026-08-25 | §6 zero-allocation and runner regressions | `npm test` | verified | pass | Stage-2 allocation 9/9 + stage-3 fixed 6 + 3 at the tests-only verification descendant (runtime byte-identical to the final tested candidate). Automated proxy only — not lived FPS. | — |
 | P-late-wave | unverified | pending | unverified | 4:30–5:00 Golden Run frame posture | real run with input polling | unverified | unverified | Deferred to Slice 5; no human browser run. | Do not infer frame pacing from allocation tests. |
 
 ## §10 experience matrix
@@ -112,7 +112,7 @@ Eight separate rows (one per gate). Each test row records the exact candidate co
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | X1-controller-journey | X1 — controller-only whole journey | desktop-gamepad-chrome | pending | unverified | unverified | unverified | No real controller run. |
 | X2-focus | X2 — visible focus across rerender, resize, device switch | desktop-gamepad-chrome | pending | unverified | unverified | unverified | No device/manual observation. |
-| X3-single-command (automated soak) | X3 — one input, one destructive/selection effect | desktop-gamepad-chrome | `609547d` | automated / 2026-08-25 | verified | pass | Mixed-input + pointer-funnel regressions green at the final tested candidate (normal + both shuffled reruns). | Automated evidence only — no human observer. |
+| X3-single-command (automated soak) | X3 — one input, one destructive/selection effect | desktop-gamepad-chrome | `e488de5` (verification descendant of `609547d`) | automated / 2026-08-25 | verified | pass | Mixed-input + pointer-funnel regressions green at the tests-only verification descendant (runtime byte-identical to the final tested candidate; normal + both shuffled reruns). | Automated evidence only — no human observer. |
 | X3-single-command (maintainer) | X3 — one input, one destructive/selection effect | desktop-gamepad-chrome | `609547d` | maintainer / 2026-08-25 | unverified | unverified | No real-device observation is available; the automated soak does not verify the absent keyboard+controller device session. | Maintainer playtest session unavailable. |
 | X4-hints | X4 — hints follow last real device | desktop-keyboard-chrome | pending | unverified | unverified | unverified | No manual observation. |
 | X5-one-handed | X5 — one-handed phone comfort/reach | pixel-8-android-chrome | unverified | unverified | unverified | unverified | No touch hardware evidence. |
