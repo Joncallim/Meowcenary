@@ -1,18 +1,33 @@
+const THEME_PRIMARY = 0x2dd4bf;
+const THEME_MUTED = 0xa5f3fc;
+const THEME_GOLD = 0xfbbf24;
+
 export const ThemeColor = {
   background: 0x101820,
   surface: 0x081118,
   surfaceTranslucent: 0x081118,
   card: 0x17303b,
   cardHover: 0x214756,
-  primary: 0x2dd4bf,
+  primary: THEME_PRIMARY,
   primaryDim: 0x67e8f9,
   cream: 0xf7f1d5,
   text: 0xd6f7ff,
-  muted: 0xa5f3fc,
-  gold: 0xfbbf24,
+  muted: THEME_MUTED,
+  gold: THEME_GOLD,
   white: 0xffffff,
   danger: 0xf87171,
+  rarity: {
+    common: THEME_MUTED,
+    uncommon: THEME_PRIMARY,
+    rare: 0x60a5fa,
+    epic: 0xc084fc,
+    legendary: THEME_GOLD,
+  },
 } as const;
+
+export function themeColorCss(color: number): string {
+  return `#${color.toString(16).padStart(6, '0')}`;
+}
 
 export const ThemeDepth = {
   world: 0,

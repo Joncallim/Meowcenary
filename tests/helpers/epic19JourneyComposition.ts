@@ -400,6 +400,16 @@ function fakeObject(
       requireAlive();
       return api;
     },
+    setFontSize(fontSize: string) {
+      requireAlive();
+      state.style = { ...state.style, fontSize };
+      const parsed = Number.parseFloat(fontSize);
+      if (Number.isFinite(parsed) && parsed > 0 && typeof state.text === 'string') {
+        state.width = state.text.length * parsed * 0.55;
+        state.height = parsed * 1.2;
+      }
+      return api;
+    },
     setFixedSize() {
       requireAlive();
       return api;
@@ -1304,12 +1314,24 @@ export function focusedTargetIndex(scene: FakeScene): number {
       object.state.handlers['pointerover'] &&
       !object.state.destroyed,
   );
-  return targets.findIndex(
+  const direct = targets.findIndex(
     (target) =>
       target.state.strokeWidth === FocusStroke.width &&
       target.state.strokeColor === FocusStroke.color &&
       target.state.strokeAlpha === FocusStroke.alpha,
   );
+  if (direct >= 0) return direct;
+  // Round-2 cards keep focus on their separate, non-interactive rarity edge.
+  // Match it geometrically to its interactive fill so this composition seam
+  // continues to report the actual focused command target.
+  const edge = scene.objects.find(
+    (object) => !object.state.destroyed
+      && object.state.kind === 'rect'
+      && object.state.strokeWidth === FocusStroke.width
+      && object.state.strokeColor === FocusStroke.color
+      && object.state.strokeAlpha === FocusStroke.alpha,
+  );
+  return edge ? targets.findIndex((target) => target.state.x === edge.state.x && target.state.y === edge.state.y) : -1;
 }
 
 export function focusedButtonIndex(scene: FakeScene): number {

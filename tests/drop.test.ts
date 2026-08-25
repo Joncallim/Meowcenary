@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { LootGrant } from '../src/gameplay/loot';
+import { ThemeColor } from '../src/ui/theme';
 
 class MockGameObject {
   active = false;
@@ -141,7 +142,7 @@ describe('Drop', () => {
     ['xp', 0x7dd3fc, { kind: 'xp', amount: 10 }],
     ['scrap', 0xd1d5db, { kind: 'scrap', amount: 10 }],
     ['chest', 0xf472b6, { kind: 'chest', amount: 0, tableId: 'table-a' }],
-    ['weapon', 0xfbbf24, { kind: 'weapon', definitionId: 'scrap-pistol-t1' }],
+    ['weapon', ThemeColor.gold, { kind: 'weapon', definitionId: 'scrap-pistol-t1' }],
   ] as const)('uses the exact %s color', async (_kind, color, grant) => {
     const drop = await createDrop();
 

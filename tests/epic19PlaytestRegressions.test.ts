@@ -28,6 +28,7 @@ interface FakeSceneObject {
     y: number;
     width: number;
     height: number;
+    text?: string;
     interactive: boolean;
     destroyed: boolean;
     handlers: Record<string, (...args: unknown[]) => void>;
@@ -190,6 +191,45 @@ describe('Epic 19 playtest fixes: viewport lifecycle and transform', () => {
       expect(listeners.size).toBe(0);
     } finally {
       Object.defineProperty(globalThis, 'visualViewport', { configurable: true, value: prior.vv });
+      globalThis.requestAnimationFrame = prior.raf;
+      globalThis.cancelAnimationFrame = prior.caf;
+    }
+  });
+
+  it('refreshes after visibility changes so a safe-area-only transition is not stale', () => {
+    const listeners = new Map<string, () => void>();
+    const visualViewport = {
+      addEventListener: vi.fn((event: string, fn: () => void) => { listeners.set(`vv:${event}`, fn); }),
+      removeEventListener: vi.fn(),
+    };
+    const documentTarget = {
+      addEventListener: vi.fn((event: string, fn: () => void) => { listeners.set(`document:${event}`, fn); }),
+      removeEventListener: vi.fn(),
+    };
+    const frames: Array<() => void> = [];
+    const prior = {
+      vv: globalThis.visualViewport,
+      document: globalThis.document,
+      raf: globalThis.requestAnimationFrame,
+      caf: globalThis.cancelAnimationFrame,
+    };
+    Object.defineProperty(globalThis, 'visualViewport', { configurable: true, value: visualViewport });
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: documentTarget });
+    globalThis.requestAnimationFrame = ((callback: () => void) => { frames.push(callback); return frames.length; }) as never;
+    globalThis.cancelAnimationFrame = (() => {}) as never;
+    try {
+      const refresh = vi.fn();
+      const dispose = bindVisualViewportRefresh({ scale: { refresh } } as never);
+      expect(documentTarget.addEventListener).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
+      listeners.get('document:visibilitychange')!();
+      expect(frames).toHaveLength(1);
+      frames.shift()!();
+      expect(refresh).toHaveBeenCalledTimes(1);
+      dispose();
+      expect(documentTarget.removeEventListener).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
+    } finally {
+      Object.defineProperty(globalThis, 'visualViewport', { configurable: true, value: prior.vv });
+      Object.defineProperty(globalThis, 'document', { configurable: true, value: prior.document });
       globalThis.requestAnimationFrame = prior.raf;
       globalThis.cancelAnimationFrame = prior.caf;
     }
@@ -550,6 +590,78 @@ describe('Epic 19 playtest fixes: health/pause 8px physical gap', () => {
     // gap = physicalToLogical(8, viewport); the physical gap is exactly 8px.
     expect((pauseLeft - healthRight) * fit * GAMEPLAY_ZOOM).toBeGreaterThanOrEqual(8 - 0.01);
 
+    hud.destroy();
+    h.destroy();
+    expect(h.listeners()).toEqual(ZERO_LISTENER_DIAGNOSTICS);
+  });
+});
+
+describe('Epic 19 playtest fixes: four-viewport HUD soak', () => {
+  it.each(REFERENCE_VIEWPORTS)('keeps both bars and the three-line stats stack safe in both directions at $name', ({ width, height }) => {
+    const h = createGameSoakHarness({ fixtureSeed: width + height, runSeed: width, storageKey: `e19-hud-${width}` });
+    const hud = new PhaserHudView({
+      scene: h.gameScene as never,
+      viewport: zoomedGameUiViewport(
+        h.gameScene.scale.displaySize.width,
+        h.gameScene.scale.displaySize.height,
+        h.gameScene.scale.parentSize.width,
+        h.gameScene.scale.parentSize.height,
+      ),
+    });
+    const snapshot = {
+      status: 'active' as const,
+      timeMs: 1_000,
+      durationMs: 60_000,
+      health: 100,
+      maxHealth: 100,
+      level: 2,
+      xp: 25,
+      xpToNext: 100,
+      kills: 3,
+      currency: 12,
+    };
+    const check = (targetWidth: number, targetHeight: number): void => {
+      h.resizeTo(targetWidth, targetHeight);
+      hud.render(snapshot);
+      const live = fakeSceneObjects(h).filter((object) => !object.state.destroyed);
+      const bars = live
+        .filter((object) => object.state.kind === 'rect' && !object.state.interactive && object.state.width > 100)
+        .sort((a, b) => a.state.y - b.state.y);
+      expect(bars.length).toBeGreaterThanOrEqual(4);
+      const [healthBg, healthFill, xpBg, xpFill] = bars.slice(-4);
+      expect(healthBg).toBeDefined();
+      expect(healthFill).toBeDefined();
+      expect(xpBg).toBeDefined();
+      expect(xpFill).toBeDefined();
+      expect(healthBg!.state.x - healthBg!.state.width / 2).toBeCloseTo(healthFill!.state.x, 6);
+      expect(healthBg!.state.x + healthBg!.state.width / 2)
+        .toBeCloseTo(healthFill!.state.x + healthFill!.state.width, 6);
+      expect(xpBg!.state.x - xpBg!.state.width / 2).toBeCloseTo(xpFill!.state.x, 6);
+      expect(xpBg!.state.x + xpBg!.state.width / 2)
+        .toBeCloseTo(xpFill!.state.x + xpFill!.state.width, 6);
+      expect(healthBg!.state.x - healthBg!.state.width / 2)
+        .toBeCloseTo(xpBg!.state.x - xpBg!.state.width / 2, 6);
+      expect(healthBg!.state.width).toBeCloseTo(xpBg!.state.width, 6);
+
+      const text = (value: string) => live.find((object) => object.state.text === value)!.state;
+      const time = text('0:01 / 1:00');
+      const kills = text('Kills 3');
+      const scrap = text('Scrap 12');
+      expect(time.y).toBeLessThan(kills.y);
+      expect(kills.y).toBeLessThan(scrap.y);
+      expect((kills.y - xpBg!.state.y - xpBg!.state.height / 2) * fitScale(targetWidth, targetHeight) * GAMEPLAY_ZOOM)
+        .toBeGreaterThanOrEqual(8 - 0.01);
+      if (targetWidth === 844 && targetHeight === 390) {
+        const hint = live.find((object) => object.state.text === 'Drag to move • Tap pause')!;
+        expect((hint.state.y - scrap.y) * fitScale(targetWidth, targetHeight) * GAMEPLAY_ZOOM)
+          .toBeGreaterThanOrEqual(76.2 - 0.01);
+      }
+    };
+
+    const listeners = h.listeners().scaleResize;
+    check(width, height);
+    check(390, 844);
+    expect(h.listeners().scaleResize).toBe(listeners);
     hud.destroy();
     h.destroy();
     expect(h.listeners()).toEqual(ZERO_LISTENER_DIAGNOSTICS);

@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import type { EventBus } from '../engine/eventBus';
-import type { Rarity } from '../systems/types';
 import type { VisualArtLookup } from '../systems/visualArt';
 import {
   InventoryController,
@@ -10,7 +9,7 @@ import {
 } from './inventory';
 import { physicalToLogical, safeDisplayScale, type UiViewport } from './layout';
 import type { ModalTextHelpers } from './modal';
-import { FocusStroke, ThemeColor, ThemeFont } from './theme';
+import { FocusStroke, ThemeColor, ThemeFont, themeColorCss } from './theme';
 import { computeWeaponRackLayout } from './weaponRackLayout';
 import { FocusNavigator, type FocusDirection } from './focusList';
 import type { InputMode } from '../systems/input';
@@ -63,6 +62,7 @@ export class PhaserWeaponRackPanel {
   private lastInputMode: InputMode = 'pointer';
   private readonly readInputMode: () => InputMode;
   private focusTargets: Array<{ target: Phaser.GameObjects.Rectangle; activate: () => boolean; setFocusVisible: (visible: boolean) => void }> = [];
+  private cardEdges: Array<Phaser.GameObjects.Rectangle | undefined> = [];
   private hoveredIndex = -1;
   private hint?: Phaser.GameObjects.Text;
 
@@ -88,6 +88,7 @@ export class PhaserWeaponRackPanel {
   ): void {
     const layout = computeWeaponRackLayout(this.viewport, snapshot.capacity);
     this.focusTargets = [];
+    this.cardEdges = [];
     this.hoveredIndex = -1;
     // A portrait→compact rebuild destroys the portrait root while the
     // compact render (keyHintY undefined) creates no key hint; the stale
@@ -103,11 +104,11 @@ export class PhaserWeaponRackPanel {
     const freshEntry = this.navigator.index === -1;
     this.navigator.setColumns(layout.columns);
     this.navigator.setCount(snapshot.capacity + 2);
-    const heading = this.modal.addText(layout.margin, layout.margin, 'Weapon Rack', 'heading');
+    const heading = this.modal.addText(layout.leftMargin, layout.topMargin, 'Weapon Rack', 'heading');
     root.add(heading);
     const count = this.modal.addText(
-      width - layout.margin,
-      layout.margin + 2,
+      width - layout.rightMargin,
+      layout.topMargin + 2,
       `${snapshot.weapons.length}/${snapshot.capacity}`,
       'body',
     );
@@ -115,7 +116,7 @@ export class PhaserWeaponRackPanel {
     count.setOrigin(1, 0);
 
     const guide = this.modal.addText(
-      layout.margin,
+      layout.leftMargin,
       layout.guideY,
       this.guideCopy(snapshot, layout.compact),
       'body',
@@ -123,7 +124,7 @@ export class PhaserWeaponRackPanel {
     root.add(guide);
     if (layout.keyHintY !== undefined) {
       const keyHint = this.modal.addText(
-        layout.margin,
+        layout.leftMargin,
         layout.keyHintY,
         this.hintCopy(),
         'body',
@@ -136,7 +137,7 @@ export class PhaserWeaponRackPanel {
     snapshot.slots.forEach((weapon, index) => {
       const column = index % layout.columns;
       const row = Math.floor(index / layout.columns);
-      const x = layout.margin
+      const x = layout.leftMargin
         + layout.cardWidth / 2
         + column * (layout.cardWidth + layout.gap);
       const y = layout.gridTop
@@ -155,7 +156,8 @@ export class PhaserWeaponRackPanel {
       this.registerTarget(slot, index, weapon ? () => {
         this.selectWeapon(weapon.instanceId);
         return true;
-      } : () => false, slot.strokeColor, slot.strokeAlpha);
+      } : () => false, weapon ? ThemeColor.rarity[weapon.rarity] : slot.strokeColor ?? ThemeColor.card,
+      weapon ? 0.95 : slot.strokeAlpha, this.cardEdges[index]);
     });
 
     this.renderPreview(
@@ -218,6 +220,7 @@ export class PhaserWeaponRackPanel {
    *  NOT touch navigator state — D6 preservation survives the rebuild. */
   clearDisplay(): void {
     this.focusTargets = [];
+    this.cardEdges = [];
     this.hoveredIndex = -1;
     this.hint = undefined;
   }
@@ -226,6 +229,7 @@ export class PhaserWeaponRackPanel {
     this.notice = undefined;
     this.confirmation = undefined;
     this.focusTargets = [];
+    this.cardEdges = [];
     this.hoveredIndex = -1;
     this.hint = undefined;
     this.navigator.setCount(0);
@@ -274,47 +278,20 @@ export class PhaserWeaponRackPanel {
       : state === 'incompatible'
         ? ThemeColor.surface
         : ThemeColor.card;
-    const stroke = state === 'selected'
-      ? ThemeColor.gold
-      : state === 'compatible'
-        ? ThemeColor.primary
-        : state === 'merge-ready'
-          ? ThemeColor.gold
-          : rarityColor(weapon.rarity);
+    const rarityStroke = ThemeColor.rarity[weapon.rarity];
     const alpha = state === 'incompatible' ? 0.48 : 0.94;
     const card = this.scene.add.rectangle(x, y, width, height, fill, alpha);
     root.add(card);
-    card.setStrokeStyle(strokeWidth, stroke, state === 'incompatible' ? 0.42 : 0.95);
+    const edge = this.scene.add.rectangle(x, y, width, height, ThemeColor.surface, 0);
+    root.add(edge);
+    edge.setStrokeStyle(strokeWidth, rarityStroke, 0.95);
+    edge.setScrollFactor(0);
+    this.cardEdges[index] = edge;
     // Phaser input reads a child's scroll factor; Containers do not propagate it.
     card.setScrollFactor(0).setInteractive({ useHandCursor: true });
 
     const left = x - width / 2;
     const top = y - height / 2;
-    const tier = this.addCardText(
-      left + 8,
-      top + 7,
-      compact ? `${index + 1}·T${weapon.tier}` : `${index + 1} · T${weapon.tier}`,
-      'muted',
-      width / 2,
-    );
-    root.add(tier);
-    const stateLabel = this.addCardText(
-      compact ? x : x + width / 2 - 8,
-      compact ? top + physicalToLogical(18, this.viewport) : top + 7,
-      selectionLabel(weapon),
-      state === 'selected' || state === 'merge-ready' ? 'gold' : 'muted',
-      compact ? width - physicalToLogical(4, this.viewport) : width / 2,
-      compact ? ThemeFont.labelMin : ThemeFont.bodyMin,
-    );
-    root.add(stateLabel);
-    stateLabel.setOrigin(compact ? 0.5 : 1, 0);
-    if (compact) {
-      const availableStateWidth = width - physicalToLogical(6, this.viewport);
-      if (Number.isFinite(stateLabel.width) && stateLabel.width > availableStateWidth) {
-        stateLabel.setScale(availableStateWidth / stateLabel.width, 1);
-      }
-    }
-
     if (compact) {
       const dense = height * safeDisplayScale(this.viewport) < 70;
       if (!dense) {
@@ -323,7 +300,7 @@ export class PhaserWeaponRackPanel {
           weapon.iconId,
           x,
           y + physicalToLogical(5, this.viewport),
-          stroke,
+          rarityStroke,
           true,
         );
       }
@@ -337,10 +314,30 @@ export class PhaserWeaponRackPanel {
       );
       root.add(family);
       family.setOrigin(0.5, 0);
+      const tier = this.addCardText(left + 8, top + 7,
+        `${index + 1}·T${weapon.tier}`, 'muted', width / 2);
+      root.add(tier);
+      const stateLabel = this.addCardText(
+        x,
+        top + physicalToLogical(18, this.viewport),
+        selectionLabel(weapon),
+        state === 'selected' || state === 'merge-ready' ? 'gold' : 'muted',
+        width - physicalToLogical(4, this.viewport),
+        ThemeFont.labelMin,
+      );
+      root.add(stateLabel);
+      stateLabel.setOrigin(0.5, 0);
+      const availableStateWidth = width - physicalToLogical(6, this.viewport);
+      if (Number.isFinite(stateLabel.width) && stateLabel.width > availableStateWidth) {
+        stateLabel.setScale(availableStateWidth / stateLabel.width, 1);
+      }
       return card;
     }
 
-    this.renderWeaponGlyph(root, weapon.iconId, left + 28, y + 2, stroke, false);
+    this.renderWeaponGlyph(root, weapon.iconId, left + 28, y + 2, rarityStroke, false);
+    const tier = this.addCardText(left + 8, top + 7,
+      `${index + 1} · T${weapon.tier}`, 'muted', width / 2);
+    root.add(tier);
     const name = this.addCardText(
       left + 54,
       top + 31,
@@ -366,6 +363,15 @@ export class PhaserWeaponRackPanel {
       width - 64,
     );
     root.add(stats);
+    const stateLabel = this.addCardText(
+      x + width / 2 - 8,
+      top + 7,
+      selectionLabel(weapon),
+      state === 'selected' || state === 'merge-ready' ? 'gold' : 'muted',
+      width / 2,
+    );
+    root.add(stateLabel);
+    stateLabel.setOrigin(1, 0);
     return card;
   }
 
@@ -531,7 +537,7 @@ export class PhaserWeaponRackPanel {
     const colors = {
       primary: '#f7f1d5',
       muted: '#a5f3fc',
-      gold: '#fbbf24',
+      gold: themeColorCss(ThemeColor.gold),
       danger: '#f87171',
     } as const;
     const object = this.scene.add.text(x, y, text, {
@@ -622,9 +628,12 @@ export class PhaserWeaponRackPanel {
     activate: () => boolean,
     baseColor: number,
     baseAlpha: number,
+    edge?: Phaser.GameObjects.Rectangle,
   ): void {
     let armedPointerId: number | undefined;
     const baseWidth = physicalToLogical(2, this.viewport);
+    const renderedBaseColor = baseColor;
+    const renderedBaseAlpha = edge ? 0.95 : baseAlpha;
     target.on(Phaser.Input.Events.POINTER_OVER, () => {
       this.hoveredIndex = index;
       this.navigator.setIndex(index);
@@ -650,10 +659,10 @@ export class PhaserWeaponRackPanel {
     this.focusTargets[index] = {
       target,
       activate,
-      setFocusVisible: (visible) => target.setStrokeStyle(
+      setFocusVisible: (visible) => (edge ?? target).setStrokeStyle(
         visible ? FocusStroke.width : baseWidth,
-        visible ? FocusStroke.color : baseColor,
-        visible ? FocusStroke.alpha : baseAlpha,
+        visible ? FocusStroke.color : renderedBaseColor,
+        visible ? FocusStroke.alpha : renderedBaseAlpha,
       ),
     };
   }
@@ -776,21 +785,6 @@ function selectionLabel(weapon: InventoryWeaponView): string {
       return 'MERGE';
     case 'neutral':
       return '';
-  }
-}
-
-function rarityColor(rarity: Rarity): number {
-  switch (rarity) {
-    case 'uncommon':
-      return ThemeColor.primary;
-    case 'rare':
-      return 0x60a5fa;
-    case 'epic':
-      return 0xc084fc;
-    case 'legendary':
-      return ThemeColor.gold;
-    case 'common':
-      return ThemeColor.muted;
   }
 }
 

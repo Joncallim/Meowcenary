@@ -27,7 +27,8 @@ export function isGestureActive(scene: unknown): boolean {
  * Pointer coordinates are deliberately left to Phaser's normal FIT transform. */
 export function bindVisualViewportRefresh(game: Phaser.Game, isGestureActive: () => boolean = () => false): () => void {
   const viewport = globalThis.visualViewport;
-  if (!viewport) return () => undefined;
+  const documentTarget = typeof document === 'undefined' ? undefined : document;
+  if (!viewport && !documentTarget) return () => undefined;
 
   let frame = 0;
   let refreshing = false;
@@ -43,11 +44,13 @@ export function bindVisualViewportRefresh(game: Phaser.Game, isGestureActive: ()
     if (frame !== 0 || refreshing) return;
     frame = globalThis.requestAnimationFrame(refresh);
   };
-  viewport.addEventListener('resize', schedule);
-  viewport.addEventListener('scroll', schedule);
+  viewport?.addEventListener('resize', schedule);
+  viewport?.addEventListener('scroll', schedule);
+  documentTarget?.addEventListener('visibilitychange', schedule);
   return () => {
-    viewport.removeEventListener('resize', schedule);
-    viewport.removeEventListener('scroll', schedule);
+    viewport?.removeEventListener('resize', schedule);
+    viewport?.removeEventListener('scroll', schedule);
+    documentTarget?.removeEventListener('visibilitychange', schedule);
     if (frame !== 0) globalThis.cancelAnimationFrame(frame);
     frame = 0;
   };

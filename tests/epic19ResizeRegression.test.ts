@@ -8,6 +8,7 @@ import { endRun } from '../src/gameplay/runState';
 import { GAMEPLAY_ZOOM, minimumHitTarget, zoomedGameUiViewport } from '../src/ui/layout';
 import { PhaserFeedbackRenderer } from '../src/systems/feedback';
 import { createSharedFakeSceneForConformance } from './helpers/epic19JourneyComposition';
+import { FocusStroke, ThemeColor } from '../src/ui/theme';
 
 const REFERENCE_VIEWPORTS = [
   { name: 'phone portrait', width: 390, height: 844 },
@@ -57,6 +58,9 @@ interface TargetLike {
     readonly interactive: boolean;
     readonly destroyed: boolean;
     readonly handlers: Record<string, unknown>;
+    readonly strokeColor?: number;
+    readonly strokeAlpha: number;
+    readonly strokeWidth: number;
   };
   getBounds(): { readonly width: number; readonly height: number };
 }
@@ -239,6 +243,25 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     game.openRackWithMergePair();
     expect(game.pauseController.snapshot().panel).toBe('inventory');
     game.padDown(0); game.poll(); game.padUp(0); game.poll(); // select slot 0
+    expect(game.focusedRackTargetIndex()).toBe(0);
+    const rackEdges = () => {
+      const objects = (game.gameScene as unknown as { objects: readonly TargetLike[] }).objects;
+      const slot = objects.find((object) => object.state.kind === 'rect'
+        && object.state.handlers['pointerover'] && !object.state.destroyed);
+      return objects.filter((object) => object.state.kind === 'rect'
+        && (object.state.strokeAlpha === 0.95 || object.state.strokeColor === FocusStroke.color)
+        && object.state.width === slot?.state.width
+        && object.state.height === slot?.state.height
+        && !object.state.destroyed);
+    };
+    expect(rackEdges()).toHaveLength(2);
+    expect(rackEdges()[0]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(rackEdges()[1]!.state.strokeColor).toBe(ThemeColor.rarity.common);
+    game.padDown(15); game.poll(); game.padUp(15); game.poll(); // move to slot 1
+    expect(game.focusedRackTargetIndex()).toBe(1);
+    expect(rackEdges()[0]!.state.strokeColor).toBe(ThemeColor.rarity.common);
+    expect(rackEdges()[1]!.state.strokeColor).toBe(FocusStroke.color);
+    game.padDown(14); game.poll(); game.padUp(14); game.poll(); // restore slot 0 for resize assertion
     expect(game.focusedRackTargetIndex()).toBe(0);
     const uiBeforeRackResize = uiEvents;
     game.resizeTo(width, height);

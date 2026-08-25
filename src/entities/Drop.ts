@@ -6,6 +6,7 @@ import type { VisualArtBinding } from '../systems/types';
 import { createStaticArtSprite } from './actorView';
 import { visualAnimationKey } from '../systems/visualArt';
 import { VisualDepth } from '../systems/visualDepths';
+import { ThemeColor } from '../ui/theme';
 
 export type DropKind = LootGrant['kind'];
 export type DropArtBindings = Readonly<Partial<Record<DropKind, Readonly<VisualArtBinding>>>>;
@@ -16,7 +17,7 @@ const DROP_COLORS: Record<DropKind, number> = {
   chest: 0xf472b6,
   // Retained as an isolated-test fallback; production boot requires art for
   // every drop kind before gameplay can start.
-  weapon: 0xfbbf24,
+  weapon: ThemeColor.gold,
 };
 
 const GLINT_OFFSET_X = 3;

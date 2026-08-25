@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { EventBus } from '../engine/eventBus';
 import type { UpgradeSystem } from '../systems/UpgradeSystem';
 import type { VisualArtLookup } from '../systems/visualArt';
-import { FocusStroke, ThemeColor, ThemeDepth, ThemeFont } from './theme';
+import { FocusStroke, ThemeColor, ThemeDepth, ThemeFont, themeColorCss } from './theme';
 import {
   choiceIndexForNumberKey,
   UpgradeChooserController,
@@ -11,10 +11,11 @@ import {
 } from './upgradeChooserController';
 import { computeUpgradeChooserLayout } from './upgradeChooserLayout';
 import type { InputMode } from '../systems/input';
-import { zoomedGameUiViewport, type UiViewport } from './layout';
+import { logicalCanvasViewport, physicalToLogical, zoomedGameUiViewport, type UiViewport } from './layout';
+import { ZERO_SAFE_AREA } from '../platform/safeArea';
 
 const CHOOSER_DEPTH = ThemeDepth.upgradeChooser;
-const CARD_STROKE = { color: ThemeColor.primaryDim, alpha: 0.78, width: 2 } as const;
+const RARITY_EDGE_ALPHA = 0.95;
 
 export class UpgradeChooser {
   private readonly controller: UpgradeChooserController;
@@ -99,12 +100,14 @@ export interface UpgradeChooserRenderDiagnostics {
     readonly y: number;
     readonly width: number;
     readonly height: number;
+    readonly scaleX: number;
   }[];
 }
 
 export class PhaserUpgradeChooserView implements UpgradeChooserView {
   private root?: Phaser.GameObjects.Container;
   private cardBackgrounds: Phaser.GameObjects.Rectangle[] = [];
+  private cardEdges: Phaser.GameObjects.Rectangle[] = [];
   private renderedText: Array<{ role: string; object: Phaser.GameObjects.Text }> = [];
   private select?: (offerId: number, choiceIndex: number) => boolean;
   private offer?: UpgradeChooserOffer;
@@ -166,6 +169,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           y: bounds.y,
           width: bounds.width,
           height: bounds.height,
+          scaleX: object.scaleX,
         };
       }),
     };
@@ -215,9 +219,11 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       displayWidth,
       displayHeight,
       offer.choices.length,
+      this.viewport?.layoutInsets ?? ZERO_SAFE_AREA,
     );
     const root = this.scene.add.container(this.viewport?.originX ?? 0, this.viewport?.originY ?? 0);
     const cardBackgrounds: Phaser.GameObjects.Rectangle[] = [];
+    const cardEdges: Phaser.GameObjects.Rectangle[] = [];
     const renderedText: Array<{ role: string; object: Phaser.GameObjects.Text }> = [];
     const own = <T extends Phaser.GameObjects.GameObject>(object: T): T => {
       root.add(object);
@@ -228,7 +234,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       root.setDepth(CHOOSER_DEPTH).setScrollFactor(0);
 
       const backdrop = own(this.scene.add.rectangle(
-        width / 2,
+        layout.contentCenterX,
         height / 2,
         width - 20,
         height - 20,
@@ -237,7 +243,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       ));
       backdrop.setStrokeStyle(2, ThemeColor.primary, 0.72).setInteractive().setScrollFactor(0);
       const heading = own(this.scene.add.text(
-        width / 2,
+        layout.contentCenterX,
         layout.headingY,
         'Choose an upgrade',
         {
@@ -255,7 +261,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         .setFixedSize(layout.headerWidth, layout.headingHeight)
         .setCrop(0, 0, layout.headerWidth, layout.headingHeight);
       const instructions = own(this.scene.add.text(
-        width / 2,
+        layout.contentCenterX,
         layout.instructionsY,
         this.instructionCopy(),
         {
@@ -295,9 +301,24 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           1,
         ));
         card
-          .setStrokeStyle(CARD_STROKE.width, CARD_STROKE.color, CARD_STROKE.alpha)
           .setScrollFactor(0)
           .setInteractive({ useHandCursor: true });
+        const edge = own(this.scene.add.rectangle(
+          cardLayout.x,
+          cardLayout.y,
+          cardLayout.width,
+          cardLayout.height,
+          ThemeColor.surface,
+          0,
+        ));
+        edge
+          .setStrokeStyle(
+            this.viewport ? physicalToLogical(2, this.viewport) : 2,
+            ThemeColor.rarity[choice.rarity],
+            RARITY_EDGE_ALPHA,
+          )
+          .setScrollFactor(0);
+        cardEdges.push(edge);
         card.on(Phaser.Input.Events.POINTER_OVER, () => {
           if (this.enabled) {
             this.hoveredIndex = index;
@@ -389,16 +410,22 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           rarityLabel,
           {
           align: 'right',
-          color: '#fbbf24',
+          color: themeColorCss(ThemeColor.rarity[choice.rarity]),
           fontFamily: ThemeFont.family,
           fontSize: `${layout.fonts.rarity}px`,
           },
         ));
+        let rarityFontSize = layout.fonts.rarity;
+        const minimumRarityFontSize = 8 / layout.displayScale;
+        while (rarity.width > cardLayout.rarityReserve && rarityFontSize - 0.25 >= minimumRarityFontSize) {
+          rarityFontSize -= 0.25;
+          rarity.setFontSize(`${rarityFontSize}px`);
+        }
         rarity
           .setOrigin(1, 0)
           .setMaxLines(1)
-          .setFixedSize(cardLayout.rarityReserve, cardLayout.rarityHeight)
-          .setCrop(0, 0, cardLayout.rarityReserve, cardLayout.rarityHeight);
+          .setScrollFactor(0)
+          .setVisible(rarity.width <= cardLayout.rarityReserve);
         renderedText.push({ role: `rarity:${index}`, object: rarity });
 
         // Epic 18 (D9 content priority 2): current/max -> next/max stack
@@ -473,6 +500,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       });
 
       this.cardBackgrounds = cardBackgrounds;
+      this.cardEdges = cardEdges;
       this.renderedText = renderedText;
       this.instructions = stagedInstructions;
       this.rebuildCount += 1;
@@ -500,6 +528,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       // until a retry commits. A full reset here would break resize-recovery
       // and the test asserting diagnostics.offerId survives a failed rebuild.
       this.cardBackgrounds = [];
+      this.cardEdges = [];
       this.renderedText = [];
       this.instructions = undefined;
       this.hoveredIndex = -1;
@@ -546,14 +575,16 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   }
 
   private applyFocusStroke(): void {
-    this.cardBackgrounds.forEach((card, index) => {
+    this.cardEdges.forEach((edge, index) => {
       const focused = this.inputMode === 'pointer'
         ? index === this.hoveredIndex
         : index === this.focusIndex;
-      card.setStrokeStyle(
-        focused ? FocusStroke.width : CARD_STROKE.width,
-        focused ? FocusStroke.color : CARD_STROKE.color,
-        focused ? FocusStroke.alpha : CARD_STROKE.alpha,
+      const rarity = this.offer?.choices[index]?.rarity;
+      if (!rarity) return;
+      edge.setStrokeStyle(
+        focused ? FocusStroke.width : this.viewport ? physicalToLogical(2, this.viewport) : 2,
+        focused ? FocusStroke.color : ThemeColor.rarity[rarity],
+        focused ? FocusStroke.alpha : RARITY_EDGE_ALPHA,
       );
     });
   }
@@ -616,6 +647,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     this.committedDisplay = false;
     this.armedPointerIds.clear();
     this.cardBackgrounds = [];
+    this.cardEdges = [];
     this.renderedText = [];
     // The instructions Text lives in the destroyed root; clear the ref so a
     // failed rebuild (before buildDisplay's try) can't setText() on it
@@ -662,14 +694,12 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     } else {
       const parentWidth = this.scene.scale.parentSize?.width ?? this.scene.scale.displaySize.width;
       const parentHeight = this.scene.scale.parentSize?.height ?? this.scene.scale.displaySize.height;
-      this.viewport = {
-        canvasWidth: this.scene.scale.width,
-        canvasHeight: this.scene.scale.height,
-        displayWidth: this.scene.scale.displaySize.width,
-        displayHeight: this.scene.scale.displaySize.height,
-        containerWidth: parentWidth,
-        containerHeight: parentHeight,
-      };
+      this.viewport = logicalCanvasViewport(
+        this.scene.scale.displaySize.width,
+        this.scene.scale.displaySize.height,
+        parentWidth,
+        parentHeight,
+      );
     }
     this.destroyDisplay();
     this.buildDisplay();

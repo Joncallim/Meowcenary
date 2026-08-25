@@ -4,7 +4,7 @@ import type { EventBus } from '../engine/eventBus';
 
 import { SceneKey } from '../engine/sceneKeys';
 import { AudioManager, getAudioManager } from '../systems/audio';
-import { logicalCanvasViewport, minimumHitTarget } from '../ui/layout';
+import { edgeMargin, logicalCanvasViewport, minimumHitTarget, type UiViewport } from '../ui/layout';
 import { MainMenuController, type MainMenuSnapshot } from '../ui/menus';
 import { cycleVolumeStep } from '../ui/settings';
 import { ThemeColor, ThemeDepth, ThemeFont } from '../ui/theme';
@@ -40,6 +40,9 @@ export class MenuScene extends Phaser.Scene {
   private inputController?: InputController;
   private audioUnlockUnsub?: () => void;
   private rebuildCount = 0;
+  private safeCenterX = 0;
+  private safeRightMargin = 16;
+  private currentViewport?: UiViewport;
 
   /** Number of committed render attempts; resize tests assert one per event. */
   get renderRebuildCount(): number {
@@ -112,14 +115,23 @@ export class MenuScene extends Phaser.Scene {
     const root = this.add.container(0, 0);
     root.setDepth(MENU_DEPTH).setScrollFactor(0);
 
-    const margin = 16;
     const width = this.scale.width;
-    const hitTarget = minimumHitTarget(
-      logicalCanvasViewport(this.scale.displaySize.width, this.scale.displaySize.height),
+    const viewport: UiViewport = logicalCanvasViewport(
+      this.scale.displaySize.width,
+      this.scale.displaySize.height,
+      this.scale.parentSize?.width ?? this.scale.displaySize.width,
+      this.scale.parentSize?.height ?? this.scale.displaySize.height,
     );
+    this.currentViewport = viewport;
+    const leftMargin = edgeMargin(viewport, 'left');
+    const topMargin = edgeMargin(viewport, 'top');
+    this.safeRightMargin = edgeMargin(viewport, 'right');
+    this.safeCenterX = (leftMargin + width - this.safeRightMargin) / 2;
+    const margin = leftMargin;
+    const hitTarget = minimumHitTarget(viewport);
 
     try {
-      const title = this.own(root, this.add.text(width / 2, 28, 'Meowcenary', {
+      const title = this.own(root, this.add.text(this.safeCenterX, 28 + topMargin, 'Meowcenary', {
         align: 'center',
         color: '#f7f1d5',
         fontFamily: ThemeFont.family,
@@ -129,17 +141,17 @@ export class MenuScene extends Phaser.Scene {
       title.setOrigin(0.5).setScrollFactor(0);
 
       if (snapshot.notice) {
-        const notice = this.own(root, this.add.text(width / 2, 58, snapshot.notice, {
+        const notice = this.own(root, this.add.text(this.safeCenterX, 58 + topMargin, snapshot.notice, {
           align: 'center',
           color: '#f87171',
           fontFamily: ThemeFont.family,
           fontSize: `${ThemeFont.bodyMin}px`,
-          wordWrap: { width: width - margin * 2 },
+          wordWrap: { width: width - leftMargin - this.safeRightMargin },
         }));
         notice.setOrigin(0.5, 0).setScrollFactor(0);
       }
 
-      const contentTop = snapshot.notice ? 86 : 64;
+      const contentTop = (snapshot.notice ? 86 : 64) + topMargin;
 
       switch (snapshot.panel) {
         case 'home':
@@ -202,7 +214,7 @@ export class MenuScene extends Phaser.Scene {
       fallback.setDepth(MENU_DEPTH).setScrollFactor(0);
       own(
         this.add.text(
-          this.scale.width / 2,
+          this.safeCenterX,
           this.scale.height / 2,
           'Something went wrong — press Esc to retry',
           {
@@ -241,7 +253,7 @@ export class MenuScene extends Phaser.Scene {
       fontFamily: ThemeFont.family,
       fontSize: `${ThemeFont.labelMin}px`,
       lineSpacing: 4,
-      wordWrap: { width: width - margin * 2 },
+      wordWrap: { width: width - margin - this.safeRightMargin },
     }));
     info.setScrollFactor(0);
 
@@ -254,11 +266,11 @@ export class MenuScene extends Phaser.Scene {
     ];
     let y = top + info.height + 24;
     buttons.forEach(({ label, action }) => {
-      const button = this.addButton(root, width / 2, y, label, hitTarget, action);
+      const button = this.addButton(root, this.safeCenterX, y, label, hitTarget, action);
       y += button.height + 12;
     });
 
-    const hints = this.own(root, this.add.text(margin, this.scale.height - margin - 14, this.menuHintCopy(), {
+    const hints = this.own(root, this.add.text(margin, this.scale.height - edgeMargin(this.currentViewport!, 'bottom') - 14, this.menuHintCopy(), {
       color: '#a5f3fc',
       fontFamily: ThemeFont.family,
       fontSize: `${ThemeFont.bodyMin}px`,
@@ -275,7 +287,7 @@ export class MenuScene extends Phaser.Scene {
     margin: number,
     hitTarget: number,
   ): void {
-    const heading = this.addHeading(root, width / 2, top, 'Choose Character');
+    const heading = this.addHeading(root, this.safeCenterX, top, 'Choose Character');
     let y = top + heading.height + 20;
 
     snapshot.character.characters.forEach((character) => {
@@ -289,7 +301,7 @@ export class MenuScene extends Phaser.Scene {
           color: '#a5f3fc',
           fontFamily: ThemeFont.family,
           fontSize: `${ThemeFont.bodyMin}px`,
-          wordWrap: { width: width - margin * 2 - 12 },
+          wordWrap: { width: width - margin - this.safeRightMargin - 12 },
         }));
         desc.setScrollFactor(0);
         y += desc.height + 8;
@@ -308,7 +320,7 @@ export class MenuScene extends Phaser.Scene {
     margin: number,
     hitTarget: number,
   ): void {
-    const heading = this.addHeading(root, width / 2, top, 'Choose Arena');
+    const heading = this.addHeading(root, this.safeCenterX, top, 'Choose Arena');
     let y = top + heading.height + 20;
 
     snapshot.arena.arenas.forEach((arena) => {
@@ -331,7 +343,7 @@ export class MenuScene extends Phaser.Scene {
     margin: number,
     hitTarget: number,
   ): void {
-    const heading = this.addHeading(root, width / 2, top, `Progression — ${snapshot.progression.scrap} scrap`);
+    const heading = this.addHeading(root, this.safeCenterX, top, `Progression — ${snapshot.progression.scrap} scrap`);
     let y = top + heading.height + 20;
 
     snapshot.progression.upgrades.forEach((upgrade) => {
@@ -347,7 +359,7 @@ export class MenuScene extends Phaser.Scene {
           color: '#a5f3fc',
           fontFamily: ThemeFont.family,
           fontSize: `${ThemeFont.bodyMin}px`,
-          wordWrap: { width: width - margin * 2 - 12 },
+          wordWrap: { width: width - margin - this.safeRightMargin - 12 },
         }));
         desc.setScrollFactor(0);
         y += desc.height + 8;
@@ -371,7 +383,7 @@ export class MenuScene extends Phaser.Scene {
     margin: number,
     hitTarget: number,
   ): void {
-    const heading = this.addHeading(root, width / 2, top, 'Settings');
+    const heading = this.addHeading(root, this.safeCenterX, top, 'Settings');
     let y = top + heading.height + 20;
 
     const settings = snapshot.settings;
@@ -413,25 +425,25 @@ export class MenuScene extends Phaser.Scene {
     margin: number,
     hitTarget: number,
   ): void {
-    const heading = this.addHeading(root, width / 2, top, 'Reset all progression?');
+    const heading = this.addHeading(root, this.safeCenterX, top, 'Reset all progression?');
     let y = top + heading.height + 24;
 
     const warning = this.own(root, this.add.text(margin, y, 'This cannot be undone.', {
       color: '#f87171',
       fontFamily: ThemeFont.family,
       fontSize: `${ThemeFont.labelMin}px`,
-      wordWrap: { width: width - margin * 2 },
+      wordWrap: { width: width - margin - this.safeRightMargin },
     }));
     warning.setScrollFactor(0);
     y += warning.height + 24;
 
-    this.addButton(root, width / 2, y, 'Confirm Reset', hitTarget, () => {
+    this.addButton(root, this.safeCenterX, y, 'Confirm Reset', hitTarget, () => {
       const next = this.requireController().confirmReset();
       this.render(next);
     });
     y += hitTarget + 16;
 
-    this.addButton(root, width / 2, y, 'Cancel', hitTarget, () => {
+    this.addButton(root, this.safeCenterX, y, 'Cancel', hitTarget, () => {
       const next = this.requireController().cancelReset();
       this.render(next);
     });
@@ -466,7 +478,7 @@ export class MenuScene extends Phaser.Scene {
       backgroundColor: 'rgba(23, 48, 59, 0.86)',
       padding: { x: 10, y: 8 },
     }));
-    text.setOrigin(x === this.scale.width / 2 ? 0.5 : 0, 0);
+    text.setOrigin(x === this.safeCenterX ? 0.5 : 0, 0);
     text.setScrollFactor(0);
 
     const bounds = text.getBounds();
@@ -542,7 +554,7 @@ export class MenuScene extends Phaser.Scene {
     margin: number,
     hitTarget: number,
   ): void {
-    this.addButton(root, margin, this.scale.height - margin - hitTarget, '< Back', hitTarget, () => {
+    this.addButton(root, margin, this.scale.height - edgeMargin(this.currentViewport!, 'bottom') - hitTarget, '< Back', hitTarget, () => {
       const next = this.requireController().back();
       this.render(next);
     }, 'ui:back');

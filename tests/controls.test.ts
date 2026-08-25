@@ -8,6 +8,7 @@ import { InputController } from '../src/systems/input';
 import { ControlsView } from '../src/ui/controls';
 import type { TouchStickConfig } from '../src/engine/config';
 import { logicalCanvasViewport, zoomedGameUiViewport, GAMEPLAY_ZOOM } from '../src/ui/layout';
+import { ThemeColor } from '../src/ui/theme';
 
 function createFakeScene() {
   let resize: { callback: () => void; context?: unknown } | undefined;
@@ -34,6 +35,11 @@ function createFakeScene() {
       scrollFactorY: 1,
       text: '',
       interactive: false,
+      fillColor: undefined,
+      fillAlpha: 1,
+      strokeWidth: 0,
+      strokeColor: undefined,
+      strokeAlpha: 0,
       destroyed: false,
     };
     const listeners = new Map<string, Array<{ callback: (...args: unknown[]) => void; context?: unknown }>>();
@@ -43,6 +49,8 @@ function createFakeScene() {
     };
     const api = {
       get state() { return { ...state }; },
+      get x() { return Number(state.x); },
+      get y() { return Number(state.y); },
       setText(text: string) { return chain('text', text); },
       setOrigin() { return api; },
       setScrollFactor(x: number, y: number = x) {
@@ -60,7 +68,17 @@ function createFakeScene() {
       setAlpha(alpha: number) { return chain('alpha', alpha); },
       setPosition(x: number, y: number) { state.x = x; state.y = y; return api; },
       setRadius(radius: number) { state.radius = radius; return api; },
-      setStrokeStyle() { return api; },
+      setStrokeStyle(width: number, color: number, alpha: number) {
+        state.strokeWidth = width;
+        state.strokeColor = color;
+        state.strokeAlpha = alpha;
+        return api;
+      },
+      setFillStyle(color: number, alpha = 1) {
+        state.fillColor = color;
+        state.fillAlpha = alpha;
+        return api;
+      },
       setInteractive() { state.interactive = true; return api; },
       disableInteractive() { state.interactive = false; return api; },
       on(event: string, callback: (...args: unknown[]) => void, context?: unknown) {
@@ -83,6 +101,7 @@ function createFakeScene() {
         });
         return api;
       },
+      listenerCount(event: string) { return listeners.get(event)?.length ?? 0; },
       destroy() { state.destroyed = true; },
     };
     return api;
@@ -112,8 +131,11 @@ function createFakeScene() {
         };
       },
       text: (x: number, y: number, text: string) => own(fakeObject(x, y)).setText(text),
-      rectangle: (x: number, y: number, width: number, height: number) =>
-        own(fakeObject(x, y, width, height)),
+      rectangle: (x: number, y: number, width: number, height: number, fillColor?: number, fillAlpha?: number) => {
+        const object = own(fakeObject(x, y, width, height));
+        if (fillColor !== undefined) object.setFillStyle(fillColor, fillAlpha ?? 1);
+        return object;
+      },
     },
     tweens: {
       add(config: { targets: unknown; alpha: number; duration: number }) {
@@ -275,7 +297,7 @@ describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
 
   it('re-reads the zoomed viewport on resize and rebuilds the controls once', () => {
     const { scene, view } = createHarness({ zoomed: true });
-    const oldPause = scene.objects[4];
+    const oldPause = scene.objects.find((object) => object.state.interactive)!;
     expect(oldPause.state.width).toBeCloseTo(44 / GAMEPLAY_ZOOM, 5);
 
     scene.resize(844, 390);
@@ -284,7 +306,7 @@ describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
     expect(scene.scale.listenerCount('resize')).toBe(1);
     const live = scene.objects.filter((object) => !object.state.destroyed);
     // Rebuilt tree: root + stickBase + stickThumb + hint + pause.
-    const pause = live[live.length - 1]!;
+    const pause = live.find((object) => object.state.interactive)!;
     const fit = 390 / 844;
     // The zoomed viewport's logical canvas is invariant; the 44px target is
     // 44/(1.25·fit) logical and renders exactly 44px after camera zoom (the
@@ -300,16 +322,16 @@ describe('ControlsView hints', () => {
   it('repositions the hint and rebuilds the pause target after rotation', () => {
     const { scene, view } = createHarness();
     // [root, stickBase, stickThumb, hint, pause]
-    const oldHint = scene.objects[3];
-    const oldPause = scene.objects[4];
+    const oldHint = scene.objects.find((object) => object.state.text === 'Drag to move • Tap pause')!;
+    const oldPause = scene.objects.find((object) => object.state.interactive)!;
 
     scene.resize(844, 390);
 
     expect(oldHint.state.destroyed).toBe(true);
     expect(oldPause.state.destroyed).toBe(true);
     expect(scene.scale.listenerCount('resize')).toBe(1);
-    const hint = scene.objects[5];
-    const pause = scene.objects[6];
+    const hint = scene.objects.find((object) => !object.state.destroyed && object.state.text === 'Drag to move • Tap pause')!;
+    const pause = scene.objects.find((object) => !object.state.destroyed && object.state.interactive)!;
     const fitScale = 390 / 844;
     // The strip is gone: the hint owns the bottom safe margin above the stick.
     expect(Number(hint.state.y) * fitScale).toBeCloseTo(238, 5);
@@ -318,6 +340,28 @@ describe('ControlsView hints', () => {
 
     view.destroy();
     expect(scene.scale.listenerCount('resize')).toBe(0);
+  });
+
+  it('rebuilds on an inset-only change instead of deduping equal dimensions', () => {
+    const values: Record<string, string> = {
+      '--safe-top': '0px', '--safe-right': '0px', '--safe-bottom': '0px', '--safe-left': '0px',
+    };
+    vi.stubGlobal('document', { documentElement: {} });
+    vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: (property: string) => values[property] ?? '0px' }));
+    try {
+      const { scene, view } = createHarness();
+      const oldPause = scene.objects.find((object) => object.state.interactive)!;
+      values['--safe-top'] = '59px';
+      values['--safe-bottom'] = '34px';
+      scene.resize(390, 844);
+      expect(oldPause.state.destroyed).toBe(true);
+      expect(scene.scale.listenerCount('resize')).toBe(1);
+      const pause = scene.objects.find((object) => !object.state.destroyed && object.state.interactive)!;
+      expect(pause.state.y).toBeGreaterThan(oldPause.state.y as number);
+      view.destroy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('starts with pointer-mode copy and switches on mode change', () => {
@@ -414,7 +458,7 @@ describe('ControlsView hints', () => {
 describe('ControlsView pause button', () => {
   it('invokes the pause callback on pointer down', () => {
     const { scene, onPauseRequested } = createHarness();
-    const pauseButton = scene.objects[4];
+    const pauseButton = scene.objects.find((object) => object.state.interactive)!;
     expect(pauseButton.state.interactive).toBe(true);
 
     pauseButton.emit('pointerdown');
@@ -424,7 +468,7 @@ describe('ControlsView pause button', () => {
 
   it('destroy removes the listener and destroys every object', () => {
     const { scene, view, onPauseRequested } = createHarness();
-    const pauseButton = scene.objects[4];
+    const pauseButton = scene.objects.find((object) => object.state.interactive)!;
 
     view.destroy();
     pauseButton.emit('pointerdown');
@@ -436,6 +480,29 @@ describe('ControlsView pause button', () => {
     expect(scene.objects[0].state.destroyed).toBe(true);
 
     // Double destroy is a no-op.
+    view.destroy();
+  });
+
+  it('renders exactly two non-interactive cream pause bars inside the unchanged target', () => {
+    const { scene, view, onPauseRequested } = createHarness();
+    const pauseButton = scene.objects.find((object) => object.state.interactive)!;
+    const bars = scene.objects.filter((object) => object !== pauseButton
+      && object.state.fillColor === ThemeColor.cream
+      && object.state.width === 8
+      && object.state.height === 22);
+    expect(pauseButton.state.width).toBe(44);
+    expect(pauseButton.state.height).toBe(44);
+    expect(pauseButton.state.strokeWidth).toBe(2);
+    expect(pauseButton.state.strokeColor).toBe(ThemeColor.cream);
+    expect(pauseButton.state.strokeAlpha).toBe(0.8);
+    expect(bars).toHaveLength(2);
+    const pauseX = Number(pauseButton.state.x);
+    expect(bars.map((bar) => Number(bar.state.x)).sort((a, b) => a - b)).toEqual([pauseX - 8, pauseX + 8]);
+    expect(bars.every((bar) => !bar.state.interactive && bar.state.scrollFactorX === 0 && bar.state.scrollFactorY === 0)).toBe(true);
+    expect(pauseButton.listenerCount('pointerdown')).toBe(1);
+    expect(bars.every((bar) => bar.listenerCount('pointerdown') === 0)).toBe(true);
+    pauseButton.emit('pointerdown');
+    expect(onPauseRequested).toHaveBeenCalledTimes(1);
     view.destroy();
   });
 });

@@ -6,7 +6,7 @@ import type { Player } from '../entities/Player';
 import type { RunState, RunStatus } from '../gameplay/runState';
 
 import { formatNumber, formatTime } from './format';
-import { physicalToLogical, zoomedGameUiViewport, type UiViewport } from './layout';
+import { edgeMargin, logicalCanvasViewport, physicalToLogical, zoomedGameUiViewport, type UiViewport } from './layout';
 import { ThemeColor, ThemeDepth, ThemeFont } from './theme';
 
 export interface HudSnapshot {
@@ -207,7 +207,9 @@ export class PhaserHudView implements HudView {
 
   private buildDisplay(): void {
     const { scene, viewport } = this;
-    const margin = physicalToLogical(12, viewport);
+    const margin = edgeMargin(viewport, 'left');
+    const topMargin = edgeMargin(viewport, 'top');
+    const rightMargin = edgeMargin(viewport, 'right');
     const fontSize = physicalToLogical(ThemeFont.bodyMin, viewport);
     const labelSize = physicalToLogical(ThemeFont.labelMin, viewport);
     const canvasWidth = viewport.canvasWidth;
@@ -228,12 +230,12 @@ export class PhaserHudView implements HudView {
     this.container.setScrollFactor(0);
     this.container.setDepth(ThemeDepth.hud);
 
-    this.statusText = scene.add.text(margin, margin, '', textStyle);
+    this.statusText = scene.add.text(margin, topMargin, '', textStyle);
     this.statusText.setScrollFactor(0);
     this.statusText.setDepth(ThemeDepth.hud);
 
-    const rightHudX = canvasWidth - margin - physicalToLogical(44, viewport) - physicalToLogical(8, viewport);
-    this.timeText = scene.add.text(rightHudX, margin, '', {
+    const rightHudX = canvasWidth - rightMargin - physicalToLogical(44, viewport) - physicalToLogical(8, viewport);
+    this.timeText = scene.add.text(rightHudX, 0, '', {
       ...textStyle,
       align: 'right',
     });
@@ -241,7 +243,7 @@ export class PhaserHudView implements HudView {
     this.timeText.setScrollFactor(0);
     this.timeText.setDepth(ThemeDepth.hud);
 
-    const barTop = margin + fontSize * 1.4;
+    const barTop = topMargin + fontSize * 1.4;
     const barHeight = physicalToLogical(8, viewport);
     const healthBarWidth = Math.max(1, rightHudX - margin);
     const healthBarBg = scene.add.rectangle(
@@ -269,7 +271,7 @@ export class PhaserHudView implements HudView {
     this.healthText.setDepth(ThemeDepth.hud);
 
     const xpTop = barTop + barHeight + labelSize + physicalToLogical(8, viewport);
-    const xpBarWidth = Math.max(1, canvasWidth - margin * 2);
+    const xpBarWidth = healthBarWidth;
     const xpBarBg = scene.add.rectangle(
       margin + xpBarWidth / 2,
       xpTop + barHeight / 2,
@@ -294,7 +296,10 @@ export class PhaserHudView implements HudView {
     this.levelText.setScrollFactor(0);
     this.levelText.setDepth(ThemeDepth.hud);
 
-    this.killsText = scene.add.text(rightHudX, barTop, '', {
+    const statsTop = xpTop + barHeight + physicalToLogical(2, viewport) + labelSize + physicalToLogical(8, viewport);
+    const statsStride = labelSize + physicalToLogical(4, viewport);
+    this.timeText.setPosition(rightHudX, statsTop);
+    this.killsText = scene.add.text(rightHudX, statsTop + statsStride, '', {
       ...labelStyle,
       align: 'right',
     });
@@ -302,7 +307,7 @@ export class PhaserHudView implements HudView {
     this.killsText.setScrollFactor(0);
     this.killsText.setDepth(ThemeDepth.hud);
 
-    this.scrapText = scene.add.text(rightHudX, barTop + labelSize + physicalToLogical(4, viewport), '', {
+    this.scrapText = scene.add.text(rightHudX, statsTop + statsStride * 2, '', {
       ...labelStyle,
       align: 'right',
     });
@@ -337,22 +342,9 @@ export class PhaserHudView implements HudView {
       return;
     }
     const scale = this.scene.scale;
-    const next: UiViewport = this.viewport.originX === undefined ? {
-      canvasWidth: positiveFinite(scale.width, this.viewport.canvasWidth),
-      canvasHeight: positiveFinite(scale.height, this.viewport.canvasHeight),
-      displayWidth: positiveFinite(scale.displaySize.width, this.viewport.displayWidth),
-      displayHeight: positiveFinite(scale.displaySize.height, this.viewport.displayHeight),
-      containerWidth: positiveFinite(
-        scale.parentSize.width,
-        this.viewport.containerWidth ?? this.viewport.displayWidth,
-      ),
-      containerHeight: positiveFinite(
-        scale.parentSize.height,
-        this.viewport.containerHeight ?? this.viewport.displayHeight,
-      ),
-    } : zoomedGameUiViewport(
-      scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height,
-    );
+    const next: UiViewport = this.viewport.originX === undefined
+      ? logicalCanvasViewport(scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height)
+      : zoomedGameUiViewport(scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height);
     if (sameViewport(this.viewport, next)) {
       return;
     }
@@ -368,17 +360,17 @@ export class PhaserHudView implements HudView {
 
 }
 
-function positiveFinite(value: number, fallback: number): number {
-  return Number.isFinite(value) && value > 0 ? value : fallback;
-}
-
 function sameViewport(a: UiViewport, b: UiViewport): boolean {
   return a.canvasWidth === b.canvasWidth
     && a.canvasHeight === b.canvasHeight
     && a.displayWidth === b.displayWidth
     && a.displayHeight === b.displayHeight
     && a.containerWidth === b.containerWidth
-    && a.containerHeight === b.containerHeight;
+    && a.containerHeight === b.containerHeight
+    && a.layoutInsets.top === b.layoutInsets.top
+    && a.layoutInsets.right === b.layoutInsets.right
+    && a.layoutInsets.bottom === b.layoutInsets.bottom
+    && a.layoutInsets.left === b.layoutInsets.left;
 }
 
 function capitalize(value: string): string {

@@ -14,7 +14,8 @@ import {
   type UpgradeChooserView,
 } from '../src/ui/upgradeChooserController';
 import { computeUpgradeChooserLayout } from '../src/ui/upgradeChooserLayout';
-import { FocusStroke } from '../src/ui/theme';
+import { zoomedGameUiViewport } from '../src/ui/layout';
+import { FocusStroke, ThemeColor } from '../src/ui/theme';
 import type { InputMode } from '../src/systems/input';
 
 vi.mock('phaser', () => ({
@@ -68,6 +69,15 @@ const definitions: UpgradeDefinition[] = [
     presentation: { category: 'economy', iconArtId: 'upgrade-icon:extra-scrap' },
   },
 ];
+
+const allRarityDefinitions: UpgradeDefinition[] = Array.from({ length: 5 }, (_, index) => {
+  const definition = definitions[index % definitions.length]!;
+  return {
+    ...definition,
+    id: `${definition.id}-rarity-${index}`,
+    rarity: (['common', 'uncommon', 'rare', 'epic', 'legendary'] as const)[index]!,
+  };
+});
 
 /** Test-only conversion from raw fixture definitions to the Epic 18 (D7)
  *  read-model shape the chooser actually consumes. Real production snapshots
@@ -264,6 +274,9 @@ class FakeDisplayObject extends FakeEmitter {
   visible = true;
   input?: { enabled: boolean };
   fillAlpha = 1;
+  fillColor?: number;
+  scaleX = 1;
+  scaleY = 1;
   strokeWidth = 0;
   strokeColor?: number;
   strokeAlpha = 0;
@@ -308,7 +321,8 @@ class FakeDisplayObject extends FakeEmitter {
     if (this.input) this.input.enabled = false;
     return this;
   }
-  setFillStyle(_color: number, alpha = 1): this {
+  setFillStyle(color: number, alpha = 1): this {
+    this.fillColor = color;
     this.fillAlpha = alpha;
     return this;
   }
@@ -333,6 +347,7 @@ class FakeDisplayObject extends FakeEmitter {
 }
 
 class FakeText extends FakeDisplayObject {
+  private fontSize: number;
   constructor(
     x: number,
     y: number,
@@ -343,8 +358,15 @@ class FakeText extends FakeDisplayObject {
   ) {
     const fontSize = Number.parseFloat(style.fontSize ?? '16');
     super(x, y, text.length * fontSize * 0.55, fontSize * 1.2, onDestroy);
+    this.fontSize = fontSize;
     this.originX = 0;
     this.originY = 0;
+  }
+  setFontSize(fontSize: string): this {
+    this.fontSize = Number.parseFloat(fontSize);
+    this.width = this.text.length * this.fontSize * 0.55;
+    this.height = this.fontSize * 1.2;
+    return this;
   }
   setFixedSize(width: number, height: number): this {
     if (this.shouldFailFixedSize?.()) {
@@ -374,7 +396,7 @@ class FakeText extends FakeDisplayObject {
 }
 
 class FakeContainer extends FakeDisplayObject {
-  private children: FakeDisplayObject[] = [];
+  readonly children: FakeDisplayObject[] = [];
   constructor(onDestroy?: (object: FakeDisplayObject) => void) {
     super(0, 0, 0, 0, onDestroy);
   }
@@ -384,7 +406,7 @@ class FakeContainer extends FakeDisplayObject {
   }
   destroy(destroyChildren?: boolean): void {
     if (destroyChildren) this.children.forEach((child) => child.destroy());
-    this.children = [];
+    this.children.length = 0;
     super.destroy();
   }
 }
@@ -430,8 +452,11 @@ function createFakeScene(displayWidth: number, displayHeight: number) {
         }
         return own(new FakeContainer(remove));
       },
-      rectangle: (x: number, y: number, width: number, height: number) =>
-        own(new FakeDisplayObject(x, y, width, height, remove)),
+      rectangle: (x: number, y: number, width: number, height: number, fillColor?: number) => {
+        const object = own(new FakeDisplayObject(x, y, width, height, remove));
+        object.fillColor = fillColor;
+        return object;
+      },
       text: (x: number, y: number, text: string, style: { fontSize?: string }) =>
         own(new FakeText(x, y, text, style, remove, () => {
           if (!failFixedSize) return false;
@@ -443,6 +468,53 @@ function createFakeScene(displayWidth: number, displayHeight: number) {
 }
 
 describe('Upgrade chooser physical layout', () => {
+  it.each([
+    {
+      name: 'portrait',
+      viewport: zoomedGameUiViewport(430, 930.5641, 430, 932, { top: 59, right: 0, bottom: 34, left: 0 }),
+    },
+    {
+      name: 'landscape',
+      viewport: zoomedGameUiViewport(390 * (390 / 844), 390, 844, 390, { top: 0, right: 59, bottom: 21, left: 59 }),
+    },
+  ])('keeps four and five cards in the projected safe rectangle on $name', ({ viewport }) => {
+    for (const count of [4, 5]) {
+      const layout = computeUpgradeChooserLayout(
+        viewport.canvasWidth,
+        viewport.canvasHeight,
+        viewport.displayWidth,
+        viewport.displayHeight,
+        count,
+        viewport.layoutInsets,
+      );
+      layout.cards.forEach((card) => {
+        expect(card.x - card.width / 2).toBeGreaterThanOrEqual(viewport.layoutInsets.left - 0.001);
+        expect(card.x + card.width / 2).toBeLessThanOrEqual(viewport.canvasWidth - viewport.layoutInsets.right + 0.001);
+        expect(card.y - card.height / 2).toBeGreaterThanOrEqual(viewport.layoutInsets.top - 0.001);
+        expect(card.y + card.height / 2).toBeLessThanOrEqual(viewport.canvasHeight - viewport.layoutInsets.bottom + 0.001);
+      });
+    }
+  });
+
+  it('keeps the four zero-inset FIT rows and zoom origin unchanged', () => {
+    const rows = [
+      [390, 844, 1],
+      [844, 390, 390 / 844],
+      [1024, 1366, 1366 / 844],
+      [1280, 720, 720 / 844],
+    ] as const;
+    rows.forEach(([width, height, expected]) => {
+      const fit = Math.min(width / 390, height / 844);
+      expect(fit).toBeCloseTo(expected, 6);
+      const viewport = zoomedGameUiViewport(390 * fit, 844 * fit, width, height, { top: 0, right: 0, bottom: 0, left: 0 });
+      expect(viewport.canvasWidth).toBeCloseTo(312, 6);
+      expect(viewport.canvasHeight).toBeCloseTo(675.2, 6);
+      expect(viewport.originX).toBeCloseTo(39, 6);
+      expect(viewport.originY).toBeCloseTo(84.4, 6);
+      expect(viewport.layoutInsets).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+    });
+  });
+
   it.each(VIEWPORTS)('keeps readable typography at $name size', (viewport) => {
     const display = fittedCanvas(viewport.width, viewport.height);
     const layout = computeUpgradeChooserLayout(
@@ -740,6 +812,30 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
     view.destroy();
   });
 
+  it('fits the longest portrait rarity cue and hides it only in compact fallback mode', async () => {
+    const legendary: UpgradeDefinition = {
+      ...definitions[0]!,
+      id: 'legendary-mobility',
+      rarity: 'legendary',
+      presentation: { ...definitions[0]!.presentation, category: 'mobility' },
+    };
+    const { view } = await createRenderedView(390, 844, [legendary]);
+    const card = view.diagnostics.cards[0]!;
+    const label = view.diagnostics.text.find((text) => text.role === 'rarity:0')!;
+    const reserve = computeUpgradeChooserLayout(390, 844, 390, 844, 1).cards[0]!.rarityReserve;
+    expect(label.visible).toBe(true);
+    expect(label.width).toBeLessThanOrEqual(reserve + 0.001);
+    expect(label.x + label.width).toBeLessThanOrEqual(card.x + card.width + 0.001);
+    expect(label.x).toBeGreaterThanOrEqual(card.x - 0.001);
+    expect(label.scaleX).toBe(1);
+    view.destroy();
+
+    const compact = await createRenderedView(568, 320, [legendary]);
+    const compactLabel = compact.view.diagnostics.text.find((text) => text.role === 'rarity:0')!;
+    expect(compactLabel.visible).toBe(false);
+    compact.view.destroy();
+  });
+
   it.each([1, 2, 3, 4, 5])(
     'hard-bounds hostile rendered text for a %i-card offer at 320x240',
     async (count) => {
@@ -978,6 +1074,24 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
       return object;
     });
 
+  const edgeObjects = (
+    view: { diagnostics: { cards: readonly { x: number; y: number; width: number; height: number }[] } },
+    scene: ReturnType<typeof createFakeScene>,
+  ) =>
+    view.diagnostics.cards.map((card) => {
+      const object = scene.objects.find(
+        (candidate) =>
+          !candidate.input?.enabled &&
+          candidate.x === card.x + card.width / 2 &&
+          candidate.y === card.y + card.height / 2 &&
+          candidate.width === card.width &&
+          candidate.height === card.height &&
+          candidate.strokeColor !== undefined,
+      );
+      if (!object) throw new Error(`no rarity edge for diagnostics card ${card.x},${card.y}`);
+      return object;
+    });
+
   it('logical focus movement wraps across the cards', async () => {
     const { view } = await createFocusView();
     expect(focused(view)).toEqual([true, false, false]);
@@ -1136,7 +1250,7 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
   it('renders the exact FocusStroke width/color/alpha on the focused card and restores the exact base stroke (F4)', async () => {
     let mode: InputMode = 'pointer';
     const { scene, view } = await createFocusView(3, () => false, () => mode);
-    const cards = () => cardObjects(view, scene);
+    const cards = () => edgeObjects(view, scene);
     const baseStrokes = cards().map((card) => ({
       width: card.strokeWidth,
       color: card.strokeColor,
@@ -1168,6 +1282,52 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
     view.destroy();
   });
 
+  it('uses every source rarity alias for unfocused chooser edges', async () => {
+    const scene = createFakeScene(390, 844);
+    const { PhaserUpgradeChooserView } = await import('../src/ui/UpgradeChooser');
+    const view = new PhaserUpgradeChooserView(scene as never);
+    view.render({ offerId: 73, choices: toChoices(allRarityDefinitions) }, () => true);
+    const edges = view.diagnostics.cards.map((card) => scene.objects.find((object) =>
+      !object.input?.enabled
+      && object.x === card.x + card.width / 2
+      && object.y === card.y + card.height / 2
+      && object.width === card.width
+      && object.height === card.height
+      && object.strokeColor !== undefined,
+    ));
+    allRarityDefinitions.forEach((definition, index) => {
+      expect(edges[index]?.strokeColor).toBe(ThemeColor.rarity[definition.rarity]);
+      expect(edges[index]?.strokeWidth).toBe(2);
+      expect(edges[index]?.strokeAlpha).toBe(0.95);
+    });
+    view.destroy();
+  });
+
+  it('inserts each card as fill, rarity edge, artwork or badge, then labels', async () => {
+    const scene = createFakeScene(390, 844);
+    const { PhaserUpgradeChooserView } = await import('../src/ui/UpgradeChooser');
+    const view = new PhaserUpgradeChooserView(scene as never);
+    view.render({ offerId: 73, choices: toChoices(definitions.slice(0, 1)) }, () => true);
+    const root = scene.objects.find((object) => object instanceof FakeContainer)!;
+    const card = view.diagnostics.cards[0]!;
+    const sameCard = (object: FakeDisplayObject) =>
+      object.x === card.x + card.width / 2
+      && object.y === card.y + card.height / 2
+      && object.width === card.width
+      && object.height === card.height;
+    const fillIndex = root.children.findIndex((object) => sameCard(object) && object.input?.enabled);
+    const edgeIndex = root.children.findIndex((object) => sameCard(object) && object.strokeColor !== undefined);
+    // Artwork-or-badge sits between the rarity edge and the labels: with no
+    // bound icon texture this card renders the numbered badge (index + 1).
+    const badgeIndex = root.children.findIndex((object) => object instanceof FakeText && object.text === '1.');
+    const labelIndex = root.children.findIndex((object) => object instanceof FakeText && object.text === 'common • mobility');
+    expect(fillIndex).toBeGreaterThanOrEqual(0);
+    expect(edgeIndex).toBeGreaterThan(fillIndex);
+    expect(badgeIndex).toBeGreaterThan(edgeIndex);
+    expect(labelIndex).toBeGreaterThan(badgeIndex);
+    view.destroy();
+  });
+
   it('switches the exact source-aware instruction copy per input mode (F6)', async () => {
     let mode: InputMode = 'pointer';
     const { view } = await createFocusView(3, () => false, () => mode);
@@ -1186,11 +1346,12 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
 
   it('pointer hover moves exactly one ring and direct selection submits without a pointer requirement (F6)', async () => {
     const { scene, view, select } = await createFocusView(3);
-    const cards = () => cardObjects(view, scene);
+    const cards = () => edgeObjects(view, scene);
+    const interactiveCards = () => cardObjects(view, scene);
 
     // Hover card 1: ring (ALL THREE constants) on card 1 only, logical focus
     // synced, no submit.
-    cards()[1]!.emit('pointerover');
+    interactiveCards()[1]!.emit('pointerover');
     expect(cards()[1]!.strokeWidth).toBe(FocusStroke.width);
     expect(cards()[1]!.strokeColor).toBe(FocusStroke.color);
     expect(cards()[1]!.strokeAlpha).toBe(FocusStroke.alpha);
@@ -1200,13 +1361,13 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
     expect(focused(view)).toEqual([false, true, false]);
 
     // Pointer-out clears the ring without a command.
-    cards()[1]!.emit('pointerout');
+    interactiveCards()[1]!.emit('pointerout');
     expect(cards()[1]!.strokeColor).not.toBe(FocusStroke.color);
     expect(select).not.toHaveBeenCalled();
 
     // Direct pointer-up submits the exact hovered card index.
-    cards()[1]!.emit('pointerdown', { id: 1 });
-    cards()[1]!.emit('pointerup', { id: 1 });
+    interactiveCards()[1]!.emit('pointerdown', { id: 1 });
+    interactiveCards()[1]!.emit('pointerup', { id: 1 });
     expect(select).toHaveBeenCalledTimes(1);
     expect(select).toHaveBeenCalledWith(73, 1);
     view.destroy();
