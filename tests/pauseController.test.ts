@@ -876,27 +876,35 @@ describe('PhaserPauseView', () => {
     );
     // Six slot cells in row-major order.
     expect(slotTargets).toHaveLength(6);
+    const edgeFor = (target: typeof slotTargets[number]) => scene.objects.find(
+      (object) => object.state.kind === 'rect'
+        && !object.state.handlers['pointerover']
+        && object.state.x === target.state.x
+        && object.state.y === target.state.y
+        && object.state.width === target.state.width
+        && object.state.height === target.state.height,
+    ) ?? target;
     // Entry focuses slot 0: its rarity stroke is replaced by the exact
     // FocusStroke (width, color, alpha).
-    expect(slotTargets[0]!.state.strokeWidth).toBe(FocusStroke.width);
-    expect(slotTargets[0]!.state.strokeColor).toBe(FocusStroke.color);
-    expect(slotTargets[0]!.state.strokeAlpha).toBe(FocusStroke.alpha);
+    expect(edgeFor(slotTargets[0]!).state.strokeWidth).toBe(FocusStroke.width);
+    expect(edgeFor(slotTargets[0]!).state.strokeColor).toBe(FocusStroke.color);
+    expect(edgeFor(slotTargets[0]!).state.strokeAlpha).toBe(FocusStroke.alpha);
     const baseStroke = {
-      width: slotTargets[1]!.state.strokeWidth,
-      color: slotTargets[1]!.state.strokeColor,
-      alpha: slotTargets[1]!.state.strokeAlpha,
+      width: edgeFor(slotTargets[1]!).state.strokeWidth,
+      color: edgeFor(slotTargets[1]!).state.strokeColor,
+      alpha: edgeFor(slotTargets[1]!).state.strokeAlpha,
     };
     expect(baseStroke.color).toBeDefined();
 
     // Down from row 0 col 0 → row 1 col 0 (index 2): slot 0's exact base
     // rarity stroke (width/color/alpha) returns.
     view.moveFocus('down');
-    expect(slotTargets[2]!.state.strokeWidth).toBe(FocusStroke.width);
-    expect(slotTargets[2]!.state.strokeColor).toBe(FocusStroke.color);
-    expect(slotTargets[2]!.state.strokeAlpha).toBe(FocusStroke.alpha);
-    expect(slotTargets[0]!.state.strokeWidth).toBe(baseStroke.width);
-    expect(slotTargets[0]!.state.strokeColor).toBe(baseStroke.color);
-    expect(slotTargets[0]!.state.strokeAlpha).toBe(baseStroke.alpha);
+    expect(edgeFor(slotTargets[2]!).state.strokeWidth).toBe(FocusStroke.width);
+    expect(edgeFor(slotTargets[2]!).state.strokeColor).toBe(FocusStroke.color);
+    expect(edgeFor(slotTargets[2]!).state.strokeAlpha).toBe(FocusStroke.alpha);
+    expect(edgeFor(slotTargets[0]!).state.strokeWidth).toBe(baseStroke.width);
+    expect(edgeFor(slotTargets[0]!).state.strokeColor).toBe(baseStroke.color);
+    expect(edgeFor(slotTargets[0]!).state.strokeAlpha).toBe(baseStroke.alpha);
   });
 
   it('cleans the partial tree and stays hidden when text construction throws', () => {
@@ -1100,7 +1108,15 @@ describe('PhaserPauseView', () => {
       );
       return hoverTargets.findIndex(
         (target) =>
-          target.state.strokeColor === FocusStroke.color && target.state.strokeAlpha === FocusStroke.alpha,
+          (scene.objects.some((edge) => !edge.state.handlers['pointerover']
+            && edge.state.x === target.state.x
+            && edge.state.y === target.state.y
+            && edge.state.width === target.state.width
+            && edge.state.height === target.state.height
+            && edge.state.strokeColor === FocusStroke.color
+            && edge.state.strokeAlpha === FocusStroke.alpha)
+            || (target.state.strokeColor === FocusStroke.color
+              && target.state.strokeAlpha === FocusStroke.alpha)),
       );
     };
 
@@ -1173,7 +1189,8 @@ describe('PhaserPauseView', () => {
       expect(rectangle.state.y + rectangle.state.height / 2).toBeLessThanOrEqual(844);
     }
     const compactSlots = liveRectangles.filter(
-      (object) => object.state.width < 140 && object.state.height > 120,
+      (object) => object.state.width < 140 && object.state.height > 120
+        && object.state.handlers['pointerover'],
     );
     expect(compactSlots).toHaveLength(6);
   });

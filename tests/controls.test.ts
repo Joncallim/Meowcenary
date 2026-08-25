@@ -275,7 +275,7 @@ describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
 
   it('re-reads the zoomed viewport on resize and rebuilds the controls once', () => {
     const { scene, view } = createHarness({ zoomed: true });
-    const oldPause = scene.objects[4];
+    const oldPause = scene.objects.find((object) => object.state.interactive)!;
     expect(oldPause.state.width).toBeCloseTo(44 / GAMEPLAY_ZOOM, 5);
 
     scene.resize(844, 390);
@@ -284,7 +284,7 @@ describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
     expect(scene.scale.listenerCount('resize')).toBe(1);
     const live = scene.objects.filter((object) => !object.state.destroyed);
     // Rebuilt tree: root + stickBase + stickThumb + hint + pause.
-    const pause = live[live.length - 1]!;
+    const pause = live.find((object) => object.state.interactive)!;
     const fit = 390 / 844;
     // The zoomed viewport's logical canvas is invariant; the 44px target is
     // 44/(1.25·fit) logical and renders exactly 44px after camera zoom (the
@@ -300,16 +300,16 @@ describe('ControlsView hints', () => {
   it('repositions the hint and rebuilds the pause target after rotation', () => {
     const { scene, view } = createHarness();
     // [root, stickBase, stickThumb, hint, pause]
-    const oldHint = scene.objects[3];
-    const oldPause = scene.objects[4];
+    const oldHint = scene.objects.find((object) => object.state.text === 'Drag to move • Tap pause')!;
+    const oldPause = scene.objects.find((object) => object.state.interactive)!;
 
     scene.resize(844, 390);
 
     expect(oldHint.state.destroyed).toBe(true);
     expect(oldPause.state.destroyed).toBe(true);
     expect(scene.scale.listenerCount('resize')).toBe(1);
-    const hint = scene.objects[5];
-    const pause = scene.objects[6];
+    const hint = scene.objects.find((object) => !object.state.destroyed && object.state.text === 'Drag to move • Tap pause')!;
+    const pause = scene.objects.find((object) => !object.state.destroyed && object.state.interactive)!;
     const fitScale = 390 / 844;
     // The strip is gone: the hint owns the bottom safe margin above the stick.
     expect(Number(hint.state.y) * fitScale).toBeCloseTo(238, 5);
@@ -414,7 +414,7 @@ describe('ControlsView hints', () => {
 describe('ControlsView pause button', () => {
   it('invokes the pause callback on pointer down', () => {
     const { scene, onPauseRequested } = createHarness();
-    const pauseButton = scene.objects[4];
+    const pauseButton = scene.objects.find((object) => object.state.interactive)!;
     expect(pauseButton.state.interactive).toBe(true);
 
     pauseButton.emit('pointerdown');
@@ -424,7 +424,7 @@ describe('ControlsView pause button', () => {
 
   it('destroy removes the listener and destroys every object', () => {
     const { scene, view, onPauseRequested } = createHarness();
-    const pauseButton = scene.objects[4];
+    const pauseButton = scene.objects.find((object) => object.state.interactive)!;
 
     view.destroy();
     pauseButton.emit('pointerdown');

@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { EventBus } from '../engine/eventBus';
 import { pauseRun, resumeRun, type RunState } from '../gameplay/runState';
 import { InventoryController, type InventorySnapshot } from './inventory';
-import { minimumHitTarget, physicalToLogical, zoomedGameUiViewport, type UiViewport } from './layout';
+import { edgeMargin, logicalCanvasViewport, minimumHitTarget, physicalToLogical, zoomedGameUiViewport, type UiViewport } from './layout';
 import type { FullscreenController, FullscreenState } from './fullscreen';
 import { createModalTextHelpers, type ModalTextHelpers } from './modal';
 import { ThemeColor, ThemeDepth } from './theme';
@@ -356,16 +356,16 @@ export class PhaserPauseView {
 
   private fullscreenKey(viewport: UiViewport, panel: PausePanel, state: FullscreenState): string {
     return [viewport.canvasWidth, viewport.canvasHeight, viewport.displayWidth, viewport.displayHeight,
-      viewport.containerWidth, viewport.containerHeight, viewport.originX, viewport.originY, panel, state].join('|');
+      viewport.containerWidth, viewport.containerHeight, viewport.originX, viewport.originY,
+      viewport.layoutInsets.top, viewport.layoutInsets.right, viewport.layoutInsets.bottom, viewport.layoutInsets.left,
+      panel, state].join('|');
   }
 
   private syncLayoutContext(): void {
     const scale = this.scene.scale;
-    const next: UiViewport = this.viewport.originX === undefined ? {
-      canvasWidth: positiveFinite(scale.width, this.viewport.canvasWidth), canvasHeight: positiveFinite(scale.height, this.viewport.canvasHeight),
-      displayWidth: positiveFinite(scale.displaySize.width, this.viewport.displayWidth), displayHeight: positiveFinite(scale.displaySize.height, this.viewport.displayHeight),
-      containerWidth: positiveFinite(scale.parentSize.width, this.viewport.containerWidth ?? this.viewport.displayWidth), containerHeight: positiveFinite(scale.parentSize.height, this.viewport.containerHeight ?? this.viewport.displayHeight),
-    } : zoomedGameUiViewport(scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height);
+    const next: UiViewport = this.viewport.originX === undefined
+      ? logicalCanvasViewport(scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height)
+      : zoomedGameUiViewport(scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height);
     if (sameViewport(this.viewport, next)) {
       return;
     }
@@ -416,7 +416,7 @@ export class PhaserPauseView {
     // sync, exactly one FocusStroke ring on hover, cleared on out, and the
     // logical index is set before the pointer-up activation runs.
     buttons.forEach((handle, index) => this.wireModalHover(handle, index));
-    const hint = this.modal.addHint(root, margin, height - margin - 14, this.hintCopy());
+    const hint = this.modal.addHint(root, margin, height - edgeMargin(this.viewport, 'bottom') - 14, this.hintCopy());
     return { buttons, hint };
   }
 
@@ -481,15 +481,15 @@ export class PhaserPauseView {
   }
 }
 
-function positiveFinite(value: number, fallback: number): number {
-  return Number.isFinite(value) && value > 0 ? value : fallback;
-}
-
 function sameViewport(a: UiViewport, b: UiViewport): boolean {
   return a.canvasWidth === b.canvasWidth
     && a.canvasHeight === b.canvasHeight
     && a.displayWidth === b.displayWidth
     && a.displayHeight === b.displayHeight
     && a.containerWidth === b.containerWidth
-    && a.containerHeight === b.containerHeight;
+    && a.containerHeight === b.containerHeight
+    && a.layoutInsets.top === b.layoutInsets.top
+    && a.layoutInsets.right === b.layoutInsets.right
+    && a.layoutInsets.bottom === b.layoutInsets.bottom
+    && a.layoutInsets.left === b.layoutInsets.left;
 }

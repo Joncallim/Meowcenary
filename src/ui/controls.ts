@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { clampLength } from '../engine/vector';
 import { assertTouchStickConfig, RuntimeConfig, type TouchStickConfig } from '../engine/config';
 import type { InputController, InputMode, InputPresentationSnapshot } from '../systems/input';
-import { pointerToRootLocal, physicalToLogical, GAMEPLAY_ZOOM, zoomedGameUiViewport, type UiViewport } from './layout';
+import { edgeMargin, logicalCanvasViewport, pointerToRootLocal, physicalToLogical, GAMEPLAY_ZOOM, zoomedGameUiViewport, type UiViewport } from './layout';
 import { reducedMotionDuration, ThemeColor, ThemeDepth, ThemeFont } from './theme';
 
 
@@ -31,6 +31,7 @@ export class ControlsView {
   private readonly stickThumb: Phaser.GameObjects.Arc;
   private hintText!: Phaser.GameObjects.Text;
   private pauseButton!: Phaser.GameObjects.Rectangle;
+  private pauseGlyphBars: Phaser.GameObjects.Rectangle[] = [];
   private hintElapsedMs = 0;
   private hintFaded = false;
   private lastMode: InputMode = 'pointer';
@@ -75,14 +76,16 @@ export class ControlsView {
 
   private buildViewportControls(): void {
     const { scene, viewport } = this;
-    const margin = physicalToLogical(12, viewport);
+    const topMargin = edgeMargin(viewport, 'top');
+    const rightMargin = edgeMargin(viewport, 'right');
+    const bottomMargin = edgeMargin(viewport, 'bottom');
     const fontSize = physicalToLogical(ThemeFont.bodyMin, viewport);
     const pauseSize = physicalToLogical(44, viewport);
 
     this.hintText = scene.add.text(
       viewport.canvasWidth / 2,
       viewport.canvasHeight
-        - margin
+        - bottomMargin
         - physicalToLogical(this.stickRadius * 2, viewport)
         - fontSize,
       hintForMode(this.lastMode),
@@ -101,8 +104,8 @@ export class ControlsView {
     }
 
     this.pauseButton = scene.add.rectangle(
-      viewport.canvasWidth - margin - pauseSize / 2,
-      margin + pauseSize / 2,
+      viewport.canvasWidth - rightMargin - pauseSize / 2,
+      topMargin + pauseSize / 2,
       pauseSize,
       pauseSize,
       ThemeColor.surface,
@@ -113,9 +116,25 @@ export class ControlsView {
     this.pauseButton.setStrokeStyle(physicalToLogical(2, viewport), ThemeColor.cream, 0.8);
     this.pauseButton.setInteractive();
     this.pauseButton.on('pointerdown', this.handlePausePointerDown, this);
+    const glyphWidth = physicalToLogical(8, viewport);
+    const glyphHeight = physicalToLogical(22, viewport);
+    const glyphOffset = physicalToLogical(8, viewport);
+    this.pauseGlyphBars = [-1, 1].map((direction) => {
+      const bar = scene.add.rectangle(
+        this.pauseButton.x + direction * glyphOffset,
+        this.pauseButton.y,
+        glyphWidth,
+        glyphHeight,
+        ThemeColor.cream,
+        0.9,
+      );
+      bar.setDepth(ThemeDepth.hud);
+      bar.setScrollFactor(0);
+      return bar;
+    });
     // Every interactive/control child owns scrollFactor=0; containers do not
     // propagate it in Phaser, and hit tests read the child value.
-    this.root?.add([this.hintText, this.pauseButton]);
+    this.root?.add([this.hintText, this.pauseButton, ...this.pauseGlyphBars]);
   }
 
   update(dtMs: number): void {
@@ -145,6 +164,8 @@ export class ControlsView {
     this.pauseButton.off('pointerdown', this.handlePausePointerDown, this);
     this.hintText.destroy();
     this.pauseButton.destroy();
+    this.pauseGlyphBars.forEach((bar) => bar.destroy());
+    this.pauseGlyphBars = [];
   }
 
   private readonly handleScaleChange = (): void => {
@@ -152,22 +173,9 @@ export class ControlsView {
       return;
     }
     const scale = this.scene.scale;
-    const next: UiViewport = this.viewport.originX === undefined ? {
-      canvasWidth: positiveFinite(scale.width, this.viewport.canvasWidth),
-      canvasHeight: positiveFinite(scale.height, this.viewport.canvasHeight),
-      displayWidth: positiveFinite(scale.displaySize.width, this.viewport.displayWidth),
-      displayHeight: positiveFinite(scale.displaySize.height, this.viewport.displayHeight),
-      containerWidth: positiveFinite(
-        scale.parentSize.width,
-        this.viewport.containerWidth ?? this.viewport.displayWidth,
-      ),
-      containerHeight: positiveFinite(
-        scale.parentSize.height,
-        this.viewport.containerHeight ?? this.viewport.displayHeight,
-      ),
-    } : zoomedGameUiViewport(
-      scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height,
-    );
+    const next: UiViewport = this.viewport.originX === undefined
+      ? logicalCanvasViewport(scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height)
+      : zoomedGameUiViewport(scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height);
     if (sameViewport(this.viewport, next)) {
       return;
     }
@@ -247,10 +255,6 @@ export class ControlsView {
   }
 }
 
-function positiveFinite(value: number, fallback: number): number {
-  return Number.isFinite(value) && value > 0 ? value : fallback;
-}
-
 function hintForMode(mode: InputMode): string {
   switch (mode) {
     case 'keyboard':
@@ -270,5 +274,9 @@ function sameViewport(a: UiViewport, b: UiViewport): boolean {
     && a.displayWidth === b.displayWidth
     && a.displayHeight === b.displayHeight
     && a.containerWidth === b.containerWidth
-    && a.containerHeight === b.containerHeight;
+    && a.containerHeight === b.containerHeight
+    && a.layoutInsets.top === b.layoutInsets.top
+    && a.layoutInsets.right === b.layoutInsets.right
+    && a.layoutInsets.bottom === b.layoutInsets.bottom
+    && a.layoutInsets.left === b.layoutInsets.left;
 }
