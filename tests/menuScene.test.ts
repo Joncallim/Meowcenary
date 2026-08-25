@@ -16,10 +16,13 @@ import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
 import type { MainMenuSnapshot } from '../src/ui/menus';
+import { edgeMargin, minimumHitTarget, type LayoutEdge, type UiViewport } from '../src/ui/layout';
 import { FocusStroke } from '../src/ui/theme';
 
 interface FakeObjectState {
   kind: 'container' | 'text' | 'rect';
+  x: number;
+  y: number;
   text: string;
   width: number;
   height: number;
@@ -46,9 +49,13 @@ function fakeObject(
   width = 0,
   height = 0,
   padding: FakeObjectState['padding'] = { left: 10, top: 8, right: 10, bottom: 8 },
+  x = 0,
+  y = 0,
 ) {
   const state: FakeObjectState = {
     kind,
+    x,
+    y,
     text,
     width,
     height,
@@ -207,7 +214,7 @@ function createFakeScene(
     scale: { width: 390, height: 844, displaySize: { width: 390, height: 844 } },
     add: {
       container(_x: number, _y: number) {
-        const base = fakeObject('container');
+        const base = fakeObject('container', '', 0, 0, { left: 10, top: 8, right: 10, bottom: 8 }, _x, _y);
         const container = {
           ...base,
           get state() {
@@ -255,11 +262,13 @@ function createFakeScene(
             Math.max(24, text.length * 8),
             16 + padY * 2,
             padding,
+            _x,
+            _y,
           ),
         );
       },
       rectangle(_x: number, _y: number, width: number, height: number) {
-        return register(fakeObject('rect', '', width, height));
+        return register(fakeObject('rect', '', width, height, { left: 10, top: 8, right: 10, bottom: 8 }, _x, _y));
       },
     },
     input,
@@ -339,19 +348,42 @@ function createHarness(options: { create?: boolean; audio?: boolean } = { create
 }
 
 describe('MenuScene', () => {
-  it('projects injected top and bottom insets into the menu viewport', () => {
+  it('projects injected top/bottom/side insets and keeps the hint and < Back inside the safe rect', () => {
     const values: Record<string, string> = {
-      '--safe-top': '59px', '--safe-right': '0px', '--safe-bottom': '21px', '--safe-left': '0px',
+      '--safe-top': '59px', '--safe-right': '31px', '--safe-bottom': '21px', '--safe-left': '47px',
     };
     vi.stubGlobal('document', { documentElement: {} });
     vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: (property: string) => values[property] ?? '0px' }));
     try {
-      const { menuScene } = createHarness();
-      const viewport = (menuScene as unknown as { currentViewport: {
-        layoutInsets: { top: number; bottom: number };
-      } }).currentViewport;
-      expect(viewport.layoutInsets.top).toBe(59);
-      expect(viewport.layoutInsets.bottom).toBe(21);
+      const harness = createHarness();
+      const viewport = (harness.menuScene as unknown as { currentViewport: UiViewport }).currentViewport;
+      // Every injected inset is projected into logical UI units at FIT 1.
+      expect(viewport.layoutInsets).toEqual({ top: 59, right: 31, bottom: 21, left: 47 });
+
+      const liveText = (text: string) => harness.objects.find(
+        (object) => object.state.kind === 'text' && object.state.text === text && !object.state.destroyed,
+      )!;
+      const margin = (edge: LayoutEdge) => edgeMargin(viewport, edge);
+
+      // Home panel: the title clears the top inset and the hint is anchored
+      // above the bottom margin band (edgeMargin base + inset) and inside the
+      // left/right margins — removing the edgeMargin use must red.
+      const title = liveText('Meowcenary');
+      expect(title.state.y).toBe(28 + margin('top'));
+      expect(title.state.y).toBeGreaterThanOrEqual(margin('top'));
+      const hint = liveText('Tap a choice');
+      expect(hint.state.x).toBe(margin('left'));
+      expect(hint.state.y).toBe(viewport.canvasHeight - margin('bottom') - 14);
+      expect(hint.state.x + hint.state.width).toBeLessThanOrEqual(viewport.canvasWidth - margin('right'));
+
+      // Sub-panel: < Back is anchored above the bottom margin band with its
+      // full bounds clear of the injected insets on every side.
+      harness.buttonByLabel('Character')!.state.handlers['pointerup']!();
+      const back = liveText('< Back');
+      expect(back.state.x).toBe(margin('left'));
+      expect(back.state.y).toBe(viewport.canvasHeight - margin('bottom') - minimumHitTarget(viewport));
+      expect(back.state.x + back.state.width).toBeLessThanOrEqual(viewport.canvasWidth - margin('right'));
+      expect(back.state.y + back.state.height).toBeLessThanOrEqual(viewport.canvasHeight - margin('bottom'));
     } finally {
       vi.unstubAllGlobals();
     }

@@ -1317,10 +1317,14 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
       && object.height === card.height;
     const fillIndex = root.children.findIndex((object) => sameCard(object) && object.input?.enabled);
     const edgeIndex = root.children.findIndex((object) => sameCard(object) && object.strokeColor !== undefined);
+    // Artwork-or-badge sits between the rarity edge and the labels: with no
+    // bound icon texture this card renders the numbered badge (index + 1).
+    const badgeIndex = root.children.findIndex((object) => object instanceof FakeText && object.text === '1.');
     const labelIndex = root.children.findIndex((object) => object instanceof FakeText && object.text === 'common • mobility');
     expect(fillIndex).toBeGreaterThanOrEqual(0);
     expect(edgeIndex).toBeGreaterThan(fillIndex);
-    expect(labelIndex).toBeGreaterThan(edgeIndex);
+    expect(badgeIndex).toBeGreaterThan(edgeIndex);
+    expect(labelIndex).toBeGreaterThan(badgeIndex);
     view.destroy();
   });
 
