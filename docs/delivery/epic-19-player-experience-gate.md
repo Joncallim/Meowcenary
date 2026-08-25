@@ -19,6 +19,19 @@ Maintainer draft, 2026-08-24, against candidate `ad5aeb9` (the baseline where th
 | PF6 | Pause/health overlap | iPhone 15 Pro Max, touch; top-right pause control overlapped health/HUD information | `ad5aeb9` | maintainer / 2026-08-24 | recheck 44px control and physical gutter on final SHA | verified-fail → pending |
 | PF7 | Sprite/UI scale | iPhone 15 Pro Max, iOS Safari; sprites and UI were too small | `ad5aeb9` | maintainer / 2026-08-24 | recheck 1.25× rendering, targets, and pressure windows on final SHA | verified-fail → pending |
 
+### Round-2 maintainer findings (draft)
+
+| PF | Finding / check | Device, input, symptom | Candidate | Observer/date | Final-candidate recheck | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| PF-R2-1 | Full-bleed screen shell | iPhone 15 Pro Max / iOS Safari (versions unrecorded) / touch; screen not edge-to-edge: 59px notch, 34px home, ≈21px side strips / shrunken FIT | `2bbb777` | maintainer / 2026-08-25 | candidate=unverified; observer/date=unverified; outcome=unverified; status=pending | verified-fail → pending |
+| PF-R2-2 | Health / XP bar alignment | iPhone 15 Pro Max / iOS Safari (versions unrecorded) / touch; XP bar visibly longer than health bar | `2bbb777` | maintainer / 2026-08-25 | candidate=unverified; observer/date=unverified; outcome=unverified; status=pending | verified-fail → pending |
+| PF-R2-3 | Pause affordance glyph | iPhone 15 Pro Max / iOS Safari (versions unrecorded) / touch; pause affordance renders as an unlabeled square | `2bbb777` | maintainer / 2026-08-25 | candidate=unverified; observer/date=unverified; outcome=unverified; status=pending | verified-fail → pending |
+| PF-R2-4 | HUD stats clearance | iPhone 15 Pro Max / iOS Safari (versions unrecorded) / touch; Kills text overlaps the health bar | `2bbb777` | maintainer / 2026-08-25 | candidate=unverified; observer/date=unverified; outcome=unverified; status=pending | verified-fail → pending |
+| PF-R2-5 | Render scale perception | iPhone 15 Pro Max / iOS Safari (versions unrecorded) / touch; sprites/UI still read too small despite 1.25 zoom | `2bbb777` | maintainer / 2026-08-25 | candidate=unverified; observer/date=unverified; outcome=unverified; status=pending | verified-fail → pending |
+| PF-R2-6 | Rarity label / card edge | iPhone 15 Pro Max / iOS Safari (versions unrecorded) / touch; `Common — Defensive` clips; chooser/rack edges do not consistently communicate rarity | `2bbb777` | maintainer / 2026-08-25 | candidate=unverified; observer/date=unverified; outcome=unverified; status=pending | verified-fail → pending |
+
+**PF-R2-1 and PF-R2-5 share the `#game-root` inset root cause and one implementation fix, but retain separate human acceptance rows.**
+
 ## Automated validation
 
 Eight separate rows (one per gate). Each test row records the exact candidate commit, observer/date, exit/pass, ordinary files/tests, stage-2 `9 passed`, and stage-3 fixed `6 + 3` all enforced. All rows pin the FINAL TESTED candidate `6e64130` (not the `ad5aeb9` baseline) with its real numbers: 101 ordinary files / 1690 tests, stage-2 allocation 9/9, stage-3 fixed 6 + 3, normal plus BOTH shuffled reruns. Automated rows have no human observer — the Observer column is the run's provenance.
