@@ -8,6 +8,7 @@ import {
   zoomedGameUiViewport,
   type UiViewport,
 } from '../src/ui/layout';
+import { ZERO_SAFE_AREA } from '../src/platform/safeArea';
 
 const CANVAS = {
   width: RuntimeConfig.canvas.width,
@@ -20,6 +21,7 @@ function viewport(displayWidth: number, displayHeight: number): UiViewport {
     canvasHeight: CANVAS.height,
     displayWidth,
     displayHeight,
+    layoutInsets: ZERO_SAFE_AREA,
   };
 }
 

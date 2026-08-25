@@ -1,4 +1,5 @@
 import { RuntimeConfig } from '../engine/config';
+import { readSafeAreaInsets, type SafeAreaInsetsPx } from '../platform/safeArea';
 
 export interface UiViewport {
   readonly canvasWidth: number;
@@ -12,6 +13,8 @@ export interface UiViewport {
   /** World-space origin used by GameScene's camera-zoomed UI roots. */
   readonly originX?: number;
   readonly originY?: number;
+  /** Effective safe-area inset in logical UI units after FIT letterbox projection. */
+  readonly layoutInsets: SafeAreaInsetsPx;
 }
 
 export const GAMEPLAY_ZOOM = 1.25;
@@ -39,20 +42,27 @@ export function minimumHitTarget(viewport: UiViewport): number {
   return physicalToLogical(44, viewport);
 }
 
+export type LayoutEdge = keyof SafeAreaInsetsPx;
+
+export function edgeMargin(viewport: UiViewport, edge: LayoutEdge, basePx = 12): number {
+  return physicalToLogical(basePx, viewport) + viewport.layoutInsets[edge];
+}
+
 export function logicalCanvasViewport(
   displayWidth: number = RuntimeConfig.canvas.width,
   displayHeight: number = RuntimeConfig.canvas.height,
   containerWidth: number = displayWidth,
   containerHeight: number = displayHeight,
+  rawInsets: SafeAreaInsetsPx = readSafeAreaInsets(),
 ): UiViewport {
-  return {
+  return createViewport({
     canvasWidth: RuntimeConfig.canvas.width,
     canvasHeight: RuntimeConfig.canvas.height,
     displayWidth,
     displayHeight,
     containerWidth,
     containerHeight,
-  };
+  }, rawInsets);
 }
 
 /** Camera-zoomed UI coordinate space for every GameScene presentation root. */
@@ -61,12 +71,13 @@ export function zoomedGameUiViewport(
   displayHeight: number = RuntimeConfig.canvas.height,
   containerWidth: number = displayWidth,
   containerHeight: number = displayHeight,
+  rawInsets: SafeAreaInsetsPx = readSafeAreaInsets(),
 ): UiViewport {
   const safeDisplayWidth = positiveFinite(displayWidth, RuntimeConfig.canvas.width);
   const safeDisplayHeight = positiveFinite(displayHeight, RuntimeConfig.canvas.height);
   const safeContainerWidth = positiveFinite(containerWidth, safeDisplayWidth);
   const safeContainerHeight = positiveFinite(containerHeight, safeDisplayHeight);
-  return {
+  return createViewport({
     canvasWidth: ZOOMED_UI_WIDTH,
     canvasHeight: ZOOMED_UI_HEIGHT,
     displayWidth: safeDisplayWidth,
@@ -75,7 +86,29 @@ export function zoomedGameUiViewport(
     containerHeight: safeContainerHeight,
     originX: ZOOMED_UI_ORIGIN_X,
     originY: ZOOMED_UI_ORIGIN_Y,
+  }, rawInsets);
+}
+
+function createViewport(
+  viewport: Omit<UiViewport, 'layoutInsets'>,
+  rawInsets: SafeAreaInsetsPx,
+): UiViewport {
+  const letterboxX = Math.max(0, (positiveFinite(viewport.containerWidth ?? viewport.displayWidth, viewport.displayWidth)
+    - positiveFinite(viewport.displayWidth, viewport.canvasWidth)) / 2);
+  const letterboxY = Math.max(0, (positiveFinite(viewport.containerHeight ?? viewport.displayHeight, viewport.displayHeight)
+    - positiveFinite(viewport.displayHeight, viewport.canvasHeight)) / 2);
+  const scale = safeDisplayScale(viewport as UiViewport);
+  const projected = {
+    top: Math.max(0, finiteInset(rawInsets.top) - letterboxY) / scale,
+    right: Math.max(0, finiteInset(rawInsets.right) - letterboxX) / scale,
+    bottom: Math.max(0, finiteInset(rawInsets.bottom) - letterboxY) / scale,
+    left: Math.max(0, finiteInset(rawInsets.left) - letterboxX) / scale,
   };
+  return Object.freeze({ ...viewport, layoutInsets: Object.freeze(projected) });
+}
+
+function finiteInset(value: number): number {
+  return Number.isFinite(value) && value >= 0 ? value : 0;
 }
 
 /** M-07 (U7): map a canvas-space pointer to the LOCAL space of a

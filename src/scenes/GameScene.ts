@@ -218,6 +218,8 @@ export class GameScene extends Phaser.Scene {
     const viewport = zoomedGameUiViewport(
       this.scale.displaySize.width,
       this.scale.displaySize.height,
+      this.scale.parentSize.width,
+      this.scale.parentSize.height,
     );
     this.hudController = new HudController(
       ctx.bus,
