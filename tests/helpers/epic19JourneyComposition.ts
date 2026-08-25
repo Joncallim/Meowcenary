@@ -403,6 +403,11 @@ function fakeObject(
     setFontSize(fontSize: string) {
       requireAlive();
       state.style = { ...state.style, fontSize };
+      const parsed = Number.parseFloat(fontSize);
+      if (Number.isFinite(parsed) && parsed > 0 && typeof state.text === 'string') {
+        state.width = state.text.length * parsed * 0.55;
+        state.height = parsed * 1.2;
+      }
       return api;
     },
     setFixedSize() {

@@ -12,6 +12,7 @@ import {
 import { computeUpgradeChooserLayout } from './upgradeChooserLayout';
 import type { InputMode } from '../systems/input';
 import { logicalCanvasViewport, physicalToLogical, zoomedGameUiViewport, type UiViewport } from './layout';
+import { ZERO_SAFE_AREA } from '../platform/safeArea';
 
 const CHOOSER_DEPTH = ThemeDepth.upgradeChooser;
 const RARITY_EDGE_ALPHA = 0.95;
@@ -99,6 +100,7 @@ export interface UpgradeChooserRenderDiagnostics {
     readonly y: number;
     readonly width: number;
     readonly height: number;
+    readonly scaleX: number;
   }[];
 }
 
@@ -167,6 +169,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           y: bounds.y,
           width: bounds.width,
           height: bounds.height,
+          scaleX: object.scaleX,
         };
       }),
     };
@@ -216,6 +219,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       displayWidth,
       displayHeight,
       offer.choices.length,
+      this.viewport?.layoutInsets ?? ZERO_SAFE_AREA,
     );
     const root = this.scene.add.container(this.viewport?.originX ?? 0, this.viewport?.originY ?? 0);
     const cardBackgrounds: Phaser.GameObjects.Rectangle[] = [];
@@ -230,7 +234,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       root.setDepth(CHOOSER_DEPTH).setScrollFactor(0);
 
       const backdrop = own(this.scene.add.rectangle(
-        width / 2,
+        layout.contentCenterX,
         height / 2,
         width - 20,
         height - 20,
@@ -239,7 +243,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       ));
       backdrop.setStrokeStyle(2, ThemeColor.primary, 0.72).setInteractive().setScrollFactor(0);
       const heading = own(this.scene.add.text(
-        width / 2,
+        layout.contentCenterX,
         layout.headingY,
         'Choose an upgrade',
         {
@@ -257,7 +261,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         .setFixedSize(layout.headerWidth, layout.headingHeight)
         .setCrop(0, 0, layout.headerWidth, layout.headingHeight);
       const instructions = own(this.scene.add.text(
-        width / 2,
+        layout.contentCenterX,
         layout.instructionsY,
         this.instructionCopy(),
         {

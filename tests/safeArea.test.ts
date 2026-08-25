@@ -26,6 +26,11 @@ describe('safe-area projection', () => {
     expect(readSafeAreaInsets((property) => values[property])).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
   });
 
+  it('has a dedicated zero fallback when the reader is absent or undefined', () => {
+    expect(readSafeAreaInsets(() => undefined)).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+    expect(readSafeAreaInsets(undefined)).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+  });
+
   it('projects raw insets through centered FIT letterbox without changing canvas geometry', () => {
     const raw = { top: 59, right: 0, bottom: 34, left: 0 } as const;
     const viewport = zoomedGameUiViewport(430, 930.5641, 430, 932, raw);
@@ -54,5 +59,18 @@ describe('safe-area projection', () => {
   it('preserves the zero-inset logical canvas factory', () => {
     const viewport = logicalCanvasViewport(390, 844, 390, 844, { top: 0, right: 0, bottom: 0, left: 0 });
     expect(viewport.layoutInsets).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+  });
+
+  it('clamps hostile inset magnitudes to the containing surface before projection', () => {
+    const viewport = logicalCanvasViewport(390, 844, 390, 844, {
+      top: 50_000,
+      right: 50_000,
+      bottom: 50_000,
+      left: 50_000,
+    });
+    expect(viewport.layoutInsets.top).toBeLessThanOrEqual(844);
+    expect(viewport.layoutInsets.bottom).toBeLessThanOrEqual(844);
+    expect(viewport.layoutInsets.left).toBeLessThanOrEqual(390);
+    expect(viewport.layoutInsets.right).toBeLessThanOrEqual(390);
   });
 });

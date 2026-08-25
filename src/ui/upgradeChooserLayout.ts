@@ -21,10 +21,11 @@ export interface UpgradeChooserCardLayout {
 }
 
 import { safeDisplayScale, type UiViewport } from './layout';
-import { ZERO_SAFE_AREA } from '../platform/safeArea';
+import { ZERO_SAFE_AREA, type SafeAreaInsetsPx } from '../platform/safeArea';
 
 export interface UpgradeChooserLayout {
   displayScale: number;
+  contentCenterX: number;
   headerWidth: number;
   headingY: number;
   headingHeight: number;
@@ -68,6 +69,7 @@ export function computeUpgradeChooserLayout(
   displayedWidth: number,
   displayedHeight: number,
   choiceCount: number,
+  layoutInsets: SafeAreaInsetsPx = ZERO_SAFE_AREA,
 ): UpgradeChooserLayout {
   const viewport: UiViewport = {
     canvasWidth,
@@ -89,8 +91,14 @@ export function computeUpgradeChooserLayout(
     description: font(BASE_LOGICAL_FONT.description, MIN_PHYSICAL_FONT.description),
   };
   const compactHeader = canvasWidth * displayScale < 220;
-  const headerWidth = Math.max(MIN_REGION_SIZE, canvasWidth - physical(12));
-  const headingY = physical(compactHeader ? 6 : 12);
+  const safeLeft = Math.max(0, layoutInsets.left);
+  const safeRight = Math.max(0, layoutInsets.right);
+  const safeTop = Math.max(0, layoutInsets.top);
+  const safeBottom = Math.max(0, layoutInsets.bottom);
+  const safeWidth = Math.max(MIN_REGION_SIZE, canvasWidth - safeLeft - safeRight);
+  const contentCenterX = safeLeft + safeWidth / 2;
+  const headerWidth = Math.max(MIN_REGION_SIZE, safeWidth - physical(12));
+  const headingY = safeTop + physical(compactHeader ? 6 : 12);
   const headingHeight = fonts.heading * (compactHeader ? 2.25 : 1.2);
   const instructionsY = headingY + headingHeight + physical(compactHeader ? 2 : 4);
   const instructionsHeight = fonts.instructions * (compactHeader ? 2.4 : 1.2);
@@ -100,7 +108,7 @@ export function computeUpgradeChooserLayout(
   const cardGap = Math.max(compactHeader ? 0 : 12, physical(compactHeader ? 4 : 6));
   // Epic 18 (D2/D9): 1–5 cards, no legacy three-card clamp.
   const count = Math.max(1, Math.min(5, Math.floor(choiceCount)));
-  const availableHeight = Math.max(0, canvasHeight - cardsRegionTop - bottomMargin);
+  const availableHeight = Math.max(0, canvasHeight - cardsRegionTop - bottomMargin - safeBottom);
   const maxCardHeight = Math.max(168, physical(150));
   const cardHeight = Math.max(
     MIN_REGION_SIZE,
@@ -112,7 +120,7 @@ export function computeUpgradeChooserLayout(
   const totalCardHeight = cardHeight * count + cardGap * (count - 1);
   const cardsTop = cardsRegionTop + Math.max(0, (availableHeight - totalCardHeight) / 2);
   const sideMargin = Math.max(compactHeader ? 0 : 10, physical(compactHeader ? 4 : 8));
-  const cardWidth = Math.max(MIN_REGION_SIZE, canvasWidth - sideMargin * 2);
+  const cardWidth = Math.max(MIN_REGION_SIZE, safeWidth - sideMargin * 2);
   const desiredPadding = Math.max(
     compactHeader ? 0 : 16,
     physical(compactHeader ? 4 : 8),
@@ -120,7 +128,11 @@ export function computeUpgradeChooserLayout(
   const padding = Math.min(desiredPadding, Math.max(0, (cardWidth - 3) / 2));
   const contentWidth = Math.max(MIN_REGION_SIZE, cardWidth - padding * 2);
   const desiredNumberWidth = Math.max(fonts.name * 1.35, physical(18));
-  const desiredRarityReserve = Math.max(compactHeader ? 0 : 72, physical(44));
+  // Reserve enough real card width for the longest production cue (for
+  // example, "legendary • mobility") before measured font fitting begins.
+  // Compact layouts may still hide the secondary cue when their physical
+  // minimum font cannot fit, but portrait keeps the cue visible and whole.
+  const desiredRarityReserve = Math.max(compactHeader ? 0 : 120, physical(44));
   const desiredInlineGap = Math.max(compactHeader ? 0 : 8, physical(3));
   // Epic 18 (D8/D9 priority 1): the leading column holds the card icon, whose
   // binding declares a 36px logical display. Sizing that column from the old
@@ -179,7 +191,7 @@ export function computeUpgradeChooserLayout(
     const statusHeight = Math.max(0, Math.min(desiredStatusHeight, contentBottom - statusY));
     const descriptionY = statusY + statusHeight + physical(2);
     return {
-      x: canvasWidth / 2,
+      x: contentCenterX,
       y,
       width: cardWidth,
       height: cardHeight,
@@ -200,6 +212,7 @@ export function computeUpgradeChooserLayout(
 
   return {
     displayScale,
+    contentCenterX,
     headerWidth,
     headingY,
     headingHeight,

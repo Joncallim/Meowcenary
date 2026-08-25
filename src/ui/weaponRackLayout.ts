@@ -1,4 +1,4 @@
-import { minimumHitTarget, physicalToLogical, type UiViewport } from './layout';
+import { edgeMargin, minimumHitTarget, physicalToLogical, type UiViewport } from './layout';
 import { ThemeFont } from './theme';
 
 export interface WeaponRackRect {
@@ -11,6 +11,10 @@ export interface WeaponRackRect {
 export interface WeaponRackLayout {
   readonly compact: boolean;
   readonly margin: number;
+  readonly leftMargin: number;
+  readonly rightMargin: number;
+  readonly topMargin: number;
+  readonly bottomMargin: number;
   readonly hitTarget: number;
   readonly headingSize: number;
   readonly labelSize: number;
@@ -44,17 +48,23 @@ export function computeWeaponRackLayout(
   const compact = orientationWidth > orientationHeight;
   // Short landscape phones have only ~148 physical pixels of fitted canvas
   // width. A compact 4px margin and 2px gutter still leave three 44px cards.
-  const margin = physical(compact ? 4 : 12);
+  const baseMargin = compact ? 4 : 12;
+  const margin = edgeMargin(viewport, 'left', baseMargin);
+  const leftMargin = margin;
+  const rightMargin = edgeMargin(viewport, 'right', baseMargin);
+  const topMargin = edgeMargin(viewport, 'top', baseMargin);
+  const bottomMargin = edgeMargin(viewport, 'bottom', baseMargin);
   const gap = physical(compact ? 2 : 8);
   const hitTarget = minimumHitTarget(viewport);
   const headingSize = physical(ThemeFont.headingMin);
   const labelSize = physical(ThemeFont.labelMin);
-  const guideY = margin + headingSize + physical(2);
+  const guideY = topMargin + headingSize + physical(2);
   const keyHintY = compact ? undefined : guideY + labelSize + physical(4);
   const gridTop = (keyHintY ?? guideY) + labelSize + physical(compact ? 8 : 12);
   const columns = compact ? 3 : 2;
   const rows = Math.max(1, Math.ceil(Math.max(1, capacity) / columns));
-  const gridWidth = Math.max(1, width - margin * 2);
+  const gridWidth = Math.max(1, width - leftMargin - rightMargin);
+  const safeCenterX = leftMargin + gridWidth / 2;
   const cardWidth = Math.max(1, (gridWidth - gap * (columns - 1)) / columns);
 
   let mergeAction: WeaponRackRect;
@@ -62,15 +72,15 @@ export function computeWeaponRackLayout(
   let actionTop: number;
   if (compact) {
     const actionWidth = Math.max(1, (gridWidth - gap) / 2);
-    const actionY = height - margin - hitTarget / 2;
+    const actionY = height - bottomMargin - hitTarget / 2;
     mergeAction = {
-      x: margin + actionWidth / 2,
+      x: leftMargin + actionWidth / 2,
       y: actionY,
       width: actionWidth,
       height: hitTarget,
     };
     backAction = {
-      x: width - margin - actionWidth / 2,
+      x: width - rightMargin - actionWidth / 2,
       y: actionY,
       width: actionWidth,
       height: hitTarget,
@@ -78,16 +88,16 @@ export function computeWeaponRackLayout(
     actionTop = actionY - hitTarget / 2;
   } else {
     const actionWidth = gridWidth;
-    const mergeY = height - margin - hitTarget * 2 - physical(20);
+    const mergeY = height - bottomMargin - hitTarget * 2 - physical(20);
     const backY = mergeY + hitTarget + physical(12);
     mergeAction = {
-      x: width / 2,
+      x: safeCenterX,
       y: mergeY,
       width: actionWidth,
       height: hitTarget,
     };
     backAction = {
-      x: width / 2,
+      x: safeCenterX,
       y: backY,
       width: actionWidth,
       height: hitTarget,
@@ -114,6 +124,10 @@ export function computeWeaponRackLayout(
   return {
     compact,
     margin,
+    leftMargin,
+    rightMargin,
+    topMargin,
+    bottomMargin,
     hitTarget,
     headingSize,
     labelSize,
@@ -126,7 +140,7 @@ export function computeWeaponRackLayout(
     cardWidth,
     cardHeight,
     preview: {
-      x: margin,
+      x: leftMargin,
       y: previewTop,
       width: gridWidth,
       height: previewHeight,

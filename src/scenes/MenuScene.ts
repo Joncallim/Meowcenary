@@ -554,10 +554,7 @@ export class MenuScene extends Phaser.Scene {
     margin: number,
     hitTarget: number,
   ): void {
-    this.addButton(root, margin, this.scale.height - edgeMargin(
-      logicalCanvasViewport(this.scale.displaySize.width, this.scale.displaySize.height,
-        this.scale.parentSize?.width ?? this.scale.displaySize.width,
-        this.scale.parentSize?.height ?? this.scale.displaySize.height), 'bottom') - hitTarget, '< Back', hitTarget, () => {
+    this.addButton(root, margin, this.scale.height - edgeMargin(this.currentViewport!, 'bottom') - hitTarget, '< Back', hitTarget, () => {
       const next = this.requireController().back();
       this.render(next);
     }, 'ui:back');

@@ -100,4 +100,20 @@ describe('computeWeaponRackLayout', () => {
     ];
     expect(values.every((value) => Number.isFinite(value) && value > 0)).toBe(true);
   });
+
+  it.each([
+    { name: 'portrait', display: [390, 844, 390, 844] as const, raw: { top: 59, right: 0, bottom: 34, left: 0 } },
+    { name: 'landscape', display: [390 * (390 / 844), 390, 844, 390] as const, raw: { top: 0, right: 59, bottom: 21, left: 59 } },
+  ])('keeps rack heading and actions in the projected safe rect on $name', ({ display, raw }) => {
+    const viewport = logicalCanvasViewport(display[0], display[1], display[2], display[3], raw);
+    const layout = computeWeaponRackLayout(viewport, 6);
+    expect(layout.topMargin).toBeGreaterThanOrEqual(viewport.layoutInsets.top);
+    expect(layout.mergeAction.y + layout.mergeAction.height / 2)
+      .toBeLessThanOrEqual(viewport.canvasHeight - viewport.layoutInsets.bottom + 0.001);
+    expect(layout.backAction.y + layout.backAction.height / 2)
+      .toBeLessThanOrEqual(viewport.canvasHeight - viewport.layoutInsets.bottom + 0.001);
+    expect(layout.preview.x).toBeGreaterThanOrEqual(viewport.layoutInsets.left);
+    expect(layout.preview.x + layout.preview.width)
+      .toBeLessThanOrEqual(viewport.canvasWidth - viewport.layoutInsets.right + 0.001);
+  });
 });

@@ -1,5 +1,5 @@
 import { RuntimeConfig } from '../engine/config';
-import { readSafeAreaInsets, type SafeAreaInsetsPx } from '../platform/safeArea';
+import { clampSafeAreaInsets, readSafeAreaInsets, type SafeAreaInsetsPx } from '../platform/safeArea';
 
 export interface UiViewport {
   readonly canvasWidth: number;
@@ -93,22 +93,21 @@ function createViewport(
   viewport: Omit<UiViewport, 'layoutInsets'>,
   rawInsets: SafeAreaInsetsPx,
 ): UiViewport {
-  const letterboxX = Math.max(0, (positiveFinite(viewport.containerWidth ?? viewport.displayWidth, viewport.displayWidth)
-    - positiveFinite(viewport.displayWidth, viewport.canvasWidth)) / 2);
-  const letterboxY = Math.max(0, (positiveFinite(viewport.containerHeight ?? viewport.displayHeight, viewport.displayHeight)
-    - positiveFinite(viewport.displayHeight, viewport.canvasHeight)) / 2);
+  const containerWidth = positiveFinite(viewport.containerWidth ?? viewport.displayWidth, viewport.displayWidth);
+  const containerHeight = positiveFinite(viewport.containerHeight ?? viewport.displayHeight, viewport.displayHeight);
+  const displayWidth = positiveFinite(viewport.displayWidth, viewport.canvasWidth);
+  const displayHeight = positiveFinite(viewport.displayHeight, viewport.canvasHeight);
+  const letterboxX = Math.max(0, (containerWidth - displayWidth) / 2);
+  const letterboxY = Math.max(0, (containerHeight - displayHeight) / 2);
   const scale = safeDisplayScale(viewport as UiViewport);
+  const boundedInsets = clampSafeAreaInsets(rawInsets, containerWidth, containerHeight);
   const projected = {
-    top: Math.max(0, finiteInset(rawInsets.top) - letterboxY) / scale,
-    right: Math.max(0, finiteInset(rawInsets.right) - letterboxX) / scale,
-    bottom: Math.max(0, finiteInset(rawInsets.bottom) - letterboxY) / scale,
-    left: Math.max(0, finiteInset(rawInsets.left) - letterboxX) / scale,
+    top: Math.max(0, boundedInsets.top - letterboxY) / scale,
+    right: Math.max(0, boundedInsets.right - letterboxX) / scale,
+    bottom: Math.max(0, boundedInsets.bottom - letterboxY) / scale,
+    left: Math.max(0, boundedInsets.left - letterboxX) / scale,
   };
   return Object.freeze({ ...viewport, layoutInsets: Object.freeze(projected) });
-}
-
-function finiteInset(value: number): number {
-  return Number.isFinite(value) && value >= 0 ? value : 0;
 }
 
 /** M-07 (U7): map a canvas-space pointer to the LOCAL space of a

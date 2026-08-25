@@ -339,6 +339,24 @@ function createHarness(options: { create?: boolean; audio?: boolean } = { create
 }
 
 describe('MenuScene', () => {
+  it('projects injected top and bottom insets into the menu viewport', () => {
+    const values: Record<string, string> = {
+      '--safe-top': '59px', '--safe-right': '0px', '--safe-bottom': '21px', '--safe-left': '0px',
+    };
+    vi.stubGlobal('document', { documentElement: {} });
+    vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: (property: string) => values[property] ?? '0px' }));
+    try {
+      const { menuScene } = createHarness();
+      const viewport = (menuScene as unknown as { currentViewport: {
+        layoutInsets: { top: number; bottom: number };
+      } }).currentViewport;
+      expect(viewport.layoutInsets.top).toBe(59);
+      expect(viewport.layoutInsets.bottom).toBe(21);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('renders the home panel with all navigation buttons', () => {
     const { textContents, objects } = createHarness();
 

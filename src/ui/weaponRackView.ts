@@ -104,11 +104,11 @@ export class PhaserWeaponRackPanel {
     const freshEntry = this.navigator.index === -1;
     this.navigator.setColumns(layout.columns);
     this.navigator.setCount(snapshot.capacity + 2);
-    const heading = this.modal.addText(layout.margin, layout.margin, 'Weapon Rack', 'heading');
+    const heading = this.modal.addText(layout.leftMargin, layout.topMargin, 'Weapon Rack', 'heading');
     root.add(heading);
     const count = this.modal.addText(
-      width - layout.margin,
-      layout.margin + 2,
+      width - layout.rightMargin,
+      layout.topMargin + 2,
       `${snapshot.weapons.length}/${snapshot.capacity}`,
       'body',
     );
@@ -116,7 +116,7 @@ export class PhaserWeaponRackPanel {
     count.setOrigin(1, 0);
 
     const guide = this.modal.addText(
-      layout.margin,
+      layout.leftMargin,
       layout.guideY,
       this.guideCopy(snapshot, layout.compact),
       'body',
@@ -124,7 +124,7 @@ export class PhaserWeaponRackPanel {
     root.add(guide);
     if (layout.keyHintY !== undefined) {
       const keyHint = this.modal.addText(
-        layout.margin,
+        layout.leftMargin,
         layout.keyHintY,
         this.hintCopy(),
         'body',
@@ -137,7 +137,7 @@ export class PhaserWeaponRackPanel {
     snapshot.slots.forEach((weapon, index) => {
       const column = index % layout.columns;
       const row = Math.floor(index / layout.columns);
-      const x = layout.margin
+      const x = layout.leftMargin
         + layout.cardWidth / 2
         + column * (layout.cardWidth + layout.gap);
       const y = layout.gridTop
@@ -156,7 +156,8 @@ export class PhaserWeaponRackPanel {
       this.registerTarget(slot, index, weapon ? () => {
         this.selectWeapon(weapon.instanceId);
         return true;
-      } : () => false, slot.strokeColor, slot.strokeAlpha, this.cardEdges[index]);
+      } : () => false, weapon ? ThemeColor.rarity[weapon.rarity] : slot.strokeColor ?? ThemeColor.card,
+      weapon ? 0.95 : slot.strokeAlpha, this.cardEdges[index]);
     });
 
     this.renderPreview(
@@ -631,6 +632,8 @@ export class PhaserWeaponRackPanel {
   ): void {
     let armedPointerId: number | undefined;
     const baseWidth = physicalToLogical(2, this.viewport);
+    const renderedBaseColor = baseColor;
+    const renderedBaseAlpha = edge ? 0.95 : baseAlpha;
     target.on(Phaser.Input.Events.POINTER_OVER, () => {
       this.hoveredIndex = index;
       this.navigator.setIndex(index);
@@ -658,12 +661,8 @@ export class PhaserWeaponRackPanel {
       activate,
       setFocusVisible: (visible) => (edge ?? target).setStrokeStyle(
         visible ? FocusStroke.width : baseWidth,
-        visible ? FocusStroke.color : edge
-          ? this.inventory.snapshot().slots[index]?.rarity
-            ? ThemeColor.rarity[this.inventory.snapshot().slots[index]!.rarity]
-            : baseColor
-          : baseColor,
-        visible ? FocusStroke.alpha : edge ? 0.95 : baseAlpha,
+        visible ? FocusStroke.color : renderedBaseColor,
+        visible ? FocusStroke.alpha : renderedBaseAlpha,
       ),
     };
   }
