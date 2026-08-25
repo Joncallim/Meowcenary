@@ -333,6 +333,7 @@ class FakeDisplayObject extends FakeEmitter {
 }
 
 class FakeText extends FakeDisplayObject {
+  private fontSize: number;
   constructor(
     x: number,
     y: number,
@@ -343,8 +344,15 @@ class FakeText extends FakeDisplayObject {
   ) {
     const fontSize = Number.parseFloat(style.fontSize ?? '16');
     super(x, y, text.length * fontSize * 0.55, fontSize * 1.2, onDestroy);
+    this.fontSize = fontSize;
     this.originX = 0;
     this.originY = 0;
+  }
+  setFontSize(fontSize: string): this {
+    this.fontSize = Number.parseFloat(fontSize);
+    this.width = this.text.length * this.fontSize * 0.55;
+    this.height = this.fontSize * 1.2;
+    return this;
   }
   setFixedSize(width: number, height: number): this {
     if (this.shouldFailFixedSize?.()) {
@@ -978,6 +986,24 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
       return object;
     });
 
+  const edgeObjects = (
+    view: { diagnostics: { cards: readonly { x: number; y: number; width: number; height: number }[] } },
+    scene: ReturnType<typeof createFakeScene>,
+  ) =>
+    view.diagnostics.cards.map((card) => {
+      const object = scene.objects.find(
+        (candidate) =>
+          !candidate.input?.enabled &&
+          candidate.x === card.x + card.width / 2 &&
+          candidate.y === card.y + card.height / 2 &&
+          candidate.width === card.width &&
+          candidate.height === card.height &&
+          candidate.strokeColor !== undefined,
+      );
+      if (!object) throw new Error(`no rarity edge for diagnostics card ${card.x},${card.y}`);
+      return object;
+    });
+
   it('logical focus movement wraps across the cards', async () => {
     const { view } = await createFocusView();
     expect(focused(view)).toEqual([true, false, false]);
@@ -1136,7 +1162,7 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
   it('renders the exact FocusStroke width/color/alpha on the focused card and restores the exact base stroke (F4)', async () => {
     let mode: InputMode = 'pointer';
     const { scene, view } = await createFocusView(3, () => false, () => mode);
-    const cards = () => cardObjects(view, scene);
+    const cards = () => edgeObjects(view, scene);
     const baseStrokes = cards().map((card) => ({
       width: card.strokeWidth,
       color: card.strokeColor,
@@ -1186,11 +1212,12 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
 
   it('pointer hover moves exactly one ring and direct selection submits without a pointer requirement (F6)', async () => {
     const { scene, view, select } = await createFocusView(3);
-    const cards = () => cardObjects(view, scene);
+    const cards = () => edgeObjects(view, scene);
+    const interactiveCards = () => cardObjects(view, scene);
 
     // Hover card 1: ring (ALL THREE constants) on card 1 only, logical focus
     // synced, no submit.
-    cards()[1]!.emit('pointerover');
+    interactiveCards()[1]!.emit('pointerover');
     expect(cards()[1]!.strokeWidth).toBe(FocusStroke.width);
     expect(cards()[1]!.strokeColor).toBe(FocusStroke.color);
     expect(cards()[1]!.strokeAlpha).toBe(FocusStroke.alpha);
@@ -1200,13 +1227,13 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
     expect(focused(view)).toEqual([false, true, false]);
 
     // Pointer-out clears the ring without a command.
-    cards()[1]!.emit('pointerout');
+    interactiveCards()[1]!.emit('pointerout');
     expect(cards()[1]!.strokeColor).not.toBe(FocusStroke.color);
     expect(select).not.toHaveBeenCalled();
 
     // Direct pointer-up submits the exact hovered card index.
-    cards()[1]!.emit('pointerdown', { id: 1 });
-    cards()[1]!.emit('pointerup', { id: 1 });
+    interactiveCards()[1]!.emit('pointerdown', { id: 1 });
+    interactiveCards()[1]!.emit('pointerup', { id: 1 });
     expect(select).toHaveBeenCalledTimes(1);
     expect(select).toHaveBeenCalledWith(73, 1);
     view.destroy();

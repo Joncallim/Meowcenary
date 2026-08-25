@@ -128,13 +128,28 @@ if (!import.meta.url.includes('?as-harness')) {
           object.state.handlers['pointerover'] &&
           !object.state.destroyed,
       );
-    const ringedCardIndex = () =>
-      chooserCards().findIndex(
+    const ringedCardIndex = () => {
+      const direct = chooserCards().findIndex(
         (card) =>
           card.state.strokeWidth === FocusStroke.width &&
           card.state.strokeColor === FocusStroke.color &&
           card.state.strokeAlpha === FocusStroke.alpha,
       );
+      if (direct >= 0) return direct;
+      const edge = game.scene.objects.find(
+        (object) => object.state.kind === 'rect' && !object.state.destroyed
+          && object.state.strokeWidth === FocusStroke.width
+          && object.state.strokeColor === FocusStroke.color
+          && object.state.strokeAlpha === FocusStroke.alpha,
+      );
+      return edge ? chooserCards().findIndex((card) => card.state.x === edge.state.x && card.state.y === edge.state.y) : -1;
+    };
+    const ringedEdge = () => game.scene.objects.find(
+      (object) => object.state.kind === 'rect' && !object.state.destroyed
+        && object.state.strokeWidth === FocusStroke.width
+        && object.state.strokeColor === FocusStroke.color
+        && object.state.strokeAlpha === FocusStroke.alpha,
+    );
     expect(ringedCardIndex()).toBe(-1);
 
     // navRight focuses the second card (exactly one ui:navigate): the ring is
@@ -144,9 +159,9 @@ if (!import.meta.url.includes('?as-harness')) {
     expect(game.events).toEqual(['ui:navigate']);
     expect(focusedCards()).toEqual([false, true, false]);
     expect(ringedCardIndex()).toBe(1);
-    expect(chooserCards()[1]!.state.strokeWidth).toBe(FocusStroke.width);
-    expect(chooserCards()[1]!.state.strokeColor).toBe(FocusStroke.color);
-    expect(chooserCards()[1]!.state.strokeAlpha).toBe(FocusStroke.alpha);
+    expect(ringedEdge()!.state.strokeWidth).toBe(FocusStroke.width);
+    expect(ringedEdge()!.state.strokeColor).toBe(FocusStroke.color);
+    expect(ringedEdge()!.state.strokeAlpha).toBe(FocusStroke.alpha);
     expect(chooserCards()[0]!.state.strokeColor).not.toBe(FocusStroke.color);
     expect(sceneBefore.start).toBe(0);
     expect(sceneBefore.restart).toBe(0);

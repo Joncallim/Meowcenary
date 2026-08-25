@@ -21,6 +21,7 @@ export interface UpgradeChooserCardLayout {
 }
 
 import { safeDisplayScale, type UiViewport } from './layout';
+import { ZERO_SAFE_AREA } from '../platform/safeArea';
 
 export interface UpgradeChooserLayout {
   displayScale: number;
@@ -73,6 +74,7 @@ export function computeUpgradeChooserLayout(
     canvasHeight,
     displayWidth: displayedWidth,
     displayHeight: displayedHeight,
+    layoutInsets: ZERO_SAFE_AREA,
   };
   const displayScale = safeDisplayScale(viewport);
   const physical = (pixels: number): number => pixels / displayScale;
@@ -208,4 +210,3 @@ export function computeUpgradeChooserLayout(
     cards,
   };
 }
-
