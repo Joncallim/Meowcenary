@@ -375,6 +375,30 @@ describe('PhaserHudView', () => {
     });
   });
 
+  it('uses one right edge for both bars and stacks time, kills, and scrap below XP', () => {
+    const scene = createFakeScene();
+    const view = new PhaserHudView({ scene: scene as never, viewport: logicalCanvasViewport() });
+    view.render({
+      status: 'active', timeMs: 1_000, durationMs: 60_000, health: 80, maxHealth: 100,
+      level: 2, xp: 25, xpToNext: 100, kills: 3, currency: 12,
+    });
+
+    const unique = [...new Set(scene.objects)];
+    const bars = unique.filter((object) => object.state.kind === 'rect');
+    expect(bars).toHaveLength(4);
+    expect(bars[1]!.state.x).toBe(bars[3]!.state.x);
+    expect(bars[0]!.state.width).toBe(bars[2]!.state.width);
+    expect(bars[1]!.state.width).toBe(bars[3]!.state.width);
+
+    const textAt = (label: string) => unique.find((object) => object.state.text === label)!.state;
+    const time = textAt('0:01 / 1:00');
+    const kills = textAt('Kills 3');
+    const scrap = textAt('Scrap 12');
+    expect(time.y).toBeLessThan(kills.y as number);
+    expect(kills.y).toBeLessThan(scrap.y as number);
+    expect((kills.y as number) - (time.y as number)).toBeCloseTo((scrap.y as number) - (kills.y as number), 6);
+  });
+
   it('never renders a rack strip label or interactive rack target at any rack count', () => {
     const scene = createFakeScene();
     const view = new PhaserHudView({ scene: scene as never, viewport: logicalCanvasViewport() });
