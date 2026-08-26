@@ -384,7 +384,8 @@ describe('Drop', () => {
       textureKey: 'art-drop-xp-mote',
       url: 'assets/pickups/xp-mote/xp-mote.png',
       required: true,
-      load: { type: 'spritesheet', frame: { width: 16, height: 16 } },
+             sampling: 'nearest',
+             load: { type: 'spritesheet', frame: { width: 16, height: 16 } },
       display: { width: 16, height: 16 },
       clips: { idle: { start: 0, end: 3, frameRate: 8, repeat: -1 } },
     } as const;

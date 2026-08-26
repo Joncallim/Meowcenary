@@ -1,6 +1,11 @@
 import Phaser from 'phaser';
 import type { VisualArtBinding } from '../systems/types';
 import { VisualDepth } from '../systems/visualDepths';
+import { ACTOR_VISUAL_SCALE_BY_KIND } from './actorView';
+
+// A held weapon is anchored at the character's grip, so its display and
+// recoil must follow the character's presentation scale rather than combat.
+const HELD_WEAPON_VISUAL_FACTOR = ACTOR_VISUAL_SCALE_BY_KIND.character;
 
 export interface HeldWeaponPresentation {
   show(binding: Readonly<VisualArtBinding>, x: number, y: number, angle: number, recoilPx?: number): void;
@@ -35,11 +40,14 @@ export class HeldWeaponView implements HeldWeaponPresentation {
   show(binding: Readonly<VisualArtBinding>, x: number, y: number, angle: number, recoilPx = 0): void {
     if (binding.kind !== 'weapon-held') return;
     const pointsLeft = Math.cos(angle) < 0;
-    this.recoilOffsetX = -Math.cos(angle) * recoilPx;
-    this.recoilOffsetY = -Math.sin(angle) * recoilPx;
+    this.recoilOffsetX = -Math.cos(angle) * recoilPx * HELD_WEAPON_VISUAL_FACTOR;
+    this.recoilOffsetY = -Math.sin(angle) * recoilPx * HELD_WEAPON_VISUAL_FACTOR;
     this.image
       .setTexture(binding.textureKey)
-      .setDisplaySize(binding.display.width, binding.display.height)
+      .setDisplaySize(
+        binding.display.width * HELD_WEAPON_VISUAL_FACTOR,
+        binding.display.height * HELD_WEAPON_VISUAL_FACTOR,
+      )
       .setPosition(x + this.recoilOffsetX, y + this.recoilOffsetY)
       // The held-weapon sheets point along local +X, so the raw firing angle
       // already aims the barrel at the target. The vertical mirror only turns

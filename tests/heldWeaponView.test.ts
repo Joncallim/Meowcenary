@@ -42,6 +42,7 @@ const heldBinding = {
   textureKey: 'art-weapon-held-pistol-t1',
   url: 'assets/weapons/held/pistol-t1.png',
   required: true,
+  sampling: 'nearest',
   load: { type: 'image' },
   display: { width: 28, height: 18 },
 } as const satisfies VisualArtBinding;
@@ -113,11 +114,12 @@ describe('HeldWeaponView', () => {
 
     // Firing straight right with 3px recoil pulls the muzzle 3px back.
     view.show(heldBinding, 100, 200, 0, 3);
-    expect([image.x, image.y]).toEqual([97, 200]);
+    expect([image.displayWidth, image.displayHeight]).toEqual([28 * 1.30, 18 * 1.30]);
+    expect([image.x, image.y]).toEqual([100 - 3 * 1.30, 200]);
 
     // The recoil offset stays constant while the player keeps moving.
     view.update(16, 120, 210);
-    expect([image.x, image.y]).toEqual([117, 210]);
+    expect([image.x, image.y]).toEqual([120 - 3 * 1.30, 210]);
     view.destroy();
   });
 

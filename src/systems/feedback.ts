@@ -6,6 +6,8 @@ import type { Settings } from '../systems/save';
 import type { System } from '../engine/system';
 import { weaponFeelByFamily, type WeaponFeelDefinition } from './types';
 import type { UiViewport } from '../ui/layout';
+import { ThemeDepth } from '../ui/theme';
+import { VisualDepth } from './visualDepths';
 
 export interface FeedbackRenderer {
   /** Epic 17: family-keyed muzzle puff. Unknown/missing family draws nothing
@@ -153,8 +155,10 @@ const DANGER_COLOR = 0xf87171; // danger red
 const MERGE_COLOR = 0xfacc15; // amber power-up, distinct from kill/danger
 const DASH_TRAIL_COLOR = 0xd6d3d1; // kicked-up junkyard dust
 const HEAVY_STEP_COLOR = 0x92613a; // scrap-dust thud, distinct from dash trail
-const FEEDBACK_DEPTH = 60;
-const OVERLAY_DEPTH = 90;
+// World particles stay in the authored world depth band; screen-space feedback
+// overlays are transient UI above the HUD/root bands and below modal surfaces.
+const FEEDBACK_DEPTH = VisualDepth.heldWeapon;
+const OVERLAY_DEPTH = ThemeDepth.transientHint;
 const MUZZLE_HIT_RADIUS_FALLBACK = 4;
 
 // Epic 17 (D7): a charger's dash trail is a fixed, staggered comet-tail —

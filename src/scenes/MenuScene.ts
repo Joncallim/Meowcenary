@@ -8,6 +8,7 @@ import { edgeMargin, logicalCanvasViewport, minimumHitTarget, type UiViewport } 
 import { MainMenuController, type MainMenuSnapshot } from '../ui/menus';
 import { cycleVolumeStep } from '../ui/settings';
 import { ThemeColor, ThemeDepth, ThemeFont } from '../ui/theme';
+import { createUiText } from '../ui/text';
 import { InputController } from '../systems/input';
 import { FocusNavigator, type FocusDirection } from '../ui/focusList';
 import { FocusStroke } from '../ui/theme';
@@ -131,7 +132,7 @@ export class MenuScene extends Phaser.Scene {
     const hitTarget = minimumHitTarget(viewport);
 
     try {
-      const title = this.own(root, this.add.text(this.safeCenterX, 28 + topMargin, 'Meowcenary', {
+      const title = this.own(root, createUiText(this,this.safeCenterX, 28 + topMargin, 'Meowcenary', {
         align: 'center',
         color: '#f7f1d5',
         fontFamily: ThemeFont.family,
@@ -141,7 +142,7 @@ export class MenuScene extends Phaser.Scene {
       title.setOrigin(0.5).setScrollFactor(0);
 
       if (snapshot.notice) {
-        const notice = this.own(root, this.add.text(this.safeCenterX, 58 + topMargin, snapshot.notice, {
+        const notice = this.own(root, createUiText(this,this.safeCenterX, 58 + topMargin, snapshot.notice, {
           align: 'center',
           color: '#f87171',
           fontFamily: ThemeFont.family,
@@ -213,7 +214,7 @@ export class MenuScene extends Phaser.Scene {
       };
       fallback.setDepth(MENU_DEPTH).setScrollFactor(0);
       own(
-        this.add.text(
+        createUiText(this,
           this.safeCenterX,
           this.scale.height / 2,
           'Something went wrong — press Esc to retry',
@@ -248,7 +249,7 @@ export class MenuScene extends Phaser.Scene {
       `Scrap: ${snapshot.progression.scrap}`,
     ];
 
-    const info = this.own(root, this.add.text(margin, top, infoLines.join('\n'), {
+    const info = this.own(root, createUiText(this,margin, top, infoLines.join('\n'), {
       color: '#d6f7ff',
       fontFamily: ThemeFont.family,
       fontSize: `${ThemeFont.labelMin}px`,
@@ -270,7 +271,7 @@ export class MenuScene extends Phaser.Scene {
       y += button.height + 12;
     });
 
-    const hints = this.own(root, this.add.text(margin, this.scale.height - edgeMargin(this.currentViewport!, 'bottom') - 14, this.menuHintCopy(), {
+    const hints = this.own(root, createUiText(this,margin, this.scale.height - edgeMargin(this.currentViewport!, 'bottom') - 14, this.menuHintCopy(), {
       color: '#a5f3fc',
       fontFamily: ThemeFont.family,
       fontSize: `${ThemeFont.bodyMin}px`,
@@ -297,7 +298,7 @@ export class MenuScene extends Phaser.Scene {
         this.render(next);
       });
       if (character.description) {
-        const desc = this.own(root, this.add.text(margin + 12, y + button.height + 2, character.description, {
+        const desc = this.own(root, createUiText(this,margin + 12, y + button.height + 2, character.description, {
           color: '#a5f3fc',
           fontFamily: ThemeFont.family,
           fontSize: `${ThemeFont.bodyMin}px`,
@@ -355,7 +356,7 @@ export class MenuScene extends Phaser.Scene {
       });
       y += hitTarget + 8;
       if (upgrade.description) {
-        const desc = this.own(root, this.add.text(margin + 12, y, upgrade.description, {
+        const desc = this.own(root, createUiText(this,margin + 12, y, upgrade.description, {
           color: '#a5f3fc',
           fontFamily: ThemeFont.family,
           fontSize: `${ThemeFont.bodyMin}px`,
@@ -428,7 +429,7 @@ export class MenuScene extends Phaser.Scene {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Reset all progression?');
     let y = top + heading.height + 24;
 
-    const warning = this.own(root, this.add.text(margin, y, 'This cannot be undone.', {
+    const warning = this.own(root, createUiText(this,margin, y, 'This cannot be undone.', {
       color: '#f87171',
       fontFamily: ThemeFont.family,
       fontSize: `${ThemeFont.labelMin}px`,
@@ -471,7 +472,7 @@ export class MenuScene extends Phaser.Scene {
     callback: () => void,
     audioEvent: MenuAudioEvent = 'ui:confirm',
   ): Phaser.GameObjects.Text {
-    const text = this.own(root, this.add.text(x, y, label, {
+    const text = this.own(root, createUiText(this,x, y, label, {
       color: '#f7f1d5',
       fontFamily: ThemeFont.family,
       fontSize: `${ThemeFont.labelMin}px`,
@@ -537,7 +538,7 @@ export class MenuScene extends Phaser.Scene {
     y: number,
     text: string,
   ): Phaser.GameObjects.Text {
-    const heading = this.own(root, this.add.text(x, y, text, {
+    const heading = this.own(root, createUiText(this,x, y, text, {
       align: 'center',
       color: '#f7f1d5',
       fontFamily: ThemeFont.family,

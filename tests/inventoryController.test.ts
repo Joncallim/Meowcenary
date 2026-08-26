@@ -122,6 +122,51 @@ describe('InventoryController snapshot', () => {
       );
     });
   });
+
+  it('resolves every rack and merge-preview stat from the current run for two equipped families', () => {
+    const run = createPausedRun([
+      instance('scrap-pistol-t1', 'pistol-a'),
+      instance('scrap-pistol-t1', 'pistol-b'),
+      instance('can-smg-t1', 'smg'),
+    ]);
+    run.stats.add({ stat: 'damage', op: 'add', value: 2, sourceId: 'damage' });
+    run.stats.add({ stat: 'attackSpeed', op: 'mult', value: 2, sourceId: 'rate' });
+    run.stats.add({ stat: 'projectileCount', op: 'add', value: 1, sourceId: 'shots' });
+    run.stats.add({ stat: 'pierce', op: 'add', value: 1, sourceId: 'pierce' });
+    run.stats.add({ stat: 'range', op: 'mult', value: 1.10, sourceId: 'long-barrel' });
+    run.stats.add({
+      stat: 'range', op: 'mult', value: 1.05, sourceId: 'deadeye',
+      scope: { kind: 'weapon-family', family: 'pistol' },
+    });
+    const { controller } = createController(run);
+
+    const snapshot = controller.snapshot();
+    const pistol = snapshot.weapons.find((weapon) => weapon.instanceId === 'pistol-a');
+    const smg = snapshot.weapons.find((weapon) => weapon.instanceId === 'smg');
+    expect(pistol?.stats.map((stat) => stat.key)).toEqual(['damage', 'rate', 'projectiles', 'pierce', 'range']);
+    expect(pistol?.stats).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 'damage', value: 10, formatted: '10' }),
+      expect.objectContaining({ key: 'rate', formatted: '3.08/s' }),
+      expect.objectContaining({ key: 'projectiles', value: 2, formatted: '×2' }),
+      expect.objectContaining({ key: 'pierce', value: 1, formatted: '1' }),
+      expect.objectContaining({ key: 'range', formatted: '231' }),
+    ]));
+    expect(pistol?.stats.find((stat) => stat.key === 'range')?.value).toBeCloseTo(231);
+    expect(smg?.stats).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 'damage', value: 5 }),
+      expect.objectContaining({ key: 'range', formatted: '204' }),
+    ]));
+    expect(smg?.stats.find((stat) => stat.key === 'range')?.value).toBeCloseTo(203.5);
+
+    controller.toggle('pistol-a');
+    const mergeSnapshot = controller.toggle('pistol-b');
+    expect(mergeSnapshot.preview?.deltas).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 'range', formattedBefore: '231', formattedAfter: '254' }),
+    ]));
+    const rangeDelta = mergeSnapshot.preview?.deltas.find((delta) => delta.key === 'range');
+    expect(rangeDelta?.before).toBeCloseTo(231);
+    expect(rangeDelta?.after).toBeCloseTo(254.1);
+  });
 });
 
 describe('InventoryController selection', () => {

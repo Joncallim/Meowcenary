@@ -11,6 +11,7 @@ import { PhaserHudView } from '../src/ui/hud';
 import { DebugOverlay } from '../src/systems/debug';
 import { arenaFollowEnabled, zoomedVisibleSize } from '../src/scenes/GameScene';
 import { GAMEPLAY_ZOOM, pointerToRootLocal, zoomedGameUiViewport } from '../src/ui/layout';
+import { ThemeColor, ThemeDepth } from '../src/ui/theme';
 
 const REFERENCE_VIEWPORTS = [
   { name: 'phone portrait', width: 390, height: 844 },
@@ -29,6 +30,7 @@ interface FakeSceneObject {
     width: number;
     height: number;
     text?: string;
+    fillColor?: number;
     interactive: boolean;
     destroyed: boolean;
     handlers: Record<string, (...args: unknown[]) => void>;
@@ -485,6 +487,8 @@ describe('Epic 19 playtest fixes: F3 debug overlay on-screen (U5)', () => {
       (object) => object.state.kind === 'text' && !object.state.destroyed && object.state.scrollFactorX === 0,
     );
     expect(text).toBeDefined();
+    // Sabotage: the legacy 10_000 depth escapes the documented root ladder.
+    expect(text!.state.depth).toBe(ThemeDepth.debugOverlay);
     const bounds = text!.getBounds();
     // Rendered physical bounds: the scrollFactor-0 overlay is screen-anchored,
     // so world position × camera zoom × FIT gives the top-left, while
@@ -624,11 +628,16 @@ describe('Epic 19 playtest fixes: four-viewport HUD soak', () => {
       h.resizeTo(targetWidth, targetHeight);
       hud.render(snapshot);
       const live = fakeSceneObjects(h).filter((object) => !object.state.destroyed);
+      const barColors = new Set([0x334155, ThemeColor.danger, ThemeColor.primary]);
       const bars = live
-        .filter((object) => object.state.kind === 'rect' && !object.state.interactive && object.state.width > 100)
+        // The top HUD backing is also a passive rectangle. Identify bars by
+        // their documented semantic colors, never by creation order/width.
+        .filter((object) => object.state.kind === 'rect'
+          && !object.state.interactive
+          && barColors.has(object.state.fillColor ?? -1))
         .sort((a, b) => a.state.y - b.state.y);
-      expect(bars.length).toBeGreaterThanOrEqual(4);
-      const [healthBg, healthFill, xpBg, xpFill] = bars.slice(-4);
+      expect(bars).toHaveLength(4);
+      const [healthBg, healthFill, xpBg, xpFill] = bars;
       expect(healthBg).toBeDefined();
       expect(healthFill).toBeDefined();
       expect(xpBg).toBeDefined();

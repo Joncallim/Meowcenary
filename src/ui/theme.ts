@@ -17,8 +17,8 @@ export const ThemeColor = {
   white: 0xffffff,
   danger: 0xf87171,
   rarity: {
-    common: THEME_MUTED,
-    uncommon: THEME_PRIMARY,
+    common: 0x94a3b8,
+    uncommon: 0x4ade80,
     rare: 0x60a5fa,
     epic: 0xc084fc,
     legendary: THEME_GOLD,
@@ -31,6 +31,7 @@ export function themeColorCss(color: number): string {
 
 export const ThemeDepth = {
   world: 0,
+  hudBacking: 90,
   hud: 100,
   transientHint: 200,
   pauseSummary: 800,

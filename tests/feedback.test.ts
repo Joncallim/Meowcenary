@@ -6,6 +6,8 @@ import {
   PhaserFeedbackRenderer,
   type FeedbackRenderer,
 } from '../src/systems/feedback';
+import { VisualDepth } from '../src/systems/visualDepths';
+import { ThemeDepth } from '../src/ui/theme';
 
 function createFakeRenderer(): FeedbackRenderer & {
   muzzleFlashCalls: Array<{ x: number; y: number; family: string }>;
@@ -308,6 +310,55 @@ describe('FeedbackSystem', () => {
 });
 
 describe('PhaserFeedbackRenderer lifecycle', () => {
+  it('keeps world particles below the HUD bands and screen overlays in the transient band', () => {
+    class Node {
+      depth = 0;
+      setDepth(depth: number): this { this.depth = depth; return this; }
+      setActive(): this { return this; }
+      setVisible(): this { return this; }
+      setAlpha(): this { return this; }
+      setScrollFactor(): this { return this; }
+      setStrokeStyle(): this { return this; }
+      setPosition(): this { return this; }
+      setFillStyle(): this { return this; }
+      setRadius(): this { return this; }
+      destroy(): void {}
+    }
+    const nodes: Node[] = [];
+    const makeNode = () => {
+      const node = new Node();
+      nodes.push(node);
+      return node;
+    };
+    const scene = {
+      scale: { width: 390, height: 844 },
+      add: { circle: makeNode, rectangle: makeNode },
+      cameras: { main: { shakeEffect: { reset: vi.fn() } } },
+    };
+    const renderer = new PhaserFeedbackRenderer({
+      scene: scene as never,
+      maxEffects: 4,
+      maxHeavyEffects: 2,
+      weaponFeel: [{
+        family: 'pistol',
+        muzzle: { color: '#fbbf24', radius: 5, lifetimeMs: 70 },
+        impact: { color: '#fbbf24', radius: 5 },
+        recoilPx: 3,
+        sfxTierVolumeMultiplier: [1, 1, 1],
+      }],
+    });
+
+    // Construction creates only the screen-space damage/level/merge overlays.
+    expect(nodes.map((node) => node.depth)).toEqual([
+      ThemeDepth.transientHint,
+      ThemeDepth.transientHint,
+      ThemeDepth.transientHint,
+    ]);
+    renderer.muzzleFlash(0, 0, 'pistol');
+    // Sabotage: 60 sits between world and HUD bands rather than in the world band.
+    expect(nodes[3]?.depth).toBe(VisualDepth.heldWeapon);
+  });
+
   it('destroys owned nodes after Phaser has already cleared the main camera', () => {
     class Node {
       destroyed = false;

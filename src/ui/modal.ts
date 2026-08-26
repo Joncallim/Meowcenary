@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { minimumHitTarget, physicalToLogical, type UiViewport } from './layout';
 import { FocusStroke, ThemeColor, ThemeFont } from './theme';
+import { createUiText } from './text';
 
 export type ModalTextKind = 'heading' | 'body' | 'notice';
 
@@ -75,7 +76,7 @@ export function createModalTextHelpers(
         fontSize: `${physicalToLogical(ThemeFont.labelMin, viewport)}px`,
       },
     };
-    const textObject = scene.add.text(x, y, text, style[kind]);
+    const textObject = createUiText(scene, x, y, text, style[kind]);
     textObject.setScrollFactor(0);
     return textObject;
   };
@@ -116,7 +117,7 @@ export function createModalTextHelpers(
     rect.setScrollFactor(0);
     let activated = false;
     let enabledState = enabled;
-    const text = scene.add.text(x, y, label, {
+    const text = createUiText(scene, x, y, label, {
       color: enabled ? '#f7f1d5' : '#78909c',
       fontFamily: ThemeFont.family,
       fontSize: `${physicalToLogical(ThemeFont.labelMin, viewport)}px`,

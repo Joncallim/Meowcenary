@@ -302,6 +302,8 @@ export type VisualArtKind =
   | 'world'
   | 'upgrade-icon';
 
+export type VisualArtSampling = 'nearest' | 'linear';
+
 export type VisualArtLoad =
   | { readonly type: 'image' }
   | {
@@ -322,6 +324,8 @@ export interface VisualArtBinding {
   readonly textureKey: string;
   readonly url: string;
   readonly required: boolean;
+  /** Explicitly authored filtering policy; no kind/default fallback exists. */
+  readonly sampling: VisualArtSampling;
   readonly load: VisualArtLoad;
   readonly display: { readonly width: number; readonly height: number };
   readonly clips?: Readonly<Record<string, VisualArtClip>>;

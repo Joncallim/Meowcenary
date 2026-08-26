@@ -8,6 +8,7 @@ import type { RunState, RunStatus } from '../gameplay/runState';
 import { formatNumber, formatTime } from './format';
 import { edgeMargin, logicalCanvasViewport, physicalToLogical, zoomedGameUiViewport, type UiViewport } from './layout';
 import { ThemeColor, ThemeDepth, ThemeFont } from './theme';
+import { createUiText } from './text';
 
 export interface HudSnapshot {
   readonly status: RunStatus;
@@ -146,9 +147,52 @@ export interface HudViewOptions {
   readonly viewport: UiViewport;
 }
 
+interface TopHudLayout {
+  readonly margin: number;
+  readonly topMargin: number;
+  readonly rightMargin: number;
+  readonly fontSize: number;
+  readonly labelSize: number;
+  readonly canvasWidth: number;
+  readonly rightHudX: number;
+  readonly barTop: number;
+  readonly barHeight: number;
+  readonly healthBarWidth: number;
+  readonly xpTop: number;
+  readonly statsTop: number;
+  readonly statsStride: number;
+}
+
+function topHudLayout(viewport: UiViewport): TopHudLayout {
+  const margin = edgeMargin(viewport, 'left');
+  const topMargin = edgeMargin(viewport, 'top');
+  const rightMargin = edgeMargin(viewport, 'right');
+  const fontSize = physicalToLogical(ThemeFont.bodyMin, viewport);
+  const labelSize = physicalToLogical(ThemeFont.labelMin, viewport);
+  const canvasWidth = viewport.canvasWidth;
+  const rightHudX = canvasWidth - rightMargin - physicalToLogical(44, viewport) - physicalToLogical(8, viewport);
+  const barTop = topMargin + fontSize * 1.4;
+  const barHeight = physicalToLogical(8, viewport);
+  const healthBarWidth = Math.max(1, rightHudX - margin);
+  const xpTop = barTop + barHeight + labelSize + physicalToLogical(8, viewport);
+  const statsTop = xpTop + barHeight + physicalToLogical(2, viewport) + labelSize + physicalToLogical(8, viewport);
+  const statsStride = labelSize + physicalToLogical(4, viewport);
+  return {
+    margin, topMargin, rightMargin, fontSize, labelSize, canvasWidth, rightHudX,
+    barTop, barHeight, healthBarWidth, xpTop, statsTop, statsStride,
+  };
+}
+
+/** Bottom of the actual stats stack; top-HUD backing consumes this authority. */
+export function topHudContentBottom(viewport: UiViewport): number {
+  const layout = topHudLayout(viewport);
+  return layout.statsTop + layout.statsStride * 2 + layout.labelSize;
+}
+
 export class PhaserHudView implements HudView {
   private readonly scene: Phaser.Scene;
   private viewport: UiViewport;
+  private backing!: Phaser.GameObjects.Rectangle;
   private container!: Phaser.GameObjects.Container;
   private statusText!: Phaser.GameObjects.Text;
   private timeText!: Phaser.GameObjects.Text;
@@ -207,35 +251,39 @@ export class PhaserHudView implements HudView {
 
   private buildDisplay(): void {
     const { scene, viewport } = this;
-    const margin = edgeMargin(viewport, 'left');
-    const topMargin = edgeMargin(viewport, 'top');
-    const rightMargin = edgeMargin(viewport, 'right');
-    const fontSize = physicalToLogical(ThemeFont.bodyMin, viewport);
-    const labelSize = physicalToLogical(ThemeFont.labelMin, viewport);
-    const canvasWidth = viewport.canvasWidth;
+    const layout = topHudLayout(viewport);
+    const backingHeight = topHudContentBottom(viewport) + edgeMargin(viewport, 'bottom');
+    this.backing = scene.add.rectangle(
+      layout.canvasWidth / 2,
+      backingHeight / 2,
+      layout.canvasWidth,
+      backingHeight,
+      ThemeColor.surface,
+      0.80,
+    );
+    this.backing.setScrollFactor(0).setDepth(ThemeDepth.hudBacking);
 
     const textStyle = {
       color: '#d6f7ff',
       fontFamily: ThemeFont.family,
-      fontSize: `${fontSize}px`,
+      fontSize: `${layout.fontSize}px`,
     };
 
     const labelStyle = {
       color: '#a5f3fc',
       fontFamily: ThemeFont.family,
-      fontSize: `${labelSize}px`,
+      fontSize: `${layout.labelSize}px`,
     };
 
     this.container = scene.add.container(viewport.originX ?? 0, viewport.originY ?? 0);
     this.container.setScrollFactor(0);
     this.container.setDepth(ThemeDepth.hud);
 
-    this.statusText = scene.add.text(margin, topMargin, '', textStyle);
+    this.statusText = createUiText(scene,layout.margin, layout.topMargin, '', textStyle);
     this.statusText.setScrollFactor(0);
     this.statusText.setDepth(ThemeDepth.hud);
 
-    const rightHudX = canvasWidth - rightMargin - physicalToLogical(44, viewport) - physicalToLogical(8, viewport);
-    this.timeText = scene.add.text(rightHudX, 0, '', {
+    this.timeText = createUiText(scene,layout.rightHudX, 0, '', {
       ...textStyle,
       align: 'right',
     });
@@ -243,63 +291,56 @@ export class PhaserHudView implements HudView {
     this.timeText.setScrollFactor(0);
     this.timeText.setDepth(ThemeDepth.hud);
 
-    const barTop = topMargin + fontSize * 1.4;
-    const barHeight = physicalToLogical(8, viewport);
-    const healthBarWidth = Math.max(1, rightHudX - margin);
     const healthBarBg = scene.add.rectangle(
-      margin + healthBarWidth / 2,
-      barTop + barHeight / 2,
-      healthBarWidth,
-      barHeight,
+      layout.margin + layout.healthBarWidth / 2,
+      layout.barTop + layout.barHeight / 2,
+      layout.healthBarWidth,
+      layout.barHeight,
       0x334155,
     );
     healthBarBg.setScrollFactor(0);
     healthBarBg.setDepth(ThemeDepth.hud);
     this.healthBarFill = scene.add.rectangle(
-      margin,
-      barTop + barHeight / 2,
-      healthBarWidth,
-      barHeight,
+      layout.margin,
+      layout.barTop + layout.barHeight / 2,
+      layout.healthBarWidth,
+      layout.barHeight,
       ThemeColor.danger,
     );
     this.healthBarFill.setOrigin(0, 0.5);
     this.healthBarFill.setScrollFactor(0);
     this.healthBarFill.setDepth(ThemeDepth.hud);
 
-    this.healthText = scene.add.text(margin, barTop + barHeight + physicalToLogical(2, viewport), '', labelStyle);
+    this.healthText = createUiText(scene,layout.margin, layout.barTop + layout.barHeight + physicalToLogical(2, viewport), '', labelStyle);
     this.healthText.setScrollFactor(0);
     this.healthText.setDepth(ThemeDepth.hud);
 
-    const xpTop = barTop + barHeight + labelSize + physicalToLogical(8, viewport);
-    const xpBarWidth = healthBarWidth;
     const xpBarBg = scene.add.rectangle(
-      margin + xpBarWidth / 2,
-      xpTop + barHeight / 2,
-      xpBarWidth,
-      barHeight,
+      layout.margin + layout.healthBarWidth / 2,
+      layout.xpTop + layout.barHeight / 2,
+      layout.healthBarWidth,
+      layout.barHeight,
       0x334155,
     );
     xpBarBg.setScrollFactor(0);
     xpBarBg.setDepth(ThemeDepth.hud);
     this.xpBarFill = scene.add.rectangle(
-      margin,
-      xpTop + barHeight / 2,
-      xpBarWidth,
-      barHeight,
+      layout.margin,
+      layout.xpTop + layout.barHeight / 2,
+      layout.healthBarWidth,
+      layout.barHeight,
       ThemeColor.primary,
     );
     this.xpBarFill.setOrigin(0, 0.5);
     this.xpBarFill.setScrollFactor(0);
     this.xpBarFill.setDepth(ThemeDepth.hud);
 
-    this.levelText = scene.add.text(margin, xpTop + barHeight + physicalToLogical(2, viewport), '', labelStyle);
+    this.levelText = createUiText(scene,layout.margin, layout.xpTop + layout.barHeight + physicalToLogical(2, viewport), '', labelStyle);
     this.levelText.setScrollFactor(0);
     this.levelText.setDepth(ThemeDepth.hud);
 
-    const statsTop = xpTop + barHeight + physicalToLogical(2, viewport) + labelSize + physicalToLogical(8, viewport);
-    const statsStride = labelSize + physicalToLogical(4, viewport);
-    this.timeText.setPosition(rightHudX, statsTop);
-    this.killsText = scene.add.text(rightHudX, statsTop + statsStride, '', {
+    this.timeText.setPosition(layout.rightHudX, layout.statsTop);
+    this.killsText = createUiText(scene,layout.rightHudX, layout.statsTop + layout.statsStride, '', {
       ...labelStyle,
       align: 'right',
     });
@@ -307,7 +348,7 @@ export class PhaserHudView implements HudView {
     this.killsText.setScrollFactor(0);
     this.killsText.setDepth(ThemeDepth.hud);
 
-    this.scrapText = scene.add.text(rightHudX, statsTop + statsStride * 2, '', {
+    this.scrapText = createUiText(scene,layout.rightHudX, layout.statsTop + layout.statsStride * 2, '', {
       ...labelStyle,
       align: 'right',
     });
@@ -333,7 +374,7 @@ export class PhaserHudView implements HudView {
   }
 
   private destroyDisplay(): void {
-
+    this.backing.destroy();
     this.container.destroy(true);
   }
 

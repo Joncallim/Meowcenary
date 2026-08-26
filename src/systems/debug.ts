@@ -4,21 +4,22 @@ import type { Player } from '../entities/Player';
 import type { Modifier } from '../gameplay/stats';
 import type { RunState } from '../gameplay/runState';
 import type { SpawnCurveDefinition } from './types';
+import { createUiText } from '../ui/text';
+import { ThemeDepth } from '../ui/theme';
 
 export class DebugOverlay {
   private readonly text: Phaser.GameObjects.Text;
   private visible = false;
 
   constructor(private readonly scene: Phaser.Scene) {
-    this.text = scene.add
-      .text(45.4, 90.8, '', {
+    this.text = createUiText(scene, 45.4, 90.8, '', {
         backgroundColor: 'rgba(0, 0, 0, 0.65)',
         color: '#d9f99d',
         fontFamily: 'monospace',
         fontSize: '12px',
         padding: { x: 6, y: 4 },
       })
-      .setDepth(10_000)
+      .setDepth(ThemeDepth.debugOverlay)
       .setScrollFactor(0)
       .setVisible(false);
     this.text.setScale(1 / 1.25);

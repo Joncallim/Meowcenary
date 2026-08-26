@@ -6,14 +6,44 @@
       "textureKey": "art-character-scrap-tabby",
       "url": "assets/characters/scrap-tabby/scrap-tabby.png",
       "required": true,
-      "load": { "type": "spritesheet", "frame": { "width": 48, "height": 48 } },
-      "display": { "width": 28, "height": 28 },
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 48,
+          "height": 48
+        }
+      },
+      "display": {
+        "width": 28,
+        "height": 28
+      },
       "clips": {
-        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
-        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 },
-        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
-        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
-      }
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 6,
+          "repeat": -1
+        },
+        "run": {
+          "start": 4,
+          "end": 9,
+          "frameRate": 10,
+          "repeat": -1
+        },
+        "hurt": {
+          "start": 10,
+          "end": 11,
+          "frameRate": 12,
+          "repeat": 0
+        },
+        "defeat": {
+          "start": 12,
+          "end": 15,
+          "frameRate": 8,
+          "repeat": 0
+        }
+      },
+      "sampling": "nearest"
     },
     {
       "id": "character:bolt-hound",
@@ -21,14 +51,44 @@
       "textureKey": "art-character-bolt-hound",
       "url": "assets/characters/bolt-hound/bolt-hound.png",
       "required": true,
-      "load": { "type": "spritesheet", "frame": { "width": 48, "height": 48 } },
-      "display": { "width": 28, "height": 28 },
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 48,
+          "height": 48
+        }
+      },
+      "display": {
+        "width": 28,
+        "height": 28
+      },
       "clips": {
-        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
-        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 },
-        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
-        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
-      }
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 6,
+          "repeat": -1
+        },
+        "run": {
+          "start": 4,
+          "end": 9,
+          "frameRate": 10,
+          "repeat": -1
+        },
+        "hurt": {
+          "start": 10,
+          "end": 11,
+          "frameRate": 12,
+          "repeat": 0
+        },
+        "defeat": {
+          "start": 12,
+          "end": 15,
+          "frameRate": 8,
+          "repeat": 0
+        }
+      },
+      "sampling": "nearest"
     },
     {
       "id": "enemy:dust-mite",
@@ -36,14 +96,44 @@
       "textureKey": "art-enemy-dust-mite",
       "url": "assets/enemies/dust-mite/dust-mite.png",
       "required": true,
-      "load": { "type": "spritesheet", "frame": { "width": 48, "height": 48 } },
-      "display": { "width": 26, "height": 26 },
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 48,
+          "height": 48
+        }
+      },
+      "display": {
+        "width": 26,
+        "height": 26
+      },
       "clips": {
-        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
-        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 },
-        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
-        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
-      }
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 6,
+          "repeat": -1
+        },
+        "run": {
+          "start": 4,
+          "end": 9,
+          "frameRate": 10,
+          "repeat": -1
+        },
+        "hurt": {
+          "start": 10,
+          "end": 11,
+          "frameRate": 12,
+          "repeat": 0
+        },
+        "defeat": {
+          "start": 12,
+          "end": 15,
+          "frameRate": 8,
+          "repeat": 0
+        }
+      },
+      "sampling": "nearest"
     },
     {
       "id": "enemy:junk-rusher",
@@ -51,14 +141,44 @@
       "textureKey": "art-enemy-junk-rusher",
       "url": "assets/enemies/junk-rusher/junk-rusher.png",
       "required": true,
-      "load": { "type": "spritesheet", "frame": { "width": 48, "height": 48 } },
-      "display": { "width": 26, "height": 26 },
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 48,
+          "height": 48
+        }
+      },
+      "display": {
+        "width": 26,
+        "height": 26
+      },
       "clips": {
-        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
-        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 },
-        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
-        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
-      }
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 6,
+          "repeat": -1
+        },
+        "run": {
+          "start": 4,
+          "end": 9,
+          "frameRate": 10,
+          "repeat": -1
+        },
+        "hurt": {
+          "start": 10,
+          "end": 11,
+          "frameRate": 12,
+          "repeat": 0
+        },
+        "defeat": {
+          "start": 12,
+          "end": 15,
+          "frameRate": 8,
+          "repeat": 0
+        }
+      },
+      "sampling": "nearest"
     },
     {
       "id": "enemy:trash-brute",
@@ -66,14 +186,44 @@
       "textureKey": "art-enemy-trash-brute",
       "url": "assets/enemies/trash-brute/trash-brute.png",
       "required": true,
-      "load": { "type": "spritesheet", "frame": { "width": 48, "height": 48 } },
-      "display": { "width": 26, "height": 26 },
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 48,
+          "height": 48
+        }
+      },
+      "display": {
+        "width": 26,
+        "height": 26
+      },
       "clips": {
-        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
-        "run": { "start": 4, "end": 9, "frameRate": 8, "repeat": -1 },
-        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
-        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
-      }
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 6,
+          "repeat": -1
+        },
+        "run": {
+          "start": 4,
+          "end": 9,
+          "frameRate": 8,
+          "repeat": -1
+        },
+        "hurt": {
+          "start": 10,
+          "end": 11,
+          "frameRate": 12,
+          "repeat": 0
+        },
+        "defeat": {
+          "start": 12,
+          "end": 15,
+          "frameRate": 8,
+          "repeat": 0
+        }
+      },
+      "sampling": "nearest"
     },
     {
       "id": "projectile:default",
@@ -81,11 +231,26 @@
       "textureKey": "art-projectile-scrap-shot",
       "url": "assets/projectiles/scrap-shot/scrap-shot.png",
       "required": true,
-      "load": { "type": "spritesheet", "frame": { "width": 16, "height": 16 } },
-      "display": { "width": 8, "height": 8 },
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 16,
+          "height": 16
+        }
+      },
+      "display": {
+        "width": 8,
+        "height": 8
+      },
       "clips": {
-        "fly": { "start": 0, "end": 1, "frameRate": 12, "repeat": -1 }
-      }
+        "fly": {
+          "start": 0,
+          "end": 1,
+          "frameRate": 12,
+          "repeat": -1
+        }
+      },
+      "sampling": "nearest"
     },
     {
       "id": "drop:xp",
@@ -93,302 +258,953 @@
       "textureKey": "art-drop-xp-mote",
       "url": "assets/pickups/xp-mote/xp-mote.png",
       "required": true,
-      "load": { "type": "spritesheet", "frame": { "width": 16, "height": 16 } },
-      "display": { "width": 16, "height": 16 },
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 16,
+          "height": 16
+        }
+      },
+      "display": {
+        "width": 16,
+        "height": 16
+      },
       "clips": {
-        "idle": { "start": 0, "end": 3, "frameRate": 8, "repeat": -1 }
-      }
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 8,
+          "repeat": -1
+        }
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "weapon-icon:pistol:t1", "kind": "weapon-icon", "textureKey": "art-weapon-icon-pistol-t1",
-      "url": "assets/weapon-icons/weapon-icon-pistol-t1/weapon-icon-pistol-t1.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 20 }
+      "id": "weapon-icon:pistol:t1",
+      "kind": "weapon-icon",
+      "textureKey": "art-weapon-icon-pistol-t1",
+      "url": "assets/weapon-icons/weapon-icon-pistol-t1/weapon-icon-pistol-t1.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 20
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "weapon-icon:pistol:t2", "kind": "weapon-icon", "textureKey": "art-weapon-icon-pistol-t2",
-      "url": "assets/weapon-icons/weapon-icon-pistol-t2/weapon-icon-pistol-t2.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 20 }
+      "id": "weapon-icon:pistol:t2",
+      "kind": "weapon-icon",
+      "textureKey": "art-weapon-icon-pistol-t2",
+      "url": "assets/weapon-icons/weapon-icon-pistol-t2/weapon-icon-pistol-t2.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 20
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "weapon-icon:pistol:t3", "kind": "weapon-icon", "textureKey": "art-weapon-icon-pistol-t3",
-      "url": "assets/weapon-icons/weapon-icon-pistol-t3/weapon-icon-pistol-t3.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 20 }
+      "id": "weapon-icon:pistol:t3",
+      "kind": "weapon-icon",
+      "textureKey": "art-weapon-icon-pistol-t3",
+      "url": "assets/weapon-icons/weapon-icon-pistol-t3/weapon-icon-pistol-t3.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 20
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "weapon-icon:smg:t1", "kind": "weapon-icon", "textureKey": "art-weapon-icon-smg-t1",
-      "url": "assets/weapon-icons/weapon-icon-smg-t1/weapon-icon-smg-t1.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 20 }
+      "id": "weapon-icon:smg:t1",
+      "kind": "weapon-icon",
+      "textureKey": "art-weapon-icon-smg-t1",
+      "url": "assets/weapon-icons/weapon-icon-smg-t1/weapon-icon-smg-t1.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 20
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "weapon-icon:smg:t2", "kind": "weapon-icon", "textureKey": "art-weapon-icon-smg-t2",
-      "url": "assets/weapon-icons/weapon-icon-smg-t2/weapon-icon-smg-t2.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 20 }
+      "id": "weapon-icon:smg:t2",
+      "kind": "weapon-icon",
+      "textureKey": "art-weapon-icon-smg-t2",
+      "url": "assets/weapon-icons/weapon-icon-smg-t2/weapon-icon-smg-t2.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 20
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "weapon-icon:smg:t3", "kind": "weapon-icon", "textureKey": "art-weapon-icon-smg-t3",
-      "url": "assets/weapon-icons/weapon-icon-smg-t3/weapon-icon-smg-t3.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 20 }
+      "id": "weapon-icon:smg:t3",
+      "kind": "weapon-icon",
+      "textureKey": "art-weapon-icon-smg-t3",
+      "url": "assets/weapon-icons/weapon-icon-smg-t3/weapon-icon-smg-t3.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 20
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "weapon-icon:shotgun:t1", "kind": "weapon-icon", "textureKey": "art-weapon-icon-shotgun-t1",
-      "url": "assets/weapon-icons/weapon-icon-shotgun-t1/weapon-icon-shotgun-t1.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 20 }
+      "id": "weapon-icon:shotgun:t1",
+      "kind": "weapon-icon",
+      "textureKey": "art-weapon-icon-shotgun-t1",
+      "url": "assets/weapon-icons/weapon-icon-shotgun-t1/weapon-icon-shotgun-t1.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 20
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "weapon-icon:shotgun:t2", "kind": "weapon-icon", "textureKey": "art-weapon-icon-shotgun-t2",
-      "url": "assets/weapon-icons/weapon-icon-shotgun-t2/weapon-icon-shotgun-t2.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 20 }
+      "id": "weapon-icon:shotgun:t2",
+      "kind": "weapon-icon",
+      "textureKey": "art-weapon-icon-shotgun-t2",
+      "url": "assets/weapon-icons/weapon-icon-shotgun-t2/weapon-icon-shotgun-t2.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 20
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "weapon-icon:shotgun:t3", "kind": "weapon-icon", "textureKey": "art-weapon-icon-shotgun-t3",
-      "url": "assets/weapon-icons/weapon-icon-shotgun-t3/weapon-icon-shotgun-t3.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 20 }
+      "id": "weapon-icon:shotgun:t3",
+      "kind": "weapon-icon",
+      "textureKey": "art-weapon-icon-shotgun-t3",
+      "url": "assets/weapon-icons/weapon-icon-shotgun-t3/weapon-icon-shotgun-t3.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 20
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "weapon-held:pistol:t1", "kind": "weapon-held", "textureKey": "art-weapon-held-pistol-t1",
-      "url": "assets/held-weapons/weapon-held-pistol-t1/weapon-held-pistol-t1.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 28, "height": 18 }
+      "id": "weapon-held:pistol:t1",
+      "kind": "weapon-held",
+      "textureKey": "art-weapon-held-pistol-t1",
+      "url": "assets/held-weapons/weapon-held-pistol-t1/weapon-held-pistol-t1.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 28,
+        "height": 18
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "weapon-held:pistol:t2", "kind": "weapon-held", "textureKey": "art-weapon-held-pistol-t2",
-      "url": "assets/held-weapons/weapon-held-pistol-t2/weapon-held-pistol-t2.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 28, "height": 18 }
+      "id": "weapon-held:pistol:t2",
+      "kind": "weapon-held",
+      "textureKey": "art-weapon-held-pistol-t2",
+      "url": "assets/held-weapons/weapon-held-pistol-t2/weapon-held-pistol-t2.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 28,
+        "height": 18
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "weapon-held:pistol:t3", "kind": "weapon-held", "textureKey": "art-weapon-held-pistol-t3",
-      "url": "assets/held-weapons/weapon-held-pistol-t3/weapon-held-pistol-t3.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 28, "height": 18 }
+      "id": "weapon-held:pistol:t3",
+      "kind": "weapon-held",
+      "textureKey": "art-weapon-held-pistol-t3",
+      "url": "assets/held-weapons/weapon-held-pistol-t3/weapon-held-pistol-t3.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 28,
+        "height": 18
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "weapon-held:smg:t1", "kind": "weapon-held", "textureKey": "art-weapon-held-smg-t1",
-      "url": "assets/held-weapons/weapon-held-smg-t1/weapon-held-smg-t1.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 28, "height": 18 }
+      "id": "weapon-held:smg:t1",
+      "kind": "weapon-held",
+      "textureKey": "art-weapon-held-smg-t1",
+      "url": "assets/held-weapons/weapon-held-smg-t1/weapon-held-smg-t1.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 28,
+        "height": 18
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "weapon-held:smg:t2", "kind": "weapon-held", "textureKey": "art-weapon-held-smg-t2",
-      "url": "assets/held-weapons/weapon-held-smg-t2/weapon-held-smg-t2.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 28, "height": 18 }
+      "id": "weapon-held:smg:t2",
+      "kind": "weapon-held",
+      "textureKey": "art-weapon-held-smg-t2",
+      "url": "assets/held-weapons/weapon-held-smg-t2/weapon-held-smg-t2.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 28,
+        "height": 18
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "weapon-held:smg:t3", "kind": "weapon-held", "textureKey": "art-weapon-held-smg-t3",
-      "url": "assets/held-weapons/weapon-held-smg-t3/weapon-held-smg-t3.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 28, "height": 18 }
+      "id": "weapon-held:smg:t3",
+      "kind": "weapon-held",
+      "textureKey": "art-weapon-held-smg-t3",
+      "url": "assets/held-weapons/weapon-held-smg-t3/weapon-held-smg-t3.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 28,
+        "height": 18
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "weapon-held:shotgun:t1", "kind": "weapon-held", "textureKey": "art-weapon-held-shotgun-t1",
-      "url": "assets/held-weapons/weapon-held-shotgun-t1/weapon-held-shotgun-t1.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 28, "height": 18 }
+      "id": "weapon-held:shotgun:t1",
+      "kind": "weapon-held",
+      "textureKey": "art-weapon-held-shotgun-t1",
+      "url": "assets/held-weapons/weapon-held-shotgun-t1/weapon-held-shotgun-t1.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 28,
+        "height": 18
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "weapon-held:shotgun:t2", "kind": "weapon-held", "textureKey": "art-weapon-held-shotgun-t2",
-      "url": "assets/held-weapons/weapon-held-shotgun-t2/weapon-held-shotgun-t2.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 28, "height": 18 }
+      "id": "weapon-held:shotgun:t2",
+      "kind": "weapon-held",
+      "textureKey": "art-weapon-held-shotgun-t2",
+      "url": "assets/held-weapons/weapon-held-shotgun-t2/weapon-held-shotgun-t2.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 28,
+        "height": 18
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "weapon-held:shotgun:t3", "kind": "weapon-held", "textureKey": "art-weapon-held-shotgun-t3",
-      "url": "assets/held-weapons/weapon-held-shotgun-t3/weapon-held-shotgun-t3.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 28, "height": 18 }
+      "id": "weapon-held:shotgun:t3",
+      "kind": "weapon-held",
+      "textureKey": "art-weapon-held-shotgun-t3",
+      "url": "assets/held-weapons/weapon-held-shotgun-t3/weapon-held-shotgun-t3.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 28,
+        "height": 18
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "projectile:pistol", "kind": "projectile", "textureKey": "art-projectile-pistol",
-      "url": "assets/projectiles/projectile-pistol/projectile-pistol.png", "required": true,
-      "load": { "type": "spritesheet", "frame": { "width": 16, "height": 16 } },
-      "display": { "width": 8, "height": 8 }, "clips": { "fly": { "start": 0, "end": 1, "frameRate": 12, "repeat": -1 } }
+      "id": "projectile:pistol",
+      "kind": "projectile",
+      "textureKey": "art-projectile-pistol",
+      "url": "assets/projectiles/projectile-pistol/projectile-pistol.png",
+      "required": true,
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 16,
+          "height": 16
+        }
+      },
+      "display": {
+        "width": 8,
+        "height": 8
+      },
+      "clips": {
+        "fly": {
+          "start": 0,
+          "end": 1,
+          "frameRate": 12,
+          "repeat": -1
+        }
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "projectile:smg", "kind": "projectile", "textureKey": "art-projectile-smg",
-      "url": "assets/projectiles/projectile-smg/projectile-smg.png", "required": true,
-      "load": { "type": "spritesheet", "frame": { "width": 16, "height": 16 } },
-      "display": { "width": 7, "height": 7 }, "clips": { "fly": { "start": 0, "end": 1, "frameRate": 16, "repeat": -1 } }
+      "id": "projectile:smg",
+      "kind": "projectile",
+      "textureKey": "art-projectile-smg",
+      "url": "assets/projectiles/projectile-smg/projectile-smg.png",
+      "required": true,
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 16,
+          "height": 16
+        }
+      },
+      "display": {
+        "width": 7,
+        "height": 7
+      },
+      "clips": {
+        "fly": {
+          "start": 0,
+          "end": 1,
+          "frameRate": 16,
+          "repeat": -1
+        }
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "projectile:shotgun", "kind": "projectile", "textureKey": "art-projectile-shotgun",
-      "url": "assets/projectiles/projectile-shotgun/projectile-shotgun.png", "required": true,
-      "load": { "type": "spritesheet", "frame": { "width": 16, "height": 16 } },
-      "display": { "width": 9, "height": 9 }, "clips": { "fly": { "start": 0, "end": 1, "frameRate": 10, "repeat": -1 } }
+      "id": "projectile:shotgun",
+      "kind": "projectile",
+      "textureKey": "art-projectile-shotgun",
+      "url": "assets/projectiles/projectile-shotgun/projectile-shotgun.png",
+      "required": true,
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 16,
+          "height": 16
+        }
+      },
+      "display": {
+        "width": 9,
+        "height": 9
+      },
+      "clips": {
+        "fly": {
+          "start": 0,
+          "end": 1,
+          "frameRate": 10,
+          "repeat": -1
+        }
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "drop:scrap", "kind": "drop", "textureKey": "art-drop-scrap",
-      "url": "assets/pickups/drop-scrap/drop-scrap.png", "required": true,
-      "load": { "type": "spritesheet", "frame": { "width": 20, "height": 20 } },
-      "display": { "width": 18, "height": 18 }, "clips": { "idle": { "start": 0, "end": 3, "frameRate": 7, "repeat": -1 } }
+      "id": "drop:scrap",
+      "kind": "drop",
+      "textureKey": "art-drop-scrap",
+      "url": "assets/pickups/drop-scrap/drop-scrap.png",
+      "required": true,
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 20,
+          "height": 20
+        }
+      },
+      "display": {
+        "width": 18,
+        "height": 18
+      },
+      "clips": {
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 7,
+          "repeat": -1
+        }
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "drop:chest", "kind": "drop", "textureKey": "art-drop-chest",
-      "url": "assets/pickups/drop-chest/drop-chest.png", "required": true,
-      "load": { "type": "spritesheet", "frame": { "width": 20, "height": 20 } },
-      "display": { "width": 20, "height": 20 }, "clips": { "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 } }
+      "id": "drop:chest",
+      "kind": "drop",
+      "textureKey": "art-drop-chest",
+      "url": "assets/pickups/drop-chest/drop-chest.png",
+      "required": true,
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 20,
+          "height": 20
+        }
+      },
+      "display": {
+        "width": 20,
+        "height": 20
+      },
+      "clips": {
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 6,
+          "repeat": -1
+        }
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "drop:weapon", "kind": "drop", "textureKey": "art-drop-weapon",
-      "url": "assets/pickups/drop-weapon/drop-weapon.png", "required": true,
-      "load": { "type": "spritesheet", "frame": { "width": 20, "height": 20 } },
-      "display": { "width": 20, "height": 20 }, "clips": { "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 } }
+      "id": "drop:weapon",
+      "kind": "drop",
+      "textureKey": "art-drop-weapon",
+      "url": "assets/pickups/drop-weapon/drop-weapon.png",
+      "required": true,
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 20,
+          "height": 20
+        }
+      },
+      "display": {
+        "width": 20,
+        "height": 20
+      },
+      "clips": {
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 6,
+          "repeat": -1
+        }
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "world:junkyard-floor:base", "kind": "world", "textureKey": "art-world-junkyard-floor-base",
-      "url": "assets/world/junkyard-floor-base/junkyard-floor-base.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+      "id": "world:junkyard-floor:base",
+      "kind": "world",
+      "textureKey": "art-world-junkyard-floor-base",
+      "url": "assets/world/junkyard-floor-base/junkyard-floor-base.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 32
+      },
+      "sampling": "linear"
     },
     {
-      "id": "world:junkyard-floor:patch-a", "kind": "world", "textureKey": "art-world-junkyard-floor-patch-a",
-      "url": "assets/world/junkyard-floor-patch-a/junkyard-floor-patch-a.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+      "id": "world:junkyard-floor:patch-a",
+      "kind": "world",
+      "textureKey": "art-world-junkyard-floor-patch-a",
+      "url": "assets/world/junkyard-floor-patch-a/junkyard-floor-patch-a.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 32
+      },
+      "sampling": "linear"
     },
     {
-      "id": "world:junkyard-floor:patch-b", "kind": "world", "textureKey": "art-world-junkyard-floor-patch-b",
-      "url": "assets/world/junkyard-floor-patch-b/junkyard-floor-patch-b.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+      "id": "world:junkyard-floor:patch-b",
+      "kind": "world",
+      "textureKey": "art-world-junkyard-floor-patch-b",
+      "url": "assets/world/junkyard-floor-patch-b/junkyard-floor-patch-b.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 32
+      },
+      "sampling": "linear"
     },
     {
-      "id": "world:junkyard-boundary:straight", "kind": "world", "textureKey": "art-world-junkyard-boundary-straight",
-      "url": "assets/world/junkyard-boundary-straight/junkyard-boundary-straight.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+      "id": "world:junkyard-boundary:straight",
+      "kind": "world",
+      "textureKey": "art-world-junkyard-boundary-straight",
+      "url": "assets/world/junkyard-boundary-straight/junkyard-boundary-straight.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 32
+      },
+      "sampling": "linear"
     },
     {
-      "id": "world:junkyard-boundary:corner", "kind": "world", "textureKey": "art-world-junkyard-boundary-corner",
-      "url": "assets/world/junkyard-boundary-corner/junkyard-boundary-corner.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+      "id": "world:junkyard-boundary:corner",
+      "kind": "world",
+      "textureKey": "art-world-junkyard-boundary-corner",
+      "url": "assets/world/junkyard-boundary-corner/junkyard-boundary-corner.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 32
+      },
+      "sampling": "linear"
     },
     {
-      "id": "world:junkyard-boundary:patch", "kind": "world", "textureKey": "art-world-junkyard-boundary-patch",
-      "url": "assets/world/junkyard-boundary-patch/junkyard-boundary-patch.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+      "id": "world:junkyard-boundary:patch",
+      "kind": "world",
+      "textureKey": "art-world-junkyard-boundary-patch",
+      "url": "assets/world/junkyard-boundary-patch/junkyard-boundary-patch.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 32
+      },
+      "sampling": "linear"
     },
     {
-      "id": "world:junkyard-boundary:gate", "kind": "world", "textureKey": "art-world-junkyard-boundary-gate",
-      "url": "assets/world/junkyard-boundary-gate/junkyard-boundary-gate.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+      "id": "world:junkyard-boundary:gate",
+      "kind": "world",
+      "textureKey": "art-world-junkyard-boundary-gate",
+      "url": "assets/world/junkyard-boundary-gate/junkyard-boundary-gate.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 32
+      },
+      "sampling": "linear"
     },
     {
-      "id": "world:prop:tyre-pile", "kind": "world", "textureKey": "art-world-prop-tyre-pile",
-      "url": "assets/world/prop-tyre-pile/prop-tyre-pile.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+      "id": "world:prop:tyre-pile",
+      "kind": "world",
+      "textureKey": "art-world-prop-tyre-pile",
+      "url": "assets/world/prop-tyre-pile/prop-tyre-pile.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 32
+      },
+      "sampling": "linear"
     },
     {
-      "id": "world:prop:crate", "kind": "world", "textureKey": "art-world-prop-crate",
-      "url": "assets/world/prop-crate/prop-crate.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+      "id": "world:prop:crate",
+      "kind": "world",
+      "textureKey": "art-world-prop-crate",
+      "url": "assets/world/prop-crate/prop-crate.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 32
+      },
+      "sampling": "linear"
     },
     {
-      "id": "world:prop:engine-block", "kind": "world", "textureKey": "art-world-prop-engine-block",
-      "url": "assets/world/prop-engine-block/prop-engine-block.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+      "id": "world:prop:engine-block",
+      "kind": "world",
+      "textureKey": "art-world-prop-engine-block",
+      "url": "assets/world/prop-engine-block/prop-engine-block.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 32
+      },
+      "sampling": "linear"
     },
     {
-      "id": "world:prop:scrap-heap", "kind": "world", "textureKey": "art-world-prop-scrap-heap",
-      "url": "assets/world/prop-scrap-heap/prop-scrap-heap.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+      "id": "world:prop:scrap-heap",
+      "kind": "world",
+      "textureKey": "art-world-prop-scrap-heap",
+      "url": "assets/world/prop-scrap-heap/prop-scrap-heap.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 32
+      },
+      "sampling": "linear"
     },
     {
-      "id": "world:prop:oil-stain", "kind": "world", "textureKey": "art-world-prop-oil-stain",
-      "url": "assets/world/prop-oil-stain/prop-oil-stain.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+      "id": "world:prop:oil-stain",
+      "kind": "world",
+      "textureKey": "art-world-prop-oil-stain",
+      "url": "assets/world/prop-oil-stain/prop-oil-stain.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 32
+      },
+      "sampling": "linear"
     },
     {
-      "id": "world:prop:warning-sign", "kind": "world", "textureKey": "art-world-prop-warning-sign",
-      "url": "assets/world/prop-warning-sign/prop-warning-sign.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 32, "height": 32 }
+      "id": "world:prop:warning-sign",
+      "kind": "world",
+      "textureKey": "art-world-prop-warning-sign",
+      "url": "assets/world/prop-warning-sign/prop-warning-sign.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 32,
+        "height": 32
+      },
+      "sampling": "linear"
     },
     {
-      "id": "world:landmark:hanging-press", "kind": "world", "textureKey": "art-world-landmark-hanging-press",
-      "url": "assets/world/landmark-hanging-press/landmark-hanging-press.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 64, "height": 64 }
+      "id": "world:landmark:hanging-press",
+      "kind": "world",
+      "textureKey": "art-world-landmark-hanging-press",
+      "url": "assets/world/landmark-hanging-press/landmark-hanging-press.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 64,
+        "height": 64
+      },
+      "sampling": "linear"
     },
     {
-      "id": "world:landmark:barrel-power-stack", "kind": "world", "textureKey": "art-world-landmark-barrel-power-stack",
-      "url": "assets/world/landmark-barrel-power-stack/landmark-barrel-power-stack.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 64, "height": 64 }
+      "id": "world:landmark:barrel-power-stack",
+      "kind": "world",
+      "textureKey": "art-world-landmark-barrel-power-stack",
+      "url": "assets/world/landmark-barrel-power-stack/landmark-barrel-power-stack.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 64,
+        "height": 64
+      },
+      "sampling": "linear"
     },
     {
-      "id": "upgrade-icon:quick-paws", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-quick-paws",
-      "url": "assets/upgrade-icons/upgrade-icon-quick-paws/upgrade-icon-quick-paws.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+      "id": "upgrade-icon:quick-paws",
+      "kind": "upgrade-icon",
+      "textureKey": "art-upgrade-icon-quick-paws",
+      "url": "assets/upgrade-icons/upgrade-icon-quick-paws/upgrade-icon-quick-paws.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 36,
+        "height": 36
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "upgrade-icon:extra-scrap", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-extra-scrap",
-      "url": "assets/upgrade-icons/upgrade-icon-extra-scrap/upgrade-icon-extra-scrap.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+      "id": "upgrade-icon:extra-scrap",
+      "kind": "upgrade-icon",
+      "textureKey": "art-upgrade-icon-extra-scrap",
+      "url": "assets/upgrade-icons/upgrade-icon-extra-scrap/upgrade-icon-extra-scrap.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 36,
+        "height": 36
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "upgrade-icon:hot-barrel", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-hot-barrel",
-      "url": "assets/upgrade-icons/upgrade-icon-hot-barrel/upgrade-icon-hot-barrel.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+      "id": "upgrade-icon:hot-barrel",
+      "kind": "upgrade-icon",
+      "textureKey": "art-upgrade-icon-hot-barrel",
+      "url": "assets/upgrade-icons/upgrade-icon-hot-barrel/upgrade-icon-hot-barrel.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 36,
+        "height": 36
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "upgrade-icon:scrap-magnet", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-scrap-magnet",
-      "url": "assets/upgrade-icons/upgrade-icon-scrap-magnet/upgrade-icon-scrap-magnet.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+      "id": "upgrade-icon:scrap-magnet",
+      "kind": "upgrade-icon",
+      "textureKey": "art-upgrade-icon-scrap-magnet",
+      "url": "assets/upgrade-icons/upgrade-icon-scrap-magnet/upgrade-icon-scrap-magnet.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 36,
+        "height": 36
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "upgrade-icon:reinforced-coat", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-reinforced-coat",
-      "url": "assets/upgrade-icons/upgrade-icon-reinforced-coat/upgrade-icon-reinforced-coat.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+      "id": "upgrade-icon:reinforced-coat",
+      "kind": "upgrade-icon",
+      "textureKey": "art-upgrade-icon-reinforced-coat",
+      "url": "assets/upgrade-icons/upgrade-icon-reinforced-coat/upgrade-icon-reinforced-coat.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 36,
+        "height": 36
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "upgrade-icon:fast-learner", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-fast-learner",
-      "url": "assets/upgrade-icons/upgrade-icon-fast-learner/upgrade-icon-fast-learner.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+      "id": "upgrade-icon:fast-learner",
+      "kind": "upgrade-icon",
+      "textureKey": "art-upgrade-icon-fast-learner",
+      "url": "assets/upgrade-icons/upgrade-icon-fast-learner/upgrade-icon-fast-learner.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 36,
+        "height": 36
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "upgrade-icon:heavy-rounds", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-heavy-rounds",
-      "url": "assets/upgrade-icons/upgrade-icon-heavy-rounds/upgrade-icon-heavy-rounds.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+      "id": "upgrade-icon:heavy-rounds",
+      "kind": "upgrade-icon",
+      "textureKey": "art-upgrade-icon-heavy-rounds",
+      "url": "assets/upgrade-icons/upgrade-icon-heavy-rounds/upgrade-icon-heavy-rounds.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 36,
+        "height": 36
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "upgrade-icon:long-barrel", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-long-barrel",
-      "url": "assets/upgrade-icons/upgrade-icon-long-barrel/upgrade-icon-long-barrel.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+      "id": "upgrade-icon:long-barrel",
+      "kind": "upgrade-icon",
+      "textureKey": "art-upgrade-icon-long-barrel",
+      "url": "assets/upgrade-icons/upgrade-icon-long-barrel/upgrade-icon-long-barrel.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 36,
+        "height": 36
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "upgrade-icon:split-shot", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-split-shot",
-      "url": "assets/upgrade-icons/upgrade-icon-split-shot/upgrade-icon-split-shot.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+      "id": "upgrade-icon:split-shot",
+      "kind": "upgrade-icon",
+      "textureKey": "art-upgrade-icon-split-shot",
+      "url": "assets/upgrade-icons/upgrade-icon-split-shot/upgrade-icon-split-shot.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 36,
+        "height": 36
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "upgrade-icon:punch-through", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-punch-through",
-      "url": "assets/upgrade-icons/upgrade-icon-punch-through/upgrade-icon-punch-through.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+      "id": "upgrade-icon:punch-through",
+      "kind": "upgrade-icon",
+      "textureKey": "art-upgrade-icon-punch-through",
+      "url": "assets/upgrade-icons/upgrade-icon-punch-through/upgrade-icon-punch-through.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 36,
+        "height": 36
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "upgrade-icon:glass-cannon", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-glass-cannon",
-      "url": "assets/upgrade-icons/upgrade-icon-glass-cannon/upgrade-icon-glass-cannon.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+      "id": "upgrade-icon:glass-cannon",
+      "kind": "upgrade-icon",
+      "textureKey": "art-upgrade-icon-glass-cannon",
+      "url": "assets/upgrade-icons/upgrade-icon-glass-cannon/upgrade-icon-glass-cannon.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 36,
+        "height": 36
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "upgrade-icon:run-and-gun", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-run-and-gun",
-      "url": "assets/upgrade-icons/upgrade-icon-run-and-gun/upgrade-icon-run-and-gun.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+      "id": "upgrade-icon:run-and-gun",
+      "kind": "upgrade-icon",
+      "textureKey": "art-upgrade-icon-run-and-gun",
+      "url": "assets/upgrade-icons/upgrade-icon-run-and-gun/upgrade-icon-run-and-gun.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 36,
+        "height": 36
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "upgrade-icon:pistol-deadeye", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-pistol-deadeye",
-      "url": "assets/upgrade-icons/upgrade-icon-pistol-deadeye/upgrade-icon-pistol-deadeye.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+      "id": "upgrade-icon:pistol-deadeye",
+      "kind": "upgrade-icon",
+      "textureKey": "art-upgrade-icon-pistol-deadeye",
+      "url": "assets/upgrade-icons/upgrade-icon-pistol-deadeye/upgrade-icon-pistol-deadeye.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 36,
+        "height": 36
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "upgrade-icon:pistol-needle-rounds", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-pistol-needle-rounds",
-      "url": "assets/upgrade-icons/upgrade-icon-pistol-needle-rounds/upgrade-icon-pistol-needle-rounds.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+      "id": "upgrade-icon:pistol-needle-rounds",
+      "kind": "upgrade-icon",
+      "textureKey": "art-upgrade-icon-pistol-needle-rounds",
+      "url": "assets/upgrade-icons/upgrade-icon-pistol-needle-rounds/upgrade-icon-pistol-needle-rounds.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 36,
+        "height": 36
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "upgrade-icon:smg-overclock", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-smg-overclock",
-      "url": "assets/upgrade-icons/upgrade-icon-smg-overclock/upgrade-icon-smg-overclock.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+      "id": "upgrade-icon:smg-overclock",
+      "kind": "upgrade-icon",
+      "textureKey": "art-upgrade-icon-smg-overclock",
+      "url": "assets/upgrade-icons/upgrade-icon-smg-overclock/upgrade-icon-smg-overclock.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 36,
+        "height": 36
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "upgrade-icon:smg-spray", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-smg-spray",
-      "url": "assets/upgrade-icons/upgrade-icon-smg-spray/upgrade-icon-smg-spray.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+      "id": "upgrade-icon:smg-spray",
+      "kind": "upgrade-icon",
+      "textureKey": "art-upgrade-icon-smg-spray",
+      "url": "assets/upgrade-icons/upgrade-icon-smg-spray/upgrade-icon-smg-spray.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 36,
+        "height": 36
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "upgrade-icon:shotgun-buckshot", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-shotgun-buckshot",
-      "url": "assets/upgrade-icons/upgrade-icon-shotgun-buckshot/upgrade-icon-shotgun-buckshot.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+      "id": "upgrade-icon:shotgun-buckshot",
+      "kind": "upgrade-icon",
+      "textureKey": "art-upgrade-icon-shotgun-buckshot",
+      "url": "assets/upgrade-icons/upgrade-icon-shotgun-buckshot/upgrade-icon-shotgun-buckshot.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 36,
+        "height": 36
+      },
+      "sampling": "nearest"
     },
     {
-      "id": "upgrade-icon:shotgun-breacher", "kind": "upgrade-icon", "textureKey": "art-upgrade-icon-shotgun-breacher",
-      "url": "assets/upgrade-icons/upgrade-icon-shotgun-breacher/upgrade-icon-shotgun-breacher.png", "required": true,
-      "load": { "type": "image" }, "display": { "width": 36, "height": 36 }
+      "id": "upgrade-icon:shotgun-breacher",
+      "kind": "upgrade-icon",
+      "textureKey": "art-upgrade-icon-shotgun-breacher",
+      "url": "assets/upgrade-icons/upgrade-icon-shotgun-breacher/upgrade-icon-shotgun-breacher.png",
+      "required": true,
+      "load": {
+        "type": "image"
+      },
+      "display": {
+        "width": 36,
+        "height": 36
+      },
+      "sampling": "nearest"
     }
   ]
 }

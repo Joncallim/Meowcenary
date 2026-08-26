@@ -219,6 +219,7 @@ describe('PhaserRunSummaryView', () => {
     strokeWidth: number;
     strokeColor?: number;
     strokeAlpha: number;
+    resolution?: number;
   }
 
   function createFakeScene() {
@@ -280,6 +281,10 @@ describe('PhaserRunSummaryView', () => {
           return api;
         },
         setDepth() {
+          return api;
+        },
+        setResolution(resolution: number) {
+          state.resolution = resolution;
           return api;
         },
         setStrokeStyle(width: number, color: number, alpha: number) {
@@ -360,12 +365,13 @@ describe('PhaserRunSummaryView', () => {
           objects.push(container);
           return container;
         },
-        text: (_x: number, _y: number, text: string) => {
+        text: (_x: number, _y: number, text: string, style: { resolution?: number } = {}) => {
           if (failNextText) {
             failNextText = false;
             throw new Error('Injected text factory failure');
           }
-          return own(fakeObject('text', text));
+          if (style.resolution !== 2) throw new Error('UI text must use resolution 2');
+          return own(fakeObject('text', text).setResolution(style.resolution));
         },
         rectangle: (_x: number, _y: number, width: number, height: number) =>
           own(fakeObject('rect', '', width, height)),

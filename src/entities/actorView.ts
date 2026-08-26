@@ -2,6 +2,18 @@ import Phaser from 'phaser';
 import { visualAnimationKey } from '../systems/visualArt';
 import type { VisualArtBinding } from '../systems/types';
 
+/** Presentation-only multiplier. Physics bodies retain their authored radii. */
+export const ACTOR_VISUAL_SCALE_BY_KIND = Object.freeze({
+  character: 1.30,
+  enemy: 1.30,
+});
+
+export function actorVisualFactor(binding: Readonly<VisualArtBinding>): number {
+  return binding.kind === 'character' || binding.kind === 'enemy'
+    ? ACTOR_VISUAL_SCALE_BY_KIND[binding.kind]
+    : 1;
+}
+
 export interface ActorPose {
   readonly x: number;
   readonly y: number;
@@ -181,8 +193,8 @@ export function createAnimatedActorView(
     .setDepth(depth)
     .setOrigin(0.5)
     .setScale(
-      binding.display.width / binding.load.frame.width,
-      binding.display.height / binding.load.frame.height,
+      binding.display.width / binding.load.frame.width * actorVisualFactor(binding),
+      binding.display.height / binding.load.frame.height * actorVisualFactor(binding),
     );
   const hurt = binding.clips.hurt ? visualAnimationKey(binding.id, 'hurt') : undefined;
   const defeat = binding.clips.defeat ? visualAnimationKey(binding.id, 'defeat') : undefined;
@@ -203,19 +215,24 @@ export function createStaticArtSprite(
   scene: Phaser.Scene,
   binding: Readonly<VisualArtBinding> | undefined,
   depth: number,
+  visualFactor = 1,
 ): Phaser.GameObjects.Sprite | undefined {
   if (!binding || !scene.textures.exists(binding.textureKey)) return undefined;
+  // Static sprites service projectiles and drops too. The explicit multiplier
+  // is actor-only so a future non-actor caller cannot accidentally inherit
+  // the R3 readability enlargement.
+  const actorOnlyFactor = binding.kind === 'character' || binding.kind === 'enemy' ? visualFactor : 1;
   const frame = binding.load.type === 'spritesheet' ? 0 : undefined;
   const sprite = scene.add.sprite(0, 0, binding.textureKey, frame)
     .setDepth(depth)
     .setOrigin(0.5);
   if (binding.load.type === 'spritesheet') {
     sprite.setScale(
-      binding.display.width / binding.load.frame.width,
-      binding.display.height / binding.load.frame.height,
+      binding.display.width / binding.load.frame.width * actorOnlyFactor,
+      binding.display.height / binding.load.frame.height * actorOnlyFactor,
     );
   } else {
-    sprite.setDisplaySize(binding.display.width, binding.display.height);
+    sprite.setDisplaySize(binding.display.width * actorOnlyFactor, binding.display.height * actorOnlyFactor);
   }
   sprite
     .setActive(false)

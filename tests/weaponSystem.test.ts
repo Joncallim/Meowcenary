@@ -142,6 +142,7 @@ describe('WeaponSystem', () => {
   async function createHarness(options: {
     visualArt?: VisualArtLookup;
     heldWeapon?: HeldWeaponPresentation;
+    weaponId?: string;
   } = {}): Promise<TestHarness> {
     const module = await import('../src/systems/WeaponSystem');
     WeaponSystemCtor = module.WeaponSystem;
@@ -154,14 +155,14 @@ describe('WeaponSystem', () => {
       throw new Error('missing validated dust-mite');
     }
     const registry = new DataWeaponRegistry(data);
-    const pistol = registry.weaponById('scrap-pistol-t1');
-    if (!pistol) {
-      throw new Error('missing pistol');
+    const weapon = registry.weaponById(options.weaponId ?? 'scrap-pistol-t1');
+    if (!weapon) {
+      throw new Error(`missing weapon ${options.weaponId ?? 'scrap-pistol-t1'}`);
     }
 
     const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
     runState.status = 'active';
-    runState.equipped = [registry.createWeaponInstance(pistol)];
+    runState.equipped = [registry.createWeaponInstance(weapon)];
 
     const metaUpgrades = new DataMetaUpgradeRegistry(data);
     const arenas = new DataArenaRegistry(data);
@@ -528,10 +529,13 @@ describe('WeaponSystem', () => {
   });
 
   it('destroys every owned projectile exactly once on system teardown', async () => {
-    const harness = await createHarness();
+    // R3 shortens pistol range below one pistol firing interval, so a second
+    // pistol shot correctly reuses the released projectile. Use the rapid SMG
+    // to exercise two simultaneously-owned projectiles instead.
+    const harness = await createHarness({ weaponId: 'can-smg-t1' });
 
-    harness.system.update(650);
-    harness.system.update(650);
+    harness.system.update(145);
+    harness.system.update(145);
     const destroyed = harness.projectileGroup.added.map((sprite) => sprite.destroyed);
     expect(destroyed.every((flag) => !flag)).toBe(true);
     expect(harness.system.allocatedProjectileCount).toBe(2);
@@ -572,7 +576,7 @@ describe('WeaponSystem', () => {
   it('presents the definition-owned held silhouette without changing fire events', async () => {
     const heldBinding = {
       id: 'weapon-held:pistol:t1', kind: 'weapon-held', textureKey: 'held',
-      url: 'assets/held.png', required: true, load: { type: 'image' },
+      url: 'assets/held.png', required: true, sampling: 'nearest', load: { type: 'image' },
       display: { width: 28, height: 18 },
     } as const;
     const heldWeapon = {
@@ -674,7 +678,8 @@ describe('WeaponSystem', () => {
       textureKey: 'art-projectile-scrap-shot',
       url: 'assets/projectiles/scrap-shot/scrap-shot.png',
       required: true,
-      load: { type: 'spritesheet', frame: { width: 16, height: 16 } },
+             sampling: 'nearest',
+             load: { type: 'spritesheet', frame: { width: 16, height: 16 } },
       display: { width: 8, height: 8 },
       clips: { fly: { start: 0, end: 1, frameRate: 12, repeat: -1 } },
     } as const;

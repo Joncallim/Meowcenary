@@ -4,6 +4,7 @@ import { assertTouchStickConfig, RuntimeConfig, type TouchStickConfig } from '..
 import type { InputController, InputMode, InputPresentationSnapshot } from '../systems/input';
 import { edgeMargin, logicalCanvasViewport, pointerToRootLocal, physicalToLogical, GAMEPLAY_ZOOM, zoomedGameUiViewport, type UiViewport } from './layout';
 import { reducedMotionDuration, ThemeColor, ThemeDepth, ThemeFont } from './theme';
+import { createUiText } from './text';
 
 
 const HINT_DURATION_MS = 2200;
@@ -49,7 +50,7 @@ export class ControlsView {
     this.stickRadius = touchStick.radius;
     const add = scene.add as typeof scene.add & { container?: (x: number, y: number) => Phaser.GameObjects.Container };
     this.root = add.container?.(viewport.originX ?? 0, viewport.originY ?? 0);
-    this.root?.setScrollFactor(0);
+    this.root?.setScrollFactor(0).setDepth(ThemeDepth.hud);
 
     // Exactly ONE zoom compensation: the camera zoom 1.25 magnifies world
     // units, so the authored radius is divided by the zoom and the arcs are
@@ -82,7 +83,7 @@ export class ControlsView {
     const fontSize = physicalToLogical(ThemeFont.bodyMin, viewport);
     const pauseSize = physicalToLogical(44, viewport);
 
-    this.hintText = scene.add.text(
+    this.hintText = createUiText(scene,
       viewport.canvasWidth / 2,
       viewport.canvasHeight
         - bottomMargin

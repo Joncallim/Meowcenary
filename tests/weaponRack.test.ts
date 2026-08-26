@@ -248,14 +248,17 @@ class FakeDisplayObject extends FakeEmitter {
 }
 
 class FakeText extends FakeDisplayObject {
+  readonly resolution: number;
   constructor(
     x: number,
     y: number,
     public text: string,
-    style: { fontSize?: string },
+    style: { fontSize?: string; resolution?: number },
   ) {
+    if (style.resolution !== 2) throw new Error('UI text must use resolution 2');
     const fontSize = Number.parseFloat(style.fontSize ?? '16');
     super(x, y, text.length * fontSize * 0.55, fontSize * 1.2);
+    this.resolution = style.resolution;
   }
 }
 
@@ -282,7 +285,7 @@ function createFakeScene() {
         object.fillColor = fillColor;
         return object;
       },
-      text: (x: number, y: number, text: string, style: { fontSize?: string }) =>
+      text: (x: number, y: number, text: string, style: { fontSize?: string; resolution?: number }) =>
         own(new FakeText(x, y, text, style)),
     },
   };
@@ -349,5 +352,61 @@ describe('PhaserWeaponRackPanel card composition order', () => {
     expect(artIndex).toBeGreaterThan(edgeIndex);
     expect(labelIndex).toBeGreaterThan(artIndex);
     panel.destroy();
+  });
+
+  it('renders rounded RNG from the stat view in both normal and compact occupied slots', () => {
+    const weapon: InventoryWeaponView = {
+      definitionId: 'can-smg-t1',
+      name: 'Can SMG I',
+      family: 'smg',
+      iconId: 'weapon-icon:can-smg-t1',
+      rarity: 'common',
+      tier: 1,
+      stats: [
+        { key: 'damage', label: 'DMG', value: 5, formatted: '5' },
+        { key: 'rate', label: 'RATE', value: 13.79, formatted: '13.79/s' },
+        { key: 'projectiles', label: 'SHOTS', value: 2, formatted: '×2' },
+        { key: 'pierce', label: 'PIERCE', value: 1, formatted: '1' },
+        { key: 'range', label: 'RNG', value: 203.5, formatted: '204' },
+      ],
+      instanceId: 'weapon-1',
+      selected: false,
+      selectionState: 'neutral',
+      mergeableWith: [],
+    };
+    const snapshot: InventorySnapshot = {
+      capacity: 6,
+      weapons: [weapon],
+      slots: [weapon, null, null, null, null, null],
+      selectedInstanceIds: [],
+      mergeReady: false,
+    };
+    for (const viewport of [logicalCanvasViewport(390, 844), logicalCanvasViewport(844, 390)]) {
+      for (const rarity of ['common', 'uncommon', 'rare', 'epic', 'legendary'] as const) {
+        const scene = createFakeScene();
+        const labelledWeapon: InventoryWeaponView = { ...weapon, rarity };
+        const labelledSnapshot: InventorySnapshot = {
+          ...snapshot,
+          weapons: [labelledWeapon],
+          slots: [labelledWeapon, null, null, null, null, null],
+        };
+        const panel = new PhaserWeaponRackPanel({
+          scene: scene as never,
+          viewport,
+          bus: createEventBus(),
+          inventory: { snapshot: () => labelledSnapshot } as never,
+          modal: createModalTextHelpers(scene as never, viewport),
+          isOpen: () => true,
+          hasCommittedRoot: () => true,
+          onBack: () => true,
+          requestRender: () => {},
+        });
+        const root = scene.add.container(0, 0);
+        panel.render(root as never, labelledSnapshot, viewport.canvasWidth);
+        expect(root.children.some((object) => object instanceof FakeText && object.text.includes('RNG 204'))).toBe(true);
+        expect(root.children.some((object) => object instanceof FakeText && object.text === rarity.toUpperCase())).toBe(true);
+        panel.destroy();
+      }
+    }
   });
 });

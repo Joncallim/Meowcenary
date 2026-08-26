@@ -27,6 +27,21 @@ describe('visual art', () => {
     expect(Object.isFrozen(tabby?.load)).toBe(true);
     expect(Object.isFrozen(tabby?.display)).toBe(true);
     expect(Object.isFrozen(tabby?.clips)).toBe(true);
+    const samplingByKind = {
+      character: 'nearest',
+      enemy: 'nearest',
+      'weapon-held': 'nearest',
+      'weapon-icon': 'nearest',
+      'upgrade-icon': 'nearest',
+      projectile: 'nearest',
+      drop: 'nearest',
+      world: 'linear',
+    } as const;
+    expect(new Set(registry.all().map((binding) => binding.kind)))
+      .toEqual(new Set(Object.keys(samplingByKind)));
+    registry.all().forEach((binding) => {
+      expect(binding.sampling).toBe(samplingByKind[binding.kind]);
+    });
   });
 
   it('accepts generalized kinds, multi-segment ids, and static images', () => {
@@ -37,6 +52,7 @@ describe('visual art', () => {
         textureKey: 'art-world-junkyard-floor-base',
         url: 'assets/world/junkyard-floor/base.png',
         required: false,
+        sampling: 'linear',
         load: { type: 'image' },
         display: { width: 512, height: 512 },
       }],
@@ -69,6 +85,14 @@ describe('visual art', () => {
     const missingRequired = structuredClone(loadGameData().visualArt) as any;
     Reflect.deleteProperty(missingRequired.bindings[0], 'required');
     expect(() => validateVisualArtCatalog(missingRequired)).toThrow(/required: required boolean/);
+
+    const missingSampling = structuredClone(loadGameData().visualArt) as any;
+    Reflect.deleteProperty(missingSampling.bindings[0], 'sampling');
+    expect(() => validateVisualArtCatalog(missingSampling)).toThrow(/sampling: must be nearest or linear/);
+
+    const invalidSampling = structuredClone(loadGameData().visualArt) as any;
+    invalidSampling.bindings[0].sampling = 'auto';
+    expect(() => validateVisualArtCatalog(invalidSampling)).toThrow(/sampling: must be nearest or linear/);
 
     const missingRepeat = structuredClone(loadGameData().visualArt) as any;
     Reflect.deleteProperty(missingRepeat.bindings[0].clips.idle, 'repeat');

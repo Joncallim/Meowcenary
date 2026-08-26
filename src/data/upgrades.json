@@ -80,7 +80,7 @@
     "description": "Increase weapon range and projectile speed for this run.",
     "maxStacks": 3,
     "effects": [
-      { "stat": "range", "op": "mult", "value": 1.15 },
+      { "stat": "range", "op": "mult", "value": 1.10 },
       { "stat": "projectileSpeed", "op": "mult", "value": 1.12 }
     ],
     "presentation": { "category": "offense", "iconArtId": "upgrade-icon:long-barrel" }
@@ -143,7 +143,7 @@
     "maxStacks": 3,
     "effects": [
       { "stat": "damage", "op": "mult", "value": 1.22, "scope": { "kind": "weapon-family", "family": "pistol" } },
-      { "stat": "range", "op": "mult", "value": 1.12, "scope": { "kind": "weapon-family", "family": "pistol" } }
+      { "stat": "range", "op": "mult", "value": 1.05, "scope": { "kind": "weapon-family", "family": "pistol" } }
     ],
     "presentation": { "category": "synergy", "iconArtId": "upgrade-icon:pistol-deadeye" }
   },

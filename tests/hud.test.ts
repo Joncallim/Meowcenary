@@ -7,11 +7,13 @@ import {
   HudController,
   PhaserHudView,
   createHudSource,
+  topHudContentBottom,
   type HudSnapshot,
   type HudSource,
   type HudView,
 } from '../src/ui/hud';
-import { logicalCanvasViewport } from '../src/ui/layout';
+import { edgeMargin, logicalCanvasViewport } from '../src/ui/layout';
+import { ThemeColor, ThemeDepth } from '../src/ui/theme';
 
 vi.mock('phaser', () => ({
   default: {
@@ -259,6 +261,9 @@ describe('PhaserHudView', () => {
         scaleY: 1,
         text: '',
         interactive: false,
+        depth: 0,
+        fillColor: undefined,
+        fillAlpha: 1,
         destroyed: false,
       };
       const chain = (key: string, value: unknown) => {
@@ -270,7 +275,9 @@ describe('PhaserHudView', () => {
         setText(text: string) { return chain('text', text); },
         setOrigin() { return api; },
         setScrollFactor() { return api; },
-        setDepth() { return api; },
+        setDepth(depth: number) { return chain('depth', depth); },
+        setResolution(resolution: number) { return chain('resolution', resolution); },
+        setFillStyle(color: number, alpha = 1) { state.fillColor = color; state.fillAlpha = alpha; return api; },
         setVisible(visible: boolean) { return chain('visible', visible); },
         setAlpha(alpha: number) { return chain('alpha', alpha); },
         setPosition(x: number, y: number) { state.x = x; state.y = y; return api; },
@@ -312,9 +319,15 @@ describe('PhaserHudView', () => {
           objects.push(container);
           return container;
         },
-        text: (x: number, y: number, text: string) => own(fakeObject('text', 0, 0, x, y)).setText(text),
-        rectangle: (x: number, y: number, width: number, height: number) =>
-          own(fakeObject('rect', width, height, x, y)),
+        text: (x: number, y: number, text: string, style: { resolution?: number } = {}) => {
+          if (style.resolution !== 2) throw new Error('UI text must use resolution 2');
+          return own(fakeObject('text', 0, 0, x, y).setResolution(style.resolution)).setText(text);
+        },
+        rectangle: (x: number, y: number, width: number, height: number, fillColor?: number, fillAlpha?: number) => {
+          const object = own(fakeObject('rect', width, height, x, y));
+          if (fillColor !== undefined) object.setFillStyle(fillColor, fillAlpha);
+          return object;
+        },
         arc: (x: number, y: number) => own(fakeObject('arc', 0, 0, x, y)),
       },
       scale: {
@@ -384,7 +397,7 @@ describe('PhaserHudView', () => {
     });
 
     const unique = [...new Set(scene.objects)];
-    const bars = unique.filter((object) => object.state.kind === 'rect');
+    const bars = unique.filter((object) => object.state.kind === 'rect' && object.state.fillColor !== ThemeColor.surface);
     expect(bars).toHaveLength(4);
     expect(bars[1]!.state.x).toBe(bars[3]!.state.x);
     expect(bars[0]!.state.width).toBe(bars[2]!.state.width);
@@ -397,6 +410,35 @@ describe('PhaserHudView', () => {
     expect(time.y).toBeLessThan(kills.y as number);
     expect(kills.y).toBeLessThan(scrap.y as number);
     expect((kills.y as number) - (time.y as number)).toBeCloseTo((scrap.y as number) - (kills.y as number), 6);
+  });
+
+  it.each([
+    [390, 844], [844, 390], [1024, 768], [375, 812],
+  ])('composes one safe top HUD backing below the HUD root at %ix%i', (displayWidth, displayHeight) => {
+    const scene = createFakeScene();
+    const viewport = logicalCanvasViewport(displayWidth, displayHeight);
+    const view = new PhaserHudView({ scene: scene as never, viewport });
+    const expectedHeight = topHudContentBottom(viewport) + edgeMargin(viewport, 'bottom');
+    const backing = scene.objects.filter((object) =>
+      object.state.kind === 'rect'
+      && object.state.width === viewport.canvasWidth
+      && object.state.height === expectedHeight,
+    );
+    expect(backing).toHaveLength(1);
+    expect(backing[0]?.state).toMatchObject({
+      x: viewport.canvasWidth / 2,
+      y: expectedHeight / 2,
+      fillColor: ThemeColor.surface,
+      fillAlpha: 0.80,
+      depth: ThemeDepth.hudBacking,
+    });
+    const root = scene.objects.find((object) => object.state.kind === 'container');
+    // A child depth cannot rescue a root at the wrong scene depth. This pins
+    // actual root/backing ordering rather than merely text child settings.
+    expect(root?.state.depth).toBe(ThemeDepth.hud);
+    expect(backing[0]!.state.depth).toBeLessThan(root!.state.depth as number);
+    expect(expectedHeight).toBeGreaterThan(topHudContentBottom(viewport));
+    view.destroy();
   });
 
   it('never renders a rack strip label or interactive rack target at any rack count', () => {

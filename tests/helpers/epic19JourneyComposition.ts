@@ -126,6 +126,8 @@ export interface FakeObjectState {
    *  factor never propagates to children; hit tests read the child value). */
   scrollFactorX: number;
   scrollFactorY: number;
+  /** Scene-local depth; container children cannot elevate their root. */
+  depth: number;
   fillColor?: number;
   fillAlpha: number;
 }
@@ -259,6 +261,7 @@ function fakeObject(
     scaleY: 1,
     scrollFactorX: 1,
     scrollFactorY: 1,
+    depth: 0,
     fillColor: undefined,
     fillAlpha: 1,
   };
@@ -336,8 +339,9 @@ function fakeObject(
       state.scaleY = y;
       return api;
     },
-    setDepth() {
+    setDepth(depth: number) {
       requireAlive();
+      state.depth = depth;
       return api;
     },
     setAlpha(alpha: number) {
@@ -655,10 +659,13 @@ function createFakeScene(
         return container;
       },
       text(x: number, y: number, text: string, style: Record<string, unknown> = {}) {
+        if (style.resolution !== 2) throw new Error('UI text must use resolution 2');
         return register(fakeObject('text', text, Math.max(24, text.length * 8), 16, x, y, style, () => cameraState.zoom));
       },
-      rectangle(x: number, y: number, width: number, height: number) {
-        return register(fakeObject('rect', '', width, height, x, y, {}, () => cameraState.zoom));
+      rectangle(x: number, y: number, width: number, height: number, fillColor?: number, fillAlpha?: number) {
+        const rectangle = fakeObject('rect', '', width, height, x, y, {}, () => cameraState.zoom);
+        if (fillColor !== undefined) rectangle.setFillStyle(fillColor, fillAlpha ?? 1);
+        return register(rectangle);
       },
       circle(x: number, y: number, radius: number, fillColor?: number, fillAlpha?: number) {
         const object = fakeObject('arc', '', radius * 2, radius * 2, x, y, {}, () => cameraState.zoom);

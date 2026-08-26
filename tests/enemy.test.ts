@@ -25,10 +25,12 @@ class MockArc {
   active = true;
   alpha = 1;
   body: MockBody | undefined;
+  visible = true;
 
   constructor(
     public x: number,
     public y: number,
+    public readonly radius = 0,
   ) {
     this.body = new MockBody(this);
   }
@@ -52,7 +54,8 @@ class MockArc {
     return this;
   }
 
-  setVisible(): this {
+  setVisible(visible: boolean): this {
+    this.visible = visible;
     return this;
   }
 
@@ -92,13 +95,14 @@ function enemyDefinition(): ResolvedEnemyDefinition {
   ): Promise<{
     enemy: InstanceType<typeof import('../src/entities/Enemy').Enemy>;
     sprite: MockArc;
+    circles: MockArc[];
   }> {
     const { Enemy } = await import('../src/entities/Enemy');
     const circles: MockArc[] = [];
     const scene = {
       add: {
-        circle: (x: number, y: number) => {
-          const arc = new MockArc(x, y);
+        circle: (x: number, y: number, radius: number) => {
+          const arc = new MockArc(x, y, radius);
           circles.push(arc);
           return arc;
         },
@@ -113,7 +117,7 @@ function enemyDefinition(): ResolvedEnemyDefinition {
         20,
         bus,
       ),
-      sprite: circles[0],
+      sprite: circles[0], circles,
     };
   }
 
@@ -144,6 +148,14 @@ function enemyDefinition(): ResolvedEnemyDefinition {
     sprite.x = 30;
     sprite.y = 40;
     expect(enemy.pos).toEqual({ x: 30, y: 40 });
+  });
+
+  it('enlarges only fallback presentation layers while preserving the enemy physics body radius', async () => {
+    const { enemy, sprite, circles } = await createEnemy();
+    expect(sprite.body?.setCircle).toHaveBeenCalledWith(13);
+    expect(sprite.visible).toBe(false);
+    expect(circles.map((circle) => circle.radius)).toEqual([13, 13 * 1.30, 5 * 1.30, 12 * 1.30]);
+    expect(enemy.pos).toEqual({ x: 10, y: 20 });
   });
 
   it('owns immutable definition values independently of its caller and siblings', async () => {
@@ -342,6 +354,7 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       textureKey: 'sheet',
       url: 'assets/x.png',
       required: true,
+      sampling: 'nearest',
       load: { type: 'spritesheet', frame: { width: 48, height: 48 } },
       display: { width: 26, height: 26 },
       clips: {
@@ -513,7 +526,9 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       };
       const { Enemy } = await import('../src/entities/Enemy');
       const enemy = new Enemy(scene as never, chargerDefinition, 10, 20, bus);
-      const accent = circles[1]!;
+      // circles: physics body, enlarged fallback body, telegraph accent, shadow.
+      // The accent must remain over the fallback body in scene creation order.
+      const accent = circles[2]!;
       const player = { active: true, x: 100, y: 20 } as never;
 
       expect(accent.alpha).toBe(1);
@@ -573,6 +588,7 @@ function enemyDefinition(): ResolvedEnemyDefinition {
         textureKey: 'sheet',
         url: 'assets/junk-rusher.png',
         required: true,
+        sampling: 'nearest',
         load: { type: 'spritesheet', frame: { width: 48, height: 48 } },
         display: { width: 26, height: 26 },
         clips: {
