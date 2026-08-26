@@ -11,9 +11,10 @@ class SpriteNode {
   frame = 0;
   played: string[] = [];
   listeners = new Map<string, (animation: { key: string }) => void>();
+  scale = [1, 1] as [number, number];
   setDepth(): this { return this; }
   setOrigin(): this { return this; }
-  setScale(): this { return this; }
+  setScale(x: number, y = x): this { this.scale = [x, y]; return this; }
   setPosition(): this { return this; }
   setAlpha(): this { return this; }
   setActive(value: boolean): this { this.active = value; return this; }
@@ -34,7 +35,7 @@ class SpriteNode {
 }
 
 const binding = {
-  id: 'enemy:dust-mite', kind: 'enemy', textureKey: 'dust', url: 'assets/dust.png', required: true,
+  id: 'enemy:dust-mite', kind: 'enemy', textureKey: 'dust', url: 'assets/dust.png', required: true, sampling: 'nearest',
   load: { type: 'spritesheet', frame: { width: 48, height: 48 } },
   display: { width: 26, height: 26 },
   clips: {
@@ -76,6 +77,7 @@ describe('DefeatPresentationSystem', () => {
     expect(system.allocatedPresentationCount).toBe(1);
     expect(harness.scene.physics.add.existing).not.toHaveBeenCalled();
     expect(harness.sprites[0]?.played).toEqual(['art:enemy:dust-mite:defeat']);
+    expect(harness.sprites[0]?.scale).toEqual([26 / 48 * 1.30, 26 / 48 * 1.30]);
 
     harness.sprites[0]?.complete('art:enemy:dust-mite:defeat');
     expect(system.activePresentationCount).toBe(0);

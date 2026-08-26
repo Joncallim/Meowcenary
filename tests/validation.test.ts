@@ -377,6 +377,35 @@ describe('game data validation', () => {
     }
   });
 
+  it('enforces positive finite range bases and range modifier effects while allowing the smallest positive base and 0.88 multiplier', () => {
+    for (const range of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      const data = structuredClone(loadGameData());
+      data.weapons[0]!.range = range;
+      expect(() => validateGameData(data)).toThrow(/weapons\.json\[0\]\.range/);
+    }
+
+    const smallestPositive = structuredClone(loadGameData());
+    smallestPositive.weapons[0]!.range = Number.MIN_VALUE;
+    expect(() => validateGameData(smallestPositive)).not.toThrow();
+
+    for (const effect of [
+      { stat: 'range', op: 'add', value: 0 },
+      { stat: 'range', op: 'add', value: -1 },
+      { stat: 'range', op: 'mult', value: 0 },
+      { stat: 'range', op: 'mult', value: -1 },
+      { stat: 'range', op: 'mult', value: Number.NaN },
+      { stat: 'range', op: 'mult', value: Number.POSITIVE_INFINITY },
+      { stat: 'range', op: 'mult', value: Number.NEGATIVE_INFINITY },
+    ]) {
+      expect(() => validateGameData(withFirstUpgradeEffects([effect]))).toThrow(
+        /upgrades\.json\[0\]\.effects\[0\]\.value/,
+      );
+    }
+    expect(() => validateGameData(withFirstUpgradeEffects([
+      { stat: 'range', op: 'mult', value: 0.88 },
+    ]))).not.toThrow();
+  });
+
   it('rejects malformed effect entries', () => {
     expect(() => validateGameData(withFirstUpgradeEffects([42]))).toThrow(
       /upgrades\.json\[0\]\.effects\[0\]: expected object/,

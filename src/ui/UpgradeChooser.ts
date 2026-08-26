@@ -3,6 +3,7 @@ import type { EventBus } from '../engine/eventBus';
 import type { UpgradeSystem } from '../systems/UpgradeSystem';
 import type { VisualArtLookup } from '../systems/visualArt';
 import { FocusStroke, ThemeColor, ThemeDepth, ThemeFont, themeColorCss } from './theme';
+import { createUiText } from './text';
 import {
   choiceIndexForNumberKey,
   UpgradeChooserController,
@@ -242,7 +243,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         0.96,
       ));
       backdrop.setStrokeStyle(2, ThemeColor.primary, 0.72).setInteractive().setScrollFactor(0);
-      const heading = own(this.scene.add.text(
+      const heading = own(createUiText(this.scene,
         layout.contentCenterX,
         layout.headingY,
         'Choose an upgrade',
@@ -260,7 +261,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         .setOrigin(0.5, 0)
         .setFixedSize(layout.headerWidth, layout.headingHeight)
         .setCrop(0, 0, layout.headerWidth, layout.headingHeight);
-      const instructions = own(this.scene.add.text(
+      const instructions = own(createUiText(this.scene,
         layout.contentCenterX,
         layout.instructionsY,
         this.instructionCopy(),
@@ -365,7 +366,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           ));
           icon.setDisplaySize(size, height);
         } else {
-          const number = own(this.scene.add.text(
+          const number = own(createUiText(this.scene,
             cardLeft + cardLayout.padding,
             cardTop + cardLayout.padding,
             `${index + 1}.`,
@@ -383,7 +384,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         }
 
         if (cardLayout.nameWidth > 0) {
-          const name = own(this.scene.add.text(
+          const name = own(createUiText(this.scene,
             cardLeft + cardLayout.nameX,
             cardTop + cardLayout.padding,
             choice.name,
@@ -402,9 +403,10 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           renderedText.push({ role: `name:${index}`, object: name });
         }
 
-        // Epic 18 (D9 content priority 3): rarity plus category/family cue.
-        const rarityLabel = `${choice.rarity} • ${choice.family ?? choice.category}`;
-        const rarity = own(this.scene.add.text(
+        // Keep the full uppercase rarity word visible as the semantic cue; the
+        // color remains sourced exclusively from ThemeColor.rarity below.
+        const rarityLabel = choice.rarity.toUpperCase();
+        const rarity = own(createUiText(this.scene,
           cardLeft + cardLayout.width - cardLayout.padding,
           cardTop + cardLayout.padding,
           rarityLabel,
@@ -439,7 +441,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         const showStatus =
           statusWidth > 0 && cardLayout.statusHeight >= layout.fonts.status * 1.15;
         if (showStatus) {
-          const status = own(this.scene.add.text(
+          const status = own(createUiText(this.scene,
             cardLeft + cardLayout.padding,
             cardLayout.statusY,
             statusLabel,
@@ -465,7 +467,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           descriptionWidth > 0 &&
           cardLayout.descriptionHeight >= layout.fonts.description * 1.15;
         if (showDescription) {
-          const description = own(this.scene.add.text(
+          const description = own(createUiText(this.scene,
             cardLeft + cardLayout.padding,
             cardLayout.descriptionY,
             choice.description,

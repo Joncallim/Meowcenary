@@ -6,6 +6,7 @@ import type { VisualArtBinding } from './types';
 import type { VisualArtLookup } from './visualArt';
 import { visualAnimationKey } from './visualArt';
 import { VisualDepth } from './visualDepths';
+import { ACTOR_VISUAL_SCALE_BY_KIND } from '../entities/actorView';
 
 interface DefeatPresentation {
   readonly sprite: Phaser.GameObjects.Sprite;
@@ -100,8 +101,8 @@ export class DefeatPresentationSystem implements System {
           .setDepth(VisualDepth.enemy)
           .setOrigin(0.5)
           .setScale(
-            binding.display.width / (binding.load.type === 'spritesheet' ? binding.load.frame.width : 1),
-            binding.display.height / (binding.load.type === 'spritesheet' ? binding.load.frame.height : 1),
+            binding.display.width / (binding.load.type === 'spritesheet' ? binding.load.frame.width : 1) * ACTOR_VISUAL_SCALE_BY_KIND.enemy,
+            binding.display.height / (binding.load.type === 'spritesheet' ? binding.load.frame.height : 1) * ACTOR_VISUAL_SCALE_BY_KIND.enemy,
           )
           .setActive(false)
           .setVisible(false);

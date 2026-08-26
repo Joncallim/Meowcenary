@@ -8,7 +8,7 @@ import { InputController } from '../src/systems/input';
 import { ControlsView } from '../src/ui/controls';
 import type { TouchStickConfig } from '../src/engine/config';
 import { logicalCanvasViewport, zoomedGameUiViewport, GAMEPLAY_ZOOM } from '../src/ui/layout';
-import { ThemeColor } from '../src/ui/theme';
+import { ThemeColor, ThemeDepth } from '../src/ui/theme';
 
 function createFakeScene() {
   let resize: { callback: () => void; context?: unknown } | undefined;
@@ -40,6 +40,7 @@ function createFakeScene() {
       strokeWidth: 0,
       strokeColor: undefined,
       strokeAlpha: 0,
+      depth: 0,
       destroyed: false,
     };
     const listeners = new Map<string, Array<{ callback: (...args: unknown[]) => void; context?: unknown }>>();
@@ -63,7 +64,8 @@ function createFakeScene() {
         state.scaleY = y;
         return api;
       },
-      setDepth() { return api; },
+      setDepth(depth: number) { return chain('depth', depth); },
+      setResolution(resolution: number) { return chain('resolution', resolution); },
       setVisible(visible: boolean) { return chain('visible', visible); },
       setAlpha(alpha: number) { return chain('alpha', alpha); },
       setPosition(x: number, y: number) { state.x = x; state.y = y; return api; },
@@ -130,7 +132,10 @@ function createFakeScene() {
           },
         };
       },
-      text: (x: number, y: number, text: string) => own(fakeObject(x, y)).setText(text),
+      text: (x: number, y: number, text: string, style: { resolution?: number } = {}) => {
+        if (style.resolution !== 2) throw new Error('UI text must use resolution 2');
+        return own(fakeObject(x, y).setResolution(style.resolution)).setText(text);
+      },
       rectangle: (x: number, y: number, width: number, height: number, fillColor?: number, fillAlpha?: number) => {
         const object = own(fakeObject(x, y, width, height));
         if (fillColor !== undefined) object.setFillStyle(fillColor, fillAlpha ?? 1);
@@ -197,6 +202,12 @@ function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: b
 }
 
 describe('ControlsView virtual stick', () => {
+  it('sets the controls root to HUD depth instead of relying on child depths', () => {
+    const { scene, view } = createHarness();
+    expect(scene.objects[0]?.state.depth).toBe(ThemeDepth.hud);
+    view.destroy();
+  });
+
   it('starts hidden and shows only during an active pointer gesture', () => {
     const { scene, input, view } = createHarness();
     // objects[0] is the UI root container (created in both modes, exactly

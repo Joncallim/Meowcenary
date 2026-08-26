@@ -12,7 +12,12 @@ import type { ResolvedEnemyDefinition, SpawnableEnemyArchetype } from '../system
 import type { VisualArtBinding } from '../systems/types';
 import { VisualDepth } from '../systems/visualDepths';
 import type { Player } from './Player';
-import { PlaceholderView, createAnimatedActorView, type ActorView } from './actorView';
+import {
+  ACTOR_VISUAL_SCALE_BY_KIND,
+  PlaceholderView,
+  createAnimatedActorView,
+  type ActorView,
+} from './actorView';
 import type { ChargerEnvironment } from '../gameplay/enemyMovement';
 
 let nextEnemyInstanceId = 1;
@@ -21,6 +26,7 @@ const OUTLINE_COLOR = 0x0a0f14;
 const SHADOW_RADIUS = 12;
 const SHADOW_OFFSET_Y = 14;
 const SHADOW_ALPHA = 0.28;
+const ENEMY_VISUAL_FACTOR = ACTOR_VISUAL_SCALE_BY_KIND.enemy;
 /** Epic 17 (D7): Trash Brute's "lower-frequency" landing-pulse cadence — at
  *  its 42px/s pursuit speed this reads roughly once per second, distinctly
  *  slower than a chaser/charger's footfall would be. */
@@ -111,29 +117,43 @@ export class Enemy implements EnemyInstance {
       .setDepth(VisualDepth.enemy);
     scene.physics.add.existing(this.sprite);
     this.body.setCircle(ENEMY_BODY_RADIUS);
+    // The Arcade body owns collision only. Enlarged fallback art below is a
+    // display-only follower, never a second body.
+    this.sprite.setVisible(false);
 
-    // Presentation layers: display-only (no physics body), glued to the body
-    // in update(). The body sprite stays the only object physics touches.
-    const accent = accentStyle(this.definition);
-    const accentNode = scene.add.circle(x, y, accent.radius, accent.fill).setDepth(VisualDepth.enemy);
-    if (accent.stroke) {
-      accentNode.setStrokeStyle(accent.stroke.width, accent.stroke.color, accent.stroke.alpha);
-    }
-    const shadow = scene.add.circle(x, y, SHADOW_RADIUS, 0x000000)
+    const shadow = scene.add.circle(x, y, SHADOW_RADIUS * ENEMY_VISUAL_FACTOR, 0x000000)
       .setAlpha(SHADOW_ALPHA)
       .setDepth(VisualDepth.lowDecoration);
-    this.view = createAnimatedActorView(
+    const animatedView = createAnimatedActorView(
       scene,
       this.sprite,
-      { node: shadow, dy: SHADOW_OFFSET_Y },
+      { node: shadow, dy: SHADOW_OFFSET_Y * ENEMY_VISUAL_FACTOR },
       art,
       VisualDepth.enemy,
-    ) ?? new PlaceholderView(
-      this.sprite,
-      [{ node: accentNode, dx: 0, dy: 0, flashes: false, telegraphTint: true }],
-      { node: shadow, dy: SHADOW_OFFSET_Y },
     );
-    if (this.view instanceof PlaceholderView === false) accentNode.destroy();
+    if (animatedView) {
+      this.view = animatedView;
+    } else {
+      const visualBody = scene.add
+        .circle(x, y, ENEMY_BODY_RADIUS * ENEMY_VISUAL_FACTOR, enemyColor(this.definition.archetype))
+        .setStrokeStyle(3, OUTLINE_COLOR, 1)
+        .setDepth(VisualDepth.enemy);
+      const accent = accentStyle(this.definition);
+      const accentNode = scene.add
+        .circle(x, y, accent.radius * ENEMY_VISUAL_FACTOR, accent.fill)
+        .setDepth(VisualDepth.enemy);
+      if (accent.stroke) {
+        accentNode.setStrokeStyle(accent.stroke.width, accent.stroke.color, accent.stroke.alpha);
+      }
+      this.view = new PlaceholderView(
+        this.sprite,
+        [
+          { node: visualBody, dx: 0, dy: 0, flashes: false },
+          { node: accentNode, dx: 0, dy: 0, flashes: false, telegraphTint: true },
+        ],
+        { node: shadow, dy: SHADOW_OFFSET_Y * ENEMY_VISUAL_FACTOR },
+      );
+    }
     this.syncPresentation(false);
   }
 

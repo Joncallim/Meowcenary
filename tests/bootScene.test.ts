@@ -3,14 +3,17 @@ import { GAME_CONTEXT_REGISTRY_KEY, type GameContext } from '../src/engine/conte
 import { SceneKey } from '../src/engine/sceneKeys';
 import audioAssetsJson from '../src/data/audio-assets.json';
 import visualArtJson from '../src/data/visual-art.json';
-import { BootScene } from '../src/scenes/BootScene';
+import { BootScene, applyNearestTextureSampling } from '../src/scenes/BootScene';
 import { AudioManager, AUDIO_MANAGER_REGISTRY_KEY } from '../src/systems/audio';
+import { loadGameData } from '../src/systems/validation';
+import { DataVisualArtRegistry } from '../src/systems/visualArt';
 
 vi.mock('phaser', () => ({
   default: {
     Scene: class Scene {
       constructor(public key: string) {}
     },
+    Textures: { FilterMode: { NEAREST: 1 } },
   },
 }));
 
@@ -61,6 +64,7 @@ function createFakeScene() {
   const loadImage = vi.fn();
   const loadSpritesheet = vi.fn();
   const start = vi.fn();
+  const textureGet = vi.fn((_key: string) => ({ setFilter: vi.fn() }));
   const createEmitter = () => {
     const handlers = new Map<string, Set<(...args: unknown[]) => void>>();
     const onceHandlers = new Map<string, Set<(...args: unknown[]) => void>>();
@@ -97,10 +101,12 @@ function createFakeScene() {
       on: vi.fn(),
       off: vi.fn(),
     },
-    textures: { exists: vi.fn((_key: string) => true) },
+    textures: { exists: vi.fn((_key: string) => true), get: textureGet },
     anims: { exists: vi.fn(() => false), create: vi.fn(), generateFrameNumbers: vi.fn(), remove: vi.fn() },
   };
-  return { scene, loadAudio, loadImage, loadSpritesheet, loadEvents, sceneEvents, start, registryValues };
+  return {
+    scene, loadAudio, loadImage, loadSpritesheet, loadEvents, sceneEvents, start, registryValues, textureGet,
+  };
 }
 
 function createBoot() {
@@ -111,6 +117,94 @@ function createBoot() {
 }
 
 describe('BootScene loading and startup wiring', () => {
+  it('dedupes only catalog-nearest textures for NEAREST filtering and leaves linear/text keys untouched', () => {
+    const filters = new Map<string, ReturnType<typeof vi.fn>>();
+    const get = vi.fn((key: string) => {
+      const setFilter = filters.get(key) ?? vi.fn();
+      filters.set(key, setFilter);
+      return { setFilter };
+    });
+    const exists = vi.fn(() => true);
+    applyNearestTextureSampling(
+      { exists, get } as never,
+      { all: () => [
+        { textureKey: 'actor', sampling: 'nearest' },
+        { textureKey: 'actor', sampling: 'nearest' },
+        { textureKey: 'world', sampling: 'linear' },
+      ] } as never,
+    );
+
+    expect(get.mock.calls).toEqual([['actor']]);
+    expect(filters.get('actor')).toHaveBeenCalledTimes(1);
+    expect(filters.get('actor')).toHaveBeenCalledWith(1);
+    expect(filters.has('world')).toBe(false);
+    expect(filters.has('text-canvas')).toBe(false);
+  });
+
+  it('filters every real nearest registry texture once and never filters a real linear world texture', () => {
+    const filters = new Map<string, ReturnType<typeof vi.fn>>();
+    const get = vi.fn((key: string) => {
+      const setFilter = filters.get(key) ?? vi.fn();
+      filters.set(key, setFilter);
+      return { setFilter };
+    });
+    const registry = new DataVisualArtRegistry(loadGameData());
+    const nearest = [...new Set(registry.all()
+      .filter((binding) => binding.sampling === 'nearest')
+      .map((binding) => binding.textureKey))];
+    const linear = registry.all()
+      .filter((binding) => binding.sampling === 'linear')
+      .map((binding) => binding.textureKey);
+
+    const exists = vi.fn(() => true);
+    applyNearestTextureSampling({ exists, get } as never, registry);
+
+    expect(get.mock.calls.map(([key]) => key)).toEqual(nearest);
+    nearest.forEach((key) => expect(filters.get(key)).toHaveBeenCalledTimes(1));
+    linear.forEach((key) => expect(filters.has(key)).toBe(false));
+  });
+
+  it('wires real validated nearest catalog bindings through BootScene.create exactly once', () => {
+    const { boot, textureGet } = createBoot();
+    const registry = new DataVisualArtRegistry(loadGameData());
+    const expected = [...new Set(registry.all()
+      .filter((binding) => binding.sampling === 'nearest')
+      .map((binding) => binding.textureKey))];
+
+    boot.create();
+
+    expect(textureGet.mock.calls.map(([key]) => key)).toEqual(expected);
+  });
+
+  it('skips a missing optional nearest texture instead of filtering the manager fallback texture', () => {
+    const binding = {
+      id: 'world:test-optional-nearest',
+      kind: 'world',
+      textureKey: 'art-world-test-optional-nearest',
+      url: 'assets/world/test-optional-nearest.png',
+      required: false,
+      sampling: 'nearest',
+      load: { type: 'image' },
+      display: { width: 16, height: 16 },
+    } as const;
+    visualArtJson.bindings.push(binding as unknown as (typeof visualArtJson.bindings)[number]);
+    try {
+      const { boot, scene, textureGet, start } = createBoot();
+      const missingFallbackFilter = vi.fn();
+      textureGet.mockImplementation((key: string) => key === binding.textureKey
+        ? { setFilter: missingFallbackFilter }
+        : { setFilter: vi.fn() });
+      scene.textures.exists.mockImplementation((key: string) => key !== binding.textureKey);
+
+      expect(() => boot.create()).not.toThrow();
+      expect(textureGet.mock.calls.map(([key]) => key)).not.toContain(binding.textureKey);
+      expect(missingFallbackFilter).not.toHaveBeenCalled();
+      expect(start).toHaveBeenCalledWith(SceneKey.Menu);
+    } finally {
+      visualArtJson.bindings.pop();
+    }
+  });
+
   it('preloads every audio catalog row in [...sfx, ...music] order with exact key/url', () => {
     const { boot, loadAudio, loadImage, loadSpritesheet, loadEvents } = createBoot();
 
@@ -200,6 +294,7 @@ describe('BootScene loading and startup wiring', () => {
       textureKey: 'art-world-test-optional',
       url: 'assets/world/test-optional.png',
       required: false,
+      sampling: 'linear',
       load: { type: 'image' },
       display: { width: 16, height: 16 },
     } as const;

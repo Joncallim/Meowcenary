@@ -80,8 +80,45 @@ describe('weapon stats', () => {
 
     const stats = resolveWeaponStats(runState, pistol());
 
-    expect(stats.range).toBe(320);
+    expect(stats.range).toBe(220);
     expect(stats.projectileSpeed).toBe(540);
+  });
+
+  it.each([
+    ['scrap-pistol-t1', 200], ['scrap-pistol-t2', 220], ['scrap-pistol-t3', 240],
+    ['can-smg-t1', 185], ['can-smg-t2', 200], ['can-smg-t3', 215],
+    ['bolt-shotgun-t1', 140], ['bolt-shotgun-t2', 155], ['bolt-shotgun-t3', 170],
+  ] as const)('uses the authored range for every family and tier: %s', (id, range) => {
+    const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
+    expect(resolveWeaponStats(runState, weaponById(id)).range).toBe(range);
+  });
+
+  it('compounds range modifiers without a cap and scopes family effects to the resolved weapon', () => {
+    const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
+    for (let stack = 0; stack < 3; stack += 1) {
+      runState.stats.add({ stat: 'range', op: 'mult', value: 1.10, sourceId: `long-barrel-${stack}` });
+      runState.stats.add({
+        stat: 'range', op: 'mult', value: 1.05, sourceId: `deadeye-${stack}`,
+        scope: { kind: 'weapon-family', family: 'pistol' },
+      });
+      runState.stats.add({
+        stat: 'range', op: 'mult', value: 0.88, sourceId: `breacher-${stack}`,
+        scope: { kind: 'weapon-family', family: 'shotgun' },
+      });
+    }
+
+    expect(resolveWeaponStats(runState, weaponById('scrap-pistol-t3')).range)
+      .toBeCloseTo(240 * 1.10 ** 3 * 1.05 ** 3);
+    expect(resolveWeaponStats(runState, weaponById('can-smg-t3')).range)
+      .toBeCloseTo(215 * 1.10 ** 3);
+    expect(resolveWeaponStats(runState, weaponById('bolt-shotgun-t3')).range)
+      .toBeCloseTo(170 * 1.10 ** 3 * 0.88 ** 3);
+  });
+
+  it('rejects non-finite weapon range bases instead of converting them into a capped display value', () => {
+    const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
+    expect(() => resolveWeaponStats(runState, { ...pistol(), range: Number.POSITIVE_INFINITY }))
+      .toThrow(/Base value for "range" must be finite/);
   });
 
   describe('weapon-family-scoped modifiers (Epic 18 D4)', () => {

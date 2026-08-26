@@ -33,6 +33,7 @@ interface FakeObjectState {
   strokeWidth: number;
   strokeColor?: number;
   strokeAlpha: number;
+  resolution?: number;
   style: Record<string, unknown>;
 }
 
@@ -245,27 +246,27 @@ function createFakeScene(
         _x: number,
         _y: number,
         text: string,
-        style?: { padding?: { x?: number; y?: number } },
+        style?: { padding?: { x?: number; y?: number }; resolution?: number },
       ) {
         if (failNextText) {
           failNextText = false;
           throw new Error('Injected text factory failure');
         }
+        if (style?.resolution !== 2) throw new Error('UI text must use resolution 2');
         const padX = style?.padding?.x ?? 10;
         const padY = style?.padding?.y ?? 8;
         // Phaser Text bounds include the padding on both axes.
         const padding = { left: padX, top: padY, right: padX, bottom: padY };
-        return register(
-          fakeObject(
-            'text',
-            text,
-            Math.max(24, text.length * 8),
-            16 + padY * 2,
-            padding,
-            _x,
-            _y,
-          ),
-        );
+        const object = fakeObject(
+          'text',
+          text,
+          Math.max(24, text.length * 8),
+          16 + padY * 2,
+          padding,
+          _x,
+          _y,
+        ).setStyle({ resolution: style.resolution });
+        return register(object);
       },
       rectangle(_x: number, _y: number, width: number, height: number) {
         return register(fakeObject('rect', '', width, height, { left: 10, top: 8, right: 10, bottom: 8 }, _x, _y));

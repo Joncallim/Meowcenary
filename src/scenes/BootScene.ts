@@ -13,6 +13,25 @@ import { DataMetaUpgradeRegistry } from '../systems/metaUpgrades';
 import { loadGameData } from '../systems/validation';
 import { DataVisualArtRegistry, ensureVisualAnimations } from '../systems/visualArt';
 
+/** Apply filtering from explicit manifest policy only. Texture keys are
+ * deduped defensively so future registry fixtures cannot issue duplicate GPU
+ * updates; Text canvas keys never enter this catalog-driven loop. */
+export function applyNearestTextureSampling(
+  textures: Pick<Phaser.Textures.TextureManager, 'exists' | 'get'>,
+  visualArt: Pick<DataVisualArtRegistry, 'all'>,
+): void {
+  const filtered = new Set<string>();
+  for (const binding of visualArt.all()) {
+    if (
+      binding.sampling !== 'nearest'
+      || filtered.has(binding.textureKey)
+      || !textures.exists(binding.textureKey)
+    ) continue;
+    filtered.add(binding.textureKey);
+    textures.get(binding.textureKey).setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+}
+
 export class BootScene extends Phaser.Scene {
   private preloadVisualArt?: DataVisualArtRegistry;
   private readonly failedVisualTextureKeys = new Set<string>();
@@ -64,6 +83,7 @@ export class BootScene extends Phaser.Scene {
         );
       }
     }
+    applyNearestTextureSampling(this.textures, visualArt);
     const metaUpgrades = new DataMetaUpgradeRegistry(data);
     const characters = new DataCharacterRegistry(data);
     const arenas = new DataArenaRegistry(data);

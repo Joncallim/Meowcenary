@@ -21,6 +21,8 @@ class MockArc {
   body = new MockBody();
   destroyCount = 0;
   flipX = false;
+  visible = true;
+  scale = [1, 1] as [number, number];
   plays: string[] = [];
   tint: number | undefined;
   listeners = new Map<string, (...args: any[]) => void>();
@@ -28,6 +30,7 @@ class MockArc {
   constructor(
     public x: number,
     public y: number,
+    public readonly radius = 0,
   ) {}
 
   setDepth(): this {
@@ -49,7 +52,8 @@ class MockArc {
     return this;
   }
 
-  setVisible(): this {
+  setVisible(visible: boolean): this {
+    this.visible = visible;
     return this;
   }
 
@@ -57,7 +61,8 @@ class MockArc {
     return this;
   }
 
-  setScale(): this {
+  setScale(x: number, y = x): this {
+    this.scale = [x, y];
     return this;
   }
 
@@ -118,8 +123,8 @@ async function createHarness(
   const scene = {
     scale: { width: 200, height: 200 },
     add: {
-      circle: (x: number, y: number) => {
-        const arc = new MockArc(x, y);
+      circle: (x: number, y: number, radius: number) => {
+        const arc = new MockArc(x, y, radius);
         circles.push(arc);
         return arc;
       },
@@ -151,6 +156,7 @@ async function createHarness(
 const playerArt = {
   id: 'character:scrap-tabby', kind: 'character', textureKey: 'tabby',
   url: 'assets/characters/scrap-tabby/scrap-tabby.png', required: true,
+  sampling: 'nearest',
   load: { type: 'spritesheet', frame: { width: 48, height: 48 } },
   display: { width: 28, height: 28 },
   clips: {
@@ -304,6 +310,40 @@ describe('Player', () => {
     expect(sprite.body.setCollideWorldBounds).toHaveBeenCalledTimes(1);
   });
 
+  it('enlarges only fallback presentation layers while leaving the player physics body exact', async () => {
+    const { player, sprite, circles } = await createHarness();
+    player.update(16);
+
+    expect(sprite.body.setCircle).toHaveBeenCalledWith(14);
+    expect(sprite.visible).toBe(false);
+    expect(circles.map((circle) => circle.radius)).toEqual([14, 13 * 1.30, 14 * 1.30, 4.5 * 1.30, 4.5 * 1.30]);
+    const fallbackBody = circles.find((circle) => circle.radius === 14 * 1.30);
+    expect([fallbackBody?.x, fallbackBody?.y]).toEqual([400, 300]);
+  });
+
+  it('constructs fallback body/ears only when animated art is unavailable', async () => {
+    const fallback = await createHarness();
+    const loaded = await createHarness(650, { x: 0, y: 0 }, playerArt);
+
+    // Fallback: physics proxy, display body, two ears, and display shadow.
+    expect(fallback.circles).toHaveLength(5);
+    // Loaded art: only the physics proxy and its shared display shadow; no
+    // construct-then-destroy fallback circles may be allocated.
+    expect(loaded.circles.map((circle) => circle.radius)).toEqual([14, 13 * 1.30]);
+    expect(loaded.artSprites).toHaveLength(1);
+  });
+
+  it('keeps the loaded actor art and its shadow at the same 1.30 presentation factor', async () => {
+    const { player, artSprites, circles } = await createHarness(650, { x: 0, y: 0 }, playerArt);
+    const shadow = circles.find((circle) => circle.radius === 13 * 1.30);
+
+    expect(artSprites[0]?.scale).toEqual([28 / 48 * 1.30, 28 / 48 * 1.30]);
+    player.update(16);
+    // Sabotage: passing the unscaled 15px offset to SpriteView makes this 315,
+    // leaving real art and fallback shadows visually out of parity.
+    expect([shadow?.x, shadow?.y]).toEqual([400, 300 + 15 * 1.30]);
+  });
+
   it('never lets presentation poses touch the body size or position APIs', async () => {
     const { player, sprite } = await createHarness(650, { x: 1, y: 0 });
 
@@ -328,8 +368,8 @@ describe('Player', () => {
 
     player.destroy();
 
-    // circles order: body, left ear, right ear, shadow.
-    expect(circles).toHaveLength(4);
+    // circles order: physics body, fallback body, left ear, right ear, shadow.
+    expect(circles).toHaveLength(5);
     for (const circle of circles) {
       expect(circle.destroyCount).toBe(1);
     }

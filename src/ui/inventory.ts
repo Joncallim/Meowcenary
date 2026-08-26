@@ -3,6 +3,7 @@ import { canMerge, hasMergeablePair, mergeResult, replaceMergedWeapons } from '.
 import type { RunState } from '../gameplay/runState';
 import { WEAPON_RACK_CAPACITY } from '../gameplay/weaponRack';
 import type { WeaponInstance } from '../gameplay/weapons';
+import { resolveWeaponStats } from '../gameplay/weaponStats';
 import type { Rarity, WeaponDefinition } from '../systems/types';
 import type { DataWeaponRegistry } from '../systems/weaponRegistry';
 
@@ -13,7 +14,7 @@ export type InventorySelectionState =
   | 'compatible'
   | 'incompatible';
 
-export type InventoryStatKey = 'damage' | 'rate' | 'projectiles' | 'pierce';
+export type InventoryStatKey = 'damage' | 'rate' | 'projectiles' | 'pierce' | 'range';
 
 export interface InventoryStatView {
   readonly key: InventoryStatKey;
@@ -126,7 +127,7 @@ export class InventoryController {
       }
 
       return Object.freeze({
-        ...weaponSummary(instance, definition),
+        ...weaponSummary(this.runState, instance, definition),
         instanceId: instance.instanceId,
         selected: selectedWeapon,
         ...(selectedIndex >= 0 ? { selectionOrder: (selectedIndex + 1) as 1 | 2 } : {}),
@@ -252,8 +253,8 @@ export class InventoryController {
       return undefined;
     }
 
-    const beforeStats = statViews(aDefinition);
-    const afterStats = statViews(resultDefinition);
+    const beforeStats = statViews(this.runState, aDefinition);
+    const afterStats = statViews(this.runState, resultDefinition);
     const deltas = beforeStats
       .map((before) => {
         const after = afterStats.find((candidate) => candidate.key === before.key)!;
@@ -270,10 +271,11 @@ export class InventoryController {
 
     return Object.freeze({
       inputs: Object.freeze([
-        weaponSummary(a, aDefinition),
-        weaponSummary(b, bDefinition),
+        weaponSummary(this.runState, a, aDefinition),
+        weaponSummary(this.runState, b, bDefinition),
       ]) as readonly [InventoryWeaponSummary, InventoryWeaponSummary],
       result: weaponSummary(
+        this.runState,
         {
           defId: resultDefinition.id,
           family: resultDefinition.family,
@@ -304,6 +306,7 @@ export class InventoryController {
 }
 
 function weaponSummary(
+  runState: RunState,
   instance: Pick<WeaponInstance, 'defId' | 'family' | 'tier'>,
   definition: WeaponDefinition | undefined,
 ): InventoryWeaponSummary {
@@ -314,17 +317,19 @@ function weaponSummary(
     iconId: definition?.art.iconId ?? `weapon:${instance.family}`,
     rarity: definition?.rarity ?? 'common',
     tier: instance.tier,
-    stats: Object.freeze(definition ? statViews(definition) : []),
+    stats: Object.freeze(definition ? statViews(runState, definition) : []),
   });
 }
 
-function statViews(definition: WeaponDefinition): InventoryStatView[] {
-  const rate = 1000 / definition.fireRateMs;
+function statViews(runState: RunState, definition: WeaponDefinition): InventoryStatView[] {
+  const stats = resolveWeaponStats(runState, definition);
+  const rate = 1000 / stats.intervalMs;
   return [
-    Object.freeze({ key: 'damage', label: 'DMG', value: definition.damage, formatted: formatStat(definition.damage) }),
+    Object.freeze({ key: 'damage', label: 'DMG', value: stats.damage, formatted: formatStat(stats.damage) }),
     Object.freeze({ key: 'rate', label: 'RATE', value: rate, formatted: `${rate.toFixed(2)}/s` }),
-    Object.freeze({ key: 'projectiles', label: 'SHOTS', value: definition.projectileCount, formatted: `×${definition.projectileCount}` }),
-    Object.freeze({ key: 'pierce', label: 'PIERCE', value: definition.pierce, formatted: formatStat(definition.pierce) }),
+    Object.freeze({ key: 'projectiles', label: 'SHOTS', value: stats.projectileCount, formatted: `×${stats.projectileCount}` }),
+    Object.freeze({ key: 'pierce', label: 'PIERCE', value: stats.pierce, formatted: formatStat(stats.pierce) }),
+    Object.freeze({ key: 'range', label: 'RNG', value: stats.range, formatted: String(Math.round(stats.range)) }),
   ];
 }
 

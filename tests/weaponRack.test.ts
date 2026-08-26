@@ -20,7 +20,7 @@ vi.mock('phaser', () => ({
     },
   },
 }));
-import { createRunState } from '../src/gameplay/runState';
+import { createRunState, pauseRun, startRun } from '../src/gameplay/runState';
 import {
   evaluateWeaponAdmission,
   grantWeaponToRack,
@@ -28,14 +28,14 @@ import {
 } from '../src/gameplay/weaponRack';
 import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import { loadGameData } from '../src/systems/validation';
-import type { WeaponInstance, WeaponRegistry } from '../src/gameplay/weapons';
+import { createWeaponInstance, type WeaponInstance, type WeaponRegistry } from '../src/gameplay/weapons';
 import { createEventBus } from '../src/engine/eventBus';
 import { logicalCanvasViewport } from '../src/ui/layout';
 import { createModalTextHelpers } from '../src/ui/modal';
 import { ThemeColor } from '../src/ui/theme';
 import { computeWeaponRackLayout } from '../src/ui/weaponRackLayout';
 import { PhaserWeaponRackPanel } from '../src/ui/weaponRackView';
-import type { InventorySnapshot, InventoryWeaponView } from '../src/ui/inventory';
+import { InventoryController, type InventorySnapshot, type InventoryWeaponView } from '../src/ui/inventory';
 
 const data = loadGameData();
 const registry = new DataWeaponRegistry(data);
@@ -230,6 +230,8 @@ class FakeDisplayObject extends FakeEmitter {
     super();
   }
 
+  originX = 0;
+  originY = 0;
   setScrollFactor(): this { return this; }
   setStrokeStyle(width: number, color: number, alpha: number): this {
     this.strokeWidth = width;
@@ -237,7 +239,11 @@ class FakeDisplayObject extends FakeEmitter {
     this.strokeAlpha = alpha;
     return this;
   }
-  setOrigin(): this { return this; }
+  setOrigin(x = 0.5, y = x): this {
+    this.originX = x;
+    this.originY = y;
+    return this;
+  }
   setInteractive(): this {
     this.input = { enabled: true };
     return this;
@@ -248,14 +254,21 @@ class FakeDisplayObject extends FakeEmitter {
 }
 
 class FakeText extends FakeDisplayObject {
+  readonly resolution: number;
   constructor(
     x: number,
     y: number,
     public text: string,
-    style: { fontSize?: string },
+    style: { fontSize?: string; resolution?: number; wordWrap?: { width: number } },
   ) {
+    if (style.resolution !== 2) throw new Error('UI text must use resolution 2');
     const fontSize = Number.parseFloat(style.fontSize ?? '16');
-    super(x, y, text.length * fontSize * 0.55, fontSize * 1.2);
+    const naturalWidth = text.length * fontSize * 0.55;
+    const wrapWidth = style.wordWrap?.width;
+    const width = wrapWidth === undefined ? naturalWidth : Math.min(naturalWidth, wrapWidth);
+    const lines = wrapWidth === undefined ? 1 : Math.max(1, Math.ceil(naturalWidth / wrapWidth));
+    super(x, y, width, fontSize * 1.2 * lines);
+    this.resolution = style.resolution;
   }
 }
 
@@ -282,8 +295,12 @@ function createFakeScene() {
         object.fillColor = fillColor;
         return object;
       },
-      text: (x: number, y: number, text: string, style: { fontSize?: string }) =>
-        own(new FakeText(x, y, text, style)),
+      text: (
+        x: number,
+        y: number,
+        text: string,
+        style: { fontSize?: string; resolution?: number; wordWrap?: { width: number } },
+      ) => own(new FakeText(x, y, text, style)),
     },
   };
 }
@@ -350,4 +367,207 @@ describe('PhaserWeaponRackPanel card composition order', () => {
     expect(labelIndex).toBeGreaterThan(artIndex);
     panel.destroy();
   });
+
+  it('renders rounded RNG from the stat view in both normal and compact occupied slots', () => {
+    const weapon: InventoryWeaponView = {
+      definitionId: 'can-smg-t1',
+      name: 'Can SMG I',
+      family: 'smg',
+      iconId: 'weapon-icon:can-smg-t1',
+      rarity: 'common',
+      tier: 1,
+      stats: [
+        { key: 'damage', label: 'DMG', value: 5, formatted: '5' },
+        { key: 'rate', label: 'RATE', value: 13.79, formatted: '13.79/s' },
+        { key: 'projectiles', label: 'SHOTS', value: 2, formatted: '×2' },
+        { key: 'pierce', label: 'PIERCE', value: 1, formatted: '1' },
+        { key: 'range', label: 'RNG', value: 203.5, formatted: '204' },
+      ],
+      instanceId: 'weapon-1',
+      selected: false,
+      selectionState: 'neutral',
+      mergeableWith: [],
+    };
+    const snapshot: InventorySnapshot = {
+      capacity: 6,
+      weapons: [weapon],
+      slots: [weapon, null, null, null, null, null],
+      selectedInstanceIds: [],
+      mergeReady: false,
+    };
+    for (const viewport of [logicalCanvasViewport(390, 844), logicalCanvasViewport(844, 390)]) {
+      for (const rarity of ['common', 'uncommon', 'rare', 'epic', 'legendary'] as const) {
+        const scene = createFakeScene();
+        const labelledWeapon: InventoryWeaponView = { ...weapon, rarity };
+        const labelledSnapshot: InventorySnapshot = {
+          ...snapshot,
+          weapons: [labelledWeapon],
+          slots: [labelledWeapon, null, null, null, null, null],
+        };
+        const panel = new PhaserWeaponRackPanel({
+          scene: scene as never,
+          viewport,
+          bus: createEventBus(),
+          inventory: { snapshot: () => labelledSnapshot } as never,
+          modal: createModalTextHelpers(scene as never, viewport),
+          isOpen: () => true,
+          hasCommittedRoot: () => true,
+          onBack: () => true,
+          requestRender: () => {},
+        });
+        const root = scene.add.container(0, 0);
+        panel.render(root as never, labelledSnapshot, viewport.canvasWidth);
+        expect(root.children.some((object) => object instanceof FakeText && object.text.includes('RNG 204'))).toBe(true);
+        expect(root.children.some((object) => object instanceof FakeText && object.text === rarity.toUpperCase())).toBe(true);
+        panel.destroy();
+      }
+    }
+  });
+
+  it('keeps every compact full rarity/state/family/RNG text bounds separate inside a card at 844x390', () => {
+    const viewport = logicalCanvasViewport(180, 390, 844, 390);
+    const layout = computeWeaponRackLayout(viewport, 6);
+    const baseWeapon: InventoryWeaponView = {
+      definitionId: 'bolt-shotgun-t2', name: 'Bolt Shotgun II', family: 'shotgun',
+      iconId: 'weapon-icon:bolt-shotgun-t2', rarity: 'common', tier: 2,
+      stats: [{ key: 'range', label: 'RNG', value: 154.2, formatted: '154' }],
+      instanceId: 'weapon-1', selected: false, selectionState: 'neutral', mergeableWith: [],
+    };
+    const stateLabels = {
+      neutral: undefined,
+      selected: 'PICK 1',
+      compatible: 'MATCH',
+      incompatible: 'NO MATCH',
+      'merge-ready': 'MERGE',
+    } as const;
+
+    for (const rarity of ['common', 'uncommon', 'rare', 'epic', 'legendary'] as const) {
+      for (const [selectionState, stateLabel] of Object.entries(stateLabels) as Array<[
+        InventoryWeaponView['selectionState'], string | undefined
+      ]>) {
+        const scene = createFakeScene();
+        const weapon: InventoryWeaponView = {
+          ...baseWeapon, rarity, selectionState,
+          ...(selectionState === 'selected' ? { selected: true, selectionOrder: 1 as const } : {}),
+        };
+        const snapshot: InventorySnapshot = {
+          capacity: 6, weapons: [weapon], slots: [weapon, null, null, null, null, null],
+          selectedInstanceIds: [], mergeReady: false,
+        };
+        const panel = createPanel(scene, viewport, snapshot);
+        const root = scene.add.container(0, 0);
+        panel.render(root as never, snapshot, viewport.canvasWidth);
+        const expected = ['1·T2', rarity.toUpperCase(), 'S-GUN', 'RNG 154', ...(stateLabel ? [stateLabel] : [])];
+        const fields = expected.map((text) => requiredText(root, text));
+        assertDistinctBounds(fields, {
+          left: layout.leftMargin,
+          top: layout.gridTop,
+          right: layout.leftMargin + layout.cardWidth,
+          bottom: layout.gridTop + layout.cardHeight,
+        });
+        panel.destroy();
+      }
+    }
+  });
+
+  it.each([
+    ['canonical portrait', logicalCanvasViewport(390, 844)],
+    ['smallest normal portrait', logicalCanvasViewport(263, 568, 320, 568)],
+    ['compact reference', logicalCanvasViewport(180, 390, 844, 390)],
+  ])('keeps every rendered five-delta shotgun merge row separate and inside the preview at %s', (_name, viewport) => {
+    const layout = computeWeaponRackLayout(viewport, 6);
+    const scene = createFakeScene();
+    const { controller, snapshot } = realFiveDeltaShotgunMerge();
+    const preview = snapshot.preview;
+    if (!preview) throw new Error('real shotgun merge preview missing');
+    expect(preview.deltas.map((delta) => delta.key)).toEqual([
+      'damage', 'rate', 'projectiles', 'pierce', 'range',
+    ]);
+    const panel = createPanel(scene, viewport, snapshot, controller);
+    const root = scene.add.container(0, 0);
+    panel.render(root as never, snapshot, viewport.canvasWidth);
+    const texts = [
+      `T${preview.inputs[0].tier} + T${preview.inputs[1].tier} → T${preview.result.tier}`,
+      preview.result.name,
+      preview.result.rarity.toUpperCase(),
+      ...preview.deltas.map((delta) => `${delta.label}  ${delta.formattedBefore} → ${delta.formattedAfter}`),
+    ].map((text) => requiredText(root, text));
+    assertDistinctBounds(texts, {
+      left: layout.preview.x,
+      top: layout.preview.y,
+      right: layout.preview.x + layout.preview.width,
+      bottom: layout.preview.y + layout.preview.height,
+    });
+    panel.destroy();
+  });
 });
+
+function createPanel(
+  scene: ReturnType<typeof createFakeScene>,
+  viewport: ReturnType<typeof logicalCanvasViewport>,
+  snapshot: InventorySnapshot,
+  inventory: InventoryController | { snapshot(): InventorySnapshot } = { snapshot: () => snapshot },
+): PhaserWeaponRackPanel {
+  return new PhaserWeaponRackPanel({
+    scene: scene as never, viewport, bus: createEventBus(),
+    inventory: inventory as InventoryController,
+    modal: createModalTextHelpers(scene as never, viewport),
+    isOpen: () => true, hasCommittedRoot: () => true, onBack: () => true, requestRender: () => {},
+  });
+}
+
+function realFiveDeltaShotgunMerge(): {
+  readonly controller: InventoryController;
+  readonly snapshot: InventorySnapshot;
+} {
+  const definition = registry.weaponById('bolt-shotgun-t2');
+  if (!definition) throw new Error('shipped T2 shotgun missing');
+  const run = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
+  startRun(run);
+  run.equipped = [
+    createWeaponInstance(definition, 'shotgun-a'),
+    createWeaponInstance(definition, 'shotgun-b'),
+  ];
+  pauseRun(run, undefined, 'manual');
+  const controller = new InventoryController({
+    runState: run,
+    bus: createEventBus(),
+    weaponRegistry: registry,
+  });
+  controller.toggle('shotgun-a');
+  return { controller, snapshot: controller.toggle('shotgun-b') };
+}
+
+function requiredText(root: FakeContainer, text: string): FakeText {
+  const field = root.children.find((object): object is FakeText => object instanceof FakeText && object.text === text);
+  if (!field) throw new Error(`missing text ${text}`);
+  return field;
+}
+
+function assertDistinctBounds(
+  fields: readonly FakeText[],
+  container: { readonly left: number; readonly top: number; readonly right: number; readonly bottom: number },
+): void {
+  const bounds = fields.map((field) => ({
+    left: field.x - field.originX * field.width,
+    top: field.y - field.originY * field.height,
+    right: field.x + (1 - field.originX) * field.width,
+    bottom: field.y + (1 - field.originY) * field.height,
+  }));
+  for (const bound of bounds) {
+    expect(bound.left).toBeGreaterThanOrEqual(container.left);
+    expect(bound.top).toBeGreaterThanOrEqual(container.top);
+    expect(bound.right).toBeLessThanOrEqual(container.right);
+    expect(bound.bottom).toBeLessThanOrEqual(container.bottom);
+  }
+  for (let first = 0; first < bounds.length; first += 1) {
+    for (let second = first + 1; second < bounds.length; second += 1) {
+      expect(
+        bounds[first]!.right <= bounds[second]!.left
+        || bounds[second]!.right <= bounds[first]!.left
+        || bounds[first]!.bottom <= bounds[second]!.top
+        || bounds[second]!.bottom <= bounds[first]!.top,
+      ).toBe(true);
+    }
+  }
+}

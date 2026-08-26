@@ -31,6 +31,48 @@ export interface WeaponRackLayout {
   readonly backAction: WeaponRackRect;
 }
 
+export interface MergePreviewTextLayout {
+  /** Physical CSS-pixel font size consumed by addCardText. */
+  readonly fontSize: number;
+  /** Logical panel inset and row offsets after FIT conversion. */
+  readonly inset: number;
+  readonly resultOffset: number;
+  readonly rarityOffset: number;
+  readonly deltaOffset: number;
+  readonly deltaStep: number;
+  readonly minimumHeight: number;
+}
+
+const MERGE_PREVIEW_HEADER_ROWS = 3;
+const MERGE_PREVIEW_DELTA_ROWS = 5;
+
+/**
+ * Reserves the equation, result, full rarity word, and all five stat deltas
+ * from one font-derived row model. The extra row-height allowance covers
+ * Phaser Text font metrics; explicit spacing remains between rendered bounds.
+ */
+export function computeMergePreviewTextLayout(
+  viewport: UiViewport,
+  compact: boolean,
+): MergePreviewTextLayout {
+  const physical = (pixels: number): number => physicalToLogical(pixels, viewport);
+  const fontSize = compact ? 11 : ThemeFont.bodyMin;
+  const fontRowSize = physical(Math.ceil(fontSize * 1.25));
+  const rowSpacing = physical(compact ? 1 : 4);
+  const deltaStep = fontRowSize + rowSpacing;
+  const inset = physical(compact ? 6 : 10);
+  const rowCount = MERGE_PREVIEW_HEADER_ROWS + MERGE_PREVIEW_DELTA_ROWS;
+  return {
+    fontSize,
+    inset,
+    resultOffset: deltaStep,
+    rarityOffset: deltaStep * 2,
+    deltaOffset: deltaStep * MERGE_PREVIEW_HEADER_ROWS,
+    deltaStep,
+    minimumHeight: inset * 2 + fontRowSize + deltaStep * (rowCount - 1),
+  };
+}
+
 /**
  * Computes the whole rack surface from the live FIT display size. A wide
  * physical display still has the canonical portrait logical canvas, so the
@@ -109,7 +151,7 @@ export function computeWeaponRackLayout(
   const available = Math.max(2, previewBottom - gridTop);
   const rowGaps = gap * (rows - 1);
   const desiredCardHeight = physical(106);
-  const minimumPreviewHeight = physical(compact ? 122 : 144);
+  const minimumPreviewHeight = computeMergePreviewTextLayout(viewport, compact).minimumHeight;
   const desiredGridHeight = desiredCardHeight * rows + rowGaps;
   const cardHeight = available - desiredGridHeight - gap >= minimumPreviewHeight
     ? desiredCardHeight

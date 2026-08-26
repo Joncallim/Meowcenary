@@ -11,6 +11,7 @@ import { PhaserHudView } from '../src/ui/hud';
 import { DebugOverlay } from '../src/systems/debug';
 import { arenaFollowEnabled, zoomedVisibleSize } from '../src/scenes/GameScene';
 import { GAMEPLAY_ZOOM, pointerToRootLocal, zoomedGameUiViewport } from '../src/ui/layout';
+import { ThemeColor, ThemeDepth } from '../src/ui/theme';
 
 const REFERENCE_VIEWPORTS = [
   { name: 'phone portrait', width: 390, height: 844 },
@@ -29,6 +30,7 @@ interface FakeSceneObject {
     width: number;
     height: number;
     text?: string;
+    fillColor?: number;
     interactive: boolean;
     destroyed: boolean;
     handlers: Record<string, (...args: unknown[]) => void>;
@@ -485,6 +487,8 @@ describe('Epic 19 playtest fixes: F3 debug overlay on-screen (U5)', () => {
       (object) => object.state.kind === 'text' && !object.state.destroyed && object.state.scrollFactorX === 0,
     );
     expect(text).toBeDefined();
+    // Sabotage: the legacy 10_000 depth escapes the documented root ladder.
+    expect(text!.state.depth).toBe(ThemeDepth.debugOverlay);
     const bounds = text!.getBounds();
     // Rendered physical bounds: the scrollFactor-0 overlay is screen-anchored,
     // so world position × camera zoom × FIT gives the top-left, while
@@ -596,6 +600,34 @@ describe('Epic 19 playtest fixes: health/pause 8px physical gap', () => {
   });
 });
 
+describe('Epic 19 playtest fixes: zoomed GameScene HUD backing projection', () => {
+  it('projects the HUD backing from the actual GameScene viewport origin to the full canvas bounds', () => {
+    const h = createGameSoakHarness({ fixtureSeed: 19, runSeed: 19, storageKey: 'e19-backing-origin' });
+    const viewport = zoomedGameUiViewport(
+      h.gameScene.scale.displaySize.width,
+      h.gameScene.scale.displaySize.height,
+      h.gameScene.scale.parentSize.width,
+      h.gameScene.scale.parentSize.height,
+    );
+    const before = new Set(fakeSceneObjects(h));
+    const hud = new PhaserHudView({ scene: h.gameScene as never, viewport });
+    const backing = fakeSceneObjects(h)
+      .filter((object) => !before.has(object))
+      .find((object) => object.state.kind === 'rect' && object.state.width === viewport.canvasWidth);
+    if (!backing) throw new Error('zoomed HUD backing missing');
+
+    const left = (backing.state.x - backing.state.width / 2 - viewport.originX!) * GAMEPLAY_ZOOM;
+    const right = (backing.state.x + backing.state.width / 2 - viewport.originX!) * GAMEPLAY_ZOOM;
+    const top = (backing.state.y - backing.state.height / 2 - viewport.originY!) * GAMEPLAY_ZOOM;
+    expect(left).toBeCloseTo(0, 6);
+    expect(right).toBeCloseTo(390, 6);
+    expect(top).toBeCloseTo(0, 6);
+    hud.destroy();
+    h.destroy();
+    expect(h.listeners()).toEqual(ZERO_LISTENER_DIAGNOSTICS);
+  });
+});
+
 describe('Epic 19 playtest fixes: four-viewport HUD soak', () => {
   it.each(REFERENCE_VIEWPORTS)('keeps both bars and the three-line stats stack safe in both directions at $name', ({ width, height }) => {
     const h = createGameSoakHarness({ fixtureSeed: width + height, runSeed: width, storageKey: `e19-hud-${width}` });
@@ -624,11 +656,16 @@ describe('Epic 19 playtest fixes: four-viewport HUD soak', () => {
       h.resizeTo(targetWidth, targetHeight);
       hud.render(snapshot);
       const live = fakeSceneObjects(h).filter((object) => !object.state.destroyed);
+      const barColors = new Set([0x334155, ThemeColor.danger, ThemeColor.primary]);
       const bars = live
-        .filter((object) => object.state.kind === 'rect' && !object.state.interactive && object.state.width > 100)
+        // The top HUD backing is also a passive rectangle. Identify bars by
+        // their documented semantic colors, never by creation order/width.
+        .filter((object) => object.state.kind === 'rect'
+          && !object.state.interactive
+          && barColors.has(object.state.fillColor ?? -1))
         .sort((a, b) => a.state.y - b.state.y);
-      expect(bars.length).toBeGreaterThanOrEqual(4);
-      const [healthBg, healthFill, xpBg, xpFill] = bars.slice(-4);
+      expect(bars).toHaveLength(4);
+      const [healthBg, healthFill, xpBg, xpFill] = bars;
       expect(healthBg).toBeDefined();
       expect(healthFill).toBeDefined();
       expect(xpBg).toBeDefined();

@@ -128,7 +128,7 @@ const MAX_VISUAL_ART_BINDINGS = 256;
 const MAX_VISUAL_ART_CLIPS = 16;
 const VISUAL_ART_ROOT_FIELDS = new Set(['bindings']);
 const VISUAL_ART_BINDING_FIELDS = new Set([
-  'id', 'kind', 'textureKey', 'url', 'required', 'load', 'display', 'clips',
+  'id', 'kind', 'textureKey', 'url', 'required', 'sampling', 'load', 'display', 'clips',
 ]);
 const VISUAL_ART_IMAGE_LOAD_FIELDS = new Set(['type']);
 const VISUAL_ART_SPRITESHEET_LOAD_FIELDS = new Set(['type', 'frame']);
@@ -1895,6 +1895,11 @@ function checkRunUpgradeEffects(upgrade: Record<string, unknown>, errors: string
     }
     if (!isFiniteNumber(value)) {
       effectErrors.push('value: required finite number');
+    } else if (stat === 'range' && value <= 0) {
+      // Range is a distance-domain contract: a zero/negative modifier could
+      // make targeting and projectile lifetime disagree on a non-positive
+      // scalar. Positive sub-1 multipliers (e.g. breacher x0.88) remain valid.
+      effectErrors.push('value: range modifier must be positive');
     } else if (op === 'mult' && value <= 0) {
       // D5: mult values must be finite and > 0; sub-1 trade-off multipliers
       // (e.g. heavy-rounds' attackSpeed x0.94) are intentionally valid.
@@ -2721,8 +2726,12 @@ export function validateVisualArtCatalog(raw: unknown): VisualArtCatalog {
       const textureKey = readOwnField(binding, 'textureKey');
       const url = readOwnField(binding, 'url');
       const required = readOwnField(binding, 'required');
+      const sampling = readOwnField(binding, 'sampling');
       if (required !== true && required !== false) {
         rowErrors.push('required: required boolean');
+      }
+      if (sampling !== 'nearest' && sampling !== 'linear') {
+        rowErrors.push('sampling: must be nearest or linear');
       }
       if (typeof id === 'string' &&
           (id.length > 128 || !/^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)+$/.test(id))) {

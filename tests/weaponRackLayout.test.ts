@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { logicalCanvasViewport, safeDisplayScale } from '../src/ui/layout';
-import { computeWeaponRackLayout } from '../src/ui/weaponRackLayout';
+import {
+  computeMergePreviewTextLayout,
+  computeWeaponRackLayout,
+} from '../src/ui/weaponRackLayout';
 
 function expectRectInsideCanvas(
   rect: { x: number; y: number; width: number; height: number },
@@ -40,7 +43,9 @@ describe('computeWeaponRackLayout', () => {
     expect(layout.rows).toBe(2);
     expect(layout.keyHintY).toBeUndefined();
     expect(layout.cardHeight * scale).toBeGreaterThanOrEqual(44);
-    expect(layout.preview.height * scale).toBeGreaterThanOrEqual(122);
+    expect(layout.preview.height).toBeGreaterThanOrEqual(
+      computeMergePreviewTextLayout(viewport, true).minimumHeight,
+    );
     expect(gridBottom).toBeLessThanOrEqual(layout.preview.y);
     expect(layout.preview.y + layout.preview.height).toBeLessThanOrEqual(
       layout.mergeAction.y - layout.mergeAction.height / 2,
@@ -57,7 +62,9 @@ describe('computeWeaponRackLayout', () => {
     expect(layout.compact).toBe(true);
     expect(layout.cardWidth * scale).toBeGreaterThanOrEqual(44);
     expect(layout.cardHeight * scale).toBeGreaterThanOrEqual(44);
-    expect(layout.preview.height * scale).toBeGreaterThanOrEqual(122);
+    expect(layout.preview.height).toBeGreaterThanOrEqual(
+      computeMergePreviewTextLayout(viewport, true).minimumHeight,
+    );
     expect(layout.mergeAction.width * scale).toBeGreaterThanOrEqual(44);
     expect(layout.backAction.width * scale).toBeGreaterThanOrEqual(44);
   });
@@ -70,7 +77,9 @@ describe('computeWeaponRackLayout', () => {
     expect(layout.compact).toBe(false);
     expect(layout.cardWidth * scale).toBeGreaterThanOrEqual(44);
     expect(layout.cardHeight * scale).toBeGreaterThanOrEqual(44);
-    expect(layout.preview.height * scale).toBeGreaterThanOrEqual(144);
+    expect(layout.preview.height).toBeGreaterThanOrEqual(
+      computeMergePreviewTextLayout(viewport, false).minimumHeight,
+    );
   });
 
   it('recomputes physical metrics when display orientation changes', () => {

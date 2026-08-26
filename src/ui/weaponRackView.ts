@@ -7,10 +7,11 @@ import {
   type InventoryWeaponView,
   type MergeFailureReason,
 } from './inventory';
-import { physicalToLogical, safeDisplayScale, type UiViewport } from './layout';
+import { physicalToLogical, type UiViewport } from './layout';
 import type { ModalTextHelpers } from './modal';
 import { FocusStroke, ThemeColor, ThemeFont, themeColorCss } from './theme';
-import { computeWeaponRackLayout } from './weaponRackLayout';
+import { createUiText } from './text';
+import { computeMergePreviewTextLayout, computeWeaponRackLayout } from './weaponRackLayout';
 import { FocusNavigator, type FocusDirection } from './focusList';
 import type { InputMode } from '../systems/input';
 import type { ModalButtonHandle } from './modal';
@@ -34,6 +35,7 @@ export interface PhaserWeaponRackPanelOptions {
 
 interface MergeConfirmation {
   readonly resultName: string;
+  readonly rarity: InventoryWeaponView['rarity'];
   readonly occupied: number;
   readonly capacity: number;
 }
@@ -292,45 +294,34 @@ export class PhaserWeaponRackPanel {
 
     const left = x - width / 2;
     const top = y - height / 2;
+    const rarityLabel = weapon.rarity.toUpperCase();
     if (compact) {
-      const dense = height * safeDisplayScale(this.viewport) < 70;
-      if (!dense) {
-        this.renderWeaponGlyph(
-          root,
-          weapon.iconId,
+      // The 844×390 FIT rack has room for five semantic rows but not a
+      // useful icon without making the full rarity/state/RNG information
+      // collide. Keep the data in fixed rows; decorative art remains on the
+      // normal rack where it has its own reserved bounds.
+      const compactInset = physicalToLogical(3, this.viewport);
+      const compactStep = physicalToLogical(12, this.viewport);
+      const compactFontSize = 9;
+      const compactTextWidth = width - compactInset * 2;
+      const addCompactRow = (row: number, text: string, tone: 'primary' | 'muted' | 'gold') => {
+        const field = this.addCardText(
           x,
-          y + physicalToLogical(5, this.viewport),
-          rarityStroke,
-          true,
+          top + compactInset + compactStep * row,
+          text,
+          tone,
+          compactTextWidth,
+          compactFontSize,
         );
-      }
-      const family = this.addCardText(
-        x,
-        y + height / 2 - physicalToLogical(dense ? 17 : 20, this.viewport),
-        compactWeaponLabel(weapon.family),
-        'primary',
-        width - 8,
-        dense ? ThemeFont.labelMin : ThemeFont.bodyMin,
-      );
-      root.add(family);
-      family.setOrigin(0.5, 0);
-      const tier = this.addCardText(left + 8, top + 7,
-        `${index + 1}·T${weapon.tier}`, 'muted', width / 2);
-      root.add(tier);
-      const stateLabel = this.addCardText(
-        x,
-        top + physicalToLogical(18, this.viewport),
-        selectionLabel(weapon),
-        state === 'selected' || state === 'merge-ready' ? 'gold' : 'muted',
-        width - physicalToLogical(4, this.viewport),
-        ThemeFont.labelMin,
-      );
-      root.add(stateLabel);
-      stateLabel.setOrigin(0.5, 0);
-      const availableStateWidth = width - physicalToLogical(6, this.viewport);
-      if (Number.isFinite(stateLabel.width) && stateLabel.width > availableStateWidth) {
-        stateLabel.setScale(availableStateWidth / stateLabel.width, 1);
-      }
+        root.add(field);
+        field.setOrigin(0.5, 0);
+      };
+      addCompactRow(0, `${index + 1}·T${weapon.tier}`, 'muted');
+      addCompactRow(1, rarityLabel, 'primary');
+      addCompactRow(2, selectionLabel(weapon), state === 'selected' || state === 'merge-ready' ? 'gold' : 'muted');
+      addCompactRow(3, compactWeaponLabel(weapon.family), 'primary');
+      const range = weapon.stats.find((stat) => stat.key === 'range');
+      if (range) addCompactRow(4, `${range.label} ${range.formatted}`, 'muted');
       return card;
     }
 
@@ -346,9 +337,20 @@ export class PhaserWeaponRackPanel {
       width - 64,
     );
     root.add(name);
+    const rarity = this.addCardText(
+      left + 54,
+      top + physicalToLogical(48, this.viewport),
+      rarityLabel,
+      'primary',
+      width - physicalToLogical(64, this.viewport),
+      ThemeFont.labelMin,
+    );
+    root.add(rarity);
     const damage = weapon.stats.find((stat) => stat.key === 'damage');
     const rate = weapon.stats.find((stat) => stat.key === 'rate');
     const shots = weapon.stats.find((stat) => stat.key === 'projectiles');
+    const pierce = weapon.stats.find((stat) => stat.key === 'pierce');
+    const range = weapon.stats.find((stat) => stat.key === 'range');
     const stats = this.addCardText(
       left + 54,
       y + 17,
@@ -356,6 +358,8 @@ export class PhaserWeaponRackPanel {
         damage && `${damage.label} ${damage.formatted}`,
         rate?.formatted,
         shots && shots.value > 1 ? shots.formatted : undefined,
+        pierce && pierce.value > 0 ? `${pierce.label} ${pierce.formatted}` : undefined,
+        range && `${range.label} ${range.formatted}`,
       ]
         .filter((value): value is string => value !== undefined)
         .join(' • '),
@@ -439,7 +443,7 @@ export class PhaserWeaponRackPanel {
     root.add(panel);
     panel.setStrokeStyle(physicalToLogical(2, this.viewport), ThemeColor.card, 0.9);
 
-    const inset = physicalToLogical(10, this.viewport);
+    const inset = physicalToLogical(compact ? 6 : 10, this.viewport);
     if (this.confirmation) {
       const title = this.addCardText(
         x + inset,
@@ -457,9 +461,17 @@ export class PhaserWeaponRackPanel {
         width - inset * 2,
       );
       root.add(result);
+      const rarity = this.addCardText(
+        x + inset,
+        y + inset + physicalToLogical(46, this.viewport),
+        this.confirmation.rarity.toUpperCase(),
+        'primary',
+        width - inset * 2,
+      );
+      root.add(rarity);
       const freed = this.addCardText(
         x + inset,
-        y + inset + physicalToLogical(52, this.viewport),
+        y + inset + physicalToLogical(70, this.viewport),
         `1 SLOT FREED • ${this.confirmation.occupied}/${this.confirmation.capacity} occupied`,
         'gold',
         width - inset * 2,
@@ -495,32 +507,45 @@ export class PhaserWeaponRackPanel {
     }
 
     const preview = snapshot.preview;
-    const resultOffset = compact ? 22 : 25;
-    const deltaOffset = compact ? 43 : 53;
-    const deltaStep = compact ? 16 : 21;
+    const textLayout = computeMergePreviewTextLayout(this.viewport, compact);
+    // Eight mandatory rows: equation, result, full rarity, then every resolved
+    // delta. Renderer offsets and layout minimum height share one font-derived
+    // model so normal and compact modes cannot drift apart.
     const equation = this.addCardText(
-      x + inset,
-      y + inset,
+      x + textLayout.inset,
+      y + textLayout.inset,
       `T${preview.inputs[0].tier} + T${preview.inputs[1].tier} → T${preview.result.tier}`,
       'gold',
-      width - inset * 2,
+      width - textLayout.inset * 2,
+      textLayout.fontSize,
     );
     root.add(equation);
     const result = this.addCardText(
-      x + inset,
-      y + inset + physicalToLogical(resultOffset, this.viewport),
+      x + textLayout.inset,
+      y + textLayout.inset + textLayout.resultOffset,
       preview.result.name,
       'primary',
-      width - inset * 2,
+      width - textLayout.inset * 2,
+      textLayout.fontSize,
     );
     root.add(result);
+    const rarity = this.addCardText(
+      x + textLayout.inset,
+      y + textLayout.inset + textLayout.rarityOffset,
+      preview.result.rarity.toUpperCase(),
+      'primary',
+      width - textLayout.inset * 2,
+      textLayout.fontSize,
+    );
+    root.add(rarity);
     preview.deltas.forEach((delta, index) => {
       const line = this.addCardText(
-        x + inset,
-        y + inset + physicalToLogical(deltaOffset + index * deltaStep, this.viewport),
+        x + textLayout.inset,
+        y + textLayout.inset + textLayout.deltaOffset + index * textLayout.deltaStep,
         `${delta.label}  ${delta.formattedBefore} → ${delta.formattedAfter}`,
         'muted',
-        width - inset * 2,
+        width - textLayout.inset * 2,
+        textLayout.fontSize,
       );
       root.add(line);
     });
@@ -540,7 +565,7 @@ export class PhaserWeaponRackPanel {
       gold: themeColorCss(ThemeColor.gold),
       danger: '#f87171',
     } as const;
-    const object = this.scene.add.text(x, y, text, {
+    const object = createUiText(this.scene, x, y, text, {
       color: colors[tone],
       fontFamily: ThemeFont.family,
       fontSize: `${physicalToLogical(physicalFontSize, this.viewport)}px`,
@@ -695,6 +720,7 @@ export class PhaserWeaponRackPanel {
       this.notice = undefined;
       this.confirmation = {
         resultName: merged?.name ?? 'Upgraded weapon',
+        rarity: merged?.rarity ?? 'common',
         occupied: result.snapshot.weapons.length,
         capacity: result.snapshot.capacity,
       };

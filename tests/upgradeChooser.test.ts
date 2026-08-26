@@ -348,17 +348,20 @@ class FakeDisplayObject extends FakeEmitter {
 
 class FakeText extends FakeDisplayObject {
   private fontSize: number;
+  readonly resolution: number;
   constructor(
     x: number,
     y: number,
     public text: string,
-    style: { fontSize?: string },
+    style: { fontSize?: string; resolution?: number },
     onDestroy?: (object: FakeDisplayObject) => void,
     private readonly shouldFailFixedSize?: () => boolean,
   ) {
+    if (style.resolution !== 2) throw new Error('UI text must use resolution 2');
     const fontSize = Number.parseFloat(style.fontSize ?? '16');
     super(x, y, text.length * fontSize * 0.55, fontSize * 1.2, onDestroy);
     this.fontSize = fontSize;
+    this.resolution = style.resolution;
     this.originX = 0;
     this.originY = 0;
   }
@@ -457,7 +460,7 @@ function createFakeScene(displayWidth: number, displayHeight: number) {
         object.fillColor = fillColor;
         return object;
       },
-      text: (x: number, y: number, text: string, style: { fontSize?: string }) =>
+      text: (x: number, y: number, text: string, style: { fontSize?: string; resolution?: number }) =>
         own(new FakeText(x, y, text, style, remove, () => {
           if (!failFixedSize) return false;
           failFixedSize = false;
@@ -812,7 +815,7 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
     view.destroy();
   });
 
-  it('fits the longest portrait rarity cue and hides it only in compact fallback mode', async () => {
+  it('fits the full uppercase rarity cue in both portrait and compact layouts', async () => {
     const legendary: UpgradeDefinition = {
       ...definitions[0]!,
       id: 'legendary-mobility',
@@ -824,6 +827,7 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
     const label = view.diagnostics.text.find((text) => text.role === 'rarity:0')!;
     const reserve = computeUpgradeChooserLayout(390, 844, 390, 844, 1).cards[0]!.rarityReserve;
     expect(label.visible).toBe(true);
+    expect(label.text).toBe('LEGENDARY');
     expect(label.width).toBeLessThanOrEqual(reserve + 0.001);
     expect(label.x + label.width).toBeLessThanOrEqual(card.x + card.width + 0.001);
     expect(label.x).toBeGreaterThanOrEqual(card.x - 0.001);
@@ -832,7 +836,8 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
 
     const compact = await createRenderedView(568, 320, [legendary]);
     const compactLabel = compact.view.diagnostics.text.find((text) => text.role === 'rarity:0')!;
-    expect(compactLabel.visible).toBe(false);
+    expect(compactLabel.visible).toBe(true);
+    expect(compactLabel.text).toBe('LEGENDARY');
     compact.view.destroy();
   });
 
@@ -1300,6 +1305,10 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
       expect(edges[index]?.strokeWidth).toBe(2);
       expect(edges[index]?.strokeAlpha).toBe(0.95);
     });
+    expect(view.diagnostics.text
+      .filter((text) => text.role.startsWith('rarity:'))
+      .map((text) => text.text))
+      .toEqual(allRarityDefinitions.map((definition) => definition.rarity.toUpperCase()));
     view.destroy();
   });
 
@@ -1320,7 +1329,7 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
     // Artwork-or-badge sits between the rarity edge and the labels: with no
     // bound icon texture this card renders the numbered badge (index + 1).
     const badgeIndex = root.children.findIndex((object) => object instanceof FakeText && object.text === '1.');
-    const labelIndex = root.children.findIndex((object) => object instanceof FakeText && object.text === 'common • mobility');
+    const labelIndex = root.children.findIndex((object) => object instanceof FakeText && object.text === 'COMMON');
     expect(fillIndex).toBeGreaterThanOrEqual(0);
     expect(edgeIndex).toBeGreaterThan(fillIndex);
     expect(badgeIndex).toBeGreaterThan(edgeIndex);

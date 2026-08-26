@@ -11,6 +11,8 @@ class Node {
   flipX = false;
   plays: string[] = [];
   tint: number | undefined;
+  scale = [1, 1] as [number, number];
+  displaySize = [0, 0] as [number, number];
   listeners = new Map<string, (...args: any[]) => void>();
   setPosition(x: number, y: number): this { this.x = x; this.y = y; return this; }
   setAlpha(alpha: number): this { this.alpha = alpha; return this; }
@@ -20,8 +22,8 @@ class Node {
   clearTint(): this { this.tint = undefined; return this; }
   setDepth(): this { return this; }
   setOrigin(): this { return this; }
-  setScale(): this { return this; }
-  setDisplaySize(): this { return this; }
+  setScale(x: number, y = x): this { this.scale = [x, y]; return this; }
+  setDisplaySize(width: number, height: number): this { this.displaySize = [width, height]; return this; }
   setActive(): this { return this; }
   play(key: string): this { this.plays.push(key); return this; }
   on(event: string, listener: (...args: any[]) => void): this { this.listeners.set(event, listener); return this; }
@@ -212,6 +214,7 @@ describe('actor views', () => {
     const binding = {
       id: 'drop:xp', kind: 'drop', textureKey: 'xp', url: 'assets/xp.png',
       required: true,
+      sampling: 'nearest',
       load: { type: 'spritesheet', frame: { width: 16, height: 16 } },
       display: { width: 16, height: 16 },
       clips: { idle: { start: 0, end: 3, frameRate: 8, repeat: -1 } },
@@ -224,5 +227,42 @@ describe('actor views', () => {
     expect(createStaticArtSprite(scene as never, binding, 3)).toBe(sprite);
     expect(sprite.plays).toEqual([]);
     expect(createStaticArtSprite(scene as never, { ...binding, textureKey: 'missing' }, 3)).toBeUndefined();
+  });
+
+  it('applies the actor visual factor to actor art but never enlarges static nonactors', async () => {
+    const { ACTOR_VISUAL_SCALE_BY_KIND, createAnimatedActorView, createStaticArtSprite } = await import('../src/entities/actorView');
+    expect(ACTOR_VISUAL_SCALE_BY_KIND).toEqual({ character: 1.30, enemy: 1.30 });
+
+    const sprites: Node[] = [];
+    const scene = {
+      textures: { exists: () => true },
+      anims: { exists: () => true },
+      add: { sprite: () => {
+        const sprite = new Node();
+        sprites.push(sprite);
+        return sprite;
+      } },
+    };
+    const actorBinding = {
+      id: 'character:tabby', kind: 'character', textureKey: 'tabby', url: 'tabby.png', required: true,
+      sampling: 'nearest',
+      load: { type: 'spritesheet', frame: { width: 40, height: 20 } },
+      display: { width: 20, height: 10 },
+      clips: { idle: { start: 0, end: 0, frameRate: 1, repeat: -1 }, run: { start: 0, end: 0, frameRate: 1, repeat: -1 } },
+    } as const;
+    createAnimatedActorView(scene as never, new Node() as never, { node: new Node() as never, dy: 0 }, actorBinding, 5);
+    expect(sprites[0]?.scale).toEqual([0.65, 0.65]);
+
+    const nonActorBinding = {
+      id: 'drop:xp', kind: 'drop', textureKey: 'xp', url: 'xp.png', required: true,
+      sampling: 'nearest',
+      load: { type: 'spritesheet', frame: { width: 10, height: 10 } }, display: { width: 20, height: 20 },
+    } as const;
+    createStaticArtSprite(scene as never, nonActorBinding, 3);
+    expect(sprites[1]?.scale).toEqual([2, 2]);
+    // Sabotage: a projectile/drop caller must not be able to opt into the
+    // actor-only scale through this generic helper.
+    createStaticArtSprite(scene as never, nonActorBinding, 3, ACTOR_VISUAL_SCALE_BY_KIND.character);
+    expect(sprites[2]?.scale).toEqual([2, 2]);
   });
 });

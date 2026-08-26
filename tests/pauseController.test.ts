@@ -297,6 +297,7 @@ describe('PhaserPauseView', () => {
     strokeWidth: number;
     strokeColor?: number;
     strokeAlpha: number;
+    resolution?: number;
   }
 
   function createFakeScene() {
@@ -378,6 +379,10 @@ describe('PhaserPauseView', () => {
         setDepth() {
           return api;
         },
+        setResolution(resolution: number) {
+          state.resolution = resolution;
+          return api;
+        },
         setStrokeStyle(width: number, color: number, alpha: number) {
           state.strokeWidth = width;
           state.strokeColor = color;
@@ -429,12 +434,14 @@ describe('PhaserPauseView', () => {
           objects.push(container);
           return container;
         },
-        text: (x: number, y: number, text: string) => {
+        text: (x: number, y: number, text: string, style: { resolution?: number } = {}) => {
           if (failNextText) {
             failNextText = false;
             throw new Error('Injected text factory failure');
           }
-          return own(fakeObject('text', text, 0, 0, x, y));
+          if (style.resolution !== 2) throw new Error('UI text must use resolution 2');
+          const object = fakeObject('text', text, 0, 0, x, y).setResolution(style.resolution);
+          return own(object);
         },
         rectangle: (x: number, y: number, width: number, height: number) => {
           if (failNextRect > 0) {
@@ -1270,13 +1277,14 @@ describe('PhaserPauseView', () => {
     // Creation order: slots 0-5 (a, b occupied), Merge (6), Back (7).
     press(liveButtons(scene)[0]!); // select a → ui:navigate
     expect(textContents(scene)).toEqual(
-      expect.arrayContaining(['PICK 1', 'MATCH', 'Choose a highlighted match.']),
+      expect.arrayContaining(['COMMON', 'PICK 1', 'MATCH', 'Choose a highlighted match.']),
     );
     press(liveButtons(scene)[1]!); // select b → ui:navigate
     expect(textContents(scene)).toEqual(
       expect.arrayContaining([
         'T1 + T1 → T2',
         'Scrap Pistol II',
+        'UNCOMMON',
         'DMG  8 → 12',
         'MERGE → Scrap Pistol II',
       ]),
@@ -1288,6 +1296,7 @@ describe('PhaserPauseView', () => {
       expect.arrayContaining([
         'MERGE COMPLETE',
         'Scrap Pistol II',
+        'UNCOMMON',
         '1 SLOT FREED • 1/6 occupied',
       ]),
     );
