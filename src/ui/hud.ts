@@ -183,10 +183,12 @@ function topHudLayout(viewport: UiViewport): TopHudLayout {
   };
 }
 
-/** Bottom of the actual stats stack; top-HUD backing consumes this authority. */
+/** Bottom of the rendered stats stack; the font-metric allowance is shared by
+ * every viewport while the test measures child bounds independently. */
 export function topHudContentBottom(viewport: UiViewport): number {
   const layout = topHudLayout(viewport);
-  return layout.statsTop + layout.statsStride * 2 + layout.labelSize;
+  const renderedLabelRow = layout.labelSize * 1.25;
+  return layout.statsTop + layout.statsStride * 2 + renderedLabelRow;
 }
 
 export class PhaserHudView implements HudView {

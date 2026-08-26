@@ -20,7 +20,7 @@ vi.mock('phaser', () => ({
     },
   },
 }));
-import { createRunState } from '../src/gameplay/runState';
+import { createRunState, pauseRun, startRun } from '../src/gameplay/runState';
 import {
   evaluateWeaponAdmission,
   grantWeaponToRack,
@@ -28,14 +28,14 @@ import {
 } from '../src/gameplay/weaponRack';
 import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import { loadGameData } from '../src/systems/validation';
-import type { WeaponInstance, WeaponRegistry } from '../src/gameplay/weapons';
+import { createWeaponInstance, type WeaponInstance, type WeaponRegistry } from '../src/gameplay/weapons';
 import { createEventBus } from '../src/engine/eventBus';
 import { logicalCanvasViewport } from '../src/ui/layout';
 import { createModalTextHelpers } from '../src/ui/modal';
 import { ThemeColor } from '../src/ui/theme';
 import { computeWeaponRackLayout } from '../src/ui/weaponRackLayout';
 import { PhaserWeaponRackPanel } from '../src/ui/weaponRackView';
-import type { InventorySnapshot, InventoryWeaponView } from '../src/ui/inventory';
+import { InventoryController, type InventorySnapshot, type InventoryWeaponView } from '../src/ui/inventory';
 
 const data = loadGameData();
 const registry = new DataWeaponRegistry(data);
@@ -470,37 +470,27 @@ describe('PhaserWeaponRackPanel card composition order', () => {
     }
   });
 
-  it('keeps a five-delta T2-to-T3 shotgun preview title, result, rarity, and deltas within distinct compact bounds', () => {
-    const viewport = logicalCanvasViewport(180, 390, 844, 390);
+  it.each([
+    ['canonical portrait', logicalCanvasViewport(390, 844)],
+    ['smallest normal portrait', logicalCanvasViewport(263, 568, 320, 568)],
+    ['compact reference', logicalCanvasViewport(180, 390, 844, 390)],
+  ])('keeps every rendered five-delta shotgun merge row separate and inside the preview at %s', (_name, viewport) => {
     const layout = computeWeaponRackLayout(viewport, 6);
     const scene = createFakeScene();
-    const input: InventoryWeaponView = {
-      definitionId: 'bolt-shotgun-t2', name: 'Bolt Shotgun II', family: 'shotgun',
-      iconId: 'weapon-icon:bolt-shotgun-t2', rarity: 'epic', tier: 2, stats: [],
-      instanceId: 'weapon-1', selected: true, selectionOrder: 1, selectionState: 'selected', mergeableWith: ['weapon-2'],
-    };
-    const result = {
-      definitionId: 'bolt-shotgun-t3', name: 'Bolt Shotgun III', family: 'shotgun',
-      iconId: 'weapon-icon:bolt-shotgun-t3', rarity: 'legendary' as const, tier: 3, stats: [],
-    };
-    const deltas = [
-      ['damage', 'DMG', '8', '12'], ['rate', 'RATE', '1.0/s', '1.2/s'], ['projectiles', 'SHOTS', '×2', '×3'],
-      ['pierce', 'PIERCE', '1', '2'], ['range', 'RNG', '155', '170'],
-    ].map(([key, label, formattedBefore, formattedAfter], index) => ({
-      key: key as 'damage' | 'rate' | 'projectiles' | 'pierce' | 'range',
-      label, before: index, after: index + 1, formattedBefore, formattedAfter,
-    }));
-    const snapshot: InventorySnapshot = {
-      capacity: 6, weapons: [input], slots: [input, null, null, null, null, null],
-      selectedInstanceIds: ['weapon-1', 'weapon-2'], mergeReady: true,
-      preview: { inputs: [input, input], result, deltas },
-    };
-    const panel = createPanel(scene, viewport, snapshot);
+    const { controller, snapshot } = realFiveDeltaShotgunMerge();
+    const preview = snapshot.preview;
+    if (!preview) throw new Error('real shotgun merge preview missing');
+    expect(preview.deltas.map((delta) => delta.key)).toEqual([
+      'damage', 'rate', 'projectiles', 'pierce', 'range',
+    ]);
+    const panel = createPanel(scene, viewport, snapshot, controller);
     const root = scene.add.container(0, 0);
     panel.render(root as never, snapshot, viewport.canvasWidth);
     const texts = [
-      'T2 + T2 → T3', 'Bolt Shotgun III', 'LEGENDARY',
-      ...deltas.map((delta) => `${delta.label}  ${delta.formattedBefore} → ${delta.formattedAfter}`),
+      `T${preview.inputs[0].tier} + T${preview.inputs[1].tier} → T${preview.result.tier}`,
+      preview.result.name,
+      preview.result.rarity.toUpperCase(),
+      ...preview.deltas.map((delta) => `${delta.label}  ${delta.formattedBefore} → ${delta.formattedAfter}`),
     ].map((text) => requiredText(root, text));
     assertDistinctBounds(texts, {
       left: layout.preview.x,
@@ -516,13 +506,36 @@ function createPanel(
   scene: ReturnType<typeof createFakeScene>,
   viewport: ReturnType<typeof logicalCanvasViewport>,
   snapshot: InventorySnapshot,
+  inventory: InventoryController | { snapshot(): InventorySnapshot } = { snapshot: () => snapshot },
 ): PhaserWeaponRackPanel {
   return new PhaserWeaponRackPanel({
     scene: scene as never, viewport, bus: createEventBus(),
-    inventory: { snapshot: () => snapshot } as never,
+    inventory: inventory as InventoryController,
     modal: createModalTextHelpers(scene as never, viewport),
     isOpen: () => true, hasCommittedRoot: () => true, onBack: () => true, requestRender: () => {},
   });
+}
+
+function realFiveDeltaShotgunMerge(): {
+  readonly controller: InventoryController;
+  readonly snapshot: InventorySnapshot;
+} {
+  const definition = registry.weaponById('bolt-shotgun-t2');
+  if (!definition) throw new Error('shipped T2 shotgun missing');
+  const run = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
+  startRun(run);
+  run.equipped = [
+    createWeaponInstance(definition, 'shotgun-a'),
+    createWeaponInstance(definition, 'shotgun-b'),
+  ];
+  pauseRun(run, undefined, 'manual');
+  const controller = new InventoryController({
+    runState: run,
+    bus: createEventBus(),
+    weaponRegistry: registry,
+  });
+  controller.toggle('shotgun-a');
+  return { controller, snapshot: controller.toggle('shotgun-b') };
 }
 
 function requiredText(root: FakeContainer, text: string): FakeText {

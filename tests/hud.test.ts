@@ -12,8 +12,9 @@ import {
   type HudSource,
   type HudView,
 } from '../src/ui/hud';
-import { edgeMargin, GAMEPLAY_ZOOM, logicalCanvasViewport, zoomedGameUiViewport } from '../src/ui/layout';
+import { GAMEPLAY_ZOOM, logicalCanvasViewport, zoomedGameUiViewport } from '../src/ui/layout';
 import { ThemeColor, ThemeDepth } from '../src/ui/theme';
+import { ControlsView } from '../src/ui/controls';
 
 vi.mock('phaser', () => ({
   default: {
@@ -239,6 +240,27 @@ describe('createHudSource', () => {
   });
 });
 
+function renderedObjectBottom(state: Readonly<Record<string, unknown>>, parentY: number): number {
+  const y = state.y as number;
+  const height = state.height as number;
+  const scaleY = state.scaleY as number;
+  const originY = state.originY as number;
+  return parentY + y + (1 - originY) * height * Math.abs(scaleY);
+}
+
+function assertHudCoverage(
+  renderedBottom: number,
+  authorityBottom: number,
+  backingBottom: number,
+  playfieldTop: number,
+): void {
+  if (authorityBottom < renderedBottom) throw new Error('authority is shorter than rendered HUD');
+  if (backingBottom < Math.max(renderedBottom, authorityBottom)) {
+    throw new Error('backing is shorter than HUD authority');
+  }
+  if (backingBottom >= playfieldTop) throw new Error('backing enters playfield');
+}
+
 describe('PhaserHudView', () => {
   function createFakeScene() {
     let resize: { handler: () => void; context: unknown } | undefined;
@@ -248,7 +270,7 @@ describe('PhaserHudView', () => {
       return object;
     };
 
-    function fakeObject(kind = 'object', width = 0, height = 0, x = 0, y = 0) {
+    function fakeObject(kind = 'object', width = 0, height = 0, x = 0, y = 0, fontSize = 0) {
       const state: Record<string, unknown> = {
         kind,
         visible: true,
@@ -259,6 +281,8 @@ describe('PhaserHudView', () => {
         height,
         scaleX: 1,
         scaleY: 1,
+        originX: kind === 'text' || kind === 'container' ? 0 : 0.5,
+        originY: kind === 'text' || kind === 'container' ? 0 : 0.5,
         text: '',
         interactive: false,
         depth: 0,
@@ -272,8 +296,17 @@ describe('PhaserHudView', () => {
       };
       const api = {
         get state() { return { ...state }; },
-        setText(text: string) { return chain('text', text); },
-        setOrigin() { return api; },
+        get x() { return state.x as number; },
+        get y() { return state.y as number; },
+        setText(text: string) {
+          state.text = text;
+          if (kind === 'text') {
+            state.width = text.length * fontSize * 0.55;
+            state.height = fontSize * 1.2;
+          }
+          return api;
+        },
+        setOrigin(x = 0.5, y = x) { state.originX = x; state.originY = y; return api; },
         setScrollFactor() { return api; },
         setDepth(depth: number) { return chain('depth', depth); },
         setResolution(resolution: number) { return chain('resolution', resolution); },
@@ -294,8 +327,8 @@ describe('PhaserHudView', () => {
 
     const scene = {
       add: {
-        container: () => {
-          const base = fakeObject('container');
+        container: (x = 0, y = 0) => {
+          const base = fakeObject('container', 0, 0, x, y);
           const container = {
             // Object spread snapshots the state getter into a data property,
             // so delegate back to base (whose getter reads the closure state)
@@ -319,9 +352,12 @@ describe('PhaserHudView', () => {
           objects.push(container);
           return container;
         },
-        text: (x: number, y: number, text: string, style: { resolution?: number } = {}) => {
+        text: (x: number, y: number, text: string, style: { resolution?: number; fontSize?: string } = {}) => {
           if (style.resolution !== 2) throw new Error('UI text must use resolution 2');
-          return own(fakeObject('text', 0, 0, x, y).setResolution(style.resolution)).setText(text);
+          const fontSize = Number.parseFloat(style.fontSize ?? '16');
+          return own(
+            fakeObject('text', 0, fontSize * 1.2, x, y, fontSize).setResolution(style.resolution),
+          ).setText(text);
         },
         rectangle: (x: number, y: number, width: number, height: number, fillColor?: number, fillAlpha?: number) => {
           const object = own(fakeObject('rect', width, height, x, y));
@@ -329,6 +365,10 @@ describe('PhaserHudView', () => {
           return object;
         },
         arc: (x: number, y: number) => own(fakeObject('arc', 0, 0, x, y)),
+      },
+      tweens: {
+        add: vi.fn(),
+        killTweensOf: vi.fn(),
       },
       scale: {
         width: 390,
@@ -419,49 +459,111 @@ describe('PhaserHudView', () => {
     const scene = createFakeScene();
     const viewport = zoomedGameUiViewport(390, 844, 390, 844);
     const view = new PhaserHudView({ scene: scene as never, viewport });
-    const height = topHudContentBottom(viewport) + edgeMargin(viewport, 'bottom');
     const backing = scene.objects.find((object) =>
       object.state.kind === 'rect'
-      && object.state.width === viewport.canvasWidth
-      && object.state.height === height,
+      && object.state.depth === ThemeDepth.hudBacking,
     );
     if (!backing) throw new Error('HUD backing missing');
+    const width = backing.state.width as number;
+    const height = backing.state.height as number;
 
     const projectX = (worldX: number) => (worldX - viewport.originX!) * GAMEPLAY_ZOOM;
     const projectY = (worldY: number) => (worldY - viewport.originY!) * GAMEPLAY_ZOOM;
-    expect(projectX((backing.state.x as number) - viewport.canvasWidth / 2)).toBeCloseTo(0, 6);
-    expect(projectX((backing.state.x as number) + viewport.canvasWidth / 2)).toBeCloseTo(390, 6);
+    expect(projectX((backing.state.x as number) - width / 2)).toBeCloseTo(0, 6);
+    expect(projectX((backing.state.x as number) + width / 2)).toBeCloseTo(390, 6);
     expect(projectY((backing.state.y as number) - height / 2)).toBeCloseTo(0, 6);
     expect(projectY((backing.state.y as number) + height / 2)).toBeCloseTo(height * GAMEPLAY_ZOOM, 6);
     view.destroy();
   });
 
   it.each([
-    [390, 844], [844, 390], [1024, 768], [375, 812],
-  ])('composes one safe top HUD backing below the HUD root at %ix%i', (displayWidth, displayHeight) => {
-    const scene = createFakeScene();
-    const viewport = logicalCanvasViewport(displayWidth, displayHeight);
-    const view = new PhaserHudView({ scene: scene as never, viewport });
-    const expectedHeight = topHudContentBottom(viewport) + edgeMargin(viewport, 'bottom');
-    const backing = scene.objects.filter((object) =>
-      object.state.kind === 'rect'
-      && object.state.width === viewport.canvasWidth
-      && object.state.height === expectedHeight,
+    [390, 844], [393, 852], [1280, 800], [844, 390],
+  ])('covers independently measured HUD and pause bounds before the playfield at %ix%i', (containerWidth, containerHeight) => {
+    const fit = Math.min(containerWidth / 390, containerHeight / 844);
+    const viewport = zoomedGameUiViewport(
+      390 * fit,
+      844 * fit,
+      containerWidth,
+      containerHeight,
     );
-    expect(backing).toHaveLength(1);
-    expect(backing[0]?.state).toMatchObject({
-      x: viewport.canvasWidth / 2,
-      y: expectedHeight / 2,
+    const scene = createFakeScene();
+    const view = new PhaserHudView({ scene: scene as never, viewport });
+    view.render({
+      status: 'paused', timeMs: 1_000, durationMs: 60_000, health: 80, maxHealth: 100,
+      level: 2, xp: 25, xpToNext: 100, kills: 3, currency: 12,
+    });
+    const controls = new ControlsView({
+      scene: scene as never,
+      input: {} as never,
+      viewport,
+      readReducedMotion: () => false,
+      onPauseRequested: () => {},
+    });
+
+    const unique = [...new Set(scene.objects)];
+    type RenderedObject = (typeof unique)[number];
+    type RenderedRoot = RenderedObject & { readonly children: RenderedObject[] };
+    const roots = unique
+      .filter((object) => object.state.kind === 'container')
+      .map((object) => object as RenderedRoot);
+    const hudRoot = roots.find((root) =>
+      root.children.some((child) => child.state.text === 'Paused'),
+    );
+    const controlsRoot = roots.find((root) =>
+      root.children.some((child) => child.state.interactive),
+    );
+    if (!hudRoot || !controlsRoot) throw new Error('HUD composition roots missing');
+    const hudChildren = hudRoot.children.filter((child) =>
+      child.state.kind === 'text' || child.state.kind === 'rect',
+    );
+    const pauseChildren = controlsRoot.children.filter((child) =>
+      child.state.kind === 'rect' && child.state.depth === ThemeDepth.hud,
+    );
+    expect(hudChildren.filter((child) => child.state.kind === 'text')).toHaveLength(6);
+    expect(hudChildren.filter((child) => child.state.kind === 'rect')).toHaveLength(4);
+    expect(pauseChildren).toHaveLength(3);
+
+    const renderedBottom = Math.max(
+      ...hudChildren.map((child) => renderedObjectBottom(child.state, hudRoot.state.y as number)),
+      ...pauseChildren.map((child) => renderedObjectBottom(child.state, controlsRoot.state.y as number)),
+    );
+    const backing = unique.find((object) =>
+      object.state.kind === 'rect' && object.state.depth === ThemeDepth.hudBacking,
+    );
+    if (!backing) throw new Error('HUD backing missing');
+    const backingBottom = renderedObjectBottom(backing.state, 0);
+    const authorityBottom = (viewport.originY ?? 0) + topHudContentBottom(viewport);
+    const playfieldTop = (viewport.originY ?? 0) + viewport.canvasHeight / 2;
+
+    // Independent rendered bounds arrest either mutation: shortening the
+    // exported authority or shortening only the plate cannot share an oracle.
+    expect(() => assertHudCoverage(
+      renderedBottom,
+      authorityBottom,
+      backingBottom,
+      playfieldTop,
+    )).not.toThrow();
+    expect(() => assertHudCoverage(
+      renderedBottom,
+      renderedBottom - 1,
+      backingBottom,
+      playfieldTop,
+    )).toThrow('authority is shorter');
+    expect(() => assertHudCoverage(
+      renderedBottom,
+      authorityBottom,
+      renderedBottom - 1,
+      playfieldTop,
+    )).toThrow('backing is shorter');
+    expect(backing.state).toMatchObject({
+      width: viewport.canvasWidth,
       fillColor: ThemeColor.surface,
       fillAlpha: 0.80,
       depth: ThemeDepth.hudBacking,
     });
-    const root = scene.objects.find((object) => object.state.kind === 'container');
-    // A child depth cannot rescue a root at the wrong scene depth. This pins
-    // actual root/backing ordering rather than merely text child settings.
-    expect(root?.state.depth).toBe(ThemeDepth.hud);
-    expect(backing[0]!.state.depth).toBeLessThan(root!.state.depth as number);
-    expect(expectedHeight).toBeGreaterThan(topHudContentBottom(viewport));
+    expect(hudRoot.state.depth).toBe(ThemeDepth.hud);
+    expect(backing.state.depth).toBeLessThan(hudRoot.state.depth as number);
+    controls.destroy();
     view.destroy();
   });
 

@@ -11,7 +11,7 @@ import { physicalToLogical, type UiViewport } from './layout';
 import type { ModalTextHelpers } from './modal';
 import { FocusStroke, ThemeColor, ThemeFont, themeColorCss } from './theme';
 import { createUiText } from './text';
-import { computeWeaponRackLayout } from './weaponRackLayout';
+import { computeMergePreviewTextLayout, computeWeaponRackLayout } from './weaponRackLayout';
 import { FocusNavigator, type FocusDirection } from './focusList';
 import type { InputMode } from '../systems/input';
 import type { ModalButtonHandle } from './modal';
@@ -507,49 +507,45 @@ export class PhaserWeaponRackPanel {
     }
 
     const preview = snapshot.preview;
-    // Compact preview has eight mandatory rows (equation, result, full rarity,
-    // and five resolved deltas). Fixed one-line positions reserve bounds for
-    // all of them instead of letting rarity share the first delta row.
-    const resultOffset = compact ? 14 : 25;
-    const rarityOffset = compact ? 28 : resultOffset + 20;
-    const deltaOffset = compact ? 42 : 53;
-    const deltaStep = compact ? 15 : 21;
-    const previewFontSize = compact ? 11 : ThemeFont.bodyMin;
+    const textLayout = computeMergePreviewTextLayout(this.viewport, compact);
+    // Eight mandatory rows: equation, result, full rarity, then every resolved
+    // delta. Renderer offsets and layout minimum height share one font-derived
+    // model so normal and compact modes cannot drift apart.
     const equation = this.addCardText(
-      x + inset,
-      y + inset,
+      x + textLayout.inset,
+      y + textLayout.inset,
       `T${preview.inputs[0].tier} + T${preview.inputs[1].tier} → T${preview.result.tier}`,
       'gold',
-      width - inset * 2,
-      previewFontSize,
+      width - textLayout.inset * 2,
+      textLayout.fontSize,
     );
     root.add(equation);
     const result = this.addCardText(
-      x + inset,
-      y + inset + physicalToLogical(resultOffset, this.viewport),
+      x + textLayout.inset,
+      y + textLayout.inset + textLayout.resultOffset,
       preview.result.name,
       'primary',
-      width - inset * 2,
-      previewFontSize,
+      width - textLayout.inset * 2,
+      textLayout.fontSize,
     );
     root.add(result);
     const rarity = this.addCardText(
-      x + inset,
-      y + inset + physicalToLogical(rarityOffset, this.viewport),
+      x + textLayout.inset,
+      y + textLayout.inset + textLayout.rarityOffset,
       preview.result.rarity.toUpperCase(),
       'primary',
-      width - inset * 2,
-      previewFontSize,
+      width - textLayout.inset * 2,
+      textLayout.fontSize,
     );
     root.add(rarity);
     preview.deltas.forEach((delta, index) => {
       const line = this.addCardText(
-        x + inset,
-        y + inset + physicalToLogical(deltaOffset + index * deltaStep, this.viewport),
+        x + textLayout.inset,
+        y + textLayout.inset + textLayout.deltaOffset + index * textLayout.deltaStep,
         `${delta.label}  ${delta.formattedBefore} → ${delta.formattedAfter}`,
         'muted',
-        width - inset * 2,
-        previewFontSize,
+        width - textLayout.inset * 2,
+        textLayout.fontSize,
       );
       root.add(line);
     });

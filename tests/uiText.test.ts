@@ -77,9 +77,52 @@ describe('createUiText', () => {
       .toEqual([`${aliasedPath}:5`]);
   });
 
+  it('allows only the exact central factory node when text.ts contains a second constructor', () => {
+    const secondConstructor = `
+      import Phaser from 'phaser';
+      export function createUiText(scene: Phaser.Scene) {
+        return scene.add.text(0, 0, 'allowed', { resolution: 2 });
+      }
+      declare const secondScene: Phaser.Scene;
+      secondScene.add.text(0, 0, 'forbidden');
+    `;
+
+    expect(findForbiddenPhaserTextCreation(new Map([[UI_TEXT_FILE, secondConstructor]])))
+      .toEqual([`${UI_TEXT_FILE}:7`]);
+  });
+
+  it('uses conservative syntax fallback for unresolved any-cast text factories', () => {
+    const anyFactories = `
+      import PhaserAlias from 'phaser';
+      declare const scene: PhaserAlias.Scene;
+      (scene as any).add.text(0, 0, 'property');
+      (scene as any).add['text'](0, 0, 'computed');
+    `;
+    const path = join(process.cwd(), 'virtual-ui-text-any-factories.ts');
+
+    expect(findForbiddenPhaserTextCreation(new Map([[path, anyFactories]])))
+      .toEqual([`${path}:4`, `${path}:5`]);
+  });
+
+  it('uses conservative syntax fallback for direct and aliased any-cast Text constructors', () => {
+    const anyConstructors = `
+      import PhaserAlias from 'phaser';
+      declare const scene: PhaserAlias.Scene;
+      new (PhaserAlias as any).GameObjects.Text(scene, 0, 0, 'direct');
+      const AnyText = (PhaserAlias as any).GameObjects.Text;
+      new AnyText(scene, 0, 0, 'aliased');
+    `;
+    const path = join(process.cwd(), 'virtual-ui-text-any-constructors.ts');
+
+    expect(findForbiddenPhaserTextCreation(new Map([[path, anyConstructors]])))
+      .toEqual([`${path}:4`, `${path}:6`]);
+  });
+
   it('migrates exactly 28 production sites through the sole centralized constructor', () => {
     const files = sourceFiles(SOURCE_ROOT);
-    expect(findForbiddenPhaserTextCreation()).toEqual([]);
+    const audit = auditPhaserTextCreation();
+    expect(audit.forbidden).toEqual([]);
+    expect(audit.allowlisted).toEqual([`${UI_TEXT_FILE}:15`]);
 
     const migratedSites = files
       .filter((file) => resolve(file) !== UI_TEXT_FILE)
@@ -92,35 +135,44 @@ describe('createUiText', () => {
   }, 15_000);
 });
 
-/** Type-aware source audit. A resolved Phaser factory signature catches
- * bracket/property access and aliases, while a resolved instance type catches
- * constructor aliases. The scan is intentionally limited to production src. */
+/** Type-aware source audit with a conservative syntax fallback. Every source,
+ * including text.ts, is scanned; exactly one direct return call in the
+ * createUiText factory is allowlisted by AST shape rather than by file. */
 function findForbiddenPhaserTextCreation(extraSources = new Map<string, string>()): string[] {
+  return auditPhaserTextCreation(extraSources).forbidden;
+}
+
+function auditPhaserTextCreation(extraSources = new Map<string, string>()): {
+  readonly forbidden: string[];
+  readonly allowlisted: string[];
+} {
   const files = extraSources.size > 0 ? [...extraSources.keys()] : sourceFiles(SOURCE_ROOT);
-  // Build the semantic program for every production source (except the sole
-  // permitted factory) so type-resolved constructors cannot be skipped just
-  // because their syntax uses a qualified expression or arbitrary alias.
-  const candidates = files.filter((file) => resolve(file) !== UI_TEXT_FILE);
-  if (candidates.length === 0) return [];
-  const program = createProgram(candidates, extraSources);
+  if (files.length === 0) return { forbidden: [], allowlisted: [] };
+  const program = createProgram(files, extraSources);
   const checker = program.getTypeChecker();
   const forbidden: string[] = [];
+  const allowlisted: string[] = [];
 
-  for (const file of candidates) {
+  for (const file of files) {
     const sourceFile = program.getSourceFile(file);
     if (!sourceFile) throw new Error(`audit source missing: ${file}`);
     const visit = (node: ts.Node): void => {
-      if (ts.isCallExpression(node) && isPhaserTextFactoryCall(node, checker)) {
-        forbidden.push(location(sourceFile, node));
+      if (ts.isCallExpression(node) && isTextFactoryCreation(node, checker)) {
+        const nodeLocation = location(sourceFile, node);
+        if (isExactCreateUiTextFactoryNode(node, sourceFile)) {
+          allowlisted.push(nodeLocation);
+        } else {
+          forbidden.push(nodeLocation);
+        }
       }
-      if (ts.isNewExpression(node) && isPhaserTextInstance(node, checker)) {
+      if (ts.isNewExpression(node) && isTextConstructorCreation(node, checker)) {
         forbidden.push(location(sourceFile, node));
       }
       ts.forEachChild(node, visit);
     };
     visit(sourceFile);
   }
-  return forbidden;
+  return { forbidden, allowlisted };
 }
 
 function createProgram(files: readonly string[], extraSources: ReadonlyMap<string, string>): ts.Program {
@@ -140,6 +192,90 @@ function createProgram(files: readonly string[], extraSources: ReadonlyMap<strin
   host.fileExists = (fileName) => extraSources.has(fileName) || ts.sys.fileExists(fileName);
   host.readFile = (fileName) => extraSources.get(fileName) ?? ts.sys.readFile(fileName);
   return ts.createProgram([...files], options, host);
+}
+
+function isTextFactoryCreation(node: ts.CallExpression, checker: ts.TypeChecker): boolean {
+  return isPhaserTextFactoryCall(node, checker)
+    || expressionResolvesToMember(node.expression, 'text', checker, false);
+}
+
+function isTextConstructorCreation(node: ts.NewExpression, checker: ts.TypeChecker): boolean {
+  return isPhaserTextInstance(node, checker)
+    || expressionResolvesToMember(node.expression, 'Text', checker, true);
+}
+
+function isExactCreateUiTextFactoryNode(node: ts.CallExpression, source: ts.SourceFile): boolean {
+  if (resolve(source.fileName) !== UI_TEXT_FILE) return false;
+  const expression = unwrapExpression(node.expression);
+  if (!ts.isPropertyAccessExpression(expression) || expression.name.text !== 'text') return false;
+  const addAccess = unwrapExpression(expression.expression);
+  if (!ts.isPropertyAccessExpression(addAccess) || addAccess.name.text !== 'add') return false;
+  const receiver = unwrapExpression(addAccess.expression);
+  if (!ts.isIdentifier(receiver) || receiver.text !== 'scene') return false;
+  if (!ts.isReturnStatement(node.parent) || node.parent.expression !== node) return false;
+  const block = node.parent.parent;
+  if (!ts.isBlock(block) || block.statements.length !== 1 || block.statements[0] !== node.parent) return false;
+  const factory = block.parent;
+  return ts.isFunctionDeclaration(factory)
+    && factory.name?.text === 'createUiText'
+    && factory.parameters[0]?.name.getText(source) === 'scene';
+}
+
+function expressionResolvesToMember(
+  input: ts.Expression,
+  expectedName: 'text' | 'Text',
+  checker: ts.TypeChecker,
+  allowRawIdentifier: boolean,
+  seen = new Set<ts.Symbol>(),
+): boolean {
+  const expression = unwrapExpression(input);
+  const memberName = accessedMemberName(expression);
+  if (memberName === expectedName) return true;
+  if (!ts.isIdentifier(expression)) return false;
+  if (allowRawIdentifier && expression.text === expectedName) return true;
+
+  const symbol = checker.getSymbolAtLocation(expression);
+  if (!symbol || seen.has(symbol)) return false;
+  seen.add(symbol);
+  return symbol.declarations?.some((declaration) => {
+    if (ts.isVariableDeclaration(declaration) && declaration.initializer) {
+      return expressionResolvesToMember(
+        declaration.initializer,
+        expectedName,
+        checker,
+        allowRawIdentifier,
+        seen,
+      );
+    }
+    if (ts.isBindingElement(declaration)) {
+      const boundName = declaration.propertyName ?? declaration.name;
+      return (ts.isIdentifier(boundName) || ts.isStringLiteral(boundName))
+        && boundName.text === expectedName;
+    }
+    return false;
+  }) === true;
+}
+
+function unwrapExpression(input: ts.Expression): ts.Expression {
+  let expression = input;
+  while (
+    ts.isParenthesizedExpression(expression)
+    || ts.isAsExpression(expression)
+    || ts.isTypeAssertionExpression(expression)
+    || ts.isNonNullExpression(expression)
+  ) {
+    expression = expression.expression;
+  }
+  return expression;
+}
+
+function accessedMemberName(expression: ts.Expression): string | undefined {
+  if (ts.isPropertyAccessExpression(expression)) return expression.name.text;
+  if (!ts.isElementAccessExpression(expression)) return undefined;
+  const argument = expression.argumentExpression && unwrapExpression(expression.argumentExpression);
+  return argument && (ts.isStringLiteral(argument) || ts.isNoSubstitutionTemplateLiteral(argument))
+    ? argument.text
+    : undefined;
 }
 
 function isPhaserTextFactoryCall(node: ts.CallExpression, checker: ts.TypeChecker): boolean {
