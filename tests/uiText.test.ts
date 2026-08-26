@@ -52,6 +52,31 @@ describe('createUiText', () => {
       ]);
   });
 
+  it('finds a standalone qualified Phaser Text constructor', () => {
+    const qualified = `
+      import PhaserAlias from 'phaser';
+      declare const scene: PhaserAlias.Scene;
+      new PhaserAlias.GameObjects.Text(scene, 0, 0, 'qualified direct');
+    `;
+
+    const qualifiedPath = join(process.cwd(), 'virtual-ui-text-qualified.ts');
+    expect(findForbiddenPhaserTextCreation(new Map([[qualifiedPath, qualified]])))
+      .toEqual([`${qualifiedPath}:4`]);
+  });
+
+  it('finds a standalone alias for the Phaser Text constructor', () => {
+    const aliased = `
+      import PhaserAlias from 'phaser';
+      declare const scene: PhaserAlias.Scene;
+      const TextConstructor = PhaserAlias.GameObjects.Text;
+      new TextConstructor(scene, 0, 0, 'aliased direct');
+    `;
+
+    const aliasedPath = join(process.cwd(), 'virtual-ui-text-alias.ts');
+    expect(findForbiddenPhaserTextCreation(new Map([[aliasedPath, aliased]])))
+      .toEqual([`${aliasedPath}:5`]);
+  });
+
   it('migrates exactly 28 production sites through the sole centralized constructor', () => {
     const files = sourceFiles(SOURCE_ROOT);
     expect(findForbiddenPhaserTextCreation()).toEqual([]);
@@ -72,13 +97,10 @@ describe('createUiText', () => {
  * constructor aliases. The scan is intentionally limited to production src. */
 function findForbiddenPhaserTextCreation(extraSources = new Map<string, string>()): string[] {
   const files = extraSources.size > 0 ? [...extraSources.keys()] : sourceFiles(SOURCE_ROOT);
-  // The AST prefilter is conservative for all syntactic routes to Phaser's
-  // Text factory/constructor. It avoids initializing a full compiler Program
-  // on a clean tree, while every candidate is still decided by the type checker
-  // below (aliases are never accepted from spelling alone).
-  const candidates = files.filter((file) =>
-    resolve(file) !== UI_TEXT_FILE && hasTextCreationSyntax(file, extraSources),
-  );
+  // Build the semantic program for every production source (except the sole
+  // permitted factory) so type-resolved constructors cannot be skipped just
+  // because their syntax uses a qualified expression or arbitrary alias.
+  const candidates = files.filter((file) => resolve(file) !== UI_TEXT_FILE);
   if (candidates.length === 0) return [];
   const program = createProgram(candidates, extraSources);
   const checker = program.getTypeChecker();
@@ -99,33 +121,6 @@ function findForbiddenPhaserTextCreation(extraSources = new Map<string, string>(
     visit(sourceFile);
   }
   return forbidden;
-}
-
-function hasTextCreationSyntax(file: string, extraSources: ReadonlyMap<string, string>): boolean {
-  const source = ts.createSourceFile(
-    file,
-    extraSources.get(file) ?? readFileSync(file, 'utf8'),
-    ts.ScriptTarget.Latest,
-    true,
-  );
-  let found = false;
-  const visit = (node: ts.Node): void => {
-    if (found) return;
-    if (
-      (ts.isPropertyAccessExpression(node) && node.name.text === 'text')
-      || (ts.isElementAccessExpression(node) && ts.isStringLiteral(node.argumentExpression) && node.argumentExpression.text === 'text')
-      || (ts.isImportSpecifier(node) && (node.propertyName?.text ?? node.name.text) === 'Text')
-      || (ts.isBindingElement(node) && node.propertyName !== undefined
-        && ts.isIdentifier(node.propertyName) && node.propertyName.text === 'Text')
-      || (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'Text')
-    ) {
-      found = true;
-      return;
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(source);
-  return found;
 }
 
 function createProgram(files: readonly string[], extraSources: ReadonlyMap<string, string>): ts.Program {
