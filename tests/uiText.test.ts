@@ -77,6 +77,66 @@ describe('createUiText', () => {
       .toEqual([`${aliasedPath}:5`]);
   });
 
+  it('finds a standalone Text factory invoked through Function.call', () => {
+    const callWrapped = `
+      import PhaserAlias from 'phaser';
+      declare const scene: PhaserAlias.Scene;
+      scene.add.text.call(scene.add, 0, 0, 'call');
+    `;
+    const path = join(process.cwd(), 'virtual-ui-text-call.ts');
+
+    expect(findForbiddenPhaserTextCreation(new Map([[path, callWrapped]])))
+      .toEqual([`${path}:4`]);
+  });
+
+  it('finds a standalone Text factory invoked through Function.apply', () => {
+    const applyWrapped = `
+      import PhaserAlias from 'phaser';
+      declare const scene: PhaserAlias.Scene;
+      scene.add.text.apply(scene.add, [0, 0, 'apply']);
+    `;
+    const path = join(process.cwd(), 'virtual-ui-text-apply.ts');
+
+    expect(findForbiddenPhaserTextCreation(new Map([[path, applyWrapped]])))
+      .toEqual([`${path}:4`]);
+  });
+
+  it('finds a standalone Text factory invoked through Reflect.apply', () => {
+    const reflectApply = `
+      import PhaserAlias from 'phaser';
+      declare const scene: PhaserAlias.Scene;
+      Reflect.apply(scene.add.text, scene.add, [0, 0, 'reflect apply']);
+    `;
+    const path = join(process.cwd(), 'virtual-ui-text-reflect-apply.ts');
+
+    expect(findForbiddenPhaserTextCreation(new Map([[path, reflectApply]])))
+      .toEqual([`${path}:4`]);
+  });
+
+  it('finds a standalone Text constructor invoked through Reflect.construct', () => {
+    const reflectConstruct = `
+      import PhaserAlias from 'phaser';
+      declare const scene: PhaserAlias.Scene;
+      Reflect.construct(PhaserAlias.GameObjects.Text, [scene, 0, 0, 'reflect construct']);
+    `;
+    const path = join(process.cwd(), 'virtual-ui-text-reflect-construct.ts');
+
+    expect(findForbiddenPhaserTextCreation(new Map([[path, reflectConstruct]])))
+      .toEqual([`${path}:4`]);
+  });
+
+  it('finds a standalone Text factory invoked through a bound function', () => {
+    const bound = `
+      import PhaserAlias from 'phaser';
+      declare const scene: PhaserAlias.Scene;
+      scene.add.text.bind(scene.add)(0, 0, 'bind');
+    `;
+    const path = join(process.cwd(), 'virtual-ui-text-bind.ts');
+
+    expect(findForbiddenPhaserTextCreation(new Map([[path, bound]])))
+      .toEqual([`${path}:4`]);
+  });
+
   it('allows only the exact central factory node when text.ts contains a second constructor', () => {
     const secondConstructor = `
       import Phaser from 'phaser';
@@ -118,18 +178,20 @@ describe('createUiText', () => {
       .toEqual([`${path}:4`, `${path}:6`]);
   });
 
-  it('migrates exactly 28 production sites through the sole centralized constructor', () => {
+  it('migrates exactly 28 symbol-resolved production sites through the sole centralized constructor', () => {
     const files = sourceFiles(SOURCE_ROOT);
     const audit = auditPhaserTextCreation();
     expect(audit.forbidden).toEqual([]);
     expect(audit.allowlisted).toEqual([`${UI_TEXT_FILE}:15`]);
 
+    const program = createProgram(files, new Map());
+    const checker = program.getTypeChecker();
     const migratedSites = files
       .filter((file) => resolve(file) !== UI_TEXT_FILE)
-      .flatMap((file) => findCreateUiTextCalls(file));
+      .flatMap((file) => findCreateUiTextCalls(programSourceFile(program, file), checker));
     expect(migratedSites).toHaveLength(28);
 
-    const constructorCalls = findCreateUiTextCalls(UI_TEXT_FILE);
+    const constructorCalls = findCreateUiTextCalls(programSourceFile(program, UI_TEXT_FILE), checker);
     expect(constructorCalls).toHaveLength(0);
     expect(readFileSync(UI_TEXT_FILE, 'utf8')).toMatch(/\.text\s*\(/);
   }, 15_000);
@@ -196,7 +258,38 @@ function createProgram(files: readonly string[], extraSources: ReadonlyMap<strin
 
 function isTextFactoryCreation(node: ts.CallExpression, checker: ts.TypeChecker): boolean {
   return isPhaserTextFactoryCall(node, checker)
-    || expressionResolvesToMember(node.expression, 'text', checker, false);
+    || expressionResolvesToMember(node.expression, 'text', checker, false)
+    || isWrappedTextCreation(node, checker);
+}
+
+function isWrappedTextCreation(node: ts.CallExpression, checker: ts.TypeChecker): boolean {
+  const invoked = unwrapExpression(node.expression);
+  const memberName = accessedMemberName(invoked);
+  const receiver = accessedMemberReceiver(invoked);
+
+  if (
+    receiver !== undefined
+    && (memberName === 'call' || memberName === 'apply')
+    && expressionResolvesToMember(receiver, 'text', checker, false)
+  ) {
+    return true;
+  }
+
+  const target = node.arguments[0];
+  if (target === undefined) return false;
+  if (isReflectMethod(invoked, 'apply')) {
+    return expressionResolvesToMember(target, 'text', checker, false);
+  }
+  return isReflectMethod(invoked, 'construct')
+    && expressionResolvesToMember(target, 'Text', checker, true);
+}
+
+function isReflectMethod(expression: ts.Expression, expectedName: 'apply' | 'construct'): boolean {
+  if (accessedMemberName(expression) !== expectedName) return false;
+  const receiver = accessedMemberReceiver(expression);
+  if (receiver === undefined) return false;
+  const unwrappedReceiver = unwrapExpression(receiver);
+  return ts.isIdentifier(unwrappedReceiver) && unwrappedReceiver.text === 'Reflect';
 }
 
 function isTextConstructorCreation(node: ts.NewExpression, checker: ts.TypeChecker): boolean {
@@ -278,6 +371,12 @@ function accessedMemberName(expression: ts.Expression): string | undefined {
     : undefined;
 }
 
+function accessedMemberReceiver(expression: ts.Expression): ts.Expression | undefined {
+  return ts.isPropertyAccessExpression(expression) || ts.isElementAccessExpression(expression)
+    ? expression.expression
+    : undefined;
+}
+
 function isPhaserTextFactoryCall(node: ts.CallExpression, checker: ts.TypeChecker): boolean {
   const declaration = checker.getResolvedSignature(node)?.declaration;
   return declaration !== undefined
@@ -300,17 +399,35 @@ function isPhaserDeclaration(declaration: ts.Node): boolean {
   return /[\\/]node_modules[\\/]phaser[\\/]/.test(declaration.getSourceFile().fileName);
 }
 
-function findCreateUiTextCalls(file: string): ts.CallExpression[] {
-  const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true);
+function findCreateUiTextCalls(source: ts.SourceFile, checker: ts.TypeChecker): ts.CallExpression[] {
   const calls: ts.CallExpression[] = [];
   const visit = (node: ts.Node): void => {
-    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'createUiText') {
+    if (ts.isCallExpression(node) && resolvesToCreateUiText(node.expression, checker)) {
       calls.push(node);
     }
     ts.forEachChild(node, visit);
   };
   visit(source);
   return calls;
+}
+
+function resolvesToCreateUiText(input: ts.Expression, checker: ts.TypeChecker): boolean {
+  const expression = unwrapExpression(input);
+  if (!ts.isIdentifier(expression)) return false;
+  const symbol = checker.getSymbolAtLocation(expression);
+  if (symbol === undefined) return false;
+  const resolvedSymbol = symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
+  return resolvedSymbol.declarations?.some((declaration) =>
+    ts.isFunctionDeclaration(declaration)
+    && declaration.name?.text === 'createUiText'
+    && resolve(declaration.getSourceFile().fileName) === UI_TEXT_FILE
+  ) === true;
+}
+
+function programSourceFile(program: ts.Program, file: string): ts.SourceFile {
+  const source = program.getSourceFile(file);
+  if (source === undefined) throw new Error(`audit source missing: ${file}`);
+  return source;
 }
 
 function location(source: ts.SourceFile, node: ts.Node): string {

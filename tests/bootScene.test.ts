@@ -13,7 +13,7 @@ vi.mock('phaser', () => ({
     Scene: class Scene {
       constructor(public key: string) {}
     },
-    Textures: { FilterMode: { NEAREST: 0 } },
+    Textures: { FilterMode: { NEAREST: 1 } },
   },
 }));
 
@@ -136,7 +136,7 @@ describe('BootScene loading and startup wiring', () => {
 
     expect(get.mock.calls).toEqual([['actor']]);
     expect(filters.get('actor')).toHaveBeenCalledTimes(1);
-    expect(filters.get('actor')).toHaveBeenCalledWith(0);
+    expect(filters.get('actor')).toHaveBeenCalledWith(1);
     expect(filters.has('world')).toBe(false);
     expect(filters.has('text-canvas')).toBe(false);
   });
