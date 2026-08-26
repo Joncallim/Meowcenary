@@ -121,38 +121,38 @@ export class Enemy implements EnemyInstance {
     // display-only follower, never a second body.
     this.sprite.setVisible(false);
 
-    // Presentation layers are display-only and glued to the body in update().
-    const visualBody = scene.add
-      .circle(x, y, ENEMY_BODY_RADIUS * ENEMY_VISUAL_FACTOR, enemyColor(this.definition.archetype))
-      .setStrokeStyle(3, OUTLINE_COLOR, 1)
-      .setDepth(VisualDepth.enemy);
-    const accent = accentStyle(this.definition);
-    const accentNode = scene.add
-      .circle(x, y, accent.radius * ENEMY_VISUAL_FACTOR, accent.fill)
-      .setDepth(VisualDepth.enemy);
-    if (accent.stroke) {
-      accentNode.setStrokeStyle(accent.stroke.width, accent.stroke.color, accent.stroke.alpha);
-    }
     const shadow = scene.add.circle(x, y, SHADOW_RADIUS * ENEMY_VISUAL_FACTOR, 0x000000)
       .setAlpha(SHADOW_ALPHA)
       .setDepth(VisualDepth.lowDecoration);
-    this.view = createAnimatedActorView(
+    const animatedView = createAnimatedActorView(
       scene,
       this.sprite,
       { node: shadow, dy: SHADOW_OFFSET_Y * ENEMY_VISUAL_FACTOR },
       art,
       VisualDepth.enemy,
-    ) ?? new PlaceholderView(
-      this.sprite,
-      [
-        { node: visualBody, dx: 0, dy: 0, flashes: false },
-        { node: accentNode, dx: 0, dy: 0, flashes: false, telegraphTint: true },
-      ],
-      { node: shadow, dy: SHADOW_OFFSET_Y * ENEMY_VISUAL_FACTOR },
     );
-    if (this.view instanceof PlaceholderView === false) {
-      visualBody.destroy();
-      accentNode.destroy();
+    if (animatedView) {
+      this.view = animatedView;
+    } else {
+      const visualBody = scene.add
+        .circle(x, y, ENEMY_BODY_RADIUS * ENEMY_VISUAL_FACTOR, enemyColor(this.definition.archetype))
+        .setStrokeStyle(3, OUTLINE_COLOR, 1)
+        .setDepth(VisualDepth.enemy);
+      const accent = accentStyle(this.definition);
+      const accentNode = scene.add
+        .circle(x, y, accent.radius * ENEMY_VISUAL_FACTOR, accent.fill)
+        .setDepth(VisualDepth.enemy);
+      if (accent.stroke) {
+        accentNode.setStrokeStyle(accent.stroke.width, accent.stroke.color, accent.stroke.alpha);
+      }
+      this.view = new PlaceholderView(
+        this.sprite,
+        [
+          { node: visualBody, dx: 0, dy: 0, flashes: false },
+          { node: accentNode, dx: 0, dy: 0, flashes: false, telegraphTint: true },
+        ],
+        { node: shadow, dy: SHADOW_OFFSET_Y * ENEMY_VISUAL_FACTOR },
+      );
     }
     this.syncPresentation(false);
   }

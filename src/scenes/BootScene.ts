@@ -17,12 +17,16 @@ import { DataVisualArtRegistry, ensureVisualAnimations } from '../systems/visual
  * deduped defensively so future registry fixtures cannot issue duplicate GPU
  * updates; Text canvas keys never enter this catalog-driven loop. */
 export function applyNearestTextureSampling(
-  textures: Pick<Phaser.Textures.TextureManager, 'get'>,
+  textures: Pick<Phaser.Textures.TextureManager, 'exists' | 'get'>,
   visualArt: Pick<DataVisualArtRegistry, 'all'>,
 ): void {
   const filtered = new Set<string>();
   for (const binding of visualArt.all()) {
-    if (binding.sampling !== 'nearest' || filtered.has(binding.textureKey)) continue;
+    if (
+      binding.sampling !== 'nearest'
+      || filtered.has(binding.textureKey)
+      || !textures.exists(binding.textureKey)
+    ) continue;
     filtered.add(binding.textureKey);
     textures.get(binding.textureKey).setFilter(Phaser.Textures.FilterMode.NEAREST);
   }

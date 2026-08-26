@@ -154,7 +154,7 @@ function enemyDefinition(): ResolvedEnemyDefinition {
     const { enemy, sprite, circles } = await createEnemy();
     expect(sprite.body?.setCircle).toHaveBeenCalledWith(13);
     expect(sprite.visible).toBe(false);
-    expect(circles.map((circle) => circle.radius)).toEqual([13, 13 * 1.30, 5 * 1.30, 12 * 1.30]);
+    expect(circles.map((circle) => circle.radius)).toEqual([13, 12 * 1.30, 13 * 1.30, 5 * 1.30]);
     expect(enemy.pos).toEqual({ x: 10, y: 20 });
   });
 
@@ -369,12 +369,21 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       definition: ResolvedEnemyDefinition,
       spawnX: number,
       bus = createEventBus(),
-    ): Promise<{ enemy: InstanceType<typeof import('../src/entities/Enemy').Enemy>; sprite: SpriteNode }> {
+    ): Promise<{
+      enemy: InstanceType<typeof import('../src/entities/Enemy').Enemy>;
+      sprite: SpriteNode;
+      circles: MockArc[];
+    }> {
       const { Enemy } = await import('../src/entities/Enemy');
       const sprites: SpriteNode[] = [];
+      const circles: MockArc[] = [];
       const scene = {
         add: {
-          circle: (x: number, y: number) => new MockArc(x, y),
+          circle: (x: number, y: number, radius: number) => {
+            const circle = new MockArc(x, y, radius);
+            circles.push(circle);
+            return circle;
+          },
           sprite: (x: number, y: number) => {
             const sprite = new SpriteNode(x, y);
             sprites.push(sprite);
@@ -388,8 +397,19 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       return {
         enemy: new Enemy(scene as never, definition, spawnX, 20, bus, artBinding),
         sprite: sprites[0],
+        circles,
       };
     }
+
+    it('constructs fallback body/accent only when animated enemy art is unavailable', async () => {
+      const fallback = await createEnemy();
+      const loaded = await createArtEnemy(enemyDefinition(), 10);
+
+      // Fallback: physics proxy, display body, accent, and shadow.
+      expect(fallback.circles).toHaveLength(4);
+      // Loaded art retains only the physics proxy and shared display shadow.
+      expect(loaded.circles.map((circle) => circle.radius)).toEqual([13, 12 * 1.30]);
+    });
 
     it('shows the run clip while a charger pursues and the idle clip once stopped', async () => {
       const definition: ResolvedEnemyDefinition = {
@@ -526,9 +546,10 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       };
       const { Enemy } = await import('../src/entities/Enemy');
       const enemy = new Enemy(scene as never, chargerDefinition, 10, 20, bus);
-      // circles: physics body, enlarged fallback body, telegraph accent, shadow.
-      // The accent must remain over the fallback body in scene creation order.
-      const accent = circles[2]!;
+      // circles: physics body, shadow, enlarged fallback body, telegraph accent.
+      // Explicit depths keep the accent above the fallback body regardless of
+      // allocation order; loaded art avoids creating the two fallback nodes.
+      const accent = circles[3]!;
       const player = { active: true, x: 100, y: 20 } as never;
 
       expect(accent.alpha).toBe(1);

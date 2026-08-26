@@ -59,30 +59,6 @@ export class Player {
     // below is display-only, so enlarging actors cannot change collisions.
     this.sprite.setVisible(false);
 
-    // Presentation layers are display-only and glued to the physics body in
-    // update(). Their 1.30 visual factor never reaches Arcade physics.
-    const visualBody = scene.add
-      .circle(options.spawnX, options.spawnY, PLAYER_BODY_RADIUS * PLAYER_VISUAL_FACTOR, BODY_COLOR)
-      .setStrokeStyle(3, OUTLINE_COLOR, 1)
-      .setDepth(VisualDepth.player);
-    const leftEar = scene.add
-      .circle(
-        options.spawnX - EAR_OFFSET_X * PLAYER_VISUAL_FACTOR,
-        options.spawnY - EAR_OFFSET_Y * PLAYER_VISUAL_FACTOR,
-        EAR_RADIUS * PLAYER_VISUAL_FACTOR,
-        BODY_COLOR,
-      )
-      .setStrokeStyle(2, OUTLINE_COLOR, 1)
-      .setDepth(VisualDepth.player);
-    const rightEar = scene.add
-      .circle(
-        options.spawnX + EAR_OFFSET_X * PLAYER_VISUAL_FACTOR,
-        options.spawnY - EAR_OFFSET_Y * PLAYER_VISUAL_FACTOR,
-        EAR_RADIUS * PLAYER_VISUAL_FACTOR,
-        BODY_COLOR,
-      )
-      .setStrokeStyle(2, OUTLINE_COLOR, 1)
-      .setDepth(VisualDepth.player);
     const shadow = scene.add
       .circle(
         options.spawnX,
@@ -92,35 +68,57 @@ export class Player {
       )
       .setAlpha(SHADOW_ALPHA)
       .setDepth(VisualDepth.lowDecoration);
-    this.view = createAnimatedActorView(
+    const animatedView = createAnimatedActorView(
       scene,
       this.sprite,
       { node: shadow, dy: SHADOW_OFFSET_Y * PLAYER_VISUAL_FACTOR },
       art,
       VisualDepth.player,
-    ) ?? new PlaceholderView(
-      this.sprite,
-      [
-        { node: visualBody, dx: 0, dy: 0, flashes: true },
-        {
-          node: leftEar,
-          dx: -EAR_OFFSET_X * PLAYER_VISUAL_FACTOR,
-          dy: -EAR_OFFSET_Y * PLAYER_VISUAL_FACTOR,
-          flashes: true,
-        },
-        {
-          node: rightEar,
-          dx: EAR_OFFSET_X * PLAYER_VISUAL_FACTOR,
-          dy: -EAR_OFFSET_Y * PLAYER_VISUAL_FACTOR,
-          flashes: true,
-        },
-      ],
-      { node: shadow, dy: SHADOW_OFFSET_Y * PLAYER_VISUAL_FACTOR },
     );
-    if (this.view instanceof PlaceholderView === false) {
-      visualBody.destroy();
-      leftEar.destroy();
-      rightEar.destroy();
+    if (animatedView) {
+      this.view = animatedView;
+    } else {
+      const visualBody = scene.add
+        .circle(options.spawnX, options.spawnY, PLAYER_BODY_RADIUS * PLAYER_VISUAL_FACTOR, BODY_COLOR)
+        .setStrokeStyle(3, OUTLINE_COLOR, 1)
+        .setDepth(VisualDepth.player);
+      const leftEar = scene.add
+        .circle(
+          options.spawnX - EAR_OFFSET_X * PLAYER_VISUAL_FACTOR,
+          options.spawnY - EAR_OFFSET_Y * PLAYER_VISUAL_FACTOR,
+          EAR_RADIUS * PLAYER_VISUAL_FACTOR,
+          BODY_COLOR,
+        )
+        .setStrokeStyle(2, OUTLINE_COLOR, 1)
+        .setDepth(VisualDepth.player);
+      const rightEar = scene.add
+        .circle(
+          options.spawnX + EAR_OFFSET_X * PLAYER_VISUAL_FACTOR,
+          options.spawnY - EAR_OFFSET_Y * PLAYER_VISUAL_FACTOR,
+          EAR_RADIUS * PLAYER_VISUAL_FACTOR,
+          BODY_COLOR,
+        )
+        .setStrokeStyle(2, OUTLINE_COLOR, 1)
+        .setDepth(VisualDepth.player);
+      this.view = new PlaceholderView(
+        this.sprite,
+        [
+          { node: visualBody, dx: 0, dy: 0, flashes: true },
+          {
+            node: leftEar,
+            dx: -EAR_OFFSET_X * PLAYER_VISUAL_FACTOR,
+            dy: -EAR_OFFSET_Y * PLAYER_VISUAL_FACTOR,
+            flashes: true,
+          },
+          {
+            node: rightEar,
+            dx: EAR_OFFSET_X * PLAYER_VISUAL_FACTOR,
+            dy: -EAR_OFFSET_Y * PLAYER_VISUAL_FACTOR,
+            flashes: true,
+          },
+        ],
+        { node: shadow, dy: SHADOW_OFFSET_Y * PLAYER_VISUAL_FACTOR },
+      );
     }
   }
 

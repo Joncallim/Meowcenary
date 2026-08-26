@@ -1895,6 +1895,11 @@ function checkRunUpgradeEffects(upgrade: Record<string, unknown>, errors: string
     }
     if (!isFiniteNumber(value)) {
       effectErrors.push('value: required finite number');
+    } else if (stat === 'range' && value <= 0) {
+      // Range is a distance-domain contract: a zero/negative modifier could
+      // make targeting and projectile lifetime disagree on a non-positive
+      // scalar. Positive sub-1 multipliers (e.g. breacher x0.88) remain valid.
+      effectErrors.push('value: range modifier must be positive');
     } else if (op === 'mult' && value <= 0) {
       // D5: mult values must be finite and > 0; sub-1 trade-off multipliers
       // (e.g. heavy-rounds' attackSpeed x0.94) are intentionally valid.

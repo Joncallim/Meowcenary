@@ -7,7 +7,7 @@ import {
   type InventoryWeaponView,
   type MergeFailureReason,
 } from './inventory';
-import { physicalToLogical, safeDisplayScale, type UiViewport } from './layout';
+import { physicalToLogical, type UiViewport } from './layout';
 import type { ModalTextHelpers } from './modal';
 import { FocusStroke, ThemeColor, ThemeFont, themeColorCss } from './theme';
 import { createUiText } from './text';
@@ -296,67 +296,32 @@ export class PhaserWeaponRackPanel {
     const top = y - height / 2;
     const rarityLabel = weapon.rarity.toUpperCase();
     if (compact) {
+      // The 844×390 FIT rack has room for five semantic rows but not a
+      // useful icon without making the full rarity/state/RNG information
+      // collide. Keep the data in fixed rows; decorative art remains on the
+      // normal rack where it has its own reserved bounds.
+      const compactInset = physicalToLogical(3, this.viewport);
+      const compactStep = physicalToLogical(12, this.viewport);
+      const compactFontSize = 9;
+      const compactTextWidth = width - compactInset * 2;
+      const addCompactRow = (row: number, text: string, tone: 'primary' | 'muted' | 'gold') => {
+        const field = this.addCardText(
+          x,
+          top + compactInset + compactStep * row,
+          text,
+          tone,
+          compactTextWidth,
+          compactFontSize,
+        );
+        root.add(field);
+        field.setOrigin(0.5, 0);
+      };
+      addCompactRow(0, `${index + 1}·T${weapon.tier}`, 'muted');
+      addCompactRow(1, rarityLabel, 'primary');
+      addCompactRow(2, selectionLabel(weapon), state === 'selected' || state === 'merge-ready' ? 'gold' : 'muted');
+      addCompactRow(3, compactWeaponLabel(weapon.family), 'primary');
       const range = weapon.stats.find((stat) => stat.key === 'range');
-      const dense = height * safeDisplayScale(this.viewport) < 70;
-      if (!dense) {
-        this.renderWeaponGlyph(
-          root,
-          weapon.iconId,
-          x,
-          y + physicalToLogical(5, this.viewport),
-          rarityStroke,
-          true,
-        );
-      }
-      const family = this.addCardText(
-        x,
-        y + height / 2 - physicalToLogical(dense ? 17 : 20, this.viewport),
-        compactWeaponLabel(weapon.family),
-        'primary',
-        width - 8,
-        dense ? ThemeFont.labelMin : ThemeFont.bodyMin,
-      );
-      root.add(family);
-      family.setOrigin(0.5, 0);
-      const rarity = this.addCardText(
-        x + width / 2 - physicalToLogical(4, this.viewport),
-        top + physicalToLogical(7, this.viewport),
-        rarityLabel,
-        'primary',
-        width - physicalToLogical(32, this.viewport),
-        ThemeFont.labelMin,
-      );
-      root.add(rarity);
-      rarity.setOrigin(1, 0);
-      if (range) {
-        const rangeText = this.addCardText(
-          x,
-          y + height / 2 - physicalToLogical(dense ? 5 : 7, this.viewport),
-          `${range.label} ${range.formatted}`,
-          'muted',
-          width - physicalToLogical(8, this.viewport),
-          ThemeFont.labelMin,
-        );
-        root.add(rangeText);
-        rangeText.setOrigin(0.5, 1);
-      }
-      const tier = this.addCardText(left + 8, top + 7,
-        `${index + 1}·T${weapon.tier}`, 'muted', width / 2);
-      root.add(tier);
-      const stateLabel = this.addCardText(
-        x,
-        top + physicalToLogical(18, this.viewport),
-        selectionLabel(weapon),
-        state === 'selected' || state === 'merge-ready' ? 'gold' : 'muted',
-        width - physicalToLogical(4, this.viewport),
-        ThemeFont.labelMin,
-      );
-      root.add(stateLabel);
-      stateLabel.setOrigin(0.5, 0);
-      const availableStateWidth = width - physicalToLogical(6, this.viewport);
-      if (Number.isFinite(stateLabel.width) && stateLabel.width > availableStateWidth) {
-        stateLabel.setScale(availableStateWidth / stateLabel.width, 1);
-      }
+      if (range) addCompactRow(4, `${range.label} ${range.formatted}`, 'muted');
       return card;
     }
 
@@ -478,7 +443,7 @@ export class PhaserWeaponRackPanel {
     root.add(panel);
     panel.setStrokeStyle(physicalToLogical(2, this.viewport), ThemeColor.card, 0.9);
 
-    const inset = physicalToLogical(10, this.viewport);
+    const inset = physicalToLogical(compact ? 6 : 10, this.viewport);
     if (this.confirmation) {
       const title = this.addCardText(
         x + inset,
@@ -542,15 +507,21 @@ export class PhaserWeaponRackPanel {
     }
 
     const preview = snapshot.preview;
-    const resultOffset = compact ? 22 : 25;
-    const deltaOffset = compact ? 43 : 53;
-    const deltaStep = compact ? 16 : 21;
+    // Compact preview has eight mandatory rows (equation, result, full rarity,
+    // and five resolved deltas). Fixed one-line positions reserve bounds for
+    // all of them instead of letting rarity share the first delta row.
+    const resultOffset = compact ? 14 : 25;
+    const rarityOffset = compact ? 28 : resultOffset + 20;
+    const deltaOffset = compact ? 42 : 53;
+    const deltaStep = compact ? 15 : 21;
+    const previewFontSize = compact ? 11 : ThemeFont.bodyMin;
     const equation = this.addCardText(
       x + inset,
       y + inset,
       `T${preview.inputs[0].tier} + T${preview.inputs[1].tier} → T${preview.result.tier}`,
       'gold',
       width - inset * 2,
+      previewFontSize,
     );
     root.add(equation);
     const result = this.addCardText(
@@ -559,14 +530,16 @@ export class PhaserWeaponRackPanel {
       preview.result.name,
       'primary',
       width - inset * 2,
+      previewFontSize,
     );
     root.add(result);
     const rarity = this.addCardText(
       x + inset,
-      y + inset + physicalToLogical(resultOffset + 20, this.viewport),
+      y + inset + physicalToLogical(rarityOffset, this.viewport),
       preview.result.rarity.toUpperCase(),
       'primary',
       width - inset * 2,
+      previewFontSize,
     );
     root.add(rarity);
     preview.deltas.forEach((delta, index) => {
@@ -576,6 +549,7 @@ export class PhaserWeaponRackPanel {
         `${delta.label}  ${delta.formattedBefore} → ${delta.formattedAfter}`,
         'muted',
         width - inset * 2,
+        previewFontSize,
       );
       root.add(line);
     });

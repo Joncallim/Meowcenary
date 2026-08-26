@@ -64,7 +64,7 @@ function createFakeScene() {
   const loadImage = vi.fn();
   const loadSpritesheet = vi.fn();
   const start = vi.fn();
-  const textureGet = vi.fn(() => ({ setFilter: vi.fn() }));
+  const textureGet = vi.fn((_key: string) => ({ setFilter: vi.fn() }));
   const createEmitter = () => {
     const handlers = new Map<string, Set<(...args: unknown[]) => void>>();
     const onceHandlers = new Map<string, Set<(...args: unknown[]) => void>>();
@@ -104,7 +104,9 @@ function createFakeScene() {
     textures: { exists: vi.fn((_key: string) => true), get: textureGet },
     anims: { exists: vi.fn(() => false), create: vi.fn(), generateFrameNumbers: vi.fn(), remove: vi.fn() },
   };
-  return { scene, loadAudio, loadImage, loadSpritesheet, loadEvents, sceneEvents, start, registryValues };
+  return {
+    scene, loadAudio, loadImage, loadSpritesheet, loadEvents, sceneEvents, start, registryValues, textureGet,
+  };
 }
 
 function createBoot() {
@@ -122,8 +124,9 @@ describe('BootScene loading and startup wiring', () => {
       filters.set(key, setFilter);
       return { setFilter };
     });
+    const exists = vi.fn(() => true);
     applyNearestTextureSampling(
-      { get } as never,
+      { exists, get } as never,
       { all: () => [
         { textureKey: 'actor', sampling: 'nearest' },
         { textureKey: 'actor', sampling: 'nearest' },
@@ -153,11 +156,53 @@ describe('BootScene loading and startup wiring', () => {
       .filter((binding) => binding.sampling === 'linear')
       .map((binding) => binding.textureKey);
 
-    applyNearestTextureSampling({ get } as never, registry);
+    const exists = vi.fn(() => true);
+    applyNearestTextureSampling({ exists, get } as never, registry);
 
     expect(get.mock.calls.map(([key]) => key)).toEqual(nearest);
     nearest.forEach((key) => expect(filters.get(key)).toHaveBeenCalledTimes(1));
     linear.forEach((key) => expect(filters.has(key)).toBe(false));
+  });
+
+  it('wires real validated nearest catalog bindings through BootScene.create exactly once', () => {
+    const { boot, textureGet } = createBoot();
+    const registry = new DataVisualArtRegistry(loadGameData());
+    const expected = [...new Set(registry.all()
+      .filter((binding) => binding.sampling === 'nearest')
+      .map((binding) => binding.textureKey))];
+
+    boot.create();
+
+    expect(textureGet.mock.calls.map(([key]) => key)).toEqual(expected);
+  });
+
+  it('skips a missing optional nearest texture instead of filtering the manager fallback texture', () => {
+    const binding = {
+      id: 'world:test-optional-nearest',
+      kind: 'world',
+      textureKey: 'art-world-test-optional-nearest',
+      url: 'assets/world/test-optional-nearest.png',
+      required: false,
+      sampling: 'nearest',
+      load: { type: 'image' },
+      display: { width: 16, height: 16 },
+    } as const;
+    visualArtJson.bindings.push(binding as unknown as (typeof visualArtJson.bindings)[number]);
+    try {
+      const { boot, scene, textureGet, start } = createBoot();
+      const missingFallbackFilter = vi.fn();
+      textureGet.mockImplementation((key: string) => key === binding.textureKey
+        ? { setFilter: missingFallbackFilter }
+        : { setFilter: vi.fn() });
+      scene.textures.exists.mockImplementation((key: string) => key !== binding.textureKey);
+
+      expect(() => boot.create()).not.toThrow();
+      expect(textureGet.mock.calls.map(([key]) => key)).not.toContain(binding.textureKey);
+      expect(missingFallbackFilter).not.toHaveBeenCalled();
+      expect(start).toHaveBeenCalledWith(SceneKey.Menu);
+    } finally {
+      visualArtJson.bindings.pop();
+    }
   });
 
   it('preloads every audio catalog row in [...sfx, ...music] order with exact key/url', () => {

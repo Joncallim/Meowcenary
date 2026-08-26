@@ -316,8 +316,21 @@ describe('Player', () => {
 
     expect(sprite.body.setCircle).toHaveBeenCalledWith(14);
     expect(sprite.visible).toBe(false);
-    expect(circles.map((circle) => circle.radius)).toEqual([14, 14 * 1.30, 4.5 * 1.30, 4.5 * 1.30, 13 * 1.30]);
-    expect([circles[1]?.x, circles[1]?.y]).toEqual([400, 300]);
+    expect(circles.map((circle) => circle.radius)).toEqual([14, 13 * 1.30, 14 * 1.30, 4.5 * 1.30, 4.5 * 1.30]);
+    const fallbackBody = circles.find((circle) => circle.radius === 14 * 1.30);
+    expect([fallbackBody?.x, fallbackBody?.y]).toEqual([400, 300]);
+  });
+
+  it('constructs fallback body/ears only when animated art is unavailable', async () => {
+    const fallback = await createHarness();
+    const loaded = await createHarness(650, { x: 0, y: 0 }, playerArt);
+
+    // Fallback: physics proxy, display body, two ears, and display shadow.
+    expect(fallback.circles).toHaveLength(5);
+    // Loaded art: only the physics proxy and its shared display shadow; no
+    // construct-then-destroy fallback circles may be allocated.
+    expect(loaded.circles.map((circle) => circle.radius)).toEqual([14, 13 * 1.30]);
+    expect(loaded.artSprites).toHaveLength(1);
   });
 
   it('keeps the loaded actor art and its shadow at the same 1.30 presentation factor', async () => {

@@ -600,6 +600,34 @@ describe('Epic 19 playtest fixes: health/pause 8px physical gap', () => {
   });
 });
 
+describe('Epic 19 playtest fixes: zoomed GameScene HUD backing projection', () => {
+  it('projects the HUD backing from the actual GameScene viewport origin to the full canvas bounds', () => {
+    const h = createGameSoakHarness({ fixtureSeed: 19, runSeed: 19, storageKey: 'e19-backing-origin' });
+    const viewport = zoomedGameUiViewport(
+      h.gameScene.scale.displaySize.width,
+      h.gameScene.scale.displaySize.height,
+      h.gameScene.scale.parentSize.width,
+      h.gameScene.scale.parentSize.height,
+    );
+    const before = new Set(fakeSceneObjects(h));
+    const hud = new PhaserHudView({ scene: h.gameScene as never, viewport });
+    const backing = fakeSceneObjects(h)
+      .filter((object) => !before.has(object))
+      .find((object) => object.state.kind === 'rect' && object.state.width === viewport.canvasWidth);
+    if (!backing) throw new Error('zoomed HUD backing missing');
+
+    const left = (backing.state.x - backing.state.width / 2 - viewport.originX!) * GAMEPLAY_ZOOM;
+    const right = (backing.state.x + backing.state.width / 2 - viewport.originX!) * GAMEPLAY_ZOOM;
+    const top = (backing.state.y - backing.state.height / 2 - viewport.originY!) * GAMEPLAY_ZOOM;
+    expect(left).toBeCloseTo(0, 6);
+    expect(right).toBeCloseTo(390, 6);
+    expect(top).toBeCloseTo(0, 6);
+    hud.destroy();
+    h.destroy();
+    expect(h.listeners()).toEqual(ZERO_LISTENER_DIAGNOSTICS);
+  });
+});
+
 describe('Epic 19 playtest fixes: four-viewport HUD soak', () => {
   it.each(REFERENCE_VIEWPORTS)('keeps both bars and the three-line stats stack safe in both directions at $name', ({ width, height }) => {
     const h = createGameSoakHarness({ fixtureSeed: width + height, runSeed: width, storageKey: `e19-hud-${width}` });

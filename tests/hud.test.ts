@@ -12,7 +12,7 @@ import {
   type HudSource,
   type HudView,
 } from '../src/ui/hud';
-import { edgeMargin, logicalCanvasViewport } from '../src/ui/layout';
+import { edgeMargin, GAMEPLAY_ZOOM, logicalCanvasViewport, zoomedGameUiViewport } from '../src/ui/layout';
 import { ThemeColor, ThemeDepth } from '../src/ui/theme';
 
 vi.mock('phaser', () => ({
@@ -410,6 +410,30 @@ describe('PhaserHudView', () => {
     expect(time.y).toBeLessThan(kills.y as number);
     expect(kills.y).toBeLessThan(scrap.y as number);
     expect((kills.y as number) - (time.y as number)).toBeCloseTo((scrap.y as number) - (kills.y as number), 6);
+  });
+
+  it('projects the zoomed GameScene backing across the whole HUD viewport instead of root-local canvas coordinates', () => {
+    // GameScene constructs the HUD with this camera-zoomed viewport. With the
+    // backing center left root-local, it projects to [-48.75, 341.25] at
+    // zoom 1.25 instead of covering the [0, 390] canvas.
+    const scene = createFakeScene();
+    const viewport = zoomedGameUiViewport(390, 844, 390, 844);
+    const view = new PhaserHudView({ scene: scene as never, viewport });
+    const height = topHudContentBottom(viewport) + edgeMargin(viewport, 'bottom');
+    const backing = scene.objects.find((object) =>
+      object.state.kind === 'rect'
+      && object.state.width === viewport.canvasWidth
+      && object.state.height === height,
+    );
+    if (!backing) throw new Error('HUD backing missing');
+
+    const projectX = (worldX: number) => (worldX - viewport.originX!) * GAMEPLAY_ZOOM;
+    const projectY = (worldY: number) => (worldY - viewport.originY!) * GAMEPLAY_ZOOM;
+    expect(projectX((backing.state.x as number) - viewport.canvasWidth / 2)).toBeCloseTo(0, 6);
+    expect(projectX((backing.state.x as number) + viewport.canvasWidth / 2)).toBeCloseTo(390, 6);
+    expect(projectY((backing.state.y as number) - height / 2)).toBeCloseTo(0, 6);
+    expect(projectY((backing.state.y as number) + height / 2)).toBeCloseTo(height * GAMEPLAY_ZOOM, 6);
+    view.destroy();
   });
 
   it.each([

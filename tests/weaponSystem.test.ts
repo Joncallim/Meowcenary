@@ -5,6 +5,7 @@ import { createRng } from '../src/engine/rng';
 import { createRunState } from '../src/gameplay/runState';
 import type { RunState } from '../src/gameplay/runState';
 import { createWeaponInstance } from '../src/gameplay/weapons';
+import { resolveWeaponStats } from '../src/gameplay/weaponStats';
 import type { WeaponSystem } from '../src/systems/WeaponSystem';
 import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
@@ -491,6 +492,46 @@ describe('WeaponSystem', () => {
     expect(reused).toBe(sprite);
     expect(harness.system.activeProjectileCount).toBe(1);
     expect(harness.system.allocatedProjectileCount).toBe(1);
+  });
+
+  it.each([
+    { weaponId: 'scrap-pistol-t1', family: 'pistol', resolvedRange: 231, familyMultiplier: 1.05 },
+    { weaponId: 'bolt-shotgun-t1', family: 'shotgun', resolvedRange: 135.52, familyMultiplier: 0.88 },
+  ])('uses one resolved range scalar for $family acquisition and projectile expiry', async ({
+    weaponId, family, resolvedRange, familyMultiplier,
+  }) => {
+    const harness = await createHarness({ weaponId });
+    const registry = new DataWeaponRegistry(loadGameData());
+    const definition = registry.weaponById(weaponId);
+    if (!definition) throw new Error(`missing ${weaponId}`);
+    harness.runState.stats.add({ stat: 'range', op: 'mult', value: 1.10, sourceId: 'global-long-barrel' });
+    harness.runState.stats.add({
+      stat: 'range', op: 'mult', value: familyMultiplier, sourceId: `${family}-scope`,
+      scope: { kind: 'weapon-family', family },
+    });
+    const resolved = resolveWeaponStats(harness.runState, definition);
+    expect(resolved.range).toBeCloseTo(resolvedRange, 6);
+    harness.enemy.x = resolvedRange;
+    harness.enemy.sprite.x = resolvedRange;
+    const fired = vi.fn();
+    harness.ctx.bus.on('weapon:fired', fired);
+
+    // Exact resolved distance is targetable. Raw range, missing global range,
+    // or a cross-family scope substitution all leave this shot un-emitted.
+    harness.system.update(resolved.intervalMs);
+    const projectile = harness.projectileGroup.added[0];
+    expect(projectile).toBeDefined();
+    expect(fired).toHaveBeenCalledWith({ weaponId, family, tier: 1, x: 0, y: 0 });
+
+    // Prevent later cadence shots while advancing the same real pooled
+    // projectile. It must survive just below the resolved scalar and release
+    // just beyond it, not the definition's raw range or another family scope.
+    harness.runState.equipped = [];
+    const epsilon = 0.001;
+    harness.system.update((resolvedRange - epsilon) / resolved.projectileSpeed * 1_000);
+    expect(projectile!.active).toBe(true);
+    harness.system.update(epsilon * 2 / resolved.projectileSpeed * 1_000);
+    expect(projectile!.active).toBe(false);
   });
 
   it('reuses projectiles after a piercing kill and keeps fresh hit/damage state', async () => {

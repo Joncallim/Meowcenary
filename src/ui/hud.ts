@@ -254,8 +254,8 @@ export class PhaserHudView implements HudView {
     const layout = topHudLayout(viewport);
     const backingHeight = topHudContentBottom(viewport) + edgeMargin(viewport, 'bottom');
     this.backing = scene.add.rectangle(
-      layout.canvasWidth / 2,
-      backingHeight / 2,
+      (viewport.originX ?? 0) + layout.canvasWidth / 2,
+      (viewport.originY ?? 0) + backingHeight / 2,
       layout.canvasWidth,
       backingHeight,
       ThemeColor.surface,
