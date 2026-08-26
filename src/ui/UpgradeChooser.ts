@@ -484,8 +484,8 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
               Math.min(
                 3,
                 Math.floor(
-                  cardLayout.descriptionHeight /
-                  (layout.fonts.description * 1.2),
+                  (cardLayout.descriptionHeight + layout.lineSpacing) /
+                  (layout.fonts.description * 1.2 + layout.lineSpacing),
                 ),
               ),
             ))

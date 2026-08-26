@@ -687,6 +687,46 @@ describe('Upgrade chooser physical layout', () => {
     },
   );
 
+  it.each([...VIEWPORTS, ...COLLAPSED_DISPLAYS])(
+    'keeps description height sufficient for the view-computed maxLines at $name size',
+    (viewport) => {
+      const display = fittedCanvas(viewport.width, viewport.height);
+      const ls = computeUpgradeChooserLayout(390, 844, display.width, display.height, 1).lineSpacing;
+
+      for (const count of [1, 2, 3, 4, 5]) {
+        const layout = computeUpgradeChooserLayout(
+          390,
+          844,
+          display.width,
+          display.height,
+          count,
+        );
+        const fs = layout.fonts.description;
+
+        layout.cards.forEach((card) => {
+          // Mirror the view's showDescription gate at UpgradeChooser.ts:466-468.
+          if (card.descriptionHeight <= 0 || card.descriptionHeight < fs * 1.15) return;
+
+          // The view at UpgradeChooser.ts:482-491 computes maxLines accounting
+          // for lineSpacing. Verify the invariant: descriptionHeight must hold
+          // maxLines lines when lineSpacing is included.
+          const viewMaxLines = Math.max(
+            1,
+            Math.min(
+              3,
+              Math.floor(
+                (card.descriptionHeight + ls) /
+                (fs * 1.2 + ls),
+              ),
+            ),
+          );
+          const needed = fs * 1.2 * viewMaxLines + ls * Math.max(0, viewMaxLines - 1);
+          expect(needed).toBeLessThanOrEqual(card.descriptionHeight + 0.001);
+        });
+      }
+    },
+  );
+
   it.each(COLLAPSED_DISPLAYS)(
     'keeps all created regions safe at $name display size',
     ({ width, height }) => {
