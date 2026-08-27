@@ -19,7 +19,7 @@ export class ProgressionController {
   constructor(private readonly context: GameContext) {}
 
   snapshot(): ProgressionSnapshot {
-    const meta = this.context.saveData.meta;
+    const meta = this.context.saveData.progression;
     return Object.freeze({
       scrap: meta.scrap,
       upgrades: Object.freeze(this.context.metaUpgrades.all().map((definition) => {
@@ -38,7 +38,7 @@ export class ProgressionController {
   }
 
   purchase(upgradeId: string): ProgressionPurchaseResult {
-    const result = purchase(this.context.saveData.meta, upgradeId, this.context.metaUpgrades);
+    const result = purchase(this.context.saveData.progression, upgradeId, this.context.metaUpgrades);
     if (!result.ok) return Object.freeze(result);
     const update = this.context.updateMeta(() => result.meta);
     return Object.freeze({
@@ -49,7 +49,7 @@ export class ProgressionController {
 
   reset(confirmed: boolean): ResetProgressionResult {
     if (!confirmed) {
-      return Object.freeze({ ok: false, meta: this.context.saveData.meta, reason: 'confirmation-required' });
+      return Object.freeze({ ok: false, meta: this.context.saveData.progression, reason: 'confirmation-required' });
     }
     const update = this.context.resetProgression();
     return Object.freeze({ ok: true, meta: update.value, persisted: update.persisted });

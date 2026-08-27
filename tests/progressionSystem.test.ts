@@ -20,7 +20,7 @@ describe('ProgressionSystem terminal lifecycle', () => {
     bus.emit(status === 'won' ? 'run:won' : 'run:lost', { timeMs: 0, level: 1, kills: 0 });
     bus.emit('run:won', { timeMs: 0, level: 1, kills: 0 });
     bus.emit('run:lost', { timeMs: 0, level: 1, kills: 0 });
-    expect(context.saveData.meta.scrap).toBe(12);
+    expect(context.saveData.progression.scrap).toBe(12);
     expect(system.hasBanked).toBe(true);
     expect(system.lastBankedRun).toMatchObject({ reward: { scrap: 12 }, persisted: true });
   });
@@ -33,7 +33,7 @@ describe('ProgressionSystem terminal lifecycle', () => {
     const second = new ProgressionSystem({ runState: run, bus, context });
     expect(first.bankFinishedRun()).toMatchObject({ reward: { scrap: 0 } });
     expect(second.bankFinishedRun()).toBeNull();
-    expect(context.saveData.meta.scrap).toBe(0);
+    expect(context.saveData.progression.scrap).toBe(0);
   });
 
   it('does not consume non-terminal runs, destroys subscriptions, and a new run banks independently', () => {
@@ -45,13 +45,13 @@ describe('ProgressionSystem terminal lifecycle', () => {
     first.destroy(); first.destroy();
     firstRun.status = 'won'; firstRun.currency = 5;
     bus.emit('run:won', { timeMs: 0, level: 1, kills: 0 });
-    expect(context.saveData.meta.scrap).toBe(0);
+    expect(context.saveData.progression.scrap).toBe(0);
 
     const nextRun = createRunState({ seed: 2, characterId: 'cat', arenaId: 'arena' });
     nextRun.status = 'lost'; nextRun.currency = 7;
     const next = new ProgressionSystem({ runState: nextRun, bus, context });
     expect(next.bankFinishedRun()).toMatchObject({ reward: { scrap: 7 } });
-    expect(context.saveData.meta.scrap).toBe(7);
+    expect(context.saveData.progression.scrap).toBe(7);
   });
 
   it('reports persistence failure without crashing or retrying the handled run', () => {
@@ -69,7 +69,7 @@ describe('ProgressionSystem terminal lifecycle', () => {
     const system = new ProgressionSystem({ runState: run, bus, context });
     expect(system.bankFinishedRun()).toMatchObject({ persisted: false, meta: { scrap: 4 } });
     expect(system.bankFinishedRun()).toBeNull();
-    expect(context.saveData.meta.scrap).toBe(4);
+    expect(context.saveData.progression.scrap).toBe(4);
   });
 });
 

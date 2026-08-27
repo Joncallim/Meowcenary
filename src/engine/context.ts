@@ -9,8 +9,8 @@ import { canSelectCharacter } from '../gameplay/characterSelection';
 import { canSelectArena } from '../gameplay/arenaSelection';
 import {
   applySettingsPatch,
-  createDefaultMeta,
-  sanitizeMeta,
+  createDefaultProgression,
+  sanitizeProgression,
   type MetaState,
   type SaveData,
   type SaveManager,
@@ -112,12 +112,12 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
    *  selectionRevision will see a bump when this fires. */
   function revalidateSelection(): void {
     const def = options.characters.characterById(selectedCharacterId);
-    if (def && !canSelectCharacter(def, current.meta)) {
+    if (def && !canSelectCharacter(def, current.progression)) {
       selectedCharacterId = options.characters.defaultCharacterId();
       selectionRevision += 1;
     }
     const adef = options.arenas.arenaById(selectedArenaId);
-    if (adef && !canSelectArena(adef, current.meta)) {
+    if (adef && !canSelectArena(adef, current.progression)) {
       selectedArenaId = options.arenas.defaultArenaId();
       arenaSelectionRevision += 1;
     }
@@ -139,7 +139,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     updateSettings(patch) {
       const previousSettings = current.settings;
       const settings = applySettingsPatch(previousSettings, patch);
-      current = Object.freeze({ version: 2, settings, meta: current.meta });
+      current = Object.freeze({ ...current, settings });
       const persisted = options.save.save(current);
 
       // Identity equality (never patch-object equality) decides emission: a
@@ -154,14 +154,14 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       return Object.freeze({ value: settings, persisted });
     },
     updateMeta(transform) {
-      const transformed = transform(current.meta);
-      const meta = sanitizeMeta(transformed, options.metaUpgrades.maxLevels());
-      current = Object.freeze({ version: 2, settings: current.settings, meta });
+      const transformed = transform(current.progression);
+      const progression = sanitizeProgression(transformed, options.metaUpgrades.maxLevels());
+      current = Object.freeze({ ...current, progression });
       const persisted = options.save.save(current);
       revalidateSelection();
-      return Object.freeze({ value: meta, persisted });
+      return Object.freeze({ value: progression, persisted });
     },
-    resetProgression() { return context.updateMeta(() => createDefaultMeta()); },
+    resetProgression() { return context.updateMeta(() => createDefaultProgression()); },
     selectCharacter(characterId: string, expectedRevision: number): SelectCharacterResult {
       const def = options.characters.characterById(characterId);
       if (!def) {
@@ -180,7 +180,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
           revision: selectionRevision,
         };
       }
-      if (!canSelectCharacter(def, current.meta)) {
+      if (!canSelectCharacter(def, current.progression)) {
         return {
           ok: false,
           reason: 'locked',
@@ -213,7 +213,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
           revision: arenaSelectionRevision,
         };
       }
-      if (!canSelectArena(def, current.meta)) {
+      if (!canSelectArena(def, current.progression)) {
         return {
           ok: false,
           reason: 'locked',

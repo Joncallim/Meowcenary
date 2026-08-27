@@ -24,12 +24,12 @@ export function createRunRequest(options: {
 
 export function assembleRunRequest(ctx: GameContext, rng: Pick<Rng, 'int'>): RunRequest {
   const character = ctx.characters.characterById(ctx.selectedCharacterId);
-  const characterId = character && canSelectCharacter(character, ctx.saveData.meta)
+  const characterId = character && canSelectCharacter(character, ctx.saveData.progression)
     ? ctx.selectedCharacterId
     : ctx.characters.defaultCharacterId();
 
   const arena = ctx.arenas.arenaById(ctx.selectedArenaId);
-  const arenaId = arena && canSelectArena(arena, ctx.saveData.meta)
+  const arenaId = arena && canSelectArena(arena, ctx.saveData.progression)
     ? ctx.selectedArenaId
     : ctx.arenas.defaultArenaId();
 

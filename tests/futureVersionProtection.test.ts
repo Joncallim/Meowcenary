@@ -12,7 +12,8 @@ import { loadGameData } from '../src/systems/validation';
 import { ProgressionController } from '../src/ui/progressionController';
 
 const key = 'future-version-protection';
-const futurePayload = JSON.stringify({ version: 3, settings: { muted: true }, meta: { scrap: 99 } });
+// Version 4 is unsupported (current is 3) — write-protection must trigger.
+const futurePayload = JSON.stringify({ version: 4, settings: { muted: true }, meta: { scrap: 99 } });
 
 class CountingStorage extends MemoryStorageAdapter {
   setCalls = 0;

@@ -49,7 +49,7 @@ describe('character selection integration', () => {
         maxHealth: RuntimeConfig.gameplay.player.baseMaxHealth,
         moveSpeed: RuntimeConfig.gameplay.player.baseMoveSpeed,
       },
-      meta: context.saveData.meta,
+      meta: context.saveData.progression,
       metaUpgrades,
       character: contribution,
     });
@@ -90,7 +90,7 @@ describe('character selection integration', () => {
     const prepared1 = prepareRun({
       state: { seed: request1.seed, characterId: request1.characterId, arenaId: request1.arenaId },
       basePlayer: { maxHealth: 100, moveSpeed: 175 },
-      meta: context.saveData.meta,
+      meta: context.saveData.progression,
       metaUpgrades,
       character: contribution1,
     });
@@ -105,7 +105,7 @@ describe('character selection integration', () => {
     const prepared2 = prepareRun({
       state: { seed: request2.seed, characterId: request2.characterId, arenaId: request2.arenaId },
       basePlayer: { maxHealth: 100, moveSpeed: 175 },
-      meta: context.saveData.meta,
+      meta: context.saveData.progression,
       metaUpgrades,
       character: contribution2,
     });
@@ -135,7 +135,7 @@ describe('character selection integration', () => {
     const prepared = prepareRun({
       state: { seed: request.seed, characterId: request.characterId, arenaId: request.arenaId },
       basePlayer: { maxHealth: 100, moveSpeed: 175 },
-      meta: context.saveData.meta,
+      meta: context.saveData.progression,
       metaUpgrades,
       character: contribution,
     });

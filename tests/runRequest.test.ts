@@ -46,7 +46,7 @@ describe('runRequest', () => {
       arenas,
       selectedCharacterId: 'scrap-tabby',
       selectedArenaId: 'junkyard-lot',
-      saveData: { meta: { unlocks: [] } as any },
+      saveData: { progression: { unlocks: [] } as any },
       selectionRevision: 1,
       arenaSelectionRevision: 1,
     } as any;
@@ -69,7 +69,7 @@ describe('runRequest', () => {
       arenas,
       selectedCharacterId: 'bolt-hound',
       selectedArenaId: 'unknown-arena',
-      saveData: { meta: { unlocks: [] } as any },
+      saveData: { progression: { unlocks: [] } as any },
     } as any;
 
     const rng = createRng(42);

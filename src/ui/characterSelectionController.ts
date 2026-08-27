@@ -38,7 +38,7 @@ export class CharacterSelectionController {
       id: character.id,
       name: character.name,
       description: character.description,
-      locked: !canSelectCharacter(character, context.saveData.meta),
+      locked: !canSelectCharacter(character, context.saveData.progression),
       selected: character.id === selectedCharacterId,
     }));
     return Object.freeze({
