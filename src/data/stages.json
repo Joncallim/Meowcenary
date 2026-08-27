@@ -1,0 +1,63 @@
+[
+  {
+    "id": "stage:junkyard-01",
+    "name": "First Scavenge",
+    "chapterId": "chapter:junkyard",
+    "displayOrder": 1,
+    "arenaId": "junkyard-lot",
+    "objective": { "type": "kill", "count": 20 },
+    "encounterProfileId": "encounter:junkyard-intro",
+    "difficultyProfileId": "difficulty:chapter-1-easy",
+    "rewardProfileId": "reward:stage-01",
+    "unlock": { "type": "unlock-count", "minCount": 0 }
+  },
+  {
+    "id": "stage:junkyard-02",
+    "name": "Scrap Run",
+    "chapterId": "chapter:junkyard",
+    "displayOrder": 2,
+    "arenaId": "junkyard-lot",
+    "objective": { "type": "collect", "itemId": "item:scrap-cache", "count": 8 },
+    "encounterProfileId": "encounter:junkyard-mixed",
+    "difficultyProfileId": "difficulty:chapter-1-easy",
+    "rewardProfileId": "reward:stage-02",
+    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-01" }
+  },
+  {
+    "id": "stage:junkyard-03",
+    "name": "Rusher Ambush",
+    "chapterId": "chapter:junkyard",
+    "displayOrder": 3,
+    "arenaId": "junkyard-lot",
+    "objective": { "type": "survive", "seconds": 120 },
+    "encounterProfileId": "encounter:junkyard-rusher-heavy",
+    "difficultyProfileId": "difficulty:chapter-1-medium",
+    "rewardProfileId": "reward:stage-03",
+    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-02" }
+  },
+  {
+    "id": "stage:junkyard-04",
+    "name": "Brute Force",
+    "chapterId": "chapter:junkyard",
+    "displayOrder": 4,
+    "arenaId": "junkyard-lot",
+    "objective": { "type": "kill", "count": 30, "enemyTag": "tank" },
+    "encounterProfileId": "encounter:junkyard-elite",
+    "difficultyProfileId": "difficulty:chapter-1-medium",
+    "rewardProfileId": "reward:stage-04",
+    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-03" }
+  },
+  {
+    "id": "stage:junkyard-05",
+    "name": "Boss: Scrap Crusher",
+    "chapterId": "chapter:junkyard",
+    "displayOrder": 5,
+    "arenaId": "junkyard-lot",
+    "objective": { "type": "defeat", "enemyId": "trash-brute" },
+    "encounterProfileId": "encounter:junkyard-boss",
+    "difficultyProfileId": "difficulty:boss-tier-1",
+    "rewardProfileId": "reward:stage-05-boss",
+    "bossId": "boss:crusher",
+    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-04" }
+  }
+]

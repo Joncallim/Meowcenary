@@ -76,6 +76,13 @@ function withEnemies(enemies: Record<string, unknown>[]): unknown {
   const data = structuredClone(loadGameData()) as unknown as Record<string, unknown>;
   data.enemies = enemies;
   addFixtureActorArt(data, 'enemy', enemies);
+  // The fixture replaces arenas/enemies/spawnCurves, so the shipped stage
+  // catalogs (which reference the real junkyard arena/enemies) no longer
+  // match; clear them so stage cross-references stay honest.
+  data.stages = [];
+  data.encounterProfiles = [];
+  data.difficultyProfiles = [];
+  data.rewardProfiles = [];
   data.spawnCurves = [{
     id: 'fixture-curve',
     durationSeconds: 60,
@@ -1039,6 +1046,12 @@ describe('game data validation', () => {
     function withArenas(arenas: Record<string, unknown>[]): unknown {
       const data = structuredClone(loadGameData()) as unknown as Record<string, unknown>;
       data.arenas = arenas;
+      // Fixture arenas replace the shipped junkyard arena; clear stage
+      // catalogs so stage→arena cross-references stay honest.
+      data.stages = [];
+      data.encounterProfiles = [];
+      data.difficultyProfiles = [];
+      data.rewardProfiles = [];
       return data;
     }
 
@@ -1260,6 +1273,12 @@ describe('game data validation', () => {
     function withLootTables(tables: Record<string, unknown>[]): unknown {
       const data = structuredClone(loadGameData()) as unknown as Record<string, unknown>;
       data.lootTables = tables;
+      // Fixture tables replace the shipped chest-standard/brute-cache tables;
+      // clear stage reward catalogs so stage→loot-table references stay honest.
+      data.stages = [];
+      data.encounterProfiles = [];
+      data.difficultyProfiles = [];
+      data.rewardProfiles = [];
       return data;
     }
 

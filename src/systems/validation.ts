@@ -32,6 +32,10 @@ import lootTablesJson from '../data/loot-tables.json';
 import audioAssetsJson from '../data/audio-assets.json';
 import audioMapJson from '../data/audio-map.json';
 import visualArtJson from '../data/visual-art.json';
+import stagesJson from '../data/stages.json';
+import encounterProfilesJson from '../data/encounter-profiles.json';
+import difficultyProfilesJson from '../data/difficulty-profiles.json';
+import rewardProfilesJson from '../data/reward-profiles.json';
 import { STAT_KEYS, RUN_UPGRADE_STAT_KEYS, WEAPON_MODIFIER_STAT_KEYS } from '../gameplay/stats';
 import { DEFAULT_WEAPON_FAMILIES } from '../gameplay/weapons';
 import { GAME_EVENT_KEYS, FAMILY_TIER_EVENT_KEYS } from '../engine/eventBus';
@@ -55,10 +59,27 @@ import type {
   UpgradeDefinition,
   WeaponDefinition,
   WeaponFeelDefinition,
+  StageDefinition,
+  EncounterProfile,
+  DifficultyProfile,
+  RewardProfile,
 } from './types';
 import { isSpawnableEnemyDefinition } from './types';
 import { CHARACTER_PASSIVE_EVENTS } from './types';
 import { isContentId, isUnlockId } from './ids';
+import {
+  checkStage,
+  checkEncounterProfile,
+  checkDifficultyProfile,
+  checkRewardProfile,
+  assertStageArenaReferences,
+  assertStageEncounterReferences,
+  assertStageDifficultyReferences,
+  assertStageRewardReferences,
+  assertStageEncounterEnemyReferences,
+  assertStageRewardLootTableReferences,
+  assertStageUnlockReferences,
+} from './validation/stages';
 import { findEdgeLaneWitness, findRectWitness, findRingWitness } from '../gameplay/spawnRegion';
 import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 
@@ -321,6 +342,50 @@ export const CATALOG_DESCRIPTORS = [
     read: (raw) => readOwnField(raw, 'visualArt'),
     validateRows: validateVisualArtCatalog,
   },
+  {
+    key: 'stages',
+    file: 'stages.json',
+    rootKey: 'stages',
+    data: stagesJson,
+    read: (raw) => readOwnField(raw, 'stages'),
+    validateRows: (rows): StageDefinition[] => {
+      throwIfErrors(jsonSafetyErrors(rows, 'stages.json'));
+      return validate<StageDefinition>('stages.json', rows, checkStage);
+    },
+  },
+  {
+    key: 'encounterProfiles',
+    file: 'encounter-profiles.json',
+    rootKey: 'encounterProfiles',
+    data: encounterProfilesJson,
+    read: (raw) => readOwnField(raw, 'encounterProfiles'),
+    validateRows: (rows): EncounterProfile[] => {
+      throwIfErrors(jsonSafetyErrors(rows, 'encounter-profiles.json'));
+      return validate<EncounterProfile>('encounter-profiles.json', rows, checkEncounterProfile);
+    },
+  },
+  {
+    key: 'difficultyProfiles',
+    file: 'difficulty-profiles.json',
+    rootKey: 'difficultyProfiles',
+    data: difficultyProfilesJson,
+    read: (raw) => readOwnField(raw, 'difficultyProfiles'),
+    validateRows: (rows): DifficultyProfile[] => {
+      throwIfErrors(jsonSafetyErrors(rows, 'difficulty-profiles.json'));
+      return validate<DifficultyProfile>('difficulty-profiles.json', rows, checkDifficultyProfile);
+    },
+  },
+  {
+    key: 'rewardProfiles',
+    file: 'reward-profiles.json',
+    rootKey: 'rewardProfiles',
+    data: rewardProfilesJson,
+    read: (raw) => readOwnField(raw, 'rewardProfiles'),
+    validateRows: (rows): RewardProfile[] => {
+      throwIfErrors(jsonSafetyErrors(rows, 'reward-profiles.json'));
+      return validate<RewardProfile>('reward-profiles.json', rows, checkRewardProfile);
+    },
+  },
 ] as const satisfies readonly CatalogDescriptor[];
 
 /** Root requirements derived from the descriptor table: one aggregate root
@@ -448,6 +513,10 @@ export function validateGameData(raw: unknown): GameData {
   const audioAssets = catalogs['audio-assets'] as AudioAssetCatalog;
   const audioMap = catalogs['audio-map'] as AudioMapEntry[];
   const visualArt = catalogs.visualArt as VisualArtCatalog;
+  const stages = catalogs.stages as StageDefinition[];
+  const encounterProfiles = catalogs.encounterProfiles as EncounterProfile[];
+  const difficultyProfiles = catalogs.difficultyProfiles as DifficultyProfile[];
+  const rewardProfiles = catalogs.rewardProfiles as RewardProfile[];
 
   assertSpawnReferences(spawnCurves, enemies);
   assertCharacterWeaponReferences(characters, weapons);
@@ -465,8 +534,25 @@ export function validateGameData(raw: unknown): GameData {
   assertUpgradeWeaponFamilyReferences(upgrades, weapons);
   assertUpgradeArtReferences(upgrades, visualArt);
 
+  // Epic 20: stage cross-catalog references (appended, preserving frozen order)
+  const arenaIds = new Set(arenas.map((a) => a.id));
+  const enemyIdSet = new Set(enemies.filter((e) => e.archetype !== 'elite').map((e) => e.id));
+  const lootTableIdSet = new Set(lootTables.map((lt) => lt.id));
+  const stageIdSet = new Set(stages.map((s) => s.id));
+  const encounterProfileIdSet = new Set(encounterProfiles.map((ep) => ep.id));
+  const difficultyProfileIdSet = new Set(difficultyProfiles.map((dp) => dp.id));
+  const rewardProfileIdSet = new Set(rewardProfiles.map((rp) => rp.id));
+
+  assertStageArenaReferences(stages, arenaIds);
+  assertStageEncounterReferences(stages, encounterProfileIdSet);
+  assertStageDifficultyReferences(stages, difficultyProfileIdSet);
+  assertStageRewardReferences(stages, rewardProfileIdSet);
+  assertStageEncounterEnemyReferences(encounterProfiles, enemyIdSet);
+  assertStageRewardLootTableReferences(rewardProfiles, lootTableIdSet);
+  assertStageUnlockReferences(stages, stageIdSet);
+
   const audio: AudioData = { assets: audioAssets, map: audioMap };
-  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt };
+  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, stages, encounterProfiles, difficultyProfiles, rewardProfiles };
 }
 
 /** Root-shape phase, shared by the throwing boot path and the collecting

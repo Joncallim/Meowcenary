@@ -51,6 +51,7 @@ export interface StageDefinition {
   readonly difficultyProfileId: string;
   readonly rewardProfileId: string;
   readonly bossId?: string;
+  readonly unlock: Record<string, unknown>; // ProgressionCondition data
 }
 
 // ── Run request / resolved plan (§3.2) ───────────────────────────────
@@ -257,7 +258,7 @@ export function updateObjectiveProgress(
  * Terminal — no further transitions from 'won'.
  */
 export function winStage(state: StageState): StageState {
-  if (state.status !== 'objective-complete') return state;
+  if (state.status !== 'objective-complete' && state.status !== 'extraction') return state;
   return { ...state, status: 'won' };
 }
 
@@ -267,6 +268,29 @@ export function winStage(state: StageState): StageState {
 export function failStage(state: StageState): StageState {
   if (state.status === 'won' || state.status === 'failed') return state;
   return { ...state, status: 'failed' };
+}
+
+/**
+ * Extraction: the player has chosen to leave the arena after completing the
+ * objective. This is the "safe" exit — no greed risk.
+ * Valid from 'objective-complete'; idempotent from 'extraction'.
+ */
+export function extractStage(state: StageState): StageState {
+  if (state.status !== 'objective-complete' && state.status !== 'extraction') return state;
+  if (state.status === 'extraction') return state;
+  return { ...state, status: 'extraction' };
+}
+
+/**
+ * Advances stage time. Returns a new StageState or the same reference when
+ * terminal or when deltaMs is non-positive.
+ */
+export function tickStage(state: StageState, deltaMs: number): StageState {
+  if (state.status === 'won' || state.status === 'failed') return state;
+  if (!Number.isFinite(deltaMs) || deltaMs <= 0) return state;
+  const newTimeMs = state.timeMs + deltaMs;
+  if (newTimeMs === state.timeMs) return state;
+  return { ...state, timeMs: newTimeMs };
 }
 
 // ── Alpha 2 Golden Run compatibility adapter (§3.3) ──────────────────
