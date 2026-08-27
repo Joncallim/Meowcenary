@@ -1,4 +1,5 @@
-import type { GameData, LootTable } from './types';
+import { deepFreeze } from '../engine/freeze';
+import type { LootTable, GameData } from './types';
 import { validateLootTableCatalog } from './validation';
 
 export interface LootTableLookup {
@@ -34,10 +35,4 @@ export class DataLootTableRegistry implements LootTableRegistry {
   all(): readonly Readonly<LootTable>[] {
     return this.snapshot;
   }
-}
-
-function deepFreeze<T>(value: T): T {
-  if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return value;
-  for (const child of Object.values(value)) deepFreeze(child);
-  return Object.freeze(value);
 }

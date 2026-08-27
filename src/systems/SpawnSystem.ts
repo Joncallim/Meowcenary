@@ -1,3 +1,4 @@
+import { deepFreeze } from '../engine/freeze';
 import type { GameContext } from '../engine/context';
 import type { Rng } from '../engine/rng';
 import type { System } from '../engine/system';
@@ -135,12 +136,6 @@ export class SpawnSystem implements System {
     }
     this.player.takeDamage(enemy.definition.damage);
   }
-}
-
-function deepFreeze<T>(value: T): T {
-  if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return value;
-  for (const child of Object.values(value)) deepFreeze(child);
-  return Object.freeze(value);
 }
 
 function unwrapGameObject(value: unknown): unknown {

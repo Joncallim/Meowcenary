@@ -4,6 +4,7 @@ import type {
   ResolvedEnemyDefinition,
   SpawnableEnemyDefinition,
 } from './types';
+import { deepFreeze } from '../engine/freeze';
 import { isSpawnableEnemyDefinition } from './types';
 import { validateEnemyCatalog } from './validation';
 
@@ -117,10 +118,4 @@ function assertValidResolvedStats(
       );
     }
   }
-}
-
-function deepFreeze<T>(value: T): T {
-  if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return value;
-  for (const child of Object.values(value)) deepFreeze(child);
-  return Object.freeze(value);
 }

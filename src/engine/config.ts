@@ -81,6 +81,6 @@ export const RuntimeConfig = {
     maxHeavyFeedbackEffects: 72,
     maxDefeatPresentations: 24,
   },
-  storageKey: 'meowcenary.save.v1',
+  storageKey: 'meowcenary.save.v2',
   isDev: import.meta.env.DEV,
 } as const;

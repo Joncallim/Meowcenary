@@ -41,10 +41,6 @@ function eventFamilyTier(
  * harness in tests is pure TS.
  */
 
-// TODO(Slice 3): BootScene constructs, inits (bus, settings, ctx.data.audio),
-// and publishes this under AUDIO_MANAGER_REGISTRY_KEY per
-// docs/architecture/epic-10-audio.md §9.1. Until that slice lands the key is
-// exported but never read at runtime — audio silent by design.
 export const AUDIO_MANAGER_REGISTRY_KEY = 'meowcenary.audioManager';
 
 /** Typed registry accessor for the boot-published AudioManager (Epic 19 P2-5):
