@@ -4,12 +4,9 @@ import type { EventBus } from '../engine/eventBus';
 import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 export { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 import type { Vec2 } from '../engine/vector';
-import {
-  chaseStep,
-  chargerStep,
-  type ChargerMovementDefinition,
-} from '../gameplay/enemyMovement';
-import type { ResolvedEnemyDefinition, SpawnableEnemyArchetype } from '../systems/types';
+import { enemyBehaviorFor, type RegisteredEnemyBehavior } from '../gameplay/enemyBehaviors';
+import type { ChargerEnvironment } from '../gameplay/enemyMovement';
+import type { ResolvedEnemyDefinition } from '../systems/types';
 import type { VisualArtBinding } from '../systems/types';
 import { VisualDepth } from '../systems/visualDepths';
 import type { Player } from './Player';
@@ -19,7 +16,6 @@ import {
   createAnimatedActorView,
   type ActorView,
 } from './actorView';
-import type { ChargerEnvironment } from '../gameplay/enemyMovement';
 
 let nextEnemyInstanceId = 1;
 
@@ -33,38 +29,10 @@ const ENEMY_VISUAL_FACTOR = ACTOR_VISUAL_SCALE_BY_KIND.enemy;
  *  slower than a chaser/charger's footfall would be. */
 const HEAVY_STEP_INTERVAL_PX = 48;
 
-/** One display-only accent per archetype so silhouettes differ at a glance
- *  (style guide: readable at phone scale, distinct shapes). Elites inherit the
- *  accent of their base archetype. */
-interface AccentStyle {
-  readonly radius: number;
-  readonly fill: number;
-  readonly stroke?: { readonly width: number; readonly color: number; readonly alpha: number };
-}
-
-/** Elites inherit their base archetype's presentation everywhere it matters
- *  (accent shape, weight cues) — one shared resolution point. */
-function effectiveArchetype(
-  def: Readonly<ResolvedEnemyDefinition>,
-): Exclude<ResolvedEnemyDefinition['archetype'], 'elite'> {
-  return def.archetype === 'elite' ? def.baseArchetype : def.archetype;
-}
-
-function accentStyle(def: Readonly<ResolvedEnemyDefinition>): AccentStyle {
-  const effective = effectiveArchetype(def);
-  switch (effective) {
-    case 'charger':
-      return { radius: 5, fill: 0xfff3c4 }; // bright core — reads "armed"
-    case 'tank':
-      return {
-        radius: 8,
-        fill: 0x7c3aed,
-        stroke: { width: 2, color: OUTLINE_COLOR, alpha: 1 },
-      }; // armor plate
-    case 'chaser':
-    default:
-      return { radius: 5, fill: OUTLINE_COLOR }; // dark core — reads "eye"
-  }
+/** Epic 21: presentation (accent/color) and movement dispatch come from the
+ *  behavior registry — one registration per archetype, no switch chains. */
+function accentStyle(def: Readonly<ResolvedEnemyDefinition>): RegisteredEnemyBehavior['accent'] {
+  return enemyBehaviorFor(def).accent;
 }
 
 export type EnemyState = 'idle' | 'pursuing' | 'winding' | 'attacking' | 'dead';
@@ -113,7 +81,7 @@ export class Enemy implements EnemyInstance {
     this.definition = deepFreeze(structuredClone(definition));
     this.health = this.definition.health;
     this.maxHealth = this.definition.health;
-    this.sprite = scene.add.circle(x, y, ENEMY_BODY_RADIUS, enemyColor(this.definition.archetype))
+    this.sprite = scene.add.circle(x, y, ENEMY_BODY_RADIUS, enemyBehaviorFor(this.definition).color)
       .setStrokeStyle(3, OUTLINE_COLOR, 1)
       .setDepth(VisualDepth.enemy);
     scene.physics.add.existing(this.sprite);
@@ -136,7 +104,7 @@ export class Enemy implements EnemyInstance {
       this.view = animatedView;
     } else {
       const visualBody = scene.add
-        .circle(x, y, ENEMY_BODY_RADIUS * ENEMY_VISUAL_FACTOR, enemyColor(this.definition.archetype))
+        .circle(x, y, ENEMY_BODY_RADIUS * ENEMY_VISUAL_FACTOR, enemyBehaviorFor(this.definition).color)
         .setStrokeStyle(3, OUTLINE_COLOR, 1)
         .setDepth(VisualDepth.enemy);
       const accent = accentStyle(this.definition);
@@ -208,53 +176,38 @@ export class Enemy implements EnemyInstance {
       return;
     }
 
-    const chargerDefinition = asChargerMovementDefinition(this.definition);
-    if (chargerDefinition) {
-      const result = chargerStep(
-        {
-          pos: this.pos,
-          state: this.state,
-          stateTimerMs: this.stateTimerMs,
-          dashDirection: this.dashDirection,
-          dashOrigin: this.dashOrigin,
-        },
-        { x: player.x, y: player.y },
-        chargerDefinition,
-        dtMs,
-        this.environment,
-      );
-      // Epic 17 (D7): fires once at the pursuing/winding → attacking edge,
-      // not every frame — FeedbackSystem owns the heavy-motion gate and the
-      // pooled trail dots, Enemy just reports the moment.
-      const enteredAttack = this.state !== 'attacking' && result.state === 'attacking';
-      this.state = result.state;
-      this.stateTimerMs = result.stateTimerMs;
-      this.dashDirection = result.dashDirection;
-      this.dashOrigin = result.dashOrigin;
-      this.applyPosition(result.pos, dtMs, true);
-      if (enteredAttack) {
-        this.bus.emit('enemy:dashed', {
-          x: this.x,
-          y: this.y,
-          dirX: this.dashDirection.x,
-          dirY: this.dashDirection.y,
-        });
-      }
-      // Charger dashes use body.reset, so velocity never reflects motion:
-      // the run clip is driven by actual displacement (dash or pursuit).
-      this.syncPresentation(this.state === 'attacking', player);
-      return;
-    }
+    const behavior = enemyBehaviorFor(this.definition);
+    const result = behavior.step({
+      pos: this.pos,
+      target: { x: player.x, y: player.y },
+      definition: this.definition,
+      dtMs,
+      env: this.environment,
+      state: this.state,
+      stateTimerMs: this.stateTimerMs,
+      dashDirection: this.dashDirection,
+      dashOrigin: this.dashOrigin,
+    });
 
-    if (pursuitArchetype(this.definition) !== undefined) {
-      const next = chaseStep(this.pos, player, this.definition.speed, dtMs);
-      this.applyPosition(next, dtMs);
-      this.syncPresentation(Math.hypot(this.body.velocity.x, this.body.velocity.y) > 0.01);
-      return;
+    // Epic 17 (D7): fires once at the pursuing/winding → attacking edge,
+    // not every frame — FeedbackSystem owns the heavy-motion gate and the
+    // pooled trail dots, Enemy just reports the moment.
+    this.state = result.state;
+    this.stateTimerMs = result.stateTimerMs;
+    this.dashDirection = result.dashDirection;
+    this.dashOrigin = result.dashOrigin;
+    this.applyPosition(result.pos, dtMs, behavior.immediate);
+    if (result.enteredAttack) {
+      this.bus.emit('enemy:dashed', {
+        x: this.x,
+        y: this.y,
+        dirX: this.dashDirection.x,
+        dirY: this.dashDirection.y,
+      });
     }
-
-    this.body.setVelocity(0, 0);
-    this.syncPresentation(false);
+    // Charger/boss dashes use body.reset, so velocity never reflects motion:
+    // the run clip is driven by actual displacement (dash or pursuit).
+    this.syncPresentation(this.state === 'attacking', player);
   }
 
   takeDamage(amount: number): boolean {
@@ -352,8 +305,7 @@ export class Enemy implements EnemyInstance {
     if (this.state !== 'winding') {
       return undefined;
     }
-    const chargerDefinition = asChargerMovementDefinition(this.definition);
-    const telegraphMs = chargerDefinition?.attack.telegraphMs;
+    const telegraphMs = enemyBehaviorFor(this.definition).telegraphMs(this.definition);
     if (!telegraphMs || telegraphMs <= 0) {
       return undefined;
     }
@@ -369,7 +321,7 @@ export class Enemy implements EnemyInstance {
    *  reading as still walking. Reports the moment to FeedbackSystem, which
    *  owns the heavy-motion gate and the pooled cue. */
   private accumulateHeavyStep(distancePx: number): void {
-    if (effectiveArchetype(this.definition) !== 'tank' || this.state !== 'pursuing' || !Number.isFinite(distancePx)) {
+    if (!enemyBehaviorFor(this.definition).heavyStep || this.state !== 'pursuing' || !Number.isFinite(distancePx)) {
       return;
     }
     this.heavyStepAccumPx += distancePx;
@@ -409,45 +361,5 @@ export class Enemy implements EnemyInstance {
     } else {
       this.body.setVelocity(0, 0);
     }
-  }
-}
-
-function pursuitArchetype(
-  definition: Readonly<ResolvedEnemyDefinition>,
-): Exclude<SpawnableEnemyArchetype, 'charger'> | undefined {
-  if (definition.archetype === 'chaser' || definition.archetype === 'tank') {
-    return definition.archetype;
-  }
-  if (
-    definition.archetype === 'elite' &&
-    (definition.baseArchetype === 'chaser' || definition.baseArchetype === 'tank')
-  ) {
-    return definition.baseArchetype;
-  }
-  return undefined;
-}
-
-function asChargerMovementDefinition(
-  definition: Readonly<ResolvedEnemyDefinition>,
-): ChargerMovementDefinition | undefined {
-  if (definition.archetype === 'charger') return definition;
-  if (
-    definition.archetype === 'elite' &&
-    definition.baseArchetype === 'charger' &&
-    'attack' in definition
-  ) {
-    return definition;
-  }
-  return undefined;
-}
-
-function enemyColor(archetype: ResolvedEnemyDefinition['archetype']): number {
-  switch (archetype) {
-    case 'charger':
-      return 0xf97316;
-    case 'tank':
-      return 0xa855f7;
-    default:
-      return 0xef4444;
   }
 }

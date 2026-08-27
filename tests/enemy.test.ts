@@ -793,6 +793,7 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       xpValue: 10,
       scrapValue: 10,
       contactDamage: false,
+      attack: { triggerRange: 40, telegraphMs: 600, dashSpeed: 320, dashDurationMs: 220, cooldownMs: 1200 },
     };
     const { enemy: bossEnemy, sprite: bossSprite } = await createEnemy(createEventBus(), boss);
     bossSprite.body?.setVelocity(20, 20);

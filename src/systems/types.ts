@@ -165,6 +165,8 @@ export interface TankEnemyDefinition extends EnemyIdentity, EnemyStats {
 export interface BossEnemyDefinition extends EnemyIdentity, EnemyStats {
   archetype: 'boss';
   contactDamage: false;
+  /** Boss lunge behavior — same attack vocabulary as charger, larger scale. */
+  attack: ChargerAttackDefinition;
 }
 
 export interface EliteEnemyDefinition extends EnemyIdentity {

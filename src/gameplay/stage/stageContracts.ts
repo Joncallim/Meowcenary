@@ -21,6 +21,8 @@ export interface EncounterProfile {
   readonly id: string;
   readonly enemyIds: readonly string[];
   readonly compositionWeights?: Readonly<Record<string, number>>;
+  /** Epic 21: optional boss for this encounter (boss milestone stages). */
+  readonly bossId?: string;
 }
 
 export interface DifficultyProfile {
@@ -70,6 +72,8 @@ export interface ResolvedObjective {
 export interface ResolvedEncounterProfile {
   readonly profileId: string;
   readonly enemyIds: readonly string[];
+  /** Epic 21: resolved boss id for this encounter, when present. */
+  readonly bossId?: string;
 }
 
 export interface ResolvedDifficultyProfile {
@@ -187,6 +191,7 @@ export function resolveRunPlan(
     encounter: Object.freeze({
       profileId: encounter.id,
       enemyIds: Object.freeze([...encounter.enemyIds]),
+      ...(encounter.bossId !== undefined ? { bossId: encounter.bossId } : {}),
     }),
     difficulty: Object.freeze({
       profileId: difficulty.id,

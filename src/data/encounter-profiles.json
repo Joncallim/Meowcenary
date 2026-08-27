@@ -1,27 +1,60 @@
 [
   {
     "id": "encounter:junkyard-intro",
-    "enemyIds": ["dust-mite"],
-    "compositionWeights": { "dust-mite": 1 }
+    "enemyIds": [
+      "dust-mite"
+    ],
+    "compositionWeights": {
+      "dust-mite": 1
+    }
   },
   {
     "id": "encounter:junkyard-mixed",
-    "enemyIds": ["dust-mite", "junk-rusher"],
-    "compositionWeights": { "dust-mite": 3, "junk-rusher": 1 }
+    "enemyIds": [
+      "dust-mite",
+      "junk-rusher"
+    ],
+    "compositionWeights": {
+      "dust-mite": 3,
+      "junk-rusher": 1
+    }
   },
   {
     "id": "encounter:junkyard-rusher-heavy",
-    "enemyIds": ["junk-rusher", "dust-mite"],
-    "compositionWeights": { "junk-rusher": 2, "dust-mite": 1 }
+    "enemyIds": [
+      "junk-rusher",
+      "dust-mite"
+    ],
+    "compositionWeights": {
+      "junk-rusher": 2,
+      "dust-mite": 1
+    }
   },
   {
     "id": "encounter:junkyard-elite",
-    "enemyIds": ["trash-brute", "dust-mite", "junk-rusher"],
-    "compositionWeights": { "trash-brute": 1, "dust-mite": 2, "junk-rusher": 1 }
+    "enemyIds": [
+      "trash-brute",
+      "dust-mite",
+      "junk-rusher"
+    ],
+    "compositionWeights": {
+      "trash-brute": 1,
+      "dust-mite": 2,
+      "junk-rusher": 1
+    }
   },
   {
     "id": "encounter:junkyard-boss",
-    "enemyIds": ["trash-brute", "junk-rusher", "dust-mite"],
-    "compositionWeights": { "trash-brute": 3, "junk-rusher": 1, "dust-mite": 1 }
+    "enemyIds": [
+      "trash-brute",
+      "junk-rusher",
+      "dust-mite"
+    ],
+    "compositionWeights": {
+      "trash-brute": 3,
+      "junk-rusher": 1,
+      "dust-mite": 1
+    },
+    "bossId": "boss-crusher"
   }
 ]

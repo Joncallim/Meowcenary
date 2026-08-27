@@ -160,6 +160,22 @@ local contracts = {
     savedAs = "assets-src/enemies/trash-brute/source/trash-brute.pxo",
   },
   {
+    script = "docs/art/scripts/build-scrap-sniper.lua",
+    width = 48, height = 48, frames = 16,
+    layers = { "body", "face", "notes" }, hidden = { notes = true },
+    populated = { "body", "face", "notes" },
+    tags = { idle = { 1, 4 }, run = { 5, 10 }, hurt = { 11, 12 }, defeat = { 13, 16 } },
+    savedAs = "assets-src/enemies/scrap-sniper/source/scrap-sniper.pxo",
+  },
+  {
+    script = "docs/art/scripts/build-boss-crusher.lua",
+    width = 48, height = 48, frames = 16,
+    layers = { "body", "face", "notes" }, hidden = { notes = true },
+    populated = { "body", "face", "notes" },
+    tags = { idle = { 1, 4 }, run = { 5, 10 }, hurt = { 11, 12 }, defeat = { 13, 16 } },
+    savedAs = "assets-src/enemies/boss-crusher/source/boss-crusher.pxo",
+  },
+  {
     script = "docs/art/scripts/build-scrap-shot.lua",
     width = 16, height = 16, frames = 2,
     layers = { "body", "notes" }, hidden = { notes = true }, populated = { "body" },
