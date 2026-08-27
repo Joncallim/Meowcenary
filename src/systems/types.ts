@@ -2,6 +2,15 @@ import type { RunUpgradeStatKey, StatKey } from '../gameplay/stats';
 import type { UnlockRule } from '../gameplay/meta';
 import type { PlayerBaseStats } from '../gameplay/runStart';
 import type { GameEventKey } from '../engine/eventBus';
+import type {
+  StageDefinition,
+  EncounterProfile,
+  DifficultyProfile,
+  RewardProfile,
+} from '../gameplay/stage/stageContracts';
+
+// Re-export for consumers (validation.ts, registries)
+export type { StageDefinition, EncounterProfile, DifficultyProfile, RewardProfile };
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 
@@ -485,4 +494,8 @@ export interface GameData {
   weaponFeel: WeaponFeelDefinition[];
   readonly audio: AudioData;
   readonly visualArt: VisualArtCatalog;
+  readonly stages?: readonly StageDefinition[];
+  readonly encounterProfiles?: readonly EncounterProfile[];
+  readonly difficultyProfiles?: readonly DifficultyProfile[];
+  readonly rewardProfiles?: readonly RewardProfile[];
 }

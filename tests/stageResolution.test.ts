@@ -26,6 +26,7 @@ function makeCatalogData(overrides?: Partial<StageCatalogData>): StageCatalogDat
       encounterProfileId: 'encounter:junkyard-intro',
       difficultyProfileId: 'difficulty:chapter-1-easy',
       rewardProfileId: 'reward:tier-1',
+      unlock: { type: 'unlock-count', minCount: 0 },
     },
     {
       id: 'stage:junkyard-02',
@@ -37,6 +38,7 @@ function makeCatalogData(overrides?: Partial<StageCatalogData>): StageCatalogDat
       encounterProfileId: 'encounter:junkyard-mid',
       difficultyProfileId: 'difficulty:chapter-1-medium',
       rewardProfileId: 'reward:tier-1',
+      unlock: { type: 'stage-cleared', stageId: 'stage:junkyard-01' },
     },
     {
       id: 'stage:junkyard-05',
@@ -49,6 +51,7 @@ function makeCatalogData(overrides?: Partial<StageCatalogData>): StageCatalogDat
       difficultyProfileId: 'difficulty:boss-tier-1',
       rewardProfileId: 'reward:boss-tier-1',
       bossId: 'crusher',
+      unlock: { type: 'stage-cleared', stageId: 'stage:junkyard-04' },
     },
   ];
 

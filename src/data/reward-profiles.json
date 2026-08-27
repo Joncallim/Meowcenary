@@ -1,0 +1,32 @@
+[
+  {
+    "id": "reward:stage-01",
+    "scrapBase": 25,
+    "scrapPerMinute": 10,
+    "lootTableId": "chest-standard"
+  },
+  {
+    "id": "reward:stage-02",
+    "scrapBase": 40,
+    "scrapPerMinute": 15,
+    "lootTableId": "chest-standard"
+  },
+  {
+    "id": "reward:stage-03",
+    "scrapBase": 60,
+    "scrapPerMinute": 20,
+    "lootTableId": "brute-cache"
+  },
+  {
+    "id": "reward:stage-04",
+    "scrapBase": 80,
+    "scrapPerMinute": 25,
+    "lootTableId": "brute-cache"
+  },
+  {
+    "id": "reward:stage-05-boss",
+    "scrapBase": 150,
+    "scrapPerMinute": 35,
+    "lootTableId": "weapon-world"
+  }
+]

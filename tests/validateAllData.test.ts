@@ -230,6 +230,10 @@ describe('validateAllData', () => {
       lootTables: [],
       audio: { assets: {}, map: [] },
       visualArt: { bindings: [] },
+      stages: [],
+      encounterProfiles: [],
+      difficultyProfiles: [],
+      rewardProfiles: [],
     })).toEqual([
       { file: 'weapons.json', index: -1, field: '', message: 'non-JSON-safe number' },
     ]);
@@ -270,6 +274,10 @@ describe('validateAllData', () => {
       'audio-assets',
       'audio-map',
       'visualArt',
+      'stages',
+      'encounterProfiles',
+      'difficultyProfiles',
+      'rewardProfiles',
     ]);
   });
 

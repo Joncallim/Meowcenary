@@ -8,6 +8,7 @@ import visualArtJson from '../data/visual-art.json';
 import { AudioManager, AUDIO_MANAGER_REGISTRY_KEY } from '../systems/audio';
 import { DataCharacterRegistry } from '../systems/characters';
 import { DataArenaRegistry } from '../systems/arenas';
+import { StageRegistry } from '../systems/stageRegistry';
 import { LocalStorageAdapter, SaveManager } from '../systems/save';
 import { DataMetaUpgradeRegistry } from '../systems/metaUpgrades';
 import { loadGameData } from '../systems/validation';
@@ -87,6 +88,7 @@ export class BootScene extends Phaser.Scene {
     const metaUpgrades = new DataMetaUpgradeRegistry(data);
     const characters = new DataCharacterRegistry(data);
     const arenas = new DataArenaRegistry(data);
+    const stages = new StageRegistry(data);
     ensureVisualAnimations(this, visualArt);
     const save = new SaveManager(new LocalStorageAdapter(), undefined, metaUpgrades.maxLevels());
     // This RNG is boot/menu scoped only. Run gameplay owns its own seed.
@@ -99,6 +101,7 @@ export class BootScene extends Phaser.Scene {
       save,
       characters,
       arenas,
+      stages,
     });
 
     this.registry.set(GAME_CONTEXT_REGISTRY_KEY, ctx);

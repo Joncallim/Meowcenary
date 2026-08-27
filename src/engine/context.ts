@@ -4,6 +4,8 @@ import type { Rng } from './rng';
 import type { GameData } from '../systems/types';
 import type { CharacterRegistry } from '../systems/characters';
 import type { ArenaRegistry } from '../systems/arenas';
+import type { StageRegistry } from '../systems/stageRegistry';
+import { StageRegistry as StageRegistryCtor } from '../systems/stageRegistry';
 import type { MetaUpgradeRegistry } from '../systems/metaUpgrades';
 import { canSelectCharacter } from '../gameplay/characterSelection';
 import { canSelectArena } from '../gameplay/arenaSelection';
@@ -82,8 +84,11 @@ export interface GameContext {
   readonly arenas: ArenaRegistry;
   readonly selectedArenaId: string;
   readonly arenaSelectionRevision: number;
+  readonly stages: StageRegistry;
   updateSettings(patch: Readonly<Partial<Settings>>): PersistenceUpdate<Settings>;
   updateMeta(transform: (meta: MetaState) => MetaState): PersistenceUpdate<MetaState>;
+  /** Persist stage completion into Save V3 stages domain. Returns true if saved. */
+  completeStage(stageId: string, timeMs: number): boolean;
   resetProgression(): PersistenceUpdate<MetaState>;
   selectCharacter(characterId: string, expectedRevision: number): SelectCharacterResult;
   selectArena(arenaId: string, expectedRevision: number): SelectArenaResult;
@@ -97,6 +102,7 @@ export interface CreateGameContextOptions {
   readonly save: SaveManager;
   readonly characters: CharacterRegistry;
   readonly arenas: ArenaRegistry;
+  readonly stages?: StageRegistry;
 }
 
 export function createGameContext(options: CreateGameContextOptions): GameContext {
@@ -130,6 +136,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     metaUpgrades: options.metaUpgrades,
     characters: options.characters,
     arenas: options.arenas,
+    stages: options.stages ?? new StageRegistryCtor(options.data),
     get saveData() { return current; },
     get settings() { return current.settings; },
     get selectedCharacterId() { return selectedCharacterId; },
@@ -162,6 +169,18 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       return Object.freeze({ value: progression, persisted });
     },
     resetProgression() { return context.updateMeta(() => createDefaultProgression()); },
+    completeStage(stageId: string, timeMs: number): boolean {
+      const progress = current.stages[stageId];
+      const newProgress = {
+        completed: true,
+        ...(timeMs > 0 ? { bestTimeMs: progress?.bestTimeMs !== undefined && progress.bestTimeMs < timeMs ? progress.bestTimeMs : timeMs } : {}),
+      };
+      current = Object.freeze({
+        ...current,
+        stages: Object.freeze({ ...current.stages, [stageId]: newProgress }),
+      });
+      return options.save.save(current);
+    },
     selectCharacter(characterId: string, expectedRevision: number): SelectCharacterResult {
       const def = options.characters.characterById(characterId);
       if (!def) {
