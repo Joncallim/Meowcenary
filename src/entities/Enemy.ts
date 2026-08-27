@@ -1,3 +1,4 @@
+import { deepFreeze } from '../engine/freeze';
 import Phaser from 'phaser';
 import type { EventBus } from '../engine/eventBus';
 import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
@@ -438,12 +439,6 @@ function asChargerMovementDefinition(
     return definition;
   }
   return undefined;
-}
-
-function deepFreeze<T>(value: T): T {
-  if (value === null || typeof value !== 'object' || Object.isFrozen(value)) return value;
-  for (const child of Object.values(value)) deepFreeze(child);
-  return Object.freeze(value);
 }
 
 function enemyColor(archetype: ResolvedEnemyDefinition['archetype']): number {

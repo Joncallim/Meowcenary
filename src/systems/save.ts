@@ -31,6 +31,9 @@ export interface SaveDataV2 {
 export type SaveData = SaveDataV2;
 export type MetaUpgradeMaxLevels = Readonly<Record<string, number>>;
 
+/** Current save format version. Increment when SaveData shape changes. */
+export const CURRENT_SAVE_VERSION = 2;
+
 export interface StorageAdapter {
   getItem(key: string): string | null;
   setItem(key: string, value: string): boolean;

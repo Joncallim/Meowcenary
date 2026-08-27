@@ -1,3 +1,25 @@
+/**
+ * Game data validation module — ~3,000 lines of per-domain validators.
+ *
+ * PLANNED SPLIT (issue #92): This monolithic file will be decomposed into
+ * per-domain validator modules under src/systems/validation/:
+ *
+ *   - weapons.ts       (validateWeaponCatalog, validateWeaponFeelCatalog)
+ *   - enemies.ts       (validateEnemyCatalog)
+ *   - upgrades.ts      (validateMetaUpgradeCatalog, upgrade validators)
+ *   - arenas.ts        (validateArenaCatalog)
+ *   - characters.ts    (validateCharacterCatalog)
+ *   - loot.ts          (validateLootTableCatalog)
+ *   - meta.ts          (meta-upgrade validators)
+ *   - visual-art.ts    (validateVisualArtCatalog)
+ *   - audio.ts         (validateAudioAssets, validateAudioMapCatalog)
+ *   - index.ts         (shared aggregate registry — validateGameData,
+ *                       validateAllData, shared helpers)
+ *
+ * Until the split lands, all validators live here and are imported by their
+ * respective registry modules. Do not add new top-level concerns to this file
+ * unless they cannot be cleanly scoped to a future domain module.
+ */
 import charactersJson from '../data/characters.json';
 import enemiesJson from '../data/enemies.json';
 import metaUpgradesJson from '../data/meta-upgrades.json';

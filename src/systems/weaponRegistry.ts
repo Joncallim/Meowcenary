@@ -1,15 +1,18 @@
+import { deepFreeze } from '../engine/freeze';
 import { createWeaponInstance as createRuntimeWeaponInstance } from '../gameplay/weapons';
 import type { WeaponInstance, WeaponRegistry } from '../gameplay/weapons';
 import type { GameData, WeaponDefinition } from './types';
 
 export class DataWeaponRegistry implements WeaponRegistry {
-  private readonly byId = new Map<string, WeaponDefinition>();
-  private readonly byFamilyTier = new Map<string, WeaponDefinition>();
-  private readonly byFamily = new Map<string, WeaponDefinition[]>();
+  private readonly byId = new Map<string, Readonly<WeaponDefinition>>();
+  private readonly byFamilyTier = new Map<string, Readonly<WeaponDefinition>>();
+  private readonly byFamily = new Map<string, Readonly<WeaponDefinition>[]>();
   private nextInstanceId = 1;
 
   constructor(data: Pick<GameData, 'weapons'>) {
-    for (const weapon of data.weapons) {
+    const canonical = data.weapons.map((weapon) => deepFreeze(structuredClone(weapon)));
+
+    for (const weapon of canonical) {
       this.byId.set(weapon.id, weapon);
       this.byFamilyTier.set(familyTierKey(weapon.family, weapon.mergeTier), weapon);
 

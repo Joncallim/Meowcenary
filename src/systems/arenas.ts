@@ -1,3 +1,4 @@
+import { deepFreeze } from '../engine/freeze';
 import type { ArenaDefinition, GameData } from './types';
 import { validateArenaCatalog } from './validation';
 import { defaultArenaId as resolveDefaultArenaId } from '../gameplay/arenaSelection';
@@ -40,10 +41,4 @@ export class DataArenaRegistry implements ArenaRegistry {
   defaultArenaId(): string {
     return resolveDefaultArenaId(this);
   }
-}
-
-function deepFreeze<T>(value: T): T {
-  if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return value;
-  for (const child of Object.values(value)) deepFreeze(child);
-  return Object.freeze(value);
 }

@@ -1,3 +1,4 @@
+import { deepFreeze } from '../engine/freeze';
 import type { CharacterDefinition, GameData } from './types';
 import { validateCharacterCatalog } from './validation';
 import { defaultCharacterId as resolveDefaultCharacterId } from '../gameplay/characterSelection';
@@ -40,10 +41,4 @@ export class DataCharacterRegistry implements CharacterRegistry {
   defaultCharacterId(): string {
     return resolveDefaultCharacterId(this);
   }
-}
-
-function deepFreeze<T>(value: T): T {
-  if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return value;
-  for (const child of Object.values(value)) deepFreeze(child);
-  return Object.freeze(value);
 }

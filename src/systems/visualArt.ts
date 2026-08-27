@@ -1,3 +1,4 @@
+import { deepFreeze } from '../engine/freeze';
 import type Phaser from 'phaser';
 import type { VisualArtBinding } from './types';
 import { validateVisualArtCatalog } from './validation';
@@ -49,10 +50,4 @@ export function ensureVisualAnimations(scene: Phaser.Scene, registry: VisualArtL
       if (!animation || animation.frames.length === 0) scene.anims.remove(key);
     }
   }
-}
-
-function deepFreeze<T>(value: T): T {
-  if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return value;
-  for (const child of Object.values(value)) deepFreeze(child);
-  return Object.freeze(value);
 }

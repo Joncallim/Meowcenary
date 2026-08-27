@@ -1,3 +1,4 @@
+import { deepFreeze } from '../engine/freeze';
 import { createCadence, type Cadence } from '../engine/cadence';
 import type { Rng } from '../engine/rng';
 import type { Vec2 } from '../engine/vector';
@@ -167,10 +168,4 @@ function snapshotCurve(curve: SpawnCurveDefinition): Readonly<SpawnCurveDefiniti
   if (totalMaxAlive > 256) throw new Error('Spawn director active cap exceeds 256');
 
   return deepFreeze(snapshot);
-}
-
-function deepFreeze<T>(value: T): T {
-  if (value === null || typeof value !== 'object' || Object.isFrozen(value)) return value;
-  for (const child of Object.values(value)) deepFreeze(child);
-  return Object.freeze(value);
 }

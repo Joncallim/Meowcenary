@@ -1,20 +1,43 @@
 
-// ---------------------------------------------------------------------------
-// Epic 19 Slice 5 shared production-composition module.
-//
-// This is the ONE extracted composition: the fake display/scale/lifecycle
-// tree and the real-owner phase factories (menu + game) that every Epic 19
-// soak and the controller journey share. It is NOT a copy — the controller
-// journey imports these factories and keeps its original test name and
-// assertions, and the soak harness parameterizes storage + fixture identity
-// through these factories.
-//
-// F8: the mandatory controller journey is a production-composition harness.
-// Real InputController + MockInputPlugin gamepad, real menu/pause/inventory/
-// summary command owners and view seams, the real UpgradeSystem/UpgradeChooser
-// and the actual private GameScene.routeAction through one typed test cast.
-// MockInputPlugin supplies input, not the display tree — the display comes
-// from one minimal fake Scene (per-view fake factories composed together).
+/**
+ * Epic 19 Journey Composition — shared production-composition harness.
+ *
+ * OWNERSHIP:
+ *   Lines   1-49:   Module header + imports (this doc + data imports)
+ *   Lines  50-90:   FixtureSequence (SOAK-07 scheduler)
+ *   Lines  91-137:  ScriptedOperation + PhaseScript types
+ *   Lines 138-350:  Phase factory types and helpers
+ *   Lines 351-600:  Game-phase factory (createGamePhaseFactory)
+ *   Lines 601-900:  Menu-phase factory (createMenuPhaseFactory)
+ *   Lines 901-1374: Controller journey helpers, assertions, scene commands
+ *
+ * CONSUMERS (Epic 19 tests):
+ *   tests/systems/controller/controllerJourney.test.ts — full controller
+ *     journey using the factories from this module.
+ *   tests/systems/input/controllerJourneySoak.test.ts — soak harness that
+ *     parameterizes storage + fixture identity through these factories.
+ *
+ * WARNING: This is the ONE shared composition module. It provides real-owner
+ * phase factories (menu + game), the fake display/scale/lifecycle tree, and
+ * the fixture scheduler. Do NOT add general-purpose fakes, stubs, or test
+ * helpers here — they belong in dedicated test helpers or __mocks__. Adding
+ * more global test infrastructure to this file increases coupling across all
+ * Epic 19 tests and makes future test decomposition harder. If you need a
+ * reusable test utility that is NOT specific to the Epic 19 controller
+ * journey composition, create a separate module in tests/helpers/.
+ *
+ * NOTE (issue #94 closeout audit, P1-4): This file is 51,783 bytes. No
+ * runtime split is required now — the header documents the ownership
+ * boundaries so a future split can be done safely.
+ *
+ * F8: the mandatory controller journey is a production-composition harness.
+ * Real InputController + MockInputPlugin gamepad, real menu/pause/inventory/
+ * summary command owners and view seams, the real UpgradeSystem/UpgradeChooser
+ * and the actual private GameScene.routeAction through one typed test cast.
+ * MockInputPlugin supplies input, not the display tree — the display comes
+ * from one minimal fake Scene (per-view fake factories composed together).
+ */
+
 // ---------------------------------------------------------------------------
 import { expect, vi } from 'vitest';
 import { MockGamepad, MockInputPlugin } from '../__mocks__/phaser';
