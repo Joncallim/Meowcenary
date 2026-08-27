@@ -38,5 +38,41 @@
     "xpValue": 6,
     "scrapValue": 5,
     "contactDamage": true
+  },
+  {
+    "id": "scrap-sniper",
+    "name": "Scrap Sniper",
+    "archetype": "ranged",
+    "health": 16,
+    "damage": 6,
+    "speed": 58,
+    "xpValue": 3,
+    "scrapValue": 3,
+    "contactDamage": false,
+    "lootTableId": "chest-standard",
+    "attack": {
+      "range": 190,
+      "telegraphMs": 700,
+      "cooldownMs": 1100
+    }
+  },
+  {
+    "id": "boss-crusher",
+    "name": "Scrap Crusher",
+    "archetype": "boss",
+    "health": 420,
+    "damage": 22,
+    "speed": 46,
+    "xpValue": 40,
+    "scrapValue": 60,
+    "contactDamage": false,
+    "lootTableId": "brute-cache",
+    "attack": {
+      "triggerRange": 210,
+      "telegraphMs": 900,
+      "dashSpeed": 340,
+      "dashDurationMs": 420,
+      "cooldownMs": 1500
+    }
   }
 ]

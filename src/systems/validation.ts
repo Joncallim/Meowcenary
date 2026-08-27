@@ -1660,7 +1660,7 @@ function checkEnemy(row: unknown): string[] {
   }
 
   const allowedFields = new Set(DIRECT_ENEMY_FIELDS);
-  if (archetype === 'charger' || archetype === 'ranged') allowedFields.add('attack');
+  if (archetype === 'charger' || archetype === 'ranged' || archetype === 'boss') allowedFields.add('attack');
   rejectUnknownFields(row, allowedFields, errors);
   requirePositiveNumber(row, 'health', errors);
   requireNonNegativeNumber(row, 'damage', errors);
@@ -1691,6 +1691,7 @@ function checkEnemy(row: unknown): string[] {
 
   if (archetype === 'charger') checkChargerAttack(row, errors);
   if (archetype === 'ranged') checkRangedAttack(row, errors);
+  if (archetype === 'boss') checkChargerAttack(row, errors);
   return errors;
 }
 

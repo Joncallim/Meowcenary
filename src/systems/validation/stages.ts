@@ -221,6 +221,10 @@ export const checkEncounterProfile: RowCheckFn = (row: unknown, _index: number):
       }
     }
   }
+  // Epic 21: optional boss composition (boss milestone stages).
+  if (ep.bossId !== undefined && (typeof ep.bossId !== 'string' || !isContentId(ep.bossId))) {
+    errors.push('bossId: must be a valid content ID when present');
+  }
 
   return errors;
 };
@@ -327,6 +331,10 @@ export function assertStageEncounterEnemyReferences(
       if (!enemyIds.has(eid)) {
         throw new Error(`encounterProfile.${ep.id}: enemyId "${eid}" not found in enemy catalog`);
       }
+    }
+    // Epic 21: boss composition must reference a real boss archetype enemy.
+    if (ep.bossId !== undefined && !enemyIds.has(ep.bossId)) {
+      throw new Error(`encounterProfile.${ep.id}: bossId "${ep.bossId}" not found in enemy catalog`);
     }
   }
 }

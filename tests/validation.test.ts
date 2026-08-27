@@ -60,6 +60,13 @@ function enemyFixture(archetype: string, overrides: Record<string, unknown> = {}
     base.attack = { range: 200, telegraphMs: 250, cooldownMs: 750 };
   } else if (archetype === 'boss') {
     base.contactDamage = false;
+    base.attack = {
+      triggerRange: 120,
+      telegraphMs: 300,
+      dashSpeed: 120,
+      dashDurationMs: 400,
+      cooldownMs: 600,
+    };
   } else if (archetype === 'elite') {
     return {
       id: 'elite-fixture',
@@ -546,7 +553,7 @@ describe('game data validation', () => {
       [enemyFixture('chaser', { contactDamage: false }), /contactDamage/],
       [enemyFixture('ranged', { contactDamage: true }), /contactDamage/],
       [enemyFixture('boss', { contactDamage: true }), /contactDamage/],
-      [enemyFixture('boss', { attack: {} }), /attack: unknown field/],
+      [enemyFixture('boss', { attack: { range: 1 } }), /attack\.range: unknown field/],
       [enemyFixture('ranged', { baseEnemyId: 'chaser-fixture' }), /baseEnemyId: unknown field/],
     ];
     for (const [candidate, pattern] of cases) {
@@ -1274,11 +1281,14 @@ describe('game data validation', () => {
       const data = structuredClone(loadGameData()) as unknown as Record<string, unknown>;
       data.lootTables = tables;
       // Fixture tables replace the shipped chest-standard/brute-cache tables;
-      // clear stage reward catalogs so stage→loot-table references stay honest.
+      // clear stage reward catalogs AND enemy loot-table refs so
+      // stage→loot-table and enemy→loot-table references stay honest.
       data.stages = [];
       data.encounterProfiles = [];
       data.difficultyProfiles = [];
       data.rewardProfiles = [];
+      const enemies = data.enemies as Array<Record<string, unknown>>;
+      for (const enemy of enemies) delete enemy.lootTableId;
       return data;
     }
 
