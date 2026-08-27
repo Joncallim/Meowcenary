@@ -194,7 +194,7 @@ describe('RunSummaryController banking integration', () => {
 
       expect(system.hasBanked).toBe(true);
       expect(system.bankFinishedRun()).toBeNull();
-      expect(context.saveData.meta.scrap).toBe(12);
+      expect(context.saveData.progression.scrap).toBe(12);
       expect(captured).toMatchObject({
         outcome,
         runCurrency: 12.9,

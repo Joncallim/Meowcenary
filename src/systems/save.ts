@@ -10,11 +10,58 @@ export interface Settings {
 
 export type MetaStateV1 = Readonly<Record<string, never>>;
 
-export interface MetaState {
+/** ProgressionState replaces the flat MetaState in V3. Same shape, new name
+ *  per Alpha 3 architecture §4.2. */
+export interface ProgressionState {
   readonly scrap: number;
   readonly unlocks: readonly string[];
   readonly permanentUpgrades: Readonly<Record<string, number>>;
 }
+
+/** Backward-compatible alias: all existing gameplay functions accept MetaState. */
+export type MetaState = ProgressionState;
+
+export interface StageProgress {
+  readonly completed: boolean;
+  readonly bestTimeMs?: number;
+}
+
+export interface AchievementProgress {
+  readonly completed: boolean;
+  readonly progress?: number;
+  readonly completedAt?: number;
+}
+
+export interface MasteryProgress {
+  readonly tier: number;
+  readonly xp: number;
+}
+
+/** Placeholder: Gunsmith build shape. Epic 23 defines the real shape. */
+export interface Build {
+  readonly id: string;
+}
+
+/** Placeholder: Gunsmith part instance. Epic 23 defines the real shape. */
+export interface PartInstance {
+  readonly partId: string;
+}
+
+/** Placeholder: Equipment instance. Epic 25 defines the real shape. */
+export interface EquipmentInstance {
+  readonly setId: string;
+  readonly tier: number;
+}
+
+export interface GunsmithState {
+  readonly builds: readonly Build[];
+  readonly parts: Record<string, PartInstance>;
+}
+
+export type StageProgressState = Record<string, StageProgress>;
+export type AchievementProgressState = Record<string, AchievementProgress>;
+export type CharacterMasteryState = Record<string, MasteryProgress>;
+export type EquipmentState = Record<string, EquipmentInstance>;
 
 export interface SaveDataV1 {
   readonly version: 1;
@@ -28,11 +75,22 @@ export interface SaveDataV2 {
   readonly meta: MetaState;
 }
 
-export type SaveData = SaveDataV2;
+export interface SaveDataV3 {
+  readonly version: 3;
+  readonly settings: Settings;
+  readonly progression: ProgressionState;
+  readonly stages: StageProgressState;
+  readonly achievements: AchievementProgressState;
+  readonly characters: CharacterMasteryState;
+  readonly gunsmith: GunsmithState;
+  readonly equipment: EquipmentState;
+}
+
+export type SaveData = SaveDataV3;
 export type MetaUpgradeMaxLevels = Readonly<Record<string, number>>;
 
-/** Current save format version. Increment when SaveData shape changes. */
-export const CURRENT_SAVE_VERSION = 2;
+/** Current save format version. Incremented to 3 per Alpha 3 architecture §4. */
+export const CURRENT_SAVE_VERSION = 3;
 
 export interface StorageAdapter {
   getItem(key: string): string | null;
@@ -47,12 +105,30 @@ export const DEFAULT_SETTINGS: Settings = Object.freeze({
   reducedMotion: false,
 });
 
+export function createDefaultProgression(): ProgressionState {
+  return freezeProgression({ scrap: 0, unlocks: [], permanentUpgrades: {} });
+}
+
+/** @deprecated Use createDefaultProgression() for V3. */
 export function createDefaultMeta(): MetaState {
-  return freezeMeta({ scrap: 0, unlocks: [], permanentUpgrades: {} });
+  return createDefaultProgression();
+}
+
+export function createDefaultSaveV3(): SaveDataV3 {
+  return freezeSaveV3({
+    version: 3,
+    settings: DEFAULT_SETTINGS,
+    progression: createDefaultProgression(),
+    stages: {},
+    achievements: {},
+    characters: {},
+    gunsmith: { builds: [], parts: {} },
+    equipment: {},
+  });
 }
 
 export function createDefaultSave(): SaveData {
-  return freezeSave({ version: 2, settings: DEFAULT_SETTINGS, meta: createDefaultMeta() });
+  return createDefaultSaveV3();
 }
 
 export function applySettingsPatch(
@@ -67,16 +143,21 @@ export function applySettingsPatch(
   }
 }
 
-export function sanitizeMeta(raw: unknown, maxLevels: MetaUpgradeMaxLevels): MetaState {
+export function sanitizeProgression(raw: unknown, maxLevels: MetaUpgradeMaxLevels): ProgressionState {
   try {
-    return sanitizeMetaRecord(raw, maxLevels);
+    return sanitizeProgressionRecord(raw, maxLevels);
   } catch {
-    return createDefaultMeta();
+    return createDefaultProgression();
   }
 }
 
-function sanitizeMetaRecord(raw: unknown, maxLevels: MetaUpgradeMaxLevels): MetaState {
-  if (!isPlainRecord(raw)) return createDefaultMeta();
+/** @deprecated Use sanitizeProgression() for V3. */
+export function sanitizeMeta(raw: unknown, maxLevels: MetaUpgradeMaxLevels): MetaState {
+  return sanitizeProgression(raw, maxLevels);
+}
+
+function sanitizeProgressionRecord(raw: unknown, maxLevels: MetaUpgradeMaxLevels): ProgressionState {
+  if (!isPlainRecord(raw)) return createDefaultProgression();
   const scrapRaw = readOwn(raw, 'scrap');
   const scrap = isNonNegativeSafeInteger(scrapRaw) ? scrapRaw : 0;
   const unlocksRaw = readOwn(raw, 'unlocks');
@@ -101,11 +182,40 @@ function sanitizeMetaRecord(raw: unknown, maxLevels: MetaUpgradeMaxLevels): Meta
       permanentUpgrades[id] = max === undefined ? level as number : Math.min(level as number, max);
     }
   }
-  return freezeMeta({ scrap, unlocks, permanentUpgrades });
+  return freezeProgression({ scrap, unlocks, permanentUpgrades });
+}
+
+/** V2 → V3 migration per Alpha 3 architecture §4.4.
+ *  Preserves: scrap → progression.scrap, unlocks → progression.unlocks,
+ *  permanentUpgrades → progression.permanentUpgrades,
+ *  achievement:first-victory → achievements['achievement:first-victory']. */
+export function migrateV2ToV3(raw: Readonly<Record<string, unknown>>, maxLevels: MetaUpgradeMaxLevels = {}): SaveDataV3 {
+  const v2Progression = sanitizeProgression(readOwn(raw, 'meta'), maxLevels);
+  return freezeSaveV3({
+    version: 3,
+    settings: sanitizeSettings(readOwn(raw, 'settings'), DEFAULT_SETTINGS),
+    progression: v2Progression,
+    stages: {},
+    achievements: migrateAchievementsFromV2(v2Progression),
+    characters: {},
+    gunsmith: { builds: [], parts: {} },
+    equipment: {},
+  });
+}
+
+function migrateAchievementsFromV2(progression: ProgressionState): AchievementProgressState {
+  const achievements: AchievementProgressState = {};
+  if (progression.unlocks.includes('achievement:first-victory')) {
+    achievements['achievement:first-victory'] = {
+      completed: true,
+      completedAt: undefined,
+    };
+  }
+  return achievements;
 }
 
 export function migrate(raw: unknown, maxLevels: MetaUpgradeMaxLevels = {}): SaveData {
-  try { return decodeSave(raw, maxLevels).data; } catch { return createDefaultSave(); }
+  try { return decodeSave(raw, maxLevels).data; } catch { return createDefaultSaveV3(); }
 }
 
 interface SaveDecodeResult {
@@ -115,32 +225,146 @@ interface SaveDecodeResult {
 
 function decodeSave(raw: unknown, maxLevels: MetaUpgradeMaxLevels): SaveDecodeResult {
   const parsed = parseRawSave(raw);
-  if (!isPlainRecord(parsed)) return { data: createDefaultSave(), unsupportedFutureVersion: false };
+  if (!isPlainRecord(parsed)) return { data: createDefaultSaveV3(), unsupportedFutureVersion: false };
   const version = readOwn(parsed, 'version');
-  if (version === 1) return { data: migrateV1ToV2(parsed), unsupportedFutureVersion: false };
-  if (version === 2) {
+  if (version === 1) return { data: migrateV1ToV3(parsed), unsupportedFutureVersion: false };
+  if (version === 2) return { data: migrateV2ToV3(parsed, maxLevels), unsupportedFutureVersion: false };
+  if (version === 3) {
     return {
-      data: freezeSave({
-        version: 2,
+      data: freezeSaveV3({
+        version: 3,
         settings: sanitizeSettings(readOwn(parsed, 'settings'), DEFAULT_SETTINGS),
-        meta: sanitizeMeta(readOwn(parsed, 'meta'), maxLevels),
+        progression: sanitizeProgression(readOwn(parsed, 'progression'), maxLevels),
+        stages: sanitizeStageProgress(readOwn(parsed, 'stages')),
+        achievements: sanitizeAchievementProgress(readOwn(parsed, 'achievements')),
+        characters: sanitizeCharacterMastery(readOwn(parsed, 'characters')),
+        gunsmith: sanitizeGunsmithState(readOwn(parsed, 'gunsmith')),
+        equipment: sanitizeEquipmentState(readOwn(parsed, 'equipment')),
       }),
       unsupportedFutureVersion: false,
     };
   }
   return {
-    data: createDefaultSave(),
-    unsupportedFutureVersion: Number.isSafeInteger(version) && (version as number) > 2,
+    data: createDefaultSaveV3(),
+    unsupportedFutureVersion: Number.isSafeInteger(version) && (version as number) > 3,
   };
 }
 
-function migrateV1ToV2(raw: Readonly<Record<string, unknown>>): SaveDataV2 {
-  return freezeSave({
-    version: 2,
+function migrateV1ToV3(raw: Readonly<Record<string, unknown>>): SaveDataV3 {
+  return freezeSaveV3({
+    version: 3,
     settings: sanitizeSettings(readOwn(raw, 'settings'), DEFAULT_SETTINGS),
-    meta: createDefaultMeta(),
+    progression: createDefaultProgression(),
+    stages: {},
+    achievements: {},
+    characters: {},
+    gunsmith: { builds: [], parts: {} },
+    equipment: {},
   });
 }
+
+// ── V3 domain sanitizers ────────────────────────────────────────────
+
+function sanitizeStageProgress(raw: unknown): StageProgressState {
+  if (!isPlainRecord(raw)) return {};
+  const result: Record<string, StageProgress> = Object.create(null);
+  for (const key of Object.keys(raw)) {
+    if (!isContentId(key) && !isUnlockId(key)) continue;
+    const entry = readOwn(raw as Record<string, unknown>, key);
+    if (!isPlainRecord(entry)) continue;
+    const completed = readOwn(entry, 'completed');
+    const bestTimeMs = readOwn(entry, 'bestTimeMs');
+    result[key] = {
+      completed: typeof completed === 'boolean' ? completed : false,
+      ...(Number.isSafeInteger(bestTimeMs) && (bestTimeMs as number) > 0
+        ? { bestTimeMs: bestTimeMs as number }
+        : {}),
+    };
+  }
+  return result;
+}
+
+function sanitizeAchievementProgress(raw: unknown): AchievementProgressState {
+  if (!isPlainRecord(raw)) return {};
+  const result: Record<string, AchievementProgress> = Object.create(null);
+  for (const key of Object.keys(raw)) {
+    if (!isUnlockId(key)) continue;
+    const entry = readOwn(raw as Record<string, unknown>, key);
+    if (!isPlainRecord(entry)) continue;
+    const completed = readOwn(entry, 'completed');
+    const progress = readOwn(entry, 'progress');
+    const completedAt = readOwn(entry, 'completedAt');
+    result[key] = {
+      completed: typeof completed === 'boolean' ? completed : false,
+      ...(Number.isSafeInteger(progress) && (progress as number) >= 0
+        ? { progress: progress as number }
+        : {}),
+      ...(Number.isSafeInteger(completedAt) && (completedAt as number) > 0
+        ? { completedAt: completedAt as number }
+        : {}),
+    };
+  }
+  return result;
+}
+
+function sanitizeCharacterMastery(raw: unknown): CharacterMasteryState {
+  if (!isPlainRecord(raw)) return {};
+  const result: Record<string, MasteryProgress> = Object.create(null);
+  for (const key of Object.keys(raw)) {
+    if (!isContentId(key)) continue;
+    const entry = readOwn(raw as Record<string, unknown>, key);
+    if (!isPlainRecord(entry)) continue;
+    const tier = readOwn(entry, 'tier');
+    const xp = readOwn(entry, 'xp');
+    result[key] = {
+      tier: Number.isSafeInteger(tier) && (tier as number) >= 0 ? tier as number : 0,
+      xp: Number.isSafeInteger(xp) && (xp as number) >= 0 ? xp as number : 0,
+    };
+  }
+  return result;
+}
+
+function sanitizeGunsmithState(raw: unknown): GunsmithState {
+  if (!isPlainRecord(raw)) return { builds: [], parts: {} };
+  const buildsRaw = readOwn(raw, 'builds');
+  const partsRaw = readOwn(raw, 'parts');
+  const builds: Build[] = Array.isArray(buildsRaw)
+    ? buildsRaw.filter((b): b is Record<string, unknown> => isPlainRecord(b) && typeof readOwn(b, 'id') === 'string')
+        .map((b) => ({ id: readOwn(b, 'id') as string }))
+    : [];
+  const parts: Record<string, PartInstance> = Object.create(null);
+  if (isPlainRecord(partsRaw)) {
+    for (const key of Object.keys(partsRaw)) {
+      if (!isContentId(key)) continue;
+      const entry = readOwn(partsRaw as Record<string, unknown>, key);
+      if (isPlainRecord(entry) && typeof readOwn(entry, 'partId') === 'string') {
+        parts[key] = { partId: readOwn(entry, 'partId') as string };
+      }
+    }
+  }
+  return { builds, parts };
+}
+
+function sanitizeEquipmentState(raw: unknown): EquipmentState {
+  if (!isPlainRecord(raw)) return {};
+  const result: Record<string, EquipmentInstance> = Object.create(null);
+  for (const key of Object.keys(raw)) {
+    if (!isContentId(key)) continue;
+    const entry = readOwn(raw as Record<string, unknown>, key);
+    if (!isPlainRecord(entry)) continue;
+    const setId = readOwn(entry, 'setId');
+    const tier = readOwn(entry, 'tier');
+    if (typeof setId === 'string') {
+      result[key] = {
+        setId,
+        tier: Number.isSafeInteger(tier) && (tier as number) >= 0 ? tier as number : 0,
+      };
+    }
+  }
+  return result;
+}
+
+// ── SaveManager ──────────────────────────────────────────────────────
 
 export class SaveManager {
   private writeProtected = false;
@@ -157,22 +381,37 @@ export class SaveManager {
       this.writeProtected ||= decoded.unsupportedFutureVersion;
       return decoded.data;
     } catch {
-      return createDefaultSave();
+      return createDefaultSaveV3();
     }
+  }
+
+  /** V3-aware load: decodes V1/V2/V3, write-protects > 3 per architecture §4.6. */
+  loadV3(): SaveDataV3 {
+    return this.load();
   }
 
   save(data: SaveData): boolean {
     if (this.writeProtected) return false;
     try {
-      const sanitized = freezeSave({
-        version: 2,
+      const sanitized = freezeSaveV3({
+        version: 3,
         settings: sanitizeSettings(data.settings, DEFAULT_SETTINGS),
-        meta: sanitizeMeta(data.meta, this.maxLevels),
+        progression: sanitizeProgression(data.progression, this.maxLevels),
+        stages: sanitizeStageProgress(data.stages),
+        achievements: sanitizeAchievementProgress(data.achievements),
+        characters: sanitizeCharacterMastery(data.characters),
+        gunsmith: sanitizeGunsmithState(data.gunsmith),
+        equipment: sanitizeEquipmentState(data.equipment),
       });
       return this.storage.setItem(this.key, JSON.stringify(sanitized)) === true;
     } catch {
       return false;
     }
+  }
+
+  /** V3-aware save per architecture §4.6. */
+  saveV3(data: SaveDataV3): boolean {
+    return this.save(data);
   }
 
   clear(): boolean {
@@ -222,6 +461,8 @@ export class MemoryStorageAdapter implements StorageAdapter {
   removeItem(key: string): boolean { this.values.delete(key); return true; }
 }
 
+// ── Internal helpers ─────────────────────────────────────────────────
+
 function sanitizeSettings(raw: unknown, fallback: Settings): Settings {
   if (!isPlainRecord(raw)) return freezeSettings(fallback);
   const mutedRaw = readOwn(raw, 'muted');
@@ -238,19 +479,27 @@ function freezeSettings(settings: Settings): Settings {
   return Object.freeze({ ...settings });
 }
 
-function freezeMeta(meta: MetaState): MetaState {
+function freezeProgression(p: ProgressionState): ProgressionState {
   return Object.freeze({
-    scrap: meta.scrap,
-    unlocks: Object.freeze([...meta.unlocks]),
-    permanentUpgrades: Object.freeze({ ...meta.permanentUpgrades }),
+    scrap: p.scrap,
+    unlocks: Object.freeze([...p.unlocks]),
+    permanentUpgrades: Object.freeze({ ...p.permanentUpgrades }),
   });
 }
 
-function freezeSave(save: SaveDataV2): SaveDataV2 {
+function freezeSaveV3(save: SaveDataV3): SaveDataV3 {
   return Object.freeze({
-    version: 2,
+    version: 3,
     settings: Object.isFrozen(save.settings) ? save.settings : freezeSettings(save.settings),
-    meta: Object.isFrozen(save.meta) ? save.meta : freezeMeta(save.meta),
+    progression: Object.isFrozen(save.progression) ? save.progression : freezeProgression(save.progression),
+    stages: Object.freeze({ ...save.stages }),
+    achievements: Object.freeze({ ...save.achievements }),
+    characters: Object.freeze({ ...save.characters }),
+    gunsmith: Object.freeze({
+      builds: Object.freeze([...save.gunsmith.builds]),
+      parts: Object.freeze({ ...save.gunsmith.parts }),
+    }),
+    equipment: Object.freeze({ ...save.equipment }),
   });
 }
 

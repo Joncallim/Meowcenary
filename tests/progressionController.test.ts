@@ -29,9 +29,9 @@ describe('headless ProgressionController', () => {
       ok: true, cost: 10, newLevel: 1, persisted: true,
       meta: { scrap: 90, permanentUpgrades: { 'reinforced-vest': 1 } },
     });
-    const before = context.saveData.meta;
+    const before = context.saveData.progression;
     expect(controller.reset(false)).toEqual({ ok: false, meta: before, reason: 'confirmation-required' });
-    expect(context.saveData.meta).toBe(before);
+    expect(context.saveData.progression).toBe(before);
     expect(controller.reset(true)).toMatchObject({ ok: true, persisted: true, meta: { scrap: 0 } });
   });
 });

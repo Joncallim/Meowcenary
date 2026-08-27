@@ -17,16 +17,16 @@ describe('GameContext persistence boundary', () => {
     const settingsUpdate = context.updateSettings({ muted: true, sfxVolume: 0.25 });
     expect(settingsUpdate).toMatchObject({ persisted: true, value: { muted: true, sfxVolume: 0.25 } });
     expect(context.settings).toBe(context.saveData.settings);
-    expect(context.saveData.meta).toBe(original.meta);
+    expect(context.saveData.progression).toBe(original.progression);
     expect(context.saveData).not.toBe(original);
 
     const metaUpdate = context.updateMeta((meta) => ({ ...meta, scrap: 42 }));
     expect(metaUpdate.persisted).toBe(true);
     expect(context.saveData.settings).toBe(settingsUpdate.value);
-    expect(context.saveData.meta.scrap).toBe(42);
+    expect(context.saveData.progression.scrap).toBe(42);
     expect(Object.isFrozen(context.saveData)).toBe(true);
-    expect(Reflect.set(context.saveData.meta as object, 'scrap', 999)).toBe(false);
-    expect(context.saveData.meta.scrap).toBe(42);
+    expect(Reflect.set(context.saveData.progression as object, 'scrap', 999)).toBe(false);
+    expect(context.saveData.progression.scrap).toBe(42);
     expect(storage.getCalls).toBe(1);
     expect(storage.setCalls).toBe(2);
   });

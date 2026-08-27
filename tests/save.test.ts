@@ -6,8 +6,8 @@ import {
   MemoryStorageAdapter,
   SaveManager,
   applySettingsPatch,
-  createDefaultMeta,
-  createDefaultSave,
+  createDefaultProgression,
+  createDefaultSaveV3,
   migrate,
   sanitizeMeta,
   type StorageAdapter,
@@ -16,24 +16,32 @@ import {
 const key = 'test-save';
 const limits = Object.freeze({ 'reinforced-vest': 5 });
 
-describe('Save V2 migration and persistence', () => {
-  it('creates fresh deeply frozen V2 defaults', () => {
-    const first = createDefaultSave();
-    const second = createDefaultSave();
-    expect(first).toEqual({ version: 2, settings: DEFAULT_SETTINGS, meta: createDefaultMeta() });
+describe('Save V2/V3 migration and persistence', () => {
+  it('creates fresh deeply frozen V3 defaults', () => {
+    const first = createDefaultSaveV3();
+    const second = createDefaultSaveV3();
+    expect(first).toMatchObject({
+      version: 3,
+      settings: DEFAULT_SETTINGS,
+      progression: createDefaultProgression(),
+      stages: {},
+      achievements: {},
+      characters: {},
+      equipment: {},
+    });
     expect(first).not.toBe(second);
-    expect(first.meta).not.toBe(second.meta);
+    expect(first.progression).not.toBe(second.progression);
     expect(Object.isFrozen(first)).toBe(true);
     expect(Object.isFrozen(first.settings)).toBe(true);
-    expect(Object.isFrozen(first.meta.unlocks)).toBe(true);
-    expect(Object.isFrozen(first.meta.permanentUpgrades)).toBe(true);
+    expect(Object.isFrozen(first.progression.unlocks)).toBe(true);
+    expect(Object.isFrozen(first.progression.permanentUpgrades)).toBe(true);
   });
 
   it('migrates valid V1 and independently recovers corrupt V1 settings', () => {
     expect(migrate(v1Fixture, limits)).toMatchObject({
-      version: 2,
+      version: 3,
       settings: v1Fixture.settings,
-      meta: { scrap: 0, unlocks: [], permanentUpgrades: {} },
+      progression: { scrap: 0, unlocks: [], permanentUpgrades: {} },
     });
     expect(migrate({ version: 1, settings: { muted: true, musicVolume: 'bad' }, meta: { old: 1 } }, limits).settings)
       .toEqual({ ...DEFAULT_SETTINGS, muted: true });
@@ -55,10 +63,10 @@ describe('Save V2 migration and persistence', () => {
         },
       },
     }, limits);
-    expect(migrated).toEqual({
-      version: 2,
+    expect(migrated).toMatchObject({
+      version: 3,
       settings: { ...DEFAULT_SETTINGS, muted: true, musicVolume: 1 },
-      meta: {
+      progression: {
         scrap: 12,
         unlocks: ['character:cat', 'future:thing'],
         permanentUpgrades: { 'reinforced-vest': 5, 'future-upgrade': 7 },
@@ -69,19 +77,19 @@ describe('Save V2 migration and persistence', () => {
 
   it.each(['', '{broken', 'null', '[]', '{}'])(
     'returns a complete default for malformed or versionless input %j',
-    (raw) => expect(migrate(raw, limits)).toEqual(createDefaultSave()),
+    (raw) => expect(migrate(raw, limits)).toEqual(createDefaultSaveV3()),
   );
 
   it.each([
     {}, { version: 0 }, { version: -1 }, { version: 1.5 }, { version: Number.NaN }, { version: 3.5 },
   ])('returns complete defaults for invalid versions', (raw) => {
-    expect(migrate(raw, limits)).toEqual(createDefaultSave());
+    expect(migrate(raw, limits)).toEqual(createDefaultSaveV3());
   });
 
   it('does not read inherited versions or prototype-polluting record keys', () => {
     const inherited = Object.create({ version: 2 });
     inherited.settings = { ...DEFAULT_SETTINGS, muted: true };
-    expect(migrate(inherited, limits)).toEqual(createDefaultSave());
+    expect(migrate(inherited, limits)).toEqual(createDefaultSaveV3());
     const upgrades = Object.create(null) as Record<string, number>;
     Object.defineProperty(upgrades, '__proto__', { value: 3, enumerable: true });
     upgrades['safe-upgrade'] = 2;
@@ -91,9 +99,9 @@ describe('Save V2 migration and persistence', () => {
 
   it('remains total for hostile accessors and proxies', () => {
     const accessor = Object.defineProperty({}, 'version', { enumerable: true, get() { throw new Error('no'); } });
-    expect(migrate(accessor, limits)).toEqual(createDefaultSave());
+    expect(migrate(accessor, limits)).toEqual(createDefaultSaveV3());
     const proxy = new Proxy({}, { getPrototypeOf() { throw new Error('no'); } });
-    expect(migrate(proxy, limits)).toEqual(createDefaultSave());
+    expect(migrate(proxy, limits)).toEqual(createDefaultSaveV3());
   });
 
   it('keeps valid patch values immutable and invalid patch fields at current values', () => {
@@ -110,27 +118,27 @@ describe('Save V2 migration and persistence', () => {
     storage.setItem(key, JSON.stringify(v1Fixture));
     storage.setCalls = 0;
     const manager = new SaveManager(storage, key, limits);
-    expect(manager.load().version).toBe(2);
+    expect(manager.load().version).toBe(3);
     expect(storage.getCalls).toBe(1);
     expect(storage.setCalls).toBe(0);
-    expect(manager.save(createDefaultSave())).toBe(true);
+    expect(manager.save(createDefaultSaveV3())).toBe(true);
     expect(storage.setCalls).toBe(1);
     expect(manager.clear()).toBe(true);
   });
 
   it('write-protects future saves until successful explicit clear', () => {
     const storage = new CountingStorage();
-    storage.setItem(key, JSON.stringify({ version: 3, settings: { muted: true }, meta: { scrap: 99 } }));
+    storage.setItem(key, JSON.stringify({ version: 4, settings: { muted: true }, meta: { scrap: 99 } }));
     storage.setCalls = 0;
     const manager = new SaveManager(storage, key, limits);
-    expect(manager.load()).toEqual(createDefaultSave());
-    expect(manager.save(createDefaultSave())).toBe(false);
+    expect(manager.load()).toEqual(createDefaultSaveV3());
+    expect(manager.save(createDefaultSaveV3())).toBe(false);
     expect(storage.setCalls).toBe(0);
     storage.removeItem(key);
-    expect(manager.load()).toEqual(createDefaultSave());
-    expect(manager.save(createDefaultSave())).toBe(false);
+    expect(manager.load()).toEqual(createDefaultSaveV3());
+    expect(manager.save(createDefaultSaveV3())).toBe(false);
     expect(manager.clear()).toBe(true);
-    expect(manager.save(createDefaultSave())).toBe(true);
+    expect(manager.save(createDefaultSaveV3())).toBe(true);
   });
 
   it('reads a meta descriptor-backed field once so an alternating proxy cannot smuggle an invalid published value', () => {
@@ -166,8 +174,8 @@ describe('Save V2 migration and persistence', () => {
 
   it('recovers from storage exceptions and localStorage adapter reports failures', () => {
     const manager = new SaveManager(new ThrowingAdapter(), key, limits);
-    expect(manager.load()).toEqual(createDefaultSave());
-    expect(manager.save(createDefaultSave())).toBe(false);
+    expect(manager.load()).toEqual(createDefaultSaveV3());
+    expect(manager.save(createDefaultSaveV3())).toBe(false);
     expect(manager.clear()).toBe(false);
     const local = new LocalStorageAdapter(new ThrowingStorage());
     expect(local.getItem(key)).toBeNull();

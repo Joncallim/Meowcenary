@@ -36,7 +36,7 @@ export class ArenaSelectionController {
     const arenas = context.arenas.all().map((arena) => ({
       id: arena.id,
       name: arena.name,
-      locked: !canSelectArena(arena, context.saveData.meta),
+      locked: !canSelectArena(arena, context.saveData.progression),
       selected: arena.id === selectedArenaId,
     }));
     return Object.freeze({
