@@ -295,6 +295,26 @@ export function assertStageRewardLootTableReferences(
   }
 }
 
+/** Reward profiles are content, so durable owned-instance grants must resolve
+ * to real definitions before any stage can issue them. */
+export function assertStageRewardGrantReferences(
+  rewards: readonly { id: string; grants?: readonly { type: string; partId?: string; equipmentId?: string }[] }[],
+  partIds: Set<string>,
+  equipmentIds: Set<string>,
+): void {
+  for (const reward of rewards) {
+    for (const grant of reward.grants ?? []) {
+      if (grant.type === 'grant-part-instance' && (!grant.partId || !partIds.has(grant.partId))) {
+        throw new Error(`reward.${reward.id}: part grant references unknown "${grant.partId ?? ''}"`);
+      }
+      if ((grant.type === 'unlock-equipment' || grant.type === 'grant-equipment-instance')
+        && (!grant.equipmentId || !equipmentIds.has(grant.equipmentId))) {
+        throw new Error(`reward.${reward.id}: equipment grant references unknown "${grant.equipmentId ?? ''}"`);
+      }
+    }
+  }
+}
+
 export function assertStageUnlockReferences(
   stages: readonly StageDefinition[],
   stageIds: Set<string>,

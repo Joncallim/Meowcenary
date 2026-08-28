@@ -88,6 +88,7 @@ import {
   assertBossStageSemantics,
   assertStageDefeatEnemyReferences,
   assertStageRewardLootTableReferences,
+  assertStageRewardGrantReferences,
   assertStageUnlockReferences,
 } from './validation/stages';
 import { checkAchievement, assertAchievementMetricReferences, assertUniqueAchievementPlatformMappings, assertAchievementEquipmentGrantReferences } from './validation/achievements';
@@ -619,6 +620,11 @@ export function validateGameData(raw: unknown): GameData {
   assertStageDefeatEnemyReferences(stages, enemyIdSet);
   assertBossStageSemantics(stages, encounterProfiles);
   assertStageRewardLootTableReferences(rewardProfiles, lootTableIdSet);
+  assertStageRewardGrantReferences(
+    rewardProfiles,
+    new Set((catalogs['gun-parts'] as PartDefinition[]).map((part) => part.id)),
+    new Set((catalogs.equipment as EquipmentDefinition[]).map((equipment) => equipment.id)),
+  );
   assertStageUnlockReferences(stages, stageIdSet);
 
   // Epic 22: achievement metric references (appended, preserving frozen order).
