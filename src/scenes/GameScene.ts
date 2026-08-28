@@ -207,7 +207,10 @@ export class GameScene extends Phaser.Scene {
     // floor for the player, leaving its full body below the HUD backing.
     const minPlayableY = Math.min(
       arena.size.height / 2,
-      (viewport.originY ?? 0) + topHudContentBottom(viewport) + PLAYER_BODY_RADIUS,
+      // The player visual is larger than its collision circle and the follow
+      // camera can settle a few frames behind it. Leave a full visual buffer
+      // below the HUD, not merely one collision radius.
+      (viewport.originY ?? 0) + topHudContentBottom(viewport) + PLAYER_BODY_RADIUS * 4,
     );
 
     this.player = new Player(this, this.inputController, this.runState, ctx.bus, {
