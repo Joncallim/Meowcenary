@@ -228,7 +228,7 @@ function resetTrial(trial: number): void {
 
   // Enter the real two-step reset panel: navDown ×4 to Reset Progression,
   // confirm → reset-confirmation with Confirm Reset focused.
-  for (let i = 0; i < 4; i += 1) { h.padDown(13); h.poll(); h.padUp(13); h.poll(); }
+  for (let i = 0; i < 5; i += 1) { h.padDown(13); h.poll(); h.padUp(13); h.poll(); }
   h.padDown(0); h.poll(); h.padUp(0); h.poll();
   expect(h.menuSnapshot().panel).toBe('reset-confirmation');
   expect(spy.raw).toHaveLength(2); // progression entry + reset-panel entry
