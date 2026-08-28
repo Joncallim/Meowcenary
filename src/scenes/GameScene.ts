@@ -31,6 +31,8 @@ import { WeaponRewardSystem } from '../systems/WeaponRewardSystem';
 import { InputController, type GameAction } from '../systems/input';
 import { SpawnSystem } from '../systems/SpawnSystem';
 import { DataEnemyRegistry } from '../systems/enemies';
+import { DataEquipmentRegistry } from '../systems/equipment';
+import { resolveEquipmentModifiers } from '../gameplay/equipment';
 import { buildArenaScenery, type ArenaScenery } from '../systems/arenaScenery';
 import { UpgradeSystem } from '../systems/UpgradeSystem';
 import { ProgressionSystem, type BankedRun } from '../systems/ProgressionSystem';
@@ -195,6 +197,17 @@ export class GameScene extends Phaser.Scene {
       character: contribution,
     });
     this.runState = prepared.run;
+    const equipmentRegistry = new DataEquipmentRegistry({ equipment: ctx.data.equipment ?? [] });
+    const ownedEquipment = new Map(Object.entries(ctx.saveData.equipment).map(([instanceId, equipment]) => [
+      instanceId,
+      { instanceId, equipmentId: equipment.equipmentId, tier: equipment.tier },
+    ] as const));
+    const equippedModifiers = resolveEquipmentModifiers(
+      { equipped: ctx.saveData.equipmentLoadout ?? {} },
+      equipmentRegistry.asMap(),
+      ownedEquipment,
+    );
+    equippedModifiers.forEach((modifier) => this.runState!.stats.add(modifier));
     this.enemyDefinitions = new DataEnemyRegistry(ctx.data);
     // Run-clock-stamped effective-damage meter. The listener captures the
     // run-state local so it never re-reads scene state after shutdown.
