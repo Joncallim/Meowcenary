@@ -50,11 +50,11 @@ describe('conditionEvaluator — basic conditions', () => {
     expect(evaluateCondition(cond, ctx)).toBe(false);
   });
 
-  it('boss-defeated checks achievement for boss', () => {
+  it('boss-defeated checks an authoritative boss fact', () => {
     const ctx = createConditionContext(makeProgression(), {
-      achievements: { 'achievement:boss-crusher': { completed: true } },
+      bosses: { 'boss-crusher': { defeated: true } },
     });
-    const cond: ProgressionCondition = { type: 'boss-defeated', bossId: 'crusher' };
+    const cond: ProgressionCondition = { type: 'boss-defeated', bossId: 'boss-crusher' };
     expect(evaluateCondition(cond, ctx)).toBe(true);
   });
 

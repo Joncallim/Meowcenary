@@ -46,7 +46,7 @@
     "description": "Defeat the Scrap Crusher boss.",
     "kind": "standard",
     "target": 1,
-    "condition": { "type": "boss-defeated", "bossId": "crusher" },
+    "condition": { "type": "boss-defeated", "bossId": "boss-crusher" },
     "rewards": [
       { "grant": { "type": "grant-scrap", "amount": 100 } }
     ]

@@ -180,10 +180,10 @@ describe('Epic 25 persistence round-trip', () => {
     const manager = new SaveManager(storage, 'test', {});
     manager.save({
       ...save,
-      equipment: { 'inst-1': { setId: 'set:commando', tier: 2 } },
+      equipment: { 'inst-1': { equipmentId: 'equipment:commando-helmet', tier: 2 } },
     });
     const loaded = manager.load();
-    expect(loaded.equipment['inst-1']).toMatchObject({ setId: 'set:commando', tier: 2 });
+    expect(loaded.equipment['inst-1']).toMatchObject({ equipmentId: 'equipment:commando-helmet', tier: 2 });
   });
 });
 

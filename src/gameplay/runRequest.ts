@@ -10,6 +10,21 @@ export interface RunRequest {
   readonly seed: number;
 }
 
+/** The only two composition inputs accepted by the runtime boundary. Legacy
+ * arenas are deliberately explicit compatibility, never an implicit fallback
+ * from a missing stage ID. Epic 85 may make `stage` the menu default. */
+export type ComposedRunRequest =
+  | { readonly kind: 'legacy-arena'; readonly characterId: string; readonly arenaId: string; readonly seed: number }
+  | { readonly kind: 'stage'; readonly characterId: string; readonly stageId: string; readonly seed: number };
+
+export function createStageRunRequest(options: {
+  readonly characterId: string;
+  readonly stageId: string;
+  readonly rng: Pick<Rng, 'int'>;
+}): ComposedRunRequest {
+  return Object.freeze({ kind: 'stage', characterId: options.characterId, stageId: options.stageId, seed: nextRunSeed(options.rng) });
+}
+
 export function createRunRequest(options: {
   readonly characterId: string;
   readonly arenaId: string;
@@ -20,6 +35,10 @@ export function createRunRequest(options: {
     arenaId: options.arenaId,
     seed: nextRunSeed(options.rng),
   });
+}
+
+export function asLegacyComposedRunRequest(request: RunRequest): ComposedRunRequest {
+  return Object.freeze({ kind: 'legacy-arena', ...request });
 }
 
 export function assembleRunRequest(ctx: GameContext, rng: Pick<Rng, 'int'>): RunRequest {

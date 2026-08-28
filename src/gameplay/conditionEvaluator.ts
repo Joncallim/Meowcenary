@@ -3,7 +3,7 @@
  * Alpha 3 shared foundation §3: one condition model for all unlock/prerequisite
  * decisions across Epics 20–26.
  */
-import type { ProgressionState, StageProgressState, AchievementProgressState, CharacterMasteryState } from '../systems/save';
+import type { ProgressionState, StageProgressState, AchievementProgressState, CharacterMasteryState, BossProgressState } from '../systems/save';
 
 export type ProgressionCondition =
   | { readonly type: 'stage-cleared'; readonly stageId: string }
@@ -27,6 +27,8 @@ export interface ConditionContext {
   readonly stages: Readonly<StageProgressState>;
   readonly achievements: Readonly<AchievementProgressState>;
   readonly characters: Readonly<CharacterMasteryState>;
+  /** Authoritative boss outcomes; achievements are consumers, never evidence. */
+  readonly bosses?: Readonly<BossProgressState>;
 }
 
 /**
@@ -43,8 +45,7 @@ export function evaluateCondition(
       return ctx.stages[condition.stageId]?.completed === true;
 
     case 'boss-defeated':
-      // Boss defeats are tracked as achievement-completed entries.
-      return ctx.achievements[`achievement:boss-${condition.bossId}`]?.completed === true;
+      return ctx.bosses?.[condition.bossId]?.defeated === true;
 
     case 'achievement-completed':
       return ctx.achievements[condition.achievementId]?.completed === true;
@@ -91,5 +92,6 @@ export function createConditionContext(
     stages: overrides?.stages ?? {},
     achievements: overrides?.achievements ?? {},
     characters: overrides?.characters ?? {},
+    bosses: overrides?.bosses ?? {},
   };
 }

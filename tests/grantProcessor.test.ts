@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyDurableGrantTransaction,
   processGrant,
   processGrants,
   type ProgressionGrant,
 } from '../src/gameplay/grantProcessor';
+import { createDefaultSaveV3 } from '../src/systems/save';
 import { createDefaultProgression } from '../src/systems/save';
 import type { ProgressionState } from '../src/systems/save';
 
@@ -57,7 +59,7 @@ describe('grantProcessor — individual grants', () => {
 
   it('unlock-character adds unlock ID', () => {
     const p = makeProgression();
-    const result = processGrant(p, { type: 'unlock-character', characterId: 'bolt-hound' });
+    const result = processGrant(p, { type: 'unlock-character', characterId: 'character:bolt-hound' });
     expect(result.changed).toBe(true);
     expect(result.progression.unlocks).toContain('character:bolt-hound');
   });
@@ -71,35 +73,35 @@ describe('grantProcessor — individual grants', () => {
 
   it('unlock-stage adds unlock ID', () => {
     const p = makeProgression();
-    const result = processGrant(p, { type: 'unlock-stage', stageId: 'junkyard-02' });
+    const result = processGrant(p, { type: 'unlock-stage', stageId: 'stage:junkyard-02' });
     expect(result.changed).toBe(true);
     expect(result.progression.unlocks).toContain('stage:junkyard-02');
   });
 
   it('unlock-equipment adds unlock ID', () => {
     const p = makeProgression();
-    const result = processGrant(p, { type: 'unlock-equipment', equipmentId: 'commando-helmet' });
+    const result = processGrant(p, { type: 'unlock-equipment', equipmentId: 'equipment:commando-helmet' });
     expect(result.changed).toBe(true);
     expect(result.progression.unlocks).toContain('equipment:commando-helmet');
   });
 
   it('unlock-part adds unlock ID', () => {
     const p = makeProgression();
-    const result = processGrant(p, { type: 'unlock-part', partId: 'incendiary-barrel' });
+    const result = processGrant(p, { type: 'unlock-part', partId: 'part:incendiary-barrel' });
     expect(result.changed).toBe(true);
     expect(result.progression.unlocks).toContain('part:incendiary-barrel');
   });
 
   it('unlock-trait adds unlock ID', () => {
     const p = makeProgression();
-    const result = processGrant(p, { type: 'unlock-trait', traitId: 'fire' });
+    const result = processGrant(p, { type: 'unlock-trait', traitId: 'trait:fire' });
     expect(result.changed).toBe(true);
     expect(result.progression.unlocks).toContain('trait:fire');
   });
 
   it('grant-item adds unlock ID', () => {
     const p = makeProgression();
-    const result = processGrant(p, { type: 'grant-item', itemId: 'scrap-shot' });
+    const result = processGrant(p, { type: 'grant-item', itemId: 'item:scrap-shot' });
     expect(result.changed).toBe(true);
     expect(result.progression.unlocks).toContain('item:scrap-shot');
   });
@@ -139,12 +141,32 @@ describe('grantProcessor — individual grants', () => {
   });
 });
 
+describe('durable grant transactions', () => {
+  it('replays a mixed transaction exactly once', () => {
+    const transaction = {
+      id: 'achievement:boss-crusher:completion',
+      grants: [
+        { type: 'grant-scrap' as const, amount: 100 },
+        { type: 'permanent-upgrade-level' as const, upgradeId: 'reinforced-vest', levels: 1 },
+        { type: 'achievement-completed' as const, achievementId: 'achievement:boss-crusher' },
+      ],
+    };
+    const once = applyDurableGrantTransaction(createDefaultSaveV3(), transaction);
+    const replay = applyDurableGrantTransaction(once.save, transaction);
+    expect(once.save.progression.scrap).toBe(100);
+    expect(once.save.progression.permanentUpgrades['reinforced-vest']).toBe(1);
+    expect(once.save.progression.unlocks).toContain('achievement:boss-crusher');
+    expect(replay.changed).toBe(false);
+    expect(replay.save).toBe(once.save);
+  });
+});
+
 describe('grantProcessor — batch grants', () => {
   it('applies multiple grants in sequence', () => {
     const p = makeProgression({ scrap: 0 });
     const grants: readonly ProgressionGrant[] = [
       { type: 'grant-scrap', amount: 100 },
-      { type: 'unlock-character', characterId: 'bolt-hound' },
+      { type: 'unlock-character', characterId: 'character:bolt-hound' },
       { type: 'permanent-upgrade-level', upgradeId: 'reinforced-vest', levels: 1 },
     ];
     const result = processGrants(p, grants);

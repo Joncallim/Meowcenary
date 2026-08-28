@@ -18,6 +18,7 @@ import {
   type SaveManager,
   type Settings,
 } from '../systems/save';
+import { applyDurableGrantTransaction, type DurableGrantTransaction } from '../gameplay/grantProcessor';
 
 export const GAME_CONTEXT_REGISTRY_KEY = 'meowcenary.gameContext';
 
@@ -87,6 +88,7 @@ export interface GameContext {
   readonly stages: StageRegistry;
   updateSettings(patch: Readonly<Partial<Settings>>): PersistenceUpdate<Settings>;
   updateMeta(transform: (meta: MetaState) => MetaState): PersistenceUpdate<MetaState>;
+  applyGrantTransaction(transaction: DurableGrantTransaction): boolean;
   /** Persist stage completion into Save V3 stages domain. Returns true if saved. */
   completeStage(stageId: string, timeMs: number): boolean;
   resetProgression(): PersistenceUpdate<MetaState>;
@@ -167,6 +169,16 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       const persisted = options.save.save(current);
       revalidateSelection();
       return Object.freeze({ value: progression, persisted });
+    },
+    applyGrantTransaction(transaction) {
+      const result = applyDurableGrantTransaction(current, transaction);
+      if (!result.changed) return true;
+      // Do not expose a reward that failed to become durable: retry receives
+      // the same source transaction ID against the unchanged snapshot.
+      if (!options.save.save(result.save)) return false;
+      current = result.save;
+      revalidateSelection();
+      return true;
     },
     resetProgression() { return context.updateMeta(() => createDefaultProgression()); },
     completeStage(stageId: string, timeMs: number): boolean {

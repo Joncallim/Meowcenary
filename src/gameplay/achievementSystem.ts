@@ -12,7 +12,7 @@
  * special cases, no save migration (catalog version and save version are
  * separate; see the #92 architecture §4).
  */
-import type { AchievementProgress, AchievementProgressState, CharacterMasteryState, ProgressionState, StageProgressState } from '../systems/save';
+import type { AchievementProgress, AchievementProgressState, BossProgressState, CharacterMasteryState, ProgressionState, StageProgressState } from '../systems/save';
 import type { ProgressionCondition } from './conditionEvaluator';
 import { evaluateCondition, type ConditionContext } from './conditionEvaluator';
 import type { ProgressionGrant } from './grantProcessor';
@@ -73,6 +73,8 @@ export interface AchievementFacts {
   readonly stages?: Readonly<StageProgressState>;
   /** Character mastery snapshot for mastery-reached conditions. */
   readonly characters?: Readonly<CharacterMasteryState>;
+  /** Durable gameplay facts, independent of achievement completion. */
+  readonly bosses?: Readonly<BossProgressState>;
 }
 
 /** Metric registry: stable metric IDs → current value extractor. */
@@ -130,6 +132,10 @@ export function evaluateAchievements(
     // New completion — exactly once. Progress reads exactly the target
     // (capped): completed progress is target, never the raw metric spike.
     completed.push(definition.id);
+    // Completion is itself a canonical durable unlock fact. Downstream
+    // consumers may reference achievement IDs without relying on a separate
+    // reward row to reconstruct that identity.
+    rewards.push({ type: 'achievement-completed', achievementId: definition.id });
     updates.push({
       id: definition.id,
       progress: Object.freeze({
@@ -161,6 +167,7 @@ function buildConditionContext(
     stages: facts.stages ?? {},
     achievements: state,
     characters: facts.characters ?? {},
+    bosses: facts.bosses ?? {},
   };
 }
 

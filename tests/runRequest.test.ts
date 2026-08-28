@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { createRunRequest, assembleRunRequest } from '../src/gameplay/runRequest';
+import { createRunRequest, createStageRunRequest, asLegacyComposedRunRequest, assembleRunRequest } from '../src/gameplay/runRequest';
 import { createRng } from '../src/engine/rng';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataArenaRegistry } from '../src/systems/arenas';
 import { loadGameData } from '../src/systems/validation';
 
 describe('runRequest', () => {
+  it('makes stage and legacy composition mutually explicit', () => {
+    const rng = createRng(1);
+    const stage = createStageRunRequest({ characterId: 'scrap-tabby', stageId: 'stage:junkyard-01', rng });
+    const legacy = asLegacyComposedRunRequest(createRunRequest({ characterId: 'scrap-tabby', arenaId: 'junkyard-lot', rng }));
+    expect(stage).toMatchObject({ kind: 'stage', stageId: 'stage:junkyard-01' });
+    expect(legacy).toMatchObject({ kind: 'legacy-arena', arenaId: 'junkyard-lot' });
+  });
   it('freezes its result', () => {
     const rng = createRng(42);
     const request = createRunRequest({ characterId: 'scrap-tabby', arenaId: 'arena', rng });

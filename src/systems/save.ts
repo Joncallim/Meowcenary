@@ -18,6 +18,12 @@ export interface ProgressionState {
   readonly permanentUpgrades: Readonly<Record<string, number>>;
 }
 
+/** Durable receipt IDs for source-owned progression transactions. */
+export type AppliedGrantTransactions = Readonly<Record<string, true>>;
+
+export interface BossProgress { readonly defeated: boolean; readonly firstDefeatedAt?: number }
+export type BossProgressState = Readonly<Record<string, BossProgress>>;
+
 /** Backward-compatible alias: all existing gameplay functions accept MetaState. */
 export type MetaState = ProgressionState;
 
@@ -54,7 +60,8 @@ export interface PartInstance {
 
 /** Placeholder: Equipment instance. Epic 25 defines the real shape. */
 export interface EquipmentInstance {
-  readonly setId: string;
+  /** Exact equipment catalog definition ID; never a set-derived alias. */
+  readonly equipmentId: string;
   readonly tier: number;
 }
 
@@ -89,6 +96,8 @@ export interface SaveDataV3 {
   readonly characters: CharacterMasteryState;
   readonly gunsmith: GunsmithState;
   readonly equipment: EquipmentState;
+  readonly bosses: BossProgressState;
+  readonly appliedGrantTransactions: AppliedGrantTransactions;
 }
 
 export type SaveData = SaveDataV3;
@@ -129,6 +138,8 @@ export function createDefaultSaveV3(): SaveDataV3 {
     characters: {},
     gunsmith: { builds: [], parts: {} },
     equipment: {},
+    bosses: {},
+    appliedGrantTransactions: {},
   });
 }
 
@@ -205,6 +216,8 @@ export function migrateV2ToV3(raw: Readonly<Record<string, unknown>>, maxLevels:
     characters: {},
     gunsmith: { builds: [], parts: {} },
     equipment: {},
+    bosses: {},
+    appliedGrantTransactions: {},
   });
 }
 
@@ -245,6 +258,8 @@ function decodeSave(raw: unknown, maxLevels: MetaUpgradeMaxLevels): SaveDecodeRe
         characters: sanitizeCharacterMastery(readOwn(parsed, 'characters')),
         gunsmith: sanitizeGunsmithState(readOwn(parsed, 'gunsmith')),
         equipment: sanitizeEquipmentState(readOwn(parsed, 'equipment')),
+        bosses: sanitizeBossProgress(readOwn(parsed, 'bosses')),
+        appliedGrantTransactions: sanitizeAppliedGrantTransactions(readOwn(parsed, 'appliedGrantTransactions')),
       }),
       unsupportedFutureVersion: false,
     };
@@ -265,6 +280,8 @@ function migrateV1ToV3(raw: Readonly<Record<string, unknown>>): SaveDataV3 {
     characters: {},
     gunsmith: { builds: [], parts: {} },
     equipment: {},
+    bosses: {},
+    appliedGrantTransactions: {},
   });
 }
 
@@ -382,16 +399,39 @@ function sanitizeEquipmentState(raw: unknown): EquipmentState {
     if (!isContentId(key)) continue;
     const entry = readOwn(raw as Record<string, unknown>, key);
     if (!isPlainRecord(entry)) continue;
-    const setId = readOwn(entry, 'setId');
+    const equipmentId = readOwn(entry, 'equipmentId');
     const tier = readOwn(entry, 'tier');
-    if (typeof setId === 'string') {
+    // Existing V3 entries used { setId, tier } under an instance/definition
+    // key. Preserve the key and recover the definition ID from it once.
+    const canonicalId = typeof equipmentId === 'string' ? equipmentId : key;
+    if (isContentId(canonicalId) || isUnlockId(canonicalId)) {
       result[key] = {
-        setId,
+        equipmentId: canonicalId,
         tier: Number.isSafeInteger(tier) && (tier as number) >= 0 ? tier as number : 0,
       };
     }
   }
   return result;
+}
+
+function sanitizeBossProgress(raw: unknown): BossProgressState {
+  if (!isPlainRecord(raw)) return {};
+  const result: Record<string, BossProgress> = Object.create(null);
+  for (const id of Object.keys(raw)) {
+    if (!isContentId(id) && !isUnlockId(id)) continue;
+    const value = readOwn(raw, id);
+    if (!isPlainRecord(value) || readOwn(value, 'defeated') !== true) continue;
+    const firstDefeatedAt = readOwn(value, 'firstDefeatedAt');
+    result[id] = { defeated: true, ...(Number.isSafeInteger(firstDefeatedAt) && (firstDefeatedAt as number) > 0 ? { firstDefeatedAt: firstDefeatedAt as number } : {}) };
+  }
+  return Object.freeze(result);
+}
+
+function sanitizeAppliedGrantTransactions(raw: unknown): AppliedGrantTransactions {
+  if (!isPlainRecord(raw)) return {};
+  const result: Record<string, true> = Object.create(null);
+  for (const id of Object.keys(raw)) if (isUnlockId(id)) result[id] = true;
+  return Object.freeze(result);
 }
 
 // ── SaveManager ──────────────────────────────────────────────────────
@@ -432,6 +472,8 @@ export class SaveManager {
         characters: sanitizeCharacterMastery(data.characters),
         gunsmith: sanitizeGunsmithState(data.gunsmith),
         equipment: sanitizeEquipmentState(data.equipment),
+        bosses: sanitizeBossProgress(data.bosses),
+        appliedGrantTransactions: sanitizeAppliedGrantTransactions(data.appliedGrantTransactions),
       });
       return this.storage.setItem(this.key, JSON.stringify(sanitized)) === true;
     } catch {
@@ -530,6 +572,8 @@ function freezeSaveV3(save: SaveDataV3): SaveDataV3 {
       parts: Object.freeze({ ...save.gunsmith.parts }),
     }),
     equipment: Object.freeze({ ...save.equipment }),
+    bosses: Object.freeze({ ...save.bosses }),
+    appliedGrantTransactions: Object.freeze({ ...save.appliedGrantTransactions }),
   });
 }
 

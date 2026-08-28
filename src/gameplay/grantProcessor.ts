@@ -7,7 +7,7 @@
  * application is exactly-once where the source is exactly-once. UI cannot
  * grant persistent state directly.
  */
-import type { ProgressionState } from '../systems/save';
+import type { ProgressionState, SaveDataV3 } from '../systems/save';
 import { addUnlocks } from './meta';
 
 export type ProgressionGrant =
@@ -31,6 +31,25 @@ export interface GrantResult {
   readonly changed: boolean;
 }
 
+/** A source-owned, durable reward event. `id` is a receipt key, never a
+ * catalog or instance ID. Replaying it is deliberately a no-op. */
+export interface DurableGrantTransaction {
+  readonly id: string;
+  readonly grants: readonly ProgressionGrant[];
+}
+
+export interface DurableGrantResult { readonly save: SaveDataV3; readonly changed: boolean }
+
+/** Applies all grants and records their receipt in one immutable save
+ * snapshot. Persistence/publishing is owned by GameContext; it must publish
+ * this snapshot only after SaveManager.save succeeds. */
+export function applyDurableGrantTransaction(save: SaveDataV3, transaction: DurableGrantTransaction): DurableGrantResult {
+  if (!transaction.id || save.appliedGrantTransactions[transaction.id]) return { save, changed: false };
+  const result = processGrants(save.progression, transaction.grants);
+  const appliedGrantTransactions = Object.freeze({ ...save.appliedGrantTransactions, [transaction.id]: true as const });
+  return { save: Object.freeze({ ...save, progression: result.progression, appliedGrantTransactions }), changed: true };
+}
+
 /**
  * Applies a single ProgressionGrant to the given ProgressionState.
  * Returns a new frozen ProgressionState if the grant actually changed
@@ -47,23 +66,23 @@ export function processGrant(
       return applyScrap(progression, grant.amount);
 
     case 'unlock-stage':
-      return applyUnlock(progression, `stage:${grant.stageId}`);
+      return applyUnlock(progression, grant.stageId);
 
     case 'unlock-character':
-      return applyUnlock(progression, `character:${grant.characterId}`);
+      return applyUnlock(progression, grant.characterId);
 
     case 'unlock-equipment':
-      return applyUnlock(progression, `equipment:${grant.equipmentId}`);
+      return applyUnlock(progression, grant.equipmentId);
 
     case 'unlock-part':
-      return applyUnlock(progression, `part:${grant.partId}`);
+      return applyUnlock(progression, grant.partId);
 
     case 'unlock-trait':
-      return applyUnlock(progression, `trait:${grant.traitId}`);
+      return applyUnlock(progression, grant.traitId);
 
     case 'grant-item':
       // Durable item grants are unlock-only in V3; runtime items use LootGrant.
-      return applyUnlock(progression, `item:${grant.itemId}`);
+      return applyUnlock(progression, grant.itemId);
 
     case 'achievement-completed':
       return applyUnlock(progression, grant.achievementId);

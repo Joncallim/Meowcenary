@@ -31,6 +31,8 @@ describe('Save V3 migration (V2→V3)', () => {
       characters: {},
       gunsmith: { builds: [], parts: {} },
       equipment: {},
+      bosses: {},
+      appliedGrantTransactions: {},
     });
     expect(first).not.toBe(second);
     expect(Object.isFrozen(first)).toBe(true);

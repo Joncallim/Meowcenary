@@ -65,7 +65,7 @@ describe('Epic 22 achievement catalog conformance', () => {
 
   it('has a resolvable boss reference in the boss achievement', () => {
     const boss = definitions.find((d) => d.id === 'achievement:boss-crusher');
-    expect(boss?.condition).toMatchObject({ type: 'boss-defeated', bossId: 'crusher' });
+    expect(boss?.condition).toMatchObject({ type: 'boss-defeated', bossId: 'boss-crusher' });
     // boss-crusher is the shipped boss enemy from Epic 21
     expect(dataEnemyIds()).toContain('boss-crusher');
   });
