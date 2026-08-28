@@ -29,9 +29,11 @@ describe('CharacterSelectionController', () => {
     expect(Object.isFrozen(snapshot.characters)).toBe(true);
     expect(snapshot.selectedCharacterId).toBe('scrap-tabby');
     expect(snapshot.revision).toBe(1);
-    expect(snapshot.characters).toHaveLength(2);
+    expect(snapshot.characters).toHaveLength(8);
     expect(snapshot.characters[0]).toMatchObject({ id: 'scrap-tabby', locked: false, selected: true });
-    expect(snapshot.characters[1]).toMatchObject({ id: 'bolt-hound', locked: true, selected: false });
+    // Only the default character is unlocked on a fresh save.
+    const unlocked = snapshot.characters.filter((c) => !c.locked);
+    expect(unlocked.map((c) => c.id)).toEqual(['scrap-tabby']);
   });
 
   it('select enforces revision token', () => {

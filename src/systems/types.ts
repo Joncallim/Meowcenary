@@ -4,6 +4,7 @@ import type { PlayerBaseStats } from '../gameplay/runStart';
 import type { GameEventKey } from '../engine/eventBus';
 import type { AchievementDefinition } from '../gameplay/achievementSystem';
 import type { PartDefinition } from '../gameplay/gunsmith';
+import type { AbilityDefinition } from '../gameplay/abilities';
 import type {
   StageDefinition,
   EncounterProfile,
@@ -402,6 +403,8 @@ export interface CharacterDefinition {
   readonly description: string;
   readonly baseStats: Readonly<PlayerBaseStats>;
   readonly startingWeaponIds: readonly string[];
+  /** Epic 24: registered active ability (stable ability: id). */
+  readonly abilityId?: string;
   readonly passives: readonly CharacterPassiveDefinition[];
   readonly unlock: UnlockRule;
   readonly cosmeticSkinIds: readonly string[];
@@ -504,4 +507,5 @@ export interface GameData {
   readonly rewardProfiles?: readonly RewardProfile[];
   readonly achievements?: readonly AchievementDefinition[];
   readonly gunParts?: readonly PartDefinition[];
+  readonly abilities?: readonly AbilityDefinition[];
 }

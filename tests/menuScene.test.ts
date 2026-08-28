@@ -723,7 +723,7 @@ describe('MenuScene', () => {
 
   it.each([
     { name: 'home', steps: 0, expected: ['Start', 'Character', 'Arena', 'Progression', 'Settings'] },
-    { name: 'character', steps: 1, expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', '< Back'] },
+    { name: 'character', steps: 1, expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', 'Volt Lynx 🔒', 'Brass Boar 🔒', 'Ember Cougar 🔒', 'Scrap Weasel 🔒', 'Rattle Raptor 🔒', 'Piston Ram 🔒', '< Back'] },
     { name: 'arena', steps: 2, expected: ['✓ Junkyard Lot', '< Back'] },
     {
       name: 'progression',
