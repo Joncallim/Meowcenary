@@ -52,6 +52,8 @@ export interface StageDefinition {
   readonly chapterId: string; // e.g. 'chapter:junkyard'
   readonly displayOrder: number; // never a persistence key
   readonly arenaId: string;
+  /** Validated content bundle containing the stage's required visual assets. */
+  readonly assetBundleId: string;
   readonly objective: ObjectiveType;
   readonly encounterProfileId: string;
   readonly difficultyProfileId: string;

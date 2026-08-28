@@ -142,6 +142,7 @@ describe('Epic 20 stage catalog conformance', () => {
       chapterId: 'chapter:junkyard',
       displayOrder: 6,
       arenaId: stages[0].arenaId,
+      assetBundleId: stages[0].assetBundleId,
       objective: { type: 'kill', count: 5 },
       encounterProfileId: encounters[0].id,
       difficultyProfileId: difficulties[0].id,

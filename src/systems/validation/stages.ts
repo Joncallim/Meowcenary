@@ -36,6 +36,9 @@ export const checkStage: RowCheckFn = (row: unknown, _index: number): string[] =
   if (typeof s.arenaId !== 'string' || !isContentId(s.arenaId)) {
     errors.push('arenaId: must be a valid content ID');
   }
+  if (typeof s.assetBundleId !== 'string' || !isUnlockId(s.assetBundleId) || !s.assetBundleId.startsWith('bundle:')) {
+    errors.push('assetBundleId: must be a valid bundle ID');
+  }
 
   // objective
   if (!s.objective || typeof s.objective !== 'object') {

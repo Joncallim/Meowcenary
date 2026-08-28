@@ -88,6 +88,7 @@ describe('Alpha 3 shared foundation canonical contracts', () => {
       chapterId: 'chapter:junkyard',
       displayOrder: 99,
       arenaId: stages[0].arenaId,
+      assetBundleId: stages[0].assetBundleId,
       objective: { type: 'kill', count: 2 },
       encounterProfileId: encounters[0].id,
       difficultyProfileId: difficulties[0].id,
