@@ -3,7 +3,7 @@ import type { Modifier } from './stats';
 import type { MetaUpgradeDefinition } from '../systems/types';
 import type { MetaState } from '../systems/save';
 import type { MetaUpgradeLookup } from '../systems/metaUpgrades';
-import { isUnlockId } from '../systems/ids';
+import { isContentId, isUnlockId } from '../systems/ids';
 import { growth } from './curves';
 
 export type PurchaseFailureReason = 'unknown-upgrade' | 'insufficient-scrap' | 'max-level';
@@ -54,14 +54,14 @@ export function purchase(meta: MetaState, upgradeId: string, upgrades: MetaUpgra
 }
 
 export function isUnlocked(meta: MetaState, id: string): boolean {
-  return isUnlockId(id) && meta.unlocks.includes(id);
+  return (isUnlockId(id) || isContentId(id)) && meta.unlocks.includes(id);
 }
 
 export function addUnlocks(meta: MetaState, ids: readonly string[]): MetaState {
   const next = [...meta.unlocks];
   const seen = new Set(next);
   for (const id of ids) {
-    if (isUnlockId(id) && !seen.has(id)) { seen.add(id); next.push(id); }
+    if ((isUnlockId(id) || isContentId(id)) && !seen.has(id)) { seen.add(id); next.push(id); }
   }
   return next.length === meta.unlocks.length ? meta : freezeMeta({ ...meta, unlocks: next });
 }

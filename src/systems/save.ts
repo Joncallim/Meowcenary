@@ -1,5 +1,5 @@
 import { RuntimeConfig } from '../engine/config';
-import { isContentId, isUnlockId } from './ids';
+import { isContentId, isGrantTransactionId, isUnlockId } from './ids';
 
 export interface Settings {
   readonly muted: boolean;
@@ -181,7 +181,7 @@ function sanitizeProgressionRecord(raw: unknown, maxLevels: MetaUpgradeMaxLevels
   const seenUnlocks = new Set<string>();
   if (Array.isArray(unlocksRaw)) {
     for (const id of unlocksRaw) {
-      if (typeof id === 'string' && isUnlockId(id) && !seenUnlocks.has(id)) {
+      if (typeof id === 'string' && (isUnlockId(id) || isContentId(id)) && !seenUnlocks.has(id)) {
         seenUnlocks.add(id);
         unlocks.push(id);
       }
@@ -430,7 +430,7 @@ function sanitizeBossProgress(raw: unknown): BossProgressState {
 function sanitizeAppliedGrantTransactions(raw: unknown): AppliedGrantTransactions {
   if (!isPlainRecord(raw)) return {};
   const result: Record<string, true> = Object.create(null);
-  for (const id of Object.keys(raw)) if (isUnlockId(id)) result[id] = true;
+  for (const id of Object.keys(raw)) if (isGrantTransactionId(id)) result[id] = true;
   return Object.freeze(result);
 }
 

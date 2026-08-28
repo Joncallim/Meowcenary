@@ -281,7 +281,7 @@ describe('sanitizeProgression edge cases', () => {
   it('filters non-unlock-id unlocks', () => {
     const raw = {
       scrap: 0,
-      unlocks: ['character:cat', 'bad', 'character:cat', 'also bad'],
+    unlocks: ['character:cat', 'bad value', 'character:cat', 'also bad'],
       permanentUpgrades: {},
     };
     const result = sanitizeProgression(raw, limits);

@@ -66,7 +66,7 @@ describe('grantProcessor — individual grants', () => {
 
   it('unlock-character is idempotent', () => {
     const p = makeProgression({ unlocks: ['character:bolt-hound'] });
-    const result = processGrant(p, { type: 'unlock-character', characterId: 'bolt-hound' });
+    const result = processGrant(p, { type: 'unlock-character', characterId: 'character:bolt-hound' });
     expect(result.changed).toBe(false);
     expect(result.progression).toBe(p);
   });
@@ -184,7 +184,7 @@ describe('grantProcessor — batch grants', () => {
     });
     const grants: readonly ProgressionGrant[] = [
       { type: 'grant-scrap', amount: 0 },
-      { type: 'unlock-character', characterId: 'bolt-hound' },
+      { type: 'unlock-character', characterId: 'character:bolt-hound' },
       { type: 'permanent-upgrade-level', upgradeId: 'reinforced-vest', levels: 0 },
     ];
     const result = processGrants(p, grants);

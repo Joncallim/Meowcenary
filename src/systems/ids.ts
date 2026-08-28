@@ -8,3 +8,8 @@ export function isContentId(value: string): boolean {
 export function isUnlockId(value: string): boolean {
   return UNLOCK_ID.test(value);
 }
+
+/** Source-owned durable receipt, deliberately separate from content IDs. */
+export function isGrantTransactionId(value: string): boolean {
+  return /^[a-z][a-z0-9-]*(?::[a-z][a-z0-9-]*)+$/.test(value);
+}

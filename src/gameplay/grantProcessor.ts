@@ -9,6 +9,7 @@
  */
 import type { ProgressionState, SaveDataV3 } from '../systems/save';
 import { addUnlocks } from './meta';
+import { isGrantTransactionId } from '../systems/ids';
 
 export type ProgressionGrant =
   | { readonly type: 'grant-scrap'; readonly amount: number }
@@ -44,7 +45,8 @@ export interface DurableGrantResult { readonly save: SaveDataV3; readonly change
  * snapshot. Persistence/publishing is owned by GameContext; it must publish
  * this snapshot only after SaveManager.save succeeds. */
 export function applyDurableGrantTransaction(save: SaveDataV3, transaction: DurableGrantTransaction): DurableGrantResult {
-  if (!transaction.id || save.appliedGrantTransactions[transaction.id]) return { save, changed: false };
+  if (!isGrantTransactionId(transaction.id)) return { save, changed: false };
+  if (Object.prototype.hasOwnProperty.call(save.appliedGrantTransactions, transaction.id)) return { save, changed: false };
   const result = processGrants(save.progression, transaction.grants);
   const appliedGrantTransactions = Object.freeze({ ...save.appliedGrantTransactions, [transaction.id]: true as const });
   return { save: Object.freeze({ ...save, progression: result.progression, appliedGrantTransactions }), changed: true };
