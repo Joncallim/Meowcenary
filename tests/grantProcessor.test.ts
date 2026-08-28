@@ -168,6 +168,20 @@ describe('durable grant transactions', () => {
     expect(replay.save).toBe(once.save);
   });
 
+  it('replays a durable owned-part inventory reward without minting a second instance', () => {
+    const save = createDefaultSaveV3();
+    const transaction = {
+      id: 'stage:junkyard-01:part-reward',
+      grants: [{ type: 'grant-part-instance' as const, instanceId: 'reward:stage-01-barrel', partId: 'part:barrel-standard', tier: 1 }],
+    };
+    const once = applyDurableGrantTransaction(save, transaction);
+    expect(once).toMatchObject({ valid: true, changed: true });
+    expect(once.save.gunsmith.parts['reward:stage-01-barrel']).toMatchObject({ partId: 'part:barrel-standard', tier: 1 });
+    const replay = applyDurableGrantTransaction(once.save, transaction);
+    expect(replay.changed).toBe(false);
+    expect(Object.keys(replay.save.gunsmith.parts)).toEqual(['reward:stage-01-barrel']);
+  });
+
   it('keeps the receipt across save/load so retry cannot duplicate mixed rewards', () => {
     const transaction = {
       id: 'stage:junkyard-01:first-clear',

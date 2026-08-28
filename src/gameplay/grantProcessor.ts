@@ -9,7 +9,7 @@
  */
 import type { ProgressionState, SaveDataV3 } from '../systems/save';
 import { addUnlocks } from './meta';
-import { isContentId, isGrantTransactionId, isUnlockId } from '../systems/ids';
+import { isContentId, isGrantTransactionId, isInstanceId, isUnlockId } from '../systems/ids';
 
 export type ProgressionGrant =
   | { readonly type: 'grant-scrap'; readonly amount: number }
@@ -18,6 +18,9 @@ export type ProgressionGrant =
   | { readonly type: 'unlock-equipment'; readonly equipmentId: string }
   | { readonly type: 'unlock-part'; readonly partId: string }
   | { readonly type: 'unlock-trait'; readonly traitId: string }
+  /** A source-owned persistent inventory reward. The caller supplies an
+   * opaque stable instance ID, so replay can never mint a second copy. */
+  | { readonly type: 'grant-part-instance'; readonly instanceId: string; readonly partId: string; readonly tier?: number }
   | { readonly type: 'grant-item'; readonly itemId: string; readonly amount?: number }
   | { readonly type: 'achievement-completed'; readonly achievementId: string }
   | { readonly type: 'permanent-upgrade-level'; readonly upgradeId: string; readonly levels: number };
@@ -57,9 +60,24 @@ export function applyDurableGrantTransaction(save: SaveDataV3, transaction: Dura
   // without its receipt.
   if (!isValidTransaction(transaction)) return { save, valid: false, changed: false };
   if (Object.prototype.hasOwnProperty.call(save.appliedGrantTransactions, transaction.id)) return { save, valid: true, changed: false };
-  const result = processGrants(save.progression, transaction.grants);
+  const partGrants = transaction.grants.filter((grant): grant is Extract<ProgressionGrant, { type: 'grant-part-instance' }> => grant.type === 'grant-part-instance');
+  // Reject a new transaction that collides with a pre-existing owned copy.
+  // Treating it as a no-op while recording the receipt would silently lose
+  // the source reward; a producer must choose a unique stable instance key.
+  if (partGrants.some((grant) => Object.hasOwn(save.gunsmith.parts, grant.instanceId))) {
+    return { save, valid: false, changed: false };
+  }
+  const result = processGrants(save.progression, transaction.grants.filter((grant) => grant.type !== 'grant-part-instance'));
+  const parts = Object.freeze({
+    ...save.gunsmith.parts,
+    ...Object.fromEntries(partGrants.map((grant) => [grant.instanceId, Object.freeze({
+      partId: grant.partId,
+      tier: grant.tier ?? 1,
+      infusedTraits: Object.freeze([]),
+    })])),
+  });
   const appliedGrantTransactions = Object.freeze({ ...save.appliedGrantTransactions, [transaction.id]: true as const });
-  return { save: Object.freeze({ ...save, progression: result.progression, appliedGrantTransactions }), valid: true, changed: true };
+  return { save: Object.freeze({ ...save, progression: result.progression, gunsmith: Object.freeze({ ...save.gunsmith, parts }), appliedGrantTransactions }), valid: true, changed: true };
 }
 
 function isValidTransaction(transaction: DurableGrantTransaction): boolean {
@@ -82,6 +100,9 @@ function isValidGrant(grant: unknown): grant is ProgressionGrant {
     case 'unlock-equipment': return validPrefix('equipmentId', 'equipment:');
     case 'unlock-part': return validPrefix('partId', 'part:');
     case 'unlock-trait': return validPrefix('traitId', 'trait:');
+    case 'grant-part-instance': return typeof value.instanceId === 'string' && isInstanceId(value.instanceId)
+      && validPrefix('partId', 'part:')
+      && (value.tier === undefined || (Number.isSafeInteger(value.tier) && (value.tier as number) >= 1 && (value.tier as number) <= 5));
     case 'grant-item': return validPrefix('itemId', 'item:') && (value.amount === undefined || (Number.isSafeInteger(value.amount) && (value.amount as number) > 0));
     case 'achievement-completed': return validPrefix('achievementId', 'achievement:');
     case 'permanent-upgrade-level': return typeof value.upgradeId === 'string' && isContentId(value.upgradeId) && Number.isSafeInteger(value.levels) && (value.levels as number) > 0;
