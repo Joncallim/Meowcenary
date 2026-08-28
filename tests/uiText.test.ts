@@ -189,7 +189,9 @@ describe('createUiText', () => {
     const migratedSites = files
       .filter((file) => resolve(file) !== UI_TEXT_FILE)
       .flatMap((file) => findCreateUiTextCalls(programSourceFile(program, file), checker));
-    expect(migratedSites).toHaveLength(41);
+    // Keep this deliberate inventory in sync with visible UI text. The touch
+    // ability glyph is also created through the shared factory.
+    expect(migratedSites).toHaveLength(42);
 
     const constructorCalls = findCreateUiTextCalls(programSourceFile(program, UI_TEXT_FILE), checker);
     expect(constructorCalls).toHaveLength(0);

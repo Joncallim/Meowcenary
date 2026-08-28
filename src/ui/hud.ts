@@ -198,12 +198,17 @@ function topHudLayout(viewport: UiViewport): TopHudLayout {
   };
 }
 
-/** Bottom of the rendered stats stack; the font-metric allowance is shared by
- * every viewport while the test measures child bounds independently. */
+/** Bottom of the rendered stats stack plus the three independent feedback
+ * rows (objective, active ability state, achievement). */
 export function topHudContentBottom(viewport: UiViewport): number {
   const layout = topHudLayout(viewport);
   const renderedLabelRow = layout.labelSize * 1.25;
-  return layout.statsTop + layout.statsStride * 3 + renderedLabelRow;
+  // Portrait needs independent, readable feedback rows. Landscape has less
+  // than half as much vertical playfield, so it deliberately retains the
+  // compact one-line summary instead of allowing the HUD plate into play.
+  const feedbackRows = (viewport.containerHeight ?? viewport.displayHeight)
+    > (viewport.containerWidth ?? viewport.displayWidth) ? 3 : 1;
+  return layout.statsTop + layout.statsStride * (2 + feedbackRows) + renderedLabelRow;
 }
 
 export class PhaserHudView implements HudView {
@@ -255,7 +260,10 @@ export class PhaserHudView implements HudView {
     this.levelText.setText(`Level ${snapshot.level}`);
     this.killsText.setText(`Kills ${formatNumber(snapshot.kills)}`);
     this.scrapText.setText(`Scrap ${formatNumber(Math.floor(snapshot.currency))}`);
-    this.objectiveText.setText([snapshot.objective, snapshot.ability, snapshot.achievement].filter(Boolean).join('  •  '));
+    const feedback = [snapshot.objective, snapshot.ability, snapshot.achievement].filter(Boolean);
+    const portraitFeedback = (this.viewport?.containerHeight ?? this.viewport?.displayHeight ?? this.scene.scale.displaySize.height)
+      > (this.viewport?.containerWidth ?? this.viewport?.displayWidth ?? this.scene.scale.displaySize.width);
+    this.objectiveText.setText(feedback.join(portraitFeedback ? '\n' : '  •  '));
 
   }
 
@@ -375,7 +383,10 @@ export class PhaserHudView implements HudView {
     this.scrapText.setScrollFactor(0);
     this.scrapText.setDepth(ThemeDepth.hud);
 
-    this.objectiveText = createUiText(scene, layout.margin, layout.statsTop + layout.statsStride * 3, '', labelStyle);
+    this.objectiveText = createUiText(scene, layout.margin, layout.statsTop + layout.statsStride * 3, '', {
+      ...labelStyle,
+      wordWrap: { width: layout.healthBarWidth },
+    });
     this.objectiveText.setScrollFactor(0);
     this.objectiveText.setDepth(ThemeDepth.hud);
 

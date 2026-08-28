@@ -703,7 +703,7 @@ describe('Epic 19 playtest fixes: four-viewport HUD soak', () => {
       expect((kills.y - xpBg!.state.y - xpBg!.state.height / 2) * fitScale(targetWidth, targetHeight) * GAMEPLAY_ZOOM)
         .toBeGreaterThanOrEqual(8 - 0.01);
       if (targetWidth === 844 && targetHeight === 390) {
-        const hint = live.find((object) => object.state.text === 'Drag to move • Tap pause')!;
+        const hint = live.find((object) => object.state.text === 'Drag to move • Tap A ability • Tap pause')!;
         expect((hint.state.y - scrap.y) * fitScale(targetWidth, targetHeight) * GAMEPLAY_ZOOM)
           .toBeGreaterThanOrEqual(76.2 - 0.01);
       }
