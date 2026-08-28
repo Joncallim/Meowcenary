@@ -1,6 +1,6 @@
 # Alpha 3 Shared Foundation
 
-> Status: architecture gate for Alpha 3. Tracks #92.
+> Status: implementation-locked architecture gate for Alpha 3. Tracks #92.
 > This document sits between the Alpha 2 Golden Run and Epic 20 runtime implementation. It does not introduce a new player-facing Epic and does not renumber Epics 20–26.
 
 ## 1. Purpose
@@ -17,6 +17,34 @@ Also read:
 - [`../epics.md`](../epics.md)
 - [`../roadmap.md`](../roadmap.md)
 - Issue #92
+
+## 1.1 Implemented contract decisions
+
+The following decisions are now executable contracts, rather than proposals:
+
+- `ComposedRunRequest` is a discriminated union: normal launches use
+  `{ kind: 'stage', characterId, stageId, seed }`; legacy arena launches must
+  use the explicit `{ kind: 'legacy-arena', characterId, arenaId, seed }`
+  constructor. A stale normal-stage selection repairs to the catalog default;
+  it never silently becomes a legacy arena run.
+- `resolveRunPlan` is the sole stage-reference resolver. `GameScene` consumes
+  the resolved plan and has no stage-ID branch. The arena spawn curve remains
+  a narrow legacy compatibility input only.
+- `SaveDataV3` owns sparse stage, boss, achievement, achievement-metric,
+  character, Gunsmith-owned-instance, equipment-owned-instance/loadout and
+  durable-receipt domains. `GameContext` is the only persistence boundary.
+- A `DurableGrantTransaction` has a source-owned receipt ID. Its grants and
+  receipt are saved together; a replay is a no-op. Publishing occurs only
+  after persistence succeeds.
+- Catalog/global IDs pass through conditions, grants and saves verbatim.
+  Definition IDs, owned instance IDs and receipt IDs are distinct namespaces;
+  no grant processor reconstructs prefixes.
+- Conditions consume saved gameplay facts. In particular `boss-defeated`
+  reads `SaveDataV3.bosses`, never an achievement derived from that fact.
+
+The mandatory #94 certification prerequisite remains open because #78's
+real-device evidence is still outstanding. This document records the safe
+automatable contract baseline; it does not claim that prerequisite has passed.
 
 ## 2. Current Compatibility Baseline
 
@@ -66,7 +94,7 @@ Epic 20 architecture must define an explicit migration/deprecation path rather t
 
 The current `RunRequest` should evolve toward a stage-oriented request without making UI/scenes resolve stage internals themselves.
 
-Conceptual direction:
+Implemented boundary:
 
 ```ts
 interface StageRunRequest {
@@ -87,7 +115,7 @@ interface ResolvedRunPlan {
 }
 ```
 
-Exact names/types belong to the #92/Epic 20 architecture pass, but the ownership is frozen:
+The ownership is frozen:
 
 - menu/stage selection chooses a stage ID;
 - one pure resolver validates/constructs the run plan;
@@ -159,7 +187,7 @@ The current `GameContext.updateMeta()` concept may evolve, but Alpha 3 must not 
 
 The architecture should prefer domain-scoped commands/transactions over arbitrary UI mutation of the entire save.
 
-Conceptual direction:
+Implemented mutation boundary:
 
 ```text
 UI / gameplay fact
@@ -268,7 +296,10 @@ type ProgressionGrant =
   | { type: 'grant-item'; itemId: string; amount?: number };
 ```
 
-Exact initial variants belong to #92 and the consuming epics.
+`DurableGrantTransaction` wraps one or more of these grants with a separate
+source receipt ID. Individual pure grants are intentionally additive; only a
+durable transaction is retry-safe. This prevents callers from mistaking a
+numeric reward helper for an exactly-once boundary.
 
 Rules:
 
