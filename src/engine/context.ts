@@ -201,6 +201,22 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       return true;
     },
     completeStageTransaction(stageId, timeMs, bossId, transaction) {
+      // Stage facts are part of the same durable transaction as the reward
+      // receipt.  Validate the source-owned identifiers before writing that
+      // receipt: otherwise a malformed callback could permanently consume a
+      // reward transaction without ever producing its corresponding fact.
+      const definition = stages.stageById(stageId);
+      if (!definition || !Number.isFinite(timeMs) || timeMs < 0) return false;
+      if (bossId !== undefined && definition.bossId !== bossId) return false;
+
+      // A receipt asserts that the complete transaction was committed.  Do
+      // not silently report success when a corrupted or hand-edited save has
+      // retained the receipt but lost one of the facts it certifies.
+      if (current.appliedGrantTransactions[transaction.id] === true) {
+        if (current.stages[stageId]?.completed !== true) return false;
+        if (bossId !== undefined && current.bosses[bossId]?.defeated !== true) return false;
+        return true;
+      }
       const granted = applyDurableGrantTransaction(current, transaction);
       if (!granted.changed) return true;
       const previous = current.stages[stageId];
@@ -245,7 +261,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     },
     resetProgression() { return context.updateMeta(() => createDefaultProgression()); },
     completeStage(stageId: string, timeMs: number): boolean {
-      if (!options.stages?.stageById(stageId) || !Number.isFinite(timeMs) || timeMs < 0) return false;
+      if (!stages.stageById(stageId) || !Number.isFinite(timeMs) || timeMs < 0) return false;
       const progress = current.stages[stageId];
       const newProgress = {
         completed: true,
