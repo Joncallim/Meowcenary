@@ -183,3 +183,26 @@ export function assertAchievementEquipmentGrantReferences(
     }
   }
 }
+
+/** An achievement cannot use its own completed state as its unlock fact.
+ * That definition is permanently unsatisfiable and was the historical boss
+ * achievement failure mode. */
+export function assertNoSelfReferentialAchievementConditions(
+  achievements: readonly { id: string; condition?: unknown }[],
+): void {
+  for (const achievement of achievements) {
+    if (conditionReferencesAchievement(achievement.condition, achievement.id)) {
+      throw new Error(`achievement.${achievement.id}: condition cannot reference its own completion`);
+    }
+  }
+}
+
+function conditionReferencesAchievement(condition: unknown, achievementId: string): boolean {
+  if (!condition || typeof condition !== 'object') return false;
+  const value = condition as Record<string, unknown>;
+  if (value.type === 'achievement-completed' && value.achievementId === achievementId) return true;
+  if ((value.type === 'all' || value.type === 'any') && Array.isArray(value.conditions)) {
+    return value.conditions.some((child) => conditionReferencesAchievement(child, achievementId));
+  }
+  return value.type === 'not' && conditionReferencesAchievement(value.condition, achievementId);
+}

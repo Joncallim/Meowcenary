@@ -91,7 +91,7 @@ import {
   assertStageRewardGrantReferences,
   assertStageUnlockReferences,
 } from './validation/stages';
-import { checkAchievement, assertAchievementMetricReferences, assertUniqueAchievementPlatformMappings, assertAchievementEquipmentGrantReferences } from './validation/achievements';
+import { checkAchievement, assertAchievementMetricReferences, assertUniqueAchievementPlatformMappings, assertAchievementEquipmentGrantReferences, assertNoSelfReferentialAchievementConditions } from './validation/achievements';
 import { registeredMetricIds } from './achievements';
 import { checkPart, assertPartEffectSources } from './validation/parts';
 import { checkAbility } from './validation/abilities';
@@ -630,6 +630,7 @@ export function validateGameData(raw: unknown): GameData {
   // Epic 22: achievement metric references (appended, preserving frozen order).
   assertAchievementMetricReferences(achievements, new Set(registeredMetricIds()));
   assertUniqueAchievementPlatformMappings(achievements);
+  assertNoSelfReferentialAchievementConditions(achievements);
   assertAchievementEquipmentGrantReferences(achievements, new Set((catalogs.equipment as EquipmentDefinition[]).map((equipment) => equipment.id)));
 
   // Epic 23: gun-part effect sources (appended, preserving frozen order).
