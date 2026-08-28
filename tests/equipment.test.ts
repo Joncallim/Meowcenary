@@ -58,6 +58,13 @@ describe('Epic 25 equipment catalog conformance', () => {
     }
   });
 
+  it('ships all four obtainable slots for every advertised initial set', () => {
+    for (const setId of Object.keys(SET_BONUSES)) {
+      expect(new Set(definitions.filter((definition) => definition.setId === setId).map((definition) => definition.slot)), setId)
+        .toEqual(new Set(EQUIPMENT_SLOTS));
+    }
+  });
+
   it('effect sourceIds equal the owning piece id', () => {
     for (const d of definitions) {
       for (const effect of d.effects) expect(effect.sourceId).toBe(d.id);
