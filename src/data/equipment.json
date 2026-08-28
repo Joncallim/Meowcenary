@@ -94,5 +94,25 @@
     "slot": "gloves",
     "tier": 1,
     "effects": [{ "stat": "attackSpeed", "op": "mult", "value": 1.03, "sourceId": "equipment:technician-gloves" }]
-  }
+  },
+  { "id":"equipment:scavenger-armour", "name":"Scavenger Armour", "setId":"set:scavenger", "slot":"armour", "tier":1, "effects":[{"stat":"currencyGain","op":"mult","value":1.05,"sourceId":"equipment:scavenger-armour"}] },
+  { "id":"equipment:scavenger-gloves", "name":"Scavenger Gloves", "setId":"set:scavenger", "slot":"gloves", "tier":1, "effects":[{"stat":"pickupRadius","op":"add","value":10,"sourceId":"equipment:scavenger-gloves"}] },
+  { "id":"equipment:juggernaut-helmet", "name":"Juggernaut Helmet", "setId":"set:juggernaut", "slot":"helmet", "tier":1, "effects":[{"stat":"maxHealth","op":"add","value":18,"sourceId":"equipment:juggernaut-helmet"}] },
+  { "id":"equipment:juggernaut-boots", "name":"Juggernaut Boots", "setId":"set:juggernaut", "slot":"boots", "tier":1, "effects":[{"stat":"maxHealth","op":"add","value":8,"sourceId":"equipment:juggernaut-boots"}] },
+  { "id":"equipment:demolition-helmet", "name":"Demolition Helmet", "setId":"set:demolition", "slot":"helmet", "tier":1, "effects":[{"stat":"damage","op":"mult","value":1.04,"sourceId":"equipment:demolition-helmet"}] },
+  { "id":"equipment:demolition-armour", "name":"Demolition Armour", "setId":"set:demolition", "slot":"armour", "tier":1, "effects":[{"stat":"maxHealth","op":"add","value":12,"sourceId":"equipment:demolition-armour"}] },
+  { "id":"equipment:demolition-gloves", "name":"Demolition Gloves", "setId":"set:demolition", "slot":"gloves", "tier":1, "effects":[{"stat":"pierce","op":"add","value":1,"sourceId":"equipment:demolition-gloves"}] },
+  { "id":"equipment:demolition-boots", "name":"Demolition Boots", "setId":"set:demolition", "slot":"boots", "tier":1, "effects":[{"stat":"moveSpeed","op":"mult","value":1.03,"sourceId":"equipment:demolition-boots"}] },
+  { "id":"equipment:pyro-armour", "name":"Pyro Armour", "setId":"set:pyro", "slot":"armour", "tier":1, "effects":[{"stat":"maxHealth","op":"add","value":10,"sourceId":"equipment:pyro-armour"}] },
+  { "id":"equipment:pyro-gloves", "name":"Pyro Gloves", "setId":"set:pyro", "slot":"gloves", "tier":1, "effects":[{"stat":"attackSpeed","op":"mult","value":1.04,"sourceId":"equipment:pyro-gloves"}] },
+  { "id":"equipment:pyro-boots", "name":"Pyro Boots", "setId":"set:pyro", "slot":"boots", "tier":1, "effects":[{"stat":"moveSpeed","op":"mult","value":1.04,"sourceId":"equipment:pyro-boots"}] },
+  { "id":"equipment:recon-helmet", "name":"Recon Helmet", "setId":"set:recon", "slot":"helmet", "tier":1, "effects":[{"stat":"projectileSpeed","op":"mult","value":1.05,"sourceId":"equipment:recon-helmet"}] },
+  { "id":"equipment:recon-armour", "name":"Recon Armour", "setId":"set:recon", "slot":"armour", "tier":1, "effects":[{"stat":"range","op":"add","value":12,"sourceId":"equipment:recon-armour"}] },
+  { "id":"equipment:recon-gloves", "name":"Recon Gloves", "setId":"set:recon", "slot":"gloves", "tier":1, "effects":[{"stat":"spreadDeg","op":"add","value":-1,"sourceId":"equipment:recon-gloves"}] },
+  { "id":"equipment:medic-armour", "name":"Medic Armour", "setId":"set:medic", "slot":"armour", "tier":1, "effects":[{"stat":"maxHealth","op":"add","value":14,"sourceId":"equipment:medic-armour"}] },
+  { "id":"equipment:medic-gloves", "name":"Medic Gloves", "setId":"set:medic", "slot":"gloves", "tier":1, "effects":[{"stat":"pickupRadius","op":"add","value":8,"sourceId":"equipment:medic-gloves"}] },
+  { "id":"equipment:medic-boots", "name":"Medic Boots", "setId":"set:medic", "slot":"boots", "tier":1, "effects":[{"stat":"moveSpeed","op":"mult","value":1.03,"sourceId":"equipment:medic-boots"}] },
+  { "id":"equipment:technician-helmet", "name":"Technician Helmet", "setId":"set:technician", "slot":"helmet", "tier":1, "effects":[{"stat":"projectileSpeed","op":"mult","value":1.05,"sourceId":"equipment:technician-helmet"}] },
+  { "id":"equipment:technician-armour", "name":"Technician Armour", "setId":"set:technician", "slot":"armour", "tier":1, "effects":[{"stat":"maxHealth","op":"add","value":10,"sourceId":"equipment:technician-armour"}] },
+  { "id":"equipment:technician-boots", "name":"Technician Boots", "setId":"set:technician", "slot":"boots", "tier":1, "effects":[{"stat":"moveSpeed","op":"mult","value":1.03,"sourceId":"equipment:technician-boots"}] }
 ]
