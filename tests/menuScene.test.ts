@@ -733,6 +733,7 @@ describe('MenuScene', () => {
         'Quick Paws Training L0/5 (15 scrap)',
         'Sharpened Ammo L0/5 (20 scrap)',
         'Magnetic Whiskers L0/5 (10 scrap)',
+        'Achievements (0/10)',
         'Reset Progression',
         '< Back',
       ],

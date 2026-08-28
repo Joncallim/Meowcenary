@@ -4,6 +4,8 @@ import { CharacterSelectionController, type CharacterSelectionSnapshot } from '.
 import { ProgressionController, type ProgressionSnapshot } from './progressionController';
 import { SettingsController, type SettingsSnapshot } from './settings';
 import { StageSelectionController, type StageSelectionSnapshot } from './stageSelectionController';
+import { AchievementsController, type AchievementsSnapshot } from './achievementsController';
+import { DataAchievementRegistry } from '../systems/achievements';
 import type { GameContext } from '../engine/context';
 
 export type MenuPanel =
@@ -11,6 +13,7 @@ export type MenuPanel =
   | 'character'
   | 'arena'
   | 'stage'
+  | 'achievements'
   | 'progression'
   | 'settings'
   | 'reset-confirmation';
@@ -22,6 +25,7 @@ export interface MainMenuSnapshot {
   readonly character: CharacterSelectionSnapshot;
   readonly arena: ArenaSelectionSnapshot;
   readonly stage: StageSelectionSnapshot;
+  readonly achievements: AchievementsSnapshot;
   readonly progression: ProgressionSnapshot;
   readonly settings: SettingsSnapshot;
   readonly notice?: string;
@@ -32,6 +36,7 @@ export class MainMenuController {
   private readonly arenaController: ArenaSelectionController;
   private readonly stageController: StageSelectionController;
   private readonly progressionController: ProgressionController;
+  private readonly achievementsController: AchievementsController;
   private readonly settingsController: SettingsController;
   private panel: MenuPanel = 'home';
   private previousPanel: NonResetPanel = 'home';
@@ -42,6 +47,7 @@ export class MainMenuController {
     this.arenaController = new ArenaSelectionController(context);
     this.stageController = new StageSelectionController(context);
     this.progressionController = new ProgressionController(context);
+    this.achievementsController = new AchievementsController(context, new DataAchievementRegistry({ achievements: context.data.achievements ?? [] }));
     this.settingsController = new SettingsController(context);
   }
 
@@ -51,6 +57,7 @@ export class MainMenuController {
       character: this.characterController.snapshot(),
       arena: this.arenaController.snapshot(),
       stage: this.stageController.snapshot(),
+      achievements: this.achievementsController.snapshot(),
       progression: this.progressionController.snapshot(),
       settings: this.settingsController.snapshot(),
       notice: this.notice,

@@ -167,6 +167,9 @@ export class MenuScene extends Phaser.Scene {
         case 'stage':
           this.renderStage(root, snapshot, width, contentTop, margin, hitTarget);
           break;
+        case 'achievements':
+          this.renderAchievements(root, snapshot, width, contentTop, margin, hitTarget);
+          break;
         case 'progression':
           this.renderProgression(root, snapshot, width, contentTop, margin, hitTarget);
           break;
@@ -392,6 +395,9 @@ export class MenuScene extends Phaser.Scene {
         y += desc.height + 8;
       }
     });
+    this.addButton(root, margin, y + 12, `Achievements (${snapshot.achievements.completedCount}/${snapshot.achievements.totalCount})`, hitTarget, () => {
+      this.render(this.requireController().open('achievements'));
+    });
 
     y += 12;
     this.addButton(root, margin, y, 'Reset Progression', hitTarget, () => {
@@ -399,6 +405,26 @@ export class MenuScene extends Phaser.Scene {
       this.render(next);
     });
 
+    this.addBackButton(root, width, margin, hitTarget);
+  }
+
+  private renderAchievements(
+    root: Phaser.GameObjects.Container,
+    snapshot: MainMenuSnapshot,
+    width: number,
+    top: number,
+    margin: number,
+    hitTarget: number,
+  ): void {
+    const heading = this.addHeading(root, this.safeCenterX, top, `Achievements ${snapshot.achievements.completedCount}/${snapshot.achievements.totalCount}`);
+    let y = top + heading.height + 16;
+    snapshot.achievements.achievements.forEach((achievement) => {
+      this.own(root, createUiText(this, margin, y, `${achievement.name} — ${achievement.status} ${achievement.progress}/${achievement.target}`, {
+        color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+        wordWrap: { width: width - margin - this.safeRightMargin },
+      }));
+      y += hitTarget * 0.75;
+    });
     this.addBackButton(root, width, margin, hitTarget);
   }
 
