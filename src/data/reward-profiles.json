@@ -5,26 +5,133 @@
     "scrapPerMinute": 10,
     "lootTableId": "chest-standard",
     "grants": [
-      { "type": "grant-part-instance", "instanceId": "reward:stage-01-standard-barrel", "partId": "part:barrel-standard", "tier": 1 }
+      {
+        "type": "grant-part-instance",
+        "instanceId": "reward:stage-01-standard-barrel",
+        "partId": "part:barrel-standard",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-01-commando-helmet",
+        "equipmentId": "equipment:commando-helmet",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-01-commando-armour",
+        "equipmentId": "equipment:commando-armour",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-01-commando-gloves",
+        "equipmentId": "equipment:commando-gloves",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-01-commando-boots",
+        "equipmentId": "equipment:commando-boots",
+        "tier": 1
+      }
     ]
   },
   {
     "id": "reward:stage-02",
     "scrapBase": 40,
     "scrapPerMinute": 15,
-    "lootTableId": "chest-standard"
+    "lootTableId": "chest-standard",
+    "grants": [
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-02-scavenger-helmet",
+        "equipmentId": "equipment:scavenger-helmet",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-02-scavenger-armour",
+        "equipmentId": "equipment:scavenger-armour",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-02-scavenger-gloves",
+        "equipmentId": "equipment:scavenger-gloves",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-02-scavenger-boots",
+        "equipmentId": "equipment:scavenger-boots",
+        "tier": 1
+      }
+    ]
   },
   {
     "id": "reward:stage-03",
     "scrapBase": 60,
     "scrapPerMinute": 20,
-    "lootTableId": "brute-cache"
+    "lootTableId": "brute-cache",
+    "grants": [
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-03-demolition-helmet",
+        "equipmentId": "equipment:demolition-helmet",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-03-demolition-armour",
+        "equipmentId": "equipment:demolition-armour",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-03-demolition-gloves",
+        "equipmentId": "equipment:demolition-gloves",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-03-demolition-boots",
+        "equipmentId": "equipment:demolition-boots",
+        "tier": 1
+      }
+    ]
   },
   {
     "id": "reward:stage-04",
     "scrapBase": 80,
     "scrapPerMinute": 25,
-    "lootTableId": "brute-cache"
+    "lootTableId": "brute-cache",
+    "grants": [
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-04-pyro-helmet",
+        "equipmentId": "equipment:pyro-helmet",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-04-pyro-armour",
+        "equipmentId": "equipment:pyro-armour",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-04-pyro-gloves",
+        "equipmentId": "equipment:pyro-gloves",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-04-pyro-boots",
+        "equipmentId": "equipment:pyro-boots",
+        "tier": 1
+      }
+    ]
   },
   {
     "id": "reward:stage-05-boss",
@@ -32,7 +139,60 @@
     "scrapPerMinute": 35,
     "lootTableId": "weapon-world",
     "grants": [
-      { "type": "grant-part-instance", "instanceId": "reward:stage-05-fire-trait", "partId": "part:trait-fire", "tier": 2 }
+      {
+        "type": "grant-part-instance",
+        "instanceId": "reward:stage-05-fire-trait",
+        "partId": "part:trait-fire",
+        "tier": 2
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-05-recon-helmet",
+        "equipmentId": "equipment:recon-helmet",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-05-recon-armour",
+        "equipmentId": "equipment:recon-armour",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-05-recon-gloves",
+        "equipmentId": "equipment:recon-gloves",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-05-recon-boots",
+        "equipmentId": "equipment:recon-boots",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-05-juggernaut-helmet",
+        "equipmentId": "equipment:juggernaut-helmet",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-05-juggernaut-armour",
+        "equipmentId": "equipment:juggernaut-armour",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-05-juggernaut-gloves",
+        "equipmentId": "equipment:juggernaut-gloves",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-05-juggernaut-boots",
+        "equipmentId": "equipment:juggernaut-boots",
+        "tier": 1
+      }
     ]
   },
   {
@@ -41,7 +201,54 @@
     "scrapPerMinute": 40,
     "lootTableId": "weapon-world",
     "grants": [
-      { "type": "grant-equipment-instance", "instanceId": "reward:stage-06-juggernaut-armour", "equipmentId": "equipment:juggernaut-armour", "tier": 2 }
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-06-medic-helmet",
+        "equipmentId": "equipment:medic-helmet",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-06-medic-armour",
+        "equipmentId": "equipment:medic-armour",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-06-medic-gloves",
+        "equipmentId": "equipment:medic-gloves",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-06-medic-boots",
+        "equipmentId": "equipment:medic-boots",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-06-technician-helmet",
+        "equipmentId": "equipment:technician-helmet",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-06-technician-armour",
+        "equipmentId": "equipment:technician-armour",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-06-technician-gloves",
+        "equipmentId": "equipment:technician-gloves",
+        "tier": 1
+      },
+      {
+        "type": "grant-equipment-instance",
+        "instanceId": "reward:stage-06-technician-boots",
+        "equipmentId": "equipment:technician-boots",
+        "tier": 1
+      }
     ]
   }
 ]

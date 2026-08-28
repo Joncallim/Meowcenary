@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import equipmentJson from '../src/data/equipment.json';
+import rewardProfilesJson from '../src/data/reward-profiles.json';
 import { loadGameData, validateGameData } from '../src/systems/validation';
 import { DataEquipmentRegistry } from '../src/systems/equipment';
 import {
@@ -61,6 +62,20 @@ describe('Epic 25 equipment catalog conformance', () => {
     for (const setId of new Set(definitions.map((d) => d.setId))) {
       expect(new Set(definitions.filter((definition) => definition.setId === setId).map((definition) => definition.slot)), setId)
         .toEqual(new Set(EQUIPMENT_SLOTS));
+    }
+  });
+
+  it('makes every advertised four-piece set earnable from a stage reward without code special-casing', () => {
+    const rewardEquipmentIds = new Set(
+      (rewardProfilesJson as unknown as Array<{ grants?: Array<{ type: string; equipmentId?: string }> }>)
+        .flatMap((profile) => profile.grants ?? [])
+        .flatMap((grant) => grant.type === 'grant-equipment-instance' && grant.equipmentId ? [grant.equipmentId] : []),
+    );
+
+    for (const setId of new Set(definitions.map((definition) => definition.setId))) {
+      const pieces = definitions.filter((definition) => definition.setId === setId);
+      expect(pieces, setId).toHaveLength(EQUIPMENT_SLOTS.length);
+      expect(pieces.every((piece) => rewardEquipmentIds.has(piece.id)), setId).toBe(true);
     }
   });
 
