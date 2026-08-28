@@ -184,6 +184,32 @@ export function assertAchievementEquipmentGrantReferences(
   }
 }
 
+/** Achievement definitions are producers too: every catalog-bearing reward
+ * must resolve before a future completion can mint unusable progression. */
+export function assertAchievementGrantAndConditionReferences(
+  achievements: readonly { id: string; condition?: unknown; rewards?: readonly { grant: Record<string, unknown> }[] }[],
+  catalogs: { stageIds: Set<string>; bossIds: Set<string>; characterIds: Set<string>; partIds: Set<string>; traitIds: Set<string>; equipmentIds: Set<string>; achievementIds: Set<string>; metaUpgradeIds: Set<string> },
+): void {
+  for (const achievement of achievements) {
+    for (const reward of achievement.rewards ?? []) {
+      const g = reward.grant;
+      const target = g.type === 'unlock-stage' ? ['stageIds', g.stageId] : g.type === 'unlock-character' ? ['characterIds', g.characterId] : g.type === 'unlock-part' ? ['partIds', g.partId] : g.type === 'unlock-trait' ? ['traitIds', g.traitId] : g.type === 'unlock-equipment' || g.type === 'grant-equipment-instance' ? ['equipmentIds', g.equipmentId] : g.type === 'achievement-completed' ? ['achievementIds', g.achievementId] : g.type === 'permanent-upgrade-level' ? ['metaUpgradeIds', g.upgradeId] : undefined;
+      if (target && !catalogs[target[0] as keyof typeof catalogs].has(target[1] as string)) throw new Error(`achievement.${achievement.id}: ${String(g.type)} references unknown "${String(target[1])}"`);
+      if (g.type === 'grant-item') throw new Error(`achievement.${achievement.id}: grant-item is unsupported without an item catalog`);
+    }
+    assertConditionReferences(achievement.condition, achievement.id, catalogs);
+  }
+}
+
+function assertConditionReferences(value: unknown, owner: string, catalogs: Parameters<typeof assertAchievementGrantAndConditionReferences>[1]): void {
+  if (!value || typeof value !== 'object') return;
+  const c = value as Record<string, unknown>;
+  const target = c.type === 'stage-cleared' ? ['stageIds', c.stageId] : c.type === 'boss-defeated' ? ['bossIds', c.bossId] : c.type === 'achievement-completed' ? ['achievementIds', c.achievementId] : c.type === 'mastery-reached' ? ['characterIds', `character:${c.subjectId}`] : c.type === 'permanent-level' ? ['metaUpgradeIds', c.upgradeId] : undefined;
+  if (target && !catalogs[target[0] as keyof typeof catalogs].has(target[1] as string)) throw new Error(`achievement.${owner}: condition references unknown "${String(target[1])}"`);
+  if ((c.type === 'all' || c.type === 'any') && Array.isArray(c.conditions)) c.conditions.forEach((child) => assertConditionReferences(child, owner, catalogs));
+  if (c.type === 'not') assertConditionReferences(c.condition, owner, catalogs);
+}
+
 /** An achievement cannot use its own completed state as its unlock fact.
  * That definition is permanently unsatisfiable and was the historical boss
  * achievement failure mode. */

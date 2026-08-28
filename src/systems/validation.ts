@@ -91,7 +91,7 @@ import {
   assertStageRewardGrantReferences,
   assertStageUnlockReferences,
 } from './validation/stages';
-import { checkAchievement, assertAchievementMetricReferences, assertUniqueAchievementPlatformMappings, assertAchievementEquipmentGrantReferences, assertNoSelfReferentialAchievementConditions } from './validation/achievements';
+import { checkAchievement, assertAchievementMetricReferences, assertUniqueAchievementPlatformMappings, assertAchievementEquipmentGrantReferences, assertNoSelfReferentialAchievementConditions, assertAchievementGrantAndConditionReferences } from './validation/achievements';
 import { registeredMetricIds } from './achievements';
 import { checkPart, assertPartEffectSources } from './validation/parts';
 import { checkAbility } from './validation/abilities';
@@ -639,6 +639,7 @@ export function validateGameData(raw: unknown): GameData {
   assertUniqueAchievementPlatformMappings(achievements);
   assertNoSelfReferentialAchievementConditions(achievements);
   assertAchievementEquipmentGrantReferences(achievements, new Set((catalogs.equipment as EquipmentDefinition[]).map((equipment) => equipment.id)));
+  assertAchievementGrantAndConditionReferences(achievements, { stageIds: stageIdSet, bossIds: enemyIdSet, characterIds: new Set(characters.map((c) => `character:${c.id}`)), partIds: new Set((catalogs['gun-parts'] as PartDefinition[]).map((p) => p.id)), traitIds: new Set((catalogs['gun-parts'] as PartDefinition[]).flatMap((p) => p.traits.map((t) => `trait:${t.toLowerCase()}`))), equipmentIds: new Set((catalogs.equipment as EquipmentDefinition[]).map((e) => e.id)), achievementIds: new Set(achievements.map((a) => a.id)), metaUpgradeIds: new Set(metaUpgrades.map((u) => u.id)) });
 
   // Epic 23: gun-part effect sources (appended, preserving frozen order).
   assertPartEffectSources(catalogs['gun-parts'] as PartDefinition[]);
