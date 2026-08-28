@@ -359,10 +359,20 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       return true;
     },
     reportAchievement(definitionId, progress) {
-      // Deliberately post-commit and best-effort: an unavailable native
-      // mirror must never delay or roll back local/browser progression.
+      // First persist an outbox entry. Native mirrors are non-authoritative,
+      // but a transient failure must survive a restart and be retryable.
+      const pending = current.pendingAchievementReports.includes(definitionId)
+        ? current.pendingAchievementReports
+        : Object.freeze([...current.pendingAchievementReports, definitionId]);
+      if (!options.save.save(Object.freeze({ ...current, pendingAchievementReports: pending }))) return;
+      current = Object.freeze({ ...current, pendingAchievementReports: pending });
       void Promise.resolve()
         .then(() => achievementPlatform.report(definitionId, progress))
+        .then(() => {
+          const remaining = current.pendingAchievementReports.filter((id) => id !== definitionId);
+          const saved = Object.freeze({ ...current, pendingAchievementReports: Object.freeze(remaining) });
+          if (options.save.save(saved)) current = saved;
+        })
         .catch(() => undefined);
     },
     resetProgression() { return context.updateMeta(() => createDefaultProgression()); },
@@ -465,6 +475,12 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     },
   };
   branded.add(context);
+  // Retry any report that was durably queued before a previous browser/native
+  // session ended. Unknown/stale entries fail soft rather than blocking boot.
+  for (const achievementId of current.pendingAchievementReports) {
+    const progress = current.achievements[achievementId];
+    if (progress) context.reportAchievement(achievementId, progress);
+  }
   return context;
 }
 

@@ -35,6 +35,7 @@ describe('Save V3 migration (V2→V3)', () => {
       equipmentLoadout: {},
       items: {},
       bosses: {},
+      pendingAchievementReports: [],
       appliedGrantTransactions: {},
     });
     expect(first).not.toBe(second);

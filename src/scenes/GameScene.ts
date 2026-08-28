@@ -931,6 +931,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private evaluateLiveAchievements(ctx: GameContext, increments: Readonly<Record<string, number>>): void {
+    // Narrow scene harnesses used by unrelated stage tests intentionally omit
+    // the achievement domain; production GameContext always provides it.
+    if (!ctx.saveData?.achievementMetrics || !ctx.data.achievements) return;
     const previousMetrics = ctx.saveData.achievementMetrics;
     const metrics: Record<string, number> = { ...previousMetrics };
     for (const [id, amount] of Object.entries(increments)) {
@@ -985,6 +988,9 @@ export class GameScene extends Phaser.Scene {
       grants: [{ type: 'grant-scrap', amount: pending.reward }, ...(pending.grants ?? [])],
     }));
     if (!committed) return false;
+    // Stage/boss facts are durable at this boundary. Evaluate condition-driven
+    // achievements now rather than waiting for the terminal run summary.
+    this.evaluateLiveAchievements(ctx, {});
     if (this.runState?.status === 'active') endRun(this.runState, 'won', ctx.bus);
     return true;
   }

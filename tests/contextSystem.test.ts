@@ -108,6 +108,19 @@ describe('GameContext persistence boundary', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(report).toHaveBeenCalledWith('achievement:first-kill', { progress: 1, completed: true, completedAt: 1 });
+    expect(context.saveData.pendingAchievementReports).toEqual(['achievement:first-kill']);
+  });
+
+  it('retries a persisted achievement mirror outbox when a new context starts', async () => {
+    const data = loadGameData();
+    const meta = new DataMetaUpgradeRegistry(data);
+    const storage = new CountingStorage();
+    const save = new SaveManager(storage, 'achievement-outbox', meta.maxLevels());
+    expect(save.save({ ...save.load(), achievements: { 'achievement:first-kill': { progress: 1, completed: true, completedAt: 1 } }, pendingAchievementReports: ['achievement:first-kill'] })).toBe(true);
+    const report = vi.fn().mockResolvedValue(undefined);
+    createGameContext({ bus: createEventBus(), menuRng: createRng(1), data, arenas: new DataArenaRegistry(data), metaUpgrades: meta, save, characters: new DataCharacterRegistry(data), achievementPlatform: { report } });
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    expect(report).toHaveBeenCalledWith('achievement:first-kill', expect.objectContaining({ completed: true }));
   });
 
   it('rejects a boss completion when an injected stage catalog disagrees with its encounter', () => {

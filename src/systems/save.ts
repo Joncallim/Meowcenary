@@ -115,6 +115,8 @@ export interface SaveDataV3 {
   readonly equipmentLoadout?: EquipmentLoadoutState;
   readonly items: ItemInventoryState;
   readonly bosses: BossProgressState;
+  /** Durable outbox for best-effort native achievement mirrors. */
+  readonly pendingAchievementReports: readonly string[];
   readonly appliedGrantTransactions: AppliedGrantTransactions;
 }
 
@@ -160,6 +162,7 @@ export function createDefaultSaveV3(): SaveDataV3 {
     equipmentLoadout: {},
     items: {},
     bosses: {},
+    pendingAchievementReports: [],
     appliedGrantTransactions: {},
   });
 }
@@ -241,6 +244,7 @@ export function migrateV2ToV3(raw: Readonly<Record<string, unknown>>, maxLevels:
     equipmentLoadout: {},
     items: {},
     bosses: {},
+    pendingAchievementReports: [],
     appliedGrantTransactions: {},
   });
 }
@@ -286,6 +290,7 @@ function decodeSave(raw: unknown, maxLevels: MetaUpgradeMaxLevels): SaveDecodeRe
         equipmentLoadout: sanitizeEquipmentLoadout(readOwn(parsed, 'equipmentLoadout'), equipment),
         items: sanitizeItemInventory(readOwn(parsed, 'items')),
         bosses: sanitizeBossProgress(readOwn(parsed, 'bosses')),
+        pendingAchievementReports: sanitizePendingAchievementReports(readOwn(parsed, 'pendingAchievementReports')),
         appliedGrantTransactions: sanitizeAppliedGrantTransactions(readOwn(parsed, 'appliedGrantTransactions')),
       }),
       unsupportedFutureVersion: false,
@@ -311,6 +316,7 @@ function migrateV1ToV3(raw: Readonly<Record<string, unknown>>): SaveDataV3 {
     equipmentLoadout: {},
     items: {},
     bosses: {},
+    pendingAchievementReports: [],
     appliedGrantTransactions: {},
   });
 }
@@ -579,6 +585,7 @@ export class SaveManager {
         equipmentLoadout: sanitizeEquipmentLoadout(data.equipmentLoadout, equipment),
         items: sanitizeItemInventory(data.items),
         bosses: sanitizeBossProgress(data.bosses),
+        pendingAchievementReports: sanitizePendingAchievementReports(data.pendingAchievementReports),
         appliedGrantTransactions: sanitizeAppliedGrantTransactions(data.appliedGrantTransactions),
       });
       return this.storage.setItem(this.key, JSON.stringify(sanitized)) === true;
@@ -683,8 +690,14 @@ function freezeSaveV3(save: SaveDataV3): SaveDataV3 {
     equipmentLoadout: Object.freeze({ ...(save.equipmentLoadout ?? {}) }),
     items: Object.freeze({ ...save.items }),
     bosses: Object.freeze({ ...save.bosses }),
+    pendingAchievementReports: Object.freeze([...save.pendingAchievementReports]),
     appliedGrantTransactions: Object.freeze({ ...save.appliedGrantTransactions }),
   });
+}
+
+function sanitizePendingAchievementReports(value: unknown): readonly string[] {
+  if (!Array.isArray(value)) return [];
+  return Object.freeze([...new Set(value.filter((id): id is string => typeof id === 'string' && isUnlockId(id) && id.startsWith('achievement:')))].slice(0, 128));
 }
 
 function settingsEqual(a: Settings, b: Settings): boolean {
