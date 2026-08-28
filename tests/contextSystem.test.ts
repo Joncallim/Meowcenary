@@ -29,6 +29,30 @@ describe('GameContext persistence boundary', () => {
     expect(context.saveData.appliedGrantTransactions['stage:junkyard-05:first-clear']).toBe(true);
   });
 
+  it('rejects malformed stage/boss facts before recording their reward receipt', () => {
+    const { context } = setup();
+    const transaction = {
+      id: 'stage:junkyard-05:malformed', grants: [{ type: 'grant-scrap' as const, amount: 75 }],
+    };
+
+    expect(context.completeStageTransaction('stage:missing', 120_000, undefined, transaction)).toBe(false);
+    expect(context.completeStageTransaction('stage:junkyard-05', Number.NaN, 'boss-crusher', transaction)).toBe(false);
+    expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss:other', transaction)).toBe(false);
+    expect(context.saveData.appliedGrantTransactions[transaction.id]).toBeUndefined();
+    expect(context.saveData.progression.scrap).toBe(0);
+  });
+
+  it('fails closed if a receipt survives but its stage facts do not', () => {
+    const { context } = setup();
+    const transaction = {
+      id: 'stage:junkyard-05:corrupt-receipt', grants: [{ type: 'grant-scrap' as const, amount: 75 }],
+    };
+    expect(context.applyGrantTransaction(transaction)).toBe(true);
+    expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss-crusher', transaction)).toBe(false);
+    expect(context.saveData.progression.scrap).toBe(75);
+    expect(context.saveData.stages['stage:junkyard-05']).toBeUndefined();
+  });
+
   it('loads once and keeps settings/meta in one immutable current snapshot', () => {
     const { context, storage } = setup();
     const original = context.saveData;
