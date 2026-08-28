@@ -186,6 +186,22 @@ const tankBehavior: RegisteredEnemyBehavior = {
   },
 };
 
+/** Shielded: steady pressure like a chaser, but its frontal damage gate is
+ * enforced by Enemy from this behavior's authoritative facing. */
+const shieldedBehavior: RegisteredEnemyBehavior = {
+  archetype: 'shielded',
+  color: 0x2563eb,
+  accent: { radius: 8, fill: 0x67e8f9, stroke: { width: 2, color: OUTLINE_COLOR, alpha: 1 } },
+  heavyStep: false,
+  immediate: false,
+  telegraphMs: () => undefined,
+  step(input: EnemyStepInput): EnemyStepResult {
+    const next = chaseStep(input.pos, input.target, input.definition.speed, input.dtMs);
+    return { pos: next, state: input.state, stateTimerMs: input.stateTimerMs,
+      dashDirection: { ...input.dashDirection }, dashOrigin: { ...input.dashOrigin }, enteredAttack: false };
+  },
+};
+
 /** Ranged: keeps distance, stops to telegraph a shot, then cools down. */
 const rangedBehavior: RegisteredEnemyBehavior = {
   archetype: 'ranged',
@@ -306,7 +322,7 @@ const bossBehavior: RegisteredEnemyBehavior = {
 };
 
 const BEHAVIORS: ReadonlyMap<EnemyBehaviorArchetype, RegisteredEnemyBehavior> = new Map(
-  [chaserBehavior, chargerBehavior, tankBehavior, rangedBehavior, bossBehavior]
+  [chaserBehavior, chargerBehavior, tankBehavior, shieldedBehavior, rangedBehavior, bossBehavior]
     .map((behavior) => [behavior.archetype, behavior] as const),
 );
 

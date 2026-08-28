@@ -256,7 +256,7 @@ export class WeaponSystem implements System {
 
     const hitX = enemy.x;
     const hitY = enemy.y;
-    const killed = enemy.takeDamage(damage);
+    const killed = enemy.takeDamage(damage, { x: projectile.x, y: projectile.y });
     this.ctx.bus.emit('projectile:hit', {
       weaponId,
       family,

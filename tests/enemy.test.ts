@@ -877,6 +877,23 @@ function enemyDefinition(): ResolvedEnemyDefinition {
     expect(summon).toHaveBeenLastCalledWith(expect.objectContaining({ sourceEnemyId: 'test-spawner', enemyId: 'test-child', count: 1 }));
   });
 
+  it('blocks frontal shield hits but accepts an authoritative rear hit', async () => {
+    const shielded: ResolvedEnemyDefinition = {
+      id: 'test-shield', name: 'Shield', archetype: 'shielded', health: 20, damage: 2, speed: 20,
+      xpValue: 1, scrapValue: 1, contactDamage: true, shieldArcDeg: 120,
+    };
+    const bus = createEventBus();
+    const blocked = vi.fn();
+    bus.on('enemy:shield-blocked', blocked);
+    const { enemy } = await createEnemy(bus, shielded);
+    enemy.update({ active: true, x: 100, y: 20 } as never, 16);
+    expect(enemy.takeDamage(5, { x: 100, y: 20 })).toBe(false);
+    expect(enemy.health).toBe(20);
+    expect(blocked).toHaveBeenCalledOnce();
+    expect(enemy.takeDamage(5, { x: -100, y: 20 })).toBe(false);
+    expect(enemy.health).toBe(15);
+  });
+
   it('emits accepted damage and transitions lethal damage to dead exactly once', async () => {
     const bus = createEventBus();
     const damaged = vi.fn();

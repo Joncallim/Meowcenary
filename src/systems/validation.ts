@@ -103,6 +103,7 @@ const ENEMY_ARCHETYPES = new Set<EnemyArchetype>([
   'charger',
   'ranged',
   'tank',
+  'shielded',
   'elite',
   'boss',
 ]);
@@ -135,7 +136,7 @@ const META_UPGRADE_FIELDS = new Set(['id', 'name', 'description', 'maxLevel', 'c
 const META_UPGRADE_COST_FIELDS = new Set(['base', 'growth']);
 const DIRECT_ENEMY_FIELDS = new Set([
   'id', 'name', 'archetype', 'health', 'damage', 'speed', 'xpValue', 'scrapValue',
-  'contactDamage', 'lootTableId', 'summon', 'splitOnDeath', 'phases',
+  'contactDamage', 'lootTableId', 'summon', 'splitOnDeath', 'phases', 'shieldArcDeg',
 ]);
 const ENEMY_SUMMON_FIELDS = new Set(['enemyId', 'count', 'maxActive']);
 const BOSS_PHASE_FIELDS = new Set(['atHealthFraction', 'attack', 'summon']);
@@ -1798,7 +1799,7 @@ function checkEnemy(row: unknown): string[] {
     }
   }
 
-  if (archetype === 'chaser' || archetype === 'charger' || archetype === 'tank') {
+  if (archetype === 'chaser' || archetype === 'charger' || archetype === 'tank' || archetype === 'shielded') {
     requirePositiveNumber(row, 'damage', errors);
     requirePositiveNumber(row, 'speed', errors);
     requirePositiveInteger(row, 'xpValue', errors);
@@ -1810,6 +1811,10 @@ function checkEnemy(row: unknown): string[] {
   }
 
   if (archetype === 'charger') checkChargerAttack(row, errors);
+  if (archetype === 'shielded') {
+    const arc = readOwnField(row, 'shieldArcDeg');
+    if (!isFiniteNumber(arc) || arc <= 0 || arc > 180) errors.push('shieldArcDeg: must be > 0 and <= 180');
+  }
   if (archetype === 'ranged') checkRangedAttack(row, errors);
   if (archetype === 'boss') {
     checkChargerAttack(row, errors);

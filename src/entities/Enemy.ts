@@ -250,8 +250,13 @@ export class Enemy implements EnemyInstance {
     this.syncPresentation(this.state === 'attacking', player);
   }
 
-  takeDamage(amount: number): boolean {
+  takeDamage(amount: number, source?: Readonly<Vec2>): boolean {
     if (this.state === 'dead' || !this.active || !Number.isFinite(amount) || amount <= 0) {
+      return false;
+    }
+
+    if (this.blocksIncomingDamage(source)) {
+      this.bus.emit('enemy:shield-blocked', { instanceId: this.instanceId, enemyId: this.defId, x: this.x, y: this.y });
       return false;
     }
 
@@ -389,6 +394,18 @@ export class Enemy implements EnemyInstance {
     }
     this.presentationDestroyed = true;
     this.view.destroy();
+  }
+
+  private blocksIncomingDamage(source: Readonly<Vec2> | undefined): boolean {
+    if (this.definition.archetype !== 'shielded' || !source) return false;
+    const dx = source.x - this.x;
+    const dy = source.y - this.y;
+    const distance = Math.hypot(dx, dy);
+    if (!Number.isFinite(distance) || distance === 0) return false;
+    const facingAngle = this.facing === 1 ? 0 : Math.PI;
+    const incomingAngle = Math.atan2(dy, dx);
+    const delta = Math.atan2(Math.sin(incomingAngle - facingAngle), Math.cos(incomingAngle - facingAngle));
+    return Math.abs(delta) <= (this.definition.shieldArcDeg * Math.PI) / 360;
   }
 
   private resolveBossPhase(): { definition: Readonly<ResolvedEnemyDefinition>; index: number } {

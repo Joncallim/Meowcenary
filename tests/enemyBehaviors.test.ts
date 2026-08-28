@@ -18,7 +18,7 @@ import type { StageDefinition, EncounterProfile, DifficultyProfile, RewardProfil
 describe('Epic 21 enemy behavior registry', () => {
   it('registers a behavior for every shipped archetype (no silent default)', () => {
     const registered = new Set(registeredEnemyArchetypes());
-    expect(registered).toEqual(new Set(['chaser', 'charger', 'tank', 'ranged', 'boss']));
+    expect(registered).toEqual(new Set(['chaser', 'charger', 'tank', 'shielded', 'ranged', 'boss']));
     // Every shipped enemy resolves to a registered behavior, including elites
     // (which inherit their base's behavior).
     const data = loadGameData();
@@ -202,7 +202,7 @@ describe('Epic 21 enemy behavior registry', () => {
     expect(hasRegisteredBehavior('ranged')).toBe(true);
     expect(hasRegisteredBehavior('boss')).toBe(true);
     // All five archetypes resolve without falling into a catch-all default.
-    for (const a of ['chaser', 'charger', 'tank', 'ranged', 'boss'] as const) {
+    for (const a of ['chaser', 'charger', 'tank', 'shielded', 'ranged', 'boss'] as const) {
       expect(enemyBehaviorFor({ id: '', name: '', archetype: a } as unknown as ResolvedEnemyDefinition).archetype)
         .toBe(a);
     }

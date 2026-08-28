@@ -13,13 +13,20 @@
     "enemyIds": [
       "dust-mite",
       "junk-rusher",
-      "junk-nester"
+      "junk-nester",
+      "bastion-beetle"
     ],
     "compositionWeights": {
       "dust-mite": 3,
       "junk-rusher": 1,
-      "junk-nester": 1
+      "junk-nester": 1,
+      "bastion-beetle": 1
     }
+  },
+  {
+    "id": "encounter:junkyard-shield-line",
+    "enemyIds": ["bastion-beetle", "junk-nester", "dust-mite"],
+    "compositionWeights": { "bastion-beetle": 2, "junk-nester": 1, "dust-mite": 2 }
   },
   {
     "id": "encounter:junkyard-rusher-heavy",

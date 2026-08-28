@@ -26,6 +26,7 @@ export interface GameEventMap {
    * queues and materialises children after the active iteration. */
   'enemy:summon': { sourceEnemyId: string; enemyId: string; count: number; maxActive: number; x: number; y: number };
   'enemy:boss-phase': { instanceId: number; enemyId: string; phase: number; healthFraction: number };
+  'enemy:shield-blocked': { instanceId: number; enemyId: string; x: number; y: number };
   'enemy:heavyStep': { x: number; y: number };
   // family/tier (Epic 17) are cosmetic-only duplicates of data WeaponSystem
   // already holds at the emit site — listeners key presentation/audio off
@@ -81,7 +82,7 @@ export type GameEventListener<K extends GameEventKey> = (payload: GameEventMap[K
 export const GAME_EVENT_KEYS = [
   'run:start', 'run:paused', 'run:resumed', 'run:won', 'run:lost',
   'player:damaged', 'player:died',
-  'enemy:spawned', 'enemy:damaged', 'enemy:killed', 'enemy:dashed', 'enemy:ranged-shot', 'enemy:summon', 'enemy:boss-phase', 'enemy:heavyStep',
+  'enemy:spawned', 'enemy:damaged', 'enemy:killed', 'enemy:dashed', 'enemy:ranged-shot', 'enemy:summon', 'enemy:boss-phase', 'enemy:shield-blocked', 'enemy:heavyStep',
   'weapon:fired', 'projectile:hit',
   'xp:gained', 'level:up', 'card:offered', 'card:chosen', 'weapon:merged',
   'drop:collected',

@@ -57,6 +57,18 @@
     }
   },
   {
+    "id": "bastion-beetle",
+    "name": "Bastion Beetle",
+    "archetype": "shielded",
+    "health": 46,
+    "damage": 9,
+    "speed": 48,
+    "xpValue": 6,
+    "scrapValue": 5,
+    "contactDamage": true,
+    "shieldArcDeg": 120
+  },
+  {
     "id": "junk-nester",
     "name": "Junk Nester",
     "archetype": "ranged",

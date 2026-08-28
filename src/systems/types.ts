@@ -109,10 +109,10 @@ export function weaponFeelByFamily(
   return map;
 }
 
-export type EnemyArchetype = 'chaser' | 'charger' | 'ranged' | 'tank' | 'elite' | 'boss';
+export type EnemyArchetype = 'chaser' | 'charger' | 'ranged' | 'tank' | 'shielded' | 'elite' | 'boss';
 /** Direct enemies which the encounter director can materialize. Bosses are
  * deliberately excluded: they enter through an explicit boss-stage hook. */
-export const SPAWNABLE_ENEMY_ARCHETYPES = ['chaser', 'charger', 'tank', 'ranged'] as const;
+export const SPAWNABLE_ENEMY_ARCHETYPES = ['chaser', 'charger', 'tank', 'ranged', 'shielded'] as const;
 export type SpawnableEnemyArchetype = (typeof SPAWNABLE_ENEMY_ARCHETYPES)[number];
 export type DirectEnemyArchetype = Exclude<EnemyArchetype, 'elite'>;
 
@@ -200,6 +200,16 @@ export interface TankEnemyDefinition extends EnemyIdentity, EnemyStats {
   splitOnDeath?: EnemySplitDefinition;
 }
 
+/** A frontal shield blocks projectiles from the enemy's current facing side.
+ * Attacks from behind always use ordinary combat damage. */
+export interface ShieldedEnemyDefinition extends EnemyIdentity, EnemyStats {
+  archetype: 'shielded';
+  contactDamage: true;
+  shieldArcDeg: number;
+  summon?: EnemySummonDefinition;
+  splitOnDeath?: EnemySplitDefinition;
+}
+
 export interface BossEnemyDefinition extends EnemyIdentity, EnemyStats {
   archetype: 'boss';
   contactDamage: false;
@@ -219,6 +229,7 @@ export type SpawnableEnemyDefinition =
   | ChaserEnemyDefinition
   | ChargerEnemyDefinition
   | TankEnemyDefinition
+  | ShieldedEnemyDefinition
   | RangedEnemyDefinition;
 
 export type DirectEnemyDefinition =
