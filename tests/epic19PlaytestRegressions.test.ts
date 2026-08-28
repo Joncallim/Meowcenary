@@ -9,8 +9,10 @@ import { InputController } from '../src/systems/input';
 import { ControlsView } from '../src/ui/controls';
 import { PhaserHudView } from '../src/ui/hud';
 import { DebugOverlay } from '../src/systems/debug';
-import { arenaFollowEnabled, zoomedVisibleSize } from '../src/scenes/GameScene';
-import { GAMEPLAY_ZOOM, pointerToRootLocal, zoomedGameUiViewport } from '../src/ui/layout';
+import { arenaFollowEnabled, playerHudSafeFloor, zoomedVisibleSize } from '../src/scenes/GameScene';
+import { GAMEPLAY_ZOOM, edgeMargin, pointerToRootLocal, zoomedGameUiViewport } from '../src/ui/layout';
+import { topHudContentBottom } from '../src/ui/hud';
+import { PLAYER_BODY_RADIUS } from '../src/entities/Player';
 import { ThemeColor, ThemeDepth } from '../src/ui/theme';
 
 const REFERENCE_VIEWPORTS = [
@@ -410,6 +412,18 @@ describe('Epic 19 playtest fixes: intermediate arena camera follow (U6)', () => 
   ) => ({
     x: Math.min(Math.max(target.x - visible.width / 2, 0), Math.max(0, arena.width - visible.width)),
     y: Math.min(Math.max(target.y - visible.height / 2, 0), Math.max(0, arena.height - visible.height)),
+  });
+
+  it('keeps the player below the entire portrait HUD plate at the camera top edge', () => {
+    const viewport = zoomedGameUiViewport(390, 844, 390, 844);
+    const floor = playerHudSafeFloor(viewport, 1_344);
+    const backingBottom = (viewport.originY ?? 0)
+      + topHudContentBottom(viewport)
+      + edgeMargin(viewport, 'bottom');
+
+    expect(floor).toBeGreaterThanOrEqual(backingBottom + PLAYER_BODY_RADIUS * 8);
+    // The bound remains playable rather than consuming half the arena.
+    expect(floor).toBeLessThan(1_344 / 2);
   });
 
   it('follows the player within bounds on an arena between 312×675.2 and 390×844 (camera trace)', () => {

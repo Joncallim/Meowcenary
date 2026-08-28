@@ -54,7 +54,7 @@ import {
   RunSummaryController,
   type RunSummarySource,
 } from '../ui/runSummary';
-import { GAMEPLAY_ZOOM, zoomedGameUiViewport } from '../ui/layout';
+import { GAMEPLAY_ZOOM, edgeMargin, zoomedGameUiViewport, type UiViewport } from '../ui/layout';
 import { FullscreenController } from '../ui/fullscreen';
 import { PassiveCoordinator } from '../systems/PassiveCoordinator';
 import { HazardSystem } from '../systems/HazardSystem';
@@ -93,6 +93,19 @@ export function arenaFollowEnabled(
   visibleHeight: number,
 ): boolean {
   return arenaWidth > visibleWidth || arenaHeight > visibleHeight;
+}
+
+/** World-space floor for the player while a camera is pinned at the arena's
+ * top edge. It clears the full HUD backing (not merely its text) plus the
+ * enlarged player/follow-camera buffer seen on portrait devices. */
+export function playerHudSafeFloor(viewport: UiViewport, arenaHeight: number): number {
+  return Math.min(
+    arenaHeight / 2,
+    (viewport.originY ?? 0)
+      + topHudContentBottom(viewport)
+      + edgeMargin(viewport, 'bottom')
+      + PLAYER_BODY_RADIUS * 8,
+  );
 }
 
 export class GameScene extends Phaser.Scene {
@@ -271,12 +284,7 @@ export class GameScene extends Phaser.Scene {
       this.scale.parentSize.width,
       this.scale.parentSize.height,
     );
-    const minPlayableY = Math.min(
-      arena.size.height / 2,
-      // Leave a full visual/follow-camera buffer below the persistent HUD,
-      // not merely one collision radius.
-      (viewport.originY ?? 0) + topHudContentBottom(viewport) + PLAYER_BODY_RADIUS * 4,
-    );
+    const minPlayableY = playerHudSafeFloor(viewport, arena.size.height);
 
     this.player = new Player(this, this.inputController, this.runState, ctx.bus, {
       baseMaxHealth: prepared.basePlayer.maxHealth,
