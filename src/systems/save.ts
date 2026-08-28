@@ -1,5 +1,6 @@
 import { RuntimeConfig } from '../engine/config';
 import { isContentId, isGrantTransactionId, isInstanceId, isUnlockId } from './ids';
+import { BEHAVIOR_TRAITS, MAX_TRAITS_PER_PART, RARITY_TIER } from '../gameplay/gunsmith';
 
 export interface Settings {
   readonly muted: boolean;
@@ -385,13 +386,21 @@ function sanitizeGunsmithState(raw: unknown): GunsmithState {
       const partId = readOwn(entry, 'partId');
       if (typeof partId === 'string' && isUnlockId(partId) && partId.startsWith('part:')) {
         const infused = readOwn(entry, 'infusedTraits');
+        // Save data is user-controlled input.  Keep the durable owned-instance
+        // contract bounded and vocabulary-safe so a hand-edited tier or trait
+        // cannot turn into unbounded live weapon modifiers after a reload.
+        const validTraits = new Set<string>(BEHAVIOR_TRAITS);
+        const rawTier = readOwn(entry, 'tier');
         parts[key] = {
           partId,
-          tier: Number.isSafeInteger(readOwn(entry, 'tier')) && (readOwn(entry, 'tier') as number) > 0
-            ? readOwn(entry, 'tier') as number
+          tier: Number.isSafeInteger(rawTier) && (rawTier as number) > 0
+            ? Math.min(rawTier as number, RARITY_TIER.legendary)
             : 1,
           infusedTraits: Array.isArray(infused)
-            ? (infused as unknown[]).filter((t): t is string => typeof t === 'string')
+            ? (infused as unknown[])
+              .filter((t): t is string => typeof t === 'string' && validTraits.has(t))
+              .filter((trait, index, all) => all.indexOf(trait) === index)
+              .slice(0, MAX_TRAITS_PER_PART)
             : [],
         };
       }
