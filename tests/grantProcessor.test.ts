@@ -25,13 +25,14 @@ describe('grantProcessor — individual grants', () => {
     expect(result.progression).not.toBe(p);
   });
 
-  it('grant-scrap is idempotent for same grant applied twice', () => {
+  it('a bare grant is intentionally repeat-additive; callers need a durable transaction', () => {
     const p = makeProgression({ scrap: 100 });
     const r1 = processGrant(p, { type: 'grant-scrap', amount: 50 });
     expect(r1.changed).toBe(true);
     expect(r1.progression.scrap).toBe(150);
 
-    // Apply the same grant again to the original — different instance, same effect
+    // A bare grant has no source receipt. Exactly-once is provided only by
+    // applyDurableGrantTransaction, which persists the source transaction ID.
     const r2 = processGrant(p, { type: 'grant-scrap', amount: 50 });
     expect(r2.progression.scrap).toBe(150);
     // Not same instance (fresh freeze), but changed from original
