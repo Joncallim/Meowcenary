@@ -104,6 +104,12 @@ describe('Epic 23 equip/unequip (transactional)', () => {
     expect(build.fitted.barrel).toBe(barrel.instanceId);
   });
 
+  it('never fits one owned instance into more than one slot', () => {
+    const build: WeaponBuild = { ...smgBuild(), fitted: { barrel: 'inst-shared' } };
+    const shared = { instanceId: 'inst-shared', partId: 'part:optic-red-dot', tier: 1, infusedTraits: [] } as OwnedPart;
+    expect(equipPart(build, shared, defMap)).toMatchObject({ ok: false, reason: 'slot-full' });
+  });
+
   it('unequips exactly the fitted part and no other state', () => {
     let build = smgBuild();
     const barrel = part('part:barrel-standard');
@@ -181,6 +187,7 @@ describe('Epic 23 trait infusion (hybrid outcomes)', () => {
   it('rejects invalid infusion combinations deterministically', () => {
     const barrel = part('part:barrel-standard');
     expect(infuseTrait(barrel, part('part:barrel-long'), defMap)).toMatchObject({ ok: false, reason: 'unknown-trait' });
+    expect(infuseTrait(barrel, part('part:underbarrel-grenade'), defMap)).toMatchObject({ ok: false, reason: 'unknown-trait' });
     const capped = { ...barrel, infusedTraits: ['FIRE', 'CRYO'] as const };
     expect(infuseTrait(capped, part('part:trait-fire'), defMap)).toMatchObject({ ok: false, reason: 'trait-cap-reached' });
     const duplicate = { ...barrel, infusedTraits: ['FIRE'] as const };

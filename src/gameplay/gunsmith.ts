@@ -111,6 +111,9 @@ export function equipPart(
   if (!isSlotCompatible(build.baseWeaponFamily, definition.slot)) {
     return { ok: false, reason: 'slot-incompatible' };
   }
+  if (Object.values(build.fitted).includes(part.instanceId) || build.traitParts.includes(part.instanceId)) {
+    return { ok: false, reason: 'slot-full' };
+  }
   if (definition.slot === 'trait') {
     // Trait parts accumulate in traitParts (capped by MAX_TRAITS_PER_PART).
     if (build.traitParts.length >= MAX_TRAITS_PER_PART) return { ok: false, reason: 'slot-full' };
@@ -209,7 +212,7 @@ export function infuseTrait(
   const targetDef = definitions.get(target.partId);
   const traitDef = definitions.get(traitPart.partId);
   if (!targetDef) return { ok: false, reason: 'unknown-part' };
-  if (!traitDef || !traitDef.traits.includes(traitDef.traits[0])) return { ok: false, reason: 'unknown-trait' };
+  if (!traitDef || traitDef.slot !== 'trait' || traitDef.traits.length !== 1) return { ok: false, reason: 'unknown-trait' };
   const trait = traitDef.traits[0];
   if (targetDef.slot === 'trait') return { ok: false, reason: 'trait-incompatible' };
   if (target.infusedTraits.length >= MAX_TRAITS_PER_PART) return { ok: false, reason: 'trait-cap-reached' };
