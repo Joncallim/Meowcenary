@@ -563,6 +563,12 @@ export class MenuScene extends Phaser.Scene {
           this.render(this.requireController().upgradeEquipment(item.instanceId));
         });
         y += hitTarget + 8;
+      } else if (item.upgradeLocked) {
+        this.own(root, createUiText(this, margin, y, 'Tier locked — progress through stages, bosses, and achievements.', {
+          color: '#fbbf24', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+          wordWrap: { width: width - margin - this.safeRightMargin },
+        }));
+        y += hitTarget * 0.75;
       }
     });
     if (snapshot.equipment.owned.length === 0) {

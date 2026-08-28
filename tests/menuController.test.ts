@@ -197,6 +197,7 @@ describe('MainMenuController', () => {
     expect(context.saveData.gunsmith.parts.target.infusedTraits).toEqual(['FIRE']);
 
     context.updateMeta((meta) => ({ ...meta, scrap: 100 }));
+    expect(context.completeStage('stage:junkyard-02', 1)).toBe(true);
     context.updateEquipment(() => ({
       equipment: { helmet: { equipmentId: 'equipment:commando-helmet', tier: 1 } }, loadout: {},
     }));

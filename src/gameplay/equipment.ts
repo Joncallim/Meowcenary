@@ -7,6 +7,7 @@
  * results; the UI never decides eligibility.
  */
 import type { Modifier } from './stats';
+import { evaluateCondition, type ConditionContext, type ProgressionCondition } from './conditionEvaluator';
 
 export type EquipmentSlot = 'helmet' | 'armour' | 'gloves' | 'boots';
 
@@ -25,6 +26,10 @@ export interface EquipmentDefinition {
   /** Optional data-owned 2/4-piece table. One representative piece may carry
    * it so a complete future set needs no central runtime registration. */
   readonly setBonuses?: Readonly<Partial<Record<2 | 4, readonly Modifier[]>>>;
+  /** Set-owned requirements for reaching a target owned-instance tier.  A
+   * representative piece carries these so another complete set stays a
+   * data-only addition rather than requiring an equipment-ID branch. */
+  readonly upgradeUnlocks?: Readonly<Partial<Record<2 | 3 | 4, ProgressionCondition>>>;
 }
 
 /** Persistent owned instance (Save V3 equipment domain shape). */
@@ -109,18 +114,34 @@ export function unequipEquipment(loadout: EquipmentLoadout, slot: EquipmentSlot)
 
 export type UpgradeEquipmentResult =
   | { readonly ok: true; readonly output: OwnedEquipment; readonly cost: number }
-  | { readonly ok: false; readonly reason: 'unknown-equipment' | 'max-tier' | 'insufficient-funds' };
+  | { readonly ok: false; readonly reason: 'unknown-equipment' | 'max-tier' | 'insufficient-funds' | 'locked' };
+
+/** Returns the data-owned milestone condition for a target tier. All pieces
+ * in a set inherit their sole provider's table, avoiding item-ID branches. */
+export function equipmentUpgradeUnlock(
+  equipmentId: string,
+  targetTier: 2 | 3 | 4,
+  definitions: ReadonlyMap<string, EquipmentDefinition>,
+): ProgressionCondition | undefined {
+  const definition = definitions.get(equipmentId);
+  if (!definition) return undefined;
+  return definition.upgradeUnlocks?.[targetTier]
+    ?? [...definitions.values()].find((candidate) => candidate.setId === definition.setId && candidate.upgradeUnlocks !== undefined)?.upgradeUnlocks?.[targetTier];
+}
 
 /** Coin-funded tier upgrade: consumes funds, raises tier by one. */
 export function upgradeEquipment(
   owned: OwnedEquipment,
   funds: number,
   definitions: ReadonlyMap<string, EquipmentDefinition>,
+  facts?: ConditionContext,
 ): UpgradeEquipmentResult {
   const definition = definitions.get(owned.equipmentId);
   if (!definition) return { ok: false, reason: 'unknown-equipment' };
   if (!Number.isSafeInteger(owned.tier) || owned.tier < 1) return { ok: false, reason: 'unknown-equipment' };
   if (owned.tier >= EQUIPMENT_TIERS.length) return { ok: false, reason: 'max-tier' };
+  const unlock = equipmentUpgradeUnlock(owned.equipmentId, (owned.tier + 1) as 2 | 3 | 4, definitions);
+  if (unlock !== undefined && (facts === undefined || !evaluateCondition(unlock, facts))) return { ok: false, reason: 'locked' };
   const cost = upgradeCost(owned.tier);
   if (funds < cost) return { ok: false, reason: 'insufficient-funds' };
   return {

@@ -5,6 +5,7 @@
 import { EQUIPMENT_SLOTS, EQUIPMENT_TIERS } from '../../gameplay/equipment';
 import { RUN_UPGRADE_STAT_KEYS } from '../../gameplay/stats';
 import { isUnlockId } from '../ids';
+import { validateProgressionCondition } from '../../gameplay/conditionValidation';
 import type { RowCheck } from '../validation';
 
 type RowCheckFn = RowCheck;
@@ -66,6 +67,21 @@ export const checkEquipment: RowCheckFn = (row: unknown, _index: number): string
     }
   }
 
+  if (e.upgradeUnlocks !== undefined) {
+    if (!e.upgradeUnlocks || typeof e.upgradeUnlocks !== 'object' || Array.isArray(e.upgradeUnlocks)) {
+      errors.push('upgradeUnlocks: must be an object');
+    } else {
+      const unlocks = e.upgradeUnlocks as Record<string, unknown>;
+      for (const targetTier of Object.keys(unlocks)) {
+        if (targetTier !== '2' && targetTier !== '3' && targetTier !== '4') {
+          errors.push(`upgradeUnlocks.${targetTier}: target tier must be 2, 3, or 4`);
+        } else {
+          errors.push(...validateProgressionCondition(unlocks[targetTier], `upgradeUnlocks.${targetTier}`));
+        }
+      }
+    }
+  }
+
   return errors;
 };
 
@@ -103,4 +119,55 @@ export function assertEquipmentSetBonuses(
       }
     }
   }
+}
+
+/** Equipment tier gates share the Alpha 3 condition vocabulary. Resolve all
+ * catalog-bearing facts at boot so a typo cannot create an unearnable tier. */
+export function assertEquipmentUpgradeUnlockReferences(
+  pieces: readonly { id: string; setId: string; upgradeUnlocks?: Readonly<Partial<Record<2 | 3 | 4, unknown>>> }[],
+  catalogs: { stageIds: Set<string>; bossIds: Set<string>; achievementIds: Set<string>; characterIds: Set<string>; metaUpgradeIds: Set<string> },
+): void {
+  // Enemy-only validator fixtures deliberately clear the complete stage
+  // progression domain. There is then no route that can consume an equipment
+  // tier gate; skip this cross-domain assertion rather than misclassifying
+  // that isolated fixture as a broken production catalog.
+  if (catalogs.stageIds.size === 0) return;
+  const providersBySet = new Map<string, number>();
+  for (const piece of pieces) {
+    if (piece.upgradeUnlocks === undefined) continue;
+    providersBySet.set(piece.setId, (providersBySet.get(piece.setId) ?? 0) + 1);
+  }
+  for (const [setId, count] of providersBySet) {
+    if (count > 1) throw new Error(`equipment.${setId}: must have at most one upgradeUnlocks provider`);
+  }
+  for (const piece of pieces) {
+    for (const [targetTier, condition] of Object.entries(piece.upgradeUnlocks ?? {})) {
+      assertEquipmentConditionReferences(condition, `equipment.${piece.id}.upgradeUnlocks.${targetTier}`, catalogs);
+    }
+  }
+}
+
+function assertEquipmentConditionReferences(
+  value: unknown,
+  path: string,
+  catalogs: Parameters<typeof assertEquipmentUpgradeUnlockReferences>[1],
+): void {
+  if (!value || typeof value !== 'object') return;
+  const condition = value as Record<string, unknown>;
+  const target = condition.type === 'stage-cleared' ? ['stageIds', condition.stageId]
+    : condition.type === 'boss-defeated' ? ['bossIds', condition.bossId]
+      : condition.type === 'achievement-completed' ? ['achievementIds', condition.achievementId]
+        : condition.type === 'mastery-reached' ? ['characterIds', `character:${String(condition.subjectId)}`]
+          : condition.type === 'permanent-level' ? ['metaUpgradeIds', condition.upgradeId]
+            : undefined;
+  // Narrow catalog fixtures intentionally omit whole producer domains. In a
+  // complete catalog references are strict; an absent domain is not treated
+  // as a fabricated empty catalog by this cross-domain equipment check.
+  if (target && catalogs[target[0] as keyof typeof catalogs].size > 0 && !catalogs[target[0] as keyof typeof catalogs].has(target[1] as string)) {
+    throw new Error(`${path}: condition references unknown "${String(target[1])}"`);
+  }
+  if ((condition.type === 'all' || condition.type === 'any') && Array.isArray(condition.conditions)) {
+    condition.conditions.forEach((child, index) => assertEquipmentConditionReferences(child, `${path}.conditions[${index}]`, catalogs));
+  }
+  if (condition.type === 'not') assertEquipmentConditionReferences(condition.condition, `${path}.condition`, catalogs);
 }

@@ -26,7 +26,7 @@ import {
 } from '../systems/save';
 import { applyDurableGrantTransaction, type DurableGrantTransaction } from '../gameplay/grantProcessor';
 import { noopAchievementAdapter, type AchievementPlatformAdapter } from '../gameplay/achievementPlatform';
-import { EQUIPMENT_TIERS, upgradeCost } from '../gameplay/equipment';
+import { EQUIPMENT_TIERS, equipmentUpgradeUnlock, upgradeCost } from '../gameplay/equipment';
 
 export const GAME_CONTEXT_REGISTRY_KEY = 'meowcenary.gameContext';
 
@@ -142,6 +142,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
   let current = options.save.load();
   const stages = options.stages ?? new StageRegistryCtor(options.data);
   const knownEquipmentIds = new Set((options.data.equipment ?? []).map((equipment) => equipment.id));
+  const equipmentDefinitions = new Map((options.data.equipment ?? []).map((equipment) => [equipment.id, equipment] as const));
   const equipmentSlotById = new Map((options.data.equipment ?? []).map((equipment) => [equipment.id, equipment.slot] as const));
   const knownPartIds = new Set((options.data.gunParts ?? []).map((part) => part.id));
   const knownTraitIds = new Set((options.data.gunParts ?? []).flatMap((part) => part.traits.map((trait) => `trait:${trait.toLowerCase()}`)));
@@ -165,12 +166,27 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       previous[slot as keyof EquipmentLoadoutState] === loadout[slot as keyof EquipmentLoadoutState]);
     return unchanged ? save : Object.freeze({ ...save, equipmentLoadout: loadout });
   };
+  const equipmentUpgradeFacts = () => createConditionContext(current.progression, {
+    stages: current.stages,
+    achievements: current.achievements,
+    characters: current.characters,
+    bosses: current.bosses,
+  });
   const normalizedInitial = normalizeEquipmentSnapshot(current);
   if (normalizedInitial !== current && options.save.save(normalizedInitial)) current = normalizedInitial;
   const hasKnownContentRewards = (transaction: DurableGrantTransaction): boolean => transaction.grants.every((grant) => {
     switch (grant.type) {
       case 'unlock-equipment':
-      case 'grant-equipment-instance': return knownEquipmentIds.has(grant.equipmentId);
+        return knownEquipmentIds.has(grant.equipmentId);
+      case 'grant-equipment-instance': {
+        if (!knownEquipmentIds.has(grant.equipmentId)) return false;
+        const tier = grant.tier ?? 1;
+        for (let targetTier = 2; targetTier <= tier; targetTier += 1) {
+          const unlock = equipmentUpgradeUnlock(grant.equipmentId, targetTier as 2 | 3 | 4, equipmentDefinitions);
+          if (unlock !== undefined && !evaluateCondition(unlock, equipmentUpgradeFacts())) return false;
+        }
+        return true;
+      }
       case 'unlock-part':
       case 'grant-part-instance': return knownPartIds.has(grant.partId);
       case 'unlock-trait': return knownTraitIds.has(grant.traitId);
@@ -281,6 +297,8 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         || nextTier !== expectedTier + 1 || nextTier > EQUIPMENT_TIERS.length
         || cost !== upgradeCost(expectedTier)
         || current.progression.scrap < cost) return false;
+      const unlock = equipmentUpgradeUnlock(owned.equipmentId, nextTier as 2 | 3 | 4, equipmentDefinitions);
+      if (unlock !== undefined && !evaluateCondition(unlock, equipmentUpgradeFacts())) return false;
       const candidate = Object.freeze({
         ...current,
         progression: Object.freeze({ ...current.progression, scrap: current.progression.scrap - cost }),

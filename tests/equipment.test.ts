@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import equipmentJson from '../src/data/equipment.json';
 import rewardProfilesJson from '../src/data/reward-profiles.json';
+import { createConditionContext } from '../src/gameplay/conditionEvaluator';
 import { loadGameData, validateGameData } from '../src/systems/validation';
 import { DataEquipmentRegistry } from '../src/systems/equipment';
 import {
@@ -30,6 +31,16 @@ function ownedMap(...items: OwnedEquipment[]): ReadonlyMap<string, OwnedEquipmen
 function emptyLoadout(): EquipmentLoadout {
   return { equipped: {} };
 }
+
+const tierTwoFacts = createConditionContext(createDefaultSaveV3().progression, {
+  stages: { 'stage:junkyard-02': { completed: true } },
+});
+const tierThreeFacts = createConditionContext(createDefaultSaveV3().progression, {
+  bosses: { 'boss-crusher': { defeated: true } },
+});
+const tierFourFacts = createConditionContext(createDefaultSaveV3().progression, {
+  achievements: { 'achievement:boss-crusher': { completed: true } },
+});
 
 describe('Epic 25 equipment catalog conformance', () => {
   it('ships equipment across 4 slots and multiple set families', () => {
@@ -162,7 +173,7 @@ describe('Epic 25 coin-funded upgrades', () => {
     const piece = owned('equipment:commando-helmet', 1);
     const cost = upgradeCost(1);
     expect(cost).toBe(100);
-    const result = upgradeEquipment(piece, 200, defMap);
+    const result = upgradeEquipment(piece, 200, defMap, tierTwoFacts);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.cost).toBe(100);
@@ -172,12 +183,26 @@ describe('Epic 25 coin-funded upgrades', () => {
 
   it('rejects insufficient funds and max tier without mutating', () => {
     const piece = owned('equipment:commando-helmet', 1);
-    expect(upgradeEquipment(piece, 50, defMap)).toMatchObject({ ok: false, reason: 'insufficient-funds' });
+    expect(upgradeEquipment(piece, 50, defMap, tierTwoFacts)).toMatchObject({ ok: false, reason: 'insufficient-funds' });
     const maxed = owned('equipment:commando-helmet', 4);
     expect(upgradeEquipment(maxed, 10000, defMap)).toMatchObject({ ok: false, reason: 'max-tier' });
     expect(upgradeEquipment(owned('equipment:nope'), 100, defMap)).toMatchObject({ ok: false, reason: 'unknown-equipment' });
     expect(upgradeEquipment(owned('equipment:commando-helmet', 0), 100, defMap)).toMatchObject({ ok: false, reason: 'unknown-equipment' });
     expect(upgradeEquipment(owned('equipment:commando-helmet', 1.5), 100, defMap)).toMatchObject({ ok: false, reason: 'unknown-equipment' });
+  });
+
+  it('requires data-owned stage, boss, and achievement facts for the higher tiers', () => {
+    const standard = owned('equipment:commando-helmet', 1);
+    expect(upgradeEquipment(standard, 999, defMap)).toMatchObject({ ok: false, reason: 'locked' });
+    expect(upgradeEquipment(standard, 999, defMap, tierTwoFacts)).toMatchObject({ ok: true, output: { tier: 2 } });
+
+    const advanced = owned('equipment:commando-helmet', 2);
+    expect(upgradeEquipment(advanced, 999, defMap, tierTwoFacts)).toMatchObject({ ok: false, reason: 'locked' });
+    expect(upgradeEquipment(advanced, 999, defMap, tierThreeFacts)).toMatchObject({ ok: true, output: { tier: 3 } });
+
+    const elite = owned('equipment:commando-helmet', 3);
+    expect(upgradeEquipment(elite, 999, defMap, tierThreeFacts)).toMatchObject({ ok: false, reason: 'locked' });
+    expect(upgradeEquipment(elite, 999, defMap, tierFourFacts)).toMatchObject({ ok: true, output: { tier: 4 } });
   });
 });
 
@@ -220,6 +245,7 @@ describe('Epic 25 second-fixture proof (data-only extensibility)', () => {
       tier: 1,
       effects: [{ stat: 'moveSpeed', op: 'mult', value: 1.01, sourceId: `equipment:proof-set-${slot}` }],
       ...(index === 0 ? { setBonuses: { 2: [{ stat: 'damage', op: 'mult', value: 1.1, sourceId: 'set:proof:2' }], 4: [{ stat: 'pierce', op: 'add', value: 1, sourceId: 'set:proof:4' }] } } : {}),
+      ...(index === 0 ? { upgradeUnlocks: { 2: { type: 'stage-cleared' as const, stageId: 'stage:proof' } } } : {}),
     }));
     const registry = new DataEquipmentRegistry({ equipment: [...equipmentJson, ...pieces] });
     const defs = registry.asMap();
@@ -227,6 +253,10 @@ describe('Epic 25 second-fixture proof (data-only extensibility)', () => {
     const loadout: EquipmentLoadout = { equipped: Object.fromEntries(ownedPieces.map((piece) => [defs.get(piece.equipmentId)!.slot, piece.instanceId])) };
     const modifiers = resolveSetBonuses(loadout, defs, ownedMap(...ownedPieces));
     expect(modifiers.map((modifier) => modifier.sourceId)).toEqual(expect.arrayContaining(['set:proof:2', 'set:proof:4']));
+    expect(upgradeEquipment(ownedPieces[0]!, 999, defs)).toMatchObject({ ok: false, reason: 'locked' });
+    expect(upgradeEquipment(ownedPieces[0]!, 999, defs, createConditionContext(createDefaultSaveV3().progression, {
+      stages: { 'stage:proof': { completed: true } },
+    }))).toMatchObject({ ok: true, output: { tier: 2 } });
   });
 
   it('a new piece using an existing set/slot/effect primitive is data only', () => {

@@ -1,10 +1,11 @@
 import type { GameContext } from '../engine/context';
 import { DataEquipmentRegistry } from '../systems/equipment';
 import { equipEquipment, unequipEquipment, upgradeEquipment, type EquipmentSlot, type OwnedEquipment } from '../gameplay/equipment';
+import { createConditionContext } from '../gameplay/conditionEvaluator';
 
 export interface EquipmentSnapshot {
   readonly equipped: Readonly<Record<string, string | undefined>>;
-  readonly owned: readonly { readonly instanceId: string; readonly equipmentId: string; readonly name: string; readonly setId: string; readonly slot: string; readonly tier: number; readonly upgradeCost?: number }[];
+  readonly owned: readonly { readonly instanceId: string; readonly equipmentId: string; readonly name: string; readonly setId: string; readonly slot: string; readonly tier: number; readonly upgradeCost?: number; readonly upgradeLocked?: boolean }[];
   /** Derived solely from the currently equipped owned instances. */
   readonly activeSets: readonly { readonly setId: string; readonly pieces: number; readonly activeThresholds: readonly (2 | 4)[] }[];
   /** Recoverable stale catalog entries; never silently disappear from a save. */
@@ -17,6 +18,12 @@ export class EquipmentController {
   constructor(private readonly context: GameContext) { this.registry = new DataEquipmentRegistry({ equipment: context.data.equipment ?? [] }); }
   snapshot(): EquipmentSnapshot {
     const state = this.context.saveData;
+    const facts = createConditionContext(state.progression, {
+      stages: state.stages,
+      achievements: state.achievements,
+      characters: state.characters,
+      bosses: state.bosses,
+    });
     const equipped = Object.freeze({ ...(state.equipmentLoadout ?? {}) });
     const setCounts = new Map<string, number>();
     for (const [slot, instanceId] of Object.entries(equipped)) {
@@ -31,8 +38,8 @@ export class EquipmentController {
       owned: Object.freeze(Object.entries(state.equipment).flatMap(([instanceId, item]) => {
         const definition = this.registry.equipmentById(item.equipmentId);
         if (!definition) return [];
-        const upgrade = upgradeEquipment({ instanceId, equipmentId: item.equipmentId, tier: item.tier }, state.progression.scrap, this.registry.asMap());
-        return [Object.freeze({ instanceId, equipmentId: item.equipmentId, name: definition.name, setId: definition.setId, slot: definition.slot, tier: item.tier, ...(upgrade.ok ? { upgradeCost: upgrade.cost } : {}) })];
+        const upgrade = upgradeEquipment({ instanceId, equipmentId: item.equipmentId, tier: item.tier }, state.progression.scrap, this.registry.asMap(), facts);
+        return [Object.freeze({ instanceId, equipmentId: item.equipmentId, name: definition.name, setId: definition.setId, slot: definition.slot, tier: item.tier, ...(upgrade.ok ? { upgradeCost: upgrade.cost } : upgrade.reason === 'locked' ? { upgradeLocked: true } : {}) })];
       })),
       activeSets: Object.freeze([...setCounts.entries()].map(([setId, pieces]) => Object.freeze({
         setId,
@@ -61,7 +68,12 @@ export class EquipmentController {
     const save = this.context.saveData;
     const owned = save.equipment[instanceId];
     if (!owned) return false;
-    const result = upgradeEquipment({ instanceId, equipmentId: owned.equipmentId, tier: owned.tier }, save.progression.scrap, this.registry.asMap());
+    const result = upgradeEquipment({ instanceId, equipmentId: owned.equipmentId, tier: owned.tier }, save.progression.scrap, this.registry.asMap(), createConditionContext(save.progression, {
+      stages: save.stages,
+      achievements: save.achievements,
+      characters: save.characters,
+      bosses: save.bosses,
+    }));
     if (!result.ok) return false;
     return this.context.commitEquipmentUpgrade(instanceId, owned.tier, result.output.tier, result.cost);
   }

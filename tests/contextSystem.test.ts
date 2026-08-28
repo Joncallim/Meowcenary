@@ -66,6 +66,17 @@ describe('GameContext persistence boundary', () => {
     expect(context.saveData.appliedGrantTransactions[transaction.id]).toBeUndefined();
   });
 
+  it('rejects a high-tier equipment reward before its data-owned milestones exist', () => {
+    const { context } = setup();
+    const transaction = {
+      id: 'achievement:boss-crusher:premature-tier',
+      grants: [{ type: 'grant-equipment-instance' as const, instanceId: 'reward:premature-tier', equipmentId: 'equipment:commando-helmet', tier: 4 }],
+    };
+    expect(context.applyGrantTransaction(transaction)).toBe(false);
+    expect(context.saveData.equipment['reward:premature-tier']).toBeUndefined();
+    expect(context.saveData.appliedGrantTransactions[transaction.id]).toBeUndefined();
+  });
+
   it('rejects a receipt transaction that names an unknown part definition', () => {
     const { context } = setup();
     const transaction = {
@@ -199,6 +210,7 @@ describe('GameContext persistence boundary', () => {
     expect(context.saveData.progression.scrap).toBe(100);
     expect(context.saveData.equipment['owned:helmet'].tier).toBe(1);
     storage.succeed = true;
+    expect(context.completeStage('stage:junkyard-02', 1)).toBe(true);
     expect(context.commitEquipmentUpgrade('owned:helmet', 1, 2, 100)).toBe(true);
     expect(context.saveData.progression.scrap).toBe(0);
     expect(context.saveData.equipment['owned:helmet'].tier).toBe(2);
