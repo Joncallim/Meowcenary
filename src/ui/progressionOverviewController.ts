@@ -50,6 +50,7 @@ export class ProgressionOverviewController {
       context.saveData.progression,
       {
         stages: context.saveData.stages,
+        bosses: context.saveData.bosses,
         achievements: context.saveData.achievements,
         characters: context.saveData.characters,
       },

@@ -166,11 +166,15 @@ function purchaseTrial(trial: number): void {
   for (let i = 0; i < 3; i += 1) { h.padDown(13); h.poll(); h.padUp(13); h.poll(); }
   h.padDown(0); h.poll(); h.padUp(0); h.poll();
   expect(h.menuSnapshot().panel).toBe('progression');
+  // The portrait-safe hub separates legacy training from the progression
+  // destinations. Select it once; its first control is the upgrade row.
+  for (let i = 0; i < 5; i += 1) { h.padDown(13); h.poll(); h.padUp(13); h.poll(); }
+  h.padDown(0); h.poll(); h.padUp(0); h.poll();
   const row = h.menuSnapshot().progression.upgrades[0]!;
   expect(row.canPurchase).toBe(true);
   const scrapBefore = h.menuSnapshot().progression.scrap;
   const ringBefore = h.ringedTargetIndex();
-  const edgesBefore = spy.raw.length; // exactly 1: the progression entry
+  const edgesBefore = spy.raw.length; // progression entry + training entry
 
   driveSimultaneousPattern(h);
   // The pattern added exactly one keyboard-sourced raw edge; held polls and
@@ -226,17 +230,18 @@ function resetTrial(trial: number): void {
   expect(h.menuSnapshot().panel).toBe('progression');
   expect(h.menuSnapshot().progression.scrap).toBe(500);
 
-  // Enter the real two-step reset panel: navDown ×4 to Reset Progression,
-  // confirm → reset-confirmation with Confirm Reset focused.
+  // Enter legacy training, then the real two-step reset panel.
+  for (let i = 0; i < 5; i += 1) { h.padDown(13); h.poll(); h.padUp(13); h.poll(); }
+  h.padDown(0); h.poll(); h.padUp(0); h.poll();
   for (let i = 0; i < 5; i += 1) { h.padDown(13); h.poll(); h.padUp(13); h.poll(); }
   h.padDown(0); h.poll(); h.padUp(0); h.poll();
   expect(h.menuSnapshot().panel).toBe('reset-confirmation');
-  expect(spy.raw).toHaveLength(2); // progression entry + reset-panel entry
+  expect(spy.raw).toHaveLength(3); // progression, training, reset-panel entries
 
   // The FINAL destructive confirm: simultaneous + held + staggered release.
   driveSimultaneousPattern(h);
-  expect(spy.raw).toHaveLength(3);
-  expect(spy.raw[2]!.source).toBe('keyboard');
+  expect(spy.raw).toHaveLength(4);
+  expect(spy.raw[3]!.source).toBe('keyboard');
   // Domain effect: one progression reset, one persistence-write delta,
   // settings unchanged, selection revalidation leaves the selection intact.
   expect(h.menuSnapshot().panel).toBe('progression');
@@ -259,7 +264,7 @@ function resetTrial(trial: number): void {
   h.poll();
   h.simultaneousConfirmUp();
   h.poll();
-  expect(spy.raw).toHaveLength(4);
+  expect(spy.raw).toHaveLength(5);
   expect(uiConfirms).toBe(navBefore + 1); // the fresh confirm activated a row
   expect(h.sceneCommands()).toEqual(commands);
   h.destroy();

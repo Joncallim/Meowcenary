@@ -7,6 +7,7 @@ import { StageSelectionController, type StageSelectionSnapshot } from './stageSe
 import { AchievementsController, type AchievementsSnapshot } from './achievementsController';
 import { GunsmithController, type GunsmithSnapshot } from './gunsmithController';
 import { EquipmentController, type EquipmentSnapshot } from './equipmentController';
+import { ProgressionOverviewController, type ProgressionOverviewSnapshot } from './progressionOverviewController';
 import { DataAchievementRegistry } from '../systems/achievements';
 import type { GameContext } from '../engine/context';
 
@@ -33,6 +34,7 @@ export interface MainMenuSnapshot {
   readonly gunsmith: GunsmithSnapshot;
   readonly equipment: EquipmentSnapshot;
   readonly progression: ProgressionSnapshot;
+  readonly progressionOverview: ProgressionOverviewSnapshot;
   readonly settings: SettingsSnapshot;
   readonly notice?: string;
 }
@@ -42,6 +44,7 @@ export class MainMenuController {
   private readonly arenaController: ArenaSelectionController;
   private readonly stageController: StageSelectionController;
   private readonly progressionController: ProgressionController;
+  private readonly progressionOverviewController: ProgressionOverviewController;
   private readonly achievementsController: AchievementsController;
   private readonly gunsmithController: GunsmithController;
   private readonly equipmentController: EquipmentController;
@@ -55,6 +58,7 @@ export class MainMenuController {
     this.arenaController = new ArenaSelectionController(context);
     this.stageController = new StageSelectionController(context);
     this.progressionController = new ProgressionController(context);
+    this.progressionOverviewController = new ProgressionOverviewController(context, new DataAchievementRegistry({ achievements: context.data.achievements ?? [] }));
     this.achievementsController = new AchievementsController(context, new DataAchievementRegistry({ achievements: context.data.achievements ?? [] }));
     this.gunsmithController = new GunsmithController(context);
     this.equipmentController = new EquipmentController(context);
@@ -71,6 +75,7 @@ export class MainMenuController {
       gunsmith: this.gunsmithController.snapshot(),
       equipment: this.equipmentController.snapshot(),
       progression: this.progressionController.snapshot(),
+      progressionOverview: this.progressionOverviewController.snapshot(),
       settings: this.settingsController.snapshot(),
       notice: this.notice,
     });

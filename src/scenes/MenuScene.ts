@@ -47,6 +47,9 @@ export class MenuScene extends Phaser.Scene {
   /** Gunsmith inventories can grow without bound; page logical actions so
    * every controller/touch target remains inside the playable viewport. */
   private gunsmithPage = 0;
+  /** Keep the progression hub useful on portrait displays: destinations and
+   * the older permanent-training controls have separate, reachable pages. */
+  private progressionPage = 0;
 
   /** Number of committed render attempts; resize tests assert one per event. */
   get renderRebuildCount(): number {
@@ -106,7 +109,10 @@ export class MenuScene extends Phaser.Scene {
   private render(snapshot: MainMenuSnapshot): void {
     this.rebuildCount += 1;
     const panelChanged = this.committedPanel !== undefined && this.committedPanel !== snapshot.panel;
-    if (panelChanged) this.gunsmithPage = 0;
+    if (panelChanged) {
+      this.gunsmithPage = 0;
+      this.progressionPage = 0;
+    }
     // The display is uncommitted from the moment teardown begins until a
     // successful publication below (F1 committed-display gate).
     this.committedDisplay = false;
@@ -386,7 +392,50 @@ export class MenuScene extends Phaser.Scene {
     hitTarget: number,
   ): void {
     const heading = this.addHeading(root, this.safeCenterX, top, `Progression — ${snapshot.progression.scrap} scrap`);
-    let y = top + heading.height + 20;
+    let y = top + heading.height + 12;
+
+    if (this.progressionPage === 0) {
+      const overview = snapshot.progressionOverview;
+      const summary = this.own(root, createUiText(this, margin, y,
+        `Contracts ${overview.completedStages}/${overview.totalStages} • Achievements ${overview.completedAchievements}/${overview.totalAchievements} • Mercenaries ${overview.unlockedCharacters}/${overview.totalCharacters}`,
+        {
+          color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+          wordWrap: { width: width - margin - this.safeRightMargin },
+        },
+      ));
+      y += summary.height + 10;
+      for (const goal of overview.nextGoals.slice(0, 2)) {
+        const goalText = this.own(root, createUiText(this, margin, y, `Next: ${goal.title}\n${goal.detail}`, {
+          color: '#f7f1d5', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+          wordWrap: { width: width - margin - this.safeRightMargin },
+        }));
+        y += goalText.height + 10;
+      }
+
+      const destinations: ReadonlyArray<{ readonly label: string; readonly panel: 'stage' | 'achievements' | 'gunsmith' | 'character' | 'equipment' }> = [
+        { label: 'Contracts', panel: 'stage' },
+        { label: `Achievements (${snapshot.achievements.completedCount}/${snapshot.achievements.totalCount})`, panel: 'achievements' },
+        { label: 'Gunsmith', panel: 'gunsmith' },
+        { label: 'Mercenaries', panel: 'character' },
+        { label: 'Equipment', panel: 'equipment' },
+      ];
+      destinations.forEach(({ label, panel }) => {
+        this.addButton(root, margin, y, label, hitTarget, () => this.render(this.requireController().open(panel)));
+        y += hitTarget + 8;
+      });
+      this.addButton(root, margin, y, 'Legacy Training', hitTarget, () => {
+        this.progressionPage = 1;
+        this.navigator.reset();
+        this.render(snapshot);
+      });
+      this.addBackButton(root, width, margin, hitTarget);
+      return;
+    }
+
+    this.own(root, createUiText(this, margin, y, 'Legacy training upgrades', {
+      color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+    }));
+    y += hitTarget * 0.7;
 
     snapshot.progression.upgrades.forEach((upgrade) => {
       const costText = upgrade.nextCost !== null ? `${upgrade.nextCost} scrap` : 'max';
@@ -407,11 +456,13 @@ export class MenuScene extends Phaser.Scene {
         y += desc.height + 8;
       }
     });
-    this.addButton(root, margin, y + 12, `Achievements (${snapshot.achievements.completedCount}/${snapshot.achievements.totalCount})`, hitTarget, () => {
-      this.render(this.requireController().open('achievements'));
-    });
-
     y += 12;
+    this.addButton(root, margin, y, 'Progression Hub', hitTarget, () => {
+      this.progressionPage = 0;
+      this.navigator.reset();
+      this.render(snapshot);
+    });
+    y += hitTarget + 8;
     this.addButton(root, margin, y, 'Reset Progression', hitTarget, () => {
       const next = this.requireController().requestReset();
       this.render(next);

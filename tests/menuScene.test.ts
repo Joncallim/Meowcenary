@@ -747,11 +747,24 @@ describe('MenuScene', () => {
       name: 'progression',
       steps: 3,
       expected: [
+        'Contracts',
+        'Achievements (0/10)',
+        'Gunsmith',
+        'Mercenaries',
+        'Equipment',
+        'Legacy Training',
+        '< Back',
+      ],
+    },
+    {
+      name: 'progression legacy training',
+      steps: 3,
+      expected: [
         'Reinforced Vest L0/5 (10 scrap)',
         'Quick Paws Training L0/5 (15 scrap)',
         'Sharpened Ammo L0/5 (20 scrap)',
         'Magnetic Whiskers L0/5 (10 scrap)',
-        'Achievements (0/10)',
+        'Progression Hub',
         'Reset Progression',
         '< Back',
       ],
@@ -794,6 +807,10 @@ describe('MenuScene', () => {
       // Home → Progression → Reset Progression, entirely through nav/confirm.
       for (let i = 0; i < 3; i += 1) press('ArrowDown');
       press('Enter');
+      const trainingIndex = buttonLabels().indexOf('Legacy Training');
+      expect(trainingIndex).toBeGreaterThanOrEqual(0);
+      for (let i = 0; i < trainingIndex; i += 1) press('ArrowDown');
+      press('Enter');
       const resetIndex = buttonLabels().indexOf('Reset Progression');
       expect(resetIndex).toBeGreaterThanOrEqual(0);
       for (let i = 0; i < resetIndex; i += 1) press('ArrowDown');
@@ -802,6 +819,10 @@ describe('MenuScene', () => {
     } else {
       for (let i = 0; i < steps; i += 1) press('ArrowDown');
       press('Enter');
+      if (name === 'progression legacy training') {
+        for (let i = 0; i < 5; i += 1) press('ArrowDown');
+        press('Enter');
+      }
     }
 
     // Exact target order and count.
@@ -866,10 +887,13 @@ describe('MenuScene', () => {
           !object.state.destroyed,
       )!.state.text;
 
-    // Home → Progression; focus the first upgrade (index 0).
+    // Home → Progression → Legacy Training; focus the first upgrade.
     for (let i = 0; i < 3; i += 1) press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Progression — 0 scrap');
+    expect(seams.navigator.index).toBe(0);
+    for (let i = 0; i < 5; i += 1) press('ArrowDown');
+    press('Enter');
     expect(seams.navigator.index).toBe(0);
 
     // Purchase failure (0 scrap): same row stays focused, notice shown, and
@@ -957,6 +981,10 @@ describe('MenuScene', () => {
     expect(harness.textContents()).toContain('Progression — 0 scrap');
 
     // Walk to Reset Progression and confirm — entirely through nav/confirm.
+    const trainingIndex = buttonLabels().indexOf('Legacy Training');
+    expect(trainingIndex).toBeGreaterThanOrEqual(0);
+    for (let i = 0; i < trainingIndex; i += 1) press('ArrowDown');
+    press('Enter');
     const resetIndex = buttonLabels().indexOf('Reset Progression');
     expect(resetIndex).toBeGreaterThanOrEqual(0);
     for (let i = 0; i < resetIndex; i += 1) press('ArrowDown');
