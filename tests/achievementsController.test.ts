@@ -39,6 +39,8 @@ describe('AchievementsController (Epic 22 read model)', () => {
     for (const view of snap.achievements) {
       expect(view.status).toBe('locked');
     }
+    expect(snap.achievements.find((view) => view.id === 'achievement:first-kill')?.rewardSummary)
+      .toBe('+25 scrap');
   });
 
   it('hidden achievements are masked until completed', () => {

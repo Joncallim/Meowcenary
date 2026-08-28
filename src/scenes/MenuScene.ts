@@ -47,6 +47,7 @@ export class MenuScene extends Phaser.Scene {
   /** Gunsmith inventories can grow without bound; page logical actions so
    * every controller/touch target remains inside the playable viewport. */
   private gunsmithPage = 0;
+  private achievementsPage = 0;
   /** Keep the progression hub useful on portrait displays: destinations and
    * the older permanent-training controls have separate, reachable pages. */
   private progressionPage = 0;
@@ -111,6 +112,7 @@ export class MenuScene extends Phaser.Scene {
     const panelChanged = this.committedPanel !== undefined && this.committedPanel !== snapshot.panel;
     if (panelChanged) {
       this.gunsmithPage = 0;
+      this.achievementsPage = 0;
       this.progressionPage = 0;
     }
     // The display is uncommitted from the moment teardown begins until a
@@ -481,13 +483,33 @@ export class MenuScene extends Phaser.Scene {
   ): void {
     const heading = this.addHeading(root, this.safeCenterX, top, `Achievements ${snapshot.achievements.completedCount}/${snapshot.achievements.totalCount}`);
     let y = top + heading.height + 16;
-    snapshot.achievements.achievements.forEach((achievement) => {
-      this.own(root, createUiText(this, margin, y, `${achievement.name} — ${achievement.status} ${achievement.progress}/${achievement.target}`, {
+    const pageSize = 2;
+    const pageCount = Math.max(1, Math.ceil(snapshot.achievements.achievements.length / pageSize));
+    this.achievementsPage = Math.min(this.achievementsPage, pageCount - 1);
+    snapshot.achievements.achievements
+      .slice(this.achievementsPage * pageSize, (this.achievementsPage + 1) * pageSize)
+      .forEach((achievement) => {
+      const row = this.own(root, createUiText(this, margin, y, `${achievement.name} — ${achievement.status} ${achievement.progress}/${achievement.target}\n${achievement.description}\nReward: ${achievement.rewardSummary}`, {
         color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
         wordWrap: { width: width - margin - this.safeRightMargin },
       }));
-      y += hitTarget * 0.75;
-    });
+      y += row.height + 12;
+      });
+    if (this.achievementsPage > 0) {
+      this.addButton(root, margin, y, 'Previous Achievements', hitTarget, () => {
+        this.achievementsPage -= 1;
+        this.navigator.reset();
+        this.render(snapshot);
+      });
+      y += hitTarget + 8;
+    }
+    if (this.achievementsPage < pageCount - 1) {
+      this.addButton(root, margin, y, 'Next Achievements', hitTarget, () => {
+        this.achievementsPage += 1;
+        this.navigator.reset();
+        this.render(snapshot);
+      });
+    }
     this.addBackButton(root, width, margin, hitTarget);
   }
 

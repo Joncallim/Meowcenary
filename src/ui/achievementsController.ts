@@ -17,6 +17,9 @@ export interface AchievementView {
   readonly id: string;
   readonly name: string;
   readonly description: string;
+  /** Player-facing summary of the durable reward; the gallery never exposes
+   * raw grant JSON or asks the UI to interpret it. */
+  readonly rewardSummary: string;
   readonly kind: AchievementDefinition['kind'];
   readonly hidden: boolean;
   readonly status: AchievementViewStatus;
@@ -57,6 +60,7 @@ export class AchievementsController {
           id: definition.id,
           name: '???',
           description: 'Hidden achievement — keep playing to discover it.',
+          rewardSummary: 'Reward revealed on completion.',
           kind: definition.kind,
           hidden: true,
           status: 'locked' as const,
@@ -76,6 +80,7 @@ export class AchievementsController {
         id: definition.id,
         name: definition.name,
         description: definition.description,
+        rewardSummary: describeRewards(definition.rewards ?? []),
         kind: definition.kind,
         hidden: definition.hidden === true,
         status,
@@ -98,4 +103,23 @@ export class AchievementsController {
   invalidate(): void {
     this.revision += 1;
   }
+}
+
+function describeRewards(rewards: readonly { readonly grant: import('../gameplay/grantProcessor').ProgressionGrant }[]): string {
+  if (rewards.length === 0) return 'No persistent reward.';
+  return rewards.map(({ grant }) => {
+    switch (grant.type) {
+      case 'grant-scrap': return `+${grant.amount} scrap`;
+      case 'unlock-character': return `Unlocks ${grant.characterId}`;
+      case 'unlock-part': return `Unlocks ${grant.partId}`;
+      case 'unlock-equipment': return `Unlocks ${grant.equipmentId}`;
+      case 'unlock-trait': return `Unlocks ${grant.traitId}`;
+      case 'unlock-stage': return `Unlocks ${grant.stageId}`;
+      case 'grant-part-instance': return `Earns ${grant.partId}`;
+      case 'grant-equipment-instance': return `Earns ${grant.equipmentId}`;
+      case 'permanent-upgrade-level': return `Improves ${grant.upgradeId}`;
+      case 'achievement-completed': return `Completes ${grant.achievementId}`;
+      case 'grant-item': return `Earns ${grant.itemId}`;
+    }
+  }).join(' • ');
 }
