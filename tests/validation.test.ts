@@ -629,9 +629,10 @@ describe('game data validation', () => {
     expect(() => validateGameData(withEnemies([...direct, chainBase, chain]))).toThrow(/direct chaser, charger, or tank/);
   });
 
-  it('uses one spawnability decision for curves and elite bases across all archetypes', () => {
+  it('allows ranged curves while keeping elite inheritance narrower than encounter spawnability', () => {
     const archetypes = ['chaser', 'charger', 'ranged', 'tank', 'elite', 'boss'] as const;
-    const spawnable = new Set(['chaser', 'charger', 'tank']);
+    const spawnable = new Set(['chaser', 'charger', 'ranged', 'tank']);
+    const eliteBases = new Set(['chaser', 'charger', 'tank']);
 
     for (const archetype of archetypes) {
       const rows = archetypes.map((entry) => enemyFixture(entry));
@@ -652,7 +653,7 @@ describe('game data validation', () => {
       if (!eliteRow) throw new Error('missing elite fixture');
       eliteRow.baseEnemyId = candidateId;
       const eliteData = withEnemies(eliteBaseRows);
-      if (spawnable.has(archetype)) {
+      if (eliteBases.has(archetype)) {
         expect(() => validateGameData(eliteData)).not.toThrow();
       } else {
         expect(() => validateGameData(eliteData)).toThrow(/baseEnemyId/);
@@ -680,7 +681,7 @@ describe('game data validation', () => {
       [mutateCurve((curve) => { curve.waves[0].maxAlive = 257; }), /maxAlive/],
       [mutateCurve((curve) => { curve.waves[0].extra = 1; }), /extra: unknown field/],
       [mutateCurve((curve) => { curve.waves.push({ ...curve.waves[0] }); }), /duplicate layer/],
-      [mutateCurve((curve) => { curve.waves.forEach((wave: Record<string, number>) => { wave.maxAlive = 100; }); }), /combined maxAlive 300 exceeds 256/],
+      [mutateCurve((curve) => { curve.waves.forEach((wave: Record<string, number>) => { wave.maxAlive = 100; }); }), /combined maxAlive 400 exceeds 256/],
       [mutateCurve((curve) => { curve.waves = [{ startSecond: 0, enemyId: 'dust-mite', spawnEveryMs: 300000, maxAlive: 1 }]; }), /first due spawn must be before curve end/],
     ];
     for (const [data, pattern] of cases) expect(() => validateGameData(data)).toThrow(pattern);
@@ -734,16 +735,16 @@ describe('game data validation', () => {
     data.spawnCurves[0].waves[2].startSecond = 0;
     expect(() => validateGameData(data)).not.toThrow();
     expect(data.spawnCurves[0].waves.map((wave) => wave.enemyId)).toEqual([
-      'dust-mite', 'junk-rusher', 'trash-brute',
+      'dust-mite', 'junk-rusher', 'scrap-sniper', 'trash-brute',
     ]);
   });
 
-  it('rejects duplicate curve ids and ranged, elite, or boss spawn references', () => {
+  it('rejects duplicate curve ids and elite or boss spawn references', () => {
     const duplicate = structuredClone(loadGameData());
     duplicate.spawnCurves.push(structuredClone(duplicate.spawnCurves[0]));
     expect(() => validateGameData(duplicate)).toThrow(/duplicate id "junkyard-intro"/);
 
-    for (const archetype of ['ranged', 'elite', 'boss']) {
+    for (const archetype of ['elite', 'boss']) {
       const enemies = [
         enemyFixture('chaser'), enemyFixture('charger'), enemyFixture('tank'),
         enemyFixture('ranged'), enemyFixture('boss'), enemyFixture('elite'),

@@ -4,6 +4,7 @@ import type { Rng } from '../engine/rng';
 import type { System } from '../engine/system';
 import type { RunState } from '../gameplay/runState';
 import { Enemy, ENEMY_BODY_RADIUS } from '../entities/Enemy';
+import { Projectile } from '../entities/Projectile';
 import type { Player } from '../entities/Player';
 import { scaleEnemy } from '../gameplay/enemyScaling';
 import {
@@ -13,15 +14,18 @@ import {
 } from '../gameplay/spawnDirector';
 import { spawnPoint } from '../gameplay/spawnRegion';
 import { DataEnemyRegistry } from './enemies';
-import type { ArenaDefinition, EnemyScalingDefinition, SpawnableEnemyDefinition, SpawnCurveDefinition } from './types';
+import type { ArenaDefinition, EnemyScalingDefinition, ResolvedEnemyDefinition, SpawnCurveDefinition } from './types';
 import type { VisualArtLookup } from './visualArt';
 import type { ChargerEnvironment } from '../gameplay/enemyMovement';
 
 export class SpawnSystem implements System {
+  private static readonly ENEMY_PROJECTILE_POOL = 24;
   private readonly registry?: DataEnemyRegistry;
   private readonly director?: SpawnDirector;
   private readonly scaling?: EnemyScalingDefinition;
   private readonly environment: ChargerEnvironment;
+  private readonly enemyProjectiles: Projectile[] = [];
+  private readonly unsubscribeRangedShot: () => void;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -50,6 +54,16 @@ export class SpawnSystem implements System {
       undefined,
       this,
     );
+    for (let index = 0; index < SpawnSystem.ENEMY_PROJECTILE_POOL; index += 1) {
+      const projectile = new Projectile(this.scene, 5);
+      this.enemyProjectiles.push(projectile);
+      this.scene.physics.add.overlap(this.player.sprite, projectile.sprite, () => {
+        if (!projectile.active || this.runState.status !== 'active') return;
+        this.player.takeDamage(projectile.damage);
+        projectile.reset();
+      });
+    }
+    this.unsubscribeRangedShot = this.ctx.bus.on('enemy:ranged-shot', this.handleRangedShot);
   }
 
   update(dtMs: number): void {
@@ -66,6 +80,7 @@ export class SpawnSystem implements System {
     this.enemies.forEach((enemy) => {
       enemy.update(this.player, dtMs);
     });
+    this.enemyProjectiles.forEach((projectile) => projectile.update(dtMs));
 
     const activeCounts = Object.create(null) as Record<string, number>;
     for (const enemy of this.enemies) {
@@ -84,18 +99,46 @@ export class SpawnSystem implements System {
   }
 
   destroy(): void {
+    this.unsubscribeRangedShot();
+    this.enemyProjectiles.forEach((projectile) => projectile.destroy());
     this.enemies.forEach((enemy) => {
       enemy.destroy();
     });
     this.enemies.length = 0;
   }
 
+  /** Explicit encounter/boss entrypoint. Stage composition owns *when* this
+   * occurs; this system remains the sole owner of materialising enemy state. */
+  spawnEncounterEnemy(enemyId: string, x: number, y: number): boolean {
+    const before = this.enemies.length;
+    this.spawn({ enemyId, pos: { x, y }, scheduledAtMs: this.runState.timeMs });
+    return this.enemies.length > before;
+  }
+
+  private readonly handleRangedShot = (shot: { x: number; y: number; dirX: number; dirY: number; damage: number }): void => {
+    if (this.runState.status !== 'active') return;
+    const projectile = this.enemyProjectiles.find((candidate) => !candidate.active);
+    // Saturation drops the newest shot; it never allocates or evicts a live,
+    // already-telegraphed projectile.
+    if (!projectile) return;
+    projectile.spawn(shot.x, shot.y, { x: shot.dirX, y: shot.dirY }, {
+      speed: 210,
+      damage: shot.damage,
+      range: 330,
+      pierce: 0,
+      weaponId: 'enemy:ranged',
+      family: 'enemy',
+      tier: 0,
+    });
+  };
+
   private spawn(request: SpawnRequest): void {
-    const definition = this.registry?.spawnableById(request.enemyId);
+    const definition = this.registry?.spawnableById(request.enemyId)
+      ?? this.registry?.resolvedById(request.enemyId);
     if (!definition || !this.scaling) return;
 
     const scaled = scaleEnemy(definition, request.scheduledAtMs, this.scaling);
-    const runtimeDefinition: SpawnableEnemyDefinition = {
+    const runtimeDefinition: ResolvedEnemyDefinition = {
       ...definition,
       health: scaled.maxHealth,
       damage: scaled.damage,

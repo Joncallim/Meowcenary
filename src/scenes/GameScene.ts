@@ -393,6 +393,10 @@ export class GameScene extends Phaser.Scene {
       RuntimeConfig.performance.targetFps,
     );
 
+    const spawnSystem = new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup, arena, directorCurve, visualArt);
+    if (plan?.encounter.bossId) {
+      spawnSystem.spawnEncounterEnemy(plan.encounter.bossId, arena.size.width / 2, Math.max(80, arena.size.height * 0.2));
+    }
     this.systems = [
       this.progressionSystem,
       new PassiveCoordinator({
@@ -401,7 +405,7 @@ export class GameScene extends Phaser.Scene {
         character,
         handlers: createPassiveHandlerRegistry(DEFAULT_PASSIVE_HANDLERS),
       }),
-      new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup, arena, directorCurve, visualArt),
+      spawnSystem,
       new HazardSystem({
         scene: this,
         runState: this.runState,

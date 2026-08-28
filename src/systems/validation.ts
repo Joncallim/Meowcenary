@@ -72,7 +72,7 @@ import type { AchievementDefinition } from '../gameplay/achievementSystem';
 import type { PartDefinition } from '../gameplay/gunsmith';
 import type { AbilityDefinition } from '../gameplay/abilities';
 import type { EquipmentDefinition } from '../gameplay/equipment';
-import { isSpawnableEnemyDefinition } from './types';
+import { isEliteBaseEnemyDefinition, isSpawnableEnemyDefinition } from './types';
 import { CHARACTER_PASSIVE_EVENTS } from './types';
 import { isContentId, isUnlockId } from './ids';
 import {
@@ -1780,10 +1780,7 @@ function checkEnemy(row: unknown): string[] {
     }
   }
 
-  if (
-    typeof archetype === 'string' &&
-    isSpawnableEnemyDefinition(row as unknown as EnemyDefinition)
-  ) {
+  if (archetype === 'chaser' || archetype === 'charger' || archetype === 'tank') {
     requirePositiveNumber(row, 'damage', errors);
     requirePositiveNumber(row, 'speed', errors);
     requirePositiveInteger(row, 'xpValue', errors);
@@ -2333,7 +2330,7 @@ function assertEliteReferences(enemies: readonly EnemyDefinition[]): void {
       errors.push(`enemies.json[${index}].baseEnemyId: elite cannot reference itself`);
     } else if (!base) {
       errors.push(`enemies.json[${index}].baseEnemyId: unknown enemyId "${enemy.baseEnemyId}"`);
-    } else if (!isSpawnableEnemyDefinition(base)) {
+    } else if (!isEliteBaseEnemyDefinition(base)) {
       errors.push(`enemies.json[${index}].baseEnemyId: must reference a direct chaser, charger, or tank`);
     }
   });

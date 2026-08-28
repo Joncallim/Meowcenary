@@ -19,6 +19,9 @@ export interface GameEventMap {
   // (once, not every frame) and a tank's pursuit-step cadence. Both are
   // presentation-only; nothing subscribes for gameplay logic.
   'enemy:dashed': { x: number; y: number; dirX: number; dirY: number };
+  /** Authoritative ranged attack edge. SpawnSystem owns its pooled projectile
+   * and collision; presentation listeners may mirror the same fact. */
+  'enemy:ranged-shot': { enemyId: string; x: number; y: number; dirX: number; dirY: number; damage: number };
   'enemy:heavyStep': { x: number; y: number };
   // family/tier (Epic 17) are cosmetic-only duplicates of data WeaponSystem
   // already holds at the emit site — listeners key presentation/audio off
@@ -74,7 +77,7 @@ export type GameEventListener<K extends GameEventKey> = (payload: GameEventMap[K
 export const GAME_EVENT_KEYS = [
   'run:start', 'run:paused', 'run:resumed', 'run:won', 'run:lost',
   'player:damaged', 'player:died',
-  'enemy:spawned', 'enemy:damaged', 'enemy:killed', 'enemy:dashed', 'enemy:heavyStep',
+  'enemy:spawned', 'enemy:damaged', 'enemy:killed', 'enemy:dashed', 'enemy:ranged-shot', 'enemy:heavyStep',
   'weapon:fired', 'projectile:hit',
   'xp:gained', 'level:up', 'card:offered', 'card:chosen', 'weapon:merged',
   'drop:collected',

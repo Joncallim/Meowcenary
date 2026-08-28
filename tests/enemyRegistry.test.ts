@@ -144,7 +144,7 @@ describe('DataEnemyRegistry', () => {
     expect(enemies).toEqual(before);
   });
 
-  it('uses the shared spawnability authority for all six archetypes', () => {
+  it('allows ranged encounter entries but keeps bosses and elites out of ordinary waves', () => {
     const data = loadGameData();
     const shells: EnemyDefinition[] = [
       {
@@ -160,7 +160,7 @@ describe('DataEnemyRegistry', () => {
       ['dust-mite', true],
       ['junk-rusher', true],
       ['trash-brute', true],
-      ['ranged-shell', false],
+      ['ranged-shell', true],
       ['elite-dust-mite', false],
       ['boss-shell', false],
     ]);

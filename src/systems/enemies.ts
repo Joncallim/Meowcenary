@@ -5,7 +5,7 @@ import type {
   SpawnableEnemyDefinition,
 } from './types';
 import { deepFreeze } from '../engine/freeze';
-import { isSpawnableEnemyDefinition } from './types';
+import { isEliteBaseEnemyDefinition, isSpawnableEnemyDefinition } from './types';
 import { validateEnemyCatalog } from './validation';
 
 export const ELITE_MULTIPLIERS = Object.freeze({
@@ -45,7 +45,7 @@ export class DataEnemyRegistry {
       if (!base) {
         throw new Error(`Elite "${enemy.id}" references missing base "${enemy.baseEnemyId}"`);
       }
-      if (!isSpawnableEnemyDefinition(base)) {
+      if (!isEliteBaseEnemyDefinition(base)) {
         throw new Error(
           `Elite "${enemy.id}" base must be a direct chaser, charger, or tank`,
         );

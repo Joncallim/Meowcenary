@@ -663,6 +663,25 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       expect(dashed).toHaveBeenCalledTimes(1);
     });
 
+    it('emits one authoritative ranged-shot with target direction at the telegraph edge', async () => {
+      const definition: ResolvedEnemyDefinition = {
+        id: 'test-sniper', name: 'Test Sniper', archetype: 'ranged', health: 10,
+        damage: 6, speed: 20, xpValue: 1, scrapValue: 1, contactDamage: false,
+        attack: { range: 190, telegraphMs: 100, cooldownMs: 500 },
+      };
+      const bus = createEventBus();
+      const shot = vi.fn();
+      bus.on('enemy:ranged-shot', shot);
+      const { enemy } = await createEnemy(bus, definition);
+      const player = { active: true, x: 100, y: 20 } as never;
+      enemy.update(player, 1);
+      enemy.update(player, 99);
+      expect(shot).toHaveBeenCalledTimes(1);
+      expect(shot.mock.calls[0]?.[0]).toMatchObject({ enemyId: 'test-sniper', damage: 6, dirX: 1, dirY: 0 });
+      enemy.update(player, 200);
+      expect(shot).toHaveBeenCalledTimes(1);
+    });
+
     // Mirrors Phaser Arcade ordering (see "keeps Phaser-order charger
     // position..." above): velocity computed by one update() call only moves
     // the sprite once the *next* frame's physics step runs, before the next

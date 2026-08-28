@@ -95,7 +95,7 @@ async function createHarness(options: HarnessOptions = {}) {
     sprite: { kind: 'player' },
     takeDamage: vi.fn(),
   };
-  let overlap: ((playerObject: unknown, enemyObject: unknown) => void) | undefined;
+  const overlaps: Array<(playerObject: unknown, enemyObject: unknown) => void> = [];
   const scene = {
     scale: { width: 800, height: 600 },
     add: { circle: (x: number, y: number) => new SpawnArc(x, y) },
@@ -109,7 +109,7 @@ async function createHarness(options: HarnessOptions = {}) {
           _processCallback: unknown,
           context: unknown,
         ): void {
-          overlap = callback.bind(context);
+          overlaps.push(callback.bind(context));
         },
       },
     },
@@ -140,10 +140,26 @@ async function createHarness(options: HarnessOptions = {}) {
     options.visualArt as never,
   );
 
-  return { system, runState, bus, data, enemies, enemyGroup, player, overlap };
+  return {
+    system, runState, bus, data, enemies, enemyGroup, player, overlaps,
+    get overlap() { return overlaps[0]; },
+  };
 }
 
 describe('SpawnSystem', () => {
+  it('materialises a pooled ranged threat and applies its authoritative damage once', async () => {
+    const harness = await createHarness();
+    expect(harness.overlaps).toHaveLength(25); // contact + fixed projectile pool
+    harness.bus.emit('enemy:ranged-shot', {
+      enemyId: 'scrap-sniper', x: 10, y: 20, dirX: 1, dirY: 0, damage: 6,
+    });
+    harness.overlaps[1]?.(harness.player.sprite, {});
+    expect(harness.player.takeDamage).toHaveBeenCalledTimes(1);
+    expect(harness.player.takeDamage).toHaveBeenCalledWith(6);
+    harness.overlaps[1]?.(harness.player.sprite, {});
+    expect(harness.player.takeDamage).toHaveBeenCalledTimes(1);
+  });
+
   it('freezes active enemies without touching destroyed ones while not active', async () => {
     const activeBody = {
       velocity: { x: 40, y: -20 },

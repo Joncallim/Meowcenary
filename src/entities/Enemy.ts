@@ -198,12 +198,22 @@ export class Enemy implements EnemyInstance {
     this.dashOrigin = result.dashOrigin;
     this.applyPosition(result.pos, dtMs, behavior.immediate);
     if (result.enteredAttack) {
-      this.bus.emit('enemy:dashed', {
-        x: this.x,
-        y: this.y,
-        dirX: this.dashDirection.x,
-        dirY: this.dashDirection.y,
-      });
+      if (this.definition.archetype === 'ranged') {
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const length = Math.hypot(dx, dy) || 1;
+        this.bus.emit('enemy:ranged-shot', {
+          enemyId: this.defId, x: this.x, y: this.y,
+          dirX: dx / length, dirY: dy / length, damage: this.definition.damage,
+        });
+      } else {
+        this.bus.emit('enemy:dashed', {
+          x: this.x,
+          y: this.y,
+          dirX: this.dashDirection.x,
+          dirY: this.dashDirection.y,
+        });
+      }
     }
     // Charger/boss dashes use body.reset, so velocity never reflects motion:
     // the run clip is driven by actual displacement (dash or pursuit).

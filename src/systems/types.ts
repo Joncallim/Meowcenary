@@ -110,7 +110,9 @@ export function weaponFeelByFamily(
 }
 
 export type EnemyArchetype = 'chaser' | 'charger' | 'ranged' | 'tank' | 'elite' | 'boss';
-export const SPAWNABLE_ENEMY_ARCHETYPES = ['chaser', 'charger', 'tank'] as const;
+/** Direct enemies which the encounter director can materialize. Bosses are
+ * deliberately excluded: they enter through an explicit boss-stage hook. */
+export const SPAWNABLE_ENEMY_ARCHETYPES = ['chaser', 'charger', 'tank', 'ranged'] as const;
 export type SpawnableEnemyArchetype = (typeof SPAWNABLE_ENEMY_ARCHETYPES)[number];
 export type DirectEnemyArchetype = Exclude<EnemyArchetype, 'elite'>;
 
@@ -181,7 +183,8 @@ export interface EliteEnemyDefinition extends EnemyIdentity {
 export type SpawnableEnemyDefinition =
   | ChaserEnemyDefinition
   | ChargerEnemyDefinition
-  | TankEnemyDefinition;
+  | TankEnemyDefinition
+  | RangedEnemyDefinition;
 
 export type DirectEnemyDefinition =
   | SpawnableEnemyDefinition
@@ -200,6 +203,15 @@ export function isSpawnableEnemyDefinition(
   definition: EnemyDefinition,
 ): definition is SpawnableEnemyDefinition {
   return isSpawnableEnemyArchetype(definition.archetype);
+}
+
+/** Elites deliberately inherit only contact archetypes for now; ranged
+ * variants are already data-driven direct encounters and do not inherit an
+ * undefined projectile modifier contract. */
+export function isEliteBaseEnemyDefinition(
+  definition: EnemyDefinition,
+): definition is ChaserEnemyDefinition | ChargerEnemyDefinition | TankEnemyDefinition {
+  return definition.archetype === 'chaser' || definition.archetype === 'charger' || definition.archetype === 'tank';
 }
 
 export type ResolvedEliteEnemyDefinition<
