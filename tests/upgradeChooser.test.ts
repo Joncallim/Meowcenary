@@ -536,6 +536,15 @@ describe('Upgrade chooser physical layout', () => {
     expect(layout.fonts.description * display.scale).toBeGreaterThanOrEqual(12);
   });
 
+  it('keeps the first upgrade card clear of the header in the camera-zoomed portrait viewport', () => {
+    // This is the production GameScene coordinate space on a 390×844 phone,
+    // not the unzoomed menu canvas used by most layout tests.
+    const layout = computeUpgradeChooserLayout(312, 675.2, 390, 844, 4);
+    const firstTop = layout.cards[0]!.y - layout.cards[0]!.height / 2;
+    const headerBottom = layout.instructionsY + layout.instructionsHeight;
+    expect(firstTop - headerBottom).toBeGreaterThanOrEqual(8);
+  });
+
   it.each(VIEWPORTS)('keeps one, two, and three cards bounded at $name size', (viewport) => {
     const display = fittedCanvas(viewport.width, viewport.height);
 

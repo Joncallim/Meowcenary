@@ -1,16 +1,16 @@
 [
   {
     "id": "junkyard-intro",
-    "durationSeconds": 300,
+    "durationSeconds": 120,
     "scaling": {
       "healthPerMinute": 0.18,
       "damagePerMinute": 0.10
     },
     "waves": [
       { "startSecond": 0, "enemyId": "dust-mite", "spawnEveryMs": 1600, "maxAlive": 12 },
-      { "startSecond": 60, "enemyId": "junk-rusher", "spawnEveryMs": 2400, "maxAlive": 6 },
-      { "startSecond": 105, "enemyId": "scrap-sniper", "spawnEveryMs": 3200, "maxAlive": 4 },
-      { "startSecond": 150, "enemyId": "trash-brute", "spawnEveryMs": 6500, "maxAlive": 3 }
+      { "startSecond": 25, "enemyId": "junk-rusher", "spawnEveryMs": 2400, "maxAlive": 6 },
+      { "startSecond": 50, "enemyId": "scrap-sniper", "spawnEveryMs": 3200, "maxAlive": 4 },
+      { "startSecond": 80, "enemyId": "trash-brute", "spawnEveryMs": 6500, "maxAlive": 3 }
     ]
   }
 ]
