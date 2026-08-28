@@ -20,6 +20,9 @@ export interface PlayerOptions {
   invulnerabilityMs: number;
   spawnX: number;
   spawnY: number;
+  /** World-space top of the playable area. The persistent HUD occupies the
+   * screen above this while the camera is pinned to the arena's top bound. */
+  minPlayableY?: number;
 }
 
 const BODY_COLOR = 0xf7c948;
@@ -165,7 +168,14 @@ export class Player {
     }
 
     const speed = Math.max(0, this.runState.stats.resolve('moveSpeed', this.options.baseMoveSpeed));
-    this.body.setVelocity(move.x * speed, move.y * speed);
+    const minY = this.options.minPlayableY;
+    // A camera at scrollY=0 cannot move a world actor out from under the HUD.
+    // Keep the actor in the authored playable area instead of obscuring it.
+    if (Number.isFinite(minY) && this.y < minY!) {
+      this.body.reset(this.x, minY!);
+    }
+    const movingIntoHud = Number.isFinite(minY) && this.y <= minY! && move.y < 0;
+    this.body.setVelocity(move.x * speed, movingIntoHud ? 0 : move.y * speed);
   }
 
   takeDamage(amount: number): void {
