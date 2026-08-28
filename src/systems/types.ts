@@ -2,6 +2,7 @@ import type { RunUpgradeStatKey, StatKey } from '../gameplay/stats';
 import type { UnlockRule } from '../gameplay/meta';
 import type { PlayerBaseStats } from '../gameplay/runStart';
 import type { GameEventKey } from '../engine/eventBus';
+import type { AchievementDefinition } from '../gameplay/achievementSystem';
 import type {
   StageDefinition,
   EncounterProfile,
@@ -500,4 +501,5 @@ export interface GameData {
   readonly encounterProfiles?: readonly EncounterProfile[];
   readonly difficultyProfiles?: readonly DifficultyProfile[];
   readonly rewardProfiles?: readonly RewardProfile[];
+  readonly achievements?: readonly AchievementDefinition[];
 }

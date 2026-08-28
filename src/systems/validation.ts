@@ -36,6 +36,7 @@ import stagesJson from '../data/stages.json';
 import encounterProfilesJson from '../data/encounter-profiles.json';
 import difficultyProfilesJson from '../data/difficulty-profiles.json';
 import rewardProfilesJson from '../data/reward-profiles.json';
+import achievementsJson from '../data/achievements.json';
 import { STAT_KEYS, RUN_UPGRADE_STAT_KEYS, WEAPON_MODIFIER_STAT_KEYS } from '../gameplay/stats';
 import { DEFAULT_WEAPON_FAMILIES } from '../gameplay/weapons';
 import { GAME_EVENT_KEYS, FAMILY_TIER_EVENT_KEYS } from '../engine/eventBus';
@@ -64,6 +65,7 @@ import type {
   DifficultyProfile,
   RewardProfile,
 } from './types';
+import type { AchievementDefinition } from '../gameplay/achievementSystem';
 import { isSpawnableEnemyDefinition } from './types';
 import { CHARACTER_PASSIVE_EVENTS } from './types';
 import { isContentId, isUnlockId } from './ids';
@@ -80,6 +82,8 @@ import {
   assertStageRewardLootTableReferences,
   assertStageUnlockReferences,
 } from './validation/stages';
+import { checkAchievement, assertAchievementMetricReferences } from './validation/achievements';
+import { registeredMetricIds } from './achievements';
 import { findEdgeLaneWitness, findRectWitness, findRingWitness } from '../gameplay/spawnRegion';
 import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 
@@ -386,6 +390,17 @@ export const CATALOG_DESCRIPTORS = [
       return validate<RewardProfile>('reward-profiles.json', rows, checkRewardProfile);
     },
   },
+  {
+    key: 'achievements',
+    file: 'achievements.json',
+    rootKey: 'achievements',
+    data: achievementsJson,
+    read: (raw) => readOwnField(raw, 'achievements'),
+    validateRows: (rows): AchievementDefinition[] => {
+      throwIfErrors(jsonSafetyErrors(rows, 'achievements.json'));
+      return validate<AchievementDefinition>('achievements.json', rows, checkAchievement);
+    },
+  },
 ] as const satisfies readonly CatalogDescriptor[];
 
 /** Root requirements derived from the descriptor table: one aggregate root
@@ -517,6 +532,7 @@ export function validateGameData(raw: unknown): GameData {
   const encounterProfiles = catalogs.encounterProfiles as EncounterProfile[];
   const difficultyProfiles = catalogs.difficultyProfiles as DifficultyProfile[];
   const rewardProfiles = catalogs.rewardProfiles as RewardProfile[];
+  const achievements = catalogs.achievements as AchievementDefinition[];
 
   assertSpawnReferences(spawnCurves, enemies);
   assertCharacterWeaponReferences(characters, weapons);
@@ -551,8 +567,11 @@ export function validateGameData(raw: unknown): GameData {
   assertStageRewardLootTableReferences(rewardProfiles, lootTableIdSet);
   assertStageUnlockReferences(stages, stageIdSet);
 
+  // Epic 22: achievement metric references (appended, preserving frozen order).
+  assertAchievementMetricReferences(achievements, new Set(registeredMetricIds()));
+
   const audio: AudioData = { assets: audioAssets, map: audioMap };
-  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, stages, encounterProfiles, difficultyProfiles, rewardProfiles };
+  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements };
 }
 
 /** Root-shape phase, shared by the throwing boot path and the collecting
@@ -789,6 +808,13 @@ export function validateEnemyCatalog(raw: unknown): EnemyDefinition[] {
   assertUniqueIds('enemies.json', enemies);
   assertEliteReferences(enemies);
   return enemies;
+}
+
+export function validateAchievementCatalog(raw: unknown): AchievementDefinition[] {
+  throwIfErrors(jsonSafetyErrors(raw, 'achievements.json'));
+  const achievements = validate<AchievementDefinition>('achievements.json', raw, checkAchievement);
+  assertUniqueIds('achievements.json', achievements);
+  return achievements;
 }
 
 export function validateArenaCatalog(raw: unknown): ArenaDefinition[] {
