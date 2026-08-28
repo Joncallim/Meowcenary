@@ -201,7 +201,9 @@ describe('MainMenuController', () => {
       equipment: { helmet: { equipmentId: 'equipment:commando-helmet', tier: 1 } }, loadout: {},
     }));
     expect(controller.open('equipment').equipment.owned).toHaveLength(1);
+    expect(controller.open('equipment').equipment.owned[0]).toMatchObject({ setId: 'set:commando' });
     expect(controller.equipEquipment('helmet').equipment.equipped.helmet).toBe('helmet');
+    expect(controller.snapshot().equipment.activeSets).toEqual([{ setId: 'set:commando', pieces: 1, activeThresholds: [] }]);
     expect(controller.upgradeEquipment('helmet').equipment.owned[0].tier).toBe(2);
     expect(controller.snapshot().progression.scrap).toBe(0);
   });

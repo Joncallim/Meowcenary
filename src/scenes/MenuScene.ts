@@ -542,9 +542,17 @@ export class MenuScene extends Phaser.Scene {
       wordWrap: { width: width - margin - this.safeRightMargin },
     }));
     y += hitTarget + 12;
+    if (snapshot.equipment.activeSets.length > 0) {
+      const active = snapshot.equipment.activeSets.map((set) => `${set.setId} ${set.pieces}/4${set.activeThresholds.length ? ` (${set.activeThresholds.join('+')}-piece active)` : ''}`).join(' • ');
+      this.own(root, createUiText(this, margin, y, `Active sets — ${active}`, {
+        color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+        wordWrap: { width: width - margin - this.safeRightMargin },
+      }));
+      y += hitTarget;
+    }
     snapshot.equipment.owned.forEach((item) => {
       const equippedHere = equipped[item.slot] === item.instanceId;
-      this.addButton(root, margin, y, `${equippedHere ? '✓ ' : ''}${item.name} T${item.tier} — ${equippedHere ? 'Equipped' : 'Equip'}`, hitTarget, () => {
+      this.addButton(root, margin, y, `${equippedHere ? '✓ ' : ''}${item.name} [${item.setId}] T${item.tier} — ${equippedHere ? 'Equipped' : 'Equip'}`, hitTarget, () => {
         this.render(equippedHere
           ? this.requireController().unequipEquipment(item.slot as 'helmet' | 'armour' | 'gloves' | 'boots')
           : this.requireController().equipEquipment(item.instanceId));

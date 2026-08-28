@@ -4,7 +4,9 @@ import { equipEquipment, unequipEquipment, upgradeEquipment, type EquipmentSlot,
 
 export interface EquipmentSnapshot {
   readonly equipped: Readonly<Record<string, string | undefined>>;
-  readonly owned: readonly { readonly instanceId: string; readonly equipmentId: string; readonly name: string; readonly slot: string; readonly tier: number; readonly upgradeCost?: number }[];
+  readonly owned: readonly { readonly instanceId: string; readonly equipmentId: string; readonly name: string; readonly setId: string; readonly slot: string; readonly tier: number; readonly upgradeCost?: number }[];
+  /** Derived solely from the currently equipped owned instances. */
+  readonly activeSets: readonly { readonly setId: string; readonly pieces: number; readonly activeThresholds: readonly (2 | 4)[] }[];
   /** Recoverable stale catalog entries; never silently disappear from a save. */
   readonly unavailable: readonly { readonly instanceId: string; readonly equipmentId: string }[];
 }
@@ -15,14 +17,28 @@ export class EquipmentController {
   constructor(private readonly context: GameContext) { this.registry = new DataEquipmentRegistry({ equipment: context.data.equipment ?? [] }); }
   snapshot(): EquipmentSnapshot {
     const state = this.context.saveData;
+    const equipped = Object.freeze({ ...(state.equipmentLoadout ?? {}) });
+    const setCounts = new Map<string, number>();
+    for (const [slot, instanceId] of Object.entries(equipped)) {
+      const owned = instanceId && state.equipment[instanceId];
+      const definition = owned && this.registry.equipmentById(owned.equipmentId);
+      if (definition && definition.slot === slot) {
+        setCounts.set(definition.setId, (setCounts.get(definition.setId) ?? 0) + 1);
+      }
+    }
     return Object.freeze({
-      equipped: Object.freeze({ ...(state.equipmentLoadout ?? {}) }),
+      equipped,
       owned: Object.freeze(Object.entries(state.equipment).flatMap(([instanceId, item]) => {
         const definition = this.registry.equipmentById(item.equipmentId);
         if (!definition) return [];
         const upgrade = upgradeEquipment({ instanceId, equipmentId: item.equipmentId, tier: item.tier }, state.progression.scrap, this.registry.asMap());
-        return [Object.freeze({ instanceId, equipmentId: item.equipmentId, name: definition.name, slot: definition.slot, tier: item.tier, ...(upgrade.ok ? { upgradeCost: upgrade.cost } : {}) })];
+        return [Object.freeze({ instanceId, equipmentId: item.equipmentId, name: definition.name, setId: definition.setId, slot: definition.slot, tier: item.tier, ...(upgrade.ok ? { upgradeCost: upgrade.cost } : {}) })];
       })),
+      activeSets: Object.freeze([...setCounts.entries()].map(([setId, pieces]) => Object.freeze({
+        setId,
+        pieces,
+        activeThresholds: Object.freeze(([2, 4] as const).filter((threshold) => pieces >= threshold)),
+      }))),
       unavailable: Object.freeze(Object.entries(state.equipment).flatMap(([instanceId, item]) =>
         this.registry.equipmentById(item.equipmentId) ? [] : [Object.freeze({ instanceId, equipmentId: item.equipmentId })]),
       ),
