@@ -63,6 +63,10 @@ describe('Alpha 3 shared foundation canonical contracts', () => {
     const badGrant = structuredClone(loadGameData()) as any;
     badGrant.achievements[0].rewards = [{ grant: { type: 'unlock-stage', characterId: 'character:bolt-hound' } }];
     expect(() => validateGameData(badGrant)).toThrow(/stageId/);
+
+    const badStageReward = structuredClone(loadGameData()) as any;
+    badStageReward.rewardProfiles[0].grants = [{ type: 'unlock-character', characterId: 'character:not-in-catalog' }];
+    expect(() => validateGameData(badStageReward)).toThrow(/character grant references unknown/);
   });
 
   it('validates, registers, composes, and resolves a second data-only stage fixture without a core branch', () => {

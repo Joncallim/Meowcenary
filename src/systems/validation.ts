@@ -622,8 +622,15 @@ export function validateGameData(raw: unknown): GameData {
   assertStageRewardLootTableReferences(rewardProfiles, lootTableIdSet);
   assertStageRewardGrantReferences(
     rewardProfiles,
-    new Set((catalogs['gun-parts'] as PartDefinition[]).map((part) => part.id)),
-    new Set((catalogs.equipment as EquipmentDefinition[]).map((equipment) => equipment.id)),
+    {
+      partIds: new Set((catalogs['gun-parts'] as PartDefinition[]).map((part) => part.id)),
+      equipmentIds: new Set((catalogs.equipment as EquipmentDefinition[]).map((equipment) => equipment.id)),
+      traitIds: new Set((catalogs['gun-parts'] as PartDefinition[]).flatMap((part) => part.traits.map((trait) => `trait:${trait.toLowerCase()}`))),
+      stageIds: stageIdSet,
+      characterIds: new Set(characters.map((character) => `character:${character.id}`)),
+      achievementIds: new Set(achievements.map((achievement) => achievement.id)),
+      metaUpgradeIds: new Set(metaUpgrades.map((upgrade) => upgrade.id)),
+    },
   );
   assertStageUnlockReferences(stages, stageIdSet);
 

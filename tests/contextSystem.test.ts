@@ -66,6 +66,17 @@ describe('GameContext persistence boundary', () => {
     expect(context.saveData.appliedGrantTransactions[transaction.id]).toBeUndefined();
   });
 
+  it('rejects a receipt transaction that names an unknown part definition', () => {
+    const { context } = setup();
+    const transaction = {
+      id: 'stage:junkyard-01:unknown-part',
+      grants: [{ type: 'grant-part-instance' as const, instanceId: 'reward:unknown-part', partId: 'part:not-in-catalog', tier: 1 }],
+    };
+    expect(context.applyGrantTransaction(transaction)).toBe(false);
+    expect(context.saveData.gunsmith.parts['reward:unknown-part']).toBeUndefined();
+    expect(context.saveData.appliedGrantTransactions[transaction.id]).toBeUndefined();
+  });
+
   it('fails closed if a receipt survives but its stage facts do not', () => {
     const { context } = setup();
     const transaction = {

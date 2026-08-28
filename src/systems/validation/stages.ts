@@ -6,7 +6,7 @@
 import type { StageDefinition, EncounterProfile, RewardProfile } from '../../gameplay/stage/stageContracts';
 import { isContentId, isUnlockId } from '../ids';
 import { validateProgressionCondition } from '../../gameplay/conditionValidation';
-import { isValidProgressionGrant } from '../../gameplay/grantProcessor';
+import { isValidProgressionGrant, type ProgressionGrant } from '../../gameplay/grantProcessor';
 import type { RowCheck } from '../validation';
 
 // Re-exported for use by this module's public API.
@@ -298,18 +298,48 @@ export function assertStageRewardLootTableReferences(
 /** Reward profiles are content, so durable owned-instance grants must resolve
  * to real definitions before any stage can issue them. */
 export function assertStageRewardGrantReferences(
-  rewards: readonly { id: string; grants?: readonly { type: string; partId?: string; equipmentId?: string }[] }[],
-  partIds: Set<string>,
-  equipmentIds: Set<string>,
+  rewards: readonly RewardProfile[],
+  catalogs: {
+    readonly partIds: Set<string>;
+    readonly equipmentIds: Set<string>;
+    readonly traitIds: Set<string>;
+    readonly stageIds: Set<string>;
+    readonly characterIds: Set<string>;
+    readonly achievementIds: Set<string>;
+    readonly metaUpgradeIds: Set<string>;
+  },
 ): void {
   for (const reward of rewards) {
     for (const grant of reward.grants ?? []) {
-      if (grant.type === 'grant-part-instance' && (!grant.partId || !partIds.has(grant.partId))) {
-        throw new Error(`reward.${reward.id}: part grant references unknown "${grant.partId ?? ''}"`);
-      }
-      if ((grant.type === 'unlock-equipment' || grant.type === 'grant-equipment-instance')
-        && (!grant.equipmentId || !equipmentIds.has(grant.equipmentId))) {
-        throw new Error(`reward.${reward.id}: equipment grant references unknown "${grant.equipmentId ?? ''}"`);
+      const checked = grant as ProgressionGrant;
+      switch (checked.type) {
+        case 'unlock-part':
+        case 'grant-part-instance':
+          if (!catalogs.partIds.has(checked.partId)) throw new Error(`reward.${reward.id}: part grant references unknown "${checked.partId}"`);
+          break;
+        case 'unlock-equipment':
+        case 'grant-equipment-instance':
+          if (!catalogs.equipmentIds.has(checked.equipmentId)) throw new Error(`reward.${reward.id}: equipment grant references unknown "${checked.equipmentId}"`);
+          break;
+        case 'unlock-trait':
+          if (!catalogs.traitIds.has(checked.traitId)) throw new Error(`reward.${reward.id}: trait grant references unknown "${checked.traitId}"`);
+          break;
+        case 'unlock-stage':
+          if (!catalogs.stageIds.has(checked.stageId)) throw new Error(`reward.${reward.id}: stage grant references unknown "${checked.stageId}"`);
+          break;
+        case 'unlock-character':
+          if (!catalogs.characterIds.has(checked.characterId)) throw new Error(`reward.${reward.id}: character grant references unknown "${checked.characterId}"`);
+          break;
+        case 'achievement-completed':
+          if (!catalogs.achievementIds.has(checked.achievementId)) throw new Error(`reward.${reward.id}: achievement grant references unknown "${checked.achievementId}"`);
+          break;
+        case 'permanent-upgrade-level':
+          if (!catalogs.metaUpgradeIds.has(checked.upgradeId)) throw new Error(`reward.${reward.id}: upgrade grant references unknown "${checked.upgradeId}"`);
+          break;
+        case 'grant-item':
+          throw new Error(`reward.${reward.id}: grant-item is unsupported without an item catalog`);
+        default:
+          break;
       }
     }
   }

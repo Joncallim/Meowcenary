@@ -137,12 +137,24 @@ export interface CreateGameContextOptions {
 
 export function createGameContext(options: CreateGameContextOptions): GameContext {
   let current = options.save.load();
-  const knownEquipmentIds = new Set((options.data.equipment ?? []).map((equipment) => equipment.id));
-  const hasKnownEquipmentRewards = (transaction: DurableGrantTransaction): boolean => transaction.grants.every((grant) =>
-    (grant.type !== 'unlock-equipment' && grant.type !== 'grant-equipment-instance')
-      || knownEquipmentIds.has(grant.equipmentId),
-  );
   const stages = options.stages ?? new StageRegistryCtor(options.data);
+  const knownEquipmentIds = new Set((options.data.equipment ?? []).map((equipment) => equipment.id));
+  const knownPartIds = new Set((options.data.gunParts ?? []).map((part) => part.id));
+  const knownTraitIds = new Set((options.data.gunParts ?? []).flatMap((part) => part.traits.map((trait) => `trait:${trait.toLowerCase()}`)));
+  const knownAchievementIds = new Set((options.data.achievements ?? []).map((achievement) => achievement.id));
+  const hasKnownContentRewards = (transaction: DurableGrantTransaction): boolean => transaction.grants.every((grant) => {
+    switch (grant.type) {
+      case 'unlock-equipment':
+      case 'grant-equipment-instance': return knownEquipmentIds.has(grant.equipmentId);
+      case 'unlock-part':
+      case 'grant-part-instance': return knownPartIds.has(grant.partId);
+      case 'unlock-trait': return knownTraitIds.has(grant.traitId);
+      case 'unlock-character': return options.characters.characterById(grant.characterId.slice('character:'.length)) !== undefined;
+      case 'unlock-stage': return stages.stageById(grant.stageId) !== undefined;
+      case 'achievement-completed': return knownAchievementIds.has(grant.achievementId);
+      default: return true;
+    }
+  });
   let selectedCharacterId = options.characters.defaultCharacterId();
   let selectionRevision = 1;
   let selectedArenaId = options.arenas.defaultArenaId();
@@ -246,7 +258,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       return true;
     },
     applyGrantTransaction(transaction) {
-      if (!hasKnownEquipmentRewards(transaction)) return false;
+      if (!hasKnownContentRewards(transaction)) return false;
       const result = applyDurableGrantTransaction(current, transaction);
       if (!result.valid) return false;
       if (!result.changed) return true;
@@ -270,7 +282,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       // reward transaction without ever producing its corresponding fact.
       const definition = stages.stageById(stageId);
       if (!definition || !Number.isFinite(timeMs) || timeMs < 0) return false;
-      if (!hasKnownEquipmentRewards(transaction)) return false;
+      if (!hasKnownContentRewards(transaction)) return false;
       if (bossId !== undefined) {
         const encounter = stages.encounterProfileById(definition.encounterProfileId);
         if (definition.bossId !== bossId || encounter?.bossId !== bossId) return false;
@@ -311,7 +323,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       return true;
     },
     commitAchievementTransaction(achievements, metrics, transaction) {
-      if (transaction !== undefined && !hasKnownEquipmentRewards(transaction)) return false;
+      if (transaction !== undefined && !hasKnownContentRewards(transaction)) return false;
       const granted = transaction === undefined
         ? { save: current, valid: true, changed: true }
         : applyDurableGrantTransaction(current, transaction);
