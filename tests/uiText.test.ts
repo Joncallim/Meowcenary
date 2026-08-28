@@ -189,7 +189,7 @@ describe('createUiText', () => {
     const migratedSites = files
       .filter((file) => resolve(file) !== UI_TEXT_FILE)
       .flatMap((file) => findCreateUiTextCalls(programSourceFile(program, file), checker));
-    expect(migratedSites).toHaveLength(35);
+    expect(migratedSites).toHaveLength(36);
 
     const constructorCalls = findCreateUiTextCalls(programSourceFile(program, UI_TEXT_FILE), checker);
     expect(constructorCalls).toHaveLength(0);

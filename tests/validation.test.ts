@@ -91,6 +91,7 @@ function withEnemies(enemies: Record<string, unknown>[]): unknown {
   data.encounterProfiles = [];
   data.difficultyProfiles = [];
   data.rewardProfiles = [];
+  data.achievements = [];
   data.spawnCurves = [{
     id: 'fixture-curve',
     durationSeconds: 60,
@@ -787,6 +788,10 @@ describe('game data validation', () => {
     function withCharacters(characters: Record<string, unknown>[]): unknown {
       const data = structuredClone(loadGameData()) as unknown as Record<string, unknown>;
       data.characters = characters;
+      // This focused fixture intentionally replaces the character catalog;
+      // shipped achievement grants therefore are not a complete cross-domain
+      // fixture and belong to their own validation suite.
+      data.achievements = [];
       addFixtureActorArt(data, 'character', characters);
       return data;
     }
@@ -1074,6 +1079,7 @@ describe('game data validation', () => {
       data.encounterProfiles = [];
       data.difficultyProfiles = [];
       data.rewardProfiles = [];
+      data.achievements = [];
       return data;
     }
 
@@ -1302,6 +1308,7 @@ describe('game data validation', () => {
       data.encounterProfiles = [];
       data.difficultyProfiles = [];
       data.rewardProfiles = [];
+      data.achievements = [];
       const enemies = data.enemies as Array<Record<string, unknown>>;
       for (const enemy of enemies) delete enemy.lootTableId;
       return data;
