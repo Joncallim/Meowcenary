@@ -235,6 +235,7 @@ describe('validateAllData', () => {
       difficultyProfiles: [],
       rewardProfiles: [],
       achievements: [],
+      gunParts: [],
     })).toEqual([
       { file: 'weapons.json', index: -1, field: '', message: 'non-JSON-safe number' },
     ]);
@@ -280,6 +281,7 @@ describe('validateAllData', () => {
       'difficultyProfiles',
       'rewardProfiles',
       'achievements',
+      'gun-parts',
     ]);
   });
 

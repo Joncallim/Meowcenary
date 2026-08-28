@@ -1,0 +1,124 @@
+[
+  {
+    "id": "part:receiver-compact",
+    "name": "Compact Receiver",
+    "slot": "receiver",
+    "rarity": "common",
+    "tier": 1,
+    "effects": [
+      { "stat": "attackSpeed", "op": "add", "value": 0.08, "sourceId": "part:receiver-compact" }
+    ],
+    "traits": []
+  },
+  {
+    "id": "part:receiver-heavy",
+    "name": "Heavy Receiver",
+    "slot": "receiver",
+    "rarity": "uncommon",
+    "tier": 2,
+    "effects": [
+      { "stat": "damage", "op": "mult", "value": 1.12, "sourceId": "part:receiver-heavy" },
+      { "stat": "attackSpeed", "op": "mult", "value": 0.94, "sourceId": "part:receiver-heavy" }
+    ],
+    "traits": []
+  },
+  {
+    "id": "part:barrel-standard",
+    "name": "Standard Barrel",
+    "slot": "barrel",
+    "rarity": "common",
+    "tier": 1,
+    "effects": [
+      { "stat": "range", "op": "add", "value": 10, "sourceId": "part:barrel-standard" }
+    ],
+    "traits": []
+  },
+  {
+    "id": "part:barrel-long",
+    "name": "Long Barrel",
+    "slot": "barrel",
+    "rarity": "uncommon",
+    "tier": 2,
+    "effects": [
+      { "stat": "range", "op": "add", "value": 35, "sourceId": "part:barrel-long" },
+      { "stat": "projectileSpeed", "op": "mult", "value": 1.1, "sourceId": "part:barrel-long" }
+    ],
+    "traits": []
+  },
+  {
+    "id": "part:optic-red-dot",
+    "name": "Red-Dot Optic",
+    "slot": "optic",
+    "rarity": "common",
+    "tier": 1,
+    "effects": [
+      { "stat": "spreadDeg", "op": "add", "value": -2, "sourceId": "part:optic-red-dot" }
+    ],
+    "traits": []
+  },
+  {
+    "id": "part:stock-padded",
+    "name": "Padded Stock",
+    "slot": "stock",
+    "rarity": "common",
+    "tier": 1,
+    "effects": [
+      { "stat": "spreadDeg", "op": "add", "value": -1.5, "sourceId": "part:stock-padded" }
+    ],
+    "traits": []
+  },
+  {
+    "id": "part:trigger-hair",
+    "name": "Hair Trigger",
+    "slot": "trigger",
+    "rarity": "uncommon",
+    "tier": 2,
+    "effects": [
+      { "stat": "attackSpeed", "op": "mult", "value": 1.15, "sourceId": "part:trigger-hair" }
+    ],
+    "traits": []
+  },
+  {
+    "id": "part:magazine-extended",
+    "name": "Extended Magazine",
+    "slot": "magazine",
+    "rarity": "common",
+    "tier": 1,
+    "effects": [
+      { "stat": "projectileCount", "op": "add", "value": 1, "sourceId": "part:magazine-extended" }
+    ],
+    "traits": []
+  },
+  {
+    "id": "part:underbarrel-grenade",
+    "name": "Grenade Launcher",
+    "slot": "underbarrel",
+    "rarity": "epic",
+    "tier": 3,
+    "effects": [
+      { "stat": "damage", "op": "mult", "value": 1.2, "sourceId": "part:underbarrel-grenade" }
+    ],
+    "traits": ["EXPLOSIVE"]
+  },
+  {
+    "id": "part:barrel-piercing",
+    "name": "Piercing Barrel",
+    "slot": "barrel",
+    "rarity": "rare",
+    "tier": 3,
+    "effects": [
+      { "stat": "pierce", "op": "add", "value": 1, "sourceId": "part:barrel-piercing" },
+      { "stat": "damage", "op": "mult", "value": 0.92, "sourceId": "part:barrel-piercing" }
+    ],
+    "traits": ["PIERCING"]
+  },
+  {
+    "id": "part:trait-fire",
+    "name": "Fire Trait Core",
+    "slot": "trait",
+    "rarity": "uncommon",
+    "tier": 2,
+    "effects": [],
+    "traits": ["FIRE"]
+  }
+]
