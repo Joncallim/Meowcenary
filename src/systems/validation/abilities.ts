@@ -63,6 +63,7 @@ export const checkAbility: RowCheckFn = (row: unknown, _index: number): string[]
         if (typeof mod.stat !== 'string' || !STAT_KEYS.has(mod.stat)) errors.push(`effect.modifiers[${i}].stat: invalid stat`);
         if (mod.op !== 'add' && mod.op !== 'mult') errors.push(`effect.modifiers[${i}].op: must be add or mult`);
         if (typeof mod.value !== 'number' || !Number.isFinite(mod.value)) errors.push(`effect.modifiers[${i}].value: must be finite`);
+        if (typeof mod.sourceId !== 'string' || mod.sourceId !== a.id) errors.push(`effect.modifiers[${i}].sourceId: must equal ability ID`);
       });
       break;
     }
@@ -72,7 +73,6 @@ export const checkAbility: RowCheckFn = (row: unknown, _index: number): string[]
     case 'elemental-burst':
       if (typeof effect.radius !== 'number' || effect.radius <= 0) errors.push('effect.radius: must be positive');
       if (typeof effect.power !== 'number' || effect.power <= 0) errors.push('effect.power: must be positive');
-      if (typeof effect.trait !== 'string' || effect.trait.length === 0) errors.push('effect.trait: must be a trait id');
       break;
     case 'loot-pulse':
       if (typeof effect.radius !== 'number' || effect.radius <= 0) errors.push('effect.radius: must be positive');

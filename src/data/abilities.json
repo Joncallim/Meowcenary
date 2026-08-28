@@ -53,10 +53,10 @@
   {
     "id": "ability:heat-vent",
     "name": "Heat Vent",
-    "description": "Deal burning damage to nearby enemies.",
+    "description": "Deal a fiery burst of damage to nearby enemies.",
     "cooldownMs": 11000,
     "durationMs": 800,
-    "effect": { "kind": "elemental-burst", "trait": "FIRE", "radius": 110, "power": 90 }
+    "effect": { "kind": "elemental-burst", "radius": 110, "power": 90 }
   },
   {
     "id": "ability:scavenge-pulse",

@@ -15,7 +15,7 @@ export type AbilityEffect =
   | { readonly kind: 'stat-burst'; readonly modifiers: readonly Modifier[] }
   | { readonly kind: 'invulnerable' }
   | { readonly kind: 'heal'; readonly amount: number }
-  | { readonly kind: 'elemental-burst'; readonly trait: string; readonly radius: number; readonly power: number }
+  | { readonly kind: 'elemental-burst'; readonly radius: number; readonly power: number }
   | { readonly kind: 'loot-pulse'; readonly radius: number };
 
 export interface AbilityDefinition {
