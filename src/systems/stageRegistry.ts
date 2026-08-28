@@ -94,6 +94,21 @@ export class StageRegistry {
     return this.rewardProfilesById.get(id);
   }
 
+  /** The validated/frozen catalog boundary consumed by run-plan resolution. */
+  runPlanCatalog(): Readonly<{
+    stages: readonly StageDefinition[];
+    encounterProfiles: readonly EncounterProfile[];
+    difficultyProfiles: readonly DifficultyProfile[];
+    rewardProfiles: readonly RewardProfile[];
+  }> {
+    return Object.freeze({
+      stages: this.allStages(),
+      encounterProfiles: Object.freeze([...this.encounterProfilesById.values()]),
+      difficultyProfiles: Object.freeze([...this.difficultyProfilesById.values()]),
+      rewardProfiles: Object.freeze([...this.rewardProfilesById.values()]),
+    });
+  }
+
   /** Returns the objective type for a stage. */
   objectiveForStage(stageId: string): ObjectiveType | undefined {
     return this.stagesById.get(stageId)?.objective;

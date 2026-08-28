@@ -112,11 +112,12 @@ export interface CreateGameContextOptions {
 
 export function createGameContext(options: CreateGameContextOptions): GameContext {
   let current = options.save.load();
+  const stages = options.stages ?? new StageRegistryCtor(options.data);
   let selectedCharacterId = options.characters.defaultCharacterId();
   let selectionRevision = 1;
   let selectedArenaId = options.arenas.defaultArenaId();
   let arenaSelectionRevision = 1;
-  let selectedStageId = (options.stages ?? new StageRegistryCtor(options.data)).defaultStageId();
+  let selectedStageId = stages.defaultStageId();
   let stageSelectionRevision = 1;
 
   /** After a meta mutation, if the currently-selected character is no longer
@@ -143,7 +144,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     metaUpgrades: options.metaUpgrades,
     characters: options.characters,
     arenas: options.arenas,
-    stages: options.stages ?? new StageRegistryCtor(options.data),
+    stages,
     get saveData() { return current; },
     get settings() { return current.settings; },
     get selectedCharacterId() { return selectedCharacterId; },
@@ -180,10 +181,16 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     applyGrantTransaction(transaction) {
       const result = applyDurableGrantTransaction(current, transaction);
       if (!result.changed) return true;
+      // SaveManager writes a sanitized V3 snapshot.  Publish that same
+      // canonical state, not an optimistic variant that a reload would drop.
+      const save = Object.freeze({
+        ...result.save,
+        progression: sanitizeProgression(result.save.progression, options.metaUpgrades.maxLevels()),
+      });
       // Do not expose a reward that failed to become durable: retry receives
       // the same source transaction ID against the unchanged snapshot.
-      if (!options.save.save(result.save)) return false;
-      current = result.save;
+      if (!options.save.save(save)) return false;
+      current = save;
       revalidateSelection();
       return true;
     },

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createRunRequest, createStageRunRequest, asLegacyComposedRunRequest, assembleRunRequest } from '../src/gameplay/runRequest';
+import { createRunRequest, createStageRunRequest, asLegacyComposedRunRequest, assembleComposedRunRequest, assembleRunRequest } from '../src/gameplay/runRequest';
 import { createRng } from '../src/engine/rng';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataArenaRegistry } from '../src/systems/arenas';
+import { StageRegistry } from '../src/systems/stageRegistry';
 import { loadGameData } from '../src/systems/validation';
 
 describe('runRequest', () => {
@@ -84,5 +85,21 @@ describe('runRequest', () => {
     expect(request.characterId).toBe('scrap-tabby');
     expect(request.arenaId).toBe('junkyard-lot');
     expect(Object.isFrozen(request)).toBe(true);
+  });
+
+  it('makes the selected stage the normal composed request without translating it through an arena', () => {
+    const data = loadGameData();
+    const ctx = {
+      characters: new DataCharacterRegistry(data),
+      arenas: new DataArenaRegistry(data),
+      stages: new StageRegistry(data),
+      selectedCharacterId: 'scrap-tabby',
+      selectedArenaId: 'junkyard-lot',
+      selectedStageId: 'stage:junkyard-02',
+      saveData: { progression: { unlocks: [] } as any },
+    } as any;
+    expect(assembleComposedRunRequest(ctx, createRng(7))).toMatchObject({
+      kind: 'stage', characterId: 'scrap-tabby', stageId: 'stage:junkyard-02',
+    });
   });
 });

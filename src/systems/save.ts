@@ -181,7 +181,7 @@ function sanitizeProgressionRecord(raw: unknown, maxLevels: MetaUpgradeMaxLevels
   const seenUnlocks = new Set<string>();
   if (Array.isArray(unlocksRaw)) {
     for (const id of unlocksRaw) {
-      if (typeof id === 'string' && (isUnlockId(id) || isContentId(id)) && !seenUnlocks.has(id)) {
+      if (typeof id === 'string' && isUnlockId(id) && !seenUnlocks.has(id)) {
         seenUnlocks.add(id);
         unlocks.push(id);
       }
@@ -226,7 +226,6 @@ function migrateAchievementsFromV2(progression: ProgressionState): AchievementPr
   if (progression.unlocks.includes('achievement:first-victory')) {
     achievements['achievement:first-victory'] = {
       completed: true,
-      completedAt: undefined,
     };
   }
   return achievements;
@@ -408,7 +407,7 @@ function sanitizeEquipmentState(raw: unknown): EquipmentState {
     const canonicalId = typeof equipmentId === 'string'
       ? equipmentId
       : (isContentId(key) || isUnlockId(key) ? key : undefined);
-    if (isContentId(canonicalId) || isUnlockId(canonicalId)) {
+    if (canonicalId !== undefined && (isContentId(canonicalId) || isUnlockId(canonicalId))) {
       result[key] = {
         equipmentId: canonicalId,
         tier: Number.isSafeInteger(tier) && (tier as number) >= 0 ? tier as number : 0,

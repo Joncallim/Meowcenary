@@ -9,7 +9,7 @@
  */
 import type { ProgressionState, SaveDataV3 } from '../systems/save';
 import { addUnlocks } from './meta';
-import { isGrantTransactionId } from '../systems/ids';
+import { isContentId, isGrantTransactionId, isUnlockId } from '../systems/ids';
 
 export type ProgressionGrant =
   | { readonly type: 'grant-scrap'; readonly amount: number }
@@ -66,17 +66,18 @@ function isValidTransaction(transaction: DurableGrantTransaction): boolean {
 function isValidGrant(grant: unknown): grant is ProgressionGrant {
   if (grant === null || typeof grant !== 'object' || !('type' in grant)) return false;
   const value = grant as Record<string, unknown>;
-  const validId = (field: string) => typeof value[field] === 'string' && value[field].length > 0;
+  const validId = (field: string) => typeof value[field] === 'string' && isUnlockId(value[field] as string);
+  const validPrefix = (field: string, prefix: string) => validId(field) && (value[field] as string).startsWith(prefix);
   switch (value.type) {
     case 'grant-scrap': return Number.isSafeInteger(value.amount) && (value.amount as number) > 0;
-    case 'unlock-stage': return validId('stageId');
-    case 'unlock-character': return validId('characterId');
-    case 'unlock-equipment': return validId('equipmentId');
-    case 'unlock-part': return validId('partId');
-    case 'unlock-trait': return validId('traitId');
-    case 'grant-item': return validId('itemId') && (value.amount === undefined || (Number.isSafeInteger(value.amount) && (value.amount as number) > 0));
-    case 'achievement-completed': return validId('achievementId');
-    case 'permanent-upgrade-level': return validId('upgradeId') && Number.isSafeInteger(value.levels) && (value.levels as number) > 0;
+    case 'unlock-stage': return validPrefix('stageId', 'stage:');
+    case 'unlock-character': return validPrefix('characterId', 'character:');
+    case 'unlock-equipment': return validPrefix('equipmentId', 'equipment:');
+    case 'unlock-part': return validPrefix('partId', 'part:');
+    case 'unlock-trait': return validPrefix('traitId', 'trait:');
+    case 'grant-item': return validPrefix('itemId', 'item:') && (value.amount === undefined || (Number.isSafeInteger(value.amount) && (value.amount as number) > 0));
+    case 'achievement-completed': return validPrefix('achievementId', 'achievement:');
+    case 'permanent-upgrade-level': return typeof value.upgradeId === 'string' && isContentId(value.upgradeId) && Number.isSafeInteger(value.levels) && (value.levels as number) > 0;
     default: return false;
   }
 }

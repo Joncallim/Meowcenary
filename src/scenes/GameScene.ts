@@ -9,7 +9,7 @@ import { AudioManager, getAudioManager } from '../systems/audio';
 import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
-import { assembleRunRequest } from '../gameplay/runRequest';
+import { assembleComposedRunRequest } from '../gameplay/runRequest';
 import { createStageState, resolveRunPlan, updateObjectiveProgress, type ResolvedRunPlan, type StageState } from '../gameplay/stage/stageContracts';
 import {
   endRun,
@@ -127,23 +127,24 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     const ctx = this.getContext();
-    const request = assembleRunRequest(ctx, ctx.menuRng);
+    const request = assembleComposedRunRequest(ctx, ctx.menuRng);
     // Alpha 3 normal composition resolves the selected contract once at the
     // boundary. GameScene consumes its physical arena result; #85 wires the
     // remaining objective/encounter/reward fields to live systems.
-    const plan = resolveRunPlan({ characterId: request.characterId, stageId: ctx.selectedStageId, seed: request.seed }, {
-      stages: ctx.data.stages ?? [],
-      encounterProfiles: ctx.data.encounterProfiles ?? [],
-      difficultyProfiles: ctx.data.difficultyProfiles ?? [],
-      rewardProfiles: ctx.data.rewardProfiles ?? [],
-    });
+    if (request.kind !== 'stage') {
+      throw new Error('Legacy arena requests require the explicit compatibility runner');
+    }
+    const plan = resolveRunPlan(
+      { characterId: request.characterId, stageId: request.stageId, seed: request.seed },
+      ctx.stages.runPlanCatalog(),
+    );
     this.stagePlan = plan;
     this.stageState = createStageState(plan.stageId, plan.objective.definition);
     const visualArt = new DataVisualArtRegistry(ctx.data);
 
     const arena = ctx.arenas.arenaById(plan.arenaId);
     if (!arena) {
-      throw new Error(`Selected arena "${request.arenaId}" is missing from the registry`);
+      throw new Error(`Stage arena "${plan.arenaId}" is missing from the registry`);
     }
     const curve = ctx.data.spawnCurves.find((c) => c.id === arena.spawnCurveId);
     if (!curve) {
@@ -171,7 +172,7 @@ export class GameScene extends Phaser.Scene {
       state: {
         seed: request.seed,
         characterId: request.characterId,
-        arenaId: request.arenaId,
+        arenaId: plan.arenaId,
       },
       basePlayer: {
         maxHealth: RuntimeConfig.gameplay.player.baseMaxHealth,

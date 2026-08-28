@@ -17,5 +17,5 @@ export function isGrantTransactionId(value: string): boolean {
 /** Opaque durable ownership key.  It deliberately is neither a definition
  * nor an unlock identifier: two instances may have the same definition. */
 export function isInstanceId(value: string): boolean {
-  return /^[a-z][a-z0-9-]{0,63}$/.test(value);
+  return /^(?:[a-z][a-z0-9-]*:)?[a-z][a-z0-9-]{0,63}(?::[a-z0-9-]{1,64})?$/.test(value);
 }
