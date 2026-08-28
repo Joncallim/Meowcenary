@@ -198,7 +198,7 @@ export class Enemy implements EnemyInstance {
     this.dashOrigin = result.dashOrigin;
     this.applyPosition(result.pos, dtMs, behavior.immediate);
     if (result.enteredAttack) {
-      if (this.definition.archetype === 'ranged') {
+      if (this.definition.archetype === 'ranged' || this.definition.archetype === 'boss') {
         const dx = player.x - this.x;
         const dy = player.y - this.y;
         const length = Math.hypot(dx, dy) || 1;
@@ -206,6 +206,11 @@ export class Enemy implements EnemyInstance {
           enemyId: this.defId, x: this.x, y: this.y,
           dirX: dx / length, dirY: dy / length, damage: this.definition.damage,
         });
+        // Bosses combine their telegraphed lunge with a readable aimed scrap
+        // blast; ordinary ranged enemies remain projectile-only.
+        if (this.definition.archetype === 'boss') {
+          this.bus.emit('enemy:dashed', { x: this.x, y: this.y, dirX: this.dashDirection.x, dirY: this.dashDirection.y });
+        }
       } else {
         this.bus.emit('enemy:dashed', {
           x: this.x,
