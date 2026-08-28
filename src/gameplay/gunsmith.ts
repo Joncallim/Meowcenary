@@ -257,20 +257,13 @@ export function resolveBuildModifiers(
   definitions: ReadonlyMap<string, PartDefinition>,
   ownedParts: ReadonlyMap<string, OwnedPart>,
 ): readonly Modifier[] {
-  const instanceIds = [
-    ...Object.values(build.fitted),
-    ...build.traitParts,
-  ];
   const modifiers: Modifier[] = [];
-  for (const instanceId of instanceIds) {
-    const part = ownedParts.get(instanceId);
-    const definition = part && definitions.get(part.partId);
-    if (!part || !definition) continue;
+  for (const { part, definition } of resolvedBuildParts(build, definitions, ownedParts)) {
     for (const effect of definition.effects) {
       modifiers.push({
         ...effect,
         value: effect.value * Math.max(1, part.tier),
-        sourceId: instanceId,
+        sourceId: part.instanceId,
         // A persistent pistol build must not secretly improve an SMG that is
         // acquired later in the same run.  The existing stat resolver owns
         // family scope, so the Gunsmith contributes data rather than a new
@@ -289,11 +282,33 @@ export function buildHasTrait(
   definitions: ReadonlyMap<string, PartDefinition>,
   ownedParts: ReadonlyMap<string, OwnedPart>,
 ): boolean {
-  const instanceIds = [...Object.values(build.fitted), ...build.traitParts];
-  return instanceIds.some((instanceId) => {
+  return resolvedBuildParts(build, definitions, ownedParts).some(({ part, definition }) =>
+    definition.traits.includes(trait) || part.infusedTraits.includes(trait));
+}
+
+/** Persistent saves are untrusted input: one owned instance may contribute
+ * through exactly one compatible, definition-matching slot. */
+function resolvedBuildParts(
+  build: WeaponBuild,
+  definitions: ReadonlyMap<string, PartDefinition>,
+  ownedParts: ReadonlyMap<string, OwnedPart>,
+): readonly { readonly part: OwnedPart; readonly definition: PartDefinition }[] {
+  const resolved: Array<{ readonly part: OwnedPart; readonly definition: PartDefinition }> = [];
+  const seen = new Set<string>();
+  const accept = (instanceId: string | undefined, slot: PartSlot): void => {
+    if (!instanceId || seen.has(instanceId) || !isSlotCompatible(build.baseWeaponFamily, slot)) return;
     const part = ownedParts.get(instanceId);
-    return part !== undefined && (definitions.get(part.partId)?.traits.includes(trait) || part.infusedTraits.includes(trait));
-  });
+    const definition = part === undefined ? undefined : definitions.get(part.partId);
+    if (!part || !definition || definition.slot !== slot) return;
+    seen.add(instanceId);
+    resolved.push({ part, definition });
+  };
+  for (const [slot, instanceId] of Object.entries(build.fitted)) {
+    if (!PART_SLOTS.includes(slot as PartSlot) || slot === 'trait') continue;
+    accept(instanceId, slot as PartSlot);
+  }
+  for (const instanceId of build.traitParts) accept(instanceId, 'trait');
+  return resolved;
 }
 
 /** Resolves registered trait behavior through the same family-aware weapon

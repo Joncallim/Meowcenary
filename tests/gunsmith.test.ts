@@ -197,6 +197,18 @@ describe('Epic 23 trait infusion (hybrid outcomes)', () => {
 });
 
 describe('Epic 23 effective stat resolution', () => {
+  it('ignores duplicate, wrong-slot, and incompatible saved references', () => {
+    const barrel = { instanceId: 'shared', partId: 'part:barrel-standard', tier: 2, infusedTraits: [] } as OwnedPart;
+    const invalid: WeaponBuild = {
+      ...smgBuild(),
+      fitted: { barrel: 'shared', optic: 'shared', underbarrel: 'shared', forged: 'shared' } as WeaponBuild['fitted'],
+      traitParts: ['shared'],
+    };
+    const modifiers = resolveBuildModifiers(invalid, defMap, ownedMap(barrel));
+    expect(modifiers).toHaveLength(defMap.get('part:barrel-standard')!.effects.length);
+    expect(modifiers.every((modifier) => modifier.sourceId === 'shared')).toBe(true);
+  });
+
   it('resolves build modifiers from fitted parts (single source of truth)', () => {
     let build = smgBuild();
     const barrel = part('part:barrel-long', [], 2);
