@@ -34,4 +34,16 @@ describe('stage spawn composition', () => {
     });
     expect(second.waves.every((wave) => wave.enemyId === 'enemy:third')).toBe(true);
   });
+
+  it('caps composed active counts at the spawn director boundary', () => {
+    const crowded: SpawnCurveDefinition = {
+      ...curve,
+      waves: Array.from({ length: 4 }, (_, index) => ({
+        startSecond: index * 10, enemyId: `legacy-${index}`, spawnEveryMs: 1000, maxAlive: 100,
+      })),
+    };
+    const composed = composeStageSpawnCurve(crowded, { ...plan(), difficulty: { ...plan().difficulty, spawnPressure: 1 } });
+    expect(composed.waves.reduce((sum, wave) => sum + wave.maxAlive, 0)).toBeLessThanOrEqual(256);
+    expect(composed.waves.every((wave) => wave.maxAlive >= 1)).toBe(true);
+  });
 });

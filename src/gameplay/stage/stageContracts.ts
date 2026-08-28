@@ -6,6 +6,7 @@
  * Golden Run compatibility: ArenaDefinition.spawnCurveId + duration victory
  * path is preserved as the Alpha 2 compatibility adapter (§5.3).
  */
+import { deepFreeze } from '../../engine/freeze';
 
 // ── Objective vocabulary (§2.2) ──────────────────────────────────────
 
@@ -180,6 +181,13 @@ export function resolveRunPlan(
       `Unknown reward profile "${stage.rewardProfileId}" for stage "${stage.id}"`,
     );
   }
+  if (stage.bossId !== undefined && (
+    stage.objective.type !== 'defeat'
+    || stage.objective.enemyId !== stage.bossId
+    || encounter.bossId !== stage.bossId
+  )) {
+    throw new StageResolutionError(`Boss contract mismatch for stage "${stage.id}"`);
+  }
 
   return Object.freeze({
     characterId: request.characterId,
@@ -187,7 +195,7 @@ export function resolveRunPlan(
     arenaId: stage.arenaId,
     objective: Object.freeze({
       type: stage.objective.type,
-      definition: stage.objective,
+      definition: deepFreeze(structuredClone(stage.objective)),
     }),
     encounter: Object.freeze({
       profileId: encounter.id,

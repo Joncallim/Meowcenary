@@ -16,14 +16,30 @@ export function composeStageSpawnCurve(
   );
   const cadenceMultiplier = 1 + plan.difficulty.spawnPressure;
   const aliveMultiplier = 1 + plan.difficulty.spawnPressure;
+  const candidates = legacyCurve.waves.map((wave) =>
+    Math.max(1, Math.ceil(wave.maxAlive * aliveMultiplier)),
+  );
+  const cappedAlive = capActiveCounts(candidates);
   return deepFreeze({
     ...structuredClone(legacyCurve),
     waves: legacyCurve.waves.map((wave, index) => ({
       ...wave,
       enemyId: weightedRoster[index % weightedRoster.length],
       spawnEveryMs: Math.max(200, Math.round(wave.spawnEveryMs / cadenceMultiplier)),
-      maxAlive: Math.max(1, Math.ceil(wave.maxAlive * aliveMultiplier)),
+      maxAlive: cappedAlive[index],
     })),
+  });
+}
+
+/** Preserve every wave while enforcing the spawn director's global cap. */
+function capActiveCounts(candidates: readonly number[]): readonly number[] {
+  const total = candidates.reduce((sum, value) => sum + value, 0);
+  if (total <= 256) return candidates;
+  let remainingExtra = 256 - candidates.length;
+  return candidates.map((candidate) => {
+    const extra = Math.min(candidate - 1, Math.max(0, remainingExtra));
+    remainingExtra -= extra;
+    return 1 + extra;
   });
 }
 

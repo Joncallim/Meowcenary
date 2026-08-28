@@ -50,7 +50,7 @@ function makeCatalogData(overrides?: Partial<StageCatalogData>): StageCatalogDat
       encounterProfileId: 'encounter:boss-crusher',
       difficultyProfileId: 'difficulty:boss-tier-1',
       rewardProfileId: 'reward:boss-tier-1',
-      bossId: 'crusher',
+      bossId: 'boss-crusher',
       unlock: { type: 'stage-cleared', stageId: 'stage:junkyard-04' },
     },
   ];
@@ -58,7 +58,7 @@ function makeCatalogData(overrides?: Partial<StageCatalogData>): StageCatalogDat
   const encounterProfiles: EncounterProfile[] = [
     { id: 'encounter:junkyard-intro', enemyIds: ['dust-mite', 'junk-rusher'] },
     { id: 'encounter:junkyard-mid', enemyIds: ['dust-mite', 'junk-rusher', 'trash-brute'] },
-    { id: 'encounter:boss-crusher', enemyIds: ['boss-crusher', 'dust-mite'] },
+    { id: 'encounter:boss-crusher', enemyIds: ['boss-crusher', 'dust-mite'], bossId: 'boss-crusher' },
   ];
 
   const difficultyProfiles: DifficultyProfile[] = [
@@ -119,6 +119,24 @@ describe('resolveRunPlan', () => {
     expect(plan.objective.type).toBe('defeat');
     expect(plan.difficulty.healthMultiplier).toBe(2.0);
     expect(plan.reward.lootTableId).toBe('boss-drop-table');
+  });
+
+  it('snapshots objective definitions instead of retaining mutable catalog aliases', () => {
+    const data = makeCatalogData();
+    const plan = resolveRunPlan({ characterId: 'scrap-tabby', stageId: 'stage:junkyard-01', seed: 7 }, data);
+    (data.stages[0].objective as { count: number }).count = 999;
+    expect(plan.objective.definition).toEqual({ type: 'kill', count: 20, enemyTag: 'junkyard' });
+  });
+
+  it('rejects an inconsistent boss stage even when every individual reference exists', () => {
+    const data = makeCatalogData({
+      encounterProfiles: [
+        { id: 'encounter:junkyard-intro', enemyIds: ['dust-mite'] },
+        { id: 'encounter:junkyard-mid', enemyIds: ['junk-rusher'] },
+        { id: 'encounter:boss-crusher', enemyIds: ['boss-crusher'], bossId: 'boss:other' },
+      ],
+    });
+    expect(() => resolveRunPlan({ characterId: 'scrap-tabby', stageId: 'stage:junkyard-05', seed: 7 }, data)).toThrow('Boss contract mismatch');
   });
 
   it('throws for unknown stage', () => {
