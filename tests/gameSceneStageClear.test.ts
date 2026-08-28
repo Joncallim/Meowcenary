@@ -61,4 +61,21 @@ describe('GameScene durable stage clear', () => {
       ],
     });
   });
+
+  it('holds a completed objective at the shared confirm-to-extract boundary', () => {
+    const scene = new GameScene() as any;
+    const run = createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'junkyard-lot' });
+    run.status = 'active';
+    scene.runState = run;
+    scene.stagePlan = { stageId: 'stage:junkyard-01', encounter: {}, reward: { scrapBase: 25, scrapPerMinute: 0 } };
+    scene.stageState = { status: 'objective-complete', objectiveProgress: { type: 'kill', current: 3, target: 3 } };
+    scene.physics = { world: { pause: vi.fn(), resume: vi.fn() } };
+    scene.captureStageClear();
+    const completeStageTransaction = vi.fn().mockReturnValue(true);
+    scene.getContext = () => ({ completeStageTransaction, bus: createEventBus() });
+    scene.pauseController = { snapshot: () => ({ panel: 'closed' }) };
+    scene.routeAction('confirm');
+    expect(completeStageTransaction).toHaveBeenCalledOnce();
+    expect(run.status).toBe('won');
+  });
 });

@@ -38,6 +38,12 @@ describe('StageSelectionController (Epic 20)', () => {
     }
   });
 
+  it('keeps registry stage IDs in display order when authored data is reordered', () => {
+    const data = loadGameData();
+    const registry = new StageRegistry({ ...data, stages: [...(data.stages ?? [])].reverse() });
+    expect(registry.allStageIds()).toEqual((data.stages ?? []).map((stage) => stage.id));
+  });
+
   it('selects only unlocked stages; rejects locked ones', () => {
     const { controller } = createHarness();
     expect(controller.select('stage:junkyard-01').ok).toBe(true);

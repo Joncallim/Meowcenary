@@ -808,6 +808,13 @@ export class GameScene extends Phaser.Scene {
     if (runState.status !== 'active' || panel !== 'closed') {
       return;
     }
+    // A completed contract deliberately pauses at an extraction boundary.
+    // Confirm is shared by keyboard, controller, and touch; no input scheme
+    // gets a special completion path.
+    if (action === 'confirm' && this.pendingStageClear !== undefined) {
+      this.tryCommitStageClear(this.getContext());
+      return;
+    }
     let accepted = false;
     let event: 'ui:confirm' | 'ui:back' | null = null;
 
@@ -964,6 +971,7 @@ export class GameScene extends Phaser.Scene {
 
   private describeStageObjective(): string | undefined {
     if (!this.stagePlan || !this.stageState) return undefined;
+    if (this.stageState.status === 'objective-complete') return 'OBJECTIVE COMPLETE — Confirm to extract';
     const progress = this.stageState.objectiveProgress;
     const label = this.stagePlan.objective.definition.type === 'defeat' ? 'Defeat boss' : `Objective: ${progress.type}`;
     return `${label} ${Math.min(progress.current, progress.target)}/${progress.target}`;
@@ -1009,7 +1017,6 @@ export class GameScene extends Phaser.Scene {
   private updateStageObjective(ctx: GameContext, delta: number): void {
     const runState = this.runState;
     if (!runState) return;
-    if (this.tryCommitStageClear(ctx)) return;
     if (!this.stageState || !this.stagePlan) {
       this.maybeEndRunForVictory(ctx, runState);
       return;
@@ -1025,7 +1032,6 @@ export class GameScene extends Phaser.Scene {
       }
     }
     this.captureStageClear();
-    this.tryCommitStageClear(ctx);
   }
 
   private captureStageClear(): void {

@@ -35,7 +35,9 @@ export class StageRegistry {
       stages.sort((a, b) => a.displayOrder - b.displayOrder);
     }
 
-    this.stageIds = Object.freeze([...canonicalStages.map((s) => s.id)]);
+    this.stageIds = Object.freeze([...canonicalStages]
+      .sort((a, b) => a.displayOrder - b.displayOrder)
+      .map((stage) => stage.id));
 
     // Deep-clone and freeze encounter profiles
     for (const ep of data.encounterProfiles ?? []) {
