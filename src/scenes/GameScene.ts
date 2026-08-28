@@ -10,7 +10,7 @@ import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
 import { assembleComposedRunRequest } from '../gameplay/runRequest';
-import { createStageState, resolveRunPlan, tickStage, updateObjectiveProgress, type ResolvedRunPlan, type StageState } from '../gameplay/stage/stageContracts';
+import { createStageState, resolveRunPlan, tickStage, updateObjectiveProgress, winStage, type ResolvedRunPlan, type StageState } from '../gameplay/stage/stageContracts';
 import { composeStageSpawnCurve } from '../gameplay/stage/spawnComposition';
 import { recordCollect, recordDefeat, recordKill, tickSurvive } from '../gameplay/objectiveProgress';
 import {
@@ -965,7 +965,10 @@ export class GameScene extends Phaser.Scene {
           grants: [{ type: 'grant-scrap', amount: Math.max(1, reward) }],
         },
       );
-      if (committed) endRun(runState, 'won', ctx.bus);
+      if (committed) {
+        this.stageState = winStage(this.stageState);
+        endRun(runState, 'won', ctx.bus);
+      }
       return;
     }
   }
