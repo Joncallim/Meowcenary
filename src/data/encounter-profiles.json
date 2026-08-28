@@ -60,5 +60,19 @@
       "dust-mite": 1
     },
     "bossId": "boss-crusher"
+  },
+  {
+    "id": "encounter:junkyard-forge-boss",
+    "enemyIds": [
+      "junk-nester",
+      "junk-rusher",
+      "shard-bot"
+    ],
+    "compositionWeights": {
+      "junk-nester": 2,
+      "junk-rusher": 1,
+      "shard-bot": 1
+    },
+    "bossId": "boss-forge"
   }
 ]

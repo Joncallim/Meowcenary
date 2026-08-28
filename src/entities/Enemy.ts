@@ -67,6 +67,9 @@ export class Enemy implements EnemyInstance {
    *  pulse — a movement-cadence accumulator, not a duplicate of the
    *  winding-telegraph's stateTimerMs (D7 forbids only the latter). */
   private heavyStepAccumPx = 0;
+  /** The base moveset is phase 0.  Higher phases are derived from health,
+   * while this counter only prevents duplicate threshold facts. */
+  private announcedBossPhase = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -176,11 +179,23 @@ export class Enemy implements EnemyInstance {
       return;
     }
 
-    const behavior = enemyBehaviorFor(this.definition);
+    const phase = this.resolveBossPhase();
+    if (phase.index > this.announcedBossPhase) {
+      for (let index = this.announcedBossPhase + 1; index <= phase.index; index += 1) {
+        this.bus.emit('enemy:boss-phase', {
+          instanceId: this.instanceId,
+          enemyId: this.defId,
+          phase: index,
+          healthFraction: this.health / this.maxHealth,
+        });
+      }
+      this.announcedBossPhase = phase.index;
+    }
+    const behavior = enemyBehaviorFor(phase.definition);
     const result = behavior.step({
       pos: this.pos,
       target: { x: player.x, y: player.y },
-      definition: this.definition,
+      definition: phase.definition,
       dtMs,
       env: this.environment,
       state: this.state,
@@ -198,12 +213,12 @@ export class Enemy implements EnemyInstance {
     this.dashOrigin = result.dashOrigin;
     this.applyPosition(result.pos, dtMs, behavior.immediate);
     if (result.enteredAttack) {
-      if (this.definition.summon) {
+      if (phase.definition.summon) {
         this.bus.emit('enemy:summon', {
           sourceEnemyId: this.defId,
-          enemyId: this.definition.summon.enemyId,
-          count: this.definition.summon.count,
-          maxActive: this.definition.summon.maxActive,
+          enemyId: phase.definition.summon.enemyId,
+          count: phase.definition.summon.count,
+          maxActive: phase.definition.summon.maxActive,
           x: this.x,
           y: this.y,
         });
@@ -374,6 +389,26 @@ export class Enemy implements EnemyInstance {
     }
     this.presentationDestroyed = true;
     this.view.destroy();
+  }
+
+  private resolveBossPhase(): { definition: Readonly<ResolvedEnemyDefinition>; index: number } {
+    if (this.definition.archetype !== 'boss' || !this.definition.phases?.length) {
+      return { definition: this.definition, index: 0 };
+    }
+    const healthFraction = this.health / this.maxHealth;
+    let phaseIndex = 0;
+    let selected = undefined as (typeof this.definition.phases)[number] | undefined;
+    for (const phase of this.definition.phases) {
+      if (healthFraction <= phase.atHealthFraction) {
+        phaseIndex += 1;
+        selected = phase;
+      }
+    }
+    if (!selected) return { definition: this.definition, index: 0 };
+    return {
+      definition: { ...this.definition, attack: selected.attack, summon: selected.summon ?? this.definition.summon },
+      index: phaseIndex,
+    };
   }
 
   private applyPosition(next: Vec2, dtMs: number, immediate = false): void {

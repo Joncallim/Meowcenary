@@ -146,6 +146,14 @@ export interface RangedAttackDefinition {
   cooldownMs: number;
 }
 
+/** A health-threshold boss escalation, selected solely from authoritative
+ * combat health.  It replaces the baseline charge and may add bounded adds. */
+export interface BossPhaseDefinition {
+  readonly atHealthFraction: number;
+  readonly attack: ChargerAttackDefinition;
+  readonly summon?: EnemySummonDefinition;
+}
+
 /** Data-owned, bounded reinforcement action. Existing movement/attack
  * behaviors may request it; SpawnSystem remains the only materializer. */
 export interface EnemySummonDefinition {
@@ -197,6 +205,7 @@ export interface BossEnemyDefinition extends EnemyIdentity, EnemyStats {
   contactDamage: false;
   /** Boss lunge behavior — same attack vocabulary as charger, larger scale. */
   attack: ChargerAttackDefinition;
+  phases?: readonly BossPhaseDefinition[];
   summon?: EnemySummonDefinition;
   splitOnDeath?: EnemySplitDefinition;
 }

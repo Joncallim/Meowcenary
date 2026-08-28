@@ -36,7 +36,7 @@ describe('Epic 26 progression overview read model', () => {
     const { controller } = createHarness();
     const snap = controller.snapshot();
     expect(snap.completedStages).toBe(0);
-    expect(snap.totalStages).toBe(5);
+    expect(snap.totalStages).toBe(6);
     expect(snap.completedAchievements).toBe(0);
     expect(snap.totalAchievements).toBeGreaterThanOrEqual(8);
     expect(snap.unlockedCharacters).toBe(1);

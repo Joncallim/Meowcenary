@@ -23,11 +23,11 @@ describe('Epic 20 stage catalog conformance', () => {
   const difficulties = difficultiesJson as readonly DifficultyProfile[];
   const rewards = rewardsJson as readonly RewardProfile[];
 
-  it('ships exactly the five-stage first chapter in display order', () => {
-    expect(stages).toHaveLength(5);
+  it('ships the six-stage first chapter in display order', () => {
+    expect(stages).toHaveLength(6);
     expect(new Set(stages.map((s) => s.chapterId))).toEqual(new Set(['chapter:junkyard']));
     const orders = stages.map((s) => s.displayOrder).sort((a, b) => a - b);
-    expect(orders).toEqual([1, 2, 3, 4, 5]);
+    expect(orders).toEqual([1, 2, 3, 4, 5, 6]);
   });
 
   it('uses stable namespaced unique stage IDs (never display numbers as save keys)', () => {
@@ -38,7 +38,7 @@ describe('Epic 20 stage catalog conformance', () => {
 
   it('covers the required objective variety: kill, collect, survive, elite, boss', () => {
     const types = stages.map((s) => s.objective.type).sort();
-    expect(types).toEqual(['collect', 'defeat', 'kill', 'kill', 'survive']);
+    expect(types).toEqual(['collect', 'defeat', 'defeat', 'kill', 'kill', 'survive']);
     // Boss milestone is stage 5 (defeat of a named enemy)
     expect(stages[4].objective).toMatchObject({ type: 'defeat' });
   });
@@ -59,6 +59,17 @@ describe('Epic 20 stage catalog conformance', () => {
       for (const enemyId of ep.enemyIds) {
         expect(enemies.enemyById(enemyId), `enemy ${enemyId} in ${ep.id}`).toBeDefined();
       }
+    }
+  });
+
+  it('maps every shipped boss to one explicit defeat-stage encounter', () => {
+    const data = loadGameData();
+    const bosses = data.enemies.filter((enemy) => enemy.archetype === 'boss').map((enemy) => enemy.id);
+    for (const bossId of bosses) {
+      const matches = stages.filter((stage) => stage.bossId === bossId && stage.objective.type === 'defeat' && stage.objective.enemyId === bossId);
+      expect(matches, `stage for ${bossId}`).toHaveLength(1);
+      const encounter = encounters.find((candidate) => candidate.id === matches[0].encounterProfileId);
+      expect(encounter?.bossId, `encounter for ${bossId}`).toBe(bossId);
     }
   });
 

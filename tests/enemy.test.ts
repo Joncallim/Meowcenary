@@ -837,6 +837,29 @@ function enemyDefinition(): ResolvedEnemyDefinition {
     expect(dashed).toHaveBeenCalledTimes(1);
   });
 
+  it('derives boss phase escalation from health and emits each crossed boundary once', async () => {
+    const boss: ResolvedEnemyDefinition = {
+      id: 'test-phase-boss', name: 'Phase Boss', archetype: 'boss', health: 100, damage: 10, speed: 40,
+      xpValue: 1, scrapValue: 1, contactDamage: false,
+      attack: { triggerRange: 200, telegraphMs: 100, dashSpeed: 300, dashDurationMs: 20, cooldownMs: 100 },
+      phases: [
+        { atHealthFraction: 0.7, attack: { triggerRange: 210, telegraphMs: 80, dashSpeed: 340, dashDurationMs: 20, cooldownMs: 90 } },
+        { atHealthFraction: 0.35, attack: { triggerRange: 220, telegraphMs: 60, dashSpeed: 380, dashDurationMs: 20, cooldownMs: 80 } },
+      ],
+    };
+    const bus = createEventBus();
+    const phase = vi.fn();
+    bus.on('enemy:boss-phase', phase);
+    const { enemy } = await createEnemy(bus, boss);
+    enemy.takeDamage(70);
+    enemy.update({ active: true, x: 100, y: 20 } as never, 1);
+    expect(phase).toHaveBeenCalledTimes(2);
+    expect(phase).toHaveBeenNthCalledWith(1, expect.objectContaining({ enemyId: 'test-phase-boss', phase: 1 }));
+    expect(phase).toHaveBeenNthCalledWith(2, expect.objectContaining({ enemyId: 'test-phase-boss', phase: 2 }));
+    enemy.update({ active: true, x: 100, y: 20 } as never, 1);
+    expect(phase).toHaveBeenCalledTimes(2);
+  });
+
   it('emits data-defined reinforcement and split requests without enemy-ID branches', async () => {
     const spawner: ResolvedEnemyDefinition = {
       id: 'test-spawner', name: 'Spawner', archetype: 'ranged', health: 20, damage: 1, speed: 30, xpValue: 1, scrapValue: 1,

@@ -28,5 +28,11 @@
     "scrapBase": 150,
     "scrapPerMinute": 35,
     "lootTableId": "weapon-world"
+  },
+  {
+    "id": "reward:stage-06-boss",
+    "scrapBase": 190,
+    "scrapPerMinute": 40,
+    "lootTableId": "weapon-world"
   }
 ]

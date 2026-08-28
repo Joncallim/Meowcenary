@@ -59,5 +59,18 @@
     "rewardProfileId": "reward:stage-05-boss",
     "bossId": "boss-crusher",
     "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-04" }
+  },
+  {
+    "id": "stage:junkyard-06",
+    "name": "Boss: Forge Warden",
+    "chapterId": "chapter:junkyard",
+    "displayOrder": 6,
+    "arenaId": "junkyard-lot",
+    "objective": { "type": "defeat", "enemyId": "boss-forge" },
+    "encounterProfileId": "encounter:junkyard-forge-boss",
+    "difficultyProfileId": "difficulty:boss-tier-1",
+    "rewardProfileId": "reward:stage-06-boss",
+    "bossId": "boss-forge",
+    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-05" }
   }
 ]

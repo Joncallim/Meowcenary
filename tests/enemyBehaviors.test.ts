@@ -175,6 +175,15 @@ describe('Epic 21 enemy behavior registry', () => {
     expect(plan.encounter.bossId).toBe('boss-crusher');
   });
 
+  it('second-fixture proof: a data-only boss composition resolves without runtime branches', () => {
+    const plan = resolveRunPlan(
+      { stageId: 'stage:junkyard-06', characterId: 'scrap-tabby', seed: 6 },
+      { stages: stagesJson as readonly StageDefinition[], encounterProfiles: encountersJson as unknown as readonly EncounterProfile[], difficultyProfiles: difficultiesJson as readonly DifficultyProfile[], rewardProfiles: rewardsJson as readonly RewardProfile[] },
+    );
+    expect(plan.encounter.bossId).toBe('boss-forge');
+    expect(plan.objective.definition).toEqual({ type: 'defeat', enemyId: 'boss-forge' });
+  });
+
   it('aggregate validation accepts the expanded roster and boss encounter', () => {
     expect(validateGameData(loadGameData())).toBeTruthy();
   });

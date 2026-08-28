@@ -135,9 +135,10 @@ const META_UPGRADE_FIELDS = new Set(['id', 'name', 'description', 'maxLevel', 'c
 const META_UPGRADE_COST_FIELDS = new Set(['base', 'growth']);
 const DIRECT_ENEMY_FIELDS = new Set([
   'id', 'name', 'archetype', 'health', 'damage', 'speed', 'xpValue', 'scrapValue',
-  'contactDamage', 'lootTableId', 'summon', 'splitOnDeath',
+  'contactDamage', 'lootTableId', 'summon', 'splitOnDeath', 'phases',
 ]);
 const ENEMY_SUMMON_FIELDS = new Set(['enemyId', 'count', 'maxActive']);
+const BOSS_PHASE_FIELDS = new Set(['atHealthFraction', 'attack', 'summon']);
 const ELITE_ENEMY_FIELDS = new Set(['id', 'name', 'archetype', 'baseEnemyId']);
 const CHARGER_ATTACK_FIELDS = new Set([
   'triggerRange', 'telegraphMs', 'dashSpeed', 'dashDurationMs', 'cooldownMs',
@@ -869,7 +870,10 @@ export function validateEnemyCatalog(raw: unknown): EnemyDefinition[] {
   const byId = new Map(enemies.map((enemy) => [enemy.id, enemy]));
   for (const enemy of enemies) {
     if (enemy.archetype === 'elite') continue;
-    for (const mechanic of [enemy.summon, enemy.splitOnDeath]) {
+    const phaseSummons = enemy.archetype === 'boss'
+      ? (enemy.phases ?? []).flatMap((phase) => phase.summon ? [phase.summon] : [])
+      : [];
+    for (const mechanic of [enemy.summon, enemy.splitOnDeath, ...phaseSummons]) {
       const target = mechanic === undefined ? undefined : byId.get(mechanic.enemyId);
       if (mechanic !== undefined && !target) {
         throw new Error(`enemy.${enemy.id}: summon target "${mechanic.enemyId}" not found in enemy catalog`);
@@ -1807,7 +1811,10 @@ function checkEnemy(row: unknown): string[] {
 
   if (archetype === 'charger') checkChargerAttack(row, errors);
   if (archetype === 'ranged') checkRangedAttack(row, errors);
-  if (archetype === 'boss') checkChargerAttack(row, errors);
+  if (archetype === 'boss') {
+    checkChargerAttack(row, errors);
+    checkBossPhases(readOwnField(row, 'phases'), errors);
+  }
   checkEnemySummon(readOwnField(row, 'summon'), 'summon', errors);
   checkEnemySummon(readOwnField(row, 'splitOnDeath'), 'splitOnDeath', errors);
   return errors;
@@ -1830,6 +1837,30 @@ function checkEnemySummon(value: unknown, path: string, errors: string[]): void 
     sub.push('count: must not exceed maxActive');
   }
   errors.push(...sub.map((error) => `${path}.${error}`));
+}
+
+function checkBossPhases(value: unknown, errors: string[]): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value) || value.length === 0) {
+    errors.push('phases: must be a non-empty array when present');
+    return;
+  }
+  let previous = 1;
+  value.forEach((phase, index) => {
+    if (!isRecord(phase)) {
+      errors.push(`phases[${index}]: required object`);
+      return;
+    }
+    const sub: string[] = [];
+    rejectUnknownFields(phase, BOSS_PHASE_FIELDS, sub);
+    const threshold = readOwnField(phase, 'atHealthFraction');
+    if (!isFiniteNumber(threshold) || threshold <= 0 || threshold >= 1) sub.push('atHealthFraction: must be > 0 and < 1');
+    else if (threshold >= previous) sub.push('atHealthFraction: must be strictly descending');
+    else previous = threshold;
+    checkChargerAttack(phase, sub);
+    checkEnemySummon(readOwnField(phase, 'summon'), 'summon', sub);
+    errors.push(...sub.map((error) => `phases[${index}].${error}`));
+  });
 }
 
 function checkCharacter(row: unknown): string[] {
