@@ -239,7 +239,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     const renderedText: Array<{ role: string; object: Phaser.GameObjects.Text }> = [];
     // Four/five choices need fast phone-scale scanning: retain the benefit,
     // omit stack detail, and hard-cap the copy to one contained line.
-    const condensedCards = offer.choices.length > 3;
+    const condensedCards = offer.choices.length > 2;
     const own = <T extends Phaser.GameObjects.GameObject>(object: T): T => {
       root.add(object);
       return object;
@@ -485,7 +485,9 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           const description = own(createUiText(this.scene,
             cardLeft + cardLayout.padding,
             cardLayout.descriptionY,
-            choice.description,
+            condensedCards
+              ? `${choice.description.replace(/\s+/g, ' ').slice(0, 58).trimEnd()}${choice.description.length > 58 ? '…' : ''}`
+              : choice.description,
             {
               color: '#d6f7ff',
               fontFamily: ThemeFont.family,

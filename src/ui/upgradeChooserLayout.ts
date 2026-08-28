@@ -99,14 +99,14 @@ export function computeUpgradeChooserLayout(
   const contentCenterX = safeLeft + safeWidth / 2;
   const headerWidth = Math.max(MIN_REGION_SIZE, safeWidth - physical(12));
   const headingY = safeTop + physical(compactHeader ? 6 : 12);
-  const headingHeight = fonts.heading * (compactHeader ? 2.25 : 1.2);
+  const headingHeight = fonts.heading * (compactHeader ? 2.25 : 1.6);
   const instructionsY = headingY + headingHeight + physical(compactHeader ? 2 : 4);
-  const instructionsHeight = fonts.instructions * (compactHeader ? 2.4 : 1.2);
+  const instructionsHeight = fonts.instructions * (compactHeader ? 2.4 : 1.4);
   const cardsRegionTop =
     // The game scene renders through the 1.25x camera viewport; leaving only
     // a few logical pixels here lets Phaser font ascenders touch the first
     // card on a real portrait phone despite nominal bounds being separate.
-    instructionsY + instructionsHeight + physical(compactHeader ? 8 : 16);
+    instructionsY + instructionsHeight + physical(compactHeader ? 12 : 28);
   const bottomMargin = physical(compactHeader ? 4 : 8);
   const cardGap = Math.max(compactHeader ? 0 : 12, physical(compactHeader ? 4 : 6));
   // Epic 18 (D2/D9): 1–5 cards, no legacy three-card clamp.

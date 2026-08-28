@@ -273,7 +273,9 @@ export class GameScene extends Phaser.Scene {
     );
     const minPlayableY = Math.min(
       arena.size.height / 2,
-      (viewport.originY ?? 0) + topHudContentBottom(viewport) + PLAYER_BODY_RADIUS,
+      // Leave a full visual/follow-camera buffer below the persistent HUD,
+      // not merely one collision radius.
+      (viewport.originY ?? 0) + topHudContentBottom(viewport) + PLAYER_BODY_RADIUS * 4,
     );
 
     this.player = new Player(this, this.inputController, this.runState, ctx.bus, {
