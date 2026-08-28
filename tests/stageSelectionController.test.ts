@@ -26,10 +26,10 @@ function createHarness(): { context: GameContext; controller: StageSelectionCont
 }
 
 describe('StageSelectionController (Epic 20)', () => {
-  it('lists all five stages in display order with unlocked/locked state', () => {
+  it('lists all six stages in display order with unlocked/locked state', () => {
     const { controller } = createHarness();
     const snap = controller.snapshot();
-    expect(snap.stages).toHaveLength(5);
+    expect(snap.stages).toHaveLength(6);
     // Fresh save: only stage 1 (unlock-count 0) is unlocked
     expect(snap.stages[0].locked).toBe(false);
     expect(snap.stages[0].completed).toBe(false);

@@ -743,7 +743,7 @@ describe('MenuScene', () => {
       steps: 4,
       expected: ['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', '< Back'],
     },
-    { name: 'stage', steps: 5, expected: ['✓ First Scavenge', 'Scrap Run 🔒', 'Rusher Ambush 🔒', 'Brute Force 🔒', 'Boss: Scrap Crusher 🔒', '< Back'] },
+    { name: 'stage', steps: 5, expected: ['✓ First Scavenge', 'Scrap Run 🔒', 'Rusher Ambush 🔒', 'Brute Force 🔒', 'Boss: Scrap Crusher 🔒', 'Boss: Forge Warden 🔒', '< Back'] },
     {
       name: 'reset-confirmation',
       steps: 5,
