@@ -202,6 +202,31 @@ const shieldedBehavior: RegisteredEnemyBehavior = {
   },
 };
 
+/** Flanker: approaches from a stable lateral offset instead of directly
+ * stacking on the player, creating cross-fire/position pressure. */
+const flankerBehavior: RegisteredEnemyBehavior = {
+  archetype: 'flanker',
+  color: 0xeab308,
+  accent: { radius: 4, fill: 0xfef08a },
+  heavyStep: false,
+  immediate: false,
+  telegraphMs: () => undefined,
+  step(input: EnemyStepInput): EnemyStepResult {
+    if (input.definition.archetype !== 'flanker') {
+      return { pos: { ...input.pos }, state: input.state, stateTimerMs: input.stateTimerMs,
+        dashDirection: { ...input.dashDirection }, dashOrigin: { ...input.dashOrigin }, enteredAttack: false };
+    }
+    const dx = input.pos.x - input.target.x;
+    const dy = input.pos.y - input.target.y;
+    const length = Math.hypot(dx, dy) || 1;
+    const normalX = -dy / length * input.definition.flankSide;
+    const normalY = dx / length * input.definition.flankSide;
+    const desired = { x: input.target.x + normalX * input.definition.flankDistance, y: input.target.y + normalY * input.definition.flankDistance };
+    return { pos: chaseStep(input.pos, desired, input.definition.speed, input.dtMs), state: input.state, stateTimerMs: input.stateTimerMs,
+      dashDirection: { ...input.dashDirection }, dashOrigin: { ...input.dashOrigin }, enteredAttack: false };
+  },
+};
+
 /** Ranged: keeps distance, stops to telegraph a shot, then cools down. */
 const rangedBehavior: RegisteredEnemyBehavior = {
   archetype: 'ranged',
@@ -322,7 +347,7 @@ const bossBehavior: RegisteredEnemyBehavior = {
 };
 
 const BEHAVIORS: ReadonlyMap<EnemyBehaviorArchetype, RegisteredEnemyBehavior> = new Map(
-  [chaserBehavior, chargerBehavior, tankBehavior, shieldedBehavior, rangedBehavior, bossBehavior]
+  [chaserBehavior, chargerBehavior, tankBehavior, shieldedBehavior, flankerBehavior, rangedBehavior, bossBehavior]
     .map((behavior) => [behavior.archetype, behavior] as const),
 );
 

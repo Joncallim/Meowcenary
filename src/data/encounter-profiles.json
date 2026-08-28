@@ -14,13 +14,15 @@
       "dust-mite",
       "junk-rusher",
       "junk-nester",
-      "bastion-beetle"
+      "bastion-beetle",
+      "scrap-skitter"
     ],
     "compositionWeights": {
       "dust-mite": 3,
       "junk-rusher": 1,
       "junk-nester": 1,
-      "bastion-beetle": 1
+      "bastion-beetle": 1,
+      "scrap-skitter": 2
     }
   },
   {

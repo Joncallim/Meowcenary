@@ -18,7 +18,7 @@ import type { StageDefinition, EncounterProfile, DifficultyProfile, RewardProfil
 describe('Epic 21 enemy behavior registry', () => {
   it('registers a behavior for every shipped archetype (no silent default)', () => {
     const registered = new Set(registeredEnemyArchetypes());
-    expect(registered).toEqual(new Set(['chaser', 'charger', 'tank', 'shielded', 'ranged', 'boss']));
+    expect(registered).toEqual(new Set(['chaser', 'charger', 'tank', 'shielded', 'flanker', 'ranged', 'boss']));
     // Every shipped enemy resolves to a registered behavior, including elites
     // (which inherit their base's behavior).
     const data = loadGameData();
@@ -136,6 +136,16 @@ describe('Epic 21 enemy behavior registry', () => {
     expect(behavior.telegraphMs(definition)).toBe(700);
   });
 
+  it('flanker approaches a lateral target rather than the player center', () => {
+    const behavior = enemyBehaviorFor({ id: '', name: '', archetype: 'flanker' } as unknown as ResolvedEnemyDefinition);
+    const definition = { id: 'skitter', name: 'Skitter', archetype: 'flanker', health: 10, damage: 1, speed: 100,
+      xpValue: 1, scrapValue: 1, contactDamage: true, flankDistance: 80, flankSide: 1 } as unknown as ResolvedEnemyDefinition;
+    const result = behavior.step({ pos: { x: 100, y: 0 }, target: { x: 0, y: 0 }, definition, dtMs: 1000,
+      state: 'pursuing', stateTimerMs: 0, dashDirection: { x: 0, y: 0 }, dashOrigin: { x: 0, y: 0 } });
+    expect(result.pos.y).toBeGreaterThan(0);
+    expect(result.pos.x).toBeLessThan(100);
+  });
+
   it('boss behavior lunges with charger semantics (new archetype)', () => {
     const behavior = enemyBehaviorFor({ id: '', name: '', archetype: 'boss' } as unknown as ResolvedEnemyDefinition);
     const definition = {
@@ -202,7 +212,7 @@ describe('Epic 21 enemy behavior registry', () => {
     expect(hasRegisteredBehavior('ranged')).toBe(true);
     expect(hasRegisteredBehavior('boss')).toBe(true);
     // All five archetypes resolve without falling into a catch-all default.
-    for (const a of ['chaser', 'charger', 'tank', 'shielded', 'ranged', 'boss'] as const) {
+    for (const a of ['chaser', 'charger', 'tank', 'shielded', 'flanker', 'ranged', 'boss'] as const) {
       expect(enemyBehaviorFor({ id: '', name: '', archetype: a } as unknown as ResolvedEnemyDefinition).archetype)
         .toBe(a);
     }

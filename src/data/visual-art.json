@@ -1297,6 +1297,22 @@
       "sampling": "nearest"
     },
     {
+      "id": "enemy:scrap-skitter",
+      "kind": "enemy",
+      "textureKey": "art-enemy-scrap-skitter",
+      "url": "assets/enemies/scrap-skitter/scrap-skitter.png",
+      "required": true,
+      "load": { "type": "spritesheet", "frame": { "width": 313, "height": 313 } },
+      "display": { "width": 24, "height": 24 },
+      "clips": {
+        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
+        "run": { "start": 4, "end": 9, "frameRate": 12, "repeat": -1 },
+        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
+        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
+      },
+      "sampling": "nearest"
+    },
+    {
       "id": "enemy:bastion-beetle",
       "kind": "enemy",
       "textureKey": "art-enemy-bastion-beetle",

@@ -57,6 +57,19 @@
     }
   },
   {
+    "id": "scrap-skitter",
+    "name": "Scrap Skitter",
+    "archetype": "flanker",
+    "health": 12,
+    "damage": 6,
+    "speed": 124,
+    "xpValue": 2,
+    "scrapValue": 2,
+    "contactDamage": true,
+    "flankDistance": 85,
+    "flankSide": 1
+  },
+  {
     "id": "bastion-beetle",
     "name": "Bastion Beetle",
     "archetype": "shielded",
