@@ -521,7 +521,8 @@ describe('PhaserHudView', () => {
     );
     expect(hudChildren.filter((child) => child.state.kind === 'text')).toHaveLength(7);
     expect(hudChildren.filter((child) => child.state.kind === 'rect')).toHaveLength(4);
-    expect(pauseChildren).toHaveLength(3);
+    // Pause plus the shared touch ability action are both HUD controls.
+    expect(pauseChildren).toHaveLength(4);
 
     const renderedBottom = Math.max(
       ...hudChildren.map((child) => renderedObjectBottom(child.state, hudRoot.state.y as number)),

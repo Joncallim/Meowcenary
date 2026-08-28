@@ -22,6 +22,9 @@ export interface HudSnapshot {
   readonly kills: number;
   readonly currency: number;
   readonly objective?: string;
+  /** Shared ability action feedback; game input, controller and touch all
+   * read the same authoritative ability state. */
+  readonly ability?: string;
 }
 
 export interface HudSource {
@@ -112,6 +115,7 @@ function buildRenderKey(snapshot: HudSnapshot): string {
     snapshot.kills,
     snapshot.currency.toFixed(2),
     snapshot.objective ?? '',
+    snapshot.ability ?? '',
 
   ].join('|');
 }
@@ -121,10 +125,11 @@ export interface CreateHudSourceOptions {
   readonly player: Player;
   readonly durationMs: number;
   readonly objective?: () => string | undefined;
+  readonly ability?: () => string | undefined;
 }
 
 export function createHudSource(options: CreateHudSourceOptions): HudSource {
-  const { runState, player, durationMs, objective } = options;
+  const { runState, player, durationMs, objective, ability } = options;
   return {
     snapshot(): HudSnapshot {
 
@@ -140,6 +145,7 @@ export function createHudSource(options: CreateHudSourceOptions): HudSource {
         kills: runState.kills,
         currency: runState.currency,
         ...(objective?.() ? { objective: objective() } : {}),
+        ...(ability?.() ? { ability: ability() } : {}),
       };
       return Object.freeze(snapshot);
     },
@@ -244,7 +250,7 @@ export class PhaserHudView implements HudView {
     this.levelText.setText(`Level ${snapshot.level}`);
     this.killsText.setText(`Kills ${formatNumber(snapshot.kills)}`);
     this.scrapText.setText(`Scrap ${formatNumber(Math.floor(snapshot.currency))}`);
-    this.objectiveText.setText(snapshot.objective ?? '');
+    this.objectiveText.setText([snapshot.objective, snapshot.ability].filter(Boolean).join('  •  '));
 
   }
 

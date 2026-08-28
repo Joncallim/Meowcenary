@@ -63,7 +63,7 @@ import { DefeatPresentationSystem } from '../systems/defeatPresentation';
 import { DataAchievementRegistry, metricExtractor } from '../systems/achievements';
 import { evaluateAchievements } from '../gameplay/achievementSystem';
 import { DataAbilityRegistry } from '../systems/abilities';
-import { activateAbility, createAbilityState, tickAbility, type AbilityDefinition, type AbilityState } from '../gameplay/abilities';
+import { abilityReadiness, activateAbility, createAbilityState, tickAbility, type AbilityDefinition, type AbilityState } from '../gameplay/abilities';
 import type { FocusDirection } from '../ui/focusList';
 
 /** U6: the gameplay camera shows canvas/zoom world units — 312×675.2 on the
@@ -263,6 +263,7 @@ export class GameScene extends Phaser.Scene {
         player: this.player,
         durationMs: this.spawnCurve.durationSeconds * 1000,
         objective: () => this.describeStageObjective(),
+        ability: () => this.describeAbilityState(),
       }),
       new PhaserHudView({
         scene: this,
@@ -802,6 +803,15 @@ export class GameScene extends Phaser.Scene {
     if (before.phase === 'active' && this.abilityState.phase !== 'active' && definition.effect.kind === 'stat-burst') {
       definition.effect.modifiers.forEach((modifier) => this.runState?.stats.remove(modifier.sourceId));
     }
+  }
+
+  private describeAbilityState(): string | undefined {
+    const definition = this.abilityDefinition;
+    if (!definition) return undefined;
+    if (this.abilityState.phase === 'ready') return `${definition.name}: READY`;
+    const seconds = Math.ceil(this.abilityState.cooldownRemainingMs / 1000);
+    const readiness = Math.round(abilityReadiness(this.abilityState, definition) * 100);
+    return `${definition.name}: ${seconds}s (${readiness}%)`;
   }
 
   private forceLoseRun(): void {

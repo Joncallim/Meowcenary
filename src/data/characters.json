@@ -68,7 +68,7 @@
         "id": "thick-hide",
         "kind": "static",
         "name": "Thick Hide",
-        "description": "Takes less damage.",
+        "description": "Has 10% more maximum health.",
         "effects": [{ "stat": "maxHealth", "op": "mult", "value": 1.1 }]
       }
     ],
@@ -87,7 +87,7 @@
         "id": "ember-aura",
         "kind": "static",
         "name": "Ember Aura",
-        "description": "Burning enemies take a touch more damage.",
+        "description": "Deals 5% more damage.",
         "effects": [{ "stat": "damage", "op": "mult", "value": 1.05 }]
       }
     ],

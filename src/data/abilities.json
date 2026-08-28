@@ -24,7 +24,7 @@
   {
     "id": "ability:shield-flicker",
     "name": "Shield Flicker",
-    "description": "Briefly become invulnerable and reflect contact damage.",
+    "description": "Briefly become invulnerable.",
     "cooldownMs": 15000,
     "durationMs": 1200,
     "effect": { "kind": "invulnerable" }
@@ -40,7 +40,7 @@
   {
     "id": "ability:adrenaline",
     "name": "Adrenaline",
-    "description": "Dash recharges instantly and speed surges.",
+    "description": "Surge forward with a brief speed boost.",
     "cooldownMs": 10000,
     "durationMs": 2500,
     "effect": {
