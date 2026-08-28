@@ -36,7 +36,10 @@ extensibility contracts named in `docs/ai-workflow.md`.
 ## Repository Map
 
 - `src/data`: gameplay definitions and tuning.
-- `src/gameplay`, `src/systems`: testable domain rules and orchestration.
+- `src/engine`: framework-agnostic primitives such as RNG, logical input,
+  events, cadence, cooldowns, and pooling; it must not import Phaser.
+- `src/gameplay`: pure run and progression rules; it must not import Phaser.
+- `src/systems`: Phaser-aware coordinators, registries, validation, and saves.
 - `src/entities`: player, enemies, projectiles, and drops.
 - `src/scenes`: Phaser composition and lifecycle only.
 - `src/platform`: browser and device adapters.
