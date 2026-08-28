@@ -124,10 +124,10 @@ export function resolveSetBonuses(
   owned: ReadonlyMap<string, OwnedEquipment>,
 ): readonly Modifier[] {
   const setCounts = new Map<string, number>();
-  for (const instanceId of Object.values(loadout.equipped)) {
+  for (const [slot, instanceId] of Object.entries(loadout.equipped) as [EquipmentSlot, string | undefined][]) {
     const instance = instanceId && owned.get(instanceId);
     const definition = instance && definitions.get(instance.equipmentId);
-    if (!definition) continue;
+    if (!definition || definition.slot !== slot) continue;
     setCounts.set(definition.setId, (setCounts.get(definition.setId) ?? 0) + 1);
   }
 
@@ -214,12 +214,16 @@ export function resolveEquipmentModifiers(
   owned: ReadonlyMap<string, OwnedEquipment>,
 ): readonly Modifier[] {
   const modifiers: Modifier[] = [];
-  for (const instanceId of Object.values(loadout.equipped)) {
+  for (const [slot, instanceId] of Object.entries(loadout.equipped) as [EquipmentSlot, string | undefined][]) {
     const instance = instanceId && owned.get(instanceId);
     const definition = instance && definitions.get(instance.equipmentId);
-    if (!instance || !definition) continue;
+    if (!instance || !definition || definition.slot !== slot) continue;
     for (const effect of definition.effects) {
-      modifiers.push({ ...effect, value: effect.value * Math.max(1, instance.tier), sourceId: instance.instanceId });
+      const tier = Math.max(1, Math.min(EQUIPMENT_TIERS.length, instance.tier));
+      const value = effect.op === 'mult'
+        ? 1 + (effect.value - 1) * tier
+        : effect.value * tier;
+      modifiers.push({ ...effect, value, sourceId: instance.instanceId });
     }
   }
   modifiers.push(...resolveSetBonuses(loadout, definitions, owned));

@@ -1,6 +1,7 @@
 import { RuntimeConfig } from '../engine/config';
 import { isContentId, isGrantTransactionId, isInstanceId, isUnlockId } from './ids';
 import { BEHAVIOR_TRAITS, MAX_TRAITS_PER_PART, RARITY_TIER } from '../gameplay/gunsmith';
+import { EQUIPMENT_TIERS } from '../gameplay/equipment';
 
 export interface Settings {
   readonly muted: boolean;
@@ -475,7 +476,9 @@ function sanitizeEquipmentState(raw: unknown): EquipmentState {
     if (canonicalId !== undefined && isUnlockId(canonicalId) && canonicalId.startsWith('equipment:')) {
       result[key] = {
         equipmentId: canonicalId,
-        tier: Number.isSafeInteger(tier) && (tier as number) >= 0 ? tier as number : 0,
+        tier: Number.isSafeInteger(tier) && (tier as number) >= 1
+          ? Math.min(tier as number, EQUIPMENT_TIERS.length)
+          : 1,
       };
     }
   }
