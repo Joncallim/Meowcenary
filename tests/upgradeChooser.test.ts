@@ -845,6 +845,22 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
     return { scene, view, select };
   }
 
+  it('condenses four-card portrait offers to one contained benefit line per coloured card', async () => {
+    const { view } = await createRenderedDisplay(390, 844, hostileDefinitions5.slice(0, 4));
+    const diagnostics = view.diagnostics;
+    expect(diagnostics.cards.every((card) => card.fillAlpha === 1)).toBe(true);
+    expect(new Set(diagnostics.cards.map((card) => card.fillColor)).size).toBeGreaterThan(1);
+    for (let index = 0; index < 4; index += 1) {
+      expect(diagnostics.text.some((text) => text.role === `status:${index}`)).toBe(false);
+      const description = diagnostics.text.find((text) => text.role === `description:${index}`);
+      expect(description?.height).toBeGreaterThan(0);
+      expect(description!.y + description!.height).toBeLessThanOrEqual(
+        diagnostics.cards[index]!.y + diagnostics.cards[index]!.height,
+      );
+    }
+    view.destroy();
+  });
+
   it('keeps the rendered compact heading and instructions within 568x320', async () => {
     const { display, view } = await createRenderedView(568, 320);
     const diagnostics = view.diagnostics;

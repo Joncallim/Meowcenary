@@ -9,6 +9,7 @@ class MockBody {
   setCollideWorldBounds = vi.fn();
   setPosition = vi.fn();
   setSize = vi.fn();
+  reset = vi.fn();
 
   setVelocity(x: number, y: number): void {
     this.velocity = { x, y };
@@ -116,6 +117,7 @@ async function createHarness(
   invulnerabilityMs = 650,
   moveVector: { x: number; y: number } = { x: 0, y: 0 },
   art?: Readonly<VisualArtBinding>,
+  minPlayableY?: number,
 ) {
   const { Player } = await import('../src/entities/Player');
   const circles: MockArc[] = [];
@@ -148,6 +150,7 @@ async function createHarness(
     invulnerabilityMs,
     spawnX: 400,
     spawnY: 300,
+    minPlayableY,
   }, art);
 
   return { player, runState, sprite: circles[0], circles, artSprites, bus };
@@ -168,6 +171,15 @@ const playerArt = {
 } as const satisfies VisualArtBinding;
 
 describe('Player', () => {
+  it('keeps upward movement out of the persistent HUD playfield exclusion', async () => {
+    const { player, sprite } = await createHarness(650, { x: 0, y: -1 }, undefined, 180);
+    sprite.y = 180;
+
+    player.update(16);
+
+    expect(sprite.body.velocity).toEqual({ x: 0, y: 0 });
+  });
+
   it('keeps the damage indicator and invulnerability countdown paused with the run', async () => {
     const { player, runState, sprite } = await createHarness();
 

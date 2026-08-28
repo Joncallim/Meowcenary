@@ -6,7 +6,7 @@ import { SceneKey } from '../engine/sceneKeys';
 import type { System } from '../engine/system';
 import type { SpawnCurveDefinition } from '../systems/types';
 import { AudioManager, getAudioManager } from '../systems/audio';
-import { Player } from '../entities/Player';
+import { PLAYER_BODY_RADIUS, Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
 import { assembleRunRequest } from '../gameplay/runRequest';
@@ -36,7 +36,7 @@ import { DataLootTableRegistry } from '../systems/lootTables';
 import { WeaponSystem } from '../systems/WeaponSystem';
 import { UpgradeChooser } from '../ui/UpgradeChooser';
 import { resolveCharacterRunContribution } from '../gameplay/characterContribution';
-import { HudController, PhaserHudView, createHudSource } from '../ui/hud';
+import { HudController, PhaserHudView, createHudSource, topHudContentBottom } from '../ui/hud';
 import { ControlsView } from '../ui/controls';
 import { InventoryController } from '../ui/inventory';
 import { PauseController, PhaserPauseView } from '../ui/pause';
@@ -196,12 +196,27 @@ export class GameScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, arena.size.width, arena.size.height);
     this.cameras.main.setBounds(0, 0, arena.size.width, arena.size.height);
 
+    const viewport = zoomedGameUiViewport(
+      this.scale.displaySize.width,
+      this.scale.displaySize.height,
+      this.scale.parentSize.width,
+      this.scale.parentSize.height,
+    );
+    // When the camera is at scrollY=0 the persistent HUD otherwise covers
+    // the upper part of the world.  This is the corresponding world-space
+    // floor for the player, leaving its full body below the HUD backing.
+    const minPlayableY = Math.min(
+      arena.size.height / 2,
+      (viewport.originY ?? 0) + topHudContentBottom(viewport) + PLAYER_BODY_RADIUS,
+    );
+
     this.player = new Player(this, this.inputController, this.runState, ctx.bus, {
       baseMaxHealth: prepared.basePlayer.maxHealth,
       baseMoveSpeed: prepared.basePlayer.moveSpeed,
       invulnerabilityMs: RuntimeConfig.gameplay.player.invulnerabilityMs,
       spawnX: arena.size.width / 2,
       spawnY: arena.size.height / 2,
+      minPlayableY,
     }, visualArt.bindingById(`character:${request.characterId}`));
 
     const visibleSize = zoomedVisibleSize(this.scale.width, this.scale.height);
@@ -215,12 +230,6 @@ export class GameScene extends Phaser.Scene {
     }
     this.cameras.main.setZoom(GAMEPLAY_ZOOM);
 
-    const viewport = zoomedGameUiViewport(
-      this.scale.displaySize.width,
-      this.scale.displaySize.height,
-      this.scale.parentSize.width,
-      this.scale.parentSize.height,
-    );
     this.hudController = new HudController(
       ctx.bus,
       createHudSource({

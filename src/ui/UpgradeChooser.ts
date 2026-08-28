@@ -17,6 +17,15 @@ import { ZERO_SAFE_AREA } from '../platform/safeArea';
 
 const CHOOSER_DEPTH = ThemeDepth.upgradeChooser;
 const RARITY_EDGE_ALPHA = 0.95;
+// Full-card rarity surfaces make the phone chooser scannable without the
+// washed-out, near-identical navy cards seen in playtest captures.
+const RARITY_CARD_BACKGROUND = {
+  common: 0x263846,
+  uncommon: 0x1d4937,
+  rare: 0x203c5b,
+  epic: 0x3a2b58,
+  legendary: 0x4a3a1b,
+} as const;
 
 export class UpgradeChooser {
   private readonly controller: UpgradeChooserController;
@@ -86,6 +95,7 @@ export interface UpgradeChooserRenderDiagnostics {
   readonly reducedMotion: boolean;
   readonly cards: readonly {
     readonly fillAlpha: number;
+    readonly fillColor: number;
     readonly interactive: boolean;
     readonly focused: boolean;
     readonly x: number;
@@ -108,6 +118,7 @@ export interface UpgradeChooserRenderDiagnostics {
 export class PhaserUpgradeChooserView implements UpgradeChooserView {
   private root?: Phaser.GameObjects.Container;
   private cardBackgrounds: Phaser.GameObjects.Rectangle[] = [];
+  private cardBaseColors: number[] = [];
   private cardEdges: Phaser.GameObjects.Rectangle[] = [];
   private renderedText: Array<{ role: string; object: Phaser.GameObjects.Text }> = [];
   private select?: (offerId: number, choiceIndex: number) => boolean;
@@ -153,6 +164,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       reducedMotion: this.reducedMotion,
       cards: this.cardBackgrounds.map((card, index) => ({
         fillAlpha: card.fillAlpha,
+        fillColor: card.fillColor,
         interactive: card.input?.enabled ?? false,
         focused: index === this.focusIndex,
         x: card.getBounds().x,
@@ -224,8 +236,13 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     );
     const root = this.scene.add.container(this.viewport?.originX ?? 0, this.viewport?.originY ?? 0);
     const cardBackgrounds: Phaser.GameObjects.Rectangle[] = [];
+    const cardBaseColors: number[] = [];
     const cardEdges: Phaser.GameObjects.Rectangle[] = [];
     const renderedText: Array<{ role: string; object: Phaser.GameObjects.Text }> = [];
+    // Four/five-choice offers deliberately favour fast scanning on phone:
+    // title, rarity and one concise benefit line.  Rendering every desktop
+    // detail is what caused text to escape its card in the real portrait run.
+    const condensedCards = offer.choices.length > 3;
     const own = <T extends Phaser.GameObjects.GameObject>(object: T): T => {
       root.add(object);
       return object;
@@ -298,7 +315,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           cardLayout.y,
           cardLayout.width,
           cardLayout.height,
-          ThemeColor.card,
+          RARITY_CARD_BACKGROUND[choice.rarity],
           1,
         ));
         card
@@ -332,7 +349,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           this.armedPointerIds.forEach((cardIndex, pointerId) => { if (cardIndex === index) this.armedPointerIds.delete(pointerId); });
           if (this.hoveredIndex === index) this.hoveredIndex = -1;
           this.applyFocusStroke();
-          card.setFillStyle(ThemeColor.card, this.enabled ? 1 : 0.58);
+          card.setFillStyle(RARITY_CARD_BACKGROUND[choice.rarity], this.enabled ? 1 : 0.58);
         });
         card.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
           if (this.acceptsNavigation && this.currentOfferId === offer.offerId) this.armedPointerIds.set(pointer.id, index);
@@ -439,6 +456,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           : `New -> ${choice.nextStack}/${choice.maxStacks}`;
         const statusWidth = Math.max(0, cardLayout.width - cardLayout.padding * 2);
         const showStatus =
+          !condensedCards &&
           statusWidth > 0 && cardLayout.statusHeight >= layout.fonts.status * 1.15;
         if (showStatus) {
           const status = own(createUiText(this.scene,
@@ -482,7 +500,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
             .setMaxLines(Math.max(
               1,
               Math.min(
-                3,
+                condensedCards ? 1 : 3,
                 Math.floor(
                   (cardLayout.descriptionHeight + layout.lineSpacing) /
                   (layout.fonts.description * 1.2 + layout.lineSpacing),
@@ -499,9 +517,11 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         }
 
         cardBackgrounds.push(card);
+        cardBaseColors.push(RARITY_CARD_BACKGROUND[choice.rarity]);
       });
 
       this.cardBackgrounds = cardBackgrounds;
+      this.cardBaseColors = cardBaseColors;
       this.cardEdges = cardEdges;
       this.renderedText = renderedText;
       this.instructions = stagedInstructions;
@@ -530,6 +550,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       // until a retry commits. A full reset here would break resize-recovery
       // and the test asserting diagnostics.offerId survives a failed rebuild.
       this.cardBackgrounds = [];
+      this.cardBaseColors = [];
       this.cardEdges = [];
       this.renderedText = [];
       this.instructions = undefined;
@@ -548,8 +569,8 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   }
 
   private applyEnabledState(): void {
-    this.cardBackgrounds.forEach((card) => {
-      card.setFillStyle(ThemeColor.card, this.enabled ? 1 : 0.58);
+    this.cardBackgrounds.forEach((card, index) => {
+      card.setFillStyle(this.cardBaseColors[index] ?? ThemeColor.card, this.enabled ? 1 : 0.58);
       if (this.enabled) {
         card.setInteractive({ useHandCursor: true });
       } else {
@@ -649,6 +670,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     this.committedDisplay = false;
     this.armedPointerIds.clear();
     this.cardBackgrounds = [];
+    this.cardBaseColors = [];
     this.cardEdges = [];
     this.renderedText = [];
     // The instructions Text lives in the destroyed root; clear the ref so a
