@@ -102,4 +102,21 @@ describe('runRequest', () => {
       kind: 'stage', characterId: 'scrap-tabby', stageId: 'stage:junkyard-02',
     });
   });
+
+  it('repairs a stale stage selection to the stage default rather than silently composing a legacy arena', () => {
+    const data = loadGameData();
+    const ctx = {
+      characters: new DataCharacterRegistry(data),
+      arenas: new DataArenaRegistry(data),
+      stages: new StageRegistry(data),
+      selectedCharacterId: 'scrap-tabby',
+      selectedArenaId: 'junkyard-lot',
+      selectedStageId: 'stage:removed-by-content-update',
+      saveData: { progression: { unlocks: [] } as any },
+    } as any;
+
+    expect(assembleComposedRunRequest(ctx, createRng(7))).toMatchObject({
+      kind: 'stage', stageId: 'stage:junkyard-01',
+    });
+  });
 });
