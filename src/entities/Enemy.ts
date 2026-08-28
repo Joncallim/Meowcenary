@@ -5,6 +5,7 @@ import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 export { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 import type { Vec2 } from '../engine/vector';
 import { enemyBehaviorFor, type RegisteredEnemyBehavior } from '../gameplay/enemyBehaviors';
+import { executeBossActions, type BossActionEvent } from '../gameplay/bossActions';
 import type { ChargerEnvironment } from '../gameplay/enemyMovement';
 import type { ResolvedEnemyDefinition } from '../systems/types';
 import type { VisualArtBinding } from '../systems/types';
@@ -213,7 +214,7 @@ export class Enemy implements EnemyInstance {
     this.dashOrigin = result.dashOrigin;
     this.applyPosition(result.pos, dtMs, behavior.immediate);
     if (result.enteredAttack) {
-      if (phase.definition.summon) {
+      if ('summon' in phase.definition && phase.definition.summon) {
         this.bus.emit('enemy:summon', {
           sourceEnemyId: this.defId,
           enemyId: phase.definition.summon.enemyId,
@@ -223,26 +224,23 @@ export class Enemy implements EnemyInstance {
           y: this.y,
         });
       }
-      if (this.definition.archetype === 'ranged' || this.definition.archetype === 'boss') {
-        const dx = player.x - this.x;
-        const dy = player.y - this.y;
-        const length = Math.hypot(dx, dy) || 1;
-        this.bus.emit('enemy:ranged-shot', {
-          enemyId: this.defId, x: this.x, y: this.y,
-          dirX: dx / length, dirY: dy / length, damage: this.definition.damage,
-        });
-        // Bosses combine their telegraphed lunge with a readable aimed scrap
-        // blast; ordinary ranged enemies remain projectile-only.
-        if (this.definition.archetype === 'boss') {
-          this.bus.emit('enemy:dashed', { x: this.x, y: this.y, dirX: this.dashDirection.x, dirY: this.dashDirection.y });
-        }
-      } else {
-        this.bus.emit('enemy:dashed', {
-          x: this.x,
-          y: this.y,
-          dirX: this.dashDirection.x,
-          dirY: this.dashDirection.y,
-        });
+      const attackContext = {
+        definition: phase.definition,
+        enemyId: this.defId,
+        pos: this.pos,
+        target: { x: player.x, y: player.y },
+        dashDirection: this.dashDirection,
+      };
+      for (const event of behavior.attackEvents(attackContext)) {
+        this.emitAttackEvent(event);
+      }
+      for (const event of executeBossActions(phase.actions, {
+        enemyId: this.defId,
+        damage: this.definition.damage,
+        pos: this.pos,
+        target: { x: player.x, y: player.y },
+      })) {
+        this.emitBossActionEvent(event);
       }
     }
     // Charger/boss dashes use body.reset, so velocity never reflects motion:
@@ -408,9 +406,9 @@ export class Enemy implements EnemyInstance {
     return Math.abs(delta) <= (this.definition.shieldArcDeg * Math.PI) / 360;
   }
 
-  private resolveBossPhase(): { definition: Readonly<ResolvedEnemyDefinition>; index: number } {
+  private resolveBossPhase(): { definition: Readonly<ResolvedEnemyDefinition>; index: number; actions: readonly import('../systems/types').BossActionDefinition[] } {
     if (this.definition.archetype !== 'boss' || !this.definition.phases?.length) {
-      return { definition: this.definition, index: 0 };
+      return { definition: this.definition, index: 0, actions: this.definition.archetype === 'boss' ? this.definition.actions : [] };
     }
     const healthFraction = this.health / this.maxHealth;
     let phaseIndex = 0;
@@ -421,11 +419,29 @@ export class Enemy implements EnemyInstance {
         selected = phase;
       }
     }
-    if (!selected) return { definition: this.definition, index: 0 };
+    if (!selected) return { definition: this.definition, index: 0, actions: this.definition.actions };
     return {
-      definition: { ...this.definition, attack: selected.attack, summon: selected.summon ?? this.definition.summon },
+      definition: { ...this.definition, attack: selected.attack },
       index: phaseIndex,
+      // Phase actions add to, rather than silently replace, the base moveset.
+      actions: [...this.definition.actions, ...selected.actions],
     };
+  }
+
+  private emitAttackEvent(event: import('../gameplay/enemyBehaviors').EnemyAttackEvent): void {
+    if (event.type === 'dash') {
+      this.bus.emit('enemy:dashed', event);
+      return;
+    }
+    this.bus.emit('enemy:ranged-shot', event);
+  }
+
+  private emitBossActionEvent(event: BossActionEvent): void {
+    if (event.type === 'summon') {
+      this.bus.emit('enemy:summon', event);
+      return;
+    }
+    this.bus.emit('enemy:ranged-shot', event);
   }
 
   private applyPosition(next: Vec2, dtMs: number, immediate = false): void {

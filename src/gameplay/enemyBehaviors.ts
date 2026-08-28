@@ -47,6 +47,21 @@ export interface EnemyStepResult {
   readonly enteredAttack: boolean;
 }
 
+/** Presentation/combat events emitted at the single attack edge.  The entity
+ * only transports these to the event bus; behavior registrations own which
+ * event an archetype produces. */
+export type EnemyAttackEvent =
+  | { readonly type: 'dash'; readonly x: number; readonly y: number; readonly dirX: number; readonly dirY: number }
+  | { readonly type: 'ranged-shot'; readonly enemyId: string; readonly x: number; readonly y: number; readonly dirX: number; readonly dirY: number; readonly damage: number };
+
+export interface EnemyAttackInput {
+  readonly definition: Readonly<ResolvedEnemyDefinition>;
+  readonly enemyId: string;
+  readonly pos: Vec2;
+  readonly target: Vec2;
+  readonly dashDirection: Vec2;
+}
+
 export type EnemyBehaviorState = 'idle' | 'pursuing' | 'winding' | 'attacking' | 'dead';
 export type EnemyState = EnemyBehaviorState;
 
@@ -68,6 +83,7 @@ export interface RegisteredEnemyBehavior {
   /** Telegraph progress 0→1 for the winding state, if this archetype telegraphs. */
   telegraphMs(definition: Readonly<ResolvedEnemyDefinition>): number | undefined;
   step(input: EnemyStepInput): EnemyStepResult;
+  attackEvents(input: EnemyAttackInput): readonly EnemyAttackEvent[];
 }
 
 const OUTLINE_COLOR = 0x0a0f14;
@@ -129,6 +145,7 @@ const chaserBehavior: RegisteredEnemyBehavior = {
       enteredAttack: false,
     };
   },
+  attackEvents: () => [],
 };
 
 /** Charger: winding telegraph → dash attack → cooldown (pre-existing chargerStep). */
@@ -159,6 +176,9 @@ const chargerBehavior: RegisteredEnemyBehavior = {
     const result = chargerStep(chaseInputToSnapshot(input), input.target, movement, input.dtMs, input.env);
     return stepResultFromCharger(result, before !== 'attacking' && result.state === 'attacking');
   },
+  attackEvents(input) {
+    return [{ type: 'dash', x: input.pos.x, y: input.pos.y, dirX: input.dashDirection.x, dirY: input.dashDirection.y }];
+  },
 };
 
 /** Tank: slow pursuit with a heavy landing pulse (pre-existing chaseStep + tank cue). */
@@ -184,6 +204,7 @@ const tankBehavior: RegisteredEnemyBehavior = {
       enteredAttack: false,
     };
   },
+  attackEvents: () => [],
 };
 
 /** Shielded: steady pressure like a chaser, but its frontal damage gate is
@@ -200,6 +221,7 @@ const shieldedBehavior: RegisteredEnemyBehavior = {
     return { pos: next, state: input.state, stateTimerMs: input.stateTimerMs,
       dashDirection: { ...input.dashDirection }, dashOrigin: { ...input.dashOrigin }, enteredAttack: false };
   },
+  attackEvents: () => [],
 };
 
 /** Flanker: approaches from a stable lateral offset instead of directly
@@ -225,6 +247,7 @@ const flankerBehavior: RegisteredEnemyBehavior = {
     return { pos: chaseStep(input.pos, desired, input.definition.speed, input.dtMs), state: input.state, stateTimerMs: input.stateTimerMs,
       dashDirection: { ...input.dashDirection }, dashOrigin: { ...input.dashOrigin }, enteredAttack: false };
   },
+  attackEvents: () => [],
 };
 
 /** Ranged: keeps distance, stops to telegraph a shot, then cools down. */
@@ -314,6 +337,12 @@ const rangedBehavior: RegisteredEnemyBehavior = {
       enteredAttack,
     };
   },
+  attackEvents(input) {
+    const dx = input.target.x - input.pos.x;
+    const dy = input.target.y - input.pos.y;
+    const length = Math.hypot(dx, dy) || 1;
+    return [{ type: 'ranged-shot', enemyId: input.enemyId, x: input.pos.x, y: input.pos.y, dirX: dx / length, dirY: dy / length, damage: input.definition.damage }];
+  },
 };
 
 /** Boss: multi-phase pressure — chase then a wide winding telegraph → lunge. */
@@ -343,6 +372,9 @@ const bossBehavior: RegisteredEnemyBehavior = {
     const before = input.state;
     const result = chargerStep(chaseInputToSnapshot(input), input.target, movement, input.dtMs, input.env);
     return stepResultFromCharger(result, before !== 'attacking' && result.state === 'attacking');
+  },
+  attackEvents(input) {
+    return [{ type: 'dash', x: input.pos.x, y: input.pos.y, dirX: input.dashDirection.x, dirY: input.dashDirection.y }];
   },
 };
 

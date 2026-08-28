@@ -98,6 +98,7 @@ import { checkAbility } from './validation/abilities';
 import { checkEquipment, assertEquipmentEffectSources, assertEquipmentSetBonuses } from './validation/equipment';
 import { findEdgeLaneWitness, findRectWitness, findRingWitness } from '../gameplay/spawnRegion';
 import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
+import { isRegisteredBossActionId } from '../gameplay/bossActions';
 
 const RARITIES = new Set<Rarity>(['common', 'uncommon', 'rare', 'epic', 'legendary']);
 const ENEMY_ARCHETYPES = new Set<EnemyArchetype>([
@@ -139,10 +140,11 @@ const META_UPGRADE_FIELDS = new Set(['id', 'name', 'description', 'maxLevel', 'c
 const META_UPGRADE_COST_FIELDS = new Set(['base', 'growth']);
 const DIRECT_ENEMY_FIELDS = new Set([
   'id', 'name', 'archetype', 'health', 'damage', 'speed', 'xpValue', 'scrapValue',
-  'contactDamage', 'lootTableId', 'summon', 'splitOnDeath', 'phases', 'shieldArcDeg', 'flankDistance', 'flankSide',
+  'contactDamage', 'lootTableId', 'summon', 'splitOnDeath', 'phases', 'actions', 'shieldArcDeg', 'flankDistance', 'flankSide',
 ]);
 const ENEMY_SUMMON_FIELDS = new Set(['enemyId', 'count', 'maxActive']);
-const BOSS_PHASE_FIELDS = new Set(['atHealthFraction', 'attack', 'summon']);
+const BOSS_PHASE_FIELDS = new Set(['id', 'atHealthFraction', 'attack', 'actions']);
+const BOSS_ACTION_FIELDS = new Set(['id', 'enemyId', 'count', 'maxActive']);
 const ELITE_ENEMY_FIELDS = new Set(['id', 'name', 'archetype', 'baseEnemyId']);
 const CHARGER_ATTACK_FIELDS = new Set([
   'triggerRange', 'telegraphMs', 'dashSpeed', 'dashDurationMs', 'cooldownMs',
@@ -896,10 +898,12 @@ export function validateEnemyCatalog(raw: unknown): EnemyDefinition[] {
   const byId = new Map(enemies.map((enemy) => [enemy.id, enemy]));
   for (const enemy of enemies) {
     if (enemy.archetype === 'elite') continue;
-    const phaseSummons = enemy.archetype === 'boss'
-      ? (enemy.phases ?? []).flatMap((phase) => phase.summon ? [phase.summon] : [])
+    const bossSummons = enemy.archetype === 'boss'
+      ? [enemy.actions, ...(enemy.phases ?? []).map((phase) => phase.actions)]
+        .flatMap((actions) => actions.filter((action) => action.id === 'boss-action:summon'))
       : [];
-    for (const mechanic of [enemy.summon, enemy.splitOnDeath, ...phaseSummons]) {
+    const summon = 'summon' in enemy ? enemy.summon : undefined;
+    for (const mechanic of [summon, enemy.splitOnDeath, ...bossSummons]) {
       const target = mechanic === undefined ? undefined : byId.get(mechanic.enemyId);
       if (mechanic !== undefined && !target) {
         throw new Error(`enemy.${enemy.id}: summon target "${mechanic.enemyId}" not found in enemy catalog`);
@@ -1850,6 +1854,7 @@ function checkEnemy(row: unknown): string[] {
   if (archetype === 'ranged') checkRangedAttack(row, errors);
   if (archetype === 'boss') {
     checkChargerAttack(row, errors);
+    checkBossActions(readOwnField(row, 'actions'), 'actions', errors);
     checkBossPhases(readOwnField(row, 'phases'), errors);
   }
   checkEnemySummon(readOwnField(row, 'summon'), 'summon', errors);
@@ -1883,6 +1888,7 @@ function checkBossPhases(value: unknown, errors: string[]): void {
     return;
   }
   let previous = 1;
+  const phaseIds = new Set<string>();
   value.forEach((phase, index) => {
     if (!isRecord(phase)) {
       errors.push(`phases[${index}]: required object`);
@@ -1890,13 +1896,44 @@ function checkBossPhases(value: unknown, errors: string[]): void {
     }
     const sub: string[] = [];
     rejectUnknownFields(phase, BOSS_PHASE_FIELDS, sub);
+    const id = readOwnField(phase, 'id');
+    if (typeof id !== 'string' || !id.startsWith('boss-phase-') || !isContentId(id)) sub.push('id: must be a content ID prefixed with "boss-phase-"');
+    else if (phaseIds.has(id)) sub.push(`id: duplicate phase ID "${id}"`);
+    else phaseIds.add(id);
     const threshold = readOwnField(phase, 'atHealthFraction');
     if (!isFiniteNumber(threshold) || threshold <= 0 || threshold >= 1) sub.push('atHealthFraction: must be > 0 and < 1');
     else if (threshold >= previous) sub.push('atHealthFraction: must be strictly descending');
     else previous = threshold;
     checkChargerAttack(phase, sub);
-    checkEnemySummon(readOwnField(phase, 'summon'), 'summon', sub);
+    checkBossActions(readOwnField(phase, 'actions'), 'actions', sub, true);
     errors.push(...sub.map((error) => `phases[${index}].${error}`));
+  });
+}
+
+function checkBossActions(value: unknown, path: string, errors: string[], allowEmpty = false): void {
+  if (!Array.isArray(value) || (!allowEmpty && value.length === 0)) {
+    errors.push(`${path}: required ${allowEmpty ? 'array' : 'non-empty array'}`);
+    return;
+  }
+  value.forEach((action, index) => {
+    const itemPath = `${path}[${index}]`;
+    if (!isRecord(action)) {
+      errors.push(`${itemPath}: required object`);
+      return;
+    }
+    const sub: string[] = [];
+    rejectUnknownFields(action, BOSS_ACTION_FIELDS, sub);
+    const id = readOwnField(action, 'id');
+    if (typeof id !== 'string' || !isRegisteredBossActionId(id)) {
+      sub.push('id: unknown registered boss action');
+    } else if (id === 'boss-action:summon') {
+      checkEnemySummon({ enemyId: readOwnField(action, 'enemyId'), count: readOwnField(action, 'count'), maxActive: readOwnField(action, 'maxActive') }, '', sub);
+      // checkEnemySummon prefixes property paths; keep action errors concise.
+      for (let subIndex = sub.length - 1; subIndex >= 0; subIndex -= 1) {
+        if (sub[subIndex]?.startsWith('.')) sub[subIndex] = sub[subIndex]!.slice(1);
+      }
+    }
+    errors.push(...sub.map((error) => `${itemPath}.${error}`));
   });
 }
 

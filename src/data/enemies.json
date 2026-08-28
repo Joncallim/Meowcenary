@@ -136,8 +136,12 @@
       "dashDurationMs": 420,
       "cooldownMs": 1500
     },
+    "actions": [
+      { "id": "boss-action:aimed-shot" }
+    ],
     "phases": [
       {
+        "id": "boss-phase-crusher-enraged",
         "atHealthFraction": 0.5,
         "attack": {
           "triggerRange": 240,
@@ -145,7 +149,8 @@
           "dashSpeed": 390,
           "dashDurationMs": 460,
           "cooldownMs": 1100
-        }
+        },
+        "actions": []
       }
     ]
   },
@@ -166,13 +171,13 @@
       "dashDurationMs": 360,
       "cooldownMs": 1200
     },
-    "summon": {
-      "enemyId": "junk-rusher",
-      "count": 1,
-      "maxActive": 4
-    },
+    "actions": [
+      { "id": "boss-action:aimed-shot" },
+      { "id": "boss-action:summon", "enemyId": "junk-rusher", "count": 1, "maxActive": 4 }
+    ],
     "phases": [
       {
+        "id": "boss-phase-forge-overheat",
         "atHealthFraction": 0.66,
         "attack": {
           "triggerRange": 215,
@@ -181,13 +186,12 @@
           "dashDurationMs": 400,
           "cooldownMs": 900
         },
-        "summon": {
-          "enemyId": "junk-rusher",
-          "count": 2,
-          "maxActive": 5
-        }
+        "actions": [
+          { "id": "boss-action:summon", "enemyId": "junk-rusher", "count": 2, "maxActive": 5 }
+        ]
       },
       {
+        "id": "boss-phase-forge-meltdown",
         "atHealthFraction": 0.33,
         "attack": {
           "triggerRange": 235,
@@ -196,11 +200,9 @@
           "dashDurationMs": 420,
           "cooldownMs": 780
         },
-        "summon": {
-          "enemyId": "junk-rusher",
-          "count": 2,
-          "maxActive": 6
-        }
+        "actions": [
+          { "id": "boss-action:summon", "enemyId": "junk-rusher", "count": 2, "maxActive": 6 }
+        ]
       }
     ]
   }

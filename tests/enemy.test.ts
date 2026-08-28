@@ -813,6 +813,7 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       scrapValue: 10,
       contactDamage: false,
       attack: { triggerRange: 40, telegraphMs: 600, dashSpeed: 320, dashDurationMs: 220, cooldownMs: 1200 },
+      actions: [{ id: 'boss-action:aimed-shot' }],
     };
     const { enemy: bossEnemy, sprite: bossSprite } = await createEnemy(createEventBus(), boss);
     bossSprite.body?.setVelocity(20, 20);
@@ -827,7 +828,7 @@ function enemyDefinition(): ResolvedEnemyDefinition {
   });
 
   it('boss attack edge emits both its lunge cue and an authoritative damaging shot', async () => {
-    const boss: ResolvedEnemyDefinition = { id: 'test-boss-volley', name: 'Boss', archetype: 'boss', health: 100, damage: 10, speed: 40, xpValue: 1, scrapValue: 1, contactDamage: false, attack: { triggerRange: 200, telegraphMs: 1, dashSpeed: 320, dashDurationMs: 20, cooldownMs: 100 } };
+    const boss: ResolvedEnemyDefinition = { id: 'test-boss-volley', name: 'Boss', archetype: 'boss', health: 100, damage: 10, speed: 40, xpValue: 1, scrapValue: 1, contactDamage: false, attack: { triggerRange: 200, telegraphMs: 1, dashSpeed: 320, dashDurationMs: 20, cooldownMs: 100 }, actions: [{ id: 'boss-action:aimed-shot' }] };
     const bus = createEventBus();
     const shot = vi.fn(); const dashed = vi.fn();
     bus.on('enemy:ranged-shot', shot); bus.on('enemy:dashed', dashed);
@@ -842,9 +843,10 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       id: 'test-phase-boss', name: 'Phase Boss', archetype: 'boss', health: 100, damage: 10, speed: 40,
       xpValue: 1, scrapValue: 1, contactDamage: false,
       attack: { triggerRange: 200, telegraphMs: 100, dashSpeed: 300, dashDurationMs: 20, cooldownMs: 100 },
+      actions: [{ id: 'boss-action:aimed-shot' }],
       phases: [
-        { atHealthFraction: 0.7, attack: { triggerRange: 210, telegraphMs: 80, dashSpeed: 340, dashDurationMs: 20, cooldownMs: 90 } },
-        { atHealthFraction: 0.35, attack: { triggerRange: 220, telegraphMs: 60, dashSpeed: 380, dashDurationMs: 20, cooldownMs: 80 } },
+        { id: 'boss-phase-one', atHealthFraction: 0.7, attack: { triggerRange: 210, telegraphMs: 80, dashSpeed: 340, dashDurationMs: 20, cooldownMs: 90 }, actions: [] },
+        { id: 'boss-phase-two', atHealthFraction: 0.35, attack: { triggerRange: 220, telegraphMs: 60, dashSpeed: 380, dashDurationMs: 20, cooldownMs: 80 }, actions: [] },
       ],
     };
     const bus = createEventBus();

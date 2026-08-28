@@ -68,6 +68,7 @@ function enemyFixture(archetype: string, overrides: Record<string, unknown> = {}
       dashDurationMs: 400,
       cooldownMs: 600,
     };
+    base.actions = [{ id: 'boss-action:aimed-shot' }];
   } else if (archetype === 'elite') {
     return {
       id: 'elite-fixture',
@@ -622,6 +623,18 @@ describe('game data validation', () => {
         enemyFixture(archetype, { speed: 0 }),
       ])).toThrow(/speed/);
     }
+  });
+
+  it('rejects unknown or duplicate data-defined boss actions and phases', () => {
+    const unknownAction = enemyFixture('boss', { actions: [{ id: 'boss-action:not-registered' }] });
+    expect(() => validateEnemyCatalog([unknownAction])).toThrow(/unknown registered boss action/);
+    const duplicatePhase = enemyFixture('boss', {
+      phases: [
+        { id: 'boss-phase-enraged', atHealthFraction: 0.7, attack: { triggerRange: 120, telegraphMs: 300, dashSpeed: 120, dashDurationMs: 400, cooldownMs: 600 }, actions: [] },
+        { id: 'boss-phase-enraged', atHealthFraction: 0.4, attack: { triggerRange: 120, telegraphMs: 300, dashSpeed: 120, dashDurationMs: 400, cooldownMs: 600 }, actions: [] },
+      ],
+    });
+    expect(() => validateEnemyCatalog([duplicatePhase])).toThrow(/duplicate phase ID/);
   });
 
   it('rejects invalid elite shapes and base references', () => {

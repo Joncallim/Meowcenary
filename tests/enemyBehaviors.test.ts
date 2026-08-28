@@ -5,6 +5,7 @@ import {
   hasRegisteredBehavior,
 } from '../src/gameplay/enemyBehaviors';
 import { chaseStep, chargerStep } from '../src/gameplay/enemyMovement';
+import { executeBossActions } from '../src/gameplay/bossActions';
 import type { ResolvedEnemyDefinition } from '../src/systems/types';
 import { loadGameData, validateEnemyCatalog, validateGameData } from '../src/systems/validation';
 import { DataEnemyRegistry } from '../src/systems/enemies';
@@ -192,6 +193,26 @@ describe('Epic 21 enemy behavior registry', () => {
     );
     expect(plan.encounter.bossId).toBe('boss-forge');
     expect(plan.objective.definition).toEqual({ type: 'defeat', enemyId: 'boss-forge' });
+  });
+
+  it('executes a second boss composition through registered actions, without an enemy-ID branch', () => {
+    const actions = executeBossActions([
+      { id: 'boss-action:aimed-shot' },
+      { id: 'boss-action:summon', enemyId: 'junk-rusher', count: 2, maxActive: 5 },
+    ], {
+      enemyId: 'boss-fixture-two', damage: 17, pos: { x: 20, y: 30 }, target: { x: 120, y: 30 },
+    });
+    expect(actions).toEqual([
+      expect.objectContaining({ type: 'ranged-shot', enemyId: 'boss-fixture-two', dirX: 1, dirY: 0, damage: 17 }),
+      expect.objectContaining({ type: 'summon', sourceEnemyId: 'boss-fixture-two', enemyId: 'junk-rusher', count: 2, maxActive: 5 }),
+    ]);
+  });
+
+  it('fails closed rather than treating an unregistered runtime action as a shot', () => {
+    expect(() => executeBossActions(
+      [{ id: 'boss-action:not-registered' }] as never,
+      { enemyId: 'boss-fixture-two', damage: 17, pos: { x: 20, y: 30 }, target: { x: 120, y: 30 } },
+    )).toThrow(/Unknown boss action/);
   });
 
   it('aggregate validation accepts the expanded roster and boss encounter', () => {

@@ -146,12 +146,19 @@ export interface RangedAttackDefinition {
   cooldownMs: number;
 }
 
+/** Stable, registered boss actions. The phase owns composition; the Enemy
+ * entity never interprets boss IDs to decide what an attack does. */
+export type BossActionDefinition =
+  | { readonly id: 'boss-action:aimed-shot' }
+  | ({ readonly id: 'boss-action:summon' } & EnemySummonDefinition);
+
 /** A health-threshold boss escalation, selected solely from authoritative
  * combat health.  It replaces the baseline charge and may add bounded adds. */
 export interface BossPhaseDefinition {
+  readonly id: string;
   readonly atHealthFraction: number;
   readonly attack: ChargerAttackDefinition;
-  readonly summon?: EnemySummonDefinition;
+  readonly actions: readonly BossActionDefinition[];
 }
 
 /** Data-owned, bounded reinforcement action. Existing movement/attack
@@ -224,8 +231,9 @@ export interface BossEnemyDefinition extends EnemyIdentity, EnemyStats {
   contactDamage: false;
   /** Boss lunge behavior — same attack vocabulary as charger, larger scale. */
   attack: ChargerAttackDefinition;
+  /** Base moveset action composition before any threshold phase. */
+  actions: readonly BossActionDefinition[];
   phases?: readonly BossPhaseDefinition[];
-  summon?: EnemySummonDefinition;
   splitOnDeath?: EnemySplitDefinition;
 }
 
