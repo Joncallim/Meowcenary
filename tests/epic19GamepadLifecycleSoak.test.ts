@@ -20,8 +20,8 @@ describe('Epic 19 Slice 5 gamepad lifecycle soak', () => {
     h.context.bus.on('ui:navigate', () => { navigations += 1; });
     h.context.bus.on('ui:confirm', () => { confirms += 1; });
     h.context.bus.on('ui:back', () => { backs += 1; });
-    // Home panel: six buttons (Start, Character, Arena, Progression,
-    // Settings, Stage); the ringed rect is the background + row index, so the
+    // Home panel: eight buttons (Start, Character, Arena, Progression,
+    // Gunsmith, Settings, Stage, Equipment); the ringed rect is the background + row index, so the
     // ringed target index is exactly 1 + the navigator row. Switch the
     // presentation to gamepad first (pointer mode shows the ring only on
     // hover), then return to row 0.
@@ -45,7 +45,7 @@ describe('Epic 19 Slice 5 gamepad lifecycle soak', () => {
       expect(navigations).toBe(navBefore + 1);
       expect(confirms).toBe(0);
       expect(backs).toBe(0);
-      menuRow = (menuRow + 1) % 7;
+      menuRow = (menuRow + 1) % 8;
       expect(h.focusRingCount()).toBe(1);
       expect(h.ringedTargetIndex()).toBe(1 + menuRow);
       const recordedRing = h.ringedTargetIndex();
@@ -95,7 +95,7 @@ describe('Epic 19 Slice 5 gamepad lifecycle soak', () => {
       expect(confirms).toBe(0);
       expect(backs).toBe(0);
       expect(h.focusRingCount()).toBe(1);
-      menuRow = (menuRow + 1) % 7;
+      menuRow = (menuRow + 1) % 8;
       expect(h.ringedTargetIndex()).toBe(1 + menuRow);
       expect(h.sceneCommands()).toEqual(commands);
     }
