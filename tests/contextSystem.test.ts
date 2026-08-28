@@ -42,6 +42,17 @@ describe('GameContext persistence boundary', () => {
     expect(context.saveData.progression.scrap).toBe(0);
   });
 
+  it('rejects malformed durable grants at every context transaction boundary', () => {
+    const { context } = setup();
+    const malformed = { id: 'stage:junkyard-01:bad', grants: [{ type: 'grant-scrap', amount: 0 }] as any };
+
+    expect(context.applyGrantTransaction(malformed)).toBe(false);
+    expect(context.completeStageTransaction('stage:junkyard-01', 1, undefined, malformed)).toBe(false);
+    expect(context.commitAchievementTransaction({}, {}, malformed)).toBe(false);
+    expect(context.saveData.appliedGrantTransactions[malformed.id]).toBeUndefined();
+    expect(context.saveData.stages['stage:junkyard-01']).toBeUndefined();
+  });
+
   it('fails closed if a receipt survives but its stage facts do not', () => {
     const { context } = setup();
     const transaction = {

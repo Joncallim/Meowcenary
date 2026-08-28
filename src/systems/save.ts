@@ -381,10 +381,12 @@ function sanitizeGunsmithState(raw: unknown): GunsmithState {
     for (const key of Object.keys(partsRaw)) {
       if (!isInstanceId(key)) continue;
       const entry = readOwn(partsRaw as Record<string, unknown>, key);
-      if (isPlainRecord(entry) && typeof readOwn(entry, 'partId') === 'string') {
+      if (!isPlainRecord(entry)) continue;
+      const partId = readOwn(entry, 'partId');
+      if (typeof partId === 'string' && isUnlockId(partId) && partId.startsWith('part:')) {
         const infused = readOwn(entry, 'infusedTraits');
         parts[key] = {
-          partId: readOwn(entry, 'partId') as string,
+          partId,
           tier: Number.isSafeInteger(readOwn(entry, 'tier')) && (readOwn(entry, 'tier') as number) > 0
             ? readOwn(entry, 'tier') as number
             : 1,
@@ -450,8 +452,8 @@ function sanitizeEquipmentState(raw: unknown): EquipmentState {
     // that unambiguous form; an arbitrary instance key is not a definition.
     const canonicalId = typeof equipmentId === 'string'
       ? equipmentId
-      : (isContentId(key) || isUnlockId(key) ? key : undefined);
-    if (canonicalId !== undefined && (isContentId(canonicalId) || isUnlockId(canonicalId))) {
+      : (isUnlockId(key) && key.startsWith('equipment:') ? key : undefined);
+    if (canonicalId !== undefined && isUnlockId(canonicalId) && canonicalId.startsWith('equipment:')) {
       result[key] = {
         equipmentId: canonicalId,
         tier: Number.isSafeInteger(tier) && (tier as number) >= 0 ? tier as number : 0,

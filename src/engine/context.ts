@@ -186,6 +186,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     },
     applyGrantTransaction(transaction) {
       const result = applyDurableGrantTransaction(current, transaction);
+      if (!result.valid) return false;
       if (!result.changed) return true;
       // SaveManager writes a sanitized V3 snapshot.  Publish that same
       // canonical state, not an optimistic variant that a reload would drop.
@@ -209,16 +210,16 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       if (!definition || !Number.isFinite(timeMs) || timeMs < 0) return false;
       if (bossId !== undefined && definition.bossId !== bossId) return false;
 
+      const granted = applyDurableGrantTransaction(current, transaction);
+      if (!granted.valid) return false;
       // A receipt asserts that the complete transaction was committed.  Do
       // not silently report success when a corrupted or hand-edited save has
       // retained the receipt but lost one of the facts it certifies.
-      if (current.appliedGrantTransactions[transaction.id] === true) {
+      if (!granted.changed) {
         if (current.stages[stageId]?.completed !== true) return false;
         if (bossId !== undefined && current.bosses[bossId]?.defeated !== true) return false;
         return true;
       }
-      const granted = applyDurableGrantTransaction(current, transaction);
-      if (!granted.changed) return true;
       const previous = current.stages[stageId];
       const stage = Object.freeze({
         completed: true,
@@ -245,8 +246,9 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     },
     commitAchievementTransaction(achievements, metrics, transaction) {
       const granted = transaction === undefined
-        ? { save: current, changed: true }
+        ? { save: current, valid: true, changed: true }
         : applyDurableGrantTransaction(current, transaction);
+      if (!granted.valid) return false;
       if (!granted.changed) return true;
       const save = Object.freeze({
         ...granted.save,

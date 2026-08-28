@@ -162,7 +162,8 @@ describe('V3 domain sanitizers', () => {
       equipment: {
         'equip-copy-a': { equipmentId: 'equipment:commando-helmet', tier: 1 },
         'equip-copy-b': { equipmentId: 'equipment:commando-helmet', tier: 3 },
-        'legacy-definition': { setId: 'commando', tier: 2 },
+        'equipment:legacy-definition': { setId: 'commando', tier: 2 },
+        'invalid-equipment-instance': { equipmentId: 'stage:junkyard-01', tier: 2 },
       },
       bosses: { 'boss-crusher': { defeated: true } },
       appliedGrantTransactions: { 'stage:junkyard-01:first-clear': true, constructor: true },
@@ -172,7 +173,8 @@ describe('V3 domain sanitizers', () => {
     expect(v3.gunsmith.parts['part-copy-b']).toBeDefined();
     expect(v3.equipment['equip-copy-a']).toMatchObject({ equipmentId: 'equipment:commando-helmet', tier: 1 });
     expect(v3.equipment['equip-copy-b']).toMatchObject({ equipmentId: 'equipment:commando-helmet', tier: 3 });
-    expect(v3.equipment['legacy-definition']).toMatchObject({ equipmentId: 'legacy-definition', tier: 2 });
+    expect(v3.equipment['equipment:legacy-definition']).toMatchObject({ equipmentId: 'equipment:legacy-definition', tier: 2 });
+    expect(v3.equipment['invalid-equipment-instance']).toBeUndefined();
     expect(v3.appliedGrantTransactions['stage:junkyard-01:first-clear']).toBe(true);
     expect(Object.prototype.hasOwnProperty.call(v3.appliedGrantTransactions, 'constructor')).toBe(false);
   });
@@ -180,6 +182,19 @@ describe('V3 domain sanitizers', () => {
   it('keeps only owned equipment instance references in the equipped loadout', () => {
     const v3 = migrate({ version: 3, settings: DEFAULT_SETTINGS, progression: { scrap: 0, unlocks: [], permanentUpgrades: {} }, stages: {}, achievements: {}, characters: {}, gunsmith: { builds: [], parts: {} }, equipment: { 'equip-a': { equipmentId: 'equipment:commando-helmet', tier: 2 } }, equipmentLoadout: { helmet: 'equip-a', boots: 'missing' } }, limits) as SaveDataV3;
     expect(v3.equipmentLoadout).toEqual({ helmet: 'equip-a' });
+  });
+
+  it('drops cross-domain and reconstructed definition IDs from owned parts', () => {
+    const v3 = migrate({
+      version: 3, settings: DEFAULT_SETTINGS, progression: { scrap: 0, unlocks: [], permanentUpgrades: {} },
+      stages: {}, achievements: {}, characters: {}, equipment: {},
+      gunsmith: { builds: [], parts: {
+        'valid-owned': { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+        'cross-domain': { partId: 'character:bolt-hound', tier: 1, infusedTraits: [] },
+        reconstructed: { partId: 'part:part:barrel-standard', tier: 1, infusedTraits: [] },
+      } },
+    }, limits) as SaveDataV3;
+    expect(Object.keys(v3.gunsmith.parts)).toEqual(['valid-owned']);
   });
 
   it('sanitizes stage progress with valid keys and invalid entries', () => {

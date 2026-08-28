@@ -37,7 +37,7 @@ describe('Alpha 3 shared foundation canonical contracts', () => {
       id: 'stage:contract-fixture:reward',
       grants: [{ type: 'unlock-stage', stageId: 'stage:stage:contract-fixture' }],
     });
-    expect(malformed).toEqual({ save, changed: false });
+    expect(malformed).toEqual({ save, valid: false, changed: false });
   });
 
   it('resolves a second data-only stage fixture and carries its canonical fact/reward without a core branch', () => {

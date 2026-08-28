@@ -187,7 +187,7 @@ describe('durable grant transactions', () => {
       id: 'stage:junkyard-01:bad-payload',
       grants: [{ type: 'grant-scrap', amount: 10 }, null] as unknown as readonly ProgressionGrant[],
     });
-    expect(result).toEqual({ save, changed: false });
+    expect(result).toEqual({ save, valid: false, changed: false });
   });
 });
 

@@ -39,7 +39,14 @@ export interface DurableGrantTransaction {
   readonly grants: readonly ProgressionGrant[];
 }
 
-export interface DurableGrantResult { readonly save: SaveDataV3; readonly changed: boolean }
+export interface DurableGrantResult {
+  readonly save: SaveDataV3;
+  /** False means the caller supplied an invalid transaction. A valid replay
+   * instead has `valid: true, changed: false`, so the persistence boundary
+   * can fail malformed producer input without treating retries as failures. */
+  readonly valid: boolean;
+  readonly changed: boolean;
+}
 
 /** Applies all grants and records their receipt in one immutable save
  * snapshot. Persistence/publishing is owned by GameContext; it must publish
@@ -48,11 +55,11 @@ export function applyDurableGrantTransaction(save: SaveDataV3, transaction: Dura
   // Validate the whole payload before touching progression.  A malformed
   // trailing grant must not leave an earlier currency/level mutation behind
   // without its receipt.
-  if (!isValidTransaction(transaction)) return { save, changed: false };
-  if (Object.prototype.hasOwnProperty.call(save.appliedGrantTransactions, transaction.id)) return { save, changed: false };
+  if (!isValidTransaction(transaction)) return { save, valid: false, changed: false };
+  if (Object.prototype.hasOwnProperty.call(save.appliedGrantTransactions, transaction.id)) return { save, valid: true, changed: false };
   const result = processGrants(save.progression, transaction.grants);
   const appliedGrantTransactions = Object.freeze({ ...save.appliedGrantTransactions, [transaction.id]: true as const });
-  return { save: Object.freeze({ ...save, progression: result.progression, appliedGrantTransactions }), changed: true };
+  return { save: Object.freeze({ ...save, progression: result.progression, appliedGrantTransactions }), valid: true, changed: true };
 }
 
 function isValidTransaction(transaction: DurableGrantTransaction): boolean {
