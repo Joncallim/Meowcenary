@@ -347,18 +347,12 @@ export class PhaserWeaponRackPanel {
     );
     root.add(rarity);
     const damage = weapon.stats.find((stat) => stat.key === 'damage');
-    const rate = weapon.stats.find((stat) => stat.key === 'rate');
-    const shots = weapon.stats.find((stat) => stat.key === 'projectiles');
-    const pierce = weapon.stats.find((stat) => stat.key === 'pierce');
     const range = weapon.stats.find((stat) => stat.key === 'range');
     const stats = this.addCardText(
       left + 54,
       y + 17,
       [
         damage && `${damage.label} ${damage.formatted}`,
-        rate?.formatted,
-        shots && shots.value > 1 ? shots.formatted : undefined,
-        pierce && pierce.value > 0 ? `${pierce.label} ${pierce.formatted}` : undefined,
         range && `${range.label} ${range.formatted}`,
       ]
         .filter((value): value is string => value !== undefined)
@@ -367,14 +361,6 @@ export class PhaserWeaponRackPanel {
       width - 64,
     );
     root.add(stats);
-    // A narrow portrait card can legitimately wrap the dense stat summary.
-    // Constrain it to the remaining lower card region so a third wrapped row
-    // never paints through the next rack card.
-    const statsTop = y + 17;
-    const statsHeight = Math.max(0, top + height - statsTop - 7);
-    stats
-      .setFixedSize(width - 64, statsHeight)
-      .setCrop(0, 0, width - 64, statsHeight);
     const stateLabel = this.addCardText(
       x + width / 2 - 8,
       top + 7,
