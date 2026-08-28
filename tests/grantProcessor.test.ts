@@ -128,6 +128,12 @@ describe('grantProcessor — individual grants', () => {
     expect(result.progression.permanentUpgrades['reinforced-vest']).toBe(5);
   });
 
+  it('permanent-upgrade-level saturates safely rather than producing a receipt-losing overflow', () => {
+    const p = makeProgression({ permanentUpgrades: { 'reinforced-vest': Number.MAX_SAFE_INTEGER - 1 } });
+    const result = processGrant(p, { type: 'permanent-upgrade-level', upgradeId: 'reinforced-vest', levels: 2 });
+    expect(result.progression.permanentUpgrades['reinforced-vest']).toBe(Number.MAX_SAFE_INTEGER);
+  });
+
   it('permanent-upgrade-level with zero levels is no-op', () => {
     const p = makeProgression();
     const result = processGrant(p, { type: 'permanent-upgrade-level', upgradeId: 'reinforced-vest', levels: 0 });

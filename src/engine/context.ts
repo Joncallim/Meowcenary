@@ -208,7 +208,10 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       // reward transaction without ever producing its corresponding fact.
       const definition = stages.stageById(stageId);
       if (!definition || !Number.isFinite(timeMs) || timeMs < 0) return false;
-      if (bossId !== undefined && definition.bossId !== bossId) return false;
+      if (bossId !== undefined) {
+        const encounter = stages.encounterProfileById(definition.encounterProfileId);
+        if (definition.bossId !== bossId || encounter?.bossId !== bossId) return false;
+      }
 
       const granted = applyDurableGrantTransaction(current, transaction);
       if (!granted.valid) return false;

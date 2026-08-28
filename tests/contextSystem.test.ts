@@ -7,6 +7,7 @@ import type { System } from '../src/engine/system';
 import { DataArenaRegistry } from '../src/systems/arenas';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
+import { StageRegistry } from '../src/systems/stageRegistry';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
 
@@ -62,6 +63,21 @@ describe('GameContext persistence boundary', () => {
     expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss-crusher', transaction)).toBe(false);
     expect(context.saveData.progression.scrap).toBe(75);
     expect(context.saveData.stages['stage:junkyard-05']).toBeUndefined();
+  });
+
+  it('rejects a boss completion when an injected stage catalog disagrees with its encounter', () => {
+    const data = loadGameData();
+    const stages = new StageRegistry({
+      ...data,
+      encounterProfiles: data.encounterProfiles?.map((profile) => profile.id === 'encounter:junkyard-boss'
+        ? { ...profile, bossId: 'boss:wrong' }
+        : profile),
+    });
+    const { context } = setup(stages);
+    expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss-crusher', {
+      id: 'stage:junkyard-05:disagreeing-catalog', grants: [{ type: 'grant-scrap', amount: 75 }],
+    })).toBe(false);
+    expect(context.saveData.appliedGrantTransactions['stage:junkyard-05:disagreeing-catalog']).toBeUndefined();
   });
 
   it('loads once and keeps settings/meta in one immutable current snapshot', () => {
@@ -462,7 +478,7 @@ class CountingStorage extends MemoryStorageAdapter {
   }
 }
 
-function setup() {
+function setup(stages?: StageRegistry) {
   const data = loadGameData();
   const arenas = new DataArenaRegistry(data);
   const registry = new DataMetaUpgradeRegistry(data);
@@ -473,7 +489,7 @@ function setup() {
     storage,
     context: createGameContext({
       bus: createEventBus(), menuRng: createRng(1), data,
-      arenas, metaUpgrades: registry, save, characters,
+      arenas, metaUpgrades: registry, save, characters, stages,
     }),
   };
 }

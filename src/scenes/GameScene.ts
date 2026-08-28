@@ -11,6 +11,7 @@ import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
 import { assembleComposedRunRequest } from '../gameplay/runRequest';
 import { createStageState, resolveRunPlan, updateObjectiveProgress, type ResolvedRunPlan, type StageState } from '../gameplay/stage/stageContracts';
+import { composeStageSpawnCurve } from '../gameplay/stage/spawnComposition';
 import { recordCollect, recordDefeat, recordKill, tickSurvive } from '../gameplay/objectiveProgress';
 import {
   endRun,
@@ -169,10 +170,11 @@ export class GameScene extends Phaser.Scene {
     const debugFlags = import.meta.env.DEV ? getDebugFlags() : undefined;
     const cheatsActive =
       debugFlags !== undefined && debugCheatsActive(debugFlags, true);
+    const stageCurve = plan ? composeStageSpawnCurve(curve, plan) : curve;
     const directorCurve =
       cheatsActive && debugFlags
-        ? scaleSpawnCurveIntervals(curve, debugFlags.spawnMultiplier)
-        : curve;
+        ? scaleSpawnCurveIntervals(stageCurve, debugFlags.spawnMultiplier)
+        : stageCurve;
     const character = ctx.characters.characterById(request.characterId);
     if (!character) {
       throw new Error(`Selected character "${request.characterId}" is missing from the registry`);
@@ -274,7 +276,9 @@ export class GameScene extends Phaser.Scene {
       createHudSource({
         runState: this.runState,
         player: this.player,
-        durationMs: this.spawnCurve.durationSeconds * 1000,
+        durationMs: plan?.objective.definition.type === 'survive'
+          ? plan.objective.definition.seconds * 1000
+          : this.spawnCurve.durationSeconds * 1000,
         objective: () => this.describeStageObjective(),
         ability: () => this.describeAbilityState(),
       }),
@@ -427,7 +431,7 @@ export class GameScene extends Phaser.Scene {
       RuntimeConfig.performance.targetFps,
     );
 
-    const spawnSystem = new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup, arena, directorCurve, visualArt);
+    const spawnSystem = new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup, arena, directorCurve, visualArt, plan?.difficulty);
     if (plan?.encounter.bossId) {
       spawnSystem.spawnEncounterEnemy(plan.encounter.bossId, arena.size.width / 2, Math.max(80, arena.size.height * 0.2));
     }

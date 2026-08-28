@@ -128,7 +128,10 @@ export function processGrant(
 
     case 'permanent-upgrade-level': {
       const currentLevel = progression.permanentUpgrades[grant.upgradeId] ?? 0;
-      const newLevel = currentLevel + grant.levels;
+      // A durable receipt must never survive a save sanitizer dropping an
+      // overflowed numeric reward. Keep the value representable before the
+      // transaction snapshot is constructed.
+      const newLevel = Math.min(Number.MAX_SAFE_INTEGER, currentLevel + grant.levels);
       if (newLevel <= currentLevel) return { progression, changed: false };
       return freezeResult({
         ...progression,

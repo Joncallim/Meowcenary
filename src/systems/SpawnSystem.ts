@@ -17,6 +17,7 @@ import { DataEnemyRegistry } from './enemies';
 import type { ArenaDefinition, EnemyScalingDefinition, ResolvedEnemyDefinition, SpawnCurveDefinition } from './types';
 import type { VisualArtLookup } from './visualArt';
 import type { ChargerEnvironment } from '../gameplay/enemyMovement';
+import type { ResolvedDifficultyProfile } from '../gameplay/stage/stageContracts';
 
 export class SpawnSystem implements System {
   private static readonly ENEMY_PROJECTILE_POOL = 24;
@@ -38,6 +39,7 @@ export class SpawnSystem implements System {
     private readonly arena: Readonly<ArenaDefinition>,
     curve: Readonly<SpawnCurveDefinition>,
     private readonly visualArt?: VisualArtLookup,
+    private readonly stageDifficulty?: Pick<ResolvedDifficultyProfile, 'healthMultiplier' | 'damageMultiplier' | 'speedMultiplier'>,
   ) {
     this.registry = new DataEnemyRegistry(this.ctx.data);
     this.director = createSpawnDirector(curve, this.rng);
@@ -138,11 +140,12 @@ export class SpawnSystem implements System {
     if (!definition || !this.scaling) return;
 
     const scaled = scaleEnemy(definition, request.scheduledAtMs, this.scaling);
+    const difficulty = this.stageDifficulty;
     const runtimeDefinition: ResolvedEnemyDefinition = {
       ...definition,
-      health: scaled.maxHealth,
-      damage: scaled.damage,
-      speed: scaled.speed,
+      health: scaled.maxHealth * (difficulty?.healthMultiplier ?? 1),
+      damage: scaled.damage * (difficulty?.damageMultiplier ?? 1),
+      speed: scaled.speed * (difficulty?.speedMultiplier ?? 1),
       xpValue: scaled.xpValue,
       scrapValue: scaled.scrapValue,
     };
