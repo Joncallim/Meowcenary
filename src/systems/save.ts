@@ -442,15 +442,7 @@ function sanitizeGunsmithState(raw: unknown): GunsmithState {
   };
   const builds: Build[] = Array.isArray(buildsRaw)
     ? buildsRaw.filter((b): b is Record<string, unknown> => isPlainRecord(b) && typeof readOwn(b, 'id') === 'string')
-        .map((b) => ({
-          id: readOwn(b, 'id') as string,
-          name: typeof readOwn(b, 'name') === 'string' ? readOwn(b, 'name') as string : readOwn(b, 'id') as string,
-          baseWeaponFamily: typeof readOwn(b, 'baseWeaponFamily') === 'string' ? readOwn(b, 'baseWeaponFamily') as string : 'pistol',
-          fitted: sanitizeFittedParts(readOwn(b, 'fitted'), asOwnedReference),
-          traitParts: Array.isArray(readOwn(b, 'traitParts'))
-            ? (readOwn(b, 'traitParts') as unknown[]).map(asOwnedReference).filter((t): t is string => t !== undefined)
-            : [],
-        }))
+        .map((b) => sanitizeBuild(b, asOwnedReference))
     : [];
   const selectedBuildId = readOwn(raw, 'selectedBuildId');
   return {
@@ -462,12 +454,43 @@ function sanitizeGunsmithState(raw: unknown): GunsmithState {
   };
 }
 
+function sanitizeBuild(
+  raw: Record<string, unknown>,
+  asOwnedReference: (value: unknown) => string | undefined,
+): Build {
+  const fitted = sanitizeFittedParts(readOwn(raw, 'fitted'), asOwnedReference);
+  // A corrupt save must not multiply one owned part through several slots or
+  // append it again as a trait. Keep the first canonical fitted occurrence;
+  // trait ordering remains stable for the remaining distinct references.
+  const used = new Set(Object.values(fitted));
+  const traitParts = Array.isArray(readOwn(raw, 'traitParts'))
+    ? (readOwn(raw, 'traitParts') as unknown[])
+      .map(asOwnedReference)
+      .filter((instanceId): instanceId is string => instanceId !== undefined && !used.has(instanceId))
+      .filter((instanceId) => {
+        used.add(instanceId);
+        return true;
+      })
+    : [];
+  return {
+    id: readOwn(raw, 'id') as string,
+    name: typeof readOwn(raw, 'name') === 'string' ? readOwn(raw, 'name') as string : readOwn(raw, 'id') as string,
+    baseWeaponFamily: typeof readOwn(raw, 'baseWeaponFamily') === 'string' ? readOwn(raw, 'baseWeaponFamily') as string : 'pistol',
+    fitted,
+    traitParts,
+  };
+}
+
 function sanitizeFittedParts(raw: unknown, asOwnedReference: (value: unknown) => string | undefined): Readonly<Partial<Record<string, string>>> {
   if (!isPlainRecord(raw)) return {};
   const result: Record<string, string> = {};
+  const used = new Set<string>();
   for (const [slot, partId] of Object.entries(raw)) {
     const owned = asOwnedReference(partId);
-    if (owned !== undefined) result[slot] = owned;
+    if (owned !== undefined && !used.has(owned)) {
+      used.add(owned);
+      result[slot] = owned;
+    }
   }
   return Object.freeze(result);
 }

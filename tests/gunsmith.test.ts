@@ -280,6 +280,25 @@ describe('Epic 23 persistence round-trip', () => {
     expect(loaded.version).toBe(3);
   });
 
+  it('sanitizes repeated owned-instance references before a build can multiply its effects', () => {
+    const save = createDefaultSaveV3();
+    const storage = new MemoryStorageAdapter();
+    const manager = new SaveManager(storage, 'test', {});
+    manager.save({
+      ...save,
+      gunsmith: {
+        builds: [{
+          id: 'corrupt', name: 'Corrupt', baseWeaponFamily: 'smg',
+          fitted: { barrel: 'inst-1', optic: 'inst-1' }, traitParts: ['inst-1', 'inst-1'],
+        }],
+        parts: { 'inst-1': { partId: 'part:barrel-standard', tier: 2, infusedTraits: ['FIRE'] } },
+      },
+    });
+    const build = manager.load().gunsmith.builds[0]!;
+    expect(build.fitted).toEqual({ barrel: 'inst-1' });
+    expect(build.traitParts).toEqual([]);
+  });
+
   it('migrates a legacy definition reference only when exactly one owned instance matches', () => {
     const storage = new MemoryStorageAdapter();
     storage.setItem('test', JSON.stringify({
