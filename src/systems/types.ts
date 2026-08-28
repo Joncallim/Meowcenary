@@ -5,6 +5,7 @@ import type { GameEventKey } from '../engine/eventBus';
 import type { AchievementDefinition } from '../gameplay/achievementSystem';
 import type { PartDefinition } from '../gameplay/gunsmith';
 import type { AbilityDefinition } from '../gameplay/abilities';
+import type { EquipmentDefinition } from '../gameplay/equipment';
 import type {
   StageDefinition,
   EncounterProfile,
@@ -508,4 +509,5 @@ export interface GameData {
   readonly achievements?: readonly AchievementDefinition[];
   readonly gunParts?: readonly PartDefinition[];
   readonly abilities?: readonly AbilityDefinition[];
+  readonly equipment?: readonly EquipmentDefinition[];
 }

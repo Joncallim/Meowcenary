@@ -1,0 +1,98 @@
+[
+  {
+    "id": "equipment:commando-helmet",
+    "name": "Commando Helmet",
+    "setId": "set:commando",
+    "slot": "helmet",
+    "tier": 1,
+    "effects": [{ "stat": "attackSpeed", "op": "mult", "value": 1.05, "sourceId": "equipment:commando-helmet" }]
+  },
+  {
+    "id": "equipment:commando-armour",
+    "name": "Commando Armour",
+    "setId": "set:commando",
+    "slot": "armour",
+    "tier": 1,
+    "effects": [{ "stat": "maxHealth", "op": "add", "value": 15, "sourceId": "equipment:commando-armour" }]
+  },
+  {
+    "id": "equipment:commando-gloves",
+    "name": "Commando Gloves",
+    "setId": "set:commando",
+    "slot": "gloves",
+    "tier": 1,
+    "effects": [{ "stat": "spreadDeg", "op": "add", "value": -2, "sourceId": "equipment:commando-gloves" }]
+  },
+  {
+    "id": "equipment:commando-boots",
+    "name": "Commando Boots",
+    "setId": "set:commando",
+    "slot": "boots",
+    "tier": 1,
+    "effects": [{ "stat": "moveSpeed", "op": "mult", "value": 1.04, "sourceId": "equipment:commando-boots" }]
+  },
+  {
+    "id": "equipment:scavenger-helmet",
+    "name": "Scavenger Helmet",
+    "setId": "set:scavenger",
+    "slot": "helmet",
+    "tier": 1,
+    "effects": [{ "stat": "pickupRadius", "op": "add", "value": 12, "sourceId": "equipment:scavenger-helmet" }]
+  },
+  {
+    "id": "equipment:scavenger-boots",
+    "name": "Scavenger Boots",
+    "setId": "set:scavenger",
+    "slot": "boots",
+    "tier": 1,
+    "effects": [{ "stat": "currencyGain", "op": "mult", "value": 1.08, "sourceId": "equipment:scavenger-boots" }]
+  },
+  {
+    "id": "equipment:juggernaut-armour",
+    "name": "Juggernaut Armour",
+    "setId": "set:juggernaut",
+    "slot": "armour",
+    "tier": 1,
+    "effects": [{ "stat": "maxHealth", "op": "mult", "value": 1.15, "sourceId": "equipment:juggernaut-armour" }]
+  },
+  {
+    "id": "equipment:juggernaut-gloves",
+    "name": "Juggernaut Gloves",
+    "setId": "set:juggernaut",
+    "slot": "gloves",
+    "tier": 1,
+    "effects": [{ "stat": "maxHealth", "op": "add", "value": 25, "sourceId": "equipment:juggernaut-gloves" }]
+  },
+  {
+    "id": "equipment:pyro-helmet",
+    "name": "Pyro Helmet",
+    "setId": "set:pyro",
+    "slot": "helmet",
+    "tier": 1,
+    "effects": [{ "stat": "damage", "op": "mult", "value": 1.06, "sourceId": "equipment:pyro-helmet" }]
+  },
+  {
+    "id": "equipment:recon-boots",
+    "name": "Recon Boots",
+    "setId": "set:recon",
+    "slot": "boots",
+    "tier": 1,
+    "effects": [{ "stat": "moveSpeed", "op": "mult", "value": 1.08, "sourceId": "equipment:recon-boots" }]
+  },
+  {
+    "id": "equipment:medic-helmet",
+    "name": "Medic Helmet",
+    "setId": "set:medic",
+    "slot": "helmet",
+    "tier": 1,
+    "effects": [{ "stat": "maxHealth", "op": "add", "value": 10, "sourceId": "equipment:medic-helmet" }]
+  },
+  {
+    "id": "equipment:technician-gloves",
+    "name": "Technician Gloves",
+    "setId": "set:technician",
+    "slot": "gloves",
+    "tier": 1,
+    "effects": [{ "stat": "attackSpeed", "op": "mult", "value": 1.03, "sourceId": "equipment:technician-gloves" }]
+  }
+]

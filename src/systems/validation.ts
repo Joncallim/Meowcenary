@@ -39,6 +39,7 @@ import rewardProfilesJson from '../data/reward-profiles.json';
 import achievementsJson from '../data/achievements.json';
 import gunPartsJson from '../data/gun-parts.json';
 import abilitiesJson from '../data/abilities.json';
+import equipmentJson from '../data/equipment.json';
 import { STAT_KEYS, RUN_UPGRADE_STAT_KEYS, WEAPON_MODIFIER_STAT_KEYS } from '../gameplay/stats';
 import { DEFAULT_WEAPON_FAMILIES } from '../gameplay/weapons';
 import { GAME_EVENT_KEYS, FAMILY_TIER_EVENT_KEYS } from '../engine/eventBus';
@@ -70,6 +71,7 @@ import type {
 import type { AchievementDefinition } from '../gameplay/achievementSystem';
 import type { PartDefinition } from '../gameplay/gunsmith';
 import type { AbilityDefinition } from '../gameplay/abilities';
+import type { EquipmentDefinition } from '../gameplay/equipment';
 import { isSpawnableEnemyDefinition } from './types';
 import { CHARACTER_PASSIVE_EVENTS } from './types';
 import { isContentId, isUnlockId } from './ids';
@@ -90,6 +92,7 @@ import { checkAchievement, assertAchievementMetricReferences } from './validatio
 import { registeredMetricIds } from './achievements';
 import { checkPart, assertPartEffectSources } from './validation/parts';
 import { checkAbility } from './validation/abilities';
+import { checkEquipment, assertEquipmentEffectSources } from './validation/equipment';
 import { findEdgeLaneWitness, findRectWitness, findRingWitness } from '../gameplay/spawnRegion';
 import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 
@@ -429,6 +432,17 @@ export const CATALOG_DESCRIPTORS = [
       return validate<AbilityDefinition>('abilities.json', rows, checkAbility);
     },
   },
+  {
+    key: 'equipment',
+    file: 'equipment.json',
+    rootKey: 'equipment',
+    data: equipmentJson,
+    read: (raw) => readOwnField(raw, 'equipment'),
+    validateRows: (rows): EquipmentDefinition[] => {
+      throwIfErrors(jsonSafetyErrors(rows, 'equipment.json'));
+      return validate<EquipmentDefinition>('equipment.json', rows, checkEquipment);
+    },
+  },
 ] as const satisfies readonly CatalogDescriptor[];
 
 /** Root requirements derived from the descriptor table: one aggregate root
@@ -609,8 +623,11 @@ export function validateGameData(raw: unknown): GameData {
     }
   }
 
+  // Epic 25: equipment effect sources (appended, preserving frozen order).
+  assertEquipmentEffectSources(catalogs.equipment as EquipmentDefinition[]);
+
   const audio: AudioData = { assets: audioAssets, map: audioMap };
-  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements, gunParts: catalogs['gun-parts'] as PartDefinition[], abilities: catalogs.abilities as AbilityDefinition[] };
+  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements, gunParts: catalogs['gun-parts'] as PartDefinition[], abilities: catalogs.abilities as AbilityDefinition[], equipment: catalogs.equipment as EquipmentDefinition[] };
 }
 
 /** Root-shape phase, shared by the throwing boot path and the collecting
@@ -868,6 +885,13 @@ export function validateAbilityCatalog(raw: unknown): AbilityDefinition[] {
   const abilities = validate<AbilityDefinition>('abilities.json', raw, checkAbility);
   assertUniqueIds('abilities.json', abilities);
   return abilities;
+}
+
+export function validateEquipmentCatalog(raw: unknown): EquipmentDefinition[] {
+  throwIfErrors(jsonSafetyErrors(raw, 'equipment.json'));
+  const equipment = validate<EquipmentDefinition>('equipment.json', raw, checkEquipment);
+  assertUniqueIds('equipment.json', equipment);
+  return equipment;
 }
 
 export function validateArenaCatalog(raw: unknown): ArenaDefinition[] {
