@@ -35,6 +35,7 @@ export class ControlsView {
   private hintText!: Phaser.GameObjects.Text;
   private pauseButton!: Phaser.GameObjects.Rectangle;
   private abilityButton!: Phaser.GameObjects.Rectangle;
+  private abilityGlyph!: Phaser.GameObjects.Text;
   private pauseGlyphBars: Phaser.GameObjects.Rectangle[] = [];
   private hintElapsedMs = 0;
   private hintFaded = false;
@@ -130,6 +131,10 @@ export class ControlsView {
     this.abilityButton.setStrokeStyle(physicalToLogical(2, viewport), ThemeColor.cream, 0.8);
     this.abilityButton.setInteractive();
     this.abilityButton.on('pointerdown', this.handleAbilityPointerDown, this);
+    this.abilityGlyph = createUiText(scene, this.abilityButton.x, this.abilityButton.y, 'A', {
+      color: '#f7f1d5', fontFamily: ThemeFont.family, fontSize: `${physicalToLogical(18, viewport)}px`, fontStyle: '700',
+    });
+    this.abilityGlyph.setOrigin(0.5).setDepth(ThemeDepth.hud).setScrollFactor(0);
     const glyphWidth = physicalToLogical(8, viewport);
     const glyphHeight = physicalToLogical(22, viewport);
     const glyphOffset = physicalToLogical(8, viewport);
@@ -148,7 +153,7 @@ export class ControlsView {
     });
     // Every interactive/control child owns scrollFactor=0; containers do not
     // propagate it in Phaser, and hit tests read the child value.
-    this.root?.add([this.hintText, this.pauseButton, this.abilityButton, ...this.pauseGlyphBars]);
+    this.root?.add([this.hintText, this.pauseButton, this.abilityButton, this.abilityGlyph, ...this.pauseGlyphBars]);
   }
 
   update(dtMs: number): void {
@@ -180,6 +185,7 @@ export class ControlsView {
     this.hintText.destroy();
     this.pauseButton.destroy();
     this.abilityButton.destroy();
+    this.abilityGlyph.destroy();
     this.pauseGlyphBars.forEach((bar) => bar.destroy());
     this.pauseGlyphBars = [];
   }
@@ -278,13 +284,13 @@ export class ControlsView {
 function hintForMode(mode: InputMode): string {
   switch (mode) {
     case 'keyboard':
-      return 'WASD / arrows • P / Esc';
+      return 'WASD / arrows • Q ability • P / Esc';
     case 'gamepad':
       // Epic 19 D5: positions only — never vendor labels.
-      return 'Left stick • Bottom face / Menu';
+      return 'Left stick • Left face ability • Bottom face / Menu';
     case 'pointer':
     default:
-      return 'Drag to move • Tap pause';
+      return 'Drag to move • Tap A ability • Tap pause';
   }
 }
 

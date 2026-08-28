@@ -1022,7 +1022,7 @@ describe('MenuScene', () => {
     harness.menuScene.update(0, 16);
     harness.keyboard.keyup('ArrowDown');
     harness.menuScene.update(0, 16);
-    expect(hint()).toBe('Arrows navigate • Enter/Space select • Esc back');
+    expect(hint()).toBe('Arrows navigate • Enter/Space select • Q ability in run • Esc back');
 
     const pad = new MockGamepad();
     harness.input.gamepad!.connect(pad);
@@ -1030,7 +1030,7 @@ describe('MenuScene', () => {
     harness.menuScene.update(0, 16);
     pad.setButton(13, false);
     harness.menuScene.update(0, 16);
-    expect(hint()).toBe('D-pad/stick • Bottom face select • Right face back');
+    expect(hint()).toBe('D-pad/stick • Bottom face select • Left face ability in run • Right face back');
   });
 
   it('returns home through the back button', () => {

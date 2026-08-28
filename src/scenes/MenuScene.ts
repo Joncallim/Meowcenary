@@ -326,8 +326,10 @@ export class MenuScene extends Phaser.Scene {
         const next = this.requireController().selectCharacter(character.id, snapshot.character.revision);
         this.render(next);
       });
-      if (character.description) {
-        const desc = this.own(root, createUiText(this,margin + 12, y + button.height + 2, character.description, {
+      if (character.description || character.abilityName) {
+        const details = [character.description, character.abilityName ? `Ability — ${character.abilityName}: ${character.abilityDescription}` : undefined]
+          .filter(Boolean).join('\n');
+        const desc = this.own(root, createUiText(this,margin + 12, y + button.height + 2, details, {
           color: '#a5f3fc',
           fontFamily: ThemeFont.family,
           fontSize: `${ThemeFont.bodyMin}px`,
@@ -898,8 +900,8 @@ export class MenuScene extends Phaser.Scene {
 
   private menuHintCopy(): string {
     switch (this.inputController?.getInputMode() ?? 'pointer') {
-      case 'keyboard': return 'Arrows navigate • Enter/Space select • Esc back';
-      case 'gamepad': return 'D-pad/stick • Bottom face select • Right face back';
+      case 'keyboard': return 'Arrows navigate • Enter/Space select • Q ability in run • Esc back';
+      case 'gamepad': return 'D-pad/stick • Bottom face select • Left face ability in run • Right face back';
       default: return 'Tap a choice';
     }
   }

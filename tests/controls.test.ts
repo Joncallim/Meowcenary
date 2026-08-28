@@ -332,8 +332,7 @@ describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
 describe('ControlsView hints', () => {
   it('repositions the hint and rebuilds the pause target after rotation', () => {
     const { scene, view } = createHarness();
-    // [root, stickBase, stickThumb, hint, pause]
-    const oldHint = scene.objects.find((object) => object.state.text === 'Drag to move • Tap pause')!;
+    const oldHint = scene.objects.find((object) => object.state.text === 'Drag to move • Tap A ability • Tap pause')!;
     const oldPause = scene.objects.find((object) => object.state.interactive)!;
 
     scene.resize(844, 390);
@@ -341,7 +340,7 @@ describe('ControlsView hints', () => {
     expect(oldHint.state.destroyed).toBe(true);
     expect(oldPause.state.destroyed).toBe(true);
     expect(scene.scale.listenerCount('resize')).toBe(1);
-    const hint = scene.objects.find((object) => !object.state.destroyed && object.state.text === 'Drag to move • Tap pause')!;
+    const hint = scene.objects.find((object) => !object.state.destroyed && object.state.text === 'Drag to move • Tap A ability • Tap pause')!;
     const pause = scene.objects.find((object) => !object.state.destroyed && object.state.interactive)!;
     const fitScale = 390 / 844;
     // The strip is gone: the hint owns the bottom safe margin above the stick.
@@ -379,17 +378,17 @@ describe('ControlsView hints', () => {
     const { scene, input, tick } = createHarness();
     const hintText = scene.objects[3];
 
-    expect(hintText.state.text).toBe('Drag to move • Tap pause');
+    expect(hintText.state.text).toBe('Drag to move • Tap A ability • Tap pause');
 
     input.keyboard!.keydown('d');
     tick();
-    expect(hintText.state.text).toBe('WASD / arrows • P / Esc');
+    expect(hintText.state.text).toBe('WASD / arrows • Q ability • P / Esc');
     expect(hintText.state.alpha).toBe(1);
 
     input.keyboard!.keyup('d');
     tick();
     // Idle frames do not flap the copy back.
-    expect(hintText.state.text).toBe('WASD / arrows • P / Esc');
+    expect(hintText.state.text).toBe('WASD / arrows • Q ability • P / Esc');
   });
 
   it('a pointer gesture restores pointer-mode copy', () => {
@@ -398,13 +397,13 @@ describe('ControlsView hints', () => {
 
     input.keyboard!.keydown('d');
     tick();
-    expect(hintText.state.text).toBe('WASD / arrows • P / Esc');
+    expect(hintText.state.text).toBe('WASD / arrows • Q ability • P / Esc');
 
     input.keyboard!.keyup('d');
     input.pointerDown(10, 10);
     input.pointerMove(74, 10);
     tick();
-    expect(hintText.state.text).toBe('Drag to move • Tap pause');
+    expect(hintText.state.text).toBe('Drag to move • Tap A ability • Tap pause');
   });
 
   it('shows the gamepad hint when gamepad input is active', () => {
@@ -416,7 +415,7 @@ describe('ControlsView hints', () => {
     pad.setLeftStick(1, 0);
     tick();
 
-    expect(hintText.state.text).toBe('Left stick • Bottom face / Menu');
+    expect(hintText.state.text).toBe('Left stick • Left face ability • Bottom face / Menu');
   });
 
   it('fades the hint once after the display duration with a tween', () => {

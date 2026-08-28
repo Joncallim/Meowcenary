@@ -5,6 +5,8 @@ export interface CharacterOptionView {
   readonly id: string;
   readonly name: string;
   readonly description: string;
+  readonly abilityName?: string;
+  readonly abilityDescription?: string;
   readonly locked: boolean;
   readonly selected: boolean;
 }
@@ -34,10 +36,14 @@ export class CharacterSelectionController {
     const { context } = this;
     const selectedCharacterId = context.selectedCharacterId;
     const revision = context.selectionRevision;
+    const abilities = new Map((context.data.abilities ?? []).map((ability) => [ability.id, ability] as const));
     const characters = context.characters.all().map((character) => ({
       id: character.id,
       name: character.name,
       description: character.description,
+      ...(character.abilityId !== undefined && abilities.get(character.abilityId) !== undefined
+        ? { abilityName: abilities.get(character.abilityId)!.name, abilityDescription: abilities.get(character.abilityId)!.description }
+        : {}),
       locked: !canSelectCharacter(character, context.saveData.progression),
       selected: character.id === selectedCharacterId,
     }));

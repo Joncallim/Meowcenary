@@ -31,6 +31,7 @@ describe('CharacterSelectionController', () => {
     expect(snapshot.revision).toBe(1);
     expect(snapshot.characters).toHaveLength(8);
     expect(snapshot.characters[0]).toMatchObject({ id: 'scrap-tabby', locked: false, selected: true });
+    expect(snapshot.characters[0]).toMatchObject({ abilityName: expect.any(String), abilityDescription: expect.any(String) });
     // Only the default character is unlocked on a fresh save.
     const unlocked = snapshot.characters.filter((c) => !c.locked);
     expect(unlocked.map((c) => c.id)).toEqual(['scrap-tabby']);
