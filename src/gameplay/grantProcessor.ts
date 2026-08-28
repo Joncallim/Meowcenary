@@ -93,7 +93,11 @@ export function applyDurableGrantTransaction(save: SaveDataV3, transaction: Dura
 function transactionEffectsPresent(save: SaveDataV3, transaction: DurableGrantTransaction): boolean {
   return transaction.grants.every((grant) => {
     switch (grant.type) {
-      case 'grant-scrap': return save.progression.scrap >= grant.amount;
+      // Currency and permanent levels are spendable/retirable state. A later
+      // legitimate spend cannot be distinguished from corruption using only
+      // a receipt ID, so receipt integrity is asserted for non-consumable
+      // identity-bearing effects below rather than rejecting a valid replay.
+      case 'grant-scrap': return true;
       case 'unlock-stage': return save.progression.unlocks.includes(grant.stageId);
       case 'unlock-character': return save.progression.unlocks.includes(grant.characterId);
       case 'unlock-equipment': return save.progression.unlocks.includes(grant.equipmentId);
@@ -101,7 +105,7 @@ function transactionEffectsPresent(save: SaveDataV3, transaction: DurableGrantTr
       case 'unlock-trait': return save.progression.unlocks.includes(grant.traitId);
       case 'grant-item': return (save.items[grant.itemId] ?? 0) >= (grant.amount ?? 1);
       case 'achievement-completed': return save.progression.unlocks.includes(grant.achievementId);
-      case 'permanent-upgrade-level': return (save.progression.permanentUpgrades[grant.upgradeId] ?? 0) >= grant.levels;
+      case 'permanent-upgrade-level': return true;
       case 'grant-part-instance': {
         const part = save.gunsmith.parts[grant.instanceId];
         return part?.partId === grant.partId && part.tier === (grant.tier ?? 1);
