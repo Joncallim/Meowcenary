@@ -90,7 +90,7 @@ import {
   assertStageRewardLootTableReferences,
   assertStageUnlockReferences,
 } from './validation/stages';
-import { checkAchievement, assertAchievementMetricReferences } from './validation/achievements';
+import { checkAchievement, assertAchievementMetricReferences, assertUniqueAchievementPlatformMappings } from './validation/achievements';
 import { registeredMetricIds } from './achievements';
 import { checkPart, assertPartEffectSources } from './validation/parts';
 import { checkAbility } from './validation/abilities';
@@ -623,6 +623,7 @@ export function validateGameData(raw: unknown): GameData {
 
   // Epic 22: achievement metric references (appended, preserving frozen order).
   assertAchievementMetricReferences(achievements, new Set(registeredMetricIds()));
+  assertUniqueAchievementPlatformMappings(achievements);
 
   // Epic 23: gun-part effect sources (appended, preserving frozen order).
   assertPartEffectSources(catalogs['gun-parts'] as PartDefinition[]);

@@ -141,3 +141,22 @@ export function assertAchievementMetricReferences(
     }
   }
 }
+
+/** External mirrors are optional, but a configured platform identifier must
+ * designate exactly one canonical local achievement. */
+export function assertUniqueAchievementPlatformMappings(
+  achievements: readonly { id: string; platform?: { gameCenterId?: string; googlePlayId?: string } }[],
+): void {
+  for (const key of ['gameCenterId', 'googlePlayId'] as const) {
+    const seen = new Map<string, string>();
+    for (const achievement of achievements) {
+      const value = achievement.platform?.[key];
+      if (!value) continue;
+      const previous = seen.get(value);
+      if (previous !== undefined) {
+        throw new Error(`achievement.${achievement.id}: platform.${key} "${value}" already maps to ${previous}`);
+      }
+      seen.set(value, achievement.id);
+    }
+  }
+}

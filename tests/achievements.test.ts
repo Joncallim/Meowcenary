@@ -26,6 +26,12 @@ function registryCtx() {
 }
 
 describe('Epic 22 achievement catalog conformance', () => {
+  it('rejects duplicate optional external platform mappings', () => {
+    const data = structuredClone(loadGameData()) as unknown as { achievements: Array<Record<string, unknown>> };
+    data.achievements[0]!.platform = { gameCenterId: 'gc-proof' };
+    data.achievements[1]!.platform = { gameCenterId: 'gc-proof' };
+    expect(() => validateGameData(data)).toThrow(/platform\.gameCenterId "gc-proof" already maps/);
+  });
   it('ships a catalog with stable unique achievement: IDs', () => {
     expect(definitions.length).toBeGreaterThanOrEqual(8);
     const ids = definitions.map((d) => d.id);
