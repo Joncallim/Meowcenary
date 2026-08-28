@@ -826,6 +826,17 @@ function enemyDefinition(): ResolvedEnemyDefinition {
     expect(chaserSprite.body?.velocity).toEqual({ x: 0, y: 0 });
   });
 
+  it('boss attack edge emits both its lunge cue and an authoritative damaging shot', async () => {
+    const boss: ResolvedEnemyDefinition = { id: 'test-boss-volley', name: 'Boss', archetype: 'boss', health: 100, damage: 10, speed: 40, xpValue: 1, scrapValue: 1, contactDamage: false, attack: { triggerRange: 200, telegraphMs: 1, dashSpeed: 320, dashDurationMs: 20, cooldownMs: 100 } };
+    const bus = createEventBus();
+    const shot = vi.fn(); const dashed = vi.fn();
+    bus.on('enemy:ranged-shot', shot); bus.on('enemy:dashed', dashed);
+    const { enemy } = await createEnemy(bus, boss);
+    enemy.update({ active: true, x: 100, y: 20 } as never, 2);
+    expect(shot).toHaveBeenCalledTimes(1);
+    expect(dashed).toHaveBeenCalledTimes(1);
+  });
+
   it('emits accepted damage and transitions lethal damage to dead exactly once', async () => {
     const bus = createEventBus();
     const damaged = vi.fn();
