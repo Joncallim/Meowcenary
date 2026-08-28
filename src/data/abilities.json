@@ -40,7 +40,7 @@
   {
     "id": "ability:adrenaline",
     "name": "Adrenaline",
-    "description": "Surge forward with a brief speed boost.",
+    "description": "Move much faster for a brief burst.",
     "cooldownMs": 10000,
     "durationMs": 2500,
     "effect": {
@@ -69,7 +69,7 @@
   {
     "id": "ability:precision-mark",
     "name": "Precision Mark",
-    "description": "Next volley pierces and deals bonus damage.",
+    "description": "Briefly gain bonus damage and pierce.",
     "cooldownMs": 14000,
     "durationMs": 4000,
     "effect": {
