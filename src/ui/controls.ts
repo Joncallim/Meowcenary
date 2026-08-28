@@ -17,6 +17,7 @@ export interface ControlsViewOptions {
   readonly viewport: UiViewport;
   readonly readReducedMotion: () => boolean;
   readonly onPauseRequested: () => void;
+  readonly onAbilityRequested?: () => void;
   readonly touchStick?: TouchStickConfig;
 }
 
@@ -25,6 +26,7 @@ export class ControlsView {
   private readonly input: InputController;
   private viewport: UiViewport;
   private readonly onPauseRequested: () => void;
+  private readonly onAbilityRequested?: () => void;
   private readonly readReducedMotion: () => boolean;
   private readonly stickRadius: number;
   private readonly root?: Phaser.GameObjects.Container;
@@ -32,6 +34,7 @@ export class ControlsView {
   private readonly stickThumb: Phaser.GameObjects.Arc;
   private hintText!: Phaser.GameObjects.Text;
   private pauseButton!: Phaser.GameObjects.Rectangle;
+  private abilityButton!: Phaser.GameObjects.Rectangle;
   private pauseGlyphBars: Phaser.GameObjects.Rectangle[] = [];
   private hintElapsedMs = 0;
   private hintFaded = false;
@@ -46,6 +49,7 @@ export class ControlsView {
     this.input = input;
     this.viewport = viewport;
     this.onPauseRequested = onPauseRequested;
+    this.onAbilityRequested = options.onAbilityRequested;
     this.readReducedMotion = readReducedMotion;
     this.stickRadius = touchStick.radius;
     const add = scene.add as typeof scene.add & { container?: (x: number, y: number) => Phaser.GameObjects.Container };
@@ -117,6 +121,15 @@ export class ControlsView {
     this.pauseButton.setStrokeStyle(physicalToLogical(2, viewport), ThemeColor.cream, 0.8);
     this.pauseButton.setInteractive();
     this.pauseButton.on('pointerdown', this.handlePausePointerDown, this);
+    this.abilityButton = scene.add.rectangle(
+      this.pauseButton.x - pauseSize - physicalToLogical(10, viewport), this.pauseButton.y,
+      pauseSize, pauseSize, ThemeColor.primary, 0.72,
+    );
+    this.abilityButton.setDepth(ThemeDepth.hud);
+    this.abilityButton.setScrollFactor(0);
+    this.abilityButton.setStrokeStyle(physicalToLogical(2, viewport), ThemeColor.cream, 0.8);
+    this.abilityButton.setInteractive();
+    this.abilityButton.on('pointerdown', this.handleAbilityPointerDown, this);
     const glyphWidth = physicalToLogical(8, viewport);
     const glyphHeight = physicalToLogical(22, viewport);
     const glyphOffset = physicalToLogical(8, viewport);
@@ -135,7 +148,7 @@ export class ControlsView {
     });
     // Every interactive/control child owns scrollFactor=0; containers do not
     // propagate it in Phaser, and hit tests read the child value.
-    this.root?.add([this.hintText, this.pauseButton, ...this.pauseGlyphBars]);
+    this.root?.add([this.hintText, this.pauseButton, this.abilityButton, ...this.pauseGlyphBars]);
   }
 
   update(dtMs: number): void {
@@ -163,8 +176,10 @@ export class ControlsView {
   private destroyViewportControls(): void {
     this.scene.tweens.killTweensOf(this.hintText);
     this.pauseButton.off('pointerdown', this.handlePausePointerDown, this);
+    this.abilityButton.off('pointerdown', this.handleAbilityPointerDown, this);
     this.hintText.destroy();
     this.pauseButton.destroy();
+    this.abilityButton.destroy();
     this.pauseGlyphBars.forEach((bar) => bar.destroy());
     this.pauseGlyphBars = [];
   }
@@ -253,6 +268,10 @@ export class ControlsView {
 
   private handlePausePointerDown(): void {
     this.onPauseRequested();
+  }
+
+  private handleAbilityPointerDown(): void {
+    this.onAbilityRequested?.();
   }
 }
 

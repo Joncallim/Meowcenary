@@ -270,6 +270,7 @@ export class GameScene extends Phaser.Scene {
       viewport,
       readReducedMotion: () => ctx.settings.reducedMotion,
       onPauseRequested: () => this.routeAction('pause'),
+      onAbilityRequested: () => this.routeAction('ability'),
     });
 
     this.inventoryController = new InventoryController({
