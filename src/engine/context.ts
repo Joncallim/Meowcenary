@@ -17,6 +17,8 @@ import {
   type AchievementMetricState,
   type AchievementProgressState,
   type GunsmithState,
+  type EquipmentState,
+  type EquipmentLoadoutState,
   type SaveData,
   type SaveManager,
   type Settings,
@@ -98,6 +100,7 @@ export interface GameContext {
    * prepare a complete immutable state; publication occurs only after its
    * Save V3 snapshot is durable. */
   updateGunsmith(transform: (state: GunsmithState) => GunsmithState): PersistenceUpdate<GunsmithState>;
+  updateEquipment(transform: (state: { readonly equipment: EquipmentState; readonly loadout: EquipmentLoadoutState }) => { readonly equipment: EquipmentState; readonly loadout: EquipmentLoadoutState }): PersistenceUpdate<EquipmentState>;
   applyGrantTransaction(transaction: DurableGrantTransaction): boolean;
   /** One durable commit for the first-clear fact, optional boss fact, and its
    * source-owned rewards.  No fact becomes visible without its receipt. */
@@ -203,6 +206,13 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       if (!options.save.save(candidate)) return Object.freeze({ value: current.gunsmith, persisted: false });
       current = options.save.load();
       return Object.freeze({ value: current.gunsmith, persisted: true });
+    },
+    updateEquipment(transform) {
+      const next = transform({ equipment: current.equipment, loadout: current.equipmentLoadout ?? {} });
+      const candidate = Object.freeze({ ...current, equipment: next.equipment, equipmentLoadout: next.loadout });
+      if (!options.save.save(candidate)) return Object.freeze({ value: current.equipment, persisted: false });
+      current = options.save.load();
+      return Object.freeze({ value: current.equipment, persisted: true });
     },
     applyGrantTransaction(transaction) {
       const result = applyDurableGrantTransaction(current, transaction);
