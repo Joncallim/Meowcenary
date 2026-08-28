@@ -12,6 +12,9 @@ import { DataCharacterRegistry } from '../src/systems/characters';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
 import { ProgressionController } from '../src/ui/progressionController';
+import { StageSelectionController } from '../src/ui/stageSelectionController';
+import { DataAchievementRegistry, registeredMetricIds } from '../src/systems/achievements';
+import { evaluateAchievements } from '../src/gameplay/achievementSystem';
 
 describe('meta progression integration', () => {
   it('banks a run, purchases from the current snapshot, and applies it only to the next run', () => {
@@ -61,6 +64,35 @@ describe('meta progression integration', () => {
 
     expect(context.selectCharacter('bolt-hound', context.selectionRevision))
       .toMatchObject({ ok: true, characterId: 'bolt-hound' });
+  });
+
+  it('connects a boss stage fact to an achievement, durable equipment reward, and next-stage availability', () => {
+    const data = loadGameData();
+    const metaUpgrades = new DataMetaUpgradeRegistry(data);
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data,
+      arenas: new DataArenaRegistry(data), metaUpgrades, characters: new DataCharacterRegistry(data),
+      save: new SaveManager(new MemoryStorageAdapter(), 'boss-to-equipment', metaUpgrades.maxLevels()),
+    });
+    expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss-crusher', {
+      id: 'stage:junkyard-05:first-clear', grants: [{ type: 'grant-scrap', amount: 150 }],
+    })).toBe(true);
+    const registry = new DataAchievementRegistry({ achievements: data.achievements ?? [] });
+    const metrics = new Map(registeredMetricIds().map((id) => [id, (facts: { metrics: Record<string, number> }) => facts.metrics[id] ?? 0]));
+    const result = evaluateAchievements(context.saveData.achievements, {
+      metrics: context.saveData.achievementMetrics,
+      progression: context.saveData.progression,
+      stages: context.saveData.stages,
+      characters: context.saveData.characters,
+      bosses: context.saveData.bosses,
+    }, { definitions: registry.asMap(), metrics }, 120_000);
+    expect(result.completed).toContain('achievement:boss-crusher');
+    expect(context.commitAchievementTransaction(result.state, context.saveData.achievementMetrics, {
+      id: 'achievement:boss-crusher:completion', grants: result.rewards,
+    })).toBe(true);
+    expect(context.saveData.equipment['reward:crusher-commando-helmet']).toMatchObject({ equipmentId: 'equipment:commando-helmet' });
+    expect(context.saveData.progression.unlocks).toContain('achievement:boss-crusher');
+    expect(new StageSelectionController(context).snapshot().stages.find((stage) => stage.id === 'stage:junkyard-06')?.locked).toBe(false);
   });
 });
 
