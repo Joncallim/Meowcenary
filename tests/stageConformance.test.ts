@@ -110,7 +110,7 @@ describe('Epic 20 stage catalog conformance', () => {
           break;
         case 'collect':
           expect(obj.count).toBeGreaterThan(0);
-          expect(obj.itemId).toMatch(/^item:/);
+          expect(obj.itemId).toMatch(/^(?:item|drop):/);
           break;
         case 'survive':
           expect(obj.seconds).toBeGreaterThan(0);

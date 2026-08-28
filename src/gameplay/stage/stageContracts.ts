@@ -297,36 +297,3 @@ export function tickStage(state: StageState, deltaMs: number): StageState {
   if (newTimeMs === state.timeMs) return state;
   return { ...state, timeMs: newTimeMs };
 }
-
-// ── Alpha 2 Golden Run compatibility adapter (§3.3) ──────────────────
-
-/**
- * Returns true if the current arena definition still uses the legacy
- * spawnCurveId + durationSeconds victory path. When this returns true,
- * the Golden Run compatibility path applies — the arena's spawn curve
- * duration determines victory, not the stage objective.
- *
- * Callers (GameScene) check this before wiring stage objective logic.
- */
-export function isGoldenRunCompatibilityPath(
-  _stageId: string,
-  _arenaSpawnCurveId: string,
-): boolean {
-  // Alpha 2 arenas always use the spawnCurve duration path.
-  // Stage-based victory is gated on the stage having a non-survive objective
-  // AND the caller opting into the stage system.
-  // This adapter always returns true for now — the caller can suppress
-  // stage objective logic when the arena has a spawnCurveId.
-  return true;
-}
-
-/**
- * Golden Run duration victory: the arena's spawn curve duration in seconds
- * determines when the run is won. This is the Alpha 2 compatibility rule.
- */
-export function goldenRunDurationSeconds(_arenaSpawnCurveId: string): number | undefined {
-  // The actual duration lookup is done by the spawn director reading
-  // the spawn curve definition. This adapter returns undefined to signal
-  // "use the arena's spawnCurveId directly."
-  return undefined;
-}

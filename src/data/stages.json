@@ -17,7 +17,7 @@
     "chapterId": "chapter:junkyard",
     "displayOrder": 2,
     "arenaId": "junkyard-lot",
-    "objective": { "type": "collect", "itemId": "item:scrap-cache", "count": 8 },
+    "objective": { "type": "collect", "itemId": "drop:scrap", "count": 8 },
     "encounterProfileId": "encounter:junkyard-mixed",
     "difficultyProfileId": "difficulty:chapter-1-easy",
     "rewardProfileId": "reward:stage-02",

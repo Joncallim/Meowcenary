@@ -11,6 +11,7 @@ import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
 import { assembleComposedRunRequest } from '../gameplay/runRequest';
 import { createStageState, resolveRunPlan, updateObjectiveProgress, type ResolvedRunPlan, type StageState } from '../gameplay/stage/stageContracts';
+import { recordCollect, recordDefeat, recordKill, tickSurvive } from '../gameplay/objectiveProgress';
 import {
   endRun,
   startRun,
@@ -29,6 +30,7 @@ import { DropSystem } from '../systems/DropSystem';
 import { WeaponRewardSystem } from '../systems/WeaponRewardSystem';
 import { InputController, type GameAction } from '../systems/input';
 import { SpawnSystem } from '../systems/SpawnSystem';
+import { DataEnemyRegistry } from '../systems/enemies';
 import { buildArenaScenery, type ArenaScenery } from '../systems/arenaScenery';
 import { UpgradeSystem } from '../systems/UpgradeSystem';
 import { ProgressionSystem, type BankedRun } from '../systems/ProgressionSystem';
@@ -124,6 +126,7 @@ export class GameScene extends Phaser.Scene {
   private dpsMeter?: DpsMeter;
   private stagePlan?: ResolvedRunPlan;
   private stageState?: StageState;
+  private enemyDefinitions?: DataEnemyRegistry;
   private abilityDefinition?: AbilityDefinition;
   private abilityState: AbilityState = createAbilityState();
 
@@ -192,6 +195,7 @@ export class GameScene extends Phaser.Scene {
       character: contribution,
     });
     this.runState = prepared.run;
+    this.enemyDefinitions = new DataEnemyRegistry(ctx.data);
     // Run-clock-stamped effective-damage meter. The listener captures the
     // run-state local so it never re-reads scene state after shutdown.
     const dpsMeter = createDpsMeter();
@@ -202,6 +206,7 @@ export class GameScene extends Phaser.Scene {
         this.recordStageEnemyDefeat(enemyId);
         this.evaluateLiveAchievements(ctx, { 'metric:enemies-defeated': 1 });
       }),
+      ctx.bus.on('drop:collected', ({ kind }) => this.recordStageCollection(`drop:${kind}`)),
       ctx.bus.on('weapon:merged', () => this.evaluateLiveAchievements(ctx, { 'metric:merges-performed': 1 })),
       ctx.bus.on('run:won', () => this.evaluateLiveAchievements(ctx, { 'metric:runs-completed': 1 })),
       ctx.bus.on('enemy:damaged', ({ amount }) => {
@@ -854,11 +859,28 @@ export class GameScene extends Phaser.Scene {
   private recordStageEnemyDefeat(enemyId: string): void {
     if (!this.stagePlan || !this.stageState || this.stageState.status !== 'active') return;
     const objective = this.stagePlan.objective.definition;
-    if (objective.type === 'defeat' && objective.enemyId === enemyId) {
-      this.stageState = updateObjectiveProgress(this.stageState, 1);
-    } else if (objective.type === 'kill') {
-      this.stageState = updateObjectiveProgress(this.stageState, 1);
+    const progress = this.stageState.objectiveProgress;
+    if (objective.type === 'defeat') {
+      const next = recordDefeat(progress, enemyId, objective.enemyId);
+      if (next !== progress) this.stageState = updateObjectiveProgress(this.stageState, next.current - progress.current);
+      return;
     }
+    if (objective.type === 'kill') {
+      const next = recordKill(progress, this.enemyDefinitions?.resolvedById(enemyId)?.archetype, objective.enemyTag);
+      if (next !== progress) this.stageState = updateObjectiveProgress(this.stageState, next.current - progress.current);
+    }
+  }
+
+  /** The pickup kind is the authoritative live collection fact. Stage data
+   * selects a generic item namespace (for example `drop:scrap`), so another
+   * collect contract requires no stage-ID branch. */
+  private recordStageCollection(itemId: string): void {
+    if (!this.stagePlan || !this.stageState || this.stageState.status !== 'active') return;
+    const objective = this.stagePlan.objective.definition;
+    if (objective.type !== 'collect') return;
+    const progress = this.stageState.objectiveProgress;
+    const next = recordCollect(progress, itemId, objective.itemId);
+    if (next !== progress) this.stageState = updateObjectiveProgress(this.stageState, next.current - progress.current);
   }
 
   private describeStageObjective(): string | undefined {
@@ -899,7 +921,9 @@ export class GameScene extends Phaser.Scene {
     }
     if (this.stageState.status === 'intro') this.stageState = { ...this.stageState, status: 'active' };
     if (this.stagePlan.objective.definition.type === 'survive' && this.stageState.status === 'active') {
-      this.stageState = updateObjectiveProgress(this.stageState, delta / 1000);
+      const progress = this.stageState.objectiveProgress;
+      const next = tickSurvive(progress, delta);
+      if (next !== progress) this.stageState = updateObjectiveProgress(this.stageState, next.current - progress.current);
     }
     if (this.stageState.status === 'objective-complete' && runState.status === 'active') {
       const reward = this.stagePlan.reward.scrapBase
