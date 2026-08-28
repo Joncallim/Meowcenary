@@ -120,6 +120,17 @@ async function createSystem(options: {
 }
 
 describe('DropSystem', () => {
+  it('collects only nearby ordinary drops for a loot-pulse ability', async () => {
+    const { system, runState } = await createSystem();
+    system.spawnDrop(10, 0, { kind: 'scrap', amount: 3 });
+    system.spawnDrop(20, 0, { kind: 'xp', amount: 2 });
+    system.spawnDrop(400, 0, { kind: 'scrap', amount: 9 });
+    system.spawnDrop(10, 10, { kind: 'chest', amount: 0, tableId: 'chest-table' });
+
+    expect(system.collectNearbyConsumables(100)).toBe(2);
+    expect(runState.currency).toBe(3);
+    expect(system.activeDropCount).toBe(2);
+  });
   beforeEach(() => {
     vi.clearAllMocks();
   });

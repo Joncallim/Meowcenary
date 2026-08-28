@@ -838,6 +838,7 @@ export class GameScene extends Phaser.Scene {
     if (effect.kind === 'heal') player.heal(effect.amount);
     else if (effect.kind === 'invulnerable') player.grantInvulnerability(definition.durationMs);
     else if (effect.kind === 'stat-burst') effect.modifiers.forEach((modifier) => runState.stats.add(modifier));
+    else if (effect.kind === 'loot-pulse') this.dropSystem?.collectNearbyConsumables(effect.radius);
     else if (effect.kind === 'knockback' || effect.kind === 'elemental-burst') {
       this.enemies.forEach((enemy) => {
         const dx = enemy.x - player.x;

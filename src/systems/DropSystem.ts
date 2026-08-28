@@ -95,6 +95,22 @@ export class DropSystem implements System {
     return this.ownedDrops.length;
   }
 
+  /** Ability-facing collection boundary. Scavenge effects collect only the
+   * ordinary XP/scrap drops in range; chests and weapon rewards retain their
+   * normal deliberate interaction/rack rules. */
+  collectNearbyConsumables(radius: number): number {
+    if (this.runState.status !== 'active' || !Number.isFinite(radius) || radius < 0) return 0;
+    let collected = 0;
+    for (const drop of [...this.liveDrops]) {
+      const grant = drop.grant;
+      if (!drop.active || (grant?.kind !== 'xp' && grant?.kind !== 'scrap')) continue;
+      if (Math.hypot(drop.x - this.player.x, drop.y - this.player.y) > radius) continue;
+      this.collect(drop);
+      collected += 1;
+    }
+    return collected;
+  }
+
   /**
    * Spawns a drop at the given position. In production this is called from the
    * `enemy:killed` handler so that loot tables and RNG are respected; tests may
