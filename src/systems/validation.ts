@@ -37,6 +37,7 @@ import encounterProfilesJson from '../data/encounter-profiles.json';
 import difficultyProfilesJson from '../data/difficulty-profiles.json';
 import rewardProfilesJson from '../data/reward-profiles.json';
 import achievementsJson from '../data/achievements.json';
+import gunPartsJson from '../data/gun-parts.json';
 import { STAT_KEYS, RUN_UPGRADE_STAT_KEYS, WEAPON_MODIFIER_STAT_KEYS } from '../gameplay/stats';
 import { DEFAULT_WEAPON_FAMILIES } from '../gameplay/weapons';
 import { GAME_EVENT_KEYS, FAMILY_TIER_EVENT_KEYS } from '../engine/eventBus';
@@ -66,6 +67,7 @@ import type {
   RewardProfile,
 } from './types';
 import type { AchievementDefinition } from '../gameplay/achievementSystem';
+import type { PartDefinition } from '../gameplay/gunsmith';
 import { isSpawnableEnemyDefinition } from './types';
 import { CHARACTER_PASSIVE_EVENTS } from './types';
 import { isContentId, isUnlockId } from './ids';
@@ -84,6 +86,7 @@ import {
 } from './validation/stages';
 import { checkAchievement, assertAchievementMetricReferences } from './validation/achievements';
 import { registeredMetricIds } from './achievements';
+import { checkPart, assertPartEffectSources } from './validation/parts';
 import { findEdgeLaneWitness, findRectWitness, findRingWitness } from '../gameplay/spawnRegion';
 import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 
@@ -401,6 +404,17 @@ export const CATALOG_DESCRIPTORS = [
       return validate<AchievementDefinition>('achievements.json', rows, checkAchievement);
     },
   },
+  {
+    key: 'gun-parts',
+    file: 'gun-parts.json',
+    rootKey: 'gunParts',
+    data: gunPartsJson,
+    read: (raw) => readOwnField(raw, 'gunParts'),
+    validateRows: (rows): PartDefinition[] => {
+      throwIfErrors(jsonSafetyErrors(rows, 'gun-parts.json'));
+      return validate<PartDefinition>('gun-parts.json', rows, checkPart);
+    },
+  },
 ] as const satisfies readonly CatalogDescriptor[];
 
 /** Root requirements derived from the descriptor table: one aggregate root
@@ -570,8 +584,11 @@ export function validateGameData(raw: unknown): GameData {
   // Epic 22: achievement metric references (appended, preserving frozen order).
   assertAchievementMetricReferences(achievements, new Set(registeredMetricIds()));
 
+  // Epic 23: gun-part effect sources (appended, preserving frozen order).
+  assertPartEffectSources(catalogs['gun-parts'] as PartDefinition[]);
+
   const audio: AudioData = { assets: audioAssets, map: audioMap };
-  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements };
+  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements, gunParts: catalogs['gun-parts'] as PartDefinition[] };
 }
 
 /** Root-shape phase, shared by the throwing boot path and the collecting
@@ -815,6 +832,13 @@ export function validateAchievementCatalog(raw: unknown): AchievementDefinition[
   const achievements = validate<AchievementDefinition>('achievements.json', raw, checkAchievement);
   assertUniqueIds('achievements.json', achievements);
   return achievements;
+}
+
+export function validatePartCatalog(raw: unknown): PartDefinition[] {
+  throwIfErrors(jsonSafetyErrors(raw, 'gun-parts.json'));
+  const parts = validate<PartDefinition>('gun-parts.json', raw, checkPart);
+  assertUniqueIds('gun-parts.json', parts);
+  return parts;
 }
 
 export function validateArenaCatalog(raw: unknown): ArenaDefinition[] {

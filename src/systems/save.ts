@@ -37,14 +37,19 @@ export interface MasteryProgress {
   readonly xp: number;
 }
 
-/** Placeholder: Gunsmith build shape. Epic 23 defines the real shape. */
+/** Persistent player-owned weapon build (Epic 23). */
 export interface Build {
   readonly id: string;
+  readonly name: string;
+  readonly baseWeaponFamily: string;
+  readonly fitted: Readonly<Partial<Record<string, string>>>;
+  readonly traitParts: readonly string[];
 }
 
-/** Placeholder: Gunsmith part instance. Epic 23 defines the real shape. */
+/** Persistent player-owned part instance (Epic 23). */
 export interface PartInstance {
   readonly partId: string;
+  readonly infusedTraits: readonly string[];
 }
 
 /** Placeholder: Equipment instance. Epic 25 defines the real shape. */
@@ -330,7 +335,15 @@ function sanitizeGunsmithState(raw: unknown): GunsmithState {
   const partsRaw = readOwn(raw, 'parts');
   const builds: Build[] = Array.isArray(buildsRaw)
     ? buildsRaw.filter((b): b is Record<string, unknown> => isPlainRecord(b) && typeof readOwn(b, 'id') === 'string')
-        .map((b) => ({ id: readOwn(b, 'id') as string }))
+        .map((b) => ({
+          id: readOwn(b, 'id') as string,
+          name: typeof readOwn(b, 'name') === 'string' ? readOwn(b, 'name') as string : readOwn(b, 'id') as string,
+          baseWeaponFamily: typeof readOwn(b, 'baseWeaponFamily') === 'string' ? readOwn(b, 'baseWeaponFamily') as string : 'pistol',
+          fitted: sanitizeFittedParts(readOwn(b, 'fitted')),
+          traitParts: Array.isArray(readOwn(b, 'traitParts'))
+            ? (readOwn(b, 'traitParts') as unknown[]).filter((t): t is string => typeof t === 'string')
+            : [],
+        }))
     : [];
   const parts: Record<string, PartInstance> = Object.create(null);
   if (isPlainRecord(partsRaw)) {
@@ -338,11 +351,28 @@ function sanitizeGunsmithState(raw: unknown): GunsmithState {
       if (!isContentId(key)) continue;
       const entry = readOwn(partsRaw as Record<string, unknown>, key);
       if (isPlainRecord(entry) && typeof readOwn(entry, 'partId') === 'string') {
-        parts[key] = { partId: readOwn(entry, 'partId') as string };
+        const infused = readOwn(entry, 'infusedTraits');
+        parts[key] = {
+          partId: readOwn(entry, 'partId') as string,
+          infusedTraits: Array.isArray(infused)
+            ? (infused as unknown[]).filter((t): t is string => typeof t === 'string')
+            : [],
+        };
       }
     }
   }
   return { builds, parts };
+}
+
+function sanitizeFittedParts(raw: unknown): Readonly<Partial<Record<string, string>>> {
+  if (!isPlainRecord(raw)) return {};
+  const result: Record<string, string> = {};
+  for (const [slot, partId] of Object.entries(raw)) {
+    if (typeof partId === 'string' && isUnlockId(partId) && partId.startsWith('part:')) {
+      result[slot] = partId;
+    }
+  }
+  return Object.freeze(result);
 }
 
 function sanitizeEquipmentState(raw: unknown): EquipmentState {
