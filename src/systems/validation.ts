@@ -1812,6 +1812,8 @@ function checkEnemy(row: unknown): string[] {
     requirePositiveInteger(row, 'xpValue', errors);
     requireLiteral(row, 'contactDamage', true, errors);
   } else if (archetype === 'ranged' || archetype === 'boss') {
+    requirePositiveNumber(row, 'damage', errors);
+    requirePositiveNumber(row, 'speed', errors);
     requireLiteral(row, 'contactDamage', false, errors);
   } else {
     errors.push('archetype: invalid value');

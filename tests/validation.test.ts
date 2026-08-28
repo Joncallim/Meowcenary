@@ -10,6 +10,7 @@ import {
   collectValidationErrors,
   loadGameData,
   validateGameData,
+  validateEnemyCatalog,
 } from '../src/systems/validation';
 import { TEST_ARENA_VISUAL } from './helpers/arena';
 
@@ -606,6 +607,19 @@ describe('game data validation', () => {
         enemyFixture('chaser'), enemyFixture('charger'), enemyFixture('tank'),
         enemyFixture('ranged', { attack }),
       ]))).toThrow(/attack/);
+    }
+  });
+
+  it('requires damaging, mobile ranged and boss threats', () => {
+    for (const archetype of ['ranged', 'boss'] as const) {
+      expect(() => validateEnemyCatalog([
+        enemyFixture('chaser'), enemyFixture('charger'), enemyFixture('tank'),
+        enemyFixture(archetype, { damage: 0 }),
+      ])).toThrow(/damage/);
+      expect(() => validateEnemyCatalog([
+        enemyFixture('chaser'), enemyFixture('charger'), enemyFixture('tank'),
+        enemyFixture(archetype, { speed: 0 }),
+      ])).toThrow(/speed/);
     }
   });
 
