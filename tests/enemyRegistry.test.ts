@@ -149,10 +149,10 @@ describe('DataEnemyRegistry', () => {
     const shells: EnemyDefinition[] = [
       {
         id: 'ranged-shell', name: 'Ranged shell', archetype: 'ranged', health: 1,
-        damage: 0, speed: 0, xpValue: 0, scrapValue: 0, contactDamage: false,
+        damage: 1, speed: 1, xpValue: 0, scrapValue: 0, contactDamage: false,
         attack: { range: 1, telegraphMs: 1, cooldownMs: 1 },
       },
-      { id: 'boss-shell', name: 'Boss shell', archetype: 'boss', health: 1, damage: 0, speed: 0, xpValue: 0, scrapValue: 0, contactDamage: false, attack: { triggerRange: 1, telegraphMs: 1, dashSpeed: 1, dashDurationMs: 1, cooldownMs: 1 } },
+      { id: 'boss-shell', name: 'Boss shell', archetype: 'boss', health: 1, damage: 1, speed: 1, xpValue: 0, scrapValue: 0, contactDamage: false, attack: { triggerRange: 1, telegraphMs: 1, dashSpeed: 2, dashDurationMs: 1, cooldownMs: 1 } },
       elite,
     ];
     const registry = new DataEnemyRegistry({ enemies: [...data.enemies, ...shells] });
