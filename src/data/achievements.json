@@ -54,7 +54,7 @@
   {
     "id": "achievement:chapter-junkyard",
     "name": "Junkyard Champion",
-    "description": "Clear all five stages of the Junkyard chapter.",
+    "description": "Clear all six stages of the Junkyard chapter.",
     "kind": "standard",
     "target": 1,
     "condition": {
@@ -64,7 +64,8 @@
         { "type": "stage-cleared", "stageId": "stage:junkyard-02" },
         { "type": "stage-cleared", "stageId": "stage:junkyard-03" },
         { "type": "stage-cleared", "stageId": "stage:junkyard-04" },
-        { "type": "stage-cleared", "stageId": "stage:junkyard-05" }
+        { "type": "stage-cleared", "stageId": "stage:junkyard-05" },
+        { "type": "stage-cleared", "stageId": "stage:junkyard-06" }
       ]
     },
     "rewards": [

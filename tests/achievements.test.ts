@@ -109,7 +109,7 @@ describe('Epic 22 achievement evaluation (pure)', () => {
   it('condition-driven achievements evaluate against progression/stage/mastery facts', () => {
     const { ctx } = registryCtx();
     const state: AchievementState = {};
-    const stages = { 'stage:junkyard-01': { completed: true }, 'stage:junkyard-02': { completed: true }, 'stage:junkyard-03': { completed: true }, 'stage:junkyard-04': { completed: true }, 'stage:junkyard-05': { completed: true } };
+    const stages = { 'stage:junkyard-01': { completed: true }, 'stage:junkyard-02': { completed: true }, 'stage:junkyard-03': { completed: true }, 'stage:junkyard-04': { completed: true }, 'stage:junkyard-05': { completed: true }, 'stage:junkyard-06': { completed: true } };
     const result = evaluateAchievements(state, { metrics: {}, stages }, ctx, 5);
     expect(result.completed).toContain('achievement:chapter-junkyard');
   });
