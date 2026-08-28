@@ -149,6 +149,7 @@ export class GameScene extends Phaser.Scene {
   private abilityDefinition?: AbilityDefinition;
   private abilityState: AbilityState = createAbilityState();
   private achievementToast?: { readonly text: string; readonly untilMs: number };
+  private completedAchievementNames: string[] = [];
 
   constructor() {
     super(SceneKey.Game);
@@ -518,6 +519,9 @@ export class GameScene extends Phaser.Scene {
       },
       get canContinue(): boolean {
         return scene.stagePlan !== undefined && new StageSelectionController(ctx).hasNextUnlockedStage();
+      },
+      get completedAchievementNames(): readonly string[] {
+        return scene.completedAchievementNames;
       },
     };
     this.runSummaryController = new RunSummaryController(runSummarySource);
@@ -974,6 +978,7 @@ export class GameScene extends Phaser.Scene {
       const definition = registry.achievementById(achievementId);
       if (progress) ctx.reportAchievement(achievementId, progress);
       if (definition) {
+        this.completedAchievementNames.push(definition.name);
         this.achievementToast = { text: `Achievement: ${definition.name}`, untilMs: (this.runState?.timeMs ?? 0) + 3_000 };
         ctx.bus.emit('achievement:completed', { achievementId, name: definition.name });
       }

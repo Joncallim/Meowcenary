@@ -89,6 +89,7 @@ describe('RunSummaryController snapshots', () => {
       totalScrap: 100,
       persistenceSucceeded: true,
       unlockedIds: ['achievement:first-victory'],
+      completedAchievementNames: [],
       canContinue: false,
     });
   });
@@ -107,6 +108,16 @@ describe('RunSummaryController snapshots', () => {
     const snapshot = controller.snapshot();
     expect(snapshot?.outcome).toBe('lost');
     expect(snapshot?.unlockedIds).toEqual([]);
+  });
+
+  it('carries authoritative in-run achievement completion names into the terminal snapshot', () => {
+    const run = terminalRun('won');
+    const controller = new RunSummaryController({
+      runState: run,
+      lastBankedRun: bankedRun(),
+      completedAchievementNames: ['Crusher Breaker'],
+    });
+    expect(controller.snapshot()?.completedAchievementNames).toEqual(['Crusher Breaker']);
   });
 
   it('shows zero banked values and a save warning when the run was not banked', () => {
@@ -141,6 +152,7 @@ describe('RunSummaryController snapshots', () => {
     const snapshot = controller.snapshot()!;
     expect(Object.isFrozen(snapshot)).toBe(true);
     expect(Object.isFrozen(snapshot.unlockedIds)).toBe(true);
+    expect(Object.isFrozen(snapshot.completedAchievementNames)).toBe(true);
     (banked.meta.unlocks as string[]).push('extra-unlock');
     expect(snapshot.unlockedIds).toEqual(['achievement:first-victory']);
   });

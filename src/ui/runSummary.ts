@@ -20,6 +20,8 @@ export interface RunSummarySnapshot {
   readonly totalScrap: number;
   readonly persistenceSucceeded: boolean;
   readonly unlockedIds: readonly string[];
+  /** Achievements completed in this run, supplied by authoritative gameplay. */
+  readonly completedAchievementNames: readonly string[];
   /** A completed Alpha 3 contract may advance directly to its next selection. */
   readonly canContinue: boolean;
 }
@@ -28,6 +30,7 @@ export interface RunSummarySource {
   readonly runState: Readonly<RunState>;
   readonly lastBankedRun: BankedRun | null;
   readonly canContinue?: boolean;
+  readonly completedAchievementNames?: readonly string[];
 }
 
 /** Terminal presentation over RunState + BankedRun. Never banks, recomputes
@@ -54,6 +57,7 @@ export class RunSummaryController {
       totalScrap: sanitizeScrapFloor(banked?.meta.scrap),
       persistenceSucceeded: banked?.persisted ?? false,
       unlockedIds: Object.freeze([...(banked?.meta.unlocks ?? [])]),
+      completedAchievementNames: Object.freeze([...(this.source.completedAchievementNames ?? [])]),
       canContinue: runState.status === 'won' && this.source.canContinue === true,
     };
     return Object.freeze(snapshot);
@@ -318,6 +322,17 @@ export class PhaserRunSummaryView {
         );
         root.add(unlocked);
         unlocked.setOrigin(0.5);
+        y += rowGap;
+      }
+      if (snapshot.completedAchievementNames.length > 0) {
+        const achievements = this.modal.addText(
+          centerX,
+          y,
+          `Achievement${snapshot.completedAchievementNames.length === 1 ? '' : 's'}: ${snapshot.completedAchievementNames.join(', ')}`,
+          'body',
+        );
+        root.add(achievements);
+        achievements.setOrigin(0.5);
       }
 
       const hasNextStage = snapshot.canContinue && this.onNextStage !== undefined;
