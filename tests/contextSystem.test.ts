@@ -10,6 +10,7 @@ import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { StageRegistry } from '../src/systems/stageRegistry';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
+import type { AchievementPlatformAdapter } from '../src/gameplay/achievementPlatform';
 
 describe('GameContext persistence boundary', () => {
   it('commits stage, boss fact, reward and receipt together or not at all', () => {
@@ -63,6 +64,28 @@ describe('GameContext persistence boundary', () => {
     expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss-crusher', transaction)).toBe(false);
     expect(context.saveData.progression.scrap).toBe(75);
     expect(context.saveData.stages['stage:junkyard-05']).toBeUndefined();
+  });
+
+  it('fails closed if an achievement receipt survives without its achievement facts', () => {
+    const { context } = setup();
+    const transaction = {
+      id: 'achievement:first-kill:completion',
+      grants: [{ type: 'achievement-completed' as const, achievementId: 'achievement:first-kill' }],
+    };
+    expect(context.applyGrantTransaction(transaction)).toBe(true);
+    expect(context.commitAchievementTransaction({
+      'achievement:first-kill': { progress: 1, completed: true, completedAt: 1 },
+    }, { 'metric:enemies-defeated': 1 }, transaction)).toBe(false);
+    expect(context.saveData.achievements['achievement:first-kill']).toBeUndefined();
+  });
+
+  it('reports a committed achievement through the injected platform boundary without letting failures escape', async () => {
+    const report = vi.fn().mockRejectedValue(new Error('offline'));
+    const { context } = setup(undefined, { report });
+    context.reportAchievement('achievement:first-kill', { progress: 1, completed: true, completedAt: 1 });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(report).toHaveBeenCalledWith('achievement:first-kill', { progress: 1, completed: true, completedAt: 1 });
   });
 
   it('rejects a boss completion when an injected stage catalog disagrees with its encounter', () => {
@@ -478,7 +501,7 @@ class CountingStorage extends MemoryStorageAdapter {
   }
 }
 
-function setup(stages?: StageRegistry) {
+function setup(stages?: StageRegistry, achievementPlatform?: AchievementPlatformAdapter) {
   const data = loadGameData();
   const arenas = new DataArenaRegistry(data);
   const registry = new DataMetaUpgradeRegistry(data);
@@ -489,7 +512,7 @@ function setup(stages?: StageRegistry) {
     storage,
     context: createGameContext({
       bus: createEventBus(), menuRng: createRng(1), data,
-      arenas, metaUpgrades: registry, save, characters, stages,
+      arenas, metaUpgrades: registry, save, characters, stages, achievementPlatform,
     }),
   };
 }

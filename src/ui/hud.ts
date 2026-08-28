@@ -25,6 +25,7 @@ export interface HudSnapshot {
   /** Shared ability action feedback; game input, controller and touch all
    * read the same authoritative ability state. */
   readonly ability?: string;
+  readonly achievement?: string;
 }
 
 export interface HudSource {
@@ -53,6 +54,7 @@ export class HudController implements System {
       bus.on('xp:gained', () => this.markDirty()),
       bus.on('level:up', () => this.markDirty()),
       bus.on('currency:changed', () => this.markDirty()),
+      bus.on('achievement:completed', () => this.markDirty()),
 
       bus.on('run:paused', () => this.markDirty()),
       bus.on('run:resumed', () => this.markDirty()),
@@ -116,6 +118,7 @@ function buildRenderKey(snapshot: HudSnapshot): string {
     snapshot.currency.toFixed(2),
     snapshot.objective ?? '',
     snapshot.ability ?? '',
+    snapshot.achievement ?? '',
 
   ].join('|');
 }
@@ -126,10 +129,11 @@ export interface CreateHudSourceOptions {
   readonly durationMs: number;
   readonly objective?: () => string | undefined;
   readonly ability?: () => string | undefined;
+  readonly achievement?: () => string | undefined;
 }
 
 export function createHudSource(options: CreateHudSourceOptions): HudSource {
-  const { runState, player, durationMs, objective, ability } = options;
+  const { runState, player, durationMs, objective, ability, achievement } = options;
   return {
     snapshot(): HudSnapshot {
 
@@ -146,6 +150,7 @@ export function createHudSource(options: CreateHudSourceOptions): HudSource {
         currency: runState.currency,
         ...(objective?.() ? { objective: objective() } : {}),
         ...(ability?.() ? { ability: ability() } : {}),
+        ...(achievement?.() ? { achievement: achievement() } : {}),
       };
       return Object.freeze(snapshot);
     },
@@ -250,7 +255,7 @@ export class PhaserHudView implements HudView {
     this.levelText.setText(`Level ${snapshot.level}`);
     this.killsText.setText(`Kills ${formatNumber(snapshot.kills)}`);
     this.scrapText.setText(`Scrap ${formatNumber(Math.floor(snapshot.currency))}`);
-    this.objectiveText.setText([snapshot.objective, snapshot.ability].filter(Boolean).join('  •  '));
+    this.objectiveText.setText([snapshot.objective, snapshot.ability, snapshot.achievement].filter(Boolean).join('  •  '));
 
   }
 

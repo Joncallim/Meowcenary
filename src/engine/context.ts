@@ -21,6 +21,7 @@ import {
   type Settings,
 } from '../systems/save';
 import { applyDurableGrantTransaction, type DurableGrantTransaction } from '../gameplay/grantProcessor';
+import { noopAchievementAdapter, type AchievementPlatformAdapter } from '../gameplay/achievementPlatform';
 
 export const GAME_CONTEXT_REGISTRY_KEY = 'meowcenary.gameContext';
 
@@ -97,6 +98,7 @@ export interface GameContext {
    * source-owned rewards.  No fact becomes visible without its receipt. */
   completeStageTransaction(stageId: string, timeMs: number, bossId: string | undefined, transaction: DurableGrantTransaction): boolean;
   commitAchievementTransaction(achievements: AchievementProgressState, metrics: AchievementMetricState, transaction?: DurableGrantTransaction): boolean;
+  reportAchievement(definitionId: string, progress: import('../systems/save').AchievementProgress): void;
   /** Persist stage completion into Save V3 stages domain. Returns true if saved. */
   completeStage(stageId: string, timeMs: number): boolean;
   resetProgression(): PersistenceUpdate<MetaState>;
@@ -114,6 +116,7 @@ export interface CreateGameContextOptions {
   readonly characters: CharacterRegistry;
   readonly arenas: ArenaRegistry;
   readonly stages?: StageRegistry;
+  readonly achievementPlatform?: AchievementPlatformAdapter;
 }
 
 export function createGameContext(options: CreateGameContextOptions): GameContext {
@@ -125,6 +128,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
   let arenaSelectionRevision = 1;
   let selectedStageId = stages.defaultStageId();
   let stageSelectionRevision = 1;
+  const achievementPlatform = options.achievementPlatform ?? noopAchievementAdapter;
 
   /** After a meta mutation, if the currently-selected character is no longer
    *  selectable (e.g. its unlock was removed), silently reset to the default.
@@ -252,7 +256,14 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         ? { save: current, valid: true, changed: true }
         : applyDurableGrantTransaction(current, transaction);
       if (!granted.valid) return false;
-      if (!granted.changed) return true;
+      if (!granted.changed) {
+        // A durable receipt without the achievement facts it claims to have
+        // committed is corruption, not a successful retry.  Failing closed
+        // leaves the transaction retryable after recovery rather than losing
+        // the completion forever behind its receipt.
+        return achievementStateMatches(current.achievements, achievements)
+          && metricStateMatches(current.achievementMetrics, metrics);
+      }
       const save = Object.freeze({
         ...granted.save,
         progression: sanitizeProgression(granted.save.progression, options.metaUpgrades.maxLevels()),
@@ -263,6 +274,13 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       current = save;
       revalidateSelection();
       return true;
+    },
+    reportAchievement(definitionId, progress) {
+      // Deliberately post-commit and best-effort: an unavailable native
+      // mirror must never delay or roll back local/browser progression.
+      void Promise.resolve()
+        .then(() => achievementPlatform.report(definitionId, progress))
+        .catch(() => undefined);
     },
     resetProgression() { return context.updateMeta(() => createDefaultProgression()); },
     completeStage(stageId: string, timeMs: number): boolean {
@@ -356,4 +374,27 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
   };
   branded.add(context);
   return context;
+}
+
+function achievementStateMatches(
+  left: Readonly<AchievementProgressState>,
+  right: Readonly<AchievementProgressState>,
+): boolean {
+  const leftIds = Object.keys(left);
+  const rightIds = Object.keys(right);
+  if (leftIds.length !== rightIds.length) return false;
+  return leftIds.every((id) => {
+    const a = left[id];
+    const b = right[id];
+    return b !== undefined && a.progress === b.progress && a.completed === b.completed && a.completedAt === b.completedAt;
+  });
+}
+
+function metricStateMatches(
+  left: Readonly<AchievementMetricState>,
+  right: Readonly<AchievementMetricState>,
+): boolean {
+  const leftIds = Object.keys(left);
+  const rightIds = Object.keys(right);
+  return leftIds.length === rightIds.length && leftIds.every((id) => left[id] === right[id]);
 }

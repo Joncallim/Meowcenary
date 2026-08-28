@@ -132,6 +132,7 @@ export class GameScene extends Phaser.Scene {
   private enemyDefinitions?: DataEnemyRegistry;
   private abilityDefinition?: AbilityDefinition;
   private abilityState: AbilityState = createAbilityState();
+  private achievementToast?: { readonly text: string; readonly untilMs: number };
 
   constructor() {
     super(SceneKey.Game);
@@ -281,6 +282,7 @@ export class GameScene extends Phaser.Scene {
           : this.spawnCurve.durationSeconds * 1000,
         objective: () => this.describeStageObjective(),
         ability: () => this.describeAbilityState(),
+        achievement: () => this.describeAchievementToast(),
       }),
       new PhaserHudView({
         scene: this,
@@ -936,7 +938,22 @@ export class GameScene extends Phaser.Scene {
     const transaction = completed.length > 0
       ? { id: `${completed[0]}:completion`, grants: result.rewards }
       : undefined;
-    ctx.commitAchievementTransaction(result.state, metrics, transaction);
+    if (!ctx.commitAchievementTransaction(result.state, metrics, transaction)) return;
+    for (const achievementId of completed) {
+      const progress = result.state[achievementId];
+      const definition = registry.achievementById(achievementId);
+      if (progress) ctx.reportAchievement(achievementId, progress);
+      if (definition) {
+        this.achievementToast = { text: `Achievement: ${definition.name}`, untilMs: (this.runState?.timeMs ?? 0) + 3_000 };
+        ctx.bus.emit('achievement:completed', { achievementId, name: definition.name });
+      }
+    }
+  }
+
+  private describeAchievementToast(): string | undefined {
+    const toast = this.achievementToast;
+    if (!toast || (this.runState?.timeMs ?? 0) > toast.untilMs) return undefined;
+    return toast.text;
   }
 
   private updateStageObjective(ctx: GameContext, delta: number): void {
