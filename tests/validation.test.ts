@@ -1741,3 +1741,39 @@ describe('game data validation', () => {
     });
   });
 });
+
+describe('stage catalog identity contracts', () => {
+  function mutableStageData(): {
+    stages: Array<Record<string, unknown>>;
+    encounterProfiles: Array<Record<string, unknown>>;
+    difficultyProfiles: Array<Record<string, unknown>>;
+    rewardProfiles: Array<Record<string, unknown>>;
+  } & Record<string, unknown> {
+    return structuredClone(loadGameData()) as unknown as {
+      stages: Array<Record<string, unknown>>;
+      encounterProfiles: Array<Record<string, unknown>>;
+      difficultyProfiles: Array<Record<string, unknown>>;
+      rewardProfiles: Array<Record<string, unknown>>;
+    } & Record<string, unknown>;
+  }
+
+  it('rejects duplicate stage and profile identities before registries can collapse them', () => {
+    const duplicateStage = mutableStageData();
+    duplicateStage.stages.push(structuredClone(duplicateStage.stages[0]!));
+    expect(() => validateGameData(duplicateStage)).toThrow(/stages\.json\[6\]\.id: duplicate id/);
+
+    const duplicateProfile = mutableStageData();
+    duplicateProfile.encounterProfiles.push(structuredClone(duplicateProfile.encounterProfiles[0]!));
+    expect(() => validateGameData(duplicateProfile)).toThrow(/encounter-profiles\.json\[\d+\]\.id: duplicate id/);
+  });
+
+  it('rejects an unresolvable defeat objective and weights outside an encounter roster', () => {
+    const badDefeat = mutableStageData();
+    badDefeat.stages[4]!.objective = { type: 'defeat', enemyId: 'boss-not-real' };
+    expect(() => validateGameData(badDefeat)).toThrow(/defeat objective enemyId "boss-not-real" not found/);
+
+    const badWeight = mutableStageData();
+    badWeight.encounterProfiles[0]!.compositionWeights = { 'enemy-not-in-roster': 1 };
+    expect(() => validateGameData(badWeight)).toThrow(/compositionWeights\.enemy-not-in-roster: must name an enemyId/);
+  });
+});

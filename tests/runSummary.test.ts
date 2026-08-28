@@ -89,6 +89,7 @@ describe('RunSummaryController snapshots', () => {
       totalScrap: 100,
       persistenceSucceeded: true,
       unlockedIds: ['achievement:first-victory'],
+      canContinue: false,
     });
   });
 
@@ -393,6 +394,8 @@ describe('PhaserRunSummaryView', () => {
     outcome?: 'won' | 'lost';
     banked?: BankedRun | null;
     readInputMode?: () => InputMode;
+    canContinue?: boolean;
+    onNextStage?: () => boolean;
   } = {}) {
     const run = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
     run.status = options.outcome ?? 'won';
@@ -408,6 +411,9 @@ describe('PhaserRunSummaryView', () => {
       get lastBankedRun() {
         return options.banked ?? null;
       },
+      get canContinue() {
+        return options.canContinue ?? false;
+      },
     });
     const scene = createFakeScene();
     const view = new PhaserRunSummaryView({
@@ -416,6 +422,7 @@ describe('PhaserRunSummaryView', () => {
       bus,
       controller,
       ...(options.readInputMode ? { readInputMode: options.readInputMode } : {}),
+      ...(options.onNextStage ? { onNextStage: options.onNextStage } : {}),
     });
     return { run, bus, scene, view, controller };
   }
@@ -482,6 +489,31 @@ describe('PhaserRunSummaryView', () => {
       ]),
     );
     expect(textContents(scene)).not.toContain('Unlocked:');
+  });
+
+  it('advances a completed stage through the normal summary flow only when a next contract exists', () => {
+    const onNextStage = vi.fn(() => true);
+    const { bus, scene, view } = createHarness({
+      banked: bankedRun(),
+      canContinue: true,
+      onNextStage,
+      readInputMode: () => 'keyboard',
+    });
+    bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+
+    expect(textContents(scene)).toContain('Next Contract');
+    expect(view.confirmFocused()).toBe(true);
+    expect(onNextStage).toHaveBeenCalledTimes(1);
+    expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
+  });
+
+  it('does not offer a next contract for a legacy or terminal stage run', () => {
+    const onNextStage = vi.fn(() => true);
+    const { bus, scene } = createHarness({ banked: bankedRun(), onNextStage });
+    bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+
+    expect(textContents(scene)).not.toContain('Next Contract');
+    expect(onNextStage).not.toHaveBeenCalled();
   });
 
   it('cleans the partial tree and stays hidden when text construction throws', () => {

@@ -124,6 +124,9 @@ export const checkEncounterProfile: RowCheckFn = (row: unknown, _index: number):
     } else {
       const weights = ep.compositionWeights as Record<string, unknown>;
       for (const key of Object.keys(weights)) {
+        if (!Array.isArray(ep.enemyIds) || !ep.enemyIds.includes(key)) {
+          errors.push(`compositionWeights.${key}: must name an enemyId in the encounter roster`);
+        }
         if (typeof weights[key] !== 'number' || (weights[key] as number) <= 0 || !Number.isSafeInteger(weights[key])) {
           errors.push(`compositionWeights.${key}: must be a positive safe integer`);
         }
@@ -260,6 +263,19 @@ export function assertBossStageSemantics(
     const encounter = byId.get(stage.encounterProfileId);
     if (stage.objective.type !== 'defeat' || stage.objective.enemyId !== stage.bossId || encounter?.bossId !== stage.bossId) {
       throw new Error(`stage.${stage.id}: bossId, defeat objective and encounter bossId must match`);
+    }
+  }
+}
+
+/** Every defeat objective must name a spawnable catalog enemy. Boss stages
+ * additionally require the same identity in the encounter declaration. */
+export function assertStageDefeatEnemyReferences(
+  stages: readonly StageDefinition[],
+  enemyIds: Set<string>,
+): void {
+  for (const stage of stages) {
+    if (stage.objective.type === 'defeat' && !enemyIds.has(stage.objective.enemyId)) {
+      throw new Error(`stage.${stage.id}: defeat objective enemyId "${stage.objective.enemyId}" not found in enemy catalog`);
     }
   }
 }

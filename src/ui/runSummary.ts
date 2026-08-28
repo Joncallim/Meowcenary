@@ -20,11 +20,14 @@ export interface RunSummarySnapshot {
   readonly totalScrap: number;
   readonly persistenceSucceeded: boolean;
   readonly unlockedIds: readonly string[];
+  /** A completed Alpha 3 contract may advance directly to its next selection. */
+  readonly canContinue: boolean;
 }
 
 export interface RunSummarySource {
   readonly runState: Readonly<RunState>;
   readonly lastBankedRun: BankedRun | null;
+  readonly canContinue?: boolean;
 }
 
 /** Terminal presentation over RunState + BankedRun. Never banks, recomputes
@@ -51,6 +54,7 @@ export class RunSummaryController {
       totalScrap: sanitizeScrapFloor(banked?.meta.scrap),
       persistenceSucceeded: banked?.persisted ?? false,
       unlockedIds: Object.freeze([...(banked?.meta.unlocks ?? [])]),
+      canContinue: runState.status === 'won' && this.source.canContinue === true,
     };
     return Object.freeze(snapshot);
   }
@@ -71,6 +75,8 @@ export interface PhaserRunSummaryViewOptions {
   readonly bus: EventBus;
   readonly controller: RunSummaryController;
   readonly readInputMode?: () => InputMode;
+  /** Selects the next unlocked stage. Returns false when no next contract exists. */
+  readonly onNextStage?: () => boolean;
 }
 
 /** Terminal win/loss surface: reads the already-banked run and offers Retry or
@@ -84,6 +90,7 @@ export class PhaserRunSummaryView {
   private readonly bus: EventBus;
   private readonly controller: RunSummaryController;
   private readonly readInputMode: () => InputMode;
+  private readonly onNextStage?: () => boolean;
   private modal: ModalTextHelpers;
   private readonly unsubscribers: Array<() => void>;
   private root?: Phaser.GameObjects.Container;
@@ -111,6 +118,7 @@ export class PhaserRunSummaryView {
     this.bus = options.bus;
     this.controller = options.controller;
     this.readInputMode = options.readInputMode ?? (() => 'pointer');
+    this.onNextStage = options.onNextStage;
     this.modal = createModalTextHelpers(options.scene, options.viewport);
     this.unsubscribers = [
       options.bus.on('run:won', this.handleTerminal),
@@ -213,6 +221,12 @@ export class PhaserRunSummaryView {
     this.scenePlugin.start(SceneKey.Menu);
   }
 
+  private continueToNextStage(): void {
+    if (this.disposed || !this.visible || !this.onNextStage?.()) return;
+    this.bus.emit('ui:confirm', {});
+    this.scenePlugin.start(SceneKey.Menu);
+  }
+
   private render(snapshot: RunSummarySnapshot): void {
     this.rebuildCount += 1;
     if (this.disposed) {
@@ -306,14 +320,23 @@ export class PhaserRunSummaryView {
         unlocked.setOrigin(0.5);
       }
 
-      const retryY = height - margin - hitTarget * 2 - 20;
+      const hasNextStage = snapshot.canContinue && this.onNextStage !== undefined;
+      const buttonCount = hasNextStage ? 3 : 2;
+      const firstButtonY = height - margin - hitTarget * buttonCount - 12 * (buttonCount - 1);
+      const buttons: import('./modal').ModalButtonHandle[] = [];
+      if (hasNextStage) {
+        buttons.push(this.modal.addButton(root, centerX, firstButtonY, buttonWidth, 'Next Contract', () => {
+          this.continueToNextStage();
+        }, true));
+      }
+      const retryY = firstButtonY + (hasNextStage ? hitTarget + 12 : 0);
       const retry = this.modal.addButton(root, centerX, retryY, buttonWidth, 'Retry', () => {
         this.retry();
       }, true);
       const menu = this.modal.addButton(root, centerX, retryY + hitTarget + 12, buttonWidth, 'Main Menu', () => {
         this.returnToMenu();
       });
-      const buttons = [retry, menu];
+      buttons.push(retry, menu);
       // F5: summary modal buttons participate in pointer-hover focus —
       // silent index sync, exactly one FocusStroke ring on hover, cleared on
       // out, and the logical index is set before pointer-up activation.

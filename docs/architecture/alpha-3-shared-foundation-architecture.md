@@ -232,7 +232,7 @@ an explicit migration/deprecation path.
 A new authoritative, Phaser-free stage/objective state owner with explicit lifecycle:
 
 ```ts
-type StageStatus = 'intro' | 'active' | 'objective-complete' | 'extraction' | 'won' | 'failed';
+type StageStatus = 'intro' | 'active' | 'objective-complete' | 'won' | 'failed';
 
 interface StageState {
   status: StageStatus;
@@ -245,11 +245,12 @@ interface StageState {
 **Lifecycle:**
 
 ```text
-intro → active → objective-complete → extraction? → won
+intro → active → objective-complete → won
                      ↘ failed
 ```
 
-Exact extraction/greed semantics belong to Epic 20.
+Epic 20 currently commits an immediate durable clear; optional extraction/greed
+semantics are not part of this shared contract.
 
 **Rules:**
 - `GameScene` never decides success by content ID.
@@ -1049,7 +1050,7 @@ No player-facing Alpha 3 content needs to be implemented to close this architect
 // === Stage / Progression ===
 interface StageRunRequest { readonly characterId: string; readonly stageId: string; readonly seed: number; }
 interface ResolvedRunPlan { readonly characterId: string; readonly stageId: string; readonly arenaId: string; readonly objective: ResolvedObjective; readonly encounter: ResolvedEncounterProfile; readonly difficulty: ResolvedDifficultyProfile; readonly reward: ResolvedRewardProfile; readonly seed: number; }
-type StageStatus = 'intro' | 'active' | 'objective-complete' | 'extraction' | 'won' | 'failed';
+type StageStatus = 'intro' | 'active' | 'objective-complete' | 'won' | 'failed';
 interface StageState { status: StageStatus; objectiveProgress: ObjectiveProgress; timeMs: number; }
 
 // === Objective Vocabulary ===

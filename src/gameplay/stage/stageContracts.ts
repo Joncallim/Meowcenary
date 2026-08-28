@@ -107,7 +107,7 @@ export interface ResolvedRunPlan {
 
 // ── Stage status (§3.4) ──────────────────────────────────────────────
 
-export type StageStatus = 'intro' | 'active' | 'objective-complete' | 'extraction' | 'won' | 'failed';
+export type StageStatus = 'intro' | 'active' | 'objective-complete' | 'won' | 'failed';
 
 export interface ObjectiveProgress {
   readonly type: ObjectiveType['type'];
@@ -285,7 +285,7 @@ export function updateObjectiveProgress(
  * Terminal — no further transitions from 'won'.
  */
 export function winStage(state: StageState): StageState {
-  if (state.status !== 'objective-complete' && state.status !== 'extraction') return state;
+  if (state.status !== 'objective-complete') return state;
   return { ...state, status: 'won' };
 }
 
@@ -295,17 +295,6 @@ export function winStage(state: StageState): StageState {
 export function failStage(state: StageState): StageState {
   if (state.status === 'won' || state.status === 'failed') return state;
   return { ...state, status: 'failed' };
-}
-
-/**
- * Extraction: the player has chosen to leave the arena after completing the
- * objective. This is the "safe" exit — no greed risk.
- * Valid from 'objective-complete'; idempotent from 'extraction'.
- */
-export function extractStage(state: StageState): StageState {
-  if (state.status !== 'objective-complete' && state.status !== 'extraction') return state;
-  if (state.status === 'extraction') return state;
-  return { ...state, status: 'extraction' };
 }
 
 /**

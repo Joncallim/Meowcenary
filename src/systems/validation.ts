@@ -86,6 +86,7 @@ import {
   assertStageRewardReferences,
   assertStageEncounterEnemyReferences,
   assertBossStageSemantics,
+  assertStageDefeatEnemyReferences,
   assertStageRewardLootTableReferences,
   assertStageUnlockReferences,
 } from './validation/stages';
@@ -476,6 +477,10 @@ export const CATALOG_LEVEL_ASSERTIONS: ReadonlyArray<{
   { key: 'weapons', assert: (rows) => assertUniqueIds('weapons.json', rows as WeaponDefinition[]) },
   { key: 'upgrades', assert: (rows) => assertUniqueIds('upgrades.json', rows as UpgradeDefinition[]) },
   { key: 'spawnCurves', assert: (rows) => assertUniqueIds('spawn-curves.json', rows as SpawnCurveDefinition[]) },
+  { key: 'stages', assert: (rows) => assertUniqueIds('stages.json', rows as StageDefinition[]) },
+  { key: 'encounterProfiles', assert: (rows) => assertUniqueIds('encounter-profiles.json', rows as EncounterProfile[]) },
+  { key: 'difficultyProfiles', assert: (rows) => assertUniqueIds('difficulty-profiles.json', rows as DifficultyProfile[]) },
+  { key: 'rewardProfiles', assert: (rows) => assertUniqueIds('reward-profiles.json', rows as RewardProfile[]) },
   { key: 'weapons', assert: (rows) => assertWeaponTiers(rows as WeaponDefinition[]) },
   { key: 'weapons', assert: (rows) => assertStarterWeapons(rows as WeaponDefinition[]) },
   { key: 'spawnCurves', assert: (rows) => assertPlayableSpawnCurves(rows as SpawnCurveDefinition[]) },
@@ -611,6 +616,7 @@ export function validateGameData(raw: unknown): GameData {
   assertStageDifficultyReferences(stages, difficultyProfileIdSet);
   assertStageRewardReferences(stages, rewardProfileIdSet);
   assertStageEncounterEnemyReferences(encounterProfiles, enemyIdSet);
+  assertStageDefeatEnemyReferences(stages, enemyIdSet);
   assertBossStageSemantics(stages, encounterProfiles);
   assertStageRewardLootTableReferences(rewardProfiles, lootTableIdSet);
   assertStageUnlockReferences(stages, stageIdSet);

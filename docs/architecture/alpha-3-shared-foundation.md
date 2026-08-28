@@ -134,11 +134,12 @@ Alpha 3 must have an authoritative Phaser-free or Phaser-independent stage/objec
 Conceptual lifecycle:
 
 ```text
-intro -> active -> objective-complete -> clearing/extraction? -> won
+intro -> active -> objective-complete -> won
                          \-> failed/lost
 ```
 
-Exact extraction/greed semantics belong to Epic 20.
+Epic 20 currently uses an immediate durable clear boundary; optional
+extraction/greed semantics are intentionally not represented in the shared state.
 
 Rules:
 

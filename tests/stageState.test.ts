@@ -3,7 +3,6 @@ import {
   createStageState,
   activateStage,
   updateObjectiveProgress,
-  extractStage,
   winStage,
   failStage,
   tickStage,
@@ -45,36 +44,21 @@ describe('stage state lifecycle (Epic 20 §3.4)', () => {
     expect(updateObjectiveProgress(won, 5)).toBe(won);
   });
 
-  it('objective-complete → extraction → won (safe exit, no greed risk)', () => {
-    let state = activateStage(createStageState('stage:junkyard-01', killObjective));
-    state = updateObjectiveProgress(state, 20);
-    const extracting = extractStage(state);
-    expect(extracting.status).toBe('extraction');
-    // Idempotent extraction
-    expect(extractStage(extracting)).toBe(extracting);
-    const won = winStage(extracting);
-    expect(won.status).toBe('won');
-    // Terminal: no further transitions
-    expect(failStage(won)).toBe(won);
-    expect(extractStage(won)).toBe(won);
-  });
-
   it('objective-complete → won directly (immediate win path)', () => {
     let state = activateStage(createStageState('stage:junkyard-01', killObjective));
     state = updateObjectiveProgress(state, 20);
     expect(winStage(state).status).toBe('won');
   });
 
-  it('win/fail/extract are rejected from illegal states', () => {
+  it('win is rejected from illegal states', () => {
     const intro = createStageState('stage:junkyard-01', killObjective);
     expect(winStage(intro)).toBe(intro);
-    expect(extractStage(intro)).toBe(intro);
     const active = activateStage(intro);
     expect(winStage(active)).toBe(active);
   });
 
   it('fail is allowed from any non-terminal status and is terminal', () => {
-    for (const status of ['intro', 'active', 'objective-complete', 'extraction'] as const) {
+    for (const status of ['intro', 'active', 'objective-complete'] as const) {
       const state = { ...createStageState('s', killObjective), status };
       const failed = failStage(state);
       expect(failed.status).toBe('failed');

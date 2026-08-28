@@ -77,6 +77,10 @@ export type SelectArenaFailureReason = 'unknown-arena' | 'locked' | 'stale-selec
 export type SelectArenaResult =
   | { readonly ok: true; readonly arenaId: string; readonly revision: number }
   | { readonly ok: false; readonly reason: SelectArenaFailureReason; readonly arenaId: string; readonly revision: number };
+export type SelectStageFailureReason = 'unknown-stage' | 'locked' | 'stale-selection';
+export type SelectStageResult =
+  | { readonly ok: true; readonly stageId: string; readonly revision: number }
+  | { readonly ok: false; readonly reason: SelectStageFailureReason; readonly stageId: string; readonly revision: number };
 
 export interface GameContext {
   readonly bus: EventBus;
@@ -113,7 +117,7 @@ export interface GameContext {
   resetProgression(): PersistenceUpdate<MetaState>;
   selectCharacter(characterId: string, expectedRevision: number): SelectCharacterResult;
   selectArena(arenaId: string, expectedRevision: number): SelectArenaResult;
-  selectStage(stageId: string, expectedRevision: number): SelectArenaResult;
+  selectStage(stageId: string, expectedRevision: number): SelectStageResult;
 }
 
 export interface CreateGameContextOptions {
@@ -391,9 +395,9 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       arenaSelectionRevision += 1;
       return { ok: true, arenaId, revision: arenaSelectionRevision };
     },
-    selectStage(stageId: string, expectedRevision: number): SelectArenaResult {
+    selectStage(stageId: string, expectedRevision: number): SelectStageResult {
       const stage = context.stages.stageById(stageId);
-      if (!stage || expectedRevision !== stageSelectionRevision) return { ok: false, reason: !stage ? 'unknown-arena' : 'stale-selection', arenaId: selectedStageId, revision: stageSelectionRevision };
+      if (!stage || expectedRevision !== stageSelectionRevision) return { ok: false, reason: !stage ? 'unknown-stage' : 'stale-selection', stageId: selectedStageId, revision: stageSelectionRevision };
       const facts = createConditionContext(current.progression, {
         stages: current.stages,
         achievements: current.achievements,
@@ -401,11 +405,11 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         bosses: current.bosses,
       });
       if (!evaluateCondition(stage.unlock as ProgressionCondition, facts)) {
-        return { ok: false, reason: 'locked', arenaId: selectedStageId, revision: stageSelectionRevision };
+        return { ok: false, reason: 'locked', stageId: selectedStageId, revision: stageSelectionRevision };
       }
       selectedStageId = stageId;
       stageSelectionRevision += 1;
-      return { ok: true, arenaId: selectedStageId, revision: stageSelectionRevision };
+      return { ok: true, stageId: selectedStageId, revision: stageSelectionRevision };
     },
   };
   branded.add(context);
