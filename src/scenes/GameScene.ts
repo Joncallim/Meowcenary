@@ -10,7 +10,7 @@ import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
 import { assembleRunRequest } from '../gameplay/runRequest';
-import { resolveRunPlan } from '../gameplay/stage/stageContracts';
+import { createStageState, resolveRunPlan, updateObjectiveProgress, type ResolvedRunPlan, type StageState } from '../gameplay/stage/stageContracts';
 import {
   endRun,
   startRun,
@@ -118,6 +118,8 @@ export class GameScene extends Phaser.Scene {
   private audioManager?: AudioManager;
   private audioUnlockUnsub?: () => void;
   private dpsMeter?: DpsMeter;
+  private stagePlan?: ResolvedRunPlan;
+  private stageState?: StageState;
 
   constructor() {
     super(SceneKey.Game);
@@ -135,6 +137,8 @@ export class GameScene extends Phaser.Scene {
       difficultyProfiles: ctx.data.difficultyProfiles ?? [],
       rewardProfiles: ctx.data.rewardProfiles ?? [],
     });
+    this.stagePlan = plan;
+    this.stageState = createStageState(plan.stageId, plan.objective.definition);
     const visualArt = new DataVisualArtRegistry(ctx.data);
 
     const arena = ctx.arenas.arenaById(plan.arenaId);
@@ -184,6 +188,7 @@ export class GameScene extends Phaser.Scene {
     this.dpsMeter = dpsMeter;
     const runStateForMetrics = this.runState;
     this.unsubscribers.push(
+      ctx.bus.on('enemy:killed', ({ enemyId }) => this.recordStageEnemyDefeat(enemyId)),
       ctx.bus.on('enemy:damaged', ({ amount }) => {
         dpsMeter.record(amount, runStateForMetrics.timeMs);
       }),
@@ -491,7 +496,7 @@ export class GameScene extends Phaser.Scene {
     this.runSummaryView?.refreshInputPresentation();
     this.upgradeChooser?.refreshInputPresentation();
     tickRun(runState, delta);
-    this.maybeEndRunForVictory(ctx, runState);
+    this.updateStageObjective(ctx, delta);
     this.syncPhysicsPause(runState);
     this.player.update(delta);
     this.systems.forEach((system) => {
@@ -783,6 +788,31 @@ export class GameScene extends Phaser.Scene {
     ) {
       endRun(runState, 'won', ctx.bus);
     }
+  }
+
+  private recordStageEnemyDefeat(enemyId: string): void {
+    if (!this.stagePlan || !this.stageState || this.stageState.status !== 'active') return;
+    const objective = this.stagePlan.objective.definition;
+    if (objective.type === 'defeat' && objective.enemyId === enemyId) {
+      this.stageState = updateObjectiveProgress(this.stageState, 1);
+    } else if (objective.type === 'kill') {
+      this.stageState = updateObjectiveProgress(this.stageState, 1);
+    }
+  }
+
+  private updateStageObjective(ctx: GameContext, delta: number): void {
+    const runState = this.runState;
+    if (!runState || !this.stageState || !this.stagePlan) return;
+    if (this.stageState.status === 'intro') this.stageState = { ...this.stageState, status: 'active' };
+    if (this.stagePlan.objective.definition.type === 'survive' && this.stageState.status === 'active') {
+      this.stageState = updateObjectiveProgress(this.stageState, delta / 1000);
+    }
+    if (this.stageState.status === 'objective-complete' && runState.status === 'active') {
+      ctx.completeStage(this.stagePlan.stageId, runState.timeMs);
+      endRun(runState, 'won', ctx.bus);
+      return;
+    }
+    if (this.stagePlan === undefined) this.maybeEndRunForVictory(ctx, runState);
   }
 
   private syncPhysicsPause(runState: RunState): void {
