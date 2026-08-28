@@ -11,6 +11,24 @@ import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
 
 describe('GameContext persistence boundary', () => {
+  it('commits stage, boss fact, reward and receipt together or not at all', () => {
+    const { context, storage } = setup();
+    storage.succeed = false;
+    expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss-crusher', {
+      id: 'stage:junkyard-05:first-clear', grants: [{ type: 'grant-scrap', amount: 75 }],
+    })).toBe(false);
+    expect(context.saveData.stages['stage:junkyard-05']).toBeUndefined();
+    expect(context.saveData.bosses['boss-crusher']).toBeUndefined();
+    storage.succeed = true;
+    expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss-crusher', {
+      id: 'stage:junkyard-05:first-clear', grants: [{ type: 'grant-scrap', amount: 75 }],
+    })).toBe(true);
+    expect(context.saveData.stages['stage:junkyard-05'].completed).toBe(true);
+    expect(context.saveData.bosses['boss-crusher'].defeated).toBe(true);
+    expect(context.saveData.progression.scrap).toBe(75);
+    expect(context.saveData.appliedGrantTransactions['stage:junkyard-05:first-clear']).toBe(true);
+  });
+
   it('loads once and keeps settings/meta in one immutable current snapshot', () => {
     const { context, storage } = setup();
     const original = context.saveData;

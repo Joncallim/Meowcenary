@@ -91,6 +91,9 @@ export interface GameContext {
   updateSettings(patch: Readonly<Partial<Settings>>): PersistenceUpdate<Settings>;
   updateMeta(transform: (meta: MetaState) => MetaState): PersistenceUpdate<MetaState>;
   applyGrantTransaction(transaction: DurableGrantTransaction): boolean;
+  /** One durable commit for the first-clear fact, optional boss fact, and its
+   * source-owned rewards.  No fact becomes visible without its receipt. */
+  completeStageTransaction(stageId: string, timeMs: number, bossId: string | undefined, transaction: DurableGrantTransaction): boolean;
   /** Persist stage completion into Save V3 stages domain. Returns true if saved. */
   completeStage(stageId: string, timeMs: number): boolean;
   resetProgression(): PersistenceUpdate<MetaState>;
@@ -189,6 +192,33 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       });
       // Do not expose a reward that failed to become durable: retry receives
       // the same source transaction ID against the unchanged snapshot.
+      if (!options.save.save(save)) return false;
+      current = save;
+      revalidateSelection();
+      return true;
+    },
+    completeStageTransaction(stageId, timeMs, bossId, transaction) {
+      const granted = applyDurableGrantTransaction(current, transaction);
+      if (!granted.changed) return true;
+      const previous = current.stages[stageId];
+      const stage = Object.freeze({
+        completed: true,
+        ...(timeMs > 0 ? { bestTimeMs: previous?.bestTimeMs !== undefined && previous.bestTimeMs < timeMs ? previous.bestTimeMs : timeMs } : {}),
+      });
+      const bosses = bossId === undefined ? current.bosses : Object.freeze({
+        ...current.bosses,
+        [bossId]: {
+          ...(current.bosses[bossId] ?? {}),
+          defeated: true,
+          ...(current.bosses[bossId]?.firstDefeatedAt === undefined ? { firstDefeatedAt: timeMs } : {}),
+        },
+      });
+      const save = Object.freeze({
+        ...granted.save,
+        progression: sanitizeProgression(granted.save.progression, options.metaUpgrades.maxLevels()),
+        stages: Object.freeze({ ...current.stages, [stageId]: stage }),
+        bosses,
+      });
       if (!options.save.save(save)) return false;
       current = save;
       revalidateSelection();

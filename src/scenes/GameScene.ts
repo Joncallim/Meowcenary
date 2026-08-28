@@ -813,8 +813,18 @@ export class GameScene extends Phaser.Scene {
       this.stageState = updateObjectiveProgress(this.stageState, delta / 1000);
     }
     if (this.stageState.status === 'objective-complete' && runState.status === 'active') {
-      ctx.completeStage(this.stagePlan.stageId, runState.timeMs);
-      endRun(runState, 'won', ctx.bus);
+      const reward = this.stagePlan.reward.scrapBase
+        + Math.floor(runState.timeMs / 60_000) * this.stagePlan.reward.scrapPerMinute;
+      const committed = ctx.completeStageTransaction(
+        this.stagePlan.stageId,
+        runState.timeMs,
+        this.stagePlan.encounter.bossId,
+        {
+          id: `stage:${this.stagePlan.stageId.slice('stage:'.length)}:first-clear`,
+          grants: [{ type: 'grant-scrap', amount: Math.max(1, reward) }],
+        },
+      );
+      if (committed) endRun(runState, 'won', ctx.bus);
       return;
     }
   }
