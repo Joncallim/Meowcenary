@@ -1,0 +1,116 @@
+[
+  {
+    "id": "achievement:first-kill",
+    "name": "First Blood",
+    "description": "Defeat your first enemy.",
+    "kind": "standard",
+    "target": 1,
+    "metricId": "metric:enemies-defeated",
+    "rewards": [
+      { "grant": { "type": "grant-scrap", "amount": 25 } }
+    ]
+  },
+  {
+    "id": "achievement:kill-milestone-25",
+    "name": "Scrap Squad",
+    "description": "Defeat 25 enemies.",
+    "kind": "incremental",
+    "target": 25,
+    "metricId": "metric:enemies-defeated"
+  },
+  {
+    "id": "achievement:kill-milestone-100",
+    "name": "Junkyard Veteran",
+    "description": "Defeat 100 enemies.",
+    "kind": "incremental",
+    "target": 100,
+    "metricId": "metric:enemies-defeated",
+    "rewards": [
+      { "grant": { "type": "unlock-character", "characterId": "bolt-hound" } }
+    ]
+  },
+  {
+    "id": "achievement:first-merge",
+    "name": "Forge Initiate",
+    "description": "Merge two weapons for the first time.",
+    "kind": "standard",
+    "target": 1,
+    "metricId": "metric:merges-performed",
+    "rewards": [
+      { "grant": { "type": "grant-scrap", "amount": 50 } }
+    ]
+  },
+  {
+    "id": "achievement:boss-crusher",
+    "name": "Crusher Down",
+    "description": "Defeat the Scrap Crusher boss.",
+    "kind": "standard",
+    "target": 1,
+    "condition": { "type": "boss-defeated", "bossId": "crusher" },
+    "rewards": [
+      { "grant": { "type": "grant-scrap", "amount": 100 } }
+    ]
+  },
+  {
+    "id": "achievement:chapter-junkyard",
+    "name": "Junkyard Champion",
+    "description": "Clear all five stages of the Junkyard chapter.",
+    "kind": "standard",
+    "target": 1,
+    "condition": {
+      "type": "all",
+      "conditions": [
+        { "type": "stage-cleared", "stageId": "stage:junkyard-01" },
+        { "type": "stage-cleared", "stageId": "stage:junkyard-02" },
+        { "type": "stage-cleared", "stageId": "stage:junkyard-03" },
+        { "type": "stage-cleared", "stageId": "stage:junkyard-04" },
+        { "type": "stage-cleared", "stageId": "stage:junkyard-05" }
+      ]
+    },
+    "rewards": [
+      { "grant": { "type": "grant-scrap", "amount": 200 } }
+    ]
+  },
+  {
+    "id": "achievement:first-victory",
+    "name": "First Victory",
+    "description": "Complete your first run.",
+    "kind": "standard",
+    "target": 1,
+    "metricId": "metric:runs-completed",
+    "rewards": [
+      { "grant": { "type": "grant-scrap", "amount": 25 } }
+    ]
+  },
+  {
+    "id": "achievement:mastery-scrap-tabby",
+    "name": "Tabby Mastery",
+    "description": "Reach mastery tier 1 with Scrap Tabby.",
+    "kind": "mastery",
+    "target": 1,
+    "condition": { "type": "mastery-reached", "subjectId": "scrap-tabby", "tier": 1 },
+    "rewards": [
+      { "grant": { "type": "grant-scrap", "amount": 75 } }
+    ]
+  },
+  {
+    "id": "achievement:scrap-banked-1000",
+    "name": "Scrap Tycoon",
+    "description": "Bank 1,000 total scrap.",
+    "kind": "incremental",
+    "target": 1000,
+    "metricId": "metric:scrap-banked",
+    "hidden": true
+  },
+  {
+    "id": "achievement:permanent-reinforced-coat-3",
+    "name": "Well Protected",
+    "description": "Reach level 3 of the Reinforced Coat permanent upgrade.",
+    "kind": "standard",
+    "target": 1,
+    "condition": { "type": "permanent-level", "upgradeId": "reinforced-coat", "minLevel": 3 },
+    "rewards": [
+      { "grant": { "type": "grant-scrap", "amount": 150 } }
+    ]
+  }
+]
