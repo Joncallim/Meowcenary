@@ -3,6 +3,7 @@ import './__mocks__/phaser';
 import abilitiesJson from '../src/data/abilities.json';
 import { GameScene } from '../src/scenes/GameScene';
 import type { AbilityDefinition } from '../src/gameplay/abilities';
+import { checkAbility } from '../src/systems/validation/abilities';
 
 const abilities = new Map((abilitiesJson as AbilityDefinition[]).map((ability) => [ability.id, ability]));
 
@@ -19,6 +20,12 @@ function activate(id: string) {
 }
 
 describe('GameScene character ability runtime bridge', () => {
+  it('rejects a stat burst whose cleanup source is not its ability identity', () => {
+    expect(checkAbility({ id: 'ability:fixture', name: 'Fixture', description: 'Fixture', cooldownMs: 1, durationMs: 1,
+      effect: { kind: 'stat-burst', modifiers: [{ stat: 'damage', op: 'mult', value: 2, sourceId: 'ability:other' }] } }, 0))
+      .toContain('effect.modifiers[0].sourceId: must equal ability ID');
+  });
+
   it('executes heal and invulnerability through the live player owner exactly once per cooldown', () => {
     const heal = activate('ability:giga-chomp');
     expect(heal.player.heal).toHaveBeenCalledWith(40);
