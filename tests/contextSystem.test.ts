@@ -123,6 +123,24 @@ describe('GameContext persistence boundary', () => {
     expect(storage.setCalls).toBe(2);
   });
 
+  it('publishes equipment mutations only after the complete loadout is durable', () => {
+    const { context, storage } = setup();
+    storage.succeed = false;
+    const failed = context.updateEquipment(() => ({
+      equipment: { 'owned:helmet': { equipmentId: 'equipment:commando-helmet', tier: 1 } },
+      loadout: { helmet: 'owned:helmet' },
+    }));
+    expect(failed.persisted).toBe(false);
+    expect(context.saveData.equipment['owned:helmet']).toBeUndefined();
+    storage.succeed = true;
+    const saved = context.updateEquipment(() => ({
+      equipment: { 'owned:helmet': { equipmentId: 'equipment:commando-helmet', tier: 1 } },
+      loadout: { helmet: 'owned:helmet' },
+    }));
+    expect(saved.persisted).toBe(true);
+    expect(context.saveData.equipmentLoadout?.helmet).toBe('owned:helmet');
+  });
+
   it('reset preserves settings and failed persistence retains the new snapshot', () => {
     const { context, storage } = setup();
     context.updateSettings({ reducedMotion: true });
