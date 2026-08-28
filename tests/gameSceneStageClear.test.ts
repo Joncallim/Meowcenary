@@ -2,7 +2,19 @@ import { describe, expect, it, vi } from 'vitest';
 import './__mocks__/phaser';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRunState } from '../src/gameplay/runState';
+import { createStageRuntime } from '../src/gameplay/stage/stageRuntime';
 import { GameScene } from '../src/scenes/GameScene';
+
+function completedRuntime(reward: Record<string, unknown>) {
+  const runtime = createStageRuntime({
+    stageId: 'stage:junkyard-01', encounter: {}, reward,
+    objective: { definition: { type: 'kill', count: 1 } },
+  } as any);
+  runtime.tick(0, 0);
+  runtime.recordEnemyDefeat('enemy:proof');
+  runtime.tick(0, 61_000);
+  return runtime;
+}
 
 /** Regression for the runtime boundary: a failed save must retain the exact
  * objective-completion snapshot rather than recomputing/losing its reward. */
@@ -13,13 +25,9 @@ describe('GameScene durable stage clear', () => {
     run.status = 'active';
     run.timeMs = 61_000;
     scene.runState = run;
-    scene.stagePlan = {
-      stageId: 'stage:junkyard-01', encounter: {}, reward: { scrapBase: 25, scrapPerMinute: 10 },
-    };
-    scene.stageState = { status: 'objective-complete' };
+    scene.stageRuntime = completedRuntime({ scrapBase: 25, scrapPerMinute: 10 });
     scene.physics = { world: { pause: vi.fn(), resume: vi.fn() } };
-    scene.captureStageClear();
-    expect(scene.pendingStageClear).toMatchObject({ timeMs: 61_000, reward: 35 });
+    expect(scene.stageRuntime.pendingClear).toMatchObject({ timeMs: 61_000, reward: 35 });
 
     const completeStageTransaction = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
     const context = { completeStageTransaction, bus: createEventBus() };
@@ -45,15 +53,10 @@ describe('GameScene durable stage clear', () => {
     const run = createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'junkyard-lot' });
     run.status = 'active';
     scene.runState = run;
-    scene.stagePlan = {
-      stageId: 'stage:junkyard-01', encounter: {},
-      reward: { scrapBase: 25, scrapPerMinute: 0, grants: [{ type: 'grant-part-instance', instanceId: 'reward:proof', partId: 'part:barrel-standard', tier: 1 }] },
-    };
-    scene.stageState = { status: 'objective-complete' };
-    scene.captureStageClear();
+    scene.stageRuntime = completedRuntime({ scrapBase: 25, scrapPerMinute: 0, grants: [{ type: 'grant-part-instance', instanceId: 'reward:proof', partId: 'part:barrel-standard', tier: 1 }] });
     const completeStageTransaction = vi.fn().mockReturnValue(true);
     expect(scene.tryCommitStageClear({ completeStageTransaction, bus: createEventBus() })).toBe(true);
-    expect(completeStageTransaction).toHaveBeenCalledWith('stage:junkyard-01', 0, undefined, {
+    expect(completeStageTransaction).toHaveBeenCalledWith('stage:junkyard-01', 61_000, undefined, {
       id: 'stage:junkyard-01:first-clear',
       grants: [
         { type: 'grant-scrap', amount: 25 },
@@ -67,10 +70,8 @@ describe('GameScene durable stage clear', () => {
     const run = createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'junkyard-lot' });
     run.status = 'active';
     scene.runState = run;
-    scene.stagePlan = { stageId: 'stage:junkyard-01', encounter: {}, reward: { scrapBase: 25, scrapPerMinute: 0 } };
-    scene.stageState = { status: 'objective-complete', objectiveProgress: { type: 'kill', current: 3, target: 3 } };
+    scene.stageRuntime = completedRuntime({ scrapBase: 25, scrapPerMinute: 0 });
     scene.physics = { world: { pause: vi.fn(), resume: vi.fn() } };
-    scene.captureStageClear();
     const completeStageTransaction = vi.fn().mockReturnValue(true);
     scene.getContext = () => ({ completeStageTransaction, bus: createEventBus() });
     scene.pauseController = { snapshot: () => ({ panel: 'closed' }) };

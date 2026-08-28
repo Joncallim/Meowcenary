@@ -10,9 +10,9 @@ import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
 import { assembleComposedRunRequest } from '../gameplay/runRequest';
-import { createStageState, resolveRunPlan, tickStage, updateObjectiveProgress, winStage, type ResolvedRunPlan, type StageState } from '../gameplay/stage/stageContracts';
+import { resolveRunPlan, type ResolvedRunPlan } from '../gameplay/stage/stageContracts';
+import { createStageRuntime, type StageRuntime } from '../gameplay/stage/stageRuntime';
 import { composeStageSpawnCurve } from '../gameplay/stage/spawnComposition';
-import { recordCollect, recordDefeat, recordKill, tickSurvive } from '../gameplay/objectiveProgress';
 import {
   endRun,
   startRun,
@@ -131,10 +131,7 @@ export class GameScene extends Phaser.Scene {
   private audioUnlockUnsub?: () => void;
   private dpsMeter?: DpsMeter;
   private stagePlan?: ResolvedRunPlan;
-  private stageState?: StageState;
-  /** Objective completion is a durable boundary.  Capture the source reward
-   * exactly once so persistence retries cannot drift with later run time. */
-  private pendingStageClear?: { readonly stageId: string; readonly timeMs: number; readonly bossId?: string; readonly reward: number; readonly grants: readonly import('../gameplay/grantProcessor').ProgressionGrant[] };
+  private stageRuntime?: StageRuntime;
   private enemyDefinitions?: DataEnemyRegistry;
   private abilityDefinition?: AbilityDefinition;
   private abilityState: AbilityState = createAbilityState();
@@ -157,7 +154,7 @@ export class GameScene extends Phaser.Scene {
       )
       : undefined;
     this.stagePlan = plan;
-    this.stageState = plan ? createStageState(plan.stageId, plan.objective.definition) : undefined;
+    this.stageRuntime = plan ? createStageRuntime(plan) : undefined;
     const visualArt = new DataVisualArtRegistry(ctx.data);
 
     const arenaId = request.kind === 'stage' ? plan!.arenaId : request.arenaId;
@@ -582,7 +579,7 @@ export class GameScene extends Phaser.Scene {
     // Objective completion is a durable boundary. A transient save failure
     // must not leave combat running long enough to turn an earned clear into
     // a loss; the next frames retry only the idempotent transaction.
-    if (this.pendingStageClear && runState.status === 'active') {
+    if (this.stageRuntime?.pendingClear && runState.status === 'active') {
       this.audioManager?.update(delta);
       return;
     }
@@ -811,7 +808,7 @@ export class GameScene extends Phaser.Scene {
     // A completed contract deliberately pauses at an extraction boundary.
     // Confirm is shared by keyboard, controller, and touch; no input scheme
     // gets a special completion path.
-    if (action === 'confirm' && this.pendingStageClear !== undefined) {
+    if (action === 'confirm' && this.stageRuntime?.pendingClear !== undefined) {
       this.tryCommitStageClear(this.getContext());
       return;
     }
@@ -868,7 +865,7 @@ export class GameScene extends Phaser.Scene {
 
   private forceLoseRun(): void {
     const runState = this.runState;
-    if (!RuntimeConfig.isDev || !runState || runState.status !== 'active' || this.pendingStageClear) {
+    if (!RuntimeConfig.isDev || !runState || runState.status !== 'active' || this.stageRuntime?.pendingClear) {
       return;
     }
 
@@ -919,47 +916,18 @@ export class GameScene extends Phaser.Scene {
   }
 
   private recordStageEnemyDefeat(enemyId: string): void {
-    if (!this.stagePlan || !this.stageState || this.stageState.status !== 'active') return;
-    const objective = this.stagePlan.objective.definition;
-    const progress = this.stageState.objectiveProgress;
-    if (objective.type === 'defeat') {
-      const next = recordDefeat(progress, enemyId, objective.enemyId);
-      if (next !== progress) {
-        this.stageState = updateObjectiveProgress(this.stageState, next.current - progress.current);
-        this.captureStageClear();
-      }
-      return;
-    }
-    if (objective.type === 'kill') {
-      const next = recordKill(progress, this.enemyDefinitions?.resolvedById(enemyId)?.archetype, objective.enemyTag);
-      if (next !== progress) {
-        this.stageState = updateObjectiveProgress(this.stageState, next.current - progress.current);
-        this.captureStageClear();
-      }
-    }
+    this.stageRuntime?.recordEnemyDefeat(enemyId, this.enemyDefinitions?.resolvedById(enemyId)?.archetype);
   }
 
   /** The pickup kind is the authoritative live collection fact. Stage data
    * selects a generic item namespace (for example `drop:scrap`), so another
    * collect contract requires no stage-ID branch. */
   private recordStageCollection(itemId: string): void {
-    if (!this.stagePlan || !this.stageState || this.stageState.status !== 'active') return;
-    const objective = this.stagePlan.objective.definition;
-    if (objective.type !== 'collect') return;
-    const progress = this.stageState.objectiveProgress;
-    const next = recordCollect(progress, itemId, objective.itemId);
-    if (next !== progress) {
-      this.stageState = updateObjectiveProgress(this.stageState, next.current - progress.current);
-      this.captureStageClear();
-    }
+    this.stageRuntime?.recordCollection(itemId);
   }
 
   private describeStageObjective(): string | undefined {
-    if (!this.stagePlan || !this.stageState) return undefined;
-    if (this.stageState.status === 'objective-complete') return 'OBJECTIVE COMPLETE — Confirm to extract';
-    const progress = this.stageState.objectiveProgress;
-    const label = this.stagePlan.objective.definition.type === 'defeat' ? 'Defeat boss' : `Objective: ${progress.type}`;
-    return `${label} ${Math.min(progress.current, progress.target)}/${progress.target}`;
+    return this.stageRuntime?.describeObjective();
   }
 
   private evaluateLiveAchievements(ctx: GameContext, increments: Readonly<Record<string, number>>): void {
@@ -1002,53 +970,27 @@ export class GameScene extends Phaser.Scene {
   private updateStageObjective(ctx: GameContext, delta: number): void {
     const runState = this.runState;
     if (!runState) return;
-    if (!this.stageState || !this.stagePlan) {
+    if (!this.stageRuntime || !this.stagePlan) {
       this.maybeEndRunForVictory(ctx, runState);
       return;
     }
-    if (this.stageState.status === 'intro') this.stageState = { ...this.stageState, status: 'active' };
-    if (this.stageState.status === 'active') this.stageState = tickStage(this.stageState, delta);
-    if (this.stagePlan.objective.definition.type === 'survive' && this.stageState.status === 'active') {
-      const progress = this.stageState.objectiveProgress;
-      const next = tickSurvive(progress, delta);
-      if (next !== progress) {
-        this.stageState = updateObjectiveProgress(this.stageState, next.current - progress.current);
-        this.captureStageClear();
-      }
-    }
-    this.captureStageClear();
-  }
-
-  private captureStageClear(): void {
-    if (this.pendingStageClear || !this.stagePlan || !this.stageState || this.stageState.status !== 'objective-complete') return;
-    const timeMs = this.runState?.timeMs;
-    if (timeMs === undefined) return;
-    const reward = this.stagePlan.reward.scrapBase + Math.floor(timeMs / 60_000) * this.stagePlan.reward.scrapPerMinute;
-    this.pendingStageClear = Object.freeze({
-      stageId: this.stagePlan.stageId,
-      timeMs,
-      bossId: this.stagePlan.encounter.bossId,
-      reward: Math.max(1, reward),
-      grants: this.stagePlan.reward.grants ?? [],
-    });
+    this.stageRuntime.tick(delta, runState.timeMs);
   }
 
   private tryCommitStageClear(ctx: GameContext): boolean {
-    const pending = this.pendingStageClear;
-    if (!pending || !this.stageState) return false;
-    const committed = ctx.completeStageTransaction(pending.stageId, pending.timeMs, pending.bossId, {
+    const runtime = this.stageRuntime;
+    if (!runtime) return false;
+    const committed = runtime.tryCommit((pending) => ctx.completeStageTransaction(pending.stageId, pending.timeMs, pending.bossId, {
       id: `stage:${pending.stageId.slice('stage:'.length)}:first-clear`,
       grants: [{ type: 'grant-scrap', amount: pending.reward }, ...(pending.grants ?? [])],
-    });
+    }));
     if (!committed) return false;
-    this.pendingStageClear = undefined;
-    this.stageState = winStage(this.stageState);
     if (this.runState?.status === 'active') endRun(this.runState, 'won', ctx.bus);
     return true;
   }
 
   private syncPhysicsPause(runState: RunState): void {
-    const shouldPause = runState.status !== 'active' || this.pendingStageClear !== undefined;
+    const shouldPause = runState.status !== 'active' || this.stageRuntime?.pendingClear !== undefined;
     if (shouldPause && !this.physicsPausedByRun) {
       this.physics.world.pause();
       this.physicsPausedByRun = true;
