@@ -57,6 +57,43 @@
     }
   },
   {
+    "id": "junk-nester",
+    "name": "Junk Nester",
+    "archetype": "ranged",
+    "health": 30,
+    "damage": 4,
+    "speed": 38,
+    "xpValue": 5,
+    "scrapValue": 4,
+    "contactDamage": false,
+    "attack": {
+      "range": 175,
+      "telegraphMs": 900,
+      "cooldownMs": 1800
+    },
+    "summon": {
+      "enemyId": "dust-mite",
+      "count": 2,
+      "maxActive": 8
+    }
+  },
+  {
+    "id": "shard-bot",
+    "name": "Shard Bot",
+    "archetype": "chaser",
+    "health": 24,
+    "damage": 7,
+    "speed": 82,
+    "xpValue": 4,
+    "scrapValue": 3,
+    "contactDamage": true,
+    "splitOnDeath": {
+      "enemyId": "dust-mite",
+      "count": 2,
+      "maxActive": 10
+    }
+  },
+  {
     "id": "boss-crusher",
     "name": "Scrap Crusher",
     "archetype": "boss",
@@ -73,6 +110,29 @@
       "dashSpeed": 340,
       "dashDurationMs": 420,
       "cooldownMs": 1500
+    }
+  },
+  {
+    "id": "boss-forge",
+    "name": "Forge Warden",
+    "archetype": "boss",
+    "health": 360,
+    "damage": 16,
+    "speed": 54,
+    "xpValue": 45,
+    "scrapValue": 70,
+    "contactDamage": false,
+    "attack": {
+      "triggerRange": 180,
+      "telegraphMs": 700,
+      "dashSpeed": 300,
+      "dashDurationMs": 360,
+      "cooldownMs": 1200
+    },
+    "summon": {
+      "enemyId": "junk-rusher",
+      "count": 1,
+      "maxActive": 4
     }
   }
 ]

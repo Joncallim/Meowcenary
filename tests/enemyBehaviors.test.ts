@@ -6,7 +6,7 @@ import {
 } from '../src/gameplay/enemyBehaviors';
 import { chaseStep, chargerStep } from '../src/gameplay/enemyMovement';
 import type { ResolvedEnemyDefinition } from '../src/systems/types';
-import { loadGameData, validateGameData } from '../src/systems/validation';
+import { loadGameData, validateEnemyCatalog, validateGameData } from '../src/systems/validation';
 import { DataEnemyRegistry } from '../src/systems/enemies';
 import { resolveRunPlan } from '../src/gameplay/stage/stageContracts';
 import stagesJson from '../src/data/stages.json';
@@ -165,7 +165,7 @@ describe('Epic 21 enemy behavior registry', () => {
 
   it('boss encounter profile resolves through resolveRunPlan', () => {
     const stages = stagesJson as readonly StageDefinition[];
-    const encounters = encountersJson as readonly EncounterProfile[];
+    const encounters = encountersJson as unknown as readonly EncounterProfile[];
     const difficulties = difficultiesJson as readonly DifficultyProfile[];
     const rewards = rewardsJson as readonly RewardProfile[];
     const plan = resolveRunPlan(
@@ -177,6 +177,12 @@ describe('Epic 21 enemy behavior registry', () => {
 
   it('aggregate validation accepts the expanded roster and boss encounter', () => {
     expect(validateGameData(loadGameData())).toBeTruthy();
+  });
+
+  it('rejects boss summon targets before they can recurse through runtime spawning', () => {
+    const invalid = structuredClone(loadGameData().enemies) as unknown as Array<Record<string, unknown>>;
+    invalid[4] = { ...invalid[4], summon: { enemyId: 'boss-crusher', count: 1, maxActive: 1 } };
+    expect(() => validateEnemyCatalog(invalid)).toThrow('must be a direct non-boss enemy');
   });
 
   it('second-fixture proof: a new archetype registers one behavior + data, no Enemy.ts edit', () => {

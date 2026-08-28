@@ -19,7 +19,7 @@ import { resolveRunPlan } from '../src/gameplay/stage/stageContracts';
  */
 describe('Epic 20 stage catalog conformance', () => {
   const stages = stagesJson as readonly StageDefinition[];
-  const encounters = encountersJson as readonly EncounterProfile[];
+  const encounters = encountersJson as unknown as readonly EncounterProfile[];
   const difficulties = difficultiesJson as readonly DifficultyProfile[];
   const rewards = rewardsJson as readonly RewardProfile[];
 

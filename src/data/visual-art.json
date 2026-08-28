@@ -1297,6 +1297,81 @@
       "sampling": "nearest"
     },
     {
+      "id": "enemy:junk-nester",
+      "kind": "enemy",
+      "textureKey": "art-enemy-junk-nester",
+      "url": "assets/enemies/junk-nester/junk-nester.png",
+      "required": true,
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 313,
+          "height": 313
+        }
+      },
+      "display": {
+        "width": 26,
+        "height": 26
+      },
+      "clips": {
+        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
+        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 },
+        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
+        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
+      },
+      "sampling": "nearest"
+    },
+    {
+      "id": "enemy:shard-bot",
+      "kind": "enemy",
+      "textureKey": "art-enemy-shard-bot",
+      "url": "assets/enemies/shard-bot/shard-bot.png",
+      "required": true,
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 313,
+          "height": 313
+        }
+      },
+      "display": {
+        "width": 26,
+        "height": 26
+      },
+      "clips": {
+        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
+        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 },
+        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
+        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
+      },
+      "sampling": "nearest"
+    },
+    {
+      "id": "enemy:boss-forge",
+      "kind": "enemy",
+      "textureKey": "art-enemy-boss-forge",
+      "url": "assets/enemies/boss-forge/boss-forge.png",
+      "required": true,
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 309,
+          "height": 309
+        }
+      },
+      "display": {
+        "width": 38,
+        "height": 38
+      },
+      "clips": {
+        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
+        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 },
+        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
+        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
+      },
+      "sampling": "nearest"
+    },
+    {
       "id": "character:volt-lynx",
       "kind": "character",
       "textureKey": "art-character-volt-lynx",

@@ -12,11 +12,13 @@
     "id": "encounter:junkyard-mixed",
     "enemyIds": [
       "dust-mite",
-      "junk-rusher"
+      "junk-rusher",
+      "junk-nester"
     ],
     "compositionWeights": {
       "dust-mite": 3,
-      "junk-rusher": 1
+      "junk-rusher": 1,
+      "junk-nester": 1
     }
   },
   {
@@ -35,12 +37,14 @@
     "enemyIds": [
       "trash-brute",
       "dust-mite",
-      "junk-rusher"
+      "junk-rusher",
+      "shard-bot"
     ],
     "compositionWeights": {
       "trash-brute": 1,
       "dust-mite": 2,
-      "junk-rusher": 1
+      "junk-rusher": 1,
+      "shard-bot": 1
     }
   },
   {

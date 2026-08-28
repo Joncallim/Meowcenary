@@ -866,12 +866,16 @@ export function validateEnemyCatalog(raw: unknown): EnemyDefinition[] {
   const enemies = validate<EnemyDefinition>('enemies.json', raw, checkEnemy);
   assertUniqueIds('enemies.json', enemies);
   assertEliteReferences(enemies);
-  const ids = new Set(enemies.map((enemy) => enemy.id));
+  const byId = new Map(enemies.map((enemy) => [enemy.id, enemy]));
   for (const enemy of enemies) {
     if (enemy.archetype === 'elite') continue;
     for (const mechanic of [enemy.summon, enemy.splitOnDeath]) {
-      if (mechanic !== undefined && !ids.has(mechanic.enemyId)) {
+      const target = mechanic === undefined ? undefined : byId.get(mechanic.enemyId);
+      if (mechanic !== undefined && !target) {
         throw new Error(`enemy.${enemy.id}: summon target "${mechanic.enemyId}" not found in enemy catalog`);
+      }
+      if (target?.archetype === 'boss' || target?.archetype === 'elite') {
+        throw new Error(`enemy.${enemy.id}: summon target "${target.id}" must be a direct non-boss enemy`);
       }
     }
   }
