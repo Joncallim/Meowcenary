@@ -243,6 +243,7 @@ export class GameScene extends Phaser.Scene {
         runState: this.runState,
         player: this.player,
         durationMs: this.spawnCurve.durationSeconds * 1000,
+        objective: () => this.describeStageObjective(),
       }),
       new PhaserHudView({
         scene: this,
@@ -799,6 +800,13 @@ export class GameScene extends Phaser.Scene {
     } else if (objective.type === 'kill') {
       this.stageState = updateObjectiveProgress(this.stageState, 1);
     }
+  }
+
+  private describeStageObjective(): string | undefined {
+    if (!this.stagePlan || !this.stageState) return undefined;
+    const progress = this.stageState.objectiveProgress;
+    const label = this.stagePlan.objective.definition.type === 'defeat' ? 'Defeat boss' : `Objective: ${progress.type}`;
+    return `${label} ${Math.min(progress.current, progress.target)}/${progress.target}`;
   }
 
   private updateStageObjective(ctx: GameContext, delta: number): void {

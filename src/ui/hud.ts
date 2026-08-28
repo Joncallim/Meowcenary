@@ -21,6 +21,7 @@ export interface HudSnapshot {
   readonly xpToNext: number;
   readonly kills: number;
   readonly currency: number;
+  readonly objective?: string;
 }
 
 export interface HudSource {
@@ -110,6 +111,7 @@ function buildRenderKey(snapshot: HudSnapshot): string {
     snapshot.xpToNext,
     snapshot.kills,
     snapshot.currency.toFixed(2),
+    snapshot.objective ?? '',
 
   ].join('|');
 }
@@ -118,10 +120,11 @@ export interface CreateHudSourceOptions {
   readonly runState: RunState;
   readonly player: Player;
   readonly durationMs: number;
+  readonly objective?: () => string | undefined;
 }
 
 export function createHudSource(options: CreateHudSourceOptions): HudSource {
-  const { runState, player, durationMs } = options;
+  const { runState, player, durationMs, objective } = options;
   return {
     snapshot(): HudSnapshot {
 
@@ -136,6 +139,7 @@ export function createHudSource(options: CreateHudSourceOptions): HudSource {
         xpToNext: runState.xpToNext,
         kills: runState.kills,
         currency: runState.currency,
+        ...(objective?.() ? { objective: objective() } : {}),
       };
       return Object.freeze(snapshot);
     },
@@ -188,7 +192,7 @@ function topHudLayout(viewport: UiViewport): TopHudLayout {
 export function topHudContentBottom(viewport: UiViewport): number {
   const layout = topHudLayout(viewport);
   const renderedLabelRow = layout.labelSize * 1.25;
-  return layout.statsTop + layout.statsStride * 2 + renderedLabelRow;
+  return layout.statsTop + layout.statsStride * 3 + renderedLabelRow;
 }
 
 export class PhaserHudView implements HudView {
@@ -204,6 +208,7 @@ export class PhaserHudView implements HudView {
   private levelText!: Phaser.GameObjects.Text;
   private scrapText!: Phaser.GameObjects.Text;
   private killsText!: Phaser.GameObjects.Text;
+  private objectiveText!: Phaser.GameObjects.Text;
 
   private lastSnapshot?: HudSnapshot;
   private disposed = false;
@@ -239,6 +244,7 @@ export class PhaserHudView implements HudView {
     this.levelText.setText(`Level ${snapshot.level}`);
     this.killsText.setText(`Kills ${formatNumber(snapshot.kills)}`);
     this.scrapText.setText(`Scrap ${formatNumber(Math.floor(snapshot.currency))}`);
+    this.objectiveText.setText(snapshot.objective ?? '');
 
   }
 
@@ -358,6 +364,10 @@ export class PhaserHudView implements HudView {
     this.scrapText.setScrollFactor(0);
     this.scrapText.setDepth(ThemeDepth.hud);
 
+    this.objectiveText = createUiText(scene, layout.margin, layout.statsTop + layout.statsStride * 3, '', labelStyle);
+    this.objectiveText.setScrollFactor(0);
+    this.objectiveText.setDepth(ThemeDepth.hud);
+
 
 
     this.container.add([
@@ -371,6 +381,7 @@ export class PhaserHudView implements HudView {
       this.levelText,
       this.killsText,
       this.scrapText,
+      this.objectiveText,
 
     ]);
   }

@@ -519,7 +519,7 @@ describe('PhaserHudView', () => {
     const pauseChildren = controlsRoot.children.filter((child) =>
       child.state.kind === 'rect' && child.state.depth === ThemeDepth.hud,
     );
-    expect(hudChildren.filter((child) => child.state.kind === 'text')).toHaveLength(6);
+    expect(hudChildren.filter((child) => child.state.kind === 'text')).toHaveLength(7);
     expect(hudChildren.filter((child) => child.state.kind === 'rect')).toHaveLength(4);
     expect(pauseChildren).toHaveLength(3);
 
