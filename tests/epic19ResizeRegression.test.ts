@@ -142,7 +142,7 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     expect(menu.listeners()).toEqual(menuListeners);
     const menuTargets = (menu.menuScene as unknown as { objects: readonly TargetLike[] }).objects
       .filter((object) => object.state.kind === 'text' && object.state.handlers['pointerup'] && !object.state.destroyed);
-    expect(menuTargets).toHaveLength(7);
+    expect(menuTargets).toHaveLength(8);
     assertPhysicalTargets(menuTargets, Math.min(width / 390, height / 844));
     const menuRing = menu.focusRingBounds()!;
     expect(menuRing.height).toBeGreaterThan(0);
@@ -161,7 +161,7 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     expect((menu.menuScene as unknown as { renderRebuildCount: number }).renderRebuildCount).toBe(menuRebuilds + 2);
     const returnedMenuTargets = (menu.menuScene as unknown as { objects: readonly TargetLike[] }).objects
       .filter((object) => object.state.kind === 'text' && object.state.handlers['pointerup'] && !object.state.destroyed);
-    expect(returnedMenuTargets).toHaveLength(7);
+    expect(returnedMenuTargets).toHaveLength(8);
     assertPhysicalTargets(returnedMenuTargets, 1);
     expect(menu.listeners()).toEqual(menuListeners);
     expect(menu.sceneCommands()).toEqual({ start: 0, restart: 0 });

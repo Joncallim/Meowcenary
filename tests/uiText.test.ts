@@ -178,7 +178,7 @@ describe('createUiText', () => {
       .toEqual([`${path}:4`, `${path}:6`]);
   });
 
-  it('migrates exactly 28 symbol-resolved production sites through the sole centralized constructor', () => {
+  it('migrates exactly 30 symbol-resolved production sites through the sole centralized constructor', () => {
     const files = sourceFiles(SOURCE_ROOT);
     const audit = auditPhaserTextCreation();
     expect(audit.forbidden).toEqual([]);
@@ -189,7 +189,7 @@ describe('createUiText', () => {
     const migratedSites = files
       .filter((file) => resolve(file) !== UI_TEXT_FILE)
       .flatMap((file) => findCreateUiTextCalls(programSourceFile(program, file), checker));
-    expect(migratedSites).toHaveLength(33);
+    expect(migratedSites).toHaveLength(35);
 
     const constructorCalls = findCreateUiTextCalls(programSourceFile(program, UI_TEXT_FILE), checker);
     expect(constructorCalls).toHaveLength(0);
