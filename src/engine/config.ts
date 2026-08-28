@@ -48,7 +48,7 @@ export const RuntimeConfig = {
     },
     drop: {
       radius: 8,
-      magnetSpeed: 450,
+      magnetSpeed: 500,
     },
     // Epic 14 §D11: temporary reward scheduling frozen to make the functional
     // loop testable now. Epic 18 owns the final economy/pacing balance.

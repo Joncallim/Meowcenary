@@ -5,6 +5,7 @@
     "description": "A balanced junkyard scavenger who gets by on a little bit of everything.",
     "baseStats": { "maxHealth": 100, "moveSpeed": 175 },
     "startingWeaponIds": ["scrap-pistol-t1"],
+    "abilityId": "ability:scrap-burst",
     "passives": [
       {
         "id": "scrap-hoarder",
@@ -23,6 +24,7 @@
     "description": "A wiry, high-speed striker who trades toughness for tempo.",
     "baseStats": { "maxHealth": 80, "moveSpeed": 205 },
     "startingWeaponIds": ["can-smg-t1"],
+    "abilityId": "ability:giga-chomp",
     "passives": [
       {
         "id": "quick-tail",
@@ -33,6 +35,120 @@
       }
     ],
     "unlock": { "type": "meta", "requiresUnlockId": "achievement:first-victory" },
+    "cosmeticSkinIds": []
+  },
+  {
+    "id": "volt-lynx",
+    "name": "Volt Lynx",
+    "description": "A lightning-fast recon specialist who zips between fights.",
+    "baseStats": { "maxHealth": 85, "moveSpeed": 200 },
+    "startingWeaponIds": ["scrap-pistol-t1"],
+    "abilityId": "ability:adrenaline",
+    "passives": [
+      {
+        "id": "light-paws",
+        "kind": "static",
+        "name": "Light Paws",
+        "description": "Moves 8% faster.",
+        "effects": [{ "stat": "moveSpeed", "op": "mult", "value": 1.08 }]
+      }
+    ],
+    "unlock": { "type": "meta", "requiresUnlockId": "achievement:kill-milestone-25" },
+    "cosmeticSkinIds": []
+  },
+  {
+    "id": "brass-boar",
+    "name": "Brass Boar",
+    "description": "A heavy plated bruiser who shrugs off hits and charges through.",
+    "baseStats": { "maxHealth": 135, "moveSpeed": 145 },
+    "startingWeaponIds": ["bolt-shotgun-t1"],
+    "abilityId": "ability:shield-flicker",
+    "passives": [
+      {
+        "id": "thick-hide",
+        "kind": "static",
+        "name": "Thick Hide",
+        "description": "Takes less damage.",
+        "effects": [{ "stat": "maxHealth", "op": "mult", "value": 1.1 }]
+      }
+    ],
+    "unlock": { "type": "meta", "requiresUnlockId": "achievement:boss-crusher" },
+    "cosmeticSkinIds": []
+  },
+  {
+    "id": "ember-cougar",
+    "name": "Ember Cougar",
+    "description": "An elemental striker whose bursts ignite the junkyard.",
+    "baseStats": { "maxHealth": 95, "moveSpeed": 180 },
+    "startingWeaponIds": ["scrap-pistol-t1"],
+    "abilityId": "ability:heat-vent",
+    "passives": [
+      {
+        "id": "ember-aura",
+        "kind": "static",
+        "name": "Ember Aura",
+        "description": "Burning enemies take a touch more damage.",
+        "effects": [{ "stat": "damage", "op": "mult", "value": 1.05 }]
+      }
+    ],
+    "unlock": { "type": "meta", "requiresUnlockId": "achievement:chapter-junkyard" },
+    "cosmeticSkinIds": []
+  },
+  {
+    "id": "scrap-weasel",
+    "name": "Scrap Weasel",
+    "description": "A scavenger-engineer who hoards loot and parts.",
+    "baseStats": { "maxHealth": 90, "moveSpeed": 185 },
+    "startingWeaponIds": ["can-smg-t1"],
+    "abilityId": "ability:scavenge-pulse",
+    "passives": [
+      {
+        "id": "magnet-belly",
+        "kind": "static",
+        "name": "Magnet Belly",
+        "description": "Picks up scrap and XP from much further away.",
+        "effects": [{ "stat": "pickupRadius", "op": "add", "value": 30 }]
+      }
+    ],
+    "unlock": { "type": "meta", "requiresUnlockId": "achievement:kill-milestone-100" },
+    "cosmeticSkinIds": []
+  },
+  {
+    "id": "rattle-raptor",
+    "name": "Rattle Raptor",
+    "description": "A precision hunter who marks weak points for heavy volleys.",
+    "baseStats": { "maxHealth": 92, "moveSpeed": 172 },
+    "startingWeaponIds": ["can-smg-t1"],
+    "abilityId": "ability:precision-mark",
+    "passives": [
+      {
+        "id": "hunter-eye",
+        "kind": "static",
+        "name": "Hunter Eye",
+        "description": "Shots travel a little faster and further.",
+        "effects": [{ "stat": "range", "op": "mult", "value": 1.1 }]
+      }
+    ],
+    "unlock": { "type": "meta", "requiresUnlockId": "achievement:permanent-reinforced-coat-3" },
+    "cosmeticSkinIds": []
+  },
+  {
+    "id": "piston-ram",
+    "name": "Piston Ram",
+    "description": "An overclocked automaton that fires in furious bursts.",
+    "baseStats": { "maxHealth": 105, "moveSpeed": 165 },
+    "startingWeaponIds": ["can-smg-t1"],
+    "abilityId": "ability:overclock",
+    "passives": [
+      {
+        "id": "hydraulic-core",
+        "kind": "static",
+        "name": "Hydraulic Core",
+        "description": "Fires 6% faster.",
+        "effects": [{ "stat": "attackSpeed", "op": "mult", "value": 1.06 }]
+      }
+    ],
+    "unlock": { "type": "meta", "requiresUnlockId": "achievement:mastery-scrap-tabby" },
     "cosmeticSkinIds": []
   }
 ]

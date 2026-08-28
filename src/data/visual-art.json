@@ -1295,6 +1295,276 @@
         }
       },
       "sampling": "nearest"
+    },
+    {
+      "id": "character:volt-lynx",
+      "kind": "character",
+      "textureKey": "art-character-volt-lynx",
+      "url": "assets/characters/volt-lynx/volt-lynx.png",
+      "required": true,
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 48,
+          "height": 48
+        }
+      },
+      "display": {
+        "width": 28,
+        "height": 28
+      },
+      "clips": {
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 6,
+          "repeat": -1
+        },
+        "run": {
+          "start": 4,
+          "end": 9,
+          "frameRate": 10,
+          "repeat": -1
+        },
+        "hurt": {
+          "start": 10,
+          "end": 11,
+          "frameRate": 12,
+          "repeat": 0
+        },
+        "defeat": {
+          "start": 12,
+          "end": 15,
+          "frameRate": 8,
+          "repeat": 0
+        }
+      },
+      "sampling": "nearest"
+    },
+    {
+      "id": "character:brass-boar",
+      "kind": "character",
+      "textureKey": "art-character-brass-boar",
+      "url": "assets/characters/brass-boar/brass-boar.png",
+      "required": true,
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 48,
+          "height": 48
+        }
+      },
+      "display": {
+        "width": 28,
+        "height": 28
+      },
+      "clips": {
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 6,
+          "repeat": -1
+        },
+        "run": {
+          "start": 4,
+          "end": 9,
+          "frameRate": 10,
+          "repeat": -1
+        },
+        "hurt": {
+          "start": 10,
+          "end": 11,
+          "frameRate": 12,
+          "repeat": 0
+        },
+        "defeat": {
+          "start": 12,
+          "end": 15,
+          "frameRate": 8,
+          "repeat": 0
+        }
+      },
+      "sampling": "nearest"
+    },
+    {
+      "id": "character:ember-cougar",
+      "kind": "character",
+      "textureKey": "art-character-ember-cougar",
+      "url": "assets/characters/ember-cougar/ember-cougar.png",
+      "required": true,
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 48,
+          "height": 48
+        }
+      },
+      "display": {
+        "width": 28,
+        "height": 28
+      },
+      "clips": {
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 6,
+          "repeat": -1
+        },
+        "run": {
+          "start": 4,
+          "end": 9,
+          "frameRate": 10,
+          "repeat": -1
+        },
+        "hurt": {
+          "start": 10,
+          "end": 11,
+          "frameRate": 12,
+          "repeat": 0
+        },
+        "defeat": {
+          "start": 12,
+          "end": 15,
+          "frameRate": 8,
+          "repeat": 0
+        }
+      },
+      "sampling": "nearest"
+    },
+    {
+      "id": "character:scrap-weasel",
+      "kind": "character",
+      "textureKey": "art-character-scrap-weasel",
+      "url": "assets/characters/scrap-weasel/scrap-weasel.png",
+      "required": true,
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 48,
+          "height": 48
+        }
+      },
+      "display": {
+        "width": 28,
+        "height": 28
+      },
+      "clips": {
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 6,
+          "repeat": -1
+        },
+        "run": {
+          "start": 4,
+          "end": 9,
+          "frameRate": 10,
+          "repeat": -1
+        },
+        "hurt": {
+          "start": 10,
+          "end": 11,
+          "frameRate": 12,
+          "repeat": 0
+        },
+        "defeat": {
+          "start": 12,
+          "end": 15,
+          "frameRate": 8,
+          "repeat": 0
+        }
+      },
+      "sampling": "nearest"
+    },
+    {
+      "id": "character:rattle-raptor",
+      "kind": "character",
+      "textureKey": "art-character-rattle-raptor",
+      "url": "assets/characters/rattle-raptor/rattle-raptor.png",
+      "required": true,
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 48,
+          "height": 48
+        }
+      },
+      "display": {
+        "width": 28,
+        "height": 28
+      },
+      "clips": {
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 6,
+          "repeat": -1
+        },
+        "run": {
+          "start": 4,
+          "end": 9,
+          "frameRate": 10,
+          "repeat": -1
+        },
+        "hurt": {
+          "start": 10,
+          "end": 11,
+          "frameRate": 12,
+          "repeat": 0
+        },
+        "defeat": {
+          "start": 12,
+          "end": 15,
+          "frameRate": 8,
+          "repeat": 0
+        }
+      },
+      "sampling": "nearest"
+    },
+    {
+      "id": "character:piston-ram",
+      "kind": "character",
+      "textureKey": "art-character-piston-ram",
+      "url": "assets/characters/piston-ram/piston-ram.png",
+      "required": true,
+      "load": {
+        "type": "spritesheet",
+        "frame": {
+          "width": 48,
+          "height": 48
+        }
+      },
+      "display": {
+        "width": 28,
+        "height": 28
+      },
+      "clips": {
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 6,
+          "repeat": -1
+        },
+        "run": {
+          "start": 4,
+          "end": 9,
+          "frameRate": 10,
+          "repeat": -1
+        },
+        "hurt": {
+          "start": 10,
+          "end": 11,
+          "frameRate": 12,
+          "repeat": 0
+        },
+        "defeat": {
+          "start": 12,
+          "end": 15,
+          "frameRate": 8,
+          "repeat": 0
+        }
+      },
+      "sampling": "nearest"
     }
   ]
 }

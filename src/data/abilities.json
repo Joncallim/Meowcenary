@@ -1,0 +1,83 @@
+[
+  {
+    "id": "ability:scrap-burst",
+    "name": "Scrap Burst",
+    "description": "Fire a burst that knocks enemies back.",
+    "cooldownMs": 9000,
+    "durationMs": 400,
+    "effect": { "kind": "knockback", "radius": 90, "power": 260 }
+  },
+  {
+    "id": "ability:overclock",
+    "name": "Overclock",
+    "description": "Fire rate and move speed surge briefly.",
+    "cooldownMs": 12000,
+    "durationMs": 3500,
+    "effect": {
+      "kind": "stat-burst",
+      "modifiers": [
+        { "stat": "attackSpeed", "op": "mult", "value": 1.5, "sourceId": "ability:overclock" },
+        { "stat": "moveSpeed", "op": "mult", "value": 1.25, "sourceId": "ability:overclock" }
+      ]
+    }
+  },
+  {
+    "id": "ability:shield-flicker",
+    "name": "Shield Flicker",
+    "description": "Briefly become invulnerable and reflect contact damage.",
+    "cooldownMs": 15000,
+    "durationMs": 1200,
+    "effect": { "kind": "invulnerable" }
+  },
+  {
+    "id": "ability:giga-chomp",
+    "name": "Giga Chomp",
+    "description": "Heal a large amount instantly.",
+    "cooldownMs": 18000,
+    "durationMs": 0,
+    "effect": { "kind": "heal", "amount": 40 }
+  },
+  {
+    "id": "ability:adrenaline",
+    "name": "Adrenaline",
+    "description": "Dash recharges instantly and speed surges.",
+    "cooldownMs": 10000,
+    "durationMs": 2500,
+    "effect": {
+      "kind": "stat-burst",
+      "modifiers": [
+        { "stat": "moveSpeed", "op": "mult", "value": 1.4, "sourceId": "ability:adrenaline" }
+      ]
+    }
+  },
+  {
+    "id": "ability:heat-vent",
+    "name": "Heat Vent",
+    "description": "Deal burning damage to nearby enemies.",
+    "cooldownMs": 11000,
+    "durationMs": 800,
+    "effect": { "kind": "elemental-burst", "trait": "FIRE", "radius": 110, "power": 90 }
+  },
+  {
+    "id": "ability:scavenge-pulse",
+    "name": "Scavenge Pulse",
+    "description": "Pull all nearby scrap and XP to you.",
+    "cooldownMs": 8000,
+    "durationMs": 300,
+    "effect": { "kind": "loot-pulse", "radius": 160 }
+  },
+  {
+    "id": "ability:precision-mark",
+    "name": "Precision Mark",
+    "description": "Next volley pierces and deals bonus damage.",
+    "cooldownMs": 14000,
+    "durationMs": 4000,
+    "effect": {
+      "kind": "stat-burst",
+      "modifiers": [
+        { "stat": "damage", "op": "mult", "value": 1.3, "sourceId": "ability:precision-mark" },
+        { "stat": "pierce", "op": "add", "value": 1, "sourceId": "ability:precision-mark" }
+      ]
+    }
+  }
+]

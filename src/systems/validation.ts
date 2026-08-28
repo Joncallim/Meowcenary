@@ -38,6 +38,7 @@ import difficultyProfilesJson from '../data/difficulty-profiles.json';
 import rewardProfilesJson from '../data/reward-profiles.json';
 import achievementsJson from '../data/achievements.json';
 import gunPartsJson from '../data/gun-parts.json';
+import abilitiesJson from '../data/abilities.json';
 import { STAT_KEYS, RUN_UPGRADE_STAT_KEYS, WEAPON_MODIFIER_STAT_KEYS } from '../gameplay/stats';
 import { DEFAULT_WEAPON_FAMILIES } from '../gameplay/weapons';
 import { GAME_EVENT_KEYS, FAMILY_TIER_EVENT_KEYS } from '../engine/eventBus';
@@ -68,6 +69,7 @@ import type {
 } from './types';
 import type { AchievementDefinition } from '../gameplay/achievementSystem';
 import type { PartDefinition } from '../gameplay/gunsmith';
+import type { AbilityDefinition } from '../gameplay/abilities';
 import { isSpawnableEnemyDefinition } from './types';
 import { CHARACTER_PASSIVE_EVENTS } from './types';
 import { isContentId, isUnlockId } from './ids';
@@ -87,6 +89,7 @@ import {
 import { checkAchievement, assertAchievementMetricReferences } from './validation/achievements';
 import { registeredMetricIds } from './achievements';
 import { checkPart, assertPartEffectSources } from './validation/parts';
+import { checkAbility } from './validation/abilities';
 import { findEdgeLaneWitness, findRectWitness, findRingWitness } from '../gameplay/spawnRegion';
 import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 
@@ -140,7 +143,7 @@ const SCALING_FIELDS = new Set(['healthPerMinute', 'damagePerMinute']);
 const WAVE_FIELDS = new Set(['startSecond', 'enemyId', 'spawnEveryMs', 'maxAlive']);
 const CHARACTER_FIELDS = new Set([
   'id', 'name', 'description', 'baseStats', 'startingWeaponIds', 'passives',
-  'unlock', 'cosmeticSkinIds',
+  'unlock', 'cosmeticSkinIds', 'abilityId',
 ]);
 const CHARACTER_BASE_STATS_FIELDS = new Set(['maxHealth', 'moveSpeed']);
 const CHARACTER_STATIC_PASSIVE_FIELDS = new Set(['id', 'kind', 'name', 'description', 'effects']);
@@ -415,6 +418,17 @@ export const CATALOG_DESCRIPTORS = [
       return validate<PartDefinition>('gun-parts.json', rows, checkPart);
     },
   },
+  {
+    key: 'abilities',
+    file: 'abilities.json',
+    rootKey: 'abilities',
+    data: abilitiesJson,
+    read: (raw) => readOwnField(raw, 'abilities'),
+    validateRows: (rows): AbilityDefinition[] => {
+      throwIfErrors(jsonSafetyErrors(rows, 'abilities.json'));
+      return validate<AbilityDefinition>('abilities.json', rows, checkAbility);
+    },
+  },
 ] as const satisfies readonly CatalogDescriptor[];
 
 /** Root requirements derived from the descriptor table: one aggregate root
@@ -587,8 +601,16 @@ export function validateGameData(raw: unknown): GameData {
   // Epic 23: gun-part effect sources (appended, preserving frozen order).
   assertPartEffectSources(catalogs['gun-parts'] as PartDefinition[]);
 
+  // Epic 24: character ability references resolve against the ability catalog.
+  const abilityIdSet = new Set((catalogs.abilities as AbilityDefinition[]).map((a) => a.id));
+  for (const character of characters) {
+    if (character.abilityId !== undefined && !abilityIdSet.has(character.abilityId)) {
+      throw new Error(`character.${character.id}: abilityId "${character.abilityId}" not found in ability catalog`);
+    }
+  }
+
   const audio: AudioData = { assets: audioAssets, map: audioMap };
-  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements, gunParts: catalogs['gun-parts'] as PartDefinition[] };
+  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements, gunParts: catalogs['gun-parts'] as PartDefinition[], abilities: catalogs.abilities as AbilityDefinition[] };
 }
 
 /** Root-shape phase, shared by the throwing boot path and the collecting
@@ -839,6 +861,13 @@ export function validatePartCatalog(raw: unknown): PartDefinition[] {
   const parts = validate<PartDefinition>('gun-parts.json', raw, checkPart);
   assertUniqueIds('gun-parts.json', parts);
   return parts;
+}
+
+export function validateAbilityCatalog(raw: unknown): AbilityDefinition[] {
+  throwIfErrors(jsonSafetyErrors(raw, 'abilities.json'));
+  const abilities = validate<AbilityDefinition>('abilities.json', raw, checkAbility);
+  assertUniqueIds('abilities.json', abilities);
+  return abilities;
 }
 
 export function validateArenaCatalog(raw: unknown): ArenaDefinition[] {
@@ -1755,6 +1784,11 @@ function checkCharacter(row: unknown): string[] {
   if (typeof id === 'string' && !isContentId(id)) errors.push('id: invalid content id');
   requireString(row, 'name', errors);
   requireString(row, 'description', errors);
+
+  const abilityId = readOwnField(row, 'abilityId');
+  if (abilityId !== undefined && (typeof abilityId !== 'string' || !isUnlockId(abilityId) || !abilityId.startsWith('ability:'))) {
+    errors.push('abilityId: must be a valid unlock ID prefixed with "ability:"');
+  }
 
   const baseStats = readOwnField(row, 'baseStats');
   if (!isRecord(baseStats)) {
