@@ -9,7 +9,11 @@ export function composeStageSpawnCurve(
   legacyCurve: Readonly<SpawnCurveDefinition>,
   plan: Pick<ResolvedRunPlan, 'encounter' | 'difficulty'>,
 ): Readonly<SpawnCurveDefinition> {
-  const weightedRoster = expandWeightedRoster(plan.encounter.enemyIds, plan.encounter.profileId);
+  const weightedRoster = expandWeightedRoster(
+    plan.encounter.enemyIds,
+    plan.encounter.compositionWeights,
+    plan.encounter.profileId,
+  );
   const cadenceMultiplier = 1 + plan.difficulty.spawnPressure;
   const aliveMultiplier = 1 + plan.difficulty.spawnPressure;
   return deepFreeze({
@@ -23,9 +27,17 @@ export function composeStageSpawnCurve(
   });
 }
 
-function expandWeightedRoster(enemyIds: readonly string[], profileId: string): readonly string[] {
+function expandWeightedRoster(
+  enemyIds: readonly string[],
+  weights: Readonly<Record<string, number>> | undefined,
+  profileId: string,
+): readonly string[] {
   if (enemyIds.length === 0) throw new Error(`Encounter "${profileId}" has no enemies`);
-  // The profile validator guarantees unique, valid IDs. Cycling its declared
-  // order is deterministic and makes membership an explicit data contract.
-  return Object.freeze([...enemyIds]);
+  // The profile validator guarantees every weighted member is in the roster
+  // and carries a positive integer weight. Cycling the expanded sequence is
+  // deterministic while preserving authored composition ratios.
+  const weighted = enemyIds.flatMap((enemyId) =>
+    Array.from({ length: weights?.[enemyId] ?? 1 }, () => enemyId),
+  );
+  return Object.freeze(weighted);
 }

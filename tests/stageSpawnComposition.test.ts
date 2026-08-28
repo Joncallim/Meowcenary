@@ -14,7 +14,7 @@ const curve: SpawnCurveDefinition = {
 
 function plan(): Pick<ResolvedRunPlan, 'encounter' | 'difficulty'> {
   return {
-    encounter: { profileId: 'encounter:proof', enemyIds: ['enemy:one', 'enemy:two'] },
+    encounter: { profileId: 'encounter:proof', enemyIds: ['enemy:one', 'enemy:two'], compositionWeights: { 'enemy:one': 2, 'enemy:two': 1 } },
     difficulty: { profileId: 'difficulty:proof', healthMultiplier: 1.5, damageMultiplier: 1.25, speedMultiplier: 1.1, spawnPressure: 0.5 },
   };
 }
@@ -22,7 +22,7 @@ function plan(): Pick<ResolvedRunPlan, 'encounter' | 'difficulty'> {
 describe('stage spawn composition', () => {
   it('makes resolved encounter membership and difficulty pressure authoritative over legacy curve rows', () => {
     const composed = composeStageSpawnCurve(curve, plan());
-    expect(composed.waves.map((wave) => wave.enemyId)).toEqual(['enemy:one', 'enemy:two']);
+    expect(composed.waves.map((wave) => wave.enemyId)).toEqual(['enemy:one', 'enemy:one']);
     expect(composed.waves.map((wave) => wave.spawnEveryMs)).toEqual([667, 800]);
     expect(composed.waves.map((wave) => wave.maxAlive)).toEqual([3, 5]);
     expect(curve.waves.map((wave) => wave.enemyId)).toEqual(['legacy-a', 'legacy-b']);

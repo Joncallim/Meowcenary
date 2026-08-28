@@ -72,6 +72,7 @@ export interface ResolvedObjective {
 export interface ResolvedEncounterProfile {
   readonly profileId: string;
   readonly enemyIds: readonly string[];
+  readonly compositionWeights?: Readonly<Record<string, number>>;
   /** Epic 21: resolved boss id for this encounter, when present. */
   readonly bossId?: string;
 }
@@ -191,6 +192,9 @@ export function resolveRunPlan(
     encounter: Object.freeze({
       profileId: encounter.id,
       enemyIds: Object.freeze([...encounter.enemyIds]),
+      ...(encounter.compositionWeights !== undefined
+        ? { compositionWeights: Object.freeze({ ...encounter.compositionWeights }) }
+        : {}),
       ...(encounter.bossId !== undefined ? { bossId: encounter.bossId } : {}),
     }),
     difficulty: Object.freeze({

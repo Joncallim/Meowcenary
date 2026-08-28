@@ -10,7 +10,7 @@ import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
 import { assembleComposedRunRequest } from '../gameplay/runRequest';
-import { createStageState, resolveRunPlan, updateObjectiveProgress, type ResolvedRunPlan, type StageState } from '../gameplay/stage/stageContracts';
+import { createStageState, resolveRunPlan, tickStage, updateObjectiveProgress, type ResolvedRunPlan, type StageState } from '../gameplay/stage/stageContracts';
 import { composeStageSpawnCurve } from '../gameplay/stage/spawnComposition';
 import { recordCollect, recordDefeat, recordKill, tickSurvive } from '../gameplay/objectiveProgress';
 import {
@@ -947,6 +947,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     if (this.stageState.status === 'intro') this.stageState = { ...this.stageState, status: 'active' };
+    if (this.stageState.status === 'active') this.stageState = tickStage(this.stageState, delta);
     if (this.stagePlan.objective.definition.type === 'survive' && this.stageState.status === 'active') {
       const progress = this.stageState.objectiveProgress;
       const next = tickSurvive(progress, delta);
