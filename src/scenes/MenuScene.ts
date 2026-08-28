@@ -170,6 +170,9 @@ export class MenuScene extends Phaser.Scene {
         case 'achievements':
           this.renderAchievements(root, snapshot, width, contentTop, margin, hitTarget);
           break;
+        case 'gunsmith':
+          this.renderGunsmith(root, snapshot, width, contentTop, margin, hitTarget);
+          break;
         case 'progression':
           this.renderProgression(root, snapshot, width, contentTop, margin, hitTarget);
           break;
@@ -271,6 +274,7 @@ export class MenuScene extends Phaser.Scene {
       { label: 'Character', action: () => this.render(this.requireController().open('character')) },
       { label: 'Arena', action: () => this.render(this.requireController().open('arena')) },
       { label: 'Progression', action: () => this.render(this.requireController().open('progression')) },
+      { label: 'Gunsmith', action: () => this.render(this.requireController().open('gunsmith')) },
       { label: 'Settings', action: () => this.render(this.requireController().open('settings')) },
       { label: 'Stage', action: () => this.render(this.requireController().open('stage')) },
     ];
@@ -425,6 +429,58 @@ export class MenuScene extends Phaser.Scene {
       }));
       y += hitTarget * 0.75;
     });
+    this.addBackButton(root, width, margin, hitTarget);
+  }
+
+  private renderGunsmith(
+    root: Phaser.GameObjects.Container,
+    snapshot: MainMenuSnapshot,
+    width: number,
+    top: number,
+    margin: number,
+    hitTarget: number,
+  ): void {
+    const heading = this.addHeading(root, this.safeCenterX, top, 'Gunsmith');
+    let y = top + heading.height + 14;
+    const selected = snapshot.gunsmith.builds.find((build) => build.id === snapshot.gunsmith.selectedBuildId);
+    if (!selected) {
+      this.own(root, createUiText(this, margin, y, 'Choose a main weapon chassis.', {
+        color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+      }));
+      y += hitTarget;
+      for (const family of ['pistol', 'smg', 'shotgun']) {
+        this.addButton(root, margin, y, `Build ${family.toUpperCase()}`, hitTarget, () => {
+          this.render(this.requireController().createGunBuild(family));
+        });
+        y += hitTarget + 8;
+      }
+    } else {
+      this.own(root, createUiText(this, margin, y, `${selected.name} (${selected.baseWeaponFamily})\nFitted: ${Object.values(selected.fitted).filter(Boolean).length} • Traits: ${selected.traitParts.length}`, {
+        color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+        wordWrap: { width: width - margin - this.safeRightMargin },
+      }));
+      y += hitTarget + 12;
+      snapshot.gunsmith.builds.filter((build) => build.id !== selected.id).forEach((build) => {
+        this.addButton(root, margin, y, `Use ${build.name}`, hitTarget, () => this.render(this.requireController().selectGunBuild(build.id)));
+        y += hitTarget + 8;
+      });
+      this.own(root, createUiText(this, margin, y, 'Owned parts — choose a compatible part to fit it:', {
+        color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+      }));
+      y += hitTarget * 0.7;
+      snapshot.gunsmith.parts.forEach((part) => {
+        const label = `${part.compatible ? 'Fit' : 'Incompatible'} ${part.name} T${part.tier}${part.traits.length ? ` [${part.traits.join(', ')}]` : ''}`;
+        this.addButton(root, margin, y, label, hitTarget, () => {
+          if (part.compatible) this.render(this.requireController().fitGunPart(part.instanceId));
+        });
+        y += hitTarget + 8;
+      });
+      for (const instanceId of [...Object.values(selected.fitted), ...selected.traitParts]) {
+        if (!instanceId) continue;
+        this.addButton(root, margin, y, `Unequip ${instanceId}`, hitTarget, () => this.render(this.requireController().unequipGunPart(instanceId)));
+        y += hitTarget + 8;
+      }
+    }
     this.addBackButton(root, width, margin, hitTarget);
   }
 

@@ -400,6 +400,7 @@ describe('MenuScene', () => {
         'Character',
         'Arena',
         'Progression',
+        'Gunsmith',
         'Settings',
         'Tap a choice',
       ]),
@@ -546,8 +547,8 @@ describe('MenuScene', () => {
       harness.keyboard.keyup(key);
       harness.menuScene.update(0, 16);
     };
-    // Home → Settings (row 4).
-    for (let i = 0; i < 4; i += 1) press('ArrowDown');
+    // Home → Settings (row 5).
+    for (let i = 0; i < 5; i += 1) press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Settings');
 
@@ -609,8 +610,8 @@ describe('MenuScene', () => {
       harness.keyboard.keyup(key);
       harness.menuScene.update(0, 16);
     };
-    // Home → Settings (row 4), then walk to < Back and return home.
-    for (let i = 0; i < 4; i += 1) press('ArrowDown');
+    // Home → Settings (row 5), then walk to < Back and return home.
+    for (let i = 0; i < 5; i += 1) press('ArrowDown');
     press('Enter');
     expect(seams.navigator.index).toBe(0);
 
@@ -643,7 +644,7 @@ describe('MenuScene', () => {
     // Home → Settings, focus SFX Volume (row 2), then a same-panel toggle
     // fails mid-rebuild: the fallback replaces the tree and the retained
     // navigator must not move/emit without a committed display.
-    for (let i = 0; i < 4; i += 1) press('ArrowDown');
+    for (let i = 0; i < 5; i += 1) press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Settings');
     press('ArrowDown');
@@ -722,7 +723,7 @@ describe('MenuScene', () => {
   });
 
   it.each([
-    { name: 'home', steps: 0, expected: ['Start', 'Character', 'Arena', 'Progression', 'Settings', 'Stage'] },
+    { name: 'home', steps: 0, expected: ['Start', 'Character', 'Arena', 'Progression', 'Gunsmith', 'Settings', 'Stage'] },
     { name: 'character', steps: 1, expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', 'Volt Lynx 🔒', 'Brass Boar 🔒', 'Ember Cougar 🔒', 'Scrap Weasel 🔒', 'Rattle Raptor 🔒', 'Piston Ram 🔒', '< Back'] },
     { name: 'arena', steps: 2, expected: ['✓ Junkyard Lot', '< Back'] },
     {
@@ -740,13 +741,13 @@ describe('MenuScene', () => {
     },
     {
       name: 'settings',
-      steps: 4,
+      steps: 5,
       expected: ['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', '< Back'],
     },
-    { name: 'stage', steps: 5, expected: ['✓ First Scavenge', 'Scrap Run 🔒', 'Rusher Ambush 🔒', 'Brute Force 🔒', 'Boss: Scrap Crusher 🔒', 'Boss: Forge Warden 🔒', '< Back'] },
+    { name: 'stage', steps: 6, expected: ['✓ First Scavenge', 'Scrap Run 🔒', 'Rusher Ambush 🔒', 'Brute Force 🔒', 'Boss: Scrap Crusher 🔒', 'Boss: Forge Warden 🔒', '< Back'] },
     {
       name: 'reset-confirmation',
-      steps: 5,
+      steps: 6,
       expected: ['Confirm Reset', 'Cancel', '< Back'],
     },
   ])('registers the exact $name focus-target order/count with exactly one FocusStroke ring (F6)', ({ name, steps, expected }) => {

@@ -44,6 +44,12 @@ export const RARITY_TIER: Readonly<Record<string, number>> = Object.freeze({
   legendary: 5,
 });
 
+/** Registered live behavior for transferable traits.  Part catalog rows only
+ * name typed traits; they never need per-ID runtime branches. */
+export const TRAIT_MODIFIERS: Readonly<Partial<Record<BehaviorTrait, Omit<Modifier, 'sourceId' | 'scope'>>>> = Object.freeze({
+  FIRE: { stat: 'damage', op: 'mult', value: 1.15 },
+});
+
 export interface PartDefinition {
   readonly id: string;
   readonly name: string;
@@ -182,7 +188,10 @@ export function mergeParts(
     ok: true,
     consumed: [first.instanceId, second.instanceId],
     output: Object.freeze({
-      instanceId: `merged:${first.partId}:${first.instanceId.slice(-4)}${second.instanceId.slice(-4)}`,
+      // A durable owned ID, not a reconstructed definition ID.  Keep it in
+      // the shared opaque-instance grammar (at most one namespace colon) so
+      // Save V3 will round-trip merged output instead of silently dropping it.
+      instanceId: `merged-${stableInstanceHash(`${first.partId}|${first.instanceId}|${second.instanceId}`)}`,
       partId: first.partId,
       tier: currentTier + 1,
       infusedTraits: Object.freeze([...first.infusedTraits, ...second.infusedTraits]
@@ -190,6 +199,15 @@ export function mergeParts(
         .slice(0, MAX_TRAITS_PER_PART)),
     }),
   };
+}
+
+function stableInstanceHash(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
 }
 
 export type InfuseResult =
@@ -249,7 +267,16 @@ export function resolveBuildModifiers(
     const definition = part && definitions.get(part.partId);
     if (!part || !definition) continue;
     for (const effect of definition.effects) {
-      modifiers.push({ ...effect, value: effect.value * Math.max(1, part.tier), sourceId: instanceId });
+      modifiers.push({
+        ...effect,
+        value: effect.value * Math.max(1, part.tier),
+        sourceId: instanceId,
+        // A persistent pistol build must not secretly improve an SMG that is
+        // acquired later in the same run.  The existing stat resolver owns
+        // family scope, so the Gunsmith contributes data rather than a new
+        // parallel weapon-stat path.
+        scope: { kind: 'weapon-family', family: build.baseWeaponFamily },
+      });
     }
   }
   return modifiers;
@@ -267,4 +294,20 @@ export function buildHasTrait(
     const part = ownedParts.get(instanceId);
     return part !== undefined && (definitions.get(part.partId)?.traits.includes(trait) || part.infusedTraits.includes(trait));
   });
+}
+
+/** Resolves registered trait behavior through the same family-aware weapon
+ * stat stack as ordinary part modifiers. */
+export function resolveBuildTraitModifiers(
+  build: WeaponBuild,
+  definitions: ReadonlyMap<string, PartDefinition>,
+  ownedParts: ReadonlyMap<string, OwnedPart>,
+): readonly Modifier[] {
+  const modifiers: Modifier[] = [];
+  for (const trait of BEHAVIOR_TRAITS) {
+    const effect = TRAIT_MODIFIERS[trait];
+    if (!effect || !buildHasTrait(build, trait, definitions, ownedParts)) continue;
+    modifiers.push({ ...effect, sourceId: `trait:${build.id}:${trait.toLowerCase()}`, scope: { kind: 'weapon-family', family: build.baseWeaponFamily } });
+  }
+  return modifiers;
 }

@@ -34,6 +34,8 @@ import { SpawnSystem } from '../systems/SpawnSystem';
 import { DataEnemyRegistry } from '../systems/enemies';
 import { DataEquipmentRegistry } from '../systems/equipment';
 import { resolveEquipmentModifiers } from '../gameplay/equipment';
+import { DataPartRegistry } from '../systems/parts';
+import { resolveBuildModifiers, resolveBuildTraitModifiers, type OwnedPart, type WeaponBuild } from '../gameplay/gunsmith';
 import { buildArenaScenery, type ArenaScenery } from '../systems/arenaScenery';
 import { UpgradeSystem } from '../systems/UpgradeSystem';
 import { ProgressionSystem, type BankedRun } from '../systems/ProgressionSystem';
@@ -211,6 +213,22 @@ export class GameScene extends Phaser.Scene {
       ownedEquipment,
     );
     equippedModifiers.forEach((modifier) => this.runState!.stats.add(modifier));
+    // Persistent Gunsmith composition happens once at the ordinary run
+    // boundary.  It consumes only the selected owned build and validated
+    // owned instances; stale/unowned definitions fail soft rather than
+    // granting a free catalog-wide bonus.
+    const selectedBuild = ctx.saveData.gunsmith.builds.find((build) => build.id === ctx.saveData.gunsmith.selectedBuildId);
+    if (selectedBuild && this.runState.equipped.some((weapon) => weapon.family === selectedBuild.baseWeaponFamily)) {
+      const parts = new DataPartRegistry({ gunParts: ctx.data.gunParts ?? [] });
+      const ownedParts = new Map<string, OwnedPart>(Object.entries(ctx.saveData.gunsmith.parts).map(([instanceId, part]) => [
+        instanceId,
+        { instanceId, partId: part.partId, tier: part.tier, infusedTraits: part.infusedTraits as OwnedPart['infusedTraits'] },
+      ]));
+      resolveBuildModifiers(selectedBuild as WeaponBuild, parts.asMap(), ownedParts)
+        .forEach((modifier) => this.runState!.stats.add(modifier));
+      resolveBuildTraitModifiers(selectedBuild as WeaponBuild, parts.asMap(), ownedParts)
+        .forEach((modifier) => this.runState!.stats.add(modifier));
+    }
     this.enemyDefinitions = new DataEnemyRegistry(ctx.data);
     // Run-clock-stamped effective-damage meter. The listener captures the
     // run-state local so it never re-reads scene state after shutdown.

@@ -16,6 +16,7 @@ import {
   type MetaState,
   type AchievementMetricState,
   type AchievementProgressState,
+  type GunsmithState,
   type SaveData,
   type SaveManager,
   type Settings,
@@ -93,6 +94,10 @@ export interface GameContext {
   readonly stageSelectionRevision: number;
   updateSettings(patch: Readonly<Partial<Settings>>): PersistenceUpdate<Settings>;
   updateMeta(transform: (meta: MetaState) => MetaState): PersistenceUpdate<MetaState>;
+  /** The only runtime mutation boundary for owned parts/builds.  Commands
+   * prepare a complete immutable state; publication occurs only after its
+   * Save V3 snapshot is durable. */
+  updateGunsmith(transform: (state: GunsmithState) => GunsmithState): PersistenceUpdate<GunsmithState>;
   applyGrantTransaction(transaction: DurableGrantTransaction): boolean;
   /** One durable commit for the first-clear fact, optional boss fact, and its
    * source-owned rewards.  No fact becomes visible without its receipt. */
@@ -187,6 +192,17 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       const persisted = options.save.save(current);
       revalidateSelection();
       return Object.freeze({ value: progression, persisted });
+    },
+    updateGunsmith(transform) {
+      const gunsmith = transform(current.gunsmith);
+      const candidate = Object.freeze({ ...current, gunsmith });
+      // SaveManager is deliberately the sanitizer/normalizer.  Reload the
+      // persisted representation before publication so a controller can
+      // never expose an optimistic owned instance that would disappear on
+      // the next boot.
+      if (!options.save.save(candidate)) return Object.freeze({ value: current.gunsmith, persisted: false });
+      current = options.save.load();
+      return Object.freeze({ value: current.gunsmith, persisted: true });
     },
     applyGrantTransaction(transaction) {
       const result = applyDurableGrantTransaction(current, transaction);

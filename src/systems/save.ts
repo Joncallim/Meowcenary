@@ -72,6 +72,9 @@ export interface EquipmentInstance {
 export interface GunsmithState {
   readonly builds: readonly Build[];
   readonly parts: Record<string, PartInstance>;
+  /** Explicit equipped persistent main gun.  Definition IDs never stand in
+   * for this player-owned build identity. */
+  readonly selectedBuildId?: string;
 }
 
 export type StageProgressState = Record<string, StageProgress>;
@@ -433,7 +436,14 @@ function sanitizeGunsmithState(raw: unknown): GunsmithState {
             : [],
         }))
     : [];
-  return { builds, parts };
+  const selectedBuildId = readOwn(raw, 'selectedBuildId');
+  return {
+    builds,
+    parts,
+    ...(typeof selectedBuildId === 'string' && builds.some((build) => build.id === selectedBuildId)
+      ? { selectedBuildId }
+      : {}),
+  };
 }
 
 function sanitizeFittedParts(raw: unknown, asOwnedReference: (value: unknown) => string | undefined): Readonly<Partial<Record<string, string>>> {
@@ -642,6 +652,7 @@ function freezeSaveV3(save: SaveDataV3): SaveDataV3 {
     gunsmith: Object.freeze({
       builds: Object.freeze([...save.gunsmith.builds]),
       parts: Object.freeze({ ...save.gunsmith.parts }),
+      ...(save.gunsmith.selectedBuildId === undefined ? {} : { selectedBuildId: save.gunsmith.selectedBuildId }),
     }),
     equipment: Object.freeze({ ...save.equipment }),
     equipmentLoadout: Object.freeze({ ...(save.equipmentLoadout ?? {}) }),

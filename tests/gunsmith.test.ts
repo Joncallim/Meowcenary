@@ -14,6 +14,7 @@ import {
   isSlotCompatible,
   mergeParts,
   resolveBuildModifiers,
+  resolveBuildTraitModifiers,
   unequipPart,
   type OwnedPart,
   type PartDefinition,
@@ -223,6 +224,14 @@ describe('Epic 23 effective stat resolution', () => {
     if (equipped.ok) {
       expect(buildHasTrait(equipped.build, 'EXPLOSIVE', defMap, ownedMap(grenade))).toBe(true);
     }
+  });
+
+  it('resolves an infused fire trait into the real family-scoped weapon stat path', () => {
+    const barrel = part('part:barrel-standard', ['FIRE']);
+    const build = (equipPart({ id: 'build:pistol', name: 'Pistol', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }, barrel, defMap) as { ok: true; build: WeaponBuild }).build;
+    expect(resolveBuildTraitModifiers(build, defMap, ownedMap(barrel))).toEqual([
+      expect.objectContaining({ stat: 'damage', op: 'mult', value: 1.15, scope: { kind: 'weapon-family', family: 'pistol' } }),
+    ]);
   });
 });
 
