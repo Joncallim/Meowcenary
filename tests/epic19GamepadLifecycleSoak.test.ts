@@ -45,7 +45,7 @@ describe('Epic 19 Slice 5 gamepad lifecycle soak', () => {
       expect(navigations).toBe(navBefore + 1);
       expect(confirms).toBe(0);
       expect(backs).toBe(0);
-      menuRow = (menuRow + 1) % 6;
+      menuRow = (menuRow + 1) % 7;
       expect(h.focusRingCount()).toBe(1);
       expect(h.ringedTargetIndex()).toBe(1 + menuRow);
       const recordedRing = h.ringedTargetIndex();
@@ -95,7 +95,7 @@ describe('Epic 19 Slice 5 gamepad lifecycle soak', () => {
       expect(confirms).toBe(0);
       expect(backs).toBe(0);
       expect(h.focusRingCount()).toBe(1);
-      menuRow = (menuRow + 1) % 6;
+      menuRow = (menuRow + 1) % 7;
       expect(h.ringedTargetIndex()).toBe(1 + menuRow);
       expect(h.sceneCommands()).toEqual(commands);
     }

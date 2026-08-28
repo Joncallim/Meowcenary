@@ -26,8 +26,8 @@ describe('Epic 19 Slice 5 reduced-motion regression', () => {
     let changes = 0;
     h.context.bus.on('settings:changed', () => { changes += 1; });
 
-    // Home (Start) → Settings (row 4): navDown ×4, then confirm.
-    for (let i = 0; i < 4; i += 1) { h.padDown(13); h.poll(); h.padUp(13); h.poll(); }
+    // Home (Start) → Settings (row 5): navDown ×5, then confirm.
+    for (let i = 0; i < 5; i += 1) { h.padDown(13); h.poll(); h.padUp(13); h.poll(); }
     h.padDown(0); h.poll(); h.padUp(0); h.poll();
     expect(h.menuSnapshot().panel).toBe('settings');
 
