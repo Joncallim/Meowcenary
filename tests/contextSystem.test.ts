@@ -176,6 +176,17 @@ describe('GameContext persistence boundary', () => {
     expect(context.saveData.equipmentLoadout?.helmet).toBe('owned:helmet');
   });
 
+  it('drops wrong-slot equipment loadout references at the authoritative persistence boundary', () => {
+    const { context } = setup();
+    const result = context.updateEquipment(() => ({
+      equipment: { 'owned:helmet': { equipmentId: 'equipment:commando-helmet', tier: 1 } },
+      loadout: { boots: 'owned:helmet' },
+    }));
+
+    expect(result.persisted).toBe(true);
+    expect(context.saveData.equipmentLoadout?.boots).toBeUndefined();
+  });
+
   it('upgrades an owned equipment instance and spends scrap in one durable write', () => {
     const { context, storage } = setup();
     context.updateMeta((meta) => ({ ...meta, scrap: 100 }));

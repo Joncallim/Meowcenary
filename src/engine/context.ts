@@ -142,9 +142,31 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
   let current = options.save.load();
   const stages = options.stages ?? new StageRegistryCtor(options.data);
   const knownEquipmentIds = new Set((options.data.equipment ?? []).map((equipment) => equipment.id));
+  const equipmentSlotById = new Map((options.data.equipment ?? []).map((equipment) => [equipment.id, equipment.slot] as const));
   const knownPartIds = new Set((options.data.gunParts ?? []).map((part) => part.id));
   const knownTraitIds = new Set((options.data.gunParts ?? []).flatMap((part) => part.traits.map((trait) => `trait:${trait.toLowerCase()}`)));
   const knownAchievementIds = new Set((options.data.achievements ?? []).map((achievement) => achievement.id));
+  const normalizeEquipmentLoadout = (
+    equipment: EquipmentState,
+    loadout: EquipmentLoadoutState,
+  ): EquipmentLoadoutState => {
+    const normalized: Partial<Record<'helmet' | 'armour' | 'gloves' | 'boots', string>> = {};
+    for (const slot of ['helmet', 'armour', 'gloves', 'boots'] as const) {
+      const instanceId = loadout[slot];
+      const owned = instanceId === undefined ? undefined : equipment[instanceId];
+      if (owned && equipmentSlotById.get(owned.equipmentId) === slot) normalized[slot] = instanceId;
+    }
+    return Object.freeze(normalized);
+  };
+  const normalizeEquipmentSnapshot = (save: SaveData): SaveData => {
+    const loadout = normalizeEquipmentLoadout(save.equipment, save.equipmentLoadout ?? {});
+    const previous = save.equipmentLoadout ?? {};
+    const unchanged = ['helmet', 'armour', 'gloves', 'boots'].every((slot) =>
+      previous[slot as keyof EquipmentLoadoutState] === loadout[slot as keyof EquipmentLoadoutState]);
+    return unchanged ? save : Object.freeze({ ...save, equipmentLoadout: loadout });
+  };
+  const normalizedInitial = normalizeEquipmentSnapshot(current);
+  if (normalizedInitial !== current && options.save.save(normalizedInitial)) current = normalizedInitial;
   const hasKnownContentRewards = (transaction: DurableGrantTransaction): boolean => transaction.grants.every((grant) => {
     switch (grant.type) {
       case 'unlock-equipment':
@@ -245,7 +267,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     },
     updateEquipment(transform) {
       const next = transform({ equipment: current.equipment, loadout: current.equipmentLoadout ?? {} });
-      const candidate = Object.freeze({ ...current, equipment: next.equipment, equipmentLoadout: next.loadout });
+      const candidate = normalizeEquipmentSnapshot(Object.freeze({ ...current, equipment: next.equipment, equipmentLoadout: next.loadout }));
       if (!options.save.save(candidate)) return Object.freeze({ value: current.equipment, persisted: false });
       current = options.save.load();
       return Object.freeze({ value: current.equipment, persisted: true });
