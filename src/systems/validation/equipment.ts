@@ -2,7 +2,7 @@
  * Equipment catalog validator — per-row and cross-catalog validation.
  * Alpha 3 architecture §8.2: modular per-domain validator.
  */
-import { EQUIPMENT_SLOTS, EQUIPMENT_TIERS, SET_BONUSES } from '../../gameplay/equipment';
+import { EQUIPMENT_SLOTS, EQUIPMENT_TIERS } from '../../gameplay/equipment';
 import { RUN_UPGRADE_STAT_KEYS } from '../../gameplay/stats';
 import { isUnlockId } from '../ids';
 import type { RowCheck } from '../validation';
@@ -10,7 +10,6 @@ import type { RowCheck } from '../validation';
 type RowCheckFn = RowCheck;
 
 const STAT_KEYS = new Set<string>(RUN_UPGRADE_STAT_KEYS);
-const KNOWN_SETS = new Set(Object.keys(SET_BONUSES));
 
 /** Row-level check for a single EquipmentDefinition. */
 export const checkEquipment: RowCheckFn = (row: unknown, _index: number): string[] => {
@@ -24,8 +23,8 @@ export const checkEquipment: RowCheckFn = (row: unknown, _index: number): string
   if (typeof e.name !== 'string' || e.name.trim().length === 0) {
     errors.push('name: must be a non-empty string');
   }
-  if (typeof e.setId !== 'string' || !KNOWN_SETS.has(e.setId)) {
-    errors.push(`setId: must be a known set id (${[...KNOWN_SETS].join(', ')})`);
+  if (typeof e.setId !== 'string' || !e.setId.startsWith('set:')) {
+    errors.push('setId: must be a canonical set ID');
   }
   if (typeof e.slot !== 'string' || !EQUIPMENT_SLOTS.includes(e.slot as never)) {
     errors.push(`slot: must be one of ${EQUIPMENT_SLOTS.join(', ')}`);

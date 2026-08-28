@@ -22,6 +22,9 @@ export interface EquipmentDefinition {
   readonly slot: EquipmentSlot;
   readonly tier: number;
   readonly effects: readonly Modifier[];
+  /** Optional data-owned 2/4-piece table. One representative piece may carry
+   * it so a complete future set needs no central runtime registration. */
+  readonly setBonuses?: Readonly<Partial<Record<2 | 4, readonly Modifier[]>>>;
 }
 
 /** Set bonus table: set id → piece-count bonuses (2-piece, 4-piece). */
@@ -133,12 +136,13 @@ export function resolveSetBonuses(
 
   const modifiers: Modifier[] = [];
   for (const [setId, count] of setCounts) {
-    const bonus = SET_BONUSES[setId];
+    const dataBonuses = [...definitions.values()].find((definition) => definition.setId === setId && definition.setBonuses !== undefined)?.setBonuses;
+    const bonus = dataBonuses === undefined ? SET_BONUSES[setId]?.bonuses : dataBonuses;
     if (!bonus) continue;
     // Threshold bonuses stack: a four-piece set retains the two-piece payoff
     // as well as gaining its four-piece capstone.
-    if (count >= 2 && bonus.bonuses[2]) modifiers.push(...bonus.bonuses[2]);
-    if (count >= 4 && bonus.bonuses[4]) modifiers.push(...bonus.bonuses[4]);
+    if (count >= 2 && bonus[2]) modifiers.push(...bonus[2]);
+    if (count >= 4 && bonus[4]) modifiers.push(...bonus[4]);
   }
   return modifiers;
 }

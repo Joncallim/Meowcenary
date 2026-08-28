@@ -195,6 +195,24 @@ describe('Epic 25 persistence round-trip', () => {
 });
 
 describe('Epic 25 second-fixture proof (data-only extensibility)', () => {
+  it('a second four-piece set carries its own data bonus table without a runtime registration', () => {
+    const pieces = EQUIPMENT_SLOTS.map((slot, index): EquipmentDefinition => ({
+      id: `equipment:proof-set-${slot}`,
+      name: `Proof ${slot}`,
+      setId: 'set:proof',
+      slot,
+      tier: 1,
+      effects: [{ stat: 'moveSpeed', op: 'mult', value: 1.01, sourceId: `equipment:proof-set-${slot}` }],
+      ...(index === 0 ? { setBonuses: { 2: [{ stat: 'damage', op: 'mult', value: 1.1, sourceId: 'set:proof:2' }], 4: [{ stat: 'pierce', op: 'add', value: 1, sourceId: 'set:proof:4' }] } } : {}),
+    }));
+    const registry = new DataEquipmentRegistry({ equipment: [...equipmentJson, ...pieces] });
+    const defs = registry.asMap();
+    const ownedPieces = pieces.map((piece) => owned(piece.id));
+    const loadout: EquipmentLoadout = { equipped: Object.fromEntries(ownedPieces.map((piece) => [defs.get(piece.equipmentId)!.slot, piece.instanceId])) };
+    const modifiers = resolveSetBonuses(loadout, defs, ownedMap(...ownedPieces));
+    expect(modifiers.map((modifier) => modifier.sourceId)).toEqual(expect.arrayContaining(['set:proof:2', 'set:proof:4']));
+  });
+
   it('a new piece using an existing set/slot/effect primitive is data only', () => {
     const extra: EquipmentDefinition = {
       id: 'equipment:proof-gloves',
