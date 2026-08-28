@@ -198,6 +198,16 @@ export class Enemy implements EnemyInstance {
     this.dashOrigin = result.dashOrigin;
     this.applyPosition(result.pos, dtMs, behavior.immediate);
     if (result.enteredAttack) {
+      if (this.definition.summon) {
+        this.bus.emit('enemy:summon', {
+          sourceEnemyId: this.defId,
+          enemyId: this.definition.summon.enemyId,
+          count: this.definition.summon.count,
+          maxActive: this.definition.summon.maxActive,
+          x: this.x,
+          y: this.y,
+        });
+      }
       if (this.definition.archetype === 'ranged' || this.definition.archetype === 'boss') {
         const dx = player.x - this.x;
         const dy = player.y - this.y;
@@ -256,6 +266,17 @@ export class Enemy implements EnemyInstance {
 
     if (!killed) {
       return false;
+    }
+
+    if (this.definition.splitOnDeath) {
+      this.bus.emit('enemy:summon', {
+        sourceEnemyId: this.defId,
+        enemyId: this.definition.splitOnDeath.enemyId,
+        count: this.definition.splitOnDeath.count,
+        maxActive: this.definition.splitOnDeath.maxActive,
+        x,
+        y,
+      });
     }
 
     this.destroy();

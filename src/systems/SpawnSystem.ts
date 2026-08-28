@@ -27,6 +27,8 @@ export class SpawnSystem implements System {
   private readonly environment: ChargerEnvironment;
   private readonly enemyProjectiles: Projectile[] = [];
   private readonly unsubscribeRangedShot: () => void;
+  private readonly unsubscribeSummon: () => void;
+  private readonly pendingSummons: Array<{ enemyId: string; count: number; maxActive: number; x: number; y: number }> = [];
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -66,6 +68,7 @@ export class SpawnSystem implements System {
       });
     }
     this.unsubscribeRangedShot = this.ctx.bus.on('enemy:ranged-shot', this.handleRangedShot);
+    this.unsubscribeSummon = this.ctx.bus.on('enemy:summon', this.handleSummon);
   }
 
   update(dtMs: number): void {
@@ -97,11 +100,14 @@ export class SpawnSystem implements System {
       this.spawn(request);
     }
 
+    this.flushSummons();
+
     compactActive(this.enemies);
   }
 
   destroy(): void {
     this.unsubscribeRangedShot();
+    this.unsubscribeSummon();
     this.enemyProjectiles.forEach((projectile) => projectile.destroy());
     this.enemies.forEach((enemy) => {
       enemy.destroy();
@@ -133,6 +139,27 @@ export class SpawnSystem implements System {
       tier: 0,
     });
   };
+
+  private readonly handleSummon = (request: { enemyId: string; count: number; maxActive: number; x: number; y: number }): void => {
+    if (!Number.isSafeInteger(request.count) || request.count <= 0 || !Number.isSafeInteger(request.maxActive) || request.maxActive <= 0) return;
+    this.pendingSummons.push({ ...request });
+  };
+
+  private flushSummons(): void {
+    while (this.pendingSummons.length > 0 && this.enemies.length < 256) {
+      const request = this.pendingSummons.shift()!;
+      let active = this.enemies.filter((enemy) => enemy.active && enemy.defId === request.enemyId).length;
+      for (let index = 0; index < request.count && active < request.maxActive && this.enemies.length < 256; index += 1) {
+        const angle = (index / request.count) * Math.PI * 2;
+        this.spawn({
+          enemyId: request.enemyId,
+          pos: { x: request.x + Math.cos(angle) * 24, y: request.y + Math.sin(angle) * 24 },
+          scheduledAtMs: this.runState.timeMs,
+        });
+        active += 1;
+      }
+    }
+  }
 
   private spawn(request: SpawnRequest): void {
     const definition = this.registry?.spawnableById(request.enemyId)

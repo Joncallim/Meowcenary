@@ -837,6 +837,23 @@ function enemyDefinition(): ResolvedEnemyDefinition {
     expect(dashed).toHaveBeenCalledTimes(1);
   });
 
+  it('emits data-defined reinforcement and split requests without enemy-ID branches', async () => {
+    const spawner: ResolvedEnemyDefinition = {
+      id: 'test-spawner', name: 'Spawner', archetype: 'ranged', health: 20, damage: 1, speed: 30, xpValue: 1, scrapValue: 1,
+      contactDamage: false, attack: { range: 200, telegraphMs: 1, cooldownMs: 100 },
+      summon: { enemyId: 'test-child', count: 2, maxActive: 4 },
+      splitOnDeath: { enemyId: 'test-child', count: 1, maxActive: 4 },
+    };
+    const bus = createEventBus();
+    const summon = vi.fn();
+    bus.on('enemy:summon', summon);
+    const { enemy } = await createEnemy(bus, spawner);
+    enemy.update({ active: true, x: 100, y: 20 } as never, 2);
+    expect(summon).toHaveBeenCalledWith(expect.objectContaining({ sourceEnemyId: 'test-spawner', enemyId: 'test-child', count: 2 }));
+    enemy.takeDamage(99);
+    expect(summon).toHaveBeenLastCalledWith(expect.objectContaining({ sourceEnemyId: 'test-spawner', enemyId: 'test-child', count: 1 }));
+  });
+
   it('emits accepted damage and transitions lethal damage to dead exactly once', async () => {
     const bus = createEventBus();
     const damaged = vi.fn();

@@ -146,26 +146,50 @@ export interface RangedAttackDefinition {
   cooldownMs: number;
 }
 
+/** Data-owned, bounded reinforcement action. Existing movement/attack
+ * behaviors may request it; SpawnSystem remains the only materializer. */
+export interface EnemySummonDefinition {
+  readonly enemyId: string;
+  readonly count: number;
+  readonly maxActive: number;
+}
+
+/** Data-owned bounded split on death. Child entities retain ordinary enemy
+ * rules and are queued by SpawnSystem after the current update. */
+export interface EnemySplitDefinition {
+  readonly enemyId: string;
+  readonly count: number;
+  readonly maxActive: number;
+}
+
 export interface ChaserEnemyDefinition extends EnemyIdentity, EnemyStats {
   archetype: 'chaser';
   contactDamage: true;
+  summon?: EnemySummonDefinition;
+  splitOnDeath?: EnemySplitDefinition;
 }
 
 export interface ChargerEnemyDefinition extends EnemyIdentity, EnemyStats {
   archetype: 'charger';
   contactDamage: true;
   attack: ChargerAttackDefinition;
+  summon?: EnemySummonDefinition;
+  splitOnDeath?: EnemySplitDefinition;
 }
 
 export interface RangedEnemyDefinition extends EnemyIdentity, EnemyStats {
   archetype: 'ranged';
   contactDamage: false;
   attack: RangedAttackDefinition;
+  summon?: EnemySummonDefinition;
+  splitOnDeath?: EnemySplitDefinition;
 }
 
 export interface TankEnemyDefinition extends EnemyIdentity, EnemyStats {
   archetype: 'tank';
   contactDamage: true;
+  summon?: EnemySummonDefinition;
+  splitOnDeath?: EnemySplitDefinition;
 }
 
 export interface BossEnemyDefinition extends EnemyIdentity, EnemyStats {
@@ -173,6 +197,8 @@ export interface BossEnemyDefinition extends EnemyIdentity, EnemyStats {
   contactDamage: false;
   /** Boss lunge behavior — same attack vocabulary as charger, larger scale. */
   attack: ChargerAttackDefinition;
+  summon?: EnemySummonDefinition;
+  splitOnDeath?: EnemySplitDefinition;
 }
 
 export interface EliteEnemyDefinition extends EnemyIdentity {

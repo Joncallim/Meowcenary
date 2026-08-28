@@ -135,8 +135,9 @@ const META_UPGRADE_FIELDS = new Set(['id', 'name', 'description', 'maxLevel', 'c
 const META_UPGRADE_COST_FIELDS = new Set(['base', 'growth']);
 const DIRECT_ENEMY_FIELDS = new Set([
   'id', 'name', 'archetype', 'health', 'damage', 'speed', 'xpValue', 'scrapValue',
-  'contactDamage', 'lootTableId',
+  'contactDamage', 'lootTableId', 'summon', 'splitOnDeath',
 ]);
+const ENEMY_SUMMON_FIELDS = new Set(['enemyId', 'count', 'maxActive']);
 const ELITE_ENEMY_FIELDS = new Set(['id', 'name', 'archetype', 'baseEnemyId']);
 const CHARGER_ATTACK_FIELDS = new Set([
   'triggerRange', 'telegraphMs', 'dashSpeed', 'dashDurationMs', 'cooldownMs',
@@ -865,6 +866,15 @@ export function validateEnemyCatalog(raw: unknown): EnemyDefinition[] {
   const enemies = validate<EnemyDefinition>('enemies.json', raw, checkEnemy);
   assertUniqueIds('enemies.json', enemies);
   assertEliteReferences(enemies);
+  const ids = new Set(enemies.map((enemy) => enemy.id));
+  for (const enemy of enemies) {
+    if (enemy.archetype === 'elite') continue;
+    for (const mechanic of [enemy.summon, enemy.splitOnDeath]) {
+      if (mechanic !== undefined && !ids.has(mechanic.enemyId)) {
+        throw new Error(`enemy.${enemy.id}: summon target "${mechanic.enemyId}" not found in enemy catalog`);
+      }
+    }
+  }
   return enemies;
 }
 
@@ -1794,7 +1804,28 @@ function checkEnemy(row: unknown): string[] {
   if (archetype === 'charger') checkChargerAttack(row, errors);
   if (archetype === 'ranged') checkRangedAttack(row, errors);
   if (archetype === 'boss') checkChargerAttack(row, errors);
+  checkEnemySummon(readOwnField(row, 'summon'), 'summon', errors);
+  checkEnemySummon(readOwnField(row, 'splitOnDeath'), 'splitOnDeath', errors);
   return errors;
+}
+
+function checkEnemySummon(value: unknown, path: string, errors: string[]): void {
+  if (value === undefined) return;
+  if (!isRecord(value)) {
+    errors.push(`${path}: required object`);
+    return;
+  }
+  const sub: string[] = [];
+  rejectUnknownFields(value, ENEMY_SUMMON_FIELDS, sub);
+  requireString(value, 'enemyId', sub);
+  requirePositiveInteger(value, 'count', sub);
+  requirePositiveInteger(value, 'maxActive', sub);
+  const count = readOwnField(value, 'count');
+  const maxActive = readOwnField(value, 'maxActive');
+  if (Number.isSafeInteger(count) && Number.isSafeInteger(maxActive) && (count as number) > (maxActive as number)) {
+    sub.push('count: must not exceed maxActive');
+  }
+  errors.push(...sub.map((error) => `${path}.${error}`));
 }
 
 function checkCharacter(row: unknown): string[] {
