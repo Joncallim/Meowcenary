@@ -55,6 +55,17 @@ describe('GameContext persistence boundary', () => {
     expect(context.saveData.stages['stage:junkyard-01']).toBeUndefined();
   });
 
+  it('rejects a receipt transaction that names an unknown equipment definition', () => {
+    const { context } = setup();
+    const transaction = {
+      id: 'achievement:first-kill:unknown-equipment',
+      grants: [{ type: 'grant-equipment-instance' as const, instanceId: 'reward:unknown', equipmentId: 'equipment:not-in-catalog', tier: 1 }],
+    };
+    expect(context.applyGrantTransaction(transaction)).toBe(false);
+    expect(context.saveData.equipment['reward:unknown']).toBeUndefined();
+    expect(context.saveData.appliedGrantTransactions[transaction.id]).toBeUndefined();
+  });
+
   it('fails closed if a receipt survives but its stage facts do not', () => {
     const { context } = setup();
     const transaction = {
@@ -139,6 +150,26 @@ describe('GameContext persistence boundary', () => {
     }));
     expect(saved.persisted).toBe(true);
     expect(context.saveData.equipmentLoadout?.helmet).toBe('owned:helmet');
+  });
+
+  it('upgrades an owned equipment instance and spends scrap in one durable write', () => {
+    const { context, storage } = setup();
+    context.updateMeta((meta) => ({ ...meta, scrap: 100 }));
+    context.updateEquipment(() => ({
+      equipment: { 'owned:helmet': { equipmentId: 'equipment:commando-helmet', tier: 1 } },
+      loadout: {},
+    }));
+    storage.succeed = false;
+    expect(context.commitEquipmentUpgrade('owned:helmet', 1, 2, 100)).toBe(false);
+    expect(context.saveData.progression.scrap).toBe(100);
+    expect(context.saveData.equipment['owned:helmet'].tier).toBe(1);
+    storage.succeed = true;
+    expect(context.commitEquipmentUpgrade('owned:helmet', 1, 2, 100)).toBe(true);
+    expect(context.saveData.progression.scrap).toBe(0);
+    expect(context.saveData.equipment['owned:helmet'].tier).toBe(2);
+    expect(context.commitEquipmentUpgrade('owned:helmet', 1, 2, 100)).toBe(false);
+    expect(context.commitEquipmentUpgrade('owned:helmet', 2, 3, 1)).toBe(false);
+    expect(context.saveData.equipment['owned:helmet'].tier).toBe(2);
   });
 
   it('reset preserves settings and failed persistence retains the new snapshot', () => {

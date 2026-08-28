@@ -8,6 +8,7 @@
  */
 import { deepFreeze } from '../../engine/freeze';
 import { isContentId, isUnlockId } from '../../systems/ids';
+import type { ProgressionGrant } from '../grantProcessor';
 
 // ── Objective vocabulary (§2.2) ──────────────────────────────────────
 
@@ -40,6 +41,7 @@ export interface RewardProfile {
   readonly scrapBase: number;
   readonly scrapPerMinute: number;
   readonly lootTableId?: string;
+  readonly grants?: readonly ProgressionGrant[];
 }
 
 // ── Stage definition (§3.1) ──────────────────────────────────────────
@@ -92,6 +94,7 @@ export interface ResolvedRewardProfile {
   readonly scrapBase: number;
   readonly scrapPerMinute: number;
   readonly lootTableId?: string;
+  readonly grants: readonly ProgressionGrant[];
 }
 
 export interface ResolvedRunPlan {
@@ -227,6 +230,7 @@ export function resolveRunPlan(
       scrapBase: reward.scrapBase,
       scrapPerMinute: reward.scrapPerMinute,
       lootTableId: reward.lootTableId,
+      grants: Object.freeze(reward.grants ? structuredClone(reward.grants) : []),
     }),
     seed: request.seed,
   });

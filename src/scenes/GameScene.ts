@@ -134,7 +134,7 @@ export class GameScene extends Phaser.Scene {
   private stageState?: StageState;
   /** Objective completion is a durable boundary.  Capture the source reward
    * exactly once so persistence retries cannot drift with later run time. */
-  private pendingStageClear?: { readonly stageId: string; readonly timeMs: number; readonly bossId?: string; readonly reward: number };
+  private pendingStageClear?: { readonly stageId: string; readonly timeMs: number; readonly bossId?: string; readonly reward: number; readonly grants: readonly import('../gameplay/grantProcessor').ProgressionGrant[] };
   private enemyDefinitions?: DataEnemyRegistry;
   private abilityDefinition?: AbilityDefinition;
   private abilityState: AbilityState = createAbilityState();
@@ -246,7 +246,6 @@ export class GameScene extends Phaser.Scene {
       }),
       ctx.bus.on('drop:collected', ({ kind }) => this.recordStageCollection(`drop:${kind}`)),
       ctx.bus.on('weapon:merged', () => this.evaluateLiveAchievements(ctx, { 'metric:merges-performed': 1 })),
-      ctx.bus.on('run:won', () => this.evaluateLiveAchievements(ctx, { 'metric:runs-completed': 1 })),
       ctx.bus.on('enemy:damaged', ({ amount }) => {
         dpsMeter.record(amount, runStateForMetrics.timeMs);
       }),
@@ -401,6 +400,11 @@ export class GameScene extends Phaser.Scene {
       bus: ctx.bus,
       context: ctx,
     });
+    // Progression must bank a completed run before achievement facts observe
+    // its durable currency total. EventBus preserves registration order.
+    this.unsubscribers.push(
+      ctx.bus.on('run:won', () => this.evaluateLiveAchievements(ctx, { 'metric:runs-completed': 1 })),
+    );
     const debugCheatSystem =
       cheatsActive && debugFlags
         ? new DebugCheatSystem({
@@ -1034,6 +1038,7 @@ export class GameScene extends Phaser.Scene {
       timeMs,
       bossId: this.stagePlan.encounter.bossId,
       reward: Math.max(1, reward),
+      grants: this.stagePlan.reward.grants ?? [],
     });
   }
 
@@ -1042,7 +1047,7 @@ export class GameScene extends Phaser.Scene {
     if (!pending || !this.stageState) return false;
     const committed = ctx.completeStageTransaction(pending.stageId, pending.timeMs, pending.bossId, {
       id: `stage:${pending.stageId.slice('stage:'.length)}:first-clear`,
-      grants: [{ type: 'grant-scrap', amount: pending.reward }],
+      grants: [{ type: 'grant-scrap', amount: pending.reward }, ...(pending.grants ?? [])],
     });
     if (!committed) return false;
     this.pendingStageClear = undefined;

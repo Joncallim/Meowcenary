@@ -21,6 +21,9 @@ export type ProgressionGrant =
   /** A source-owned persistent inventory reward. The caller supplies an
    * opaque stable instance ID, so replay can never mint a second copy. */
   | { readonly type: 'grant-part-instance'; readonly instanceId: string; readonly partId: string; readonly tier?: number }
+  /** Source-owned equipment instance. Definition identity and owned identity
+   * stay distinct, so two copies may be upgraded/equipped independently. */
+  | { readonly type: 'grant-equipment-instance'; readonly instanceId: string; readonly equipmentId: string; readonly tier?: number }
   | { readonly type: 'grant-item'; readonly itemId: string; readonly amount?: number }
   | { readonly type: 'achievement-completed'; readonly achievementId: string }
   | { readonly type: 'permanent-upgrade-level'; readonly upgradeId: string; readonly levels: number };
@@ -68,6 +71,7 @@ export function applyDurableGrantTransaction(save: SaveDataV3, transaction: Dura
       : { save, valid: false, changed: false };
   }
   const partGrants = transaction.grants.filter((grant): grant is Extract<ProgressionGrant, { type: 'grant-part-instance' }> => grant.type === 'grant-part-instance');
+  const equipmentGrants = transaction.grants.filter((grant): grant is Extract<ProgressionGrant, { type: 'grant-equipment-instance' }> => grant.type === 'grant-equipment-instance');
   // Reject a new transaction that collides with a pre-existing owned copy.
   // Treating it as a no-op while recording the receipt would silently lose
   // the source reward; a producer must choose a unique stable instance key.
@@ -75,7 +79,11 @@ export function applyDurableGrantTransaction(save: SaveDataV3, transaction: Dura
   if (partInstanceIds.size !== partGrants.length || partGrants.some((grant) => Object.hasOwn(save.gunsmith.parts, grant.instanceId))) {
     return { save, valid: false, changed: false };
   }
-  const progressionGrants = transaction.grants.filter((grant) => grant.type !== 'grant-part-instance' && grant.type !== 'grant-item');
+  const equipmentInstanceIds = new Set(equipmentGrants.map((grant) => grant.instanceId));
+  if (equipmentInstanceIds.size !== equipmentGrants.length || equipmentGrants.some((grant) => Object.hasOwn(save.equipment, grant.instanceId))) {
+    return { save, valid: false, changed: false };
+  }
+  const progressionGrants = transaction.grants.filter((grant) => grant.type !== 'grant-part-instance' && grant.type !== 'grant-equipment-instance' && grant.type !== 'grant-item');
   const result = processGrants(save.progression, progressionGrants);
   const items = applyItemGrants(save.items, transaction.grants);
   const parts = Object.freeze({
@@ -86,8 +94,15 @@ export function applyDurableGrantTransaction(save: SaveDataV3, transaction: Dura
       infusedTraits: Object.freeze([]),
     })])),
   });
+  const equipment = Object.freeze({
+    ...save.equipment,
+    ...Object.fromEntries(equipmentGrants.map((grant) => [grant.instanceId, Object.freeze({
+      equipmentId: grant.equipmentId,
+      tier: grant.tier ?? 1,
+    })])),
+  });
   const appliedGrantTransactions = Object.freeze({ ...save.appliedGrantTransactions, [transaction.id]: true as const });
-  return { save: Object.freeze({ ...save, progression: result.progression, items, gunsmith: Object.freeze({ ...save.gunsmith, parts }), appliedGrantTransactions }), valid: true, changed: true };
+  return { save: Object.freeze({ ...save, progression: result.progression, items, equipment, gunsmith: Object.freeze({ ...save.gunsmith, parts }), appliedGrantTransactions }), valid: true, changed: true };
 }
 
 function transactionEffectsPresent(save: SaveDataV3, transaction: DurableGrantTransaction): boolean {
@@ -110,6 +125,10 @@ function transactionEffectsPresent(save: SaveDataV3, transaction: DurableGrantTr
         const part = save.gunsmith.parts[grant.instanceId];
         return part?.partId === grant.partId && part.tier === (grant.tier ?? 1);
       }
+      case 'grant-equipment-instance': {
+        const equipment = save.equipment[grant.instanceId];
+        return equipment?.equipmentId === grant.equipmentId && equipment.tier === (grant.tier ?? 1);
+      }
     }
   });
 }
@@ -119,10 +138,10 @@ function isValidTransaction(transaction: DurableGrantTransaction): boolean {
     && typeof transaction === 'object'
     && isGrantTransactionId(transaction.id)
     && Array.isArray(transaction.grants)
-    && transaction.grants.every(isValidGrant);
+    && transaction.grants.every(isValidProgressionGrant);
 }
 
-function isValidGrant(grant: unknown): grant is ProgressionGrant {
+export function isValidProgressionGrant(grant: unknown): grant is ProgressionGrant {
   if (grant === null || typeof grant !== 'object' || !('type' in grant)) return false;
   const value = grant as Record<string, unknown>;
   const validId = (field: string) => typeof value[field] === 'string' && isUnlockId(value[field] as string);
@@ -137,6 +156,9 @@ function isValidGrant(grant: unknown): grant is ProgressionGrant {
     case 'grant-part-instance': return typeof value.instanceId === 'string' && isInstanceId(value.instanceId)
       && validPrefix('partId', 'part:')
       && (value.tier === undefined || (Number.isSafeInteger(value.tier) && (value.tier as number) >= 1 && (value.tier as number) <= 5));
+    case 'grant-equipment-instance': return typeof value.instanceId === 'string' && isInstanceId(value.instanceId)
+      && validPrefix('equipmentId', 'equipment:')
+      && (value.tier === undefined || (Number.isSafeInteger(value.tier) && (value.tier as number) >= 1 && (value.tier as number) <= 4));
     case 'grant-item': return validPrefix('itemId', 'item:') && (value.amount === undefined || (Number.isSafeInteger(value.amount) && (value.amount as number) > 0));
     case 'achievement-completed': return validPrefix('achievementId', 'achievement:');
     case 'permanent-upgrade-level': return typeof value.upgradeId === 'string' && isContentId(value.upgradeId) && Number.isSafeInteger(value.levels) && (value.levels as number) > 0;
@@ -177,6 +199,9 @@ export function processGrant(
     case 'grant-item':
       // Item quantities are owned by Save V3's durable inventory domain and
       // are applied with the transaction receipt in applyItemGrants().
+      return { progression, changed: false };
+
+    case 'grant-equipment-instance':
       return { progression, changed: false };
 
     case 'achievement-completed':

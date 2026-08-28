@@ -26,6 +26,7 @@ import {
 } from '../systems/save';
 import { applyDurableGrantTransaction, type DurableGrantTransaction } from '../gameplay/grantProcessor';
 import { noopAchievementAdapter, type AchievementPlatformAdapter } from '../gameplay/achievementPlatform';
+import { EQUIPMENT_TIERS, upgradeCost } from '../gameplay/equipment';
 
 export const GAME_CONTEXT_REGISTRY_KEY = 'meowcenary.gameContext';
 
@@ -106,6 +107,8 @@ export interface GameContext {
    * Save V3 snapshot is durable. */
   updateGunsmith(transform: (state: GunsmithState) => GunsmithState): PersistenceUpdate<GunsmithState>;
   updateEquipment(transform: (state: { readonly equipment: EquipmentState; readonly loadout: EquipmentLoadoutState }) => { readonly equipment: EquipmentState; readonly loadout: EquipmentLoadoutState }): PersistenceUpdate<EquipmentState>;
+  /** Atomically spend durable scrap and advance one owned equipment instance. */
+  commitEquipmentUpgrade(instanceId: string, expectedTier: number, nextTier: number, cost: number): boolean;
   applyGrantTransaction(transaction: DurableGrantTransaction): boolean;
   /** One durable commit for the first-clear fact, optional boss fact, and its
    * source-owned rewards.  No fact becomes visible without its receipt. */
@@ -134,6 +137,11 @@ export interface CreateGameContextOptions {
 
 export function createGameContext(options: CreateGameContextOptions): GameContext {
   let current = options.save.load();
+  const knownEquipmentIds = new Set((options.data.equipment ?? []).map((equipment) => equipment.id));
+  const hasKnownEquipmentRewards = (transaction: DurableGrantTransaction): boolean => transaction.grants.every((grant) =>
+    (grant.type !== 'unlock-equipment' && grant.type !== 'grant-equipment-instance')
+      || knownEquipmentIds.has(grant.equipmentId),
+  );
   const stages = options.stages ?? new StageRegistryCtor(options.data);
   let selectedCharacterId = options.characters.defaultCharacterId();
   let selectionRevision = 1;
@@ -219,7 +227,26 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       current = options.save.load();
       return Object.freeze({ value: current.equipment, persisted: true });
     },
+    commitEquipmentUpgrade(instanceId, expectedTier, nextTier, cost) {
+      const owned = current.equipment[instanceId];
+      if (!owned
+        || !Number.isSafeInteger(expectedTier) || !Number.isSafeInteger(nextTier)
+        || !Number.isSafeInteger(cost) || cost <= 0
+        || owned.tier !== expectedTier || expectedTier < 1 || expectedTier >= EQUIPMENT_TIERS.length
+        || nextTier !== expectedTier + 1 || nextTier > EQUIPMENT_TIERS.length
+        || cost !== upgradeCost(expectedTier)
+        || current.progression.scrap < cost) return false;
+      const candidate = Object.freeze({
+        ...current,
+        progression: Object.freeze({ ...current.progression, scrap: current.progression.scrap - cost }),
+        equipment: Object.freeze({ ...current.equipment, [instanceId]: Object.freeze({ ...owned, tier: nextTier }) }),
+      });
+      if (!options.save.save(candidate)) return false;
+      current = options.save.load();
+      return true;
+    },
     applyGrantTransaction(transaction) {
+      if (!hasKnownEquipmentRewards(transaction)) return false;
       const result = applyDurableGrantTransaction(current, transaction);
       if (!result.valid) return false;
       if (!result.changed) return true;
@@ -243,6 +270,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       // reward transaction without ever producing its corresponding fact.
       const definition = stages.stageById(stageId);
       if (!definition || !Number.isFinite(timeMs) || timeMs < 0) return false;
+      if (!hasKnownEquipmentRewards(transaction)) return false;
       if (bossId !== undefined) {
         const encounter = stages.encounterProfileById(definition.encounterProfileId);
         if (definition.bossId !== bossId || encounter?.bossId !== bossId) return false;
@@ -283,6 +311,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       return true;
     },
     commitAchievementTransaction(achievements, metrics, transaction) {
+      if (transaction !== undefined && !hasKnownEquipmentRewards(transaction)) return false;
       const granted = transaction === undefined
         ? { save: current, valid: true, changed: true }
         : applyDurableGrantTransaction(current, transaction);

@@ -27,80 +27,6 @@ export interface EquipmentDefinition {
   readonly setBonuses?: Readonly<Partial<Record<2 | 4, readonly Modifier[]>>>;
 }
 
-/** Set bonus table: set id → piece-count bonuses (2-piece, 4-piece). */
-export interface SetBonusDefinition {
-  readonly setId: string;
-  readonly name: string;
-  readonly bonuses: Readonly<Partial<Record<2 | 4, readonly Modifier[]>>>;
-}
-
-export const SET_BONUSES: Readonly<Record<string, SetBonusDefinition>> = {
-  'set:commando': {
-    setId: 'set:commando',
-    name: 'Commando',
-    bonuses: {
-      2: [{ stat: 'attackSpeed', op: 'mult', value: 1.1, sourceId: 'set:commando:2' }],
-      4: [{ stat: 'spreadDeg', op: 'add', value: -4, sourceId: 'set:commando:4' }],
-    },
-  },
-  'set:scavenger': {
-    setId: 'set:scavenger',
-    name: 'Scavenger',
-    bonuses: {
-      2: [{ stat: 'currencyGain', op: 'mult', value: 1.15, sourceId: 'set:scavenger:2' }],
-      4: [{ stat: 'pickupRadius', op: 'add', value: 30, sourceId: 'set:scavenger:4' }],
-    },
-  },
-  'set:juggernaut': {
-    setId: 'set:juggernaut',
-    name: 'Juggernaut',
-    bonuses: {
-      2: [{ stat: 'maxHealth', op: 'mult', value: 1.1, sourceId: 'set:juggernaut:2' }],
-      4: [{ stat: 'maxHealth', op: 'add', value: 40, sourceId: 'set:juggernaut:4' }],
-    },
-  },
-  'set:demolition': {
-    setId: 'set:demolition',
-    name: 'Demolition',
-    bonuses: {
-      2: [{ stat: 'damage', op: 'mult', value: 1.08, sourceId: 'set:demolition:2' }],
-      4: [{ stat: 'damage', op: 'mult', value: 1.15, sourceId: 'set:demolition:4' }],
-    },
-  },
-  'set:pyro': {
-    setId: 'set:pyro',
-    name: 'Pyro',
-    bonuses: {
-      2: [{ stat: 'damage', op: 'mult', value: 1.06, sourceId: 'set:pyro:2' }],
-      4: [{ stat: 'damage', op: 'mult', value: 1.12, sourceId: 'set:pyro:4' }],
-    },
-  },
-  'set:recon': {
-    setId: 'set:recon',
-    name: 'Recon',
-    bonuses: {
-      2: [{ stat: 'moveSpeed', op: 'mult', value: 1.06, sourceId: 'set:recon:2' }],
-      4: [{ stat: 'range', op: 'add', value: 30, sourceId: 'set:recon:4' }],
-    },
-  },
-  'set:technician': {
-    setId: 'set:technician',
-    name: 'Technician',
-    bonuses: {
-      2: [{ stat: 'attackSpeed', op: 'mult', value: 1.05, sourceId: 'set:technician:2' }],
-      4: [{ stat: 'attackSpeed', op: 'mult', value: 1.12, sourceId: 'set:technician:4' }],
-    },
-  },
-  'set:medic': {
-    setId: 'set:medic',
-    name: 'Medic',
-    bonuses: {
-      2: [{ stat: 'maxHealth', op: 'add', value: 20, sourceId: 'set:medic:2' }],
-      4: [{ stat: 'maxHealth', op: 'mult', value: 1.1, sourceId: 'set:medic:4' }],
-    },
-  },
-} as const satisfies Readonly<Record<string, SetBonusDefinition>>;
-
 /** Persistent owned instance (Save V3 equipment domain shape). */
 export interface OwnedEquipment {
   readonly instanceId: string;
@@ -136,8 +62,7 @@ export function resolveSetBonuses(
 
   const modifiers: Modifier[] = [];
   for (const [setId, count] of setCounts) {
-    const dataBonuses = [...definitions.values()].find((definition) => definition.setId === setId && definition.setBonuses !== undefined)?.setBonuses;
-    const bonus = dataBonuses === undefined ? SET_BONUSES[setId]?.bonuses : dataBonuses;
+    const bonus = [...definitions.values()].find((definition) => definition.setId === setId && definition.setBonuses !== undefined)?.setBonuses;
     if (!bonus) continue;
     // Threshold bonuses stack: a four-piece set retains the two-piece payoff
     // as well as gaining its four-piece capstone.
@@ -194,6 +119,7 @@ export function upgradeEquipment(
 ): UpgradeEquipmentResult {
   const definition = definitions.get(owned.equipmentId);
   if (!definition) return { ok: false, reason: 'unknown-equipment' };
+  if (!Number.isSafeInteger(owned.tier) || owned.tier < 1) return { ok: false, reason: 'unknown-equipment' };
   if (owned.tier >= EQUIPMENT_TIERS.length) return { ok: false, reason: 'max-tier' };
   const cost = upgradeCost(owned.tier);
   if (funds < cost) return { ok: false, reason: 'insufficient-funds' };
@@ -222,8 +148,9 @@ export function resolveEquipmentModifiers(
     const instance = instanceId && owned.get(instanceId);
     const definition = instance && definitions.get(instance.equipmentId);
     if (!instance || !definition || definition.slot !== slot) continue;
+    if (!Number.isSafeInteger(instance.tier) || instance.tier < 1) continue;
     for (const effect of definition.effects) {
-      const tier = Math.max(1, Math.min(EQUIPMENT_TIERS.length, instance.tier));
+      const tier = Math.min(EQUIPMENT_TIERS.length, instance.tier);
       const value = effect.op === 'mult'
         ? 1 + (effect.value - 1) * tier
         : effect.value * tier;

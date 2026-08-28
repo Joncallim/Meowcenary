@@ -182,6 +182,19 @@ describe('durable grant transactions', () => {
     expect(Object.keys(replay.save.gunsmith.parts)).toEqual(['reward:stage-01-barrel']);
   });
 
+  it('replays a durable owned-equipment reward without minting a second instance', () => {
+    const transaction = {
+      id: 'achievement:boss-crusher:equipment-reward',
+      grants: [{ type: 'grant-equipment-instance' as const, instanceId: 'reward:crusher-commando-helmet', equipmentId: 'equipment:commando-helmet', tier: 1 }],
+    };
+    const once = applyDurableGrantTransaction(createDefaultSaveV3(), transaction);
+    expect(once).toMatchObject({ valid: true, changed: true });
+    expect(once.save.equipment['reward:crusher-commando-helmet']).toMatchObject({ equipmentId: 'equipment:commando-helmet', tier: 1 });
+    const replay = applyDurableGrantTransaction(once.save, transaction);
+    expect(replay.changed).toBe(false);
+    expect(Object.keys(replay.save.equipment)).toEqual(['reward:crusher-commando-helmet']);
+  });
+
   it('rejects duplicate owned-instance IDs within one transaction before recording its receipt', () => {
     const save = createDefaultSaveV3();
     const transaction = {

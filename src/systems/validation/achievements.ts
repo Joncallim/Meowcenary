@@ -14,7 +14,7 @@ const VALID_KINDS = new Set(['standard', 'incremental', 'mastery']);
 const VALID_METRIC_PREFIX = 'metric:';
 const VALID_GRANT_TYPES = new Set([
   'grant-scrap', 'unlock-stage', 'unlock-character', 'unlock-equipment',
-  'unlock-part', 'unlock-trait', 'grant-item', 'achievement-completed',
+  'unlock-part', 'unlock-trait', 'grant-item', 'grant-equipment-instance', 'achievement-completed',
   'permanent-upgrade-level',
 ]);
 
@@ -54,6 +54,11 @@ function checkGrant(grant: unknown, path: string, errors: string[]): void {
     case 'grant-item':
       if (typeof g.itemId !== 'string' || !isUnlockId(g.itemId) || !g.itemId.startsWith('item:')) errors.push(`${path}.itemId: must be a canonical item ID`);
       if (g.amount !== undefined && !isPositiveInteger(g.amount)) errors.push(`${path}.amount: must be a positive safe integer when present`);
+      break;
+    case 'grant-equipment-instance':
+      if (typeof g.instanceId !== 'string' || !g.instanceId.startsWith('reward:')) errors.push(`${path}.instanceId: must be a stable reward instance ID`);
+      if (typeof g.equipmentId !== 'string' || !isUnlockId(g.equipmentId) || !g.equipmentId.startsWith('equipment:')) errors.push(`${path}.equipmentId: must be a canonical equipment ID`);
+      if (g.tier !== undefined && (!Number.isSafeInteger(g.tier) || (g.tier as number) < 1 || (g.tier as number) > 4)) errors.push(`${path}.tier: must be 1-4 when present`);
       break;
     case 'achievement-completed':
       if (typeof g.achievementId !== 'string' || !isUnlockId(g.achievementId) || !g.achievementId.startsWith('achievement:')) errors.push(`${path}.achievementId: must be a canonical achievement ID`);
@@ -157,6 +162,24 @@ export function assertUniqueAchievementPlatformMappings(
         throw new Error(`achievement.${achievement.id}: platform.${key} "${value}" already maps to ${previous}`);
       }
       seen.set(value, achievement.id);
+    }
+  }
+}
+
+/** Content grants must target real definitions. Canonical namespaces alone
+ * are insufficient: an unknown equipment reward would otherwise persist a
+ * ghost instance that no loadout can use. */
+export function assertAchievementEquipmentGrantReferences(
+  achievements: readonly { id: string; rewards?: readonly { grant: { type: string; equipmentId?: string } }[] }[],
+  equipmentIds: Set<string>,
+): void {
+  for (const achievement of achievements) {
+    for (const reward of achievement.rewards ?? []) {
+      const grant = reward.grant;
+      if ((grant.type === 'unlock-equipment' || grant.type === 'grant-equipment-instance')
+        && (!grant.equipmentId || !equipmentIds.has(grant.equipmentId))) {
+        throw new Error(`achievement.${achievement.id}: equipment grant references unknown "${grant.equipmentId ?? ''}"`);
+      }
     }
   }
 }

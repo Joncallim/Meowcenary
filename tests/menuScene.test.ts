@@ -349,6 +349,23 @@ function createHarness(options: { create?: boolean; audio?: boolean } = { create
 }
 
 describe('MenuScene', () => {
+  it('pages Gunsmith actions so a large owned inventory remains controller-reachable', () => {
+    const harness = createHarness();
+    harness.context.updateGunsmith((state) => ({
+      ...state,
+      parts: Object.fromEntries([
+        ...Array.from({ length: 7 }, (_, index) => [`part-${index}`, { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] }]),
+        ['fire', { partId: 'part:trait-fire', tier: 2, infusedTraits: [] }],
+      ]),
+      builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toContain('Next Gunsmith Page');
+    harness.buttonByLabel('Next Gunsmith Page')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toContain('Previous Gunsmith Page');
+  });
+
   it('projects injected top/bottom/side insets and keeps the hint and < Back inside the safe rect', () => {
     const values: Record<string, string> = {
       '--safe-top': '59px', '--safe-right': '31px', '--safe-bottom': '21px', '--safe-left': '47px',
@@ -723,7 +740,7 @@ describe('MenuScene', () => {
   });
 
   it.each([
-    { name: 'home', steps: 0, expected: ['Start', 'Character', 'Arena', 'Progression', 'Gunsmith', 'Settings', 'Stage'] },
+    { name: 'home', steps: 0, expected: ['Start', 'Character', 'Arena', 'Progression', 'Gunsmith', 'Settings', 'Stage', 'Equipment'] },
     { name: 'character', steps: 1, expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', 'Volt Lynx 🔒', 'Brass Boar 🔒', 'Ember Cougar 🔒', 'Scrap Weasel 🔒', 'Rattle Raptor 🔒', 'Piston Ram 🔒', '< Back'] },
     { name: 'arena', steps: 2, expected: ['✓ Junkyard Lot', '< Back'] },
     {

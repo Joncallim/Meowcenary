@@ -48,7 +48,9 @@
     "target": 1,
     "condition": { "type": "boss-defeated", "bossId": "boss-crusher" },
     "rewards": [
-      { "grant": { "type": "grant-scrap", "amount": 100 } }
+      { "grant": { "type": "grant-scrap", "amount": 100 } },
+      { "grant": { "type": "unlock-equipment", "equipmentId": "equipment:commando-helmet" } },
+      { "grant": { "type": "grant-equipment-instance", "instanceId": "reward:crusher-commando-helmet", "equipmentId": "equipment:commando-helmet", "tier": 1 } }
     ]
   },
   {

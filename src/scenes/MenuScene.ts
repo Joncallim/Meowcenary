@@ -44,6 +44,9 @@ export class MenuScene extends Phaser.Scene {
   private safeCenterX = 0;
   private safeRightMargin = 16;
   private currentViewport?: UiViewport;
+  /** Gunsmith inventories can grow without bound; page logical actions so
+   * every controller/touch target remains inside the playable viewport. */
+  private gunsmithPage = 0;
 
   /** Number of committed render attempts; resize tests assert one per event. */
   get renderRebuildCount(): number {
@@ -103,6 +106,7 @@ export class MenuScene extends Phaser.Scene {
   private render(snapshot: MainMenuSnapshot): void {
     this.rebuildCount += 1;
     const panelChanged = this.committedPanel !== undefined && this.committedPanel !== snapshot.panel;
+    if (panelChanged) this.gunsmithPage = 0;
     // The display is uncommitted from the moment teardown begins until a
     // successful publication below (F1 committed-display gate).
     this.committedDisplay = false;
@@ -172,6 +176,9 @@ export class MenuScene extends Phaser.Scene {
           break;
         case 'gunsmith':
           this.renderGunsmith(root, snapshot, width, contentTop, margin, hitTarget);
+          break;
+        case 'equipment':
+          this.renderEquipment(root, snapshot, width, contentTop, margin, hitTarget);
           break;
         case 'progression':
           this.renderProgression(root, snapshot, width, contentTop, margin, hitTarget);
@@ -277,6 +284,7 @@ export class MenuScene extends Phaser.Scene {
       { label: 'Gunsmith', action: () => this.render(this.requireController().open('gunsmith')) },
       { label: 'Settings', action: () => this.render(this.requireController().open('settings')) },
       { label: 'Stage', action: () => this.render(this.requireController().open('stage')) },
+      { label: 'Equipment', action: () => this.render(this.requireController().open('equipment')) },
     ];
     let y = top + info.height + 24;
     buttons.forEach(({ label, action }) => {
@@ -464,22 +472,97 @@ export class MenuScene extends Phaser.Scene {
         this.addButton(root, margin, y, `Use ${build.name}`, hitTarget, () => this.render(this.requireController().selectGunBuild(build.id)));
         y += hitTarget + 8;
       });
-      this.own(root, createUiText(this, margin, y, 'Owned parts — choose a compatible part to fit it:', {
+      const actions: Array<{ label: string; action: () => void }> = snapshot.gunsmith.parts.map((part) => ({
+        label: `${part.compatible ? 'Fit' : 'Incompatible'} ${part.name} T${part.tier}${part.traits.length ? ` [${part.traits.join(', ')}]` : ''}`,
+        action: () => { if (part.compatible) this.render(this.requireController().fitGunPart(part.instanceId)); },
+      }));
+      const mergePairs = snapshot.gunsmith.parts.flatMap((part, index) => snapshot.gunsmith.parts
+        .slice(index + 1)
+        .filter((candidate) => candidate.partId === part.partId && candidate.tier === part.tier)
+        .map((candidate) => ({ first: part, second: candidate })));
+      actions.push(...mergePairs.map(({ first, second }) => ({
+        label: `Merge ${first.name} T${first.tier}`,
+        action: () => this.render(this.requireController().mergeGunParts(first.instanceId, second.instanceId)),
+      })));
+      const infusionPairs = snapshot.gunsmith.parts.flatMap((target) => snapshot.gunsmith.parts
+        .filter((trait) => target.slot !== 'trait' && trait.slot === 'trait' && trait.instanceId !== target.instanceId)
+        .map((trait) => ({ target, trait })));
+      actions.push(...infusionPairs.map(({ target, trait }) => ({
+        label: `Infuse ${target.name} with ${trait.name}`,
+        action: () => this.render(this.requireController().infuseGunPart(target.instanceId, trait.instanceId)),
+      })));
+      for (const instanceId of [...Object.values(selected.fitted), ...selected.traitParts]) {
+        if (!instanceId) continue;
+        actions.push({ label: `Unequip ${instanceId}`, action: () => this.render(this.requireController().unequipGunPart(instanceId)) });
+      }
+      const pageSize = 4;
+      const pageCount = Math.max(1, Math.ceil(actions.length / pageSize));
+      this.gunsmithPage = Math.min(this.gunsmithPage, pageCount - 1);
+      this.own(root, createUiText(this, margin, y, `Owned parts and crafting — page ${this.gunsmithPage + 1}/${pageCount}:`, {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
       }));
       y += hitTarget * 0.7;
-      snapshot.gunsmith.parts.forEach((part) => {
-        const label = `${part.compatible ? 'Fit' : 'Incompatible'} ${part.name} T${part.tier}${part.traits.length ? ` [${part.traits.join(', ')}]` : ''}`;
-        this.addButton(root, margin, y, label, hitTarget, () => {
-          if (part.compatible) this.render(this.requireController().fitGunPart(part.instanceId));
-        });
+      actions.slice(this.gunsmithPage * pageSize, (this.gunsmithPage + 1) * pageSize).forEach((item) => {
+        this.addButton(root, margin, y, item.label, hitTarget, item.action);
         y += hitTarget + 8;
       });
-      for (const instanceId of [...Object.values(selected.fitted), ...selected.traitParts]) {
-        if (!instanceId) continue;
-        this.addButton(root, margin, y, `Unequip ${instanceId}`, hitTarget, () => this.render(this.requireController().unequipGunPart(instanceId)));
+      if (pageCount > 1) {
+        if (this.gunsmithPage > 0) {
+          this.addButton(root, margin, y, 'Previous Gunsmith Page', hitTarget, () => {
+            this.gunsmithPage -= 1;
+            this.render(this.requireController().snapshot());
+          });
+          y += hitTarget + 8;
+        }
+        if (this.gunsmithPage < pageCount - 1) {
+          this.addButton(root, margin, y, 'Next Gunsmith Page', hitTarget, () => {
+            this.gunsmithPage += 1;
+            this.render(this.requireController().snapshot());
+          });
+          y += hitTarget + 8;
+        }
+      }
+    }
+    this.addBackButton(root, width, margin, hitTarget);
+  }
+
+  private renderEquipment(
+    root: Phaser.GameObjects.Container,
+    snapshot: MainMenuSnapshot,
+    width: number,
+    top: number,
+    margin: number,
+    hitTarget: number,
+  ): void {
+    const heading = this.addHeading(root, this.safeCenterX, top, 'Equipment');
+    let y = top + heading.height + 14;
+    const equipped = snapshot.equipment.equipped;
+    this.own(root, createUiText(this, margin, y, `Slots — Helmet: ${equipped.helmet ?? 'empty'} • Armour: ${equipped.armour ?? 'empty'}\nGloves: ${equipped.gloves ?? 'empty'} • Boots: ${equipped.boots ?? 'empty'}`, {
+      color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+      wordWrap: { width: width - margin - this.safeRightMargin },
+    }));
+    y += hitTarget + 12;
+    snapshot.equipment.owned.forEach((item) => {
+      const equippedHere = equipped[item.slot] === item.instanceId;
+      this.addButton(root, margin, y, `${equippedHere ? '✓ ' : ''}${item.name} T${item.tier} — ${equippedHere ? 'Equipped' : 'Equip'}`, hitTarget, () => {
+        this.render(equippedHere
+          ? this.requireController().unequipEquipment(item.slot as 'helmet' | 'armour' | 'gloves' | 'boots')
+          : this.requireController().equipEquipment(item.instanceId));
+      });
+      y += hitTarget + 8;
+      if (item.upgradeCost !== undefined) {
+        this.addButton(root, margin, y, `Upgrade ${item.name} (${item.upgradeCost} scrap)`, hitTarget, () => {
+          this.render(this.requireController().upgradeEquipment(item.instanceId));
+        });
         y += hitTarget + 8;
       }
+    });
+    if (snapshot.equipment.owned.length === 0) {
+      this.own(root, createUiText(this, margin, y, 'Complete bosses and achievements to earn persistent equipment.', {
+        color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+        wordWrap: { width: width - margin - this.safeRightMargin },
+      }));
+      y += hitTarget;
     }
     this.addBackButton(root, width, margin, hitTarget);
   }

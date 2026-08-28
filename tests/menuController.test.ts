@@ -184,6 +184,28 @@ describe('MainMenuController', () => {
     expect(controller.open('arena').notice).toBeUndefined();
   });
 
+  it('routes Gunsmith merge/infuse and equipment upgrade through durable menu commands', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      a: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+      b: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+      target: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+      fire: { partId: 'part:trait-fire', tier: 2, infusedTraits: [] },
+    } }));
+    expect(controller.mergeGunParts('a', 'b').notice).toBeUndefined();
+    expect(controller.infuseGunPart('target', 'fire').notice).toBeUndefined();
+    expect(context.saveData.gunsmith.parts.target.infusedTraits).toEqual(['FIRE']);
+
+    context.updateMeta((meta) => ({ ...meta, scrap: 100 }));
+    context.updateEquipment(() => ({
+      equipment: { helmet: { equipmentId: 'equipment:commando-helmet', tier: 1 } }, loadout: {},
+    }));
+    expect(controller.open('equipment').equipment.owned).toHaveLength(1);
+    expect(controller.equipEquipment('helmet').equipment.equipped.helmet).toBe('helmet');
+    expect(controller.upgradeEquipment('helmet').equipment.owned[0].tier).toBe(2);
+    expect(controller.snapshot().progression.scrap).toBe(0);
+  });
+
   it('does not consume menu RNG', () => {
     const { controller, menuRng } = setup();
     const spy = vi.spyOn(menuRng, 'next');

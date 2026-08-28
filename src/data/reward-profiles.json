@@ -3,7 +3,10 @@
     "id": "reward:stage-01",
     "scrapBase": 25,
     "scrapPerMinute": 10,
-    "lootTableId": "chest-standard"
+    "lootTableId": "chest-standard",
+    "grants": [
+      { "type": "grant-part-instance", "instanceId": "reward:stage-01-standard-barrel", "partId": "part:barrel-standard", "tier": 1 }
+    ]
   },
   {
     "id": "reward:stage-02",
@@ -27,12 +30,18 @@
     "id": "reward:stage-05-boss",
     "scrapBase": 150,
     "scrapPerMinute": 35,
-    "lootTableId": "weapon-world"
+    "lootTableId": "weapon-world",
+    "grants": [
+      { "type": "grant-part-instance", "instanceId": "reward:stage-05-fire-trait", "partId": "part:trait-fire", "tier": 2 }
+    ]
   },
   {
     "id": "reward:stage-06-boss",
     "scrapBase": 190,
     "scrapPerMinute": 40,
-    "lootTableId": "weapon-world"
+    "lootTableId": "weapon-world",
+    "grants": [
+      { "type": "grant-equipment-instance", "instanceId": "reward:stage-06-juggernaut-armour", "equipmentId": "equipment:juggernaut-armour", "tier": 2 }
+    ]
   }
 ]

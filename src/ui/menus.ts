@@ -6,6 +6,7 @@ import { SettingsController, type SettingsSnapshot } from './settings';
 import { StageSelectionController, type StageSelectionSnapshot } from './stageSelectionController';
 import { AchievementsController, type AchievementsSnapshot } from './achievementsController';
 import { GunsmithController, type GunsmithSnapshot } from './gunsmithController';
+import { EquipmentController, type EquipmentSnapshot } from './equipmentController';
 import { DataAchievementRegistry } from '../systems/achievements';
 import type { GameContext } from '../engine/context';
 
@@ -16,6 +17,7 @@ export type MenuPanel =
   | 'stage'
   | 'achievements'
   | 'gunsmith'
+  | 'equipment'
   | 'progression'
   | 'settings'
   | 'reset-confirmation';
@@ -29,6 +31,7 @@ export interface MainMenuSnapshot {
   readonly stage: StageSelectionSnapshot;
   readonly achievements: AchievementsSnapshot;
   readonly gunsmith: GunsmithSnapshot;
+  readonly equipment: EquipmentSnapshot;
   readonly progression: ProgressionSnapshot;
   readonly settings: SettingsSnapshot;
   readonly notice?: string;
@@ -41,6 +44,7 @@ export class MainMenuController {
   private readonly progressionController: ProgressionController;
   private readonly achievementsController: AchievementsController;
   private readonly gunsmithController: GunsmithController;
+  private readonly equipmentController: EquipmentController;
   private readonly settingsController: SettingsController;
   private panel: MenuPanel = 'home';
   private previousPanel: NonResetPanel = 'home';
@@ -53,6 +57,7 @@ export class MainMenuController {
     this.progressionController = new ProgressionController(context);
     this.achievementsController = new AchievementsController(context, new DataAchievementRegistry({ achievements: context.data.achievements ?? [] }));
     this.gunsmithController = new GunsmithController(context);
+    this.equipmentController = new EquipmentController(context);
     this.settingsController = new SettingsController(context);
   }
 
@@ -64,6 +69,7 @@ export class MainMenuController {
       stage: this.stageController.snapshot(),
       achievements: this.achievementsController.snapshot(),
       gunsmith: this.gunsmithController.snapshot(),
+      equipment: this.equipmentController.snapshot(),
       progression: this.progressionController.snapshot(),
       settings: this.settingsController.snapshot(),
       notice: this.notice,
@@ -176,6 +182,33 @@ export class MainMenuController {
   unequipGunPart(instanceId: string): MainMenuSnapshot {
     const result = this.gunsmithController.unequipPart(instanceId);
     this.notice = result.ok ? undefined : `Gunsmith: ${result.reason}`;
+    return this.snapshot();
+  }
+
+  mergeGunParts(firstInstanceId: string, secondInstanceId: string): MainMenuSnapshot {
+    const result = this.gunsmithController.merge(firstInstanceId, secondInstanceId);
+    this.notice = result.ok ? undefined : `Gunsmith: ${result.reason}`;
+    return this.snapshot();
+  }
+
+  infuseGunPart(targetInstanceId: string, traitInstanceId: string): MainMenuSnapshot {
+    const result = this.gunsmithController.infuse(targetInstanceId, traitInstanceId);
+    this.notice = result.ok ? undefined : `Gunsmith: ${result.reason}`;
+    return this.snapshot();
+  }
+
+  equipEquipment(instanceId: string): MainMenuSnapshot {
+    this.notice = this.equipmentController.equip(instanceId) ? undefined : 'Equipment: cannot equip that item';
+    return this.snapshot();
+  }
+
+  unequipEquipment(slot: 'helmet' | 'armour' | 'gloves' | 'boots'): MainMenuSnapshot {
+    this.notice = this.equipmentController.unequip(slot) ? undefined : 'Equipment: slot is empty';
+    return this.snapshot();
+  }
+
+  upgradeEquipment(instanceId: string): MainMenuSnapshot {
+    this.notice = this.equipmentController.upgrade(instanceId) ? undefined : 'Equipment: upgrade unavailable';
     return this.snapshot();
   }
 

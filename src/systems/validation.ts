@@ -90,11 +90,11 @@ import {
   assertStageRewardLootTableReferences,
   assertStageUnlockReferences,
 } from './validation/stages';
-import { checkAchievement, assertAchievementMetricReferences, assertUniqueAchievementPlatformMappings } from './validation/achievements';
+import { checkAchievement, assertAchievementMetricReferences, assertUniqueAchievementPlatformMappings, assertAchievementEquipmentGrantReferences } from './validation/achievements';
 import { registeredMetricIds } from './achievements';
 import { checkPart, assertPartEffectSources } from './validation/parts';
 import { checkAbility } from './validation/abilities';
-import { checkEquipment, assertEquipmentEffectSources } from './validation/equipment';
+import { checkEquipment, assertEquipmentEffectSources, assertEquipmentSetBonuses } from './validation/equipment';
 import { findEdgeLaneWitness, findRectWitness, findRingWitness } from '../gameplay/spawnRegion';
 import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 
@@ -624,6 +624,7 @@ export function validateGameData(raw: unknown): GameData {
   // Epic 22: achievement metric references (appended, preserving frozen order).
   assertAchievementMetricReferences(achievements, new Set(registeredMetricIds()));
   assertUniqueAchievementPlatformMappings(achievements);
+  assertAchievementEquipmentGrantReferences(achievements, new Set((catalogs.equipment as EquipmentDefinition[]).map((equipment) => equipment.id)));
 
   // Epic 23: gun-part effect sources (appended, preserving frozen order).
   assertPartEffectSources(catalogs['gun-parts'] as PartDefinition[]);
@@ -638,6 +639,7 @@ export function validateGameData(raw: unknown): GameData {
 
   // Epic 25: equipment effect sources (appended, preserving frozen order).
   assertEquipmentEffectSources(catalogs.equipment as EquipmentDefinition[]);
+  assertEquipmentSetBonuses(catalogs.equipment as EquipmentDefinition[]);
 
   const audio: AudioData = { assets: audioAssets, map: audioMap };
   return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements, gunParts: catalogs['gun-parts'] as PartDefinition[], abilities: catalogs.abilities as AbilityDefinition[], equipment: catalogs.equipment as EquipmentDefinition[] };

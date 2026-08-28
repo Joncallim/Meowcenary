@@ -4,7 +4,6 @@ import { loadGameData, validateGameData } from '../src/systems/validation';
 import { DataEquipmentRegistry } from '../src/systems/equipment';
 import {
   EQUIPMENT_SLOTS,
-  SET_BONUSES,
   equipEquipment,
   resolveEquipmentModifiers,
   resolveSetBonuses,
@@ -49,17 +48,17 @@ describe('Epic 25 equipment catalog conformance', () => {
     expect(validateGameData(data)).toBeTruthy();
   });
 
-  it('every shipped set has a registered 2-piece and 4-piece bonus', () => {
+  it('every shipped set owns exactly one complete data bonus table', () => {
     for (const setId of new Set(definitions.map((d) => d.setId))) {
-      const bonus = SET_BONUSES[setId];
-      expect(bonus, `set ${setId}`).toBeDefined();
-      expect(bonus.bonuses[2]).toBeDefined();
-      expect(bonus.bonuses[4]).toBeDefined();
+      const providers = definitions.filter((definition) => definition.setId === setId && definition.setBonuses !== undefined);
+      expect(providers, `set ${setId}`).toHaveLength(1);
+      expect(providers[0].setBonuses?.[2]).toBeDefined();
+      expect(providers[0].setBonuses?.[4]).toBeDefined();
     }
   });
 
   it('ships all four obtainable slots for every advertised initial set', () => {
-    for (const setId of Object.keys(SET_BONUSES)) {
+    for (const setId of new Set(definitions.map((d) => d.setId))) {
       expect(new Set(definitions.filter((definition) => definition.setId === setId).map((definition) => definition.slot)), setId)
         .toEqual(new Set(EQUIPMENT_SLOTS));
     }
@@ -162,6 +161,8 @@ describe('Epic 25 coin-funded upgrades', () => {
     const maxed = owned('equipment:commando-helmet', 4);
     expect(upgradeEquipment(maxed, 10000, defMap)).toMatchObject({ ok: false, reason: 'max-tier' });
     expect(upgradeEquipment(owned('equipment:nope'), 100, defMap)).toMatchObject({ ok: false, reason: 'unknown-equipment' });
+    expect(upgradeEquipment(owned('equipment:commando-helmet', 0), 100, defMap)).toMatchObject({ ok: false, reason: 'unknown-equipment' });
+    expect(upgradeEquipment(owned('equipment:commando-helmet', 1.5), 100, defMap)).toMatchObject({ ok: false, reason: 'unknown-equipment' });
   });
 });
 
@@ -232,5 +233,13 @@ describe('Epic 25 second-fixture proof (data-only extensibility)', () => {
     expect(registry.equipmentById('equipment:proof-gloves')).toBeDefined();
     // Shipped catalog untouched.
     expect(defMap.has('equipment:proof-gloves')).toBe(false);
+  });
+
+  it('rejects malformed data-owned bonus modifiers before runtime resolution', () => {
+    const invalid = {
+      ...definitions[0],
+      setBonuses: { 2: [{ stat: 'not-a-stat', op: 'mult', value: 1.1, sourceId: 'set:commando:2' }] },
+    };
+    expect(() => new DataEquipmentRegistry({ equipment: [invalid] })).toThrow(/setBonuses\.2\[0\]\.stat/);
   });
 });

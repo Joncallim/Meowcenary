@@ -39,4 +39,26 @@ describe('GameScene durable stage clear', () => {
       { id: 'stage:junkyard-01:first-clear', grants: [{ type: 'grant-scrap', amount: 35 }] },
     );
   });
+
+  it('commits explicit profile rewards with the stage receipt, not through a separate UI mutation', () => {
+    const scene = new GameScene() as any;
+    const run = createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'junkyard-lot' });
+    run.status = 'active';
+    scene.runState = run;
+    scene.stagePlan = {
+      stageId: 'stage:junkyard-01', encounter: {},
+      reward: { scrapBase: 25, scrapPerMinute: 0, grants: [{ type: 'grant-part-instance', instanceId: 'reward:proof', partId: 'part:barrel-standard', tier: 1 }] },
+    };
+    scene.stageState = { status: 'objective-complete' };
+    scene.captureStageClear();
+    const completeStageTransaction = vi.fn().mockReturnValue(true);
+    expect(scene.tryCommitStageClear({ completeStageTransaction, bus: createEventBus() })).toBe(true);
+    expect(completeStageTransaction).toHaveBeenCalledWith('stage:junkyard-01', 0, undefined, {
+      id: 'stage:junkyard-01:first-clear',
+      grants: [
+        { type: 'grant-scrap', amount: 25 },
+        { type: 'grant-part-instance', instanceId: 'reward:proof', partId: 'part:barrel-standard', tier: 1 },
+      ],
+    });
+  });
 });

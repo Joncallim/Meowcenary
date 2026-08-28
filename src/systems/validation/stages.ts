@@ -6,6 +6,7 @@
 import type { StageDefinition, EncounterProfile, RewardProfile } from '../../gameplay/stage/stageContracts';
 import { isContentId, isUnlockId } from '../ids';
 import { validateProgressionCondition } from '../../gameplay/conditionValidation';
+import { isValidProgressionGrant } from '../../gameplay/grantProcessor';
 import type { RowCheck } from '../validation';
 
 // Re-exported for use by this module's public API.
@@ -183,6 +184,9 @@ export const checkRewardProfile: RowCheckFn = (row: unknown, _index: number): st
   }
   if (rp.lootTableId !== undefined && (typeof rp.lootTableId !== 'string' || !isContentId(rp.lootTableId))) {
     errors.push('lootTableId: must be a valid content ID when present');
+  }
+  if (rp.grants !== undefined && (!Array.isArray(rp.grants) || !rp.grants.every(isValidProgressionGrant))) {
+    errors.push('grants: must contain valid shared progression grants');
   }
 
   return errors;
