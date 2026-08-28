@@ -45,11 +45,40 @@ export interface DurableGrantResult { readonly save: SaveDataV3; readonly change
  * snapshot. Persistence/publishing is owned by GameContext; it must publish
  * this snapshot only after SaveManager.save succeeds. */
 export function applyDurableGrantTransaction(save: SaveDataV3, transaction: DurableGrantTransaction): DurableGrantResult {
-  if (!isGrantTransactionId(transaction.id)) return { save, changed: false };
+  // Validate the whole payload before touching progression.  A malformed
+  // trailing grant must not leave an earlier currency/level mutation behind
+  // without its receipt.
+  if (!isValidTransaction(transaction)) return { save, changed: false };
   if (Object.prototype.hasOwnProperty.call(save.appliedGrantTransactions, transaction.id)) return { save, changed: false };
   const result = processGrants(save.progression, transaction.grants);
   const appliedGrantTransactions = Object.freeze({ ...save.appliedGrantTransactions, [transaction.id]: true as const });
   return { save: Object.freeze({ ...save, progression: result.progression, appliedGrantTransactions }), changed: true };
+}
+
+function isValidTransaction(transaction: DurableGrantTransaction): boolean {
+  return transaction !== null
+    && typeof transaction === 'object'
+    && isGrantTransactionId(transaction.id)
+    && Array.isArray(transaction.grants)
+    && transaction.grants.every(isValidGrant);
+}
+
+function isValidGrant(grant: unknown): grant is ProgressionGrant {
+  if (grant === null || typeof grant !== 'object' || !('type' in grant)) return false;
+  const value = grant as Record<string, unknown>;
+  const validId = (field: string) => typeof value[field] === 'string' && value[field].length > 0;
+  switch (value.type) {
+    case 'grant-scrap': return Number.isSafeInteger(value.amount) && (value.amount as number) > 0;
+    case 'unlock-stage': return validId('stageId');
+    case 'unlock-character': return validId('characterId');
+    case 'unlock-equipment': return validId('equipmentId');
+    case 'unlock-part': return validId('partId');
+    case 'unlock-trait': return validId('traitId');
+    case 'grant-item': return validId('itemId') && (value.amount === undefined || (Number.isSafeInteger(value.amount) && (value.amount as number) > 0));
+    case 'achievement-completed': return validId('achievementId');
+    case 'permanent-upgrade-level': return validId('upgradeId') && Number.isSafeInteger(value.levels) && (value.levels as number) > 0;
+    default: return false;
+  }
 }
 
 /**

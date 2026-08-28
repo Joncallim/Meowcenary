@@ -1,5 +1,5 @@
 import { RuntimeConfig } from '../engine/config';
-import { isContentId, isGrantTransactionId, isUnlockId } from './ids';
+import { isContentId, isGrantTransactionId, isInstanceId, isUnlockId } from './ids';
 
 export interface Settings {
   readonly muted: boolean;
@@ -365,7 +365,7 @@ function sanitizeGunsmithState(raw: unknown): GunsmithState {
   const parts: Record<string, PartInstance> = Object.create(null);
   if (isPlainRecord(partsRaw)) {
     for (const key of Object.keys(partsRaw)) {
-      if (!isContentId(key)) continue;
+      if (!isInstanceId(key)) continue;
       const entry = readOwn(partsRaw as Record<string, unknown>, key);
       if (isPlainRecord(entry) && typeof readOwn(entry, 'partId') === 'string') {
         const infused = readOwn(entry, 'infusedTraits');
@@ -396,14 +396,18 @@ function sanitizeEquipmentState(raw: unknown): EquipmentState {
   if (!isPlainRecord(raw)) return {};
   const result: Record<string, EquipmentInstance> = Object.create(null);
   for (const key of Object.keys(raw)) {
-    if (!isContentId(key)) continue;
+    if (!isInstanceId(key)) continue;
     const entry = readOwn(raw as Record<string, unknown>, key);
     if (!isPlainRecord(entry)) continue;
     const equipmentId = readOwn(entry, 'equipmentId');
     const tier = readOwn(entry, 'tier');
     // Existing V3 entries used { setId, tier } under an instance/definition
     // key. Preserve the key and recover the definition ID from it once.
-    const canonicalId = typeof equipmentId === 'string' ? equipmentId : key;
+    // Old V3 stored a definition key with `{ setId, tier }`.  Only migrate
+    // that unambiguous form; an arbitrary instance key is not a definition.
+    const canonicalId = typeof equipmentId === 'string'
+      ? equipmentId
+      : (isContentId(key) || isUnlockId(key) ? key : undefined);
     if (isContentId(canonicalId) || isUnlockId(canonicalId)) {
       result[key] = {
         equipmentId: canonicalId,

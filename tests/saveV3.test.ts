@@ -146,6 +146,34 @@ describe('V1 → V3 migration chain', () => {
 });
 
 describe('V3 domain sanitizers', () => {
+  it('preserves distinct opaque owned instances and durable receipt IDs', () => {
+    const raw = {
+      version: 3,
+      settings: DEFAULT_SETTINGS,
+      progression: { scrap: 0, unlocks: [], permanentUpgrades: {} },
+      stages: {}, achievements: {}, characters: {},
+      gunsmith: { builds: [], parts: {
+        'part-copy-a': { partId: 'part:barrel-standard', infusedTraits: ['FIRE'] },
+        'part-copy-b': { partId: 'part:barrel-standard', infusedTraits: [] },
+      } },
+      equipment: {
+        'equip-copy-a': { equipmentId: 'equipment:commando-helmet', tier: 1 },
+        'equip-copy-b': { equipmentId: 'equipment:commando-helmet', tier: 3 },
+        'legacy-definition': { setId: 'commando', tier: 2 },
+      },
+      bosses: { 'boss-crusher': { defeated: true } },
+      appliedGrantTransactions: { 'stage:junkyard-01:first-clear': true, constructor: true },
+    };
+    const v3 = migrate(raw, limits) as SaveDataV3;
+    expect(v3.gunsmith.parts['part-copy-a'].partId).toBe('part:barrel-standard');
+    expect(v3.gunsmith.parts['part-copy-b']).toBeDefined();
+    expect(v3.equipment['equip-copy-a']).toMatchObject({ equipmentId: 'equipment:commando-helmet', tier: 1 });
+    expect(v3.equipment['equip-copy-b']).toMatchObject({ equipmentId: 'equipment:commando-helmet', tier: 3 });
+    expect(v3.equipment['legacy-definition']).toMatchObject({ equipmentId: 'legacy-definition', tier: 2 });
+    expect(v3.appliedGrantTransactions['stage:junkyard-01:first-clear']).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(v3.appliedGrantTransactions, 'constructor')).toBe(false);
+  });
+
   it('sanitizes stage progress with valid keys and invalid entries', () => {
     const raw = {
       version: 3,

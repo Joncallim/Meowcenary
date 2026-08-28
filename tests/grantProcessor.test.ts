@@ -8,6 +8,7 @@ import {
 import { createDefaultSaveV3 } from '../src/systems/save';
 import { createDefaultProgression } from '../src/systems/save';
 import type { ProgressionState } from '../src/systems/save';
+import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 
 function makeProgression(overrides?: Partial<ProgressionState>): ProgressionState {
   const base = createDefaultProgression();
@@ -158,6 +159,34 @@ describe('durable grant transactions', () => {
     expect(once.save.progression.unlocks).toContain('achievement:boss-crusher');
     expect(replay.changed).toBe(false);
     expect(replay.save).toBe(once.save);
+  });
+
+  it('keeps the receipt across save/load so retry cannot duplicate mixed rewards', () => {
+    const transaction = {
+      id: 'stage:junkyard-01:first-clear',
+      grants: [
+        { type: 'grant-scrap' as const, amount: 25 },
+        { type: 'permanent-upgrade-level' as const, upgradeId: 'reinforced-vest', levels: 1 },
+        { type: 'unlock-character' as const, characterId: 'character:bolt-hound' },
+      ],
+    };
+    const storage = new MemoryStorageAdapter();
+    const manager = new SaveManager(storage, 'receipt-reload', {});
+    const once = applyDurableGrantTransaction(manager.load(), transaction);
+    expect(manager.save(once.save)).toBe(true);
+    const replay = applyDurableGrantTransaction(manager.load(), transaction);
+    expect(replay.changed).toBe(false);
+    expect(replay.save.progression.scrap).toBe(25);
+    expect(replay.save.progression.permanentUpgrades['reinforced-vest']).toBe(1);
+  });
+
+  it('rejects malformed batches before any grant can be applied', () => {
+    const save = createDefaultSaveV3();
+    const result = applyDurableGrantTransaction(save, {
+      id: 'stage:junkyard-01:bad-payload',
+      grants: [{ type: 'grant-scrap', amount: 10 }, null] as unknown as readonly ProgressionGrant[],
+    });
+    expect(result).toEqual({ save, changed: false });
   });
 });
 
