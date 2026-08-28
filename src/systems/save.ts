@@ -79,6 +79,7 @@ export type AchievementProgressState = Record<string, AchievementProgress>;
 export type AchievementMetricState = Readonly<Record<string, number>>;
 export type CharacterMasteryState = Record<string, MasteryProgress>;
 export type EquipmentState = Record<string, EquipmentInstance>;
+export type EquipmentLoadoutState = Readonly<Partial<Record<'helmet' | 'armour' | 'gloves' | 'boots', string>>>;
 
 export interface SaveDataV1 {
   readonly version: 1;
@@ -102,6 +103,7 @@ export interface SaveDataV3 {
   readonly characters: CharacterMasteryState;
   readonly gunsmith: GunsmithState;
   readonly equipment: EquipmentState;
+  readonly equipmentLoadout?: EquipmentLoadoutState;
   readonly bosses: BossProgressState;
   readonly appliedGrantTransactions: AppliedGrantTransactions;
 }
@@ -145,6 +147,7 @@ export function createDefaultSaveV3(): SaveDataV3 {
     characters: {},
     gunsmith: { builds: [], parts: {} },
     equipment: {},
+    equipmentLoadout: {},
     bosses: {},
     appliedGrantTransactions: {},
   });
@@ -224,6 +227,7 @@ export function migrateV2ToV3(raw: Readonly<Record<string, unknown>>, maxLevels:
     characters: {},
     gunsmith: { builds: [], parts: {} },
     equipment: {},
+    equipmentLoadout: {},
     bosses: {},
     appliedGrantTransactions: {},
   });
@@ -255,6 +259,7 @@ function decodeSave(raw: unknown, maxLevels: MetaUpgradeMaxLevels): SaveDecodeRe
   if (version === 1) return { data: migrateV1ToV3(parsed), unsupportedFutureVersion: false };
   if (version === 2) return { data: migrateV2ToV3(parsed, maxLevels), unsupportedFutureVersion: false };
   if (version === 3) {
+    const equipment = sanitizeEquipmentState(readOwn(parsed, 'equipment'));
     return {
       data: freezeSaveV3({
         version: 3,
@@ -265,7 +270,8 @@ function decodeSave(raw: unknown, maxLevels: MetaUpgradeMaxLevels): SaveDecodeRe
         achievementMetrics: sanitizeAchievementMetrics(readOwn(parsed, 'achievementMetrics')),
         characters: sanitizeCharacterMastery(readOwn(parsed, 'characters')),
         gunsmith: sanitizeGunsmithState(readOwn(parsed, 'gunsmith')),
-        equipment: sanitizeEquipmentState(readOwn(parsed, 'equipment')),
+        equipment,
+        equipmentLoadout: sanitizeEquipmentLoadout(readOwn(parsed, 'equipmentLoadout'), equipment),
         bosses: sanitizeBossProgress(readOwn(parsed, 'bosses')),
         appliedGrantTransactions: sanitizeAppliedGrantTransactions(readOwn(parsed, 'appliedGrantTransactions')),
       }),
@@ -289,6 +295,7 @@ function migrateV1ToV3(raw: Readonly<Record<string, unknown>>): SaveDataV3 {
     characters: {},
     gunsmith: { builds: [], parts: {} },
     equipment: {},
+    equipmentLoadout: {},
     bosses: {},
     appliedGrantTransactions: {},
   });
@@ -454,6 +461,16 @@ function sanitizeEquipmentState(raw: unknown): EquipmentState {
   return result;
 }
 
+function sanitizeEquipmentLoadout(raw: unknown, owned: EquipmentState): EquipmentLoadoutState {
+  if (!isPlainRecord(raw)) return Object.freeze({});
+  const result: Partial<Record<'helmet' | 'armour' | 'gloves' | 'boots', string>> = {};
+  for (const slot of ['helmet', 'armour', 'gloves', 'boots'] as const) {
+    const instanceId = readOwn(raw, slot);
+    if (typeof instanceId === 'string' && Object.hasOwn(owned, instanceId)) result[slot] = instanceId;
+  }
+  return Object.freeze(result);
+}
+
 function sanitizeBossProgress(raw: unknown): BossProgressState {
   if (!isPlainRecord(raw)) return {};
   const result: Record<string, BossProgress> = Object.create(null);
@@ -503,6 +520,7 @@ export class SaveManager {
   save(data: SaveData): boolean {
     if (this.writeProtected) return false;
     try {
+      const equipment = sanitizeEquipmentState(data.equipment);
       const sanitized = freezeSaveV3({
         version: 3,
         settings: sanitizeSettings(data.settings, DEFAULT_SETTINGS),
@@ -512,7 +530,8 @@ export class SaveManager {
         achievementMetrics: sanitizeAchievementMetrics(data.achievementMetrics),
         characters: sanitizeCharacterMastery(data.characters),
         gunsmith: sanitizeGunsmithState(data.gunsmith),
-        equipment: sanitizeEquipmentState(data.equipment),
+        equipment,
+        equipmentLoadout: sanitizeEquipmentLoadout(data.equipmentLoadout, equipment),
         bosses: sanitizeBossProgress(data.bosses),
         appliedGrantTransactions: sanitizeAppliedGrantTransactions(data.appliedGrantTransactions),
       });
@@ -614,6 +633,7 @@ function freezeSaveV3(save: SaveDataV3): SaveDataV3 {
       parts: Object.freeze({ ...save.gunsmith.parts }),
     }),
     equipment: Object.freeze({ ...save.equipment }),
+    equipmentLoadout: Object.freeze({ ...(save.equipmentLoadout ?? {}) }),
     bosses: Object.freeze({ ...save.bosses }),
     appliedGrantTransactions: Object.freeze({ ...save.appliedGrantTransactions }),
   });

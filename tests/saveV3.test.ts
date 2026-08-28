@@ -32,6 +32,7 @@ describe('Save V3 migration (V2→V3)', () => {
       characters: {},
       gunsmith: { builds: [], parts: {} },
       equipment: {},
+      equipmentLoadout: {},
       bosses: {},
       appliedGrantTransactions: {},
     });
@@ -174,6 +175,11 @@ describe('V3 domain sanitizers', () => {
     expect(v3.equipment['legacy-definition']).toMatchObject({ equipmentId: 'legacy-definition', tier: 2 });
     expect(v3.appliedGrantTransactions['stage:junkyard-01:first-clear']).toBe(true);
     expect(Object.prototype.hasOwnProperty.call(v3.appliedGrantTransactions, 'constructor')).toBe(false);
+  });
+
+  it('keeps only owned equipment instance references in the equipped loadout', () => {
+    const v3 = migrate({ version: 3, settings: DEFAULT_SETTINGS, progression: { scrap: 0, unlocks: [], permanentUpgrades: {} }, stages: {}, achievements: {}, characters: {}, gunsmith: { builds: [], parts: {} }, equipment: { 'equip-a': { equipmentId: 'equipment:commando-helmet', tier: 2 } }, equipmentLoadout: { helmet: 'equip-a', boots: 'missing' } }, limits) as SaveDataV3;
+    expect(v3.equipmentLoadout).toEqual({ helmet: 'equip-a' });
   });
 
   it('sanitizes stage progress with valid keys and invalid entries', () => {
