@@ -60,6 +60,8 @@ import { HeldWeaponView } from '../entities/heldWeaponView';
 import { DefeatPresentationSystem } from '../systems/defeatPresentation';
 import { DataAchievementRegistry, metricExtractor } from '../systems/achievements';
 import { evaluateAchievements } from '../gameplay/achievementSystem';
+import { DataAbilityRegistry } from '../systems/abilities';
+import { activateAbility, createAbilityState, tickAbility, type AbilityDefinition, type AbilityState } from '../gameplay/abilities';
 import type { FocusDirection } from '../ui/focusList';
 
 /** U6: the gameplay camera shows canvas/zoom world units — 312×675.2 on the
@@ -122,6 +124,8 @@ export class GameScene extends Phaser.Scene {
   private dpsMeter?: DpsMeter;
   private stagePlan?: ResolvedRunPlan;
   private stageState?: StageState;
+  private abilityDefinition?: AbilityDefinition;
+  private abilityState: AbilityState = createAbilityState();
 
   constructor() {
     super(SceneKey.Game);
@@ -169,6 +173,9 @@ export class GameScene extends Phaser.Scene {
       throw new Error(`Selected character "${request.characterId}" is missing from the registry`);
     }
     const weaponRegistry = new DataWeaponRegistry(ctx.data);
+    this.abilityDefinition = character.abilityId === undefined
+      ? undefined
+      : new DataAbilityRegistry({ abilities: ctx.data.abilities ?? [] }).abilityById(character.abilityId);
     const contribution = resolveCharacterRunContribution(character, weaponRegistry);
     const prepared = prepareRun({
       state: {
@@ -462,6 +469,7 @@ export class GameScene extends Phaser.Scene {
     this.inputController.onAction('navLeft', () => this.routeAction('navLeft'));
     this.inputController.onAction('navRight', () => this.routeAction('navRight'));
     this.inputController.onAction('confirm', () => this.routeAction('confirm'));
+    this.inputController.onAction('ability', () => this.routeAction('ability'));
     if (RuntimeConfig.isDev) {
       this.input.keyboard?.on('keydown-F4', this.togglePhysicsDebug, this);
       this.input.keyboard?.on('keydown-F8', this.forceLoseRun, this);
@@ -509,6 +517,7 @@ export class GameScene extends Phaser.Scene {
     this.runSummaryView?.refreshInputPresentation();
     this.upgradeChooser?.refreshInputPresentation();
     tickRun(runState, delta);
+    this.tickAbility(delta);
     this.updateStageObjective(ctx, delta);
     this.syncPhysicsPause(runState);
     this.player.update(delta);
@@ -725,7 +734,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // 5. Active run / no modal: only Back/Pause pause and Inventory
+    // 5. Active run / no modal: only Back/Pause pause, Inventory and the
+    // character's shared ability action are accepted.
     //    direct-opens. Nav/confirm/dash/ability and every unmatched action
     //    are discarded immediately — they must not fall through to a pause
     //    view render or any other lower-priority command.
@@ -741,6 +751,9 @@ export class GameScene extends Phaser.Scene {
     } else if (action === 'inventory') {
       accepted = controller.openInventoryFromRun();
       event = 'ui:confirm';
+    } else if (action === 'ability') {
+      this.activateCharacterAbility();
+      return;
     } else {
       return;
     }
@@ -749,6 +762,40 @@ export class GameScene extends Phaser.Scene {
       this.getContext().bus.emit(event, {});
     }
     this.pauseView?.render(controller.snapshot());
+  }
+
+  private activateCharacterAbility(): void {
+    const definition = this.abilityDefinition;
+    const runState = this.runState;
+    const player = this.player;
+    if (!definition || !runState || !player || runState.status !== 'active') return;
+    const activation = activateAbility(this.abilityState, definition);
+    if (!activation.fired) return;
+    this.abilityState = activation.state;
+    const effect = definition.effect;
+    if (effect.kind === 'heal') player.heal(effect.amount);
+    else if (effect.kind === 'invulnerable') player.grantInvulnerability(definition.durationMs);
+    else if (effect.kind === 'stat-burst') effect.modifiers.forEach((modifier) => runState.stats.add(modifier));
+    else if (effect.kind === 'knockback' || effect.kind === 'elemental-burst') {
+      this.enemies.forEach((enemy) => {
+        const dx = enemy.x - player.x;
+        const dy = enemy.y - player.y;
+        const distance = Math.hypot(dx, dy) || 1;
+        if (distance > effect.radius) return;
+        if (effect.kind === 'elemental-burst') enemy.takeDamage(effect.power);
+        else enemy.body.setVelocity(dx / distance * effect.power, dy / distance * effect.power);
+      });
+    }
+  }
+
+  private tickAbility(deltaMs: number): void {
+    const definition = this.abilityDefinition;
+    if (!definition || this.abilityState.phase === 'ready') return;
+    const before = this.abilityState;
+    this.abilityState = tickAbility(before, deltaMs);
+    if (before.phase === 'active' && this.abilityState.phase !== 'active' && definition.effect.kind === 'stat-burst') {
+      definition.effect.modifiers.forEach((modifier) => this.runState?.stats.remove(modifier.sourceId));
+    }
   }
 
   private forceLoseRun(): void {

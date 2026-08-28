@@ -198,6 +198,19 @@ export class Player {
     }
   }
 
+  /** Active abilities use the same authoritative health/invulnerability state
+   * as combat; they do not bypass run lifecycle checks. */
+  heal(amount: number): void {
+    if (this.runState.status !== 'active' || !Number.isFinite(amount) || amount <= 0) return;
+    this.health = Math.min(this.maxHealth, this.health + amount);
+  }
+
+  grantInvulnerability(durationMs: number): void {
+    if (this.runState.status !== 'active' || !Number.isFinite(durationMs) || durationMs <= 0) return;
+    this.invulnerableMs = Math.max(this.invulnerableMs, durationMs);
+    this.view.update(this.currentPose());
+  }
+
   takeEnvironmentalDamage(amount: number): void {
     if (this.runState.status !== 'active' || !Number.isFinite(amount) || amount <= 0) return;
     this.health = Math.max(0, this.health - amount);
