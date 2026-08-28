@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createEventBus } from '../src/engine/eventBus';
 import type { ResolvedEnemyDefinition } from '../src/systems/types';
+import { DataEnemyRegistry } from '../src/systems/enemies';
+import { loadGameData } from '../src/systems/validation';
 
 class MockBody {
   velocity = { x: 0, y: 0 };
@@ -836,6 +838,31 @@ function enemyDefinition(): ResolvedEnemyDefinition {
     enemy.update({ active: true, x: 100, y: 20 } as never, 2);
     expect(shot).toHaveBeenCalledTimes(1);
     expect(dashed).toHaveBeenCalledTimes(1);
+  });
+
+  it('materializes the second JSON boss composition through the live entity bus seam', async () => {
+    const forge = new DataEnemyRegistry(loadGameData()).resolvedById('boss-forge');
+    expect(forge).toBeDefined();
+    const bus = createEventBus();
+    const shot = vi.fn();
+    const summon = vi.fn();
+    bus.on('enemy:ranged-shot', shot);
+    bus.on('enemy:summon', summon);
+    const { enemy } = await createEnemy(bus, forge!);
+
+    // Forge Warden's configured charge telegraph gates its registered action
+    // composition. Crossing that actual edge must publish a damaging shot and
+    // bounded reinforcement request, not merely resolve data in a helper.
+    const player = { active: true, x: 100, y: 20 } as never;
+    enemy.update(player, 1);
+    enemy.update(player, 700);
+
+    expect(shot).toHaveBeenCalledWith(expect.objectContaining({
+      enemyId: 'boss-forge', damage: forge!.damage, dirX: 1, dirY: 0,
+    }));
+    expect(summon).toHaveBeenCalledWith(expect.objectContaining({
+      sourceEnemyId: 'boss-forge', enemyId: 'junk-rusher', count: 1, maxActive: 4,
+    }));
   });
 
   it('derives boss phase escalation from health and emits each crossed boundary once', async () => {
