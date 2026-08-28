@@ -109,7 +109,7 @@
     "description": "Reach level 3 of the Reinforced Coat permanent upgrade.",
     "kind": "standard",
     "target": 1,
-    "condition": { "type": "permanent-level", "upgradeId": "reinforced-coat", "minLevel": 3 },
+    "condition": { "type": "permanent-level", "upgradeId": "reinforced-vest", "minLevel": 3 },
     "rewards": [
       { "grant": { "type": "grant-scrap", "amount": 150 } }
     ]
