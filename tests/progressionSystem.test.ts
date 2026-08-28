@@ -67,9 +67,9 @@ describe('ProgressionSystem terminal lifecycle', () => {
     const run = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
     run.status = 'won'; run.currency = 4;
     const system = new ProgressionSystem({ runState: run, bus, context });
-    expect(system.bankFinishedRun()).toMatchObject({ persisted: false, meta: { scrap: 4 } });
-    expect(system.bankFinishedRun()).toBeNull();
-    expect(context.saveData.progression.scrap).toBe(4);
+    expect(system.bankFinishedRun()).toMatchObject({ persisted: false, meta: { scrap: 0 } });
+    expect(system.bankFinishedRun()).toMatchObject({ persisted: false, meta: { scrap: 0 } });
+    expect(context.saveData.progression.scrap).toBe(0);
   });
 });
 

@@ -216,10 +216,11 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     updateMeta(transform) {
       const transformed = transform(current.progression);
       const progression = sanitizeProgression(transformed, options.metaUpgrades.maxLevels());
-      current = Object.freeze({ ...current, progression });
-      const persisted = options.save.save(current);
+      const candidate = Object.freeze({ ...current, progression });
+      const persisted = options.save.save(candidate);
+      if (persisted) current = candidate;
       revalidateSelection();
-      return Object.freeze({ value: progression, persisted });
+      return Object.freeze({ value: current.progression, persisted });
     },
     updateGunsmith(transform) {
       const gunsmith = transform(current.gunsmith);
