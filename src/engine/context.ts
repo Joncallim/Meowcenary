@@ -102,6 +102,9 @@ export interface GameContext {
   readonly stageSelectionRevision: number;
   updateSettings(patch: Readonly<Partial<Settings>>): PersistenceUpdate<Settings>;
   updateMeta(transform: (meta: MetaState) => MetaState): PersistenceUpdate<MetaState>;
+  /** Transactional progression mutation for replayable run settlement. Unlike
+   * legacy menu mutations, failed persistence is never published. */
+  commitProgression(transform: (meta: MetaState) => MetaState): PersistenceUpdate<MetaState>;
   /** The only runtime mutation boundary for owned parts/builds.  Commands
    * prepare a complete immutable state; publication occurs only after its
    * Save V3 snapshot is durable. */
@@ -216,11 +219,18 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     updateMeta(transform) {
       const transformed = transform(current.progression);
       const progression = sanitizeProgression(transformed, options.metaUpgrades.maxLevels());
-      const candidate = Object.freeze({ ...current, progression });
-      const persisted = options.save.save(candidate);
-      if (persisted) current = candidate;
+      current = Object.freeze({ ...current, progression });
+      const persisted = options.save.save(current);
       revalidateSelection();
-      return Object.freeze({ value: current.progression, persisted });
+      return Object.freeze({ value: progression, persisted });
+    },
+    commitProgression(transform) {
+      const progression = sanitizeProgression(transform(current.progression), options.metaUpgrades.maxLevels());
+      const candidate = Object.freeze({ ...current, progression });
+      if (!options.save.save(candidate)) return Object.freeze({ value: current.progression, persisted: false });
+      current = candidate;
+      revalidateSelection();
+      return Object.freeze({ value: progression, persisted: true });
     },
     updateGunsmith(transform) {
       const gunsmith = transform(current.gunsmith);

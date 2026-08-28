@@ -38,7 +38,7 @@ export class ProgressionSystem implements System {
     if (this.destroyed || handledRuns.has(this.runState)) return null;
     const reward = computeRunReward(this.runState);
     if (!reward) return null;
-    const update = this.context.updateMeta((meta) => bankReward(meta, reward));
+    const update = this.context.commitProgression((meta) => bankReward(meta, reward));
     // A failed write must leave the terminal source retryable.  The run is
     // marked handled only after the authoritative persistence boundary has
     // committed the same state it exposes to consumers.

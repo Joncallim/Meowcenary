@@ -190,7 +190,7 @@ describe('GameContext persistence boundary', () => {
     storage.succeed = false;
     const reset = context.resetProgression();
     expect(reset.persisted).toBe(false);
-    expect(reset.value.scrap).toBe(10);
+    expect(reset.value.scrap).toBe(0);
     expect(context.settings.reducedMotion).toBe(true);
   });
 

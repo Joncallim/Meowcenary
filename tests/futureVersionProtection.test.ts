@@ -85,7 +85,7 @@ describe('future-version write protection across every public mutation path', ()
     run.currency = 25;
     const banked = new ProgressionSystem({ runState: run, bus, context }).bankFinishedRun();
     expect(banked).toMatchObject({ persisted: false });
-    expect(banked?.meta.scrap).toBe(25);
+    expect(banked?.meta.scrap).toBe(0);
     expectUntouchedStorage(storage);
   });
 });
