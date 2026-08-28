@@ -78,9 +78,12 @@ export class SpawnSystem implements System {
           enemy.body.setVelocity(0, 0);
         }
       });
+      this.enemyProjectiles.forEach((projectile) => projectile.setPaused(true));
       compactActive(this.enemies);
       return;
     }
+
+    this.enemyProjectiles.forEach((projectile) => projectile.setPaused(false));
 
     this.enemies.forEach((enemy) => {
       enemy.update(this.player, dtMs);

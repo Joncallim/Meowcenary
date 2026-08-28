@@ -272,6 +272,25 @@ describe('SpawnSystem', () => {
     expect(harness.enemies).toHaveLength(1);
   });
 
+  it('freezes and restores an active enemy projectile across pause', async () => {
+    const harness = await createHarness();
+    harness.bus.emit('enemy:ranged-shot', {
+      enemyId: 'scrap-sniper', x: 10, y: 20, dirX: 1, dirY: 0, damage: 6,
+    });
+    const projectile = (harness.system as unknown as {
+      enemyProjectiles: Array<{ body: { velocity: { x: number; y: number } } }>;
+    }).enemyProjectiles[0]!;
+    expect(projectile.body.velocity.x).toBeGreaterThan(0);
+
+    harness.runState.status = 'paused';
+    harness.system.update(1_000);
+    expect(projectile.body.velocity).toEqual({ x: 0, y: 0 });
+
+    harness.runState.status = 'active';
+    harness.system.update(0);
+    expect(projectile.body.velocity.x).toBeGreaterThan(0);
+  });
+
   it('applies scaled contact damage only from live contact enemies during active play', async () => {
     const harness = await createHarness();
     harness.system.update(1_600);

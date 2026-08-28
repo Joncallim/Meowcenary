@@ -500,7 +500,7 @@ export class GameScene extends Phaser.Scene {
         return scene.progressionSystem?.lastBankedRun ?? null;
       },
       get canContinue(): boolean {
-        return scene.stagePlan !== undefined;
+        return scene.stagePlan !== undefined && new StageSelectionController(ctx).hasNextUnlockedStage();
       },
     };
     this.runSummaryController = new RunSummaryController(runSummarySource);
@@ -575,6 +575,13 @@ export class GameScene extends Phaser.Scene {
     this.tickAbility(delta);
     this.updateStageObjective(ctx, delta);
     this.syncPhysicsPause(runState);
+    // Objective completion is a durable boundary. A transient save failure
+    // must not leave combat running long enough to turn an earned clear into
+    // a loss; the next frames retry only the idempotent transaction.
+    if (this.pendingStageClear && runState.status === 'active') {
+      this.audioManager?.update(delta);
+      return;
+    }
     this.player.update(delta);
     this.systems.forEach((system) => {
       system.update(delta);
@@ -864,7 +871,7 @@ export class GameScene extends Phaser.Scene {
 
   private forceLoseRun(): void {
     const runState = this.runState;
-    if (!RuntimeConfig.isDev || !runState || runState.status !== 'active') {
+    if (!RuntimeConfig.isDev || !runState || runState.status !== 'active' || this.pendingStageClear) {
       return;
     }
 
@@ -1044,7 +1051,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private syncPhysicsPause(runState: RunState): void {
-    const shouldPause = runState.status !== 'active';
+    const shouldPause = runState.status !== 'active' || this.pendingStageClear !== undefined;
     if (shouldPause && !this.physicsPausedByRun) {
       this.physics.world.pause();
       this.physicsPausedByRun = true;

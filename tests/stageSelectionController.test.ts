@@ -55,6 +55,7 @@ describe('StageSelectionController (Epic 20)', () => {
     // Only stage 1 unlocked → next/prev have nowhere to go
     expect(controller.selectNext().ok).toBe(false);
     expect(controller.selectPrevious().ok).toBe(false);
+    expect(controller.hasNextUnlockedStage()).toBe(false);
   });
 
   it('reflects completed stages and unlocks downstream stages', () => {
@@ -65,6 +66,7 @@ describe('StageSelectionController (Epic 20)', () => {
     expect(snap.stages[1].locked).toBe(false);
     // Stage 2 now selectable
     expect(controller.select('stage:junkyard-02').ok).toBe(true);
+    expect(controller.hasNextUnlockedStage()).toBe(false);
   });
 
   it('keeps a frozen snapshot and bumps the revision on selection', () => {

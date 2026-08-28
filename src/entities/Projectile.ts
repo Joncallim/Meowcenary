@@ -32,6 +32,7 @@ export class Projectile {
   private range = 0;
   private pierce = 0;
   private traveled = 0;
+  private pausedVelocity?: Vec2;
   private readonly hitEnemyIds = new Set<number>();
 
   constructor(
@@ -84,6 +85,7 @@ export class Projectile {
     this.tier = opts.tier;
     this.traveled = 0;
     this.hitEnemyIds.clear();
+    this.pausedVelocity = undefined;
 
     this.sprite.setPosition(x, y).setActive(true).setVisible(!this.artSprite);
     this.glow.setPosition(x, y).setActive(true).setVisible(!this.artSprite);
@@ -111,6 +113,22 @@ export class Projectile {
     if (this.traveled >= this.range) {
       this.reset();
     }
+  }
+
+  /** Freeze an active projectile even when a host has not paused Arcade
+   * physics itself; restore the exact launch velocity on resume. */
+  setPaused(paused: boolean): void {
+    if (!this.active) return;
+    if (paused) {
+      if (this.pausedVelocity) return;
+      this.pausedVelocity = Object.freeze({ x: this.body.velocity.x, y: this.body.velocity.y });
+      this.body.setVelocity(0, 0);
+      return;
+    }
+    const velocity = this.pausedVelocity;
+    if (!velocity) return;
+    this.pausedVelocity = undefined;
+    this.body.setVelocity(velocity.x, velocity.y);
   }
 
   registerHit(enemyInstanceId: number): boolean {
@@ -142,6 +160,7 @@ export class Projectile {
     this.tier = 0;
     this.traveled = 0;
     this.hitEnemyIds.clear();
+    this.pausedVelocity = undefined;
     this.body.setVelocity(0, 0);
     this.body.enable = false;
     this.glow.setActive(false).setVisible(false);

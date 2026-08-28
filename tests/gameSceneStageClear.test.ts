@@ -7,7 +7,7 @@ import { GameScene } from '../src/scenes/GameScene';
 /** Regression for the runtime boundary: a failed save must retain the exact
  * objective-completion snapshot rather than recomputing/losing its reward. */
 describe('GameScene durable stage clear', () => {
-  it('retries the captured transaction after a terminal run without reward drift', () => {
+  it('pauses the active run until the captured transaction retries without reward drift', () => {
     const scene = new GameScene() as any;
     const run = createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'junkyard-lot' });
     run.status = 'active';
@@ -17,13 +17,17 @@ describe('GameScene durable stage clear', () => {
       stageId: 'stage:junkyard-01', encounter: {}, reward: { scrapBase: 25, scrapPerMinute: 10 },
     };
     scene.stageState = { status: 'objective-complete' };
+    scene.physics = { world: { pause: vi.fn(), resume: vi.fn() } };
     scene.captureStageClear();
     expect(scene.pendingStageClear).toMatchObject({ timeMs: 61_000, reward: 35 });
 
     const completeStageTransaction = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
     const context = { completeStageTransaction, bus: createEventBus() };
     expect(scene.tryCommitStageClear(context)).toBe(false);
-    run.status = 'lost';
+    // A failed persistence attempt is an earned-clear boundary, not an
+    // opportunity for combat to convert the result into a loss.
+    scene.syncPhysicsPause(run);
+    expect(scene.physics.world.pause).toHaveBeenCalledTimes(1);
     run.timeMs = 180_000;
     expect(scene.tryCommitStageClear(context)).toBe(true);
     expect(completeStageTransaction).toHaveBeenNthCalledWith(1,

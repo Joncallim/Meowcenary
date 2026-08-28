@@ -97,13 +97,14 @@ export class StageSelectionController {
   /** Select the next unlocked stage after the current one. */
   selectNext(): { readonly ok: boolean; readonly snapshot: StageSelectionSnapshot } {
     const snap = this.snapshot();
-    const currentIdx = snap.stages.findIndex((s) => s.id === snap.selectedStageId);
-    for (let i = currentIdx + 1; i < snap.stages.length; i++) {
-      if (!snap.stages[i].locked) {
-        return this.select(snap.stages[i].id);
-      }
-    }
+    const next = this.nextUnlocked(snap);
+    if (next) return this.select(next.id);
     return { ok: false, snapshot: snap };
+  }
+
+  /** Read-only counterpart to selectNext for terminal UI affordances. */
+  hasNextUnlockedStage(): boolean {
+    return this.nextUnlocked(this.snapshot()) !== undefined;
   }
 
   /** Select the previous unlocked stage before the current one. */
@@ -126,6 +127,11 @@ export class StageSelectionController {
       if (!stage.locked) return stage.id;
     }
     return this.context.stages.defaultStageId();
+  }
+
+  private nextUnlocked(snapshot: StageSelectionSnapshot): StageOptionView | undefined {
+    const currentIdx = snapshot.stages.findIndex((stage) => stage.id === snapshot.selectedStageId);
+    return snapshot.stages.slice(currentIdx + 1).find((stage) => !stage.locked);
   }
 
   private snapshotForSelection(): readonly StageOptionView[] {
