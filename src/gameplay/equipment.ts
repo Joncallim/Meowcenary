@@ -107,6 +107,7 @@ export interface OwnedEquipment {
 
 /** Equipped loadout: one piece per slot. */
 export interface EquipmentLoadout {
+  /** Values are opaque owned instance IDs, never catalog definition IDs. */
   readonly equipped: Readonly<Partial<Record<EquipmentSlot, string>>>;
 }
 
@@ -120,11 +121,12 @@ export interface EquipmentLoadout {
 export function resolveSetBonuses(
   loadout: EquipmentLoadout,
   definitions: ReadonlyMap<string, EquipmentDefinition>,
+  owned: ReadonlyMap<string, OwnedEquipment>,
 ): readonly Modifier[] {
   const setCounts = new Map<string, number>();
-  for (const equipmentId of Object.values(loadout.equipped)) {
-    if (!equipmentId) continue;
-    const definition = definitions.get(equipmentId);
+  for (const instanceId of Object.values(loadout.equipped)) {
+    const instance = instanceId && owned.get(instanceId);
+    const definition = instance && definitions.get(instance.equipmentId);
     if (!definition) continue;
     setCounts.set(definition.setId, (setCounts.get(definition.setId) ?? 0) + 1);
   }
@@ -148,15 +150,17 @@ export type EquipEquipmentResult =
 /** Equips an owned piece; replaces any piece in the same slot. */
 export function equipEquipment(
   loadout: EquipmentLoadout,
-  equipmentId: string,
+  instanceId: string,
   definitions: ReadonlyMap<string, EquipmentDefinition>,
+  owned: ReadonlyMap<string, OwnedEquipment>,
 ): EquipEquipmentResult {
-  const definition = definitions.get(equipmentId);
+  const instance = owned.get(instanceId);
+  const definition = instance && definitions.get(instance.equipmentId);
   if (!definition) return { ok: false, reason: 'unknown-equipment' };
   return {
     ok: true,
     loadout: {
-      equipped: { ...loadout.equipped, [definition.slot]: equipmentId },
+      equipped: { ...loadout.equipped, [definition.slot]: instanceId },
     },
   };
 }
@@ -205,14 +209,17 @@ export function upgradeCost(currentTier: number): number {
 export function resolveEquipmentModifiers(
   loadout: EquipmentLoadout,
   definitions: ReadonlyMap<string, EquipmentDefinition>,
+  owned: ReadonlyMap<string, OwnedEquipment>,
 ): readonly Modifier[] {
   const modifiers: Modifier[] = [];
-  for (const equipmentId of Object.values(loadout.equipped)) {
-    if (!equipmentId) continue;
-    const definition = definitions.get(equipmentId);
-    if (!definition) continue;
-    modifiers.push(...definition.effects);
+  for (const instanceId of Object.values(loadout.equipped)) {
+    const instance = instanceId && owned.get(instanceId);
+    const definition = instance && definitions.get(instance.equipmentId);
+    if (!instance || !definition) continue;
+    for (const effect of definition.effects) {
+      modifiers.push({ ...effect, value: effect.value * Math.max(1, instance.tier), sourceId: instance.instanceId });
+    }
   }
-  modifiers.push(...resolveSetBonuses(loadout, definitions));
+  modifiers.push(...resolveSetBonuses(loadout, definitions, owned));
   return modifiers;
 }

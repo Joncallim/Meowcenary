@@ -23,6 +23,9 @@ const defMap = new Map(definitions.map((d) => [d.id, d]));
 function owned(id: string, tier = 1): OwnedEquipment {
   return { instanceId: `inst-${id}`, equipmentId: id, tier };
 }
+function ownedMap(...items: OwnedEquipment[]): ReadonlyMap<string, OwnedEquipment> {
+  return new Map(items.map((item) => [item.instanceId, item]));
+}
 
 function emptyLoadout(): EquipmentLoadout {
   return { equipped: {} };
@@ -65,26 +68,30 @@ describe('Epic 25 equipment catalog conformance', () => {
 describe('Epic 25 equip/swap/unequip (transactional)', () => {
   it('equips a piece into its slot and swaps within the slot', () => {
     let loadout = emptyLoadout();
-    loadout = (equipEquipment(loadout, 'equipment:commando-helmet', defMap) as { ok: true; loadout: EquipmentLoadout }).loadout;
-    expect(loadout.equipped.helmet).toBe('equipment:commando-helmet');
+    const commando = owned('equipment:commando-helmet');
+    const scavenger = owned('equipment:scavenger-helmet');
+    const inventory = ownedMap(commando, scavenger);
+    loadout = (equipEquipment(loadout, commando.instanceId, defMap, inventory) as { ok: true; loadout: EquipmentLoadout }).loadout;
+    expect(loadout.equipped.helmet).toBe(commando.instanceId);
     // Swap: equipping another helmet replaces the old one (no lost state).
-    const swapped = equipEquipment(loadout, 'equipment:scavenger-helmet', defMap);
+    const swapped = equipEquipment(loadout, scavenger.instanceId, defMap, inventory);
     expect(swapped.ok).toBe(true);
     if (swapped.ok) {
-      expect(swapped.loadout.equipped.helmet).toBe('equipment:scavenger-helmet');
+      expect(swapped.loadout.equipped.helmet).toBe(scavenger.instanceId);
     }
   });
 
   it('rejects unknown equipment without mutating the loadout', () => {
     const loadout = emptyLoadout();
-    const result = equipEquipment(loadout, 'equipment:does-not-exist', defMap);
+    const result = equipEquipment(loadout, 'inst-missing', defMap, ownedMap());
     expect(result).toMatchObject({ ok: false, reason: 'unknown-equipment' });
     expect(loadout.equipped).toEqual({});
   });
 
   it('unequips exactly the requested slot', () => {
     let loadout = emptyLoadout();
-    loadout = (equipEquipment(loadout, 'equipment:juggernaut-armour', defMap) as { ok: true; loadout: EquipmentLoadout }).loadout;
+    const armour = owned('equipment:juggernaut-armour');
+    loadout = (equipEquipment(loadout, armour.instanceId, defMap, ownedMap(armour)) as { ok: true; loadout: EquipmentLoadout }).loadout;
     const result = unequipEquipment(loadout, 'armour');
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.loadout.equipped.armour).toBeUndefined();
@@ -94,14 +101,14 @@ describe('Epic 25 equip/swap/unequip (transactional)', () => {
 
 describe('Epic 25 set bonuses (2-piece and 4-piece)', () => {
   it('no pieces → no set bonus', () => {
-    expect(resolveSetBonuses(emptyLoadout(), defMap)).toEqual([]);
+    expect(resolveSetBonuses(emptyLoadout(), defMap, ownedMap())).toEqual([]);
   });
 
   it('2 commando pieces grant the 2-piece bonus, not the 4-piece', () => {
     const loadout: EquipmentLoadout = {
-      equipped: { helmet: 'equipment:commando-helmet', armour: 'equipment:commando-armour' },
+      equipped: { helmet: 'inst-equipment:commando-helmet', armour: 'inst-equipment:commando-armour' },
     };
-    const modifiers = resolveSetBonuses(loadout, defMap);
+    const modifiers = resolveSetBonuses(loadout, defMap, ownedMap(owned('equipment:commando-helmet'), owned('equipment:commando-armour')));
     expect(modifiers.some((m) => m.sourceId === 'set:commando:2')).toBe(true);
     expect(modifiers.some((m) => m.sourceId === 'set:commando:4')).toBe(false);
   });
@@ -109,13 +116,10 @@ describe('Epic 25 set bonuses (2-piece and 4-piece)', () => {
   it('4 commando pieces grant the 4-piece bonus (replacing 2-piece)', () => {
     const loadout: EquipmentLoadout = {
       equipped: {
-        helmet: 'equipment:commando-helmet',
-        armour: 'equipment:commando-armour',
-        gloves: 'equipment:commando-gloves',
-        boots: 'equipment:commando-boots',
+        helmet: 'inst-equipment:commando-helmet', armour: 'inst-equipment:commando-armour', gloves: 'inst-equipment:commando-gloves', boots: 'inst-equipment:commando-boots',
       },
     };
-    const modifiers = resolveSetBonuses(loadout, defMap);
+    const modifiers = resolveSetBonuses(loadout, defMap, ownedMap(...['equipment:commando-helmet','equipment:commando-armour','equipment:commando-gloves','equipment:commando-boots'].map((id) => owned(id))));
     expect(modifiers.some((m) => m.sourceId === 'set:commando:4')).toBe(true);
     expect(modifiers.some((m) => m.sourceId === 'set:commando:2')).toBe(false);
   });
@@ -123,13 +127,10 @@ describe('Epic 25 set bonuses (2-piece and 4-piece)', () => {
   it('mixed sets are viable: 2 commando + 2 scavenger grant both 2-piece bonuses', () => {
     const mixed: EquipmentLoadout = {
       equipped: {
-        helmet: 'equipment:scavenger-helmet',
-        armour: 'equipment:commando-armour',
-        gloves: 'equipment:commando-gloves',
-        boots: 'equipment:scavenger-boots',
+        helmet: 'inst-equipment:scavenger-helmet', armour: 'inst-equipment:commando-armour', gloves: 'inst-equipment:commando-gloves', boots: 'inst-equipment:scavenger-boots',
       },
     };
-    const modifiers = resolveSetBonuses(mixed, defMap);
+    const modifiers = resolveSetBonuses(mixed, defMap, ownedMap(...['equipment:scavenger-helmet','equipment:commando-armour','equipment:commando-gloves','equipment:scavenger-boots'].map((id) => owned(id))));
     expect(modifiers.some((m) => m.sourceId === 'set:commando:2')).toBe(true);
     expect(modifiers.some((m) => m.sourceId === 'set:scavenger:2')).toBe(true);
   });
@@ -161,14 +162,13 @@ describe('Epic 25 effective resolution', () => {
   it('resolveEquipmentModifiers combines piece effects and set bonuses', () => {
     const loadout: EquipmentLoadout = {
       equipped: {
-        helmet: 'equipment:commando-helmet',
-        armour: 'equipment:commando-armour',
+        helmet: 'inst-equipment:commando-helmet', armour: 'inst-equipment:commando-armour',
       },
     };
-    const modifiers = resolveEquipmentModifiers(loadout, defMap);
+    const modifiers = resolveEquipmentModifiers(loadout, defMap, ownedMap(owned('equipment:commando-helmet'), owned('equipment:commando-armour')));
     // 2 piece effects + 1 set bonus
-    expect(modifiers.some((m) => m.sourceId === 'equipment:commando-helmet')).toBe(true);
-    expect(modifiers.some((m) => m.sourceId === 'equipment:commando-armour')).toBe(true);
+    expect(modifiers.some((m) => m.sourceId === 'inst-equipment:commando-helmet')).toBe(true);
+    expect(modifiers.some((m) => m.sourceId === 'inst-equipment:commando-armour')).toBe(true);
     expect(modifiers.some((m) => m.sourceId === 'set:commando:2')).toBe(true);
   });
 });
@@ -199,7 +199,8 @@ describe('Epic 25 second-fixture proof (data-only extensibility)', () => {
     };
     const defs = new Map(defMap);
     defs.set(extra.id, extra);
-    const result = equipEquipment(emptyLoadout(), extra.id, defs);
+    const proof = owned(extra.id);
+    const result = equipEquipment(emptyLoadout(), proof.instanceId, defs, ownedMap(proof));
     expect(result.ok).toBe(true);
     // The registry accepts it through data only.
     const registry = new DataEquipmentRegistry({ equipment: [...equipmentJson, extra] });
