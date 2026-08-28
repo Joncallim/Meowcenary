@@ -135,8 +135,10 @@ export function resolveSetBonuses(
   for (const [setId, count] of setCounts) {
     const bonus = SET_BONUSES[setId];
     if (!bonus) continue;
+    // Threshold bonuses stack: a four-piece set retains the two-piece payoff
+    // as well as gaining its four-piece capstone.
+    if (count >= 2 && bonus.bonuses[2]) modifiers.push(...bonus.bonuses[2]);
     if (count >= 4 && bonus.bonuses[4]) modifiers.push(...bonus.bonuses[4]);
-    else if (count >= 2 && bonus.bonuses[2]) modifiers.push(...bonus.bonuses[2]);
   }
   return modifiers;
 }

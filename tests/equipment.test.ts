@@ -113,7 +113,7 @@ describe('Epic 25 set bonuses (2-piece and 4-piece)', () => {
     expect(modifiers.some((m) => m.sourceId === 'set:commando:4')).toBe(false);
   });
 
-  it('4 commando pieces grant the 4-piece bonus (replacing 2-piece)', () => {
+  it('4 commando pieces cumulatively grant the 2-piece and 4-piece bonuses', () => {
     const loadout: EquipmentLoadout = {
       equipped: {
         helmet: 'inst-equipment:commando-helmet', armour: 'inst-equipment:commando-armour', gloves: 'inst-equipment:commando-gloves', boots: 'inst-equipment:commando-boots',
@@ -121,7 +121,7 @@ describe('Epic 25 set bonuses (2-piece and 4-piece)', () => {
     };
     const modifiers = resolveSetBonuses(loadout, defMap, ownedMap(...['equipment:commando-helmet','equipment:commando-armour','equipment:commando-gloves','equipment:commando-boots'].map((id) => owned(id))));
     expect(modifiers.some((m) => m.sourceId === 'set:commando:4')).toBe(true);
-    expect(modifiers.some((m) => m.sourceId === 'set:commando:2')).toBe(false);
+    expect(modifiers.some((m) => m.sourceId === 'set:commando:2')).toBe(true);
   });
 
   it('mixed sets are viable: 2 commando + 2 scavenger grant both 2-piece bonuses', () => {
