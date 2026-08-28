@@ -55,6 +55,9 @@ export interface Build {
 /** Persistent player-owned part instance (Epic 23). */
 export interface PartInstance {
   readonly partId: string;
+  /** Per-owned-copy engineering tier. Definition rarity is static content;
+   * this is the material result of a merge and must survive reload. */
+  readonly tier: number;
   readonly infusedTraits: readonly string[];
 }
 
@@ -366,18 +369,6 @@ function sanitizeGunsmithState(raw: unknown): GunsmithState {
   if (!isPlainRecord(raw)) return { builds: [], parts: {} };
   const buildsRaw = readOwn(raw, 'builds');
   const partsRaw = readOwn(raw, 'parts');
-  const builds: Build[] = Array.isArray(buildsRaw)
-    ? buildsRaw.filter((b): b is Record<string, unknown> => isPlainRecord(b) && typeof readOwn(b, 'id') === 'string')
-        .map((b) => ({
-          id: readOwn(b, 'id') as string,
-          name: typeof readOwn(b, 'name') === 'string' ? readOwn(b, 'name') as string : readOwn(b, 'id') as string,
-          baseWeaponFamily: typeof readOwn(b, 'baseWeaponFamily') === 'string' ? readOwn(b, 'baseWeaponFamily') as string : 'pistol',
-          fitted: sanitizeFittedParts(readOwn(b, 'fitted')),
-          traitParts: Array.isArray(readOwn(b, 'traitParts'))
-            ? (readOwn(b, 'traitParts') as unknown[]).filter((t): t is string => typeof t === 'string')
-            : [],
-        }))
-    : [];
   const parts: Record<string, PartInstance> = Object.create(null);
   if (isPlainRecord(partsRaw)) {
     for (const key of Object.keys(partsRaw)) {
@@ -387,6 +378,9 @@ function sanitizeGunsmithState(raw: unknown): GunsmithState {
         const infused = readOwn(entry, 'infusedTraits');
         parts[key] = {
           partId: readOwn(entry, 'partId') as string,
+          tier: Number.isSafeInteger(readOwn(entry, 'tier')) && (readOwn(entry, 'tier') as number) > 0
+            ? readOwn(entry, 'tier') as number
+            : 1,
           infusedTraits: Array.isArray(infused)
             ? (infused as unknown[]).filter((t): t is string => typeof t === 'string')
             : [],
@@ -394,16 +388,42 @@ function sanitizeGunsmithState(raw: unknown): GunsmithState {
       }
     }
   }
+  // Old pre-foundation builds stored static part definition IDs. Convert only
+  // the unambiguous case; a duplicated definition must never pick an arbitrary
+  // owned copy and silently lose its infusion/tier identity.
+  const uniqueInstanceByDefinition = new Map<string, string | undefined>();
+  for (const [instanceId, part] of Object.entries(parts)) {
+    uniqueInstanceByDefinition.set(
+      part.partId,
+      uniqueInstanceByDefinition.has(part.partId) ? undefined : instanceId,
+    );
+  }
+  const asOwnedReference = (value: unknown): string | undefined => {
+    if (typeof value !== 'string') return undefined;
+    if (Object.hasOwn(parts, value)) return value;
+    return uniqueInstanceByDefinition.get(value);
+  };
+  const builds: Build[] = Array.isArray(buildsRaw)
+    ? buildsRaw.filter((b): b is Record<string, unknown> => isPlainRecord(b) && typeof readOwn(b, 'id') === 'string')
+        .map((b) => ({
+          id: readOwn(b, 'id') as string,
+          name: typeof readOwn(b, 'name') === 'string' ? readOwn(b, 'name') as string : readOwn(b, 'id') as string,
+          baseWeaponFamily: typeof readOwn(b, 'baseWeaponFamily') === 'string' ? readOwn(b, 'baseWeaponFamily') as string : 'pistol',
+          fitted: sanitizeFittedParts(readOwn(b, 'fitted'), asOwnedReference),
+          traitParts: Array.isArray(readOwn(b, 'traitParts'))
+            ? (readOwn(b, 'traitParts') as unknown[]).map(asOwnedReference).filter((t): t is string => t !== undefined)
+            : [],
+        }))
+    : [];
   return { builds, parts };
 }
 
-function sanitizeFittedParts(raw: unknown): Readonly<Partial<Record<string, string>>> {
+function sanitizeFittedParts(raw: unknown, asOwnedReference: (value: unknown) => string | undefined): Readonly<Partial<Record<string, string>>> {
   if (!isPlainRecord(raw)) return {};
   const result: Record<string, string> = {};
   for (const [slot, partId] of Object.entries(raw)) {
-    if (typeof partId === 'string' && isUnlockId(partId) && partId.startsWith('part:')) {
-      result[slot] = partId;
-    }
+    const owned = asOwnedReference(partId);
+    if (owned !== undefined) result[slot] = owned;
   }
   return Object.freeze(result);
 }

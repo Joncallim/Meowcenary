@@ -58,6 +58,7 @@ export interface PartDefinition {
 export interface OwnedPart {
   readonly instanceId: string;
   readonly partId: string;
+  readonly tier: number;
   /** Transferable traits acquired via infusion (subset of the definition's). */
   readonly infusedTraits: readonly BehaviorTrait[];
 }
@@ -117,7 +118,7 @@ export function equipPart(
       ok: true,
       build: {
         ...build,
-        traitParts: [...build.traitParts, part.partId],
+        traitParts: [...build.traitParts, part.instanceId],
       },
     };
   }
@@ -126,7 +127,7 @@ export function equipPart(
     ok: true,
     build: {
       ...build,
-      fitted: { ...build.fitted, [definition.slot]: part.partId },
+      fitted: { ...build.fitted, [definition.slot]: part.instanceId },
     },
   };
 }
@@ -135,12 +136,12 @@ export type UnequipResult =
   | { readonly ok: true; readonly build: WeaponBuild }
   | { readonly ok: false; readonly reason: 'slot-empty' | 'unknown-part' };
 
-/** Removes a fitted part (by definition id) from a build. */
-export function unequipPart(build: WeaponBuild, partId: string): UnequipResult {
-  if (build.traitParts.includes(partId)) {
-    return { ok: true, build: { ...build, traitParts: build.traitParts.filter((id) => id !== partId) } };
+/** Removes a fitted part by its owned instance ID, never by definition ID. */
+export function unequipPart(build: WeaponBuild, instanceId: string): UnequipResult {
+  if (build.traitParts.includes(instanceId)) {
+    return { ok: true, build: { ...build, traitParts: build.traitParts.filter((id) => id !== instanceId) } };
   }
-  const slot = Object.entries(build.fitted).find(([, id]) => id === partId)?.[0] as PartSlot | undefined;
+  const slot = Object.entries(build.fitted).find(([, id]) => id === instanceId)?.[0] as PartSlot | undefined;
   if (!slot) return { ok: false, reason: 'unknown-part' };
   const fitted = { ...build.fitted };
   delete fitted[slot];
@@ -149,7 +150,7 @@ export function unequipPart(build: WeaponBuild, partId: string): UnequipResult {
 
 export type MergeResult =
   | { readonly ok: true; readonly output: OwnedPart; readonly consumed: readonly string[] }
-  | { readonly ok: false; readonly reason: 'different-parts' | 'not-mergeable' | 'missing-parts' };
+  | { readonly ok: false; readonly reason: 'different-parts' | 'different-tiers' | 'not-mergeable' | 'missing-parts' };
 
 /**
  * Merges two owned copies of the SAME part into one upgraded copy.
@@ -163,9 +164,10 @@ export function mergeParts(
 ): MergeResult {
   if (first.partId !== second.partId) return { ok: false, reason: 'different-parts' };
   if (first.instanceId === second.instanceId) return { ok: false, reason: 'missing-parts' };
+  if (first.tier !== second.tier) return { ok: false, reason: 'different-tiers' };
   const definition = definitions.get(first.partId);
   if (!definition) return { ok: false, reason: 'not-mergeable' };
-  const currentTier = RARITY_TIER[definition.rarity] ?? 1;
+  const currentTier = Math.max(1, first.tier);
   if (currentTier >= RARITY_TIER.legendary) return { ok: false, reason: 'not-mergeable' };
 
   const nextRarity = Object.entries(RARITY_TIER)
@@ -179,6 +181,7 @@ export function mergeParts(
     output: Object.freeze({
       instanceId: `merged:${first.partId}:${first.instanceId.slice(-4)}${second.instanceId.slice(-4)}`,
       partId: first.partId,
+      tier: currentTier + 1,
       infusedTraits: Object.freeze([...first.infusedTraits, ...second.infusedTraits]
         .filter((trait, index, all) => all.indexOf(trait) === index)
         .slice(0, MAX_TRAITS_PER_PART)),
@@ -231,16 +234,20 @@ export function infuseTrait(
 export function resolveBuildModifiers(
   build: WeaponBuild,
   definitions: ReadonlyMap<string, PartDefinition>,
+  ownedParts: ReadonlyMap<string, OwnedPart>,
 ): readonly Modifier[] {
-  const partIds = [
+  const instanceIds = [
     ...Object.values(build.fitted),
     ...build.traitParts,
   ];
   const modifiers: Modifier[] = [];
-  for (const partId of partIds) {
-    const definition = definitions.get(partId);
-    if (!definition) continue;
-    modifiers.push(...definition.effects);
+  for (const instanceId of instanceIds) {
+    const part = ownedParts.get(instanceId);
+    const definition = part && definitions.get(part.partId);
+    if (!part || !definition) continue;
+    for (const effect of definition.effects) {
+      modifiers.push({ ...effect, value: effect.value * Math.max(1, part.tier), sourceId: instanceId });
+    }
   }
   return modifiers;
 }
@@ -250,7 +257,11 @@ export function buildHasTrait(
   build: WeaponBuild,
   trait: BehaviorTrait,
   definitions: ReadonlyMap<string, PartDefinition>,
+  ownedParts: ReadonlyMap<string, OwnedPart>,
 ): boolean {
-  const partIds = [...Object.values(build.fitted), ...build.traitParts];
-  return partIds.some((partId) => definitions.get(partId)?.traits.includes(trait));
+  const instanceIds = [...Object.values(build.fitted), ...build.traitParts];
+  return instanceIds.some((instanceId) => {
+    const part = ownedParts.get(instanceId);
+    return part !== undefined && (definitions.get(part.partId)?.traits.includes(trait) || part.infusedTraits.includes(trait));
+  });
 }

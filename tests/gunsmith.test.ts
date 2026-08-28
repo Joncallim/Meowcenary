@@ -24,8 +24,12 @@ import { createDefaultSaveV3, SaveManager, MemoryStorageAdapter } from '../src/s
 const definitions = gunPartsJson as unknown as PartDefinition[];
 const defMap = new Map(definitions.map((d) => [d.id, d]));
 
-function part(partId: string, infusedTraits: readonly string[] = []): OwnedPart {
-  return { instanceId: `inst-${partId}-${Math.random().toString(36).slice(2, 8)}`, partId, infusedTraits: [...infusedTraits] as OwnedPart['infusedTraits'] };
+function part(partId: string, infusedTraits: readonly string[] = [], tier = 1): OwnedPart {
+  return { instanceId: `inst-${partId}-${Math.random().toString(36).slice(2, 8)}`, partId, tier, infusedTraits: [...infusedTraits] as OwnedPart['infusedTraits'] };
+}
+
+function ownedMap(...parts: readonly OwnedPart[]): ReadonlyMap<string, OwnedPart> {
+  return new Map(parts.map((owned) => [owned.instanceId, owned]));
 }
 
 function smgBuild(): WeaponBuild {
@@ -81,7 +85,7 @@ describe('Epic 23 equip/unequip (transactional)', () => {
     const result = equipPart(build, barrel, defMap);
     expect(result.ok).toBe(true);
     if (result.ok) build = result.build;
-    expect(build.fitted.barrel).toBe('part:barrel-standard');
+    expect(build.fitted.barrel).toBe(barrel.instanceId);
 
     // A shotgun-only underbarrel cannot fit an SMG.
     const underbarrel = part('part:underbarrel-grenade');
@@ -92,17 +96,19 @@ describe('Epic 23 equip/unequip (transactional)', () => {
 
   it('rejects equipping into an occupied slot without losing the existing part', () => {
     let build = smgBuild();
-    build = (equipPart(build, part('part:barrel-standard'), defMap) as { ok: true; build: WeaponBuild }).build;
+    const barrel = part('part:barrel-standard');
+    build = (equipPart(build, barrel, defMap) as { ok: true; build: WeaponBuild }).build;
     const secondBarrel = part('part:barrel-long');
     const result = equipPart(build, secondBarrel, defMap);
     expect(result).toMatchObject({ ok: false, reason: 'slot-full' });
-    expect(build.fitted.barrel).toBe('part:barrel-standard');
+    expect(build.fitted.barrel).toBe(barrel.instanceId);
   });
 
   it('unequips exactly the fitted part and no other state', () => {
     let build = smgBuild();
-    build = (equipPart(build, part('part:barrel-standard'), defMap) as { ok: true; build: WeaponBuild }).build;
-    const result = unequipPart(build, 'part:barrel-standard');
+    const barrel = part('part:barrel-standard');
+    build = (equipPart(build, barrel, defMap) as { ok: true; build: WeaponBuild }).build;
+    const result = unequipPart(build, barrel.instanceId);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.build.fitted.barrel).toBeUndefined();
@@ -131,6 +137,7 @@ describe('Epic 23 merge (exactly documented inputs/outputs)', () => {
       expect(result.consumed).toEqual([first.instanceId, second.instanceId]);
       expect(result.output.partId).toBe('part:barrel-standard');
       expect(result.output.instanceId).not.toBe(first.instanceId);
+      expect(result.output.tier).toBe(2);
     }
   });
 
@@ -150,6 +157,11 @@ describe('Epic 23 merge (exactly documented inputs/outputs)', () => {
       expect(result.output.infusedTraits).toEqual(['FIRE', 'CRYO']);
       expect(result.output.infusedTraits.length).toBeLessThanOrEqual(MAX_TRAITS_PER_PART);
     }
+  });
+
+  it('refuses a merge across different owned upgrade tiers', () => {
+    expect(mergeParts(part('part:barrel-standard', [], 1), part('part:barrel-standard', [], 2), defMap))
+      .toMatchObject({ ok: false, reason: 'different-tiers' });
   });
 });
 
@@ -179,13 +191,14 @@ describe('Epic 23 trait infusion (hybrid outcomes)', () => {
 describe('Epic 23 effective stat resolution', () => {
   it('resolves build modifiers from fitted parts (single source of truth)', () => {
     let build = smgBuild();
-    build = (equipPart(build, part('part:barrel-long'), defMap) as { ok: true; build: WeaponBuild }).build;
-    build = (equipPart(build, part('part:optic-red-dot'), defMap) as { ok: true; build: WeaponBuild }).build;
-    const modifiers = resolveBuildModifiers(build, defMap);
-    expect(modifiers.some((m) => m.stat === 'range' && m.value === 35 && m.sourceId === 'part:barrel-long')).toBe(true);
-    expect(modifiers.some((m) => m.stat === 'spreadDeg' && m.value === -2 && m.sourceId === 'part:optic-red-dot')).toBe(true);
-    // Modifiers carry their owning part source ids.
-    expect(modifiers.every((m) => m.sourceId.startsWith('part:'))).toBe(true);
+    const barrel = part('part:barrel-long', [], 2);
+    const optic = part('part:optic-red-dot');
+    build = (equipPart(build, barrel, defMap) as { ok: true; build: WeaponBuild }).build;
+    build = (equipPart(build, optic, defMap) as { ok: true; build: WeaponBuild }).build;
+    const modifiers = resolveBuildModifiers(build, defMap, ownedMap(barrel, optic));
+    expect(modifiers.some((m) => m.stat === 'range' && m.value === 70 && m.sourceId === barrel.instanceId)).toBe(true);
+    expect(modifiers.some((m) => m.stat === 'spreadDeg' && m.value === -2 && m.sourceId === optic.instanceId)).toBe(true);
+    expect(modifiers.every((m) => m.sourceId.startsWith('inst-'))).toBe(true);
   });
 
   it('buildHasTrait reflects fitted trait parts and definitions', () => {
@@ -193,14 +206,15 @@ describe('Epic 23 effective stat resolution', () => {
     const smg = smgBuild();
     const smgEquip = equipPart(smg, part('part:underbarrel-grenade'), defMap);
     expect(smgEquip).toMatchObject({ ok: false, reason: 'slot-incompatible' });
-    expect(buildHasTrait(smg, 'EXPLOSIVE', defMap)).toBe(false);
+    expect(buildHasTrait(smg, 'EXPLOSIVE', defMap, ownedMap())).toBe(false);
 
     // A shotgun accepts it and the EXPLOSIVE trait resolves from the build.
     const shotgunBuild: WeaponBuild = { id: 'b', name: 'S', baseWeaponFamily: 'shotgun', fitted: {}, traitParts: [] };
-    const equipped = equipPart(shotgunBuild, part('part:underbarrel-grenade'), defMap);
+    const grenade = part('part:underbarrel-grenade');
+    const equipped = equipPart(shotgunBuild, grenade, defMap);
     expect(equipped.ok).toBe(true);
     if (equipped.ok) {
-      expect(buildHasTrait(equipped.build, 'EXPLOSIVE', defMap)).toBe(true);
+      expect(buildHasTrait(equipped.build, 'EXPLOSIVE', defMap, ownedMap(grenade))).toBe(true);
     }
   });
 });
@@ -213,14 +227,15 @@ describe('Epic 23 persistence round-trip', () => {
     const withBuild = {
       ...save,
       gunsmith: {
-        builds: [{ id: 'build-1', name: 'Rack SMG', baseWeaponFamily: 'smg', fitted: { barrel: 'part:barrel-standard' }, traitParts: [] }],
-        parts: { 'inst-1': { partId: 'part:barrel-standard', infusedTraits: ['FIRE'] } },
+        builds: [{ id: 'build-1', name: 'Rack SMG', baseWeaponFamily: 'smg', fitted: { barrel: 'inst-1' }, traitParts: [] }],
+        parts: { 'inst-1': { partId: 'part:barrel-standard', tier: 2, infusedTraits: ['FIRE'] } },
       },
     };
     manager.save(withBuild);
     const loaded = manager.load();
-    expect(loaded.gunsmith.builds[0].fitted.barrel).toBe('part:barrel-standard');
+    expect(loaded.gunsmith.builds[0].fitted.barrel).toBe('inst-1');
     expect(loaded.gunsmith.parts['inst-1'].infusedTraits).toContain('FIRE');
+    expect(loaded.gunsmith.parts['inst-1'].tier).toBe(2);
   });
 
   it('stale/unknown part ids in saves fail soft (no save bricking)', () => {
@@ -229,12 +244,45 @@ describe('Epic 23 persistence round-trip', () => {
     const manager = new SaveManager(storage, 'test', {});
     manager.save({
       ...save,
-      gunsmith: { builds: [], parts: { 'stale-inst': { partId: 'part:removed-catalog', infusedTraits: [] } } },
+      gunsmith: { builds: [], parts: { 'stale-inst': { partId: 'part:removed-catalog', tier: 1, infusedTraits: [] } } },
     });
     const loaded = manager.load();
     // The stale entry survives; the save remains loadable.
     expect(loaded.gunsmith.parts['stale-inst']).toBeDefined();
     expect(loaded.version).toBe(3);
+  });
+
+  it('migrates a legacy definition reference only when exactly one owned instance matches', () => {
+    const storage = new MemoryStorageAdapter();
+    storage.setItem('test', JSON.stringify({
+      version: 3,
+      settings: {}, progression: {}, stages: {}, achievements: {}, achievementMetrics: {}, characters: {}, equipment: {}, bosses: {}, appliedGrantTransactions: {},
+      gunsmith: {
+        builds: [{ id: 'legacy', name: 'Legacy', baseWeaponFamily: 'smg', fitted: { barrel: 'part:barrel-standard' }, traitParts: [] }],
+        parts: { 'owned-barrel': { partId: 'part:barrel-standard', infusedTraits: [] } },
+      },
+    }));
+    const loaded = new SaveManager(storage, 'test', {}).load();
+    expect(loaded.gunsmith.builds[0].fitted.barrel).toBe('owned-barrel');
+    expect(loaded.gunsmith.parts['owned-barrel'].tier).toBe(1);
+  });
+
+  it('drops an ambiguous legacy definition reference instead of selecting the wrong owned copy', () => {
+    const storage = new MemoryStorageAdapter();
+    storage.setItem('test', JSON.stringify({
+      version: 3,
+      settings: {}, progression: {}, stages: {}, achievements: {}, achievementMetrics: {}, characters: {}, equipment: {}, bosses: {}, appliedGrantTransactions: {},
+      gunsmith: {
+        builds: [{ id: 'legacy', name: 'Legacy', baseWeaponFamily: 'smg', fitted: { barrel: 'part:barrel-standard' }, traitParts: [] }],
+        parts: {
+          'owned-a': { partId: 'part:barrel-standard', infusedTraits: ['FIRE'] },
+          'owned-b': { partId: 'part:barrel-standard', infusedTraits: ['CRYO'] },
+        },
+      },
+    }));
+    const loaded = new SaveManager(storage, 'test', {}).load();
+    expect(loaded.gunsmith.builds[0].fitted.barrel).toBeUndefined();
+    expect(Object.keys(loaded.gunsmith.parts)).toEqual(['owned-a', 'owned-b']);
   });
 });
 
@@ -252,10 +300,11 @@ describe('Epic 23 second-fixture proof (data-only extensibility)', () => {
     const defs = new Map(defMap);
     defs.set(extra.id, extra);
     const build = smgBuild();
-    const result = equipPart(build, part('part:proof-sight'), defs);
+    const sight = part('part:proof-sight');
+    const result = equipPart(build, sight, defs);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      const modifiers = resolveBuildModifiers(result.build, defs);
+      const modifiers = resolveBuildModifiers(result.build, defs, ownedMap(sight));
       expect(modifiers.some((m) => m.stat === 'range' && m.value === 20)).toBe(true);
     }
     // Shipped catalog untouched.
