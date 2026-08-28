@@ -564,6 +564,13 @@ export class MenuScene extends Phaser.Scene {
       }));
       y += hitTarget;
     }
+    snapshot.equipment.unavailable.forEach((item) => {
+      this.own(root, createUiText(this, margin, y, `Unavailable legacy equipment: ${item.equipmentId} (${item.instanceId})`, {
+        color: '#fbbf24', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+        wordWrap: { width: width - margin - this.safeRightMargin },
+      }));
+      y += hitTarget * 0.75;
+    });
     this.addBackButton(root, width, margin, hitTarget);
   }
 

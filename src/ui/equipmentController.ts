@@ -5,6 +5,8 @@ import { equipEquipment, unequipEquipment, upgradeEquipment, type EquipmentSlot,
 export interface EquipmentSnapshot {
   readonly equipped: Readonly<Record<string, string | undefined>>;
   readonly owned: readonly { readonly instanceId: string; readonly equipmentId: string; readonly name: string; readonly slot: string; readonly tier: number; readonly upgradeCost?: number }[];
+  /** Recoverable stale catalog entries; never silently disappear from a save. */
+  readonly unavailable: readonly { readonly instanceId: string; readonly equipmentId: string }[];
 }
 
 /** Immutable equipment read model plus explicit persistent equip commands. */
@@ -21,6 +23,9 @@ export class EquipmentController {
         const upgrade = upgradeEquipment({ instanceId, equipmentId: item.equipmentId, tier: item.tier }, state.progression.scrap, this.registry.asMap());
         return [Object.freeze({ instanceId, equipmentId: item.equipmentId, name: definition.name, slot: definition.slot, tier: item.tier, ...(upgrade.ok ? { upgradeCost: upgrade.cost } : {}) })];
       })),
+      unavailable: Object.freeze(Object.entries(state.equipment).flatMap(([instanceId, item]) =>
+        this.registry.equipmentById(item.equipmentId) ? [] : [Object.freeze({ instanceId, equipmentId: item.equipmentId })]),
+      ),
     });
   }
   equip(instanceId: string): boolean {

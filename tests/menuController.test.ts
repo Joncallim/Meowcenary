@@ -206,6 +206,16 @@ describe('MainMenuController', () => {
     expect(controller.snapshot().progression.scrap).toBe(0);
   });
 
+  it('keeps stale equipment definitions visible as recoverable unavailable state', () => {
+    const { context, controller } = setup();
+    context.updateEquipment(() => ({
+      equipment: { legacy: { equipmentId: 'equipment:retired-piece', tier: 1 } }, loadout: {},
+    }));
+    const snapshot = controller.open('equipment').equipment;
+    expect(snapshot.owned).toEqual([]);
+    expect(snapshot.unavailable).toEqual([{ instanceId: 'legacy', equipmentId: 'equipment:retired-piece' }]);
+  });
+
   it('does not consume menu RNG', () => {
     const { controller, menuRng } = setup();
     const spy = vi.spyOn(menuRng, 'next');
