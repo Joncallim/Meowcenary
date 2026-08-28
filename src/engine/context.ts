@@ -14,6 +14,8 @@ import {
   createDefaultProgression,
   sanitizeProgression,
   type MetaState,
+  type AchievementMetricState,
+  type AchievementProgressState,
   type SaveData,
   type SaveManager,
   type Settings,
@@ -94,6 +96,7 @@ export interface GameContext {
   /** One durable commit for the first-clear fact, optional boss fact, and its
    * source-owned rewards.  No fact becomes visible without its receipt. */
   completeStageTransaction(stageId: string, timeMs: number, bossId: string | undefined, transaction: DurableGrantTransaction): boolean;
+  commitAchievementTransaction(achievements: AchievementProgressState, metrics: AchievementMetricState, transaction?: DurableGrantTransaction): boolean;
   /** Persist stage completion into Save V3 stages domain. Returns true if saved. */
   completeStage(stageId: string, timeMs: number): boolean;
   resetProgression(): PersistenceUpdate<MetaState>;
@@ -218,6 +221,22 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         progression: sanitizeProgression(granted.save.progression, options.metaUpgrades.maxLevels()),
         stages: Object.freeze({ ...current.stages, [stageId]: stage }),
         bosses,
+      });
+      if (!options.save.save(save)) return false;
+      current = save;
+      revalidateSelection();
+      return true;
+    },
+    commitAchievementTransaction(achievements, metrics, transaction) {
+      const granted = transaction === undefined
+        ? { save: current, changed: true }
+        : applyDurableGrantTransaction(current, transaction);
+      if (!granted.changed) return true;
+      const save = Object.freeze({
+        ...granted.save,
+        progression: sanitizeProgression(granted.save.progression, options.metaUpgrades.maxLevels()),
+        achievements: Object.freeze({ ...achievements }),
+        achievementMetrics: Object.freeze({ ...metrics }),
       });
       if (!options.save.save(save)) return false;
       current = save;

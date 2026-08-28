@@ -58,6 +58,8 @@ import { FeedbackSystem, PhaserFeedbackRenderer } from '../systems/feedback';
 import { DataVisualArtRegistry } from '../systems/visualArt';
 import { HeldWeaponView } from '../entities/heldWeaponView';
 import { DefeatPresentationSystem } from '../systems/defeatPresentation';
+import { DataAchievementRegistry, metricExtractor } from '../systems/achievements';
+import { evaluateAchievements } from '../gameplay/achievementSystem';
 import type { FocusDirection } from '../ui/focusList';
 
 /** U6: the gameplay camera shows canvas/zoom world units — 312×675.2 on the
@@ -189,7 +191,12 @@ export class GameScene extends Phaser.Scene {
     this.dpsMeter = dpsMeter;
     const runStateForMetrics = this.runState;
     this.unsubscribers.push(
-      ctx.bus.on('enemy:killed', ({ enemyId }) => this.recordStageEnemyDefeat(enemyId)),
+      ctx.bus.on('enemy:killed', ({ enemyId }) => {
+        this.recordStageEnemyDefeat(enemyId);
+        this.evaluateLiveAchievements(ctx, { 'metric:enemies-defeated': 1 });
+      }),
+      ctx.bus.on('weapon:merged', () => this.evaluateLiveAchievements(ctx, { 'metric:merges-performed': 1 })),
+      ctx.bus.on('run:won', () => this.evaluateLiveAchievements(ctx, { 'metric:runs-completed': 1 })),
       ctx.bus.on('enemy:damaged', ({ amount }) => {
         dpsMeter.record(amount, runStateForMetrics.timeMs);
       }),
@@ -813,6 +820,28 @@ export class GameScene extends Phaser.Scene {
     return `${label} ${Math.min(progress.current, progress.target)}/${progress.target}`;
   }
 
+  private evaluateLiveAchievements(ctx: GameContext, increments: Readonly<Record<string, number>>): void {
+    const previousMetrics = ctx.saveData.achievementMetrics;
+    const metrics: Record<string, number> = { ...previousMetrics };
+    for (const [id, amount] of Object.entries(increments)) {
+      metrics[id] = Math.max(0, (metrics[id] ?? 0) + amount);
+    }
+    metrics['metric:scrap-banked'] = Math.max(metrics['metric:scrap-banked'] ?? 0, ctx.saveData.progression.scrap);
+    const registry = new DataAchievementRegistry({ achievements: ctx.data.achievements ?? [] });
+    const result = evaluateAchievements(ctx.saveData.achievements, {
+      metrics,
+      progression: ctx.saveData.progression,
+      stages: ctx.saveData.stages,
+      characters: ctx.saveData.characters,
+      bosses: ctx.saveData.bosses,
+    }, { definitions: registry.asMap(), metrics: new Map(registryMetricEntries()) }, this.runState?.timeMs ?? 0);
+    const completed = result.completed;
+    const transaction = completed.length > 0
+      ? { id: `${completed[0]}:completion`, grants: result.rewards }
+      : undefined;
+    ctx.commitAchievementTransaction(result.state, metrics, transaction);
+  }
+
   private updateStageObjective(ctx: GameContext, delta: number): void {
     const runState = this.runState;
     if (!runState) return;
@@ -854,4 +883,12 @@ export class GameScene extends Phaser.Scene {
       this.physicsPausedByRun = false;
     }
   }
+}
+
+function registryMetricEntries(): ReadonlyArray<readonly [string, NonNullable<ReturnType<typeof metricExtractor>>]> {
+  const ids = ['metric:enemies-defeated', 'metric:merges-performed', 'metric:runs-completed', 'metric:scrap-banked'];
+  return ids.flatMap((id) => {
+    const extractor = metricExtractor(id);
+    return extractor ? [[id, extractor] as const] : [];
+  });
 }

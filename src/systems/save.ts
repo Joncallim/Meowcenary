@@ -72,6 +72,8 @@ export interface GunsmithState {
 
 export type StageProgressState = Record<string, StageProgress>;
 export type AchievementProgressState = Record<string, AchievementProgress>;
+/** Monotonic authoritative counters consumed by achievement metric extractors. */
+export type AchievementMetricState = Readonly<Record<string, number>>;
 export type CharacterMasteryState = Record<string, MasteryProgress>;
 export type EquipmentState = Record<string, EquipmentInstance>;
 
@@ -93,6 +95,7 @@ export interface SaveDataV3 {
   readonly progression: ProgressionState;
   readonly stages: StageProgressState;
   readonly achievements: AchievementProgressState;
+  readonly achievementMetrics: AchievementMetricState;
   readonly characters: CharacterMasteryState;
   readonly gunsmith: GunsmithState;
   readonly equipment: EquipmentState;
@@ -135,6 +138,7 @@ export function createDefaultSaveV3(): SaveDataV3 {
     progression: createDefaultProgression(),
     stages: {},
     achievements: {},
+    achievementMetrics: {},
     characters: {},
     gunsmith: { builds: [], parts: {} },
     equipment: {},
@@ -213,6 +217,7 @@ export function migrateV2ToV3(raw: Readonly<Record<string, unknown>>, maxLevels:
     progression: v2Progression,
     stages: {},
     achievements: migrateAchievementsFromV2(v2Progression),
+    achievementMetrics: {},
     characters: {},
     gunsmith: { builds: [], parts: {} },
     equipment: {},
@@ -254,6 +259,7 @@ function decodeSave(raw: unknown, maxLevels: MetaUpgradeMaxLevels): SaveDecodeRe
         progression: sanitizeProgression(readOwn(parsed, 'progression'), maxLevels),
         stages: sanitizeStageProgress(readOwn(parsed, 'stages')),
         achievements: sanitizeAchievementProgress(readOwn(parsed, 'achievements')),
+        achievementMetrics: sanitizeAchievementMetrics(readOwn(parsed, 'achievementMetrics')),
         characters: sanitizeCharacterMastery(readOwn(parsed, 'characters')),
         gunsmith: sanitizeGunsmithState(readOwn(parsed, 'gunsmith')),
         equipment: sanitizeEquipmentState(readOwn(parsed, 'equipment')),
@@ -276,6 +282,7 @@ function migrateV1ToV3(raw: Readonly<Record<string, unknown>>): SaveDataV3 {
     progression: createDefaultProgression(),
     stages: {},
     achievements: {},
+    achievementMetrics: {},
     characters: {},
     gunsmith: { builds: [], parts: {} },
     equipment: {},
@@ -326,6 +333,16 @@ function sanitizeAchievementProgress(raw: unknown): AchievementProgressState {
     };
   }
   return result;
+}
+
+function sanitizeAchievementMetrics(raw: unknown): AchievementMetricState {
+  if (!isPlainRecord(raw)) return Object.freeze({});
+  const result: Record<string, number> = Object.create(null);
+  for (const id of Object.keys(raw)) {
+    const value = readOwn(raw, id);
+    if (isUnlockId(id) && Number.isSafeInteger(value) && (value as number) >= 0) result[id] = value as number;
+  }
+  return Object.freeze(result);
 }
 
 function sanitizeCharacterMastery(raw: unknown): CharacterMasteryState {
@@ -472,6 +489,7 @@ export class SaveManager {
         progression: sanitizeProgression(data.progression, this.maxLevels),
         stages: sanitizeStageProgress(data.stages),
         achievements: sanitizeAchievementProgress(data.achievements),
+        achievementMetrics: sanitizeAchievementMetrics(data.achievementMetrics),
         characters: sanitizeCharacterMastery(data.characters),
         gunsmith: sanitizeGunsmithState(data.gunsmith),
         equipment: sanitizeEquipmentState(data.equipment),
@@ -569,6 +587,7 @@ function freezeSaveV3(save: SaveDataV3): SaveDataV3 {
     progression: Object.isFrozen(save.progression) ? save.progression : freezeProgression(save.progression),
     stages: Object.freeze({ ...save.stages }),
     achievements: Object.freeze({ ...save.achievements }),
+    achievementMetrics: Object.freeze({ ...save.achievementMetrics }),
     characters: Object.freeze({ ...save.characters }),
     gunsmith: Object.freeze({
       builds: Object.freeze([...save.gunsmith.builds]),

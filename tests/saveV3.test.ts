@@ -28,6 +28,7 @@ describe('Save V3 migration (V2→V3)', () => {
       progression: createDefaultProgression(),
       stages: {},
       achievements: {},
+      achievementMetrics: {},
       characters: {},
       gunsmith: { builds: [], parts: {} },
       equipment: {},
@@ -41,6 +42,7 @@ describe('Save V3 migration (V2→V3)', () => {
     expect(Object.isFrozen(first.progression.permanentUpgrades)).toBe(true);
     expect(Object.isFrozen(first.stages)).toBe(true);
     expect(Object.isFrozen(first.achievements)).toBe(true);
+    expect(Object.isFrozen(first.achievementMetrics)).toBe(true);
   });
 
   it('migrates V2 → V3 preserving scrap and unlocks', () => {
