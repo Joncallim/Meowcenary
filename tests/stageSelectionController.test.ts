@@ -86,6 +86,13 @@ describe('StageSelectionController (Epic 20)', () => {
     expect(context.saveData.stages['stage:junkyard-01'].bestTimeMs).toBe(90_000);
   });
 
+  it('rejects malformed stage facts before they can become live-only state', () => {
+    const { context } = createHarness();
+    expect(context.completeStage('stage:missing', 1)).toBe(false);
+    expect(context.completeStage('stage:junkyard-01', Number.NaN)).toBe(false);
+    expect(context.saveData.stages).toEqual({});
+  });
+
   it('createDefaultSaveV3 has an empty stages domain (no fabricated progress)', () => {
     expect(createDefaultSaveV3().stages).toEqual({});
   });

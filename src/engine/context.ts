@@ -245,16 +245,19 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     },
     resetProgression() { return context.updateMeta(() => createDefaultProgression()); },
     completeStage(stageId: string, timeMs: number): boolean {
+      if (!options.stages?.stageById(stageId) || !Number.isFinite(timeMs) || timeMs < 0) return false;
       const progress = current.stages[stageId];
       const newProgress = {
         completed: true,
         ...(timeMs > 0 ? { bestTimeMs: progress?.bestTimeMs !== undefined && progress.bestTimeMs < timeMs ? progress.bestTimeMs : timeMs } : {}),
       };
-      current = Object.freeze({
+      const save = Object.freeze({
         ...current,
         stages: Object.freeze({ ...current.stages, [stageId]: newProgress }),
       });
-      return options.save.save(current);
+      if (!options.save.save(save)) return false;
+      current = save;
+      return true;
     },
     selectCharacter(characterId: string, expectedRevision: number): SelectCharacterResult {
       const def = options.characters.characterById(characterId);
