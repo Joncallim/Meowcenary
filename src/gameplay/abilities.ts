@@ -10,6 +10,13 @@
  */
 import type { Modifier } from './stats';
 
+export interface AbilityRuntime {
+  readonly player: { x: number; y: number; heal(amount: number): void; grantInvulnerability(durationMs: number): void };
+  readonly stats: { add(modifier: Modifier): void; remove(sourceId: string): void };
+  readonly enemies: Iterable<{ x: number; y: number; takeDamage(amount: number): void; body: { setVelocity(x: number, y: number): void } }>;
+  collectNearbyConsumables(radius: number): void;
+}
+
 export type AbilityEffect =
   | { readonly kind: 'knockback'; readonly radius: number; readonly power: number }
   | { readonly kind: 'stat-burst'; readonly modifiers: readonly Modifier[] }
@@ -25,6 +32,34 @@ export interface AbilityDefinition {
   readonly cooldownMs: number;
   readonly durationMs: number;
   readonly effect: AbilityEffect;
+}
+
+export function applyAbilityEffect(definition: AbilityDefinition, runtime: AbilityRuntime): void {
+  const effect = definition.effect;
+  const handlers: Record<AbilityEffect['kind'], () => void> = {
+    heal: () => { if (effect.kind === 'heal') runtime.player.heal(effect.amount); },
+    invulnerable: () => runtime.player.grantInvulnerability(definition.durationMs),
+    'stat-burst': () => { if (effect.kind === 'stat-burst') effect.modifiers.forEach((modifier) => runtime.stats.add(modifier)); },
+    'loot-pulse': () => { if (effect.kind === 'loot-pulse') runtime.collectNearbyConsumables(effect.radius); },
+    knockback: () => applyAreaEffect(effect as Extract<AbilityEffect, { kind: 'knockback' }>, runtime, false),
+    'elemental-burst': () => applyAreaEffect(effect as Extract<AbilityEffect, { kind: 'elemental-burst' }>, runtime, true),
+  };
+  handlers[effect.kind]();
+}
+
+export function expireAbilityEffect(definition: AbilityDefinition, runtime: Pick<AbilityRuntime, 'stats'>): void {
+  if (definition.effect.kind === 'stat-burst') definition.effect.modifiers.forEach((modifier) => runtime.stats.remove(modifier.sourceId));
+}
+
+function applyAreaEffect(effect: Extract<AbilityEffect, { radius: number; power: number }>, runtime: AbilityRuntime, damage: boolean): void {
+  for (const enemy of runtime.enemies) {
+    const dx = enemy.x - runtime.player.x;
+    const dy = enemy.y - runtime.player.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    if (distance > effect.radius) continue;
+    if (damage) enemy.takeDamage(effect.power);
+    else enemy.body.setVelocity(dx / distance * effect.power, dy / distance * effect.power);
+  }
 }
 
 export type AbilityPhase = 'ready' | 'active' | 'cooling';

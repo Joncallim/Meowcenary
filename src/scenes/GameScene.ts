@@ -69,7 +69,7 @@ import { DefeatPresentationSystem } from '../systems/defeatPresentation';
 import { DataAchievementRegistry, metricExtractor } from '../systems/achievements';
 import { evaluateAchievements } from '../gameplay/achievementSystem';
 import { DataAbilityRegistry } from '../systems/abilities';
-import { abilityReadiness, activateAbility, createAbilityState, tickAbility, type AbilityDefinition, type AbilityState } from '../gameplay/abilities';
+import { abilityReadiness, activateAbility, applyAbilityEffect, createAbilityState, expireAbilityEffect, tickAbility, type AbilityDefinition, type AbilityState } from '../gameplay/abilities';
 import type { FocusDirection } from '../ui/focusList';
 
 /** U6: the gameplay camera shows canvas/zoom world units — 312×675.2 on the
@@ -845,21 +845,8 @@ export class GameScene extends Phaser.Scene {
     const activation = activateAbility(this.abilityState, definition);
     if (!activation.fired) return;
     this.abilityState = activation.state;
-    const effect = definition.effect;
-    if (effect.kind === 'heal') player.heal(effect.amount);
-    else if (effect.kind === 'invulnerable') player.grantInvulnerability(definition.durationMs);
-    else if (effect.kind === 'stat-burst') effect.modifiers.forEach((modifier) => runState.stats.add(modifier));
-    else if (effect.kind === 'loot-pulse') this.dropSystem?.collectNearbyConsumables(effect.radius);
-    else if (effect.kind === 'knockback' || effect.kind === 'elemental-burst') {
-      this.enemies.forEach((enemy) => {
-        const dx = enemy.x - player.x;
-        const dy = enemy.y - player.y;
-        const distance = Math.hypot(dx, dy) || 1;
-        if (distance > effect.radius) return;
-        if (effect.kind === 'elemental-burst') enemy.takeDamage(effect.power);
-        else enemy.body.setVelocity(dx / distance * effect.power, dy / distance * effect.power);
-      });
-    }
+    applyAbilityEffect(definition, { player, stats: runState.stats, enemies: this.enemies,
+      collectNearbyConsumables: (radius) => this.dropSystem?.collectNearbyConsumables(radius) });
   }
 
   private tickAbility(deltaMs: number): void {
@@ -867,9 +854,7 @@ export class GameScene extends Phaser.Scene {
     if (!definition || this.abilityState.phase === 'ready') return;
     const before = this.abilityState;
     this.abilityState = tickAbility(before, deltaMs);
-    if (before.phase === 'active' && this.abilityState.phase !== 'active' && definition.effect.kind === 'stat-burst') {
-      definition.effect.modifiers.forEach((modifier) => this.runState?.stats.remove(modifier.sourceId));
-    }
+    if (before.phase === 'active' && this.abilityState.phase !== 'active' && this.runState) expireAbilityEffect(definition, { stats: this.runState.stats });
   }
 
   private describeAbilityState(): string | undefined {
