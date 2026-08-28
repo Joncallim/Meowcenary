@@ -86,6 +86,8 @@ export interface GameContext {
   readonly selectedArenaId: string;
   readonly arenaSelectionRevision: number;
   readonly stages: StageRegistry;
+  readonly selectedStageId: string;
+  readonly stageSelectionRevision: number;
   updateSettings(patch: Readonly<Partial<Settings>>): PersistenceUpdate<Settings>;
   updateMeta(transform: (meta: MetaState) => MetaState): PersistenceUpdate<MetaState>;
   applyGrantTransaction(transaction: DurableGrantTransaction): boolean;
@@ -94,6 +96,7 @@ export interface GameContext {
   resetProgression(): PersistenceUpdate<MetaState>;
   selectCharacter(characterId: string, expectedRevision: number): SelectCharacterResult;
   selectArena(arenaId: string, expectedRevision: number): SelectArenaResult;
+  selectStage(stageId: string, expectedRevision: number): SelectArenaResult;
 }
 
 export interface CreateGameContextOptions {
@@ -113,6 +116,8 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
   let selectionRevision = 1;
   let selectedArenaId = options.arenas.defaultArenaId();
   let arenaSelectionRevision = 1;
+  let selectedStageId = (options.stages ?? new StageRegistryCtor(options.data)).defaultStageId();
+  let stageSelectionRevision = 1;
 
   /** After a meta mutation, if the currently-selected character is no longer
    *  selectable (e.g. its unlock was removed), silently reset to the default.
@@ -145,6 +150,8 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     get selectionRevision() { return selectionRevision; },
     get selectedArenaId() { return selectedArenaId; },
     get arenaSelectionRevision() { return arenaSelectionRevision; },
+    get selectedStageId() { return selectedStageId; },
+    get stageSelectionRevision() { return stageSelectionRevision; },
     updateSettings(patch) {
       const previousSettings = current.settings;
       const settings = applySettingsPatch(previousSettings, patch);
@@ -258,6 +265,13 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       selectedArenaId = arenaId;
       arenaSelectionRevision += 1;
       return { ok: true, arenaId, revision: arenaSelectionRevision };
+    },
+    selectStage(stageId: string, expectedRevision: number): SelectArenaResult {
+      const stage = context.stages.stageById(stageId);
+      if (!stage || expectedRevision !== stageSelectionRevision) return { ok: false, reason: !stage ? 'unknown-arena' : 'stale-selection', arenaId: selectedStageId, revision: stageSelectionRevision };
+      selectedStageId = stageId;
+      stageSelectionRevision += 1;
+      return { ok: true, arenaId: selectedStageId, revision: stageSelectionRevision };
     },
   };
   branded.add(context);

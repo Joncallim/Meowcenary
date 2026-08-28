@@ -10,6 +10,7 @@ import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
 import { assembleRunRequest } from '../gameplay/runRequest';
+import { resolveRunPlan } from '../gameplay/stage/stageContracts';
 import {
   endRun,
   startRun,
@@ -125,9 +126,18 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     const ctx = this.getContext();
     const request = assembleRunRequest(ctx, ctx.menuRng);
+    // Alpha 3 normal composition resolves the selected contract once at the
+    // boundary. GameScene consumes its physical arena result; #85 wires the
+    // remaining objective/encounter/reward fields to live systems.
+    const plan = resolveRunPlan({ characterId: request.characterId, stageId: ctx.selectedStageId, seed: request.seed }, {
+      stages: ctx.data.stages ?? [],
+      encounterProfiles: ctx.data.encounterProfiles ?? [],
+      difficultyProfiles: ctx.data.difficultyProfiles ?? [],
+      rewardProfiles: ctx.data.rewardProfiles ?? [],
+    });
     const visualArt = new DataVisualArtRegistry(ctx.data);
 
-    const arena = ctx.arenas.arenaById(request.arenaId);
+    const arena = ctx.arenas.arenaById(plan.arenaId);
     if (!arena) {
       throw new Error(`Selected arena "${request.arenaId}" is missing from the registry`);
     }

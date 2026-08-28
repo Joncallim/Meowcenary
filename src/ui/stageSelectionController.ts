@@ -28,7 +28,6 @@ export interface StageSelectionSnapshot {
 
 export class StageSelectionController {
   private readonly context: GameContext;
-  private revision = 0;
 
   constructor(context: GameContext) {
     this.context = context;
@@ -63,7 +62,7 @@ export class StageSelectionController {
     });
 
     return Object.freeze({
-      revision: this.revision,
+      revision: context.stageSelectionRevision,
       selectedStageId,
       stages: Object.freeze(stages),
     });
@@ -89,8 +88,7 @@ export class StageSelectionController {
       return { ok: false, snapshot: this.snapshot() };
     }
 
-    this.setSelectedStageId(stageId);
-    this.revision += 1;
+    this.context.selectStage(stageId, this.context.stageSelectionRevision);
     return { ok: true, snapshot: this.snapshot() };
   }
 
@@ -119,18 +117,12 @@ export class StageSelectionController {
   }
 
   private getSelectedStageId(): string {
-    // For now, use a simple default: the first unlocked stage.
-    // In a full implementation, this would be persisted in GameContext.
+    if (this.context.stages.stageById(this.context.selectedStageId)) return this.context.selectedStageId;
     const snap = this.snapshotForSelection();
     for (const stage of snap) {
       if (!stage.locked) return stage.id;
     }
     return this.context.stages.defaultStageId();
-  }
-
-  private setSelectedStageId(_stageId: string): void {
-    // In a full implementation, this updates GameContext.selectedStageId.
-    // For now, the controller tracks it via revision bumps.
   }
 
   private snapshotForSelection(): readonly StageOptionView[] {

@@ -53,7 +53,7 @@
     "chapterId": "chapter:junkyard",
     "displayOrder": 5,
     "arenaId": "junkyard-lot",
-    "objective": { "type": "defeat", "enemyId": "trash-brute" },
+    "objective": { "type": "defeat", "enemyId": "boss-crusher" },
     "encounterProfileId": "encounter:junkyard-boss",
     "difficultyProfileId": "difficulty:boss-tier-1",
     "rewardProfileId": "reward:stage-05-boss",

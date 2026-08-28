@@ -722,7 +722,7 @@ describe('MenuScene', () => {
   });
 
   it.each([
-    { name: 'home', steps: 0, expected: ['Start', 'Character', 'Arena', 'Progression', 'Settings'] },
+    { name: 'home', steps: 0, expected: ['Start', 'Character', 'Arena', 'Progression', 'Settings', 'Stage'] },
     { name: 'character', steps: 1, expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', 'Volt Lynx 🔒', 'Brass Boar 🔒', 'Ember Cougar 🔒', 'Scrap Weasel 🔒', 'Rattle Raptor 🔒', 'Piston Ram 🔒', '< Back'] },
     { name: 'arena', steps: 2, expected: ['✓ Junkyard Lot', '< Back'] },
     {
@@ -742,6 +742,7 @@ describe('MenuScene', () => {
       steps: 4,
       expected: ['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', '< Back'],
     },
+    { name: 'stage', steps: 5, expected: ['✓ First Scavenge', 'Scrap Run 🔒', 'Rusher Ambush 🔒', 'Brute Force 🔒', 'Boss: Scrap Crusher 🔒', '< Back'] },
     {
       name: 'reset-confirmation',
       steps: 5,

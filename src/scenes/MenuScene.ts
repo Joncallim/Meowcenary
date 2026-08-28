@@ -164,6 +164,9 @@ export class MenuScene extends Phaser.Scene {
         case 'arena':
           this.renderArena(root, snapshot, width, contentTop, margin, hitTarget);
           break;
+        case 'stage':
+          this.renderStage(root, snapshot, width, contentTop, margin, hitTarget);
+          break;
         case 'progression':
           this.renderProgression(root, snapshot, width, contentTop, margin, hitTarget);
           break;
@@ -243,9 +246,11 @@ export class MenuScene extends Phaser.Scene {
   ): void {
     const selectedCharacter = snapshot.character.characters.find((c) => c.selected);
     const selectedArena = snapshot.arena.arenas.find((a) => a.selected);
+    const selectedStage = snapshot.stage.stages.find((s) => s.selected);
     const infoLines = [
       `Character: ${selectedCharacter?.name ?? snapshot.character.selectedCharacterId}`,
       `Arena: ${selectedArena?.name ?? snapshot.arena.selectedArenaId}`,
+      `Contract: ${selectedStage?.name ?? snapshot.stage.selectedStageId}`,
       `Scrap: ${snapshot.progression.scrap}`,
     ];
 
@@ -264,6 +269,7 @@ export class MenuScene extends Phaser.Scene {
       { label: 'Arena', action: () => this.render(this.requireController().open('arena')) },
       { label: 'Progression', action: () => this.render(this.requireController().open('progression')) },
       { label: 'Settings', action: () => this.render(this.requireController().open('settings')) },
+      { label: 'Stage', action: () => this.render(this.requireController().open('stage')) },
     ];
     let y = top + info.height + 24;
     buttons.forEach(({ label, action }) => {
@@ -333,6 +339,26 @@ export class MenuScene extends Phaser.Scene {
       y += hitTarget + 12;
     });
 
+    this.addBackButton(root, width, margin, hitTarget);
+  }
+
+  private renderStage(
+    root: Phaser.GameObjects.Container,
+    snapshot: MainMenuSnapshot,
+    width: number,
+    top: number,
+    margin: number,
+    hitTarget: number,
+  ): void {
+    const heading = this.addHeading(root, this.safeCenterX, top, 'Choose Contract');
+    let y = top + heading.height + 20;
+    snapshot.stage.stages.forEach((stage) => {
+      const label = `${stage.selected ? '✓ ' : ''}${stage.name}${stage.locked ? ' 🔒' : ''}`;
+      this.addButton(root, margin, y, label, hitTarget, () => {
+        this.render(this.requireController().selectStage(stage.id));
+      });
+      y += hitTarget + 16;
+    });
     this.addBackButton(root, width, margin, hitTarget);
   }
 

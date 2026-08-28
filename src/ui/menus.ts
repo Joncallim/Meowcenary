@@ -3,12 +3,14 @@ import { ArenaSelectionController, type ArenaSelectionSnapshot } from './arenaSe
 import { CharacterSelectionController, type CharacterSelectionSnapshot } from './characterSelectionController';
 import { ProgressionController, type ProgressionSnapshot } from './progressionController';
 import { SettingsController, type SettingsSnapshot } from './settings';
+import { StageSelectionController, type StageSelectionSnapshot } from './stageSelectionController';
 import type { GameContext } from '../engine/context';
 
 export type MenuPanel =
   | 'home'
   | 'character'
   | 'arena'
+  | 'stage'
   | 'progression'
   | 'settings'
   | 'reset-confirmation';
@@ -19,6 +21,7 @@ export interface MainMenuSnapshot {
   readonly panel: MenuPanel;
   readonly character: CharacterSelectionSnapshot;
   readonly arena: ArenaSelectionSnapshot;
+  readonly stage: StageSelectionSnapshot;
   readonly progression: ProgressionSnapshot;
   readonly settings: SettingsSnapshot;
   readonly notice?: string;
@@ -27,6 +30,7 @@ export interface MainMenuSnapshot {
 export class MainMenuController {
   private readonly characterController: CharacterSelectionController;
   private readonly arenaController: ArenaSelectionController;
+  private readonly stageController: StageSelectionController;
   private readonly progressionController: ProgressionController;
   private readonly settingsController: SettingsController;
   private panel: MenuPanel = 'home';
@@ -36,6 +40,7 @@ export class MainMenuController {
   constructor(context: GameContext) {
     this.characterController = new CharacterSelectionController(context);
     this.arenaController = new ArenaSelectionController(context);
+    this.stageController = new StageSelectionController(context);
     this.progressionController = new ProgressionController(context);
     this.settingsController = new SettingsController(context);
   }
@@ -45,6 +50,7 @@ export class MainMenuController {
       panel: this.panel,
       character: this.characterController.snapshot(),
       arena: this.arenaController.snapshot(),
+      stage: this.stageController.snapshot(),
       progression: this.progressionController.snapshot(),
       settings: this.settingsController.snapshot(),
       notice: this.notice,
@@ -81,6 +87,12 @@ export class MainMenuController {
   selectArena(id: string, expectedRevision: number): MainMenuSnapshot {
     const result = this.arenaController.select(id, expectedRevision);
     this.notice = result.ok ? undefined : this.noticeForSelectionFailure(result.reason);
+    return this.snapshot();
+  }
+
+  selectStage(id: string): MainMenuSnapshot {
+    const result = this.stageController.select(id);
+    this.notice = result.ok ? undefined : 'Selection is locked';
     return this.snapshot();
   }
 
