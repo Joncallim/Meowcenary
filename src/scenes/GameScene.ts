@@ -131,20 +131,20 @@ export class GameScene extends Phaser.Scene {
     // Alpha 3 normal composition resolves the selected contract once at the
     // boundary. GameScene consumes its physical arena result; #85 wires the
     // remaining objective/encounter/reward fields to live systems.
-    if (request.kind !== 'stage') {
-      throw new Error('Legacy arena requests require the explicit compatibility runner');
-    }
-    const plan = resolveRunPlan(
-      { characterId: request.characterId, stageId: request.stageId, seed: request.seed },
-      ctx.stages.runPlanCatalog(),
-    );
+    const plan = request.kind === 'stage'
+      ? resolveRunPlan(
+        { characterId: request.characterId, stageId: request.stageId, seed: request.seed },
+        ctx.stages.runPlanCatalog(),
+      )
+      : undefined;
     this.stagePlan = plan;
-    this.stageState = createStageState(plan.stageId, plan.objective.definition);
+    this.stageState = plan ? createStageState(plan.stageId, plan.objective.definition) : undefined;
     const visualArt = new DataVisualArtRegistry(ctx.data);
 
-    const arena = ctx.arenas.arenaById(plan.arenaId);
+    const arenaId = request.kind === 'stage' ? plan!.arenaId : request.arenaId;
+    const arena = ctx.arenas.arenaById(arenaId);
     if (!arena) {
-      throw new Error(`Stage arena "${plan.arenaId}" is missing from the registry`);
+      throw new Error(`Run arena "${arenaId}" is missing from the registry`);
     }
     const curve = ctx.data.spawnCurves.find((c) => c.id === arena.spawnCurveId);
     if (!curve) {
@@ -172,7 +172,7 @@ export class GameScene extends Phaser.Scene {
       state: {
         seed: request.seed,
         characterId: request.characterId,
-        arenaId: plan.arenaId,
+        arenaId,
       },
       basePlayer: {
         maxHealth: RuntimeConfig.gameplay.player.baseMaxHealth,
@@ -803,7 +803,11 @@ export class GameScene extends Phaser.Scene {
 
   private updateStageObjective(ctx: GameContext, delta: number): void {
     const runState = this.runState;
-    if (!runState || !this.stageState || !this.stagePlan) return;
+    if (!runState) return;
+    if (!this.stageState || !this.stagePlan) {
+      this.maybeEndRunForVictory(ctx, runState);
+      return;
+    }
     if (this.stageState.status === 'intro') this.stageState = { ...this.stageState, status: 'active' };
     if (this.stagePlan.objective.definition.type === 'survive' && this.stageState.status === 'active') {
       this.stageState = updateObjectiveProgress(this.stageState, delta / 1000);
@@ -813,7 +817,6 @@ export class GameScene extends Phaser.Scene {
       endRun(runState, 'won', ctx.bus);
       return;
     }
-    if (this.stagePlan === undefined) this.maybeEndRunForVictory(ctx, runState);
   }
 
   private syncPhysicsPause(runState: RunState): void {
