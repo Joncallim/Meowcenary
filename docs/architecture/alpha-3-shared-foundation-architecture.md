@@ -304,6 +304,7 @@ interface SaveDataV3 {
   readonly characters: CharacterMasteryState;
   readonly gunsmith: GunsmithState;
   readonly equipment: EquipmentState;
+  readonly items: ItemInventoryState;
 }
 
 // ProgressionState replaces the flat MetaState
@@ -319,6 +320,7 @@ type AchievementProgressState = Record<string, AchievementProgress>; // keyed by
 type CharacterMasteryState = Record<string, MasteryProgress>;  // keyed by CharacterId
 type GunsmithState = { readonly builds: Build[]; readonly parts: Record<string, PartInstance> };
 type EquipmentState = Record<string, EquipmentInstance>;       // keyed by EquipmentInstanceId
+type ItemInventoryState = Record<string, number>;              // keyed by canonical item ID
 
 interface StageProgress {
   readonly completed: boolean;

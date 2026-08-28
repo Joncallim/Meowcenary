@@ -9,6 +9,7 @@ import { StageRegistry as StageRegistryCtor } from '../systems/stageRegistry';
 import type { MetaUpgradeRegistry } from '../systems/metaUpgrades';
 import { canSelectCharacter } from '../gameplay/characterSelection';
 import { canSelectArena } from '../gameplay/arenaSelection';
+import { createConditionContext, evaluateCondition, type ProgressionCondition } from '../gameplay/conditionEvaluator';
 import {
   applySettingsPatch,
   createDefaultProgression,
@@ -393,6 +394,15 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     selectStage(stageId: string, expectedRevision: number): SelectArenaResult {
       const stage = context.stages.stageById(stageId);
       if (!stage || expectedRevision !== stageSelectionRevision) return { ok: false, reason: !stage ? 'unknown-arena' : 'stale-selection', arenaId: selectedStageId, revision: stageSelectionRevision };
+      const facts = createConditionContext(current.progression, {
+        stages: current.stages,
+        achievements: current.achievements,
+        characters: current.characters,
+        bosses: current.bosses,
+      });
+      if (!evaluateCondition(stage.unlock as ProgressionCondition, facts)) {
+        return { ok: false, reason: 'locked', arenaId: selectedStageId, revision: stageSelectionRevision };
+      }
       selectedStageId = stageId;
       stageSelectionRevision += 1;
       return { ok: true, arenaId: selectedStageId, revision: stageSelectionRevision };

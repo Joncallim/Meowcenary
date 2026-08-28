@@ -41,6 +41,7 @@ export class StageSelectionController {
         stages: context.saveData.stages,
         achievements: context.saveData.achievements,
         characters: context.saveData.characters,
+        bosses: context.saveData.bosses,
       },
     );
 
@@ -81,6 +82,7 @@ export class StageSelectionController {
         stages: this.context.saveData.stages,
         achievements: this.context.saveData.achievements,
         characters: this.context.saveData.characters,
+        bosses: this.context.saveData.bosses,
       },
     );
     const condition = stage.unlock as unknown as ProgressionCondition;
@@ -117,7 +119,8 @@ export class StageSelectionController {
   }
 
   private getSelectedStageId(): string {
-    if (this.context.stages.stageById(this.context.selectedStageId)) return this.context.selectedStageId;
+    const current = this.context.stages.stageById(this.context.selectedStageId);
+    if (current !== undefined && !this.snapshotForSelection().find((stage) => stage.id === current.id)?.locked) return current.id;
     const snap = this.snapshotForSelection();
     for (const stage of snap) {
       if (!stage.locked) return stage.id;
@@ -132,6 +135,7 @@ export class StageSelectionController {
         stages: this.context.saveData.stages,
         achievements: this.context.saveData.achievements,
         characters: this.context.saveData.characters,
+        bosses: this.context.saveData.bosses,
       },
     );
     return this.context.stages.allStages().map((stage) => {

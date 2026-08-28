@@ -3,6 +3,7 @@ import type { Rng } from '../engine/rng';
 import { nextRunSeed } from '../engine/rng';
 import { canSelectCharacter } from './characterSelection';
 import { canSelectArena } from './arenaSelection';
+import { createConditionContext, evaluateCondition } from './conditionEvaluator';
 
 export interface RunRequest {
   readonly characterId: string;
@@ -64,8 +65,17 @@ export function assembleComposedRunRequest(ctx: GameContext, rng: Pick<Rng, 'int
   const characterId = character && canSelectCharacter(character, ctx.saveData.progression)
     ? ctx.selectedCharacterId
     : ctx.characters.defaultCharacterId();
-  const stage = ctx.stages.stageById(ctx.selectedStageId)
-    ?? ctx.stages.stageById(ctx.stages.defaultStageId());
+  const facts = createConditionContext(ctx.saveData.progression, {
+    stages: ctx.saveData.stages,
+    achievements: ctx.saveData.achievements,
+    characters: ctx.saveData.characters,
+    bosses: ctx.saveData.bosses,
+  });
+  const selected = ctx.stages.stageById(ctx.selectedStageId);
+  const stage = selected !== undefined && evaluateCondition(selected.unlock as import('./conditionEvaluator').ProgressionCondition, facts)
+    ? selected
+    : ctx.stages.allStages().find((candidate) =>
+      evaluateCondition(candidate.unlock as import('./conditionEvaluator').ProgressionCondition, facts));
   if (!stage) throw new Error('No valid stage is available for normal run composition');
   return createStageRunRequest({ characterId, stageId: stage.id, rng });
 }

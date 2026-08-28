@@ -33,6 +33,7 @@ describe('Save V3 migration (V2→V3)', () => {
       gunsmith: { builds: [], parts: {} },
       equipment: {},
       equipmentLoadout: {},
+      items: {},
       bosses: {},
       appliedGrantTransactions: {},
     });
@@ -246,6 +247,23 @@ describe('V3 domain sanitizers', () => {
     });
     expect(v3.achievements['bad-id']).toBeUndefined();
     expect(v3.achievements['achievement:bad-type']).toBeUndefined();
+  });
+
+  it('drops cross-domain identities from fact and inventory domains', () => {
+    const v3 = migrate({
+      version: 3, settings: DEFAULT_SETTINGS, progression: { scrap: 0, unlocks: [], permanentUpgrades: {} },
+      stages: { 'stage:junkyard-01': { completed: true }, 'character:bolt-hound': { completed: true } },
+      achievements: { 'achievement:first-victory': { completed: true }, 'character:bolt-hound': { completed: true } },
+      achievementMetrics: { 'achievement:first-victory': 1, 'stage:junkyard-01': 1 },
+      characters: {}, gunsmith: { builds: [], parts: {} }, equipment: {},
+      items: { 'item:scrap-shot': 2, 'achievement:first-victory': 99 },
+      bosses: { 'boss-crusher': { defeated: true }, 'stage:junkyard-01': { defeated: true } },
+    }, limits) as SaveDataV3;
+    expect(v3.stages).toEqual({ 'stage:junkyard-01': { completed: true } });
+    expect(v3.achievements).toEqual({ 'achievement:first-victory': { completed: true } });
+    expect(v3.achievementMetrics).toEqual({ 'achievement:first-victory': 1 });
+    expect(v3.items).toEqual({ 'item:scrap-shot': 2 });
+    expect(v3.bosses).toEqual({ 'boss-crusher': { defeated: true } });
   });
 
   it('sanitizes character mastery', () => {

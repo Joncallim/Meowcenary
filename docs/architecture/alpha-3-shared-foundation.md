@@ -31,11 +31,13 @@ The following decisions are now executable contracts, rather than proposals:
   the resolved plan and has no stage-ID branch. The arena spawn curve remains
   a narrow legacy compatibility input only.
 - `SaveDataV3` owns sparse stage, boss, achievement, achievement-metric,
-  character, Gunsmith-owned-instance, equipment-owned-instance/loadout and
-  durable-receipt domains. `GameContext` is the only persistence boundary.
-- A `DurableGrantTransaction` has a source-owned receipt ID. Its grants and
-  receipt are saved together; a replay is a no-op. Publishing occurs only
-  after persistence succeeds.
+  character, Gunsmith-owned-instance, equipment-owned-instance/loadout,
+  item-inventory and durable-receipt domains. `GameContext` is the only
+  persistence boundary.
+- A `DurableGrantTransaction` has a source-owned receipt ID. Its currency,
+  levels, unlocks, owned instances and item quantities are saved with that
+  receipt; a replay is a no-op. Publishing occurs only after persistence
+  succeeds.
 - Catalog/global IDs pass through conditions, grants and saves verbatim.
   Definition IDs, owned instance IDs and receipt IDs are distinct namespaces;
   no grant processor reconstructs prefixes.

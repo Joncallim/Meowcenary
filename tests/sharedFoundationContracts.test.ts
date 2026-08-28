@@ -3,7 +3,12 @@ import { evaluateCondition, createConditionContext } from '../src/gameplay/condi
 import { applyDurableGrantTransaction } from '../src/gameplay/grantProcessor';
 import { resolveRunPlan, type StageDefinition } from '../src/gameplay/stage/stageContracts';
 import { createDefaultSaveV3, MemoryStorageAdapter, SaveManager } from '../src/systems/save';
-import { loadGameData } from '../src/systems/validation';
+import { loadGameData, validateGameData } from '../src/systems/validation';
+import { StageRegistry } from '../src/systems/stageRegistry';
+import { assembleComposedRunRequest } from '../src/gameplay/runRequest';
+import { createRng } from '../src/engine/rng';
+import { DataCharacterRegistry } from '../src/systems/characters';
+import { DataArenaRegistry } from '../src/systems/arenas';
 
 describe('Alpha 3 shared foundation canonical contracts', () => {
   it('preserves canonical achievement and character IDs through grant, save/load, and condition consumers', () => {
@@ -40,7 +45,27 @@ describe('Alpha 3 shared foundation canonical contracts', () => {
     expect(malformed).toEqual({ save, valid: false, changed: false });
   });
 
-  it('resolves a second data-only stage fixture and carries its canonical fact/reward without a core branch', () => {
+  it('applies the same canonical owns-content rule to stage and achievement catalogs', () => {
+    const invalidAchievement = structuredClone(loadGameData()) as any;
+    invalidAchievement.achievements[0].condition = { type: 'owns-content', contentId: 'scrap-tabby' };
+    expect(() => validateGameData(invalidAchievement)).toThrow(/canonical unlock ID/);
+
+    const invalidStage = structuredClone(loadGameData()) as any;
+    invalidStage.stages[0].unlock = { type: 'owns-content', contentId: 'scrap-tabby' };
+    expect(() => validateGameData(invalidStage)).toThrow(/canonical unlock ID/);
+  });
+
+  it('rejects cross-domain stage profile and reward grant targets during catalog validation', () => {
+    const badProfile = structuredClone(loadGameData()) as any;
+    badProfile.stages[0].encounterProfileId = 'difficulty:chapter-1-easy';
+    expect(() => validateGameData(badProfile)).toThrow(/encounterProfileId/);
+
+    const badGrant = structuredClone(loadGameData()) as any;
+    badGrant.achievements[0].rewards = [{ grant: { type: 'unlock-stage', characterId: 'character:bolt-hound' } }];
+    expect(() => validateGameData(badGrant)).toThrow(/stageId/);
+  });
+
+  it('validates, registers, composes, and resolves a second data-only stage fixture without a core branch', () => {
     const data = loadGameData();
     const stages = data.stages ?? [];
     const encounters = data.encounterProfiles ?? [];
@@ -61,15 +86,16 @@ describe('Alpha 3 shared foundation canonical contracts', () => {
       rewardProfileId: rewards[0].id,
       unlock: { type: 'stage-cleared', stageId: 'stage:junkyard-01' },
     };
-    const plan = resolveRunPlan(
-      { characterId: 'scrap-tabby', stageId: fixture.id, seed: 42 },
-      {
-        stages: [...stages, fixture],
-        encounterProfiles: encounters,
-        difficultyProfiles: difficulties,
-        rewardProfiles: rewards,
-      },
-    );
+    const validated = validateGameData({ ...structuredClone(data), stages: [...stages, fixture] });
+    const registry = new StageRegistry(validated);
+    const composed = assembleComposedRunRequest({
+      characters: new DataCharacterRegistry(validated), arenas: new DataArenaRegistry(validated), stages: registry,
+      selectedCharacterId: 'scrap-tabby', selectedArenaId: fixture.arenaId, selectedStageId: fixture.id,
+      saveData: { progression: { scrap: 0, unlocks: [], permanentUpgrades: {} }, stages: { 'stage:junkyard-01': { completed: true } }, achievements: {}, characters: {}, bosses: {} },
+    } as any, createRng(42));
+    expect(composed).toMatchObject({ kind: 'stage', stageId: fixture.id });
+    if (composed.kind !== 'stage') throw new Error('Second fixture unexpectedly composed as legacy');
+    const plan = resolveRunPlan(composed, registry.runPlanCatalog());
     const transaction = applyDurableGrantTransaction(createDefaultSaveV3(), {
       id: 'stage:contract-fixture:first-clear',
       grants: [{ type: 'unlock-equipment', equipmentId: 'equipment:contract-fixture' }],

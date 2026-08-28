@@ -45,6 +45,11 @@ describe('StageSelectionController (Epic 20)', () => {
     expect(controller.select('does-not-exist').ok).toBe(false);
   });
 
+  it('rejects direct context selection of a locked stage', () => {
+    const { context } = createHarness();
+    expect(context.selectStage('stage:junkyard-02', context.stageSelectionRevision)).toMatchObject({ ok: false, reason: 'locked' });
+  });
+
   it('navigates to the next/previous unlocked stage only', () => {
     const { controller } = createHarness();
     // Only stage 1 unlocked → next/prev have nowhere to go

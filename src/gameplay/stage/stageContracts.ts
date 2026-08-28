@@ -7,6 +7,7 @@
  * path is preserved as the Alpha 2 compatibility adapter (§5.3).
  */
 import { deepFreeze } from '../../engine/freeze';
+import { isContentId, isUnlockId } from '../../systems/ids';
 
 // ── Objective vocabulary (§2.2) ──────────────────────────────────────
 
@@ -152,6 +153,15 @@ export function resolveRunPlan(
   request: StageRunRequest,
   data: StageCatalogData,
 ): ResolvedRunPlan {
+  if (!isContentId(request.characterId)) {
+    throw new StageResolutionError(`Invalid character ID "${request.characterId}"`);
+  }
+  if (!isUnlockId(request.stageId) || !request.stageId.startsWith('stage:')) {
+    throw new StageResolutionError(`Invalid stage ID "${request.stageId}"`);
+  }
+  if (!Number.isSafeInteger(request.seed)) {
+    throw new StageResolutionError('Run seed must be a safe integer');
+  }
   // Find the stage definition
   const stage = data.stages.find((s) => s.id === request.stageId);
   if (!stage) {

@@ -5,17 +5,13 @@
  * metric/condition/reward references, and optional platform mappings.
  */
 import { isContentId, isUnlockId } from '../ids';
+import { validateProgressionCondition } from '../../gameplay/conditionValidation';
 import type { RowCheck } from '../validation';
 
 type RowCheckFn = RowCheck;
 
 const VALID_KINDS = new Set(['standard', 'incremental', 'mastery']);
 const VALID_METRIC_PREFIX = 'metric:';
-const VALID_CONDITION_TYPES = new Set([
-  'stage-cleared', 'boss-defeated', 'achievement-completed',
-  'mastery-reached', 'owns-content', 'all', 'any', 'not',
-  'scrap-total', 'permanent-level', 'unlock-count',
-]);
 const VALID_GRANT_TYPES = new Set([
   'grant-scrap', 'unlock-stage', 'unlock-character', 'unlock-equipment',
   'unlock-part', 'unlock-trait', 'grant-item', 'achievement-completed',
@@ -24,59 +20,6 @@ const VALID_GRANT_TYPES = new Set([
 
 function isPositiveInteger(value: unknown): boolean {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1;
-}
-
-function checkCondition(cond: unknown, path: string, errors: string[]): void {
-  if (!cond || typeof cond !== 'object') {
-    errors.push(`${path}: must be an object`);
-    return;
-  }
-  const c = cond as Record<string, unknown>;
-  if (typeof c.type !== 'string' || !VALID_CONDITION_TYPES.has(c.type)) {
-    errors.push(`${path}.type: invalid condition type`);
-    return;
-  }
-  switch (c.type) {
-    case 'stage-cleared':
-      if (typeof c.stageId !== 'string' || !isUnlockId(c.stageId)) errors.push(`${path}.stageId: invalid unlock ID`);
-      break;
-    case 'boss-defeated':
-      if (typeof c.bossId !== 'string' || !isContentId(c.bossId)) errors.push(`${path}.bossId: invalid content ID`);
-      break;
-    case 'achievement-completed':
-      if (typeof c.achievementId !== 'string' || !isUnlockId(c.achievementId)) errors.push(`${path}.achievementId: invalid unlock ID`);
-      break;
-    case 'mastery-reached':
-      if (typeof c.subjectId !== 'string' || !isContentId(c.subjectId)) errors.push(`${path}.subjectId: invalid content ID`);
-      if (!isPositiveInteger(c.tier)) errors.push(`${path}.tier: must be a positive integer`);
-      break;
-    case 'owns-content':
-      if (typeof c.contentId !== 'string' || !isContentId(c.contentId)) errors.push(`${path}.contentId: invalid content ID`);
-      break;
-    case 'scrap-total':
-      if (typeof c.threshold !== 'number' || !Number.isFinite(c.threshold) || c.threshold < 0) errors.push(`${path}.threshold: must be a non-negative number`);
-      break;
-    case 'permanent-level':
-      if (typeof c.upgradeId !== 'string' || c.upgradeId.length === 0) errors.push(`${path}.upgradeId: invalid ID`);
-      if (!isPositiveInteger(c.minLevel)) errors.push(`${path}.minLevel: must be a positive integer`);
-      break;
-    case 'unlock-count':
-      if (!isPositiveInteger(c.minCount)) errors.push(`${path}.minCount: must be a positive integer`);
-      break;
-    case 'all':
-    case 'any':
-      if (!Array.isArray(c.conditions) || c.conditions.length === 0) {
-        errors.push(`${path}.conditions: must be a non-empty array`);
-      } else {
-        c.conditions.forEach((sub, i) => checkCondition(sub, `${path}.conditions[${i}]`, errors));
-      }
-      break;
-    case 'not':
-      checkCondition(c.condition, `${path}.condition`, errors);
-      break;
-    default:
-      break;
-  }
 }
 
 function checkGrant(grant: unknown, path: string, errors: string[]): void {
@@ -91,27 +34,32 @@ function checkGrant(grant: unknown, path: string, errors: string[]): void {
   }
   switch (g.type) {
     case 'grant-scrap':
-      if (typeof g.amount !== 'number' || !Number.isFinite(g.amount) || g.amount <= 0) errors.push(`${path}.amount: must be a positive number`);
+      if (!isPositiveInteger(g.amount)) errors.push(`${path}.amount: must be a positive safe integer`);
       break;
     case 'unlock-stage':
+      if (typeof g.stageId !== 'string' || !isUnlockId(g.stageId) || !g.stageId.startsWith('stage:')) errors.push(`${path}.stageId: must be a canonical stage ID`);
+      break;
     case 'unlock-character':
+      if (typeof g.characterId !== 'string' || !isUnlockId(g.characterId) || !g.characterId.startsWith('character:')) errors.push(`${path}.characterId: must be a canonical character ID`);
+      break;
     case 'unlock-equipment':
+      if (typeof g.equipmentId !== 'string' || !isUnlockId(g.equipmentId) || !g.equipmentId.startsWith('equipment:')) errors.push(`${path}.equipmentId: must be a canonical equipment ID`);
+      break;
     case 'unlock-part':
+      if (typeof g.partId !== 'string' || !isUnlockId(g.partId) || !g.partId.startsWith('part:')) errors.push(`${path}.partId: must be a canonical part ID`);
+      break;
     case 'unlock-trait':
-      if (typeof g.stageId !== 'string' && typeof g.characterId !== 'string' &&
-          typeof g.equipmentId !== 'string' && typeof g.partId !== 'string' &&
-          typeof g.traitId !== 'string') {
-        errors.push(`${path}: missing target id`);
-      }
+      if (typeof g.traitId !== 'string' || !isUnlockId(g.traitId) || !g.traitId.startsWith('trait:')) errors.push(`${path}.traitId: must be a canonical trait ID`);
       break;
     case 'grant-item':
-      if (typeof g.itemId !== 'string' || !isContentId(g.itemId)) errors.push(`${path}.itemId: invalid content ID`);
+      if (typeof g.itemId !== 'string' || !isUnlockId(g.itemId) || !g.itemId.startsWith('item:')) errors.push(`${path}.itemId: must be a canonical item ID`);
+      if (g.amount !== undefined && !isPositiveInteger(g.amount)) errors.push(`${path}.amount: must be a positive safe integer when present`);
       break;
     case 'achievement-completed':
-      if (typeof g.achievementId !== 'string' || !isUnlockId(g.achievementId)) errors.push(`${path}.achievementId: invalid unlock ID`);
+      if (typeof g.achievementId !== 'string' || !isUnlockId(g.achievementId) || !g.achievementId.startsWith('achievement:')) errors.push(`${path}.achievementId: must be a canonical achievement ID`);
       break;
     case 'permanent-upgrade-level':
-      if (typeof g.upgradeId !== 'string' || g.upgradeId.length === 0) errors.push(`${path}.upgradeId: invalid ID`);
+      if (typeof g.upgradeId !== 'string' || !isContentId(g.upgradeId)) errors.push(`${path}.upgradeId: must be a valid content ID`);
       if (!isPositiveInteger(g.levels)) errors.push(`${path}.levels: must be a positive integer`);
       break;
     default:
@@ -148,7 +96,7 @@ export const checkAchievement: RowCheckFn = (row: unknown, _index: number): stri
   }
 
   if (a.condition !== undefined) {
-    checkCondition(a.condition, 'condition', errors);
+    errors.push(...validateProgressionCondition(a.condition, 'condition'));
   }
 
   if (a.hidden !== undefined && typeof a.hidden !== 'boolean') {

@@ -59,15 +59,25 @@ export function applyDurableGrantTransaction(save: SaveDataV3, transaction: Dura
   // trailing grant must not leave an earlier currency/level mutation behind
   // without its receipt.
   if (!isValidTransaction(transaction)) return { save, valid: false, changed: false };
-  if (Object.prototype.hasOwnProperty.call(save.appliedGrantTransactions, transaction.id)) return { save, valid: true, changed: false };
+  if (Object.prototype.hasOwnProperty.call(save.appliedGrantTransactions, transaction.id)) {
+    // A receipt that no longer has the owned/set-like effects it certifies is
+    // corrupted state, not a successful retry.  Fail closed: silently
+    // treating it as applied would permanently hide the lost reward.
+    return transactionEffectsPresent(save, transaction)
+      ? { save, valid: true, changed: false }
+      : { save, valid: false, changed: false };
+  }
   const partGrants = transaction.grants.filter((grant): grant is Extract<ProgressionGrant, { type: 'grant-part-instance' }> => grant.type === 'grant-part-instance');
   // Reject a new transaction that collides with a pre-existing owned copy.
   // Treating it as a no-op while recording the receipt would silently lose
   // the source reward; a producer must choose a unique stable instance key.
-  if (partGrants.some((grant) => Object.hasOwn(save.gunsmith.parts, grant.instanceId))) {
+  const partInstanceIds = new Set(partGrants.map((grant) => grant.instanceId));
+  if (partInstanceIds.size !== partGrants.length || partGrants.some((grant) => Object.hasOwn(save.gunsmith.parts, grant.instanceId))) {
     return { save, valid: false, changed: false };
   }
-  const result = processGrants(save.progression, transaction.grants.filter((grant) => grant.type !== 'grant-part-instance'));
+  const progressionGrants = transaction.grants.filter((grant) => grant.type !== 'grant-part-instance' && grant.type !== 'grant-item');
+  const result = processGrants(save.progression, progressionGrants);
+  const items = applyItemGrants(save.items, transaction.grants);
   const parts = Object.freeze({
     ...save.gunsmith.parts,
     ...Object.fromEntries(partGrants.map((grant) => [grant.instanceId, Object.freeze({
@@ -77,7 +87,27 @@ export function applyDurableGrantTransaction(save: SaveDataV3, transaction: Dura
     })])),
   });
   const appliedGrantTransactions = Object.freeze({ ...save.appliedGrantTransactions, [transaction.id]: true as const });
-  return { save: Object.freeze({ ...save, progression: result.progression, gunsmith: Object.freeze({ ...save.gunsmith, parts }), appliedGrantTransactions }), valid: true, changed: true };
+  return { save: Object.freeze({ ...save, progression: result.progression, items, gunsmith: Object.freeze({ ...save.gunsmith, parts }), appliedGrantTransactions }), valid: true, changed: true };
+}
+
+function transactionEffectsPresent(save: SaveDataV3, transaction: DurableGrantTransaction): boolean {
+  return transaction.grants.every((grant) => {
+    switch (grant.type) {
+      case 'grant-scrap': return save.progression.scrap >= grant.amount;
+      case 'unlock-stage': return save.progression.unlocks.includes(grant.stageId);
+      case 'unlock-character': return save.progression.unlocks.includes(grant.characterId);
+      case 'unlock-equipment': return save.progression.unlocks.includes(grant.equipmentId);
+      case 'unlock-part': return save.progression.unlocks.includes(grant.partId);
+      case 'unlock-trait': return save.progression.unlocks.includes(grant.traitId);
+      case 'grant-item': return (save.items[grant.itemId] ?? 0) >= (grant.amount ?? 1);
+      case 'achievement-completed': return save.progression.unlocks.includes(grant.achievementId);
+      case 'permanent-upgrade-level': return (save.progression.permanentUpgrades[grant.upgradeId] ?? 0) >= grant.levels;
+      case 'grant-part-instance': {
+        const part = save.gunsmith.parts[grant.instanceId];
+        return part?.partId === grant.partId && part.tier === (grant.tier ?? 1);
+      }
+    }
+  });
 }
 
 function isValidTransaction(transaction: DurableGrantTransaction): boolean {
@@ -141,8 +171,9 @@ export function processGrant(
       return applyUnlock(progression, grant.traitId);
 
     case 'grant-item':
-      // Durable item grants are unlock-only in V3; runtime items use LootGrant.
-      return applyUnlock(progression, grant.itemId);
+      // Item quantities are owned by Save V3's durable inventory domain and
+      // are applied with the transaction receipt in applyItemGrants().
+      return { progression, changed: false };
 
     case 'achievement-completed':
       return applyUnlock(progression, grant.achievementId);
@@ -163,6 +194,17 @@ export function processGrant(
     default:
       return { progression, changed: false };
   }
+}
+
+function applyItemGrants(items: SaveDataV3['items'], grants: readonly ProgressionGrant[]): SaveDataV3['items'] {
+  const next: Record<string, number> = { ...items };
+  for (const grant of grants) {
+    if (grant.type !== 'grant-item') continue;
+    const amount = grant.amount ?? 1;
+    const current = next[grant.itemId] ?? 0;
+    next[grant.itemId] = Math.min(Number.MAX_SAFE_INTEGER, current + amount);
+  }
+  return Object.freeze(next);
 }
 
 /**

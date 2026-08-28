@@ -5,17 +5,13 @@
  */
 import type { StageDefinition, EncounterProfile, RewardProfile } from '../../gameplay/stage/stageContracts';
 import { isContentId, isUnlockId } from '../ids';
+import { validateProgressionCondition } from '../../gameplay/conditionValidation';
 import type { RowCheck } from '../validation';
 
 // Re-exported for use by this module's public API.
 type RowCheckFn = RowCheck;
 
 const VALID_OBJECTIVE_TYPES = new Set(['kill', 'collect', 'survive', 'defeat']);
-const VALID_CONDITION_TYPES = new Set([
-  'stage-cleared', 'boss-defeated', 'achievement-completed',
-  'mastery-reached', 'owns-content', 'all', 'any', 'not',
-  'scrap-total', 'permanent-level', 'unlock-count',
-]);
 
 /** Row-level check for a single StageDefinition. */
 export const checkStage: RowCheckFn = (row: unknown, _index: number): string[] => {
@@ -24,13 +20,13 @@ export const checkStage: RowCheckFn = (row: unknown, _index: number): string[] =
   const s = row as Record<string, unknown>;
 
   // id
-  if (typeof s.id !== 'string' || !isUnlockId(s.id)) {
+  if (typeof s.id !== 'string' || !isUnlockId(s.id) || !s.id.startsWith('stage:')) {
     errors.push('id: must be a valid unlock ID (e.g. stage:junkyard-01)');
   }
   if (typeof s.name !== 'string' || s.name.trim().length === 0) {
     errors.push('name: must be a non-empty string');
   }
-  if (typeof s.chapterId !== 'string' || !isUnlockId(s.chapterId)) {
+  if (typeof s.chapterId !== 'string' || !isUnlockId(s.chapterId) || !s.chapterId.startsWith('chapter:')) {
     errors.push('chapterId: must be a valid unlock ID (e.g. chapter:junkyard)');
   }
   if (typeof s.displayOrder !== 'number' || !Number.isSafeInteger(s.displayOrder) || s.displayOrder < 1) {
@@ -75,13 +71,13 @@ export const checkStage: RowCheckFn = (row: unknown, _index: number): string[] =
   }
 
   // profile references
-  if (typeof s.encounterProfileId !== 'string' || !isUnlockId(s.encounterProfileId)) {
+  if (typeof s.encounterProfileId !== 'string' || !isUnlockId(s.encounterProfileId) || !s.encounterProfileId.startsWith('encounter:')) {
     errors.push('encounterProfileId: must be a valid unlock ID');
   }
-  if (typeof s.difficultyProfileId !== 'string' || !isUnlockId(s.difficultyProfileId)) {
+  if (typeof s.difficultyProfileId !== 'string' || !isUnlockId(s.difficultyProfileId) || !s.difficultyProfileId.startsWith('difficulty:')) {
     errors.push('difficultyProfileId: must be a valid unlock ID');
   }
-  if (typeof s.rewardProfileId !== 'string' || !isUnlockId(s.rewardProfileId)) {
+  if (typeof s.rewardProfileId !== 'string' || !isUnlockId(s.rewardProfileId) || !s.rewardProfileId.startsWith('reward:')) {
     errors.push('rewardProfileId: must be a valid unlock ID');
   }
 
@@ -94,99 +90,12 @@ export const checkStage: RowCheckFn = (row: unknown, _index: number): string[] =
   if (!s.unlock || typeof s.unlock !== 'object') {
     errors.push('unlock: must be a condition object');
   } else {
-    const unlockErrors = validateConditionRecursive(s.unlock as Record<string, unknown>, 'unlock');
+    const unlockErrors = validateProgressionCondition(s.unlock, 'unlock');
     errors.push(...unlockErrors);
   }
 
   return errors;
 };
-
-function validateConditionRecursive(
-  cond: Record<string, unknown>,
-  path: string,
-): string[] {
-  const errors: string[] = [];
-  if (typeof cond.type !== 'string' || !VALID_CONDITION_TYPES.has(cond.type)) {
-    errors.push(`${path}.type: must be a valid condition type`);
-    return errors;
-  }
-
-  const ctype = cond.type as string;
-  switch (ctype) {
-    case 'stage-cleared':
-      if (typeof cond.stageId !== 'string' || !isUnlockId(cond.stageId)) {
-        errors.push(`${path}.stageId: must be a valid unlock ID`);
-      }
-      break;
-    case 'boss-defeated':
-      if (typeof cond.bossId !== 'string' || !isContentId(cond.bossId)) {
-        errors.push(`${path}.bossId: must be a valid content ID`);
-      }
-      break;
-    case 'achievement-completed':
-      if (typeof cond.achievementId !== 'string' || !isUnlockId(cond.achievementId)) {
-        errors.push(`${path}.achievementId: must be a valid unlock ID`);
-      }
-      break;
-    case 'mastery-reached':
-      if (typeof cond.subjectId !== 'string' || !isContentId(cond.subjectId)) {
-        errors.push(`${path}.subjectId: must be a valid content ID`);
-      }
-      if (typeof cond.tier !== 'number' || !Number.isSafeInteger(cond.tier) || cond.tier < 1) {
-        errors.push(`${path}.tier: must be a positive safe integer`);
-      }
-      break;
-    case 'owns-content':
-      if (typeof cond.contentId !== 'string' || !isUnlockId(cond.contentId)) {
-        errors.push(`${path}.contentId: must be a valid unlock ID`);
-      }
-      break;
-    case 'scrap-total':
-      if (typeof cond.threshold !== 'number' || !Number.isSafeInteger(cond.threshold) || cond.threshold < 0) {
-        errors.push(`${path}.threshold: must be a non-negative safe integer`);
-      }
-      break;
-    case 'permanent-level':
-      if (typeof cond.upgradeId !== 'string' || !isContentId(cond.upgradeId)) {
-        errors.push(`${path}.upgradeId: must be a valid content ID`);
-      }
-      if (typeof cond.minLevel !== 'number' || !Number.isSafeInteger(cond.minLevel) || cond.minLevel < 1) {
-        errors.push(`${path}.minLevel: must be a positive safe integer`);
-      }
-      break;
-    case 'unlock-count':
-      if (typeof cond.minCount !== 'number' || !Number.isSafeInteger(cond.minCount) || cond.minCount < 0) {
-        errors.push(`${path}.minCount: must be a non-negative safe integer`);
-      }
-      break;
-    case 'all':
-    case 'any': {
-      if (!Array.isArray(cond.conditions)) {
-        errors.push(`${path}.conditions: must be an array`);
-      } else {
-        for (let i = 0; i < cond.conditions.length; i++) {
-          const sub = cond.conditions[i];
-          if (!sub || typeof sub !== 'object') {
-            errors.push(`${path}.conditions[${i}]: must be a condition object`);
-          } else {
-            errors.push(...validateConditionRecursive(sub as Record<string, unknown>, `${path}.conditions[${i}]`));
-          }
-        }
-      }
-      break;
-    }
-    case 'not': {
-      if (!cond.condition || typeof cond.condition !== 'object') {
-        errors.push(`${path}.condition: must be a condition object`);
-      } else {
-        errors.push(...validateConditionRecursive(cond.condition as Record<string, unknown>, `${path}.condition`));
-      }
-      break;
-    }
-  }
-
-  return errors;
-}
 
 /** Row-level check for a single EncounterProfile. */
 export const checkEncounterProfile: RowCheckFn = (row: unknown, _index: number): string[] => {
@@ -194,7 +103,7 @@ export const checkEncounterProfile: RowCheckFn = (row: unknown, _index: number):
   if (!row || typeof row !== 'object') return ['not an object'];
   const ep = row as Record<string, unknown>;
 
-  if (typeof ep.id !== 'string' || !isUnlockId(ep.id)) {
+  if (typeof ep.id !== 'string' || !isUnlockId(ep.id) || !ep.id.startsWith('encounter:')) {
     errors.push('id: must be a valid unlock ID');
   }
   if (!Array.isArray(ep.enemyIds)) {
@@ -235,7 +144,7 @@ export const checkDifficultyProfile: RowCheckFn = (row: unknown, _index: number)
   if (!row || typeof row !== 'object') return ['not an object'];
   const dp = row as Record<string, unknown>;
 
-  if (typeof dp.id !== 'string' || !isUnlockId(dp.id)) {
+  if (typeof dp.id !== 'string' || !isUnlockId(dp.id) || !dp.id.startsWith('difficulty:')) {
     errors.push('id: must be a valid unlock ID');
   }
   if (typeof dp.healthMultiplier !== 'number' || dp.healthMultiplier <= 0) {
@@ -260,7 +169,7 @@ export const checkRewardProfile: RowCheckFn = (row: unknown, _index: number): st
   if (!row || typeof row !== 'object') return ['not an object'];
   const rp = row as Record<string, unknown>;
 
-  if (typeof rp.id !== 'string' || !isUnlockId(rp.id)) {
+  if (typeof rp.id !== 'string' || !isUnlockId(rp.id) || !rp.id.startsWith('reward:')) {
     errors.push('id: must be a valid unlock ID');
   }
   if (typeof rp.scrapBase !== 'number' || !Number.isSafeInteger(rp.scrapBase) || rp.scrapBase < 0) {

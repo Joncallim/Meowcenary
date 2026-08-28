@@ -101,11 +101,11 @@ describe('grantProcessor — individual grants', () => {
     expect(result.progression.unlocks).toContain('trait:fire');
   });
 
-  it('grant-item adds unlock ID', () => {
+  it('a bare grant-item cannot mutate progression outside a durable receipt', () => {
     const p = makeProgression();
     const result = processGrant(p, { type: 'grant-item', itemId: 'item:scrap-shot' });
-    expect(result.changed).toBe(true);
-    expect(result.progression.unlocks).toContain('item:scrap-shot');
+    expect(result.changed).toBe(false);
+    expect(result.progression).toBe(p);
   });
 
   it('achievement-completed adds achievement unlock', () => {
@@ -180,6 +180,55 @@ describe('durable grant transactions', () => {
     const replay = applyDurableGrantTransaction(once.save, transaction);
     expect(replay.changed).toBe(false);
     expect(Object.keys(replay.save.gunsmith.parts)).toEqual(['reward:stage-01-barrel']);
+  });
+
+  it('rejects duplicate owned-instance IDs within one transaction before recording its receipt', () => {
+    const save = createDefaultSaveV3();
+    const transaction = {
+      id: 'stage:junkyard-01:duplicate-part-reward',
+      grants: [
+        { type: 'grant-part-instance' as const, instanceId: 'reward:duplicate', partId: 'part:barrel-standard', tier: 1 },
+        { type: 'grant-part-instance' as const, instanceId: 'reward:duplicate', partId: 'part:incendiary-barrel', tier: 2 },
+      ],
+    };
+    expect(applyDurableGrantTransaction(save, transaction)).toEqual({ save, valid: false, changed: false });
+  });
+
+  it('persists item quantities with the receipt so replay cannot duplicate a mixed inventory reward', () => {
+    const storage = new MemoryStorageAdapter();
+    const manager = new SaveManager(storage, 'item-receipt-reload', {});
+    const transaction = {
+      id: 'stage:junkyard-01:item-reward',
+      grants: [
+        { type: 'grant-scrap' as const, amount: 25 },
+        { type: 'grant-item' as const, itemId: 'item:scrap-shot', amount: 3 },
+        { type: 'unlock-character' as const, characterId: 'character:bolt-hound' },
+      ],
+    };
+    const once = applyDurableGrantTransaction(manager.load(), transaction);
+    expect(once.save.items['item:scrap-shot']).toBe(3);
+    expect(manager.save(once.save)).toBe(true);
+    const replay = applyDurableGrantTransaction(manager.load(), transaction);
+    expect(replay).toMatchObject({ valid: true, changed: false });
+    expect(replay.save.items['item:scrap-shot']).toBe(3);
+    expect(replay.save.progression.scrap).toBe(25);
+  });
+
+  it('fails closed when a receipt survives but its owned item or part effect is missing', () => {
+    const transaction = {
+      id: 'stage:junkyard-01:integrity-reward',
+      grants: [
+        { type: 'grant-item' as const, itemId: 'item:scrap-shot', amount: 2 },
+        { type: 'grant-part-instance' as const, instanceId: 'reward:integrity-part', partId: 'part:barrel-standard', tier: 1 },
+      ],
+    };
+    const committed = applyDurableGrantTransaction(createDefaultSaveV3(), transaction);
+    const lostEffects = {
+      ...committed.save,
+      items: {},
+      gunsmith: { ...committed.save.gunsmith, parts: {} },
+    };
+    expect(applyDurableGrantTransaction(lostEffects, transaction)).toMatchObject({ valid: false, changed: false });
   });
 
   it('keeps the receipt across save/load so retry cannot duplicate mixed rewards', () => {

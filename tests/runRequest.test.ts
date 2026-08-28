@@ -54,7 +54,7 @@ describe('runRequest', () => {
       arenas,
       selectedCharacterId: 'scrap-tabby',
       selectedArenaId: 'junkyard-lot',
-      saveData: { progression: { unlocks: [] } as any },
+      saveData: { progression: { unlocks: [] } as any, stages: { 'stage:junkyard-01': { completed: true } }, achievements: {}, characters: {}, bosses: {} },
       selectionRevision: 1,
       arenaSelectionRevision: 1,
     } as any;
@@ -77,7 +77,7 @@ describe('runRequest', () => {
       arenas,
       selectedCharacterId: 'bolt-hound',
       selectedArenaId: 'unknown-arena',
-      saveData: { progression: { unlocks: [] } as any },
+      saveData: { progression: { unlocks: [] } as any, stages: { 'stage:junkyard-01': { completed: true } }, achievements: {}, characters: {}, bosses: {} },
     } as any;
 
     const rng = createRng(42);
@@ -96,7 +96,7 @@ describe('runRequest', () => {
       selectedCharacterId: 'scrap-tabby',
       selectedArenaId: 'junkyard-lot',
       selectedStageId: 'stage:junkyard-02',
-      saveData: { progression: { unlocks: [] } as any },
+      saveData: { progression: { unlocks: [] } as any, stages: { 'stage:junkyard-01': { completed: true } }, achievements: {}, characters: {}, bosses: {} },
     } as any;
     expect(assembleComposedRunRequest(ctx, createRng(7))).toMatchObject({
       kind: 'stage', characterId: 'scrap-tabby', stageId: 'stage:junkyard-02',
@@ -118,5 +118,15 @@ describe('runRequest', () => {
     expect(assembleComposedRunRequest(ctx, createRng(7))).toMatchObject({
       kind: 'stage', stageId: 'stage:junkyard-01',
     });
+  });
+
+  it('repairs a selected locked stage to the first unlocked stage at the runtime boundary', () => {
+    const data = loadGameData();
+    const ctx = {
+      characters: new DataCharacterRegistry(data), arenas: new DataArenaRegistry(data), stages: new StageRegistry(data),
+      selectedCharacterId: 'scrap-tabby', selectedArenaId: 'junkyard-lot', selectedStageId: 'stage:junkyard-02',
+      saveData: { progression: { unlocks: [] }, stages: {}, achievements: {}, characters: {}, bosses: {} },
+    } as any;
+    expect(assembleComposedRunRequest(ctx, createRng(7))).toMatchObject({ kind: 'stage', stageId: 'stage:junkyard-01' });
   });
 });

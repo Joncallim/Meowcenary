@@ -81,6 +81,14 @@ function makeCatalogData(overrides?: Partial<StageCatalogData>): StageCatalogDat
 }
 
 describe('resolveRunPlan', () => {
+  it('rejects malformed cross-domain request identities before lookup', () => {
+    const data = makeCatalogData();
+    expect(() => resolveRunPlan({ characterId: 'character:scrap-tabby', stageId: 'stage:junkyard-01', seed: 1 }, data))
+      .toThrow(/Invalid character ID/);
+    expect(() => resolveRunPlan({ characterId: 'scrap-tabby', stageId: 'achievement:first-victory', seed: 1 }, data))
+      .toThrow(/Invalid stage ID/);
+  });
+
   it('resolves a kill-objective stage', () => {
     const data = makeCatalogData();
     const plan = resolveRunPlan(

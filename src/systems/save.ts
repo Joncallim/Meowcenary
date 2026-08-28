@@ -22,6 +22,10 @@ export interface ProgressionState {
 
 /** Durable receipt IDs for source-owned progression transactions. */
 export type AppliedGrantTransactions = Readonly<Record<string, true>>;
+/** Sparse durable inventory counts.  Item definitions remain static content;
+ * this map records only player-owned quantities and is committed with the
+ * source reward receipt. */
+export type ItemInventoryState = Readonly<Record<string, number>>;
 
 export interface BossProgress { readonly defeated: boolean; readonly firstDefeatedAt?: number }
 export type BossProgressState = Readonly<Record<string, BossProgress>>;
@@ -109,6 +113,7 @@ export interface SaveDataV3 {
   readonly gunsmith: GunsmithState;
   readonly equipment: EquipmentState;
   readonly equipmentLoadout?: EquipmentLoadoutState;
+  readonly items: ItemInventoryState;
   readonly bosses: BossProgressState;
   readonly appliedGrantTransactions: AppliedGrantTransactions;
 }
@@ -153,6 +158,7 @@ export function createDefaultSaveV3(): SaveDataV3 {
     gunsmith: { builds: [], parts: {} },
     equipment: {},
     equipmentLoadout: {},
+    items: {},
     bosses: {},
     appliedGrantTransactions: {},
   });
@@ -233,6 +239,7 @@ export function migrateV2ToV3(raw: Readonly<Record<string, unknown>>, maxLevels:
     gunsmith: { builds: [], parts: {} },
     equipment: {},
     equipmentLoadout: {},
+    items: {},
     bosses: {},
     appliedGrantTransactions: {},
   });
@@ -277,6 +284,7 @@ function decodeSave(raw: unknown, maxLevels: MetaUpgradeMaxLevels): SaveDecodeRe
         gunsmith: sanitizeGunsmithState(readOwn(parsed, 'gunsmith')),
         equipment,
         equipmentLoadout: sanitizeEquipmentLoadout(readOwn(parsed, 'equipmentLoadout'), equipment),
+        items: sanitizeItemInventory(readOwn(parsed, 'items')),
         bosses: sanitizeBossProgress(readOwn(parsed, 'bosses')),
         appliedGrantTransactions: sanitizeAppliedGrantTransactions(readOwn(parsed, 'appliedGrantTransactions')),
       }),
@@ -301,6 +309,7 @@ function migrateV1ToV3(raw: Readonly<Record<string, unknown>>): SaveDataV3 {
     gunsmith: { builds: [], parts: {} },
     equipment: {},
     equipmentLoadout: {},
+    items: {},
     bosses: {},
     appliedGrantTransactions: {},
   });
@@ -312,7 +321,7 @@ function sanitizeStageProgress(raw: unknown): StageProgressState {
   if (!isPlainRecord(raw)) return {};
   const result: Record<string, StageProgress> = Object.create(null);
   for (const key of Object.keys(raw)) {
-    if (!isContentId(key) && !isUnlockId(key)) continue;
+    if (!isUnlockId(key) || !key.startsWith('stage:')) continue;
     const entry = readOwn(raw as Record<string, unknown>, key);
     if (!isPlainRecord(entry)) continue;
     const completed = readOwn(entry, 'completed');
@@ -331,7 +340,7 @@ function sanitizeAchievementProgress(raw: unknown): AchievementProgressState {
   if (!isPlainRecord(raw)) return {};
   const result: Record<string, AchievementProgress> = Object.create(null);
   for (const key of Object.keys(raw)) {
-    if (!isUnlockId(key)) continue;
+    if (!isUnlockId(key) || !key.startsWith('achievement:')) continue;
     const entry = readOwn(raw as Record<string, unknown>, key);
     if (!isPlainRecord(entry)) continue;
     const completed = readOwn(entry, 'completed');
@@ -355,7 +364,7 @@ function sanitizeAchievementMetrics(raw: unknown): AchievementMetricState {
   const result: Record<string, number> = Object.create(null);
   for (const id of Object.keys(raw)) {
     const value = readOwn(raw, id);
-    if (isUnlockId(id) && Number.isSafeInteger(value) && (value as number) >= 0) result[id] = value as number;
+    if (isUnlockId(id) && id.startsWith('achievement:') && Number.isSafeInteger(value) && (value as number) >= 0) result[id] = value as number;
   }
   return Object.freeze(result);
 }
@@ -495,11 +504,23 @@ function sanitizeEquipmentLoadout(raw: unknown, owned: EquipmentState): Equipmen
   return Object.freeze(result);
 }
 
+function sanitizeItemInventory(raw: unknown): ItemInventoryState {
+  if (!isPlainRecord(raw)) return Object.freeze({});
+  const result: Record<string, number> = Object.create(null);
+  for (const id of Object.keys(raw)) {
+    const amount = readOwn(raw, id);
+    if (isUnlockId(id) && id.startsWith('item:') && Number.isSafeInteger(amount) && (amount as number) > 0) {
+      result[id] = amount as number;
+    }
+  }
+  return Object.freeze(result);
+}
+
 function sanitizeBossProgress(raw: unknown): BossProgressState {
   if (!isPlainRecord(raw)) return {};
   const result: Record<string, BossProgress> = Object.create(null);
   for (const id of Object.keys(raw)) {
-    if (!isContentId(id) && !isUnlockId(id)) continue;
+    if (!isContentId(id)) continue;
     const value = readOwn(raw, id);
     if (!isPlainRecord(value) || readOwn(value, 'defeated') !== true) continue;
     const firstDefeatedAt = readOwn(value, 'firstDefeatedAt');
@@ -556,6 +577,7 @@ export class SaveManager {
         gunsmith: sanitizeGunsmithState(data.gunsmith),
         equipment,
         equipmentLoadout: sanitizeEquipmentLoadout(data.equipmentLoadout, equipment),
+        items: sanitizeItemInventory(data.items),
         bosses: sanitizeBossProgress(data.bosses),
         appliedGrantTransactions: sanitizeAppliedGrantTransactions(data.appliedGrantTransactions),
       });
@@ -659,6 +681,7 @@ function freezeSaveV3(save: SaveDataV3): SaveDataV3 {
     }),
     equipment: Object.freeze({ ...save.equipment }),
     equipmentLoadout: Object.freeze({ ...(save.equipmentLoadout ?? {}) }),
+    items: Object.freeze({ ...save.items }),
     bosses: Object.freeze({ ...save.bosses }),
     appliedGrantTransactions: Object.freeze({ ...save.appliedGrantTransactions }),
   });
