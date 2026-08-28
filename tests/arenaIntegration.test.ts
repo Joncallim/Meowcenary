@@ -46,7 +46,7 @@ describe('arena integration — headless resolution chain', () => {
 
     const curve = ctx.data.spawnCurves.find((c) => c.id === arena!.spawnCurveId);
     expect(curve).toBeDefined();
-    expect(curve!.durationSeconds).toBe(300);
+    expect(curve!.durationSeconds).toBe(120);
     expect(curve!.id).toBe('junkyard-intro');
   });
 

@@ -270,6 +270,14 @@ class FakeText extends FakeDisplayObject {
     super(x, y, width, fontSize * 1.2 * lines);
     this.resolution = style.resolution;
   }
+  setFixedSize(width: number, height: number): this {
+    this.width = width;
+    this.height = height;
+    return this;
+  }
+  setCrop(_x: number, _y: number, _width: number, _height: number): this {
+    return this;
+  }
 }
 
 class FakeContainer extends FakeDisplayObject {
