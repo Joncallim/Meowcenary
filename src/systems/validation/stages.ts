@@ -86,8 +86,8 @@ export const checkStage: RowCheckFn = (row: unknown, _index: number): string[] =
   }
 
   // optional bossId
-  if (s.bossId !== undefined && (typeof s.bossId !== 'string' || !isUnlockId(s.bossId))) {
-    errors.push('bossId: must be a valid unlock ID when present');
+  if (s.bossId !== undefined && (typeof s.bossId !== 'string' || !isContentId(s.bossId))) {
+    errors.push('bossId: must be a valid content ID when present');
   }
 
   // unlock condition
@@ -335,6 +335,22 @@ export function assertStageEncounterEnemyReferences(
     // Epic 21: boss composition must reference a real boss archetype enemy.
     if (ep.bossId !== undefined && !enemyIds.has(ep.bossId)) {
       throw new Error(`encounterProfile.${ep.id}: bossId "${ep.bossId}" not found in enemy catalog`);
+    }
+  }
+}
+
+/** Boss milestone semantics are one identity end-to-end: stage declaration,
+ * defeat objective and resolved encounter must name the same enemy. */
+export function assertBossStageSemantics(
+  stages: readonly StageDefinition[],
+  encounters: readonly EncounterProfile[],
+): void {
+  const byId = new Map(encounters.map((encounter) => [encounter.id, encounter]));
+  for (const stage of stages) {
+    if (stage.bossId === undefined) continue;
+    const encounter = byId.get(stage.encounterProfileId);
+    if (stage.objective.type !== 'defeat' || stage.objective.enemyId !== stage.bossId || encounter?.bossId !== stage.bossId) {
+      throw new Error(`stage.${stage.id}: bossId, defeat objective and encounter bossId must match`);
     }
   }
 }

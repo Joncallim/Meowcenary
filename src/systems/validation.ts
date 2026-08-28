@@ -85,6 +85,7 @@ import {
   assertStageDifficultyReferences,
   assertStageRewardReferences,
   assertStageEncounterEnemyReferences,
+  assertBossStageSemantics,
   assertStageRewardLootTableReferences,
   assertStageUnlockReferences,
 } from './validation/stages';
@@ -606,6 +607,7 @@ export function validateGameData(raw: unknown): GameData {
   assertStageDifficultyReferences(stages, difficultyProfileIdSet);
   assertStageRewardReferences(stages, rewardProfileIdSet);
   assertStageEncounterEnemyReferences(encounterProfiles, enemyIdSet);
+  assertBossStageSemantics(stages, encounterProfiles);
   assertStageRewardLootTableReferences(rewardProfiles, lootTableIdSet);
   assertStageUnlockReferences(stages, stageIdSet);
 

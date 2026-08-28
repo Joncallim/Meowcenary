@@ -57,7 +57,7 @@
     "encounterProfileId": "encounter:junkyard-boss",
     "difficultyProfileId": "difficulty:boss-tier-1",
     "rewardProfileId": "reward:stage-05-boss",
-    "bossId": "boss:crusher",
+    "bossId": "boss-crusher",
     "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-04" }
   }
 ]
