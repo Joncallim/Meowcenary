@@ -20,11 +20,11 @@ const RARITY_EDGE_ALPHA = 0.95;
 // Full-card rarity surfaces make the phone chooser scannable without the
 // washed-out, near-identical navy cards seen in playtest captures.
 const RARITY_CARD_BACKGROUND = {
-  common: 0x263846,
-  uncommon: 0x1d4937,
-  rare: 0x203c5b,
-  epic: 0x3a2b58,
-  legendary: 0x4a3a1b,
+  common: 0x31485a,
+  uncommon: 0x18563c,
+  rare: 0x244b78,
+  epic: 0x503478,
+  legendary: 0x624719,
 } as const;
 
 export class UpgradeChooser {

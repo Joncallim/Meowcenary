@@ -45,7 +45,7 @@ import {
   RunSummaryController,
   type RunSummarySource,
 } from '../ui/runSummary';
-import { GAMEPLAY_ZOOM, zoomedGameUiViewport } from '../ui/layout';
+import { GAMEPLAY_ZOOM, edgeMargin, zoomedGameUiViewport, type UiViewport } from '../ui/layout';
 import { FullscreenController } from '../ui/fullscreen';
 import { PassiveCoordinator } from '../systems/PassiveCoordinator';
 import { HazardSystem } from '../systems/HazardSystem';
@@ -80,6 +80,18 @@ export function arenaFollowEnabled(
   visibleHeight: number,
 ): boolean {
   return arenaWidth > visibleWidth || arenaHeight > visibleHeight;
+}
+
+/** World-space floor for the player while the camera is at the arena top.
+ * It clears the complete HUD plate and a visual/follow-camera buffer. */
+export function playerHudSafeFloor(viewport: UiViewport, arenaHeight: number): number {
+  return Math.min(
+    arenaHeight / 2,
+    (viewport.originY ?? 0)
+      + topHudContentBottom(viewport)
+      + edgeMargin(viewport, 'bottom')
+      + PLAYER_BODY_RADIUS * 8,
+  );
 }
 
 export class GameScene extends Phaser.Scene {
@@ -205,13 +217,7 @@ export class GameScene extends Phaser.Scene {
     // When the camera is at scrollY=0 the persistent HUD otherwise covers
     // the upper part of the world.  This is the corresponding world-space
     // floor for the player, leaving its full body below the HUD backing.
-    const minPlayableY = Math.min(
-      arena.size.height / 2,
-      // The player visual is larger than its collision circle and the follow
-      // camera can settle a few frames behind it. Leave a full visual buffer
-      // below the HUD, not merely one collision radius.
-      (viewport.originY ?? 0) + topHudContentBottom(viewport) + PLAYER_BODY_RADIUS * 4,
-    );
+    const minPlayableY = playerHudSafeFloor(viewport, arena.size.height);
 
     this.player = new Player(this, this.inputController, this.runState, ctx.bus, {
       baseMaxHealth: prepared.basePlayer.maxHealth,
