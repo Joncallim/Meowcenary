@@ -6,7 +6,7 @@ import { SceneKey } from '../engine/sceneKeys';
 import type { System } from '../engine/system';
 import type { SpawnCurveDefinition } from '../systems/types';
 import { AudioManager, getAudioManager } from '../systems/audio';
-import { PLAYER_BODY_RADIUS, Player } from '../entities/Player';
+import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
 import { assembleRunRequest } from '../gameplay/runRequest';
@@ -82,15 +82,14 @@ export function arenaFollowEnabled(
   return arenaWidth > visibleWidth || arenaHeight > visibleHeight;
 }
 
-/** World-space floor for the player while the camera is at the arena top.
- * It clears the complete HUD plate and a visual/follow-camera buffer. */
-export function playerHudSafeFloor(viewport: UiViewport, arenaHeight: number): number {
+/** The authored top edge of the arena playfield.  This is a camera/physics
+ * boundary for every actor, rather than a hidden one-off player movement
+ * stop: when the camera is at the arena top, the world visibly begins below
+ * the compact run HUD. */
+export function playfieldTopBoundary(viewport: UiViewport, arenaHeight: number): number {
   return Math.min(
     arenaHeight / 2,
-    (viewport.originY ?? 0)
-      + topHudContentBottom(viewport)
-      + edgeMargin(viewport, 'bottom')
-      + PLAYER_BODY_RADIUS * 8,
+    Math.max(0, (viewport.originY ?? 0) + topHudContentBottom(viewport) + edgeMargin(viewport, 'bottom')),
   );
 }
 
@@ -205,19 +204,16 @@ export class GameScene extends Phaser.Scene {
     this.projectileGroup = this.physics.add.group();
     this.dropGroup = this.physics.add.group();
 
-    this.physics.world.setBounds(0, 0, arena.size.width, arena.size.height);
-    this.cameras.main.setBounds(0, 0, arena.size.width, arena.size.height);
-
     const viewport = zoomedGameUiViewport(
       this.scale.displaySize.width,
       this.scale.displaySize.height,
       this.scale.parentSize.width,
       this.scale.parentSize.height,
     );
-    // When the camera is at scrollY=0 the persistent HUD otherwise covers
-    // the upper part of the world.  This is the corresponding world-space
-    // floor for the player, leaving its full body below the HUD backing.
-    const minPlayableY = playerHudSafeFloor(viewport, arena.size.height);
+    const playfieldTop = playfieldTopBoundary(viewport, arena.size.height);
+    const playfieldHeight = Math.max(1, arena.size.height - playfieldTop);
+    this.physics.world.setBounds(0, playfieldTop, arena.size.width, playfieldHeight);
+    this.cameras.main.setBounds(0, playfieldTop, arena.size.width, playfieldHeight);
 
     this.player = new Player(this, this.inputController, this.runState, ctx.bus, {
       baseMaxHealth: prepared.basePlayer.maxHealth,
@@ -225,7 +221,6 @@ export class GameScene extends Phaser.Scene {
       invulnerabilityMs: RuntimeConfig.gameplay.player.invulnerabilityMs,
       spawnX: arena.size.width / 2,
       spawnY: arena.size.height / 2,
-      minPlayableY,
     }, visualArt.bindingById(`character:${request.characterId}`));
 
     const visibleSize = zoomedVisibleSize(this.scale.width, this.scale.height);
