@@ -240,10 +240,8 @@ export class PhaserHudView implements HudView {
 
     this.statusText.setText(snapshot.status === 'active' ? 'RUN' : capitalize(snapshot.status));
     this.timeText.setText(`${formatTime(snapshot.timeMs)} / ${formatTime(snapshot.durationMs)}`);
-    this.healthText.setText(
-      `${formatNumber(Math.ceil(safeHealth))} / ${formatNumber(Math.ceil(safeMaxHealth))}`,
-    );
-    this.levelText.setText(`LV ${snapshot.level}  ${formatNumber(Math.floor(safeXp))}/${formatNumber(Math.floor(safeXpToNext))}`);
+    this.healthText.setText(`HP ${formatNumber(Math.ceil(safeHealth))}/${formatNumber(Math.ceil(safeMaxHealth))}`);
+    this.levelText.setText(`LV ${snapshot.level}`);
     this.killsText.setText(`K ${formatNumber(snapshot.kills)}`);
     this.scrapText.setText(`S ${formatNumber(Math.floor(snapshot.currency))}`);
 
@@ -324,7 +322,13 @@ export class PhaserHudView implements HudView {
     this.healthBarFill.setScrollFactor(0);
     this.healthBarFill.setDepth(ThemeDepth.hud);
 
-    this.healthText = createUiText(scene,layout.margin, layout.barTop + layout.barHeight + physicalToLogical(2, viewport), '', labelStyle);
+    this.healthText = createUiText(
+      scene,
+      layout.margin + physicalToLogical(34, viewport),
+      layout.topMargin,
+      '',
+      labelStyle,
+    );
     this.healthText.setScrollFactor(0);
     this.healthText.setDepth(ThemeDepth.hud);
 

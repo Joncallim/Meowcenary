@@ -545,6 +545,16 @@ describe('Upgrade chooser physical layout', () => {
     expect(firstTop - headerBottom).toBeGreaterThanOrEqual(8);
   });
 
+  it('anchors a four-choice phone offer under its header instead of vertically centering a short stack', () => {
+    const layout = computeUpgradeChooserLayout(312, 675.2, 390, 844, 4);
+    const firstTop = layout.cards[0]!.y - layout.cards[0]!.height / 2;
+    const headerBottom = layout.instructionsY + layout.instructionsHeight;
+
+    expect(layout.condensed).toBe(true);
+    expect(firstTop - headerBottom).toBeLessThanOrEqual(16);
+    expect(layout.cards.every((card) => card.nameHeight >= layout.fonts.name * 1.5)).toBe(true);
+  });
+
   it.each(VIEWPORTS)('keeps one, two, and three cards bounded at $name size', (viewport) => {
     const display = fittedCanvas(viewport.width, viewport.height);
 

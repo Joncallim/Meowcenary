@@ -6,7 +6,7 @@ import { SceneKey } from '../engine/sceneKeys';
 import type { System } from '../engine/system';
 import type { SpawnCurveDefinition } from '../systems/types';
 import { AudioManager, getAudioManager } from '../systems/audio';
-import { Player } from '../entities/Player';
+import { PLAYER_BODY_RADIUS, Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
 import { assembleRunRequest } from '../gameplay/runRequest';
@@ -221,6 +221,11 @@ export class GameScene extends Phaser.Scene {
       invulnerabilityMs: RuntimeConfig.gameplay.player.invulnerabilityMs,
       spawnX: arena.size.width / 2,
       spawnY: arena.size.height / 2,
+      // Arcade's world-bound collision is the primary boundary.  This
+      // matching guard keeps a body from crossing it on the frame a resize or
+      // direct velocity write is applied, so the player can never enter the
+      // HUD even transiently.
+      minPlayableY: playfieldTop + PLAYER_BODY_RADIUS,
     }, visualArt.bindingById(`character:${request.characterId}`));
 
     const visibleSize = zoomedVisibleSize(this.scale.width, this.scale.height);
