@@ -167,16 +167,21 @@ function topHudLayout(viewport: UiViewport): TopHudLayout {
   const margin = edgeMargin(viewport, 'left');
   const topMargin = edgeMargin(viewport, 'top');
   const rightMargin = edgeMargin(viewport, 'right');
-  const fontSize = physicalToLogical(ThemeFont.bodyMin, viewport);
-  const labelSize = physicalToLogical(ThemeFont.labelMin, viewport);
+  // The run HUD is deliberately a small instrument panel, not a banner over
+  // the arena.  Its physical minimums remain readable on a phone, while its
+  // two compact columns leave the actual playfield visible immediately below.
+  const fontSize = physicalToLogical(11, viewport);
+  const labelSize = physicalToLogical(11, viewport);
   const canvasWidth = viewport.canvasWidth;
+  // The pause command owns the far-right tap target.  The compact status
+  // rail ends before it instead of stretching progress bars underneath it.
   const rightHudX = canvasWidth - rightMargin - physicalToLogical(44, viewport) - physicalToLogical(8, viewport);
-  const barTop = topMargin + fontSize * 1.4;
-  const barHeight = physicalToLogical(8, viewport);
+  const barTop = topMargin + fontSize * 1.35;
+  const barHeight = physicalToLogical(6, viewport);
   const healthBarWidth = Math.max(1, rightHudX - margin);
-  const xpTop = barTop + barHeight + labelSize + physicalToLogical(8, viewport);
-  const statsTop = xpTop + barHeight + physicalToLogical(2, viewport) + labelSize + physicalToLogical(8, viewport);
-  const statsStride = labelSize + physicalToLogical(4, viewport);
+  const xpTop = barTop + barHeight + physicalToLogical(5, viewport);
+  const statsTop = barTop + physicalToLogical(1, viewport);
+  const statsStride = labelSize + physicalToLogical(5, viewport);
   return {
     margin, topMargin, rightMargin, fontSize, labelSize, canvasWidth, rightHudX,
     barTop, barHeight, healthBarWidth, xpTop, statsTop, statsStride,
@@ -187,8 +192,10 @@ function topHudLayout(viewport: UiViewport): TopHudLayout {
  * every viewport while the test measures child bounds independently. */
 export function topHudContentBottom(viewport: UiViewport): number {
   const layout = topHudLayout(viewport);
-  const renderedLabelRow = layout.labelSize * 1.25;
-  return layout.statsTop + layout.statsStride * 2 + renderedLabelRow;
+  return Math.max(
+    layout.xpTop + layout.barHeight + layout.labelSize * 1.25,
+    layout.statsTop + layout.statsStride * 2 + layout.labelSize * 1.25,
+  );
 }
 
 export class PhaserHudView implements HudView {
@@ -231,14 +238,14 @@ export class PhaserHudView implements HudView {
     const xpRatio = Math.min(1, safeXp / safeXpToNext);
     this.xpBarFill.setScale(xpRatio, 1);
 
-    this.statusText.setText(capitalize(snapshot.status));
+    this.statusText.setText(snapshot.status === 'active' ? 'RUN' : capitalize(snapshot.status));
     this.timeText.setText(`${formatTime(snapshot.timeMs)} / ${formatTime(snapshot.durationMs)}`);
     this.healthText.setText(
-      `Health ${formatNumber(Math.ceil(safeHealth))} / ${formatNumber(Math.ceil(safeMaxHealth))}`,
+      `${formatNumber(Math.ceil(safeHealth))} / ${formatNumber(Math.ceil(safeMaxHealth))}`,
     );
-    this.levelText.setText(`Level ${snapshot.level}`);
-    this.killsText.setText(`Kills ${formatNumber(snapshot.kills)}`);
-    this.scrapText.setText(`Scrap ${formatNumber(Math.floor(snapshot.currency))}`);
+    this.levelText.setText(`LV ${snapshot.level}  ${formatNumber(Math.floor(safeXp))}/${formatNumber(Math.floor(safeXpToNext))}`);
+    this.killsText.setText(`K ${formatNumber(snapshot.kills)}`);
+    this.scrapText.setText(`S ${formatNumber(Math.floor(snapshot.currency))}`);
 
   }
 
@@ -261,7 +268,7 @@ export class PhaserHudView implements HudView {
       layout.canvasWidth,
       backingHeight,
       ThemeColor.surface,
-      0.80,
+      0.90,
     );
     this.backing.setScrollFactor(0).setDepth(ThemeDepth.hudBacking);
 
@@ -281,7 +288,11 @@ export class PhaserHudView implements HudView {
     this.container.setScrollFactor(0);
     this.container.setDepth(ThemeDepth.hud);
 
-    this.statusText = createUiText(scene,layout.margin, layout.topMargin, '', textStyle);
+    this.statusText = createUiText(scene,layout.margin, layout.topMargin, '', {
+      ...textStyle,
+      color: '#f7f1d5',
+      fontStyle: 'bold',
+    });
     this.statusText.setScrollFactor(0);
     this.statusText.setDepth(ThemeDepth.hud);
 
@@ -341,7 +352,7 @@ export class PhaserHudView implements HudView {
     this.levelText.setScrollFactor(0);
     this.levelText.setDepth(ThemeDepth.hud);
 
-    this.timeText.setPosition(layout.rightHudX, layout.statsTop);
+    this.timeText.setPosition(layout.rightHudX, layout.topMargin);
     this.killsText = createUiText(scene,layout.rightHudX, layout.statsTop + layout.statsStride, '', {
       ...labelStyle,
       align: 'right',

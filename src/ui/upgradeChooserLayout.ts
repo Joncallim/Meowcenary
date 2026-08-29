@@ -40,6 +40,9 @@ export interface UpgradeChooserLayout {
     description: number;
   };
   lineSpacing: number;
+  /** Four/five-option offers use compact scan rows instead of pretending the
+   * phone has room for four full desktop cards. */
+  condensed: boolean;
   cards: readonly UpgradeChooserCardLayout[];
 }
 
@@ -91,6 +94,8 @@ export function computeUpgradeChooserLayout(
     description: font(BASE_LOGICAL_FONT.description, MIN_PHYSICAL_FONT.description),
   };
   const compactHeader = canvasWidth * displayScale < 220;
+  const count = Math.max(1, Math.min(5, Math.floor(choiceCount)));
+  const condensed = count > 3;
   const safeLeft = Math.max(0, layoutInsets.left);
   const safeRight = Math.max(0, layoutInsets.right);
   const safeTop = Math.max(0, layoutInsets.top);
@@ -98,21 +103,20 @@ export function computeUpgradeChooserLayout(
   const safeWidth = Math.max(MIN_REGION_SIZE, canvasWidth - safeLeft - safeRight);
   const contentCenterX = safeLeft + safeWidth / 2;
   const headerWidth = Math.max(MIN_REGION_SIZE, safeWidth - physical(12));
-  const headingY = safeTop + physical(compactHeader ? 6 : 12);
-  const headingHeight = fonts.heading * (compactHeader ? 2.25 : 1.6);
-  const instructionsY = headingY + headingHeight + physical(compactHeader ? 2 : 4);
-  const instructionsHeight = fonts.instructions * (compactHeader ? 2.4 : 1.4);
+  const headingY = safeTop + physical(compactHeader ? 6 : condensed ? 8 : 12);
+  const headingHeight = fonts.heading * (condensed ? 1.2 : compactHeader ? 2.25 : 1.6);
+  const instructionsY = headingY + headingHeight + physical(condensed ? 1 : compactHeader ? 2 : 4);
+  const instructionsHeight = fonts.instructions * (condensed ? 1.2 : compactHeader ? 2.4 : 1.4);
   const cardsRegionTop =
     // The game scene renders through the 1.25x camera viewport; leaving only
     // a few logical pixels here lets Phaser font ascenders touch the first
     // card on a real portrait phone despite nominal bounds being separate.
-    instructionsY + instructionsHeight + physical(compactHeader ? 12 : 28);
-  const bottomMargin = physical(compactHeader ? 4 : 8);
-  const cardGap = Math.max(compactHeader ? 0 : 12, physical(compactHeader ? 4 : 6));
+    instructionsY + instructionsHeight + physical(compactHeader ? 12 : condensed ? 14 : 28);
+  const bottomMargin = physical(compactHeader ? 4 : condensed ? 10 : 8);
+  const cardGap = Math.max(compactHeader ? 0 : condensed ? 8 : 12, physical(compactHeader ? 4 : 6));
   // Epic 18 (D2/D9): 1–5 cards, no legacy three-card clamp.
-  const count = Math.max(1, Math.min(5, Math.floor(choiceCount)));
   const availableHeight = Math.max(0, canvasHeight - cardsRegionTop - bottomMargin - safeBottom);
-  const maxCardHeight = Math.max(168, physical(150));
+  const maxCardHeight = condensed ? Math.max(92, physical(74)) : Math.max(168, physical(150));
   const cardHeight = Math.max(
     MIN_REGION_SIZE,
     Math.min(
@@ -135,7 +139,7 @@ export function computeUpgradeChooserLayout(
   // example, "legendary • mobility") before measured font fitting begins.
   // Compact layouts may still hide the secondary cue when their physical
   // minimum font cannot fit, but portrait keeps the cue visible and whole.
-  const desiredRarityReserve = Math.max(compactHeader ? 0 : 120, physical(44));
+  const desiredRarityReserve = condensed ? 0 : Math.max(compactHeader ? 0 : 120, physical(44));
   const desiredInlineGap = Math.max(compactHeader ? 0 : 8, physical(3));
   // Epic 18 (D8/D9 priority 1): the leading column holds the card icon, whose
   // binding declares a 36px logical display. Sizing that column from the old
@@ -191,7 +195,9 @@ export function computeUpgradeChooserLayout(
     // never escape its card. The view hides it when the clamped height
     // cannot fit a line; D9's content priority still puts stack state above
     // the description, which only receives whatever space remains.
-    const statusHeight = Math.max(0, Math.min(desiredStatusHeight, contentBottom - statusY));
+    const statusHeight = condensed
+      ? 0
+      : Math.max(0, Math.min(desiredStatusHeight, contentBottom - statusY));
     const descriptionY = statusY + statusHeight + physical(2);
     return {
       x: contentCenterX,
@@ -223,6 +229,7 @@ export function computeUpgradeChooserLayout(
     instructionsHeight,
     fonts,
     lineSpacing,
+    condensed,
     cards,
   };
 }

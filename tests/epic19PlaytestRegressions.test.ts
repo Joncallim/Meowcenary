@@ -9,10 +9,9 @@ import { InputController } from '../src/systems/input';
 import { ControlsView } from '../src/ui/controls';
 import { PhaserHudView } from '../src/ui/hud';
 import { DebugOverlay } from '../src/systems/debug';
-import { arenaFollowEnabled, playerHudSafeFloor, zoomedVisibleSize } from '../src/scenes/GameScene';
+import { arenaFollowEnabled, playfieldTopBoundary, zoomedVisibleSize } from '../src/scenes/GameScene';
 import { GAMEPLAY_ZOOM, edgeMargin, pointerToRootLocal, zoomedGameUiViewport } from '../src/ui/layout';
 import { topHudContentBottom } from '../src/ui/hud';
-import { PLAYER_BODY_RADIUS } from '../src/entities/Player';
 import { ThemeColor, ThemeDepth } from '../src/ui/theme';
 
 const REFERENCE_VIEWPORTS = [
@@ -414,15 +413,15 @@ describe('Epic 19 playtest fixes: intermediate arena camera follow (U6)', () => 
     y: Math.min(Math.max(target.y - visible.height / 2, 0), Math.max(0, arena.height - visible.height)),
   });
 
-  it('keeps the player below the entire portrait HUD plate at the camera top edge', () => {
+  it('uses the HUD edge as the authored playfield boundary at the camera top edge', () => {
     const viewport = zoomedGameUiViewport(390, 844, 390, 844);
-    const floor = playerHudSafeFloor(viewport, 1_344);
+    const playfieldTop = playfieldTopBoundary(viewport, 1_344);
     const backingBottom = (viewport.originY ?? 0)
       + topHudContentBottom(viewport)
       + edgeMargin(viewport, 'bottom');
 
-    expect(floor).toBeGreaterThanOrEqual(backingBottom + PLAYER_BODY_RADIUS * 8);
-    expect(floor).toBeLessThan(1_344 / 2);
+    expect(playfieldTop).toBe(backingBottom);
+    expect(playfieldTop).toBeLessThan(1_344 / 2);
   });
 
   it('follows the player within bounds on an arena between 312×675.2 and 390×844 (camera trace)', () => {
@@ -695,12 +694,14 @@ describe('Epic 19 playtest fixes: four-viewport HUD soak', () => {
 
       const text = (value: string) => live.find((object) => object.state.text === value)!.state;
       const time = text('0:01 / 1:00');
-      const kills = text('Kills 3');
-      const scrap = text('Scrap 12');
+      const kills = text('K 3');
+      const scrap = text('S 12');
       expect(time.y).toBeLessThan(kills.y);
       expect(kills.y).toBeLessThan(scrap.y);
-      expect((kills.y - xpBg!.state.y - xpBg!.state.height / 2) * fitScale(targetWidth, targetHeight) * GAMEPLAY_ZOOM)
-        .toBeGreaterThanOrEqual(8 - 0.01);
+      // Stats form a deliberately compact right rail beside the two progress
+      // bars, rather than extending the HUD into a third full-height row.
+      expect(kills.x).toBe(time.x);
+      expect(scrap.x).toBe(time.x);
       if (targetWidth === 844 && targetHeight === 390) {
         const hint = live.find((object) => object.state.text === 'Drag to move • Tap pause')!;
         expect((hint.state.y - scrap.y) * fitScale(targetWidth, targetHeight) * GAMEPLAY_ZOOM)

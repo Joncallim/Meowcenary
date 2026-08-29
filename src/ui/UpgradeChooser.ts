@@ -242,7 +242,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     // Four/five-choice offers deliberately favour fast scanning on phone:
     // title, rarity and one concise benefit line.  Rendering every desktop
     // detail is what caused text to escape its card in the real portrait run.
-    const condensedCards = offer.choices.length > 2;
+    const condensedCards = layout.condensed;
     const own = <T extends Phaser.GameObjects.GameObject>(object: T): T => {
       root.add(object);
       return object;
@@ -263,7 +263,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       const heading = own(createUiText(this.scene,
         layout.contentCenterX,
         layout.headingY,
-        'Choose an upgrade',
+        layout.condensed ? 'LEVEL UP' : 'Choose an upgrade',
         {
         align: 'center',
         color: '#f7f1d5',
@@ -321,6 +321,18 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         card
           .setScrollFactor(0)
           .setInteractive({ useHandCursor: true });
+        // A rarity rail keeps the card's colour meaning even when several
+        // common offers are adjacent, while the darker body makes the title
+        // and benefit line read as one deliberate compact control.
+        const rarityRail = own(this.scene.add.rectangle(
+          cardLeft + (this.viewport ? physicalToLogical(4, this.viewport) : 4),
+          cardLayout.y,
+          this.viewport ? physicalToLogical(5, this.viewport) : 5,
+          Math.max(0, cardLayout.height - (this.viewport ? physicalToLogical(8, this.viewport) : 8)),
+          ThemeColor.rarity[choice.rarity],
+          1,
+        ));
+        rarityRail.setScrollFactor(0);
         const edge = own(this.scene.add.rectangle(
           cardLayout.x,
           cardLayout.y,
@@ -404,7 +416,9 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           const name = own(createUiText(this.scene,
             cardLeft + cardLayout.nameX,
             cardTop + cardLayout.padding,
-            choice.name,
+            layout.condensed
+              ? truncateSingleLine(choice.name, cardLayout.nameWidth, layout.fonts.name)
+              : choice.name,
             {
               color: '#ffffff',
               fontFamily: ThemeFont.family,
@@ -444,7 +458,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           .setOrigin(1, 0)
           .setMaxLines(1)
           .setScrollFactor(0)
-          .setVisible(rarity.width <= cardLayout.rarityReserve);
+          .setVisible(!layout.condensed && rarity.width <= cardLayout.rarityReserve);
         renderedText.push({ role: `rarity:${index}`, object: rarity });
 
         // Epic 18 (D9 content priority 2): current/max -> next/max stack
@@ -489,7 +503,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
             cardLeft + cardLayout.padding,
             cardLayout.descriptionY,
             condensedCards
-              ? `${choice.description.replace(/\s+/g, ' ').slice(0, 58).trimEnd()}${choice.description.length > 58 ? '…' : ''}`
+              ? truncateSingleLine(choice.description.replace(/\s+/g, ' '), descriptionWidth, layout.fonts.description)
               : choice.description,
             {
               color: '#d6f7ff',
@@ -745,4 +759,21 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       default: return 'Tap a card';
     }
   }
+}
+
+/**
+ * Phaser's crop is a last-resort paint clip, not a text layout engine.  The
+ * compact phone rows therefore shorten copy before painting it, so a player
+ * sees an intentional ellipsis rather than the right half of a sentence
+ * disappearing at the card edge.
+ */
+function truncateSingleLine(text: string, width: number, fontSize: number): string {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (normalized.length === 0 || width <= 0 || fontSize <= 0) return '';
+  // Inter is typically narrower than this; keeping the estimate conservative
+  // leaves breathing room for bold glyphs and high-DPI rasterisation.
+  const maxCharacters = Math.max(1, Math.floor(width / (fontSize * 0.66)));
+  if (normalized.length <= maxCharacters) return normalized;
+  if (maxCharacters <= 1) return '…';
+  return `${normalized.slice(0, maxCharacters - 1).trimEnd()}…`;
 }

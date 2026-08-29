@@ -428,7 +428,7 @@ describe('PhaserHudView', () => {
     });
   });
 
-  it('uses one right edge for both bars and stacks time, kills, and scrap below XP', () => {
+  it('uses one right edge for both progress bars and a compact run-stat rail', () => {
     const scene = createFakeScene();
     const view = new PhaserHudView({ scene: scene as never, viewport: logicalCanvasViewport() });
     view.render({
@@ -445,11 +445,11 @@ describe('PhaserHudView', () => {
 
     const textAt = (label: string) => unique.find((object) => object.state.text === label)!.state;
     const time = textAt('0:01 / 1:00');
-    const kills = textAt('Kills 3');
-    const scrap = textAt('Scrap 12');
+    const kills = textAt('K 3');
+    const scrap = textAt('S 12');
     expect(time.y).toBeLessThan(kills.y as number);
     expect(kills.y).toBeLessThan(scrap.y as number);
-    expect((kills.y as number) - (time.y as number)).toBeCloseTo((scrap.y as number) - (kills.y as number), 6);
+    expect((scrap.y as number) - (kills.y as number)).toBeGreaterThan(0);
   });
 
   it('projects the zoomed GameScene backing across the whole HUD viewport instead of root-local canvas coordinates', () => {
@@ -558,7 +558,7 @@ describe('PhaserHudView', () => {
     expect(backing.state).toMatchObject({
       width: viewport.canvasWidth,
       fillColor: ThemeColor.surface,
-      fillAlpha: 0.80,
+      fillAlpha: 0.90,
       depth: ThemeDepth.hudBacking,
     });
     expect(hudRoot.state.depth).toBe(ThemeDepth.hud);
