@@ -13,7 +13,7 @@ import { createUiText } from './text';
 export interface HudSnapshot {
   readonly status: RunStatus;
   readonly timeMs: number;
-  readonly durationMs: number;
+  readonly durationMs?: number;
   readonly health: number;
   readonly maxHealth: number;
   readonly level: number;
@@ -132,7 +132,7 @@ function buildRenderKey(snapshot: HudSnapshot): string {
 export interface CreateHudSourceOptions {
   readonly runState: RunState;
   readonly player: Player;
-  readonly durationMs: number;
+  readonly durationMs?: number;
   readonly objective?: () => string | undefined;
   readonly ability?: () => string | undefined;
   readonly achievement?: () => string | undefined;
@@ -265,7 +265,7 @@ export class PhaserHudView implements HudView {
     this.xpBarFill.setScale(xpRatio, 1);
 
     this.setContainedText(this.statusText, snapshot.status === 'active' ? 'RUN' : capitalize(snapshot.status), this.headerTextWidth, this.headerFontSize);
-    this.setContainedText(this.timeText, `${formatTime(snapshot.timeMs)} / ${formatTime(snapshot.durationMs)}`, this.headerTextWidth, this.headerFontSize);
+    this.setContainedText(this.timeText, snapshot.durationMs === undefined ? formatTime(snapshot.timeMs) : `${formatTime(snapshot.timeMs)} / ${formatTime(snapshot.durationMs)}`, this.headerTextWidth, this.headerFontSize);
     this.setContainedText(this.healthText, `HP ${formatNumber(Math.ceil(safeHealth))}/${formatNumber(Math.ceil(safeMaxHealth))}`, this.meterTextWidth, this.labelFontSize);
     this.setContainedText(this.levelText, `LV ${snapshot.level}  ${formatNumber(Math.floor(safeXp))}/${formatNumber(safeXpToNext)}`, this.meterTextWidth, this.labelFontSize);
     this.setContainedText(this.killsText, `K ${formatNumber(snapshot.kills)}`, this.headerTextWidth, this.labelFontSize);

@@ -338,9 +338,9 @@ export class GameScene extends Phaser.Scene {
       createHudSource({
         runState: this.runState,
         player: this.player,
-        durationMs: plan?.objective.definition.type === 'survive'
-          ? plan.objective.definition.seconds * 1000
-          : this.spawnCurve.durationSeconds * 1000,
+        ...(plan?.objective.definition.type === 'survive'
+          ? { durationMs: plan.objective.definition.seconds * 1000 }
+          : plan === undefined ? { durationMs: this.spawnCurve.durationSeconds * 1000 } : {}),
         objective: () => this.describeStageObjective(),
         ability: () => this.describeAbilityState(),
         achievement: () => this.describeAchievementToast(),
