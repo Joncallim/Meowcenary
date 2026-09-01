@@ -563,6 +563,9 @@ export class GameScene extends Phaser.Scene {
         this.syncPhysicsPause(this.requireRunState());
       }),
       ctx.bus.on('run:lost', () => {
+        // Player owns health/death and emits the authoritative terminal run
+        // fact; StageRuntime owns the corresponding contract lifecycle.
+        this.stageRuntime?.fail();
         this.syncPhysicsPause(this.requireRunState());
       }),
     );

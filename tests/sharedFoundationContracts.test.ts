@@ -75,6 +75,10 @@ describe('Alpha 3 shared foundation canonical contracts', () => {
     const badAchievementCondition = structuredClone(loadGameData()) as any;
     badAchievementCondition.achievements[0].condition = { type: 'stage-cleared', stageId: 'stage:not-in-catalog' };
     expect(() => validateGameData(badAchievementCondition)).toThrow(/condition references unknown/);
+
+    const missingBossOwner = structuredClone(loadGameData()) as any;
+    delete missingBossOwner.stages.find((stage: { id: string }) => stage.id === 'stage:junkyard-05').bossId;
+    expect(() => validateGameData(missingBossOwner)).toThrow(/bossId, defeat objective and encounter bossId must match/);
   });
 
   it('validates, registers, composes, and resolves a second data-only stage fixture without a core branch', () => {

@@ -266,9 +266,10 @@ export function assertBossStageSemantics(
 ): void {
   const byId = new Map(encounters.map((encounter) => [encounter.id, encounter]));
   for (const stage of stages) {
-    if (stage.bossId === undefined) continue;
     const encounter = byId.get(stage.encounterProfileId);
-    if (stage.objective.type !== 'defeat' || stage.objective.enemyId !== stage.bossId || encounter?.bossId !== stage.bossId) {
+    if (stage.bossId !== encounter?.bossId || (stage.bossId !== undefined && (
+      stage.objective.type !== 'defeat' || stage.objective.enemyId !== stage.bossId
+    ))) {
       throw new Error(`stage.${stage.id}: bossId, defeat objective and encounter bossId must match`);
     }
   }

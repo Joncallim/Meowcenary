@@ -121,6 +121,15 @@ describe('resolveRunPlan', () => {
     expect(plan.reward.scrapPerMinute).toBe(5);
   });
 
+  it('rejects an encounter boss that its stage does not author as a boss contract', () => {
+    const data = makeCatalogData();
+    const stage = { ...data.stages[2], bossId: undefined };
+    expect(() => resolveRunPlan({ characterId: 'scrap-tabby', stageId: stage.id, seed: 1 }, {
+      ...data,
+      stages: [...data.stages.slice(0, 2), stage],
+    })).toThrow(/Boss contract mismatch/);
+  });
+
   it('resolves a boss stage with loot table', () => {
     const data = makeCatalogData();
     const plan = resolveRunPlan(

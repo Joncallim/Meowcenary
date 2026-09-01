@@ -10,6 +10,7 @@ import { recordCollect, recordDefeat, recordKill, tickSurvive } from '../objecti
 import {
   activateStage,
   createStageState,
+  failStage,
   tickStage,
   updateObjectiveProgress,
   winStage,
@@ -32,6 +33,8 @@ export interface StageRuntime {
   tick(deltaMs: number, runTimeMs: number): void;
   recordEnemyDefeat(enemyId: string, archetype?: string): void;
   recordCollection(itemId: string): void;
+  /** Records the terminal run-loss fact at the stage-owned lifecycle seam. */
+  fail(): void;
   describeObjective(): string;
   tryCommit(commit: (pending: PendingStageClear) => boolean): boolean;
 }
@@ -79,6 +82,10 @@ class ResolvedStageRuntime implements StageRuntime {
     const progress = this.stageState.objectiveProgress;
     const next = recordCollect(progress, itemId, this.plan.objective.definition.itemId);
     if (next !== progress) this.stageState = updateObjectiveProgress(this.stageState, next.current - progress.current);
+  }
+
+  fail(): void {
+    this.stageState = failStage(this.stageState);
   }
 
   describeObjective(): string {
