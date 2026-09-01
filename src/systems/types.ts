@@ -426,6 +426,12 @@ export interface VisualArtCatalog {
   readonly bindings: readonly VisualArtBinding[];
 }
 
+/** Data-owned group of canonical visual-art bindings used by a stage. */
+export interface AssetBundleDefinition {
+  readonly id: string;
+  readonly assetIds: readonly string[];
+}
+
 export interface SpawnWaveDefinition {
   startSecond: number;
   enemyId: string;
@@ -581,6 +587,9 @@ export interface GameData {
   weaponFeel: WeaponFeelDefinition[];
   readonly audio: AudioData;
   readonly visualArt: VisualArtCatalog;
+  /** Data-owned stage asset groups. Save V3 stores neither bundles nor their
+   * members; catalog changes remain ordinary content updates. */
+  readonly assetBundles: readonly AssetBundleDefinition[];
   readonly stages?: readonly StageDefinition[];
   readonly encounterProfiles?: readonly EncounterProfile[];
   readonly difficultyProfiles?: readonly DifficultyProfile[];

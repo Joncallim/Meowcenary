@@ -250,24 +250,15 @@ describe('BootScene loading and startup wiring', () => {
   });
 
   it('uses image loading for a validated static binding and removes load listeners on completion', () => {
-    const binding = visualArtJson.bindings[6] as unknown as Record<string, unknown>;
-    const originalLoad = binding.load;
-    const originalClips = binding.clips;
-    binding.load = { type: 'image' };
-    Reflect.deleteProperty(binding, 'clips');
-    try {
-      const { boot, loadImage, loadSpritesheet, loadEvents } = createBoot();
-      boot.preload();
-      expect(loadImage).toHaveBeenCalledWith(binding.textureKey, binding.url);
-      expect(loadSpritesheet).toHaveBeenCalledTimes(
-        visualArtJson.bindings.filter((row) => row.load.type === 'spritesheet').length,
-      );
-      loadEvents.emit('complete');
-      expect(loadEvents.off).toHaveBeenCalledWith('loaderror', expect.any(Function));
-    } finally {
-      binding.load = originalLoad;
-      binding.clips = originalClips;
-    }
+    const binding = visualArtJson.bindings.find((row) => row.load.type === 'image')!;
+    const { boot, loadImage, loadSpritesheet, loadEvents } = createBoot();
+    boot.preload();
+    expect(loadImage).toHaveBeenCalledWith(binding.textureKey, binding.url);
+    expect(loadSpritesheet).toHaveBeenCalledTimes(
+      visualArtJson.bindings.filter((row) => row.load.type === 'spritesheet').length,
+    );
+    loadEvents.emit('complete');
+    expect(loadEvents.off).toHaveBeenCalledWith('loaderror', expect.any(Function));
   });
 
   it('stops startup when a required texture is missing and identifies its manifest row', () => {

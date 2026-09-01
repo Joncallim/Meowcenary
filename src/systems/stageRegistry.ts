@@ -11,6 +11,7 @@ import type {
   RewardProfile,
   ObjectiveType,
 } from '../gameplay/stage/stageContracts';
+import type { AssetBundleDefinition } from './types';
 
 export class StageRegistry {
   private readonly stagesById = new Map<string, Readonly<StageDefinition>>();
@@ -18,9 +19,10 @@ export class StageRegistry {
   private readonly encounterProfilesById = new Map<string, Readonly<EncounterProfile>>();
   private readonly difficultyProfilesById = new Map<string, Readonly<DifficultyProfile>>();
   private readonly rewardProfilesById = new Map<string, Readonly<RewardProfile>>();
+  private readonly assetBundlesById = new Map<string, Readonly<AssetBundleDefinition>>();
   private readonly stageIds: readonly string[];
 
-  constructor(data: { stages?: readonly StageDefinition[]; encounterProfiles?: readonly EncounterProfile[]; difficultyProfiles?: readonly DifficultyProfile[]; rewardProfiles?: readonly RewardProfile[] }) {
+  constructor(data: { stages?: readonly StageDefinition[]; encounterProfiles?: readonly EncounterProfile[]; difficultyProfiles?: readonly DifficultyProfile[]; rewardProfiles?: readonly RewardProfile[]; assetBundles?: readonly AssetBundleDefinition[] }) {
     // Deep-clone and freeze stages
     const stages = data.stages ?? [];
     const canonicalStages = stages.map((stage) => deepFreeze(structuredClone(stage)));
@@ -52,6 +54,13 @@ export class StageRegistry {
     // Deep-clone and freeze reward profiles
     for (const rp of data.rewardProfiles ?? []) {
       this.rewardProfilesById.set(rp.id, deepFreeze(structuredClone(rp)));
+    }
+
+    // Bundle resolution lives beside the stage registry, so a future loader
+    // can request exactly the selected stage's declared assets without
+    // introducing a parallel ID table or stage-specific branch.
+    for (const bundle of data.assetBundles ?? []) {
+      this.assetBundlesById.set(bundle.id, deepFreeze(structuredClone(bundle)));
     }
   }
 
@@ -119,5 +128,16 @@ export class StageRegistry {
   /** Returns the arena ID for a stage. */
   arenaIdForStage(stageId: string): string | undefined {
     return this.stagesById.get(stageId)?.arenaId;
+  }
+
+  /** Look up a declared content bundle by its canonical bundle ID. */
+  assetBundleById(id: string): AssetBundleDefinition | undefined {
+    return this.assetBundlesById.get(id);
+  }
+
+  /** Resolve the declared asset group for a stage without reconstructing IDs. */
+  assetBundleForStage(stageId: string): AssetBundleDefinition | undefined {
+    const stage = this.stagesById.get(stageId);
+    return stage ? this.assetBundlesById.get(stage.assetBundleId) : undefined;
   }
 }
