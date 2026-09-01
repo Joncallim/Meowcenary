@@ -21,6 +21,17 @@ interface WeaponCadenceRuntime {
   cadence: Cadence;
 }
 
+interface BurnRuntime {
+  readonly enemy: Enemy;
+  readonly damage: number;
+  readonly weaponId: string;
+  readonly family: string;
+  readonly tier: number;
+  readonly tickIntervalMs: number;
+  remainingMs: number;
+  elapsedMs: number;
+}
+
 export class WeaponSystem implements System {
   private readonly projectilePools = new Map<string, Pool<Projectile>>();
   private readonly projectileOwners = new Map<Projectile, Pool<Projectile>>();
@@ -28,6 +39,7 @@ export class WeaponSystem implements System {
   private readonly ownedProjectiles: Projectile[] = [];
   private readonly projectileBySprite = new Map<Phaser.GameObjects.GameObject, Projectile>();
   private readonly cadences = new Map<string, WeaponCadenceRuntime>();
+  private readonly burnsByEnemyId = new Map<number, BurnRuntime>();
   private readonly weaponFeelByFamily: ReadonlyMap<string, WeaponFeelDefinition>;
 
   constructor(
@@ -96,6 +108,7 @@ export class WeaponSystem implements System {
         this.releaseProjectile(projectile);
       }
     }
+    this.updateBurns(dtMs);
 
     const equippedInstanceIds = new Set<string>();
     const duplicateInstanceIds = new Set<string>();
@@ -147,6 +160,7 @@ export class WeaponSystem implements System {
     this.projectileOwners.clear();
     this.projectilePools.clear();
     this.cadences.clear();
+    this.burnsByEnemyId.clear();
     this.heldWeapon?.destroy();
   }
 
@@ -261,15 +275,20 @@ export class WeaponSystem implements System {
     this.applyProjectileDamage(enemy, damage, { weaponId, family, tier, x: projectile.x, y: projectile.y });
 
     for (const effect of effects) {
-      if (effect.kind !== 'explosive') continue;
-      for (const nearby of this.enemies) {
-        if (!nearby.active || nearby === enemy) continue;
-        if (Math.hypot(nearby.x - enemy.x, nearby.y - enemy.y) > effect.radius) continue;
-        this.applyProjectileDamage(nearby, damage * effect.damageMultiplier, { weaponId, family, tier, x: enemy.x, y: enemy.y });
+      if (effect.kind === 'explosive') {
+        for (const nearby of this.enemies) {
+          if (!nearby.active || nearby === enemy) continue;
+          if (Math.hypot(nearby.x - enemy.x, nearby.y - enemy.y) > effect.radius) continue;
+          this.applyProjectileDamage(nearby, damage * effect.damageMultiplier, { weaponId, family, tier, x: enemy.x, y: enemy.y });
+        }
+        // An explosive projectile consumes itself on the first valid hit even
+        // if a separate pierce modifier is also present.
+        projectile.reset();
+        continue;
       }
-      // An explosive projectile consumes itself on the first valid hit even
-      // if a separate pierce modifier is also present.
-      projectile.reset();
+      if (effect.kind === 'burn' && enemy.active) {
+        this.applyBurn(enemy, damage * effect.damageMultiplier, effect.durationMs, effect.tickIntervalMs, { weaponId, family, tier });
+      }
     }
 
     if (!projectile.active) {
@@ -298,6 +317,48 @@ export class WeaponSystem implements System {
       x: enemy.x,
       y: enemy.y,
     });
+  }
+
+  private applyBurn(
+    enemy: Enemy,
+    damage: number,
+    durationMs: number,
+    tickIntervalMs: number,
+    source: { readonly weaponId: string; readonly family: string; readonly tier: number },
+  ): void {
+    if (!(damage > 0) || !(durationMs > 0) || !(tickIntervalMs > 0)) return;
+    const existing = this.burnsByEnemyId.get(enemy.instanceId);
+    if (existing) {
+      existing.remainingMs = Math.max(existing.remainingMs, durationMs);
+      existing.elapsedMs = Math.min(existing.elapsedMs, tickIntervalMs);
+      return;
+    }
+    this.burnsByEnemyId.set(enemy.instanceId, {
+      enemy, damage, weaponId: source.weaponId, family: source.family, tier: source.tier, tickIntervalMs,
+      remainingMs: durationMs, elapsedMs: 0,
+    });
+  }
+
+  private updateBurns(dtMs: number): void {
+    if (!Number.isFinite(dtMs) || dtMs <= 0) return;
+    for (const [instanceId, burn] of this.burnsByEnemyId) {
+      if (!burn.enemy.active) {
+        this.burnsByEnemyId.delete(instanceId);
+        continue;
+      }
+      burn.remainingMs -= dtMs;
+      burn.elapsedMs += dtMs;
+      while (burn.elapsedMs >= burn.tickIntervalMs && burn.remainingMs >= 0 && burn.enemy.active) {
+        burn.elapsedMs -= burn.tickIntervalMs;
+        this.applyProjectileDamage(burn.enemy, burn.damage, {
+          weaponId: burn.weaponId, family: burn.family, tier: burn.tier,
+          x: burn.enemy.x, y: burn.enemy.y,
+        });
+      }
+      if (burn.remainingMs <= 0 || !burn.enemy.active) {
+        this.burnsByEnemyId.delete(instanceId);
+      }
+    }
   }
 }
 

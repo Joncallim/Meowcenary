@@ -239,11 +239,14 @@ describe('Epic 23 effective stat resolution', () => {
     }
   });
 
-  it('resolves an infused fire trait into the real family-scoped weapon stat path', () => {
+  it('resolves an infused fire trait into the real family-scoped stat and incendiary paths', () => {
     const barrel = part('part:barrel-standard', ['FIRE']);
     const build = (equipPart({ id: 'build:pistol', name: 'Pistol', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }, barrel, defMap) as { ok: true; build: WeaponBuild }).build;
     expect(resolveBuildTraitModifiers(build, defMap, ownedMap(barrel))).toEqual([
       expect.objectContaining({ stat: 'damage', op: 'mult', value: 1.15, scope: { kind: 'weapon-family', family: 'pistol' } }),
+    ]);
+    expect(resolveBuildProjectileEffects(build, defMap, ownedMap(barrel))).toEqual([
+      { kind: 'burn', durationMs: 2_000, tickIntervalMs: 500, damageMultiplier: 0.2 },
     ]);
   });
 

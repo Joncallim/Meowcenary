@@ -53,7 +53,12 @@ export interface TraitBehavior {
 }
 
 export const TRAIT_BEHAVIORS: Readonly<Record<BehaviorTrait, TraitBehavior>> = Object.freeze({
-  FIRE: { modifier: { stat: 'damage', op: 'mult', value: 1.15 } },
+  // The stat boost makes the initial hit feel better while the typed burn
+  // payload is the actual incendiary behavior acquired by infusion.
+  FIRE: {
+    modifier: { stat: 'damage', op: 'mult', value: 1.15 },
+    projectileEffect: { kind: 'burn', durationMs: 2_000, tickIntervalMs: 500, damageMultiplier: 0.2 },
+  },
   // A grenade attachment detonates on its first impact; splash uses the
   // direct hit damage so all ordinary stat and tier modifiers still apply.
   EXPLOSIVE: { projectileEffect: { kind: 'explosive', radius: 80, damageMultiplier: 0.65 } },

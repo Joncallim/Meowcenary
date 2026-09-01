@@ -405,6 +405,34 @@ describe('WeaponSystem', () => {
     expect(splash.takeDamage).toHaveBeenCalledTimes(1);
   });
 
+  it('applies the data-resolved incendiary trait as bounded damage over time', async () => {
+    const effects = new Map<string, readonly ProjectileEffect[]>([
+      ['pistol', [{ kind: 'burn', durationMs: 2_000, tickIntervalMs: 500, damageMultiplier: 0.2 }]],
+    ]);
+    const harness = await createHarness({ projectileEffectsByFamily: effects });
+    harness.enemy.health = 100;
+    harness.enemy.takeDamage.mockImplementation((amount: number) => {
+      harness.enemy.health -= amount;
+      return false;
+    });
+
+    harness.system.update(650);
+    const projectile = harness.projectileGroup.added[0];
+    harness.overlap?.(projectile, harness.enemy.sprite);
+    const directDamage = harness.enemy.takeDamage.mock.calls[0]?.[0] as number;
+
+    harness.system.update(500);
+
+    expect(harness.enemy.takeDamage).toHaveBeenCalledTimes(2);
+    expect(harness.enemy.takeDamage.mock.calls[1]).toEqual([directDamage * 0.2, { x: 60, y: 0 }]);
+    // Further projectiles refresh the existing burn rather than stacking an
+    // uncontrolled number of parallel damage-over-time instances.
+    harness.system.update(150);
+    harness.overlap?.(harness.projectileGroup.added[1], harness.enemy.sprite);
+    harness.system.update(500);
+    expect(harness.enemy.takeDamage).toHaveBeenCalledTimes(3);
+  });
+
   it('does not classify synchronous cleanup during damage as a combat kill', async () => {
     const harness = await createHarness();
     const damaged = vi.fn();
