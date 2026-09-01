@@ -234,6 +234,27 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     }
   }
 
+  /** A first clear advances the default normal-run target to the next
+   * newly-available stage. Replays retain the player's explicit choice. */
+  function advanceSelectedStage(completedStageId: string): void {
+    if (selectedStageId !== completedStageId) return;
+    const completed = stages.stageById(completedStageId);
+    if (!completed) return;
+    const facts = createConditionContext(current.progression, {
+      stages: current.stages,
+      achievements: current.achievements,
+      characters: current.characters,
+      bosses: current.bosses,
+    });
+    const next = stages.allStages().find((candidate) =>
+      candidate.displayOrder > completed.displayOrder
+      && evaluateCondition(candidate.unlock as ProgressionCondition, facts));
+    if (next) {
+      selectedStageId = next.id;
+      stageSelectionRevision += 1;
+    }
+  }
+
   const context: GameContext = {
     bus: options.bus,
     menuRng: options.menuRng,
@@ -418,6 +439,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       if (!options.save.save(save)) return false;
       current = save;
       revalidateSelection();
+      advanceSelectedStage(stageId);
       return true;
     },
     commitAchievementTransaction(achievements, metrics, transaction) {
