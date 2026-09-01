@@ -1,7 +1,9 @@
 # Alpha 3 Shared Foundation Architecture — Issue #92
 
 > **Status:** Architecture gate. Blocks Epic 20–26 runtime implementation.
-> **Baseline:** Post-#94 certified Alpha 2 `main` branch (current: `bbe8bc5`).
+> **Baseline lineage:** Alpha 2 remediation commit `bbe8bc52ff97c1db437aa2fcfdd7ec55838fd08c`.
+> **Certification status:** #94 remains open pending #78's required real-device evidence; this
+> architecture records the automatable Alpha 3 foundation work and does not claim post-#94 certification.
 > **Authoritative upstream:** [`docs/architecture/alpha-3-shared-foundation.md`](alpha-3-shared-foundation.md),
 > [`docs/architecture/alpha-3-content-extensibility-contract.md`](alpha-3-content-extensibility-contract.md),
 > [`docs/epics.md`](../epics.md), [`docs/roadmap.md`](../roadmap.md).

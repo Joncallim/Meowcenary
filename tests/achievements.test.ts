@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import achievementsJson from '../src/data/achievements.json';
 import { loadGameData, validateGameData } from '../src/systems/validation';
+import { checkAchievement } from '../src/systems/validation/achievements';
 import { DataAchievementRegistry, registeredMetricIds } from '../src/systems/achievements';
 import { evaluateAchievements, type AchievementDefinition, type AchievementState } from '../src/gameplay/achievementSystem';
 import { LocalAchievementAdapter } from '../src/gameplay/achievementPlatform';
@@ -56,6 +57,24 @@ describe('Epic 22 achievement catalog conformance', () => {
     const data = loadGameData();
     expect(data.achievements?.length).toBe(definitions.length);
     expect(validateGameData(data)).toBeTruthy();
+  });
+
+  it('accepts a data-only hidden-kind fixture through the full catalog boundary', () => {
+    const data = structuredClone(loadGameData()) as unknown as { achievements: Array<Record<string, unknown>> };
+    data.achievements.push({
+      id: 'achievement:hidden-contract-proof', name: 'Hidden Contract',
+      description: 'A hidden data-driven contract.', kind: 'hidden', target: 1,
+      metricId: 'metric:enemies-defeated', hidden: true,
+    });
+    expect(validateGameData(data).achievements?.some((achievement) => achievement.id === 'achievement:hidden-contract-proof')).toBe(true);
+  });
+
+  it('rejects a hidden kind that would otherwise leak through the gallery', () => {
+    const errors = checkAchievement({
+      id: 'achievement:hidden-leak', name: 'Hidden leak', description: 'Must stay secret.',
+      kind: 'hidden', target: 1,
+    }, 0);
+    expect(errors).toContain('hidden: must be true when kind is "hidden"');
   });
 
   it('covers all kinds and both condition/metric driven forms, with hidden as a flag', () => {

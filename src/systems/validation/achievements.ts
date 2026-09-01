@@ -10,7 +10,7 @@ import type { RowCheck } from '../validation';
 
 type RowCheckFn = RowCheck;
 
-const VALID_KINDS = new Set(['standard', 'incremental', 'mastery']);
+const VALID_KINDS = new Set(['standard', 'incremental', 'hidden', 'mastery']);
 const VALID_METRIC_PREFIX = 'metric:';
 const VALID_GRANT_TYPES = new Set([
   'grant-scrap', 'unlock-stage', 'unlock-character', 'unlock-equipment',
@@ -93,7 +93,7 @@ export const checkAchievement: RowCheckFn = (row: unknown, _index: number): stri
     errors.push('description: must be a non-empty string');
   }
   if (typeof a.kind !== 'string' || !VALID_KINDS.has(a.kind)) {
-    errors.push('kind: must be standard, incremental, or mastery');
+    errors.push('kind: must be standard, incremental, hidden, or mastery');
   }
   if (typeof a.target !== 'number' || !Number.isSafeInteger(a.target) || a.target < 1) {
     errors.push('target: must be a positive safe integer');
@@ -111,6 +111,13 @@ export const checkAchievement: RowCheckFn = (row: unknown, _index: number): stri
 
   if (a.hidden !== undefined && typeof a.hidden !== 'boolean') {
     errors.push('hidden: must be a boolean when present');
+  }
+  // `kind: hidden` is a player-facing concealment promise, not merely a
+  // classification label.  Requiring the corresponding flag prevents a
+  // data-only row from leaking its goal/reward through the gallery before it
+  // has been earned.
+  if (a.kind === 'hidden' && a.hidden !== true) {
+    errors.push('hidden: must be true when kind is "hidden"');
   }
 
   if (a.rewards !== undefined) {
