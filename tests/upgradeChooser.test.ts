@@ -394,6 +394,8 @@ class FakeText extends FakeDisplayObject {
       throw new Error(`setText called on destroyed object (${this.text ?? ''})`);
     }
     this.text = text;
+    this.width = this.text.length * this.fontSize * 0.55;
+    this.height = this.fontSize * 1.2;
     return this;
   }
 }

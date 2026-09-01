@@ -233,6 +233,10 @@ export class PhaserHudView implements HudView {
   private scrapText!: Phaser.GameObjects.Text;
   private killsText!: Phaser.GameObjects.Text;
   private objectiveText!: Phaser.GameObjects.Text;
+  private headerTextWidth = 1;
+  private meterTextWidth = 1;
+  private headerFontSize = 1;
+  private labelFontSize = 1;
 
   private lastSnapshot?: HudSnapshot;
   private disposed = false;
@@ -260,14 +264,12 @@ export class PhaserHudView implements HudView {
     const xpRatio = Math.min(1, safeXp / safeXpToNext);
     this.xpBarFill.setScale(xpRatio, 1);
 
-    this.statusText.setText(snapshot.status === 'active' ? 'RUN' : capitalize(snapshot.status));
-    this.timeText.setText(`${formatTime(snapshot.timeMs)} / ${formatTime(snapshot.durationMs)}`);
-    this.healthText.setText(
-      `HP ${formatNumber(Math.ceil(safeHealth))}/${formatNumber(Math.ceil(safeMaxHealth))}`,
-    );
-    this.levelText.setText(`LV ${snapshot.level}  ${formatNumber(Math.floor(safeXp))}/${formatNumber(safeXpToNext)}`);
-    this.killsText.setText(`K ${formatNumber(snapshot.kills)}`);
-    this.scrapText.setText(`S ${formatNumber(Math.floor(snapshot.currency))}`);
+    this.setContainedText(this.statusText, snapshot.status === 'active' ? 'RUN' : capitalize(snapshot.status), this.headerTextWidth, this.headerFontSize);
+    this.setContainedText(this.timeText, `${formatTime(snapshot.timeMs)} / ${formatTime(snapshot.durationMs)}`, this.headerTextWidth, this.headerFontSize);
+    this.setContainedText(this.healthText, `HP ${formatNumber(Math.ceil(safeHealth))}/${formatNumber(Math.ceil(safeMaxHealth))}`, this.meterTextWidth, this.labelFontSize);
+    this.setContainedText(this.levelText, `LV ${snapshot.level}  ${formatNumber(Math.floor(safeXp))}/${formatNumber(safeXpToNext)}`, this.meterTextWidth, this.labelFontSize);
+    this.setContainedText(this.killsText, `K ${formatNumber(snapshot.kills)}`, this.headerTextWidth, this.labelFontSize);
+    this.setContainedText(this.scrapText, `S ${formatNumber(Math.floor(snapshot.currency))}`, this.headerTextWidth, this.labelFontSize);
     const feedback = [snapshot.objective, snapshot.ability, snapshot.achievement].filter(Boolean);
     this.objectiveText.setText(truncateHudFeedback(feedback[0]));
 
@@ -304,6 +306,10 @@ export class PhaserHudView implements HudView {
       fontFamily: ThemeFont.family,
       fontSize: `${layout.fontSize}px`,
     };
+    this.headerTextWidth = Math.max(1, layout.rightHudX - layout.margin);
+    this.meterTextWidth = Math.max(1, layout.healthBarWidth - physicalToLogical(10, viewport));
+    this.headerFontSize = layout.fontSize;
+    this.labelFontSize = layout.labelSize;
 
     const labelStyle = {
       color: '#a5f3fc',
@@ -449,6 +455,27 @@ export class PhaserHudView implements HudView {
       this.render(this.lastSnapshot);
     }
   };
+
+  private setContainedText(
+    text: Phaser.GameObjects.Text,
+    value: string,
+    width: number,
+    fontSize: number,
+  ): void {
+    let size = fontSize;
+    text.setText(value).setFontSize(`${size}px`);
+    const minimum = Math.max(1, fontSize * 0.75);
+    while (text.width > width && size - 0.25 >= minimum) {
+      size -= 0.25;
+      text.setFontSize(`${size}px`);
+    }
+    if (text.width <= width) return;
+    let clipped = value;
+    while (clipped.length > 1 && text.width > width) {
+      clipped = clipped.slice(0, -1).trimEnd();
+      text.setText(`${clipped}…`);
+    }
+  }
 
 
 }
