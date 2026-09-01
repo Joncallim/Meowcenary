@@ -104,7 +104,9 @@ class ResolvedStageRuntime implements StageRuntime {
 
   private captureClear(runTimeMs: number): void {
     if (this.pending || this.stageState.status !== 'objective-complete') return;
-    const reward = this.plan.reward.scrapBase + Math.floor(runTimeMs / 60_000) * this.plan.reward.scrapPerMinute;
+    // Rewards stop scaling after the intended three-minute clear window;
+    // delaying an otherwise-complete objective cannot create a farming loop.
+    const reward = this.plan.reward.scrapBase + Math.floor(Math.min(runTimeMs, 180_000) / 60_000) * this.plan.reward.scrapPerMinute;
     this.pending = Object.freeze({
       stageId: this.plan.stageId,
       timeMs: runTimeMs,

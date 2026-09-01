@@ -24,6 +24,7 @@ export class SpawnSystem implements System {
   // enough preallocated slots for that authored worst case so a live,
   // telegraphed threat is never silently dropped under normal composition.
   private static readonly ENEMY_PROJECTILE_POOL = 64;
+  private static readonly MAX_PENDING_SUMMONS = 32;
   private readonly registry?: DataEnemyRegistry;
   private readonly director?: SpawnDirector;
   private readonly scaling?: EnemyScalingDefinition;
@@ -159,6 +160,7 @@ export class SpawnSystem implements System {
 
   private readonly handleSummon = (request: { enemyId: string; count: number; maxActive: number; x: number; y: number }): void => {
     if (!Number.isSafeInteger(request.count) || request.count <= 0 || !Number.isSafeInteger(request.maxActive) || request.maxActive <= 0) return;
+    if (this.pendingSummons.length >= SpawnSystem.MAX_PENDING_SUMMONS) return;
     this.pendingSummons.push({ ...request });
   };
 

@@ -13,6 +13,7 @@ import { createConditionContext, evaluateCondition, type ProgressionCondition } 
 import {
   applySettingsPatch,
   createDefaultProgression,
+  createDefaultSaveV3,
   freezeSaveV3,
   sanitizeProgression,
   type MetaState,
@@ -460,7 +461,13 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         })
         .catch(() => undefined);
     },
-    resetProgression() { return context.updateMeta(() => createDefaultProgression()); },
+    resetProgression() {
+      const reset = freezeSaveV3({ ...createDefaultSaveV3(), settings: current.settings });
+      if (!options.save.save(reset)) return Object.freeze({ value: current.progression, persisted: false });
+      current = options.save.load();
+      revalidateSelection();
+      return Object.freeze({ value: current.progression, persisted: true });
+    },
     completeStage(stageId: string, timeMs: number): boolean {
       const definition = stages.stageById(stageId);
       const rewardProfile = definition && stages.rewardProfileById(definition.rewardProfileId);
@@ -487,7 +494,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         id: `${stageId}:first-clear`,
         grants: [{
           type: 'grant-scrap',
-          amount: Math.max(1, rewardProfile.scrapBase + Math.floor(timeMs / 60_000) * rewardProfile.scrapPerMinute),
+          amount: Math.max(1, rewardProfile.scrapBase + Math.floor(Math.min(timeMs, 180_000) / 60_000) * rewardProfile.scrapPerMinute),
         }, ...(rewardProfile.grants ?? [])],
       });
     },
