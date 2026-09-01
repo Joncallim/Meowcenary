@@ -3,7 +3,7 @@ import { evaluateCondition, createConditionContext } from '../src/gameplay/condi
 import { applyDurableGrantTransaction } from '../src/gameplay/grantProcessor';
 import { resolveRunPlan, type StageDefinition } from '../src/gameplay/stage/stageContracts';
 import { createDefaultSaveV3, MemoryStorageAdapter, SaveManager } from '../src/systems/save';
-import { loadGameData, validateGameData } from '../src/systems/validation';
+import { collectGameDataErrors, loadGameData, validateGameData } from '../src/systems/validation';
 import { StageRegistry } from '../src/systems/stageRegistry';
 import { assembleComposedRunRequest } from '../src/gameplay/runRequest';
 import { createRng } from '../src/engine/rng';
@@ -13,8 +13,27 @@ import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createStageRuntime } from '../src/gameplay/stage/stageRuntime';
+import { assertContentVersion, stampContentVersion } from '../src/engine/contentVersion';
 
 describe('Alpha 3 shared foundation canonical contracts', () => {
+  it('keeps catalog version diagnostic-only and outside the Save V3 shape', () => {
+    expect(loadGameData().contentVersion).toBe('alpha3-1');
+    expect(JSON.stringify(createDefaultSaveV3())).not.toContain('contentVersion');
+  });
+
+  it('preserves fixture catalog identity and rejects replay/catalog mismatches', () => {
+    const fixture = structuredClone(loadGameData()) as any;
+    fixture.contentVersion = 'alpha3-0';
+    expect(validateGameData(fixture).contentVersion).toBe('alpha3-0');
+    expect(() => assertContentVersion(stampContentVersion('alpha3-0'), loadGameData().contentVersion)).toThrow(/Content version mismatch/);
+    fixture.contentVersion = 'BAD!';
+    expect(collectGameDataErrors(fixture)).toEqual([
+      { file: 'content-version.json', index: -1, field: '', message: 'expected one stable lowercase id' },
+    ]);
+    fixture.weapons[0].damage = 0;
+    expect(collectGameDataErrors(fixture)[0]).toMatchObject({ file: 'weapons.json', field: 'damage' });
+  });
+
   it('preserves canonical achievement and character IDs through grant, save/load, and condition consumers', () => {
     const transaction = {
       id: 'achievement:contract-fixture:completion',

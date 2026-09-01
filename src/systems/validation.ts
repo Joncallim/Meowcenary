@@ -40,6 +40,7 @@ import achievementsJson from '../data/achievements.json';
 import gunPartsJson from '../data/gun-parts.json';
 import abilitiesJson from '../data/abilities.json';
 import equipmentJson from '../data/equipment.json';
+import contentVersionJson from '../data/content-version.json';
 import { STAT_KEYS, RUN_UPGRADE_STAT_KEYS, WEAPON_MODIFIER_STAT_KEYS } from '../gameplay/stats';
 import { DEFAULT_WEAPON_FAMILIES } from '../gameplay/weapons';
 import { GAME_EVENT_KEYS, FAMILY_TIER_EVENT_KEYS } from '../engine/eventBus';
@@ -556,8 +557,13 @@ export function loadGameData(): GameData {
 }
 
 export function validateGameData(raw: unknown): GameData {
-  assertGameDataRoot(raw);
-  const record = raw as Record<string, unknown>;
+  // `contentVersion` is diagnostic metadata carried by already-resolved
+  // GameData fixtures. It is never a catalog input or save-migration key.
+  const suppliedContentVersion = isRecord(raw) ? raw.contentVersion : undefined;
+  const record = isRecord(raw)
+    ? Object.fromEntries(Object.entries(raw).filter(([key]) => key !== 'contentVersion'))
+    : raw as Record<string, unknown>;
+  assertGameDataRoot(record);
   const catalogs: Record<string, unknown> = {};
   // Phase A: every catalog's row pipeline in descriptor order. Boot throws
   // on the first failure, so later catalogs are never read (frozen).
@@ -666,7 +672,20 @@ export function validateGameData(raw: unknown): GameData {
   });
 
   const audio: AudioData = { assets: audioAssets, map: audioMap };
-  return { weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements, gunParts: catalogs['gun-parts'] as PartDefinition[], abilities: catalogs.abilities as AbilityDefinition[], equipment: catalogs.equipment as EquipmentDefinition[] };
+  return withContentVersion({ weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements, gunParts: catalogs['gun-parts'] as PartDefinition[], abilities: catalogs.abilities as AbilityDefinition[], equipment: catalogs.equipment as EquipmentDefinition[] }, suppliedContentVersion ?? contentVersionJson);
+}
+
+function withContentVersion(data: Omit<GameData, 'contentVersion'>, raw: unknown): GameData {
+  const id = typeof raw === 'string' ? raw : isRecord(raw) && Object.keys(raw).length === 1 ? raw.id : undefined;
+  if (contentVersionValidationIssue(raw) !== undefined || typeof id !== 'string') throw new Error('content-version.json: expected one stable lowercase id');
+  return Object.freeze({ ...data, contentVersion: id });
+}
+
+function contentVersionValidationIssue(raw: unknown): string | undefined {
+  const id = typeof raw === 'string' ? raw : isRecord(raw) && Object.keys(raw).length === 1 ? raw.id : undefined;
+  return typeof id === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(id)
+    ? undefined
+    : 'expected one stable lowercase id';
 }
 
 /** Root-shape phase, shared by the throwing boot path and the collecting
@@ -775,8 +794,13 @@ export function validateAllData(): ValidationIssue[] {
  *  A bad file reports its issues and does not abort later files; the
  *  cross-reference phase runs only when every earlier phase was clean. */
 export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
+  const suppliedContentVersion = isRecord(raw) ? raw.contentVersion : undefined;
+  const contentVersionIssue = contentVersionValidationIssue(suppliedContentVersion ?? contentVersionJson);
+  const record = isRecord(raw)
+    ? Object.fromEntries(Object.entries(raw).filter(([key]) => key !== 'contentVersion'))
+    : raw as Record<string, unknown>;
   try {
-    assertGameDataRoot(raw);
+    assertGameDataRoot(record);
   } catch (error) {
     // Root failures mask per-file reads, mirroring boot. The thrown message
     // is the frozen boot text with `game-data.` prefixes (Epic 11 §5.3);
@@ -785,8 +809,6 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     const message = error instanceof Error ? error.message : String(error);
     return mapValidationErrorLines(remapRootPhaseMessage(message));
   }
-  const record = raw as Record<string, unknown>;
-
   const catalogs: Record<string, unknown> = {};
   const perFileIssues: ValidationIssue[] = [];
   for (const descriptor of CATALOG_DESCRIPTORS) {
@@ -842,7 +864,11 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
       crossReferenceIssues.push(...mapValidationErrorLines(error));
     }
   }
-  return crossReferenceIssues;
+  if (crossReferenceIssues.length > 0) return crossReferenceIssues;
+  if (contentVersionIssue !== undefined) {
+    return [Object.freeze({ file: 'content-version.json', index: -1, field: '', message: contentVersionIssue })];
+  }
+  return [];
 }
 
 /** Maps a thrown validator message (validators keep returning today's
