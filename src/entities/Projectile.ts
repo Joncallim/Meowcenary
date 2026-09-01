@@ -19,6 +19,9 @@ export interface ProjectileSpawnOptions {
   family: string;
   tier: number;
   effects?: readonly ProjectileEffect[];
+  /** Fallback circles are used when no projectile art binding exists. Their
+   *  colour belongs to the firing threat, not to combat resolution. */
+  color?: number;
 }
 
 export class Projectile {
@@ -87,6 +90,10 @@ export class Projectile {
     this.family = opts.family;
     this.tier = opts.tier;
     this.effects = Object.freeze([...(opts.effects ?? [])]);
+    if (opts.color !== undefined) {
+      this.sprite.setFillStyle(opts.color);
+      this.glow.setFillStyle(opts.color);
+    }
     this.traveled = 0;
     this.hitEnemyIds.clear();
     this.pausedVelocity = undefined;

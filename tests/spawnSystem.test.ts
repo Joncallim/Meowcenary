@@ -23,7 +23,9 @@ class SpawnBody {
 
 class SpawnArc {
   active = true;
+  visible = true;
   alpha = 1;
+  fillColor?: number;
   body: SpawnBody | undefined;
 
   constructor(
@@ -52,7 +54,8 @@ class SpawnArc {
     return this;
   }
 
-  setVisible(): this {
+  setVisible(visible: boolean): this {
+    this.visible = visible;
     return this;
   }
 
@@ -60,7 +63,8 @@ class SpawnArc {
     return this;
   }
 
-  setFillStyle(): this {
+  setFillStyle(color: number): this {
+    this.fillColor = color;
     return this;
   }
 
@@ -149,7 +153,7 @@ async function createHarness(options: HarnessOptions = {}) {
 describe('SpawnSystem', () => {
   it('materialises a pooled ranged threat and applies its authoritative damage once', async () => {
     const harness = await createHarness();
-    expect(harness.overlaps).toHaveLength(25); // contact + fixed projectile pool
+    expect(harness.overlaps).toHaveLength(65); // contact + fixed projectile pool
     harness.bus.emit('enemy:ranged-shot', {
       enemyId: 'scrap-sniper', x: 10, y: 20, dirX: 1, dirY: 0, damage: 6,
     });
@@ -158,6 +162,21 @@ describe('SpawnSystem', () => {
     expect(harness.player.takeDamage).toHaveBeenCalledWith(6);
     harness.overlaps[1]?.(harness.player.sprite, {});
     expect(harness.player.takeDamage).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps enemy shots visibly hostile and covers the authored concurrent-volley budget', async () => {
+    const harness = await createHarness();
+    for (let index = 0; index < 64; index += 1) {
+      harness.bus.emit('enemy:ranged-shot', {
+        enemyId: 'scrap-sniper', x: index, y: 20, dirX: 1, dirY: 0, damage: 6,
+      });
+    }
+    const projectiles = (harness.system as unknown as {
+      enemyProjectiles: Array<{ active: boolean; sprite: { visible: boolean; fillColor?: number } }>;
+    }).enemyProjectiles;
+    expect(projectiles.filter((projectile) => projectile.active)).toHaveLength(64);
+    expect(projectiles[0]?.sprite.visible).toBe(true);
+    expect(projectiles[0]?.sprite.fillColor).toBe(0xff5a48);
   });
 
   it('applies a telegraphed boss dash hit through the same active-run damage boundary', async () => {
