@@ -13,11 +13,19 @@ import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createStageRuntime } from '../src/gameplay/stage/stageRuntime';
+import { assertContentVersion, stampContentVersion } from '../src/engine/contentVersion';
 
 describe('Alpha 3 shared foundation canonical contracts', () => {
   it('keeps catalog version diagnostic-only and outside the Save V3 shape', () => {
     expect(loadGameData().contentVersion).toBe('alpha3-1');
     expect(JSON.stringify(createDefaultSaveV3())).not.toContain('contentVersion');
+  });
+
+  it('preserves fixture catalog identity and rejects replay/catalog mismatches', () => {
+    const fixture = structuredClone(loadGameData()) as any;
+    fixture.contentVersion = 'alpha3-0';
+    expect(validateGameData(fixture).contentVersion).toBe('alpha3-0');
+    expect(() => assertContentVersion(stampContentVersion('alpha3-0'), loadGameData().contentVersion)).toThrow(/Content version mismatch/);
   });
 
   it('preserves canonical achievement and character IDs through grant, save/load, and condition consumers', () => {

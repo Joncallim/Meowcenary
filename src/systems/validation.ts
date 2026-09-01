@@ -559,6 +559,7 @@ export function loadGameData(): GameData {
 export function validateGameData(raw: unknown): GameData {
   // `contentVersion` is diagnostic metadata carried by already-resolved
   // GameData fixtures. It is never a catalog input or save-migration key.
+  const suppliedContentVersion = isRecord(raw) ? raw.contentVersion : undefined;
   const record = isRecord(raw)
     ? Object.fromEntries(Object.entries(raw).filter(([key]) => key !== 'contentVersion'))
     : raw as Record<string, unknown>;
@@ -671,14 +672,15 @@ export function validateGameData(raw: unknown): GameData {
   });
 
   const audio: AudioData = { assets: audioAssets, map: audioMap };
-  return withContentVersion({ weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements, gunParts: catalogs['gun-parts'] as PartDefinition[], abilities: catalogs.abilities as AbilityDefinition[], equipment: catalogs.equipment as EquipmentDefinition[] }, contentVersionJson);
+  return withContentVersion({ weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements, gunParts: catalogs['gun-parts'] as PartDefinition[], abilities: catalogs.abilities as AbilityDefinition[], equipment: catalogs.equipment as EquipmentDefinition[] }, suppliedContentVersion ?? contentVersionJson);
 }
 
 function withContentVersion(data: Omit<GameData, 'contentVersion'>, raw: unknown): GameData {
-  if (!isRecord(raw) || Object.keys(raw).length !== 1 || typeof raw.id !== 'string' || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(raw.id)) {
+  const id = typeof raw === 'string' ? raw : isRecord(raw) && Object.keys(raw).length === 1 ? raw.id : undefined;
+  if (typeof id !== 'string' || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(id)) {
     throw new Error('content-version.json: expected one stable lowercase id');
   }
-  return Object.freeze({ ...data, contentVersion: raw.id });
+  return Object.freeze({ ...data, contentVersion: id });
 }
 
 /** Root-shape phase, shared by the throwing boot path and the collecting
@@ -787,8 +789,11 @@ export function validateAllData(): ValidationIssue[] {
  *  A bad file reports its issues and does not abort later files; the
  *  cross-reference phase runs only when every earlier phase was clean. */
 export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
+  const record = isRecord(raw)
+    ? Object.fromEntries(Object.entries(raw).filter(([key]) => key !== 'contentVersion'))
+    : raw as Record<string, unknown>;
   try {
-    assertGameDataRoot(raw);
+    assertGameDataRoot(record);
   } catch (error) {
     // Root failures mask per-file reads, mirroring boot. The thrown message
     // is the frozen boot text with `game-data.` prefixes (Epic 11 §5.3);
@@ -797,8 +802,6 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     const message = error instanceof Error ? error.message : String(error);
     return mapValidationErrorLines(remapRootPhaseMessage(message));
   }
-  const record = raw as Record<string, unknown>;
-
   const catalogs: Record<string, unknown> = {};
   const perFileIssues: ValidationIssue[] = [];
   for (const descriptor of CATALOG_DESCRIPTORS) {
