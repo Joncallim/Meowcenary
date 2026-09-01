@@ -1,6 +1,6 @@
 import { RuntimeConfig } from '../engine/config';
 import { isContentId, isGrantTransactionId, isInstanceId, isUnlockId } from './ids';
-import { BEHAVIOR_TRAITS, MAX_TRAITS_PER_PART, RARITY_TIER } from '../gameplay/gunsmith';
+import { BEHAVIOR_TRAITS, MAX_TRAITS_PER_PART, RARITY_TIER, WEAPON_SLOT_COMPATIBILITY, type PartSlot } from '../gameplay/gunsmith';
 import { EQUIPMENT_TIERS } from '../gameplay/equipment';
 
 export interface Settings {
@@ -486,7 +486,11 @@ function sanitizeBuild(
   raw: Record<string, unknown>,
   asOwnedReference: (value: unknown) => string | undefined,
 ): Build {
-  const fitted = sanitizeFittedParts(readOwn(raw, 'fitted'), asOwnedReference);
+  const rawFamily = readOwn(raw, 'baseWeaponFamily');
+  const baseWeaponFamily = typeof rawFamily === 'string' && Object.hasOwn(WEAPON_SLOT_COMPATIBILITY, rawFamily)
+    ? rawFamily
+    : 'pistol';
+  const fitted = sanitizeFittedParts(readOwn(raw, 'fitted'), asOwnedReference, baseWeaponFamily);
   // A corrupt save must not multiply one owned part through several slots or
   // append it again as a trait. Keep the first canonical fitted occurrence;
   // trait ordering remains stable for the remaining distinct references.
@@ -503,17 +507,23 @@ function sanitizeBuild(
   return {
     id: readOwn(raw, 'id') as string,
     name: typeof readOwn(raw, 'name') === 'string' ? readOwn(raw, 'name') as string : readOwn(raw, 'id') as string,
-    baseWeaponFamily: typeof readOwn(raw, 'baseWeaponFamily') === 'string' ? readOwn(raw, 'baseWeaponFamily') as string : 'pistol',
+    baseWeaponFamily,
     fitted,
     traitParts,
   };
 }
 
-function sanitizeFittedParts(raw: unknown, asOwnedReference: (value: unknown) => string | undefined): Readonly<Partial<Record<string, string>>> {
+function sanitizeFittedParts(
+  raw: unknown,
+  asOwnedReference: (value: unknown) => string | undefined,
+  family: string,
+): Readonly<Partial<Record<string, string>>> {
   if (!isPlainRecord(raw)) return {};
   const result: Record<string, string> = {};
   const used = new Set<string>();
+  const allowedSlots = new Set<PartSlot>(WEAPON_SLOT_COMPATIBILITY[family] ?? []);
   for (const [slot, partId] of Object.entries(raw)) {
+    if (!allowedSlots.has(slot as PartSlot)) continue;
     const owned = asOwnedReference(partId);
     if (owned !== undefined && !used.has(owned)) {
       used.add(owned);

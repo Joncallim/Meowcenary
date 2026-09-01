@@ -319,6 +319,28 @@ describe('Epic 23 persistence round-trip', () => {
     expect(build.traitParts).toEqual([]);
   });
 
+  it('defaults an unknown weapon family and drops slots that family cannot own', () => {
+    const save = createDefaultSaveV3();
+    const storage = new MemoryStorageAdapter();
+    const manager = new SaveManager(storage, 'test', {});
+    manager.save({
+      ...save,
+      gunsmith: {
+        builds: [{
+          id: 'corrupt-family', name: 'Corrupt family', baseWeaponFamily: 'laser',
+          fitted: { barrel: 'inst-barrel', stock: 'inst-stock', impossible: 'inst-stock' }, traitParts: [],
+        }],
+        parts: {
+          'inst-barrel': { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+          'inst-stock': { partId: 'part:stock-folding', tier: 1, infusedTraits: [] },
+        },
+      },
+    });
+    const build = manager.load().gunsmith.builds[0]!;
+    expect(build.baseWeaponFamily).toBe('pistol');
+    expect(build.fitted).toEqual({ barrel: 'inst-barrel' });
+  });
+
   it('migrates a legacy definition reference only when exactly one owned instance matches', () => {
     const storage = new MemoryStorageAdapter();
     storage.setItem('test', JSON.stringify({
