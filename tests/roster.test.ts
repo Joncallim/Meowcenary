@@ -67,6 +67,13 @@ describe('Epic 24 roster conformance', () => {
     }
   });
 
+  it('routes Scrap Weasel through a real achievement grant instead of a self-lock', () => {
+    const weasel = characters.find((character) => character.id === 'scrap-weasel')!;
+    expect(weasel.unlock).toEqual({ type: 'meta', requiresUnlockId: 'achievement:kill-milestone-100' });
+    expect(canSelectCharacter(weasel, { scrap: 0, permanentUpgrades: {}, unlocks: [] })).toBe(false);
+    expect(canSelectCharacter(weasel, { scrap: 0, permanentUpgrades: {}, unlocks: ['achievement:kill-milestone-100', 'character:scrap-weasel'] })).toBe(true);
+  });
+
   it('starting weapons resolve to shipped weapons', () => {
     const data = loadGameData();
     const weaponIds = new Set(data.weapons.map((w) => w.id));
