@@ -91,10 +91,11 @@ describe('GameScene durable stage clear', () => {
   it('carries a live boss objective through durable facts, achievement reward, and next-stage selection', () => {
     const data = loadGameData();
     const metaUpgrades = new DataMetaUpgradeRegistry(data);
+    const storage = new MemoryStorageAdapter();
     const context = createGameContext({
       bus: createEventBus(), menuRng: createRng(1), data,
       arenas: new DataArenaRegistry(data), characters: new DataCharacterRegistry(data), metaUpgrades,
-      save: new SaveManager(new MemoryStorageAdapter(), 'live-stage-journey', metaUpgrades.maxLevels()),
+      save: new SaveManager(storage, 'live-stage-journey', metaUpgrades.maxLevels()),
     });
     const reward = data.rewardProfiles?.find((profile) => profile.id === 'reward:stage-05-boss');
     if (!reward) throw new Error('Missing Stage 5 reward profile');
@@ -111,14 +112,26 @@ describe('GameScene durable stage clear', () => {
     scene.stageRuntime.tick(0, run.timeMs);
     scene.recordStageEnemyDefeat('boss-crusher');
     scene.stageRuntime.tick(0, run.timeMs);
+    scene.getContext = () => context;
+    scene.pauseController = { snapshot: () => ({ panel: 'closed' }) };
 
-    expect(scene.tryCommitStageClear(context)).toBe(true);
+    // Exercise the production extraction command rather than calling the
+    // durable method directly: a player confirms the completed objective.
+    scene.routeAction('confirm');
     expect(run.status).toBe('won');
     expect(context.saveData.stages['stage:junkyard-05']?.completed).toBe(true);
     expect(context.saveData.bosses['boss-crusher']?.defeated).toBe(true);
     expect(context.saveData.achievements['achievement:boss-crusher']?.completed).toBe(true);
     expect(context.saveData.equipment['reward:crusher-commando-helmet']?.equipmentId).toBe('equipment:commando-helmet');
-    expect(new StageSelectionController(context).snapshot().stages
+    const reloaded = createGameContext({
+      bus: createEventBus(), menuRng: createRng(2), data,
+      arenas: new DataArenaRegistry(data), characters: new DataCharacterRegistry(data), metaUpgrades,
+      save: new SaveManager(storage, 'live-stage-journey', metaUpgrades.maxLevels()),
+    });
+    expect(reloaded.saveData.bosses['boss-crusher']?.defeated).toBe(true);
+    expect(reloaded.saveData.achievements['achievement:boss-crusher']?.completed).toBe(true);
+    expect(reloaded.saveData.equipment['reward:crusher-commando-helmet']?.equipmentId).toBe('equipment:commando-helmet');
+    expect(new StageSelectionController(reloaded).snapshot().stages
       .find((stage) => stage.id === 'stage:junkyard-06')?.locked).toBe(false);
   });
 });
