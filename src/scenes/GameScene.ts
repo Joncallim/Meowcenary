@@ -264,13 +264,8 @@ export class GameScene extends Phaser.Scene {
     const dpsMeter = createDpsMeter();
     this.dpsMeter = dpsMeter;
     const runStateForMetrics = this.runState;
+    this.installAuthoritativeFactListeners(ctx);
     this.unsubscribers.push(
-      ctx.bus.on('enemy:killed', ({ enemyId }) => {
-        this.recordStageEnemyDefeat(enemyId);
-        this.evaluateLiveAchievements(ctx, { 'metric:enemies-defeated': 1 });
-      }),
-      ctx.bus.on('drop:collected', ({ kind }) => this.recordStageCollection(`drop:${kind}`)),
-      ctx.bus.on('weapon:merged', () => this.evaluateLiveAchievements(ctx, { 'metric:merges-performed': 1 })),
       ctx.bus.on('enemy:damaged', ({ amount }) => {
         dpsMeter.record(amount, runStateForMetrics.timeMs);
       }),
@@ -976,6 +971,20 @@ export class GameScene extends Phaser.Scene {
 
   private recordStageEnemyDefeat(enemyId: string): void {
     this.stageRuntime?.recordEnemyDefeat(enemyId, this.enemyDefinitions?.resolvedById(enemyId)?.archetype);
+  }
+
+  /** One production-owned seam for gameplay facts that feed both stage
+   * objectives and achievements. Keeping it explicit prevents a scene
+   * lifecycle edit from silently disconnecting the two progress systems. */
+  private installAuthoritativeFactListeners(ctx: GameContext): void {
+    this.unsubscribers.push(
+      ctx.bus.on('enemy:killed', ({ enemyId }) => {
+        this.recordStageEnemyDefeat(enemyId);
+        this.evaluateLiveAchievements(ctx, { 'metric:enemies-defeated': 1 });
+      }),
+      ctx.bus.on('drop:collected', ({ kind }) => this.recordStageCollection(`drop:${kind}`)),
+      ctx.bus.on('weapon:merged', () => this.evaluateLiveAchievements(ctx, { 'metric:merges-performed': 1 })),
+    );
   }
 
   /** The pickup kind is the authoritative live collection fact. Stage data
