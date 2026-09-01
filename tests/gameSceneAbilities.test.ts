@@ -59,6 +59,24 @@ describe('GameScene character ability runtime bridge', () => {
     expect(shield.scene.hudController.requestRender).not.toHaveBeenCalled();
   });
 
+  it('does not advance ability durations or cooldowns behind paused, clear, or terminal UI', () => {
+    const adrenaline = activate('ability:adrenaline');
+    const initial = adrenaline.scene.abilityState;
+    adrenaline.scene.runState.status = 'paused';
+    adrenaline.scene.tickAbility(5_000);
+    expect(adrenaline.scene.abilityState).toEqual(initial);
+
+    adrenaline.scene.runState.status = 'active';
+    adrenaline.scene.stageRuntime = { pendingClear: {} };
+    adrenaline.scene.tickAbility(5_000);
+    expect(adrenaline.scene.abilityState).toEqual(initial);
+
+    adrenaline.scene.stageRuntime = undefined;
+    adrenaline.scene.runState.status = 'won';
+    adrenaline.scene.tickAbility(5_000);
+    expect(adrenaline.scene.abilityState).toEqual(initial);
+  });
+
   it('executes temporary stat abilities through RunState and removes their exact sources at expiry', () => {
     const adrenaline = activate('ability:adrenaline');
     expect(adrenaline.stats.add).toHaveBeenCalledWith(expect.objectContaining({ sourceId: 'ability:adrenaline', stat: 'moveSpeed' }));

@@ -902,7 +902,10 @@ export class GameScene extends Phaser.Scene {
 
   private tickAbility(deltaMs: number): void {
     const definition = this.abilityDefinition;
-    if (!definition || this.abilityState.phase === 'ready') return;
+    // Ability durations/cooldowns are simulation time. They must not expire
+    // behind pause, extraction, or terminal UI while the run is not active.
+    if (!definition || !this.runState || this.runState.status !== 'active'
+      || this.stageRuntime?.pendingClear !== undefined || this.abilityState.phase === 'ready') return;
     const before = this.abilityState;
     this.abilityState = tickAbility(before, deltaMs);
     if (before.phase === 'active' && this.abilityState.phase !== 'active' && this.runState) expireAbilityEffect(definition, { stats: this.runState.stats });
