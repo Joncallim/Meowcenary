@@ -906,7 +906,9 @@ export class GameScene extends Phaser.Scene {
     const before = this.abilityState;
     this.abilityState = tickAbility(before, deltaMs);
     if (before.phase === 'active' && this.abilityState.phase !== 'active' && this.runState) expireAbilityEffect(definition, { stats: this.runState.stats });
-    if (before.phase !== this.abilityState.phase) this.hudController?.requestRender();
+    const beforeSeconds = Math.ceil(before.cooldownRemainingMs / 1000);
+    const afterSeconds = Math.ceil(this.abilityState.cooldownRemainingMs / 1000);
+    if (before.phase !== this.abilityState.phase || beforeSeconds !== afterSeconds) this.hudController?.requestRender();
   }
 
   private describeAbilityState(): string | undefined {

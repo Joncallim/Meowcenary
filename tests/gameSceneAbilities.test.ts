@@ -48,6 +48,17 @@ describe('GameScene character ability runtime bridge', () => {
     expect(adrenaline.scene.hudController.requestRender).toHaveBeenCalledTimes(1);
   });
 
+  it('refreshes cooldown feedback as the visible remaining second changes', () => {
+    const shield = activate('ability:shield-flicker');
+    shield.scene.hudController = { requestRender: vi.fn() };
+    shield.scene.tickAbility(1_000);
+    expect(shield.scene.hudController.requestRender).toHaveBeenCalledTimes(1);
+    expect(shield.scene.describeAbilityState()).toBe('Shield Flicker: 14s');
+    shield.scene.hudController.requestRender.mockClear();
+    shield.scene.tickAbility(100);
+    expect(shield.scene.hudController.requestRender).not.toHaveBeenCalled();
+  });
+
   it('executes temporary stat abilities through RunState and removes their exact sources at expiry', () => {
     const adrenaline = activate('ability:adrenaline');
     expect(adrenaline.stats.add).toHaveBeenCalledWith(expect.objectContaining({ sourceId: 'ability:adrenaline', stat: 'moveSpeed' }));
