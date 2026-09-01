@@ -169,6 +169,14 @@ export class PhaserRunSummaryView {
     this.applyFocus();
   }
 
+  /** Rebuilds the terminal read model after a deferred persistence retry
+   * succeeds, so totals, warnings, and available actions never stay stale. */
+  refresh(): void {
+    if (this.disposed || !this.summaryActive) return;
+    const snapshot = this.controller.snapshot();
+    if (snapshot) this.render(snapshot);
+  }
+
   destroy(): void {
     if (this.disposed) {
       return;

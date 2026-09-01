@@ -636,6 +636,7 @@ export class GameScene extends Phaser.Scene {
     tickRun(runState, delta);
     this.tickAbility(delta);
     this.updateStageObjective(ctx, delta);
+    const terminalPersistencePending = this.hasPendingTerminalPersistence();
     this.retryPendingCharacterMastery(ctx);
     this.retryPendingAchievementFacts(ctx);
     this.syncPhysicsPause(runState);
@@ -650,6 +651,9 @@ export class GameScene extends Phaser.Scene {
     this.systems.forEach((system) => {
       system.update(delta);
     });
+    if (terminalPersistencePending && !this.hasPendingTerminalPersistence()) {
+      this.runSummaryView?.refresh();
+    }
     // The manager's deterministic clock stays aligned with the active scene
     // update so terminal music fades continue while the summary remains
     // visible.
