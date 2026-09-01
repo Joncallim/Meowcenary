@@ -20,9 +20,9 @@ export interface PlayerOptions {
   invulnerabilityMs: number;
   spawnX: number;
   spawnY: number;
-  /** World-space top of the playable area. The persistent HUD occupies the
-   * screen above this while the camera is pinned to the arena's top bound. */
-  minPlayableY?: number;
+  /** World-space top of the playable area. A callback keeps the boundary at
+   * the bottom of a screen-fixed HUD while the camera follows the player. */
+  minPlayableY?: number | (() => number);
 }
 
 const BODY_COLOR = 0xf7c948;
@@ -168,13 +168,17 @@ export class Player {
     }
 
     const speed = Math.max(0, this.runState.stats.resolve('moveSpeed', this.options.baseMoveSpeed));
-    const minY = this.options.minPlayableY;
-    // A camera at scrollY=0 cannot move a world actor out from under the HUD.
-    // Keep the actor in the authored playable area instead of obscuring it.
-    if (Number.isFinite(minY) && this.y < minY!) {
-      this.body.reset(this.x, minY!);
+    const requestedMinY = typeof this.options.minPlayableY === 'function'
+      ? this.options.minPlayableY()
+      : this.options.minPlayableY;
+    const minY = Number.isFinite(requestedMinY) ? requestedMinY : undefined;
+    // The HUD is screen-fixed while the camera follows. Its playfield edge
+    // must therefore follow the camera too; a fixed world-space limit only
+    // works at scrollY=0 and lets the player walk under the HUD elsewhere.
+    if (minY !== undefined && this.y < minY) {
+      this.body.reset(this.x, minY);
     }
-    const movingIntoHud = Number.isFinite(minY) && this.y <= minY! && move.y < 0;
+    const movingIntoHud = minY !== undefined && this.y <= minY && move.y < 0;
     this.body.setVelocity(move.x * speed, movingIntoHud ? 0 : move.y * speed);
   }
 

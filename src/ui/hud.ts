@@ -182,37 +182,32 @@ function topHudLayout(viewport: UiViewport): TopHudLayout {
   const margin = edgeMargin(viewport, 'left');
   const topMargin = edgeMargin(viewport, 'top');
   const rightMargin = edgeMargin(viewport, 'right');
-  const fontSize = physicalToLogical(ThemeFont.bodyMin, viewport);
-  const labelSize = physicalToLogical(ThemeFont.labelMin, viewport);
+  // The run HUD is an instrument strip, not a banner. Keep its type at the
+  // readable physical minimum and reserve the game world below it.
+  const fontSize = physicalToLogical(11, viewport);
+  const labelSize = physicalToLogical(11, viewport);
   const canvasWidth = viewport.canvasWidth;
-  const rightHudX = canvasWidth - rightMargin - physicalToLogical(44, viewport) - physicalToLogical(8, viewport);
-  // Keep the run state legible as a compact instrument panel: a title/time
-  // row, then health and XP. The previous layout placed the long health copy
-  // between the two bars, which produced an apparent cyan artefact at phone
-  // scale when it met the XP fill.
-  const barTop = topMargin + fontSize * 1.3;
-  const barHeight = physicalToLogical(8, viewport);
+  // The right edge hosts the shared ability and pause buttons. Bars and run
+  // numbers end before that control lane instead of drawing beneath it.
+  const controlLane = physicalToLogical(44 * 2 + 10 + 8, viewport);
+  const rightHudX = canvasWidth - rightMargin - controlLane;
+  const barTop = topMargin + fontSize + physicalToLogical(4, viewport);
+  const barHeight = physicalToLogical(6, viewport);
   const healthBarWidth = Math.max(1, rightHudX - margin);
-  const xpTop = barTop + barHeight + labelSize + physicalToLogical(6, viewport);
-  const statsTop = xpTop + barHeight + labelSize + physicalToLogical(6, viewport);
-  const statsStride = labelSize + physicalToLogical(4, viewport);
+  const xpTop = barTop + barHeight + labelSize + physicalToLogical(4, viewport);
+  const statsTop = xpTop + barHeight + labelSize + physicalToLogical(4, viewport);
+  const statsStride = labelSize + physicalToLogical(3, viewport);
   return {
     margin, topMargin, rightMargin, fontSize, labelSize, canvasWidth, rightHudX,
     barTop, barHeight, healthBarWidth, xpTop, statsTop, statsStride,
   };
 }
 
-/** Bottom of the rendered stats stack plus the three independent feedback
- * rows (objective, active ability state, achievement). */
+/** Bottom of the compact run strip. Feedback shares one bounded line so the
+ * HUD never grows into the playable surface on portrait phones. */
 export function topHudContentBottom(viewport: UiViewport): number {
   const layout = topHudLayout(viewport);
-  const renderedLabelRow = layout.labelSize * 1.25;
-  // Portrait needs independent, readable feedback rows. Landscape has less
-  // than half as much vertical playfield, so it deliberately retains the
-  // compact one-line summary instead of allowing the HUD plate into play.
-  const feedbackRows = (viewport.containerHeight ?? viewport.displayHeight)
-    > (viewport.containerWidth ?? viewport.displayWidth) ? 3 : 1;
-  return layout.statsTop + layout.statsStride * feedbackRows + renderedLabelRow;
+  return layout.statsTop + layout.labelSize * 1.25;
 }
 
 export class PhaserHudView implements HudView {
@@ -261,13 +256,11 @@ export class PhaserHudView implements HudView {
     this.healthText.setText(
       `HP ${formatNumber(Math.ceil(safeHealth))}/${formatNumber(Math.ceil(safeMaxHealth))}`,
     );
-    this.levelText.setText(`LV ${snapshot.level} · XP ${formatNumber(Math.floor(safeXp))}/${formatNumber(safeXpToNext)}`);
+    this.levelText.setText(`LV ${snapshot.level}  ${formatNumber(Math.floor(safeXp))}/${formatNumber(safeXpToNext)}`);
     this.killsText.setText(`K ${formatNumber(snapshot.kills)}`);
     this.scrapText.setText(`S ${formatNumber(Math.floor(snapshot.currency))}`);
     const feedback = [snapshot.objective, snapshot.ability, snapshot.achievement].filter(Boolean);
-    const portraitFeedback = (this.viewport?.containerHeight ?? this.viewport?.displayHeight ?? this.scene.scale.displaySize.height)
-      > (this.viewport?.containerWidth ?? this.viewport?.displayWidth ?? this.scene.scale.displaySize.width);
-    this.objectiveText.setText(feedback.join(portraitFeedback ? '\n' : '  •  '));
+    this.objectiveText.setText(truncateHudFeedback(feedback[0]));
 
   }
 
@@ -392,8 +385,8 @@ export class PhaserHudView implements HudView {
 
     this.objectiveText = createUiText(scene, layout.margin, layout.statsTop, '', {
       ...labelStyle,
-      wordWrap: { width: layout.healthBarWidth },
     });
+    this.objectiveText.setFixedSize(layout.healthBarWidth, layout.labelSize * 1.25);
     this.objectiveText.setScrollFactor(0);
     this.objectiveText.setDepth(ThemeDepth.hud);
 
@@ -454,6 +447,12 @@ function sameViewport(a: UiViewport, b: UiViewport): boolean {
     && a.layoutInsets.right === b.layoutInsets.right
     && a.layoutInsets.bottom === b.layoutInsets.bottom
     && a.layoutInsets.left === b.layoutInsets.left;
+}
+
+function truncateHudFeedback(value: string | undefined): string {
+  if (!value) return '';
+  const singleLine = value.replace(/\s+/g, ' ').trim();
+  return singleLine.length <= 44 ? singleLine : `${singleLine.slice(0, 43).trimEnd()}…`;
 }
 
 function capitalize(value: string): string {

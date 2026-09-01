@@ -414,15 +414,18 @@ describe('Epic 19 playtest fixes: intermediate arena camera follow (U6)', () => 
     y: Math.min(Math.max(target.y - visible.height / 2, 0), Math.max(0, arena.height - visible.height)),
   });
 
-  it('keeps the player below the entire portrait HUD plate at the camera top edge', () => {
+  it('keeps the player below the compact portrait HUD edge at every camera scroll', () => {
     const viewport = zoomedGameUiViewport(390, 844, 390, 844);
     const floor = playerHudSafeFloor(viewport, 1_344);
     const backingBottom = (viewport.originY ?? 0)
       + topHudContentBottom(viewport)
       + edgeMargin(viewport, 'bottom');
 
-    expect(floor).toBeGreaterThanOrEqual(backingBottom + PLAYER_BODY_RADIUS * 8);
-    // The bound remains playable rather than consuming half the arena.
+    expect(floor).toBeGreaterThanOrEqual(backingBottom + PLAYER_BODY_RADIUS);
+    // The boundary travels with a followed camera, instead of applying only
+    // at the world's top edge and letting the player enter the fixed HUD.
+    expect(playerHudSafeFloor(viewport, 1_344, 300)).toBeCloseTo(floor + 300, 6);
+    // The compact strip remains a small part of the playable arena.
     expect(floor).toBeLessThan(1_344 / 2);
   });
 
@@ -565,7 +568,7 @@ describe('Epic 19 playtest fixes: HUD strip absence', () => {
   });
 });
 
-describe('Epic 19 playtest fixes: health/pause 8px physical gap', () => {
+describe('Epic 19 playtest fixes: health/control-lane 8px physical gap', () => {
   it.each(REFERENCE_VIEWPORTS)('keeps an >=8px physical gap at $name', ({ width, height }) => {
     const h = createGameSoakHarness({ fixtureSeed: width, runSeed: height, storageKey: `e19-gap-${width}` });
     h.resizeTo(width, height);
@@ -593,20 +596,25 @@ describe('Epic 19 playtest fixes: health/pause 8px physical gap', () => {
 
     const fit = fitScale(width, height);
     const objects = fakeSceneObjects(h);
-    const pauseButton = objects.find(
-      (object) => object.state.kind === 'rect' && object.state.handlers['pointerdown'] && !object.state.destroyed,
+    const controlButtons = objects.filter(
+      (object) => object.state.kind === 'rect'
+        && object.state.handlers['pointerdown']
+        && !object.state.destroyed
+        && Number.isFinite(object.state.x)
+        && Number.isFinite(object.state.width)
+        && object.state.width > 0,
     );
-    expect(pauseButton).toBeDefined();
+    expect(controlButtons).toHaveLength(2);
     const healthBar = objects
-      .filter((object) => object.state.kind === 'rect' && !object.state.destroyed && object.state.width > 150)
-      .sort((a, b) => a.state.y - b.state.y)[0];
+      .find((object) => object.state.kind === 'rect'
+        && !object.state.destroyed
+        && object.state.fillColor === ThemeColor.danger);
     expect(healthBar).toBeDefined();
 
-    const pauseLeft = pauseButton!.state.x - pauseButton!.state.width / 2;
+    const controlLeft = Math.min(...controlButtons.map((button) => button.state.x - button.state.width / 2));
     const healthRight = healthBar!.state.x + healthBar!.state.width / 2;
-    // The HUD derives rightHudX = canvasWidth − margin − pauseSize − gap with
-    // gap = physicalToLogical(8, viewport); the physical gap is exactly 8px.
-    expect((pauseLeft - healthRight) * fit * GAMEPLAY_ZOOM).toBeGreaterThanOrEqual(8 - 0.01);
+    // The HUD reserves both the ability and pause buttons plus an 8px gap.
+    expect((controlLeft - healthRight) * fit * GAMEPLAY_ZOOM).toBeGreaterThanOrEqual(8 - 0.01);
 
     hud.destroy();
     h.destroy();

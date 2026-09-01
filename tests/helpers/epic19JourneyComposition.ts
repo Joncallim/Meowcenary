@@ -331,6 +331,12 @@ function fakeObject(
     get alpha() {
       return state.alpha;
     },
+    get x() {
+      return state.x;
+    },
+    get y() {
+      return state.y;
+    },
     get visible() {
       return !state.destroyed && state.alpha > 0;
     },
