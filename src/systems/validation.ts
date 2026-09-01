@@ -866,7 +866,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
   }
   if (crossReferenceIssues.length > 0) return crossReferenceIssues;
   if (contentVersionIssue !== undefined) {
-    return [Object.freeze({ file: 'content-version.json', index: -1, field: 'id', message: contentVersionIssue })];
+    return [Object.freeze({ file: 'content-version.json', index: -1, field: '', message: contentVersionIssue })];
   }
   return [];
 }

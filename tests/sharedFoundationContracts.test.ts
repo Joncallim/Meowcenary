@@ -28,7 +28,7 @@ describe('Alpha 3 shared foundation canonical contracts', () => {
     expect(() => assertContentVersion(stampContentVersion('alpha3-0'), loadGameData().contentVersion)).toThrow(/Content version mismatch/);
     fixture.contentVersion = 'BAD!';
     expect(collectGameDataErrors(fixture)).toEqual([
-      { file: 'content-version.json', index: -1, field: 'id', message: 'expected one stable lowercase id' },
+      { file: 'content-version.json', index: -1, field: '', message: 'expected one stable lowercase id' },
     ]);
     fixture.weapons[0].damage = 0;
     expect(collectGameDataErrors(fixture)[0]).toMatchObject({ file: 'weapons.json', field: 'damage' });
