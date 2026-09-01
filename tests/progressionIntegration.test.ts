@@ -66,6 +66,29 @@ describe('meta progression integration', () => {
       .toMatchObject({ ok: true, characterId: 'bolt-hound' });
   });
 
+  it('makes Scrap Weasel selectable only after the canonical 100-kill achievement grant', () => {
+    const data = loadGameData();
+    const metaUpgrades = new DataMetaUpgradeRegistry(data);
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data,
+      arenas: new DataArenaRegistry(data), metaUpgrades, characters: new DataCharacterRegistry(data),
+      save: new SaveManager(new MemoryStorageAdapter(), 'kill-100-character', metaUpgrades.maxLevels()),
+    });
+    expect(context.selectCharacter('scrap-weasel', context.selectionRevision)).toMatchObject({ ok: false, reason: 'locked' });
+
+    const registry = new DataAchievementRegistry({ achievements: data.achievements ?? [] });
+    const metrics = new Map(registeredMetricIds().map((id) => [id, (facts: { metrics: Record<string, number> }) => facts.metrics[id] ?? 0]));
+    const result = evaluateAchievements(context.saveData.achievements, {
+      metrics: { 'metric:enemies-defeated': 100 }, progression: context.saveData.progression,
+    }, { definitions: registry.asMap(), metrics }, 100_000);
+    expect(result.completed).toContain('achievement:kill-milestone-100');
+    expect(context.commitAchievementTransaction(result.state, context.saveData.achievementMetrics, {
+      id: 'achievement:kill-milestone-100:completion', grants: result.rewards,
+    })).toBe(true);
+    expect(context.saveData.progression.unlocks).toContain('character:scrap-weasel');
+    expect(context.selectCharacter('scrap-weasel', context.selectionRevision)).toMatchObject({ ok: true });
+  });
+
   it('connects a boss stage fact to an achievement, durable equipment reward, and next-stage availability', () => {
     const data = loadGameData();
     const metaUpgrades = new DataMetaUpgradeRegistry(data);

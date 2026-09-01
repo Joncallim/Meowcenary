@@ -110,7 +110,7 @@
         "effects": [{ "stat": "pickupRadius", "op": "add", "value": 30 }]
       }
     ],
-    "unlock": { "type": "meta", "requiresUnlockId": "achievement:kill-milestone-100" },
+    "unlock": { "type": "meta", "requiresUnlockId": "character:scrap-weasel" },
     "cosmeticSkinIds": []
   },
   {
