@@ -358,9 +358,14 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       if (expectedTransaction === undefined || transaction.id !== expectedTransaction.id
         || durableGrantFingerprint(transaction) !== durableGrantFingerprint(expectedTransaction)) return false;
       if (!hasKnownContentRewards(transaction)) return false;
+      // A boss-stage completion fact is inseparable from the matching boss
+      // defeat fact. Allowing an omitted boss ID would bank its first-clear
+      // receipt while starving achievement/progression consumers of the
+      // authoritative boss fact.
+      if (definition.bossId !== bossId) return false;
       if (bossId !== undefined) {
         const encounter = stages.encounterProfileById(definition.encounterProfileId);
-        if (definition.bossId !== bossId || encounter?.bossId !== bossId) return false;
+        if (encounter?.bossId !== bossId) return false;
       }
 
       const granted = applyDurableGrantTransaction(current, transaction);

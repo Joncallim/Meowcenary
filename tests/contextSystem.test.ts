@@ -54,6 +54,7 @@ describe('GameContext persistence boundary', () => {
 
     expect(context.completeStageTransaction('stage:missing', 120_000, undefined, transaction)).toBe(false);
     expect(context.completeStageTransaction('stage:junkyard-05', Number.NaN, 'boss-crusher', transaction)).toBe(false);
+    expect(context.completeStageTransaction('stage:junkyard-05', 120_000, undefined, transaction)).toBe(false);
     expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss:other', transaction)).toBe(false);
     expect(context.saveData.appliedGrantTransactions[transaction.id]).toBeUndefined();
     expect(context.saveData.progression.scrap).toBe(0);
