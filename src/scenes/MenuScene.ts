@@ -621,7 +621,7 @@ export class MenuScene extends Phaser.Scene {
     }));
     y += hitTarget + 12;
     if (snapshot.equipment.activeSets.length > 0) {
-      const active = snapshot.equipment.activeSets.map((set) => `${set.setId} ${set.pieces}/4${set.activeThresholds.length ? ` (${set.activeThresholds.join('+')}-piece active)` : ''}`).join(' • ');
+      const active = snapshot.equipment.activeSets.map((set) => `${set.setId} ${set.pieces}/4${set.activeThresholds.length ? ` (${set.activeThresholds.join('+')}-piece active)` : ''}\n${set.bonusSummary.join(' • ')}`).join('\n');
       this.own(root, createUiText(this, margin, y, `Active sets — ${active}`, {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
         wordWrap: { width: width - margin - this.safeRightMargin },
@@ -638,6 +638,11 @@ export class MenuScene extends Phaser.Scene {
       }, 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
       this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, item.iconArtId);
       y += hitTarget + 8;
+      this.own(root, createUiText(this, margin, y, `Effects: ${item.effectSummary.join(', ')}${item.comparisonSummary ? `\n${item.comparisonSummary}` : ''}`, {
+        color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+        wordWrap: { width: width - margin - this.safeRightMargin },
+      }));
+      y += hitTarget * (item.comparisonSummary ? 1.1 : 0.65);
       if (item.upgradeCost !== undefined) {
         this.addButton(root, margin, y, `Upgrade ${item.name} (${item.upgradeCost} scrap)`, hitTarget, () => {
           this.render(this.requireController().upgradeEquipment(item.instanceId));
