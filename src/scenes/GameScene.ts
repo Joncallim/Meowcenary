@@ -150,6 +150,10 @@ export class GameScene extends Phaser.Scene {
   private abilityState: AbilityState = createAbilityState();
   private achievementToast?: { readonly text: string; readonly untilMs: number };
   private completedAchievementNames: string[] = [];
+  /** Facts accepted by live gameplay but not yet durably committed. A failed
+   * storage write must not turn an authoritative kill/merge/run result into
+   * a permanently lost achievement increment. */
+  private pendingAchievementFacts: Record<string, number> = {};
 
   constructor() {
     super(SceneKey.Game);
@@ -603,6 +607,7 @@ export class GameScene extends Phaser.Scene {
     tickRun(runState, delta);
     this.tickAbility(delta);
     this.updateStageObjective(ctx, delta);
+    this.retryPendingAchievementFacts(ctx);
     this.syncPhysicsPause(runState);
     // Objective completion is a durable boundary. A transient save failure
     // must not leave combat running long enough to turn an earned clear into
@@ -962,9 +967,15 @@ export class GameScene extends Phaser.Scene {
     // Narrow scene harnesses used by unrelated stage tests intentionally omit
     // the achievement domain; production GameContext always provides it.
     if (!ctx.saveData?.achievementMetrics || !ctx.data.achievements) return;
+    for (const [id, amount] of Object.entries(increments)) {
+      if (!Number.isFinite(amount) || amount === 0) continue;
+      this.pendingAchievementFacts[id] = Math.max(0, (this.pendingAchievementFacts[id] ?? 0) + amount);
+    }
+    const pendingFacts = this.pendingAchievementFacts;
+    if (Object.keys(pendingFacts).length === 0) return;
     const previousMetrics = ctx.saveData.achievementMetrics;
     const metrics: Record<string, number> = { ...previousMetrics };
-    for (const [id, amount] of Object.entries(increments)) {
+    for (const [id, amount] of Object.entries(pendingFacts)) {
       metrics[id] = Math.max(0, (metrics[id] ?? 0) + amount);
     }
     const registry = new DataAchievementRegistry({ achievements: ctx.data.achievements ?? [] });
@@ -980,6 +991,7 @@ export class GameScene extends Phaser.Scene {
       ? { id: `${completed[0]}:completion`, grants: result.rewards }
       : undefined;
     if (!ctx.commitAchievementTransaction(result.state, metrics, transaction)) return;
+    this.pendingAchievementFacts = {};
     for (const achievementId of completed) {
       const progress = result.state[achievementId];
       const definition = registry.achievementById(achievementId);
@@ -989,6 +1001,12 @@ export class GameScene extends Phaser.Scene {
         this.achievementToast = { text: `Achievement: ${definition.name}`, untilMs: (this.runState?.timeMs ?? 0) + 3_000 };
         ctx.bus.emit('achievement:completed', { achievementId, name: definition.name });
       }
+    }
+  }
+
+  private retryPendingAchievementFacts(ctx: GameContext): void {
+    if (Object.keys(this.pendingAchievementFacts).length > 0) {
+      this.evaluateLiveAchievements(ctx, {});
     }
   }
 

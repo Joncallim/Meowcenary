@@ -37,6 +37,14 @@ describe('Epic 22 achievement catalog conformance', () => {
     data.achievements[0]!.condition = { type: 'achievement-completed', achievementId: data.achievements[0]!.id };
     expect(() => validateGameData(data)).toThrow(/cannot reference its own completion/);
   });
+  it('rejects an indirect achievement-completion cycle', () => {
+    const data = structuredClone(loadGameData()) as unknown as { achievements: Array<Record<string, unknown>> };
+    const [first, second] = data.achievements;
+    if (!first || !second) throw new Error('fixture requires two achievements');
+    first.condition = { type: 'achievement-completed', achievementId: second.id };
+    second.condition = { type: 'not', condition: { type: 'achievement-completed', achievementId: first.id } };
+    expect(() => validateGameData(data)).toThrow(/achievement completion cycle/);
+  });
   it('ships a catalog with stable unique achievement: IDs', () => {
     expect(definitions.length).toBeGreaterThanOrEqual(8);
     const ids = definitions.map((d) => d.id);

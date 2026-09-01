@@ -221,11 +221,44 @@ function assertConditionReferences(value: unknown, owner: string, catalogs: Para
 export function assertNoSelfReferentialAchievementConditions(
   achievements: readonly { id: string; condition?: unknown }[],
 ): void {
+  const dependencies = new Map<string, readonly string[]>(achievements.map((achievement) => [
+    achievement.id,
+    referencedAchievementIds(achievement.condition),
+  ]));
   for (const achievement of achievements) {
     if (conditionReferencesAchievement(achievement.condition, achievement.id)) {
       throw new Error(`achievement.${achievement.id}: condition cannot reference its own completion`);
     }
+    if (hasAchievementDependencyCycle(achievement.id, dependencies, new Set(), new Set())) {
+      throw new Error(`achievement.${achievement.id}: condition cannot depend on an achievement completion cycle`);
+    }
   }
+}
+
+function referencedAchievementIds(condition: unknown): readonly string[] {
+  if (!condition || typeof condition !== 'object') return [];
+  const value = condition as Record<string, unknown>;
+  if (value.type === 'achievement-completed' && typeof value.achievementId === 'string') {
+    return [value.achievementId];
+  }
+  if ((value.type === 'all' || value.type === 'any') && Array.isArray(value.conditions)) {
+    return value.conditions.flatMap(referencedAchievementIds);
+  }
+  return value.type === 'not' ? referencedAchievementIds(value.condition) : [];
+}
+
+function hasAchievementDependencyCycle(
+  id: string,
+  dependencies: ReadonlyMap<string, readonly string[]>,
+  visiting: ReadonlySet<string>,
+  visited: ReadonlySet<string>,
+): boolean {
+  if (visiting.has(id)) return true;
+  if (visited.has(id)) return false;
+  const nextVisiting = new Set(visiting).add(id);
+  const nextVisited = new Set(visited).add(id);
+  return (dependencies.get(id) ?? []).some((dependency) =>
+    dependencies.has(dependency) && hasAchievementDependencyCycle(dependency, dependencies, nextVisiting, nextVisited));
 }
 
 function conditionReferencesAchievement(condition: unknown, achievementId: string): boolean {
