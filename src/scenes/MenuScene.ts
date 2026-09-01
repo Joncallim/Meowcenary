@@ -570,6 +570,15 @@ export class MenuScene extends Phaser.Scene {
         label: `Infuse ${target.name} with ${trait.name}`,
         action: () => this.render(this.requireController().infuseGunPart(target.instanceId, trait.instanceId)),
       })));
+      // Save migration intentionally retains stale instances.  Normal fitted
+      // rows already provide unequip; only expose this recovery action when a
+      // catalog-missing instance would otherwise keep a slot permanently full.
+      const visiblePartIds = new Set(snapshot.gunsmith.parts.map((part) => part.instanceId));
+      for (const instanceId of [...Object.values(selected.fitted), ...selected.traitParts]) {
+        if (instanceId && !visiblePartIds.has(instanceId)) {
+          actions.push({ label: `Remove unavailable part ${instanceId}`, action: () => this.render(this.requireController().unequipGunPart(instanceId)) });
+        }
+      }
       const pageSize = 1;
       const pageCount = Math.max(1, Math.ceil(actions.length / pageSize));
       this.gunsmithPage = Math.min(this.gunsmithPage, pageCount - 1);
