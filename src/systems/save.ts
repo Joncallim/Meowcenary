@@ -22,6 +22,8 @@ export interface ProgressionState {
 
 /** Durable receipt IDs for source-owned progression transactions. */
 export type AppliedGrantTransactions = Readonly<Record<string, true>>;
+/** Binds a source receipt to its exact canonical durable payload. */
+export type GrantTransactionFingerprints = Readonly<Record<string, string>>;
 /** Sparse durable inventory counts.  Item definitions remain static content;
  * this map records only player-owned quantities and is committed with the
  * source reward receipt. */
@@ -118,6 +120,7 @@ export interface SaveDataV3 {
   /** Durable outbox for best-effort native achievement mirrors. */
   readonly pendingAchievementReports: readonly string[];
   readonly appliedGrantTransactions: AppliedGrantTransactions;
+  readonly grantTransactionFingerprints: GrantTransactionFingerprints;
 }
 
 export type SaveData = SaveDataV3;
@@ -164,6 +167,7 @@ export function createDefaultSaveV3(): SaveDataV3 {
     bosses: {},
     pendingAchievementReports: [],
     appliedGrantTransactions: {},
+    grantTransactionFingerprints: {},
   });
 }
 
@@ -246,6 +250,7 @@ export function migrateV2ToV3(raw: Readonly<Record<string, unknown>>, maxLevels:
     bosses: {},
     pendingAchievementReports: [],
     appliedGrantTransactions: {},
+    grantTransactionFingerprints: {},
   });
 }
 
@@ -292,6 +297,7 @@ function decodeSave(raw: unknown, maxLevels: MetaUpgradeMaxLevels): SaveDecodeRe
         bosses: sanitizeBossProgress(readOwn(parsed, 'bosses')),
         pendingAchievementReports: sanitizePendingAchievementReports(readOwn(parsed, 'pendingAchievementReports')),
         appliedGrantTransactions: sanitizeAppliedGrantTransactions(readOwn(parsed, 'appliedGrantTransactions')),
+        grantTransactionFingerprints: sanitizeGrantTransactionFingerprints(readOwn(parsed, 'grantTransactionFingerprints')),
       }),
       unsupportedFutureVersion: false,
     };
@@ -318,6 +324,7 @@ function migrateV1ToV3(raw: Readonly<Record<string, unknown>>): SaveDataV3 {
     bosses: {},
     pendingAchievementReports: [],
     appliedGrantTransactions: {},
+    grantTransactionFingerprints: {},
   });
 }
 
@@ -370,7 +377,7 @@ function sanitizeAchievementMetrics(raw: unknown): AchievementMetricState {
   const result: Record<string, number> = Object.create(null);
   for (const id of Object.keys(raw)) {
     const value = readOwn(raw, id);
-    if (isUnlockId(id) && id.startsWith('achievement:') && Number.isSafeInteger(value) && (value as number) >= 0) result[id] = value as number;
+    if (isUnlockId(id) && id.startsWith('metric:') && Number.isSafeInteger(value) && (value as number) >= 0) result[id] = value as number;
   }
   return Object.freeze(result);
 }
@@ -565,6 +572,18 @@ function sanitizeAppliedGrantTransactions(raw: unknown): AppliedGrantTransaction
   return Object.freeze(result);
 }
 
+function sanitizeGrantTransactionFingerprints(raw: unknown): GrantTransactionFingerprints {
+  if (!isPlainRecord(raw)) return {};
+  const result: Record<string, string> = Object.create(null);
+  for (const id of Object.keys(raw)) {
+    const fingerprint = readOwn(raw, id);
+    if (isGrantTransactionId(id) && typeof fingerprint === 'string' && fingerprint.length > 0 && fingerprint.length <= 8_192) {
+      result[id] = fingerprint;
+    }
+  }
+  return Object.freeze(result);
+}
+
 // ── SaveManager ──────────────────────────────────────────────────────
 
 export class SaveManager {
@@ -610,6 +629,7 @@ export class SaveManager {
         bosses: sanitizeBossProgress(data.bosses),
         pendingAchievementReports: sanitizePendingAchievementReports(data.pendingAchievementReports),
         appliedGrantTransactions: sanitizeAppliedGrantTransactions(data.appliedGrantTransactions),
+        grantTransactionFingerprints: sanitizeGrantTransactionFingerprints(data.grantTransactionFingerprints),
       });
       return this.storage.setItem(this.key, JSON.stringify(sanitized)) === true;
     } catch {
@@ -695,26 +715,39 @@ function freezeProgression(p: ProgressionState): ProgressionState {
   });
 }
 
-function freezeSaveV3(save: SaveDataV3): SaveDataV3 {
+/**
+ * Produces the only externally visible Save V3 snapshot shape.  Every nested
+ * record is copied and frozen as well as the domain map, so callers cannot
+ * mutate owned-instance/fact state behind GameContext's persistence boundary.
+ */
+export function freezeSaveV3(save: SaveDataV3): SaveDataV3 {
   return Object.freeze({
     version: 3,
     settings: Object.isFrozen(save.settings) ? save.settings : freezeSettings(save.settings),
     progression: Object.isFrozen(save.progression) ? save.progression : freezeProgression(save.progression),
-    stages: Object.freeze({ ...save.stages }),
-    achievements: Object.freeze({ ...save.achievements }),
+    stages: Object.freeze(Object.fromEntries(Object.entries(save.stages).map(([id, state]) => [id, Object.freeze({ ...state })]))),
+    achievements: Object.freeze(Object.fromEntries(Object.entries(save.achievements).map(([id, state]) => [id, Object.freeze({ ...state })]))),
     achievementMetrics: Object.freeze({ ...save.achievementMetrics }),
-    characters: Object.freeze({ ...save.characters }),
+    characters: Object.freeze(Object.fromEntries(Object.entries(save.characters).map(([id, state]) => [id, Object.freeze({ ...state })]))),
     gunsmith: Object.freeze({
-      builds: Object.freeze([...save.gunsmith.builds]),
-      parts: Object.freeze({ ...save.gunsmith.parts }),
+      builds: Object.freeze(save.gunsmith.builds.map((build) => Object.freeze({
+        ...build,
+        fitted: Object.freeze({ ...build.fitted }),
+        traitParts: Object.freeze([...build.traitParts]),
+      }))),
+      parts: Object.freeze(Object.fromEntries(Object.entries(save.gunsmith.parts).map(([id, part]) => [id, Object.freeze({
+        ...part,
+        infusedTraits: Object.freeze([...part.infusedTraits]),
+      })]))),
       ...(save.gunsmith.selectedBuildId === undefined ? {} : { selectedBuildId: save.gunsmith.selectedBuildId }),
     }),
-    equipment: Object.freeze({ ...save.equipment }),
+    equipment: Object.freeze(Object.fromEntries(Object.entries(save.equipment).map(([id, equipment]) => [id, Object.freeze({ ...equipment })]))),
     equipmentLoadout: Object.freeze({ ...(save.equipmentLoadout ?? {}) }),
     items: Object.freeze({ ...save.items }),
-    bosses: Object.freeze({ ...save.bosses }),
+    bosses: Object.freeze(Object.fromEntries(Object.entries(save.bosses).map(([id, boss]) => [id, Object.freeze({ ...boss })]))),
     pendingAchievementReports: Object.freeze([...save.pendingAchievementReports]),
     appliedGrantTransactions: Object.freeze({ ...save.appliedGrantTransactions }),
+    grantTransactionFingerprints: Object.freeze({ ...save.grantTransactionFingerprints }),
   });
 }
 

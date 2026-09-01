@@ -7,9 +7,9 @@
  * application is exactly-once where the source is exactly-once. UI cannot
  * grant persistent state directly.
  */
-import type { ProgressionState, SaveDataV3 } from '../systems/save';
+import { freezeSaveV3, type ProgressionState, type SaveDataV3 } from '../systems/save';
 import { addUnlocks } from './meta';
-import { isContentId, isGrantTransactionId, isInstanceId, isUnlockId } from '../systems/ids';
+import { isContentId, isGrantTransactionId, isOwnedInstanceId, isUnlockId } from '../systems/ids';
 
 export type ProgressionGrant =
   | { readonly type: 'grant-scrap'; readonly amount: number }
@@ -62,7 +62,12 @@ export function applyDurableGrantTransaction(save: SaveDataV3, transaction: Dura
   // trailing grant must not leave an earlier currency/level mutation behind
   // without its receipt.
   if (!isValidTransaction(transaction)) return { save, valid: false, changed: false };
+  const fingerprint = durableGrantFingerprint(transaction);
   if (Object.prototype.hasOwnProperty.call(save.appliedGrantTransactions, transaction.id)) {
+    const recorded = save.grantTransactionFingerprints[transaction.id];
+    // Receipts written by this contract are payload-bound. A matching retry is
+    // safe; any same-ID altered reward is producer corruption and fails closed.
+    if (recorded !== undefined && recorded !== fingerprint) return { save, valid: false, changed: false };
     // A receipt that no longer has the owned/set-like effects it certifies is
     // corrupted state, not a successful retry.  Fail closed: silently
     // treating it as applied would permanently hide the lost reward.
@@ -102,7 +107,20 @@ export function applyDurableGrantTransaction(save: SaveDataV3, transaction: Dura
     })])),
   });
   const appliedGrantTransactions = Object.freeze({ ...save.appliedGrantTransactions, [transaction.id]: true as const });
-  return { save: Object.freeze({ ...save, progression: result.progression, items, equipment, gunsmith: Object.freeze({ ...save.gunsmith, parts }), appliedGrantTransactions }), valid: true, changed: true };
+  const grantTransactionFingerprints = Object.freeze({ ...save.grantTransactionFingerprints, [transaction.id]: fingerprint });
+  return { save: freezeSaveV3({ ...save, progression: result.progression, items, equipment, gunsmith: Object.freeze({ ...save.gunsmith, parts }), appliedGrantTransactions, grantTransactionFingerprints }), valid: true, changed: true };
+}
+
+/** Canonical payload identity for durable receipt owners and verifiers. */
+export function durableGrantFingerprint(transaction: Pick<DurableGrantTransaction, 'grants'>): string {
+  return stableSerialize(transaction.grants);
+}
+
+function stableSerialize(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableSerialize(record[key])}`).join(',')}}`;
 }
 
 function transactionEffectsPresent(save: SaveDataV3, transaction: DurableGrantTransaction): boolean {
@@ -153,10 +171,10 @@ export function isValidProgressionGrant(grant: unknown): grant is ProgressionGra
     case 'unlock-equipment': return validPrefix('equipmentId', 'equipment:');
     case 'unlock-part': return validPrefix('partId', 'part:');
     case 'unlock-trait': return validPrefix('traitId', 'trait:');
-    case 'grant-part-instance': return typeof value.instanceId === 'string' && isInstanceId(value.instanceId)
+    case 'grant-part-instance': return typeof value.instanceId === 'string' && isOwnedInstanceId(value.instanceId)
       && validPrefix('partId', 'part:')
       && (value.tier === undefined || (Number.isSafeInteger(value.tier) && (value.tier as number) >= 1 && (value.tier as number) <= 5));
-    case 'grant-equipment-instance': return typeof value.instanceId === 'string' && isInstanceId(value.instanceId)
+    case 'grant-equipment-instance': return typeof value.instanceId === 'string' && isOwnedInstanceId(value.instanceId)
       && validPrefix('equipmentId', 'equipment:')
       && (value.tier === undefined || (Number.isSafeInteger(value.tier) && (value.tier as number) >= 1 && (value.tier as number) <= 4));
     case 'grant-item': return validPrefix('itemId', 'item:') && (value.amount === undefined || (Number.isSafeInteger(value.amount) && (value.amount as number) > 0));

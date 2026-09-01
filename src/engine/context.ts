@@ -13,6 +13,7 @@ import { createConditionContext, evaluateCondition, type ProgressionCondition } 
 import {
   applySettingsPatch,
   createDefaultProgression,
+  freezeSaveV3,
   sanitizeProgression,
   type MetaState,
   type AchievementMetricState,
@@ -24,7 +25,7 @@ import {
   type SaveManager,
   type Settings,
 } from '../systems/save';
-import { applyDurableGrantTransaction, type DurableGrantTransaction } from '../gameplay/grantProcessor';
+import { applyDurableGrantTransaction, durableGrantFingerprint, type DurableGrantTransaction } from '../gameplay/grantProcessor';
 import { noopAchievementAdapter, type AchievementPlatformAdapter } from '../gameplay/achievementPlatform';
 import { EQUIPMENT_TIERS, equipmentUpgradeUnlock, upgradeCost } from '../gameplay/equipment';
 
@@ -164,7 +165,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     const previous = save.equipmentLoadout ?? {};
     const unchanged = ['helmet', 'armour', 'gloves', 'boots'].every((slot) =>
       previous[slot as keyof EquipmentLoadoutState] === loadout[slot as keyof EquipmentLoadoutState]);
-    return unchanged ? save : Object.freeze({ ...save, equipmentLoadout: loadout });
+    return unchanged ? save : freezeSaveV3({ ...save, equipmentLoadout: loadout });
   };
   const equipmentUpgradeFacts = () => createConditionContext(current.progression, {
     stages: current.stages,
@@ -193,6 +194,11 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       case 'unlock-character': return options.characters.characterById(grant.characterId.slice('character:'.length)) !== undefined;
       case 'unlock-stage': return stages.stageById(grant.stageId) !== undefined;
       case 'achievement-completed': return knownAchievementIds.has(grant.achievementId);
+      case 'permanent-upgrade-level': return options.metaUpgrades.metaUpgradeById(grant.upgradeId) !== undefined;
+      // Item grants have quantity semantics, but no item catalog yet exists
+      // to prove a target is legitimate. Refuse external durable item grants
+      // rather than persisting arbitrary player-controlled inventory keys.
+      case 'grant-item': return false;
       default: return true;
     }
   });
@@ -240,7 +246,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     updateSettings(patch) {
       const previousSettings = current.settings;
       const settings = applySettingsPatch(previousSettings, patch);
-      current = Object.freeze({ ...current, settings });
+      current = freezeSaveV3({ ...current, settings });
       const persisted = options.save.save(current);
 
       // Identity equality (never patch-object equality) decides emission: a
@@ -257,14 +263,14 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     updateMeta(transform) {
       const transformed = transform(current.progression);
       const progression = sanitizeProgression(transformed, options.metaUpgrades.maxLevels());
-      current = Object.freeze({ ...current, progression });
+      current = freezeSaveV3({ ...current, progression });
       const persisted = options.save.save(current);
       revalidateSelection();
       return Object.freeze({ value: progression, persisted });
     },
     commitProgression(transform) {
       const progression = sanitizeProgression(transform(current.progression), options.metaUpgrades.maxLevels());
-      const candidate = Object.freeze({ ...current, progression });
+      const candidate = freezeSaveV3({ ...current, progression });
       if (!options.save.save(candidate)) return Object.freeze({ value: current.progression, persisted: false });
       current = candidate;
       revalidateSelection();
@@ -272,7 +278,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     },
     updateGunsmith(transform) {
       const gunsmith = transform(current.gunsmith);
-      const candidate = Object.freeze({ ...current, gunsmith });
+      const candidate = freezeSaveV3({ ...current, gunsmith });
       // SaveManager is deliberately the sanitizer/normalizer.  Reload the
       // persisted representation before publication so a controller can
       // never expose an optimistic owned instance that would disappear on
@@ -283,7 +289,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     },
     updateEquipment(transform) {
       const next = transform({ equipment: current.equipment, loadout: current.equipmentLoadout ?? {} });
-      const candidate = normalizeEquipmentSnapshot(Object.freeze({ ...current, equipment: next.equipment, equipmentLoadout: next.loadout }));
+      const candidate = normalizeEquipmentSnapshot(freezeSaveV3({ ...current, equipment: next.equipment, equipmentLoadout: next.loadout }));
       if (!options.save.save(candidate)) return Object.freeze({ value: current.equipment, persisted: false });
       current = options.save.load();
       return Object.freeze({ value: current.equipment, persisted: true });
@@ -299,7 +305,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         || current.progression.scrap < cost) return false;
       const unlock = equipmentUpgradeUnlock(owned.equipmentId, nextTier as 2 | 3 | 4, equipmentDefinitions);
       if (unlock !== undefined && !evaluateCondition(unlock, equipmentUpgradeFacts())) return false;
-      const candidate = Object.freeze({
+      const candidate = freezeSaveV3({
         ...current,
         progression: Object.freeze({ ...current.progression, scrap: current.progression.scrap - cost }),
         equipment: Object.freeze({ ...current.equipment, [instanceId]: Object.freeze({ ...owned, tier: nextTier }) }),
@@ -315,7 +321,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       if (!result.changed) return true;
       // SaveManager writes a sanitized V3 snapshot.  Publish that same
       // canonical state, not an optimistic variant that a reload would drop.
-      const save = Object.freeze({
+      const save = freezeSaveV3({
         ...result.save,
         progression: sanitizeProgression(result.save.progression, options.metaUpgrades.maxLevels()),
       });
@@ -333,6 +339,19 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       // reward transaction without ever producing its corresponding fact.
       const definition = stages.stageById(stageId);
       if (!definition || !Number.isFinite(timeMs) || timeMs < 0) return false;
+      const rewardProfile = stages.rewardProfileById(definition.rewardProfileId);
+      const expectedTransaction: DurableGrantTransaction | undefined = rewardProfile === undefined ? undefined : {
+        id: `${stageId}:first-clear`,
+        grants: [{
+          type: 'grant-scrap',
+          amount: Math.max(1, rewardProfile.scrapBase + Math.floor(timeMs / 60_000) * rewardProfile.scrapPerMinute),
+        }, ...(rewardProfile.grants ?? [])],
+      };
+      // Stage rewards are catalog-owned. A fresh arbitrary receipt at this
+      // boundary would otherwise mint durable rewards while marking a stage
+      // complete, so bind both source identity and exact grant payload.
+      if (expectedTransaction === undefined || transaction.id !== expectedTransaction.id
+        || durableGrantFingerprint(transaction) !== durableGrantFingerprint(expectedTransaction)) return false;
       if (!hasKnownContentRewards(transaction)) return false;
       if (bossId !== undefined) {
         const encounter = stages.encounterProfileById(definition.encounterProfileId);
@@ -362,7 +381,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
           ...(current.bosses[bossId]?.firstDefeatedAt === undefined ? { firstDefeatedAt: timeMs } : {}),
         },
       });
-      const save = Object.freeze({
+      const save = freezeSaveV3({
         ...granted.save,
         progression: sanitizeProgression(granted.save.progression, options.metaUpgrades.maxLevels()),
         stages: Object.freeze({ ...current.stages, [stageId]: stage }),
@@ -387,7 +406,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         return achievementStateMatches(current.achievements, achievements)
           && metricStateMatches(current.achievementMetrics, metrics);
       }
-      const save = Object.freeze({
+      const save = freezeSaveV3({
         ...granted.save,
         progression: sanitizeProgression(granted.save.progression, options.metaUpgrades.maxLevels()),
         achievements: Object.freeze({ ...achievements }),
@@ -404,13 +423,13 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       const pending = current.pendingAchievementReports.includes(definitionId)
         ? current.pendingAchievementReports
         : Object.freeze([...current.pendingAchievementReports, definitionId]);
-      if (!options.save.save(Object.freeze({ ...current, pendingAchievementReports: pending }))) return;
-      current = Object.freeze({ ...current, pendingAchievementReports: pending });
+      if (!options.save.save(freezeSaveV3({ ...current, pendingAchievementReports: pending }))) return;
+      current = freezeSaveV3({ ...current, pendingAchievementReports: pending });
       void Promise.resolve()
         .then(() => achievementPlatform.report(definitionId, progress))
         .then(() => {
           const remaining = current.pendingAchievementReports.filter((id) => id !== definitionId);
-          const saved = Object.freeze({ ...current, pendingAchievementReports: Object.freeze(remaining) });
+          const saved = freezeSaveV3({ ...current, pendingAchievementReports: Object.freeze(remaining) });
           if (options.save.save(saved)) current = saved;
         })
         .catch(() => undefined);
@@ -423,7 +442,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         completed: true,
         ...(timeMs > 0 ? { bestTimeMs: progress?.bestTimeMs !== undefined && progress.bestTimeMs < timeMs ? progress.bestTimeMs : timeMs } : {}),
       };
-      const save = Object.freeze({
+      const save = freezeSaveV3({
         ...current,
         stages: Object.freeze({ ...current.stages, [stageId]: newProgress }),
       });

@@ -168,6 +168,20 @@ describe('durable grant transactions', () => {
     expect(replay.save).toBe(once.save);
   });
 
+  it('rejects a changed payload reusing an existing durable receipt ID', () => {
+    const transaction = {
+      id: 'stage:junkyard-01:payload-bound',
+      grants: [{ type: 'grant-scrap' as const, amount: 25 }],
+    };
+    const committed = applyDurableGrantTransaction(createDefaultSaveV3(), transaction);
+    const altered = applyDurableGrantTransaction(committed.save, {
+      id: transaction.id,
+      grants: [{ type: 'grant-scrap', amount: 250 }],
+    });
+    expect(altered).toEqual({ save: committed.save, valid: false, changed: false });
+    expect(committed.save.grantTransactionFingerprints[transaction.id]).toBeDefined();
+  });
+
   it('replays a durable owned-part inventory reward without minting a second instance', () => {
     const save = createDefaultSaveV3();
     const transaction = {
@@ -268,6 +282,15 @@ describe('durable grant transactions', () => {
     const result = applyDurableGrantTransaction(save, {
       id: 'stage:junkyard-01:bad-payload',
       grants: [{ type: 'grant-scrap', amount: 10 }, null] as unknown as readonly ProgressionGrant[],
+    });
+    expect(result).toEqual({ save, valid: false, changed: false });
+  });
+
+  it('rejects definition IDs where a newly granted owned instance is required', () => {
+    const save = createDefaultSaveV3();
+    const result = applyDurableGrantTransaction(save, {
+      id: 'stage:junkyard-01:definition-is-not-owned',
+      grants: [{ type: 'grant-equipment-instance', instanceId: 'equipment:commando-helmet', equipmentId: 'equipment:commando-helmet', tier: 1 }],
     });
     expect(result).toEqual({ save, valid: false, changed: false });
   });

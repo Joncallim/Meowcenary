@@ -74,8 +74,12 @@ describe('meta progression integration', () => {
       arenas: new DataArenaRegistry(data), metaUpgrades, characters: new DataCharacterRegistry(data),
       save: new SaveManager(new MemoryStorageAdapter(), 'boss-to-equipment', metaUpgrades.maxLevels()),
     });
+    const stage = data.stages?.find((candidate) => candidate.id === 'stage:junkyard-05');
+    const reward = data.rewardProfiles?.find((candidate) => candidate.id === stage?.rewardProfileId);
+    if (!reward) throw new Error('Missing stage reward profile');
     expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss-crusher', {
-      id: 'stage:junkyard-05:first-clear', grants: [{ type: 'grant-scrap', amount: 150 }],
+      id: 'stage:junkyard-05:first-clear',
+      grants: [{ type: 'grant-scrap', amount: reward.scrapBase + 2 * reward.scrapPerMinute }, ...(reward.grants ?? [])],
     })).toBe(true);
     const registry = new DataAchievementRegistry({ achievements: data.achievements ?? [] });
     const metrics = new Map(registeredMetricIds().map((id) => [id, (facts: { metrics: Record<string, number> }) => facts.metrics[id] ?? 0]));
