@@ -266,6 +266,22 @@ function migrateAchievementsFromV2(progression: ProgressionState): AchievementPr
   return achievements;
 }
 
+/** Content-contract reconciliation, not a schema migration: old V3 saves
+ * already contain the authoritative 100-kill achievement but were granted
+ * the wrong character ID. Preserve legacy unlocks and add the canonical one
+ * so no completed achievement becomes a permanent dead-end. */
+function reconcileAchievementOwnedUnlocks(
+  progression: ProgressionState,
+  achievements: AchievementProgressState,
+): ProgressionState {
+  if (!achievements['achievement:kill-milestone-100']?.completed
+    || progression.unlocks.includes('character:scrap-weasel')) return progression;
+  return freezeProgression({
+    ...progression,
+    unlocks: [...progression.unlocks, 'character:scrap-weasel'],
+  });
+}
+
 export function migrate(raw: unknown, maxLevels: MetaUpgradeMaxLevels = {}): SaveData {
   try { return decodeSave(raw, maxLevels).data; } catch { return createDefaultSaveV3(); }
 }
@@ -284,13 +300,14 @@ function decodeSave(raw: unknown, maxLevels: MetaUpgradeMaxLevels): SaveDecodeRe
   if (version === 3) {
     const equipment = sanitizeEquipmentState(readOwn(parsed, 'equipment'));
     const selectedCharacterId = sanitizeSelectedCharacterId(readOwn(parsed, 'selectedCharacterId'));
+    const achievements = sanitizeAchievementProgress(readOwn(parsed, 'achievements'));
     return {
       data: freezeSaveV3({
         version: 3,
         settings: sanitizeSettings(readOwn(parsed, 'settings'), DEFAULT_SETTINGS),
-        progression: sanitizeProgression(readOwn(parsed, 'progression'), maxLevels),
+        progression: reconcileAchievementOwnedUnlocks(sanitizeProgression(readOwn(parsed, 'progression'), maxLevels), achievements),
         stages: sanitizeStageProgress(readOwn(parsed, 'stages')),
-        achievements: sanitizeAchievementProgress(readOwn(parsed, 'achievements')),
+        achievements,
         achievementMetrics: sanitizeAchievementMetrics(readOwn(parsed, 'achievementMetrics')),
         characters: sanitizeCharacterMastery(readOwn(parsed, 'characters')),
         ...(selectedCharacterId === undefined ? {} : { selectedCharacterId }),
@@ -619,12 +636,13 @@ export class SaveManager {
     try {
       const equipment = sanitizeEquipmentState(data.equipment);
       const selectedCharacterId = sanitizeSelectedCharacterId(data.selectedCharacterId);
+      const achievements = sanitizeAchievementProgress(data.achievements);
       const sanitized = freezeSaveV3({
         version: 3,
         settings: sanitizeSettings(data.settings, DEFAULT_SETTINGS),
-        progression: sanitizeProgression(data.progression, this.maxLevels),
+        progression: reconcileAchievementOwnedUnlocks(sanitizeProgression(data.progression, this.maxLevels), achievements),
         stages: sanitizeStageProgress(data.stages),
-        achievements: sanitizeAchievementProgress(data.achievements),
+        achievements,
         achievementMetrics: sanitizeAchievementMetrics(data.achievementMetrics),
         characters: sanitizeCharacterMastery(data.characters),
         ...(selectedCharacterId === undefined ? {} : { selectedCharacterId }),
