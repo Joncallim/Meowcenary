@@ -684,6 +684,25 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       expect(shot).toHaveBeenCalledTimes(1);
     });
 
+    it('emits one swept authoritative damage hit when a boss lunge crosses the player', async () => {
+      const definition: ResolvedEnemyDefinition = {
+        id: 'test-boss-lunge', name: 'Boss', archetype: 'boss', health: 100,
+        damage: 22, speed: 40, xpValue: 1, scrapValue: 1, contactDamage: false,
+        attack: { triggerRange: 200, telegraphMs: 1, dashSpeed: 320, dashDurationMs: 200, cooldownMs: 100 }, actions: [],
+      };
+      const bus = createEventBus();
+      const hit = vi.fn();
+      bus.on('enemy:dash-hit', hit);
+      const { enemy } = await createEnemy(bus, definition);
+      const player = { active: true, x: 60, y: 20 } as never;
+      enemy.update(player, 1);
+      enemy.update(player, 199);
+      expect(hit).toHaveBeenCalledTimes(1);
+      expect(hit).toHaveBeenCalledWith(expect.objectContaining({ enemyId: 'test-boss-lunge', damage: 22 }));
+      enemy.update(player, 16);
+      expect(hit).toHaveBeenCalledTimes(1);
+    });
+
     // Mirrors Phaser Arcade ordering (see "keeps Phaser-order charger
     // position..." above): velocity computed by one update() call only moves
     // the sprite once the *next* frame's physics step runs, before the next

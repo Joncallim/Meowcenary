@@ -71,6 +71,7 @@ export class Enemy implements EnemyInstance {
   /** The base moveset is phase 0.  Higher phases are derived from health,
    * while this counter only prevents duplicate threshold facts. */
   private announcedBossPhase = 0;
+  private dashHitEmitted = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -208,11 +209,14 @@ export class Enemy implements EnemyInstance {
     // Epic 17 (D7): fires once at the pursuing/winding → attacking edge,
     // not every frame — FeedbackSystem owns the heavy-motion gate and the
     // pooled trail dots, Enemy just reports the moment.
+    if (result.dashSweep !== undefined && this.state !== 'attacking') this.dashHitEmitted = false;
     this.state = result.state;
     this.stateTimerMs = result.stateTimerMs;
     this.dashDirection = result.dashDirection;
     this.dashOrigin = result.dashOrigin;
+    if (result.enteredAttack) this.dashHitEmitted = false;
     this.applyPosition(result.pos, dtMs, behavior.immediate);
+    this.emitBossDashHit(player, result.dashSweep);
     if (result.enteredAttack) {
       if ('summon' in phase.definition && phase.definition.summon) {
         this.bus.emit('enemy:summon', {
@@ -434,6 +438,24 @@ export class Enemy implements EnemyInstance {
       return;
     }
     this.bus.emit('enemy:ranged-shot', event);
+  }
+
+  /** Bosses deliberately have no ordinary contact damage. Their readable
+   * lunge instead damages once when its actual swept body intersects the
+   * player, so moving after the telegraph can evade it. */
+  private emitBossDashHit(player: Player, sweep: { readonly from: Readonly<Vec2>; readonly to: Readonly<Vec2> } | undefined): void {
+    if (this.definition.archetype !== 'boss' || sweep === undefined || this.dashHitEmitted || !player.active) return;
+    const { from, to } = sweep;
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const lengthSquared = dx * dx + dy * dy;
+    const t = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, ((player.x - from.x) * dx + (player.y - from.y) * dy) / lengthSquared));
+    const hitX = from.x + dx * t;
+    const hitY = from.y + dy * t;
+    // Player and enemy body radii plus a small Arcade rounding allowance.
+    if (Math.hypot(player.x - hitX, player.y - hitY) > ENEMY_BODY_RADIUS + 14) return;
+    this.dashHitEmitted = true;
+    this.bus.emit('enemy:dash-hit', { instanceId: this.instanceId, enemyId: this.defId, damage: this.definition.damage });
   }
 
   private emitBossActionEvent(event: BossActionEvent): void {

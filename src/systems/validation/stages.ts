@@ -118,6 +118,9 @@ export const checkEncounterProfile: RowCheckFn = (row: unknown, _index: number):
         errors.push(`enemyIds[${i}]: must be a valid content ID`);
       }
     }
+    if (new Set(ep.enemyIds).size !== ep.enemyIds.length) {
+      errors.push('enemyIds: must not contain duplicate enemy IDs');
+    }
     if (ep.enemyIds.length === 0) {
       errors.push('enemyIds: must contain at least one enemy');
     }
@@ -131,8 +134,8 @@ export const checkEncounterProfile: RowCheckFn = (row: unknown, _index: number):
         if (!Array.isArray(ep.enemyIds) || !ep.enemyIds.includes(key)) {
           errors.push(`compositionWeights.${key}: must name an enemyId in the encounter roster`);
         }
-        if (typeof weights[key] !== 'number' || (weights[key] as number) <= 0 || !Number.isSafeInteger(weights[key])) {
-          errors.push(`compositionWeights.${key}: must be a positive safe integer`);
+        if (typeof weights[key] !== 'number' || (weights[key] as number) <= 0 || !Number.isSafeInteger(weights[key]) || (weights[key] as number) > 16) {
+          errors.push(`compositionWeights.${key}: must be a positive safe integer no greater than 16`);
         }
       }
     }

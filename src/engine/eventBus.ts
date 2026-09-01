@@ -19,6 +19,9 @@ export interface GameEventMap {
   // (once, not every frame) and a tank's pursuit-step cadence. Both are
   // presentation-only; nothing subscribes for gameplay logic.
   'enemy:dashed': { x: number; y: number; dirX: number; dirY: number };
+  /** Authoritative swept boss-lunge hit. SpawnSystem applies it through the
+   * shared player damage/invulnerability boundary exactly once per lunge. */
+  'enemy:dash-hit': { instanceId: number; enemyId: string; damage: number };
   /** Authoritative ranged attack edge. SpawnSystem owns its pooled projectile
    * and collision; presentation listeners may mirror the same fact. */
   'enemy:ranged-shot': { enemyId: string; x: number; y: number; dirX: number; dirY: number; damage: number };
@@ -84,7 +87,7 @@ export type GameEventListener<K extends GameEventKey> = (payload: GameEventMap[K
 export const GAME_EVENT_KEYS = [
   'run:start', 'run:paused', 'run:resumed', 'run:won', 'run:lost',
   'player:damaged', 'player:died',
-  'enemy:spawned', 'enemy:damaged', 'enemy:killed', 'enemy:dashed', 'enemy:ranged-shot', 'enemy:summon', 'enemy:boss-phase', 'enemy:shield-blocked', 'enemy:heavyStep',
+  'enemy:spawned', 'enemy:damaged', 'enemy:killed', 'enemy:dashed', 'enemy:dash-hit', 'enemy:ranged-shot', 'enemy:summon', 'enemy:boss-phase', 'enemy:shield-blocked', 'enemy:heavyStep',
   'achievement:completed',
   'weapon:fired', 'projectile:hit',
   'xp:gained', 'level:up', 'card:offered', 'card:chosen', 'weapon:merged',

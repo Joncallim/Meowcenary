@@ -22,17 +22,17 @@ function plan(): Pick<ResolvedRunPlan, 'encounter' | 'difficulty'> {
 describe('stage spawn composition', () => {
   it('makes resolved encounter membership and difficulty pressure authoritative over legacy curve rows', () => {
     const composed = composeStageSpawnCurve(curve, plan());
-    expect(composed.waves.map((wave) => wave.enemyId)).toEqual(['enemy:one', 'enemy:one']);
-    expect(composed.waves.map((wave) => wave.spawnEveryMs)).toEqual([667, 800]);
+    expect(composed.waves.map((wave) => wave.enemyId)).toEqual(['enemy:one', 'enemy:two']);
+    expect(composed.waves.map((wave) => wave.spawnEveryMs)).toEqual([333, 800]);
     expect(composed.waves.map((wave) => wave.maxAlive)).toEqual([3, 5]);
     expect(curve.waves.map((wave) => wave.enemyId)).toEqual(['legacy-a', 'legacy-b']);
   });
 
-  it('accepts a second data-only encounter roster without a runtime source change', () => {
+  it('materialises every archetype in a second data-only encounter roster without a runtime source change', () => {
     const second = composeStageSpawnCurve(curve, {
-      ...plan(), encounter: { profileId: 'encounter:second-fixture', enemyIds: ['enemy:third'] },
+      ...plan(), encounter: { profileId: 'encounter:second-fixture', enemyIds: ['enemy:third', 'enemy:fourth', 'enemy:fifth'] },
     });
-    expect(second.waves.every((wave) => wave.enemyId === 'enemy:third')).toBe(true);
+    expect(second.waves.map((wave) => wave.enemyId)).toEqual(['enemy:third', 'enemy:fourth', 'enemy:fifth']);
   });
 
   it('caps composed active counts at the spawn director boundary', () => {

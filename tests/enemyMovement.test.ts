@@ -132,6 +132,15 @@ describe('enemy movement', () => {
     expect(result).toEqual(chunked);
   });
 
+  it('retains the terminal attacking sweep even when the resulting state has entered cooldown', () => {
+    const result = chargerStep({
+      pos: { x: 99, y: 0 }, state: 'attacking', stateTimerMs: 1,
+      dashDirection: { x: 1, y: 0 }, dashOrigin: { x: 0, y: 0 },
+    }, { x: 200, y: 0 }, charger, 16);
+    expect(result.state).toBe('idle');
+    expect(result.dashSweep).toEqual({ from: { x: 99, y: 0 }, to: { x: 182, y: 0 } });
+  });
+
   it('returns new snapshots without mutating input and leaves dead chargers stopped', () => {
     const snapshot: ChargerMovementSnapshot = {
       pos: { x: 4, y: 5 },
