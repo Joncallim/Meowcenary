@@ -199,6 +199,13 @@ describe('createUiText', () => {
   }, 15_000);
 });
 
+describe('uiTextCrop', () => {
+  it('converts logical bounds to the high-DPI backing canvas', async () => {
+    const { uiTextCrop } = await import('../src/ui/text');
+    expect(uiTextCrop(100, 24)).toEqual([0, 0, 200, 48]);
+  });
+});
+
 /** Type-aware source audit with a conservative syntax fallback. Every source,
  * including text.ts, is scanned; exactly one direct return call in the
  * createUiText factory is allowlisted by AST shape rather than by file. */

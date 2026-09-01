@@ -643,7 +643,7 @@ describe('Epic 19 playtest fixes: zoomed GameScene HUD backing projection', () =
 });
 
 describe('Epic 19 playtest fixes: four-viewport HUD soak', () => {
-  it.each(REFERENCE_VIEWPORTS)('keeps both bars and the three-line stats stack safe in both directions at $name', ({ width, height }) => {
+  it.each(REFERENCE_VIEWPORTS)('keeps both bars and the compact stat rows safe in both directions at $name', ({ width, height }) => {
     const h = createGameSoakHarness({ fixtureSeed: width + height, runSeed: width, storageKey: `e19-hud-${width}` });
     const hud = new PhaserHudView({
       scene: h.gameScene as never,
@@ -696,12 +696,14 @@ describe('Epic 19 playtest fixes: four-viewport HUD soak', () => {
 
       const text = (value: string) => live.find((object) => object.state.text === value)!.state;
       const time = text('0:01 / 1:00');
-      const kills = text('Kills 3');
-      const scrap = text('Scrap 12');
+      const kills = text('K 3');
+      const scrap = text('S 12');
       expect(time.y).toBeLessThan(kills.y);
       expect(kills.y).toBeLessThan(scrap.y);
-      expect((kills.y - xpBg!.state.y - xpBg!.state.height / 2) * fitScale(targetWidth, targetHeight) * GAMEPLAY_ZOOM)
-        .toBeGreaterThanOrEqual(8 - 0.01);
+      // The compact panel aligns K with the HP label and S with the XP label;
+      // neither may intrude into its corresponding progress bar.
+      expect(kills.y).toBeGreaterThan(healthBg!.state.y + healthBg!.state.height / 2);
+      expect(scrap.y).toBeGreaterThan(xpBg!.state.y + xpBg!.state.height / 2);
       if (targetWidth === 844 && targetHeight === 390) {
         const hint = live.find((object) => object.state.text === 'Drag to move • Tap A ability • Tap pause')!;
         expect((hint.state.y - scrap.y) * fitScale(targetWidth, targetHeight) * GAMEPLAY_ZOOM)
