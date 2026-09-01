@@ -796,9 +796,6 @@ export function validateAllData(): ValidationIssue[] {
 export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
   const suppliedContentVersion = isRecord(raw) ? raw.contentVersion : undefined;
   const contentVersionIssue = contentVersionValidationIssue(suppliedContentVersion ?? contentVersionJson);
-  if (contentVersionIssue !== undefined) {
-    return [Object.freeze({ file: 'content-version.json', index: -1, field: 'id', message: contentVersionIssue })];
-  }
   const record = isRecord(raw)
     ? Object.fromEntries(Object.entries(raw).filter(([key]) => key !== 'contentVersion'))
     : raw as Record<string, unknown>;
@@ -867,7 +864,11 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
       crossReferenceIssues.push(...mapValidationErrorLines(error));
     }
   }
-  return crossReferenceIssues;
+  if (crossReferenceIssues.length > 0) return crossReferenceIssues;
+  if (contentVersionIssue !== undefined) {
+    return [Object.freeze({ file: 'content-version.json', index: -1, field: 'id', message: contentVersionIssue })];
+  }
+  return [];
 }
 
 /** Maps a thrown validator message (validators keep returning today's
