@@ -69,7 +69,7 @@ import { DefeatPresentationSystem } from '../systems/defeatPresentation';
 import { DataAchievementRegistry, metricExtractor } from '../systems/achievements';
 import { evaluateAchievements } from '../gameplay/achievementSystem';
 import { DataAbilityRegistry } from '../systems/abilities';
-import { abilityReadiness, activateAbility, applyAbilityEffect, createAbilityState, expireAbilityEffect, tickAbility, type AbilityDefinition, type AbilityState } from '../gameplay/abilities';
+import { activateAbility, applyAbilityEffect, createAbilityState, expireAbilityEffect, tickAbility, type AbilityDefinition, type AbilityState } from '../gameplay/abilities';
 import type { FocusDirection } from '../ui/focusList';
 
 /** U6: the gameplay camera shows canvas/zoom world units — 312×675.2 on the
@@ -888,6 +888,7 @@ export class GameScene extends Phaser.Scene {
     const activation = activateAbility(this.abilityState, definition);
     if (!activation.fired) return;
     this.abilityState = activation.state;
+    this.hudController?.requestRender();
     applyAbilityEffect(definition, { player, stats: runState.stats, enemies: this.enemies,
       collectNearbyConsumables: (radius) => this.dropSystem?.collectNearbyConsumables(radius) });
   }
@@ -898,6 +899,7 @@ export class GameScene extends Phaser.Scene {
     const before = this.abilityState;
     this.abilityState = tickAbility(before, deltaMs);
     if (before.phase === 'active' && this.abilityState.phase !== 'active' && this.runState) expireAbilityEffect(definition, { stats: this.runState.stats });
+    if (before.phase !== this.abilityState.phase) this.hudController?.requestRender();
   }
 
   private describeAbilityState(): string | undefined {
@@ -905,8 +907,7 @@ export class GameScene extends Phaser.Scene {
     if (!definition) return undefined;
     if (this.abilityState.phase === 'ready') return `${definition.name}: READY`;
     const seconds = Math.ceil(this.abilityState.cooldownRemainingMs / 1000);
-    const readiness = Math.round(abilityReadiness(this.abilityState, definition) * 100);
-    return `${definition.name}: ${seconds}s (${readiness}%)`;
+    return `${definition.name}: ${seconds}s`;
   }
 
   private forceLoseRun(): void {
