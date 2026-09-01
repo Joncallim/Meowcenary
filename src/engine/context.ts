@@ -213,7 +213,24 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
   let selectionRevision = 1;
   let selectedArenaId = options.arenas.defaultArenaId();
   let arenaSelectionRevision = 1;
-  let selectedStageId = stages.defaultStageId();
+  // Stage selection is a convenience, not a separate durable domain. Rebuild
+  // its normal-run frontier from durable progression facts after every reload.
+  // This prevents a completed first contract from silently composing the
+  // already-cleared default stage on the next browser session.
+  function normalStageTargetId(): string {
+    const facts = createConditionContext(current.progression, {
+      stages: current.stages,
+      achievements: current.achievements,
+      characters: current.characters,
+      bosses: current.bosses,
+    });
+    const available = stages.allStages().filter((candidate) =>
+      evaluateCondition(candidate.unlock as ProgressionCondition, facts));
+    return available.find((candidate) => current.stages[candidate.id]?.completed !== true)?.id
+      ?? available[0]?.id
+      ?? stages.defaultStageId();
+  }
+  let selectedStageId = normalStageTargetId();
   let stageSelectionRevision = 1;
   const achievementPlatform = options.achievementPlatform ?? noopAchievementAdapter;
 
@@ -231,6 +248,17 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     if (adef && !canSelectArena(adef, current.progression)) {
       selectedArenaId = options.arenas.defaultArenaId();
       arenaSelectionRevision += 1;
+    }
+  }
+
+  /** A first clear advances the default normal-run target to the next
+   * newly-available stage. Replays retain the player's explicit choice. */
+  function advanceSelectedStage(completedStageId: string): void {
+    if (selectedStageId !== completedStageId) return;
+    const nextId = normalStageTargetId();
+    if (nextId !== selectedStageId) {
+      selectedStageId = nextId;
+      stageSelectionRevision += 1;
     }
   }
 
@@ -418,6 +446,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       if (!options.save.save(save)) return false;
       current = save;
       revalidateSelection();
+      advanceSelectedStage(stageId);
       return true;
     },
     commitAchievementTransaction(achievements, metrics, transaction) {
