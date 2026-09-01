@@ -19,6 +19,7 @@ import {
   type ChargerEnvironment,
   type ChargerMovementDefinition,
   type ChargerMovementSnapshot,
+  type ChargerStepResult,
 } from './enemyMovement';
 import type { Vec2 } from '../engine/vector';
 import type { ResolvedEnemyDefinition, SpawnableEnemyArchetype } from '../systems/types';
@@ -43,6 +44,7 @@ export interface EnemyStepResult {
   readonly stateTimerMs: number;
   readonly dashDirection: Vec2;
   readonly dashOrigin: Vec2;
+  readonly dashSweep?: { readonly from: Vec2; readonly to: Vec2 };
   /** True when this step transitioned into an attack (for event emission). */
   readonly enteredAttack: boolean;
 }
@@ -113,10 +115,10 @@ function chaseInputToSnapshot(input: EnemyStepInput): ChargerMovementSnapshot {
 }
 
 function stepResultFromCharger(
-  snapshot: ChargerMovementSnapshot,
+  snapshot: ChargerStepResult,
   enteredAttack: boolean,
 ): EnemyStepResult {
-  return {
+  const result: EnemyStepResult = {
     pos: { ...snapshot.pos },
     state: snapshot.state,
     stateTimerMs: snapshot.stateTimerMs,
@@ -124,6 +126,12 @@ function stepResultFromCharger(
     dashOrigin: { ...snapshot.dashOrigin },
     enteredAttack,
   };
+  if (snapshot.dashSweep !== undefined) {
+    Object.defineProperty(result, 'dashSweep', {
+      value: { from: { ...snapshot.dashSweep.from }, to: { ...snapshot.dashSweep.to } }, enumerable: false,
+    });
+  }
+  return result;
 }
 
 /** Chaser: steady pursuit toward the player (pre-existing chaseStep). */

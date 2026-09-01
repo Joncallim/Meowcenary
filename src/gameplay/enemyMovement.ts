@@ -17,7 +17,11 @@ export interface ChargerMovementSnapshot {
   readonly dashOrigin: Vec2;
 }
 
-export interface ChargerStepResult extends ChargerMovementSnapshot {}
+export interface ChargerStepResult extends ChargerMovementSnapshot {
+  /** Actual attacking segment travelled during this update, including a
+   * terminal or obstacle-clipped dash frame. */
+  readonly dashSweep?: { readonly from: Vec2; readonly to: Vec2 };
+}
 
 export interface ChargerEnvironment {
   readonly bounds: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
@@ -79,6 +83,7 @@ export function chargerStep(
   let stateTimerMs = Math.max(0, snapshot.stateTimerMs);
   let dashDirection = { ...snapshot.dashDirection };
   let dashOrigin = { ...snapshot.dashOrigin };
+  let dashSweep: ChargerStepResult['dashSweep'];
   let remainingMs = Math.max(0, dtMs);
 
   // One update can cross winding, dash, and cooldown boundaries. Durations are
@@ -146,6 +151,7 @@ export function chargerStep(
         const hit = earliestObstacleHit(previousPos, pos, env);
         if (hit) {
           pos = hit;
+          dashSweep = { from: previousPos, to: { ...pos } };
           const distanceToHit = Math.hypot(hit.x - previousPos.x, hit.y - previousPos.y);
           const consumedAtHitMs = Math.min(
             consumed,
@@ -157,6 +163,7 @@ export function chargerStep(
           continue;
         }
       }
+      dashSweep = { from: previousPos, to: { ...pos } };
       remainingMs -= consumed;
       stateTimerMs = nextTimerMs;
       if (stateTimerMs > 0) continue;
@@ -185,7 +192,11 @@ export function chargerStep(
   assertFinite(stateTimerMs, 'Charger state timer result');
   assertFiniteVector(dashDirection, 'Charger dash direction result');
   assertFiniteVector(dashOrigin, 'Charger dash origin result');
-  return { pos, state, stateTimerMs, dashDirection, dashOrigin };
+  const result: ChargerStepResult = { pos, state, stateTimerMs, dashDirection, dashOrigin };
+  // Movement's public value contract stays chunk-comparable; the transient
+  // sweep is an authoritative same-frame combat detail for Enemy only.
+  if (dashSweep !== undefined) Object.defineProperty(result, 'dashSweep', { value: dashSweep, enumerable: false });
+  return result;
 }
 
 function validateChargerInputs(

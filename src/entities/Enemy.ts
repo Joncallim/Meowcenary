@@ -181,7 +181,6 @@ export class Enemy implements EnemyInstance {
       return;
     }
 
-    const beforePosition = this.pos;
     const phase = this.resolveBossPhase();
     if (phase.index > this.announcedBossPhase) {
       for (let index = this.announcedBossPhase + 1; index <= phase.index; index += 1) {
@@ -210,13 +209,14 @@ export class Enemy implements EnemyInstance {
     // Epic 17 (D7): fires once at the pursuing/winding → attacking edge,
     // not every frame — FeedbackSystem owns the heavy-motion gate and the
     // pooled trail dots, Enemy just reports the moment.
+    if (result.dashSweep !== undefined && this.state !== 'attacking') this.dashHitEmitted = false;
     this.state = result.state;
     this.stateTimerMs = result.stateTimerMs;
     this.dashDirection = result.dashDirection;
     this.dashOrigin = result.dashOrigin;
     if (result.enteredAttack) this.dashHitEmitted = false;
     this.applyPosition(result.pos, dtMs, behavior.immediate);
-    this.emitBossDashHit(player, beforePosition);
+    this.emitBossDashHit(player, result.dashSweep);
     if (result.enteredAttack) {
       if ('summon' in phase.definition && phase.definition.summon) {
         this.bus.emit('enemy:summon', {
@@ -443,9 +443,9 @@ export class Enemy implements EnemyInstance {
   /** Bosses deliberately have no ordinary contact damage. Their readable
    * lunge instead damages once when its actual swept body intersects the
    * player, so moving after the telegraph can evade it. */
-  private emitBossDashHit(player: Player, from: Readonly<Vec2>): void {
-    if (this.definition.archetype !== 'boss' || this.state !== 'attacking' || this.dashHitEmitted || !player.active) return;
-    const to = this.pos;
+  private emitBossDashHit(player: Player, sweep: { readonly from: Readonly<Vec2>; readonly to: Readonly<Vec2> } | undefined): void {
+    if (this.definition.archetype !== 'boss' || sweep === undefined || this.dashHitEmitted || !player.active) return;
+    const { from, to } = sweep;
     const dx = to.x - from.x;
     const dy = to.y - from.y;
     const lengthSquared = dx * dx + dy * dy;
