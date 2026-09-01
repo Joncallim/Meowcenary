@@ -465,7 +465,10 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     resetProgression() {
       const reset = freezeSaveV3({ ...createDefaultSaveV3(), settings: current.settings });
       if (!options.save.save(reset)) return Object.freeze({ value: current.progression, persisted: false });
-      current = options.save.load();
+      // `reset` is already a complete, validated V3 snapshot. Retaining it
+      // preserves the existing immutable settings identity for UI consumers
+      // while still committing the whole reset atomically.
+      current = reset;
       revalidateSelection();
       return Object.freeze({ value: current.progression, persisted: true });
     },

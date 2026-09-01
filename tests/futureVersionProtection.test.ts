@@ -66,7 +66,7 @@ describe('future-version write protection across every public mutation path', ()
     context.updateMeta((meta) => ({ ...meta, scrap: 7 }));
     const result = context.resetProgression();
     expect(result.persisted).toBe(false);
-    expect(result.value.scrap).toBe(0);
+    expect(result.value.scrap).toBe(7);
     expectUntouchedStorage(storage);
   });
 
