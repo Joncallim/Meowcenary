@@ -58,6 +58,16 @@ describe('Epic 22 achievement catalog conformance', () => {
     expect(validateGameData(data)).toBeTruthy();
   });
 
+  it('accepts a data-only hidden-kind fixture through the full catalog boundary', () => {
+    const data = structuredClone(loadGameData()) as unknown as { achievements: Array<Record<string, unknown>> };
+    data.achievements.push({
+      id: 'achievement:hidden-contract-proof', name: 'Hidden Contract',
+      description: 'A hidden data-driven contract.', kind: 'hidden', target: 1,
+      metricId: 'metric:enemies-defeated', hidden: true,
+    });
+    expect(validateGameData(data).achievements?.some((achievement) => achievement.id === 'achievement:hidden-contract-proof')).toBe(true);
+  });
+
   it('covers all kinds and both condition/metric driven forms, with hidden as a flag', () => {
     const kinds = new Set(definitions.map((d) => d.kind));
     expect(kinds).toEqual(new Set(['standard', 'incremental', 'mastery']));

@@ -10,7 +10,7 @@ import type { RowCheck } from '../validation';
 
 type RowCheckFn = RowCheck;
 
-const VALID_KINDS = new Set(['standard', 'incremental', 'mastery']);
+const VALID_KINDS = new Set(['standard', 'incremental', 'hidden', 'mastery']);
 const VALID_METRIC_PREFIX = 'metric:';
 const VALID_GRANT_TYPES = new Set([
   'grant-scrap', 'unlock-stage', 'unlock-character', 'unlock-equipment',
@@ -93,7 +93,7 @@ export const checkAchievement: RowCheckFn = (row: unknown, _index: number): stri
     errors.push('description: must be a non-empty string');
   }
   if (typeof a.kind !== 'string' || !VALID_KINDS.has(a.kind)) {
-    errors.push('kind: must be standard, incremental, or mastery');
+    errors.push('kind: must be standard, incremental, hidden, or mastery');
   }
   if (typeof a.target !== 'number' || !Number.isSafeInteger(a.target) || a.target < 1) {
     errors.push('target: must be a positive safe integer');
