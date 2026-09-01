@@ -18,14 +18,14 @@ import { loadGameData } from '../src/systems/validation';
  * exercises the same durable stage boundary and normal stage composition as
  * a run, rather than comparing JSON rows in isolation.
  */
-function createHarness() {
+function createHarness(storage = new MemoryStorageAdapter()) {
   const data = loadGameData();
   const metaUpgrades = new DataMetaUpgradeRegistry(data);
   const stages = new StageRegistry(data);
   const context = createGameContext({
     bus: createEventBus(), menuRng: createRng(17), data, metaUpgrades, stages,
     characters: new DataCharacterRegistry(data), arenas: new DataArenaRegistry(data),
-    save: new SaveManager(new MemoryStorageAdapter(), 'progression-balance', metaUpgrades.maxLevels()),
+    save: new SaveManager(storage, 'progression-balance', metaUpgrades.maxLevels()),
   });
   return { context, stages };
 }
@@ -60,7 +60,7 @@ describe('Epic 26 deterministic progression balance simulation', () => {
   it('advances the normal stage frontier in order and gives every first clear a bounded, durable reward', () => {
     const { context, stages } = createHarness();
     const expected = stages.allStages().map((stage) => stage.id);
-    const balances: number[] = [];
+    const rewards: number[] = [];
 
     for (const [index, stageId] of expected.entries()) {
       const request = assembleComposedRunRequest(context, createRng(index + 1));
@@ -68,16 +68,29 @@ describe('Epic 26 deterministic progression balance simulation', () => {
       // Three minutes is the declared reward ceiling. A later clear has the
       // same reward, so waiting on a completed objective cannot farm scrap.
       expect(clearSelectedStage({ context, stages }, 180_000)).toBe(stageId);
-      balances.push(context.saveData.progression.scrap);
+      rewards.push(context.saveData.progression.scrap - (rewards.reduce((total, reward) => total + reward, 0)));
       expect(context.saveData.appliedGrantTransactions[`${stageId}:first-clear`]).toBe(true);
     }
 
-    expect(balances).toEqual([...balances].sort((a, b) => a - b));
-    expect(balances.at(-1)).toBeGreaterThanOrEqual(700);
+    expect(rewards).toEqual([...rewards].sort((a, b) => a - b));
+    expect(rewards[4]).toBeGreaterThan(rewards[0] * 4);
+    expect(rewards.at(-1)).toBeGreaterThan(rewards[4]);
     const beforeReplay = context.saveData.progression.scrap;
     expect(context.selectStage(expected[0], context.stageSelectionRevision)).toMatchObject({ ok: true });
     expect(clearSelectedStage({ context, stages }, 1_800_000)).toBe(expected[0]);
     expect(context.saveData.progression.scrap).toBe(beforeReplay);
+
+    const capped = createHarness();
+    const delayed = createHarness();
+    clearSelectedStage(capped, 180_000);
+    clearSelectedStage(delayed, 1_800_000);
+    expect(delayed.context.saveData.progression.scrap).toBe(capped.context.saveData.progression.scrap);
+
+    const storage = new MemoryStorageAdapter();
+    const firstSession = createHarness(storage);
+    clearSelectedStage(firstSession, 120_000);
+    const resumed = createHarness(storage);
+    expect(assembleComposedRunRequest(resumed.context, createRng(1))).toMatchObject({ kind: 'stage', stageId: 'stage:junkyard-02' });
   });
 
   it('has no early equipment dead end: the first tier upgrade unlocks after its stage gate and is affordable at stage two', () => {

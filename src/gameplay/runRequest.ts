@@ -72,10 +72,11 @@ export function assembleComposedRunRequest(ctx: GameContext, rng: Pick<Rng, 'int
     bosses: ctx.saveData.bosses,
   });
   const selected = ctx.stages.stageById(ctx.selectedStageId);
+  const available = ctx.stages.allStages().filter((candidate) =>
+    evaluateCondition(candidate.unlock as import('./conditionEvaluator').ProgressionCondition, facts));
   const stage = selected !== undefined && evaluateCondition(selected.unlock as import('./conditionEvaluator').ProgressionCondition, facts)
     ? selected
-    : ctx.stages.allStages().find((candidate) =>
-      evaluateCondition(candidate.unlock as import('./conditionEvaluator').ProgressionCondition, facts));
+    : available.find((candidate) => (ctx.saveData.stages ?? {})[candidate.id]?.completed !== true) ?? available[0];
   if (!stage) throw new Error('No valid stage is available for normal run composition');
   return createStageRunRequest({ characterId, stageId: stage.id, rng });
 }

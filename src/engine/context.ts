@@ -213,7 +213,21 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
   let selectionRevision = 1;
   let selectedArenaId = options.arenas.defaultArenaId();
   let arenaSelectionRevision = 1;
-  let selectedStageId = stages.defaultStageId();
+  // Stage selection is a convenience, not a separate durable domain. Rebuild
+  // its normal-run frontier from durable progression facts after every reload.
+  // This prevents a completed first contract from silently composing the
+  // already-cleared default stage on the next browser session.
+  const initialStageFacts = createConditionContext(current.progression, {
+    stages: current.stages,
+    achievements: current.achievements,
+    characters: current.characters,
+    bosses: current.bosses,
+  });
+  const initialAvailableStages = stages.allStages().filter((candidate) =>
+    evaluateCondition(candidate.unlock as ProgressionCondition, initialStageFacts));
+  let selectedStageId = initialAvailableStages.find((candidate) => current.stages[candidate.id]?.completed !== true)?.id
+    ?? initialAvailableStages[0]?.id
+    ?? stages.defaultStageId();
   let stageSelectionRevision = 1;
   const achievementPlatform = options.achievementPlatform ?? noopAchievementAdapter;
 
