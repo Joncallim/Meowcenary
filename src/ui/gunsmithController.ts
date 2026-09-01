@@ -57,13 +57,16 @@ export class GunsmithController {
           instanceId, partId: stored.partId, name: definition.name, slot: definition.slot,
           tier: stored.tier, traits: Object.freeze([...definition.traits, ...stored.infusedTraits]),
           iconArtId: definition.presentation.iconArtId,
-          compatible: selected === undefined || isSlotCompatible(selected.baseWeaponFamily, definition.slot),
+          compatible: selected === undefined || (isSlotCompatible(selected.baseWeaponFamily, definition.slot)
+            && (definition.slot !== 'trait' || selected.traitParts.length < 2)),
           fitted: selected !== undefined && (Object.values(selected.fitted).includes(instanceId) || selected.traitParts.includes(instanceId)),
           comparisonSummary: selected === undefined
             ? 'Choose a chassis to preview this part.'
             : !isSlotCompatible(selected.baseWeaponFamily, definition.slot)
               ? `Cannot fit ${selected.baseWeaponFamily}.`
-              : (definition.slot !== 'trait' && selected.fitted[definition.slot] !== undefined)
+              : definition.slot === 'trait' && selected.traitParts.length >= 2
+                ? 'Trait capacity full — unequip a trait first.'
+                : (definition.slot !== 'trait' && selected.fitted[definition.slot] !== undefined)
                 ? 'Unequip the current part in this slot first.'
                 : `Adds ${definition.effects.map((effect) => describePartEffect(effect, stored.tier)).join(', ') || 'its trait behavior'}${stored.infusedTraits.length ? `; infused: ${stored.infusedTraits.join(', ')}` : ''} to ${selected.baseWeaponFamily}.`,
         })];

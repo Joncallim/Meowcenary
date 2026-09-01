@@ -12,11 +12,11 @@
     "id": "encounter:junkyard-mixed",
     "enemyIds": [
       "dust-mite",
+      "scrap-sniper",
       "junk-rusher",
       "junk-nester",
       "bastion-beetle",
-      "scrap-skitter",
-      "scrap-sniper"
+      "scrap-skitter"
     ],
     "compositionWeights": {
       "dust-mite": 3,
