@@ -188,8 +188,9 @@ function topHudLayout(viewport: UiViewport): TopHudLayout {
   const margin = edgeMargin(viewport, 'left');
   const topMargin = edgeMargin(viewport, 'top');
   const rightMargin = edgeMargin(viewport, 'right');
-  // The run HUD is an instrument strip, not a banner. Keep its type at the
-  // readable physical minimum and reserve the game world below it.
+  // A compact instrument strip: one header, then two labelled meter rows.
+  // Labels sit inside their own meters so no text baseline can collide with
+  // the next bar on Safari's larger-than-CSS font raster.
   const fontSize = physicalToLogical(11, viewport);
   const labelSize = physicalToLogical(11, viewport);
   const canvasWidth = viewport.canvasWidth;
@@ -197,11 +198,11 @@ function topHudLayout(viewport: UiViewport): TopHudLayout {
   // numbers end before that control lane instead of drawing beneath it.
   const controlLane = physicalToLogical(44 * 2 + 10 + 8, viewport);
   const rightHudX = canvasWidth - rightMargin - controlLane;
-  const barTop = topMargin + fontSize + physicalToLogical(4, viewport);
-  const barHeight = physicalToLogical(6, viewport);
+  const barTop = topMargin + fontSize * 1.25 + physicalToLogical(5, viewport);
+  const barHeight = Math.max(physicalToLogical(18, viewport), labelSize * 1.35);
   const healthBarWidth = Math.max(1, rightHudX - margin);
-  const xpTop = barTop + barHeight + labelSize + physicalToLogical(4, viewport);
-  const statsTop = xpTop + barHeight + labelSize + physicalToLogical(4, viewport);
+  const xpTop = barTop + barHeight + physicalToLogical(4, viewport);
+  const statsTop = xpTop + barHeight + physicalToLogical(5, viewport);
   const statsStride = labelSize + physicalToLogical(3, viewport);
   return {
     margin, topMargin, rightMargin, fontSize, labelSize, canvasWidth, rightHudX,
@@ -213,7 +214,9 @@ function topHudLayout(viewport: UiViewport): TopHudLayout {
  * HUD never grows into the playable surface on portrait phones. */
 export function topHudContentBottom(viewport: UiViewport): number {
   const layout = topHudLayout(viewport);
-  return layout.statsTop + layout.labelSize * 1.25;
+  // Kills and scrap occupy the right-side metric column on separate lines.
+  // Reserve the taller column, not only the left-side feedback baseline.
+  return layout.statsTop + layout.labelSize * 2.5;
 }
 
 export class PhaserHudView implements HudView {
@@ -344,7 +347,11 @@ export class PhaserHudView implements HudView {
     this.healthBarFill.setScrollFactor(0);
     this.healthBarFill.setDepth(ThemeDepth.hud);
 
-    this.healthText = createUiText(scene, layout.margin, layout.barTop + layout.barHeight + physicalToLogical(2, viewport), '', labelStyle);
+    this.healthText = createUiText(scene, layout.margin + physicalToLogical(5, viewport), layout.barTop + layout.barHeight / 2, '', {
+      ...labelStyle,
+      color: '#f8fafc',
+    });
+    this.healthText.setOrigin(0, 0.5);
     this.healthText.setScrollFactor(0);
     this.healthText.setDepth(ThemeDepth.hud);
 
@@ -368,12 +375,16 @@ export class PhaserHudView implements HudView {
     this.xpBarFill.setScrollFactor(0);
     this.xpBarFill.setDepth(ThemeDepth.hud);
 
-    this.levelText = createUiText(scene,layout.margin, layout.xpTop + layout.barHeight + physicalToLogical(2, viewport), '', labelStyle);
+    this.levelText = createUiText(scene,layout.margin + physicalToLogical(5, viewport), layout.xpTop + layout.barHeight / 2, '', {
+      ...labelStyle,
+      color: '#f8fafc',
+    });
+    this.levelText.setOrigin(0, 0.5);
     this.levelText.setScrollFactor(0);
     this.levelText.setDepth(ThemeDepth.hud);
 
     this.timeText.setPosition(layout.rightHudX, layout.topMargin);
-    this.killsText = createUiText(scene, layout.rightHudX, layout.barTop + layout.barHeight + physicalToLogical(2, viewport), '', {
+    this.killsText = createUiText(scene, layout.rightHudX, layout.statsTop, '', {
       ...labelStyle,
       align: 'right',
     });
@@ -381,7 +392,7 @@ export class PhaserHudView implements HudView {
     this.killsText.setScrollFactor(0);
     this.killsText.setDepth(ThemeDepth.hud);
 
-    this.scrapText = createUiText(scene, layout.rightHudX, layout.xpTop + layout.barHeight + physicalToLogical(2, viewport), '', {
+    this.scrapText = createUiText(scene, layout.rightHudX, layout.statsTop + layout.labelSize * 1.15, '', {
       ...labelStyle,
       align: 'right',
     });
