@@ -470,12 +470,14 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         achievementMetrics: Object.freeze({ ...metrics }),
       });
       if (!options.save.save(save)) return false;
+      const selectedWasCompleted = current.stages[selectedStageId]?.completed === true;
+      const unlocksChanged = save.progression.unlocks.some((id) => !current.progression.unlocks.includes(id));
       current = save;
       revalidateSelection();
       // Achievement grants can unlock a stage. If the player has just
       // completed the selected contract, advance its normal target using the
       // newly durable fact rather than waiting for a browser reload.
-      advanceSelectedStage(selectedStageId);
+      if (selectedWasCompleted && unlocksChanged) advanceSelectedStage(selectedStageId);
       return true;
     },
     reportAchievement(definitionId, progress) {
