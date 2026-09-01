@@ -572,6 +572,7 @@ export class GameScene extends Phaser.Scene {
         return new StageSelectionController(ctx).selectNext().ok;
       },
       canNavigate: () => !scene.hasPendingTerminalPersistence(),
+      onDiscardPending: () => scene.discardPendingTerminalPersistence(),
     });
 
     this.inputController.onAction('pause', () => this.routeAction('pause'));
@@ -1073,9 +1074,20 @@ export class GameScene extends Phaser.Scene {
   }
 
   private hasPendingTerminalPersistence(): boolean {
-    return this.pendingMasteryCharacterId !== undefined
+    const terminalRun = this.runState?.status === 'won' || this.runState?.status === 'lost';
+    return (terminalRun && this.progressionSystem?.hasBanked !== true)
+      || this.pendingMasteryCharacterId !== undefined
       || this.pendingAchievementEvaluation
       || Object.keys(this.pendingAchievementFacts).length > 0;
+  }
+
+  /** Explicit user-authorized escape hatch for permanently unavailable
+   * storage. It never claims persistence or mutates the save; normal retry
+   * remains the default until the player chooses to leave without saving. */
+  private discardPendingTerminalPersistence(): void {
+    this.pendingMasteryCharacterId = undefined;
+    this.pendingAchievementFacts = {};
+    this.pendingAchievementEvaluation = false;
   }
 
   private describeAchievementToast(): string | undefined {

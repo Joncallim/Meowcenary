@@ -84,6 +84,8 @@ export interface PhaserRunSummaryViewOptions {
   /** Terminal rewards that have not yet crossed their durable boundary keep
    * navigation in the summary until their retry completes. */
   readonly canNavigate?: () => boolean;
+  /** Explicit recovery path when local persistence remains unavailable. */
+  readonly onDiscardPending?: () => void;
 }
 
 /** Terminal win/loss surface: reads the already-banked run and offers Retry or
@@ -99,6 +101,7 @@ export class PhaserRunSummaryView {
   private readonly readInputMode: () => InputMode;
   private readonly onNextStage?: () => boolean;
   private readonly canNavigate: () => boolean;
+  private readonly onDiscardPending?: () => void;
   private modal: ModalTextHelpers;
   private readonly unsubscribers: Array<() => void>;
   private root?: Phaser.GameObjects.Container;
@@ -128,6 +131,7 @@ export class PhaserRunSummaryView {
     this.readInputMode = options.readInputMode ?? (() => 'pointer');
     this.onNextStage = options.onNextStage;
     this.canNavigate = options.canNavigate ?? (() => true);
+    this.onDiscardPending = options.onDiscardPending;
     this.modal = createModalTextHelpers(options.scene, options.viewport);
     this.unsubscribers = [
       options.bus.on('run:won', this.handleTerminal),
@@ -236,6 +240,13 @@ export class PhaserRunSummaryView {
     this.scenePlugin.start(SceneKey.Menu);
   }
 
+  private discardAndReturnToMenu(): void {
+    if (this.disposed || !this.visible || this.canNavigate() || !this.onDiscardPending) return;
+    this.onDiscardPending();
+    this.bus.emit('ui:confirm', {});
+    this.scenePlugin.start(SceneKey.Menu);
+  }
+
   private render(snapshot: RunSummarySnapshot): void {
     this.rebuildCount += 1;
     if (this.disposed) {
@@ -311,8 +322,9 @@ export class PhaserRunSummaryView {
       });
       y += physicalToLogical(8, viewport);
 
-      if (!snapshot.persistenceSucceeded) {
-        const warning = this.modal.addText(centerX, y, 'Not saved — this session only', 'notice');
+      const navigationPending = !this.canNavigate();
+      if (!snapshot.persistenceSucceeded || navigationPending) {
+        const warning = this.modal.addText(centerX, y, navigationPending ? 'Saving rewards…' : 'Not saved — this session only', 'notice');
         root.add(warning);
         warning.setOrigin(0.5);
         y += rowGap;
@@ -341,7 +353,8 @@ export class PhaserRunSummaryView {
       }
 
       const hasNextStage = snapshot.canContinue && this.onNextStage !== undefined;
-      const buttonCount = hasNextStage ? 3 : 2;
+      const hasDiscard = navigationPending && this.onDiscardPending !== undefined;
+      const buttonCount = (hasNextStage ? 3 : 2) + (hasDiscard ? 1 : 0);
       const firstButtonY = height - margin - hitTarget * buttonCount - 12 * (buttonCount - 1);
       const buttons: import('./modal').ModalButtonHandle[] = [];
       if (hasNextStage) {
@@ -357,6 +370,11 @@ export class PhaserRunSummaryView {
         this.returnToMenu();
       });
       buttons.push(retry, menu);
+      if (hasDiscard) {
+        buttons.push(this.modal.addButton(root, centerX, retryY + (hitTarget + 12) * 2, buttonWidth, 'Continue without saving', () => {
+          this.discardAndReturnToMenu();
+        }));
+      }
       // F5: summary modal buttons participate in pointer-hover focus —
       // silent index sync, exactly one FocusStroke ring on hover, cleared on
       // out, and the logical index is set before pointer-up activation.
