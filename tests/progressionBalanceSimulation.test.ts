@@ -109,15 +109,18 @@ describe('Epic 26 deterministic progression balance simulation', () => {
   });
 
   it('has no early equipment dead end: the first tier upgrade unlocks after its stage gate and is affordable at stage two', () => {
-    const harness = createHarness();
-    const { context } = harness;
-    expect(clearSelectedStage(harness, 120_000)).toBe('stage:junkyard-01');
+    const gateHarness = createHarness();
+    const { context: gateContext } = gateHarness;
+    expect(clearSelectedStage(gateHarness, 120_000)).toBe('stage:junkyard-01');
     const instanceId = 'reward:stage-01-commando-helmet';
     // The test is about the milestone gate, not whether the first stage has
     // already supplied the 100 scrap cost.
-    context.updateMeta((meta) => ({ ...meta, scrap: upgradeCost(1) }));
-    expect(context.commitEquipmentUpgrade(instanceId, 1, 2, upgradeCost(1))).toBe(false);
+    gateContext.updateMeta((meta) => ({ ...meta, scrap: upgradeCost(1) }));
+    expect(gateContext.commitEquipmentUpgrade(instanceId, 1, 2, upgradeCost(1))).toBe(false);
 
+    const harness = createHarness();
+    const { context } = harness;
+    expect(clearSelectedStage(harness, 120_000)).toBe('stage:junkyard-01');
     expect(clearSelectedStage(harness, 120_000)).toBe('stage:junkyard-02');
     expect(context.saveData.progression.scrap).toBeGreaterThanOrEqual(upgradeCost(1));
     expect(context.commitEquipmentUpgrade(instanceId, 1, 2, upgradeCost(1))).toBe(true);
