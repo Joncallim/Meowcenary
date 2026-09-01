@@ -472,6 +472,10 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       if (!options.save.save(save)) return false;
       current = save;
       revalidateSelection();
+      // Achievement grants can unlock a stage. If the player has just
+      // completed the selected contract, advance its normal target using the
+      // newly durable fact rather than waiting for a browser reload.
+      advanceSelectedStage(selectedStageId);
       return true;
     },
     reportAchievement(definitionId, progress) {

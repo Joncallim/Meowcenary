@@ -18,8 +18,7 @@ import { loadGameData } from '../src/systems/validation';
  * exercises the same durable stage boundary and normal stage composition as
  * a run, rather than comparing JSON rows in isolation.
  */
-function createHarness(storage = new MemoryStorageAdapter()) {
-  const data = loadGameData();
+function createHarness(storage = new MemoryStorageAdapter(), data = loadGameData()) {
   const metaUpgrades = new DataMetaUpgradeRegistry(data);
   const stages = new StageRegistry(data);
   const context = createGameContext({
@@ -72,7 +71,9 @@ describe('Epic 26 deterministic progression balance simulation', () => {
       expect(context.saveData.appliedGrantTransactions[`${stageId}:first-clear`]).toBe(true);
     }
 
-    expect(rewards).toEqual([...rewards].sort((a, b) => a - b));
+    for (let index = 1; index < rewards.length; index += 1) {
+      expect(rewards[index]).toBeGreaterThan(rewards[index - 1]);
+    }
     expect(rewards[4]).toBeGreaterThan(rewards[0] * 4);
     expect(rewards.at(-1)).toBeGreaterThan(rewards[4]);
     const beforeReplay = context.saveData.progression.scrap;
@@ -91,6 +92,20 @@ describe('Epic 26 deterministic progression balance simulation', () => {
     clearSelectedStage(firstSession, 120_000);
     const resumed = createHarness(storage);
     expect(assembleComposedRunRequest(resumed.context, createRng(1))).toMatchObject({ kind: 'stage', stageId: 'stage:junkyard-02' });
+
+    const achievementGatedData = structuredClone(loadGameData()) as any;
+    achievementGatedData.stages = achievementGatedData.stages.map((stage: any) => stage.id === 'stage:junkyard-02'
+      ? { ...stage, unlock: { type: 'achievement-completed', achievementId: 'achievement:first-victory' } }
+      : stage);
+    const achievementGated = createHarness(new MemoryStorageAdapter(), achievementGatedData);
+    clearSelectedStage(achievementGated, 120_000);
+    expect(achievementGated.context.commitAchievementTransaction({
+      'achievement:first-victory': { progress: 1, completed: true, completedAt: 1 },
+    }, {}, {
+      id: 'achievement:first-victory:completion',
+      grants: [{ type: 'achievement-completed', achievementId: 'achievement:first-victory' }],
+    })).toBe(true);
+    expect(assembleComposedRunRequest(achievementGated.context, createRng(1))).toMatchObject({ kind: 'stage', stageId: 'stage:junkyard-02' });
   });
 
   it('has no early equipment dead end: the first tier upgrade unlocks after its stage gate and is affordable at stage two', () => {
@@ -98,6 +113,9 @@ describe('Epic 26 deterministic progression balance simulation', () => {
     const { context } = harness;
     expect(clearSelectedStage(harness, 120_000)).toBe('stage:junkyard-01');
     const instanceId = 'reward:stage-01-commando-helmet';
+    // The test is about the milestone gate, not whether the first stage has
+    // already supplied the 100 scrap cost.
+    context.updateMeta((meta) => ({ ...meta, scrap: upgradeCost(1) }));
     expect(context.commitEquipmentUpgrade(instanceId, 1, 2, upgradeCost(1))).toBe(false);
 
     expect(clearSelectedStage(harness, 120_000)).toBe('stage:junkyard-02');
