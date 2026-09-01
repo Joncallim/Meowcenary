@@ -62,6 +62,8 @@ export class GunsmithController {
           fitted: selected !== undefined && (Object.values(selected.fitted).includes(instanceId) || selected.traitParts.includes(instanceId)),
           comparisonSummary: selected === undefined
             ? 'Choose a chassis to preview this part.'
+            : (Object.values(selected.fitted).includes(instanceId) || selected.traitParts.includes(instanceId))
+              ? `Fitted to ${selected.baseWeaponFamily}; select to unequip.`
             : !isSlotCompatible(selected.baseWeaponFamily, definition.slot)
               ? `Cannot fit ${selected.baseWeaponFamily}.`
               : definition.slot === 'trait' && selected.traitParts.length >= 2
