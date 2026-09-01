@@ -417,7 +417,12 @@ export class GameScene extends Phaser.Scene {
     // Progression must bank a completed run before achievement facts observe
     // its durable currency total. EventBus preserves registration order.
     this.unsubscribers.push(
-      ctx.bus.on('run:won', () => this.evaluateLiveAchievements(ctx, { 'metric:runs-completed': 1 })),
+      ctx.bus.on('run:won', () => this.evaluateLiveAchievements(ctx, {
+        'metric:runs-completed': 1,
+        // This is a lifetime metric, not the current spendable balance. The
+        // progression listener has already banked this exact run reward.
+        'metric:scrap-banked': this.progressionSystem?.lastBankedRun?.reward.scrap ?? 0,
+      })),
     );
     const debugCheatSystem =
       cheatsActive && debugFlags
@@ -962,7 +967,6 @@ export class GameScene extends Phaser.Scene {
     for (const [id, amount] of Object.entries(increments)) {
       metrics[id] = Math.max(0, (metrics[id] ?? 0) + amount);
     }
-    metrics['metric:scrap-banked'] = Math.max(metrics['metric:scrap-banked'] ?? 0, ctx.saveData.progression.scrap);
     const registry = new DataAchievementRegistry({ achievements: ctx.data.achievements ?? [] });
     const result = evaluateAchievements(ctx.saveData.achievements, {
       metrics,
