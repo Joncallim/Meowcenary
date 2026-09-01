@@ -48,6 +48,11 @@ export const RARITY_TIER: Readonly<Record<string, number>> = Object.freeze({
  * name typed traits; they never need per-ID runtime branches. */
 export const TRAIT_MODIFIERS: Readonly<Partial<Record<BehaviorTrait, Omit<Modifier, 'sourceId' | 'scope'>>>> = Object.freeze({
   FIRE: { stat: 'damage', op: 'mult', value: 1.15 },
+  // Projectile piercing is already an authoritative combat primitive:
+  // resolveWeaponStats -> Projectile.registerHit. Keeping it here makes an
+  // infused PIERCING trait behave exactly like a native piercing part,
+  // without any part-ID branch in GameScene or WeaponSystem.
+  PIERCING: { stat: 'pierce', op: 'add', value: 1 },
 });
 
 export interface PartDefinition {

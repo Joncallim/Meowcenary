@@ -245,6 +245,14 @@ describe('Epic 23 effective stat resolution', () => {
       expect.objectContaining({ stat: 'damage', op: 'mult', value: 1.15, scope: { kind: 'weapon-family', family: 'pistol' } }),
     ]);
   });
+
+  it('resolves an infused piercing trait into the live projectile pierce stat', () => {
+    const barrel = part('part:barrel-standard', ['PIERCING']);
+    const build = (equipPart({ id: 'build:pistol', name: 'Pistol', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }, barrel, defMap) as { ok: true; build: WeaponBuild }).build;
+    expect(resolveBuildTraitModifiers(build, defMap, ownedMap(barrel))).toEqual([
+      expect.objectContaining({ stat: 'pierce', op: 'add', value: 1, scope: { kind: 'weapon-family', family: 'pistol' } }),
+    ]);
+  });
 });
 
 describe('Epic 23 persistence round-trip', () => {
