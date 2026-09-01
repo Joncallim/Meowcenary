@@ -9,6 +9,10 @@ import { assembleComposedRunRequest } from '../src/gameplay/runRequest';
 import { createRng } from '../src/engine/rng';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataArenaRegistry } from '../src/systems/arenas';
+import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
+import { createGameContext } from '../src/engine/context';
+import { createEventBus } from '../src/engine/eventBus';
+import { createStageRuntime } from '../src/gameplay/stage/stageRuntime';
 
 describe('Alpha 3 shared foundation canonical contracts', () => {
   it('preserves canonical achievement and character IDs through grant, save/load, and condition consumers', () => {
@@ -105,16 +109,34 @@ describe('Alpha 3 shared foundation canonical contracts', () => {
     expect(composed).toMatchObject({ kind: 'stage', stageId: fixture.id });
     if (composed.kind !== 'stage') throw new Error('Second fixture unexpectedly composed as legacy');
     const plan = resolveRunPlan(composed, registry.runPlanCatalog());
-    const transaction = applyDurableGrantTransaction(createDefaultSaveV3(), {
-      id: 'stage:contract-fixture:first-clear',
-      grants: [{ type: 'unlock-equipment', equipmentId: 'equipment:contract-fixture' }],
+    // Exercise the same run-plan → objective → pending reward → durable fact
+    // boundary consumed by GameScene. No fixture-specific scene branch,
+    // reward wiring, or schema key is introduced here.
+    const runtime = createStageRuntime(plan);
+    runtime.tick(0, 0);
+    runtime.recordEnemyDefeat(encounters[0].enemyIds[0]);
+    runtime.recordEnemyDefeat(encounters[0].enemyIds[0]);
+    runtime.tick(0, 60_000);
+    const pending = runtime.pendingClear;
+    if (!pending) throw new Error('Second fixture did not complete its generic objective');
+    const metaUpgrades = new DataMetaUpgradeRegistry(validated);
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data: validated,
+      arenas: new DataArenaRegistry(validated), characters: new DataCharacterRegistry(validated),
+      metaUpgrades, stages: registry,
+      save: new SaveManager(new MemoryStorageAdapter(), 'shared-fixture-runtime', metaUpgrades.maxLevels()),
     });
-    const facts = createConditionContext(transaction.save.progression, {
-      stages: { [plan.stageId]: { completed: true } },
+    const transaction = {
+      id: `stage:${fixture.id.slice('stage:'.length)}:first-clear`,
+      grants: [{ type: 'grant-scrap' as const, amount: pending.reward }, ...pending.grants],
+    };
+    expect(runtime.tryCommit((clear) => context.completeStageTransaction(clear.stageId, clear.timeMs, clear.bossId, transaction))).toBe(true);
+    const facts = createConditionContext(context.saveData.progression, {
+      stages: context.saveData.stages,
     });
 
     expect(plan.stageId).toBe(fixture.id);
     expect(evaluateCondition({ type: 'stage-cleared', stageId: fixture.id }, facts)).toBe(true);
-    expect(evaluateCondition({ type: 'owns-content', contentId: 'equipment:contract-fixture' }, facts)).toBe(true);
+    expect(context.saveData.appliedGrantTransactions[transaction.id]).toBe(true);
   });
 });

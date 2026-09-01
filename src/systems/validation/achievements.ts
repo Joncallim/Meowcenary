@@ -4,7 +4,7 @@
  * existing RowCheck pattern. Stable IDs, legal kinds/targets, resolvable
  * metric/condition/reward references, and optional platform mappings.
  */
-import { isContentId, isUnlockId } from '../ids';
+import { isContentId, isOwnedInstanceId, isUnlockId } from '../ids';
 import { validateProgressionCondition } from '../../gameplay/conditionValidation';
 import type { RowCheck } from '../validation';
 
@@ -14,7 +14,7 @@ const VALID_KINDS = new Set(['standard', 'incremental', 'mastery']);
 const VALID_METRIC_PREFIX = 'metric:';
 const VALID_GRANT_TYPES = new Set([
   'grant-scrap', 'unlock-stage', 'unlock-character', 'unlock-equipment',
-  'unlock-part', 'unlock-trait', 'grant-item', 'grant-equipment-instance', 'achievement-completed',
+  'unlock-part', 'unlock-trait', 'grant-item', 'grant-part-instance', 'grant-equipment-instance', 'achievement-completed',
   'permanent-upgrade-level',
 ]);
 
@@ -55,8 +55,13 @@ function checkGrant(grant: unknown, path: string, errors: string[]): void {
       if (typeof g.itemId !== 'string' || !isUnlockId(g.itemId) || !g.itemId.startsWith('item:')) errors.push(`${path}.itemId: must be a canonical item ID`);
       if (g.amount !== undefined && !isPositiveInteger(g.amount)) errors.push(`${path}.amount: must be a positive safe integer when present`);
       break;
+    case 'grant-part-instance':
+      if (typeof g.instanceId !== 'string' || !isOwnedInstanceId(g.instanceId) || !g.instanceId.startsWith('reward:')) errors.push(`${path}.instanceId: must be a stable reward instance ID`);
+      if (typeof g.partId !== 'string' || !isUnlockId(g.partId) || !g.partId.startsWith('part:')) errors.push(`${path}.partId: must be a canonical part ID`);
+      if (g.tier !== undefined && (!Number.isSafeInteger(g.tier) || (g.tier as number) < 1 || (g.tier as number) > 5)) errors.push(`${path}.tier: must be 1-5 when present`);
+      break;
     case 'grant-equipment-instance':
-      if (typeof g.instanceId !== 'string' || !g.instanceId.startsWith('reward:')) errors.push(`${path}.instanceId: must be a stable reward instance ID`);
+      if (typeof g.instanceId !== 'string' || !isOwnedInstanceId(g.instanceId) || !g.instanceId.startsWith('reward:')) errors.push(`${path}.instanceId: must be a stable reward instance ID`);
       if (typeof g.equipmentId !== 'string' || !isUnlockId(g.equipmentId) || !g.equipmentId.startsWith('equipment:')) errors.push(`${path}.equipmentId: must be a canonical equipment ID`);
       if (g.tier !== undefined && (!Number.isSafeInteger(g.tier) || (g.tier as number) < 1 || (g.tier as number) > 4)) errors.push(`${path}.tier: must be 1-4 when present`);
       break;
@@ -193,7 +198,7 @@ export function assertAchievementGrantAndConditionReferences(
   for (const achievement of achievements) {
     for (const reward of achievement.rewards ?? []) {
       const g = reward.grant;
-      const target = g.type === 'unlock-stage' ? ['stageIds', g.stageId] : g.type === 'unlock-character' ? ['characterIds', g.characterId] : g.type === 'unlock-part' ? ['partIds', g.partId] : g.type === 'unlock-trait' ? ['traitIds', g.traitId] : g.type === 'unlock-equipment' || g.type === 'grant-equipment-instance' ? ['equipmentIds', g.equipmentId] : g.type === 'achievement-completed' ? ['achievementIds', g.achievementId] : g.type === 'permanent-upgrade-level' ? ['metaUpgradeIds', g.upgradeId] : undefined;
+      const target = g.type === 'unlock-stage' ? ['stageIds', g.stageId] : g.type === 'unlock-character' ? ['characterIds', g.characterId] : g.type === 'unlock-part' || g.type === 'grant-part-instance' ? ['partIds', g.partId] : g.type === 'unlock-trait' ? ['traitIds', g.traitId] : g.type === 'unlock-equipment' || g.type === 'grant-equipment-instance' ? ['equipmentIds', g.equipmentId] : g.type === 'achievement-completed' ? ['achievementIds', g.achievementId] : g.type === 'permanent-upgrade-level' ? ['metaUpgradeIds', g.upgradeId] : undefined;
       if (target && !catalogs[target[0] as keyof typeof catalogs].has(target[1] as string)) throw new Error(`achievement.${achievement.id}: ${String(g.type)} references unknown "${String(target[1])}"`);
       if (g.type === 'grant-item') throw new Error(`achievement.${achievement.id}: grant-item is unsupported without an item catalog`);
     }

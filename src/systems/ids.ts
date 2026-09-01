@@ -19,3 +19,9 @@ export function isGrantTransactionId(value: string): boolean {
 export function isInstanceId(value: string): boolean {
   return /^(?:[a-z][a-z0-9-]*:)?[a-z][a-z0-9-]{0,63}(?::[a-z0-9-]{1,64})?$/.test(value);
 }
+
+/** Canonical identity for a newly granted owned copy. Definition IDs are not
+ * ownership IDs; legacy-save sanitisation alone may use isInstanceId. */
+export function isOwnedInstanceId(value: string): boolean {
+  return /^(?:owned|reward):[a-z][a-z0-9-]{0,63}(?::[a-z0-9-]{1,64})?$/.test(value);
+}

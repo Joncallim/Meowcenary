@@ -37,6 +37,7 @@ describe('Save V3 migration (V2→V3)', () => {
       bosses: {},
       pendingAchievementReports: [],
       appliedGrantTransactions: {},
+      grantTransactionFingerprints: {},
     });
     expect(first).not.toBe(second);
     expect(Object.isFrozen(first)).toBe(true);
@@ -46,6 +47,34 @@ describe('Save V3 migration (V2→V3)', () => {
     expect(Object.isFrozen(first.stages)).toBe(true);
     expect(Object.isFrozen(first.achievements)).toBe(true);
     expect(Object.isFrozen(first.achievementMetrics)).toBe(true);
+  });
+
+  it('freezes nested durable records and preserves canonical achievement metrics across reload', () => {
+    const storage = new MemoryStorageAdapter();
+    const manager = new SaveManager(storage, 'v3-nested-freeze', limits);
+    const save = migrate({
+      version: 3,
+      settings: DEFAULT_SETTINGS,
+      progression: { scrap: 0, unlocks: [], permanentUpgrades: {} },
+      stages: { 'stage:junkyard-01': { completed: true } },
+      achievements: { 'achievement:first-victory': { completed: true, progress: 1 } },
+      achievementMetrics: { 'metric:enemies-defeated': 17 },
+      characters: { 'scrap-tabby': { tier: 1, xp: 4 } },
+      gunsmith: {
+        builds: [{ id: 'build-a', name: 'A', baseWeaponFamily: 'pistol', fitted: { barrel: 'owned-a' }, traitParts: [] }],
+        parts: { 'owned-a': { partId: 'part:barrel-standard', tier: 2, infusedTraits: ['FIRE'] } },
+      },
+      equipment: { 'owned-helmet': { equipmentId: 'equipment:commando-helmet', tier: 1 } },
+      bosses: { 'boss-crusher': { defeated: true } },
+    }, limits) as SaveDataV3;
+    expect(Object.isFrozen(save.stages['stage:junkyard-01'])).toBe(true);
+    expect(Object.isFrozen(save.gunsmith.parts['owned-a'])).toBe(true);
+    expect(Object.isFrozen(save.gunsmith.parts['owned-a'].infusedTraits)).toBe(true);
+    expect(Object.isFrozen(save.gunsmith.builds[0].fitted)).toBe(true);
+    expect(Object.isFrozen(save.equipment['owned-helmet'])).toBe(true);
+    expect(Object.isFrozen(save.bosses['boss-crusher'])).toBe(true);
+    expect(manager.save(save)).toBe(true);
+    expect(manager.load().achievementMetrics).toEqual({ 'metric:enemies-defeated': 17 });
   });
 
   it('migrates V2 → V3 preserving scrap and unlocks', () => {
@@ -169,6 +198,11 @@ describe('V3 domain sanitizers', () => {
       },
       bosses: { 'boss-crusher': { defeated: true } },
       appliedGrantTransactions: { 'stage:junkyard-01:first-clear': true, constructor: true },
+      grantTransactionFingerprints: {
+        'stage:junkyard-01:first-clear': '[{"amount":25,"type":"grant-scrap"}]',
+        'stage:junkyard-01:empty': '',
+        constructor: 'hostile',
+      },
     };
     const v3 = migrate(raw, limits) as SaveDataV3;
     expect(v3.gunsmith.parts['part-copy-a'].partId).toBe('part:barrel-standard');
@@ -180,6 +214,9 @@ describe('V3 domain sanitizers', () => {
     expect(v3.equipment['invalid-equipment-instance']).toBeUndefined();
     expect(v3.appliedGrantTransactions['stage:junkyard-01:first-clear']).toBe(true);
     expect(Object.prototype.hasOwnProperty.call(v3.appliedGrantTransactions, 'constructor')).toBe(false);
+    expect(v3.grantTransactionFingerprints).toEqual({
+      'stage:junkyard-01:first-clear': '[{"amount":25,"type":"grant-scrap"}]',
+    });
   });
 
   it('keeps only owned equipment instance references in the equipped loadout', () => {
@@ -255,14 +292,14 @@ describe('V3 domain sanitizers', () => {
       version: 3, settings: DEFAULT_SETTINGS, progression: { scrap: 0, unlocks: [], permanentUpgrades: {} },
       stages: { 'stage:junkyard-01': { completed: true }, 'character:bolt-hound': { completed: true } },
       achievements: { 'achievement:first-victory': { completed: true }, 'character:bolt-hound': { completed: true } },
-      achievementMetrics: { 'achievement:first-victory': 1, 'stage:junkyard-01': 1 },
+      achievementMetrics: { 'metric:enemies-defeated': 1, 'achievement:first-victory': 1, 'stage:junkyard-01': 1 },
       characters: {}, gunsmith: { builds: [], parts: {} }, equipment: {},
       items: { 'item:scrap-shot': 2, 'achievement:first-victory': 99 },
       bosses: { 'boss-crusher': { defeated: true }, 'stage:junkyard-01': { defeated: true } },
     }, limits) as SaveDataV3;
     expect(v3.stages).toEqual({ 'stage:junkyard-01': { completed: true } });
     expect(v3.achievements).toEqual({ 'achievement:first-victory': { completed: true } });
-    expect(v3.achievementMetrics).toEqual({ 'achievement:first-victory': 1 });
+    expect(v3.achievementMetrics).toEqual({ 'metric:enemies-defeated': 1 });
     expect(v3.items).toEqual({ 'item:scrap-shot': 2 });
     expect(v3.bosses).toEqual({ 'boss-crusher': { defeated: true } });
   });

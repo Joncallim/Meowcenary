@@ -16,18 +16,14 @@ describe('GameContext persistence boundary', () => {
   it('commits stage, boss fact, reward and receipt together or not at all', () => {
     const { context, storage } = setup();
     storage.succeed = false;
-    expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss-crusher', {
-      id: 'stage:junkyard-05:first-clear', grants: [{ type: 'grant-scrap', amount: 75 }],
-    })).toBe(false);
+    expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss-crusher', stageTransaction('stage:junkyard-05', 120_000))).toBe(false);
     expect(context.saveData.stages['stage:junkyard-05']).toBeUndefined();
     expect(context.saveData.bosses['boss-crusher']).toBeUndefined();
     storage.succeed = true;
-    expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss-crusher', {
-      id: 'stage:junkyard-05:first-clear', grants: [{ type: 'grant-scrap', amount: 75 }],
-    })).toBe(true);
+    expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss-crusher', stageTransaction('stage:junkyard-05', 120_000))).toBe(true);
     expect(context.saveData.stages['stage:junkyard-05'].completed).toBe(true);
     expect(context.saveData.bosses['boss-crusher'].defeated).toBe(true);
-    expect(context.saveData.progression.scrap).toBe(75);
+    expect(context.saveData.progression.scrap).toBe(220);
     expect(context.saveData.appliedGrantTransactions['stage:junkyard-05:first-clear']).toBe(true);
   });
 
@@ -41,6 +37,15 @@ describe('GameContext persistence boundary', () => {
     expect(context.completeStageTransaction('stage:junkyard-05', Number.NaN, 'boss-crusher', transaction)).toBe(false);
     expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss:other', transaction)).toBe(false);
     expect(context.saveData.appliedGrantTransactions[transaction.id]).toBeUndefined();
+    expect(context.saveData.progression.scrap).toBe(0);
+  });
+
+  it('rejects a fresh stage receipt whose reward payload was not produced by its profile', () => {
+    const { context } = setup();
+    const expected = stageTransaction('stage:junkyard-05', 120_000);
+    const forged = { ...expected, grants: [{ type: 'grant-scrap' as const, amount: 999_999 }] };
+    expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss-crusher', forged)).toBe(false);
+    expect(context.saveData.appliedGrantTransactions[expected.id]).toBeUndefined();
     expect(context.saveData.progression.scrap).toBe(0);
   });
 
@@ -86,6 +91,20 @@ describe('GameContext persistence boundary', () => {
     expect(context.applyGrantTransaction(transaction)).toBe(false);
     expect(context.saveData.gunsmith.parts['reward:unknown-part']).toBeUndefined();
     expect(context.saveData.appliedGrantTransactions[transaction.id]).toBeUndefined();
+  });
+
+  it('rejects unsupported item and unknown permanent-upgrade grants before recording receipts', () => {
+    const { context } = setup();
+    expect(context.applyGrantTransaction({
+      id: 'stage:junkyard-01:unknown-upgrade',
+      grants: [{ type: 'permanent-upgrade-level', upgradeId: 'not-a-real-upgrade', levels: 1 }],
+    })).toBe(false);
+    expect(context.applyGrantTransaction({
+      id: 'stage:junkyard-01:unsupported-item',
+      grants: [{ type: 'grant-item', itemId: 'item:not-catalogued', amount: 1 }],
+    })).toBe(false);
+    expect(context.saveData.appliedGrantTransactions['stage:junkyard-01:unknown-upgrade']).toBeUndefined();
+    expect(context.saveData.appliedGrantTransactions['stage:junkyard-01:unsupported-item']).toBeUndefined();
   });
 
   it('fails closed if a receipt survives but its stage facts do not', () => {
@@ -610,5 +629,16 @@ function setup(stages?: StageRegistry, achievementPlatform?: AchievementPlatform
       bus: createEventBus(), menuRng: createRng(1), data,
       arenas, metaUpgrades: registry, save, characters, stages, achievementPlatform,
     }),
+  };
+}
+
+function stageTransaction(stageId: string, timeMs: number) {
+  const data = loadGameData();
+  const stage = data.stages?.find((candidate) => candidate.id === stageId);
+  const reward = data.rewardProfiles?.find((candidate) => candidate.id === stage?.rewardProfileId);
+  if (!reward) throw new Error(`Missing reward profile for ${stageId}`);
+  return {
+    id: `${stageId}:first-clear`,
+    grants: [{ type: 'grant-scrap' as const, amount: Math.max(1, reward.scrapBase + Math.floor(timeMs / 60_000) * reward.scrapPerMinute) }, ...(reward.grants ?? [])],
   };
 }
