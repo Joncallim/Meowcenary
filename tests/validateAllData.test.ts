@@ -28,6 +28,23 @@ describe('validateAllData', () => {
     expect(collectGameDataErrors(loadGameData())).toEqual([]);
   });
 
+  it('collects malformed part and equipment presentation references just as boot does', () => {
+    const data = mutableData();
+    data.gunParts[0].presentation.iconArtId = 'upgrade-icon:not-real';
+    data.equipment[0].presentation.iconArtId = 'weapon-icon:pistol:t1';
+
+    expect(collectGameDataErrors(data)).toEqual([
+      {
+        file: 'gun-parts.json', index: 0, field: 'presentation.iconArtId',
+        message: 'unknown visual-art id "upgrade-icon:not-real"',
+      },
+      {
+        file: 'equipment.json', index: 0, field: 'presentation.iconArtId',
+        message: 'must resolve to a required upgrade-icon binding',
+      },
+    ]);
+  });
+
   it('reports every broken catalog without aborting', () => {
     const data = mutableData();
     data.weapons[0].damage = -1;

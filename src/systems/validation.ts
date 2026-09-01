@@ -877,6 +877,8 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertUpgradeWeaponFamilyReferences(upgrades, weapons),
     () => assertUpgradeArtReferences(upgrades, visualArt),
     () => assertStageAssetBundleReferences(catalogs.stages as StageDefinition[], assetBundles, visualArt, arenas),
+    () => assertPartArtReferences(catalogs['gun-parts'] as PartDefinition[], visualArt),
+    () => assertEquipmentArtReferences(catalogs.equipment as EquipmentDefinition[], visualArt),
   ];
   for (const assertion of assertions) {
     try {

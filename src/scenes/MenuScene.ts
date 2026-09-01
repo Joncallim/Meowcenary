@@ -579,8 +579,9 @@ export class MenuScene extends Phaser.Scene {
       }));
       y += hitTarget * 0.7;
       actions.slice(this.gunsmithPage * pageSize, (this.gunsmithPage + 1) * pageSize).forEach((item) => {
-        this.addButton(root, margin, y, item.label, hitTarget, item.action);
-        if (item.iconArtId) this.addCatalogIcon(root, width - margin - 14, y + hitTarget / 2, item.iconArtId);
+        const iconColumn = item.iconArtId ? 38 : 0;
+        this.addButton(root, margin, y, item.label, hitTarget, item.action, 'ui:confirm', iconColumn > 0 ? width - margin - this.safeRightMargin - iconColumn : undefined);
+        if (item.iconArtId) this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, item.iconArtId);
         y += hitTarget + 8;
       });
       if (pageCount > 1) {
@@ -629,12 +630,13 @@ export class MenuScene extends Phaser.Scene {
     }
     snapshot.equipment.owned.forEach((item) => {
       const equippedHere = equipped[item.slot] === item.instanceId;
+      const iconColumn = 38;
       this.addButton(root, margin, y, `${equippedHere ? '✓ ' : ''}${item.name} [${item.setId}] T${item.tier} — ${equippedHere ? 'Equipped' : 'Equip'}`, hitTarget, () => {
         this.render(equippedHere
           ? this.requireController().unequipEquipment(item.slot as 'helmet' | 'armour' | 'gloves' | 'boots')
           : this.requireController().equipEquipment(item.instanceId));
-      });
-      this.addCatalogIcon(root, width - margin - 14, y + hitTarget / 2, item.iconArtId);
+      }, 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
+      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, item.iconArtId);
       y += hitTarget + 8;
       if (item.upgradeCost !== undefined) {
         this.addButton(root, margin, y, `Upgrade ${item.name} (${item.upgradeCost} scrap)`, hitTarget, () => {
@@ -761,6 +763,7 @@ export class MenuScene extends Phaser.Scene {
     minHeight: number,
     callback: () => void,
     audioEvent: MenuAudioEvent = 'ui:confirm',
+    maxLabelWidth?: number,
   ): Phaser.GameObjects.Text {
     const text = this.own(root, createUiText(this,x, y, label, {
       color: '#f7f1d5',
@@ -768,6 +771,7 @@ export class MenuScene extends Phaser.Scene {
       fontSize: `${ThemeFont.labelMin}px`,
       backgroundColor: 'rgba(23, 48, 59, 0.86)',
       padding: { x: 10, y: 8 },
+      ...(maxLabelWidth === undefined ? {} : { wordWrap: { width: Math.max(1, maxLabelWidth - 20) } }),
     }));
     text.setOrigin(x === this.safeCenterX ? 0.5 : 0, 0);
     text.setScrollFactor(0);
