@@ -118,6 +118,21 @@ describe('Save V3 migration (V2→V3)', () => {
     expect(v3.progression.unlocks).toContain('achievement:first-victory');
   });
 
+  it('reconciles the legacy 100-kill character grant to Scrap Weasel without dropping old unlocks', () => {
+    const save = migrate({
+      version: 3,
+      settings: DEFAULT_SETTINGS,
+      progression: { scrap: 0, unlocks: ['character:bolt-hound'], permanentUpgrades: {} },
+      stages: {},
+      achievements: { 'achievement:kill-milestone-100': { completed: true, progress: 100 } },
+      achievementMetrics: { 'metric:enemies-defeated': 100 },
+      characters: {}, gunsmith: { builds: [], parts: {} }, equipment: {}, equipmentLoadout: {}, items: {}, bosses: {},
+      pendingAchievementReports: [], appliedGrantTransactions: {}, grantTransactionFingerprints: {},
+    }, limits) as SaveDataV3;
+    expect(save.progression.unlocks).toContain('character:bolt-hound');
+    expect(save.progression.unlocks).toContain('character:scrap-weasel');
+  });
+
   it('does not create achievement entries when first-victory not unlocked', () => {
     const v2 = {
       version: 2,

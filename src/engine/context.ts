@@ -119,7 +119,9 @@ export interface GameContext {
   completeStageTransaction(stageId: string, timeMs: number, bossId: string | undefined, transaction: DurableGrantTransaction): boolean;
   commitAchievementTransaction(achievements: AchievementProgressState, metrics: AchievementMetricState, transaction?: DurableGrantTransaction): boolean;
   reportAchievement(definitionId: string, progress: import('../systems/save').AchievementProgress): void;
-  /** Persist stage completion into Save V3 stages domain. Returns true if saved. */
+  /** Compatibility completion command. It derives the catalog-owned first
+   * clear transaction and delegates to the atomic stage boundary; callers
+   * cannot persist a completion fact without its reward receipt. */
   completeStage(stageId: string, timeMs: number): boolean;
   resetProgression(): PersistenceUpdate<MetaState>;
   selectCharacter(characterId: string, expectedRevision: number): SelectCharacterResult;
@@ -356,9 +358,14 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       if (expectedTransaction === undefined || transaction.id !== expectedTransaction.id
         || durableGrantFingerprint(transaction) !== durableGrantFingerprint(expectedTransaction)) return false;
       if (!hasKnownContentRewards(transaction)) return false;
+      // A boss-stage completion fact is inseparable from the matching boss
+      // defeat fact. Allowing an omitted boss ID would bank its first-clear
+      // receipt while starving achievement/progression consumers of the
+      // authoritative boss fact.
+      if (definition.bossId !== bossId) return false;
       if (bossId !== undefined) {
         const encounter = stages.encounterProfileById(definition.encounterProfileId);
-        if (definition.bossId !== bossId || encounter?.bossId !== bossId) return false;
+        if (encounter?.bossId !== bossId) return false;
       }
 
       const granted = applyDurableGrantTransaction(current, transaction);
@@ -369,6 +376,22 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       if (!granted.changed) {
         if (current.stages[stageId]?.completed !== true) return false;
         if (bossId !== undefined && current.bosses[bossId]?.defeated !== true) return false;
+        // A replay must never mint its first-clear reward again, but a later
+        // legitimate completion may still improve the non-reward best-time
+        // record. Keep that update durable as a separate fact-only write.
+        const previous = current.stages[stageId];
+        if (timeMs > 0 && (previous?.bestTimeMs === undefined || timeMs < previous.bestTimeMs)) {
+          const save = freezeSaveV3({
+            ...current,
+            stages: Object.freeze({
+              ...current.stages,
+              [stageId]: Object.freeze({ ...previous, completed: true, bestTimeMs: timeMs }),
+            }),
+          });
+          if (!options.save.save(save)) return false;
+          current = save;
+          revalidateSelection();
+        }
         return true;
       }
       const previous = current.stages[stageId];
@@ -439,19 +462,34 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     },
     resetProgression() { return context.updateMeta(() => createDefaultProgression()); },
     completeStage(stageId: string, timeMs: number): boolean {
-      if (!stages.stageById(stageId) || !Number.isFinite(timeMs) || timeMs < 0) return false;
-      const progress = current.stages[stageId];
-      const newProgress = {
-        completed: true,
-        ...(timeMs > 0 ? { bestTimeMs: progress?.bestTimeMs !== undefined && progress.bestTimeMs < timeMs ? progress.bestTimeMs : timeMs } : {}),
-      };
-      const save = freezeSaveV3({
-        ...current,
-        stages: Object.freeze({ ...current.stages, [stageId]: newProgress }),
+      const definition = stages.stageById(stageId);
+      const rewardProfile = definition && stages.rewardProfileById(definition.rewardProfileId);
+      if (!definition || !rewardProfile || !Number.isFinite(timeMs) || timeMs < 0) return false;
+      const previous = current.stages[stageId];
+      // A first-clear receipt has a deliberately immutable catalog payload.
+      // Subsequent finishes therefore update only the performance record,
+      // never reconstructing a differently valued reward transaction.
+      if (previous?.completed === true) {
+        if (timeMs <= 0 || (previous.bestTimeMs !== undefined && previous.bestTimeMs <= timeMs)) return true;
+        const save = freezeSaveV3({
+          ...current,
+          stages: Object.freeze({
+            ...current.stages,
+            [stageId]: Object.freeze({ ...previous, bestTimeMs: timeMs }),
+          }),
+        });
+        if (!options.save.save(save)) return false;
+        current = save;
+        revalidateSelection();
+        return true;
+      }
+      return context.completeStageTransaction(stageId, timeMs, definition.bossId, {
+        id: `${stageId}:first-clear`,
+        grants: [{
+          type: 'grant-scrap',
+          amount: Math.max(1, rewardProfile.scrapBase + Math.floor(timeMs / 60_000) * rewardProfile.scrapPerMinute),
+        }, ...(rewardProfile.grants ?? [])],
       });
-      if (!options.save.save(save)) return false;
-      current = save;
-      return true;
     },
     selectCharacter(characterId: string, expectedRevision: number): SelectCharacterResult {
       const def = options.characters.characterById(characterId);

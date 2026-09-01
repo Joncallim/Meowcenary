@@ -26,7 +26,7 @@
     "target": 100,
     "metricId": "metric:enemies-defeated",
     "rewards": [
-      { "grant": { "type": "unlock-character", "characterId": "character:bolt-hound" } }
+      { "grant": { "type": "unlock-character", "characterId": "character:scrap-weasel" } }
     ]
   },
   {

@@ -206,7 +206,8 @@ describe('MainMenuController', () => {
     expect(controller.equipEquipment('helmet').equipment.equipped.helmet).toBe('helmet');
     expect(controller.snapshot().equipment.activeSets).toEqual([{ setId: 'set:commando', pieces: 1, activeThresholds: [] }]);
     expect(controller.upgradeEquipment('helmet').equipment.owned[0].tier).toBe(2);
-    expect(controller.snapshot().progression.scrap).toBe(0);
+    // The stage command now banks its profile-owned first-clear reward.
+    expect(controller.snapshot().progression.scrap).toBe(40);
   });
 
   it('keeps stale equipment definitions visible as recoverable unavailable state', () => {

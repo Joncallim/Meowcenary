@@ -27,6 +27,25 @@ describe('GameContext persistence boundary', () => {
     expect(context.saveData.appliedGrantTransactions['stage:junkyard-05:first-clear']).toBe(true);
   });
 
+  it('routes the legacy stage completion command through the catalog-owned atomic reward', () => {
+    const { context, storage } = setup();
+    storage.succeed = false;
+    expect(context.completeStage('stage:junkyard-01', 60_000)).toBe(false);
+    expect(context.saveData.stages['stage:junkyard-01']).toBeUndefined();
+    expect(context.saveData.appliedGrantTransactions['stage:junkyard-01:first-clear']).toBeUndefined();
+    expect(context.saveData.progression.scrap).toBe(0);
+
+    storage.succeed = true;
+    expect(context.completeStage('stage:junkyard-01', 60_000)).toBe(true);
+    expect(context.saveData.stages['stage:junkyard-01']).toMatchObject({ completed: true, bestTimeMs: 60_000 });
+    expect(context.saveData.appliedGrantTransactions['stage:junkyard-01:first-clear']).toBe(true);
+    const earned = context.saveData.progression.scrap;
+
+    expect(context.completeStage('stage:junkyard-01', 30_000)).toBe(true);
+    expect(context.saveData.progression.scrap).toBe(earned);
+    expect(context.saveData.stages['stage:junkyard-01'].bestTimeMs).toBe(30_000);
+  });
+
   it('rejects malformed stage/boss facts before recording their reward receipt', () => {
     const { context } = setup();
     const transaction = {
@@ -35,6 +54,7 @@ describe('GameContext persistence boundary', () => {
 
     expect(context.completeStageTransaction('stage:missing', 120_000, undefined, transaction)).toBe(false);
     expect(context.completeStageTransaction('stage:junkyard-05', Number.NaN, 'boss-crusher', transaction)).toBe(false);
+    expect(context.completeStageTransaction('stage:junkyard-05', 120_000, undefined, transaction)).toBe(false);
     expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss:other', transaction)).toBe(false);
     expect(context.saveData.appliedGrantTransactions[transaction.id]).toBeUndefined();
     expect(context.saveData.progression.scrap).toBe(0);
@@ -231,7 +251,9 @@ describe('GameContext persistence boundary', () => {
     storage.succeed = true;
     expect(context.completeStage('stage:junkyard-02', 1)).toBe(true);
     expect(context.commitEquipmentUpgrade('owned:helmet', 1, 2, 100)).toBe(true);
-    expect(context.saveData.progression.scrap).toBe(0);
+    // The legitimate Stage 2 first-clear reward survives the equipment
+    // purchase; it is no longer lost behind the legacy rewardless path.
+    expect(context.saveData.progression.scrap).toBe(40);
     expect(context.saveData.equipment['owned:helmet'].tier).toBe(2);
     expect(context.commitEquipmentUpgrade('owned:helmet', 1, 2, 100)).toBe(false);
     expect(context.commitEquipmentUpgrade('owned:helmet', 2, 3, 1)).toBe(false);
