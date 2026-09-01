@@ -2,12 +2,33 @@ import type { GameContext } from '../engine/context';
 import { DataEquipmentRegistry } from '../systems/equipment';
 import { equipEquipment, unequipEquipment, upgradeEquipment, type EquipmentSlot, type OwnedEquipment } from '../gameplay/equipment';
 import { createConditionContext } from '../gameplay/conditionEvaluator';
+import type { Modifier } from '../gameplay/stats';
+
+const STAT_LABELS: Readonly<Record<Modifier['stat'], string>> = Object.freeze({
+  moveSpeed: 'Move speed', maxHealth: 'Health', armor: 'Armour', damage: 'Damage',
+  attackSpeed: 'Fire rate', projectileSpeed: 'Shot speed', projectileCount: 'Projectiles',
+  range: 'Range', critChance: 'Crit chance', pickupRadius: 'Pickup radius', xpGain: 'XP gain',
+  currencyGain: 'Scrap gain', pierce: 'Pierce', spreadDeg: 'Spread',
+});
+
+function describeModifier(modifier: Modifier): string {
+  const value = modifier.op === 'mult' ? `${Math.round((modifier.value - 1) * 100)}%` : `${modifier.value > 0 ? '+' : ''}${modifier.value}`;
+  return `${STAT_LABELS[modifier.stat]} ${value}`;
+}
+
+function tierResolvedEffects(effects: readonly Modifier[], tier: number): readonly Modifier[] {
+  const safeTier = Math.max(1, Math.min(4, tier));
+  return effects.map((effect) => ({
+    ...effect,
+    value: effect.op === 'mult' ? 1 + (effect.value - 1) * safeTier : effect.value * safeTier,
+  }));
+}
 
 export interface EquipmentSnapshot {
   readonly equipped: Readonly<Record<string, string | undefined>>;
-  readonly owned: readonly { readonly instanceId: string; readonly equipmentId: string; readonly name: string; readonly setId: string; readonly slot: string; readonly tier: number; readonly iconArtId: string; readonly upgradeCost?: number; readonly upgradeLocked?: boolean }[];
+  readonly owned: readonly { readonly instanceId: string; readonly equipmentId: string; readonly name: string; readonly setId: string; readonly slot: string; readonly tier: number; readonly iconArtId: string; readonly effectSummary: readonly string[]; readonly comparisonSummary?: string; readonly upgradeCost?: number; readonly upgradeLocked?: boolean }[];
   /** Derived solely from the currently equipped owned instances. */
-  readonly activeSets: readonly { readonly setId: string; readonly pieces: number; readonly activeThresholds: readonly (2 | 4)[] }[];
+  readonly activeSets: readonly { readonly setId: string; readonly pieces: number; readonly activeThresholds: readonly (2 | 4)[]; readonly bonusSummary: readonly string[] }[];
   /** Recoverable stale catalog entries; never silently disappear from a save. */
   readonly unavailable: readonly { readonly instanceId: string; readonly equipmentId: string }[];
 }
@@ -39,12 +60,24 @@ export class EquipmentController {
         const definition = this.registry.equipmentById(item.equipmentId);
         if (!definition) return [];
         const upgrade = upgradeEquipment({ instanceId, equipmentId: item.equipmentId, tier: item.tier }, state.progression.scrap, this.registry.asMap(), facts);
-        return [Object.freeze({ instanceId, equipmentId: item.equipmentId, name: definition.name, setId: definition.setId, slot: definition.slot, tier: item.tier, iconArtId: definition.presentation.iconArtId, ...(upgrade.ok ? { upgradeCost: upgrade.cost } : upgrade.reason === 'locked' ? { upgradeLocked: true } : {}) })];
+        const currentId = equipped[definition.slot];
+        const current = currentId ? state.equipment[currentId] : undefined;
+        const currentDefinition = current ? this.registry.equipmentById(current.equipmentId) : undefined;
+        const effectSummary = Object.freeze(tierResolvedEffects(definition.effects, item.tier).map(describeModifier));
+        const comparisonSummary = currentDefinition && currentId !== instanceId
+          ? `Replaces ${currentDefinition.name}: ${tierResolvedEffects(currentDefinition.effects, current!.tier).map(describeModifier).join(', ')}`
+          : undefined;
+        return [Object.freeze({ instanceId, equipmentId: item.equipmentId, name: definition.name, setId: definition.setId, slot: definition.slot, tier: item.tier, iconArtId: definition.presentation.iconArtId, effectSummary, ...(comparisonSummary ? { comparisonSummary } : {}), ...(upgrade.ok ? { upgradeCost: upgrade.cost } : upgrade.reason === 'locked' ? { upgradeLocked: true } : {}) })];
       })),
       activeSets: Object.freeze([...setCounts.entries()].map(([setId, pieces]) => Object.freeze({
         setId,
         pieces,
         activeThresholds: Object.freeze(([2, 4] as const).filter((threshold) => pieces >= threshold)),
+        bonusSummary: Object.freeze(([2, 4] as const).flatMap((threshold) => {
+          const provider = [...this.registry.asMap().values()].find((definition) => definition.setId === setId && definition.setBonuses !== undefined);
+          const effects = provider?.setBonuses?.[threshold] ?? [];
+          return [`${threshold}-piece: ${effects.map(describeModifier).join(', ')}`];
+        })),
       }))),
       unavailable: Object.freeze(Object.entries(state.equipment).flatMap(([instanceId, item]) =>
         this.registry.equipmentById(item.equipmentId) ? [] : [Object.freeze({ instanceId, equipmentId: item.equipmentId })]),
