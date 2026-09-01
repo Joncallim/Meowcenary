@@ -129,7 +129,7 @@
         "effects": [{ "stat": "range", "op": "mult", "value": 1.1 }]
       }
     ],
-    "unlock": { "type": "meta", "requiresUnlockId": "achievement:permanent-reinforced-coat-3" },
+    "unlock": { "type": "meta", "requiresUnlockId": "achievement:boss-crusher" },
     "cosmeticSkinIds": []
   },
   {

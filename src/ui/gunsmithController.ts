@@ -19,6 +19,8 @@ export interface GunsmithPartView {
   readonly tier: number;
   readonly traits: readonly string[];
   readonly compatible: boolean;
+  /** Player-facing pre-commit delta for the selected build. */
+  readonly comparisonSummary: string;
   readonly iconArtId: string;
 }
 
@@ -55,6 +57,11 @@ export class GunsmithController {
           tier: stored.tier, traits: Object.freeze([...definition.traits, ...stored.infusedTraits]),
           iconArtId: definition.presentation.iconArtId,
           compatible: selected === undefined || isSlotCompatible(selected.baseWeaponFamily, definition.slot),
+          comparisonSummary: selected === undefined
+            ? 'Choose a chassis to preview this part.'
+            : isSlotCompatible(selected.baseWeaponFamily, definition.slot)
+              ? `Adds ${definition.effects.map(describePartEffect).join(', ') || 'its trait behavior'} to ${selected.baseWeaponFamily}.`
+              : `Cannot fit ${selected.baseWeaponFamily}.`,
         })];
       })),
     });
@@ -143,6 +150,11 @@ export class GunsmithController {
     void state;
     return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
   }
+}
+
+function describePartEffect(effect: { readonly stat: string; readonly op: string; readonly value: number }): string {
+  const value = effect.op === 'mult' ? `${Math.round((effect.value - 1) * 100)}%` : `${effect.value >= 0 ? '+' : ''}${effect.value}`;
+  return `${effect.stat} ${value}`;
 }
 
 function selectedBuild(state: GunsmithState): WeaponBuild | undefined {

@@ -47,6 +47,7 @@ export class MenuScene extends Phaser.Scene {
   /** Gunsmith inventories can grow without bound; page logical actions so
    * every controller/touch target remains inside the playable viewport. */
   private gunsmithPage = 0;
+  private equipmentPage = 0;
   private achievementsPage = 0;
   /** Keep the progression hub useful on portrait displays: destinations and
    * the older permanent-training controls have separate, reachable pages. */
@@ -548,7 +549,7 @@ export class MenuScene extends Phaser.Scene {
         y += hitTarget + 8;
       });
       const actions: Array<{ label: string; action: () => void; iconArtId?: string }> = snapshot.gunsmith.parts.map((part) => ({
-        label: `${part.compatible ? 'Fit' : 'Incompatible'} ${part.name} T${part.tier}${part.traits.length ? ` [${part.traits.join(', ')}]` : ''}`,
+        label: `${part.compatible ? 'Fit' : 'Incompatible'} ${part.name} T${part.tier}${part.traits.length ? ` [${part.traits.join(', ')}]` : ''}\n${part.comparisonSummary}`,
         action: () => { if (part.compatible) this.render(this.requireController().fitGunPart(part.instanceId)); },
         iconArtId: part.iconArtId,
       }));
@@ -628,7 +629,14 @@ export class MenuScene extends Phaser.Scene {
       }));
       y += activeText.height + 12;
     }
-    snapshot.equipment.owned.forEach((item) => {
+    const pageSize = 3;
+    const pageCount = Math.max(1, Math.ceil(snapshot.equipment.owned.length / pageSize));
+    this.equipmentPage = Math.min(this.equipmentPage, pageCount - 1);
+    this.own(root, createUiText(this, margin, y, `Owned equipment — page ${this.equipmentPage + 1}/${pageCount}:`, {
+      color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+    }));
+    y += hitTarget * 0.7;
+    snapshot.equipment.owned.slice(this.equipmentPage * pageSize, (this.equipmentPage + 1) * pageSize).forEach((item) => {
       const equippedHere = equipped[item.slot] === item.instanceId;
       const iconColumn = 38;
       this.addButton(root, margin, y, `${equippedHere ? '✓ ' : ''}${item.name} [${item.setId}] T${item.tier} — ${equippedHere ? 'Equipped' : 'Equip'}`, hitTarget, () => {
@@ -656,6 +664,16 @@ export class MenuScene extends Phaser.Scene {
         y += hitTarget * 0.75;
       }
     });
+    if (pageCount > 1) {
+      if (this.equipmentPage > 0) {
+        this.addButton(root, margin, y, 'Previous Equipment Page', hitTarget, () => { this.equipmentPage -= 1; this.render(this.requireController().snapshot()); });
+        y += hitTarget + 8;
+      }
+      if (this.equipmentPage < pageCount - 1) {
+        this.addButton(root, margin, y, 'Next Equipment Page', hitTarget, () => { this.equipmentPage += 1; this.render(this.requireController().snapshot()); });
+        y += hitTarget + 8;
+      }
+    }
     if (snapshot.equipment.owned.length === 0) {
       this.own(root, createUiText(this, margin, y, 'Complete bosses and achievements to earn persistent equipment.', {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
