@@ -435,12 +435,15 @@ export class GameScene extends Phaser.Scene {
     // Progression must bank a completed run before achievement facts observe
     // its durable currency total. EventBus preserves registration order.
     this.unsubscribers.push(
-      ctx.bus.on('run:won', () => this.evaluateLiveAchievements(ctx, {
+      ctx.bus.on('run:won', () => {
+        ctx.recordCharacterMastery(this.runState!.characterId, 100);
+        this.evaluateLiveAchievements(ctx, {
         'metric:runs-completed': 1,
         // This is a lifetime metric, not the current spendable balance. The
         // progression listener has already banked this exact run reward.
-        'metric:scrap-banked': this.progressionSystem?.lastBankedRun?.reward.scrap ?? 0,
-      })),
+          'metric:scrap-banked': this.progressionSystem?.lastBankedRun?.reward.scrap ?? 0,
+        });
+      }),
     );
     const debugCheatSystem =
       cheatsActive && debugFlags
