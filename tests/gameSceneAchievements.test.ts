@@ -108,6 +108,7 @@ describe('GameScene achievement fact bridge', () => {
         return true;
       }),
       commitAchievementTransaction: vi.fn((achievements, metrics) => {
+        if (ctx.commitAchievementTransaction.mock.calls.length === 1) return false;
         ctx.saveData = { ...ctx.saveData, achievements, achievementMetrics: metrics };
         return true;
       }),
@@ -119,6 +120,9 @@ describe('GameScene achievement fact bridge', () => {
     scene.retryPendingCharacterMastery(ctx);
     expect(ctx.recordCharacterMastery).toHaveBeenCalledTimes(2);
     expect(scene.pendingMasteryCharacterId).toBeUndefined();
+    expect(scene.hasPendingTerminalPersistence()).toBe(true);
+    scene.retryPendingAchievementFacts(ctx);
+    expect(scene.hasPendingTerminalPersistence()).toBe(false);
     expect(ctx.saveData.achievements['achievement:mastery-scrap-tabby']).toMatchObject({ completed: true });
   });
 });

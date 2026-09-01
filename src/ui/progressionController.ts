@@ -13,7 +13,7 @@ export type ProgressionPurchaseResult =
   | { readonly ok: false; readonly meta: MetaState; readonly reason: PurchaseFailureReason };
 export type ResetProgressionResult =
   | { readonly ok: true; readonly meta: MetaState; readonly persisted: boolean }
-  | { readonly ok: false; readonly meta: MetaState; readonly reason: 'confirmation-required' };
+  | { readonly ok: false; readonly meta: MetaState; readonly reason: 'confirmation-required' | 'persistence-failed' };
 
 export class ProgressionController {
   constructor(private readonly context: GameContext) {}
@@ -52,6 +52,9 @@ export class ProgressionController {
       return Object.freeze({ ok: false, meta: this.context.saveData.progression, reason: 'confirmation-required' });
     }
     const update = this.context.resetProgression();
+    if (!update.persisted) {
+      return Object.freeze({ ok: false, meta: update.value, reason: 'persistence-failed' });
+    }
     return Object.freeze({ ok: true, meta: update.value, persisted: update.persisted });
   }
 }

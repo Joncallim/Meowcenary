@@ -165,6 +165,13 @@ export class SpawnSystem implements System {
   };
 
   private flushSummons(): void {
+    // A summon that could not be materialised before the global cap was hit
+    // is no longer a timely telegraph. Discard it rather than replaying a
+    // historical burst when capacity opens.
+    if (this.enemies.length >= 256) {
+      this.pendingSummons.length = 0;
+      return;
+    }
     while (this.pendingSummons.length > 0 && this.enemies.length < 256) {
       const request = this.pendingSummons.shift()!;
       let active = this.enemies.filter((enemy) => enemy.active && enemy.defId === request.enemyId).length;

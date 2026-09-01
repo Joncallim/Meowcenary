@@ -159,6 +159,10 @@ export class GameScene extends Phaser.Scene {
    * storage write must not turn an authoritative kill/merge/run result into
    * a permanently lost achievement increment. */
   private pendingAchievementFacts: Record<string, number> = {};
+  /** A condition-only evaluation can fail without a metric increment. Keep a
+   * retry marker so mastery/stage facts are never forgotten after storage
+   * recovers. */
+  private pendingAchievementEvaluation = false;
   /** A won run has earned mastery, but storage may be transiently unavailable.
    * Keep the character identity until the authoritative save boundary accepts
    * it; the retry also re-evaluates mastery-gated achievements afterwards. */
@@ -567,6 +571,7 @@ export class GameScene extends Phaser.Scene {
         if (!scene.stagePlan) return false;
         return new StageSelectionController(ctx).selectNext().ok;
       },
+      canNavigate: () => !scene.hasPendingTerminalPersistence(),
     });
 
     this.inputController.onAction('pause', () => this.routeAction('pause'));
@@ -1033,8 +1038,12 @@ export class GameScene extends Phaser.Scene {
     const transaction = completed.length > 0
       ? { id: `${completed[0]}:completion`, grants: result.rewards }
       : undefined;
-    if (!ctx.commitAchievementTransaction(result.state, metrics, transaction)) return;
+    if (!ctx.commitAchievementTransaction(result.state, metrics, transaction)) {
+      this.pendingAchievementEvaluation = true;
+      return;
+    }
     this.pendingAchievementFacts = {};
+    this.pendingAchievementEvaluation = false;
     for (const achievementId of completed) {
       const progress = result.state[achievementId];
       const definition = registry.achievementById(achievementId);
@@ -1048,7 +1057,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private retryPendingAchievementFacts(ctx: GameContext): void {
-    if (Object.keys(this.pendingAchievementFacts).length > 0) {
+    if (Object.keys(this.pendingAchievementFacts).length > 0 || this.pendingAchievementEvaluation) {
       this.evaluateLiveAchievements(ctx, {});
     }
   }
@@ -1061,6 +1070,12 @@ export class GameScene extends Phaser.Scene {
     // separate from the run metric transaction so a failed mastery write is
     // retried rather than allowing a terminal achievement to see stale facts.
     this.evaluateLiveAchievements(ctx, {});
+  }
+
+  private hasPendingTerminalPersistence(): boolean {
+    return this.pendingMasteryCharacterId !== undefined
+      || this.pendingAchievementEvaluation
+      || Object.keys(this.pendingAchievementFacts).length > 0;
   }
 
   private describeAchievementToast(): string | undefined {

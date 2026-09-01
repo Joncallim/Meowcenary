@@ -152,7 +152,7 @@ export class MainMenuController {
     }
     const result = this.progressionController.reset(true);
     if (!result.ok) {
-      this.notice = 'Reset failed';
+      this.notice = result.reason === 'persistence-failed' ? 'Could not save reset' : 'Reset failed';
       return this.snapshot();
     }
     this.notice = result.persisted ? undefined : 'Saved for this session only';

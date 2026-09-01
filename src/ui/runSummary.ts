@@ -81,6 +81,9 @@ export interface PhaserRunSummaryViewOptions {
   readonly readInputMode?: () => InputMode;
   /** Selects the next unlocked stage. Returns false when no next contract exists. */
   readonly onNextStage?: () => boolean;
+  /** Terminal rewards that have not yet crossed their durable boundary keep
+   * navigation in the summary until their retry completes. */
+  readonly canNavigate?: () => boolean;
 }
 
 /** Terminal win/loss surface: reads the already-banked run and offers Retry or
@@ -95,6 +98,7 @@ export class PhaserRunSummaryView {
   private readonly controller: RunSummaryController;
   private readonly readInputMode: () => InputMode;
   private readonly onNextStage?: () => boolean;
+  private readonly canNavigate: () => boolean;
   private modal: ModalTextHelpers;
   private readonly unsubscribers: Array<() => void>;
   private root?: Phaser.GameObjects.Container;
@@ -123,6 +127,7 @@ export class PhaserRunSummaryView {
     this.controller = options.controller;
     this.readInputMode = options.readInputMode ?? (() => 'pointer');
     this.onNextStage = options.onNextStage;
+    this.canNavigate = options.canNavigate ?? (() => true);
     this.modal = createModalTextHelpers(options.scene, options.viewport);
     this.unsubscribers = [
       options.bus.on('run:won', this.handleTerminal),
@@ -210,7 +215,7 @@ export class PhaserRunSummaryView {
   /** One shared Retry command for the button and the R shortcut: exactly one
    *  confirm cue, then the scene restart. */
   private retry(): void {
-    if (this.disposed || !this.visible) {
+    if (this.disposed || !this.visible || !this.canNavigate()) {
       return;
     }
     this.bus.emit('ui:confirm', {});
@@ -218,7 +223,7 @@ export class PhaserRunSummaryView {
   }
 
   private returnToMenu(): void {
-    if (this.disposed || !this.visible) {
+    if (this.disposed || !this.visible || !this.canNavigate()) {
       return;
     }
     this.bus.emit('ui:confirm', {});
@@ -226,7 +231,7 @@ export class PhaserRunSummaryView {
   }
 
   private continueToNextStage(): void {
-    if (this.disposed || !this.visible || !this.onNextStage?.()) return;
+    if (this.disposed || !this.visible || !this.canNavigate() || !this.onNextStage?.()) return;
     this.bus.emit('ui:confirm', {});
     this.scenePlugin.start(SceneKey.Menu);
   }
