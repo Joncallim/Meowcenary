@@ -677,10 +677,15 @@ export function validateGameData(raw: unknown): GameData {
 
 function withContentVersion(data: Omit<GameData, 'contentVersion'>, raw: unknown): GameData {
   const id = typeof raw === 'string' ? raw : isRecord(raw) && Object.keys(raw).length === 1 ? raw.id : undefined;
-  if (typeof id !== 'string' || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(id)) {
-    throw new Error('content-version.json: expected one stable lowercase id');
-  }
+  if (contentVersionValidationIssue(raw) !== undefined || typeof id !== 'string') throw new Error('content-version.json: expected one stable lowercase id');
   return Object.freeze({ ...data, contentVersion: id });
+}
+
+function contentVersionValidationIssue(raw: unknown): string | undefined {
+  const id = typeof raw === 'string' ? raw : isRecord(raw) && Object.keys(raw).length === 1 ? raw.id : undefined;
+  return typeof id === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(id)
+    ? undefined
+    : 'expected one stable lowercase id';
 }
 
 /** Root-shape phase, shared by the throwing boot path and the collecting
@@ -789,6 +794,11 @@ export function validateAllData(): ValidationIssue[] {
  *  A bad file reports its issues and does not abort later files; the
  *  cross-reference phase runs only when every earlier phase was clean. */
 export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
+  const suppliedContentVersion = isRecord(raw) ? raw.contentVersion : undefined;
+  const contentVersionIssue = contentVersionValidationIssue(suppliedContentVersion ?? contentVersionJson);
+  if (contentVersionIssue !== undefined) {
+    return [Object.freeze({ file: 'content-version.json', index: -1, field: 'id', message: contentVersionIssue })];
+  }
   const record = isRecord(raw)
     ? Object.fromEntries(Object.entries(raw).filter(([key]) => key !== 'contentVersion'))
     : raw as Record<string, unknown>;

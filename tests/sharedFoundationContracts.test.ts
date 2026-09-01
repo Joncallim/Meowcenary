@@ -3,7 +3,7 @@ import { evaluateCondition, createConditionContext } from '../src/gameplay/condi
 import { applyDurableGrantTransaction } from '../src/gameplay/grantProcessor';
 import { resolveRunPlan, type StageDefinition } from '../src/gameplay/stage/stageContracts';
 import { createDefaultSaveV3, MemoryStorageAdapter, SaveManager } from '../src/systems/save';
-import { loadGameData, validateGameData } from '../src/systems/validation';
+import { collectGameDataErrors, loadGameData, validateGameData } from '../src/systems/validation';
 import { StageRegistry } from '../src/systems/stageRegistry';
 import { assembleComposedRunRequest } from '../src/gameplay/runRequest';
 import { createRng } from '../src/engine/rng';
@@ -26,6 +26,10 @@ describe('Alpha 3 shared foundation canonical contracts', () => {
     fixture.contentVersion = 'alpha3-0';
     expect(validateGameData(fixture).contentVersion).toBe('alpha3-0');
     expect(() => assertContentVersion(stampContentVersion('alpha3-0'), loadGameData().contentVersion)).toThrow(/Content version mismatch/);
+    fixture.contentVersion = 'BAD!';
+    expect(collectGameDataErrors(fixture)).toEqual([
+      { file: 'content-version.json', index: -1, field: 'id', message: 'expected one stable lowercase id' },
+    ]);
   });
 
   it('preserves canonical achievement and character IDs through grant, save/load, and condition consumers', () => {
