@@ -16,6 +16,14 @@ function describeModifier(modifier: Modifier): string {
   return `${STAT_LABELS[modifier.stat]} ${value}`;
 }
 
+function tierResolvedEffects(effects: readonly Modifier[], tier: number): readonly Modifier[] {
+  const safeTier = Math.max(1, Math.min(4, tier));
+  return effects.map((effect) => ({
+    ...effect,
+    value: effect.op === 'mult' ? 1 + (effect.value - 1) * safeTier : effect.value * safeTier,
+  }));
+}
+
 export interface EquipmentSnapshot {
   readonly equipped: Readonly<Record<string, string | undefined>>;
   readonly owned: readonly { readonly instanceId: string; readonly equipmentId: string; readonly name: string; readonly setId: string; readonly slot: string; readonly tier: number; readonly iconArtId: string; readonly effectSummary: readonly string[]; readonly comparisonSummary?: string; readonly upgradeCost?: number; readonly upgradeLocked?: boolean }[];
@@ -55,9 +63,9 @@ export class EquipmentController {
         const currentId = equipped[definition.slot];
         const current = currentId ? state.equipment[currentId] : undefined;
         const currentDefinition = current ? this.registry.equipmentById(current.equipmentId) : undefined;
-        const effectSummary = Object.freeze(definition.effects.map(describeModifier));
+        const effectSummary = Object.freeze(tierResolvedEffects(definition.effects, item.tier).map(describeModifier));
         const comparisonSummary = currentDefinition && currentId !== instanceId
-          ? `Replaces ${currentDefinition.name}: ${currentDefinition.effects.map(describeModifier).join(', ')}`
+          ? `Replaces ${currentDefinition.name}: ${tierResolvedEffects(currentDefinition.effects, current!.tier).map(describeModifier).join(', ')}`
           : undefined;
         return [Object.freeze({ instanceId, equipmentId: item.equipmentId, name: definition.name, setId: definition.setId, slot: definition.slot, tier: item.tier, iconArtId: definition.presentation.iconArtId, effectSummary, ...(comparisonSummary ? { comparisonSummary } : {}), ...(upgrade.ok ? { upgradeCost: upgrade.cost } : upgrade.reason === 'locked' ? { upgradeLocked: true } : {}) })];
       })),

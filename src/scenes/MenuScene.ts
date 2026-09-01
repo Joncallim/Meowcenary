@@ -622,11 +622,11 @@ export class MenuScene extends Phaser.Scene {
     y += hitTarget + 12;
     if (snapshot.equipment.activeSets.length > 0) {
       const active = snapshot.equipment.activeSets.map((set) => `${set.setId} ${set.pieces}/4${set.activeThresholds.length ? ` (${set.activeThresholds.join('+')}-piece active)` : ''}\n${set.bonusSummary.join(' • ')}`).join('\n');
-      this.own(root, createUiText(this, margin, y, `Active sets — ${active}`, {
+      const activeText = this.own(root, createUiText(this, margin, y, `Active sets — ${active}`, {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
         wordWrap: { width: width - margin - this.safeRightMargin },
       }));
-      y += hitTarget;
+      y += activeText.height + 12;
     }
     snapshot.equipment.owned.forEach((item) => {
       const equippedHere = equipped[item.slot] === item.instanceId;
