@@ -613,7 +613,6 @@ export function validateGameData(raw: unknown): GameData {
 
   assertSpawnReferences(spawnCurves, enemies);
   assertCharacterWeaponReferences(characters, weapons);
-  assertNoSelfReferentialCharacterUnlocks(characters);
   assertArenaSpawnCurveReferences(arenas, spawnCurves);
   assertEnemyLootTableReferences(enemies, lootTables);
   assertLootWeaponReferences(lootTables, weapons);
@@ -867,7 +866,6 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
   const assertions: ReadonlyArray<() => void> = [
     () => assertSpawnReferences(spawnCurves, enemies),
     () => assertCharacterWeaponReferences(characters, weapons),
-    () => assertNoSelfReferentialCharacterUnlocks(characters),
     () => assertArenaSpawnCurveReferences(arenas, spawnCurves),
     () => assertEnemyLootTableReferences(enemies, lootTables),
     () => assertLootWeaponReferences(lootTables, weapons),
@@ -2666,14 +2664,6 @@ function assertCharacterWeaponReferences(
     }
   });
   throwIfErrors(errors);
-}
-
-function assertNoSelfReferentialCharacterUnlocks(characters: readonly CharacterDefinition[]): void {
-  for (const character of characters) {
-    if (character.unlock.type === 'meta' && character.unlock.requiresUnlockId === `character:${character.id}`) {
-      throw new Error(`characters.${character.id}: unlock requires itself`);
-    }
-  }
 }
 
 function assertArenaSpawnCurveReferences(
