@@ -196,11 +196,14 @@ export function resolveRunPlan(
       `Unknown reward profile "${stage.rewardProfileId}" for stage "${stage.id}"`,
     );
   }
-  if (stage.bossId !== undefined && (
+  // A boss fact is emitted from the encounter at clear time, so the stage
+  // declaration must own exactly that same identity. Rejecting an omitted or
+  // mismatched stage boss here prevents a data-only contract from reaching an
+  // uncommittable clear boundary.
+  if (stage.bossId !== encounter.bossId || (stage.bossId !== undefined && (
     stage.objective.type !== 'defeat'
     || stage.objective.enemyId !== stage.bossId
-    || encounter.bossId !== stage.bossId
-  )) {
+  ))) {
     throw new StageResolutionError(`Boss contract mismatch for stage "${stage.id}"`);
   }
 

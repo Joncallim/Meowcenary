@@ -38,4 +38,15 @@ describe('stage runtime', () => {
     boss.tick(0, 0); boss.recordEnemyDefeat('enemy:brute'); boss.recordEnemyDefeat('enemy:crusher'); boss.tick(0, 1);
     expect(boss.state.status).toBe('objective-complete');
   });
+
+  it('records a terminal run loss as a failed stage without creating a clear', () => {
+    const runtime = createStageRuntime(plan());
+    runtime.tick(0, 0);
+    runtime.fail();
+    expect(runtime.state.status).toBe('failed');
+    runtime.recordEnemyDefeat('enemy:a');
+    runtime.tick(10_000, 10_000);
+    expect(runtime.state.status).toBe('failed');
+    expect(runtime.pendingClear).toBeUndefined();
+  });
 });
