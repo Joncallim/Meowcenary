@@ -570,10 +570,6 @@ export class MenuScene extends Phaser.Scene {
         label: `Infuse ${target.name} with ${trait.name}`,
         action: () => this.render(this.requireController().infuseGunPart(target.instanceId, trait.instanceId)),
       })));
-      for (const instanceId of [...Object.values(selected.fitted), ...selected.traitParts]) {
-        if (!instanceId) continue;
-        actions.push({ label: `Unequip ${instanceId}`, action: () => this.render(this.requireController().unequipGunPart(instanceId)) });
-      }
       const pageSize = 1;
       const pageCount = Math.max(1, Math.ceil(actions.length / pageSize));
       this.gunsmithPage = Math.min(this.gunsmithPage, pageCount - 1);
