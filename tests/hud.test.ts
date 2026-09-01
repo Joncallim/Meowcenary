@@ -312,8 +312,18 @@ describe('PhaserHudView', () => {
         setText(text: string) {
           state.text = text;
           if (kind === 'text') {
-            state.width = text.length * fontSize * 0.55;
-            state.height = fontSize * 1.2;
+            const currentFontSize = (state.fontSize as number | undefined) ?? fontSize;
+            state.width = text.length * currentFontSize * 0.55;
+            state.height = currentFontSize * 1.2;
+          }
+          return api;
+        },
+        setFontSize(next: string | number) {
+          const nextFontSize = Number.parseFloat(String(next));
+          state.fontSize = nextFontSize;
+          if (kind === 'text') {
+            state.width = String(state.text).length * nextFontSize * 0.55;
+            state.height = nextFontSize * 1.2;
           }
           return api;
         },

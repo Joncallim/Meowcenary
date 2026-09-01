@@ -366,6 +366,9 @@ class FakeText extends FakeDisplayObject {
     this.originY = 0;
   }
   setFontSize(fontSize: string): this {
+    if (this.shouldFailFixedSize?.()) {
+      throw new Error('Injected text sizing failure');
+    }
     this.fontSize = Number.parseFloat(fontSize);
     this.width = this.text.length * this.fontSize * 0.55;
     this.height = this.fontSize * 1.2;
@@ -394,6 +397,8 @@ class FakeText extends FakeDisplayObject {
       throw new Error(`setText called on destroyed object (${this.text ?? ''})`);
     }
     this.text = text;
+    this.width = this.text.length * this.fontSize * 0.55;
+    this.height = this.fontSize * 1.2;
     return this;
   }
 }

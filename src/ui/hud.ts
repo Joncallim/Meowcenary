@@ -188,8 +188,9 @@ function topHudLayout(viewport: UiViewport): TopHudLayout {
   const margin = edgeMargin(viewport, 'left');
   const topMargin = edgeMargin(viewport, 'top');
   const rightMargin = edgeMargin(viewport, 'right');
-  // The run HUD is an instrument strip, not a banner. Keep its type at the
-  // readable physical minimum and reserve the game world below it.
+  // A compact instrument strip: one header, then two labelled meter rows.
+  // Labels sit inside their own meters so no text baseline can collide with
+  // the next bar on Safari's larger-than-CSS font raster.
   const fontSize = physicalToLogical(11, viewport);
   const labelSize = physicalToLogical(11, viewport);
   const canvasWidth = viewport.canvasWidth;
@@ -197,11 +198,11 @@ function topHudLayout(viewport: UiViewport): TopHudLayout {
   // numbers end before that control lane instead of drawing beneath it.
   const controlLane = physicalToLogical(44 * 2 + 10 + 8, viewport);
   const rightHudX = canvasWidth - rightMargin - controlLane;
-  const barTop = topMargin + fontSize + physicalToLogical(4, viewport);
-  const barHeight = physicalToLogical(6, viewport);
+  const barTop = topMargin + fontSize * 1.25 + physicalToLogical(5, viewport);
+  const barHeight = Math.max(physicalToLogical(18, viewport), labelSize * 1.35);
   const healthBarWidth = Math.max(1, rightHudX - margin);
-  const xpTop = barTop + barHeight + labelSize + physicalToLogical(4, viewport);
-  const statsTop = xpTop + barHeight + labelSize + physicalToLogical(4, viewport);
+  const xpTop = barTop + barHeight + physicalToLogical(4, viewport);
+  const statsTop = xpTop + barHeight + physicalToLogical(5, viewport);
   const statsStride = labelSize + physicalToLogical(3, viewport);
   return {
     margin, topMargin, rightMargin, fontSize, labelSize, canvasWidth, rightHudX,
@@ -213,7 +214,9 @@ function topHudLayout(viewport: UiViewport): TopHudLayout {
  * HUD never grows into the playable surface on portrait phones. */
 export function topHudContentBottom(viewport: UiViewport): number {
   const layout = topHudLayout(viewport);
-  return layout.statsTop + layout.labelSize * 1.25;
+  // Kills and scrap occupy the right-side metric column on separate lines.
+  // Reserve the taller column, not only the left-side feedback baseline.
+  return layout.statsTop + layout.labelSize * 2.5;
 }
 
 export class PhaserHudView implements HudView {
@@ -230,6 +233,10 @@ export class PhaserHudView implements HudView {
   private scrapText!: Phaser.GameObjects.Text;
   private killsText!: Phaser.GameObjects.Text;
   private objectiveText!: Phaser.GameObjects.Text;
+  private headerTextWidth = 1;
+  private meterTextWidth = 1;
+  private headerFontSize = 1;
+  private labelFontSize = 1;
 
   private lastSnapshot?: HudSnapshot;
   private disposed = false;
@@ -257,16 +264,14 @@ export class PhaserHudView implements HudView {
     const xpRatio = Math.min(1, safeXp / safeXpToNext);
     this.xpBarFill.setScale(xpRatio, 1);
 
-    this.statusText.setText(snapshot.status === 'active' ? 'RUN' : capitalize(snapshot.status));
-    this.timeText.setText(`${formatTime(snapshot.timeMs)} / ${formatTime(snapshot.durationMs)}`);
-    this.healthText.setText(
-      `HP ${formatNumber(Math.ceil(safeHealth))}/${formatNumber(Math.ceil(safeMaxHealth))}`,
-    );
-    this.levelText.setText(`LV ${snapshot.level}  ${formatNumber(Math.floor(safeXp))}/${formatNumber(safeXpToNext)}`);
-    this.killsText.setText(`K ${formatNumber(snapshot.kills)}`);
-    this.scrapText.setText(`S ${formatNumber(Math.floor(snapshot.currency))}`);
+    this.setContainedText(this.statusText, snapshot.status === 'active' ? 'RUN' : capitalize(snapshot.status), this.headerTextWidth, this.headerFontSize);
+    this.setContainedText(this.timeText, `${formatTime(snapshot.timeMs)} / ${formatTime(snapshot.durationMs)}`, this.headerTextWidth, this.headerFontSize);
+    this.setContainedText(this.healthText, `HP ${formatNumber(Math.ceil(safeHealth))}/${formatNumber(Math.ceil(safeMaxHealth))}`, this.meterTextWidth, this.labelFontSize);
+    this.setContainedText(this.levelText, `LV ${snapshot.level}  ${formatNumber(Math.floor(safeXp))}/${formatNumber(safeXpToNext)}`, this.meterTextWidth, this.labelFontSize);
+    this.setContainedText(this.killsText, `K ${formatNumber(snapshot.kills)}`, this.headerTextWidth, this.labelFontSize);
+    this.setContainedText(this.scrapText, `S ${formatNumber(Math.floor(snapshot.currency))}`, this.headerTextWidth, this.labelFontSize);
     const feedback = [snapshot.objective, snapshot.ability, snapshot.achievement].filter(Boolean);
-    this.objectiveText.setText(truncateHudFeedback(feedback[0]));
+    this.setContainedText(this.objectiveText, truncateHudFeedback(feedback[0]), this.meterTextWidth, this.labelFontSize);
 
   }
 
@@ -301,6 +306,10 @@ export class PhaserHudView implements HudView {
       fontFamily: ThemeFont.family,
       fontSize: `${layout.fontSize}px`,
     };
+    this.headerTextWidth = Math.max(1, layout.rightHudX - layout.margin);
+    this.meterTextWidth = Math.max(1, layout.healthBarWidth - physicalToLogical(10, viewport));
+    this.headerFontSize = layout.fontSize;
+    this.labelFontSize = layout.labelSize;
 
     const labelStyle = {
       color: '#a5f3fc',
@@ -344,7 +353,11 @@ export class PhaserHudView implements HudView {
     this.healthBarFill.setScrollFactor(0);
     this.healthBarFill.setDepth(ThemeDepth.hud);
 
-    this.healthText = createUiText(scene, layout.margin, layout.barTop + layout.barHeight + physicalToLogical(2, viewport), '', labelStyle);
+    this.healthText = createUiText(scene, layout.margin + physicalToLogical(5, viewport), layout.barTop + layout.barHeight / 2, '', {
+      ...labelStyle,
+      color: '#f8fafc',
+    });
+    this.healthText.setOrigin(0, 0.5);
     this.healthText.setScrollFactor(0);
     this.healthText.setDepth(ThemeDepth.hud);
 
@@ -368,12 +381,16 @@ export class PhaserHudView implements HudView {
     this.xpBarFill.setScrollFactor(0);
     this.xpBarFill.setDepth(ThemeDepth.hud);
 
-    this.levelText = createUiText(scene,layout.margin, layout.xpTop + layout.barHeight + physicalToLogical(2, viewport), '', labelStyle);
+    this.levelText = createUiText(scene,layout.margin + physicalToLogical(5, viewport), layout.xpTop + layout.barHeight / 2, '', {
+      ...labelStyle,
+      color: '#f8fafc',
+    });
+    this.levelText.setOrigin(0, 0.5);
     this.levelText.setScrollFactor(0);
     this.levelText.setDepth(ThemeDepth.hud);
 
     this.timeText.setPosition(layout.rightHudX, layout.topMargin);
-    this.killsText = createUiText(scene, layout.rightHudX, layout.barTop + layout.barHeight + physicalToLogical(2, viewport), '', {
+    this.killsText = createUiText(scene, layout.rightHudX, layout.statsTop, '', {
       ...labelStyle,
       align: 'right',
     });
@@ -381,7 +398,7 @@ export class PhaserHudView implements HudView {
     this.killsText.setScrollFactor(0);
     this.killsText.setDepth(ThemeDepth.hud);
 
-    this.scrapText = createUiText(scene, layout.rightHudX, layout.xpTop + layout.barHeight + physicalToLogical(2, viewport), '', {
+    this.scrapText = createUiText(scene, layout.rightHudX, layout.statsTop + layout.labelSize * 1.15, '', {
       ...labelStyle,
       align: 'right',
     });
@@ -392,7 +409,6 @@ export class PhaserHudView implements HudView {
     this.objectiveText = createUiText(scene, layout.margin, layout.statsTop, '', {
       ...labelStyle,
     });
-    this.objectiveText.setFixedSize(layout.healthBarWidth, layout.labelSize * 1.25);
     this.objectiveText.setScrollFactor(0);
     this.objectiveText.setDepth(ThemeDepth.hud);
 
@@ -438,6 +454,27 @@ export class PhaserHudView implements HudView {
       this.render(this.lastSnapshot);
     }
   };
+
+  private setContainedText(
+    text: Phaser.GameObjects.Text,
+    value: string,
+    width: number,
+    fontSize: number,
+  ): void {
+    let size = fontSize;
+    text.setText(value).setFontSize(`${size}px`);
+    const minimum = Math.max(1, fontSize * 0.75);
+    while (text.width > width && size - 0.25 >= minimum) {
+      size -= 0.25;
+      text.setFontSize(`${size}px`);
+    }
+    if (text.width <= width) return;
+    let clipped = value;
+    while (clipped.length > 1 && text.width > width) {
+      clipped = clipped.slice(0, -1).trimEnd();
+      text.setText(`${clipped}…`);
+    }
+  }
 
 
 }

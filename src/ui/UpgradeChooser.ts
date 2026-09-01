@@ -27,6 +27,30 @@ const RARITY_CARD_BACKGROUND = {
   legendary: 0x624719,
 } as const;
 
+/** Measure the actual Phaser glyphs, then reduce/truncate only as far as the
+ * real canvas needs. This avoids the unsafe average-character-width guess. */
+function containText(
+  text: Phaser.GameObjects.Text,
+  value: string,
+  width: number,
+  fontSize: number,
+  minimumFontSize: number,
+): void {
+  const compact = value.replace(/\s+/g, ' ').trim();
+  let size = fontSize;
+  text.setText(compact).setFontSize(`${size}px`);
+  while (text.width > width && size - 0.25 >= minimumFontSize) {
+    size -= 0.25;
+    text.setFontSize(`${size}px`);
+  }
+  if (text.width <= width) return;
+  let clipped = compact;
+  while (clipped.length > 1 && text.width > width) {
+    clipped = clipped.slice(0, -1).trimEnd();
+    text.setText(`${clipped}…`);
+  }
+}
+
 export class UpgradeChooser {
   private readonly controller: UpgradeChooserController;
   private readonly view: PhaserUpgradeChooserView;
@@ -272,13 +296,8 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         },
       ));
       heading
-        .setMaxLines(2)
-        .setWordWrapWidth(layout.headerWidth, true)
-        .setOrigin(0.5, 0)
-        // `setFixedSize` gives Phaser Text its own bounded backing canvas.
-        // Do not also crop that canvas: applying TextureCrop to high-DPI text
-        // caused real Safari/WebGL to sample only part of some glyphs.
-        .setFixedSize(layout.headerWidth, layout.headingHeight);
+        .setOrigin(0.5, 0);
+      containText(heading, 'Choose an upgrade', layout.headerWidth, layout.fonts.heading, 12 / layout.displayScale);
       const instructions = own(createUiText(this.scene,
         layout.contentCenterX,
         layout.instructionsY,
@@ -291,10 +310,8 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         },
       ));
       instructions
-        .setMaxLines(2)
-        .setWordWrapWidth(layout.headerWidth, true)
-        .setOrigin(0.5, 0)
-        .setFixedSize(layout.headerWidth, layout.instructionsHeight);
+        .setOrigin(0.5, 0);
+      containText(instructions, this.instructionCopy(), layout.headerWidth, layout.fonts.instructions, 9 / layout.displayScale);
       renderedText.push(
         { role: 'heading', object: heading },
         { role: 'instructions', object: instructions },
@@ -394,7 +411,6 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
               fontStyle: 'bold',
             },
           ));
-          number.setFixedSize(cardLayout.numberWidth, cardLayout.nameHeight);
           renderedText.push({ role: `number:${index}`, object: number });
         }
 
@@ -410,10 +426,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
               fontStyle: 'bold',
             },
           ));
-          name
-            .setMaxLines(1)
-            .setWordWrapWidth(cardLayout.nameWidth, true)
-            .setFixedSize(cardLayout.nameWidth, cardLayout.nameHeight);
+          containText(name, choice.name, cardLayout.nameWidth, layout.fonts.name, 10 / layout.displayScale);
           renderedText.push({ role: `name:${index}`, object: name });
         }
 
@@ -459,17 +472,14 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           const status = own(createUiText(this.scene,
             cardLeft + cardLayout.padding,
             cardLayout.statusY,
-            statusLabel,
+          statusLabel,
             {
               color: '#a5f3fc',
               fontFamily: ThemeFont.family,
               fontSize: `${layout.fonts.status}px`,
             },
           ));
-          status
-            .setMaxLines(1)
-            .setWordWrapWidth(statusWidth, true)
-            .setFixedSize(statusWidth, cardLayout.statusHeight);
+          containText(status, statusLabel, statusWidth, layout.fonts.status, 8 / layout.displayScale);
           renderedText.push({ role: `status:${index}`, object: status });
         }
 
@@ -484,9 +494,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           const description = own(createUiText(this.scene,
             cardLeft + cardLayout.padding,
             cardLayout.descriptionY,
-            condensedCards
-              ? `${choice.description.replace(/\s+/g, ' ').slice(0, 58).trimEnd()}${choice.description.length > 58 ? '…' : ''}`
-              : choice.description,
+            choice.description,
             {
               color: '#d6f7ff',
               fontFamily: ThemeFont.family,
@@ -494,19 +502,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
               lineSpacing: layout.lineSpacing,
             },
           ));
-          description
-            .setMaxLines(Math.max(
-              1,
-              Math.min(
-                condensedCards ? 1 : 3,
-                Math.floor(
-                  (cardLayout.descriptionHeight + layout.lineSpacing) /
-                  (layout.fonts.description * 1.2 + layout.lineSpacing),
-                ),
-              ),
-            ))
-            .setWordWrapWidth(descriptionWidth, true)
-            .setFixedSize(descriptionWidth, cardLayout.descriptionHeight);
+          containText(description, choice.description, descriptionWidth, layout.fonts.description, 9 / layout.displayScale);
           renderedText.push({
             role: `description:${index}`,
             object: description,
