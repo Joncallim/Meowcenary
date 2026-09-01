@@ -772,7 +772,7 @@ function truncateSingleLine(text: string, width: number, fontSize: number): stri
   if (normalized.length === 0 || width <= 0 || fontSize <= 0) return '';
   // Inter is typically narrower than this; keeping the estimate conservative
   // leaves breathing room for bold glyphs and high-DPI rasterisation.
-  const maxCharacters = Math.max(1, Math.floor(width / (fontSize * 0.66)));
+  const maxCharacters = Math.max(1, Math.floor(width / (fontSize * 0.78)));
   if (normalized.length <= maxCharacters) return normalized;
   if (maxCharacters <= 1) return '…';
   return `${normalized.slice(0, maxCharacters - 1).trimEnd()}…`;

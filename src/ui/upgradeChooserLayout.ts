@@ -85,6 +85,8 @@ export function computeUpgradeChooserLayout(
   const physical = (pixels: number): number => pixels / displayScale;
   const font = (base: number, minimumPhysical: number): number =>
     Math.max(base, physical(minimumPhysical));
+  const count = Math.max(1, Math.min(5, Math.floor(choiceCount)));
+  const condensed = count > 3;
   const fonts = {
     heading: font(BASE_LOGICAL_FONT.heading, MIN_PHYSICAL_FONT.heading),
     instructions: font(BASE_LOGICAL_FONT.instructions, MIN_PHYSICAL_FONT.instructions),
@@ -93,9 +95,15 @@ export function computeUpgradeChooserLayout(
     status: font(BASE_LOGICAL_FONT.status, MIN_PHYSICAL_FONT.status),
     description: font(BASE_LOGICAL_FONT.description, MIN_PHYSICAL_FONT.description),
   };
+  if (condensed) {
+    // Four or five choices are scan rows.  Their copy is intentionally a
+    // step smaller than a full upgrade card, while remaining above the
+    // physical legibility floor on the production phone viewport.
+    fonts.heading = Math.max(18, physical(16));
+    fonts.name = Math.max(14, physical(12));
+    fonts.description = Math.max(12, physical(11));
+  }
   const compactHeader = canvasWidth * displayScale < 220;
-  const count = Math.max(1, Math.min(5, Math.floor(choiceCount)));
-  const condensed = count > 3;
   const safeLeft = Math.max(0, layoutInsets.left);
   const safeRight = Math.max(0, layoutInsets.right);
   const safeTop = Math.max(0, layoutInsets.top);
@@ -104,9 +112,9 @@ export function computeUpgradeChooserLayout(
   const contentCenterX = safeLeft + safeWidth / 2;
   const headerWidth = Math.max(MIN_REGION_SIZE, safeWidth - physical(12));
   const headingY = safeTop + physical(compactHeader ? 6 : condensed ? 8 : 12);
-  const headingHeight = fonts.heading * (condensed ? 1.2 : compactHeader ? 2.25 : 1.6);
+  const headingHeight = fonts.heading * (condensed ? 1.5 : compactHeader ? 2.25 : 1.6);
   const instructionsY = headingY + headingHeight + physical(condensed ? 1 : compactHeader ? 2 : 4);
-  const instructionsHeight = fonts.instructions * (condensed ? 1.2 : compactHeader ? 2.4 : 1.4);
+  const instructionsHeight = fonts.instructions * (condensed ? 1.4 : compactHeader ? 2.4 : 1.4);
   const cardsRegionTop =
     // The game scene renders through the 1.25x camera viewport; leaving only
     // a few logical pixels here lets Phaser font ascenders touch the first
@@ -125,11 +133,15 @@ export function computeUpgradeChooserLayout(
     ),
   );
   const totalCardHeight = cardHeight * count + cardGap * (count - 1);
-  const cardsTop = cardsRegionTop + Math.max(0, (availableHeight - totalCardHeight) / 2);
+  // Compact rows begin directly under their heading.  Centering a short
+  // stack made a conspicuous empty slab above the first option on phones.
+  const cardsTop = condensed
+    ? cardsRegionTop
+    : cardsRegionTop + Math.max(0, (availableHeight - totalCardHeight) / 2);
   const sideMargin = Math.max(compactHeader ? 0 : 10, physical(compactHeader ? 4 : 8));
   const cardWidth = Math.max(MIN_REGION_SIZE, safeWidth - sideMargin * 2);
   const desiredPadding = Math.max(
-    compactHeader ? 0 : 16,
+    compactHeader ? 0 : condensed ? 10 : 16,
     physical(compactHeader ? 4 : 8),
   );
   const padding = Math.min(desiredPadding, Math.max(0, (cardWidth - 3) / 2));
@@ -146,6 +158,8 @@ export function computeUpgradeChooserLayout(
   // "1." text badge alone would shrink the icon to roughly half its declared
   // size; it is instead the larger of the text badge and an icon box clamped
   // to what the card can actually afford in both axes.
+  // Upgrade art has an explicit 36px authored-display contract.  Compact
+  // rows reduce copy and padding around it, never the icon itself.
   const desiredIconSize = Math.max(36, physical(28));
   const iconSize = Math.max(
     0,
@@ -176,7 +190,7 @@ export function computeUpgradeChooserLayout(
     0,
     contentWidth - numberWidth - rarityReserve - inlineGap * 2,
   );
-  const nameHeight = Math.max(fonts.name * 1.15, physical(16));
+  const nameHeight = Math.max(fonts.name * 1.5, physical(16));
   const rarityHeight = Math.max(fonts.rarity * 1.15, physical(11));
   const desiredStatusHeight = Math.max(fonts.status * 1.15, physical(11));
   // The header row must clear the tallest of its three occupants so the icon

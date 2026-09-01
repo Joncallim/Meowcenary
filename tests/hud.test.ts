@@ -447,9 +447,14 @@ describe('PhaserHudView', () => {
     const time = textAt('0:01 / 1:00');
     const kills = textAt('K 3');
     const scrap = textAt('S 12');
+    const health = textAt('HP 80/100');
+    const level = textAt('LV 2');
     expect(time.y).toBeLessThan(kills.y as number);
     expect(kills.y).toBeLessThan(scrap.y as number);
     expect((scrap.y as number) - (kills.y as number)).toBeGreaterThan(0);
+    // Labels occupy their own compact rows: neither can paint across a bar.
+    expect((health.y as number) + (health.height as number)).toBeLessThanOrEqual(bars[0]!.state.y as number);
+    expect(level.y as number).toBeGreaterThan((bars[3]!.state.y as number) + (bars[3]!.state.height as number) / 2);
   });
 
   it('projects the zoomed GameScene backing across the whole HUD viewport instead of root-local canvas coordinates', () => {
