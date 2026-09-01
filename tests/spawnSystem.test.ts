@@ -160,6 +160,15 @@ describe('SpawnSystem', () => {
     expect(harness.player.takeDamage).toHaveBeenCalledTimes(1);
   });
 
+  it('applies a telegraphed boss dash hit through the same active-run damage boundary', async () => {
+    const harness = await createHarness();
+    harness.bus.emit('enemy:dash-hit', { instanceId: 1, enemyId: 'boss-crusher', damage: 22 });
+    expect(harness.player.takeDamage).toHaveBeenCalledWith(22);
+    harness.runState.status = 'paused';
+    harness.bus.emit('enemy:dash-hit', { instanceId: 1, enemyId: 'boss-crusher', damage: 22 });
+    expect(harness.player.takeDamage).toHaveBeenCalledTimes(1);
+  });
+
   it('freezes active enemies without touching destroyed ones while not active', async () => {
     const activeBody = {
       velocity: { x: 40, y: -20 },

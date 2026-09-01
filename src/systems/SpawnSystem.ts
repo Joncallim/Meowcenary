@@ -27,6 +27,7 @@ export class SpawnSystem implements System {
   private readonly environment: ChargerEnvironment;
   private readonly enemyProjectiles: Projectile[] = [];
   private readonly unsubscribeRangedShot: () => void;
+  private readonly unsubscribeDashHit: () => void;
   private readonly unsubscribeSummon: () => void;
   private readonly pendingSummons: Array<{ enemyId: string; count: number; maxActive: number; x: number; y: number }> = [];
 
@@ -68,6 +69,7 @@ export class SpawnSystem implements System {
       });
     }
     this.unsubscribeRangedShot = this.ctx.bus.on('enemy:ranged-shot', this.handleRangedShot);
+    this.unsubscribeDashHit = this.ctx.bus.on('enemy:dash-hit', this.handleDashHit);
     this.unsubscribeSummon = this.ctx.bus.on('enemy:summon', this.handleSummon);
   }
 
@@ -110,6 +112,7 @@ export class SpawnSystem implements System {
 
   destroy(): void {
     this.unsubscribeRangedShot();
+    this.unsubscribeDashHit();
     this.unsubscribeSummon();
     this.enemyProjectiles.forEach((projectile) => projectile.destroy());
     this.enemies.forEach((enemy) => {
@@ -141,6 +144,11 @@ export class SpawnSystem implements System {
       family: 'enemy',
       tier: 0,
     });
+  };
+
+  private readonly handleDashHit = (hit: { damage: number }): void => {
+    if (this.runState.status !== 'active' || !Number.isFinite(hit.damage) || hit.damage <= 0) return;
+    this.player.takeDamage(hit.damage);
   };
 
   private readonly handleSummon = (request: { enemyId: string; count: number; maxActive: number; x: number; y: number }): void => {
