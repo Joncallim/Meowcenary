@@ -243,6 +243,7 @@ describe('Epic 25 second-fixture proof (data-only extensibility)', () => {
       setId: 'set:proof',
       slot,
       tier: 1,
+      presentation: { iconArtId: 'upgrade-icon:run-and-gun' },
       effects: [{ stat: 'moveSpeed', op: 'mult', value: 1.01, sourceId: `equipment:proof-set-${slot}` }],
       ...(index === 0 ? { setBonuses: { 2: [{ stat: 'damage', op: 'mult', value: 1.1, sourceId: 'set:proof:2' }], 4: [{ stat: 'pierce', op: 'add', value: 1, sourceId: 'set:proof:4' }] } } : {}),
       ...(index === 0 ? { upgradeUnlocks: { 2: { type: 'stage-cleared' as const, stageId: 'stage:proof' } } } : {}),
@@ -266,6 +267,7 @@ describe('Epic 25 second-fixture proof (data-only extensibility)', () => {
       setId: 'set:commando',
       slot: 'gloves',
       tier: 1,
+      presentation: { iconArtId: 'upgrade-icon:run-and-gun' },
       effects: [{ stat: 'attackSpeed', op: 'mult', value: 1.02, sourceId: 'equipment:proof-gloves' }],
     };
     const defs = new Map(defMap);

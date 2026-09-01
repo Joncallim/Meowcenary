@@ -5,6 +5,7 @@
     "setId": "set:commando",
     "slot": "helmet",
     "tier": 1,
+    "presentation": { "iconArtId": "upgrade-icon:smg-overclock" },
     "upgradeUnlocks": { "2": { "type": "stage-cleared", "stageId": "stage:junkyard-02" }, "3": { "type": "boss-defeated", "bossId": "boss-crusher" }, "4": { "type": "achievement-completed", "achievementId": "achievement:boss-crusher" } },
     "effects": [{ "stat": "attackSpeed", "op": "mult", "value": 1.05, "sourceId": "equipment:commando-helmet" }],
     "setBonuses": { "2": [{ "stat": "attackSpeed", "op": "mult", "value": 1.1, "sourceId": "set:commando:2" }], "4": [{ "stat": "spreadDeg", "op": "add", "value": -4, "sourceId": "set:commando:4" }] }
@@ -15,6 +16,7 @@
     "setId": "set:commando",
     "slot": "armour",
     "tier": 1,
+    "presentation": { "iconArtId": "upgrade-icon:reinforced-coat" },
     "effects": [{ "stat": "maxHealth", "op": "add", "value": 15, "sourceId": "equipment:commando-armour" }]
   },
   {
@@ -23,6 +25,7 @@
     "setId": "set:commando",
     "slot": "gloves",
     "tier": 1,
+    "presentation": { "iconArtId": "upgrade-icon:pistol-deadeye" },
     "effects": [{ "stat": "spreadDeg", "op": "add", "value": -2, "sourceId": "equipment:commando-gloves" }]
   },
   {
@@ -31,6 +34,7 @@
     "setId": "set:commando",
     "slot": "boots",
     "tier": 1,
+    "presentation": { "iconArtId": "upgrade-icon:run-and-gun" },
     "effects": [{ "stat": "moveSpeed", "op": "mult", "value": 1.04, "sourceId": "equipment:commando-boots" }]
   },
   {
@@ -39,6 +43,7 @@
     "setId": "set:scavenger",
     "slot": "helmet",
     "tier": 1,
+    "presentation": { "iconArtId": "upgrade-icon:scrap-magnet" },
     "upgradeUnlocks": { "2": { "type": "stage-cleared", "stageId": "stage:junkyard-02" }, "3": { "type": "boss-defeated", "bossId": "boss-crusher" }, "4": { "type": "achievement-completed", "achievementId": "achievement:boss-crusher" } },
     "effects": [{ "stat": "pickupRadius", "op": "add", "value": 12, "sourceId": "equipment:scavenger-helmet" }],
     "setBonuses": { "2": [{ "stat": "currencyGain", "op": "mult", "value": 1.15, "sourceId": "set:scavenger:2" }], "4": [{ "stat": "pickupRadius", "op": "add", "value": 30, "sourceId": "set:scavenger:4" }] }
@@ -49,6 +54,7 @@
     "setId": "set:scavenger",
     "slot": "boots",
     "tier": 1,
+    "presentation": { "iconArtId": "upgrade-icon:extra-scrap" },
     "effects": [{ "stat": "currencyGain", "op": "mult", "value": 1.08, "sourceId": "equipment:scavenger-boots" }]
   },
   {
@@ -57,6 +63,7 @@
     "setId": "set:juggernaut",
     "slot": "armour",
     "tier": 1,
+    "presentation": { "iconArtId": "upgrade-icon:reinforced-coat" },
     "upgradeUnlocks": { "2": { "type": "stage-cleared", "stageId": "stage:junkyard-02" }, "3": { "type": "boss-defeated", "bossId": "boss-crusher" }, "4": { "type": "achievement-completed", "achievementId": "achievement:boss-crusher" } },
     "effects": [{ "stat": "maxHealth", "op": "mult", "value": 1.15, "sourceId": "equipment:juggernaut-armour" }],
     "setBonuses": { "2": [{ "stat": "maxHealth", "op": "mult", "value": 1.1, "sourceId": "set:juggernaut:2" }], "4": [{ "stat": "maxHealth", "op": "add", "value": 40, "sourceId": "set:juggernaut:4" }] }
@@ -67,6 +74,7 @@
     "setId": "set:juggernaut",
     "slot": "gloves",
     "tier": 1,
+    "presentation": { "iconArtId": "upgrade-icon:heavy-rounds" },
     "effects": [{ "stat": "maxHealth", "op": "add", "value": 25, "sourceId": "equipment:juggernaut-gloves" }]
   },
   {
@@ -75,6 +83,7 @@
     "setId": "set:pyro",
     "slot": "helmet",
     "tier": 1,
+    "presentation": { "iconArtId": "upgrade-icon:hot-barrel" },
     "upgradeUnlocks": { "2": { "type": "stage-cleared", "stageId": "stage:junkyard-02" }, "3": { "type": "boss-defeated", "bossId": "boss-crusher" }, "4": { "type": "achievement-completed", "achievementId": "achievement:boss-crusher" } },
     "effects": [{ "stat": "damage", "op": "mult", "value": 1.06, "sourceId": "equipment:pyro-helmet" }],
     "setBonuses": { "2": [{ "stat": "damage", "op": "mult", "value": 1.06, "sourceId": "set:pyro:2" }], "4": [{ "stat": "damage", "op": "mult", "value": 1.12, "sourceId": "set:pyro:4" }] }
@@ -85,6 +94,7 @@
     "setId": "set:recon",
     "slot": "boots",
     "tier": 1,
+    "presentation": { "iconArtId": "upgrade-icon:quick-paws" },
     "upgradeUnlocks": { "2": { "type": "stage-cleared", "stageId": "stage:junkyard-02" }, "3": { "type": "boss-defeated", "bossId": "boss-crusher" }, "4": { "type": "achievement-completed", "achievementId": "achievement:boss-crusher" } },
     "effects": [{ "stat": "moveSpeed", "op": "mult", "value": 1.08, "sourceId": "equipment:recon-boots" }],
     "setBonuses": { "2": [{ "stat": "moveSpeed", "op": "mult", "value": 1.06, "sourceId": "set:recon:2" }], "4": [{ "stat": "range", "op": "add", "value": 30, "sourceId": "set:recon:4" }] }
@@ -95,6 +105,7 @@
     "setId": "set:medic",
     "slot": "helmet",
     "tier": 1,
+    "presentation": { "iconArtId": "upgrade-icon:reinforced-coat" },
     "upgradeUnlocks": { "2": { "type": "stage-cleared", "stageId": "stage:junkyard-02" }, "3": { "type": "boss-defeated", "bossId": "boss-crusher" }, "4": { "type": "achievement-completed", "achievementId": "achievement:boss-crusher" } },
     "effects": [{ "stat": "maxHealth", "op": "add", "value": 10, "sourceId": "equipment:medic-helmet" }],
     "setBonuses": { "2": [{ "stat": "maxHealth", "op": "add", "value": 20, "sourceId": "set:medic:2" }], "4": [{ "stat": "maxHealth", "op": "mult", "value": 1.1, "sourceId": "set:medic:4" }] }
@@ -105,28 +116,29 @@
     "setId": "set:technician",
     "slot": "gloves",
     "tier": 1,
+    "presentation": { "iconArtId": "upgrade-icon:smg-overclock" },
     "upgradeUnlocks": { "2": { "type": "stage-cleared", "stageId": "stage:junkyard-02" }, "3": { "type": "boss-defeated", "bossId": "boss-crusher" }, "4": { "type": "achievement-completed", "achievementId": "achievement:boss-crusher" } },
     "effects": [{ "stat": "attackSpeed", "op": "mult", "value": 1.03, "sourceId": "equipment:technician-gloves" }],
     "setBonuses": { "2": [{ "stat": "attackSpeed", "op": "mult", "value": 1.05, "sourceId": "set:technician:2" }], "4": [{ "stat": "attackSpeed", "op": "mult", "value": 1.12, "sourceId": "set:technician:4" }] }
   },
-  { "id":"equipment:scavenger-armour", "name":"Scavenger Armour", "setId":"set:scavenger", "slot":"armour", "tier":1, "effects":[{"stat":"currencyGain","op":"mult","value":1.05,"sourceId":"equipment:scavenger-armour"}] },
-  { "id":"equipment:scavenger-gloves", "name":"Scavenger Gloves", "setId":"set:scavenger", "slot":"gloves", "tier":1, "effects":[{"stat":"pickupRadius","op":"add","value":10,"sourceId":"equipment:scavenger-gloves"}] },
-  { "id":"equipment:juggernaut-helmet", "name":"Juggernaut Helmet", "setId":"set:juggernaut", "slot":"helmet", "tier":1, "effects":[{"stat":"maxHealth","op":"add","value":18,"sourceId":"equipment:juggernaut-helmet"}] },
-  { "id":"equipment:juggernaut-boots", "name":"Juggernaut Boots", "setId":"set:juggernaut", "slot":"boots", "tier":1, "effects":[{"stat":"maxHealth","op":"add","value":8,"sourceId":"equipment:juggernaut-boots"}] },
-  { "id":"equipment:demolition-helmet", "name":"Demolition Helmet", "setId":"set:demolition", "slot":"helmet", "tier":1, "upgradeUnlocks":{"2":{"type":"stage-cleared","stageId":"stage:junkyard-02"},"3":{"type":"boss-defeated","bossId":"boss-crusher"},"4":{"type":"achievement-completed","achievementId":"achievement:boss-crusher"}}, "effects":[{"stat":"damage","op":"mult","value":1.04,"sourceId":"equipment:demolition-helmet"}], "setBonuses":{"2":[{"stat":"damage","op":"mult","value":1.08,"sourceId":"set:demolition:2"}],"4":[{"stat":"damage","op":"mult","value":1.15,"sourceId":"set:demolition:4"}]} },
-  { "id":"equipment:demolition-armour", "name":"Demolition Armour", "setId":"set:demolition", "slot":"armour", "tier":1, "effects":[{"stat":"maxHealth","op":"add","value":12,"sourceId":"equipment:demolition-armour"}] },
-  { "id":"equipment:demolition-gloves", "name":"Demolition Gloves", "setId":"set:demolition", "slot":"gloves", "tier":1, "effects":[{"stat":"pierce","op":"add","value":1,"sourceId":"equipment:demolition-gloves"}] },
-  { "id":"equipment:demolition-boots", "name":"Demolition Boots", "setId":"set:demolition", "slot":"boots", "tier":1, "effects":[{"stat":"moveSpeed","op":"mult","value":1.03,"sourceId":"equipment:demolition-boots"}] },
-  { "id":"equipment:pyro-armour", "name":"Pyro Armour", "setId":"set:pyro", "slot":"armour", "tier":1, "effects":[{"stat":"maxHealth","op":"add","value":10,"sourceId":"equipment:pyro-armour"}] },
-  { "id":"equipment:pyro-gloves", "name":"Pyro Gloves", "setId":"set:pyro", "slot":"gloves", "tier":1, "effects":[{"stat":"attackSpeed","op":"mult","value":1.04,"sourceId":"equipment:pyro-gloves"}] },
-  { "id":"equipment:pyro-boots", "name":"Pyro Boots", "setId":"set:pyro", "slot":"boots", "tier":1, "effects":[{"stat":"moveSpeed","op":"mult","value":1.04,"sourceId":"equipment:pyro-boots"}] },
-  { "id":"equipment:recon-helmet", "name":"Recon Helmet", "setId":"set:recon", "slot":"helmet", "tier":1, "effects":[{"stat":"projectileSpeed","op":"mult","value":1.05,"sourceId":"equipment:recon-helmet"}] },
-  { "id":"equipment:recon-armour", "name":"Recon Armour", "setId":"set:recon", "slot":"armour", "tier":1, "effects":[{"stat":"range","op":"add","value":12,"sourceId":"equipment:recon-armour"}] },
-  { "id":"equipment:recon-gloves", "name":"Recon Gloves", "setId":"set:recon", "slot":"gloves", "tier":1, "effects":[{"stat":"spreadDeg","op":"add","value":-1,"sourceId":"equipment:recon-gloves"}] },
-  { "id":"equipment:medic-armour", "name":"Medic Armour", "setId":"set:medic", "slot":"armour", "tier":1, "effects":[{"stat":"maxHealth","op":"add","value":14,"sourceId":"equipment:medic-armour"}] },
-  { "id":"equipment:medic-gloves", "name":"Medic Gloves", "setId":"set:medic", "slot":"gloves", "tier":1, "effects":[{"stat":"pickupRadius","op":"add","value":8,"sourceId":"equipment:medic-gloves"}] },
-  { "id":"equipment:medic-boots", "name":"Medic Boots", "setId":"set:medic", "slot":"boots", "tier":1, "effects":[{"stat":"moveSpeed","op":"mult","value":1.03,"sourceId":"equipment:medic-boots"}] },
-  { "id":"equipment:technician-helmet", "name":"Technician Helmet", "setId":"set:technician", "slot":"helmet", "tier":1, "effects":[{"stat":"projectileSpeed","op":"mult","value":1.05,"sourceId":"equipment:technician-helmet"}] },
-  { "id":"equipment:technician-armour", "name":"Technician Armour", "setId":"set:technician", "slot":"armour", "tier":1, "effects":[{"stat":"maxHealth","op":"add","value":10,"sourceId":"equipment:technician-armour"}] },
-  { "id":"equipment:technician-boots", "name":"Technician Boots", "setId":"set:technician", "slot":"boots", "tier":1, "effects":[{"stat":"moveSpeed","op":"mult","value":1.03,"sourceId":"equipment:technician-boots"}] }
+  { "id":"equipment:scavenger-armour", "name":"Scavenger Armour", "setId":"set:scavenger", "slot":"armour", "tier":1, "presentation":{"iconArtId":"upgrade-icon:extra-scrap"}, "effects":[{"stat":"currencyGain","op":"mult","value":1.05,"sourceId":"equipment:scavenger-armour"}] },
+  { "id":"equipment:scavenger-gloves", "name":"Scavenger Gloves", "setId":"set:scavenger", "slot":"gloves", "tier":1, "presentation":{"iconArtId":"upgrade-icon:scrap-magnet"}, "effects":[{"stat":"pickupRadius","op":"add","value":10,"sourceId":"equipment:scavenger-gloves"}] },
+  { "id":"equipment:juggernaut-helmet", "name":"Juggernaut Helmet", "setId":"set:juggernaut", "slot":"helmet", "tier":1, "presentation":{"iconArtId":"upgrade-icon:reinforced-coat"}, "effects":[{"stat":"maxHealth","op":"add","value":18,"sourceId":"equipment:juggernaut-helmet"}] },
+  { "id":"equipment:juggernaut-boots", "name":"Juggernaut Boots", "setId":"set:juggernaut", "slot":"boots", "tier":1, "presentation":{"iconArtId":"upgrade-icon:run-and-gun"}, "effects":[{"stat":"maxHealth","op":"add","value":8,"sourceId":"equipment:juggernaut-boots"}] },
+  { "id":"equipment:demolition-helmet", "name":"Demolition Helmet", "setId":"set:demolition", "slot":"helmet", "tier":1, "presentation":{"iconArtId":"upgrade-icon:heavy-rounds"}, "upgradeUnlocks":{"2":{"type":"stage-cleared","stageId":"stage:junkyard-02"},"3":{"type":"boss-defeated","bossId":"boss-crusher"},"4":{"type":"achievement-completed","achievementId":"achievement:boss-crusher"}}, "effects":[{"stat":"damage","op":"mult","value":1.04,"sourceId":"equipment:demolition-helmet"}], "setBonuses":{"2":[{"stat":"damage","op":"mult","value":1.08,"sourceId":"set:demolition:2"}],"4":[{"stat":"damage","op":"mult","value":1.15,"sourceId":"set:demolition:4"}]} },
+  { "id":"equipment:demolition-armour", "name":"Demolition Armour", "setId":"set:demolition", "slot":"armour", "tier":1, "presentation":{"iconArtId":"upgrade-icon:reinforced-coat"}, "effects":[{"stat":"maxHealth","op":"add","value":12,"sourceId":"equipment:demolition-armour"}] },
+  { "id":"equipment:demolition-gloves", "name":"Demolition Gloves", "setId":"set:demolition", "slot":"gloves", "tier":1, "presentation":{"iconArtId":"upgrade-icon:punch-through"}, "effects":[{"stat":"pierce","op":"add","value":1,"sourceId":"equipment:demolition-gloves"}] },
+  { "id":"equipment:demolition-boots", "name":"Demolition Boots", "setId":"set:demolition", "slot":"boots", "tier":1, "presentation":{"iconArtId":"upgrade-icon:quick-paws"}, "effects":[{"stat":"moveSpeed","op":"mult","value":1.03,"sourceId":"equipment:demolition-boots"}] },
+  { "id":"equipment:pyro-armour", "name":"Pyro Armour", "setId":"set:pyro", "slot":"armour", "tier":1, "presentation":{"iconArtId":"upgrade-icon:hot-barrel"}, "effects":[{"stat":"maxHealth","op":"add","value":10,"sourceId":"equipment:pyro-armour"}] },
+  { "id":"equipment:pyro-gloves", "name":"Pyro Gloves", "setId":"set:pyro", "slot":"gloves", "tier":1, "presentation":{"iconArtId":"upgrade-icon:hot-barrel"}, "effects":[{"stat":"attackSpeed","op":"mult","value":1.04,"sourceId":"equipment:pyro-gloves"}] },
+  { "id":"equipment:pyro-boots", "name":"Pyro Boots", "setId":"set:pyro", "slot":"boots", "tier":1, "presentation":{"iconArtId":"upgrade-icon:hot-barrel"}, "effects":[{"stat":"moveSpeed","op":"mult","value":1.04,"sourceId":"equipment:pyro-boots"}] },
+  { "id":"equipment:recon-helmet", "name":"Recon Helmet", "setId":"set:recon", "slot":"helmet", "tier":1, "presentation":{"iconArtId":"upgrade-icon:pistol-deadeye"}, "effects":[{"stat":"projectileSpeed","op":"mult","value":1.05,"sourceId":"equipment:recon-helmet"}] },
+  { "id":"equipment:recon-armour", "name":"Recon Armour", "setId":"set:recon", "slot":"armour", "tier":1, "presentation":{"iconArtId":"upgrade-icon:long-barrel"}, "effects":[{"stat":"range","op":"add","value":12,"sourceId":"equipment:recon-armour"}] },
+  { "id":"equipment:recon-gloves", "name":"Recon Gloves", "setId":"set:recon", "slot":"gloves", "tier":1, "presentation":{"iconArtId":"upgrade-icon:pistol-deadeye"}, "effects":[{"stat":"spreadDeg","op":"add","value":-1,"sourceId":"equipment:recon-gloves"}] },
+  { "id":"equipment:medic-armour", "name":"Medic Armour", "setId":"set:medic", "slot":"armour", "tier":1, "presentation":{"iconArtId":"upgrade-icon:reinforced-coat"}, "effects":[{"stat":"maxHealth","op":"add","value":14,"sourceId":"equipment:medic-armour"}] },
+  { "id":"equipment:medic-gloves", "name":"Medic Gloves", "setId":"set:medic", "slot":"gloves", "tier":1, "presentation":{"iconArtId":"upgrade-icon:scrap-magnet"}, "effects":[{"stat":"pickupRadius","op":"add","value":8,"sourceId":"equipment:medic-gloves"}] },
+  { "id":"equipment:medic-boots", "name":"Medic Boots", "setId":"set:medic", "slot":"boots", "tier":1, "presentation":{"iconArtId":"upgrade-icon:quick-paws"}, "effects":[{"stat":"moveSpeed","op":"mult","value":1.03,"sourceId":"equipment:medic-boots"}] },
+  { "id":"equipment:technician-helmet", "name":"Technician Helmet", "setId":"set:technician", "slot":"helmet", "tier":1, "presentation":{"iconArtId":"upgrade-icon:smg-overclock"}, "effects":[{"stat":"projectileSpeed","op":"mult","value":1.05,"sourceId":"equipment:technician-helmet"}] },
+  { "id":"equipment:technician-armour", "name":"Technician Armour", "setId":"set:technician", "slot":"armour", "tier":1, "presentation":{"iconArtId":"upgrade-icon:reinforced-coat"}, "effects":[{"stat":"maxHealth","op":"add","value":10,"sourceId":"equipment:technician-armour"}] },
+  { "id":"equipment:technician-boots", "name":"Technician Boots", "setId":"set:technician", "slot":"boots", "tier":1, "presentation":{"iconArtId":"upgrade-icon:quick-paws"}, "effects":[{"stat":"moveSpeed","op":"mult","value":1.03,"sourceId":"equipment:technician-boots"}] }
 ]

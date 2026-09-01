@@ -23,6 +23,8 @@ export interface EquipmentDefinition {
   readonly slot: EquipmentSlot;
   readonly tier: number;
   readonly effects: readonly Modifier[];
+  /** Canonical manifest reference; definitions never carry renderer paths. */
+  readonly presentation: { readonly iconArtId: string };
   /** Optional data-owned 2/4-piece table. One representative piece may carry
    * it so a complete future set needs no central runtime registration. */
   readonly setBonuses?: Readonly<Partial<Record<2 | 4, readonly Modifier[]>>>;

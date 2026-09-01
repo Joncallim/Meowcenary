@@ -84,6 +84,8 @@ export interface PartDefinition {
   readonly tier: number;
   readonly effects: readonly Modifier[];
   readonly traits: readonly BehaviorTrait[];
+  /** Canonical manifest reference; definitions never carry renderer paths. */
+  readonly presentation: { readonly iconArtId: string };
 }
 
 /** Persistent player-owned instance — sparse, ID-stable, migration-safe. */

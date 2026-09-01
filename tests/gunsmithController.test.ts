@@ -30,7 +30,7 @@ describe('GunsmithController durable commands', () => {
     expect(controller.fitPart('owned:barrel')).toMatchObject({ ok: true });
     expect(context.saveData.gunsmith.selectedBuildId).toBe('build:pistol');
     expect(context.saveData.gunsmith.builds[0].fitted.barrel).toBe('owned:barrel');
-    expect(controller.snapshot().parts[0]).toMatchObject({ name: 'Standard Barrel', compatible: true });
+    expect(controller.snapshot().parts[0]).toMatchObject({ name: 'Standard Barrel', compatible: true, iconArtId: 'upgrade-icon:long-barrel' });
   });
 
   it('consumes a trait source and preserves the infused owned target', () => {

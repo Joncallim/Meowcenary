@@ -19,6 +19,7 @@ export interface GunsmithPartView {
   readonly tier: number;
   readonly traits: readonly string[];
   readonly compatible: boolean;
+  readonly iconArtId: string;
 }
 
 export interface GunsmithSnapshot {
@@ -52,6 +53,7 @@ export class GunsmithController {
         return [Object.freeze({
           instanceId, partId: stored.partId, name: definition.name, slot: definition.slot,
           tier: stored.tier, traits: Object.freeze([...definition.traits, ...stored.infusedTraits]),
+          iconArtId: definition.presentation.iconArtId,
           compatible: selected === undefined || isSlotCompatible(selected.baseWeaponFamily, definition.slot),
         })];
       })),

@@ -5,7 +5,7 @@ import { createConditionContext } from '../gameplay/conditionEvaluator';
 
 export interface EquipmentSnapshot {
   readonly equipped: Readonly<Record<string, string | undefined>>;
-  readonly owned: readonly { readonly instanceId: string; readonly equipmentId: string; readonly name: string; readonly setId: string; readonly slot: string; readonly tier: number; readonly upgradeCost?: number; readonly upgradeLocked?: boolean }[];
+  readonly owned: readonly { readonly instanceId: string; readonly equipmentId: string; readonly name: string; readonly setId: string; readonly slot: string; readonly tier: number; readonly iconArtId: string; readonly upgradeCost?: number; readonly upgradeLocked?: boolean }[];
   /** Derived solely from the currently equipped owned instances. */
   readonly activeSets: readonly { readonly setId: string; readonly pieces: number; readonly activeThresholds: readonly (2 | 4)[] }[];
   /** Recoverable stale catalog entries; never silently disappear from a save. */
@@ -39,7 +39,7 @@ export class EquipmentController {
         const definition = this.registry.equipmentById(item.equipmentId);
         if (!definition) return [];
         const upgrade = upgradeEquipment({ instanceId, equipmentId: item.equipmentId, tier: item.tier }, state.progression.scrap, this.registry.asMap(), facts);
-        return [Object.freeze({ instanceId, equipmentId: item.equipmentId, name: definition.name, setId: definition.setId, slot: definition.slot, tier: item.tier, ...(upgrade.ok ? { upgradeCost: upgrade.cost } : upgrade.reason === 'locked' ? { upgradeLocked: true } : {}) })];
+        return [Object.freeze({ instanceId, equipmentId: item.equipmentId, name: definition.name, setId: definition.setId, slot: definition.slot, tier: item.tier, iconArtId: definition.presentation.iconArtId, ...(upgrade.ok ? { upgradeCost: upgrade.cost } : upgrade.reason === 'locked' ? { upgradeLocked: true } : {}) })];
       })),
       activeSets: Object.freeze([...setCounts.entries()].map(([setId, pieces]) => Object.freeze({
         setId,

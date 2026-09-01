@@ -96,9 +96,9 @@ import {
 } from './validation/stages';
 import { checkAchievement, assertAchievementMetricReferences, assertUniqueAchievementPlatformMappings, assertAchievementEquipmentGrantReferences, assertNoSelfReferentialAchievementConditions, assertAchievementGrantAndConditionReferences } from './validation/achievements';
 import { registeredMetricIds } from './achievements';
-import { checkPart, assertPartEffectSources } from './validation/parts';
+import { checkPart, assertPartEffectSources, assertPartArtReferences } from './validation/parts';
 import { checkAbility } from './validation/abilities';
-import { checkEquipment, assertEquipmentEffectSources, assertEquipmentSetBonuses, assertEquipmentUpgradeUnlockReferences } from './validation/equipment';
+import { checkEquipment, assertEquipmentEffectSources, assertEquipmentSetBonuses, assertEquipmentUpgradeUnlockReferences, assertEquipmentArtReferences } from './validation/equipment';
 import { checkAssetBundle, assertStageAssetBundleReferences } from './validation/assetBundles';
 import { findEdgeLaneWitness, findRectWitness, findRingWitness } from '../gameplay/spawnRegion';
 import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
@@ -668,6 +668,7 @@ export function validateGameData(raw: unknown): GameData {
 
   // Epic 23: gun-part effect sources (appended, preserving frozen order).
   assertPartEffectSources(catalogs['gun-parts'] as PartDefinition[]);
+  assertPartArtReferences(catalogs['gun-parts'] as PartDefinition[], visualArt);
 
   // Epic 24: character ability references resolve against the ability catalog.
   const abilityIdSet = new Set((catalogs.abilities as AbilityDefinition[]).map((a) => a.id));
@@ -679,6 +680,7 @@ export function validateGameData(raw: unknown): GameData {
 
   // Epic 25: equipment effect sources (appended, preserving frozen order).
   assertEquipmentEffectSources(catalogs.equipment as EquipmentDefinition[]);
+  assertEquipmentArtReferences(catalogs.equipment as EquipmentDefinition[], visualArt);
   assertEquipmentSetBonuses(catalogs.equipment as EquipmentDefinition[]);
   assertEquipmentUpgradeUnlockReferences(catalogs.equipment as EquipmentDefinition[], {
     stageIds: stageIdSet,
@@ -875,6 +877,8 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertUpgradeWeaponFamilyReferences(upgrades, weapons),
     () => assertUpgradeArtReferences(upgrades, visualArt),
     () => assertStageAssetBundleReferences(catalogs.stages as StageDefinition[], assetBundles, visualArt, arenas),
+    () => assertPartArtReferences(catalogs['gun-parts'] as PartDefinition[], visualArt),
+    () => assertEquipmentArtReferences(catalogs.equipment as EquipmentDefinition[], visualArt),
   ];
   for (const assertion of assertions) {
     try {
