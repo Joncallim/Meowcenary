@@ -12,6 +12,7 @@
     "id": "encounter:junkyard-mixed",
     "enemyIds": [
       "dust-mite",
+      "scrap-sniper",
       "junk-rusher",
       "junk-nester",
       "bastion-beetle",
@@ -22,7 +23,8 @@
       "junk-rusher": 1,
       "junk-nester": 1,
       "bastion-beetle": 1,
-      "scrap-skitter": 2
+      "scrap-skitter": 2,
+      "scrap-sniper": 1
     }
   },
   {

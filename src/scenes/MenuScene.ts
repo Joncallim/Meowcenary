@@ -47,6 +47,7 @@ export class MenuScene extends Phaser.Scene {
   /** Gunsmith inventories can grow without bound; page logical actions so
    * every controller/touch target remains inside the playable viewport. */
   private gunsmithPage = 0;
+  private equipmentPage = 0;
   private achievementsPage = 0;
   /** Keep the progression hub useful on portrait displays: destinations and
    * the older permanent-training controls have separate, reachable pages. */
@@ -548,8 +549,10 @@ export class MenuScene extends Phaser.Scene {
         y += hitTarget + 8;
       });
       const actions: Array<{ label: string; action: () => void; iconArtId?: string }> = snapshot.gunsmith.parts.map((part) => ({
-        label: `${part.compatible ? 'Fit' : 'Incompatible'} ${part.name} T${part.tier}${part.traits.length ? ` [${part.traits.join(', ')}]` : ''}`,
-        action: () => { if (part.compatible) this.render(this.requireController().fitGunPart(part.instanceId)); },
+        label: `${part.fitted ? 'Fitted' : part.compatible ? 'Fit' : 'Incompatible'} ${part.name} T${part.tier}${part.traits.length ? ` [${part.traits.join(', ')}]` : ''}\n${part.comparisonSummary}`,
+        action: () => this.render(part.fitted
+          ? this.requireController().unequipGunPart(part.instanceId)
+          : part.compatible ? this.requireController().fitGunPart(part.instanceId) : this.requireController().snapshot()),
         iconArtId: part.iconArtId,
       }));
       const mergePairs = snapshot.gunsmith.parts.flatMap((part, index) => snapshot.gunsmith.parts
@@ -571,7 +574,7 @@ export class MenuScene extends Phaser.Scene {
         if (!instanceId) continue;
         actions.push({ label: `Unequip ${instanceId}`, action: () => this.render(this.requireController().unequipGunPart(instanceId)) });
       }
-      const pageSize = 4;
+      const pageSize = 1;
       const pageCount = Math.max(1, Math.ceil(actions.length / pageSize));
       this.gunsmithPage = Math.min(this.gunsmithPage, pageCount - 1);
       this.own(root, createUiText(this, margin, y, `Owned parts and crafting — page ${this.gunsmithPage + 1}/${pageCount}:`, {
@@ -580,9 +583,9 @@ export class MenuScene extends Phaser.Scene {
       y += hitTarget * 0.7;
       actions.slice(this.gunsmithPage * pageSize, (this.gunsmithPage + 1) * pageSize).forEach((item) => {
         const iconColumn = item.iconArtId ? 38 : 0;
-        this.addButton(root, margin, y, item.label, hitTarget, item.action, 'ui:confirm', iconColumn > 0 ? width - margin - this.safeRightMargin - iconColumn : undefined);
+        const actionText = this.addButton(root, margin, y, item.label, hitTarget, item.action, 'ui:confirm', iconColumn > 0 ? width - margin - this.safeRightMargin - iconColumn : undefined);
         if (item.iconArtId) this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, item.iconArtId);
-        y += hitTarget + 8;
+        y += actionText.height + 8;
       });
       if (pageCount > 1) {
         if (this.gunsmithPage > 0) {
@@ -628,21 +631,28 @@ export class MenuScene extends Phaser.Scene {
       }));
       y += activeText.height + 12;
     }
-    snapshot.equipment.owned.forEach((item) => {
+    const pageSize = 1;
+    const pageCount = Math.max(1, Math.ceil(snapshot.equipment.owned.length / pageSize));
+    this.equipmentPage = Math.min(this.equipmentPage, pageCount - 1);
+    this.own(root, createUiText(this, margin, y, `Owned equipment — page ${this.equipmentPage + 1}/${pageCount}:`, {
+      color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+    }));
+    y += hitTarget * 0.7;
+    snapshot.equipment.owned.slice(this.equipmentPage * pageSize, (this.equipmentPage + 1) * pageSize).forEach((item) => {
       const equippedHere = equipped[item.slot] === item.instanceId;
       const iconColumn = 38;
-      this.addButton(root, margin, y, `${equippedHere ? '✓ ' : ''}${item.name} [${item.setId}] T${item.tier} — ${equippedHere ? 'Equipped' : 'Equip'}`, hitTarget, () => {
+      const equipmentButton = this.addButton(root, margin, y, `${equippedHere ? '✓ ' : ''}${item.name} [${item.setId}] T${item.tier} — ${equippedHere ? 'Equipped' : 'Equip'}`, hitTarget, () => {
         this.render(equippedHere
           ? this.requireController().unequipEquipment(item.slot as 'helmet' | 'armour' | 'gloves' | 'boots')
           : this.requireController().equipEquipment(item.instanceId));
       }, 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
       this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, item.iconArtId);
-      y += hitTarget + 8;
-      this.own(root, createUiText(this, margin, y, `Effects: ${item.effectSummary.join(', ')}${item.comparisonSummary ? `\n${item.comparisonSummary}` : ''}`, {
+      y += equipmentButton.height + 8;
+      const effects = this.own(root, createUiText(this, margin, y, `Effects: ${item.effectSummary.join(', ')}${item.comparisonSummary ? `\n${item.comparisonSummary}` : ''}`, {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
         wordWrap: { width: width - margin - this.safeRightMargin },
       }));
-      y += hitTarget * (item.comparisonSummary ? 1.1 : 0.65);
+      y += effects.height + 8;
       if (item.upgradeCost !== undefined) {
         this.addButton(root, margin, y, `Upgrade ${item.name} (${item.upgradeCost} scrap)`, hitTarget, () => {
           this.render(this.requireController().upgradeEquipment(item.instanceId));
@@ -656,6 +666,16 @@ export class MenuScene extends Phaser.Scene {
         y += hitTarget * 0.75;
       }
     });
+    if (pageCount > 1) {
+      if (this.equipmentPage > 0) {
+        this.addButton(root, margin, y, 'Previous Equipment Page', hitTarget, () => { this.equipmentPage -= 1; this.render(this.requireController().snapshot()); });
+        y += hitTarget + 8;
+      }
+      if (this.equipmentPage < pageCount - 1) {
+        this.addButton(root, margin, y, 'Next Equipment Page', hitTarget, () => { this.equipmentPage += 1; this.render(this.requireController().snapshot()); });
+        y += hitTarget + 8;
+      }
+    }
     if (snapshot.equipment.owned.length === 0) {
       this.own(root, createUiText(this, margin, y, 'Complete bosses and achievements to earn persistent equipment.', {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
