@@ -20,7 +20,10 @@ import type { ChargerEnvironment } from '../gameplay/enemyMovement';
 import type { ResolvedDifficultyProfile } from '../gameplay/stage/stageContracts';
 
 export class SpawnSystem implements System {
-  private static readonly ENEMY_PROJECTILE_POOL = 24;
+  // Current encounter caps can combine ranged adds with boss volleys. Keep
+  // enough preallocated slots for that authored worst case so a live,
+  // telegraphed threat is never silently dropped under normal composition.
+  private static readonly ENEMY_PROJECTILE_POOL = 64;
   private readonly registry?: DataEnemyRegistry;
   private readonly director?: SpawnDirector;
   private readonly scaling?: EnemyScalingDefinition;
@@ -60,7 +63,7 @@ export class SpawnSystem implements System {
       this,
     );
     for (let index = 0; index < SpawnSystem.ENEMY_PROJECTILE_POOL; index += 1) {
-      const projectile = new Projectile(this.scene, 5);
+      const projectile = new Projectile(this.scene, 6);
       this.enemyProjectiles.push(projectile);
       this.scene.physics.add.overlap(this.player.sprite, projectile.sprite, () => {
         if (!projectile.active || this.runState.status !== 'active') return;
@@ -143,6 +146,9 @@ export class SpawnSystem implements System {
       weaponId: 'enemy:ranged',
       family: 'enemy',
       tier: 0,
+      // Enemy fallback projectiles must remain visually distinct from the
+      // player's cyan shots even before bespoke enemy art is authored.
+      color: 0xff5a48,
     });
   };
 

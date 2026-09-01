@@ -7,6 +7,8 @@ import { VisualDepth } from '../systems/visualDepths';
 import { createStaticArtSprite } from './actorView';
 import type { ProjectileEffect } from '../gameplay/projectileEffects';
 
+const DEFAULT_PROJECTILE_COLOR = 0x8bd3ff;
+
 export interface ProjectileSpawnOptions {
   speed: number;
   damage: number;
@@ -19,6 +21,9 @@ export interface ProjectileSpawnOptions {
   family: string;
   tier: number;
   effects?: readonly ProjectileEffect[];
+  /** Fallback circles are used when no projectile art binding exists. Their
+   *  colour belongs to the firing threat, not to combat resolution. */
+  color?: number;
 }
 
 export class Projectile {
@@ -87,6 +92,12 @@ export class Projectile {
     this.family = opts.family;
     this.tier = opts.tier;
     this.effects = Object.freeze([...(opts.effects ?? [])]);
+    // Pools can be shared by callers with different fallback palettes. Set
+    // the default on every launch so a coloured threat cannot tint a later
+    // uncoloured projectile after reuse.
+    const color = opts.color ?? DEFAULT_PROJECTILE_COLOR;
+    this.sprite.setFillStyle?.(color);
+    this.glow.setFillStyle?.(color);
     this.traveled = 0;
     this.hitEnemyIds.clear();
     this.pausedVelocity = undefined;
