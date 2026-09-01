@@ -110,7 +110,9 @@ describe('GameScene durable stage clear', () => {
       objective: { definition: { type: 'defeat', enemyId: 'boss-crusher' } },
     } as any);
     scene.stageRuntime.tick(0, run.timeMs);
-    scene.recordStageEnemyDefeat('boss-crusher');
+    scene.enemyDefinitions = { resolvedById: () => ({ archetype: 'boss' }) };
+    scene.installAuthoritativeFactListeners(context);
+    context.bus.emit('enemy:killed', { enemyId: 'boss-crusher', instanceId: 1, x: 0, y: 0 });
     scene.stageRuntime.tick(0, run.timeMs);
     scene.getContext = () => context;
     scene.pauseController = { snapshot: () => ({ panel: 'closed' }) };
