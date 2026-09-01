@@ -15,6 +15,11 @@ import { createEventBus } from '../src/engine/eventBus';
 import { createStageRuntime } from '../src/gameplay/stage/stageRuntime';
 
 describe('Alpha 3 shared foundation canonical contracts', () => {
+  it('keeps catalog version diagnostic-only and outside the Save V3 shape', () => {
+    expect(loadGameData().contentVersion).toBe('alpha3-1');
+    expect(JSON.stringify(createDefaultSaveV3())).not.toContain('contentVersion');
+  });
+
   it('preserves canonical achievement and character IDs through grant, save/load, and condition consumers', () => {
     const transaction = {
       id: 'achievement:contract-fixture:completion',

@@ -567,6 +567,9 @@ export interface ArenaDefinition {
 }
 
 export interface GameData {
+  /** Catalog/rebalance identity for replay diagnostics. This is deliberately
+   * not part of Save V3: ordinary content changes never trigger migration. */
+  readonly contentVersion: string;
   weapons: WeaponDefinition[];
   enemies: EnemyDefinition[];
   upgrades: UpgradeDefinition[];
