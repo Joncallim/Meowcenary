@@ -366,6 +366,9 @@ class FakeText extends FakeDisplayObject {
     this.originY = 0;
   }
   setFontSize(fontSize: string): this {
+    if (this.shouldFailFixedSize?.()) {
+      throw new Error('Injected text sizing failure');
+    }
     this.fontSize = Number.parseFloat(fontSize);
     this.width = this.text.length * this.fontSize * 0.55;
     this.height = this.fontSize * 1.2;

@@ -271,7 +271,7 @@ export class PhaserHudView implements HudView {
     this.setContainedText(this.killsText, `K ${formatNumber(snapshot.kills)}`, this.headerTextWidth, this.labelFontSize);
     this.setContainedText(this.scrapText, `S ${formatNumber(Math.floor(snapshot.currency))}`, this.headerTextWidth, this.labelFontSize);
     const feedback = [snapshot.objective, snapshot.ability, snapshot.achievement].filter(Boolean);
-    this.objectiveText.setText(truncateHudFeedback(feedback[0]));
+    this.setContainedText(this.objectiveText, truncateHudFeedback(feedback[0]), this.meterTextWidth, this.labelFontSize);
 
   }
 
@@ -409,7 +409,6 @@ export class PhaserHudView implements HudView {
     this.objectiveText = createUiText(scene, layout.margin, layout.statsTop, '', {
       ...labelStyle,
     });
-    this.objectiveText.setFixedSize(layout.healthBarWidth, layout.labelSize * 1.25);
     this.objectiveText.setScrollFactor(0);
     this.objectiveText.setDepth(ThemeDepth.hud);
 

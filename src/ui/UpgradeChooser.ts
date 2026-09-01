@@ -27,17 +27,6 @@ const RARITY_CARD_BACKGROUND = {
   legendary: 0x624719,
 } as const;
 
-/** Phaser Text's fixed backing texture clipped glyphs on mobile WebGL.  Keep
- * text on a natural canvas and truncate the source to a conservative single
- * line instead of clipping the rendered pixels. */
-function fitSingleLine(value: string, width: number, fontSize: number): string {
-  const compact = value.replace(/\s+/g, ' ').trim();
-  const maxCharacters = Math.max(1, Math.floor(width / Math.max(1, fontSize * 0.58)));
-  return compact.length <= maxCharacters
-    ? compact
-    : `${compact.slice(0, Math.max(0, maxCharacters - 1)).trimEnd()}…`;
-}
-
 /** Measure the actual Phaser glyphs, then reduce/truncate only as far as the
  * real canvas needs. This avoids the unsafe average-character-width guess. */
 function containText(
@@ -297,7 +286,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       const heading = own(createUiText(this.scene,
         layout.contentCenterX,
         layout.headingY,
-        fitSingleLine('Choose an upgrade', layout.headerWidth, layout.fonts.heading),
+        'Choose an upgrade',
         {
         align: 'center',
         color: '#f7f1d5',
@@ -307,15 +296,12 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         },
       ));
       heading
-        .setOrigin(0.5, 0)
-        // Keep the failure-safe text allocation seam, but give the single
-        // heading a generous backing texture. Card copy deliberately uses
-        // natural text bounds so mobile glyphs are never cropped.
-        .setFixedSize(layout.headerWidth, layout.fonts.heading * 2);
+        .setOrigin(0.5, 0);
+      containText(heading, 'Choose an upgrade', layout.headerWidth, layout.fonts.heading, 12 / layout.displayScale);
       const instructions = own(createUiText(this.scene,
         layout.contentCenterX,
         layout.instructionsY,
-        fitSingleLine(this.instructionCopy(), layout.headerWidth, layout.fonts.instructions),
+        this.instructionCopy(),
         {
         align: 'center',
         color: '#a5f3fc',
@@ -325,6 +311,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       ));
       instructions
         .setOrigin(0.5, 0);
+      containText(instructions, this.instructionCopy(), layout.headerWidth, layout.fonts.instructions, 9 / layout.displayScale);
       renderedText.push(
         { role: 'heading', object: heading },
         { role: 'instructions', object: instructions },
