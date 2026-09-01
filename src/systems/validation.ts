@@ -40,6 +40,7 @@ import achievementsJson from '../data/achievements.json';
 import gunPartsJson from '../data/gun-parts.json';
 import abilitiesJson from '../data/abilities.json';
 import equipmentJson from '../data/equipment.json';
+import assetBundlesJson from '../data/asset-bundles.json';
 import contentVersionJson from '../data/content-version.json';
 import { STAT_KEYS, RUN_UPGRADE_STAT_KEYS, WEAPON_MODIFIER_STAT_KEYS } from '../gameplay/stats';
 import { DEFAULT_WEAPON_FAMILIES } from '../gameplay/weapons';
@@ -68,6 +69,7 @@ import type {
   EncounterProfile,
   DifficultyProfile,
   RewardProfile,
+  AssetBundleDefinition,
 } from './types';
 import type { AchievementDefinition } from '../gameplay/achievementSystem';
 import type { PartDefinition } from '../gameplay/gunsmith';
@@ -97,6 +99,7 @@ import { registeredMetricIds } from './achievements';
 import { checkPart, assertPartEffectSources } from './validation/parts';
 import { checkAbility } from './validation/abilities';
 import { checkEquipment, assertEquipmentEffectSources, assertEquipmentSetBonuses, assertEquipmentUpgradeUnlockReferences } from './validation/equipment';
+import { checkAssetBundle, assertStageAssetBundleReferences } from './validation/assetBundles';
 import { findEdgeLaneWitness, findRectWitness, findRingWitness } from '../gameplay/spawnRegion';
 import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 import { isRegisteredBossActionId } from '../gameplay/bossActions';
@@ -366,6 +369,17 @@ export const CATALOG_DESCRIPTORS = [
     validateRows: validateVisualArtCatalog,
   },
   {
+    key: 'assetBundles',
+    file: 'asset-bundles.json',
+    rootKey: 'assetBundles',
+    data: assetBundlesJson,
+    read: (raw) => readOwnField(raw, 'assetBundles'),
+    validateRows: (rows): AssetBundleDefinition[] => {
+      throwIfErrors(jsonSafetyErrors(rows, 'asset-bundles.json'));
+      return validate<AssetBundleDefinition>('asset-bundles.json', rows, checkAssetBundle);
+    },
+  },
+  {
     key: 'stages',
     file: 'stages.json',
     rootKey: 'stages',
@@ -485,6 +499,7 @@ export const CATALOG_LEVEL_ASSERTIONS: ReadonlyArray<{
   { key: 'encounterProfiles', assert: (rows) => assertUniqueIds('encounter-profiles.json', rows as EncounterProfile[]) },
   { key: 'difficultyProfiles', assert: (rows) => assertUniqueIds('difficulty-profiles.json', rows as DifficultyProfile[]) },
   { key: 'rewardProfiles', assert: (rows) => assertUniqueIds('reward-profiles.json', rows as RewardProfile[]) },
+  { key: 'assetBundles', assert: (rows) => assertUniqueIds('asset-bundles.json', rows as AssetBundleDefinition[]) },
   { key: 'weapons', assert: (rows) => assertWeaponTiers(rows as WeaponDefinition[]) },
   { key: 'weapons', assert: (rows) => assertStarterWeapons(rows as WeaponDefinition[]) },
   { key: 'spawnCurves', assert: (rows) => assertPlayableSpawnCurves(rows as SpawnCurveDefinition[]) },
@@ -589,6 +604,7 @@ export function validateGameData(raw: unknown): GameData {
   const audioAssets = catalogs['audio-assets'] as AudioAssetCatalog;
   const audioMap = catalogs['audio-map'] as AudioMapEntry[];
   const visualArt = catalogs.visualArt as VisualArtCatalog;
+  const assetBundles = catalogs.assetBundles as AssetBundleDefinition[];
   const stages = catalogs.stages as StageDefinition[];
   const encounterProfiles = catalogs.encounterProfiles as EncounterProfile[];
   const difficultyProfiles = catalogs.difficultyProfiles as DifficultyProfile[];
@@ -621,6 +637,7 @@ export function validateGameData(raw: unknown): GameData {
   const rewardProfileIdSet = new Set(rewardProfiles.map((rp) => rp.id));
 
   assertStageArenaReferences(stages, arenaIds);
+  assertStageAssetBundleReferences(stages, assetBundles, visualArt, arenas);
   assertStageEncounterReferences(stages, encounterProfileIdSet);
   assertStageDifficultyReferences(stages, difficultyProfileIdSet);
   assertStageRewardReferences(stages, rewardProfileIdSet);
@@ -672,7 +689,7 @@ export function validateGameData(raw: unknown): GameData {
   });
 
   const audio: AudioData = { assets: audioAssets, map: audioMap };
-  return withContentVersion({ weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements, gunParts: catalogs['gun-parts'] as PartDefinition[], abilities: catalogs.abilities as AbilityDefinition[], equipment: catalogs.equipment as EquipmentDefinition[] }, suppliedContentVersion ?? contentVersionJson);
+  return withContentVersion({ weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, assetBundles, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements, gunParts: catalogs['gun-parts'] as PartDefinition[], abilities: catalogs.abilities as AbilityDefinition[], equipment: catalogs.equipment as EquipmentDefinition[] }, suppliedContentVersion ?? contentVersionJson);
 }
 
 function withContentVersion(data: Omit<GameData, 'contentVersion'>, raw: unknown): GameData {
@@ -841,6 +858,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
   const audioAssets = catalogs['audio-assets'] as AudioAssetCatalog;
   const audioMap = catalogs['audio-map'] as AudioMapEntry[];
   const visualArt = catalogs.visualArt as VisualArtCatalog;
+  const assetBundles = catalogs.assetBundles as AssetBundleDefinition[];
 
   const crossReferenceIssues: ValidationIssue[] = [];
   const assertions: ReadonlyArray<() => void> = [
@@ -856,6 +874,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertArenaVisualReferences(arenas, visualArt),
     () => assertUpgradeWeaponFamilyReferences(upgrades, weapons),
     () => assertUpgradeArtReferences(upgrades, visualArt),
+    () => assertStageAssetBundleReferences(catalogs.stages as StageDefinition[], assetBundles, visualArt, arenas),
   ];
   for (const assertion of assertions) {
     try {

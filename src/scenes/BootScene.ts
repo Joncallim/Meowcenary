@@ -4,7 +4,6 @@ import { createEventBus } from '../engine/eventBus';
 import { createRng } from '../engine/rng';
 import { SceneKey } from '../engine/sceneKeys';
 import audioAssetsJson from '../data/audio-assets.json';
-import visualArtJson from '../data/visual-art.json';
 import { AudioManager, AUDIO_MANAGER_REGISTRY_KEY } from '../systems/audio';
 import { DataCharacterRegistry } from '../systems/characters';
 import { DataArenaRegistry } from '../systems/arenas';
@@ -13,6 +12,7 @@ import { LocalStorageAdapter, SaveManager } from '../systems/save';
 import { DataMetaUpgradeRegistry } from '../systems/metaUpgrades';
 import { loadGameData } from '../systems/validation';
 import { DataVisualArtRegistry, ensureVisualAnimations } from '../systems/visualArt';
+import { DataAssetBundleRegistry } from '../systems/assetBundles';
 
 /** Apply filtering from explicit manifest policy only. Texture keys are
  * deduped defensively so future registry fixtures cannot issue duplicate GPU
@@ -35,6 +35,7 @@ export function applyNearestTextureSampling(
 
 export class BootScene extends Phaser.Scene {
   private preloadVisualArt?: DataVisualArtRegistry;
+  private preloadData?: ReturnType<typeof loadGameData>;
   private readonly failedVisualTextureKeys = new Set<string>();
   private readonly recordVisualLoadError = (file: { readonly key?: unknown }): void => {
     if (typeof file.key === 'string') this.failedVisualTextureKeys.add(file.key);
@@ -51,7 +52,9 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
-    this.preloadVisualArt = new DataVisualArtRegistry({ visualArt: visualArtJson });
+    this.preloadData = loadGameData();
+    this.preloadVisualArt = new DataVisualArtRegistry(this.preloadData);
+    const stageBundles = new DataAssetBundleRegistry(this.preloadData, this.preloadVisualArt);
     this.failedVisualTextureKeys.clear();
     this.load.on('loaderror', this.recordVisualLoadError);
     this.load.once('complete', this.removeVisualLoadListeners);
@@ -61,7 +64,14 @@ export class BootScene extends Phaser.Scene {
     for (const asset of [...audioAssetsJson.sfx, ...audioAssetsJson.music]) {
       this.load.audio(asset.key, asset.url);
     }
-    for (const binding of this.preloadVisualArt.all()) {
+    // UI/combat art is global; world art must arrive from a declared stage
+    // bundle. The selected stage can therefore never depend on a merely
+    // syntactically named bundle.
+    const stageBindingIds = new Set(stageBundles.allBindings().map((binding) => binding.id));
+    const preloadBindings = this.preloadVisualArt.all().filter(
+      (binding) => binding.kind !== 'world' || stageBindingIds.has(binding.id),
+    );
+    for (const binding of preloadBindings) {
       if (binding.load.type === 'image') {
         this.load.image(binding.textureKey, binding.url);
       } else {
@@ -74,7 +84,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    const data = loadGameData();
+    const data = this.preloadData ?? loadGameData();
     const visualArt = new DataVisualArtRegistry(data);
     for (const binding of visualArt.all()) {
       if (binding.required &&

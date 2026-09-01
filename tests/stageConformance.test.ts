@@ -3,8 +3,9 @@ import stagesJson from '../src/data/stages.json';
 import encountersJson from '../src/data/encounter-profiles.json';
 import difficultiesJson from '../src/data/difficulty-profiles.json';
 import rewardsJson from '../src/data/reward-profiles.json';
-import { loadGameData } from '../src/systems/validation';
+import { collectGameDataErrors, loadGameData, validateGameData } from '../src/systems/validation';
 import { DataArenaRegistry } from '../src/systems/arenas';
+import { StageRegistry } from '../src/systems/stageRegistry';
 import { DataEnemyRegistry } from '../src/systems/enemies';
 import { DataLootTableRegistry } from '../src/systems/lootTables';
 import type { StageDefinition, EncounterProfile, DifficultyProfile, RewardProfile } from '../src/gameplay/stage/stageContracts';
@@ -48,6 +49,20 @@ describe('Epic 20 stage catalog conformance', () => {
     const arenas = new DataArenaRegistry(data);
     for (const stage of stages) {
       expect(arenas.arenaById(stage.arenaId), `arena ${stage.arenaId}`).toBeDefined();
+    }
+  });
+
+  it('resolves each stage bundle and every bundled asset through the validated manifest', () => {
+    const data = loadGameData();
+    const stageRegistry = new StageRegistry(data);
+    for (const stage of stages) {
+      const bundle = data.assetBundles?.find((candidate) => candidate.id === stage.assetBundleId);
+      expect(bundle, `bundle ${stage.assetBundleId}`).toBeDefined();
+      expect(stageRegistry.assetBundleForStage(stage.id)?.id).toBe(stage.assetBundleId);
+      expect(bundle?.assetIds.length).toBeGreaterThan(0);
+      for (const assetId of bundle?.assetIds ?? []) {
+        expect(data.visualArt.bindings.some((binding) => binding.id === assetId), `${stage.assetBundleId}/${assetId}`).toBe(true);
+      }
     }
   });
 
@@ -135,9 +150,9 @@ describe('Epic 20 stage catalog conformance', () => {
     }
   });
 
-  it('second-fixture proof: adding a sixth data-only stage requires no scene/schema change', () => {
-    const sixth: StageDefinition = {
-      id: 'stage:junkyard-06-proof',
+  it('second-fixture proof: adding a data-only stage with declared assets requires no scene/schema change', () => {
+    const proofStage: StageDefinition = {
+      id: 'stage:proof-junkyard-01',
       name: 'Proof Stage',
       chapterId: 'chapter:junkyard',
       displayOrder: 6,
@@ -149,19 +164,52 @@ describe('Epic 20 stage catalog conformance', () => {
       rewardProfileId: rewards[0].id,
       unlock: { type: 'stage-cleared', stageId: stages[4].id },
     };
-    const data = {
-      stages: [...stages, sixth],
-      encounterProfiles: encounters,
-      difficultyProfiles: difficulties,
-      rewardProfiles: rewards,
-    };
-    // The generic resolver + conformance machinery accepts it without any
-    // core-system source change — this is the data-only extensibility proof.
+    const validated = validateGameData({
+      ...structuredClone(loadGameData()),
+      stages: [...stages, { ...proofStage, chapterId: 'chapter:proof-junkyard', displayOrder: 7, assetBundleId: loadGameData().assetBundles[0].id }],
+    });
+    // The boot validator and generic resolver accept a new stage using a
+    // declared asset bundle without a scene, loader, or stage-ID branch.
     const plan = resolveRunPlan(
-      { stageId: sixth.id, characterId: 'scrap-tabby', seed: 7 },
-      data,
+      { stageId: 'stage:proof-junkyard-01', characterId: 'scrap-tabby', seed: 7 },
+      {
+        stages: validated.stages!,
+        encounterProfiles: validated.encounterProfiles!,
+        difficultyProfiles: validated.difficultyProfiles!,
+        rewardProfiles: validated.rewardProfiles!,
+      },
     );
-    expect(plan.stageId).toBe('stage:junkyard-06-proof');
+    expect(plan.stageId).toBe('stage:proof-junkyard-01');
     expect(plan.objective.definition.type).toBe('kill');
+  });
+
+  it('rejects a stage bundle or bundle member that is absent from the real manifest', () => {
+    const source = structuredClone(loadGameData());
+    expect(() => validateGameData({
+      ...source,
+      stages: [{ ...source.stages![0], assetBundleId: 'bundle:missing' }, ...source.stages!.slice(1)],
+    })).toThrow('"bundle:missing" not found');
+    expect(() => validateGameData({
+      ...source,
+      assetBundles: [{ ...source.assetBundles[0], assetIds: ['world:not-real'] }],
+    })).toThrow('"world:not-real" not found');
+    expect(() => validateGameData({
+      ...source,
+      assetBundles: [{ ...source.assetBundles[0], assetIds: [source.assetBundles[0].assetIds[0]] }],
+    })).toThrow('is missing arena asset');
+    expect(() => validateGameData({
+      ...source,
+      visualArt: {
+        bindings: [...source.visualArt.bindings, {
+          id: 'world:unbundled-proof',
+          kind: 'world', textureKey: 'art-world-unbundled-proof', url: 'assets/world/unbundled-proof.png',
+          required: true, sampling: 'nearest', load: { type: 'image' }, display: { width: 16, height: 16 },
+        }],
+      },
+    })).toThrow('required world binding "world:unbundled-proof" is not declared');
+    expect(collectGameDataErrors({
+      ...source,
+      stages: [{ ...source.stages![0], assetBundleId: 'bundle:missing' }, ...source.stages!.slice(1)],
+    })[0]).toMatchObject({ file: 'stages.json', index: 0, field: 'assetBundleId' });
   });
 });
