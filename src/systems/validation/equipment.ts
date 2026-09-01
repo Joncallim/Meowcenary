@@ -7,6 +7,7 @@ import { RUN_UPGRADE_STAT_KEYS } from '../../gameplay/stats';
 import { isUnlockId } from '../ids';
 import { validateProgressionCondition } from '../../gameplay/conditionValidation';
 import type { RowCheck } from '../validation';
+import type { VisualArtCatalog } from '../types';
 
 type RowCheckFn = RowCheck;
 
@@ -50,6 +51,10 @@ export const checkEquipment: RowCheckFn = (row: unknown, _index: number): string
   }
   if (typeof e.tier !== 'number' || !Number.isSafeInteger(e.tier) || e.tier < 1 || e.tier > EQUIPMENT_TIERS.length) {
     errors.push(`tier: must be a safe integer 1-${EQUIPMENT_TIERS.length}`);
+  }
+  if (!e.presentation || typeof e.presentation !== 'object' || Array.isArray(e.presentation)
+      || typeof (e.presentation as Record<string, unknown>).iconArtId !== 'string') {
+    errors.push('presentation.iconArtId: required canonical visual-art ID');
   }
 
   validateModifiers(e.effects, 'effects', errors);
@@ -96,6 +101,15 @@ export function assertEquipmentEffectSources(
       }
     }
   }
+}
+
+export function assertEquipmentArtReferences(pieces: readonly { presentation: { iconArtId: string } }[], catalog: VisualArtCatalog): void {
+  const bindings = new Map(catalog.bindings.map((binding) => [binding.id, binding]));
+  pieces.forEach((piece, index) => {
+    const binding = bindings.get(piece.presentation.iconArtId);
+    if (!binding) throw new Error(`equipment.json[${index}].presentation.iconArtId: unknown visual-art id "${piece.presentation.iconArtId}"`);
+    if (binding.kind !== 'upgrade-icon' || !binding.required) throw new Error(`equipment.json[${index}].presentation.iconArtId: must resolve to a required upgrade-icon binding`);
+  });
 }
 
 /** Every usable set supplies one data-owned, complete table. Keeping the table

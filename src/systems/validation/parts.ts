@@ -6,6 +6,7 @@
 import { PART_SLOTS, BEHAVIOR_TRAITS, MAX_TRAITS_PER_PART } from '../../gameplay/gunsmith';
 import { WEAPON_MODIFIER_STAT_KEYS } from '../../gameplay/stats';
 import { isUnlockId } from '../ids';
+import type { VisualArtCatalog } from '../types';
 import type { RowCheck } from '../validation';
 
 type RowCheckFn = RowCheck;
@@ -33,6 +34,10 @@ export const checkPart: RowCheckFn = (row: unknown, _index: number): string[] =>
   }
   if (typeof p.tier !== 'number' || !Number.isSafeInteger(p.tier) || p.tier < 1) {
     errors.push('tier: must be a positive safe integer');
+  }
+  if (!p.presentation || typeof p.presentation !== 'object' || Array.isArray(p.presentation)
+      || typeof (p.presentation as Record<string, unknown>).iconArtId !== 'string') {
+    errors.push('presentation.iconArtId: required canonical visual-art ID');
   }
 
   if (!Array.isArray(p.effects)) {
@@ -84,4 +89,13 @@ export function assertPartEffectSources(parts: readonly { id: string; effects: r
       }
     }
   }
+}
+
+export function assertPartArtReferences(parts: readonly { presentation: { iconArtId: string } }[], catalog: VisualArtCatalog): void {
+  const bindings = new Map(catalog.bindings.map((binding) => [binding.id, binding]));
+  parts.forEach((part, index) => {
+    const binding = bindings.get(part.presentation.iconArtId);
+    if (!binding) throw new Error(`gun-parts.json[${index}].presentation.iconArtId: unknown visual-art id "${part.presentation.iconArtId}"`);
+    if (binding.kind !== 'upgrade-icon' || !binding.required) throw new Error(`gun-parts.json[${index}].presentation.iconArtId: must resolve to a required upgrade-icon binding`);
+  });
 }

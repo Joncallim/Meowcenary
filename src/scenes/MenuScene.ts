@@ -547,9 +547,10 @@ export class MenuScene extends Phaser.Scene {
         this.addButton(root, margin, y, `Use ${build.name}`, hitTarget, () => this.render(this.requireController().selectGunBuild(build.id)));
         y += hitTarget + 8;
       });
-      const actions: Array<{ label: string; action: () => void }> = snapshot.gunsmith.parts.map((part) => ({
+      const actions: Array<{ label: string; action: () => void; iconArtId?: string }> = snapshot.gunsmith.parts.map((part) => ({
         label: `${part.compatible ? 'Fit' : 'Incompatible'} ${part.name} T${part.tier}${part.traits.length ? ` [${part.traits.join(', ')}]` : ''}`,
         action: () => { if (part.compatible) this.render(this.requireController().fitGunPart(part.instanceId)); },
+        iconArtId: part.iconArtId,
       }));
       const mergePairs = snapshot.gunsmith.parts.flatMap((part, index) => snapshot.gunsmith.parts
         .slice(index + 1)
@@ -579,6 +580,7 @@ export class MenuScene extends Phaser.Scene {
       y += hitTarget * 0.7;
       actions.slice(this.gunsmithPage * pageSize, (this.gunsmithPage + 1) * pageSize).forEach((item) => {
         this.addButton(root, margin, y, item.label, hitTarget, item.action);
+        if (item.iconArtId) this.addCatalogIcon(root, width - margin - 14, y + hitTarget / 2, item.iconArtId);
         y += hitTarget + 8;
       });
       if (pageCount > 1) {
@@ -632,6 +634,7 @@ export class MenuScene extends Phaser.Scene {
           ? this.requireController().unequipEquipment(item.slot as 'helmet' | 'armour' | 'gloves' | 'boots')
           : this.requireController().equipEquipment(item.instanceId));
       });
+      this.addCatalogIcon(root, width - margin - 14, y + hitTarget / 2, item.iconArtId);
       y += hitTarget + 8;
       if (item.upgradeCost !== undefined) {
         this.addButton(root, margin, y, `Upgrade ${item.name} (${item.upgradeCost} scrap)`, hitTarget, () => {
@@ -834,6 +837,17 @@ export class MenuScene extends Phaser.Scene {
     }));
     heading.setOrigin(0.5, 0).setScrollFactor(0);
     return heading;
+  }
+
+  /** Render a validated data-owned icon. Missing textures deliberately leave
+   * the accessible text label intact rather than turning a catalog problem
+   * into an unusable menu action. */
+  private addCatalogIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string): void {
+    const binding = this.getContext().data.visualArt.bindings.find((candidate) => candidate.id === iconArtId);
+    if (!binding || binding.kind !== 'upgrade-icon' || !this.textures?.exists(binding.textureKey)) return;
+    const icon = this.own(root, this.add.image(x, y, binding.textureKey));
+    icon.setDisplaySize(Math.min(26, binding.display.width), Math.min(26, binding.display.height));
+    icon.setScrollFactor(0);
   }
 
   private addBackButton(

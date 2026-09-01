@@ -361,6 +361,7 @@ describe('Epic 23 second-fixture proof (data-only extensibility)', () => {
       slot: 'optic',
       rarity: 'rare',
       tier: 3,
+      presentation: { iconArtId: 'upgrade-icon:pistol-deadeye' },
       effects: [{ stat: 'range', op: 'add', value: 20, sourceId: 'part:proof-sight' }],
       traits: [],
     };
@@ -385,6 +386,7 @@ describe('Epic 23 second-fixture proof (data-only extensibility)', () => {
       slot: 'stock',
       rarity: 'common',
       tier: 1,
+      presentation: { iconArtId: 'upgrade-icon:run-and-gun' },
       effects: [{ stat: 'spreadDeg', op: 'add', value: -1, sourceId: 'part:proof-stock' }],
       traits: [],
     }] });

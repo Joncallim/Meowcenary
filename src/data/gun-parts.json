@@ -5,6 +5,7 @@
     "slot": "receiver",
     "rarity": "common",
     "tier": 1,
+    "presentation": { "iconArtId": "upgrade-icon:smg-overclock" },
     "effects": [
       { "stat": "attackSpeed", "op": "add", "value": 0.08, "sourceId": "part:receiver-compact" }
     ],
@@ -16,6 +17,7 @@
     "slot": "receiver",
     "rarity": "uncommon",
     "tier": 2,
+    "presentation": { "iconArtId": "upgrade-icon:heavy-rounds" },
     "effects": [
       { "stat": "damage", "op": "mult", "value": 1.12, "sourceId": "part:receiver-heavy" },
       { "stat": "attackSpeed", "op": "mult", "value": 0.94, "sourceId": "part:receiver-heavy" }
@@ -28,6 +30,7 @@
     "slot": "barrel",
     "rarity": "common",
     "tier": 1,
+    "presentation": { "iconArtId": "upgrade-icon:long-barrel" },
     "effects": [
       { "stat": "range", "op": "add", "value": 10, "sourceId": "part:barrel-standard" }
     ],
@@ -39,6 +42,7 @@
     "slot": "barrel",
     "rarity": "uncommon",
     "tier": 2,
+    "presentation": { "iconArtId": "upgrade-icon:long-barrel" },
     "effects": [
       { "stat": "range", "op": "add", "value": 35, "sourceId": "part:barrel-long" },
       { "stat": "projectileSpeed", "op": "mult", "value": 1.1, "sourceId": "part:barrel-long" }
@@ -51,6 +55,7 @@
     "slot": "optic",
     "rarity": "common",
     "tier": 1,
+    "presentation": { "iconArtId": "upgrade-icon:pistol-deadeye" },
     "effects": [
       { "stat": "spreadDeg", "op": "add", "value": -2, "sourceId": "part:optic-red-dot" }
     ],
@@ -62,6 +67,7 @@
     "slot": "stock",
     "rarity": "common",
     "tier": 1,
+    "presentation": { "iconArtId": "upgrade-icon:run-and-gun" },
     "effects": [
       { "stat": "spreadDeg", "op": "add", "value": -1.5, "sourceId": "part:stock-padded" }
     ],
@@ -73,6 +79,7 @@
     "slot": "trigger",
     "rarity": "uncommon",
     "tier": 2,
+    "presentation": { "iconArtId": "upgrade-icon:smg-overclock" },
     "effects": [
       { "stat": "attackSpeed", "op": "mult", "value": 1.15, "sourceId": "part:trigger-hair" }
     ],
@@ -84,6 +91,7 @@
     "slot": "magazine",
     "rarity": "common",
     "tier": 1,
+    "presentation": { "iconArtId": "upgrade-icon:split-shot" },
     "effects": [
       { "stat": "projectileCount", "op": "add", "value": 1, "sourceId": "part:magazine-extended" }
     ],
@@ -95,6 +103,7 @@
     "slot": "underbarrel",
     "rarity": "epic",
     "tier": 3,
+    "presentation": { "iconArtId": "upgrade-icon:shotgun-breacher" },
     "effects": [
       { "stat": "damage", "op": "mult", "value": 1.2, "sourceId": "part:underbarrel-grenade" }
     ],
@@ -106,6 +115,7 @@
     "slot": "barrel",
     "rarity": "rare",
     "tier": 3,
+    "presentation": { "iconArtId": "upgrade-icon:punch-through" },
     "effects": [
       { "stat": "pierce", "op": "add", "value": 1, "sourceId": "part:barrel-piercing" },
       { "stat": "damage", "op": "mult", "value": 0.92, "sourceId": "part:barrel-piercing" }
@@ -118,6 +128,7 @@
     "slot": "trait",
     "rarity": "uncommon",
     "tier": 2,
+    "presentation": { "iconArtId": "upgrade-icon:hot-barrel" },
     "effects": [],
     "traits": ["FIRE"]
   }
