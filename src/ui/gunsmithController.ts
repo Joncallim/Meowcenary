@@ -19,6 +19,7 @@ export interface GunsmithPartView {
   readonly tier: number;
   readonly traits: readonly string[];
   readonly compatible: boolean;
+  readonly fitted: boolean;
   /** Player-facing pre-commit delta for the selected build. */
   readonly comparisonSummary: string;
   readonly iconArtId: string;
@@ -57,11 +58,14 @@ export class GunsmithController {
           tier: stored.tier, traits: Object.freeze([...definition.traits, ...stored.infusedTraits]),
           iconArtId: definition.presentation.iconArtId,
           compatible: selected === undefined || isSlotCompatible(selected.baseWeaponFamily, definition.slot),
+          fitted: selected !== undefined && (Object.values(selected.fitted).includes(instanceId) || selected.traitParts.includes(instanceId)),
           comparisonSummary: selected === undefined
             ? 'Choose a chassis to preview this part.'
-            : isSlotCompatible(selected.baseWeaponFamily, definition.slot)
-              ? `Adds ${definition.effects.map(describePartEffect).join(', ') || 'its trait behavior'} to ${selected.baseWeaponFamily}.`
-              : `Cannot fit ${selected.baseWeaponFamily}.`,
+            : !isSlotCompatible(selected.baseWeaponFamily, definition.slot)
+              ? `Cannot fit ${selected.baseWeaponFamily}.`
+              : (definition.slot !== 'trait' && selected.fitted[definition.slot] !== undefined)
+                ? 'Unequip the current part in this slot first.'
+                : `Adds ${definition.effects.map((effect) => describePartEffect(effect, stored.tier)).join(', ') || 'its trait behavior'}${stored.infusedTraits.length ? `; infused: ${stored.infusedTraits.join(', ')}` : ''} to ${selected.baseWeaponFamily}.`,
         })];
       })),
     });
@@ -152,8 +156,9 @@ export class GunsmithController {
   }
 }
 
-function describePartEffect(effect: { readonly stat: string; readonly op: string; readonly value: number }): string {
-  const value = effect.op === 'mult' ? `${Math.round((effect.value - 1) * 100)}%` : `${effect.value >= 0 ? '+' : ''}${effect.value}`;
+function describePartEffect(effect: { readonly stat: string; readonly op: string; readonly value: number }, tier: number): string {
+  const actual = effect.value * Math.max(1, tier);
+  const value = effect.op === 'mult' ? `${Math.round((actual - 1) * 100)}%` : `${actual >= 0 ? '+' : ''}${actual}`;
   return `${effect.stat} ${value}`;
 }
 
