@@ -5,6 +5,7 @@ import type { VisualArtBinding } from '../systems/types';
 import { visualAnimationKey } from '../systems/visualArt';
 import { VisualDepth } from '../systems/visualDepths';
 import { createStaticArtSprite } from './actorView';
+import type { ProjectileEffect } from '../gameplay/projectileEffects';
 
 export interface ProjectileSpawnOptions {
   speed: number;
@@ -17,6 +18,7 @@ export interface ProjectileSpawnOptions {
   weaponId: string;
   family: string;
   tier: number;
+  effects?: readonly ProjectileEffect[];
 }
 
 export class Projectile {
@@ -26,6 +28,7 @@ export class Projectile {
   weaponId = '';
   family = '';
   tier = 0;
+  effects: readonly ProjectileEffect[] = Object.freeze([]);
   private readonly glow: Phaser.GameObjects.Arc;
   private readonly artSprite?: Phaser.GameObjects.Sprite;
   private speed = 0;
@@ -83,6 +86,7 @@ export class Projectile {
     this.weaponId = opts.weaponId;
     this.family = opts.family;
     this.tier = opts.tier;
+    this.effects = Object.freeze([...(opts.effects ?? [])]);
     this.traveled = 0;
     this.hitEnemyIds.clear();
     this.pausedVelocity = undefined;
@@ -158,6 +162,7 @@ export class Projectile {
     this.weaponId = '';
     this.family = '';
     this.tier = 0;
+    this.effects = Object.freeze([]);
     this.traveled = 0;
     this.hitEnemyIds.clear();
     this.pausedVelocity = undefined;

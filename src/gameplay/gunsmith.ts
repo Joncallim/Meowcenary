@@ -12,6 +12,7 @@
  * primitives only.
  */
 import type { Modifier } from './stats';
+import type { ProjectileEffect } from './projectileEffects';
 
 export type PartSlot =
   | 'receiver'
@@ -23,14 +24,14 @@ export type PartSlot =
   | 'underbarrel'
   | 'trait';
 
-export type BehaviorTrait = 'FIRE' | 'EXPLOSIVE' | 'PIERCING' | 'RICOCHET' | 'CHAIN' | 'CRYO' | 'TOXIC';
+export type BehaviorTrait = 'FIRE' | 'EXPLOSIVE' | 'PIERCING';
 
 export const PART_SLOTS: readonly PartSlot[] = [
   'receiver', 'barrel', 'optic', 'stock', 'trigger', 'magazine', 'underbarrel', 'trait',
 ] as const;
 
 export const BEHAVIOR_TRAITS: readonly BehaviorTrait[] = [
-  'FIRE', 'EXPLOSIVE', 'PIERCING', 'RICOCHET', 'CHAIN', 'CRYO', 'TOXIC',
+  'FIRE', 'EXPLOSIVE', 'PIERCING',
 ] as const;
 
 /** Trait infusion caps: how many behavior traits a single part may carry. */
@@ -46,14 +47,34 @@ export const RARITY_TIER: Readonly<Record<string, number>> = Object.freeze({
 
 /** Registered live behavior for transferable traits.  Part catalog rows only
  * name typed traits; they never need per-ID runtime branches. */
-export const TRAIT_MODIFIERS: Readonly<Partial<Record<BehaviorTrait, Omit<Modifier, 'sourceId' | 'scope'>>>> = Object.freeze({
-  FIRE: { stat: 'damage', op: 'mult', value: 1.15 },
+export interface TraitBehavior {
+  readonly modifier?: Omit<Modifier, 'sourceId' | 'scope'>;
+  readonly projectileEffect?: ProjectileEffect;
+}
+
+export const TRAIT_BEHAVIORS: Readonly<Record<BehaviorTrait, TraitBehavior>> = Object.freeze({
+  // The stat boost makes the initial hit feel better while the typed burn
+  // payload is the actual incendiary behavior acquired by infusion.
+  FIRE: {
+    modifier: { stat: 'damage', op: 'mult', value: 1.15 },
+    projectileEffect: { kind: 'burn', durationMs: 2_000, tickIntervalMs: 500, damageMultiplier: 0.2 },
+  },
+  // A grenade attachment detonates on its first impact; splash uses the
+  // direct hit damage so all ordinary stat and tier modifiers still apply.
+  EXPLOSIVE: { projectileEffect: { kind: 'explosive', radius: 80, damageMultiplier: 0.65 } },
   // Projectile piercing is already an authoritative combat primitive:
   // resolveWeaponStats -> Projectile.registerHit. Keeping it here makes an
   // infused PIERCING trait behave exactly like a native piercing part,
   // without any part-ID branch in GameScene or WeaponSystem.
-  PIERCING: { stat: 'pierce', op: 'add', value: 1 },
+  PIERCING: { modifier: { stat: 'pierce', op: 'add', value: 1 } },
 });
+
+/** Backwards-compatible view for stat-only consumers. */
+export const TRAIT_MODIFIERS: Readonly<Partial<Record<BehaviorTrait, Omit<Modifier, 'sourceId' | 'scope'>>>> = Object.freeze(
+  Object.fromEntries(Object.entries(TRAIT_BEHAVIORS)
+    .filter(([, behavior]) => behavior.modifier !== undefined)
+    .map(([trait, behavior]) => [trait, behavior.modifier])) as Partial<Record<BehaviorTrait, Omit<Modifier, 'sourceId' | 'scope'>>>,
+);
 
 export interface PartDefinition {
   readonly id: string;
@@ -325,9 +346,24 @@ export function resolveBuildTraitModifiers(
 ): readonly Modifier[] {
   const modifiers: Modifier[] = [];
   for (const trait of BEHAVIOR_TRAITS) {
-    const effect = TRAIT_MODIFIERS[trait];
+    const effect = TRAIT_BEHAVIORS[trait].modifier;
     if (!effect || !buildHasTrait(build, trait, definitions, ownedParts)) continue;
     modifiers.push({ ...effect, sourceId: `trait:${build.id}:${trait.toLowerCase()}`, scope: { kind: 'weapon-family', family: build.baseWeaponFamily } });
   }
   return modifiers;
+}
+
+/** Resolves behavior payloads alongside stat modifiers.  The typed payload is
+ * consumed by WeaponSystem rather than re-interpreting Gunsmith IDs there. */
+export function resolveBuildProjectileEffects(
+  build: WeaponBuild,
+  definitions: ReadonlyMap<string, PartDefinition>,
+  ownedParts: ReadonlyMap<string, OwnedPart>,
+): readonly ProjectileEffect[] {
+  const effects: ProjectileEffect[] = [];
+  for (const trait of BEHAVIOR_TRAITS) {
+    const effect = TRAIT_BEHAVIORS[trait].projectileEffect;
+    if (effect && buildHasTrait(build, trait, definitions, ownedParts)) effects.push(effect);
+  }
+  return Object.freeze(effects);
 }

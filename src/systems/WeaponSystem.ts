@@ -14,10 +14,22 @@ import { resolveWeaponStats, type EffectiveWeaponStats } from '../gameplay/weapo
 import type { WeaponInstance, WeaponRegistry } from '../gameplay/weapons';
 import { weaponFeelByFamily, type WeaponDefinition, type WeaponFeelDefinition } from './types';
 import type { VisualArtLookup } from './visualArt';
+import type { ProjectileEffect } from '../gameplay/projectileEffects';
 
 interface WeaponCadenceRuntime {
   intervalMs: number;
   cadence: Cadence;
+}
+
+interface BurnRuntime {
+  readonly enemy: Enemy;
+  readonly damage: number;
+  readonly weaponId: string;
+  readonly family: string;
+  readonly tier: number;
+  readonly tickIntervalMs: number;
+  remainingMs: number;
+  elapsedMs: number;
 }
 
 export class WeaponSystem implements System {
@@ -27,6 +39,7 @@ export class WeaponSystem implements System {
   private readonly ownedProjectiles: Projectile[] = [];
   private readonly projectileBySprite = new Map<Phaser.GameObjects.GameObject, Projectile>();
   private readonly cadences = new Map<string, WeaponCadenceRuntime>();
+  private readonly burnsByEnemyId = new Map<number, BurnRuntime>();
   private readonly weaponFeelByFamily: ReadonlyMap<string, WeaponFeelDefinition>;
 
   constructor(
@@ -41,6 +54,7 @@ export class WeaponSystem implements System {
     private readonly projectileRadius: number,
     private readonly visualArt?: VisualArtLookup,
     private readonly heldWeapon?: HeldWeaponPresentation,
+    private readonly projectileEffectsByFamily: ReadonlyMap<string, readonly ProjectileEffect[]> = new Map(),
   ) {
     this.weaponFeelByFamily = weaponFeelByFamily(ctx.data.weaponFeel);
 
@@ -94,6 +108,7 @@ export class WeaponSystem implements System {
         this.releaseProjectile(projectile);
       }
     }
+    this.updateBurns(dtMs);
 
     const equippedInstanceIds = new Set<string>();
     const duplicateInstanceIds = new Set<string>();
@@ -145,6 +160,7 @@ export class WeaponSystem implements System {
     this.projectileOwners.clear();
     this.projectilePools.clear();
     this.cadences.clear();
+    this.burnsByEnemyId.clear();
     this.heldWeapon?.destroy();
   }
 
@@ -208,6 +224,7 @@ export class WeaponSystem implements System {
         weaponId: definition.id,
         family: definition.family,
         tier: definition.mergeTier,
+        effects: this.projectileEffectsByFamily.get(definition.family),
       });
     }
 
@@ -250,30 +267,46 @@ export class WeaponSystem implements System {
     const weaponId = projectile.weaponId;
     const family = projectile.family;
     const tier = projectile.tier;
+    const effects = projectile.effects;
     if (!projectile.registerHit(enemy.instanceId)) {
       return;
     }
 
-    const hitX = enemy.x;
-    const hitY = enemy.y;
-    const killed = enemy.takeDamage(damage, { x: projectile.x, y: projectile.y });
-    this.ctx.bus.emit('projectile:hit', {
-      weaponId,
-      family,
-      tier,
-      x: hitX,
-      y: hitY,
-      damage,
-      killed,
-    });
+    this.applyProjectileDamage(enemy, damage, { weaponId, family, tier, x: projectile.x, y: projectile.y });
 
-    if (!killed) {
-      if (!projectile.active) {
-        this.releaseProjectile(projectile);
+    for (const effect of effects) {
+      if (effect.kind === 'explosive') {
+        for (const nearby of this.enemies) {
+          if (!nearby.active || nearby === enemy) continue;
+          if (Math.hypot(nearby.x - enemy.x, nearby.y - enemy.y) > effect.radius) continue;
+          this.applyProjectileDamage(nearby, damage * effect.damageMultiplier, { weaponId, family, tier, x: enemy.x, y: enemy.y });
+        }
+        // An explosive projectile consumes itself on the first valid hit even
+        // if a separate pierce modifier is also present.
+        projectile.reset();
+        continue;
       }
-      return;
+      if (effect.kind === 'burn' && enemy.active) {
+        this.applyBurn(enemy, damage * effect.damageMultiplier, effect.durationMs, effect.tickIntervalMs, { weaponId, family, tier });
+      }
     }
 
+    if (!projectile.active) {
+      this.releaseProjectile(projectile);
+    }
+  }
+
+  private applyProjectileDamage(
+    enemy: Enemy,
+    damage: number,
+    hit: { readonly weaponId: string; readonly family: string; readonly tier: number; readonly x: number; readonly y: number },
+  ): void {
+    const killed = enemy.takeDamage(damage, { x: hit.x, y: hit.y });
+    this.ctx.bus.emit('projectile:hit', {
+      weaponId: hit.weaponId, family: hit.family, tier: hit.tier,
+      x: enemy.x, y: enemy.y, damage, killed,
+    });
+    if (!killed) return;
     this.runState.kills += 1;
     this.ctx.bus.emit('enemy:killed', {
       instanceId: enemy.instanceId,
@@ -281,12 +314,54 @@ export class WeaponSystem implements System {
       xpValue: enemy.xpValue,
       scrapValue: enemy.scrapValue,
       ...(enemy.definition.lootTableId ? { lootTableId: enemy.definition.lootTableId } : {}),
-      x: hitX,
-      y: hitY,
+      x: enemy.x,
+      y: enemy.y,
     });
+  }
 
-    if (!projectile.active) {
-      this.releaseProjectile(projectile);
+  private applyBurn(
+    enemy: Enemy,
+    damage: number,
+    durationMs: number,
+    tickIntervalMs: number,
+    source: { readonly weaponId: string; readonly family: string; readonly tier: number },
+  ): void {
+    if (!(damage > 0) || !(durationMs > 0) || !(tickIntervalMs > 0)) return;
+    const existing = this.burnsByEnemyId.get(enemy.instanceId);
+    if (existing) {
+      existing.remainingMs = Math.max(existing.remainingMs, durationMs);
+      existing.elapsedMs = Math.min(existing.elapsedMs, tickIntervalMs);
+      return;
+    }
+    this.burnsByEnemyId.set(enemy.instanceId, {
+      enemy, damage, weaponId: source.weaponId, family: source.family, tier: source.tier, tickIntervalMs,
+      remainingMs: durationMs, elapsedMs: 0,
+    });
+  }
+
+  private updateBurns(dtMs: number): void {
+    if (!Number.isFinite(dtMs) || dtMs <= 0) return;
+    for (const [instanceId, burn] of this.burnsByEnemyId) {
+      if (!burn.enemy.active) {
+        this.burnsByEnemyId.delete(instanceId);
+        continue;
+      }
+      // Only time while the burn is active contributes ticks.  Process that
+      // active slice before expiring the runtime so a slow frame still gets
+      // every scheduled tick through the exact end of the effect.
+      const activeMs = Math.min(dtMs, Math.max(0, burn.remainingMs));
+      burn.remainingMs -= dtMs;
+      burn.elapsedMs += activeMs;
+      while (burn.elapsedMs >= burn.tickIntervalMs && burn.enemy.active) {
+        burn.elapsedMs -= burn.tickIntervalMs;
+        this.applyProjectileDamage(burn.enemy, burn.damage, {
+          weaponId: burn.weaponId, family: burn.family, tier: burn.tier,
+          x: burn.enemy.x, y: burn.enemy.y,
+        });
+      }
+      if (burn.remainingMs <= 0 || !burn.enemy.active) {
+        this.burnsByEnemyId.delete(instanceId);
+      }
     }
   }
 }
