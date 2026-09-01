@@ -428,9 +428,25 @@ describe('WeaponSystem', () => {
     // Further projectiles refresh the existing burn rather than stacking an
     // uncontrolled number of parallel damage-over-time instances.
     harness.system.update(150);
-    harness.overlap?.(harness.projectileGroup.added[1], harness.enemy.sprite);
+    harness.overlap?.(harness.projectileGroup.added[0], harness.enemy.sprite);
     harness.system.update(500);
-    expect(harness.enemy.takeDamage).toHaveBeenCalledTimes(3);
+    expect(harness.enemy.takeDamage).toHaveBeenCalledTimes(4);
+  });
+
+  it('keeps every incendiary tick when a frame crosses the burn expiry', async () => {
+    const effects = new Map<string, readonly ProjectileEffect[]>([
+      ['pistol', [{ kind: 'burn', durationMs: 2_000, tickIntervalMs: 500, damageMultiplier: 0.2 }]],
+    ]);
+    const harness = await createHarness({ projectileEffectsByFamily: effects });
+    harness.enemy.health = 100;
+    harness.enemy.takeDamage.mockImplementation(() => false);
+
+    harness.system.update(650);
+    harness.overlap?.(harness.projectileGroup.added[0], harness.enemy.sprite);
+    harness.system.update(2_500);
+
+    // One direct impact plus the four 500ms ticks in the 2s active window.
+    expect(harness.enemy.takeDamage).toHaveBeenCalledTimes(5);
   });
 
   it('does not classify synchronous cleanup during damage as a combat kill', async () => {

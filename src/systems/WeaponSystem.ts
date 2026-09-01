@@ -346,9 +346,13 @@ export class WeaponSystem implements System {
         this.burnsByEnemyId.delete(instanceId);
         continue;
       }
+      // Only time while the burn is active contributes ticks.  Process that
+      // active slice before expiring the runtime so a slow frame still gets
+      // every scheduled tick through the exact end of the effect.
+      const activeMs = Math.min(dtMs, Math.max(0, burn.remainingMs));
       burn.remainingMs -= dtMs;
-      burn.elapsedMs += dtMs;
-      while (burn.elapsedMs >= burn.tickIntervalMs && burn.remainingMs >= 0 && burn.enemy.active) {
+      burn.elapsedMs += activeMs;
+      while (burn.elapsedMs >= burn.tickIntervalMs && burn.enemy.active) {
         burn.elapsedMs -= burn.tickIntervalMs;
         this.applyProjectileDamage(burn.enemy, burn.damage, {
           weaponId: burn.weaponId, family: burn.family, tier: burn.tier,
