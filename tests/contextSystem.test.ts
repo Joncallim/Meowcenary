@@ -356,6 +356,24 @@ describe('GameContext persistence boundary', () => {
     }
   });
 
+  it('persists a valid selected character across a fresh context', () => {
+    const { context, storage } = setup();
+    context.updateMeta((meta) => ({ ...meta, unlocks: [...meta.unlocks, 'achievement:first-victory'] }));
+    expect(context.selectCharacter('bolt-hound', context.selectionRevision)).toMatchObject({ ok: true });
+
+    const data = loadGameData();
+    const registry = new DataMetaUpgradeRegistry(data);
+    const restoredSave = new SaveManager(storage, 'context-test', registry.maxLevels());
+    expect(restoredSave.load().selectedCharacterId).toBe('bolt-hound');
+    const restored = createGameContext({
+      bus: createEventBus(), menuRng: createRng(2), data,
+      arenas: new DataArenaRegistry(data), metaUpgrades: registry,
+      characters: new DataCharacterRegistry(data),
+      save: restoredSave,
+    });
+    expect(restored.selectedCharacterId).toBe('bolt-hound');
+  });
+
   it('selectCharacter rejects unknown characters', () => {
     const { context } = setup();
     const result = context.selectCharacter('nonexistent', context.selectionRevision);

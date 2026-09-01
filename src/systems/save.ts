@@ -112,6 +112,8 @@ export interface SaveDataV3 {
   readonly achievements: AchievementProgressState;
   readonly achievementMetrics: AchievementMetricState;
   readonly characters: CharacterMasteryState;
+  /** Last roster choice; GameContext validates it against current unlocks. */
+  readonly selectedCharacterId?: string;
   readonly gunsmith: GunsmithState;
   readonly equipment: EquipmentState;
   readonly equipmentLoadout?: EquipmentLoadoutState;
@@ -281,6 +283,7 @@ function decodeSave(raw: unknown, maxLevels: MetaUpgradeMaxLevels): SaveDecodeRe
   if (version === 2) return { data: migrateV2ToV3(parsed, maxLevels), unsupportedFutureVersion: false };
   if (version === 3) {
     const equipment = sanitizeEquipmentState(readOwn(parsed, 'equipment'));
+    const selectedCharacterId = sanitizeSelectedCharacterId(readOwn(parsed, 'selectedCharacterId'));
     return {
       data: freezeSaveV3({
         version: 3,
@@ -290,6 +293,7 @@ function decodeSave(raw: unknown, maxLevels: MetaUpgradeMaxLevels): SaveDecodeRe
         achievements: sanitizeAchievementProgress(readOwn(parsed, 'achievements')),
         achievementMetrics: sanitizeAchievementMetrics(readOwn(parsed, 'achievementMetrics')),
         characters: sanitizeCharacterMastery(readOwn(parsed, 'characters')),
+        ...(selectedCharacterId === undefined ? {} : { selectedCharacterId }),
         gunsmith: sanitizeGunsmithState(readOwn(parsed, 'gunsmith')),
         equipment,
         equipmentLoadout: sanitizeEquipmentLoadout(readOwn(parsed, 'equipmentLoadout'), equipment),
@@ -614,6 +618,7 @@ export class SaveManager {
     if (this.writeProtected) return false;
     try {
       const equipment = sanitizeEquipmentState(data.equipment);
+      const selectedCharacterId = sanitizeSelectedCharacterId(data.selectedCharacterId);
       const sanitized = freezeSaveV3({
         version: 3,
         settings: sanitizeSettings(data.settings, DEFAULT_SETTINGS),
@@ -622,6 +627,7 @@ export class SaveManager {
         achievements: sanitizeAchievementProgress(data.achievements),
         achievementMetrics: sanitizeAchievementMetrics(data.achievementMetrics),
         characters: sanitizeCharacterMastery(data.characters),
+        ...(selectedCharacterId === undefined ? {} : { selectedCharacterId }),
         gunsmith: sanitizeGunsmithState(data.gunsmith),
         equipment,
         equipmentLoadout: sanitizeEquipmentLoadout(data.equipmentLoadout, equipment),
@@ -729,6 +735,7 @@ export function freezeSaveV3(save: SaveDataV3): SaveDataV3 {
     achievements: Object.freeze(Object.fromEntries(Object.entries(save.achievements).map(([id, state]) => [id, Object.freeze({ ...state })]))),
     achievementMetrics: Object.freeze({ ...save.achievementMetrics }),
     characters: Object.freeze(Object.fromEntries(Object.entries(save.characters).map(([id, state]) => [id, Object.freeze({ ...state })]))),
+    ...(save.selectedCharacterId === undefined ? {} : { selectedCharacterId: save.selectedCharacterId }),
     gunsmith: Object.freeze({
       builds: Object.freeze(save.gunsmith.builds.map((build) => Object.freeze({
         ...build,
@@ -749,6 +756,10 @@ export function freezeSaveV3(save: SaveDataV3): SaveDataV3 {
     appliedGrantTransactions: Object.freeze({ ...save.appliedGrantTransactions }),
     grantTransactionFingerprints: Object.freeze({ ...save.grantTransactionFingerprints }),
   });
+}
+
+function sanitizeSelectedCharacterId(value: unknown): string | undefined {
+  return typeof value === 'string' && /^[a-z0-9-]{1,64}$/.test(value) ? value : undefined;
 }
 
 function sanitizePendingAchievementReports(value: unknown): readonly string[] {

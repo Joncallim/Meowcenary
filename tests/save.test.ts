@@ -75,6 +75,16 @@ describe('Save V2/V3 migration and persistence', () => {
     expect(migrate(migrated, limits)).toEqual(migrated);
   });
 
+  it('keeps a well-formed selected character ID and discards malformed V3 values', () => {
+    const base = createDefaultSaveV3();
+    expect(migrate({ ...base, selectedCharacterId: 'bolt-hound' }, limits).selectedCharacterId)
+      .toBe('bolt-hound');
+    expect(migrate({ ...base, selectedCharacterId: 'character:bolt-hound' }, limits).selectedCharacterId)
+      .toBeUndefined();
+    expect(migrate({ ...base, selectedCharacterId: '__proto__' }, limits).selectedCharacterId)
+      .toBeUndefined();
+  });
+
   it.each(['', '{broken', 'null', '[]', '{}'])(
     'returns a complete default for malformed or versionless input %j',
     (raw) => expect(migrate(raw, limits)).toEqual(createDefaultSaveV3()),

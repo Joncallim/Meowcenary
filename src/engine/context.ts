@@ -65,7 +65,7 @@ function isGameContext(value: unknown): value is GameContext {
 
 export interface PersistenceUpdate<T> { readonly value: T; readonly persisted: boolean }
 
-export type SelectCharacterFailureReason = 'unknown-character' | 'locked' | 'stale-selection';
+export type SelectCharacterFailureReason = 'unknown-character' | 'locked' | 'stale-selection' | 'persistence-failed';
 export type SelectCharacterResult =
   | { readonly ok: true; readonly characterId: string; readonly revision: number }
   | {
@@ -202,7 +202,10 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       default: return true;
     }
   });
-  let selectedCharacterId = options.characters.defaultCharacterId();
+  const savedCharacter = options.characters.characterById(current.selectedCharacterId ?? '');
+  let selectedCharacterId = savedCharacter && canSelectCharacter(savedCharacter, current.progression)
+    ? savedCharacter.id
+    : options.characters.defaultCharacterId();
   let selectionRevision = 1;
   let selectedArenaId = options.arenas.defaultArenaId();
   let arenaSelectionRevision = 1;
@@ -479,6 +482,11 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       if (characterId === selectedCharacterId) {
         return { ok: true, characterId, revision: selectionRevision };
       }
+      const next = freezeSaveV3({ ...current, selectedCharacterId: characterId });
+      if (!options.save.save(next)) {
+        return { ok: false, reason: 'persistence-failed', characterId: selectedCharacterId, revision: selectionRevision };
+      }
+      current = next;
       selectedCharacterId = characterId;
       selectionRevision += 1;
       return { ok: true, characterId, revision: selectionRevision };
