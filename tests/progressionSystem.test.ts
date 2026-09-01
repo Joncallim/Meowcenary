@@ -54,28 +54,34 @@ describe('ProgressionSystem terminal lifecycle', () => {
     expect(context.saveData.progression.scrap).toBe(7);
   });
 
-  it('reports persistence failure without crashing or retrying the handled run', () => {
+  it('retries a terminal reward until it crosses the persistence boundary', () => {
     const data = loadGameData();
     const arenas = new DataArenaRegistry(data);
     const metaUpgrades = new DataMetaUpgradeRegistry(data);
     const characters = new DataCharacterRegistry(data);
     const bus = createEventBus();
+    const storage = new ToggleWrites();
+    storage.succeed = false;
     const context = createGameContext({
       bus, menuRng: createRng(1), data, arenas, metaUpgrades, characters,
-      save: new SaveManager(new FailingWrites(), 'failed', metaUpgrades.maxLevels()),
+      save: new SaveManager(storage, 'failed', metaUpgrades.maxLevels()),
     });
     const run = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
     run.status = 'won'; run.currency = 4;
     const system = new ProgressionSystem({ runState: run, bus, context });
     expect(system.bankFinishedRun()).toMatchObject({ persisted: false, meta: { scrap: 0 } });
-    expect(system.bankFinishedRun()).toMatchObject({ persisted: false, meta: { scrap: 0 } });
     expect(context.saveData.progression.scrap).toBe(0);
+    storage.succeed = true;
+    system.update(0);
+    expect(system.hasBanked).toBe(true);
+    expect(context.saveData.progression.scrap).toBe(4);
   });
 });
 
-class FailingWrites implements StorageAdapter {
+class ToggleWrites implements StorageAdapter {
+  succeed = true;
   getItem(): string | null { return null; }
-  setItem(): boolean { return false; }
+  setItem(): boolean { return this.succeed; }
   removeItem(): boolean { return false; }
 }
 

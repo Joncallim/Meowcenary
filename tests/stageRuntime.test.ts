@@ -27,6 +27,17 @@ describe('stage runtime', () => {
     expect(runtime.state.status).toBe('won');
   });
 
+  it('caps first-clear time bonuses so stalling an objective cannot mint scrap', () => {
+    const clearAt = (timeMs: number) => {
+      const runtime = createStageRuntime(plan({ type: 'kill', count: 1 }));
+      runtime.tick(0, 0);
+      runtime.recordEnemyDefeat('enemy:a');
+      runtime.tick(0, timeMs);
+      return runtime.pendingClear?.reward;
+    };
+    expect(clearAt(180_000)).toEqual(clearAt(1_800_000));
+  });
+
   it('uses the contract rather than stage IDs for collect, survive, and named-boss facts', () => {
     const collect = createStageRuntime(plan({ type: 'collect', itemId: 'drop:scrap', count: 1 }));
     collect.tick(0, 0); collect.recordCollection('drop:scrap'); collect.tick(0, 1);

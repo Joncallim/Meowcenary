@@ -159,6 +159,14 @@ export class GameScene extends Phaser.Scene {
    * storage write must not turn an authoritative kill/merge/run result into
    * a permanently lost achievement increment. */
   private pendingAchievementFacts: Record<string, number> = {};
+  /** A condition-only evaluation can fail without a metric increment. Keep a
+   * retry marker so mastery/stage facts are never forgotten after storage
+   * recovers. */
+  private pendingAchievementEvaluation = false;
+  /** A won run has earned mastery, but storage may be transiently unavailable.
+   * Keep the character identity until the authoritative save boundary accepts
+   * it; the retry also re-evaluates mastery-gated achievements afterwards. */
+  private pendingMasteryCharacterId?: string;
 
   constructor() {
     super(SceneKey.Game);
@@ -435,12 +443,16 @@ export class GameScene extends Phaser.Scene {
     // Progression must bank a completed run before achievement facts observe
     // its durable currency total. EventBus preserves registration order.
     this.unsubscribers.push(
-      ctx.bus.on('run:won', () => this.evaluateLiveAchievements(ctx, {
+      ctx.bus.on('run:won', () => {
+        this.pendingMasteryCharacterId = this.runState!.characterId;
+        this.retryPendingCharacterMastery(ctx);
+        this.evaluateLiveAchievements(ctx, {
         'metric:runs-completed': 1,
         // This is a lifetime metric, not the current spendable balance. The
         // progression listener has already banked this exact run reward.
-        'metric:scrap-banked': this.progressionSystem?.lastBankedRun?.reward.scrap ?? 0,
-      })),
+          'metric:scrap-banked': this.progressionSystem?.lastBankedRun?.reward.scrap ?? 0,
+        });
+      }),
     );
     const debugCheatSystem =
       cheatsActive && debugFlags
@@ -559,6 +571,8 @@ export class GameScene extends Phaser.Scene {
         if (!scene.stagePlan) return false;
         return new StageSelectionController(ctx).selectNext().ok;
       },
+      canNavigate: () => !scene.hasPendingTerminalPersistence(),
+      onDiscardPending: () => scene.discardPendingTerminalPersistence(),
     });
 
     this.inputController.onAction('pause', () => this.routeAction('pause'));
@@ -622,6 +636,8 @@ export class GameScene extends Phaser.Scene {
     tickRun(runState, delta);
     this.tickAbility(delta);
     this.updateStageObjective(ctx, delta);
+    const terminalPersistencePending = this.hasPendingTerminalPersistence();
+    this.retryPendingCharacterMastery(ctx);
     this.retryPendingAchievementFacts(ctx);
     this.syncPhysicsPause(runState);
     // Objective completion is a durable boundary. A transient save failure
@@ -635,6 +651,9 @@ export class GameScene extends Phaser.Scene {
     this.systems.forEach((system) => {
       system.update(delta);
     });
+    if (terminalPersistencePending && !this.hasPendingTerminalPersistence()) {
+      this.runSummaryView?.refresh();
+    }
     // The manager's deterministic clock stays aligned with the active scene
     // update so terminal music fades continue while the summary remains
     // visible.
@@ -1024,8 +1043,12 @@ export class GameScene extends Phaser.Scene {
     const transaction = completed.length > 0
       ? { id: `${completed[0]}:completion`, grants: result.rewards }
       : undefined;
-    if (!ctx.commitAchievementTransaction(result.state, metrics, transaction)) return;
+    if (!ctx.commitAchievementTransaction(result.state, metrics, transaction)) {
+      this.pendingAchievementEvaluation = true;
+      return;
+    }
     this.pendingAchievementFacts = {};
+    this.pendingAchievementEvaluation = false;
     for (const achievementId of completed) {
       const progress = result.state[achievementId];
       const definition = registry.achievementById(achievementId);
@@ -1039,9 +1062,36 @@ export class GameScene extends Phaser.Scene {
   }
 
   private retryPendingAchievementFacts(ctx: GameContext): void {
-    if (Object.keys(this.pendingAchievementFacts).length > 0) {
+    if (Object.keys(this.pendingAchievementFacts).length > 0 || this.pendingAchievementEvaluation) {
       this.evaluateLiveAchievements(ctx, {});
     }
+  }
+
+  private retryPendingCharacterMastery(ctx: GameContext): void {
+    const characterId = this.pendingMasteryCharacterId;
+    if (!characterId || !ctx.recordCharacterMastery(characterId, 100)) return;
+    this.pendingMasteryCharacterId = undefined;
+    // Mastery conditions read the just-persisted fact.  This is intentionally
+    // separate from the run metric transaction so a failed mastery write is
+    // retried rather than allowing a terminal achievement to see stale facts.
+    this.evaluateLiveAchievements(ctx, {});
+  }
+
+  private hasPendingTerminalPersistence(): boolean {
+    const terminalRun = this.runState?.status === 'won' || this.runState?.status === 'lost';
+    return (terminalRun && this.progressionSystem?.hasBanked !== true)
+      || this.pendingMasteryCharacterId !== undefined
+      || this.pendingAchievementEvaluation
+      || Object.keys(this.pendingAchievementFacts).length > 0;
+  }
+
+  /** Explicit user-authorized escape hatch for permanently unavailable
+   * storage. It never claims persistence or mutates the save; normal retry
+   * remains the default until the player chooses to leave without saving. */
+  private discardPendingTerminalPersistence(): void {
+    this.pendingMasteryCharacterId = undefined;
+    this.pendingAchievementFacts = {};
+    this.pendingAchievementEvaluation = false;
   }
 
   private describeAchievementToast(): string | undefined {

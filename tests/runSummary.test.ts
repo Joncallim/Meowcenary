@@ -408,6 +408,8 @@ describe('PhaserRunSummaryView', () => {
     readInputMode?: () => InputMode;
     canContinue?: boolean;
     onNextStage?: () => boolean;
+    canNavigate?: () => boolean;
+    onDiscardPending?: () => void;
   } = {}) {
     const run = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
     run.status = options.outcome ?? 'won';
@@ -435,13 +437,15 @@ describe('PhaserRunSummaryView', () => {
       controller,
       ...(options.readInputMode ? { readInputMode: options.readInputMode } : {}),
       ...(options.onNextStage ? { onNextStage: options.onNextStage } : {}),
+      ...(options.canNavigate ? { canNavigate: options.canNavigate } : {}),
+      ...(options.onDiscardPending ? { onDiscardPending: options.onDiscardPending } : {}),
     });
     return { run, bus, scene, view, controller };
   }
 
   const textContents = (scene: ReturnType<typeof createFakeScene>) =>
     scene.objects
-      .filter((object) => object.state.kind === 'text')
+      .filter((object) => object.state.kind === 'text' && !object.state.destroyed)
       .map((object) => object.state.text);
 
   it('renders nothing and stays hidden before a terminal event', () => {
@@ -485,6 +489,33 @@ describe('PhaserRunSummaryView', () => {
       ]),
     );
     expect(textContents(scene)).not.toContain('Not saved — this session only');
+  });
+
+  it('offers an explicit no-save exit while terminal rewards are still retrying', () => {
+    const discard = vi.fn();
+    const { bus, scene } = createHarness({
+      banked: bankedRun(),
+      canNavigate: () => false,
+      onDiscardPending: discard,
+    });
+    bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+    expect(textContents(scene)).toEqual(expect.arrayContaining(['Saving rewards…', 'Continue without saving']));
+    expect(discard).not.toHaveBeenCalled();
+  });
+
+  it('refreshes a visible summary when deferred persistence becomes available', () => {
+    let pending = true;
+    const { bus, scene, view } = createHarness({
+      banked: bankedRun(),
+      canNavigate: () => !pending,
+      onDiscardPending: () => undefined,
+    });
+    bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+    expect(textContents(scene)).toContain('Saving rewards…');
+    pending = false;
+    view.refresh();
+    expect(textContents(scene)).not.toContain('Saving rewards…');
+    expect(textContents(scene)).not.toContain('Continue without saving');
   });
 
   it('renders the lost summary with the not-saved warning when banking failed', () => {

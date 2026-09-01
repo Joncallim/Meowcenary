@@ -47,7 +47,15 @@ export class ProgressionSystem implements System {
     return this.banked;
   }
 
-  update(_dtMs: number): void {}
+  update(_dtMs: number): void {
+    // Terminal reward banking is retry-safe because `handledRuns` is marked
+    // only after the save succeeds. A transient write failure therefore
+    // cannot make a loss or win permanently drop its collected scrap.
+    if (!this.destroyed && !handledRuns.has(this.runState)
+      && (this.runState.status === 'won' || this.runState.status === 'lost')) {
+      this.bankFinishedRun();
+    }
+  }
 
   destroy(): void {
     if (this.destroyed) return;

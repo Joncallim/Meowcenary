@@ -24,6 +24,7 @@ export class SpawnSystem implements System {
   // enough preallocated slots for that authored worst case so a live,
   // telegraphed threat is never silently dropped under normal composition.
   private static readonly ENEMY_PROJECTILE_POOL = 64;
+  private static readonly MAX_PENDING_SUMMONS = 32;
   private readonly registry?: DataEnemyRegistry;
   private readonly director?: SpawnDirector;
   private readonly scaling?: EnemyScalingDefinition;
@@ -159,10 +160,18 @@ export class SpawnSystem implements System {
 
   private readonly handleSummon = (request: { enemyId: string; count: number; maxActive: number; x: number; y: number }): void => {
     if (!Number.isSafeInteger(request.count) || request.count <= 0 || !Number.isSafeInteger(request.maxActive) || request.maxActive <= 0) return;
+    if (this.pendingSummons.length >= SpawnSystem.MAX_PENDING_SUMMONS) return;
     this.pendingSummons.push({ ...request });
   };
 
   private flushSummons(): void {
+    // A summon that could not be materialised before the global cap was hit
+    // is no longer a timely telegraph. Discard it rather than replaying a
+    // historical burst when capacity opens.
+    if (this.enemies.length >= 256) {
+      this.pendingSummons.length = 0;
+      return;
+    }
     while (this.pendingSummons.length > 0 && this.enemies.length < 256) {
       const request = this.pendingSummons.shift()!;
       let active = this.enemies.filter((enemy) => enemy.active && enemy.defId === request.enemyId).length;

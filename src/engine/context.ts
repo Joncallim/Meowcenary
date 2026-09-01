@@ -12,7 +12,7 @@ import { canSelectArena } from '../gameplay/arenaSelection';
 import { createConditionContext, evaluateCondition, type ProgressionCondition } from '../gameplay/conditionEvaluator';
 import {
   applySettingsPatch,
-  createDefaultProgression,
+  createDefaultSaveV3,
   freezeSaveV3,
   sanitizeProgression,
   type MetaState,
@@ -123,6 +123,8 @@ export interface GameContext {
    * clear transaction and delegates to the atomic stage boundary; callers
    * cannot persist a completion fact without its reward receipt. */
   completeStage(stageId: string, timeMs: number): boolean;
+  /** Awards authoritative completed-run mastery before achievements consume it. */
+  recordCharacterMastery(characterId: string, xp: number): boolean;
   resetProgression(): PersistenceUpdate<MetaState>;
   selectCharacter(characterId: string, expectedRevision: number): SelectCharacterResult;
   selectArena(arenaId: string, expectedRevision: number): SelectArenaResult;
@@ -349,7 +351,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         id: `${stageId}:first-clear`,
         grants: [{
           type: 'grant-scrap',
-          amount: Math.max(1, rewardProfile.scrapBase + Math.floor(timeMs / 60_000) * rewardProfile.scrapPerMinute),
+          amount: Math.max(1, rewardProfile.scrapBase + Math.floor(Math.min(timeMs, 180_000) / 60_000) * rewardProfile.scrapPerMinute),
         }, ...(rewardProfile.grants ?? [])],
       };
       // Stage rewards are catalog-owned. A fresh arbitrary receipt at this
@@ -460,7 +462,26 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         })
         .catch(() => undefined);
     },
-    resetProgression() { return context.updateMeta(() => createDefaultProgression()); },
+    resetProgression() {
+      const reset = freezeSaveV3({ ...createDefaultSaveV3(), settings: current.settings });
+      if (!options.save.save(reset)) return Object.freeze({ value: current.progression, persisted: false });
+      // `reset` is already a complete, validated V3 snapshot. Retaining it
+      // preserves the existing immutable settings identity for UI consumers
+      // while still committing the whole reset atomically.
+      current = reset;
+      revalidateSelection();
+      return Object.freeze({ value: current.progression, persisted: true });
+    },
+    recordCharacterMastery(characterId, xp) {
+      if (!options.characters.characterById(characterId) || !Number.isSafeInteger(xp) || xp <= 0) return false;
+      const previous = current.characters[characterId] ?? { tier: 0, xp: 0 };
+      const nextXp = previous.xp + xp;
+      const next = Object.freeze({ xp: nextXp, tier: Math.max(previous.tier, Math.floor(nextXp / 100)) });
+      const save = freezeSaveV3({ ...current, characters: Object.freeze({ ...current.characters, [characterId]: next }) });
+      if (!options.save.save(save)) return false;
+      current = options.save.load();
+      return true;
+    },
     completeStage(stageId: string, timeMs: number): boolean {
       const definition = stages.stageById(stageId);
       const rewardProfile = definition && stages.rewardProfileById(definition.rewardProfileId);
@@ -487,7 +508,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         id: `${stageId}:first-clear`,
         grants: [{
           type: 'grant-scrap',
-          amount: Math.max(1, rewardProfile.scrapBase + Math.floor(timeMs / 60_000) * rewardProfile.scrapPerMinute),
+          amount: Math.max(1, rewardProfile.scrapBase + Math.floor(Math.min(timeMs, 180_000) / 60_000) * rewardProfile.scrapPerMinute),
         }, ...(rewardProfile.grants ?? [])],
       });
     },

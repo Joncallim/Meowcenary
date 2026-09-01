@@ -42,6 +42,13 @@ class FailingStorageAdapter implements StorageAdapter {
   removeItem(): boolean { return false; }
 }
 
+class ToggleStorageAdapter extends MemoryStorageAdapter {
+  succeed = true;
+  override setItem(key: string, value: string): boolean {
+    return this.succeed && super.setItem(key, value);
+  }
+}
+
 describe('MainMenuController', () => {
   it('starts on the home panel with frozen snapshots from each sub-controller', () => {
     const { controller } = setup();
@@ -149,19 +156,22 @@ describe('MainMenuController', () => {
     expect(notReady.notice).toBe('Reset confirmation required');
   });
 
-  it('confirmReset resets progression and surfaces persistence failure', () => {
-    const { context, controller } = setup(new FailingStorageAdapter());
+  it('confirmReset leaves state intact and surfaces persistence failure', () => {
+    const storage = new ToggleStorageAdapter();
+    const { context, controller } = setup(storage);
     controller.open('progression');
     context.updateMeta((meta) => ({ ...meta, scrap: 100 }));
     controller.purchase('reinforced-vest');
 
+    storage.succeed = false;
+
     controller.requestReset();
     const result = controller.confirmReset();
 
-    expect(result.panel).toBe('progression');
-    expect(result.progression.scrap).toBe(0);
-    expect(result.progression.upgrades[0].currentLevel).toBe(0);
-    expect(result.notice).toBe('Saved for this session only');
+    expect(result.panel).toBe('reset-confirmation');
+    expect(result.progression.scrap).toBeLessThan(100);
+    expect(result.progression.upgrades[0].currentLevel).toBe(1);
+    expect(result.notice).toBe('Could not save reset');
   });
 
   it('setSettings delegates to SettingsController and surfaces persistence notice', () => {
