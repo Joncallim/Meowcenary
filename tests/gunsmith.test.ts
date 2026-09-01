@@ -14,6 +14,7 @@ import {
   isSlotCompatible,
   mergeParts,
   resolveBuildModifiers,
+  resolveBuildProjectileEffects,
   resolveBuildTraitModifiers,
   unequipPart,
   type OwnedPart,
@@ -157,11 +158,11 @@ describe('Epic 23 merge (exactly documented inputs/outputs)', () => {
 
   it('merge unions and caps infused traits', () => {
     const first = { ...part('part:barrel-standard'), infusedTraits: ['FIRE'] as const };
-    const second = { ...part('part:barrel-standard'), infusedTraits: ['FIRE', 'CRYO'] as const };
+    const second = { ...part('part:barrel-standard'), infusedTraits: ['FIRE', 'EXPLOSIVE'] as const };
     const result = mergeParts(first, second, defMap);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.output.infusedTraits).toEqual(['FIRE', 'CRYO']);
+      expect(result.output.infusedTraits).toEqual(['FIRE', 'EXPLOSIVE']);
       expect(result.output.infusedTraits.length).toBeLessThanOrEqual(MAX_TRAITS_PER_PART);
     }
   });
@@ -189,7 +190,7 @@ describe('Epic 23 trait infusion (hybrid outcomes)', () => {
     const barrel = part('part:barrel-standard');
     expect(infuseTrait(barrel, part('part:barrel-long'), defMap)).toMatchObject({ ok: false, reason: 'unknown-trait' });
     expect(infuseTrait(barrel, part('part:underbarrel-grenade'), defMap)).toMatchObject({ ok: false, reason: 'unknown-trait' });
-    const capped = { ...barrel, infusedTraits: ['FIRE', 'CRYO'] as const };
+    const capped = { ...barrel, infusedTraits: ['FIRE', 'EXPLOSIVE'] as const };
     expect(infuseTrait(capped, part('part:trait-fire'), defMap)).toMatchObject({ ok: false, reason: 'trait-cap-reached' });
     const duplicate = { ...barrel, infusedTraits: ['FIRE'] as const };
     expect(infuseTrait(duplicate, part('part:trait-fire'), defMap)).toMatchObject({ ok: false, reason: 'trait-cap-reached' });
@@ -251,6 +252,14 @@ describe('Epic 23 effective stat resolution', () => {
     const build = (equipPart({ id: 'build:pistol', name: 'Pistol', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }, barrel, defMap) as { ok: true; build: WeaponBuild }).build;
     expect(resolveBuildTraitModifiers(build, defMap, ownedMap(barrel))).toEqual([
       expect.objectContaining({ stat: 'pierce', op: 'add', value: 1, scope: { kind: 'weapon-family', family: 'pistol' } }),
+    ]);
+  });
+
+  it('resolves the shipped grenade attachment to a generic explosive projectile effect', () => {
+    const grenade = part('part:underbarrel-grenade');
+    const build = (equipPart({ id: 'build:shotgun', name: 'Shotgun', baseWeaponFamily: 'shotgun', fitted: {}, traitParts: [] }, grenade, defMap) as { ok: true; build: WeaponBuild }).build;
+    expect(resolveBuildProjectileEffects(build, defMap, ownedMap(grenade))).toEqual([
+      { kind: 'explosive', radius: 80, damageMultiplier: 0.65 },
     ]);
   });
 });
@@ -331,7 +340,7 @@ describe('Epic 23 persistence round-trip', () => {
         builds: [{ id: 'legacy', name: 'Legacy', baseWeaponFamily: 'smg', fitted: { barrel: 'part:barrel-standard' }, traitParts: [] }],
         parts: {
           'owned-a': { partId: 'part:barrel-standard', infusedTraits: ['FIRE'] },
-          'owned-b': { partId: 'part:barrel-standard', infusedTraits: ['CRYO'] },
+          'owned-b': { partId: 'part:barrel-standard', infusedTraits: ['EXPLOSIVE'] },
         },
       },
     }));

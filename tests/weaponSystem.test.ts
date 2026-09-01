@@ -17,6 +17,7 @@ import { isSpawnableEnemyDefinition } from '../src/systems/types';
 import type { SpawnableEnemyDefinition } from '../src/systems/types';
 import type { HeldWeaponPresentation } from '../src/entities/heldWeaponView';
 import type { VisualArtLookup } from '../src/systems/visualArt';
+import type { ProjectileEffect } from '../src/gameplay/projectileEffects';
 
 class MockGameObject {
   active = true;
@@ -130,6 +131,7 @@ interface TestHarness {
     definition: { id: string; xpValue: number; scrapValue: number; lootTableId?: string };
     takeDamage: ReturnType<typeof vi.fn>;
   };
+  enemies: TestHarness['enemy'][];
   overlap?: (projectileObject: unknown, enemyObject: unknown) => void;
   projectileGroup: { added: MockGameObject[]; add: (sprite: MockGameObject) => void };
   player: { x: number; y: number };
@@ -144,6 +146,7 @@ describe('WeaponSystem', () => {
     visualArt?: VisualArtLookup;
     heldWeapon?: HeldWeaponPresentation;
     weaponId?: string;
+    projectileEffectsByFamily?: ReadonlyMap<string, readonly ProjectileEffect[]>;
   } = {}): Promise<TestHarness> {
     const module = await import('../src/systems/WeaponSystem');
     WeaponSystemCtor = module.WeaponSystem;
@@ -248,18 +251,20 @@ describe('WeaponSystem', () => {
       },
     };
     const player = { active: true, x: 0, y: 0, sprite: new MockGameObject(0, 0) };
+    const enemies = [enemy];
     const system = new WeaponSystemCtor(
       scene as never,
       ctx,
       runState,
       player as never,
-      [enemy] as never,
+      enemies as never,
       projectileGroup as never,
       {} as never,
       registry,
       4,
       options.visualArt,
       options.heldWeapon,
+      options.projectileEffectsByFamily,
     );
 
     return {
@@ -267,6 +272,7 @@ describe('WeaponSystem', () => {
       runState,
       ctx,
       enemy,
+      enemies,
       overlap,
       projectileGroup,
       player,
@@ -359,6 +365,44 @@ describe('WeaponSystem', () => {
     expect(damaged.mock.invocationCallOrder[0]).toBeLessThan(hit.mock.invocationCallOrder[0]);
     expect(hit.mock.invocationCallOrder[0]).toBeLessThan(killed.mock.invocationCallOrder[0]);
     expect(harness.runState.kills).toBe(1);
+  });
+
+  it('applies the data-resolved explosive trait to nearby enemies exactly once', async () => {
+    const effects = new Map<string, readonly ProjectileEffect[]>([
+      ['shotgun', [{ kind: 'explosive', radius: 80, damageMultiplier: 0.65 }]],
+    ]);
+    const harness = await createHarness({
+      weaponId: 'bolt-shotgun-t1',
+      projectileEffectsByFamily: effects,
+    });
+    const splashSprite = new MockGameObject(100, 0);
+    const splash = {
+      ...harness.enemy,
+      id: 2,
+      instanceId: 2,
+      x: 100,
+      y: 0,
+      sprite: splashSprite,
+      health: 100,
+      active: true,
+    };
+    splash.takeDamage = vi.fn((amount: number) => {
+      splash.health -= amount;
+      return false;
+    });
+    harness.enemies.push(splash);
+
+    harness.system.update(1_050);
+    const projectile = harness.projectileGroup.added[0];
+    harness.overlap?.(projectile, harness.enemy.sprite);
+
+    const directDamage = harness.enemy.takeDamage.mock.calls[0]?.[0] as number;
+    expect(directDamage).toBeGreaterThan(0);
+    expect(splash.takeDamage).toHaveBeenCalledTimes(1);
+    expect(splash.takeDamage).toHaveBeenCalledWith(directDamage * 0.65, { x: 60, y: 0 });
+    expect(projectile.active).toBe(false);
+    harness.overlap?.(projectile, harness.enemy.sprite);
+    expect(splash.takeDamage).toHaveBeenCalledTimes(1);
   });
 
   it('does not classify synchronous cleanup during damage as a combat kill', async () => {

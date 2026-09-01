@@ -187,7 +187,7 @@ describe('V3 domain sanitizers', () => {
       progression: { scrap: 0, unlocks: [], permanentUpgrades: {} },
       stages: {}, achievements: {}, characters: {},
       gunsmith: { builds: [], parts: {
-        'part-copy-a': { partId: 'part:barrel-standard', tier: Number.MAX_SAFE_INTEGER, infusedTraits: ['FIRE', 'FIRE', 'NOT_A_TRAIT', 'CRYO', 'TOXIC'] },
+        'part-copy-a': { partId: 'part:barrel-standard', tier: Number.MAX_SAFE_INTEGER, infusedTraits: ['FIRE', 'FIRE', 'NOT_A_TRAIT', 'EXPLOSIVE', 'TOXIC'] },
         'part-copy-b': { partId: 'part:barrel-standard', infusedTraits: [] },
       } },
       equipment: {
@@ -206,7 +206,7 @@ describe('V3 domain sanitizers', () => {
     };
     const v3 = migrate(raw, limits) as SaveDataV3;
     expect(v3.gunsmith.parts['part-copy-a'].partId).toBe('part:barrel-standard');
-    expect(v3.gunsmith.parts['part-copy-a']).toMatchObject({ tier: 5, infusedTraits: ['FIRE', 'CRYO'] });
+    expect(v3.gunsmith.parts['part-copy-a']).toMatchObject({ tier: 5, infusedTraits: ['FIRE', 'EXPLOSIVE'] });
     expect(v3.gunsmith.parts['part-copy-b']).toBeDefined();
     expect(v3.equipment['equip-copy-a']).toMatchObject({ equipmentId: 'equipment:commando-helmet', tier: 1 });
     expect(v3.equipment['equip-copy-b']).toMatchObject({ equipmentId: 'equipment:commando-helmet', tier: 3 });

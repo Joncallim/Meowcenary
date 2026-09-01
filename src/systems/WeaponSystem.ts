@@ -14,6 +14,7 @@ import { resolveWeaponStats, type EffectiveWeaponStats } from '../gameplay/weapo
 import type { WeaponInstance, WeaponRegistry } from '../gameplay/weapons';
 import { weaponFeelByFamily, type WeaponDefinition, type WeaponFeelDefinition } from './types';
 import type { VisualArtLookup } from './visualArt';
+import type { ProjectileEffect } from '../gameplay/projectileEffects';
 
 interface WeaponCadenceRuntime {
   intervalMs: number;
@@ -41,6 +42,7 @@ export class WeaponSystem implements System {
     private readonly projectileRadius: number,
     private readonly visualArt?: VisualArtLookup,
     private readonly heldWeapon?: HeldWeaponPresentation,
+    private readonly projectileEffectsByFamily: ReadonlyMap<string, readonly ProjectileEffect[]> = new Map(),
   ) {
     this.weaponFeelByFamily = weaponFeelByFamily(ctx.data.weaponFeel);
 
@@ -208,6 +210,7 @@ export class WeaponSystem implements System {
         weaponId: definition.id,
         family: definition.family,
         tier: definition.mergeTier,
+        effects: this.projectileEffectsByFamily.get(definition.family),
       });
     }
 
@@ -250,30 +253,41 @@ export class WeaponSystem implements System {
     const weaponId = projectile.weaponId;
     const family = projectile.family;
     const tier = projectile.tier;
+    const effects = projectile.effects;
     if (!projectile.registerHit(enemy.instanceId)) {
       return;
     }
 
-    const hitX = enemy.x;
-    const hitY = enemy.y;
-    const killed = enemy.takeDamage(damage, { x: projectile.x, y: projectile.y });
-    this.ctx.bus.emit('projectile:hit', {
-      weaponId,
-      family,
-      tier,
-      x: hitX,
-      y: hitY,
-      damage,
-      killed,
-    });
+    this.applyProjectileDamage(enemy, damage, { weaponId, family, tier, x: projectile.x, y: projectile.y });
 
-    if (!killed) {
-      if (!projectile.active) {
-        this.releaseProjectile(projectile);
+    for (const effect of effects) {
+      if (effect.kind !== 'explosive') continue;
+      for (const nearby of this.enemies) {
+        if (!nearby.active || nearby === enemy) continue;
+        if (Math.hypot(nearby.x - enemy.x, nearby.y - enemy.y) > effect.radius) continue;
+        this.applyProjectileDamage(nearby, damage * effect.damageMultiplier, { weaponId, family, tier, x: enemy.x, y: enemy.y });
       }
-      return;
+      // An explosive projectile consumes itself on the first valid hit even
+      // if a separate pierce modifier is also present.
+      projectile.reset();
     }
 
+    if (!projectile.active) {
+      this.releaseProjectile(projectile);
+    }
+  }
+
+  private applyProjectileDamage(
+    enemy: Enemy,
+    damage: number,
+    hit: { readonly weaponId: string; readonly family: string; readonly tier: number; readonly x: number; readonly y: number },
+  ): void {
+    const killed = enemy.takeDamage(damage, { x: hit.x, y: hit.y });
+    this.ctx.bus.emit('projectile:hit', {
+      weaponId: hit.weaponId, family: hit.family, tier: hit.tier,
+      x: enemy.x, y: enemy.y, damage, killed,
+    });
+    if (!killed) return;
     this.runState.kills += 1;
     this.ctx.bus.emit('enemy:killed', {
       instanceId: enemy.instanceId,
@@ -281,13 +295,9 @@ export class WeaponSystem implements System {
       xpValue: enemy.xpValue,
       scrapValue: enemy.scrapValue,
       ...(enemy.definition.lootTableId ? { lootTableId: enemy.definition.lootTableId } : {}),
-      x: hitX,
-      y: hitY,
+      x: enemy.x,
+      y: enemy.y,
     });
-
-    if (!projectile.active) {
-      this.releaseProjectile(projectile);
-    }
   }
 }
 
