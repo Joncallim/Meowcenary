@@ -62,4 +62,29 @@ describe('GameScene achievement fact bridge', () => {
     expect(ctx.saveData.achievementMetrics['metric:enemies-defeated']).toBe(1);
     expect(ctx.commitAchievementTransaction).toHaveBeenCalledTimes(2);
   });
+
+  it('evaluates durable boss facts even when no metric increment accompanies the stage clear', () => {
+    const scene = new GameScene() as any;
+    scene.runState = { timeMs: 1_000 };
+    const data = loadGameData();
+    const ctx: any = {
+      data,
+      bus: createEventBus(),
+      saveData: {
+        progression: { scrap: 0, unlocks: [], permanentUpgrades: {} }, stages: {}, characters: {},
+        bosses: { 'boss-crusher': { defeated: true } }, achievements: {}, achievementMetrics: {},
+      },
+      commitAchievementTransaction: vi.fn((achievements, metrics) => {
+        ctx.saveData = { ...ctx.saveData, achievements, achievementMetrics: metrics };
+        return true;
+      }),
+      reportAchievement: vi.fn(),
+    };
+
+    scene.evaluateLiveAchievements(ctx, {});
+    expect(ctx.saveData.achievements['achievement:boss-crusher']).toMatchObject({ completed: true });
+    expect(ctx.commitAchievementTransaction).toHaveBeenCalledWith(
+      expect.anything(), expect.anything(), expect.objectContaining({ id: 'achievement:boss-crusher:completion' }),
+    );
+  });
 });
