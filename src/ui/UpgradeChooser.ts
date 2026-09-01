@@ -3,7 +3,7 @@ import type { EventBus } from '../engine/eventBus';
 import type { UpgradeSystem } from '../systems/UpgradeSystem';
 import type { VisualArtLookup } from '../systems/visualArt';
 import { FocusStroke, ThemeColor, ThemeDepth, ThemeFont, themeColorCss } from './theme';
-import { createUiText, uiTextCrop } from './text';
+import { createUiText } from './text';
 import {
   choiceIndexForNumberKey,
   UpgradeChooserController,
@@ -275,12 +275,10 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         .setMaxLines(2)
         .setWordWrapWidth(layout.headerWidth, true)
         .setOrigin(0.5, 0)
-        .setFixedSize(layout.headerWidth, layout.headingHeight)
-        // Phaser crops the backing canvas, not logical layout units. UI text
-        // uses a 2x backing resolution, so logical crop dimensions removed
-        // half the title/copy on retina phones even though the card geometry
-        // itself was correct.
-        .setCrop(...uiTextCrop(layout.headerWidth, layout.headingHeight));
+        // `setFixedSize` gives Phaser Text its own bounded backing canvas.
+        // Do not also crop that canvas: applying TextureCrop to high-DPI text
+        // caused real Safari/WebGL to sample only part of some glyphs.
+        .setFixedSize(layout.headerWidth, layout.headingHeight);
       const instructions = own(createUiText(this.scene,
         layout.contentCenterX,
         layout.instructionsY,
@@ -296,8 +294,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         .setMaxLines(2)
         .setWordWrapWidth(layout.headerWidth, true)
         .setOrigin(0.5, 0)
-        .setFixedSize(layout.headerWidth, layout.instructionsHeight)
-        .setCrop(...uiTextCrop(layout.headerWidth, layout.instructionsHeight));
+        .setFixedSize(layout.headerWidth, layout.instructionsHeight);
       renderedText.push(
         { role: 'heading', object: heading },
         { role: 'instructions', object: instructions },
@@ -397,9 +394,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
               fontStyle: 'bold',
             },
           ));
-          number
-            .setFixedSize(cardLayout.numberWidth, cardLayout.nameHeight)
-            .setCrop(...uiTextCrop(cardLayout.numberWidth, cardLayout.nameHeight));
+          number.setFixedSize(cardLayout.numberWidth, cardLayout.nameHeight);
           renderedText.push({ role: `number:${index}`, object: number });
         }
 
@@ -418,8 +413,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           name
             .setMaxLines(1)
             .setWordWrapWidth(cardLayout.nameWidth, true)
-            .setFixedSize(cardLayout.nameWidth, cardLayout.nameHeight)
-            .setCrop(...uiTextCrop(cardLayout.nameWidth, cardLayout.nameHeight));
+            .setFixedSize(cardLayout.nameWidth, cardLayout.nameHeight);
           renderedText.push({ role: `name:${index}`, object: name });
         }
 
@@ -475,8 +469,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           status
             .setMaxLines(1)
             .setWordWrapWidth(statusWidth, true)
-            .setFixedSize(statusWidth, cardLayout.statusHeight)
-            .setCrop(...uiTextCrop(statusWidth, cardLayout.statusHeight));
+            .setFixedSize(statusWidth, cardLayout.statusHeight);
           renderedText.push({ role: `status:${index}`, object: status });
         }
 
@@ -513,8 +506,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
               ),
             ))
             .setWordWrapWidth(descriptionWidth, true)
-            .setFixedSize(descriptionWidth, cardLayout.descriptionHeight)
-            .setCrop(...uiTextCrop(descriptionWidth, cardLayout.descriptionHeight));
+            .setFixedSize(descriptionWidth, cardLayout.descriptionHeight);
           renderedText.push({
             role: `description:${index}`,
             object: description,

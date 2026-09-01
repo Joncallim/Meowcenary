@@ -116,7 +116,7 @@ async function createHarness(
   invulnerabilityMs = 650,
   moveVector: { x: number; y: number } = { x: 0, y: 0 },
   art?: Readonly<VisualArtBinding>,
-  minPlayableY?: number,
+  minPlayableY?: number | (() => number),
 ) {
   const { Player } = await import('../src/entities/Player');
   const circles: MockArc[] = [];
@@ -176,6 +176,20 @@ describe('Player', () => {
 
     player.update(16);
 
+    expect(sprite.body.velocity).toEqual({ x: 0, y: 0 });
+  });
+
+  it('uses the current screen-relative HUD edge rather than a stale world coordinate', async () => {
+    let hudFloor = 180;
+    const { player, sprite } = await createHarness(650, { x: 0, y: -1 }, undefined, () => hudFloor);
+
+    sprite.y = 180;
+    player.update(16);
+    expect(sprite.body.velocity).toEqual({ x: 0, y: 0 });
+
+    hudFloor = 220; // equivalent to the followed camera scrolling down
+    sprite.y = 220;
+    player.update(16);
     expect(sprite.body.velocity).toEqual({ x: 0, y: 0 });
   });
 

@@ -314,6 +314,7 @@ describe('PhaserHudView', () => {
         setVisible(visible: boolean) { return chain('visible', visible); },
         setAlpha(alpha: number) { return chain('alpha', alpha); },
         setPosition(x: number, y: number) { state.x = x; state.y = y; return api; },
+        setFixedSize(width: number, height: number) { state.width = width; state.height = height; return api; },
         setScale(x: number, y: number) { state.scaleX = x; state.scaleY = y; return api; },
         setStrokeStyle() { return api; },
         setInteractive() { state.interactive = true; return api; },

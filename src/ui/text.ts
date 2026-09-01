@@ -14,10 +14,3 @@ export function createUiText(
 ): Phaser.GameObjects.Text {
   return scene.add.text(x, y, value, { ...style, resolution: UI_TEXT_RESOLUTION });
 }
-
-/** Convert a logical Phaser UI rectangle to the backing-canvas crop space.
- * Text is rendered at UI_TEXT_RESOLUTION, while Phaser's crop API takes
- * source-canvas pixels. */
-export function uiTextCrop(width: number, height: number): readonly [number, number, number, number] {
-  return [0, 0, width * UI_TEXT_RESOLUTION, height * UI_TEXT_RESOLUTION];
-}
