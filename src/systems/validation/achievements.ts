@@ -112,6 +112,13 @@ export const checkAchievement: RowCheckFn = (row: unknown, _index: number): stri
   if (a.hidden !== undefined && typeof a.hidden !== 'boolean') {
     errors.push('hidden: must be a boolean when present');
   }
+  // `kind: hidden` is a player-facing concealment promise, not merely a
+  // classification label.  Requiring the corresponding flag prevents a
+  // data-only row from leaking its goal/reward through the gallery before it
+  // has been earned.
+  if (a.kind === 'hidden' && a.hidden !== true) {
+    errors.push('hidden: must be true when kind is "hidden"');
+  }
 
   if (a.rewards !== undefined) {
     if (!Array.isArray(a.rewards)) {
