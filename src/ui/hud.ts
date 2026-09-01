@@ -186,11 +186,15 @@ function topHudLayout(viewport: UiViewport): TopHudLayout {
   const labelSize = physicalToLogical(ThemeFont.labelMin, viewport);
   const canvasWidth = viewport.canvasWidth;
   const rightHudX = canvasWidth - rightMargin - physicalToLogical(44, viewport) - physicalToLogical(8, viewport);
-  const barTop = topMargin + fontSize * 1.4;
+  // Keep the run state legible as a compact instrument panel: a title/time
+  // row, then health and XP. The previous layout placed the long health copy
+  // between the two bars, which produced an apparent cyan artefact at phone
+  // scale when it met the XP fill.
+  const barTop = topMargin + fontSize * 1.3;
   const barHeight = physicalToLogical(8, viewport);
   const healthBarWidth = Math.max(1, rightHudX - margin);
-  const xpTop = barTop + barHeight + labelSize + physicalToLogical(8, viewport);
-  const statsTop = xpTop + barHeight + physicalToLogical(2, viewport) + labelSize + physicalToLogical(8, viewport);
+  const xpTop = barTop + barHeight + labelSize + physicalToLogical(6, viewport);
+  const statsTop = xpTop + barHeight + labelSize + physicalToLogical(6, viewport);
   const statsStride = labelSize + physicalToLogical(4, viewport);
   return {
     margin, topMargin, rightMargin, fontSize, labelSize, canvasWidth, rightHudX,
@@ -208,7 +212,7 @@ export function topHudContentBottom(viewport: UiViewport): number {
   // compact one-line summary instead of allowing the HUD plate into play.
   const feedbackRows = (viewport.containerHeight ?? viewport.displayHeight)
     > (viewport.containerWidth ?? viewport.displayWidth) ? 3 : 1;
-  return layout.statsTop + layout.statsStride * (2 + feedbackRows) + renderedLabelRow;
+  return layout.statsTop + layout.statsStride * feedbackRows + renderedLabelRow;
 }
 
 export class PhaserHudView implements HudView {
@@ -252,14 +256,14 @@ export class PhaserHudView implements HudView {
     const xpRatio = Math.min(1, safeXp / safeXpToNext);
     this.xpBarFill.setScale(xpRatio, 1);
 
-    this.statusText.setText(capitalize(snapshot.status));
+    this.statusText.setText(snapshot.status === 'active' ? 'RUN' : capitalize(snapshot.status));
     this.timeText.setText(`${formatTime(snapshot.timeMs)} / ${formatTime(snapshot.durationMs)}`);
     this.healthText.setText(
-      `Health ${formatNumber(Math.ceil(safeHealth))} / ${formatNumber(Math.ceil(safeMaxHealth))}`,
+      `HP ${formatNumber(Math.ceil(safeHealth))}/${formatNumber(Math.ceil(safeMaxHealth))}`,
     );
-    this.levelText.setText(`Level ${snapshot.level}`);
-    this.killsText.setText(`Kills ${formatNumber(snapshot.kills)}`);
-    this.scrapText.setText(`Scrap ${formatNumber(Math.floor(snapshot.currency))}`);
+    this.levelText.setText(`LV ${snapshot.level} · XP ${formatNumber(Math.floor(safeXp))}/${formatNumber(safeXpToNext)}`);
+    this.killsText.setText(`K ${formatNumber(snapshot.kills)}`);
+    this.scrapText.setText(`S ${formatNumber(Math.floor(snapshot.currency))}`);
     const feedback = [snapshot.objective, snapshot.ability, snapshot.achievement].filter(Boolean);
     const portraitFeedback = (this.viewport?.containerHeight ?? this.viewport?.displayHeight ?? this.scene.scale.displaySize.height)
       > (this.viewport?.containerWidth ?? this.viewport?.displayWidth ?? this.scene.scale.displaySize.width);
@@ -286,7 +290,10 @@ export class PhaserHudView implements HudView {
       layout.canvasWidth,
       backingHeight,
       ThemeColor.surface,
-      0.80,
+      // The HUD is a reserved screen region, not a translucent filter over
+      // the arena. An opaque plate makes the playfield begin below the panel
+      // and prevents actors/scenery reading as though they are inside it.
+      1,
     );
     this.backing.setScrollFactor(0).setDepth(ThemeDepth.hudBacking);
 
@@ -338,7 +345,7 @@ export class PhaserHudView implements HudView {
     this.healthBarFill.setScrollFactor(0);
     this.healthBarFill.setDepth(ThemeDepth.hud);
 
-    this.healthText = createUiText(scene,layout.margin, layout.barTop + layout.barHeight + physicalToLogical(2, viewport), '', labelStyle);
+    this.healthText = createUiText(scene, layout.margin, layout.barTop + layout.barHeight + physicalToLogical(2, viewport), '', labelStyle);
     this.healthText.setScrollFactor(0);
     this.healthText.setDepth(ThemeDepth.hud);
 
@@ -366,8 +373,8 @@ export class PhaserHudView implements HudView {
     this.levelText.setScrollFactor(0);
     this.levelText.setDepth(ThemeDepth.hud);
 
-    this.timeText.setPosition(layout.rightHudX, layout.statsTop);
-    this.killsText = createUiText(scene,layout.rightHudX, layout.statsTop + layout.statsStride, '', {
+    this.timeText.setPosition(layout.rightHudX, layout.topMargin);
+    this.killsText = createUiText(scene, layout.rightHudX, layout.barTop + layout.barHeight + physicalToLogical(2, viewport), '', {
       ...labelStyle,
       align: 'right',
     });
@@ -375,7 +382,7 @@ export class PhaserHudView implements HudView {
     this.killsText.setScrollFactor(0);
     this.killsText.setDepth(ThemeDepth.hud);
 
-    this.scrapText = createUiText(scene,layout.rightHudX, layout.statsTop + layout.statsStride * 2, '', {
+    this.scrapText = createUiText(scene, layout.rightHudX, layout.xpTop + layout.barHeight + physicalToLogical(2, viewport), '', {
       ...labelStyle,
       align: 'right',
     });
@@ -383,7 +390,7 @@ export class PhaserHudView implements HudView {
     this.scrapText.setScrollFactor(0);
     this.scrapText.setDepth(ThemeDepth.hud);
 
-    this.objectiveText = createUiText(scene, layout.margin, layout.statsTop + layout.statsStride * 3, '', {
+    this.objectiveText = createUiText(scene, layout.margin, layout.statsTop, '', {
       ...labelStyle,
       wordWrap: { width: layout.healthBarWidth },
     });
