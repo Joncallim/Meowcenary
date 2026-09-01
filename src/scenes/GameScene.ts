@@ -972,7 +972,6 @@ export class GameScene extends Phaser.Scene {
       this.pendingAchievementFacts[id] = Math.max(0, (this.pendingAchievementFacts[id] ?? 0) + amount);
     }
     const pendingFacts = this.pendingAchievementFacts;
-    if (Object.keys(pendingFacts).length === 0) return;
     const previousMetrics = ctx.saveData.achievementMetrics;
     const metrics: Record<string, number> = { ...previousMetrics };
     for (const [id, amount] of Object.entries(pendingFacts)) {
