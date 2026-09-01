@@ -288,6 +288,22 @@ describe('SpawnSystem', () => {
     expect(harness.enemyGroup.add).toHaveBeenCalledTimes(13);
   });
 
+  it('bounds summon backlog at the global enemy cap and never releases a stale burst', async () => {
+    const cappedEnemies = Array.from({ length: 256 }, () => ({ active: true, defId: 'dust-mite' }));
+    const harness = await createHarness({ enemies: cappedEnemies });
+    for (let index = 0; index < 100; index += 1) {
+      harness.bus.emit('enemy:summon', { sourceEnemyId: 'boss-crusher', enemyId: 'dust-mite', count: 1, maxActive: 99, x: 10, y: 10 });
+    }
+    const pending = (harness.system as unknown as { pendingSummons: unknown[] }).pendingSummons;
+    expect(pending).toHaveLength(32);
+
+    cappedEnemies.splice(0, cappedEnemies.length);
+    harness.system.update(0);
+    expect(harness.enemies).toHaveLength(32);
+    harness.system.update(0);
+    expect(harness.enemies).toHaveLength(32);
+  });
+
   it('does not advance spawn time while the run is paused', async () => {
     const harness = await createHarness({ status: 'paused' });
 

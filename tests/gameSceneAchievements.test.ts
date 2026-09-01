@@ -87,4 +87,38 @@ describe('GameScene achievement fact bridge', () => {
       expect.anything(), expect.anything(), expect.objectContaining({ id: 'achievement:boss-crusher:completion' }),
     );
   });
+
+  it('retries a won-run mastery award and then evaluates mastery-gated achievements', () => {
+    const scene = new GameScene() as any;
+    scene.runState = { timeMs: 1_000 };
+    scene.pendingMasteryCharacterId = 'scrap-tabby';
+    const data = loadGameData();
+    let attempts = 0;
+    const ctx: any = {
+      data,
+      bus: createEventBus(),
+      saveData: {
+        progression: { scrap: 0, unlocks: [], permanentUpgrades: {} }, stages: {}, bosses: {},
+        characters: {}, achievements: {}, achievementMetrics: {},
+      },
+      recordCharacterMastery: vi.fn(() => {
+        attempts += 1;
+        if (attempts === 1) return false;
+        ctx.saveData = { ...ctx.saveData, characters: { 'scrap-tabby': { xp: 100, tier: 1 } } };
+        return true;
+      }),
+      commitAchievementTransaction: vi.fn((achievements, metrics) => {
+        ctx.saveData = { ...ctx.saveData, achievements, achievementMetrics: metrics };
+        return true;
+      }),
+      reportAchievement: vi.fn(),
+    };
+
+    scene.retryPendingCharacterMastery(ctx);
+    expect(scene.pendingMasteryCharacterId).toBe('scrap-tabby');
+    scene.retryPendingCharacterMastery(ctx);
+    expect(ctx.recordCharacterMastery).toHaveBeenCalledTimes(2);
+    expect(scene.pendingMasteryCharacterId).toBeUndefined();
+    expect(ctx.saveData.achievements['achievement:mastery-scrap-tabby']).toMatchObject({ completed: true });
+  });
 });

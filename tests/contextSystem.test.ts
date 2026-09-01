@@ -27,6 +27,16 @@ describe('GameContext persistence boundary', () => {
     expect(context.saveData.appliedGrantTransactions['stage:junkyard-05:first-clear']).toBe(true);
   });
 
+  it('persists mastery before downstream achievements consume its character fact', () => {
+    const { context, storage } = setup();
+    storage.succeed = false;
+    expect(context.recordCharacterMastery('scrap-tabby', 100)).toBe(false);
+    expect(context.saveData.characters['scrap-tabby']).toBeUndefined();
+    storage.succeed = true;
+    expect(context.recordCharacterMastery('scrap-tabby', 100)).toBe(true);
+    expect(context.saveData.characters['scrap-tabby']).toEqual({ xp: 100, tier: 1 });
+  });
+
   it('routes the legacy stage completion command through the catalog-owned atomic reward', () => {
     const { context, storage } = setup();
     storage.succeed = false;
@@ -260,14 +270,34 @@ describe('GameContext persistence boundary', () => {
     expect(context.saveData.equipment['owned:helmet'].tier).toBe(2);
   });
 
-  it('reset preserves settings and failed persistence retains the new snapshot', () => {
+  it('resets every progression domain atomically while preserving settings', () => {
     const { context, storage } = setup();
     context.updateSettings({ reducedMotion: true });
     context.updateMeta((meta) => ({ ...meta, scrap: 10 }));
+    expect(context.completeStage('stage:junkyard-01', 60_000)).toBe(true);
+    expect(context.recordCharacterMastery('scrap-tabby', 100)).toBe(true);
+    expect(context.applyGrantTransaction({
+      id: 'stage:junkyard-01:reset-proof',
+      grants: [{ type: 'grant-equipment-instance', instanceId: 'reward:reset-proof', equipmentId: 'equipment:commando-helmet', tier: 1 }],
+    })).toBe(true);
+    expect(context.saveData.stages['stage:junkyard-01']).toBeDefined();
+    expect(context.saveData.characters['scrap-tabby']).toBeDefined();
+    expect(context.saveData.equipment['reward:reset-proof']).toBeDefined();
+    expect(context.saveData.appliedGrantTransactions['stage:junkyard-01:reset-proof']).toBe(true);
     storage.succeed = false;
     const reset = context.resetProgression();
     expect(reset.persisted).toBe(false);
-    expect(reset.value.scrap).toBe(0);
+    expect(reset.value.scrap).toBeGreaterThan(0);
+    expect(context.saveData.stages['stage:junkyard-01']).toBeDefined();
+    storage.succeed = true;
+    expect(context.resetProgression().persisted).toBe(true);
+    expect(context.saveData.progression.scrap).toBe(0);
+    expect(context.saveData.stages).toEqual({});
+    expect(context.saveData.achievements).toEqual({});
+    expect(context.saveData.characters).toEqual({});
+    expect(context.saveData.gunsmith.parts).toEqual({});
+    expect(context.saveData.equipment).toEqual({});
+    expect(context.saveData.appliedGrantTransactions).toEqual({});
     expect(context.settings.reducedMotion).toBe(true);
   });
 
@@ -679,6 +709,6 @@ function stageTransaction(stageId: string, timeMs: number) {
   if (!reward) throw new Error(`Missing reward profile for ${stageId}`);
   return {
     id: `${stageId}:first-clear`,
-    grants: [{ type: 'grant-scrap' as const, amount: Math.max(1, reward.scrapBase + Math.floor(timeMs / 60_000) * reward.scrapPerMinute) }, ...(reward.grants ?? [])],
+    grants: [{ type: 'grant-scrap' as const, amount: Math.max(1, reward.scrapBase + Math.floor(Math.min(timeMs, 180_000) / 60_000) * reward.scrapPerMinute) }, ...(reward.grants ?? [])],
   };
 }

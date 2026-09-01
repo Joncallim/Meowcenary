@@ -159,6 +159,10 @@ export class GameScene extends Phaser.Scene {
    * storage write must not turn an authoritative kill/merge/run result into
    * a permanently lost achievement increment. */
   private pendingAchievementFacts: Record<string, number> = {};
+  /** A won run has earned mastery, but storage may be transiently unavailable.
+   * Keep the character identity until the authoritative save boundary accepts
+   * it; the retry also re-evaluates mastery-gated achievements afterwards. */
+  private pendingMasteryCharacterId?: string;
 
   constructor() {
     super(SceneKey.Game);
@@ -436,7 +440,8 @@ export class GameScene extends Phaser.Scene {
     // its durable currency total. EventBus preserves registration order.
     this.unsubscribers.push(
       ctx.bus.on('run:won', () => {
-        ctx.recordCharacterMastery(this.runState!.characterId, 100);
+        this.pendingMasteryCharacterId = this.runState!.characterId;
+        this.retryPendingCharacterMastery(ctx);
         this.evaluateLiveAchievements(ctx, {
         'metric:runs-completed': 1,
         // This is a lifetime metric, not the current spendable balance. The
@@ -625,6 +630,7 @@ export class GameScene extends Phaser.Scene {
     tickRun(runState, delta);
     this.tickAbility(delta);
     this.updateStageObjective(ctx, delta);
+    this.retryPendingCharacterMastery(ctx);
     this.retryPendingAchievementFacts(ctx);
     this.syncPhysicsPause(runState);
     // Objective completion is a durable boundary. A transient save failure
@@ -1045,6 +1051,16 @@ export class GameScene extends Phaser.Scene {
     if (Object.keys(this.pendingAchievementFacts).length > 0) {
       this.evaluateLiveAchievements(ctx, {});
     }
+  }
+
+  private retryPendingCharacterMastery(ctx: GameContext): void {
+    const characterId = this.pendingMasteryCharacterId;
+    if (!characterId || !ctx.recordCharacterMastery(characterId, 100)) return;
+    this.pendingMasteryCharacterId = undefined;
+    // Mastery conditions read the just-persisted fact.  This is intentionally
+    // separate from the run metric transaction so a failed mastery write is
+    // retried rather than allowing a terminal achievement to see stale facts.
+    this.evaluateLiveAchievements(ctx, {});
   }
 
   private describeAchievementToast(): string | undefined {
