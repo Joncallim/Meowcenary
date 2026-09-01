@@ -7,6 +7,8 @@ import { VisualDepth } from '../systems/visualDepths';
 import { createStaticArtSprite } from './actorView';
 import type { ProjectileEffect } from '../gameplay/projectileEffects';
 
+const DEFAULT_PROJECTILE_COLOR = 0x8bd3ff;
+
 export interface ProjectileSpawnOptions {
   speed: number;
   damage: number;
@@ -90,10 +92,12 @@ export class Projectile {
     this.family = opts.family;
     this.tier = opts.tier;
     this.effects = Object.freeze([...(opts.effects ?? [])]);
-    if (opts.color !== undefined) {
-      this.sprite.setFillStyle(opts.color);
-      this.glow.setFillStyle(opts.color);
-    }
+    // Pools can be shared by callers with different fallback palettes. Set
+    // the default on every launch so a coloured threat cannot tint a later
+    // uncoloured projectile after reuse.
+    const color = opts.color ?? DEFAULT_PROJECTILE_COLOR;
+    this.sprite.setFillStyle?.(color);
+    this.glow.setFillStyle?.(color);
     this.traveled = 0;
     this.hitEnemyIds.clear();
     this.pausedVelocity = undefined;
