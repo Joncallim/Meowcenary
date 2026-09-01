@@ -151,6 +151,17 @@ describe('HudController', () => {
     expect(view.renders).toHaveLength(1);
   });
 
+  it('renders immediately when a scene-owned state requests a refresh', () => {
+    const source = createMutableSource({ ability: 'Scrap Burst: READY' });
+    const { controller, view } = createHarness(source);
+    controller.update(16);
+    source.snapshotValue.ability = 'Scrap Burst: 9s';
+    controller.requestRender();
+    controller.update(16);
+    expect(view.renders).toHaveLength(2);
+    expect(view.renders[1]?.ability).toBe('Scrap Burst: 9s');
+  });
+
   it('unsubscribes all event listeners on destroy', () => {
     const { bus, controller, view } = createHarness();
     controller.update(16);

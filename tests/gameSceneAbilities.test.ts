@@ -28,12 +28,24 @@ describe('GameScene character ability runtime bridge', () => {
 
   it('executes heal and invulnerability through the live player owner exactly once per cooldown', () => {
     const heal = activate('ability:giga-chomp');
+    heal.scene.hudController = { requestRender: vi.fn() };
+    heal.player.heal.mockClear();
+    heal.scene.abilityState = { phase: 'ready', activeRemainingMs: 0, cooldownRemainingMs: 0 };
+    heal.scene.activateCharacterAbility();
     expect(heal.player.heal).toHaveBeenCalledWith(40);
+    expect(heal.scene.hudController.requestRender).toHaveBeenCalledTimes(1);
     heal.scene.activateCharacterAbility();
     expect(heal.player.heal).toHaveBeenCalledTimes(1);
 
     const shield = activate('ability:shield-flicker');
     expect(shield.player.grantInvulnerability).toHaveBeenCalledWith(1200);
+  });
+
+  it('refreshes ability feedback when an active effect moves to cooling', () => {
+    const adrenaline = activate('ability:adrenaline');
+    adrenaline.scene.hudController = { requestRender: vi.fn() };
+    adrenaline.scene.tickAbility(2500);
+    expect(adrenaline.scene.hudController.requestRender).toHaveBeenCalledTimes(1);
   });
 
   it('executes temporary stat abilities through RunState and removes their exact sources at expiry', () => {

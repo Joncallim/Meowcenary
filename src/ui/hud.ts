@@ -100,6 +100,12 @@ export class HudController implements System {
     this.view.destroy();
   }
 
+  /** Request an immediate render for state changes that are owned by the
+   * active scene rather than represented by a global gameplay event. */
+  requestRender(): void {
+    this.markDirty();
+  }
+
   private markDirty(): void {
     this.dirty = true;
   }
