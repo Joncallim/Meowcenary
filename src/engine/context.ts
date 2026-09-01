@@ -217,17 +217,20 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
   // its normal-run frontier from durable progression facts after every reload.
   // This prevents a completed first contract from silently composing the
   // already-cleared default stage on the next browser session.
-  const initialStageFacts = createConditionContext(current.progression, {
-    stages: current.stages,
-    achievements: current.achievements,
-    characters: current.characters,
-    bosses: current.bosses,
-  });
-  const initialAvailableStages = stages.allStages().filter((candidate) =>
-    evaluateCondition(candidate.unlock as ProgressionCondition, initialStageFacts));
-  let selectedStageId = initialAvailableStages.find((candidate) => current.stages[candidate.id]?.completed !== true)?.id
-    ?? initialAvailableStages[0]?.id
-    ?? stages.defaultStageId();
+  function normalStageTargetId(): string {
+    const facts = createConditionContext(current.progression, {
+      stages: current.stages,
+      achievements: current.achievements,
+      characters: current.characters,
+      bosses: current.bosses,
+    });
+    const available = stages.allStages().filter((candidate) =>
+      evaluateCondition(candidate.unlock as ProgressionCondition, facts));
+    return available.find((candidate) => current.stages[candidate.id]?.completed !== true)?.id
+      ?? available[0]?.id
+      ?? stages.defaultStageId();
+  }
+  let selectedStageId = normalStageTargetId();
   let stageSelectionRevision = 1;
   const achievementPlatform = options.achievementPlatform ?? noopAchievementAdapter;
 
@@ -252,19 +255,9 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
    * newly-available stage. Replays retain the player's explicit choice. */
   function advanceSelectedStage(completedStageId: string): void {
     if (selectedStageId !== completedStageId) return;
-    const completed = stages.stageById(completedStageId);
-    if (!completed) return;
-    const facts = createConditionContext(current.progression, {
-      stages: current.stages,
-      achievements: current.achievements,
-      characters: current.characters,
-      bosses: current.bosses,
-    });
-    const next = stages.allStages().find((candidate) =>
-      candidate.displayOrder > completed.displayOrder
-      && evaluateCondition(candidate.unlock as ProgressionCondition, facts));
-    if (next) {
-      selectedStageId = next.id;
+    const nextId = normalStageTargetId();
+    if (nextId !== selectedStageId) {
+      selectedStageId = nextId;
       stageSelectionRevision += 1;
     }
   }
