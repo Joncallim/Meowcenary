@@ -6,6 +6,7 @@
 import { PART_SLOTS, BEHAVIOR_TRAITS, MAX_TRAITS_PER_PART } from '../../gameplay/gunsmith';
 import { WEAPON_MODIFIER_STAT_KEYS } from '../../gameplay/stats';
 import { isUnlockId } from '../ids';
+import { validateProgressionCondition } from '../../gameplay/conditionValidation';
 import type { VisualArtCatalog } from '../types';
 import type { RowCheck } from '../validation';
 
@@ -75,6 +76,10 @@ export const checkPart: RowCheckFn = (row: unknown, _index: number): string[] =>
         errors.push(`traits[${i}]: invalid behavior trait`);
       }
     });
+  }
+  if (p.unlock !== undefined) errors.push(...validateProgressionCondition(p.unlock, 'unlock'));
+  if (p.rewardPoolId !== undefined && (typeof p.rewardPoolId !== 'string' || p.rewardPoolId.trim().length === 0)) {
+    errors.push('rewardPoolId: must be a non-empty string when provided');
   }
 
   return errors;

@@ -19,6 +19,7 @@ import {
   type AbilityDefinition,
 } from '../src/gameplay/abilities';
 import type { CharacterDefinition } from '../src/systems/types';
+import { createConditionContext } from '../src/gameplay/conditionEvaluator';
 
 const characters = charactersJson as unknown as CharacterDefinition[];
 const abilities = abilitiesJson as unknown as AbilityDefinition[];
@@ -61,17 +62,17 @@ describe('Epic 24 roster conformance', () => {
   it('unlock conditions are explicit and inspectable (no hidden random drops)', () => {
     for (const c of characters) {
       expect(c.unlock).toBeDefined();
-      if (c.unlock.type === 'meta') {
-        expect(typeof c.unlock.requiresUnlockId).toBe('string');
-      }
+      expect(typeof c.unlock.type).toBe('string');
     }
   });
 
   it('routes Scrap Weasel through a real achievement grant instead of a self-lock', () => {
     const weasel = characters.find((character) => character.id === 'scrap-weasel')!;
-    expect(weasel.unlock).toEqual({ type: 'meta', requiresUnlockId: 'achievement:kill-milestone-100' });
-    expect(canSelectCharacter(weasel, { scrap: 0, permanentUpgrades: {}, unlocks: [] })).toBe(false);
-    expect(canSelectCharacter(weasel, { scrap: 0, permanentUpgrades: {}, unlocks: ['achievement:kill-milestone-100', 'character:scrap-weasel'] })).toBe(true);
+    expect(weasel.unlock).toEqual({ type: 'achievement-completed', achievementId: 'achievement:kill-milestone-100' });
+    expect(canSelectCharacter(weasel, createConditionContext({ scrap: 0, permanentUpgrades: {}, unlocks: [] }))).toBe(false);
+    expect(canSelectCharacter(weasel, createConditionContext({ scrap: 0, permanentUpgrades: {}, unlocks: [] }, {
+      achievements: { 'achievement:kill-milestone-100': { completed: true } },
+    }))).toBe(true);
   });
 
   it('starting weapons resolve to shipped weapons', () => {
@@ -85,7 +86,7 @@ describe('Epic 24 roster conformance', () => {
   });
 
   it('exactly one default-unlock character exists (fresh-save selectable)', () => {
-    const defaults = characters.filter((c) => c.unlock.type === 'default');
+    const defaults = characters.filter((c) => c.unlock.type === 'always');
     expect(defaults.length).toBe(1);
     expect(defaults[0].id).toBe('scrap-tabby');
   });
@@ -167,20 +168,27 @@ describe('Epic 24 unlock gating through progression', () => {
 
   it('fresh save: only the default character is selectable', () => {
     const { context, registry } = harness();
-    const selectable = selectableCharacters(registry, context.saveData.progression);
+    const selectable = selectableCharacters(registry, createConditionContext(context.saveData.progression, {
+      stages: context.saveData.stages, achievements: context.saveData.achievements,
+      characters: context.saveData.characters, bosses: context.saveData.bosses,
+    }));
     expect(selectable.map((c) => c.id)).toEqual(['scrap-tabby']);
-    expect(canSelectCharacter(registry.characterById('volt-lynx')!, context.saveData.progression)).toBe(false);
+    expect(canSelectCharacter(registry.characterById('volt-lynx')!, createConditionContext(context.saveData.progression, {
+      stages: context.saveData.stages, achievements: context.saveData.achievements,
+      characters: context.saveData.characters, bosses: context.saveData.bosses,
+    }))).toBe(false);
   });
 
   it('unlocking the achievement referenced by a character unlock makes it selectable', () => {
     const { context, registry } = harness();
     const lynx = registry.characterById('volt-lynx')!;
-    expect(lynx.unlock).toMatchObject({ type: 'meta', requiresUnlockId: 'achievement:kill-milestone-25' });
-    const meta = {
-      ...context.saveData.progression,
-      unlocks: [...context.saveData.progression.unlocks, 'achievement:kill-milestone-25'],
-    };
-    expect(canSelectCharacter(lynx, meta)).toBe(true);
+    expect(lynx.unlock).toMatchObject({ type: 'achievement-completed', achievementId: 'achievement:kill-milestone-25' });
+    expect(canSelectCharacter(lynx, createConditionContext(context.saveData.progression, {
+      stages: context.saveData.stages,
+      achievements: { ...context.saveData.achievements, 'achievement:kill-milestone-25': { completed: true } },
+      characters: context.saveData.characters,
+      bosses: context.saveData.bosses,
+    }))).toBe(true);
   });
 });
 
@@ -200,7 +208,7 @@ describe('Epic 24 second-fixture proof (data-only extensibility)', () => {
         description: 'No-op proof passive.',
         effects: [{ stat: 'pickupRadius', op: 'add', value: 5 }],
       } as unknown as CharacterDefinition['passives'][number]],
-      unlock: { type: 'meta', requiresUnlockId: 'achievement:first-victory' },
+      unlock: { type: 'achievement-completed', achievementId: 'achievement:first-victory' },
       cosmeticSkinIds: [],
     };
     const registry = new DataCharacterRegistry({ characters: [...charactersJson, extra] as unknown as CharacterDefinition[] });

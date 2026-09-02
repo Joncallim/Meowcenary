@@ -150,6 +150,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
   const equipmentDefinitions = new Map((options.data.equipment ?? []).map((equipment) => [equipment.id, equipment] as const));
   const equipmentSlotById = new Map((options.data.equipment ?? []).map((equipment) => [equipment.id, equipment.slot] as const));
   const knownPartIds = new Set((options.data.gunParts ?? []).map((part) => part.id));
+  const partDefinitions = new Map((options.data.gunParts ?? []).map((part) => [part.id, part] as const));
   const knownTraitIds = new Set((options.data.gunParts ?? []).flatMap((part) => part.traits.map((trait) => `trait:${trait.toLowerCase()}`)));
   const knownAchievementIds = new Set((options.data.achievements ?? []).map((achievement) => achievement.id));
   const normalizeEquipmentLoadout = (
@@ -177,6 +178,14 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     characters: current.characters,
     bosses: current.bosses,
   });
+  // Character availability is a read of the same authoritative facts as
+  // stages/equipment, never a legacy meta-unlock side channel.
+  const characterUnlockFacts = () => createConditionContext(current.progression, {
+    stages: current.stages,
+    achievements: current.achievements,
+    characters: current.characters,
+    bosses: current.bosses,
+  });
   const normalizedInitial = normalizeEquipmentSnapshot(current);
   if (normalizedInitial !== current && options.save.save(normalizedInitial)) current = normalizedInitial;
   const hasKnownContentRewards = (transaction: DurableGrantTransaction): boolean => transaction.grants.every((grant) => {
@@ -193,7 +202,11 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         return true;
       }
       case 'unlock-part':
-      case 'grant-part-instance': return knownPartIds.has(grant.partId);
+      case 'grant-part-instance': {
+        const part = partDefinitions.get(grant.partId);
+        return part !== undefined && knownPartIds.has(grant.partId) &&
+          (part.unlock === undefined || evaluateCondition(part.unlock, equipmentUpgradeFacts()));
+      }
       case 'unlock-trait': return knownTraitIds.has(grant.traitId);
       case 'unlock-character': return options.characters.characterById(grant.characterId.slice('character:'.length)) !== undefined;
       case 'unlock-stage': return stages.stageById(grant.stageId) !== undefined;
@@ -207,7 +220,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     }
   });
   const savedCharacter = options.characters.characterById(current.selectedCharacterId ?? '');
-  let selectedCharacterId = savedCharacter && canSelectCharacter(savedCharacter, current.progression)
+  let selectedCharacterId = savedCharacter && canSelectCharacter(savedCharacter, characterUnlockFacts())
     ? savedCharacter.id
     : options.characters.defaultCharacterId();
   let selectionRevision = 1;
@@ -240,7 +253,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
    *  selectionRevision will see a bump when this fires. */
   function revalidateSelection(): void {
     const def = options.characters.characterById(selectedCharacterId);
-    if (def && !canSelectCharacter(def, current.progression)) {
+    if (def && !canSelectCharacter(def, characterUnlockFacts())) {
       selectedCharacterId = options.characters.defaultCharacterId();
       selectionRevision += 1;
     }
@@ -565,7 +578,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
           revision: selectionRevision,
         };
       }
-      if (!canSelectCharacter(def, current.progression)) {
+      if (!canSelectCharacter(def, characterUnlockFacts())) {
         return {
           ok: false,
           reason: 'locked',

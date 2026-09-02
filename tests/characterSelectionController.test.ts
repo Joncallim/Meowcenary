@@ -32,6 +32,16 @@ describe('CharacterSelectionController', () => {
     expect(snapshot.characters).toHaveLength(8);
     expect(snapshot.characters[0]).toMatchObject({ id: 'scrap-tabby', locked: false, selected: true });
     expect(snapshot.characters[0]).toMatchObject({ abilityName: expect.any(String), abilityDescription: expect.any(String) });
+    expect(snapshot.characters[0]).toMatchObject({
+      baseStatsSummary: expect.stringContaining('health'),
+      passiveSummary: expect.stringContaining('Scrap Hoarder'),
+      startingWeaponSummary: expect.any(String),
+      unlockRequirement: 'Available from the start.',
+    });
+    expect(snapshot.characters.find((character) => character.id === 'brass-boar')).toMatchObject({
+      locked: true,
+      unlockRequirement: 'Defeat boss-crusher.',
+    });
     // Only the default character is unlocked on a fresh save.
     const unlocked = snapshot.characters.filter((c) => !c.locked);
     expect(unlocked.map((c) => c.id)).toEqual(['scrap-tabby']);
@@ -68,10 +78,11 @@ describe('CharacterSelectionController', () => {
 
   it('select succeeds for unlocked character and returns updated snapshot', () => {
     const { context, controller } = setup();
-    context.updateMeta((meta) => ({
-      ...meta,
-      unlocks: [...meta.unlocks, 'achievement:first-victory'],
-    }));
+    expect(context.commitAchievementTransaction(
+      { ...context.saveData.achievements, 'achievement:first-victory': { completed: true, progress: 1 } },
+      context.saveData.achievementMetrics,
+      { id: 'achievement:first-victory:controller-fixture', grants: [{ type: 'achievement-completed', achievementId: 'achievement:first-victory' }] },
+    )).toBe(true);
     const revision = context.selectionRevision;
     const result = controller.select('bolt-hound', revision);
     expect(result.ok).toBe(true);

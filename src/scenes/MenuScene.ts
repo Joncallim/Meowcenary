@@ -328,7 +328,14 @@ export class MenuScene extends Phaser.Scene {
         this.render(next);
       });
       if (character.description || character.abilityName) {
-        const details = [character.description, character.abilityName ? `Ability — ${character.abilityName}: ${character.abilityDescription}` : undefined]
+        const details = [
+          character.description,
+          `Stats — ${character.baseStatsSummary}`,
+          `Passive — ${character.passiveSummary}`,
+          `Starts with — ${character.startingWeaponSummary}`,
+          character.abilityName ? `Ability — ${character.abilityName}: ${character.abilityDescription}` : undefined,
+          character.locked ? `Unlock — ${character.unlockRequirement}` : undefined,
+        ]
           .filter(Boolean).join('\n');
         const desc = this.own(root, createUiText(this,margin + 12, y + button.height + 2, details, {
           color: '#a5f3fc',
