@@ -66,10 +66,62 @@
     "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-04" }
   },
   {
+    "id": "stage:forge-01",
+    "name": "Hot Salvage",
+    "chapterId": "chapter:forge",
+    "displayOrder": 1,
+    "arenaId": "junkyard-lot",
+    "assetBundleId": "bundle:core-junkyard",
+    "objective": { "type": "collect", "itemId": "drop:scrap", "count": 12 },
+    "encounterProfileId": "encounter:junkyard-mixed",
+    "difficultyProfileId": "difficulty:chapter-1-medium",
+    "rewardProfileId": "reward:forge-01",
+    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-05" }
+  },
+  {
+    "id": "stage:forge-02",
+    "name": "Smelter Rush",
+    "chapterId": "chapter:forge",
+    "displayOrder": 2,
+    "arenaId": "junkyard-lot",
+    "assetBundleId": "bundle:core-junkyard",
+    "objective": { "type": "survive", "seconds": 120 },
+    "encounterProfileId": "encounter:junkyard-rusher-heavy",
+    "difficultyProfileId": "difficulty:chapter-1-medium",
+    "rewardProfileId": "reward:forge-02",
+    "unlock": { "type": "stage-cleared", "stageId": "stage:forge-01" }
+  },
+  {
+    "id": "stage:forge-03",
+    "name": "Steel Wall",
+    "chapterId": "chapter:forge",
+    "displayOrder": 3,
+    "arenaId": "junkyard-lot",
+    "assetBundleId": "bundle:core-junkyard",
+    "objective": { "type": "kill", "count": 35, "enemyTag": "tank" },
+    "encounterProfileId": "encounter:junkyard-elite",
+    "difficultyProfileId": "difficulty:chapter-1-medium",
+    "rewardProfileId": "reward:forge-03",
+    "unlock": { "type": "stage-cleared", "stageId": "stage:forge-02" }
+  },
+  {
+    "id": "stage:forge-04",
+    "name": "Foundry Cleanup",
+    "chapterId": "chapter:forge",
+    "displayOrder": 4,
+    "arenaId": "junkyard-lot",
+    "assetBundleId": "bundle:core-junkyard",
+    "objective": { "type": "kill", "count": 45 },
+    "encounterProfileId": "encounter:junkyard-mixed",
+    "difficultyProfileId": "difficulty:chapter-1-medium",
+    "rewardProfileId": "reward:forge-04",
+    "unlock": { "type": "stage-cleared", "stageId": "stage:forge-03" }
+  },
+  {
     "id": "stage:junkyard-06",
     "name": "Boss: Forge Warden",
-    "chapterId": "chapter:junkyard",
-    "displayOrder": 6,
+    "chapterId": "chapter:forge",
+    "displayOrder": 5,
     "arenaId": "junkyard-lot",
     "assetBundleId": "bundle:core-junkyard",
     "objective": { "type": "defeat", "enemyId": "boss-forge" },
@@ -77,6 +129,6 @@
     "difficultyProfileId": "difficulty:boss-tier-1",
     "rewardProfileId": "reward:stage-06-boss",
     "bossId": "boss-forge",
-    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-05" }
+    "unlock": { "type": "stage-cleared", "stageId": "stage:forge-04" }
   }
 ]

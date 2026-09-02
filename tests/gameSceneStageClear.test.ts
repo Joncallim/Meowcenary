@@ -136,6 +136,6 @@ describe('GameScene durable stage clear', () => {
     expect(reloaded.saveData.achievements['achievement:boss-crusher']?.completed).toBe(true);
     expect(reloaded.saveData.equipment['reward:crusher-commando-helmet']?.equipmentId).toBe('equipment:commando-helmet');
     expect(new StageSelectionController(reloaded).snapshot().stages
-      .find((stage) => stage.id === 'stage:junkyard-06')?.locked).toBe(false);
+      .find((stage) => stage.id === 'stage:forge-01')?.locked).toBe(false);
   });
 });

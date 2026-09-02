@@ -26,10 +26,10 @@ function createHarness(): { context: GameContext; controller: StageSelectionCont
 }
 
 describe('StageSelectionController (Epic 20)', () => {
-  it('lists all six stages in display order with unlocked/locked state', () => {
+  it('lists all stage contracts in progression order with unlocked/locked state', () => {
     const { controller } = createHarness();
     const snap = controller.snapshot();
-    expect(snap.stages).toHaveLength(6);
+    expect(snap.stages).toHaveLength(10);
     // Fresh save: only stage 1 (unlock-count 0) is unlocked
     expect(snap.stages[0].locked).toBe(false);
     expect(snap.stages[0].completed).toBe(false);
@@ -42,6 +42,22 @@ describe('StageSelectionController (Epic 20)', () => {
     const data = loadGameData();
     const registry = new StageRegistry({ ...data, stages: [...(data.stages ?? [])].reverse() });
     expect(registry.allStageIds()).toEqual((data.stages ?? []).map((stage) => stage.id));
+  });
+
+  it('keeps a composite stage after its nested stage prerequisite', () => {
+    const data = loadGameData();
+    const composite = {
+      ...data.stages![0],
+      id: 'stage:composite-proof',
+      chapterId: 'chapter:proof',
+      displayOrder: 1,
+      unlock: { type: 'all', conditions: [
+        { type: 'stage-cleared', stageId: 'stage:junkyard-05' },
+        { type: 'achievement-completed', achievementId: 'achievement:first-victory' },
+      ] },
+    };
+    const registry = new StageRegistry({ ...data, stages: [composite, ...(data.stages ?? [])] });
+    expect(registry.allStageIds().indexOf(composite.id)).toBeGreaterThan(registry.allStageIds().indexOf('stage:junkyard-05'));
   });
 
   it('selects only unlocked stages; rejects locked ones', () => {

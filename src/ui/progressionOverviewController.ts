@@ -59,7 +59,10 @@ export class ProgressionOverviewController {
     const nextGoals: NextGoalView[] = [];
 
     // 1. Next uncompleted stage (the concrete next contract to play).
-    const stages = [...context.stages.allStages()].sort((a, b) => a.displayOrder - b.displayOrder);
+    // StageRegistry already supplies the validated unlock-chain order. Do not
+    // re-sort by chapter-local display numbers here or a later chapter's
+    // first contract would appear ahead of the current chapter's boss.
+    const stages = context.stages.allStages();
     const nextStage = stages.find((stage) => !context.saveData.stages[stage.id]?.completed);
     if (nextStage) {
       const stageLocked = !evaluateCondition(
