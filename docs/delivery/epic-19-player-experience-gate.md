@@ -1,9 +1,22 @@
 # Epic 19 — Player experience gate
 
-**Status:** IN PROGRESS
-**References:** Epic #78; [governing architecture](../architecture/epic-19-player-ux-and-alpha-2-gate.md); Slice 4 merged commit: `b316a6a`; final runtime candidate: `609547d` (the FINAL TESTED production commit; automated rows below pin to it, not to the `ad5aeb9` baseline). Automated rows are re-verified at the tests-only verification descendant `e488de5` (production runtime byte-identical to `609547d`); this documentation-only descendant records the results without changing that tested runtime.
+**Status:** PASS — 2026-09-02
+**References:** Epic #78; [governing architecture](../architecture/epic-19-player-ux-and-alpha-2-gate.md). The immutable Alpha 2 certification source is `bbe8bc52ff97c1db437aa2fcfdd7ec55838fd08c`; later Alpha 3 work is deliberately outside this historical gate.
 
-This is the compact durable record for the Epic 19 player-experience gate. Rows without a real observer, device, and candidate commit remain `unverified`; automated results do not substitute for human evidence. Automated rows carry NO human observer — the Observer column records the run's provenance (`automated`), never a maintainer or agent.
+This is the compact durable record for the Epic 19 player-experience gate. Historical draft rows below preserve the defects and evidence gaps that drove remediation; they are superseded only by the final source-specific certification record, not by automation alone.
+
+## Final frozen-baseline certification
+
+| Field | Evidence |
+| --- | --- |
+| Source | `bbe8bc52ff97c1db437aa2fcfdd7ec55838fd08c` |
+| Artifact | `https://meowcenary.jo-nas.com/?cert=alpha2-bbe8bc52` (deployment ledger records `certification/alpha2-bbe8bc52 @ bbe8bc5`) |
+| Automated gate | Full suite (104 files / 1,780 tests plus allocation and runner stages), shuffled seeds `78001`–`78003`, lint, production build, visual-art validation, and diff check: PASS. |
+| Controller-only evidence | Product-owner confirmation: menu through character/arena selection, run movement, upgrade choices, rack/merge, pause/settings, summary, Retry/Menu, disconnect/reconnect, and input-source recovery all pass with no pointer/touch fallback. |
+| Real-phone evidence | Product-owner confirmation: uncoached Golden Run; portrait movement, sustained ergonomics and accidental-action checks; Rusher/Brute movement agency; PF1–PF7 and PF-R2–1–6 recheck; and quiet/late-wave observations all pass. Movement-only is accepted; no dash is required. |
+| Defect disposition | No P0/P1 or unaccepted P2 finding reported at the final gate. |
+
+The confirming observer was the product owner on 2026-09-02. The issue ledger contains the source-specific confirmation and closure decision; unavailable historical draft-device metadata is not retroactively fabricated.
 
 ## PF convergence recheck (draft)
 
@@ -119,8 +132,9 @@ Eight separate rows (one per gate). Each test row records the exact candidate co
 | X6-agency | X6 — movement agency | pixel-8-android-chrome | unverified | unverified | unverified | unverified | D10 remains PENDING. |
 | X7-audio | X7 — audio unlock/deferred silence | desktop-gamepad-chrome | pending | unverified | unverified | unverified | No browser/device observation. |
 
-## Accepted limitations and final decision
+## Historical limitations and final decision
 
 - Floating remains the production default. Anchored is config-only diagnostic; its frozen activation circle is clipped off-canvas and overlaps lower HUD/modal targets, so any diagnostic incident must be recorded rather than silently masked.
 - Seed identity is terminal observation only; automated fixture seeds never consume gameplay RNG.
-- **Final decision: NOT READY.** Slice 5 automated evidence is not a human/device substitute; D10 is PENDING and P-late-wave is unverified.
+- Historical decision: **NOT READY.** The rows above accurately describe the pre-certification gaps and must remain readable as audit history.
+- Final decision: **PASS.** The frozen-baseline automated gate and product-owner physical controller/phone evidence in the final certification section supersede those gaps. #78 closed on 2026-09-02.
