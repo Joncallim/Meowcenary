@@ -1794,7 +1794,7 @@ describe('stage catalog identity contracts', () => {
   it('rejects duplicate stage and profile identities before registries can collapse them', () => {
     const duplicateStage = mutableStageData();
     duplicateStage.stages.push(structuredClone(duplicateStage.stages[0]!));
-    expect(() => validateGameData(duplicateStage)).toThrow(/stages\.json\[6\]\.id: duplicate id/);
+    expect(() => validateGameData(duplicateStage)).toThrow(/stages\.json\[\d+\]\.id: duplicate id/);
 
     const duplicateProfile = mutableStageData();
     duplicateProfile.encounterProfiles.push(structuredClone(duplicateProfile.encounterProfiles[0]!));

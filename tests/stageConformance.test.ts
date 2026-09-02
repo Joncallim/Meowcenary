@@ -24,11 +24,12 @@ describe('Epic 20 stage catalog conformance', () => {
   const difficulties = difficultiesJson as readonly DifficultyProfile[];
   const rewards = rewardsJson as readonly RewardProfile[];
 
-  it('ships the six-stage first chapter in display order', () => {
-    expect(stages).toHaveLength(6);
-    expect(new Set(stages.map((s) => s.chapterId))).toEqual(new Set(['chapter:junkyard']));
-    const orders = stages.map((s) => s.displayOrder).sort((a, b) => a - b);
-    expect(orders).toEqual([1, 2, 3, 4, 5, 6]);
+  it('ships two five-contract chapters in display order', () => {
+    expect(stages).toHaveLength(10);
+    for (const chapterId of ['chapter:junkyard', 'chapter:forge']) {
+      const orders = stages.filter((stage) => stage.chapterId === chapterId).map((stage) => stage.displayOrder).sort((a, b) => a - b);
+      expect(orders, chapterId).toEqual([1, 2, 3, 4, 5]);
+    }
   });
 
   it('uses stable namespaced unique stage IDs (never display numbers as save keys)', () => {
@@ -39,7 +40,7 @@ describe('Epic 20 stage catalog conformance', () => {
 
   it('covers the required objective variety: kill, collect, survive, elite, boss', () => {
     const types = stages.map((s) => s.objective.type).sort();
-    expect(types).toEqual(['collect', 'defeat', 'defeat', 'kill', 'kill', 'survive']);
+    expect(types).toEqual(['collect', 'collect', 'defeat', 'defeat', 'kill', 'kill', 'kill', 'kill', 'survive', 'survive']);
     // Boss milestone is stage 5 (defeat of a named enemy)
     expect(stages[4].objective).toMatchObject({ type: 'defeat' });
   });
@@ -88,6 +89,13 @@ describe('Epic 20 stage catalog conformance', () => {
     }
   });
 
+  it('places boss milestones every fifth contract within their chapter', () => {
+    for (const stage of stages) {
+      const isBoss = stage.bossId !== undefined;
+      expect(isBoss, `${stage.id} at ${stage.chapterId}/${stage.displayOrder}`).toBe(stage.displayOrder % 5 === 0);
+    }
+  });
+
   it('resolves every reward loot table against the loot registry', () => {
     const data = loadGameData();
     const loot = new DataLootTableRegistry(data);
@@ -99,10 +107,11 @@ describe('Epic 20 stage catalog conformance', () => {
     }
   });
 
-  it('has strictly ordered unlock chain: each stage unlocks the next', () => {
-    expect(stages[0].unlock).toMatchObject({ type: 'unlock-count', minCount: 0 });
-    for (let i = 1; i < stages.length; i++) {
-      expect(stages[i].unlock).toMatchObject({ type: 'stage-cleared', stageId: stages[i - 1].id });
+  it('has a strictly ordered unlock chain across chapters', () => {
+    const first = stages.find((stage) => stage.id === 'stage:junkyard-01')!;
+    expect(first.unlock).toMatchObject({ type: 'unlock-count', minCount: 0 });
+    for (const stage of stages.filter((candidate) => candidate.id !== first.id)) {
+      expect(stage.unlock).toMatchObject({ type: 'stage-cleared' });
     }
   });
 
@@ -154,8 +163,8 @@ describe('Epic 20 stage catalog conformance', () => {
     const proofStage: StageDefinition = {
       id: 'stage:proof-junkyard-01',
       name: 'Proof Stage',
-      chapterId: 'chapter:junkyard',
-      displayOrder: 6,
+      chapterId: 'chapter:proof-junkyard',
+      displayOrder: 1,
       arenaId: stages[0].arenaId,
       assetBundleId: stages[0].assetBundleId,
       objective: { type: 'kill', count: 5 },
@@ -166,7 +175,7 @@ describe('Epic 20 stage catalog conformance', () => {
     };
     const validated = validateGameData({
       ...structuredClone(loadGameData()),
-      stages: [...stages, { ...proofStage, chapterId: 'chapter:proof-junkyard', displayOrder: 7, assetBundleId: loadGameData().assetBundles[0].id }],
+      stages: [...stages, { ...proofStage, assetBundleId: loadGameData().assetBundles[0].id }],
     });
     // The boot validator and generic resolver accept a new stage using a
     // declared asset bundle without a scene, loader, or stage-ID branch.

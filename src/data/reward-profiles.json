@@ -196,6 +196,30 @@
     ]
   },
   {
+    "id": "reward:forge-01",
+    "scrapBase": 90,
+    "scrapPerMinute": 28,
+    "lootTableId": "brute-cache"
+  },
+  {
+    "id": "reward:forge-02",
+    "scrapBase": 110,
+    "scrapPerMinute": 31,
+    "lootTableId": "brute-cache"
+  },
+  {
+    "id": "reward:forge-03",
+    "scrapBase": 130,
+    "scrapPerMinute": 34,
+    "lootTableId": "weapon-world"
+  },
+  {
+    "id": "reward:forge-04",
+    "scrapBase": 160,
+    "scrapPerMinute": 37,
+    "lootTableId": "weapon-world"
+  },
+  {
     "id": "reward:stage-06-boss",
     "scrapBase": 190,
     "scrapPerMinute": 40,

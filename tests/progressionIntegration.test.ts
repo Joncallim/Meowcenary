@@ -119,7 +119,7 @@ describe('meta progression integration', () => {
     })).toBe(true);
     expect(context.saveData.equipment['reward:crusher-commando-helmet']).toMatchObject({ equipmentId: 'equipment:commando-helmet' });
     expect(context.saveData.progression.unlocks).toContain('achievement:boss-crusher');
-    expect(new StageSelectionController(context).snapshot().stages.find((stage) => stage.id === 'stage:junkyard-06')?.locked).toBe(false);
+    expect(new StageSelectionController(context).snapshot().stages.find((stage) => stage.id === 'stage:forge-01')?.locked).toBe(false);
   });
 });
 

@@ -13,6 +13,28 @@ import type {
 } from '../gameplay/stage/stageContracts';
 import type { AssetBundleDefinition } from './types';
 
+/** Return stage contracts which must be cleared before an unlock can become
+ * true. Conditions are validated data but deliberately remain structural here
+ * so a future condition form does not require a StageRegistry ID branch. */
+function prerequisiteStageIds(
+  condition: unknown,
+  stageForBoss: ReadonlyMap<string, string>,
+): readonly string[] {
+  if (!condition || typeof condition !== 'object') return [];
+  const value = condition as Record<string, unknown>;
+  if (value.type === 'stage-cleared' && typeof value.stageId === 'string') return [value.stageId];
+  if (value.type === 'boss-defeated' && typeof value.bossId === 'string') {
+    const stageId = stageForBoss.get(value.bossId);
+    return stageId === undefined ? [] : [stageId];
+  }
+  if ((value.type === 'all' || value.type === 'any') && Array.isArray(value.conditions)) {
+    return value.conditions.flatMap((child) => prerequisiteStageIds(child, stageForBoss));
+  }
+  // `not` may be satisfied before any stage; treating it as a prerequisite
+  // would make a menu order depend on a contract the player must avoid.
+  return [];
+}
+
 export class StageRegistry {
   private readonly stagesById = new Map<string, Readonly<StageDefinition>>();
   private readonly stagesByChapter = new Map<string, Readonly<StageDefinition>[]>();
@@ -37,8 +59,35 @@ export class StageRegistry {
       stages.sort((a, b) => a.displayOrder - b.displayOrder);
     }
 
+    // A chapter-local display order alone is ambiguous once a catalog has
+    // multiple chapters.  Derive the menu order from the authored unlock
+    // chain instead: this keeps Stage N after the stage that unlocks it,
+    // independent of JSON ordering, without turning display numbers into
+    // persistent/global identities.
+    const progressionDepth = new Map<string, number>();
+    const resolving = new Set<string>();
+    const stageForBoss = new Map<string, string>();
+    for (const stage of canonicalStages) {
+      if (stage.bossId !== undefined) stageForBoss.set(stage.bossId, stage.id);
+    }
+    const depthFor = (stage: Readonly<StageDefinition>): number => {
+      const cached = progressionDepth.get(stage.id);
+      if (cached !== undefined) return cached;
+      if (resolving.has(stage.id)) return 0;
+      resolving.add(stage.id);
+      const parents = prerequisiteStageIds(stage.unlock, stageForBoss)
+        .map((parentId) => this.stagesById.get(parentId))
+        .filter((parent): parent is Readonly<StageDefinition> => parent !== undefined);
+      // Keep a composite/unlock-gated stage after every named prerequisite.
+      // This is conservative for `any`, but never presents a later locked
+      // contract ahead of the playable ladder.
+      const depth = parents.length === 0 ? 0 : Math.max(...parents.map((parent) => depthFor(parent) + 1));
+      resolving.delete(stage.id);
+      progressionDepth.set(stage.id, depth);
+      return depth;
+    };
     this.stageIds = Object.freeze([...canonicalStages]
-      .sort((a, b) => a.displayOrder - b.displayOrder)
+      .sort((a, b) => depthFor(a) - depthFor(b) || a.displayOrder - b.displayOrder || a.id.localeCompare(b.id))
       .map((stage) => stage.id));
 
     // Deep-clone and freeze encounter profiles
@@ -71,7 +120,7 @@ export class StageRegistry {
 
   /** Returns all stage definitions in display order. */
   allStages(): readonly StageDefinition[] {
-    return [...this.stagesById.values()].sort((a, b) => a.displayOrder - b.displayOrder);
+    return this.stageIds.map((id) => this.stagesById.get(id)!);
   }
 
   /** Look up a stage by its stable ID. */

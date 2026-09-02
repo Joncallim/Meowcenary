@@ -58,7 +58,8 @@ function clearSelectedStage(
 describe('Epic 26 deterministic progression balance simulation', () => {
   it('advances the normal stage frontier in order and gives every first clear a bounded, durable reward', () => {
     const { context, stages } = createHarness();
-    const expected = stages.allStages().map((stage) => stage.id);
+    const orderedStages = stages.allStages();
+    const expected = orderedStages.map((stage) => stage.id);
     const rewards: number[] = [];
 
     for (const [index, stageId] of expected.entries()) {
@@ -71,11 +72,14 @@ describe('Epic 26 deterministic progression balance simulation', () => {
       expect(context.saveData.appliedGrantTransactions[`${stageId}:first-clear`]).toBe(true);
     }
 
-    for (let index = 1; index < rewards.length; index += 1) {
-      expect(rewards[index]).toBeGreaterThan(rewards[index - 1]);
+    for (const chapterId of new Set(orderedStages.map((stage) => stage.chapterId))) {
+      const chapterRewards = rewards.filter((_, index) => orderedStages[index]!.chapterId === chapterId);
+      for (let index = 1; index < chapterRewards.length; index += 1) {
+        expect(chapterRewards[index]).toBeGreaterThan(chapterRewards[index - 1]);
+      }
     }
     expect(rewards[4]).toBeGreaterThan(rewards[0] * 4);
-    expect(rewards.at(-1)).toBeGreaterThan(rewards[4]);
+    expect(rewards.at(-1)).toBeGreaterThan(rewards[5]!);
     const beforeReplay = context.saveData.progression.scrap;
     expect(context.selectStage(expected[0], context.stageSelectionRevision)).toMatchObject({ ok: true });
     expect(clearSelectedStage({ context, stages }, 1_800_000)).toBe(expected[0]);

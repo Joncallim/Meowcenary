@@ -36,7 +36,7 @@ describe('Epic 26 progression overview read model', () => {
     const { controller } = createHarness();
     const snap = controller.snapshot();
     expect(snap.completedStages).toBe(0);
-    expect(snap.totalStages).toBe(6);
+    expect(snap.totalStages).toBe(10);
     expect(snap.completedAchievements).toBe(0);
     expect(snap.totalAchievements).toBeGreaterThanOrEqual(8);
     expect(snap.unlockedCharacters).toBe(1);
@@ -93,15 +93,21 @@ describe('Epic 26 progression overview read model', () => {
 
 describe('Epic 26 reward cadence conformance', () => {
   const rewards = rewardProfilesJson as unknown as { id: string; scrapBase: number; scrapPerMinute: number }[];
-  const stages = stagesJson as unknown as { id: string; displayOrder: number; rewardProfileId: string }[];
+  const stages = stagesJson as unknown as { id: string; chapterId: string; displayOrder: number; rewardProfileId: string }[];
 
-  it('stage rewards scale monotonically with display order', () => {
+  it('stage rewards scale monotonically within each chapter', () => {
     const byProfile = new Map(rewards.map((r) => [r.id, r]));
-    const ordered = stages
-      .sort((a, b) => a.displayOrder - b.displayOrder)
-      .map((s) => byProfile.get(s.rewardProfileId)!.scrapBase);
-    for (let i = 1; i < ordered.length; i++) {
-      expect(ordered[i]).toBeGreaterThan(ordered[i - 1]);
+    const chapters = new Map<string, typeof stages>();
+    for (const stage of stages) {
+      chapters.set(stage.chapterId, [...(chapters.get(stage.chapterId) ?? []), stage]);
+    }
+    for (const chapter of chapters.values()) {
+      const ordered = [...chapter]
+        .sort((a, b) => a.displayOrder - b.displayOrder)
+        .map((stage) => byProfile.get(stage.rewardProfileId)!.scrapBase);
+      for (let i = 1; i < ordered.length; i++) {
+        expect(ordered[i]).toBeGreaterThan(ordered[i - 1]);
+      }
     }
   });
 
