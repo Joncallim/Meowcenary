@@ -1,7 +1,7 @@
 # Meowcenary Knowledge Graph
 
 > Token-optimized repo map. Read this before implementation work.
-> Current state: **Epics 0–18 are complete; Epic 19 Slices 1–4 are merged and Slice 5 is closing the gate. The frozen contract and evidence record are authoritative; D10 and lived late-wave evidence remain open. After Epic 19, Issue #94 performs repository certification/remediation. Alpha 3 architecture #92 remains blocked by #94.**
+> Current state: **Alpha 2 certification (#94) passed and the Alpha 3 shared foundation (#92) is implementation-locked. Epics 20–26 consume those shared contracts.**
 
 ## Read Order
 
@@ -180,7 +180,7 @@ The output of #94 is the certified Alpha 2 baseline that #92 must consume.
 
 ## Alpha 3 Mandatory Foundation — #92
 
-#92 is blocked by #94. Do not begin its implementation-ready architecture pass until #94 closes PASS.
+#92 closed after #94 passed; its implementation-locked contracts govern Epics 20–26.
 
 #92 owns shared cross-epic contracts:
 

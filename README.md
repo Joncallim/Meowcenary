@@ -87,6 +87,9 @@ The playable loop is well past the original MVP. Shipped and playable today:
 - An event-driven loot/economy loop (XP, scrap, chests) and live audio.
 - Dev-only balancing tools, performance pooling, and a data-driven visual identity — a validated art manifest, pooled weapon/pickup/defeat presentation, and a camera-traversable Junkyard Lot — kept separate from gameplay logic.
 
-Next up is Alpha 2's Golden Run push: combat feel, build variety, and the touch/controller gate. See [`docs/roadmap.md`](docs/roadmap.md) for exact epic-by-epic status and [`docs/epics.md`](docs/epics.md) for the shared contracts every epic builds on.
+Alpha 3 builds on that Golden Run baseline with stage contracts, bosses,
+achievement/mastery, Gunsmith builds, mercenary abilities, equipment, and
+integrated progression. See [`docs/roadmap.md`](docs/roadmap.md) for current
+status and [`docs/epics.md`](docs/epics.md) for the shared contracts.
 
 Paid upgrades, ads, subscriptions, online accounts, and social features are explicitly out of scope for now.
