@@ -4,7 +4,7 @@
 
 **Implementation baseline reviewed:** `codex/alpha3-campaign` at `f5ea5e297c54c84ec8b3ad7193768fbc29ac33a7`.
 
-**Scope:** this file closes two coupled ambiguities in the V4 Part/merge contract: higher owned tiers must have real value, and the shared FIRE behavior must remain distinct from a Fire Core's own tier-scaled engineering modifier. It does not introduce a new progression system or behavior primitive.
+**Scope:** this file closes three coupled Part-value ambiguities: higher owned tiers must have real value, the shared FIRE behavior must remain distinct from Fire Core engineering modifiers, and an advertised early Part must not be a silent zero-effect choice on the weapon families available when it is introduced. It does not introduce a new progression system or behavior primitive.
 
 V4 correctly separates:
 
@@ -15,11 +15,9 @@ PartInstance   = owned engineering tier 1..5 + infused traits
 
 and correctly keeps shared behavior traits such as FIRE / EXPLOSIVE / PIERCING **tier-invariant**.
 
-The missing invariant was:
+The governing product rule is:
 
-> **If a Part can legally exist at engineering tier >1, that higher tier must change at least one real mechanical contribution.**
-
-A merge ladder that consumes two Parts merely to change the displayed tier number is invalid progression.
+> **Engineering choices must change real mechanics. A tier number, blueprint card or headline reward that produces no actual delta is not progression.**
 
 ---
 
@@ -221,7 +219,57 @@ Its owned T3 is transaction/instance state, not static Part definition tier.
 
 ---
 
-# 7. Generic validation
+# 7. Current early-Part usefulness correction
+
+A separate current-content audit found two RC1 Parts whose only effect is negative spread:
+
+```text
+Red-Dot Optic: spreadDeg -2
+Padded Stock:   spreadDeg -1.5
+```
+
+But all three Scrap Pistol tiers have base spread 0, Can SMG T1/T2 have base spread 0, and effective spread is clamped to `>= 0` after modifier resolution. Therefore:
+
+- J2's headline Red-Dot reward can have **zero effect** on the player's pistol or early SMG;
+- Padded Stock can be fabricated while doing nothing on an early SMG.
+
+This fails the V4 product goal that a newly earned/fabricated Part creates an understandable build decision.
+
+## Frozen first tuning candidate
+
+Preserve each Part's accuracy/control identity and add one small existing-stat contribution:
+
+### Red-Dot Optic
+
+```json
+"effects": [
+  { "stat": "spreadDeg", "op": "add", "value": -2 },
+  { "stat": "range", "op": "add", "value": 12 }
+]
+```
+
+Interpretation: modest effective-range benefit on every compatible current family, plus actual spread tightening where spread exists.
+
+### Padded Stock
+
+```json
+"effects": [
+  { "stat": "spreadDeg", "op": "add", "value": -1.5 },
+  { "stat": "attackSpeed", "op": "add", "value": 0.03 }
+]
+```
+
+Interpretation: modest controllability/cadence benefit on SMG/shotgun even when spread is already zero, plus spread tightening where relevant.
+
+These values are first playtest candidates. They intentionally remain smaller than the primary specialization of Long Barrel / Compact Receiver and may be tuned from real runs.
+
+Do not add a recoil subsystem merely to justify these Parts.
+
+---
+
+# 8. Generic validation and release-content usefulness checks
+
+## Generic tier validation
 
 Part validation must reject a definition/route that creates meaningless higher tiers.
 
@@ -244,9 +292,19 @@ Do not hard-code `part:trait-fire` into validator logic.
 
 A synthetic future trait-only Part with no tier-sensitive contribution must fail the same gate.
 
+## Release-content usefulness
+
+For the active release content matrix, automatically evaluate each Part against its compatible current weapon families/tiers and flag definitions whose entire effect set is clamped/no-op for all intended consumers.
+
+For a **headline first-clear Part reward**, add a stricter release assertion:
+
+> At the milestone where it is awarded, the Part must have a non-zero mechanical delta on at least one weapon family that a normally reachable Mercenary/build can actually use at that point.
+
+This is a release-content assertion, not a universal engine rule. Future niche content may intentionally target a later family if its product brief says so; the reason must be explicit rather than accidental.
+
 ---
 
-# 8. Merge/read-model behavior
+# 9. Merge/read-model behavior
 
 Merge remains generic:
 
@@ -269,9 +327,11 @@ shared FIRE package remains one copy
 
 Do not imply the burn behavior or shared FIRE 1.15× modifier doubled merely because engineering tier increased.
 
+The same read model should expose when a clamped stat has no further effect on the current family rather than promising a phantom improvement.
+
 ---
 
-# 9. Required tests
+# 10. Required tests
 
 ## Fire Core engineering slope
 
@@ -316,6 +376,14 @@ ordinary Fire Core FIRE + Mastered Fire FIRE
 
 No duplicate shared FIRE modifier/projectile effect is emitted merely because two sources carry the same trait.
 
+## Early-Part current-content checks
+
+- Red-Dot T1 changes a Scrap Pistol's effective range even though spread remains clamped at zero.
+- Red-Dot tightens spread on a weapon that actually has spread.
+- Padded Stock T1 changes early SMG attack speed even though spread is zero.
+- Padded Stock tightens shotgun/late-SMG spread where applicable.
+- the J2 headline Red-Dot reward has a non-zero delta for a reachable early family.
+
 ## Generic validator
 
 A synthetic Part that can reach T2 but has:
@@ -331,7 +399,7 @@ A synthetic Part with an existing valid modifier passes without a core-code or v
 
 ---
 
-# 10. N+1 rule
+# 11. N+1 rule
 
 The final authoring test is generic:
 
@@ -343,20 +411,21 @@ This amendment does not require:
 - per-Part merge code;
 - trait-specific tier switches;
 - another save field;
-- another RNG stream.
+- another RNG stream;
+- a recoil/accuracy subsystem.
 
 ---
 
-# 11. Implementation owners
+# 12. Implementation owners
 
 - #87 — Gunsmith definition/merge/read-model behavior;
 - #170 — generic authoring/validation/N+1 gate;
-- #171 — current Fire/Mastered content and product tuning;
-- #167 — existing distinct ordinary-vs-Mastered trait-core art direction remains valid.
+- #171 — current Fire/Mastered/early-Part content and product tuning;
+- #167 — existing Part visual directions remain valid.
 
 ---
 
-# 12. PASS
+# 13. PASS
 
 This amendment passes implementation when:
 
@@ -367,7 +436,9 @@ This amendment passes implementation when:
 5. Fire Core merges change the Part-owned modifier but never duplicate/scale the shared FIRE package;
 6. Mastered Fire remains Warden-only T3 with a Part-owned 1.15× modifier plus the same shared FIRE package;
 7. Pyro/Part duplicate FIRE sources emit one shared behavior package while fitted Part-owned modifiers remain present;
-8. generic validation rejects a synthetic meaningless tier ladder;
-9. no content-ID merge/trait branch is introduced.
+8. Red-Dot/Padded Stock no longer resolve to silent no-ops for their early intended families;
+9. generic validation rejects a synthetic meaningless tier ladder;
+10. release-content validation catches an accidentally zero-effect headline Part reward;
+11. no content-ID merge/trait branch or new recoil system is introduced.
 
 This is a progression-quality invariant, not a balance-system expansion.
