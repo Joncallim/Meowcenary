@@ -4,144 +4,146 @@
 
 **Baseline reviewed:** `codex/alpha3-campaign` at `f5ea5e297c54c84ec8b3ad7193768fbc29ac33a7`.
 
-The Compendium exists to preserve and expose the work already invested in Meowcenary's enemies, bosses, encounter composition and art. It is a field guide and collection surface, **not a second enemy database**.
+**Authoring contract:** future entries follow `content-authoring-templates.md` and `content-authoring-template-coverage.md`.
+
+The Compendium preserves and exposes the work already invested in Meowcenary's enemies, bosses, encounter composition and art. It is a field guide and collection surface, **not a second enemy database**.
 
 ---
 
-## 1. Product outcome
+# 1. Product outcome
 
 A player can open the Compendium and understand:
 
-- what monsters they have actually encountered;
+- which monsters they have actually encountered;
 - what each threat does;
-- how to read its tells;
-- how to respond to it;
-- where it appears in the current stage ladder;
-- how bosses change through their encounters;
+- what visual/timing tells matter;
+- how to respond;
+- where the threat appears in the stage ladder;
+- how bosses escalate;
 - the personality and visual identity of Meowcenary's junkyard creatures.
 
-The Compendium should make enemy production feel persistent and collectible without introducing grind. Seeing and defeating monsters naturally fills the guide; there is no arbitrary “kill 100 to unlock paragraph three” ladder.
+Discovery happens naturally through play. There is no scan mechanic, lore currency or “kill 100 to unlock paragraph three” grind.
 
-The current roster is:
+Current authoritative roster:
 
-1. Dust Mite
-2. Junk Rusher
-3. Trash Brute
-4. Scrap Sniper
-5. Scrap Skitter
-6. Bastion Beetle
-7. Junk Nester
-8. Shard Bot
-9. Scrap Crusher
-10. Forge Warden
+1. Dust Mite — `dust-mite`
+2. Junk Rusher — `junk-rusher`
+3. Trash Brute — `trash-brute`
+4. Scrap Sniper — `scrap-sniper`
+5. Scrap Skitter — `scrap-skitter`
+6. Bastion Beetle — `bastion-beetle`
+7. Junk Nester — `junk-nester`
+8. Shard Bot — `shard-bot`
+9. Scrap Crusher — `boss-crusher`
+10. Forge Warden — `boss-forge`
 
-Future ordinary enemies and bosses must enter the same system through data/assets and existing mechanics rather than menu branches.
+Future Enemy N+1 must enter through the same catalog/read-model/UI path. No menu branch or save migration merely because the roster grows.
 
 ---
 
-## 2. Non-goals
+# 2. Non-goals
 
 Do not add:
 
 - a parallel copy of enemy health, damage, speed, attack timers or phase thresholds;
-- a second kill-counter/achievement system;
-- platform achievement dependencies;
+- a second kill-counter or achievement system;
+- platform-achievement dependencies;
 - online accounts, telemetry or cloud requirements;
 - randomized discovery;
-- lore XP, scanning, capture mechanics or kill-count grind;
+- scanning/capture mechanics;
+- lore XP;
+- kill-count grind;
 - bespoke UI code per enemy ID;
-- a second monster portrait pipeline by default;
-- raw developer stat dumps as the main player-facing value;
-- another generalized content framework beyond the validated catalog/registry pattern already used by Alpha 3.
+- a second monster portrait canon by default;
+- raw developer stat dumps as the primary player view;
+- another generalized content framework beyond the existing validated catalog/registry pattern.
 
 ---
 
-## 3. Ownership map
+# 3. Ownership map
 
-Combat and progression truth stay where they already live.
+Combat/progression truth stays where it already lives.
 
 ```text
-Enemy definitions / behavior fields ─────┐
-Boss actions / phases ───────────────────┤
+Enemy definitions / archetypes ──────────┐
+Registered enemy/boss mechanics ─────────┤
 Encounter profiles ──────────────────────┤
 Stage registry ──────────────────────────┼─> Compendium read model ─> Compendium UI
 Visual-art registry ─────────────────────┤
-Persistent discovery state ──────────────┤
+Sparse discovery save state ─────────────┤
 Compendium presentation copy ────────────┘
 ```
 
-### Existing authoritative sources
+Existing authoritative sources:
 
-- `src/data/enemies.json`: identity, archetype and real combat configuration.
-- registered enemy/boss behavior/action code: actual mechanics.
-- `src/data/encounter-profiles.json`: explicit enemy/boss membership.
-- `src/data/stages.json`: encounter-to-stage/chapter relationship.
-- Save progression/boss facts: existing durable facts that can prove historical boss completion.
-- visual-art registry: final production actor sheets from #167.
+- `src/data/enemies.json`: stable enemy IDs, names, archetypes and combat configuration;
+- registered behavior/action code: actual mechanics;
+- `src/data/encounter-profiles.json`: explicit enemy/boss composition;
+- `src/data/stages.json`: encounter-to-stage/chapter relationship;
+- current boss/stage save facts: durable historical facts where available;
+- visual-art registry: final actor sheets from #167;
+- existing gameplay event boundaries, after the death-boundary correction in §6.
 
-### New Compendium-owned data
+The Compendium owns only:
 
-Only two concepts are new:
+1. player-facing field-guide copy keyed to the existing enemy ID;
+2. minimal sparse discovery state keyed to the existing enemy ID.
 
-1. **presentation copy** keyed by the existing stable enemy ID;
-2. **minimal discovery state** keyed by the existing stable enemy ID.
-
-UI never mutates combat truth, boss truth or stage truth.
+It does not own combat, reward or stage truth.
 
 ---
 
-## 4. Discovery model
+# 4. Discovery states
 
 Use exactly three player-facing states.
 
-### Unseen
+## Unseen
 
-No saved entry exists.
+No saved discovery entry.
 
 Presentation:
 
-- `???` or intentionally hidden name according to spoiler policy;
-- derived black silhouette/masked final sprite where revealing shape is acceptable;
-- no tactical detail;
-- bosses may be more aggressively hidden until encounter if stage-selection UX does not intentionally reveal them.
+- hidden name (`???`) according to spoiler policy;
+- derived black silhouette/masked final actor where silhouette reveal is allowed;
+- no tactical text;
+- bosses may remain more aggressively hidden until encountered if stage-selection UX has not already revealed them.
 
-### Encountered
+## Encountered
 
-The player has had the monster successfully spawn into an active run.
+The monster has successfully materialized into an active run.
 
 Reveal:
 
 - name;
-- approved production sprite/idle animation;
-- broad threat/archetype tags;
+- approved actor/idle art;
+- broad derived threat tags;
 - short field note;
 - Behaviour;
 - Tells;
-- derived `Found In` information for content already encountered/visible under normal progression rules.
+- spoiler-safe derived `Found In` information.
 
-### Defeated
+## Defeated
 
-The player has authoritatively killed the monster at least once.
+The monster has authoritatively transitioned from alive to dead at least once.
 
-Reveal everything above plus:
+Reveal Encountered content plus:
 
 - Counterplay;
-- full mechanic summary;
+- complete player-facing mechanic summary;
 - boss move/phase summary where applicable;
-- richer derived stage/context relationships;
-- progression/reward relationships only when they can be derived from authoritative data without inventing a second reward table.
+- richer derived stage/context relationships.
 
-`defeated` always implies `encountered`. Status is monotonic; it never regresses.
+`defeated` implies `encountered`. Status is monotonic and never regresses.
+
+No kill counts/timestamps are stored until a real product use requires them.
 
 ---
 
-## 5. Persistence — use a real domain, not a hiding place
+# 5. Persistence: a real sparse domain
 
-Current `SaveDataV3` has no Compendium domain. Do not smuggle discovery into `items`, achievements, unlock strings or another unrelated map.
+Current Save V3 has no Compendium domain. Do not hide discovery in `items`, achievements, unlock strings or another unrelated map.
 
-### Schema direction
-
-If this feature is implemented after the existing V3 shape is considered a persisted contract, introduce **Save V4** with one sparse domain:
+Default implementation direction, if V3 is already a persisted contract: introduce **Save V4** with one sparse domain.
 
 ```ts
 export type CompendiumDiscoveryStatus = 'encountered' | 'defeated';
@@ -151,65 +153,134 @@ export interface CompendiumState {
 }
 ```
 
-Unseen enemies are absent. There are no counters or timestamps in the first version because the product does not use them.
+Unseen enemies are absent.
 
-Adding Enemy N+1 remains a content change, not a schema migration: the new ID simply begins absent.
+Adding Enemy N+1 requires **no later save migration**: the new ID simply starts absent.
 
-Do not silently change the meaning/shape of V3 just to avoid incrementing the save version. If implementation occurs before V3 has ever been treated as a real persisted release contract, a dedicated architecture review may deliberately fold the field into that unreleased schema, but the default plan is the honest structural V4 migration.
+If implementation occurs before V3 is treated as a release persistence contract, a dedicated migration review may intentionally fold the field into that unreleased schema. Do not silently mutate an already-frozen schema merely to avoid a version increment.
 
-### V3 → V4 migration
+## V3 → V4 migration
 
-Preserve every V3 field unchanged, then create `compendium.enemies`.
+Preserve every V3 field, then initialize `compendium.enemies` conservatively.
 
-Safe backfill is intentionally conservative:
+Safe historical backfill:
 
-- a saved boss fact with `defeated: true` may backfill that boss to `defeated`;
-- a completed stage whose authoritative objective is `defeat` for a named boss may be used as an additional proof only when the stage definition resolves unambiguously to that boss;
-- ordinary-enemy discovery is **not fabricated**, because V3 does not store per-enemy encounter history;
-- achievements are not treated as the primary backfill store merely because some achievements happen to correlate with combat facts;
-- stale/unknown saved Compendium IDs fail soft and do not brick the save.
+- current saved boss fact with `defeated: true` may backfill that boss to `defeated`;
+- an unambiguous completed defeat-boss stage may corroborate the same fact;
+- ordinary-enemy history is **not fabricated** because V3 does not contain per-enemy encounter/defeat history;
+- achievements are not used as a substitute enemy-history database merely because some correlate with combat;
+- unknown/stale Compendium IDs fail soft.
 
-A long-time player may therefore see ordinary monsters as newly discovered after the feature ships. That is preferable to pretending historical evidence exists when it does not.
+A returning player may rediscover ordinary enemies after the feature ships. That is preferable to inventing evidence.
 
 ---
 
-## 6. Authoritative discovery facts
+# 6. Authoritative discovery facts
 
-### Encounter
+This section contains two important corrections from independent PR review.
 
-Add one authoritative gameplay fact at the point an enemy has successfully been instantiated/activated into the run, conceptually:
+## 6.1 Encounter: reuse the existing `enemy:spawned` fact
+
+The repository already emits:
 
 ```ts
-'enemy:encountered': { enemyId: string }
+'enemy:spawned': { instanceId, enemyId, x, y }
 ```
 
-This must be emitted by the authoritative spawn/enemy boundary **after** a valid enemy is active. Do not infer encounter from:
+from SpawnSystem after a valid enemy is constructed/materialized into the active collection/group.
 
-- a sprite becoming visible;
-- an encounter profile merely containing an ID;
-- a preloaded texture;
-- a spawn request that failed;
-- a cosmetic telegraph.
+**Compendium must consume this existing event. Do not add a duplicate `enemy:encountered` event.**
 
-A Compendium tracker consumes the fact and requests the monotonic transition `unseen -> encountered`.
+This gives one lifecycle fact for one lifecycle edge and prevents future spawn paths from remembering to emit two semantically equivalent events.
 
-### Defeat
+Do not infer encounter from:
 
-Reuse the existing authoritative `enemy:killed` event, which already carries `enemyId`. Bosses can also consume/reconcile `boss:defeated`; repeated equivalent facts are harmless.
+- preload/texture existence;
+- encounter-profile membership;
+- a failed spawn request;
+- a cosmetic telegraph;
+- visibility/camera intersection.
 
-Transition:
+A successful `enemy:spawned` is sufficient.
+
+## 6.2 Defeat: first unify the authoritative death boundary
+
+At the reviewed baseline, `enemy:killed` is **not yet universal**. WeaponSystem emits it after projectile/burn damage, but `elemental-burst` in the ability path calls `Enemy.takeDamage()` directly. An enemy killed by Heat Vent can therefore die without publishing `enemy:killed`.
+
+The Compendium must **not** ship defeat tracking on top of that incomplete event topology.
+
+### Required prerequisite
+
+Create one narrow authoritative enemy-damage/death boundary used by every damaging path. It owns the transition:
 
 ```text
-unseen      + killed => defeated
-encountered + killed => defeated
-defeated    + killed => no-op
+active/alive -> dead
 ```
 
-Killing an enemy directly implies it was encountered; no ordering dependency is required.
+and publishes the canonical death fact exactly once regardless of source.
 
-### Persistence command
+Preferred compatibility direction: keep the existing event name/payload **`enemy:killed`**, but move its emission and associated kill settlement out of WeaponSystem-specific logic into the shared death boundary. Existing consumers can then remain on the same event contract.
 
-Add a narrow `GameContext` command such as:
+Conceptually:
+
+```ts
+applyEnemyDamage(enemy, amount, source): EnemyDamageResult
+```
+
+The shared boundary:
+
+1. ignores damage to already-dead/inactive enemy;
+2. applies/caps damage through the authoritative enemy health owner;
+3. emits the existing `enemy:damaged` semantics as appropriate;
+4. detects the one alive→dead transition;
+5. increments run kill accounting exactly once;
+6. emits one canonical `enemy:killed` carrying enemy ID/reward facts/position;
+7. returns the kill result to the caller for source-specific presentation;
+8. never emits a second kill for overkill/reentrant damage.
+
+Every damage source routes through it:
+
+- direct projectile hit;
+- explosive splash;
+- burn/DOT tick;
+- Heat Vent / elemental burst;
+- future damaging abilities;
+- future environmental/status damage that can kill enemies.
+
+Bosses use the same death transition. Boss-specific progression can consume/reconcile the same canonical death plus its existing boss completion boundary without inventing a second definition of “dead.”
+
+### Required death-boundary tests
+
+Prove exactly-once `enemy:killed` for:
+
+- projectile lethal hit;
+- explosive splash lethal hit;
+- burn lethal tick;
+- elemental-burst/Heat Vent lethal hit;
+- simultaneous/overkill damage;
+- repeated damage after death;
+- boss death;
+- a synthetic future damage source using the shared boundary.
+
+Only after these pass should Compendium `defeated` subscribe to `enemy:killed`.
+
+## 6.3 Discovery tracker
+
+The tracker then becomes simple:
+
+```text
+enemy:spawned -> unseen -> encountered
+enemy:killed  -> unseen/encountered -> defeated
+defeated      -> any repeat -> no-op
+```
+
+Killed directly implies encountered; no event-order assumption is required.
+
+---
+
+# 7. Persistence command and failure behavior
+
+Add one narrow `GameContext` command, e.g.:
 
 ```ts
 updateCompendium(enemyId, nextStatus): PersistenceUpdate<CompendiumState>
@@ -217,22 +288,23 @@ updateCompendium(enemyId, nextStatus): PersistenceUpdate<CompendiumState>
 
 The command:
 
-1. validates/normalizes the stable enemy ID against release content policy;
-2. computes a monotonic next state purely;
-3. writes through the existing SaveManager boundary;
-4. publishes the new snapshot only after successful persistence;
-5. returns a no-op for equal/lower status;
-6. never grants rewards or mutates achievements.
+- validates/normalizes the stable current enemy ID;
+- computes a monotonic next state purely;
+- writes through SaveManager;
+- publishes the new snapshot only after persistence succeeds;
+- returns no-op for equal/lower status;
+- grants no rewards;
+- mutates no achievements.
 
-A storage failure must not freeze combat. Because transitions are bounded and idempotent, a failed transition may remain in a small in-memory pending set and retry on the next Compendium fact / safe persistence opportunity. Do not build an unbounded queue.
+Storage failure must not freeze combat. Because discovery transitions are tiny, bounded and idempotent, failed transitions may remain in a small in-memory set and retry at the next safe persistence opportunity. Do not build an unbounded event queue.
 
 ---
 
-## 7. Presentation catalog
+# 8. Presentation catalog
 
-Create one validated file such as `src/data/compendium.json`. It contains player-facing copy, not combat values.
+Create one validated file such as `src/data/compendium.json`.
 
-Recommended shape:
+It contains **copy only**, keyed to the exact existing enemy ID (for example `dust-mite`, not a reconstructed `enemy:dust-mite` catalog ID).
 
 ```ts
 interface CompendiumEntryPresentation {
@@ -247,9 +319,7 @@ interface CompendiumEntryPresentation {
 }
 ```
 
-### Explicitly forbidden duplicate fields
-
-Do not store these in Compendium JSON:
+Forbidden duplicate fields:
 
 - health;
 - damage;
@@ -257,580 +327,540 @@ Do not store these in Compendium JSON:
 - XP/scrap values;
 - attack range;
 - cooldown/telegraph milliseconds;
-- boss health thresholds;
+- phase health fractions;
 - encounter profile IDs;
 - stage IDs / `foundIn` lists;
-- boss action lists that already exist in authoritative data;
+- boss action arrays already owned by the definition;
 - reward tables.
 
-If a number is not a deliberately player-facing stable rule, it should not be Compendium copy.
+If a number is not a deliberately player-facing stable rule, it does not belong in editorial copy.
 
-### Copy validation
+## Validation
 
-Validate:
+Require:
 
-- one metadata entry for every release enemy/boss or an explicit validated fallback policy;
-- no duplicate `enemyId` or display order;
-- every `enemyId` resolves;
-- bounded copy lengths appropriate to the responsive UI;
-- allowed spoiler policy values;
-- optional portrait art resolves if present;
-- unknown fields fail validation so duplicated combat stats cannot creep into the catalog unnoticed.
+- exactly one presentation entry per release enemy/boss, or one explicit validated fallback policy;
+- unique `enemyId` and display order;
+- every `enemyId` resolves to `enemies.json`;
+- bounded copy lengths;
+- allowed spoiler policy;
+- optional portrait art resolves;
+- unknown fields fail validation so combat stats cannot quietly creep into the copy catalog.
 
 ---
 
-## 8. Derived threat tags
+# 9. Derived threat tags
 
-Tags such as `Boss`, `Ranged`, `Spawner`, `Shielded`, `Splitter`, `Charger`, `Flanker`, `Tank` are derived from real definition/archetype/mechanic structure wherever possible. Do not maintain a second hand-curated list of mechanical tags.
+Tags are derived from authoritative mechanics, not maintained as another enemy taxonomy.
 
-The presentation layer may normalize internal terms into player language, for example:
+Examples:
 
 ```text
-archetype: tank      -> Heavy
-archetype: flanker   -> Flanker
-summon exists        -> Spawner
-splitOnDeath exists  -> Splits
-shieldArcDeg exists  -> Shielded
-archetype: boss      -> Boss
+archetype: tank       -> Heavy
+archetype: flanker    -> Flanker
+archetype: charger    -> Charger
+attack + ranged       -> Ranged
+summon exists         -> Spawner
+splitOnDeath exists   -> Splits
+shieldArcDeg exists   -> Shielded
+archetype: boss       -> Boss
 ```
 
-This mapping is generic by mechanic/property, never `if enemyId === ...`.
+Mapping is generic by mechanic/property. Never `if enemyId === ...`.
 
 ---
 
-## 9. `Found In` is derived
+# 10. `Found In` is derived
 
-The Compendium must not manually list stages.
+Do not author stage lists in Compendium JSON.
 
-Build it from authoritative composition:
+For an enemy ID:
 
-1. for an enemy ID, find every encounter profile whose `enemyIds` contains it;
+1. find encounter profiles whose `enemyIds` include it;
 2. for bosses, also match `bossId`;
-3. find every stage referencing those encounter profiles;
-4. deduplicate stages;
-5. sort by chapter/order using current stage/chapter presentation rules;
-6. apply normal spoiler/progression visibility policy before presenting names.
+3. find stages referencing those encounter profiles;
+4. deduplicate;
+5. order through current chapter/stage presentation rules;
+6. apply normal spoiler/progression visibility before showing names.
 
-As a consequence, moving an enemy to a different encounter profile or adding it to a new stage automatically updates the Compendium.
+Moving a monster to another encounter profile automatically updates the Compendium.
 
-The current oddity where the Forge Warden boss stage uses a `stage:junkyard-06` stable ID while belonging to the Forge chapter is not “fixed” by Compendium code; display derives current authoritative chapter/name data and stable IDs remain untouched.
+Do not “fix” unusual historical stable IDs in Compendium code. Display uses authoritative current chapter/name data; stable IDs remain untouched.
 
 ---
 
-## 10. Boss mechanic presentation
+# 11. Boss mechanics presentation
 
-Boss detail should expose learnable player-facing behavior without dumping implementation state.
+Boss detail teaches player-readable behavior without dumping implementation state.
 
-### Rules
+Rules:
 
-- use action/phase mechanics already present in boss definitions;
-- describe thresholds qualitatively: “as it is worn down”, “late in the fight”, “meltdown phase”, not `atHealthFraction: 0.33`;
-- show named mechanic labels only as presentation metadata/registered-mechanic copy, not new mechanics;
+- derive action/phase presence from boss definitions;
+- translate registered action IDs through a generic mechanic-copy map;
+- describe thresholds qualitatively (“as it is worn down”, “late in the fight”) rather than exposing health fractions;
 - never infer a move from VFX alone;
-- if a boss definition changes action/phase composition, conformance tests must reveal stale editorial copy.
+- conformance tests must flag editorial claims whose required mechanic no longer exists.
 
-A small reusable mechanic-copy map may translate registered action IDs into player-facing names such as `Aimed Shot` or `Calls Reinforcements`. It should be keyed by mechanic/action ID, not duplicated per boss.
+Example generic mapping:
+
+```text
+boss-action:aimed-shot -> Aimed Shot
+boss-action:summon     -> Calls Reinforcements
+charger attack config  -> Charge
+```
+
+This map is keyed by mechanic/action ID, not repeated per boss.
 
 ---
 
-## 11. Read-model boundary
+# 12. Immutable read-model boundary
 
-Build one immutable read-model constructor outside Phaser presentation.
-
-Conceptual input:
+Build one Phaser-independent constructor:
 
 ```ts
 buildCompendiumReadModel({
   enemies,
-  encounterProfiles,
+  encounters,
   stages,
-  visualArt,
   presentation,
   discovery,
-  progressionVisibility,
+  visualArt,
+  progression
 })
 ```
 
-Representative output:
+Output item concept:
 
 ```ts
-interface CompendiumEntryReadModel {
+interface CompendiumEntryViewModel {
   readonly enemyId: string;
   readonly status: 'unseen' | 'encountered' | 'defeated';
   readonly name: string;
-  readonly nameHidden: boolean;
-  readonly artId?: string;
-  readonly silhouetteOnly: boolean;
+  readonly isBoss: boolean;
   readonly threatTags: readonly string[];
+  readonly artId?: string;
   readonly fieldNote?: string;
   readonly behaviour?: string;
   readonly tells?: string;
   readonly counterplay?: string;
-  readonly foundIn: readonly CompendiumStageRef[];
-  readonly boss?: CompendiumBossReadModel;
+  readonly foundIn: readonly CompendiumLocationView[];
+  readonly mechanics: readonly CompendiumMechanicView[];
 }
 ```
 
-The UI receives already-gated data. It must not decide that a defeated boss may reveal a phase or that an unseen name should be hidden.
+The builder owns spoiler filtering and derived relationships. Phaser UI only lays out/focuses/renders this immutable snapshot.
+
+No UI component queries enemy JSON directly.
 
 ---
 
-# 12. Responsive UX
+# 13. UX / information architecture
 
-## Navigation placement
+## 13.1 Entry point
 
-Add **Compendium** as a top-level between-run destination alongside the existing management surfaces. It uses the field-guide/monster-eye navigation icon planned in `docs/art/alpha-3-art-production-briefs.md`.
+Add `Compendium` to the shared menu/navigation family using the field-guide icon from #167.
 
-It is a reference/collection surface, not part of the Stage-versus-Arena decision and not a replacement for Achievements.
+It is a reference/collection surface, not a progression gate. Nothing required for winning depends on opening it.
 
-## Mobile / canonical 390×844
+## 13.2 Desktop/wide layout
 
-### Roster state
+Two-pane:
 
-- title/header + compact discovery count;
-- filter chips below header;
-- scrollable two-column monster card grid where 390px layout permits comfortable cards;
-- at very narrow/small layouts, allow a one-column list rather than shrinking names/sprites below readability;
-- each card: sprite/silhouette, name/`???`, one/two threat tags, discovery marker;
-- no raw stat table.
+```text
+┌ Monster list/filter ┬ Detail ────────────────────────┐
+│ [sprite] Dust Mite  │ enlarged idle actor            │
+│ [sprite] Rusher     │ name + tags                    │
+│ [???]   ???         │ field note                     │
+│ ...                 │ Behaviour / Tells / Counterplay│
+│                     │ Found In                        │
+└─────────────────────┴─────────────────────────────────┘
+```
 
-### Detail state
+List pane keeps one selected row visible. Detail pane scrolls independently when required.
 
-Selecting a card opens a full-width detail page rather than trying to squeeze a permanent side panel into portrait:
+## 13.3 Portrait phone layout
 
-- back control preserves previous filter, focus and scroll position;
-- large crisp integer-scaled sprite near top;
-- name + tags;
-- field note;
-- sections: **Behaviour**, **Tells**, **Counterplay**, **Found In**;
-- defeated bosses add **Moves** / **Phases**.
+Do not squeeze two panes side by side at 390×844.
 
-Long text scrolls; the monster art does not consume most of the viewport.
+- Level 1: single-column list/grid of entries.
+- Confirm/tap: open full-width detail.
+- Back: return to same list position/focus.
+- Detail uses compact art header + stacked sections.
+- Long copy scrolls; core controls remain reachable.
 
-## Desktop
+## 13.4 Filters
 
-Use the same read model with a split layout where space permits:
+Keep first version intentionally small:
 
-- left: scrollable grid/list;
-- right: persistent selected detail panel;
-- selected card has unmistakable focus/selection frame;
-- resizing into portrait collapses safely into roster/detail navigation without losing selection.
+- All;
+- Encountered;
+- Defeated;
+- Bosses.
 
----
+Do not add a complex taxonomy until the roster warrants it.
 
-## 13. Filters and sorting
+## 13.5 Search
 
-Initial filters only:
-
-- **All**
-- **Encountered**
-- **Bosses**
-
-Do not add eight archetype filter tabs for a ten-monster roster. Threat tags may become filters later when the roster size creates a real navigation need.
-
-Default sort uses validated `displayOrder`, not ID string order and not encounter time.
-
-Discovery count can show `encountered-or-defeated / total-visible` without creating a reward track.
+Not required for ten entries. Architecture must not block it later, but do not build it now.
 
 ---
 
-## 14. Input and accessibility
+# 14. Input/accessibility
 
-All interaction consumes the shared logical action/focus architecture.
+The entire surface must be usable with:
 
-### Pointer / trackpad
+- touch;
+- keyboard;
+- controller.
 
-- click card to select/open;
-- wheel/trackpad scrolls roster/detail;
-- no hover-only tactical information.
+All converge on shared logical actions/focus behavior.
 
-### Touch
+Required behavior:
 
-- tap card;
-- ordinary vertical scroll;
-- no drag-to-open, pinch or precision gesture;
-- targets meet the same real-display-size expectations as other Alpha 3 menus.
-
-### Keyboard / controller
-
-- directional navigation between cards/filters;
-- confirm opens/selects;
-- back returns from detail / exits surface;
-- focused card automatically scrolls into view;
-- returning from detail restores the exact prior focus and scroll position;
-- filter changes move focus to a deterministic valid card, never stale invisible content.
-
-### Reduced motion
-
-With reduced motion enabled:
-
-- monster display uses a stable first/representative idle frame rather than looping animation;
-- filter/card transitions do not slide/bounce unnecessarily;
-- no information depends on animation.
-
-Color is never the sole discovery/focus/tag cue.
+- visible focus frame/chevron;
+- stable focus after filter changes;
+- Back returns to prior list item/scroll position;
+- touch targets remain comfortably large;
+- no hover-only information;
+- status is not communicated by color alone;
+- unseen entries have text/silhouette/latch state;
+- enlarged pixel art remains crisp;
+- reduced-motion uses a stable approved actor frame rather than looping idle;
+- text scales/wraps without covering art at 390×844.
 
 ---
 
-## 15. Art policy
+# 15. Art behavior
 
-Default monster art is the final approved production actor sheet from #167.
+Default art source is the same final actor binding used by combat.
 
-- show the real sprite at crisp integer scale;
-- ordinary entries use idle animation where motion is allowed;
-- bosses may use idle/phase-neutral presentation, not combat telegraph loops;
-- unseen silhouettes are derived from final sprite masks rather than separately drawn fake monsters;
-- dedicated portraits are optional only after layout review proves enlarged runtime art is materially insufficient.
+```text
+enemy definition ID -> documented actor-art convention -> final actor sheet
+```
 
-If a dedicated portrait is later approved, it uses the same enemy ID, visual design and complete Pixelorama/builder/provenance process. It never becomes a second canonical monster design.
+Use integer-scale idle animation when motion is enabled. Use stable first/approved frame when reduced motion is enabled.
 
----
+Do not create a second monster portrait pipeline by default.
 
-# 16. Editorial template
+If final UI evidence proves an actor sheet cannot support a detail header, an optional `portraitArtId` can be explicitly authored in `compendium.json`; it must still represent the same enemy and use the #167 art pipeline.
 
-Each metadata entry answers four distinct questions.
-
-### Field note
-
-One memorable sentence of Meowcenary voice. It gives character, not mechanics.
-
-### Behaviour
-
-What the monster actually does in player terms.
-
-### Tells
-
-What the player can see/read before or during the threat.
-
-### Counterplay
-
-What movement/priority lesson improves the player's response.
-
-Copy rules:
-
-- concise enough for phone reading;
-- factual against current runtime mechanics;
-- no exact balance numbers likely to drift;
-- no claims that depend on unreleased art/telegraphs unless the production task explicitly adds them;
-- no lore sludge;
-- no reference-game language;
-- bosses get richer copy but stay actionable.
+Unseen silhouette is derived from final art, not a separate mystery asset.
 
 ---
 
-# 17. Current entry content briefs
+# 16. Current editorial briefs — exact 10 entries
 
-These are the approved editorial directions. Final implementation may tune sentence rhythm, but not change mechanical claims without re-reviewing the source behavior.
+The following is the editorial direction. Final copy must be checked against the same implementation SHA used for release. Do not copy the exact internal numeric values into player-facing text.
 
-## 17.1 Dust Mite
+## 16.1 Dust Mite — `dust-mite`
 
-**Field note:** “A fistful of rust with legs and absolutely no respect for personal space.”
+**Field note:** A fistful of angry filings that discovered legs were an option.
 
-**Behaviour:** Closes directly on the mercenary and becomes dangerous through numbers rather than tricks.
+**Behaviour:** Simple chaser. Closes directly and hurts through contact.
 
-**Tells:** There is no elaborate wind-up: its constant forward scuttle *is* the warning. Groups compress escape lanes quickly.
+**Tells:** Small round body, constant pursuit, no wind-up attack state.
 
-**Counterplay:** Keep moving, thin dense groups before they surround you, and preserve somewhere to step next.
+**Counterplay:** Keep moving, avoid being boxed in by groups, clear them before larger threats use them as pressure.
 
-**Visual anchor:** round rust-fluff body, goggle eye, brush cheeks.
+**Prose identity:** baseline swarm threat; never describe ranged/charge behavior it does not own.
 
-## 17.2 Junk Rusher
+## 16.2 Junk Rusher — `junk-rusher`
 
-**Field note:** “Someone put springs behind a dustpan and taught it commitment.”
+**Field note:** Most junk waits to be collected. This bit has other plans.
 
-**Behaviour:** Pursues normally, then winds up a fast committed charge when it has a line on you.
+**Behaviour:** Charger. Approaches, visibly winds up, then commits to a fast dash before recovering.
 
-**Tells:** The wedge body and rear coils compress into a clear ready pose before the dash; the readiness lamp reinforces the state.
+**Tells:** Compressed/aimed wind-up and clear forward commitment.
 
-**Counterplay:** Wait for commitment, then move across the charge line. Retreating straight away gives it the lane it wants.
+**Counterplay:** Move laterally after the charge is committed; punish the recovery rather than outrunning it in a straight line.
 
-**Visual anchor:** low orange wedge, dustpan bumper, coil legs.
+## 16.3 Trash Brute — `trash-brute`
 
-## 17.3 Trash Brute
+**Field note:** A compact argument for walking around the problem.
 
-**Field note:** “Mostly bin lids, stubbornness, and enough mass to make both your problems worse.”
+**Behaviour:** Slow heavy contact threat with much greater durability than basic chasers.
 
-**Behaviour:** Advances slowly, absorbs punishment and turns occupied space into a problem while faster enemies pressure around it.
+**Tells:** Large square silhouette and deliberate advance; no ranged attack.
 
-**Tells:** Its huge square body and planted march make the threat obvious; it does not need a surprise attack to matter.
+**Counterplay:** Maintain space, avoid letting smaller enemies pin you against it, and use sustained damage while repositioning.
 
-**Counterplay:** Keep open lanes around it, kite the slower mass, and avoid backing into boundaries while concentrating on smaller threats.
+## 16.4 Scrap Sniper — `scrap-sniper`
 
-**Visual anchor:** purple compactor block, enormous bin-lid forearms.
+**Field note:** Somehow the junkyard has invented patience.
 
-## 17.4 Scrap Sniper
+**Behaviour:** Ranged threat. Maintains distance and uses a telegraphed shot rather than contact damage.
 
-**Field note:** “Patient, unpleasant, and somehow the one piece of junk that learned to lead a target.”
+**Tells:** Tall sighting silhouette and clear aiming/attack preparation.
 
-**Behaviour:** Keeps useful distance and fires a telegraphed ranged shot rather than relying on contact damage.
+**Counterplay:** Break the firing line with movement, close/reposition during its cadence, and avoid ignoring it behind melee pressure.
 
-**Tells:** The sighting arm/stalk settles into an aiming pose before the projectile is committed.
+## 16.5 Scrap Skitter — `scrap-skitter`
 
-**Counterplay:** Keep changing your line, cross its aim rather than freezing in it, and remove it when ranged pressure starts dictating your movement.
+**Field note:** It has correctly identified “beside you” as the worst possible place to be.
 
-**Visual anchor:** tall narrow tripod, long sighting stalk.
+**Behaviour:** Flanker. Uses lateral positioning rather than simply joining the direct chase line.
 
-## 17.5 Scrap Skitter
+**Tells:** Very low wide silhouette and side-biased movement.
 
-**Field note:** “It has discovered the side of the screen you were not looking at.”
+**Counterplay:** Preserve escape space, change direction before it establishes the flank, and avoid tunnel vision on frontal heavies.
 
-**Behaviour:** Uses fast lateral/flanking movement to approach from awkward angles instead of simply following the shortest path.
+## 16.6 Bastion Beetle — `bastion-beetle`
 
-**Tells:** Its wide sideways leg motion and lateral body orientation announce that it is trying to get around your line.
+**Field note:** The front is mostly a wall. Fortunately it has a back.
 
-**Counterplay:** Preserve side escape space and periodically re-check the flanks instead of tunnelling on the largest threat ahead.
+**Behaviour:** Shielded contact threat. A directional frontal arc blocks attacks from the protected side.
 
-**Visual anchor:** low wide crab/crescent body with side legs.
+**Tells:** Dominant front plate makes facing obvious; blocked hits have an authoritative feedback cue.
 
-## 17.6 Bastion Beetle
+**Counterplay:** Circle/flank and attack outside the protected arc rather than wasting fire into the front.
 
-**Field note:** “Half beetle, half wall, entirely convinced the front is the only direction that matters.”
+## 16.7 Junk Nester — `junk-nester`
 
-**Behaviour:** Carries directional protection that makes frontal pressure less effective and rewards attacking from a better angle.
+**Field note:** If left alone, it begins making the local Dust Mite problem more local.
 
-**Tells:** The oversized front plate and facing are always readable; the protected side of the body should never be visually ambiguous.
+**Behaviour:** Slow ranged support threat that summons Dust Mites under a bounded active cap.
 
-**Counterplay:** Move around the shield and create rear/side angles rather than wasting fire into its strongest face.
+**Tells:** Rear-heavy nest silhouette; summon preparation opens/raises the nest assembly; ranged cadence remains readable.
 
-**Visual anchor:** domed rear shell behind a dominant frontal shield.
+**Counterplay:** Prioritize it when safe; otherwise summoned Mites steadily increase movement pressure.
 
-## 17.7 Junk Nester
+**Editorial invariant:** spawned creature is **Dust Mite** unless authoritative definition changes.
 
-**Field note:** “A mobile rubbish nest whose main contribution is making more problems.”
+## 16.8 Shard Bot — `shard-bot`
 
-**Behaviour:** Applies ranged/support pressure and periodically adds Dust Mites, making it a priority target when left alone.
+**Field note:** Destroying it is correct. It is merely not the end of the conversation.
 
-**Tells:** The rear nest assembly opens/raises into a clear summoning posture before new threats arrive.
+**Behaviour:** Direct chaser that splits into Dust Mites on death under a bounded active cap.
 
-**Counterplay:** Do not let it sit safely behind a crowd. Make room, reach it, and reduce the source before the extra bodies close your routes.
+**Tells:** Fracture-seam body language anticipates the split.
 
-**Visual anchor:** small front body carrying a large cable/scrap nest.
+**Counterplay:** Avoid killing it while surrounded/boxed in; leave space for the child threats and clear them quickly.
 
-## 17.8 Shard Bot
+**Editorial invariant:** split creature is **Dust Mite** unless authoritative definition changes.
 
-**Field note:** “Breaking it is easy. The administrative consequences are two Dust Mites.”
+## 16.9 Scrap Crusher — `boss-crusher`
 
-**Behaviour:** Chases directly, but its defeat changes the local fight by splitting into new enemies.
+**Field note:** The junkyard's answer to “could this press be mobile?” was regrettably yes.
 
-**Tells:** Fracture seams and splintered geometry advertise that the shell is waiting to come apart.
+**Behaviour:** Boss combining a committed charge with an aimed-shot action. As it is worn down, its charge becomes more aggressive.
 
-**Counterplay:** Choose where you finish it. Killing one while boxed in can turn a solved threat into two immediate contacts.
+**Tells:** Heavy horizontal ram silhouette; charge wind-up braces/draws the ram; aimed-shot state exposes its firing cue; later phase is visibly more urgent.
 
-**Visual anchor:** angular diamond body with major fracture seams.
+**Counterplay:** Bait the charge into a lane you can leave, change direction after commitment, respect aimed shots, and use the recovery windows.
 
-## 17.9 Scrap Crusher — Boss
+**Mechanic invariants:** Charge + Aimed Shot + one later enraged phase. Do not publish numeric health thresholds/cadences in editorial copy.
 
-**Field note:** “A walking compactor with the temperament of a dropped toolbox.”
+## 16.10 Forge Warden — `boss-forge`
 
-**Behaviour:** Mixes committed charge pressure with aimed ranged attacks, then becomes more aggressive as the fight wears it down.
+**Field note:** A furnace with management responsibilities and very poor delegation skills.
 
-**Tells:** The main ram visibly draws back/braces for charges; the ranged port/launcher exposes for aimed fire; the enraged state should have an obvious mechanical/heat change without hiding timing in VFX.
+**Behaviour:** Boss combining charge, aimed shot and Junk Rusher reinforcement summons. It escalates through overheat and meltdown phases, with more aggressive pressure/reinforcement behavior.
 
-**Counterplay:** Keep open terrain, move across committed charges and do not spend the early fight using every escape route. Expect the cadence to tighten later.
+**Tells:** Tall furnace/gantry silhouette; tool-arm aiming cue; lowered charge preparation; raised summon/signal arm; increasingly open/hot vent treatment in later phases.
 
-**Moves presentation:**
+**Counterplay:** Keep a movement lane for charges, clear Rushers before their pressure compounds, and exploit the readable windows between major actions.
 
-- **Compactor Charge:** committed linear ram attack.
-- **Aimed Shot:** ranged pressure at the mercenary's line.
-- **Enraged:** later phase with more urgent charge pressure.
-
-Do not show exact health fractions or milliseconds.
-
-**Visual anchor:** horizontal compactor jaws/ram, asymmetric piston, recessed face.
-
-## 17.10 Forge Warden — Boss
-
-**Field note:** “Built to keep the forge orderly. You are, technically, clutter.”
-
-**Behaviour:** Combines charge and aimed-fire pressure with reinforcement summons, escalating through increasingly hot/aggressive phases.
-
-**Tells:** Tool/launcher arms lock into their attack roles; the signal arm/nest-control cue precedes reinforcements; vent shutters expose progressively more furnace core as the Warden overheats.
-
-**Counterplay:** Manage the Junk Rusher adds before they steal every escape lane, keep enough space to cross charges, and expect less recovery time as the furnace escalates.
-
-**Moves presentation:**
-
-- **Warden Charge:** committed movement attack.
-- **Aimed Shot:** ranged pressure.
-- **Call Reinforcements:** summons Junk Rushers under the authoritative cap.
-- **Overheat:** middle escalation state.
-- **Meltdown:** late escalation state with the highest sustained pressure.
-
-Do not expose implementation thresholds or internal timer values.
-
-**Visual anchor:** tall furnace/gantry core with asymmetric tool arms and opening vent shutters.
+**Mechanic invariants:** Charge + Aimed Shot + summons **Junk Rusher**; two escalation phases (overheat, meltdown). Avoid copying internal fractional thresholds into player copy.
 
 ---
 
-# 18. Editorial/runtime truth check
+# 17. Editorial validation
 
-Before shipping any entry, compare its copy directly against the final enemy definition and registered behavior. Specific traps:
+Each release entry records/reviews:
 
-- never claim Scrap Sniper tracks continuously if the runtime only commits a telegraphed shot;
-- never claim Bastion Beetle is invulnerable from the front if the mechanic is mitigation/protection rather than absolute immunity;
-- never promise a visible Nester/Shard telegraph that final #167 art/runtime does not actually present;
-- never describe a boss move that was removed from the definition;
-- do not list loot/rewards manually.
+```text
+Enemy ID
+Mechanics checked against commit SHA
+Field note unique to creature
+Behaviour factual
+Tells actually exist in runtime/art
+Counterplay actionable
+No implementation-only numbers
+No duplicated stage/action/reward lists
+Closest prose/role collision + difference
+```
 
-Content conformance should fail loudly when boss mechanic composition changes in a way that invalidates a required presentation reference.
+Conformance should fail when an entry's claimed mechanic dependency disappears. Examples:
 
----
+- Junk Nester copy requires a summon mechanic;
+- Shard Bot copy requires split-on-death;
+- Bastion Beetle copy requires directional shield;
+- Crusher copy requires aimed shot + charge + phase;
+- Forge Warden copy requires aimed shot + summon + two phase definitions.
 
-# 19. Tests and validation
-
-## Catalog conformance
-
-For every release enemy/boss:
-
-- exactly one enemy definition exists;
-- required Compendium presentation metadata exists or a deliberate default policy applies;
-- presentation ID resolves to that enemy;
-- display order is unique/valid;
-- no forbidden duplicated-combat fields exist;
-- final art resolves;
-- boss-only copy is only attached to a boss;
-- optional portrait art resolves;
-- copy fits configured length bounds.
-
-## Read-model tests
-
-Test all three states:
-
-- unseen exposes no forbidden name/tactical copy according to spoiler policy;
-- encountered exposes the correct subset;
-- defeated exposes full allowed copy;
-- defeated implies encountered;
-- derived tags match definition mechanics;
-- `Found In` follows real encounter/stage relationships;
-- stage/encounter changes update the result without editing Compendium JSON;
-- reduced-motion read model selects static presentation policy.
-
-## Persistence tests
-
-- V3 → V4 preserves every existing domain;
-- known boss facts backfill safely;
-- ordinary enemy history is not fabricated;
-- unseen → encountered persists;
-- unseen/encountered → defeated persists;
-- repeated encounter/kill is idempotent;
-- stale saved IDs fail soft;
-- unsupported future save remains protected by existing future-version rules;
-- persistence failure does not publish a false discovery and retry remains bounded.
-
-## Input/UI tests
-
-- large synthetic roster scrolls without clipping;
-- focus follows grid navigation and scrolls into view;
-- filter changes cannot strand focus;
-- detail → back restores scroll/focus;
-- controller/keyboard/touch/pointer converge on the same selection commands;
-- resize between desktop split and portrait detail mode preserves selected enemy;
-- no content is hover-only.
-
-## Extensibility proof
-
-Add a representative test enemy using existing mechanics, encounter membership, art conventions and Compendium presentation metadata. It must appear in generic validation/read models without changes to Compendium core runtime, view branching or save schema.
+This is dependency validation, not a second copy of the numeric configuration.
 
 ---
 
-# 20. Implementation slices
+# 18. Generic extensibility proof
 
-1. **Architecture/data types:** Compendium presentation definition, validator/aggregate registration, read-model types.
-2. **Save migration:** V4 Compendium sparse domain and migration/backfill tests.
-3. **Authoritative facts:** encounter fact at successful enemy activation; consume existing kill/boss facts; transactional `GameContext` update.
-4. **Read model:** derive status, tags, art and `Found In` from authoritative catalogs.
-5. **Current ten entries:** add reviewed copy from Section 17.
-6. **UI shell:** filters/grid/detail/responsive focus/navigation using shared logical actions.
-7. **Art integration:** use #167 final actor sheets; add Compendium nav icon/chrome only.
-8. **Adversarial tests:** migration, stale IDs, filters, focus, resize, persistence failure, new-enemy fixture.
-9. **Manual review:** 390×844, small portrait, landscape/resized desktop, keyboard/controller/touch when available; reduced motion on/off.
+A synthetic Enemy N+1 using an existing archetype must be addable by:
 
-Do not block #164 runtime remediation or entangle the feature with combat balance changes.
+1. enemy definition;
+2. actor art binding/source;
+3. explicit encounter-profile membership where desired;
+4. one Compendium presentation row;
+5. no scene/controller/Compendium component branch;
+6. no save migration;
+7. generic validation/read-model tests.
+
+A new mechanic may require one registered implementation. Once registered, later enemies using it return to the same data/art/Compendium path.
+
+Required synthetic test proves:
+
+- entry resolves by exact unprefixed enemy catalog ID;
+- status begins unseen by sparse absence;
+- `enemy:spawned` changes it to encountered;
+- canonical `enemy:killed` changes it to defeated;
+- derived tags/Found In update from mechanics/composition;
+- UI list includes it automatically;
+- adding it globally does not alter old encounter pools.
 
 ---
 
-# 21. Iterative review record and closure
+# 19. Test plan
 
-This plan was revised through independent review passes before commit.
+## Pure/read-model tests
 
-## Pass 1 — ownership / duplicate-truth review
+- unseen/encountered/defeated projection;
+- killed implies defeated even if encountered persistence was missed;
+- monotonic transitions;
+- spoiler filtering;
+- threat-tag derivation;
+- `Found In` derivation and ordering;
+- boss mechanic translation;
+- unknown/stale IDs fail soft;
+- immutability.
 
-**Findings resolved:**
+## Persistence/migration
 
-- An early concept risked storing stats, stage lists and boss mechanics in Compendium records; all mutable combat/content truth is now derived from existing registries.
-- `Found In` is derived through encounter profiles → stages rather than maintained manually.
-- Mechanical tags are derived generically from definition/archetype/mechanic shape rather than per-ID metadata.
-- Dedicated monster portraits were made optional; final production combat sprites are the default collection art.
+- V3 → V4 preserves every old field;
+- known defeated bosses backfill safely;
+- ordinary enemies are not fabricated;
+- V4 round-trip;
+- unsupported future version stays protected;
+- equal/lower discovery update is no-op;
+- failed save does not publish durable state;
+- bounded retry converges.
 
-**Result:** Compendium owns presentation copy and discovery only.
+## Lifecycle/death topology
 
-## Pass 2 — persistence / migration / event-order review
+- existing `enemy:spawned` drives encounter;
+- failed spawn never drives encounter;
+- projectile/explosion/burn/Heat Vent all drive the same canonical kill boundary;
+- kill event exactly once under overkill/repeated damage;
+- boss kill exactly once;
+- pause does not synthesize events;
+- scene restart does not duplicate listeners.
 
-**Findings resolved:**
+## UI/input
 
-- Current Save V3 has no legitimate Compendium home; plan now uses an explicit sparse domain and honest structural V4 migration by default.
-- Historical ordinary-enemy discovery cannot be reconstructed safely; migration no longer invents it.
-- Boss facts/stage-defeat facts can provide narrowly provable backfill.
-- Encounter is tied to successful authoritative activation, not encounter-list membership or sprite visibility.
-- Defeat consumes existing `enemy:killed`; killed-before-encounter ordering safely resolves directly to `defeated`.
-- Storage failure cannot publish false discovery; retries are idempotent and bounded.
+- controller-only list → detail → back loop;
+- keyboard equivalent;
+- touch equivalent;
+- focus survives filter/detail transitions;
+- 390×844 no clipping;
+- landscape/resized/desktop layouts;
+- long localization-safe wrapping;
+- reduced-motion stable actor frame;
+- grayscale/status distinguishability.
 
-**Result:** discovery truth is monotonic, persistence-safe and does not contaminate achievements/progression authority.
+---
 
-## Pass 3 — spoiler / responsive / input review
+# 20. Implementation sequence
 
-**Findings resolved:**
+1. **Prerequisite:** unify enemy damage/death settlement so canonical `enemy:killed` is source-independent and exactly once.
+2. Add death-boundary regression tests covering Heat Vent plus projectile/splash/burn/overkill/boss cases.
+3. Freeze Compendium presentation schema/validator using exact current enemy IDs.
+4. Add Save V4 sparse Compendium domain/migration (or explicitly reviewed unreleased-V3 alternative).
+5. Add Compendium tracker consuming existing `enemy:spawned` + canonical `enemy:killed`.
+6. Build pure immutable read model and derived tags/Found In.
+7. Add current ten editorial rows with dependency conformance.
+8. Add menu navigation + responsive list/detail UI.
+9. Wire final #167 actor art; no duplicate portraits by default.
+10. Add synthetic Enemy N+1 conformance fixture.
+11. Run full automated/manual input/accessibility/save/lifecycle gates.
 
-- A permanent desktop-style split view would fail portrait; mobile now uses roster → detail and desktop may split responsively.
-- Filter taxonomy was excessive for ten entries; reduced to All / Encountered / Bosses.
-- Focus restoration, scroll-into-view, resize state and filter focus behavior are explicit.
-- No hover, drag, pointer precision or platform-specific controller glyph is required.
-- Reduced-motion presentation uses static representative frames.
-- Unseen bosses use explicit spoiler policy instead of a universal reveal rule.
+Do not implement UI first and later discover that death facts are incomplete.
 
-**Result:** the same feature is practical on canonical phone, desktop, keyboard, touch and controller.
+---
 
-## Pass 4 — editorial accuracy review
+# 21. Review record
 
-The ten briefs were checked against current enemy definitions and boss compositions.
+## Pass 1 — ownership/duplication
 
-**Findings resolved:**
+Resolved:
 
-- Removed raw health/speed/timer/phase-threshold numbers that would go stale.
-- Nester copy reflects Dust Mite summoning rather than generic “spawns enemies”.
-- Shard Bot explicitly warns of Dust Mite split outcome.
-- Scrap Crusher copy reflects charge + aimed shot + later enrage, not a generic HP sponge.
-- Forge Warden reflects charge + aimed shot + Junk Rusher summons + two escalation phases.
-- Bastion Beetle uses “directional protection” rather than claiming absolute frontal immunity.
-- Copy now distinguishes Behaviour, Tells and Counterplay instead of repeating the same sentence three times.
+- Compendium owns only copy + sparse discovery state;
+- combat/stage/reward/art truth remains authoritative elsewhere;
+- Found In and threat tags are derived;
+- no second monster database.
 
-**Result:** no current entry makes a known claim that conflicts with reviewed runtime data; final integration still requires a truth check against the implementation SHA.
+## Pass 2 — persistence
 
-## Pass 5 — extensibility / conformance review
+Resolved:
 
-**Findings resolved:**
+- dedicated sparse save domain;
+- no enemy-count fields or per-enemy schema additions;
+- conservative historical backfill;
+- Enemy N+1 requires no migration.
 
-- Adding Enemy N+1 after the Compendium domain exists requires no save migration.
-- Generic conformance covers every release enemy rather than one test per hard-coded ID.
-- New stage membership automatically updates `Found In`.
-- New existing-mechanic enemies do not require view/controller branches.
-- Presentation copy has unknown-field rejection so combat stats cannot silently leak into the second catalog over time.
+## Pass 3 — event/lifecycle adversarial review
 
-**Result:** ordinary future content remains data/assets work.
+Independent PR review found two important issues in the earlier draft:
 
-## Pass 6 — simplicity / anti-overengineering review
+1. proposed `enemy:encountered` duplicated the already-authoritative `enemy:spawned` fact;
+2. proposed defeat tracking trusted `enemy:killed`, but Heat Vent can currently kill through a direct `Enemy.takeDamage()` path that bypasses that event.
 
-Removed or rejected:
+**Resolution:** encounter reuses existing `enemy:spawned`; defeat tracking is blocked on a unified source-independent death boundary that makes the existing `enemy:killed` fact canonical/exactly-once for every damage source.
 
-- kill-count lore tiers;
-- encounter timestamps;
-- collection rewards/currency;
-- online sync;
-- scans/captures;
-- raw stat encyclopaedia;
-- separate monster portrait requirements;
-- over-granular filters;
-- a new generalized content framework;
-- per-enemy UI code.
+## Pass 4 — spoiler/UX/accessibility
 
-**Final result:** no material unresolved ownership, persistence, spoiler, UX, factual-copy, accessibility, extensibility or complexity finding remains. Implementation should reopen architecture only if live runtime evidence contradicts an assumption recorded above.
+Resolved:
+
+- only three discovery states;
+- no grind;
+- phone uses list→detail instead of crushed two-pane layout;
+- controller/keyboard/touch share focus actions;
+- reduced-motion and grayscale rules explicit.
+
+## Pass 5 — editorial accuracy
+
+Resolved:
+
+- all ten current stable enemy IDs represented;
+- Nester/Shard child enemy fixed to current Dust Mite truth;
+- Crusher and Warden descriptions bound to real action/phase dependencies;
+- no raw internal tuning values duplicated into prose.
+
+## Pass 6 — scalability/overengineering
+
+Resolved:
+
+- exact unprefixed enemy catalog IDs are the Compendium keys;
+- one generic presentation schema;
+- one sparse save map;
+- one read model;
+- one list/detail UI;
+- synthetic Enemy N+1 proves the path;
+- no search/lore currency/portrait subsystem/general scripting framework.
+
+---
+
+# 22. Final acceptance
+
+The Compendium plan is ready for implementation only when the death-boundary prerequisite is included in the implementation scope.
+
+Pass requires:
+
+- existing `enemy:spawned` is the sole encounter fact;
+- `enemy:killed` becomes a universal exactly-once authoritative death fact across weapon, DOT, ability and future damage paths;
+- sparse versioned discovery persists safely;
+- all ten current enemy IDs have validated copy;
+- `Found In`, threat tags and boss mechanics are derived;
+- UI works at 390×844 and desktop with touch/keyboard/controller;
+- reduced motion and focus/status accessibility pass;
+- synthetic Enemy N+1 requires data/art/copy only for existing mechanics;
+- no parallel combat/reward/stage truth exists in Compendium data.
+
+With those conditions, the Compendium scales linearly with content rather than with bespoke code.
