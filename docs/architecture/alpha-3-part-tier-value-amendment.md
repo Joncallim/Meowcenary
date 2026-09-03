@@ -94,7 +94,7 @@ Target definition shape:
   "name": "Fire Trait Core",
   "slot": "trait",
   "rarity": "uncommon",
-  "fabricationCost": "positive tuning-owned value",
+  "fabricationCost": 120,
   "presentation": {
     "iconArtId": "gun-part-icon:trait-fire"
   },
@@ -106,7 +106,7 @@ Target definition shape:
 }
 ```
 
-`fabricationCost` must be a positive numeric value in final data; its exact value remains Slice-G playtest tuning rather than architecture.
+`120 Scrap` is the initial implementation/playtest candidate, not an immutable balance constant. It must remain a positive numeric fabrication cost unless later playtest tuning changes the number deliberately.
 
 Scrap Crusher first-clear supplies one **owned T1** Fire Trait Core as the free headline copy. After the same boss fact is durable, additional copies are fabricable at the tuned positive cost.
 
@@ -294,7 +294,7 @@ This amendment passes implementation when:
 
 1. every legal T2+ Part has a real tier-sensitive contribution;
 2. ordinary Fire Trait Core has the frozen 1.02× base damage modifier + FIRE;
-3. Crusher first-clear grants one T1 Fire Core and later fabrication is available with a positive tuned cost;
+3. Crusher first-clear grants one T1 Fire Core and later fabrication is available at initial 120 Scrap (tunable by playtest);
 4. Fire Core merges change damage modifier but never duplicate/scale FIRE behavior;
 5. Mastered Fire remains Warden-only T3, 1.15× + the same FIRE trait;
 6. generic validation rejects a synthetic meaningless tier ladder;
