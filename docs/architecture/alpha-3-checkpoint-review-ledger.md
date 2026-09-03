@@ -6,7 +6,7 @@
 
 **Planning branch:** `codex/alpha3-art-compendium-planning` / PR #169.
 
-**Current implementation authority:** `alpha-3-final-execution-handoff.md` + `content-authoring-templates-v4.md`. The intermediate implementation blueprint and pre-V4 template documents are historical redirect stubs, not live contracts.
+**Current implementation authority:** `alpha-3-final-execution-handoff.md` + `content-authoring-templates-v4.md`, with the narrow same-transaction eligibility correction in `alpha-3-terminal-settlement-amendment.md`. The intermediate implementation blueprint and pre-V4 template documents are historical redirect stubs, not live contracts.
 
 This ledger exists so later implementation agents do not receive a polished final document with no record of which assumptions were challenged. A checkpoint is closed only when its material findings are either incorporated into the plan or explicitly carried as an implementation blocker. External evidence that is unavailable remains **UNVERIFIED**, never inferred green.
 
@@ -286,7 +286,11 @@ V4 decisions:
 - no generic encounter scripting engine by default;
 - RewardProfile becomes fixed `firstClearScrap` + optional explicit grants;
 - world loot remains its existing authoritative runtime system;
-- persistent collection opens through availability/fabrication + limited headline rewards.
+- persistent collection opens through availability/fabrication + limited headline rewards;
+- when a source-owned Stage/Boss/Achievement settlement itself creates the fact that makes its explicit reward eligible, reward acquisition is validated against `current durable facts + only the exact authoritative fact(s) this same atomic transaction will commit`;
+- ordinary/ad-hoc grants never project future facts; fact + reward + receipt remain one durable write.
+
+The last two bullets are frozen in the narrow `alpha-3-terminal-settlement-amendment.md` after the final adversarial review found RC1's pre-transaction reward validator would otherwise reject legitimate same-clear V4 Part rewards.
 
 ## Output authority
 
@@ -294,6 +298,7 @@ The intermediate `alpha-3-implementation-blueprint.md` was useful during this ch
 
 - `alpha-3-final-execution-handoff.md`;
 - `content-authoring-templates-v4.md`;
+- `alpha-3-terminal-settlement-amendment.md` for the narrow projected-fact settlement rule;
 - `alpha-3-test-transition-plan.md`;
 - domain V4 specs and #170/#171.
 
@@ -343,6 +348,7 @@ Therefore no fresh independent PASS is claimed. When review quota becomes availa
 - #171 owns product/content/engagement rather than hiding it inside UI/tooling work;
 - active #85/#86/#87/#88/#89/#90/#165/#166/#167/#168/#170/#171 trackers are reconciled to V4 ownership;
 - old closed #91 remains historical implementation record; active Achievement V4 changes are owned by #90/#171/final handoff;
+- same-transaction projected-fact reward validation is now explicit in the terminal-settlement amendment and propagated to #85/#90/#170/#171;
 - all known architecture decisions are frozen; remaining product unknowns are empirical tuning/playtest questions;
 - RC1 runtime/tooling debt is explicitly **not** called template-clean before #170 synthetic scale proofs pass.
 
@@ -353,6 +359,51 @@ A fresh independent PR review must evaluate the final current planning head, not
 Until review capacity returns or an equivalent independent reviewer is available, implementation handoff is internally ready but not independently certified.
 
 **Status:** **UNVERIFIED EXTERNALLY — REVIEW QUOTA BLOCKED**.
+
+---
+
+# Checkpoint 5 — late adversarial terminal-settlement review
+
+## Evidence reviewed
+
+- RC1 `GameContext.completeStageTransaction` atomic first-clear boundary;
+- RC1 generic content-reward eligibility validation against current condition facts;
+- V4 fixed first-clear reward matrix;
+- V4 Part availability gates;
+- V4 Achievement completion/reward batching.
+
+## Finding
+
+The durable Stage transaction was already atomic, but eligibility validation happened too early for V4 content whose **source fact and first physical reward are committed together**.
+
+Representative conflicts:
+
+```text
+Junkyard 1 clear       creates Stage fact and grants Standard Barrel
+Scrap Crusher defeat   creates Boss fact and grants Fire Trait Core
+Forge Warden defeat    creates Boss fact and grants Mastered Fire Core
+```
+
+If those Parts are gated by the same Stage/Boss fact, validating against only the pre-clear save rejects a legitimate catalog-owned reward. The same class can occur for an Achievement-owned reward gated by that completion.
+
+## Resolution
+
+`alpha-3-terminal-settlement-amendment.md` freezes a narrow candidate-fact rule:
+
+- only source-owned atomic settlement may project facts;
+- projection is derived internally from the exact transaction source;
+- Stage projects only its exact Stage clear and matching Boss defeat;
+- Achievement settlement projects only its actual completion batch;
+- arbitrary/direct grant application remains current-state only;
+- no shadow unlock token, split persistence write or content-ID exception;
+- complete candidate persists fact + reward + receipt once;
+- storage failure publishes nothing;
+- replay does not remint;
+- synthetic N+1 same-source reward proof is mandatory.
+
+Tracker clarifications were added to #85/#90/#170/#171.
+
+**Status:** CLOSED internally into the amendment and trackers; runtime proof remains implementation work.
 
 ---
 
