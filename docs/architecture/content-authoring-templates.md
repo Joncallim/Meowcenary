@@ -1,102 +1,118 @@
 # Alpha 3 Content Authoring Templates
 
-**Status:** reviewed authoring/extensibility contract for Alpha 3 and future content packs.
+**Status:** canonical authoring/extensibility contract for Alpha 3 and future content packs.
 
-**Applies to:** characters, abilities/passives, enemies, bosses, equipment, equipment sets, Gunsmith parts/traits, achievements, stages/chapters, art and Monster Compendium entries. The exhaustive supporting-catalog templates, proof audit and remediation register live in `content-authoring-template-coverage.md`; the two documents form one authoring contract.
+**Companion:** `content-authoring-template-coverage.md` contains supporting-catalog templates, proof findings and the remediation register. The two files form one contract.
 
-This document turns the existing Alpha 3 extensibility principles into a repeatable authoring workflow. The requirement is stronger than “the runtime is data-driven”:
+The requirement is stronger than “the runtime is data-driven”:
 
-> **A future implementer must be able to add an ordinary instance of an existing content type by copying a nearby template, changing IDs/data/assets, running generic validation, and playtesting. They must not have to discover a hidden provider row, edit a scene/controller, duplicate an owning ID in several places, or infer an undocumented cross-file convention.**
+> **A future implementer must be able to add an ordinary instance of an existing content type by copying a nearby template, changing IDs/data/assets, running generic validation, and playtesting. They must not have to discover a hidden provider row, edit a scene/controller, duplicate owning identity in several places, or infer an undocumented naming convention.**
 
-The repository implementation remains authoritative. If current code does not yet satisfy a template below, treat that as authoring debt to remove before scaling the affected domain.
+The current repository is implementation truth. Templates follow its stable ID contracts; they do not rename current content to make a theoretical namespace look tidier.
 
 ---
 
 # 1. Universal rules
 
-Every ordinary content addition follows these rules.
+1. **Stable ID first.** Pick the permanent ID before art/copy/reward wiring.
+2. **Preserve the domain's live ID convention.** Do not add/remove prefixes casually.
+3. **One owner per fact.** Mechanical truth, presentation copy, art and durable state have explicit owners.
+4. **Existing mechanic = data/assets only.** Code is justified only for a genuinely new mechanic/effect/condition/rendering contract.
+5. **No content-ID branches.** Ordinary content may not add `if (id === ...)` to scenes/controllers/gameplay.
+6. **No array-position identity.** Order may control display, never persistence identity.
+7. **Sparse persistence.** New ordinary content does not add one save field per item.
+8. **Explicit pools/composition.** Adding content globally does not silently perturb old seeded encounters/rewards/loot.
+9. **Explicit cross-references.** Multi-asset presentation uses references; a simple naming convention is allowed only when documented and machine-validated.
+10. **Generic conformance.** Validation loops over definitions; it does not enumerate the current roster.
+11. **Synthetic N+1 proof.** Every scalable domain keeps a fixture proving the next ordinary item works without core source edits.
+12. **Art collision review.** A new visible item identifies its closest current collision and proves distinction at actual display size.
 
-1. **Stable ID first.** Pick the permanent ID before writing data or art.
-2. **One owner for each fact.** Mechanical truth, presentation copy, art metadata and durable state each have one authoritative owner.
-3. **Existing mechanic = data/assets only.** New source code is justified only for a genuinely new mechanic/effect/condition/rendering contract.
-4. **No content-ID branches.** Never add `if (id === '...')` to scenes/controllers/gameplay to support an ordinary new item.
-5. **No position identity.** Array order and menu position are presentation, never persistence identity.
-6. **No new save field for a new content item.** Sparse maps keyed by stable IDs absorb new characters, equipment, enemies, stages and achievements.
-7. **Explicit pools.** Adding global content does not silently join old deterministic encounter/reward/upgrade pools.
-8. **Cross-reference validation.** Every referenced stable ID and art ID resolves generically.
-9. **Generic conformance.** Existing test loops automatically cover the new definition.
-10. **Data-only proof.** Every domain keeps at least one synthetic “next item” fixture proving no core source changes are necessary.
-11. **No hidden identity reconstruction.** A simple naming convention is allowed only when it is documented and machine-validated. Multi-asset presentation uses explicit references rather than increasingly complex string-prefix magic.
-
-A new **type of mechanic** may require one registered implementation. Once registered, later instances using it return to the data/assets-only path.
+A genuinely new primitive may require one registered implementation. Once registered, subsequent instances return to the data/assets-only path.
 
 ---
 
-# 2. Naming and identity templates
+# 2. Current stable-ID conventions
 
-Use stable semantic namespaces. Do not encode array position, chapter order or mutable display names in persistence identity.
+These are intentionally not uniform. Preserve them unless a deliberate migration changes them.
+
+| Domain | Current catalog ID examples | Template rule |
+| --- | --- | --- |
+| Character | `scrap-tabby`, `volt-lynx` | **unprefixed** character ID |
+| Ability | `ability:scrap-burst` | `ability:<slug>` |
+| Character passive | `scrap-hoarder` | character-owned, currently unprefixed |
+| Enemy | `dust-mite`, `junk-nester` | **unprefixed** enemy ID |
+| Boss (enemy catalog) | `boss-crusher`, `boss-forge` | current `boss-<slug>` convention |
+| Weapon | `scrap-pistol-t1` | **unprefixed** weapon ID |
+| Run upgrade | `quick-paws`, `pistol-needle-rounds` | **unprefixed** upgrade ID |
+| Permanent/meta upgrade | `reinforced-vest` | **unprefixed** meta-upgrade ID |
+| Equipment | `equipment:commando-helmet` | `equipment:<set>-<piece>` |
+| Equipment set | `set:commando` | `set:<slug>` |
+| Gun part | `part:receiver-compact` | `part:<slug>` |
+| Achievement | `achievement:first-victory` | `achievement:<slug>` |
+| Stage | `stage:junkyard-01` | `stage:<stable-slug>` |
+| Chapter | `chapter:junkyard` | `chapter:<slug>` |
+| Encounter | `encounter:junkyard-mixed` | `encounter:<slug>` |
+| Difficulty | `difficulty:chapter-1-easy` | `difficulty:<slug>` |
+| Reward profile | `reward:stage-01` | `reward:<slug>` |
+| Arena | `junkyard-lot` | current arena IDs are unprefixed |
+| Loot table | `chest-standard` | current loot-table IDs are unprefixed |
+| Asset bundle | `bundle:core-junkyard` | `bundle:<slug>` |
+
+Art IDs are separate semantic IDs. Current actor art deliberately uses the simple validated convention:
 
 ```text
-character:<slug>
-ability:<slug>
-passive:<slug>                 # presentation/reference identity where needed
-
-enemy:<slug>
-boss:<slug>
-
-set:<slug>
-equipment:<set-slug>-<slot>
-
-part:<slug>
-trait:<slug>
-
-achievement:<slug>
-chapter:<slug>
-stage:<chapter-or-stable-slug>
-encounter:<slug>
-difficulty:<slug>
-reward:<slug>
-
-character-portrait:<character-id-tail>
-ability-icon:<ability-id-tail>
-passive-icon:<passive-id-tail>
-enemy:<enemy-id-tail>          # documented, validated current actor-art convention
-character:<character-id-tail>  # documented, validated current actor-art convention
-equipment-icon:<equipment-id-tail>
-equipment-set-icon:<set-id-tail>
-gun-part-icon:<part-id-tail>
-trait-icon:<trait-id-tail>
-achievement-icon:<achievement-id-tail>
-objective-icon:<objective-type>
-chapter-icon:<chapter-id-tail>
+character `scrap-tabby` -> art binding `character:scrap-tabby`
+enemy `dust-mite`       -> art binding `enemy:dust-mite`
 ```
 
-Existing shipped IDs are not renamed merely to satisfy these examples. Current actor sheets may continue using the simple validated `character:<character.id>` / `enemy:<enemy.id>` convention. Portraits, badges, set emblems and other multi-asset presentation references must be explicit or owned by a validated presentation catalog.
+That convention is allowed because it is documented and validated. Do **not** extrapolate it into hidden string magic for portraits, badges, equipment icons, etc. Those use explicit presentation refs or a validated presentation catalog.
+
+Recommended presentation IDs:
+
+```text
+character-portrait:<character-id>
+ability-icon:<ability-tail>
+passive-icon:<passive-id>
+equipment-icon:<equipment-tail>
+equipment-set-icon:<set-tail>
+gun-part-icon:<part-tail>
+gun-slot-icon:<slot>
+trait-icon:<trait-tail>
+achievement-icon:<achievement-tail>
+permanent-upgrade-icon:<meta-upgrade-id>
+objective-icon:<objective-type>
+chapter-icon:<chapter-tail>
+arena-card:<arena-id>
+nav-icon:<destination>
+stat-icon:<stat>
+action-icon:<logical-action>
+ui-chrome:<name>
+```
+
+Existing shipped IDs are never renamed merely for symmetry.
 
 ---
 
-# 3. Character authoring template
+# 3. Character template
 
-Adding Character N+1 with existing stat/passive/ability primitives must not require scene, controller, save-schema or selection-logic changes.
+Adding Character N+1 with existing stat/ability/passive/unlock primitives must not require scene, controller or save-schema edits.
 
-## 3.1 Definition template
-
-Add one entry to `src/data/characters.json`:
+## 3.1 Definition
 
 ```json
 {
-  "id": "character-slug",
+  "id": "new-character",
   "name": "Display Name",
-  "description": "One concise gameplay-identity sentence.",
+  "description": "One concise gameplay identity sentence.",
   "baseStats": {
     "maxHealth": 100,
     "moveSpeed": 175
   },
-  "startingWeaponIds": ["existing-weapon-id"],
-  "abilityId": "ability:existing-or-new-ability",
+  "startingWeaponIds": ["scrap-pistol-t1"],
+  "abilityId": "ability:existing-or-new",
   "passives": [
     {
-      "id": "passive-slug",
+      "id": "new-passive",
       "kind": "static",
       "name": "Passive Name",
       "description": "Player-facing effect summary.",
@@ -110,64 +126,58 @@ Add one entry to `src/data/characters.json`:
 }
 ```
 
-Notes:
+Rules:
 
-- The current catalog uses ID tails such as `scrap-tabby` rather than the `character:` prefix inside `characters.json`; preserve the live contract unless a deliberate migration changes it.
-- The current actor-art contract requires `character:<id>` and validates the cross-reference. This convention is part of the template, not an implicit implementation detail.
-- Static passives use existing stat modifiers and are fully data-authored.
-- Reactive passives reference one registered `handlerId`; adding another instance of an existing handler is data-only. A genuinely new reactive behavior requires one handler implementation, never a character-ID branch.
-- A new active ability using an existing `AbilityEffect.kind` is data-only in `abilities.json`; a new effect kind is a mechanic change.
-- Portrait/ability/passive presentation references are explicit once those Alpha 3 presentation catalogs land; do not derive all of them from the character name/ID in scene code.
+- character ID is currently unprefixed;
+- exactly one valid starting T1 weapon according to current game contract;
+- existing active `AbilityEffect.kind` => data-only ability definition;
+- static passive => data-only modifiers;
+- existing reactive passive handler => data-only handler reference;
+- new reactive mechanic => one registered handler, never a character-ID branch;
+- actor art resolves by documented `character:<id>` convention;
+- portrait/ability/passive art uses explicit presentation refs when that presentation layer lands.
 
-## 3.2 Character art packet template
-
-Every new character gets one art packet with these required headings:
+## 3.2 Character art packet
 
 ```text
 Character ID
-Gameplay read / role
+Gameplay role/read
 Primary black-silhouette cue
 Secondary silhouette cue
-Body/species construction
+Species/body construction
 Outfit/tool construction
 Palette: base / shadow / highlight / identity accent
-Runtime actor canvas + display target
-Idle animation intent
-Run animation intent
-Hurt animation intent
-Defeat animation intent
+Actor canvas + runtime display target
+Idle intent
+Run intent
+Hurt intent
+Defeat intent
 Portrait composition
 Active-ability icon ownership
 Passive icon ownership
 Three nearest roster collisions + explicit differences
-Originality risks / forbidden shorthand
-Reduced-motion/static presentation rule
-Source (.pxo) path
+Originality/legal risks
+Reduced-motion/static rule
+Editable source path
 Deterministic builder/export path
-Runtime art binding IDs
+Runtime art IDs
 ```
 
-Acceptance:
+Pass: identifiable in black fill at runtime scale and discovered through registry `.all()` without a fixed list.
 
-- black-fill silhouette is identifiable at runtime size;
-- grayscale remains distinct from the two closest roster members;
-- actor and portrait describe the same design;
-- no new CharacterScene/MenuScene branch;
-- character registry and selection UI discover the item through `.all()`.
+## 3.3 Character N+1 test
 
-## 3.3 Character synthetic extensibility fixture
-
-Keep a test fixture equivalent to `character:test-next` using only existing ability/passive/unlock primitives. Generic validation and the character read model must include it without editing character runtime source. The shipped-content controller test must compare against registry content rather than hard-code the current roster count.
+A synthetic ninth character using only existing primitives must validate and appear in the character selection read model automatically. Shipped-content tests must not hard-code `8`.
 
 ---
 
-# 4. Ability and passive templates
+# 4. Active ability template
 
-## 4.1 Active ability using an existing effect kind
+Existing effect kind:
 
 ```json
 {
-  "id": "ability:new-slug",
+  "id": "ability:new-ability",
   "name": "Ability Name",
   "description": "Player-facing effect.",
   "cooldownMs": 10000,
@@ -179,42 +189,54 @@ Keep a test fixture equivalent to `character:test-next` using only existing abil
 }
 ```
 
-Required companion art:
+Companion art:
 
 ```text
-ability-icon:<new-slug>
+ability-icon:new-ability
 ```
 
-The character references the ability by ID. The UI reads the definition; it does not duplicate name/description.
+The character stores only `abilityId`. UI reads name/description from the ability definition.
 
-## 4.2 Static passive
-
-Static passives remain embedded with the character because their identity is character-owned and they are ordinary stat composition. Use the character packet template and one passive icon.
-
-## 4.3 Reactive passive
-
-```text
-passive id
-registered handlerId
-existing authoritative event
-player-facing description
-reentrancy/lifecycle expectation
-unit fixture proving handler invocation through the generic coordinator
-```
-
-Do not create `if character === ...` behavior.
+New effect kind = mechanic change + registered implementation + tests. Later abilities using it are data-only.
 
 ---
 
-# 5. Equipment architecture: required hardening before scaling
+# 5. Passive template
 
-The current Alpha 3 implementation is data-driven but **not yet a clean scalable authoring template** in one respect: `setBonuses` and `upgradeUnlocks` are stored on an arbitrary representative equipment piece, and runtime searches for “the piece in this set that carries the table.” This is a hidden provider convention.
+## Static passive
 
-That convention is acceptable as current implementation history; it is **not** the template for Set N+1.
+Remain character-owned because they are simple character-specific stat composition:
 
-Before the first substantial post-Alpha-3 equipment expansion, extract set-owned facts into a dedicated validated set catalog or equivalent first-class set definition.
+```text
+id
+kind: static
+name
+description
+effects using existing stat/op vocabulary
+passive icon reference/presentation mapping
+```
 
-Recommended direction:
+## Reactive passive
+
+```text
+passive ID
+kind: reactive
+registered handlerId
+authoritative event/input consumed
+player-facing description
+lifecycle/reentrancy expectation
+generic coordinator test
+```
+
+No `if characterId === ...` behavior.
+
+---
+
+# 6. Equipment-set template — target scalable model
+
+The current implementation stores `setBonuses` and `upgradeUnlocks` on an arbitrary representative piece. That is **current authoring debt**, not the future template.
+
+Before large-scale equipment expansion, move set-owned facts to a first-class validated set owner/catalog.
 
 ```json
 {
@@ -239,7 +261,31 @@ Recommended direction:
 }
 ```
 
-Then each physical piece is only a piece:
+A full set packet defines:
+
+```text
+Set ID
+Gameplay identity
+Construction motif
+Primary/secondary material
+Accent palette
+Set emblem silhouette
+Helmet silhouette rule
+Armour silhouette rule
+Glove silhouette rule
+Boot silhouette rule
+Closest competing sets + differences
+Grayscale rule
+Originality/legal risks
+2-piece theme
+4-piece theme
+```
+
+Adding Set N+1 with existing slots/modifiers/conditions requires one set definition, four piece definitions, one emblem, four icons and explicit reward/unlock placement—no runtime/controller/save edits.
+
+---
+
+# 7. Equipment-piece template
 
 ```json
 {
@@ -257,121 +303,60 @@ Then each physical piece is only a piece:
 }
 ```
 
-## 5.1 Remove authored `sourceId` duplication
-
-Current equipment/part effect rows repeat their owner ID as `sourceId`. That creates two mutable copies of the same identity and is unnecessary authoring friction.
-
-Preferred scalable rule:
-
-> Definition data declares the effect; runtime resolution injects the authoritative source from the owning definition/owned instance/set threshold.
-
-For example:
-
-```json
-"effects": [
-  { "stat": "maxHealth", "op": "add", "value": 15 }
-]
-```
-
-Runtime derives an effective source such as the owned `instanceId`, while a set bonus derives `set:<id>:2` / `set:<id>:4` internally. Validation should not ask authors to repeat the owner ID manually.
-
-This should be implemented as a focused data-contract migration before large-scale equipment/part authoring. Existing save identity does not need to change merely because static catalog effect rows stop carrying duplicated source strings.
-
----
-
-# 6. Equipment-set art template
-
-A complete set packet is authored once at the set level, then four slot pieces inherit its visual language.
-
-Required set headings:
-
-```text
-Set ID
-Gameplay identity
-Construction motif
-Primary material
-Secondary material
-Accent palette
-Set emblem silhouette
-Helmet silhouette rule
-Armour silhouette rule
-Glove silhouette rule
-Boot silhouette rule
-Closest competing set + difference
-Second-closest set + difference
-Grayscale distinction rule
-Originality/legal risks
-2-piece gameplay theme
-4-piece gameplay theme
-```
-
-Then author exactly one piece brief per supported slot:
+Piece art delta:
 
 ```text
 Piece ID
 Slot
 Dominant silhouette mass
-Set motif as expressed in this slot
-What must remain visible at 24–32 px
+Set motif in this slot
+What survives at 24–32 px
 Icon source/export path
 Runtime art ID
-Must-not-be-confused-with
+Closest same-slot collision
 ```
 
-Adding a new set using existing slots/modifiers/conditions requires:
+Validation:
 
-1. one set definition;
-2. four equipment definitions;
-3. one set emblem;
-4. four item icons;
-5. reward/unlock pool references as needed;
-6. generic validation/playtest.
+- ID/set/slot/icon resolve;
+- stat/operator valid;
+- piece contains no set-owned metadata after the set refactor;
+- ordinary item does not alter save shape.
 
-It must not require changes to `equipment.ts`, `equipmentController.ts`, save schema or scene code.
+## Remove authored source duplication
 
----
-
-# 7. Individual equipment-piece template
-
-For an additional item in an existing set/slot:
+Current equipment/part effects repeat their owner as `sourceId`. The scalable target is:
 
 ```json
-{
-  "id": "equipment:<set>-<piece>",
-  "name": "Display Name",
-  "setId": "set:<existing-set>",
-  "slot": "helmet",
-  "tier": 1,
-  "presentation": {
-    "iconArtId": "equipment-icon:<set>-<piece>"
-  },
-  "effects": [
-    { "stat": "existingStat", "op": "mult", "value": 1.05 }
-  ]
-}
+{ "stat": "maxHealth", "op": "add", "value": 15 }
 ```
 
-Conformance checks:
-
-- stable ID unique;
-- set exists;
-- slot is supported;
-- icon resolves;
-- modifier stats/operators validate;
-- no authored owner/source duplication after the migration above;
-- ordinary new item does not change set metadata or save shape.
+Runtime derives source identity from the owned instance/definition/set threshold. Authors should not keep two copies of the same identity synchronized.
 
 ---
 
 # 8. Gunsmith part template
 
-Adding a part using an existing slot/stat/trait vocabulary is data + art only.
+Current part IDs use `part:<slug>` and current slot vocabulary includes:
+
+```text
+receiver
+barrel
+optic
+stock
+trigger
+magazine
+underbarrel
+trait
+```
+
+Ordinary new part using existing slot/stat/trait vocabulary:
 
 ```json
 {
   "id": "part:new-part",
   "name": "New Part",
-  "slot": "existing-slot",
+  "slot": "barrel",
   "rarity": "common",
   "tier": 1,
   "presentation": {
@@ -380,56 +365,59 @@ Adding a part using an existing slot/stat/trait vocabulary is data + art only.
   "effects": [
     { "stat": "existingStat", "op": "add", "value": 1 }
   ],
-  "traits": ["EXISTING_TRAIT"],
-  "unlock": { "type": "existing-condition", "...": "..." },
-  "rewardPoolId": "existing-explicit-pool"
+  "traits": []
 }
 ```
 
-Authoring rules:
+Optional `unlock` / `rewardPoolId` are authored only when needed. A new part never silently enters all reward pools.
 
-- `unlock` and `rewardPoolId` are omitted when not needed; do not add empty fake values;
-- a new part does not automatically enter every reward pool;
-- a new trait mechanic requires one registered/tested mechanic, then later trait-bearing parts are data-only;
-- effect source identity should be derived from the owned part/definition rather than manually repeated in every row.
-
-Part art brief headings:
+Part art packet:
 
 ```text
 Part ID
 Slot silhouette
 Physical construction
 Dominant functional cue
-Trait overlay, if any
+Trait overlay/core relation if applicable
 Closest same-slot part + difference
-24–32 px readability rule
+24–32 px rule
 Source/export/binding IDs
 ```
+
+New trait mechanic = one registered mechanic; later parts using it are data-only.
 
 ---
 
 # 9. Enemy template
 
-Adding Enemy N+1 with an existing archetype/behavior is data + actor art + encounter membership + Compendium copy.
+Current enemy catalog IDs are **unprefixed**. Current bosses use `boss-<slug>` within the same catalog.
+
+Ordinary Enemy N+1 using an existing archetype:
 
 ```json
 {
-  "id": "enemy:new-enemy",
+  "id": "new-enemy",
   "name": "New Enemy",
   "archetype": "existing-archetype",
-  "health": 1,
-  "damage": 1,
-  "speed": 1,
+  "health": 10,
+  "damage": 5,
+  "speed": 70,
   "xpValue": 1,
   "scrapValue": 1,
   "contactDamage": true,
-  "...": "fields required by the existing archetype"
+  "...": "existing-archetype fields"
 }
 ```
 
-The current enemy actor-art contract requires `enemy:<id>` and validates the cross-reference. Do not add a global “all enemies” random pool. Explicitly place the enemy in the intended encounter profile(s).
+Actor art uses the validated binding convention:
 
-Enemy art packet headings:
+```text
+new-enemy -> enemy:new-enemy
+```
+
+Then explicitly add the enemy to only the intended encounter profile(s). Global definition membership never changes old seeded composition by itself.
+
+Enemy art packet:
 
 ```text
 Enemy ID
@@ -439,183 +427,284 @@ Movement silhouette
 Attack/telegraph pose
 Defeat/split/summon visual requirement
 Palette
-Runtime canvas/display target
-Closest roster collision + difference
+Canvas/display target
+Closest roster collision
 Animation tags consumed by runtime
 Source/export/binding IDs
 ```
 
-Conformance:
-
-- definition validates for its archetype;
-- actor art resolves through the documented validated convention;
-- portrait/other presentation art is explicit if added;
-- encounter membership is explicit;
-- old seeded encounters remain unchanged until edited;
-- Compendium metadata resolves;
-- no enemy-ID branches.
+Compendium presentation row uses the same **unprefixed enemy catalog ID**.
 
 ---
 
 # 10. Boss template
 
-A new boss using existing action/phase vocabulary is composition, not a bespoke scene.
+Current boss IDs are `boss-crusher`, `boss-forge`; do not silently convert them to a colon namespace.
 
-Required definition concepts:
+A new boss using existing action/phase vocabulary is composition:
 
 ```text
-boss stable ID
+boss stable ID using current convention
 base combat stats
 base registered attack/action composition
-ordered phase thresholds
+ordered phases/thresholds
 registered actions per phase
 explicit reinforcement IDs/caps if summoning
-explicit stage/encounter membership
+explicit encounter/stage membership
 ```
 
 Boss art packet adds:
 
 ```text
 Boss silhouette thesis
-Canvas evidence: 64x64 default, 96x96 only if justified
+64×64 starting canvas; 96×96 only on evidence
 Base pose
 Each mechanic telegraph pose/clip
-Each phase visual escalation
-Pinned body-center rule
-Closest ordinary enemy/boss collision + difference
+Phase visual escalation
+Pinned body center
+Closest enemy/boss collision
 ```
 
-Compendium copy uses the generic entry template below.
+No boss-specific scene.
 
 ---
 
-# 11. Achievement template
+# 11. Weapon template
 
-Adding another achievement using existing metric/condition/grant types must be data-only.
+Current weapon IDs are unprefixed. `weapons.json` already models art well through explicit references.
+
+```json
+{
+  "id": "new-family-t1",
+  "name": "New Family I",
+  "family": "new-family",
+  "rarity": "common",
+  "fireRateMs": 500,
+  "damage": 5,
+  "projectileSpeed": 350,
+  "range": 200,
+  "mergeTier": 1,
+  "maxTier": 3,
+  "pierce": 0,
+  "projectileCount": 1,
+  "spreadDeg": 0,
+  "art": {
+    "iconId": "weapon-icon:new-family:t1",
+    "heldId": "weapon-held:new-family:t1",
+    "projectileId": "projectile:new-family"
+  }
+}
+```
+
+Family packet:
+
+```text
+family ID
+mechanical identity
+T1/T2/T3 silhouette progression
+projectile identity
+held grip anchor
+explicit loot/reward membership
+weapon-feel entry
+nearest weapon collision
+```
+
+No automatic pool inclusion.
+
+---
+
+# 12. Run-upgrade template
+
+Current run-upgrade IDs are unprefixed; explicit icon refs are already the correct pattern.
+
+```json
+{
+  "id": "new-upgrade",
+  "name": "New Upgrade",
+  "rarity": "common",
+  "target": "run",
+  "description": "Player-facing summary.",
+  "maxStacks": 3,
+  "effects": [
+    { "stat": "existingStat", "op": "mult", "value": 1.05 }
+  ],
+  "presentation": {
+    "category": "utility",
+    "iconArtId": "upgrade-icon:new-upgrade"
+  }
+}
+```
+
+Existing effect/scope primitive => data + icon only. New effect primitive => one registered implementation.
+
+---
+
+# 13. Permanent/meta-upgrade template
+
+Current IDs are unprefixed. Use only if #165 retains this progression surface.
+
+```json
+{
+  "id": "new-permanent-upgrade",
+  "name": "New Permanent Upgrade",
+  "description": "Player-facing summary.",
+  "maxLevel": 5,
+  "cost": { "base": 20, "growth": 1.6 },
+  "effects": [
+    { "stat": "existingStat", "op": "mult", "value": 1.03 }
+  ],
+  "presentation": {
+    "iconArtId": "permanent-upgrade-icon:new-permanent-upgrade"
+  }
+}
+```
+
+New definition is absorbed by ID-keyed progression/max-level maps; no per-item save field.
+
+---
+
+# 14. Achievement template
+
+Current IDs use `achievement:<slug>`.
 
 ```text
 Achievement ID
 Name
 Description
-Metric/condition primitive
+Existing metric/condition primitive
 Target
-Hidden? / spoiler policy
-Reward/grant profile using shared vocabulary
+Hidden/spoiler policy
+Shared reward/grant profile
 Explicit badge art reference
 Optional platform mirror mapping
 ```
 
-The badge art brief must specify:
+No achievement-specific code or platform-gated progression.
+
+Badge brief:
 
 ```text
 central silhouette
 shared badge frame
 nearest badge collision
 black-silhouette cue
-hidden treatment behavior
+hidden treatment
 ```
-
-No achievement-specific code or platform-gated unlock logic. The #167 art integration should add an explicit presentation/badge reference rather than reconstructing one in the UI.
 
 ---
 
-# 12. Stage / chapter template
+# 15. Stage/chapter template
 
-A stage using existing arena/objective/encounter/difficulty/reward/condition primitives is data-only.
+Current stages/chapters use prefixed IDs while arenas remain unprefixed.
 
-```text
-Stage ID
-Chapter ID / ordered membership
-Display name
-Arena ID
-Objective definition
-Encounter profile ID
-Difficulty profile ID
-Reward profile ID
-Optional boss ID
-Unlock condition
-Asset bundle ID(s)
+```json
+{
+  "id": "stage:new-01",
+  "name": "Stage Name",
+  "chapterId": "chapter:new",
+  "displayOrder": 1,
+  "arenaId": "existing-arena",
+  "assetBundleId": "bundle:existing",
+  "objective": { "type": "existing-objective", "...": "..." },
+  "encounterProfileId": "encounter:new",
+  "difficultyProfileId": "difficulty:new",
+  "rewardProfileId": "reward:new",
+  "unlock": { "type": "existing-condition", "...": "..." }
+}
 ```
 
-Art composes existing domain assets:
+Optional `bossId` appears only for boss content.
+
+Stage art composes:
 
 ```text
 chapter emblem
 arena/location card
 objective icon
-boss-stage marker when applicable
-state overlays from reusable UI chrome
+boss-stage marker if needed
+reusable locked/cleared/selected chrome
 ```
 
-Do not create one bespoke painting for every stage unless the product deliberately introduces a new location/art need.
-
-Adding a new chapter with a new location may introduce a new world/art bundle, but BootScene must still load through bundle/manifest data rather than one hard-coded asset call per content item.
-
-The templates for encounter, difficulty, reward, loot, spawn, arena, bundle, weapon, run/permanent upgrades, audio and weapon feel are in `content-authoring-template-coverage.md` so the complete supporting catalog surface remains explicit rather than implied.
+A second ordinary stage with existing location/objective/encounter/difficulty/reward primitives is data-only.
 
 ---
 
-# 13. Monster Compendium entry template
+# 16. Monster Compendium template
 
-Every release enemy/boss has one presentation entry keyed to the existing enemy ID.
+Compendium keys use the **exact existing enemy catalog ID**, not the actor-art ID.
 
 ```json
 {
-  "enemyId": "enemy:new-enemy",
+  "enemyId": "new-enemy",
   "displayOrder": 999,
   "fieldNote": "One short in-world observation.",
-  "behaviour": "What the authoritative mechanics make it do.",
-  "tells": "What the player can reliably read before/during the threat.",
+  "behaviour": "What authoritative mechanics make it do.",
+  "tells": "What the player can reliably read.",
   "counterplay": "What the player can do about it.",
   "spoilerPolicy": "silhouette-until-encountered"
 }
 ```
 
-Do **not** author:
-
-- health/damage/speed numbers;
-- stage lists;
-- encounter IDs;
-- reward tables;
-- duplicated boss action arrays;
-- kill counters unless the product later adds a real use for them.
-
-Derived fields:
+Derived, never authored here:
 
 ```text
-name                 <- enemy definition
-threat tags          <- archetype/mechanics
-Found In             <- encounter profiles -> stages
-actor art            <- visual-art registry
-boss mechanics       <- registered action/phase composition
-status               <- sparse Compendium save state
+name          <- enemies.json
+threat tags   <- archetype/mechanics
+Found In      <- encounter profiles -> stages
+actor art     <- enemy:<enemyId> validated actor binding
+boss mechanics<- registered action/phase composition
+status        <- sparse Compendium state
 ```
 
-Editorial review template:
+Do not duplicate health/damage/speed, stage lists, encounter IDs, reward tables or boss action arrays.
 
-```text
-Mechanics checked against SHA
-Field note unique to creature
-Behaviour factual
-Tells actually exist in runtime/art
-Counterplay actionable
-No implementation-only numbers
-No duplicated authoritative lists
-Closest Compendium entry + prose distinction
-```
-
-Adding Enemy N+1 after the Compendium domain exists does not require a save migration; unseen is represented by absence from the sparse map.
+New Enemy N+1 after the Compendium save domain exists requires no save migration.
 
 ---
 
-# 14. Generic art-binding template
+# 17. Generic visual brief template
 
-Do not let `VisualArtKind` grow one enum member for every gameplay domain. Kinds describe **rendering contracts**, while stable IDs describe semantic ownership.
-
-Scalable direction:
+Every visible new art unit/family uses:
 
 ```text
-actor / animated-actor
+Stable owner ID
+Explicit asset/art ID or documented validated convention
+Gameplay/presentation purpose
+Runtime contexts
+Source canvas
+Runtime display size
+Rendering/sampling contract
+Primary silhouette
+Secondary silhouette/detail
+Palette/material rules
+Animation tags/frame counts if animated
+Anchor/pivot rule
+State variants/overlays
+Nearest collision candidates
+Must-not-become rules
+Grayscale test
+Reduced-motion rule
+Originality/legal review
+Editable source path
+Deterministic builder path
+Runtime export path
+Manifest/bundle membership
+Automated validation
+Manual viewports/screens
+```
+
+For a family (character, equipment set, weapon family, chapter), write one family brief + item deltas rather than duplicating the full style guide per item.
+
+---
+
+# 18. Visual-art binding template
+
+Do not let renderer kinds grow one value per semantic content domain.
+
+Target coarse rendering contracts:
+
+```text
+animated-actor
 projectile / animated-effect
 pickup
 icon
@@ -625,9 +714,7 @@ world
 ui-chrome
 ```
 
-The current shipped kinds remain valid, but future implementation should avoid `equipment-icon`, `part-icon`, `achievement-icon`, `ability-icon`, `passive-icon`, etc. as separate renderer behaviors unless they genuinely render differently. Those differences belong in IDs/cross-reference validation, not a growing switch statement.
-
-A generic static icon binding template is conceptually:
+A generic static icon binding is conceptually:
 
 ```json
 {
@@ -642,259 +729,179 @@ A generic static icon binding template is conceptually:
 }
 ```
 
-Validation, not scene code, enforces that an equipment definition points to an icon-sized compatible binding. `content-authoring-template-coverage.md` records the current kind/prefix coupling as TPL-06 and makes its generalization part of #167 integration.
+Current semantic kinds may remain until #167 integration migrates/freezes the model. The pass condition is that adding another equipment/achievement/passive icon does not add another renderer branch simply because ownership changed.
 
 ---
 
-# 15. Generic visual brief template
+# 19. Content-pack PR declaration
 
-Every new art unit/family uses this authoring skeleton. Omit sections only when genuinely inapplicable.
+Every future content PR declares its template(s):
 
 ```text
-Stable owner ID
-Asset/art ID
-Gameplay/presentation purpose
-Runtime context(s)
-Source canvas
-Runtime display size
-Rendering/sampling contract
-Primary silhouette
-Secondary silhouette/detail
-Palette/material rules
-Animation tags and frame counts, if animated
-Anchor/pivot rule
-State variants / overlays
-Nearest collision candidates
-Explicit must-not-become rules
-Grayscale test
-Reduced-motion rule
-Originality/legal review
-Editable source path
-Deterministic builder path
-Runtime export path
-Manifest/bundle membership
-Automated validation expectations
-Manual viewports/screens to review
+CONTENT TEMPLATE(S):
+MECHANIC STATUS: existing primitive | new primitive (justify)
+STABLE CATALOG IDS ADDED:
+ART/PRESENTATION IDS ADDED:
+EXPLICIT POOLS/COMPOSITIONS EDITED:
+SAVE MIGRATION REQUIRED: no for ordinary content; explain exception
+GENERIC CONFORMANCE TEST:
+SYNTHETIC N+1 GATE:
+MANUAL PLAYTEST:
 ```
 
-For a family (character, set, weapon tier family, chapter), add a family-level brief first, then item-level deltas. Do not restate the entire style guide in every item.
+Reviewer rejects an ordinary content PR if it had to edit a scene/controller switch, fixed roster list, save interface or renderer branch without introducing a genuinely new mechanic contract.
 
 ---
 
-# 16. Content-pack authoring checklist
+# 20. Example checklists
 
-A future content PR should state which template(s) it instantiates. The exhaustive PR declaration contract is in `content-authoring-template-coverage.md`.
-
-Example: “Add Character 9”
+## Character 9
 
 ```text
-[ ] stable character ID chosen
-[ ] characters.json entry added
-[ ] existing/new ability definition added as required
-[ ] passive uses existing static/reactive vocabulary
-[ ] actor + portrait + ability/passive art produced
-[ ] current actor-art convention and explicit presentation refs resolve
-[ ] visual bindings/bundle membership resolve
-[ ] explicit unlock condition resolves
-[ ] explicit starting weapon resolves
-[ ] generic character catalog validation passes
-[ ] synthetic N+1 selection/read-model test passes
-[ ] no fixed roster-count test needs editing
-[ ] no scene/controller/save-schema changes
-[ ] silhouette contact-sheet gate passes
-[ ] gameplay/manual balance pass completed
+[ ] unprefixed stable character ID chosen
+[ ] characters.json row added
+[ ] ability/passive use existing registered primitives or justified new primitive
+[ ] starting T1 weapon resolves
+[ ] unlock condition resolves
+[ ] actor binding character:<id> resolves
+[ ] portrait/ability/passive presentation refs resolve
+[ ] generic catalog/art validation passes
+[ ] synthetic/real selection read model discovers it automatically
+[ ] no fixed roster-count test edited just to change 8 -> 9
+[ ] no scene/controller/save-schema change
+[ ] silhouette/grayscale gate passes
+[ ] gameplay/manual balance pass
 ```
 
-Example: “Add Equipment Set 9”
+## Equipment Set 9
 
 ```text
-[ ] first-class set definition added
-[ ] four supported slot definitions added
-[ ] set emblem + four piece icons produced
-[ ] all set/equipment/art cross-references resolve
-[ ] set bonuses live only on set owner, not an arbitrary piece
-[ ] upgrade unlocks live only on set owner
-[ ] effects do not manually repeat owning source IDs
+[ ] set:new-set first-class set definition added
+[ ] four supported piece definitions added
+[ ] emblem + four icons produced
+[ ] set bonuses/unlocks live only on set owner
+[ ] piece effects do not repeat owner sourceId after migration
 [ ] reward/unlock pools edited explicitly
-[ ] generic equipment conformance passes
-[ ] synthetic Set N+1 test uses the first-class set owner
-[ ] mixed-set and 2/4-piece tests pass
+[ ] generic set/piece/art validation passes
+[ ] synthetic Set N+1 test uses first-class set owner
+[ ] mixed 2/4-piece behavior passes
 [ ] no equipment/controller/save-schema changes
-[ ] grayscale 4-piece contact sheet passes
+[ ] grayscale construction gate passes
 ```
 
-Example: “Add Enemy 11”
+## Enemy 11
 
 ```text
-[ ] stable enemy ID chosen
+[ ] unprefixed stable enemy ID chosen
 [ ] existing archetype/mechanic selected
 [ ] enemies.json row added
-[ ] actor art packet completed
-[ ] validated enemy:<id> actor binding added
-[ ] explicit encounter profile(s) updated
-[ ] existing old pools remain unchanged unless deliberately edited
-[ ] Compendium presentation entry added
-[ ] generic enemy/art/Compendium conformance passes
-[ ] no GameScene/view/save-schema branches
-[ ] runtime telegraph/counterplay truth checked
+[ ] actor binding enemy:<id> produced
+[ ] intended encounter profiles edited explicitly
+[ ] old pools remain unchanged unless deliberately edited
+[ ] Compendium row uses exact unprefixed enemy ID
+[ ] generic enemy/art/Compendium validation passes
+[ ] canonical spawn/death discovery path applies automatically
+[ ] no GameScene/UI/save-schema branch
+[ ] telegraph/counterplay manual check
 ```
 
 ---
 
-# 17. Machine-checkable extensibility gates
-
-Documentation templates are insufficient if regressions can silently reintroduce bespoke content logic. The implementation should keep generic tests for these properties.
+# 21. Machine-checkable extensibility gates
 
 ## Character gate
 
-A synthetic ninth character using existing primitives:
+Synthetic Character N+1:
 
 - validates;
-- appears in the registry and selection read model;
-- resolves the documented actor-art convention and explicit multi-asset presentation refs;
-- can reference existing ability/passive/unlock/art IDs;
-- requires no source edit outside fixture data.
-
-The shipped-content test must not assert the magic roster size `8`; it should derive expected membership from the registry/data fixture.
+- appears through registry `.all()` and selection read model;
+- uses existing ability/passive/unlock primitives;
+- resolves actor/presentation art;
+- requires no runtime source edit.
 
 ## Equipment gate
 
-After set metadata is first-class, a synthetic ninth four-piece set:
+After first-class set metadata:
 
-- validates as one set + four pieces;
-- activates 2/4-piece bonuses generically;
-- exposes all pieces in equipment read models;
-- contains no arbitrary provider piece;
-- contains no authored owner `sourceId` duplication;
-- requires no runtime/controller source edit.
+- one synthetic Set N+1 + four plain pieces validates;
+- 2/4 bonuses and upgrade unlocks resolve from set owner;
+- no arbitrary provider piece;
+- no manually synchronized owner `sourceId`;
+- no runtime/controller source edit.
 
 ## Gun-part gate
 
-A synthetic part in an existing slot with an existing trait:
+Synthetic part in existing slot/trait vocabulary:
 
 - validates;
-- appears in the registry/Gunsmith read model;
+- appears in Gunsmith read model;
 - does not enter unrelated reward pools automatically.
 
 ## Enemy gate
 
-A synthetic direct enemy using an existing archetype:
+Synthetic Enemy N+1:
 
-- validates;
-- resolves actor art;
-- can be placed in a test encounter profile;
-- appears in Compendium read models through generic derivation.
+- uses unprefixed enemy ID;
+- resolves `enemy:<id>` actor art;
+- joins an explicit test encounter;
+- appears in Compendium derivation;
+- requires no scene/UI/save edit.
 
-## Achievement/stage/supporting-catalog gates
+## Achievement/stage/supporting catalogs
 
-Synthetic definitions using existing condition/grant/objective/profile vocabulary validate and appear in read models without ID-specific source changes. The supporting-catalog matrix must remain complete whenever a new `src/data` content catalog is added.
+Synthetic definitions using existing condition/grant/objective/profile vocabulary validate and appear without ID-specific source changes.
 
-These tests should fail if a future refactor accidentally replaces catalog iteration with a fixed list.
-
----
-
-# 18. Scalability review of the current Alpha 3 implementation
-
-## Already in good shape
-
-### Characters
-
-- `DataCharacterRegistry` validates, clones, freezes and exposes `.all()` / lookup by stable ID.
-- character selection maps over the registry rather than a fixed roster.
-- unlocks use the shared condition vocabulary.
-- active abilities are referenced by ID; existing effect kinds are data-authored.
-- static passives are data-authored.
-- actor-art identity is simple and already machine-validated.
-
-**Verdict:** ordinary Character N+1 is structurally scalable once the fixed-count test is removed and the full presentation packet follows this contract.
-
-### Equipment registry / persistence
-
-- definitions are catalog-backed and registry-driven;
-- owned state is sparse by instance ID;
-- loadout is slot-keyed, not one field per equipment definition;
-- controller iterates owned data and registry definitions rather than item IDs.
-
-**Verdict:** ordinary pieces are scalable, but set authoring needs the provider-convention cleanup below.
-
-### Gunsmith parts
-
-- parts are catalog-backed with stable IDs and a generic registry;
-- slots/traits/effects are typed vocabularies;
-- explicit pools prevent automatic seeded-content perturbation.
-
-**Verdict:** ordinary new parts are scalable; remove repeated authored `sourceId` when the data contract is next touched.
-
-### Weapons / upgrades / profiles / arenas / audio
-
-The supporting-catalog audit found these domains are already definition/profile driven. Their complete copyable templates are frozen in `content-authoring-template-coverage.md`.
-
-**Verdict:** ordinary additions using existing primitives are scalable and should remain explicit-pool/composition changes rather than automatic global inclusion.
-
-### Visual art
-
-- `DataVisualArtRegistry` iterates the validated manifest and builds animation clips generically;
-- current actor naming convention is tested;
-- weapon/run-upgrade art references are explicit.
-
-**Verdict:** current assets are scalable; #167 integration must generalize/freeze the rendering-kind contract before proliferating new semantic icon kinds.
-
-### Compendium plan
-
-- presentation copy is keyed by enemy ID;
-- name/mechanics/stages/art are derived;
-- discovery state is sparse;
-- generic tests explicitly require Enemy N+1 to appear without core changes.
-
-**Verdict:** properly templated by this document + `monster-compendium.md`.
-
-## Current authoring debt that must not become precedent
-
-The canonical remediation register is TPL-01 through TPL-08 in `content-authoring-template-coverage.md`. The material pre-scale blockers are:
-
-### A. Equipment set metadata on arbitrary provider pieces — **must be removed before large-scale set expansion**
-
-Current runtime locates the first piece in a set carrying `setBonuses` / `upgradeUnlocks`. The author must know which piece is the hidden provider.
-
-**Target:** first-class `EquipmentSetDefinition` (or equivalent explicit set-owner catalog).
-
-### B. Authored `sourceId` inside equipment/part modifier rows — **should be removed during the same data-contract cleanup**
-
-The owner ID is already known from the definition/instance. Repeating it is a drift opportunity.
-
-**Target:** source identity injected by runtime resolution.
-
-### C. Character selection fixed-count test — **must become registry-derived**
-
-The controller implementation is generic, but the current test asserts exactly eight shipped characters. Character 9 should not require changing test code merely to update a magic number.
-
-### D. Equipment synthetic fixture codifies the provider-piece pattern — **must be rewritten with the set-owner refactor**
-
-The current extensibility test is useful but currently teaches future agents to put set metadata on `index === 0`. The replacement fixture must prove the intended first-class Set N+1 template instead.
-
-### E. Future `VisualArtKind` growth — **#167 integration guardrail**
-
-Do not add a new renderer branch solely because a static icon belongs to equipment, achievements, passives or another semantic domain. Use a bounded renderer contract.
+The supporting-catalog matrix in `content-authoring-template-coverage.md` must be updated when a new `src/data` content catalog appears.
 
 ---
 
-# 19. Final pass condition
+# 22. Current scalability verdict
 
-A domain is properly templated only when all of these are true:
+## Structurally good
+
+- characters: registry-driven, shared conditions, data-authored abilities/static passives;
+- enemies/bosses: catalog + registered mechanic composition;
+- weapons: explicit art references;
+- run upgrades: explicit presentation refs;
+- equipment ownership/loadout: sparse and registry-driven;
+- Gunsmith parts: registry-driven/explicit pools;
+- stages/encounters/difficulty/rewards: explicit composition;
+- achievements: catalog/metric driven;
+- visual art: registry-driven;
+- Compendium plan: one copy catalog + sparse discovery + derived relationships.
+
+## Must not become precedent
+
+The live implementation/test layer still has concrete authoring debt:
+
+1. equipment set metadata lives on an arbitrary provider piece;
+2. equipment/part effects repeat authored owner `sourceId`;
+3. character-selection test hard-codes current roster count `8`;
+4. equipment synthetic extensibility test teaches the provider-piece convention;
+5. current visual-art kind/prefix model must be generalized/frozen during #167 before many new presentation families land;
+6. permanent/meta-upgrade icon ref should be formalized only if #165 retains that surface.
+
+The canonical IDs/severity/resolution are recorded as TPL-01 through TPL-08 in `content-authoring-template-coverage.md`.
+
+---
+
+# 23. Final pass condition
+
+A domain is properly templated only when:
 
 1. a copyable definition skeleton exists;
 2. a copyable art/presentation skeleton exists where applicable;
-3. stable ID rules are explicit;
-4. owning catalog is explicit;
-5. cross-file references are explicit or a simple convention is documented and machine-validated;
-6. generic validation covers the new instance automatically;
-7. a synthetic “next item” fixture proves no core source edit is necessary;
-8. new content does not require a save migration;
+3. the live stable-ID convention is explicit;
+4. one owning catalog is explicit;
+5. cross-file refs are explicit or the naming convention is simple/documented/validated;
+6. generic validation covers the new instance;
+7. synthetic N+1 proves no core source edit;
+8. ordinary content needs no save migration;
 9. old deterministic pools do not change implicitly;
-10. there is no hidden provider/order/naming convention;
-11. there is no duplicated authoritative identity that the author must keep manually synchronized;
-12. no shipped-content test encodes a magic roster/set count that ordinary content growth must edit;
-13. the closest existing content-collision review is part of the template;
-14. every current content-bearing catalog is represented in the supporting coverage matrix.
+10. no hidden provider/order/naming convention exists;
+11. no duplicated authoritative identity must be synchronized manually;
+12. no test requires changing a magic roster/set count;
+13. closest visual/semantic collision is reviewed;
+14. every content-bearing catalog is represented in the coverage matrix.
 
-Under this standard, the **planning/authoring contract is now comprehensive**, but the live implementation/test surface should not be labelled fully template-clean until TPL-01 through TPL-04 are implemented. TPL-06 must be closed as part of the #167 presentation-art integration. This is deliberately stricter than saying “the code is data-driven”; it is the bar required for low-friction Character 9 / Equipment Set 9 / Enemy 11 content production.
+Under this standard, the **planning/authoring contract is comprehensive and ID-correct**, but the live runtime/test surface should not be called fully template-clean until TPL-01 through TPL-04 are implemented. TPL-06 closes during #167 integration.
