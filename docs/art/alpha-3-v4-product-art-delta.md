@@ -1,371 +1,346 @@
 # Alpha 3 Art Production — V4 Product Delta
 
-**Status:** authoritative product-delta companion to `alpha-3-art-production-briefs.md` and `alpha-3-current-content-art-matrix.md`.
+**Status:** authoritative V4 override for `alpha-3-art-production-briefs.md` and `alpha-3-current-content-art-matrix.md`.
 
-**Read order:** the main art brief remains the authority for unchanged assets. This file **supersedes** only the V4/product decisions listed below.
+**Execution/resource authority:** `../architecture/alpha-3-final-execution-handoff.md`, `../architecture/content-authoring-templates-v4.md`, and #170.
 
-**Reason for delta:** the post-acceptance product review deliberately changed the target game after the original “current Alpha 3” art inventory was frozen. Do not commission art for retired plumbing merely because it appeared in the earlier list.
+**How to read this:** the earlier art brief remains useful for unchanged detailed character/enemy/weapon/current-content design directions. This file **supersedes every V4/product/resource/source-policy difference listed below**. Do not implement stale wording from the earlier brief when this delta says otherwise.
+
+The post-acceptance review deliberately changed the target game after the RC1 art inventory was frozen. Do not commission art for retired plumbing merely because it existed in RC1.
 
 ---
 
-# 1. Target-catalog corrections
+# 1. Active V4 catalog corrections
 
-## 1.1 Retired badge: Well Protected
+## Retired active achievement: Well Protected
 
-Do **not** commission a new final badge for:
+Do not commission a new V4 badge for:
 
 ```text
 achievement:permanent-reinforced-coat-3 — Well Protected
 ```
 
-That achievement is tied to the legacy permanent-upgrade shop retired by the V4 product plan. Existing earned save history is preserved by migration, but the goal is not advertised to new V4 players.
+It belongs to the retired permanent-stat shop. Save V4 preserves already-earned historical completion where authoritative history exists, but the definition is removed from the active V4 achievement catalog.
 
-The earlier Well Protected badge brief is therefore **retired production scope**, not a missing asset.
+Any Well Protected badge direction in the older brief is **historical/retired production scope**, not a missing V4 asset.
 
-## 1.2 Replacement active badge: Warden Down
+## New active achievement: Warden Down
 
-New active target:
+Target stable ID:
 
 ```text
 achievement:boss-forge — Warden Down
 ```
 
-**Meaning:** defeat Forge Warden.
+32x32 badge direction:
 
-**32×32 badge brief:** the shared junkyard/workshop medal frame contains a **split furnace-gantry faceplate**: tall hood/gantry silhouette, central furnace throat, one broken asymmetric tool arm dropping outward and a clean diagonal fracture through the hot core. The broken tool-arm silhouette is mandatory.
+- shared workshop medal/patch frame;
+- tall split furnace-gantry faceplate;
+- central furnace throat;
+- one broken asymmetric tool arm dropping outward;
+- clean diagonal fracture through the hot core.
 
-**Palette:** dark gunmetal/charcoal, cream fracture, restrained copper/orange hot-core accent. Badge must still read with accent removed.
+Palette: dark gunmetal/charcoal, cream fracture, restrained copper/orange accent. It must remain distinct in grayscale from Crusher Down.
 
-**Must not become:**
-
-- Crusher Down, which is a broad horizontal compactor jaw with central fracture;
-- generic crown/skull “boss defeated” art;
-- Forge chapter emblem, which is an intact furnace/route identity rather than a destroyed boss;
-- Demolition/EXPLOSIVE badge language.
-
-**Black-silhouette cue:** tall gantry + one visibly fallen/broken side arm.
-
-**Grayscale gate:** Crusher Down and Warden Down must be distinguishable with all color removed.
+Must not become a generic crown/skull boss badge or the intact Forge chapter emblem.
 
 ---
 
-# 2. Forge / Foundry world packet — new justified location family
+# 2. Retire permanent/meta-upgrade production art
 
-The earlier art plan correctly refused to invent a second arena merely to generate more pictures. The product review now provides the missing justification: the existing Forge chapter cannot feel like a new chapter while every contract takes place in the exact Junkyard Lot art/bundle.
+V4 retires the legacy purchasable permanent-stat shop and generic Progression destination.
 
-The Forge location remains mechanically inside the existing Arena system. This is a **world-art/content packet**, not a new map engine.
+Therefore the four RC1 meta-upgrade icon briefs are **not active V4 production requirements**:
 
-## Family thesis
+```text
+reinforced-vest
+quick-paws-training
+sharpened-ammo
+magnetic-whiskers
+```
 
-**“A working improvised foundry built into reclaimed industrial scrap.”**
+Do not commission them merely because `meta-upgrades.json` existed in RC1. Their historical concepts remain in Git history for migration/debug context.
 
-Visual contrast against Junkyard:
+If a future product feature genuinely introduces a new persistent upgrade domain, it receives a new reviewed V4 content/mechanic contract rather than reviving this retired catalog implicitly.
+
+---
+
+# 3. Forge / Foundry world packet — justified second location family
+
+The earlier art pass correctly refused to invent a second Arena solely to create pictures. V4 now has a product reason: Forge chapter requires a real Foundry location using the existing Arena architecture.
+
+Family thesis:
+
+> **A working improvised foundry built into reclaimed industrial scrap.**
+
+Contrast:
 
 | Junkyard | Forge / Foundry |
 | --- | --- |
 | scattered salvage | processed/ordered industrial material |
-| open dirty plate yard | enclosed heat-management lanes |
+| open dirty plate yard | heat-management lanes |
 | tyre/crate/engine junk | ingots/coils/quench/ducting |
 | rust + cyan power accents | charcoal + refractory cream + copper heat accents |
 | hanging salvage press | furnace throat / cooling manifold |
-| irregular debris | deliberate grates, rails, heat-safe boundaries |
+| irregular debris | deliberate grates/rails/heat-safe boundaries |
 
-Do not make Forge a generic lava level. Heat is contained by machinery; most floor remains navigable industrial work space.
+Do not make Forge a generic lava level. Heat is contained industrial machinery; most floor remains usable work space.
 
-## 2.1 Floor family — 3 tiles
+## 3.1 Floor family — 3
 
 ### `world:forge-floor:base`
 
-**32×32 seamless tile.** Dark charcoal/steel plate floor with one broad refractory seam and sparse square fasteners. Compared with Junkyard base, seams are straighter and more deliberately maintained. Average value remains quiet enough for cream/cyan/orange actors and drops.
-
-**Must not:** repeat the Junkyard random plate-break pattern; contain glowing lava; imply collision.
+32x32 seamless dark charcoal/steel plate floor with broad refractory seam and sparse square fasteners. Straighter/more maintained than Junkyard. Quiet average value.
 
 ### `world:forge-floor:grate-patch`
 
-**32×32 seamless-compatible variant.** One large industrial drain/grate band crossing part of the tile with very dark negative slots and a restrained copper edge. Slots are visual only and cannot look like holes the player should avoid.
-
-**Silhouette/value cue:** broad parallel bars.
+32x32 compatible variant with one broad drain/grate band, dark negative slots and restrained copper edge. Visual-only slots must not imply a pit/collider.
 
 ### `world:forge-floor:heat-scar`
 
-**32×32 variant.** Refractory plate with one large heat-discoloration ring/arc and welded replacement seam. No active glow: this is historic heat wear, not a live hazard.
+32x32 refractory plate with historical heat-discoloration arc/ring and replacement weld. No active glow; distinct from live heat hazard.
 
-**Must not:** resemble the active heat-grate hazard below.
-
-## 2.2 Boundary family — 4 tiles
+## 3.2 Boundary family — 4
 
 ### `world:forge-boundary:straight`
 
-**32×32.** Heavy lower refractory brick/plate mass topped by one continuous steel safety rail/duct. The clean inner edge must match collision truth.
+Heavy refractory lower mass + continuous steel rail/duct. Inner edge matches collision truth.
 
 ### `world:forge-boundary:corner`
 
-**32×32.** Turns the refractory mass and top rail cleanly. The inner playable corner remains visually open; no diagonal overhang beyond collider intent.
+Turns the same inner collision edge cleanly; no decorative overhang into the playable lane.
 
 ### `world:forge-boundary:patch`
 
-**32×32.** Repaired straight segment with one oversized cream refractory replacement tile held by dark corner clamps. Structural line/rail remains continuous.
+Repaired straight segment with oversized cream refractory replacement tile and dark clamps while structural line remains continuous.
 
 ### `world:forge-boundary:gate`
 
-**32×32.** Narrow industrial feed/chute opening framed by two vertical rollers/heat shields. Unlike Junkyard’s salvage gate, this is a material-feed aperture. Opening must match actual spawn/passability semantics.
+Industrial feed/chute aperture framed by rollers/heat shields. Opening matches actual spawn/passability semantics.
 
-**Boundary collision gate:** in black silhouette, Forge boundary is straighter/heavier/more engineered than the Junkyard stacked-scrap wall.
+Black silhouette must be straighter/heavier/more engineered than Junkyard’s stacked-scrap wall.
 
-## 2.3 Low/decorative props — 6 assets
+## 3.3 Low props — 6
 
-These are non-colliding unless the Arena definition explicitly promotes one to an obstacle skin. Artwork must not imply an invisible collider.
+- `world:forge-prop:coil-rack` — two large rolled coils on squat rack; circular negative space; not tyres.
+- `world:forge-prop:ingot-pallet` — broad stacked ingots, not tiny bar noise.
+- `world:forge-prop:quench-drum` — short wide tank, dark liquid opening, thick hose; not generic hazard barrel.
+- `world:forge-prop:tool-cart` — low tray/cart with broad tool silhouettes; not a vehicle.
+- `world:forge-prop:slag-pile` — low cooled dark slag; no active glow/damage implication.
+- `world:forge-prop:heat-beacon` — original shutter/lens warning post; avoid copied regulatory symbol/text.
 
-### `world:forge-prop:coil-rack` — 32×24
+Decorative versions must not visually promise collision that does not exist.
 
-Two large rolled metal coils on a squat open rack; one dominant circular negative space. Dark steel + copper edge. Reads manufactured stock, not tyres.
+## 3.4 Landmarks / obstacle skins — 2
 
-**Collision risk:** must sit low enough not to look impassable when decorative.
+### `world:forge-landmark:furnace-throat`
 
-### `world:forge-prop:ingot-pallet` — 32×20
+64x64 minimum. Squat-wide furnace with dark central throat, cream refractory rim, asymmetric exhaust hood, copper heat pipe/valve mass and chassis aligned to actual footprint.
 
-Three/four oversized rectangular ingots stacked in a deliberate offset pattern on one dark pallet/base. Use broad masses, not tiny bars.
+Must not resemble Forge Warden, which is tall/articulated/mobile.
 
-### `world:forge-prop:quench-drum` — 22×26
+### `world:forge-landmark:cooling-manifold`
 
-Short wide cylindrical quench tank with cream rim, dark liquid opening and one thick side hose. No hazard-red barrel shorthand.
+64x64 minimum. Twin-cylinder cooling assembly, serpentine pipe and large dark fan/radiator grid. Small coolant/control accent only. Silhouette differs from Junkyard barrel power stack.
 
-### `world:forge-prop:tool-cart` — 28×24
-
-Low wheeled workshop cart with one broad top tray and two large tool silhouettes/clamps. Wheels are tiny support cues; cart is not a vehicle.
-
-### `world:forge-prop:slag-pile` — 36×20
-
-Low irregular dark cooled slag/glass-like chunks with one/two copper-brown crust facets. No active glow, no damage implication.
-
-### `world:forge-prop:heat-beacon` — 18×28
-
-Short industrial warning post with a large **striped shutter/lens housing**, not a copied road/construction beacon. Muted when decorative. Avoid text and familiar regulatory symbols.
-
-## 2.4 Landmarks / obstacle skins — 2 assets
-
-### `world:forge-landmark:furnace-throat` — 64×64 minimum
-
-Primary Forge landmark. Squat-wide furnace body with:
-
-- large central dark mouth/throat;
-- thick cream refractory rim;
-- asymmetric upper exhaust hood;
-- one copper heat pipe/valve mass;
-- broad lower chassis aligned to its real obstacle footprint.
-
-The throat may contain a restrained warm interior accent but must not spill a permanent huge glow into gameplay space.
-
-**Must not become:** Forge Warden boss. The boss is tall, articulated and mobile; this landmark is broad, fixed and architectural.
-
-### `world:forge-landmark:cooling-manifold` — 64×64 minimum
-
-Large vertical/sideways industrial cooling assembly with two broad cylinders, one serpentine pipe and a big dark fan/radiator grid. Cyan may appear only as a small coolant/control accent, not the Junkyard power-stack identity.
-
-**Silhouette:** twin-cylinder + pipe loop; unmistakably different from Junkyard barrel power stack.
-
-## 2.5 Active heat hazard — 1 tile family
+## 3.5 Active heat hazard — 1
 
 ### `world:forge-hazard:heat-grate`
 
-**32×32 tiling gameplay hazard surface.** Thick dark grate/vent with broad refractory border and a visible contained hot underlayer. The hot region uses cream → copper/orange, not pure red rectangle fill.
+32x32 tiling gameplay hazard: thick dark grate/vent, broad refractory border, contained cream->copper/orange hot underlayer.
 
-The safe floor and live heat hazard must be distinguishable in grayscale through **grate density + border silhouette**, not color alone.
+Safe floor vs live hazard must differ in grayscale by grate density/border silhouette, not hue alone.
 
-Runtime presentation contract:
+Runtime owns damage/timing/rect. Art tiles/clips to exact hazard bounds. Reduced motion never removes danger readability.
 
-- `HazardDefinition` gains an explicit presentation art reference (name may follow final schema);
-- HazardSystem remains the damage owner but renders a tiled art-backed surface when provided;
-- collider/rect dimensions remain authoritative;
-- art is clipped/tiled to the exact hazard bounds;
-- old/no-art hazard definitions retain a clear procedural fallback;
-- reduced motion does not remove the danger read.
-
-**Do not bake damage timing/amount into art.**
-
-## Forge packet count
+Forge world packet total:
 
 ```text
-3 floor tiles
-4 boundary tiles
+3 floor
+4 boundary
 6 low props
-2 landmark/obstacle skins
-1 hazard tile
-= 16 Forge world production assets
+2 landmarks
+1 heat hazard
+= 16 world assets
 ```
 
-Plus the existing Forge chapter/location card/emblem composition described below.
+plus Forge chapter/location presentation.
 
 ---
 
-# 3. Forge chapter presentation corrections
+# 4. Forge chapter / location presentation
 
-## Forge chapter emblem
+## Chapter emblem
 
-Retain the existing core direction—furnace hood + contained hot core—but now tie it to the new world family:
+Intact clipped furnace hood + refractory side blocks + feed-route notch + contained hot core. It is a location/chapter identity, not the destroyed Warden Down badge.
 
-- clipped furnace hood silhouette;
-- two short refractory side blocks;
-- one central feed-route notch;
-- contained orange/cream core;
-- dark steel outer mass.
+## Location card
 
-It must look like an **intact location identity**, not the broken Warden Down achievement.
-
-## Forge location card
-
-Add a dedicated crop-safe card (roughly 96×64 logical composition target):
+Crop-safe roughly 96x64 composition:
 
 - dark plate/grate floor;
 - refractory boundary rail;
-- furnace throat at one rear side;
+- furnace throat on one rear side;
 - cooling manifold opposite;
-- one open navigable central lane;
-- small heat-grate cue that does not dominate;
+- open central navigation lane;
+- small heat-grate cue;
 - no monsters/text baked in.
 
-The Junkyard card and Forge card must be distinguishable at thumbnail size by large composition, not only palette.
+Junkyard and Forge cards must remain distinguishable at thumbnail size by composition, not only palette.
 
 ---
 
-# 4. V4 menu/navigation art authority
+# 5. Final V4 navigation art
 
-The earlier generic navigation set is superseded by these player-facing destinations.
-
-## 4.1 Home / Play Contract
-
-### `ui-nav:play-contract`
-
-Primary CTA glyph: clipped workshop contract/tag plate intersected by a bold forward route notch/arrow. Avoid clipboard-with-tiny-lines. It should imply **mission + go**.
-
-### `ui-home:next-contract-frame`
-
-Reusable decorated card/frame, not stage-specific painting. Broad corner clamps, small route rail and space reserved for chapter/location/objective/reward art. Selection/focus remains UI state, not baked pixels.
-
-## 4.2 Mercenary
-
-### `ui-nav:mercenary`
-
-Original mercenary identity: cat/dog/animal ear silhouette over a simple diagonal tool/weapon harness strap. Do not use military rank chevrons.
-
-Roster/detail surfaces reuse character portraits, ability/passive icons and weapon art rather than creating another character icon family.
-
-## 4.3 Loadout
-
-### `ui-nav:loadout`
-
-Interlocked **weapon receiver silhouette + armour plate** in a divided workshop tray. Both halves must survive 24px; not a generic backpack.
-
-Subsurface glyphs:
-
-- Equipment reuses the equipment-set/armour vocabulary;
-- Gunsmith reuses receiver/wrench/component vocabulary.
-
-## 4.4 Career
-
-### `ui-nav:career`
-
-A short vertical **workshop service strip** with three large stamped accomplishment notches and one rising route node. No literal trophy cup. This is goals/history/knowledge, not spendable stats.
-
-Career children:
-
-- Achievements use badge art;
-- Compendium uses its own field-guide nav mark;
-- mastery/next-goal overview composes real character/stage/achievement art.
-
-## 4.5 Compendium
-
-### `ui-nav:compendium`
-
-Open riveted field-guide plate with one large monster-eye/silhouette print on the visible page. No tiny fake writing. Distinct from generic book icon through scrap-binding tabs and monster mark.
-
-## 4.6 Training / Golden Run
-
-### `ui-nav:training`
-
-Workshop practice target made from one circular scrap plate on a stand, crossed by a short motion route. If Golden Run is retained, use a small gold/cream accent as state/name support; silhouette must still read as **practice**, not main campaign.
-
-Do not keep a standalone Arena navigation icon on Home.
-
-## 4.7 Settings
-
-Keep existing settings icon family; it remains system configuration rather than progression/content.
-
----
-
-# 5. Career overview art composition
-
-Career next-goal rows do **not** receive bespoke art per generated sentence. They compose authoritative content art:
-
-- next Contract → chapter/location/objective art;
-- next boss → boss actor/badge silhouette;
-- character unlock → portrait;
-- mastery → character portrait + reusable mastery notch/frame;
-- achievement target → achievement badge when spoiler-safe;
-- Compendium progress → reusable Compendium mark + counts.
-
-This prevents the Career surface from becoming another duplicate icon database.
-
----
-
-# 6. Active V4 art-catalog identity gate
-
-Before production begins, generate/compare stable ID sets from the **target V4 catalogs**, not only the current RC1 files.
-
-Required equality sets include:
+The older generic navigation inventory is superseded by the final player-facing structure:
 
 ```text
-characters -> actor + portrait + passive (+ referenced ability)
-enemies -> actor
-run upgrades -> upgrade icon
-active achievements -> badge
-Equipment Sets -> emblem
-Equipment pieces -> piece icon
-Gun Parts -> part icon
-abilities -> active icon
-stages/chapters/arenas -> presentation/world references
-Compendium -> no duplicate portrait requirement; uses enemy actor by default
+Play Contract
+Mercenary
+Loadout -> Equipment / Gunsmith
+Career -> Next Goals / Achievements / Compendium
+Training (optional Golden Run)
+Settings
 ```
 
-Retired content such as Well Protected is tracked explicitly as retired and must not make “missing asset” checks fail.
+There is no peer Home `Arena` destination and no generic top-level `Progression` icon.
 
-No count-only completeness test is accepted.
+## Play Contract — `ui-nav:play-contract`
+
+Workshop contract/tag plate intersected by bold forward route notch. Reads mission + go; no tiny clipboard text.
+
+## Home next-Contract frame — `ui-home:next-contract-frame`
+
+Reusable decorated frame with space for chapter/location/objective/reward content. Focus/selection is live UI state, not baked art.
+
+## Mercenary — `ui-nav:mercenary`
+
+Original animal-ear silhouette over simple diagonal tool/weapon harness strap. No military rank chevrons.
+
+## Loadout — `ui-nav:loadout`
+
+Interlocked weapon receiver + armour plate in divided workshop tray. Equipment/Gunsmith child surfaces reuse their own icon vocabularies.
+
+## Career — `ui-nav:career`
+
+Workshop service strip with large accomplishment notches + rising route node. No generic trophy cup.
+
+## Compendium — `ui-nav:compendium`
+
+Open riveted field-guide plate with one large monster-eye/silhouette print; no tiny fake writing.
+
+## Training — `ui-nav:training`
+
+Workshop practice target on stand + short route/motion mark. If Golden Run is retained, gold/cream accent is secondary to the practice silhouette.
+
+Settings retains the existing system-configuration family.
 
 ---
 
-# 7. Logical art / physical resource production rule
+# 6. Career composition rule
 
-This delta adopts the resource architecture in `alpha-3-implementation-blueprint.md`.
+Career next-goal rows compose authoritative content art rather than receiving bespoke art per generated sentence:
+
+```text
+next Contract -> chapter/location/objective art
+next boss -> boss actor/badge silhouette
+Mercenary unlock -> portrait
+mastery -> portrait + reusable mastery treatment
+achievement -> badge when spoiler-safe
+Compendium progress -> Compendium mark + count
+```
+
+Do not create another duplicate icon database for Career.
+
+---
+
+# 7. Generated / selected source policy — V4 supersession
+
+The earlier absolute wording that generated concept pixels can never become production pixels is superseded.
+
+V4 rule:
+
+- exploratory boards are not automatically runtime art;
+- a generated sheet/image may become a **selected production source** after deliberate review;
+- preserve the untouched selected generated source as provenance;
+- import through a deterministic source pipeline;
+- review/edit/polish in Pixelorama as required for silhouette, palette, originality, anchor, frame/tag and scale quality;
+- final builder/import parity reproduces the **accepted production source**, not an obsolete pre-polish concept;
+- real-game review determines acceptance.
+
+No ceremonial manual redraw is required solely because generation contributed to the accepted source.
+
+This policy does not weaken originality review: copied/reference-game expression remains prohibited.
+
+---
+
+# 8. Logical art / physical resource production rule
+
+Use `../architecture/alpha-3-final-execution-handoff.md`, `../architecture/content-authoring-templates-v4.md` and #170—not the retired intermediate blueprint—as authority.
+
+Separate:
+
+```text
+stable logical VisualArtBinding identity
+from
+physical image / atlas / spritesheet resource identity
+```
 
 For static UI art:
 
-- one logical stable art ID per semantic asset;
-- editable Pixelorama/source + deterministic builder/import retained per logical asset/family;
-- standalone reviewed export may be kept for provenance/inspection;
-- runtime may consume a deterministic named-frame atlas resource;
-- atlas frame position/index is not semantic identity;
-- asset packing cannot change game/save IDs.
+- one stable logical ID per semantic asset;
+- editable source + deterministic builder/import retained;
+- runtime may pack many logical IDs into deterministic named-frame atlases;
+- atlas frame index/position is never semantic identity;
+- repacking cannot rename gameplay/save/logical art IDs.
 
-Large animated actors and world textures may remain dedicated physical resources when that is the simpler/readable contract.
+Animated actors/world textures may stay dedicated resources when simpler.
 
-The art producer should never need to add another renderer kind merely because the icon belongs to Equipment rather than Achievements.
+Renderer kinds describe behavior (`icon`, `portrait`, `animated-actor`, `world`, etc.), not semantic ownership. Equipment/Achievement/Part/Ability icons do not each create a renderer branch.
+
+Bulk #167 production does not land onto RC1’s one-binding/one-texture/global-Boot-preload model before #170’s resource foundation is ready.
 
 ---
 
-# 8. Distinguishability review for the new packet
+# 9. Active V4 stable-ID coverage gate
 
-The following pairs are mandatory side-by-side review groups:
+Before production, compare exact stable ID sets from **target V4 catalogs**, not count alone.
 
-### Location/world
+Required equality/coverage includes:
 
-- Junkyard base floor vs Forge base floor;
+```text
+Mercenaries -> actor + portrait + passive + referenced ability presentation
+Enemies -> actor
+Run upgrades -> icon
+Active achievements -> badge
+Equipment Sets -> emblem
+Equipment pieces -> icon
+Gun Parts -> icon
+Abilities -> active icon
+Contracts/chapters/Arenas -> presentation/world refs
+Compendium -> enemy actor by default; no duplicate portrait requirement
+```
+
+Retired content such as Well Protected/meta-upgrade icons is explicitly excluded from active V4 coverage.
+
+A count of 10 badges is not proof if one real stable ID was replaced with an invented one.
+
+---
+
+# 10. Mandatory distinguishability groups
+
+Review side-by-side in black silhouette/grayscale where applicable:
+
+### World
+
+- Junkyard base vs Forge base;
 - Junkyard gate vs Forge feed gate;
 - tyre pile vs Forge coil rack;
-- barrel power stack vs cooling manifold;
-- oil stain vs cooled slag pile vs active heat grate;
+- power stack vs cooling manifold;
+- oil stain vs cooled slag vs active heat grate;
 - hanging press vs furnace throat.
 
-### Chapter/boss
+### Boss/chapter
 
 - Forge chapter emblem vs Forge location card vs Forge Warden actor vs Warden Down badge;
 - Crusher Down vs Warden Down.
@@ -374,32 +349,52 @@ The following pairs are mandatory side-by-side review groups:
 
 - Play Contract vs Career;
 - Mercenary vs Compendium;
-- Loadout vs Gunsmith sub-icon;
+- Loadout vs Gunsmith child icon;
 - Training vs Play Contract.
 
-Each group must pass:
+Each group passes:
 
-1. black silhouette where applicable;
+1. black silhouette where relevant;
 2. grayscale;
-3. 24–32px navigation/icon scale;
-4. 390×844 live composition;
-5. label-hidden recognition by an independent reviewer.
+3. 24–32px icon scale;
+4. 390x844 live composition;
+5. label-hidden recognition by independent review.
 
-If a reviewer needs the text label to separate a pair, revise the art.
+If text is required to separate two semantic icons, revise the art.
 
 ---
 
-# 9. Production closure condition
+# 11. Production workflow
 
-This delta is complete only when the final production matrix records:
+Per family:
 
-- the 16 Forge world assets;
-- Forge location card/chapter treatment;
-- Warden Down replacing Well Protected in active badge production;
-- Contract/Mercenary/Loadout/Career/Compendium/Training navigation art;
-- active V4 stable-ID equality;
-- logical-binding → physical-resource/atlas mapping;
-- source/builder/export provenance;
-- actual-game review screenshots for Junkyard and Forge at target viewports.
+1. generate exact target stable-ID inventory;
+2. instantiate detailed family/item brief;
+3. explore multiple directions where ambiguity warrants it;
+4. select with collision/originality rationale;
+5. create or import committed editable production source;
+6. preserve deterministic source/build/import parity;
+7. export through logical-art/resource/atlas pipeline;
+8. run generic art/content/parity validation;
+9. review silhouette, grayscale, palette, anchor, animation, threat/semantic read, originality and reduced motion;
+10. review in actual 360x640 / 390x844 and desktop composition;
+11. record approved source/export/resource mapping.
 
-Do not start bulk generation from the older brief without applying this delta.
+---
+
+# 12. V4 art PASS
+
+The V4 art tranche is complete only when:
+
+- exact active V4 stable-ID coverage passes;
+- Well Protected/meta-upgrade production is retired and Warden Down exists;
+- all 16 Forge world assets + Forge location/chapter presentation are approved;
+- final Contract/Mercenary/Loadout/Career/Compendium/Training navigation art is approved;
+- unchanged detailed Mercenary/enemy/weapon/run-upgrade/Equipment/Part briefs are instantiated correctly;
+- logical bindings map to bounded physical resources/atlases under #170;
+- source/builder/export parity is machine-checked;
+- actors/icons/pickups/world are distinct in grayscale/silhouette where required;
+- real 360x640 / 390x844 + desktop review passes;
+- no active shipped content depends on accidental clone/placeholder/borrowed final art.
+
+Do not start or close bulk production from the older brief without applying this delta.
