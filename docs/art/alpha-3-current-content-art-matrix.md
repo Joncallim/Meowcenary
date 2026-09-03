@@ -1,151 +1,175 @@
 # Alpha 3 Current-Content Art Matrix
 
-**Status:** final exhaustiveness companion to `alpha-3-art-production-briefs.md` for Issue #167.
+**Status:** catalog-exact exhaustiveness companion to `alpha-3-art-production-briefs.md` for Issue #167.
 
 **Baseline reviewed:** `codex/alpha3-campaign` at `f5ea5e297c54c84ec8b3ad7193768fbc29ac33a7`.
 
-This file exists because a visual-manifest audit alone is not enough: some current player-facing data uses text or borrowed icons and therefore has no dedicated `visual-art.json` binding yet. The final review checks every current `src/data` catalog and records whether it requires dedicated art, composes existing art, or deliberately remains procedural/textual.
+This file exists because a visual-manifest audit alone is insufficient: some player-facing data uses text/borrowed icons and therefore has no dedicated `visual-art.json` binding yet. Counts are not enough either. The pass condition is **stable-ID coverage** against every current player-facing catalog.
 
-If this matrix and the main production brief differ on completeness, **this matrix is the later exhaustive review**.
+If this matrix and an older art brief differ, the current repository catalog wins and the brief must be corrected.
 
 ---
 
-## 1. Current data-catalog coverage
+# 1. Current data-catalog coverage
 
 | Data file | Player-facing visual need | Production coverage |
 | --- | --- | --- |
 | `abilities.json` | 8 active ability icons | Main brief §4 |
-| `achievements.json` | 10 achievement badges + hidden treatment | Main brief §10 |
+| `achievements.json` | exact 10 current achievement badges + hidden treatment | Main brief §10 |
 | `arenas.json` | 15 world assets + one location-card composition | Main brief §§13–14 |
-| `asset-bundles.json` | No standalone art; owns grouping/loading only | Explicitly none |
-| `audio-assets.json` | Audio, not graphics | Out of graphics scope |
-| `audio-map.json` | Audio routing, not graphics | Out of graphics scope |
-| `characters.json` | 8 actor sheets, 8 portraits, 8 passive icons; starting weapon reuses weapon art | Main brief §§3, 5, 6 |
-| `content-version.json` | No player-facing art | Explicitly none |
-| `difficulty-profiles.json` | No dedicated art; difficulty remains text/state, not a fake badge taxonomy | Explicitly none |
-| `encounter-profiles.json` | No standalone art; stage cards compose real monster/stage art where needed | Explicitly none |
-| `enemies.json` | 10 actor sheets; Compendium reuses them | Main brief §11 + Compendium plan |
+| `asset-bundles.json` | no standalone art; grouping/loading only | Explicitly none |
+| `audio-assets.json` | audio, not graphics | Out of graphics scope |
+| `audio-map.json` | audio routing, not graphics | Out of graphics scope |
+| `characters.json` | 8 actor sheets, 8 portraits, 8 passive icons; starting weapons reuse weapon art | Main brief §§3, 5, 6 |
+| `content-version.json` | no player-facing art | Explicitly none |
+| `difficulty-profiles.json` | no dedicated art; tuning remains data | Explicitly none |
+| `encounter-profiles.json` | no standalone art; stage/Compendium derive real monster relationships | Explicitly none |
+| `enemies.json` | exact 10 current actor sheets; Compendium reuses them | Main brief §11 + Compendium plan |
 | `equipment.json` | 32 dedicated piece icons + 8 set emblems | Main brief §9 |
-| `gun-parts.json` | 12 part icons + 7 slot glyphs + 3 currently used trait emblems | Main brief §8 |
-| `loot-tables.json` | No loot-table icon. Rewards compose XP/scrap/chest/weapon/part/equipment art | Main brief §§6, 8, 9, 12 |
-| `meta-upgrades.json` | **4 current legacy progression icons** | Section 2 below |
-| `reward-profiles.json` | No reward-profile painting; compose actual granted item/currency icons | Explicitly none |
-| `spawn-curves.json` | Simulation data, no standalone art | Explicitly none |
+| `gun-parts.json` | exact 12 current physical part icons + **8** slot glyphs (including `trait`) + 3 used trait emblems | Main brief §8 |
+| `loot-tables.json` | no loot-table icon; rewards compose actual XP/scrap/chest/weapon/part/equipment art | Main brief §§6, 8, 9, 12 |
+| `meta-upgrades.json` | 4 current legacy progression icons if surface survives #165 | Main brief §15 |
+| `reward-profiles.json` | no reward-profile painting; show actual granted content/currency | Explicitly none |
+| `spawn-curves.json` | simulation data; no standalone art | Explicitly none |
 | `stages.json` | 2 chapter emblems, 1 location card, 4 objective icons, boss marker | Main brief §14 |
-| `upgrades.json` | 18 run-upgrade icons | Main brief §7 |
+| `upgrades.json` | exact 18 current run-upgrade icons | Main brief §7 |
 | `visual-art.json` | 77 current runtime bindings need approval/replacement audit | Main brief §§2–13 |
-| `weapon-feel.json` | Muzzle/impact/recoil remain runtime procedural feedback, not raster sprites | Explicitly none |
+| `weapon-feel.json` | muzzle/impact/recoil remain runtime procedural feedback | Explicitly none |
 | `weapons.json` | 9 rack icons, 9 held weapons, 3 family projectiles; legacy default projectile separately retained/reviewed | Main brief §6 |
 
-### Rule established by this review
-
-Future exhaustiveness passes start from **all current player-facing data catalogs + all UI surfaces + the visual manifest**, not from `visual-art.json` alone.
+Future exhaustiveness starts from **all player-facing data catalogs + all UI surfaces + the visual manifest**, then compares stable IDs rather than only counts.
 
 ---
 
-# 2. Legacy permanent/meta progression — 4 icons
+# 2. Stable-ID proof for previously collision-prone catalogs
 
-These four definitions are still present in `meta-upgrades.json` and therefore need a deliberate visual treatment for as long as the Progression surface continues to expose them. They use the 24×24 semantic icon language but must not collide with similarly named run upgrades, passives or equipment.
+## 2.1 Run upgrades — exact 18
 
-If #165 retires the legacy Progression system entirely, remove these requirements together with the player-facing feature; do not keep the feature merely because icons were produced.
+The production brief must contain one icon brief for each of these current IDs and no invented substitute:
 
-## 2.1 Reinforced Vest — `reinforced-vest`
+```text
+quick-paws
+extra-scrap
+hot-barrel
+scrap-magnet
+reinforced-coat
+fast-learner
+heavy-rounds
+long-barrel
+split-shot
+punch-through
+glass-cannon
+run-and-gun
+pistol-deadeye
+pistol-needle-rounds
+smg-overclock
+smg-spray
+shotgun-buckshot
+shotgun-breacher
+```
 
-**Meaning:** permanent maximum-health training/upgrade.
+The earlier draft's `Last Stand` was not current content and is removed. `pistol-needle-rounds` is now explicitly briefed.
 
-**Brief:** a simple work vest mounted on a small workshop mannequin/stand, with **two stacked added reinforcement plates** across the torso and a small upward progression notch beneath it. The training/installed-upgrade framing is important: this must not look like an equippable inventory item.
+## 2.2 Gunsmith parts — exact 12
 
-**Palette/read:** dark workwear, steel plates, cream edge; one restrained teal progress accent.
+```text
+part:receiver-compact
+part:receiver-heavy
+part:barrel-standard
+part:barrel-long
+part:optic-red-dot
+part:stock-padded
+part:trigger-hair
+part:magazine-extended
+part:underbarrel-grenade
+part:barrel-piercing
+part:trait-fire
+part:trait-fire-mastered
+```
 
-**Must not become:**
+Current slots represented by the data contract:
 
-- run upgrade **Reinforced Coat**, which is a patched wearable coat/vest with one plate;
-- Commando/Juggernaut equipment armor, which is an owned physical equipment piece;
-- a generic heart icon.
+```text
+receiver
+barrel
+optic
+stock
+trigger
+magazine
+underbarrel
+trait
+```
 
-**Black-silhouette cue:** vest-on-stand + double plate.
+The physical part list must therefore not invent Long-Range Optic, Stable Stock, Standard Underbarrel or an Incendiary Barrel as if they were current definitions. FIRE/PIERCING/EXPLOSIVE emblems remain reusable trait semantics; physical Fire Trait Core items remain separate art.
 
-## 2.2 Quick Paws Training — `quick-paws-training`
+## 2.3 Achievements — exact 10
 
-**Meaning:** permanent movement-speed training.
+```text
+achievement:first-kill                    -> First Blood
+achievement:kill-milestone-25             -> Scrap Squad
+achievement:kill-milestone-100            -> Junkyard Veteran
+achievement:first-merge                   -> Forge Initiate
+achievement:boss-crusher                  -> Crusher Down
+achievement:chapter-junkyard              -> Junkyard Champion
+achievement:first-victory                 -> First Victory
+achievement:mastery-scrap-tabby           -> Tabby Mastery
+achievement:scrap-banked-1000             -> Scrap Tycoon
+achievement:permanent-reinforced-coat-3   -> Well Protected
+```
 
-**Brief:** two paw prints crossing **three chunky workshop stepping blocks/training markers** in sequence, ending with a small upward arrow-notch built into the last block. The course/conditioning motif distinguishes permanent training from an immediate speed effect.
-
-**Palette/read:** cream paw marks, dark/steel blocks, small cyan progress notch.
-
-**Must not become:**
-
-- run upgrade **Quick Paws**, which is only forward paw prints + speed ticks;
-- Volt Lynx **Light Paws**, which uses narrow airborne lynx prints;
-- Adrenaline, which uses a speedometer arc.
-
-**Black-silhouette cue:** paw trail over three rectangular steps.
-
-## 2.3 Sharpened Ammo — `sharpened-ammo`
-
-**Meaning:** permanent weapon-damage improvement.
-
-**Brief:** one broad, clearly fictional filed scrap slug held against a small **workshop grinding/file wheel or beveling jig**, with a bright newly cut edge on the slug. The workshop operation is the main semantic cue: this is permanent preparation, not an in-run projectile effect.
-
-**Palette/read:** steel slug, dark jig, cream freshly filed edge, small rust/cyan workshop accents.
-
-**Must not become:**
-
-- **Heavy Rounds**, which is one oversized weighted slug;
-- **Punch Through**, which is a projectile crossing plates;
-- the PIERCING trait emblem;
-- realistic ammunition.
-
-**Black-silhouette cue:** broad slug + circular/angled filing jig contact.
-
-## 2.4 Magnetic Whiskers — `magnetic-whiskers`
-
-**Meaning:** permanent pickup-radius improvement.
-
-**Brief:** a compact cat muzzle/cheek silhouette with **two long bent whiskers ending in small salvage-coil tips**, drawing one bolt inward from each side. Keep the muzzle abstract enough to read at 24px; the paired whiskers are the dominant shape.
-
-**Palette/read:** cream muzzle/whiskers, dark outline, teal coil tips, one rust bolt.
-
-**Must not become:**
-
-- **Scrap Magnet**, which is a horseshoe magnet pulling a bolt;
-- Scrap Weasel **Magnet Belly**, which is a belt coil around one bolt;
-- **Scavenge Pulse**, which is a central coil sending pulse rings;
-- Scrap Tabby **Scrap Hoarder**, which is a pouch.
-
-**Black-silhouette cue:** central muzzle with two long symmetrical hooked whiskers.
+The earlier draft's Untouchable, Hot Work and Fully Suited badges were not current achievement definitions and are removed from the production list.
 
 ---
 
-# 3. Non-raster / procedural graphics explicitly reviewed
+# 3. Legacy permanent/meta progression — 4 icons
 
-The following current visual feedback does **not** need a bespoke sprite simply to make the art list longer.
+These remain relevant only while the Progression surface exposes them.
+
+## Reinforced Vest — `reinforced-vest`
+
+Work vest on a small workshop mannequin/stand with two stacked reinforcement plates and progress notch. The mannequin/training framing distinguishes permanent investment from run Reinforced Coat and equippable armour.
+
+## Quick Paws Training — `quick-paws-training`
+
+Paw trail crossing three workshop stepping/training blocks with an upward progress notch. Distinct from Quick Paws, Light Paws and Adrenaline.
+
+## Sharpened Ammo — `sharpened-ammo`
+
+Broad fictional scrap slug against filing/grinding jig, making the permanent workshop preparation operation the read. Distinct from Heavy Rounds, Punch Through and PIERCING.
+
+## Magnetic Whiskers — `magnetic-whiskers`
+
+Abstract cat muzzle with two long bent coil-tipped whiskers drawing bolts inward. Distinct from Scrap Magnet, Magnet Belly and Scavenge Pulse.
+
+If #165 retires legacy Progression, remove these art requirements with the feature.
+
+---
+
+# 4. Non-raster/procedural graphics explicitly reviewed
 
 ## Weapon feel
 
-`weapon-feel.json` currently owns family-specific muzzle radius/color, impact radius/color and recoil. Keep muzzle flash/impact as crisp bounded runtime FX unless visual review proves a pixel sprite materially improves readability. Runtime remains the timing authority. If sprite FX are later introduced, create one small family per genuinely different shape and keep lifetime/recoil out of the asset.
+`weapon-feel.json` owns family muzzle radius/color, impact radius/color and recoil. Keep these as crisp bounded runtime FX unless visual evidence proves a sprite materially improves readability. Asset art never owns timing/recoil values.
 
-## Health / XP meters
+## Health/XP meters
 
-Meters remain runtime geometry with art-backed framing/glyphs. Do not bake meter fill amounts into sprites.
+Meters remain runtime geometry with art-backed framing/glyphs. Do not bake fill amounts into sprites.
 
 ## Focus, locked, disabled and rarity state
 
-Use reusable UI chrome/state overlays from the main brief. Do not redraw every card in every state.
+Use reusable state chrome from the main brief. Do not redraw every card in every state.
 
 ## Encounter/difficulty/spawn data
 
-These change simulation/composition. The stage card communicates them through real stage/objective/enemy presentation, not invented “difficulty art” that can drift from actual rules.
+These change simulation/composition. Stage cards communicate through real stage/objective/enemy content rather than invented “difficulty art” that can drift from rules.
 
 ## Rewards
 
-Reward surfaces show the actual rewarded item/part/equipment/scrap art. A `reward:stage-01` icon would be duplicate truth.
+Reward surfaces show actual granted item/part/equipment/scrap art. A `reward:stage-01` illustration would duplicate truth.
 
 ---
 
-# 4. UI-surface cross-check
-
-The final review also checked current major player-facing surfaces rather than only data files.
+# 5. UI-surface cross-check
 
 | Surface | Required art source |
 | --- | --- |
@@ -153,49 +177,55 @@ The final review also checked current major player-facing surfaces rather than o
 | Stages/Contracts | chapter, arena, objective, boss marker, state overlays |
 | Golden Run / legacy Arena | Golden Run nav emblem + Junkyard location/world art |
 | Characters | portrait, actor, active/passive icons, weapon icon, stat glyphs |
-| Progression | four meta-upgrade icons in this file; remove if feature is removed |
-| Gunsmith | weapon icons, part/slot/trait icons, stat glyphs, UI chrome |
+| Progression | four meta-upgrade icons if #165 retains surface |
+| Gunsmith | exact 12 part icons, 8 slot glyphs, trait emblems, weapon/stat art, chrome |
 | Equipment | 32 item icons, 8 set emblems, stat glyphs, state chrome |
-| Achievements | 10 badges + hidden/locked treatment |
+| Achievements | exact current 10 badges + hidden/locked treatment |
 | Compendium | final enemy sheets + Compendium nav/chrome; no duplicate portraits by default |
 | Settings | audio/music/SFX/reduced-motion/fullscreen glyphs |
 | HUD | XP/scrap reuse, health/timer/kills, objective/ability art |
 | Touch/controller controls | device-neutral logical-action glyphs |
-| Upgrade chooser | 18 upgrade icons + consistent card chrome |
+| Upgrade chooser | exact current 18 upgrade icons + consistent card chrome |
 | Inventory/rack/merge | weapon icons + merge symbol + card/focus chrome |
 | Run result/summary | clear/fail emblem + actual earned/build art |
 
-No current major gameplay/menu surface is left with an unclassified art source after this pass.
+---
+
+# 6. Template/scalability gate
+
+The matrix is part of the future content template, not a one-time Alpha 3 spreadsheet-in-Markdown.
+
+When a new content-bearing catalog or item is introduced:
+
+1. the source definition is added with a stable ID;
+2. the relevant authoring template declares whether dedicated art is required;
+3. explicit presentation/art references are added where the owner can have multiple assets;
+4. this matrix/category coverage is updated automatically or by review;
+5. generic validation checks every required current ID resolves;
+6. a synthetic N+1 fixture proves ordinary content does not require scene/controller/save/renderer branching;
+7. explicit encounter/reward/loot/bundle pools are edited only where intended.
+
+An exhaustiveness gate that merely checks `count === 18` is insufficient; it must compare the actual stable ID set.
 
 ---
 
-# 5. Final distinguishability review after the meta-upgrade correction
+# 7. Review history and closure
 
-The four newly discovered progression icons were compared against the most collision-prone existing concepts:
+The original companion was created after a catalog-wide pass found four meta-upgrades that a manifest-only review missed.
 
-- Reinforced Vest vs Reinforced Coat vs equipment armor — **separated by mannequin/training framing and double-plate construction**.
-- Quick Paws Training vs Quick Paws vs Light Paws vs Adrenaline — **separated by stepping-course blocks**.
-- Sharpened Ammo vs Heavy Rounds vs Punch Through vs PIERCING — **separated by visible workshop filing/jig operation**.
-- Magnetic Whiskers vs Scrap Magnet vs Magnet Belly vs Scavenge Pulse — **separated by paired whisker silhouette and central muzzle**.
+A subsequent PR review then found a stronger failure mode: **matching counts with incorrect item identities**. Specifically:
 
-All four survive a black-silhouette description without requiring their labels.
+- `Last Stand` was incorrectly briefed while current `pistol-needle-rounds` was missing;
+- several Gunsmith part briefs described nonexistent current parts and omitted real `trait`-slot cores/Piercing Barrel/Padded Stock;
+- several achievement badges described nonexistent current achievements while omitting First Victory, Scrap Tycoon and Well Protected.
 
----
+Those P1 findings are now corrected in the main brief and this matrix. The permanent process change is that #167 coverage is checked by **stable ID**, not prose count.
 
-# 6. Review closure
-
-This companion was added after an intentionally hostile post-write check found the main packet's only material current-content omission: `meta-upgrades.json` was player-facing but absent from the visual manifest, so it escaped the earlier manifest-led inventory.
-
-The follow-up then walked **every file in `src/data/`** and every major current UI surface, classifying it as:
-
-1. dedicated production art required;
-2. art composed/reused from an already planned domain;
-3. intentionally procedural/textual; or
-4. non-graphics scope.
-
-No further current catalog or player-facing surface produced an unbriefed graphics requirement. The combined production authority for #167 is therefore:
+The combined production authority is:
 
 - `docs/art/alpha-3-art-production-briefs.md`
-- **this exhaustive current-content matrix**
+- `docs/art/alpha-3-current-content-art-matrix.md`
+- `docs/architecture/content-authoring-templates.md`
+- `docs/architecture/content-authoring-template-coverage.md`
 
-A future data/UI addition must update the same coverage matrix as part of its conformance gate.
+No future content addition is considered production-ready until its stable IDs pass the same matrix/template/conformance path.
