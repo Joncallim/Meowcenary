@@ -6,7 +6,9 @@
 
 **Planning branch:** `codex/alpha3-art-compendium-planning` / PR #169.
 
-This ledger exists so later implementation agents do not receive a polished final document with no record of which assumptions were challenged. A checkpoint is closed only when its material findings are either incorporated into the plan or explicitly carried as an implementation blocker.
+**Current implementation authority:** `alpha-3-final-execution-handoff.md` + `content-authoring-templates-v4.md`. The intermediate implementation blueprint and pre-V4 template documents are historical redirect stubs, not live contracts.
+
+This ledger exists so later implementation agents do not receive a polished final document with no record of which assumptions were challenged. A checkpoint is closed only when its material findings are either incorporated into the plan or explicitly carried as an implementation blocker. External evidence that is unavailable remains **UNVERIFIED**, never inferred green.
 
 ---
 
@@ -36,21 +38,13 @@ Do not treat these as superficial polish. #164 is a release blocker; #165/#166 a
 
 ---
 
-# Checkpoint 1 — “fun/addictive” benchmark
+# Checkpoint 1 — engagement benchmark
 
 ## Public product evidence reviewed
 
-Large mobile survivor/roguelite references with strong download/play evidence:
+Large mobile survivor/roguelite references with strong download/play evidence were reviewed for repeated outcome patterns rather than copied content/expression or monetisation.
 
-- Survivor.io;
-- Archero;
-- Heroes vs Hordes;
-- Vampire Survivors;
-- Brotato.
-
-Review focused on repeated product patterns, not copied content/expression or monetisation.
-
-## Common patterns that survived review
+## Patterns retained
 
 - immediate one-thumb/low-input comprehension;
 - frequent meaningful build decisions;
@@ -58,10 +52,10 @@ Review focused on repeated product patterns, not copied content/expression or mo
 - readable escalating pressure;
 - short return from result → next action;
 - character/build variety;
-- clear chapter/stage/boss milestones;
+- clear chapter/Contract/boss milestones;
 - collectible content that reinforces gameplay identity.
 
-## Explicitly rejected patterns
+## Explicitly rejected
 
 - energy;
 - ad rewards;
@@ -74,48 +68,46 @@ Review focused on repeated product patterns, not copied content/expression or mo
 
 ## Codebase cross-check
 
-### Strong existing foundations
+Existing strengths:
 
-- automatic targeting/fire already fits low-input mobile play;
-- four-card deterministic upgrade system already produces repeated choices;
-- weapon reward cadence already targets first drop at 20–40s and repeats at 30–45s;
-- family-scoped upgrades already support run identity;
-- Gunsmith traits already provide FIRE/burn, EXPLOSIVE/splash and PIERCING behavior without part-ID branches;
-- run summary already has Retry and Next Contract;
+- automatic targeting/fire fits low-input mobile play;
+- deterministic four-card upgrade choices already exist;
+- scheduled weapon rewards create physical arsenal beats;
+- family-scoped upgrades support run identity;
+- FIRE/EXPLOSIVE/PIERCING behavior already exists without Part-ID branches;
+- Retry/Next Contract seams already exist;
 - ProgressionOverview already computes concrete next goals.
 
-### Product weaknesses exposed
+Product weaknesses:
 
-- ten stages are structurally valid but reuse the same physical arena/bundle and several encounter profiles;
-- current reward profiles dump whole four-piece sets, sometimes two whole sets at a boss;
-- legacy permanent progression is four generic stat ladders that overlap other systems;
-- menu exposes internal architecture vocabulary instead of player goals;
-- no product-level evidence gate currently catches long boring stretches.
+- ten RC1 stages reuse the same physical Arena/world bundle too broadly;
+- reward profiles dump whole Equipment Sets;
+- legacy permanent progression overlaps newer systems;
+- menu exposes internal architecture vocabulary;
+- no product-level evidence gate catches long boring stretches.
 
 ## Plan changes
 
-Created `docs/gameplay/alpha-3-engagement-benchmark.md`, including:
+`docs/gameplay/alpha-3-engagement-benchmark.md` now freezes:
 
-- ≤35s low-information stretch gate;
+- ≤35s unexplained low-information stretch gate;
 - multiple perceptible power moments per successful run;
-- build identity by roughly the midpoint;
-- distinct stage thesis;
+- build identity by roughly midpoint;
+- distinct Contract thesis;
 - Contract-first IA;
-- reward-density limits;
+- fixed legible first-clear rewards and density limits;
 - 5–10s Retry/Next action target;
 - explicit fun/replayability acceptance in addition to CI.
 
-**Status:** CLOSED — benchmark is now product authority.
+**Status:** CLOSED — benchmark is product authority.
 
 ---
 
-# Checkpoint 2 — consolidated architecture blueprint
+# Checkpoint 2 — whole-codebase architecture reconciliation
 
-## Subsystems reviewed
+## Run composition
 
-### Run composition
-
-Files:
+Reviewed:
 
 ```text
 src/gameplay/runRequest.ts
@@ -126,13 +118,13 @@ src/gameplay/spawnDirector.ts
 src/scenes/GameScene.ts
 ```
 
-Finding: Stage already owns Arena/objective/encounter/difficulty/reward for normal Alpha 3. Arena-vs-Stage confusion is presentation debt, not a need for a new composition model.
+Finding: Stage already owns Arena/objective/encounter/difficulty/reward for normal Alpha 3. Arena-vs-Stage confusion is presentation debt, not a reason for another composition engine.
 
-Decision: make Contract the player concept; keep Arena as location and optional explicit Training compatibility.
+Decision: Contract is the player concept; Arena is location; Golden Run may remain explicit Training compatibility.
 
-### Save/progression
+## Save/progression
 
-Files:
+Reviewed:
 
 ```text
 src/systems/save.ts
@@ -150,25 +142,24 @@ src/data/achievements.json
 
 Findings:
 
-- Compendium has no honest V3 domain.
-- legacy permanent upgrades are applied to every fresh run in `prepareRun`.
-- retiring the UI alone would leave hidden old-save power.
-- `achievement:permanent-reinforced-coat-3` depends on the legacy system and would become impossible.
-- progression grant/condition vocabularies still contain legacy permanent-level primitives.
-- the localStorage key is historically named **`meowcenary.save.v2`** despite the current V3 schema.
+- Compendium has no honest V3 domain;
+- legacy permanent upgrades still affect fresh runs;
+- retiring only the UI would leave hidden old-save power;
+- Well Protected depends on the retiring permanent system;
+- active conditions/grants still contain legacy permanent-level primitives;
+- physical LocalStorage key is historically `meowcenary.save.v2` despite schema V3.
 
 Decisions:
 
-- one V4 migration handles Compendium + retirement/refund of permanent upgrades;
-- deterministic refund uses a frozen V3 migration schedule, never current balance data;
-- preserve the old Well Protected historical fact when earned, remove it from active V4 catalog, add a new Forge Warden boss achievement under a new stable ID;
-- remove active legacy permanent-level condition/grant primitives after migration;
-- remove permanent modifiers from run preparation;
-- **do not rename the existing storage key during V4**. The storage key is persisted identity, not schema documentation. Changing it would strand V1–V3 data before migration can read it. A key migration would require an explicit dual-read/one-write design and has no product value here.
+- one Save V4 migration handles Compendium + permanent retirement/refund + fabrication serials + shadow achievement cleanup;
+- refund uses frozen historical migration data, not mutable V4 balance;
+- preserve earned Well Protected as historical sparse state, remove active definition, add Warden Down under a new stable ID;
+- remove active permanent-level mechanics and run-preparation modifiers;
+- do **not** rename the historical physical storage key during schema migration.
 
-### Enemy death topology
+## Enemy death topology
 
-Files:
+Reviewed:
 
 ```text
 src/entities/Enemy.ts
@@ -178,38 +169,49 @@ src/scenes/GameScene.ts
 src/engine/eventBus.ts
 ```
 
-Findings:
+Finding: Enemy owns health/death, but WeaponSystem separately owns run-kill increment + `enemy:killed`, while Heat Vent may bypass that settlement.
 
-- Enemy owns health, shield logic, damage event, split and destruction correctly.
-- WeaponSystem separately owns kill increment + `enemy:killed`.
-- Heat Vent bypasses that settlement path.
+Decision: one narrow universal damage/death resolver wraps Enemy damage and owns canonical post-lethal settlement. Existing consumers remain on the single `enemy:killed` fact.
 
-Decision: do not rewrite Enemy health. Add one narrow damage resolver that wraps `Enemy.takeDamage`, captures kill facts and performs canonical kill settlement. Weapon/ability callers use it; existing consumers remain on `enemy:killed`.
+## Equipment / Gunsmith
 
-### Equipment
-
-Files:
+Reviewed:
 
 ```text
 src/gameplay/equipment.ts
+src/gameplay/gunsmith.ts
 src/systems/equipment.ts
 src/systems/validation/equipment.ts
+src/systems/validation/parts.ts
 src/data/equipment.json
-src/engine/context.ts
+src/data/gun-parts.json
 tests/equipment.test.ts
+tests/gunsmith.test.ts
 ```
 
 Findings:
 
-- set bonus/tier gate ownership is hidden on one arbitrary provider piece;
-- validator and synthetic test actively teach that convention;
-- effect rows manually duplicate owning `sourceId`.
+- Set bonus/tier ownership is hidden on one arbitrary provider piece;
+- validators/tests actively teach that provider convention;
+- Equipment/Part definitions carry static tier despite owned instances also having tier;
+- definition modifiers duplicate owner `sourceId`;
+- multiplicative Part tier scaling can incorrectly multiply the whole multiplier.
 
-Decision: first-class `equipment-sets.json`; evolve DataEquipmentRegistry to own set + piece lookups; piece/set/part/ability data use source-free ModifierSpec; runtime derives source identity.
+V4 decisions:
 
-### Visual art / loading / tooling
+- first-class Equipment Set catalog;
+- **one global Equipment tier policy**, not per-Set copied gates;
+- plain piece rows;
+- no static Equipment/Part definition tier;
+- source-free `ModifierSpec` definitions;
+- runtime-derived source identity;
+- shared tier scaling: `add = value × tier`, `mult = 1 + (value - 1) × tier`;
+- shared FIRE/EXPLOSIVE/PIERCING gameplay traits;
+- generic Set/Part availability/fabrication/acquisition coverage.
 
-Files:
+## Visual art / loading / tooling
+
+Reviewed:
 
 ```text
 src/systems/types.ts
@@ -229,100 +231,71 @@ src/data/asset-bundles.json
 
 Findings:
 
-- logical binding and Phaser texture are currently one object;
-- unique texture per binding + 256 binding cap is too tight for the planned UI/art catalog;
+- logical binding and Phaser texture are currently coupled;
+- one texture per binding + 256-binding ceiling is too tight for planned presentation scale;
 - Boot eagerly loads almost all non-world art;
-- Equipment/Part validators require borrowed `upgrade-icon` art;
-- builder validation still has per-ID registrations;
-- current export validation derives production source path from runtime URL, which will not survive atlasing.
+- Equipment/Part validators require borrowed `upgrade-icon` semantics;
+- builder validation contains current-ID registrations;
+- source-path inference from runtime URL will not survive atlasing.
 
-Decision:
+V4 decisions:
 
-- separate stable logical bindings from physical resources;
-- use bounded coarse renderer kinds;
-- use deterministic named-frame atlases for static UI families;
-- make production source/builder/export provenance explicit at the logical binding/production contract;
-- resolve physical resources through bundles and run closure;
-- lazy-load heavy surfaces/run assets, cache after load, no Alpha 3 eviction framework;
-- make builder verification manifest/family-driven;
-- add non-destructive deterministic parity check.
+- stable logical bindings separate from physical resources;
+- coarse bounded renderer kinds;
+- deterministic named-frame atlases for static UI families;
+- explicit production provenance independent of runtime packing;
+- bundle/run-closure resource loading;
+- lazy heavy surfaces, simple cache, no Alpha 3 eviction framework;
+- manifest/family-driven builder verification;
+- non-destructive deterministic source/builder/export parity;
+- synthetic 500-logical-art proof with bounded resources.
 
-### Menu/UI
+## Menu/UI
 
-Files:
-
-```text
-src/ui/menus.ts
-src/scenes/MenuScene.ts
-src/ui/characterSelectionController.ts
-src/ui/stageSelectionController.ts
-src/ui/runSummary.ts
-src/ui/focusList.ts
-src/ui/layout.ts
-```
-
-Findings:
-
-- current home exposes Character/Arena/Progression/Gunsmith/Settings/Stage/Equipment as flat peers;
-- Characters renders a growing vertical list with no scalable scrolling path;
-- current result view already provides useful Next Contract/Retry seams.
+Reviewed current menu/focus/result/layout code.
 
 Decision:
 
 ```text
 Play Contract
 Mercenary
-Loadout → Equipment/Gunsmith
-Career → goals/Achievements/Compendium
+Loadout -> Equipment/Gunsmith
+Career -> Next Goals/Achievements/Compendium
 Training (optional Golden Run)
 Settings
 ```
 
-Add one reusable scroll/focus component rather than a one-off Character fix.
+One reusable scroll/focus component replaces per-screen fixed-list/pagination assumptions.
 
-### Stage/reward content
+## Contract/reward content
 
-Files:
-
-```text
-src/data/stages.json
-src/data/encounter-profiles.json
-src/data/difficulty-profiles.json
-src/data/reward-profiles.json
-src/data/arenas.json
-src/data/asset-bundles.json
-src/gameplay/stage/spawnComposition.ts
-```
+Reviewed current stages/encounters/difficulty/rewards/arenas/bundles.
 
 Findings:
 
-- all ten stages currently use `junkyard-lot` + one world bundle;
-- several Forge stages are compositionally recycled Junkyard stages;
-- current spawn composition can introduce roster layers over time and should be exploited before inventing a scripting model;
-- full-set reward dumps are product plumbing, not acceptable collection pacing.
+- all ten RC1 stages over-reuse Junkyard location/art;
+- Forge stages recycle too much Junkyard composition;
+- current spawn composer can already create ordered pressure layers;
+- full-Set reward dumps are implementation proof, not acceptable product pacing;
+- RC1 `scrapPerMinute` rewards taking longer and RewardProfile `lootTableId` is dead clear-time plumbing.
 
-Decision:
+V4 decisions:
 
-- distinct stage thesis and encounter composition first;
-- add a justified Forge/Foundry arena treatment using existing Arena mechanics;
-- do not add a general encounter scripting engine unless playtest evidence remains flat after content composition improves;
-- cap persistent first-clear reward density and distribute acquisition across stages/achievements/milestones.
+- distinct Contract theses/content composition first;
+- real Forge/Foundry Arena through existing Arena architecture;
+- no generic encounter scripting engine by default;
+- RewardProfile becomes fixed `firstClearScrap` + optional explicit grants;
+- world loot remains its existing authoritative runtime system;
+- persistent collection opens through availability/fabrication + limited headline rewards.
 
-## Architecture output
+## Output authority
 
-Created `docs/architecture/alpha-3-implementation-blueprint.md`.
+The intermediate `alpha-3-implementation-blueprint.md` was useful during this checkpoint but is now retired to a historical redirect. Final output is:
 
-## Ambiguities removed
-
-- no second save migration for Compendium vs Progression retirement;
-- no hidden legacy stat benefits;
-- no reuse of retired achievement ID for a different meaning;
-- no provider equipment row;
-- no semantic renderer-kind explosion;
-- no hand-authored atlas frame numbers as stable identity;
-- no new encounter scripting system by default;
-- no item-per-texture assumption;
-- no storage-key rename during schema migration.
+- `alpha-3-final-execution-handoff.md`;
+- `content-authoring-templates-v4.md`;
+- `alpha-3-test-transition-plan.md`;
+- domain V4 specs and #170/#171.
 
 **Status:** CLOSED at planning level; implementation proof remains #170 + feature issues.
 
@@ -330,34 +303,66 @@ Created `docs/architecture/alpha-3-implementation-blueprint.md`.
 
 # Checkpoint 3 — art/content authority reconciliation
 
-**Status:** OPEN.
+## Internal reconciliation completed
 
-Required before art production begins:
+- #167 now consumes the V4 resource/source policy and target catalog rather than RC1-only assumptions;
+- V4 art delta retires Well Protected/meta-upgrade production and adds Warden Down;
+- full 16-asset Forge/Foundry world packet + chapter/location presentation is specified;
+- final Contract/Mercenary/Loadout/Career/Compendium/Training navigation families are owned;
+- exact RC1 stable-ID baseline was corrected after the earlier independent P1 review;
+- active V4 stable-ID differences are explicit rather than inferred from count;
+- generated selected-source policy is reconciled with existing deterministic import tooling;
+- logical-art/resource/atlas/bundle constraints are part of production authority;
+- RC1 matrix is explicitly historical, not a second V4 production authority.
 
-1. update #167 briefs/matrix from Alpha-3-plumbing catalog to active V4 target;
-2. replace Well Protected badge with Warden Down;
-3. add full Forge/Foundry world art packet;
-4. ensure all new menu surfaces have art slots;
-5. re-run exact stable-ID set equality against target catalogs;
-6. review every art family against silhouette/originality/readability and atlas/resource constraints.
+## Independent-review requirement
 
-This checkpoint closes only after an independent review finds no stale current-content identity in the production brief.
+The original PR review on the early draft was genuinely useful and found the catalog-identity defects above, but it reviewed old commit `076fee8`. Those threads are resolved.
+
+A fresh `@codex review` was requested against planning head `c1991783dd5fa78891568e6d6425ad25e27275f9`, but the GitHub App had not acknowledged/submitted a review. An explicit reviewer request for `chatgpt-codex-connector` returned GitHub 422 because the App is not a repository collaborator.
+
+Therefore no fresh independent PASS is claimed.
+
+**Status:** **UNVERIFIED EXTERNALLY** — internal reconciliation complete; blocked only on a fresh independent review of the final planning head.
 
 ---
 
-# Checkpoint 4 — Codex implementation handoff readiness
+# Checkpoint 4 — implementation handoff readiness
 
-**Status:** OPEN.
-
-Pass conditions:
+## Conditions already satisfied internally
 
 - #164 reproduction/fix requirements are explicit;
-- implementation blueprint file map and target interfaces are current;
-- #170 contains every cross-cutting template/resource gate;
-- product/content issue owns engagement changes instead of hiding them in #165/#170;
-- latest PR #169 review threads are resolved and a fresh review has evaluated the current head;
-- no known architectural decision is left for Codex to invent during implementation;
-- remaining unknowns are empirical tuning/playtest questions, not ownership/schema ambiguity.
+- #166 hidden HUD movement clamp remediation is frozen;
+- final execution handoff file map and target interfaces are current;
+- intermediate blueprint/template docs are redirect stubs rather than competing authorities;
+- #170 owns all cross-cutting template/resource/N+1 gates;
+- #171 owns product/content/engagement rather than hiding it inside UI/tooling work;
+- active #85/#86/#87/#88/#89/#90/#165/#166/#167/#168/#170/#171 trackers are reconciled to V4 ownership;
+- old closed #91 remains historical implementation record; active Achievement V4 changes are owned by #90/#171/final handoff;
+- all known architecture decisions are frozen; remaining product unknowns are empirical tuning/playtest questions;
+- RC1 runtime/tooling debt is explicitly **not** called template-clean before #170 synthetic scale proofs pass.
+
+## External gate still missing
+
+A fresh independent PR review must evaluate the **final current planning head**, not the old early-draft review. Any material finding must be fixed and the review re-run against the new exact SHA.
+
+Until that happens, implementation handoff is internally ready but not independently certified.
+
+**Status:** **UNVERIFIED EXTERNALLY**.
+
+---
+
+# Final planning verdict
+
+```text
+Product/architecture reconciliation: PASS internally
+N+1 authoring contract:            PASS internally
+RC1 runtime/tooling scalability:    NOT YET PASS — implementation owner #170
+Fresh independent final-head review: UNVERIFIED
+Alpha 3 release acceptance:         NOT PASS — #164/#165/#166 + implementation/manual/fun gates remain
+```
+
+This distinction is intentional. Planning quality must not be confused with implemented proof, and missing independent/manual evidence must not be colored green.
 
 ---
 
