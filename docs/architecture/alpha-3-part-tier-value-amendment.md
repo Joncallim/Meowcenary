@@ -4,7 +4,7 @@
 
 **Implementation baseline reviewed:** `codex/alpha3-campaign` at `f5ea5e297c54c84ec8b3ad7193768fbc29ac33a7`.
 
-**Scope:** this file closes one ambiguity in the V4 Part/merge contract. It does not introduce a new progression system or behavior primitive.
+**Scope:** this file closes two coupled ambiguities in the V4 Part/merge contract: higher owned tiers must have real value, and the shared FIRE behavior must remain distinct from a Fire Core's own tier-scaled engineering modifier. It does not introduce a new progression system or behavior primitive.
 
 V4 correctly separates:
 
@@ -82,7 +82,67 @@ A future registered behavior primitive may deliberately define tier-sensitive be
 
 ---
 
-# 3. Ordinary Fire Trait Core — frozen V4 target
+# 3. Shared FIRE package — preserve existing behavior
+
+The V4 authoring contract says:
+
+```text
+FIRE -> existing damage modifier + burn projectile effect
+```
+
+That wording is intentional. RC1's registered FIRE package is already one generic, family-scoped behavior consisting of:
+
+```text
+damage modifier:     mult 1.15
+burn duration:       2000 ms
+burn tick interval:   500 ms
+burn damage:          0.20 × triggering hit per tick
+```
+
+V4 moves ownership of this behavior out of the Gunsmith-specific module into shared pure gameplay code; it does **not** silently strip the 1.15× damage component merely because another document used the shorthand `FIRE -> burn`.
+
+Initial V4 migration therefore preserves this existing FIRE package. Any later numeric rebalance is explicit Slice-G/playtest tuning, not an accidental consequence of the architecture refactor.
+
+## Dedupe boundary
+
+Deduplication applies to the **shared FIRE package**:
+
+```text
+one family has FIRE from one or more sources
+-> one 1.15× FIRE modifier
+-> one burn projectile behavior
+```
+
+A PartDefinition's own `effects` are **not part of that dedupe set**. They are independently source-owned engineering modifiers and follow ordinary stat stacking.
+
+Therefore:
+
+```text
+Pyro 4-piece FIRE + Fire Core FIRE
+-> shared FIRE package once
+-> Fire Core's own tier-scaled Part modifier still applies once
+```
+
+and:
+
+```text
+Fire Core FIRE + Mastered Fire FIRE
+-> shared FIRE package once
+-> each actually fitted source-owned Part modifier resolves normally
+```
+
+The implementation must not:
+
+- apply the shared 1.15× FIRE modifier once per FIRE source;
+- dedupe away the fitted Part's own `effects` because the trait already exists;
+- fold the Part-owned 1.02/1.05 base modifier into the shared FIRE behavior;
+- make the shared FIRE package tier-sensitive.
+
+RC1 `ModifierStack.resolveWeapon()` already establishes the ordinary rule: independent multiplicative modifiers are multiplied after additive modifiers. V4 preserves that stat-stack behavior unless a separate reviewed balance change says otherwise.
+
+---
+
+# 4. Ordinary Fire Trait Core — frozen V4 target
 
 `part:trait-fire` remains the ordinary, repeatable FIRE engineering project after Scrap Crusher.
 
@@ -114,25 +174,23 @@ The source-owned same-clear eligibility case uses `alpha-3-terminal-settlement-a
 
 ---
 
-# 4. Fire Core tier progression
+# 5. Fire Core tier progression
 
-With the shared V4 multiplier resolver:
+The table below is the **Part-owned engineering modifier only**. Every fitted Fire Core also contributes the one deduped shared FIRE package from §3 when its family otherwise lacks FIRE.
 
-| Owned tier | Fire Core damage modifier | FIRE behavior |
+| Owned tier | Part-owned damage modifier | Shared FIRE package |
 | ---: | ---: | --- |
-| T1 | 1.02× | FIRE once |
-| T2 | 1.04× | FIRE once |
-| T3 | 1.06× | FIRE once |
-| T4 | 1.08× | FIRE once |
-| T5 | 1.10× | FIRE once |
+| T1 | 1.02× | once per family |
+| T2 | 1.04× | once per family |
+| T3 | 1.06× | once per family |
+| T4 | 1.08× | once per family |
+| T5 | 1.10× | once per family |
 
-The visual FIRE behavior is the main identity; the modest stat slope makes engineering/merging non-fake without turning the trait into five behavior variants.
-
-FIRE remains deduped once per weapon family when supplied by multiple sources.
+The visual FIRE behavior is the main identity; the modest Part-owned slope makes engineering/merging non-fake without turning the trait into five behavior variants.
 
 ---
 
-# 5. Mastered Fire remains a distinct final-boss reward
+# 6. Mastered Fire remains a distinct final-boss reward
 
 The existing V4 Mastered Fire target remains:
 
@@ -140,21 +198,21 @@ The existing V4 Mastered Fire target remains:
 part:trait-fire-mastered
 reward-only / non-fabricable
 same shared FIRE trait
-base damage modifier 1.05×
+base Part-owned damage modifier 1.05×
 Forge Warden first-clear grants owned T3
 ```
 
-At T3:
+At T3, the **Part-owned** modifier resolves to:
 
 ```text
 1 + (1.05 - 1) × 3 = 1.15× damage
 ```
 
-Therefore:
+Therefore the engineering-specific comparison is:
 
 ```text
-ordinary Fire Core T5  -> 1.10× + FIRE
-Mastered Fire Core T3  -> 1.15× + FIRE
+ordinary Fire Core T5  -> Part-owned 1.10× + shared FIRE package
+Mastered Fire Core T3  -> Part-owned 1.15× + shared FIRE package
 ```
 
 The Warden reward remains meaningfully superior to a fully engineered ordinary Fire Core without creating another FIRE behavior.
@@ -163,7 +221,7 @@ Its owned T3 is transaction/instance state, not static Part definition tier.
 
 ---
 
-# 6. Generic validation
+# 7. Generic validation
 
 Part validation must reject a definition/route that creates meaningless higher tiers.
 
@@ -188,7 +246,7 @@ A synthetic future trait-only Part with no tier-sensitive contribution must fail
 
 ---
 
-# 7. Merge/read-model behavior
+# 8. Merge/read-model behavior
 
 Merge remains generic:
 
@@ -199,33 +257,33 @@ same Part definition
 -> one owned instance at tier +1
 ```
 
-Before confirm, UI shows the actual mechanical delta of the output, including the tier-scaled modifier.
+Before confirm, UI shows the actual mechanical delta of the output, including the tier-scaled Part-owned modifier.
 
 For Fire Trait Core:
 
 ```text
 T1 + T1 -> T2
-1.02× damage -> 1.04× damage
-FIRE remains FIRE once
+Part-owned 1.02× damage -> 1.04× damage
+shared FIRE package remains one copy
 ```
 
-Do not imply the burn behavior doubled merely because engineering tier increased.
+Do not imply the burn behavior or shared FIRE 1.15× modifier doubled merely because engineering tier increased.
 
 ---
 
-# 8. Required tests
+# 9. Required tests
 
-## Fire Core
+## Fire Core engineering slope
 
 ```text
-T1 -> 1.02× + FIRE
-T2 -> 1.04× + FIRE
-T3 -> 1.06× + FIRE
-T4 -> 1.08× + FIRE
-T5 -> 1.10× + FIRE
+T1 -> Part-owned 1.02× + shared FIRE package
+T2 -> Part-owned 1.04× + shared FIRE package
+T3 -> Part-owned 1.06× + shared FIRE package
+T4 -> Part-owned 1.08× + shared FIRE package
+T5 -> Part-owned 1.10× + shared FIRE package
 ```
 
-Two fabricated T1 copies merge to T2 and the resulting contribution changes.
+Two fabricated T1 copies merge to T2 and the resulting Part-owned contribution changes.
 
 Crusher first-clear T1 + later fabricated T1 can merge normally after the boss fact is durable.
 
@@ -234,19 +292,29 @@ Crusher first-clear T1 + later fabricated T1 can merge normally after the boss f
 Warden first-clear produces one owned T3 Mastered Fire Core:
 
 ```text
-1.15× damage + FIRE
+Part-owned 1.15× damage + shared FIRE package
 ```
 
 It remains reward-only because `fabricationCost` is absent.
 
-## Trait dedupe
+## Trait dedupe versus Part effects
+
+Prove separately:
 
 ```text
-Pyro FIRE + ordinary Fire Core FIRE -> one FIRE behavior
-ordinary Fire Core FIRE + Mastered Fire FIRE -> one FIRE behavior
+Pyro FIRE + ordinary Fire Core FIRE
+-> exactly one shared FIRE 1.15× modifier
+-> exactly one burn behavior
+-> Fire Core Part-owned tier modifier remains present
 ```
 
-Stat modifiers remain independently source-owned and follow normal stacking rules; only the shared behavior trait is deduped.
+```text
+ordinary Fire Core FIRE + Mastered Fire FIRE
+-> exactly one shared FIRE package for the engineered family
+-> each actually fitted Part-owned modifier remains independently source-owned
+```
+
+No duplicate shared FIRE modifier/projectile effect is emitted merely because two sources carry the same trait.
 
 ## Generic validator
 
@@ -263,7 +331,7 @@ A synthetic Part with an existing valid modifier passes without a core-code or v
 
 ---
 
-# 9. N+1 rule
+# 10. N+1 rule
 
 The final authoring test is generic:
 
@@ -279,7 +347,7 @@ This amendment does not require:
 
 ---
 
-# 10. Implementation owners
+# 11. Implementation owners
 
 - #87 — Gunsmith definition/merge/read-model behavior;
 - #170 — generic authoring/validation/N+1 gate;
@@ -288,16 +356,18 @@ This amendment does not require:
 
 ---
 
-# 11. PASS
+# 12. PASS
 
 This amendment passes implementation when:
 
 1. every legal T2+ Part has a real tier-sensitive contribution;
-2. ordinary Fire Trait Core has the frozen 1.02× base damage modifier + FIRE;
-3. Crusher first-clear grants one T1 Fire Core and later fabrication is available at initial 120 Scrap (tunable by playtest);
-4. Fire Core merges change damage modifier but never duplicate/scale FIRE behavior;
-5. Mastered Fire remains Warden-only T3, 1.15× + the same FIRE trait;
-6. generic validation rejects a synthetic meaningless tier ladder;
-7. no content-ID merge/trait branch is introduced.
+2. shared FIRE preserves its existing 1.15× damage + burn package and is deduped once per family;
+3. ordinary Fire Trait Core has the frozen 1.02× base Part-owned damage modifier + FIRE;
+4. Crusher first-clear grants one T1 Fire Core and later fabrication is available at initial 120 Scrap (tunable by playtest);
+5. Fire Core merges change the Part-owned modifier but never duplicate/scale the shared FIRE package;
+6. Mastered Fire remains Warden-only T3 with a Part-owned 1.15× modifier plus the same shared FIRE package;
+7. Pyro/Part duplicate FIRE sources emit one shared behavior package while fitted Part-owned modifiers remain present;
+8. generic validation rejects a synthetic meaningless tier ladder;
+9. no content-ID merge/trait branch is introduced.
 
 This is a progression-quality invariant, not a balance-system expansion.
