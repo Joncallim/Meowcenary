@@ -447,7 +447,7 @@ Target definition shape:
   "slot": "trait",
   "rarity": "rare",
   "presentation": {
-    "iconArtId": "part-icon:trait-fire-mastered"
+    "iconArtId": "gun-part-icon:trait-fire-mastered"
   },
   "effects": [
     { "stat": "damage", "op": "mult", "value": 1.05 }
