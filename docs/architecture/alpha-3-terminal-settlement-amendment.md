@@ -4,7 +4,7 @@
 
 **Implementation baseline reviewed:** `codex/alpha3-campaign` at `f5ea5e297c54c84ec8b3ad7193768fbc29ac33a7`.
 
-**Scope:** this file amends two coupled terminal-settlement details: (1) eligibility validation for source-owned rewards whose own atomic settlement creates the qualifying fact, and (2) replay/migration handling when historical first-clear receipt fingerprints were bound to an older reward payload. All other authority, execution order, reward density, save, progression and N+1 rules remain in `alpha-3-final-execution-handoff.md` and `content-authoring-templates-v4.md`.
+**Scope:** this file amends three coupled terminal-settlement details: (1) eligibility validation for source-owned rewards whose own atomic settlement creates the qualifying fact, (2) replay/migration handling when historical first-clear receipt fingerprints were bound to an older reward payload, and (3) stable owned-instance identities for the physical V4 first-clear Part grants. All other authority, execution order, reward density, save, progression and N+1 rules remain in `alpha-3-final-execution-handoff.md` and `content-authoring-templates-v4.md`.
 
 This is required because the V4 product matrix intentionally contains rewards such as:
 
@@ -249,18 +249,30 @@ The context/persistence boundary should resolve or validate catalog-owned reward
 
 ---
 
-# 7. V3 -> V4 receipt migration rule
+# 7. V3 -> V4 receipt and earned-inventory migration rule
 
-Save V4 preserves existing Stage facts, owned rewards, applied receipt IDs and recorded fingerprints. It does not recompute old receipt fingerprints from the mutable V4 reward catalog.
+Save V4 preserves existing Stage facts, legitimate owned rewards, applied receipt IDs and recorded fingerprints. It does not recompute old receipt fingerprints from the mutable V4 reward catalog.
 
 Required migration behavior:
 
-- existing legitimate `reward:*` / Equipment/Part owned instances survive sanitization;
+- existing legitimate `reward:*` / Equipment/Part owned instances survive sanitization even when V4 no longer grants those items to a new player at that Stage;
 - existing `appliedGrantTransactions` and historical `grantTransactionFingerprints` survive unless independently invalid data must be sanitized;
 - a completed migrated Stage remains completed and cannot receive V4 first-clear rewards again;
 - a historical first-clear receipt may retain a fingerprint different from the current V4 RewardProfile indefinitely;
 - migration does not overwrite that fingerprint with the V4 payload;
-- known Boss facts are preserved/repaired from authoritative historical evidence according to Save V4 migration rules.
+- known Boss facts are preserved/repaired from authoritative historical evidence according to Save V4 migration rules;
+- migration never downgrades a legitimate owned instance merely because the new V4 first-clear payload would grant a lower tier.
+
+Concrete example:
+
+```text
+RC1 reward:stage-05-fire-trait = owned Fire Trait Core T2
+V4 new Crusher first clear     = owned Fire Trait Core T1
+```
+
+A migrated legitimate RC1 T2 instance remains T2 under the same durable instance ID. V4 does not rewrite it to T1 and does not grant another T1 copy because the migrated Stage is already completed.
+
+Likewise, the old RC1 full-Set reward instances remain legitimate owned inventory even though V4 changes future acquisition to Set availability + fabrication.
 
 Frozen migration code/test data may know historical V3 IDs/facts when needed, but normal V4 runtime may not depend on today's RewardProfile reproducing an old fingerprint.
 
@@ -288,49 +300,80 @@ A reward for Achievement A may not project unrelated Achievement B unless B is a
 
 ---
 
-# 9. Current V4 examples that must pass
+# 9. Current V4 durable first-clear Part identities
+
+First-clear physical Part grants are player-owned persistent instances. Their instance IDs are therefore stable source identities, not presentation strings to invent during implementation.
+
+Freeze the V4 release table:
+
+| Source milestone | Part definition | Owned tier | Stable owned instance ID |
+| --- | --- | ---: | --- |
+| `stage:junkyard-01` / First Scavenge | `part:barrel-standard` | 1 | `reward:stage-01-standard-barrel` |
+| `stage:junkyard-02` / Scrap Run | `part:optic-red-dot` | 1 | `reward:stage-02-red-dot-optic` |
+| `stage:junkyard-03` / Rusher Ambush | `part:receiver-heavy` | 1 | `reward:stage-03-heavy-receiver` |
+| `stage:junkyard-04` / Brute Force | `part:trigger-hair` | 1 | `reward:stage-04-hair-trigger` |
+| `stage:junkyard-05` / Scrap Crusher | `part:trait-fire` | 1 | `reward:stage-05-fire-trait` |
+| `stage:forge-04` / Cut the Feed | `part:underbarrel-grenade` | 1 | `reward:forge-04-grenade-launcher` |
+| `stage:junkyard-06` / Forge Warden | `part:trait-fire-mastered` | 3 | `reward:stage-06-mastered-fire-trait` |
+
+Rules:
+
+- preserve the existing RC1 J1 and Crusher owned-instance IDs where the same physical source/reward survives conceptually;
+- new V4 sources use one deterministic `reward:<source>-<part-purpose>` ID each;
+- these source-owned IDs are distinct from repeatable fabrication IDs (`owned:<part-slug>:<serial>`) and merge outputs (`merged-*`);
+- an instance ID is never regenerated from display copy, array position or atlas identity;
+- a future rename/rebalance of the display reward does not rename an already-shipped owned instance ID;
+- a reward profile may grant each listed instance at most once because the Stage first-clear receipt owns that source event.
+
+These IDs belong in current V4 reward-profile data and exact content tests. Generic future N+1 content follows the same source-owned stable-ID rule without adding a central current-ID switch.
+
+---
+
+# 10. Current V4 examples that must pass
 
 ### Junkyard 1
 
-If Standard Barrel becomes available on `stage:junkyard-01` clear, a **new** first-clear Standard Barrel reward validates against the candidate context containing that exact Stage clear.
+If Standard Barrel becomes available on `stage:junkyard-01` clear, a **new** first-clear Standard Barrel reward validates against the candidate context containing that exact Stage clear and creates `reward:stage-01-standard-barrel`.
 
 A migrated RC1 J1 clear with the old receipt/fingerprint remains a replay under V4 and receives no new V4 first-clear reward.
 
 ### Scrap Crusher
 
-If Fire Trait Core availability is gated by `boss-crusher`, a new Crusher first-clear physical Fire Trait Core validates against the candidate context containing the matching Crusher defeat fact.
+If Fire Trait Core availability is gated by `boss-crusher`, a new Crusher first-clear physical Fire Trait Core validates against the candidate context containing the matching Crusher defeat fact and creates `reward:stage-05-fire-trait` at T1.
 
-A migrated RC1 Crusher clear retains its historical reward/receipt and is not converted into a new V4 first clear.
+A migrated RC1 Crusher clear retains its historical T2 `reward:stage-05-fire-trait`, reward receipt and fingerprint. It is not downgraded and is not converted into a new V4 first clear.
 
 ### Forge Warden
 
-`part:trait-fire-mastered` remains reward-only/non-fabricable and may use `boss-defeated: boss-forge` as its visibility/availability condition. A new Warden first-clear T3 Mastered Fire reward validates against the candidate context containing that exact Boss defeat.
+`part:trait-fire-mastered` remains reward-only/non-fabricable and may use `boss-defeated: boss-forge` as its visibility/availability condition. A new Warden first-clear T3 Mastered Fire reward validates against the candidate context containing that exact Boss defeat and creates `reward:stage-06-mastered-fire-trait`.
 
 None of these require a duplicate `unlock-part` token.
 
 ---
 
-# 10. Required RED -> GREEN tests
+# 11. Required RED -> GREEN tests
 
 ## Same-source success
 
 ```text
 J1 pre-clear save
 + exact current J1 first-clear settlement
--> Stage fact + Standard Barrel + receipt persist together
+-> Stage fact + reward:stage-01-standard-barrel + receipt persist together
 ```
 
 ```text
 Crusher pre-clear save
 + exact current Crusher boss clear settlement
--> Stage fact + boss fact + Fire Trait Core + receipt persist together
+-> Stage fact + boss fact + reward:stage-05-fire-trait T1 + receipt persist together
 ```
 
 ```text
 Warden pre-clear save
 + exact current Warden boss clear settlement
--> Stage fact + boss fact + Mastered Fire Core T3 + receipt persist together
+-> Stage fact + boss fact + reward:stage-06-mastered-fire-trait T3 + receipt persist together
 ```
+
+Add exact content assertions for all seven current V4 physical first-clear Part instance IDs in §9.
 
 ## Direct-grant rejection
 
@@ -358,7 +401,7 @@ storage failure
 
 Retry after recovery succeeds exactly once.
 
-## Historical fingerprint migration
+## Historical fingerprint / inventory migration
 
 Construct a V3 fixture with:
 
@@ -376,11 +419,15 @@ PASS:
 ```text
 historical receipt/fingerprint preserved
 Stage still completed
+historical legitimate Equipment/Part inventory preserved
+historical owned tiers preserved
 replay returns firstClear:false
 no fingerprint mismatch failure
 no V4 first-clear Scrap/item reminted
 only legitimate best-time improvement may persist
 ```
+
+Include a Crusher fixture proving RC1 `reward:stage-05-fire-trait` remains T2 while a new V4 first clear would have produced T1.
 
 Repeat for a representative normal Stage and Boss Stage.
 
@@ -405,7 +452,7 @@ no mismatch failure merely because current reward data changed
 
 ---
 
-# 11. N+1 rule
+# 12. N+1 rule
 
 This correction remains generic.
 
@@ -423,11 +470,13 @@ The implementation must project **fact types + exact source identities**, never 
 
 Future reward tuning also must not require receipt-ID churn merely to keep old clears replayable; completed source facts classify replay before current reward reconstruction.
 
+Future persistent physical rewards choose one stable source-owned instance ID when authored. They do not need a save-schema migration merely because another content row is added.
+
 ---
 
-# 12. Ownership / implementation location
+# 13. Ownership / implementation location
 
-Expected implementation ownership is the existing durable settlement boundary in `src/engine/context.ts`, Save V4 migration, and a small pure helper if needed to construct/evaluate projected condition contexts.
+Expected implementation ownership is the existing durable settlement boundary in `src/engine/context.ts`, Save V4 migration, current reward-profile data, and a small pure helper if needed to construct/evaluate projected condition contexts.
 
 Do not add a second transaction manager.
 
@@ -440,7 +489,7 @@ Relevant implementation trackers:
 
 ---
 
-# 13. PASS
+# 14. PASS
 
 This amendment passes implementation when:
 
@@ -450,9 +499,11 @@ This amendment passes implementation when:
 4. storage failure remains non-optimistic;
 5. completed Stage facts classify replay before current reward reconstruction;
 6. historical receipt/fingerprint payloads survive V4 reward-profile changes without reminting or false mismatch failure;
-7. receipt-without-fact corruption still fails closed;
-8. current J1/Crusher/Warden new-first-clear cases pass;
-9. representative V3 migrated normal/boss Stage replay passes;
-10. a synthetic N+1 same-source reward passes with no content-ID branch.
+7. legitimate historical owned rewards and tiers survive V4 migration even when future acquisition changes;
+8. receipt-without-fact corruption still fails closed;
+9. all seven current V4 physical first-clear Part IDs/tiers are exact and source-owned;
+10. current J1/Crusher/Warden new-first-clear cases pass;
+11. representative V3 migrated normal/boss Stage replay passes, including RC1 Crusher Fire Core T2 preservation;
+12. a synthetic N+1 same-source reward passes with no content-ID branch.
 
 This is a correction to the V4 settlement contract, not a relaxation of validation.
