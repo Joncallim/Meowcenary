@@ -313,17 +313,21 @@ The intermediate `alpha-3-implementation-blueprint.md` was useful during this ch
 - active V4 stable-ID differences are explicit rather than inferred from count;
 - generated selected-source policy is reconciled with existing deterministic import tooling;
 - logical-art/resource/atlas/bundle constraints are part of production authority;
+- final logical-ID namespace sweep caught one V4 example using `part-icon:*` instead of the canonical `gun-part-icon:*`; the Contract matrix was corrected before closeout;
+- `ui-nav:*` remains deliberately V4-art-delta-owned rather than being mechanically normalized to the older RC1 `nav-icon:*` recommendation;
 - RC1 matrix is explicitly historical, not a second V4 production authority.
 
 ## Independent-review requirement
 
 The original PR review on the early draft was genuinely useful and found the catalog-identity defects above, but it reviewed old commit `076fee8`. Those threads are resolved.
 
-A fresh `@codex review` was requested against planning head `c1991783dd5fa78891568e6d6425ad25e27275f9`, but the GitHub App had not acknowledged/submitted a review. An explicit reviewer request for `chatgpt-codex-connector` returned GitHub 422 because the App is not a repository collaborator.
+Multiple fresh `@codex review` requests were made after those fixes, including after the final internal consistency passes. The GitHub Codex bot explicitly rejected those re-review attempts because the account had **reached its Codex code-review usage limit**. This is a quota blocker, not a review result.
 
-Therefore no fresh independent PASS is claimed.
+An explicit reviewer request for `chatgpt-codex-connector` also returned GitHub 422 because the App is not a repository collaborator.
 
-**Status:** **UNVERIFIED EXTERNALLY** — internal reconciliation complete; blocked only on a fresh independent review of the final planning head.
+Therefore no fresh independent PASS is claimed. When review quota becomes available, the review must evaluate the then-current exact planning head; any material finding must be fixed and re-reviewed on the resulting SHA.
+
+**Status:** **UNVERIFIED EXTERNALLY — CODEX REVIEW QUOTA BLOCKED**. Internal reconciliation is complete; external certification is unavailable through the configured integration at present.
 
 ---
 
@@ -344,22 +348,22 @@ Therefore no fresh independent PASS is claimed.
 
 ## External gate still missing
 
-A fresh independent PR review must evaluate the **final current planning head**, not the old early-draft review. Any material finding must be fixed and the review re-run against the new exact SHA.
+A fresh independent PR review must evaluate the final current planning head, not the old early-draft review. The configured Codex GitHub review path cannot currently supply that evidence because its review quota is exhausted.
 
-Until that happens, implementation handoff is internally ready but not independently certified.
+Until review capacity returns or an equivalent independent reviewer is available, implementation handoff is internally ready but not independently certified.
 
-**Status:** **UNVERIFIED EXTERNALLY**.
+**Status:** **UNVERIFIED EXTERNALLY — REVIEW QUOTA BLOCKED**.
 
 ---
 
 # Final planning verdict
 
 ```text
-Product/architecture reconciliation: PASS internally
-N+1 authoring contract:            PASS internally
-RC1 runtime/tooling scalability:    NOT YET PASS — implementation owner #170
-Fresh independent final-head review: UNVERIFIED
-Alpha 3 release acceptance:         NOT PASS — #164/#165/#166 + implementation/manual/fun gates remain
+Product/architecture reconciliation:  PASS internally
+N+1 authoring contract:               PASS internally
+RC1 runtime/tooling scalability:       NOT YET PASS — implementation owner #170
+Fresh independent final-head review:   UNVERIFIED — Codex review quota blocked
+Alpha 3 release acceptance:            NOT PASS — #164/#165/#166 + implementation/manual/fun gates remain
 ```
 
 This distinction is intentional. Planning quality must not be confused with implemented proof, and missing independent/manual evidence must not be colored green.
