@@ -1,51 +1,49 @@
-# Alpha 3 Current-Content Art Matrix
+# Alpha 3 RC1 Current-Content Art Matrix
 
-**Status:** catalog-exact exhaustiveness companion to `alpha-3-art-production-briefs.md` for Issue #167.
+**Status:** exact **RC1 baseline inventory** reviewed at `codex/alpha3-campaign` / `f5ea5e297c54c84ec8b3ad7193768fbc29ac33a7`.
 
-**Baseline reviewed:** `codex/alpha3-campaign` at `f5ea5e297c54c84ec8b3ad7193768fbc29ac33a7`.
+**Not final V4 production authority.** Apply `alpha-3-v4-product-art-delta.md` before commissioning or validating active V4 art. The V4 delta retires permanent-upgrade production, replaces Well Protected with Warden Down, adds Forge/Foundry and final navigation art, and changes resource/source policy.
 
-This file exists because a visual-manifest audit alone is insufficient: some player-facing data uses text/borrowed icons and therefore has no dedicated `visual-art.json` binding yet. Counts are not enough either. The pass condition is **stable-ID coverage** against every current player-facing catalog.
-
-If this matrix and an older art brief differ, the current repository catalog wins and the brief must be corrected.
+This file remains useful because it records what the frozen RC1 implementation actually contained and guards against count-only catalog mistakes.
 
 ---
 
-# 1. Current data-catalog coverage
+# 1. RC1 catalog coverage
 
-| Data file | Player-facing visual need | Production coverage |
+| RC1 data file/domain | RC1 player-facing visual need | V4 interpretation |
 | --- | --- | --- |
-| `abilities.json` | 8 active ability icons | Main brief §4 |
-| `achievements.json` | exact 10 current achievement badges + hidden treatment | Main brief §10 |
-| `arenas.json` | 15 world assets + one location-card composition | Main brief §§13–14 |
-| `asset-bundles.json` | no standalone art; grouping/loading only | Explicitly none |
-| `audio-assets.json` | audio, not graphics | Out of graphics scope |
-| `audio-map.json` | audio routing, not graphics | Out of graphics scope |
-| `characters.json` | 8 actor sheets, 8 portraits, 8 passive icons; starting weapons reuse weapon art | Main brief §§3, 5, 6 |
-| `content-version.json` | no player-facing art | Explicitly none |
-| `difficulty-profiles.json` | no dedicated art; tuning remains data | Explicitly none |
-| `encounter-profiles.json` | no standalone art; stage/Compendium derive real monster relationships | Explicitly none |
-| `enemies.json` | exact 10 current actor sheets; Compendium reuses them | Main brief §11 + Compendium plan |
-| `equipment.json` | 32 dedicated piece icons + 8 set emblems | Main brief §9 |
-| `gun-parts.json` | exact 12 current physical part icons + **8** slot glyphs (including `trait`) + 3 used trait emblems | Main brief §8 |
-| `loot-tables.json` | no loot-table icon; rewards compose actual XP/scrap/chest/weapon/part/equipment art | Main brief §§6, 8, 9, 12 |
-| `meta-upgrades.json` | 4 current legacy progression icons if surface survives #165 | Main brief §15 |
-| `reward-profiles.json` | no reward-profile painting; show actual granted content/currency | Explicitly none |
-| `spawn-curves.json` | simulation data; no standalone art | Explicitly none |
-| `stages.json` | 2 chapter emblems, 1 location card, 4 objective icons, boss marker | Main brief §14 |
-| `upgrades.json` | exact 18 current run-upgrade icons | Main brief §7 |
-| `visual-art.json` | 77 current runtime bindings need approval/replacement audit | Main brief §§2–13 |
-| `weapon-feel.json` | muzzle/impact/recoil remain runtime procedural feedback | Explicitly none |
-| `weapons.json` | 9 rack icons, 9 held weapons, 3 family projectiles; legacy default projectile separately retained/reviewed | Main brief §6 |
+| `abilities.json` | 8 active ability concepts/icons | active; V4 generic icon/resource contract |
+| `achievements.json` | 10 RC1 badge identities | active set changes: Well Protected retires, Warden Down added |
+| `arenas.json` | Junkyard world/location presentation | active + V4 Forge Foundry world packet |
+| `asset-bundles.json` | grouping/loading only | no standalone art; V4 resource-bundle architecture expands |
+| `audio-assets.json` / `audio-map.json` | audio | graphics out of scope |
+| `characters.json` | 8 actors, portraits, passives; starting weapon reuses weapon art | active |
+| `difficulty-profiles.json` | no standalone art | remains simulation/tuning only |
+| `encounter-profiles.json` | no standalone art | Contract UI composes real enemy/location art |
+| `enemies.json` | 10 actor sheets | active; Compendium reuses them by default |
+| `equipment.json` | 32 piece icons + 8 Set emblems target | active, but V4 moves Set ownership out of provider pieces |
+| `gun-parts.json` | 12 physical Part icons + 8 slot glyphs + shared trait emblems target | active under V4 generic icon contract |
+| `loot-tables.json` | no loot-table icon | compose actual reward/drop art |
+| `meta-upgrades.json` | 4 legacy RC1 progression concepts | **retired V4 production scope** |
+| `reward-profiles.json` | no profile painting | result composes actual grants/availability |
+| `spawn-curves.json` | no standalone art | simulation only |
+| `stages.json` | chapter/location/objective/boss presentation | active; V4 final Contract IA + Forge location |
+| `upgrades.json` | 18 run-upgrade icons | active |
+| `visual-art.json` | RC1 runtime binding inventory | V4 refactors logical bindings vs physical resources |
+| `weapon-feel.json` | procedural muzzle/impact/recoil | remains runtime presentation data unless later evidence justifies sprites |
+| `weapons.json` | 9 rack icons, 9 held weapons, 3 family projectiles + legacy default projectile | active |
 
-Future exhaustiveness starts from **all player-facing data catalogs + all UI surfaces + the visual manifest**, then compares stable IDs rather than only counts.
+Rule:
+
+> Future exhaustiveness starts from **all active player-facing V4 data catalogs + all major UI surfaces + logical art registry/resources**, not from one manifest or count.
 
 ---
 
-# 2. Stable-ID proof for previously collision-prone catalogs
+# 2. Exact RC1 collision-prone stable-ID sets
 
-## 2.1 Run upgrades — exact 18
+These sets exist because the first PR review proved that counts can be correct while identities are wrong.
 
-The production brief must contain one icon brief for each of these current IDs and no invented substitute:
+## Run upgrades — exact RC1 18
 
 ```text
 quick-paws
@@ -68,9 +66,9 @@ shotgun-buckshot
 shotgun-breacher
 ```
 
-The earlier draft's `Last Stand` was not current content and is removed. `pistol-needle-rounds` is now explicitly briefed.
+Any active V4 run-upgrade production matrix must equal the authoritative target catalog by stable ID; `Last Stand` was an invalid earlier invented replacement and is not current content.
 
-## 2.2 Gunsmith parts — exact 12
+## Gunsmith Parts — exact RC1 12
 
 ```text
 part:receiver-compact
@@ -87,7 +85,7 @@ part:trait-fire
 part:trait-fire-mastered
 ```
 
-Current slots represented by the data contract:
+RC1 Part slots include:
 
 ```text
 receiver
@@ -100,132 +98,103 @@ underbarrel
 trait
 ```
 
-The physical part list must therefore not invent Long-Range Optic, Stable Stock, Standard Underbarrel or an Incendiary Barrel as if they were current definitions. FIRE/PIERCING/EXPLOSIVE emblems remain reusable trait semantics; physical Fire Trait Core items remain separate art.
+Earlier imagined “Long-Range Optic / Stable Stock / Standard Underbarrel / Incendiary Barrel” rows were review errors, not current definitions.
 
-## 2.3 Achievements — exact 10
+## RC1 achievements — exact 10
 
 ```text
-achievement:first-kill                    -> First Blood
-achievement:kill-milestone-25             -> Scrap Squad
-achievement:kill-milestone-100            -> Junkyard Veteran
-achievement:first-merge                   -> Forge Initiate
-achievement:boss-crusher                  -> Crusher Down
-achievement:chapter-junkyard              -> Junkyard Champion
-achievement:first-victory                 -> First Victory
-achievement:mastery-scrap-tabby           -> Tabby Mastery
-achievement:scrap-banked-1000             -> Scrap Tycoon
-achievement:permanent-reinforced-coat-3   -> Well Protected
+achievement:first-kill
+achievement:kill-milestone-25
+achievement:kill-milestone-100
+achievement:first-merge
+achievement:boss-crusher
+achievement:chapter-junkyard
+achievement:first-victory
+achievement:mastery-scrap-tabby
+achievement:scrap-banked-1000
+achievement:permanent-reinforced-coat-3
 ```
 
-The earlier draft's Untouchable, Hot Work and Fully Suited badges were not current achievement definitions and are removed from the production list.
+V4 active target explicitly:
+
+```text
+remove active: achievement:permanent-reinforced-coat-3 / Well Protected
+add active:    achievement:boss-forge / Warden Down
+```
+
+Historical earned Well Protected state is a Save V4 migration concern, not an active art requirement.
 
 ---
 
-# 3. Legacy permanent/meta progression — 4 icons
+# 3. RC1 legacy permanent/meta progression — historical only
 
-These remain relevant only while the Progression surface exposes them.
+The four RC1 concepts were:
 
-## Reinforced Vest — `reinforced-vest`
+```text
+reinforced-vest
+quick-paws-training
+sharpened-ammo
+magnetic-whiskers
+```
 
-Work vest on a small workshop mannequin/stand with two stacked reinforcement plates and progress notch. The mannequin/training framing distinguishes permanent investment from run Reinforced Coat and equippable armour.
+They were correctly discovered in the RC1 exhaustiveness audit because the old Progression surface exposed them even though they were not dedicated visual-manifest entries.
 
-## Quick Paws Training — `quick-paws-training`
+V4 retires that purchasable domain. Therefore:
 
-Paw trail crossing three workshop stepping/training blocks with an upward progress notch. Distinct from Quick Paws, Light Paws and Adrenaline.
-
-## Sharpened Ammo — `sharpened-ammo`
-
-Broad fictional scrap slug against filing/grinding jig, making the permanent workshop preparation operation the read. Distinct from Heavy Rounds, Punch Through and PIERCING.
-
-## Magnetic Whiskers — `magnetic-whiskers`
-
-Abstract cat muzzle with two long bent coil-tipped whiskers drawing bolts inward. Distinct from Scrap Magnet, Magnet Belly and Scavenge Pulse.
-
-If #165 retires legacy Progression, remove these art requirements with the feature.
+- do not commission these four icons for active V4;
+- do not keep the old feature merely because briefs once existed;
+- do not treat their absence from V4 art as a completeness failure.
 
 ---
 
-# 4. Non-raster/procedural graphics explicitly reviewed
+# 4. Non-raster/procedural decisions retained
 
-## Weapon feel
+Do not create bespoke images merely to inflate art count.
 
-`weapon-feel.json` owns family muzzle radius/color, impact radius/color and recoil. Keep these as crisp bounded runtime FX unless visual evidence proves a sprite materially improves readability. Asset art never owns timing/recoil values.
+Keep procedural/live UI where it is the truthful owner:
 
-## Health/XP meters
+- weapon muzzle/impact/recoil timing;
+- meter fill amounts;
+- focus/locked/disabled state overlays;
+- encounter/difficulty/spawn simulation data;
+- reward-profile identity itself.
 
-Meters remain runtime geometry with art-backed framing/glyphs. Do not bake fill amounts into sprites.
-
-## Focus, locked, disabled and rarity state
-
-Use reusable state chrome from the main brief. Do not redraw every card in every state.
-
-## Encounter/difficulty/spawn data
-
-These change simulation/composition. Stage cards communicate through real stage/objective/enemy content rather than invented “difficulty art” that can drift from rules.
-
-## Rewards
-
-Reward surfaces show actual granted item/part/equipment/scrap art. A `reward:stage-01` illustration would duplicate truth.
+Reward surfaces show actual Scrap/items/projects; Contract surfaces show actual chapter/location/objective/threat art.
 
 ---
 
-# 5. UI-surface cross-check
+# 5. Major UI surface cross-check
 
-| Surface | Required art source |
+V4 production must provide or compose art for:
+
+| Surface | Art source |
 | --- | --- |
-| Main menu | title lockup, backdrop, reusable navigation/chrome |
-| Stages/Contracts | chapter, arena, objective, boss marker, state overlays |
-| Golden Run / legacy Arena | Golden Run nav emblem + Junkyard location/world art |
-| Characters | portrait, actor, active/passive icons, weapon icon, stat glyphs |
-| Progression | four meta-upgrade icons if #165 retains surface |
-| Gunsmith | exact 12 part icons, 8 slot glyphs, trait emblems, weapon/stat art, chrome |
-| Equipment | 32 item icons, 8 set emblems, stat glyphs, state chrome |
-| Achievements | exact current 10 badges + hidden/locked treatment |
-| Compendium | final enemy sheets + Compendium nav/chrome; no duplicate portraits by default |
-| Settings | audio/music/SFX/reduced-motion/fullscreen glyphs |
-| HUD | XP/scrap reuse, health/timer/kills, objective/ability art |
-| Touch/controller controls | device-neutral logical-action glyphs |
-| Upgrade chooser | exact current 18 upgrade icons + consistent card chrome |
-| Inventory/rack/merge | weapon icons + merge symbol + card/focus chrome |
-| Run result/summary | clear/fail emblem + actual earned/build art |
+| Home | title/backdrop + Play Contract + next-Contract composition |
+| Contracts | chapter/location/objective/boss/reward composition |
+| Mercenary | portrait/actor/ability/passive/weapon art |
+| Loadout / Equipment | Set emblems, item icons, shared stat/state chrome |
+| Loadout / Gunsmith | weapon/Part/slot/trait art |
+| Career | real next-goal content art; Achievement badges; Compendium mark |
+| Compendium | final enemy sheets; shared Career list/chrome |
+| Training | practice/Golden Run identity if retained |
+| Settings | settings/audio/fullscreen/reduced-motion glyphs |
+| HUD | health/timer/objective/ability + XP/Scrap reuse |
+| Upgrade chooser | exact run-upgrade icons + card chrome |
+| Inventory/rack/merge | weapon art + merge/focus state |
+| Results | clear/fail + actual reward/build/availability composition |
+
+No generic top-level Progression production family remains in V4.
 
 ---
 
-# 6. Template/scalability gate
+# 6. Final authority / production gate
 
-The matrix is part of the future content template, not a one-time Alpha 3 spreadsheet-in-Markdown.
+For V4 production read:
 
-When a new content-bearing catalog or item is introduced:
+1. `alpha-3-v4-product-art-delta.md` — active V4 overrides;
+2. `alpha-3-art-production-briefs.md` — unchanged detailed item/family directions only;
+3. `../architecture/content-authoring-templates-v4.md` — scalable logical/resource authoring;
+4. `../architecture/alpha-3-final-execution-handoff.md` — sequencing/resource prerequisites;
+5. #167/#170 implementation trackers.
 
-1. the source definition is added with a stable ID;
-2. the relevant authoring template declares whether dedicated art is required;
-3. explicit presentation/art references are added where the owner can have multiple assets;
-4. this matrix/category coverage is updated automatically or by review;
-5. generic validation checks every required current ID resolves;
-6. a synthetic N+1 fixture proves ordinary content does not require scene/controller/save/renderer branching;
-7. explicit encounter/reward/loot/bundle pools are edited only where intended.
-
-An exhaustiveness gate that merely checks `count === 18` is insufficient; it must compare the actual stable ID set.
-
----
-
-# 7. Review history and closure
-
-The original companion was created after a catalog-wide pass found four meta-upgrades that a manifest-only review missed.
-
-A subsequent PR review then found a stronger failure mode: **matching counts with incorrect item identities**. Specifically:
-
-- `Last Stand` was incorrectly briefed while current `pistol-needle-rounds` was missing;
-- several Gunsmith part briefs described nonexistent current parts and omitted real `trait`-slot cores/Piercing Barrel/Padded Stock;
-- several achievement badges described nonexistent current achievements while omitting First Victory, Scrap Tycoon and Well Protected.
-
-Those P1 findings are now corrected in the main brief and this matrix. The permanent process change is that #167 coverage is checked by **stable ID**, not prose count.
-
-The combined production authority is:
-
-- `docs/art/alpha-3-art-production-briefs.md`
-- `docs/art/alpha-3-current-content-art-matrix.md`
-- `docs/architecture/content-authoring-templates.md`
-- `docs/architecture/content-authoring-template-coverage.md`
-
-No future content addition is considered production-ready until its stable IDs pass the same matrix/template/conformance path.
+PASS uses exact **stable-ID equality**, not only counts. A new V4 catalog/UI addition updates the active coverage matrix/resource metadata as part of its generic conformance gate.
