@@ -2,7 +2,7 @@
 
 **Status:** reviewed authoring/extensibility contract for Alpha 3 and future content packs.
 
-**Applies to:** characters, abilities/passives, enemies, bosses, equipment, equipment sets, Gunsmith parts/traits, achievements, stages/chapters, art and Monster Compendium entries.
+**Applies to:** characters, abilities/passives, enemies, bosses, equipment, equipment sets, Gunsmith parts/traits, achievements, stages/chapters, art and Monster Compendium entries. The exhaustive supporting-catalog templates, proof audit and remediation register live in `content-authoring-template-coverage.md`; the two documents form one authoring contract.
 
 This document turns the existing Alpha 3 extensibility principles into a repeatable authoring workflow. The requirement is stronger than “the runtime is data-driven”:
 
@@ -26,6 +26,7 @@ Every ordinary content addition follows these rules.
 8. **Cross-reference validation.** Every referenced stable ID and art ID resolves generically.
 9. **Generic conformance.** Existing test loops automatically cover the new definition.
 10. **Data-only proof.** Every domain keeps at least one synthetic “next item” fixture proving no core source changes are necessary.
+11. **No hidden identity reconstruction.** A simple naming convention is allowed only when it is documented and machine-validated. Multi-asset presentation uses explicit references rather than increasingly complex string-prefix magic.
 
 A new **type of mechanic** may require one registered implementation. Once registered, later instances using it return to the data/assets-only path.
 
@@ -59,8 +60,8 @@ reward:<slug>
 character-portrait:<character-id-tail>
 ability-icon:<ability-id-tail>
 passive-icon:<passive-id-tail>
-enemy:<enemy-id-tail>          # existing actor binding convention
-character:<character-id-tail>  # existing actor binding convention
+enemy:<enemy-id-tail>          # documented, validated current actor-art convention
+character:<character-id-tail>  # documented, validated current actor-art convention
 equipment-icon:<equipment-id-tail>
 equipment-set-icon:<set-id-tail>
 gun-part-icon:<part-id-tail>
@@ -70,7 +71,7 @@ objective-icon:<objective-type>
 chapter-icon:<chapter-id-tail>
 ```
 
-Existing shipped IDs are not renamed merely to satisfy these examples.
+Existing shipped IDs are not renamed merely to satisfy these examples. Current actor sheets may continue using the simple validated `character:<character.id>` / `enemy:<enemy.id>` convention. Portraits, badges, set emblems and other multi-asset presentation references must be explicit or owned by a validated presentation catalog.
 
 ---
 
@@ -112,9 +113,11 @@ Add one entry to `src/data/characters.json`:
 Notes:
 
 - The current catalog uses ID tails such as `scrap-tabby` rather than the `character:` prefix inside `characters.json`; preserve the live contract unless a deliberate migration changes it.
+- The current actor-art contract requires `character:<id>` and validates the cross-reference. This convention is part of the template, not an implicit implementation detail.
 - Static passives use existing stat modifiers and are fully data-authored.
 - Reactive passives reference one registered `handlerId`; adding another instance of an existing handler is data-only. A genuinely new reactive behavior requires one handler implementation, never a character-ID branch.
 - A new active ability using an existing `AbilityEffect.kind` is data-only in `abilities.json`; a new effect kind is a mechanic change.
+- Portrait/ability/passive presentation references are explicit once those Alpha 3 presentation catalogs land; do not derive all of them from the character name/ID in scene code.
 
 ## 3.2 Character art packet template
 
@@ -154,7 +157,7 @@ Acceptance:
 
 ## 3.3 Character synthetic extensibility fixture
 
-Keep a test fixture equivalent to `character:test-next` using only existing ability/passive/unlock primitives. Generic validation and the character read model must include it without editing character runtime source.
+Keep a test fixture equivalent to `character:test-next` using only existing ability/passive/unlock primitives. Generic validation and the character read model must include it without editing character runtime source. The shipped-content controller test must compare against registry content rather than hard-code the current roster count.
 
 ---
 
@@ -424,7 +427,7 @@ Adding Enemy N+1 with an existing archetype/behavior is data + actor art + encou
 }
 ```
 
-Do not add a global “all enemies” random pool. Explicitly place it in the intended encounter profile(s).
+The current enemy actor-art contract requires `enemy:<id>` and validates the cross-reference. Do not add a global “all enemies” random pool. Explicitly place the enemy in the intended encounter profile(s).
 
 Enemy art packet headings:
 
@@ -445,7 +448,8 @@ Source/export/binding IDs
 Conformance:
 
 - definition validates for its archetype;
-- art resolves;
+- actor art resolves through the documented validated convention;
+- portrait/other presentation art is explicit if added;
 - encounter membership is explicit;
 - old seeded encounters remain unchanged until edited;
 - Compendium metadata resolves;
@@ -497,7 +501,7 @@ Metric/condition primitive
 Target
 Hidden? / spoiler policy
 Reward/grant profile using shared vocabulary
-Badge art ID
+Explicit badge art reference
 Optional platform mirror mapping
 ```
 
@@ -511,7 +515,7 @@ black-silhouette cue
 hidden treatment behavior
 ```
 
-No achievement-specific code or platform-gated unlock logic.
+No achievement-specific code or platform-gated unlock logic. The #167 art integration should add an explicit presentation/badge reference rather than reconstructing one in the UI.
 
 ---
 
@@ -546,6 +550,8 @@ state overlays from reusable UI chrome
 Do not create one bespoke painting for every stage unless the product deliberately introduces a new location/art need.
 
 Adding a new chapter with a new location may introduce a new world/art bundle, but BootScene must still load through bundle/manifest data rather than one hard-coded asset call per content item.
+
+The templates for encounter, difficulty, reward, loot, spawn, arena, bundle, weapon, run/permanent upgrades, audio and weapon feel are in `content-authoring-template-coverage.md` so the complete supporting catalog surface remains explicit rather than implied.
 
 ---
 
@@ -636,7 +642,7 @@ A generic static icon binding template is conceptually:
 }
 ```
 
-Validation, not scene code, enforces that an equipment definition points to an icon-sized compatible binding.
+Validation, not scene code, enforces that an equipment definition points to an icon-sized compatible binding. `content-authoring-template-coverage.md` records the current kind/prefix coupling as TPL-06 and makes its generalization part of #167 integration.
 
 ---
 
@@ -677,7 +683,7 @@ For a family (character, set, weapon tier family, chapter), add a family-level b
 
 # 16. Content-pack authoring checklist
 
-A future content PR should state which template(s) it instantiates.
+A future content PR should state which template(s) it instantiates. The exhaustive PR declaration contract is in `content-authoring-template-coverage.md`.
 
 Example: “Add Character 9”
 
@@ -687,12 +693,13 @@ Example: “Add Character 9”
 [ ] existing/new ability definition added as required
 [ ] passive uses existing static/reactive vocabulary
 [ ] actor + portrait + ability/passive art produced
+[ ] current actor-art convention and explicit presentation refs resolve
 [ ] visual bindings/bundle membership resolve
 [ ] explicit unlock condition resolves
 [ ] explicit starting weapon resolves
 [ ] generic character catalog validation passes
-[ ] generic art validation passes
-[ ] synthetic/real selection read model includes character automatically
+[ ] synthetic N+1 selection/read-model test passes
+[ ] no fixed roster-count test needs editing
 [ ] no scene/controller/save-schema changes
 [ ] silhouette contact-sheet gate passes
 [ ] gameplay/manual balance pass completed
@@ -710,6 +717,7 @@ Example: “Add Equipment Set 9”
 [ ] effects do not manually repeat owning source IDs
 [ ] reward/unlock pools edited explicitly
 [ ] generic equipment conformance passes
+[ ] synthetic Set N+1 test uses the first-class set owner
 [ ] mixed-set and 2/4-piece tests pass
 [ ] no equipment/controller/save-schema changes
 [ ] grayscale 4-piece contact sheet passes
@@ -722,6 +730,7 @@ Example: “Add Enemy 11”
 [ ] existing archetype/mechanic selected
 [ ] enemies.json row added
 [ ] actor art packet completed
+[ ] validated enemy:<id> actor binding added
 [ ] explicit encounter profile(s) updated
 [ ] existing old pools remain unchanged unless deliberately edited
 [ ] Compendium presentation entry added
@@ -742,8 +751,11 @@ A synthetic ninth character using existing primitives:
 
 - validates;
 - appears in the registry and selection read model;
+- resolves the documented actor-art convention and explicit multi-asset presentation refs;
 - can reference existing ability/passive/unlock/art IDs;
 - requires no source edit outside fixture data.
+
+The shipped-content test must not assert the magic roster size `8`; it should derive expected membership from the registry/data fixture.
 
 ## Equipment gate
 
@@ -752,6 +764,8 @@ After set metadata is first-class, a synthetic ninth four-piece set:
 - validates as one set + four pieces;
 - activates 2/4-piece bonuses generically;
 - exposes all pieces in equipment read models;
+- contains no arbitrary provider piece;
+- contains no authored owner `sourceId` duplication;
 - requires no runtime/controller source edit.
 
 ## Gun-part gate
@@ -767,13 +781,13 @@ A synthetic part in an existing slot with an existing trait:
 A synthetic direct enemy using an existing archetype:
 
 - validates;
-- resolves art;
+- resolves actor art;
 - can be placed in a test encounter profile;
 - appears in Compendium read models through generic derivation.
 
-## Achievement/stage gates
+## Achievement/stage/supporting-catalog gates
 
-Synthetic definitions using existing condition/grant/objective vocabulary validate and appear in read models without ID-specific source changes.
+Synthetic definitions using existing condition/grant/objective/profile vocabulary validate and appear in read models without ID-specific source changes. The supporting-catalog matrix must remain complete whenever a new `src/data` content catalog is added.
 
 These tests should fail if a future refactor accidentally replaces catalog iteration with a fixed list.
 
@@ -790,8 +804,9 @@ These tests should fail if a future refactor accidentally replaces catalog itera
 - unlocks use the shared condition vocabulary.
 - active abilities are referenced by ID; existing effect kinds are data-authored.
 - static passives are data-authored.
+- actor-art identity is simple and already machine-validated.
 
-**Verdict:** ordinary Character N+1 is structurally scalable once its art/presentation packet follows this document.
+**Verdict:** ordinary Character N+1 is structurally scalable once the fixed-count test is removed and the full presentation packet follows this contract.
 
 ### Equipment registry / persistence
 
@@ -810,11 +825,19 @@ These tests should fail if a future refactor accidentally replaces catalog itera
 
 **Verdict:** ordinary new parts are scalable; remove repeated authored `sourceId` when the data contract is next touched.
 
+### Weapons / upgrades / profiles / arenas / audio
+
+The supporting-catalog audit found these domains are already definition/profile driven. Their complete copyable templates are frozen in `content-authoring-template-coverage.md`.
+
+**Verdict:** ordinary additions using existing primitives are scalable and should remain explicit-pool/composition changes rather than automatic global inclusion.
+
 ### Visual art
 
-- `DataVisualArtRegistry` iterates the validated manifest and builds animation clips generically.
+- `DataVisualArtRegistry` iterates the validated manifest and builds animation clips generically;
+- current actor naming convention is tested;
+- weapon/run-upgrade art references are explicit.
 
-**Verdict:** scalable if new presentation art uses coarse rendering kinds and cross-reference validation, not one renderer switch branch per domain.
+**Verdict:** current assets are scalable; #167 integration must generalize/freeze the rendering-kind contract before proliferating new semantic icon kinds.
 
 ### Compendium plan
 
@@ -826,6 +849,8 @@ These tests should fail if a future refactor accidentally replaces catalog itera
 **Verdict:** properly templated by this document + `monster-compendium.md`.
 
 ## Current authoring debt that must not become precedent
+
+The canonical remediation register is TPL-01 through TPL-08 in `content-authoring-template-coverage.md`. The material pre-scale blockers are:
 
 ### A. Equipment set metadata on arbitrary provider pieces — **must be removed before large-scale set expansion**
 
@@ -839,13 +864,17 @@ The owner ID is already known from the definition/instance. Repeating it is a dr
 
 **Target:** source identity injected by runtime resolution.
 
-### C. Presentation assets are still split across catalogs without a single authoring checklist — **resolved at planning level by this document**
+### C. Character selection fixed-count test — **must become registry-derived**
 
-Future content PRs must name their template and run the cross-catalog checklist.
+The controller implementation is generic, but the current test asserts exactly eight shipped characters. Character 9 should not require changing test code merely to update a magic number.
 
-### D. Future `VisualArtKind` growth — **guardrail added**
+### D. Equipment synthetic fixture codifies the provider-piece pattern — **must be rewritten with the set-owner refactor**
 
-Do not add a new rendering kind solely because the semantic owner is equipment/achievement/passive/etc. Use coarse rendering contracts.
+The current extensibility test is useful but currently teaches future agents to put set metadata on `index === 0`. The replacement fixture must prove the intended first-class Set N+1 template instead.
+
+### E. Future `VisualArtKind` growth — **#167 integration guardrail**
+
+Do not add a new renderer branch solely because a static icon belongs to equipment, achievements, passives or another semantic domain. Use a bounded renderer contract.
 
 ---
 
@@ -857,13 +886,15 @@ A domain is properly templated only when all of these are true:
 2. a copyable art/presentation skeleton exists where applicable;
 3. stable ID rules are explicit;
 4. owning catalog is explicit;
-5. cross-file references are explicit;
+5. cross-file references are explicit or a simple convention is documented and machine-validated;
 6. generic validation covers the new instance automatically;
 7. a synthetic “next item” fixture proves no core source edit is necessary;
 8. new content does not require a save migration;
 9. old deterministic pools do not change implicitly;
 10. there is no hidden provider/order/naming convention;
 11. there is no duplicated authoritative identity that the author must keep manually synchronized;
-12. the closest existing content-collision review is part of the template.
+12. no shipped-content test encodes a magic roster/set count that ordinary content growth must edit;
+13. the closest existing content-collision review is part of the template;
+14. every current content-bearing catalog is represented in the supporting coverage matrix.
 
-Under this standard, the **architecture direction is scalable**, but the equipment-set provider convention and duplicated modifier `sourceId` fields are explicitly not accepted as the final authoring model. They should be cleaned up before post-Alpha-3 equipment expansion; all other ordinary additions should follow the templates above.
+Under this standard, the **planning/authoring contract is now comprehensive**, but the live implementation/test surface should not be labelled fully template-clean until TPL-01 through TPL-04 are implemented. TPL-06 must be closed as part of the #167 presentation-art integration. This is deliberately stricter than saying “the code is data-driven”; it is the bar required for low-friction Character 9 / Equipment Set 9 / Enemy 11 content production.
