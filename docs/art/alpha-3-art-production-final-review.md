@@ -6,6 +6,7 @@
 2. `alpha-3-current-content-art-matrix.md`
 3. `../architecture/content-authoring-templates.md`
 4. `../architecture/content-authoring-template-coverage.md`
+5. `../architecture/alpha-3-scalability-closeout.md`
 
 **Baseline reviewed:** `codex/alpha3-campaign` at `f5ea5e297c54c84ec8b3ad7193768fbc29ac33a7`.
 
@@ -70,7 +71,22 @@ Do not use human/animal skulls, generic fantasy boss crowns, military rank marks
 
 ---
 
-# 4. Final cross-document checks
+# 4. Production-source clarification
+
+The current repository contains deterministic ImageGen-to-Pixelorama import paths for some expanded actors. The scalable production rule is therefore:
+
+- exploratory concept boards are never automatically accepted as final runtime art;
+- a generated sheet **may** become a selected production source when its provenance is retained;
+- the selected source is imported through the deterministic pipeline, reviewed/polished against the brief, and approved only after Pixelorama/source/export/real-game checks;
+- the deterministic builder/import path must reproduce the accepted production source rather than an obsolete pre-polish concept.
+
+There is no requirement to redraw every generated pixel solely because AI produced it. The actual requirements are provenance, originality, deliberate review, reproducibility and final in-game quality.
+
+This clarification supersedes any narrower sentence in the main brief that could be read as forbidding reviewed generated source pixels from entering production at all.
+
+---
+
+# 5. Final cross-document checks
 
 - **Catalog identity:** current art-producing domains are checked against stable IDs; exact run-upgrade, Gunsmith and achievement sets are now correct.
 - **Actors:** all 8 mercenaries and 10 enemies/bosses have distinct silhouette directions and collision guards.
@@ -82,26 +98,36 @@ Do not use human/animal skulls, generic fantasy boss crowns, military rank marks
 - **Accessibility:** grayscale/silhouette, focus, reduced-motion and 390×844 review gates are explicit.
 - **Production:** concept provenance, Pixelorama source, deterministic builder parity, validation and real-game review remain mandatory.
 - **Originality/legal:** no reference-game copying, realistic military expression, protected Red Cross symbol or generic skull fallback.
-- **Scalability:** every future family uses the canonical authoring templates and exact stable-ID coverage checks; ordinary content may not create scene/controller/save/renderer branches.
+- **Scalability:** every future family uses canonical authoring templates and exact stable-ID coverage checks; ordinary content may not create scene/controller/save/loader/validator branches merely because the catalog grew.
 
 ---
 
-# 5. Remaining implementation-level scalability findings
+# 6. Final scalability findings
 
-The **planning/art contract is now template-complete**, but the current runtime/test layer is intentionally not certified as fully template-clean until the remediation register in `content-authoring-template-coverage.md` is closed. In particular:
+The planning/art contract is template-complete, but the live art/runtime/tooling stack is intentionally **not** certified fully template-clean until the P1 items in `alpha-3-scalability-closeout.md` are closed.
 
-- TPL-01: equipment-set bonuses/unlocks must move from an arbitrary provider piece to a first-class set owner;
-- TPL-02: equipment/part effect `sourceId` duplication should be derived rather than manually authored;
-- TPL-03: character-selection tests must stop hard-coding the current roster size `8`;
-- TPL-04: the synthetic equipment-set extensibility test must stop teaching the provider-piece pattern;
-- TPL-06: the visual-art rendering-kind contract must be generalized/frozen during #167 integration before many new presentation families land.
+The most important findings are:
 
-These are not art-brief ambiguity; they are implementation authoring-path debt that would otherwise make future Character 9 / Set 9 additions less clean than the documentation promises.
+- first-class Equipment Set ownership must replace arbitrary provider pieces;
+- the synthetic Equipment Set N+1 test must stop teaching that provider pattern;
+- dedicated equipment/part art requires generic static-icon compatibility rather than validators requiring `upgrade-icon`;
+- logical art identity must be separated from physical texture resources before the planned Alpha 3 presentation set nearly consumes the current 256-binding ceiling;
+- Boot must load resource bundles/surfaces rather than eagerly loading every non-world presentation asset;
+- builder validation must become manifest/resource-driven rather than requiring another per-ID contract row for Character 9 / Enemy 11;
+- deterministic builder/source/export parity must become a machine-verifiable gate;
+- Compendium defeat discovery requires the universal source-independent enemy-death boundary already specified in `monster-compendium.md`.
+
+The complete priorities and synthetic proof scenarios are in `../architecture/alpha-3-scalability-closeout.md`.
 
 ---
 
-# 6. Closure
+# 7. Closure
 
-After applying the independent P1 corrections, the **art-production brief set itself has no known unresolved current-catalog identity gap**. It is now safe to use as the design authority for #167, subject to live repository data remaining the implementation truth.
+After applying the independent catalog corrections, the **art-production brief set has no known unresolved current-catalog identity gap** and the future-content authoring templates are comprehensive.
 
-This closure does **not** claim the runtime is already fully template-clean. Runtime template cleanliness is gated separately by TPL-01 through TPL-04 and the #167 rendering-kind integration work described above.
+It is safe to use these documents as the design authority for #167, but #167 implementation must include the P1 art-resource/loader/builder hardening rather than simply adding 160+ new one-file/one-binding assets to the current proving architecture.
+
+This closure therefore distinguishes two claims deliberately:
+
+- **Art/content planning:** PASS.
+- **Current whole authoring/tooling implementation:** NOT YET FULLY TEMPLATE-CLEAN; bounded remediation is frozen in the scalability closeout.
