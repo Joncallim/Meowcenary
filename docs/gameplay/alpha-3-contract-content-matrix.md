@@ -392,7 +392,7 @@ Availability is derived from authoritative facts via the shared V4 resolver in `
 | Clear Forge 2 | Pyro Set |
 | Clear Forge 3 | Medic Set |
 | Clear Forge 4 | Grenade Launcher |
-| Defeat Forge Warden | Equipment T4 capability; Mastered Fire Trait Core headline reward |
+| Defeat Forge Warden | Equipment T4 capability; Mastered Fire Trait Core T3 headline reward |
 
 These are **availability** changes, not automatic ownership. Scrap spending choices remain meaningful.
 
@@ -415,7 +415,7 @@ The values below are initial tuning candidates and are **exact fixed first-clear
 | `reward:forge-02` | 105 | none — Pyro availability is the headline |
 | `reward:forge-03` | 120 | none — Medic availability is the headline |
 | `reward:forge-04` | 140 | Grenade Launcher T1 |
-| `reward:stage-06-boss` | 180 | Mastered Fire Trait Core, reward-only |
+| `reward:stage-06-boss` | 180 | Mastered Fire Trait Core T3, reward-only |
 
 No full Equipment Set is directly granted by these profiles.
 
@@ -463,7 +463,9 @@ Important V4 details:
 - **no `fabricationCost` field**: absence means reward-only/non-fabricable;
 - **no authored owner `sourceId`**;
 - owned instance carries engineering tier;
-- if the reward supplies an owned tier above 1, shared tier scaling applies to the modifier only;
+- the Forge Warden first-clear transaction explicitly grants this owned instance at **engineering tier 3**; that tier belongs to the reward/instance, not the static Part definition;
+- T3 keeps the reward-only Mastered core consistent with its final-boss status and its structural T3 art direction without reintroducing definition-time tier;
+- shared tier scaling applies to the definition-owned modifier, so its 1.05× base damage modifier resolves to 1.15× at owned T3;
 - FIRE itself is one shared behavior and does not secretly scale by tier;
 - do not create `MASTERED_FIRE` merely because the display name says Mastered.
 
