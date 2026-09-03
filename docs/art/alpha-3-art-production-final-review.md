@@ -1,133 +1,163 @@
-# Alpha 3 Art Production — Final Orthogonal Review Closure
+# Alpha 3 Art Production — V4 Orthogonal Review Closure
 
-**Authority:** final review companion for Issue #167, read after:
+**Status:** review/closure companion for Issue #167. Active implementation decisions are governed by `alpha-3-v4-product-art-delta.md` plus the final V4 architecture.
 
-1. `alpha-3-art-production-briefs.md`
-2. `alpha-3-current-content-art-matrix.md`
-3. `../architecture/content-authoring-templates.md`
-4. `../architecture/content-authoring-template-coverage.md`
-5. `../architecture/alpha-3-scalability-closeout.md`
+Read in this order:
 
-**Baseline reviewed:** `codex/alpha3-campaign` at `f5ea5e297c54c84ec8b3ad7193768fbc29ac33a7`.
+1. `../architecture/alpha-3-final-execution-handoff.md`
+2. `../architecture/content-authoring-templates-v4.md`
+3. `alpha-3-v4-product-art-delta.md`
+4. `alpha-3-art-production-briefs.md` for unchanged detailed family/item directions
+5. `alpha-3-current-content-art-matrix.md` for exact RC1 baseline identities
+6. `../architecture/alpha-3-scalability-closeout.md`
 
-This note records the corrections that survived the final catalog, originality and scalability passes. It deliberately supersedes the earlier closure language that said no findings remained before PR review had completed.
+**RC1 baseline reviewed:** `codex/alpha3-campaign` at `f5ea5e297c54c84ec8b3ad7193768fbc29ac33a7`.
 
----
-
-# 1. Corrections made after independent PR review
-
-The first automated PR review found three **P1 content-identity errors** in the earlier art packet. They were valid and are fixed rather than waived.
-
-## P1-A — run-upgrade identity
-
-The draft brief contained a nonexistent `Last Stand` card while omitting the actual current `pistol-needle-rounds` definition.
-
-**Resolution:** §7 of the main brief is now keyed to the exact 18 current `upgrades.json` IDs. `Pistol Needle Rounds` has a dedicated design and `Last Stand` is removed from current production scope.
-
-## P1-B — Gunsmith identity/slot coverage
-
-The draft described several imagined current parts (Long-Range Optic, Stable Stock, Standard Underbarrel, Incendiary Barrel) while omitting current stable definitions including Padded Stock, Piercing Barrel, Fire Trait Core and Mastered Fire Trait Core. It also omitted the actual `trait` slot from the slot-glyph family.
-
-**Resolution:** §8 is rebuilt against the exact 12 current `gun-parts.json` IDs and all eight current slots:
-
-```text
-receiver
-barrel
-optic
-stock
-trigger
-magazine
-underbarrel
-trait
-```
-
-Physical trait-core items are now explicitly distinguished from reusable FIRE/PIERCING/EXPLOSIVE trait emblems.
-
-## P1-C — achievement identity
-
-The draft badge list included nonexistent current achievements such as Untouchable, Hot Work and Fully Suited while omitting real current entries including First Victory, Scrap Tycoon and Well Protected.
-
-**Resolution:** §10 is rebuilt against the exact 10 current `achievements.json` IDs/names.
+This note records what survived independent catalog, originality and scalability review. It does not resurrect superseded RC1 product/art requirements.
 
 ---
 
-# 2. Process correction: counts are not completeness
+# 1. Independent PR-review corrections
 
-The earlier review correctly counted 18 upgrades, 12 parts and 10 achievements yet still mapped several of those counts to the wrong identities. The production gate is therefore strengthened:
+The first automated PR review found three valid P1 catalog-identity errors in the early art packet.
 
-> **Every art-requiring catalog is compared by stable ID set, not only by count.**
+## Run upgrade identity
 
-The current-content matrix now records the exact collision-prone ID sets and becomes part of future content conformance.
+Early draft had nonexistent `Last Stand` while omitting real `pistol-needle-rounds`.
 
-A future `count === N` test is insufficient if it cannot tell that one real ID was replaced by one invented ID.
+Resolution:
+
+- main detailed brief now uses exact RC1 18 run-upgrade IDs;
+- Pistol Needle Rounds has a dedicated direction;
+- Last Stand is not current/V4 content.
+
+## Gunsmith identity / slot coverage
+
+Early draft invented several Parts while omitting real Padded Stock, Piercing Barrel, Fire Trait Core and Mastered Fire Trait Core, and missed the real `trait` slot.
+
+Resolution:
+
+- exact current 12 Part IDs are recorded in the RC1 matrix;
+- all eight slots are recognized;
+- physical trait-core items are distinct from reusable FIRE/PIERCING/EXPLOSIVE emblems.
+
+## Achievement identity
+
+Early draft used invented current achievements while omitting real RC1 entries.
+
+Resolution:
+
+- RC1 matrix records exact stable IDs;
+- V4 then deliberately retires active Well Protected and adds `achievement:boss-forge` / Warden Down.
 
 ---
 
-# 3. Originality correction retained
+# 2. Process correction: count is not completeness
 
-The reusable boss-stage marker is a **compact compactor-jaw / toothed-gear hazard emblem** inside a clipped workshop warning frame. One heavy jaw/ram silhouette faces a smaller opposing plate, with gear teeth/piston notches establishing industrial danger.
+A catalog can have the expected count and still contain the wrong identities.
 
-Do not use human/animal skulls, generic fantasy boss crowns, military rank marks, copied warning logos or baked text.
+Final gate:
+
+> **Every active art-requiring catalog is compared by stable ID set, not only cardinality.**
+
+A future `count === N` assertion is not an exhaustiveness proof if one real ID can be silently replaced by one invented ID.
+
+---
+
+# 3. Originality correction
+
+Reusable boss-stage marker uses a compact **compactor-jaw / toothed-gear industrial hazard** vocabulary rather than generic skull/crown shorthand.
+
+Do not use:
+
+- human/animal skulls;
+- generic fantasy boss crowns;
+- copied warning logos;
+- military rank marks;
+- baked tiny text.
+
+The final V4 Forge/Warden family must also distinguish intact Forge chapter/location identity from broken Warden Down defeat imagery.
 
 ---
 
 # 4. Production-source clarification
 
-The current repository contains deterministic ImageGen-to-Pixelorama import paths for some expanded actors. The scalable production rule is therefore:
+Some RC1 expanded actors already have deterministic generated-source -> Pixelorama import paths.
 
-- exploratory concept boards are never automatically accepted as final runtime art;
-- a generated sheet **may** become a selected production source when its provenance is retained;
-- the selected source is imported through the deterministic pipeline, reviewed/polished against the brief, and approved only after Pixelorama/source/export/real-game checks;
-- the deterministic builder/import path must reproduce the accepted production source rather than an obsolete pre-polish concept.
+Final V4 rule:
 
-There is no requirement to redraw every generated pixel solely because AI produced it. The actual requirements are provenance, originality, deliberate review, reproducibility and final in-game quality.
+- exploratory generated boards are not automatically runtime art;
+- a generated sheet may become a deliberately selected production source;
+- preserve untouched selected source as provenance;
+- import deterministically;
+- review/edit/polish in Pixelorama as required;
+- pass silhouette, palette, originality, anchor, animation, grayscale and real-scale checks;
+- deterministic builder/import reproduces the **accepted production source**, not an obsolete concept.
 
-This clarification supersedes any narrower sentence in the main brief that could be read as forbidding reviewed generated source pixels from entering production at all.
+There is no ceremonial hand-redraw requirement solely because generation contributed to source creation.
 
----
-
-# 5. Final cross-document checks
-
-- **Catalog identity:** current art-producing domains are checked against stable IDs; exact run-upgrade, Gunsmith and achievement sets are now correct.
-- **Actors:** all 8 mercenaries and 10 enemies/bosses have distinct silhouette directions and collision guards.
-- **Combat art:** all weapon tiers, held weapons, four projectile bindings, four pickups and current world art are covered.
-- **Progression art:** exact run upgrades, conditional meta upgrades, abilities, passives, 32 equipment pieces/8 sets, exact 12 Gunsmith parts/8 slots/3 trait emblems and exact 10 achievements are covered.
-- **Stage art:** reusable chapter/arena/objective/boss composition avoids one-painting-per-stage debt.
-- **UI:** menu, navigation, chrome, stats, HUD, controls, settings, inventory/merge and result states have an art source.
-- **Compendium art:** reuses final enemy/boss sheets by default rather than creating parallel monster canon.
-- **Accessibility:** grayscale/silhouette, focus, reduced-motion and 390×844 review gates are explicit.
-- **Production:** concept provenance, Pixelorama source, deterministic builder parity, validation and real-game review remain mandatory.
-- **Originality/legal:** no reference-game copying, realistic military expression, protected Red Cross symbol or generic skull fallback.
-- **Scalability:** every future family uses canonical authoring templates and exact stable-ID coverage checks; ordinary content may not create scene/controller/save/loader/validator branches merely because the catalog grew.
+`alpha-3-v4-product-art-delta.md` is the supersession authority for any narrower wording in the older detailed brief.
 
 ---
 
-# 6. Final scalability findings
+# 5. Active V4 production corrections
 
-The planning/art contract is template-complete, but the live art/runtime/tooling stack is intentionally **not** certified fully template-clean until the P1 items in `alpha-3-scalability-closeout.md` are closed.
+The RC1 matrix is historical inventory. V4 production explicitly changes it:
 
-The most important findings are:
-
-- first-class Equipment Set ownership must replace arbitrary provider pieces;
-- the synthetic Equipment Set N+1 test must stop teaching that provider pattern;
-- dedicated equipment/part art requires generic static-icon compatibility rather than validators requiring `upgrade-icon`;
-- logical art identity must be separated from physical texture resources before the planned Alpha 3 presentation set nearly consumes the current 256-binding ceiling;
-- Boot must load resource bundles/surfaces rather than eagerly loading every non-world presentation asset;
-- builder validation must become manifest/resource-driven rather than requiring another per-ID contract row for Character 9 / Enemy 11;
-- deterministic builder/source/export parity must become a machine-verifiable gate;
-- Compendium defeat discovery requires the universal source-independent enemy-death boundary already specified in `monster-compendium.md`.
-
-The complete priorities and synthetic proof scenarios are in `../architecture/alpha-3-scalability-closeout.md`.
+- **retire** the four permanent/meta-upgrade icons with the removed permanent-stat shop;
+- **retire active** Well Protected badge production while preserving historical earned save state;
+- **add** Warden Down badge;
+- **add** Forge/Foundry 16-asset world packet + location/chapter presentation;
+- **replace** old peer Stage/Arena/Progression navigation assumptions with Play Contract / Mercenary / Loadout / Career / Training / Settings;
+- use generic logical `icon`/`portrait`/`animated-actor` renderer contracts instead of semantic renderer proliferation;
+- separate stable logical art IDs from physical textures/atlases/resources;
+- load heavy UI/run resource bundles on demand rather than globally preloading every future presentation asset.
 
 ---
 
-# 7. Closure
+# 6. Final cross-document checks
 
-After applying the independent catalog corrections, the **art-production brief set has no known unresolved current-catalog identity gap** and the future-content authoring templates are comprehensive.
+- **Catalog identity:** exact stable-ID coverage is mandatory.
+- **Mercenaries:** all eight current Mercenaries have distinct actor silhouette directions; V4 additionally requires portrait/ability/passive presentation under scalable resources.
+- **Enemies/bosses:** ten current hostiles have distinct threat silhouettes; Compendium reuses final runtime sheets by default.
+- **Combat art:** weapon tiers/held art/projectiles/pickups remain covered.
+- **Run-build art:** exact run-upgrade catalog remains covered.
+- **Loadout art:** 8 Set emblems, 32 piece icons, exact current Parts/slots/traits are production targets under V4 generic icon resources.
+- **Achievements:** active V4 set uses exact stable IDs and Warden Down replacement.
+- **World:** Junkyard plus justified Forge/Foundry packet; collision honesty remains mandatory.
+- **UI:** final Contract-first navigation, HUD, controls, inventory/merge, results/loading/error states have owned art sources.
+- **Accessibility:** silhouette/grayscale/focus/reduced-motion/phone-scale gates remain explicit.
+- **Production:** provenance, editable source, deterministic build/import, parity, validation and actual-game review remain mandatory.
+- **Originality/legal:** no copied reference-game expression, protected Red Cross symbol, realistic military insignia dependency or generic skull fallback.
 
-It is safe to use these documents as the design authority for #167, but #167 implementation must include the P1 art-resource/loader/builder hardening rather than simply adding 160+ new one-file/one-binding assets to the current proving architecture.
+---
 
-This closure therefore distinguishes two claims deliberately:
+# 7. Runtime/tooling scalability findings remain implementation work
 
-- **Art/content planning:** PASS.
-- **Current whole authoring/tooling implementation:** NOT YET FULLY TEMPLATE-CLEAN; bounded remediation is frozen in the scalability closeout.
+Planning/art is coherent, but RC1 tooling is not yet fully template-clean. #170 owns the cross-cutting remediation:
+
+- first-class Equipment Set ownership instead of provider pieces;
+- source-free definition modifiers;
+- generic dedicated icon compatibility instead of `upgrade-icon` coupling;
+- logical art separate from physical resource/atlas;
+- bounded logical/resource ceilings;
+- lazy surface/run bundles instead of global non-world Boot preload;
+- manifest/family-driven builder validation rather than current-ID registration;
+- deterministic source/builder/export parity gate;
+- synthetic 500 logical static art proof.
+
+Compendium defeated discovery separately depends on the universal source-independent enemy-death settlement in the final handoff/Compendium plan.
+
+---
+
+# 8. Closure verdict
+
+### Art/product planning
+
+**PASS**, subject to current repository data remaining implementation truth and the V4 delta being applied before production.
+
+### RC1 authoring/resource/tooling implementation
+
+**NOT YET FULLY TEMPLATE-CLEAN.** The bounded remediation is frozen in #170 and `../architecture/alpha-3-scalability-closeout.md`.
+
+Do not bulk-add the V4 presentation set onto RC1’s one-binding/one-texture/global-preload proving architecture and then call scalability complete. The production tranche must consume the V4 resource/tooling foundation.
