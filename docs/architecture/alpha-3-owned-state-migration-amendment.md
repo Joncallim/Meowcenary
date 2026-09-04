@@ -4,7 +4,7 @@
 
 **Implementation baseline reviewed:** `codex/alpha3-campaign` at `f5ea5e297c54c84ec8b3ad7193768fbc29ac33a7`.
 
-**Scope:** preserve legitimate player-owned Equipment/Part state and historically earned Mercenary availability when V4 changes acquisition, unlock and upgrade policy. This amendment does not preserve obsolete authoring structures or legacy runtime rules; it preserves earned ownership/availability while V4 definitions and shared mechanics become authoritative going forward.
+**Scope:** preserve legitimate player-owned Equipment/Part state and historically earned Mercenary availability when V4 changes acquisition, unlock and upgrade policy, while deliberately discarding performance metadata that is no longer comparable after a Contract ruleset change. This amendment does not preserve obsolete authoring structures or legacy runtime rules; it preserves earned ownership/progression truth without misrepresenting stale measurements as current V4 records.
 
 ---
 
@@ -49,6 +49,8 @@ V4  -> clear stage:forge-01
 RC1 character selection is condition-driven. It does not persist a separate “this character was once selectable” fact automatically. If migration simply swaps in the new V4 definitions, a legitimate existing player can lose access to an already-playable Mercenary and a saved `selectedCharacterId` can be reset to the starter.
 
 V4 must preserve that earned availability without fabricating mastery, Stage or Achievement history.
+
+Finally, the V4 Contract product pass deliberately changes objective counts, encounter composition, difficulty and the Forge physical location while retaining stable Stage IDs for progression identity. A V3 `bestTimeMs` therefore measures a different ruleset from a V4 clear and must not be presented as the player's V4 personal best.
 
 ---
 
@@ -293,7 +295,43 @@ Required command invariant:
 
 ---
 
-# 8. Sanitization bounds
+# 8. Stage completion is durable; old best time is not comparable
+
+Stable Stage IDs preserve campaign/progression identity. A completed V3 Contract stays completed after V4 migration.
+
+`bestTimeMs`, however, is performance metadata tied to the exact gameplay contract. V4 changes enough of the current ten Contracts that RC1 and V4 times are not comparable. Representative examples:
+
+```text
+J1: kill 20 -> kill 25 + new encounter composition
+J2: collect 8 -> collect 14 + new composition
+J4: kill 30 tank -> kill 8 tank + new composition/difficulty
+Forge 1: collect 12 in Junkyard -> collect 18 in Foundry
+Forge 3: old tank objective -> shielded-target Contract
+Forge 4: old generic kill objective -> ranged-target Contract
+bosses: encounter/difficulty/content presentation materially changes
+```
+
+Therefore V3 -> V4 migration for the current ten shipped Stage IDs must:
+
+```text
+preserve completed
+remove old bestTimeMs
+```
+
+Do not:
+
+- clear completion merely because the Contract was rebalanced;
+- preserve/display the RC1 time as a V4 personal best;
+- invent a conversion factor;
+- add a leaderboard/version framework solely to preserve local obsolete records.
+
+After migration, the first successful V4 replay may establish the new V4 `bestTimeMs` normally.
+
+This is a one-time migration decision for the current product rewrite. A future minor tuning change does not automatically require resetting records; the release must decide whether the changed rules remain meaningfully comparable.
+
+---
+
+# 9. Sanitization bounds
 
 Grandfathering applies only to values legal in the V4 owned-state domain.
 
@@ -310,9 +348,11 @@ Within the legal bounds, current progression conditions do not retroactively inv
 
 Character entitlements are kept only for known valid Character definitions. An arbitrary `character:not-real` token is not preserved as usable content ownership merely because it has the right prefix.
 
+Stage migration keeps only structurally valid known Stage records; the V4 best-time reset applies to the known current ten Stage identities rather than clearing arbitrary stale future IDs by prefix.
+
 ---
 
-# 9. Required migration tests
+# 10. Required migration tests
 
 ## Equipment grandfathering
 
@@ -394,6 +434,22 @@ A V3 save that never satisfied the historical RC1 condition gains no entitlement
 
 Representative Bolt Hound / Volt Lynx / Scrap Weasel / Brass Boar cases remain selectable from their canonicalized V4 facts even without needing a special runtime branch. Migration may still promote the entitlement when they were historically selectable; doing so is durable ownership, not duplicate progression truth.
 
+## Stage best-time reset
+
+For each of the current ten Stage IDs, construct a V3 completed record with `bestTimeMs`.
+
+After V4 migration:
+
+```text
+completed remains true
+bestTimeMs is absent
+no first-clear reward is reminted
+```
+
+A first V4 replay may then persist a new best time without changing first-clear status.
+
+An unknown/stale Stage ID is handled by the normal sanitizer policy rather than accidentally treated as one of the known ten reset rows.
+
 ## Part tier preservation
 
 - RC1 `reward:stage-05-fire-trait` T2 remains T2;
@@ -425,36 +481,39 @@ A fresh V4 save:
 
 - cannot obtain/upgrade Equipment beyond the global capability conditions merely because the migration path permits grandfathered tiers;
 - does not receive migrated `character:*` entitlements;
-- follows the new V4 Mercenary cadence normally.
+- follows the new V4 Mercenary cadence normally;
+- begins with no historical Contract best-time records.
 
 ---
 
-# 10. N+1 rule
+# 11. N+1 rule
 
-This migration policy is domain-generic:
+This migration policy is domain-generic where possible:
 
 - new Equipment/Part definitions do not need migration rows merely because content count grows;
 - sparse owned state continues to reference stable definition IDs;
 - capability conditions control future commands;
 - already-owned valid tier remains player state;
 - normal V4 Character N+1 remains definition/condition driven;
-- only historically shipped character conditions belong in a versioned migration snapshot when a future release changes them in a way that could relock earned content.
+- only historically shipped character conditions belong in a versioned migration snapshot when a future release changes them in a way that could relock earned content;
+- performance-record resets are explicit release migration decisions for materially changed shipped rulesets, not a generic per-content branch.
 
-Do not create a historical per-definition grandfather table except where a genuinely shipped acquisition contract changed and preserving earned ownership requires an explicit migration decision.
+Do not create a historical per-definition grandfather table except where a genuinely shipped acquisition/performance contract changed and preserving honest player state requires an explicit migration decision.
 
 ---
 
-# 11. Implementation owners
+# 12. Implementation owners
 
 - #89 — Equipment upgrade/loadout behavior;
 - #87 — Part owned tier / fabrication / merge behavior;
 - #88 — Mercenary selection/roster availability;
-- #90 — Save V4 migration, entitlement promotion and sanitation;
+- #85 — Contract frontier/performance semantics;
+- #90 — Save V4 migration, entitlement promotion, best-time reset and sanitation;
 - #170 — generic authoring/acquisition/N+1 validation.
 
 ---
 
-# 12. PASS
+# 13. PASS
 
 This amendment passes implementation when:
 
@@ -468,5 +527,7 @@ This amendment passes implementation when:
 8. every Mercenary legitimately selectable under frozen RC1 semantics remains selectable after V4 migration;
 9. Piston Ram/Ember Cougar grandfathering preserves character ownership without fabricating mastery or Stage facts;
 10. a historically selected legitimate Mercenary is not reset solely because V4 tightened its acquisition condition;
-11. fresh V4 saves still obey the new global Equipment and Mercenary progression gates;
-12. no provider-piece, character-ID runtime branch or live V3 compatibility evaluator is reintroduced.
+11. current ten V3 Stage completions survive while incomparable RC1 `bestTimeMs` values are cleared;
+12. a V4 replay can establish a new best time without reminting first-clear rewards;
+13. fresh V4 saves still obey the new global Equipment and Mercenary progression gates;
+14. no provider-piece, character-ID runtime branch, live V3 compatibility evaluator or general performance-version framework is reintroduced.
