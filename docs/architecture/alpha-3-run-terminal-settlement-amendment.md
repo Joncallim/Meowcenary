@@ -4,7 +4,7 @@
 
 **Implementation baseline reviewed:** `codex/alpha3-campaign` at `f5ea5e297c54c84ec8b3ad7193768fbc29ac33a7`.
 
-**Scope:** collapse the normal V4 terminal progression consequences of one finished run into one authoritative candidate Save V4 write. This removes RC1 crash windows between Stage clear, run-Scrap banking, mastery, terminal metrics and condition-derived Achievements. It extends the existing terminal-settlement architecture; it does not introduce another transaction manager.
+**Scope:** collapse the normal V4 terminal progression consequences of one finished run into one authoritative candidate Save V4 write. This removes RC1 crash windows between Stage clear, run-Scrap banking, mastery, terminal metrics and condition-derived Achievements. It extends the existing terminal-settlement architecture; it does not introduce another transaction manager or another required Save receipt domain.
 
 ---
 
@@ -54,12 +54,12 @@ settleRunTerminal(input): RunTerminalSettlementResult
 The input carries only authoritative run/source identity and immutable terminal facts needed to re-resolve current catalogs, for example:
 
 ```text
-run identity / terminal status
+terminal status
 run-collected Scrap amount
 character ID
 run duration / Stage completion time when applicable
 Stage ID when this is a Stage extraction/clear
-validated terminal run metrics needed by current rules
+validated terminal run facts needed by current rules
 ```
 
 UI/scene code does **not** supply reward payloads, prices, Achievement completions, mastery outputs, Boss IDs or current catalog truth as authoritative data. Context re-resolves them from current validated registries/source state.
@@ -91,13 +91,13 @@ M. persist the complete Save V4 candidate once
 N. publish accepted state/result once
 ```
 
-This means current V4 Crusher Down / Junkyard Champion / Tabby Mastery / First Victory/Warden Down cannot be stranded behind their source fact during ordinary terminal play.
+This means current V4 Crusher Down / Junkyard Champion / Tabby Mastery / First Victory / Warden Down cannot be stranded behind their source fact during ordinary terminal play.
 
 ---
 
 # 4. Loss settlement contents
 
-A lost run has no Stage-clear reward/fact unless another already-reviewed game rule explicitly says otherwise.
+A lost run has no Stage-clear reward/fact unless another reviewed game rule explicitly says otherwise.
 
 The one loss candidate still owns:
 
@@ -176,30 +176,36 @@ No first completion owns sibling rewards.
 
 ---
 
-# 8. Exactly-once run identity / retry
+# 8. Duplicate terminal command / retry without another Save receipt
 
-A terminal settlement must be safe against:
+Alpha 3's current persistence target is synchronous browser-local persistence. A live RunState is not reconstructed and re-submitted after process restart. Therefore a new durable `terminalRunReceipts` save domain is **not required** merely to handle double taps.
 
-- duplicate confirm/tap;
-- scene retry after storage failure;
-- mixed-input duplicate terminal command;
-- lifecycle re-entry before accepted navigation.
+Use the existing scene/run lifecycle guard, but advance the accepted/resolved terminal marker **only after** `settleRunTerminal()` returns a successful durable result.
 
-Do not rely only on a process-local `WeakSet<RunState>` as durable exactly-once proof.
-
-Use the existing run/source identity architecture to ensure the same terminal event cannot bank run Scrap/mastery/metrics twice after a durable success. The implementation may use a dedicated bounded terminal receipt/identity if the current run identity does not already provide one durable source key, but it must remain a **single terminal-settlement receipt**, not per-subsystem receipts for Scrap/mastery/metrics.
-
-Requirements:
+Required live behavior:
 
 ```text
-same terminal source + same canonical payload -> accepted replay/no-op
-same terminal source + altered canonical terminal payload -> fail closed
-storage failure -> no receipt / no partial terminal facts / retryable
+first terminal command enters settlement
+successful Save V4 write returns
+scene/run terminal state is marked accepted/resolved
+later confirm/tap for that live run is ignored
 ```
 
-Stage first-clear/Achievement reward receipts remain nested source evidence inside the same candidate where their existing contracts require them.
+On storage failure:
 
-Do not reuse a first-clear Stage receipt as the whole run receipt: a replay run still has new run Scrap/mastery/metrics to bank.
+```text
+no durable terminal state is published
+the accepted/resolved marker is NOT advanced
+the same live run may retry
+```
+
+Because local persistence is synchronous, two ordinary input events are processed serially; the second event observes the accepted state after the first successful call returns.
+
+Context still re-resolves current persistent state and validates Stage/source inputs so stale caller data cannot manufacture reward truth.
+
+Keep existing Stage first-clear and Achievement reward receipts where those contracts already require durable source replay/fingerprint evidence. Do not reuse a Stage first-clear receipt to represent repeat-run Scrap/mastery/metrics.
+
+If a future platform introduces resumable persisted run sessions or genuinely asynchronous/concurrent terminal submission across process boundaries, add one reviewed terminal-source identity/receipt then. Do not pre-build that framework for Alpha 3.
 
 ---
 
@@ -279,7 +285,7 @@ mastery
 First Victory completion/reward
 Tabby Mastery completion/reward when eligible
 Crusher Down completion/current V4 reward
-all required receipts/outbox entries
+all required existing receipts/outbox entries
 ```
 
 No intermediate persistent snapshot is exposed.
@@ -295,23 +301,23 @@ no run Scrap
 no metric increment
 no mastery
 no Achievement completion/reward
-no terminal receipt
 no platform outbox addition
+scene terminal accepted marker remains false
 ```
 
 Retry after recovery commits once.
 
 ## Duplicate command
 
-Two rapid terminal commands for the same source:
+Two rapid terminal commands for the same live run:
 
 ```text
-first accepted once
-second durable replay/no-op
+first successful call persists once and marks accepted
+second live input is ignored
 no double Scrap/mastery/metric/reward
 ```
 
-Altered payload under the same durable terminal source fails closed.
+A failed first persistence leaves the live run retryable.
 
 ## Stage replay
 
@@ -346,7 +352,7 @@ Primary implementation owner remains the existing GameContext/persistence bounda
 Expected trackers:
 
 - #85 — Stage/Contract terminal integration;
-- #90 — Save V4 / terminal identity / metrics / Achievement atomicity;
+- #90 — Save V4 / metrics / Achievement atomicity;
 - #88 — mastery contribution into terminal candidate;
 - #165 — result UI consumes structured settlement truth;
 - #171 — current terminal reward/metric/product behavior;
@@ -365,6 +371,6 @@ This amendment passes when:
 3. replay does not remint historical first-clear rewards but still settles current repeat-run economy;
 4. loss/Training use the same run-level persistence owner without fake Stage data;
 5. storage failure publishes none and remains retryable;
-6. duplicate/mixed-input terminal commands are durably exactly once;
+6. duplicate/mixed-input terminal commands settle once for the live run lifecycle without adding an unnecessary Alpha 3 terminal-receipt subsystem;
 7. result UI consumes accepted settlement truth rather than reconstructing history;
 8. load-time Achievement reconciliation remains a recovery backstop rather than the normal terminal completion path.
