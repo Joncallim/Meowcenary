@@ -6,7 +6,7 @@ import { SceneKey } from '../engine/sceneKeys';
 import type { System } from '../engine/system';
 import type { SpawnCurveDefinition } from '../systems/types';
 import { AudioManager, getAudioManager } from '../systems/audio';
-import { PLAYER_BODY_RADIUS, Player } from '../entities/Player';
+import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
 import { assembleComposedRunRequest } from '../gameplay/runRequest';
@@ -45,7 +45,7 @@ import { DataLootTableRegistry } from '../systems/lootTables';
 import { WeaponSystem } from '../systems/WeaponSystem';
 import { UpgradeChooser } from '../ui/UpgradeChooser';
 import { resolveCharacterRunContribution } from '../gameplay/characterContribution';
-import { HudController, PhaserHudView, createHudSource, topHudContentBottom } from '../ui/hud';
+import { HudController, PhaserHudView, createHudSource } from '../ui/hud';
 import { ControlsView } from '../ui/controls';
 import { InventoryController } from '../ui/inventory';
 import { StageSelectionController } from '../ui/stageSelectionController';
@@ -55,7 +55,7 @@ import {
   RunSummaryController,
   type RunSummarySource,
 } from '../ui/runSummary';
-import { GAMEPLAY_ZOOM, edgeMargin, zoomedGameUiViewport, type UiViewport } from '../ui/layout';
+import { GAMEPLAY_ZOOM, zoomedGameUiViewport } from '../ui/layout';
 import { FullscreenController } from '../ui/fullscreen';
 import { PassiveCoordinator } from '../systems/PassiveCoordinator';
 import { HazardSystem } from '../systems/HazardSystem';
@@ -94,23 +94,6 @@ export function arenaFollowEnabled(
   visibleHeight: number,
 ): boolean {
   return arenaWidth > visibleWidth || arenaHeight > visibleHeight;
-}
-
-/** Screen-relative world-space floor for the player. The HUD does not belong
- * to a fixed point in the map: following the camera must move this boundary
- * with it or the player can walk into the screen-fixed strip. */
-export function playerHudSafeFloor(
-  viewport: UiViewport,
-  arenaHeight: number,
-  cameraScrollY = 0,
-): number {
-  const hudBottom = (viewport.originY ?? 0)
-    + topHudContentBottom(viewport)
-    + edgeMargin(viewport, 'bottom');
-  return Math.min(
-    Math.max(PLAYER_BODY_RADIUS, arenaHeight - PLAYER_BODY_RADIUS),
-    Math.max(PLAYER_BODY_RADIUS, cameraScrollY + hudBottom + PLAYER_BODY_RADIUS),
-  );
 }
 
 export class GameScene extends Phaser.Scene {
@@ -308,18 +291,6 @@ export class GameScene extends Phaser.Scene {
       invulnerabilityMs: RuntimeConfig.gameplay.player.invulnerabilityMs,
       spawnX: arena.size.width / 2,
       spawnY: arena.size.height / 2,
-      minPlayableY: () => playerHudSafeFloor(
-        // HUD views rebuild on resize, so this boundary must use the same
-        // current viewport rather than the run's initial portrait geometry.
-        zoomedGameUiViewport(
-          this.scale.displaySize.width,
-          this.scale.displaySize.height,
-          this.scale.parentSize.width,
-          this.scale.parentSize.height,
-        ),
-        arena.size.height,
-        this.cameras.main.worldView.y,
-      ),
     }, visualArt.bindingById(`character:${request.characterId}`));
 
     const visibleSize = zoomedVisibleSize(this.scale.width, this.scale.height);
