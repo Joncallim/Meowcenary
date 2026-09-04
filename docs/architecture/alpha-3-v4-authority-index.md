@@ -356,6 +356,45 @@ If a future product requirement genuinely needs reversible eligibility, introduc
 
 Generic validation must reject a synthetic Character/Set/Part/Contract permanent unlock using `scrap-total` or a non-monotonic `not(...)` graph, while ordinary monotonic N+1 content remains data-only.
 
+## 3.10 Infusion transfers behavior, not the source Core's engineering value
+
+RC1/V4 infusion consumes a trait-slot Part and adds the shared trait ID to a compatible non-trait target. The target save shape stores the infused trait, not a copy of the source Core's definition/tier modifiers.
+
+Freeze that semantic explicitly:
+
+```text
+infuse Fire Core Tn into target Part
+-> consume Fire Core
+-> target keeps its own partId / owned tier / own modifiers
+-> target gains infused FIRE behavior
+-> Fire Core's Part-owned 1.02..1.10 modifier does not transfer
+```
+
+This is a deliberate engineering trade, not an accidental hidden copy of the source modifier. The merge/infusion confirmation UI must show the exact consumed source and exact resulting mechanical delta before commit.
+
+### Protect unique reward-only trait Parts
+
+A reward-only/non-reacquirable trait Part must not be a destructive infusion source under the current V4 rules, because consuming it would permanently destroy unique collection/progression value while transferring only the generic trait.
+
+For current content:
+
+```text
+ordinary Fire Trait Core
+fabricable after Crusher
+-> legal infusion source
+
+Mastered Fire Trait Core
+Warden-only / non-fabricable / one headline instance
+-> NOT a legal infusion source
+-> may be fitted as the persistent trait Core
+```
+
+Implement this through a generic acquisition/consumption policy, never `if partId === ...` in gameplay code. The current simplest policy may treat a non-fabricable reward-only trait Part as protected from destructive infusion; if future content needs a consumable reward-only source, that requirement must add an explicit reusable acquisition/consumption contract and proof of reacquisition rather than silently weakening the unique-item guard.
+
+A protected source fails before mutation; no Part/build/save state changes. UI labels the reason clearly.
+
+Required tests prove ordinary Fire Core infusion still works, source tier modifiers do not secretly transfer, Mastered Fire cannot be consumed, and a synthetic future protected reward-only trait Part follows the same rule without a content-ID branch.
+
 ---
 
 # 4. Tracker ownership of the late rules
@@ -367,6 +406,7 @@ Generic validation must reject a synthetic Character/Set/Part/Contract permanent
 | Historical Equipment tier capability floor | #89, #90, #170 |
 | Monotonic persistent availability validation | #85, #87, #88, #89, #90, #170 |
 | Part tier value / FIRE / early no-op Parts | #87, #170, #171 |
+| Protected reward-only infusion / infusion semantics | #87, #170, #171 |
 | Weapon-family data owner / Family N+1 | #87, #90, #170 |
 | Campaign-complete frontier / reset revalidation | #85, #90, #165, #171 |
 | Achievement historical receipts/outbox | #90, #171 |
