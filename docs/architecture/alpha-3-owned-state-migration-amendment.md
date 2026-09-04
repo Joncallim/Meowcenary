@@ -4,15 +4,15 @@
 
 **Implementation baseline reviewed:** `codex/alpha3-campaign` at `f5ea5e297c54c84ec8b3ad7193768fbc29ac33a7`.
 
-**Scope:** preserve legitimate player-owned Equipment/Part state when V4 changes acquisition and upgrade policy. This amendment does not preserve obsolete authoring structures or legacy runtime rules; it preserves earned owned identity/tier while V4 definitions and shared mechanics become authoritative going forward.
+**Scope:** preserve legitimate player-owned Equipment/Part state and historically earned Mercenary availability when V4 changes acquisition, unlock and upgrade policy. This amendment does not preserve obsolete authoring structures or legacy runtime rules; it preserves earned ownership/availability while V4 definitions and shared mechanics become authoritative going forward.
 
 ---
 
 # 1. Why this is required
 
-RC1 and V4 do not expose identical Equipment tier gates.
+RC1 and V4 do not expose identical Equipment tier gates or identical Mercenary unlock conditions.
 
-Representative RC1 provider-piece policy:
+Representative RC1 Equipment provider-piece policy:
 
 ```text
 T2 -> clear stage:junkyard-02
@@ -34,9 +34,25 @@ If V4 interpreted `maxEquipmentTier` as “maximum tier allowed to exist,” mig
 
 The V4 global tier policy is a **capability to perform future upgrade transitions**, not a retroactive validity rule for already-owned state.
 
+Mercenary cadence also changes intentionally. Two important examples become stricter for a player who already earned them under RC1:
+
+```text
+Piston Ram
+RC1 -> Scrap Tabby mastery tier 1
+V4  -> Scrap Tabby mastery tier 2
+
+Ember Cougar
+RC1 -> clear stage:junkyard-05
+V4  -> clear stage:forge-01
+```
+
+RC1 character selection is condition-driven. It does not persist a separate “this character was once selectable” fact automatically. If migration simply swaps in the new V4 definitions, a legitimate existing player can lose access to an already-playable Mercenary and a saved `selectedCharacterId` can be reset to the starter.
+
+V4 must preserve that earned availability without fabricating mastery, Stage or Achievement history.
+
 ---
 
-# 2. Frozen grandfathering rule
+# 2. Frozen grandfathering rule — owned instances
 
 For every known, structurally legal owned Equipment/Part instance loaded from V1–V3:
 
@@ -52,7 +68,97 @@ Stale definitions that truly no longer exist still follow normal fail-soft/sanit
 
 ---
 
-# 3. Equipment global tier policy semantics
+# 3. Frozen grandfathering rule — Mercenary availability
+
+`progression.unlocks` in V4 is reserved for explicit content entitlements rather than shadow Stage/Boss/Achievement facts. `character:<id>` is therefore an appropriate durable ownership entitlement for a Mercenary that was legitimately available before migration.
+
+## 3.1 Migration-only RC1 eligibility snapshot
+
+Save V4 migration must determine which current RC1 Mercenaries were legitimately selectable under **frozen V3/RC1 unlock semantics**, not by evaluating the changed V4 character definitions.
+
+The migration-only RC1 rules are:
+
+```text
+scrap-tabby    -> always
+bolt-hound     -> achievement:first-victory
+volt-lynx      -> achievement:kill-milestone-25
+brass-boar     -> boss-crusher defeated
+ember-cougar   -> stage:junkyard-05 cleared
+scrap-weasel   -> achievement:kill-milestone-100
+rattle-raptor  -> boss-crusher defeated
+piston-ram     -> Scrap Tabby mastery tier >= 1
+```
+
+This historical table belongs in migration code/tests only. It is not a second live character catalog and must not be consulted by normal V4 gameplay after migration.
+
+When one of those historical rules evaluates true, add the explicit entitlement:
+
+```text
+character:<character-id>
+```
+
+Examples:
+
+```text
+V3 Piston Ram legitimately selectable
+-> preserve/add character:piston-ram
+
+V3 Ember Cougar legitimately selectable
+-> preserve/add character:ember-cougar
+```
+
+Existing valid `character:*` entitlements are preserved.
+
+The starter does not need a redundant entitlement because its V4 condition remains `always`, though preserving an already-present valid token is harmless.
+
+## 3.2 Migration order
+
+Do not lose V3 evidence before character grandfathering is calculated.
+
+One valid ordering is:
+
+```text
+1. parse/sanitize V3 structural state
+2. normalize known V3 achievement/boss compatibility evidence using frozen migration rules
+3. evaluate frozen RC1 character-selectability rules
+4. promote historically selectable Mercenaries to character:<id> entitlements
+5. remove obsolete achievement/boss shadow tokens from the V4 entitlement bag
+6. publish/freeze the final Save V4 snapshot
+```
+
+Equivalent ordering is acceptable only if tests prove the same historical eligibility result.
+
+Do **not**:
+
+- set Scrap Tabby mastery to tier 2 merely to keep Piston Ram;
+- fabricate `stage:forge-01` completion merely to keep Ember Cougar;
+- fabricate boss/achievement facts solely to satisfy a new V4 character condition;
+- wrap each V4 CharacterDefinition in a hard-coded compatibility `any(...)` branch;
+- keep the old V3 condition evaluator as normal V4 runtime truth.
+
+The preserved fact is **character ownership**, not fake progression history.
+
+## 3.3 V4 selection rule
+
+Normal V4 character availability may treat an explicit matching entitlement as already-earned ownership:
+
+```text
+selectable(character)
+=
+progression.unlocks contains character:<character.id>
+OR
+current V4 CharacterDefinition.unlock condition passes
+```
+
+This is generic by content type/ID. It is not a Piston/Ember branch.
+
+For a fresh V4 save, no grandfather entitlements exist, so the new V4 unlock cadence is followed normally.
+
+A later `Reset Progress` may deliberately clear earned entitlements according to reset semantics; migration grandfathering is not an undeletable account-level license.
+
+---
+
+# 4. Equipment global tier policy semantics
 
 `maxEquipmentTier` means:
 
@@ -98,7 +204,7 @@ Grandfathered ownership therefore does not leak the capability to upgrade other 
 
 ---
 
-# 4. Equipment UI/read-model rule
+# 5. Equipment UI/read-model rule
 
 Persistent availability/read models must keep these concepts separate:
 
@@ -124,9 +230,18 @@ not:
 all Equipment above T3 is illegal
 ```
 
+Mercenary UI similarly distinguishes:
+
+```text
+owned/grandfathered selectable Mercenary
+current V4 acquisition condition for a fresh player
+```
+
+A grandfathered character is shown as available, not “locked but selected.”
+
 ---
 
-# 5. Part owned-tier migration
+# 6. Part owned-tier migration
 
 The same identity principle applies to Parts.
 
@@ -143,7 +258,7 @@ The historical-reward/fingerprint rules in `alpha-3-terminal-settlement-amendmen
 
 ---
 
-# 6. Fabrication serial namespace remains migration-safe
+# 7. Fabrication serial namespace remains migration-safe
 
 Pre-V4 owned Part IDs observed in the implementation use:
 
@@ -178,7 +293,7 @@ Required command invariant:
 
 ---
 
-# 7. Sanitization bounds
+# 8. Sanitization bounds
 
 Grandfathering applies only to values legal in the V4 owned-state domain.
 
@@ -193,9 +308,11 @@ Values outside structural bounds are invalid/corrupt and follow sanitizer diagno
 
 Within the legal bounds, current progression conditions do not retroactively invalidate the owned tier.
 
+Character entitlements are kept only for known valid Character definitions. An arbitrary `character:not-real` token is not preserved as usable content ownership merely because it has the right prefix.
+
 ---
 
-# 8. Required migration tests
+# 9. Required migration tests
 
 ## Equipment grandfathering
 
@@ -221,6 +338,61 @@ other T3 piece cannot upgrade to T4
 ```
 
 After boss-forge becomes durable, the ordinary T3 -> T4 upgrade becomes available.
+
+## Mercenary grandfathering — Piston Ram
+
+Fixture:
+
+```text
+V3 Scrap Tabby mastery tier = 1
+Piston Ram therefore selectable under RC1
+V4 live Piston condition = mastery tier 2
+```
+
+After V4 migration:
+
+```text
+character:piston-ram entitlement present
+mastery remains tier 1
+Piston Ram remains selectable
+other tier-2-gated behavior does not become available
+```
+
+## Mercenary grandfathering — Ember Cougar
+
+Fixture:
+
+```text
+V3 stage:junkyard-05 completed
+stage:forge-01 not completed
+Ember Cougar therefore selectable under RC1
+V4 live Ember condition = clear Forge 1
+```
+
+After V4 migration:
+
+```text
+character:ember-cougar entitlement present
+stage:forge-01 remains incomplete
+Ember Cougar remains selectable
+Forge-1-gated non-character content remains locked
+```
+
+## Saved selected character
+
+For a V3 save whose `selectedCharacterId` is a historically selectable Piston Ram or Ember Cougar:
+
+```text
+migration adds matching character entitlement
+GameContext/selection revalidation keeps the same selectedCharacterId
+no fallback to Scrap Tabby solely because the V4 live condition changed
+```
+
+A V3 save that never satisfied the historical RC1 condition gains no entitlement merely because its `selectedCharacterId` field was hand-edited or stale.
+
+## Unchanged character conditions
+
+Representative Bolt Hound / Volt Lynx / Scrap Weasel / Brass Boar cases remain selectable from their canonicalized V4 facts even without needing a special runtime branch. Migration may still promote the entitlement when they were historically selectable; doing so is durable ownership, not duplicate progression truth.
 
 ## Part tier preservation
 
@@ -249,33 +421,40 @@ An intentionally occupied `owned:<part-slug>:1` fixture must never be overwritte
 
 ## Fresh-save policy
 
-A fresh V4 save cannot obtain/upgrade Equipment beyond the global capability conditions merely because the migration path permits grandfathered tiers.
+A fresh V4 save:
+
+- cannot obtain/upgrade Equipment beyond the global capability conditions merely because the migration path permits grandfathered tiers;
+- does not receive migrated `character:*` entitlements;
+- follows the new V4 Mercenary cadence normally.
 
 ---
 
-# 9. N+1 rule
+# 10. N+1 rule
 
 This migration policy is domain-generic:
 
 - new Equipment/Part definitions do not need migration rows merely because content count grows;
 - sparse owned state continues to reference stable definition IDs;
 - capability conditions control future commands;
-- already-owned valid tier remains player state.
+- already-owned valid tier remains player state;
+- normal V4 Character N+1 remains definition/condition driven;
+- only historically shipped character conditions belong in a versioned migration snapshot when a future release changes them in a way that could relock earned content.
 
-Do not create a historical per-definition grandfather table except where a genuinely retired/renamed stable definition requires an explicit migration decision.
+Do not create a historical per-definition grandfather table except where a genuinely shipped acquisition contract changed and preserving earned ownership requires an explicit migration decision.
 
 ---
 
-# 10. Implementation owners
+# 11. Implementation owners
 
 - #89 — Equipment upgrade/loadout behavior;
 - #87 — Part owned tier / fabrication / merge behavior;
-- #90 — Save V4 migration and sanitation;
+- #88 — Mercenary selection/roster availability;
+- #90 — Save V4 migration, entitlement promotion and sanitation;
 - #170 — generic authoring/acquisition/N+1 validation.
 
 ---
 
-# 11. PASS
+# 12. PASS
 
 This amendment passes implementation when:
 
@@ -286,5 +465,8 @@ This amendment passes implementation when:
 5. historical Part tiers survive definition-tier removal;
 6. legacy reward/merge Part IDs coexist with the new fabrication namespace;
 7. unexpectedly occupied fabricated IDs are never overwritten;
-8. fresh V4 saves still obey the new global progression gates;
-9. no provider-piece or per-content migration branch is reintroduced.
+8. every Mercenary legitimately selectable under frozen RC1 semantics remains selectable after V4 migration;
+9. Piston Ram/Ember Cougar grandfathering preserves character ownership without fabricating mastery or Stage facts;
+10. a historically selected legitimate Mercenary is not reset solely because V4 tightened its acquisition condition;
+11. fresh V4 saves still obey the new global Equipment and Mercenary progression gates;
+12. no provider-piece, character-ID runtime branch or live V3 compatibility evaluator is reintroduced.
