@@ -19,11 +19,12 @@ If two documents conflict, follow the precedence below.
 3. `content-authoring-templates-v4.md` — canonical ordinary-content/N+1 schemas and authoring rules.
 4. `alpha-3-terminal-settlement-amendment.md` — source-owned projected facts, historical reward receipts/fingerprints, stable first-clear Part identities.
 5. `alpha-3-owned-state-migration-amendment.md` — owned Equipment/Part tier preservation, Mercenary grandfathering, V3 Contract performance migration.
-6. `alpha-3-part-tier-value-amendment.md` — meaningful Part tiers, FIRE layering, early-Part usefulness corrections.
-7. `alpha-3-weapon-family-authoring-amendment.md` — data-owned WeaponFamily/Gunsmith compatibility and Family N+1 proof.
-8. `alpha-3-test-transition-plan.md` — final invariants versus RC1 plumbing tests.
-9. Domain gameplay/art/Compendium documents referenced by the final handoff.
-10. `alpha-3-scalability-closeout.md` and `alpha-3-checkpoint-review-ledger.md` — evidence/reasoning history, not competing implementation schemas.
+6. `alpha-3-equipment-duplicate-migration-amendment.md` — collapse legitimate RC1 duplicate Equipment while preserving tier, loadout and real historical upgrade spend.
+7. `alpha-3-part-tier-value-amendment.md` — meaningful Part tiers, FIRE layering, early-Part usefulness corrections.
+8. `alpha-3-weapon-family-authoring-amendment.md` — data-owned WeaponFamily/Gunsmith compatibility and Family N+1 proof.
+9. `alpha-3-test-transition-plan.md` — final invariants versus RC1 plumbing tests.
+10. Domain gameplay/art/Compendium documents referenced by the final handoff.
+11. `alpha-3-scalability-closeout.md` and `alpha-3-checkpoint-review-ledger.md` — evidence/reasoning history, not competing implementation schemas.
 
 Historical redirect stubs are deliberately non-authoritative:
 
@@ -70,11 +71,11 @@ Key consequences:
 
 ## 3.2 Owned-state migration
 
-`alpha-3-owned-state-migration-amendment.md` wins over the original handoff for V1–V3 owned state, except for the historical Equipment capability correction in §7 below.
+`alpha-3-owned-state-migration-amendment.md` wins over the original handoff for V1–V3 owned state, except for the historical Equipment capability correction in §7 below and duplicate-Equipment consolidation in §3.3.
 
 Key consequences:
 
-- legal owned Equipment and Part instance IDs/tiers survive migration;
+- legal owned Equipment and Part instance IDs/tiers survive migration unless a specific historical duplicate-consolidation rule applies;
 - static definition tier is removed without rewriting legitimate owned tier;
 - historically selectable RC1 Mercenaries are promoted to explicit `character:<id>` ownership entitlements rather than being relocked by changed V4 conditions;
 - no fake new Stage/Mastery/Achievement facts are created to grandfather a character;
@@ -83,7 +84,31 @@ Key consequences:
 - the first V4 replay may establish a new V4 best time while remaining `firstClear:false`;
 - legacy `reward:*` and `merged-*` Part IDs coexist with new fabricated `owned:<part-slug>:<serial>` IDs.
 
-## 3.3 Part tier/value semantics
+## 3.3 Historical duplicate Equipment
+
+`alpha-3-equipment-duplicate-migration-amendment.md` wins over the generic “preserve legitimate owned instances” rule for duplicate same-definition Equipment.
+
+RC1 can legitimately own two `equipment:commando-helmet` instances:
+
+```text
+reward:stage-01-commando-helmet
+reward:crusher-commando-helmet
+```
+
+V4 permits at most one owned instance per Equipment definition.
+
+Migration therefore:
+
+- deterministically keeps the highest-tier legitimate copy;
+- tie-breaks by equipped instance, then stable ID;
+- rewrites a loadout reference to the survivor when needed;
+- refunds only the frozen RC1 upgrade spend actually sunk into the removed legitimate duplicate (`T1=0`, `T2=100`, `T3=250`, `T4=450` cumulative);
+- preserves both historical source receipts/fingerprints unchanged as history;
+- grants no compensation for arbitrary unrecognized hand-edited duplicates.
+
+Post-migration active Equipment satisfies one owned instance per definition without adding a duplicate-management feature.
+
+## 3.4 Part tier/value semantics
 
 `alpha-3-part-tier-value-amendment.md` wins over earlier Part tuning/details.
 
@@ -96,7 +121,7 @@ Key consequences:
 - Mastered Fire remains Warden-only/reward-only and a new Warden clear grants it as an owned T3 instance;
 - Red-Dot Optic and Padded Stock cannot remain early silent no-op Parts; use the amendment's first tuning correction unless playtest deliberately retunes it.
 
-## 3.4 Weapon family authoring
+## 3.5 Weapon family authoring
 
 `alpha-3-weapon-family-authoring-amendment.md` wins over current three-family source constants.
 
@@ -204,9 +229,20 @@ V4 sanitation therefore:
 
 No legitimate shipped three-trait player build is silently destroyed by this correction.
 
+### Separate build capacity from per-Part trait cap
+
+RC1 reuses one numeric constant for two different rules. V4 keeps them separate even if both remain `2` initially:
+
+```text
+MAX_EFFECTIVE_TRAITS_PER_PART
+MAX_TRAIT_CORES_PER_BUILD
+```
+
+Changing infusion complexity later must not silently change weapon-build trait-Core attachment capacity, or vice versa.
+
 ---
 
-# 6. Infusion consumption semantics
+# 6. Infusion consumption semantics and authoritative commands
 
 Infusion transfers the registered behavior trait, not the consumed trait Core's tier/definition engineering modifier.
 
@@ -236,6 +272,16 @@ Warden-only / non-fabricable / one headline instance
 ```
 
 Implement this from a generic acquisition/consumption policy, never a Mastered-Fire ID branch. A protected source fails with zero mutation. If future content genuinely needs a consumable reward-only source, define a reusable reacquisition/consumption contract deliberately rather than weakening the unique-item guard.
+
+Destructive/economic Gunsmith operations are authoritative context commands. UI supplies stable IDs only; the persistence boundary re-resolves current owned instances, definitions, costs/conditions and eligibility before building one candidate snapshot.
+
+For merge specifically:
+
+- the deterministic canonical output ID must be unused;
+- an occupied output ID fails/diagnoses with zero consumption;
+- do not append `:2`, `:3`, etc. to evade a provenance collision.
+
+Current-state re-resolution + consumed stable IDs is sufficient replay safety for direct interactive commands; no external-event receipt is required.
 
 ---
 
@@ -418,9 +464,18 @@ Initial Warden Down has no explicit persistent reward; Warden Stage owns the hea
 
 If a V4 platform mapping declares Warden Down reportable, migration queues its local completion for the existing best-effort platform outbox. If no mapping exists, local completion remains authoritative and no unknown pending entry is created.
 
+Historical completed boss-Stage repair is migration-only:
+
+```text
+stage:junkyard-05 completed -> boss-crusher defeated when missing
+stage:junkyard-06 completed -> boss-forge defeated when missing
+```
+
+Normal V4 runtime does not use Stage completion as a fallback Boss evaluator.
+
 ---
 
-# 11. Historical Achievement rewards and platform outbox
+# 11. Historical Achievement rewards, old save versions and platform outbox
 
 An already-completed V3 Achievement remains terminal historical state even if V4 changes/removes its reward definition.
 
@@ -445,6 +500,16 @@ V4 migration/sanitation:
 - never deletes the authoritative local historical completion solely because a platform mapping disappeared.
 
 Active reportable pending entries still survive restart and retry through the existing GameContext outbox path.
+
+## V1/V2/V3 converge to one V4 meaning
+
+V2 already contains `meta.permanentUpgrades`, and RC1 V2→V3 preserves them. V4 refunds cannot be gated on literal input `version === 3`.
+
+Either normalize V2 through frozen V2→V3 semantics before V4 migration or apply the same frozen historical refund directly. Equivalent V2/V3 purchased state must produce the same V4 Scrap refund.
+
+A V2 `reinforced-vest` level >=3 also receives the same retired Well Protected historical completion as the equivalent V3 state, with no invented timestamp.
+
+V1 has no purchased permanent-upgrade state and receives no fabricated refund.
 
 ---
 
@@ -488,13 +553,14 @@ This follows the same non-destructive stale-content policy used elsewhere rather
 | --- | --- |
 | Stage settlement / historical reward replay / first-clear IDs | #85, #90, #170, #171 |
 | Owned tier / Mercenary / Stage-time migration | #87, #88, #89, #90, #170 |
+| Historical duplicate Equipment consolidation/refund | #89, #90, #170 |
 | Historical Equipment capability floor | #89, #90, #170 |
 | Entitlement/condition namespace + monotonic availability | #85, #87, #88, #89, #90, #170 |
 | Part tier value / FIRE / early usefulness | #87, #170, #171 |
 | Infusion protection + total trait cap + lossless merge | #87, #90, #170, #171 |
 | WeaponFamily data owner / stale family / Family N+1 | #87, #90, #170 |
 | Campaign-complete frontier / reset revalidation | #85, #90, #165, #171 |
-| Historical Achievement receipts/outbox | #90, #171 |
+| Historical Achievement receipts/outbox / V2 refunds | #90, #171 |
 | BossProgress simplification | #85, #90 |
 | Warden Mastered-Fire / Warden-Down migration bridge | #90, #171 |
 | Migrated-state presentation | #165, #171 |
