@@ -196,6 +196,63 @@ interface BossProgress {
 
 Do not invent a wall-clock first-defeat timestamp during migration. Stage owns Contract performance time; Achievement completion owns `completedAt` where available.
 
+## 3.7 Migration bridge for content moved onto an already-completed milestone
+
+The generic replay rule remains: changing a historical RewardProfile does not remint its new payload.
+
+However that rule cannot make **reward-only content permanently unobtainable** for a player who completed the newly assigned sole source before V4 existed.
+
+Current V4 has one such case:
+
+```text
+Mastered Fire Trait Core
+V4 acquisition: Forge Warden milestone only, reward-only/non-fabricable
+RC1 Warden reward: no Mastered Fire instance
+RC1 live loot tables: no physical Part acquisition path
+```
+
+Therefore V3→V4 migration must bridge the content relocation:
+
+```text
+if boss-forge is authoritatively defeated
+AND no owned Part instance has partId = part:trait-fire-mastered
+then add exactly one owned instance:
+  instanceId = reward:stage-06-mastered-fire-trait
+  partId     = part:trait-fire-mastered
+  tier       = 3
+  infusedTraits = []
+```
+
+Rules:
+
+- this is a **schema/content migration grant**, not a replayed first-clear transaction;
+- preserve the historical Warden Stage receipt/fingerprint unchanged;
+- do not mark the next Warden replay `firstClear:true`;
+- do not grant another copy if a legitimate Mastered Fire instance already exists;
+- migration versioning/deterministic instance identity provides idempotency; do not add a second reward transaction manager solely for this bridge;
+- result UI must not claim the item was earned by the player's first post-migration replay.
+
+This is deliberately narrow but the migration principle is reusable:
+
+> If a release moves a non-fabricable/non-repeatable content item onto a sole milestone that historical players may already have completed, the versioned migration must preserve acquisition coverage without rewriting the historical source receipt.
+
+### Warden Down historical fact bridge
+
+V4 also adds `achievement:boss-forge` / Warden Down for the already-existing authoritative `boss-forge` defeat fact.
+
+During V3→V4 migration:
+
+```text
+boss-forge defeated
+-> achievement:boss-forge completed = true
+```
+
+with no invented `completedAt`.
+
+Initial V4 Warden Down carries **no explicit persistent reward**; the Warden Stage already owns the headline Scrap/Mastered Fire milestone reward. This keeps the migration factual and prevents a second reward-remint problem.
+
+Do not require the player to defeat an already-completed boss again merely to synchronize the new canonical Achievement domain.
+
 ---
 
 # 4. Tracker ownership of the late rules
@@ -209,6 +266,7 @@ Do not invent a wall-clock first-defeat timestamp during migration. Stage owns C
 | Campaign-complete frontier | #85, #165, #171 |
 | Achievement historical receipts/outbox | #90, #171 |
 | BossProgress simplification | #85, #90 |
+| Warden Mastered-Fire/Warden-Down migration bridge | #90, #171 |
 | Product/UI presentation of migrated state | #165, #171 |
 
 Issue comments added during the review are clarifications of these documents, not an alternative authority.
