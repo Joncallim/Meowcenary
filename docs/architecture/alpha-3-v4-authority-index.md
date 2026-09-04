@@ -127,13 +127,13 @@ Before deriving durable merge provenance/output identity:
 canonicalize/sort the two consumed instance IDs
 ```
 
-Therefore:
+Therefore the same pre-state must produce the same complete merge result regardless of caller input order:
 
 ```text
 merge(A, B) == merge(B, A)
 ```
 
-for output identity/content against the same pre-state.
+including output instance identity and infused-trait content. §3.11 defines the lossless trait-union rule required to make that statement true.
 
 Caller selection order may not become permanent ownership identity.
 
@@ -395,6 +395,65 @@ A protected source fails before mutation; no Part/build/save state changes. UI l
 
 Required tests prove ordinary Fire Core infusion still works, source tier modifiers do not secretly transfer, Mastered Fire cannot be consumed, and a synthetic future protected reward-only trait Part follows the same rule without a content-ID branch.
 
+## 3.11 Behavior-trait cap is total, lossless and order-independent
+
+The current `MAX_TRAITS_PER_PART = 2` intent is a cap on the unique behavior traits a physical non-trait Part carries, not merely the length of its `infusedTraits` array.
+
+Define for validation/commands:
+
+```text
+effectiveTraits(part instance)
+= unique(definition.traits + instance.infusedTraits)
+```
+
+Current cap:
+
+```text
+max unique effective behavior traits per non-trait Part = 2
+```
+
+### Infusion
+
+Before consuming the source Core:
+
+- resolve the target definition's native traits + current infused traits;
+- if the source trait is already present natively or by prior infusion, reject `trait-already-present` with zero mutation;
+- if adding it would make the unique effective trait count exceed 2, reject `trait-cap-reached` with zero mutation;
+- otherwise append and canonicalize the persisted infused-trait order.
+
+Therefore a native PIERCING barrel cannot consume another PIERCING source for no effect, and a native PIERCING Part may add at most one other unique behavior trait under the current cap.
+
+### Merge
+
+For same-definition/same-tier merge candidates:
+
+1. take the unique union of both instances' infused traits;
+2. include the definition's native traits when checking the effective cap;
+3. if the resulting unique effective trait set would exceed 2, reject the merge **before consuming either input**;
+4. never `slice()` or silently discard an infused trait to make the result fit;
+5. persist infused traits in one stable canonical BehaviorTrait order;
+6. derive output identity from the canonicalized unordered pair of consumed instance IDs.
+
+This makes merge fully commutative and lossless:
+
+```text
+merge(A, B).output == merge(B, A).output
+```
+
+for both durable ID and trait content.
+
+Generic catalog/save validation also rejects duplicate/unknown native or infused traits and ensures current definitions cannot begin above the supported total-trait cap.
+
+Required tests include:
+
+- native PIERCING + attempted PIERCING infusion -> rejected/no consumption;
+- native PIERCING + FIRE -> allowed at total 2;
+- native PIERCING + FIRE + attempted EXPLOSIVE -> rejected/no consumption;
+- merging FIRE-infused + EXPLOSIVE-infused plain Parts -> deterministic two-trait output;
+- merging inputs whose union would produce three total traits -> rejected, neither input consumed;
+- reversing merge input order produces byte-equivalent semantic output/ID;
+- synthetic Part N+1 follows the same cap without a Part-ID branch.
+
 ---
 
 # 4. Tracker ownership of the late rules
@@ -407,6 +466,7 @@ Required tests prove ordinary Fire Core infusion still works, source tier modifi
 | Monotonic persistent availability validation | #85, #87, #88, #89, #90, #170 |
 | Part tier value / FIRE / early no-op Parts | #87, #170, #171 |
 | Protected reward-only infusion / infusion semantics | #87, #170, #171 |
+| Total trait-cap / lossless commutative merge | #87, #170 |
 | Weapon-family data owner / Family N+1 | #87, #90, #170 |
 | Campaign-complete frontier / reset revalidation | #85, #90, #165, #171 |
 | Achievement historical receipts/outbox | #90, #171 |
