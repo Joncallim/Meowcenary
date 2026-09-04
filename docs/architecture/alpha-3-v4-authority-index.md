@@ -477,7 +477,7 @@ Normal V4 runtime does not use Stage completion as a fallback Boss evaluator.
 
 # 11. Historical Achievement rewards, old save versions and platform outbox
 
-An already-completed V3 Achievement remains terminal historical state even if V4 changes/removes its reward definition.
+An already-completed historical Achievement remains terminal state even if V4 changes/removes its reward definition.
 
 Preserve:
 
@@ -507,9 +507,50 @@ V2 already contains `meta.permanentUpgrades`, and RC1 V2→V3 preserves them. V4
 
 Either normalize V2 through frozen V2→V3 semantics before V4 migration or apply the same frozen historical refund directly. Equivalent V2/V3 purchased state must produce the same V4 Scrap refund.
 
-A V2 `reinforced-vest` level >=3 also receives the same retired Well Protected historical completion as the equivalent V3 state, with no invented timestamp.
-
 V1 has no purchased permanent-upgrade state and receives no fabricated refund.
+
+## Retired Well Protected settlement
+
+`achievement:permanent-reinforced-coat-3` / Well Protected is removed from the active V4 catalog, but its historical condition and reward must be settled fairly before retirement.
+
+Frozen historical condition:
+
+```text
+reinforced-vest level >= 3
+```
+
+Frozen historical reward:
+
+```text
+150 Scrap
+```
+
+Migration distinguishes:
+
+### Already completed / historical completion evidence exists
+
+```text
+preserve historical completion
+preserve historical reward/receipt state
+DO NOT grant another 150 Scrap
+```
+
+### Condition legitimately met but completion absent
+
+For a structurally legal V2/V3 historical state with Reinforced Vest >=3 and no Well Protected completion evidence:
+
+```text
+set achievement:permanent-reinforced-coat-3 completed = true
+no invented completedAt
+add exactly 150 Scrap once
+safe-integer clamp
+```
+
+This is a versioned migration settlement, not a replayed achievement transaction. Do not fabricate an old completion receipt/fingerprint.
+
+The level must be read from frozen historical upgrade state before the permanent-upgrade domain is removed/refunded. A hand-edited invalid level is not compensation evidence merely because a sanitizer can clamp it.
+
+Equivalent V2/V3 historical state converges to the same V4 completion/refund result.
 
 ---
 
@@ -560,7 +601,7 @@ This follows the same non-destructive stale-content policy used elsewhere rather
 | Infusion protection + total trait cap + lossless merge | #87, #90, #170, #171 |
 | WeaponFamily data owner / stale family / Family N+1 | #87, #90, #170 |
 | Campaign-complete frontier / reset revalidation | #85, #90, #165, #171 |
-| Historical Achievement receipts/outbox / V2 refunds | #90, #171 |
+| Historical Achievement receipts/outbox / V2 refund / Well Protected settlement | #90, #171 |
 | BossProgress simplification | #85, #90 |
 | Warden Mastered-Fire / Warden-Down migration bridge | #90, #171 |
 | Migrated-state presentation | #165, #171 |
