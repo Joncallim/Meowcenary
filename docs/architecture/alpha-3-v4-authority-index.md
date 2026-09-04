@@ -57,12 +57,13 @@ Use `alpha-3-owned-state-migration-amendment.md`.
 
 Frozen rules:
 
-- current V4 progression gates control future acquisition/upgrade commands, not retroactive validity of legal V3-owned state;
-- RC1-earned Equipment T4 remains T4/equippable even before V4's Forge-Warden T4 capability;
+- current V4 progression gates control future acquisition/upgrade commands for fresh V4 progression, not retroactive validity of legal V3-owned state;
 - legal Part tiers remain owned instance state after static definition tier is removed;
 - Piston Ram / Ember Cougar and every other historically selectable RC1 Mercenary remain selectable through migration-owned `character:<id>` entitlement without fabricating new Stage/Mastery/Achievement facts;
 - current ten Stage completion facts survive V3→V4, but their RC1 `bestTimeMs` values are cleared because V4 materially changes the rulesets;
 - a migrated replay may establish a new V4 best time without becoming a first clear.
+
+**Late correction:** the lower amendment's earlier statement that grandfathered Equipment ownership does not preserve unspent historical upgrade capability is superseded by §3.8 below. Existing legal owned tiers remain valid **and** a migrated save retains the highest Equipment tier capability it had already earned under RC1.
 
 ## 2.3 Part progression and current content
 
@@ -229,6 +230,7 @@ Rules:
 - preserve the historical Warden Stage receipt/fingerprint unchanged;
 - do not mark the next Warden replay `firstClear:true`;
 - do not grant another copy if a legitimate Mastered Fire instance already exists;
+- never overwrite an occupied different owned-instance key at `reward:stage-06-mastered-fire-trait`; corrupted/conflicting state fails/diagnoses safely;
 - migration versioning/deterministic instance identity provides idempotency; do not add a second reward transaction manager solely for this bridge;
 - result UI must not claim the item was earned by the player's first post-migration replay.
 
@@ -253,6 +255,70 @@ Initial V4 Warden Down carries **no explicit persistent reward**; the Warden Sta
 
 Do not require the player to defeat an already-completed boss again merely to synchronize the new canonical Achievement domain.
 
+## 3.8 Preserve historically earned Equipment tier capability
+
+Further review of RC1's actual upgrade path found that progression conditions controlled not only existing item validity but a visible, spendable **future upgrade capability**:
+
+```text
+RC1 T2 capability -> stage:junkyard-02 cleared
+RC1 T3 capability -> boss-crusher defeated
+RC1 T4 capability -> achievement:boss-crusher completed
+```
+
+V4 deliberately rebalances fresh-save pacing to:
+
+```text
+V4 T2 -> stage:junkyard-03
+V4 T3 -> boss-crusher
+V4 T4 -> boss-forge
+```
+
+A migrated player who had already satisfied an RC1 capability gate must not lose an upgrade action merely because they had not spent Scrap before migration.
+
+### Migration capability floor
+
+During V3→V4 migration determine the highest Equipment tier capability legitimately earned under frozen RC1 semantics and persist a migration-owned entitlement/capability floor without fabricating Stage/Boss/Achievement facts.
+
+Recommended explicit entitlement grammar:
+
+```text
+capability:equipment-tier-2
+capability:equipment-tier-3
+capability:equipment-tier-4
+```
+
+These are **capability entitlements**, not Stage/Boss fact aliases. They may live in the durable entitlement bag because they state exactly what was earned rather than pretending a later V4 milestone occurred.
+
+Historical derivation:
+
+```text
+stage:junkyard-02 completed        -> at least T2
+boss-crusher defeated              -> at least T3
+achievement:boss-crusher completed -> at least T4
+```
+
+The shared V4 availability/upgrade resolver computes:
+
+```text
+maxEquipmentTier = max(
+  current V4 condition-derived capability,
+  migrated historical capability entitlement
+)
+```
+
+Consequences:
+
+- a V3 J2 player can still perform T1→T2 upgrades after migration even before V4 J3;
+- a V3 Crusher-achievement player retains T4 upgrade capability even before Forge Warden;
+- existing T4 pieces remain valid as already required;
+- this entitlement never marks J3/Warden complete and never unlocks unrelated content gated by those facts;
+- a fresh V4 save has no migration capability entitlement and follows the new J3/Crusher/Warden cadence;
+- Reset Progress may clear migration entitlements according to normal reset semantics.
+
+Validation/sanitization recognizes only the bounded current Equipment tier capability grammar; `capability:*` must not become an arbitrary executable condition namespace.
+
+Required tests cover RC1-earned-but-unspent T2 and T4 capability, fresh V4 behavior, reset behavior, and proof that the capability token cannot satisfy `stage-cleared`, `boss-defeated` or `achievement-completed`.
+
 ---
 
 # 4. Tracker ownership of the late rules
@@ -261,6 +327,7 @@ Do not require the player to defeat an already-completed boss again merely to sy
 | --- | --- |
 | Stage settlement / reward replay / first-clear IDs | #85, #90, #170, #171 |
 | Owned-tier / Mercenary / best-time migration | #87, #88, #89, #90, #170 |
+| Historical Equipment tier capability floor | #89, #90, #170 |
 | Part tier value / FIRE / early no-op Parts | #87, #170, #171 |
 | Weapon-family data owner / Family N+1 | #87, #90, #170 |
 | Campaign-complete frontier | #85, #165, #171 |
