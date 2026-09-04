@@ -4,29 +4,28 @@
 
 **Implementation baseline audited:** `codex/alpha3-campaign` at `f5ea5e297c54c84ec8b3ad7193768fbc29ac33a7`.
 
-**Planning branch / review PR:** `codex/alpha3-art-compendium-planning` / #169.
+**Planning branch / PR:** `codex/alpha3-art-compendium-planning` / #169.
 
-This file is an index and supersession register, not a second full design. The base V4 plan was reviewed repeatedly against the RC1 implementation; later material findings are either frozen in dedicated amendments or listed here when they were too narrow to justify another subsystem document.
-
-If two documents conflict, follow the precedence below.
+This is a precedence/supersession register, not a second full design. Detailed rationale and tests live in the referenced documents. When documents conflict, follow the order below.
 
 ---
 
 # 1. Required reading order
 
 1. **`alpha-3-v4-authority-index.md`** — this file; final precedence and late-review corrections.
-2. `alpha-3-final-execution-handoff.md` — base V4 slice order, ownership and product/architecture target.
-3. `content-authoring-templates-v4.md` — canonical ordinary-content/N+1 schemas and authoring rules.
-4. `alpha-3-terminal-settlement-amendment.md` — source-owned projected facts, historical reward receipts/fingerprints, stable first-clear Part identities.
-5. `alpha-3-owned-state-migration-amendment.md` — owned Equipment/Part tier preservation, Mercenary grandfathering, V3 Contract performance migration.
-6. `alpha-3-equipment-duplicate-migration-amendment.md` — collapse legitimate RC1 duplicate Equipment while preserving tier, loadout and real historical upgrade spend.
-7. `alpha-3-part-tier-value-amendment.md` — meaningful Part tiers, FIRE layering, early-Part usefulness corrections.
-8. `alpha-3-weapon-family-authoring-amendment.md` — data-owned WeaponFamily/Gunsmith compatibility and Family N+1 proof.
-9. `alpha-3-test-transition-plan.md` — final invariants versus RC1 plumbing tests.
-10. Domain gameplay/art/Compendium documents referenced by the final handoff.
-11. `alpha-3-scalability-closeout.md` and `alpha-3-checkpoint-review-ledger.md` — evidence/reasoning history, not competing implementation schemas.
+2. `alpha-3-final-execution-handoff.md` — base V4 slice order, ownership and product target.
+3. `content-authoring-templates-v4.md` — canonical ordinary-content/N+1 schemas.
+4. `alpha-3-terminal-settlement-amendment.md` — projected source facts, historical reward receipts/fingerprints, stable first-clear Part IDs.
+5. `alpha-3-owned-state-migration-amendment.md` — owned-tier preservation, Mercenary grandfathering, Contract performance migration.
+6. `alpha-3-equipment-duplicate-migration-amendment.md` — collapse legitimate RC1 duplicate Equipment without erasing sunk upgrade value.
+7. `alpha-3-first-victory-migration-amendment.md` — repair the legitimate V3 First Victory token-only split boundary.
+8. `alpha-3-part-tier-value-amendment.md` — meaningful Part tiers, FIRE layering and early-Part usefulness.
+9. `alpha-3-weapon-family-authoring-amendment.md` — data-owned WeaponFamily/Gunsmith compatibility and Family N+1.
+10. `alpha-3-test-transition-plan.md` — final invariants versus temporary RC1 tests.
+11. Domain gameplay/art/Compendium documents referenced by the final handoff.
+12. `alpha-3-scalability-closeout.md` and `alpha-3-checkpoint-review-ledger.md` — evidence/history, not competing schemas.
 
-Historical redirect stubs are deliberately non-authoritative:
+Historical redirect stubs are non-authoritative:
 
 - `alpha-3-implementation-blueprint.md`
 - pre-V4 `content-authoring-templates.md`
@@ -34,280 +33,138 @@ Historical redirect stubs are deliberately non-authoritative:
 
 ---
 
-# 2. Base architecture that remains frozen
+# 2. Base V4 invariants
 
-Unless a later rule below says otherwise:
+Unless a later rule below explicitly supersedes one detail:
 
-- Contract/Stage is the normal campaign composition root.
-- Arena is physical location, not a competing campaign progression system.
-- legacy Golden Run may remain explicit Training compatibility.
-- automatic targeting/firing remains primary; touch/keyboard/controller share one logical-action model.
-- one authoritative save domain owns each gameplay fact.
-- persistent mutation is write-first/atomic; failed persistence publishes no optimistic durable state.
-- ordinary N+1 content uses validated data/assets + existing registered mechanic primitives.
-- stable IDs and sparse persistence are retained.
-- deterministic pools/composition are explicit; definition existence never silently enters old pools.
-- no content-ID gameplay branches, generic ECS, arbitrary executable JSON, mod runtime or scripting framework are introduced merely for scalability.
-- product PASS requires real play/device/fun evidence; green CI alone is insufficient.
+- Contract/Stage is the campaign Play root; Arena is physical location.
+- Golden Run may remain explicit Training compatibility.
+- auto-target/auto-fire remains primary; touch/keyboard/controller share logical actions.
+- each persistent fact has one authoritative save domain.
+- persistent writes are write-first/atomic; failed storage publishes no optimistic durable state.
+- stable IDs, sparse persistence and explicit deterministic pools remain mandatory.
+- ordinary N+1 content uses validated data/assets + existing registered mechanics.
+- no content-ID gameplay branches, general scripting framework, ECS or mod runtime is added for ordinary scalability.
+- logical art identity is separate from physical resource/atlas packing; renderer kinds describe rendering capability, not semantic owner.
+- product PASS requires real device/manual/fun evidence; CI alone cannot declare the game ready.
 
 ---
 
-# 3. Dedicated amendment precedence
+# 3. Terminal settlement / historical reward authority
 
-## 3.1 Terminal settlement and versioned reward history
+`alpha-3-terminal-settlement-amendment.md` supersedes earlier settlement details.
 
-`alpha-3-terminal-settlement-amendment.md` wins over conflicting earlier settlement details.
+Frozen rules:
 
-Key consequences:
-
-- a **new** source-owned Stage/Boss/Achievement settlement may validate a gated reward against current durable facts plus only the exact authoritative fact(s) that same atomic transaction will commit;
-- arbitrary/direct grants may not project future facts;
-- fact + reward + receipt remain one durable write;
-- completed Stage state classifies replay **before** today's RewardProfile is reconstructed;
-- a historical receipt/fingerprint certifies the payload actually committed historically, not the current catalog;
+- a **new** source-owned Stage/Boss/Achievement settlement may validate a gated reward against current facts plus only the exact authoritative fact(s) that same atomic settlement commits;
+- arbitrary/direct grants cannot project future facts;
+- fact + reward + receipt persist once and publish once;
+- completed Stage state classifies replay before today's RewardProfile is reconstructed;
+- historical receipt/fingerprint = evidence of the historical payload, not today's catalog;
 - changing a RewardProfile never remints a completed Stage reward or rewrites its old fingerprint;
-- legitimate historical owned reward inventory survives changed future acquisition policy;
-- current V4 first-clear physical Part IDs are the stable source-owned IDs frozen in that amendment.
+- legitimate historical owned reward inventory survives later acquisition-policy changes;
+- current V4 first-clear physical Part owned IDs are the stable IDs frozen in that amendment.
 
-## 3.2 Owned-state migration
+The one deliberate exception is the versioned Warden content-relocation bridge in §10: it is migration state, never a replayed first-clear reward.
 
-`alpha-3-owned-state-migration-amendment.md` wins over the original handoff for V1–V3 owned state, except for the historical Equipment capability correction in §7 below and duplicate-Equipment consolidation in §3.3.
+---
 
-Key consequences:
+# 4. Save-version convergence / earned-state preservation
 
-- legal owned Equipment and Part instance IDs/tiers survive migration unless a specific historical duplicate-consolidation rule applies;
-- static definition tier is removed without rewriting legitimate owned tier;
-- historically selectable RC1 Mercenaries are promoted to explicit `character:<id>` ownership entitlements rather than being relocked by changed V4 conditions;
-- no fake new Stage/Mastery/Achievement facts are created to grandfather a character;
-- a legitimate migrated `selectedCharacterId` remains selected;
-- current ten Stage **completion facts** survive V3→V4, but their RC1 `bestTimeMs` values are cleared because the V4 Contract rulesets are materially different;
-- the first V4 replay may establish a new V4 best time while remaining `firstClear:false`;
-- legacy `reward:*` and `merged-*` Part IDs coexist with new fabricated `owned:<part-slug>:<serial>` IDs.
+V1/V2/V3 must converge to one V4 meaning rather than three unrelated migrations.
 
-## 3.3 Historical duplicate Equipment
+`alpha-3-owned-state-migration-amendment.md` governs general owned state, subject to the duplicate/capability corrections below.
 
-`alpha-3-equipment-duplicate-migration-amendment.md` wins over the generic “preserve legitimate owned instances” rule for duplicate same-definition Equipment.
+## Owned state
 
-RC1 can legitimately own two `equipment:commando-helmet` instances:
+- legal Equipment/Part IDs and owned tiers survive definition-tier removal;
+- legacy `reward:*` and `merged-*` Parts coexist with new fabricated `owned:<part-slug>:<serial>` IDs;
+- `fabricationSerials={}` is valid for pre-V4 saves, but a derived `owned:*` ID is never overwritten and the serial advances only after the complete candidate is durable;
+- stale content fails soft; current progression gates do not retroactively invalidate a legal owned tier.
+
+## Mercenaries
+
+Historically selectable RC1 Mercenaries become explicit `character:<id>` ownership entitlements during migration before legacy compatibility evidence is removed.
+
+Normal V4 selectability is:
+
+```text
+matching explicit character entitlement
+OR
+current V4 CharacterDefinition.unlock passes
+```
+
+Do not fake mastery/Stage/Achievement history to preserve a character. A legitimate migrated `selectedCharacterId` remains selected. Roster/Career counts and locked-state presentation must consume the same shared availability resolver as actual selection.
+
+## Contract performance
+
+The current ten V3 Stage **completion facts** survive. Their RC1 `bestTimeMs` values do not: V4 materially changes objectives/encounters/difficulty/Forge location, so old times are incomparable. First V4 replay may establish a new best while remaining `firstClear:false`.
+
+## V2 permanent upgrades
+
+V2 already stores purchased permanent upgrades and RC1 V2→V3 preserves them. V4 retirement refunds therefore cannot be conditioned on literal input `version === 3`. Equivalent V2/V3 purchased state must produce the same frozen historical refund. V1 has no purchased-upgrade state and receives no fabricated refund.
+
+---
+
+# 5. Historical duplicate Equipment
+
+`alpha-3-equipment-duplicate-migration-amendment.md` supersedes the generic preserve-all-owned-instances rule for duplicate same-definition Equipment.
+
+RC1 legitimately permits both:
 
 ```text
 reward:stage-01-commando-helmet
 reward:crusher-commando-helmet
 ```
 
-V4 permits at most one owned instance per Equipment definition.
+for `equipment:commando-helmet`, while V4 permits one owned instance per Equipment definition.
 
-Migration therefore:
+Migration:
 
-- deterministically keeps the highest-tier legitimate copy;
-- tie-breaks by equipped instance, then stable ID;
-- rewrites a loadout reference to the survivor when needed;
-- refunds only the frozen RC1 upgrade spend actually sunk into the removed legitimate duplicate (`T1=0`, `T2=100`, `T3=250`, `T4=450` cumulative);
-- preserves both historical source receipts/fingerprints unchanged as history;
-- grants no compensation for arbitrary unrecognized hand-edited duplicates.
+1. keep the highest legal tier;
+2. tie -> prefer exactly-one-equipped copy;
+3. tie -> stable lexicographic ID;
+4. rewrite loadout to survivor if needed;
+5. refund only frozen RC1 upgrade spend sunk into the removed **legitimate** duplicate:
 
-Post-migration active Equipment satisfies one owned instance per definition without adding a duplicate-management feature.
+```text
+removed T1 =   0
+removed T2 = 100
+removed T3 = 250
+removed T4 = 450
+```
 
-## 3.4 Part tier/value semantics
+- safe-integer clamp;
+- historical source receipts/fingerprints remain unchanged;
+- do not replay either source to recreate the removed copy;
+- arbitrary/unrecognized duplicate edits may be consolidated but mint no compensation;
+- compensation requires an originally legal raw historical tier, not `tier:99` sanitized to T4.
 
-`alpha-3-part-tier-value-amendment.md` wins over earlier Part tuning/details.
-
-Key consequences:
-
-- any Part that can legally reach T2+ needs at least one real tier-sensitive contribution;
-- shared FIRE remains the existing generic family-scoped package: 1.15x damage + burn behavior, deduped once per family;
-- a fitted Part's own `effects` are independent source-owned engineering modifiers and are not removed by trait dedupe;
-- ordinary Fire Trait Core is fabricable after Crusher, uses the amendment's first tuning values and has a small tier-scaled Part-owned damage contribution;
-- Mastered Fire remains Warden-only/reward-only and a new Warden clear grants it as an owned T3 instance;
-- Red-Dot Optic and Padded Stock cannot remain early silent no-op Parts; use the amendment's first tuning correction unless playtest deliberately retunes it.
-
-## 3.5 Weapon family authoring
-
-`alpha-3-weapon-family-authoring-amendment.md` wins over current three-family source constants.
-
-Key consequences:
-
-- add one small validated WeaponFamily catalog owning stable family ID/name + Gunsmith physical-slot compatibility;
-- current shipped `pistol`, `smg`, `shotgun` behavior remains unchanged;
-- the trait slot remains the current universal Gunsmith-family invariant;
-- Gunsmith UI/gameplay, save sanitation and family-scoped validation consume the same registry;
-- synthetic Family 4 using existing firing/merge/stat/trait mechanics must work without family-ID scene/controller/save branches or implicit old-pool changes.
+After migration, active Equipment obeys one instance per definition and needs no duplicate-management feature.
 
 ---
 
-# 4. Contract frontier and transient selection
+# 6. Equipment capability grandfathering
 
-The RC1 `normalStageTargetId()` wraps to the first available Stage when all available Stages are complete. That is not valid V4 product behavior.
+The lower owned-state amendment's original statement that only existing high-tier items are grandfathered is superseded here.
 
-V4 distinguishes:
-
-```text
-nextIncompleteContractId?: string
-selectedReplayContractId?: string
-```
-
-Rules:
-
-- when all current Contracts are complete, `nextIncompleteContractId` is absent;
-- Home/Results use campaign-complete / Replay / Loadout / Career treatment rather than calling First Scavenge the next Contract;
-- an explicitly selected completed Contract is a replay;
-- future newly unlocked incomplete content naturally makes the frontier non-empty again;
-- no final-stage-ID branch is required.
-
-Full reset and any mutation that can make the transient selected Contract unavailable must recompute/revalidate selection against the new durable facts. A stale selected later-stage ID may never survive Reset Progress as a way to bypass the unlock chain.
-
----
-
-# 5. Gunsmith merge and trait invariants
-
-## 5.1 Merge identity is commutative
-
-Merging two same-definition/same-tier owned Parts is semantically an unordered operation.
-
-Before durable output identity is derived:
+RC1 granted a real unspent future upgrade capability at:
 
 ```text
-canonicalize/sort the two consumed instance IDs
-```
-
-The same pre-state must satisfy:
-
-```text
-merge(A, B) == merge(B, A)
-```
-
-for both durable output ID and complete semantic output.
-
-Caller selection order may not become permanent ownership identity.
-
-## 5.2 Total behavior-trait cap
-
-The current cap of two behavior traits applies to the **effective unique trait set** of a non-trait Part:
-
-```text
-effectiveTraits(instance)
-= unique(definition.traits + instance.infusedTraits)
-
-max unique effective traits = 2
-```
-
-Infusion:
-
-- if the source trait is already present natively or by previous infusion, reject before consuming the source;
-- if adding it would exceed two effective traits, reject before consuming the source;
-- otherwise persist infused traits in one stable canonical BehaviorTrait order.
-
-Examples:
-
-```text
-native PIERCING + attempted PIERCING -> reject/no consumption
-native PIERCING + FIRE               -> allowed
-native PIERCING + FIRE + EXPLOSIVE   -> reject/no consumption
-```
-
-Merge:
-
-1. compute the unique union of both instances' infused traits;
-2. include native definition traits in the total-cap check;
-3. if total effective traits would exceed two, reject before consuming either input;
-4. never `.slice()` or silently discard a paid/earned infused trait;
-5. persist canonical infused-trait order;
-6. derive output ID from the canonical unordered input pair.
-
-Generic validation rejects unknown/duplicate trait state and definitions that begin above the supported effective-trait cap.
-
-### Save V3 migration for traits
-
-Normal shipped RC1 gameplay could create native `PIERCING`/`EXPLOSIVE` + infused `FIRE`, but could not legitimately produce a third effective trait because the only shipped trait-slot infusion sources are Fire Core and Mastered Fire, both FIRE.
-
-V4 sanitation therefore:
-
-- preserves legitimate native+FIRE two-trait state;
-- canonicalizes known unique infused traits;
-- removes infused traits already native to the definition;
-- bounds impossible/untrusted over-cap state deterministically to the supported total cap.
-
-No legitimate shipped three-trait player build is silently destroyed by this correction.
-
-### Separate build capacity from per-Part trait cap
-
-RC1 reuses one numeric constant for two different rules. V4 keeps them separate even if both remain `2` initially:
-
-```text
-MAX_EFFECTIVE_TRAITS_PER_PART
-MAX_TRAIT_CORES_PER_BUILD
-```
-
-Changing infusion complexity later must not silently change weapon-build trait-Core attachment capacity, or vice versa.
-
----
-
-# 6. Infusion consumption semantics and authoritative commands
-
-Infusion transfers the registered behavior trait, not the consumed trait Core's tier/definition engineering modifier.
-
-```text
-infuse Fire Core Tn into target
--> consume source Core
--> target keeps its own partId / owned tier / own modifiers
--> target gains infused FIRE
--> source Core's Part-owned tier modifier does not transfer
-```
-
-The merge/infusion confirmation UI shows the exact consumed source and exact resulting mechanical delta before commitment.
-
-A reward-only/non-reacquirable trait Part is protected from destructive infusion under the current V4 rules.
-
-Current content:
-
-```text
-ordinary Fire Trait Core
-fabricable after Crusher
--> legal infusion source
-
-Mastered Fire Trait Core
-Warden-only / non-fabricable / one headline instance
--> may be fitted
--> NOT a legal destructive infusion source
-```
-
-Implement this from a generic acquisition/consumption policy, never a Mastered-Fire ID branch. A protected source fails with zero mutation. If future content genuinely needs a consumable reward-only source, define a reusable reacquisition/consumption contract deliberately rather than weakening the unique-item guard.
-
-Destructive/economic Gunsmith operations are authoritative context commands. UI supplies stable IDs only; the persistence boundary re-resolves current owned instances, definitions, costs/conditions and eligibility before building one candidate snapshot.
-
-For merge specifically:
-
-- the deterministic canonical output ID must be unused;
-- an occupied output ID fails/diagnoses with zero consumption;
-- do not append `:2`, `:3`, etc. to evade a provenance collision.
-
-Current-state re-resolution + consumed stable IDs is sufficient replay safety for direct interactive commands; no external-event receipt is required.
-
----
-
-# 7. Preserve historically earned Equipment upgrade capability
-
-The lower owned-state amendment originally preserved existing high-tier items but did not preserve unspent historical tier capability. That narrower statement is **superseded here**.
-
-RC1 granted a real future upgrade action at:
-
-```text
-T2 -> stage:junkyard-02 completed
+T2 -> J2 complete
 T3 -> boss-crusher defeated
 T4 -> achievement:boss-crusher completed
 ```
 
-Fresh V4 deliberately rebalances those milestones to:
+Fresh V4 deliberately rebalances to:
 
 ```text
-T2 -> stage:junkyard-03 completed
+T2 -> J3 complete
 T3 -> boss-crusher defeated
 T4 -> boss-forge defeated
 ```
 
-A migrated player who already earned an RC1 capability does not lose that action merely because they had not spent Scrap before migration.
-
-Persist the highest historical capability floor using a bounded migration entitlement, e.g.:
+A migrated player keeps the highest capability already earned under RC1. Persist a bounded migration capability entitlement, e.g.:
 
 ```text
 capability:equipment-tier-2
@@ -315,58 +172,41 @@ capability:equipment-tier-3
 capability:equipment-tier-4
 ```
 
-Derive it from frozen RC1 facts before compatibility cleanup:
+and resolve:
 
 ```text
-J2 complete                  -> at least T2
-boss-crusher defeated        -> at least T3
-achievement:boss-crusher     -> at least T4
+maxEquipmentTier = max(live V4 capability, migrated historical capability floor)
 ```
 
-Shared V4 resolution:
-
-```text
-maxEquipmentTier = max(
-  current V4 condition-derived capability,
-  migrated historical capability floor
-)
-```
-
-The capability token:
-
-- does not mark J3/Warden/any Achievement complete;
-- does not unlock unrelated content;
-- exists only for migrated saves that earned it;
-- is cleared by a full Reset Progress under normal reset semantics;
-- is restricted to the bounded current Equipment tier capability grammar.
-
-Fresh V4 saves have no historical capability token and follow J3/Crusher/Warden normally.
+The capability token never fabricates J3/Warden/Achievement facts, never unlocks unrelated content, exists only on qualifying migrated saves and is cleared by full Reset Progress. Fresh V4 saves follow J3/Crusher/Warden normally.
 
 ---
 
-# 8. Entitlement bag is not a shadow fact database
+# 7. Entitlements and permanent availability
 
-Shipped V3 producers created automatic `achievement:*` shadow tokens and only these non-achievement explicit tokens:
+`progression.unlocks` is an explicit entitlement bag, not a shadow fact DB.
+
+Shipped V3 produced automatic `achievement:*` shadows plus only these non-Achievement explicit content tokens:
 
 ```text
 character:scrap-weasel
 equipment:commando-helmet
 ```
 
-There were no shipped `unlock-part`, `unlock-trait` or `unlock-stage` producers.
+No shipped V3 producer created `unlock-part`, `unlock-trait` or `unlock-stage` tokens.
 
 V4 rules:
 
-- promote known historical Achievement evidence into `save.achievements` and remove live shadow-fact dependence;
+- promote historical Achievement evidence into `save.achievements` and remove live shadow-fact fallback;
 - Stage/Boss/Achievement/Mastery conditions read only their authoritative domains;
-- a valid historical explicit content entitlement may remain, but it never substitutes for a physical owned instance or a Stage/Boss/Achievement/Mastery fact;
-- migration Equipment capability tokens are consumed only by the Equipment capability resolver.
+- historical explicit content entitlement may remain but is not physical inventory or a progression-fact alias;
+- migration `capability:equipment-tier-*` tokens are consumed only by the Equipment capability resolver.
 
-## `owns-content` must be typed by cross-reference validation
+## `owns-content` cross-reference
 
-The structural V3 validator accepted any canonical `prefix:slug` for `owns-content`. V4 production validation must additionally require that `owns-content.contentId` resolves to an **explicitly ownable content definition/domain**.
+Structural `prefix:slug` validity is insufficient. Production validation requires `owns-content.contentId` to resolve to an explicitly ownable content definition/domain.
 
-Therefore these are not legal generic `owns-content` targets:
+These are not legal generic `owns-content` targets:
 
 ```text
 stage:*
@@ -374,15 +214,9 @@ achievement:*
 capability:equipment-tier-*
 ```
 
-Current/future ownable content domains are admitted explicitly through the validated content-ownership contract; adding a durable capability namespace does not turn it into a general unlock language.
+## Permanent availability must be monotonic
 
----
-
-# 9. Permanent availability must be monotonic
-
-A persistent project/character/Contract should not become legitimately available and later relock because the player spent currency or progressed further.
-
-For current V4 permanent availability/capability gates, allow only monotonic condition graphs:
+Current permanent Character/Contract/Set/Part/tier-capability gates may use only monotonic graphs:
 
 ```text
 always
@@ -390,79 +224,79 @@ stage-cleared
 boss-defeated
 achievement-completed
 mastery-reached
-owns-content (validated explicit durable content ownership)
-all / any composed only from monotonic children
+owns-content (validated durable content)
+all / any of monotonic children
 ```
 
-Do not use by default for permanent availability:
+Do not use spendable `scrap-total`, non-monotonic `not(...)` or affordability disguised as an unlock. `Scrap >= cost` is transaction-time affordability. A lifetime economic milestone that must remain earned uses an authoritative metric/Achievement fact.
 
-- `scrap-total`, because it reads spendable current Scrap and can become false after spending;
-- non-monotonic `not(...)` graphs;
-- affordability checks disguised as unlock conditions.
-
-`Scrap >= cost` remains transaction-time affordability. A lifetime economic milestone that must stay earned should become an authoritative Achievement/metric fact.
-
-If a future product feature truly requires reversible eligibility, define it explicitly outside the permanent-unlock read model instead of weakening this invariant.
-
-Generic validation includes synthetic failure cases for permanent Character/Set/Part/Contract definitions using spendable-Scrap or non-monotonic conditions.
+A future genuinely reversible eligibility feature must be explicit and separate rather than weakening permanent-unlock semantics.
 
 ---
 
-# 10. Historical Warden migration bridge
+# 8. Gunsmith Part / merge / infusion authority
 
-The generic historical-reward rule remains: a completed Stage never receives today's changed first-clear payload merely because the catalog changed.
+`alpha-3-part-tier-value-amendment.md` governs current Part value and FIRE semantics.
 
-One V4 content relocation needs an explicit migration bridge because otherwise acquisition coverage is impossible:
+## Tier value / FIRE
 
-```text
-Mastered Fire Trait Core
-V4: Warden-only + reward-only/non-fabricable
-RC1 Warden reward: no Mastered Fire
-RC1 live loot: no physical Part route
-```
+- every Part legal at T2+ needs at least one tier-sensitive real contribution;
+- shared FIRE preserves RC1's generic family package: 1.15x damage + burn, deduped once per family;
+- PartDefinition `effects` are separate source-owned engineering modifiers and still apply when the same trait is supplied elsewhere;
+- ordinary Fire Core is fabricable after Crusher with the amendment's first tuning values;
+- Mastered Fire is Warden-only/reward-only, new Warden clear grants owned T3;
+- Red-Dot and Padded Stock use the amendment's early-usefulness correction unless deliberately retuned by playtest.
 
-V3→V4 migration:
+## Merge is commutative and lossless
 
-```text
-if boss-forge is authoritatively defeated
-AND no owned Part has partId = part:trait-fire-mastered
-then create exactly:
-  instanceId      = reward:stage-06-mastered-fire-trait
-  partId          = part:trait-fire-mastered
-  tier            = 3
-  infusedTraits   = []
-```
+- canonicalize/sort consumed instance IDs before deriving output identity;
+- deterministic output ID collision fails/diagnoses with zero consumption; never append `:2/:3`;
+- caller order cannot change output ID or semantic result.
 
-Rules:
-
-- this is a versioned migration grant, not a replayed first-clear settlement;
-- preserve the historical Warden Stage receipt/fingerprint unchanged;
-- the next Warden play remains `firstClear:false`;
-- do not grant a second copy if a legitimate Mastered Fire already exists;
-- never overwrite an occupied different owned instance at the target ID; conflict fails/diagnoses safely;
-- migration versioning + stable identity provide idempotency;
-- result UI does not pretend the item was earned by the first post-migration replay.
-
-General migration principle:
-
-> If a release moves non-fabricable/non-repeatable content onto a sole milestone historical players may already have completed, versioned migration preserves acquisition coverage without rewriting the historical source receipt.
-
-## Warden Down
-
-V4 adds `achievement:boss-forge` / Warden Down for an already-existing authoritative boss fact.
-
-Migration:
+Effective behavior-trait cap on a non-trait Part is:
 
 ```text
-boss-forge defeated
--> achievement:boss-forge completed = true
+unique(definition.traits + instance.infusedTraits) <= 2
 ```
 
-No invented `completedAt`.
+Infusion rejects a trait already native/infused and rejects additions that exceed the cap before consuming the source.
 
-Initial Warden Down has no explicit persistent reward; Warden Stage owns the headline Scrap/Mastered Fire milestone.
+Merge takes the unique union of both infused sets, includes definition-native traits in the cap and rejects before consumption if the output would exceed two. Never `.slice()` or silently discard a paid/earned trait. Persist one canonical trait order.
 
-If a V4 platform mapping declares Warden Down reportable, migration queues its local completion for the existing best-effort platform outbox. If no mapping exists, local completion remains authoritative and no unknown pending entry is created.
+Shipped RC1 can legitimately contain native PIERCING/EXPLOSIVE + infused FIRE, but cannot legitimately produce a third effective trait; V4 sanitation preserves legitimate two-trait state while bounding impossible/untrusted over-cap state.
+
+Keep separate constants even if both start at 2:
+
+```text
+MAX_EFFECTIVE_TRAITS_PER_PART
+MAX_TRAIT_CORES_PER_BUILD
+```
+
+## Infusion transfers behavior only
+
+Consuming a trait Core transfers the registered trait behavior, not the Core's own tier-scaled definition modifier.
+
+Ordinary fabricable Fire Core is a legal source. Warden-only/non-fabricable Mastered Fire is protected from destructive infusion and may be fitted instead. Implement protection from generic acquisition/reacquisition policy, never a Mastered-Fire ID branch.
+
+## Authoritative interactive commands
+
+Fabricate/merge/infuse are narrow GameContext commands receiving stable IDs only. The persistence boundary re-resolves latest owned state, definitions, costs/conditions and eligibility, builds one candidate, saves once, publishes once.
+
+Stale/consumed input, changed funds/eligibility, deterministic output collision or storage failure produces zero mutation. Direct interactive commands need no external-event receipt; current-state re-resolution + consumed stable IDs provide replay safety.
+
+---
+
+# 9. WeaponFamily authoring / stale builds
+
+`alpha-3-weapon-family-authoring-amendment.md` replaces current hard-coded `pistol | smg | shotgun` family lists with one small validated family catalog owning stable family identity/name + Gunsmith physical-slot compatibility. The trait slot remains the current universal Gunsmith-family invariant.
+
+Current shipped behavior remains unchanged. Synthetic Family 4 using existing mechanics must work through Weapon registry/Gunsmith/save/persistent loadout without family-ID source switches or implicit pool changes.
+
+A syntactically bounded saved build whose family is absent from the current registry is preserved as stale/unavailable where structurally safe rather than coerced to pistol. It contributes no active engineering, selected unavailable build cannot activate, and UI may offer delete/rebuild. A later compatible return of the family can resolve the stable reference again.
+
+---
+
+# 10. Historical Warden / Boss migration
 
 Historical completed boss-Stage repair is migration-only:
 
@@ -471,181 +305,155 @@ stage:junkyard-05 completed -> boss-crusher defeated when missing
 stage:junkyard-06 completed -> boss-forge defeated when missing
 ```
 
-Normal V4 runtime does not use Stage completion as a fallback Boss evaluator.
+Normal V4 runtime never uses Stage completion as a Boss-fact fallback.
+
+`BossProgress.firstDefeatedAt` is retired: RC1 wrote run duration `timeMs`, not a wall-clock first-defeat timestamp. V4 BossProgress owns only the defeat fact; Stage owns Contract performance and Achievement owns `completedAt` where available.
+
+## Warden-only Mastered Fire bridge
+
+Generic rule still says a completed historical Stage does not receive today's changed first-clear payload. But V4 moves non-fabricable Mastered Fire onto Warden as its sole acquisition route, while RC1 Warden did not grant it and live RC1 loot has no physical Part route.
+
+V3→V4 migration therefore creates exactly one missing Mastered Fire only when authoritative `boss-forge` defeat already exists:
+
+```text
+instanceId    = reward:stage-06-mastered-fire-trait
+partId        = part:trait-fire-mastered
+tier          = 3
+infusedTraits = []
+```
+
+- migration grant, not replayed first-clear settlement;
+- preserve old Warden receipt/fingerprint;
+- next Warden play remains `firstClear:false`;
+- do not duplicate an already-owned Mastered Fire;
+- never overwrite an occupied conflicting target ID;
+- result UI does not pretend it was earned on the first post-migration replay.
+
+V4 also adds `achievement:boss-forge` / Warden Down. Historical authoritative `boss-forge` defeat backfills `{completed:true}` with no invented timestamp. Warden Down has no explicit persistent reward because the Stage owns the headline reward. Queue a native-platform report only if the V4 platform mapping declares it reportable.
 
 ---
 
-# 11. Historical Achievement rewards, old save versions and platform outbox
+# 11. Historical Achievement migrations / outbox
 
-An already-completed historical Achievement remains terminal state even if V4 changes/removes its reward definition.
+Already-completed historical Achievements remain terminal history even if V4 changes/removes their reward definitions. Preserve completion, legitimate old reward effects and historical receipt/fingerprint where present. Do not re-complete, mint replacement rewards or rewrite historical fingerprints.
 
-Preserve:
+`pendingAchievementReports` is a best-effort platform mirror. Retain pending IDs only when an explicit current/historical platform mapping remains reportable; prune retired/unknown non-reportable IDs while keeping the local completion authoritative.
 
-- local completion;
-- legitimate historical owned reward effects;
-- historical reward receipt/fingerprint when present.
+## First Victory split-boundary repair
 
-Do not:
+`alpha-3-first-victory-migration-amendment.md` governs this unique V3 partial-terminal state.
 
-- re-complete it;
-- mint a new V4 replacement reward;
-- rewrite its historical fingerprint against today's definition.
+RC1 persists on a win in order:
 
-`pendingAchievementReports` is a best-effort native-platform mirror outbox, not gameplay truth.
+```text
+1. ProgressionSystem banks run Scrap + legacy achievement:first-victory token
+2. Achievement system persists First Victory completion + its 25 Scrap reward
+```
 
-V4 migration/sanitation:
+So a legitimate V3 save can contain:
 
-- retains pending IDs that still have an explicit reportable V4/historical platform mapping;
-- prunes retired/unknown non-reportable pending IDs so they cannot retry forever;
-- never deletes the authoritative local historical completion solely because a platform mapping disappeared.
+```text
+legacy First Victory token present
+First Victory completion absent
+```
 
-Active reportable pending entries still survive restart and retry through the existing GameContext outbox path.
+which proves the second atomic Achievement write did not become durable.
 
-## V1/V2/V3 converge to one V4 meaning
+Migration:
 
-V2 already contains `meta.permanentUpgrades`, and RC1 V2→V3 preserves them. V4 refunds cannot be gated on literal input `version === 3`.
+- V3 token-only + no completion -> set First Victory completed, no invented `completedAt`, add frozen 25 Scrap once, then remove the shadow token;
+- V3 completion already present -> preserve; no 25 replay;
+- direct V2 legacy token is first normalized through frozen V2→V3 meaning, which creates completion evidence but did not historically grant the V3 reward, so it does **not** enter the V3 token-only compensation case;
+- no token/no completion -> no action;
+- no old receipt/fingerprint is fabricated for the failed historical transaction.
 
-Either normalize V2 through frozen V2→V3 semantics before V4 migration or apply the same frozen historical refund directly. Equivalent V2/V3 purchased state must produce the same V4 Scrap refund.
-
-V1 has no purchased permanent-upgrade state and receives no fabricated refund.
+V4 `ProgressionSystem` banks run Scrap only, so this split state cannot be created going forward.
 
 ## Retired Well Protected settlement
 
-`achievement:permanent-reinforced-coat-3` / Well Protected is removed from the active V4 catalog, but its historical condition and reward must be settled fairly before retirement.
+`achievement:permanent-reinforced-coat-3` / Well Protected leaves the active V4 catalog, but its historical condition/reward is settled fairly before permanent upgrades are removed/refunded.
 
-Frozen historical condition:
+Frozen condition/reward:
 
 ```text
 reinforced-vest level >= 3
+reward = 150 Scrap
 ```
 
-Frozen historical reward:
+- completion/history already exists -> preserve; do **not** replay 150;
+- structurally legal V2/V3 historical Vest>=3 with no completion evidence -> set completed true, no invented `completedAt`, add 150 Scrap once with safe-int clamp;
+- this is versioned migration settlement, not replayed Achievement transaction; do not fabricate old receipt/fingerprint;
+- invalid hand-edited/clamped upgrade level is not compensation evidence.
 
-```text
-150 Scrap
-```
-
-Migration distinguishes:
-
-### Already completed / historical completion evidence exists
-
-```text
-preserve historical completion
-preserve historical reward/receipt state
-DO NOT grant another 150 Scrap
-```
-
-### Condition legitimately met but completion absent
-
-For a structurally legal V2/V3 historical state with Reinforced Vest >=3 and no Well Protected completion evidence:
-
-```text
-set achievement:permanent-reinforced-coat-3 completed = true
-no invented completedAt
-add exactly 150 Scrap once
-safe-integer clamp
-```
-
-This is a versioned migration settlement, not a replayed achievement transaction. Do not fabricate an old completion receipt/fingerprint.
-
-The level must be read from frozen historical upgrade state before the permanent-upgrade domain is removed/refunded. A hand-edited invalid level is not compensation evidence merely because a sanitizer can clamp it.
-
-Equivalent V2/V3 historical state converges to the same V4 completion/refund result.
+Equivalent V2/V3 historical state converges to the same V4 result.
 
 ---
 
-# 12. BossProgress owns only the boss fact
+# 12. Contract/UI consistency after migration
 
-RC1 stores `BossProgress.firstDefeatedAt`, but the value written is Stage `timeMs` run duration, not a wall-clock first-defeat timestamp. It duplicates/inconsistently names performance data and has no required V4 product role.
-
-V4 active shape is simply:
-
-```ts
-interface BossProgress {
-  readonly defeated: true;
-}
-```
-
-Stage owns Contract performance time. Achievement completion owns `completedAt` where available. Migration does not invent a wall-clock boss timestamp.
+- full Reset Progress clears migrated entitlements/capability floors and recomputes transient Contract selection/frontier;
+- migrated Stage completed + no new best time displays cleanly as completed without `0`/stale RC1 time;
+- Mercenary roster/Career uses the same entitlement-aware availability resolver as actual selection;
+- migrated high-tier Equipment displays its real owned tier separately from current/max upgrade capability;
+- historical migration grants/repairs are not presented as if earned by the first post-migration gameplay action.
 
 ---
 
-# 13. Stale WeaponFamily save behavior
-
-A syntactically bounded saved Gunsmith build may reference a family absent from the current WeaponFamily registry.
-
-Do not silently coerce it to `pistol` and do not apply its engineering as if valid.
-
-Preferred V4 behavior:
-
-- preserve the stale build identity/data as unavailable where structurally safe;
-- exclude it from active persistent-loadout resolution;
-- a selected unavailable build cannot activate;
-- UI may expose unavailable/delete/rebuild treatment;
-- if the family definition returns in a compatible later build, the preserved stable reference may resolve again.
-
-This follows the same non-destructive stale-content policy used elsewhere rather than reinterpreting player state.
-
----
-
-# 14. Required implementation tracker ownership
+# 13. Tracker ownership
 
 | Rule | Primary trackers |
 | --- | --- |
-| Stage settlement / historical reward replay / first-clear IDs | #85, #90, #170, #171 |
+| Stage settlement / replay / stable reward IDs | #85, #90, #170, #171 |
 | Owned tier / Mercenary / Stage-time migration | #87, #88, #89, #90, #170 |
 | Historical duplicate Equipment consolidation/refund | #89, #90, #170 |
 | Historical Equipment capability floor | #89, #90, #170 |
-| Entitlement/condition namespace + monotonic availability | #85, #87, #88, #89, #90, #170 |
-| Part tier value / FIRE / early usefulness | #87, #170, #171 |
-| Infusion protection + total trait cap + lossless merge | #87, #90, #170, #171 |
-| WeaponFamily data owner / stale family / Family N+1 | #87, #90, #170 |
-| Campaign-complete frontier / reset revalidation | #85, #90, #165, #171 |
-| Historical Achievement receipts/outbox / V2 refund / Well Protected settlement | #90, #171 |
-| BossProgress simplification | #85, #90 |
-| Warden Mastered-Fire / Warden-Down migration bridge | #90, #171 |
-| Migrated-state presentation | #165, #171 |
+| Entitlement typing + monotonic availability | #85, #87, #88, #89, #90, #170 |
+| Part tier/FIRE/usefulness | #87, #170, #171 |
+| Lossless merge / trait cap / infusion protection / authoritative commands | #87, #90, #170, #171 |
+| WeaponFamily/stale builds/Family N+1 | #87, #90, #170 |
+| Campaign-complete frontier/reset | #85, #90, #165, #171 |
+| Historical Achievement/outbox/V2/First Victory/Well Protected | #90, #171 |
+| BossProgress / Warden migration | #85, #90, #171 |
+| Migrated-state UI consistency | #88, #89, #165, #171 |
 
-Issue comments are implementation clarifications of these rules, not competing authority.
+Issue comments clarify these documents; they are not competing authority.
 
 ---
 
-# 15. Evidence still required before implementation/release PASS
+# 14. Evidence still required
 
-This planning PR does **not** make the RC1 runtime conformant.
-
-Implementation still needs exact-SHA evidence for:
+This planning PR does **not** make RC1 conformant or Alpha 3 release-ready. Implementation still needs exact-SHA evidence for:
 
 - #164 freeze remediation / trustworthy playtesting;
 - #166 full intended Arena traversal/camera behavior;
-- Save V4 migrations and write-first failure semantics;
+- Save V4 migrations and atomic failure semantics;
 - universal enemy alive→dead settlement;
 - first-class Equipment Sets/global tier policy;
-- fabrication, merge, infusion and persistent Loadout behavior;
+- fabrication/merge/infusion/persistent Loadout;
 - logical-art/resource/bundle/tooling architecture;
-- Contract-first scalable UI, touch extraction and truthful results;
-- current content rebalance and pacing;
+- Contract-first scalable UI, touch extraction and truthful result flow;
+- current content rebalance/pacing;
 - Compendium;
 - production art;
-- synthetic N+1/scale proofs including Character 20, Set 12 + 48 pieces, Part 50, Enemy/Compendium 50, Contract 25, Achievement 40, Family 4 and 500 logical static art IDs;
-- real portrait touch, controller, mixed-input, viewport, lifecycle/soak/performance and independent fun/replayability evidence.
+- synthetic scale proofs: Character 20, Set 12 + 48 pieces, Part 50, Enemy/Compendium 50, Contract 25, Achievement 40, Family 4, 500 logical static art IDs;
+- real portrait touch, controller, mixed input, target viewports, lifecycle/soak/performance and independent fun/replayability evidence.
 
-Unavailable evidence remains **UNVERIFIED**, never inferred green.
+Unavailable evidence is **UNVERIFIED**, never inferred green.
 
 ---
 
-# 16. Review status
+# 15. Review status
 
-The first automated Codex review of PR #169 reviewed an early planning commit and found valid issues; those historical inline threads were fixed, replied to and resolved.
+The original automated Codex review covered an early planning commit and found valid issues; those historical threads were fixed/replied/resolved.
 
-Fresh automated re-review of later heads was explicitly rejected because the configured Codex code-review quota was exhausted. The alternate App reviewer was not a repository collaborator.
+Fresh re-review of later heads has been explicitly rejected because the configured Codex code-review quota is exhausted; the alternate App reviewer is not a repository collaborator.
 
 Therefore:
 
 ```text
-internal adversarial planning review:  PASS only after the exact final planning head has green CI and no further material contradiction
+internal adversarial planning review:  PASS only after exact final planning-head CI is green and no further material contradiction remains
 fresh independent final-head review:   UNVERIFIED / quota-blocked until new review evidence exists
 Alpha 3 implementation/release PASS:   NOT YET
 ```
 
-A future independent review finding against the then-current exact head must be fixed and re-reviewed; this index is not permission to waive that gate.
+Any future independent final-head finding must be fixed and re-reviewed; this index is not permission to waive that gate.
