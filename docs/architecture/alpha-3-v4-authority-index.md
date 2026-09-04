@@ -319,6 +319,43 @@ Validation/sanitization recognizes only the bounded current Equipment tier capab
 
 Required tests cover RC1-earned-but-unspent T2 and T4 capability, fresh V4 behavior, reset behavior, and proof that the capability token cannot satisfy `stage-cleared`, `boss-defeated` or `achievement-completed`.
 
+## 3.9 Persistent unlock/availability conditions must be monotonic
+
+Persistent content should not become legitimately available and later relock because the player spent currency or completed more progression.
+
+For V4 **permanent availability/capability gates** such as:
+
+- Character unlock;
+- Contract unlock;
+- Equipment Set availability;
+- Part blueprint availability;
+- global Equipment tier capability;
+
+validation permits only monotonic condition graphs for the current release:
+
+```text
+always
+stage-cleared
+boss-defeated
+achievement-completed
+mastery-reached
+owns-content / explicit durable entitlement
+all / any composed only from monotonic children
+```
+
+The shared `ProgressionCondition` type may retain other predicates for deliberately dynamic or latched consumers, but they are **not valid permanent availability gates by default**.
+
+In particular:
+
+- current `scrap-total` reads spendable `progression.scrap`, so spending Scrap can make it false;
+- `not` can turn a one-way fact into a condition that becomes false after progression;
+- affordability (`Scrap >= cost`) is a transaction-time check, not an unlock condition;
+- lifetime-economic milestones use an Achievement/metric fact if they must remain earned after spending.
+
+If a future product requirement genuinely needs reversible eligibility, introduce/name it explicitly and keep it out of the permanent-unlock read model rather than weakening this invariant.
+
+Generic validation must reject a synthetic Character/Set/Part/Contract permanent unlock using `scrap-total` or a non-monotonic `not(...)` graph, while ordinary monotonic N+1 content remains data-only.
+
 ---
 
 # 4. Tracker ownership of the late rules
@@ -328,9 +365,10 @@ Required tests cover RC1-earned-but-unspent T2 and T4 capability, fresh V4 behav
 | Stage settlement / reward replay / first-clear IDs | #85, #90, #170, #171 |
 | Owned-tier / Mercenary / best-time migration | #87, #88, #89, #90, #170 |
 | Historical Equipment tier capability floor | #89, #90, #170 |
+| Monotonic persistent availability validation | #85, #87, #88, #89, #90, #170 |
 | Part tier value / FIRE / early no-op Parts | #87, #170, #171 |
 | Weapon-family data owner / Family N+1 | #87, #90, #170 |
-| Campaign-complete frontier | #85, #165, #171 |
+| Campaign-complete frontier / reset revalidation | #85, #90, #165, #171 |
 | Achievement historical receipts/outbox | #90, #171 |
 | BossProgress simplification | #85, #90 |
 | Warden Mastered-Fire/Warden-Down migration bridge | #90, #171 |
