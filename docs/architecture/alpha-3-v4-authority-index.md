@@ -17,13 +17,14 @@ This is a precedence/supersession register, not a second full design. Detailed r
 3. `content-authoring-templates-v4.md` — canonical ordinary-content/N+1 schemas.
 4. `alpha-3-terminal-settlement-amendment.md` — projected source facts, historical reward receipts/fingerprints, stable first-clear Part IDs.
 5. `alpha-3-owned-state-migration-amendment.md` — owned-tier preservation, Mercenary grandfathering, Contract performance migration.
-6. `alpha-3-equipment-duplicate-migration-amendment.md` — collapse legitimate RC1 duplicate Equipment without erasing sunk upgrade value.
-7. `alpha-3-first-victory-migration-amendment.md` — repair the legitimate V3 First Victory token-only split boundary.
-8. `alpha-3-part-tier-value-amendment.md` — meaningful Part tiers, FIRE layering and early-Part usefulness.
-9. `alpha-3-weapon-family-authoring-amendment.md` — data-owned WeaponFamily/Gunsmith compatibility and Family N+1.
-10. `alpha-3-test-transition-plan.md` — final invariants versus temporary RC1 tests.
-11. Domain gameplay/art/Compendium documents referenced by the final handoff.
-12. `alpha-3-scalability-closeout.md` and `alpha-3-checkpoint-review-ledger.md` — evidence/history, not competing schemas.
+6. `alpha-3-achievement-reconciliation-amendment.md` — settle stranded V3 condition-Achievement rewards with frozen RC1 payloads and add generic V4 load-time reconciliation.
+7. `alpha-3-equipment-duplicate-migration-amendment.md` — collapse legitimate RC1 duplicate Equipment without erasing sunk upgrade value.
+8. `alpha-3-first-victory-migration-amendment.md` — repair the legitimate V3 First Victory token-only split boundary.
+9. `alpha-3-part-tier-value-amendment.md` — meaningful Part tiers, FIRE layering and early-Part usefulness.
+10. `alpha-3-weapon-family-authoring-amendment.md` — data-owned WeaponFamily/Gunsmith compatibility and Family N+1.
+11. `alpha-3-test-transition-plan.md` — final invariants versus temporary RC1 tests.
+12. Domain gameplay/art/Compendium documents referenced by the final handoff.
+13. `alpha-3-scalability-closeout.md` and `alpha-3-checkpoint-review-ledger.md` — evidence/history, not competing schemas.
 
 Historical redirect stubs are non-authoritative:
 
@@ -65,7 +66,7 @@ Frozen rules:
 - legitimate historical owned reward inventory survives later acquisition-policy changes;
 - current V4 first-clear physical Part owned IDs are the stable IDs frozen in that amendment.
 
-The one deliberate exception is the versioned Warden content-relocation bridge in §10: it is migration state, never a replayed first-clear reward.
+The deliberate Warden relocation bridge in §11 is migration state, never a replayed first-clear reward.
 
 ---
 
@@ -73,11 +74,11 @@ The one deliberate exception is the versioned Warden content-relocation bridge i
 
 V1/V2/V3 must converge to one V4 meaning rather than three unrelated migrations.
 
-`alpha-3-owned-state-migration-amendment.md` governs general owned state, subject to the duplicate/capability corrections below.
+`alpha-3-owned-state-migration-amendment.md` governs general owned state, subject to the Achievement, duplicate-Equipment and capability corrections below.
 
 ## Owned state
 
-- legal Equipment/Part IDs and owned tiers survive definition-tier removal;
+- legal Equipment/Part IDs and owned tiers survive definition-tier removal unless a specific duplicate-consolidation rule applies;
 - legacy `reward:*` and `merged-*` Parts coexist with new fabricated `owned:<part-slug>:<serial>` IDs;
 - `fabricationSerials={}` is valid for pre-V4 saves, but a derived `owned:*` ID is never overwritten and the serial advances only after the complete candidate is durable;
 - stale content fails soft; current progression gates do not retroactively invalidate a legal owned tier.
@@ -94,7 +95,7 @@ OR
 current V4 CharacterDefinition.unlock passes
 ```
 
-Do not fake mastery/Stage/Achievement history to preserve a character. A legitimate migrated `selectedCharacterId` remains selected. Roster/Career counts and locked-state presentation must consume the same shared availability resolver as actual selection.
+Do not fake mastery/Stage/Achievement history to preserve a character. A legitimate migrated `selectedCharacterId` remains selected. Roster/Career counts and locked-state presentation consume the same shared availability resolver as actual selection.
 
 ## Contract performance
 
@@ -106,7 +107,39 @@ V2 already stores purchased permanent upgrades and RC1 V2→V3 preserves them. V
 
 ---
 
-# 5. Historical duplicate Equipment
+# 5. Achievement gap settlement and current reconciliation
+
+`alpha-3-achievement-reconciliation-amendment.md` owns the generic rule.
+
+RC1 metric-driven Achievements persist metric/progress/reward together and are not historical split cases. The condition-driven source facts below can become durable before their separate Achievement write:
+
+```text
+Crusher Down       <- boss-crusher fact
+Junkyard Champion  <- J1..J5 Stage facts
+Tabby Mastery      <- Scrap Tabby mastery fact
+```
+
+For V3 history where the frozen RC1 condition is true and completion is absent, migration settles the **frozen RC1 payload**, not the current V4 reward definition:
+
+```text
+Crusher Down      -> completed +100 Scrap + equipment:commando-helmet entitlement + reward:crusher-commando-helmet T1
+Junkyard Champion -> completed +200 Scrap
+Tabby Mastery     -> completed +75 Scrap
+```
+
+No historical `completedAt`, receipt or fingerprint is fabricated for a transaction that never became durable. Already-completed history never replays rewards.
+
+Historical gap settlement runs before duplicate-Equipment consolidation and before historical Equipment-capability derivation, so a stranded Crusher Down correctly contributes both its historical duplicate item and its RC1 T4 capability evidence.
+
+After accepted Save V4 load/migration, run one generic current-definition Achievement reconciliation pass. Any **active, missing** Achievement already satisfied by current canonical metrics/facts completes through the ordinary V4 per-achievement reward ownership model, with all new completions/rewards in one candidate Save V4 write. Persistence failure publishes none and reconciliation remains retryable.
+
+Completed history is never replayed merely because a reward definition changed or a receipt is missing.
+
+First Victory and retired Well Protected have special historical evidence/payload rules in §12 because their RC1 boundaries differ from the generic condition-Achievement case.
+
+---
+
+# 6. Historical duplicate Equipment
 
 `alpha-3-equipment-duplicate-migration-amendment.md` supersedes the generic preserve-all-owned-instances rule for duplicate same-definition Equipment.
 
@@ -144,7 +177,7 @@ After migration, active Equipment obeys one instance per definition and needs no
 
 ---
 
-# 6. Equipment capability grandfathering
+# 7. Equipment capability grandfathering
 
 The lower owned-state amendment's original statement that only existing high-tier items are grandfathered is superseded here.
 
@@ -182,7 +215,7 @@ The capability token never fabricates J3/Warden/Achievement facts, never unlocks
 
 ---
 
-# 7. Entitlements and permanent availability
+# 8. Entitlements and permanent availability
 
 `progression.unlocks` is an explicit entitlement bag, not a shadow fact DB.
 
@@ -234,7 +267,7 @@ A future genuinely reversible eligibility feature must be explicit and separate 
 
 ---
 
-# 8. Gunsmith Part / merge / infusion authority
+# 9. Gunsmith Part / merge / infusion authority
 
 `alpha-3-part-tier-value-amendment.md` governs current Part value and FIRE semantics.
 
@@ -286,7 +319,7 @@ Stale/consumed input, changed funds/eligibility, deterministic output collision 
 
 ---
 
-# 9. WeaponFamily authoring / stale builds
+# 10. WeaponFamily authoring / stale builds
 
 `alpha-3-weapon-family-authoring-amendment.md` replaces current hard-coded `pistol | smg | shotgun` family lists with one small validated family catalog owning stable family identity/name + Gunsmith physical-slot compatibility. The trait slot remains the current universal Gunsmith-family invariant.
 
@@ -296,7 +329,7 @@ A syntactically bounded saved build whose family is absent from the current regi
 
 ---
 
-# 10. Historical Warden / Boss migration
+# 11. Historical Warden / Boss migration
 
 Historical completed boss-Stage repair is migration-only:
 
@@ -333,7 +366,7 @@ V4 also adds `achievement:boss-forge` / Warden Down. Historical authoritative `b
 
 ---
 
-# 11. Historical Achievement migrations / outbox
+# 12. Special historical Achievement migrations / outbox
 
 Already-completed historical Achievements remain terminal history even if V4 changes/removes their reward definitions. Preserve completion, legitimate old reward effects and historical receipt/fingerprint where present. Do not re-complete, mint replacement rewards or rewrite historical fingerprints.
 
@@ -350,24 +383,17 @@ RC1 persists on a win in order:
 2. Achievement system persists First Victory completion + its 25 Scrap reward
 ```
 
-So a legitimate V3 save can contain:
-
-```text
-legacy First Victory token present
-First Victory completion absent
-```
-
-which proves the second atomic Achievement write did not become durable.
+So a legitimate V3 save can contain the legacy token with completion absent, which proves the second atomic Achievement write did not become durable.
 
 Migration:
 
 - V3 token-only + no completion -> set First Victory completed, no invented `completedAt`, add frozen 25 Scrap once, then remove the shadow token;
-- V3 completion already present -> preserve; no 25 replay;
-- direct V2 legacy token is first normalized through frozen V2→V3 meaning, which creates completion evidence but did not historically grant the V3 reward, so it does **not** enter the V3 token-only compensation case;
+- completion already present -> preserve; no 25 replay;
+- direct V2 legacy token is first normalized through frozen V2→V3 meaning, which creates completion evidence but did not historically grant the later V3 reward, so it does **not** enter the V3 token-only compensation case;
 - no token/no completion -> no action;
-- no old receipt/fingerprint is fabricated for the failed historical transaction.
+- no old receipt/fingerprint is fabricated.
 
-V4 `ProgressionSystem` banks run Scrap only, so this split state cannot be created going forward.
+V4 `ProgressionSystem` banks run Scrap only, so this split cannot recur.
 
 ## Retired Well Protected settlement
 
@@ -382,16 +408,17 @@ reward = 150 Scrap
 
 - completion/history already exists -> preserve; do **not** replay 150;
 - structurally legal V2/V3 historical Vest>=3 with no completion evidence -> set completed true, no invented `completedAt`, add 150 Scrap once with safe-int clamp;
-- this is versioned migration settlement, not replayed Achievement transaction; do not fabricate old receipt/fingerprint;
+- versioned migration settlement, not replayed Achievement transaction; no old receipt/fingerprint is fabricated;
 - invalid hand-edited/clamped upgrade level is not compensation evidence.
 
 Equivalent V2/V3 historical state converges to the same V4 result.
 
 ---
 
-# 12. Contract/UI consistency after migration
+# 13. Contract/UI consistency after migration
 
 - full Reset Progress clears migrated entitlements/capability floors and recomputes transient Contract selection/frontier;
+- when every current Contract is completed, `nextIncompleteContractId` is absent rather than wrapping to First Scavenge; future newly unlocked incomplete content naturally restores a frontier;
 - migrated Stage completed + no new best time displays cleanly as completed without `0`/stale RC1 time;
 - Mercenary roster/Career uses the same entitlement-aware availability resolver as actual selection;
 - migrated high-tier Equipment displays its real owned tier separately from current/max upgrade capability;
@@ -399,12 +426,13 @@ Equivalent V2/V3 historical state converges to the same V4 result.
 
 ---
 
-# 13. Tracker ownership
+# 14. Tracker ownership
 
 | Rule | Primary trackers |
 | --- | --- |
 | Stage settlement / replay / stable reward IDs | #85, #90, #170, #171 |
 | Owned tier / Mercenary / Stage-time migration | #87, #88, #89, #90, #170 |
+| V3 condition-Achievement gaps + V4 reconciliation | #90, #170, #171 |
 | Historical duplicate Equipment consolidation/refund | #89, #90, #170 |
 | Historical Equipment capability floor | #89, #90, #170 |
 | Entitlement typing + monotonic availability | #85, #87, #88, #89, #90, #170 |
@@ -420,13 +448,14 @@ Issue comments clarify these documents; they are not competing authority.
 
 ---
 
-# 14. Evidence still required
+# 15. Evidence still required
 
 This planning PR does **not** make RC1 conformant or Alpha 3 release-ready. Implementation still needs exact-SHA evidence for:
 
 - #164 freeze remediation / trustworthy playtesting;
 - #166 full intended Arena traversal/camera behavior;
 - Save V4 migrations and atomic failure semantics;
+- generic current Achievement reconciliation;
 - universal enemy alive→dead settlement;
 - first-class Equipment Sets/global tier policy;
 - fabrication/merge/infusion/persistent Loadout;
@@ -442,7 +471,7 @@ Unavailable evidence is **UNVERIFIED**, never inferred green.
 
 ---
 
-# 15. Review status
+# 16. Review status
 
 The original automated Codex review covered an early planning commit and found valid issues; those historical threads were fixed/replied/resolved.
 
