@@ -98,6 +98,7 @@ import { checkAchievement, assertAchievementMetricReferences, assertUniqueAchiev
 import { registeredMetricIds } from './achievements';
 import { checkPart, assertPartEffectSources, assertPartArtReferences } from './validation/parts';
 import { checkAbility } from './validation/abilities';
+import { validateProgressionCondition } from '../gameplay/conditionValidation';
 import { checkEquipment, assertEquipmentEffectSources, assertEquipmentSetBonuses, assertEquipmentUpgradeUnlockReferences, assertEquipmentArtReferences } from './validation/equipment';
 import { checkAssetBundle, assertStageAssetBundleReferences } from './validation/assetBundles';
 import { findEdgeLaneWitness, findRectWitness, findRingWitness } from '../gameplay/spawnRegion';
@@ -2071,11 +2072,9 @@ function checkCharacter(row: unknown): string[] {
 
   const unlock = readOwnField(row, 'unlock');
   if (!isRecord(unlock)) {
-    errors.push('unlock: required object');
+    errors.push('unlock: required condition object');
   } else {
-    const unlockErrors: string[] = [];
-    checkUnlockRule(unlock, unlockErrors);
-    errors.push(...unlockErrors.map((error) => `unlock.${error}`));
+    errors.push(...validateProgressionCondition(unlock, 'unlock'));
   }
 
   const cosmeticSkinIds = readOwnField(row, 'cosmeticSkinIds');
@@ -2635,8 +2634,8 @@ function assertPlayableSpawnCurves(curves: readonly SpawnCurveDefinition[]): voi
 
 function assertCharacterDefaultExists(characters: readonly CharacterDefinition[]): void {
   const errors: string[] = [];
-  if (!characters.some((character) => character.unlock.type === 'default')) {
-    errors.push('characters.json: at least one character must have unlock.type "default"');
+  if (!characters.some((character) => character.unlock.type === 'always')) {
+    errors.push('characters.json: at least one character must have unlock.type "always"');
   }
   throwIfErrors(errors);
 }
