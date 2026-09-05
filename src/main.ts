@@ -5,6 +5,7 @@ import { MenuScene } from './scenes/MenuScene';
 import { GameScene } from './scenes/GameScene';
 import './styles.css';
 import { physicsDebugEnabled } from './systems/debug';
+import { installDiagnostics } from './engine/diagnostics';
 import { bindVisualViewportRefresh, isGestureActive } from './platform/visualViewport';
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -34,6 +35,8 @@ const config: Phaser.Types.Core.GameConfig = {
 // Exported as a narrow ESM browser lifecycle/smoke seam. Upgrade selection now
 // uses the visible chooser; gameplay ownership remains in scenes and systems.
 export const game = new Phaser.Game(config);
+// Install #164 diagnostic trace ring buffer (development only)
+installDiagnostics();
 // P1: the gesture gate consults the PRODUCTION isGestureActive lambda — a
 // scene without an inputController (e.g. the always-active BootScene) must
 // not read as an active gesture, or scale.refresh() would never run and the
