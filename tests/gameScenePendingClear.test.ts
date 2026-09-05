@@ -70,7 +70,7 @@ function createHarness(options: {
   scene.hudController = hudController;
 
   // Mock controls view
-  const controlsView = { update: vi.fn(), destroy: vi.fn() } as any;
+  const controlsView = { update: vi.fn(), destroy: vi.fn(), setExtractionState: vi.fn() } as any;
   vi.spyOn(controlsView, 'update');
   scene.controlsView = controlsView;
 

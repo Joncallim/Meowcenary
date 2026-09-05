@@ -18,6 +18,7 @@ export interface ControlsViewOptions {
   readonly readReducedMotion: () => boolean;
   readonly onPauseRequested: () => void;
   readonly onAbilityRequested?: () => void;
+  readonly onExtractRequested?: () => void;
   readonly touchStick?: TouchStickConfig;
 }
 
@@ -27,6 +28,7 @@ export class ControlsView {
   private viewport: UiViewport;
   private readonly onPauseRequested: () => void;
   private readonly onAbilityRequested?: () => void;
+  private readonly onExtractRequested?: () => void;
   private readonly readReducedMotion: () => boolean;
   private readonly stickRadius: number;
   private readonly root?: Phaser.GameObjects.Container;
@@ -42,6 +44,10 @@ export class ControlsView {
   private lastMode: InputMode = 'pointer';
   private disposed = false;
 
+  private extractActive = false;
+  private extractButton?: Phaser.GameObjects.Rectangle;
+  private extractLabel?: Phaser.GameObjects.Text;
+
   constructor(options: ControlsViewOptions) {
     const { scene, input, viewport, readReducedMotion, onPauseRequested } = options;
     const touchStick = options.touchStick ?? RuntimeConfig.gameplay.input.touchStick;
@@ -51,6 +57,7 @@ export class ControlsView {
     this.viewport = viewport;
     this.onPauseRequested = onPauseRequested;
     this.onAbilityRequested = options.onAbilityRequested;
+    this.onExtractRequested = options.onExtractRequested;
     this.readReducedMotion = readReducedMotion;
     this.stickRadius = touchStick.radius;
     const add = scene.add as typeof scene.add & { container?: (x: number, y: number) => Phaser.GameObjects.Container };
@@ -87,6 +94,14 @@ export class ControlsView {
     const bottomMargin = edgeMargin(viewport, 'bottom');
     const fontSize = physicalToLogical(ThemeFont.bodyMin, viewport);
     const pauseSize = physicalToLogical(44, viewport);
+    const btnWidth = physicalToLogical(180, viewport);
+    const btnHeight = physicalToLogical(52, viewport);
+
+    if (this.extractActive) {
+      // Extraction state: show prominent EXTRACT button, no combat controls
+      this.buildExtractionControls(scene, viewport, btnWidth, btnHeight, topMargin, rightMargin, bottomMargin);
+      return;
+    }
 
     this.hintText = createUiText(scene,
       viewport.canvasWidth / 2,
@@ -110,10 +125,10 @@ export class ControlsView {
     }
 
     this.pauseButton = scene.add.rectangle(
-      viewport.canvasWidth - rightMargin - pauseSize / 2,
-      topMargin + pauseSize / 2,
-      pauseSize,
-      pauseSize,
+      viewport.canvasWidth - rightMargin - physicalToLogical(44, viewport) / 2,
+      topMargin + physicalToLogical(44, viewport) / 2,
+      physicalToLogical(44, viewport),
+      physicalToLogical(44, viewport),
       ThemeColor.surface,
       0.72,
     );
@@ -156,6 +171,89 @@ export class ControlsView {
     this.root?.add([this.hintText, this.pauseButton, this.abilityButton, this.abilityGlyph, ...this.pauseGlyphBars]);
   }
 
+  private buildExtractionControls(
+    scene: Phaser.Scene,
+    viewport: UiViewport,
+    btnWidth: number,
+    btnHeight: number,
+    topMargin: number,
+    rightMargin: number,
+    bottomMargin: number,
+  ): void {
+    // Keep pause button for round-trip access
+    this.pauseButton = scene.add.rectangle(
+      viewport.canvasWidth - rightMargin - physicalToLogical(44, viewport) / 2,
+      topMargin + physicalToLogical(44, viewport) / 2,
+      physicalToLogical(44, viewport),
+      physicalToLogical(44, viewport),
+      ThemeColor.surface,
+      0.72,
+    );
+    this.pauseButton.setDepth(ThemeDepth.hud);
+    this.pauseButton.setScrollFactor(0);
+    this.pauseButton.setStrokeStyle(physicalToLogical(2, viewport), ThemeColor.cream, 0.8);
+    this.pauseButton.setInteractive();
+    this.pauseButton.on('pointerdown', this.handlePausePointerDown, this);
+    this.pauseGlyphBars = [-1, 1].map((direction) => {
+      const glyphOffset = physicalToLogical(8, viewport);
+      const glyphWidth = physicalToLogical(8, viewport);
+      const glyphHeight = physicalToLogical(22, viewport);
+      const bar = scene.add.rectangle(
+        this.pauseButton.x + direction * glyphOffset,
+        this.pauseButton.y,
+        glyphWidth,
+        glyphHeight,
+        ThemeColor.cream,
+        0.9,
+      );
+      bar.setDepth(ThemeDepth.hud);
+      bar.setScrollFactor(0);
+      return bar;
+    });
+
+    // EXTRACT button — large, centred near bottom, above safe area
+    const extractX = viewport.canvasWidth / 2;
+    const extractY = viewport.canvasHeight - bottomMargin - btnHeight / 2 - physicalToLogical(20, viewport);
+    this.extractButton = scene.add.rectangle(
+      extractX, extractY,
+      btnWidth, btnHeight,
+      ThemeColor.primary,
+      0.85,
+    );
+    this.extractButton.setDepth(ThemeDepth.hud);
+    this.extractButton.setScrollFactor(0);
+    this.extractButton.setStrokeStyle(physicalToLogical(2, viewport), ThemeColor.cream, 0.9);
+    this.extractButton.setInteractive();
+    this.extractButton.on('pointerdown', this.handleExtractPointerDown, this);
+
+    this.extractLabel = createUiText(scene, extractX, extractY, 'EXTRACT', {
+      color: '#101820',
+      fontFamily: ThemeFont.family,
+      fontSize: `${physicalToLogical(20, viewport)}px`,
+      fontStyle: '700',
+    });
+    this.extractLabel.setOrigin(0.5).setDepth(ThemeDepth.hud + 1).setScrollFactor(0);
+
+    // Update hint text for extraction state
+    this.hintText = createUiText(scene,
+      viewport.canvasWidth / 2,
+      extractY - btnHeight / 2 - physicalToLogical(16, viewport),
+      'OBJECTIVE COMPLETE',
+      {
+        align: 'center',
+        color: '#f7f1d5',
+        fontFamily: ThemeFont.family,
+        fontSize: `${physicalToLogical(16, viewport)}px`,
+        fontStyle: '700',
+      },
+    );
+    this.hintText.setOrigin(0.5);
+    this.hintText.setDepth(ThemeDepth.transientHint);
+    this.hintText.setScrollFactor(0);
+
+    this.root?.add([this.hintText, this.pauseButton, this.extractButton, this.extractLabel, ...this.pauseGlyphBars]);
+  }
+
   update(dtMs: number): void {
     if (this.disposed) {
       return;
@@ -164,6 +262,14 @@ export class ControlsView {
     const snapshot = this.input.getPresentationSnapshot();
     this.updateStick(snapshot);
     this.updateHint(snapshot.mode, dtMs);
+  }
+
+  setExtractionState(active: boolean): void {
+    if (this.disposed) return;
+    this.extractActive = active;
+    // Rebuild controls to show/hide extraction button
+    this.destroyViewportControls();
+    this.buildViewportControls();
   }
 
   destroy(): void {
@@ -188,6 +294,15 @@ export class ControlsView {
     this.abilityGlyph.destroy();
     this.pauseGlyphBars.forEach((bar) => bar.destroy());
     this.pauseGlyphBars = [];
+    if (this.extractButton) {
+      this.extractButton.off('pointerdown', this.handleExtractPointerDown, this);
+      this.extractButton.destroy();
+      this.extractButton = undefined;
+    }
+    if (this.extractLabel) {
+      this.extractLabel.destroy();
+      this.extractLabel = undefined;
+    }
   }
 
   private readonly handleScaleChange = (): void => {
@@ -278,6 +393,10 @@ export class ControlsView {
 
   private handleAbilityPointerDown(): void {
     this.onAbilityRequested?.();
+  }
+
+  private handleExtractPointerDown(): void {
+    this.onExtractRequested?.();
   }
 }
 

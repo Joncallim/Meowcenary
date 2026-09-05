@@ -328,6 +328,7 @@ export class GameScene extends Phaser.Scene {
       readReducedMotion: () => ctx.settings.reducedMotion,
       onPauseRequested: () => this.routeAction('pause'),
       onAbilityRequested: () => this.routeAction('ability'),
+      onExtractRequested: () => this.routeAction('confirm'),
     });
 
     this.inventoryController = new InventoryController({
@@ -633,6 +634,8 @@ export class GameScene extends Phaser.Scene {
     if (terminalPersistencePending && !this.hasPendingTerminalPersistence()) {
       this.runSummaryView?.refresh();
     }
+    // Sync extraction UI state with pendingClear
+    this.controlsView?.setExtractionState(!!isPendingClear);
     // The manager's deterministic clock stays aligned with the active scene
     // update so terminal music fades continue while the summary remains
     // visible.
