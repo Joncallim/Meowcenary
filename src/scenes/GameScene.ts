@@ -614,14 +614,22 @@ export class GameScene extends Phaser.Scene {
     // Objective completion is a durable boundary. A transient save failure
     // must not leave combat running long enough to turn an earned clear into
     // a loss; the next frames retry only the idempotent transaction.
-    if (this.stageRuntime?.pendingClear && runState.status === 'active') {
-      this.audioManager?.update(delta);
-      return;
+    const isPendingClear = this.stageRuntime?.pendingClear && runState.status === 'active';
+
+    // === SIMULATION PHASE ===
+    // Stop combat simulation during pendingClear so an earned clear is
+    // never accidentally lost. Presentation continues below.
+    if (!isPendingClear) {
+      this.player.update(delta);
+      this.systems.forEach((system) => {
+        system.update(delta);
+      });
     }
-    this.player.update(delta);
-    this.systems.forEach((system) => {
-      system.update(delta);
-    });
+
+    // === PRESENTATION PHASE ===
+    // HUD, controls, debug overlay and audio update regardless of
+    // pendingClear so the player sees "OBJECTIVE COMPLETE — Confirm to
+    // extract" rather than stale combat HUD (fixes #164 root cause).
     if (terminalPersistencePending && !this.hasPendingTerminalPersistence()) {
       this.runSummaryView?.refresh();
     }
