@@ -146,6 +146,7 @@ export class GameScene extends Phaser.Scene {
    * retry marker so mastery/stage facts are never forgotten after storage
    * recovers. */
   private pendingAchievementEvaluation = false;
+  private _wasPendingClear = false;
   /** A won run has earned mastery, but storage may be transiently unavailable.
    * Keep the character identity until the authoritative save boundary accepts
    * it; the retry also re-evaluates mastery-gated achievements afterwards. */
@@ -634,8 +635,15 @@ export class GameScene extends Phaser.Scene {
     if (terminalPersistencePending && !this.hasPendingTerminalPersistence()) {
       this.runSummaryView?.refresh();
     }
-    // Sync extraction UI state with pendingClear
-    this.controlsView?.setExtractionState(!!isPendingClear);
+    // Sync extraction UI state with pendingClear — only on transition
+    if (this.controlsView) {
+      const wasPendingClear = this._wasPendingClear;
+      const nowPendingClear = !!isPendingClear;
+      if (wasPendingClear !== nowPendingClear) {
+        this.controlsView.setExtractionState(nowPendingClear);
+        this._wasPendingClear = nowPendingClear;
+      }
+    }
     // The manager's deterministic clock stays aligned with the active scene
     // update so terminal music fades continue while the summary remains
     // visible.

@@ -266,6 +266,9 @@ export class ControlsView {
 
   setExtractionState(active: boolean): void {
     if (this.disposed) return;
+    // Skip rebuild if state hasn't changed — avoids destroying/recreating
+    // interactive objects every frame (fixes #164 button interactivity).
+    if (this.extractActive === active) return;
     this.extractActive = active;
     // Rebuild controls to show/hide extraction button
     this.destroyViewportControls();
