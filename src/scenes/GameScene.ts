@@ -147,6 +147,10 @@ export class GameScene extends Phaser.Scene {
    * recovers. */
   private pendingAchievementEvaluation = false;
   private _wasPendingClear = false;
+  /** Prevents ghost clicks during scene transitions by suppressing all
+   *  input for a brief window after a state-changing action. */
+  private _inputBlockedUntil = 0;
+
   /** A won run has earned mastery, but storage may be transiently unavailable.
    * Keep the character identity until the authoritative save boundary accepts
    * it; the retry also re-evaluates mastery-gated achievements afterwards. */
@@ -795,6 +799,10 @@ export class GameScene extends Phaser.Scene {
    *  an absent runState is a teardown/inconsistent seam and every action is
    *  discarded immediately — no panel fallback routes commands without a run. */
   private routeAction(action: GameAction): void {
+    // Suppress input during scene transitions to prevent ghost clicks
+    // (e.g. pointerdown triggers extraction, pointerup lands on the
+    // next scene's button at the same position).
+    if (Date.now() < this._inputBlockedUntil) return;
     const runState = this.runState;
     if (!runState) {
       return;

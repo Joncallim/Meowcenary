@@ -99,7 +99,7 @@ export class ControlsView {
 
     if (this.extractActive) {
       // Extraction state: show prominent EXTRACT button, no combat controls
-      this.buildExtractionControls(scene, viewport, btnWidth, btnHeight, topMargin, rightMargin, bottomMargin);
+      this.buildExtractionControls(scene, viewport, btnWidth, btnHeight, topMargin, rightMargin);
       return;
     }
 
@@ -178,7 +178,6 @@ export class ControlsView {
     btnHeight: number,
     topMargin: number,
     rightMargin: number,
-    bottomMargin: number,
   ): void {
     // Keep pause button for round-trip access
     this.pauseButton = scene.add.rectangle(
@@ -213,7 +212,9 @@ export class ControlsView {
 
     // EXTRACT button — large, centred near bottom, above safe area
     const extractX = viewport.canvasWidth / 2;
-    const extractY = viewport.canvasHeight - bottomMargin - btnHeight / 2 - physicalToLogical(20, viewport);
+    // Position EXTRACT at 55% canvas height — above ALL RunSummary buttons
+    // (Y≈676, 732, 788 for 390x844) to prevent ghost-click overlap.
+    const extractY = Math.round(viewport.canvasHeight * 0.55);
     this.extractButton = scene.add.rectangle(
       extractX, extractY,
       btnWidth, btnHeight,
@@ -225,6 +226,10 @@ export class ControlsView {
     this.extractButton.setStrokeStyle(physicalToLogical(2, viewport), ThemeColor.cream, 0.9);
     this.extractButton.setInteractive();
     this.extractButton.on('pointerdown', this.handleExtractPointerDown, this);
+    // Consume pointerup on the same button so the gesture doesn't
+    // propagate to a RunSummary button at the same position if the
+    // user holds briefly (ghost-click prevention).
+    this.extractButton.on('pointerup', () => {});
 
     this.extractLabel = createUiText(scene, extractX, extractY, 'EXTRACT', {
       color: '#101820',
