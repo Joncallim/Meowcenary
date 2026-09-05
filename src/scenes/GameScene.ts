@@ -510,7 +510,6 @@ export class GameScene extends Phaser.Scene {
       this.dropSystem,
       this.upgradeSystem,
       ...(debugCheatSystem ? [debugCheatSystem] : []),
-      this.hudController,
       ...(playtestSummarySystem ? [playtestSummarySystem] : []),
     ];
 
@@ -604,8 +603,6 @@ export class GameScene extends Phaser.Scene {
     this.pauseView?.refreshInputPresentation();
     this.runSummaryView?.refreshInputPresentation();
     this.upgradeChooser?.refreshInputPresentation();
-    tickRun(runState, delta);
-    this.tickAbility(delta);
     this.updateStageObjective(ctx, delta);
     const terminalPersistencePending = this.hasPendingTerminalPersistence();
     this.retryPendingCharacterMastery(ctx);
@@ -617,9 +614,12 @@ export class GameScene extends Phaser.Scene {
     const isPendingClear = this.stageRuntime?.pendingClear && runState.status === 'active';
 
     // === SIMULATION PHASE ===
-    // Stop combat simulation during pendingClear so an earned clear is
-    // never accidentally lost. Presentation continues below.
+    // Stop combat simulation and freeze the run clock during pendingClear
+    // so an earned clear is never accidentally lost and the displayed
+    // completion time remains coherent. Presentation continues below.
     if (!isPendingClear) {
+      tickRun(runState, delta);
+      this.tickAbility(delta);
       this.player.update(delta);
       this.systems.forEach((system) => {
         system.update(delta);
@@ -637,6 +637,10 @@ export class GameScene extends Phaser.Scene {
     // update so terminal music fades continue while the summary remains
     // visible.
     this.audioManager?.update(delta);
+    // HudController was removed from this.systems to separate presentation
+    // from simulation. It is always updated here so objective text and
+    // timer display remain live during pendingClear.
+    this.hudController?.update(delta);
 
     this.controlsView?.update(delta);
     const move = this.inputController.getMoveVector();
