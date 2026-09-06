@@ -296,8 +296,12 @@ function freezeResult(progression: ProgressionStateV4): GrantResult {
 }
 
 function freezeProgression(p: ProgressionStateV4): ProgressionStateV4 {
-  return Object.freeze({
+  const result: Record<string, unknown> = {
     scrap: p.scrap,
     unlocks: Object.freeze([...p.unlocks]),
-  });
+  };
+  if ('permanentUpgrades' in p && p.permanentUpgrades !== undefined) {
+    result.permanentUpgrades = Object.freeze({ ...p.permanentUpgrades });
+  }
+  return Object.freeze(result) as unknown as ProgressionStateV4;
 }

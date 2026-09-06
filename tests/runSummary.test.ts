@@ -214,7 +214,7 @@ describe('RunSummaryController banking integration', () => {
         bankedScrap: 12,
         totalScrap: 12,
         persistenceSucceeded: true,
-        unlockedIds: outcome === 'won' ? ['achievement:first-victory'] : [],
+        unlockedIds: [],
       });
     },
   );

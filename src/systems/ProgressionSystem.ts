@@ -34,7 +34,7 @@ export class ProgressionSystem implements System {
   get lastBankedRun(): BankedRun | null { return this.banked; }
 
   bankFinishedRun(): BankedRun | null {
-    if (this.destroyed || handledRuns.has(this.runState)) return null;
+    if (this.destroyed || handledRuns.has(this.runState) || (this.runState.status !== 'won' && this.runState.status !== 'lost')) return null;
     const reward = {
       scrap: Math.max(0, Math.floor(this.runState.currency)),
       unlocks: this.runState.status === 'won' ? [] : [],

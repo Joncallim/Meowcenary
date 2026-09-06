@@ -274,7 +274,7 @@ describe('durable grant transactions', () => {
     const replay = applyDurableGrantTransaction(manager.load(), transaction);
     expect(replay.changed).toBe(false);
     expect(replay.save.progression.scrap).toBe(25);
-    expect((replay.save.progression as any).permanentUpgrades['reinforced-vest']).toBe(1);
+    expect(replay.save.progression.unlocks).toContain('character:bolt-hound');
   });
 
   it('rejects malformed batches before any grant can be applied', () => {

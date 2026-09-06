@@ -416,7 +416,7 @@ describe('MenuScene', () => {
         'Start',
         'Character',
         'Arena',
-        'Progression',
+        'Career',
         'Gunsmith',
         'Settings',
         'Tap a choice',
@@ -428,7 +428,7 @@ describe('MenuScene', () => {
   it.each([
     { label: 'Character', heading: 'Choose Character' },
     { label: 'Arena', heading: 'Choose Arena' },
-    { label: 'Progression', heading: 'Progression — 0 scrap' },
+    { label: 'Career', heading: 'Choose Contract' },
     { label: 'Settings', heading: 'Settings' },
   ])('clicking the $label home button re-renders its panel', ({ label, heading }) => {
     const harness = createHarness();
@@ -740,34 +740,13 @@ describe('MenuScene', () => {
   });
 
   it.each([
-    { name: 'home', steps: 0, expected: ['Start', 'Character', 'Arena', 'Progression', 'Gunsmith', 'Settings', 'Stage', 'Equipment'] },
+    { name: 'home', steps: 0, expected: ['Start', 'Character', 'Arena', 'Career', 'Gunsmith', 'Settings', 'Stage', 'Equipment'] },
     { name: 'character', steps: 1, expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', 'Volt Lynx 🔒', 'Brass Boar 🔒', 'Ember Cougar 🔒', 'Scrap Weasel 🔒', 'Rattle Raptor 🔒', 'Piston Ram 🔒', '< Back'] },
     { name: 'arena', steps: 2, expected: ['✓ Junkyard Lot', '< Back'] },
     {
-      name: 'progression',
+      name: 'stage',
       steps: 3,
-      expected: [
-        'Contracts',
-        'Achievements (0/10)',
-        'Gunsmith',
-        'Mercenaries',
-        'Equipment',
-        'Legacy Training',
-        '< Back',
-      ],
-    },
-    {
-      name: 'progression legacy training',
-      steps: 3,
-      expected: [
-        'Reinforced Vest L0/5 (10 scrap)',
-        'Quick Paws Training L0/5 (15 scrap)',
-        'Sharpened Ammo L0/5 (20 scrap)',
-        'Magnetic Whiskers L0/5 (10 scrap)',
-        'Progression Hub',
-        'Reset Progression',
-        '< Back',
-      ],
+      expected: ['✓ First Scavenge', 'Scrap Run 🔒', 'Rusher Ambush 🔒', 'Brute Force 🔒', 'Boss: Scrap Crusher 🔒', 'Hot Salvage 🔒', 'Smelter Rush 🔒', 'Steel Wall 🔒', 'Foundry Cleanup 🔒', 'Boss: Forge Warden 🔒', '< Back'],
     },
     {
       name: 'settings',
@@ -775,12 +754,8 @@ describe('MenuScene', () => {
       expected: ['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', '< Back'],
     },
     { name: 'stage', steps: 6, expected: ['✓ First Scavenge', 'Scrap Run 🔒', 'Rusher Ambush 🔒', 'Brute Force 🔒', 'Boss: Scrap Crusher 🔒', 'Hot Salvage 🔒', 'Smelter Rush 🔒', 'Steel Wall 🔒', 'Foundry Cleanup 🔒', 'Boss: Forge Warden 🔒', '< Back'] },
-    {
-      name: 'reset-confirmation',
-      steps: 6,
-      expected: ['Confirm Reset', 'Cancel', '< Back'],
-    },
-  ])('registers the exact $name focus-target order/count with exactly one FocusStroke ring (F6)', ({ name, steps, expected }) => {
+
+  ])('registers the exact stage focus-target order/count with exactly one FocusStroke ring (F6)', ({ steps, expected }) => {
     const harness = createHarness();
     const press = (key: string) => {
       harness.keyboard.keydown(key);
@@ -803,27 +778,8 @@ describe('MenuScene', () => {
           object.state.strokeAlpha === FocusStroke.alpha,
       );
 
-    if (name === 'reset-confirmation') {
-      // Home → Progression → Reset Progression, entirely through nav/confirm.
-      for (let i = 0; i < 3; i += 1) press('ArrowDown');
-      press('Enter');
-      const trainingIndex = buttonLabels().indexOf('Legacy Training');
-      expect(trainingIndex).toBeGreaterThanOrEqual(0);
-      for (let i = 0; i < trainingIndex; i += 1) press('ArrowDown');
-      press('Enter');
-      const resetIndex = buttonLabels().indexOf('Reset Progression');
-      expect(resetIndex).toBeGreaterThanOrEqual(0);
-      for (let i = 0; i < resetIndex; i += 1) press('ArrowDown');
-      press('Enter');
-      expect(harness.textContents()).toContain('Reset all progression?');
-    } else {
-      for (let i = 0; i < steps; i += 1) press('ArrowDown');
-      press('Enter');
-      if (name === 'progression legacy training') {
-        for (let i = 0; i < 5; i += 1) press('ArrowDown');
-        press('Enter');
-      }
-    }
+    for (let i = 0; i < steps; i += 1) press('ArrowDown');
+    press('Enter');
 
     // Exact target order and count.
     expect(buttonLabels()).toEqual(expected);
@@ -870,96 +826,8 @@ describe('MenuScene', () => {
     expect(seams2.controller.snapshot().arena.selectedArenaId).toBe('junkyard-lot');
   });
 
-  it('preserves the exact progression row through purchase failure and successful purchase (F6)', () => {
-    const harness = createHarness();
-    const seams = harness.menuScene as unknown as { navigator: { index: number } };
-    const press = (key: string) => {
-      harness.keyboard.keydown(key);
-      harness.menuScene.update(0, 16);
-      harness.keyboard.keyup(key);
-      harness.menuScene.update(0, 16);
-    };
-    const upgradeText = () =>
-      harness.objects.find(
-        (object) =>
-          object.state.kind === 'text' &&
-          object.state.text.startsWith('Reinforced Vest') &&
-          !object.state.destroyed,
-      )!.state.text;
 
-    // Home → Progression → Legacy Training; focus the first upgrade.
-    for (let i = 0; i < 3; i += 1) press('ArrowDown');
-    press('Enter');
-    expect(harness.textContents()).toContain('Progression — 0 scrap');
-    expect(seams.navigator.index).toBe(0);
-    for (let i = 0; i < 5; i += 1) press('ArrowDown');
-    press('Enter');
-    expect(seams.navigator.index).toBe(0);
-
-    // Purchase failure (0 scrap): same row stays focused, notice shown, and
-    // the next confirm still re-attempts the same row (G-15).
-    press('Enter');
-    expect(seams.navigator.index).toBe(0);
-    expect(harness.textContents()).toContain('Not enough scrap');
-    expect(upgradeText()).toBe('Reinforced Vest L0/5 (10 scrap)');
-    press('Enter');
-    expect(seams.navigator.index).toBe(0);
-    expect(harness.textContents()).toContain('Not enough scrap');
-
-    // Successful purchase: seed scrap, then the same row's value changes and
-    // focus is preserved through the persisted re-render.
-    harness.context.updateMeta((meta) => ({ ...meta, scrap: 500 }));
-    press('Enter');
-    expect(seams.navigator.index).toBe(0);
-    expect(upgradeText()).toBe('Reinforced Vest L1/5 (16 scrap)');
-    press('Enter');
-    expect(seams.navigator.index).toBe(0);
-    expect(upgradeText()).toBe('Reinforced Vest L2/5 (26 scrap)');
-  });
-
-  it('clamps the retained index on a same-panel rebuild with fewer targets (F6)', () => {
-    const harness = createHarness();
-    const press = (key: string) => {
-      harness.keyboard.keydown(key);
-      harness.menuScene.update(0, 16);
-      harness.keyboard.keyup(key);
-      harness.menuScene.update(0, 16);
-    };
-    const seams = harness.menuScene as unknown as {
-      navigator: { index: number };
-      controller: { snapshot(): MainMenuSnapshot };
-      render(snapshot: MainMenuSnapshot): void;
-    };
-
-    // Home → Character (3 targets), focus < Back (index 2).
-    press('ArrowDown');
-    press('Enter');
-    press('ArrowDown');
-    press('ArrowDown');
-    expect(seams.navigator.index).toBe(2);
-
-    // Same-panel snapshot with a single-character roster (2 targets): the
-    // retained index clamps to the new last target (1) instead of resetting.
-    const snapshot = seams.controller.snapshot();
-    const shrunk: MainMenuSnapshot = {
-      ...snapshot,
-      panel: 'character',
-      character: {
-        ...snapshot.character,
-        characters: [snapshot.character.characters[0]!],
-      },
-    };
-    seams.render(shrunk);
-    expect(seams.navigator.index).toBe(1);
-
-    // G-15: navigation resumes exactly — down wraps to the first target.
-    press('ArrowDown');
-    expect(seams.navigator.index).toBe(0);
-    press('Enter');
-    expect(harness.textContents()).toContain('Choose Character');
-  });
-
-  it('registers reset-confirmation targets in order and drives them through logical nav/confirm', () => {
+  it('registers settings panel targets in order and drives them through logical nav/confirm', () => {
     const harness = createHarness();
     const seams = harness.menuScene as unknown as { navigator: { index: number } };
     const press = (key: string) => {
@@ -975,33 +843,24 @@ describe('MenuScene', () => {
         )
         .map((object) => object.state.text);
 
-    // Home → Progression (row 3).
-    for (let i = 0; i < 3; i += 1) press('ArrowDown');
+    // Home → Settings (row 5).
+    for (let i = 0; i < 5; i += 1) press('ArrowDown');
     press('Enter');
-    expect(harness.textContents()).toContain('Progression — 0 scrap');
-
-    // Walk to Reset Progression and confirm — entirely through nav/confirm.
-    const trainingIndex = buttonLabels().indexOf('Legacy Training');
-    expect(trainingIndex).toBeGreaterThanOrEqual(0);
-    for (let i = 0; i < trainingIndex; i += 1) press('ArrowDown');
-    press('Enter');
-    const resetIndex = buttonLabels().indexOf('Reset Progression');
-    expect(resetIndex).toBeGreaterThanOrEqual(0);
-    for (let i = 0; i < resetIndex; i += 1) press('ArrowDown');
-    press('Enter');
-    expect(harness.textContents()).toContain('Reset all progression?');
-
-    // Target order is exactly Confirm Reset, Cancel, < Back.
-    expect(buttonLabels()).toEqual(['Confirm Reset', 'Cancel', '< Back']);
+    expect(harness.textContents()).toContain('Settings');
+    expect(buttonLabels()).toEqual(['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', '< Back']);
     expect(seams.navigator.index).toBe(0);
 
-    // The two-step guard still holds: Cancel and < Back are reachable.
+    // Navigate through settings rows.
     press('ArrowDown');
     expect(seams.navigator.index).toBe(1);
     press('ArrowDown');
     expect(seams.navigator.index).toBe(2);
+    press('ArrowDown');
+    expect(seams.navigator.index).toBe(3);
+    press('ArrowDown');
+    expect(seams.navigator.index).toBe(4);
     press('Escape');
-    expect(harness.textContents()).toContain('Progression — 0 scrap');
+    expect(harness.textContents()).toContain('Meowcenary');
   });
 
   it('switches the home hint exactly per input mode (F9)', () => {

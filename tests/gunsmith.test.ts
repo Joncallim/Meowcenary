@@ -297,7 +297,7 @@ describe('Epic 23 persistence round-trip', () => {
     const loaded = manager.load();
     // The stale entry survives; the save remains loadable.
     expect(loaded.gunsmith.parts['stale-inst']).toBeDefined();
-    expect(loaded.version).toBe(3);
+    expect(loaded.version).toBe(4);
   });
 
   it('sanitizes repeated owned-instance references before a build can multiply its effects', () => {

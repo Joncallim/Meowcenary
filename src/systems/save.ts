@@ -190,7 +190,7 @@ export function createDefaultProgression(): ProgressionState {
 }
 
 export function createDefaultProgressionV4(): ProgressionStateV4 {
-  return Object.freeze({ scrap: 0, unlocks: [] });
+  return Object.freeze({ scrap: 0, unlocks: Object.freeze([]) });
 }
 
 /** @deprecated Use createDefaultProgression() for V3. */
@@ -390,6 +390,31 @@ function decodeSave(raw: unknown, maxLevels: MetaUpgradeMaxLevels): SaveDecodeRe
       grantTransactionFingerprints: sanitizeGrantTransactionFingerprints(readOwn(parsed, 'grantTransactionFingerprints')),
     });
     return { data: migrateV3ToV4(v3), unsupportedFutureVersion: false };
+  }
+  if (version === 4) {
+    const equipment = sanitizeEquipmentState(readOwn(parsed, 'equipment'));
+    const selectedCharacterId = sanitizeSelectedCharacterId(readOwn(parsed, 'selectedCharacterId'));
+    const achievements = sanitizeAchievementProgress(readOwn(parsed, 'achievements'));
+    const sanitized = freezeSaveV4({
+      version: 4,
+      settings: sanitizeSettings(readOwn(parsed, 'settings'), DEFAULT_SETTINGS),
+      progression: sanitizeProgressionV4(readOwn(parsed, 'progression')),
+      stages: sanitizeStageProgress(readOwn(parsed, 'stages')),
+      achievements,
+      achievementMetrics: sanitizeAchievementMetrics(readOwn(parsed, 'achievementMetrics')),
+      characters: sanitizeCharacterMastery(readOwn(parsed, 'characters')),
+      ...(selectedCharacterId === undefined ? {} : { selectedCharacterId }),
+      gunsmith: sanitizeGunsmithState(readOwn(parsed, 'gunsmith')),
+      equipment,
+      equipmentLoadout: sanitizeEquipmentLoadout(readOwn(parsed, 'equipmentLoadout'), equipment),
+      items: sanitizeItemInventory(readOwn(parsed, 'items')),
+      bosses: sanitizeBossProgress(readOwn(parsed, 'bosses')),
+      compendium: sanitizeCompendiumState(readOwn(parsed, 'compendium')),
+      pendingAchievementReports: sanitizePendingAchievementReports(readOwn(parsed, 'pendingAchievementReports')),
+      appliedGrantTransactions: sanitizeAppliedGrantTransactions(readOwn(parsed, 'appliedGrantTransactions')),
+      grantTransactionFingerprints: sanitizeGrantTransactionFingerprints(readOwn(parsed, 'grantTransactionFingerprints')),
+    });
+    return { data: sanitized, unsupportedFutureVersion: false };
   }
   return {
     data: createDefaultSaveV4(),

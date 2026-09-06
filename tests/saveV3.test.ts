@@ -4,7 +4,7 @@ import {
   DEFAULT_SETTINGS,
   MemoryStorageAdapter,
   SaveManager,
-  createDefaultProgression,
+  createDefaultProgressionV4,
   createDefaultSaveV4,
   migrate,
   sanitizeProgression,
@@ -24,7 +24,7 @@ describe('Save V4 migration (V1/V2/V3→V4)', () => {
     expect(first).toEqual({
       version: 4,
       settings: DEFAULT_SETTINGS,
-      progression: createDefaultProgression(),
+      progression: createDefaultProgressionV4(),
       stages: {},
       achievements: {},
       achievementMetrics: {},

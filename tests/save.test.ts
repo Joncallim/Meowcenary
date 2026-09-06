@@ -6,7 +6,7 @@ import {
   MemoryStorageAdapter,
   SaveManager,
   applySettingsPatch,
-  createDefaultProgression,
+  createDefaultProgressionV4,
   createDefaultSaveV4,
   migrate,
   sanitizeProgressionV4,
@@ -23,7 +23,7 @@ describe('Save V4 migration and persistence', () => {
     expect(first).toMatchObject({
       version: 4,
       settings: DEFAULT_SETTINGS,
-      progression: createDefaultProgression(),
+      progression: createDefaultProgressionV4(),
       stages: {},
       achievements: {},
       characters: {},
