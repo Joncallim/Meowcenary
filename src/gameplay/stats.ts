@@ -73,6 +73,34 @@ export interface Modifier {
   scope?: WeaponFamilyScope;
 }
 
+/** Source-free modifier spec for use in static definitions (Equipment,
+ *  Parts, set bonuses, ability stat bursts).  Runtime derives source
+ *  identity from the actual owner/instance/threshold. */
+export interface ModifierSpec {
+  readonly stat: ModifierStatKey;
+  readonly op: 'add' | 'mult';
+  readonly value: number;
+  readonly scope?: WeaponFamilyScope;
+}
+
+/**
+ * Apply owned-tier scaling to a ModifierSpec value.
+ *
+ *   add:  value × tier
+ *   mult: 1 + (value - 1) × tier
+ *
+ * Examples:
+ *   add +35 at T2 => +70
+ *   mult 1.12 at T2 => 1.24
+ *   mult 0.94 at T2 => 0.88
+ */
+export function scaleModifierByTier(spec: ModifierSpec, tier: number): number {
+  if (tier <= 1) return spec.value;
+  if (spec.op === 'add') return spec.value * tier;
+  // mult: 1 + (value - 1) * tier
+  return 1 + (spec.value - 1) * tier;
+}
+
 export class ModifierStack {
   private readonly modifiers: Modifier[] = [];
 
