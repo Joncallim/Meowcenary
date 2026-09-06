@@ -13,6 +13,7 @@
  */
 import type { Modifier } from './stats';
 import type { ProjectileEffect } from './projectileEffects';
+import type { ProgressionCondition } from './conditionEvaluator';
 
 export type PartSlot =
   | 'receiver'
@@ -84,6 +85,10 @@ export interface PartDefinition {
   readonly tier: number;
   readonly effects: readonly Modifier[];
   readonly traits: readonly BehaviorTrait[];
+  /** Shared progression gate; absent means the part may be awarded normally. */
+  readonly unlock?: ProgressionCondition;
+  /** Explicit reward/drop pool membership. Never infer a global pool. */
+  readonly rewardPoolId?: string;
   /** Canonical manifest reference; definitions never carry renderer paths. */
   readonly presentation: { readonly iconArtId: string };
 }

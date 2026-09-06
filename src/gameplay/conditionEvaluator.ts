@@ -6,6 +6,8 @@
 import type { ProgressionState, StageProgressState, AchievementProgressState, CharacterMasteryState, BossProgressState } from '../systems/save';
 
 export type ProgressionCondition =
+  /** Explicit unconditional catalog gate (for the one fresh-save starter). */
+  | { readonly type: 'always' }
   | { readonly type: 'stage-cleared'; readonly stageId: string }
   | { readonly type: 'boss-defeated'; readonly bossId: string }
   | { readonly type: 'achievement-completed'; readonly achievementId: string }
@@ -41,14 +43,21 @@ export function evaluateCondition(
   ctx: ConditionContext,
 ): boolean {
   switch (condition.type) {
+    case 'always':
+      return true;
+
     case 'stage-cleared':
       return ctx.stages[condition.stageId]?.completed === true;
 
     case 'boss-defeated':
-      return ctx.bosses?.[condition.bossId]?.defeated === true;
+      return ctx.bosses?.[condition.bossId]?.defeated === true ||
+        ctx.progression.unlocks.includes(`achievement:${condition.bossId}`);
 
     case 'achievement-completed':
-      return ctx.achievements[condition.achievementId]?.completed === true;
+      // Preserve V2/V3 achievement receipts as equivalent evidence during
+      // the transition from legacy character unlock tokens.
+      return ctx.achievements[condition.achievementId]?.completed === true ||
+        ctx.progression.unlocks.includes(condition.achievementId);
 
     case 'mastery-reached':
       return (ctx.characters[condition.subjectId]?.tier ?? 0) >= condition.tier;

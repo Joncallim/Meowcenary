@@ -44,9 +44,10 @@ The following decisions are now executable contracts, rather than proposals:
 - Conditions consume saved gameplay facts. In particular `boss-defeated`
   reads `SaveDataV3.bosses`, never an achievement derived from that fact.
 
-The mandatory #94 certification prerequisite remains open because #78's
-real-device evidence is still outstanding. This document records the safe
-automatable contract baseline; it does not claim that prerequisite has passed.
+The mandatory #94 certification prerequisite closed on 2 September 2026.
+This document records the implementation-locked Alpha 3 contract baseline;
+device-specific evidence remains recorded separately in the relevant delivery
+records rather than changing this foundation contract.
 
 ## 2. Current Compatibility Baseline
 

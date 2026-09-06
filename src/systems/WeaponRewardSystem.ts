@@ -1,4 +1,5 @@
 import type { Rng } from '../engine/rng';
+import { trace } from '../engine/diagnostics';
 import type { System } from '../engine/system';
 import { PLAYER_BODY_RADIUS } from '../entities/Player';
 import type { LootGrant } from '../gameplay/loot';
@@ -103,6 +104,7 @@ export class WeaponRewardSystem implements System {
     // are due (Epic 14 §D11). Malformed table results fail soft once per due
     // reward and advance the schedule rather than retrying every frame.
     while (this.runState.timeMs >= this.nextRewardAtMs) {
+      trace('reward:due', { timeMs: this.runState.timeMs, nextDeadline: this.nextRewardAtMs, index: this.rewardIndex });
       this.issueReward();
       this.nextRewardAtMs = nextWeaponRewardDeadlineMs(this.nextRewardAtMs, this.rng, this.config);
     }
@@ -114,20 +116,24 @@ export class WeaponRewardSystem implements System {
 
   private issueReward(): void {
     let grant: LootGrant;
-    if (this.rewardIndex === 0 && this.startingDefinitionId !== undefined) {
+    const index = this.rewardIndex;
+    if (index === 0 && this.startingDefinitionId !== undefined) {
       grant = firstWeaponRewardGrant(this.startingDefinitionId);
     } else {
       try {
         grant = resolveLaterWeaponReward(this.lootTables, this.rng);
       } catch (error) {
         console.warn('[WeaponRewardSystem] Failed to resolve a scheduled weapon reward:', error);
+        trace('reward:fail', { index, deadline: this.nextRewardAtMs, error: String(error) });
         this.rewardIndex += 1;
         return;
       }
     }
 
-    const position = this.placementFor(this.rewardIndex);
+    const position = this.placementFor(index);
+    trace('reward:issue', { index, deadline: this.nextRewardAtMs, kind: grant.kind, definitionId: 'definitionId' in grant ? grant.definitionId : undefined, position });
     this.spawnDrop(position.x, position.y, grant);
+    trace('reward:spawned', { index, x: position.x, y: position.y, definitionId: 'definitionId' in grant ? grant.definitionId : undefined });
     this.issued += 1;
     this.rewardIndex += 1;
   }

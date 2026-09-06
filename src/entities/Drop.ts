@@ -6,6 +6,7 @@ import type { VisualArtBinding } from '../systems/types';
 import { createStaticArtSprite } from './actorView';
 import { visualAnimationKey } from '../systems/visualArt';
 import { VisualDepth } from '../systems/visualDepths';
+import { trace } from '../engine/diagnostics';
 import { ThemeColor } from '../ui/theme';
 
 export type DropKind = LootGrant['kind'];
@@ -26,6 +27,9 @@ const GLINT_RADIUS = 2.5;
 const GLINT_ALPHA = 0.9;
 
 export class Drop {
+  /** Development-only identity for pool trace correlation (#164). */
+  readonly debugId: number;
+  private static nextDebugId = 1;
   readonly sprite: Phaser.GameObjects.Arc;
   active = false;
   private grantValue?: LootGrant;
@@ -39,6 +43,7 @@ export class Drop {
     private readonly radius: number,
     private readonly artByKind: DropArtBindings = Object.freeze({}),
   ) {
+    this.debugId = Drop.nextDebugId++;
     this.sprite = scene.add.circle(0, 0, radius, DROP_COLORS.xp)
       .setDepth(VisualDepth.dropBody)
       .setActive(false)
@@ -111,6 +116,7 @@ export class Drop {
     this.body.enable = true;
     this.body.setCircle(this.radius);
     this.body.setVelocity(0, 0);
+    trace('drop:activated', { debugId: this.debugId, kind, artId: binding?.id, textureKey: binding?.textureKey, x: Math.round(x), y: Math.round(y) });
   }
 
   update(dtMs: number, playerPos: Vec2, pickupRadius: number, magnetSpeed: number): void {
@@ -173,6 +179,7 @@ export class Drop {
       sprite.stop().setFrame(0).setActive(false).setVisible(false);
     }
     this.activeArt = undefined;
+    trace('drop:deactivated', { debugId: this.debugId });
   }
 
   destroy(): void {

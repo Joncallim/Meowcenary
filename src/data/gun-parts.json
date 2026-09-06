@@ -130,6 +130,19 @@
     "tier": 2,
     "presentation": { "iconArtId": "upgrade-icon:hot-barrel" },
     "effects": [],
-    "traits": ["FIRE"]
+    "traits": ["FIRE"],
+    "rewardPoolId": "pool:traits-chapter-1"
+  },
+  {
+    "id": "part:trait-fire-mastered",
+    "name": "Mastered Fire Trait Core",
+    "slot": "trait",
+    "rarity": "rare",
+    "tier": 3,
+    "presentation": { "iconArtId": "upgrade-icon:hot-barrel" },
+    "effects": [],
+    "traits": ["FIRE"],
+    "rewardPoolId": "pool:traits-mastery",
+    "unlock": { "type": "achievement-completed", "achievementId": "achievement:first-victory" }
   }
 ]

@@ -316,11 +316,11 @@ Pure gameplay systems receive `dtMs`; they must not read Phaser clocks directly.
 | Epic 17 | #76 Combat Feel and Weapon Identity | Complete · PRs #96–#102 | Weapon family/tier presentation and audio identity, enemy telegraph presentation, and one SMG tier data change; architecture and delivery record in [`architecture/epic-17-combat-feel-and-weapon-identity.md`](architecture/epic-17-combat-feel-and-weapon-identity.md). |
 | Epic 18 | #77 Build Variety and Golden Run Pacing | Complete · PR #106 | Delivered the Golden Run/card expansion and pacing record. |
 | Epic 19 | #78 Player UX and Alpha 2 Gate | Open · Slices 1–4 merged; Slice 5/evidence pending | Frozen contract, shared input/focus journey, touch diagnostics, and gate closeout. |
-| **Alpha 2 certification gate** | **#94** | **Open · blocked by Epic 19** | Full repository architecture/quality/maintainability audit + remediation; fix all P0/P1 and downstream-relevant P2 findings before Alpha 3 architecture. |
-| **Alpha 3 shared foundation gate** | **#92** | **Open · blocked by #94** | Freeze Stage/ResolvedRunPlan, Save V3, shared conditions/grants, catalog/conformance, content-version and bundle seams from the certified Alpha 2 baseline. |
+| **Alpha 2 certification gate** | **#94** | **Closed · PASS** | Repository architecture/quality/maintainability audit and remediation completed before Alpha 3 architecture. |
+| **Alpha 3 shared foundation gate** | **#92** | **Closed** | Stage/ResolvedRunPlan, Save V3, shared conditions/grants, catalog/conformance, content-version and bundle seams are implementation-locked. |
 | Epic 20 | #85 Contracts, Objectives, and Stage Progression | Open · Alpha 3 | Objective-based stage ladder, ~3-minute frontier pressure, chapter/boss-stage cadence. |
 | Epic 21 | #86 Enemy Roster Expansion and Boss Framework | Open · Alpha 3 | ~8 behavioral archetypes, projectile threats, encounter composition, unique bosses. |
-| Epic 22 | #91 Achievements, Mastery, and Platform Sync | Open · Alpha 3 | Game-owned standard/incremental/hidden/mastery achievements; offline/web authority; optional Game Center/Google Play mirrors. |
+| Epic 22 | #91 Achievements, Mastery, and Platform Sync | Closed | Game-owned standard/incremental/hidden/mastery achievements; offline/web authority; optional Game Center/Google Play mirrors. |
 | Epic 23 | #87 Persistent Gunsmith and Weapon-Part Crafting | Open · Alpha 3 | Persistent modular guns/parts, out-of-combat crafting, merging, bounded trait infusion. |
 | Epic 24 | #88 Mercenary Roster Expansion | Open · Alpha 3 | >3 playable characters; target ~8 with distinct passives/start identities, simple abilities, controller parity. |
 | Epic 25 | #89 Armour Sets and Equipment Progression | Open · Alpha 3 | Helmet/Armour/Gloves/Boots, ~8 set families, 2/4-piece bonuses, coin upgrades + milestone-tier unlocks. |

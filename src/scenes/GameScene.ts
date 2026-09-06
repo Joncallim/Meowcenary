@@ -6,7 +6,7 @@ import { SceneKey } from '../engine/sceneKeys';
 import type { System } from '../engine/system';
 import type { SpawnCurveDefinition } from '../systems/types';
 import { AudioManager, getAudioManager } from '../systems/audio';
-import { PLAYER_BODY_RADIUS, Player } from '../entities/Player';
+import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
 import { assembleComposedRunRequest } from '../gameplay/runRequest';
@@ -45,7 +45,7 @@ import { DataLootTableRegistry } from '../systems/lootTables';
 import { WeaponSystem } from '../systems/WeaponSystem';
 import { UpgradeChooser } from '../ui/UpgradeChooser';
 import { resolveCharacterRunContribution } from '../gameplay/characterContribution';
-import { HudController, PhaserHudView, createHudSource, topHudContentBottom } from '../ui/hud';
+import { HudController, PhaserHudView, createHudSource } from '../ui/hud';
 import { ControlsView } from '../ui/controls';
 import { InventoryController } from '../ui/inventory';
 import { StageSelectionController } from '../ui/stageSelectionController';
@@ -55,7 +55,7 @@ import {
   RunSummaryController,
   type RunSummarySource,
 } from '../ui/runSummary';
-import { GAMEPLAY_ZOOM, edgeMargin, zoomedGameUiViewport, type UiViewport } from '../ui/layout';
+import { GAMEPLAY_ZOOM, zoomedGameUiViewport } from '../ui/layout';
 import { FullscreenController } from '../ui/fullscreen';
 import { PassiveCoordinator } from '../systems/PassiveCoordinator';
 import { HazardSystem } from '../systems/HazardSystem';
@@ -94,23 +94,6 @@ export function arenaFollowEnabled(
   visibleHeight: number,
 ): boolean {
   return arenaWidth > visibleWidth || arenaHeight > visibleHeight;
-}
-
-/** Screen-relative world-space floor for the player. The HUD does not belong
- * to a fixed point in the map: following the camera must move this boundary
- * with it or the player can walk into the screen-fixed strip. */
-export function playerHudSafeFloor(
-  viewport: UiViewport,
-  arenaHeight: number,
-  cameraScrollY = 0,
-): number {
-  const hudBottom = (viewport.originY ?? 0)
-    + topHudContentBottom(viewport)
-    + edgeMargin(viewport, 'bottom');
-  return Math.min(
-    Math.max(PLAYER_BODY_RADIUS, arenaHeight - PLAYER_BODY_RADIUS),
-    Math.max(PLAYER_BODY_RADIUS, cameraScrollY + hudBottom + PLAYER_BODY_RADIUS),
-  );
 }
 
 export class GameScene extends Phaser.Scene {
@@ -163,6 +146,11 @@ export class GameScene extends Phaser.Scene {
    * retry marker so mastery/stage facts are never forgotten after storage
    * recovers. */
   private pendingAchievementEvaluation = false;
+  private _wasPendingClear = false;
+  /** Prevents ghost clicks during scene transitions by suppressing all
+   *  input for a brief window after a state-changing action. */
+  private _inputBlockedUntil = 0;
+
   /** A won run has earned mastery, but storage may be transiently unavailable.
    * Keep the character identity until the authoritative save boundary accepts
    * it; the retry also re-evaluates mastery-gated achievements afterwards. */
@@ -308,18 +296,6 @@ export class GameScene extends Phaser.Scene {
       invulnerabilityMs: RuntimeConfig.gameplay.player.invulnerabilityMs,
       spawnX: arena.size.width / 2,
       spawnY: arena.size.height / 2,
-      minPlayableY: () => playerHudSafeFloor(
-        // HUD views rebuild on resize, so this boundary must use the same
-        // current viewport rather than the run's initial portrait geometry.
-        zoomedGameUiViewport(
-          this.scale.displaySize.width,
-          this.scale.displaySize.height,
-          this.scale.parentSize.width,
-          this.scale.parentSize.height,
-        ),
-        arena.size.height,
-        this.cameras.main.worldView.y,
-      ),
     }, visualArt.bindingById(`character:${request.characterId}`));
 
     const visibleSize = zoomedVisibleSize(this.scale.width, this.scale.height);
@@ -357,6 +333,7 @@ export class GameScene extends Phaser.Scene {
       readReducedMotion: () => ctx.settings.reducedMotion,
       onPauseRequested: () => this.routeAction('pause'),
       onAbilityRequested: () => this.routeAction('ability'),
+      onExtractRequested: () => this.routeAction('confirm'),
     });
 
     this.inventoryController = new InventoryController({
@@ -539,7 +516,6 @@ export class GameScene extends Phaser.Scene {
       this.dropSystem,
       this.upgradeSystem,
       ...(debugCheatSystem ? [debugCheatSystem] : []),
-      this.hudController,
       ...(playtestSummarySystem ? [playtestSummarySystem] : []),
     ];
 
@@ -633,8 +609,6 @@ export class GameScene extends Phaser.Scene {
     this.pauseView?.refreshInputPresentation();
     this.runSummaryView?.refreshInputPresentation();
     this.upgradeChooser?.refreshInputPresentation();
-    tickRun(runState, delta);
-    this.tickAbility(delta);
     this.updateStageObjective(ctx, delta);
     const terminalPersistencePending = this.hasPendingTerminalPersistence();
     this.retryPendingCharacterMastery(ctx);
@@ -643,21 +617,45 @@ export class GameScene extends Phaser.Scene {
     // Objective completion is a durable boundary. A transient save failure
     // must not leave combat running long enough to turn an earned clear into
     // a loss; the next frames retry only the idempotent transaction.
-    if (this.stageRuntime?.pendingClear && runState.status === 'active') {
-      this.audioManager?.update(delta);
-      return;
+    const isPendingClear = this.stageRuntime?.pendingClear && runState.status === 'active';
+
+    // === SIMULATION PHASE ===
+    // Stop combat simulation and freeze the run clock during pendingClear
+    // so an earned clear is never accidentally lost and the displayed
+    // completion time remains coherent. Presentation continues below.
+    if (!isPendingClear) {
+      tickRun(runState, delta);
+      this.tickAbility(delta);
+      this.player.update(delta);
+      this.systems.forEach((system) => {
+        system.update(delta);
+      });
     }
-    this.player.update(delta);
-    this.systems.forEach((system) => {
-      system.update(delta);
-    });
+
+    // === PRESENTATION PHASE ===
+    // HUD, controls, debug overlay and audio update regardless of
+    // pendingClear so the player sees "OBJECTIVE COMPLETE — Confirm to
+    // extract" rather than stale combat HUD (fixes #164 root cause).
     if (terminalPersistencePending && !this.hasPendingTerminalPersistence()) {
       this.runSummaryView?.refresh();
+    }
+    // Sync extraction UI state with pendingClear — only on transition
+    if (this.controlsView) {
+      const wasPendingClear = this._wasPendingClear;
+      const nowPendingClear = !!isPendingClear;
+      if (wasPendingClear !== nowPendingClear) {
+        this.controlsView.setExtractionState(nowPendingClear);
+        this._wasPendingClear = nowPendingClear;
+      }
     }
     // The manager's deterministic clock stays aligned with the active scene
     // update so terminal music fades continue while the summary remains
     // visible.
     this.audioManager?.update(delta);
+    // HudController was removed from this.systems to separate presentation
+    // from simulation. It is always updated here so objective text and
+    // timer display remain live during pendingClear.
+    this.hudController?.update(delta);
 
     this.controlsView?.update(delta);
     const move = this.inputController.getMoveVector();
@@ -801,6 +799,10 @@ export class GameScene extends Phaser.Scene {
    *  an absent runState is a teardown/inconsistent seam and every action is
    *  discarded immediately — no panel fallback routes commands without a run. */
   private routeAction(action: GameAction): void {
+    // Suppress input during scene transitions to prevent ghost clicks
+    // (e.g. pointerdown triggers extraction, pointerup lands on the
+    // next scene's button at the same position).
+    if (Date.now() < this._inputBlockedUntil) return;
     const runState = this.runState;
     if (!runState) {
       return;

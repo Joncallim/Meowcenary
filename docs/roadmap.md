@@ -98,7 +98,7 @@ Deferral is exceptional and requires evidence that the finding is genuinely isol
 
 #94 requires multiple independent orthogonal passes, a finding ledger, remediation, full regression/manual/lifecycle validation, and a final independent re-review. It closes only with no unresolved P0/P1 or downstream-relevant P2 findings and an explicit **PASS** verdict that the repository is a trusted baseline for any subsequent development phase.
 
-**Architecture #92 is blocked by #94.** #92 must architect from the remediated/certified Alpha 2 codebase rather than compensate for known debt.
+**Architecture #92 followed the #94 PASS** and is now implementation-locked on the certified Alpha 2 codebase.
 
 ---
 
@@ -154,7 +154,7 @@ Core direction:
 - stage facts feed Epic 22 rather than maintaining duplicate achievement counters;
 - another stage using existing primitives must be data/assets-only.
 
-Epic 20 is blocked by #92, which is blocked by #94.
+Epic 20 consumes the completed #92 foundation.
 
 ### Epic 21 — Enemy Roster Expansion and Boss Framework (#86)
 

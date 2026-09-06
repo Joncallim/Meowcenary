@@ -16,7 +16,7 @@ const scrapTabby: CharacterDefinition = {
     description: 'Picks up scrap and XP from a little further away.',
     effects: [{ stat: 'pickupRadius', op: 'add', value: 15 }],
   }],
-  unlock: { type: 'default' },
+  unlock: { type: 'always' },
   cosmeticSkinIds: [],
 };
 
@@ -33,7 +33,7 @@ const boltHound: CharacterDefinition = {
     description: 'Moves 5% faster.',
     effects: [{ stat: 'moveSpeed', op: 'mult', value: 1.05 }],
   }],
-  unlock: { type: 'meta', requiresUnlockId: 'achievement:first-victory' },
+  unlock: { type: 'achievement-completed', achievementId: 'achievement:first-victory' },
   cosmeticSkinIds: [],
 };
 
@@ -61,7 +61,7 @@ describe('DataCharacterRegistry', () => {
     const noDefault: CharacterDefinition = { ...boltHound, id: 'fighter' };
     expect(() => new DataCharacterRegistry({
       characters: [boltHound, noDefault],
-    })).toThrow(/at least one character must have unlock\.type "default"/);
+    })).toThrow(/at least one character must have unlock\.type "always"/);
   });
 
   it('clones and recursively freezes canonical definitions and the snapshot', () => {

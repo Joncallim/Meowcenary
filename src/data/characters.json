@@ -15,7 +15,7 @@
         "effects": [{ "stat": "pickupRadius", "op": "add", "value": 15 }]
       }
     ],
-    "unlock": { "type": "default" },
+    "unlock": { "type": "always" },
     "cosmeticSkinIds": []
   },
   {
@@ -34,7 +34,7 @@
         "effects": [{ "stat": "moveSpeed", "op": "mult", "value": 1.05 }]
       }
     ],
-    "unlock": { "type": "meta", "requiresUnlockId": "achievement:first-victory" },
+    "unlock": { "type": "achievement-completed", "achievementId": "achievement:first-victory" },
     "cosmeticSkinIds": []
   },
   {
@@ -53,7 +53,7 @@
         "effects": [{ "stat": "moveSpeed", "op": "mult", "value": 1.08 }]
       }
     ],
-    "unlock": { "type": "meta", "requiresUnlockId": "achievement:kill-milestone-25" },
+    "unlock": { "type": "achievement-completed", "achievementId": "achievement:kill-milestone-25" },
     "cosmeticSkinIds": []
   },
   {
@@ -72,7 +72,7 @@
         "effects": [{ "stat": "maxHealth", "op": "mult", "value": 1.1 }]
       }
     ],
-    "unlock": { "type": "meta", "requiresUnlockId": "achievement:boss-crusher" },
+    "unlock": { "type": "boss-defeated", "bossId": "boss-crusher" },
     "cosmeticSkinIds": []
   },
   {
@@ -91,7 +91,7 @@
         "effects": [{ "stat": "damage", "op": "mult", "value": 1.05 }]
       }
     ],
-    "unlock": { "type": "meta", "requiresUnlockId": "achievement:chapter-junkyard" },
+    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-05" },
     "cosmeticSkinIds": []
   },
   {
@@ -110,7 +110,7 @@
         "effects": [{ "stat": "pickupRadius", "op": "add", "value": 30 }]
       }
     ],
-    "unlock": { "type": "meta", "requiresUnlockId": "achievement:kill-milestone-100" },
+    "unlock": { "type": "achievement-completed", "achievementId": "achievement:kill-milestone-100" },
     "cosmeticSkinIds": []
   },
   {
@@ -129,7 +129,7 @@
         "effects": [{ "stat": "range", "op": "mult", "value": 1.1 }]
       }
     ],
-    "unlock": { "type": "meta", "requiresUnlockId": "achievement:boss-crusher" },
+    "unlock": { "type": "boss-defeated", "bossId": "boss-crusher" },
     "cosmeticSkinIds": []
   },
   {
@@ -148,7 +148,7 @@
         "effects": [{ "stat": "attackSpeed", "op": "mult", "value": 1.06 }]
       }
     ],
-    "unlock": { "type": "meta", "requiresUnlockId": "achievement:mastery-scrap-tabby" },
+    "unlock": { "type": "mastery-reached", "subjectId": "scrap-tabby", "tier": 1 },
     "cosmeticSkinIds": []
   }
 ]

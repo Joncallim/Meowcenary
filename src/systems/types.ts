@@ -1,4 +1,5 @@
 import type { RunUpgradeStatKey, StatKey } from '../gameplay/stats';
+import type { ProgressionCondition } from '../gameplay/conditionEvaluator';
 import type { UnlockRule } from '../gameplay/meta';
 import type { PlayerBaseStats } from '../gameplay/runStart';
 import type { GameEventKey } from '../engine/eventBus';
@@ -489,7 +490,8 @@ export interface CharacterDefinition {
   /** Epic 24: registered active ability (stable ability: id). */
   readonly abilityId?: string;
   readonly passives: readonly CharacterPassiveDefinition[];
-  readonly unlock: UnlockRule;
+  /** Alpha 3 shared condition vocabulary; never character-specific rules. */
+  readonly unlock: ProgressionCondition;
   readonly cosmeticSkinIds: readonly string[];
 }
 

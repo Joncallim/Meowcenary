@@ -792,7 +792,7 @@ describe('game data validation', () => {
         baseStats: { maxHealth: 100, moveSpeed: 175 },
         startingWeaponIds: ['scrap-pistol-t1'],
         passives: [],
-        unlock: { type: 'default' as const },
+        unlock: { type: 'always' as const },
         cosmeticSkinIds: [],
         ...overrides,
       };
@@ -878,15 +878,15 @@ describe('game data validation', () => {
     it('rejects bad unlock rules', () => {
       expect(() => validateGameData(withCharacters([
         characterFixture({ unlock: { type: 'bogus' } }),
-      ]))).toThrow(/unlock\.type: must be "default" or "meta"/);
+      ]))).toThrow(/unlock\.type: must be a valid condition type/);
 
       expect(() => validateGameData(withCharacters([
-        characterFixture({ unlock: { type: 'meta' } }),
-      ]))).toThrow(/unlock\.requiresUnlockId/);
+        characterFixture({ unlock: { type: 'achievement-completed' } }),
+      ]))).toThrow(/unlock\.achievementId/);
 
       expect(() => validateGameData(withCharacters([
-        characterFixture({ unlock: { type: 'meta', requiresUnlockId: 'bad' } }),
-      ]))).toThrow(/unlock\.requiresUnlockId: invalid unlock id/);
+        characterFixture({ unlock: { type: 'achievement-completed', achievementId: 'bad' } }),
+      ]))).toThrow(/unlock\.achievementId: must be a canonical achievement ID/);
     });
 
     it('rejects bad cosmetic skin ids', () => {
@@ -1047,9 +1047,9 @@ describe('game data validation', () => {
     });
 
     it('rejects catalog with no default character', () => {
-      const noDefault = characterFixture({ id: 'fighter', unlock: { type: 'meta', requiresUnlockId: 'achievement:test' } });
+      const noDefault = characterFixture({ id: 'fighter', unlock: { type: 'achievement-completed', achievementId: 'achievement:test' } });
       expect(() => validateGameData(withCharacters([noDefault])))
-        .toThrow(/at least one character must have unlock\.type "default"/);
+        .toThrow(/at least one character must have unlock\.type "always"/);
     });
 
     it('rejects duplicate character ids', () => {
