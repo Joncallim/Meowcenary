@@ -21,7 +21,7 @@ import {
   type PartDefinition,
   type WeaponBuild,
 } from '../src/gameplay/gunsmith';
-import { createDefaultSaveV3, SaveManager, MemoryStorageAdapter } from '../src/systems/save';
+import { createDefaultSaveV4, SaveManager, MemoryStorageAdapter } from '../src/systems/save';
 
 const definitions = gunPartsJson as unknown as PartDefinition[];
 const defMap = new Map(definitions.map((d) => [d.id, d]));
@@ -269,7 +269,7 @@ describe('Epic 23 effective stat resolution', () => {
 
 describe('Epic 23 persistence round-trip', () => {
   it('gunsmith state round-trips through Save V3 with the real shapes', () => {
-    const save = createDefaultSaveV3();
+    const save = createDefaultSaveV4();
     const storage = new MemoryStorageAdapter();
     const manager = new SaveManager(storage, 'test', {});
     const withBuild = {
@@ -287,7 +287,7 @@ describe('Epic 23 persistence round-trip', () => {
   });
 
   it('stale/unknown part ids in saves fail soft (no save bricking)', () => {
-    const save = createDefaultSaveV3();
+    const save = createDefaultSaveV4();
     const storage = new MemoryStorageAdapter();
     const manager = new SaveManager(storage, 'test', {});
     manager.save({
@@ -301,7 +301,7 @@ describe('Epic 23 persistence round-trip', () => {
   });
 
   it('sanitizes repeated owned-instance references before a build can multiply its effects', () => {
-    const save = createDefaultSaveV3();
+    const save = createDefaultSaveV4();
     const storage = new MemoryStorageAdapter();
     const manager = new SaveManager(storage, 'test', {});
     manager.save({
@@ -320,7 +320,7 @@ describe('Epic 23 persistence round-trip', () => {
   });
 
   it('defaults an unknown weapon family and drops slots that family cannot own', () => {
-    const save = createDefaultSaveV3();
+    const save = createDefaultSaveV4();
     const storage = new MemoryStorageAdapter();
     const manager = new SaveManager(storage, 'test', {});
     manager.save({

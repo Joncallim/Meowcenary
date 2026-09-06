@@ -1,16 +1,15 @@
 import type { GameContext } from '../engine/context';
 import type { EventBus } from '../engine/eventBus';
 import type { System } from '../engine/system';
-import { bankReward, computeRunReward, type RunReward } from '../gameplay/meta';
 import type { RunState } from '../gameplay/runState';
-import type { MetaState } from './save';
+import type { ProgressionStateV4 as ProgressionV4 } from './save';
 
 export interface ProgressionSystemOptions {
   readonly runState: RunState;
   readonly bus: EventBus;
   readonly context: GameContext;
 }
-export interface BankedRun { readonly reward: RunReward; readonly meta: MetaState; readonly persisted: boolean }
+export interface BankedRun { readonly reward: { readonly scrap: number; readonly unlocks: readonly string[] }; readonly meta: ProgressionV4; readonly persisted: boolean }
 
 const handledRuns = new WeakSet<RunState>();
 
@@ -36,9 +35,14 @@ export class ProgressionSystem implements System {
 
   bankFinishedRun(): BankedRun | null {
     if (this.destroyed || handledRuns.has(this.runState)) return null;
-    const reward = computeRunReward(this.runState);
-    if (!reward) return null;
-    const update = this.context.commitProgression((meta) => bankReward(meta, reward));
+    const reward = {
+      scrap: Math.max(0, Math.floor(this.runState.currency)),
+      unlocks: this.runState.status === 'won' ? [] : [],
+    };
+    const update = this.context.commitProgression((progression) => {
+      const newScrap = Math.min(Number.MAX_SAFE_INTEGER, progression.scrap + reward.scrap);
+      return Object.freeze({ scrap: newScrap, unlocks: progression.unlocks });
+    });
     // A failed write must leave the terminal source retryable.  The run is
     // marked handled only after the authoritative persistence boundary has
     // committed the same state it exposes to consumers.

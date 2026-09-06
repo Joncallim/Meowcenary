@@ -9,7 +9,6 @@ import { DataCharacterRegistry } from '../systems/characters';
 import { DataArenaRegistry } from '../systems/arenas';
 import { StageRegistry } from '../systems/stageRegistry';
 import { LocalStorageAdapter, SaveManager } from '../systems/save';
-import { DataMetaUpgradeRegistry } from '../systems/metaUpgrades';
 import { loadGameData } from '../systems/validation';
 import { DataVisualArtRegistry, ensureVisualAnimations } from '../systems/visualArt';
 import { DataAssetBundleRegistry } from '../systems/assetBundles';
@@ -95,19 +94,17 @@ export class BootScene extends Phaser.Scene {
       }
     }
     applyNearestTextureSampling(this.textures, visualArt);
-    const metaUpgrades = new DataMetaUpgradeRegistry(data);
     const characters = new DataCharacterRegistry(data);
     const arenas = new DataArenaRegistry(data);
     const stages = new StageRegistry(data);
     ensureVisualAnimations(this, visualArt);
-    const save = new SaveManager(new LocalStorageAdapter(), undefined, metaUpgrades.maxLevels());
+    const save = new SaveManager(new LocalStorageAdapter(), undefined);
     // This RNG is boot/menu scoped only. Run gameplay owns its own seed.
     const bootSeed = Date.now();
     const ctx = createGameContext({
       bus: createEventBus(),
       menuRng: createRng(bootSeed),
       data,
-      metaUpgrades,
       save,
       characters,
       arenas,

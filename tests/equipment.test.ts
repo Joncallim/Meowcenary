@@ -16,7 +16,7 @@ import {
   type EquipmentLoadout,
   type OwnedEquipment,
 } from '../src/gameplay/equipment';
-import { createDefaultSaveV3, SaveManager, MemoryStorageAdapter } from '../src/systems/save';
+import { createDefaultSaveV4, SaveManager, MemoryStorageAdapter } from '../src/systems/save';
 
 const definitions = equipmentJson as unknown as EquipmentDefinition[];
 const defMap = new Map(definitions.map((d) => [d.id, d]));
@@ -32,13 +32,13 @@ function emptyLoadout(): EquipmentLoadout {
   return { equipped: {} };
 }
 
-const tierTwoFacts = createConditionContext(createDefaultSaveV3().progression, {
+const tierTwoFacts = createConditionContext(createDefaultSaveV4().progression, {
   stages: { 'stage:junkyard-02': { completed: true } },
 });
-const tierThreeFacts = createConditionContext(createDefaultSaveV3().progression, {
+const tierThreeFacts = createConditionContext(createDefaultSaveV4().progression, {
   bosses: { 'boss-crusher': { defeated: true } },
 });
-const tierFourFacts = createConditionContext(createDefaultSaveV3().progression, {
+const tierFourFacts = createConditionContext(createDefaultSaveV4().progression, {
   achievements: { 'achievement:boss-crusher': { completed: true } },
 });
 
@@ -230,7 +230,7 @@ describe('Epic 25 effective resolution', () => {
 
 describe('Epic 25 persistence round-trip', () => {
   it('equipment instances round-trip through Save V3', () => {
-    const save = createDefaultSaveV3();
+    const save = createDefaultSaveV4();
     const storage = new MemoryStorageAdapter();
     const manager = new SaveManager(storage, 'test', {});
     manager.save({
@@ -262,7 +262,7 @@ describe('Epic 25 second-fixture proof (data-only extensibility)', () => {
     const modifiers = resolveSetBonuses(loadout, defs, ownedMap(...ownedPieces));
     expect(modifiers.map((modifier) => modifier.sourceId)).toEqual(expect.arrayContaining(['set:proof:2', 'set:proof:4']));
     expect(upgradeEquipment(ownedPieces[0]!, 999, defs)).toMatchObject({ ok: false, reason: 'locked' });
-    expect(upgradeEquipment(ownedPieces[0]!, 999, defs, createConditionContext(createDefaultSaveV3().progression, {
+    expect(upgradeEquipment(ownedPieces[0]!, 999, defs, createConditionContext(createDefaultSaveV4().progression, {
       stages: { 'stage:proof': { completed: true } },
     }))).toMatchObject({ ok: true, output: { tier: 2 } });
   });

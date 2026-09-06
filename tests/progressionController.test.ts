@@ -4,46 +4,49 @@ import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
 import { ProgressionController } from '../src/ui/progressionController';
 import { DataArenaRegistry } from '../src/systems/arenas';
-import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
 
-describe('headless ProgressionController', () => {
-  it('reports registry-order balances, levels, costs, and failure reasons', () => {
-    const { context, controller } = setup();
+describe('headless ProgressionController (V4 retired)', () => {
+  it('reports scrap and empty upgrades', () => {
+    const { controller } = setup();
     const snapshot = controller.snapshot();
     expect(snapshot.scrap).toBe(0);
-    expect(snapshot.upgrades.map((item) => item.id)).toEqual(context.metaUpgrades.all().map((item) => item.id));
-    expect(snapshot.upgrades[0]).toMatchObject({ currentLevel: 0, maxLevel: 5, nextCost: 10, canPurchase: false });
-    expect(controller.purchase('missing')).toMatchObject({ ok: false, reason: 'unknown-upgrade' });
-    expect(controller.purchase('reinforced-vest')).toMatchObject({ ok: false, reason: 'insufficient-scrap' });
-    context.updateMeta((meta) => ({ ...meta, scrap: 999, permanentUpgrades: { 'reinforced-vest': 5 } }));
-    expect(controller.purchase('reinforced-vest')).toMatchObject({ ok: false, reason: 'max-level' });
+    expect(snapshot.upgrades).toEqual([]);
   });
 
-  it('purchases successfully, reports persistence, and requires confirmation to reset', () => {
+  it('purchase always fails with retired-in-v4', () => {
+    const { controller } = setup();
+    expect(controller.purchase('anything')).toMatchObject({ ok: false, reason: 'retired-in-v4' });
+  });
+
+  it('reset requires confirmation', () => {
     const { context, controller } = setup();
-    context.updateMeta((meta) => ({ ...meta, scrap: 100 }));
-    expect(controller.purchase('reinforced-vest')).toMatchObject({
-      ok: true, cost: 10, newLevel: 1, persisted: true,
-      meta: { scrap: 90, permanentUpgrades: { 'reinforced-vest': 1 } },
-    });
     const before = context.saveData.progression;
     expect(controller.reset(false)).toEqual({ ok: false, meta: before, reason: 'confirmation-required' });
     expect(context.saveData.progression).toBe(before);
-    expect(controller.reset(true)).toMatchObject({ ok: true, persisted: true, meta: { scrap: 0 } });
+  });
+
+  it('confirmed reset wipes progression', () => {
+    const { context, controller } = setup();
+    context.updateMeta((meta) => ({ ...meta, scrap: 100 }));
+    const result = controller.reset(true);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.meta.scrap).toBe(0);
+      expect(result.persisted).toBe(true);
+    }
   });
 });
 
 export function setup() {
   const data = loadGameData();
   const arenas = new DataArenaRegistry(data);
-  const metaUpgrades = new DataMetaUpgradeRegistry(data);
   const characters = new DataCharacterRegistry(data);
   const context = createGameContext({
-    bus: createEventBus(), menuRng: createRng(1), data, arenas, metaUpgrades, characters,
-    save: new SaveManager(new MemoryStorageAdapter(), 'controller', metaUpgrades.maxLevels()),
+    bus: createEventBus(), menuRng: createRng(1), data, arenas, characters,
+    save: new SaveManager(new MemoryStorageAdapter(), 'controller'),
   });
   return { context, controller: new ProgressionController(context) };
 }

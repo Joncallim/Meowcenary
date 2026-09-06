@@ -25,6 +25,8 @@ export interface ProgressionState {
 export interface ProgressionStateV4 {
   readonly scrap: number;
   readonly unlocks: readonly string[];
+  /** @deprecated V4 migration compat only; retired in production. */
+  readonly permanentUpgrades?: Readonly<Record<string, number>>;
 }
 
 /** Durable receipt IDs for source-owned progression transactions. */
@@ -136,6 +138,8 @@ export interface SaveDataV3 {
   readonly equipmentLoadout?: EquipmentLoadoutState;
   readonly items: ItemInventoryState;
   readonly bosses: BossProgressState;
+  /** Compendium discovery status (forward-compat with V4). */
+  readonly compendium?: CompendiumState;
   /** Durable outbox for best-effort native achievement mirrors. */
   readonly pendingAchievementReports: readonly string[];
   readonly appliedGrantTransactions: AppliedGrantTransactions;
@@ -162,11 +166,11 @@ export interface SaveDataV4 {
   readonly grantTransactionFingerprints: GrantTransactionFingerprints;
 }
 
-export type SaveData = SaveDataV3;
+export type SaveData = SaveDataV4;
 export type MetaUpgradeMaxLevels = Readonly<Record<string, number>>;
 
 /** Current save format version. Incremented to 3 per Alpha 3 architecture §4. */
-export const CURRENT_SAVE_VERSION = 3;
+export const CURRENT_SAVE_VERSION = 4;
 
 export interface StorageAdapter {
   getItem(key: string): string | null;
@@ -208,6 +212,7 @@ export function createDefaultSaveV3(): SaveDataV3 {
     equipmentLoadout: {},
     items: {},
     bosses: {},
+    compendium: {},
     pendingAchievementReports: [],
     appliedGrantTransactions: {},
     grantTransactionFingerprints: {},
@@ -236,7 +241,7 @@ export function createDefaultSaveV4(): SaveDataV4 {
 }
 
 export function createDefaultSave(): SaveData {
-  return createDefaultSaveV3();
+  return createDefaultSaveV4();
 }
 
 export function applySettingsPatch(
@@ -297,9 +302,9 @@ function sanitizeProgressionRecord(raw: unknown, maxLevels: MetaUpgradeMaxLevels
  *  Preserves: scrap → progression.scrap, unlocks → progression.unlocks,
  *  permanentUpgrades → progression.permanentUpgrades,
  *  achievement:first-victory → achievements['achievement:first-victory']. */
-export function migrateV2ToV3(raw: Readonly<Record<string, unknown>>, maxLevels: MetaUpgradeMaxLevels = {}): SaveDataV3 {
+export function migrateV2ToV3(raw: Readonly<Record<string, unknown>>, maxLevels: MetaUpgradeMaxLevels = {}): SaveDataV4 {
   const v2Progression = sanitizeProgression(readOwn(raw, 'meta'), maxLevels);
-  return freezeSaveV3({
+  const v3 = freezeSaveV3({
     version: 3,
     settings: sanitizeSettings(readOwn(raw, 'settings'), DEFAULT_SETTINGS),
     progression: v2Progression,
@@ -312,10 +317,12 @@ export function migrateV2ToV3(raw: Readonly<Record<string, unknown>>, maxLevels:
     equipmentLoadout: {},
     items: {},
     bosses: {},
+    compendium: {},
     pendingAchievementReports: [],
     appliedGrantTransactions: {},
     grantTransactionFingerprints: {},
   });
+  return migrateV3ToV4(v3);
 }
 
 function migrateAchievementsFromV2(progression: ProgressionState): AchievementProgressState {
@@ -345,7 +352,7 @@ function reconcileAchievementOwnedUnlocks(
 }
 
 export function migrate(raw: unknown, maxLevels: MetaUpgradeMaxLevels = {}): SaveData {
-  try { return decodeSave(raw, maxLevels).data; } catch { return createDefaultSaveV3(); }
+  try { return decodeSave(raw, maxLevels).data; } catch { return createDefaultSaveV4(); }
 }
 
 interface SaveDecodeResult {
@@ -355,7 +362,7 @@ interface SaveDecodeResult {
 
 function decodeSave(raw: unknown, maxLevels: MetaUpgradeMaxLevels): SaveDecodeResult {
   const parsed = parseRawSave(raw);
-  if (!isPlainRecord(parsed)) return { data: createDefaultSaveV3(), unsupportedFutureVersion: false };
+  if (!isPlainRecord(parsed)) return { data: createDefaultSaveV4(), unsupportedFutureVersion: false };
   const version = readOwn(parsed, 'version');
   if (version === 1) return { data: migrateV1ToV3(parsed), unsupportedFutureVersion: false };
   if (version === 2) return { data: migrateV2ToV3(parsed, maxLevels), unsupportedFutureVersion: false };
@@ -363,36 +370,35 @@ function decodeSave(raw: unknown, maxLevels: MetaUpgradeMaxLevels): SaveDecodeRe
     const equipment = sanitizeEquipmentState(readOwn(parsed, 'equipment'));
     const selectedCharacterId = sanitizeSelectedCharacterId(readOwn(parsed, 'selectedCharacterId'));
     const achievements = sanitizeAchievementProgress(readOwn(parsed, 'achievements'));
-    return {
-      data: freezeSaveV3({
-        version: 3,
-        settings: sanitizeSettings(readOwn(parsed, 'settings'), DEFAULT_SETTINGS),
-        progression: reconcileAchievementOwnedUnlocks(sanitizeProgression(readOwn(parsed, 'progression'), maxLevels), achievements),
-        stages: sanitizeStageProgress(readOwn(parsed, 'stages')),
-        achievements,
-        achievementMetrics: sanitizeAchievementMetrics(readOwn(parsed, 'achievementMetrics')),
-        characters: sanitizeCharacterMastery(readOwn(parsed, 'characters')),
-        ...(selectedCharacterId === undefined ? {} : { selectedCharacterId }),
-        gunsmith: sanitizeGunsmithState(readOwn(parsed, 'gunsmith')),
-        equipment,
-        equipmentLoadout: sanitizeEquipmentLoadout(readOwn(parsed, 'equipmentLoadout'), equipment),
-        items: sanitizeItemInventory(readOwn(parsed, 'items')),
-        bosses: sanitizeBossProgress(readOwn(parsed, 'bosses')),
-        pendingAchievementReports: sanitizePendingAchievementReports(readOwn(parsed, 'pendingAchievementReports')),
-        appliedGrantTransactions: sanitizeAppliedGrantTransactions(readOwn(parsed, 'appliedGrantTransactions')),
-        grantTransactionFingerprints: sanitizeGrantTransactionFingerprints(readOwn(parsed, 'grantTransactionFingerprints')),
-      }),
-      unsupportedFutureVersion: false,
-    };
+    const v3 = freezeSaveV3({
+      version: 3,
+      settings: sanitizeSettings(readOwn(parsed, 'settings'), DEFAULT_SETTINGS),
+      progression: reconcileAchievementOwnedUnlocks(sanitizeProgression(readOwn(parsed, 'progression'), maxLevels), achievements),
+      stages: sanitizeStageProgress(readOwn(parsed, 'stages')),
+      achievements,
+      achievementMetrics: sanitizeAchievementMetrics(readOwn(parsed, 'achievementMetrics')),
+      characters: sanitizeCharacterMastery(readOwn(parsed, 'characters')),
+      ...(selectedCharacterId === undefined ? {} : { selectedCharacterId }),
+      gunsmith: sanitizeGunsmithState(readOwn(parsed, 'gunsmith')),
+      equipment,
+      equipmentLoadout: sanitizeEquipmentLoadout(readOwn(parsed, 'equipmentLoadout'), equipment),
+      items: sanitizeItemInventory(readOwn(parsed, 'items')),
+      bosses: sanitizeBossProgress(readOwn(parsed, 'bosses')),
+      compendium: sanitizeCompendiumState(readOwn(parsed, 'compendium')),
+      pendingAchievementReports: sanitizePendingAchievementReports(readOwn(parsed, 'pendingAchievementReports')),
+      appliedGrantTransactions: sanitizeAppliedGrantTransactions(readOwn(parsed, 'appliedGrantTransactions')),
+      grantTransactionFingerprints: sanitizeGrantTransactionFingerprints(readOwn(parsed, 'grantTransactionFingerprints')),
+    });
+    return { data: migrateV3ToV4(v3), unsupportedFutureVersion: false };
   }
   return {
-    data: createDefaultSaveV3(),
-    unsupportedFutureVersion: Number.isSafeInteger(version) && (version as number) > 3,
+    data: createDefaultSaveV4(),
+    unsupportedFutureVersion: Number.isSafeInteger(version) && (version as number) > 4,
   };
 }
 
-function migrateV1ToV3(raw: Readonly<Record<string, unknown>>): SaveDataV3 {
-  return freezeSaveV3({
+function migrateV1ToV3(raw: Readonly<Record<string, unknown>>): SaveDataV4 {
+  const v3 = freezeSaveV3({
     version: 3,
     settings: sanitizeSettings(readOwn(raw, 'settings'), DEFAULT_SETTINGS),
     progression: createDefaultProgression(),
@@ -405,10 +411,12 @@ function migrateV1ToV3(raw: Readonly<Record<string, unknown>>): SaveDataV3 {
     equipmentLoadout: {},
     items: {},
     bosses: {},
+    compendium: {},
     pendingAchievementReports: [],
     appliedGrantTransactions: {},
     grantTransactionFingerprints: {},
   });
+  return migrateV3ToV4(v3);
 }
 
 /** V3 → V4 migration.  Produces a complete SaveDataV4 from a canonical V3 save. */
@@ -707,6 +715,38 @@ function sanitizeGrantTransactionFingerprints(raw: unknown): GrantTransactionFin
   return Object.freeze(result);
 }
 
+// ── V4 sanitizers ────────────────────────────────────────────────────
+
+function sanitizeCompendiumState(raw: unknown): CompendiumState {
+  if (!isPlainRecord(raw)) return {};
+  const result: Record<string, CompendiumDiscoveryStatus> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (value === 'encountered' || value === 'defeated') {
+      result[key] = value;
+    }
+  }
+  return Object.freeze(result);
+}
+
+/** Validate and normalize a V4 ProgressionState (no permanent upgrades). */
+export function sanitizeProgressionV4(raw: unknown): ProgressionStateV4 {
+  if (!isPlainRecord(raw)) return { scrap: 0, unlocks: [] };
+  const scrapRaw = readOwn(raw, 'scrap');
+  const scrap = isNonNegativeSafeInteger(scrapRaw) ? scrapRaw : 0;
+  const unlocksRaw = readOwn(raw, 'unlocks');
+  const unlocks: string[] = [];
+  const seenUnlocks = new Set<string>();
+  if (Array.isArray(unlocksRaw)) {
+    for (const id of unlocksRaw) {
+      if (typeof id === 'string' && isUnlockId(id) && !seenUnlocks.has(id)) {
+        seenUnlocks.add(id);
+        unlocks.push(id);
+      }
+    }
+  }
+  return Object.freeze({ scrap, unlocks: Object.freeze(unlocks) });
+}
+
 // ── SaveManager ──────────────────────────────────────────────────────
 
 export class SaveManager {
@@ -724,12 +764,12 @@ export class SaveManager {
       this.writeProtected ||= decoded.unsupportedFutureVersion;
       return decoded.data;
     } catch {
-      return createDefaultSaveV3();
+      return createDefaultSaveV4();
     }
   }
 
   /** V3-aware load: decodes V1/V2/V3, write-protects > 3 per architecture §4.6. */
-  loadV3(): SaveDataV3 {
+  loadV3(): SaveData {
     return this.load();
   }
 
@@ -739,10 +779,11 @@ export class SaveManager {
       const equipment = sanitizeEquipmentState(data.equipment);
       const selectedCharacterId = sanitizeSelectedCharacterId(data.selectedCharacterId);
       const achievements = sanitizeAchievementProgress(data.achievements);
-      const sanitized = freezeSaveV3({
-        version: 3,
+      const compendium = sanitizeCompendiumState((data as any).compendium);
+      const sanitized = freezeSaveV4({
+        version: 4,
         settings: sanitizeSettings(data.settings, DEFAULT_SETTINGS),
-        progression: reconcileAchievementOwnedUnlocks(sanitizeProgression(data.progression, this.maxLevels), achievements),
+        progression: { scrap: data.progression.scrap, unlocks: [...data.progression.unlocks] },
         stages: sanitizeStageProgress(data.stages),
         achievements,
         achievementMetrics: sanitizeAchievementMetrics(data.achievementMetrics),
@@ -753,6 +794,7 @@ export class SaveManager {
         equipmentLoadout: sanitizeEquipmentLoadout(data.equipmentLoadout, equipment),
         items: sanitizeItemInventory(data.items),
         bosses: sanitizeBossProgress(data.bosses),
+        compendium,
         pendingAchievementReports: sanitizePendingAchievementReports(data.pendingAchievementReports),
         appliedGrantTransactions: sanitizeAppliedGrantTransactions(data.appliedGrantTransactions),
         grantTransactionFingerprints: sanitizeGrantTransactionFingerprints(data.grantTransactionFingerprints),
@@ -764,7 +806,7 @@ export class SaveManager {
   }
 
   /** V3-aware save per architecture §4.6. */
-  saveV3(data: SaveDataV3): boolean {
+  saveV3(data: SaveData): boolean {
     return this.save(data);
   }
 

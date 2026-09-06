@@ -12,7 +12,7 @@
  * special cases, no save migration (catalog version and save version are
  * separate; see the #92 architecture §4).
  */
-import type { AchievementProgress, AchievementProgressState, BossProgressState, CharacterMasteryState, ProgressionState, StageProgressState } from '../systems/save';
+import type { AchievementProgress, AchievementProgressState, BossProgressState, CharacterMasteryState, ProgressionState, ProgressionStateV4, StageProgressState } from '../systems/save';
 import type { ProgressionCondition } from './conditionEvaluator';
 import { evaluateCondition, type ConditionContext } from './conditionEvaluator';
 import type { ProgressionGrant } from './grantProcessor';
@@ -68,7 +68,7 @@ export interface AchievementEvaluationResult {
 export interface AchievementFacts {
   readonly metrics: Readonly<Record<string, number>>;
   /** Progression snapshot for condition-driven achievements (scrap, unlocks). */
-  readonly progression?: Readonly<ProgressionState>;
+  readonly progression?: Readonly<ProgressionState | ProgressionStateV4>;
   /** Stage progress snapshot for stage-cleared conditions. */
   readonly stages?: Readonly<StageProgressState>;
   /** Character mastery snapshot for mastery-reached conditions. */

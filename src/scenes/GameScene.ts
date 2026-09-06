@@ -218,8 +218,6 @@ export class GameScene extends Phaser.Scene {
         maxHealth: RuntimeConfig.gameplay.player.baseMaxHealth,
         moveSpeed: RuntimeConfig.gameplay.player.baseMoveSpeed,
       },
-      meta: ctx.saveData.progression,
-      metaUpgrades: ctx.metaUpgrades,
       character: contribution,
     });
     this.runState = prepared.run;

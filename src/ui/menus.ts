@@ -1,7 +1,6 @@
 import type { Settings } from '../systems/save';
 import { ArenaSelectionController, type ArenaSelectionSnapshot } from './arenaSelectionController';
 import { CharacterSelectionController, type CharacterSelectionSnapshot } from './characterSelectionController';
-import { ProgressionController, type ProgressionSnapshot } from './progressionController';
 import { SettingsController, type SettingsSnapshot } from './settings';
 import { StageSelectionController, type StageSelectionSnapshot } from './stageSelectionController';
 import { AchievementsController, type AchievementsSnapshot } from './achievementsController';
@@ -19,11 +18,9 @@ export type MenuPanel =
   | 'achievements'
   | 'gunsmith'
   | 'equipment'
-  | 'progression'
-  | 'settings'
-  | 'reset-confirmation';
+  | 'settings';
 
-type NonResetPanel = Exclude<MenuPanel, 'reset-confirmation'>;
+type NonResetPanel = MenuPanel;
 
 export interface MainMenuSnapshot {
   readonly panel: MenuPanel;
@@ -33,7 +30,6 @@ export interface MainMenuSnapshot {
   readonly achievements: AchievementsSnapshot;
   readonly gunsmith: GunsmithSnapshot;
   readonly equipment: EquipmentSnapshot;
-  readonly progression: ProgressionSnapshot;
   readonly progressionOverview: ProgressionOverviewSnapshot;
   readonly settings: SettingsSnapshot;
   readonly notice?: string;
@@ -43,7 +39,6 @@ export class MainMenuController {
   private readonly characterController: CharacterSelectionController;
   private readonly arenaController: ArenaSelectionController;
   private readonly stageController: StageSelectionController;
-  private readonly progressionController: ProgressionController;
   private readonly progressionOverviewController: ProgressionOverviewController;
   private readonly achievementsController: AchievementsController;
   private readonly gunsmithController: GunsmithController;
@@ -57,7 +52,6 @@ export class MainMenuController {
     this.characterController = new CharacterSelectionController(context);
     this.arenaController = new ArenaSelectionController(context);
     this.stageController = new StageSelectionController(context);
-    this.progressionController = new ProgressionController(context);
     this.progressionOverviewController = new ProgressionOverviewController(context, new DataAchievementRegistry({ achievements: context.data.achievements ?? [] }));
     this.achievementsController = new AchievementsController(context, new DataAchievementRegistry({ achievements: context.data.achievements ?? [] }));
     this.gunsmithController = new GunsmithController(context);
@@ -74,7 +68,6 @@ export class MainMenuController {
       achievements: this.achievementsController.snapshot(),
       gunsmith: this.gunsmithController.snapshot(),
       equipment: this.equipmentController.snapshot(),
-      progression: this.progressionController.snapshot(),
       progressionOverview: this.progressionOverviewController.snapshot(),
       settings: this.settingsController.snapshot(),
       notice: this.notice,
@@ -89,12 +82,6 @@ export class MainMenuController {
   }
 
   back(): MainMenuSnapshot {
-    if (this.panel === 'reset-confirmation') {
-      this.panel = 'progression';
-      this.notice = undefined;
-      return this.snapshot();
-    }
-
     if (this.panel !== 'home') {
       this.panel = 'home';
     }
@@ -117,46 +104,6 @@ export class MainMenuController {
   selectStage(id: string): MainMenuSnapshot {
     const result = this.stageController.select(id);
     this.notice = result.ok ? undefined : 'Selection is locked';
-    return this.snapshot();
-  }
-
-  purchase(upgradeId: string): MainMenuSnapshot {
-    const result = this.progressionController.purchase(upgradeId);
-    if (!result.ok) {
-      this.notice = this.noticeForPurchaseFailure(result.reason);
-      return this.snapshot();
-    }
-    this.notice = result.persisted ? undefined : 'Saved for this session only';
-    return this.snapshot();
-  }
-
-  requestReset(): MainMenuSnapshot {
-    this.previousPanel = 'progression';
-    this.panel = 'reset-confirmation';
-    this.notice = undefined;
-    return this.snapshot();
-  }
-
-  cancelReset(): MainMenuSnapshot {
-    if (this.panel === 'reset-confirmation') {
-      this.panel = 'progression';
-    }
-    this.notice = undefined;
-    return this.snapshot();
-  }
-
-  confirmReset(): MainMenuSnapshot {
-    if (this.panel !== 'reset-confirmation') {
-      this.notice = 'Reset confirmation required';
-      return this.snapshot();
-    }
-    const result = this.progressionController.reset(true);
-    if (!result.ok) {
-      this.notice = result.reason === 'persistence-failed' ? 'Could not save reset' : 'Reset failed';
-      return this.snapshot();
-    }
-    this.notice = result.persisted ? undefined : 'Saved for this session only';
-    this.panel = 'progression';
     return this.snapshot();
   }
 
@@ -233,16 +180,4 @@ export class MainMenuController {
     }
   }
 
-  private noticeForPurchaseFailure(reason: string): string {
-    switch (reason) {
-      case 'insufficient-scrap':
-        return 'Not enough scrap';
-      case 'max-level':
-        return 'Already at max level';
-      case 'unknown-upgrade':
-        return 'Upgrade not found';
-      default:
-        return 'Purchase failed';
-    }
-  }
 }

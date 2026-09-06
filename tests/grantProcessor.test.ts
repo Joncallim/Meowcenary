@@ -5,7 +5,7 @@ import {
   processGrants,
   type ProgressionGrant,
 } from '../src/gameplay/grantProcessor';
-import { createDefaultSaveV3 } from '../src/systems/save';
+import { createDefaultSaveV4 } from '../src/systems/save';
 import { createDefaultProgression } from '../src/systems/save';
 import type { ProgressionState } from '../src/systems/save';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
@@ -119,19 +119,19 @@ describe('grantProcessor — individual grants', () => {
     const p = makeProgression();
     const result = processGrant(p, { type: 'permanent-upgrade-level', upgradeId: 'reinforced-vest', levels: 2 });
     expect(result.changed).toBe(true);
-    expect(result.progression.permanentUpgrades['reinforced-vest']).toBe(2);
+    expect((result.progression as any).permanentUpgrades['reinforced-vest']).toBe(2);
   });
 
   it('permanent-upgrade-level accumulates', () => {
     const p = makeProgression({ permanentUpgrades: { 'reinforced-vest': 3 } });
     const result = processGrant(p, { type: 'permanent-upgrade-level', upgradeId: 'reinforced-vest', levels: 2 });
-    expect(result.progression.permanentUpgrades['reinforced-vest']).toBe(5);
+    expect((result.progression as any).permanentUpgrades['reinforced-vest']).toBe(5);
   });
 
   it('permanent-upgrade-level saturates safely rather than producing a receipt-losing overflow', () => {
     const p = makeProgression({ permanentUpgrades: { 'reinforced-vest': Number.MAX_SAFE_INTEGER - 1 } });
     const result = processGrant(p, { type: 'permanent-upgrade-level', upgradeId: 'reinforced-vest', levels: 2 });
-    expect(result.progression.permanentUpgrades['reinforced-vest']).toBe(Number.MAX_SAFE_INTEGER);
+    expect((result.progression as any).permanentUpgrades['reinforced-vest']).toBe(Number.MAX_SAFE_INTEGER);
   });
 
   it('permanent-upgrade-level with zero levels is no-op', () => {
@@ -159,10 +159,10 @@ describe('durable grant transactions', () => {
         { type: 'achievement-completed' as const, achievementId: 'achievement:boss-crusher' },
       ],
     };
-    const once = applyDurableGrantTransaction(createDefaultSaveV3(), transaction);
+    const once = applyDurableGrantTransaction(createDefaultSaveV4(), transaction);
     const replay = applyDurableGrantTransaction(once.save, transaction);
     expect(once.save.progression.scrap).toBe(100);
-    expect(once.save.progression.permanentUpgrades['reinforced-vest']).toBe(1);
+    expect((once.save.progression as any).permanentUpgrades['reinforced-vest']).toBe(1);
     expect(once.save.progression.unlocks).toContain('achievement:boss-crusher');
     expect(replay.changed).toBe(false);
     expect(replay.save).toBe(once.save);
@@ -173,7 +173,7 @@ describe('durable grant transactions', () => {
       id: 'stage:junkyard-01:payload-bound',
       grants: [{ type: 'grant-scrap' as const, amount: 25 }],
     };
-    const committed = applyDurableGrantTransaction(createDefaultSaveV3(), transaction);
+    const committed = applyDurableGrantTransaction(createDefaultSaveV4(), transaction);
     const altered = applyDurableGrantTransaction(committed.save, {
       id: transaction.id,
       grants: [{ type: 'grant-scrap', amount: 250 }],
@@ -183,7 +183,7 @@ describe('durable grant transactions', () => {
   });
 
   it('replays a durable owned-part inventory reward without minting a second instance', () => {
-    const save = createDefaultSaveV3();
+    const save = createDefaultSaveV4();
     const transaction = {
       id: 'stage:junkyard-01:part-reward',
       grants: [{ type: 'grant-part-instance' as const, instanceId: 'reward:stage-01-barrel', partId: 'part:barrel-standard', tier: 1 }],
@@ -201,7 +201,7 @@ describe('durable grant transactions', () => {
       id: 'achievement:boss-crusher:equipment-reward',
       grants: [{ type: 'grant-equipment-instance' as const, instanceId: 'reward:crusher-commando-helmet', equipmentId: 'equipment:commando-helmet', tier: 1 }],
     };
-    const once = applyDurableGrantTransaction(createDefaultSaveV3(), transaction);
+    const once = applyDurableGrantTransaction(createDefaultSaveV4(), transaction);
     expect(once).toMatchObject({ valid: true, changed: true });
     expect(once.save.equipment['reward:crusher-commando-helmet']).toMatchObject({ equipmentId: 'equipment:commando-helmet', tier: 1 });
     const replay = applyDurableGrantTransaction(once.save, transaction);
@@ -210,7 +210,7 @@ describe('durable grant transactions', () => {
   });
 
   it('rejects duplicate owned-instance IDs within one transaction before recording its receipt', () => {
-    const save = createDefaultSaveV3();
+    const save = createDefaultSaveV4();
     const transaction = {
       id: 'stage:junkyard-01:duplicate-part-reward',
       grants: [
@@ -249,7 +249,7 @@ describe('durable grant transactions', () => {
         { type: 'grant-part-instance' as const, instanceId: 'reward:integrity-part', partId: 'part:barrel-standard', tier: 1 },
       ],
     };
-    const committed = applyDurableGrantTransaction(createDefaultSaveV3(), transaction);
+    const committed = applyDurableGrantTransaction(createDefaultSaveV4(), transaction);
     const lostEffects = {
       ...committed.save,
       items: {},
@@ -274,11 +274,11 @@ describe('durable grant transactions', () => {
     const replay = applyDurableGrantTransaction(manager.load(), transaction);
     expect(replay.changed).toBe(false);
     expect(replay.save.progression.scrap).toBe(25);
-    expect(replay.save.progression.permanentUpgrades['reinforced-vest']).toBe(1);
+    expect((replay.save.progression as any).permanentUpgrades['reinforced-vest']).toBe(1);
   });
 
   it('rejects malformed batches before any grant can be applied', () => {
-    const save = createDefaultSaveV3();
+    const save = createDefaultSaveV4();
     const result = applyDurableGrantTransaction(save, {
       id: 'stage:junkyard-01:bad-payload',
       grants: [{ type: 'grant-scrap', amount: 10 }, null] as unknown as readonly ProgressionGrant[],
@@ -287,7 +287,7 @@ describe('durable grant transactions', () => {
   });
 
   it('rejects definition IDs where a newly granted owned instance is required', () => {
-    const save = createDefaultSaveV3();
+    const save = createDefaultSaveV4();
     const result = applyDurableGrantTransaction(save, {
       id: 'stage:junkyard-01:definition-is-not-owned',
       grants: [{ type: 'grant-equipment-instance', instanceId: 'equipment:commando-helmet', equipmentId: 'equipment:commando-helmet', tier: 1 }],
@@ -308,7 +308,7 @@ describe('grantProcessor — batch grants', () => {
     expect(result.changed).toBe(true);
     expect(result.progression.scrap).toBe(100);
     expect(result.progression.unlocks).toContain('character:bolt-hound');
-    expect(result.progression.permanentUpgrades['reinforced-vest']).toBe(1);
+    expect((result.progression as any).permanentUpgrades['reinforced-vest']).toBe(1);
   });
 
   it('reports unchanged when all grants are already applied', () => {
@@ -364,7 +364,7 @@ describe('grantProcessor — purity', () => {
     const result = processGrant(p, { type: 'grant-scrap', amount: 50 });
     expect(Object.isFrozen(result.progression)).toBe(true);
     expect(Object.isFrozen(result.progression.unlocks)).toBe(true);
-    expect(Object.isFrozen(result.progression.permanentUpgrades)).toBe(true);
+    expect(Object.isFrozen((result.progression as any).permanentUpgrades)).toBe(true);
   });
 
   it('deterministic — same inputs, same outputs', () => {

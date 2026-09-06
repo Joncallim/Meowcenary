@@ -51,7 +51,7 @@ export class MenuScene extends Phaser.Scene {
   private achievementsPage = 0;
   /** Keep the progression hub useful on portrait displays: destinations and
    * the older permanent-training controls have separate, reachable pages. */
-  private progressionPage = 0;
+
 
   /** Number of committed render attempts; resize tests assert one per event. */
   get renderRebuildCount(): number {
@@ -114,7 +114,6 @@ export class MenuScene extends Phaser.Scene {
     if (panelChanged) {
       this.gunsmithPage = 0;
       this.achievementsPage = 0;
-      this.progressionPage = 0;
     }
     // The display is uncommitted from the moment teardown begins until a
     // successful publication below (F1 committed-display gate).
@@ -189,15 +188,12 @@ export class MenuScene extends Phaser.Scene {
         case 'equipment':
           this.renderEquipment(root, snapshot, width, contentTop, margin, hitTarget);
           break;
-        case 'progression':
-          this.renderProgression(root, snapshot, width, contentTop, margin, hitTarget);
-          break;
+        // progression panel retired in V4
+
         case 'settings':
           this.renderSettings(root, snapshot, width, contentTop, margin, hitTarget);
           break;
-        case 'reset-confirmation':
-          this.renderResetConfirmation(root, snapshot, width, contentTop, margin, hitTarget);
-          break;
+
         default:
           break;
       }
@@ -273,7 +269,7 @@ export class MenuScene extends Phaser.Scene {
       `Character: ${selectedCharacter?.name ?? snapshot.character.selectedCharacterId}`,
       `Arena: ${selectedArena?.name ?? snapshot.arena.selectedArenaId}`,
       `Contract: ${selectedStage?.name ?? snapshot.stage.selectedStageId}`,
-      `Scrap: ${snapshot.progression.scrap}`,
+      `Scrap: TODO`,  // TODO: show actual scrap from context
     ];
 
     const info = this.own(root, createUiText(this,margin, top, infoLines.join('\n'), {
@@ -289,7 +285,7 @@ export class MenuScene extends Phaser.Scene {
       { label: 'Start', action: () => this.scene.start(SceneKey.Game) },
       { label: 'Character', action: () => this.render(this.requireController().open('character')) },
       { label: 'Arena', action: () => this.render(this.requireController().open('arena')) },
-      { label: 'Progression', action: () => this.render(this.requireController().open('progression')) },
+      { label: 'Career', action: () => this.render(this.requireController().open('stage')) },  // TODO: career panel
       { label: 'Gunsmith', action: () => this.render(this.requireController().open('gunsmith')) },
       { label: 'Settings', action: () => this.render(this.requireController().open('settings')) },
       { label: 'Stage', action: () => this.render(this.requireController().open('stage')) },
@@ -395,93 +391,7 @@ export class MenuScene extends Phaser.Scene {
     this.addBackButton(root, width, margin, hitTarget);
   }
 
-  private renderProgression(
-    root: Phaser.GameObjects.Container,
-    snapshot: MainMenuSnapshot,
-    width: number,
-    top: number,
-    margin: number,
-    hitTarget: number,
-  ): void {
-    const heading = this.addHeading(root, this.safeCenterX, top, `Progression — ${snapshot.progression.scrap} scrap`);
-    let y = top + heading.height + 12;
-
-    if (this.progressionPage === 0) {
-      const overview = snapshot.progressionOverview;
-      const summary = this.own(root, createUiText(this, margin, y,
-        `Contracts ${overview.completedStages}/${overview.totalStages} • Achievements ${overview.completedAchievements}/${overview.totalAchievements} • Mercenaries ${overview.unlockedCharacters}/${overview.totalCharacters}`,
-        {
-          color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-          wordWrap: { width: width - margin - this.safeRightMargin },
-        },
-      ));
-      y += summary.height + 10;
-      for (const goal of overview.nextGoals.slice(0, 2)) {
-        const goalText = this.own(root, createUiText(this, margin, y, `Next: ${goal.title}\n${goal.detail}`, {
-          color: '#f7f1d5', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-          wordWrap: { width: width - margin - this.safeRightMargin },
-        }));
-        y += goalText.height + 10;
-      }
-
-      const destinations: ReadonlyArray<{ readonly label: string; readonly panel: 'stage' | 'achievements' | 'gunsmith' | 'character' | 'equipment' }> = [
-        { label: 'Contracts', panel: 'stage' },
-        { label: `Achievements (${snapshot.achievements.completedCount}/${snapshot.achievements.totalCount})`, panel: 'achievements' },
-        { label: 'Gunsmith', panel: 'gunsmith' },
-        { label: 'Mercenaries', panel: 'character' },
-        { label: 'Equipment', panel: 'equipment' },
-      ];
-      destinations.forEach(({ label, panel }) => {
-        this.addButton(root, margin, y, label, hitTarget, () => this.render(this.requireController().open(panel)));
-        y += hitTarget + 8;
-      });
-      this.addButton(root, margin, y, 'Legacy Training', hitTarget, () => {
-        this.progressionPage = 1;
-        this.navigator.reset();
-        this.render(snapshot);
-      });
-      this.addBackButton(root, width, margin, hitTarget);
-      return;
-    }
-
-    this.own(root, createUiText(this, margin, y, 'Legacy training upgrades', {
-      color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-    }));
-    y += hitTarget * 0.7;
-
-    snapshot.progression.upgrades.forEach((upgrade) => {
-      const costText = upgrade.nextCost !== null ? `${upgrade.nextCost} scrap` : 'max';
-      const label = `${upgrade.name} L${upgrade.currentLevel}/${upgrade.maxLevel} (${costText})`;
-      this.addButton(root, margin, y, label, hitTarget, () => {
-        const next = this.requireController().purchase(upgrade.id);
-        this.render(next);
-      });
-      y += hitTarget + 8;
-      if (upgrade.description) {
-        const desc = this.own(root, createUiText(this,margin + 12, y, upgrade.description, {
-          color: '#a5f3fc',
-          fontFamily: ThemeFont.family,
-          fontSize: `${ThemeFont.bodyMin}px`,
-          wordWrap: { width: width - margin - this.safeRightMargin - 12 },
-        }));
-        desc.setScrollFactor(0);
-        y += desc.height + 8;
-      }
-    });
-    y += 12;
-    this.addButton(root, margin, y, 'Progression Hub', hitTarget, () => {
-      this.progressionPage = 0;
-      this.navigator.reset();
-      this.render(snapshot);
-    });
-    y += hitTarget + 8;
-    this.addButton(root, margin, y, 'Reset Progression', hitTarget, () => {
-      const next = this.requireController().requestReset();
-      this.render(next);
-    });
-
-    this.addBackButton(root, width, margin, hitTarget);
-  }
+  
 
   private renderAchievements(
     root: Phaser.GameObjects.Container,
@@ -747,39 +657,7 @@ export class MenuScene extends Phaser.Scene {
     this.addBackButton(root, width, margin, hitTarget);
   }
 
-  private renderResetConfirmation(
-    root: Phaser.GameObjects.Container,
-    _snapshot: MainMenuSnapshot,
-    width: number,
-    top: number,
-    margin: number,
-    hitTarget: number,
-  ): void {
-    const heading = this.addHeading(root, this.safeCenterX, top, 'Reset all progression?');
-    let y = top + heading.height + 24;
-
-    const warning = this.own(root, createUiText(this,margin, y, 'This cannot be undone.', {
-      color: '#f87171',
-      fontFamily: ThemeFont.family,
-      fontSize: `${ThemeFont.labelMin}px`,
-      wordWrap: { width: width - margin - this.safeRightMargin },
-    }));
-    warning.setScrollFactor(0);
-    y += warning.height + 24;
-
-    this.addButton(root, this.safeCenterX, y, 'Confirm Reset', hitTarget, () => {
-      const next = this.requireController().confirmReset();
-      this.render(next);
-    });
-    y += hitTarget + 16;
-
-    this.addButton(root, this.safeCenterX, y, 'Cancel', hitTarget, () => {
-      const next = this.requireController().cancelReset();
-      this.render(next);
-    });
-
-    this.addBackButton(root, width, margin, hitTarget);
-  }
+  
 
   /** Parents a freshly created display object immediately, so a mid-chain
    *  failure (setOrigin, setStyle, ...) can never leave it orphaned on the

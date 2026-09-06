@@ -47,7 +47,7 @@ describe('Epic 19 Slice 5 reduced-motion regression', () => {
     expect(h.focusRingCount()).toBe(1);
 
     // Reload from persistence over the same storage adapter.
-    const reloaded = new SaveManager(h.storage, h.storageKey, h.context.metaUpgrades.maxLevels()).load();
+    const reloaded = new SaveManager(h.storage, h.storageKey).load();
     expect(reloaded.settings.reducedMotion).toBe(true);
 
     // Toggle back off: exactly one more settings:changed, persisted false.
@@ -56,7 +56,7 @@ describe('Epic 19 Slice 5 reduced-motion regression', () => {
     expect(h.context.settings.reducedMotion).toBe(false);
     expect(h.textContents()).toContain('Reduced Motion: Off');
     expect(h.ringedTargetIndex()).toBe(rowRing);
-    const reloadedOff = new SaveManager(h.storage, h.storageKey, h.context.metaUpgrades.maxLevels()).load();
+    const reloadedOff = new SaveManager(h.storage, h.storageKey).load();
     expect(reloadedOff.settings.reducedMotion).toBe(false);
     h.destroy();
   });
