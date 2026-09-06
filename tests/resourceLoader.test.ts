@@ -3,8 +3,8 @@ import {
   computeRunResourceClosure,
   computeMenuBundle,
   findSharedResources,
-  type VisualTextureResource,
 } from '../src/systems/resourceLoader';
+import type { VisualTextureResource } from '../src/systems/types';
 
 describe('Resource Loader', () => {
   const mockResources: VisualTextureResource[] = [

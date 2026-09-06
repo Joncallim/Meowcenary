@@ -9,18 +9,10 @@ import {
 } from '../src/systems/saveV4';
 import {
   createDefaultSaveV4,
-  createDefaultProgressionV4,
   MemoryStorageAdapter,
   DEFAULT_SETTINGS,
   freezeSaveV4,
   type SaveDataV3,
-  type SaveDataV4,
-  type ProgressionStateV4,
-  type BossProgressState,
-  type AchievementMetricState,
-  type CharacterMasteryState,
-  type StageProgressState,
-  type AchievementProgressState,
 } from '../src/systems/save';
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -252,7 +244,7 @@ describe('V3 → V4 migration', () => {
       stages: { 'stage:junkyard-02': { completed: true } },
       achievements: { 'achievement:boss-crusher': { completed: true } },
     });
-    const { save: v4, capabilityFloors } = migrateV3ToV4Full(v3);
+    const { capabilityFloors } = migrateV3ToV4Full(v3);
     expect(capabilityFloors).toContain('capability:equipment-tier-4');
   });
 

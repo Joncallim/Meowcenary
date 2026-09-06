@@ -7,7 +7,7 @@
  * Run resource closure derives from actual composition.
  */
 import type Phaser from 'phaser';
-import type { VisualTextureResource, RendererKind } from './types';
+import type { VisualTextureResource } from './types';
 
 export interface LoadedResource {
   readonly resourceId: string;
