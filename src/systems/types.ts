@@ -384,6 +384,17 @@ export interface AudioData {
   readonly map: readonly AudioMapEntry[];
 }
 
+/** Renderer families describe rendering capability, not content owner.
+ *  A single renderer implementation can handle multiple semantic domains. */
+export type RendererKind =
+  | 'animated-actor'   // Characters, enemies, bosses with animation clips
+  | 'sprite'           // Simple static or looping sprites (projectiles, drops)
+  | 'icon'             // UI icons (equipment, parts, achievements, upgrades)
+  | 'portrait'         // Character portraits in menus
+  | 'weapon-held'      // Weapon held sprite in gameplay
+  | 'world'            // Arena tiles, props, landmarks
+  | 'ui-chrome';       // UI panels, buttons, frames
+
 export type VisualArtKind =
   | 'character'
   | 'enemy'
