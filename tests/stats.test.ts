@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { scaleModifierByTier, ModifierStack, type ModifierSpec } from '../src/gameplay/stats';
+import { scaleModifierByTier, type ModifierSpec } from '../src/gameplay/stats';
 
 describe('ModifierSpec tier scaling', () => {
   it('scales additive modifiers linearly by tier', () => {
