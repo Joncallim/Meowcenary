@@ -71,6 +71,7 @@ import { DataAchievementRegistry, metricExtractor } from '../systems/achievement
 import { evaluateAchievements } from '../gameplay/achievementSystem';
 import { DataAbilityRegistry } from '../systems/abilities';
 import { activateAbility, applyAbilityEffect, createAbilityState, expireAbilityEffect, tickAbility, type AbilityDefinition, type AbilityState } from '../gameplay/abilities';
+import { applyEnemyDamage } from '../gameplay/enemyDamageResolver';
 import type { FocusDirection } from '../ui/focusList';
 
 /** U6: the gameplay camera shows canvas/zoom world units — 312×675.2 on the
@@ -912,7 +913,13 @@ export class GameScene extends Phaser.Scene {
     if (!activation.fired) return;
     this.abilityState = activation.state;
     this.hudController?.requestRender();
+    const ctx = this.getContext();
     applyAbilityEffect(definition, { player, stats: runState.stats, enemies: this.enemies,
+      damageEnemy: (enemy, amount) => {
+        // The enemies array is Enemy[], so the iterated element is always
+        // an Enemy instance — cast is safe and avoids position-based lookup.
+        applyEnemyDamage(enemy as unknown as Enemy, amount, runState, ctx.bus);
+      },
       collectNearbyConsumables: (radius) => this.dropSystem?.collectNearbyConsumables(radius) });
   }
 
