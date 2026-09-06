@@ -36,7 +36,7 @@ const config: Phaser.Types.Core.GameConfig = {
 // uses the visible chooser; gameplay ownership remains in scenes and systems.
 export const game = new Phaser.Game(config);
 // Install #164 diagnostic trace ring buffer (development only)
-installDiagnostics();
+if (import.meta.env.DEV) installDiagnostics();
 // P1: the gesture gate consults the PRODUCTION isGestureActive lambda — a
 // scene without an inputController (e.g. the always-active BootScene) must
 // not read as an active gesture, or scale.refresh() would never run and the

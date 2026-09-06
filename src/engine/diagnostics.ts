@@ -12,7 +12,7 @@
  *   window.__meowcenary_diag?.events
  */
 const RING_SIZE = 512;
-const DIAGNOSTICS_ENABLED = true; // toggle for development builds
+const DIAGNOSTICS_ENABLED = typeof import.meta !== "undefined" && import.meta.env.DEV;
 
 export interface TraceEvent {
   readonly t: number;        // timestamp ms (relative to first event)
