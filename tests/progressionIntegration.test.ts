@@ -102,7 +102,7 @@ describe('meta progression integration', () => {
     if (!reward) throw new Error('Missing stage reward profile');
     expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss-crusher', {
       id: 'stage:junkyard-05:first-clear',
-      grants: [{ type: 'grant-scrap', amount: reward.scrapBase + 2 * reward.scrapPerMinute }, ...(reward.grants ?? [])],
+      grants: [{ type: 'grant-scrap', amount: reward.firstClearScrap + 2 * 0 }, ...(reward.grants ?? [])],
     })).toBe(true);
     const registry = new DataAchievementRegistry({ achievements: data.achievements ?? [] });
     const metrics = new Map(registeredMetricIds().map((id) => [id, (facts: { metrics: Record<string, number> }) => facts.metrics[id] ?? 0]));

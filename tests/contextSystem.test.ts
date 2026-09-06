@@ -709,6 +709,6 @@ function stageTransaction(stageId: string, timeMs: number) {
   if (!reward) throw new Error(`Missing reward profile for ${stageId}`);
   return {
     id: `${stageId}:first-clear`,
-    grants: [{ type: 'grant-scrap' as const, amount: Math.max(1, reward.scrapBase + Math.floor(Math.min(timeMs, 180_000) / 60_000) * reward.scrapPerMinute) }, ...(reward.grants ?? [])],
+    grants: [{ type: 'grant-scrap' as const, amount: Math.max(1, reward.firstClearScrap + Math.floor(Math.min(timeMs, 180_000) / 60_000) * 0) }, ...(reward.grants ?? [])],
   };
 }

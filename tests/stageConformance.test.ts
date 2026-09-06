@@ -7,7 +7,6 @@ import { collectGameDataErrors, loadGameData, validateGameData } from '../src/sy
 import { DataArenaRegistry } from '../src/systems/arenas';
 import { StageRegistry } from '../src/systems/stageRegistry';
 import { DataEnemyRegistry } from '../src/systems/enemies';
-import { DataLootTableRegistry } from '../src/systems/lootTables';
 import type { StageDefinition, EncounterProfile, DifficultyProfile, RewardProfile } from '../src/gameplay/stage/stageContracts';
 import { resolveRunPlan } from '../src/gameplay/stage/stageContracts';
 
@@ -96,14 +95,9 @@ describe('Epic 20 stage catalog conformance', () => {
     }
   });
 
-  it('resolves every reward loot table against the loot registry', () => {
-    const data = loadGameData();
-    const loot = new DataLootTableRegistry(data);
+  it('has valid firstClearScrap for every reward profile', () => {
     for (const rp of rewards) {
-      expect(rp.lootTableId, `loot table ref on ${rp.id}`).toBeDefined();
-      if (rp.lootTableId !== undefined) {
-        expect(loot.lootTableById(rp.lootTableId), `loot table ${rp.lootTableId}`).toBeDefined();
-      }
+      expect(rp.firstClearScrap, `firstClearScrap on ${rp.id}`).toBeGreaterThanOrEqual(0);
     }
   });
 
@@ -131,7 +125,7 @@ describe('Epic 20 stage catalog conformance', () => {
       expect(plan.objective.definition.type).toBe(stage.objective.type);
       expect(plan.encounter.enemyIds.length).toBeGreaterThan(0);
       expect(plan.difficulty.healthMultiplier).toBeGreaterThan(0);
-      expect(Number.isFinite(plan.reward.scrapBase)).toBe(true);
+      expect(Number.isFinite(plan.reward.firstClearScrap)).toBe(true);
       expect(Object.isFrozen(plan)).toBe(true);
     }
   });

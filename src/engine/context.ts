@@ -392,7 +392,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         id: `${stageId}:first-clear`,
         grants: [{
           type: 'grant-scrap',
-          amount: Math.max(1, rewardProfile.scrapBase + Math.floor(Math.min(timeMs, 180_000) / 60_000) * rewardProfile.scrapPerMinute),
+          amount: rewardProfile.firstClearScrap,
         }, ...(rewardProfile.grants ?? [])],
       };
       // Stage rewards are catalog-owned. A fresh arbitrary receipt at this
@@ -556,7 +556,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         id: `${stageId}:first-clear`,
         grants: [{
           type: 'grant-scrap',
-          amount: Math.max(1, rewardProfile.scrapBase + Math.floor(Math.min(timeMs, 180_000) / 60_000) * rewardProfile.scrapPerMinute),
+          amount: rewardProfile.firstClearScrap,
         }, ...(rewardProfile.grants ?? [])],
       });
     },
