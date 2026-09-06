@@ -143,6 +143,6 @@
     "effects": [],
     "traits": ["FIRE"],
     "rewardPoolId": "pool:traits-mastery",
-    "unlock": { "type": "achievement-completed", "achievementId": "achievement:first-victory" }
+    "note": "Warden milestone reward-only; non-reacquirable"
   }
 ]
