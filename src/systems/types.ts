@@ -405,6 +405,32 @@ export type VisualArtKind =
   | 'world'
   | 'upgrade-icon';
 
+/** Physical texture/resource identity — separate from logical VisualArtBinding.
+ *  Multiple logical bindings may share the same physical resource via named
+ *  frames in an atlas. */
+export interface VisualTextureResource {
+  readonly id: string;
+  readonly textureKey: string;
+  readonly sampling: 'nearest' | 'linear';
+  readonly load: {
+    readonly type: 'image' | 'atlas' | 'spritesheet';
+    readonly imageUrl: string;
+    readonly dataUrl?: string;
+    readonly frameWidth?: number;
+    readonly frameHeight?: number;
+  };
+  readonly display?: {
+    readonly width: number;
+    readonly height: number;
+  };
+}
+
+export interface AssetBundleDefinitionV4 {
+  readonly id: string;
+  readonly resourceIds: readonly string[];
+}
+
+
 export type VisualArtSampling = 'nearest' | 'linear';
 
 export type VisualArtLoad =
