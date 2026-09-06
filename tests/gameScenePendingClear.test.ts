@@ -100,7 +100,7 @@ function createHarness(options: {
       stageId: 'stage:junkyard-01',
       objective: { definition: { type: 'kill', enemyTag: 'grunt', count: 20 } },
       encounter: {},
-      reward: { scrapBase: 50, scrapPerMinute: 10, grants: [] },
+      reward: { firstClearScrap: 50, grants: [] },
     } as any);
     runtime.tick(0, 0);
     // Complete the objective
@@ -115,7 +115,7 @@ function createHarness(options: {
       stageId: 'stage:junkyard-01',
       objective: { definition: { type: 'kill', enemyTag: 'grunt', count: 20 } },
       encounter: {},
-      reward: { scrapBase: 50, scrapPerMinute: 10, grants: [] },
+      reward: { firstClearScrap: 50, grants: [] },
     } as any);
     runtime.tick(0, 0);
     // Partial progress

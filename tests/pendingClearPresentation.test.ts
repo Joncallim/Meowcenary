@@ -23,7 +23,7 @@ function killPlan(override?: Partial<ResolvedRunPlan>): ResolvedRunPlan {
       definition: { type: 'kill', enemyTag: 'grunt', count: 20 },
     },
     encounter: {},
-    reward: { scrapBase: 50, scrapPerMinute: 10, grants: [] },
+    reward: { firstClearScrap: 50, grants: [] },
     ...override,
   } as ResolvedRunPlan;
 }

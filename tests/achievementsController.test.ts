@@ -46,7 +46,7 @@ describe('AchievementsController (Epic 22 read model)', () => {
   it('hidden achievements are masked until completed', () => {
     const { controller } = createHarness();
     const snap = controller.snapshot();
-    const hidden = snap.achievements.find((a) => a.id === 'achievement:scrap-banked-1000');
+    const hidden = snap.achievements.find((a) => a.id === 'achievement:scrap-tycoon');
     expect(hidden?.hidden).toBe(true);
     expect(hidden?.name).toBe('???');
     expect(hidden?.status).toBe('locked');
@@ -60,13 +60,13 @@ describe('AchievementsController (Epic 22 read model)', () => {
       ...context.saveData,
       achievements: Object.freeze({
         ...context.saveData.achievements,
-        'achievement:scrap-banked-1000': Object.freeze({ completed: true, progress: 1000, completedAt: 42 }),
+        'achievement:scrap-tycoon': Object.freeze({ completed: true, progress: 1000, completedAt: 42 }),
       }),
     });
     // Rebuild a controller whose context exposes the completed state.
     const controller2 = createHarnessWithSave(withCompletion);
     const snap = controller2.snapshot();
-    const hidden = snap.achievements.find((a) => a.id === 'achievement:scrap-banked-1000');
+    const hidden = snap.achievements.find((a) => a.id === 'achievement:scrap-tycoon');
     expect(hidden?.status).toBe('completed');
     expect(hidden?.name).toBe('Scrap Tycoon');
     expect(snap.completedCount).toBeGreaterThan(0);

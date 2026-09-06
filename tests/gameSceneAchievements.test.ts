@@ -23,14 +23,14 @@ describe('GameScene achievement fact bridge', () => {
       reportAchievement: vi.fn(),
     };
 
-    scene.evaluateLiveAchievements(ctx, { 'metric:scrap-banked': 600 });
+    scene.evaluateLiveAchievements(ctx, { 'metric:scrap-banked': 5000 });
     // The wallet can be spent entirely between runs; that must not erase the
     // lifetime fact used by the achievement definition.
     ctx.saveData = { ...ctx.saveData, progression: { ...ctx.saveData.progression, scrap: 0 } };
-    scene.evaluateLiveAchievements(ctx, { 'metric:scrap-banked': 600 });
+    scene.evaluateLiveAchievements(ctx, { 'metric:scrap-banked': 5000 });
 
-    expect(ctx.saveData.achievementMetrics['metric:scrap-banked']).toBe(1_200);
-    expect(ctx.saveData.achievements['achievement:scrap-banked-1000']).toMatchObject({ completed: true });
+    expect(ctx.saveData.achievementMetrics['metric:scrap-banked']).toBe(10_000);
+    expect(ctx.saveData.achievements['achievement:scrap-tycoon']).toMatchObject({ completed: true });
   });
 
   it('retries accepted gameplay facts after a transient achievement-save failure', () => {

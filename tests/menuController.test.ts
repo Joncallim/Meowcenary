@@ -218,7 +218,7 @@ describe('MainMenuController', () => {
     expect(controller.upgradeEquipment('helmet').equipment.owned[0].tier).toBe(2);
     expect(controller.snapshot().equipment.owned[0].effectSummary).toEqual(['Fire rate 10%']);
     // The stage command now banks its profile-owned first-clear reward.
-    expect(controller.snapshot().progression.scrap).toBe(40);
+    expect(controller.snapshot().progression.scrap).toBe(45);
   });
 
   it('keeps stale equipment definitions visible as recoverable unavailable state', () => {

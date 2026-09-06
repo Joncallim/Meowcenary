@@ -163,9 +163,10 @@ describe('Epic 22 achievement evaluation (pure)', () => {
   it('hidden achievements stay hidden: completion still recorded, read model filters later', () => {
     const { ctx } = registryCtx();
     const state: AchievementState = {};
-    const result = evaluateAchievements(state, { metrics: { 'metric:scrap-banked': 1000 } }, ctx, 7);
-    expect(result.completed).toContain('achievement:scrap-banked-1000');
-    expect(defMap.get('achievement:scrap-banked-1000')?.hidden).toBe(true);
+    // scrap-tycoon is hidden with target 10000
+    const result = evaluateAchievements(state, { metrics: { 'metric:scrap-banked': 10000 } }, ctx, 7);
+    expect(result.completed).toContain('achievement:scrap-tycoon');
+    expect(defMap.get('achievement:scrap-tycoon')?.hidden).toBe(true);
   });
 
   it('completion is immutable: completed achievements never un-complete', () => {

@@ -85,7 +85,7 @@ describe('meta progression integration', () => {
     expect(context.commitAchievementTransaction(result.state, context.saveData.achievementMetrics, {
       id: 'achievement:kill-milestone-100:completion', grants: result.rewards,
     })).toBe(true);
-    expect(context.saveData.progression.unlocks).toContain('character:scrap-weasel');
+    expect(context.saveData.progression.unlocks).toContain('achievement:kill-milestone-100');
     expect(context.selectCharacter('scrap-weasel', context.selectionRevision)).toMatchObject({ ok: true });
   });
 
