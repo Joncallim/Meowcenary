@@ -6,7 +6,7 @@
  * events from Slice B. Training events do not persist discovery.
  * No arbitrary kill-count lore grind.
  */
-import type { CompendiumState, CompendiumDiscoveryStatus } from './save';
+import type { CompendiumDiscoveryStatus } from './save';
 import type { SaveDataV4 } from './save';
 import { freezeSaveV4 } from './save';
 

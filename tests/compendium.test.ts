@@ -6,7 +6,7 @@ import {
   getAllCompendiumEntries,
   type CompendiumEntry,
 } from '../src/systems/compendium';
-import { createDefaultSaveV4, freezeSaveV4, type SaveDataV4 } from '../src/systems/save';
+import { createDefaultSaveV4, freezeSaveV4 } from '../src/systems/save';
 
 const mockEditorial: CompendiumEntry[] = [
   {
