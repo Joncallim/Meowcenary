@@ -20,6 +20,13 @@ export interface ProgressionState {
   readonly permanentUpgrades: Readonly<Record<string, number>>;
 }
 
+/** V4 progression: no permanent-upgrade shop. Unlocks are explicit content
+ *  entitlements only, never shadow achievement/boss/stage facts. */
+export interface ProgressionStateV4 {
+  readonly scrap: number;
+  readonly unlocks: readonly string[];
+}
+
 /** Durable receipt IDs for source-owned progression transactions. */
 export type AppliedGrantTransactions = Readonly<Record<string, true>>;
 /** Binds a source receipt to its exact canonical durable payload. */
@@ -31,6 +38,13 @@ export type ItemInventoryState = Readonly<Record<string, number>>;
 
 export interface BossProgress { readonly defeated: boolean; readonly firstDefeatedAt?: number }
 export type BossProgressState = Readonly<Record<string, BossProgress>>;
+
+/** Compendium discovery status for enemy encounters. */
+export type CompendiumDiscoveryStatus = 'encountered' | 'defeated';
+
+/** Sparse compendium state.  Only monotonic status changes are persisted;
+ *  defeated implies encountered. */
+export type CompendiumState = Readonly<Record<string, CompendiumDiscoveryStatus>>;
 
 /** Backward-compatible alias: all existing gameplay functions accept MetaState. */
 export type MetaState = ProgressionState;
@@ -82,6 +96,9 @@ export interface GunsmithState {
   /** Explicit equipped persistent main gun.  Definition IDs never stand in
    * for this player-owned build identity. */
   readonly selectedBuildId?: string;
+  /** Per-definition fabrication serial counter.  Monotonically increasing;
+   * never decremented by merge/consumption. */
+  readonly fabricationSerials?: Readonly<Record<string, number>>;
 }
 
 export type StageProgressState = Record<string, StageProgress>;
@@ -125,6 +142,26 @@ export interface SaveDataV3 {
   readonly grantTransactionFingerprints: GrantTransactionFingerprints;
 }
 
+export interface SaveDataV4 {
+  readonly version: 4;
+  readonly settings: Settings;
+  readonly progression: ProgressionStateV4;
+  readonly stages: StageProgressState;
+  readonly achievements: AchievementProgressState;
+  readonly achievementMetrics: AchievementMetricState;
+  readonly characters: CharacterMasteryState;
+  readonly selectedCharacterId?: string;
+  readonly gunsmith: GunsmithState;
+  readonly equipment: EquipmentState;
+  readonly equipmentLoadout?: EquipmentLoadoutState;
+  readonly items: ItemInventoryState;
+  readonly bosses: BossProgressState;
+  readonly compendium: CompendiumState;
+  readonly pendingAchievementReports: readonly string[];
+  readonly appliedGrantTransactions: AppliedGrantTransactions;
+  readonly grantTransactionFingerprints: GrantTransactionFingerprints;
+}
+
 export type SaveData = SaveDataV3;
 export type MetaUpgradeMaxLevels = Readonly<Record<string, number>>;
 
@@ -148,6 +185,10 @@ export function createDefaultProgression(): ProgressionState {
   return freezeProgression({ scrap: 0, unlocks: [], permanentUpgrades: {} });
 }
 
+export function createDefaultProgressionV4(): ProgressionStateV4 {
+  return Object.freeze({ scrap: 0, unlocks: [] });
+}
+
 /** @deprecated Use createDefaultProgression() for V3. */
 export function createDefaultMeta(): MetaState {
   return createDefaultProgression();
@@ -167,6 +208,27 @@ export function createDefaultSaveV3(): SaveDataV3 {
     equipmentLoadout: {},
     items: {},
     bosses: {},
+    pendingAchievementReports: [],
+    appliedGrantTransactions: {},
+    grantTransactionFingerprints: {},
+  });
+}
+
+export function createDefaultSaveV4(): SaveDataV4 {
+  return freezeSaveV4({
+    version: 4,
+    settings: DEFAULT_SETTINGS,
+    progression: createDefaultProgressionV4(),
+    stages: {},
+    achievements: {},
+    achievementMetrics: {},
+    characters: {},
+    gunsmith: { builds: [], parts: {} },
+    equipment: {},
+    equipmentLoadout: {},
+    items: {},
+    bosses: {},
+    compendium: {},
     pendingAchievementReports: [],
     appliedGrantTransactions: {},
     grantTransactionFingerprints: {},
@@ -346,6 +408,36 @@ function migrateV1ToV3(raw: Readonly<Record<string, unknown>>): SaveDataV3 {
     pendingAchievementReports: [],
     appliedGrantTransactions: {},
     grantTransactionFingerprints: {},
+  });
+}
+
+/** V3 → V4 migration.  Produces a complete SaveDataV4 from a canonical V3 save. */
+export function migrateV3ToV4(v3: SaveDataV3): SaveDataV4 {
+  return freezeSaveV4({
+    version: 4,
+    settings: v3.settings,
+    progression: {
+      scrap: v3.progression.scrap,
+      unlocks: [...v3.progression.unlocks],
+    },
+    stages: { ...v3.stages },
+    achievements: { ...v3.achievements },
+    achievementMetrics: { ...v3.achievementMetrics },
+    characters: { ...v3.characters },
+    selectedCharacterId: v3.selectedCharacterId,
+    gunsmith: {
+      builds: [...v3.gunsmith.builds],
+      parts: { ...v3.gunsmith.parts },
+      selectedBuildId: v3.gunsmith.selectedBuildId,
+    },
+    equipment: { ...v3.equipment },
+    equipmentLoadout: v3.equipmentLoadout ? { ...v3.equipmentLoadout } : {},
+    items: { ...v3.items },
+    bosses: { ...v3.bosses },
+    compendium: {},
+    pendingAchievementReports: [...v3.pendingAchievementReports],
+    appliedGrantTransactions: { ...v3.appliedGrantTransactions },
+    grantTransactionFingerprints: { ...v3.grantTransactionFingerprints },
   });
 }
 
@@ -754,6 +846,33 @@ function freezeProgression(p: ProgressionState): ProgressionState {
  * record is copied and frozen as well as the domain map, so callers cannot
  * mutate owned-instance/fact state behind GameContext's persistence boundary.
  */
+export function freezeSaveV4(save: SaveDataV4): SaveDataV4 {
+  return Object.freeze({
+    version: 4,
+    settings: Object.isFrozen(save.settings) ? save.settings : freezeSettings(save.settings),
+    progression: Object.isFrozen(save.progression) ? save.progression : Object.freeze({ ...save.progression }),
+    stages: Object.freeze(Object.fromEntries(Object.entries(save.stages).map(([id, state]) => [id, Object.freeze({ ...state })]))),
+    achievements: Object.freeze(Object.fromEntries(Object.entries(save.achievements).map(([id, state]) => [id, Object.freeze({ ...state })]))),
+    achievementMetrics: Object.isFrozen(save.achievementMetrics) ? save.achievementMetrics : Object.freeze({ ...save.achievementMetrics }),
+    characters: Object.freeze(Object.fromEntries(Object.entries(save.characters).map(([id, state]) => [id, Object.freeze({ ...state })]))),
+    ...(save.selectedCharacterId === undefined ? {} : { selectedCharacterId: save.selectedCharacterId }),
+    gunsmith: Object.freeze({
+      builds: Object.freeze([...save.gunsmith.builds]),
+      parts: Object.freeze({ ...save.gunsmith.parts }),
+      ...(save.gunsmith.selectedBuildId === undefined ? {} : { selectedBuildId: save.gunsmith.selectedBuildId }),
+      ...(save.gunsmith.fabricationSerials === undefined ? {} : { fabricationSerials: Object.freeze({ ...save.gunsmith.fabricationSerials }) }),
+    }),
+    equipment: Object.freeze(Object.fromEntries(Object.entries(save.equipment).map(([id, inst]) => [id, Object.freeze({ ...inst })]))),
+    equipmentLoadout: Object.isFrozen(save.equipmentLoadout) ? save.equipmentLoadout : Object.freeze({ ...save.equipmentLoadout }),
+    items: Object.isFrozen(save.items) ? save.items : Object.freeze({ ...save.items }),
+    bosses: Object.freeze(Object.fromEntries(Object.entries(save.bosses).map(([id, b]) => [id, Object.freeze({ ...b })]))),
+    compendium: Object.isFrozen(save.compendium) ? save.compendium : Object.freeze({ ...save.compendium }),
+    pendingAchievementReports: Object.isFrozen(save.pendingAchievementReports) ? save.pendingAchievementReports : Object.freeze([...save.pendingAchievementReports]),
+    appliedGrantTransactions: Object.isFrozen(save.appliedGrantTransactions) ? save.appliedGrantTransactions : Object.freeze({ ...save.appliedGrantTransactions }),
+    grantTransactionFingerprints: Object.isFrozen(save.grantTransactionFingerprints) ? save.grantTransactionFingerprints : Object.freeze({ ...save.grantTransactionFingerprints }),
+  });
+}
+
 export function freezeSaveV3(save: SaveDataV3): SaveDataV3 {
   return Object.freeze({
     version: 3,
