@@ -10,11 +10,34 @@ export interface ArenaScenery {
   destroy(): void;
 }
 
+/** Render-state evidence for the data-authored arena. This is deliberately
+ * presentation-only: it is useful to scene diagnostics and integration tests
+ * without making scenery a second source of physics truth. */
+export interface ArenaPresentationNode {
+  readonly role: 'floor' | 'boundary' | 'decoration' | 'obstacle-skin';
+  readonly artId: string;
+  readonly textureKey: string;
+  readonly x: number;
+  readonly y: number;
+  readonly depth: number;
+  readonly visible: boolean;
+  readonly active: boolean;
+}
+
+export interface ArenaPresentationInspection {
+  readonly nodes: readonly ArenaPresentationNode[];
+  readonly floorNodeCount: number;
+  readonly boundaryNodeCount: number;
+  readonly decorationNodeCount: number;
+  readonly obstacleSkinNodeCount: number;
+}
+
 /** Data-authored world presentation. Collision rectangles remain the sole
  * physics authority; floor, boundary, decorations, and skins are display-only. */
 export class ArenaWorldView implements ArenaScenery {
   readonly obstacleGroup: Phaser.Physics.Arcade.StaticGroup;
   private readonly nodes: Phaser.GameObjects.GameObject[] = [];
+  private readonly presentationNodes: ArenaPresentationNode[] = [];
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -30,12 +53,30 @@ export class ArenaWorldView implements ArenaScenery {
     this.buildBoundary();
     this.buildDecorations();
     this.buildObstacles();
+    // The no-registry call path is intentionally retained for headless
+    // physics diagnostics. Production GameScene always supplies the registry.
+    if (this.visualArt) this.assertPresentationReady();
   }
 
   destroy(): void {
     for (const node of this.nodes) node.destroy();
     this.nodes.length = 0;
+    this.presentationNodes.length = 0;
     this.obstacleGroup.destroy(true);
+  }
+
+  /** Narrow diagnostic surface: proves that the actual images made by this
+   * production world builder are live, rather than merely that their files
+   * were requested or their texture keys exist. */
+  presentationInspection(): ArenaPresentationInspection {
+    const nodes = this.presentationNodes.map((node) => Object.freeze({ ...node }));
+    return Object.freeze({
+      nodes: Object.freeze(nodes),
+      floorNodeCount: nodes.filter((node) => node.role === 'floor').length,
+      boundaryNodeCount: nodes.filter((node) => node.role === 'boundary').length,
+      decorationNodeCount: nodes.filter((node) => node.role === 'decoration').length,
+      obstacleSkinNodeCount: nodes.filter((node) => node.role === 'obstacle-skin').length,
+    });
   }
 
   private binding(artId: string): Readonly<VisualArtBinding> | undefined {
@@ -59,6 +100,7 @@ export class ArenaWorldView implements ArenaScenery {
   }
 
   private addImage(
+    role: ArenaPresentationNode['role'],
     artId: string,
     x: number,
     y: number,
@@ -72,9 +114,36 @@ export class ArenaWorldView implements ArenaScenery {
       .setDisplaySize(binding.display.width, binding.display.height)
       .setDepth(depth)
       .setRotation(rotation)
-      .setFlipX(flipX);
+      .setFlipX(flipX)
+      // Be explicit at this production boundary. Phaser defaults to both,
+      // but an image whose creation state is ever changed by a plugin must
+      // fail the run rather than silently turning scenery into dark physics.
+      .setVisible(true)
+      .setActive(true);
     this.nodes.push(image);
+    this.presentationNodes.push({
+      role,
+      artId,
+      textureKey: binding.textureKey,
+      x,
+      y,
+      depth,
+      visible: image.visible,
+      active: image.active,
+    });
     return image;
+  }
+
+  private assertPresentationReady(): void {
+    const inspection = this.presentationInspection();
+    const expectedFloorNodes = Math.ceil(this.arena.size.width / TILE_SIZE) * Math.ceil(this.arena.size.height / TILE_SIZE);
+    if (inspection.floorNodeCount !== expectedFloorNodes || inspection.boundaryNodeCount === 0 || inspection.decorationNodeCount !== this.arena.visual.decorations.length || inspection.obstacleSkinNodeCount !== this.arena.obstacles.length) {
+      throw new Error(`Arena "${this.arena.id}" world presentation is incomplete`);
+    }
+    const inactive = inspection.nodes.filter((node) => !node.visible || !node.active);
+    if (inactive.length > 0) {
+      throw new Error(`Arena "${this.arena.id}" world presentation has inactive nodes (${inactive.map((node) => node.artId).join(', ')})`);
+    }
   }
 
   private buildFloor(): void {
@@ -85,7 +154,7 @@ export class ArenaWorldView implements ArenaScenery {
       for (let column = 0; column < columns; column += 1) {
         const artId = ids[(column * 31 + row * 17) % ids.length]!;
         this.addImage(
-          artId,
+          'floor', artId,
           column * TILE_SIZE + TILE_SIZE / 2,
           row * TILE_SIZE + TILE_SIZE / 2,
           VisualDepth.floor,
@@ -140,13 +209,13 @@ export class ArenaWorldView implements ArenaScenery {
     // (bottom-right); the other two need an additional horizontal flip so the
     // accent post lands against the correct wall.
     const flipX = terminal && (side === 'bottom') !== (index === columnCount - 1);
-    this.addImage(artId, x, y, VisualDepth.boundary, rotation, flipX);
+    this.addImage('boundary', artId, x, y, VisualDepth.boundary, rotation, flipX);
   }
 
   private buildDecorations(): void {
     for (const decoration of this.arena.visual.decorations) {
       this.addImage(
-        decoration.artId,
+        'decoration', decoration.artId,
         decoration.x,
         decoration.y,
         decoration.layer === 'ground' ? VisualDepth.groundDecoration : VisualDepth.lowDecoration,
@@ -175,7 +244,7 @@ export class ArenaWorldView implements ArenaScenery {
       this.obstacleGroup.add(rect);
 
       const image = skin && this.addImage(
-        skin.artId,
+        'obstacle-skin', skin.artId,
         obstacle.x + obstacle.w / 2 + (skin.offsetX ?? 0),
         obstacle.y + obstacle.h / 2 + (skin.offsetY ?? 0),
         VisualDepth.obstacle,
