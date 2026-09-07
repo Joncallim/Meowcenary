@@ -1,6 +1,7 @@
 import { RuntimeConfig } from '../engine/config';
 import { isContentId, isGrantTransactionId, isInstanceId, isUnlockId } from './ids';
-import { BEHAVIOR_TRAITS, MAX_TRAITS_PER_PART, RARITY_TIER, WEAPON_SLOT_COMPATIBILITY, type PartSlot } from '../gameplay/gunsmith';
+import { BEHAVIOR_TRAITS, MAX_EFFECTIVE_TRAITS_PER_PART, RARITY_TIER, type PartSlot } from '../gameplay/gunsmith';
+import { getFamilySlots } from '../gameplay/weaponFamilies';
 import { EQUIPMENT_TIERS } from '../gameplay/equipment';
 
 export interface Settings {
@@ -568,12 +569,13 @@ function sanitizeGunsmithState(raw: unknown): GunsmithState {
           tier: Number.isSafeInteger(rawTier) && (rawTier as number) > 0
             ? Math.min(rawTier as number, RARITY_TIER.legendary)
             : 1,
-          infusedTraits: Array.isArray(infused)
-            ? (infused as unknown[])
-              .filter((t): t is string => typeof t === 'string' && validTraits.has(t))
-              .filter((trait, index, all) => all.indexOf(trait) === index)
-              .slice(0, MAX_TRAITS_PER_PART)
-            : [],
+          infusedTraits: (() => {
+            const traits = Array.isArray(infused)
+              ? (infused as unknown[]).filter((t): t is string => typeof t === 'string' && validTraits.has(t))
+              : [];
+            const unique = [...new Set(traits)].sort();
+            return unique.length <= MAX_EFFECTIVE_TRAITS_PER_PART ? unique : [];
+          })(),
         };
       }
     }
@@ -612,7 +614,10 @@ function sanitizeBuild(
   asOwnedReference: (value: unknown) => string | undefined,
 ): Build {
   const rawFamily = readOwn(raw, 'baseWeaponFamily');
-  const baseWeaponFamily = typeof rawFamily === 'string' && Object.hasOwn(WEAPON_SLOT_COMPATIBILITY, rawFamily)
+  // A removed/temporarily unavailable family remains a stable stale build;
+  // coercing it to pistol would silently retarget owned engineering. Unknown
+  // families resolve no slots/contribution until their catalog returns.
+  const baseWeaponFamily = typeof rawFamily === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(rawFamily)
     ? rawFamily
     : 'pistol';
   const fitted = sanitizeFittedParts(readOwn(raw, 'fitted'), asOwnedReference, baseWeaponFamily);
@@ -646,7 +651,7 @@ function sanitizeFittedParts(
   if (!isPlainRecord(raw)) return {};
   const result: Record<string, string> = {};
   const used = new Set<string>();
-  const allowedSlots = new Set<PartSlot>(WEAPON_SLOT_COMPATIBILITY[family] ?? []);
+  const allowedSlots = new Set<PartSlot>(getFamilySlots(family));
   for (const [slot, partId] of Object.entries(raw)) {
     if (!allowedSlots.has(slot as PartSlot)) continue;
     const owned = asOwnedReference(partId);

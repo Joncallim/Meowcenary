@@ -32,6 +32,7 @@ import lootTablesJson from '../data/loot-tables.json';
 import audioAssetsJson from '../data/audio-assets.json';
 import audioMapJson from '../data/audio-map.json';
 import visualArtJson from '../data/visual-art.json';
+import visualResourcesJson from '../data/visual-resources.json';
 import stagesJson from '../data/stages.json';
 import encounterProfilesJson from '../data/encounter-profiles.json';
 import difficultyProfilesJson from '../data/difficulty-profiles.json';
@@ -40,6 +41,8 @@ import achievementsJson from '../data/achievements.json';
 import gunPartsJson from '../data/gun-parts.json';
 import abilitiesJson from '../data/abilities.json';
 import equipmentJson from '../data/equipment.json';
+import equipmentSetsJson from '../data/equipment-sets.json';
+import equipmentRulesJson from '../data/equipment-rules.json';
 import assetBundlesJson from '../data/asset-bundles.json';
 import contentVersionJson from '../data/content-version.json';
 import { STAT_KEYS, RUN_UPGRADE_STAT_KEYS, WEAPON_MODIFIER_STAT_KEYS } from '../gameplay/stats';
@@ -70,11 +73,12 @@ import type {
   DifficultyProfile,
   RewardProfile,
   AssetBundleDefinition,
+  VisualTextureResource,
 } from './types';
 import type { AchievementDefinition } from '../gameplay/achievementSystem';
 import type { PartDefinition } from '../gameplay/gunsmith';
 import type { AbilityDefinition } from '../gameplay/abilities';
-import type { EquipmentDefinition } from '../gameplay/equipment';
+import type { EquipmentDefinition, EquipmentSetDefinition, EquipmentUpgradeRules } from '../gameplay/equipment';
 import { isEliteBaseEnemyDefinition, isSpawnableEnemyDefinition } from './types';
 import { CHARACTER_PASSIVE_EVENTS } from './types';
 import { isContentId, isUnlockId } from './ids';
@@ -96,10 +100,10 @@ import {
 } from './validation/stages';
 import { checkAchievement, assertAchievementMetricReferences, assertUniqueAchievementPlatformMappings, assertAchievementEquipmentGrantReferences, assertNoSelfReferentialAchievementConditions, assertAchievementGrantAndConditionReferences } from './validation/achievements';
 import { registeredMetricIds } from './achievements';
-import { checkPart, assertPartEffectSources, assertPartArtReferences } from './validation/parts';
+import { checkPart, assertPartArtReferences } from './validation/parts';
 import { checkAbility } from './validation/abilities';
 import { validateProgressionCondition } from '../gameplay/conditionValidation';
-import { checkEquipment, assertEquipmentEffectSources, assertEquipmentSetBonuses, assertEquipmentUpgradeUnlockReferences, assertEquipmentArtReferences } from './validation/equipment';
+import { checkEquipment, checkEquipmentSet, checkEquipmentRules, assertEquipmentArtReferences, assertEquipmentSetMembership, assertEquipmentRuleReferences } from './validation/equipment';
 import { checkAssetBundle, assertStageAssetBundleReferences } from './validation/assetBundles';
 import { findEdgeLaneWitness, findRectWitness, findRingWitness } from '../gameplay/spawnRegion';
 import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
@@ -194,14 +198,14 @@ const MAX_AUDIO_MUSIC = 8;
 const MAX_AUDIO_MAP_ENTRIES = 64;
 const MAX_AUDIO_COOLDOWN_MS = 60_000;
 const MAX_AUDIO_FADE_MS = 10_000;
-const MAX_VISUAL_ART_BINDINGS = 256;
+const MAX_VISUAL_ART_BINDINGS = 1024;
 const MAX_VISUAL_ART_CLIPS = 16;
 const VISUAL_ART_ROOT_FIELDS = new Set(['bindings']);
 const VISUAL_ART_BINDING_FIELDS = new Set([
-  'id', 'kind', 'textureKey', 'url', 'required', 'sampling', 'load', 'display', 'clips',
+  'id', 'kind', 'resourceId', 'frameKey', 'required', 'display', 'clips',
 ]);
-const VISUAL_ART_IMAGE_LOAD_FIELDS = new Set(['type']);
-const VISUAL_ART_SPRITESHEET_LOAD_FIELDS = new Set(['type', 'frame']);
+const VISUAL_RESOURCE_FIELDS = new Set(['id', 'textureKey', 'sampling', 'load']);
+const VISUAL_RESOURCE_LOAD_FIELDS = new Set(['type', 'imageUrl', 'dataUrl', 'frameWidth', 'frameHeight']);
 const VISUAL_ART_DIMENSION_FIELDS = new Set(['width', 'height']);
 const VISUAL_ART_CLIP_FIELDS = new Set(['start', 'end', 'frameRate', 'repeat']);
 const VISUAL_ART_KINDS = new Set([
@@ -370,6 +374,14 @@ export const CATALOG_DESCRIPTORS = [
     validateRows: validateVisualArtCatalog,
   },
   {
+    key: 'visualResources',
+    file: 'visual-resources.json',
+    rootKey: 'visualResources',
+    data: visualResourcesJson,
+    read: (raw) => readOwnField(raw, 'visualResources'),
+    validateRows: (rows): VisualTextureResource[] => validateVisualTextureResources(rows),
+  },
+  {
     key: 'assetBundles',
     file: 'asset-bundles.json',
     rootKey: 'assetBundles',
@@ -466,6 +478,28 @@ export const CATALOG_DESCRIPTORS = [
     validateRows: (rows): EquipmentDefinition[] => {
       throwIfErrors(jsonSafetyErrors(rows, 'equipment.json'));
       return validate<EquipmentDefinition>('equipment.json', rows, checkEquipment);
+    },
+  },
+  {
+    key: 'equipmentSets',
+    file: 'equipment-sets.json',
+    rootKey: 'equipmentSets',
+    data: equipmentSetsJson,
+    read: (raw) => readOwnField(raw, 'equipmentSets'),
+    validateRows: (rows): EquipmentSetDefinition[] => {
+      throwIfErrors(jsonSafetyErrors(rows, 'equipment-sets.json'));
+      return validate<EquipmentSetDefinition>('equipment-sets.json', rows, checkEquipmentSet);
+    },
+  },
+  {
+    key: 'equipmentRules',
+    file: 'equipment-rules.json',
+    rootKey: 'equipmentRules',
+    data: equipmentRulesJson,
+    read: (raw) => readOwnField(raw, 'equipmentRules'),
+    validateRows: (rows): EquipmentUpgradeRules => {
+      throwIfErrors(jsonSafetyErrors(rows, 'equipment-rules.json'));
+      return validateEquipmentRules(rows);
     },
   },
 ] as const satisfies readonly CatalogDescriptor[];
@@ -605,12 +639,15 @@ export function validateGameData(raw: unknown): GameData {
   const audioAssets = catalogs['audio-assets'] as AudioAssetCatalog;
   const audioMap = catalogs['audio-map'] as AudioMapEntry[];
   const visualArt = catalogs.visualArt as VisualArtCatalog;
+  const visualResources = catalogs.visualResources as VisualTextureResource[];
   const assetBundles = catalogs.assetBundles as AssetBundleDefinition[];
   const stages = catalogs.stages as StageDefinition[];
   const encounterProfiles = catalogs.encounterProfiles as EncounterProfile[];
   const difficultyProfiles = catalogs.difficultyProfiles as DifficultyProfile[];
   const rewardProfiles = catalogs.rewardProfiles as RewardProfile[];
   const achievements = catalogs.achievements as AchievementDefinition[];
+  const equipmentSets = catalogs.equipmentSets as EquipmentSetDefinition[];
+  const equipmentRules = catalogs.equipmentRules as EquipmentUpgradeRules;
 
   assertSpawnReferences(spawnCurves, enemies);
   assertCharacterWeaponReferences(characters, weapons);
@@ -638,7 +675,8 @@ export function validateGameData(raw: unknown): GameData {
   const rewardProfileIdSet = new Set(rewardProfiles.map((rp) => rp.id));
 
   assertStageArenaReferences(stages, arenaIds);
-  assertStageAssetBundleReferences(stages, assetBundles, visualArt, arenas);
+  assertVisualResourceReferences(visualArt, visualResources);
+  assertStageAssetBundleReferences(stages, assetBundles, visualArt, visualResources, arenas);
   assertStageEncounterReferences(stages, encounterProfileIdSet);
   assertStageDifficultyReferences(stages, difficultyProfileIdSet);
   assertStageRewardReferences(stages, rewardProfileIdSet);
@@ -668,7 +706,6 @@ export function validateGameData(raw: unknown): GameData {
   assertAchievementGrantAndConditionReferences(achievements, { stageIds: stageIdSet, bossIds: enemyIdSet, characterIds: new Set(characters.map((c) => `character:${c.id}`)), partIds: new Set((catalogs['gun-parts'] as PartDefinition[]).map((p) => p.id)), traitIds: new Set((catalogs['gun-parts'] as PartDefinition[]).flatMap((p) => p.traits.map((t) => `trait:${t.toLowerCase()}`))), equipmentIds: new Set((catalogs.equipment as EquipmentDefinition[]).map((e) => e.id)), achievementIds: new Set(achievements.map((a) => a.id)), metaUpgradeIds: new Set(metaUpgrades.map((u) => u.id)) });
 
   // Epic 23: gun-part effect sources (appended, preserving frozen order).
-  assertPartEffectSources(catalogs['gun-parts'] as PartDefinition[]);
   assertPartArtReferences(catalogs['gun-parts'] as PartDefinition[], visualArt);
 
   // Epic 24: character ability references resolve against the ability catalog.
@@ -679,20 +716,12 @@ export function validateGameData(raw: unknown): GameData {
     }
   }
 
-  // Epic 25: equipment effect sources (appended, preserving frozen order).
-  assertEquipmentEffectSources(catalogs.equipment as EquipmentDefinition[]);
-  assertEquipmentArtReferences(catalogs.equipment as EquipmentDefinition[], visualArt);
-  assertEquipmentSetBonuses(catalogs.equipment as EquipmentDefinition[]);
-  assertEquipmentUpgradeUnlockReferences(catalogs.equipment as EquipmentDefinition[], {
-    stageIds: stageIdSet,
-    bossIds: enemyIdSet,
-    achievementIds: new Set(achievements.map((achievement) => achievement.id)),
-    characterIds: new Set(characters.map((character) => `character:${character.id}`)),
-    metaUpgradeIds: new Set(metaUpgrades.map((upgrade) => upgrade.id)),
-  });
+  assertEquipmentArtReferences(catalogs.equipment as EquipmentDefinition[], equipmentSets, visualArt);
+  assertEquipmentSetMembership(catalogs.equipment as EquipmentDefinition[], equipmentSets);
+  assertEquipmentRuleReferences(equipmentRules, { stageIds: stageIdSet, bossIds: enemyIdSet });
 
   const audio: AudioData = { assets: audioAssets, map: audioMap };
-  return withContentVersion({ weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, assetBundles, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements, gunParts: catalogs['gun-parts'] as PartDefinition[], abilities: catalogs.abilities as AbilityDefinition[], equipment: catalogs.equipment as EquipmentDefinition[] }, suppliedContentVersion ?? contentVersionJson);
+  return withContentVersion({ weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, visualResources, assetBundles, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements, gunParts: catalogs['gun-parts'] as PartDefinition[], abilities: catalogs.abilities as AbilityDefinition[], equipment: catalogs.equipment as EquipmentDefinition[], equipmentSets, equipmentRules }, suppliedContentVersion ?? contentVersionJson);
 }
 
 function withContentVersion(data: Omit<GameData, 'contentVersion'>, raw: unknown): GameData {
@@ -861,6 +890,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
   const audioAssets = catalogs['audio-assets'] as AudioAssetCatalog;
   const audioMap = catalogs['audio-map'] as AudioMapEntry[];
   const visualArt = catalogs.visualArt as VisualArtCatalog;
+  const visualResources = catalogs.visualResources as VisualTextureResource[];
   const assetBundles = catalogs.assetBundles as AssetBundleDefinition[];
 
   const crossReferenceIssues: ValidationIssue[] = [];
@@ -877,9 +907,9 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertArenaVisualReferences(arenas, visualArt),
     () => assertUpgradeWeaponFamilyReferences(upgrades, weapons),
     () => assertUpgradeArtReferences(upgrades, visualArt),
-    () => assertStageAssetBundleReferences(catalogs.stages as StageDefinition[], assetBundles, visualArt, arenas),
+    () => assertStageAssetBundleReferences(catalogs.stages as StageDefinition[], assetBundles, visualArt, visualResources, arenas),
     () => assertPartArtReferences(catalogs['gun-parts'] as PartDefinition[], visualArt),
-    () => assertEquipmentArtReferences(catalogs.equipment as EquipmentDefinition[], visualArt),
+    () => assertEquipmentArtReferences(catalogs.equipment as EquipmentDefinition[], catalogs.equipmentSets as EquipmentSetDefinition[], visualArt),
   ];
   for (const assertion of assertions) {
     try {
@@ -999,6 +1029,20 @@ export function validateEquipmentCatalog(raw: unknown): EquipmentDefinition[] {
   const equipment = validate<EquipmentDefinition>('equipment.json', raw, checkEquipment);
   assertUniqueIds('equipment.json', equipment);
   return equipment;
+}
+
+export function validateEquipmentSetCatalog(raw: unknown): EquipmentSetDefinition[] {
+  throwIfErrors(jsonSafetyErrors(raw, 'equipment-sets.json'));
+  const sets = validate<EquipmentSetDefinition>('equipment-sets.json', raw, checkEquipmentSet);
+  assertUniqueIds('equipment-sets.json', sets);
+  return sets;
+}
+
+export function validateEquipmentRules(raw: unknown): EquipmentUpgradeRules {
+  throwIfErrors(jsonSafetyErrors(raw, 'equipment-rules.json'));
+  const errors = checkEquipmentRules(raw, 0);
+  if (errors.length) throw new Error(`equipment-rules.json[0]: ${errors[0]}`);
+  return raw as EquipmentUpgradeRules;
 }
 
 export function validateArenaCatalog(raw: unknown): ArenaDefinition[] {
@@ -3014,10 +3058,6 @@ export function assertActorAndDropArtReferences(
       return;
     }
     if (!binding.required) errors.push(`${path}: actor art must be required`);
-    if (binding.load.type !== 'spritesheet') {
-      errors.push(`${path}: actor art must be a spritesheet`);
-      return;
-    }
     for (const [clipName, expected] of Object.entries(actorClips)) {
       const clip = binding.clips?.[clipName];
       if (!clip) {
@@ -3047,7 +3087,7 @@ export function assertActorAndDropArtReferences(
       errors.push(`${path}: expected drop binding, got ${binding.kind}`);
     } else {
       if (!binding.required) errors.push(`${path}: pickup art must be required`);
-      if (binding.load.type !== 'spritesheet' || !binding.clips?.idle) {
+      if (!binding.clips?.idle) {
         errors.push(`${path}: pickup art must provide an idle spritesheet clip`);
       }
     }
@@ -3117,7 +3157,6 @@ export function validateVisualArtCatalog(raw: unknown): VisualArtCatalog {
   }
 
   const ids = new Map<string, number>();
-  const textureKeys = new Map<string, number>();
   if (Array.isArray(bindings)) {
     bindings.forEach((binding, index) => {
       const prefix = `bindings[${index}]`;
@@ -3129,20 +3168,14 @@ export function validateVisualArtCatalog(raw: unknown): VisualArtCatalog {
       rejectUnknownFields(binding, VISUAL_ART_BINDING_FIELDS, rowErrors);
       requireString(binding, 'id', rowErrors);
       requireString(binding, 'kind', rowErrors);
-      requireString(binding, 'textureKey', rowErrors);
-      requireString(binding, 'url', rowErrors);
+      requireString(binding, 'resourceId', rowErrors);
 
       const id = readOwnField(binding, 'id');
       const kind = readOwnField(binding, 'kind');
-      const textureKey = readOwnField(binding, 'textureKey');
-      const url = readOwnField(binding, 'url');
+      const resourceId = readOwnField(binding, 'resourceId');
       const required = readOwnField(binding, 'required');
-      const sampling = readOwnField(binding, 'sampling');
       if (required !== true && required !== false) {
         rowErrors.push('required: required boolean');
-      }
-      if (sampling !== 'nearest' && sampling !== 'linear') {
-        rowErrors.push('sampling: must be nearest or linear');
       }
       if (typeof id === 'string' &&
           (id.length > 128 || !/^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)+$/.test(id))) {
@@ -3153,46 +3186,11 @@ export function validateVisualArtCatalog(raw: unknown): VisualArtCatalog {
       } else if (typeof id === 'string' && !id.startsWith(`${kind}:`)) {
         rowErrors.push('kind: must match id prefix');
       }
-      if (typeof textureKey === 'string') {
-        if (!/^[a-z0-9][a-z0-9-]{0,95}$/.test(textureKey)) {
-          rowErrors.push('textureKey: invalid bounded kebab-case key');
-        }
-        const first = textureKeys.get(textureKey);
-        if (first !== undefined) rowErrors.push(`textureKey: duplicate first seen at index ${first}`);
-        else textureKeys.set(textureKey, index);
-      }
+      if (typeof resourceId !== 'string' || !/^resource:[a-z0-9][a-z0-9-]*$/.test(resourceId)) rowErrors.push('resourceId: must be a canonical visual resource ID');
       if (typeof id === 'string') {
         const first = ids.get(id);
         if (first !== undefined) rowErrors.push(`id: duplicate first seen at index ${first}`);
         else ids.set(id, index);
-      }
-      if (typeof url === 'string' &&
-          (url.length > 256 || !/^assets\/[a-z0-9][a-z0-9/-]*\.png$/.test(url))) {
-        rowErrors.push('url: must be a relative assets PNG path');
-      }
-
-      const load = readOwnField(binding, 'load');
-      const loadType = isRecord(load) ? readOwnField(load, 'type') : undefined;
-      if (!isRecord(load)) {
-        rowErrors.push('load: required object');
-      } else if (loadType === 'image') {
-        rejectUnknownFields(load, VISUAL_ART_IMAGE_LOAD_FIELDS, rowErrors, 'load');
-      } else if (loadType === 'spritesheet') {
-        const loadErrors: string[] = [];
-        rejectUnknownFields(load, VISUAL_ART_SPRITESHEET_LOAD_FIELDS, loadErrors);
-        const frame = readOwnField(load, 'frame');
-        if (!isRecord(frame)) {
-          loadErrors.push('frame: required object');
-        } else {
-          const frameErrors: string[] = [];
-          rejectUnknownFields(frame, VISUAL_ART_DIMENSION_FIELDS, frameErrors);
-          requireIntegerInRange(frame, 'width', 1, 2048, frameErrors);
-          requireIntegerInRange(frame, 'height', 1, 2048, frameErrors);
-          loadErrors.push(...frameErrors.map((error) => `frame.${error}`));
-        }
-        rowErrors.push(...loadErrors.map((error) => `load.${error}`));
-      } else {
-        rowErrors.push('load.type: must be image or spritesheet');
       }
 
       const display = readOwnField(binding, 'display');
@@ -3210,9 +3208,6 @@ export function validateVisualArtCatalog(raw: unknown): VisualArtCatalog {
       if (clips !== undefined && !isRecord(clips)) {
         rowErrors.push('clips: expected object');
       } else if (isRecord(clips)) {
-        if (loadType !== 'spritesheet') {
-          rowErrors.push('clips: allowed only for spritesheet loads');
-        }
         if (Object.keys(clips).length > MAX_VISUAL_ART_CLIPS) {
           rowErrors.push(`clips: exceeds maximum ${MAX_VISUAL_ART_CLIPS}`);
         }
@@ -3241,7 +3236,7 @@ export function validateVisualArtCatalog(raw: unknown): VisualArtCatalog {
         }
       }
       if ((kind === 'character' || kind === 'enemy') &&
-          (loadType !== 'spritesheet' || !isRecord(clips) || !isRecord(clips.idle) || !isRecord(clips.run))) {
+          (!isRecord(clips) || !isRecord(clips.idle) || !isRecord(clips.run))) {
         rowErrors.push('clips: character and enemy bindings require idle and run');
       }
       errors.push(...rowErrors.map((error) => `${prefix}.${error}`));
@@ -3249,6 +3244,44 @@ export function validateVisualArtCatalog(raw: unknown): VisualArtCatalog {
   }
   throwIfErrors(errors.map((error) => `visual-art.json.${error}`));
   return raw as unknown as VisualArtCatalog;
+}
+
+export function validateVisualTextureResources(raw: unknown): VisualTextureResource[] {
+  if (!Array.isArray(raw)) throw new Error('Invalid game data:\nvisual-resources.json: expected array');
+  const ids = new Set<string>(); const keys = new Set<string>(); const errors: string[] = [];
+  raw.forEach((row, index) => {
+    const path = `visual-resources.json[${index}]`;
+    if (!isRecord(row)) { errors.push(`${path}: expected object`); return; }
+    const rowErrors: string[] = []; rejectUnknownFields(row, VISUAL_RESOURCE_FIELDS, rowErrors);
+    const id = readOwnField(row, 'id'); const key = readOwnField(row, 'textureKey'); const sampling = readOwnField(row, 'sampling'); const load = readOwnField(row, 'load');
+    if (typeof id !== 'string' || !/^resource:[a-z0-9][a-z0-9-]*$/.test(id) || ids.has(id)) rowErrors.push('id: invalid or duplicate resource ID'); else ids.add(id);
+    if (typeof key !== 'string' || !/^[a-z0-9][a-z0-9-]{0,95}$/.test(key) || keys.has(key)) rowErrors.push('textureKey: invalid or duplicate'); else keys.add(key);
+    if (sampling !== 'nearest' && sampling !== 'linear') rowErrors.push('sampling: must be nearest or linear');
+    if (!isRecord(load)) rowErrors.push('load: required object'); else {
+      rejectUnknownFields(load, VISUAL_RESOURCE_LOAD_FIELDS, rowErrors, 'load');
+      const type = readOwnField(load, 'type'); const imageUrl = readOwnField(load, 'imageUrl');
+      if (type !== 'image' && type !== 'atlas' && type !== 'spritesheet') rowErrors.push('load.type: must be image, atlas or spritesheet');
+      if (typeof imageUrl !== 'string' || !/^assets\/[a-z0-9][a-z0-9/-]*\.png$/.test(imageUrl)) rowErrors.push('load.imageUrl: must be a relative assets PNG path');
+      if (type === 'atlas' && typeof readOwnField(load, 'dataUrl') !== 'string') rowErrors.push('load.dataUrl: atlas requires dataUrl');
+      if (type === 'spritesheet') { requireIntegerInRange(load, 'frameWidth', 1, 2048, rowErrors); requireIntegerInRange(load, 'frameHeight', 1, 2048, rowErrors); }
+    }
+    errors.push(...rowErrors.map((error) => `${path}.${error}`));
+  });
+  throwIfErrors(errors); return raw as VisualTextureResource[];
+}
+
+export function assertVisualResourceReferences(catalog: VisualArtCatalog, resources: readonly VisualTextureResource[]): void {
+  const byId = new Map(resources.map((resource) => [resource.id, resource]));
+  const referenced = new Set<string>();
+  for (const binding of catalog.bindings) {
+    const resource = binding.resourceId === undefined ? undefined : byId.get(binding.resourceId);
+    if (!resource) throw new Error(`visual-art.json.${binding.id}: resourceId "${binding.resourceId}" not found in visual-resources catalog`);
+    referenced.add(resource.id);
+    if (binding.frameKey !== undefined && resource.load.type !== 'atlas') throw new Error(`visual-art.json.${binding.id}: frameKey requires an atlas resource`);
+    if (binding.frameKey === undefined && resource.load.type === 'atlas') throw new Error(`visual-art.json.${binding.id}: atlas resource requires frameKey`);
+    if (binding.clips !== undefined && resource.load.type !== 'spritesheet') throw new Error(`visual-art.json.${binding.id}: clips require a spritesheet resource`);
+  }
+  for (const resource of resources) if (!referenced.has(resource.id)) throw new Error(`visual-resources.json.${resource.id}: unreferenced physical resource`);
 }
 
 function rejectUnknownFields(row: Record<string, unknown>, allowed: ReadonlySet<string>, errors: string[], prefix = ''): void {

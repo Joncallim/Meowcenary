@@ -146,7 +146,9 @@ describe('Epic 26 deterministic progression balance simulation', () => {
       loadout: {},
     }));
     expect(clearSelectedStage(harness, 120_000)).toBe('stage:junkyard-02');
-    // V4 firstClearScrap: stage-01=35, stage-02=45, total=80. Supplement to reach upgrade cost.
+    // V4 equipment-rules owns the Tier 2 gate, at stage three.
+    expect(clearSelectedStage(harness, 120_000)).toBe('stage:junkyard-03');
+    // Supplement the profile-owned first-clear rewards to reach upgrade cost.
     const scrapFromStages = context.saveData.progression.scrap;
     if (scrapFromStages < upgradeCost(1)) {
       context.updateMeta((meta) => ({ ...meta, scrap: scrapFromStages + (upgradeCost(1) - scrapFromStages) }));
@@ -178,6 +180,7 @@ describe('Epic 26 deterministic progression balance simulation', () => {
     }));
     const signatures = new Set<string>();
     const definitions = new Map((context.data.equipment ?? []).map((definition) => [definition.id, definition] as const));
+    const equipmentSets = new Map((context.data.equipmentSets ?? []).map((set) => [set.id, set] as const));
     const owned = new Map(Object.entries(context.saveData.equipment).map(([instanceId, item]) => [
       instanceId,
       { instanceId, equipmentId: item.equipmentId, tier: item.tier },
@@ -196,7 +199,7 @@ describe('Epic 26 deterministic progression balance simulation', () => {
           if (def) equipped[def.slot] = instanceId;
         }
       }
-      const modifiers = resolveEquipmentModifiers({ equipped }, definitions, owned)
+      const modifiers = resolveEquipmentModifiers({ equipped }, definitions, equipmentSets, owned)
         .map((modifier) => `${modifier.stat}:${modifier.op}:${modifier.value}`).sort();
       // The definition-backed effects and set bonuses are resolved by the
       // same loadout function that GameScene consumes on a new run.

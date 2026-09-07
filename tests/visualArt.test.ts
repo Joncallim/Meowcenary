@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { RendererKind } from '../src/systems/types';
+import type { RendererKind, VisualTextureResource } from '../src/systems/types';
+import { DataVisualArtRegistry } from '../src/systems/visualArt';
 
 describe('Visual Art Architecture', () => {
   it('RendererKind describes rendering capability, not content owner', () => {
@@ -26,5 +27,20 @@ describe('Visual Art Architecture', () => {
     expect(resourceId).toBeTruthy();
     expect(textureKey).toBeTruthy();
     expect(frameKey).toBeTruthy();
+  });
+
+  it('preserves a logical named atlas frame through the production registry', () => {
+    const resources: VisualTextureResource[] = [{
+      id: 'resource:ui-equipment', textureKey: 'art-ui-equipment', sampling: 'nearest',
+      load: { type: 'atlas', imageUrl: 'assets/ui/equipment.png', dataUrl: 'assets/ui/equipment.json' },
+    }];
+    const registry = new DataVisualArtRegistry({
+      visualArt: { bindings: [{ id: 'upgrade-icon:helmet', kind: 'upgrade-icon', resourceId: 'resource:ui-equipment', frameKey: 'helmet', required: true, display: { width: 16, height: 16 } }] },
+      visualResources: resources,
+    });
+    const resolved = registry.bindingById('upgrade-icon:helmet');
+    expect(resolved?.load.type).toBe('atlas');
+    expect(resolved?.frameKey).toBe('helmet');
+    expect(resolved?.textureKey).toBe('art-ui-equipment');
   });
 });

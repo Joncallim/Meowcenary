@@ -123,15 +123,16 @@ describe('MainMenuController', () => {
 
     context.updateMeta((meta) => ({ ...meta, scrap: 100 }));
     expect(context.completeStage('stage:junkyard-02', 1)).toBe(true);
+    expect(context.completeStage('stage:junkyard-03', 1)).toBe(true);
     context.updateEquipment(() => ({
       equipment: { helmet: { equipmentId: 'equipment:commando-helmet', tier: 1 } }, loadout: {},
     }));
     expect(controller.open('equipment').equipment.owned).toHaveLength(1);
-    expect(controller.open('equipment').equipment.owned[0]).toMatchObject({ setId: 'set:commando', iconArtId: 'upgrade-icon:smg-overclock', effectSummary: ['Fire rate 5%'] });
+    expect(controller.open('equipment').equipment.owned[0]).toMatchObject({ setId: 'set:commando', effectSummary: ['attackSpeed 5%'] });
     expect(controller.equipEquipment('helmet').equipment.equipped.helmet).toBe('helmet');
-    expect(controller.snapshot().equipment.activeSets).toMatchObject([{ setId: 'set:commando', pieces: 1, activeThresholds: [], bonusSummary: expect.arrayContaining(['2-piece: Fire rate 10%']) }]);
+    expect(controller.snapshot().equipment.activeSets).toMatchObject([{ setId: 'set:commando', pieces: 1, activeThresholds: [], bonusSummary: [] }]);
     expect(controller.upgradeEquipment('helmet').equipment.owned[0].tier).toBe(2);
-    expect(controller.snapshot().equipment.owned[0].effectSummary).toEqual(['Fire rate 10%']);
+    expect(controller.snapshot().equipment.owned[0].effectSummary).toEqual(['attackSpeed 10%']);
     // The stage command now banks its profile-owned first-clear reward.
     expect(controller.snapshot().progressionOverview.completedStages).toBeGreaterThanOrEqual(1);
   });

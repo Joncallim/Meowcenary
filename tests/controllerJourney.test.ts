@@ -32,7 +32,7 @@ if (!import.meta.url.includes('?as-harness')) {
         controller: { snapshot: () => import('../src/ui/menus').MainMenuSnapshot };
       }).controller.snapshot();
 
-    // 1. Menu home: navDown, confirm → Character.
+    // 1. Menu home: navDown, confirm → Mercenary/Character.
     let sceneBefore = sceneCommands(menu.scene);
     menu.press(13);
     expect(menu.events).toEqual(['ui:navigate']);
@@ -53,13 +53,13 @@ if (!import.meta.url.includes('?as-harness')) {
     expect(menuSnapshot().panel).toBe('character');
     menu.press(1);
     expect(menu.events).toEqual(['ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back']);
-    expect(menu.textContents()).toContain('Start');
+    expect(menu.textContents()).toContain('Play Contract');
     expect(menuSnapshot().panel).toBe('home');
     sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 2');
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
     assertZeroPointerCalls(menu.pointerCalls, 'menu step 2');
 
-    // 3. Home (panel reset): navDown, navDown, confirm → Arena.
+    // 3. Home (panel reset): navDown, navDown, confirm → Loadout/Equipment.
     menu.press(13);
     menu.press(13);
     expect(menu.events).toEqual([
@@ -69,23 +69,17 @@ if (!import.meta.url.includes('?as-harness')) {
     expect(menu.events).toEqual([
       'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm',
     ]);
-    expect(menu.textContents()).toContain('Choose Arena');
-    expect(menuSnapshot().panel).toBe('arena');
+    expect(menu.textContents()).toContain('Equipment');
+    expect(menuSnapshot().panel).toBe('equipment');
     sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 3');
     assertZeroPointerCalls(menu.pointerCalls, 'menu step 3');
 
-    // 4. Arena: confirm the visible default, then back → Home.
+    // 4. An empty Equipment surface exposes only Back; confirm returns Home.
     menu.press(0);
     expect(menu.events).toEqual([
-      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm',
+      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:back',
     ]);
-    expect(menu.textContents()).toContain('Choose Arena');
-    expect(menuSnapshot().panel).toBe('arena');
-    menu.press(1);
-    expect(menu.events).toEqual([
-      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back',
-    ]);
-    expect(menu.textContents()).toContain('Start');
+    expect(menu.textContents()).toContain('Play Contract');
     expect(menuSnapshot().panel).toBe('home');
     sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 4');
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
@@ -95,7 +89,7 @@ if (!import.meta.url.includes('?as-harness')) {
     //    restart (F3).
     menu.press(0);
     expect(menu.events).toEqual([
-      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:confirm',
+      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:back', 'ui:confirm',
     ]);
     sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 5', { start: 1 });
     expect(menu.sceneStart).toHaveBeenCalledWith(SceneKey.Game);

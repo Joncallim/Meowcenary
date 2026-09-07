@@ -4,9 +4,8 @@ import { loadGameData, validateGameData } from '../src/systems/validation';
 import { DataPartRegistry } from '../src/systems/parts';
 import {
   BEHAVIOR_TRAITS,
-  MAX_TRAITS_PER_PART,
+  MAX_EFFECTIVE_TRAITS_PER_PART,
   PART_SLOTS,
-  WEAPON_SLOT_COMPATIBILITY,
   buildHasTrait,
   compatibleSlotsFor,
   equipPart,
@@ -58,13 +57,13 @@ describe('Epic 23 part catalog conformance', () => {
     for (const d of definitions) {
       expect(PART_SLOTS).toContain(d.slot);
       for (const trait of d.traits) expect(BEHAVIOR_TRAITS).toContain(trait);
-      expect(d.traits.length).toBeLessThanOrEqual(MAX_TRAITS_PER_PART);
+      expect(d.traits.length).toBeLessThanOrEqual(MAX_EFFECTIVE_TRAITS_PER_PART);
     }
   });
 
-  it('effect sourceIds equal the owning part id', () => {
+  it('ships source-free static modifier specs', () => {
     for (const d of definitions) {
-      for (const effect of d.effects) expect(effect.sourceId).toBe(d.id);
+      for (const effect of d.effects) expect('sourceId' in effect).toBe(false);
     }
   });
 
@@ -156,14 +155,14 @@ describe('Epic 23 merge (exactly documented inputs/outputs)', () => {
     expect(mergeParts(single, single, defMap)).toMatchObject({ ok: false, reason: 'missing-parts' });
   });
 
-  it('merge unions and caps infused traits', () => {
+  it('merge unions traits losslessly in canonical order', () => {
     const first = { ...part('part:barrel-standard'), infusedTraits: ['FIRE'] as const };
     const second = { ...part('part:barrel-standard'), infusedTraits: ['FIRE', 'EXPLOSIVE'] as const };
     const result = mergeParts(first, second, defMap);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.output.infusedTraits).toEqual(['FIRE', 'EXPLOSIVE']);
-      expect(result.output.infusedTraits.length).toBeLessThanOrEqual(MAX_TRAITS_PER_PART);
+      expect(result.output.infusedTraits).toEqual(['EXPLOSIVE', 'FIRE']);
+      expect(result.output.infusedTraits.length).toBeLessThanOrEqual(MAX_EFFECTIVE_TRAITS_PER_PART);
     }
   });
 
@@ -319,7 +318,7 @@ describe('Epic 23 persistence round-trip', () => {
     expect(build.traitParts).toEqual([]);
   });
 
-  it('defaults an unknown weapon family and drops slots that family cannot own', () => {
+  it('preserves an unavailable weapon family without silently retargeting the build', () => {
     const save = createDefaultSaveV4();
     const storage = new MemoryStorageAdapter();
     const manager = new SaveManager(storage, 'test', {});
@@ -337,8 +336,8 @@ describe('Epic 23 persistence round-trip', () => {
       },
     });
     const build = manager.load().gunsmith.builds[0]!;
-    expect(build.baseWeaponFamily).toBe('pistol');
-    expect(build.fitted).toEqual({ barrel: 'inst-barrel' });
+    expect(build.baseWeaponFamily).toBe('laser');
+    expect(build.fitted).toEqual({});
   });
 
   it('migrates a legacy definition reference only when exactly one owned instance matches', () => {
@@ -382,9 +381,8 @@ describe('Epic 23 second-fixture proof (data-only extensibility)', () => {
       name: 'Proof Sight',
       slot: 'optic',
       rarity: 'rare',
-      tier: 3,
       presentation: { iconArtId: 'upgrade-icon:pistol-deadeye' },
-      effects: [{ stat: 'range', op: 'add', value: 20, sourceId: 'part:proof-sight' }],
+      effects: [{ stat: 'range', op: 'add', value: 20 }],
       traits: [],
     };
     const defs = new Map(defMap);
@@ -407,12 +405,11 @@ describe('Epic 23 second-fixture proof (data-only extensibility)', () => {
       name: 'Proof Stock',
       slot: 'stock',
       rarity: 'common',
-      tier: 1,
       presentation: { iconArtId: 'upgrade-icon:run-and-gun' },
-      effects: [{ stat: 'spreadDeg', op: 'add', value: -1, sourceId: 'part:proof-stock' }],
+      effects: [{ stat: 'spreadDeg', op: 'add', value: -1 }],
       traits: [],
     }] });
     expect(registry.partById('part:proof-stock')?.slot).toBe('stock');
-    expect(WEAPON_SLOT_COMPATIBILITY.smg).toContain('stock');
+    expect(compatibleSlotsFor('smg')).toContain('stock');
   });
 });

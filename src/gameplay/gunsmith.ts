@@ -11,9 +11,10 @@
  * IDs are never special-cased — rules operate on slot/effect/trait
  * primitives only.
  */
-import type { Modifier } from './stats';
+import { scaleModifierByTier, type Modifier, type ModifierSpec } from './stats';
 import type { ProjectileEffect } from './projectileEffects';
 import type { ProgressionCondition } from './conditionEvaluator';
+import { isSlotCompatible as familySlotCompatible, getFamilySlots } from './weaponFamilies';
 
 export type PartSlot =
   | 'receiver'
@@ -36,7 +37,10 @@ export const BEHAVIOR_TRAITS: readonly BehaviorTrait[] = [
 ] as const;
 
 /** Trait infusion caps: how many behavior traits a single part may carry. */
-export const MAX_TRAITS_PER_PART = 2;
+/** A non-trait part may expose this many native + infused behaviours. */
+export const MAX_EFFECTIVE_TRAITS_PER_PART = 2;
+/** Trait-core chassis capacity is intentionally distinct from the effective cap. */
+export const MAX_TRAIT_CORES_PER_BUILD = 2;
 /** Rarity ladder used for merge tiers. */
 export const RARITY_TIER: Readonly<Record<string, number>> = Object.freeze({
   common: 1,
@@ -82,13 +86,15 @@ export interface PartDefinition {
   readonly name: string;
   readonly slot: PartSlot;
   readonly rarity: string;
-  readonly tier: number;
-  readonly effects: readonly Modifier[];
+  readonly effects: readonly ModifierSpec[];
   readonly traits: readonly BehaviorTrait[];
   /** Shared progression gate; absent means the part may be awarded normally. */
   readonly unlock?: ProgressionCondition;
   /** Explicit reward/drop pool membership. Never infer a global pool. */
   readonly rewardPoolId?: string;
+  /** Absence makes a reward-only part non-reacquirable through the generic
+   * fabrication availability policy; no content-ID exception is needed. */
+  readonly fabricationCost?: number;
   /** Canonical manifest reference; definitions never carry renderer paths. */
   readonly presentation: { readonly iconArtId: string };
 }
@@ -113,21 +119,12 @@ export interface WeaponBuild {
 
 // ── Slot compatibility ────────────────────────────────────────────────
 
-/** Canonical weapon-slot compatibility: which part slots a family accepts. */
-export const WEAPON_SLOT_COMPATIBILITY: Readonly<Record<string, readonly PartSlot[]>> = {
-  pistol: ['receiver', 'barrel', 'optic', 'trigger'],
-  smg: ['receiver', 'barrel', 'optic', 'stock', 'trigger', 'magazine'],
-  shotgun: ['receiver', 'barrel', 'optic', 'stock', 'trigger', 'underbarrel'],
-} as const;
-
 export function isSlotCompatible(family: string, slot: PartSlot): boolean {
-  // Trait parts fit every weapon (the infusion fantasy is universal).
-  if (slot === 'trait') return true;
-  return (WEAPON_SLOT_COMPATIBILITY[family] ?? []).includes(slot);
+  return familySlotCompatible(family, slot);
 }
 
 export function compatibleSlotsFor(family: string): readonly PartSlot[] {
-  return WEAPON_SLOT_COMPATIBILITY[family] ?? [];
+  return getFamilySlots(family);
 }
 
 // ── Pure commands ─────────────────────────────────────────────────────
@@ -154,8 +151,8 @@ export function equipPart(
     return { ok: false, reason: 'slot-full' };
   }
   if (definition.slot === 'trait') {
-    // Trait parts accumulate in traitParts (capped by MAX_TRAITS_PER_PART).
-    if (build.traitParts.length >= MAX_TRAITS_PER_PART) return { ok: false, reason: 'slot-full' };
+    // Trait parts accumulate in their independent chassis capacity.
+    if (build.traitParts.length >= MAX_TRAIT_CORES_PER_BUILD) return { ok: false, reason: 'slot-full' };
     return {
       ok: true,
       build: {
@@ -212,10 +209,11 @@ export function mergeParts(
   const currentTier = Math.max(1, first.tier);
   if (currentTier >= RARITY_TIER.legendary) return { ok: false, reason: 'not-mergeable' };
 
-  const nextRarity = Object.entries(RARITY_TIER)
-    .filter(([, tier]) => tier === currentTier + 1)
-    .map(([rarity]) => rarity)[0];
-  if (!nextRarity) return { ok: false, reason: 'not-mergeable' };
+  const infusedTraits = canonicalTraits([...first.infusedTraits, ...second.infusedTraits]);
+  if (effectiveTraits(definition, infusedTraits).length > MAX_EFFECTIVE_TRAITS_PER_PART) {
+    return { ok: false, reason: 'not-mergeable' };
+  }
+  const [firstId, secondId] = [first.instanceId, second.instanceId].sort();
 
   return {
     ok: true,
@@ -224,23 +222,25 @@ export function mergeParts(
       // A durable owned ID, not a reconstructed definition ID.  Keep it in
       // the shared opaque-instance grammar (at most one namespace colon) so
       // Save V3 will round-trip merged output instead of silently dropping it.
-      instanceId: `merged-${stableInstanceHash(`${first.partId}|${first.instanceId}|${second.instanceId}`)}`,
+      instanceId: `merged-${stableInstanceHash(`${first.partId}|${firstId}|${secondId}`)}`,
       partId: first.partId,
       tier: currentTier + 1,
-      infusedTraits: Object.freeze([...first.infusedTraits, ...second.infusedTraits]
-        .filter((trait, index, all) => all.indexOf(trait) === index)
-        .slice(0, MAX_TRAITS_PER_PART)),
+      infusedTraits: infusedTraits,
     }),
   };
 }
 
 function stableInstanceHash(value: string): string {
-  let hash = 2166136261;
+  // Two independent 64-bit lanes, encoded as a fixed-width 128-bit provenance
+  // token. Collision is still checked at the durable command boundary.
+  let a = 0x6a09e667f3bcc909n;
+  let b = 0xbb67ae8584caa73bn;
   for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
+    const code = BigInt(value.charCodeAt(index));
+    a = BigInt.asUintN(64, (a ^ code) * 0x100000001b3n);
+    b = BigInt.asUintN(64, (b ^ (code << 1n)) * 0x9e3779b185ebca87n);
   }
-  return (hash >>> 0).toString(36);
+  return `${a.toString(16).padStart(16, '0')}${b.toString(16).padStart(16, '0')}`;
 }
 
 export type InfuseResult =
@@ -264,16 +264,18 @@ export function infuseTrait(
   const traitDef = definitions.get(traitPart.partId);
   if (!targetDef) return { ok: false, reason: 'unknown-part' };
   if (!traitDef || traitDef.slot !== 'trait' || traitDef.traits.length !== 1) return { ok: false, reason: 'unknown-trait' };
+  if (traitDef.fabricationCost === undefined) return { ok: false, reason: 'trait-incompatible' };
   const trait = traitDef.traits[0];
   if (targetDef.slot === 'trait') return { ok: false, reason: 'trait-incompatible' };
-  if (target.infusedTraits.length >= MAX_TRAITS_PER_PART) return { ok: false, reason: 'trait-cap-reached' };
-  if (target.infusedTraits.includes(trait)) return { ok: false, reason: 'trait-cap-reached' };
+  if (effectiveTraits(targetDef, target.infusedTraits).includes(trait)) return { ok: false, reason: 'trait-cap-reached' };
+  const outputTraits = canonicalTraits([...target.infusedTraits, trait]);
+  if (effectiveTraits(targetDef, outputTraits).length > MAX_EFFECTIVE_TRAITS_PER_PART) return { ok: false, reason: 'trait-cap-reached' };
 
   return {
     ok: true,
     output: Object.freeze({
       ...target,
-      infusedTraits: Object.freeze([...target.infusedTraits, trait]),
+      infusedTraits: outputTraits,
     }),
   };
 }
@@ -295,7 +297,7 @@ export function resolveBuildModifiers(
     for (const effect of definition.effects) {
       modifiers.push({
         ...effect,
-        value: effect.value * Math.max(1, part.tier),
+        value: scaleModifierByTier(effect, Math.max(1, part.tier)),
         sourceId: part.instanceId,
         // A persistent pistol build must not secretly improve an SMG that is
         // acquired later in the same run.  The existing stat resolver owns
@@ -306,6 +308,14 @@ export function resolveBuildModifiers(
     }
   }
   return modifiers;
+}
+
+function canonicalTraits(traits: readonly BehaviorTrait[]): readonly BehaviorTrait[] {
+  return Object.freeze([...new Set(traits)].sort());
+}
+
+function effectiveTraits(definition: PartDefinition, infusedTraits: readonly BehaviorTrait[]): readonly BehaviorTrait[] {
+  return canonicalTraits([...definition.traits, ...infusedTraits]);
 }
 
 /** Whether a build carries a given behavior trait (from any fitted part). */

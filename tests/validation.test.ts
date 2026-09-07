@@ -25,13 +25,12 @@ function addFixtureActorArt(
   const template = visualArt.bindings.find((binding) => binding.kind === kind);
   if (!template) throw new Error(`Missing ${kind} art fixture template`);
   const ids = [...new Set(rows.map((row) => row.id).filter((id): id is string => typeof id === 'string'))];
-  ids.forEach((id, index) => {
+  ids.forEach((id) => {
     const artId = `${kind}:${id}`;
     if (visualArt.bindings.some((binding) => binding.id === artId)) return;
     visualArt.bindings.push({
       ...structuredClone(template),
       id: artId,
-      textureKey: `fixture-${kind}-${index}`,
     });
   });
 }
@@ -89,6 +88,9 @@ function withEnemies(enemies: Record<string, unknown>[]): unknown {
   // catalogs (which reference the real junkyard arena/enemies) no longer
   // match; clear them so stage cross-references stay honest.
   data.stages = [];
+  // These focused enemy fixtures deliberately replace the stage catalog, so
+  // decouple the unrelated global equipment gate from absent shipped stages.
+  data.equipmentRules = { unlocks: { 2: { type: 'always' }, 3: { type: 'always' }, 4: { type: 'always' } } };
   data.encounterProfiles = [];
   data.difficultyProfiles = [];
   data.rewardProfiles = [];
@@ -1089,6 +1091,7 @@ describe('game data validation', () => {
       // Fixture arenas replace the shipped junkyard arena; clear stage
       // catalogs so stage→arena cross-references stay honest.
       data.stages = [];
+      data.equipmentRules = { unlocks: { 2: { type: 'always' }, 3: { type: 'always' }, 4: { type: 'always' } } };
       data.encounterProfiles = [];
       data.difficultyProfiles = [];
       data.rewardProfiles = [];
@@ -1318,6 +1321,7 @@ describe('game data validation', () => {
       // clear stage reward catalogs AND enemy loot-table refs so
       // stage→loot-table and enemy→loot-table references stay honest.
       data.stages = [];
+      data.equipmentRules = { unlocks: { 2: { type: 'always' }, 3: { type: 'always' }, 4: { type: 'always' } } };
       data.encounterProfiles = [];
       data.difficultyProfiles = [];
       data.rewardProfiles = [];

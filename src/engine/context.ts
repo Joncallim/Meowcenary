@@ -28,6 +28,7 @@ import {
 import { applyDurableGrantTransaction, durableGrantFingerprint, type DurableGrantTransaction } from '../gameplay/grantProcessor';
 import { noopAchievementAdapter, type AchievementPlatformAdapter } from '../gameplay/achievementPlatform';
 import { EQUIPMENT_TIERS, equipmentUpgradeUnlock, upgradeCost } from '../gameplay/equipment';
+import { updateCompendiumDiscovery } from '../systems/compendium';
 
 export const GAME_CONTEXT_REGISTRY_KEY = 'meowcenary.gameContext';
 
@@ -110,6 +111,10 @@ export interface GameContext {
    * Save V4 snapshot is durable. */
   updateGunsmith(transform: (state: GunsmithState) => GunsmithState): PersistenceUpdate<GunsmithState>;
   updateEquipment(transform: (state: { readonly equipment: EquipmentState; readonly loadout: EquipmentLoadoutState }) => { readonly equipment: EquipmentState; readonly loadout: EquipmentLoadoutState }): PersistenceUpdate<EquipmentState>;
+  /** V4 Set fabrication: one owned copy per definition, atomically paid. */
+  fabricateEquipment(equipmentId: string): boolean;
+  /** Records one monotonic compendium fact only after its V4 snapshot is durable. */
+  recordCompendiumDiscovery(enemyId: string, status: import('../systems/save').CompendiumDiscoveryStatus): boolean;
   /** Atomically spend durable scrap and advance one owned equipment instance. */
   commitEquipmentUpgrade(instanceId: string, expectedTier: number, nextTier: number, cost: number): boolean;
   applyGrantTransaction(transaction: DurableGrantTransaction): boolean;
@@ -147,7 +152,6 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
   let current = options.save.load();
   const stages = options.stages ?? new StageRegistryCtor(options.data);
   const knownEquipmentIds = new Set((options.data.equipment ?? []).map((equipment) => equipment.id));
-  const equipmentDefinitions = new Map((options.data.equipment ?? []).map((equipment) => [equipment.id, equipment] as const));
   const equipmentSlotById = new Map((options.data.equipment ?? []).map((equipment) => [equipment.id, equipment.slot] as const));
   const knownPartIds = new Set((options.data.gunParts ?? []).map((part) => part.id));
   const partDefinitions = new Map((options.data.gunParts ?? []).map((part) => [part.id, part] as const));
@@ -196,7 +200,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         if (!knownEquipmentIds.has(grant.equipmentId)) return false;
         const tier = grant.tier ?? 1;
         for (let targetTier = 2; targetTier <= tier; targetTier += 1) {
-          const unlock = equipmentUpgradeUnlock(grant.equipmentId, targetTier as 2 | 3 | 4, equipmentDefinitions);
+          const unlock = options.data.equipmentRules && equipmentUpgradeUnlock(targetTier as 2 | 3 | 4, options.data.equipmentRules);
           if (unlock !== undefined && !evaluateCondition(unlock, equipmentUpgradeFacts())) return false;
         }
         return true;
@@ -341,6 +345,30 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       current = options.save.load();
       return Object.freeze({ value: current.equipment, persisted: true });
     },
+    fabricateEquipment(equipmentId) {
+      const definition = options.data.equipment?.find((piece) => piece.id === equipmentId);
+      const set = definition === undefined ? undefined : options.data.equipmentSets?.find((candidate) => candidate.id === definition.setId);
+      if (!definition || !set || !evaluateCondition(set.unlock, equipmentUpgradeFacts())) return false;
+      const instanceId = `owned:${equipmentId.replace(':', '-')}`;
+      if (current.equipment[instanceId] !== undefined || current.progression.scrap < set.pieceFabricationCost) return false;
+      const candidate = freezeSaveV4({ ...current,
+        progression: Object.freeze({ ...current.progression, scrap: current.progression.scrap - set.pieceFabricationCost }),
+        equipment: Object.freeze({ ...current.equipment, [instanceId]: Object.freeze({ equipmentId, tier: 1 }) }),
+      });
+      if (!options.save.save(candidate)) return false;
+      current = options.save.load();
+      return true;
+    },
+    recordCompendiumDiscovery(enemyId, status) {
+      if (typeof enemyId !== 'string' || enemyId.length === 0 || (status !== 'encountered' && status !== 'defeated')) return false;
+      const next = updateCompendiumDiscovery(current, enemyId, status);
+      if (next === current) return true;
+      // Never publish optimistic discovery: a failed durable write leaves
+      // both the context and the next boot at the prior authoritative state.
+      if (!options.save.save(next)) return false;
+      current = options.save.load();
+      return true;
+    },
     commitEquipmentUpgrade(instanceId, expectedTier, nextTier, cost) {
       const owned = current.equipment[instanceId];
       if (!owned
@@ -350,7 +378,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         || nextTier !== expectedTier + 1 || nextTier > EQUIPMENT_TIERS.length
         || cost !== upgradeCost(expectedTier)
         || current.progression.scrap < cost) return false;
-      const unlock = equipmentUpgradeUnlock(owned.equipmentId, nextTier as 2 | 3 | 4, equipmentDefinitions);
+      const unlock = options.data.equipmentRules && equipmentUpgradeUnlock(nextTier as 2 | 3 | 4, options.data.equipmentRules);
       if (unlock !== undefined && !evaluateCondition(unlock, equipmentUpgradeFacts())) return false;
       const candidate = freezeSaveV4({
         ...current,

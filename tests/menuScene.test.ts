@@ -15,7 +15,6 @@ import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
-import type { MainMenuSnapshot } from '../src/ui/menus';
 import { edgeMargin, minimumHitTarget, type LayoutEdge, type UiViewport } from '../src/ui/layout';
 import { FocusStroke } from '../src/ui/theme';
 
@@ -360,7 +359,7 @@ describe('MenuScene', () => {
       builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
       selectedBuildId: 'build:pistol',
     }));
-    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
     expect(harness.textContents()).toContain('Next Gunsmith Page');
     harness.buttonByLabel('Next Gunsmith Page')!.state.handlers.pointerup!();
     expect(harness.textContents()).toContain('Previous Gunsmith Page');
@@ -396,7 +395,7 @@ describe('MenuScene', () => {
 
       // Sub-panel: < Back is anchored above the bottom margin band with its
       // full bounds clear of the injected insets on every side.
-      harness.buttonByLabel('Character')!.state.handlers['pointerup']!();
+      harness.buttonByLabel('Mercenary')!.state.handlers['pointerup']!();
       const back = liveText('< Back');
       expect(back.state.x).toBe(margin('left'));
       expect(back.state.y).toBe(viewport.canvasHeight - margin('bottom') - minimumHitTarget(viewport));
@@ -413,11 +412,12 @@ describe('MenuScene', () => {
     expect(textContents()).toEqual(
       expect.arrayContaining([
         'Meowcenary',
-        'Start',
-        'Character',
-        'Arena',
+        'Play Contract',
+        'Mercenary',
+        'Loadout: Equipment',
+        'Loadout: Gunsmith',
         'Career',
-        'Gunsmith',
+        'Training',
         'Settings',
         'Tap a choice',
       ]),
@@ -426,9 +426,8 @@ describe('MenuScene', () => {
   });
 
   it.each([
-    { label: 'Character', heading: 'Choose Character' },
-    { label: 'Arena', heading: 'Choose Arena' },
-    { label: 'Career', heading: 'Choose Contract' },
+    { label: 'Mercenary', heading: 'Choose Character' },
+    { label: 'Career', heading: 'Career' },
     { label: 'Settings', heading: 'Settings' },
   ])('clicking the $label home button re-renders its panel', ({ label, heading }) => {
     const harness = createHarness();
@@ -439,7 +438,7 @@ describe('MenuScene', () => {
 
     // The target panel is actually painted ...
     expect(harness.textContents()).toContain(heading);
-    expect(harness.textContents()).not.toContain('Start');
+    expect(harness.textContents()).not.toContain('Play Contract');
     // ... because the old root was destroyed and a single live root remains,
     // i.e. the display tree was rebuilt instead of left frozen.
     const liveContainers = harness.objects.filter(
@@ -455,7 +454,7 @@ describe('MenuScene', () => {
   it('navigates panels with keyboard focus and Esc returns home', () => {
     const harness = createHarness();
 
-    harness.keyboard.keydown('ArrowDown'); // focus moves to Character
+    harness.keyboard.keydown('ArrowDown'); // focus moves to Mercenary
     harness.menuScene.update(0, 16);
     harness.keyboard.keydown('Enter');
     harness.menuScene.update(0, 16);
@@ -463,7 +462,7 @@ describe('MenuScene', () => {
 
     harness.keyboard.keydown('Escape');
     harness.menuScene.update(0, 16);
-    expect(harness.textContents()).toContain('Start');
+    expect(harness.textContents()).toContain('Play Contract');
     expect(harness.textContents()).not.toContain('Choose Character');
   });
 
@@ -482,15 +481,15 @@ describe('MenuScene', () => {
       harness.menuScene.update(0, 16);
     };
 
-    press(13); // D-pad down → Character
-    press(0); // bottom face confirm → Character panel
+    press(13); // D-pad down → Mercenary
+    press(0); // bottom face confirm → Mercenary panel
     expect(harness.textContents()).toContain('Choose Character');
     expect(down).not.toHaveBeenCalled();
     expect(move).not.toHaveBeenCalled();
     expect(up).not.toHaveBeenCalled();
 
     press(1); // right face back → home
-    expect(harness.textContents()).toContain('Start');
+    expect(harness.textContents()).toContain('Play Contract');
     expect(down).not.toHaveBeenCalled();
     expect(move).not.toHaveBeenCalled();
     expect(up).not.toHaveBeenCalled();
@@ -564,8 +563,8 @@ describe('MenuScene', () => {
       harness.keyboard.keyup(key);
       harness.menuScene.update(0, 16);
     };
-    // Home → Settings (row 5).
-    for (let i = 0; i < 5; i += 1) press('ArrowDown');
+    // Home → Settings (row 6).
+    for (let i = 0; i < 6; i += 1) press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Settings');
 
@@ -627,17 +626,17 @@ describe('MenuScene', () => {
       harness.keyboard.keyup(key);
       harness.menuScene.update(0, 16);
     };
-    // Home → Settings (row 5), then walk to < Back and return home.
-    for (let i = 0; i < 5; i += 1) press('ArrowDown');
+    // Home → Settings (row 6), then walk to < Back and return home.
+    for (let i = 0; i < 6; i += 1) press('ArrowDown');
     press('Enter');
     expect(seams.navigator.index).toBe(0);
 
     for (let i = 0; i < 4; i += 1) press('ArrowDown');
     press('Enter');
-    expect(harness.textContents()).toContain('Start');
+    expect(harness.textContents()).toContain('Play Contract');
     expect(seams.navigator.index).toBe(0);
 
-    // Home → Character resets to the first character row.
+    // Home → Mercenary resets to the first character row.
     press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Choose Character');
@@ -661,7 +660,7 @@ describe('MenuScene', () => {
     // Home → Settings, focus SFX Volume (row 2), then a same-panel toggle
     // fails mid-rebuild: the fallback replaces the tree and the retained
     // navigator must not move/emit without a committed display.
-    for (let i = 0; i < 5; i += 1) press('ArrowDown');
+    for (let i = 0; i < 6; i += 1) press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Settings');
     press('ArrowDown');
@@ -694,7 +693,7 @@ describe('MenuScene', () => {
     // G-15: Esc retries through handleBack → render; the exact next
     // navigation and confirmation work again on the rebuilt home panel.
     press('Escape');
-    expect(harness.textContents()).toContain('Start');
+    expect(harness.textContents()).toContain('Play Contract');
     expect(harness.textContents()).not.toContain('Something went wrong — press Esc to retry');
     expect(events).toEqual(['ui:back']);
     press('ArrowDown');
@@ -716,14 +715,14 @@ describe('MenuScene', () => {
 
     // Home panel (hint created only here). Esc on home is a back no-op that
     // re-renders the SAME panel — the same-panel rebuild window.
-    expect(harness.textContents()).toContain('Start');
+    expect(harness.textContents()).toContain('Play Contract');
 
-    // The rebuild fails LATE: skip the 5 home buttons' init strokes so the
-    // throw lands on the 6th (applyFocus, after the new hint was created and
+    // The rebuild fails LATE: skip the 7 home buttons' init strokes so the
+    // throw lands on the 8th (applyFocus, after the new hint was created and
     // assigned at renderHome) but before publication. The catch must clear
     // this.hint or the next mode transition calls setText() on the destroyed
     // Text (real Phaser 3.90 nulls the frame on destroy).
-    harness.failNextStroke(6); // 5 buttons' init strokes + 1; fail on applyFocus
+    harness.failNextStroke(8); // 7 buttons' init strokes + 1; fail on applyFocus
     expect(() => press('Escape')).toThrow('Injected stroke failure');
     expect(harness.textContents()).toEqual(
       expect.arrayContaining(['Something went wrong — press Esc to retry']),
@@ -740,22 +739,13 @@ describe('MenuScene', () => {
   });
 
   it.each([
-    { name: 'home', steps: 0, expected: ['Start', 'Character', 'Arena', 'Career', 'Gunsmith', 'Settings', 'Stage', 'Equipment'] },
-    { name: 'character', steps: 1, expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', 'Volt Lynx 🔒', 'Brass Boar 🔒', 'Ember Cougar 🔒', 'Scrap Weasel 🔒', 'Rattle Raptor 🔒', 'Piston Ram 🔒', '< Back'] },
-    { name: 'arena', steps: 2, expected: ['✓ Junkyard Lot', '< Back'] },
-    {
-      name: 'stage',
-      steps: 3,
-      expected: ['✓ First Scavenge', 'Scrap Run 🔒', 'Rusher Ambush 🔒', 'Brute Force 🔒', 'Boss: Scrap Crusher 🔒', 'Hot Salvage 🔒', 'Smelter Rush 🔒', 'Steel Wall 🔒', 'Foundry Cleanup 🔒', 'Boss: Forge Warden 🔒', '< Back'],
-    },
-    {
-      name: 'settings',
-      steps: 5,
-      expected: ['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', '< Back'],
-    },
-    { name: 'stage', steps: 6, expected: ['✓ First Scavenge', 'Scrap Run 🔒', 'Rusher Ambush 🔒', 'Brute Force 🔒', 'Boss: Scrap Crusher 🔒', 'Hot Salvage 🔒', 'Smelter Rush 🔒', 'Steel Wall 🔒', 'Foundry Cleanup 🔒', 'Boss: Forge Warden 🔒', '< Back'] },
+    { name: 'home', steps: 0, expected: ['Play Contract', 'Mercenary', 'Loadout: Equipment', 'Loadout: Gunsmith', 'Career', 'Training', 'Settings'] },
+    { name: 'mercenary', steps: 1, expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', 'Volt Lynx 🔒', 'Brass Boar 🔒', 'Ember Cougar 🔒', 'Scrap Weasel 🔒', 'Rattle Raptor 🔒', 'Piston Ram 🔒', '< Back'] },
+    { name: 'career', steps: 4, expected: ['Next Goals', 'Achievements', 'Compendium', '< Back'] },
+    { name: 'training', steps: 5, expected: ['< Back'] },
+    { name: 'settings', steps: 6, expected: ['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', '< Back'] },
 
-  ])('registers the exact stage focus-target order/count with exactly one FocusStroke ring (F6)', ({ steps, expected }) => {
+  ])('registers the exact V4 focus-target order/count with exactly one FocusStroke ring (F6)', ({ steps, expected }) => {
     const harness = createHarness();
     const press = (key: string) => {
       harness.keyboard.keydown(key);
@@ -796,7 +786,7 @@ describe('MenuScene', () => {
     expect(seams.navigator.index).toBe(0);
   });
 
-  it('preserves the exact arena row through a same-panel selection (F6)', () => {
+  it('routes Career to Compendium as a real, reachable panel (F6)', () => {
     const harness = createHarness();
     const seams = harness.menuScene as unknown as { navigator: { index: number } };
     const press = (key: string) => {
@@ -805,25 +795,20 @@ describe('MenuScene', () => {
       harness.keyboard.keyup(key);
       harness.menuScene.update(0, 16);
     };
-    // Home → Arena.
-    press('ArrowDown');
-    press('ArrowDown');
+    // Home → Career.
+    for (let i = 0; i < 4; i += 1) press('ArrowDown');
     press('Enter');
-    expect(harness.textContents()).toContain('Choose Arena');
+    expect(harness.textContents()).toContain('Career');
     expect(seams.navigator.index).toBe(0);
 
-    // Confirm the visible default: the same-panel re-render preserves the row
-    // and the exact command keeps working (G-15).
+    // Career → Compendium (row 2), with the panel composed from the actual
+    // controller snapshot rather than a TODO alias.
+    press('ArrowDown');
+    press('ArrowDown');
     press('Enter');
-    expect(harness.textContents()).toContain('Choose Arena');
+    expect(harness.textContents()).toContain('Compendium');
+    expect(harness.textContents()).toContain('< Back');
     expect(seams.navigator.index).toBe(0);
-    press('Enter');
-    expect(harness.textContents()).toContain('Choose Arena');
-    expect(seams.navigator.index).toBe(0);
-    const seams2 = harness.menuScene as unknown as {
-      controller: { snapshot(): MainMenuSnapshot };
-    };
-    expect(seams2.controller.snapshot().arena.selectedArenaId).toBe('junkyard-lot');
   });
 
 
@@ -843,8 +828,8 @@ describe('MenuScene', () => {
         )
         .map((object) => object.state.text);
 
-    // Home → Settings (row 5).
-    for (let i = 0; i < 5; i += 1) press('ArrowDown');
+    // Home → Settings (row 6).
+    for (let i = 0; i < 6; i += 1) press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Settings');
     expect(buttonLabels()).toEqual(['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', '< Back']);
@@ -895,9 +880,9 @@ describe('MenuScene', () => {
   it('returns home through the back button', () => {
     const harness = createHarness();
 
-    harness.buttonByLabel('Character')!.state.handlers['pointerup']!();
+    harness.buttonByLabel('Mercenary')!.state.handlers['pointerup']!();
     harness.buttonByLabel('< Back')!.state.handlers['pointerup']!();
-    expect(harness.textContents()).toContain('Start');
+    expect(harness.textContents()).toContain('Play Contract');
   });
 
   it('shows the recovery fallback when render fails and Esc retries the home panel', () => {
@@ -918,7 +903,7 @@ describe('MenuScene', () => {
     // replacing the fallback root.
     harness.keyboard.keydown('Escape');
     harness.menuScene.update(0, 16);
-    expect(harness.textContents()).toContain('Start');
+    expect(harness.textContents()).toContain('Play Contract');
     expect(harness.textContents()).not.toContain('Something went wrong — press Esc to retry');
 
     const liveContainers = harness.objects.filter(
@@ -927,10 +912,10 @@ describe('MenuScene', () => {
     expect(liveContainers).toHaveLength(1);
   });
 
-  it('starts the game scene from the Start button', () => {
+  it('starts the game scene from Play Contract', () => {
     const harness = createHarness();
 
-    harness.buttonByLabel('Start')!.state.handlers['pointerup']!();
+    harness.buttonByLabel('Play Contract')!.state.handlers['pointerup']!();
     expect(harness.sceneStart).toHaveBeenCalledWith(SceneKey.Game);
   });
 });
@@ -1026,7 +1011,7 @@ describe('MenuScene audio lifecycle', () => {
     const { audioFake, input, textContents } = createHarness({ audio: false });
 
     expect(audioFake).toBeUndefined();
-    expect(textContents()).toEqual(expect.arrayContaining(['Start', 'Character']));
+    expect(textContents()).toEqual(expect.arrayContaining(['Play Contract', 'Mercenary']));
     expect(input.listenerCount('pointerdown')).toBe(1);
   });
 });
@@ -1100,7 +1085,7 @@ describe('MenuScene UI command events', () => {
     const harness = createHarness();
     const events = recordEvents(harness.bus);
 
-    harness.buttonByLabel('Start')!.state.handlers['pointerup']!();
+    harness.buttonByLabel('Play Contract')!.state.handlers['pointerup']!();
 
     expect(events).toEqual(['ui:confirm']);
   });
@@ -1125,7 +1110,7 @@ describe('MenuScene UI command events', () => {
     const harness = createHarness();
     const events = recordEvents(harness.bus);
 
-    harness.buttonByLabel('Character')!.state.handlers['pointerup']!();
+    harness.buttonByLabel('Mercenary')!.state.handlers['pointerup']!();
     harness.buttonByLabel('< Back')!.state.handlers['pointerup']!();
 
     expect(events).toEqual(['ui:confirm', 'ui:back']);
@@ -1145,8 +1130,8 @@ describe('MenuScene UI command events', () => {
     const harness = createHarness();
     const events = recordEvents(harness.bus);
 
-    harness.buttonByLabel('Start')!.state.handlers['pointerover']!();
-    harness.buttonByLabel('Start')!.state.handlers['pointerout']!();
+    harness.buttonByLabel('Play Contract')!.state.handlers['pointerover']!();
+    harness.buttonByLabel('Play Contract')!.state.handlers['pointerout']!();
 
     expect(events).toEqual([]);
   });

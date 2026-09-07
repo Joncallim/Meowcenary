@@ -260,10 +260,10 @@ describe('GameContext persistence boundary', () => {
     expect(context.saveData.equipment['owned:helmet'].tier).toBe(1);
     storage.succeed = true;
     expect(context.completeStage('stage:junkyard-02', 1)).toBe(true);
+    expect(context.completeStage('stage:junkyard-03', 1)).toBe(true);
     expect(context.commitEquipmentUpgrade('owned:helmet', 1, 2, 100)).toBe(true);
-    // The legitimate Stage 2 first-clear reward survives the equipment
-    // purchase; it is no longer lost behind the legacy rewardless path.
-    expect(context.saveData.progression.scrap).toBe(45);
+    // The Stage 2/3 first-clear rewards survive the equipment purchase.
+    expect(context.saveData.progression.scrap).toBe(105);
     expect(context.saveData.equipment['owned:helmet'].tier).toBe(2);
     expect(context.commitEquipmentUpgrade('owned:helmet', 1, 2, 100)).toBe(false);
     expect(context.commitEquipmentUpgrade('owned:helmet', 2, 3, 1)).toBe(false);

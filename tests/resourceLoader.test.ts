@@ -3,6 +3,7 @@ import {
   computeRunResourceClosure,
   computeMenuBundle,
   findSharedResources,
+  physicalResourcesForBindings,
 } from '../src/systems/resourceLoader';
 import type { VisualTextureResource } from '../src/systems/types';
 
@@ -69,5 +70,22 @@ describe('Resource Loader', () => {
     const shared = findSharedResources(resources);
     expect(shared.size).toBe(1);
     expect(shared.has('shared-key')).toBe(true);
+  });
+
+  it('uses the production physical-resource projection for 500 logical bindings without 500 texture loads', () => {
+    const bindings = Array.from({ length: 500 }, (_, index) => ({
+      id: `upgrade-icon:synthetic-${index}`,
+      kind: 'upgrade-icon' as const,
+      textureKey: 'art-synthetic-shared-atlas',
+      url: 'assets/ui/synthetic-shared-atlas.png',
+      required: true,
+      sampling: 'nearest' as const,
+      load: { type: 'image' as const },
+      display: { width: 16, height: 16 },
+    }));
+
+    const resources = physicalResourcesForBindings(bindings);
+    expect(resources).toHaveLength(1);
+    expect(resources[0]?.textureKey).toBe('art-synthetic-shared-atlas');
   });
 });

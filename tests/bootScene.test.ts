@@ -3,10 +3,13 @@ import { GAME_CONTEXT_REGISTRY_KEY, type GameContext } from '../src/engine/conte
 import { SceneKey } from '../src/engine/sceneKeys';
 import audioAssetsJson from '../src/data/audio-assets.json';
 import visualArtJson from '../src/data/visual-art.json';
+import visualResourcesJson from '../src/data/visual-resources.json';
 import { BootScene, applyNearestTextureSampling } from '../src/scenes/BootScene';
 import { AudioManager, AUDIO_MANAGER_REGISTRY_KEY } from '../src/systems/audio';
 import { loadGameData } from '../src/systems/validation';
 import { DataVisualArtRegistry } from '../src/systems/visualArt';
+import { BOOT_RESOURCE_BUNDLE_ID } from '../src/scenes/BootScene';
+import { DataAssetBundleRegistry } from '../src/systems/assetBundles';
 
 vi.mock('phaser', () => ({
   default: {
@@ -63,6 +66,7 @@ function createFakeScene() {
   const loadAudio = vi.fn();
   const loadImage = vi.fn();
   const loadSpritesheet = vi.fn();
+  const loadAtlas = vi.fn();
   const start = vi.fn();
   const textureGet = vi.fn((_key: string) => ({ setFilter: vi.fn() }));
   const createEmitter = () => {
@@ -93,7 +97,7 @@ function createFakeScene() {
   const loadEvents = createEmitter();
   const sceneEvents = createEmitter();
   const scene = {
-    load: { audio: loadAudio, image: loadImage, spritesheet: loadSpritesheet, ...loadEvents },
+    load: { audio: loadAudio, image: loadImage, spritesheet: loadSpritesheet, atlas: loadAtlas, ...loadEvents },
     events: sceneEvents,
     registry: { set: (key: string, value: unknown) => registryValues.set(key, value) },
     scene: { start },
@@ -105,7 +109,7 @@ function createFakeScene() {
     anims: { exists: vi.fn(() => false), create: vi.fn(), generateFrameNumbers: vi.fn(), remove: vi.fn() },
   };
   return {
-    scene, loadAudio, loadImage, loadSpritesheet, loadEvents, sceneEvents, start, registryValues, textureGet,
+    scene, loadAudio, loadImage, loadSpritesheet, loadAtlas, loadEvents, sceneEvents, start, registryValues, textureGet,
   };
 }
 
@@ -177,35 +181,39 @@ describe('BootScene loading and startup wiring', () => {
   });
 
   it('skips a missing optional nearest texture instead of filtering the manager fallback texture', () => {
-    const binding = {
-      id: 'world:test-optional-nearest',
-      kind: 'world',
+    const resource = {
+      ...structuredClone(visualResourcesJson[0]),
+      id: 'resource:world-test-optional-nearest',
       textureKey: 'art-world-test-optional-nearest',
-      url: 'assets/world/test-optional-nearest.png',
-      required: false,
       sampling: 'nearest',
-      load: { type: 'image' },
-      display: { width: 16, height: 16 },
+    };
+    const binding = {
+      ...structuredClone(visualArtJson.bindings.find((entry) => entry.kind === 'world')!),
+      id: 'world:test-optional-nearest',
+      resourceId: resource.id,
+      required: false,
     } as const;
+    visualResourcesJson.push(resource as (typeof visualResourcesJson)[number]);
     visualArtJson.bindings.push(binding as unknown as (typeof visualArtJson.bindings)[number]);
     try {
       const { boot, scene, textureGet, start } = createBoot();
       const missingFallbackFilter = vi.fn();
-      textureGet.mockImplementation((key: string) => key === binding.textureKey
+      textureGet.mockImplementation((key: string) => key === resource.textureKey
         ? { setFilter: missingFallbackFilter }
         : { setFilter: vi.fn() });
-      scene.textures.exists.mockImplementation((key: string) => key !== binding.textureKey);
+      scene.textures.exists.mockImplementation((key: string) => key !== resource.textureKey);
 
       expect(() => boot.create()).not.toThrow();
-      expect(textureGet.mock.calls.map(([key]) => key)).not.toContain(binding.textureKey);
+      expect(textureGet.mock.calls.map(([key]) => key)).not.toContain(resource.textureKey);
       expect(missingFallbackFilter).not.toHaveBeenCalled();
       expect(start).toHaveBeenCalledWith(SceneKey.Menu);
     } finally {
       visualArtJson.bindings.pop();
+      visualResourcesJson.pop();
     }
   });
 
-  it('preloads every audio catalog row in [...sfx, ...music] order with exact key/url', () => {
+  it('preloads every audio catalog row and only the explicit boot physical resource bundle', () => {
     const { boot, loadAudio, loadImage, loadSpritesheet, loadEvents } = createBoot();
 
     boot.preload();
@@ -216,21 +224,33 @@ describe('BootScene loading and startup wiring', () => {
     ]);
     expect(loadAudio).toHaveBeenCalledTimes(expected.length);
     expect(loadAudio.mock.calls).toEqual(expected);
-    expect(loadImage.mock.calls).toEqual(visualArtJson.bindings
+    const bundle = new DataAssetBundleRegistry(loadGameData()).resourcesForBundle(BOOT_RESOURCE_BUNDLE_ID)!;
+    expect(loadImage.mock.calls).toEqual(bundle
       .filter((binding) => binding.load.type === 'image')
-      .map((binding) => [binding.textureKey, binding.url]));
-    expect(loadSpritesheet.mock.calls).toEqual(visualArtJson.bindings
+      .map((binding) => [binding.textureKey, binding.load.imageUrl]));
+    expect(loadSpritesheet.mock.calls).toEqual(bundle
       .filter((binding) => binding.load.type === 'spritesheet')
       .map((binding) => [
         binding.textureKey,
-        binding.url,
+        binding.load.imageUrl,
         {
-          frameWidth: (binding.load as { frame: { width: number; height: number } }).frame.width,
-          frameHeight: (binding.load as { frame: { width: number; height: number } }).frame.height,
+          frameWidth: binding.load.frameWidth,
+          frameHeight: binding.load.frameHeight,
         },
       ]));
     expect(loadEvents.on).toHaveBeenCalledWith('loaderror', expect.any(Function));
     expect(loadEvents.on.mock.invocationCallOrder[0]).toBeLessThan(loadAudio.mock.invocationCallOrder[0]!);
+  });
+
+  it('does not request a large non-home stage bundle during Boot preload', () => {
+    const { boot, loadImage, loadSpritesheet } = createBoot();
+    boot.preload();
+
+    const stageBindings = new DataAssetBundleRegistry(loadGameData()).resourcesForBundle('bundle:core-junkyard')!;
+    for (const binding of stageBindings) {
+      expect(loadImage.mock.calls.map(([key]) => key)).not.toContain(binding.textureKey);
+      expect(loadSpritesheet.mock.calls.map(([key]) => key)).not.toContain(binding.textureKey);
+    }
   });
 
   it('validates the manifest before registering listeners or enqueueing files', () => {
@@ -249,20 +269,22 @@ describe('BootScene loading and startup wiring', () => {
     }
   });
 
-  it('uses image loading for a validated static binding and removes load listeners on completion', () => {
-    const binding = visualArtJson.bindings.find((row) => row.load.type === 'image')!;
+  it('uses the validated boot physical resource and removes load listeners on completion', () => {
+    const binding = new DataAssetBundleRegistry(loadGameData()).resourcesForBundle(BOOT_RESOURCE_BUNDLE_ID)![0]!;
     const { boot, loadImage, loadSpritesheet, loadEvents } = createBoot();
     boot.preload();
-    expect(loadImage).toHaveBeenCalledWith(binding.textureKey, binding.url);
-    expect(loadSpritesheet).toHaveBeenCalledTimes(
-      visualArtJson.bindings.filter((row) => row.load.type === 'spritesheet').length,
-    );
+    expect(loadImage).not.toHaveBeenCalled();
+    expect(loadSpritesheet).toHaveBeenCalledWith(binding.textureKey, binding.load.imageUrl, {
+      frameWidth: binding.load.frameWidth,
+      frameHeight: binding.load.frameHeight,
+    });
     loadEvents.emit('complete');
     expect(loadEvents.off).toHaveBeenCalledWith('loaderror', expect.any(Function));
   });
 
   it('stops startup when a required texture is missing and identifies its manifest row', () => {
     const { boot, scene } = createBoot();
+    boot.preload();
     scene.textures.exists.mockImplementation((key: string) => key !== 'art-character-scrap-tabby');
 
     expect(() => boot.create()).toThrow(
@@ -279,24 +301,28 @@ describe('BootScene loading and startup wiring', () => {
   });
 
   it('allows a missing texture only when that manifest row is explicitly optional', () => {
-    const binding = {
-      id: 'world:test-optional',
-      kind: 'world',
+    const resource = {
+      ...structuredClone(visualResourcesJson[0]),
+      id: 'resource:world-test-optional',
       textureKey: 'art-world-test-optional',
-      url: 'assets/world/test-optional.png',
-      required: false,
       sampling: 'linear',
-      load: { type: 'image' },
-      display: { width: 16, height: 16 },
+    };
+    const binding = {
+      ...structuredClone(visualArtJson.bindings.find((entry) => entry.kind === 'world')!),
+      id: 'world:test-optional',
+      resourceId: resource.id,
+      required: false,
     } as const;
+    visualResourcesJson.push(resource as (typeof visualResourcesJson)[number]);
     visualArtJson.bindings.push(binding as unknown as (typeof visualArtJson.bindings)[number]);
     try {
       const { boot, scene, start } = createBoot();
-      scene.textures.exists.mockImplementation((key: string) => key !== binding.textureKey);
+      scene.textures.exists.mockImplementation((key: string) => key !== resource.textureKey);
       expect(() => boot.create()).not.toThrow();
       expect(start).toHaveBeenCalledWith(SceneKey.Menu);
     } finally {
       visualArtJson.bindings.pop();
+      visualResourcesJson.pop();
     }
   });
 

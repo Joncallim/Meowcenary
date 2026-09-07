@@ -1,0 +1,747 @@
+[
+  {
+    "id": "resource:character-scrap-tabby",
+    "textureKey": "art-character-scrap-tabby",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/characters/scrap-tabby/scrap-tabby.png",
+      "frameWidth": 48,
+      "frameHeight": 48
+    }
+  },
+  {
+    "id": "resource:character-bolt-hound",
+    "textureKey": "art-character-bolt-hound",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/characters/bolt-hound/bolt-hound.png",
+      "frameWidth": 48,
+      "frameHeight": 48
+    }
+  },
+  {
+    "id": "resource:enemy-dust-mite",
+    "textureKey": "art-enemy-dust-mite",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/enemies/dust-mite/dust-mite.png",
+      "frameWidth": 48,
+      "frameHeight": 48
+    }
+  },
+  {
+    "id": "resource:enemy-junk-rusher",
+    "textureKey": "art-enemy-junk-rusher",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/enemies/junk-rusher/junk-rusher.png",
+      "frameWidth": 48,
+      "frameHeight": 48
+    }
+  },
+  {
+    "id": "resource:enemy-trash-brute",
+    "textureKey": "art-enemy-trash-brute",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/enemies/trash-brute/trash-brute.png",
+      "frameWidth": 48,
+      "frameHeight": 48
+    }
+  },
+  {
+    "id": "resource:projectile-scrap-shot",
+    "textureKey": "art-projectile-scrap-shot",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/projectiles/scrap-shot/scrap-shot.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    }
+  },
+  {
+    "id": "resource:drop-xp-mote",
+    "textureKey": "art-drop-xp-mote",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/pickups/xp-mote/xp-mote.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    }
+  },
+  {
+    "id": "resource:weapon-icon-pistol-t1",
+    "textureKey": "art-weapon-icon-pistol-t1",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/weapon-icons/weapon-icon-pistol-t1/weapon-icon-pistol-t1.png"
+    }
+  },
+  {
+    "id": "resource:weapon-icon-pistol-t2",
+    "textureKey": "art-weapon-icon-pistol-t2",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/weapon-icons/weapon-icon-pistol-t2/weapon-icon-pistol-t2.png"
+    }
+  },
+  {
+    "id": "resource:weapon-icon-pistol-t3",
+    "textureKey": "art-weapon-icon-pistol-t3",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/weapon-icons/weapon-icon-pistol-t3/weapon-icon-pistol-t3.png"
+    }
+  },
+  {
+    "id": "resource:weapon-icon-smg-t1",
+    "textureKey": "art-weapon-icon-smg-t1",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/weapon-icons/weapon-icon-smg-t1/weapon-icon-smg-t1.png"
+    }
+  },
+  {
+    "id": "resource:weapon-icon-smg-t2",
+    "textureKey": "art-weapon-icon-smg-t2",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/weapon-icons/weapon-icon-smg-t2/weapon-icon-smg-t2.png"
+    }
+  },
+  {
+    "id": "resource:weapon-icon-smg-t3",
+    "textureKey": "art-weapon-icon-smg-t3",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/weapon-icons/weapon-icon-smg-t3/weapon-icon-smg-t3.png"
+    }
+  },
+  {
+    "id": "resource:weapon-icon-shotgun-t1",
+    "textureKey": "art-weapon-icon-shotgun-t1",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/weapon-icons/weapon-icon-shotgun-t1/weapon-icon-shotgun-t1.png"
+    }
+  },
+  {
+    "id": "resource:weapon-icon-shotgun-t2",
+    "textureKey": "art-weapon-icon-shotgun-t2",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/weapon-icons/weapon-icon-shotgun-t2/weapon-icon-shotgun-t2.png"
+    }
+  },
+  {
+    "id": "resource:weapon-icon-shotgun-t3",
+    "textureKey": "art-weapon-icon-shotgun-t3",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/weapon-icons/weapon-icon-shotgun-t3/weapon-icon-shotgun-t3.png"
+    }
+  },
+  {
+    "id": "resource:weapon-held-pistol-t1",
+    "textureKey": "art-weapon-held-pistol-t1",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/held-weapons/weapon-held-pistol-t1/weapon-held-pistol-t1.png"
+    }
+  },
+  {
+    "id": "resource:weapon-held-pistol-t2",
+    "textureKey": "art-weapon-held-pistol-t2",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/held-weapons/weapon-held-pistol-t2/weapon-held-pistol-t2.png"
+    }
+  },
+  {
+    "id": "resource:weapon-held-pistol-t3",
+    "textureKey": "art-weapon-held-pistol-t3",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/held-weapons/weapon-held-pistol-t3/weapon-held-pistol-t3.png"
+    }
+  },
+  {
+    "id": "resource:weapon-held-smg-t1",
+    "textureKey": "art-weapon-held-smg-t1",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/held-weapons/weapon-held-smg-t1/weapon-held-smg-t1.png"
+    }
+  },
+  {
+    "id": "resource:weapon-held-smg-t2",
+    "textureKey": "art-weapon-held-smg-t2",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/held-weapons/weapon-held-smg-t2/weapon-held-smg-t2.png"
+    }
+  },
+  {
+    "id": "resource:weapon-held-smg-t3",
+    "textureKey": "art-weapon-held-smg-t3",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/held-weapons/weapon-held-smg-t3/weapon-held-smg-t3.png"
+    }
+  },
+  {
+    "id": "resource:weapon-held-shotgun-t1",
+    "textureKey": "art-weapon-held-shotgun-t1",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/held-weapons/weapon-held-shotgun-t1/weapon-held-shotgun-t1.png"
+    }
+  },
+  {
+    "id": "resource:weapon-held-shotgun-t2",
+    "textureKey": "art-weapon-held-shotgun-t2",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/held-weapons/weapon-held-shotgun-t2/weapon-held-shotgun-t2.png"
+    }
+  },
+  {
+    "id": "resource:weapon-held-shotgun-t3",
+    "textureKey": "art-weapon-held-shotgun-t3",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/held-weapons/weapon-held-shotgun-t3/weapon-held-shotgun-t3.png"
+    }
+  },
+  {
+    "id": "resource:projectile-pistol",
+    "textureKey": "art-projectile-pistol",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/projectiles/projectile-pistol/projectile-pistol.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    }
+  },
+  {
+    "id": "resource:projectile-smg",
+    "textureKey": "art-projectile-smg",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/projectiles/projectile-smg/projectile-smg.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    }
+  },
+  {
+    "id": "resource:projectile-shotgun",
+    "textureKey": "art-projectile-shotgun",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/projectiles/projectile-shotgun/projectile-shotgun.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    }
+  },
+  {
+    "id": "resource:drop-scrap",
+    "textureKey": "art-drop-scrap",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/pickups/drop-scrap/drop-scrap.png",
+      "frameWidth": 20,
+      "frameHeight": 20
+    }
+  },
+  {
+    "id": "resource:drop-chest",
+    "textureKey": "art-drop-chest",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/pickups/drop-chest/drop-chest.png",
+      "frameWidth": 20,
+      "frameHeight": 20
+    }
+  },
+  {
+    "id": "resource:drop-weapon",
+    "textureKey": "art-drop-weapon",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/pickups/drop-weapon/drop-weapon.png",
+      "frameWidth": 20,
+      "frameHeight": 20
+    }
+  },
+  {
+    "id": "resource:world-junkyard-floor-base",
+    "textureKey": "art-world-junkyard-floor-base",
+    "sampling": "linear",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/world/junkyard-floor-base/junkyard-floor-base.png"
+    }
+  },
+  {
+    "id": "resource:world-junkyard-floor-patch-a",
+    "textureKey": "art-world-junkyard-floor-patch-a",
+    "sampling": "linear",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/world/junkyard-floor-patch-a/junkyard-floor-patch-a.png"
+    }
+  },
+  {
+    "id": "resource:world-junkyard-floor-patch-b",
+    "textureKey": "art-world-junkyard-floor-patch-b",
+    "sampling": "linear",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/world/junkyard-floor-patch-b/junkyard-floor-patch-b.png"
+    }
+  },
+  {
+    "id": "resource:world-junkyard-boundary-straight",
+    "textureKey": "art-world-junkyard-boundary-straight",
+    "sampling": "linear",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/world/junkyard-boundary-straight/junkyard-boundary-straight.png"
+    }
+  },
+  {
+    "id": "resource:world-junkyard-boundary-corner",
+    "textureKey": "art-world-junkyard-boundary-corner",
+    "sampling": "linear",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/world/junkyard-boundary-corner/junkyard-boundary-corner.png"
+    }
+  },
+  {
+    "id": "resource:world-junkyard-boundary-patch",
+    "textureKey": "art-world-junkyard-boundary-patch",
+    "sampling": "linear",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/world/junkyard-boundary-patch/junkyard-boundary-patch.png"
+    }
+  },
+  {
+    "id": "resource:world-junkyard-boundary-gate",
+    "textureKey": "art-world-junkyard-boundary-gate",
+    "sampling": "linear",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/world/junkyard-boundary-gate/junkyard-boundary-gate.png"
+    }
+  },
+  {
+    "id": "resource:world-prop-tyre-pile",
+    "textureKey": "art-world-prop-tyre-pile",
+    "sampling": "linear",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/world/prop-tyre-pile/prop-tyre-pile.png"
+    }
+  },
+  {
+    "id": "resource:world-prop-crate",
+    "textureKey": "art-world-prop-crate",
+    "sampling": "linear",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/world/prop-crate/prop-crate.png"
+    }
+  },
+  {
+    "id": "resource:world-prop-engine-block",
+    "textureKey": "art-world-prop-engine-block",
+    "sampling": "linear",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/world/prop-engine-block/prop-engine-block.png"
+    }
+  },
+  {
+    "id": "resource:world-prop-scrap-heap",
+    "textureKey": "art-world-prop-scrap-heap",
+    "sampling": "linear",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/world/prop-scrap-heap/prop-scrap-heap.png"
+    }
+  },
+  {
+    "id": "resource:world-prop-oil-stain",
+    "textureKey": "art-world-prop-oil-stain",
+    "sampling": "linear",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/world/prop-oil-stain/prop-oil-stain.png"
+    }
+  },
+  {
+    "id": "resource:world-prop-warning-sign",
+    "textureKey": "art-world-prop-warning-sign",
+    "sampling": "linear",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/world/prop-warning-sign/prop-warning-sign.png"
+    }
+  },
+  {
+    "id": "resource:world-landmark-hanging-press",
+    "textureKey": "art-world-landmark-hanging-press",
+    "sampling": "linear",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/world/landmark-hanging-press/landmark-hanging-press.png"
+    }
+  },
+  {
+    "id": "resource:world-landmark-barrel-power-stack",
+    "textureKey": "art-world-landmark-barrel-power-stack",
+    "sampling": "linear",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/world/landmark-barrel-power-stack/landmark-barrel-power-stack.png"
+    }
+  },
+  {
+    "id": "resource:upgrade-icon-quick-paws",
+    "textureKey": "art-upgrade-icon-quick-paws",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/upgrade-icons/upgrade-icon-quick-paws/upgrade-icon-quick-paws.png"
+    }
+  },
+  {
+    "id": "resource:upgrade-icon-extra-scrap",
+    "textureKey": "art-upgrade-icon-extra-scrap",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/upgrade-icons/upgrade-icon-extra-scrap/upgrade-icon-extra-scrap.png"
+    }
+  },
+  {
+    "id": "resource:upgrade-icon-hot-barrel",
+    "textureKey": "art-upgrade-icon-hot-barrel",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/upgrade-icons/upgrade-icon-hot-barrel/upgrade-icon-hot-barrel.png"
+    }
+  },
+  {
+    "id": "resource:upgrade-icon-scrap-magnet",
+    "textureKey": "art-upgrade-icon-scrap-magnet",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/upgrade-icons/upgrade-icon-scrap-magnet/upgrade-icon-scrap-magnet.png"
+    }
+  },
+  {
+    "id": "resource:upgrade-icon-reinforced-coat",
+    "textureKey": "art-upgrade-icon-reinforced-coat",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/upgrade-icons/upgrade-icon-reinforced-coat/upgrade-icon-reinforced-coat.png"
+    }
+  },
+  {
+    "id": "resource:upgrade-icon-fast-learner",
+    "textureKey": "art-upgrade-icon-fast-learner",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/upgrade-icons/upgrade-icon-fast-learner/upgrade-icon-fast-learner.png"
+    }
+  },
+  {
+    "id": "resource:upgrade-icon-heavy-rounds",
+    "textureKey": "art-upgrade-icon-heavy-rounds",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/upgrade-icons/upgrade-icon-heavy-rounds/upgrade-icon-heavy-rounds.png"
+    }
+  },
+  {
+    "id": "resource:upgrade-icon-long-barrel",
+    "textureKey": "art-upgrade-icon-long-barrel",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/upgrade-icons/upgrade-icon-long-barrel/upgrade-icon-long-barrel.png"
+    }
+  },
+  {
+    "id": "resource:upgrade-icon-split-shot",
+    "textureKey": "art-upgrade-icon-split-shot",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/upgrade-icons/upgrade-icon-split-shot/upgrade-icon-split-shot.png"
+    }
+  },
+  {
+    "id": "resource:upgrade-icon-punch-through",
+    "textureKey": "art-upgrade-icon-punch-through",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/upgrade-icons/upgrade-icon-punch-through/upgrade-icon-punch-through.png"
+    }
+  },
+  {
+    "id": "resource:upgrade-icon-glass-cannon",
+    "textureKey": "art-upgrade-icon-glass-cannon",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/upgrade-icons/upgrade-icon-glass-cannon/upgrade-icon-glass-cannon.png"
+    }
+  },
+  {
+    "id": "resource:upgrade-icon-run-and-gun",
+    "textureKey": "art-upgrade-icon-run-and-gun",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/upgrade-icons/upgrade-icon-run-and-gun/upgrade-icon-run-and-gun.png"
+    }
+  },
+  {
+    "id": "resource:upgrade-icon-pistol-deadeye",
+    "textureKey": "art-upgrade-icon-pistol-deadeye",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/upgrade-icons/upgrade-icon-pistol-deadeye/upgrade-icon-pistol-deadeye.png"
+    }
+  },
+  {
+    "id": "resource:upgrade-icon-pistol-needle-rounds",
+    "textureKey": "art-upgrade-icon-pistol-needle-rounds",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/upgrade-icons/upgrade-icon-pistol-needle-rounds/upgrade-icon-pistol-needle-rounds.png"
+    }
+  },
+  {
+    "id": "resource:upgrade-icon-smg-overclock",
+    "textureKey": "art-upgrade-icon-smg-overclock",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/upgrade-icons/upgrade-icon-smg-overclock/upgrade-icon-smg-overclock.png"
+    }
+  },
+  {
+    "id": "resource:upgrade-icon-smg-spray",
+    "textureKey": "art-upgrade-icon-smg-spray",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/upgrade-icons/upgrade-icon-smg-spray/upgrade-icon-smg-spray.png"
+    }
+  },
+  {
+    "id": "resource:upgrade-icon-shotgun-buckshot",
+    "textureKey": "art-upgrade-icon-shotgun-buckshot",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/upgrade-icons/upgrade-icon-shotgun-buckshot/upgrade-icon-shotgun-buckshot.png"
+    }
+  },
+  {
+    "id": "resource:upgrade-icon-shotgun-breacher",
+    "textureKey": "art-upgrade-icon-shotgun-breacher",
+    "sampling": "nearest",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/upgrade-icons/upgrade-icon-shotgun-breacher/upgrade-icon-shotgun-breacher.png"
+    }
+  },
+  {
+    "id": "resource:enemy-scrap-sniper",
+    "textureKey": "art-enemy-scrap-sniper",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/enemies/scrap-sniper/scrap-sniper.png",
+      "frameWidth": 48,
+      "frameHeight": 48
+    }
+  },
+  {
+    "id": "resource:enemy-boss-crusher",
+    "textureKey": "art-enemy-boss-crusher",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/enemies/boss-crusher/boss-crusher.png",
+      "frameWidth": 48,
+      "frameHeight": 48
+    }
+  },
+  {
+    "id": "resource:enemy-scrap-skitter",
+    "textureKey": "art-enemy-scrap-skitter",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/enemies/scrap-skitter/scrap-skitter.png",
+      "frameWidth": 313,
+      "frameHeight": 313
+    }
+  },
+  {
+    "id": "resource:enemy-bastion-beetle",
+    "textureKey": "art-enemy-bastion-beetle",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/enemies/bastion-beetle/bastion-beetle.png",
+      "frameWidth": 313,
+      "frameHeight": 313
+    }
+  },
+  {
+    "id": "resource:enemy-junk-nester",
+    "textureKey": "art-enemy-junk-nester",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/enemies/junk-nester/junk-nester.png",
+      "frameWidth": 313,
+      "frameHeight": 313
+    }
+  },
+  {
+    "id": "resource:enemy-shard-bot",
+    "textureKey": "art-enemy-shard-bot",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/enemies/shard-bot/shard-bot.png",
+      "frameWidth": 313,
+      "frameHeight": 313
+    }
+  },
+  {
+    "id": "resource:enemy-boss-forge",
+    "textureKey": "art-enemy-boss-forge",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/enemies/boss-forge/boss-forge.png",
+      "frameWidth": 309,
+      "frameHeight": 309
+    }
+  },
+  {
+    "id": "resource:character-volt-lynx",
+    "textureKey": "art-character-volt-lynx",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/characters/volt-lynx/volt-lynx.png",
+      "frameWidth": 48,
+      "frameHeight": 48
+    }
+  },
+  {
+    "id": "resource:character-brass-boar",
+    "textureKey": "art-character-brass-boar",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/characters/brass-boar/brass-boar.png",
+      "frameWidth": 48,
+      "frameHeight": 48
+    }
+  },
+  {
+    "id": "resource:character-ember-cougar",
+    "textureKey": "art-character-ember-cougar",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/characters/ember-cougar/ember-cougar.png",
+      "frameWidth": 48,
+      "frameHeight": 48
+    }
+  },
+  {
+    "id": "resource:character-scrap-weasel",
+    "textureKey": "art-character-scrap-weasel",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/characters/scrap-weasel/scrap-weasel.png",
+      "frameWidth": 48,
+      "frameHeight": 48
+    }
+  },
+  {
+    "id": "resource:character-rattle-raptor",
+    "textureKey": "art-character-rattle-raptor",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/characters/rattle-raptor/rattle-raptor.png",
+      "frameWidth": 48,
+      "frameHeight": 48
+    }
+  },
+  {
+    "id": "resource:character-piston-ram",
+    "textureKey": "art-character-piston-ram",
+    "sampling": "nearest",
+    "load": {
+      "type": "spritesheet",
+      "imageUrl": "assets/characters/piston-ram/piston-ram.png",
+      "frameWidth": 48,
+      "frameHeight": 48
+    }
+  }
+]

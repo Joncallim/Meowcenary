@@ -397,6 +397,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
             cardLeft + cardLayout.padding + size / 2,
             cardTop + cardLayout.padding + height / 2,
             iconBinding.textureKey,
+            iconBinding.frameKey,
           ));
           icon.setDisplaySize(size, height);
         } else {

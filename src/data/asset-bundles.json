@@ -1,22 +1,28 @@
 [
   {
+    "id": "bundle:boot-core",
+    "resourceIds": [
+      "resource:character-scrap-tabby"
+    ]
+  },
+  {
     "id": "bundle:core-junkyard",
-    "assetIds": [
-      "world:junkyard-floor:base",
-      "world:junkyard-floor:patch-a",
-      "world:junkyard-floor:patch-b",
-      "world:junkyard-boundary:straight",
-      "world:junkyard-boundary:corner",
-      "world:junkyard-boundary:patch",
-      "world:junkyard-boundary:gate",
-      "world:prop:tyre-pile",
-      "world:prop:crate",
-      "world:prop:engine-block",
-      "world:prop:scrap-heap",
-      "world:prop:oil-stain",
-      "world:prop:warning-sign",
-      "world:landmark:hanging-press",
-      "world:landmark:barrel-power-stack"
+    "resourceIds": [
+      "resource:world-junkyard-floor-base",
+      "resource:world-junkyard-floor-patch-a",
+      "resource:world-junkyard-floor-patch-b",
+      "resource:world-junkyard-boundary-straight",
+      "resource:world-junkyard-boundary-corner",
+      "resource:world-junkyard-boundary-patch",
+      "resource:world-junkyard-boundary-gate",
+      "resource:world-prop-tyre-pile",
+      "resource:world-prop-crate",
+      "resource:world-prop-engine-block",
+      "resource:world-prop-scrap-heap",
+      "resource:world-prop-oil-stain",
+      "resource:world-prop-warning-sign",
+      "resource:world-landmark-hanging-press",
+      "resource:world-landmark-barrel-power-stack"
     ]
   }
 ]

@@ -5,9 +5,12 @@ import {
   isSlotCompatible,
   mergeParts,
   unequipPart,
+  MAX_TRAIT_CORES_PER_BUILD,
   type OwnedPart,
   type WeaponBuild,
 } from '../gameplay/gunsmith';
+import { isValidFamily } from '../gameplay/weaponFamilies';
+import { scaleModifierByTier, type ModifierSpec } from '../gameplay/stats';
 import { DataPartRegistry } from '../systems/parts';
 import type { Build, GunsmithState, PartInstance } from '../systems/save';
 
@@ -58,7 +61,7 @@ export class GunsmithController {
           tier: stored.tier, traits: Object.freeze([...definition.traits, ...stored.infusedTraits]),
           iconArtId: definition.presentation.iconArtId,
           compatible: selected === undefined || (isSlotCompatible(selected.baseWeaponFamily, definition.slot)
-            && (definition.slot !== 'trait' || selected.traitParts.length < 2)),
+            && (definition.slot !== 'trait' || selected.traitParts.length < MAX_TRAIT_CORES_PER_BUILD)),
           fitted: selected !== undefined && (Object.values(selected.fitted).includes(instanceId) || selected.traitParts.includes(instanceId)),
           comparisonSummary: selected === undefined
             ? 'Choose a chassis to preview this part.'
@@ -66,7 +69,7 @@ export class GunsmithController {
               ? `Fitted to ${selected.baseWeaponFamily}; select to unequip.`
             : !isSlotCompatible(selected.baseWeaponFamily, definition.slot)
               ? `Cannot fit ${selected.baseWeaponFamily}.`
-              : definition.slot === 'trait' && selected.traitParts.length >= 2
+              : definition.slot === 'trait' && selected.traitParts.length >= MAX_TRAIT_CORES_PER_BUILD
                 ? 'Trait capacity full — unequip a trait first.'
                 : (definition.slot !== 'trait' && selected.fitted[definition.slot] !== undefined)
                 ? 'Unequip the current part in this slot first.'
@@ -77,7 +80,7 @@ export class GunsmithController {
   }
 
   createBuild(baseWeaponFamily: string, name = 'Main Weapon'): GunsmithCommandResult {
-    if (!['pistol', 'smg', 'shotgun'].includes(baseWeaponFamily)) return { ok: false, reason: 'unknown-family' };
+    if (!isValidFamily(baseWeaponFamily)) return { ok: false, reason: 'unknown-family' };
     const id = `build:${baseWeaponFamily}`;
     if (this.context.saveData.gunsmith.builds.some((build) => build.id === id)) return this.selectBuild(id);
     const update = this.context.updateGunsmith((state) => ({
@@ -114,32 +117,44 @@ export class GunsmithController {
   }
 
   merge(firstInstanceId: string, secondInstanceId: string): GunsmithCommandResult {
-    const state = this.context.saveData.gunsmith;
-    const first = ownedPart(state, firstInstanceId);
-    const second = ownedPart(state, secondInstanceId);
-    if (!first || !second) return { ok: false, reason: 'missing-parts' };
-    const result = mergeParts(first, second, this.registry.asMap());
-    if (!result.ok) return result;
-    const outputId = uniqueInstanceId(result.output.instanceId, state.parts);
+    let failure: string | undefined;
+    let collision = false;
     const update = this.context.updateGunsmith((current) => ({
+      // GameContext re-resolves current state immediately before the one save.
+      // Inputs are stable IDs, so stale/consumed state cannot be overwritten.
+      ...((): GunsmithState => {
+        const first = ownedPart(current, firstInstanceId);
+        const second = ownedPart(current, secondInstanceId);
+        if (!first || !second) { failure = 'missing-parts'; return current; }
+        const result = mergeParts(first, second, this.registry.asMap());
+        if (!result.ok) { failure = result.reason; return current; }
+        // A deterministic output collision is an explicit no-op, never a suffix.
+        if (Object.hasOwn(current.parts, result.output.instanceId)) { collision = true; return current; }
+        return {
       ...current,
       parts: Object.fromEntries([
         ...Object.entries(current.parts).filter(([id]) => !result.consumed.includes(id)),
-        [outputId, { partId: result.output.partId, tier: result.output.tier, infusedTraits: result.output.infusedTraits }],
+        [result.output.instanceId, { partId: result.output.partId, tier: result.output.tier, infusedTraits: result.output.infusedTraits }],
       ]),
       builds: removePartReferences(current.builds, result.consumed),
+        };
+      })(),
     }));
+    if (failure) return { ok: false, reason: failure };
+    if (collision) return { ok: false, reason: 'output-collision' };
     return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
   }
 
   infuse(targetInstanceId: string, traitInstanceId: string): GunsmithCommandResult {
-    const state = this.context.saveData.gunsmith;
-    const target = ownedPart(state, targetInstanceId);
-    const trait = ownedPart(state, traitInstanceId);
-    if (!target || !trait || targetInstanceId === traitInstanceId) return { ok: false, reason: 'unknown-part' };
-    const result = infuseTrait(target, trait, this.registry.asMap());
-    if (!result.ok) return result;
+    let failure: string | undefined;
     const update = this.context.updateGunsmith((current) => ({
+      ...((): GunsmithState => {
+        const target = ownedPart(current, targetInstanceId);
+        const trait = ownedPart(current, traitInstanceId);
+        if (!target || !trait || targetInstanceId === traitInstanceId) { failure = 'unknown-part'; return current; }
+        const result = infuseTrait(target, trait, this.registry.asMap());
+        if (!result.ok) { failure = result.reason; return current; }
+        return {
       ...current,
       parts: Object.fromEntries(Object.entries(current.parts)
         .filter(([id]) => id !== traitInstanceId)
@@ -147,7 +162,10 @@ export class GunsmithController {
           ? { ...part, infusedTraits: result.output.infusedTraits }
           : part])),
       builds: removePartReferences(current.builds, [traitInstanceId]),
+        };
+      })(),
     }));
+    if (failure) return { ok: false, reason: failure };
     return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
   }
 
@@ -161,8 +179,8 @@ export class GunsmithController {
   }
 }
 
-function describePartEffect(effect: { readonly stat: string; readonly op: string; readonly value: number }, tier: number): string {
-  const actual = effect.value * Math.max(1, tier);
+function describePartEffect(effect: ModifierSpec, tier: number): string {
+  const actual = scaleModifierByTier(effect, Math.max(1, tier));
   const value = effect.op === 'mult' ? `${Math.round((actual - 1) * 100)}%` : `${actual >= 0 ? '+' : ''}${actual}`;
   return `${effect.stat} ${value}`;
 }
@@ -184,11 +202,4 @@ function removePartReferences(builds: readonly Build[], instanceIds: readonly st
     fitted: Object.fromEntries(Object.entries(build.fitted).filter(([, id]) => id !== undefined && !removed.has(id))),
     traitParts: build.traitParts.filter((id) => !removed.has(id)),
   }));
-}
-
-function uniqueInstanceId(preferred: string, parts: Readonly<Record<string, PartInstance>>): string {
-  if (!Object.hasOwn(parts, preferred)) return preferred;
-  let suffix = 2;
-  while (Object.hasOwn(parts, `${preferred}:${suffix}`)) suffix += 1;
-  return `${preferred}:${suffix}`;
 }

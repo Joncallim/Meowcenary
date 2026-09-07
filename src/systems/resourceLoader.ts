@@ -21,6 +21,51 @@ export interface ResourceLoadResult {
   readonly failed: readonly LoadedResource[];
 }
 
+/** Compatibility projection while current PNG exports are progressively
+ * packed into atlases. The loader's unit of work is already a physical
+ * texture key, so several logical bindings sharing a key produce one load. */
+export function physicalResourcesForBindings(
+  bindings: readonly { readonly textureKey: string; readonly url: string; readonly sampling: 'nearest' | 'linear'; readonly load: { readonly type: 'image' } | { readonly type: 'spritesheet'; readonly frame: { readonly width: number; readonly height: number } } }[],
+): readonly VisualTextureResource[] {
+  const byTextureKey = new Map<string, VisualTextureResource>();
+  for (const binding of bindings) {
+    if (byTextureKey.has(binding.textureKey)) continue;
+    byTextureKey.set(binding.textureKey, {
+      id: `resource:${binding.textureKey}`,
+      textureKey: binding.textureKey,
+      sampling: binding.sampling,
+      load: binding.load.type === 'image'
+        ? { type: 'image', imageUrl: binding.url }
+        : { type: 'spritesheet', imageUrl: binding.url, frameWidth: binding.load.frame.width, frameHeight: binding.load.frame.height },
+    });
+  }
+  return [...byTextureKey.values()];
+}
+
+/** Queue physical resources on Phaser's normal scene preload queue. This is
+ * intentionally separate from the lazy `loadTextureResources` path, whose
+ * explicit `start()` is correct only after a scene has entered. */
+export function queueTextureResources(
+  scene: Pick<Phaser.Scene, 'load'>,
+  resources: readonly VisualTextureResource[],
+): void {
+  for (const resource of findSharedResources(resources).values()) {
+    switch (resource.load.type) {
+      case 'image': scene.load.image(resource.textureKey, resource.load.imageUrl); break;
+      case 'atlas':
+        if (!resource.load.dataUrl) throw new Error(`Atlas resource "${resource.id}" is missing dataUrl`);
+        scene.load.atlas(resource.textureKey, resource.load.imageUrl, resource.load.dataUrl);
+        break;
+      case 'spritesheet':
+        scene.load.spritesheet(resource.textureKey, resource.load.imageUrl, {
+          frameWidth: resource.load.frameWidth ?? 32,
+          frameHeight: resource.load.frameHeight ?? 32,
+        });
+        break;
+    }
+  }
+}
+
 /**
  * Load a single texture resource into Phaser.
  */

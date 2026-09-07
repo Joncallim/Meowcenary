@@ -221,7 +221,7 @@ export class GameScene extends Phaser.Scene {
       character: contribution,
     });
     this.runState = prepared.run;
-    const equipmentRegistry = new DataEquipmentRegistry({ equipment: ctx.data.equipment ?? [] });
+    const equipmentRegistry = new DataEquipmentRegistry({ equipment: ctx.data.equipment ?? [], equipmentSets: ctx.data.equipmentSets ?? [], equipmentRules: ctx.data.equipmentRules ?? { unlocks: { 2: { type: 'always' }, 3: { type: 'always' }, 4: { type: 'always' } } } });
     const ownedEquipment = new Map(Object.entries(ctx.saveData.equipment).map(([instanceId, equipment]) => [
       instanceId,
       { instanceId, equipmentId: equipment.equipmentId, tier: equipment.tier },
@@ -229,6 +229,7 @@ export class GameScene extends Phaser.Scene {
     const equippedModifiers = resolveEquipmentModifiers(
       { equipped: ctx.saveData.equipmentLoadout ?? {} },
       equipmentRegistry.asMap(),
+      equipmentRegistry.setsAsMap(),
       ownedEquipment,
     );
     equippedModifiers.forEach((modifier) => this.runState!.stats.add(modifier));
@@ -1004,8 +1005,15 @@ export class GameScene extends Phaser.Scene {
    * lifecycle edit from silently disconnecting the two progress systems. */
   private installAuthoritativeFactListeners(ctx: GameContext): void {
     this.unsubscribers.push(
+      // Discovery is a durable fact only for a real composed contract.  The
+      // training surface never creates a stage plan, so practice spawns stay
+      // out of the Compendium by construction.
+      ctx.bus.on('enemy:spawned', ({ enemyId }) => {
+        if (this.stagePlan) ctx.recordCompendiumDiscovery(enemyId, 'encountered');
+      }),
       ctx.bus.on('enemy:killed', ({ enemyId }) => {
         this.recordStageEnemyDefeat(enemyId);
+        if (this.stagePlan) ctx.recordCompendiumDiscovery(enemyId, 'defeated');
         this.evaluateLiveAchievements(ctx, { 'metric:enemies-defeated': 1 });
       }),
       ctx.bus.on('drop:collected', ({ kind }) => this.recordStageCollection(`drop:${kind}`)),

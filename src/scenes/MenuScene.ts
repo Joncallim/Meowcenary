@@ -179,8 +179,20 @@ export class MenuScene extends Phaser.Scene {
         case 'stage':
           this.renderStage(root, snapshot, width, contentTop, margin, hitTarget);
           break;
+        case 'career':
+          this.renderCareer(root, snapshot, width, contentTop, margin, hitTarget);
+          break;
+        case 'next-goals':
+          this.renderNextGoals(root, snapshot, width, contentTop, margin, hitTarget);
+          break;
         case 'achievements':
           this.renderAchievements(root, snapshot, width, contentTop, margin, hitTarget);
+          break;
+        case 'compendium':
+          this.renderCompendium(root, snapshot, width, contentTop, margin, hitTarget);
+          break;
+        case 'training':
+          this.renderTraining(root, width, contentTop, margin, hitTarget);
           break;
         case 'gunsmith':
           this.renderGunsmith(root, snapshot, width, contentTop, margin, hitTarget);
@@ -263,13 +275,11 @@ export class MenuScene extends Phaser.Scene {
     hitTarget: number,
   ): void {
     const selectedCharacter = snapshot.character.characters.find((c) => c.selected);
-    const selectedArena = snapshot.arena.arenas.find((a) => a.selected);
     const selectedStage = snapshot.stage.stages.find((s) => s.selected);
     const infoLines = [
       `Character: ${selectedCharacter?.name ?? snapshot.character.selectedCharacterId}`,
-      `Arena: ${selectedArena?.name ?? snapshot.arena.selectedArenaId}`,
       `Contract: ${selectedStage?.name ?? snapshot.stage.selectedStageId}`,
-      `Scrap: TODO`,  // TODO: show actual scrap from context
+      `Scrap: ${this.getContext().saveData.progression.scrap}`,
     ];
 
     const info = this.own(root, createUiText(this,margin, top, infoLines.join('\n'), {
@@ -282,14 +292,13 @@ export class MenuScene extends Phaser.Scene {
     info.setScrollFactor(0);
 
     const buttons: ReadonlyArray<{ readonly label: string; readonly action: () => void }> = [
-      { label: 'Start', action: () => this.scene.start(SceneKey.Game) },
-      { label: 'Character', action: () => this.render(this.requireController().open('character')) },
-      { label: 'Arena', action: () => this.render(this.requireController().open('arena')) },
-      { label: 'Career', action: () => this.render(this.requireController().open('stage')) },  // TODO: career panel
-      { label: 'Gunsmith', action: () => this.render(this.requireController().open('gunsmith')) },
+      { label: 'Play Contract', action: () => this.scene.start(SceneKey.Game) },
+      { label: 'Mercenary', action: () => this.render(this.requireController().open('character')) },
+      { label: 'Loadout: Equipment', action: () => this.render(this.requireController().open('equipment')) },
+      { label: 'Loadout: Gunsmith', action: () => this.render(this.requireController().open('gunsmith')) },
+      { label: 'Career', action: () => this.render(this.requireController().open('career')) },
+      { label: 'Training', action: () => this.render(this.requireController().open('training')) },
       { label: 'Settings', action: () => this.render(this.requireController().open('settings')) },
-      { label: 'Stage', action: () => this.render(this.requireController().open('stage')) },
-      { label: 'Equipment', action: () => this.render(this.requireController().open('equipment')) },
     ];
     let y = top + info.height + 24;
     buttons.forEach(({ label, action }) => {
@@ -388,6 +397,59 @@ export class MenuScene extends Phaser.Scene {
       });
       y += hitTarget + 16;
     });
+    this.addBackButton(root, width, margin, hitTarget);
+  }
+
+  private renderCareer(root: Phaser.GameObjects.Container, _snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
+    const heading = this.addHeading(root, this.safeCenterX, top, 'Career');
+    let y = top + heading.height + 20;
+    for (const [label, panel] of [
+      ['Next Goals', 'next-goals'],
+      ['Achievements', 'achievements'],
+      ['Compendium', 'compendium'],
+    ] as const) {
+      this.addButton(root, margin, y, label, hitTarget, () => this.render(this.requireController().open(panel)));
+      y += hitTarget + 12;
+    }
+    this.addBackButton(root, width, margin, hitTarget);
+  }
+
+  private renderNextGoals(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
+    const heading = this.addHeading(root, this.safeCenterX, top, 'Next Goals');
+    let y = top + heading.height + 16;
+    const overview = snapshot.progressionOverview;
+    const summary = this.own(root, createUiText(this, margin, y,
+      `Contracts ${overview.completedStages}/${overview.totalStages} • Achievements ${overview.completedAchievements}/${overview.totalAchievements}`,
+      { color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin } }));
+    y += summary.height + 12;
+    overview.nextGoals.forEach((goal) => {
+      const row = this.own(root, createUiText(this, margin, y, `${goal.title}\n${goal.detail}`, {
+        color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin },
+      }));
+      y += row.height + 12;
+    });
+    this.addButton(root, margin, y, 'Choose Contract', hitTarget, () => this.render(this.requireController().open('stage')));
+    this.addBackButton(root, width, margin, hitTarget);
+  }
+
+  private renderCompendium(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
+    const heading = this.addHeading(root, this.safeCenterX, top, 'Compendium');
+    let y = top + heading.height + 16;
+    snapshot.compendium.entries.forEach((entry) => {
+      const detail = entry.status === 'unseen' ? 'Unknown — encounter this enemy in a contract.' : `Seen in: ${entry.foundIn.join(', ') || 'unknown contract'}`;
+      const row = this.own(root, createUiText(this, margin, y, `${entry.name} — ${entry.status}\n${detail}`, {
+        color: entry.status === 'unseen' ? '#94a3b8' : '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin },
+      }));
+      y += row.height + 12;
+    });
+    this.addBackButton(root, width, margin, hitTarget);
+  }
+
+  private renderTraining(root: Phaser.GameObjects.Container, width: number, top: number, margin: number, hitTarget: number): void {
+    const heading = this.addHeading(root, this.safeCenterX, top, 'Training');
+    this.own(root, createUiText(this, margin, top + heading.height + 20,
+      'Practice movement and auto-fire here. Training does not award progression or Compendium discovery.',
+      { color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin } }));
     this.addBackButton(root, width, margin, hitTarget);
   }
 
@@ -764,7 +826,7 @@ export class MenuScene extends Phaser.Scene {
   private addCatalogIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string): void {
     const binding = this.getContext().data.visualArt.bindings.find((candidate) => candidate.id === iconArtId);
     if (!binding || binding.kind !== 'upgrade-icon' || !this.textures?.exists(binding.textureKey)) return;
-    const icon = this.own(root, this.add.image(x, y, binding.textureKey));
+    const icon = this.own(root, this.add.image(x, y, binding.textureKey, binding.frameKey));
     icon.setDisplaySize(Math.min(26, binding.display.width), Math.min(26, binding.display.height));
     icon.setScrollFactor(0);
   }

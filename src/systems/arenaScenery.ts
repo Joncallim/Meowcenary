@@ -51,7 +51,7 @@ export class ArenaWorldView implements ArenaScenery {
   ): Phaser.GameObjects.Image | undefined {
     const binding = this.binding(artId);
     if (!binding) return undefined;
-    const image = this.scene.add.image(x, y, binding.textureKey)
+    const image = this.scene.add.image(x, y, binding.textureKey, binding.frameKey)
       .setDisplaySize(binding.display.width, binding.display.height)
       .setDepth(depth)
       .setRotation(rotation)

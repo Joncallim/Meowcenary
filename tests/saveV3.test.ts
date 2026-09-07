@@ -215,7 +215,7 @@ describe('V4 domain sanitizers', () => {
     };
     const v4 = migrate(raw, limits) as SaveDataV4;
     expect(v4.gunsmith.parts['part-copy-a'].partId).toBe('part:barrel-standard');
-    expect(v4.gunsmith.parts['part-copy-a']).toMatchObject({ tier: 5, infusedTraits: ['FIRE', 'EXPLOSIVE'] });
+    expect(v4.gunsmith.parts['part-copy-a']).toMatchObject({ tier: 5, infusedTraits: ['EXPLOSIVE', 'FIRE'] });
     expect(v4.gunsmith.parts['part-copy-b']).toBeDefined();
     expect(v4.equipment['equip-copy-a']).toMatchObject({ equipmentId: 'equipment:commando-helmet', tier: 1 });
     expect(v4.equipment['equip-copy-b']).toMatchObject({ equipmentId: 'equipment:commando-helmet', tier: 3 });

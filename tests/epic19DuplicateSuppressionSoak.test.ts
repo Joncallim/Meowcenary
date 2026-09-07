@@ -146,8 +146,8 @@ function settingsTrial(trial: number): void {
   let changes = 0;
   h.context.bus.on('settings:changed', () => { changes += 1; });
 
-  // Home → Settings: navDown ×5, confirm.
-  for (let i = 0; i < 5; i += 1) { h.padDown(13); h.poll(); h.padUp(13); h.poll(); }
+  // Home → Settings: V4 has seven top-level destinations; Settings is row 6.
+  for (let i = 0; i < 6; i += 1) { h.padDown(13); h.poll(); h.padUp(13); h.poll(); }
   h.padDown(0); h.poll(); h.padUp(0); h.poll();
   expect(h.menuSnapshot().panel).toBe('settings');
 

@@ -7,15 +7,22 @@ import { AchievementsController, type AchievementsSnapshot } from './achievement
 import { GunsmithController, type GunsmithSnapshot } from './gunsmithController';
 import { EquipmentController, type EquipmentSnapshot } from './equipmentController';
 import { ProgressionOverviewController, type ProgressionOverviewSnapshot } from './progressionOverviewController';
+import { CompendiumController, type CompendiumSnapshot } from './compendiumController';
 import { DataAchievementRegistry } from '../systems/achievements';
 import type { GameContext } from '../engine/context';
 
 export type MenuPanel =
   | 'home'
   | 'character'
+  /** Compatibility-only route retained for existing controller callers; it
+   * is intentionally absent from the V4 home information architecture. */
   | 'arena'
   | 'stage'
+  | 'career'
+  | 'next-goals'
   | 'achievements'
+  | 'compendium'
+  | 'training'
   | 'gunsmith'
   | 'equipment'
   | 'settings';
@@ -25,12 +32,15 @@ type NonResetPanel = MenuPanel;
 export interface MainMenuSnapshot {
   readonly panel: MenuPanel;
   readonly character: CharacterSelectionSnapshot;
+  /** Legacy selection state remains available to game composition, but Arena
+   * is deliberately not a player-facing top-level destination in V4. */
   readonly arena: ArenaSelectionSnapshot;
   readonly stage: StageSelectionSnapshot;
   readonly achievements: AchievementsSnapshot;
   readonly gunsmith: GunsmithSnapshot;
   readonly equipment: EquipmentSnapshot;
   readonly progressionOverview: ProgressionOverviewSnapshot;
+  readonly compendium: CompendiumSnapshot;
   readonly settings: SettingsSnapshot;
   readonly notice?: string;
 }
@@ -43,6 +53,7 @@ export class MainMenuController {
   private readonly achievementsController: AchievementsController;
   private readonly gunsmithController: GunsmithController;
   private readonly equipmentController: EquipmentController;
+  private readonly compendiumController: CompendiumController;
   private readonly settingsController: SettingsController;
   private panel: MenuPanel = 'home';
   private previousPanel: NonResetPanel = 'home';
@@ -56,6 +67,7 @@ export class MainMenuController {
     this.achievementsController = new AchievementsController(context, new DataAchievementRegistry({ achievements: context.data.achievements ?? [] }));
     this.gunsmithController = new GunsmithController(context);
     this.equipmentController = new EquipmentController(context);
+    this.compendiumController = new CompendiumController(context);
     this.settingsController = new SettingsController(context);
   }
 
@@ -69,6 +81,7 @@ export class MainMenuController {
       gunsmith: this.gunsmithController.snapshot(),
       equipment: this.equipmentController.snapshot(),
       progressionOverview: this.progressionOverviewController.snapshot(),
+      compendium: this.compendiumController.snapshot(),
       settings: this.settingsController.snapshot(),
       notice: this.notice,
     });
