@@ -608,6 +608,39 @@ function createFakeScene(
   };
 
   const scenePlugin = { start: vi.fn(), restart: vi.fn() };
+  // Menu's production contract now awaits Phaser's loader before starting a
+  // run. Model the small loader surface it uses so this remains a real
+  // MenuScene journey rather than bypassing the resource gate.
+  const loadedTextureKeys = new Set<string>();
+  const queuedTextureKeys = new Set<string>();
+  const loaderListeners = new Map<string, Array<() => void>>();
+  const loader = {
+    once(event: string, listener: () => void): void {
+      const listeners = loaderListeners.get(event) ?? [];
+      listeners.push(listener);
+      loaderListeners.set(event, listeners);
+    },
+    off(event: string, listener?: () => void): void {
+      if (listener === undefined) {
+        loaderListeners.delete(event);
+        return;
+      }
+      loaderListeners.set(event, (loaderListeners.get(event) ?? []).filter((candidate) => candidate !== listener));
+    },
+    image(key: string): void { queuedTextureKeys.add(key); },
+    spritesheet(key: string): void { queuedTextureKeys.add(key); },
+    atlas(key: string): void { queuedTextureKeys.add(key); },
+    start(): void {
+      for (const key of queuedTextureKeys) {
+        loadedTextureKeys.add(key);
+        const event = `filecomplete-${key}`;
+        const listeners = loaderListeners.get(event) ?? [];
+        loaderListeners.delete(event);
+        listeners.forEach((listener) => listener());
+      }
+      queuedTextureKeys.clear();
+    },
+  };
   const audioFake = { playMusic: vi.fn(), update: vi.fn(), unlock: vi.fn(), destroy: vi.fn() };
   const shake = vi.fn();
   const shakeEffectReset = vi.fn();
@@ -641,6 +674,7 @@ function createFakeScene(
 
   const scene = {
     input,
+    load: loader,
     scale,
     events: lifecycle,
     scene: scenePlugin,
@@ -649,7 +683,8 @@ function createFakeScene(
     },
     tweens,
     textures: {
-      exists: vi.fn(() => false),
+      exists: vi.fn((key: string) => loadedTextureKeys.has(key)),
+      get: vi.fn(() => ({ has: () => true })),
     },
     registry: {
       get: (key: string) => {

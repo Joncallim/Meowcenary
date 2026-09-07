@@ -728,8 +728,8 @@ export class MenuScene extends Phaser.Scene {
       }));
       y += hitTarget;
     }
-    snapshot.equipment.unavailable.forEach((item) => {
-      this.own(root, createUiText(this, margin, y, `Unavailable legacy equipment: ${item.equipmentId} (${item.instanceId})`, {
+    snapshot.equipment.unavailable.forEach(() => {
+      this.own(root, createUiText(this, margin, y, 'A legacy equipment item is unavailable in this version.', {
         color: '#fbbf24', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
         wordWrap: { width: width - margin - this.safeRightMargin },
       }));

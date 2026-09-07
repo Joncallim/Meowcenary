@@ -384,17 +384,27 @@ export class PhaserRunSummaryView {
           this.continueToNextStage();
         }, true));
       }
-      const retryY = firstButtonY + (hasNextStage ? (hitTarget + 12) * 2 : 0);
-      const retry = this.modal.addButton(root, centerX, retryY, buttonWidth, 'Retry', () => {
+      const actionLabel = hasNextStage ? 'Replay' : 'Retry';
+      const actionY = hasNextStage ? firstButtonY + (hitTarget + 12) * 2 : firstButtonY;
+      const action = this.modal.addButton(root, centerX, actionY, buttonWidth, actionLabel, () => {
         this.retry();
       }, true);
-      const loadoutY = hasNextStage ? firstButtonY + hitTarget + 12 : retryY + hitTarget + 12;
+      const loadoutY = hasNextStage ? firstButtonY + hitTarget + 12 : firstButtonY + hitTarget + 12;
       const loadout = this.modal.addButton(root, centerX, loadoutY, buttonWidth, 'Adjust Loadout', () => {
         this.adjustLoadout();
       });
-      buttons.push(retry, loadout);
+      // Construction, visual, and logical navigation order match. For a
+      // stage win the normal sequence is Next → Adjust Loadout → Replay;
+      // legacy/no-next summaries retain Retry → Adjust Loadout.
+      if (hasNextStage) {
+        // The Next button was constructed before these; insert the remaining
+        // two actions in the required visual order.
+        buttons.push(loadout, action);
+      } else {
+        buttons.push(action, loadout);
+      }
       if (hasDiscard) {
-        buttons.push(this.modal.addButton(root, centerX, retryY + hitTarget + 12, buttonWidth, 'Continue without saving', () => {
+        buttons.push(this.modal.addButton(root, centerX, actionY + hitTarget + 12, buttonWidth, 'Continue without saving', () => {
           this.discardAndReturnToMenu();
         }));
       }

@@ -22,7 +22,7 @@ import { FocusStroke } from '../src/ui/theme';
 // factory code moved out).
 if (!import.meta.url.includes('?as-harness')) {
   describe('headless production controller journey', () => {
-    it('walks menu → run → level-up → pause → rack merge → summary across real owners with zero pointer input', () => {
+    it('walks menu → run → level-up → pause → rack merge → summary across real owners with zero pointer input', async () => {
     // ------------------------------------------------------------------
     // Phase A: Menu (brief steps 1-5) through the real MenuScene.
     // ------------------------------------------------------------------
@@ -39,7 +39,7 @@ if (!import.meta.url.includes('?as-harness')) {
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
     menu.press(0);
     expect(menu.events).toEqual(['ui:navigate', 'ui:confirm']);
-    expect(menu.textContents()).toContain('Choose Character');
+    expect(menu.textContents()).toContain('Mercenary');
     expect(menuSnapshot().panel).toBe('character');
     sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 1');
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
@@ -49,7 +49,7 @@ if (!import.meta.url.includes('?as-harness')) {
     //    successful no-op), then back → Home.
     menu.press(0);
     expect(menu.events).toEqual(['ui:navigate', 'ui:confirm', 'ui:confirm']);
-    expect(menu.textContents()).toContain('Choose Character');
+    expect(menu.textContents()).toContain('Mercenary');
     expect(menuSnapshot().panel).toBe('character');
     menu.press(1);
     expect(menu.events).toEqual(['ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back']);
@@ -91,8 +91,12 @@ if (!import.meta.url.includes('?as-harness')) {
     expect(menu.events).toEqual([
       'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:back', 'ui:confirm',
     ]);
+    // Contract launch awaits the required visual closure before entering the
+    // Game scene; even an already-loaded fixture crosses the async boundary.
+    await Promise.resolve();
+    await Promise.resolve();
     sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 5', { start: 1 });
-    expect(menu.sceneStart).toHaveBeenCalledWith(SceneKey.Game);
+    expect(menu.sceneStart).toHaveBeenCalledWith(SceneKey.Game, expect.objectContaining({ runRequest: expect.any(Object) }));
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
     assertZeroPointerCalls(menu.pointerCalls, 'menu step 5');
 

@@ -128,11 +128,11 @@ describe('MainMenuController', () => {
       equipment: { helmet: { equipmentId: 'equipment:commando-helmet', tier: 1 } }, loadout: {},
     }));
     expect(controller.open('equipment').equipment.owned).toHaveLength(1);
-    expect(controller.open('equipment').equipment.owned[0]).toMatchObject({ setId: 'set:commando', effectSummary: ['attackSpeed 5%'] });
+    expect(controller.open('equipment').equipment.owned[0]).toMatchObject({ setName: 'Commando', effectSummary: ['+5% Fire Rate'] });
     expect(controller.equipEquipment('helmet').equipment.equipped.helmet).toBe('helmet');
-    expect(controller.snapshot().equipment.activeSets).toMatchObject([{ setId: 'set:commando', pieces: 1, activeThresholds: [], bonusSummary: [] }]);
+    expect(controller.snapshot().equipment.activeSets).toMatchObject([{ name: 'Commando', pieces: 1, activeThresholds: [], bonusSummary: [] }]);
     expect(controller.upgradeEquipment('helmet').equipment.owned[0].tier).toBe(2);
-    expect(controller.snapshot().equipment.owned[0].effectSummary).toEqual(['attackSpeed 10%']);
+    expect(controller.snapshot().equipment.owned[0].effectSummary).toEqual(['+10% Fire Rate']);
     // The stage command now banks its profile-owned first-clear reward.
     expect(controller.snapshot().progressionOverview.completedStages).toBeGreaterThanOrEqual(1);
   });
