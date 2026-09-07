@@ -290,7 +290,7 @@ if (!import.meta.url.includes('?as-harness')) {
     expect(focusedButtonIndex(fresh.scene)).toBe(0);
     expect(focusRingTargets(fresh.scene)).toHaveLength(1);
 
-    // navDown → Main Menu, confirm → exactly one Menu scene start and no
+    // navDown → Adjust Loadout, confirm → exactly one Menu scene start and no
     // restart (F3).
     const beforeMenu = fresh.events.length;
     const sceneBefore14 = sceneCommands(fresh.scene);
@@ -299,8 +299,8 @@ if (!import.meta.url.includes('?as-harness')) {
     expect(focusedButtonIndex(fresh.scene)).toBe(1);
     fresh.press(0);
     expect(fresh.events.slice(beforeMenu)).toEqual(['ui:navigate', 'ui:confirm']);
-    expectSceneDeltas(sceneBefore14, fresh.scene, 'main menu branch step 14', { start: 1 });
-    expect(fresh.scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
+    expectSceneDeltas(sceneBefore14, fresh.scene, 'adjust loadout branch step 14', { start: 1 });
+    expect(fresh.scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, { initialPanel: 'equipment' });
     assertZeroPointerCalls(fresh.pointerCalls, 'main menu branch step 14');
   });
 

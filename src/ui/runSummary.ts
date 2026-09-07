@@ -19,7 +19,9 @@ export interface RunSummarySnapshot {
   readonly bankedScrap: number;
   readonly totalScrap: number;
   readonly persistenceSucceeded: boolean;
-  readonly unlockedIds: readonly string[];
+  /** Player-facing labels from the accepted terminal settlement only. Never
+   * rebuild this list from the historical progression unlock bag. */
+  readonly newlyAvailableNames: readonly string[];
   /** Achievements completed in this run, supplied by authoritative gameplay. */
   readonly completedAchievementNames: readonly string[];
   /** A completed Alpha 3 contract may advance directly to its next selection. */
@@ -31,6 +33,9 @@ export interface RunSummarySource {
   readonly lastBankedRun: BankedRun | null;
   readonly canContinue?: boolean;
   readonly completedAchievementNames?: readonly string[];
+  /** Structured terminal-settlement presentation supplied by the terminal
+   * owner. Values are already player-facing copy, never stable IDs. */
+  readonly newlyAvailableNames?: readonly string[];
 }
 
 /** Terminal presentation over RunState + BankedRun. Never banks, recomputes
@@ -56,7 +61,7 @@ export class RunSummaryController {
       bankedScrap: sanitizeScrapFloor(banked?.reward.scrap),
       totalScrap: sanitizeScrapFloor(banked?.meta.scrap),
       persistenceSucceeded: banked?.persisted ?? false,
-      unlockedIds: Object.freeze([...(banked?.meta.unlocks ?? [])]),
+      newlyAvailableNames: Object.freeze([...(this.source.newlyAvailableNames ?? [])]),
       completedAchievementNames: Object.freeze([...(this.source.completedAchievementNames ?? [])]),
       canContinue: runState.status === 'won' && this.source.canContinue === true,
     };
@@ -86,6 +91,8 @@ export interface PhaserRunSummaryViewOptions {
   readonly canNavigate?: () => boolean;
   /** Explicit recovery path when local persistence remains unavailable. */
   readonly onDiscardPending?: () => void;
+  /** Routes directly to the player's loadout surface. */
+  readonly onAdjustLoadout?: () => void;
 }
 
 /** Terminal win/loss surface: reads the already-banked run and offers Retry or
@@ -102,6 +109,7 @@ export class PhaserRunSummaryView {
   private readonly onNextStage?: () => boolean;
   private readonly canNavigate: () => boolean;
   private readonly onDiscardPending?: () => void;
+  private readonly onAdjustLoadout?: () => void;
   private modal: ModalTextHelpers;
   private readonly unsubscribers: Array<() => void>;
   private root?: Phaser.GameObjects.Container;
@@ -132,6 +140,7 @@ export class PhaserRunSummaryView {
     this.onNextStage = options.onNextStage;
     this.canNavigate = options.canNavigate ?? (() => true);
     this.onDiscardPending = options.onDiscardPending;
+    this.onAdjustLoadout = options.onAdjustLoadout;
     this.modal = createModalTextHelpers(options.scene, options.viewport);
     this.unsubscribers = [
       options.bus.on('run:won', this.handleTerminal),
@@ -234,12 +243,14 @@ export class PhaserRunSummaryView {
     this.scenePlugin.restart();
   }
 
-  private returnToMenu(): void {
-    if (this.disposed || !this.visible || !this.canNavigate()) {
+  private adjustLoadout(): void {
+    if (this.disposed || !this.visible || !this.canNavigate()) return;
+    this.bus.emit('ui:confirm', {});
+    if (this.onAdjustLoadout) {
+      this.onAdjustLoadout();
       return;
     }
-    this.bus.emit('ui:confirm', {});
-    this.scenePlugin.start(SceneKey.Menu);
+    this.scenePlugin.start(SceneKey.Menu, { initialPanel: 'equipment' });
   }
 
   private continueToNextStage(): void {
@@ -338,11 +349,11 @@ export class PhaserRunSummaryView {
         y += rowGap;
       }
 
-      if (snapshot.unlockedIds.length > 0) {
+      if (snapshot.newlyAvailableNames.length > 0) {
         const unlocked = this.modal.addText(
           centerX,
           y,
-          `Unlocked: ${snapshot.unlockedIds.join(', ')}`,
+          `New: ${snapshot.newlyAvailableNames.join(', ')}`,
           'body',
         );
         root.add(unlocked);
@@ -362,6 +373,9 @@ export class PhaserRunSummaryView {
 
       const hasNextStage = snapshot.canContinue && this.onNextStage !== undefined;
       const hasDiscard = navigationPending && this.onDiscardPending !== undefined;
+      // Frozen V4 terminal flow: loss = Retry + Adjust Loadout; win = Next
+      // Contract + Adjust Loadout + Replay. Main Menu remains intentionally
+      // absent here so the primary recovery action is never hidden.
       const buttonCount = (hasNextStage ? 3 : 2) + (hasDiscard ? 1 : 0);
       const firstButtonY = height - margin - hitTarget * buttonCount - 12 * (buttonCount - 1);
       const buttons: import('./modal').ModalButtonHandle[] = [];
@@ -370,16 +384,17 @@ export class PhaserRunSummaryView {
           this.continueToNextStage();
         }, true));
       }
-      const retryY = firstButtonY + (hasNextStage ? hitTarget + 12 : 0);
+      const retryY = firstButtonY + (hasNextStage ? (hitTarget + 12) * 2 : 0);
       const retry = this.modal.addButton(root, centerX, retryY, buttonWidth, 'Retry', () => {
         this.retry();
       }, true);
-      const menu = this.modal.addButton(root, centerX, retryY + hitTarget + 12, buttonWidth, 'Main Menu', () => {
-        this.returnToMenu();
+      const loadoutY = hasNextStage ? firstButtonY + hitTarget + 12 : retryY + hitTarget + 12;
+      const loadout = this.modal.addButton(root, centerX, loadoutY, buttonWidth, 'Adjust Loadout', () => {
+        this.adjustLoadout();
       });
-      buttons.push(retry, menu);
+      buttons.push(retry, loadout);
       if (hasDiscard) {
-        buttons.push(this.modal.addButton(root, centerX, retryY + (hitTarget + 12) * 2, buttonWidth, 'Continue without saving', () => {
+        buttons.push(this.modal.addButton(root, centerX, retryY + hitTarget + 12, buttonWidth, 'Continue without saving', () => {
           this.discardAndReturnToMenu();
         }));
       }
@@ -387,7 +402,9 @@ export class PhaserRunSummaryView {
       // silent index sync, exactly one FocusStroke ring on hover, cleared on
       // out, and the logical index is set before pointer-up activation.
       buttons.forEach((handle, index) => this.wireModalHover(handle, index));
-      const hint = this.modal.addHint(root, margin, height - margin - 14, this.hintCopy());
+      // The navigation hint belongs immediately above the fixed action stack,
+      // never in the footer occupied by the bottom button on a phone.
+      const hint = this.modal.addHint(root, margin, Math.max(margin + 14, firstButtonY - 10), this.hintCopy());
       if (!wasActive) this.navigator.reset();
       this.navigator.setCount(buttons.length);
       // Stage then publish: the target list, hint, and identity are committed
@@ -440,7 +457,7 @@ export class PhaserRunSummaryView {
     switch (this.readInputMode!()) {
       case 'keyboard': return 'Arrows • Enter/Space select';
       case 'gamepad': return 'D-pad/stick • Bottom face select';
-      default: return 'Tap Retry or Main Menu';
+      default: return 'Tap an action';
     }
   }
 }

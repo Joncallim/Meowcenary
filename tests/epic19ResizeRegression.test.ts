@@ -304,7 +304,7 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     expect(game.listeners()).toEqual(summaryListeners);
     const summaryButtons = (game.gameScene as unknown as { objects: readonly TargetLike[] }).objects
       .filter((object) => object.state.kind === 'rect' && object.state.handlers['pointerup'] && !object.state.destroyed);
-    expect(summaryButtons.length).toBe(2); // Retry + Main Menu
+    expect(summaryButtons.length).toBe(2); // Retry + Adjust Loadout
     assertPhysicalTargets(summaryButtons, Math.min(width / 390, height / 844));
     // G-15: nav remains live after the direct summary rebuild.
     const summaryNavsBefore = uiEvents;

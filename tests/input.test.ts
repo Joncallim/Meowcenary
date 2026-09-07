@@ -126,6 +126,55 @@ describe('InputController pointer movement', () => {
     expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
   });
 
+  it('never adopts an interactive UI touch as the movement gesture', () => {
+    const { controller, input } = createController();
+
+    // Phaser's scene-level pointerdown includes interactive objects currently
+    // under the touch. Pause/Resume/Rack/Back/Ability/Extract/Summary all use
+    // this path, so a UI gesture cannot seed floating-stick state.
+    input.emit('pointerdown', new MockPointer(300, 700, true, 0), [{}]);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+    expect(controller.getPresentationSnapshot().pointerStart).toBeNull();
+
+    // A later genuine gameplay gesture starts normally.
+    input.pointerDown(100, 700, 1);
+    input.pointerMove(164, 700, 1);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+  });
+
+  it('clears modal pointer state but preserves a pinned first finger through second-finger UI use', () => {
+    const { controller, input } = createController();
+
+    // Finger one is the movement owner.
+    input.pointerDown(100, 700, 0);
+    input.pointerMove(132, 700, 0);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0.5, y: 0 });
+
+    // A second UI finger does not cancel the pinned gameplay finger.
+    input.emit('pointerdown', new MockPointer(340, 80, true, 1), [{}]);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0.5, y: 0 });
+
+    // Entering a modal explicitly cancels the pin. Resume accepts only a
+    // fresh pointerdown, never the held pre-modal finger.
+    controller.suspendGameplayPointer();
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+    controller.resumeGameplayPointer();
+    input.pointerMove(164, 700, 0);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+
+    input.pointerUp(0);
+    input.pointerDown(100, 700, 0);
+    input.pointerMove(164, 700, 0);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+  });
+
   it('restores keyboard-only movement after the pointer is released', () => {
     const { controller, input } = createController({ keyboard: true });
 

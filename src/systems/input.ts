@@ -154,6 +154,10 @@ class PointerAdapter implements InputAdapter {
   private pointerStart: Vec2 | null = null;
   private pointerCurrent: Vec2 | null = null;
   private pinnedPointerId: number | null = null;
+  /** Gameplay pointer movement is explicitly suspended while a modal owns
+   * touch. Resuming never revives an old gesture: a fresh gameplay down is
+   * required. */
+  private movementSuspended = false;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -204,10 +208,41 @@ class PointerAdapter implements InputAdapter {
     return this.pinnedPointerId !== null;
   }
 
-  private handlePointerDown(pointer: Phaser.Input.Pointer): void {
+  cancelMovement(): void {
+    this.pinnedPointerId = null;
+    this.pointerStart = null;
+    this.pointerCurrent = null;
+    this.core.clearSource('pointer');
+  }
+
+  suspendMovement(): void {
+    this.movementSuspended = true;
+    this.cancelMovement();
+  }
+
+  resumeMovement(): void {
+    this.movementSuspended = false;
+    // Do not adopt a pointer already held from a modal. The next explicit
+    // gameplay pointerdown is the only legal start of a stick gesture.
+    this.cancelMovement();
+  }
+
+  private handlePointerDown(
+    pointer: Phaser.Input.Pointer,
+    currentlyOver?: readonly Phaser.GameObjects.GameObject[],
+  ): void {
     // Epic 19 D7: any pointerdown signals pointer mode — including a second
     // finger tapping a UI control while another pointer is already pinned.
     this.onPointerDown?.();
+
+    // UI ownership is decided at the adapter boundary. Phaser supplies the
+    // interactive objects under this pointer; a control touch is never a
+    // floating-stick start, even when it is the first scene pointerdown.
+    // This prevents Pause/Resume/Rack/Back/Ability/Extract/Summary controls
+    // from seeding a stale movement pointer.
+    if (this.movementSuspended || (currentlyOver?.length ?? 0) > 0) {
+      return;
+    }
 
     // Epic 19 D8: pin movement to the pointer.id that began the gesture.
     // Later pointers never re-anchor movement and stay available to UI.
@@ -592,6 +627,25 @@ export class InputController implements System {
   onAnyAction(handler: ActionHandler): () => void {
     this.anyActionHandlers.add(handler);
     return () => this.anyActionHandlers.delete(handler);
+  }
+
+  /** Clears only touch-stick state. Keyboard/gamepad movement ownership is
+   * intentionally untouched, which keeps a second-finger UI tap from killing
+   * a pinned first-finger drag. */
+  cancelPointerMovement(): void {
+    this.pointerAdapter.cancelMovement();
+  }
+
+  /** Modal/terminal transition boundary: discard the current gesture and
+   * reject every pointer movement sample until gameplay explicitly resumes. */
+  suspendGameplayPointer(): void {
+    this.pointerAdapter.suspendMovement();
+  }
+
+  /** Re-enable future gameplay gestures. This never resumes a pre-modal
+   * pointer, so the first new drag always owns movement cleanly. */
+  resumeGameplayPointer(): void {
+    this.pointerAdapter.resumeMovement();
   }
 
   getMoveVector(): Vec2 {
