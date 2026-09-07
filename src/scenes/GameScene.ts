@@ -617,6 +617,7 @@ export class GameScene extends Phaser.Scene {
 
     this.perfSampler?.recordFrame(delta);
     this.inputController.update(delta);
+    this.syncGameplayPointerOwnership();
     this.pauseView?.refreshInputPresentation();
     this.runSummaryView?.refreshInputPresentation();
     this.upgradeChooser?.refreshInputPresentation();
@@ -1162,6 +1163,25 @@ export class GameScene extends Phaser.Scene {
     if (!shouldPause && this.physicsPausedByRun) {
       this.physics.world.resume();
       this.physicsPausedByRun = false;
+    }
+  }
+
+  /** A pointer gesture belongs to gameplay only while the run is genuinely
+   * active and no modal/extraction boundary owns the screen. The adapter
+   * clears on each ownership crossing, preventing Resume or Back touches
+   * from becoming a delayed movement drag. */
+  private syncGameplayPointerOwnership(): void {
+    const runState = this.runState;
+    const panel = this.pauseController?.snapshot().panel ?? 'closed';
+    const gameplayOwnsPointer = runState?.status === 'active'
+      && panel === 'closed'
+      && this.stageRuntime?.pendingClear === undefined;
+    if (gameplayOwnsPointer && this.gameplayPointerSuspended) {
+      this.inputController?.resumeGameplayPointer?.();
+      this.gameplayPointerSuspended = false;
+    } else if (!gameplayOwnsPointer && !this.gameplayPointerSuspended) {
+      this.inputController?.suspendGameplayPointer?.();
+      this.gameplayPointerSuspended = true;
     }
   }
 }
