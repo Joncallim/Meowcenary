@@ -54,6 +54,11 @@ export class HudController implements System {
       bus.on('xp:gained', () => this.markDirty()),
       bus.on('level:up', () => this.markDirty()),
       bus.on('currency:changed', () => this.markDirty()),
+      // Lethal settlement updates the authoritative global kill count at the
+      // same boundary that emits this event.  Do not wait for the next clock
+      // tick to reflect a kill in the HUD (stage objectives may intentionally
+      // ignore a kill because of their filter, while K must never do so).
+      bus.on('enemy:killed', () => this.markDirty()),
       bus.on('achievement:completed', () => this.markDirty()),
 
       bus.on('run:paused', () => this.markDirty()),

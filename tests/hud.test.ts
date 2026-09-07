@@ -77,6 +77,7 @@ const eventPayloads = {
   'xp:gained': { amount: 1, total: 1 },
   'level:up': { level: 2 },
   'currency:changed': { runTotal: 10 },
+  'enemy:killed': { instanceId: 1, enemyId: 'dust-mite', xpValue: 1, scrapValue: 0, x: 10, y: 20 },
   'run:paused': {},
   'run:resumed': {},
   'run:won': { timeMs: 1000, level: 2, kills: 3 },
@@ -160,6 +161,23 @@ describe('HudController', () => {
     controller.update(16);
     expect(view.renders).toHaveLength(2);
     expect(view.renders[1]?.ability).toBe('Scrap Burst: 9s');
+  });
+
+  it('renders the authoritative global kill count on enemy:killed without waiting for a clock tick', () => {
+    const source = createMutableSource({ timeMs: 12_345, kills: 0 });
+    const { bus, controller, view } = createHarness(source);
+    controller.update(16);
+
+    // A filtered contract objective can remain unchanged here; this event
+    // represents the universal lethal settlement and K always counts it.
+    source.snapshotValue.kills = 1;
+    bus.emit('enemy:killed', {
+      instanceId: 1, enemyId: 'dust-mite', xpValue: 1, scrapValue: 0, x: 10, y: 20,
+    });
+    controller.update(16);
+
+    expect(view.renders).toHaveLength(2);
+    expect(view.renders[1]?.kills).toBe(1);
   });
 
   it('unsubscribes all event listeners on destroy', () => {
