@@ -11,6 +11,12 @@ function plan(objective: Record<string, unknown> = { type: 'kill', count: 2 }) {
 }
 
 describe('stage runtime', () => {
+  it('formats survive progress for players without exposing raw float state', () => {
+    const runtime = createStageRuntime(plan({ type: 'survive', seconds: 120 }));
+    runtime.tick(53_927.8, 53_927.8);
+    expect(runtime.describeObjective()).toBe('Survive 0:53 / 2:00');
+  });
+
   it('owns generic kill facts and snapshots a single retry-safe clear transaction', () => {
     const runtime = createStageRuntime(plan());
     runtime.tick(0, 0);

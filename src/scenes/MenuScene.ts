@@ -13,6 +13,10 @@ import { InputController } from '../systems/input';
 import { FocusNavigator, type FocusDirection } from '../ui/focusList';
 import { FocusStroke } from '../ui/theme';
 import { ScrollableFocusRegion } from '../ui/scrollableFocus';
+import { assembleComposedRunRequest, assembleRunRequest, asLegacyComposedRunRequest, type ComposedRunRequest } from '../gameplay/runRequest';
+import { resolveRunPlan } from '../gameplay/stage/stageContracts';
+import { assertRunPhysicalResourcesLoaded, loadTextureResources, resolveRunPhysicalResources } from '../systems/resourceLoader';
+import { DataVisualArtRegistry } from '../systems/visualArt';
 
 const MENU_DEPTH = ThemeDepth.pauseSummary;
 /** 44 physical px at the smallest promised FIT (844×390 → 0.462085). */
@@ -61,6 +65,11 @@ export class MenuScene extends Phaser.Scene {
   private touchScrollY?: number;
   private touchDragDistance = 0;
   private touchDidScroll = false;
+  /** A run never starts against the boot bundle alone. This state remains in
+   * Menu so a load failure has a usable Retry/Back surface rather than a
+   * partially constructed GameScene. */
+  private runLaunchState: 'idle' | 'loading' | 'failed' = 'idle';
+  private runLaunchError?: string;
   /** Number of committed render attempts; resize tests assert one per event. */
   get renderRebuildCount(): number {
     return this.rebuildCount;
@@ -70,7 +79,7 @@ export class MenuScene extends Phaser.Scene {
     super(SceneKey.Menu);
   }
 
-  create(): void {
+  create(data?: { readonly initialPanel?: import('../ui/menus').MenuPanel }): void {
     const ctx = this.getContext();
     this.bus = ctx.bus;
     this.controller = new MainMenuController(ctx);
@@ -98,7 +107,9 @@ export class MenuScene extends Phaser.Scene {
     this.input.on(Phaser.Input.Events.POINTER_UP, this.handlePointerUp, this);
     this.input.on(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.handlePointerUp, this);
 
-    this.render(this.controller.snapshot());
+    this.render(data?.initialPanel && data.initialPanel !== 'home'
+      ? this.controller.open(data.initialPanel)
+      : this.controller.snapshot());
 
     // FIT changes the physical-to-logical hit-target conversion. Rebuild the
     // committed panel from the real scale event so every live target is sized
@@ -307,7 +318,10 @@ export class MenuScene extends Phaser.Scene {
     info.setScrollFactor(0);
 
     const buttons: ReadonlyArray<{ readonly label: string; readonly action: () => void }> = [
-      { label: 'Play Contract', action: () => this.scene.start(SceneKey.Game) },
+      {
+        label: this.runLaunchState === 'failed' ? 'Retry Loading Contract' : 'Play Contract',
+        action: () => { void this.startContractWithResources(); },
+      },
       { label: 'Mercenary', action: () => this.render(this.requireController().open('character')) },
       { label: 'Loadout: Equipment', action: () => this.render(this.requireController().open('equipment')) },
       { label: 'Loadout: Gunsmith', action: () => this.render(this.requireController().open('gunsmith')) },
@@ -328,6 +342,67 @@ export class MenuScene extends Phaser.Scene {
     }));
     hints.setScrollFactor(0);
     this.hint = hints;
+    if (this.runLaunchState === 'failed') {
+      const detail = this.own(root, createUiText(this, margin, top + info.height + 4,
+        `Unable to load the contract. Retry or choose another menu option. ${this.runLaunchError ?? ''}`,
+        {
+          color: '#f87171',
+          fontFamily: ThemeFont.family,
+          fontSize: `${ThemeFont.bodyMin}px`,
+          wordWrap: { width: width - margin - this.safeRightMargin },
+        }));
+      detail.setScrollFactor(0);
+    }
+  }
+
+  private async startContractWithResources(): Promise<void> {
+    const ctx = this.getContext();
+    await this.startRunWithResources(assembleComposedRunRequest(ctx, ctx.menuRng), false);
+  }
+
+  /** Training deliberately uses the existing legacy arena composition, but
+   * carries an explicit mode to GameScene so it cannot bank progression or
+   * Compendium facts. It still waits for the same physical resource closure. */
+  private async startTrainingWithResources(): Promise<void> {
+    const ctx = this.getContext();
+    await this.startRunWithResources(asLegacyComposedRunRequest(assembleRunRequest(ctx, ctx.menuRng)), true);
+  }
+
+  private async startRunWithResources(request: ComposedRunRequest, isTraining: boolean): Promise<void> {
+    if (this.runLaunchState === 'loading') return;
+    this.runLaunchState = 'loading';
+    this.runLaunchError = undefined;
+    this.render(this.requireController().snapshot());
+    try {
+      const ctx = this.getContext();
+      const plan = request.kind === 'stage'
+        ? resolveRunPlan({ characterId: request.characterId, stageId: request.stageId, seed: request.seed }, ctx.stages.runPlanCatalog())
+        : undefined;
+      const arenaId = plan?.arenaId ?? (request.kind === 'legacy-arena' ? request.arenaId : undefined);
+      const arena = arenaId === undefined ? undefined : ctx.arenas.arenaById(arenaId);
+      if (!arena) throw new Error('Selected contract arena is unavailable');
+      const legacyEnemyIds = request.kind === 'legacy-arena'
+        ? (ctx.data.spawnCurves.find((curve) => curve.id === arena.spawnCurveId)?.waves.map((wave) => wave.enemyId) ?? [])
+        : [];
+      const resources = resolveRunPhysicalResources({
+        data: ctx.data,
+        characterId: request.characterId,
+        arena,
+        encounterEnemyIds: plan?.encounter.enemyIds ?? legacyEnemyIds,
+        bossId: plan?.encounter.bossId,
+      });
+      const result = await loadTextureResources(this, resources);
+      if (result.failed.length > 0) throw new Error(`Failed resources: ${result.failed.map((entry) => entry.resourceId).join(', ')}`);
+      const art = new DataVisualArtRegistry(ctx.data);
+      const resourceIds = new Set(resources.map((resource) => resource.id));
+      assertRunPhysicalResourcesLoaded(this.textures, art.all().filter((binding) =>
+        binding.resourceId !== undefined && resourceIds.has(binding.resourceId)));
+      this.scene.start(SceneKey.Game, { runRequest: request, isTraining });
+    } catch (error) {
+      this.runLaunchState = 'failed';
+      this.runLaunchError = error instanceof Error ? error.message : 'Unknown loading error';
+      this.render(this.requireController().snapshot());
+    }
   }
 
   private renderCharacter(
@@ -338,7 +413,7 @@ export class MenuScene extends Phaser.Scene {
     margin: number,
     hitTarget: number,
   ): void {
-    const heading = this.addHeading(root, this.safeCenterX, top, 'Choose Character');
+    const heading = this.addHeading(root, this.safeCenterX, top, 'Mercenary');
     let y = top + heading.height + 20;
 
     this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
@@ -352,11 +427,10 @@ export class MenuScene extends Phaser.Scene {
       if (character.description || character.abilityName) {
         const details = [
           character.description,
-          `Stats — ${character.baseStatsSummary}`,
-          `Passive — ${character.passiveSummary}`,
-          `Starts with — ${character.startingWeaponSummary}`,
-          character.abilityName ? `Ability — ${character.abilityName}: ${character.abilityDescription}` : undefined,
-          character.locked ? `Unlock — ${character.unlockRequirement}` : undefined,
+          `Base: ${character.baseStatsSummary}`,
+          character.passiveSummary,
+          character.abilityName ? `${character.abilityName}: ${character.abilityDescription}` : undefined,
+          character.locked ? character.unlockRequirement : undefined,
         ]
           .filter(Boolean).join('\n');
         const desc = this.own(root, createUiText(this,margin + 12, y + button.height + 2, details, {
@@ -458,8 +532,13 @@ export class MenuScene extends Phaser.Scene {
     let y = top + heading.height + 16;
     this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
     snapshot.compendium.entries.forEach((entry) => {
-      const detail = entry.status === 'unseen' ? 'Unknown — encounter this enemy in a contract.' : `Seen in: ${entry.foundIn.join(', ') || 'unknown contract'}`;
-      const row = this.addButton(root, margin, y, `${entry.name} — ${entry.status}\n${detail}`, hitTarget, () => undefined, 'ui:confirm', width - margin - this.safeRightMargin);
+      const detail = entry.status === 'unseen'
+        ? 'Unknown threat — encounter it in a contract.'
+        : entry.status === 'encountered'
+          ? `${entry.fieldNote}\nTells: ${entry.tells}`
+          : `${entry.fieldNote}\nBehaviour: ${entry.behaviour}\nTells: ${entry.tells}\nCounterplay: ${entry.counterplay}${entry.foundIn.length > 0 ? `\nFound in: ${entry.foundIn[0]}` : ''}`;
+      const name = entry.status === 'unseen' ? 'Unknown' : entry.name;
+      const row = this.addButton(root, margin, y, `${name}\n${detail}`, hitTarget, () => undefined, 'ui:confirm', width - margin - this.safeRightMargin);
       row.setStyle({
         color: entry.status === 'unseen' ? '#94a3b8' : '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin },
       });
@@ -471,9 +550,10 @@ export class MenuScene extends Phaser.Scene {
 
   private renderTraining(root: Phaser.GameObjects.Container, width: number, top: number, margin: number, hitTarget: number): void {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Training');
-    this.own(root, createUiText(this, margin, top + heading.height + 20,
+    const copy = this.own(root, createUiText(this, margin, top + heading.height + 20,
       'Practice movement and auto-fire here. Training does not award progression or Compendium discovery.',
       { color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin } }));
+    this.addButton(root, margin, top + heading.height + copy.height + 36, 'Start Training', hitTarget, () => { void this.startTrainingWithResources(); });
     this.addBackButton(root, width, margin, hitTarget);
   }
 
@@ -592,13 +672,13 @@ export class MenuScene extends Phaser.Scene {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Equipment');
     let y = top + heading.height + 14;
     const equipped = snapshot.equipment.equipped;
-    this.own(root, createUiText(this, margin, y, `Slots — Helmet: ${equipped.helmet ?? 'empty'} • Armour: ${equipped.armour ?? 'empty'}\nGloves: ${equipped.gloves ?? 'empty'} • Boots: ${equipped.boots ?? 'empty'}`, {
+    this.own(root, createUiText(this, margin, y, `Equipped: ${Object.values(equipped).filter(Boolean).length}/4 pieces`, {
       color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
       wordWrap: { width: width - margin - this.safeRightMargin },
     }));
     y += hitTarget + 12;
     if (snapshot.equipment.activeSets.length > 0) {
-      const active = snapshot.equipment.activeSets.map((set) => `${set.setId} ${set.pieces}/4${set.activeThresholds.length ? ` (${set.activeThresholds.join('+')}-piece active)` : ''}\n${set.bonusSummary.join(' • ')}`).join('\n');
+      const active = snapshot.equipment.activeSets.map((set) => `${set.name} Set • ${set.pieces}/4 equipped${set.activeThresholds.length ? ` (${set.activeThresholds.join('+')}-piece active)` : ''}\n${set.bonusSummary.join(' • ')}`).join('\n');
       const activeText = this.own(root, createUiText(this, margin, y, `Active sets — ${active}`, {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
         wordWrap: { width: width - margin - this.safeRightMargin },
@@ -613,21 +693,21 @@ export class MenuScene extends Phaser.Scene {
     snapshot.equipment.owned.forEach((item) => {
       const equippedHere = equipped[item.slot] === item.instanceId;
       const iconColumn = 38;
-      const equipmentButton = this.addButton(root, margin, y, `${equippedHere ? '✓ ' : ''}${item.name} [${item.setId}] T${item.tier} — ${equippedHere ? 'Equipped' : 'Equip'}`, hitTarget, () => {
+      const equipmentButton = this.addButton(root, margin, y, `${equippedHere ? '✓ ' : ''}${item.name}\n${item.setName} Set • ${item.setPieces}/4 equipped • Tier ${item.tier}\n${equippedHere ? 'Equipped' : 'Tap to equip'}`, hitTarget, () => {
         this.render(equippedHere
           ? this.requireController().unequipEquipment(item.slot as 'helmet' | 'armour' | 'gloves' | 'boots')
           : this.requireController().equipEquipment(item.instanceId));
       }, 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
       this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, item.iconArtId);
       y += equipmentButton.height + 8;
-      const effects = this.own(root, createUiText(this, margin, y, `Effects: ${item.effectSummary.join(', ')}${item.comparisonSummary ? `\n${item.comparisonSummary}` : ''}`, {
+      const effects = this.own(root, createUiText(this, margin, y, item.effectSummary.join(' • '), {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
         wordWrap: { width: width - margin - this.safeRightMargin },
       }));
       this.registerScrollObject(effects);
       y += effects.height + 8;
       if (item.upgradeCost !== undefined) {
-        this.addButton(root, margin, y, `Upgrade ${item.name} (${item.upgradeCost} scrap)`, hitTarget, () => {
+        this.addButton(root, margin, y, `Upgrade • ${item.upgradeCost} Scrap`, hitTarget, () => {
           this.render(this.requireController().upgradeEquipment(item.instanceId));
         });
         y += hitTarget + 8;
@@ -910,13 +990,13 @@ export class MenuScene extends Phaser.Scene {
       };
       object.setPosition?.(entry.x, entry.y - offset);
       const bounds = object.getBounds?.();
-      if (bounds) object.setVisible?.(bounds.bottom > this.scrollViewportTop && bounds.top < this.scrollViewportBottom);
+      if (bounds) object.setVisible?.(bounds.top >= this.scrollViewportTop && bounds.bottom <= this.scrollViewportBottom);
     }
     for (const index of this.scrollItemIndexes) {
       const text = this.focusables[index];
       if (!text) continue;
       const bounds = text.getBounds();
-      const visible = bounds.bottom > this.scrollViewportTop && bounds.top < this.scrollViewportBottom;
+      const visible = bounds.top >= this.scrollViewportTop && bounds.bottom <= this.scrollViewportBottom;
       text.setVisible(visible);
       const ring = this.focusRings[index];
       ring?.setVisible(visible);

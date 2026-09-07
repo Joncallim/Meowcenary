@@ -37,7 +37,7 @@ describe('#164 pendingClear presentation ordering', () => {
 
   describe('A: Final-kill frame — objective completes and pendingClear is created', () => {
     it('starts at 0/20 with status active', () => {
-      expect(runtime.describeObjective()).toContain('0/20');
+      expect(runtime.describeObjective()).toContain('0 / 20');
       expect(runtime.state.status).toBe('intro');
       // First tick activates
       runtime.tick(16, 16);
@@ -53,7 +53,7 @@ describe('#164 pendingClear presentation ordering', () => {
         runtime.recordEnemyDefeat('enemy-1', 'grunt');
       }
       runtime.tick(16, 20_000); // tick to process kills
-      expect(runtime.describeObjective()).toContain('19/20');
+      expect(runtime.describeObjective()).toContain('19 / 20');
       expect(runtime.pendingClear).toBeUndefined();
       expect(runtime.state.status).toBe('active');
 
@@ -76,8 +76,8 @@ describe('#164 pendingClear presentation ordering', () => {
       const desc = runtime.describeObjective();
       expect(desc).toContain('OBJECTIVE COMPLETE');
       expect(desc).toContain('Confirm to extract');
-      expect(desc).not.toContain('19/20');
-      expect(desc).not.toContain('0/20');
+      expect(desc).not.toContain('19 / 20');
+      expect(desc).not.toContain('0 / 20');
     });
   });
 
@@ -89,7 +89,7 @@ describe('#164 pendingClear presentation ordering', () => {
         runtime.recordEnemyDefeat(`enemy-${i}`, 'grunt');
       }
       runtime.tick(16, 30_000); // some time passes
-      expect(runtime.describeObjective()).toContain('19/20');
+      expect(runtime.describeObjective()).toContain('19 / 20');
 
       // Final kill on a frame
       runtime.recordEnemyDefeat('enemy-final', 'grunt');
@@ -188,7 +188,7 @@ describe('#164 pendingClear presentation ordering', () => {
 
       // Before final kill: shows 19/20
       const beforeDesc = runtime.describeObjective();
-      expect(beforeDesc).toContain('19/20');
+      expect(beforeDesc).toContain('19 / 20');
       expect(beforeDesc).not.toContain('OBJECTIVE COMPLETE');
 
       // Final kill + tick
@@ -198,8 +198,8 @@ describe('#164 pendingClear presentation ordering', () => {
       // After completion: must show OBJECTIVE COMPLETE, never 19/20
       const afterDesc = runtime.describeObjective();
       expect(afterDesc).toContain('OBJECTIVE COMPLETE');
-      expect(afterDesc).not.toContain('19/20');
-      expect(afterDesc).not.toContain('0/20');
+      expect(afterDesc).not.toContain('19 / 20');
+      expect(afterDesc).not.toContain('0 / 20');
       expect(afterDesc).not.toMatch(/^\d+\/\d+$/);
     });
   });

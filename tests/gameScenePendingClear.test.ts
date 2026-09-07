@@ -286,7 +286,7 @@ describe('#164 GameScene pending-clear update ordering', () => {
         stageRuntime.recordEnemyDefeat(`enemy-${i}`, 'grunt');
       }
       scene.update(0, 16);
-      expect(stageRuntime.describeObjective()).toContain('19/20');
+      expect(stageRuntime.describeObjective()).toContain('19 / 20');
 
       // Complete
       stageRuntime.recordEnemyDefeat('enemy-final', 'grunt');
@@ -295,7 +295,7 @@ describe('#164 GameScene pending-clear update ordering', () => {
       // Must show OBJECTIVE COMPLETE, never 19/20
       const desc = stageRuntime.describeObjective();
       expect(desc).toContain('OBJECTIVE COMPLETE');
-      expect(desc).not.toContain('19/20');
+      expect(desc).not.toContain('19 / 20');
     });
   });
 

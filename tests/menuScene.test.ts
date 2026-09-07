@@ -7,7 +7,6 @@ import { MockGamepad, MockInputPlugin } from './__mocks__/phaser';
 import { GAME_CONTEXT_REGISTRY_KEY, createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
-import { SceneKey } from '../src/engine/sceneKeys';
 import { MenuScene } from '../src/scenes/MenuScene';
 import { AUDIO_MANAGER_REGISTRY_KEY } from '../src/systems/audio';
 import { DataArenaRegistry } from '../src/systems/arenas';
@@ -577,7 +576,7 @@ describe('MenuScene', () => {
   });
 
   it.each([
-    { label: 'Mercenary', heading: 'Choose Character' },
+    { label: 'Mercenary', heading: 'Mercenary' },
     { label: 'Career', heading: 'Career' },
     { label: 'Settings', heading: 'Settings' },
   ])('clicking the $label home button re-renders its panel', ({ label, heading }) => {
@@ -609,12 +608,12 @@ describe('MenuScene', () => {
     harness.menuScene.update(0, 16);
     harness.keyboard.keydown('Enter');
     harness.menuScene.update(0, 16);
-    expect(harness.textContents()).toContain('Choose Character');
+    expect(harness.textContents()).toContain('Mercenary');
 
     harness.keyboard.keydown('Escape');
     harness.menuScene.update(0, 16);
     expect(harness.textContents()).toContain('Play Contract');
-    expect(harness.textContents()).not.toContain('Choose Character');
+    expect(harness.textContents()).not.toContain('✓ Scrap Tabby');
   });
 
   it('navigates and confirms through the real gamepad with zero pointer-plugin calls (F9)', () => {
@@ -634,7 +633,7 @@ describe('MenuScene', () => {
 
     press(13); // D-pad down → Mercenary
     press(0); // bottom face confirm → Mercenary panel
-    expect(harness.textContents()).toContain('Choose Character');
+    expect(harness.textContents()).toContain('Mercenary');
     expect(down).not.toHaveBeenCalled();
     expect(move).not.toHaveBeenCalled();
     expect(up).not.toHaveBeenCalled();
@@ -755,7 +754,7 @@ describe('MenuScene', () => {
     };
     press('ArrowDown');
     press('Enter');
-    expect(harness.textContents()).toContain('Choose Character');
+    expect(harness.textContents()).toContain('Mercenary');
     expect(seams.navigator.index).toBe(0);
 
     // The roster has two characters, so the last selectable row is 1
@@ -764,7 +763,7 @@ describe('MenuScene', () => {
     expect(seams.navigator.index).toBe(1);
     press('Enter');
     // The row re-renders with its selection marker; the exact row stays focused.
-    expect(harness.textContents()).toContain('Choose Character');
+    expect(harness.textContents()).toContain('Mercenary');
     expect(seams.navigator.index).toBe(1);
   });
 
@@ -790,7 +789,7 @@ describe('MenuScene', () => {
     // Home → Mercenary resets to the first character row.
     press('ArrowDown');
     press('Enter');
-    expect(harness.textContents()).toContain('Choose Character');
+    expect(harness.textContents()).toContain('Mercenary');
     expect(seams.navigator.index).toBe(0);
   });
 
@@ -849,7 +848,7 @@ describe('MenuScene', () => {
     expect(events).toEqual(['ui:back']);
     press('ArrowDown');
     press('Enter');
-    expect(harness.textContents()).toContain('Choose Character');
+    expect(harness.textContents()).toContain('Mercenary');
     expect(events).toEqual(['ui:back', 'ui:navigate', 'ui:confirm']);
   });
 
@@ -893,7 +892,7 @@ describe('MenuScene', () => {
     { name: 'home', steps: 0, expected: ['Play Contract', 'Mercenary', 'Loadout: Equipment', 'Loadout: Gunsmith', 'Career', 'Training', 'Settings'] },
     { name: 'mercenary', steps: 1, expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', 'Volt Lynx 🔒', 'Brass Boar 🔒', 'Ember Cougar 🔒', 'Scrap Weasel 🔒', 'Rattle Raptor 🔒', 'Piston Ram 🔒', '< Back'] },
     { name: 'career', steps: 4, expected: ['Next Goals', 'Achievements', 'Compendium', '< Back'] },
-    { name: 'training', steps: 5, expected: ['< Back'] },
+    { name: 'training', steps: 5, expected: ['Start Training', '< Back'] },
     { name: 'settings', steps: 6, expected: ['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', '< Back'] },
 
   ])('registers the exact V4 focus-target order/count with exactly one FocusStroke ring (F6)', ({ steps, expected }) => {
@@ -1063,11 +1062,13 @@ describe('MenuScene', () => {
     expect(liveContainers).toHaveLength(1);
   });
 
-  it('starts the game scene from Play Contract', () => {
+  it('shows a retryable loading error rather than entering a partially loaded game scene', async () => {
     const harness = createHarness();
 
     harness.buttonByLabel('Play Contract')!.state.handlers['pointerup']!();
-    expect(harness.sceneStart).toHaveBeenCalledWith(SceneKey.Game);
+    await Promise.resolve();
+    expect(harness.sceneStart).not.toHaveBeenCalled();
+    expect(harness.textContents()).toContain('Retry Loading Contract');
   });
 });
 

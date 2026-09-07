@@ -35,7 +35,10 @@ export interface StageRuntime {
   recordCollection(itemId: string): void;
   /** Records the terminal run-loss fact at the stage-owned lifecycle seam. */
   fail(): void;
-  describeObjective(): string;
+  /** Formats a display-only objective read model. The optional name resolver
+   * is supplied by the presentation composition root; objective state remains
+   * numeric and authoritative here. */
+  describeObjective(options?: { readonly enemyName?: (enemyId: string) => string | undefined }): string;
   tryCommit(commit: (pending: PendingStageClear) => boolean): boolean;
 }
 
@@ -88,11 +91,22 @@ class ResolvedStageRuntime implements StageRuntime {
     this.stageState = failStage(this.stageState);
   }
 
-  describeObjective(): string {
+  describeObjective(options?: { readonly enemyName?: (enemyId: string) => string | undefined }): string {
     if (this.stageState.status === 'objective-complete') return 'OBJECTIVE COMPLETE — Confirm to extract';
     const progress = this.stageState.objectiveProgress;
-    const label = this.plan.objective.definition.type === 'defeat' ? 'Defeat boss' : `Objective: ${progress.type}`;
-    return `${label} ${Math.min(progress.current, progress.target)}/${progress.target}`;
+    const current = Math.min(progress.current, progress.target);
+    switch (this.plan.objective.definition.type) {
+      case 'survive':
+        return `Survive ${formatObjectiveTime(current)} / ${formatObjectiveTime(progress.target)}`;
+      case 'kill':
+        return `Eliminate ${Math.floor(current)} / ${Math.floor(progress.target)}`;
+      case 'collect':
+        return `Collect ${Math.floor(current)} / ${Math.floor(progress.target)}`;
+      case 'defeat': {
+        const enemyId = this.plan.objective.definition.enemyId;
+        return `Defeat ${options?.enemyName?.(enemyId) ?? 'the boss'}`;
+      }
+    }
   }
 
   tryCommit(commit: (pending: PendingStageClear) => boolean): boolean {
@@ -115,6 +129,11 @@ class ResolvedStageRuntime implements StageRuntime {
       grants: this.plan.reward.grants ?? [],
     });
   }
+}
+
+function formatObjectiveTime(seconds: number): string {
+  const safe = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+  return `${Math.floor(safe / 60)}:${(safe % 60).toString().padStart(2, '0')}`;
 }
 
 export function createStageRuntime(plan: ResolvedRunPlan): StageRuntime {

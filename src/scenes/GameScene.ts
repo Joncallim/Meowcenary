@@ -148,6 +148,9 @@ export class GameScene extends Phaser.Scene {
    * recovers. */
   private pendingAchievementEvaluation = false;
   private _wasPendingClear = false;
+  /** The input adapter owns pointer state; GameScene only declares whether
+   * gameplay currently owns pointer gestures. */
+  private gameplayPointerSuspended = true;
   /** Prevents ghost clicks during scene transitions by suppressing all
    *  input for a brief window after a state-changing action. */
   private _inputBlockedUntil = 0;
@@ -568,18 +571,26 @@ export class GameScene extends Phaser.Scene {
     }
     this.unsubscribers.push(
       ctx.bus.on('run:paused', () => {
+        this.inputController?.suspendGameplayPointer?.();
+        this.gameplayPointerSuspended = true;
         this.syncPhysicsPause(this.requireRunState());
       }),
       ctx.bus.on('run:resumed', () => {
+        this.inputController?.resumeGameplayPointer?.();
+        this.gameplayPointerSuspended = false;
         this.syncPhysicsPause(this.requireRunState());
       }),
       ctx.bus.on('run:won', () => {
+        this.inputController?.suspendGameplayPointer?.();
+        this.gameplayPointerSuspended = true;
         this.syncPhysicsPause(this.requireRunState());
       }),
       ctx.bus.on('run:lost', () => {
         // Player owns health/death and emits the authoritative terminal run
         // fact; StageRuntime owns the corresponding contract lifecycle.
         this.stageRuntime?.fail();
+        this.inputController?.suspendGameplayPointer?.();
+        this.gameplayPointerSuspended = true;
         this.syncPhysicsPause(this.requireRunState());
       }),
     );

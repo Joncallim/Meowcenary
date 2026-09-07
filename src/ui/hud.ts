@@ -182,6 +182,7 @@ interface TopHudLayout {
   readonly xpTop: number;
   readonly statsTop: number;
   readonly statsStride: number;
+  readonly objectiveWidth: number;
 }
 
 function topHudLayout(viewport: UiViewport): TopHudLayout {
@@ -204,9 +205,16 @@ function topHudLayout(viewport: UiViewport): TopHudLayout {
   const xpTop = barTop + barHeight + physicalToLogical(4, viewport);
   const statsTop = xpTop + barHeight + physicalToLogical(5, viewport);
   const statsStride = labelSize + physicalToLogical(3, viewport);
+  // Objective copy shares the metric row but must end before the K/S column.
+  // This keeps a long contract instruction from painting underneath either
+  // metric on narrow portrait devices.
+  const objectiveWidth = Math.max(
+    physicalToLogical(120, viewport),
+    healthBarWidth - physicalToLogical(54, viewport),
+  );
   return {
     margin, topMargin, rightMargin, fontSize, labelSize, canvasWidth, rightHudX,
-    barTop, barHeight, healthBarWidth, xpTop, statsTop, statsStride,
+    barTop, barHeight, healthBarWidth, xpTop, statsTop, statsStride, objectiveWidth,
   };
 }
 
@@ -271,7 +279,7 @@ export class PhaserHudView implements HudView {
     this.setContainedText(this.killsText, `K ${formatNumber(snapshot.kills)}`, this.headerTextWidth, this.labelFontSize);
     this.setContainedText(this.scrapText, `S ${formatNumber(Math.floor(snapshot.currency))}`, this.headerTextWidth, this.labelFontSize);
     const feedback = [snapshot.objective, snapshot.ability, snapshot.achievement].filter(Boolean);
-    this.setContainedText(this.objectiveText, truncateHudFeedback(feedback[0]), this.meterTextWidth, this.labelFontSize);
+    this.setContainedText(this.objectiveText, truncateHudFeedback(feedback[0]), topHudLayout(this.viewport).objectiveWidth, this.labelFontSize);
 
   }
 

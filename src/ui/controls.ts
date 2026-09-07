@@ -31,6 +31,10 @@ export class ControlsView {
   private readonly onExtractRequested?: () => void;
   private readonly readReducedMotion: () => boolean;
   private readonly stickRadius: number;
+  /** Visual-only touch-stick radius. Input remains normalized against the
+   * authored logical radius, so a smaller affordance cannot reduce movement
+   * range or make diagonal movement less responsive. */
+  private readonly visibleStickRadius: number;
   private readonly root?: Phaser.GameObjects.Container;
   private readonly stickBase: Phaser.GameObjects.Arc;
   private readonly stickThumb: Phaser.GameObjects.Arc;
@@ -60,6 +64,7 @@ export class ControlsView {
     this.onExtractRequested = options.onExtractRequested;
     this.readReducedMotion = readReducedMotion;
     this.stickRadius = touchStick.radius;
+    this.visibleStickRadius = Math.min(this.stickRadius, 48);
     const add = scene.add as typeof scene.add & { container?: (x: number, y: number) => Phaser.GameObjects.Container };
     this.root = add.container?.(viewport.originX ?? 0, viewport.originY ?? 0);
     this.root?.setScrollFactor(0).setDepth(ThemeDepth.hud);
@@ -70,8 +75,8 @@ export class ControlsView {
     // physical px with the visible radius at 64 px (AM-3). A second
     // compensation (e.g. setScale(0.8)) would shrink the stick to 102.4·s.
     const stickRenderRadius = viewport.originX === undefined
-      ? this.stickRadius
-      : this.stickRadius / GAMEPLAY_ZOOM;
+      ? this.visibleStickRadius
+      : this.visibleStickRadius / GAMEPLAY_ZOOM;
     this.stickBase = scene.add.arc(0, 0, stickRenderRadius, 0, 360, false, ThemeColor.cream, 0.18);
     this.stickBase.setDepth(ThemeDepth.transientHint);
     this.stickBase.setScrollFactor(0);
@@ -107,7 +112,7 @@ export class ControlsView {
       viewport.canvasWidth / 2,
       viewport.canvasHeight
         - bottomMargin
-        - physicalToLogical(this.stickRadius * 2, viewport)
+        - physicalToLogical(this.visibleStickRadius * 2, viewport)
         - fontSize,
       hintForMode(this.lastMode),
       {
@@ -341,7 +346,7 @@ export class ControlsView {
     const start = snapshot.pointerStart;
     const current = snapshot.pointerCurrent;
     const delta = { x: current.x - start.x, y: current.y - start.y };
-    const clamped = clampLength(delta, this.stickRadius);
+    const clamped = clampLength(delta, this.visibleStickRadius);
 
     // Root children live in world space, where the gameplay camera zoom maps
     // local coords 1.25× onto the canvas (M-07: local = pointer/1.25 for
