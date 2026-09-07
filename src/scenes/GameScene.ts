@@ -9,7 +9,7 @@ import { AudioManager, getAudioManager } from '../systems/audio';
 import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
-import { assembleComposedRunRequest } from '../gameplay/runRequest';
+import { assembleComposedRunRequest, type ComposedRunRequest } from '../gameplay/runRequest';
 import { resolveRunPlan, type ResolvedRunPlan } from '../gameplay/stage/stageContracts';
 import { createStageRuntime, type StageRuntime } from '../gameplay/stage/stageRuntime';
 import { composeStageSpawnCurve } from '../gameplay/stage/spawnComposition';
@@ -65,6 +65,7 @@ import { createPerfSampler, type PerfSampler } from '../gameplay/perf';
 import { PlaytestSummarySystem } from '../systems/playtestSummary';
 import { FeedbackSystem, PhaserFeedbackRenderer } from '../systems/feedback';
 import { DataVisualArtRegistry } from '../systems/visualArt';
+import { assertRunPhysicalResourcesLoaded, resolveRunPhysicalResources } from '../systems/resourceLoader';
 import { HeldWeaponView } from '../entities/heldWeaponView';
 import { DefeatPresentationSystem } from '../systems/defeatPresentation';
 import { DataAchievementRegistry, metricExtractor } from '../systems/achievements';
@@ -151,6 +152,9 @@ export class GameScene extends Phaser.Scene {
   /** The input adapter owns pointer state; GameScene only declares whether
    * gameplay currently owns pointer gestures. */
   private gameplayPointerSuspended = true;
+  /** Explicit compatibility mode: practice has normal combat/input but no
+   * durable run settlement, mastery, achievements, or Compendium discovery. */
+  private isTraining = false;
   /** Prevents ghost clicks during scene transitions by suppressing all
    *  input for a brief window after a state-changing action. */
   private _inputBlockedUntil = 0;
@@ -164,9 +168,13 @@ export class GameScene extends Phaser.Scene {
     super(SceneKey.Game);
   }
 
-  create(): void {
+  create(data?: { readonly runRequest?: ComposedRunRequest; readonly isTraining?: boolean }): void {
     const ctx = this.getContext();
-    const request = assembleComposedRunRequest(ctx, ctx.menuRng);
+    this.isTraining = data?.isTraining === true;
+    // Normal production entry receives the exact request which Menu used to
+    // resolve/load its closure. Retaining the fallback keeps old headless
+    // scene harnesses explicit compatibility-only callers.
+    const request = data?.runRequest ?? assembleComposedRunRequest(ctx, ctx.menuRng);
     // Alpha 3 normal composition resolves the selected contract once at the
     // boundary. GameScene consumes its physical arena result; #85 wires the
     // remaining objective/encounter/reward fields to live systems.
@@ -184,6 +192,23 @@ export class GameScene extends Phaser.Scene {
     const arena = ctx.arenas.arenaById(arenaId);
     if (!arena) {
       throw new Error(`Run arena "${arenaId}" is missing from the registry`);
+    }
+    if (data?.runRequest) {
+      const legacyEnemyIds = request.kind === 'legacy-arena'
+        ? (ctx.data.spawnCurves.find((curve) => curve.id === arena.spawnCurveId)?.waves.map((wave) => wave.enemyId) ?? [])
+        : [];
+      const resources = resolveRunPhysicalResources({
+        data: ctx.data,
+        characterId: request.characterId,
+        arena,
+        encounterEnemyIds: plan?.encounter.enemyIds ?? legacyEnemyIds,
+        bossId: plan?.encounter.bossId,
+      });
+      const resourceIds = new Set(resources.map((resource) => resource.id));
+      assertRunPhysicalResourcesLoaded(
+        this.textures,
+        visualArt.all().filter((binding) => binding.resourceId !== undefined && resourceIds.has(binding.resourceId)),
+      );
     }
     const curve = ctx.data.spawnCurves.find((c) => c.id === arena.spawnCurveId);
     if (!curve) {
@@ -415,7 +440,7 @@ export class GameScene extends Phaser.Scene {
       () => this.inputController!.getInputMode(),
       viewport,
     );
-    this.progressionSystem = new ProgressionSystem({
+    this.progressionSystem = this.isTraining ? undefined : new ProgressionSystem({
       runState: this.runState,
       bus: ctx.bus,
       context: ctx,
@@ -424,6 +449,7 @@ export class GameScene extends Phaser.Scene {
     // its durable currency total. EventBus preserves registration order.
     this.unsubscribers.push(
       ctx.bus.on('run:won', () => {
+        if (this.isTraining) return;
         this.pendingMasteryCharacterId = this.runState!.characterId;
         this.retryPendingCharacterMastery(ctx);
         this.evaluateLiveAchievements(ctx, {
@@ -494,7 +520,7 @@ export class GameScene extends Phaser.Scene {
       spawnSystem.spawnEncounterEnemy(plan.encounter.bossId, arena.size.width / 2, Math.max(80, arena.size.height * 0.2));
     }
     this.systems = [
-      this.progressionSystem,
+      ...(this.progressionSystem ? [this.progressionSystem] : []),
       new PassiveCoordinator({
         runState: this.runState,
         bus: ctx.bus,
@@ -1021,15 +1047,15 @@ export class GameScene extends Phaser.Scene {
       // training surface never creates a stage plan, so practice spawns stay
       // out of the Compendium by construction.
       ctx.bus.on('enemy:spawned', ({ enemyId }) => {
-        if (this.stagePlan) ctx.recordCompendiumDiscovery(enemyId, 'encountered');
+        if (!this.isTraining && this.stagePlan) ctx.recordCompendiumDiscovery(enemyId, 'encountered');
       }),
       ctx.bus.on('enemy:killed', ({ enemyId }) => {
         this.recordStageEnemyDefeat(enemyId);
-        if (this.stagePlan) ctx.recordCompendiumDiscovery(enemyId, 'defeated');
-        this.evaluateLiveAchievements(ctx, { 'metric:enemies-defeated': 1 });
+        if (!this.isTraining && this.stagePlan) ctx.recordCompendiumDiscovery(enemyId, 'defeated');
+        if (!this.isTraining) this.evaluateLiveAchievements(ctx, { 'metric:enemies-defeated': 1 });
       }),
       ctx.bus.on('drop:collected', ({ kind }) => this.recordStageCollection(`drop:${kind}`)),
-      ctx.bus.on('weapon:merged', () => this.evaluateLiveAchievements(ctx, { 'metric:merges-performed': 1 })),
+      ctx.bus.on('weapon:merged', () => { if (!this.isTraining) this.evaluateLiveAchievements(ctx, { 'metric:merges-performed': 1 }); }),
     );
   }
 
@@ -1041,7 +1067,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private describeStageObjective(): string | undefined {
-    return this.stageRuntime?.describeObjective();
+    return this.stageRuntime?.describeObjective({
+      enemyName: (enemyId) => this.enemyDefinitions?.resolvedById(enemyId)?.name,
+    });
   }
 
   private evaluateLiveAchievements(ctx: GameContext, increments: Readonly<Record<string, number>>): void {
