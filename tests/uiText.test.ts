@@ -193,7 +193,7 @@ describe('createUiText', () => {
     // ability glyph is also created through the shared factory.
     // Achievement and Compendium rows now use MenuScene's shared scroll
     // button path instead of owning duplicate text-factory call sites.
-    expect(migratedSites).toHaveLength(43);
+    expect(migratedSites).toHaveLength(44);
 
     const constructorCalls = findCreateUiTextCalls(programSourceFile(program, UI_TEXT_FILE), checker);
     expect(constructorCalls).toHaveLength(0);

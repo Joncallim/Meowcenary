@@ -230,7 +230,7 @@ describe('ControlsView virtual stick', () => {
     expect(stickThumb.state.visible).toBe(false);
   });
 
-  it('clamps the stick thumb to the same 64 px radius as the intent math', () => {
+  it('uses a compact 48 px visual stick while preserving the input intent range', () => {
     const { scene, input, view } = createHarness();
     // [root, stickBase, stickThumb, hint, pause]
     const stickThumb = scene.objects[2];
@@ -238,14 +238,14 @@ describe('ControlsView virtual stick', () => {
     input.pointerDown(100, 100);
     input.pointerMove(300, 100);
     view.update(16);
-    expect(stickThumb.state.x).toBe(164);
+    expect(stickThumb.state.x).toBe(148);
     expect(stickThumb.state.y).toBe(100);
 
     input.pointerMove(300, 300);
     view.update(16);
     const dx = (stickThumb.state.x as number) - 100;
     const dy = (stickThumb.state.y as number) - 100;
-    expect(Math.hypot(dx, dy)).toBeCloseTo(64, 10);
+    expect(Math.hypot(dx, dy)).toBeCloseTo(48, 10);
   });
   it('uses one injected anchored config for fixed base and shared radius intent', () => {
     const touchStick: TouchStickConfig = {
@@ -271,7 +271,7 @@ describe('ControlsView virtual stick', () => {
 });
 
 describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
-  it('authors the stick radius at 64/1.25 with no arc scale — ONE zoom compensation (M-02/AM-3)', () => {
+  it('authors the compact visual stick radius at 48/1.25 with no arc scale — ONE zoom compensation (M-02/AM-3)', () => {
     const { scene } = createHarness({ zoomed: true });
     const [root, stickBase, stickThumb] = scene.objects;
     // The camera zoom 1.25 grows world units, so the authored radius is
@@ -279,8 +279,8 @@ describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
     // diameter is 2·(64/1.25)·1.25·s = 128·s physical px (AM-3 binding).
     expect(root.state.x).toBeCloseTo(39, 6);
     expect(root.state.y).toBeCloseTo(84.4, 6);
-    expect(stickBase.state.radius).toBe(64 / GAMEPLAY_ZOOM);
-    expect(stickThumb.state.radius).toBe((64 / GAMEPLAY_ZOOM) * 0.45);
+    expect(stickBase.state.radius).toBe(48 / GAMEPLAY_ZOOM);
+    expect(stickThumb.state.radius).toBe((48 / GAMEPLAY_ZOOM) * 0.45);
     expect(stickBase.state.scaleX).toBe(1);
     expect(stickBase.state.scaleY).toBe(1);
     expect(stickThumb.state.scaleX).toBe(1);
@@ -288,7 +288,7 @@ describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
 
     // The unzoomed (menu/plain) controls never shrink the arcs.
     const plain = createHarness();
-    expect(plain.scene.objects[1].state.radius).toBe(64);
+    expect(plain.scene.objects[1].state.radius).toBe(48);
     expect(plain.scene.objects[1].state.scaleX).toBe(1);
   });
 
@@ -344,7 +344,7 @@ describe('ControlsView hints', () => {
     const pause = scene.objects.find((object) => !object.state.destroyed && object.state.interactive)!;
     const fitScale = 390 / 844;
     // The strip is gone: the hint owns the bottom safe margin above the stick.
-    expect(Number(hint.state.y) * fitScale).toBeCloseTo(238, 5);
+    expect(Number(hint.state.y) * fitScale).toBeCloseTo(270, 5);
     expect(Number(pause.state.width) * fitScale).toBeCloseTo(44, 5);
     expect(Number(pause.state.height) * fitScale).toBeCloseTo(44, 5);
 
