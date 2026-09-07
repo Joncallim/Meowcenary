@@ -2,7 +2,7 @@
 
 **Campaign branch:** `modelark/alpha3-v4-finish`
 **Frozen base SHA:** `5efe56922dd7a9da9d1f073eca8ae4a251e67d37`
-**Final HEAD SHA:** `01c8396` (pushed to GitHub)
+**Authoritative remote validation head:** `90a4063baf499b078ebb64d910aa2bc9be274a33` (pushed to GitHub; exact 40-character SHA)
 
 ---
 
@@ -128,7 +128,7 @@
 
 **Status:** INTEGRATION COMPLETE, AUTOMATED GATES GREEN
 
-**Integration commits:** `3822f15`, `794c255`, `c5bfeb9`, `9310bde`, `01c8396`
+**Integration commits:** `3822f15`, `794c255`, `c5bfeb9`, `9310bde`, `01c8396`, `9cc583c`, `276beff`, `90a4063`
 
 ### Production Wiring Completed
 - SaveData = SaveDataV4, CURRENT_SAVE_VERSION = 4
@@ -149,10 +149,10 @@
 | Gate | Result |
 |------|--------|
 | `npx tsc --noEmit` | PASS (0 errors) |
-| `npm test` | 145 files, 2297 tests PASS |
+| `npm test` | 141 files, 2282 tests PASS |
 | `npm run build` | PASS |
-| `npm run content:validate` | PASS (77 visual-art chains, 152 content tests) |
-| `npm run art:validate` | PASS (77 source/export chains) |
+| `npm run content:validate` | PASS (77 logical bindings / 77 physical resources, 152 content tests) |
+| `npm run art:validate` | PASS (split logical/resource validator, 10 adversarial fixtures, 77 physical source/export chains) |
 
 ### Stale RC1 Pattern Search
 - DataMetaUpgradeRegistry: exists only in metaUpgrades.ts (migration support), not instantiated in production
@@ -204,4 +204,4 @@ Automated gates are green, but the following manual gates remain:
 4. Subjective fun/replayability verdict deferred
 5. Jonathan's visual approval deferred
 
-**Status: IMPLEMENTATION COMPLETE, AUTOMATED GATES GREEN, READY FOR CONSOLIDATED MANUAL ACCEPTANCE CANDIDATE PREPARATION**
+**Status: IMPLEMENTATION INTEGRATED, AUTOMATED GATES GREEN, NOT READY FOR CONSOLIDATED MANUAL ACCEPTANCE**
