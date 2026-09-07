@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
-    "art:validate": "node docs/art/scripts/validate-visual-art.mjs && lua docs/art/scripts/validate-builders.lua",
+    "art:validate": "node --test docs/art/scripts/visual-manifest.test.mjs && node docs/art/scripts/validate-visual-art.mjs && node docs/art/scripts/validate-builders.mjs && lua docs/art/scripts/validate-builders.lua",
     "content:validate": "node scripts/content-validate.mjs",
     "lint": "tsc --noEmit",
     "test": "node scripts/test.mjs",

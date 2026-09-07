@@ -17,6 +17,7 @@ function run(command, args) {
 }
 
 run(process.execPath, ['docs/art/scripts/validate-visual-art.mjs']);
+run(process.execPath, ['docs/art/scripts/validate-builders.mjs']);
 run('lua', ['docs/art/scripts/validate-builders.lua']);
 run(vitest, [
   'run',
