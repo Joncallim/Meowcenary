@@ -8,7 +8,7 @@
  */
 import type Phaser from 'phaser';
 import type { ArenaDefinition, EnemyDefinition, GameData, VisualTextureResource } from './types';
-import { DataVisualArtRegistry } from './visualArt';
+import { DataVisualArtRegistry, ensureVisualAnimations, visualAnimationKey } from './visualArt';
 
 export interface LoadedResource {
   readonly resourceId: string;
@@ -299,6 +299,35 @@ export function assertRunPhysicalResourcesLoaded(
     }
   }
   if (missing.length > 0) throw new Error(`Required run resources failed to load: ${missing.join(', ')}`);
+}
+
+/** Prepare a complete run closure for rendering before GameScene constructs
+ * entities. Lazy spritesheets need animation registration after their loader
+ * completes; a live texture by itself is not an actor-ready resource. */
+export async function prepareRunPresentation(
+  scene: Phaser.Scene,
+  data: GameData,
+  resources: readonly VisualTextureResource[],
+): Promise<void> {
+  const result = await loadTextureResources(scene, resources);
+  if (result.failed.length > 0) throw new Error('Required presentation resources could not load');
+  const art = new DataVisualArtRegistry(data);
+  const resourceIds = new Set(resources.map((resource) => resource.id));
+  const requiredBindings = art.all().filter((binding) =>
+    binding.resourceId !== undefined && resourceIds.has(binding.resourceId));
+  assertRunPhysicalResourcesLoaded(scene.textures, requiredBindings);
+  ensureVisualAnimations(scene, art);
+  const missing: string[] = [];
+  for (const binding of requiredBindings) {
+    if ((binding.kind !== 'character' && binding.kind !== 'enemy') ||
+        binding.load.type !== 'spritesheet' || !binding.clips) continue;
+    for (const clip of ['idle', 'run', 'hurt', 'defeat'] as const) {
+      if (binding.clips[clip] && !scene.anims.exists(visualAnimationKey(binding.id, clip))) {
+        missing.push(`${binding.id} ${clip}`);
+      }
+    }
+  }
+  if (missing.length > 0) throw new Error(`Required actor animations are unavailable: ${missing.join(', ')}`);
 }
 
 /**

@@ -15,8 +15,7 @@ import { FocusStroke } from '../ui/theme';
 import { ScrollableFocusRegion } from '../ui/scrollableFocus';
 import { assembleComposedRunRequest, assembleRunRequest, asLegacyComposedRunRequest, type ComposedRunRequest } from '../gameplay/runRequest';
 import { resolveRunPlan } from '../gameplay/stage/stageContracts';
-import { assertRunPhysicalResourcesLoaded, loadTextureResources, resolveRunPhysicalResources } from '../systems/resourceLoader';
-import { DataVisualArtRegistry } from '../systems/visualArt';
+import { prepareRunPresentation, resolveRunPhysicalResources } from '../systems/resourceLoader';
 
 const MENU_DEPTH = ThemeDepth.pauseSummary;
 /** 44 physical px at the smallest promised FIT (844×390 → 0.462085). */
@@ -69,7 +68,6 @@ export class MenuScene extends Phaser.Scene {
    * Menu so a load failure has a usable Retry/Back surface rather than a
    * partially constructed GameScene. */
   private runLaunchState: 'idle' | 'loading' | 'failed' = 'idle';
-  private runLaunchError?: string;
   /** Number of committed render attempts; resize tests assert one per event. */
   get renderRebuildCount(): number {
     return this.rebuildCount;
@@ -80,6 +78,9 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create(data?: { readonly initialPanel?: import('../ui/menus').MenuPanel }): void {
+    // Phaser reuses this Scene instance after Game. Loading is transient and
+    // must never leave a newly activated Menu permanently inert.
+    this.runLaunchState = 'idle';
     const ctx = this.getContext();
     this.bus = ctx.bus;
     this.controller = new MainMenuController(ctx);
@@ -344,7 +345,7 @@ export class MenuScene extends Phaser.Scene {
     this.hint = hints;
     if (this.runLaunchState === 'failed') {
       const detail = this.own(root, createUiText(this, margin, top + info.height + 4,
-        `Unable to load the contract. Retry or choose another menu option. ${this.runLaunchError ?? ''}`,
+        `Couldn't load this Contract. Retry or go Back.`,
         {
           color: '#f87171',
           fontFamily: ThemeFont.family,
@@ -371,7 +372,6 @@ export class MenuScene extends Phaser.Scene {
   private async startRunWithResources(request: ComposedRunRequest, isTraining: boolean): Promise<void> {
     if (this.runLaunchState === 'loading') return;
     this.runLaunchState = 'loading';
-    this.runLaunchError = undefined;
     this.render(this.requireController().snapshot());
     try {
       const ctx = this.getContext();
@@ -391,16 +391,10 @@ export class MenuScene extends Phaser.Scene {
         encounterEnemyIds: plan?.encounter.enemyIds ?? legacyEnemyIds,
         bossId: plan?.encounter.bossId,
       });
-      const result = await loadTextureResources(this, resources);
-      if (result.failed.length > 0) throw new Error(`Failed resources: ${result.failed.map((entry) => entry.resourceId).join(', ')}`);
-      const art = new DataVisualArtRegistry(ctx.data);
-      const resourceIds = new Set(resources.map((resource) => resource.id));
-      assertRunPhysicalResourcesLoaded(this.textures, art.all().filter((binding) =>
-        binding.resourceId !== undefined && resourceIds.has(binding.resourceId)));
+      await prepareRunPresentation(this, ctx.data, resources);
       this.scene.start(SceneKey.Game, { runRequest: request, isTraining });
     } catch (error) {
       this.runLaunchState = 'failed';
-      this.runLaunchError = error instanceof Error ? error.message : 'Unknown loading error';
       this.render(this.requireController().snapshot());
     }
   }
@@ -553,7 +547,14 @@ export class MenuScene extends Phaser.Scene {
     const copy = this.own(root, createUiText(this, margin, top + heading.height + 20,
       'Practice movement and auto-fire here. Training does not award progression or Compendium discovery.',
       { color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin } }));
-    this.addButton(root, margin, top + heading.height + copy.height + 36, 'Start Training', hitTarget, () => { void this.startTrainingWithResources(); });
+    const startY = top + heading.height + copy.height + 36;
+    this.addButton(root, margin, startY, this.runLaunchState === 'failed' ? 'Retry Training' : 'Start Training', hitTarget, () => { void this.startTrainingWithResources(); });
+    if (this.runLaunchState === 'failed') {
+      this.own(root, createUiText(this, margin, startY + hitTarget + 8, "Couldn't load this Contract. Retry or go Back.", {
+        color: '#f87171', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+        wordWrap: { width: width - margin - this.safeRightMargin },
+      }));
+    }
     this.addBackButton(root, width, margin, hitTarget);
   }
 
