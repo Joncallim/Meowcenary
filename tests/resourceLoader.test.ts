@@ -4,8 +4,10 @@ import {
   computeMenuBundle,
   findSharedResources,
   physicalResourcesForBindings,
+  resolveRunPhysicalResources,
 } from '../src/systems/resourceLoader';
 import type { VisualTextureResource } from '../src/systems/types';
+import { loadGameData } from '../src/systems/validation';
 
 describe('Resource Loader', () => {
   const mockResources: VisualTextureResource[] = [
@@ -87,5 +89,26 @@ describe('Resource Loader', () => {
     const resources = physicalResourcesForBindings(bindings);
     expect(resources).toHaveLength(1);
     expect(resources[0]?.textureKey).toBe('art-synthetic-shared-atlas');
+  });
+
+  it('closes a selected stage over world, encounter, recursive children, weapons, projectiles and drops', () => {
+    const data = loadGameData();
+    const arena = data.arenas.find((candidate) => candidate.id === 'junkyard-lot')!;
+    const resources = resolveRunPhysicalResources({
+      data,
+      characterId: 'scrap-tabby',
+      arena,
+      encounterEnemyIds: ['junk-nester', 'shard-bot'],
+    });
+    const ids = new Set(resources.map((resource) => resource.id));
+    expect(ids).toContain('resource:character-scrap-tabby');
+    expect(ids).toContain('resource:enemy-junk-nester');
+    // summon/split descendants must be present before they can materialize.
+    expect(ids).toContain('resource:enemy-dust-mite');
+    expect(ids).toContain('resource:world-junkyard-floor-base');
+    expect(ids).toContain('resource:world-landmark-hanging-press');
+    expect(ids).toContain('resource:weapon-held-pistol-t1');
+    expect(ids).toContain('resource:projectile-pistol');
+    expect(ids).toContain('resource:drop-xp-mote');
   });
 });

@@ -22,6 +22,10 @@ export class ArenaWorldView implements ArenaScenery {
     private readonly visualArt?: VisualArtLookup,
   ) {
     this.obstacleGroup = scene.physics.add.staticGroup();
+    // GameScene always provides the validated visual registry. Do this before
+    // creating a single body: a collidable landmark without its readable skin
+    // is a release-blocking resource failure, never a playable fallback.
+    if (this.visualArt) this.assertRequiredVisualsAvailable();
     this.buildFloor();
     this.buildBoundary();
     this.buildDecorations();
@@ -39,6 +43,19 @@ export class ArenaWorldView implements ArenaScenery {
     return binding?.kind === 'world' && this.scene.textures.exists(binding.textureKey)
       ? binding
       : undefined;
+  }
+
+  private assertRequiredVisualsAvailable(): void {
+    const ids = new Set<string>([
+      ...this.arena.visual.floorArtIds,
+      ...Object.values(this.arena.visual.boundary),
+      ...this.arena.visual.decorations.map((decoration) => decoration.artId),
+      ...this.arena.visual.obstacleSkins.map((skin) => skin.artId),
+    ]);
+    const missing = [...ids].filter((id) => this.binding(id) === undefined);
+    if (missing.length > 0) {
+      throw new Error(`Arena "${this.arena.id}" cannot start: required world visuals are unavailable (${missing.join(', ')})`);
+    }
   }
 
   private addImage(
@@ -142,6 +159,10 @@ export class ArenaWorldView implements ArenaScenery {
   private buildObstacles(): void {
     const skins = new Map(this.arena.visual.obstacleSkins.map((skin) => [skin.obstacleId, skin]));
     for (const obstacle of this.arena.obstacles) {
+      const skin = skins.get(obstacle.id);
+      if (this.visualArt && !skin) {
+        throw new Error(`Arena "${this.arena.id}" obstacle "${obstacle.id}" has no collision-readable skin`);
+      }
       const rect = this.scene.add.rectangle(
         obstacle.x + obstacle.w / 2,
         obstacle.y + obstacle.h / 2,
@@ -153,14 +174,18 @@ export class ArenaWorldView implements ArenaScenery {
       this.scene.physics.add.existing(rect, true);
       this.obstacleGroup.add(rect);
 
-      const skin = skins.get(obstacle.id);
-      if (skin) {
-        this.addImage(
-          skin.artId,
-          obstacle.x + obstacle.w / 2 + (skin.offsetX ?? 0),
-          obstacle.y + obstacle.h / 2 + (skin.offsetY ?? 0),
-          VisualDepth.obstacle,
-        );
+      const image = skin && this.addImage(
+        skin.artId,
+        obstacle.x + obstacle.w / 2 + (skin.offsetX ?? 0),
+        obstacle.y + obstacle.h / 2 + (skin.offsetY ?? 0),
+        VisualDepth.obstacle,
+      );
+      // The no-registry path exists solely for headless geometry diagnostics.
+      // In an actual run this was preflighted above; keep this local guard so
+      // future call sites cannot reintroduce invisible colliders.
+      if (this.visualArt && !image) {
+        rect.destroy();
+        throw new Error(`Arena "${this.arena.id}" obstacle "${obstacle.id}" has no loaded collision-readable skin`);
       }
     }
   }

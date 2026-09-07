@@ -177,6 +177,26 @@ describe('arena data-level integration', () => {
     expect(group.destroy).toHaveBeenCalledWith(true);
   });
 
+  it('fails before creating any collider when a required obstacle skin texture is missing', () => {
+    const data = loadGameData();
+    const arena = data.arenas[0];
+    const rectangle = vi.fn();
+    const scene = {
+      add: { image: vi.fn(), rectangle },
+      textures: { exists: (key: string) => key !== 'art-world-landmark-hanging-press' },
+      physics: {
+        add: {
+          existing: vi.fn(),
+          staticGroup: vi.fn(() => ({ add: vi.fn(), destroy: vi.fn(), children: { size: 0 } })),
+        },
+      },
+    };
+
+    expect(() => buildArenaScenery(scene as never, arena, new DataVisualArtRegistry(data)))
+      .toThrow(/cannot start: required world visuals are unavailable/);
+    expect(rectangle).not.toHaveBeenCalled();
+  });
+
   it('tiles a non-32-aligned arena with no floor gap and a correctly placed corner', () => {
     const data = loadGameData();
     const arena = {

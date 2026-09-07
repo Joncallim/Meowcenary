@@ -7,7 +7,8 @@
  * Run resource closure derives from actual composition.
  */
 import type Phaser from 'phaser';
-import type { VisualTextureResource } from './types';
+import type { ArenaDefinition, EnemyDefinition, GameData, VisualTextureResource } from './types';
+import { DataVisualArtRegistry } from './visualArt';
 
 export interface LoadedResource {
   readonly resourceId: string;
@@ -125,23 +126,54 @@ export async function loadTextureResources(
   scene: Phaser.Scene,
   resources: readonly VisualTextureResource[],
 ): Promise<ResourceLoadResult> {
-  const results = await Promise.allSettled(
-    resources.map((r) => loadTextureResource(scene, r)),
-  );
-
   const loaded: LoadedResource[] = [];
   const failed: LoadedResource[] = [];
+  const pending = [...findSharedResources(resources).values()]
+    .filter((resource) => {
+      if (scene.textures.exists(resource.textureKey)) {
+        loaded.push({ resourceId: resource.id, textureKey: resource.textureKey, success: true });
+        return false;
+      }
+      if (resource.load.type === 'atlas' && !resource.load.dataUrl) {
+        failed.push({ resourceId: resource.id, textureKey: resource.textureKey, success: false });
+        return false;
+      }
+      return true;
+    });
+  if (pending.length === 0) return { loaded, failed };
 
-  for (const result of results) {
-    if (result.status === 'fulfilled') {
-      if (result.value.success) {
-        loaded.push(result.value);
-      } else {
-        failed.push(result.value);
+  // Phaser's LoaderPlugin has one queue. Starting it once after all physical
+  // resources are queued prevents concurrent `start()` calls from racing and
+  // reporting a partial closure as complete on slower mobile browsers.
+  await new Promise<void>((resolve) => {
+    let remaining = pending.length;
+    const settle = (resource: VisualTextureResource, success: boolean): void => {
+      scene.load.off(`filecomplete-${resource.textureKey}`, completeHandlers.get(resource.textureKey));
+      scene.load.off(`loaderror-${resource.textureKey}`, errorHandlers.get(resource.textureKey));
+      (success ? loaded : failed).push({ resourceId: resource.id, textureKey: resource.textureKey, success });
+      remaining -= 1;
+      if (remaining === 0) resolve();
+    };
+    const completeHandlers = new Map<string, () => void>();
+    const errorHandlers = new Map<string, () => void>();
+    for (const resource of pending) {
+      const complete = () => settle(resource, true);
+      const error = () => settle(resource, false);
+      completeHandlers.set(resource.textureKey, complete);
+      errorHandlers.set(resource.textureKey, error);
+      scene.load.once(`filecomplete-${resource.textureKey}`, complete);
+      scene.load.once(`loaderror-${resource.textureKey}`, error);
+      switch (resource.load.type) {
+        case 'image': scene.load.image(resource.textureKey, resource.load.imageUrl); break;
+        case 'atlas': scene.load.atlas(resource.textureKey, resource.load.imageUrl, resource.load.dataUrl!); break;
+        case 'spritesheet': scene.load.spritesheet(resource.textureKey, resource.load.imageUrl, {
+          frameWidth: resource.load.frameWidth ?? 32,
+          frameHeight: resource.load.frameHeight ?? 32,
+        }); break;
       }
     }
-  }
-
+    scene.load.start();
+  });
   return { loaded, failed };
 }
 
@@ -169,6 +201,104 @@ export function computeRunResourceClosure(
     }
   }
   return [...uniqueIds];
+}
+
+/** The physical presentation contract for one playable run.  This resolves
+ * content composition, rather than relying on whichever small boot bundle
+ * happened to be loaded when the player pressed Play. */
+export function resolveRunPhysicalResources(options: {
+  readonly data: GameData;
+  readonly characterId: string;
+  readonly arena: Readonly<ArenaDefinition>;
+  readonly encounterEnemyIds: readonly string[];
+  readonly bossId?: string;
+}): readonly VisualTextureResource[] {
+  const art = new DataVisualArtRegistry(options.data);
+  const resourceById = new Map(options.data.visualResources.map((resource) => [resource.id, resource]));
+  const artIds = new Set<string>();
+  const addArt = (id: string): void => { artIds.add(id); };
+
+  addArt(`character:${options.characterId}`);
+  for (const id of options.arena.visual.floorArtIds) addArt(id);
+  for (const id of Object.values(options.arena.visual.boundary)) addArt(id);
+  for (const decoration of options.arena.visual.decorations) addArt(decoration.artId);
+  for (const skin of options.arena.visual.obstacleSkins) addArt(skin.artId);
+
+  const enemyById = new Map(options.data.enemies.map((enemy) => [enemy.id, enemy]));
+  const visitedEnemies = new Set<string>();
+  const addEnemy = (enemyId: string): void => {
+    if (visitedEnemies.has(enemyId)) return;
+    visitedEnemies.add(enemyId);
+    const enemy = enemyById.get(enemyId);
+    if (!enemy) throw new Error(`Run resource closure references missing enemy "${enemyId}"`);
+    if (enemy.archetype === 'elite') {
+      addEnemy(enemy.baseEnemyId);
+      // Elites deliberately use their base actor art at runtime.
+      return;
+    }
+    addArt(`enemy:${enemy.id}`);
+    addEnemyChildren(enemy, addEnemy);
+  };
+  for (const enemyId of options.encounterEnemyIds) addEnemy(enemyId);
+  if (options.bossId) addEnemy(options.bossId);
+
+  // A weapon pickup can produce any currently registered definition.  Load
+  // their held/projectile/icon art up-front so an ordinary loot result cannot
+  // degrade to geometry in a live run.
+  for (const weapon of options.data.weapons) {
+    addArt(weapon.art.iconId);
+    addArt(weapon.art.heldId);
+    addArt(weapon.art.projectileId);
+  }
+  for (const kind of ['xp', 'scrap', 'chest', 'weapon'] as const) addArt(`drop:${kind}`);
+  // Upgrade cards are a gameplay modal, so their required presentation is in
+  // the normal run closure too.
+  for (const upgrade of options.data.upgrades) addArt(upgrade.presentation.iconArtId);
+
+  const resources: VisualTextureResource[] = [];
+  const seen = new Set<string>();
+  for (const artId of artIds) {
+    const binding = art.bindingById(artId);
+    if (!binding || !binding.required || !binding.resourceId) {
+      throw new Error(`Required run visual binding "${artId}" is unavailable`);
+    }
+    const resource = resourceById.get(binding.resourceId);
+    if (!resource) throw new Error(`Run visual binding "${artId}" references missing physical resource "${binding.resourceId}"`);
+    if (!seen.has(resource.id)) {
+      seen.add(resource.id);
+      resources.push(resource);
+    }
+  }
+  return resources;
+}
+
+function addEnemyChildren(enemy: Exclude<EnemyDefinition, { readonly archetype: 'elite' }>, addEnemy: (id: string) => void): void {
+  if ('summon' in enemy && enemy.summon) addEnemy(enemy.summon.enemyId);
+  if (enemy.splitOnDeath) addEnemy(enemy.splitOnDeath.enemyId);
+  if (enemy.archetype !== 'boss') return;
+  for (const action of [...enemy.actions, ...(enemy.phases ?? []).flatMap((phase) => phase.actions)]) {
+    if (action.id === 'boss-action:summon') addEnemy(action.enemyId);
+  }
+}
+
+/** Fail closed before entity construction. A texture key alone is not enough
+ * for atlas-backed bindings: the declared frame must be live too. */
+export function assertRunPhysicalResourcesLoaded(
+  textures: Pick<Phaser.Textures.TextureManager, 'exists' | 'get'>,
+  bindings: readonly { readonly id: string; readonly textureKey: string; readonly frameKey?: string; readonly required: boolean }[],
+): void {
+  const missing: string[] = [];
+  for (const binding of bindings) {
+    if (!binding.required) continue;
+    if (!textures.exists(binding.textureKey)) {
+      missing.push(`${binding.id} (texture ${binding.textureKey})`);
+      continue;
+    }
+    if (binding.frameKey !== undefined && !textures.get(binding.textureKey).has(binding.frameKey)) {
+      missing.push(`${binding.id} (frame ${binding.frameKey})`);
+    }
+  }
+  if (missing.length > 0) throw new Error(`Required run resources failed to load: ${missing.join(', ')}`);
 }
 
 /**
