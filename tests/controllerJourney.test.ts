@@ -93,8 +93,7 @@ if (!import.meta.url.includes('?as-harness')) {
     ]);
     // Contract launch awaits the required visual closure before entering the
     // Game scene; even an already-loaded fixture crosses the async boundary.
-    await Promise.resolve();
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 5', { start: 1 });
     expect(menu.sceneStart).toHaveBeenCalledWith(SceneKey.Game, expect.objectContaining({ runRequest: expect.any(Object) }));
     expect(focusRingTargets(menu.scene)).toHaveLength(1);

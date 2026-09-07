@@ -608,6 +608,13 @@ function createFakeScene(
   };
 
   const scenePlugin = { start: vi.fn(), restart: vi.fn() };
+  const animationKeys = new Set<string>();
+  const anims = {
+    exists: (key: string) => animationKeys.has(key),
+    create: (config: { key: string }) => { animationKeys.add(config.key); return { frames: [{}] }; },
+    generateFrameNumbers: () => [{}],
+    remove: (key: string) => animationKeys.delete(key),
+  };
   // Menu's production contract now awaits Phaser's loader before starting a
   // run. Model the small loader surface it uses so this remains a real
   // MenuScene journey rather than bypassing the resource gate.
@@ -674,6 +681,7 @@ function createFakeScene(
 
   const scene = {
     input,
+    anims,
     load: loader,
     scale,
     events: lifecycle,

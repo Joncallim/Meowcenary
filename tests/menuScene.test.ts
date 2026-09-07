@@ -1066,7 +1066,7 @@ describe('MenuScene', () => {
     const harness = createHarness();
 
     harness.buttonByLabel('Play Contract')!.state.handlers['pointerup']!();
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(harness.sceneStart).not.toHaveBeenCalled();
     expect(harness.textContents()).toContain('Retry Loading Contract');
   });
