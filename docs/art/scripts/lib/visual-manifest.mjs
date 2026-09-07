@@ -24,7 +24,10 @@ export function loadVisualManifest(root = repositoryRoot) {
   const errors = [];
   const art = readJson(join(root, 'src/data/visual-art.json'), errors, 'visual-art.json');
   const resources = readJson(join(root, 'src/data/visual-resources.json'), errors, 'visual-resources.json');
-  return { root, bindings: art?.bindings ?? [], resources: Array.isArray(resources) ? resources : [], errors };
+  if (!art || typeof art !== 'object' || Array.isArray(art)) errors.push('visual-art.json: expected an object');
+  else if (!Array.isArray(art.bindings)) errors.push('visual-art.json.bindings: required array');
+  if (!Array.isArray(resources)) errors.push('visual-resources.json: expected an array');
+  return { root, bindings: Array.isArray(art?.bindings) ? art.bindings : [], resources: Array.isArray(resources) ? resources : [], errors };
 }
 
 /** Canonical production paths are a property of a physical resource, never a binding. */
@@ -40,6 +43,8 @@ export function resolveProductionChain(root, resource) {
     sourcePath: join(root, 'assets-src', assetDirectory, 'source', `${exportName}.pxo`),
     builderPath: join(root, 'docs/art/scripts', `build-${exportName}.lua`),
     exportName,
+    sourceUrl: `assets-src/${assetDirectory}/source/${exportName}.pxo`,
+    builderUrl: `docs/art/scripts/build-${exportName}.lua`,
   };
   // `production` is intentionally resource-owned. The fallback preserves the
   // existing canonical path convention while V4 catalogs are being expanded;

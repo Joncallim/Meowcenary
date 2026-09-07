@@ -23,6 +23,12 @@ function run(options) { const root = fixture(options); try { return validateVisu
 function expectFail(options, pattern) { const result = run(options); assert.equal(result.ok, false); assert.match(result.errors.join('\n'), pattern); }
 
 test('one logical image resolves one physical resource', () => assert.equal(run().ok, true));
+test('malformed catalogs and runtime-schema omissions cannot collapse to a green empty manifest', () => {
+  const root = mkdtempSync(join(tmpdir(), 'meow-art-'));
+  write(root, 'src/data/visual-art.json', '{}'); write(root, 'src/data/visual-resources.json', '{}');
+  try { const result = validateVisualManifest(root); assert.equal(result.ok, false); assert.match(result.errors.join('\n'), /required array/); } finally { rmSync(root, { recursive: true, force: true }); }
+  expectFail({ bindings: [{ id: 'upgrade-icon:test', kind: 'upgrade-icon', resourceId: 'resource:test' }], resources: [resource({ sampling: 'bilinear', extra: true })] }, /required must be boolean|sampling must be nearest|unknown physical resource field/);
+});
 test('shared atlas validates once and resolves every named frame', () => {
   const r = resource({ load: { type: 'atlas', imageUrl: 'assets/test/test.png', dataUrl: 'assets/test/atlas.json' } }); const root = fixture({ resources: [r], bindings: [binding({ frameKey: 'one' }), binding({ id: 'upgrade-icon:two', frameKey: 'two' })] });
   write(root, 'public/assets/test/atlas.json', JSON.stringify({ frames: { one: { frame: { x: 0, y: 0, w: 8, h: 8 } }, two: { frame: { x: 8, y: 0, w: 8, h: 8 } } } }));
@@ -47,7 +53,7 @@ test('spritesheet clips, tags, source, and builder are physical-resource checks'
   expectFail({ resources: [r], bindings: [binding({ clips: { idle: { start: 0, end: 2 } } })] }, /outside physical frame count/);
   const root = fixture({ resources: [r], bindings: [binding({ clips: { idle: { start: 0, end: 0 } } })] }); try { assert.match(validateVisualManifest(root).errors.join('\n'), /missing declared clip tag/); } finally { rmSync(root, { recursive: true, force: true }); }
   expectFail({ resources: [resource({ production: { sourceUrl: 'assets-src/missing.pxo', builderPath: 'docs/art/scripts/missing.lua' } })] }, /editable Pixelorama source/);
-  expectFail({ resources: [resource({ production: { sourceUrl: 'assets-src/test/source/other.pxo', builderPath: 'docs/art/scripts/build-test.lua' } })] }, /source\/export basename mismatch/);
+  expectFail({ resources: [resource({ production: { sourceUrl: 'assets-src/test/source/other.pxo', builderPath: 'docs/art/scripts/build-test.lua' } })] }, /source\/export path mismatch/);
 });
 test('500 logical bindings backed by one atlas do not require 500 production chains', () => {
   const bindings = Array.from({ length: 500 }, (_, i) => binding({ id: `upgrade-icon:test-${i}`, frameKey: `f${i}` })); const r = resource({ load: { type: 'atlas', imageUrl: 'assets/test/test.png', dataUrl: 'assets/test/a.json' } }); const root = fixture({ bindings, resources: [r] });

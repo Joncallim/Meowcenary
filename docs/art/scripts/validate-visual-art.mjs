@@ -10,21 +10,28 @@ export function validateVisualManifest(root) {
   const byId = resourceById(resources);
   const legalKinds = new Set(['character', 'enemy', 'projectile', 'drop', 'weapon-icon', 'weapon-held', 'world', 'upgrade-icon']);
   const references = new Set();
+  const resourceFields = new Set(['id', 'textureKey', 'sampling', 'load', 'production']);
+  const resourceLoadFields = new Set(['type', 'imageUrl', 'dataUrl', 'frameWidth', 'frameHeight']);
+  const bindingFields = new Set(['id', 'kind', 'resourceId', 'frameKey', 'required', 'display', 'clips']);
+  const clipFields = new Set(['start', 'end', 'frameRate', 'repeat']);
 
   for (const resource of resources) {
     const id = typeof resource?.id === 'string' ? resource.id : '<unknown resource>';
+    for (const field of Object.keys(resource ?? {})) if (!resourceFields.has(field)) fail(id, `unknown physical resource field ${field}`);
     if (!/^resource:[a-z0-9][a-z0-9-]*$/.test(id) || resourceIds.has(id)) fail(id, 'resource ID must be stable and unique');
     resourceIds.add(id);
     if (typeof resource?.textureKey !== 'string' || !resource.textureKey || textureKeys.has(resource.textureKey)) fail(id, 'textureKey must be present and unique');
     textureKeys.add(resource?.textureKey);
+    if (resource?.sampling !== 'nearest' && resource?.sampling !== 'linear') fail(id, 'sampling must be nearest or linear');
     const load = resource?.load;
     if (!load || !['image', 'spritesheet', 'atlas'].includes(load.type)) { fail(id, 'unsupported or missing load type'); continue; }
+    for (const field of Object.keys(load)) if (!resourceLoadFields.has(field)) fail(id, `unknown physical load field ${field}`);
     if (typeof load.imageUrl !== 'string' || !/^assets\/[a-z0-9][a-z0-9/-]*\.png$/.test(load.imageUrl)) { fail(id, 'invalid production PNG URL'); continue; }
     if (imageUrls.has(load.imageUrl)) fail(id, 'duplicate physical PNG identity; share one resource instead');
     imageUrls.add(load.imageUrl);
     const chain = resolveProductionChain(manifest.root, resource);
-    if (resource.production?.sourceUrl !== undefined && basename(resource.production.sourceUrl, '.pxo') !== chain.exportName) fail(id, 'editable source/export basename mismatch');
-    if (resource.production?.builderPath !== undefined && basename(resource.production.builderPath, '.lua') !== `build-${chain.exportName}`) fail(id, 'builder/export basename mismatch');
+    if (resource.production?.sourceUrl !== undefined && resource.production.sourceUrl !== chain.sourceUrl) fail(id, 'editable source/export path mismatch');
+    if (resource.production?.builderPath !== undefined && resource.production.builderPath !== chain.builderUrl) fail(id, 'builder/export path mismatch');
     for (const [label, path] of [['PNG export', chain.exportPath], ['editable Pixelorama source', chain.sourcePath], ['deterministic builder', chain.builderPath]]) {
       if (!existsSync(path)) fail(id, `missing ${label}: ${relative(manifest.root, path)}`);
     }
@@ -73,9 +80,20 @@ export function validateVisualManifest(root) {
 
   for (const binding of bindings) {
     const id = typeof binding?.id === 'string' ? binding.id : '<unknown binding>';
+    for (const field of Object.keys(binding ?? {})) if (!bindingFields.has(field)) fail(id, `unknown logical binding field ${field}`);
     if (!/^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)+$/.test(id) || ids.has(id)) fail(id, 'logical art ID must be stable and unique');
     ids.add(id);
     if (!legalKinds.has(binding?.kind)) fail(id, `unsupported renderer kind ${String(binding?.kind)}`);
+    if (binding?.required !== true && binding?.required !== false) fail(id, 'required must be boolean');
+    if (!binding?.display || !Number.isFinite(binding.display.width) || !Number.isFinite(binding.display.height) || binding.display.width <= 0 || binding.display.height <= 0) fail(id, 'display requires positive dimensions');
+    if (binding?.clips !== undefined) {
+      if (!binding.clips || typeof binding.clips !== 'object' || Array.isArray(binding.clips)) fail(id, 'clips must be an object');
+      else for (const [name, clip] of Object.entries(binding.clips)) {
+        if (!/^[a-z][a-z0-9-]*$/.test(name) || !clip || typeof clip !== 'object' || Array.isArray(clip)) { fail(id, `invalid clip ${name}`); continue; }
+        for (const field of Object.keys(clip)) if (!clipFields.has(field)) fail(id, `clip ${name} has unknown field ${field}`);
+        if (!Number.isInteger(clip.start) || !Number.isInteger(clip.end) || clip.start < 0 || clip.end < clip.start || !Number.isFinite(clip.frameRate) || clip.frameRate <= 0 || (clip.repeat !== -1 && clip.repeat !== 0)) fail(id, `invalid clip ${name}`);
+      }
+    }
     for (const stale of ['url', 'load', 'textureKey', 'sampling', 'source', 'builder', 'width', 'height']) if (Object.hasOwn(binding ?? {}, stale)) fail(id, `obsolete physical field ${stale} is not allowed on a logical binding`);
     const resource = byId.get(binding?.resourceId);
     if (!resource) { fail(id, `resourceId ${String(binding?.resourceId)} does not resolve exactly once`); continue; }
