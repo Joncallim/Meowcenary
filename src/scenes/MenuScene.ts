@@ -12,6 +12,7 @@ import { createUiText } from '../ui/text';
 import { InputController } from '../systems/input';
 import { FocusNavigator, type FocusDirection } from '../ui/focusList';
 import { FocusStroke } from '../ui/theme';
+import { ScrollableFocusRegion } from '../ui/scrollableFocus';
 
 const MENU_DEPTH = ThemeDepth.pauseSummary;
 /** 44 physical px at the smallest promised FIT (844×390 → 0.462085). */
@@ -26,6 +27,19 @@ export class MenuScene extends Phaser.Scene {
   private focusables: Phaser.GameObjects.Text[] = [];
   private focusRings: Phaser.GameObjects.Rectangle[] = [];
   private readonly navigator = new FocusNavigator('linear');
+  /** The one production owner for any list which can outgrow the safe UI
+   * viewport.  `navigator` remains the scene-wide command list (it also owns
+   * fixed Back controls); this region owns scrolling, visibility and the
+   * contiguous list segment's focus. */
+  private scrollRegion?: ScrollableFocusRegion;
+  private collectingScrollItems = false;
+  private scrollItemIndexes = new Set<number>();
+  /** Maps scene-wide focus indexes (which include fixed controls) to the
+   * region's contiguous local indexes. */
+  private scrollLocalIndexByFocusIndex = new Map<number, number>();
+  private scrollObjects: Array<{ object: Phaser.GameObjects.GameObject; x: number; y: number }> = [];
+  private scrollViewportTop = 0;
+  private scrollViewportBottom = 0;
   private hoveredIndex = -1;
   private committedPanel?: MainMenuSnapshot['panel'];
   /** Explicit committed-display gate, retained separately from the root
@@ -44,15 +58,9 @@ export class MenuScene extends Phaser.Scene {
   private safeCenterX = 0;
   private safeRightMargin = 16;
   private currentViewport?: UiViewport;
-  /** Gunsmith inventories can grow without bound; page logical actions so
-   * every controller/touch target remains inside the playable viewport. */
-  private gunsmithPage = 0;
-  private equipmentPage = 0;
-  private achievementsPage = 0;
-  /** Keep the progression hub useful on portrait displays: destinations and
-   * the older permanent-training controls have separate, reachable pages. */
-
-
+  private touchScrollY?: number;
+  private touchDragDistance = 0;
+  private touchDidScroll = false;
   /** Number of committed render attempts; resize tests assert one per event. */
   get renderRebuildCount(): number {
     return this.rebuildCount;
@@ -84,6 +92,11 @@ export class MenuScene extends Phaser.Scene {
     this.inputController.onAction('navLeft', () => this.handleNavMove('left'));
     this.inputController.onAction('navRight', () => this.handleNavMove('right'));
     this.inputController.onAction('confirm', () => this.handleActivate());
+    this.input.on('wheel', this.handleWheel, this);
+    this.input.on(Phaser.Input.Events.POINTER_DOWN, this.handlePointerDown, this);
+    this.input.on(Phaser.Input.Events.POINTER_MOVE, this.handlePointerMove, this);
+    this.input.on(Phaser.Input.Events.POINTER_UP, this.handlePointerUp, this);
+    this.input.on(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.handlePointerUp, this);
 
     this.render(this.controller.snapshot());
 
@@ -111,10 +124,6 @@ export class MenuScene extends Phaser.Scene {
   private render(snapshot: MainMenuSnapshot): void {
     this.rebuildCount += 1;
     const panelChanged = this.committedPanel !== undefined && this.committedPanel !== snapshot.panel;
-    if (panelChanged) {
-      this.gunsmithPage = 0;
-      this.achievementsPage = 0;
-    }
     // The display is uncommitted from the moment teardown begins until a
     // successful publication below (F1 committed-display gate).
     this.committedDisplay = false;
@@ -122,6 +131,11 @@ export class MenuScene extends Phaser.Scene {
     this.root = undefined;
     this.focusables = [];
     this.focusRings = [];
+    this.scrollRegion = undefined;
+    this.collectingScrollItems = false;
+    this.scrollItemIndexes.clear();
+    this.scrollLocalIndexByFocusIndex.clear();
+    this.scrollObjects = [];
     this.hoveredIndex = -1;
     this.hint = undefined;
 
@@ -212,6 +226,7 @@ export class MenuScene extends Phaser.Scene {
 
       this.navigator.setCount(this.focusables.length);
       if (panelChanged) this.navigator.reset();
+      this.finishScrollableRegion();
       this.applyFocus();
 
       // The root is only published once the display tree is fully built and
@@ -326,6 +341,8 @@ export class MenuScene extends Phaser.Scene {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Choose Character');
     let y = top + heading.height + 20;
 
+    this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
+
     snapshot.character.characters.forEach((character) => {
       const label = `${character.selected ? '✓ ' : ''}${character.name}${character.locked ? ' 🔒' : ''}`;
       const button = this.addButton(root, margin, y, label, hitTarget, () => {
@@ -349,11 +366,13 @@ export class MenuScene extends Phaser.Scene {
           wordWrap: { width: width - margin - this.safeRightMargin - 12 },
         }));
         desc.setScrollFactor(0);
+        this.registerScrollObject(desc);
         y += desc.height + 8;
       }
       y += button.height + 16;
     });
 
+    this.endScrollableRegion();
     this.addBackButton(root, width, margin, hitTarget);
   }
 
@@ -390,6 +409,7 @@ export class MenuScene extends Phaser.Scene {
   ): void {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Choose Contract');
     let y = top + heading.height + 20;
+    this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
     snapshot.stage.stages.forEach((stage) => {
       const label = `${stage.selected ? '✓ ' : ''}${stage.name}${stage.locked ? ' 🔒' : ''}`;
       this.addButton(root, margin, y, label, hitTarget, () => {
@@ -397,6 +417,7 @@ export class MenuScene extends Phaser.Scene {
       });
       y += hitTarget + 16;
     });
+    this.endScrollableRegion();
     this.addBackButton(root, width, margin, hitTarget);
   }
 
@@ -435,13 +456,16 @@ export class MenuScene extends Phaser.Scene {
   private renderCompendium(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Compendium');
     let y = top + heading.height + 16;
+    this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
     snapshot.compendium.entries.forEach((entry) => {
       const detail = entry.status === 'unseen' ? 'Unknown — encounter this enemy in a contract.' : `Seen in: ${entry.foundIn.join(', ') || 'unknown contract'}`;
-      const row = this.own(root, createUiText(this, margin, y, `${entry.name} — ${entry.status}\n${detail}`, {
+      const row = this.addButton(root, margin, y, `${entry.name} — ${entry.status}\n${detail}`, hitTarget, () => undefined, 'ui:confirm', width - margin - this.safeRightMargin);
+      row.setStyle({
         color: entry.status === 'unseen' ? '#94a3b8' : '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin },
-      }));
+      });
       y += row.height + 12;
     });
+    this.endScrollableRegion();
     this.addBackButton(root, width, margin, hitTarget);
   }
 
@@ -465,33 +489,16 @@ export class MenuScene extends Phaser.Scene {
   ): void {
     const heading = this.addHeading(root, this.safeCenterX, top, `Achievements ${snapshot.achievements.completedCount}/${snapshot.achievements.totalCount}`);
     let y = top + heading.height + 16;
-    const pageSize = 2;
-    const pageCount = Math.max(1, Math.ceil(snapshot.achievements.achievements.length / pageSize));
-    this.achievementsPage = Math.min(this.achievementsPage, pageCount - 1);
-    snapshot.achievements.achievements
-      .slice(this.achievementsPage * pageSize, (this.achievementsPage + 1) * pageSize)
-      .forEach((achievement) => {
-      const row = this.own(root, createUiText(this, margin, y, `${achievement.name} — ${achievement.status} ${achievement.progress}/${achievement.target}\n${achievement.description}\nReward: ${achievement.rewardSummary}`, {
+    this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
+    snapshot.achievements.achievements.forEach((achievement) => {
+      const row = this.addButton(root, margin, y, `${achievement.name} — ${achievement.status} ${achievement.progress}/${achievement.target}\n${achievement.description}\nReward: ${achievement.rewardSummary}`, hitTarget, () => undefined, 'ui:confirm', width - margin - this.safeRightMargin);
+      row.setStyle({
         color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
         wordWrap: { width: width - margin - this.safeRightMargin },
-      }));
+      });
       y += row.height + 12;
-      });
-    if (this.achievementsPage > 0) {
-      this.addButton(root, margin, y, 'Previous Achievements', hitTarget, () => {
-        this.achievementsPage -= 1;
-        this.navigator.reset();
-        this.render(snapshot);
-      });
-      y += hitTarget + 8;
-    }
-    if (this.achievementsPage < pageCount - 1) {
-      this.addButton(root, margin, y, 'Next Achievements', hitTarget, () => {
-        this.achievementsPage += 1;
-        this.navigator.reset();
-        this.render(snapshot);
-      });
-    }
+    });
+    this.endScrollableRegion();
     this.addBackButton(root, width, margin, hitTarget);
   }
 
@@ -558,35 +565,18 @@ export class MenuScene extends Phaser.Scene {
           actions.push({ label: `Remove unavailable part ${instanceId}`, action: () => this.render(this.requireController().unequipGunPart(instanceId)) });
         }
       }
-      const pageSize = 1;
-      const pageCount = Math.max(1, Math.ceil(actions.length / pageSize));
-      this.gunsmithPage = Math.min(this.gunsmithPage, pageCount - 1);
-      this.own(root, createUiText(this, margin, y, `Owned parts and crafting — page ${this.gunsmithPage + 1}/${pageCount}:`, {
+      this.own(root, createUiText(this, margin, y, 'Owned parts and crafting:', {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
       }));
       y += hitTarget * 0.7;
-      actions.slice(this.gunsmithPage * pageSize, (this.gunsmithPage + 1) * pageSize).forEach((item) => {
+      this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
+      actions.forEach((item) => {
         const iconColumn = item.iconArtId ? 38 : 0;
         const actionText = this.addButton(root, margin, y, item.label, hitTarget, item.action, 'ui:confirm', iconColumn > 0 ? width - margin - this.safeRightMargin - iconColumn : undefined);
         if (item.iconArtId) this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, item.iconArtId);
         y += actionText.height + 8;
       });
-      if (pageCount > 1) {
-        if (this.gunsmithPage > 0) {
-          this.addButton(root, margin, y, 'Previous Gunsmith Page', hitTarget, () => {
-            this.gunsmithPage -= 1;
-            this.render(this.requireController().snapshot());
-          });
-          y += hitTarget + 8;
-        }
-        if (this.gunsmithPage < pageCount - 1) {
-          this.addButton(root, margin, y, 'Next Gunsmith Page', hitTarget, () => {
-            this.gunsmithPage += 1;
-            this.render(this.requireController().snapshot());
-          });
-          y += hitTarget + 8;
-        }
-      }
+      this.endScrollableRegion();
     }
     this.addBackButton(root, width, margin, hitTarget);
   }
@@ -615,14 +605,12 @@ export class MenuScene extends Phaser.Scene {
       }));
       y += activeText.height + 12;
     }
-    const pageSize = 1;
-    const pageCount = Math.max(1, Math.ceil(snapshot.equipment.owned.length / pageSize));
-    this.equipmentPage = Math.min(this.equipmentPage, pageCount - 1);
-    this.own(root, createUiText(this, margin, y, `Owned equipment — page ${this.equipmentPage + 1}/${pageCount}:`, {
+    this.own(root, createUiText(this, margin, y, 'Owned equipment:', {
       color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
     }));
     y += hitTarget * 0.7;
-    snapshot.equipment.owned.slice(this.equipmentPage * pageSize, (this.equipmentPage + 1) * pageSize).forEach((item) => {
+    this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
+    snapshot.equipment.owned.forEach((item) => {
       const equippedHere = equipped[item.slot] === item.instanceId;
       const iconColumn = 38;
       const equipmentButton = this.addButton(root, margin, y, `${equippedHere ? '✓ ' : ''}${item.name} [${item.setId}] T${item.tier} — ${equippedHere ? 'Equipped' : 'Equip'}`, hitTarget, () => {
@@ -636,6 +624,7 @@ export class MenuScene extends Phaser.Scene {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
         wordWrap: { width: width - margin - this.safeRightMargin },
       }));
+      this.registerScrollObject(effects);
       y += effects.height + 8;
       if (item.upgradeCost !== undefined) {
         this.addButton(root, margin, y, `Upgrade ${item.name} (${item.upgradeCost} scrap)`, hitTarget, () => {
@@ -643,23 +632,15 @@ export class MenuScene extends Phaser.Scene {
         });
         y += hitTarget + 8;
       } else if (item.upgradeLocked) {
-        this.own(root, createUiText(this, margin, y, 'Tier locked — progress through stages, bosses, and achievements.', {
+        const locked = this.own(root, createUiText(this, margin, y, 'Tier locked — progress through stages, bosses, and achievements.', {
           color: '#fbbf24', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
           wordWrap: { width: width - margin - this.safeRightMargin },
         }));
+        this.registerScrollObject(locked);
         y += hitTarget * 0.75;
       }
     });
-    if (pageCount > 1) {
-      if (this.equipmentPage > 0) {
-        this.addButton(root, margin, y, 'Previous Equipment Page', hitTarget, () => { this.equipmentPage -= 1; this.render(this.requireController().snapshot()); });
-        y += hitTarget + 8;
-      }
-      if (this.equipmentPage < pageCount - 1) {
-        this.addButton(root, margin, y, 'Next Equipment Page', hitTarget, () => { this.equipmentPage += 1; this.render(this.requireController().snapshot()); });
-        y += hitTarget + 8;
-      }
-    }
+    this.endScrollableRegion();
     if (snapshot.equipment.owned.length === 0) {
       this.own(root, createUiText(this, margin, y, 'Complete bosses and achievements to earn persistent equipment.', {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
@@ -776,7 +757,16 @@ export class MenuScene extends Phaser.Scene {
       text.setStyle({ backgroundColor: 'rgba(23, 48, 59, 0.86)' });
     });
     text.on(Phaser.Input.Events.POINTER_UP, () => {
+      // A drag is a scrolling gesture, never a command activation. Keep the
+      // flag through the InputPlugin's pointer-up dispatch so this remains
+      // correct regardless of global-vs-object listener ordering.
+      if (this.touchDidScroll) {
+        this.touchDidScroll = false;
+        return;
+      }
       this.navigator.setIndex(this.focusables.indexOf(text));
+      this.syncScrollFocus(this.navigator.index);
+      this.applyScrollViewport();
       // The single command boundary: pointer clicks and synthetic
       // Enter/Space activation both land here and emit exactly one event.
       this.bus?.emit(audioEvent, {});
@@ -791,9 +781,26 @@ export class MenuScene extends Phaser.Scene {
     ring.setScrollFactor(0);
     this.focusRings.push(ring);
     const index = this.focusables.length - 1;
+    if (this.scrollRegion && this.collectingScrollItems) {
+      this.scrollItemIndexes.add(index);
+      this.scrollObjects.push({ object: text, x: text.x, y: text.y });
+      this.scrollObjects.push({ object: ring, x: ring.x, y: ring.y });
+      // The shared region receives real rendered bounds, not a screen-local
+      // row estimate, so wrapped labels and future content remain correct.
+      this.scrollRegion.setItems([
+        ...Array.from(this.scrollItemIndexes).map((itemIndex, localIndex) => {
+          this.scrollLocalIndexByFocusIndex.set(itemIndex, localIndex);
+          const item = this.focusables[itemIndex]!;
+          const itemBounds = item.getBounds();
+          return { index: localIndex, top: itemBounds.top, bottom: itemBounds.bottom };
+        }),
+      ]);
+    }
     text.on(Phaser.Input.Events.POINTER_OVER, () => {
       this.hoveredIndex = index;
       this.navigator.setIndex(index);
+      this.syncScrollFocus(index);
+      this.applyScrollViewport();
       this.applyFocus();
     });
     text.on(Phaser.Input.Events.POINTER_OUT, () => {
@@ -829,6 +836,7 @@ export class MenuScene extends Phaser.Scene {
     const icon = this.own(root, this.add.image(x, y, binding.textureKey, binding.frameKey));
     icon.setDisplaySize(Math.min(26, binding.display.width), Math.min(26, binding.display.height));
     icon.setScrollFactor(0);
+    this.registerScrollObject(icon);
   }
 
   private addBackButton(
@@ -842,6 +850,116 @@ export class MenuScene extends Phaser.Scene {
       this.render(next);
     }, 'ui:back');
   }
+
+  /** Start/finish hooks deliberately sit in MenuScene rather than each
+   * surface.  They make pointer eligibility a property of the shared region,
+   * not an easy-to-forget per-screen convention. */
+  private beginScrollableRegion(viewportTop: number, viewportBottom: number): void {
+    this.scrollViewportTop = viewportTop;
+    this.scrollViewportBottom = Math.max(viewportTop + 1, viewportBottom);
+    this.scrollRegion = new ScrollableFocusRegion({
+      viewportTop: this.scrollViewportTop,
+      viewportBottom: this.scrollViewportBottom,
+      itemMargin: 8,
+    });
+    this.collectingScrollItems = true;
+  }
+
+  private endScrollableRegion(): void {
+    this.collectingScrollItems = false;
+  }
+
+  private registerScrollObject(object: Phaser.GameObjects.GameObject): void {
+    if (!this.scrollRegion || !this.collectingScrollItems) return;
+    const positioned = object as unknown as { x: number; y: number };
+    this.scrollObjects.push({ object, x: positioned.x, y: positioned.y });
+  }
+
+  private finishScrollableRegion(): void {
+    if (!this.scrollRegion || this.scrollItemIndexes.size === 0) return;
+    const focused = this.navigator.index;
+    if (this.scrollItemIndexes.has(focused)) {
+      this.syncScrollFocus(focused);
+    } else {
+      this.scrollRegion.handleResize();
+    }
+    this.applyScrollViewport();
+  }
+
+  private scrollViewportBottomFor(hitTarget: number): number {
+    return this.scale.height - edgeMargin(this.currentViewport!, 'bottom') - hitTarget - 12;
+  }
+
+  private syncScrollFocus(focusedIndex: number): void {
+    const localIndex = this.scrollLocalIndexByFocusIndex.get(focusedIndex);
+    if (!this.scrollRegion || localIndex === undefined) return;
+    // ScrollableFocusRegion intentionally has no mutable-index escape hatch:
+    // move it through the same deterministic navigation path as real input.
+    while (this.scrollRegion.focusedIndex < localIndex) this.scrollRegion.moveFocus('down');
+    while (this.scrollRegion.focusedIndex > localIndex) this.scrollRegion.moveFocus('up');
+  }
+
+  private applyScrollViewport(): void {
+    if (!this.scrollRegion) return;
+    const offset = this.scrollRegion.scrollOffset;
+    for (const entry of this.scrollObjects) {
+      const object = entry.object as unknown as {
+        setPosition?(x: number, y: number): unknown;
+        setVisible?(visible: boolean): unknown;
+        getBounds?(): { top: number; bottom: number };
+      };
+      object.setPosition?.(entry.x, entry.y - offset);
+      const bounds = object.getBounds?.();
+      if (bounds) object.setVisible?.(bounds.bottom > this.scrollViewportTop && bounds.top < this.scrollViewportBottom);
+    }
+    for (const index of this.scrollItemIndexes) {
+      const text = this.focusables[index];
+      if (!text) continue;
+      const bounds = text.getBounds();
+      const visible = bounds.bottom > this.scrollViewportTop && bounds.top < this.scrollViewportBottom;
+      text.setVisible(visible);
+      const ring = this.focusRings[index];
+      ring?.setVisible(visible);
+      if (visible) text.setInteractive({ useHandCursor: true });
+      else text.disableInteractive();
+    }
+  }
+
+  private handleScroll(delta: number): void {
+    if (!this.committedDisplay || !this.scrollRegion) return;
+    this.scrollRegion.scrollBy(delta);
+    this.applyScrollViewport();
+    this.applyFocus();
+  }
+
+  private readonly handleWheel = (_pointer: Phaser.Input.Pointer, _objects: Phaser.GameObjects.GameObject[], _deltaX: number, deltaY: number): void => {
+    this.handleScroll(deltaY);
+  };
+
+  private readonly handlePointerMove = (pointer: Phaser.Input.Pointer): void => {
+    if (!pointer.isDown) {
+      this.touchScrollY = undefined;
+      return;
+    }
+    if (this.touchScrollY !== undefined) {
+      const delta = this.touchScrollY - pointer.y;
+      this.touchDragDistance += Math.abs(delta);
+      if (this.touchDragDistance >= 8) this.touchDidScroll = true;
+      this.handleScroll(delta);
+    }
+    this.touchScrollY = pointer.y;
+  };
+
+  private readonly handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
+    this.touchScrollY = pointer.y;
+    this.touchDragDistance = 0;
+    this.touchDidScroll = false;
+  };
+
+  private readonly handlePointerUp = (): void => {
+    this.touchScrollY = undefined;
+    this.touchDragDistance = 0;
+  };
 
   private handleBack(): void {
     // Home Esc is still a back command; it emits even when the controller
@@ -860,9 +978,12 @@ export class MenuScene extends Phaser.Scene {
     // No committed display (never rendered, or a failed rebuild left only the
     // fallback): the retained navigator must not move or emit (F1).
     if (!this.committedDisplay) return;
-    const moved = typeof direction === 'number'
-      ? this.navigator.move(direction < 0 ? 'up' : 'down')
-      : this.navigator.move(direction);
+    const resolved = typeof direction === 'number' ? (direction < 0 ? 'up' : 'down') : direction;
+    const moved = this.navigator.move(resolved);
+    if (moved) {
+      this.syncScrollFocus(this.navigator.index);
+      this.applyScrollViewport();
+    }
     if (moved) {
       this.bus?.emit('ui:navigate', {});
     }
@@ -905,6 +1026,11 @@ export class MenuScene extends Phaser.Scene {
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
     this.scale.off?.(Phaser.Scale.Events.RESIZE, this.handleResize, this);
+    this.input.off('wheel', this.handleWheel, this);
+    this.input.off(Phaser.Input.Events.POINTER_DOWN, this.handlePointerDown, this);
+    this.input.off(Phaser.Input.Events.POINTER_MOVE, this.handlePointerMove, this);
+    this.input.off(Phaser.Input.Events.POINTER_UP, this.handlePointerUp, this);
+    this.input.off(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.handlePointerUp, this);
     this.removeAudioUnlockListeners();
     this.inputController?.destroy();
     this.inputController = undefined;
@@ -917,6 +1043,12 @@ export class MenuScene extends Phaser.Scene {
     this.hint = undefined;
     this.focusables = [];
     this.focusRings = [];
+    this.scrollRegion?.destroy();
+    this.scrollRegion = undefined;
+    this.collectingScrollItems = false;
+    this.scrollItemIndexes.clear();
+    this.scrollLocalIndexByFocusIndex.clear();
+    this.scrollObjects = [];
     this.navigator.setCount(0);
     this.committedPanel = undefined;
     this.committedDisplay = false;

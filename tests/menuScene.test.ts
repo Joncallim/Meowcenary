@@ -26,6 +26,7 @@ interface FakeObjectState {
   width: number;
   height: number;
   interactive: boolean;
+  visible: boolean;
   destroyed: boolean;
   handlers: Record<string, () => void>;
   padding: { left: number; top: number; right: number; bottom: number };
@@ -60,6 +61,7 @@ function fakeObject(
     width,
     height,
     interactive: false,
+    visible: true,
     destroyed: false,
     handlers: {},
     padding: { ...padding },
@@ -74,6 +76,12 @@ function fakeObject(
     },
     get width() {
       return state.width;
+    },
+    get x() {
+      return state.x;
+    },
+    get y() {
+      return state.y;
     },
     get height() {
       return state.height;
@@ -133,10 +141,34 @@ function fakeObject(
       return api;
     },
     getBounds() {
-      return { width: state.width, height: state.height };
+      return {
+        x: state.x,
+        y: state.y,
+        left: state.x,
+        top: state.y,
+        right: state.x + state.width,
+        bottom: state.y + state.height,
+        centerX: state.x + state.width / 2,
+        centerY: state.y + state.height / 2,
+        width: state.width,
+        height: state.height,
+      };
     },
     setInteractive() {
       state.interactive = true;
+      return api;
+    },
+    disableInteractive() {
+      state.interactive = false;
+      return api;
+    },
+    setVisible(visible: boolean) {
+      state.visible = visible;
+      return api;
+    },
+    setPosition(x: number, y: number) {
+      state.x = x;
+      state.y = y;
       return api;
     },
     on(event: string, handler: () => void) {
@@ -348,7 +380,7 @@ function createHarness(options: { create?: boolean; audio?: boolean } = { create
 }
 
 describe('MenuScene', () => {
-  it('pages Gunsmith actions so a large owned inventory remains controller-reachable', () => {
+  it('uses the shared scroll region for a large Gunsmith inventory without paging controls', () => {
     const harness = createHarness();
     harness.context.updateGunsmith((state) => ({
       ...state,
@@ -360,9 +392,128 @@ describe('MenuScene', () => {
       selectedBuildId: 'build:pistol',
     }));
     harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
-    expect(harness.textContents()).toContain('Next Gunsmith Page');
-    harness.buttonByLabel('Next Gunsmith Page')!.state.handlers.pointerup!();
-    expect(harness.textContents()).toContain('Previous Gunsmith Page');
+    expect(harness.textContents()).not.toContain('Next Gunsmith Page');
+    const scene = harness.menuScene as unknown as { scrollRegion?: { itemCount: number } };
+    expect(scene.scrollRegion?.itemCount).toBeGreaterThan(1);
+  });
+
+  it('uses the production scroll region for 20 Character, 25 Contract, 40 Achievement, and 50 Compendium rows', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      navigator: { index: number };
+      scrollRegion?: { scrollOffset: number };
+      focusables: FakeObject[];
+    };
+    const base = scene.controller.snapshot();
+    const repeat = <T,>(source: readonly T[], count: number, name: (item: T, index: number) => T) =>
+      Array.from({ length: count }, (_, index) => name(source[index % source.length]!, index));
+    const pressDown = (count: number) => {
+      for (let index = 0; index < count; index += 1) {
+        harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+        harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+      }
+    };
+    const assertRows = (panel: import('../src/ui/menus').MainMenuSnapshot['panel'], count: number, patch: Partial<import('../src/ui/menus').MainMenuSnapshot>) => {
+      scene.render({ ...base, ...patch, panel });
+      pressDown(count - 1);
+      expect(scene.navigator.index).toBe(count - 1);
+      expect(scene.scrollRegion?.scrollOffset).toBeGreaterThan(0);
+      const liveRows = harness.objects.filter((object) => object.state.kind === 'text' && object.state.handlers.pointerup && !object.state.destroyed && object.state.text !== '< Back');
+      expect(liveRows[0]!.state.interactive).toBe(false);
+      expect(scene.focusables[count - 1]!.state.interactive).toBe(true);
+    };
+
+    assertRows('character', 20, {
+      character: { ...base.character, characters: repeat(base.character.characters, 20, (item, index) => ({ ...item, id: `character-${index}`, name: `Character ${index}` })) },
+    });
+    assertRows('stage', 25, {
+      stage: { ...base.stage, stages: repeat(base.stage.stages, 25, (item, index) => ({ ...item, id: `contract-${index}`, name: `Contract ${index}` })) },
+    });
+    assertRows('achievements', 40, {
+      achievements: { ...base.achievements, achievements: repeat(base.achievements.achievements, 40, (item, index) => ({ ...item, id: `achievement-${index}`, name: `Achievement ${index}` })) },
+    });
+    assertRows('compendium', 50, {
+      compendium: { ...base.compendium, entries: repeat(base.compendium.entries, 50, (item, index) => ({ ...item, enemyId: `enemy-${index}`, name: `Compendium ${index}` })) },
+    });
+  });
+
+  it('keeps shared-list focus deterministic across wheel/touch scrolling and resize', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      handleResize(): void;
+      navigator: { index: number };
+      scrollRegion?: { scrollOffset: number };
+    };
+    const base = scene.controller.snapshot();
+    const scrollingSnapshot = {
+      ...base,
+      panel: 'compendium',
+      compendium: { ...base.compendium, entries: Array.from({ length: 50 }, (_, index) => ({ ...base.compendium.entries[index % base.compendium.entries.length]!, enemyId: `enemy-${index}`, name: `Compendium ${index}` })) },
+    } as import('../src/ui/menus').MainMenuSnapshot;
+    scene.controller.snapshot = () => scrollingSnapshot;
+    scene.render(scrollingSnapshot);
+    harness.input.emit('wheel', { isDown: false }, [], 0, 600);
+    const afterWheel = scene.scrollRegion!.scrollOffset;
+    expect(afterWheel).toBeGreaterThan(0);
+    harness.input.emit('pointermove', { isDown: true, y: 500 });
+    harness.input.emit('pointermove', { isDown: true, y: 300 });
+    expect(scene.scrollRegion!.scrollOffset).toBeGreaterThan(afterWheel);
+
+    for (let index = 0; index < 49; index += 1) {
+      harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+      harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+    }
+    expect(scene.navigator.index).toBe(49);
+    for (const [width, height] of [[360, 640], [390, 844], [844, 390], [1280, 720], [1920, 1080]]) {
+      (harness.menuScene.scale as unknown as { width: number; height: number; displaySize: { width: number; height: number } }).width = width;
+      (harness.menuScene.scale as unknown as { displaySize: { width: number; height: number } }).displaySize = { width, height };
+      (harness.menuScene.scale as unknown as { height: number }).height = height;
+      scene.handleResize();
+      expect(scene.navigator.index).toBe(49);
+      expect(scene.scrollRegion!.scrollOffset).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('treats a touch drag as scrolling, resets its baseline, and never activates the dragged row', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      focusables: FakeObject[];
+      navigator: { index: number };
+      scrollRegion?: { scrollOffset: number };
+    };
+    const base = scene.controller.snapshot();
+    scene.render({
+      ...base,
+      panel: 'character',
+      character: { ...base.character, characters: Array.from({ length: 20 }, (_, index) => ({ ...base.character.characters[index % base.character.characters.length]!, id: `character-${index}`, name: `Character ${index}` })) },
+    });
+    const confirms: string[] = [];
+    harness.bus.on('ui:confirm', () => confirms.push('confirm'));
+    const row = scene.focusables[0]!;
+    harness.input.emit('pointerdown', { isDown: true, y: 500 });
+    harness.input.emit('pointermove', { isDown: true, y: 300 });
+    const afterFirstDrag = scene.scrollRegion!.scrollOffset;
+    row.emit('pointerup');
+    expect(confirms).toEqual([]);
+    harness.input.emit('pointerup', { isDown: false, y: 300 });
+    harness.input.emit('pointerdown', { isDown: true, y: 500 });
+    harness.input.emit('pointermove', { isDown: true, y: 490 });
+    expect(scene.scrollRegion!.scrollOffset - afterFirstDrag).toBeLessThanOrEqual(10);
+    // Controller navigation after a touch gesture must resume from the
+    // scene's logical focus, not from a stale touch-row identity.
+    const pad = new MockGamepad();
+    harness.input.gamepad!.connect(pad);
+    pad.setButton(13, true);
+    harness.menuScene.update(0, 16);
+    pad.setButton(13, false);
+    harness.menuScene.update(0, 16);
+    expect(scene.navigator.index).toBe(1);
   });
 
   it('projects injected top/bottom/side insets and keeps the hint and < Back inside the safe rect', () => {
@@ -939,12 +1090,13 @@ describe('MenuScene audio lifecycle', () => {
 
   it('unlocks once on the first pointer gesture and cross-removes the action subscription', () => {
     const { input, keyboard, audioFake, menuScene } = createHarness();
-    expect(input.listenerCount('pointerdown')).toBe(2);
+    // Scroll gesture tracking plus the audio-unlock listener pair.
+    expect(input.listenerCount('pointerdown')).toBe(3);
 
     input.pointerDown(10, 10);
 
     expect(audioFake!.unlock).toHaveBeenCalledTimes(1);
-    expect(input.listenerCount('pointerdown')).toBe(1);
+    expect(input.listenerCount('pointerdown')).toBe(2);
 
     // A subsequent action must never unlock again or accumulate listeners.
     keyboard.keydown('Enter');
@@ -955,13 +1107,13 @@ describe('MenuScene audio lifecycle', () => {
 
   it('unlocks once on the first logical action and cross-removes the pointer listener', () => {
     const { input, keyboard, audioFake, menuScene } = createHarness();
-    expect(input.listenerCount('pointerdown')).toBe(2);
+    expect(input.listenerCount('pointerdown')).toBe(3);
 
     keyboard.keydown('Enter');
     menuScene.update(0, 16);
 
     expect(audioFake!.unlock).toHaveBeenCalledTimes(1);
-    expect(input.listenerCount('pointerdown')).toBe(1);
+    expect(input.listenerCount('pointerdown')).toBe(2);
 
     keyboard.keydown('Enter');
     menuScene.update(0, 16);
@@ -996,13 +1148,13 @@ describe('MenuScene audio lifecycle', () => {
     expect(input.listenerCount('pointerdown')).toBe(0);
 
     menuScene.create();
-    expect(input.listenerCount('pointerdown')).toBe(2);
+    expect(input.listenerCount('pointerdown')).toBe(3);
 
     lifecycle.emit('shutdown');
     expect(input.listenerCount('pointerdown')).toBe(0);
 
     menuScene.create();
-    expect(input.listenerCount('pointerdown')).toBe(2);
+    expect(input.listenerCount('pointerdown')).toBe(3);
     // Initial harness create plus the two explicit visits.
     expect(audioFake!.playMusic).toHaveBeenCalledTimes(3);
   });
@@ -1012,7 +1164,7 @@ describe('MenuScene audio lifecycle', () => {
 
     expect(audioFake).toBeUndefined();
     expect(textContents()).toEqual(expect.arrayContaining(['Play Contract', 'Mercenary']));
-    expect(input.listenerCount('pointerdown')).toBe(1);
+    expect(input.listenerCount('pointerdown')).toBe(2);
   });
 });
 
