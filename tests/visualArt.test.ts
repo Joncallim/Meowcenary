@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { RendererKind, VisualTextureResource } from '../src/systems/types';
 import { DataVisualArtRegistry } from '../src/systems/visualArt';
 
@@ -42,5 +45,16 @@ describe('Visual Art Architecture', () => {
     expect(resolved?.load.type).toBe('atlas');
     expect(resolved?.frameKey).toBe('helmet');
     expect(resolved?.textureKey).toBe('art-ui-equipment');
+  });
+
+  it('ships a distinct physical spritesheet for every selectable mercenary', () => {
+    const ids = [
+      'scrap-tabby', 'bolt-hound', 'volt-lynx', 'brass-boar',
+      'ember-cougar', 'scrap-weasel', 'rattle-raptor', 'piston-ram',
+    ];
+    const digests = ids.map((id) => createHash('sha256').update(readFileSync(
+      resolve('public', 'assets', 'characters', id, `${id}.png`),
+    )).digest('hex'));
+    expect(new Set(digests).size).toBe(ids.length);
   });
 });
