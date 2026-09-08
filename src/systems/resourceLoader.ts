@@ -22,6 +22,14 @@ export interface ResourceLoadResult {
   readonly failed: readonly LoadedResource[];
 }
 
+/** Phaser's per-file completion event includes the loader file type. Waiting
+ * on `filecomplete-<key>` never resolves in a real Phaser runtime (although
+ * simplistic test emitters may accidentally accept it). */
+function fileCompleteEvent(resource: VisualTextureResource): string {
+  const type = resource.load.type === 'atlas' ? 'atlasjson' : resource.load.type;
+  return `filecomplete-${type}-${resource.textureKey}`;
+}
+
 /** Compatibility projection while current PNG exports are progressively
  * packed into atlases. The loader's unit of work is already a physical
  * texture key, so several logical bindings sharing a key produce one load. */
@@ -89,7 +97,7 @@ export function loadTextureResource(
       resolve({ resourceId: resource.id, textureKey: key, success: false });
     };
 
-    scene.load.once(`filecomplete-${key}`, onComplete);
+    scene.load.once(fileCompleteEvent(resource), onComplete);
     scene.load.once(`loaderror-${key}`, onError);
 
     switch (resource.load.type) {
@@ -148,7 +156,7 @@ export async function loadTextureResources(
   await new Promise<void>((resolve) => {
     let remaining = pending.length;
     const settle = (resource: VisualTextureResource, success: boolean): void => {
-      scene.load.off(`filecomplete-${resource.textureKey}`, completeHandlers.get(resource.textureKey));
+      scene.load.off(fileCompleteEvent(resource), completeHandlers.get(resource.textureKey));
       scene.load.off(`loaderror-${resource.textureKey}`, errorHandlers.get(resource.textureKey));
       (success ? loaded : failed).push({ resourceId: resource.id, textureKey: resource.textureKey, success });
       remaining -= 1;
@@ -161,7 +169,7 @@ export async function loadTextureResources(
       const error = () => settle(resource, false);
       completeHandlers.set(resource.textureKey, complete);
       errorHandlers.set(resource.textureKey, error);
-      scene.load.once(`filecomplete-${resource.textureKey}`, complete);
+      scene.load.once(fileCompleteEvent(resource), complete);
       scene.load.once(`loaderror-${resource.textureKey}`, error);
       switch (resource.load.type) {
         case 'image': scene.load.image(resource.textureKey, resource.load.imageUrl); break;

@@ -619,7 +619,7 @@ function createFakeScene(
   // run. Model the small loader surface it uses so this remains a real
   // MenuScene journey rather than bypassing the resource gate.
   const loadedTextureKeys = new Set<string>();
-  const queuedTextureKeys = new Set<string>();
+  const queuedTextureTypes = new Map<string, string>();
   const loaderListeners = new Map<string, Array<() => void>>();
   const loader = {
     once(event: string, listener: () => void): void {
@@ -634,18 +634,18 @@ function createFakeScene(
       }
       loaderListeners.set(event, (loaderListeners.get(event) ?? []).filter((candidate) => candidate !== listener));
     },
-    image(key: string): void { queuedTextureKeys.add(key); },
-    spritesheet(key: string): void { queuedTextureKeys.add(key); },
-    atlas(key: string): void { queuedTextureKeys.add(key); },
+    image(key: string): void { queuedTextureTypes.set(key, 'image'); },
+    spritesheet(key: string): void { queuedTextureTypes.set(key, 'spritesheet'); },
+    atlas(key: string): void { queuedTextureTypes.set(key, 'atlasjson'); },
     start(): void {
-      for (const key of queuedTextureKeys) {
+      for (const [key, type] of queuedTextureTypes) {
         loadedTextureKeys.add(key);
-        const event = `filecomplete-${key}`;
+        const event = `filecomplete-${type}-${key}`;
         const listeners = loaderListeners.get(event) ?? [];
         loaderListeners.delete(event);
         listeners.forEach((listener) => listener());
       }
-      queuedTextureKeys.clear();
+      queuedTextureTypes.clear();
     },
   };
   const audioFake = { playMusic: vi.fn(), update: vi.fn(), unlock: vi.fn(), destroy: vi.fn() };
