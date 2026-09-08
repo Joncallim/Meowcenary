@@ -15,6 +15,7 @@ import { createStageRuntime, type StageRuntime } from '../gameplay/stage/stageRu
 import { composeStageSpawnCurve } from '../gameplay/stage/spawnComposition';
 import {
   endRun,
+  resumeRun,
   startRun,
   tickRun,
   type RunState,
@@ -348,6 +349,7 @@ export class GameScene extends Phaser.Scene {
         objective: () => this.describeStageObjective(),
         ability: () => this.describeAbilityState(),
         achievement: () => this.describeAchievementToast(),
+        boss: () => this.describeActiveBoss(),
       }),
       new PhaserHudView({
         scene: this,
@@ -384,6 +386,8 @@ export class GameScene extends Phaser.Scene {
       visualArt,
       readInputMode: () => this.inputController!.getInputMode(),
       fullscreen: this.fullscreenController,
+      exitLabel: this.isTraining ? 'Leave Training' : 'Abandon Contract',
+      onExitConfirmed: () => this.exitRunEarly(),
     });
 
     this.arenaScenery = buildArenaScenery(this, arena, visualArt);
@@ -887,6 +891,19 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    // 3b. Exit confirmation remains a modal: keyboard/controller Back
+    // cancels it, while Confirm uses the same focused button funnel as touch.
+    if (panel === 'exit-confirm') {
+      if (direction) this.pauseView?.moveFocus(direction);
+      else if (action === 'confirm') this.pauseView?.confirmFocused();
+      else if (action === 'back' || action === 'pause') {
+        const accepted = controller.back();
+        if (accepted) this.getContext().bus.emit('ui:back', {});
+        this.pauseView?.render(controller.snapshot());
+      }
+      return;
+    }
+
     // 4. Pause panel: nav/confirm delegate to the Pause view; Back/Pause
     //    resume; Inventory opens the rack.
     if (panel === 'pause') {
@@ -982,12 +999,34 @@ export class GameScene extends Phaser.Scene {
     return `${definition.name}: ${seconds}s`;
   }
 
+  /** HUD-facing read model: only a live boss earns the dedicated encounter
+   * meter, and it disappears at the authoritative lethal boundary. */
+  private describeActiveBoss(): { readonly name: string; readonly health: number; readonly maxHealth: number } | undefined {
+    const boss = this.enemies.find((enemy) => enemy.active && enemy.state !== 'dead' && enemy.archetype === 'boss');
+    if (!boss) return undefined;
+    return { name: boss.definition.name, health: boss.health, maxHealth: boss.maxHealth };
+  }
+
   private forceLoseRun(): void {
     const runState = this.runState;
     if (!RuntimeConfig.isDev || !runState || runState.status !== 'active' || this.stageRuntime?.pendingClear) {
       return;
     }
 
+    endRun(runState, 'lost', this.getContext().bus);
+  }
+
+  /** Explicit user-owned exit path. Training never reaches a settlement;
+   * a normal contract resumes only long enough to cross the established
+   * authoritative loss boundary. */
+  private exitRunEarly(): void {
+    const runState = this.runState;
+    if (!runState || runState.status !== 'paused' || runState.pauseReason !== 'manual') return;
+    if (this.isTraining) {
+      this.scene.start(SceneKey.Menu);
+      return;
+    }
+    resumeRun(runState, this.getContext().bus, 'manual');
     endRun(runState, 'lost', this.getContext().bus);
   }
 

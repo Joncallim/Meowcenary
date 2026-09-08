@@ -1022,6 +1022,10 @@ export class MenuScene extends Phaser.Scene {
       this.touchScrollY = undefined;
       return;
     }
+    // Home and other fixed panels do not own a drag gesture. Treating normal
+    // touch jitter there as a scroll suppresses the button's pointer-up and
+    // makes a command appear to require a second tap.
+    if (!this.scrollRegion) return;
     if (this.touchScrollY !== undefined) {
       const delta = this.touchScrollY - pointer.y;
       this.touchDragDistance += Math.abs(delta);
@@ -1032,6 +1036,12 @@ export class MenuScene extends Phaser.Scene {
   };
 
   private readonly handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
+    if (!this.scrollRegion) {
+      this.touchScrollY = undefined;
+      this.touchDragDistance = 0;
+      this.touchDidScroll = false;
+      return;
+    }
     this.touchScrollY = pointer.y;
     this.touchDragDistance = 0;
     this.touchDidScroll = false;

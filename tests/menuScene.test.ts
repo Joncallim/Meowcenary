@@ -515,6 +515,20 @@ describe('MenuScene', () => {
     expect(scene.navigator.index).toBe(1);
   });
 
+  it('does not turn normal home-screen touch jitter into a second-tap requirement', () => {
+    const harness = createHarness();
+    const confirms: string[] = [];
+    harness.bus.on('ui:confirm', () => confirms.push('confirm'));
+
+    // The home panel has no scroll viewport. A mobile touch can drift a few
+    // logical pixels between down/up, but that must remain a button tap.
+    harness.input.emit('pointerdown', { isDown: true, y: 500 });
+    harness.input.emit('pointermove', { isDown: true, y: 490 });
+    harness.buttonByLabel('Play Contract')!.state.handlers['pointerup']!();
+
+    expect(confirms).toEqual(['confirm']);
+  });
+
   it('projects injected top/bottom/side insets and keeps the hint and < Back inside the safe rect', () => {
     const values: Record<string, string> = {
       '--safe-top': '59px', '--safe-right': '31px', '--safe-bottom': '21px', '--safe-left': '47px',
