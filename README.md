@@ -1,92 +1,99 @@
 # Meowcenary
 
-A browser-first roguelite survivor about an over-armed animal mercenary scavenging a junkyard and merging scrap into ridiculous weapons.
+A browser-first roguelite survivor about heavily armed animal mercenaries fighting through a junkyard, collecting scrap, and turning increasingly stupid weapons into increasingly effective ones.
 
-Meowcenary is inspired by the accessible loops of Gun Hero, Archero, and Vampire Survivors, but it is not a clone. The product direction is: simple controls, automatic combat, quick runs, readable upgrades, data-driven balancing, and no ads or paid progression. The run takes place in a single coherent world — the Junkyard Lot — with a matching visual identity for the mercenary, its weapons, and everything it fights.
+Combat is automatic. The player controls movement, positioning, build choices, equipment and progression rather than manual aiming.
 
-## Design Goals
+## Current state
 
-- Browser-first, mobile-friendly, desktop-compatible.
-- No advertisements, energy systems, pay-to-win, timers, or forced monetisation loops.
-- Very low skill floor: movement, positioning, and upgrade choices should matter more than twitch aiming.
-- Short sessions with strong meta progression.
-- Data-driven tuning for weapons, enemies, upgrades, loot, and spawn curves.
-- AI-agent-friendly architecture with small feature slices and clear acceptance criteria.
+Meowcenary is a playable TypeScript/Phaser game with substantially more than the original combat prototype.
 
-## Tech Stack
+Implemented systems include:
 
-- Phaser 3 for the game runtime.
-- TypeScript for game logic and data contracts.
-- Vite for local development and builds.
-- Vitest for tests.
-- LocalStorage first for settings and saves, with IndexedDB reserved for larger save payloads later.
+- movement, automatic targeting and firing, enemy waves, bosses, win/loss runs
+- multiple stages, encounter profiles, difficulty profiles and arenas
+- a six-slot weapon rack with pickups, merging and tier progression
+- run upgrades and build variation
+- eight playable mercenaries with distinct stats, passives, abilities and unlocks
+- achievements and progression-linked unlocks
+- persistent gun parts / Gunsmith data
+- armour and equipment data
+- XP, scrap, loot tables and chests
+- keyboard, touch and controller input paths
+- local save/progression state
+- audio, effects, authored character/enemy art and a traversable Junkyard Lot
+- automated tests, content validation and CI
 
-## AI Workflow
+The game is still under active development. Some content catalogs and progression systems are further along in data/architecture than their final UI and polish.
 
-The repository is structured for an architecture-first handoff:
+## Design
 
-1. Opus Supercode produces feature architecture: interfaces, state flow, data model, acceptance criteria, and implementation boundaries.
-2. GPT-5.5 implements the feature and focused tests.
-3. Codex handles repository integration, refactors, CI cleanup, and regression review.
-4. Human playtesting decides whether the mechanic is fun enough to keep.
+The core rules are deliberately simple:
 
-## Product Pillars
+- automatic combat; movement and build decisions are the main player inputs
+- short, replayable runs
+- readable enemy intent even when combat gets busy
+- meaningful weapon and character identity
+- persistent progression without paid power, energy systems or forced timers
+- gameplay content defined as data where practical instead of being hard-coded into scenes
 
-- **Move, shoot, survive:** The first loop must be playable before deeper systems are added.
-- **No aiming burden:** Combat is automatic. Player decisions come from movement, build choices, and merge/upgrades.
-- **Readable chaos:** Effects can become intense, but enemy intent and player danger must stay clear.
-- **Balance as data:** Stats live in JSON under `src/data/` wherever possible.
-- **Small shippable slices:** Every feature should be testable and playable in isolation.
+## Tech
 
-## Repository Layout
+- Phaser 3
+- TypeScript
+- Vite
+- Vitest
+- browser LocalStorage for persistent state
 
-```text
-src/
-  data/          Data-driven gameplay definitions
-  engine/        Engine-level helpers and adapters
-  entities/      Player, enemies, projectiles, drops
-  gameplay/      Run state, progression, combat rules
-  scenes/        Phaser scenes
-  systems/       Input, save, spawning, upgrades, weapons
-  ui/            HUD and menus
-
-docs/
-  architecture.md    Engineering boundaries and system ownership
-  epics.md           Shared contracts and the epic-by-epic backlog index
-  ai-workflow.md     Feature lifecycle and agent handoff prompt template
-  roadmap.md         Milestone history and current epic status
-  vision.md          Pitch, player fantasy, and MVP success criteria
-  architecture/      Per-epic implementation contracts
-  art/               Art direction and production references
-```
-
-## Local Development
+## Run locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Scripts
+Then open the Vite development URL shown in the terminal.
+
+## Checks
 
 ```bash
-npm run dev       # Start Vite dev server
-npm run build     # Type-check and build production assets
-npm run test      # Run Vitest
-npm run lint      # Type-check without emitting files
+npm run lint
+npm run test
+npm run build
+npm run art:validate
 ```
 
-## Current Scope
+`npm run test` uses the repository test runner; `npm run test:watch` starts Vitest directly for interactive development.
 
-The playable loop is well past the original MVP. Shipped and playable today:
+## Repository layout
 
-- Movement, automatic targeting/firing, enemy waves, and win/loss runs.
-- A six-slot weapon rack with capacity-checked pickups and a merge system for growing weapon tiers.
-- Level-up upgrade cards, meta progression, and local saves.
-- Selectable characters and data-defined arenas.
-- An event-driven loot/economy loop (XP, scrap, chests) and live audio.
-- Dev-only balancing tools, performance pooling, and a data-driven visual identity — a validated art manifest, pooled weapon/pickup/defeat presentation, and a camera-traversable Junkyard Lot — kept separate from gameplay logic.
+```text
+src/
+  data/          Gameplay/content definitions
+  engine/        Runtime helpers and adapters
+  entities/      Player, enemies, projectiles and drops
+  gameplay/      Combat and run rules
+  scenes/        Phaser scenes
+  systems/       Input, saves, spawning, weapons and progression
+  ui/            Menus and HUD
 
-Next up is Alpha 2's Golden Run push: combat feel, build variety, and the touch/controller gate. See [`docs/roadmap.md`](docs/roadmap.md) for exact epic-by-epic status and [`docs/epics.md`](docs/epics.md) for the shared contracts every epic builds on.
+assets-src/      Editable/source artwork
+docs/            Architecture, delivery records, roadmap and art documentation
+scripts/         Repository validation/test tooling
+```
 
-Paid upgrades, ads, subscriptions, online accounts, and social features are explicitly out of scope for now.
+The content layer in `src/data/` includes characters, abilities, achievements, weapons, enemies, arenas, encounters, difficulty profiles, equipment, gun parts, loot tables, upgrades, audio mappings and asset bundles.
+
+## Documentation
+
+[`docs/roadmap.md`](docs/roadmap.md) tracks milestone and epic status.
+
+[`docs/architecture.md`](docs/architecture.md) describes the main system boundaries. Detailed feature contracts live under [`docs/architecture/`](docs/architecture/), while implementation/certification records live under [`docs/delivery/`](docs/delivery/).
+
+Art direction and validation tooling live under [`docs/art/`](docs/art/).
+
+## Scope
+
+Meowcenary is currently focused on the game itself: combat, stages, characters, builds, progression, equipment, the Gunsmith and presentation.
+
+Ads, paid progression, subscriptions, online accounts, co-op and competitive multiplayer are not part of the current product scope.
