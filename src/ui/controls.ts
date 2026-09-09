@@ -98,7 +98,6 @@ export class ControlsView {
     const rightMargin = edgeMargin(viewport, 'right');
     const bottomMargin = edgeMargin(viewport, 'bottom');
     const fontSize = physicalToLogical(ThemeFont.bodyMin, viewport);
-    const pauseSize = physicalToLogical(44, viewport);
     // Ability is the active combat affordance: reserve a larger, independent
     // lower-right thumb target.  It deliberately remains an interactive UI
     // object so PointerAdapter never adopts its pointer as a movement stick.
