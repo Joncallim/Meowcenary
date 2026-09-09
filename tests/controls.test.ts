@@ -185,12 +185,14 @@ function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: b
   const input = new MockInputPlugin({ keyboard: true, gamepad });
   const controller = new InputController({ ...scene, input } as never, { touchStick });
   const onPauseRequested = vi.fn();
+  const onAbilityRequested = vi.fn();
   const view = new ControlsView({
     scene: scene as never,
     input: controller,
     viewport: zoomed ? zoomedGameUiViewport(scene.scale.displaySize.width, scene.scale.displaySize.height) : logicalCanvasViewport(),
     readReducedMotion,
     onPauseRequested,
+    onAbilityRequested,
     touchStick,
   });
   // GameScene runs InputController.update before the view update each frame.
@@ -198,7 +200,7 @@ function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: b
     controller.update(dtMs);
     view.update(dtMs);
   };
-  return { scene, input, controller, view, onPauseRequested, tick };
+  return { scene, input, controller, view, onPauseRequested, onAbilityRequested, tick };
 }
 
 describe('ControlsView virtual stick', () => {
@@ -513,6 +515,61 @@ describe('ControlsView pause button', () => {
     expect(bars.every((bar) => bar.listenerCount('pointerdown') === 0)).toBe(true);
     pauseButton.emit('pointerdown');
     expect(onPauseRequested).toHaveBeenCalledTimes(1);
+    view.destroy();
+  });
+});
+
+describe('ControlsView ability button', () => {
+  it('puts the 56px ability target in the lower-right thumb zone while pause stays top-right', () => {
+    const { scene, view } = createHarness({ zoomed: true });
+    const pause = scene.objects.find((object) => object.state.interactive && object.state.fillColor === ThemeColor.surface)!;
+    const ability = scene.objects.find((object) => object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
+
+    // GameScene UI is authored in camera-compensated world units.  The
+    // 56px target therefore divides by GAMEPLAY_ZOOM, then renders back to
+    // exactly 56 physical pixels under the gameplay camera.
+    expect(Number(ability.state.width) * GAMEPLAY_ZOOM).toBeCloseTo(56, 5);
+    expect(Number(ability.state.height) * GAMEPLAY_ZOOM).toBeCloseTo(56, 5);
+    expect(Number(ability.state.y)).toBeGreaterThan(Number(pause.state.y));
+    view.destroy();
+  });
+
+  it('keeps ability as UI ownership: a second-finger press fires once without ending the pinned movement drag', () => {
+    const { scene, input, controller, onAbilityRequested, tick, view } = createHarness();
+    const ability = scene.objects.find((object) => object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
+
+    input.pointerDown(40, 600, 0);
+    input.pointerMove(100, 600, 0);
+    tick();
+    const moving = controller.getMoveVector();
+    expect(moving.x).toBeGreaterThan(0);
+    expect(moving.y).toBe(0);
+
+    // This mirrors Phaser's scene pointerdown currentlyOver parameter for
+    // an interactive A control. The control itself owns its callback.
+    input.emit('pointerdown', { x: ability.state.x, y: ability.state.y, isDown: true, id: 1 }, [ability]);
+    ability.emit('pointerdown');
+    tick();
+    expect(onAbilityRequested).toHaveBeenCalledTimes(1);
+    expect(controller.getMoveVector()).toEqual(moving);
+
+    input.emit('pointerup', { id: 1 });
+    tick();
+    expect(controller.getMoveVector()).toEqual(moving);
+    view.destroy();
+  });
+
+  it('rebuilds one lower-right ability target on resize and removes the stale hit target in extraction state', () => {
+    const { scene, view } = createHarness({ zoomed: true });
+    const oldAbility = scene.objects.find((object) => object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
+    scene.resize(844, 390);
+    const liveAbility = scene.objects.filter((object) => !object.state.destroyed && object.state.interactive && object.state.fillColor === ThemeColor.primary);
+    expect(oldAbility.state.destroyed).toBe(true);
+    expect(liveAbility).toHaveLength(1);
+
+    view.setExtractionState(true);
+    expect(liveAbility[0].state.destroyed).toBe(true);
+    expect(scene.objects.filter((object) => !object.state.destroyed && object.state.interactive && object.state.fillColor === ThemeColor.primary)).toHaveLength(1);
     view.destroy();
   });
 });

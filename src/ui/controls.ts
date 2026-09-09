@@ -99,6 +99,11 @@ export class ControlsView {
     const bottomMargin = edgeMargin(viewport, 'bottom');
     const fontSize = physicalToLogical(ThemeFont.bodyMin, viewport);
     const pauseSize = physicalToLogical(44, viewport);
+    // Ability is the active combat affordance: reserve a larger, independent
+    // lower-right thumb target.  It deliberately remains an interactive UI
+    // object so PointerAdapter never adopts its pointer as a movement stick.
+    const abilitySize = physicalToLogical(56, viewport);
+    const abilityInset = physicalToLogical(12, viewport);
     const btnWidth = physicalToLogical(180, viewport);
     const btnHeight = physicalToLogical(52, viewport);
 
@@ -143,8 +148,9 @@ export class ControlsView {
     this.pauseButton.setInteractive();
     this.pauseButton.on('pointerdown', this.handlePausePointerDown, this);
     this.abilityButton = scene.add.rectangle(
-      this.pauseButton.x - pauseSize - physicalToLogical(10, viewport), this.pauseButton.y,
-      pauseSize, pauseSize, ThemeColor.primary, 0.72,
+      viewport.canvasWidth - rightMargin - abilityInset - abilitySize / 2,
+      viewport.canvasHeight - bottomMargin - abilityInset - abilitySize / 2,
+      abilitySize, abilitySize, ThemeColor.primary, 0.72,
     );
     this.abilityButton.setDepth(ThemeDepth.hud);
     this.abilityButton.setScrollFactor(0);
