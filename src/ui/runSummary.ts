@@ -4,8 +4,8 @@ import { SceneKey } from '../engine/sceneKeys';
 import type { RunOutcome, RunState } from '../gameplay/runState';
 import type { BankedRun } from '../systems/ProgressionSystem';
 import { formatNumber, formatTime } from './format';
-import { logicalCanvasViewport, minimumHitTarget, physicalToLogical, zoomedGameUiViewport, type UiViewport } from './layout';
-import { createModalTextHelpers, type ModalTextHelpers } from './modal';
+import { edgeMargin, logicalCanvasViewport, minimumHitTarget, physicalToLogical, zoomedGameUiViewport, type UiViewport } from './layout';
+import { createModalTextHelpers, type ModalTextHelpers, type ModalTextKind } from './modal';
 import { ThemeColor, ThemeDepth, ThemeFont } from './theme';
 import { FocusNavigator, type FocusDirection } from './focusList';
 import type { InputMode } from '../systems/input';
@@ -78,6 +78,142 @@ function sanitizeScrapFloor(value: number | undefined): number {
   return Math.min(Number.MAX_SAFE_INTEGER, Math.floor(value));
 }
 
+/** A measured logical rectangle used by the terminal surface. Keeping the
+ * layout pure means the content and the fixed action tray cannot invent
+ * competing Y positions during a render or resize. */
+export interface RunSummaryRect {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface RunSummaryLayout {
+  readonly safeBounds: RunSummaryRect;
+  readonly headingBounds: RunSummaryRect;
+  readonly statsBounds: RunSummaryRect;
+  /** The only region variable terminal material may occupy. */
+  readonly contentBounds: RunSummaryRect;
+  readonly hintBounds: RunSummaryRect;
+  readonly actionTrayBounds: RunSummaryRect;
+  /** In logical navigation/render order. */
+  readonly actionBounds: readonly RunSummaryRect[];
+  readonly actionColumns: number;
+}
+
+/**
+ * Computes the complete terminal layout before any Phaser node is created.
+ * The action tray is bottom-anchored, the hint has its own reserved row, and
+ * variable result material is constrained above it. This deliberately avoids
+ * the previous independent "first button" and hint calculations.
+ */
+export function computeRunSummaryLayout(
+  viewport: UiViewport,
+  actionCount: number,
+): RunSummaryLayout {
+  if (!Number.isSafeInteger(actionCount) || actionCount < 1) {
+    throw new RangeError('actionCount must be a positive safe integer');
+  }
+  const left = edgeMargin(viewport, 'left');
+  const right = edgeMargin(viewport, 'right');
+  const top = edgeMargin(viewport, 'top');
+  const bottom = edgeMargin(viewport, 'bottom');
+  const width = Math.max(0, viewport.canvasWidth - left - right);
+  const height = Math.max(0, viewport.canvasHeight - top - bottom);
+  const safeBounds: RunSummaryRect = { x: left, y: top, width, height };
+  const gap = physicalToLogical(8, viewport);
+  const hitTarget = minimumHitTarget(viewport);
+  const headingHeight = physicalToLogical(ThemeFont.headingMin, viewport) + gap;
+  const rowGap = physicalToLogical(ThemeFont.labelMin + 8, viewport);
+  const statsHeight = rowGap * 6;
+  const headingBounds: RunSummaryRect = { x: left, y: top, width, height: headingHeight };
+  const statsBounds: RunSummaryRect = {
+    x: left,
+    y: headingBounds.y + headingBounds.height + gap,
+    width,
+    height: statsHeight,
+  };
+
+  const actionColumns = actionCount === 1 ? 1 : 2;
+  const actionRows = Math.ceil(actionCount / actionColumns);
+  const actionTrayHeight = actionRows * hitTarget + Math.max(0, actionRows - 1) * gap;
+  const actionTrayBounds: RunSummaryRect = {
+    x: left,
+    y: top + height - actionTrayHeight,
+    width,
+    height: actionTrayHeight,
+  };
+  const hintHeight = physicalToLogical(ThemeFont.labelMin, viewport);
+  const hintBounds: RunSummaryRect = {
+    x: left,
+    y: actionTrayBounds.y - gap - hintHeight,
+    width,
+    height: hintHeight,
+  };
+  const contentBounds: RunSummaryRect = {
+    x: left,
+    y: statsBounds.y + statsBounds.height + gap,
+    width,
+    height: Math.max(0, hintBounds.y - gap - (statsBounds.y + statsBounds.height + gap)),
+  };
+  const actionBounds: RunSummaryRect[] = [];
+  const columnGap = gap;
+  const halfWidth = (width - columnGap) / 2;
+  for (let index = 0; index < actionCount; index += 1) {
+    const row = Math.floor(index / actionColumns);
+    const isLastOdd = actionColumns === 2 && actionCount % 2 === 1 && index === actionCount - 1;
+    actionBounds.push(isLastOdd
+      ? { x: left, y: actionTrayBounds.y + row * (hitTarget + gap), width, height: hitTarget }
+      : {
+        x: left + (index % actionColumns) * (halfWidth + columnGap),
+        y: actionTrayBounds.y + row * (hitTarget + gap),
+        width: actionColumns === 1 ? width : halfWidth,
+        height: hitTarget,
+      });
+  }
+  return Object.freeze({
+    safeBounds: Object.freeze(safeBounds),
+    headingBounds: Object.freeze(headingBounds),
+    statsBounds: Object.freeze(statsBounds),
+    contentBounds: Object.freeze(contentBounds),
+    hintBounds: Object.freeze(hintBounds),
+    actionTrayBounds: Object.freeze(actionTrayBounds),
+    actionBounds: Object.freeze(actionBounds.map((bounds) => Object.freeze(bounds))),
+    actionColumns,
+  });
+}
+
+function terminalMaterialLines(
+  snapshot: RunSummarySnapshot,
+  navigationPending: boolean,
+): ReadonlyArray<{ readonly text: string; readonly kind: ModalTextKind }> {
+  const lines: Array<{ readonly text: string; readonly kind: ModalTextKind }> = [];
+  if (!snapshot.persistenceSucceeded || navigationPending) {
+    lines.push({ text: navigationPending ? 'Saving rewards…' : 'Not saved — this session only', kind: 'notice' });
+  }
+  if (snapshot.newlyAvailableNames.length > 0) {
+    lines.push({ text: compactTerminalNames('New', snapshot.newlyAvailableNames), kind: 'body' });
+  }
+  if (snapshot.completedAchievementNames.length > 0) {
+    lines.push({
+      text: compactTerminalNames(
+        snapshot.completedAchievementNames.length === 1 ? 'Achievement' : 'Achievements',
+        snapshot.completedAchievementNames,
+      ),
+      kind: 'body',
+    });
+  }
+  return lines;
+}
+
+/** Terminal results are intentionally bounded; exhaustive collection detail
+ * belongs in Career rather than behind a second gesture system beside actions. */
+function compactTerminalNames(label: string, names: readonly string[]): string {
+  const shown = names.slice(0, 2);
+  const suffix = names.length > shown.length ? ` +${names.length - shown.length} more` : '';
+  return `${label}: ${shown.join(' • ')}${suffix}`;
+}
+
 export interface PhaserRunSummaryViewOptions {
   readonly scene: Phaser.Scene;
   readonly viewport: UiViewport;
@@ -95,8 +231,8 @@ export interface PhaserRunSummaryViewOptions {
   readonly onAdjustLoadout?: () => void;
 }
 
-/** Terminal win/loss surface: reads the already-banked run and offers Retry or
- *  Main Menu navigation. The full-screen interactive backdrop keeps HUD/world
+/** Terminal win/loss surface: reads the already-banked run and offers only
+ *  settlement-safe terminal navigation. The full-screen interactive backdrop keeps HUD/world
  *  controls below the modal non-interactive; R is the desktop retry shortcut
  *  only while the summary is visible. */
 export class PhaserRunSummaryView {
@@ -114,7 +250,7 @@ export class PhaserRunSummaryView {
   private readonly unsubscribers: Array<() => void>;
   private root?: Phaser.GameObjects.Container;
   private disposed = false;
-  private readonly navigator = new FocusNavigator('linear');
+  private readonly navigator = new FocusNavigator('grid', 2);
   private buttons: import('./modal').ModalButtonHandle[] = [];
   private hint?: Phaser.GameObjects.Text;
   private hoveredIndex = -1;
@@ -253,6 +389,15 @@ export class PhaserRunSummaryView {
     this.scenePlugin.start(SceneKey.Menu, { initialPanel: 'equipment' });
   }
 
+  /** Returns to the neutral Menu surface only after terminal settlement is
+   * durable. It deliberately does not select a stage, mutate a loadout, or
+   * restart gameplay. */
+  private returnToMainMenu(): void {
+    if (this.disposed || !this.visible || !this.canNavigate()) return;
+    this.bus.emit('ui:confirm', {});
+    this.scenePlugin.start(SceneKey.Menu);
+  }
+
   private continueToNextStage(): void {
     if (this.disposed || !this.visible || !this.canNavigate() || !this.onNextStage?.()) return;
     this.bus.emit('ui:confirm', {});
@@ -284,9 +429,6 @@ export class PhaserRunSummaryView {
     const { scene, viewport } = this;
     const width = viewport.canvasWidth;
     const height = viewport.canvasHeight;
-    const margin = physicalToLogical(12, viewport);
-    const hitTarget = minimumHitTarget(viewport);
-    const buttonWidth = Math.max(180, width - margin * 4);
 
     const root = scene.add.container(viewport.originX ?? 0, viewport.originY ?? 0);
 
@@ -309,18 +451,41 @@ export class PhaserRunSummaryView {
       backdrop.setInteractive();
       backdrop.setScrollFactor(0);
 
-      const centerX = width / 2;
+      const navigationPending = !this.canNavigate();
+      const hasNextStage = !navigationPending && snapshot.canContinue && this.onNextStage !== undefined;
+      const hasDiscard = navigationPending && this.onDiscardPending !== undefined;
+      // Pending durability is an explicit recovery state, never ordinary
+      // navigation with an extra escape button tacked on.
+      const actionSpecs: ReadonlyArray<readonly [string, () => void, boolean?]> = navigationPending
+        ? hasDiscard ? [['Continue without saving', () => this.discardAndReturnToMenu(), true]] : []
+        : hasNextStage
+          ? [
+            ['Next Contract', () => this.continueToNextStage(), true],
+            ['Replay', () => this.retry(), true],
+            ['Adjust Loadout', () => this.adjustLoadout()],
+            ['Main Menu', () => this.returnToMainMenu()],
+          ]
+          : [
+            [snapshot.outcome === 'won' ? 'Replay' : 'Retry', () => this.retry(), true],
+            ['Adjust Loadout', () => this.adjustLoadout()],
+            ['Main Menu', () => this.returnToMainMenu()],
+          ];
+      // A pending state with no recovery handler is still rendered safely as
+      // a disabled status surface. GameScene always supplies recovery, but
+      // this keeps an incomplete host from creating an invalid geometry.
+      const layout = computeRunSummaryLayout(viewport, Math.max(1, actionSpecs.length));
+      this.navigator.setColumns(layout.actionColumns);
+      const centerX = layout.safeBounds.x + layout.safeBounds.width / 2;
       const heading = this.modal.addText(
         centerX,
-        height * 0.12,
+        layout.headingBounds.y + layout.headingBounds.height / 2,
         snapshot.outcome === 'won' ? 'Run Complete' : 'Run Failed',
         'heading',
       );
       root.add(heading);
       heading.setOrigin(0.5);
 
-      const labelSize = physicalToLogical(ThemeFont.labelMin, viewport);
-      const rowGap = labelSize + physicalToLogical(8, viewport);
+      const rowGap = layout.statsBounds.height / 6;
       const rows: ReadonlyArray<readonly [string, string]> = [
         ['Time', formatTime(snapshot.timeMs)],
         ['Level', formatNumber(snapshot.level)],
@@ -329,92 +494,52 @@ export class PhaserRunSummaryView {
         ['Banked scrap', formatNumber(snapshot.bankedScrap)],
         ['Total scrap', formatNumber(snapshot.totalScrap)],
       ];
-      let y = height * 0.2;
+      let y = layout.statsBounds.y + rowGap / 2;
       rows.forEach(([label, value]) => {
-        const rowLabel = this.modal.addText(margin, y, label, 'body');
+        const rowLabel = this.modal.addText(layout.statsBounds.x, y, label, 'body');
         root.add(rowLabel);
         rowLabel.setOrigin(0, 0.5);
-        const rowValue = this.modal.addText(width - margin, y, value, 'body');
+        const rowValue = this.modal.addText(layout.statsBounds.x + layout.statsBounds.width, y, value, 'body');
         root.add(rowValue);
         rowValue.setOrigin(1, 0.5);
         y += rowGap;
       });
-      y += physicalToLogical(8, viewport);
-
-      const navigationPending = !this.canNavigate();
-      if (!snapshot.persistenceSucceeded || navigationPending) {
-        const warning = this.modal.addText(centerX, y, navigationPending ? 'Saving rewards…' : 'Not saved — this session only', 'notice');
-        root.add(warning);
-        warning.setOrigin(0.5);
-        y += rowGap;
-      }
-
-      if (snapshot.newlyAvailableNames.length > 0) {
-        const unlocked = this.modal.addText(
+      const material = terminalMaterialLines(snapshot, navigationPending);
+      const maxMaterialLines = Math.floor(layout.contentBounds.height / rowGap);
+      material.slice(0, maxMaterialLines).forEach((line, index) => {
+        const text = this.modal.addText(
           centerX,
-          y,
-          `New: ${snapshot.newlyAvailableNames.join(', ')}`,
-          'body',
+          layout.contentBounds.y + rowGap * (index + 0.5),
+          line.text,
+          line.kind,
         );
-        root.add(unlocked);
-        unlocked.setOrigin(0.5);
-        y += rowGap;
-      }
-      if (snapshot.completedAchievementNames.length > 0) {
-        const achievements = this.modal.addText(
-          centerX,
-          y,
-          `Achievement${snapshot.completedAchievementNames.length === 1 ? '' : 's'}: ${snapshot.completedAchievementNames.join(', ')}`,
-          'body',
-        );
-        root.add(achievements);
-        achievements.setOrigin(0.5);
-      }
-
-      const hasNextStage = snapshot.canContinue && this.onNextStage !== undefined;
-      const hasDiscard = navigationPending && this.onDiscardPending !== undefined;
-      // Frozen V4 terminal flow: loss = Retry + Adjust Loadout; win = Next
-      // Contract + Adjust Loadout + Replay. Main Menu remains intentionally
-      // absent here so the primary recovery action is never hidden.
-      const buttonCount = (hasNextStage ? 3 : 2) + (hasDiscard ? 1 : 0);
-      const firstButtonY = height - margin - hitTarget * buttonCount - 12 * (buttonCount - 1);
-      const buttons: import('./modal').ModalButtonHandle[] = [];
-      if (hasNextStage) {
-        buttons.push(this.modal.addButton(root, centerX, firstButtonY, buttonWidth, 'Next Contract', () => {
-          this.continueToNextStage();
-        }, true));
-      }
-      const actionLabel = hasNextStage ? 'Replay' : 'Retry';
-      const actionY = hasNextStage ? firstButtonY + (hitTarget + 12) * 2 : firstButtonY;
-      const action = this.modal.addButton(root, centerX, actionY, buttonWidth, actionLabel, () => {
-        this.retry();
-      }, true);
-      const loadoutY = hasNextStage ? firstButtonY + hitTarget + 12 : firstButtonY + hitTarget + 12;
-      const loadout = this.modal.addButton(root, centerX, loadoutY, buttonWidth, 'Adjust Loadout', () => {
-        this.adjustLoadout();
+        root.add(text);
+        text.setOrigin(0.5);
+        // Long settlement names are bounded by the measured result region.
+        // Phaser's optional method is absent from narrow test doubles.
+        (text as Phaser.GameObjects.Text & { setWordWrapWidth?: (width: number) => unknown })
+          .setWordWrapWidth?.(layout.contentBounds.width);
       });
-      // Construction, visual, and logical navigation order match. For a
-      // stage win the normal sequence is Next → Adjust Loadout → Replay;
-      // legacy/no-next summaries retain Retry → Adjust Loadout.
-      if (hasNextStage) {
-        // The Next button was constructed before these; insert the remaining
-        // two actions in the required visual order.
-        buttons.push(loadout, action);
-      } else {
-        buttons.push(action, loadout);
-      }
-      if (hasDiscard) {
-        buttons.push(this.modal.addButton(root, centerX, actionY + hitTarget + 12, buttonWidth, 'Continue without saving', () => {
-          this.discardAndReturnToMenu();
-        }));
-      }
+
+      const buttons: import('./modal').ModalButtonHandle[] = [];
+      actionSpecs.forEach(([label, activate, emphasized], index) => {
+        const bounds = layout.actionBounds[index]!;
+        buttons.push(this.modal.addButton(
+          root,
+          bounds.x + bounds.width / 2,
+          bounds.y + bounds.height / 2,
+          bounds.width,
+          label,
+          activate,
+          emphasized,
+        ));
+      });
       // F5: summary modal buttons participate in pointer-hover focus —
       // silent index sync, exactly one FocusStroke ring on hover, cleared on
       // out, and the logical index is set before pointer-up activation.
       buttons.forEach((handle, index) => this.wireModalHover(handle, index));
-      // The navigation hint belongs immediately above the fixed action stack,
-      // never in the footer occupied by the bottom button on a phone.
-      const hint = this.modal.addHint(root, margin, Math.max(margin + 14, firstButtonY - 10), this.hintCopy());
+      // The hint occupies its own measured row above the action tray.
+      const hint = this.modal.addHint(root, layout.hintBounds.x, layout.hintBounds.y + layout.hintBounds.height, this.hintCopy());
       if (!wasActive) this.navigator.reset();
       this.navigator.setCount(buttons.length);
       // Stage then publish: the target list, hint, and identity are committed

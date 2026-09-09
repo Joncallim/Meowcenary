@@ -534,6 +534,22 @@ describe('ControlsView ability button', () => {
     view.destroy();
   });
 
+  it('retains a 56px lower-right target through every supported phone and desktop viewport', () => {
+    const { scene, view } = createHarness({ zoomed: true });
+    for (const [width, height] of [[360, 640], [390, 844], [844, 390], [1280, 720], [1920, 1080]]) {
+      scene.resize(width, height);
+      const ability = scene.objects.find((object) => !object.state.destroyed
+        && object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
+      const fit = Math.min(width / 390, height / 844);
+      expect(Number(ability.state.width) * GAMEPLAY_ZOOM * fit).toBeCloseTo(56, 5);
+      expect(Number(ability.state.height) * GAMEPLAY_ZOOM * fit).toBeCloseTo(56, 5);
+      // The authored right/bottom edges retain two 12px physical insets.
+      expect(Number(ability.state.x) + Number(ability.state.width) / 2).toBeLessThanOrEqual(312);
+      expect(Number(ability.state.y) + Number(ability.state.height) / 2).toBeLessThanOrEqual(675);
+    }
+    view.destroy();
+  });
+
   it('keeps ability as UI ownership: a second-finger press fires once without ending the pinned movement drag', () => {
     const { scene, input, controller, onAbilityRequested, tick, view } = createHarness();
     const ability = scene.objects.find((object) => object.state.interactive && object.state.fillColor === ThemeColor.primary)!;

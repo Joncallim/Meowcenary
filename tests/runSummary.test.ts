@@ -17,6 +17,7 @@ import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
 import { logicalCanvasViewport } from '../src/ui/layout';
 import {
+  computeRunSummaryLayout,
   PhaserRunSummaryView,
   RunSummaryController,
   type RunSummarySnapshot,
@@ -180,6 +181,39 @@ describe('RunSummaryController snapshots', () => {
     });
     expect(controller.snapshot()?.newlyAvailableNames).toEqual(['Commando Helmet', 'Fire Trait Core']);
   });
+});
+
+describe('computeRunSummaryLayout', () => {
+  const overlaps = (
+    a: { x: number; y: number; width: number; height: number },
+    b: { x: number; y: number; width: number; height: number },
+  ) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+
+  for (const [displayWidth, displayHeight] of [
+    [360, 640], [390, 844], [844, 390], [1280, 720], [1920, 1080],
+  ] as const) {
+    it(`keeps terminal regions non-overlapping at ${displayWidth}×${displayHeight}`, () => {
+      const viewport = logicalCanvasViewport(displayWidth, displayHeight, displayWidth, displayHeight, {
+        top: 12, right: 16, bottom: 20, left: 8,
+      });
+      for (const actionCount of [1, 3, 4]) {
+        const layout = computeRunSummaryLayout(viewport, actionCount);
+        expect(overlaps(layout.headingBounds, layout.statsBounds)).toBe(false);
+        expect(overlaps(layout.statsBounds, layout.contentBounds)).toBe(false);
+        expect(overlaps(layout.contentBounds, layout.hintBounds)).toBe(false);
+        expect(overlaps(layout.hintBounds, layout.actionTrayBounds)).toBe(false);
+        layout.actionBounds.forEach((action, index) => {
+          expect(action.x).toBeGreaterThanOrEqual(layout.safeBounds.x);
+          expect(action.y).toBeGreaterThanOrEqual(layout.safeBounds.y);
+          expect(action.x + action.width).toBeLessThanOrEqual(layout.safeBounds.x + layout.safeBounds.width);
+          expect(action.y + action.height).toBeLessThanOrEqual(layout.safeBounds.y + layout.safeBounds.height);
+          expect(action.width * (displayWidth / viewport.canvasWidth)).toBeGreaterThanOrEqual(44);
+          expect(action.height * (displayHeight / viewport.canvasHeight)).toBeGreaterThanOrEqual(44);
+          layout.actionBounds.slice(index + 1).forEach((other) => expect(overlaps(action, other)).toBe(false));
+        });
+      }
+    });
+  }
 });
 
 describe('RunSummaryController banking integration', () => {
@@ -506,8 +540,9 @@ describe('PhaserRunSummaryView', () => {
         '25.5',
         '12',
         '100',
-        'Retry',
+        'Replay',
         'Adjust Loadout',
+        'Main Menu',
         'Tap an action',
       ]),
     );
@@ -524,6 +559,7 @@ describe('PhaserRunSummaryView', () => {
     });
     bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
     expect(textContents(scene)).toEqual(expect.arrayContaining(['Saving rewards…', 'Continue without saving']));
+    expect(textContents(scene)).not.toEqual(expect.arrayContaining(['Replay', 'Adjust Loadout', 'Main Menu']));
     expect(discard).not.toHaveBeenCalled();
   });
 
@@ -669,7 +705,7 @@ describe('PhaserRunSummaryView', () => {
     const buttons = scene.objects.filter(
       (object) => object.state.kind === 'rect' && object.state.handlers['pointerup'] && !object.state.destroyed,
     );
-    expect(buttons).toHaveLength(2);
+    expect(buttons).toHaveLength(3);
     // Default focus is Retry (0). Pointer-up DIRECTLY on Adjust Loadout (1) with
     // no pointer-over: the single surface funnel FIRST syncs the logical
     // index to the activated target, THEN runs its command.
@@ -685,15 +721,16 @@ describe('PhaserRunSummaryView', () => {
     expect(buttons[1]!.state.strokeAlpha).toBe(FocusStroke.alpha);
     expect(buttons[0]!.state.strokeColor).not.toBe(FocusStroke.color);
 
-    // Exact subsequent wrap from Adjust Loadout: down wraps to Retry (0).
+    // The tray uses spatial grid navigation: down moves from the top-right
+    // Adjust Loadout cell to the full-width Main Menu row.
     expect(view.moveFocus('down')).toBe(true);
-    expect(buttons[0]!.state.strokeWidth).toBe(FocusStroke.width);
-    expect(buttons[0]!.state.strokeColor).toBe(FocusStroke.color);
-    expect(buttons[0]!.state.strokeAlpha).toBe(FocusStroke.alpha);
+    expect(buttons[2]!.state.strokeWidth).toBe(FocusStroke.width);
+    expect(buttons[2]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(buttons[2]!.state.strokeAlpha).toBe(FocusStroke.alpha);
     expect(buttons[1]!.state.strokeColor).not.toBe(FocusStroke.color);
   });
 
-  it('starts on Retry with the exact FocusStroke ring in keyboard mode, wraps linearly, and restores the exact base stroke (F4)', () => {
+  it('starts on Replay with the exact FocusStroke ring in keyboard mode and follows the action grid (F4)', () => {
     let mode: InputMode = 'pointer';
     const { bus, scene, view } = createHarness({ banked: bankedRun(), readInputMode: () => mode });
     bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
@@ -701,14 +738,14 @@ describe('PhaserRunSummaryView', () => {
     const buttons = scene.objects.filter(
       (object) => object.state.kind === 'rect' && object.state.handlers['pointerup'] && !object.state.destroyed,
     );
-    expect(buttons).toHaveLength(2);
+    expect(buttons).toHaveLength(3);
     // Capture the exact base strokes before keyboard focus applies.
     const retryBase = {
       width: buttons[0]!.state.strokeWidth,
       color: buttons[0]!.state.strokeColor,
       alpha: buttons[0]!.state.strokeAlpha,
     };
-    const menuBase = {
+    const loadoutBase = {
       width: buttons[1]!.state.strokeWidth,
       color: buttons[1]!.state.strokeColor,
       alpha: buttons[1]!.state.strokeAlpha,
@@ -723,29 +760,25 @@ describe('PhaserRunSummaryView', () => {
     expect(buttons[0]!.state.strokeAlpha).toBe(FocusStroke.alpha);
     expect(buttons[1]!.state.strokeColor).not.toBe(FocusStroke.color);
 
-    // All four directions wrap linearly on the two-item list; each move
-    // restores the exact base stroke on the target that lost focus.
-    expect(view.moveFocus('up')).toBe(true);
+    // Top-row navigation reaches Adjust Loadout; a focused cell restores the
+    // exact stroke on the item it left.
+    expect(view.moveFocus('right')).toBe(true);
     expect(buttons[1]!.state.strokeWidth).toBe(FocusStroke.width);
     expect(buttons[1]!.state.strokeColor).toBe(FocusStroke.color);
     expect(buttons[1]!.state.strokeAlpha).toBe(FocusStroke.alpha);
     expect(buttons[0]!.state.strokeWidth).toBe(retryBase.width);
     expect(buttons[0]!.state.strokeColor).toBe(retryBase.color);
     expect(buttons[0]!.state.strokeAlpha).toBe(retryBase.alpha);
+    expect(buttons[1]!.state.strokeWidth).toBe(FocusStroke.width);
+    expect(buttons[0]!.state.strokeColor).not.toBe(FocusStroke.color);
+    expect(buttons[1]!.state.strokeColor).not.toBe(loadoutBase.color);
+    // Down reaches the odd full-width final row and left/right cannot leave
+    // that row for a non-existent neighbour.
     expect(view.moveFocus('left')).toBe(true);
-    expect(buttons[0]!.state.strokeColor).toBe(FocusStroke.color);
-    expect(buttons[1]!.state.strokeWidth).toBe(menuBase.width);
-    expect(buttons[1]!.state.strokeColor).toBe(menuBase.color);
-    expect(buttons[1]!.state.strokeAlpha).toBe(menuBase.alpha);
-    expect(view.moveFocus('down')).toBe(true);
-    expect(buttons[1]!.state.strokeColor).toBe(FocusStroke.color);
-    expect(view.moveFocus('right')).toBe(true);
-    expect(buttons[0]!.state.strokeColor).toBe(FocusStroke.color);
-
-    // The logical confirm reaches the exact focused command.
     view.moveFocus('down');
-    expect(view.confirmFocused()).toBe(true);
-    expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, { initialPanel: 'equipment' });
+    expect(buttons[2]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(view.moveFocus('right')).toBe(false);
+    expect(view.moveFocus('left')).toBe(false);
   });
 
   it('pointer hover moves exactly one ring on summary buttons and emits nothing (F5)', () => {
@@ -774,7 +807,7 @@ describe('PhaserRunSummaryView', () => {
     const { bus, scene, view } = createHarness({ banked: bankedRun(), readInputMode: () => 'keyboard' });
     view.refreshInputPresentation();
     bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
-    view.moveFocus('down'); // Adjust Loadout
+    view.moveFocus('right'); // Adjust Loadout
 
     // Same-panel repeat terminal render: focus identity is preserved.
     bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
@@ -885,6 +918,29 @@ describe('PhaserRunSummaryView', () => {
 
       expect(events).toEqual(['ui:confirm']);
       expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, { initialPanel: 'equipment' });
+    });
+
+    it('emits one confirm and opens neutral Menu from Main Menu only after persistence is durable', () => {
+      const { bus, scene } = createHarness({ banked: bankedRun() });
+      bus.emit('run:lost', { timeMs: 90_000, level: 4, kills: 23 });
+      const events = recordEvents(bus);
+
+      liveButtons(scene)[2]!.state.handlers['pointerup']!();
+
+      expect(events).toEqual(['ui:confirm']);
+      expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
+      expect(scene.scene.restart).not.toHaveBeenCalled();
+    });
+
+    it('does not offer Main Menu while terminal persistence is pending', () => {
+      const { bus, scene } = createHarness({
+        banked: bankedRun(),
+        canNavigate: () => false,
+        onDiscardPending: () => undefined,
+      });
+      bus.emit('run:lost', { timeMs: 90_000, level: 4, kills: 23 });
+      expect(textContents(scene)).not.toContain('Main Menu');
+      expect(liveButtons(scene)).toHaveLength(1);
     });
 
     it('button callbacks emit nothing after the view is destroyed', () => {
