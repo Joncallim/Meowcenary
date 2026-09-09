@@ -22,6 +22,32 @@ function setup() {
 }
 
 describe('GunsmithController durable commands', () => {
+  it('exposes every registered chassis even when no build exists, then preserves each family selection', () => {
+    const { context, controller } = setup();
+    expect(controller.snapshot().families).toEqual([
+      { id: 'pistol', name: 'Pistol', selected: false, existingBuildId: undefined },
+      { id: 'smg', name: 'SMG', selected: false, existingBuildId: undefined },
+      { id: 'shotgun', name: 'Shotgun', selected: false, existingBuildId: undefined },
+    ]);
+
+    expect(controller.createBuild('pistol')).toMatchObject({ ok: true });
+    expect(controller.createBuild('smg')).toMatchObject({ ok: true });
+    expect(controller.selectBuild('build:pistol')).toMatchObject({ ok: true });
+    expect(controller.snapshot().families).toEqual([
+      { id: 'pistol', name: 'Pistol', selected: true, existingBuildId: 'build:pistol' },
+      { id: 'smg', name: 'SMG', selected: false, existingBuildId: 'build:smg' },
+      { id: 'shotgun', name: 'Shotgun', selected: false, existingBuildId: undefined },
+    ]);
+    expect(context.saveData.gunsmith.builds.map((build) => build.id)).toEqual(['build:pistol', 'build:smg']);
+  });
+
+  it('rejects an unknown chassis without changing the registered-family presentation', () => {
+    const { controller } = setup();
+    const before = controller.snapshot().families;
+    expect(controller.createBuild('not-a-family')).toEqual({ ok: false, reason: 'unknown-family' });
+    expect(controller.snapshot().families).toEqual(before);
+  });
+
   it('creates, selects and fits an owned instance through the Save V3 boundary', () => {
     const { context, controller } = setup();
     expect(context.updateGunsmith((state) => ({ ...state, parts: {

@@ -379,6 +379,20 @@ function createHarness(options: { create?: boolean; audio?: boolean } = { create
 }
 
 describe('MenuScene', () => {
+  it('keeps every data-owned Gunsmith chassis reachable after creating a build', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['Weapon chassis', 'Create Pistol', 'Create SMG', 'Create Shotgun']));
+
+    harness.buttonByLabel('Create Pistol')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['Pistol — Selected', 'Create SMG', 'Create Shotgun']));
+    harness.buttonByLabel('Create SMG')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['Use Pistol', 'SMG — Selected', 'Create Shotgun']));
+    harness.buttonByLabel('Use Pistol')!.state.handlers.pointerup!();
+    expect(harness.context.saveData.gunsmith.selectedBuildId).toBe('build:pistol');
+    expect(harness.context.saveData.gunsmith.builds.map((build) => build.id)).toEqual(['build:pistol', 'build:smg']);
+  });
+
   it('uses the shared scroll region for a large Gunsmith inventory without paging controls', () => {
     const harness = createHarness();
     harness.context.updateGunsmith((state) => ({

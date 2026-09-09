@@ -9,7 +9,7 @@ import {
   type OwnedPart,
   type WeaponBuild,
 } from '../gameplay/gunsmith';
-import { isValidFamily } from '../gameplay/weaponFamilies';
+import { getAllWeaponFamilies, isValidFamily } from '../gameplay/weaponFamilies';
 import { scaleModifierByTier, type ModifierSpec } from '../gameplay/stats';
 import { DataPartRegistry } from '../systems/parts';
 import type { Build, GunsmithState, PartInstance } from '../systems/save';
@@ -31,7 +31,19 @@ export interface GunsmithPartView {
 export interface GunsmithSnapshot {
   readonly selectedBuildId?: string;
   readonly builds: readonly Build[];
+  /** Data-owned chassis choices.  Menu code must not infer families from the
+   * builds which happen to exist in a particular save. */
+  readonly families: readonly GunsmithFamilyView[];
   readonly parts: readonly GunsmithPartView[];
+}
+
+export interface GunsmithFamilyView {
+  readonly id: string;
+  readonly name: string;
+  readonly selected: boolean;
+  /** An existing build can be selected; an absent value means creating this
+   * registered family is the appropriate command. */
+  readonly existingBuildId?: string;
 }
 
 export type GunsmithCommandResult =
@@ -50,9 +62,19 @@ export class GunsmithController {
   snapshot(): GunsmithSnapshot {
     const state = this.context.saveData.gunsmith;
     const selected = state.builds.find((build) => build.id === state.selectedBuildId);
+    const buildsByFamily = new Map(state.builds.map((build) => [build.baseWeaponFamily, build] as const));
     return Object.freeze({
       selectedBuildId: selected?.id,
       builds: Object.freeze([...state.builds]),
+      families: Object.freeze(getAllWeaponFamilies().map((family) => {
+        const build = buildsByFamily.get(family.id);
+        return Object.freeze({
+          id: family.id,
+          name: family.name,
+          selected: build !== undefined && build.id === selected?.id,
+          existingBuildId: build?.id,
+        });
+      })),
       parts: Object.freeze(Object.entries(state.parts).flatMap(([instanceId, stored]) => {
         const definition = this.registry.partById(stored.partId);
         if (!definition) return [];

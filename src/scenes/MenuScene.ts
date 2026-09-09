@@ -594,27 +594,34 @@ export class MenuScene extends Phaser.Scene {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Gunsmith');
     let y = top + heading.height + 14;
     const selected = snapshot.gunsmith.builds.find((build) => build.id === snapshot.gunsmith.selectedBuildId);
+    this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
+    this.own(root, createUiText(this, margin, y, 'Weapon chassis', {
+      color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+    }));
+    y += hitTarget * 0.7;
+    snapshot.gunsmith.families.forEach((family) => {
+      const label = family.selected
+        ? `${family.name} — Selected`
+        : family.existingBuildId
+          ? `Use ${family.name}`
+          : `Create ${family.name}`;
+      this.addButton(root, margin, y, label, hitTarget, () => this.render(family.existingBuildId
+        ? this.requireController().selectGunBuild(family.existingBuildId)
+        : this.requireController().createGunBuild(family.id)));
+      y += hitTarget + 8;
+    });
     if (!selected) {
-      this.own(root, createUiText(this, margin, y, 'Choose a main weapon chassis.', {
+      this.own(root, createUiText(this, margin, y, 'Choose a weapon chassis to view and fit parts.', {
         color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+        wordWrap: { width: width - margin - this.safeRightMargin },
       }));
       y += hitTarget;
-      for (const family of ['pistol', 'smg', 'shotgun']) {
-        this.addButton(root, margin, y, `Build ${family.toUpperCase()}`, hitTarget, () => {
-          this.render(this.requireController().createGunBuild(family));
-        });
-        y += hitTarget + 8;
-      }
     } else {
       this.own(root, createUiText(this, margin, y, `${selected.name} (${selected.baseWeaponFamily})\nFitted: ${Object.values(selected.fitted).filter(Boolean).length} • Traits: ${selected.traitParts.length}`, {
         color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
         wordWrap: { width: width - margin - this.safeRightMargin },
       }));
       y += hitTarget + 12;
-      snapshot.gunsmith.builds.filter((build) => build.id !== selected.id).forEach((build) => {
-        this.addButton(root, margin, y, `Use ${build.name}`, hitTarget, () => this.render(this.requireController().selectGunBuild(build.id)));
-        y += hitTarget + 8;
-      });
       const actions: Array<{ label: string; action: () => void; iconArtId?: string }> = snapshot.gunsmith.parts.map((part) => ({
         label: `${part.fitted ? 'Fitted' : part.compatible ? 'Fit' : 'Incompatible'} ${part.name} T${part.tier}${part.traits.length ? ` [${part.traits.join(', ')}]` : ''}\n${part.comparisonSummary}`,
         action: () => this.render(part.fitted
@@ -650,15 +657,14 @@ export class MenuScene extends Phaser.Scene {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
       }));
       y += hitTarget * 0.7;
-      this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
       actions.forEach((item) => {
         const iconColumn = item.iconArtId ? 38 : 0;
         const actionText = this.addButton(root, margin, y, item.label, hitTarget, item.action, 'ui:confirm', iconColumn > 0 ? width - margin - this.safeRightMargin - iconColumn : undefined);
         if (item.iconArtId) this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, item.iconArtId);
         y += actionText.height + 8;
       });
-      this.endScrollableRegion();
     }
+    this.endScrollableRegion();
     this.addBackButton(root, width, margin, hitTarget);
   }
 
