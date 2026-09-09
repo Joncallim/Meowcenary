@@ -57,6 +57,17 @@ describe('Epic 22 achievement catalog conformance', () => {
     const data = loadGameData();
     expect(data.achievements?.length).toBe(definitions.length);
     expect(validateGameData(data)).toBeTruthy();
+    for (const achievement of data.achievements ?? []) {
+      const binding = data.visualArt.bindings.find((entry) => entry.id === achievement.presentation.iconArtId);
+      expect(binding).toMatchObject({ kind: 'achievement-icon', required: true });
+    }
+  });
+
+  it('fails closed when an active achievement points at non-achievement art', () => {
+    const data = structuredClone(loadGameData());
+    const binding = data.visualArt.bindings.find((entry) => entry.id === data.achievements![0]!.presentation.iconArtId)! as { kind: string };
+    binding.kind = 'upgrade-icon';
+    expect(() => validateGameData(data)).toThrow('must match id prefix');
   });
 
   it('accepts a data-only hidden-kind fixture through the full catalog boundary', () => {
@@ -65,6 +76,7 @@ describe('Epic 22 achievement catalog conformance', () => {
       id: 'achievement:hidden-contract-proof', name: 'Hidden Contract',
       description: 'A hidden data-driven contract.', kind: 'hidden', target: 1,
       metricId: 'metric:enemies-defeated', hidden: true,
+      presentation: { iconArtId: 'achievement-icon:hidden' },
     });
     expect(validateGameData(data).achievements?.some((achievement) => achievement.id === 'achievement:hidden-contract-proof')).toBe(true);
   });
@@ -248,6 +260,7 @@ describe('Epic 22 second-fixture proof (data-only extensibility)', () => {
       name: 'Proof Fixture',
       description: 'Second-fixture proof: data-only addition.',
       kind: 'incremental',
+      presentation: { iconArtId: 'achievement-icon:first-kill' },
       metricId: 'metric:enemies-defeated',
       target: 250,
       rewards: [{ grant: { type: 'grant-scrap', amount: 10 } as ProgressionGrant }],

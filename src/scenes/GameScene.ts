@@ -54,6 +54,7 @@ import { PauseController, PhaserPauseView } from '../ui/pause';
 import {
   PhaserRunSummaryView,
   RunSummaryController,
+  type CompletedAchievementPresentation,
   type RunSummarySource,
 } from '../ui/runSummary';
 import { GAMEPLAY_ZOOM, zoomedGameUiViewport } from '../ui/layout';
@@ -141,6 +142,9 @@ export class GameScene extends Phaser.Scene {
   private abilityState: AbilityState = createAbilityState();
   private achievementToast?: { readonly text: string; readonly untilMs: number };
   private completedAchievementNames: string[] = [];
+  /** Stable terminal presentation records; never infer icon identity from a
+   * player-facing name at the result surface. */
+  private completedAchievements: CompletedAchievementPresentation[] = [];
   /** Facts accepted by live gameplay but not yet durably committed. A failed
    * storage write must not turn an authoritative kill/merge/run result into
    * a permanently lost achievement increment. */
@@ -568,6 +572,9 @@ export class GameScene extends Phaser.Scene {
       get completedAchievementNames(): readonly string[] {
         return scene.completedAchievementNames;
       },
+      get completedAchievements(): readonly CompletedAchievementPresentation[] {
+        return scene.completedAchievements;
+      },
     };
     this.runSummaryController = new RunSummaryController(runSummarySource);
     this.runSummaryView = new PhaserRunSummaryView({
@@ -576,6 +583,12 @@ export class GameScene extends Phaser.Scene {
       bus: ctx.bus,
       controller: this.runSummaryController,
       readInputMode: () => this.inputController!.getInputMode(),
+      resolveAchievementIcon: (iconArtId) => {
+        const binding = visualArt.bindingById(iconArtId);
+        return binding?.kind === 'achievement-icon'
+          ? { textureKey: binding.textureKey, ...(binding.frameKey === undefined ? {} : { frameKey: binding.frameKey }) }
+          : undefined;
+      },
       onNextStage: () => {
         if (!scene.stagePlan) return false;
         return new StageSelectionController(ctx).selectNext().ok;
@@ -1149,6 +1162,11 @@ export class GameScene extends Phaser.Scene {
       if (progress) ctx.reportAchievement(achievementId, progress);
       if (definition) {
         this.completedAchievementNames.push(definition.name);
+        this.completedAchievements.push(Object.freeze({
+          id: definition.id,
+          name: definition.name,
+          iconArtId: definition.presentation.iconArtId,
+        }));
         this.achievementToast = { text: `Achievement: ${definition.name}`, untilMs: (this.runState?.timeMs ?? 0) + 3_000 };
         ctx.bus.emit('achievement:completed', { achievementId, name: definition.name });
       }

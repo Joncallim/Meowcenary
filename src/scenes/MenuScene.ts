@@ -15,7 +15,8 @@ import { FocusStroke } from '../ui/theme';
 import { ScrollableFocusRegion } from '../ui/scrollableFocus';
 import { assembleComposedRunRequest, assembleRunRequest, asLegacyComposedRunRequest, type ComposedRunRequest } from '../gameplay/runRequest';
 import { resolveRunPlan } from '../gameplay/stage/stageContracts';
-import { prepareRunPresentation, resolveRunPhysicalResources } from '../systems/resourceLoader';
+import { loadTextureResources, prepareRunPresentation, resolveRunPhysicalResources } from '../systems/resourceLoader';
+import { DataVisualResourceRegistry } from '../systems/visualArt';
 
 const MENU_DEPTH = ThemeDepth.pauseSummary;
 /** 44 physical px at the smallest promised FIT (844×390 → 0.462085). */
@@ -29,7 +30,7 @@ export class MenuScene extends Phaser.Scene {
   private root?: Phaser.GameObjects.Container;
   private focusables: Phaser.GameObjects.Text[] = [];
   private focusRings: Phaser.GameObjects.Rectangle[] = [];
-  private readonly navigator = new FocusNavigator('linear');
+  private navigator = new FocusNavigator('linear');
   /** The one production owner for any list which can outgrow the safe UI
    * viewport.  `navigator` remains the scene-wide command list (it also owns
    * fixed Back controls); this region owns scrolling, visibility and the
@@ -64,6 +65,7 @@ export class MenuScene extends Phaser.Scene {
   private touchScrollY?: number;
   private touchDragDistance = 0;
   private touchDidScroll = false;
+  private achievementArtLoading = false;
   /** A run never starts against the boot bundle alone. This state remains in
    * Menu so a load failure has a usable Retry/Back surface rather than a
    * partially constructed GameScene. */
@@ -136,6 +138,14 @@ export class MenuScene extends Phaser.Scene {
   private render(snapshot: MainMenuSnapshot): void {
     this.rebuildCount += 1;
     const panelChanged = this.committedPanel !== undefined && this.committedPanel !== snapshot.panel;
+    // The gallery is genuinely spatial, not a visual-only two-column list.
+    // Rebuild its navigator with the rendered card column count; every other
+    // panel retains the existing cyclic linear focus contract.
+    if (panelChanged || this.committedPanel === undefined) {
+      this.navigator = snapshot.panel === 'achievements'
+        ? new FocusNavigator('grid', this.scale.width >= 760 ? 3 : 2)
+        : new FocusNavigator('linear');
+    }
     // The display is uncommitted from the moment teardown begins until a
     // successful publication below (F1 committed-display gate).
     this.committedDisplay = false;
@@ -569,18 +579,43 @@ export class MenuScene extends Phaser.Scene {
     hitTarget: number,
   ): void {
     const heading = this.addHeading(root, this.safeCenterX, top, `Achievements ${snapshot.achievements.completedCount}/${snapshot.achievements.totalCount}`);
-    let y = top + heading.height + 16;
-    this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
-    snapshot.achievements.achievements.forEach((achievement) => {
-      const row = this.addButton(root, margin, y, `${achievement.name} — ${achievement.status} ${achievement.progress}/${achievement.target}\n${achievement.description}\nReward: ${achievement.rewardSummary}`, hitTarget, () => undefined, 'ui:confirm', width - margin - this.safeRightMargin);
-      row.setStyle({
-        color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-        wordWrap: { width: width - margin - this.safeRightMargin },
-      });
-      y += row.height + 12;
+    const selected = snapshot.achievements.selectedAchievement;
+    const detailTop = top + heading.height + 10;
+    if (selected) {
+      this.addCatalogIcon(root, margin + 17, detailTop + 22, selected.iconArtId, 34);
+      this.own(root, createUiText(this, margin + 42, detailTop,
+        `${selected.name}\n${achievementStatusCopy(selected)} • ${selected.progress}/${selected.target}\n${selected.description}\nReward: ${selected.rewardSummary}`,
+        {
+          color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+          wordWrap: { width: width - margin - this.safeRightMargin - 42 },
+        },
+      )).setScrollFactor(0);
+    }
+    const detailHeight = selected ? Math.max(hitTarget + 24, 102) : 0;
+    const gridTop = detailTop + detailHeight + 12;
+    const columns = width >= 760 ? 3 : 2;
+    const gap = 8;
+    const available = width - margin - this.safeRightMargin;
+    const cardWidth = (available - gap * (columns - 1)) / columns;
+    const cardHeight = Math.max(hitTarget, 68);
+    this.beginScrollableRegion(gridTop, this.scrollViewportBottomFor(hitTarget));
+    snapshot.achievements.achievements.forEach((achievement, index) => {
+      const column = index % columns;
+      const rowIndex = Math.floor(index / columns);
+      const x = margin + column * (cardWidth + gap);
+      const y = gridTop + rowIndex * (cardHeight + gap);
+      const button = this.addButton(root, x, y,
+        `${achievement.name}\n${achievementStatusCopy(achievement)} • ${achievement.progress}/${achievement.target}`,
+        cardHeight,
+        () => this.render(this.requireController().selectAchievement(achievement.id)),
+        'ui:confirm', cardWidth,
+      );
+      button.setStyle({ color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px` });
+      this.addCatalogIcon(root, x + cardWidth - 18, y + 20, achievement.iconArtId, 28);
     });
     this.endScrollableRegion();
     this.addBackButton(root, width, margin, hitTarget);
+    void this.ensureAchievementPresentation(snapshot.achievements.achievements.map((achievement) => achievement.iconArtId));
   }
 
   private renderGunsmith(
@@ -917,13 +952,42 @@ export class MenuScene extends Phaser.Scene {
   /** Render a validated data-owned icon. Missing textures deliberately leave
    * the accessible text label intact rather than turning a catalog problem
    * into an unusable menu action. */
-  private addCatalogIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string): void {
+  private addCatalogIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string, maxSize = 26): void {
     const binding = this.getContext().data.visualArt.bindings.find((candidate) => candidate.id === iconArtId);
-    if (!binding || binding.kind !== 'upgrade-icon' || !this.textures?.exists(binding.textureKey)) return;
+    if (!binding || (binding.kind !== 'upgrade-icon' && binding.kind !== 'achievement-icon') || !this.textures?.exists(binding.textureKey)) return;
     const icon = this.own(root, this.add.image(x, y, binding.textureKey, binding.frameKey));
-    icon.setDisplaySize(Math.min(26, binding.display.width), Math.min(26, binding.display.height));
+    icon.setDisplaySize(Math.min(maxSize, binding.display.width), Math.min(maxSize, binding.display.height));
     icon.setScrollFactor(0);
     this.registerScrollObject(icon);
+  }
+
+  /** Achievement badges remain lazy menu presentation: Boot does not load a
+   * future collection just to reach Home. On completion rerender only if the
+   * gallery is still current, so an old promise cannot resurrect stale nodes. */
+  private async ensureAchievementPresentation(iconArtIds: readonly string[]): Promise<void> {
+    if (this.achievementArtLoading) return;
+    // Narrow test / non-rendering harnesses intentionally omit the Phaser
+    // texture manager; their semantic gallery assertions remain valid.
+    if (!this.textures?.exists) return;
+    const context = this.getContext();
+    const artById = new Map(context.data.visualArt.bindings.map((binding) => [binding.id, binding]));
+    const resources = new DataVisualResourceRegistry(context.data);
+    const missing = new Map<string, import('../systems/types').VisualTextureResource>();
+    for (const iconArtId of iconArtIds) {
+      const binding = artById.get(iconArtId);
+      if (!binding || binding.kind !== 'achievement-icon' || !binding.resourceId || this.textures.exists(binding.textureKey)) continue;
+      const resource = resources.resourceById(binding.resourceId);
+      if (resource) missing.set(resource.id, resource);
+    }
+    if (missing.size === 0) return;
+    this.achievementArtLoading = true;
+    try {
+      const result = await loadTextureResources(this, [...missing.values()]);
+      if (result.failed.length > 0) return;
+      if (this.committedPanel === 'achievements' && this.controller) this.render(this.controller.snapshot());
+    } finally {
+      this.achievementArtLoading = false;
+    }
   }
 
   private addBackButton(
@@ -1199,5 +1263,13 @@ export class MenuScene extends Phaser.Scene {
 
   private getAudioManager(): AudioManager | undefined {
     return getAudioManager(this);
+  }
+}
+
+function achievementStatusCopy(achievement: MainMenuSnapshot['achievements']['achievements'][number]): string {
+  switch (achievement.status) {
+    case 'completed': return 'Completed';
+    case 'in-progress': return 'In progress';
+    default: return 'Locked';
   }
 }

@@ -209,7 +209,7 @@ describe('Epic 20 stage catalog conformance', () => {
           required: true, sampling: 'nearest', load: { type: 'image' }, display: { width: 16, height: 16 },
         }],
       },
-    })).toThrow('visual-art.json.bindings[77].textureKey: unknown field');
+    })).toThrow(`visual-art.json.bindings[${source.visualArt.bindings.length}].textureKey: unknown field`);
     expect(collectGameDataErrors({
       ...source,
       stages: [{ ...source.stages![0], assetBundleId: 'bundle:missing' }, ...source.stages!.slice(1)],

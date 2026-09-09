@@ -120,6 +120,13 @@ export class MainMenuController {
     return this.snapshot();
   }
 
+  /** Gallery selection is presentation state only; it must never mutate the
+   * achievement ledger or use player-facing strings as identity. */
+  selectAchievement(id: string): MainMenuSnapshot {
+    this.achievementsController.select(id);
+    return this.snapshot();
+  }
+
   setSettings(patch: Readonly<Partial<Settings>>): MainMenuSnapshot {
     const result = this.settingsController.set(patch);
     this.notice = result.persisted ? undefined : 'Saved for this session only';

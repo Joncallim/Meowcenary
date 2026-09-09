@@ -444,9 +444,17 @@ describe('MenuScene', () => {
     assertRows('stage', 25, {
       stage: { ...base.stage, stages: repeat(base.stage.stages, 25, (item, index) => ({ ...item, id: `contract-${index}`, name: `Contract ${index}` })) },
     });
-    assertRows('achievements', 40, {
-      achievements: { ...base.achievements, achievements: repeat(base.achievements.achievements, 40, (item, index) => ({ ...item, id: `achievement-${index}`, name: `Achievement ${index}` })) },
-    });
+    const achievementRows = repeat(base.achievements.achievements, 40, (item, index) => ({ ...item, id: `achievement-${index}`, name: `Achievement ${index}` }));
+    scene.render({ ...base, panel: 'achievements', achievements: { ...base.achievements, achievements: achievementRows } });
+    // Gallery is a real two-column grid: keyboard right chooses a card in
+    // the row and down preserves its column all the way to the last row.
+    harness.keyboard.keydown('ArrowRight'); harness.menuScene.update(0, 16); harness.keyboard.keyup('ArrowRight'); harness.menuScene.update(0, 16);
+    for (let index = 0; index < 19; index += 1) {
+      harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16); harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+    }
+    expect(scene.navigator.index).toBe(39);
+    expect(scene.scrollRegion?.scrollOffset).toBeGreaterThan(0);
+    expect(scene.focusables[39]!.state.interactive).toBe(true);
     assertRows('compendium', 50, {
       compendium: { ...base.compendium, entries: repeat(base.compendium.entries, 50, (item, index) => ({ ...item, enemyId: `enemy-${index}`, name: `Compendium ${index}` })) },
     });

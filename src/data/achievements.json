@@ -4,6 +4,7 @@
     "name": "First Blood",
     "description": "Defeat your first enemy.",
     "kind": "standard",
+    "presentation": { "iconArtId": "achievement-icon:first-kill" },
     "target": 1,
     "metricId": "metric:enemies-defeated",
     "rewards": [
@@ -20,6 +21,7 @@
     "name": "Scrap Squad",
     "description": "Defeat 25 enemies.",
     "kind": "incremental",
+    "presentation": { "iconArtId": "achievement-icon:kill-milestone-25" },
     "target": 25,
     "metricId": "metric:enemies-defeated"
   },
@@ -28,6 +30,7 @@
     "name": "Junkyard Veteran",
     "description": "Defeat 100 enemies.",
     "kind": "incremental",
+    "presentation": { "iconArtId": "achievement-icon:kill-milestone-100" },
     "target": 100,
     "metricId": "metric:enemies-defeated",
     "rewards": []
@@ -37,6 +40,7 @@
     "name": "Forge Initiate",
     "description": "Merge two weapons for the first time.",
     "kind": "standard",
+    "presentation": { "iconArtId": "achievement-icon:first-merge" },
     "target": 1,
     "metricId": "metric:merges-performed",
     "rewards": [
@@ -53,6 +57,7 @@
     "name": "Crusher Down",
     "description": "Defeat the Scrap Crusher boss.",
     "kind": "standard",
+    "presentation": { "iconArtId": "achievement-icon:boss-crusher" },
     "target": 1,
     "condition": {
       "type": "boss-defeated",
@@ -86,6 +91,7 @@
     "name": "Junkyard Champion",
     "description": "Clear all five contracts of the Junkyard chapter.",
     "kind": "standard",
+    "presentation": { "iconArtId": "achievement-icon:chapter-junkyard" },
     "target": 1,
     "condition": {
       "type": "all",
@@ -126,6 +132,7 @@
     "name": "First Victory",
     "description": "Complete your first run.",
     "kind": "standard",
+    "presentation": { "iconArtId": "achievement-icon:first-victory" },
     "target": 1,
     "metricId": "metric:runs-completed",
     "rewards": [
@@ -142,6 +149,7 @@
     "name": "Tabby Mastery",
     "description": "Reach mastery tier 1 with Scrap Tabby.",
     "kind": "mastery",
+    "presentation": { "iconArtId": "achievement-icon:mastery-scrap-tabby" },
     "target": 1,
     "condition": {
       "type": "mastery-reached",
@@ -162,6 +170,7 @@
     "name": "Scrap Tycoon",
     "description": "Bank 10,000 total scrap from contracts.",
     "kind": "incremental",
+    "presentation": { "iconArtId": "achievement-icon:scrap-tycoon" },
     "target": 10000,
     "metricId": "metric:scrap-banked",
     "hidden": true
@@ -171,6 +180,7 @@
     "name": "Warden Down",
     "description": "Defeat the Forge Warden.",
     "kind": "standard",
+    "presentation": { "iconArtId": "achievement-icon:boss-forge" },
     "target": 1,
     "condition": {
       "type": "boss-defeated",

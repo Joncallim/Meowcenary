@@ -50,6 +50,10 @@ describe('AchievementsController (Epic 22 read model)', () => {
     expect(hidden?.hidden).toBe(true);
     expect(hidden?.name).toBe('???');
     expect(hidden?.status).toBe('locked');
+    expect(hidden?.iconArtId).toBe('achievement-icon:hidden');
+    // The presentation DTO is a spoiler boundary too: serialising a hidden
+    // view may never contain its unrevealed logical art identity.
+    expect(JSON.stringify(hidden)).not.toContain('achievement-icon:scrap-tycoon');
   });
 
   it('hidden achievements reveal on completion', () => {
@@ -69,8 +73,19 @@ describe('AchievementsController (Epic 22 read model)', () => {
     const hidden = snap.achievements.find((a) => a.id === 'achievement:scrap-tycoon');
     expect(hidden?.status).toBe('completed');
     expect(hidden?.name).toBe('Scrap Tycoon');
+    expect(hidden?.iconArtId).toBe('achievement-icon:scrap-tycoon');
     expect(snap.completedCount).toBeGreaterThan(0);
     void controller;
+  });
+
+  it('selects gallery detail by stable ID without mutating durable progress', () => {
+    const { context, controller } = createHarness();
+    const before = JSON.stringify(context.saveData.achievements);
+    const snapshot = controller.select('achievement:first-merge');
+    expect(snapshot.selectedAchievement).toMatchObject({ id: 'achievement:first-merge', iconArtId: 'achievement-icon:first-merge' });
+    controller.select('achievement:not-real');
+    expect(controller.snapshot().selectedAchievementId).toBe('achievement:first-merge');
+    expect(JSON.stringify(context.saveData.achievements)).toBe(before);
   });
 
   it('snapshot is deeply frozen and revision bumps on invalidation', () => {

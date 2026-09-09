@@ -1267,6 +1267,83 @@
       "resourceId": "resource:character-rattle-raptor"
     },
     {
+      "id": "achievement-icon:hidden",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-glass-cannon"
+    },
+    {
+      "id": "achievement-icon:first-kill",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-hot-barrel"
+    },
+    {
+      "id": "achievement-icon:kill-milestone-25",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-heavy-rounds"
+    },
+    {
+      "id": "achievement-icon:kill-milestone-100",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-punch-through"
+    },
+    {
+      "id": "achievement-icon:first-merge",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-smg-overclock"
+    },
+    {
+      "id": "achievement-icon:boss-crusher",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-shotgun-breacher"
+    },
+    {
+      "id": "achievement-icon:chapter-junkyard",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-extra-scrap"
+    },
+    {
+      "id": "achievement-icon:first-victory",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-quick-paws"
+    },
+    {
+      "id": "achievement-icon:mastery-scrap-tabby",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-fast-learner"
+    },
+    {
+      "id": "achievement-icon:scrap-tycoon",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-extra-scrap"
+    },
+    {
+      "id": "achievement-icon:boss-forge",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-reinforced-coat"
+    },
+    {
       "id": "character:piston-ram",
       "kind": "character",
       "required": true,

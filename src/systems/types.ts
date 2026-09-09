@@ -403,7 +403,9 @@ export type VisualArtKind =
   | 'weapon-icon'
   | 'weapon-held'
   | 'world'
-  | 'upgrade-icon';
+  | 'upgrade-icon'
+  /** Achievement-owned UI badge; rendered by the generic icon renderer. */
+  | 'achievement-icon';
 
 /** Physical texture/resource identity — separate from logical VisualArtBinding.
  *  Multiple logical bindings may share the same physical resource via named

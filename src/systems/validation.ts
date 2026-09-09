@@ -98,7 +98,7 @@ import {
   assertStageRewardGrantReferences,
   assertStageUnlockReferences,
 } from './validation/stages';
-import { checkAchievement, assertAchievementMetricReferences, assertUniqueAchievementPlatformMappings, assertAchievementEquipmentGrantReferences, assertNoSelfReferentialAchievementConditions, assertAchievementGrantAndConditionReferences } from './validation/achievements';
+import { checkAchievement, assertAchievementMetricReferences, assertUniqueAchievementPlatformMappings, assertAchievementEquipmentGrantReferences, assertNoSelfReferentialAchievementConditions, assertAchievementGrantAndConditionReferences, assertAchievementArtReferences } from './validation/achievements';
 import { registeredMetricIds } from './achievements';
 import { checkPart, assertPartArtReferences } from './validation/parts';
 import { checkAbility } from './validation/abilities';
@@ -209,7 +209,7 @@ const VISUAL_RESOURCE_LOAD_FIELDS = new Set(['type', 'imageUrl', 'dataUrl', 'fra
 const VISUAL_ART_DIMENSION_FIELDS = new Set(['width', 'height']);
 const VISUAL_ART_CLIP_FIELDS = new Set(['start', 'end', 'frameRate', 'repeat']);
 const VISUAL_ART_KINDS = new Set([
-  'character', 'enemy', 'projectile', 'drop', 'weapon-icon', 'weapon-held', 'world', 'upgrade-icon',
+  'character', 'enemy', 'projectile', 'drop', 'weapon-icon', 'weapon-held', 'world', 'upgrade-icon', 'achievement-icon',
 ]);
 // Catalog-count ceilings. The spawn-witness search (findRectWitness/findRingWitness)
 // partitions the arena at obstacle edges — cost grows super-linearly with the
@@ -700,6 +700,7 @@ export function validateGameData(raw: unknown): GameData {
 
   // Epic 22: achievement metric references (appended, preserving frozen order).
   assertAchievementMetricReferences(achievements, new Set(registeredMetricIds()));
+  assertAchievementArtReferences(achievements, visualArt);
   assertUniqueAchievementPlatformMappings(achievements);
   assertNoSelfReferentialAchievementConditions(achievements);
   assertAchievementEquipmentGrantReferences(achievements, new Set((catalogs.equipment as EquipmentDefinition[]).map((equipment) => equipment.id)));
@@ -907,6 +908,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertArenaVisualReferences(arenas, visualArt),
     () => assertUpgradeWeaponFamilyReferences(upgrades, weapons),
     () => assertUpgradeArtReferences(upgrades, visualArt),
+    () => assertAchievementArtReferences(catalogs.achievements as AchievementDefinition[], visualArt),
     () => assertStageAssetBundleReferences(catalogs.stages as StageDefinition[], assetBundles, visualArt, visualResources, arenas),
     () => assertPartArtReferences(catalogs['gun-parts'] as PartDefinition[], visualArt),
     () => assertEquipmentArtReferences(catalogs.equipment as EquipmentDefinition[], catalogs.equipmentSets as EquipmentSetDefinition[], visualArt),

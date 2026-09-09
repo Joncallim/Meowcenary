@@ -8,7 +8,7 @@ export function validateVisualManifest(root) {
   const fail = (id, message) => errors.push(`${id}: ${message}`);
   const ids = new Set(); const resourceIds = new Set(); const textureKeys = new Set(); const imageUrls = new Set();
   const byId = resourceById(resources);
-  const legalKinds = new Set(['character', 'enemy', 'projectile', 'drop', 'weapon-icon', 'weapon-held', 'world', 'upgrade-icon']);
+  const legalKinds = new Set(['character', 'enemy', 'projectile', 'drop', 'weapon-icon', 'weapon-held', 'world', 'upgrade-icon', 'achievement-icon']);
   const references = new Set();
   const resourceFields = new Set(['id', 'textureKey', 'sampling', 'load', 'production']);
   const resourceLoadFields = new Set(['type', 'imageUrl', 'dataUrl', 'frameWidth', 'frameHeight']);

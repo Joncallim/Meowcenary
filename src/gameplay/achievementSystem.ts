@@ -28,6 +28,13 @@ export interface AchievementReward {
   readonly grant: ProgressionGrant;
 }
 
+/** Player-facing identity for an achievement.  This is deliberately a
+ * logical-art reference rather than a physical file name: UI code never
+ * needs to know how a badge is packed or loaded. */
+export interface AchievementPresentation {
+  readonly iconArtId: string;
+}
+
 export interface AchievementDefinition {
   readonly id: string;
   readonly name: string;
@@ -41,6 +48,7 @@ export interface AchievementDefinition {
   readonly condition?: ProgressionCondition;
   /** Hidden achievements stay hidden in read models until completed. */
   readonly hidden?: boolean;
+  readonly presentation: AchievementPresentation;
   readonly rewards?: readonly AchievementReward[];
   readonly platform?: AchievementPlatformMapping;
 }
