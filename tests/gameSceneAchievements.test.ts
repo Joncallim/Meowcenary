@@ -5,6 +5,20 @@ import { createEventBus } from '../src/engine/eventBus';
 import { loadGameData } from '../src/systems/validation';
 
 describe('GameScene achievement fact bridge', () => {
+  it('clears this-run terminal achievement presentation on every persistent scene create', () => {
+    const scene = new GameScene() as any;
+    scene.completedAchievementNames = ['First Blood'];
+    scene.completedAchievements = [{ id: 'first-kill', name: 'First Blood', iconArtId: 'achievement-icon:first-kill' }];
+    // The minimal context intentionally fails later run composition. The
+    // lifecycle assertion is that create has already cleared state before any
+    // fresh-run resource work, exactly as a Phaser Retry/Replay reuse does.
+    scene.getContext = () => ({});
+
+    expect(() => scene.create()).toThrow();
+    expect(scene.completedAchievementNames).toEqual([]);
+    expect(scene.completedAchievements).toEqual([]);
+  });
+
   it('accumulates banked run rewards across later wallet spending', () => {
     const scene = new GameScene() as any;
     scene.runState = { timeMs: 1_000 };

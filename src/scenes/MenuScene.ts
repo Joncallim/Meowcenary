@@ -31,6 +31,9 @@ export class MenuScene extends Phaser.Scene {
   private focusables: Phaser.GameObjects.Text[] = [];
   private focusRings: Phaser.GameObjects.Rectangle[] = [];
   private navigator = new FocusNavigator('linear');
+  /** Rendered, not merely desired, Achievement grid width. The navigator
+   * must be rebuilt when rotation changes this value. */
+  private achievementGridColumns?: number;
   /** The one production owner for any list which can outgrow the safe UI
    * viewport.  `navigator` remains the scene-wide command list (it also owns
    * fixed Back controls); this region owns scrolling, visibility and the
@@ -138,14 +141,23 @@ export class MenuScene extends Phaser.Scene {
   private render(snapshot: MainMenuSnapshot): void {
     this.rebuildCount += 1;
     const panelChanged = this.committedPanel !== undefined && this.committedPanel !== snapshot.panel;
+    const achievementGridColumns = snapshot.panel === 'achievements'
+      ? (this.scale.width >= 760 ? 3 : 2)
+      : undefined;
+    const preserveFocusIndex = this.navigator.index;
+    const preserveFocusAfterGridRebuild = !panelChanged
+      && this.committedPanel !== undefined
+      && achievementGridColumns !== this.achievementGridColumns;
     // The gallery is genuinely spatial, not a visual-only two-column list.
-    // Rebuild its navigator with the rendered card column count; every other
-    // panel retains the existing cyclic linear focus contract.
-    if (panelChanged || this.committedPanel === undefined) {
+    // Rebuild its navigator when the rendered card column count changes;
+    // every other panel retains the existing cyclic linear focus contract.
+    if (panelChanged || this.committedPanel === undefined
+      || achievementGridColumns !== this.achievementGridColumns) {
       this.navigator = snapshot.panel === 'achievements'
-        ? new FocusNavigator('grid', this.scale.width >= 760 ? 3 : 2)
+        ? new FocusNavigator('grid', achievementGridColumns!)
         : new FocusNavigator('linear');
     }
+    this.achievementGridColumns = achievementGridColumns;
     // The display is uncommitted from the moment teardown begins until a
     // successful publication below (F1 committed-display gate).
     this.committedDisplay = false;
@@ -247,6 +259,9 @@ export class MenuScene extends Phaser.Scene {
       }
 
       this.navigator.setCount(this.focusables.length);
+      // A new FocusNavigator has no count until the rebuilt card grid has
+      // published its focusables; only then can its prior index be clamped.
+      if (preserveFocusAfterGridRebuild) this.navigator.setIndex(preserveFocusIndex);
       if (panelChanged) this.navigator.reset();
       this.finishScrollableRegion();
       this.applyFocus();

@@ -499,6 +499,42 @@ describe('MenuScene', () => {
     }
   });
 
+  it('rebuilds the Achievement focus grid across portrait and wide resize without losing its selected card', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      handleResize(): void;
+      navigator: { index: number; columns: number };
+    };
+    const base = scene.controller.snapshot();
+    const achievements = Array.from({ length: 10 }, (_, index) => ({
+      ...base.achievements.achievements[index % base.achievements.achievements.length]!,
+      id: `achievement-grid-${index}`,
+      name: `Achievement ${index}`,
+    }));
+    const snapshot = { ...base, panel: 'achievements' as const, achievements: { ...base.achievements, achievements } };
+    scene.controller.snapshot = () => snapshot;
+    scene.render(snapshot);
+    harness.keyboard.keydown('ArrowRight'); harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('ArrowRight'); harness.menuScene.update(0, 16);
+    harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+    expect(scene.navigator).toMatchObject({ index: 3, columns: 2 });
+
+    (harness.menuScene.scale as unknown as { width: number; height: number; displaySize: { width: number; height: number } }).width = 844;
+    (harness.menuScene.scale as unknown as { height: number; displaySize: { width: number; height: number } }).height = 390;
+    (harness.menuScene.scale as unknown as { displaySize: { width: number; height: number } }).displaySize = { width: 844, height: 390 };
+    scene.handleResize();
+    expect(scene.navigator).toMatchObject({ index: 3, columns: 3 });
+
+    (harness.menuScene.scale as unknown as { width: number; height: number; displaySize: { width: number; height: number } }).width = 390;
+    (harness.menuScene.scale as unknown as { height: number; displaySize: { width: number; height: number } }).height = 844;
+    (harness.menuScene.scale as unknown as { displaySize: { width: number; height: number } }).displaySize = { width: 390, height: 844 };
+    scene.handleResize();
+    expect(scene.navigator).toMatchObject({ index: 3, columns: 2 });
+  });
+
   it('treats a touch drag as scrolling, resets its baseline, and never activates the dragged row', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {

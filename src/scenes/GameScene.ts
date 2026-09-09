@@ -175,6 +175,11 @@ export class GameScene extends Phaser.Scene {
 
   create(data?: { readonly runRequest?: ComposedRunRequest; readonly isTraining?: boolean }): void {
     const ctx = this.getContext();
+    // Phaser restarts this Scene instance for Retry/Replay. Terminal
+    // presentation belongs only to the new run's settlement, never the
+    // previous instance's completed-achievement cache.
+    this.completedAchievementNames = [];
+    this.completedAchievements = [];
     this.isTraining = data?.isTraining === true;
     // Normal production entry receives the exact request which Menu used to
     // resolve/load its closure. Retaining the fallback keeps old headless
