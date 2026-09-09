@@ -293,11 +293,13 @@ if (!import.meta.url.includes('?as-harness')) {
     expect(focusedButtonIndex(fresh.scene)).toBe(0);
     expect(focusRingTargets(fresh.scene)).toHaveLength(1);
 
-    // navDown → Adjust Loadout, confirm → exactly one Menu scene start and no
+    // The three-action terminal grid places Main Menu below Retry; a single
+    // Down follows that spatial grid to Main Menu, so Right selects Adjust
+    // Loadout before confirm.
     // restart (F3).
     const beforeMenu = fresh.events.length;
     const sceneBefore14 = sceneCommands(fresh.scene);
-    fresh.press(13);
+    fresh.press(15);
     expect(fresh.events.slice(beforeMenu)).toEqual(['ui:navigate']);
     expect(focusedButtonIndex(fresh.scene)).toBe(1);
     fresh.press(0);

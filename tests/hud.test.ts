@@ -573,12 +573,14 @@ describe('PhaserHudView', () => {
       child.state.kind === 'text' || child.state.kind === 'rect',
     );
     const pauseChildren = controlsRoot.children.filter((child) =>
-      child.state.kind === 'rect' && child.state.depth === ThemeDepth.hud,
+      child.state.kind === 'rect' && child.state.depth === ThemeDepth.hud
+        && Number(child.state.y) < topHudContentBottom(viewport),
     );
     expect(hudChildren.filter((child) => child.state.kind === 'text')).toHaveLength(8);
     expect(hudChildren.filter((child) => child.state.kind === 'rect')).toHaveLength(6);
-    // Pause plus the shared touch ability action are both HUD controls.
-    expect(pauseChildren).toHaveLength(4);
+    // The lower-right ability is intentionally outside the top HUD backing;
+    // this contract covers only Pause and its two visual bars.
+    expect(pauseChildren).toHaveLength(3);
 
     const renderedBottom = Math.max(
       ...hudChildren.map((child) => renderedObjectBottom(child.state, hudRoot.state.y as number)),

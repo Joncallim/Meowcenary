@@ -211,9 +211,9 @@ function topHudLayout(viewport: UiViewport): TopHudLayout {
   const fontSize = physicalToLogical(11, viewport);
   const labelSize = physicalToLogical(11, viewport);
   const canvasWidth = viewport.canvasWidth;
-  // The right edge hosts the shared ability and pause buttons. Bars and run
-  // numbers end before that control lane instead of drawing beneath it.
-  const controlLane = physicalToLogical(44 * 2 + 10 + 8, viewport);
+  // Pause is the only top-right system control. Ability lives in the separate
+  // lower-right combat thumb zone, so it must not steal top-HUD width.
+  const controlLane = physicalToLogical(44 + 8, viewport);
   const rightHudX = canvasWidth - rightMargin - controlLane;
   const barTop = topMargin + fontSize * 1.25 + physicalToLogical(5, viewport);
   const barHeight = Math.max(physicalToLogical(18, viewport), labelSize * 1.35);

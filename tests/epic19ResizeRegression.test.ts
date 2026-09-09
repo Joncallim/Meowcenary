@@ -304,7 +304,7 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     expect(game.listeners()).toEqual(summaryListeners);
     const summaryButtons = (game.gameScene as unknown as { objects: readonly TargetLike[] }).objects
       .filter((object) => object.state.kind === 'rect' && object.state.handlers['pointerup'] && !object.state.destroyed);
-    expect(summaryButtons.length).toBe(2); // Retry + Adjust Loadout
+    expect(summaryButtons.length).toBe(3); // Retry + Adjust Loadout + Main Menu
     assertPhysicalTargets(summaryButtons, Math.min(width / 390, height / 844));
     // G-15: nav remains live after the direct summary rebuild.
     const summaryNavsBefore = uiEvents;
@@ -312,14 +312,16 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     expect((game.runSummaryView as unknown as { renderRebuildCount: number }).renderRebuildCount).toBe(summaryRebuilds + 2);
     const returnedSummaryButtons = (game.gameScene as unknown as { objects: readonly TargetLike[] }).objects
       .filter((object) => object.state.kind === 'rect' && object.state.handlers['pointerup'] && !object.state.destroyed);
-    expect(returnedSummaryButtons).toHaveLength(2);
+    expect(returnedSummaryButtons).toHaveLength(3);
     assertPhysicalTargets(returnedSummaryButtons, 1);
     expect(game.sceneCommands()).toEqual(commands);
     expect(game.runSummaryView.visible).toBe(true);
     expect(game.focusedModalButtonIndex()).toBe(0);
     game.padDown(13); game.poll(); game.padUp(13); game.poll();
     expect(uiEvents).toBe(summaryNavsBefore + 1);
-    expect(game.focusedModalButtonIndex()).toBe(1);
+    // Down from Retry follows the responsive terminal grid to the full-width
+    // Main Menu row below it.
+    expect(game.focusedModalButtonIndex()).toBe(2);
 
     expect(game.listeners()).toEqual(gameListeners);
     game.destroy();
