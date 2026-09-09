@@ -5,15 +5,13 @@ import { createRng } from '../src/engine/rng';
 import { createRunState } from '../src/gameplay/runState';
 import { ProgressionSystem } from '../src/systems/ProgressionSystem';
 import { DataArenaRegistry } from '../src/systems/arenas';
-import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
-import { ProgressionController } from '../src/ui/progressionController';
 
 const key = 'future-version-protection';
-// Version 4 is unsupported (current is 3) — write-protection must trigger.
-const futurePayload = JSON.stringify({ version: 4, settings: { muted: true }, meta: { scrap: 99 } });
+// Version 5 is unsupported (current is 4) — write-protection must trigger.
+const futurePayload = JSON.stringify({ version: 5, settings: { muted: true }, progression: { scrap: 99 } });
 
 class CountingStorage extends MemoryStorageAdapter {
   setCalls = 0;
@@ -26,17 +24,16 @@ class CountingStorage extends MemoryStorageAdapter {
 function setup() {
   const data = loadGameData();
   const arenas = new DataArenaRegistry(data);
-  const metaUpgrades = new DataMetaUpgradeRegistry(data);
   const storage = new CountingStorage();
   storage.setItem(key, futurePayload);
   storage.setCalls = 0;
   const characters = new DataCharacterRegistry(data);
   const bus = createEventBus();
   const context = createGameContext({
-    bus, menuRng: createRng(1), data, arenas, metaUpgrades, characters,
-    save: new SaveManager(storage, key, metaUpgrades.maxLevels()),
+    bus, menuRng: createRng(1), data, arenas, characters,
+    save: new SaveManager(storage, key),
   });
-  return { context, controller: new ProgressionController(context), bus, storage };
+  return { context, bus, storage };
 }
 
 function expectUntouchedStorage(storage: CountingStorage): void {
@@ -67,14 +64,6 @@ describe('future-version write protection across every public mutation path', ()
     const result = context.resetProgression();
     expect(result.persisted).toBe(false);
     expect(result.value.scrap).toBe(7);
-    expectUntouchedStorage(storage);
-  });
-
-  it('blocks ProgressionController.purchase', () => {
-    const { context, controller, storage } = setup();
-    context.updateMeta((meta) => ({ ...meta, scrap: 999 }));
-    const result = controller.purchase('reinforced-vest');
-    expect(result).toMatchObject({ ok: true, persisted: false, newLevel: 1 });
     expectUntouchedStorage(storage);
   });
 

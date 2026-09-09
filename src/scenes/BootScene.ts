@@ -9,10 +9,12 @@ import { DataCharacterRegistry } from '../systems/characters';
 import { DataArenaRegistry } from '../systems/arenas';
 import { StageRegistry } from '../systems/stageRegistry';
 import { LocalStorageAdapter, SaveManager } from '../systems/save';
-import { DataMetaUpgradeRegistry } from '../systems/metaUpgrades';
 import { loadGameData } from '../systems/validation';
 import { DataVisualArtRegistry, ensureVisualAnimations } from '../systems/visualArt';
 import { DataAssetBundleRegistry } from '../systems/assetBundles';
+import { queueTextureResources } from '../systems/resourceLoader';
+
+export const BOOT_RESOURCE_BUNDLE_ID = 'bundle:boot-core';
 
 /** Apply filtering from explicit manifest policy only. Texture keys are
  * deduped defensively so future registry fixtures cannot issue duplicate GPU
@@ -34,7 +36,7 @@ export function applyNearestTextureSampling(
 }
 
 export class BootScene extends Phaser.Scene {
-  private preloadVisualArt?: DataVisualArtRegistry;
+  private preloadTextureKeys = new Set<string>();
   private preloadData?: ReturnType<typeof loadGameData>;
   private readonly failedVisualTextureKeys = new Set<string>();
   private readonly recordVisualLoadError = (file: { readonly key?: unknown }): void => {
@@ -53,8 +55,7 @@ export class BootScene extends Phaser.Scene {
 
   preload(): void {
     this.preloadData = loadGameData();
-    this.preloadVisualArt = new DataVisualArtRegistry(this.preloadData);
-    const stageBundles = new DataAssetBundleRegistry(this.preloadData, this.preloadVisualArt);
+    const bundles = new DataAssetBundleRegistry(this.preloadData);
     this.failedVisualTextureKeys.clear();
     this.load.on('loaderror', this.recordVisualLoadError);
     this.load.once('complete', this.removeVisualLoadListeners);
@@ -64,30 +65,17 @@ export class BootScene extends Phaser.Scene {
     for (const asset of [...audioAssetsJson.sfx, ...audioAssetsJson.music]) {
       this.load.audio(asset.key, asset.url);
     }
-    // UI/combat art is global; world art must arrive from a declared stage
-    // bundle. The selected stage can therefore never depend on a merely
-    // syntactically named bundle.
-    const stageBindingIds = new Set(stageBundles.allBindings().map((binding) => binding.id));
-    const preloadBindings = this.preloadVisualArt.all().filter(
-      (binding) => binding.kind !== 'world' || stageBindingIds.has(binding.id),
-    );
-    for (const binding of preloadBindings) {
-      if (binding.load.type === 'image') {
-        this.load.image(binding.textureKey, binding.url);
-      } else {
-        this.load.spritesheet(binding.textureKey, binding.url, {
-          frameWidth: binding.load.frame.width,
-          frameHeight: binding.load.frame.height,
-        });
-      }
-    }
+    const bootResources = bundles.resourcesForBundle(BOOT_RESOURCE_BUNDLE_ID);
+    if (!bootResources) throw new Error(`Missing required boot resource bundle "${BOOT_RESOURCE_BUNDLE_ID}"`);
+    this.preloadTextureKeys = new Set(bootResources.map((resource) => resource.textureKey));
+    queueTextureResources(this, bootResources);
   }
 
   create(): void {
     const data = this.preloadData ?? loadGameData();
     const visualArt = new DataVisualArtRegistry(data);
     for (const binding of visualArt.all()) {
-      if (binding.required &&
+      if (binding.required && this.preloadTextureKeys.has(binding.textureKey) &&
           (this.failedVisualTextureKeys.has(binding.textureKey) || !this.textures.exists(binding.textureKey))) {
         throw new Error(
           `Required visual art failed to load: id="${binding.id}", textureKey="${binding.textureKey}", url="${binding.url}"`,
@@ -95,19 +83,17 @@ export class BootScene extends Phaser.Scene {
       }
     }
     applyNearestTextureSampling(this.textures, visualArt);
-    const metaUpgrades = new DataMetaUpgradeRegistry(data);
     const characters = new DataCharacterRegistry(data);
     const arenas = new DataArenaRegistry(data);
     const stages = new StageRegistry(data);
     ensureVisualAnimations(this, visualArt);
-    const save = new SaveManager(new LocalStorageAdapter(), undefined, metaUpgrades.maxLevels());
+    const save = new SaveManager(new LocalStorageAdapter(), undefined);
     // This RNG is boot/menu scoped only. Run gameplay owns its own seed.
     const bootSeed = Date.now();
     const ctx = createGameContext({
       bus: createEventBus(),
       menuRng: createRng(bootSeed),
       data,
-      metaUpgrades,
       save,
       characters,
       arenas,

@@ -7,6 +7,17 @@ import { checkAbility } from '../src/systems/validation/abilities';
 
 const abilities = new Map((abilitiesJson as AbilityDefinition[]).map((ability) => [ability.id, ability]));
 
+// Mock getGameContext to return a minimal context with a bus
+const mockBus = { emit: vi.fn(), on: vi.fn() };
+vi.mock('../src/engine/context', async (importOriginal) => {
+  const actual = await importOriginal() as Record<string, unknown>;
+  return {
+    ...actual,
+    getGameContext: () => ({ bus: mockBus }),
+    GAME_CONTEXT_REGISTRY_KEY: 'meowcenary.gameContext',
+  };
+});
+
 function activate(id: string) {
   const scene = new GameScene() as any;
   const stats = { add: vi.fn(), remove: vi.fn() };
@@ -105,7 +116,8 @@ describe('GameScene character ability runtime bridge', () => {
     fire.scene.abilityState = { phase: 'ready', activeRemainingMs: 0, cooldownRemainingMs: 0 };
     fire.scene.enemies = [burned];
     fire.scene.activateCharacterAbility();
-    expect(burned.takeDamage).toHaveBeenCalledWith(90);
+    // applyEnemyDamage calls enemy.takeDamage internally
+    expect(burned.takeDamage).toHaveBeenCalledWith(90, undefined);
   });
 
   it('executes Scavenge Pulse through the drop-system collection boundary', () => {

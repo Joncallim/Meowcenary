@@ -7,13 +7,24 @@
  * advances via explicit tick calls (a paused loop simply stops ticking).
  * Input sends logical `ability` commands; the state machine is the single
  * authoritative cooldown/state store.
+ *
+ * V4 (Slice B): enemy damage routes through an injected `damageEnemy` seam
+ * rather than exposing `takeDamage` directly, so every lethal source
+ * converges through the universal EnemyDamageResolver.
  */
 import type { Modifier } from './stats';
 
 export interface AbilityRuntime {
   readonly player: { x: number; y: number; heal(amount: number): void; grantInvulnerability(durationMs: number): void };
   readonly stats: { add(modifier: Modifier): void; remove(sourceId: string): void };
-  readonly enemies: Iterable<{ x: number; y: number; takeDamage(amount: number): void; body: { setVelocity(x: number, y: number): void } }>;
+  /** Enemies that abilities can affect. No longer exposes takeDamage
+   * directly — use damageEnemy() instead so all lethal damage converges
+   * through the universal resolver. */
+  readonly enemies: Iterable<{ x: number; y: number; body: { setVelocity(x: number, y: number): void } }>;
+  /** Apply damage to an enemy through the universal lethal-settlement
+   * boundary (increments runState.kills, emits enemy:killed exactly once
+   * per alive→dead transition). */
+  damageEnemy(enemy: { x: number; y: number }, amount: number): void;
   collectNearbyConsumables(radius: number): void;
 }
 
@@ -57,8 +68,11 @@ function applyAreaEffect(effect: Extract<AbilityEffect, { radius: number; power:
     const dy = enemy.y - runtime.player.y;
     const distance = Math.hypot(dx, dy) || 1;
     if (distance > effect.radius) continue;
-    if (damage) enemy.takeDamage(effect.power);
-    else enemy.body.setVelocity(dx / distance * effect.power, dy / distance * effect.power);
+    if (damage) {
+      runtime.damageEnemy(enemy, effect.power);
+    } else {
+      enemy.body.setVelocity(dx / distance * effect.power, dy / distance * effect.power);
+    }
   }
 }
 

@@ -383,7 +383,7 @@ export class PhaserWeaponRackPanel {
   ): void {
     const binding = this.visualArt?.bindingById(iconId);
     if (binding?.kind === 'weapon-icon' && this.scene.textures.exists(binding.textureKey)) {
-      const image = this.scene.add.image(x, y, binding.textureKey)
+      const image = this.scene.add.image(x, y, binding.textureKey, binding.frameKey)
         .setDisplaySize(binding.display.width, binding.display.height);
       root.add(image);
       return;

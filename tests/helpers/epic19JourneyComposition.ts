@@ -608,6 +608,46 @@ function createFakeScene(
   };
 
   const scenePlugin = { start: vi.fn(), restart: vi.fn() };
+  const animationKeys = new Set<string>();
+  const anims = {
+    exists: (key: string) => animationKeys.has(key),
+    create: (config: { key: string }) => { animationKeys.add(config.key); return { frames: [{}] }; },
+    generateFrameNumbers: () => [{}],
+    remove: (key: string) => animationKeys.delete(key),
+  };
+  // Menu's production contract now awaits Phaser's loader before starting a
+  // run. Model the small loader surface it uses so this remains a real
+  // MenuScene journey rather than bypassing the resource gate.
+  const loadedTextureKeys = new Set<string>();
+  const queuedTextureTypes = new Map<string, string>();
+  const loaderListeners = new Map<string, Array<() => void>>();
+  const loader = {
+    once(event: string, listener: () => void): void {
+      const listeners = loaderListeners.get(event) ?? [];
+      listeners.push(listener);
+      loaderListeners.set(event, listeners);
+    },
+    off(event: string, listener?: () => void): void {
+      if (listener === undefined) {
+        loaderListeners.delete(event);
+        return;
+      }
+      loaderListeners.set(event, (loaderListeners.get(event) ?? []).filter((candidate) => candidate !== listener));
+    },
+    image(key: string): void { queuedTextureTypes.set(key, 'image'); },
+    spritesheet(key: string): void { queuedTextureTypes.set(key, 'spritesheet'); },
+    atlas(key: string): void { queuedTextureTypes.set(key, 'atlasjson'); },
+    start(): void {
+      for (const [key, type] of queuedTextureTypes) {
+        loadedTextureKeys.add(key);
+        const event = `filecomplete-${type}-${key}`;
+        const listeners = loaderListeners.get(event) ?? [];
+        loaderListeners.delete(event);
+        listeners.forEach((listener) => listener());
+      }
+      queuedTextureTypes.clear();
+    },
+  };
   const audioFake = { playMusic: vi.fn(), update: vi.fn(), unlock: vi.fn(), destroy: vi.fn() };
   const shake = vi.fn();
   const shakeEffectReset = vi.fn();
@@ -641,6 +681,8 @@ function createFakeScene(
 
   const scene = {
     input,
+    anims,
+    load: loader,
     scale,
     events: lifecycle,
     scene: scenePlugin,
@@ -649,7 +691,8 @@ function createFakeScene(
     },
     tweens,
     textures: {
-      exists: vi.fn(() => false),
+      exists: vi.fn((key: string) => loadedTextureKeys.has(key)),
+      get: vi.fn(() => ({ has: () => true })),
     },
     registry: {
       get: (key: string) => {

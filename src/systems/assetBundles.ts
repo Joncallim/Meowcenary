@@ -1,6 +1,6 @@
 import { deepFreeze } from '../engine/freeze';
-import type { AssetBundleDefinition, VisualArtBinding } from './types';
-import type { VisualArtLookup } from './visualArt';
+import type { AssetBundleDefinition, VisualTextureResource } from './types';
+import { DataVisualResourceRegistry } from './visualArt';
 
 /**
  * Resolves data-owned stage bundles to the real visual bindings the loader
@@ -8,20 +8,20 @@ import type { VisualArtLookup } from './visualArt';
  * reconstructed here.
  */
 export class DataAssetBundleRegistry {
-  private readonly bundlesById = new Map<string, readonly Readonly<VisualArtBinding>[]>();
-  private readonly allStageBindings: readonly Readonly<VisualArtBinding>[];
+  private readonly bundlesById = new Map<string, readonly Readonly<VisualTextureResource>[]>();
+  private readonly allResources: readonly Readonly<VisualTextureResource>[];
 
   constructor(
-    data: { readonly assetBundles: readonly AssetBundleDefinition[] },
-    visualArt: VisualArtLookup,
+    data: { readonly assetBundles: readonly AssetBundleDefinition[]; readonly visualResources: readonly VisualTextureResource[] },
   ) {
+    const resources = new DataVisualResourceRegistry(data);
     const seen = new Set<string>();
-    const all: Readonly<VisualArtBinding>[] = [];
+    const all: Readonly<VisualTextureResource>[] = [];
     for (const bundle of data.assetBundles) {
-      const bindings = bundle.assetIds.map((id) => {
-        const binding = visualArt.bindingById(id);
-        if (!binding) throw new Error(`Asset bundle "${bundle.id}" references unloaded visual art "${id}"`);
-        return deepFreeze(structuredClone(binding));
+      const bindings = bundle.resourceIds.map((id) => {
+        const resource = resources.resourceById(id);
+        if (!resource) throw new Error(`Asset bundle "${bundle.id}" references missing visual resource "${id}"`);
+        return deepFreeze(structuredClone(resource));
       });
       const frozen = Object.freeze(bindings);
       this.bundlesById.set(bundle.id, frozen);
@@ -32,15 +32,14 @@ export class DataAssetBundleRegistry {
         }
       }
     }
-    this.allStageBindings = Object.freeze(all);
+    this.allResources = Object.freeze(all);
   }
 
-  bindingsForBundle(id: string): readonly Readonly<VisualArtBinding>[] | undefined {
+  resourcesForBundle(id: string): readonly Readonly<VisualTextureResource>[] | undefined {
     return this.bundlesById.get(id);
   }
 
-  /** Union of declared stage bundles for initial preload before stage selection. */
-  allBindings(): readonly Readonly<VisualArtBinding>[] {
-    return this.allStageBindings;
+  all(): readonly Readonly<VisualTextureResource>[] {
+    return this.allResources;
   }
 }

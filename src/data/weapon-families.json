@@ -1,0 +1,17 @@
+[
+  {
+    "id": "pistol",
+    "name": "Pistol",
+    "gunsmithSlots": ["receiver", "barrel", "optic", "trigger"]
+  },
+  {
+    "id": "smg",
+    "name": "SMG",
+    "gunsmithSlots": ["receiver", "barrel", "optic", "stock", "trigger", "magazine"]
+  },
+  {
+    "id": "shotgun",
+    "name": "Shotgun",
+    "gunsmithSlots": ["receiver", "barrel", "optic", "stock", "trigger", "underbarrel"]
+  }
+]

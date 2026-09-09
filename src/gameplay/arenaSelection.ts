@@ -1,19 +1,17 @@
 import type { ArenaDefinition } from '../systems/types';
 import type { ArenaLookup, ArenaRegistry } from '../systems/arenas';
-import type { MetaState } from '../systems/save';
-import { isUnlocked } from './meta';
-
+import type { ProgressionStateV4 } from '../systems/save';
 export function canSelectArena(
   arena: Readonly<ArenaDefinition>,
-  meta: Readonly<MetaState>,
+  meta: Readonly<ProgressionStateV4>,
 ): boolean {
   if (arena.unlock.type === 'default') return true;
-  return isUnlocked(meta, arena.unlock.requiresUnlockId);
+  return meta.unlocks.includes(arena.unlock.requiresUnlockId);
 }
 
 export function selectableArenas(
   registry: ArenaLookup & Pick<ArenaRegistry, 'all'>,
-  meta: Readonly<MetaState>,
+  meta: Readonly<ProgressionStateV4>,
 ): readonly Readonly<ArenaDefinition>[] {
   return registry.all().filter((arena) => canSelectArena(arena, meta));
 }

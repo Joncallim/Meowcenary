@@ -7,6 +7,7 @@
 import { isContentId, isOwnedInstanceId, isUnlockId } from '../ids';
 import { validateProgressionCondition } from '../../gameplay/conditionValidation';
 import type { RowCheck } from '../validation';
+import type { VisualArtCatalog } from '../types';
 
 type RowCheckFn = RowCheck;
 
@@ -112,6 +113,18 @@ export const checkAchievement: RowCheckFn = (row: unknown, _index: number): stri
   if (a.hidden !== undefined && typeof a.hidden !== 'boolean') {
     errors.push('hidden: must be a boolean when present');
   }
+
+  if (!a.presentation || typeof a.presentation !== 'object' || Array.isArray(a.presentation)) {
+    errors.push('presentation: required object');
+  } else {
+    const presentation = a.presentation as Record<string, unknown>;
+    for (const key of Object.keys(presentation)) {
+      if (key !== 'iconArtId') errors.push(`presentation.${key}: unknown field`);
+    }
+    if (typeof presentation.iconArtId !== 'string' || !/^achievement-icon:[a-z0-9][a-z0-9-]*$/.test(presentation.iconArtId)) {
+      errors.push('presentation.iconArtId: must be an achievement-icon logical art ID');
+    }
+  }
   // `kind: hidden` is a player-facing concealment promise, not merely a
   // classification label.  Requiring the corresponding flag prevents a
   // data-only row from leaking its goal/reward through the gallery before it
@@ -157,6 +170,28 @@ export function assertAchievementMetricReferences(
       throw new Error(`achievement.${a.id}: metricId "${a.metricId}" not registered`);
     }
   }
+}
+
+/** Active achievements own a semantic badge binding.  The generic hidden
+ * badge is checked here as well: it is the only icon an unrevealed hidden
+ * achievement is allowed to expose. */
+export function assertAchievementArtReferences(
+  achievements: readonly { id: string; presentation: { iconArtId: string } }[],
+  catalog: VisualArtCatalog,
+): void {
+  const byId = new Map(catalog.bindings.map((binding) => [binding.id, binding]));
+  const errors: string[] = [];
+  for (const [index, achievement] of achievements.entries()) {
+    const binding = byId.get(achievement.presentation.iconArtId);
+    if (!binding) errors.push(`achievements.json[${index}].presentation.iconArtId: unknown visual-art id "${achievement.presentation.iconArtId}"`);
+    else if (binding.kind !== 'achievement-icon') errors.push(`achievements.json[${index}].presentation.iconArtId: expected achievement-icon binding, got ${binding.kind}`);
+    else if (!binding.required) errors.push(`achievements.json[${index}].presentation.iconArtId: achievement icon must be required`);
+  }
+  const hidden = byId.get('achievement-icon:hidden');
+  if (!hidden || hidden.kind !== 'achievement-icon' || !hidden.required) {
+    errors.push('visual-art.json: required hidden achievement-icon binding "achievement-icon:hidden" is missing');
+  }
+  if (errors.length > 0) throw new Error(errors.join('\n'));
 }
 
 /** External mirrors are optional, but a configured platform identifier must

@@ -729,7 +729,7 @@ describe('Epic 19 playtest fixes: four-viewport HUD soak', () => {
 
 describe('Epic 19 playtest fixes: zoomed stick rendered diameter (AM-3)', () => {
   it.each(REFERENCE_VIEWPORTS)(
-    'renders a 128px physical diameter that tracks a synthetic pointer at $name',
+    'renders a compact 96px physical diameter that tracks a synthetic pointer at $name',
     ({ width, height }) => {
       const { scene, input, camera } = createSharedFakeSceneForConformance();
       // The production GameScene always applies the gameplay zoom.
@@ -760,9 +760,9 @@ describe('Epic 19 playtest fixes: zoomed stick rendered diameter (AM-3)', () => 
       );
       expect(stickBase).toBeDefined();
       // Rendered diameter = 2·radius·scale·zoom·s — the arch AM-3 contract
-      // says 128 physical px at the canonical scale (2·(64/1.25)·1.25·s).
+      // says 96 physical px at the canonical scale (2·(48/1.25)·1.25·s).
       const renderedDiameter = 2 * stickBase!.state.radius * stickBase!.state.scaleX * camera.zoom * fit;
-      expect(renderedDiameter).toBeCloseTo(128 * fit, 4);
+      expect(renderedDiameter).toBeCloseTo(96 * fit, 4);
       // The stick center renders under the synthetic pointer: root-local
       // coords map 1.25× to the canvas, so local = pointer/1.25.
       const renderedCenterX = stickBase!.state.x * camera.zoom * fit;

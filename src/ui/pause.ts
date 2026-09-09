@@ -12,7 +12,7 @@ import { FocusNavigator, type FocusDirection } from './focusList';
 import type { InputMode } from '../systems/input';
 import type { ModalButtonHandle } from './modal';
 
-export type PausePanel = 'closed' | 'pause' | 'inventory';
+export type PausePanel = 'closed' | 'pause' | 'inventory' | 'exit-confirm';
 
 export interface PauseControllerOptions {
   readonly runState: RunState;
@@ -93,7 +93,24 @@ export class PauseController {
     if (this.panel === 'pause') {
       return this.resume();
     }
+    if (this.panel === 'exit-confirm') {
+      this.panel = 'pause';
+      return true;
+    }
     return false;
+  }
+
+  requestExit(): boolean {
+    if (this.disposed || this.panel !== 'pause' || this.runState.status !== 'paused' || this.runState.pauseReason !== 'manual') return false;
+    this.panel = 'exit-confirm';
+    return true;
+  }
+
+  confirmExit(): boolean {
+    if (this.disposed || this.panel !== 'exit-confirm' || this.runState.status !== 'paused') return false;
+    this.inventory.clearSelection();
+    this.panel = 'closed';
+    return true;
   }
 
   snapshot(): Readonly<{ panel: PausePanel; inventory: InventorySnapshot }> {
@@ -120,6 +137,8 @@ export interface PhaserPauseViewOptions {
   readonly visualArt?: VisualArtLookup;
   readonly readInputMode?: () => InputMode;
   readonly fullscreen?: FullscreenController;
+  readonly exitLabel?: string;
+  readonly onExitConfirmed?: () => void;
 }
 
 /**
@@ -149,6 +168,8 @@ export class PhaserPauseView {
   private inputMode: InputMode = 'pointer';
   private lastInputMode: InputMode = 'pointer';
   private readonly fullscreen?: FullscreenController;
+  private readonly exitLabel: string;
+  private readonly onExitConfirmed?: () => void;
   private unsubscribeFullscreen?: () => void;
   private renderedFullscreenState?: FullscreenState;
   private fullscreenPendingPanel?: PausePanel;
@@ -164,6 +185,8 @@ export class PhaserPauseView {
     this.bus = options.bus;
     this.controller = options.controller;
     this.fullscreen = options.fullscreen;
+    this.exitLabel = options.exitLabel ?? 'Leave Run';
+    this.onExitConfirmed = options.onExitConfirmed;
     this.readInputMode = options.readInputMode ?? (() => 'pointer');
     this.modal = createModalTextHelpers(options.scene, options.viewport);
     this.weaponRack = new PhaserWeaponRackPanel({
@@ -245,6 +268,10 @@ export class PhaserPauseView {
         const built = this.renderPausePanel(root, width, height, margin, hitTarget, buttonWidth);
         buttons = built.buttons;
         hint = built.hint;
+      } else if (snapshot.panel === 'exit-confirm') {
+        const built = this.renderExitConfirmPanel(root, width, height, margin, hitTarget, buttonWidth);
+        buttons = built.buttons;
+        hint = built.hint;
       } else {
         this.weaponRack.render(
           root,
@@ -253,7 +280,7 @@ export class PhaserPauseView {
         );
       }
       if (panelChanged) this.navigator.reset();
-      if (snapshot.panel === 'pause') this.navigator.setCount(buttons.length);
+      if (snapshot.panel === 'pause' || snapshot.panel === 'exit-confirm') this.navigator.setCount(buttons.length);
       // Stage then publish: the target list, hint, and identity are committed
       // together with the root only after the whole tree built successfully.
       this.buttons = buttons;
@@ -401,7 +428,6 @@ export class PhaserPauseView {
       }
       this.render(this.controller.snapshot());
     });
-
     const buttons = [resume, rack];
     if (this.fullscreen?.available) {
       y += hitTarget + 16;
@@ -412,9 +438,43 @@ export class PhaserPauseView {
         this.fullscreen?.request();
       }, false, !pending));
     }
+    y += hitTarget + 16;
+    buttons.push(this.modal.addButton(root, centerX, y, buttonWidth, this.exitLabel, () => {
+      this.controller.requestExit();
+      this.render(this.controller.snapshot());
+    }));
     // F5: modal buttons participate in pointer-hover focus — silent index
     // sync, exactly one FocusStroke ring on hover, cleared on out, and the
     // logical index is set before the pointer-up activation runs.
+    buttons.forEach((handle, index) => this.wireModalHover(handle, index));
+    const hint = this.modal.addHint(root, margin, height - edgeMargin(this.viewport, 'bottom') - 14, this.hintCopy());
+    return { buttons, hint };
+  }
+
+  private renderExitConfirmPanel(
+    root: Phaser.GameObjects.Container,
+    width: number,
+    height: number,
+    margin: number,
+    hitTarget: number,
+    buttonWidth: number,
+  ): { buttons: ModalButtonHandle[]; hint: Phaser.GameObjects.Text } {
+    const centerX = width / 2;
+    const heading = this.modal.addText(centerX, height * 0.22, this.exitLabel, 'heading');
+    root.add(heading);
+    heading.setOrigin(0.5);
+    const warning = this.modal.addText(centerX, height * 0.30, 'Leave this run and return to the menu?', 'body');
+    root.add(warning);
+    warning.setOrigin(0.5);
+    const cancel = this.modal.addButton(root, centerX, height * 0.40, buttonWidth, 'Keep Playing', () => {
+      this.controller.back();
+      this.render(this.controller.snapshot());
+    });
+    const confirm = this.modal.addButton(root, centerX, height * 0.40 + hitTarget + 16, buttonWidth, this.exitLabel, () => {
+      if (this.controller.confirmExit()) this.onExitConfirmed?.();
+      this.render(this.controller.snapshot());
+    });
+    const buttons = [cancel, confirm];
     buttons.forEach((handle, index) => this.wireModalHover(handle, index));
     const hint = this.modal.addHint(root, margin, height - edgeMargin(this.viewport, 'bottom') - 14, this.hintCopy());
     return { buttons, hint };

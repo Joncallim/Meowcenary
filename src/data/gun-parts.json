@@ -4,10 +4,9 @@
     "name": "Compact Receiver",
     "slot": "receiver",
     "rarity": "common",
-    "tier": 1,
     "presentation": { "iconArtId": "upgrade-icon:smg-overclock" },
     "effects": [
-      { "stat": "attackSpeed", "op": "add", "value": 0.08, "sourceId": "part:receiver-compact" }
+      { "stat": "attackSpeed", "op": "add", "value": 0.08 }
     ],
     "traits": []
   },
@@ -16,11 +15,10 @@
     "name": "Heavy Receiver",
     "slot": "receiver",
     "rarity": "uncommon",
-    "tier": 2,
     "presentation": { "iconArtId": "upgrade-icon:heavy-rounds" },
     "effects": [
-      { "stat": "damage", "op": "mult", "value": 1.12, "sourceId": "part:receiver-heavy" },
-      { "stat": "attackSpeed", "op": "mult", "value": 0.94, "sourceId": "part:receiver-heavy" }
+      { "stat": "damage", "op": "mult", "value": 1.12 },
+      { "stat": "attackSpeed", "op": "mult", "value": 0.94 }
     ],
     "traits": []
   },
@@ -29,10 +27,9 @@
     "name": "Standard Barrel",
     "slot": "barrel",
     "rarity": "common",
-    "tier": 1,
     "presentation": { "iconArtId": "upgrade-icon:long-barrel" },
     "effects": [
-      { "stat": "range", "op": "add", "value": 10, "sourceId": "part:barrel-standard" }
+      { "stat": "range", "op": "add", "value": 10 }
     ],
     "traits": []
   },
@@ -41,11 +38,10 @@
     "name": "Long Barrel",
     "slot": "barrel",
     "rarity": "uncommon",
-    "tier": 2,
     "presentation": { "iconArtId": "upgrade-icon:long-barrel" },
     "effects": [
-      { "stat": "range", "op": "add", "value": 35, "sourceId": "part:barrel-long" },
-      { "stat": "projectileSpeed", "op": "mult", "value": 1.1, "sourceId": "part:barrel-long" }
+      { "stat": "range", "op": "add", "value": 35 },
+      { "stat": "projectileSpeed", "op": "mult", "value": 1.1 }
     ],
     "traits": []
   },
@@ -54,10 +50,9 @@
     "name": "Red-Dot Optic",
     "slot": "optic",
     "rarity": "common",
-    "tier": 1,
     "presentation": { "iconArtId": "upgrade-icon:pistol-deadeye" },
     "effects": [
-      { "stat": "spreadDeg", "op": "add", "value": -2, "sourceId": "part:optic-red-dot" }
+      { "stat": "spreadDeg", "op": "add", "value": -2 }
     ],
     "traits": []
   },
@@ -66,10 +61,9 @@
     "name": "Padded Stock",
     "slot": "stock",
     "rarity": "common",
-    "tier": 1,
     "presentation": { "iconArtId": "upgrade-icon:run-and-gun" },
     "effects": [
-      { "stat": "spreadDeg", "op": "add", "value": -1.5, "sourceId": "part:stock-padded" }
+      { "stat": "spreadDeg", "op": "add", "value": -1.5 }
     ],
     "traits": []
   },
@@ -78,10 +72,9 @@
     "name": "Hair Trigger",
     "slot": "trigger",
     "rarity": "uncommon",
-    "tier": 2,
     "presentation": { "iconArtId": "upgrade-icon:smg-overclock" },
     "effects": [
-      { "stat": "attackSpeed", "op": "mult", "value": 1.15, "sourceId": "part:trigger-hair" }
+      { "stat": "attackSpeed", "op": "mult", "value": 1.15 }
     ],
     "traits": []
   },
@@ -90,10 +83,9 @@
     "name": "Extended Magazine",
     "slot": "magazine",
     "rarity": "common",
-    "tier": 1,
     "presentation": { "iconArtId": "upgrade-icon:split-shot" },
     "effects": [
-      { "stat": "projectileCount", "op": "add", "value": 1, "sourceId": "part:magazine-extended" }
+      { "stat": "projectileCount", "op": "add", "value": 1 }
     ],
     "traits": []
   },
@@ -102,10 +94,9 @@
     "name": "Grenade Launcher",
     "slot": "underbarrel",
     "rarity": "epic",
-    "tier": 3,
     "presentation": { "iconArtId": "upgrade-icon:shotgun-breacher" },
     "effects": [
-      { "stat": "damage", "op": "mult", "value": 1.2, "sourceId": "part:underbarrel-grenade" }
+      { "stat": "damage", "op": "mult", "value": 1.2 }
     ],
     "traits": ["EXPLOSIVE"]
   },
@@ -114,11 +105,10 @@
     "name": "Piercing Barrel",
     "slot": "barrel",
     "rarity": "rare",
-    "tier": 3,
     "presentation": { "iconArtId": "upgrade-icon:punch-through" },
     "effects": [
-      { "stat": "pierce", "op": "add", "value": 1, "sourceId": "part:barrel-piercing" },
-      { "stat": "damage", "op": "mult", "value": 0.92, "sourceId": "part:barrel-piercing" }
+      { "stat": "pierce", "op": "add", "value": 1 },
+      { "stat": "damage", "op": "mult", "value": 0.92 }
     ],
     "traits": ["PIERCING"]
   },
@@ -127,10 +117,10 @@
     "name": "Fire Trait Core",
     "slot": "trait",
     "rarity": "uncommon",
-    "tier": 2,
     "presentation": { "iconArtId": "upgrade-icon:hot-barrel" },
-    "effects": [],
+    "effects": [{ "stat": "damage", "op": "mult", "value": 1.02 }],
     "traits": ["FIRE"],
+    "fabricationCost": 120,
     "rewardPoolId": "pool:traits-chapter-1"
   },
   {
@@ -138,11 +128,10 @@
     "name": "Mastered Fire Trait Core",
     "slot": "trait",
     "rarity": "rare",
-    "tier": 3,
     "presentation": { "iconArtId": "upgrade-icon:hot-barrel" },
-    "effects": [],
+    "effects": [{ "stat": "damage", "op": "mult", "value": 1.05 }],
     "traits": ["FIRE"],
     "rewardPoolId": "pool:traits-mastery",
-    "unlock": { "type": "achievement-completed", "achievementId": "achievement:first-victory" }
+    "note": "Warden milestone reward-only; non-reacquirable"
   }
 ]

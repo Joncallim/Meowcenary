@@ -6,11 +6,17 @@ function plan(objective: Record<string, unknown> = { type: 'kill', count: 2 }) {
     stageId: 'stage:runtime-proof',
     objective: { definition: objective },
     encounter: { bossId: 'enemy:crusher' },
-    reward: { scrapBase: 20, scrapPerMinute: 5, grants: [{ type: 'grant-unlock', unlockId: 'character:proof' }] },
+    reward: { firstClearScrap: 20, grants: [{ type: 'grant-unlock', unlockId: 'character:proof' }] },
   } as any;
 }
 
 describe('stage runtime', () => {
+  it('formats survive progress for players without exposing raw float state', () => {
+    const runtime = createStageRuntime(plan({ type: 'survive', seconds: 120 }));
+    runtime.tick(53_927.8, 53_927.8);
+    expect(runtime.describeObjective()).toBe('Survive 0:53 / 2:00');
+  });
+
   it('owns generic kill facts and snapshots a single retry-safe clear transaction', () => {
     const runtime = createStageRuntime(plan());
     runtime.tick(0, 0);
@@ -18,7 +24,7 @@ describe('stage runtime', () => {
     runtime.recordEnemyDefeat('enemy:b', 'rusher');
     runtime.tick(0, 61_000);
     expect(runtime.state.status).toBe('objective-complete');
-    expect(runtime.pendingClear).toMatchObject({ stageId: 'stage:runtime-proof', timeMs: 61_000, reward: 25 });
+    expect(runtime.pendingClear).toMatchObject({ stageId: 'stage:runtime-proof', timeMs: 61_000, reward: 20 });
     const commit = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
     expect(runtime.tryCommit(commit)).toBe(false);
     runtime.tick(10_000, 180_000);

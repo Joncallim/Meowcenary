@@ -77,6 +77,7 @@ const eventPayloads = {
   'xp:gained': { amount: 1, total: 1 },
   'level:up': { level: 2 },
   'currency:changed': { runTotal: 10 },
+  'enemy:killed': { instanceId: 1, enemyId: 'dust-mite', xpValue: 1, scrapValue: 0, x: 10, y: 20 },
   'run:paused': {},
   'run:resumed': {},
   'run:won': { timeMs: 1000, level: 2, kills: 3 },
@@ -160,6 +161,23 @@ describe('HudController', () => {
     controller.update(16);
     expect(view.renders).toHaveLength(2);
     expect(view.renders[1]?.ability).toBe('Scrap Burst: 9s');
+  });
+
+  it('renders the authoritative global kill count on enemy:killed without waiting for a clock tick', () => {
+    const source = createMutableSource({ timeMs: 12_345, kills: 0 });
+    const { bus, controller, view } = createHarness(source);
+    controller.update(16);
+
+    // A filtered contract objective can remain unchanged here; this event
+    // represents the universal lethal settlement and K always counts it.
+    source.snapshotValue.kills = 1;
+    bus.emit('enemy:killed', {
+      instanceId: 1, enemyId: 'dust-mite', xpValue: 1, scrapValue: 0, x: 10, y: 20,
+    });
+    controller.update(16);
+
+    expect(view.renders).toHaveLength(2);
+    expect(view.renders[1]?.kills).toBe(1);
   });
 
   it('unsubscribes all event listeners on destroy', () => {
@@ -460,10 +478,12 @@ describe('PhaserHudView', () => {
 
     const unique = [...new Set(scene.objects)];
     const bars = unique.filter((object) => object.state.kind === 'rect' && object.state.fillColor !== ThemeColor.surface);
-    expect(bars).toHaveLength(4);
+    expect(bars).toHaveLength(6);
     expect(bars[1]!.state.x).toBe(bars[3]!.state.x);
     expect(bars[0]!.state.width).toBe(bars[2]!.state.width);
     expect(bars[1]!.state.width).toBe(bars[3]!.state.width);
+    expect(bars[4]!.state.visible).toBe(false);
+    expect(bars[5]!.state.visible).toBe(false);
 
     const textAt = (label: string) => unique.find((object) => object.state.text === label)!.state;
     const time = textAt('0:01 / 1:00');
@@ -472,6 +492,20 @@ describe('PhaserHudView', () => {
     expect(time.y).toBeLessThan(kills.y as number);
     expect(kills.y).toBeLessThan(scrap.y as number);
     expect((scrap.y as number) - (kills.y as number)).toBeGreaterThan(0);
+  });
+
+  it('renders a distinct boss meter only while a live boss is supplied', () => {
+    const scene = createFakeScene();
+    const view = new PhaserHudView({ scene: scene as never, viewport: logicalCanvasViewport() });
+    view.render({
+      status: 'active', timeMs: 1_000, health: 80, maxHealth: 100,
+      level: 2, xp: 25, xpToNext: 100, kills: 3, currency: 12,
+      boss: { name: 'Scrap Crusher', health: 75, maxHealth: 100 },
+    });
+    const boss = scene.objects.find((object) => object.state.text === 'Scrap Crusher  75/100');
+    expect(boss?.state.visible).toBe(true);
+    const bossBars = scene.objects.filter((object) => object.state.kind === 'rect' && object.state.fillColor === ThemeColor.gold);
+    expect(bossBars.some((bar) => bar.state.visible && bar.state.scaleX === 0.75)).toBe(true);
   });
 
   it('projects the zoomed GameScene backing across the whole HUD viewport instead of root-local canvas coordinates', () => {
@@ -539,12 +573,14 @@ describe('PhaserHudView', () => {
       child.state.kind === 'text' || child.state.kind === 'rect',
     );
     const pauseChildren = controlsRoot.children.filter((child) =>
-      child.state.kind === 'rect' && child.state.depth === ThemeDepth.hud,
+      child.state.kind === 'rect' && child.state.depth === ThemeDepth.hud
+        && Number(child.state.y) < topHudContentBottom(viewport),
     );
-    expect(hudChildren.filter((child) => child.state.kind === 'text')).toHaveLength(7);
-    expect(hudChildren.filter((child) => child.state.kind === 'rect')).toHaveLength(4);
-    // Pause plus the shared touch ability action are both HUD controls.
-    expect(pauseChildren).toHaveLength(4);
+    expect(hudChildren.filter((child) => child.state.kind === 'text')).toHaveLength(8);
+    expect(hudChildren.filter((child) => child.state.kind === 'rect')).toHaveLength(6);
+    // The lower-right ability is intentionally outside the top HUD backing;
+    // this contract covers only Pause and its two visual bars.
+    expect(pauseChildren).toHaveLength(3);
 
     const renderedBottom = Math.max(
       ...hudChildren.map((child) => renderedObjectBottom(child.state, hudRoot.state.y as number)),

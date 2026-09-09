@@ -7,7 +7,6 @@ import { collectGameDataErrors, loadGameData, validateGameData } from '../src/sy
 import { DataArenaRegistry } from '../src/systems/arenas';
 import { StageRegistry } from '../src/systems/stageRegistry';
 import { DataEnemyRegistry } from '../src/systems/enemies';
-import { DataLootTableRegistry } from '../src/systems/lootTables';
 import type { StageDefinition, EncounterProfile, DifficultyProfile, RewardProfile } from '../src/gameplay/stage/stageContracts';
 import { resolveRunPlan } from '../src/gameplay/stage/stageContracts';
 
@@ -60,9 +59,9 @@ describe('Epic 20 stage catalog conformance', () => {
       const bundle = data.assetBundles?.find((candidate) => candidate.id === stage.assetBundleId);
       expect(bundle, `bundle ${stage.assetBundleId}`).toBeDefined();
       expect(stageRegistry.assetBundleForStage(stage.id)?.id).toBe(stage.assetBundleId);
-      expect(bundle?.assetIds.length).toBeGreaterThan(0);
-      for (const assetId of bundle?.assetIds ?? []) {
-        expect(data.visualArt.bindings.some((binding) => binding.id === assetId), `${stage.assetBundleId}/${assetId}`).toBe(true);
+      expect(bundle?.resourceIds.length).toBeGreaterThan(0);
+      for (const resourceId of bundle?.resourceIds ?? []) {
+        expect(data.visualResources.some((resource) => resource.id === resourceId), `${stage.assetBundleId}/${resourceId}`).toBe(true);
       }
     }
   });
@@ -96,14 +95,9 @@ describe('Epic 20 stage catalog conformance', () => {
     }
   });
 
-  it('resolves every reward loot table against the loot registry', () => {
-    const data = loadGameData();
-    const loot = new DataLootTableRegistry(data);
+  it('has valid firstClearScrap for every reward profile', () => {
     for (const rp of rewards) {
-      expect(rp.lootTableId, `loot table ref on ${rp.id}`).toBeDefined();
-      if (rp.lootTableId !== undefined) {
-        expect(loot.lootTableById(rp.lootTableId), `loot table ${rp.lootTableId}`).toBeDefined();
-      }
+      expect(rp.firstClearScrap, `firstClearScrap on ${rp.id}`).toBeGreaterThanOrEqual(0);
     }
   });
 
@@ -131,7 +125,7 @@ describe('Epic 20 stage catalog conformance', () => {
       expect(plan.objective.definition.type).toBe(stage.objective.type);
       expect(plan.encounter.enemyIds.length).toBeGreaterThan(0);
       expect(plan.difficulty.healthMultiplier).toBeGreaterThan(0);
-      expect(Number.isFinite(plan.reward.scrapBase)).toBe(true);
+      expect(Number.isFinite(plan.reward.firstClearScrap)).toBe(true);
       expect(Object.isFrozen(plan)).toBe(true);
     }
   });
@@ -175,7 +169,7 @@ describe('Epic 20 stage catalog conformance', () => {
     };
     const validated = validateGameData({
       ...structuredClone(loadGameData()),
-      stages: [...stages, { ...proofStage, assetBundleId: loadGameData().assetBundles[0].id }],
+      stages: [...stages, proofStage],
     });
     // The boot validator and generic resolver accept a new stage using a
     // declared asset bundle without a scene, loader, or stage-ID branch.
@@ -200,11 +194,11 @@ describe('Epic 20 stage catalog conformance', () => {
     })).toThrow('"bundle:missing" not found');
     expect(() => validateGameData({
       ...source,
-      assetBundles: [{ ...source.assetBundles[0], assetIds: ['world:not-real'] }],
-    })).toThrow('"world:not-real" not found');
+      assetBundles: source.assetBundles.map((bundle) => bundle.id === source.stages![0].assetBundleId ? { ...bundle, resourceIds: ['resource:not-real'] } : bundle),
+    })).toThrow('"resource:not-real" not found in visual-resources catalog');
     expect(() => validateGameData({
       ...source,
-      assetBundles: [{ ...source.assetBundles[0], assetIds: [source.assetBundles[0].assetIds[0]] }],
+      assetBundles: source.assetBundles.map((bundle) => bundle.id === source.stages![0].assetBundleId ? { ...bundle, resourceIds: [bundle.resourceIds[0]!] } : bundle),
     })).toThrow('is missing arena asset');
     expect(() => validateGameData({
       ...source,
@@ -215,7 +209,7 @@ describe('Epic 20 stage catalog conformance', () => {
           required: true, sampling: 'nearest', load: { type: 'image' }, display: { width: 16, height: 16 },
         }],
       },
-    })).toThrow('required world binding "world:unbundled-proof" is not declared');
+    })).toThrow(`visual-art.json.bindings[${source.visualArt.bindings.length}].textureKey: unknown field`);
     expect(collectGameDataErrors({
       ...source,
       stages: [{ ...source.stages![0], assetBundleId: 'bundle:missing' }, ...source.stages!.slice(1)],

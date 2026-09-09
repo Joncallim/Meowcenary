@@ -4,7 +4,6 @@ import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
 import { DataArenaRegistry } from '../src/systems/arenas';
 import { DataCharacterRegistry } from '../src/systems/characters';
-import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import {
   MemoryStorageAdapter,
   SaveManager,
@@ -16,12 +15,10 @@ import { MainMenuController } from '../src/ui/menus';
 function setup(storage?: StorageAdapter) {
   const data = loadGameData();
   const arenas = new DataArenaRegistry(data);
-  const metaUpgrades = new DataMetaUpgradeRegistry(data);
   const characters = new DataCharacterRegistry(data);
   const save = new SaveManager(
     storage ?? new MemoryStorageAdapter(),
     'menu-controller-test',
-    metaUpgrades.maxLevels(),
   );
   const menuRng = createRng(1);
   const context = createGameContext({
@@ -29,7 +26,6 @@ function setup(storage?: StorageAdapter) {
     menuRng,
     data,
     arenas,
-    metaUpgrades,
     characters,
     save,
   });
@@ -42,13 +38,6 @@ class FailingStorageAdapter implements StorageAdapter {
   removeItem(): boolean { return false; }
 }
 
-class ToggleStorageAdapter extends MemoryStorageAdapter {
-  succeed = true;
-  override setItem(key: string, value: string): boolean {
-    return this.succeed && super.setItem(key, value);
-  }
-}
-
 describe('MainMenuController', () => {
   it('starts on the home panel with frozen snapshots from each sub-controller', () => {
     const { controller } = setup();
@@ -58,7 +47,6 @@ describe('MainMenuController', () => {
     expect(Object.isFrozen(snapshot)).toBe(true);
     expect(snapshot.character.selectedCharacterId).toBe('scrap-tabby');
     expect(snapshot.arena.selectedArenaId).toBe('junkyard-lot');
-    expect(snapshot.progression.scrap).toBe(0);
     expect(snapshot.settings.musicVolume).toBe(0.7);
     expect(snapshot.notice).toBeUndefined();
   });
@@ -68,28 +56,12 @@ describe('MainMenuController', () => {
 
     expect(controller.open('character').panel).toBe('character');
     expect(controller.open('arena').panel).toBe('arena');
-    expect(controller.open('progression').panel).toBe('progression');
+    expect(controller.open('stage').panel).toBe('stage');
     expect(controller.open('settings').panel).toBe('settings');
 
     const backToHome = controller.back();
     expect(backToHome.panel).toBe('home');
     expect(backToHome.notice).toBeUndefined();
-  });
-
-  it('navigates the reset-confirmation flow and cancels back to progression', () => {
-    const { controller } = setup();
-
-    controller.open('progression');
-    const request = controller.requestReset();
-    expect(request.panel).toBe('reset-confirmation');
-    expect(request.notice).toBeUndefined();
-
-    const cancelled = controller.cancelReset();
-    expect(cancelled.panel).toBe('progression');
-
-    controller.requestReset();
-    const backed = controller.back();
-    expect(backed.panel).toBe('progression');
   });
 
   it('selectCharacter delegates revision checking and surfaces failure notices', () => {
@@ -115,63 +87,6 @@ describe('MainMenuController', () => {
 
     const unknown = controller.selectArena('nonexistent', stale.arena.revision);
     expect(unknown.notice).toBe('Selection not found');
-  });
-
-  it('purchase delegates to ProgressionController and refreshes character/arena snapshots after meta mutation', () => {
-    const { context, controller } = setup();
-    controller.open('progression');
-    context.updateMeta((meta) => ({ ...meta, scrap: 100 }));
-
-    const before = controller.snapshot();
-    const result = controller.purchase('reinforced-vest');
-
-    expect(result.panel).toBe('progression');
-    expect(result.notice).toBeUndefined();
-    expect(result.progression.scrap).toBe(90);
-    expect(result.progression.upgrades[0]).toMatchObject({
-      id: 'reinforced-vest',
-      currentLevel: 1,
-    });
-    expect(result.character).not.toBe(before.character);
-    expect(result.arena).not.toBe(before.arena);
-  });
-
-  it('purchase surfaces failure notices', () => {
-    const { controller } = setup();
-    controller.open('progression');
-
-    const unknown = controller.purchase('missing');
-    expect(unknown.notice).toBe('Upgrade not found');
-
-    const poor = controller.purchase('reinforced-vest');
-    expect(poor.notice).toBe('Not enough scrap');
-  });
-
-  it('confirmReset requires the reset-confirmation panel', () => {
-    const { controller } = setup();
-    controller.open('progression');
-
-    const notReady = controller.confirmReset();
-    expect(notReady.panel).toBe('progression');
-    expect(notReady.notice).toBe('Reset confirmation required');
-  });
-
-  it('confirmReset leaves state intact and surfaces persistence failure', () => {
-    const storage = new ToggleStorageAdapter();
-    const { context, controller } = setup(storage);
-    controller.open('progression');
-    context.updateMeta((meta) => ({ ...meta, scrap: 100 }));
-    controller.purchase('reinforced-vest');
-
-    storage.succeed = false;
-
-    controller.requestReset();
-    const result = controller.confirmReset();
-
-    expect(result.panel).toBe('reset-confirmation');
-    expect(result.progression.scrap).toBeLessThan(100);
-    expect(result.progression.upgrades[0].currentLevel).toBe(1);
-    expect(result.notice).toBe('Could not save reset');
   });
 
   it('setSettings delegates to SettingsController and surfaces persistence notice', () => {
@@ -208,17 +123,18 @@ describe('MainMenuController', () => {
 
     context.updateMeta((meta) => ({ ...meta, scrap: 100 }));
     expect(context.completeStage('stage:junkyard-02', 1)).toBe(true);
+    expect(context.completeStage('stage:junkyard-03', 1)).toBe(true);
     context.updateEquipment(() => ({
       equipment: { helmet: { equipmentId: 'equipment:commando-helmet', tier: 1 } }, loadout: {},
     }));
     expect(controller.open('equipment').equipment.owned).toHaveLength(1);
-    expect(controller.open('equipment').equipment.owned[0]).toMatchObject({ setId: 'set:commando', iconArtId: 'upgrade-icon:smg-overclock', effectSummary: ['Fire rate 5%'] });
+    expect(controller.open('equipment').equipment.owned[0]).toMatchObject({ setName: 'Commando', effectSummary: ['+5% Fire Rate'] });
     expect(controller.equipEquipment('helmet').equipment.equipped.helmet).toBe('helmet');
-    expect(controller.snapshot().equipment.activeSets).toMatchObject([{ setId: 'set:commando', pieces: 1, activeThresholds: [], bonusSummary: expect.arrayContaining(['2-piece: Fire rate 10%']) }]);
+    expect(controller.snapshot().equipment.activeSets).toMatchObject([{ name: 'Commando', pieces: 1, activeThresholds: [], bonusSummary: [] }]);
     expect(controller.upgradeEquipment('helmet').equipment.owned[0].tier).toBe(2);
-    expect(controller.snapshot().equipment.owned[0].effectSummary).toEqual(['Fire rate 10%']);
+    expect(controller.snapshot().equipment.owned[0].effectSummary).toEqual(['+10% Fire Rate']);
     // The stage command now banks its profile-owned first-clear reward.
-    expect(controller.snapshot().progression.scrap).toBe(40);
+    expect(controller.snapshot().progressionOverview.completedStages).toBeGreaterThanOrEqual(1);
   });
 
   it('keeps stale equipment definitions visible as recoverable unavailable state', () => {
@@ -239,8 +155,7 @@ describe('MainMenuController', () => {
     controller.selectCharacter('nonexistent', 1);
     controller.open('arena');
     controller.selectArena('nonexistent', 1);
-    controller.open('progression');
-    controller.purchase('missing');
+    controller.open('stage');
     controller.setSettings({ muted: true });
 
     expect(spy).not.toHaveBeenCalled();

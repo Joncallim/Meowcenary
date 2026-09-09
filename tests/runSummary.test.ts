@@ -17,6 +17,7 @@ import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
 import { logicalCanvasViewport } from '../src/ui/layout';
 import {
+  computeRunSummaryLayout,
   PhaserRunSummaryView,
   RunSummaryController,
   type RunSummarySnapshot,
@@ -88,8 +89,9 @@ describe('RunSummaryController snapshots', () => {
       bankedScrap: 12,
       totalScrap: 100,
       persistenceSucceeded: true,
-      unlockedIds: ['achievement:first-victory'],
+      newlyAvailableNames: [],
       completedAchievementNames: [],
+      completedAchievements: [],
       canContinue: false,
     });
   });
@@ -107,7 +109,7 @@ describe('RunSummaryController snapshots', () => {
 
     const snapshot = controller.snapshot();
     expect(snapshot?.outcome).toBe('lost');
-    expect(snapshot?.unlockedIds).toEqual([]);
+    expect(snapshot?.newlyAvailableNames).toEqual([]);
   });
 
   it('carries authoritative in-run achievement completion names into the terminal snapshot', () => {
@@ -120,6 +122,24 @@ describe('RunSummaryController snapshots', () => {
     expect(controller.snapshot()?.completedAchievementNames).toEqual(['Crusher Breaker']);
   });
 
+  it('carries completed Achievement presentation by stable ID rather than deriving art from names', () => {
+    const run = terminalRun('won');
+    const controller = new RunSummaryController({
+      runState: run,
+      lastBankedRun: bankedRun(),
+      completedAchievements: [{
+        id: 'first-kill',
+        name: 'First Blood',
+        iconArtId: 'achievement-icon:first-kill',
+      }],
+    });
+    expect(controller.snapshot()?.completedAchievements).toEqual([{
+      id: 'first-kill',
+      name: 'First Blood',
+      iconArtId: 'achievement-icon:first-kill',
+    }]);
+  });
+
   it('shows zero banked values and a save warning when the run was not banked', () => {
     const controller = new RunSummaryController(source(terminalRun('won'), null));
 
@@ -129,7 +149,7 @@ describe('RunSummaryController snapshots', () => {
       bankedScrap: 0,
       totalScrap: 0,
       persistenceSucceeded: false,
-      unlockedIds: [],
+      newlyAvailableNames: [],
     });
   });
 
@@ -145,17 +165,74 @@ describe('RunSummaryController snapshots', () => {
     });
   });
 
-  it('returns frozen snapshots with a copied unlocked id list', () => {
+  it('returns frozen snapshots with a copied current-run presentation list only', () => {
     const banked = bankedRun();
     const controller = new RunSummaryController(source(terminalRun('won'), banked));
 
     const snapshot = controller.snapshot()!;
     expect(Object.isFrozen(snapshot)).toBe(true);
-    expect(Object.isFrozen(snapshot.unlockedIds)).toBe(true);
+    expect(Object.isFrozen(snapshot.newlyAvailableNames)).toBe(true);
     expect(Object.isFrozen(snapshot.completedAchievementNames)).toBe(true);
-    (banked.meta.unlocks as string[]).push('extra-unlock');
-    expect(snapshot.unlockedIds).toEqual(['achievement:first-victory']);
+    (banked.meta.unlocks as string[]).push('achievement:historical-unrelated');
+    expect(snapshot.newlyAvailableNames).toEqual([]);
   });
+
+  it('never leaks a migrated historical unlock bag into normal results', () => {
+    const migratedHistoricalBag = bankedRun({
+      meta: {
+        scrap: 100,
+        unlocks: ['achievement:permanent-reinforced-coat-3', 'achievement:well-protected'],
+        permanentUpgrades: { 'reinforced-coat': 3 },
+      },
+    });
+    const snapshot = new RunSummaryController(source(terminalRun('lost'), migratedHistoricalBag)).snapshot()!;
+
+    expect(snapshot.newlyAvailableNames).toEqual([]);
+    expect(JSON.stringify(snapshot)).not.toContain('achievement:permanent-reinforced-coat-3');
+    expect(JSON.stringify(snapshot)).not.toContain('achievement:well-protected');
+  });
+
+  it('accepts only player-facing current-run settlement copy for newly available rewards', () => {
+    const controller = new RunSummaryController({
+      runState: terminalRun('won'),
+      lastBankedRun: bankedRun(),
+      newlyAvailableNames: ['Commando Helmet', 'Fire Trait Core'],
+    });
+    expect(controller.snapshot()?.newlyAvailableNames).toEqual(['Commando Helmet', 'Fire Trait Core']);
+  });
+});
+
+describe('computeRunSummaryLayout', () => {
+  const overlaps = (
+    a: { x: number; y: number; width: number; height: number },
+    b: { x: number; y: number; width: number; height: number },
+  ) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+
+  for (const [displayWidth, displayHeight] of [
+    [360, 640], [390, 844], [844, 390], [1280, 720], [1920, 1080],
+  ] as const) {
+    it(`keeps terminal regions non-overlapping at ${displayWidth}×${displayHeight}`, () => {
+      const viewport = logicalCanvasViewport(displayWidth, displayHeight, displayWidth, displayHeight, {
+        top: 12, right: 16, bottom: 20, left: 8,
+      });
+      for (const actionCount of [1, 3, 4]) {
+        const layout = computeRunSummaryLayout(viewport, actionCount);
+        expect(overlaps(layout.headingBounds, layout.statsBounds)).toBe(false);
+        expect(overlaps(layout.statsBounds, layout.contentBounds)).toBe(false);
+        expect(overlaps(layout.contentBounds, layout.hintBounds)).toBe(false);
+        expect(overlaps(layout.hintBounds, layout.actionTrayBounds)).toBe(false);
+        layout.actionBounds.forEach((action, index) => {
+          expect(action.x).toBeGreaterThanOrEqual(layout.safeBounds.x);
+          expect(action.y).toBeGreaterThanOrEqual(layout.safeBounds.y);
+          expect(action.x + action.width).toBeLessThanOrEqual(layout.safeBounds.x + layout.safeBounds.width);
+          expect(action.y + action.height).toBeLessThanOrEqual(layout.safeBounds.y + layout.safeBounds.height);
+          expect(action.width * (displayWidth / viewport.canvasWidth)).toBeGreaterThanOrEqual(44);
+          expect(action.height * (displayHeight / viewport.canvasHeight)).toBeGreaterThanOrEqual(44);
+          layout.actionBounds.slice(index + 1).forEach((other) => expect(overlaps(action, other)).toBe(false));
+        });
+      }
+    });
+  }
 });
 
 describe('RunSummaryController banking integration', () => {
@@ -214,7 +291,7 @@ describe('RunSummaryController banking integration', () => {
         bankedScrap: 12,
         totalScrap: 12,
         persistenceSucceeded: true,
-        unlockedIds: outcome === 'won' ? ['achievement:first-victory'] : [],
+        newlyAvailableNames: [],
       });
     },
   );
@@ -455,7 +532,7 @@ describe('PhaserRunSummaryView', () => {
     expect(scene.objects).toHaveLength(0);
   });
 
-  it('renders the won summary with stats, unlocked line, and an interactive backdrop', () => {
+  it('renders the won summary with stats, frozen actions, and an interactive backdrop', () => {
     const { bus, scene, view } = createHarness({ banked: bankedRun() });
     bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
 
@@ -482,12 +559,13 @@ describe('PhaserRunSummaryView', () => {
         '25.5',
         '12',
         '100',
-        'Unlocked: achievement:first-victory',
-        'Retry',
+        'Replay',
+        'Adjust Loadout',
         'Main Menu',
-        'Tap Retry or Main Menu',
+        'Tap an action',
       ]),
     );
+    expect(textContents(scene).join('\n')).not.toContain('achievement:first-victory');
     expect(textContents(scene)).not.toContain('Not saved — this session only');
   });
 
@@ -500,6 +578,7 @@ describe('PhaserRunSummaryView', () => {
     });
     bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
     expect(textContents(scene)).toEqual(expect.arrayContaining(['Saving rewards…', 'Continue without saving']));
+    expect(textContents(scene)).not.toEqual(expect.arrayContaining(['Replay', 'Adjust Loadout', 'Main Menu']));
     expect(discard).not.toHaveBeenCalled();
   });
 
@@ -528,7 +607,7 @@ describe('PhaserRunSummaryView', () => {
         'Run Failed',
         'Not saved — this session only',
         'Retry',
-        'Main Menu',
+        'Adjust Loadout',
       ]),
     );
     expect(textContents(scene)).not.toContain('Unlocked:');
@@ -637,7 +716,7 @@ describe('PhaserRunSummaryView', () => {
     expect(scene.scene.restart).toHaveBeenCalledTimes(1);
   });
 
-  it('syncs the pointer-up target index before Main Menu activation and retains it for the next wrap (F2)', () => {
+  it('syncs the pointer-up target index before Adjust Loadout activation and retains it for the next wrap (F2)', () => {
     let mode: InputMode = 'pointer';
     const { bus, scene, view } = createHarness({ banked: bankedRun(), readInputMode: () => mode });
     bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
@@ -645,14 +724,14 @@ describe('PhaserRunSummaryView', () => {
     const buttons = scene.objects.filter(
       (object) => object.state.kind === 'rect' && object.state.handlers['pointerup'] && !object.state.destroyed,
     );
-    expect(buttons).toHaveLength(2);
-    // Default focus is Retry (0). Pointer-up DIRECTLY on Main Menu (1) with
+    expect(buttons).toHaveLength(3);
+    // Default focus is Retry (0). Pointer-up DIRECTLY on Adjust Loadout (1) with
     // no pointer-over: the single surface funnel FIRST syncs the logical
     // index to the activated target, THEN runs its command.
     buttons[1]!.state.handlers['pointerup']!();
-    expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
+    expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, { initialPanel: 'equipment' });
 
-    // The retained navigator now sits on Main Menu: keyboard focus reveals
+    // The retained navigator now sits on Adjust Loadout: keyboard focus reveals
     // the exact retained ring BEFORE the next legal action.
     mode = 'keyboard';
     view.refreshInputPresentation();
@@ -661,15 +740,16 @@ describe('PhaserRunSummaryView', () => {
     expect(buttons[1]!.state.strokeAlpha).toBe(FocusStroke.alpha);
     expect(buttons[0]!.state.strokeColor).not.toBe(FocusStroke.color);
 
-    // Exact subsequent wrap from Main Menu: down wraps to Retry (0).
+    // The tray uses spatial grid navigation: down moves from the top-right
+    // Adjust Loadout cell to the full-width Main Menu row.
     expect(view.moveFocus('down')).toBe(true);
-    expect(buttons[0]!.state.strokeWidth).toBe(FocusStroke.width);
-    expect(buttons[0]!.state.strokeColor).toBe(FocusStroke.color);
-    expect(buttons[0]!.state.strokeAlpha).toBe(FocusStroke.alpha);
+    expect(buttons[2]!.state.strokeWidth).toBe(FocusStroke.width);
+    expect(buttons[2]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(buttons[2]!.state.strokeAlpha).toBe(FocusStroke.alpha);
     expect(buttons[1]!.state.strokeColor).not.toBe(FocusStroke.color);
   });
 
-  it('starts on Retry with the exact FocusStroke ring in keyboard mode, wraps linearly, and restores the exact base stroke (F4)', () => {
+  it('starts on Replay with the exact FocusStroke ring in keyboard mode and follows the action grid (F4)', () => {
     let mode: InputMode = 'pointer';
     const { bus, scene, view } = createHarness({ banked: bankedRun(), readInputMode: () => mode });
     bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
@@ -677,14 +757,14 @@ describe('PhaserRunSummaryView', () => {
     const buttons = scene.objects.filter(
       (object) => object.state.kind === 'rect' && object.state.handlers['pointerup'] && !object.state.destroyed,
     );
-    expect(buttons).toHaveLength(2);
+    expect(buttons).toHaveLength(3);
     // Capture the exact base strokes before keyboard focus applies.
     const retryBase = {
       width: buttons[0]!.state.strokeWidth,
       color: buttons[0]!.state.strokeColor,
       alpha: buttons[0]!.state.strokeAlpha,
     };
-    const menuBase = {
+    const loadoutBase = {
       width: buttons[1]!.state.strokeWidth,
       color: buttons[1]!.state.strokeColor,
       alpha: buttons[1]!.state.strokeAlpha,
@@ -699,29 +779,25 @@ describe('PhaserRunSummaryView', () => {
     expect(buttons[0]!.state.strokeAlpha).toBe(FocusStroke.alpha);
     expect(buttons[1]!.state.strokeColor).not.toBe(FocusStroke.color);
 
-    // All four directions wrap linearly on the two-item list; each move
-    // restores the exact base stroke on the target that lost focus.
-    expect(view.moveFocus('up')).toBe(true);
+    // Top-row navigation reaches Adjust Loadout; a focused cell restores the
+    // exact stroke on the item it left.
+    expect(view.moveFocus('right')).toBe(true);
     expect(buttons[1]!.state.strokeWidth).toBe(FocusStroke.width);
     expect(buttons[1]!.state.strokeColor).toBe(FocusStroke.color);
     expect(buttons[1]!.state.strokeAlpha).toBe(FocusStroke.alpha);
     expect(buttons[0]!.state.strokeWidth).toBe(retryBase.width);
     expect(buttons[0]!.state.strokeColor).toBe(retryBase.color);
     expect(buttons[0]!.state.strokeAlpha).toBe(retryBase.alpha);
+    expect(buttons[1]!.state.strokeWidth).toBe(FocusStroke.width);
+    expect(buttons[0]!.state.strokeColor).not.toBe(FocusStroke.color);
+    expect(buttons[1]!.state.strokeColor).not.toBe(loadoutBase.color);
+    // Down reaches the odd full-width final row and left/right cannot leave
+    // that row for a non-existent neighbour.
     expect(view.moveFocus('left')).toBe(true);
-    expect(buttons[0]!.state.strokeColor).toBe(FocusStroke.color);
-    expect(buttons[1]!.state.strokeWidth).toBe(menuBase.width);
-    expect(buttons[1]!.state.strokeColor).toBe(menuBase.color);
-    expect(buttons[1]!.state.strokeAlpha).toBe(menuBase.alpha);
-    expect(view.moveFocus('down')).toBe(true);
-    expect(buttons[1]!.state.strokeColor).toBe(FocusStroke.color);
-    expect(view.moveFocus('right')).toBe(true);
-    expect(buttons[0]!.state.strokeColor).toBe(FocusStroke.color);
-
-    // The logical confirm reaches the exact focused command.
     view.moveFocus('down');
-    expect(view.confirmFocused()).toBe(true);
-    expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
+    expect(buttons[2]!.state.strokeColor).toBe(FocusStroke.color);
+    expect(view.moveFocus('right')).toBe(false);
+    expect(view.moveFocus('left')).toBe(false);
   });
 
   it('pointer hover moves exactly one ring on summary buttons and emits nothing (F5)', () => {
@@ -746,11 +822,11 @@ describe('PhaserRunSummaryView', () => {
     expect(events).toEqual([]);
   });
 
-  it('a repeated visible render preserves the Main Menu focus and the command still works', () => {
+  it('a repeated visible render preserves the Adjust Loadout focus and the command still works', () => {
     const { bus, scene, view } = createHarness({ banked: bankedRun(), readInputMode: () => 'keyboard' });
     view.refreshInputPresentation();
     bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
-    view.moveFocus('down'); // Main Menu
+    view.moveFocus('right'); // Adjust Loadout
 
     // Same-panel repeat terminal render: focus identity is preserved.
     bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
@@ -761,7 +837,7 @@ describe('PhaserRunSummaryView', () => {
     expect(buttons[0]!.state.strokeColor).not.toBe(FocusStroke.color);
 
     expect(view.confirmFocused()).toBe(true);
-    expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
+    expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, { initialPanel: 'equipment' });
   });
 
   it('switches the hint copy exactly per input mode (F9)', () => {
@@ -774,7 +850,7 @@ describe('PhaserRunSummaryView', () => {
     const texts = () =>
       scene.objects.filter((object) => object.state.kind === 'text').map((object) => object.state.text);
 
-    expect(texts()).toContain('Tap Retry or Main Menu');
+    expect(texts()).toContain('Tap an action');
     mode = 'keyboard';
     view.refreshInputPresentation();
     expect(texts()).toContain('Arrows • Enter/Space select');
@@ -852,7 +928,7 @@ describe('PhaserRunSummaryView', () => {
       expect(scene.scene.restart).toHaveBeenCalledTimes(1);
     });
 
-    it('emits one confirm and starts the menu scene from Main Menu', () => {
+    it('emits one confirm and starts the equipment loadout from Adjust Loadout', () => {
       const { bus, scene } = createHarness({ banked: bankedRun() });
       bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
       const events = recordEvents(bus);
@@ -860,7 +936,30 @@ describe('PhaserRunSummaryView', () => {
       liveButtons(scene)[1]!.state.handlers['pointerup']();
 
       expect(events).toEqual(['ui:confirm']);
+      expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, { initialPanel: 'equipment' });
+    });
+
+    it('emits one confirm and opens neutral Menu from Main Menu only after persistence is durable', () => {
+      const { bus, scene } = createHarness({ banked: bankedRun() });
+      bus.emit('run:lost', { timeMs: 90_000, level: 4, kills: 23 });
+      const events = recordEvents(bus);
+
+      liveButtons(scene)[2]!.state.handlers['pointerup']!();
+
+      expect(events).toEqual(['ui:confirm']);
       expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
+      expect(scene.scene.restart).not.toHaveBeenCalled();
+    });
+
+    it('does not offer Main Menu while terminal persistence is pending', () => {
+      const { bus, scene } = createHarness({
+        banked: bankedRun(),
+        canNavigate: () => false,
+        onDiscardPending: () => undefined,
+      });
+      bus.emit('run:lost', { timeMs: 90_000, level: 4, kills: 23 });
+      expect(textContents(scene)).not.toContain('Main Menu');
+      expect(liveButtons(scene)).toHaveLength(1);
     });
 
     it('button callbacks emit nothing after the view is destroyed', () => {

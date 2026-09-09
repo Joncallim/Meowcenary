@@ -26,6 +26,9 @@ export interface HudSnapshot {
    * read the same authoritative ability state. */
   readonly ability?: string;
   readonly achievement?: string;
+  /** A boss is intentionally a separate encounter signal, never folded into
+   * the player's compact HP/XP meters. */
+  readonly boss?: { readonly name: string; readonly health: number; readonly maxHealth: number };
 }
 
 export interface HudSource {
@@ -54,6 +57,13 @@ export class HudController implements System {
       bus.on('xp:gained', () => this.markDirty()),
       bus.on('level:up', () => this.markDirty()),
       bus.on('currency:changed', () => this.markDirty()),
+      // Lethal settlement updates the authoritative global kill count at the
+      // same boundary that emits this event.  Do not wait for the next clock
+      // tick to reflect a kill in the HUD (stage objectives may intentionally
+      // ignore a kill because of their filter, while K must never do so).
+      bus.on('enemy:killed', () => this.markDirty()),
+      bus.on('enemy:spawned', () => this.markDirty()),
+      bus.on('enemy:damaged', () => this.markDirty()),
       bus.on('achievement:completed', () => this.markDirty()),
 
       bus.on('run:paused', () => this.markDirty()),
@@ -125,6 +135,7 @@ function buildRenderKey(snapshot: HudSnapshot): string {
     snapshot.objective ?? '',
     snapshot.ability ?? '',
     snapshot.achievement ?? '',
+    snapshot.boss === undefined ? '' : `${snapshot.boss.name}|${snapshot.boss.health.toFixed(2)}|${snapshot.boss.maxHealth.toFixed(2)}`,
 
   ].join('|');
 }
@@ -136,13 +147,17 @@ export interface CreateHudSourceOptions {
   readonly objective?: () => string | undefined;
   readonly ability?: () => string | undefined;
   readonly achievement?: () => string | undefined;
+  readonly boss?: () => { readonly name: string; readonly health: number; readonly maxHealth: number } | undefined;
 }
 
 export function createHudSource(options: CreateHudSourceOptions): HudSource {
-  const { runState, player, durationMs, objective, ability, achievement } = options;
+  const { runState, player, durationMs, objective, ability, achievement, boss } = options;
   return {
     snapshot(): HudSnapshot {
-
+      const objectiveCopy = objective?.();
+      const abilityCopy = ability?.();
+      const achievementCopy = achievement?.();
+      const bossState = boss?.();
       const snapshot: HudSnapshot = {
         status: runState.status,
         timeMs: runState.timeMs,
@@ -154,9 +169,10 @@ export function createHudSource(options: CreateHudSourceOptions): HudSource {
         xpToNext: runState.xpToNext,
         kills: runState.kills,
         currency: runState.currency,
-        ...(objective?.() ? { objective: objective() } : {}),
-        ...(ability?.() ? { ability: ability() } : {}),
-        ...(achievement?.() ? { achievement: achievement() } : {}),
+        ...(objectiveCopy ? { objective: objectiveCopy } : {}),
+        ...(abilityCopy ? { ability: abilityCopy } : {}),
+        ...(achievementCopy ? { achievement: achievementCopy } : {}),
+        ...(bossState ? { boss: bossState } : {}),
       };
       return Object.freeze(snapshot);
     },
@@ -182,6 +198,7 @@ interface TopHudLayout {
   readonly xpTop: number;
   readonly statsTop: number;
   readonly statsStride: number;
+  readonly objectiveWidth: number;
 }
 
 function topHudLayout(viewport: UiViewport): TopHudLayout {
@@ -194,9 +211,9 @@ function topHudLayout(viewport: UiViewport): TopHudLayout {
   const fontSize = physicalToLogical(11, viewport);
   const labelSize = physicalToLogical(11, viewport);
   const canvasWidth = viewport.canvasWidth;
-  // The right edge hosts the shared ability and pause buttons. Bars and run
-  // numbers end before that control lane instead of drawing beneath it.
-  const controlLane = physicalToLogical(44 * 2 + 10 + 8, viewport);
+  // Pause is the only top-right system control. Ability lives in the separate
+  // lower-right combat thumb zone, so it must not steal top-HUD width.
+  const controlLane = physicalToLogical(44 + 8, viewport);
   const rightHudX = canvasWidth - rightMargin - controlLane;
   const barTop = topMargin + fontSize * 1.25 + physicalToLogical(5, viewport);
   const barHeight = Math.max(physicalToLogical(18, viewport), labelSize * 1.35);
@@ -204,9 +221,16 @@ function topHudLayout(viewport: UiViewport): TopHudLayout {
   const xpTop = barTop + barHeight + physicalToLogical(4, viewport);
   const statsTop = xpTop + barHeight + physicalToLogical(5, viewport);
   const statsStride = labelSize + physicalToLogical(3, viewport);
+  // Objective copy shares the metric row but must end before the K/S column.
+  // This keeps a long contract instruction from painting underneath either
+  // metric on narrow portrait devices.
+  const objectiveWidth = Math.max(
+    physicalToLogical(120, viewport),
+    healthBarWidth - physicalToLogical(54, viewport),
+  );
   return {
     margin, topMargin, rightMargin, fontSize, labelSize, canvasWidth, rightHudX,
-    barTop, barHeight, healthBarWidth, xpTop, statsTop, statsStride,
+    barTop, barHeight, healthBarWidth, xpTop, statsTop, statsStride, objectiveWidth,
   };
 }
 
@@ -216,7 +240,7 @@ export function topHudContentBottom(viewport: UiViewport): number {
   const layout = topHudLayout(viewport);
   // Kills and scrap occupy the right-side metric column on separate lines.
   // Reserve the taller column, not only the left-side feedback baseline.
-  return layout.statsTop + layout.labelSize * 2.5;
+  return layout.statsTop + layout.labelSize * 2.5 + layout.barHeight + physicalToLogical(5, viewport);
 }
 
 export class PhaserHudView implements HudView {
@@ -233,6 +257,9 @@ export class PhaserHudView implements HudView {
   private scrapText!: Phaser.GameObjects.Text;
   private killsText!: Phaser.GameObjects.Text;
   private objectiveText!: Phaser.GameObjects.Text;
+  private bossBarBg!: Phaser.GameObjects.Rectangle;
+  private bossBarFill!: Phaser.GameObjects.Rectangle;
+  private bossText!: Phaser.GameObjects.Text;
   private headerTextWidth = 1;
   private meterTextWidth = 1;
   private headerFontSize = 1;
@@ -271,7 +298,18 @@ export class PhaserHudView implements HudView {
     this.setContainedText(this.killsText, `K ${formatNumber(snapshot.kills)}`, this.headerTextWidth, this.labelFontSize);
     this.setContainedText(this.scrapText, `S ${formatNumber(Math.floor(snapshot.currency))}`, this.headerTextWidth, this.labelFontSize);
     const feedback = [snapshot.objective, snapshot.ability, snapshot.achievement].filter(Boolean);
-    this.setContainedText(this.objectiveText, truncateHudFeedback(feedback[0]), this.meterTextWidth, this.labelFontSize);
+    this.setContainedText(this.objectiveText, truncateHudFeedback(feedback[0]), topHudLayout(this.viewport).objectiveWidth, this.labelFontSize);
+    const boss = snapshot.boss;
+    const bossVisible = boss !== undefined;
+    this.bossBarBg.setVisible(bossVisible);
+    this.bossBarFill.setVisible(bossVisible);
+    this.bossText.setVisible(bossVisible);
+    if (boss) {
+      const max = Math.max(1, Number.isFinite(boss.maxHealth) ? boss.maxHealth : 1);
+      const health = Math.max(0, Number.isFinite(boss.health) ? boss.health : 0);
+      this.bossBarFill.setScale(Math.min(1, health / max), 1);
+      this.setContainedText(this.bossText, `${boss.name}  ${formatNumber(Math.ceil(health))}/${formatNumber(Math.ceil(max))}`, this.meterTextWidth, this.labelFontSize);
+    }
 
   }
 
@@ -412,6 +450,29 @@ export class PhaserHudView implements HudView {
     this.objectiveText.setScrollFactor(0);
     this.objectiveText.setDepth(ThemeDepth.hud);
 
+    const bossTop = layout.statsTop + layout.labelSize * 2.5 + physicalToLogical(5, viewport);
+    this.bossBarBg = scene.add.rectangle(
+      layout.margin + layout.healthBarWidth / 2,
+      bossTop + layout.barHeight / 2,
+      layout.healthBarWidth,
+      layout.barHeight,
+      0x4c1d3a,
+    );
+    this.bossBarBg.setScrollFactor(0).setDepth(ThemeDepth.hud).setVisible(false);
+    this.bossBarFill = scene.add.rectangle(
+      layout.margin,
+      bossTop + layout.barHeight / 2,
+      layout.healthBarWidth,
+      layout.barHeight,
+      ThemeColor.gold,
+    );
+    this.bossBarFill.setOrigin(0, 0.5).setScrollFactor(0).setDepth(ThemeDepth.hud).setVisible(false);
+    this.bossText = createUiText(scene, layout.margin + physicalToLogical(5, viewport), bossTop + layout.barHeight / 2, '', {
+      ...labelStyle,
+      color: '#1f2937',
+    });
+    this.bossText.setOrigin(0, 0.5).setScrollFactor(0).setDepth(ThemeDepth.hud).setVisible(false);
+
 
 
     this.container.add([
@@ -426,6 +487,9 @@ export class PhaserHudView implements HudView {
       this.killsText,
       this.scrapText,
       this.objectiveText,
+      this.bossBarBg,
+      this.bossBarFill,
+      this.bossText,
 
     ]);
   }

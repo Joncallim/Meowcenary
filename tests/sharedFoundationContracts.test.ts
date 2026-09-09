@@ -2,23 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { evaluateCondition, createConditionContext } from '../src/gameplay/conditionEvaluator';
 import { applyDurableGrantTransaction } from '../src/gameplay/grantProcessor';
 import { resolveRunPlan, type StageDefinition } from '../src/gameplay/stage/stageContracts';
-import { createDefaultSaveV3, MemoryStorageAdapter, SaveManager } from '../src/systems/save';
+import { createDefaultSaveV4, MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { collectGameDataErrors, loadGameData, validateGameData } from '../src/systems/validation';
 import { StageRegistry } from '../src/systems/stageRegistry';
 import { assembleComposedRunRequest } from '../src/gameplay/runRequest';
 import { createRng } from '../src/engine/rng';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataArenaRegistry } from '../src/systems/arenas';
-import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createStageRuntime } from '../src/gameplay/stage/stageRuntime';
 import { assertContentVersion, stampContentVersion } from '../src/engine/contentVersion';
 
 describe('Alpha 3 shared foundation canonical contracts', () => {
-  it('keeps catalog version diagnostic-only and outside the Save V3 shape', () => {
+  it('keeps catalog version diagnostic-only and outside the Save V4 shape', () => {
     expect(loadGameData().contentVersion).toBe('alpha3-1');
-    expect(JSON.stringify(createDefaultSaveV3())).not.toContain('contentVersion');
+    expect(JSON.stringify(createDefaultSaveV4())).not.toContain('contentVersion');
   });
 
   it('preserves fixture catalog identity and rejects replay/catalog mismatches', () => {
@@ -43,8 +42,8 @@ describe('Alpha 3 shared foundation canonical contracts', () => {
       ],
     };
     const storage = new MemoryStorageAdapter();
-    const manager = new SaveManager(storage, 'shared-contract-ids', {});
-    const committed = applyDurableGrantTransaction(createDefaultSaveV3(), transaction);
+    const manager = new SaveManager(storage, 'shared-contract-ids');
+    const committed = applyDurableGrantTransaction(createDefaultSaveV4(), transaction);
     expect(manager.save(committed.save)).toBe(true);
     const reloaded = manager.load();
 
@@ -60,7 +59,7 @@ describe('Alpha 3 shared foundation canonical contracts', () => {
   });
 
   it('rejects reconstructed/double-prefixed canonical IDs before durable state changes', () => {
-    const save = createDefaultSaveV3();
+    const save = createDefaultSaveV4();
     const malformed = applyDurableGrantTransaction(save, {
       id: 'stage:contract-fixture:reward',
       grants: [{ type: 'unlock-stage', stageId: 'stage:stage:contract-fixture' }],
@@ -132,9 +131,6 @@ describe('Alpha 3 shared foundation canonical contracts', () => {
     expect(composed).toMatchObject({ kind: 'stage', stageId: fixture.id });
     if (composed.kind !== 'stage') throw new Error('Second fixture unexpectedly composed as legacy');
     const plan = resolveRunPlan(composed, registry.runPlanCatalog());
-    // Exercise the same run-plan → objective → pending reward → durable fact
-    // boundary consumed by GameScene. No fixture-specific scene branch,
-    // reward wiring, or schema key is introduced here.
     const runtime = createStageRuntime(plan);
     runtime.tick(0, 0);
     runtime.recordEnemyDefeat(encounters[0].enemyIds[0]);
@@ -142,12 +138,11 @@ describe('Alpha 3 shared foundation canonical contracts', () => {
     runtime.tick(0, 60_000);
     const pending = runtime.pendingClear;
     if (!pending) throw new Error('Second fixture did not complete its generic objective');
-    const metaUpgrades = new DataMetaUpgradeRegistry(validated);
     const context = createGameContext({
       bus: createEventBus(), menuRng: createRng(1), data: validated,
       arenas: new DataArenaRegistry(validated), characters: new DataCharacterRegistry(validated),
-      metaUpgrades, stages: registry,
-      save: new SaveManager(new MemoryStorageAdapter(), 'shared-fixture-runtime', metaUpgrades.maxLevels()),
+      stages: registry,
+      save: new SaveManager(new MemoryStorageAdapter(), 'shared-fixture-runtime'),
     });
     const transaction = {
       id: `stage:${fixture.id.slice('stage:'.length)}:first-clear`,

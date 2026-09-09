@@ -185,12 +185,14 @@ function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: b
   const input = new MockInputPlugin({ keyboard: true, gamepad });
   const controller = new InputController({ ...scene, input } as never, { touchStick });
   const onPauseRequested = vi.fn();
+  const onAbilityRequested = vi.fn();
   const view = new ControlsView({
     scene: scene as never,
     input: controller,
     viewport: zoomed ? zoomedGameUiViewport(scene.scale.displaySize.width, scene.scale.displaySize.height) : logicalCanvasViewport(),
     readReducedMotion,
     onPauseRequested,
+    onAbilityRequested,
     touchStick,
   });
   // GameScene runs InputController.update before the view update each frame.
@@ -198,7 +200,7 @@ function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: b
     controller.update(dtMs);
     view.update(dtMs);
   };
-  return { scene, input, controller, view, onPauseRequested, tick };
+  return { scene, input, controller, view, onPauseRequested, onAbilityRequested, tick };
 }
 
 describe('ControlsView virtual stick', () => {
@@ -230,7 +232,7 @@ describe('ControlsView virtual stick', () => {
     expect(stickThumb.state.visible).toBe(false);
   });
 
-  it('clamps the stick thumb to the same 64 px radius as the intent math', () => {
+  it('uses a compact 48 px visual stick while preserving the input intent range', () => {
     const { scene, input, view } = createHarness();
     // [root, stickBase, stickThumb, hint, pause]
     const stickThumb = scene.objects[2];
@@ -238,14 +240,14 @@ describe('ControlsView virtual stick', () => {
     input.pointerDown(100, 100);
     input.pointerMove(300, 100);
     view.update(16);
-    expect(stickThumb.state.x).toBe(164);
+    expect(stickThumb.state.x).toBe(148);
     expect(stickThumb.state.y).toBe(100);
 
     input.pointerMove(300, 300);
     view.update(16);
     const dx = (stickThumb.state.x as number) - 100;
     const dy = (stickThumb.state.y as number) - 100;
-    expect(Math.hypot(dx, dy)).toBeCloseTo(64, 10);
+    expect(Math.hypot(dx, dy)).toBeCloseTo(48, 10);
   });
   it('uses one injected anchored config for fixed base and shared radius intent', () => {
     const touchStick: TouchStickConfig = {
@@ -271,7 +273,7 @@ describe('ControlsView virtual stick', () => {
 });
 
 describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
-  it('authors the stick radius at 64/1.25 with no arc scale — ONE zoom compensation (M-02/AM-3)', () => {
+  it('authors the compact visual stick radius at 48/1.25 with no arc scale — ONE zoom compensation (M-02/AM-3)', () => {
     const { scene } = createHarness({ zoomed: true });
     const [root, stickBase, stickThumb] = scene.objects;
     // The camera zoom 1.25 grows world units, so the authored radius is
@@ -279,8 +281,8 @@ describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
     // diameter is 2·(64/1.25)·1.25·s = 128·s physical px (AM-3 binding).
     expect(root.state.x).toBeCloseTo(39, 6);
     expect(root.state.y).toBeCloseTo(84.4, 6);
-    expect(stickBase.state.radius).toBe(64 / GAMEPLAY_ZOOM);
-    expect(stickThumb.state.radius).toBe((64 / GAMEPLAY_ZOOM) * 0.45);
+    expect(stickBase.state.radius).toBe(48 / GAMEPLAY_ZOOM);
+    expect(stickThumb.state.radius).toBe((48 / GAMEPLAY_ZOOM) * 0.45);
     expect(stickBase.state.scaleX).toBe(1);
     expect(stickBase.state.scaleY).toBe(1);
     expect(stickThumb.state.scaleX).toBe(1);
@@ -288,7 +290,7 @@ describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
 
     // The unzoomed (menu/plain) controls never shrink the arcs.
     const plain = createHarness();
-    expect(plain.scene.objects[1].state.radius).toBe(64);
+    expect(plain.scene.objects[1].state.radius).toBe(48);
     expect(plain.scene.objects[1].state.scaleX).toBe(1);
   });
 
@@ -344,7 +346,7 @@ describe('ControlsView hints', () => {
     const pause = scene.objects.find((object) => !object.state.destroyed && object.state.interactive)!;
     const fitScale = 390 / 844;
     // The strip is gone: the hint owns the bottom safe margin above the stick.
-    expect(Number(hint.state.y) * fitScale).toBeCloseTo(238, 5);
+    expect(Number(hint.state.y) * fitScale).toBeCloseTo(270, 5);
     expect(Number(pause.state.width) * fitScale).toBeCloseTo(44, 5);
     expect(Number(pause.state.height) * fitScale).toBeCloseTo(44, 5);
 
@@ -513,6 +515,77 @@ describe('ControlsView pause button', () => {
     expect(bars.every((bar) => bar.listenerCount('pointerdown') === 0)).toBe(true);
     pauseButton.emit('pointerdown');
     expect(onPauseRequested).toHaveBeenCalledTimes(1);
+    view.destroy();
+  });
+});
+
+describe('ControlsView ability button', () => {
+  it('puts the 56px ability target in the lower-right thumb zone while pause stays top-right', () => {
+    const { scene, view } = createHarness({ zoomed: true });
+    const pause = scene.objects.find((object) => object.state.interactive && object.state.fillColor === ThemeColor.surface)!;
+    const ability = scene.objects.find((object) => object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
+
+    // GameScene UI is authored in camera-compensated world units.  The
+    // 56px target therefore divides by GAMEPLAY_ZOOM, then renders back to
+    // exactly 56 physical pixels under the gameplay camera.
+    expect(Number(ability.state.width) * GAMEPLAY_ZOOM).toBeCloseTo(56, 5);
+    expect(Number(ability.state.height) * GAMEPLAY_ZOOM).toBeCloseTo(56, 5);
+    expect(Number(ability.state.y)).toBeGreaterThan(Number(pause.state.y));
+    view.destroy();
+  });
+
+  it('retains a 56px lower-right target through every supported phone and desktop viewport', () => {
+    const { scene, view } = createHarness({ zoomed: true });
+    for (const [width, height] of [[360, 640], [390, 844], [844, 390], [1280, 720], [1920, 1080]]) {
+      scene.resize(width, height);
+      const ability = scene.objects.find((object) => !object.state.destroyed
+        && object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
+      const fit = Math.min(width / 390, height / 844);
+      expect(Number(ability.state.width) * GAMEPLAY_ZOOM * fit).toBeCloseTo(56, 5);
+      expect(Number(ability.state.height) * GAMEPLAY_ZOOM * fit).toBeCloseTo(56, 5);
+      // The authored right/bottom edges retain two 12px physical insets.
+      expect(Number(ability.state.x) + Number(ability.state.width) / 2).toBeLessThanOrEqual(312);
+      expect(Number(ability.state.y) + Number(ability.state.height) / 2).toBeLessThanOrEqual(675);
+    }
+    view.destroy();
+  });
+
+  it('keeps ability as UI ownership: a second-finger press fires once without ending the pinned movement drag', () => {
+    const { scene, input, controller, onAbilityRequested, tick, view } = createHarness();
+    const ability = scene.objects.find((object) => object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
+
+    input.pointerDown(40, 600, 0);
+    input.pointerMove(100, 600, 0);
+    tick();
+    const moving = controller.getMoveVector();
+    expect(moving.x).toBeGreaterThan(0);
+    expect(moving.y).toBe(0);
+
+    // This mirrors Phaser's scene pointerdown currentlyOver parameter for
+    // an interactive A control. The control itself owns its callback.
+    input.emit('pointerdown', { x: ability.state.x, y: ability.state.y, isDown: true, id: 1 }, [ability]);
+    ability.emit('pointerdown');
+    tick();
+    expect(onAbilityRequested).toHaveBeenCalledTimes(1);
+    expect(controller.getMoveVector()).toEqual(moving);
+
+    input.emit('pointerup', { id: 1 });
+    tick();
+    expect(controller.getMoveVector()).toEqual(moving);
+    view.destroy();
+  });
+
+  it('rebuilds one lower-right ability target on resize and removes the stale hit target in extraction state', () => {
+    const { scene, view } = createHarness({ zoomed: true });
+    const oldAbility = scene.objects.find((object) => object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
+    scene.resize(844, 390);
+    const liveAbility = scene.objects.filter((object) => !object.state.destroyed && object.state.interactive && object.state.fillColor === ThemeColor.primary);
+    expect(oldAbility.state.destroyed).toBe(true);
+    expect(liveAbility).toHaveLength(1);
+
+    view.setExtractionState(true);
+    expect(liveAbility[0].state.destroyed).toBe(true);
+    expect(scene.objects.filter((object) => !object.state.destroyed && object.state.interactive && object.state.fillColor === ThemeColor.primary)).toHaveLength(1);
     view.destroy();
   });
 });

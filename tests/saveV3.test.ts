@@ -4,28 +4,27 @@ import {
   DEFAULT_SETTINGS,
   MemoryStorageAdapter,
   SaveManager,
-  createDefaultProgression,
-  createDefaultSaveV3,
+  createDefaultProgressionV4,
+  createDefaultSaveV4,
   migrate,
-  migrateV2ToV3,
   sanitizeProgression,
-  type SaveDataV3,
+  type SaveDataV4,
 } from '../src/systems/save';
 
 const limits = Object.freeze({ 'reinforced-vest': 5 });
 
-describe('Save V3 migration (V2→V3)', () => {
-  it('CURRENT_SAVE_VERSION is 3', () => {
-    expect(CURRENT_SAVE_VERSION).toBe(3);
+describe('Save V4 migration (V1/V2/V3→V4)', () => {
+  it('CURRENT_SAVE_VERSION is 4', () => {
+    expect(CURRENT_SAVE_VERSION).toBe(4);
   });
 
-  it('creates fresh deeply frozen V3 defaults', () => {
-    const first = createDefaultSaveV3();
-    const second = createDefaultSaveV3();
+  it('creates fresh deeply frozen V4 defaults', () => {
+    const first = createDefaultSaveV4();
+    const second = createDefaultSaveV4();
     expect(first).toEqual({
-      version: 3,
+      version: 4,
       settings: DEFAULT_SETTINGS,
-      progression: createDefaultProgression(),
+      progression: createDefaultProgressionV4(),
       stages: {},
       achievements: {},
       achievementMetrics: {},
@@ -35,6 +34,7 @@ describe('Save V3 migration (V2→V3)', () => {
       equipmentLoadout: {},
       items: {},
       bosses: {},
+      compendium: {},
       pendingAchievementReports: [],
       appliedGrantTransactions: {},
       grantTransactionFingerprints: {},
@@ -43,7 +43,6 @@ describe('Save V3 migration (V2→V3)', () => {
     expect(Object.isFrozen(first)).toBe(true);
     expect(Object.isFrozen(first.settings)).toBe(true);
     expect(Object.isFrozen(first.progression.unlocks)).toBe(true);
-    expect(Object.isFrozen(first.progression.permanentUpgrades)).toBe(true);
     expect(Object.isFrozen(first.stages)).toBe(true);
     expect(Object.isFrozen(first.achievements)).toBe(true);
     expect(Object.isFrozen(first.achievementMetrics)).toBe(true);
@@ -51,7 +50,7 @@ describe('Save V3 migration (V2→V3)', () => {
 
   it('freezes nested durable records and preserves canonical achievement metrics across reload', () => {
     const storage = new MemoryStorageAdapter();
-    const manager = new SaveManager(storage, 'v3-nested-freeze', limits);
+    const manager = new SaveManager(storage, 'v4-nested-freeze');
     const save = migrate({
       version: 3,
       settings: DEFAULT_SETTINGS,
@@ -66,7 +65,7 @@ describe('Save V3 migration (V2→V3)', () => {
       },
       equipment: { 'owned-helmet': { equipmentId: 'equipment:commando-helmet', tier: 1 } },
       bosses: { 'boss-crusher': { defeated: true } },
-    }, limits) as SaveDataV3;
+    }, limits) as SaveDataV4;
     expect(Object.isFrozen(save.stages['stage:junkyard-01'])).toBe(true);
     expect(Object.isFrozen(save.gunsmith.parts['owned-a'])).toBe(true);
     expect(Object.isFrozen(save.gunsmith.parts['owned-a'].infusedTraits)).toBe(true);
@@ -77,7 +76,7 @@ describe('Save V3 migration (V2→V3)', () => {
     expect(manager.load().achievementMetrics).toEqual({ 'metric:enemies-defeated': 17 });
   });
 
-  it('migrates V2 → V3 preserving scrap and unlocks', () => {
+  it('migrates V2 → V4 preserving scrap and unlocks', () => {
     const v2 = {
       version: 2,
       settings: { ...DEFAULT_SETTINGS, muted: true },
@@ -87,16 +86,15 @@ describe('Save V3 migration (V2→V3)', () => {
         permanentUpgrades: { 'reinforced-vest': 3 },
       },
     };
-    const v3 = migrateV2ToV3(v2);
-    expect(v3.version).toBe(3);
-    expect(v3.settings.muted).toBe(true);
-    expect(v3.progression.scrap).toBe(500);
-    expect(v3.progression.unlocks).toEqual(['character:bolt-hound', 'stage:junkyard-01']);
-    expect(v3.progression.permanentUpgrades).toEqual({ 'reinforced-vest': 3 });
-    expect(v3.stages).toEqual({});
-    expect(v3.characters).toEqual({});
-    expect(v3.gunsmith).toEqual({ builds: [], parts: {} });
-    expect(v3.equipment).toEqual({});
+    const v4 = migrate(v2, limits) as SaveDataV4;
+    expect(v4.version).toBe(4);
+    expect(v4.settings.muted).toBe(true);
+    expect(v4.progression.scrap).toBe(500);
+    expect(v4.progression.unlocks).toEqual(['character:bolt-hound', 'stage:junkyard-01']);
+    expect(v4.stages).toEqual({});
+    expect(v4.characters).toEqual({});
+    expect(v4.gunsmith).toEqual({ builds: [], parts: {} });
+    expect(v4.equipment).toEqual({});
   });
 
   it('migrates achievement:first-victory to achievements map', () => {
@@ -109,13 +107,12 @@ describe('Save V3 migration (V2→V3)', () => {
         permanentUpgrades: {},
       },
     };
-    const v3 = migrateV2ToV3(v2);
-    expect(v3.achievements['achievement:first-victory']).toEqual({
+    const v4 = migrate(v2, limits) as SaveDataV4;
+    expect(v4.achievements['achievement:first-victory']).toEqual({
       completed: true,
       completedAt: undefined,
     });
-    // The unlock is still in progression.unlocks (it's preserved)
-    expect(v3.progression.unlocks).toContain('achievement:first-victory');
+    expect(v4.progression.unlocks).toContain('achievement:first-victory');
   });
 
   it('reconciles the legacy 100-kill character grant to Scrap Weasel without dropping old unlocks', () => {
@@ -128,7 +125,7 @@ describe('Save V3 migration (V2→V3)', () => {
       achievementMetrics: { 'metric:enemies-defeated': 100 },
       characters: {}, gunsmith: { builds: [], parts: {} }, equipment: {}, equipmentLoadout: {}, items: {}, bosses: {},
       pendingAchievementReports: [], appliedGrantTransactions: {}, grantTransactionFingerprints: {},
-    }, limits) as SaveDataV3;
+    }, limits) as SaveDataV4;
     expect(save.progression.unlocks).toContain('character:bolt-hound');
     expect(save.progression.unlocks).toContain('character:scrap-weasel');
   });
@@ -143,8 +140,8 @@ describe('Save V3 migration (V2→V3)', () => {
         permanentUpgrades: {},
       },
     };
-    const v3 = migrateV2ToV3(v2);
-    expect(v3.achievements).toEqual({});
+    const v4 = migrate(v2, limits) as SaveDataV4;
+    expect(v4.achievements).toEqual({});
   });
 
   it('migration round-trip is stable', () => {
@@ -157,17 +154,15 @@ describe('Save V3 migration (V2→V3)', () => {
         permanentUpgrades: { 'reinforced-vest': 2 },
       },
     };
-    const v3 = migrateV2ToV3(v2);
-    // Migrate again — should produce the same result
-    const v3Again = migrate(v2, limits);
-    expect(v3Again).toEqual(v3);
-    // Migrating V3 itself should return equivalent V3
-    expect(migrate(v3, limits)).toEqual(v3);
+    const v4 = migrate(v2, limits);
+    const v4Again = migrate(v2, limits);
+    expect(v4Again).toEqual(v4);
+    expect(migrate(v4, limits)).toEqual(v4);
   });
 });
 
-describe('V1 → V3 migration chain', () => {
-  it('migrates V1 → V3 preserving settings and producing defaults', () => {
+describe('V1 → V4 migration chain', () => {
+  it('migrates V1 → V4 preserving settings and producing defaults', () => {
     const v1 = {
       version: 1,
       settings: {
@@ -178,23 +173,22 @@ describe('V1 → V3 migration chain', () => {
       },
       meta: {},
     };
-    const v3 = migrate(v1, limits) as SaveDataV3;
-    expect(v3.version).toBe(3);
-    expect(v3.settings).toEqual({
+    const v4 = migrate(v1, limits) as SaveDataV4;
+    expect(v4.version).toBe(4);
+    expect(v4.settings).toEqual({
       muted: true,
       musicVolume: 0.4,
       sfxVolume: 0.6,
       reducedMotion: true,
     });
-    expect(v3.progression.scrap).toBe(0);
-    expect(v3.progression.unlocks).toEqual([]);
-    expect(v3.progression.permanentUpgrades).toEqual({});
-    expect(v3.stages).toEqual({});
-    expect(v3.achievements).toEqual({});
+    expect(v4.progression.scrap).toBe(0);
+    expect(v4.progression.unlocks).toEqual([]);
+    expect(v4.stages).toEqual({});
+    expect(v4.achievements).toEqual({});
   });
 });
 
-describe('V3 domain sanitizers', () => {
+describe('V4 domain sanitizers', () => {
   it('preserves distinct opaque owned instances and durable receipt IDs', () => {
     const raw = {
       version: 3,
@@ -219,28 +213,28 @@ describe('V3 domain sanitizers', () => {
         constructor: 'hostile',
       },
     };
-    const v3 = migrate(raw, limits) as SaveDataV3;
-    expect(v3.gunsmith.parts['part-copy-a'].partId).toBe('part:barrel-standard');
-    expect(v3.gunsmith.parts['part-copy-a']).toMatchObject({ tier: 5, infusedTraits: ['FIRE', 'EXPLOSIVE'] });
-    expect(v3.gunsmith.parts['part-copy-b']).toBeDefined();
-    expect(v3.equipment['equip-copy-a']).toMatchObject({ equipmentId: 'equipment:commando-helmet', tier: 1 });
-    expect(v3.equipment['equip-copy-b']).toMatchObject({ equipmentId: 'equipment:commando-helmet', tier: 3 });
-    expect(v3.equipment['equipment:legacy-definition']).toMatchObject({ equipmentId: 'equipment:legacy-definition', tier: 2 });
-    expect(v3.equipment['invalid-equipment-instance']).toBeUndefined();
-    expect(v3.appliedGrantTransactions['stage:junkyard-01:first-clear']).toBe(true);
-    expect(Object.prototype.hasOwnProperty.call(v3.appliedGrantTransactions, 'constructor')).toBe(false);
-    expect(v3.grantTransactionFingerprints).toEqual({
+    const v4 = migrate(raw, limits) as SaveDataV4;
+    expect(v4.gunsmith.parts['part-copy-a'].partId).toBe('part:barrel-standard');
+    expect(v4.gunsmith.parts['part-copy-a']).toMatchObject({ tier: 5, infusedTraits: ['EXPLOSIVE', 'FIRE'] });
+    expect(v4.gunsmith.parts['part-copy-b']).toBeDefined();
+    expect(v4.equipment['equip-copy-a']).toMatchObject({ equipmentId: 'equipment:commando-helmet', tier: 1 });
+    expect(v4.equipment['equip-copy-b']).toMatchObject({ equipmentId: 'equipment:commando-helmet', tier: 3 });
+    expect(v4.equipment['equipment:legacy-definition']).toMatchObject({ equipmentId: 'equipment:legacy-definition', tier: 2 });
+    expect(v4.equipment['invalid-equipment-instance']).toBeUndefined();
+    expect(v4.appliedGrantTransactions['stage:junkyard-01:first-clear']).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(v4.appliedGrantTransactions, 'constructor')).toBe(false);
+    expect(v4.grantTransactionFingerprints).toEqual({
       'stage:junkyard-01:first-clear': '[{"amount":25,"type":"grant-scrap"}]',
     });
   });
 
   it('keeps only owned equipment instance references in the equipped loadout', () => {
-    const v3 = migrate({ version: 3, settings: DEFAULT_SETTINGS, progression: { scrap: 0, unlocks: [], permanentUpgrades: {} }, stages: {}, achievements: {}, characters: {}, gunsmith: { builds: [], parts: {} }, equipment: { 'equip-a': { equipmentId: 'equipment:commando-helmet', tier: 2 } }, equipmentLoadout: { helmet: 'equip-a', boots: 'missing' } }, limits) as SaveDataV3;
-    expect(v3.equipmentLoadout).toEqual({ helmet: 'equip-a' });
+    const v4 = migrate({ version: 3, settings: DEFAULT_SETTINGS, progression: { scrap: 0, unlocks: [], permanentUpgrades: {} }, stages: {}, achievements: {}, characters: {}, gunsmith: { builds: [], parts: {} }, equipment: { 'equip-a': { equipmentId: 'equipment:commando-helmet', tier: 2 } }, equipmentLoadout: { helmet: 'equip-a', boots: 'missing' } }, limits) as SaveDataV4;
+    expect(v4.equipmentLoadout).toEqual({ helmet: 'equip-a' });
   });
 
   it('drops cross-domain and reconstructed definition IDs from owned parts', () => {
-    const v3 = migrate({
+    const v4 = migrate({
       version: 3, settings: DEFAULT_SETTINGS, progression: { scrap: 0, unlocks: [], permanentUpgrades: {} },
       stages: {}, achievements: {}, characters: {}, equipment: {},
       gunsmith: { builds: [], parts: {
@@ -248,8 +242,8 @@ describe('V3 domain sanitizers', () => {
         'cross-domain': { partId: 'character:bolt-hound', tier: 1, infusedTraits: [] },
         reconstructed: { partId: 'part:part:barrel-standard', tier: 1, infusedTraits: [] },
       } },
-    }, limits) as SaveDataV3;
-    expect(Object.keys(v3.gunsmith.parts)).toEqual(['valid-owned']);
+    }, limits) as SaveDataV4;
+    expect(Object.keys(v4.gunsmith.parts)).toEqual(['valid-owned']);
   });
 
   it('sanitizes stage progress with valid keys and invalid entries', () => {
@@ -268,11 +262,11 @@ describe('V3 domain sanitizers', () => {
       gunsmith: { builds: [], parts: {} },
       equipment: {},
     };
-    const v3 = migrate(raw, limits) as SaveDataV3;
-    expect(v3.stages['stage:junkyard-01']).toEqual({ completed: true, bestTimeMs: 45000 });
-    expect(v3.stages['stage:junkyard-02']).toEqual({ completed: false });
-    expect(v3.stages['bad-key!!!']).toBeUndefined();
-    expect(v3.stages['stage:junkyard-03']).toBeUndefined();
+    const v4 = migrate(raw, limits) as SaveDataV4;
+    expect(v4.stages['stage:junkyard-01']).toEqual({ completed: true, bestTimeMs: 45000 });
+    expect(v4.stages['stage:junkyard-02']).toEqual({ completed: false });
+    expect(v4.stages['bad-key!!!']).toBeUndefined();
+    expect(v4.stages['stage:junkyard-03']).toBeUndefined();
   });
 
   it('sanitizes achievement progress', () => {
@@ -291,19 +285,19 @@ describe('V3 domain sanitizers', () => {
       gunsmith: { builds: [], parts: {} },
       equipment: {},
     };
-    const v3 = migrate(raw, limits) as SaveDataV3;
-    expect(v3.achievements['achievement:first-victory']).toEqual({
+    const v4 = migrate(raw, limits) as SaveDataV4;
+    expect(v4.achievements['achievement:first-victory']).toEqual({
       completed: true, progress: 1, completedAt: 1700000000000,
     });
-    expect(v3.achievements['achievement:kill-100']).toEqual({
+    expect(v4.achievements['achievement:kill-100']).toEqual({
       completed: false, progress: 50,
     });
-    expect(v3.achievements['bad-id']).toBeUndefined();
-    expect(v3.achievements['achievement:bad-type']).toBeUndefined();
+    expect(v4.achievements['bad-id']).toBeUndefined();
+    expect(v4.achievements['achievement:bad-type']).toBeUndefined();
   });
 
   it('drops cross-domain identities from fact and inventory domains', () => {
-    const v3 = migrate({
+    const v4 = migrate({
       version: 3, settings: DEFAULT_SETTINGS, progression: { scrap: 0, unlocks: [], permanentUpgrades: {} },
       stages: { 'stage:junkyard-01': { completed: true }, 'character:bolt-hound': { completed: true } },
       achievements: { 'achievement:first-victory': { completed: true }, 'character:bolt-hound': { completed: true } },
@@ -311,12 +305,12 @@ describe('V3 domain sanitizers', () => {
       characters: {}, gunsmith: { builds: [], parts: {} }, equipment: {},
       items: { 'item:scrap-shot': 2, 'achievement:first-victory': 99 },
       bosses: { 'boss-crusher': { defeated: true }, 'stage:junkyard-01': { defeated: true } },
-    }, limits) as SaveDataV3;
-    expect(v3.stages).toEqual({ 'stage:junkyard-01': { completed: true } });
-    expect(v3.achievements).toEqual({ 'achievement:first-victory': { completed: true } });
-    expect(v3.achievementMetrics).toEqual({ 'metric:enemies-defeated': 1 });
-    expect(v3.items).toEqual({ 'item:scrap-shot': 2 });
-    expect(v3.bosses).toEqual({ 'boss-crusher': { defeated: true } });
+    }, limits) as SaveDataV4;
+    expect(v4.stages).toEqual({ 'stage:junkyard-01': { completed: true } });
+    expect(v4.achievements).toEqual({ 'achievement:first-victory': { completed: true } });
+    expect(v4.achievementMetrics).toEqual({ 'metric:enemies-defeated': 1 });
+    expect(v4.items).toEqual({ 'item:scrap-shot': 2 });
+    expect(v4.bosses).toEqual({ 'boss-crusher': { defeated: true } });
   });
 
   it('sanitizes character mastery', () => {
@@ -333,61 +327,60 @@ describe('V3 domain sanitizers', () => {
       gunsmith: { builds: [], parts: {} },
       equipment: {},
     };
-    const v3 = migrate(raw, limits) as SaveDataV3;
-    expect(v3.characters['scrap-tabby']).toEqual({ tier: 3, xp: 450 });
-    expect(v3.characters['bad char']).toBeUndefined();
+    const v4 = migrate(raw, limits) as SaveDataV4;
+    expect(v4.characters['scrap-tabby']).toEqual({ tier: 3, xp: 450 });
+    expect(v4.characters['bad char']).toBeUndefined();
   });
 });
 
-describe('V3 write-protection for future versions', () => {
-  it('write-protects version > 3', () => {
+describe('V4 write-protection for future versions', () => {
+  it('write-protects version > 4', () => {
     const storage = new MemoryStorageAdapter();
-    storage.setItem('test', JSON.stringify({ version: 99, settings: { muted: true }, meta: { scrap: 99 } }));
-    const manager = new SaveManager(storage, 'test', limits);
+    storage.setItem('test', JSON.stringify({ version: 99, settings: { muted: true }, progression: { scrap: 99 } }));
+    const manager = new SaveManager(storage, 'test');
     const loaded = manager.load();
-    expect(loaded.version).toBe(3); // defaults returned
+    expect(loaded.version).toBe(4); // defaults returned
     expect(loaded.progression.scrap).toBe(0); // not 99
-    // Write-protection is active
-    expect(manager.save(createDefaultSaveV3())).toBe(false);
+    expect(manager.save(createDefaultSaveV4())).toBe(false);
   });
 
-  it('write-protects version 4', () => {
+  it('write-protects version 5', () => {
     const storage = new MemoryStorageAdapter();
-    storage.setItem('test', JSON.stringify({ version: 4, settings: DEFAULT_SETTINGS, meta: { scrap: 999 } }));
-    const manager = new SaveManager(storage, 'test', limits);
+    storage.setItem('test', JSON.stringify({ version: 5, settings: DEFAULT_SETTINGS, progression: { scrap: 999 } }));
+    const manager = new SaveManager(storage, 'test');
     const loaded = manager.load();
-    expect(loaded.version).toBe(3);
+    expect(loaded.version).toBe(4);
     expect(loaded.progression.scrap).toBe(0);
-    expect(manager.save(createDefaultSaveV3())).toBe(false);
+    expect(manager.save(createDefaultSaveV4())).toBe(false);
   });
 
   it('clearing removes write-protection', () => {
     const storage = new MemoryStorageAdapter();
-    storage.setItem('test', JSON.stringify({ version: 4, settings: DEFAULT_SETTINGS, meta: { scrap: 999 } }));
-    const manager = new SaveManager(storage, 'test', limits);
+    storage.setItem('test', JSON.stringify({ version: 5, settings: DEFAULT_SETTINGS, progression: { scrap: 999 } }));
+    const manager = new SaveManager(storage, 'test');
     manager.load();
-    expect(manager.save(createDefaultSaveV3())).toBe(false);
+    expect(manager.save(createDefaultSaveV4())).toBe(false);
     expect(manager.clear()).toBe(true);
-    expect(manager.save(createDefaultSaveV3())).toBe(true);
+    expect(manager.save(createDefaultSaveV4())).toBe(true);
   });
 });
 
 describe('malformed save fallback', () => {
   it.each(['', '{broken', 'null', '[]', '{}'])(
-    'returns a complete default V3 for malformed input %j',
-    (raw) => expect(migrate(raw, limits)).toEqual(createDefaultSaveV3()),
+    'returns a complete default V4 for malformed input %j',
+    (raw) => expect(migrate(raw, limits)).toEqual(createDefaultSaveV4()),
   );
 
   it('returns defaults for invalid versions', () => {
-    expect(migrate({}, limits)).toEqual(createDefaultSaveV3());
-    expect(migrate({ version: 0 }, limits)).toEqual(createDefaultSaveV3());
-    expect(migrate({ version: -1 }, limits)).toEqual(createDefaultSaveV3());
-    expect(migrate({ version: 1.5 }, limits)).toEqual(createDefaultSaveV3());
+    expect(migrate({}, limits)).toEqual(createDefaultSaveV4());
+    expect(migrate({ version: 0 }, limits)).toEqual(createDefaultSaveV4());
+    expect(migrate({ version: -1 }, limits)).toEqual(createDefaultSaveV4());
+    expect(migrate({ version: 1.5 }, limits)).toEqual(createDefaultSaveV4());
   });
 
   it('recovers from hostile proxies', () => {
     const accessor = Object.defineProperty({}, 'version', { enumerable: true, get() { throw new Error('no'); } });
-    expect(migrate(accessor, limits)).toEqual(createDefaultSaveV3());
+    expect(migrate(accessor, limits)).toEqual(createDefaultSaveV4());
   });
 });
 

@@ -3,7 +3,7 @@
  * Alpha 3 architecture §8.2: modular per-domain validator following the
  * existing RowCheck pattern.
  */
-import { PART_SLOTS, BEHAVIOR_TRAITS, MAX_TRAITS_PER_PART } from '../../gameplay/gunsmith';
+import { PART_SLOTS, BEHAVIOR_TRAITS, MAX_EFFECTIVE_TRAITS_PER_PART } from '../../gameplay/gunsmith';
 import { WEAPON_MODIFIER_STAT_KEYS } from '../../gameplay/stats';
 import { isUnlockId } from '../ids';
 import { validateProgressionCondition } from '../../gameplay/conditionValidation';
@@ -33,9 +33,7 @@ export const checkPart: RowCheckFn = (row: unknown, _index: number): string[] =>
   if (typeof p.rarity !== 'string' || !VALID_RARITIES.has(p.rarity)) {
     errors.push('rarity: must be common, uncommon, rare, epic, or legendary');
   }
-  if (typeof p.tier !== 'number' || !Number.isSafeInteger(p.tier) || p.tier < 1) {
-    errors.push('tier: must be a positive safe integer');
-  }
+  if (p.tier !== undefined) errors.push('tier: retired; owned instances carry tier');
   if (!p.presentation || typeof p.presentation !== 'object' || Array.isArray(p.presentation)
       || typeof (p.presentation as Record<string, unknown>).iconArtId !== 'string') {
     errors.push('presentation.iconArtId: required canonical visual-art ID');
@@ -59,17 +57,15 @@ export const checkPart: RowCheckFn = (row: unknown, _index: number): string[] =>
       if (typeof e.value !== 'number' || !Number.isFinite(e.value) || e.value === 0) {
         errors.push(`effects[${i}].value: must be a non-zero finite number`);
       }
-      if (typeof e.sourceId !== 'string' || e.sourceId.length === 0) {
-        errors.push(`effects[${i}].sourceId: must be a non-empty string`);
-      }
+      if (e.sourceId !== undefined) errors.push(`effects[${i}].sourceId: static modifiers must be source-free`);
     });
   }
 
   if (!Array.isArray(p.traits)) {
     errors.push('traits: must be an array');
   } else {
-    if (p.traits.length > MAX_TRAITS_PER_PART) {
-      errors.push(`traits: at most ${MAX_TRAITS_PER_PART} traits per part`);
+    if (p.traits.length > MAX_EFFECTIVE_TRAITS_PER_PART) {
+      errors.push(`traits: at most ${MAX_EFFECTIVE_TRAITS_PER_PART} traits per part`);
     }
     p.traits.forEach((trait, i) => {
       if (typeof trait !== 'string' || !BEHAVIOR_TRAITS.includes(trait as never)) {
@@ -81,20 +77,12 @@ export const checkPart: RowCheckFn = (row: unknown, _index: number): string[] =>
   if (p.rewardPoolId !== undefined && (typeof p.rewardPoolId !== 'string' || p.rewardPoolId.trim().length === 0)) {
     errors.push('rewardPoolId: must be a non-empty string when provided');
   }
+  if (p.fabricationCost !== undefined && (!Number.isSafeInteger(p.fabricationCost) || (p.fabricationCost as number) <= 0)) {
+    errors.push('fabricationCost: must be a positive safe integer when provided');
+  }
 
   return errors;
 };
-
-/** Cross-catalog assertion: every effect sourceId resolves to its own part id. */
-export function assertPartEffectSources(parts: readonly { id: string; effects: readonly { sourceId: string }[] }[]): void {
-  for (const part of parts) {
-    for (const effect of part.effects) {
-      if (effect.sourceId !== part.id) {
-        throw new Error(`part.${part.id}: effect sourceId "${effect.sourceId}" must equal the part id`);
-      }
-    }
-  }
-}
 
 export function assertPartArtReferences(parts: readonly { presentation: { iconArtId: string } }[], catalog: VisualArtCatalog): void {
   const bindings = new Map(catalog.bindings.map((binding) => [binding.id, binding]));

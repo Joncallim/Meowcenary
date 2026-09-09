@@ -182,14 +182,8 @@ export const checkRewardProfile: RowCheckFn = (row: unknown, _index: number): st
   if (typeof rp.id !== 'string' || !isUnlockId(rp.id) || !rp.id.startsWith('reward:')) {
     errors.push('id: must be a valid unlock ID');
   }
-  if (typeof rp.scrapBase !== 'number' || !Number.isSafeInteger(rp.scrapBase) || rp.scrapBase < 0) {
-    errors.push('scrapBase: must be a non-negative safe integer');
-  }
-  if (typeof rp.scrapPerMinute !== 'number' || !Number.isSafeInteger(rp.scrapPerMinute) || rp.scrapPerMinute < 0) {
-    errors.push('scrapPerMinute: must be a non-negative safe integer');
-  }
-  if (rp.lootTableId !== undefined && (typeof rp.lootTableId !== 'string' || !isContentId(rp.lootTableId))) {
-    errors.push('lootTableId: must be a valid content ID when present');
+  if (typeof rp.firstClearScrap !== 'number' || !Number.isSafeInteger(rp.firstClearScrap) || rp.firstClearScrap < 0) {
+    errors.push('firstClearScrap: must be a non-negative safe integer');
   }
   if (rp.grants !== undefined && (!Array.isArray(rp.grants) || !rp.grants.every(isValidProgressionGrant))) {
     errors.push('grants: must contain valid shared progression grants');
@@ -292,14 +286,10 @@ export function assertStageDefeatEnemyReferences(
 }
 
 export function assertStageRewardLootTableReferences(
-  rewardProfiles: readonly RewardProfile[],
-  lootTableIds: Set<string>,
+  _rewardProfiles: readonly RewardProfile[],
+  _lootTableIds: Set<string>,
 ): void {
-  for (const rp of rewardProfiles) {
-    if (rp.lootTableId !== undefined && !lootTableIds.has(rp.lootTableId)) {
-      throw new Error(`rewardProfile.${rp.id}: lootTableId "${rp.lootTableId}" not found`);
-    }
-  }
+  // lootTableId removed in V4
 }
 
 /** Reward profiles are content, so durable owned-instance grants must resolve

@@ -222,7 +222,7 @@ export function createStaticArtSprite(
   // is actor-only so a future non-actor caller cannot accidentally inherit
   // the R3 readability enlargement.
   const actorOnlyFactor = binding.kind === 'character' || binding.kind === 'enemy' ? visualFactor : 1;
-  const frame = binding.load.type === 'spritesheet' ? 0 : undefined;
+  const frame = binding.load.type === 'spritesheet' ? 0 : binding.frameKey;
   const sprite = scene.add.sprite(0, 0, binding.textureKey, frame)
     .setDepth(depth)
     .setOrigin(0.5);

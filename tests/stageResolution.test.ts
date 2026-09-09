@@ -71,8 +71,8 @@ function makeCatalogData(overrides?: Partial<StageCatalogData>): StageCatalogDat
   ];
 
   const rewardProfiles: RewardProfile[] = [
-    { id: 'reward:tier-1', scrapBase: 50, scrapPerMinute: 5 },
-    { id: 'reward:boss-tier-1', scrapBase: 200, scrapPerMinute: 10, lootTableId: 'boss-drop-table' },
+    { id: 'reward:tier-1', firstClearScrap: 50 },
+    { id: 'reward:boss-tier-1', firstClearScrap: 200 },
   ];
 
   return {
@@ -105,7 +105,7 @@ describe('resolveRunPlan', () => {
     expect(plan.objective.definition).toEqual({ type: 'kill', count: 20, enemyTag: 'junkyard' });
     expect(plan.encounter.enemyIds).toEqual(['dust-mite', 'junk-rusher']);
     expect(plan.difficulty.healthMultiplier).toBe(1.0);
-    expect(plan.reward.scrapBase).toBe(50);
+    expect(plan.reward.firstClearScrap).toBe(50);
     expect(plan.seed).toBe(42);
     expect(Object.isFrozen(plan)).toBe(true);
   });
@@ -118,7 +118,7 @@ describe('resolveRunPlan', () => {
     );
     expect(plan.objective.type).toBe('survive');
     expect(plan.difficulty.spawnPressure).toBe(0.5);
-    expect(plan.reward.scrapPerMinute).toBe(5);
+    expect(plan.reward.firstClearScrap).toBe(50);
   });
 
   it('rejects an encounter boss that its stage does not author as a boss contract', () => {
@@ -138,7 +138,7 @@ describe('resolveRunPlan', () => {
     );
     expect(plan.objective.type).toBe('defeat');
     expect(plan.difficulty.healthMultiplier).toBe(2.0);
-    expect(plan.reward.lootTableId).toBe('boss-drop-table');
+    expect(plan.reward.firstClearScrap).toBe(200);
   });
 
   it('snapshots objective definitions instead of retaining mutable catalog aliases', () => {

@@ -149,6 +149,24 @@ describe('PauseController resume', () => {
   });
 });
 
+describe('PauseController early exit', () => {
+  it('requires an explicit confirmation and lets Back cancel without resuming gameplay', () => {
+    const { run, controller } = createHarness();
+    controller.pause();
+
+    expect(controller.requestExit()).toBe(true);
+    expect(controller.snapshot().panel).toBe('exit-confirm');
+    expect(controller.back()).toBe(true);
+    expect(controller.snapshot().panel).toBe('pause');
+    expect(run.status).toBe('paused');
+
+    expect(controller.requestExit()).toBe(true);
+    expect(controller.confirmExit()).toBe(true);
+    expect(controller.snapshot().panel).toBe('closed');
+    expect(run.status).toBe('paused');
+  });
+});
+
 describe('PauseController openInventory', () => {
   it('opens the inventory panel from the pause panel', () => {
     const { controller } = createHarness();
@@ -654,8 +672,8 @@ describe('PhaserPauseView', () => {
     controller.pause();
     view.render(controller.snapshot());
 
-    const buttons = liveButtons(scene); // [Resume, Weapon Rack]
-    expect(buttons).toHaveLength(2);
+    const buttons = liveButtons(scene); // [Resume, Weapon Rack, Leave Run]
+    expect(buttons).toHaveLength(3);
     // Capture each button's exact base stroke before keyboard focus applies.
     const resumeBase = {
       width: buttons[0]!.state.strokeWidth,
@@ -727,7 +745,7 @@ describe('PhaserPauseView', () => {
     view.render(controller.snapshot());
     view.refreshInputPresentation();
     let buttons = liveButtons(scene);
-    expect(buttons).toHaveLength(2);
+    expect(buttons).toHaveLength(3);
 
     // Begin on one logical index (Weapon Rack, 1) through the real logical seam.
     expect(view.moveFocus('down')).toBe(true);
@@ -978,7 +996,7 @@ describe('PhaserPauseView', () => {
     // Same-pause resize rebuild preserves the exact target and its ring.
     scene.resize(844, 390);
     const after = pauseButtons();
-    expect(after).toHaveLength(2);
+    expect(after).toHaveLength(3);
     expect(after[1]!.state.strokeWidth).toBe(FocusStroke.width);
     expect(after[1]!.state.strokeColor).toBe(FocusStroke.color);
     expect(after[1]!.state.strokeAlpha).toBe(FocusStroke.alpha);
@@ -1430,8 +1448,8 @@ describe('PhaserPauseView', () => {
       controller.pause();
       view.render(controller.snapshot());
 
-      // Available: exactly three actions (Resume, Weapon Rack, Fullscreen).
-      expect(liveButtons(scene)).toHaveLength(3);
+      // Available: Resume, Weapon Rack, Fullscreen, and the explicit exit.
+      expect(liveButtons(scene)).toHaveLength(4);
       expect(textContents(scene)).toContain('Fullscreen');
       expect(textContents(scene)).not.toContain('Fullscreen…');
 
@@ -1453,7 +1471,7 @@ describe('PhaserPauseView', () => {
       const pendingRenderCount = view.renderRebuildCount;
       expect(textContents(scene)).toContain('Fullscreen…');
       const pendingButtons = liveButtons(scene);
-      expect(pendingButtons).toHaveLength(3);
+      expect(pendingButtons).toHaveLength(4);
       press(pendingButtons[2]!);
       expect(scale.startFullscreen).toHaveBeenCalledTimes(1);
       expect(fullscreen.snapshot).toBe('pending-enter');
@@ -1486,7 +1504,7 @@ describe('PhaserPauseView', () => {
       controller.pause();
       view.render(controller.snapshot());
 
-      expect(liveButtons(scene)).toHaveLength(2);
+      expect(liveButtons(scene)).toHaveLength(3);
       expect(textContents(scene)).not.toContain('Fullscreen');
       view.destroy();
       fullscreen.destroy();

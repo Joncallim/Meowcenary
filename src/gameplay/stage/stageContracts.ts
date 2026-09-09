@@ -38,9 +38,7 @@ export interface DifficultyProfile {
 
 export interface RewardProfile {
   readonly id: string;
-  readonly scrapBase: number;
-  readonly scrapPerMinute: number;
-  readonly lootTableId?: string;
+  readonly firstClearScrap: number;
   readonly grants?: readonly ProgressionGrant[];
 }
 
@@ -93,9 +91,7 @@ export interface ResolvedDifficultyProfile {
 
 export interface ResolvedRewardProfile {
   readonly profileId: string;
-  readonly scrapBase: number;
-  readonly scrapPerMinute: number;
-  readonly lootTableId?: string;
+  readonly firstClearScrap: number;
   readonly grants: readonly ProgressionGrant[];
 }
 
@@ -232,9 +228,7 @@ export function resolveRunPlan(
     }),
     reward: Object.freeze({
       profileId: reward.id,
-      scrapBase: reward.scrapBase,
-      scrapPerMinute: reward.scrapPerMinute,
-      lootTableId: reward.lootTableId,
+      firstClearScrap: reward.firstClearScrap,
       grants: Object.freeze(reward.grants ? structuredClone(reward.grants) : []),
     }),
     seed: request.seed,
