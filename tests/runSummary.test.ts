@@ -91,6 +91,7 @@ describe('RunSummaryController snapshots', () => {
       persistenceSucceeded: true,
       newlyAvailableNames: [],
       completedAchievementNames: [],
+      completedAchievements: [],
       canContinue: false,
     });
   });
@@ -119,6 +120,24 @@ describe('RunSummaryController snapshots', () => {
       completedAchievementNames: ['Crusher Breaker'],
     });
     expect(controller.snapshot()?.completedAchievementNames).toEqual(['Crusher Breaker']);
+  });
+
+  it('carries completed Achievement presentation by stable ID rather than deriving art from names', () => {
+    const run = terminalRun('won');
+    const controller = new RunSummaryController({
+      runState: run,
+      lastBankedRun: bankedRun(),
+      completedAchievements: [{
+        id: 'first-kill',
+        name: 'First Blood',
+        iconArtId: 'achievement-icon:first-kill',
+      }],
+    });
+    expect(controller.snapshot()?.completedAchievements).toEqual([{
+      id: 'first-kill',
+      name: 'First Blood',
+      iconArtId: 'achievement-icon:first-kill',
+    }]);
   });
 
   it('shows zero banked values and a save warning when the run was not banked', () => {

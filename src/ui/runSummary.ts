@@ -24,8 +24,18 @@ export interface RunSummarySnapshot {
   readonly newlyAvailableNames: readonly string[];
   /** Achievements completed in this run, supplied by authoritative gameplay. */
   readonly completedAchievementNames: readonly string[];
+  /** Stable terminal presentation records. These are deliberately not joined
+   * back to art via names, which would make a rename/localisation a broken
+   * identity boundary. */
+  readonly completedAchievements: readonly CompletedAchievementPresentation[];
   /** A completed Alpha 3 contract may advance directly to its next selection. */
   readonly canContinue: boolean;
+}
+
+export interface CompletedAchievementPresentation {
+  readonly id: string;
+  readonly name: string;
+  readonly iconArtId: string;
 }
 
 export interface RunSummarySource {
@@ -33,6 +43,9 @@ export interface RunSummarySource {
   readonly lastBankedRun: BankedRun | null;
   readonly canContinue?: boolean;
   readonly completedAchievementNames?: readonly string[];
+  /** Preferred structured terminal Achievement presentation. The legacy name
+   * list remains temporarily for callers that predate icon presentation. */
+  readonly completedAchievements?: readonly CompletedAchievementPresentation[];
   /** Structured terminal-settlement presentation supplied by the terminal
    * owner. Values are already player-facing copy, never stable IDs. */
   readonly newlyAvailableNames?: readonly string[];
@@ -63,6 +76,11 @@ export class RunSummaryController {
       persistenceSucceeded: banked?.persisted ?? false,
       newlyAvailableNames: Object.freeze([...(this.source.newlyAvailableNames ?? [])]),
       completedAchievementNames: Object.freeze([...(this.source.completedAchievementNames ?? [])]),
+      completedAchievements: Object.freeze((this.source.completedAchievements ?? []).map((achievement) => Object.freeze({
+        id: achievement.id,
+        name: achievement.name,
+        iconArtId: achievement.iconArtId,
+      }))),
       canContinue: runState.status === 'won' && this.source.canContinue === true,
     };
     return Object.freeze(snapshot);
@@ -194,7 +212,7 @@ function terminalMaterialLines(
   if (snapshot.newlyAvailableNames.length > 0) {
     lines.push({ text: compactTerminalNames('New', snapshot.newlyAvailableNames), kind: 'body' });
   }
-  if (snapshot.completedAchievementNames.length > 0) {
+  if (snapshot.completedAchievements.length === 0 && snapshot.completedAchievementNames.length > 0) {
     lines.push({
       text: compactTerminalNames(
         snapshot.completedAchievementNames.length === 1 ? 'Achievement' : 'Achievements',
@@ -229,6 +247,12 @@ export interface PhaserRunSummaryViewOptions {
   readonly onDiscardPending?: () => void;
   /** Routes directly to the player's loadout surface. */
   readonly onAdjustLoadout?: () => void;
+  /** Generic semantic-icon lookup supplied by the scene/data composition
+   * boundary. A missing resource leaves the tile's text identity intact. */
+  readonly resolveAchievementIcon?: (iconArtId: string) => Readonly<{
+    textureKey: string;
+    frameKey?: string;
+  }> | undefined;
 }
 
 /** Terminal win/loss surface: reads the already-banked run and offers only
@@ -246,6 +270,7 @@ export class PhaserRunSummaryView {
   private readonly canNavigate: () => boolean;
   private readonly onDiscardPending?: () => void;
   private readonly onAdjustLoadout?: () => void;
+  private readonly resolveAchievementIcon?: PhaserRunSummaryViewOptions['resolveAchievementIcon'];
   private modal: ModalTextHelpers;
   private readonly unsubscribers: Array<() => void>;
   private root?: Phaser.GameObjects.Container;
@@ -277,6 +302,7 @@ export class PhaserRunSummaryView {
     this.canNavigate = options.canNavigate ?? (() => true);
     this.onDiscardPending = options.onDiscardPending;
     this.onAdjustLoadout = options.onAdjustLoadout;
+    this.resolveAchievementIcon = options.resolveAchievementIcon;
     this.modal = createModalTextHelpers(options.scene, options.viewport);
     this.unsubscribers = [
       options.bus.on('run:won', this.handleTerminal),
@@ -520,6 +546,12 @@ export class PhaserRunSummaryView {
         (text as Phaser.GameObjects.Text & { setWordWrapWidth?: (width: number) => unknown })
           .setWordWrapWidth?.(layout.contentBounds.width);
       });
+      this.renderAchievementTiles(
+        root,
+        layout.contentBounds,
+        rowGap * material.slice(0, maxMaterialLines).length,
+        snapshot.completedAchievements,
+      );
 
       const buttons: import('./modal').ModalButtonHandle[] = [];
       actionSpecs.forEach(([label, activate, emphasized], index) => {
@@ -579,6 +611,60 @@ export class PhaserRunSummaryView {
       this.navigator.setIndex(index);
       this.applyFocus();
       handle.activate();
+    });
+  }
+
+  /** Compact, bounded terminal tiles. The Career gallery remains the
+   * exhaustive surface; this one never pushes into the fixed hint/action tray. */
+  private renderAchievementTiles(
+    root: Phaser.GameObjects.Container,
+    contentBounds: RunSummaryRect,
+    occupiedHeight: number,
+    achievements: readonly CompletedAchievementPresentation[],
+  ): void {
+    if (achievements.length === 0) return;
+    const gap = physicalToLogical(8, this.viewport);
+    const tileHeight = minimumHitTarget(this.viewport);
+    const remainingHeight = Math.max(0, contentBounds.height - occupiedHeight);
+    const rows = Math.floor((remainingHeight + gap) / (tileHeight + gap));
+    const capacity = rows * 2;
+    if (capacity <= 0) return;
+    const visible = achievements.length <= capacity
+      ? achievements
+      : [
+        ...achievements.slice(0, Math.max(0, capacity - 1)),
+        { id: 'summary:more', name: `+${achievements.length - Math.max(0, capacity - 1)} more`, iconArtId: '' },
+      ];
+    const tileWidth = (contentBounds.width - gap) / 2;
+    visible.forEach((achievement, index) => {
+      const x = contentBounds.x + (index % 2) * (tileWidth + gap);
+      const y = contentBounds.y + occupiedHeight + Math.floor(index / 2) * (tileHeight + gap);
+      const card = this.scene.add.rectangle(x + tileWidth / 2, y + tileHeight / 2, tileWidth, tileHeight, ThemeColor.surface);
+      card.setStrokeStyle(physicalToLogical(1, this.viewport), ThemeColor.muted, 0.7);
+      card.setScrollFactor(0);
+      root.add(card);
+      const iconBinding = achievement.iconArtId ? this.resolveAchievementIcon?.(achievement.iconArtId) : undefined;
+      if (iconBinding && this.scene.textures.exists(iconBinding.textureKey)) {
+        const icon = this.scene.add.image(
+          x + physicalToLogical(18, this.viewport),
+          y + tileHeight / 2,
+          iconBinding.textureKey,
+          iconBinding.frameKey,
+        );
+        icon.setDisplaySize(physicalToLogical(24, this.viewport), physicalToLogical(24, this.viewport));
+        icon.setScrollFactor(0);
+        root.add(icon);
+      }
+      const label = this.modal.addText(
+        x + (iconBinding ? physicalToLogical(34, this.viewport) : gap),
+        y + tileHeight / 2,
+        achievement.name,
+        'body',
+      );
+      label.setOrigin(0, 0.5);
+      (label as Phaser.GameObjects.Text & { setWordWrapWidth?: (width: number) => unknown })
+        .setWordWrapWidth?.(tileWidth - (iconBinding ? physicalToLogical(38, this.viewport) : gap * 2));
+      root.add(label);
     });
   }
 
