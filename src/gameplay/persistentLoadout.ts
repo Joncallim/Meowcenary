@@ -17,10 +17,36 @@ import { scaleModifierByTier, type ModifierSpec } from './stats';
 import { type EquipmentSlot } from './equipmentV4';
 import { isValidFamily } from './weaponFamilies';
 import type { SaveDataV4 } from '../systems/save';
+import type { GunsmithState } from '../systems/save';
+import { resolveBuildModifiers, resolveBuildProjectileEffects, resolveBuildTraitModifiers, type OwnedPart, type PartDefinition, type WeaponBuild } from './gunsmith';
 
 export interface PersistentRunLoadoutContribution {
   readonly modifiers: readonly Modifier[];
   readonly projectileEffectsByFamily: ReadonlyMap<string, readonly ProjectileEffect[]>;
+}
+
+/** Narrow production boundary for selected persistent weapon engineering.
+ * It compiles once at run creation; family-scoped modifiers deliberately
+ * remain in the run even if their weapon is acquired later. */
+export function resolvePersistentGunsmithEngineering(
+  gunsmith: GunsmithState,
+  partDefinitions: ReadonlyMap<string, PartDefinition>,
+): { readonly modifiers: readonly Modifier[]; readonly projectileEffectsByFamily: ReadonlyMap<string, readonly ProjectileEffect[]>; readonly selectedFamily?: string } {
+  const selected = gunsmith.selectedBuildId === undefined ? undefined : gunsmith.builds.find((build) => build.id === gunsmith.selectedBuildId);
+  if (!selected || !isValidFamily(selected.baseWeaponFamily)) return Object.freeze({ modifiers: Object.freeze([]), projectileEffectsByFamily: new Map() });
+  const owned = new Map<string, OwnedPart>(Object.entries(gunsmith.parts).map(([instanceId, part]) => [instanceId, {
+    instanceId, partId: part.partId, tier: part.tier, infusedTraits: part.infusedTraits as OwnedPart['infusedTraits'],
+  }]));
+  const build = selected as WeaponBuild;
+  const modifiers = Object.freeze([
+    ...resolveBuildModifiers(build, partDefinitions, owned),
+    ...resolveBuildTraitModifiers(build, partDefinitions, owned),
+  ]);
+  return Object.freeze({
+    modifiers,
+    projectileEffectsByFamily: new Map([[selected.baseWeaponFamily, resolveBuildProjectileEffects(build, partDefinitions, owned)]]),
+    selectedFamily: selected.baseWeaponFamily,
+  });
 }
 
 /** A resolved equipment piece with tier-scaled modifiers. */

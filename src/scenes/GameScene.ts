@@ -36,8 +36,8 @@ import { DataEnemyRegistry } from '../systems/enemies';
 import { DataEquipmentRegistry } from '../systems/equipment';
 import { resolveEquipmentModifiers } from '../gameplay/equipment';
 import { DataPartRegistry } from '../systems/parts';
-import { resolveBuildModifiers, resolveBuildProjectileEffects, resolveBuildTraitModifiers, type OwnedPart, type WeaponBuild } from '../gameplay/gunsmith';
 import type { ProjectileEffect } from '../gameplay/projectileEffects';
+import { resolvePersistentGunsmithEngineering } from '../gameplay/persistentLoadout';
 import { buildArenaScenery, type ArenaScenery } from '../systems/arenaScenery';
 import { UpgradeSystem } from '../systems/UpgradeSystem';
 import { ProgressionSystem, type BankedRun } from '../systems/ProgressionSystem';
@@ -245,6 +245,7 @@ export class GameScene extends Phaser.Scene {
     this.abilityDefinition = character.abilityId === undefined
       ? undefined
       : new DataAbilityRegistry({ abilities: ctx.data.abilities ?? [] }).abilityById(character.abilityId);
+    this.abilityState = createAbilityState();
     const contribution = resolveCharacterRunContribution(character, weaponRegistry);
     const prepared = prepareRun({
       state: {
@@ -261,37 +262,18 @@ export class GameScene extends Phaser.Scene {
     this.runState = prepared.run;
     const equipmentRegistry = new DataEquipmentRegistry({ equipment: ctx.data.equipment ?? [], equipmentSets: ctx.data.equipmentSets ?? [], equipmentRules: ctx.data.equipmentRules ?? { unlocks: { 2: { type: 'always' }, 3: { type: 'always' }, 4: { type: 'always' } } } });
     const ownedEquipment = new Map(Object.entries(ctx.saveData.equipment).map(([instanceId, equipment]) => [
-      instanceId,
-      { instanceId, equipmentId: equipment.equipmentId, tier: equipment.tier },
+      instanceId, { instanceId, equipmentId: equipment.equipmentId, tier: equipment.tier },
     ] as const));
-    const equippedModifiers = resolveEquipmentModifiers(
-      { equipped: ctx.saveData.equipmentLoadout ?? {} },
-      equipmentRegistry.asMap(),
-      equipmentRegistry.setsAsMap(),
-      ownedEquipment,
+    resolveEquipmentModifiers({ equipped: ctx.saveData.equipmentLoadout ?? {} }, equipmentRegistry.asMap(), equipmentRegistry.setsAsMap(), ownedEquipment)
+      .forEach((modifier) => this.runState!.stats.add(modifier));
+    // The single Gunsmith resolver compiles selected-family engineering even
+    // when that family is absent from the starting rack.
+    const persistentEngineering = resolvePersistentGunsmithEngineering(
+      ctx.saveData.gunsmith,
+      new DataPartRegistry({ gunParts: ctx.data.gunParts ?? [] }).asMap(),
     );
-    equippedModifiers.forEach((modifier) => this.runState!.stats.add(modifier));
-    // Persistent Gunsmith composition happens once at the ordinary run
-    // boundary.  It consumes only the selected owned build and validated
-    // owned instances; stale/unowned definitions fail soft rather than
-    // granting a free catalog-wide bonus.
-    const selectedBuild = ctx.saveData.gunsmith.builds.find((build) => build.id === ctx.saveData.gunsmith.selectedBuildId);
-    const projectileEffectsByFamily = new Map<string, readonly ProjectileEffect[]>();
-    if (selectedBuild && this.runState.equipped.some((weapon) => weapon.family === selectedBuild.baseWeaponFamily)) {
-      const parts = new DataPartRegistry({ gunParts: ctx.data.gunParts ?? [] });
-      const ownedParts = new Map<string, OwnedPart>(Object.entries(ctx.saveData.gunsmith.parts).map(([instanceId, part]) => [
-        instanceId,
-        { instanceId, partId: part.partId, tier: part.tier, infusedTraits: part.infusedTraits as OwnedPart['infusedTraits'] },
-      ]));
-      resolveBuildModifiers(selectedBuild as WeaponBuild, parts.asMap(), ownedParts)
-        .forEach((modifier) => this.runState!.stats.add(modifier));
-      resolveBuildTraitModifiers(selectedBuild as WeaponBuild, parts.asMap(), ownedParts)
-        .forEach((modifier) => this.runState!.stats.add(modifier));
-      projectileEffectsByFamily.set(
-        selectedBuild.baseWeaponFamily,
-        resolveBuildProjectileEffects(selectedBuild as WeaponBuild, parts.asMap(), ownedParts),
-      );
-    }
+    persistentEngineering.modifiers.forEach((modifier) => this.runState!.stats.add(modifier));
+    const projectileEffectsByFamily: ReadonlyMap<string, readonly ProjectileEffect[]> = persistentEngineering.projectileEffectsByFamily;
     this.enemyDefinitions = new DataEnemyRegistry(ctx.data);
     // Run-clock-stamped effective-damage meter. The listener captures the
     // run-state local so it never re-reads scene state after shutdown.
@@ -356,7 +338,6 @@ export class GameScene extends Phaser.Scene {
           ? { durationMs: plan.objective.definition.seconds * 1000 }
           : plan === undefined ? { durationMs: this.spawnCurve.durationSeconds * 1000 } : {}),
         objective: () => this.describeStageObjective(),
-        ability: () => this.describeAbilityState(),
         achievement: () => this.describeAchievementToast(),
         boss: () => this.describeActiveBoss(),
       }),
@@ -373,7 +354,12 @@ export class GameScene extends Phaser.Scene {
       onPauseRequested: () => this.routeAction('pause'),
       onAbilityRequested: () => this.routeAction('ability'),
       onExtractRequested: () => this.routeAction('confirm'),
+      ability: this.abilityDefinition === undefined ? undefined : {
+        name: this.abilityDefinition.name,
+        description: this.abilityDefinition.description,
+      },
     });
+    this.syncAbilityPresentation();
 
     this.inventoryController = new InventoryController({
       runState: this.runState,
@@ -984,7 +970,7 @@ export class GameScene extends Phaser.Scene {
     const activation = activateAbility(this.abilityState, definition);
     if (!activation.fired) return;
     this.abilityState = activation.state;
-    this.hudController?.requestRender();
+    this.syncAbilityPresentation();
     const ctx = this.getContext();
     applyAbilityEffect(definition, { player, stats: runState.stats, enemies: this.enemies,
       damageEnemy: (enemy, amount) => {
@@ -1006,15 +992,17 @@ export class GameScene extends Phaser.Scene {
     if (before.phase === 'active' && this.abilityState.phase !== 'active' && this.runState) expireAbilityEffect(definition, { stats: this.runState.stats });
     const beforeSeconds = Math.ceil(before.cooldownRemainingMs / 1000);
     const afterSeconds = Math.ceil(this.abilityState.cooldownRemainingMs / 1000);
-    if (before.phase !== this.abilityState.phase || beforeSeconds !== afterSeconds) this.hudController?.requestRender();
+    if (before.phase !== this.abilityState.phase || beforeSeconds !== afterSeconds) this.syncAbilityPresentation();
   }
 
-  private describeAbilityState(): string | undefined {
-    const definition = this.abilityDefinition;
-    if (!definition) return undefined;
-    if (this.abilityState.phase === 'ready') return `${definition.name}: READY`;
-    const seconds = Math.ceil(this.abilityState.cooldownRemainingMs / 1000);
-    return `${definition.name}: ${seconds}s`;
+  private syncAbilityPresentation(): void {
+    // Instant abilities have no active-duration player state: their runtime
+    // transition is represented as active for one simulation tick, but the
+    // touch card must immediately communicate the usable cooldown.
+    const phase = this.abilityState.phase === 'active' && (this.abilityDefinition?.durationMs ?? 0) <= 0
+      ? 'cooling'
+      : this.abilityState.phase;
+    this.controlsView?.setAbilityPresentation(phase, this.abilityState.cooldownRemainingMs);
   }
 
   /** HUD-facing read model: only a live boss earns the dedicated encounter

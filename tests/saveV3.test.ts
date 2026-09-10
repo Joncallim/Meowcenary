@@ -29,7 +29,7 @@ describe('Save V4 migration (V1/V2/V3→V4)', () => {
       achievements: {},
       achievementMetrics: {},
       characters: {},
-      gunsmith: { builds: [], parts: {} },
+      gunsmith: { builds: [], parts: {}, fabricationSerials: {} },
       equipment: {},
       equipmentLoadout: {},
       items: {},
@@ -93,7 +93,7 @@ describe('Save V4 migration (V1/V2/V3→V4)', () => {
     expect(v4.progression.unlocks).toEqual(['character:bolt-hound', 'stage:junkyard-01']);
     expect(v4.stages).toEqual({});
     expect(v4.characters).toEqual({});
-    expect(v4.gunsmith).toEqual({ builds: [], parts: {} });
+    expect(v4.gunsmith).toEqual({ builds: [], parts: {}, fabricationSerials: {} });
     expect(v4.equipment).toEqual({});
   });
 

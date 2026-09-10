@@ -113,6 +113,9 @@ export interface GameContext {
   updateEquipment(transform: (state: { readonly equipment: EquipmentState; readonly loadout: EquipmentLoadoutState }) => { readonly equipment: EquipmentState; readonly loadout: EquipmentLoadoutState }): PersistenceUpdate<EquipmentState>;
   /** V4 Set fabrication: one owned copy per definition, atomically paid. */
   fabricateEquipment(equipmentId: string): boolean;
+  /** V4 Gunsmith fabrication: one physical T1 part and its Scrap charge are
+   * one durable transaction. */
+  fabricatePart(partId: string): boolean;
   /** Records one monotonic compendium fact only after its V4 snapshot is durable. */
   recordCompendiumDiscovery(enemyId: string, status: import('../systems/save').CompendiumDiscoveryStatus): boolean;
   /** Atomically spend durable scrap and advance one owned equipment instance. */
@@ -208,8 +211,10 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       case 'unlock-part':
       case 'grant-part-instance': {
         const part = partDefinitions.get(grant.partId);
-        return part !== undefined && knownPartIds.has(grant.partId) &&
-          (part.unlock === undefined || evaluateCondition(part.unlock, equipmentUpgradeFacts()));
+        // A stage's first-clear receipt may be the event that makes this
+        // blueprint available.  Validate catalog identity here; availability
+        // gates fabrication, never the authoritative authored reward itself.
+        return part !== undefined && knownPartIds.has(grant.partId);
       }
       case 'unlock-trait': return knownTraitIds.has(grant.traitId);
       case 'unlock-character': return options.characters.characterById(grant.characterId.slice('character:'.length)) !== undefined;
@@ -354,6 +359,30 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       const candidate = freezeSaveV4({ ...current,
         progression: Object.freeze({ ...current.progression, scrap: current.progression.scrap - set.pieceFabricationCost }),
         equipment: Object.freeze({ ...current.equipment, [instanceId]: Object.freeze({ equipmentId, tier: 1 }) }),
+      });
+      if (!options.save.save(candidate)) return false;
+      current = options.save.load();
+      return true;
+    },
+    fabricatePart(partId) {
+      const definition = partDefinitions.get(partId);
+      if (!definition) return false;
+      const fabricationCost = definition.fabricationCost;
+      if (typeof fabricationCost !== 'number' || !Number.isSafeInteger(fabricationCost) || fabricationCost <= 0
+        || (definition.unlock !== undefined && !evaluateCondition(definition.unlock, equipmentUpgradeFacts()))
+        || current.progression.scrap < fabricationCost) return false;
+      const serial = current.gunsmith.fabricationSerials?.[partId] ?? 0;
+      if (!Number.isSafeInteger(serial) || serial < 0 || serial >= Number.MAX_SAFE_INTEGER) return false;
+      const nextSerial = serial + 1;
+      const instanceId = `fabricated:${partId.slice('part:'.length)}:${nextSerial}`;
+      if (current.gunsmith.parts[instanceId] !== undefined) return false;
+      const candidate = freezeSaveV4({ ...current,
+        progression: Object.freeze({ ...current.progression, scrap: current.progression.scrap - fabricationCost }),
+        gunsmith: Object.freeze({
+          ...current.gunsmith,
+          parts: Object.freeze({ ...current.gunsmith.parts, [instanceId]: Object.freeze({ partId, tier: 1, infusedTraits: [] }) }),
+          fabricationSerials: Object.freeze({ ...(current.gunsmith.fabricationSerials ?? {}), [partId]: nextSerial }),
+        }),
       });
       if (!options.save.save(candidate)) return false;
       current = options.save.load();
