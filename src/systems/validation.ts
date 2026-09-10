@@ -100,7 +100,7 @@ import {
 } from './validation/stages';
 import { checkAchievement, assertAchievementMetricReferences, assertUniqueAchievementPlatformMappings, assertAchievementEquipmentGrantReferences, assertNoSelfReferentialAchievementConditions, assertAchievementGrantAndConditionReferences, assertAchievementArtReferences } from './validation/achievements';
 import { registeredMetricIds } from './achievements';
-import { checkPart, assertPartArtReferences } from './validation/parts';
+import { checkPart, assertPartAcquisitionRoutes, assertPartArtReferences } from './validation/parts';
 import { checkAbility } from './validation/abilities';
 import { validateProgressionCondition } from '../gameplay/conditionValidation';
 import { checkEquipment, checkEquipmentSet, checkEquipmentRules, assertEquipmentArtReferences, assertEquipmentSetMembership, assertEquipmentRuleReferences } from './validation/equipment';
@@ -708,6 +708,7 @@ export function validateGameData(raw: unknown): GameData {
 
   // Epic 23: gun-part effect sources (appended, preserving frozen order).
   assertPartArtReferences(catalogs['gun-parts'] as PartDefinition[], visualArt);
+  assertPartAcquisitionRoutes(catalogs['gun-parts'] as PartDefinition[], rewardProfiles);
 
   // Epic 24: character ability references resolve against the ability catalog.
   const abilityIdSet = new Set((catalogs.abilities as AbilityDefinition[]).map((a) => a.id));
@@ -911,6 +912,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertAchievementArtReferences(catalogs.achievements as AchievementDefinition[], visualArt),
     () => assertStageAssetBundleReferences(catalogs.stages as StageDefinition[], assetBundles, visualArt, visualResources, arenas),
     () => assertPartArtReferences(catalogs['gun-parts'] as PartDefinition[], visualArt),
+    () => assertPartAcquisitionRoutes(catalogs['gun-parts'] as PartDefinition[], catalogs.rewardProfiles as RewardProfile[]),
     () => assertEquipmentArtReferences(catalogs.equipment as EquipmentDefinition[], catalogs.equipmentSets as EquipmentSetDefinition[], visualArt),
   ];
   for (const assertion of assertions) {

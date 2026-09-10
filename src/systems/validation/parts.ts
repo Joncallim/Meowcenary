@@ -8,6 +8,7 @@ import { WEAPON_MODIFIER_STAT_KEYS } from '../../gameplay/stats';
 import { isUnlockId } from '../ids';
 import { validateProgressionCondition } from '../../gameplay/conditionValidation';
 import type { VisualArtCatalog } from '../types';
+import type { RewardProfile } from '../types';
 import type { RowCheck } from '../validation';
 
 type RowCheckFn = RowCheck;
@@ -91,4 +92,28 @@ export function assertPartArtReferences(parts: readonly { presentation: { iconAr
     if (!binding) throw new Error(`gun-parts.json[${index}].presentation.iconArtId: unknown visual-art id "${part.presentation.iconArtId}"`);
     if (binding.kind !== 'upgrade-icon' || !binding.required) throw new Error(`gun-parts.json[${index}].presentation.iconArtId: must resolve to a required upgrade-icon binding`);
   });
+}
+
+/**
+ * Every shipping part must be earnable deliberately.  Definitions are
+ * blueprints, not inventory; this closes the quiet "present in JSON but
+ * impossible to receive" failure mode before it reaches a save file.
+ */
+export function assertPartAcquisitionRoutes(
+  parts: readonly { id: string; fabricationCost?: number }[],
+  rewards: readonly RewardProfile[],
+): void {
+  const rewarded = new Set<string>();
+  for (const reward of rewards) {
+    for (const grant of reward.grants ?? []) {
+      if ((grant.type === 'grant-part-instance' || grant.type === 'unlock-part') && typeof grant.partId === 'string') {
+        rewarded.add(grant.partId);
+      }
+    }
+  }
+  for (const part of parts) {
+    if (part.fabricationCost === undefined && !rewarded.has(part.id)) {
+      throw new Error(`gun-parts.${part.id}: has no persistent reward or fabricable blueprint route`);
+    }
+  }
 }
