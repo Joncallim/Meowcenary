@@ -196,7 +196,7 @@ describe('createUiText', () => {
     // Achievement and Compendium rows now use MenuScene's shared scroll
     // button path instead of owning duplicate text-factory call sites. The
     // dedicated boss meter contributes one player-facing label.
-    expect(migratedSites).toHaveLength(53);
+    expect(migratedSites).toHaveLength(54);
 
     const constructorCalls = findCreateUiTextCalls(programSourceFile(program, UI_TEXT_FILE), checker);
     expect(constructorCalls).toHaveLength(0);
