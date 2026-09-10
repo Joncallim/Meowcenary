@@ -8,6 +8,19 @@ export interface VisualArtLookup {
   all(): readonly Readonly<ResolvedVisualArtBinding>[];
 }
 
+/**
+ * Resolve the semantic badge contract shared by the Career gallery and a
+ * terminal run summary.  Views deliberately retain their own layout, but an
+ * Achievement must never acquire a view-specific art identity.
+ */
+export function resolveAchievementIconBinding(
+  bindings: readonly Readonly<ResolvedVisualArtBinding>[],
+  iconArtId: string,
+): Readonly<ResolvedVisualArtBinding> | undefined {
+  const binding = bindings.find((candidate) => candidate.id === iconArtId);
+  return binding?.kind === 'achievement-icon' ? binding : undefined;
+}
+
 export class DataVisualResourceRegistry {
   private readonly byId = new Map<string, Readonly<VisualTextureResource>>();
   private readonly snapshot: readonly Readonly<VisualTextureResource>[];

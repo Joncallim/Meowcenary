@@ -3,6 +3,7 @@ import achievementsJson from '../src/data/achievements.json';
 import { loadGameData, validateGameData } from '../src/systems/validation';
 import { checkAchievement } from '../src/systems/validation/achievements';
 import { DataAchievementRegistry, registeredMetricIds } from '../src/systems/achievements';
+import { DataVisualArtRegistry, resolveAchievementIconBinding } from '../src/systems/visualArt';
 import { evaluateAchievements, type AchievementDefinition, type AchievementState } from '../src/gameplay/achievementSystem';
 import { LocalAchievementAdapter } from '../src/gameplay/achievementPlatform';
 import { processGrant, type ProgressionGrant } from '../src/gameplay/grantProcessor';
@@ -27,6 +28,30 @@ function registryCtx() {
 }
 
 describe('Epic 22 achievement catalog conformance', () => {
+  it('resolves one semantic badge binding for Career and terminal presentation', () => {
+    const data = loadGameData();
+    const visualArt = new DataVisualArtRegistry(data);
+    const achievement = data.achievements![0]!;
+
+    const careerBinding = resolveAchievementIconBinding(visualArt.all(), achievement.presentation.iconArtId);
+    const terminalBinding = resolveAchievementIconBinding(visualArt.all(), achievement.presentation.iconArtId);
+
+    expect(careerBinding).toMatchObject({
+      id: achievement.presentation.iconArtId,
+      kind: 'achievement-icon',
+      textureKey: expect.any(String),
+    });
+    expect(terminalBinding).toEqual(careerBinding);
+  });
+
+  it('does not resolve non-achievement art as an achievement badge', () => {
+    const data = loadGameData();
+    const visualArt = new DataVisualArtRegistry(data);
+    const nonAchievementArt = visualArt.all().find((binding) => binding.kind === 'upgrade-icon')!;
+
+    expect(resolveAchievementIconBinding(visualArt.all(), nonAchievementArt.id)).toBeUndefined();
+  });
+
   it('rejects duplicate optional external platform mappings', () => {
     const data = structuredClone(loadGameData()) as unknown as { achievements: Array<Record<string, unknown>> };
     data.achievements[0]!.platform = { gameCenterId: 'gc-proof' };
