@@ -76,6 +76,26 @@ describe('GunsmithController durable commands', () => {
     expect(context.saveData.gunsmith.parts.barrel).toBeDefined();
   });
 
+  it('does not advertise a cross-build move when the target slot is occupied', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      standard: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+      long: { partId: 'part:barrel-long', tier: 1, infusedTraits: [] },
+    } }));
+    controller.createBuild('pistol');
+    controller.fitPart('standard');
+    controller.createBuild('smg');
+    controller.fitPart('long');
+    controller.selectBuild('build:pistol');
+
+    expect(controller.snapshot().parts.find((part) => part.instanceId === 'long')).toMatchObject({
+      state: 'incompatible', compatible: false,
+      comparisonSummary: 'Barrel occupied — unequip Standard Barrel first.',
+    });
+    expect(controller.fitPart('long')).toEqual({ ok: false, reason: 'slot-full' });
+    expect(context.saveData.gunsmith.builds.find((build) => build.id === 'build:smg')?.fitted.barrel).toBe('long');
+  });
+
   it('fabricates one paid physical instance with a monotonic serial and publishes nothing on save failure', () => {
     const { context, controller } = setup();
     context.commitProgression((progression) => ({ ...progression, scrap: 240 }));

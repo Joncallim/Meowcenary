@@ -118,19 +118,23 @@ export class GunsmithController {
         instanceId, partId: stored.partId, name: definition.name, slot: definition.slot,
         tier: stored.tier, traits: Object.freeze([...definition.traits, ...stored.infusedTraits]),
         iconArtId: definition.presentation.iconArtId,
-        compatible: selected === undefined || (compatible && capacity),
+        // A cross-build move is only actionable when its destination is
+        // genuinely eligible.  Do not advertise "Move from …" for an
+        // occupied ordinary slot or full trait capacity: that would promise
+        // an operation the domain correctly refuses.
+        compatible: selected === undefined || (compatible && capacity && slotVacant),
         fitted: fittedHere,
-        state: fittedHere ? 'fitted-here' : assigned !== undefined ? 'fitted-elsewhere' : !compatible || !capacity || !slotVacant ? 'incompatible' : 'owned-unfitted',
+        state: fittedHere ? 'fitted-here' : !compatible || !capacity || !slotVacant ? 'incompatible' : assigned !== undefined ? 'fitted-elsewhere' : 'owned-unfitted',
         ...(assigned === undefined ? {} : { assignedBuildId: assigned.id, assignedBuildName: assigned.name }),
         effectLines: Object.freeze(definition.effects.map((effect) => formatGunsmithEffect(effect, stored.tier))),
         traitLines: Object.freeze([...definition.traits, ...stored.infusedTraits]),
         comparisonSummary: selected === undefined
           ? 'Choose a build to preview this part.'
           : fittedHere ? `Fitted to ${selected.baseWeaponFamily}; select to unequip.`
-            : assigned !== undefined ? `Move from ${assigned.name}.`
-              : !compatible ? `Cannot fit ${selected.baseWeaponFamily}.`
-                : !capacity ? 'Trait capacity full — unequip a trait first.'
-                  : !slotVacant ? occupiedSlotMessage(selected, definition.slot, state, this.registry)
+            : !compatible ? `Cannot fit ${selected.baseWeaponFamily}.`
+              : !capacity ? 'Trait capacity full — unequip a trait first.'
+                : !slotVacant ? occupiedSlotMessage(selected, definition.slot, state, this.registry)
+                  : assigned !== undefined ? `Move from ${assigned.name}.`
                     : `Fit to ${selected.baseWeaponFamily}.`,
       });
       return [view];
