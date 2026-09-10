@@ -648,6 +648,9 @@ export class GameScene extends Phaser.Scene {
     this.installAudioUnlockListeners();
 
     startRun(this.runState, ctx.bus);
+    // A run launched while the device is already rotated must begin frozen,
+    // rather than getting one simulation frame before its first update gate.
+    this.syncPhysicsPause(this.runState);
   }
 
   update(_time: number, delta: number): void {
