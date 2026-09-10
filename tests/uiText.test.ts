@@ -189,12 +189,14 @@ describe('createUiText', () => {
     const migratedSites = files
       .filter((file) => resolve(file) !== UI_TEXT_FILE)
       .flatMap((file) => findCreateUiTextCalls(programSourceFile(program, file), checker));
-    // Keep this deliberate inventory in sync with visible UI text. The touch
-    // ability glyph is also created through the shared factory.
+    // Keep this deliberate inventory in sync with visible UI text. The
+    // semantic touch-ability card contributes separate name/state text, and
+    // the grouped Gunsmith adds its player-facing section labels; all still
+    // flow through the sole shared factory.
     // Achievement and Compendium rows now use MenuScene's shared scroll
     // button path instead of owning duplicate text-factory call sites. The
     // dedicated boss meter contributes one player-facing label.
-    expect(migratedSites).toHaveLength(48);
+    expect(migratedSites).toHaveLength(53);
 
     const constructorCalls = findCreateUiTextCalls(programSourceFile(program, UI_TEXT_FILE), checker);
     expect(constructorCalls).toHaveLength(0);
