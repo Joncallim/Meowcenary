@@ -25,6 +25,17 @@ const MIN_MENU_BUTTON_LOGICAL_WIDTH = 44 / 0.462085;
 /** The two audible command events a menu button can produce. */
 type MenuAudioEvent = 'ui:confirm' | 'ui:back';
 
+/** Player verbs live at the presentation boundary; gameplay command reasons
+ * stay out of normal UI copy. */
+function gunsmithPartActionCopy(part: import('../ui/gunsmithController').GunsmithPartView): string {
+  switch (part.state) {
+    case 'fitted-here': return 'UNEQUIP';
+    case 'owned-unfitted': return 'FIT';
+    case 'fitted-elsewhere': return `MOVE FROM ${part.assignedBuildName?.toUpperCase() ?? 'OTHER BUILD'}`;
+    case 'incompatible': return part.comparisonSummary;
+  }
+}
+
 export class MenuScene extends Phaser.Scene {
   private controller?: MainMenuController;
   private root?: Phaser.GameObjects.Container;
@@ -643,75 +654,107 @@ export class MenuScene extends Phaser.Scene {
   ): void {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Gunsmith');
     let y = top + heading.height + 14;
-    const selected = snapshot.gunsmith.builds.find((build) => build.id === snapshot.gunsmith.selectedBuildId);
     this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
-    this.own(root, createUiText(this, margin, y, 'Weapon chassis', {
+    const chassis = this.own(root, createUiText(this, margin, y, 'Weapon builds', {
       color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
     }));
+    this.registerScrollObject(chassis);
     y += hitTarget * 0.7;
     snapshot.gunsmith.families.forEach((family) => {
       const label = family.selected
-        ? `${family.name} — Selected`
+        ? `${family.name} Build\nSelected`
         : family.existingBuildId
-          ? `Use ${family.name}`
-          : `Create ${family.name}`;
+          ? `${family.name} Build\nConfigured`
+          : `${family.name} Build\nEmpty`;
       this.addButton(root, margin, y, label, hitTarget, () => this.render(family.existingBuildId
         ? this.requireController().selectGunBuild(family.existingBuildId)
         : this.requireController().createGunBuild(family.id)));
-      y += hitTarget + 8;
+      y += hitTarget + 10;
     });
+    const selected = snapshot.gunsmith.selectedBuild;
     if (!selected) {
-      this.own(root, createUiText(this, margin, y, 'Choose a weapon chassis to view and fit parts.', {
+      const prompt = this.own(root, createUiText(this, margin, y, 'Choose a weapon build to inspect its engineering.', {
         color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
         wordWrap: { width: width - margin - this.safeRightMargin },
       }));
-      y += hitTarget;
+      this.registerScrollObject(prompt);
     } else {
-      this.own(root, createUiText(this, margin, y, `${selected.name} (${selected.baseWeaponFamily})\nFitted: ${Object.values(selected.fitted).filter(Boolean).length} • Traits: ${selected.traitParts.length}`, {
+      const buildHeader = this.own(root, createUiText(this, margin, y, `${selected.title.toUpperCase()}\n${selected.status} • ${selected.activation}`, {
         color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
         wordWrap: { width: width - margin - this.safeRightMargin },
       }));
-      y += hitTarget + 12;
-      const actions: Array<{ label: string; action: () => void; iconArtId?: string }> = snapshot.gunsmith.parts.map((part) => ({
-        label: `${part.fitted ? 'Fitted' : part.compatible ? 'Fit' : 'Incompatible'} ${part.name} T${part.tier}${part.traits.length ? ` [${part.traits.join(', ')}]` : ''}\n${part.comparisonSummary}`,
-        action: () => this.render(part.fitted
-          ? this.requireController().unequipGunPart(part.instanceId)
-          : part.compatible ? this.requireController().fitGunPart(part.instanceId) : this.requireController().snapshot()),
-        iconArtId: part.iconArtId,
-      }));
+      this.registerScrollObject(buildHeader);
+      y += buildHeader.height + 12;
+      snapshot.gunsmith.slots.forEach((slot) => {
+        const slotHeading = this.own(root, createUiText(this, margin, y, slot.slot === 'trait'
+          ? `${slot.label.toUpperCase()} ${slot.candidates.filter((part) => part.state === 'fitted-here').length} / 2`
+          : slot.label.toUpperCase(), {
+          color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+        }));
+        this.registerScrollObject(slotHeading);
+        y += slotHeading.height + 4;
+        if (slot.candidates.length === 0 && slot.fitted === undefined) {
+          const empty = this.own(root, createUiText(this, margin, y, slot.slot === 'trait' ? 'No Trait Core fitted' : 'Empty', {
+            color: '#94a3b8', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+          }));
+          this.registerScrollObject(empty);
+          y += empty.height + 8;
+          return;
+        }
+        slot.candidates.forEach((part) => {
+          const action = part.state === 'incompatible' && slot.fitted !== undefined
+            ? `${slot.label} occupied — unequip ${slot.fitted.name} first`
+            : gunsmithPartActionCopy(part);
+          const label = `${part.name} T${part.tier} • ${part.state === 'fitted-here' ? 'FITTED' : part.state === 'fitted-elsewhere' ? `FITTED TO ${part.assignedBuildName?.toUpperCase() ?? 'ANOTHER BUILD'}` : part.state === 'owned-unfitted' ? 'OWNED' : 'UNAVAILABLE'}\n${[...part.effectLines, ...part.traitLines.map((trait) => `${trait} trait`)].join(' • ') || 'No stat change'}\n${action}`;
+          const enabled = part.state !== 'incompatible';
+          const row = this.addButton(root, margin, y, label, hitTarget, () => this.render(part.state === 'fitted-here'
+            ? this.requireController().unequipGunPart(part.instanceId)
+            : this.requireController().fitGunPart(part.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin - 38);
+          if (!enabled) row.disableInteractive();
+          this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, part.iconArtId);
+          y += row.height + 8;
+        });
+      });
       const mergePairs = snapshot.gunsmith.parts.flatMap((part, index) => snapshot.gunsmith.parts
         .slice(index + 1)
         .filter((candidate) => candidate.partId === part.partId && candidate.tier === part.tier)
         .map((candidate) => ({ first: part, second: candidate })));
-      actions.push(...mergePairs.map(({ first, second }) => ({
-        label: `Merge ${first.name} T${first.tier}`,
-        action: () => this.render(this.requireController().mergeGunParts(first.instanceId, second.instanceId)),
-      })));
       const infusionPairs = snapshot.gunsmith.parts.flatMap((target) => snapshot.gunsmith.parts
         .filter((trait) => target.slot !== 'trait' && trait.slot === 'trait' && trait.instanceId !== target.instanceId)
         .map((trait) => ({ target, trait })));
-      actions.push(...infusionPairs.map(({ target, trait }) => ({
-        label: `Infuse ${target.name} with ${trait.name}`,
-        action: () => this.render(this.requireController().infuseGunPart(target.instanceId, trait.instanceId)),
-      })));
-      // Save migration intentionally retains stale instances.  Normal fitted
-      // rows already provide unequip; only expose this recovery action when a
-      // catalog-missing instance would otherwise keep a slot permanently full.
-      const visiblePartIds = new Set(snapshot.gunsmith.parts.map((part) => part.instanceId));
-      for (const instanceId of [...Object.values(selected.fitted), ...selected.traitParts]) {
-        if (instanceId && !visiblePartIds.has(instanceId)) {
-          actions.push({ label: `Remove unavailable part ${instanceId}`, action: () => this.render(this.requireController().unequipGunPart(instanceId)) });
-        }
+      if (mergePairs.length > 0 || infusionPairs.length > 0) {
+        const workshop = this.own(root, createUiText(this, margin, y, 'WORKSHOP', {
+          color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+        }));
+        this.registerScrollObject(workshop);
+        y += workshop.height + 4;
+        mergePairs.forEach(({ first, second }) => {
+          const row = this.addButton(root, margin, y, `Merge ${first.name} T${first.tier} → T${first.tier + 1}`, hitTarget,
+            () => this.render(this.requireController().mergeGunParts(first.instanceId, second.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin);
+          y += row.height + 8;
+        });
+        infusionPairs.forEach(({ target, trait }) => {
+          const row = this.addButton(root, margin, y, `Infuse ${target.name} with ${trait.name}`, hitTarget,
+            () => this.render(this.requireController().infuseGunPart(target.instanceId, trait.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin);
+          y += row.height + 8;
+        });
       }
-      this.own(root, createUiText(this, margin, y, 'Owned parts and crafting:', {
+      const blueprints = this.own(root, createUiText(this, margin, y, 'BLUEPRINTS', {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
       }));
-      y += hitTarget * 0.7;
-      actions.forEach((item) => {
-        const iconColumn = item.iconArtId ? 38 : 0;
-        const actionText = this.addButton(root, margin, y, item.label, hitTarget, item.action, 'ui:confirm', iconColumn > 0 ? width - margin - this.safeRightMargin - iconColumn : undefined);
-        if (item.iconArtId) this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, item.iconArtId);
-        y += actionText.height + 8;
+      this.registerScrollObject(blueprints);
+      y += blueprints.height + 4;
+      if (snapshot.gunsmith.blueprints.length === 0) {
+        const unavailable = this.own(root, createUiText(this, margin, y, 'No fabrication blueprints are available yet.', {
+          color: '#94a3b8', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+        }));
+        this.registerScrollObject(unavailable);
+      }
+      snapshot.gunsmith.blueprints.forEach((blueprint) => {
+        const row = this.addButton(root, margin, y, `${blueprint.name}\n${blueprint.effectLines.join(' • ') || 'No stat change'}\nFabricate — ${blueprint.fabricationCost} Scrap`, hitTarget,
+          () => this.render(this.requireController().fabricateGunPart(blueprint.partId)), 'ui:confirm', width - margin - this.safeRightMargin - 38);
+        this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, blueprint.iconArtId);
+        y += row.height + 8;
       });
     }
     this.endScrollableRegion();

@@ -14,8 +14,7 @@ describe('shipping part acquisition routes', () => {
     const routed = new Set<string>([
       ...parts.filter((part) => part.fabricationCost !== undefined).map((part) => part.id),
       ...rewards.flatMap((reward) => (reward.grants ?? [])
-        .filter((grant): grant is Extract<(typeof reward.grants)[number], { type: 'grant-part-instance' | 'unlock-part' }> =>
-          grant.type === 'grant-part-instance' || grant.type === 'unlock-part')
+        .filter((grant) => grant.type === 'grant-part-instance' || grant.type === 'unlock-part')
         .map((grant) => grant.partId)),
     ]);
     expect(routed).toEqual(new Set(parts.map((part) => part.id)));
