@@ -15,8 +15,8 @@ import { FocusStroke } from '../ui/theme';
 import { ScrollableFocusRegion } from '../ui/scrollableFocus';
 import { assembleComposedRunRequest, assembleRunRequest, asLegacyComposedRunRequest, type ComposedRunRequest } from '../gameplay/runRequest';
 import { resolveRunPlan } from '../gameplay/stage/stageContracts';
-import { loadTextureResources, prepareRunPresentation, resolveRunPhysicalResources } from '../systems/resourceLoader';
-import { DataVisualResourceRegistry } from '../systems/visualArt';
+import { loadTextureResources, prepareRunPresentation, resolveRunPhysicalResources, type ResourceLoadProgress } from '../systems/resourceLoader';
+import { DataVisualResourceRegistry, resolveAchievementIconBinding } from '../systems/visualArt';
 import { isPortraitOrientationBlocked } from '../platform/orientation';
 
 const MENU_DEPTH = ThemeDepth.pauseSummary;
@@ -85,6 +85,9 @@ export class MenuScene extends Phaser.Scene {
    * Menu so a load failure has a usable Retry/Back surface rather than a
    * partially constructed GameScene. */
   private runLaunchState: 'idle' | 'loading' | 'failed' = 'idle';
+  private runLaunchProgress?: ResourceLoadProgress;
+  private runLaunchGeneration = 0;
+  private isLive = false;
   /** Number of committed render attempts; resize tests assert one per event. */
   get renderRebuildCount(): number {
     return this.rebuildCount;
@@ -98,6 +101,8 @@ export class MenuScene extends Phaser.Scene {
     // Phaser reuses this Scene instance after Game. Loading is transient and
     // must never leave a newly activated Menu permanently inert.
     this.runLaunchState = 'idle';
+    this.runLaunchProgress = undefined;
+    this.isLive = true;
     const ctx = this.getContext();
     this.bus = ctx.bus;
     this.controller = new MainMenuController(ctx);
@@ -270,6 +275,7 @@ export class MenuScene extends Phaser.Scene {
         default:
           break;
       }
+      if (this.runLaunchState === 'loading') this.renderLaunchModal(root, width, hitTarget);
 
       this.navigator.setCount(this.focusables.length);
       // A new FocusNavigator has no count until the rebuilt card grid has
@@ -409,7 +415,9 @@ export class MenuScene extends Phaser.Scene {
 
   private async startRunWithResources(request: ComposedRunRequest, isTraining: boolean): Promise<void> {
     if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
+    const generation = ++this.runLaunchGeneration;
     this.runLaunchState = 'loading';
+    this.runLaunchProgress = undefined;
     this.render(this.requireController().snapshot());
     try {
       const ctx = this.getContext();
@@ -429,12 +437,36 @@ export class MenuScene extends Phaser.Scene {
         encounterEnemyIds: plan?.encounter.enemyIds ?? legacyEnemyIds,
         bossId: plan?.encounter.bossId,
       });
-      await prepareRunPresentation(this, ctx.data, resources);
+      await prepareRunPresentation(this, ctx.data, resources, (progress) => {
+        if (this.isLive && generation === this.runLaunchGeneration && this.runLaunchState === 'loading') {
+          this.runLaunchProgress = progress;
+          this.render(this.requireController().snapshot());
+        }
+      });
+      if (!this.isLive || generation !== this.runLaunchGeneration || this.runLaunchState !== 'loading') return;
       this.scene.start(SceneKey.Game, { runRequest: request, isTraining });
     } catch (error) {
+      if (!this.isLive || generation !== this.runLaunchGeneration) return;
       this.runLaunchState = 'failed';
+      this.runLaunchProgress = undefined;
       this.render(this.requireController().snapshot());
     }
+  }
+
+  private renderLaunchModal(root: Phaser.GameObjects.Container, width: number, hitTarget: number): void {
+    const backdrop = this.own(root, this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x081018, 0.94)
+      .setDepth(MENU_DEPTH + 10).setScrollFactor(0).setInteractive());
+    backdrop.on(Phaser.Input.Events.POINTER_UP, () => undefined);
+    const snapshot = this.requireController().snapshot();
+    const character = snapshot.character.characters.find((entry) => entry.selected);
+    const stage = snapshot.stage.stages.find((entry) => entry.selected);
+    const copy = ['PREPARING CONTRACT', stage?.name, character?.name,
+      this.runLaunchProgress && `Loading ${this.runLaunchProgress.completed} / ${this.runLaunchProgress.total}`].filter(Boolean).join('\n');
+    const text = this.own(root, createUiText(this, this.safeCenterX, this.scale.height / 2, copy, {
+      color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin + 4}px`, align: 'center',
+      wordWrap: { width: width - 32 },
+    }).setOrigin(0.5).setDepth(MENU_DEPTH + 11).setScrollFactor(0));
+    text.setPadding(16, hitTarget / 3);
   }
 
   private renderCharacter(
@@ -610,7 +642,7 @@ export class MenuScene extends Phaser.Scene {
     const selected = snapshot.achievements.selectedAchievement;
     const detailTop = top + heading.height + 10;
     if (selected) {
-      this.addCatalogIcon(root, margin + 17, detailTop + 22, selected.iconArtId, 34);
+      this.addAchievementIcon(root, margin + 17, detailTop + 22, selected.iconArtId, 34);
       this.own(root, createUiText(this, margin + 42, detailTop,
         `${selected.name}\n${achievementStatusCopy(selected)} • ${selected.progress}/${selected.target}\n${selected.description}\nReward: ${selected.rewardSummary}`,
         {
@@ -639,7 +671,7 @@ export class MenuScene extends Phaser.Scene {
         'ui:confirm', cardWidth,
       );
       button.setStyle({ color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px` });
-      this.addCatalogIcon(root, x + cardWidth - 18, y + 20, achievement.iconArtId, 28);
+      this.addAchievementIcon(root, x + cardWidth - 18, y + 20, achievement.iconArtId, 28);
     });
     this.endScrollableRegion();
     this.addBackButton(root, width, margin, hitTarget);
@@ -1022,6 +1054,17 @@ export class MenuScene extends Phaser.Scene {
     this.registerScrollObject(icon);
   }
 
+  /** Career shares terminal Achievement badge identity while retaining its
+   * own gallery layout. Missing textures intentionally preserve text/focus. */
+  private addAchievementIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string, maxSize = 26): void {
+    const binding = resolveAchievementIconBinding(this.getContext().data.visualArt.bindings, iconArtId);
+    if (!binding || !this.textures?.exists(binding.textureKey)) return;
+    const icon = this.own(root, this.add.image(x, y, binding.textureKey, binding.frameKey));
+    icon.setDisplaySize(Math.min(maxSize, binding.display.width), Math.min(maxSize, binding.display.height));
+    icon.setScrollFactor(0);
+    this.registerScrollObject(icon);
+  }
+
   /** Achievement badges remain lazy menu presentation: Boot does not load a
    * future collection just to reach Home. On completion rerender only if the
    * gallery is still current, so an old promise cannot resurrect stale nodes. */
@@ -1031,12 +1074,11 @@ export class MenuScene extends Phaser.Scene {
     // texture manager; their semantic gallery assertions remain valid.
     if (!this.textures?.exists) return;
     const context = this.getContext();
-    const artById = new Map(context.data.visualArt.bindings.map((binding) => [binding.id, binding]));
     const resources = new DataVisualResourceRegistry(context.data);
     const missing = new Map<string, import('../systems/types').VisualTextureResource>();
     for (const iconArtId of iconArtIds) {
-      const binding = artById.get(iconArtId);
-      if (!binding || binding.kind !== 'achievement-icon' || !binding.resourceId || this.textures.exists(binding.textureKey)) continue;
+      const binding = resolveAchievementIconBinding(context.data.visualArt.bindings, iconArtId);
+      if (!binding || !binding.resourceId || this.textures.exists(binding.textureKey)) continue;
       const resource = resources.resourceById(binding.resourceId);
       if (resource) missing.set(resource.id, resource);
     }
@@ -1253,6 +1295,8 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private handleShutdown(): void {
+    this.isLive = false;
+    this.runLaunchGeneration += 1;
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
     this.scale.off?.(Phaser.Scale.Events.RESIZE, this.handleResize, this);

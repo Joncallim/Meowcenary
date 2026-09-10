@@ -66,7 +66,7 @@ import { createDpsMeter, type DpsMeter } from '../gameplay/metrics';
 import { createPerfSampler, type PerfSampler } from '../gameplay/perf';
 import { PlaytestSummarySystem } from '../systems/playtestSummary';
 import { FeedbackSystem, PhaserFeedbackRenderer } from '../systems/feedback';
-import { DataVisualArtRegistry } from '../systems/visualArt';
+import { DataVisualArtRegistry, resolveAchievementIconBinding } from '../systems/visualArt';
 import { assertRunPhysicalResourcesLoaded, resolveRunPhysicalResources } from '../systems/resourceLoader';
 import { HeldWeaponView } from '../entities/heldWeaponView';
 import { DefeatPresentationSystem } from '../systems/defeatPresentation';
@@ -75,6 +75,7 @@ import { evaluateAchievements } from '../gameplay/achievementSystem';
 import { DataAbilityRegistry } from '../systems/abilities';
 import { activateAbility, applyAbilityEffect, createAbilityState, expireAbilityEffect, tickAbility, type AbilityDefinition, type AbilityState } from '../gameplay/abilities';
 import { applyEnemyDamage } from '../gameplay/enemyDamageResolver';
+import { AbilityPresentationSystem } from '../systems/abilityPresentation';
 import type { FocusDirection } from '../ui/focusList';
 import { isPortraitOrientationBlocked, onPortraitOrientationChange } from '../platform/orientation';
 
@@ -104,6 +105,7 @@ export function arenaFollowEnabled(
 export class GameScene extends Phaser.Scene {
   private debugOverlay?: DebugOverlay;
   private inputController?: InputController;
+  private abilityPresentationSystem?: AbilityPresentationSystem;
   private player?: Player;
   private runState?: RunState;
   private enemies: Enemy[] = [];
@@ -325,6 +327,7 @@ export class GameScene extends Phaser.Scene {
       spawnX: arena.size.width / 2,
       spawnY: arena.size.height / 2,
     }, visualArt.bindingById(`character:${request.characterId}`));
+    this.abilityPresentationSystem = new AbilityPresentationSystem(this, ctx.bus, this.player);
 
     const visibleSize = zoomedVisibleSize(this.scale.width, this.scale.height);
     // Fractional zoom must retain subpixel camera motion; Phaser's integer
@@ -583,8 +586,8 @@ export class GameScene extends Phaser.Scene {
       controller: this.runSummaryController,
       readInputMode: () => this.inputController!.getInputMode(),
       resolveAchievementIcon: (iconArtId) => {
-        const binding = visualArt.bindingById(iconArtId);
-        return binding?.kind === 'achievement-icon'
+        const binding = resolveAchievementIconBinding(visualArt.all(), iconArtId);
+        return binding
           ? { textureKey: binding.textureKey, ...(binding.frameKey === undefined ? {} : { frameKey: binding.frameKey }) }
           : undefined;
       },
@@ -691,6 +694,7 @@ export class GameScene extends Phaser.Scene {
     if (!isPendingClear) {
       tickRun(runState, delta);
       this.tickAbility(delta);
+      this.abilityPresentationSystem?.update(delta, ctx.settings.reducedMotion);
       this.player.update(delta);
       this.systems.forEach((system) => {
         system.update(delta);
@@ -768,6 +772,8 @@ export class GameScene extends Phaser.Scene {
     this.pauseView = undefined;
     this.pauseController?.destroy();
     this.pauseController = undefined;
+    this.abilityPresentationSystem?.destroy();
+    this.abilityPresentationSystem = undefined;
     this.fullscreenController?.destroy();
     this.fullscreenController = undefined;
     this.inventoryController = undefined;
@@ -992,6 +998,15 @@ export class GameScene extends Phaser.Scene {
     this.abilityState = activation.state;
     this.syncAbilityPresentation();
     const ctx = this.getContext();
+    ctx.bus.emit('ability:activated', {
+      abilityId: definition.id,
+      cue: definition.presentation.cue,
+      x: player.x,
+      y: player.y,
+      durationMs: definition.durationMs,
+      radius: definition.presentation.radius,
+      color: definition.presentation.color,
+    });
     applyAbilityEffect(definition, { player, stats: runState.stats, enemies: this.enemies,
       damageEnemy: (enemy, amount) => {
         // The enemies array is Enemy[], so the iterated element is always
@@ -1009,7 +1024,10 @@ export class GameScene extends Phaser.Scene {
       || this.stageRuntime?.pendingClear !== undefined || this.abilityState.phase === 'ready') return;
     const before = this.abilityState;
     this.abilityState = tickAbility(before, deltaMs);
-    if (before.phase === 'active' && this.abilityState.phase !== 'active' && this.runState) expireAbilityEffect(definition, { stats: this.runState.stats });
+    if (before.phase === 'active' && this.abilityState.phase !== 'active' && this.runState) {
+      expireAbilityEffect(definition, { stats: this.runState.stats });
+      this.getContext().bus.emit('ability:ended', { abilityId: definition.id });
+    }
     const beforeSeconds = Math.ceil(before.cooldownRemainingMs / 1000);
     const afterSeconds = Math.ceil(this.abilityState.cooldownRemainingMs / 1000);
     if (before.phase !== this.abilityState.phase || beforeSeconds !== afterSeconds) this.syncAbilityPresentation();

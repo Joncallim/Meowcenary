@@ -22,6 +22,12 @@ export interface ResourceLoadResult {
   readonly failed: readonly LoadedResource[];
 }
 
+/** Truthful progress for the deduplicated physical closure owned by one load. */
+export interface ResourceLoadProgress {
+  readonly completed: number;
+  readonly total: number;
+}
+
 /** Phaser's per-file completion event includes the loader file type. Waiting
  * on `filecomplete-<key>` never resolves in a real Phaser runtime (although
  * simplistic test emitters may accidentally accept it). */
@@ -133,6 +139,7 @@ export function loadTextureResource(
 export async function loadTextureResources(
   scene: Phaser.Scene,
   resources: readonly VisualTextureResource[],
+  onProgress?: (progress: ResourceLoadProgress) => void,
 ): Promise<ResourceLoadResult> {
   const loaded: LoadedResource[] = [];
   const failed: LoadedResource[] = [];
@@ -148,6 +155,8 @@ export async function loadTextureResources(
       }
       return true;
     });
+  const total = loaded.length + failed.length + pending.length;
+  onProgress?.({ completed: loaded.length + failed.length, total });
   if (pending.length === 0) return { loaded, failed };
 
   // Phaser's LoaderPlugin has one queue. Starting it once after all physical
@@ -160,6 +169,7 @@ export async function loadTextureResources(
       scene.load.off(`loaderror-${resource.textureKey}`, errorHandlers.get(resource.textureKey));
       (success ? loaded : failed).push({ resourceId: resource.id, textureKey: resource.textureKey, success });
       remaining -= 1;
+      onProgress?.({ completed: loaded.length + failed.length, total });
       if (remaining === 0) resolve();
     };
     const completeHandlers = new Map<string, () => void>();
@@ -316,8 +326,9 @@ export async function prepareRunPresentation(
   scene: Phaser.Scene,
   data: GameData,
   resources: readonly VisualTextureResource[],
+  onProgress?: (progress: ResourceLoadProgress) => void,
 ): Promise<void> {
-  const result = await loadTextureResources(scene, resources);
+  const result = await loadTextureResources(scene, resources, onProgress);
   if (result.failed.length > 0) throw new Error('Required presentation resources could not load');
   const art = new DataVisualArtRegistry(data);
   const resourceIds = new Set(resources.map((resource) => resource.id));

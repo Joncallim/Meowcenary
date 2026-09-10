@@ -1364,7 +1364,7 @@ describe('MenuScene UI command events', () => {
     expect(events).toEqual(['ui:confirm']);
   });
 
-  it('emits exactly one ui:confirm for Enter and Space activation, never two', () => {
+  it('rejects a second keyboard confirm while the first Contract launch is loading', () => {
     const harness = createHarness();
     const events = recordEvents(harness.bus);
 
@@ -1377,7 +1377,7 @@ describe('MenuScene UI command events', () => {
     harness.menuScene.update(0, 16);
     harness.keyboard.keydown('Space');
     harness.menuScene.update(0, 16);
-    expect(events).toEqual(['ui:confirm']);
+    expect(events).toEqual([]);
   });
 
   it('emits ui:confirm for the panel button and ui:back for < Back, never a second confirm', () => {
