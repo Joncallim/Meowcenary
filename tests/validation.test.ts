@@ -93,7 +93,8 @@ function withEnemies(enemies: Record<string, unknown>[]): unknown {
   data.equipmentRules = { unlocks: { 2: { type: 'always' }, 3: { type: 'always' }, 4: { type: 'always' } } };
   data.encounterProfiles = [];
   data.difficultyProfiles = [];
-  data.rewardProfiles = [];
+  // Retain the shipped reward profiles: they are the deliberate acquisition
+  // route for reward-only Parts and are independent of these enemy fixtures.
   data.achievements = [];
   data.spawnCurves = [{
     id: 'fixture-curve',
@@ -1094,7 +1095,8 @@ describe('game data validation', () => {
       data.equipmentRules = { unlocks: { 2: { type: 'always' }, 3: { type: 'always' }, 4: { type: 'always' } } };
       data.encounterProfiles = [];
       data.difficultyProfiles = [];
-      data.rewardProfiles = [];
+      // Keep reward profiles so reward-only Part acquisition remains a valid
+      // global catalog invariant while this fixture isolates arena geometry.
       data.achievements = [];
       return data;
     }
@@ -1318,13 +1320,14 @@ describe('game data validation', () => {
       const data = structuredClone(loadGameData()) as unknown as Record<string, unknown>;
       data.lootTables = tables;
       // Fixture tables replace the shipped chest-standard/brute-cache tables;
-      // clear stage reward catalogs AND enemy loot-table refs so
-      // stage→loot-table and enemy→loot-table references stay honest.
+      // clear stage catalogs and enemy loot-table refs so stage→loot-table
+      // and enemy→loot-table references stay honest.
       data.stages = [];
       data.equipmentRules = { unlocks: { 2: { type: 'always' }, 3: { type: 'always' }, 4: { type: 'always' } } };
       data.encounterProfiles = [];
       data.difficultyProfiles = [];
-      data.rewardProfiles = [];
+      // Reward profiles are independent of this loot-table fixture and carry
+      // the deliberate route for non-fabricable Parts.
       data.achievements = [];
       const enemies = data.enemies as Array<Record<string, unknown>>;
       for (const enemy of enemies) delete enemy.lootTableId;
