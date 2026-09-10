@@ -17,6 +17,7 @@ import { assembleComposedRunRequest, assembleRunRequest, asLegacyComposedRunRequ
 import { resolveRunPlan } from '../gameplay/stage/stageContracts';
 import { loadTextureResources, prepareRunPresentation, resolveRunPhysicalResources } from '../systems/resourceLoader';
 import { DataVisualResourceRegistry } from '../systems/visualArt';
+import { isPortraitOrientationBlocked } from '../platform/orientation';
 
 const MENU_DEPTH = ThemeDepth.pauseSummary;
 /** 44 physical px at the smallest promised FIT (844×390 → 0.462085). */
@@ -144,6 +145,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    if (isPortraitOrientationBlocked()) return;
     this.inputController?.update(delta);
     this.refreshInputPresentation();
     this.audioManager?.update(delta);
@@ -406,7 +408,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private async startRunWithResources(request: ComposedRunRequest, isTraining: boolean): Promise<void> {
-    if (this.runLaunchState === 'loading') return;
+    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     this.runLaunchState = 'loading';
     this.render(this.requireController().snapshot());
     try {
@@ -937,6 +939,7 @@ export class MenuScene extends Phaser.Scene {
       text.setStyle({ backgroundColor: 'rgba(23, 48, 59, 0.86)' });
     });
     text.on(Phaser.Input.Events.POINTER_UP, () => {
+      if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
       // A drag is a scrolling gesture, never a command activation. Keep the
       // flag through the InputPlugin's pointer-up dispatch so this remains
       // correct regardless of global-vs-object listener ordering.
@@ -1135,6 +1138,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private handleScroll(delta: number): void {
+    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     if (!this.committedDisplay || !this.scrollRegion) return;
     this.scrollRegion.scrollBy(delta);
     this.applyScrollViewport();
@@ -1142,10 +1146,12 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private readonly handleWheel = (_pointer: Phaser.Input.Pointer, _objects: Phaser.GameObjects.GameObject[], _deltaX: number, deltaY: number): void => {
+    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     this.handleScroll(deltaY);
   };
 
   private readonly handlePointerMove = (pointer: Phaser.Input.Pointer): void => {
+    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     if (!pointer.isDown) {
       this.touchScrollY = undefined;
       return;
@@ -1164,6 +1170,7 @@ export class MenuScene extends Phaser.Scene {
   };
 
   private readonly handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
+    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     if (!this.scrollRegion) {
       this.touchScrollY = undefined;
       this.touchDragDistance = 0;
@@ -1176,11 +1183,13 @@ export class MenuScene extends Phaser.Scene {
   };
 
   private readonly handlePointerUp = (): void => {
+    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     this.touchScrollY = undefined;
     this.touchDragDistance = 0;
   };
 
   private handleBack(): void {
+    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     // Home Esc is still a back command; it emits even when the controller
     // refuses (already home).
     this.bus?.emit('ui:back', {});
@@ -1194,6 +1203,7 @@ export class MenuScene extends Phaser.Scene {
   };
 
   private handleNavMove(direction: FocusDirection | number): void {
+    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     // No committed display (never rendered, or a failed rebuild left only the
     // fallback): the retained navigator must not move or emit (F1).
     if (!this.committedDisplay) return;
@@ -1210,6 +1220,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private handleActivate(): void {
+    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     if (!this.committedDisplay) return;
     const focused = this.focusables[this.navigator.index];
     focused?.emit(Phaser.Input.Events.POINTER_UP);

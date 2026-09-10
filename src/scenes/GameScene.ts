@@ -76,6 +76,7 @@ import { DataAbilityRegistry } from '../systems/abilities';
 import { activateAbility, applyAbilityEffect, createAbilityState, expireAbilityEffect, tickAbility, type AbilityDefinition, type AbilityState } from '../gameplay/abilities';
 import { applyEnemyDamage } from '../gameplay/enemyDamageResolver';
 import type { FocusDirection } from '../ui/focusList';
+import { isPortraitOrientationBlocked, onPortraitOrientationChange } from '../platform/orientation';
 
 /** U6: the gameplay camera shows canvas/zoom world units — 312×675.2 on the
  *  390×844 canvas at the 1.25× gameplay zoom. */
@@ -112,6 +113,8 @@ export class GameScene extends Phaser.Scene {
   private projectileGroup?: Phaser.Physics.Arcade.Group;
   private dropGroup?: Phaser.Physics.Arcade.Group;
   private physicsPausedByRun = false;
+  /** Presentation-only suspension; deliberately not a persistent PauseReason. */
+  private orientationBlocked = false;
   private hudController?: HudController;
   private controlsView?: ControlsView;
   private pauseController?: PauseController;
@@ -295,6 +298,11 @@ export class GameScene extends Phaser.Scene {
     const lootTables = new DataLootTableRegistry(ctx.data);
 
     this.inputController = new InputController(this);
+    this.orientationBlocked = isPortraitOrientationBlocked();
+    this.unsubscribers.push(onPortraitOrientationChange((blocked) => {
+      this.orientationBlocked = blocked;
+      if (this.runState) this.syncPhysicsPause(this.runState);
+    }));
     this.debugOverlay = new DebugOverlay(this);
 
     this.enemyGroup = this.physics.add.group();
@@ -649,6 +657,14 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    if (this.orientationBlocked || isPortraitOrientationBlocked()) {
+      this.orientationBlocked = true;
+      this.syncPhysicsPause(runState);
+      this.inputController.suspendGameplayPointer?.();
+      this.gameplayPointerSuspended = true;
+      return;
+    }
+
     this.perfSampler?.recordFrame(delta);
     this.inputController.update(delta);
     this.syncGameplayPointerOwnership();
@@ -845,6 +861,7 @@ export class GameScene extends Phaser.Scene {
    *  an absent runState is a teardown/inconsistent seam and every action is
    *  discarded immediately — no panel fallback routes commands without a run. */
   private routeAction(action: GameAction): void {
+    if (this.orientationBlocked || isPortraitOrientationBlocked()) return;
     // Suppress input during scene transitions to prevent ghost clicks
     // (e.g. pointerdown triggers extraction, pointerup lands on the
     // next scene's button at the same position).
@@ -1231,7 +1248,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private syncPhysicsPause(runState: RunState): void {
-    const shouldPause = runState.status !== 'active' || this.stageRuntime?.pendingClear !== undefined;
+    const shouldPause = this.orientationBlocked || runState.status !== 'active' || this.stageRuntime?.pendingClear !== undefined;
     if (shouldPause && !this.physicsPausedByRun) {
       this.physics.world.pause();
       this.physicsPausedByRun = true;
@@ -1253,7 +1270,8 @@ export class GameScene extends Phaser.Scene {
     const panel = this.pauseController?.snapshot().panel ?? 'closed';
     const gameplayOwnsPointer = runState?.status === 'active'
       && panel === 'closed'
-      && this.stageRuntime?.pendingClear === undefined;
+      && this.stageRuntime?.pendingClear === undefined
+      && !this.orientationBlocked;
     if (gameplayOwnsPointer && this.gameplayPointerSuspended) {
       this.inputController?.resumeGameplayPointer?.();
       this.gameplayPointerSuspended = false;
