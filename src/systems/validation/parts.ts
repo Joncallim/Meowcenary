@@ -106,7 +106,7 @@ export function assertPartAcquisitionRoutes(
   const rewarded = new Set<string>();
   for (const reward of rewards) {
     for (const grant of reward.grants ?? []) {
-      if ((grant.type === 'grant-part-instance' || grant.type === 'unlock-part') && typeof grant.partId === 'string') {
+      if (grant.type === 'grant-part-instance' && typeof grant.partId === 'string') {
         rewarded.add(grant.partId);
       }
     }
