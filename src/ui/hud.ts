@@ -22,8 +22,9 @@ export interface HudSnapshot {
   readonly kills: number;
   readonly currency: number;
   readonly objective?: string;
-  /** Shared ability action feedback; game input, controller and touch all
-   * read the same authoritative ability state. */
+  /** Legacy scene bridge retained during the ability-control migration. The
+   * dedicated lower-right control owns routine ability presentation; this is
+   * intentionally never admitted to the compact HUD feedback lane. */
   readonly ability?: string;
   readonly achievement?: string;
   /** A boss is intentionally a separate encounter signal, never folded into
@@ -133,7 +134,6 @@ function buildRenderKey(snapshot: HudSnapshot): string {
     snapshot.kills,
     snapshot.currency.toFixed(2),
     snapshot.objective ?? '',
-    snapshot.ability ?? '',
     snapshot.achievement ?? '',
     snapshot.boss === undefined ? '' : `${snapshot.boss.name}|${snapshot.boss.health.toFixed(2)}|${snapshot.boss.maxHealth.toFixed(2)}`,
 
@@ -297,7 +297,10 @@ export class PhaserHudView implements HudView {
     this.setContainedText(this.levelText, `LV ${snapshot.level}  ${formatNumber(Math.floor(safeXp))}/${formatNumber(safeXpToNext)}`, this.meterTextWidth, this.labelFontSize);
     this.setContainedText(this.killsText, `K ${formatNumber(snapshot.kills)}`, this.headerTextWidth, this.labelFontSize);
     this.setContainedText(this.scrapText, `S ${formatNumber(Math.floor(snapshot.currency))}`, this.headerTextWidth, this.labelFontSize);
-    const feedback = [snapshot.objective, snapshot.ability, snapshot.achievement].filter(Boolean);
+    // Ability state belongs to the dedicated semantic ability card. Keeping
+    // it out of this arbitration means a normal contract objective can never
+    // hide the player's active ability identity/cooldown.
+    const feedback = [snapshot.objective, snapshot.achievement].filter(Boolean);
     this.setContainedText(this.objectiveText, truncateHudFeedback(feedback[0]), topHudLayout(this.viewport).objectiveWidth, this.labelFontSize);
     const boss = snapshot.boss;
     const bossVisible = boss !== undefined;
