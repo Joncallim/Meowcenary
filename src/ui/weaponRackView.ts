@@ -15,6 +15,7 @@ import { computeMergePreviewTextLayout, computeWeaponRackLayout } from './weapon
 import { FocusNavigator, type FocusDirection } from './focusList';
 import type { InputMode } from '../systems/input';
 import type { ModalButtonHandle } from './modal';
+import { isPortraitOrientationBlocked } from '../platform/orientation';
 
 export interface PhaserWeaponRackPanelOptions {
   readonly scene: Phaser.Scene;
@@ -762,7 +763,7 @@ export class PhaserWeaponRackPanel {
     // The parent's committed-root state gates the shortcuts too: after a
     // failed rebuild the retained isOpen()/panel state is true but there is
     // no usable display to act on (round-2 finding F1).
-    if (this.disposed || !this.isOpen() || !this.hasCommittedRoot()) {
+    if (isPortraitOrientationBlocked() || this.disposed || !this.isOpen() || !this.hasCommittedRoot()) {
       return;
     }
     if (event.repeat) {

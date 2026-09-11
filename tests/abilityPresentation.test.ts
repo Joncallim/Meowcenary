@@ -4,7 +4,7 @@ import { AbilityPresentationSystem } from '../src/systems/abilityPresentation';
 
 function harness() {
   const strokeCircle = vi.fn();
-  const graphics = { setDepth: () => graphics, clear: vi.fn(), lineStyle: vi.fn(), strokeCircle, destroy: vi.fn() };
+  const graphics = { setDepth: () => graphics, clear: vi.fn(), lineStyle: vi.fn(), strokeCircle, lineBetween: vi.fn(), strokeTriangle: vi.fn(), destroy: vi.fn() };
   const scene = { add: { graphics: () => graphics } } as any;
   const bus = createEventBus();
   const player = { x: 10, y: 20 };

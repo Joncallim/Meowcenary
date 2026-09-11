@@ -141,7 +141,7 @@ export class ControlsView {
         - bottomMargin
         - physicalToLogical(this.visibleStickRadius * 2, viewport)
         - fontSize,
-      hintForMode(this.lastMode, this.ability?.name),
+      this.ability ? abilityTeachingCopy(this.ability) : hintForMode(this.lastMode),
       {
         align: 'center',
         color: '#f7f1d5',
@@ -512,6 +512,12 @@ function hintForMode(mode: InputMode, abilityName?: string): string {
     default:
       return `Drag to move • Tap ${namedAbility} • Tap pause`;
   }
+}
+
+/** The first-run transient hint teaches the selected data-owned ability;
+ * later input-mode changes return to concise control hints. */
+function abilityTeachingCopy(ability: AbilityControlDefinition): string {
+  return `${containedAbilityName(ability.name).toUpperCase()} — ${ability.description}`;
 }
 
 function abilityStateCopy(phase: AbilityControlPhase, cooldownSeconds: number): string {

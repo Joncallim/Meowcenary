@@ -337,7 +337,7 @@ describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
 describe('ControlsView hints', () => {
   it('repositions the hint and rebuilds the pause target after rotation', () => {
     const { scene, view } = createHarness();
-    const oldHint = scene.objects.find((object) => object.state.text === 'Drag to move • Tap Scrap Burst • Tap pause')!;
+    const oldHint = scene.objects.find((object) => object.state.text === 'SCRAP BURST — Knock nearby enemies away.')!;
     const oldPause = scene.objects.find((object) => object.state.interactive)!;
 
     scene.resize(844, 390);
@@ -345,7 +345,7 @@ describe('ControlsView hints', () => {
     expect(oldHint.state.destroyed).toBe(true);
     expect(oldPause.state.destroyed).toBe(true);
     expect(scene.scale.listenerCount('resize')).toBe(1);
-    const hint = scene.objects.find((object) => !object.state.destroyed && object.state.text === 'Drag to move • Tap Scrap Burst • Tap pause')!;
+    const hint = scene.objects.find((object) => !object.state.destroyed && object.state.text === 'SCRAP BURST — Knock nearby enemies away.')!;
     const pause = scene.objects.find((object) => !object.state.destroyed && object.state.interactive)!;
     const fitScale = 390 / 844;
     // The strip is gone: the hint owns the bottom safe margin above the stick.
@@ -379,11 +379,11 @@ describe('ControlsView hints', () => {
     }
   });
 
-  it('starts with pointer-mode copy and switches on mode change', () => {
+  it('starts with a data-backed ability teaching line and switches on mode change', () => {
     const { scene, input, tick } = createHarness();
     const hintText = scene.objects[3];
 
-    expect(hintText.state.text).toBe('Drag to move • Tap Scrap Burst • Tap pause');
+    expect(hintText.state.text).toBe('SCRAP BURST — Knock nearby enemies away.');
 
     input.keyboard!.keydown('d');
     tick();
