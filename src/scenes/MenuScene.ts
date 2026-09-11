@@ -150,7 +150,11 @@ export class MenuScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
-    if (isPortraitOrientationBlocked()) return;
+    if (isPortraitOrientationBlocked()) {
+      this.inputController?.quarantineUntilNeutral();
+      this.inputController?.update(delta);
+      return;
+    }
     this.inputController?.update(delta);
     this.refreshInputPresentation();
     this.audioManager?.update(delta);

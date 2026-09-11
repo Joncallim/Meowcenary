@@ -303,6 +303,7 @@ export class GameScene extends Phaser.Scene {
     this.orientationBlocked = isPortraitOrientationBlocked();
     this.unsubscribers.push(onPortraitOrientationChange((blocked) => {
       this.orientationBlocked = blocked;
+      this.inputController?.quarantineUntilNeutral();
       if (this.runState) this.syncPhysicsPause(this.runState);
     }));
     this.debugOverlay = new DebugOverlay(this);
@@ -666,7 +667,7 @@ export class GameScene extends Phaser.Scene {
     if (this.orientationBlocked || isPortraitOrientationBlocked()) {
       this.orientationBlocked = true;
       this.syncPhysicsPause(runState);
-      this.inputController.suspendGameplayPointer?.();
+      this.inputController.quarantineUntilNeutral();
       this.gameplayPointerSuspended = true;
       return;
     }
@@ -694,7 +695,7 @@ export class GameScene extends Phaser.Scene {
     if (!isPendingClear) {
       tickRun(runState, delta);
       this.tickAbility(delta);
-      this.abilityPresentationSystem?.update(delta, ctx.settings.reducedMotion);
+      if (runState.status === 'active') this.abilityPresentationSystem?.update(delta, ctx.settings.reducedMotion);
       this.player.update(delta);
       this.systems.forEach((system) => {
         system.update(delta);

@@ -253,6 +253,16 @@ export class LogicalInputCore {
     }
   }
 
+  /** True only when every physical source has released every action and
+   * movement sample. Used by lifecycle guards to discard presses made while
+   * a global overlay owns the screen. */
+  isNeutral(): boolean {
+    for (const source of SOURCE_ORDER) {
+      if ((this.held.get(source)?.size ?? 0) > 0 || this.movementStates.get(source)?.active) return false;
+    }
+    return true;
+  }
+
   update(dtMs: number): readonly ActionEdge[] {
     this.timeMs += Math.max(0, dtMs);
     this.edges.length = 0;
