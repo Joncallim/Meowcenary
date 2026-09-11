@@ -14,10 +14,10 @@ export interface VisualArtLookup {
  * Achievement must never acquire a view-specific art identity.
  */
 export function resolveAchievementIconBinding(
-  bindings: readonly Readonly<ResolvedVisualArtBinding>[],
+  art: Pick<VisualArtLookup, 'bindingById'>,
   iconArtId: string,
 ): Readonly<ResolvedVisualArtBinding> | undefined {
-  const binding = bindings.find((candidate) => candidate.id === iconArtId);
+  const binding = art.bindingById(iconArtId);
   return binding?.kind === 'achievement-icon' ? binding : undefined;
 }
 

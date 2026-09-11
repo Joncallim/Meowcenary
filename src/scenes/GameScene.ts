@@ -587,7 +587,7 @@ export class GameScene extends Phaser.Scene {
       controller: this.runSummaryController,
       readInputMode: () => this.inputController!.getInputMode(),
       resolveAchievementIcon: (iconArtId) => {
-        const binding = resolveAchievementIconBinding(visualArt.all(), iconArtId);
+        const binding = resolveAchievementIconBinding(visualArt, iconArtId);
         return binding
           ? { textureKey: binding.textureKey, ...(binding.frameKey === undefined ? {} : { frameKey: binding.frameKey }) }
           : undefined;

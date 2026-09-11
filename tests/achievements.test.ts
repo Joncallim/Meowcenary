@@ -33,8 +33,8 @@ describe('Epic 22 achievement catalog conformance', () => {
     const visualArt = new DataVisualArtRegistry(data);
     const achievement = data.achievements![0]!;
 
-    const careerBinding = resolveAchievementIconBinding(visualArt.all(), achievement.presentation.iconArtId);
-    const terminalBinding = resolveAchievementIconBinding(visualArt.all(), achievement.presentation.iconArtId);
+    const careerBinding = resolveAchievementIconBinding(visualArt, achievement.presentation.iconArtId);
+    const terminalBinding = resolveAchievementIconBinding(visualArt, achievement.presentation.iconArtId);
 
     expect(careerBinding).toMatchObject({
       id: achievement.presentation.iconArtId,
@@ -49,7 +49,7 @@ describe('Epic 22 achievement catalog conformance', () => {
     const visualArt = new DataVisualArtRegistry(data);
     const nonAchievementArt = visualArt.all().find((binding) => binding.kind === 'upgrade-icon')!;
 
-    expect(resolveAchievementIconBinding(visualArt.all(), nonAchievementArt.id)).toBeUndefined();
+    expect(resolveAchievementIconBinding(visualArt, nonAchievementArt.id)).toBeUndefined();
   });
 
   it('rejects duplicate optional external platform mappings', () => {

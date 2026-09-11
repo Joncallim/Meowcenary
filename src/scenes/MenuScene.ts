@@ -16,7 +16,7 @@ import { ScrollableFocusRegion } from '../ui/scrollableFocus';
 import { assembleComposedRunRequest, assembleRunRequest, asLegacyComposedRunRequest, type ComposedRunRequest } from '../gameplay/runRequest';
 import { resolveRunPlan } from '../gameplay/stage/stageContracts';
 import { loadTextureResources, prepareRunPresentation, resolveRunPhysicalResources, type ResourceLoadProgress } from '../systems/resourceLoader';
-import { DataVisualResourceRegistry, resolveAchievementIconBinding } from '../systems/visualArt';
+import { DataVisualArtRegistry, DataVisualResourceRegistry, resolveAchievementIconBinding } from '../systems/visualArt';
 import { isPortraitOrientationBlocked } from '../platform/orientation';
 
 const MENU_DEPTH = ThemeDepth.pauseSummary;
@@ -86,6 +86,7 @@ export class MenuScene extends Phaser.Scene {
    * partially constructed GameScene. */
   private runLaunchState: 'idle' | 'loading' | 'failed' = 'idle';
   private runLaunchProgress?: ResourceLoadProgress;
+  private runLaunchPresentation?: { readonly heading: string; readonly subject: string; readonly mercenary: string };
   private runLaunchGeneration = 0;
   private isLive = false;
   /** Number of committed render attempts; resize tests assert one per event. */
@@ -102,6 +103,7 @@ export class MenuScene extends Phaser.Scene {
     // must never leave a newly activated Menu permanently inert.
     this.runLaunchState = 'idle';
     this.runLaunchProgress = undefined;
+    this.runLaunchPresentation = undefined;
     this.isLive = true;
     const ctx = this.getContext();
     this.bus = ctx.bus;
@@ -420,24 +422,31 @@ export class MenuScene extends Phaser.Scene {
   private async startRunWithResources(request: ComposedRunRequest, isTraining: boolean): Promise<void> {
     if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     const generation = ++this.runLaunchGeneration;
+    const ctx = this.getContext();
+    const stage = request.kind === 'stage' ? ctx.stages.stageById(request.stageId) : undefined;
+    const arenaId = stage?.arenaId ?? (request.kind === 'legacy-arena' ? request.arenaId : undefined);
+    const arena = arenaId === undefined ? undefined : ctx.arenas.arenaById(arenaId);
+    const mercenary = ctx.characters.characterById(request.characterId);
+    this.runLaunchPresentation = Object.freeze(isTraining
+      ? { heading: 'PREPARING TRAINING', subject: arena?.name ?? 'Training Arena', mercenary: mercenary?.name ?? request.characterId }
+      : { heading: 'PREPARING CONTRACT', subject: stage?.name ?? 'Selected Contract', mercenary: mercenary?.name ?? request.characterId });
     this.runLaunchState = 'loading';
     this.runLaunchProgress = undefined;
     this.render(this.requireController().snapshot());
     try {
-      const ctx = this.getContext();
       const plan = request.kind === 'stage'
         ? resolveRunPlan({ characterId: request.characterId, stageId: request.stageId, seed: request.seed }, ctx.stages.runPlanCatalog())
         : undefined;
-      const arenaId = plan?.arenaId ?? (request.kind === 'legacy-arena' ? request.arenaId : undefined);
-      const arena = arenaId === undefined ? undefined : ctx.arenas.arenaById(arenaId);
-      if (!arena) throw new Error('Selected contract arena is unavailable');
+      const resolvedArenaId = plan?.arenaId ?? arenaId;
+      const resolvedArena = resolvedArenaId === undefined ? undefined : ctx.arenas.arenaById(resolvedArenaId);
+      if (!resolvedArena) throw new Error('Selected contract arena is unavailable');
       const legacyEnemyIds = request.kind === 'legacy-arena'
-        ? (ctx.data.spawnCurves.find((curve) => curve.id === arena.spawnCurveId)?.waves.map((wave) => wave.enemyId) ?? [])
+        ? (ctx.data.spawnCurves.find((curve) => curve.id === resolvedArena.spawnCurveId)?.waves.map((wave) => wave.enemyId) ?? [])
         : [];
       const resources = resolveRunPhysicalResources({
         data: ctx.data,
         characterId: request.characterId,
-        arena,
+        arena: resolvedArena,
         encounterEnemyIds: plan?.encounter.enemyIds ?? legacyEnemyIds,
         bossId: plan?.encounter.bossId,
       });
@@ -461,10 +470,8 @@ export class MenuScene extends Phaser.Scene {
     const backdrop = this.own(root, this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x081018, 0.94)
       .setDepth(MENU_DEPTH + 10).setScrollFactor(0).setInteractive());
     backdrop.on(Phaser.Input.Events.POINTER_UP, () => undefined);
-    const snapshot = this.requireController().snapshot();
-    const character = snapshot.character.characters.find((entry) => entry.selected);
-    const stage = snapshot.stage.stages.find((entry) => entry.selected);
-    const copy = ['PREPARING CONTRACT', stage?.name, character?.name,
+    const presentation = this.runLaunchPresentation;
+    const copy = [presentation?.heading ?? 'PREPARING CONTRACT', presentation?.subject, presentation?.mercenary,
       this.runLaunchProgress && `Loading ${this.runLaunchProgress.completed} / ${this.runLaunchProgress.total}`].filter(Boolean).join('\n');
     const text = this.own(root, createUiText(this, this.safeCenterX, this.scale.height / 2, copy, {
       color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin + 4}px`, align: 'center',
@@ -1061,7 +1068,7 @@ export class MenuScene extends Phaser.Scene {
   /** Career shares terminal Achievement badge identity while retaining its
    * own gallery layout. Missing textures intentionally preserve text/focus. */
   private addAchievementIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string, maxSize = 26): void {
-    const binding = resolveAchievementIconBinding(this.getContext().data.visualArt.bindings, iconArtId);
+    const binding = resolveAchievementIconBinding(new DataVisualArtRegistry(this.getContext().data), iconArtId);
     if (!binding || !this.textures?.exists(binding.textureKey)) return;
     const icon = this.own(root, this.add.image(x, y, binding.textureKey, binding.frameKey));
     icon.setDisplaySize(Math.min(maxSize, binding.display.width), Math.min(maxSize, binding.display.height));
@@ -1078,10 +1085,11 @@ export class MenuScene extends Phaser.Scene {
     // texture manager; their semantic gallery assertions remain valid.
     if (!this.textures?.exists) return;
     const context = this.getContext();
+    const art = new DataVisualArtRegistry(context.data);
     const resources = new DataVisualResourceRegistry(context.data);
     const missing = new Map<string, import('../systems/types').VisualTextureResource>();
     for (const iconArtId of iconArtIds) {
-      const binding = resolveAchievementIconBinding(context.data.visualArt.bindings, iconArtId);
+      const binding = resolveAchievementIconBinding(art, iconArtId);
       if (!binding || !binding.resourceId || this.textures.exists(binding.textureKey)) continue;
       const resource = resources.resourceById(binding.resourceId);
       if (resource) missing.set(resource.id, resource);
