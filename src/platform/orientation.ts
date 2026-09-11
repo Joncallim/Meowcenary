@@ -19,6 +19,7 @@ export interface PortraitOrientationGuard {
 type OrientationListener = (blocked: boolean) => void;
 let portraitBlocked = false;
 const listeners = new Set<OrientationListener>();
+let activeGuard: PortraitOrientationGuard | undefined;
 
 export function isPortraitOrientationBlocked(): boolean {
   return portraitBlocked;
@@ -50,6 +51,10 @@ export function installPortraitOrientationGuard(
   win: Window = window,
   doc: Document = document,
 ): PortraitOrientationGuard {
+  // A game recreation/hot reload replaces the physical overlay. Dispose the
+  // old installation first so its window and media-query listeners cannot
+  // later publish an invisible blocked state into the new scene tree.
+  activeGuard?.dispose();
   doc.getElementById('portrait-orientation-guard')?.remove();
   const pointerQuery = win.matchMedia?.('(pointer: coarse)');
   const overlay = doc.createElement('div');
@@ -77,7 +82,7 @@ export function installPortraitOrientationGuard(
   pointerQuery?.addEventListener?.('change', onQueryChange);
   refresh();
 
-  return {
+  const guard: PortraitOrientationGuard = {
     isBlocked: () => !disposed && portraitBlocked,
     dispose: () => {
       if (disposed) return;
@@ -87,7 +92,12 @@ export function installPortraitOrientationGuard(
       win.visualViewport?.removeEventListener('resize', refresh);
       pointerQuery?.removeEventListener?.('change', onQueryChange);
       overlay.remove();
-      publish(false);
+      if (activeGuard === guard) {
+        activeGuard = undefined;
+        publish(false);
+      }
     },
   };
+  activeGuard = guard;
+  return guard;
 }
