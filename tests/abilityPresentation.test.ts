@@ -42,4 +42,12 @@ describe('AbilityPresentationSystem', () => {
     system.update(50, false);
     expect(strokeCircle).toHaveBeenCalledTimes(4); // shield draws two circles on both active frames
   });
+
+  it('renders an activation on a frozen extraction frame without advancing it', () => {
+    const { system, bus, strokeCircle } = harness();
+    bus.emit('ability:activated', { abilityId: 'ability:heat', cue: 'heat-ring', x: 8, y: 9, durationMs: 100, color: '#ff0000' });
+    system.update(0, false);
+    system.update(100, false);
+    expect(strokeCircle).toHaveBeenCalledTimes(2);
+  });
 });

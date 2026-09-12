@@ -700,6 +700,11 @@ export class GameScene extends Phaser.Scene {
       this.systems.forEach((system) => {
         system.update(delta);
       });
+    } else {
+      // An activation can synchronously complete the final objective. Draw
+      // its freshly emitted cue once without advancing it before extraction
+      // freezes simulation state.
+      this.abilityPresentationSystem?.update(0, ctx.settings.reducedMotion);
     }
 
     // === PRESENTATION PHASE ===

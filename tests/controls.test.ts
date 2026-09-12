@@ -379,7 +379,7 @@ describe('ControlsView hints', () => {
     }
   });
 
-  it('starts with a data-backed ability teaching line and switches on mode change', () => {
+  it('keeps the data-backed ability teaching line through the first mode change', () => {
     const { scene, input, tick } = createHarness();
     const hintText = scene.objects[3];
 
@@ -387,31 +387,31 @@ describe('ControlsView hints', () => {
 
     input.keyboard!.keydown('d');
     tick();
-    expect(hintText.state.text).toBe('WASD / arrows • Q — Scrap Burst • P / Esc');
+    expect(hintText.state.text).toBe('SCRAP BURST — Knock nearby enemies away.');
     expect(hintText.state.alpha).toBe(1);
 
     input.keyboard!.keyup('d');
     tick();
     // Idle frames do not flap the copy back.
-    expect(hintText.state.text).toBe('WASD / arrows • Q — Scrap Burst • P / Esc');
+    expect(hintText.state.text).toBe('SCRAP BURST — Knock nearby enemies away.');
   });
 
-  it('a pointer gesture restores pointer-mode copy', () => {
+  it('keeps teaching copy through a pointer gesture', () => {
     const { scene, input, tick } = createHarness();
     const hintText = scene.objects[3];
 
     input.keyboard!.keydown('d');
     tick();
-    expect(hintText.state.text).toBe('WASD / arrows • Q — Scrap Burst • P / Esc');
+    expect(hintText.state.text).toBe('SCRAP BURST — Knock nearby enemies away.');
 
     input.keyboard!.keyup('d');
     input.pointerDown(10, 10);
     input.pointerMove(74, 10);
     tick();
-    expect(hintText.state.text).toBe('Drag to move • Tap Scrap Burst • Tap pause');
+    expect(hintText.state.text).toBe('SCRAP BURST — Knock nearby enemies away.');
   });
 
-  it('shows the gamepad hint when gamepad input is active', () => {
+  it('keeps teaching copy when gamepad input is first active', () => {
     const { scene, input, tick } = createHarness({ gamepad: true });
     const hintText = scene.objects[3];
 
@@ -420,7 +420,7 @@ describe('ControlsView hints', () => {
     pad.setLeftStick(1, 0);
     tick();
 
-    expect(hintText.state.text).toBe('Left stick • Bottom face — Scrap Burst • Menu pause');
+    expect(hintText.state.text).toBe('SCRAP BURST — Knock nearby enemies away.');
   });
 
   it('fades the hint once after the display duration with a tween', () => {
