@@ -39,12 +39,12 @@ describe('GameScene character ability runtime bridge', () => {
 
   it('executes heal and invulnerability through the live player owner exactly once per cooldown', () => {
     const heal = activate('ability:giga-chomp');
-    heal.scene.hudController = { requestRender: vi.fn() };
+    heal.scene.controlsView = { setAbilityPresentation: vi.fn() };
     heal.player.heal.mockClear();
     heal.scene.abilityState = { phase: 'ready', activeRemainingMs: 0, cooldownRemainingMs: 0 };
     heal.scene.activateCharacterAbility();
     expect(heal.player.heal).toHaveBeenCalledWith(40);
-    expect(heal.scene.hudController.requestRender).toHaveBeenCalledTimes(1);
+    expect(heal.scene.controlsView.setAbilityPresentation).toHaveBeenCalledWith('cooling', 18_000);
     heal.scene.activateCharacterAbility();
     expect(heal.player.heal).toHaveBeenCalledTimes(1);
 
@@ -54,20 +54,19 @@ describe('GameScene character ability runtime bridge', () => {
 
   it('refreshes ability feedback when an active effect moves to cooling', () => {
     const adrenaline = activate('ability:adrenaline');
-    adrenaline.scene.hudController = { requestRender: vi.fn() };
+    adrenaline.scene.controlsView = { setAbilityPresentation: vi.fn() };
     adrenaline.scene.tickAbility(2500);
-    expect(adrenaline.scene.hudController.requestRender).toHaveBeenCalledTimes(1);
+    expect(adrenaline.scene.controlsView.setAbilityPresentation).toHaveBeenCalledWith('cooling', expect.any(Number));
   });
 
   it('refreshes cooldown feedback as the visible remaining second changes', () => {
     const shield = activate('ability:shield-flicker');
-    shield.scene.hudController = { requestRender: vi.fn() };
+    shield.scene.controlsView = { setAbilityPresentation: vi.fn() };
     shield.scene.tickAbility(1_000);
-    expect(shield.scene.hudController.requestRender).toHaveBeenCalledTimes(1);
-    expect(shield.scene.describeAbilityState()).toBe('Shield Flicker: 14s');
-    shield.scene.hudController.requestRender.mockClear();
+    expect(shield.scene.controlsView.setAbilityPresentation).toHaveBeenCalledWith('active', 14_000);
+    shield.scene.controlsView.setAbilityPresentation.mockClear();
     shield.scene.tickAbility(100);
-    expect(shield.scene.hudController.requestRender).not.toHaveBeenCalled();
+    expect(shield.scene.controlsView.setAbilityPresentation).not.toHaveBeenCalled();
   });
 
   it('does not advance ability durations or cooldowns behind paused, clear, or terminal UI', () => {

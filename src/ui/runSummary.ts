@@ -9,6 +9,7 @@ import { createModalTextHelpers, type ModalTextHelpers, type ModalTextKind } fro
 import { ThemeColor, ThemeDepth, ThemeFont } from './theme';
 import { FocusNavigator, type FocusDirection } from './focusList';
 import type { InputMode } from '../systems/input';
+import { isPortraitOrientationBlocked } from '../platform/orientation';
 
 export interface RunSummarySnapshot {
   readonly outcome: RunOutcome;
@@ -377,7 +378,7 @@ export class PhaserRunSummaryView {
   };
 
   private readonly handleRetryKey = (event: KeyboardEvent): void => {
-    if (this.disposed || event.repeat || !this.visible) {
+    if (isPortraitOrientationBlocked() || this.disposed || event.repeat || !this.visible) {
       return;
     }
     this.retry();

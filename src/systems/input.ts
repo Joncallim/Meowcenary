@@ -529,6 +529,7 @@ export class InputController implements System {
   // START, or the movement it interrupted stopping.
   private pointerDownPending = false;
   private pointerDownMovementSource: InputSource | null = null;
+  private quarantinedUntilNeutral = false;
 
   constructor(scene: Phaser.Scene, options?: InputControllerOptions) {
     const touchStick = options?.touchStick ?? RuntimeConfig.gameplay.input.touchStick;
@@ -564,6 +565,11 @@ export class InputController implements System {
     }
 
     const edges = this.core.update(dtMs);
+
+    if (this.quarantinedUntilNeutral) {
+      if (this.core.isNeutral()) this.quarantinedUntilNeutral = false;
+      return;
+    }
 
     const source = this.core.getActiveMovementSource();
 
@@ -648,7 +654,19 @@ export class InputController implements System {
     this.pointerAdapter.resumeMovement();
   }
 
+  /** Discard actions pressed while an external lifecycle guard is visible.
+   * Polling continues so keyboard/gamepad state must return to neutral before
+   * any fresh edge can reach a scene command handler. */
+  quarantineUntilNeutral(): void {
+    this.quarantinedUntilNeutral = true;
+    this.pointerAdapter.suspendMovement();
+  }
+
   getMoveVector(): Vec2 {
+    // The orientation overlay is an input lifecycle boundary, not merely an
+    // edge-dispatch filter. A vector held behind it cannot move the player on
+    // the first portrait frame; only a neutral poll re-arms movement.
+    if (this.quarantinedUntilNeutral) return { x: 0, y: 0 };
     const vector = this.core.getMovementVector();
     return { x: vector.x, y: vector.y };
   }

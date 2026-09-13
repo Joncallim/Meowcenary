@@ -24,6 +24,14 @@ describe('Persistent Availability', () => {
     expect(snapshot.selectableCharacterIds).toContain('scrap-tabby');
   });
 
+  it('treats an absent part unlock as ordinary availability when its blueprint has a cost', () => {
+    const snapshot = resolveAvailabilitySnapshot(
+      defaultFacts,
+      [], [], [{ id: 'part:starter', fabricationCost: 60 }], 1,
+    );
+    expect(snapshot.fabricablePartIds).toEqual(['part:starter']);
+  });
+
   it('diffs availability snapshots', () => {
     const before = resolveAvailabilitySnapshot(defaultFacts, [], [], [], 1);
     const after = resolveAvailabilitySnapshot(

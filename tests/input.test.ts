@@ -61,6 +61,49 @@ describe('InputController keyboard movement', () => {
 });
 
 describe('InputController pointer movement', () => {
+  it('requires every held source to return neutral after an orientation quarantine before a fresh edge is delivered', () => {
+    const { controller, input } = createController({ keyboard: true, gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+    const confirm = vi.fn();
+    controller.onAction('confirm', confirm);
+
+    // Mirrors a landscape interruption: keyboard, pad, and a floating-stick
+    // gesture are all retained while the portrait guard owns the screen.
+    input.keyboard!.keydown('Enter');
+    pad.setButton(0, true);
+    input.pointerDown(100, 100);
+    input.pointerMove(164, 100);
+    controller.quarantineUntilNeutral();
+    controller.update(16);
+    expect(confirm).not.toHaveBeenCalled();
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+
+    // Keyboard and gamepad movement are masked too, not only action edges.
+    input.keyboard!.keydown('d');
+    pad.setLeftStick(1, 0);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+
+    // Releasing only one source does not release the guard.
+    input.keyboard!.keyup('Enter');
+    input.keyboard!.keyup('d');
+    pad.setLeftStick(0, 0);
+    controller.update(16);
+    expect(confirm).not.toHaveBeenCalled();
+
+    // Neutralizing all sources clears it, but does not manufacture an edge.
+    pad.setButton(0, false);
+    input.pointerUp();
+    controller.update(16);
+    expect(confirm).not.toHaveBeenCalled();
+
+    // A new crossing after neutral is the only confirm the scene receives.
+    input.keyboard!.keydown('Enter');
+    controller.update(16);
+    expect(confirm).toHaveBeenCalledTimes(1);
+  });
+
   it('scales pointer drag intent by the configured radius', () => {
     const { controller, input } = createController();
 

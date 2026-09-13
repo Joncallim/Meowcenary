@@ -152,15 +152,16 @@ describe('HudController', () => {
     expect(view.renders).toHaveLength(1);
   });
 
-  it('renders immediately when a scene-owned state requests a refresh', () => {
+  it('does not compete with the dedicated ability card for routine HUD feedback', () => {
     const source = createMutableSource({ ability: 'Scrap Burst: READY' });
     const { controller, view } = createHarness(source);
     controller.update(16);
     source.snapshotValue.ability = 'Scrap Burst: 9s';
     controller.requestRender();
     controller.update(16);
-    expect(view.renders).toHaveLength(2);
-    expect(view.renders[1]?.ability).toBe('Scrap Burst: 9s');
+    // The dedicated control owns visible cooldown state, so changing the
+    // legacy HUD bridge cannot displace an objective or create HUD churn.
+    expect(view.renders).toHaveLength(1);
   });
 
   it('renders the authoritative global kill count on enemy:killed without waiting for a clock tick', () => {

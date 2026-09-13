@@ -60,6 +60,54 @@ describe('GunsmithController durable commands', () => {
     expect(controller.snapshot().parts[0]).toMatchObject({ name: 'Standard Barrel', compatible: true, iconArtId: 'upgrade-icon:long-barrel' });
   });
 
+  it('moves one owned physical part between builds atomically instead of duplicating it', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      barrel: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+    } }));
+    controller.createBuild('pistol');
+    expect(controller.fitPart('barrel')).toMatchObject({ ok: true });
+    controller.createBuild('smg');
+    expect(controller.snapshot().parts[0]).toMatchObject({ state: 'fitted-elsewhere', assignedBuildName: 'Pistol Build' });
+    expect(controller.fitPart('barrel')).toMatchObject({ ok: true, persisted: true });
+    const builds = context.saveData.gunsmith.builds;
+    expect(builds.find((build) => build.id === 'build:pistol')?.fitted.barrel).toBeUndefined();
+    expect(builds.find((build) => build.id === 'build:smg')?.fitted.barrel).toBe('barrel');
+    expect(context.saveData.gunsmith.parts.barrel).toBeDefined();
+  });
+
+  it('does not advertise a cross-build move when the target slot is occupied', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      standard: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+      long: { partId: 'part:barrel-long', tier: 1, infusedTraits: [] },
+    } }));
+    controller.createBuild('pistol');
+    controller.fitPart('standard');
+    controller.createBuild('smg');
+    controller.fitPart('long');
+    controller.selectBuild('build:pistol');
+
+    expect(controller.snapshot().parts.find((part) => part.instanceId === 'long')).toMatchObject({
+      state: 'incompatible', compatible: false,
+      comparisonSummary: 'Barrel occupied — unequip Standard Barrel first.',
+    });
+    expect(controller.fitPart('long')).toEqual({ ok: false, reason: 'slot-full' });
+    expect(context.saveData.gunsmith.builds.find((build) => build.id === 'build:smg')?.fitted.barrel).toBe('long');
+  });
+
+  it('fabricates one paid physical instance with a monotonic serial and publishes nothing on save failure', () => {
+    const { context, controller } = setup();
+    context.commitProgression((progression) => ({ ...progression, scrap: 240 }));
+    expect(controller.fabricate('part:receiver-compact')).toMatchObject({ ok: true, persisted: true });
+    expect(context.saveData.progression.scrap).toBe(180);
+    expect(context.saveData.gunsmith.parts['owned:receiver-compact:1']).toMatchObject({ partId: 'part:receiver-compact', tier: 1 });
+    expect(context.saveData.gunsmith.fabricationSerials?.['part:receiver-compact']).toBe(1);
+    expect(controller.fabricate('part:receiver-compact')).toMatchObject({ ok: true, persisted: true });
+    expect(context.saveData.gunsmith.parts['owned:receiver-compact:2']).toBeDefined();
+    expect(context.saveData.gunsmith.fabricationSerials?.['part:receiver-compact']).toBe(2);
+  });
+
   it('consumes a trait source and preserves the infused owned target', () => {
     const { context, controller } = setup();
     context.updateGunsmith((state) => ({ ...state, parts: {
@@ -80,6 +128,28 @@ describe('GunsmithController durable commands', () => {
     } }));
     expect(controller.infuse('target', 'mastered')).toMatchObject({ ok: false, reason: 'trait-incompatible' });
     expect(context.saveData.gunsmith.parts.mastered).toBeDefined();
+  });
+
+  it('publishes only rule-eligible, bounded workshop recipes', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      target: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+      capped: { partId: 'part:barrel-piercing', tier: 1, infusedTraits: ['FIRE'] },
+      'zzz-fire': { partId: 'part:trait-fire', tier: 1, infusedTraits: [] },
+      'aaa-mastered': { partId: 'part:trait-fire-mastered', tier: 3, infusedTraits: [] },
+      one: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] },
+      two: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] },
+      three: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] },
+    } }));
+
+    expect(controller.snapshot().workshop).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'merge', firstInstanceId: 'one', secondInstanceId: 'three', label: 'Merge 3 × Compact Receiver T1 → T2' }),
+      expect.objectContaining({ kind: 'infuse', targetInstanceId: 'target', traitInstanceId: 'zzz-fire' }),
+    ]));
+    expect(controller.snapshot().workshop).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'infuse', traitInstanceId: 'aaa-mastered' }),
+      expect.objectContaining({ kind: 'infuse', targetInstanceId: 'capped' }),
+    ]));
   });
 
   it('removes consumed merged instances from every fitted build', () => {
@@ -122,5 +192,18 @@ describe('GunsmithController durable commands', () => {
       instanceId: forward.output.instanceId, partId: output.partId, tier: output.tier, infusedTraits: output.infusedTraits as OwnedPart['infusedTraits'],
     }]]));
     expect(modifiers.find((modifier) => modifier.stat === 'damage')?.value).toBeCloseTo(1.36);
+  });
+
+  it('keeps an unavailable fitted part recoverable without deleting saved inventory', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      stale: { partId: 'part:retired', tier: 1, infusedTraits: [] },
+      valid: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+    }, builds: [{ id: 'build:pistol', name: 'Pistol', baseWeaponFamily: 'pistol', fitted: { barrel: 'stale' }, traitParts: [] }], selectedBuildId: 'build:pistol' }));
+    expect(controller.snapshot().slots.find((slot) => slot.slot === 'barrel')?.unavailableFitted?.instanceId).toBe('stale');
+    expect(controller.removeUnavailableFittedPart('stale')).toMatchObject({ ok: true });
+    expect(context.saveData.gunsmith.parts.stale).toBeDefined();
+    expect(controller.fitPart('valid')).toMatchObject({ ok: true });
+    expect(context.saveData.gunsmith.builds[0].fitted.barrel).toBe('valid');
   });
 });

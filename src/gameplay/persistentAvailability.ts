@@ -41,7 +41,11 @@ export function resolveAvailabilitySnapshot(
 
   const fabricablePartIds: string[] = [];
   for (const def of partDefinitions) {
-    if (def.unlock && def.fabricationCost && evaluateCondition(def.unlock, facts)) {
+    // A fabrication cost is the positive declaration that a blueprint can be
+    // made.  Unlike character/equipment catalogs, a part's unlock is
+    // deliberately optional: no condition means ordinary availability, not
+    // an accidentally permanent lockout.
+    if (def.fabricationCost !== undefined && (def.unlock === undefined || evaluateCondition(def.unlock, facts))) {
       fabricablePartIds.push(def.id);
     }
   }
