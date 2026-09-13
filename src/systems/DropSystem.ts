@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { trace } from '../engine/diagnostics';
 import type { GameContext } from '../engine/context';
 import type { GameEventListener } from '../engine/eventBus';
 import { createPool, type Pool } from '../engine/pool';
@@ -6,6 +7,7 @@ import type { Rng } from '../engine/rng';
 import type { System } from '../engine/system';
 import { Drop, type DropArtBindings } from '../entities/Drop';
 import type { Player } from '../entities/Player';
+import { distanceSq } from '../engine/vector';
 import { resolveKillLoot, resolveLootFromTable } from '../gameplay/loot';
 import type { LootGrant } from '../gameplay/loot';
 import type { RunState } from '../gameplay/runState';
@@ -120,6 +122,14 @@ export class DropSystem implements System {
     const drop = this.dropPool.acquire();
     this.liveDrops.add(drop);
     drop.spawn(x, y, grant);
+    trace('drop:spawn', {
+      kind: grant.kind,
+      definitionId: 'definitionId' in grant ? grant.definitionId : undefined,
+      tableId: 'tableId' in grant ? grant.tableId : undefined,
+      x: Math.round(x), y: Math.round(y),
+      liveCount: this.liveDrops.size,
+      poolActive: this.dropPool.active(),
+    });
     return drop;
   }
 
@@ -142,7 +152,12 @@ export class DropSystem implements System {
     const pickupRadius = Math.max(0, this.runState.stats.resolve('pickupRadius', this.basePickupRadius));
     const playerPos = { x: this.player.x, y: this.player.y };
     for (const drop of this.liveDrops) {
+      const wasInMagnet = drop.active && drop.grant && distanceSq(drop, playerPos) <= pickupRadius * pickupRadius;
       drop.update(dtMs, playerPos, pickupRadius, this.magnetSpeed);
+      const nowInMagnet = drop.active && drop.grant && distanceSq(drop, playerPos) <= pickupRadius * pickupRadius;
+      if (!wasInMagnet && nowInMagnet) {
+        trace('drop:magnet-entry', { kind: drop.grant?.kind });
+      }
     }
   }
 
@@ -182,16 +197,19 @@ export class DropSystem implements System {
       return;
     }
 
+    trace('drop:overlap', { kind: drop.grant?.kind, blocked: drop.pickupBlocked });
     this.collect(drop);
   }
 
   private collect(drop: Drop): void {
     if (this.runState.status !== 'active' || !drop.active) {
+      trace('drop:collect-skip', { reason: 'inactive' });
       return;
     }
     if (drop.pickupBlocked) {
       // Full-rack path: the drop stays in the world; repeated overlap
       // callbacks must not re-process or re-emit it.
+      trace('drop:collect-blocked', { reason: 'rack-full' });
       return;
     }
 
@@ -200,6 +218,7 @@ export class DropSystem implements System {
       return;
     }
     const { x, y } = drop;
+    trace('drop:collect-enter', { kind: grant.kind, x: Math.round(x), y: Math.round(y) });
     switch (grant.kind) {
       case 'xp':
         this.applyXpGrant(grant.amount);
@@ -229,10 +248,9 @@ export class DropSystem implements System {
   private collectWeapon(drop: Drop, definitionId: string): void {
     const result = grantWeaponToRack(this.runState, definitionId, this.weaponRegistry);
     const { x, y } = drop;
+    trace('drop:weapon-result', { definitionId, status: result.status, rackCount: 'rackCount' in result ? result.rackCount : undefined });
     switch (result.status) {
       case 'added':
-        // Acquired: emitted after the rack assignment, before the physical
-        // drop returns to the pool (Epic 14 §6 invariant 1).
         this.ctx.bus.emit('weapon:acquired', {
           definitionId,
           instanceId: result.weapon.instanceId,
@@ -244,8 +262,6 @@ export class DropSystem implements System {
         this.releaseDrop(drop);
         return;
       case 'rack-full':
-        // No mutation, no instance allocation, no release: leave the reward
-        // visibly in the world and block further overlap processing.
         drop.setPickupBlocked(true);
         this.ctx.bus.emit('weapon:pickup-blocked', {
           definitionId,

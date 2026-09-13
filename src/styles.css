@@ -30,6 +30,42 @@ body {
   height: 100dvh;
 }
 
+#portrait-orientation-guard {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  padding: max(24px, var(--safe-top)) max(24px, var(--safe-right)) max(24px, var(--safe-bottom)) max(24px, var(--safe-left));
+  background: #0b1117;
+  color: #f7f1d5;
+  text-align: center;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+#portrait-orientation-guard[hidden] {
+  display: none;
+}
+
+#portrait-orientation-guard > div {
+  display: grid;
+  gap: 12px;
+  max-width: 28rem;
+}
+
+#portrait-orientation-guard strong {
+  color: #fbbf24;
+  font-size: clamp(1.25rem, 5vw, 2rem);
+  letter-spacing: 0.08em;
+}
+
+#portrait-orientation-guard span {
+  color: #d6f7ff;
+  font-size: clamp(1rem, 3vw, 1.25rem);
+}
+
 canvas {
   display: block;
 }

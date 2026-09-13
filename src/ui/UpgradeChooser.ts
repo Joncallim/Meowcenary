@@ -14,6 +14,7 @@ import { computeUpgradeChooserLayout } from './upgradeChooserLayout';
 import type { InputMode } from '../systems/input';
 import { logicalCanvasViewport, physicalToLogical, zoomedGameUiViewport, type UiViewport } from './layout';
 import { ZERO_SAFE_AREA } from '../platform/safeArea';
+import { isPortraitOrientationBlocked } from '../platform/orientation';
 
 const CHOOSER_DEPTH = ThemeDepth.upgradeChooser;
 const RARITY_EDGE_ALPHA = 0.95;
@@ -397,6 +398,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
             cardLeft + cardLayout.padding + size / 2,
             cardTop + cardLayout.padding + height / 2,
             iconBinding.textureKey,
+            iconBinding.frameKey,
           ));
           icon.setDisplaySize(size, height);
         } else {
@@ -686,7 +688,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   }
 
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
-    if (this.destroyed || !this.enabled || this.currentOfferId === undefined || !this.committedDisplay) {
+    if (isPortraitOrientationBlocked() || this.destroyed || !this.enabled || this.currentOfferId === undefined || !this.committedDisplay) {
       return;
     }
 

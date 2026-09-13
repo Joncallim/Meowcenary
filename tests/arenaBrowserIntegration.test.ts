@@ -7,7 +7,8 @@ import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
-import { buildArenaScenery } from '../src/systems/arenaScenery';
+import { ArenaWorldView, buildArenaScenery } from '../src/systems/arenaScenery';
+import { VisualDepth } from '../src/systems/visualDepths';
 import { spawnPoint, findRectWitness } from '../src/gameplay/spawnRegion';
 import { assembleRunRequest } from '../src/gameplay/runRequest';
 import { TEST_ARENA_VISUAL } from './helpers/arena';
@@ -138,6 +139,9 @@ describe('arena data-level integration', () => {
         destroyed: false,
         setDisplaySize: vi.fn(() => node), setDepth: vi.fn(() => node),
         setRotation: vi.fn(() => node), setFlipX: vi.fn(() => node),
+        visible: true, active: true,
+        setVisible: vi.fn((value: boolean) => { node.visible = value; return node; }),
+        setActive: vi.fn((value: boolean) => { node.active = value; return node; }),
         destroy: vi.fn(() => { node.destroyed = true; }),
       };
       images.push(node);
@@ -160,7 +164,7 @@ describe('arena data-level integration', () => {
       scene as never,
       arena,
       new DataVisualArtRegistry(data),
-    );
+    ) as ArenaWorldView;
 
     const floorCount = (arena.size.width / 32) * (arena.size.height / 32);
     const boundaryCount = (arena.size.width / 32) * 2 + (arena.size.height / 32 - 2) * 2;
@@ -172,9 +176,51 @@ describe('arena data-level integration', () => {
     expect(scene.physics.add.existing).toHaveBeenCalledTimes(2);
     expect(group.add).toHaveBeenCalledTimes(2);
 
+    // This asserts actual nodes made by the production ArenaWorldView—not
+    // merely an HTTP/resource-manager claim. The opening player position is
+    // at arena centre, so these floor tiles overlap the initial zoomed camera.
+    const inspection = scenery.presentationInspection();
+    expect(inspection.floorNodeCount).toBe(floorCount);
+    expect(inspection.boundaryNodeCount).toBe(boundaryCount);
+    expect(inspection.decorationNodeCount).toBe(arena.visual.decorations.length);
+    expect(inspection.obstacleSkinNodeCount).toBe(arena.obstacles.length);
+    expect(inspection.nodes.every((node) => node.visible && node.active)).toBe(true);
+    expect(inspection.nodes.filter((node) => node.role === 'floor').every((node) => node.depth === VisualDepth.floor)).toBe(true);
+    expect(inspection.nodes.filter((node) => node.role === 'boundary').every((node) => node.depth === VisualDepth.boundary)).toBe(true);
+    expect(inspection.nodes.filter((node) => node.role === 'obstacle-skin').every((node) => node.depth === VisualDepth.obstacle)).toBe(true);
+    expect(inspection.nodes.some((node) =>
+      node.role === 'floor' && node.x >= 228 && node.x <= 540 && node.y >= 334 && node.y <= 1_010,
+    )).toBe(true);
+    for (const obstacle of arena.obstacles) {
+      const skin = arena.visual.obstacleSkins.find((candidate) => candidate.obstacleId === obstacle.id)!;
+      expect(inspection.nodes).toContainEqual(expect.objectContaining({
+        role: 'obstacle-skin', artId: skin.artId, textureKey: new DataVisualArtRegistry(data).bindingById(skin.artId)!.textureKey,
+      }));
+    }
+
     scenery.destroy();
     expect(images.every((image) => image.destroyed)).toBe(true);
     expect(group.destroy).toHaveBeenCalledWith(true);
+  });
+
+  it('fails before creating any collider when a required obstacle skin texture is missing', () => {
+    const data = loadGameData();
+    const arena = data.arenas[0];
+    const rectangle = vi.fn();
+    const scene = {
+      add: { image: vi.fn(), rectangle },
+      textures: { exists: (key: string) => key !== 'art-world-landmark-hanging-press' },
+      physics: {
+        add: {
+          existing: vi.fn(),
+          staticGroup: vi.fn(() => ({ add: vi.fn(), destroy: vi.fn(), children: { size: 0 } })),
+        },
+      },
+    };
+
+    expect(() => buildArenaScenery(scene as never, arena, new DataVisualArtRegistry(data)))
+      .toThrow(/cannot start: required world visuals are unavailable/);
+    expect(rectangle).not.toHaveBeenCalled();
   });
 
   it('tiles a non-32-aligned arena with no floor gap and a correctly placed corner', () => {
@@ -196,6 +242,9 @@ describe('arena data-level integration', () => {
         textureKey,
         setDisplaySize: vi.fn(() => node), setDepth: vi.fn(() => node),
         setRotation: vi.fn(() => node), setFlipX: vi.fn(() => node),
+        visible: true, active: true,
+        setVisible: vi.fn((value: boolean) => { node.visible = value; return node; }),
+        setActive: vi.fn((value: boolean) => { node.active = value; return node; }),
         destroy: vi.fn(),
       };
       calls.push({ x, textureKey });
@@ -236,6 +285,9 @@ describe('arena data-level integration', () => {
         setDisplaySize: vi.fn(() => node), setDepth: vi.fn(() => node),
         setRotation: vi.fn(() => node),
         setFlipX: vi.fn((value: boolean) => { flipX = value; return node; }),
+        visible: true, active: true,
+        setVisible: vi.fn((value: boolean) => { node.visible = value; return node; }),
+        setActive: vi.fn((value: boolean) => { node.active = value; return node; }),
         destroy: vi.fn(),
       };
       calls.push({

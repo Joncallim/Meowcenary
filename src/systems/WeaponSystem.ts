@@ -7,6 +7,7 @@ import type { Enemy } from '../entities/Enemy';
 import type { Player } from '../entities/Player';
 import { Projectile } from '../entities/Projectile';
 import type { HeldWeaponPresentation } from '../entities/heldWeaponView';
+import { applyEnemyDamage } from '../gameplay/enemyDamageResolver';
 import { projectileDirections } from '../gameplay/projectilePattern';
 import type { RunState } from '../gameplay/runState';
 import { nearestTarget } from '../gameplay/targeting';
@@ -301,21 +302,10 @@ export class WeaponSystem implements System {
     damage: number,
     hit: { readonly weaponId: string; readonly family: string; readonly tier: number; readonly x: number; readonly y: number },
   ): void {
-    const killed = enemy.takeDamage(damage, { x: hit.x, y: hit.y });
+    const result = applyEnemyDamage(enemy, damage, this.runState, this.ctx.bus, { x: hit.x, y: hit.y });
     this.ctx.bus.emit('projectile:hit', {
       weaponId: hit.weaponId, family: hit.family, tier: hit.tier,
-      x: enemy.x, y: enemy.y, damage, killed,
-    });
-    if (!killed) return;
-    this.runState.kills += 1;
-    this.ctx.bus.emit('enemy:killed', {
-      instanceId: enemy.instanceId,
-      enemyId: enemy.defId,
-      xpValue: enemy.xpValue,
-      scrapValue: enemy.scrapValue,
-      ...(enemy.definition.lootTableId ? { lootTableId: enemy.definition.lootTableId } : {}),
-      x: enemy.x,
-      y: enemy.y,
+      x: enemy.x, y: enemy.y, damage, killed: result.killed,
     });
   }
 

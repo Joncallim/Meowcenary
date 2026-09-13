@@ -123,19 +123,13 @@ export class ProgressionOverviewController {
 
     // 5. Next locked character with an explicit unlock condition.
     const characters = context.characters.all();
-    const firstLockedCharacter = characters.find((character) => {
-      if (character.unlock.type === 'default') return false;
-      return !evaluateCondition(
-        { type: 'owns-content', contentId: character.unlock.requiresUnlockId },
-        conditionCtx,
-      );
-    });
+    const firstLockedCharacter = characters.find((character) => !evaluateCondition(character.unlock, conditionCtx));
     if (firstLockedCharacter) {
       nextGoals.push({
         kind: 'character',
         id: firstLockedCharacter.id,
         title: `Unlock ${firstLockedCharacter.name}`,
-        detail: `Requires ${firstLockedCharacter.unlock.type === 'meta' ? firstLockedCharacter.unlock.requiresUnlockId : 'progression'}.`,
+        detail: `Requires ${describeCharacterCondition(firstLockedCharacter.unlock)}.`,
         priority: 5,
       });
     }
@@ -143,10 +137,7 @@ export class ProgressionOverviewController {
     const completedStages = stages.filter((s) => context.saveData.stages[s.id]?.completed).length;
     const achievementDefs = this.achievements.all();
     const completedAchievements = achievementDefs.filter((a) => context.saveData.achievements[a.id]?.completed).length;
-    const unlockedCharacters = characters.filter((c) => {
-      if (c.unlock.type === 'default') return true;
-      return context.saveData.progression.unlocks.includes(c.unlock.requiresUnlockId);
-    }).length;
+    const unlockedCharacters = characters.filter((character) => evaluateCondition(character.unlock, conditionCtx)).length;
 
     return Object.freeze({
       revision: this.revision,
@@ -158,5 +149,22 @@ export class ProgressionOverviewController {
       totalCharacters: characters.length,
       nextGoals: Object.freeze(nextGoals.sort((a, b) => a.priority - b.priority)),
     });
+  }
+}
+
+function describeCharacterCondition(condition: import('../gameplay/conditionEvaluator').ProgressionCondition): string {
+  switch (condition.type) {
+    case 'always': return 'no prerequisite';
+    case 'stage-cleared': return `stage ${condition.stageId}`;
+    case 'boss-defeated': return `boss ${condition.bossId}`;
+    case 'achievement-completed': return `achievement ${condition.achievementId}`;
+    case 'mastery-reached': return `${condition.subjectId} mastery tier ${condition.tier}`;
+    case 'owns-content': return `content ${condition.contentId}`;
+    case 'scrap-total': return `${condition.threshold} scrap`;
+    case 'permanent-level': return `${condition.upgradeId} level ${condition.minLevel}`;
+    case 'unlock-count': return `${condition.minCount} content unlocks`;
+    case 'all': return condition.conditions.map(describeCharacterCondition).join(' and ');
+    case 'any': return condition.conditions.map(describeCharacterCondition).join(' or ');
+    case 'not': return `not ${describeCharacterCondition(condition.condition)}`;
   }
 }

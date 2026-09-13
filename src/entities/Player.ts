@@ -20,9 +20,6 @@ export interface PlayerOptions {
   invulnerabilityMs: number;
   spawnX: number;
   spawnY: number;
-  /** World-space top of the playable area. A callback keeps the boundary at
-   * the bottom of a screen-fixed HUD while the camera follows the player. */
-  minPlayableY?: number | (() => number);
 }
 
 const BODY_COLOR = 0xf7c948;
@@ -168,18 +165,7 @@ export class Player {
     }
 
     const speed = Math.max(0, this.runState.stats.resolve('moveSpeed', this.options.baseMoveSpeed));
-    const requestedMinY = typeof this.options.minPlayableY === 'function'
-      ? this.options.minPlayableY()
-      : this.options.minPlayableY;
-    const minY = Number.isFinite(requestedMinY) ? requestedMinY : undefined;
-    // The HUD is screen-fixed while the camera follows. Its playfield edge
-    // must therefore follow the camera too; a fixed world-space limit only
-    // works at scrollY=0 and lets the player walk under the HUD elsewhere.
-    if (minY !== undefined && this.y < minY) {
-      this.body.reset(this.x, minY);
-    }
-    const movingIntoHud = minY !== undefined && this.y <= minY && move.y < 0;
-    this.body.setVelocity(move.x * speed, movingIntoHud ? 0 : move.y * speed);
+    this.body.setVelocity(move.x * speed, move.y * speed);
   }
 
   takeDamage(amount: number): void {

@@ -1,13 +1,12 @@
 import type { CharacterDefinition } from '../systems/types';
-import type { MetaState } from '../systems/save';
-import { isUnlocked } from '../gameplay/meta';
+import type { ConditionContext } from './conditionEvaluator';
+import { evaluateCondition } from './conditionEvaluator';
 
 export function canSelectCharacter(
   character: Readonly<CharacterDefinition>,
-  meta: Readonly<MetaState>,
+  facts: Readonly<ConditionContext>,
 ): boolean {
-  if (character.unlock.type === 'default') return true;
-  return isUnlocked(meta, character.unlock.requiresUnlockId);
+  return evaluateCondition(character.unlock, facts);
 }
 
 export function selectableCharacters(
@@ -15,15 +14,15 @@ export function selectableCharacters(
     all(): readonly Readonly<CharacterDefinition>[];
     characterById(id: string): Readonly<CharacterDefinition> | undefined;
   },
-  meta: Readonly<MetaState>,
+  facts: Readonly<ConditionContext>,
 ): readonly Readonly<CharacterDefinition>[] {
-  return registry.all().filter((character) => canSelectCharacter(character, meta));
+  return registry.all().filter((character) => canSelectCharacter(character, facts));
 }
 
 export function defaultCharacterId(
   registry: { all(): readonly Readonly<CharacterDefinition>[] },
 ): string {
-  const character = registry.all().find((character) => character.unlock.type === 'default');
+  const character = registry.all().find((character) => character.unlock.type === 'always');
   if (!character) {
     throw new Error('Character catalog has no default character');
   }

@@ -1,0 +1,7 @@
+{
+  "unlocks": {
+    "2": { "type": "stage-cleared", "stageId": "stage:junkyard-03" },
+    "3": { "type": "boss-defeated", "bossId": "boss-crusher" },
+    "4": { "type": "boss-defeated", "bossId": "boss-forge" }
+  }
+}

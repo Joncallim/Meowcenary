@@ -1,4 +1,5 @@
 import type { Settings } from '../systems/save';
+import type { AbilityPresentationCue } from '../gameplay/abilities';
 
 export interface GameEventMap {
   'run:start': { characterId: string; arenaId: string; seed: number };
@@ -32,6 +33,8 @@ export interface GameEventMap {
   'enemy:shield-blocked': { instanceId: number; enemyId: string; x: number; y: number };
   /** Post-persistence player feedback; achievement state remains save-owned. */
   'achievement:completed': { achievementId: string; name: string };
+  'ability:activated': { abilityId: string; cue: AbilityPresentationCue; x: number; y: number; durationMs: number; radius?: number; color: string };
+  'ability:ended': { abilityId: string };
   'enemy:heavyStep': { x: number; y: number };
   // family/tier (Epic 17) are cosmetic-only duplicates of data WeaponSystem
   // already holds at the emit site — listeners key presentation/audio off
@@ -89,6 +92,7 @@ export const GAME_EVENT_KEYS = [
   'player:damaged', 'player:died',
   'enemy:spawned', 'enemy:damaged', 'enemy:killed', 'enemy:dashed', 'enemy:dash-hit', 'enemy:ranged-shot', 'enemy:summon', 'enemy:boss-phase', 'enemy:shield-blocked', 'enemy:heavyStep',
   'achievement:completed',
+  'ability:activated', 'ability:ended',
   'weapon:fired', 'projectile:hit',
   'xp:gained', 'level:up', 'card:offered', 'card:chosen', 'weapon:merged',
   'drop:collected',

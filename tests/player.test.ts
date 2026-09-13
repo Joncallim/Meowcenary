@@ -116,7 +116,6 @@ async function createHarness(
   invulnerabilityMs = 650,
   moveVector: { x: number; y: number } = { x: 0, y: 0 },
   art?: Readonly<VisualArtBinding>,
-  minPlayableY?: number | (() => number),
 ) {
   const { Player } = await import('../src/entities/Player');
   const circles: MockArc[] = [];
@@ -149,7 +148,6 @@ async function createHarness(
     invulnerabilityMs,
     spawnX: 400,
     spawnY: 300,
-    minPlayableY,
   }, art);
 
   return { player, runState, sprite: circles[0], circles, artSprites, bus };
@@ -170,27 +168,33 @@ const playerArt = {
 } as const satisfies VisualArtBinding;
 
 describe('Player', () => {
-  it('keeps upward movement out of the persistent HUD exclusion', async () => {
-    const { player, sprite } = await createHarness(650, { x: 0, y: -1 }, undefined, 180);
-    sprite.y = 180;
+  it('moves freely in the full world without HUD-imposed vertical restriction', async () => {
+    const { player, sprite } = await createHarness(650, { x: 0, y: -1 });
 
+    // Without HUD clamping, upward movement should be permitted
+    sprite.y = 50;
     player.update(16);
-
-    expect(sprite.body.velocity).toEqual({ x: 0, y: 0 });
+    expect(sprite.body.velocity.y).toBeLessThan(0);
   });
 
-  it('uses the current screen-relative HUD edge rather than a stale world coordinate', async () => {
-    let hudFloor = 180;
-    const { player, sprite } = await createHarness(650, { x: 0, y: -1 }, undefined, () => hudFloor);
+  it('reaches the top Arena bound without HUD interference', async () => {
+    const { player, sprite } = await createHarness(650, { x: 0, y: -1 });
 
-    sprite.y = 180;
+    // Simulate reaching the top of the world; collideWorldBounds handles
+    // the actual edge - no HUD-based position reset should occur.
+    sprite.y = 10;
     player.update(16);
-    expect(sprite.body.velocity).toEqual({ x: 0, y: 0 });
+    // Velocity should still allow upward movement (world bounds collision
+    // is handled by Phaser physics, not by the Player class)
+    expect(sprite.body.velocity.y).toBeLessThan(0);
+  });
 
-    hudFloor = 220; // equivalent to the followed camera scrolling down
-    sprite.y = 220;
+  it('moves downward without artificial HUD edge blocking', async () => {
+    const { player, sprite } = await createHarness(650, { x: 0, y: 1 });
+
+    sprite.y = 200;
     player.update(16);
-    expect(sprite.body.velocity).toEqual({ x: 0, y: 0 });
+    expect(sprite.body.velocity.y).toBeGreaterThan(0);
   });
 
   it('keeps the damage indicator and invulnerability countdown paused with the run', async () => {

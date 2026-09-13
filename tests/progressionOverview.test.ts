@@ -92,7 +92,7 @@ describe('Epic 26 progression overview read model', () => {
 });
 
 describe('Epic 26 reward cadence conformance', () => {
-  const rewards = rewardProfilesJson as unknown as { id: string; scrapBase: number; scrapPerMinute: number }[];
+  const rewards = rewardProfilesJson as unknown as { id: string; firstClearScrap: number }[];
   const stages = stagesJson as unknown as { id: string; chapterId: string; displayOrder: number; rewardProfileId: string }[];
 
   it('stage rewards scale monotonically within each chapter', () => {
@@ -104,7 +104,7 @@ describe('Epic 26 reward cadence conformance', () => {
     for (const chapter of chapters.values()) {
       const ordered = [...chapter]
         .sort((a, b) => a.displayOrder - b.displayOrder)
-        .map((stage) => byProfile.get(stage.rewardProfileId)!.scrapBase);
+        .map((stage) => byProfile.get(stage.rewardProfileId)!.firstClearScrap);
       for (let i = 1; i < ordered.length; i++) {
         expect(ordered[i]).toBeGreaterThan(ordered[i - 1]);
       }
@@ -114,8 +114,8 @@ describe('Epic 26 reward cadence conformance', () => {
   it('the boss milestone reward substantially exceeds ordinary stage farming (decision #9)', () => {
     const boss = rewards.find((r) => r.id === 'reward:stage-05-boss')!;
     const firstStage = rewards.find((r) => r.id === 'reward:stage-01')!;
-    expect(boss.scrapBase).toBeGreaterThan(firstStage.scrapBase * 4);
-    expect(boss.scrapPerMinute).toBeGreaterThan(firstStage.scrapPerMinute * 2);
+    // V4: boss firstClearScrap (130) exceeds first stage (35) by >3x
+    expect(boss.firstClearScrap).toBeGreaterThan(firstStage.firstClearScrap * 3);
   });
 
   it('every stage reward profile resolves and no reward is empty', () => {
@@ -123,7 +123,7 @@ describe('Epic 26 reward cadence conformance', () => {
     for (const stage of stages) {
       const profile = byProfile.get(stage.rewardProfileId);
       expect(profile, stage.rewardProfileId).toBeDefined();
-      expect(profile!.scrapBase).toBeGreaterThan(0);
+      expect(profile!.firstClearScrap).toBeGreaterThan(0);
     }
   });
 });
