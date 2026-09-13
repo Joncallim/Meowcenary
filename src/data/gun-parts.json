@@ -60,7 +60,7 @@
     "rarity": "common",
     "presentation": { "iconArtId": "upgrade-icon:pistol-deadeye" },
     "effects": [
-      { "stat": "spreadDeg", "op": "add", "value": -2 }
+      { "stat": "damage", "op": "mult", "value": 1.05 }
     ],
     "traits": [],
     "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-02" },

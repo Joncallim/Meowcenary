@@ -374,7 +374,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       const serial = current.gunsmith.fabricationSerials?.[partId] ?? 0;
       if (!Number.isSafeInteger(serial) || serial < 0 || serial >= Number.MAX_SAFE_INTEGER) return false;
       const nextSerial = serial + 1;
-      const instanceId = `fabricated:${partId.slice('part:'.length)}:${nextSerial}`;
+      const instanceId = `owned:${partId.slice('part:'.length)}:${nextSerial}`;
       if (current.gunsmith.parts[instanceId] !== undefined) return false;
       const candidate = freezeSaveV4({ ...current,
         progression: Object.freeze({ ...current.progression, scrap: current.progression.scrap - fabricationCost }),

@@ -638,7 +638,7 @@ function repairDuplicateBuildReferences(builds: readonly Build[], selectedBuildI
     ? [...builds]
     : [...builds.filter((build) => build.id === selectedBuildId), ...builds.filter((build) => build.id !== selectedBuildId)];
   const claimed = new Set<string>();
-  const repaired = new Map<string, Build>();
+  const repaired = new Map<Build, Build>();
   for (const build of ordered) {
     const fitted: Record<string, string> = {};
     for (const [slot, instanceId] of Object.entries(build.fitted)) {
@@ -653,9 +653,9 @@ function repairDuplicateBuildReferences(builds: readonly Build[], selectedBuildI
       claimed.add(instanceId);
       traitParts.push(instanceId);
     }
-    repaired.set(build.id, { ...build, fitted, traitParts });
+    repaired.set(build, { ...build, fitted, traitParts });
   }
-  return builds.map((build) => repaired.get(build.id) ?? build);
+  return builds.map((build) => repaired.get(build) ?? build);
 }
 
 function sanitizeBuild(

@@ -101,10 +101,10 @@ describe('GunsmithController durable commands', () => {
     context.commitProgression((progression) => ({ ...progression, scrap: 240 }));
     expect(controller.fabricate('part:receiver-compact')).toMatchObject({ ok: true, persisted: true });
     expect(context.saveData.progression.scrap).toBe(180);
-    expect(context.saveData.gunsmith.parts['fabricated:receiver-compact:1']).toMatchObject({ partId: 'part:receiver-compact', tier: 1 });
+    expect(context.saveData.gunsmith.parts['owned:receiver-compact:1']).toMatchObject({ partId: 'part:receiver-compact', tier: 1 });
     expect(context.saveData.gunsmith.fabricationSerials?.['part:receiver-compact']).toBe(1);
     expect(controller.fabricate('part:receiver-compact')).toMatchObject({ ok: true, persisted: true });
-    expect(context.saveData.gunsmith.parts['fabricated:receiver-compact:2']).toBeDefined();
+    expect(context.saveData.gunsmith.parts['owned:receiver-compact:2']).toBeDefined();
     expect(context.saveData.gunsmith.fabricationSerials?.['part:receiver-compact']).toBe(2);
   });
 

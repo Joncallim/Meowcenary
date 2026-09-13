@@ -512,7 +512,7 @@ function hintForMode(mode: InputMode, abilityName?: string): string {
       return `WASD / arrows • Q — ${namedAbility} • P / Esc`;
     case 'gamepad':
       // Epic 19 D5: positions only — never vendor labels.
-      return `Left stick • Bottom face — ${namedAbility} • Menu pause`;
+      return `Left stick • Left face — ${namedAbility} • Menu pause`;
     case 'pointer':
     default:
       return `Drag to move • Tap ${namedAbility} • Tap pause`;

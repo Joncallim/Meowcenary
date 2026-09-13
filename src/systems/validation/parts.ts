@@ -102,6 +102,7 @@ export function assertPartArtReferences(parts: readonly { presentation: { iconAr
 export function assertPartAcquisitionRoutes(
   parts: readonly { id: string; fabricationCost?: number }[],
   rewards: readonly RewardProfile[],
+  achievements: readonly { rewards?: readonly { type: string; partId?: string }[] }[] = [],
 ): void {
   const rewarded = new Set<string>();
   for (const reward of rewards) {
@@ -109,6 +110,11 @@ export function assertPartAcquisitionRoutes(
       if (grant.type === 'grant-part-instance' && typeof grant.partId === 'string') {
         rewarded.add(grant.partId);
       }
+    }
+  }
+  for (const achievement of achievements) {
+    for (const grant of achievement.rewards ?? []) {
+      if (grant.type === 'grant-part-instance' && typeof grant.partId === 'string') rewarded.add(grant.partId);
     }
   }
   for (const part of parts) {
