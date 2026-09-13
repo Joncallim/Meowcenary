@@ -742,6 +742,11 @@ export class MenuScene extends Phaser.Scene {
         }));
         this.registerScrollObject(slotHeading);
         y += slotHeading.height + 4;
+        if (slot.unavailableFitted) {
+          const row = this.addButton(root, margin, y, `${slot.unavailableFitted.label}\nREMOVE UNAVAILABLE PART`, hitTarget,
+            () => this.render(this.requireController().removeUnavailableGunPart(slot.unavailableFitted!.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin);
+          y += row.height + 8;
+        }
         if (slot.candidates.length === 0 && slot.fitted === undefined) {
           const empty = this.own(root, createUiText(this, margin, y, slot.slot === 'trait' ? 'No Trait Core fitted' : 'Empty', {
             color: '#94a3b8', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,

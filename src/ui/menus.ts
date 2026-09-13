@@ -157,6 +157,12 @@ export class MainMenuController {
     return this.snapshot();
   }
 
+  removeUnavailableGunPart(instanceId: string): MainMenuSnapshot {
+    const result = this.gunsmithController.removeUnavailableFittedPart(instanceId);
+    this.notice = result.ok ? 'Unavailable part removed' : this.noticeForGunsmithFailure(result.reason);
+    return this.snapshot();
+  }
+
   mergeGunParts(firstInstanceId: string, secondInstanceId: string): MainMenuSnapshot {
     const result = this.gunsmithController.merge(firstInstanceId, secondInstanceId);
     this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);

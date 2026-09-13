@@ -42,6 +42,9 @@ export interface GunsmithSlotView {
   readonly slot: string;
   readonly label: string;
   readonly fitted?: GunsmithPartView;
+  /** A persisted fitted reference whose definition is no longer in the
+   * catalog. It remains visible so the player can recover the occupied slot. */
+  readonly unavailableFitted?: { readonly instanceId: string; readonly label: string };
   readonly candidates: readonly GunsmithPartView[];
 }
 
@@ -162,7 +165,10 @@ export class GunsmithController {
         ...(slot === 'trait' ? {} : (() => {
           const instanceId = selected.fitted[slot];
           const fitted = instanceId === undefined ? undefined : parts.find((part) => part.instanceId === instanceId);
-          return fitted === undefined ? {} : { fitted };
+          if (fitted !== undefined) return { fitted };
+          return instanceId === undefined || state.parts[instanceId] === undefined
+            ? {}
+            : { unavailableFitted: { instanceId, label: 'Unavailable saved part' } };
         })()),
         candidates: Object.freeze(parts.filter((part) => part.slot === slot)),
       } satisfies GunsmithSlotView));
@@ -273,6 +279,19 @@ export class GunsmithController {
     const result = unequipPart(build, instanceId);
     if (!result.ok) return result;
     return this.persistBuild(state, result.build);
+  }
+
+  removeUnavailableFittedPart(instanceId: string): GunsmithCommandResult {
+    const state = this.context.saveData.gunsmith;
+    const build = selectedBuild(state);
+    if (!build || state.parts[instanceId] === undefined || this.registry.partById(state.parts[instanceId].partId) !== undefined) {
+      return { ok: false, reason: 'not-unavailable-fitted-part' };
+    }
+    const fitted = Object.fromEntries(Object.entries(build.fitted).filter(([, id]) => id !== instanceId));
+    const traitParts = build.traitParts.filter((id) => id !== instanceId);
+    if (Object.keys(fitted).length === Object.keys(build.fitted).length && traitParts.length === build.traitParts.length) return { ok: false, reason: 'not-fitted' };
+    const next = { ...build, fitted, traitParts };
+    return this.persistBuild(state, next);
   }
 
   merge(firstInstanceId: string, secondInstanceId: string): GunsmithCommandResult {

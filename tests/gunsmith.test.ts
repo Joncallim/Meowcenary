@@ -217,7 +217,7 @@ describe('Epic 23 effective stat resolution', () => {
     build = (equipPart(build, optic, defMap) as { ok: true; build: WeaponBuild }).build;
     const modifiers = resolveBuildModifiers(build, defMap, ownedMap(barrel, optic));
     expect(modifiers.some((m) => m.stat === 'range' && m.value === 70 && m.sourceId === barrel.instanceId)).toBe(true);
-    expect(modifiers.some((m) => m.stat === 'spreadDeg' && m.value === -2 && m.sourceId === optic.instanceId)).toBe(true);
+    expect(modifiers.some((m) => m.stat === 'damage' && m.value === 1.05 && m.sourceId === optic.instanceId)).toBe(true);
     expect(modifiers.every((m) => m.sourceId.startsWith('inst-'))).toBe(true);
   });
 

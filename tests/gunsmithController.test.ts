@@ -193,4 +193,17 @@ describe('GunsmithController durable commands', () => {
     }]]));
     expect(modifiers.find((modifier) => modifier.stat === 'damage')?.value).toBeCloseTo(1.36);
   });
+
+  it('keeps an unavailable fitted part recoverable without deleting saved inventory', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      stale: { partId: 'part:retired', tier: 1, infusedTraits: [] },
+      valid: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+    }, builds: [{ id: 'build:pistol', name: 'Pistol', baseWeaponFamily: 'pistol', fitted: { barrel: 'stale' }, traitParts: [] }], selectedBuildId: 'build:pistol' }));
+    expect(controller.snapshot().slots.find((slot) => slot.slot === 'barrel')?.unavailableFitted?.instanceId).toBe('stale');
+    expect(controller.removeUnavailableFittedPart('stale')).toMatchObject({ ok: true });
+    expect(context.saveData.gunsmith.parts.stale).toBeDefined();
+    expect(controller.fitPart('valid')).toMatchObject({ ok: true });
+    expect(context.saveData.gunsmith.builds[0].fitted.barrel).toBe('valid');
+  });
 });
