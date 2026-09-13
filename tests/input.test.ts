@@ -79,8 +79,16 @@ describe('InputController pointer movement', () => {
     expect(confirm).not.toHaveBeenCalled();
     expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
 
+    // Keyboard and gamepad movement are masked too, not only action edges.
+    input.keyboard!.keydown('d');
+    pad.setLeftStick(1, 0);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+
     // Releasing only one source does not release the guard.
     input.keyboard!.keyup('Enter');
+    input.keyboard!.keyup('d');
+    pad.setLeftStick(0, 0);
     controller.update(16);
     expect(confirm).not.toHaveBeenCalled();
 

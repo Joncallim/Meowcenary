@@ -20,15 +20,18 @@ describe('portrait-only phone orientation policy', () => {
       removeEventListener(event: string, listener: () => void) { if (event === 'resize') resizeListeners.delete(listener); },
       matchMedia: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }),
     };
+    const appended: unknown[] = [];
+    const root = { appendChild(node: unknown) { appended.push(node); } };
     const element = () => ({ id: '', hidden: false, innerHTML: '', setAttribute() {}, remove() {}, parentNode: undefined });
     const doc = {
       body: { appendChild() {} },
       createElement: element,
-      getElementById: () => undefined,
+      getElementById: (id: string) => id === 'game-root' ? root : undefined,
     };
 
     const first = installPortraitOrientationGuard(win as never, doc as never);
     expect(isPortraitOrientationBlocked()).toBe(true);
+    expect(appended).toHaveLength(1);
     expect(resizeListeners.size).toBe(1);
 
     const second = installPortraitOrientationGuard(win as never, doc as never);
@@ -38,5 +41,23 @@ describe('portrait-only phone orientation policy', () => {
 
     second.dispose();
     expect(isPortraitOrientationBlocked()).toBe(false);
+  });
+
+  it('uses the layout viewport rather than visual-viewport keyboard shrinkage', () => {
+    const win = {
+      innerWidth: 390,
+      innerHeight: 844,
+      visualViewport: { width: 390, height: 300, addEventListener() {}, removeEventListener() {} },
+      addEventListener() {}, removeEventListener() {},
+      matchMedia: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }),
+    };
+    const root = { appendChild() {} };
+    const doc = {
+      body: { appendChild() {} }, createElement: () => ({ id: '', hidden: false, innerHTML: '', setAttribute() {}, remove() {} }),
+      getElementById: (id: string) => id === 'game-root' ? root : undefined,
+    };
+    const guard = installPortraitOrientationGuard(win as never, doc as never);
+    expect(guard.isBlocked()).toBe(false);
+    guard.dispose();
   });
 });

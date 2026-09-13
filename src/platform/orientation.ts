@@ -37,10 +37,12 @@ function publish(next: boolean): void {
 }
 
 function viewportEvidence(win: Window, coarsePrimaryPointer: boolean): OrientationEvidence {
-  const viewport = win.visualViewport;
   return {
-    viewportWidth: viewport?.width ?? win.innerWidth,
-    viewportHeight: viewport?.height ?? win.innerHeight,
+    // `visualViewport` changes for browser chrome and soft keyboards. Device
+    // rotation belongs to the stable layout viewport, so it cannot freeze a
+    // portrait run merely because its visible height temporarily shrank.
+    viewportWidth: win.innerWidth,
+    viewportHeight: win.innerHeight,
     coarsePrimaryPointer,
   };
 }
@@ -65,7 +67,9 @@ export function installPortraitOrientationGuard(
   overlay.innerHTML = '<div><strong>ROTATE DEVICE</strong><span>Meowcenary is designed for portrait play.</span></div>';
   overlay.hidden = true;
   const root = doc.getElementById('game-root');
-  root?.parentNode?.insertBefore(overlay, root.nextSibling);
+  // Phaser enters fullscreen on #game-root. Keeping the guard in that
+  // subtree makes the rotate instruction remain visible in fullscreen.
+  root?.appendChild(overlay);
   if (!overlay.parentNode) doc.body.appendChild(overlay);
 
   let disposed = false;

@@ -663,6 +663,10 @@ export class InputController implements System {
   }
 
   getMoveVector(): Vec2 {
+    // The orientation overlay is an input lifecycle boundary, not merely an
+    // edge-dispatch filter. A vector held behind it cannot move the player on
+    // the first portrait frame; only a neutral poll re-arms movement.
+    if (this.quarantinedUntilNeutral) return { x: 0, y: 0 };
     const vector = this.core.getMovementVector();
     return { x: vector.x, y: vector.y };
   }
