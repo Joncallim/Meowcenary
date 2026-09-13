@@ -4,6 +4,15 @@
 **Frozen base SHA:** `5efe56922dd7a9da9d1f073eca8ae4a251e67d37`
 **Authoritative remote validation head:** `90a4063baf499b078ebb64d910aa2bc9be274a33` (pushed to GitHub; exact 40-character SHA)
 
+## Active closeout — PR #177
+
+**Status:** IN REVIEW
+**Current candidate:** recorded in the PR after each clean-review cycle; do not treat this ledger as deployment evidence.
+
+- #177 remains the dependency blocker for the Alpha 3 V4 stack.
+- Its orientation guard suppresses both actions and movement until neutral, stays visible in Phaser fullscreen, and derives rotation from layout viewport dimensions rather than soft-keyboard/browser-chrome visual-viewport changes.
+- Physical-phone acceptance remains UNVERIFIED; it must be recorded only after an actual device session on the final deployed SHA.
+
 ---
 
 ## Slice B — Universal Enemy Damage/Death Fact

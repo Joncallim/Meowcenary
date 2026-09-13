@@ -97,6 +97,7 @@ describe('Epic 24 ability state machine (pure, deterministic, pause-safe)', () =
     id: 'ability:test', name: 'Test', description: 't',
     cooldownMs: 10000, durationMs: 2000,
     effect: { kind: 'knockback', radius: 50, power: 100 },
+    presentation: { cue: 'shockwave', color: '#ffffff', radius: 50 },
   };
 
   it('starts ready; activation fires exactly once per cooldown', () => {

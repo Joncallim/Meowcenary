@@ -66,6 +66,7 @@ export class ControlsView {
   private pauseGlyphBars: Phaser.GameObjects.Rectangle[] = [];
   private hintElapsedMs = 0;
   private hintFaded = false;
+  private teachingHintActive = false;
   private lastMode: InputMode = 'pointer';
   private disposed = false;
 
@@ -141,7 +142,7 @@ export class ControlsView {
         - bottomMargin
         - physicalToLogical(this.visibleStickRadius * 2, viewport)
         - fontSize,
-      hintForMode(this.lastMode, this.ability?.name),
+      this.ability ? abilityTeachingCopy(this.ability) : hintForMode(this.lastMode),
       {
         align: 'center',
         color: '#f7f1d5',
@@ -152,6 +153,7 @@ export class ControlsView {
     this.hintText.setOrigin(0.5);
     this.hintText.setDepth(ThemeDepth.transientHint);
     this.hintText.setScrollFactor(0);
+    this.teachingHintActive = this.ability !== undefined;
     if (this.hintFaded) {
       this.hintText.setAlpha(0);
     }
@@ -455,10 +457,12 @@ export class ControlsView {
   private updateHint(mode: InputMode, dtMs: number): void {
     if (this.lastMode !== mode) {
       this.lastMode = mode;
-      this.hintText.setText(hintForMode(mode, this.ability?.name));
-      this.hintElapsedMs = 0;
-      this.hintFaded = false;
-      this.hintText.setAlpha(1);
+      if (!this.teachingHintActive) {
+        this.hintText.setText(hintForMode(mode, this.ability?.name));
+        this.hintElapsedMs = 0;
+        this.hintFaded = false;
+        this.hintText.setAlpha(1);
+      }
     }
 
     if (this.hintFaded) {
@@ -470,6 +474,7 @@ export class ControlsView {
     }
 
     if (this.hintElapsedMs >= HINT_DURATION_MS) {
+      this.teachingHintActive = false;
       this.hintFaded = true;
       // The setting is re-read at fade time so a toggled preference is
       // honoured without restarting the run.
@@ -512,6 +517,12 @@ function hintForMode(mode: InputMode, abilityName?: string): string {
     default:
       return `Drag to move • Tap ${namedAbility} • Tap pause`;
   }
+}
+
+/** The first-run transient hint teaches the selected data-owned ability;
+ * later input-mode changes return to concise control hints. */
+function abilityTeachingCopy(ability: AbilityControlDefinition): string {
+  return `${containedAbilityName(ability.name).toUpperCase()} — ${ability.description}`;
 }
 
 function abilityStateCopy(phase: AbilityControlPhase, cooldownSeconds: number): string {

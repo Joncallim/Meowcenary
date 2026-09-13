@@ -1082,6 +1082,26 @@ describe('MenuScene', () => {
     expect(seams.navigator.index).toBe(0);
   });
 
+  it('reuses one resolved visual-art registry across Career achievement rerenders', () => {
+    const harness = createHarness();
+    const seams = harness.menuScene as unknown as {
+      visualArt?: unknown;
+      render(snapshot: never): void;
+    };
+    const press = (key: string) => {
+      harness.keyboard.keydown(key); harness.menuScene.update(0, 16);
+      harness.keyboard.keyup(key); harness.menuScene.update(0, 16);
+    };
+    for (let i = 0; i < 4; i += 1) press('ArrowDown');
+    press('Enter'); // Career
+    press('ArrowDown');
+    press('Enter'); // Achievements
+    const registry = seams.visualArt;
+    expect(registry).toBeDefined();
+    seams.render((harness.menuScene as unknown as { requireController(): { snapshot(): never } }).requireController().snapshot());
+    expect(seams.visualArt).toBe(registry);
+  });
+
 
   it('registers settings panel targets in order and drives them through logical nav/confirm', () => {
     const harness = createHarness();
@@ -1364,7 +1384,7 @@ describe('MenuScene UI command events', () => {
     expect(events).toEqual(['ui:confirm']);
   });
 
-  it('emits exactly one ui:confirm for Enter and Space activation, never two', () => {
+  it('rejects a second keyboard confirm while the first Contract launch is loading', () => {
     const harness = createHarness();
     const events = recordEvents(harness.bus);
 
@@ -1377,7 +1397,7 @@ describe('MenuScene UI command events', () => {
     harness.menuScene.update(0, 16);
     harness.keyboard.keydown('Space');
     harness.menuScene.update(0, 16);
-    expect(events).toEqual(['ui:confirm']);
+    expect(events).toEqual([]);
   });
 
   it('emits ui:confirm for the panel button and ui:back for < Back, never a second confirm', () => {

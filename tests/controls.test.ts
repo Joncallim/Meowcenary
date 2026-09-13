@@ -337,7 +337,7 @@ describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
 describe('ControlsView hints', () => {
   it('repositions the hint and rebuilds the pause target after rotation', () => {
     const { scene, view } = createHarness();
-    const oldHint = scene.objects.find((object) => object.state.text === 'Drag to move • Tap Scrap Burst • Tap pause')!;
+    const oldHint = scene.objects.find((object) => object.state.text === 'SCRAP BURST — Knock nearby enemies away.')!;
     const oldPause = scene.objects.find((object) => object.state.interactive)!;
 
     scene.resize(844, 390);
@@ -345,7 +345,7 @@ describe('ControlsView hints', () => {
     expect(oldHint.state.destroyed).toBe(true);
     expect(oldPause.state.destroyed).toBe(true);
     expect(scene.scale.listenerCount('resize')).toBe(1);
-    const hint = scene.objects.find((object) => !object.state.destroyed && object.state.text === 'Drag to move • Tap Scrap Burst • Tap pause')!;
+    const hint = scene.objects.find((object) => !object.state.destroyed && object.state.text === 'SCRAP BURST — Knock nearby enemies away.')!;
     const pause = scene.objects.find((object) => !object.state.destroyed && object.state.interactive)!;
     const fitScale = 390 / 844;
     // The strip is gone: the hint owns the bottom safe margin above the stick.
@@ -379,39 +379,39 @@ describe('ControlsView hints', () => {
     }
   });
 
-  it('starts with pointer-mode copy and switches on mode change', () => {
+  it('keeps the data-backed ability teaching line through the first mode change', () => {
     const { scene, input, tick } = createHarness();
     const hintText = scene.objects[3];
 
-    expect(hintText.state.text).toBe('Drag to move • Tap Scrap Burst • Tap pause');
+    expect(hintText.state.text).toBe('SCRAP BURST — Knock nearby enemies away.');
 
     input.keyboard!.keydown('d');
     tick();
-    expect(hintText.state.text).toBe('WASD / arrows • Q — Scrap Burst • P / Esc');
+    expect(hintText.state.text).toBe('SCRAP BURST — Knock nearby enemies away.');
     expect(hintText.state.alpha).toBe(1);
 
     input.keyboard!.keyup('d');
     tick();
     // Idle frames do not flap the copy back.
-    expect(hintText.state.text).toBe('WASD / arrows • Q — Scrap Burst • P / Esc');
+    expect(hintText.state.text).toBe('SCRAP BURST — Knock nearby enemies away.');
   });
 
-  it('a pointer gesture restores pointer-mode copy', () => {
+  it('keeps teaching copy through a pointer gesture', () => {
     const { scene, input, tick } = createHarness();
     const hintText = scene.objects[3];
 
     input.keyboard!.keydown('d');
     tick();
-    expect(hintText.state.text).toBe('WASD / arrows • Q — Scrap Burst • P / Esc');
+    expect(hintText.state.text).toBe('SCRAP BURST — Knock nearby enemies away.');
 
     input.keyboard!.keyup('d');
     input.pointerDown(10, 10);
     input.pointerMove(74, 10);
     tick();
-    expect(hintText.state.text).toBe('Drag to move • Tap Scrap Burst • Tap pause');
+    expect(hintText.state.text).toBe('SCRAP BURST — Knock nearby enemies away.');
   });
 
-  it('shows the gamepad hint when gamepad input is active', () => {
+  it('keeps teaching copy when gamepad input is first active', () => {
     const { scene, input, tick } = createHarness({ gamepad: true });
     const hintText = scene.objects[3];
 
@@ -420,7 +420,7 @@ describe('ControlsView hints', () => {
     pad.setLeftStick(1, 0);
     tick();
 
-    expect(hintText.state.text).toBe('Left stick • Bottom face — Scrap Burst • Menu pause');
+    expect(hintText.state.text).toBe('SCRAP BURST — Knock nearby enemies away.');
   });
 
   it('fades the hint once after the display duration with a tween', () => {

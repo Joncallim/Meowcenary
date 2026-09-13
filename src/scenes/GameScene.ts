@@ -66,7 +66,7 @@ import { createDpsMeter, type DpsMeter } from '../gameplay/metrics';
 import { createPerfSampler, type PerfSampler } from '../gameplay/perf';
 import { PlaytestSummarySystem } from '../systems/playtestSummary';
 import { FeedbackSystem, PhaserFeedbackRenderer } from '../systems/feedback';
-import { DataVisualArtRegistry } from '../systems/visualArt';
+import { DataVisualArtRegistry, resolveAchievementIconBinding } from '../systems/visualArt';
 import { assertRunPhysicalResourcesLoaded, resolveRunPhysicalResources } from '../systems/resourceLoader';
 import { HeldWeaponView } from '../entities/heldWeaponView';
 import { DefeatPresentationSystem } from '../systems/defeatPresentation';
@@ -75,7 +75,9 @@ import { evaluateAchievements } from '../gameplay/achievementSystem';
 import { DataAbilityRegistry } from '../systems/abilities';
 import { activateAbility, applyAbilityEffect, createAbilityState, expireAbilityEffect, tickAbility, type AbilityDefinition, type AbilityState } from '../gameplay/abilities';
 import { applyEnemyDamage } from '../gameplay/enemyDamageResolver';
+import { AbilityPresentationSystem } from '../systems/abilityPresentation';
 import type { FocusDirection } from '../ui/focusList';
+import { isPortraitOrientationBlocked, onPortraitOrientationChange } from '../platform/orientation';
 
 /** U6: the gameplay camera shows canvas/zoom world units — 312×675.2 on the
  *  390×844 canvas at the 1.25× gameplay zoom. */
@@ -103,6 +105,7 @@ export function arenaFollowEnabled(
 export class GameScene extends Phaser.Scene {
   private debugOverlay?: DebugOverlay;
   private inputController?: InputController;
+  private abilityPresentationSystem?: AbilityPresentationSystem;
   private player?: Player;
   private runState?: RunState;
   private enemies: Enemy[] = [];
@@ -112,6 +115,8 @@ export class GameScene extends Phaser.Scene {
   private projectileGroup?: Phaser.Physics.Arcade.Group;
   private dropGroup?: Phaser.Physics.Arcade.Group;
   private physicsPausedByRun = false;
+  /** Presentation-only suspension; deliberately not a persistent PauseReason. */
+  private orientationBlocked = false;
   private hudController?: HudController;
   private controlsView?: ControlsView;
   private pauseController?: PauseController;
@@ -295,6 +300,12 @@ export class GameScene extends Phaser.Scene {
     const lootTables = new DataLootTableRegistry(ctx.data);
 
     this.inputController = new InputController(this);
+    this.orientationBlocked = isPortraitOrientationBlocked();
+    this.unsubscribers.push(onPortraitOrientationChange((blocked) => {
+      this.orientationBlocked = blocked;
+      this.inputController?.quarantineUntilNeutral();
+      if (this.runState) this.syncPhysicsPause(this.runState);
+    }));
     this.debugOverlay = new DebugOverlay(this);
 
     this.enemyGroup = this.physics.add.group();
@@ -317,6 +328,7 @@ export class GameScene extends Phaser.Scene {
       spawnX: arena.size.width / 2,
       spawnY: arena.size.height / 2,
     }, visualArt.bindingById(`character:${request.characterId}`));
+    this.abilityPresentationSystem = new AbilityPresentationSystem(this, ctx.bus, this.player);
 
     const visibleSize = zoomedVisibleSize(this.scale.width, this.scale.height);
     // Fractional zoom must retain subpixel camera motion; Phaser's integer
@@ -575,8 +587,8 @@ export class GameScene extends Phaser.Scene {
       controller: this.runSummaryController,
       readInputMode: () => this.inputController!.getInputMode(),
       resolveAchievementIcon: (iconArtId) => {
-        const binding = visualArt.bindingById(iconArtId);
-        return binding?.kind === 'achievement-icon'
+        const binding = resolveAchievementIconBinding(visualArt, iconArtId);
+        return binding
           ? { textureKey: binding.textureKey, ...(binding.frameKey === undefined ? {} : { frameKey: binding.frameKey }) }
           : undefined;
       },
@@ -640,12 +652,23 @@ export class GameScene extends Phaser.Scene {
     this.installAudioUnlockListeners();
 
     startRun(this.runState, ctx.bus);
+    // A run launched while the device is already rotated must begin frozen,
+    // rather than getting one simulation frame before its first update gate.
+    this.syncPhysicsPause(this.runState);
   }
 
   update(_time: number, delta: number): void {
     const runState = this.runState;
     const ctx = this.getContext();
     if (!runState || !this.inputController || !this.player) {
+      return;
+    }
+
+    if (this.orientationBlocked || isPortraitOrientationBlocked()) {
+      this.orientationBlocked = true;
+      this.syncPhysicsPause(runState);
+      this.inputController.quarantineUntilNeutral();
+      this.gameplayPointerSuspended = true;
       return;
     }
 
@@ -672,10 +695,16 @@ export class GameScene extends Phaser.Scene {
     if (!isPendingClear) {
       tickRun(runState, delta);
       this.tickAbility(delta);
+      if (runState.status === 'active') this.abilityPresentationSystem?.update(delta, ctx.settings.reducedMotion);
       this.player.update(delta);
       this.systems.forEach((system) => {
         system.update(delta);
       });
+    } else {
+      // An activation can synchronously complete the final objective. Draw
+      // its freshly emitted cue once without advancing it before extraction
+      // freezes simulation state.
+      this.abilityPresentationSystem?.update(0, ctx.settings.reducedMotion);
     }
 
     // === PRESENTATION PHASE ===
@@ -749,6 +778,8 @@ export class GameScene extends Phaser.Scene {
     this.pauseView = undefined;
     this.pauseController?.destroy();
     this.pauseController = undefined;
+    this.abilityPresentationSystem?.destroy();
+    this.abilityPresentationSystem = undefined;
     this.fullscreenController?.destroy();
     this.fullscreenController = undefined;
     this.inventoryController = undefined;
@@ -845,6 +876,7 @@ export class GameScene extends Phaser.Scene {
    *  an absent runState is a teardown/inconsistent seam and every action is
    *  discarded immediately — no panel fallback routes commands without a run. */
   private routeAction(action: GameAction): void {
+    if (this.orientationBlocked || isPortraitOrientationBlocked()) return;
     // Suppress input during scene transitions to prevent ghost clicks
     // (e.g. pointerdown triggers extraction, pointerup lands on the
     // next scene's button at the same position).
@@ -972,6 +1004,15 @@ export class GameScene extends Phaser.Scene {
     this.abilityState = activation.state;
     this.syncAbilityPresentation();
     const ctx = this.getContext();
+    ctx.bus.emit('ability:activated', {
+      abilityId: definition.id,
+      cue: definition.presentation.cue,
+      x: player.x,
+      y: player.y,
+      durationMs: definition.durationMs,
+      radius: definition.presentation.radius,
+      color: definition.presentation.color,
+    });
     applyAbilityEffect(definition, { player, stats: runState.stats, enemies: this.enemies,
       damageEnemy: (enemy, amount) => {
         // The enemies array is Enemy[], so the iterated element is always
@@ -989,7 +1030,10 @@ export class GameScene extends Phaser.Scene {
       || this.stageRuntime?.pendingClear !== undefined || this.abilityState.phase === 'ready') return;
     const before = this.abilityState;
     this.abilityState = tickAbility(before, deltaMs);
-    if (before.phase === 'active' && this.abilityState.phase !== 'active' && this.runState) expireAbilityEffect(definition, { stats: this.runState.stats });
+    if (before.phase === 'active' && this.abilityState.phase !== 'active' && this.runState) {
+      expireAbilityEffect(definition, { stats: this.runState.stats });
+      this.getContext().bus.emit('ability:ended', { abilityId: definition.id });
+    }
     const beforeSeconds = Math.ceil(before.cooldownRemainingMs / 1000);
     const afterSeconds = Math.ceil(this.abilityState.cooldownRemainingMs / 1000);
     if (before.phase !== this.abilityState.phase || beforeSeconds !== afterSeconds) this.syncAbilityPresentation();
@@ -1231,7 +1275,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private syncPhysicsPause(runState: RunState): void {
-    const shouldPause = runState.status !== 'active' || this.stageRuntime?.pendingClear !== undefined;
+    const shouldPause = this.orientationBlocked || runState.status !== 'active' || this.stageRuntime?.pendingClear !== undefined;
     if (shouldPause && !this.physicsPausedByRun) {
       this.physics.world.pause();
       this.physicsPausedByRun = true;
@@ -1253,7 +1297,8 @@ export class GameScene extends Phaser.Scene {
     const panel = this.pauseController?.snapshot().panel ?? 'closed';
     const gameplayOwnsPointer = runState?.status === 'active'
       && panel === 'closed'
-      && this.stageRuntime?.pendingClear === undefined;
+      && this.stageRuntime?.pendingClear === undefined
+      && !this.orientationBlocked;
     if (gameplayOwnsPointer && this.gameplayPointerSuspended) {
       this.inputController?.resumeGameplayPointer?.();
       this.gameplayPointerSuspended = false;

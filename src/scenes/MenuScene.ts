@@ -15,8 +15,9 @@ import { FocusStroke } from '../ui/theme';
 import { ScrollableFocusRegion } from '../ui/scrollableFocus';
 import { assembleComposedRunRequest, assembleRunRequest, asLegacyComposedRunRequest, type ComposedRunRequest } from '../gameplay/runRequest';
 import { resolveRunPlan } from '../gameplay/stage/stageContracts';
-import { loadTextureResources, prepareRunPresentation, resolveRunPhysicalResources } from '../systems/resourceLoader';
-import { DataVisualResourceRegistry } from '../systems/visualArt';
+import { loadTextureResources, prepareRunPresentation, resolveRunPhysicalResources, type ResourceLoadProgress } from '../systems/resourceLoader';
+import { DataVisualArtRegistry, DataVisualResourceRegistry, resolveAchievementIconBinding } from '../systems/visualArt';
+import { isPortraitOrientationBlocked } from '../platform/orientation';
 
 const MENU_DEPTH = ThemeDepth.pauseSummary;
 /** 44 physical px at the smallest promised FIT (844×390 → 0.462085). */
@@ -80,10 +81,17 @@ export class MenuScene extends Phaser.Scene {
   private touchDragDistance = 0;
   private touchDidScroll = false;
   private achievementArtLoading = false;
+  /** Scene-lifetime physical binding resolver. Career can render a large
+   * gallery repeatedly, so per-badge catalog cloning/validation is invalid. */
+  private visualArt?: DataVisualArtRegistry;
   /** A run never starts against the boot bundle alone. This state remains in
    * Menu so a load failure has a usable Retry/Back surface rather than a
    * partially constructed GameScene. */
   private runLaunchState: 'idle' | 'loading' | 'failed' = 'idle';
+  private runLaunchProgress?: ResourceLoadProgress;
+  private runLaunchPresentation?: { readonly heading: string; readonly subject: string; readonly mercenary: string };
+  private runLaunchGeneration = 0;
+  private isLive = false;
   /** Number of committed render attempts; resize tests assert one per event. */
   get renderRebuildCount(): number {
     return this.rebuildCount;
@@ -97,7 +105,11 @@ export class MenuScene extends Phaser.Scene {
     // Phaser reuses this Scene instance after Game. Loading is transient and
     // must never leave a newly activated Menu permanently inert.
     this.runLaunchState = 'idle';
+    this.runLaunchProgress = undefined;
+    this.runLaunchPresentation = undefined;
+    this.isLive = true;
     const ctx = this.getContext();
+    this.visualArt = new DataVisualArtRegistry(ctx.data);
     this.bus = ctx.bus;
     this.controller = new MainMenuController(ctx);
 
@@ -144,6 +156,11 @@ export class MenuScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    if (isPortraitOrientationBlocked()) {
+      this.inputController?.quarantineUntilNeutral();
+      this.inputController?.update(delta);
+      return;
+    }
     this.inputController?.update(delta);
     this.refreshInputPresentation();
     this.audioManager?.update(delta);
@@ -268,6 +285,7 @@ export class MenuScene extends Phaser.Scene {
         default:
           break;
       }
+      if (this.runLaunchState === 'loading') this.renderLaunchModal(root, width, hitTarget);
 
       this.navigator.setCount(this.focusables.length);
       // A new FocusNavigator has no count until the rebuilt card grid has
@@ -406,33 +424,64 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private async startRunWithResources(request: ComposedRunRequest, isTraining: boolean): Promise<void> {
-    if (this.runLaunchState === 'loading') return;
+    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
+    const generation = ++this.runLaunchGeneration;
+    const ctx = this.getContext();
+    const stage = request.kind === 'stage' ? ctx.stages.stageById(request.stageId) : undefined;
+    const arenaId = stage?.arenaId ?? (request.kind === 'legacy-arena' ? request.arenaId : undefined);
+    const arena = arenaId === undefined ? undefined : ctx.arenas.arenaById(arenaId);
+    const mercenary = ctx.characters.characterById(request.characterId);
+    this.runLaunchPresentation = Object.freeze(isTraining
+      ? { heading: 'PREPARING TRAINING', subject: arena?.name ?? 'Training Arena', mercenary: mercenary?.name ?? request.characterId }
+      : { heading: 'PREPARING CONTRACT', subject: stage?.name ?? 'Selected Contract', mercenary: mercenary?.name ?? request.characterId });
     this.runLaunchState = 'loading';
+    this.runLaunchProgress = undefined;
     this.render(this.requireController().snapshot());
     try {
-      const ctx = this.getContext();
       const plan = request.kind === 'stage'
         ? resolveRunPlan({ characterId: request.characterId, stageId: request.stageId, seed: request.seed }, ctx.stages.runPlanCatalog())
         : undefined;
-      const arenaId = plan?.arenaId ?? (request.kind === 'legacy-arena' ? request.arenaId : undefined);
-      const arena = arenaId === undefined ? undefined : ctx.arenas.arenaById(arenaId);
-      if (!arena) throw new Error('Selected contract arena is unavailable');
+      const resolvedArenaId = plan?.arenaId ?? arenaId;
+      const resolvedArena = resolvedArenaId === undefined ? undefined : ctx.arenas.arenaById(resolvedArenaId);
+      if (!resolvedArena) throw new Error('Selected contract arena is unavailable');
       const legacyEnemyIds = request.kind === 'legacy-arena'
-        ? (ctx.data.spawnCurves.find((curve) => curve.id === arena.spawnCurveId)?.waves.map((wave) => wave.enemyId) ?? [])
+        ? (ctx.data.spawnCurves.find((curve) => curve.id === resolvedArena.spawnCurveId)?.waves.map((wave) => wave.enemyId) ?? [])
         : [];
       const resources = resolveRunPhysicalResources({
         data: ctx.data,
         characterId: request.characterId,
-        arena,
+        arena: resolvedArena,
         encounterEnemyIds: plan?.encounter.enemyIds ?? legacyEnemyIds,
         bossId: plan?.encounter.bossId,
       });
-      await prepareRunPresentation(this, ctx.data, resources);
+      await prepareRunPresentation(this, ctx.data, resources, (progress) => {
+        if (this.isLive && generation === this.runLaunchGeneration && this.runLaunchState === 'loading') {
+          this.runLaunchProgress = progress;
+          this.render(this.requireController().snapshot());
+        }
+      });
+      if (!this.isLive || generation !== this.runLaunchGeneration || this.runLaunchState !== 'loading') return;
       this.scene.start(SceneKey.Game, { runRequest: request, isTraining });
     } catch (error) {
+      if (!this.isLive || generation !== this.runLaunchGeneration) return;
       this.runLaunchState = 'failed';
+      this.runLaunchProgress = undefined;
       this.render(this.requireController().snapshot());
     }
+  }
+
+  private renderLaunchModal(root: Phaser.GameObjects.Container, width: number, hitTarget: number): void {
+    const backdrop = this.own(root, this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x081018, 0.94)
+      .setDepth(MENU_DEPTH + 10).setScrollFactor(0).setInteractive());
+    backdrop.on(Phaser.Input.Events.POINTER_UP, () => undefined);
+    const presentation = this.runLaunchPresentation;
+    const copy = [presentation?.heading ?? 'PREPARING CONTRACT', presentation?.subject, presentation?.mercenary,
+      this.runLaunchProgress && `Loading ${this.runLaunchProgress.completed} / ${this.runLaunchProgress.total}`].filter(Boolean).join('\n');
+    const text = this.own(root, createUiText(this, this.safeCenterX, this.scale.height / 2, copy, {
+      color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin + 4}px`, align: 'center',
+      wordWrap: { width: width - 32 },
+    }).setOrigin(0.5).setDepth(MENU_DEPTH + 11).setScrollFactor(0));
+    text.setPadding(16, hitTarget / 3);
   }
 
   private renderCharacter(
@@ -608,7 +657,7 @@ export class MenuScene extends Phaser.Scene {
     const selected = snapshot.achievements.selectedAchievement;
     const detailTop = top + heading.height + 10;
     if (selected) {
-      this.addCatalogIcon(root, margin + 17, detailTop + 22, selected.iconArtId, 34);
+      this.addAchievementIcon(root, margin + 17, detailTop + 22, selected.iconArtId, 34);
       this.own(root, createUiText(this, margin + 42, detailTop,
         `${selected.name}\n${achievementStatusCopy(selected)} • ${selected.progress}/${selected.target}\n${selected.description}\nReward: ${selected.rewardSummary}`,
         {
@@ -637,7 +686,7 @@ export class MenuScene extends Phaser.Scene {
         'ui:confirm', cardWidth,
       );
       button.setStyle({ color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px` });
-      this.addCatalogIcon(root, x + cardWidth - 18, y + 20, achievement.iconArtId, 28);
+      this.addAchievementIcon(root, x + cardWidth - 18, y + 20, achievement.iconArtId, 28);
     });
     this.endScrollableRegion();
     this.addBackButton(root, width, margin, hitTarget);
@@ -937,6 +986,7 @@ export class MenuScene extends Phaser.Scene {
       text.setStyle({ backgroundColor: 'rgba(23, 48, 59, 0.86)' });
     });
     text.on(Phaser.Input.Events.POINTER_UP, () => {
+      if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
       // A drag is a scrolling gesture, never a command activation. Keep the
       // flag through the InputPlugin's pointer-up dispatch so this remains
       // correct regardless of global-vs-object listener ordering.
@@ -1019,6 +1069,17 @@ export class MenuScene extends Phaser.Scene {
     this.registerScrollObject(icon);
   }
 
+  /** Career shares terminal Achievement badge identity while retaining its
+   * own gallery layout. Missing textures intentionally preserve text/focus. */
+  private addAchievementIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string, maxSize = 26): void {
+    const binding = resolveAchievementIconBinding(this.requireVisualArt(), iconArtId);
+    if (!binding || !this.textures?.exists(binding.textureKey)) return;
+    const icon = this.own(root, this.add.image(x, y, binding.textureKey, binding.frameKey));
+    icon.setDisplaySize(Math.min(maxSize, binding.display.width), Math.min(maxSize, binding.display.height));
+    icon.setScrollFactor(0);
+    this.registerScrollObject(icon);
+  }
+
   /** Achievement badges remain lazy menu presentation: Boot does not load a
    * future collection just to reach Home. On completion rerender only if the
    * gallery is still current, so an old promise cannot resurrect stale nodes. */
@@ -1028,12 +1089,12 @@ export class MenuScene extends Phaser.Scene {
     // texture manager; their semantic gallery assertions remain valid.
     if (!this.textures?.exists) return;
     const context = this.getContext();
-    const artById = new Map(context.data.visualArt.bindings.map((binding) => [binding.id, binding]));
+    const art = this.requireVisualArt();
     const resources = new DataVisualResourceRegistry(context.data);
     const missing = new Map<string, import('../systems/types').VisualTextureResource>();
     for (const iconArtId of iconArtIds) {
-      const binding = artById.get(iconArtId);
-      if (!binding || binding.kind !== 'achievement-icon' || !binding.resourceId || this.textures.exists(binding.textureKey)) continue;
+      const binding = resolveAchievementIconBinding(art, iconArtId);
+      if (!binding || !binding.resourceId || this.textures.exists(binding.textureKey)) continue;
       const resource = resources.resourceById(binding.resourceId);
       if (resource) missing.set(resource.id, resource);
     }
@@ -1135,6 +1196,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private handleScroll(delta: number): void {
+    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     if (!this.committedDisplay || !this.scrollRegion) return;
     this.scrollRegion.scrollBy(delta);
     this.applyScrollViewport();
@@ -1142,10 +1204,12 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private readonly handleWheel = (_pointer: Phaser.Input.Pointer, _objects: Phaser.GameObjects.GameObject[], _deltaX: number, deltaY: number): void => {
+    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     this.handleScroll(deltaY);
   };
 
   private readonly handlePointerMove = (pointer: Phaser.Input.Pointer): void => {
+    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     if (!pointer.isDown) {
       this.touchScrollY = undefined;
       return;
@@ -1164,6 +1228,7 @@ export class MenuScene extends Phaser.Scene {
   };
 
   private readonly handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
+    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     if (!this.scrollRegion) {
       this.touchScrollY = undefined;
       this.touchDragDistance = 0;
@@ -1176,11 +1241,13 @@ export class MenuScene extends Phaser.Scene {
   };
 
   private readonly handlePointerUp = (): void => {
+    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     this.touchScrollY = undefined;
     this.touchDragDistance = 0;
   };
 
   private handleBack(): void {
+    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     // Home Esc is still a back command; it emits even when the controller
     // refuses (already home).
     this.bus?.emit('ui:back', {});
@@ -1194,6 +1261,7 @@ export class MenuScene extends Phaser.Scene {
   };
 
   private handleNavMove(direction: FocusDirection | number): void {
+    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     // No committed display (never rendered, or a failed rebuild left only the
     // fallback): the retained navigator must not move or emit (F1).
     if (!this.committedDisplay) return;
@@ -1210,6 +1278,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private handleActivate(): void {
+    if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     if (!this.committedDisplay) return;
     const focused = this.focusables[this.navigator.index];
     focused?.emit(Phaser.Input.Events.POINTER_UP);
@@ -1242,6 +1311,8 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private handleShutdown(): void {
+    this.isLive = false;
+    this.runLaunchGeneration += 1;
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
     this.scale.off?.(Phaser.Scale.Events.RESIZE, this.handleResize, this);
@@ -1273,6 +1344,7 @@ export class MenuScene extends Phaser.Scene {
     this.committedDisplay = false;
     this.hoveredIndex = -1;
     this.controller = undefined;
+    this.visualArt = undefined;
     // The manager is game-scoped and Boot-owned: shutdown only drops this
     // scene's reference — never destroy/stopMusic/stopAll.
     this.audioManager = undefined;
@@ -1280,6 +1352,11 @@ export class MenuScene extends Phaser.Scene {
 
   private getContext(): GameContext {
     return getGameContext(this);
+  }
+
+  private requireVisualArt(): DataVisualArtRegistry {
+    if (!this.visualArt) throw new Error('Visual art registry missing from MenuScene');
+    return this.visualArt;
   }
 
   private requireController(): MainMenuController {

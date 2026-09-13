@@ -12,6 +12,7 @@ const VALID_EFFECT_KINDS = new Set([
   'knockback', 'stat-burst', 'invulnerable', 'heal', 'elemental-burst', 'loot-pulse',
 ]);
 const STAT_KEYS = new Set<string>(RUN_UPGRADE_STAT_KEYS);
+const PRESENTATION_CUES = new Set(['shockwave', 'overclock-aura', 'shield-aura', 'heal-burst', 'speed-trail', 'heat-ring', 'loot-pulse', 'precision-mark']);
 
 /** Row-level check for a single AbilityDefinition. */
 export const checkAbility: RowCheckFn = (row: unknown, _index: number): string[] => {
@@ -33,6 +34,13 @@ export const checkAbility: RowCheckFn = (row: unknown, _index: number): string[]
   }
   if (typeof a.durationMs !== 'number' || !Number.isFinite(a.durationMs) || a.durationMs < 0) {
     errors.push('durationMs: must be a non-negative finite number');
+  }
+  const presentation = a.presentation as Record<string, unknown> | undefined;
+  if (!presentation || typeof presentation !== 'object') errors.push('presentation: must be an object');
+  else {
+    if (typeof presentation.cue !== 'string' || !PRESENTATION_CUES.has(presentation.cue)) errors.push('presentation.cue: invalid registered cue');
+    if (typeof presentation.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(presentation.color)) errors.push('presentation.color: must be a hex color');
+    if (presentation.radius !== undefined && (typeof presentation.radius !== 'number' || presentation.radius <= 0)) errors.push('presentation.radius: must be positive when provided');
   }
 
   const effect = a.effect as Record<string, unknown> | undefined;
