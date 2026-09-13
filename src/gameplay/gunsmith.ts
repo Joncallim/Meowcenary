@@ -328,6 +328,19 @@ export type InfuseResult =
       readonly reason: 'unknown-part' | 'unknown-trait' | 'trait-cap-reached' | 'trait-incompatible';
     };
 
+/** Shared source-side eligibility for trait transfer.  Workshop discovery and
+ * the command use this owner so presentation cannot offer consumed cores the
+ * command will always reject. */
+export function isInfusableTraitSource(
+  traitPart: OwnedPart,
+  definitions: ReadonlyMap<string, PartDefinition>,
+): boolean {
+  const definition = definitions.get(traitPart.partId);
+  return definition?.slot === 'trait'
+    && definition.traits.length === 1
+    && definition.fabricationCost !== undefined;
+}
+
 /**
  * Infuses a transferable trait onto a target part (the hybrid-outcome core):
  * e.g. a conventional barrel + FIRE trait → an incendiary barrel. Deterministic;
@@ -342,7 +355,7 @@ export function infuseTrait(
   const traitDef = definitions.get(traitPart.partId);
   if (!targetDef) return { ok: false, reason: 'unknown-part' };
   if (!traitDef || traitDef.slot !== 'trait' || traitDef.traits.length !== 1) return { ok: false, reason: 'unknown-trait' };
-  if (traitDef.fabricationCost === undefined) return { ok: false, reason: 'trait-incompatible' };
+  if (!isInfusableTraitSource(traitPart, definitions)) return { ok: false, reason: 'trait-incompatible' };
   const trait = traitDef.traits[0];
   if (targetDef.slot === 'trait') return { ok: false, reason: 'trait-incompatible' };
   if (effectiveTraits(targetDef, target.infusedTraits).includes(trait)) return { ok: false, reason: 'trait-cap-reached' };
@@ -356,6 +369,88 @@ export function infuseTrait(
       infusedTraits: outputTraits,
     }),
   };
+}
+
+/** A representative, domain-validated Workshop operation.  Operations are
+ * grouped by their mechanically distinct outcome so a repeatable inventory
+ * does not turn menu rendering into a pairwise expansion. */
+export type WorkshopRecipe =
+  | {
+      readonly kind: 'merge';
+      readonly firstInstanceId: string;
+      readonly secondInstanceId: string;
+      /** Number of interchangeable copies in a same-state merge group. */
+      readonly copies?: number;
+    }
+  | {
+      readonly kind: 'infuse';
+      readonly targetInstanceId: string;
+      readonly traitInstanceId: string;
+    };
+
+/**
+ * Produces the finite set of mechanically distinct Workshop operations.
+ *
+ * Trait variants are capped by the Gunsmith rule set, so each part/tier has a
+ * constant number of merge states and each target has at most one candidate
+ * for each registered behavior trait.  This keeps the result linear in the
+ * owned inventory while retaining every distinct merge/infusion outcome.
+ */
+export function listWorkshopRecipes(
+  ownedParts: readonly OwnedPart[],
+  definitions: ReadonlyMap<string, PartDefinition>,
+): readonly WorkshopRecipe[] {
+  const owned = [...ownedParts].sort((left, right) => left.instanceId.localeCompare(right.instanceId));
+  const mergeGroups = new Map<string, OwnedPart[]>();
+  for (const part of owned) {
+    const definition = definitions.get(part.partId);
+    if (!definition) continue;
+    const key = `${part.partId}\u0000${part.tier}\u0000${canonicalTraits(part.infusedTraits).join(',')}`;
+    const group = mergeGroups.get(key) ?? [];
+    group.push(part);
+    mergeGroups.set(key, group);
+  }
+
+  const recipes: WorkshopRecipe[] = [];
+  const groupsByPartTier = new Map<string, OwnedPart[][]>();
+  for (const [key, group] of mergeGroups) {
+    const [partId, tier] = key.split('\u0000');
+    const bucketKey = `${partId}\u0000${tier}`;
+    const bucket = groupsByPartTier.get(bucketKey) ?? [];
+    bucket.push(group);
+    groupsByPartTier.set(bucketKey, bucket);
+  }
+  for (const groups of groupsByPartTier.values()) {
+    for (let firstIndex = 0; firstIndex < groups.length; firstIndex += 1) {
+      const firstGroup = groups[firstIndex]!;
+      for (let secondIndex = firstIndex; secondIndex < groups.length; secondIndex += 1) {
+        const secondGroup = groups[secondIndex]!;
+        const first = firstGroup[0]!;
+        const second = firstGroup === secondGroup ? firstGroup[1] : secondGroup[0];
+        if (!second || !mergeParts(first, second, definitions).ok) continue;
+        recipes.push(Object.freeze({
+          kind: 'merge', firstInstanceId: first.instanceId, secondInstanceId: second.instanceId,
+          ...(firstGroup === secondGroup ? { copies: firstGroup.length } : {}),
+        }));
+      }
+    }
+  }
+
+  const traitSources = new Map<BehaviorTrait, OwnedPart>();
+  for (const candidate of owned) {
+    const definition = definitions.get(candidate.partId);
+    const trait = isInfusableTraitSource(candidate, definitions) ? definition?.traits[0] : undefined;
+    if (trait !== undefined && !traitSources.has(trait)) traitSources.set(trait, candidate);
+  }
+  for (const target of owned) {
+    for (const trait of BEHAVIOR_TRAITS) {
+      const source = traitSources.get(trait);
+      if (source && infuseTrait(target, source, definitions).ok) {
+        recipes.push(Object.freeze({ kind: 'infuse', targetInstanceId: target.instanceId, traitInstanceId: source.instanceId }));
+      }
+    }
+  }
+  return Object.freeze(recipes);
 }
 
 // ── Effective stat resolution ─────────────────────────────────────────

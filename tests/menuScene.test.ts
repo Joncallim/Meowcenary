@@ -415,6 +415,20 @@ describe('MenuScene', () => {
     expect(scene.scrollRegion?.itemCount).toBeGreaterThan(1);
   });
 
+  it('renders grouped workshop operations linearly for a repeatable-part inventory', () => {
+    const harness = createHarness();
+    harness.context.updateGunsmith((state) => ({
+      ...state,
+      parts: Object.fromEntries(Array.from({ length: 50 }, (_, index) => [`part-${index}`, { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] }])),
+      builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+
+    expect(harness.textContents()).toContain('Merge 50 × Standard Barrel T1 → T2');
+    expect(harness.textContents().filter((text) => text.startsWith('Merge '))).toHaveLength(1);
+  });
+
   it('keeps a 50-part Gunsmith list focusable and scroll-safe through acceptance viewports', () => {
     const harness = createHarness();
     harness.context.updateGunsmith((state) => ({

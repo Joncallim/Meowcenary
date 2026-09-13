@@ -3,10 +3,12 @@ import {
   assignPartToBuild,
   infuseTrait,
   isSlotCompatible,
+  listWorkshopRecipes,
   mergeParts,
   unequipPart,
   MAX_TRAIT_CORES_PER_BUILD,
   PART_SLOTS,
+  type BehaviorTrait,
   type OwnedPart,
   type WeaponBuild,
 } from '../gameplay/gunsmith';
@@ -52,6 +54,11 @@ export interface GunsmithBlueprintView {
   readonly effectLines: readonly string[];
 }
 
+/** Presentation-ready, rule-owned Workshop operation. */
+export type GunsmithWorkshopRecipe =
+  | { readonly kind: 'merge'; readonly firstInstanceId: string; readonly secondInstanceId: string; readonly label: string }
+  | { readonly kind: 'infuse'; readonly targetInstanceId: string; readonly traitInstanceId: string; readonly label: string };
+
 export interface GunsmithBuildPresentation {
   readonly id: string;
   readonly familyId: string;
@@ -72,6 +79,9 @@ export interface GunsmithSnapshot {
   readonly slots: readonly GunsmithSlotView[];
   /** Blueprints are definitions, deliberately distinct from owned instances. */
   readonly blueprints: readonly GunsmithBlueprintView[];
+  /** Bounded recipes from the Gunsmith domain; scenes do not reconstruct
+   * pair eligibility from save records. */
+  readonly workshop: readonly GunsmithWorkshopRecipe[];
 }
 
 export interface GunsmithFamilyView {
@@ -168,6 +178,32 @@ export class GunsmithController {
     const blueprints = Object.freeze(this.registry.all()
       .filter((part) => availableBlueprints.has(part.id))
       .map((part) => Object.freeze({ partId: part.id, name: part.name, slot: part.slot, fabricationCost: part.fabricationCost!, iconArtId: part.presentation.iconArtId, effectLines: Object.freeze(part.effects.map((effect) => formatGunsmithEffect(effect, 1))) } satisfies GunsmithBlueprintView)));
+    const ownedParts: OwnedPart[] = Object.entries(state.parts).flatMap(([instanceId, stored]) => this.registry.partById(stored.partId) === undefined ? [] : [{
+      instanceId, partId: stored.partId, tier: stored.tier, infusedTraits: stored.infusedTraits as readonly BehaviorTrait[],
+    }]);
+    const partViewsById = new Map(parts.map((part) => [part.instanceId, part] as const));
+    const workshopRecipes: GunsmithWorkshopRecipe[] = [];
+    for (const recipe of listWorkshopRecipes(ownedParts, this.registry.asMap())) {
+      if (recipe.kind === 'merge') {
+        const first = partViewsById.get(recipe.firstInstanceId);
+        if (!first) continue;
+        workshopRecipes.push(Object.freeze({
+          kind: 'merge' as const, firstInstanceId: recipe.firstInstanceId, secondInstanceId: recipe.secondInstanceId,
+          label: recipe.copies === undefined
+            ? `Merge ${first.name} T${first.tier} variants → T${first.tier + 1}`
+            : `Merge ${recipe.copies} × ${first.name} T${first.tier} → T${first.tier + 1}`,
+        } satisfies GunsmithWorkshopRecipe));
+        continue;
+      }
+      const target = partViewsById.get(recipe.targetInstanceId);
+      const trait = partViewsById.get(recipe.traitInstanceId);
+      if (!target || !trait) continue;
+      workshopRecipes.push(Object.freeze({
+        kind: 'infuse' as const, targetInstanceId: recipe.targetInstanceId, traitInstanceId: recipe.traitInstanceId,
+        label: `Infuse ${target.name} with ${trait.name}`,
+      } satisfies GunsmithWorkshopRecipe));
+    }
+    const workshop = Object.freeze(workshopRecipes);
     return Object.freeze({
       selectedBuildId: selected?.id,
       builds: Object.freeze([...state.builds]),
@@ -184,6 +220,7 @@ export class GunsmithController {
       ...(selectedBuildPresentation === undefined ? {} : { selectedBuild: selectedBuildPresentation }),
       slots: Object.freeze(slots),
       blueprints,
+      workshop,
     });
   }
 

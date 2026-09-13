@@ -130,6 +130,28 @@ describe('GunsmithController durable commands', () => {
     expect(context.saveData.gunsmith.parts.mastered).toBeDefined();
   });
 
+  it('publishes only rule-eligible, bounded workshop recipes', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      target: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+      capped: { partId: 'part:barrel-piercing', tier: 1, infusedTraits: ['FIRE'] },
+      'zzz-fire': { partId: 'part:trait-fire', tier: 1, infusedTraits: [] },
+      'aaa-mastered': { partId: 'part:trait-fire-mastered', tier: 3, infusedTraits: [] },
+      one: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] },
+      two: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] },
+      three: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] },
+    } }));
+
+    expect(controller.snapshot().workshop).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'merge', firstInstanceId: 'one', secondInstanceId: 'three', label: 'Merge 3 × Compact Receiver T1 → T2' }),
+      expect.objectContaining({ kind: 'infuse', targetInstanceId: 'target', traitInstanceId: 'zzz-fire' }),
+    ]));
+    expect(controller.snapshot().workshop).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'infuse', traitInstanceId: 'aaa-mastered' }),
+      expect.objectContaining({ kind: 'infuse', targetInstanceId: 'capped' }),
+    ]));
+  });
+
   it('removes consumed merged instances from every fitted build', () => {
     const { context, controller } = setup();
     context.updateGunsmith((state) => ({ ...state,

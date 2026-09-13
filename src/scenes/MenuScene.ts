@@ -764,27 +764,17 @@ export class MenuScene extends Phaser.Scene {
           y += row.height + 8;
         });
       });
-      const mergePairs = snapshot.gunsmith.parts.flatMap((part, index) => snapshot.gunsmith.parts
-        .slice(index + 1)
-        .filter((candidate) => candidate.partId === part.partId && candidate.tier === part.tier)
-        .map((candidate) => ({ first: part, second: candidate })));
-      const infusionPairs = snapshot.gunsmith.parts.flatMap((target) => snapshot.gunsmith.parts
-        .filter((trait) => target.slot !== 'trait' && trait.slot === 'trait' && trait.instanceId !== target.instanceId)
-        .map((trait) => ({ target, trait })));
-      if (mergePairs.length > 0 || infusionPairs.length > 0) {
+      if (snapshot.gunsmith.workshop.length > 0) {
         const workshop = this.own(root, createUiText(this, margin, y, 'WORKSHOP', {
           color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
         }));
         this.registerScrollObject(workshop);
         y += workshop.height + 4;
-        mergePairs.forEach(({ first, second }) => {
-          const row = this.addButton(root, margin, y, `Merge ${first.name} T${first.tier} → T${first.tier + 1}`, hitTarget,
-            () => this.render(this.requireController().mergeGunParts(first.instanceId, second.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin);
-          y += row.height + 8;
-        });
-        infusionPairs.forEach(({ target, trait }) => {
-          const row = this.addButton(root, margin, y, `Infuse ${target.name} with ${trait.name}`, hitTarget,
-            () => this.render(this.requireController().infuseGunPart(target.instanceId, trait.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin);
+        snapshot.gunsmith.workshop.forEach((recipe) => {
+          const row = this.addButton(root, margin, y, recipe.label, hitTarget,
+            () => this.render(recipe.kind === 'merge'
+              ? this.requireController().mergeGunParts(recipe.firstInstanceId, recipe.secondInstanceId)
+              : this.requireController().infuseGunPart(recipe.targetInstanceId, recipe.traitInstanceId)), 'ui:confirm', width - margin - this.safeRightMargin);
           y += row.height + 8;
         });
       }
