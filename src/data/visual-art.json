@@ -3,16 +3,7 @@
     {
       "id": "character:scrap-tabby",
       "kind": "character",
-      "textureKey": "art-character-scrap-tabby",
-      "url": "assets/characters/scrap-tabby/scrap-tabby.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 48,
-          "height": 48
-        }
-      },
       "display": {
         "width": 28,
         "height": 28
@@ -43,21 +34,12 @@
           "repeat": 0
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:character-scrap-tabby"
     },
     {
       "id": "character:bolt-hound",
       "kind": "character",
-      "textureKey": "art-character-bolt-hound",
-      "url": "assets/characters/bolt-hound/bolt-hound.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 48,
-          "height": 48
-        }
-      },
       "display": {
         "width": 28,
         "height": 28
@@ -88,21 +70,12 @@
           "repeat": 0
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:character-bolt-hound"
     },
     {
       "id": "enemy:dust-mite",
       "kind": "enemy",
-      "textureKey": "art-enemy-dust-mite",
-      "url": "assets/enemies/dust-mite/dust-mite.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 48,
-          "height": 48
-        }
-      },
       "display": {
         "width": 26,
         "height": 26
@@ -133,21 +106,12 @@
           "repeat": 0
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:enemy-dust-mite"
     },
     {
       "id": "enemy:junk-rusher",
       "kind": "enemy",
-      "textureKey": "art-enemy-junk-rusher",
-      "url": "assets/enemies/junk-rusher/junk-rusher.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 48,
-          "height": 48
-        }
-      },
       "display": {
         "width": 26,
         "height": 26
@@ -178,21 +142,12 @@
           "repeat": 0
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:enemy-junk-rusher"
     },
     {
       "id": "enemy:trash-brute",
       "kind": "enemy",
-      "textureKey": "art-enemy-trash-brute",
-      "url": "assets/enemies/trash-brute/trash-brute.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 48,
-          "height": 48
-        }
-      },
       "display": {
         "width": 26,
         "height": 26
@@ -223,21 +178,12 @@
           "repeat": 0
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:enemy-trash-brute"
     },
     {
       "id": "projectile:default",
       "kind": "projectile",
-      "textureKey": "art-projectile-scrap-shot",
-      "url": "assets/projectiles/scrap-shot/scrap-shot.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 16,
-          "height": 16
-        }
-      },
       "display": {
         "width": 8,
         "height": 8
@@ -250,21 +196,12 @@
           "repeat": -1
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:projectile-scrap-shot"
     },
     {
       "id": "drop:xp",
       "kind": "drop",
-      "textureKey": "art-drop-xp-mote",
-      "url": "assets/pickups/xp-mote/xp-mote.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 16,
-          "height": 16
-        }
-      },
       "display": {
         "width": 16,
         "height": 16
@@ -277,291 +214,192 @@
           "repeat": -1
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:drop-xp-mote"
     },
     {
       "id": "weapon-icon:pistol:t1",
       "kind": "weapon-icon",
-      "textureKey": "art-weapon-icon-pistol-t1",
-      "url": "assets/weapon-icons/weapon-icon-pistol-t1/weapon-icon-pistol-t1.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 20
       },
-      "sampling": "nearest"
+      "resourceId": "resource:weapon-icon-pistol-t1"
     },
     {
       "id": "weapon-icon:pistol:t2",
       "kind": "weapon-icon",
-      "textureKey": "art-weapon-icon-pistol-t2",
-      "url": "assets/weapon-icons/weapon-icon-pistol-t2/weapon-icon-pistol-t2.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 20
       },
-      "sampling": "nearest"
+      "resourceId": "resource:weapon-icon-pistol-t2"
     },
     {
       "id": "weapon-icon:pistol:t3",
       "kind": "weapon-icon",
-      "textureKey": "art-weapon-icon-pistol-t3",
-      "url": "assets/weapon-icons/weapon-icon-pistol-t3/weapon-icon-pistol-t3.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 20
       },
-      "sampling": "nearest"
+      "resourceId": "resource:weapon-icon-pistol-t3"
     },
     {
       "id": "weapon-icon:smg:t1",
       "kind": "weapon-icon",
-      "textureKey": "art-weapon-icon-smg-t1",
-      "url": "assets/weapon-icons/weapon-icon-smg-t1/weapon-icon-smg-t1.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 20
       },
-      "sampling": "nearest"
+      "resourceId": "resource:weapon-icon-smg-t1"
     },
     {
       "id": "weapon-icon:smg:t2",
       "kind": "weapon-icon",
-      "textureKey": "art-weapon-icon-smg-t2",
-      "url": "assets/weapon-icons/weapon-icon-smg-t2/weapon-icon-smg-t2.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 20
       },
-      "sampling": "nearest"
+      "resourceId": "resource:weapon-icon-smg-t2"
     },
     {
       "id": "weapon-icon:smg:t3",
       "kind": "weapon-icon",
-      "textureKey": "art-weapon-icon-smg-t3",
-      "url": "assets/weapon-icons/weapon-icon-smg-t3/weapon-icon-smg-t3.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 20
       },
-      "sampling": "nearest"
+      "resourceId": "resource:weapon-icon-smg-t3"
     },
     {
       "id": "weapon-icon:shotgun:t1",
       "kind": "weapon-icon",
-      "textureKey": "art-weapon-icon-shotgun-t1",
-      "url": "assets/weapon-icons/weapon-icon-shotgun-t1/weapon-icon-shotgun-t1.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 20
       },
-      "sampling": "nearest"
+      "resourceId": "resource:weapon-icon-shotgun-t1"
     },
     {
       "id": "weapon-icon:shotgun:t2",
       "kind": "weapon-icon",
-      "textureKey": "art-weapon-icon-shotgun-t2",
-      "url": "assets/weapon-icons/weapon-icon-shotgun-t2/weapon-icon-shotgun-t2.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 20
       },
-      "sampling": "nearest"
+      "resourceId": "resource:weapon-icon-shotgun-t2"
     },
     {
       "id": "weapon-icon:shotgun:t3",
       "kind": "weapon-icon",
-      "textureKey": "art-weapon-icon-shotgun-t3",
-      "url": "assets/weapon-icons/weapon-icon-shotgun-t3/weapon-icon-shotgun-t3.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 20
       },
-      "sampling": "nearest"
+      "resourceId": "resource:weapon-icon-shotgun-t3"
     },
     {
       "id": "weapon-held:pistol:t1",
       "kind": "weapon-held",
-      "textureKey": "art-weapon-held-pistol-t1",
-      "url": "assets/held-weapons/weapon-held-pistol-t1/weapon-held-pistol-t1.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 28,
         "height": 18
       },
-      "sampling": "nearest"
+      "resourceId": "resource:weapon-held-pistol-t1"
     },
     {
       "id": "weapon-held:pistol:t2",
       "kind": "weapon-held",
-      "textureKey": "art-weapon-held-pistol-t2",
-      "url": "assets/held-weapons/weapon-held-pistol-t2/weapon-held-pistol-t2.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 28,
         "height": 18
       },
-      "sampling": "nearest"
+      "resourceId": "resource:weapon-held-pistol-t2"
     },
     {
       "id": "weapon-held:pistol:t3",
       "kind": "weapon-held",
-      "textureKey": "art-weapon-held-pistol-t3",
-      "url": "assets/held-weapons/weapon-held-pistol-t3/weapon-held-pistol-t3.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 28,
         "height": 18
       },
-      "sampling": "nearest"
+      "resourceId": "resource:weapon-held-pistol-t3"
     },
     {
       "id": "weapon-held:smg:t1",
       "kind": "weapon-held",
-      "textureKey": "art-weapon-held-smg-t1",
-      "url": "assets/held-weapons/weapon-held-smg-t1/weapon-held-smg-t1.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 28,
         "height": 18
       },
-      "sampling": "nearest"
+      "resourceId": "resource:weapon-held-smg-t1"
     },
     {
       "id": "weapon-held:smg:t2",
       "kind": "weapon-held",
-      "textureKey": "art-weapon-held-smg-t2",
-      "url": "assets/held-weapons/weapon-held-smg-t2/weapon-held-smg-t2.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 28,
         "height": 18
       },
-      "sampling": "nearest"
+      "resourceId": "resource:weapon-held-smg-t2"
     },
     {
       "id": "weapon-held:smg:t3",
       "kind": "weapon-held",
-      "textureKey": "art-weapon-held-smg-t3",
-      "url": "assets/held-weapons/weapon-held-smg-t3/weapon-held-smg-t3.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 28,
         "height": 18
       },
-      "sampling": "nearest"
+      "resourceId": "resource:weapon-held-smg-t3"
     },
     {
       "id": "weapon-held:shotgun:t1",
       "kind": "weapon-held",
-      "textureKey": "art-weapon-held-shotgun-t1",
-      "url": "assets/held-weapons/weapon-held-shotgun-t1/weapon-held-shotgun-t1.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 28,
         "height": 18
       },
-      "sampling": "nearest"
+      "resourceId": "resource:weapon-held-shotgun-t1"
     },
     {
       "id": "weapon-held:shotgun:t2",
       "kind": "weapon-held",
-      "textureKey": "art-weapon-held-shotgun-t2",
-      "url": "assets/held-weapons/weapon-held-shotgun-t2/weapon-held-shotgun-t2.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 28,
         "height": 18
       },
-      "sampling": "nearest"
+      "resourceId": "resource:weapon-held-shotgun-t2"
     },
     {
       "id": "weapon-held:shotgun:t3",
       "kind": "weapon-held",
-      "textureKey": "art-weapon-held-shotgun-t3",
-      "url": "assets/held-weapons/weapon-held-shotgun-t3/weapon-held-shotgun-t3.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 28,
         "height": 18
       },
-      "sampling": "nearest"
+      "resourceId": "resource:weapon-held-shotgun-t3"
     },
     {
       "id": "projectile:pistol",
       "kind": "projectile",
-      "textureKey": "art-projectile-pistol",
-      "url": "assets/projectiles/projectile-pistol/projectile-pistol.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 16,
-          "height": 16
-        }
-      },
       "display": {
         "width": 8,
         "height": 8
@@ -574,21 +412,12 @@
           "repeat": -1
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:projectile-pistol"
     },
     {
       "id": "projectile:smg",
       "kind": "projectile",
-      "textureKey": "art-projectile-smg",
-      "url": "assets/projectiles/projectile-smg/projectile-smg.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 16,
-          "height": 16
-        }
-      },
       "display": {
         "width": 7,
         "height": 7
@@ -601,21 +430,12 @@
           "repeat": -1
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:projectile-smg"
     },
     {
       "id": "projectile:shotgun",
       "kind": "projectile",
-      "textureKey": "art-projectile-shotgun",
-      "url": "assets/projectiles/projectile-shotgun/projectile-shotgun.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 16,
-          "height": 16
-        }
-      },
       "display": {
         "width": 9,
         "height": 9
@@ -628,21 +448,12 @@
           "repeat": -1
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:projectile-shotgun"
     },
     {
       "id": "drop:scrap",
       "kind": "drop",
-      "textureKey": "art-drop-scrap",
-      "url": "assets/pickups/drop-scrap/drop-scrap.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 20,
-          "height": 20
-        }
-      },
       "display": {
         "width": 18,
         "height": 18
@@ -655,21 +466,12 @@
           "repeat": -1
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:drop-scrap"
     },
     {
       "id": "drop:chest",
       "kind": "drop",
-      "textureKey": "art-drop-chest",
-      "url": "assets/pickups/drop-chest/drop-chest.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 20,
-          "height": 20
-        }
-      },
       "display": {
         "width": 20,
         "height": 20
@@ -682,21 +484,12 @@
           "repeat": -1
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:drop-chest"
     },
     {
       "id": "drop:weapon",
       "kind": "drop",
-      "textureKey": "art-drop-weapon",
-      "url": "assets/pickups/drop-weapon/drop-weapon.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 20,
-          "height": 20
-        }
-      },
       "display": {
         "width": 20,
         "height": 20
@@ -709,516 +502,342 @@
           "repeat": -1
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:drop-weapon"
     },
     {
       "id": "world:junkyard-floor:base",
       "kind": "world",
-      "textureKey": "art-world-junkyard-floor-base",
-      "url": "assets/world/junkyard-floor-base/junkyard-floor-base.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 32
       },
-      "sampling": "linear"
+      "resourceId": "resource:world-junkyard-floor-base"
     },
     {
       "id": "world:junkyard-floor:patch-a",
       "kind": "world",
-      "textureKey": "art-world-junkyard-floor-patch-a",
-      "url": "assets/world/junkyard-floor-patch-a/junkyard-floor-patch-a.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 32
       },
-      "sampling": "linear"
+      "resourceId": "resource:world-junkyard-floor-patch-a"
     },
     {
       "id": "world:junkyard-floor:patch-b",
       "kind": "world",
-      "textureKey": "art-world-junkyard-floor-patch-b",
-      "url": "assets/world/junkyard-floor-patch-b/junkyard-floor-patch-b.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 32
       },
-      "sampling": "linear"
+      "resourceId": "resource:world-junkyard-floor-patch-b"
     },
     {
       "id": "world:junkyard-boundary:straight",
       "kind": "world",
-      "textureKey": "art-world-junkyard-boundary-straight",
-      "url": "assets/world/junkyard-boundary-straight/junkyard-boundary-straight.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 32
       },
-      "sampling": "linear"
+      "resourceId": "resource:world-junkyard-boundary-straight"
     },
     {
       "id": "world:junkyard-boundary:corner",
       "kind": "world",
-      "textureKey": "art-world-junkyard-boundary-corner",
-      "url": "assets/world/junkyard-boundary-corner/junkyard-boundary-corner.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 32
       },
-      "sampling": "linear"
+      "resourceId": "resource:world-junkyard-boundary-corner"
     },
     {
       "id": "world:junkyard-boundary:patch",
       "kind": "world",
-      "textureKey": "art-world-junkyard-boundary-patch",
-      "url": "assets/world/junkyard-boundary-patch/junkyard-boundary-patch.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 32
       },
-      "sampling": "linear"
+      "resourceId": "resource:world-junkyard-boundary-patch"
     },
     {
       "id": "world:junkyard-boundary:gate",
       "kind": "world",
-      "textureKey": "art-world-junkyard-boundary-gate",
-      "url": "assets/world/junkyard-boundary-gate/junkyard-boundary-gate.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 32
       },
-      "sampling": "linear"
+      "resourceId": "resource:world-junkyard-boundary-gate"
     },
     {
       "id": "world:prop:tyre-pile",
       "kind": "world",
-      "textureKey": "art-world-prop-tyre-pile",
-      "url": "assets/world/prop-tyre-pile/prop-tyre-pile.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 32
       },
-      "sampling": "linear"
+      "resourceId": "resource:world-prop-tyre-pile"
     },
     {
       "id": "world:prop:crate",
       "kind": "world",
-      "textureKey": "art-world-prop-crate",
-      "url": "assets/world/prop-crate/prop-crate.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 32
       },
-      "sampling": "linear"
+      "resourceId": "resource:world-prop-crate"
     },
     {
       "id": "world:prop:engine-block",
       "kind": "world",
-      "textureKey": "art-world-prop-engine-block",
-      "url": "assets/world/prop-engine-block/prop-engine-block.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 32
       },
-      "sampling": "linear"
+      "resourceId": "resource:world-prop-engine-block"
     },
     {
       "id": "world:prop:scrap-heap",
       "kind": "world",
-      "textureKey": "art-world-prop-scrap-heap",
-      "url": "assets/world/prop-scrap-heap/prop-scrap-heap.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 32
       },
-      "sampling": "linear"
+      "resourceId": "resource:world-prop-scrap-heap"
     },
     {
       "id": "world:prop:oil-stain",
       "kind": "world",
-      "textureKey": "art-world-prop-oil-stain",
-      "url": "assets/world/prop-oil-stain/prop-oil-stain.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 32
       },
-      "sampling": "linear"
+      "resourceId": "resource:world-prop-oil-stain"
     },
     {
       "id": "world:prop:warning-sign",
       "kind": "world",
-      "textureKey": "art-world-prop-warning-sign",
-      "url": "assets/world/prop-warning-sign/prop-warning-sign.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 32,
         "height": 32
       },
-      "sampling": "linear"
+      "resourceId": "resource:world-prop-warning-sign"
     },
     {
       "id": "world:landmark:hanging-press",
       "kind": "world",
-      "textureKey": "art-world-landmark-hanging-press",
-      "url": "assets/world/landmark-hanging-press/landmark-hanging-press.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 64,
         "height": 64
       },
-      "sampling": "linear"
+      "resourceId": "resource:world-landmark-hanging-press"
     },
     {
       "id": "world:landmark:barrel-power-stack",
       "kind": "world",
-      "textureKey": "art-world-landmark-barrel-power-stack",
-      "url": "assets/world/landmark-barrel-power-stack/landmark-barrel-power-stack.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 64,
         "height": 64
       },
-      "sampling": "linear"
+      "resourceId": "resource:world-landmark-barrel-power-stack"
     },
     {
       "id": "upgrade-icon:quick-paws",
       "kind": "upgrade-icon",
-      "textureKey": "art-upgrade-icon-quick-paws",
-      "url": "assets/upgrade-icons/upgrade-icon-quick-paws/upgrade-icon-quick-paws.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 36,
         "height": 36
       },
-      "sampling": "nearest"
+      "resourceId": "resource:upgrade-icon-quick-paws"
     },
     {
       "id": "upgrade-icon:extra-scrap",
       "kind": "upgrade-icon",
-      "textureKey": "art-upgrade-icon-extra-scrap",
-      "url": "assets/upgrade-icons/upgrade-icon-extra-scrap/upgrade-icon-extra-scrap.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 36,
         "height": 36
       },
-      "sampling": "nearest"
+      "resourceId": "resource:upgrade-icon-extra-scrap"
     },
     {
       "id": "upgrade-icon:hot-barrel",
       "kind": "upgrade-icon",
-      "textureKey": "art-upgrade-icon-hot-barrel",
-      "url": "assets/upgrade-icons/upgrade-icon-hot-barrel/upgrade-icon-hot-barrel.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 36,
         "height": 36
       },
-      "sampling": "nearest"
+      "resourceId": "resource:upgrade-icon-hot-barrel"
     },
     {
       "id": "upgrade-icon:scrap-magnet",
       "kind": "upgrade-icon",
-      "textureKey": "art-upgrade-icon-scrap-magnet",
-      "url": "assets/upgrade-icons/upgrade-icon-scrap-magnet/upgrade-icon-scrap-magnet.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 36,
         "height": 36
       },
-      "sampling": "nearest"
+      "resourceId": "resource:upgrade-icon-scrap-magnet"
     },
     {
       "id": "upgrade-icon:reinforced-coat",
       "kind": "upgrade-icon",
-      "textureKey": "art-upgrade-icon-reinforced-coat",
-      "url": "assets/upgrade-icons/upgrade-icon-reinforced-coat/upgrade-icon-reinforced-coat.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 36,
         "height": 36
       },
-      "sampling": "nearest"
+      "resourceId": "resource:upgrade-icon-reinforced-coat"
     },
     {
       "id": "upgrade-icon:fast-learner",
       "kind": "upgrade-icon",
-      "textureKey": "art-upgrade-icon-fast-learner",
-      "url": "assets/upgrade-icons/upgrade-icon-fast-learner/upgrade-icon-fast-learner.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 36,
         "height": 36
       },
-      "sampling": "nearest"
+      "resourceId": "resource:upgrade-icon-fast-learner"
     },
     {
       "id": "upgrade-icon:heavy-rounds",
       "kind": "upgrade-icon",
-      "textureKey": "art-upgrade-icon-heavy-rounds",
-      "url": "assets/upgrade-icons/upgrade-icon-heavy-rounds/upgrade-icon-heavy-rounds.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 36,
         "height": 36
       },
-      "sampling": "nearest"
+      "resourceId": "resource:upgrade-icon-heavy-rounds"
     },
     {
       "id": "upgrade-icon:long-barrel",
       "kind": "upgrade-icon",
-      "textureKey": "art-upgrade-icon-long-barrel",
-      "url": "assets/upgrade-icons/upgrade-icon-long-barrel/upgrade-icon-long-barrel.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 36,
         "height": 36
       },
-      "sampling": "nearest"
+      "resourceId": "resource:upgrade-icon-long-barrel"
     },
     {
       "id": "upgrade-icon:split-shot",
       "kind": "upgrade-icon",
-      "textureKey": "art-upgrade-icon-split-shot",
-      "url": "assets/upgrade-icons/upgrade-icon-split-shot/upgrade-icon-split-shot.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 36,
         "height": 36
       },
-      "sampling": "nearest"
+      "resourceId": "resource:upgrade-icon-split-shot"
     },
     {
       "id": "upgrade-icon:punch-through",
       "kind": "upgrade-icon",
-      "textureKey": "art-upgrade-icon-punch-through",
-      "url": "assets/upgrade-icons/upgrade-icon-punch-through/upgrade-icon-punch-through.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 36,
         "height": 36
       },
-      "sampling": "nearest"
+      "resourceId": "resource:upgrade-icon-punch-through"
     },
     {
       "id": "upgrade-icon:glass-cannon",
       "kind": "upgrade-icon",
-      "textureKey": "art-upgrade-icon-glass-cannon",
-      "url": "assets/upgrade-icons/upgrade-icon-glass-cannon/upgrade-icon-glass-cannon.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 36,
         "height": 36
       },
-      "sampling": "nearest"
+      "resourceId": "resource:upgrade-icon-glass-cannon"
     },
     {
       "id": "upgrade-icon:run-and-gun",
       "kind": "upgrade-icon",
-      "textureKey": "art-upgrade-icon-run-and-gun",
-      "url": "assets/upgrade-icons/upgrade-icon-run-and-gun/upgrade-icon-run-and-gun.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 36,
         "height": 36
       },
-      "sampling": "nearest"
+      "resourceId": "resource:upgrade-icon-run-and-gun"
     },
     {
       "id": "upgrade-icon:pistol-deadeye",
       "kind": "upgrade-icon",
-      "textureKey": "art-upgrade-icon-pistol-deadeye",
-      "url": "assets/upgrade-icons/upgrade-icon-pistol-deadeye/upgrade-icon-pistol-deadeye.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 36,
         "height": 36
       },
-      "sampling": "nearest"
+      "resourceId": "resource:upgrade-icon-pistol-deadeye"
     },
     {
       "id": "upgrade-icon:pistol-needle-rounds",
       "kind": "upgrade-icon",
-      "textureKey": "art-upgrade-icon-pistol-needle-rounds",
-      "url": "assets/upgrade-icons/upgrade-icon-pistol-needle-rounds/upgrade-icon-pistol-needle-rounds.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 36,
         "height": 36
       },
-      "sampling": "nearest"
+      "resourceId": "resource:upgrade-icon-pistol-needle-rounds"
     },
     {
       "id": "upgrade-icon:smg-overclock",
       "kind": "upgrade-icon",
-      "textureKey": "art-upgrade-icon-smg-overclock",
-      "url": "assets/upgrade-icons/upgrade-icon-smg-overclock/upgrade-icon-smg-overclock.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 36,
         "height": 36
       },
-      "sampling": "nearest"
+      "resourceId": "resource:upgrade-icon-smg-overclock"
     },
     {
       "id": "upgrade-icon:smg-spray",
       "kind": "upgrade-icon",
-      "textureKey": "art-upgrade-icon-smg-spray",
-      "url": "assets/upgrade-icons/upgrade-icon-smg-spray/upgrade-icon-smg-spray.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 36,
         "height": 36
       },
-      "sampling": "nearest"
+      "resourceId": "resource:upgrade-icon-smg-spray"
     },
     {
       "id": "upgrade-icon:shotgun-buckshot",
       "kind": "upgrade-icon",
-      "textureKey": "art-upgrade-icon-shotgun-buckshot",
-      "url": "assets/upgrade-icons/upgrade-icon-shotgun-buckshot/upgrade-icon-shotgun-buckshot.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 36,
         "height": 36
       },
-      "sampling": "nearest"
+      "resourceId": "resource:upgrade-icon-shotgun-buckshot"
     },
     {
       "id": "upgrade-icon:shotgun-breacher",
       "kind": "upgrade-icon",
-      "textureKey": "art-upgrade-icon-shotgun-breacher",
-      "url": "assets/upgrade-icons/upgrade-icon-shotgun-breacher/upgrade-icon-shotgun-breacher.png",
       "required": true,
-      "load": {
-        "type": "image"
-      },
       "display": {
         "width": 36,
         "height": 36
       },
-      "sampling": "nearest"
+      "resourceId": "resource:upgrade-icon-shotgun-breacher"
     },
     {
       "id": "enemy:scrap-sniper",
       "kind": "enemy",
-      "textureKey": "art-enemy-scrap-sniper",
-      "url": "assets/enemies/scrap-sniper/scrap-sniper.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 48,
-          "height": 48
-        }
-      },
       "display": {
         "width": 26,
         "height": 26
@@ -1249,21 +868,12 @@
           "repeat": 0
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:enemy-scrap-sniper"
     },
     {
       "id": "enemy:boss-crusher",
       "kind": "enemy",
-      "textureKey": "art-enemy-boss-crusher",
-      "url": "assets/enemies/boss-crusher/boss-crusher.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 48,
-          "height": 48
-        }
-      },
       "display": {
         "width": 26,
         "height": 26
@@ -1294,128 +904,192 @@
           "repeat": 0
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:enemy-boss-crusher"
     },
     {
       "id": "enemy:scrap-skitter",
       "kind": "enemy",
-      "textureKey": "art-enemy-scrap-skitter",
-      "url": "assets/enemies/scrap-skitter/scrap-skitter.png",
       "required": true,
-      "load": { "type": "spritesheet", "frame": { "width": 313, "height": 313 } },
-      "display": { "width": 24, "height": 24 },
-      "clips": {
-        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
-        "run": { "start": 4, "end": 9, "frameRate": 12, "repeat": -1 },
-        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
-        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
+      "display": {
+        "width": 24,
+        "height": 24
       },
-      "sampling": "nearest"
+      "clips": {
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 6,
+          "repeat": -1
+        },
+        "run": {
+          "start": 4,
+          "end": 9,
+          "frameRate": 12,
+          "repeat": -1
+        },
+        "hurt": {
+          "start": 10,
+          "end": 11,
+          "frameRate": 12,
+          "repeat": 0
+        },
+        "defeat": {
+          "start": 12,
+          "end": 15,
+          "frameRate": 8,
+          "repeat": 0
+        }
+      },
+      "resourceId": "resource:enemy-scrap-skitter"
     },
     {
       "id": "enemy:bastion-beetle",
       "kind": "enemy",
-      "textureKey": "art-enemy-bastion-beetle",
-      "url": "assets/enemies/bastion-beetle/bastion-beetle.png",
       "required": true,
-      "load": { "type": "spritesheet", "frame": { "width": 313, "height": 313 } },
-      "display": { "width": 28, "height": 28 },
-      "clips": {
-        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
-        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 },
-        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
-        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
+      "display": {
+        "width": 28,
+        "height": 28
       },
-      "sampling": "nearest"
+      "clips": {
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 6,
+          "repeat": -1
+        },
+        "run": {
+          "start": 4,
+          "end": 9,
+          "frameRate": 10,
+          "repeat": -1
+        },
+        "hurt": {
+          "start": 10,
+          "end": 11,
+          "frameRate": 12,
+          "repeat": 0
+        },
+        "defeat": {
+          "start": 12,
+          "end": 15,
+          "frameRate": 8,
+          "repeat": 0
+        }
+      },
+      "resourceId": "resource:enemy-bastion-beetle"
     },
     {
       "id": "enemy:junk-nester",
       "kind": "enemy",
-      "textureKey": "art-enemy-junk-nester",
-      "url": "assets/enemies/junk-nester/junk-nester.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 313,
-          "height": 313
-        }
-      },
       "display": {
         "width": 26,
         "height": 26
       },
       "clips": {
-        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
-        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 },
-        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
-        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 6,
+          "repeat": -1
+        },
+        "run": {
+          "start": 4,
+          "end": 9,
+          "frameRate": 10,
+          "repeat": -1
+        },
+        "hurt": {
+          "start": 10,
+          "end": 11,
+          "frameRate": 12,
+          "repeat": 0
+        },
+        "defeat": {
+          "start": 12,
+          "end": 15,
+          "frameRate": 8,
+          "repeat": 0
+        }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:enemy-junk-nester"
     },
     {
       "id": "enemy:shard-bot",
       "kind": "enemy",
-      "textureKey": "art-enemy-shard-bot",
-      "url": "assets/enemies/shard-bot/shard-bot.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 313,
-          "height": 313
-        }
-      },
       "display": {
         "width": 26,
         "height": 26
       },
       "clips": {
-        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
-        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 },
-        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
-        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 6,
+          "repeat": -1
+        },
+        "run": {
+          "start": 4,
+          "end": 9,
+          "frameRate": 10,
+          "repeat": -1
+        },
+        "hurt": {
+          "start": 10,
+          "end": 11,
+          "frameRate": 12,
+          "repeat": 0
+        },
+        "defeat": {
+          "start": 12,
+          "end": 15,
+          "frameRate": 8,
+          "repeat": 0
+        }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:enemy-shard-bot"
     },
     {
       "id": "enemy:boss-forge",
       "kind": "enemy",
-      "textureKey": "art-enemy-boss-forge",
-      "url": "assets/enemies/boss-forge/boss-forge.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 309,
-          "height": 309
-        }
-      },
       "display": {
         "width": 38,
         "height": 38
       },
       "clips": {
-        "idle": { "start": 0, "end": 3, "frameRate": 6, "repeat": -1 },
-        "run": { "start": 4, "end": 9, "frameRate": 10, "repeat": -1 },
-        "hurt": { "start": 10, "end": 11, "frameRate": 12, "repeat": 0 },
-        "defeat": { "start": 12, "end": 15, "frameRate": 8, "repeat": 0 }
+        "idle": {
+          "start": 0,
+          "end": 3,
+          "frameRate": 6,
+          "repeat": -1
+        },
+        "run": {
+          "start": 4,
+          "end": 9,
+          "frameRate": 10,
+          "repeat": -1
+        },
+        "hurt": {
+          "start": 10,
+          "end": 11,
+          "frameRate": 12,
+          "repeat": 0
+        },
+        "defeat": {
+          "start": 12,
+          "end": 15,
+          "frameRate": 8,
+          "repeat": 0
+        }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:enemy-boss-forge"
     },
     {
       "id": "character:volt-lynx",
       "kind": "character",
-      "textureKey": "art-character-volt-lynx",
-      "url": "assets/characters/volt-lynx/volt-lynx.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 48,
-          "height": 48
-        }
-      },
       "display": {
         "width": 28,
         "height": 28
@@ -1446,21 +1120,12 @@
           "repeat": 0
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:character-volt-lynx"
     },
     {
       "id": "character:brass-boar",
       "kind": "character",
-      "textureKey": "art-character-brass-boar",
-      "url": "assets/characters/brass-boar/brass-boar.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 48,
-          "height": 48
-        }
-      },
       "display": {
         "width": 28,
         "height": 28
@@ -1491,21 +1156,12 @@
           "repeat": 0
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:character-brass-boar"
     },
     {
       "id": "character:ember-cougar",
       "kind": "character",
-      "textureKey": "art-character-ember-cougar",
-      "url": "assets/characters/ember-cougar/ember-cougar.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 48,
-          "height": 48
-        }
-      },
       "display": {
         "width": 28,
         "height": 28
@@ -1536,21 +1192,12 @@
           "repeat": 0
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:character-ember-cougar"
     },
     {
       "id": "character:scrap-weasel",
       "kind": "character",
-      "textureKey": "art-character-scrap-weasel",
-      "url": "assets/characters/scrap-weasel/scrap-weasel.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 48,
-          "height": 48
-        }
-      },
       "display": {
         "width": 28,
         "height": 28
@@ -1581,21 +1228,12 @@
           "repeat": 0
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:character-scrap-weasel"
     },
     {
       "id": "character:rattle-raptor",
       "kind": "character",
-      "textureKey": "art-character-rattle-raptor",
-      "url": "assets/characters/rattle-raptor/rattle-raptor.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 48,
-          "height": 48
-        }
-      },
       "display": {
         "width": 28,
         "height": 28
@@ -1626,21 +1264,89 @@
           "repeat": 0
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:character-rattle-raptor"
+    },
+    {
+      "id": "achievement-icon:hidden",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-glass-cannon"
+    },
+    {
+      "id": "achievement-icon:first-kill",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-hot-barrel"
+    },
+    {
+      "id": "achievement-icon:kill-milestone-25",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-heavy-rounds"
+    },
+    {
+      "id": "achievement-icon:kill-milestone-100",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-punch-through"
+    },
+    {
+      "id": "achievement-icon:first-merge",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-smg-overclock"
+    },
+    {
+      "id": "achievement-icon:boss-crusher",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-shotgun-breacher"
+    },
+    {
+      "id": "achievement-icon:chapter-junkyard",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-extra-scrap"
+    },
+    {
+      "id": "achievement-icon:first-victory",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-quick-paws"
+    },
+    {
+      "id": "achievement-icon:mastery-scrap-tabby",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-fast-learner"
+    },
+    {
+      "id": "achievement-icon:scrap-tycoon",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-extra-scrap"
+    },
+    {
+      "id": "achievement-icon:boss-forge",
+      "kind": "achievement-icon",
+      "required": true,
+      "display": { "width": 36, "height": 36 },
+      "resourceId": "resource:upgrade-icon-reinforced-coat"
     },
     {
       "id": "character:piston-ram",
       "kind": "character",
-      "textureKey": "art-character-piston-ram",
-      "url": "assets/characters/piston-ram/piston-ram.png",
       "required": true,
-      "load": {
-        "type": "spritesheet",
-        "frame": {
-          "width": 48,
-          "height": 48
-        }
-      },
       "display": {
         "width": 28,
         "height": 28
@@ -1671,7 +1377,7 @@
           "repeat": 0
         }
       },
-      "sampling": "nearest"
+      "resourceId": "resource:character-piston-ram"
     }
   ]
 }

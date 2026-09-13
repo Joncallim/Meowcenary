@@ -20,7 +20,24 @@ export interface ControlsViewOptions {
   readonly onAbilityRequested?: () => void;
   readonly onExtractRequested?: () => void;
   readonly touchStick?: TouchStickConfig;
+  /** Immutable player-facing identity for the active ability.  Controls own
+   * its rendered state; gameplay only pushes state changes when visible copy
+   * changes.  Supplying no definition is valid for a character with no
+   * active ability and deliberately renders no combat card. */
+  readonly ability?: AbilityControlDefinition | null;
 }
+
+/** The narrow presentation boundary between the ability runtime and touch UI.
+ * Keep gameplay definitions out of ControlsView. */
+export interface AbilityControlDefinition {
+  readonly name: string;
+  readonly description: string;
+}
+
+export type AbilityControlPhase = 'ready' | 'active' | 'cooling';
+
+const ABILITY_CARD_WIDTH_PX = 120;
+const ABILITY_CARD_HEIGHT_PX = 60;
 
 export class ControlsView {
   private readonly scene: Phaser.Scene;
@@ -31,16 +48,25 @@ export class ControlsView {
   private readonly onExtractRequested?: () => void;
   private readonly readReducedMotion: () => boolean;
   private readonly stickRadius: number;
+  /** Visual-only touch-stick radius. Input remains normalized against the
+   * authored logical radius, so a smaller affordance cannot reduce movement
+   * range or make diagonal movement less responsive. */
+  private readonly visibleStickRadius: number;
   private readonly root?: Phaser.GameObjects.Container;
   private readonly stickBase: Phaser.GameObjects.Arc;
   private readonly stickThumb: Phaser.GameObjects.Arc;
   private hintText!: Phaser.GameObjects.Text;
   private pauseButton!: Phaser.GameObjects.Rectangle;
-  private abilityButton!: Phaser.GameObjects.Rectangle;
-  private abilityGlyph!: Phaser.GameObjects.Text;
+  private readonly ability?: AbilityControlDefinition;
+  private abilityPhase: AbilityControlPhase = 'ready';
+  private abilityCooldownSeconds = 0;
+  private abilityButton?: Phaser.GameObjects.Rectangle;
+  private abilityNameText?: Phaser.GameObjects.Text;
+  private abilityStateText?: Phaser.GameObjects.Text;
   private pauseGlyphBars: Phaser.GameObjects.Rectangle[] = [];
   private hintElapsedMs = 0;
   private hintFaded = false;
+  private teachingHintActive = false;
   private lastMode: InputMode = 'pointer';
   private disposed = false;
 
@@ -60,6 +86,8 @@ export class ControlsView {
     this.onExtractRequested = options.onExtractRequested;
     this.readReducedMotion = readReducedMotion;
     this.stickRadius = touchStick.radius;
+    this.visibleStickRadius = Math.min(this.stickRadius, 48);
+    this.ability = options.ability ?? undefined;
     const add = scene.add as typeof scene.add & { container?: (x: number, y: number) => Phaser.GameObjects.Container };
     this.root = add.container?.(viewport.originX ?? 0, viewport.originY ?? 0);
     this.root?.setScrollFactor(0).setDepth(ThemeDepth.hud);
@@ -70,8 +98,8 @@ export class ControlsView {
     // physical px with the visible radius at 64 px (AM-3). A second
     // compensation (e.g. setScale(0.8)) would shrink the stick to 102.4·s.
     const stickRenderRadius = viewport.originX === undefined
-      ? this.stickRadius
-      : this.stickRadius / GAMEPLAY_ZOOM;
+      ? this.visibleStickRadius
+      : this.visibleStickRadius / GAMEPLAY_ZOOM;
     this.stickBase = scene.add.arc(0, 0, stickRenderRadius, 0, 360, false, ThemeColor.cream, 0.18);
     this.stickBase.setDepth(ThemeDepth.transientHint);
     this.stickBase.setScrollFactor(0);
@@ -93,7 +121,12 @@ export class ControlsView {
     const rightMargin = edgeMargin(viewport, 'right');
     const bottomMargin = edgeMargin(viewport, 'bottom');
     const fontSize = physicalToLogical(ThemeFont.bodyMin, viewport);
-    const pauseSize = physicalToLogical(44, viewport);
+    // Ability is the active combat affordance: reserve a larger, independent
+    // lower-right thumb target.  It deliberately remains an interactive UI
+    // object so PointerAdapter never adopts its pointer as a movement stick.
+    const abilityWidth = physicalToLogical(ABILITY_CARD_WIDTH_PX, viewport);
+    const abilityHeight = physicalToLogical(ABILITY_CARD_HEIGHT_PX, viewport);
+    const abilityInset = physicalToLogical(12, viewport);
     const btnWidth = physicalToLogical(180, viewport);
     const btnHeight = physicalToLogical(52, viewport);
 
@@ -107,9 +140,9 @@ export class ControlsView {
       viewport.canvasWidth / 2,
       viewport.canvasHeight
         - bottomMargin
-        - physicalToLogical(this.stickRadius * 2, viewport)
+        - physicalToLogical(this.visibleStickRadius * 2, viewport)
         - fontSize,
-      hintForMode(this.lastMode),
+      this.ability ? abilityTeachingCopy(this.ability) : hintForMode(this.lastMode),
       {
         align: 'center',
         color: '#f7f1d5',
@@ -120,6 +153,7 @@ export class ControlsView {
     this.hintText.setOrigin(0.5);
     this.hintText.setDepth(ThemeDepth.transientHint);
     this.hintText.setScrollFactor(0);
+    this.teachingHintActive = this.ability !== undefined;
     if (this.hintFaded) {
       this.hintText.setAlpha(0);
     }
@@ -137,19 +171,9 @@ export class ControlsView {
     this.pauseButton.setStrokeStyle(physicalToLogical(2, viewport), ThemeColor.cream, 0.8);
     this.pauseButton.setInteractive();
     this.pauseButton.on('pointerdown', this.handlePausePointerDown, this);
-    this.abilityButton = scene.add.rectangle(
-      this.pauseButton.x - pauseSize - physicalToLogical(10, viewport), this.pauseButton.y,
-      pauseSize, pauseSize, ThemeColor.primary, 0.72,
-    );
-    this.abilityButton.setDepth(ThemeDepth.hud);
-    this.abilityButton.setScrollFactor(0);
-    this.abilityButton.setStrokeStyle(physicalToLogical(2, viewport), ThemeColor.cream, 0.8);
-    this.abilityButton.setInteractive();
-    this.abilityButton.on('pointerdown', this.handleAbilityPointerDown, this);
-    this.abilityGlyph = createUiText(scene, this.abilityButton.x, this.abilityButton.y, 'A', {
-      color: '#f7f1d5', fontFamily: ThemeFont.family, fontSize: `${physicalToLogical(18, viewport)}px`, fontStyle: '700',
-    });
-    this.abilityGlyph.setOrigin(0.5).setDepth(ThemeDepth.hud).setScrollFactor(0);
+    if (this.ability) {
+      this.buildAbilityCard(scene, viewport, rightMargin, bottomMargin, abilityInset, abilityWidth, abilityHeight);
+    }
     const glyphWidth = physicalToLogical(8, viewport);
     const glyphHeight = physicalToLogical(22, viewport);
     const glyphOffset = physicalToLogical(8, viewport);
@@ -168,7 +192,73 @@ export class ControlsView {
     });
     // Every interactive/control child owns scrollFactor=0; containers do not
     // propagate it in Phaser, and hit tests read the child value.
-    this.root?.add([this.hintText, this.pauseButton, this.abilityButton, this.abilityGlyph, ...this.pauseGlyphBars]);
+    this.root?.add([
+      this.hintText,
+      this.pauseButton,
+      ...(this.abilityButton ? [this.abilityButton] : []),
+      ...(this.abilityNameText ? [this.abilityNameText] : []),
+      ...(this.abilityStateText ? [this.abilityStateText] : []),
+      ...this.pauseGlyphBars,
+    ]);
+  }
+
+  private buildAbilityCard(
+    scene: Phaser.Scene,
+    viewport: UiViewport,
+    rightMargin: number,
+    bottomMargin: number,
+    inset: number,
+    width: number,
+    height: number,
+  ): void {
+    const x = viewport.canvasWidth - rightMargin - inset - width / 2;
+    const y = viewport.canvasHeight - bottomMargin - inset - height / 2;
+    this.abilityButton = scene.add.rectangle(x, y, width, height, ThemeColor.primary, 0.78);
+    this.abilityButton.setDepth(ThemeDepth.hud);
+    this.abilityButton.setScrollFactor(0);
+    this.abilityButton.setStrokeStyle(physicalToLogical(2, viewport), ThemeColor.cream, 0.85);
+    // This must be a real interactive object. PointerAdapter's UI-ownership
+    // boundary sees it and never adopts this finger as a movement gesture.
+    this.abilityButton.setInteractive();
+    this.abilityButton.on('pointerdown', this.handleAbilityPointerDown, this);
+
+    this.abilityNameText = createUiText(scene, x, y - height * 0.18, containedAbilityName(this.ability!.name), {
+      color: '#f7f1d5', fontFamily: ThemeFont.family,
+      fontSize: `${physicalToLogical(12, viewport)}px`, fontStyle: '700', align: 'center',
+    });
+    this.abilityNameText.setOrigin(0.5).setDepth(ThemeDepth.hud + 1).setScrollFactor(0);
+    this.abilityStateText = createUiText(scene, x, y + height * 0.20, abilityStateCopy(this.abilityPhase, this.abilityCooldownSeconds), {
+      color: '#f7f1d5', fontFamily: ThemeFont.family,
+      fontSize: `${physicalToLogical(11, viewport)}px`, fontStyle: '700', align: 'center',
+    });
+    this.abilityStateText.setOrigin(0.5).setDepth(ThemeDepth.hud + 1).setScrollFactor(0);
+    this.applyAbilityVisualState();
+  }
+
+  /**
+   * Update only when the card's visible state changes.  `cooldownRemainingMs`
+   * is intentionally converted with the same ceiling semantics used by the
+   * ability runtime, so 6.1 seconds displays as 7s rather than pretending a
+   * use is ready early.
+   */
+  setAbilityPresentation(phase: AbilityControlPhase, cooldownRemainingMs: number): void {
+    if (this.disposed || !this.ability) return;
+    const safePhase: AbilityControlPhase = phase === 'active' || phase === 'cooling' ? phase : 'ready';
+    const seconds = safePhase === 'cooling'
+      ? Math.max(0, Math.ceil(Math.max(0, Number.isFinite(cooldownRemainingMs) ? cooldownRemainingMs : 0) / 1000))
+      : 0;
+    if (safePhase === this.abilityPhase && seconds === this.abilityCooldownSeconds) return;
+    this.abilityPhase = safePhase;
+    this.abilityCooldownSeconds = seconds;
+    this.applyAbilityVisualState();
+  }
+
+  private applyAbilityVisualState(): void {
+    if (!this.abilityButton || !this.abilityStateText) return;
+    const cooling = this.abilityPhase === 'cooling';
+    this.abilityButton.setFillStyle(ThemeColor.primary, cooling ? 0.38 : 0.78);
+    this.abilityStateText.setText(abilityStateCopy(this.abilityPhase, this.abilityCooldownSeconds));
+    this.abilityStateText.setAlpha(cooling ? 0.76 : 1);
   }
 
   private buildExtractionControls(
@@ -295,11 +385,15 @@ export class ControlsView {
   private destroyViewportControls(): void {
     this.scene.tweens.killTweensOf(this.hintText);
     this.pauseButton.off('pointerdown', this.handlePausePointerDown, this);
-    this.abilityButton.off('pointerdown', this.handleAbilityPointerDown, this);
+    this.abilityButton?.off('pointerdown', this.handleAbilityPointerDown, this);
     this.hintText.destroy();
     this.pauseButton.destroy();
-    this.abilityButton.destroy();
-    this.abilityGlyph.destroy();
+    this.abilityButton?.destroy();
+    this.abilityNameText?.destroy();
+    this.abilityStateText?.destroy();
+    this.abilityButton = undefined;
+    this.abilityNameText = undefined;
+    this.abilityStateText = undefined;
     this.pauseGlyphBars.forEach((bar) => bar.destroy());
     this.pauseGlyphBars = [];
     if (this.extractButton) {
@@ -341,7 +435,7 @@ export class ControlsView {
     const start = snapshot.pointerStart;
     const current = snapshot.pointerCurrent;
     const delta = { x: current.x - start.x, y: current.y - start.y };
-    const clamped = clampLength(delta, this.stickRadius);
+    const clamped = clampLength(delta, this.visibleStickRadius);
 
     // Root children live in world space, where the gameplay camera zoom maps
     // local coords 1.25× onto the canvas (M-07: local = pointer/1.25 for
@@ -363,10 +457,12 @@ export class ControlsView {
   private updateHint(mode: InputMode, dtMs: number): void {
     if (this.lastMode !== mode) {
       this.lastMode = mode;
-      this.hintText.setText(hintForMode(mode));
-      this.hintElapsedMs = 0;
-      this.hintFaded = false;
-      this.hintText.setAlpha(1);
+      if (!this.teachingHintActive) {
+        this.hintText.setText(hintForMode(mode, this.ability?.name));
+        this.hintElapsedMs = 0;
+        this.hintFaded = false;
+        this.hintText.setAlpha(1);
+      }
     }
 
     if (this.hintFaded) {
@@ -378,6 +474,7 @@ export class ControlsView {
     }
 
     if (this.hintElapsedMs >= HINT_DURATION_MS) {
+      this.teachingHintActive = false;
       this.hintFaded = true;
       // The setting is re-read at fade time so a toggled preference is
       // honoured without restarting the run.
@@ -408,17 +505,36 @@ export class ControlsView {
   }
 }
 
-function hintForMode(mode: InputMode): string {
+function hintForMode(mode: InputMode, abilityName?: string): string {
+  const namedAbility = abilityName === undefined ? 'ability' : containedAbilityName(abilityName);
   switch (mode) {
     case 'keyboard':
-      return 'WASD / arrows • Q ability • P / Esc';
+      return `WASD / arrows • Q — ${namedAbility} • P / Esc`;
     case 'gamepad':
       // Epic 19 D5: positions only — never vendor labels.
-      return 'Left stick • Left face ability • Bottom face / Menu';
+      return `Left stick • Left face — ${namedAbility} • Menu pause`;
     case 'pointer':
     default:
-      return 'Drag to move • Tap A ability • Tap pause';
+      return `Drag to move • Tap ${namedAbility} • Tap pause`;
   }
+}
+
+/** The first-run transient hint teaches the selected data-owned ability;
+ * later input-mode changes return to concise control hints. */
+function abilityTeachingCopy(ability: AbilityControlDefinition): string {
+  return `${containedAbilityName(ability.name).toUpperCase()} — ${ability.description}`;
+}
+
+function abilityStateCopy(phase: AbilityControlPhase, cooldownSeconds: number): string {
+  if (phase === 'active') return 'ACTIVE';
+  if (phase === 'cooling') return `${Math.max(0, cooldownSeconds)}s`;
+  return 'READY';
+}
+
+function containedAbilityName(name: string): string {
+  const normalized = name.trim();
+  if (normalized.length <= 18) return normalized;
+  return `${normalized.slice(0, 17)}…`;
 }
 
 function sameViewport(a: UiViewport, b: UiViewport): boolean {

@@ -4,10 +4,16 @@
     "name": "First Blood",
     "description": "Defeat your first enemy.",
     "kind": "standard",
+    "presentation": { "iconArtId": "achievement-icon:first-kill" },
     "target": 1,
     "metricId": "metric:enemies-defeated",
     "rewards": [
-      { "grant": { "type": "grant-scrap", "amount": 25 } }
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 25
+        }
+      }
     ]
   },
   {
@@ -15,6 +21,7 @@
     "name": "Scrap Squad",
     "description": "Defeat 25 enemies.",
     "kind": "incremental",
+    "presentation": { "iconArtId": "achievement-icon:kill-milestone-25" },
     "target": 25,
     "metricId": "metric:enemies-defeated"
   },
@@ -23,21 +30,26 @@
     "name": "Junkyard Veteran",
     "description": "Defeat 100 enemies.",
     "kind": "incremental",
+    "presentation": { "iconArtId": "achievement-icon:kill-milestone-100" },
     "target": 100,
     "metricId": "metric:enemies-defeated",
-    "rewards": [
-      { "grant": { "type": "unlock-character", "characterId": "character:scrap-weasel" } }
-    ]
+    "rewards": []
   },
   {
     "id": "achievement:first-merge",
     "name": "Forge Initiate",
     "description": "Merge two weapons for the first time.",
     "kind": "standard",
+    "presentation": { "iconArtId": "achievement-icon:first-merge" },
     "target": 1,
     "metricId": "metric:merges-performed",
     "rewards": [
-      { "grant": { "type": "grant-scrap", "amount": 50 } }
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 50
+        }
+      }
     ]
   },
   {
@@ -45,12 +57,33 @@
     "name": "Crusher Down",
     "description": "Defeat the Scrap Crusher boss.",
     "kind": "standard",
+    "presentation": { "iconArtId": "achievement-icon:boss-crusher" },
     "target": 1,
-    "condition": { "type": "boss-defeated", "bossId": "boss-crusher" },
+    "condition": {
+      "type": "boss-defeated",
+      "bossId": "boss-crusher"
+    },
     "rewards": [
-      { "grant": { "type": "grant-scrap", "amount": 100 } },
-      { "grant": { "type": "unlock-equipment", "equipmentId": "equipment:commando-helmet" } },
-      { "grant": { "type": "grant-equipment-instance", "instanceId": "reward:crusher-commando-helmet", "equipmentId": "equipment:commando-helmet", "tier": 1 } }
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 100
+        }
+      },
+      {
+        "grant": {
+          "type": "unlock-equipment",
+          "equipmentId": "equipment:commando-helmet"
+        }
+      },
+      {
+        "grant": {
+          "type": "grant-equipment-instance",
+          "instanceId": "reward:crusher-commando-helmet",
+          "equipmentId": "equipment:commando-helmet",
+          "tier": 1
+        }
+      }
     ]
   },
   {
@@ -58,19 +91,40 @@
     "name": "Junkyard Champion",
     "description": "Clear all five contracts of the Junkyard chapter.",
     "kind": "standard",
+    "presentation": { "iconArtId": "achievement-icon:chapter-junkyard" },
     "target": 1,
     "condition": {
       "type": "all",
       "conditions": [
-        { "type": "stage-cleared", "stageId": "stage:junkyard-01" },
-        { "type": "stage-cleared", "stageId": "stage:junkyard-02" },
-        { "type": "stage-cleared", "stageId": "stage:junkyard-03" },
-        { "type": "stage-cleared", "stageId": "stage:junkyard-04" },
-        { "type": "stage-cleared", "stageId": "stage:junkyard-05" }
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-01"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-02"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-03"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-04"
+        },
+        {
+          "type": "stage-cleared",
+          "stageId": "stage:junkyard-05"
+        }
       ]
     },
     "rewards": [
-      { "grant": { "type": "grant-scrap", "amount": 200 } }
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 200
+        }
+      }
     ]
   },
   {
@@ -78,10 +132,16 @@
     "name": "First Victory",
     "description": "Complete your first run.",
     "kind": "standard",
+    "presentation": { "iconArtId": "achievement-icon:first-victory" },
     "target": 1,
     "metricId": "metric:runs-completed",
     "rewards": [
-      { "grant": { "type": "grant-scrap", "amount": 25 } }
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 25
+        }
+      }
     ]
   },
   {
@@ -89,30 +149,43 @@
     "name": "Tabby Mastery",
     "description": "Reach mastery tier 1 with Scrap Tabby.",
     "kind": "mastery",
+    "presentation": { "iconArtId": "achievement-icon:mastery-scrap-tabby" },
     "target": 1,
-    "condition": { "type": "mastery-reached", "subjectId": "scrap-tabby", "tier": 1 },
+    "condition": {
+      "type": "mastery-reached",
+      "subjectId": "scrap-tabby",
+      "tier": 1
+    },
     "rewards": [
-      { "grant": { "type": "grant-scrap", "amount": 75 } }
+      {
+        "grant": {
+          "type": "grant-scrap",
+          "amount": 75
+        }
+      }
     ]
   },
   {
-    "id": "achievement:scrap-banked-1000",
+    "id": "achievement:scrap-tycoon",
     "name": "Scrap Tycoon",
-    "description": "Bank 1,000 total scrap.",
+    "description": "Bank 10,000 total scrap from contracts.",
     "kind": "incremental",
-    "target": 1000,
+    "presentation": { "iconArtId": "achievement-icon:scrap-tycoon" },
+    "target": 10000,
     "metricId": "metric:scrap-banked",
     "hidden": true
   },
   {
-    "id": "achievement:permanent-reinforced-coat-3",
-    "name": "Well Protected",
-    "description": "Reach level 3 of the Reinforced Coat permanent upgrade.",
+    "id": "achievement:boss-forge",
+    "name": "Warden Down",
+    "description": "Defeat the Forge Warden.",
     "kind": "standard",
+    "presentation": { "iconArtId": "achievement-icon:boss-forge" },
     "target": 1,
-    "condition": { "type": "permanent-level", "upgradeId": "reinforced-vest", "minLevel": 3 },
-    "rewards": [
-      { "grant": { "type": "grant-scrap", "amount": 150 } }
-    ]
+    "condition": {
+      "type": "boss-defeated",
+      "bossId": "boss-forge"
+    },
+    "rewards": []
   }
 ]

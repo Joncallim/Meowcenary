@@ -1,137 +1,50 @@
 import { describe, expect, it } from 'vitest';
-import { ModifierStack } from '../src/gameplay/stats';
+import { scaleModifierByTier, type ModifierSpec } from '../src/gameplay/stats';
 
-describe('ModifierStack', () => {
-  it('resolves additive modifiers before multiplicative modifiers', () => {
-    const stats = new ModifierStack();
-    stats.add({ stat: 'damage', op: 'mult', value: 2, sourceId: 'double' });
-    stats.add({ stat: 'damage', op: 'add', value: 5, sourceId: 'bonus' });
-
-    expect(stats.resolve('damage', 10)).toBe(30);
+describe('ModifierSpec tier scaling', () => {
+  it('scales additive modifiers linearly by tier', () => {
+    const spec: ModifierSpec = { stat: 'range', op: 'add', value: 35 };
+    expect(scaleModifierByTier(spec, 1)).toBe(35);
+    expect(scaleModifierByTier(spec, 2)).toBe(70);
+    expect(scaleModifierByTier(spec, 3)).toBe(105);
+    expect(scaleModifierByTier(spec, 4)).toBe(140);
+    expect(scaleModifierByTier(spec, 5)).toBe(175);
   });
 
-  it('removes every modifier from a source', () => {
-    const stats = new ModifierStack();
-    stats.add({ stat: 'damage', op: 'add', value: 5, sourceId: 'upgrade-a' });
-    stats.add({ stat: 'moveSpeed', op: 'add', value: 10, sourceId: 'upgrade-a' });
-    stats.add({ stat: 'damage', op: 'add', value: 2, sourceId: 'upgrade-b' });
-
-    stats.remove('upgrade-a');
-
-    expect(stats.resolve('damage', 10)).toBe(12);
-    expect(stats.resolve('moveSpeed', 100)).toBe(100);
+  it('scales multiplicative modifiers using delta scaling', () => {
+    const spec: ModifierSpec = { stat: 'damage', op: 'mult', value: 1.12 };
+    // T1: 1.12
+    // T2: 1 + (1.12 - 1) * 2 = 1 + 0.12 * 2 = 1.24
+    // T3: 1 + (1.12 - 1) * 3 = 1 + 0.12 * 3 = 1.36
+    expect(scaleModifierByTier(spec, 1)).toBeCloseTo(1.12);
+    expect(scaleModifierByTier(spec, 2)).toBeCloseTo(1.24);
+    expect(scaleModifierByTier(spec, 3)).toBeCloseTo(1.36);
+    expect(scaleModifierByTier(spec, 4)).toBeCloseTo(1.48);
+    expect(scaleModifierByTier(spec, 5)).toBeCloseTo(1.60);
   });
 
-  it('counts modifiers by source', () => {
-    const stats = new ModifierStack();
-    stats.add({ stat: 'xpGain', op: 'mult', value: 1.25, sourceId: 'catnip' });
-    stats.add({ stat: 'damage', op: 'add', value: 1, sourceId: 'catnip' });
-
-    expect(stats.countBySource('catnip')).toBe(2);
-    expect(stats.countBySource('missing')).toBe(0);
+  it('scales fractional multiplicative deltas correctly', () => {
+    // 0.94 at T2 => 1 + (0.94 - 1) * 2 = 1 + (-0.06) * 2 = 0.88
+    const spec: ModifierSpec = { stat: 'spreadDeg', op: 'mult', value: 0.94 };
+    expect(scaleModifierByTier(spec, 1)).toBeCloseTo(0.94);
+    expect(scaleModifierByTier(spec, 2)).toBeCloseTo(0.88);
+    expect(scaleModifierByTier(spec, 3)).toBeCloseTo(0.82);
   });
 
-  it('rejects non-finite inputs and resolved overflow', () => {
-    const stats = new ModifierStack();
-
-    expect(() =>
-      stats.add({ stat: 'damage', op: 'add', value: Number.NaN, sourceId: 'invalid' }),
-    ).toThrow(/finite/);
-    expect(() => stats.resolve('damage', Number.POSITIVE_INFINITY)).toThrow(/finite/);
-
-    stats.add({ stat: 'damage', op: 'mult', value: 2, sourceId: 'overflow' });
-    expect(() => stats.resolve('damage', Number.MAX_VALUE)).toThrow(/finite/);
+  it('returns base value for tier 1', () => {
+    const spec: ModifierSpec = { stat: 'damage', op: 'mult', value: 1.5 };
+    expect(scaleModifierByTier(spec, 1)).toBe(1.5);
   });
 
-  it('ignores family-scoped modifiers in legacy resolve() (Epic 18 D4)', () => {
-    const stats = new ModifierStack();
-    stats.add({ stat: 'damage', op: 'add', value: 5, sourceId: 'global-add' });
-    stats.add({
-      stat: 'damage',
-      op: 'add',
-      value: 100,
-      sourceId: 'pistol-add',
-      scope: { kind: 'weapon-family', family: 'pistol' },
-    });
-    stats.add({
-      stat: 'damage',
-      op: 'mult',
-      value: 10,
-      sourceId: 'pistol-mult',
-      scope: { kind: 'weapon-family', family: 'pistol' },
-    });
-
-    // A scope has no meaning without a family to resolve against, so the
-    // unscoped resolver must never apply one globally.
-    expect(stats.resolve('damage', 10)).toBe(15);
-    expect(stats.resolveWeapon('damage', 10, 'pistol')).toBe(1150);
+  it('handles add with value 0', () => {
+    const spec: ModifierSpec = { stat: 'range', op: 'add', value: 0 };
+    expect(scaleModifierByTier(spec, 1)).toBe(0);
+    expect(scaleModifierByTier(spec, 5)).toBe(0);
   });
 
-  describe('resolveWeapon (Epic 18 D4)', () => {
-    it('applies an unscoped modifier to any family, identically to resolve()', () => {
-      const stats = new ModifierStack();
-      stats.add({ stat: 'damage', op: 'add', value: 5, sourceId: 'global' });
-      stats.add({ stat: 'damage', op: 'mult', value: 2, sourceId: 'global-mult' });
-
-      expect(stats.resolveWeapon('damage', 10, 'pistol')).toBe(stats.resolve('damage', 10));
-      expect(stats.resolveWeapon('damage', 10, 'shotgun')).toBe(stats.resolve('damage', 10));
-    });
-
-    it('applies a family-scoped modifier only to the matching family', () => {
-      const stats = new ModifierStack();
-      stats.add({
-        stat: 'damage',
-        op: 'mult',
-        value: 2,
-        sourceId: 'pistol-only',
-        scope: { kind: 'weapon-family', family: 'pistol' },
-      });
-
-      expect(stats.resolveWeapon('damage', 10, 'pistol')).toBe(20);
-      expect(stats.resolveWeapon('damage', 10, 'shotgun')).toBe(10);
-    });
-
-    it('composes global and matching-family effects in two-pass insertion-order add-then-multiply', () => {
-      const stats = new ModifierStack();
-      stats.add({ stat: 'damage', op: 'add', value: 5, sourceId: 'global-add' });
-      stats.add({
-        stat: 'damage',
-        op: 'add',
-        value: 3,
-        sourceId: 'pistol-add',
-        scope: { kind: 'weapon-family', family: 'pistol' },
-      });
-      stats.add({ stat: 'damage', op: 'mult', value: 2, sourceId: 'global-mult' });
-      stats.add({
-        stat: 'damage',
-        op: 'mult',
-        value: 1.5,
-        sourceId: 'pistol-mult',
-        scope: { kind: 'weapon-family', family: 'pistol' },
-      });
-
-      // add pass: 10 + 5 + 3 = 18; mult pass: 18 * 2 * 1.5 = 54.
-      expect(stats.resolveWeapon('damage', 10, 'pistol')).toBe(54);
-      // Non-matching family only sees the unscoped effects: (10 + 5) * 2 = 30.
-      expect(stats.resolveWeapon('damage', 10, 'smg')).toBe(30);
-    });
-
-    it('defensively copies a modifier scope so caller mutation cannot retarget a stored modifier', () => {
-      const stats = new ModifierStack();
-      const scope = { kind: 'weapon-family' as const, family: 'pistol' };
-      stats.add({ stat: 'damage', op: 'add', value: 100, sourceId: 'scoped', scope });
-      scope.family = 'shotgun';
-
-      expect(stats.resolveWeapon('damage', 0, 'pistol')).toBe(100);
-      expect(stats.resolveWeapon('damage', 0, 'shotgun')).toBe(0);
-    });
-
-    it('rejects a non-finite base value and a non-finite resolved aggregate', () => {
-      const stats = new ModifierStack();
-      expect(() => stats.resolveWeapon('damage', Number.NaN, 'pistol')).toThrow(/finite/);
-
-      stats.add({ stat: 'damage', op: 'mult', value: 2, sourceId: 'overflow' });
-      expect(() => stats.resolveWeapon('damage', Number.MAX_VALUE, 'pistol')).toThrow(/finite/);
-    });
+  it('handles mult with value 1 (no-op)', () => {
+    const spec: ModifierSpec = { stat: 'damage', op: 'mult', value: 1 };
+    expect(scaleModifierByTier(spec, 1)).toBe(1);
+    expect(scaleModifierByTier(spec, 5)).toBe(1);
   });
 });

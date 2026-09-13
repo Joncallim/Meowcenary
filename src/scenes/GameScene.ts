@@ -9,12 +9,13 @@ import { AudioManager, getAudioManager } from '../systems/audio';
 import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
-import { assembleComposedRunRequest } from '../gameplay/runRequest';
+import { assembleComposedRunRequest, type ComposedRunRequest } from '../gameplay/runRequest';
 import { resolveRunPlan, type ResolvedRunPlan } from '../gameplay/stage/stageContracts';
 import { createStageRuntime, type StageRuntime } from '../gameplay/stage/stageRuntime';
 import { composeStageSpawnCurve } from '../gameplay/stage/spawnComposition';
 import {
   endRun,
+  resumeRun,
   startRun,
   tickRun,
   type RunState,
@@ -35,8 +36,8 @@ import { DataEnemyRegistry } from '../systems/enemies';
 import { DataEquipmentRegistry } from '../systems/equipment';
 import { resolveEquipmentModifiers } from '../gameplay/equipment';
 import { DataPartRegistry } from '../systems/parts';
-import { resolveBuildModifiers, resolveBuildProjectileEffects, resolveBuildTraitModifiers, type OwnedPart, type WeaponBuild } from '../gameplay/gunsmith';
 import type { ProjectileEffect } from '../gameplay/projectileEffects';
+import { resolvePersistentGunsmithEngineering } from '../gameplay/persistentLoadout';
 import { buildArenaScenery, type ArenaScenery } from '../systems/arenaScenery';
 import { UpgradeSystem } from '../systems/UpgradeSystem';
 import { ProgressionSystem, type BankedRun } from '../systems/ProgressionSystem';
@@ -53,6 +54,7 @@ import { PauseController, PhaserPauseView } from '../ui/pause';
 import {
   PhaserRunSummaryView,
   RunSummaryController,
+  type CompletedAchievementPresentation,
   type RunSummarySource,
 } from '../ui/runSummary';
 import { GAMEPLAY_ZOOM, zoomedGameUiViewport } from '../ui/layout';
@@ -64,14 +66,18 @@ import { createDpsMeter, type DpsMeter } from '../gameplay/metrics';
 import { createPerfSampler, type PerfSampler } from '../gameplay/perf';
 import { PlaytestSummarySystem } from '../systems/playtestSummary';
 import { FeedbackSystem, PhaserFeedbackRenderer } from '../systems/feedback';
-import { DataVisualArtRegistry } from '../systems/visualArt';
+import { DataVisualArtRegistry, resolveAchievementIconBinding } from '../systems/visualArt';
+import { assertRunPhysicalResourcesLoaded, resolveRunPhysicalResources } from '../systems/resourceLoader';
 import { HeldWeaponView } from '../entities/heldWeaponView';
 import { DefeatPresentationSystem } from '../systems/defeatPresentation';
 import { DataAchievementRegistry, metricExtractor } from '../systems/achievements';
 import { evaluateAchievements } from '../gameplay/achievementSystem';
 import { DataAbilityRegistry } from '../systems/abilities';
 import { activateAbility, applyAbilityEffect, createAbilityState, expireAbilityEffect, tickAbility, type AbilityDefinition, type AbilityState } from '../gameplay/abilities';
+import { applyEnemyDamage } from '../gameplay/enemyDamageResolver';
+import { AbilityPresentationSystem } from '../systems/abilityPresentation';
 import type { FocusDirection } from '../ui/focusList';
+import { isPortraitOrientationBlocked, onPortraitOrientationChange } from '../platform/orientation';
 
 /** U6: the gameplay camera shows canvas/zoom world units — 312×675.2 on the
  *  390×844 canvas at the 1.25× gameplay zoom. */
@@ -99,6 +105,7 @@ export function arenaFollowEnabled(
 export class GameScene extends Phaser.Scene {
   private debugOverlay?: DebugOverlay;
   private inputController?: InputController;
+  private abilityPresentationSystem?: AbilityPresentationSystem;
   private player?: Player;
   private runState?: RunState;
   private enemies: Enemy[] = [];
@@ -108,6 +115,8 @@ export class GameScene extends Phaser.Scene {
   private projectileGroup?: Phaser.Physics.Arcade.Group;
   private dropGroup?: Phaser.Physics.Arcade.Group;
   private physicsPausedByRun = false;
+  /** Presentation-only suspension; deliberately not a persistent PauseReason. */
+  private orientationBlocked = false;
   private hudController?: HudController;
   private controlsView?: ControlsView;
   private pauseController?: PauseController;
@@ -138,6 +147,9 @@ export class GameScene extends Phaser.Scene {
   private abilityState: AbilityState = createAbilityState();
   private achievementToast?: { readonly text: string; readonly untilMs: number };
   private completedAchievementNames: string[] = [];
+  /** Stable terminal presentation records; never infer icon identity from a
+   * player-facing name at the result surface. */
+  private completedAchievements: CompletedAchievementPresentation[] = [];
   /** Facts accepted by live gameplay but not yet durably committed. A failed
    * storage write must not turn an authoritative kill/merge/run result into
    * a permanently lost achievement increment. */
@@ -147,6 +159,12 @@ export class GameScene extends Phaser.Scene {
    * recovers. */
   private pendingAchievementEvaluation = false;
   private _wasPendingClear = false;
+  /** The input adapter owns pointer state; GameScene only declares whether
+   * gameplay currently owns pointer gestures. */
+  private gameplayPointerSuspended = true;
+  /** Explicit compatibility mode: practice has normal combat/input but no
+   * durable run settlement, mastery, achievements, or Compendium discovery. */
+  private isTraining = false;
   /** Prevents ghost clicks during scene transitions by suppressing all
    *  input for a brief window after a state-changing action. */
   private _inputBlockedUntil = 0;
@@ -160,9 +178,18 @@ export class GameScene extends Phaser.Scene {
     super(SceneKey.Game);
   }
 
-  create(): void {
+  create(data?: { readonly runRequest?: ComposedRunRequest; readonly isTraining?: boolean }): void {
     const ctx = this.getContext();
-    const request = assembleComposedRunRequest(ctx, ctx.menuRng);
+    // Phaser restarts this Scene instance for Retry/Replay. Terminal
+    // presentation belongs only to the new run's settlement, never the
+    // previous instance's completed-achievement cache.
+    this.completedAchievementNames = [];
+    this.completedAchievements = [];
+    this.isTraining = data?.isTraining === true;
+    // Normal production entry receives the exact request which Menu used to
+    // resolve/load its closure. Retaining the fallback keeps old headless
+    // scene harnesses explicit compatibility-only callers.
+    const request = data?.runRequest ?? assembleComposedRunRequest(ctx, ctx.menuRng);
     // Alpha 3 normal composition resolves the selected contract once at the
     // boundary. GameScene consumes its physical arena result; #85 wires the
     // remaining objective/encounter/reward fields to live systems.
@@ -180,6 +207,23 @@ export class GameScene extends Phaser.Scene {
     const arena = ctx.arenas.arenaById(arenaId);
     if (!arena) {
       throw new Error(`Run arena "${arenaId}" is missing from the registry`);
+    }
+    if (data?.runRequest) {
+      const legacyEnemyIds = request.kind === 'legacy-arena'
+        ? (ctx.data.spawnCurves.find((curve) => curve.id === arena.spawnCurveId)?.waves.map((wave) => wave.enemyId) ?? [])
+        : [];
+      const resources = resolveRunPhysicalResources({
+        data: ctx.data,
+        characterId: request.characterId,
+        arena,
+        encounterEnemyIds: plan?.encounter.enemyIds ?? legacyEnemyIds,
+        bossId: plan?.encounter.bossId,
+      });
+      const resourceIds = new Set(resources.map((resource) => resource.id));
+      assertRunPhysicalResourcesLoaded(
+        this.textures,
+        visualArt.all().filter((binding) => binding.resourceId !== undefined && resourceIds.has(binding.resourceId)),
+      );
     }
     const curve = ctx.data.spawnCurves.find((c) => c.id === arena.spawnCurveId);
     if (!curve) {
@@ -206,6 +250,7 @@ export class GameScene extends Phaser.Scene {
     this.abilityDefinition = character.abilityId === undefined
       ? undefined
       : new DataAbilityRegistry({ abilities: ctx.data.abilities ?? [] }).abilityById(character.abilityId);
+    this.abilityState = createAbilityState();
     const contribution = resolveCharacterRunContribution(character, weaponRegistry);
     const prepared = prepareRun({
       state: {
@@ -217,43 +262,23 @@ export class GameScene extends Phaser.Scene {
         maxHealth: RuntimeConfig.gameplay.player.baseMaxHealth,
         moveSpeed: RuntimeConfig.gameplay.player.baseMoveSpeed,
       },
-      meta: ctx.saveData.progression,
-      metaUpgrades: ctx.metaUpgrades,
       character: contribution,
     });
     this.runState = prepared.run;
-    const equipmentRegistry = new DataEquipmentRegistry({ equipment: ctx.data.equipment ?? [] });
+    const equipmentRegistry = new DataEquipmentRegistry({ equipment: ctx.data.equipment ?? [], equipmentSets: ctx.data.equipmentSets ?? [], equipmentRules: ctx.data.equipmentRules ?? { unlocks: { 2: { type: 'always' }, 3: { type: 'always' }, 4: { type: 'always' } } } });
     const ownedEquipment = new Map(Object.entries(ctx.saveData.equipment).map(([instanceId, equipment]) => [
-      instanceId,
-      { instanceId, equipmentId: equipment.equipmentId, tier: equipment.tier },
+      instanceId, { instanceId, equipmentId: equipment.equipmentId, tier: equipment.tier },
     ] as const));
-    const equippedModifiers = resolveEquipmentModifiers(
-      { equipped: ctx.saveData.equipmentLoadout ?? {} },
-      equipmentRegistry.asMap(),
-      ownedEquipment,
+    resolveEquipmentModifiers({ equipped: ctx.saveData.equipmentLoadout ?? {} }, equipmentRegistry.asMap(), equipmentRegistry.setsAsMap(), ownedEquipment)
+      .forEach((modifier) => this.runState!.stats.add(modifier));
+    // The single Gunsmith resolver compiles selected-family engineering even
+    // when that family is absent from the starting rack.
+    const persistentEngineering = resolvePersistentGunsmithEngineering(
+      ctx.saveData.gunsmith,
+      new DataPartRegistry({ gunParts: ctx.data.gunParts ?? [] }).asMap(),
     );
-    equippedModifiers.forEach((modifier) => this.runState!.stats.add(modifier));
-    // Persistent Gunsmith composition happens once at the ordinary run
-    // boundary.  It consumes only the selected owned build and validated
-    // owned instances; stale/unowned definitions fail soft rather than
-    // granting a free catalog-wide bonus.
-    const selectedBuild = ctx.saveData.gunsmith.builds.find((build) => build.id === ctx.saveData.gunsmith.selectedBuildId);
-    const projectileEffectsByFamily = new Map<string, readonly ProjectileEffect[]>();
-    if (selectedBuild && this.runState.equipped.some((weapon) => weapon.family === selectedBuild.baseWeaponFamily)) {
-      const parts = new DataPartRegistry({ gunParts: ctx.data.gunParts ?? [] });
-      const ownedParts = new Map<string, OwnedPart>(Object.entries(ctx.saveData.gunsmith.parts).map(([instanceId, part]) => [
-        instanceId,
-        { instanceId, partId: part.partId, tier: part.tier, infusedTraits: part.infusedTraits as OwnedPart['infusedTraits'] },
-      ]));
-      resolveBuildModifiers(selectedBuild as WeaponBuild, parts.asMap(), ownedParts)
-        .forEach((modifier) => this.runState!.stats.add(modifier));
-      resolveBuildTraitModifiers(selectedBuild as WeaponBuild, parts.asMap(), ownedParts)
-        .forEach((modifier) => this.runState!.stats.add(modifier));
-      projectileEffectsByFamily.set(
-        selectedBuild.baseWeaponFamily,
-        resolveBuildProjectileEffects(selectedBuild as WeaponBuild, parts.asMap(), ownedParts),
-      );
-    }
+    persistentEngineering.modifiers.forEach((modifier) => this.runState!.stats.add(modifier));
+    const projectileEffectsByFamily: ReadonlyMap<string, readonly ProjectileEffect[]> = persistentEngineering.projectileEffectsByFamily;
     this.enemyDefinitions = new DataEnemyRegistry(ctx.data);
     // Run-clock-stamped effective-damage meter. The listener captures the
     // run-state local so it never re-reads scene state after shutdown.
@@ -275,6 +300,12 @@ export class GameScene extends Phaser.Scene {
     const lootTables = new DataLootTableRegistry(ctx.data);
 
     this.inputController = new InputController(this);
+    this.orientationBlocked = isPortraitOrientationBlocked();
+    this.unsubscribers.push(onPortraitOrientationChange((blocked) => {
+      this.orientationBlocked = blocked;
+      this.inputController?.quarantineUntilNeutral();
+      if (this.runState) this.syncPhysicsPause(this.runState);
+    }));
     this.debugOverlay = new DebugOverlay(this);
 
     this.enemyGroup = this.physics.add.group();
@@ -297,6 +328,7 @@ export class GameScene extends Phaser.Scene {
       spawnX: arena.size.width / 2,
       spawnY: arena.size.height / 2,
     }, visualArt.bindingById(`character:${request.characterId}`));
+    this.abilityPresentationSystem = new AbilityPresentationSystem(this, ctx.bus, this.player);
 
     const visibleSize = zoomedVisibleSize(this.scale.width, this.scale.height);
     // Fractional zoom must retain subpixel camera motion; Phaser's integer
@@ -318,8 +350,8 @@ export class GameScene extends Phaser.Scene {
           ? { durationMs: plan.objective.definition.seconds * 1000 }
           : plan === undefined ? { durationMs: this.spawnCurve.durationSeconds * 1000 } : {}),
         objective: () => this.describeStageObjective(),
-        ability: () => this.describeAbilityState(),
         achievement: () => this.describeAchievementToast(),
+        boss: () => this.describeActiveBoss(),
       }),
       new PhaserHudView({
         scene: this,
@@ -334,7 +366,12 @@ export class GameScene extends Phaser.Scene {
       onPauseRequested: () => this.routeAction('pause'),
       onAbilityRequested: () => this.routeAction('ability'),
       onExtractRequested: () => this.routeAction('confirm'),
+      ability: this.abilityDefinition === undefined ? undefined : {
+        name: this.abilityDefinition.name,
+        description: this.abilityDefinition.description,
+      },
     });
+    this.syncAbilityPresentation();
 
     this.inventoryController = new InventoryController({
       runState: this.runState,
@@ -356,6 +393,8 @@ export class GameScene extends Phaser.Scene {
       visualArt,
       readInputMode: () => this.inputController!.getInputMode(),
       fullscreen: this.fullscreenController,
+      exitLabel: this.isTraining ? 'Leave Training' : 'Abandon Contract',
+      onExitConfirmed: () => this.exitRunEarly(),
     });
 
     this.arenaScenery = buildArenaScenery(this, arena, visualArt);
@@ -412,7 +451,7 @@ export class GameScene extends Phaser.Scene {
       () => this.inputController!.getInputMode(),
       viewport,
     );
-    this.progressionSystem = new ProgressionSystem({
+    this.progressionSystem = this.isTraining ? undefined : new ProgressionSystem({
       runState: this.runState,
       bus: ctx.bus,
       context: ctx,
@@ -421,6 +460,7 @@ export class GameScene extends Phaser.Scene {
     // its durable currency total. EventBus preserves registration order.
     this.unsubscribers.push(
       ctx.bus.on('run:won', () => {
+        if (this.isTraining) return;
         this.pendingMasteryCharacterId = this.runState!.characterId;
         this.retryPendingCharacterMastery(ctx);
         this.evaluateLiveAchievements(ctx, {
@@ -491,7 +531,7 @@ export class GameScene extends Phaser.Scene {
       spawnSystem.spawnEncounterEnemy(plan.encounter.bossId, arena.size.width / 2, Math.max(80, arena.size.height * 0.2));
     }
     this.systems = [
-      this.progressionSystem,
+      ...(this.progressionSystem ? [this.progressionSystem] : []),
       new PassiveCoordinator({
         runState: this.runState,
         bus: ctx.bus,
@@ -535,6 +575,9 @@ export class GameScene extends Phaser.Scene {
       get completedAchievementNames(): readonly string[] {
         return scene.completedAchievementNames;
       },
+      get completedAchievements(): readonly CompletedAchievementPresentation[] {
+        return scene.completedAchievements;
+      },
     };
     this.runSummaryController = new RunSummaryController(runSummarySource);
     this.runSummaryView = new PhaserRunSummaryView({
@@ -543,6 +586,12 @@ export class GameScene extends Phaser.Scene {
       bus: ctx.bus,
       controller: this.runSummaryController,
       readInputMode: () => this.inputController!.getInputMode(),
+      resolveAchievementIcon: (iconArtId) => {
+        const binding = resolveAchievementIconBinding(visualArt, iconArtId);
+        return binding
+          ? { textureKey: binding.textureKey, ...(binding.frameKey === undefined ? {} : { frameKey: binding.frameKey }) }
+          : undefined;
+      },
       onNextStage: () => {
         if (!scene.stagePlan) return false;
         return new StageSelectionController(ctx).selectNext().ok;
@@ -568,18 +617,26 @@ export class GameScene extends Phaser.Scene {
     }
     this.unsubscribers.push(
       ctx.bus.on('run:paused', () => {
+        this.inputController?.suspendGameplayPointer?.();
+        this.gameplayPointerSuspended = true;
         this.syncPhysicsPause(this.requireRunState());
       }),
       ctx.bus.on('run:resumed', () => {
+        this.inputController?.resumeGameplayPointer?.();
+        this.gameplayPointerSuspended = false;
         this.syncPhysicsPause(this.requireRunState());
       }),
       ctx.bus.on('run:won', () => {
+        this.inputController?.suspendGameplayPointer?.();
+        this.gameplayPointerSuspended = true;
         this.syncPhysicsPause(this.requireRunState());
       }),
       ctx.bus.on('run:lost', () => {
         // Player owns health/death and emits the authoritative terminal run
         // fact; StageRuntime owns the corresponding contract lifecycle.
         this.stageRuntime?.fail();
+        this.inputController?.suspendGameplayPointer?.();
+        this.gameplayPointerSuspended = true;
         this.syncPhysicsPause(this.requireRunState());
       }),
     );
@@ -595,6 +652,9 @@ export class GameScene extends Phaser.Scene {
     this.installAudioUnlockListeners();
 
     startRun(this.runState, ctx.bus);
+    // A run launched while the device is already rotated must begin frozen,
+    // rather than getting one simulation frame before its first update gate.
+    this.syncPhysicsPause(this.runState);
   }
 
   update(_time: number, delta: number): void {
@@ -604,8 +664,17 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    if (this.orientationBlocked || isPortraitOrientationBlocked()) {
+      this.orientationBlocked = true;
+      this.syncPhysicsPause(runState);
+      this.inputController.quarantineUntilNeutral();
+      this.gameplayPointerSuspended = true;
+      return;
+    }
+
     this.perfSampler?.recordFrame(delta);
     this.inputController.update(delta);
+    this.syncGameplayPointerOwnership();
     this.pauseView?.refreshInputPresentation();
     this.runSummaryView?.refreshInputPresentation();
     this.upgradeChooser?.refreshInputPresentation();
@@ -626,10 +695,16 @@ export class GameScene extends Phaser.Scene {
     if (!isPendingClear) {
       tickRun(runState, delta);
       this.tickAbility(delta);
+      if (runState.status === 'active') this.abilityPresentationSystem?.update(delta, ctx.settings.reducedMotion);
       this.player.update(delta);
       this.systems.forEach((system) => {
         system.update(delta);
       });
+    } else {
+      // An activation can synchronously complete the final objective. Draw
+      // its freshly emitted cue once without advancing it before extraction
+      // freezes simulation state.
+      this.abilityPresentationSystem?.update(0, ctx.settings.reducedMotion);
     }
 
     // === PRESENTATION PHASE ===
@@ -703,6 +778,8 @@ export class GameScene extends Phaser.Scene {
     this.pauseView = undefined;
     this.pauseController?.destroy();
     this.pauseController = undefined;
+    this.abilityPresentationSystem?.destroy();
+    this.abilityPresentationSystem = undefined;
     this.fullscreenController?.destroy();
     this.fullscreenController = undefined;
     this.inventoryController = undefined;
@@ -799,6 +876,7 @@ export class GameScene extends Phaser.Scene {
    *  an absent runState is a teardown/inconsistent seam and every action is
    *  discarded immediately — no panel fallback routes commands without a run. */
   private routeAction(action: GameAction): void {
+    if (this.orientationBlocked || isPortraitOrientationBlocked()) return;
     // Suppress input during scene transitions to prevent ghost clicks
     // (e.g. pointerdown triggers extraction, pointerup lands on the
     // next scene's button at the same position).
@@ -842,6 +920,19 @@ export class GameScene extends Phaser.Scene {
       if (direction) this.pauseView?.moveFocus(direction);
       else if (action === 'confirm') this.pauseView?.confirmFocused();
       else if (action === 'back') {
+        const accepted = controller.back();
+        if (accepted) this.getContext().bus.emit('ui:back', {});
+        this.pauseView?.render(controller.snapshot());
+      }
+      return;
+    }
+
+    // 3b. Exit confirmation remains a modal: keyboard/controller Back
+    // cancels it, while Confirm uses the same focused button funnel as touch.
+    if (panel === 'exit-confirm') {
+      if (direction) this.pauseView?.moveFocus(direction);
+      else if (action === 'confirm') this.pauseView?.confirmFocused();
+      else if (action === 'back' || action === 'pause') {
         const accepted = controller.back();
         if (accepted) this.getContext().bus.emit('ui:back', {});
         this.pauseView?.render(controller.snapshot());
@@ -911,8 +1002,23 @@ export class GameScene extends Phaser.Scene {
     const activation = activateAbility(this.abilityState, definition);
     if (!activation.fired) return;
     this.abilityState = activation.state;
-    this.hudController?.requestRender();
+    this.syncAbilityPresentation();
+    const ctx = this.getContext();
+    ctx.bus.emit('ability:activated', {
+      abilityId: definition.id,
+      cue: definition.presentation.cue,
+      x: player.x,
+      y: player.y,
+      durationMs: definition.durationMs,
+      radius: definition.presentation.radius,
+      color: definition.presentation.color,
+    });
     applyAbilityEffect(definition, { player, stats: runState.stats, enemies: this.enemies,
+      damageEnemy: (enemy, amount) => {
+        // The enemies array is Enemy[], so the iterated element is always
+        // an Enemy instance — cast is safe and avoids position-based lookup.
+        applyEnemyDamage(enemy as unknown as Enemy, amount, runState, ctx.bus);
+      },
       collectNearbyConsumables: (radius) => this.dropSystem?.collectNearbyConsumables(radius) });
   }
 
@@ -924,18 +1030,31 @@ export class GameScene extends Phaser.Scene {
       || this.stageRuntime?.pendingClear !== undefined || this.abilityState.phase === 'ready') return;
     const before = this.abilityState;
     this.abilityState = tickAbility(before, deltaMs);
-    if (before.phase === 'active' && this.abilityState.phase !== 'active' && this.runState) expireAbilityEffect(definition, { stats: this.runState.stats });
+    if (before.phase === 'active' && this.abilityState.phase !== 'active' && this.runState) {
+      expireAbilityEffect(definition, { stats: this.runState.stats });
+      this.getContext().bus.emit('ability:ended', { abilityId: definition.id });
+    }
     const beforeSeconds = Math.ceil(before.cooldownRemainingMs / 1000);
     const afterSeconds = Math.ceil(this.abilityState.cooldownRemainingMs / 1000);
-    if (before.phase !== this.abilityState.phase || beforeSeconds !== afterSeconds) this.hudController?.requestRender();
+    if (before.phase !== this.abilityState.phase || beforeSeconds !== afterSeconds) this.syncAbilityPresentation();
   }
 
-  private describeAbilityState(): string | undefined {
-    const definition = this.abilityDefinition;
-    if (!definition) return undefined;
-    if (this.abilityState.phase === 'ready') return `${definition.name}: READY`;
-    const seconds = Math.ceil(this.abilityState.cooldownRemainingMs / 1000);
-    return `${definition.name}: ${seconds}s`;
+  private syncAbilityPresentation(): void {
+    // Instant abilities have no active-duration player state: their runtime
+    // transition is represented as active for one simulation tick, but the
+    // touch card must immediately communicate the usable cooldown.
+    const phase = this.abilityState.phase === 'active' && (this.abilityDefinition?.durationMs ?? 0) <= 0
+      ? 'cooling'
+      : this.abilityState.phase;
+    this.controlsView?.setAbilityPresentation(phase, this.abilityState.cooldownRemainingMs);
+  }
+
+  /** HUD-facing read model: only a live boss earns the dedicated encounter
+   * meter, and it disappears at the authoritative lethal boundary. */
+  private describeActiveBoss(): { readonly name: string; readonly health: number; readonly maxHealth: number } | undefined {
+    const boss = this.enemies.find((enemy) => enemy.active && enemy.state !== 'dead' && enemy.archetype === 'boss');
+    if (!boss) return undefined;
+    return { name: boss.definition.name, health: boss.health, maxHealth: boss.maxHealth };
   }
 
   private forceLoseRun(): void {
@@ -944,6 +1063,20 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    endRun(runState, 'lost', this.getContext().bus);
+  }
+
+  /** Explicit user-owned exit path. Training never reaches a settlement;
+   * a normal contract resumes only long enough to cross the established
+   * authoritative loss boundary. */
+  private exitRunEarly(): void {
+    const runState = this.runState;
+    if (!runState || runState.status !== 'paused' || runState.pauseReason !== 'manual') return;
+    if (this.isTraining) {
+      this.scene.start(SceneKey.Menu);
+      return;
+    }
+    resumeRun(runState, this.getContext().bus, 'manual');
     endRun(runState, 'lost', this.getContext().bus);
   }
 
@@ -999,12 +1132,19 @@ export class GameScene extends Phaser.Scene {
    * lifecycle edit from silently disconnecting the two progress systems. */
   private installAuthoritativeFactListeners(ctx: GameContext): void {
     this.unsubscribers.push(
+      // Discovery is a durable fact only for a real composed contract.  The
+      // training surface never creates a stage plan, so practice spawns stay
+      // out of the Compendium by construction.
+      ctx.bus.on('enemy:spawned', ({ enemyId }) => {
+        if (!this.isTraining && this.stagePlan) ctx.recordCompendiumDiscovery(enemyId, 'encountered');
+      }),
       ctx.bus.on('enemy:killed', ({ enemyId }) => {
         this.recordStageEnemyDefeat(enemyId);
-        this.evaluateLiveAchievements(ctx, { 'metric:enemies-defeated': 1 });
+        if (!this.isTraining && this.stagePlan) ctx.recordCompendiumDiscovery(enemyId, 'defeated');
+        if (!this.isTraining) this.evaluateLiveAchievements(ctx, { 'metric:enemies-defeated': 1 });
       }),
       ctx.bus.on('drop:collected', ({ kind }) => this.recordStageCollection(`drop:${kind}`)),
-      ctx.bus.on('weapon:merged', () => this.evaluateLiveAchievements(ctx, { 'metric:merges-performed': 1 })),
+      ctx.bus.on('weapon:merged', () => { if (!this.isTraining) this.evaluateLiveAchievements(ctx, { 'metric:merges-performed': 1 }); }),
     );
   }
 
@@ -1016,7 +1156,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private describeStageObjective(): string | undefined {
-    return this.stageRuntime?.describeObjective();
+    return this.stageRuntime?.describeObjective({
+      enemyName: (enemyId) => this.enemyDefinitions?.resolvedById(enemyId)?.name,
+    });
   }
 
   private evaluateLiveAchievements(ctx: GameContext, increments: Readonly<Record<string, number>>): void {
@@ -1057,6 +1199,11 @@ export class GameScene extends Phaser.Scene {
       if (progress) ctx.reportAchievement(achievementId, progress);
       if (definition) {
         this.completedAchievementNames.push(definition.name);
+        this.completedAchievements.push(Object.freeze({
+          id: definition.id,
+          name: definition.name,
+          iconArtId: definition.presentation.iconArtId,
+        }));
         this.achievementToast = { text: `Achievement: ${definition.name}`, untilMs: (this.runState?.timeMs ?? 0) + 3_000 };
         ctx.bus.emit('achievement:completed', { achievementId, name: definition.name });
       }
@@ -1128,7 +1275,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private syncPhysicsPause(runState: RunState): void {
-    const shouldPause = runState.status !== 'active' || this.stageRuntime?.pendingClear !== undefined;
+    const shouldPause = this.orientationBlocked || runState.status !== 'active' || this.stageRuntime?.pendingClear !== undefined;
     if (shouldPause && !this.physicsPausedByRun) {
       this.physics.world.pause();
       this.physicsPausedByRun = true;
@@ -1138,6 +1285,26 @@ export class GameScene extends Phaser.Scene {
     if (!shouldPause && this.physicsPausedByRun) {
       this.physics.world.resume();
       this.physicsPausedByRun = false;
+    }
+  }
+
+  /** A pointer gesture belongs to gameplay only while the run is genuinely
+   * active and no modal/extraction boundary owns the screen. The adapter
+   * clears on each ownership crossing, preventing Resume or Back touches
+   * from becoming a delayed movement drag. */
+  private syncGameplayPointerOwnership(): void {
+    const runState = this.runState;
+    const panel = this.pauseController?.snapshot().panel ?? 'closed';
+    const gameplayOwnsPointer = runState?.status === 'active'
+      && panel === 'closed'
+      && this.stageRuntime?.pendingClear === undefined
+      && !this.orientationBlocked;
+    if (gameplayOwnsPointer && this.gameplayPointerSuspended) {
+      this.inputController?.resumeGameplayPointer?.();
+      this.gameplayPointerSuspended = false;
+    } else if (!gameplayOwnsPointer && !this.gameplayPointerSuspended) {
+      this.inputController?.suspendGameplayPointer?.();
+      this.gameplayPointerSuspended = true;
     }
   }
 }

@@ -602,7 +602,9 @@ describe('Epic 19 playtest fixes: health/control-lane 8px physical gap', () => {
         && Number.isFinite(object.state.width)
         && object.state.width > 0,
     );
-    expect(controlButtons).toHaveLength(2);
+    // The semantic ability card now lives in the lower-right thumb zone.
+    // Only Pause remains in the top control lane beside the health bar.
+    expect(controlButtons).toHaveLength(1);
     const healthBar = objects
       .find((object) => object.state.kind === 'rect'
         && !object.state.destroyed
@@ -611,7 +613,8 @@ describe('Epic 19 playtest fixes: health/control-lane 8px physical gap', () => {
 
     const controlLeft = Math.min(...controlButtons.map((button) => button.state.x - button.state.width / 2));
     const healthRight = healthBar!.state.x + healthBar!.state.width / 2;
-    // The HUD reserves both the ability and pause buttons plus an 8px gap.
+    // The HUD reserves Pause plus an 8px gap; the ability card is not a
+    // top-lane control and must not shrink the combat readout.
     expect((controlLeft - healthRight) * fit * GAMEPLAY_ZOOM).toBeGreaterThanOrEqual(8 - 0.01);
 
     hud.destroy();
@@ -711,7 +714,7 @@ describe('Epic 19 playtest fixes: four-viewport HUD soak', () => {
       expect(kills.y).toBeGreaterThan(healthBg!.state.y + healthBg!.state.height / 2);
       expect(scrap.y).toBeGreaterThan(xpBg!.state.y + xpBg!.state.height / 2);
       if (targetWidth === 844 && targetHeight === 390) {
-        const hint = live.find((object) => object.state.text === 'Drag to move • Tap A ability • Tap pause')!;
+        const hint = live.find((object) => object.state.text === 'Drag to move • Tap ability • Tap pause')!;
         expect((hint.state.y - scrap.y) * fitScale(targetWidth, targetHeight) * GAMEPLAY_ZOOM)
           .toBeGreaterThanOrEqual(76.2 - 0.01);
       }
@@ -729,7 +732,7 @@ describe('Epic 19 playtest fixes: four-viewport HUD soak', () => {
 
 describe('Epic 19 playtest fixes: zoomed stick rendered diameter (AM-3)', () => {
   it.each(REFERENCE_VIEWPORTS)(
-    'renders a 128px physical diameter that tracks a synthetic pointer at $name',
+    'renders a compact 96px physical diameter that tracks a synthetic pointer at $name',
     ({ width, height }) => {
       const { scene, input, camera } = createSharedFakeSceneForConformance();
       // The production GameScene always applies the gameplay zoom.
@@ -760,9 +763,9 @@ describe('Epic 19 playtest fixes: zoomed stick rendered diameter (AM-3)', () => 
       );
       expect(stickBase).toBeDefined();
       // Rendered diameter = 2·radius·scale·zoom·s — the arch AM-3 contract
-      // says 128 physical px at the canonical scale (2·(64/1.25)·1.25·s).
+      // says 96 physical px at the canonical scale (2·(48/1.25)·1.25·s).
       const renderedDiameter = 2 * stickBase!.state.radius * stickBase!.state.scaleX * camera.zoom * fit;
-      expect(renderedDiameter).toBeCloseTo(128 * fit, 4);
+      expect(renderedDiameter).toBeCloseTo(96 * fit, 4);
       // The stick center renders under the synthetic pointer: root-local
       // coords map 1.25× to the canvas, so local = pointer/1.25.
       const renderedCenterX = stickBase!.state.x * camera.zoom * fit;

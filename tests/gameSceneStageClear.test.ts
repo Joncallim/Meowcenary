@@ -33,7 +33,7 @@ describe('GameScene durable stage clear', () => {
     run.status = 'active';
     run.timeMs = 61_000;
     scene.runState = run;
-    scene.stageRuntime = completedRuntime({ scrapBase: 25, scrapPerMinute: 10 });
+    scene.stageRuntime = completedRuntime({ firstClearScrap: 35 });
     scene.physics = { world: { pause: vi.fn(), resume: vi.fn() } };
     expect(scene.stageRuntime.pendingClear).toMatchObject({ timeMs: 61_000, reward: 35 });
 
@@ -61,7 +61,7 @@ describe('GameScene durable stage clear', () => {
     const run = createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'junkyard-lot' });
     run.status = 'active';
     scene.runState = run;
-    scene.stageRuntime = completedRuntime({ scrapBase: 25, scrapPerMinute: 0, grants: [{ type: 'grant-part-instance', instanceId: 'reward:proof', partId: 'part:barrel-standard', tier: 1 }] });
+    scene.stageRuntime = completedRuntime({ firstClearScrap: 25, grants: [{ type: 'grant-part-instance', instanceId: 'reward:proof', partId: 'part:barrel-standard', tier: 1 }] });
     const completeStageTransaction = vi.fn().mockReturnValue(true);
     expect(scene.tryCommitStageClear({ completeStageTransaction, bus: createEventBus() })).toBe(true);
     expect(completeStageTransaction).toHaveBeenCalledWith('stage:junkyard-01', 61_000, undefined, {
@@ -78,7 +78,7 @@ describe('GameScene durable stage clear', () => {
     const run = createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'junkyard-lot' });
     run.status = 'active';
     scene.runState = run;
-    scene.stageRuntime = completedRuntime({ scrapBase: 25, scrapPerMinute: 0 });
+    scene.stageRuntime = completedRuntime({ firstClearScrap: 25 });
     scene.physics = { world: { pause: vi.fn(), resume: vi.fn() } };
     const completeStageTransaction = vi.fn().mockReturnValue(true);
     scene.getContext = () => ({ completeStageTransaction, bus: createEventBus() });

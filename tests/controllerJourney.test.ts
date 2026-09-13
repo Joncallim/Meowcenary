@@ -22,7 +22,7 @@ import { FocusStroke } from '../src/ui/theme';
 // factory code moved out).
 if (!import.meta.url.includes('?as-harness')) {
   describe('headless production controller journey', () => {
-    it('walks menu → run → level-up → pause → rack merge → summary across real owners with zero pointer input', () => {
+    it('walks menu → run → level-up → pause → rack merge → summary across real owners with zero pointer input', async () => {
     // ------------------------------------------------------------------
     // Phase A: Menu (brief steps 1-5) through the real MenuScene.
     // ------------------------------------------------------------------
@@ -32,14 +32,14 @@ if (!import.meta.url.includes('?as-harness')) {
         controller: { snapshot: () => import('../src/ui/menus').MainMenuSnapshot };
       }).controller.snapshot();
 
-    // 1. Menu home: navDown, confirm → Character.
+    // 1. Menu home: navDown, confirm → Mercenary/Character.
     let sceneBefore = sceneCommands(menu.scene);
     menu.press(13);
     expect(menu.events).toEqual(['ui:navigate']);
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
     menu.press(0);
     expect(menu.events).toEqual(['ui:navigate', 'ui:confirm']);
-    expect(menu.textContents()).toContain('Choose Character');
+    expect(menu.textContents()).toContain('Mercenary');
     expect(menuSnapshot().panel).toBe('character');
     sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 1');
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
@@ -49,17 +49,17 @@ if (!import.meta.url.includes('?as-harness')) {
     //    successful no-op), then back → Home.
     menu.press(0);
     expect(menu.events).toEqual(['ui:navigate', 'ui:confirm', 'ui:confirm']);
-    expect(menu.textContents()).toContain('Choose Character');
+    expect(menu.textContents()).toContain('Mercenary');
     expect(menuSnapshot().panel).toBe('character');
     menu.press(1);
     expect(menu.events).toEqual(['ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back']);
-    expect(menu.textContents()).toContain('Start');
+    expect(menu.textContents()).toContain('Play Contract');
     expect(menuSnapshot().panel).toBe('home');
     sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 2');
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
     assertZeroPointerCalls(menu.pointerCalls, 'menu step 2');
 
-    // 3. Home (panel reset): navDown, navDown, confirm → Arena.
+    // 3. Home (panel reset): navDown, navDown, confirm → Loadout/Equipment.
     menu.press(13);
     menu.press(13);
     expect(menu.events).toEqual([
@@ -69,23 +69,17 @@ if (!import.meta.url.includes('?as-harness')) {
     expect(menu.events).toEqual([
       'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm',
     ]);
-    expect(menu.textContents()).toContain('Choose Arena');
-    expect(menuSnapshot().panel).toBe('arena');
+    expect(menu.textContents()).toContain('Equipment');
+    expect(menuSnapshot().panel).toBe('equipment');
     sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 3');
     assertZeroPointerCalls(menu.pointerCalls, 'menu step 3');
 
-    // 4. Arena: confirm the visible default, then back → Home.
+    // 4. An empty Equipment surface exposes only Back; confirm returns Home.
     menu.press(0);
     expect(menu.events).toEqual([
-      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm',
+      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:back',
     ]);
-    expect(menu.textContents()).toContain('Choose Arena');
-    expect(menuSnapshot().panel).toBe('arena');
-    menu.press(1);
-    expect(menu.events).toEqual([
-      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back',
-    ]);
-    expect(menu.textContents()).toContain('Start');
+    expect(menu.textContents()).toContain('Play Contract');
     expect(menuSnapshot().panel).toBe('home');
     sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 4');
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
@@ -95,10 +89,13 @@ if (!import.meta.url.includes('?as-harness')) {
     //    restart (F3).
     menu.press(0);
     expect(menu.events).toEqual([
-      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:confirm',
+      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:back', 'ui:confirm',
     ]);
+    // Contract launch awaits the required visual closure before entering the
+    // Game scene; even an already-loaded fixture crosses the async boundary.
+    await new Promise((resolve) => setTimeout(resolve, 0));
     sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 5', { start: 1 });
-    expect(menu.sceneStart).toHaveBeenCalledWith(SceneKey.Game);
+    expect(menu.sceneStart).toHaveBeenCalledWith(SceneKey.Game, expect.objectContaining({ runRequest: expect.any(Object) }));
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
     assertZeroPointerCalls(menu.pointerCalls, 'menu step 5');
 
@@ -296,17 +293,19 @@ if (!import.meta.url.includes('?as-harness')) {
     expect(focusedButtonIndex(fresh.scene)).toBe(0);
     expect(focusRingTargets(fresh.scene)).toHaveLength(1);
 
-    // navDown → Main Menu, confirm → exactly one Menu scene start and no
+    // The three-action terminal grid places Main Menu below Retry; a single
+    // Down follows that spatial grid to Main Menu, so Right selects Adjust
+    // Loadout before confirm.
     // restart (F3).
     const beforeMenu = fresh.events.length;
     const sceneBefore14 = sceneCommands(fresh.scene);
-    fresh.press(13);
+    fresh.press(15);
     expect(fresh.events.slice(beforeMenu)).toEqual(['ui:navigate']);
     expect(focusedButtonIndex(fresh.scene)).toBe(1);
     fresh.press(0);
     expect(fresh.events.slice(beforeMenu)).toEqual(['ui:navigate', 'ui:confirm']);
-    expectSceneDeltas(sceneBefore14, fresh.scene, 'main menu branch step 14', { start: 1 });
-    expect(fresh.scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu);
+    expectSceneDeltas(sceneBefore14, fresh.scene, 'adjust loadout branch step 14', { start: 1 });
+    expect(fresh.scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, { initialPanel: 'equipment' });
     assertZeroPointerCalls(fresh.pointerCalls, 'main menu branch step 14');
   });
 

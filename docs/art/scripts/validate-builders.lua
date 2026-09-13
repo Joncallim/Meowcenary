@@ -508,29 +508,48 @@ local function writePreview(sprite, path)
   file:close()
 end
 
+-- The executed contracts are generated from the V4 physical-resource manifest
+-- and logical clip declarations. The historical table above is deliberately
+-- retained only as a readability reference for the handcrafted asset family;
+-- it is not production validation authority.
+local manifestPipe = assert(io.popen("node docs/art/scripts/emit-builder-contracts.mjs", "r"))
+local manifestContracts = manifestPipe:read("*a")
+local closeOk = manifestPipe:close()
+assert(closeOk, "could not derive builder contracts from V4 visual manifests")
+contracts = assert(load("return " .. manifestContracts, "visual-manifest-contracts"))()
+
 for _, contract in ipairs(contracts) do
+  if contract.externalImporter then
+    local source = assert(io.open(contract.savedAs, "rb"), contract.script .. " missing imported Pixelorama source")
+    source:close()
+    io.write("PASS ", contract.script, " (external importer source contract)\n")
+  else
   activeSprite = nil
   realDofile(contract.script)
   local sprite = assert(activeSprite, contract.script .. " did not create a sprite")
   assertEqual(sprite.width, contract.width, contract.script .. " width")
   assertEqual(sprite.height, contract.height, contract.script .. " height")
   assertEqual(#sprite.frames, contract.frames, contract.script .. " frame count")
-  assertEqual(#sprite.layers, #contract.layers, contract.script .. " layer count")
+  if not contract.manifestDriven then
+    assertEqual(#sprite.layers, #contract.layers, contract.script .. " layer count")
+  end
   assertEqual(sprite.savedAs, contract.savedAs, contract.script .. " save path")
 
   local layers = layerMap(sprite)
-  for _, name in ipairs(contract.layers) do
-    assert(layers[name], contract.script .. " missing layer " .. name)
-  end
-  for name in pairs(contract.hidden) do
-    assertEqual(layers[name].isVisible, false, contract.script .. " hidden layer " .. name)
-  end
-  for _, name in ipairs(contract.populated) do
-    for frame = 1, contract.frames do
-      local cel = layers[name]:cel(frame)
-      assert(cel, string.format("%s missing cel %s/%d", contract.script, name, frame))
-      assert(celCountPixels(cel) > 0,
-        string.format("%s blank cel %s/%d", contract.script, name, frame))
+  if not contract.manifestDriven then
+    for _, name in ipairs(contract.layers) do
+      assert(layers[name], contract.script .. " missing layer " .. name)
+    end
+    for name in pairs(contract.hidden) do
+      assertEqual(layers[name].isVisible, false, contract.script .. " hidden layer " .. name)
+    end
+    for _, name in ipairs(contract.populated) do
+      for frame = 1, contract.frames do
+        local cel = layers[name]:cel(frame)
+        assert(cel, string.format("%s missing cel %s/%d", contract.script, name, frame))
+        assert(celCountPixels(cel) > 0,
+          string.format("%s blank cel %s/%d", contract.script, name, frame))
+      end
     end
   end
 
@@ -545,6 +564,7 @@ for _, contract in ipairs(contracts) do
   assertEqual(#sprite.tags, expectedTagCount, contract.script .. " tag count")
   if writeProjects then writePixeloramaProject(sprite) end
   io.write("PASS ", contract.script, "\n")
+  end
 end
 
 io.write("All visual-art builder contracts passed.\n")

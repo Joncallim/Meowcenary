@@ -11,9 +11,10 @@
  * IDs are never special-cased — rules operate on slot/effect/trait
  * primitives only.
  */
-import type { Modifier } from './stats';
+import { scaleModifierByTier, type Modifier, type ModifierSpec } from './stats';
 import type { ProjectileEffect } from './projectileEffects';
 import type { ProgressionCondition } from './conditionEvaluator';
+import { isSlotCompatible as familySlotCompatible, getFamilySlots } from './weaponFamilies';
 
 export type PartSlot =
   | 'receiver'
@@ -36,7 +37,10 @@ export const BEHAVIOR_TRAITS: readonly BehaviorTrait[] = [
 ] as const;
 
 /** Trait infusion caps: how many behavior traits a single part may carry. */
-export const MAX_TRAITS_PER_PART = 2;
+/** A non-trait part may expose this many native + infused behaviours. */
+export const MAX_EFFECTIVE_TRAITS_PER_PART = 2;
+/** Trait-core chassis capacity is intentionally distinct from the effective cap. */
+export const MAX_TRAIT_CORES_PER_BUILD = 2;
 /** Rarity ladder used for merge tiers. */
 export const RARITY_TIER: Readonly<Record<string, number>> = Object.freeze({
   common: 1,
@@ -82,13 +86,15 @@ export interface PartDefinition {
   readonly name: string;
   readonly slot: PartSlot;
   readonly rarity: string;
-  readonly tier: number;
-  readonly effects: readonly Modifier[];
+  readonly effects: readonly ModifierSpec[];
   readonly traits: readonly BehaviorTrait[];
   /** Shared progression gate; absent means the part may be awarded normally. */
   readonly unlock?: ProgressionCondition;
   /** Explicit reward/drop pool membership. Never infer a global pool. */
   readonly rewardPoolId?: string;
+  /** Absence makes a reward-only part non-reacquirable through the generic
+   * fabrication availability policy; no content-ID exception is needed. */
+  readonly fabricationCost?: number;
   /** Canonical manifest reference; definitions never carry renderer paths. */
   readonly presentation: { readonly iconArtId: string };
 }
@@ -111,23 +117,22 @@ export interface WeaponBuild {
   readonly traitParts: readonly string[];
 }
 
+/** The durable Gunsmith shape needed by cross-build assignment.  Kept here as
+ * a structural contract so the pure gameplay layer never imports persistence
+ * implementation details. */
+export interface GunsmithAssignmentState {
+  readonly builds: readonly WeaponBuild[];
+  readonly parts: Readonly<Record<string, { readonly partId: string; readonly tier: number; readonly infusedTraits: readonly string[] }>>;
+}
+
 // ── Slot compatibility ────────────────────────────────────────────────
 
-/** Canonical weapon-slot compatibility: which part slots a family accepts. */
-export const WEAPON_SLOT_COMPATIBILITY: Readonly<Record<string, readonly PartSlot[]>> = {
-  pistol: ['receiver', 'barrel', 'optic', 'trigger'],
-  smg: ['receiver', 'barrel', 'optic', 'stock', 'trigger', 'magazine'],
-  shotgun: ['receiver', 'barrel', 'optic', 'stock', 'trigger', 'underbarrel'],
-} as const;
-
 export function isSlotCompatible(family: string, slot: PartSlot): boolean {
-  // Trait parts fit every weapon (the infusion fantasy is universal).
-  if (slot === 'trait') return true;
-  return (WEAPON_SLOT_COMPATIBILITY[family] ?? []).includes(slot);
+  return familySlotCompatible(family, slot);
 }
 
 export function compatibleSlotsFor(family: string): readonly PartSlot[] {
-  return WEAPON_SLOT_COMPATIBILITY[family] ?? [];
+  return getFamilySlots(family);
 }
 
 // ── Pure commands ─────────────────────────────────────────────────────
@@ -154,8 +159,8 @@ export function equipPart(
     return { ok: false, reason: 'slot-full' };
   }
   if (definition.slot === 'trait') {
-    // Trait parts accumulate in traitParts (capped by MAX_TRAITS_PER_PART).
-    if (build.traitParts.length >= MAX_TRAITS_PER_PART) return { ok: false, reason: 'slot-full' };
+    // Trait parts accumulate in their independent chassis capacity.
+    if (build.traitParts.length >= MAX_TRAIT_CORES_PER_BUILD) return { ok: false, reason: 'slot-full' };
     return {
       ok: true,
       build: {
@@ -172,6 +177,76 @@ export function equipPart(
       fitted: { ...build.fitted, [definition.slot]: part.instanceId },
     },
   };
+}
+
+export type AssignPartResult<T extends GunsmithAssignmentState> =
+  | { readonly ok: true; readonly state: T; readonly movedFromBuildId?: string }
+  | { readonly ok: false; readonly reason: 'unknown-build' | 'unknown-part' | 'slot-incompatible' | 'slot-full' };
+
+/**
+ * Atomically assigns one physical owned instance to a build.  Eligibility is
+ * checked against the target before any old reference is removed, so an
+ * occupied/incompatible target never ejects the player's current fitting.
+ */
+export function assignPartToBuild<T extends GunsmithAssignmentState>(
+  state: T,
+  targetBuildId: string,
+  instanceId: string,
+  definitions: ReadonlyMap<string, PartDefinition>,
+): AssignPartResult<T> {
+  const target = state.builds.find((build) => build.id === targetBuildId);
+  if (!target) return { ok: false, reason: 'unknown-build' };
+  const stored = state.parts[instanceId];
+  if (!stored) return { ok: false, reason: 'unknown-part' };
+  const part: OwnedPart = { instanceId, partId: stored.partId, tier: stored.tier, infusedTraits: stored.infusedTraits as readonly BehaviorTrait[] };
+
+  // A target already holding this instance is a no-op success.  It avoids
+  // treating an idempotent tap as a slot collision while preserving exactly
+  // one reference after normalisation.
+  const alreadyInTarget = Object.values(target.fitted).includes(instanceId) || target.traitParts.includes(instanceId);
+  if (alreadyInTarget) {
+    let movedFromBuildId: string | undefined;
+    const builds = state.builds.map((build) => {
+      if (build.id === targetBuildId) return build;
+      if (!Object.values(build.fitted).includes(instanceId) && !build.traitParts.includes(instanceId)) return build;
+      movedFromBuildId ??= build.id;
+      return removePartReference(build, instanceId);
+    });
+    return { ok: true, state: { ...state, builds } as T, ...(movedFromBuildId === undefined ? {} : { movedFromBuildId }) };
+  }
+
+  const fitted = equipPart(target, part, definitions);
+  if (!fitted.ok) return fitted;
+
+  let movedFromBuildId: string | undefined;
+  const builds = state.builds.map((build) => {
+    if (build.id === targetBuildId) return fitted.build;
+    const references = Object.values(build.fitted).includes(instanceId) || build.traitParts.includes(instanceId);
+    if (!references) return build;
+    movedFromBuildId ??= build.id;
+    return removePartReference(build, instanceId);
+  });
+  return { ok: true, state: { ...state, builds } as T, ...(movedFromBuildId === undefined ? {} : { movedFromBuildId }) };
+}
+
+/** Removes a physical instance from every compatible reference in a build. */
+export function removePartReference(build: WeaponBuild, instanceId: string): WeaponBuild {
+  const fitted = Object.fromEntries(Object.entries(build.fitted).filter(([, id]) => id !== instanceId));
+  return { ...build, fitted, traitParts: build.traitParts.filter((id) => id !== instanceId) };
+}
+
+/** Checks the durable one-instance/one-build invariant without depending on
+ * UI state.  Decode uses the same deterministic repair policy below. */
+export function hasUniquePartAssignments(state: GunsmithAssignmentState): boolean {
+  const seen = new Set<string>();
+  for (const build of state.builds) {
+    for (const id of [...Object.values(build.fitted), ...build.traitParts]) {
+      if (id === undefined) continue;
+      if (seen.has(id)) return false;
+      seen.add(id);
+    }
+  }
+  return true;
 }
 
 export type UnequipResult =
@@ -212,10 +287,11 @@ export function mergeParts(
   const currentTier = Math.max(1, first.tier);
   if (currentTier >= RARITY_TIER.legendary) return { ok: false, reason: 'not-mergeable' };
 
-  const nextRarity = Object.entries(RARITY_TIER)
-    .filter(([, tier]) => tier === currentTier + 1)
-    .map(([rarity]) => rarity)[0];
-  if (!nextRarity) return { ok: false, reason: 'not-mergeable' };
+  const infusedTraits = canonicalTraits([...first.infusedTraits, ...second.infusedTraits]);
+  if (effectiveTraits(definition, infusedTraits).length > MAX_EFFECTIVE_TRAITS_PER_PART) {
+    return { ok: false, reason: 'not-mergeable' };
+  }
+  const [firstId, secondId] = [first.instanceId, second.instanceId].sort();
 
   return {
     ok: true,
@@ -224,23 +300,25 @@ export function mergeParts(
       // A durable owned ID, not a reconstructed definition ID.  Keep it in
       // the shared opaque-instance grammar (at most one namespace colon) so
       // Save V3 will round-trip merged output instead of silently dropping it.
-      instanceId: `merged-${stableInstanceHash(`${first.partId}|${first.instanceId}|${second.instanceId}`)}`,
+      instanceId: `merged-${stableInstanceHash(`${first.partId}|${firstId}|${secondId}`)}`,
       partId: first.partId,
       tier: currentTier + 1,
-      infusedTraits: Object.freeze([...first.infusedTraits, ...second.infusedTraits]
-        .filter((trait, index, all) => all.indexOf(trait) === index)
-        .slice(0, MAX_TRAITS_PER_PART)),
+      infusedTraits: infusedTraits,
     }),
   };
 }
 
 function stableInstanceHash(value: string): string {
-  let hash = 2166136261;
+  // Two independent 64-bit lanes, encoded as a fixed-width 128-bit provenance
+  // token. Collision is still checked at the durable command boundary.
+  let a = 0x6a09e667f3bcc909n;
+  let b = 0xbb67ae8584caa73bn;
   for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
+    const code = BigInt(value.charCodeAt(index));
+    a = BigInt.asUintN(64, (a ^ code) * 0x100000001b3n);
+    b = BigInt.asUintN(64, (b ^ (code << 1n)) * 0x9e3779b185ebca87n);
   }
-  return (hash >>> 0).toString(36);
+  return `${a.toString(16).padStart(16, '0')}${b.toString(16).padStart(16, '0')}`;
 }
 
 export type InfuseResult =
@@ -249,6 +327,19 @@ export type InfuseResult =
       readonly ok: false;
       readonly reason: 'unknown-part' | 'unknown-trait' | 'trait-cap-reached' | 'trait-incompatible';
     };
+
+/** Shared source-side eligibility for trait transfer.  Workshop discovery and
+ * the command use this owner so presentation cannot offer consumed cores the
+ * command will always reject. */
+export function isInfusableTraitSource(
+  traitPart: OwnedPart,
+  definitions: ReadonlyMap<string, PartDefinition>,
+): boolean {
+  const definition = definitions.get(traitPart.partId);
+  return definition?.slot === 'trait'
+    && definition.traits.length === 1
+    && definition.fabricationCost !== undefined;
+}
 
 /**
  * Infuses a transferable trait onto a target part (the hybrid-outcome core):
@@ -264,18 +355,102 @@ export function infuseTrait(
   const traitDef = definitions.get(traitPart.partId);
   if (!targetDef) return { ok: false, reason: 'unknown-part' };
   if (!traitDef || traitDef.slot !== 'trait' || traitDef.traits.length !== 1) return { ok: false, reason: 'unknown-trait' };
+  if (!isInfusableTraitSource(traitPart, definitions)) return { ok: false, reason: 'trait-incompatible' };
   const trait = traitDef.traits[0];
   if (targetDef.slot === 'trait') return { ok: false, reason: 'trait-incompatible' };
-  if (target.infusedTraits.length >= MAX_TRAITS_PER_PART) return { ok: false, reason: 'trait-cap-reached' };
-  if (target.infusedTraits.includes(trait)) return { ok: false, reason: 'trait-cap-reached' };
+  if (effectiveTraits(targetDef, target.infusedTraits).includes(trait)) return { ok: false, reason: 'trait-cap-reached' };
+  const outputTraits = canonicalTraits([...target.infusedTraits, trait]);
+  if (effectiveTraits(targetDef, outputTraits).length > MAX_EFFECTIVE_TRAITS_PER_PART) return { ok: false, reason: 'trait-cap-reached' };
 
   return {
     ok: true,
     output: Object.freeze({
       ...target,
-      infusedTraits: Object.freeze([...target.infusedTraits, trait]),
+      infusedTraits: outputTraits,
     }),
   };
+}
+
+/** A representative, domain-validated Workshop operation.  Operations are
+ * grouped by their mechanically distinct outcome so a repeatable inventory
+ * does not turn menu rendering into a pairwise expansion. */
+export type WorkshopRecipe =
+  | {
+      readonly kind: 'merge';
+      readonly firstInstanceId: string;
+      readonly secondInstanceId: string;
+      /** Number of interchangeable copies in a same-state merge group. */
+      readonly copies?: number;
+    }
+  | {
+      readonly kind: 'infuse';
+      readonly targetInstanceId: string;
+      readonly traitInstanceId: string;
+    };
+
+/**
+ * Produces the finite set of mechanically distinct Workshop operations.
+ *
+ * Trait variants are capped by the Gunsmith rule set, so each part/tier has a
+ * constant number of merge states and each target has at most one candidate
+ * for each registered behavior trait.  This keeps the result linear in the
+ * owned inventory while retaining every distinct merge/infusion outcome.
+ */
+export function listWorkshopRecipes(
+  ownedParts: readonly OwnedPart[],
+  definitions: ReadonlyMap<string, PartDefinition>,
+): readonly WorkshopRecipe[] {
+  const owned = [...ownedParts].sort((left, right) => left.instanceId.localeCompare(right.instanceId));
+  const mergeGroups = new Map<string, OwnedPart[]>();
+  for (const part of owned) {
+    const definition = definitions.get(part.partId);
+    if (!definition) continue;
+    const key = `${part.partId}\u0000${part.tier}\u0000${canonicalTraits(part.infusedTraits).join(',')}`;
+    const group = mergeGroups.get(key) ?? [];
+    group.push(part);
+    mergeGroups.set(key, group);
+  }
+
+  const recipes: WorkshopRecipe[] = [];
+  const groupsByPartTier = new Map<string, OwnedPart[][]>();
+  for (const [key, group] of mergeGroups) {
+    const [partId, tier] = key.split('\u0000');
+    const bucketKey = `${partId}\u0000${tier}`;
+    const bucket = groupsByPartTier.get(bucketKey) ?? [];
+    bucket.push(group);
+    groupsByPartTier.set(bucketKey, bucket);
+  }
+  for (const groups of groupsByPartTier.values()) {
+    for (let firstIndex = 0; firstIndex < groups.length; firstIndex += 1) {
+      const firstGroup = groups[firstIndex]!;
+      for (let secondIndex = firstIndex; secondIndex < groups.length; secondIndex += 1) {
+        const secondGroup = groups[secondIndex]!;
+        const first = firstGroup[0]!;
+        const second = firstGroup === secondGroup ? firstGroup[1] : secondGroup[0];
+        if (!second || !mergeParts(first, second, definitions).ok) continue;
+        recipes.push(Object.freeze({
+          kind: 'merge', firstInstanceId: first.instanceId, secondInstanceId: second.instanceId,
+          ...(firstGroup === secondGroup ? { copies: firstGroup.length } : {}),
+        }));
+      }
+    }
+  }
+
+  const traitSources = new Map<BehaviorTrait, OwnedPart>();
+  for (const candidate of owned) {
+    const definition = definitions.get(candidate.partId);
+    const trait = isInfusableTraitSource(candidate, definitions) ? definition?.traits[0] : undefined;
+    if (trait !== undefined && !traitSources.has(trait)) traitSources.set(trait, candidate);
+  }
+  for (const target of owned) {
+    for (const trait of BEHAVIOR_TRAITS) {
+      const source = traitSources.get(trait);
+      if (source && infuseTrait(target, source, definitions).ok) {
+        recipes.push(Object.freeze({ kind: 'infuse', targetInstanceId: target.instanceId, traitInstanceId: source.instanceId }));
+      }
+    }
+  }
+  return Object.freeze(recipes);
 }
 
 // ── Effective stat resolution ─────────────────────────────────────────
@@ -295,7 +470,7 @@ export function resolveBuildModifiers(
     for (const effect of definition.effects) {
       modifiers.push({
         ...effect,
-        value: effect.value * Math.max(1, part.tier),
+        value: scaleModifierByTier(effect, Math.max(1, part.tier)),
         sourceId: part.instanceId,
         // A persistent pistol build must not secretly improve an SMG that is
         // acquired later in the same run.  The existing stat resolver owns
@@ -306,6 +481,14 @@ export function resolveBuildModifiers(
     }
   }
   return modifiers;
+}
+
+function canonicalTraits(traits: readonly BehaviorTrait[]): readonly BehaviorTrait[] {
+  return Object.freeze([...new Set(traits)].sort());
+}
+
+function effectiveTraits(definition: PartDefinition, infusedTraits: readonly BehaviorTrait[]): readonly BehaviorTrait[] {
+  return canonicalTraits([...definition.traits, ...infusedTraits]);
 }
 
 /** Whether a build carries a given behavior trait (from any fitted part). */

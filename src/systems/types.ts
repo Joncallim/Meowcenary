@@ -6,7 +6,7 @@ import type { GameEventKey } from '../engine/eventBus';
 import type { AchievementDefinition } from '../gameplay/achievementSystem';
 import type { PartDefinition } from '../gameplay/gunsmith';
 import type { AbilityDefinition } from '../gameplay/abilities';
-import type { EquipmentDefinition } from '../gameplay/equipment';
+import type { EquipmentDefinition, EquipmentSetDefinition, EquipmentUpgradeRules } from '../gameplay/equipment';
 import type {
   StageDefinition,
   EncounterProfile,
@@ -384,6 +384,17 @@ export interface AudioData {
   readonly map: readonly AudioMapEntry[];
 }
 
+/** Renderer families describe rendering capability, not content owner.
+ *  A single renderer implementation can handle multiple semantic domains. */
+export type RendererKind =
+  | 'animated-actor'   // Characters, enemies, bosses with animation clips
+  | 'sprite'           // Simple static or looping sprites (projectiles, drops)
+  | 'icon'             // UI icons (equipment, parts, achievements, upgrades)
+  | 'portrait'         // Character portraits in menus
+  | 'weapon-held'      // Weapon held sprite in gameplay
+  | 'world'            // Arena tiles, props, landmarks
+  | 'ui-chrome';       // UI panels, buttons, frames
+
 export type VisualArtKind =
   | 'character'
   | 'enemy'
@@ -392,12 +403,41 @@ export type VisualArtKind =
   | 'weapon-icon'
   | 'weapon-held'
   | 'world'
-  | 'upgrade-icon';
+  | 'upgrade-icon'
+  /** Achievement-owned UI badge; rendered by the generic icon renderer. */
+  | 'achievement-icon';
+
+/** Physical texture/resource identity — separate from logical VisualArtBinding.
+ *  Multiple logical bindings may share the same physical resource via named
+ *  frames in an atlas. */
+export interface VisualTextureResource {
+  readonly id: string;
+  readonly textureKey: string;
+  readonly sampling: 'nearest' | 'linear';
+  readonly load: {
+    readonly type: 'image' | 'atlas' | 'spritesheet';
+    readonly imageUrl: string;
+    readonly dataUrl?: string;
+    readonly frameWidth?: number;
+    readonly frameHeight?: number;
+  };
+  readonly display?: {
+    readonly width: number;
+    readonly height: number;
+  };
+}
+
+export interface AssetBundleDefinitionV4 {
+  readonly id: string;
+  readonly resourceIds: readonly string[];
+}
+
 
 export type VisualArtSampling = 'nearest' | 'linear';
 
 export type VisualArtLoad =
   | { readonly type: 'image' }
+  | { readonly type: 'atlas' }
   | {
       readonly type: 'spritesheet';
       readonly frame: { readonly width: number; readonly height: number };
@@ -413,15 +453,19 @@ export interface VisualArtClip {
 export interface VisualArtBinding {
   readonly id: string;
   readonly kind: VisualArtKind;
+  readonly resourceId?: string;
+  readonly frameKey?: string;
+  /** Legacy fixture compatibility; production JSON must not provide these. */
   readonly textureKey: string;
   readonly url: string;
-  readonly required: boolean;
-  /** Explicitly authored filtering policy; no kind/default fallback exists. */
   readonly sampling: VisualArtSampling;
   readonly load: VisualArtLoad;
+  readonly required: boolean;
   readonly display: { readonly width: number; readonly height: number };
   readonly clips?: Readonly<Record<string, VisualArtClip>>;
 }
+
+export interface ResolvedVisualArtBinding extends VisualArtBinding {}
 
 export interface VisualArtCatalog {
   readonly bindings: readonly VisualArtBinding[];
@@ -430,6 +474,8 @@ export interface VisualArtCatalog {
 /** Data-owned group of canonical visual-art bindings used by a stage. */
 export interface AssetBundleDefinition {
   readonly id: string;
+  readonly resourceIds: readonly string[];
+  /** Legacy fixture compatibility; production JSON must not provide this. */
   readonly assetIds: readonly string[];
 }
 
@@ -589,6 +635,7 @@ export interface GameData {
   weaponFeel: WeaponFeelDefinition[];
   readonly audio: AudioData;
   readonly visualArt: VisualArtCatalog;
+  readonly visualResources: readonly VisualTextureResource[];
   /** Data-owned stage asset groups. Save V3 stores neither bundles nor their
    * members; catalog changes remain ordinary content updates. */
   readonly assetBundles: readonly AssetBundleDefinition[];
@@ -600,4 +647,6 @@ export interface GameData {
   readonly gunParts?: readonly PartDefinition[];
   readonly abilities?: readonly AbilityDefinition[];
   readonly equipment?: readonly EquipmentDefinition[];
+  readonly equipmentSets?: readonly EquipmentSetDefinition[];
+  readonly equipmentRules?: EquipmentUpgradeRules;
 }
