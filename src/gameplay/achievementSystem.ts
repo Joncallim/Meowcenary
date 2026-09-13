@@ -12,7 +12,7 @@
  * special cases, no save migration (catalog version and save version are
  * separate; see the #92 architecture §4).
  */
-import type { AchievementProgress, AchievementProgressState, BossProgressState, CharacterMasteryState, ProgressionState, StageProgressState } from '../systems/save';
+import type { AchievementProgress, AchievementProgressState, BossProgressState, CharacterMasteryState, ProgressionState, ProgressionStateV4, StageProgressState } from '../systems/save';
 import type { ProgressionCondition } from './conditionEvaluator';
 import { evaluateCondition, type ConditionContext } from './conditionEvaluator';
 import type { ProgressionGrant } from './grantProcessor';
@@ -28,6 +28,13 @@ export interface AchievementReward {
   readonly grant: ProgressionGrant;
 }
 
+/** Player-facing identity for an achievement.  This is deliberately a
+ * logical-art reference rather than a physical file name: UI code never
+ * needs to know how a badge is packed or loaded. */
+export interface AchievementPresentation {
+  readonly iconArtId: string;
+}
+
 export interface AchievementDefinition {
   readonly id: string;
   readonly name: string;
@@ -41,6 +48,7 @@ export interface AchievementDefinition {
   readonly condition?: ProgressionCondition;
   /** Hidden achievements stay hidden in read models until completed. */
   readonly hidden?: boolean;
+  readonly presentation: AchievementPresentation;
   readonly rewards?: readonly AchievementReward[];
   readonly platform?: AchievementPlatformMapping;
 }
@@ -68,7 +76,7 @@ export interface AchievementEvaluationResult {
 export interface AchievementFacts {
   readonly metrics: Readonly<Record<string, number>>;
   /** Progression snapshot for condition-driven achievements (scrap, unlocks). */
-  readonly progression?: Readonly<ProgressionState>;
+  readonly progression?: Readonly<ProgressionState | ProgressionStateV4>;
   /** Stage progress snapshot for stage-cleared conditions. */
   readonly stages?: Readonly<StageProgressState>;
   /** Character mastery snapshot for mastery-reached conditions. */

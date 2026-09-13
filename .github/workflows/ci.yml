@@ -28,6 +28,9 @@ jobs:
       - name: Validate visual art
         run: npm run art:validate
 
+      - name: Validate game content
+        run: npm run content:validate
+
       - name: Lint
         run: npm run lint
 

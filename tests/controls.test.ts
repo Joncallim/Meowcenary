@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 // Phaser module is ever requested.
 import { MockInputPlugin, MockGamepad } from './__mocks__/phaser';
 import { InputController } from '../src/systems/input';
-import { ControlsView } from '../src/ui/controls';
+import { ControlsView, type AbilityControlDefinition } from '../src/ui/controls';
 import type { TouchStickConfig } from '../src/engine/config';
 import { logicalCanvasViewport, zoomedGameUiViewport, GAMEPLAY_ZOOM } from '../src/ui/layout';
 import { ThemeColor, ThemeDepth } from '../src/ui/theme';
@@ -179,26 +179,31 @@ function createFakeScene() {
   return scene;
 }
 
-function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: boolean; touchStick?: TouchStickConfig; zoomed?: boolean } = {}) {
-  const { readReducedMotion = () => false, gamepad = false, touchStick, zoomed = false } = options;
+const scrapBurst: AbilityControlDefinition = Object.freeze({ name: 'Scrap Burst', description: 'Knock nearby enemies away.' });
+
+function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: boolean; touchStick?: TouchStickConfig; zoomed?: boolean; ability?: AbilityControlDefinition | null } = {}) {
+  const { readReducedMotion = () => false, gamepad = false, touchStick, zoomed = false, ability = scrapBurst } = options;
   const scene = createFakeScene();
   const input = new MockInputPlugin({ keyboard: true, gamepad });
   const controller = new InputController({ ...scene, input } as never, { touchStick });
   const onPauseRequested = vi.fn();
+  const onAbilityRequested = vi.fn();
   const view = new ControlsView({
     scene: scene as never,
     input: controller,
     viewport: zoomed ? zoomedGameUiViewport(scene.scale.displaySize.width, scene.scale.displaySize.height) : logicalCanvasViewport(),
     readReducedMotion,
     onPauseRequested,
+    onAbilityRequested,
     touchStick,
+    ability,
   });
   // GameScene runs InputController.update before the view update each frame.
   const tick = (dtMs = 16) => {
     controller.update(dtMs);
     view.update(dtMs);
   };
-  return { scene, input, controller, view, onPauseRequested, tick };
+  return { scene, input, controller, view, onPauseRequested, onAbilityRequested, tick };
 }
 
 describe('ControlsView virtual stick', () => {
@@ -230,7 +235,7 @@ describe('ControlsView virtual stick', () => {
     expect(stickThumb.state.visible).toBe(false);
   });
 
-  it('clamps the stick thumb to the same 64 px radius as the intent math', () => {
+  it('uses a compact 48 px visual stick while preserving the input intent range', () => {
     const { scene, input, view } = createHarness();
     // [root, stickBase, stickThumb, hint, pause]
     const stickThumb = scene.objects[2];
@@ -238,14 +243,14 @@ describe('ControlsView virtual stick', () => {
     input.pointerDown(100, 100);
     input.pointerMove(300, 100);
     view.update(16);
-    expect(stickThumb.state.x).toBe(164);
+    expect(stickThumb.state.x).toBe(148);
     expect(stickThumb.state.y).toBe(100);
 
     input.pointerMove(300, 300);
     view.update(16);
     const dx = (stickThumb.state.x as number) - 100;
     const dy = (stickThumb.state.y as number) - 100;
-    expect(Math.hypot(dx, dy)).toBeCloseTo(64, 10);
+    expect(Math.hypot(dx, dy)).toBeCloseTo(48, 10);
   });
   it('uses one injected anchored config for fixed base and shared radius intent', () => {
     const touchStick: TouchStickConfig = {
@@ -271,7 +276,7 @@ describe('ControlsView virtual stick', () => {
 });
 
 describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
-  it('authors the stick radius at 64/1.25 with no arc scale — ONE zoom compensation (M-02/AM-3)', () => {
+  it('authors the compact visual stick radius at 48/1.25 with no arc scale — ONE zoom compensation (M-02/AM-3)', () => {
     const { scene } = createHarness({ zoomed: true });
     const [root, stickBase, stickThumb] = scene.objects;
     // The camera zoom 1.25 grows world units, so the authored radius is
@@ -279,8 +284,8 @@ describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
     // diameter is 2·(64/1.25)·1.25·s = 128·s physical px (AM-3 binding).
     expect(root.state.x).toBeCloseTo(39, 6);
     expect(root.state.y).toBeCloseTo(84.4, 6);
-    expect(stickBase.state.radius).toBe(64 / GAMEPLAY_ZOOM);
-    expect(stickThumb.state.radius).toBe((64 / GAMEPLAY_ZOOM) * 0.45);
+    expect(stickBase.state.radius).toBe(48 / GAMEPLAY_ZOOM);
+    expect(stickThumb.state.radius).toBe((48 / GAMEPLAY_ZOOM) * 0.45);
     expect(stickBase.state.scaleX).toBe(1);
     expect(stickBase.state.scaleY).toBe(1);
     expect(stickThumb.state.scaleX).toBe(1);
@@ -288,7 +293,7 @@ describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
 
     // The unzoomed (menu/plain) controls never shrink the arcs.
     const plain = createHarness();
-    expect(plain.scene.objects[1].state.radius).toBe(64);
+    expect(plain.scene.objects[1].state.radius).toBe(48);
     expect(plain.scene.objects[1].state.scaleX).toBe(1);
   });
 
@@ -332,7 +337,7 @@ describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
 describe('ControlsView hints', () => {
   it('repositions the hint and rebuilds the pause target after rotation', () => {
     const { scene, view } = createHarness();
-    const oldHint = scene.objects.find((object) => object.state.text === 'Drag to move • Tap A ability • Tap pause')!;
+    const oldHint = scene.objects.find((object) => object.state.text === 'SCRAP BURST — Knock nearby enemies away.')!;
     const oldPause = scene.objects.find((object) => object.state.interactive)!;
 
     scene.resize(844, 390);
@@ -340,11 +345,11 @@ describe('ControlsView hints', () => {
     expect(oldHint.state.destroyed).toBe(true);
     expect(oldPause.state.destroyed).toBe(true);
     expect(scene.scale.listenerCount('resize')).toBe(1);
-    const hint = scene.objects.find((object) => !object.state.destroyed && object.state.text === 'Drag to move • Tap A ability • Tap pause')!;
+    const hint = scene.objects.find((object) => !object.state.destroyed && object.state.text === 'SCRAP BURST — Knock nearby enemies away.')!;
     const pause = scene.objects.find((object) => !object.state.destroyed && object.state.interactive)!;
     const fitScale = 390 / 844;
     // The strip is gone: the hint owns the bottom safe margin above the stick.
-    expect(Number(hint.state.y) * fitScale).toBeCloseTo(238, 5);
+    expect(Number(hint.state.y) * fitScale).toBeCloseTo(270, 5);
     expect(Number(pause.state.width) * fitScale).toBeCloseTo(44, 5);
     expect(Number(pause.state.height) * fitScale).toBeCloseTo(44, 5);
 
@@ -374,39 +379,39 @@ describe('ControlsView hints', () => {
     }
   });
 
-  it('starts with pointer-mode copy and switches on mode change', () => {
+  it('keeps the data-backed ability teaching line through the first mode change', () => {
     const { scene, input, tick } = createHarness();
     const hintText = scene.objects[3];
 
-    expect(hintText.state.text).toBe('Drag to move • Tap A ability • Tap pause');
+    expect(hintText.state.text).toBe('SCRAP BURST — Knock nearby enemies away.');
 
     input.keyboard!.keydown('d');
     tick();
-    expect(hintText.state.text).toBe('WASD / arrows • Q ability • P / Esc');
+    expect(hintText.state.text).toBe('SCRAP BURST — Knock nearby enemies away.');
     expect(hintText.state.alpha).toBe(1);
 
     input.keyboard!.keyup('d');
     tick();
     // Idle frames do not flap the copy back.
-    expect(hintText.state.text).toBe('WASD / arrows • Q ability • P / Esc');
+    expect(hintText.state.text).toBe('SCRAP BURST — Knock nearby enemies away.');
   });
 
-  it('a pointer gesture restores pointer-mode copy', () => {
+  it('keeps teaching copy through a pointer gesture', () => {
     const { scene, input, tick } = createHarness();
     const hintText = scene.objects[3];
 
     input.keyboard!.keydown('d');
     tick();
-    expect(hintText.state.text).toBe('WASD / arrows • Q ability • P / Esc');
+    expect(hintText.state.text).toBe('SCRAP BURST — Knock nearby enemies away.');
 
     input.keyboard!.keyup('d');
     input.pointerDown(10, 10);
     input.pointerMove(74, 10);
     tick();
-    expect(hintText.state.text).toBe('Drag to move • Tap A ability • Tap pause');
+    expect(hintText.state.text).toBe('SCRAP BURST — Knock nearby enemies away.');
   });
 
-  it('shows the gamepad hint when gamepad input is active', () => {
+  it('keeps teaching copy when gamepad input is first active', () => {
     const { scene, input, tick } = createHarness({ gamepad: true });
     const hintText = scene.objects[3];
 
@@ -415,7 +420,7 @@ describe('ControlsView hints', () => {
     pad.setLeftStick(1, 0);
     tick();
 
-    expect(hintText.state.text).toBe('Left stick • Left face ability • Bottom face / Menu');
+    expect(hintText.state.text).toBe('SCRAP BURST — Knock nearby enemies away.');
   });
 
   it('fades the hint once after the display duration with a tween', () => {
@@ -514,6 +519,117 @@ describe('ControlsView pause button', () => {
     pauseButton.emit('pointerdown');
     expect(onPauseRequested).toHaveBeenCalledTimes(1);
     view.destroy();
+  });
+});
+
+describe('ControlsView ability button', () => {
+  it('puts a fixed semantic ability card in the lower-right thumb zone while pause stays top-right', () => {
+    const { scene, view } = createHarness({ zoomed: true });
+    const pause = scene.objects.find((object) => object.state.interactive && object.state.fillColor === ThemeColor.surface)!;
+    const ability = scene.objects.find((object) => object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
+
+    expect(Number(ability.state.width) * GAMEPLAY_ZOOM).toBeCloseTo(120, 5);
+    expect(Number(ability.state.height) * GAMEPLAY_ZOOM).toBeCloseTo(60, 5);
+    expect(Number(ability.state.y)).toBeGreaterThan(Number(pause.state.y));
+    view.destroy();
+  });
+
+  it('retains a fixed lower-right card through every supported phone and desktop viewport', () => {
+    const { scene, view } = createHarness({ zoomed: true });
+    for (const [width, height] of [[360, 640], [390, 844], [844, 390], [1280, 720], [1920, 1080]]) {
+      scene.resize(width, height);
+      const ability = scene.objects.find((object) => !object.state.destroyed
+        && object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
+      const fit = Math.min(width / 390, height / 844);
+      expect(Number(ability.state.width) * GAMEPLAY_ZOOM * fit).toBeCloseTo(120, 5);
+      expect(Number(ability.state.height) * GAMEPLAY_ZOOM * fit).toBeCloseTo(60, 5);
+      // The authored right/bottom edges retain two 12px physical insets.
+      expect(Number(ability.state.x) + Number(ability.state.width) / 2).toBeLessThanOrEqual(312);
+      expect(Number(ability.state.y) + Number(ability.state.height) / 2).toBeLessThanOrEqual(675);
+    }
+    view.destroy();
+  });
+
+  it('keeps ability as UI ownership: a second-finger press fires once without ending the pinned movement drag', () => {
+    const { scene, input, controller, onAbilityRequested, tick, view } = createHarness();
+    const ability = scene.objects.find((object) => object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
+
+    input.pointerDown(40, 600, 0);
+    input.pointerMove(100, 600, 0);
+    tick();
+    const moving = controller.getMoveVector();
+    expect(moving.x).toBeGreaterThan(0);
+    expect(moving.y).toBe(0);
+
+    // This mirrors Phaser's scene pointerdown currentlyOver parameter for
+    // an interactive A control. The control itself owns its callback.
+    input.emit('pointerdown', { x: ability.state.x, y: ability.state.y, isDown: true, id: 1 }, [ability]);
+    ability.emit('pointerdown');
+    tick();
+    expect(onAbilityRequested).toHaveBeenCalledTimes(1);
+    expect(controller.getMoveVector()).toEqual(moving);
+
+    input.emit('pointerup', { id: 1 });
+    tick();
+    expect(controller.getMoveVector()).toEqual(moving);
+    view.destroy();
+  });
+
+  it('rebuilds one lower-right ability target on resize and removes the stale hit target in extraction state', () => {
+    const { scene, view } = createHarness({ zoomed: true });
+    const oldAbility = scene.objects.find((object) => object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
+    scene.resize(844, 390);
+    const liveAbility = scene.objects.filter((object) => !object.state.destroyed && object.state.interactive && object.state.fillColor === ThemeColor.primary);
+    expect(oldAbility.state.destroyed).toBe(true);
+    expect(liveAbility).toHaveLength(1);
+
+    view.setExtractionState(true);
+    expect(liveAbility[0].state.destroyed).toBe(true);
+    expect(scene.objects.filter((object) => !object.state.destroyed && object.state.interactive && object.state.fillColor === ThemeColor.primary)).toHaveLength(1);
+    view.destroy();
+  });
+
+  it('renders semantic identity and only updates when its visible cooldown second or phase changes', () => {
+    const { scene, view } = createHarness();
+    const name = scene.objects.find((object) => object.state.text === 'Scrap Burst')!;
+    const state = scene.objects.find((object) => object.state.text === 'READY')!;
+    expect(name.state.text).toBe('Scrap Burst');
+    expect(state.state.text).toBe('READY');
+
+    view.setAbilityPresentation('active', 0);
+    expect(state.state.text).toBe('ACTIVE');
+    view.setAbilityPresentation('cooling', 6100);
+    expect(state.state.text).toBe('7s');
+    view.setAbilityPresentation('cooling', 6001);
+    expect(state.state.text).toBe('7s');
+    view.setAbilityPresentation('cooling', 6000);
+    expect(state.state.text).toBe('6s');
+    view.setAbilityPresentation('ready', 0);
+    expect(state.state.text).toBe('READY');
+    view.destroy();
+  });
+
+  it.each([
+    'Scrap Burst', 'Overclock', 'Shield Flicker', 'Giga Chomp',
+    'Adrenaline', 'Heat Vent', 'Scavenge Pulse', 'Precision Mark',
+  ])('renders the current ability identity for %s', (name) => {
+    const { scene, view } = createHarness({ ability: { name, description: `${name} description` } });
+    expect(scene.objects.some((object) => object.state.text === name)).toBe(true);
+    view.destroy();
+  });
+
+  it('contains a synthetic long ability name in the fixed card and safely omits the card without an active ability', () => {
+    const longName = 'Exceptionally Elaborate Prototype Ability';
+    const long = createHarness({ ability: { name: longName, description: 'fixture' } });
+    const card = long.scene.objects.find((object) => object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
+    expect(card.state.width).toBe(120);
+    expect(long.scene.objects.some((object) => typeof object.state.text === 'string'
+      && object.state.text.endsWith('…'))).toBe(true);
+    long.view.destroy();
+
+    const none = createHarness({ ability: null });
+    expect(none.scene.objects.filter((object) => object.state.interactive && object.state.fillColor === ThemeColor.primary)).toHaveLength(0);
+    none.view.destroy();
   });
 });
 

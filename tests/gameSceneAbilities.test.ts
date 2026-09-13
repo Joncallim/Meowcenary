@@ -7,6 +7,17 @@ import { checkAbility } from '../src/systems/validation/abilities';
 
 const abilities = new Map((abilitiesJson as AbilityDefinition[]).map((ability) => [ability.id, ability]));
 
+// Mock getGameContext to return a minimal context with a bus
+const mockBus = { emit: vi.fn(), on: vi.fn() };
+vi.mock('../src/engine/context', async (importOriginal) => {
+  const actual = await importOriginal() as Record<string, unknown>;
+  return {
+    ...actual,
+    getGameContext: () => ({ bus: mockBus }),
+    GAME_CONTEXT_REGISTRY_KEY: 'meowcenary.gameContext',
+  };
+});
+
 function activate(id: string) {
   const scene = new GameScene() as any;
   const stats = { add: vi.fn(), remove: vi.fn() };
@@ -28,12 +39,12 @@ describe('GameScene character ability runtime bridge', () => {
 
   it('executes heal and invulnerability through the live player owner exactly once per cooldown', () => {
     const heal = activate('ability:giga-chomp');
-    heal.scene.hudController = { requestRender: vi.fn() };
+    heal.scene.controlsView = { setAbilityPresentation: vi.fn() };
     heal.player.heal.mockClear();
     heal.scene.abilityState = { phase: 'ready', activeRemainingMs: 0, cooldownRemainingMs: 0 };
     heal.scene.activateCharacterAbility();
     expect(heal.player.heal).toHaveBeenCalledWith(40);
-    expect(heal.scene.hudController.requestRender).toHaveBeenCalledTimes(1);
+    expect(heal.scene.controlsView.setAbilityPresentation).toHaveBeenCalledWith('cooling', 18_000);
     heal.scene.activateCharacterAbility();
     expect(heal.player.heal).toHaveBeenCalledTimes(1);
 
@@ -43,20 +54,19 @@ describe('GameScene character ability runtime bridge', () => {
 
   it('refreshes ability feedback when an active effect moves to cooling', () => {
     const adrenaline = activate('ability:adrenaline');
-    adrenaline.scene.hudController = { requestRender: vi.fn() };
+    adrenaline.scene.controlsView = { setAbilityPresentation: vi.fn() };
     adrenaline.scene.tickAbility(2500);
-    expect(adrenaline.scene.hudController.requestRender).toHaveBeenCalledTimes(1);
+    expect(adrenaline.scene.controlsView.setAbilityPresentation).toHaveBeenCalledWith('cooling', expect.any(Number));
   });
 
   it('refreshes cooldown feedback as the visible remaining second changes', () => {
     const shield = activate('ability:shield-flicker');
-    shield.scene.hudController = { requestRender: vi.fn() };
+    shield.scene.controlsView = { setAbilityPresentation: vi.fn() };
     shield.scene.tickAbility(1_000);
-    expect(shield.scene.hudController.requestRender).toHaveBeenCalledTimes(1);
-    expect(shield.scene.describeAbilityState()).toBe('Shield Flicker: 14s');
-    shield.scene.hudController.requestRender.mockClear();
+    expect(shield.scene.controlsView.setAbilityPresentation).toHaveBeenCalledWith('active', 14_000);
+    shield.scene.controlsView.setAbilityPresentation.mockClear();
     shield.scene.tickAbility(100);
-    expect(shield.scene.hudController.requestRender).not.toHaveBeenCalled();
+    expect(shield.scene.controlsView.setAbilityPresentation).not.toHaveBeenCalled();
   });
 
   it('does not advance ability durations or cooldowns behind paused, clear, or terminal UI', () => {
@@ -105,7 +115,8 @@ describe('GameScene character ability runtime bridge', () => {
     fire.scene.abilityState = { phase: 'ready', activeRemainingMs: 0, cooldownRemainingMs: 0 };
     fire.scene.enemies = [burned];
     fire.scene.activateCharacterAbility();
-    expect(burned.takeDamage).toHaveBeenCalledWith(90);
+    // applyEnemyDamage calls enemy.takeDamage internally
+    expect(burned.takeDamage).toHaveBeenCalledWith(90, undefined);
   });
 
   it('executes Scavenge Pulse through the drop-system collection boundary', () => {

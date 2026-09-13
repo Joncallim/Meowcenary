@@ -56,6 +56,9 @@ const vitestBin = path.join(root, 'node_modules', '.bin', 'vitest');
 const ALLOC_FILE = 'tests/zeroAllocation.test.ts';
 const RUNNER_TESTS = 'tests/testRunner.test.ts';
 const RUNNER_EXPLICIT_TESTS = 'tests/testRunnerExplicit.test.ts';
+// Validator tooling uses Node's native test runner. Keep its fixture suite
+// out of Vitest discovery; `npm run art:validate` executes it explicitly.
+const ART_VALIDATOR_NODE_TESTS = 'docs/art/scripts/**/*.test.mjs';
 const ALLOC_ISOLATION = ['--pool=forks', '--poolOptions.forks.singleFork'];
 
 /** Options that take NO following value (pure flags). Unknown long options
@@ -191,7 +194,7 @@ if (explicitlySelectsAlloc) {
   // runner's own subprocess test files excluded.
   const mainStatus = runVitest([
     'run', '--exclude', ALLOC_FILE, '--exclude', RUNNER_TESTS,
-    '--exclude', RUNNER_EXPLICIT_TESTS, ...forwarded,
+    '--exclude', RUNNER_EXPLICIT_TESTS, '--exclude', ART_VALIDATOR_NODE_TESTS, ...forwarded,
   ]);
   if (mainStatus.status !== 0) {
     process.exit(mainStatus.status);

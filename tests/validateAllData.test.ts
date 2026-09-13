@@ -28,10 +28,10 @@ describe('validateAllData', () => {
     expect(collectGameDataErrors(loadGameData())).toEqual([]);
   });
 
-  it('collects malformed part and equipment presentation references just as boot does', () => {
+  it('collects malformed part and equipment logical-art references just as boot does', () => {
     const data = mutableData();
     data.gunParts[0].presentation.iconArtId = 'upgrade-icon:not-real';
-    data.equipment[0].presentation.iconArtId = 'weapon-icon:pistol:t1';
+    data.equipment[0].icon = 'weapon-icon:pistol:t1';
 
     expect(collectGameDataErrors(data)).toEqual([
       {
@@ -39,8 +39,8 @@ describe('validateAllData', () => {
         message: 'unknown visual-art id "upgrade-icon:not-real"',
       },
       {
-        file: 'equipment.json', index: 0, field: 'presentation.iconArtId',
-        message: 'must resolve to a required upgrade-icon binding',
+        file: 'equipment', index: -1, field: '',
+        message: 'unknown required upgrade-icon "weapon-icon:pistol:t1"',
       },
     ]);
   });
@@ -247,6 +247,7 @@ describe('validateAllData', () => {
       lootTables: [],
       audio: { assets: {}, map: [] },
       visualArt: { bindings: [] },
+      visualResources: [],
       assetBundles: [],
       stages: [],
       encounterProfiles: [],
@@ -256,6 +257,8 @@ describe('validateAllData', () => {
       gunParts: [],
       abilities: [],
       equipment: [],
+      equipmentSets: [],
+      equipmentRules: { unlocks: { 2: { type: 'always' }, 3: { type: 'always' }, 4: { type: 'always' } } },
     })).toEqual([
       { file: 'weapons.json', index: -1, field: '', message: 'non-JSON-safe number' },
     ]);
@@ -296,6 +299,7 @@ describe('validateAllData', () => {
       'audio-assets',
       'audio-map',
       'visualArt',
+      'visualResources',
       'assetBundles',
       'stages',
       'encounterProfiles',
@@ -305,6 +309,8 @@ describe('validateAllData', () => {
       'gun-parts',
       'abilities',
       'equipment',
+      'equipmentSets',
+      'equipmentRules',
     ]);
   });
 

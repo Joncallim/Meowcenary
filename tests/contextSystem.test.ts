@@ -23,7 +23,7 @@ describe('GameContext persistence boundary', () => {
     expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss-crusher', stageTransaction('stage:junkyard-05', 120_000))).toBe(true);
     expect(context.saveData.stages['stage:junkyard-05'].completed).toBe(true);
     expect(context.saveData.bosses['boss-crusher'].defeated).toBe(true);
-    expect(context.saveData.progression.scrap).toBe(220);
+    expect(context.saveData.progression.scrap).toBe(130);
     expect(context.saveData.appliedGrantTransactions['stage:junkyard-05:first-clear']).toBe(true);
   });
 
@@ -260,10 +260,10 @@ describe('GameContext persistence boundary', () => {
     expect(context.saveData.equipment['owned:helmet'].tier).toBe(1);
     storage.succeed = true;
     expect(context.completeStage('stage:junkyard-02', 1)).toBe(true);
+    expect(context.completeStage('stage:junkyard-03', 1)).toBe(true);
     expect(context.commitEquipmentUpgrade('owned:helmet', 1, 2, 100)).toBe(true);
-    // The legitimate Stage 2 first-clear reward survives the equipment
-    // purchase; it is no longer lost behind the legacy rewardless path.
-    expect(context.saveData.progression.scrap).toBe(40);
+    // The Stage 2/3 first-clear rewards survive the equipment purchase.
+    expect(context.saveData.progression.scrap).toBe(105);
     expect(context.saveData.equipment['owned:helmet'].tier).toBe(2);
     expect(context.commitEquipmentUpgrade('owned:helmet', 1, 2, 100)).toBe(false);
     expect(context.commitEquipmentUpgrade('owned:helmet', 2, 3, 1)).toBe(false);
@@ -709,6 +709,6 @@ function stageTransaction(stageId: string, timeMs: number) {
   if (!reward) throw new Error(`Missing reward profile for ${stageId}`);
   return {
     id: `${stageId}:first-clear`,
-    grants: [{ type: 'grant-scrap' as const, amount: Math.max(1, reward.scrapBase + Math.floor(Math.min(timeMs, 180_000) / 60_000) * reward.scrapPerMinute) }, ...(reward.grants ?? [])],
+    grants: [{ type: 'grant-scrap' as const, amount: Math.max(1, reward.firstClearScrap + Math.floor(Math.min(timeMs, 180_000) / 60_000) * 0) }, ...(reward.grants ?? [])],
   };
 }
