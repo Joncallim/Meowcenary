@@ -7,6 +7,7 @@ import './styles.css';
 import { physicsDebugEnabled } from './systems/debug';
 import { installDiagnostics } from './engine/diagnostics';
 import { bindVisualViewportRefresh, isGestureActive } from './platform/visualViewport';
+import { installPortraitOrientationGuard } from './platform/orientation';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -35,6 +36,10 @@ const config: Phaser.Types.Core.GameConfig = {
 // Exported as a narrow ESM browser lifecycle/smoke seam. Upgrade selection now
 // uses the visible chooser; gameplay ownership remains in scenes and systems.
 export const game = new Phaser.Game(config);
+// The DOM-owned guard remains reliable even when the fitted canvas cannot lay
+// out its authored portrait UI on a phone rotated into landscape.
+const portraitOrientationGuard = installPortraitOrientationGuard();
+game.events.once(Phaser.Core.Events.DESTROY, portraitOrientationGuard.dispose);
 // Install #164 diagnostic trace ring buffer (development only)
 if (import.meta.env.DEV) installDiagnostics();
 // P1: the gesture gate consults the PRODUCTION isGestureActive lambda — a

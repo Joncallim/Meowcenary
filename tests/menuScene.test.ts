@@ -382,13 +382,18 @@ describe('MenuScene', () => {
   it('keeps every data-owned Gunsmith chassis reachable after creating a build', () => {
     const harness = createHarness();
     harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
-    expect(harness.textContents()).toEqual(expect.arrayContaining(['Weapon chassis', 'Create Pistol', 'Create SMG', 'Create Shotgun']));
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['Weapon builds', 'Pistol Build\nEmpty', 'SMG Build\nEmpty', 'Shotgun Build\nEmpty']));
 
-    harness.buttonByLabel('Create Pistol')!.state.handlers.pointerup!();
-    expect(harness.textContents()).toEqual(expect.arrayContaining(['Pistol — Selected', 'Create SMG', 'Create Shotgun']));
-    harness.buttonByLabel('Create SMG')!.state.handlers.pointerup!();
-    expect(harness.textContents()).toEqual(expect.arrayContaining(['Use Pistol', 'SMG — Selected', 'Create Shotgun']));
-    harness.buttonByLabel('Use Pistol')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Pistol Build\nEmpty')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['Pistol Build\nSelected', 'SMG Build\nEmpty', 'Shotgun Build\nEmpty', 'PISTOL BUILD\nSelected • Active from start']));
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['BLUEPRINTS', 'Compact Receiver\nFire rate +8%\nFabricate — 60 Scrap']));
+    expect(harness.textContents().join('\n')).not.toContain('Standard Barrel\nRange +10\nFabricate');
+    harness.buttonByLabel('Compact Receiver\nFire rate +8%\nFabricate — 60 Scrap')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toContain('That blueprint is not available or needs more Scrap');
+    expect(harness.context.saveData.gunsmith.parts).toEqual({});
+    harness.buttonByLabel('SMG Build\nEmpty')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['Pistol Build\nConfigured', 'SMG Build\nSelected', 'Shotgun Build\nEmpty']));
+    harness.buttonByLabel('Pistol Build\nConfigured')!.state.handlers.pointerup!();
     expect(harness.context.saveData.gunsmith.selectedBuildId).toBe('build:pistol');
     expect(harness.context.saveData.gunsmith.builds.map((build) => build.id)).toEqual(['build:pistol', 'build:smg']);
   });
@@ -398,7 +403,7 @@ describe('MenuScene', () => {
     harness.context.updateGunsmith((state) => ({
       ...state,
       parts: Object.fromEntries([
-        ...Array.from({ length: 7 }, (_, index) => [`part-${index}`, { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] }]),
+        ...Array.from({ length: 50 }, (_, index) => [`part-${index}`, { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] }]),
         ['fire', { partId: 'part:trait-fire', tier: 2, infusedTraits: [] }],
       ]),
       builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
@@ -408,6 +413,50 @@ describe('MenuScene', () => {
     expect(harness.textContents()).not.toContain('Next Gunsmith Page');
     const scene = harness.menuScene as unknown as { scrollRegion?: { itemCount: number } };
     expect(scene.scrollRegion?.itemCount).toBeGreaterThan(1);
+  });
+
+  it('keeps a 50-part Gunsmith list focusable and scroll-safe through acceptance viewports', () => {
+    const harness = createHarness();
+    harness.context.updateGunsmith((state) => ({
+      ...state,
+      parts: Object.fromEntries(Array.from({ length: 50 }, (_, index) => [`part-${index}`, { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] }])),
+      builds: [{ id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as { handleResize(): void; navigator: { index: number }; scrollRegion?: { scrollOffset: number } };
+    for (let index = 0; index < 52; index += 1) {
+      harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+      harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+    }
+    expect(scene.navigator.index).toBeGreaterThan(45);
+    expect(scene.scrollRegion?.scrollOffset).toBeGreaterThan(0);
+    for (const [width, height] of [[360, 640], [390, 844], [844, 390], [1280, 720], [1920, 1080]]) {
+      (harness.menuScene.scale as unknown as { width: number; height: number; displaySize: { width: number; height: number } }).width = width;
+      (harness.menuScene.scale as unknown as { height: number; displaySize: { width: number; height: number } }).height = height;
+      (harness.menuScene.scale as unknown as { displaySize: { width: number; height: number } }).displaySize = { width, height };
+      scene.handleResize();
+      expect(scene.navigator.index).toBeGreaterThanOrEqual(0);
+      expect(scene.scrollRegion?.scrollOffset).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('groups owned hardware by canonical weapon slot and makes a cross-build move explicit', () => {
+    const harness = createHarness();
+    harness.context.updateGunsmith((state) => ({
+      ...state,
+      parts: { barrel: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] } },
+      builds: [
+        { id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: { barrel: 'barrel' }, traitParts: [] },
+        { id: 'build:smg', name: 'SMG Build', baseWeaponFamily: 'smg', fitted: {}, traitParts: [] },
+      ],
+      selectedBuildId: 'build:smg',
+    }));
+    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toEqual(expect.arrayContaining([
+      'RECEIVER', 'BARREL', 'OPTIC', 'STOCK', 'TRIGGER', 'MAGAZINE', 'TRAITS 0 / 2',
+      'Standard Barrel T1 • FITTED TO PISTOL BUILD\nRange +10\nMOVE FROM PISTOL BUILD',
+    ]));
   });
 
   it('uses the production scroll region for 20 Character, 25 Contract, 40 Achievement, and 50 Compendium rows', () => {
@@ -1033,6 +1082,26 @@ describe('MenuScene', () => {
     expect(seams.navigator.index).toBe(0);
   });
 
+  it('reuses one resolved visual-art registry across Career achievement rerenders', () => {
+    const harness = createHarness();
+    const seams = harness.menuScene as unknown as {
+      visualArt?: unknown;
+      render(snapshot: never): void;
+    };
+    const press = (key: string) => {
+      harness.keyboard.keydown(key); harness.menuScene.update(0, 16);
+      harness.keyboard.keyup(key); harness.menuScene.update(0, 16);
+    };
+    for (let i = 0; i < 4; i += 1) press('ArrowDown');
+    press('Enter'); // Career
+    press('ArrowDown');
+    press('Enter'); // Achievements
+    const registry = seams.visualArt;
+    expect(registry).toBeDefined();
+    seams.render((harness.menuScene as unknown as { requireController(): { snapshot(): never } }).requireController().snapshot());
+    expect(seams.visualArt).toBe(registry);
+  });
+
 
   it('registers settings panel targets in order and drives them through logical nav/confirm', () => {
     const harness = createHarness();
@@ -1315,7 +1384,7 @@ describe('MenuScene UI command events', () => {
     expect(events).toEqual(['ui:confirm']);
   });
 
-  it('emits exactly one ui:confirm for Enter and Space activation, never two', () => {
+  it('rejects a second keyboard confirm while the first Contract launch is loading', () => {
     const harness = createHarness();
     const events = recordEvents(harness.bus);
 
@@ -1328,7 +1397,7 @@ describe('MenuScene UI command events', () => {
     harness.menuScene.update(0, 16);
     harness.keyboard.keydown('Space');
     harness.menuScene.update(0, 16);
-    expect(events).toEqual(['ui:confirm']);
+    expect(events).toEqual([]);
   });
 
   it('emits ui:confirm for the panel button and ui:back for < Back, never a second confirm', () => {

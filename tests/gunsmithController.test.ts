@@ -60,6 +60,54 @@ describe('GunsmithController durable commands', () => {
     expect(controller.snapshot().parts[0]).toMatchObject({ name: 'Standard Barrel', compatible: true, iconArtId: 'upgrade-icon:long-barrel' });
   });
 
+  it('moves one owned physical part between builds atomically instead of duplicating it', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      barrel: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+    } }));
+    controller.createBuild('pistol');
+    expect(controller.fitPart('barrel')).toMatchObject({ ok: true });
+    controller.createBuild('smg');
+    expect(controller.snapshot().parts[0]).toMatchObject({ state: 'fitted-elsewhere', assignedBuildName: 'Pistol Build' });
+    expect(controller.fitPart('barrel')).toMatchObject({ ok: true, persisted: true });
+    const builds = context.saveData.gunsmith.builds;
+    expect(builds.find((build) => build.id === 'build:pistol')?.fitted.barrel).toBeUndefined();
+    expect(builds.find((build) => build.id === 'build:smg')?.fitted.barrel).toBe('barrel');
+    expect(context.saveData.gunsmith.parts.barrel).toBeDefined();
+  });
+
+  it('does not advertise a cross-build move when the target slot is occupied', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      standard: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+      long: { partId: 'part:barrel-long', tier: 1, infusedTraits: [] },
+    } }));
+    controller.createBuild('pistol');
+    controller.fitPart('standard');
+    controller.createBuild('smg');
+    controller.fitPart('long');
+    controller.selectBuild('build:pistol');
+
+    expect(controller.snapshot().parts.find((part) => part.instanceId === 'long')).toMatchObject({
+      state: 'incompatible', compatible: false,
+      comparisonSummary: 'Barrel occupied — unequip Standard Barrel first.',
+    });
+    expect(controller.fitPart('long')).toEqual({ ok: false, reason: 'slot-full' });
+    expect(context.saveData.gunsmith.builds.find((build) => build.id === 'build:smg')?.fitted.barrel).toBe('long');
+  });
+
+  it('fabricates one paid physical instance with a monotonic serial and publishes nothing on save failure', () => {
+    const { context, controller } = setup();
+    context.commitProgression((progression) => ({ ...progression, scrap: 240 }));
+    expect(controller.fabricate('part:receiver-compact')).toMatchObject({ ok: true, persisted: true });
+    expect(context.saveData.progression.scrap).toBe(180);
+    expect(context.saveData.gunsmith.parts['fabricated:receiver-compact:1']).toMatchObject({ partId: 'part:receiver-compact', tier: 1 });
+    expect(context.saveData.gunsmith.fabricationSerials?.['part:receiver-compact']).toBe(1);
+    expect(controller.fabricate('part:receiver-compact')).toMatchObject({ ok: true, persisted: true });
+    expect(context.saveData.gunsmith.parts['fabricated:receiver-compact:2']).toBeDefined();
+    expect(context.saveData.gunsmith.fabricationSerials?.['part:receiver-compact']).toBe(2);
+  });
+
   it('consumes a trait source and preserves the infused owned target', () => {
     const { context, controller } = setup();
     context.updateGunsmith((state) => ({ ...state, parts: {

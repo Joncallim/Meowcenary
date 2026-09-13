@@ -135,37 +135,43 @@ export class MainMenuController {
 
   createGunBuild(family: string): MainMenuSnapshot {
     const result = this.gunsmithController.createBuild(family);
-    this.notice = result.ok ? undefined : `Gunsmith: ${result.reason}`;
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
     return this.snapshot();
   }
 
   selectGunBuild(id: string): MainMenuSnapshot {
     const result = this.gunsmithController.selectBuild(id);
-    this.notice = result.ok ? undefined : `Gunsmith: ${result.reason}`;
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
     return this.snapshot();
   }
 
   fitGunPart(instanceId: string): MainMenuSnapshot {
     const result = this.gunsmithController.fitPart(instanceId);
-    this.notice = result.ok ? undefined : `Gunsmith: ${result.reason}`;
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
     return this.snapshot();
   }
 
   unequipGunPart(instanceId: string): MainMenuSnapshot {
     const result = this.gunsmithController.unequipPart(instanceId);
-    this.notice = result.ok ? undefined : `Gunsmith: ${result.reason}`;
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
     return this.snapshot();
   }
 
   mergeGunParts(firstInstanceId: string, secondInstanceId: string): MainMenuSnapshot {
     const result = this.gunsmithController.merge(firstInstanceId, secondInstanceId);
-    this.notice = result.ok ? undefined : `Gunsmith: ${result.reason}`;
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
     return this.snapshot();
   }
 
   infuseGunPart(targetInstanceId: string, traitInstanceId: string): MainMenuSnapshot {
     const result = this.gunsmithController.infuse(targetInstanceId, traitInstanceId);
-    this.notice = result.ok ? undefined : `Gunsmith: ${result.reason}`;
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
+    return this.snapshot();
+  }
+
+  fabricateGunPart(partId: string): MainMenuSnapshot {
+    const result = this.gunsmithController.fabricate(partId);
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
     return this.snapshot();
   }
 
@@ -197,6 +203,20 @@ export class MainMenuController {
         return 'Selection not found';
       default:
         return 'Selection failed';
+    }
+  }
+
+  private noticeForGunsmithFailure(reason: string): string {
+    switch (reason) {
+      case 'slot-full': return 'That slot is occupied — unequip the current part first';
+      case 'slot-incompatible': return 'That part does not fit this weapon build';
+      case 'trait-cap-reached': return 'Trait capacity is full — unequip a trait first';
+      case 'fabrication-unavailable': return 'That blueprint is not available or needs more Scrap';
+      case 'save-failed': return 'Could not save that Gunsmith change';
+      case 'unknown-family':
+      case 'unknown-build':
+      case 'unknown-part': return 'That Gunsmith item is unavailable';
+      default: return 'That Gunsmith change could not be made';
     }
   }
 

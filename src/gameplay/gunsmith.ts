@@ -117,6 +117,14 @@ export interface WeaponBuild {
   readonly traitParts: readonly string[];
 }
 
+/** The durable Gunsmith shape needed by cross-build assignment.  Kept here as
+ * a structural contract so the pure gameplay layer never imports persistence
+ * implementation details. */
+export interface GunsmithAssignmentState {
+  readonly builds: readonly WeaponBuild[];
+  readonly parts: Readonly<Record<string, { readonly partId: string; readonly tier: number; readonly infusedTraits: readonly string[] }>>;
+}
+
 // ── Slot compatibility ────────────────────────────────────────────────
 
 export function isSlotCompatible(family: string, slot: PartSlot): boolean {
@@ -169,6 +177,76 @@ export function equipPart(
       fitted: { ...build.fitted, [definition.slot]: part.instanceId },
     },
   };
+}
+
+export type AssignPartResult<T extends GunsmithAssignmentState> =
+  | { readonly ok: true; readonly state: T; readonly movedFromBuildId?: string }
+  | { readonly ok: false; readonly reason: 'unknown-build' | 'unknown-part' | 'slot-incompatible' | 'slot-full' };
+
+/**
+ * Atomically assigns one physical owned instance to a build.  Eligibility is
+ * checked against the target before any old reference is removed, so an
+ * occupied/incompatible target never ejects the player's current fitting.
+ */
+export function assignPartToBuild<T extends GunsmithAssignmentState>(
+  state: T,
+  targetBuildId: string,
+  instanceId: string,
+  definitions: ReadonlyMap<string, PartDefinition>,
+): AssignPartResult<T> {
+  const target = state.builds.find((build) => build.id === targetBuildId);
+  if (!target) return { ok: false, reason: 'unknown-build' };
+  const stored = state.parts[instanceId];
+  if (!stored) return { ok: false, reason: 'unknown-part' };
+  const part: OwnedPart = { instanceId, partId: stored.partId, tier: stored.tier, infusedTraits: stored.infusedTraits as readonly BehaviorTrait[] };
+
+  // A target already holding this instance is a no-op success.  It avoids
+  // treating an idempotent tap as a slot collision while preserving exactly
+  // one reference after normalisation.
+  const alreadyInTarget = Object.values(target.fitted).includes(instanceId) || target.traitParts.includes(instanceId);
+  if (alreadyInTarget) {
+    let movedFromBuildId: string | undefined;
+    const builds = state.builds.map((build) => {
+      if (build.id === targetBuildId) return build;
+      if (!Object.values(build.fitted).includes(instanceId) && !build.traitParts.includes(instanceId)) return build;
+      movedFromBuildId ??= build.id;
+      return removePartReference(build, instanceId);
+    });
+    return { ok: true, state: { ...state, builds } as T, ...(movedFromBuildId === undefined ? {} : { movedFromBuildId }) };
+  }
+
+  const fitted = equipPart(target, part, definitions);
+  if (!fitted.ok) return fitted;
+
+  let movedFromBuildId: string | undefined;
+  const builds = state.builds.map((build) => {
+    if (build.id === targetBuildId) return fitted.build;
+    const references = Object.values(build.fitted).includes(instanceId) || build.traitParts.includes(instanceId);
+    if (!references) return build;
+    movedFromBuildId ??= build.id;
+    return removePartReference(build, instanceId);
+  });
+  return { ok: true, state: { ...state, builds } as T, ...(movedFromBuildId === undefined ? {} : { movedFromBuildId }) };
+}
+
+/** Removes a physical instance from every compatible reference in a build. */
+export function removePartReference(build: WeaponBuild, instanceId: string): WeaponBuild {
+  const fitted = Object.fromEntries(Object.entries(build.fitted).filter(([, id]) => id !== instanceId));
+  return { ...build, fitted, traitParts: build.traitParts.filter((id) => id !== instanceId) };
+}
+
+/** Checks the durable one-instance/one-build invariant without depending on
+ * UI state.  Decode uses the same deterministic repair policy below. */
+export function hasUniquePartAssignments(state: GunsmithAssignmentState): boolean {
+  const seen = new Set<string>();
+  for (const build of state.builds) {
+    for (const id of [...Object.values(build.fitted), ...build.traitParts]) {
+      if (id === undefined) continue;
+      if (seen.has(id)) return false;
+      seen.add(id);
+    }
+  }
+  return true;
 }
 
 export type UnequipResult =

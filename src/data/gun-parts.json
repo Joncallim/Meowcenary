@@ -8,7 +8,9 @@
     "effects": [
       { "stat": "attackSpeed", "op": "add", "value": 0.08 }
     ],
-    "traits": []
+    "traits": [],
+    "unlock": { "type": "always" },
+    "fabricationCost": 60
   },
   {
     "id": "part:receiver-heavy",
@@ -20,7 +22,9 @@
       { "stat": "damage", "op": "mult", "value": 1.12 },
       { "stat": "attackSpeed", "op": "mult", "value": 0.94 }
     ],
-    "traits": []
+    "traits": [],
+    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-03" },
+    "fabricationCost": 120
   },
   {
     "id": "part:barrel-standard",
@@ -31,7 +35,9 @@
     "effects": [
       { "stat": "range", "op": "add", "value": 10 }
     ],
-    "traits": []
+    "traits": [],
+    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-01" },
+    "fabricationCost": 60
   },
   {
     "id": "part:barrel-long",
@@ -43,7 +49,9 @@
       { "stat": "range", "op": "add", "value": 35 },
       { "stat": "projectileSpeed", "op": "mult", "value": 1.1 }
     ],
-    "traits": []
+    "traits": [],
+    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-01" },
+    "fabricationCost": 110
   },
   {
     "id": "part:optic-red-dot",
@@ -54,7 +62,9 @@
     "effects": [
       { "stat": "spreadDeg", "op": "add", "value": -2 }
     ],
-    "traits": []
+    "traits": [],
+    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-02" },
+    "fabricationCost": 70
   },
   {
     "id": "part:stock-padded",
@@ -65,7 +75,9 @@
     "effects": [
       { "stat": "spreadDeg", "op": "add", "value": -1.5 }
     ],
-    "traits": []
+    "traits": [],
+    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-02" },
+    "fabricationCost": 70
   },
   {
     "id": "part:trigger-hair",
@@ -76,7 +88,9 @@
     "effects": [
       { "stat": "attackSpeed", "op": "mult", "value": 1.15 }
     ],
-    "traits": []
+    "traits": [],
+    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-04" },
+    "fabricationCost": 120
   },
   {
     "id": "part:magazine-extended",
@@ -87,7 +101,9 @@
     "effects": [
       { "stat": "projectileCount", "op": "add", "value": 1 }
     ],
-    "traits": []
+    "traits": [],
+    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-03" },
+    "fabricationCost": 80
   },
   {
     "id": "part:underbarrel-grenade",
@@ -110,7 +126,9 @@
       { "stat": "pierce", "op": "add", "value": 1 },
       { "stat": "damage", "op": "mult", "value": 0.92 }
     ],
-    "traits": ["PIERCING"]
+    "traits": ["PIERCING"],
+    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-05" },
+    "fabricationCost": 200
   },
   {
     "id": "part:trait-fire",
@@ -120,6 +138,7 @@
     "presentation": { "iconArtId": "upgrade-icon:hot-barrel" },
     "effects": [{ "stat": "damage", "op": "mult", "value": 1.02 }],
     "traits": ["FIRE"],
+    "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-05" },
     "fabricationCost": 120,
     "rewardPoolId": "pool:traits-chapter-1"
   },

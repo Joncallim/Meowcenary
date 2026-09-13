@@ -208,7 +208,7 @@ export function createDefaultSaveV3(): SaveDataV3 {
     achievements: {},
     achievementMetrics: {},
     characters: {},
-    gunsmith: { builds: [], parts: {} },
+    gunsmith: { builds: [], parts: {}, fabricationSerials: {} },
     equipment: {},
     equipmentLoadout: {},
     items: {},
@@ -229,7 +229,7 @@ export function createDefaultSaveV4(): SaveDataV4 {
     achievements: {},
     achievementMetrics: {},
     characters: {},
-    gunsmith: { builds: [], parts: {} },
+    gunsmith: { builds: [], parts: {}, fabricationSerials: {} },
     equipment: {},
     equipmentLoadout: {},
     items: {},
@@ -463,6 +463,7 @@ export function migrateV3ToV4(v3: SaveDataV3): SaveDataV4 {
       builds: [...v3.gunsmith.builds],
       parts: { ...v3.gunsmith.parts },
       selectedBuildId: v3.gunsmith.selectedBuildId,
+      fabricationSerials: { ...(v3.gunsmith.fabricationSerials ?? {}) },
     },
     equipment: { ...v3.equipment },
     equipmentLoadout: v3.equipmentLoadout ? { ...v3.equipmentLoadout } : {},
@@ -600,13 +601,61 @@ function sanitizeGunsmithState(raw: unknown): GunsmithState {
         .map((b) => sanitizeBuild(b, asOwnedReference))
     : [];
   const selectedBuildId = readOwn(raw, 'selectedBuildId');
+  const validSelectedBuildId = typeof selectedBuildId === 'string' && builds.some((build) => build.id === selectedBuildId)
+    ? selectedBuildId
+    : undefined;
+  // V4 shape did not change, but old/corrupt saves may refer to one physical
+  // instance from multiple builds.  The selected build wins, then persisted
+  // build order.  References are repaired; owned inventory is never deleted.
+  const uniqueBuilds = repairDuplicateBuildReferences(builds, validSelectedBuildId);
   return {
-    builds,
+    builds: uniqueBuilds,
     parts,
-    ...(typeof selectedBuildId === 'string' && builds.some((build) => build.id === selectedBuildId)
-      ? { selectedBuildId }
-      : {}),
+    fabricationSerials: sanitizeFabricationSerials(readOwn(raw, 'fabricationSerials')),
+    ...(validSelectedBuildId === undefined
+      ? {}
+      : { selectedBuildId: validSelectedBuildId }),
   };
+}
+
+function sanitizeFabricationSerials(raw: unknown): Readonly<Record<string, number>> {
+  if (!isPlainRecord(raw)) return {};
+  const serials: Record<string, number> = Object.create(null);
+  for (const partId of Object.keys(raw)) {
+    const value = readOwn(raw, partId);
+    // Catalog validation later decides whether this syntactically valid part
+    // remains live.  Save decode must preserve monotonic serials for it rather
+    // than risk ID reuse if content is temporarily unavailable.
+    if (isUnlockId(partId) && partId.startsWith('part:') && Number.isSafeInteger(value) && (value as number) >= 0) {
+      serials[partId] = value as number;
+    }
+  }
+  return Object.freeze(serials);
+}
+
+function repairDuplicateBuildReferences(builds: readonly Build[], selectedBuildId: string | undefined): readonly Build[] {
+  const ordered = selectedBuildId === undefined
+    ? [...builds]
+    : [...builds.filter((build) => build.id === selectedBuildId), ...builds.filter((build) => build.id !== selectedBuildId)];
+  const claimed = new Set<string>();
+  const repaired = new Map<string, Build>();
+  for (const build of ordered) {
+    const fitted: Record<string, string> = {};
+    for (const [slot, instanceId] of Object.entries(build.fitted)) {
+      if (instanceId === undefined) continue;
+      if (claimed.has(instanceId)) continue;
+      claimed.add(instanceId);
+      fitted[slot] = instanceId;
+    }
+    const traitParts: string[] = [];
+    for (const instanceId of build.traitParts) {
+      if (claimed.has(instanceId)) continue;
+      claimed.add(instanceId);
+      traitParts.push(instanceId);
+    }
+    repaired.set(build.id, { ...build, fitted, traitParts });
+  }
+  return builds.map((build) => repaired.get(build.id) ?? build);
 }
 
 function sanitizeBuild(

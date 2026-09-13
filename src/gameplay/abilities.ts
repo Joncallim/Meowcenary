@@ -14,6 +14,13 @@
  */
 import type { Modifier } from './stats';
 
+export type AbilityPresentationCue = 'shockwave' | 'overclock-aura' | 'shield-aura' | 'heal-burst' | 'speed-trail' | 'heat-ring' | 'loot-pulse' | 'precision-mark';
+export interface AbilityPresentationDefinition {
+  readonly cue: AbilityPresentationCue;
+  readonly color: string;
+  readonly radius?: number;
+}
+
 export interface AbilityRuntime {
   readonly player: { x: number; y: number; heal(amount: number): void; grantInvulnerability(durationMs: number): void };
   readonly stats: { add(modifier: Modifier): void; remove(sourceId: string): void };
@@ -43,6 +50,7 @@ export interface AbilityDefinition {
   readonly cooldownMs: number;
   readonly durationMs: number;
   readonly effect: AbilityEffect;
+  readonly presentation: AbilityPresentationDefinition;
 }
 
 export function applyAbilityEffect(definition: AbilityDefinition, runtime: AbilityRuntime): void {

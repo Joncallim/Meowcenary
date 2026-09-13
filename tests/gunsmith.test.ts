@@ -318,6 +318,26 @@ describe('Epic 23 persistence round-trip', () => {
     expect(build.traitParts).toEqual([]);
   });
 
+  it('repairs cross-build duplicate references with selected build priority without deleting inventory', () => {
+    const storage = new MemoryStorageAdapter();
+    const manager = new SaveManager(storage, 'cross-build-repair', {});
+    manager.save({ ...createDefaultSaveV4(), gunsmith: {
+      builds: [
+        { id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: { barrel: 'owned-barrel' }, traitParts: [] },
+        { id: 'build:smg', name: 'SMG Build', baseWeaponFamily: 'smg', fitted: { barrel: 'owned-barrel' }, traitParts: [] },
+      ],
+      selectedBuildId: 'build:smg',
+      parts: { 'owned-barrel': { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] } },
+      fabricationSerials: { 'part:barrel-standard': 7 },
+    } });
+    const loaded = manager.load().gunsmith;
+    expect(loaded.builds[0]?.fitted.barrel).toBeUndefined();
+    expect(loaded.builds[1]?.fitted.barrel).toBe('owned-barrel');
+    expect(loaded.parts['owned-barrel']).toBeDefined();
+    expect(loaded.fabricationSerials).toEqual({ 'part:barrel-standard': 7 });
+    expect(manager.load().gunsmith).toEqual(loaded);
+  });
+
   it('preserves an unavailable weapon family without silently retargeting the build', () => {
     const save = createDefaultSaveV4();
     const storage = new MemoryStorageAdapter();
