@@ -1082,6 +1082,26 @@ describe('MenuScene', () => {
     expect(seams.navigator.index).toBe(0);
   });
 
+  it('reuses one resolved visual-art registry across Career achievement rerenders', () => {
+    const harness = createHarness();
+    const seams = harness.menuScene as unknown as {
+      visualArt?: unknown;
+      render(snapshot: never): void;
+    };
+    const press = (key: string) => {
+      harness.keyboard.keydown(key); harness.menuScene.update(0, 16);
+      harness.keyboard.keyup(key); harness.menuScene.update(0, 16);
+    };
+    for (let i = 0; i < 4; i += 1) press('ArrowDown');
+    press('Enter'); // Career
+    press('ArrowDown');
+    press('Enter'); // Achievements
+    const registry = seams.visualArt;
+    expect(registry).toBeDefined();
+    seams.render((harness.menuScene as unknown as { requireController(): { snapshot(): never } }).requireController().snapshot());
+    expect(seams.visualArt).toBe(registry);
+  });
+
 
   it('registers settings panel targets in order and drives them through logical nav/confirm', () => {
     const harness = createHarness();

@@ -81,6 +81,9 @@ export class MenuScene extends Phaser.Scene {
   private touchDragDistance = 0;
   private touchDidScroll = false;
   private achievementArtLoading = false;
+  /** Scene-lifetime physical binding resolver. Career can render a large
+   * gallery repeatedly, so per-badge catalog cloning/validation is invalid. */
+  private visualArt?: DataVisualArtRegistry;
   /** A run never starts against the boot bundle alone. This state remains in
    * Menu so a load failure has a usable Retry/Back surface rather than a
    * partially constructed GameScene. */
@@ -106,6 +109,7 @@ export class MenuScene extends Phaser.Scene {
     this.runLaunchPresentation = undefined;
     this.isLive = true;
     const ctx = this.getContext();
+    this.visualArt = new DataVisualArtRegistry(ctx.data);
     this.bus = ctx.bus;
     this.controller = new MainMenuController(ctx);
 
@@ -1068,7 +1072,7 @@ export class MenuScene extends Phaser.Scene {
   /** Career shares terminal Achievement badge identity while retaining its
    * own gallery layout. Missing textures intentionally preserve text/focus. */
   private addAchievementIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string, maxSize = 26): void {
-    const binding = resolveAchievementIconBinding(new DataVisualArtRegistry(this.getContext().data), iconArtId);
+    const binding = resolveAchievementIconBinding(this.requireVisualArt(), iconArtId);
     if (!binding || !this.textures?.exists(binding.textureKey)) return;
     const icon = this.own(root, this.add.image(x, y, binding.textureKey, binding.frameKey));
     icon.setDisplaySize(Math.min(maxSize, binding.display.width), Math.min(maxSize, binding.display.height));
@@ -1085,7 +1089,7 @@ export class MenuScene extends Phaser.Scene {
     // texture manager; their semantic gallery assertions remain valid.
     if (!this.textures?.exists) return;
     const context = this.getContext();
-    const art = new DataVisualArtRegistry(context.data);
+    const art = this.requireVisualArt();
     const resources = new DataVisualResourceRegistry(context.data);
     const missing = new Map<string, import('../systems/types').VisualTextureResource>();
     for (const iconArtId of iconArtIds) {
@@ -1340,6 +1344,7 @@ export class MenuScene extends Phaser.Scene {
     this.committedDisplay = false;
     this.hoveredIndex = -1;
     this.controller = undefined;
+    this.visualArt = undefined;
     // The manager is game-scoped and Boot-owned: shutdown only drops this
     // scene's reference — never destroy/stopMusic/stopAll.
     this.audioManager = undefined;
@@ -1347,6 +1352,11 @@ export class MenuScene extends Phaser.Scene {
 
   private getContext(): GameContext {
     return getGameContext(this);
+  }
+
+  private requireVisualArt(): DataVisualArtRegistry {
+    if (!this.visualArt) throw new Error('Visual art registry missing from MenuScene');
+    return this.visualArt;
   }
 
   private requireController(): MainMenuController {
