@@ -164,23 +164,30 @@ export async function loadTextureResources(
   // reporting a partial closure as complete on slower mobile browsers.
   await new Promise<void>((resolve) => {
     let remaining = pending.length;
+    const unsettled = new Set(pending.map((resource) => resource.textureKey));
     const settle = (resource: VisualTextureResource, success: boolean): void => {
+      if (!unsettled.delete(resource.textureKey)) return;
       scene.load.off(fileCompleteEvent(resource), completeHandlers.get(resource.textureKey));
-      scene.load.off(`loaderror-${resource.textureKey}`, errorHandlers.get(resource.textureKey));
       (success ? loaded : failed).push({ resourceId: resource.id, textureKey: resource.textureKey, success });
       remaining -= 1;
       onProgress?.({ completed: loaded.length + failed.length, total });
-      if (remaining === 0) resolve();
+      if (remaining === 0) {
+        scene.load.off('loaderror', error);
+        resolve();
+      }
     };
     const completeHandlers = new Map<string, () => void>();
-    const errorHandlers = new Map<string, () => void>();
+    // Phaser emits the LoaderPlugin-wide `loaderror` event, rather than a
+    // keyed event.  Filter its file payload back to this physical closure.
+    const error = (file: { readonly key?: string }): void => {
+      const resource = pending.find((candidate) => candidate.textureKey === file.key);
+      if (resource) settle(resource, false);
+    };
+    scene.load.on('loaderror', error);
     for (const resource of pending) {
       const complete = () => settle(resource, true);
-      const error = () => settle(resource, false);
       completeHandlers.set(resource.textureKey, complete);
-      errorHandlers.set(resource.textureKey, error);
       scene.load.once(fileCompleteEvent(resource), complete);
-      scene.load.once(`loaderror-${resource.textureKey}`, error);
       switch (resource.load.type) {
         case 'image': scene.load.image(resource.textureKey, resource.load.imageUrl); break;
         case 'atlas': scene.load.atlas(resource.textureKey, resource.load.imageUrl, resource.load.dataUrl!); break;

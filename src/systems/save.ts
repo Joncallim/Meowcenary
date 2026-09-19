@@ -3,6 +3,7 @@ import { isContentId, isGrantTransactionId, isInstanceId, isUnlockId } from './i
 import { BEHAVIOR_TRAITS, MAX_EFFECTIVE_TRAITS_PER_PART, RARITY_TIER, type PartSlot } from '../gameplay/gunsmith';
 import { getFamilySlots } from '../gameplay/weaponFamilies';
 import { EQUIPMENT_TIERS } from '../gameplay/equipment';
+import { migrateV3ToV4Full } from './saveV4';
 
 export interface Settings {
   readonly muted: boolean;
@@ -361,7 +362,7 @@ interface SaveDecodeResult {
   readonly unsupportedFutureVersion: boolean;
 }
 
-function decodeSave(raw: unknown, maxLevels: MetaUpgradeMaxLevels): SaveDecodeResult {
+function decodeSave(raw: unknown, maxLevels: MetaUpgradeMaxLevels, applyProductionMigration = false): SaveDecodeResult {
   const parsed = parseRawSave(raw);
   if (!isPlainRecord(parsed)) return { data: createDefaultSaveV4(), unsupportedFutureVersion: false };
   const version = readOwn(parsed, 'version');
@@ -390,7 +391,10 @@ function decodeSave(raw: unknown, maxLevels: MetaUpgradeMaxLevels): SaveDecodeRe
       appliedGrantTransactions: sanitizeAppliedGrantTransactions(readOwn(parsed, 'appliedGrantTransactions')),
       grantTransactionFingerprints: sanitizeGrantTransactionFingerprints(readOwn(parsed, 'grantTransactionFingerprints')),
     });
-    return { data: migrateV3ToV4(v3), unsupportedFutureVersion: false };
+    // V3 is the last shipped envelope.  It must pass through the complete
+    // migration, not the shape-only compatibility helper: this is where
+    // historical progression, capability, and ownership repairs are made.
+    return { data: applyProductionMigration ? migrateV3ToV4Full(v3).save : migrateV3ToV4(v3), unsupportedFutureVersion: false };
   }
   if (version === 4) {
     const equipment = sanitizeEquipmentState(readOwn(parsed, 'equipment'));
@@ -839,7 +843,7 @@ export class SaveManager {
 
   load(): SaveData {
     try {
-      const decoded = decodeSave(this.storage.getItem(this.key), this.maxLevels);
+      const decoded = decodeSave(this.storage.getItem(this.key), this.maxLevels, true);
       this.writeProtected ||= decoded.unsupportedFutureVersion;
       return decoded.data;
     } catch {

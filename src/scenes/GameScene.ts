@@ -34,10 +34,9 @@ import { InputController, type GameAction } from '../systems/input';
 import { SpawnSystem } from '../systems/SpawnSystem';
 import { DataEnemyRegistry } from '../systems/enemies';
 import { DataEquipmentRegistry } from '../systems/equipment';
-import { resolveEquipmentModifiers } from '../gameplay/equipment';
 import { DataPartRegistry } from '../systems/parts';
 import type { ProjectileEffect } from '../gameplay/projectileEffects';
-import { resolvePersistentGunsmithEngineering } from '../gameplay/persistentLoadout';
+import { resolvePersistentRunLoadout } from '../gameplay/persistentLoadout';
 import { buildArenaScenery, type ArenaScenery } from '../systems/arenaScenery';
 import { UpgradeSystem } from '../systems/UpgradeSystem';
 import { ProgressionSystem, type BankedRun } from '../systems/ProgressionSystem';
@@ -266,19 +265,20 @@ export class GameScene extends Phaser.Scene {
     });
     this.runState = prepared.run;
     const equipmentRegistry = new DataEquipmentRegistry({ equipment: ctx.data.equipment ?? [], equipmentSets: ctx.data.equipmentSets ?? [], equipmentRules: ctx.data.equipmentRules ?? { unlocks: { 2: { type: 'always' }, 3: { type: 'always' }, 4: { type: 'always' } } } });
-    const ownedEquipment = new Map(Object.entries(ctx.saveData.equipment).map(([instanceId, equipment]) => [
-      instanceId, { instanceId, equipmentId: equipment.equipmentId, tier: equipment.tier },
-    ] as const));
-    resolveEquipmentModifiers({ equipped: ctx.saveData.equipmentLoadout ?? {} }, equipmentRegistry.asMap(), equipmentRegistry.setsAsMap(), ownedEquipment)
-      .forEach((modifier) => this.runState!.stats.add(modifier));
-    // The single Gunsmith resolver compiles selected-family engineering even
-    // when that family is absent from the starting rack.
-    const persistentEngineering = resolvePersistentGunsmithEngineering(
-      ctx.saveData.gunsmith,
+    // Compile the entire persistent loadout at the run boundary.  This is the
+    // single source for Equipment set traits as well as selected Gunsmith
+    // engineering, so advertised set effects reach projectile behavior.
+    const persistentLoadout = resolvePersistentRunLoadout(
+      ctx.saveData,
+      new Map([...equipmentRegistry.setsAsMap()].map(([id, set]) => [id, {
+        id,
+        setBonuses: { 2: set.thresholds[2], 4: set.thresholds[4] },
+      }] as const)),
+      equipmentRegistry.asMap(),
       new DataPartRegistry({ gunParts: ctx.data.gunParts ?? [] }).asMap(),
     );
-    persistentEngineering.modifiers.forEach((modifier) => this.runState!.stats.add(modifier));
-    const projectileEffectsByFamily: ReadonlyMap<string, readonly ProjectileEffect[]> = persistentEngineering.projectileEffectsByFamily;
+    persistentLoadout.modifiers.forEach((modifier) => this.runState!.stats.add(modifier));
+    const projectileEffectsByFamily: ReadonlyMap<string, readonly ProjectileEffect[]> = persistentLoadout.projectileEffectsByFamily;
     this.enemyDefinitions = new DataEnemyRegistry(ctx.data);
     // Run-clock-stamped effective-damage meter. The listener captures the
     // run-state local so it never re-reads scene state after shutdown.
