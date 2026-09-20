@@ -265,9 +265,6 @@ export class GameScene extends Phaser.Scene {
     });
     this.runState = prepared.run;
     const equipmentRegistry = new DataEquipmentRegistry({ equipment: ctx.data.equipment ?? [], equipmentSets: ctx.data.equipmentSets ?? [], equipmentRules: ctx.data.equipmentRules ?? { unlocks: { 2: { type: 'always' }, 3: { type: 'always' }, 4: { type: 'always' } } } });
-    // Compile the entire persistent loadout at the run boundary.  This is the
-    // single source for Equipment set traits as well as selected Gunsmith
-    // engineering, so advertised set effects reach projectile behavior.
     const persistentLoadout = resolvePersistentRunLoadout(
       ctx.saveData,
       new Map([...equipmentRegistry.setsAsMap()].map(([id, set]) => [id, {
