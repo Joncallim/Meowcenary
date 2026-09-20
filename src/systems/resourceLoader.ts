@@ -172,7 +172,7 @@ export async function loadTextureResources(
       remaining -= 1;
       onProgress?.({ completed: loaded.length + failed.length, total });
       if (remaining === 0) {
-        scene.load.off('loaderror', error);
+        scene.load.off?.('loaderror', error);
         resolve();
       }
     };
@@ -183,7 +183,12 @@ export async function loadTextureResources(
       const resource = pending.find((candidate) => candidate.textureKey === file.key);
       if (resource) settle(resource, false);
     };
-    scene.load.on('loaderror', error);
+    // Production Phaser supplies the LoaderPlugin event emitter.  The
+    // minimal headless scene harness supplies only completion events.
+    const loaderEvents = scene.load as typeof scene.load & {
+      on?: (event: string, listener: (file: { readonly key?: string }) => void) => unknown;
+    };
+    loaderEvents.on?.('loaderror', error);
     for (const resource of pending) {
       const complete = () => settle(resource, true);
       completeHandlers.set(resource.textureKey, complete);
