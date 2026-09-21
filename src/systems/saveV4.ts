@@ -615,17 +615,22 @@ export function settleRunTerminal(
       }
     }
 
-    // Update win metrics
+  }
+
+  // Training is a normal terminal event with no Stage/Boss/first-clear
+  // components. Win-owned metrics and mastery therefore deliberately live
+  // outside the normal-Stage branch above.
+  if (input.terminalStatus === 'win') {
     const currentRunsCompleted = metrics['metric:runs-completed'] ?? 0;
     metrics['metric:runs-completed'] = currentRunsCompleted + 1;
 
-    // Apply win mastery
     const currentMastery = characters[input.characterId] ?? { tier: 0, xp: 0 };
     const masteryResult = resolveMasteryAward(input.characterId, currentMastery.tier, currentMastery.xp);
     characters[input.characterId] = Object.freeze({ tier: masteryResult.tier, xp: masteryResult.xp });
     masteryTierAwarded = masteryResult.tierAwarded;
 
-    // Evaluate Achievements against candidate facts
+    // Compatibility-only lightweight definitions. Production catalog
+    // evaluation is performed by GameContext against this complete candidate.
     for (const def of achievementDefinitions) {
       if (achievements[def.id]?.completed) continue;
       if (def.condition(currentSave, input.stageId, input.bossId, metrics)) {
@@ -638,9 +643,7 @@ export function settleRunTerminal(
           };
           scrapAwardedFromAchievements += def.scrapReward;
         }
-        if (!pendingReports.includes(def.id)) {
-          pendingReports.push(def.id);
-        }
+        if (!pendingReports.includes(def.id)) pendingReports.push(def.id);
       }
     }
   }

@@ -29,6 +29,9 @@ import { applyDurableGrantTransaction, durableGrantFingerprint, type DurableGran
 import { noopAchievementAdapter, type AchievementPlatformAdapter } from '../gameplay/achievementPlatform';
 import { EQUIPMENT_TIERS, equipmentUpgradeUnlock, upgradeCost } from '../gameplay/equipment';
 import { updateCompendiumDiscovery } from '../systems/compendium';
+import { settleRunTerminal as buildRunTerminalSettlement, type RunTerminalSettlementResult } from '../systems/saveV4';
+import { DataAchievementRegistry, metricExtractor } from '../systems/achievements';
+import { evaluateAchievements } from '../gameplay/achievementSystem';
 
 export const GAME_CONTEXT_REGISTRY_KEY = 'meowcenary.gameContext';
 
@@ -85,6 +88,17 @@ export type SelectStageResult =
   | { readonly ok: true; readonly stageId: string; readonly revision: number }
   | { readonly ok: false; readonly reason: SelectStageFailureReason; readonly stageId: string; readonly revision: number };
 
+/** The only caller-provided terminal facts.  Catalog rewards, boss identity,
+ * mastery and achievement consequences are always re-resolved by GameContext. */
+export interface RunTerminalRequest {
+  readonly terminalStatus: 'win' | 'loss';
+  readonly runScrap: number;
+  readonly characterId: string;
+  readonly runDurationMs: number;
+  readonly stageId?: string;
+  readonly isTraining?: boolean;
+}
+
 export interface GameContext {
   readonly bus: EventBus;
   /** Boot/menu scoped only; gameplay RNG comes from RunState.seed. */
@@ -121,6 +135,9 @@ export interface GameContext {
   /** Atomically spend durable scrap and advance one owned equipment instance. */
   commitEquipmentUpgrade(instanceId: string, expectedTier: number, nextTier: number, cost: number): boolean;
   applyGrantTransaction(transaction: DurableGrantTransaction): boolean;
+  /** The sole normal-run durable boundary. A successful terminal event
+   * becomes visible only after its complete Save V4 candidate is written. */
+  settleRunTerminal(input: RunTerminalRequest): RunTerminalSettlementResult;
   /** One durable commit for the first-clear fact, optional boss fact, and its
    * source-owned rewards.  No fact becomes visible without its receipt. */
   completeStageTransaction(stageId: string, timeMs: number, bossId: string | undefined, transaction: DurableGrantTransaction): boolean;
@@ -179,12 +196,13 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       previous[slot as keyof EquipmentLoadoutState] === loadout[slot as keyof EquipmentLoadoutState]);
     return unchanged ? save : freezeSaveV4({ ...save, equipmentLoadout: loadout });
   };
-  const equipmentUpgradeFacts = () => createConditionContext(current.progression, {
-    stages: current.stages,
-    achievements: current.achievements,
-    characters: current.characters,
-    bosses: current.bosses,
+  const equipmentUpgradeFactsFor = (save: SaveData) => createConditionContext(save.progression, {
+    stages: save.stages,
+    achievements: save.achievements,
+    characters: save.characters,
+    bosses: save.bosses,
   });
+  const equipmentUpgradeFacts = () => equipmentUpgradeFactsFor(current);
   // Character availability is a read of the same authoritative facts as
   // stages/equipment, never a legacy meta-unlock side channel.
   const characterUnlockFacts = () => createConditionContext(current.progression, {
@@ -195,7 +213,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
   });
   const normalizedInitial = normalizeEquipmentSnapshot(current);
   if (normalizedInitial !== current && options.save.save(normalizedInitial)) current = normalizedInitial;
-  const hasKnownContentRewards = (transaction: DurableGrantTransaction): boolean => transaction.grants.every((grant) => {
+  const hasKnownContentRewards = (transaction: DurableGrantTransaction, factsSave: SaveData = current): boolean => transaction.grants.every((grant) => {
     switch (grant.type) {
       case 'unlock-equipment':
         return knownEquipmentIds.has(grant.equipmentId);
@@ -204,7 +222,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         const tier = grant.tier ?? 1;
         for (let targetTier = 2; targetTier <= tier; targetTier += 1) {
           const unlock = options.data.equipmentRules && equipmentUpgradeUnlock(targetTier as 2 | 3 | 4, options.data.equipmentRules);
-          if (unlock !== undefined && !evaluateCondition(unlock, equipmentUpgradeFacts())) return false;
+          if (unlock !== undefined && !evaluateCondition(unlock, equipmentUpgradeFactsFor(factsSave))) return false;
         }
         return true;
       }
@@ -417,6 +435,124 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       if (!options.save.save(candidate)) return false;
       current = options.save.load();
       return true;
+    },
+    settleRunTerminal(input) {
+      const failed = (): RunTerminalSettlementResult => Object.freeze({
+        ok: false,
+        terminalApplied: false,
+        runScrapBanked: 0,
+        firstClear: false,
+        bestTimeImproved: false,
+        firstClearScrap: 0,
+        persistentGrantIds: Object.freeze([]),
+        achievementIdsCompleted: Object.freeze([]),
+        scrapAwardedFromAchievements: 0,
+        masteryTierAwarded: 0,
+      });
+      if (!input || (input.terminalStatus !== 'win' && input.terminalStatus !== 'loss')
+        || !Number.isFinite(input.runDurationMs) || input.runDurationMs < 0
+        || !options.characters.characterById(input.characterId)) return failed();
+
+      const normalStage = input.isTraining === true ? undefined : input.stageId === undefined ? undefined : stages.stageById(input.stageId);
+      // A normal win must identify a current Contract. Losses may identify its
+      // Contract for validation, but cannot manufacture its clear facts.
+      if (input.isTraining !== true && input.stageId !== undefined && !normalStage) return failed();
+      if (input.terminalStatus === 'win' && input.isTraining !== true && !normalStage) return failed();
+
+      const base = buildRunTerminalSettlement(current, {
+        ...input,
+        terminalStatus: input.terminalStatus === 'win' ? 'win' : 'loss',
+        bossId: normalStage?.bossId,
+      }, () => null, (_characterId, tier, xp) => {
+        const nextXp = xp + 100;
+        const nextTier = Math.max(tier, Math.floor(nextXp / 100));
+        return { tier: nextTier, xp: nextXp, tierAwarded: Math.max(0, nextTier - tier) };
+      }, []);
+
+      let candidate = base.candidate;
+      let firstClearScrap = 0;
+      const persistentGrantIds: string[] = [];
+      const collectPersistentIds = (transaction: DurableGrantTransaction): void => {
+        for (const grant of transaction.grants) {
+          if (grant.type === 'grant-part-instance' || grant.type === 'grant-equipment-instance') persistentGrantIds.push(grant.instanceId);
+          else if (grant.type === 'unlock-stage') persistentGrantIds.push(grant.stageId);
+          else if (grant.type === 'unlock-character') persistentGrantIds.push(grant.characterId);
+          else if (grant.type === 'unlock-equipment') persistentGrantIds.push(grant.equipmentId);
+          else if (grant.type === 'unlock-part') persistentGrantIds.push(grant.partId);
+          else if (grant.type === 'unlock-trait') persistentGrantIds.push(grant.traitId);
+        }
+      };
+      const apply = (transaction: DurableGrantTransaction): boolean => {
+        if (!hasKnownContentRewards(transaction, candidate)) return false;
+        const granted = applyDurableGrantTransaction(candidate, transaction);
+        if (!granted.valid) return false;
+        candidate = granted.save;
+        if (granted.changed) collectPersistentIds(transaction);
+        return true;
+      };
+
+      // The builder has projected the Stage/Boss facts first. Only a genuine
+      // new clear may now consume the current catalog-owned source receipt.
+      if (base.result.firstClear && normalStage) {
+        const reward = stages.rewardProfileById(normalStage.rewardProfileId);
+        if (!reward) return failed();
+        const transaction: DurableGrantTransaction = {
+          id: `${normalStage.id}:first-clear`,
+          grants: [{ type: 'grant-scrap', amount: reward.firstClearScrap }, ...(reward.grants ?? [])],
+        };
+        if (!apply(transaction)) return failed();
+        firstClearScrap = reward.firstClearScrap;
+      }
+
+      // Evaluate the validated active catalog against the *complete* terminal
+      // candidate, then give every completion its own receipt in that same
+      // candidate save. No scene-supplied completion/reward is accepted.
+      const registry = new DataAchievementRegistry({ achievements: options.data.achievements ?? [] });
+      const metricEntries = new Map<string, NonNullable<ReturnType<typeof metricExtractor>>>();
+      for (const definition of registry.all()) {
+        if (definition.metricId === undefined) continue;
+        const extractor = metricExtractor(definition.metricId);
+        if (extractor !== undefined) metricEntries.set(definition.metricId, extractor);
+      }
+      const evaluation = evaluateAchievements(candidate.achievements, {
+        metrics: candidate.achievementMetrics,
+        progression: candidate.progression,
+        stages: candidate.stages,
+        characters: candidate.characters,
+        bosses: candidate.bosses,
+      }, { definitions: registry.asMap(), metrics: metricEntries }, input.runDurationMs);
+      let achievementScrap = 0;
+      for (const achievementId of evaluation.completed) {
+        const definition = registry.achievementById(achievementId);
+        if (!definition) return failed();
+        const grants = [{ type: 'achievement-completed' as const, achievementId }, ...(definition.rewards ?? []).map((reward) => reward.grant)];
+        const transaction: DurableGrantTransaction = { id: `${achievementId}:completion`, grants };
+        if (!apply(transaction)) return failed();
+        achievementScrap += grants.reduce((sum, grant) => sum + (grant.type === 'grant-scrap' ? grant.amount : 0), 0);
+      }
+      if (evaluation.completed.length > 0) {
+        candidate = freezeSaveV4({
+          ...candidate,
+          achievements: evaluation.state,
+          pendingAchievementReports: Object.freeze([...new Set([...candidate.pendingAchievementReports, ...evaluation.completed])]),
+        });
+      }
+
+      // Exactly one synchronous persistence boundary; no candidate is
+      // published or revalidated unless it becomes durable.
+      if (!options.save.save(candidate)) return failed();
+      current = candidate;
+      revalidateSelection();
+      if (normalStage && base.result.firstClear) advanceSelectedStage(normalStage.id);
+      return Object.freeze({
+        ...base.result,
+        ok: true,
+        terminalApplied: true,
+        firstClearScrap,
+        persistentGrantIds: Object.freeze(persistentGrantIds),
+        achievementIdsCompleted: Object.freeze([...evaluation.completed]),
+        scrapAwardedFromAchievements: achievementScrap,
+      });
     },
     applyGrantTransaction(transaction) {
       if (!hasKnownContentRewards(transaction)) return false;
