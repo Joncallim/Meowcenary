@@ -97,6 +97,9 @@ export interface RunTerminalRequest {
   readonly runDurationMs: number;
   readonly stageId?: string;
   readonly isTraining?: boolean;
+  /** Monotonic run-local metric facts collected by gameplay.  They are
+   * committed only with this terminal candidate, never by UI callbacks. */
+  readonly metricIncrements?: Readonly<Record<string, number>>;
 }
 
 export interface GameContext {
@@ -470,6 +473,13 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       }, []);
 
       let candidate = base.candidate;
+      if (input.metricIncrements !== undefined) {
+        const metrics = { ...candidate.achievementMetrics };
+        for (const [id, amount] of Object.entries(input.metricIncrements)) {
+          if (Number.isFinite(amount) && amount > 0) metrics[id] = (metrics[id] ?? 0) + Math.floor(amount);
+        }
+        candidate = freezeSaveV4({ ...candidate, achievementMetrics: Object.freeze(metrics) });
+      }
       let firstClearScrap = 0;
       const persistentGrantIds: string[] = [];
       const collectPersistentIds = (transaction: DurableGrantTransaction): void => {

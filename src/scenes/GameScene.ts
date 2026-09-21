@@ -39,7 +39,8 @@ import type { ProjectileEffect } from '../gameplay/projectileEffects';
 import { resolvePersistentRunLoadout } from '../gameplay/persistentLoadout';
 import { buildArenaScenery, type ArenaScenery } from '../systems/arenaScenery';
 import { UpgradeSystem } from '../systems/UpgradeSystem';
-import { ProgressionSystem, type BankedRun } from '../systems/ProgressionSystem';
+import type { BankedRun } from '../systems/ProgressionSystem';
+import type { RunTerminalSettlementResult } from '../systems/saveV4';
 import { DataWeaponRegistry } from '../systems/weaponRegistry';
 import { DataLootTableRegistry } from '../systems/lootTables';
 import { WeaponSystem } from '../systems/WeaponSystem';
@@ -126,7 +127,8 @@ export class GameScene extends Phaser.Scene {
   private weaponRewardSystem?: WeaponRewardSystem;
   private upgradeSystem?: UpgradeSystem;
   private upgradeChooser?: UpgradeChooser;
-  private progressionSystem?: ProgressionSystem;
+  private terminalSettlement?: RunTerminalSettlementResult;
+  private terminalStageId?: string;
   private runSummaryController?: RunSummaryController;
   private runSummaryView?: PhaserRunSummaryView;
   private spawnCurve?: Readonly<SpawnCurveDefinition>;
@@ -168,10 +170,6 @@ export class GameScene extends Phaser.Scene {
    *  input for a brief window after a state-changing action. */
   private _inputBlockedUntil = 0;
 
-  /** A won run has earned mastery, but storage may be transiently unavailable.
-   * Keep the character identity until the authoritative save boundary accepts
-   * it; the retry also re-evaluates mastery-gated achievements afterwards. */
-  private pendingMasteryCharacterId?: string;
 
   constructor() {
     super(SceneKey.Game);
@@ -448,25 +446,14 @@ export class GameScene extends Phaser.Scene {
       () => this.inputController!.getInputMode(),
       viewport,
     );
-    this.progressionSystem = this.isTraining ? undefined : new ProgressionSystem({
-      runState: this.runState,
-      bus: ctx.bus,
-      context: ctx,
-    });
-    // Progression must bank a completed run before achievement facts observe
-    // its durable currency total. EventBus preserves registration order.
+    // One context-owned terminal candidate handles Contract, replay, loss and
+    // Training.  This listener never supplies rewards, boss truth, mastery or
+    // achievement state; it only forwards immutable run identity/facts.
     this.unsubscribers.push(
       ctx.bus.on('run:won', () => {
-        if (this.isTraining) return;
-        this.pendingMasteryCharacterId = this.runState!.characterId;
-        this.retryPendingCharacterMastery(ctx);
-        this.evaluateLiveAchievements(ctx, {
-        'metric:runs-completed': 1,
-        // This is a lifetime metric, not the current spendable balance. The
-        // progression listener has already banked this exact run reward.
-          'metric:scrap-banked': this.progressionSystem?.lastBankedRun?.reward.scrap ?? 0,
-        });
+        this.trySettleTerminal(ctx, 'win');
       }),
+      ctx.bus.on('run:lost', () => this.trySettleTerminal(ctx, 'loss')),
     );
     const debugCheatSystem =
       cheatsActive && debugFlags
@@ -528,7 +515,6 @@ export class GameScene extends Phaser.Scene {
       spawnSystem.spawnEncounterEnemy(plan.encounter.bossId, arena.size.width / 2, Math.max(80, arena.size.height * 0.2));
     }
     this.systems = [
-      ...(this.progressionSystem ? [this.progressionSystem] : []),
       new PassiveCoordinator({
         runState: this.runState,
         bus: ctx.bus,
@@ -564,7 +550,13 @@ export class GameScene extends Phaser.Scene {
         return scene.requireRunState();
       },
       get lastBankedRun(): BankedRun | null {
-        return scene.progressionSystem?.lastBankedRun ?? null;
+        const settlement = scene.terminalSettlement;
+        if (!settlement?.terminalApplied) return null;
+        return Object.freeze({
+          reward: Object.freeze({ scrap: settlement.runScrapBanked, unlocks: Object.freeze([]) }),
+          meta: ctx.saveData.progression,
+          persisted: true,
+        });
       },
       get canContinue(): boolean {
         return scene.stagePlan !== undefined && new StageSelectionController(ctx).hasNextUnlockedStage();
@@ -677,7 +669,6 @@ export class GameScene extends Phaser.Scene {
     this.upgradeChooser?.refreshInputPresentation();
     this.updateStageObjective(ctx, delta);
     const terminalPersistencePending = this.hasPendingTerminalPersistence();
-    this.retryPendingCharacterMastery(ctx);
     this.retryPendingAchievementFacts(ctx);
     this.syncPhysicsPause(runState);
     // Objective completion is a durable boundary. A transient save failure
@@ -787,7 +778,6 @@ export class GameScene extends Phaser.Scene {
       system.destroy();
     });
     this.systems = [];
-    this.progressionSystem = undefined;
     this.hudController = undefined;
     this.dropSystem = undefined;
     this.weaponRewardSystem = undefined;
@@ -1063,16 +1053,10 @@ export class GameScene extends Phaser.Scene {
     endRun(runState, 'lost', this.getContext().bus);
   }
 
-  /** Explicit user-owned exit path. Training never reaches a settlement;
-   * a normal contract resumes only long enough to cross the established
-   * authoritative loss boundary. */
+  /** Explicit exit crosses the same terminal owner for every run kind. */
   private exitRunEarly(): void {
     const runState = this.runState;
     if (!runState || runState.status !== 'paused' || runState.pauseReason !== 'manual') return;
-    if (this.isTraining) {
-      this.scene.start(SceneKey.Menu);
-      return;
-    }
     resumeRun(runState, this.getContext().bus, 'manual');
     endRun(runState, 'lost', this.getContext().bus);
   }
@@ -1166,6 +1150,10 @@ export class GameScene extends Phaser.Scene {
       if (!Number.isFinite(amount) || amount === 0) continue;
       this.pendingAchievementFacts[id] = Math.max(0, (this.pendingAchievementFacts[id] ?? 0) + amount);
     }
+    // Normal runs settle their metrics, completions and reward receipts in
+    // one terminal candidate.  Keep run-local facts in memory until then;
+    // do not create a second live gameplay write path.
+    if (this.runState?.status === 'active' || this.runState?.status === 'paused') return;
     const pendingFacts = this.pendingAchievementFacts;
     const previousMetrics = ctx.saveData.achievementMetrics;
     const metrics: Record<string, number> = { ...previousMetrics };
@@ -1213,31 +1201,18 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private retryPendingCharacterMastery(ctx: GameContext): void {
-    const characterId = this.pendingMasteryCharacterId;
-    if (!characterId || !ctx.recordCharacterMastery(characterId, 100)) return;
-    this.pendingMasteryCharacterId = undefined;
-    // Mastery conditions read the just-persisted fact.  This is intentionally
-    // separate from the run metric transaction so a failed mastery write is
-    // retried rather than allowing a terminal achievement to see stale facts.
-    this.evaluateLiveAchievements(ctx, {});
-  }
-
   private hasPendingTerminalPersistence(): boolean {
     const terminalRun = this.runState?.status === 'won' || this.runState?.status === 'lost';
-    return (terminalRun && this.progressionSystem?.hasBanked !== true)
-      || this.pendingMasteryCharacterId !== undefined
-      || this.pendingAchievementEvaluation
-      || Object.keys(this.pendingAchievementFacts).length > 0;
+    return terminalRun && this.terminalSettlement?.terminalApplied !== true;
   }
 
   /** Explicit user-authorized escape hatch for permanently unavailable
    * storage. It never claims persistence or mutates the save; normal retry
    * remains the default until the player chooses to leave without saving. */
   private discardPendingTerminalPersistence(): void {
-    this.pendingMasteryCharacterId = undefined;
-    this.pendingAchievementFacts = {};
-    this.pendingAchievementEvaluation = false;
+    // The user may leave an unavailable-storage result surface, but no
+    // terminal progress is represented as accepted without this marker.
+    this.terminalSettlement = undefined;
   }
 
   private describeAchievementToast(): string | undefined {
@@ -1259,16 +1234,40 @@ export class GameScene extends Phaser.Scene {
   private tryCommitStageClear(ctx: GameContext): boolean {
     const runtime = this.stageRuntime;
     if (!runtime) return false;
-    const committed = runtime.tryCommit((pending) => ctx.completeStageTransaction(pending.stageId, pending.timeMs, pending.bossId, {
-      id: `stage:${pending.stageId.slice('stage:'.length)}:first-clear`,
-      grants: [{ type: 'grant-scrap', amount: pending.reward }, ...(pending.grants ?? [])],
-    }));
+    // StageRuntime owns extraction input gating only. Durable consequences are
+    // deferred to the single run-terminal candidate after `endRun` so they
+    // cannot split from Scrap, mastery, metrics or Achievements.
+    const committed = runtime.tryCommit((pending) => {
+      this.terminalStageId = pending.stageId;
+      return true;
+    });
     if (!committed) return false;
-    // Stage/boss facts are durable at this boundary. Evaluate condition-driven
-    // achievements now rather than waiting for the terminal run summary.
-    this.evaluateLiveAchievements(ctx, {});
     if (this.runState?.status === 'active') endRun(this.runState, 'won', ctx.bus);
     return true;
+  }
+
+  private trySettleTerminal(ctx: GameContext, terminalStatus: 'win' | 'loss'): void {
+    const run = this.runState;
+    if (!run || this.terminalSettlement?.terminalApplied === true) return;
+    const result = ctx.settleRunTerminal({
+      terminalStatus,
+      runScrap: run.currency,
+      characterId: run.characterId,
+      runDurationMs: run.timeMs,
+      ...(terminalStatus === 'win' && this.terminalStageId !== undefined ? { stageId: this.terminalStageId } : {}),
+      isTraining: this.isTraining,
+      metricIncrements: this.pendingAchievementFacts,
+    });
+    if (!result.terminalApplied) return;
+    this.terminalSettlement = result;
+    this.pendingAchievementFacts = {};
+    const registry = new DataAchievementRegistry({ achievements: ctx.data.achievements ?? [] });
+    for (const id of result.achievementIdsCompleted) {
+      const definition = registry.achievementById(id);
+      if (!definition) continue;
+      this.completedAchievementNames.push(definition.name);
+      this.completedAchievements.push(Object.freeze({ id, name: definition.name, iconArtId: definition.presentation.iconArtId }));
+    }
   }
 
   private syncPhysicsPause(runState: RunState): void {

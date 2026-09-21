@@ -27,7 +27,7 @@ function completedRuntime(reward: Record<string, unknown>) {
 /** Regression for the runtime boundary: a failed save must retain the exact
  * objective-completion snapshot rather than recomputing/losing its reward. */
 describe('GameScene durable stage clear', () => {
-  it('pauses the active run until the captured transaction retries without reward drift', () => {
+  it('captures the completed Stage identity without persisting a partial terminal result', () => {
     const scene = new GameScene() as any;
     const run = createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'junkyard-lot' });
     run.status = 'active';
@@ -37,40 +37,19 @@ describe('GameScene durable stage clear', () => {
     scene.physics = { world: { pause: vi.fn(), resume: vi.fn() } };
     expect(scene.stageRuntime.pendingClear).toMatchObject({ timeMs: 61_000, reward: 35 });
 
-    const completeStageTransaction = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
-    const context = { completeStageTransaction, bus: createEventBus() };
-    expect(scene.tryCommitStageClear(context)).toBe(false);
-    // A failed persistence attempt is an earned-clear boundary, not an
-    // opportunity for combat to convert the result into a loss.
-    scene.syncPhysicsPause(run);
-    expect(scene.physics.world.pause).toHaveBeenCalledTimes(1);
-    run.timeMs = 180_000;
-    expect(scene.tryCommitStageClear(context)).toBe(true);
-    expect(completeStageTransaction).toHaveBeenNthCalledWith(1,
-      'stage:junkyard-01', 61_000, undefined,
-      { id: 'stage:junkyard-01:first-clear', grants: [{ type: 'grant-scrap', amount: 35 }] },
-    );
-    expect(completeStageTransaction).toHaveBeenLastCalledWith(
-      'stage:junkyard-01', 61_000, undefined,
-      { id: 'stage:junkyard-01:first-clear', grants: [{ type: 'grant-scrap', amount: 35 }] },
-    );
+    expect(scene.tryCommitStageClear({ bus: createEventBus() })).toBe(true);
+    expect(scene.terminalStageId).toBe('stage:junkyard-01');
+    expect(run.status).toBe('won');
   });
 
-  it('commits explicit profile rewards with the stage receipt, not through a separate UI mutation', () => {
+  it('does not let the extraction UI supply profile rewards', () => {
     const scene = new GameScene() as any;
     const run = createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'junkyard-lot' });
     run.status = 'active';
     scene.runState = run;
     scene.stageRuntime = completedRuntime({ firstClearScrap: 25, grants: [{ type: 'grant-part-instance', instanceId: 'reward:proof', partId: 'part:barrel-standard', tier: 1 }] });
-    const completeStageTransaction = vi.fn().mockReturnValue(true);
-    expect(scene.tryCommitStageClear({ completeStageTransaction, bus: createEventBus() })).toBe(true);
-    expect(completeStageTransaction).toHaveBeenCalledWith('stage:junkyard-01', 61_000, undefined, {
-      id: 'stage:junkyard-01:first-clear',
-      grants: [
-        { type: 'grant-scrap', amount: 25 },
-        { type: 'grant-part-instance', instanceId: 'reward:proof', partId: 'part:barrel-standard', tier: 1 },
-      ],
-    });
+    expect(scene.tryCommitStageClear({ bus: createEventBus() })).toBe(true);
+    expect(scene.terminalStageId).toBe('stage:junkyard-01');
   });
 
   it('holds a completed objective at the shared confirm-to-extract boundary', () => {
@@ -80,11 +59,10 @@ describe('GameScene durable stage clear', () => {
     scene.runState = run;
     scene.stageRuntime = completedRuntime({ firstClearScrap: 25 });
     scene.physics = { world: { pause: vi.fn(), resume: vi.fn() } };
-    const completeStageTransaction = vi.fn().mockReturnValue(true);
-    scene.getContext = () => ({ completeStageTransaction, bus: createEventBus() });
+    scene.getContext = () => ({ bus: createEventBus() });
     scene.pauseController = { snapshot: () => ({ panel: 'closed' }) };
     scene.routeAction('confirm');
-    expect(completeStageTransaction).toHaveBeenCalledOnce();
+    expect(scene.terminalStageId).toBe('stage:junkyard-01');
     expect(run.status).toBe('won');
   });
 
@@ -122,6 +100,7 @@ describe('GameScene durable stage clear', () => {
     // Exercise the production extraction command rather than calling the
     // durable method directly: a player confirms the completed objective.
     scene.routeAction('confirm');
+    scene.trySettleTerminal(context, 'win');
     expect(run.status).toBe('won');
     expect(context.saveData.stages['stage:junkyard-05']?.completed).toBe(true);
     expect(context.saveData.bosses['boss-crusher']?.defeated).toBe(true);
