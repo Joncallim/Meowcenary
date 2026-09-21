@@ -669,7 +669,11 @@ export class GameScene extends Phaser.Scene {
     this.upgradeChooser?.refreshInputPresentation();
     this.updateStageObjective(ctx, delta);
     const terminalPersistencePending = this.hasPendingTerminalPersistence();
-    this.retryPendingAchievementFacts(ctx);
+    if (runState.status === 'won' || runState.status === 'lost') {
+      this.trySettleTerminal(ctx, runState.status === 'won' ? 'win' : 'loss');
+    } else {
+      this.retryPendingAchievementFacts(ctx);
+    }
     this.syncPhysicsPause(runState);
     // Objective completion is a durable boundary. A transient save failure
     // must not leave combat running long enough to turn an earned clear into
@@ -1196,6 +1200,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private retryPendingAchievementFacts(ctx: GameContext): void {
+    if (this.runState?.status === 'won' || this.runState?.status === 'lost') return;
     if (Object.keys(this.pendingAchievementFacts).length > 0 || this.pendingAchievementEvaluation) {
       this.evaluateLiveAchievements(ctx, {});
     }
