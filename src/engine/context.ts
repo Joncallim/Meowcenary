@@ -530,7 +530,9 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         if (!apply(transaction)) return failed();
         achievementScrap += grants.reduce((sum, grant) => sum + (grant.type === 'grant-scrap' ? grant.amount : 0), 0);
       }
-      if (evaluation.completed.length > 0) {
+      // Incremental achievement progress is player-visible durable state too;
+      // retain it even when this terminal event did not complete a reward.
+      if (evaluation.state !== candidate.achievements || evaluation.completed.length > 0) {
         candidate = freezeSaveV4({
           ...candidate,
           achievements: evaluation.state,
