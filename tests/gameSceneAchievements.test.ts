@@ -19,7 +19,7 @@ describe('GameScene achievement fact bridge', () => {
     expect(scene.completedAchievements).toEqual([]);
   });
 
-  it('accumulates banked run rewards across later wallet spending', () => {
+  it('retains run-local metric facts for the terminal candidate', () => {
     const scene = new GameScene() as any;
     scene.runState = { timeMs: 1_000 };
     const data = loadGameData();
@@ -38,16 +38,12 @@ describe('GameScene achievement fact bridge', () => {
     };
 
     scene.evaluateLiveAchievements(ctx, { 'metric:scrap-banked': 5000 });
-    // The wallet can be spent entirely between runs; that must not erase the
-    // lifetime fact used by the achievement definition.
-    ctx.saveData = { ...ctx.saveData, progression: { ...ctx.saveData.progression, scrap: 0 } };
     scene.evaluateLiveAchievements(ctx, { 'metric:scrap-banked': 5000 });
-
-    expect(ctx.saveData.achievementMetrics['metric:scrap-banked']).toBe(10_000);
-    expect(ctx.saveData.achievements['achievement:scrap-tycoon']).toMatchObject({ completed: true });
+    expect(scene.pendingAchievementFacts['metric:scrap-banked']).toBe(10_000);
+    expect(ctx.commitAchievementTransaction).not.toHaveBeenCalled();
   });
 
-  it('retries accepted gameplay facts after a transient achievement-save failure', () => {
+  it('does not persist gameplay facts before terminal settlement', () => {
     const scene = new GameScene() as any;
     scene.runState = { timeMs: 1_000 };
     const data = loadGameData();
@@ -71,13 +67,12 @@ describe('GameScene achievement fact bridge', () => {
     scene.evaluateLiveAchievements(ctx, { 'metric:enemies-defeated': 1 });
     expect(ctx.saveData.achievementMetrics).toEqual({});
 
-    // No second kill occurs: the already-authoritative fact itself is retried.
     scene.retryPendingAchievementFacts(ctx);
-    expect(ctx.saveData.achievementMetrics['metric:enemies-defeated']).toBe(1);
-    expect(ctx.commitAchievementTransaction).toHaveBeenCalledTimes(2);
+    expect(scene.pendingAchievementFacts['metric:enemies-defeated']).toBe(1);
+    expect(ctx.commitAchievementTransaction).not.toHaveBeenCalled();
   });
 
-  it('evaluates durable boss facts even when no metric increment accompanies the stage clear', () => {
+  it('leaves boss achievement evaluation to the terminal candidate', () => {
     const scene = new GameScene() as any;
     scene.runState = { timeMs: 1_000 };
     const data = loadGameData();
@@ -96,10 +91,8 @@ describe('GameScene achievement fact bridge', () => {
     };
 
     scene.evaluateLiveAchievements(ctx, {});
-    expect(ctx.saveData.achievements['achievement:boss-crusher']).toMatchObject({ completed: true });
-    expect(ctx.commitAchievementTransaction).toHaveBeenCalledWith(
-      expect.anything(), expect.anything(), expect.objectContaining({ id: 'achievement:boss-crusher:completion' }),
-    );
+    expect(ctx.saveData.achievements['achievement:boss-crusher']).toBeUndefined();
+    expect(ctx.commitAchievementTransaction).not.toHaveBeenCalled();
   });
 
   it('routes won-run mastery through the terminal settlement owner', () => {

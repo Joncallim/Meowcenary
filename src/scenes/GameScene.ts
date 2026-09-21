@@ -70,8 +70,7 @@ import { DataVisualArtRegistry, resolveAchievementIconBinding } from '../systems
 import { assertRunPhysicalResourcesLoaded, resolveRunPhysicalResources } from '../systems/resourceLoader';
 import { HeldWeaponView } from '../entities/heldWeaponView';
 import { DefeatPresentationSystem } from '../systems/defeatPresentation';
-import { DataAchievementRegistry, metricExtractor } from '../systems/achievements';
-import { evaluateAchievements } from '../gameplay/achievementSystem';
+import { DataAchievementRegistry } from '../systems/achievements';
 import { DataAbilityRegistry } from '../systems/abilities';
 import { activateAbility, applyAbilityEffect, createAbilityState, expireAbilityEffect, tickAbility, type AbilityDefinition, type AbilityState } from '../gameplay/abilities';
 import { applyEnemyDamage } from '../gameplay/enemyDamageResolver';
@@ -155,10 +154,6 @@ export class GameScene extends Phaser.Scene {
    * storage write must not turn an authoritative kill/merge/run result into
    * a permanently lost achievement increment. */
   private pendingAchievementFacts: Record<string, number> = {};
-  /** A condition-only evaluation can fail without a metric increment. Keep a
-   * retry marker so mastery/stage facts are never forgotten after storage
-   * recovers. */
-  private pendingAchievementEvaluation = false;
   private _wasPendingClear = false;
   /** The input adapter owns pointer state; GameScene only declares whether
    * gameplay currently owns pointer gestures. */
@@ -1154,56 +1149,13 @@ export class GameScene extends Phaser.Scene {
       if (!Number.isFinite(amount) || amount === 0) continue;
       this.pendingAchievementFacts[id] = Math.max(0, (this.pendingAchievementFacts[id] ?? 0) + amount);
     }
-    // Normal runs settle their metrics, completions and reward receipts in
-    // one terminal candidate.  Keep run-local facts in memory until then;
-    // do not create a second live gameplay write path.
-    if (this.runState?.status === 'active' || this.runState?.status === 'paused') return;
-    const pendingFacts = this.pendingAchievementFacts;
-    const previousMetrics = ctx.saveData.achievementMetrics;
-    const metrics: Record<string, number> = { ...previousMetrics };
-    for (const [id, amount] of Object.entries(pendingFacts)) {
-      metrics[id] = Math.max(0, (metrics[id] ?? 0) + amount);
-    }
-    const registry = new DataAchievementRegistry({ achievements: ctx.data.achievements ?? [] });
-    const result = evaluateAchievements(ctx.saveData.achievements, {
-      metrics,
-      progression: ctx.saveData.progression,
-      stages: ctx.saveData.stages,
-      characters: ctx.saveData.characters,
-      bosses: ctx.saveData.bosses,
-    }, { definitions: registry.asMap(), metrics: new Map(registryMetricEntries()) }, this.runState?.timeMs ?? 0);
-    const completed = result.completed;
-    const transaction = completed.length > 0
-      ? { id: `${completed[0]}:completion`, grants: result.rewards }
-      : undefined;
-    if (!ctx.commitAchievementTransaction(result.state, metrics, transaction)) {
-      this.pendingAchievementEvaluation = true;
-      return;
-    }
-    this.pendingAchievementFacts = {};
-    this.pendingAchievementEvaluation = false;
-    for (const achievementId of completed) {
-      const progress = result.state[achievementId];
-      const definition = registry.achievementById(achievementId);
-      if (progress) ctx.reportAchievement(achievementId, progress);
-      if (definition) {
-        this.completedAchievementNames.push(definition.name);
-        this.completedAchievements.push(Object.freeze({
-          id: definition.id,
-          name: definition.name,
-          iconArtId: definition.presentation.iconArtId,
-        }));
-        this.achievementToast = { text: `Achievement: ${definition.name}`, untilMs: (this.runState?.timeMs ?? 0) + 3_000 };
-        ctx.bus.emit('achievement:completed', { achievementId, name: definition.name });
-      }
-    }
+    // The sole owner evaluates these facts against its complete candidate.
+    // Keep the scene as an accumulator only; it never persists achievements.
+    void ctx;
   }
 
   private retryPendingAchievementFacts(ctx: GameContext): void {
-    if (this.runState?.status === 'won' || this.runState?.status === 'lost') return;
-    if (Object.keys(this.pendingAchievementFacts).length > 0 || this.pendingAchievementEvaluation) {
-      this.evaluateLiveAchievements(ctx, {});
-    }
+    void ctx;
   }
 
   private hasPendingTerminalPersistence(): boolean {
@@ -1308,12 +1260,4 @@ export class GameScene extends Phaser.Scene {
       this.gameplayPointerSuspended = true;
     }
   }
-}
-
-function registryMetricEntries(): ReadonlyArray<readonly [string, NonNullable<ReturnType<typeof metricExtractor>>]> {
-  const ids = ['metric:enemies-defeated', 'metric:merges-performed', 'metric:runs-completed', 'metric:scrap-banked'];
-  return ids.flatMap((id) => {
-    const extractor = metricExtractor(id);
-    return extractor ? [[id, extractor] as const] : [];
-  });
 }
