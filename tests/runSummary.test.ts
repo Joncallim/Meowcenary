@@ -9,7 +9,7 @@ import {
   startRun,
   type RunState,
 } from '../src/gameplay/runState';
-import { ProgressionSystem, type BankedRun } from '../src/systems/ProgressionSystem';
+import type { BankedRun } from '../src/systems/ProgressionSystem';
 import { DataArenaRegistry } from '../src/systems/arenas';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
@@ -87,6 +87,7 @@ describe('RunSummaryController snapshots', () => {
       kills: 23,
       runCurrency: 25.5,
       bankedScrap: 12,
+      firstClearScrap: 0,
       totalScrap: 100,
       persistenceSucceeded: true,
       newlyAvailableNames: [],
@@ -94,6 +95,20 @@ describe('RunSummaryController snapshots', () => {
       completedAchievements: [],
       canContinue: false,
     });
+  });
+
+  it('uses the accepted terminal transaction for run and first-clear scrap, not legacy reward reconstruction', () => {
+    const controller = new RunSummaryController({
+      ...source(terminalRun('won'), bankedRun({ reward: { scrap: 999, unlocks: [] } })),
+      terminalSettlement: {
+        ok: true, terminalApplied: true, runScrapBanked: 12, firstClear: true,
+        bestTimeImproved: true, firstClearScrap: 35, persistentGrantIds: ['reward:stage-01-standard-barrel'],
+        achievementIdsCompleted: [], scrapAwardedFromAchievements: 0, masteryTierAwarded: 0,
+        availabilityBefore: { selectableCharacterIds: [], fabricableEquipmentSetIds: [], fabricablePartIds: [], maxEquipmentTier: 1 },
+        availabilityAfter: { selectableCharacterIds: [], fabricableEquipmentSetIds: [], fabricablePartIds: ['part:receiver-compact'], maxEquipmentTier: 1 },
+      },
+    });
+    expect(controller.snapshot()).toMatchObject({ bankedScrap: 12, firstClearScrap: 35, persistenceSucceeded: true });
   });
 
   it('snapshots a lost run without unlocks', () => {
@@ -235,7 +250,7 @@ describe('computeRunSummaryLayout', () => {
   }
 });
 
-describe('RunSummaryController banking integration', () => {
+describe('RunSummaryController terminal integration', () => {
   function setup() {
     const data = loadGameData();
     const arenas = new DataArenaRegistry(data);
@@ -259,37 +274,41 @@ describe('RunSummaryController banking integration', () => {
   }
 
   it.each(['won', 'lost'] as const)(
-    'banks a %s run exactly once before the getter-backed snapshot is read',
+    'reads a %s run only after the terminal owner has accepted it',
     (outcome) => {
       const { bus, context } = setup();
-      const run = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
+      const run = createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'arena' });
       startRun(run);
       run.currency = 12.9;
-      const system = new ProgressionSystem({ runState: run, bus, context });
+      const settlement = {
+        ok: true, terminalApplied: true, runScrapBanked: 12, firstClear: false,
+        bestTimeImproved: false, firstClearScrap: 0, persistentGrantIds: [], achievementIdsCompleted: [],
+        scrapAwardedFromAchievements: 0, masteryTierAwarded: 0,
+        availabilityBefore: { selectableCharacterIds: [], fabricableEquipmentSetIds: [], fabricablePartIds: [], maxEquipmentTier: 1 as const },
+        availabilityAfter: { selectableCharacterIds: [], fabricableEquipmentSetIds: [], fabricablePartIds: [], maxEquipmentTier: 1 as const },
+      } as const;
       const controller = new RunSummaryController({
         get runState() {
           return run;
         },
         get lastBankedRun() {
-          return system.lastBankedRun;
+          return { reward: { scrap: settlement.runScrapBanked, unlocks: [] }, meta: context.saveData.progression, persisted: true };
         },
+        get terminalSettlement() { return settlement; },
       });
       let captured: RunSummarySnapshot | undefined;
-      // Subscribed after ProgressionSystem so banking completes before render.
       bus.on(outcome === 'won' ? 'run:won' : 'run:lost', () => {
         captured = controller.snapshot();
       });
 
       endRun(run, outcome, bus);
 
-      expect(system.hasBanked).toBe(true);
-      expect(system.bankFinishedRun()).toBeNull();
-      expect(context.saveData.progression.scrap).toBe(12);
       expect(captured).toMatchObject({
         outcome,
         runCurrency: 12.9,
         bankedScrap: 12,
-        totalScrap: 12,
+        firstClearScrap: 0,
+        totalScrap: 0,
         persistenceSucceeded: true,
         newlyAvailableNames: [],
       });

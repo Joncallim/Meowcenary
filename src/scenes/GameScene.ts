@@ -37,6 +37,7 @@ import { DataEquipmentRegistry } from '../systems/equipment';
 import { DataPartRegistry } from '../systems/parts';
 import type { ProjectileEffect } from '../gameplay/projectileEffects';
 import { resolvePersistentRunLoadout } from '../gameplay/persistentLoadout';
+import { diffAvailability } from '../gameplay/persistentAvailability';
 import { buildArenaScenery, type ArenaScenery } from '../systems/arenaScenery';
 import { UpgradeSystem } from '../systems/UpgradeSystem';
 import type { BankedRun } from '../systems/ProgressionSystem';
@@ -150,6 +151,7 @@ export class GameScene extends Phaser.Scene {
   /** Stable terminal presentation records; never infer icon identity from a
    * player-facing name at the result surface. */
   private completedAchievements: CompletedAchievementPresentation[] = [];
+  private newlyAvailableNames: string[] = [];
   /** Facts accepted by live gameplay but not yet durably committed. A failed
    * storage write must not turn an authoritative kill/merge/run result into
    * a permanently lost achievement increment. */
@@ -177,6 +179,7 @@ export class GameScene extends Phaser.Scene {
     // previous instance's completed-achievement cache.
     this.completedAchievementNames = [];
     this.completedAchievements = [];
+    this.newlyAvailableNames = [];
     this.isTraining = data?.isTraining === true;
     // Normal production entry receives the exact request which Menu used to
     // resolve/load its closure. Retaining the fallback keeps old headless
@@ -553,6 +556,9 @@ export class GameScene extends Phaser.Scene {
           persisted: true,
         });
       },
+      get terminalSettlement(): RunTerminalSettlementResult | undefined {
+        return scene.terminalSettlement;
+      },
       get canContinue(): boolean {
         return scene.stagePlan !== undefined && new StageSelectionController(ctx).hasNextUnlockedStage();
       },
@@ -561,6 +567,9 @@ export class GameScene extends Phaser.Scene {
       },
       get completedAchievements(): readonly CompletedAchievementPresentation[] {
         return scene.completedAchievements;
+      },
+      get newlyAvailableNames(): readonly string[] {
+        return scene.newlyAvailableNames;
       },
     };
     this.runSummaryController = new RunSummaryController(runSummarySource);
@@ -1218,6 +1227,25 @@ export class GameScene extends Phaser.Scene {
     if (!result.terminalApplied) return;
     this.terminalSettlement = result;
     this.pendingAchievementFacts = {};
+    if (result.availabilityBefore && result.availabilityAfter) {
+      const availability = diffAvailability(result.availabilityBefore, result.availabilityAfter);
+      const availabilityNames = [
+        ...availability.newCharacters.map((id) => ctx.characters.characterById(id)?.name),
+        ...availability.newEquipmentSets.map((id) => ctx.data.equipmentSets?.find((set) => set.id === id)?.name),
+        ...availability.newParts.map((id) => ctx.data.gunParts?.find((part) => part.id === id)?.name),
+        ...(availability.tierUpgrade ? [`Equipment Tier ${result.availabilityAfter.maxEquipmentTier}`] : []),
+      ].filter((name): name is string => name !== undefined);
+      const grantNames = result.persistentGrantIds.map((id) => {
+        const ownedPart = ctx.saveData.gunsmith.parts[id];
+        if (ownedPart) return ctx.data.gunParts?.find((part) => part.id === ownedPart.partId)?.name;
+        const ownedEquipment = ctx.saveData.equipment[id];
+        if (ownedEquipment) return ctx.data.equipment?.find((equipment) => equipment.id === ownedEquipment.equipmentId)?.name;
+        return ctx.characters.characterById(id)?.name
+          ?? ctx.data.equipmentSets?.find((set) => set.id === id)?.name
+          ?? ctx.data.gunParts?.find((part) => part.id === id)?.name;
+      }).filter((name): name is string => name !== undefined);
+      this.newlyAvailableNames = [...new Set([...grantNames, ...availabilityNames])];
+    }
     const registry = new DataAchievementRegistry({ achievements: ctx.data.achievements ?? [] });
     for (const id of result.achievementIdsCompleted) {
       const definition = registry.achievementById(id);

@@ -27,11 +27,12 @@ import {
 } from '../systems/save';
 import { applyDurableGrantTransaction, durableGrantFingerprint, type DurableGrantTransaction } from '../gameplay/grantProcessor';
 import { noopAchievementAdapter, type AchievementPlatformAdapter } from '../gameplay/achievementPlatform';
-import { EQUIPMENT_TIERS, equipmentUpgradeUnlock, upgradeCost } from '../gameplay/equipment';
+import { EQUIPMENT_TIERS, equipmentUpgradeUnlock, maxEquipmentTier, upgradeCost } from '../gameplay/equipment';
 import { updateCompendiumDiscovery } from '../systems/compendium';
 import { settleRunTerminal as buildRunTerminalSettlement, type RunTerminalSettlementResult } from '../systems/saveV4';
 import { DataAchievementRegistry, metricExtractor } from '../systems/achievements';
 import { evaluateAchievements } from '../gameplay/achievementSystem';
+import { resolveAvailabilitySnapshot, type PersistentAvailabilitySnapshot } from '../gameplay/persistentAvailability';
 
 export const GAME_CONTEXT_REGISTRY_KEY = 'meowcenary.gameContext';
 
@@ -101,6 +102,11 @@ export interface RunTerminalRequest {
    * committed only with this terminal candidate, never by UI callbacks. */
   readonly metricIncrements?: Readonly<Record<string, number>>;
 }
+
+/** These are observed immutable run facts. Terminal-owned metrics such as
+ * Scrap banked and completed runs are deliberately excluded: callers must
+ * never manufacture the consequences of a win or bank operation. */
+const RUN_FACT_METRIC_IDS = new Set(['metric:enemies-defeated', 'metric:merges-performed']);
 
 export interface GameContext {
   readonly bus: EventBus;
@@ -206,6 +212,16 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     bosses: save.bosses,
   });
   const equipmentUpgradeFacts = () => equipmentUpgradeFactsFor(current);
+  const availabilityFor = (save: SaveData): PersistentAvailabilitySnapshot => {
+    const facts = equipmentUpgradeFactsFor(save);
+    return resolveAvailabilitySnapshot(
+      facts,
+      options.characters.all(),
+      options.data.equipmentSets ?? [],
+      options.data.gunParts ?? [],
+      options.data.equipmentRules === undefined ? 1 : maxEquipmentTier(facts, options.data.equipmentRules),
+    );
+  };
   // Character availability is a read of the same authoritative facts as
   // stages/equipment, never a legacy meta-unlock side channel.
   const characterUnlockFacts = () => createConditionContext(current.progression, {
@@ -451,10 +467,15 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         achievementIdsCompleted: Object.freeze([]),
         scrapAwardedFromAchievements: 0,
         masteryTierAwarded: 0,
+        availabilityBefore: availabilityFor(current),
+        availabilityAfter: availabilityFor(current),
       });
       if (!input || (input.terminalStatus !== 'win' && input.terminalStatus !== 'loss')
         || !Number.isFinite(input.runDurationMs) || input.runDurationMs < 0
         || !options.characters.characterById(input.characterId)) return failed();
+      if (input.metricIncrements !== undefined && Object.entries(input.metricIncrements).some(([id, amount]) =>
+        !RUN_FACT_METRIC_IDS.has(id) || !Number.isSafeInteger(amount) || amount < 0,
+      )) return failed();
 
       const normalStage = input.isTraining === true ? undefined : input.stageId === undefined ? undefined : stages.stageById(input.stageId);
       // A normal win must identify a current Contract. Losses may identify its
@@ -462,6 +483,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       if (input.isTraining !== true && input.stageId !== undefined && !normalStage) return failed();
       if (input.terminalStatus === 'win' && input.isTraining !== true && !normalStage) return failed();
 
+      const availabilityBefore = availabilityFor(current);
       const base = buildRunTerminalSettlement(current, {
         ...input,
         terminalStatus: input.terminalStatus === 'win' ? 'win' : 'loss',
@@ -476,7 +498,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       if (input.metricIncrements !== undefined) {
         const metrics = { ...candidate.achievementMetrics };
         for (const [id, amount] of Object.entries(input.metricIncrements)) {
-          if (Number.isFinite(amount) && amount > 0) metrics[id] = (metrics[id] ?? 0) + Math.floor(amount);
+          if (amount > 0) metrics[id] = Math.min(Number.MAX_SAFE_INTEGER, (metrics[id] ?? 0) + amount);
         }
         candidate = freezeSaveV4({ ...candidate, achievementMetrics: Object.freeze(metrics) });
       }
@@ -564,6 +586,8 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         persistentGrantIds: Object.freeze(persistentGrantIds),
         achievementIdsCompleted: Object.freeze([...evaluation.completed]),
         scrapAwardedFromAchievements: achievementScrap,
+        availabilityBefore,
+        availabilityAfter: availabilityFor(candidate),
       });
     },
     applyGrantTransaction(transaction) {

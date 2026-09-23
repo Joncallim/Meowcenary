@@ -35,6 +35,7 @@ import type {
   MasteryProgress,
 } from './save';
 import { freezeSaveV4, createDefaultSaveV4, createDefaultProgressionV4, DEFAULT_SETTINGS } from './save';
+import type { PersistentAvailabilitySnapshot } from '../gameplay/persistentAvailability';
 
 // ── ProgressionGrant type (local copy to avoid circular deps) ─────────
 
@@ -533,7 +534,17 @@ export interface RunTerminalSettlementResult {
   readonly achievementIdsCompleted: readonly string[];
   readonly scrapAwardedFromAchievements: number;
   readonly masteryTierAwarded: number;
+  /** Captured from the same accepted candidate as all terminal grants. */
+  readonly availabilityBefore: PersistentAvailabilitySnapshot;
+  readonly availabilityAfter: PersistentAvailabilitySnapshot;
 }
+
+const emptyAvailabilitySnapshot: PersistentAvailabilitySnapshot = Object.freeze({
+  selectableCharacterIds: Object.freeze([]),
+  fabricableEquipmentSetIds: Object.freeze([]),
+  fabricablePartIds: Object.freeze([]),
+  maxEquipmentTier: 1,
+});
 
 export interface AchievementDefinition {
   readonly id: string;
@@ -688,6 +699,8 @@ export function settleRunTerminal(
     achievementIdsCompleted,
     scrapAwardedFromAchievements,
     masteryTierAwarded,
+    availabilityBefore: emptyAvailabilitySnapshot,
+    availabilityAfter: emptyAvailabilitySnapshot,
   };
 
   return { result, candidate };

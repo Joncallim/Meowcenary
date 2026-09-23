@@ -735,6 +735,35 @@ describe('GameContext persistence boundary', () => {
     expect(context.saveData.characters['scrap-tabby']).toEqual({ xp: 100, tier: 1 });
     expect(context.saveData.stages).toEqual({});
   });
+
+  it('rejects caller-fabricated terminal-owned metrics while accepting registered run facts', () => {
+    const { context } = setup();
+    const forged = context.settleRunTerminal({
+      terminalStatus: 'win', runScrap: 0, characterId: 'scrap-tabby', runDurationMs: 10_000,
+      stageId: 'stage:junkyard-01', metricIncrements: { 'metric:runs-completed': 999 },
+    });
+    expect(forged).toMatchObject({ ok: false, terminalApplied: false });
+    expect(context.saveData.stages['stage:junkyard-01']).toBeUndefined();
+
+    const accepted = context.settleRunTerminal({
+      terminalStatus: 'loss', runScrap: 0, characterId: 'scrap-tabby', runDurationMs: 10_000,
+      metricIncrements: { 'metric:enemies-defeated': 2 },
+    });
+    expect(accepted).toMatchObject({ ok: true, terminalApplied: true });
+    expect(context.saveData.achievementMetrics).toMatchObject({ 'metric:enemies-defeated': 2 });
+  });
+
+  it('captures availability before and after the exact accepted candidate', () => {
+    const { context } = setup();
+    const result = context.settleRunTerminal({
+      terminalStatus: 'win', runScrap: 0, characterId: 'scrap-tabby', runDurationMs: 10_000,
+      stageId: 'stage:junkyard-01',
+    });
+    expect(result.availabilityBefore).not.toBe(result.availabilityAfter);
+    expect(result.availabilityAfter.fabricablePartIds.some((id) =>
+      !result.availabilityBefore.fabricablePartIds.includes(id),
+    )).toBe(true);
+  });
 });
 
 class CountingStorage extends MemoryStorageAdapter {

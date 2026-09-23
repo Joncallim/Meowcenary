@@ -3,6 +3,7 @@ import type { EventBus } from '../engine/eventBus';
 import { SceneKey } from '../engine/sceneKeys';
 import type { RunOutcome, RunState } from '../gameplay/runState';
 import type { BankedRun } from '../systems/ProgressionSystem';
+import type { RunTerminalSettlementResult } from '../systems/saveV4';
 import { formatNumber, formatTime } from './format';
 import { edgeMargin, logicalCanvasViewport, minimumHitTarget, physicalToLogical, zoomedGameUiViewport, type UiViewport } from './layout';
 import { createModalTextHelpers, type ModalTextHelpers, type ModalTextKind } from './modal';
@@ -18,6 +19,7 @@ export interface RunSummarySnapshot {
   readonly kills: number;
   readonly runCurrency: number;
   readonly bankedScrap: number;
+  readonly firstClearScrap: number;
   readonly totalScrap: number;
   readonly persistenceSucceeded: boolean;
   /** Player-facing labels from the accepted terminal settlement only. Never
@@ -42,6 +44,8 @@ export interface CompletedAchievementPresentation {
 export interface RunSummarySource {
   readonly runState: Readonly<RunState>;
   readonly lastBankedRun: BankedRun | null;
+  /** Accepted per-run transaction; legacy BankedRun remains only for total. */
+  readonly terminalSettlement?: RunTerminalSettlementResult;
   readonly canContinue?: boolean;
   readonly completedAchievementNames?: readonly string[];
   /** Preferred structured terminal Achievement presentation. The legacy name
@@ -66,15 +70,17 @@ export class RunSummaryController {
     }
 
     const banked = this.source.lastBankedRun;
+    const settlement = this.source.terminalSettlement;
     const snapshot: RunSummarySnapshot = {
       outcome: runState.status,
       timeMs: runState.timeMs,
       level: runState.level,
       kills: runState.kills,
       runCurrency: runState.currency,
-      bankedScrap: sanitizeScrapFloor(banked?.reward.scrap),
+      bankedScrap: sanitizeScrapFloor(settlement?.runScrapBanked ?? banked?.reward.scrap),
+      firstClearScrap: sanitizeScrapFloor(settlement?.firstClearScrap),
       totalScrap: sanitizeScrapFloor(banked?.meta.scrap),
-      persistenceSucceeded: banked?.persisted ?? false,
+      persistenceSucceeded: settlement?.terminalApplied ?? banked?.persisted ?? false,
       newlyAvailableNames: Object.freeze([...(this.source.newlyAvailableNames ?? [])]),
       completedAchievementNames: Object.freeze([...(this.source.completedAchievementNames ?? [])]),
       completedAchievements: Object.freeze((this.source.completedAchievements ?? []).map((achievement) => Object.freeze({
@@ -144,7 +150,7 @@ export function computeRunSummaryLayout(
   const hitTarget = minimumHitTarget(viewport);
   const headingHeight = physicalToLogical(ThemeFont.headingMin, viewport) + gap;
   const rowGap = physicalToLogical(ThemeFont.labelMin + 8, viewport);
-  const statsHeight = rowGap * 6;
+  const statsHeight = rowGap * 7;
   const headingBounds: RunSummaryRect = { x: left, y: top, width, height: headingHeight };
   const statsBounds: RunSummaryRect = {
     x: left,
@@ -519,6 +525,7 @@ export class PhaserRunSummaryView {
         ['Kills', formatNumber(snapshot.kills)],
         ['Run scrap', formatNumber(snapshot.runCurrency)],
         ['Banked scrap', formatNumber(snapshot.bankedScrap)],
+        ['First-clear scrap', formatNumber(snapshot.firstClearScrap)],
         ['Total scrap', formatNumber(snapshot.totalScrap)],
       ];
       let y = layout.statsBounds.y + rowGap / 2;
