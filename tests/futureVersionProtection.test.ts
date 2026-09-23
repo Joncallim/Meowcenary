@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
-import { createRunState } from '../src/gameplay/runState';
-import { ProgressionSystem } from '../src/systems/ProgressionSystem';
 import { DataArenaRegistry } from '../src/systems/arenas';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
@@ -67,14 +65,14 @@ describe('future-version write protection across every public mutation path', ()
     expectUntouchedStorage(storage);
   });
 
-  it('blocks terminal reward banking', () => {
-    const { context, bus, storage } = setup();
-    const run = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
-    run.status = 'won';
-    run.currency = 25;
-    const banked = new ProgressionSystem({ runState: run, bus, context }).bankFinishedRun();
-    expect(banked).toMatchObject({ persisted: false });
-    expect(banked?.meta.scrap).toBe(0);
+  it('blocks terminal settlement', () => {
+    const { context, storage } = setup();
+    const settled = context.settleRunTerminal({
+      terminalStatus: 'win', runScrap: 25, characterId: 'scrap-tabby', runDurationMs: 10_000,
+      stageId: 'stage:junkyard-01',
+    });
+    expect(settled).toMatchObject({ ok: false, terminalApplied: false });
+    expect(context.saveData.progression.scrap).toBe(0);
     expectUntouchedStorage(storage);
   });
 });

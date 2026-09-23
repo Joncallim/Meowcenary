@@ -3,8 +3,6 @@ import { createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
 import { prepareRun as _prepareRun } from '../src/gameplay/runStart';
-import { createRunState } from '../src/gameplay/runState';
-import { ProgressionSystem } from '../src/systems/ProgressionSystem';
 import { DataArenaRegistry } from '../src/systems/arenas';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
@@ -24,10 +22,15 @@ describe('V4 progression integration', () => {
       save: new SaveManager(new MemoryStorageAdapter(), 'integration'),
     });
 
-    const finished = createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' });
-    finished.status = 'won'; finished.currency = 25;
-    new ProgressionSystem({ runState: finished, bus, context }).bankFinishedRun();
-    expect(context.saveData.progression.scrap).toBe(25);
+    const settled = context.settleRunTerminal({
+      terminalStatus: 'win', runScrap: 25, characterId: 'scrap-tabby', runDurationMs: 10_000,
+      isTraining: true,
+    });
+    expect(settled).toMatchObject({ ok: true, terminalApplied: true, runScrapBanked: 25 });
+    // The terminal candidate may also settle a newly-completed mastery
+    // Achievement. Its source-owned reward is additive, while the accepted
+    // run-Scrap field remains exactly this run's collection.
+    expect(context.saveData.progression.scrap).toBeGreaterThanOrEqual(25);
   });
 
   it('makes Scrap Weasel selectable only after the canonical 100-kill achievement grant', () => {
