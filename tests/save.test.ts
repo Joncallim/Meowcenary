@@ -66,8 +66,8 @@ describe('Save V4 migration and persistence', () => {
       version: 4,
       settings: { ...DEFAULT_SETTINGS, muted: true, musicVolume: 1 },
       progression: {
-        scrap: 12,
-        unlocks: ['character:cat', 'future:thing'],
+        scrap: 321,
+        unlocks: ['character:cat', 'future:thing', 'character:scrap-tabby'],
       },
     });
     expect(migrate(migrated, limits)).toEqual(migrated);

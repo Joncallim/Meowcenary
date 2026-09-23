@@ -175,7 +175,7 @@ describe('V3 → V4 migration', () => {
     });
     const { save: v4 } = migrateV3ToV4Full(v3);
     expect(v4.achievements['achievement:permanent-reinforced-coat-3']?.completed).toBe(true);
-    expect(v4.progression.scrap).toBe(150);
+    expect(v4.progression.scrap).toBe(202);
   });
 
   it('repairs historical Boss facts from Stage completion', () => {

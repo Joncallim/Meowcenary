@@ -103,6 +103,13 @@ const LEGACY_DUPLICATE_HELMET_PAIR: readonly [string, string] = [
 
 /** Frozen RC1 upgrade costs for duplicate Equipment refund. */
 const DUPLICATE_REFUND_BY_TIER: Readonly<Record<number, number>> = { 1: 0, 2: 100, 3: 250, 4: 450 };
+/** Frozen cumulative purchase refunds for the retired V3 meta shop. */
+const RETIRED_UPGRADE_COSTS: Readonly<Record<string, readonly number[]>> = {
+  'reinforced-vest': [0, 10, 26, 52, 93, 159],
+  'quick-paws-training': [0, 15, 39, 77, 138, 236],
+  'sharpened-ammo': [0, 20, 54, 112, 210, 377],
+  'magnetic-whiskers': [0, 10, 25, 48, 82, 133],
+};
 
 /** Known V3 achievement IDs for shadow-token cleanup. */
 const KNOWN_V3_ACHIEVEMENT_IDS: readonly string[] = [
@@ -167,7 +174,9 @@ export function migrateV3ToV4Full(v3: SaveDataV3): V4MigrationResult {
   const capabilityFloors: string[] = [];
 
   // Build mutable working state from V3
-  let progression: ProgressionStateV4 = { scrap: v3.progression.scrap, unlocks: [...v3.progression.unlocks] };
+  const retiredRefund = Object.entries(v3.progression.permanentUpgrades).reduce((sum, [id, level]) =>
+    sum + ((RETIRED_UPGRADE_COSTS[id] ?? [])[Math.max(0, Math.min(level, 5))] ?? 0), 0);
+  let progression: ProgressionStateV4 = { scrap: safeAddScrap(v3.progression.scrap, retiredRefund), unlocks: [...v3.progression.unlocks] };
   const stages: Record<string, StageProgress> = { ...v3.stages };
   const achievements: Record<string, AchievementProgress> = { ...v3.achievements };
   // Scrap Tycoon shipped under this ID before the catalog editorial rename.

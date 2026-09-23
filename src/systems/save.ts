@@ -324,7 +324,7 @@ export function migrateV2ToV3(raw: Readonly<Record<string, unknown>>, maxLevels:
     appliedGrantTransactions: {},
     grantTransactionFingerprints: {},
   });
-  return migrateV3ToV4(v3);
+  return migrateV3ToV4Full(v3).save;
 }
 
 function migrateAchievementsFromV2(progression: ProgressionState): AchievementProgressState {

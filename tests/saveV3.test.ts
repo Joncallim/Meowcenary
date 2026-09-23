@@ -89,8 +89,8 @@ describe('Save V4 migration (V1/V2/V3→V4)', () => {
     const v4 = migrate(v2, limits) as SaveDataV4;
     expect(v4.version).toBe(4);
     expect(v4.settings.muted).toBe(true);
-    expect(v4.progression.scrap).toBe(500);
-    expect(v4.progression.unlocks).toEqual(['character:bolt-hound', 'stage:junkyard-01']);
+    expect(v4.progression.scrap).toBe(702);
+    expect(v4.progression.unlocks).toEqual(['character:bolt-hound', 'stage:junkyard-01', 'character:scrap-tabby']);
     expect(v4.stages).toEqual({});
     expect(v4.characters).toEqual({});
     expect(v4.gunsmith).toEqual({ builds: [], parts: {}, fabricationSerials: {} });
@@ -112,7 +112,7 @@ describe('Save V4 migration (V1/V2/V3→V4)', () => {
       completed: true,
       completedAt: undefined,
     });
-    expect(v4.progression.unlocks).toContain('achievement:first-victory');
+    expect(v4.progression.unlocks).not.toContain('achievement:first-victory');
   });
 
   it('reconciles the legacy 100-kill character grant to Scrap Weasel without dropping old unlocks', () => {
