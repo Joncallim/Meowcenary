@@ -731,8 +731,8 @@ describe('GameContext persistence boundary', () => {
     const training = context.settleRunTerminal({
       terminalStatus: 'win', runScrap: 4, characterId: 'scrap-tabby', runDurationMs: 10_000, isTraining: true,
     });
-    expect(training).toMatchObject({ ok: true, terminalApplied: true, firstClear: false, runScrapBanked: 4 });
-    expect(context.saveData.characters['scrap-tabby']).toEqual({ xp: 100, tier: 1 });
+    expect(training).toMatchObject({ ok: true, terminalApplied: true, firstClear: false, runScrapBanked: 0 });
+    expect(context.saveData.characters['scrap-tabby']).toBeUndefined();
     expect(context.saveData.stages).toEqual({});
   });
 

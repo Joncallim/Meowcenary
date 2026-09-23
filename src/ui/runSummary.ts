@@ -254,6 +254,9 @@ export interface PhaserRunSummaryViewOptions {
   readonly onDiscardPending?: () => void;
   /** Routes directly to the player's loadout surface. */
   readonly onAdjustLoadout?: () => void;
+  /** Replay must retain the captured launch request and pass back through the
+   * resource gate; a bare Scene restart can drift to a newly selected stage. */
+  readonly onReplay?: () => void;
   /** Generic semantic-icon lookup supplied by the scene/data composition
    * boundary. A missing resource leaves the tile's text identity intact. */
   readonly resolveAchievementIcon?: (iconArtId: string) => Readonly<{
@@ -277,6 +280,7 @@ export class PhaserRunSummaryView {
   private readonly canNavigate: () => boolean;
   private readonly onDiscardPending?: () => void;
   private readonly onAdjustLoadout?: () => void;
+  private readonly onReplay?: () => void;
   private readonly resolveAchievementIcon?: PhaserRunSummaryViewOptions['resolveAchievementIcon'];
   private modal: ModalTextHelpers;
   private readonly unsubscribers: Array<() => void>;
@@ -309,6 +313,7 @@ export class PhaserRunSummaryView {
     this.canNavigate = options.canNavigate ?? (() => true);
     this.onDiscardPending = options.onDiscardPending;
     this.onAdjustLoadout = options.onAdjustLoadout;
+    this.onReplay = options.onReplay;
     this.resolveAchievementIcon = options.resolveAchievementIcon;
     this.modal = createModalTextHelpers(options.scene, options.viewport);
     this.unsubscribers = [
@@ -409,6 +414,10 @@ export class PhaserRunSummaryView {
       return;
     }
     this.bus.emit('ui:confirm', {});
+    if (this.onReplay) {
+      this.onReplay();
+      return;
+    }
     this.scenePlugin.restart();
   }
 

@@ -101,7 +101,7 @@ export class MenuScene extends Phaser.Scene {
     super(SceneKey.Menu);
   }
 
-  create(data?: { readonly initialPanel?: import('../ui/menus').MenuPanel }): void {
+  create(data?: { readonly initialPanel?: import('../ui/menus').MenuPanel; readonly replayRequest?: ComposedRunRequest; readonly isTraining?: boolean }): void {
     // Phaser reuses this Scene instance after Game. Loading is transient and
     // must never leave a newly activated Menu permanently inert.
     this.runLaunchState = 'idle';
@@ -139,6 +139,7 @@ export class MenuScene extends Phaser.Scene {
     this.render(data?.initialPanel && data.initialPanel !== 'home'
       ? this.controller.open(data.initialPanel)
       : this.controller.snapshot());
+    if (data?.replayRequest) void this.startRunWithResources(data.replayRequest, data.isTraining === true);
 
     // FIT changes the physical-to-logical hit-target conversion. Rebuild the
     // committed panel from the real scale event so every live target is sized

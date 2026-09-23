@@ -219,7 +219,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       options.characters.all(),
       options.data.equipmentSets ?? [],
       options.data.gunParts ?? [],
-      options.data.equipmentRules === undefined ? 1 : maxEquipmentTier(facts, options.data.equipmentRules),
+      options.data.equipmentRules === undefined ? 1 : maxEquipmentTier(facts, options.data.equipmentRules, save.progression.unlocks),
     );
   };
   // Character availability is a read of the same authoritative facts as
@@ -444,8 +444,8 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         || nextTier !== expectedTier + 1 || nextTier > EQUIPMENT_TIERS.length
         || cost !== upgradeCost(expectedTier)
         || current.progression.scrap < cost) return false;
-      const unlock = options.data.equipmentRules && equipmentUpgradeUnlock(nextTier as 2 | 3 | 4, options.data.equipmentRules);
-      if (unlock !== undefined && !evaluateCondition(unlock, equipmentUpgradeFacts())) return false;
+      const rules = options.data.equipmentRules;
+      if (rules !== undefined && nextTier > maxEquipmentTier(equipmentUpgradeFacts(), rules, current.progression.unlocks)) return false;
       const candidate = freezeSaveV4({
         ...current,
         progression: Object.freeze({ ...current.progression, scrap: current.progression.scrap - cost }),
@@ -482,6 +482,19 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       // Contract for validation, but cannot manufacture its clear facts.
       if (input.isTraining !== true && input.stageId !== undefined && !normalStage) return failed();
       if (input.terminalStatus === 'win' && input.isTraining !== true && !normalStage) return failed();
+
+      // Training is composed through this one terminal owner so result/input
+      // lifecycle stays identical, but its explicit product contract grants
+      // no durable economy, mastery, achievements, or discovery progress.
+      if (input.isTraining === true) {
+        const availability = availabilityFor(current);
+        return Object.freeze({
+          ok: true, terminalApplied: true, runScrapBanked: 0, firstClear: false,
+          bestTimeImproved: false, firstClearScrap: 0, persistentGrantIds: Object.freeze([]),
+          achievementIdsCompleted: Object.freeze([]), scrapAwardedFromAchievements: 0,
+          masteryTierAwarded: 0, availabilityBefore: availability, availabilityAfter: availability,
+        });
+      }
 
       const availabilityBefore = availabilityFor(current);
       const base = buildRunTerminalSettlement(current, {
@@ -578,6 +591,21 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       current = candidate;
       revalidateSelection();
       if (normalStage && base.result.firstClear) advanceSelectedStage(normalStage.id);
+      // The candidate already contains the durable outbox entry. Dispatching
+      // after publication avoids a second pre-report write and preserves a
+      // retryable entry if the non-authoritative platform call fails.
+      for (const achievementId of evaluation.completed) {
+        const progress = current.achievements[achievementId];
+        if (!progress) continue;
+        void Promise.resolve()
+          .then(() => achievementPlatform.report(achievementId, progress))
+          .then(() => {
+            const pending = current.pendingAchievementReports.filter((id) => id !== achievementId);
+            const saved = freezeSaveV4({ ...current, pendingAchievementReports: Object.freeze(pending) });
+            if (options.save.save(saved)) current = saved;
+          })
+          .catch(() => undefined);
+      }
       return Object.freeze({
         ...base.result,
         ok: true,

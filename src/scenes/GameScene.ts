@@ -129,6 +129,7 @@ export class GameScene extends Phaser.Scene {
   private upgradeChooser?: UpgradeChooser;
   private terminalSettlement?: RunTerminalSettlementResult;
   private terminalStageId?: string;
+  private launchRequest?: ComposedRunRequest;
   private runSummaryController?: RunSummaryController;
   private runSummaryView?: PhaserRunSummaryView;
   private spawnCurve?: Readonly<SpawnCurveDefinition>;
@@ -185,6 +186,7 @@ export class GameScene extends Phaser.Scene {
     // resolve/load its closure. Retaining the fallback keeps old headless
     // scene harnesses explicit compatibility-only callers.
     const request = data?.runRequest ?? assembleComposedRunRequest(ctx, ctx.menuRng);
+    this.launchRequest = request;
     // Alpha 3 normal composition resolves the selected contract once at the
     // boundary. GameScene consumes its physical arena result; #85 wires the
     // remaining objective/encounter/reward fields to live systems.
@@ -591,6 +593,10 @@ export class GameScene extends Phaser.Scene {
       },
       canNavigate: () => !scene.hasPendingTerminalPersistence(),
       onDiscardPending: () => scene.discardPendingTerminalPersistence(),
+      onReplay: () => {
+        if (scene.launchRequest) scene.scene.start(SceneKey.Menu, { replayRequest: scene.launchRequest, isTraining: scene.isTraining });
+        else scene.scene.restart();
+      },
     });
 
     this.inputController.onAction('pause', () => this.routeAction('pause'));

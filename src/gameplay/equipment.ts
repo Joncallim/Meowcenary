@@ -30,10 +30,11 @@ export interface OwnedEquipment { readonly instanceId: string; readonly equipmen
 export interface EquipmentLoadout { readonly equipped: Readonly<Partial<Record<EquipmentSlot, string>>>; }
 
 export function equipmentUpgradeUnlock(targetTier: 2 | 3 | 4, rules: EquipmentUpgradeRules): ProgressionCondition { return rules.unlocks[targetTier]; }
-export function maxEquipmentTier(facts: ConditionContext, rules: EquipmentUpgradeRules): 1 | 2 | 3 | 4 {
-  if (evaluateCondition(rules.unlocks[4], facts)) return 4;
-  if (evaluateCondition(rules.unlocks[3], facts)) return 3;
-  if (evaluateCondition(rules.unlocks[2], facts)) return 2;
+export function maxEquipmentTier(facts: ConditionContext, rules: EquipmentUpgradeRules, capabilityFloors: readonly string[] = []): 1 | 2 | 3 | 4 {
+  const hasFloor = (tier: number) => capabilityFloors.includes(`capability:equipment-tier-${tier}`);
+  if (evaluateCondition(rules.unlocks[4], facts) || hasFloor(4)) return 4;
+  if (evaluateCondition(rules.unlocks[3], facts) || hasFloor(3)) return 3;
+  if (evaluateCondition(rules.unlocks[2], facts) || hasFloor(2)) return 2;
   return 1;
 }
 export function upgradeCost(currentTier: number): number { return 50 * (currentTier + 1); }

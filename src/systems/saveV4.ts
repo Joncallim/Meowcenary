@@ -170,6 +170,14 @@ export function migrateV3ToV4Full(v3: SaveDataV3): V4MigrationResult {
   let progression: ProgressionStateV4 = { scrap: v3.progression.scrap, unlocks: [...v3.progression.unlocks] };
   const stages: Record<string, StageProgress> = { ...v3.stages };
   const achievements: Record<string, AchievementProgress> = { ...v3.achievements };
+  // Scrap Tycoon shipped under this ID before the catalog editorial rename.
+  // Preserve its earned state at the active stable ID rather than stranding
+  // it in an invisible legacy key.
+  if (achievements['achievement:scrap-banked-1000']?.completed === true
+    && achievements['achievement:scrap-tycoon']?.completed !== true) {
+    achievements['achievement:scrap-tycoon'] = Object.freeze({ completed: true });
+  }
+  delete achievements['achievement:scrap-banked-1000'];
   const achievementMetrics: Record<string, number> = { ...v3.achievementMetrics };
   const characters: Record<string, MasteryProgress> = { ...v3.characters };
   let selectedCharacterId: string | undefined = v3.selectedCharacterId;
