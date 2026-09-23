@@ -24,7 +24,7 @@ describe('V4 progression integration', () => {
 
     const settled = context.settleRunTerminal({
       terminalStatus: 'win', runScrap: 25, characterId: 'scrap-tabby', runDurationMs: 10_000,
-      isTraining: true,
+      stageId: 'stage:junkyard-01',
     });
     expect(settled).toMatchObject({ ok: true, terminalApplied: true, runScrapBanked: 25 });
     // The terminal candidate may also settle a newly-completed mastery

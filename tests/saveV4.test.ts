@@ -191,6 +191,14 @@ describe('V3 → V4 migration', () => {
     expect(v4.bosses['boss-forge']?.defeated).toBe(true);
   });
 
+  it('moves the shipped Scrap Tycoon completion to its active catalog ID', () => {
+    const { save } = migrateV3ToV4Full(createV3Fixture({
+      achievements: { 'achievement:scrap-banked-1000': { completed: true } },
+    }));
+    expect(save.achievements['achievement:scrap-tycoon']?.completed).toBe(true);
+    expect(save.achievements['achievement:scrap-banked-1000']).toBeUndefined();
+  });
+
   it('provides Mastered Fire bridge when Forge Warden defeated', () => {
     const v3 = createV3Fixture({
       bosses: { 'boss-forge': { defeated: true } },
