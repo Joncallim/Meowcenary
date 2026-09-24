@@ -35,9 +35,28 @@ export const checkPart: RowCheckFn = (row: unknown, _index: number): string[] =>
     errors.push('rarity: must be common, uncommon, rare, epic, or legendary');
   }
   if (p.tier !== undefined) errors.push('tier: retired; owned instances carry tier');
-  if (!p.presentation || typeof p.presentation !== 'object' || Array.isArray(p.presentation)
-      || typeof (p.presentation as Record<string, unknown>).iconArtId !== 'string') {
-    errors.push('presentation.iconArtId: required canonical visual-art ID');
+  if (!p.presentation || typeof p.presentation !== 'object' || Array.isArray(p.presentation)) {
+    errors.push('presentation: required object');
+  } else {
+    const presentation = p.presentation as Record<string, unknown>;
+    const expectedFields = new Set(['iconArtId', 'slotIconArtId', 'traitIconArtIds']);
+    for (const field of Object.keys(presentation)) if (!expectedFields.has(field)) errors.push(`presentation.${field}: unknown field`);
+    const tail = typeof p.id === 'string' && p.id.startsWith('part:') ? p.id.slice('part:'.length) : undefined;
+    if (typeof presentation.iconArtId !== 'string') errors.push('presentation.iconArtId: required canonical visual-art ID');
+    else if (tail !== undefined && presentation.iconArtId !== `gun-part-icon:${tail}`) errors.push(`presentation.iconArtId: must be exactly "gun-part-icon:${tail}"`);
+    if (typeof presentation.slotIconArtId !== 'string') errors.push('presentation.slotIconArtId: required canonical visual-art ID');
+    else if (typeof p.slot === 'string' && presentation.slotIconArtId !== `gun-slot-icon:${p.slot}`) errors.push(`presentation.slotIconArtId: must be exactly "gun-slot-icon:${p.slot}"`);
+    const traitIcons = presentation.traitIconArtIds;
+    if (!traitIcons || typeof traitIcons !== 'object' || Array.isArray(traitIcons)) {
+      errors.push('presentation.traitIconArtIds: required object');
+    } else if (Array.isArray(p.traits)) {
+      const expectedTraits = new Set(p.traits.filter((trait): trait is string => typeof trait === 'string'));
+      for (const [trait, artId] of Object.entries(traitIcons)) {
+        if (!expectedTraits.has(trait)) errors.push(`presentation.traitIconArtIds.${trait}: trait is not declared by this Part`);
+        if (artId !== `trait-icon:${trait.toLowerCase()}`) errors.push(`presentation.traitIconArtIds.${trait}: must be exactly "trait-icon:${trait.toLowerCase()}"`);
+      }
+      for (const trait of expectedTraits) if (!Object.hasOwn(traitIcons, trait)) errors.push(`presentation.traitIconArtIds.${trait}: required for declared trait`);
+    }
   }
 
   if (!Array.isArray(p.effects)) {
@@ -85,12 +104,21 @@ export const checkPart: RowCheckFn = (row: unknown, _index: number): string[] =>
   return errors;
 };
 
-export function assertPartArtReferences(parts: readonly { presentation: { iconArtId: string } }[], catalog: VisualArtCatalog): void {
+export function assertPartArtReferences(parts: readonly {
+  presentation: { iconArtId: string; slotIconArtId: string; traitIconArtIds: Readonly<Record<string, string>> };
+}[], catalog: VisualArtCatalog): void {
   const bindings = new Map(catalog.bindings.map((binding) => [binding.id, binding]));
   parts.forEach((part, index) => {
-    const binding = bindings.get(part.presentation.iconArtId);
-    if (!binding) throw new Error(`gun-parts.json[${index}].presentation.iconArtId: unknown visual-art id "${part.presentation.iconArtId}"`);
-    if (binding.kind !== 'upgrade-icon' || !binding.required) throw new Error(`gun-parts.json[${index}].presentation.iconArtId: must resolve to a required upgrade-icon binding`);
+    const references: readonly (readonly [path: string, artId: string])[] = [
+      ['iconArtId', part.presentation.iconArtId],
+      ['slotIconArtId', part.presentation.slotIconArtId],
+      ...Object.entries(part.presentation.traitIconArtIds).map(([trait, artId]) => [`traitIconArtIds.${trait}`, artId] as const),
+    ];
+    for (const [path, artId] of references) {
+      const binding = bindings.get(artId);
+      if (!binding) throw new Error(`gun-parts.json[${index}].presentation.${path}: unknown visual-art id "${artId}"`);
+      if (binding.kind !== 'icon' || !binding.required) throw new Error(`gun-parts.json[${index}].presentation.${path}: must resolve to a required icon binding`);
+    }
   });
 }
 

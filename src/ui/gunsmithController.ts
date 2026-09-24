@@ -31,6 +31,7 @@ export interface GunsmithPartView {
   /** Player-facing pre-commit delta for the selected build. */
   readonly comparisonSummary: string;
   readonly iconArtId: string;
+  readonly traitIcons: readonly { readonly trait: string; readonly iconArtId: string }[];
   readonly state: 'fitted-here' | 'owned-unfitted' | 'fitted-elsewhere' | 'incompatible';
   readonly assignedBuildId?: string;
   readonly assignedBuildName?: string;
@@ -41,6 +42,7 @@ export interface GunsmithPartView {
 export interface GunsmithSlotView {
   readonly slot: string;
   readonly label: string;
+  readonly iconArtId: string;
   readonly fitted?: GunsmithPartView;
   /** A persisted fitted reference whose definition is no longer in the
    * catalog. It remains visible so the player can recover the occupied slot. */
@@ -54,6 +56,7 @@ export interface GunsmithBlueprintView {
   readonly slot: string;
   readonly fabricationCost: number;
   readonly iconArtId: string;
+  readonly traitIcons: readonly { readonly trait: string; readonly iconArtId: string }[];
   readonly effectLines: readonly string[];
 }
 
@@ -68,6 +71,7 @@ export interface GunsmithBuildPresentation {
   readonly title: string;
   readonly status: 'Selected' | 'Configured' | 'Empty';
   readonly activation: 'Active from start' | 'Activates when acquired';
+  readonly weaponPreviewIconArtId?: string;
 }
 
 export interface GunsmithSnapshot {
@@ -114,6 +118,14 @@ export class GunsmithController {
     const selected = state.builds.find((build) => build.id === state.selectedBuildId);
     const buildsByFamily = new Map(state.builds.map((build) => [build.baseWeaponFamily, build] as const));
     const assignments = new Map<string, Build>();
+    const traitIconByTrait = new Map<string, string>();
+    const slotIconBySlot = new Map<string, string>();
+    for (const definition of this.registry.all()) {
+      slotIconBySlot.set(definition.slot, definition.presentation.slotIconArtId);
+      for (const [trait, iconArtId] of Object.entries(definition.presentation.traitIconArtIds)) {
+        if (iconArtId !== undefined) traitIconByTrait.set(trait, iconArtId);
+      }
+    }
     for (const build of state.builds) {
       for (const instanceId of [...Object.values(build.fitted), ...build.traitParts]) {
         if (instanceId !== undefined && !assignments.has(instanceId)) assignments.set(instanceId, build);
@@ -127,10 +139,15 @@ export class GunsmithController {
       const compatible = selected !== undefined && isSlotCompatible(selected.baseWeaponFamily, definition.slot);
       const capacity = definition.slot !== 'trait' || selected === undefined || selected.traitParts.length < MAX_TRAIT_CORES_PER_BUILD || fittedHere;
       const slotVacant = definition.slot === 'trait' || selected === undefined || selected.fitted[definition.slot] === undefined || fittedHere;
+      const traits = Object.freeze([...definition.traits, ...stored.infusedTraits]);
       const view: GunsmithPartView = Object.freeze({
         instanceId, partId: stored.partId, name: definition.name, slot: definition.slot,
-        tier: stored.tier, traits: Object.freeze([...definition.traits, ...stored.infusedTraits]),
+        tier: stored.tier, traits,
         iconArtId: definition.presentation.iconArtId,
+        traitIcons: Object.freeze(traits.flatMap((trait) => {
+          const iconArtId = traitIconByTrait.get(trait);
+          return iconArtId === undefined ? [] : [Object.freeze({ trait, iconArtId })];
+        })),
         // A cross-build move is only actionable when its destination is
         // genuinely eligible.  Do not advertise "Move from …" for an
         // occupied ordinary slot or full trait capacity: that would promise
@@ -153,15 +170,18 @@ export class GunsmithController {
       return [view];
     }));
     const selectedStartFamily = this.selectedStartingFamily();
+    const selectedWeaponPreviewIconArtId = selected === undefined ? undefined : this.context.data.weapons
+      .find((weapon) => weapon.family === selected.baseWeaponFamily && weapon.mergeTier === 1)?.art.iconId;
     const selectedBuildPresentation = selected === undefined ? undefined : Object.freeze({
       id: selected.id, familyId: selected.baseWeaponFamily, title: `${familyName(selected.baseWeaponFamily)} Build`,
       status: selected.id === state.selectedBuildId ? 'Selected' : (Object.keys(selected.fitted).length + selected.traitParts.length > 0 ? 'Configured' : 'Empty'),
       activation: selected.baseWeaponFamily === selectedStartFamily ? 'Active from start' : 'Activates when acquired',
+      ...(selectedWeaponPreviewIconArtId === undefined ? {} : { weaponPreviewIconArtId: selectedWeaponPreviewIconArtId }),
     } satisfies GunsmithBuildPresentation);
     const slots = selected === undefined ? [] : PART_SLOTS
       .filter((slot) => slot === 'trait' || isSlotCompatible(selected.baseWeaponFamily, slot))
       .map((slot) => Object.freeze({
-        slot, label: gunsmithSlotLabel(slot),
+        slot, label: gunsmithSlotLabel(slot), iconArtId: slotIconBySlot.get(slot)!,
         ...(slot === 'trait' ? {} : (() => {
           const instanceId = selected.fitted[slot];
           const fitted = instanceId === undefined ? undefined : parts.find((part) => part.instanceId === instanceId);
@@ -183,7 +203,12 @@ export class GunsmithController {
     ).fabricablePartIds);
     const blueprints = Object.freeze(this.registry.all()
       .filter((part) => availableBlueprints.has(part.id))
-      .map((part) => Object.freeze({ partId: part.id, name: part.name, slot: part.slot, fabricationCost: part.fabricationCost!, iconArtId: part.presentation.iconArtId, effectLines: Object.freeze(part.effects.map((effect) => formatGunsmithEffect(effect, 1))) } satisfies GunsmithBlueprintView)));
+      .map((part) => Object.freeze({
+        partId: part.id, name: part.name, slot: part.slot, fabricationCost: part.fabricationCost!,
+        iconArtId: part.presentation.iconArtId,
+        traitIcons: Object.freeze(Object.entries(part.presentation.traitIconArtIds).flatMap(([trait, iconArtId]) => iconArtId === undefined ? [] : [Object.freeze({ trait, iconArtId })])),
+        effectLines: Object.freeze(part.effects.map((effect) => formatGunsmithEffect(effect, 1))),
+      } satisfies GunsmithBlueprintView)));
     const ownedParts: OwnedPart[] = Object.entries(state.parts).flatMap(([instanceId, stored]) => this.registry.partById(stored.partId) === undefined ? [] : [{
       instanceId, partId: stored.partId, tier: stored.tier, infusedTraits: stored.infusedTraits as readonly BehaviorTrait[],
     }]);

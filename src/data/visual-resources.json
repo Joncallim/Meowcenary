@@ -744,6 +744,16 @@
     }
   },
   {
+    "id": "resource:gunsmith-icons",
+    "textureKey": "art-gunsmith-icons",
+    "sampling": "nearest",
+    "load": {
+      "type": "atlas",
+      "imageUrl": "assets/gunsmith/icons/gunsmith-icons-atlas.png",
+      "dataUrl": "assets/gunsmith/icons/gunsmith-icons-atlas.json"
+    }
+  },
+  {
     "id": "resource:character-piston-ram",
     "textureKey": "art-character-piston-ram",
     "sampling": "nearest",

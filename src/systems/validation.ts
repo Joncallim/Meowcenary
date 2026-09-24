@@ -3187,7 +3187,11 @@ export function validateVisualArtCatalog(raw: unknown): VisualArtCatalog {
       }
       if (typeof kind !== 'string' || !VISUAL_ART_KINDS.has(kind)) {
         rowErrors.push('kind: unknown visual-art kind');
-      } else if (typeof id === 'string' && !id.startsWith(`${kind}:`)) {
+      // `icon` is a renderer capability shared by semantically named
+      // equipment, Gunsmith, trait and future icon families. Their domain
+      // validators own canonical ID shape; do not collapse them into an
+      // `icon:*` content namespace merely to select the generic renderer.
+      } else if (kind !== 'icon' && typeof id === 'string' && !id.startsWith(`${kind}:`)) {
         rowErrors.push('kind: must match id prefix');
       }
       if (typeof resourceId !== 'string' || !/^resource:[a-z0-9][a-z0-9-]*$/.test(resourceId)) rowErrors.push('resourceId: must be a canonical visual resource ID');

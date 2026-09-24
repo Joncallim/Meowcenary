@@ -95,8 +95,14 @@ export interface PartDefinition {
   /** Absence makes a reward-only part non-reacquirable through the generic
    * fabrication availability policy; no content-ID exception is needed. */
   readonly fabricationCost?: number;
-  /** Canonical manifest reference; definitions never carry renderer paths. */
-  readonly presentation: { readonly iconArtId: string };
+  /** Canonical semantic art identities; definitions never carry renderer
+   * paths. Slot and trait identities let read models remain presentation-ready
+   * without constructing IDs from content names. */
+  readonly presentation: {
+    readonly iconArtId: string;
+    readonly slotIconArtId: string;
+    readonly traitIconArtIds: Readonly<Partial<Record<BehaviorTrait, string>>>;
+  };
 }
 
 /** Persistent player-owned instance — sparse, ID-stable, migration-safe. */

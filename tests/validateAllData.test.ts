@@ -30,13 +30,15 @@ describe('validateAllData', () => {
 
   it('collects malformed part and equipment logical-art references just as boot does', () => {
     const data = mutableData();
-    data.gunParts[0].presentation.iconArtId = 'upgrade-icon:not-real';
+    data.visualArt.bindings = data.visualArt.bindings.filter(
+      (binding: { id: string }) => binding.id !== data.gunParts[0].presentation.iconArtId,
+    );
     data.equipment[0].icon = 'weapon-icon:pistol:t1';
 
     expect(collectGameDataErrors(data)).toEqual([
       {
         file: 'gun-parts.json', index: 0, field: 'presentation.iconArtId',
-        message: 'unknown visual-art id "upgrade-icon:not-real"',
+        message: 'unknown visual-art id "gun-part-icon:receiver-compact"',
       },
       {
         file: 'equipment', index: -1, field: '',
