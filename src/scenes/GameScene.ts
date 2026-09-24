@@ -1211,7 +1211,7 @@ export class GameScene extends Phaser.Scene {
 
   private updateStageObjective(ctx: GameContext, delta: number): void {
     const runState = this.runState;
-    if (!runState) return;
+    if (!runState || runState.status !== 'active') return;
     if (!this.stageRuntime || !this.stagePlan) {
       this.maybeEndRunForVictory(ctx, runState);
       return;
