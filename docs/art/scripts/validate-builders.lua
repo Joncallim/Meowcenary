@@ -9,10 +9,13 @@
 local realDofile = dofile
 local activeSprite = nil
 local writeProjects = false
+local checkSources = false
 local onlyScript = nil
 for index = 1, #arg do
   if arg[index] == "--write" then
     writeProjects = true
+  elseif arg[index] == "--check-source" then
+    checkSources = true
   elseif arg[index] == "--only" then
     onlyScript = assert(arg[index + 1], "--only requires a builder path")
   end
@@ -407,6 +410,16 @@ local function rawRgba(sprite, layer, frameNumber)
   return table.concat(bytes)
 end
 
+local function readArchiveMember(path, member)
+  local pipe = assert(io.popen(
+    "unzip -p " .. shellQuote(path) .. " " .. shellQuote(member), "r"
+  ))
+  local bytes = pipe:read("*a")
+  local ok = pipe:close()
+  assert(ok, string.format("could not read %s from %s", member, path))
+  return bytes
+end
+
 local function writePixeloramaProject(sprite)
   local layers = {}
   for _, layer in ipairs(sprite.layers) do
@@ -573,6 +586,18 @@ for _, contract in ipairs(contracts) do
     assertEqual(tag.toFrame, range[2], contract.script .. " tag end " .. name)
   end
   assertEqual(#sprite.tags, expectedTagCount, contract.script .. " tag count")
+  if checkSources then
+    for layerNumber, layer in ipairs(sprite.layers) do
+      for frameNumber = 1, #sprite.frames do
+        local member = string.format("image_data/frames/%d/layer_%d", frameNumber, layerNumber)
+        local expected = rawRgba(sprite, layer, frameNumber)
+        local actual = readArchiveMember(contract.savedAs, member)
+        assertEqual(#actual, #expected, contract.script .. " source byte count " .. member)
+        assert(actual == expected, contract.script .. " builder/source pixel mismatch " .. member)
+      end
+    end
+    io.write("PARITY ", contract.savedAs, "\n")
+  end
   if writeProjects then writePixeloramaProject(sprite) end
   io.write("PASS ", contract.script, "\n")
   end

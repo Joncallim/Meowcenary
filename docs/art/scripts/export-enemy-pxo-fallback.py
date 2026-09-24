@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministically export the selected 48px enemy PXO sheets.
+"""Deterministically export the selected 48px/64px enemy PXO sheets.
 
 Pixelorama remains the editable source. This narrow fallback composites the
 visible native RGBA layers for Linux/CI environments without the desktop app.
