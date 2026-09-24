@@ -17,6 +17,10 @@ not a new design source.
 - Whole-run Results truth baseline: PR #181 merge `8530b718c3dc0dc1fb09b92e94cf13decf91b9dc`
 - Assembled Gunsmith baseline: PR #182 merge `8cb8e0396df093c1b8501f47f467b62b64fa1dac`
 - Dedicated Equipment baseline: PR #183 merge `30f46af06aeaa10873b01da057ca0e50b352c8ef`
+- Mercenary presentation/readability baseline: PR #184 merge `2d4dadb86ea8bf278fa114b2d5f4e66fb353016d`
+- Ten-Contract content-matrix baseline: PR #185 merge `b2e5d7c6cb82d1c74c7fb41447b259f1264ccba3`
+- Build-pacing baseline: PR #186 merge `a39ee0d1e6a2549b1ad362afe53f71010ea5f579`
+- Enemy-art baseline: PR #187 merge `e042163684330791bfa8fe3336c7dbc472b85674`
 
 ## Frozen persistence decisions
 
@@ -54,15 +58,15 @@ remain **UNVERIFIED** until genuinely performed.
 | #90 save/progression | V4 migration and atomic terminal settlement shipped | closed after merged-main CI |
 | #168 Compendium | generic discovery/save/Career UI shipped | closed after merged-main CI |
 | #170 scalability | data-first registries, lazy resources, N+1 proofs shipped | closed after merged-main CI |
-| #85 Contracts | stable ten-Contract structure shipped; reviewed V4 encounter/difficulty matrix still needs reconciliation and integrated play | active content tranche |
+| #85 Contracts | stable ten-Contract structure and reviewed V4 encounter/difficulty matrix shipped; Contract-first presentation and integrated play remain | active UI/acceptance tranche |
 | #87 Gunsmith | mechanics, dedicated Part/slot/trait art, assembled schematics, truthful comparisons, linear exact-pair workflow, and focused destructive confirmations shipped | closed by PR #182; physical device evidence remains UNVERIFIED |
-| #88 Mercenaries | mechanics/ability feedback shipped; graphical roster, grandfathered-availability consistency, exact Rattle cadence, and five placeholder actor redraws are in review | active art/read-model tranche |
+| #88 Mercenaries | mechanics/ability feedback, graphical roster, grandfathered-availability consistency, exact Rattle cadence, and five placeholder actor redraws shipped | automated scope complete; physical acceptance remains |
 | #89 Equipment | mechanics/player fabrication and all 8 emblems/32 pieces have exact dedicated semantic art | closed by PR #183; physical device evidence remains UNVERIFIED |
-| #165 navigation | implementation shipped; device and final visual acceptance remain | keep for acceptance |
+| #165 navigation | shared scrolling/input foundations shipped; Contract-first Home/selection, Loadout hub and visual Career refinements are in the current unmerged tranche | active UI tranche |
 | #167 production art | architecture complete; production art incomplete | primary active tranche |
-| #171 product pass | Contract matrix, four-role upgrade offers, playtest evidence, and integrated fun verdict remain | active content/pacing tranches |
+| #171 product pass | Contract matrix, four-role upgrade offers, and pacing telemetry shipped; integrated fun verdict remains | active acceptance tranche |
 | #174 Volt Lynx | distinct source/export and automated silhouette proof complete | device acceptance remains |
-| #175 actor readability | five Mercenary placeholder actors are in review; enemy/boss and device-scale evidence remain | active art tranche |
+| #175 actor readability | five Mercenary redraws and the enemy-art production tranche shipped; device-scale evidence remains | active acceptance tranche |
 | #98 async challenges | explicitly outside Alpha 3 | defer |
 
 ## Current art direction
@@ -101,6 +105,9 @@ Representative production batch:
    production silhouettes. The roster now presents authoritative actor and
    starting-weapon art through the same lazy physical-resource boundary while
    keeping locked/selectable truth in the shared character domain.
+8. The merged Contract matrix gives both chapters five distinct, validated
+   encounter compositions and seven bounded difficulty profiles while keeping
+   every historical Stage ID stable, including `stage:junkyard-06`.
 
 The completed art PRs add 29 shipped logical images backed by three physical
 resources (Volt Lynx sheet, Commando atlas, and Gunsmith atlas). The Forge

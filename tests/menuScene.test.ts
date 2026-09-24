@@ -277,7 +277,7 @@ function createFakeScene(
         _x: number,
         _y: number,
         text: string,
-        style?: { padding?: { x?: number; y?: number }; resolution?: number },
+        style?: Record<string, unknown> & { padding?: { x?: number; y?: number }; resolution?: number },
       ) {
         if (failNextText) {
           failNextText = false;
@@ -296,7 +296,7 @@ function createFakeScene(
           padding,
           _x,
           _y,
-        ).setStyle({ resolution: style.resolution });
+        ).setStyle(style);
         return register(object);
       },
       rectangle(_x: number, _y: number, width: number, height: number) {
@@ -382,7 +382,8 @@ function createHarness(options: { create?: boolean; audio?: boolean } = { create
 describe('MenuScene', () => {
   it('keeps every data-owned Gunsmith chassis reachable after creating a build', () => {
     const harness = createHarness();
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     expect(harness.textContents()).toEqual(expect.arrayContaining(['Weapon builds', 'Pistol Build\nEmpty', 'SMG Build\nEmpty', 'Shotgun Build\nEmpty']));
 
     harness.buttonByLabel('Pistol Build\nEmpty')!.state.handlers.pointerup!();
@@ -404,7 +405,8 @@ describe('MenuScene', () => {
 
   it('keeps unavailable Gunsmith catalog rows inert when scrolling reveals them', () => {
     const harness = createHarness();
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     harness.buttonByLabel('Pistol Build\nEmpty')!.state.handlers.pointerup!();
     const scene = harness.menuScene as unknown as {
       controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
@@ -438,7 +440,8 @@ describe('MenuScene', () => {
       builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
       selectedBuildId: 'build:pistol',
     }));
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     expect(harness.textContents()).not.toContain('Next Gunsmith Page');
     const scene = harness.menuScene as unknown as { scrollRegion?: { itemCount: number } };
     expect(scene.scrollRegion?.itemCount).toBeGreaterThan(1);
@@ -452,7 +455,8 @@ describe('MenuScene', () => {
       builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
       selectedBuildId: 'build:pistol',
     }));
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
 
     expect(harness.textContents()).toContain('Merge 2 of 50 owned Standard Barrel T1 → T2');
     expect(harness.textContents().filter((text) => text.startsWith('Merge '))).toHaveLength(1);
@@ -474,7 +478,8 @@ describe('MenuScene', () => {
       builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: { receiver: 'existing' }, traitParts: [] }],
       selectedBuildId: 'build:pistol',
     }));
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     const label = harness.textContents().find((text) => text.includes('Fabricate another — 60 Scrap'))!;
     expect(label).toContain('Fitted • T1');
     for (let step = 0; step < 20 && !harness.buttonByLabel(label)!.state.interactive; step += 1) {
@@ -497,7 +502,8 @@ describe('MenuScene', () => {
       builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
       selectedBuildId: 'build:pistol',
     }));
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     const recipe = harness.textContents().find((text) => text.startsWith('Merge 2 of 2 owned Standard Barrel T1 → T2'))!;
     harness.buttonByLabel(recipe)!.state.handlers.pointerup!();
     const firstInput = harness.textContents().find((text) => text.startsWith('RECOMMENDED • First input • Standard Barrel T1'))!;
@@ -534,7 +540,8 @@ describe('MenuScene', () => {
       builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
       selectedBuildId: 'build:pistol',
     }));
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     const infusion = harness.textContents().find((text) => text.startsWith('Infuse Standard Barrel with Fire Trait Core'))!;
     harness.buttonByLabel(infusion)!.state.handlers.pointerup!();
 
@@ -555,7 +562,8 @@ describe('MenuScene', () => {
       builds: [{ id: 'build:pistol', name: 'Main', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
       selectedBuildId: 'build:pistol',
     }));
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     const recipe = harness.textContents().find((text) => text.startsWith('Merge 2 of 2 owned Standard Barrel T1 → T2'))!;
     harness.buttonByLabel(recipe)!.state.handlers.pointerup!();
     let input = harness.textContents().find((text) => text.startsWith('RECOMMENDED • First input • Standard Barrel T1'))!;
@@ -587,7 +595,8 @@ describe('MenuScene', () => {
       builds: [{ id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
       selectedBuildId: 'build:pistol',
     }));
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     const scene = harness.menuScene as unknown as { handleResize(): void; navigator: { index: number }; scrollRegion?: { scrollOffset: number } };
     for (let index = 0; index < 52; index += 1) {
       harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
@@ -616,7 +625,8 @@ describe('MenuScene', () => {
       ],
       selectedBuildId: 'build:smg',
     }));
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     expect(harness.textContents()).toEqual(expect.arrayContaining([
       'RECEIVER', 'BARREL', 'OPTIC', 'STOCK', 'TRIGGER', 'MAGAZINE', 'TRAITS 0 / 2',
       'Standard Barrel T1 • FITTED TO PISTOL BUILD\nRange +10\nMOVE FROM PISTOL BUILD',
@@ -632,7 +642,8 @@ describe('MenuScene', () => {
       selectedBuildId: 'build:pistol',
     }));
 
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
 
     const text = harness.textContents();
     const recoveryIndex = text.indexOf('Unavailable saved part\nREMOVE UNAVAILABLE PART');
@@ -651,7 +662,8 @@ describe('MenuScene', () => {
       selectedBuildId: 'build:pistol',
     }));
 
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
 
     expect(addCatalogIcon).toHaveBeenCalledWith(
       expect.anything(), expect.any(Number), expect.any(Number), 'trait-icon:fire', 22,
@@ -693,7 +705,7 @@ describe('MenuScene', () => {
       character: { ...base.character, characters: repeat(base.character.characters, 20, (item, index) => ({ ...item, id: `character-${index}`, name: `Character ${index}` })) },
     });
     assertRows('stage', 25, {
-      stage: { ...base.stage, stages: repeat(base.stage.stages, 25, (item, index) => ({ ...item, id: `contract-${index}`, name: `Contract ${index}` })) },
+      stage: { ...base.stage, stages: repeat(base.stage.stages, 25, (item, index) => ({ ...item, id: `contract-${index}`, name: `Contract ${index}`, locked: false })) },
     });
     const achievementRows = repeat(base.achievements.achievements, 40, (item, index) => ({ ...item, id: `achievement-${index}`, name: `Achievement ${index}` }));
     scene.render({ ...base, panel: 'achievements', achievements: { ...base.achievements, achievements: achievementRows } });
@@ -709,6 +721,49 @@ describe('MenuScene', () => {
     assertRows('compendium', 50, {
       compendium: { ...base.compendium, entries: repeat(base.compendium.entries, 50, (item, index) => ({ ...item, enemyId: `enemy-${index}`, name: `Compendium ${index}` })) },
     });
+  });
+
+  it('cold-opens the Contract list without loading threat actor sheets that its rows do not render', () => {
+    const harness = createHarness();
+    const requested = vi.fn(async () => undefined);
+    (harness.menuScene as unknown as { ensurePanelPresentation: typeof requested }).ensurePanelPresentation = requested;
+
+    harness.buttonByLabel('Change Contract')!.state.handlers.pointerup!();
+
+    const [, artIds] = requested.mock.calls.at(-1)! as unknown as [string, string[]];
+    expect(artIds).toEqual(harness.context.stages.allStages().map((stage) => {
+      const option = (harness.menuScene as unknown as { controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot } }).controller
+        .snapshot().stage.stages.find((row) => row.id === stage.id)!;
+      return option.objective.artId;
+    }));
+    expect(artIds).not.toContain('enemy:shard-bot');
+    expect(artIds).not.toContain('enemy:bastion-beetle');
+    expect(artIds).not.toContain('enemy:junk-nester');
+  });
+
+  it('waits for the cold Home art closure before a quick Play launch uses the scene loader', async () => {
+    const harness = createHarness();
+    let finishHomeArt!: () => void;
+    const homeArt = new Promise<void>((resolve) => { finishHomeArt = resolve; });
+    const scene = harness.menuScene as unknown as {
+      panelArtInFlight?: Promise<void>;
+      panelArtLoading: boolean;
+      textures: { exists(key: string): boolean; get(key: string): { has(frame: string): boolean; setFilter(mode: number): void } };
+      anims: { exists(key: string): boolean };
+      addPanelArt(...args: unknown[]): void;
+    };
+    scene.panelArtInFlight = homeArt;
+    scene.panelArtLoading = true;
+    scene.textures = { exists: () => true, get: () => ({ has: () => true, setFilter: () => undefined }) };
+    scene.anims = { exists: () => true };
+    scene.addPanelArt = () => undefined;
+
+    harness.buttonByLabel('Play Contract')!.state.handlers.pointerup!();
+    await Promise.resolve();
+    expect(harness.sceneStart).not.toHaveBeenCalled();
+
+    finishHomeArt();
+    await vi.waitFor(() => expect(harness.sceneStart).toHaveBeenCalledOnce());
   });
 
   it('renders every Mercenary as one graphical row from controller-owned art identities', () => {
@@ -779,6 +834,142 @@ describe('MenuScene', () => {
     });
 
     await scene.ensureMercenaryPresentation(['character:scrap-tabby']);
+    expect(rendered).not.toHaveBeenCalled();
+  });
+
+  it('lazy-loads Compendium actor art, rerenders only the captured panel, and reuses cached resources', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>(); const rendered = vi.fn(); const loaded = new Set<string>();
+    const start = vi.fn(() => {
+      loaded.add('art-enemy-dust-mite');
+      complete.get('filecomplete-spritesheet-art-enemy-dust-mite')?.();
+    });
+    const scene = new MenuScene() as unknown as {
+      isLive: boolean; committedPanel: string; controller: { snapshot(): unknown };
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
+      load: { on(): void; off(): void; once(event: string, listener: () => void): void; spritesheet(): void; start(): void };
+      getContext(): typeof harness.context; requireVisualArt(): DataVisualArtRegistry; render(snapshot: unknown): void;
+      ensurePanelPresentation(panel: 'compendium', ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'compendium', controller: { snapshot: () => ({}) },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: { on: () => undefined, off: () => undefined, once: (event: string, listener: () => void) => { complete.set(event, listener); }, spritesheet: () => undefined, start },
+      getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
+    });
+
+    await scene.ensurePanelPresentation('compendium', ['enemy:dust-mite']);
+    expect(start).toHaveBeenCalledOnce();
+    expect(rendered).toHaveBeenCalledOnce();
+    await scene.ensurePanelPresentation('compendium', ['enemy:dust-mite']);
+    expect(start).toHaveBeenCalledOnce();
+  });
+
+  it('repaints the current panel when its queued art became cached by an overlapping prior-panel load', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>(); const rendered = vi.fn(); const loaded = new Set<string>();
+    let finish!: () => void;
+    const scene = new MenuScene() as unknown as {
+      isLive: boolean; committedPanel: string; controller: { snapshot(): unknown };
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
+      load: { on(): void; off(): void; once(event: string, listener: () => void): void; spritesheet(): void; start(): void };
+      getContext(): typeof harness.context; requireVisualArt(): DataVisualArtRegistry; render(snapshot: unknown): void;
+      ensurePanelPresentation(panel: 'home' | 'compendium', ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'home', controller: { snapshot: () => ({ panel: 'compendium' }) },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: {
+        on: () => undefined, off: () => undefined,
+        once: (event: string, listener: () => void) => { complete.set(event, listener); },
+        spritesheet: () => undefined,
+        start: () => { finish = () => { loaded.add('art-enemy-dust-mite'); complete.get('filecomplete-spritesheet-art-enemy-dust-mite')?.(); }; },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
+    });
+
+    const homeLoad = scene.ensurePanelPresentation('home', ['enemy:dust-mite']);
+    scene.committedPanel = 'compendium';
+    await scene.ensurePanelPresentation('compendium', ['enemy:dust-mite']);
+    finish();
+    await homeLoad;
+
+    expect(rendered).toHaveBeenCalledOnce();
+  });
+
+  it('serializes rapid Home and Mercenary art closures through the one scene loader', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>();
+    const loaded = new Set<string>();
+    let finish!: () => void;
+    const start = vi.fn(() => {
+      finish = () => {
+        loaded.add('art-enemy-dust-mite');
+        complete.get('filecomplete-spritesheet-art-enemy-dust-mite')?.();
+      };
+    });
+    const scene = new MenuScene() as unknown as {
+      isLive: boolean; committedPanel: string; controller: { snapshot(): unknown };
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
+      load: { on(): void; off(): void; once(event: string, listener: () => void): void; spritesheet(): void; start(): void };
+      getContext(): typeof harness.context; requireVisualArt(): DataVisualArtRegistry; render(snapshot: unknown): void;
+      ensurePanelPresentation(panel: 'home', ids: readonly string[]): Promise<void>;
+      ensureMercenaryPresentation(ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'home', controller: { snapshot: () => ({}) },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: { on: () => undefined, off: () => undefined, once: (event: string, listener: () => void) => { complete.set(event, listener); }, spritesheet: () => undefined, start },
+      getContext: () => harness.context, requireVisualArt: () => art, render: () => undefined,
+    });
+
+    const home = scene.ensurePanelPresentation('home', ['enemy:dust-mite']);
+    const mercenary = scene.ensureMercenaryPresentation(['enemy:dust-mite']);
+    await Promise.resolve();
+    expect(start).toHaveBeenCalledOnce();
+    finish();
+    await Promise.all([home, mercenary]);
+    expect(start).toHaveBeenCalledOnce();
+  });
+
+  it('does not let an old scene-lifetime panel-art load clear, drain, or repaint restarted state', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>(); const rendered = vi.fn(); const loaded = new Set<string>();
+    let finish!: () => void;
+    const scene = new MenuScene() as unknown as {
+      isLive: boolean; committedPanel: string; controller: { snapshot(): unknown };
+      panelArtGeneration: number; panelArtLoading: boolean; pendingPanelArtIds: Set<string>;
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
+      load: { on(): void; off(): void; once(event: string, listener: () => void): void; spritesheet(): void; start(): void };
+      getContext(): typeof harness.context; requireVisualArt(): DataVisualArtRegistry; render(snapshot: unknown): void;
+      ensurePanelPresentation(panel: 'home', ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'home', controller: { snapshot: () => ({}) }, panelArtGeneration: 1,
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: {
+        on: () => undefined, off: () => undefined,
+        once: (event: string, listener: () => void) => { complete.set(event, listener); },
+        spritesheet: () => undefined,
+        start: () => { finish = () => { loaded.add('art-enemy-dust-mite'); complete.get('filecomplete-spritesheet-art-enemy-dust-mite')?.(); }; },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
+    });
+
+    const oldLoad = scene.ensurePanelPresentation('home', ['enemy:dust-mite']);
+    await Promise.resolve();
+    scene.panelArtGeneration = 2;
+    scene.panelArtLoading = true;
+    scene.pendingPanelArtIds.add('enemy:junk-rusher');
+    finish();
+    await oldLoad;
+
+    expect(scene.panelArtLoading).toBe(true);
+    expect(scene.pendingPanelArtIds).toEqual(new Set(['enemy:junk-rusher']));
     expect(rendered).not.toHaveBeenCalled();
   });
 
@@ -957,9 +1148,9 @@ describe('MenuScene', () => {
       expect.arrayContaining([
         'Meowcenary',
         'Play Contract',
+        'Change Contract',
         'Mercenary',
-        'Loadout: Equipment',
-        'Loadout: Gunsmith',
+        'Loadout',
         'Career',
         'Training',
         'Settings',
@@ -967,6 +1158,219 @@ describe('MenuScene', () => {
       ]),
     );
     expect(objects.filter((object) => object.state.kind === 'container')).toHaveLength(1);
+    expect(textContents()).toContain(
+      'Scrap Tabby • 0 Scrap\nNEXT CONTRACT • Junkyard 1\nFirst Scavenge • Junkyard Lot\nEliminate 25 threats\nThreats: Dust Mite • Scrap Skitter • Junk Rusher • Scrap Sniper\nFirst clear: 35 Scrap + Standard Barrel T1',
+    );
+  });
+
+  it('bounds the narrow Home threat preview while preserving the complete Contract detail roster', () => {
+    const harness = createHarness({ create: false });
+    const scale = harness.menuScene.scale as unknown as {
+      width: number; height: number; displaySize: { width: number; height: number };
+    };
+    scale.width = 360;
+    scale.height = 640;
+    scale.displaySize = { width: 360, height: 640 };
+    harness.menuScene.create();
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      addPanelArt(...args: unknown[]): void;
+      currentViewport: UiViewport;
+    };
+    const base = scene.controller.snapshot();
+    const expandedThreats = Array.from({ length: 12 }, (_, index) => ({
+      enemyId: `enemy-${index}`,
+      name: `Threat ${index}`,
+      actorArtId: 'enemy:dust-mite',
+    }));
+    const stages = base.stage.stages.map((stage, index) => index === 0
+      ? { ...stage, selected: true, threats: expandedThreats }
+      : { ...stage, selected: false });
+    const addPanelArt = vi.fn();
+    scene.addPanelArt = addPanelArt;
+
+    scene.render({ ...base, panel: 'home', stage: { ...base.stage, stages } });
+
+    const homeCopy = harness.textContents().find((text) => text.includes('NEXT CONTRACT'))!;
+    expect(homeCopy).toContain('Threats: Threat 0 • Threat 1 • Threat 2 • Threat 3 • +8 more');
+    expect(homeCopy).not.toContain('Threat 4');
+    expect(addPanelArt.mock.calls.filter((call) => call[3] === 'enemy:dust-mite')).toHaveLength(4);
+    const safeBottom = 640 - edgeMargin(scene.currentViewport, 'bottom');
+    const homeActions = harness.objects.filter((object) =>
+      object.state.kind === 'text' && object.state.handlers.pointerup && !object.state.destroyed);
+    expect(homeActions).toHaveLength(7);
+    for (const action of homeActions) {
+      const paddedHeight = action.state.height - 16 + action.state.padding.top * 2;
+      expect(action.state.y + paddedHeight, action.state.text).toBeLessThanOrEqual(safeBottom);
+    }
+
+    scene.render({ ...base, panel: 'stage', stage: { ...base.stage, stages } });
+    const detail = harness.textContents().filter((text) => text.includes('Threat ')).join(' • ');
+    expect(detail).toContain('Threat 11');
+  });
+
+  it('keeps the Contract hero and every 44px+ Home action inside all acceptance viewports', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as { handleResize(): void };
+    for (const [width, height] of [[360, 640], [390, 844], [844, 390], [1280, 720], [1920, 1080]]) {
+      const scale = harness.menuScene.scale as unknown as { width: number; height: number; displaySize: { width: number; height: number } };
+      scale.width = width; scale.height = height; scale.displaySize = { width, height };
+      scene.handleResize();
+      const viewport = (harness.menuScene as unknown as { currentViewport: UiViewport }).currentViewport;
+      const bottom = height - edgeMargin(viewport, 'bottom');
+      const buttons = harness.objects.filter((object) => object.state.kind === 'text' && object.state.handlers.pointerup && !object.state.destroyed);
+      expect(buttons).toHaveLength(7);
+      for (const button of buttons) {
+        // The Phaser fake records padding separately rather than recomputing
+        // Text.height; mirror the real padded target bounds here.
+        const paddedHeight = button.state.height - 16 + button.state.padding.top * 2;
+        expect(paddedHeight).toBeGreaterThanOrEqual(minimumHitTarget(viewport));
+        expect(button.state.y + paddedHeight, `${width}x${height} ${button.state.text}`).toBeLessThanOrEqual(bottom);
+      }
+    }
+  });
+
+  it('shows campaign completion as a replay frontier and never wraps the hero back to Next Contract', () => {
+    const harness = createHarness();
+    for (const stage of harness.context.stages.allStages()) harness.context.completeStage(stage.id, 60_000);
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+    };
+    scene.render(scene.controller.snapshot());
+
+    expect(harness.textContents().some((text) => text.includes('CAMPAIGN COMPLETE — REPLAY'))).toBe(true);
+    expect(harness.textContents().some((text) => text.includes('Forge Warden • Forge Foundry'))).toBe(true);
+    expect(harness.textContents()).toContain('Replay Contract');
+    expect(harness.textContents().some((text) => text.includes('NEXT CONTRACT'))).toBe(false);
+  });
+
+  it('routes through one Loadout hub before Equipment or Gunsmith', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['Loadout', 'Equipment', 'Gunsmith', '< Back']));
+    expect(harness.textContents().some((text) => text.includes('Equipment 0/4 slots'))).toBe(true);
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toContain('AVAILABLE BLUEPRINTS');
+    harness.buttonByLabel('< Back')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toContain('Loadout');
+  });
+
+  it('groups Contract cards by chapter and keeps locked rows inert with player-facing requirements', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Change Contract')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['JUNKYARD', 'FORGE']));
+    const locked = harness.buttonByLabel('Scrap Run\nJunkyard Lot • Collect 14 Scrap\nLOCKED — Clear First Scavenge.')!;
+    expect(locked.state.interactive).toBe(false);
+  });
+
+  it('wraps a complete expanded selected-Contract threat roster inside the narrow safe edge', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      safeRightMargin: number;
+    };
+    const base = scene.controller.snapshot();
+    const stages = base.stage.stages.map((stage, index) => index === 0 ? {
+      ...stage,
+      selected: true,
+      threats: Array.from({ length: 12 }, (_, threatIndex) => ({
+        enemyId: `enemy-${threatIndex}`,
+        name: `Long Threat Name ${threatIndex}`,
+        actorArtId: 'enemy:dust-mite',
+      })),
+    } : { ...stage, selected: false });
+    scene.render({ ...base, panel: 'stage', stage: { ...base.stage, stages } });
+
+    const details = harness.objects.filter((object) => object.state.text.includes('Long Threat Name'));
+    expect(details.map((detail) => detail.state.text).join(' • ')).toContain('Long Threat Name 11');
+    expect(details).toHaveLength(3);
+    for (const detail of details) {
+      const wrapWidth = (detail.state.style.wordWrap as { width: number }).width;
+      expect(detail.state.x + wrapWidth).toBeLessThanOrEqual(390 - scene.safeRightMargin);
+    }
+  });
+
+  it('includes a tall selected final-Contract detail block in the narrow shared-scroll extent', () => {
+    const harness = createHarness({ create: false });
+    const scale = harness.menuScene.scale as unknown as { width: number; displaySize: { width: number } };
+    scale.width = 360;
+    scale.displaySize.width = 360;
+    harness.menuScene.create();
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      scrollViewportTop: number;
+      scrollRegion: { contentHeight: number; viewportHeight: number; scrollOffset: number; scrollBy(delta: number): void; includeContentBottom(bottom: number): void };
+      navigator: { index: number };
+    };
+    const base = scene.controller.snapshot();
+    const finalIndex = base.stage.stages.length - 1;
+    const stages = base.stage.stages.map((stage, index) => ({
+      ...stage,
+      locked: false,
+      selected: index === finalIndex,
+      threats: index === finalIndex ? Array.from({ length: 20 }, (_, threatIndex) => ({
+        enemyId: `enemy-${threatIndex}`, name: `Threat ${threatIndex}`, actorArtId: 'enemy:dust-mite',
+      })) : stage.threats,
+    }));
+    scene.render({ ...base, panel: 'stage', stage: { ...base.stage, selectedStageId: stages[finalIndex]!.id, stages } });
+
+    const details = harness.objects.filter((object) =>
+      object.state.text.includes('Threat ') || object.state.text.startsWith('First clear:'));
+    expect(details.filter((object) => object.state.text.includes('Threat '))).toHaveLength(5);
+    const detailBottom = Math.max(...details.map((detail) => detail.state.y + detail.state.height));
+    expect(scene.scrollRegion.contentHeight).toBeGreaterThanOrEqual(detailBottom - scene.scrollViewportTop);
+    scene.scrollRegion.scrollBy(10_000);
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThanOrEqual(
+      detailBottom - scene.scrollViewportTop - scene.scrollRegion.viewportHeight,
+    );
+
+    // Restore focus-driven position, then prove controller Down reveals the
+    // selected detail tail before focus is allowed to leave for fixed Back.
+    scene.render({ ...base, panel: 'stage', stage: { ...base.stage, selectedStageId: stages[finalIndex]!.id, stages } });
+    // The Phaser production Text reports its wrapped height. The lightweight
+    // fake does not, so extend the same shared detail extent to represent the
+    // wrapped N+1 roster at 360px.
+    scene.scrollRegion.includeContentBottom(detailBottom + 200);
+    for (let index = 0; index < finalIndex; index += 1) {
+      harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+      harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+    }
+    expect(scene.navigator.index).toBe(finalIndex);
+    const rowOffset = scene.scrollRegion.scrollOffset;
+    harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+    expect(scene.navigator.index).toBe(finalIndex);
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(rowOffset);
+    harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+    expect(scene.navigator.index).toBe(finalIndex + 1);
+  });
+
+  it('renders discovered Compendium entries with controller-owned actor art identities', () => {
+    const harness = createHarness();
+    harness.context.recordCompendiumDiscovery('dust-mite', 'encountered');
+    const addPanelArt = vi.fn();
+    (harness.menuScene as unknown as { addPanelArt: typeof addPanelArt }).addPanelArt = addPanelArt;
+    harness.buttonByLabel('Career')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Compendium')!.state.handlers.pointerup!();
+    expect(addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'enemy:dust-mite', 50, false, true);
+  });
+
+  it('keeps discovered Compendium copy inside the narrow safe edge after reserving its actor-art column', () => {
+    const harness = createHarness();
+    harness.context.recordCompendiumDiscovery('dust-mite', 'defeated');
+    harness.buttonByLabel('Career')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Compendium')!.state.handlers.pointerup!();
+
+    const row = harness.objects.find((object) => object.state.text.startsWith('Dust Mite\n'))!;
+    const wrapWidth = (row.state.style.wordWrap as { width: number }).width;
+    const safeRightMargin = (harness.menuScene as unknown as { safeRightMargin: number }).safeRightMargin;
+    expect(row.state.x).toBeGreaterThan(16);
+    expect(row.state.x + wrapWidth + row.state.padding.left + row.state.padding.right).toBeLessThanOrEqual(390 - safeRightMargin);
   });
 
   it('renders unlocked Equipment fabrication blueprints in the player-facing Equipment panel', () => {
@@ -974,7 +1378,8 @@ describe('MenuScene', () => {
     const addCatalogIcon = vi.fn();
     (harness.menuScene as unknown as { addCatalogIcon: typeof addCatalogIcon }).addCatalogIcon = addCatalogIcon;
 
-    harness.buttonByLabel('Loadout: Equipment')!.state.handlers['pointerup']!();
+    harness.buttonByLabel('Loadout')!.state.handlers['pointerup']!();
+    harness.buttonByLabel('Equipment')!.state.handlers['pointerup']!();
 
     expect(harness.textContents()).toContain('AVAILABLE BLUEPRINTS');
     expect(harness.textContents()).toContain(
@@ -1017,6 +1422,10 @@ describe('MenuScene', () => {
   it('navigates panels with keyboard focus and Esc returns home', () => {
     const harness = createHarness();
 
+    harness.keyboard.keydown('ArrowDown');
+    harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('ArrowDown');
+    harness.menuScene.update(0, 16);
     harness.keyboard.keydown('ArrowDown'); // focus moves to Mercenary
     harness.menuScene.update(0, 16);
     harness.keyboard.keydown('Enter');
@@ -1044,6 +1453,7 @@ describe('MenuScene', () => {
       harness.menuScene.update(0, 16);
     };
 
+    press(13);
     press(13); // D-pad down → Mercenary
     press(0); // bottom face confirm → Mercenary panel
     expect(harness.textContents()).toContain('Mercenary');
@@ -1166,6 +1576,7 @@ describe('MenuScene', () => {
       harness.menuScene.update(0, 16);
     };
     press('ArrowDown');
+    press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Mercenary');
     expect(seams.navigator.index).toBe(0);
@@ -1200,6 +1611,7 @@ describe('MenuScene', () => {
     expect(seams.navigator.index).toBe(0);
 
     // Home → Mercenary resets to the first character row.
+    press('ArrowDown');
     press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Mercenary');
@@ -1260,9 +1672,10 @@ describe('MenuScene', () => {
     expect(harness.textContents()).not.toContain('Something went wrong — press Esc to retry');
     expect(events).toEqual(['ui:back']);
     press('ArrowDown');
+    press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Mercenary');
-    expect(events).toEqual(['ui:back', 'ui:navigate', 'ui:confirm']);
+    expect(events).toEqual(['ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm']);
   });
 
   it('clears the stale hint when a render fails AFTER the hint is assigned (round-6)', () => {
@@ -1302,8 +1715,8 @@ describe('MenuScene', () => {
   });
 
   it.each([
-    { name: 'home', steps: 0, expected: ['Play Contract', 'Mercenary', 'Loadout: Equipment', 'Loadout: Gunsmith', 'Career', 'Training', 'Settings'] },
-    { name: 'mercenary', steps: 1, expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', 'Volt Lynx 🔒', 'Brass Boar 🔒', 'Ember Cougar 🔒', 'Scrap Weasel 🔒', 'Rattle Raptor 🔒', 'Piston Ram 🔒', '< Back'] },
+    { name: 'home', steps: 0, expected: ['Play Contract', 'Change Contract', 'Mercenary', 'Loadout', 'Career', 'Training', 'Settings'] },
+    { name: 'mercenary', steps: 2, expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', 'Volt Lynx 🔒', 'Brass Boar 🔒', 'Ember Cougar 🔒', 'Scrap Weasel 🔒', 'Rattle Raptor 🔒', 'Piston Ram 🔒', '< Back'] },
     { name: 'career', steps: 4, expected: ['Next Goals', 'Achievements', 'Compendium', '< Back'] },
     { name: 'training', steps: 5, expected: ['Start Training', '< Back'] },
     { name: 'settings', steps: 6, expected: ['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', '< Back'] },
@@ -1850,6 +2263,21 @@ describe('MenuScene', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(harness.sceneStart).not.toHaveBeenCalled();
     expect(harness.textContents()).toContain('Retry Loading Contract');
+  });
+
+  it('places a wrapped Contract loading error above Retry without overlap at the narrow viewport', async () => {
+    const harness = createHarness({ create: false });
+    const scale = harness.menuScene.scale as unknown as { width: number; displaySize: { width: number } };
+    scale.width = 360;
+    scale.displaySize.width = 360;
+    harness.menuScene.create();
+
+    harness.buttonByLabel('Play Contract')!.state.handlers.pointerup!();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const error = harness.objects.find((object) => object.state.text.startsWith("Couldn't load this Contract"))!;
+    const retry = harness.buttonByLabel('Retry Loading Contract')!;
+    expect(error.state.y + error.state.height).toBeLessThanOrEqual(retry.state.y);
   });
 });
 

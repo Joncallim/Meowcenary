@@ -33,9 +33,146 @@ describe('StageSelectionController (Epic 20)', () => {
     // Fresh save: only stage 1 (unlock-count 0) is unlocked
     expect(snap.stages[0].locked).toBe(false);
     expect(snap.stages[0].completed).toBe(false);
+    expect(snap.stages[0]).toMatchObject({
+      chapterName: 'Junkyard',
+      locationName: 'Junkyard Lot',
+      objective: { kind: 'kill', copy: 'Eliminate 25 threats' },
+      reward: { firstClearScrap: 35 },
+      boss: false,
+    });
+    expect(snap.stages[0].threats).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'Dust Mite', actorArtId: 'enemy:dust-mite' }),
+    ]));
+    expect(snap.stages[1].lockCopy).toBe('Clear First Scavenge.');
     for (let i = 1; i < snap.stages.length; i++) {
       expect(snap.stages[i].locked).toBe(true);
     }
+  });
+
+  it('keeps every authoritative encounter threat in the read model, including current five- and six-member rosters', () => {
+    const { controller } = createHarness();
+    const snapshot = controller.snapshot();
+    expect(snapshot.stages.find((stage) => stage.id === 'stage:junkyard-02')!.threats.map((threat) => threat.enemyId)).toEqual([
+      'dust-mite', 'scrap-skitter', 'scrap-sniper', 'junk-nester', 'bastion-beetle',
+    ]);
+    expect(snapshot.stages.find((stage) => stage.id === 'stage:forge-04')!.threats.map((threat) => threat.enemyId)).toEqual([
+      'dust-mite', 'scrap-sniper', 'junk-nester', 'junk-rusher', 'shard-bot', 'bastion-beetle',
+    ]);
+    expect(snapshot.stages.find((stage) => stage.id === 'stage:junkyard-05')!.threats.at(-1)).toMatchObject({
+      enemyId: 'boss-crusher', name: 'Scrap Crusher', actorArtId: 'enemy:boss-crusher',
+    });
+    expect(snapshot.stages.find((stage) => stage.id === 'stage:junkyard-06')!.threats.at(-1)).toMatchObject({
+      enemyId: 'boss-forge', name: 'Forge Warden', actorArtId: 'enemy:boss-forge',
+    });
+  });
+
+  it('deduplicates a boss authored in both ordinary and boss encounter fields', () => {
+    const data = loadGameData();
+    const encounters = data.encounterProfiles!.map((encounter) => encounter.bossId
+      ? { ...encounter, enemyIds: [...encounter.enemyIds, encounter.bossId] }
+      : encounter);
+    const amended = { ...data, encounterProfiles: encounters };
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data: amended,
+      metaUpgrades: new DataMetaUpgradeRegistry(amended), save: new SaveManager(new MemoryStorageAdapter(), 'boss-threat-dedupe', {}),
+      characters: new DataCharacterRegistry(amended), arenas: new DataArenaRegistry(amended), stages: new StageRegistry(amended),
+    });
+
+    const threats = new StageSelectionController(context).snapshot().stages
+      .find((stage) => stage.id === 'stage:junkyard-05')!.threats;
+    expect(threats.filter((threat) => threat.enemyId === 'boss-crusher')).toHaveLength(1);
+  });
+
+  it('scales to an expanded N+1 encounter roster while deduplicating repeated authored IDs in display order', () => {
+    const data = loadGameData();
+    const targetId = data.stages![0]!.encounterProfileId;
+    const expandedIds = data.enemies.map((enemy) => enemy.id);
+    const encounterProfiles = data.encounterProfiles!.map((encounter) => encounter.id === targetId
+      ? { ...encounter, enemyIds: [...expandedIds, expandedIds[2]!] }
+      : encounter);
+    const amended = { ...data, encounterProfiles };
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data: amended,
+      metaUpgrades: new DataMetaUpgradeRegistry(amended), save: new SaveManager(new MemoryStorageAdapter(), 'n-plus-one-threats', {}),
+      characters: new DataCharacterRegistry(amended), arenas: new DataArenaRegistry(amended), stages: new StageRegistry(amended),
+    });
+
+    expect(new StageSelectionController(context).snapshot().stages[0]!.threats.map((threat) => threat.enemyId)).toEqual(expandedIds);
+  });
+
+  it('keeps a data-only elite threat under its own identity while inheriting base actor art', () => {
+    const data = loadGameData();
+    const targetId = data.stages![0]!.encounterProfileId;
+    const elite = { id: 'elite:test-dust', name: 'Veteran Dust Mite', archetype: 'elite' as const, baseEnemyId: 'dust-mite' };
+    const amended = {
+      ...data,
+      enemies: [...data.enemies, elite],
+      encounterProfiles: data.encounterProfiles!.map((encounter) => encounter.id === targetId
+        ? { ...encounter, enemyIds: [...encounter.enemyIds, elite.id] }
+        : encounter),
+    };
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data: amended,
+      metaUpgrades: new DataMetaUpgradeRegistry(amended), save: new SaveManager(new MemoryStorageAdapter(), 'elite-threat-art', {}),
+      characters: new DataCharacterRegistry(amended), arenas: new DataArenaRegistry(amended), stages: new StageRegistry(amended),
+    });
+
+    expect(new StageSelectionController(context).snapshot().stages[0]!.threats).toContainEqual({
+      enemyId: elite.id,
+      name: elite.name,
+      actorArtId: 'enemy:dust-mite',
+    });
+  });
+
+  it('presents boss detail and the campaign-complete frontier without wrapping to the first Contract', () => {
+    const { context, controller } = createHarness();
+    for (const stage of context.stages.allStages()) context.completeStage(stage.id, 60_000);
+    const snap = controller.snapshot();
+    const warden = snap.stages.find((stage) => stage.id === 'stage:junkyard-06')!;
+    expect(warden).toMatchObject({
+      chapterName: 'Forge', locationName: 'Forge Foundry', boss: true,
+      objective: { kind: 'defeat', copy: 'Defeat Forge Warden' },
+      reward: { firstClearScrap: 180, headline: '180 Scrap + Mastered Fire Trait Core T3' }, completed: true, bestTimeMs: 60_000,
+    });
+    expect(snap.frontier).toMatchObject({ kind: 'campaign-complete', stageId: 'stage:junkyard-06' });
+  });
+
+  it('formats authored survive durations exactly instead of rounding them to whole minutes', () => {
+    const data = loadGameData();
+    const stages = (data.stages ?? []).map((stage, index) => index === 0
+      ? { ...stage, objective: { type: 'survive' as const, seconds: 30 } }
+      : index === 1
+        ? { ...stage, objective: { type: 'survive' as const, seconds: 90 } }
+        : stage);
+    const amended = { ...data, stages };
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data: amended,
+      metaUpgrades: new DataMetaUpgradeRegistry(amended),
+      save: new SaveManager(new MemoryStorageAdapter(), 'survive-copy', {}),
+      characters: new DataCharacterRegistry(amended), arenas: new DataArenaRegistry(amended),
+      stages: new StageRegistry(amended),
+    });
+
+    const snapshot = new StageSelectionController(context).snapshot();
+    expect(snapshot.stages[0]!.objective.copy).toBe('Survive 30 seconds');
+    expect(snapshot.stages[1]!.objective.copy).toBe('Survive 1 minute 30 seconds');
+  });
+
+  it('derives collect copy and art identity from the authored item instead of assuming Scrap', () => {
+    const data = loadGameData();
+    const stages = (data.stages ?? []).map((stage, index) => index === 0
+      ? { ...stage, objective: { type: 'collect' as const, itemId: 'item:coolant-cell', count: 3 } }
+      : stage);
+    const amended = { ...data, stages };
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data: amended,
+      metaUpgrades: new DataMetaUpgradeRegistry(amended), save: new SaveManager(new MemoryStorageAdapter(), 'collect-copy', {}),
+      characters: new DataCharacterRegistry(amended), arenas: new DataArenaRegistry(amended), stages: new StageRegistry(amended),
+    });
+
+    expect(new StageSelectionController(context).snapshot().stages[0]!.objective).toEqual({
+      kind: 'collect', copy: 'Collect 3 Coolant Cell', artId: 'upgrade-icon:scrap-magnet',
+    });
   });
 
   it('keeps registry stage IDs in display order when authored data is reordered', () => {
@@ -58,6 +195,47 @@ describe('StageSelectionController (Epic 20)', () => {
     };
     const registry = new StageRegistry({ ...data, stages: [composite, ...(data.stages ?? [])] });
     expect(registry.allStageIds().indexOf(composite.id)).toBeGreaterThan(registry.allStageIds().indexOf('stage:junkyard-05'));
+  });
+
+  it('describes the complete recursive lock condition instead of inventing a previous-Contract gate', () => {
+    const data = loadGameData();
+    const stages = (data.stages ?? []).map((stage, index) => index === 1 ? {
+      ...stage,
+      unlock: { type: 'all' as const, conditions: [
+        { type: 'stage-cleared' as const, stageId: 'stage:junkyard-01' },
+        { type: 'any' as const, conditions: [
+          { type: 'boss-defeated' as const, bossId: 'boss-crusher' },
+          { type: 'achievement-completed' as const, achievementId: 'achievement:first-victory' },
+        ] },
+      ] },
+    } : stage);
+    const amended = { ...data, stages };
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data: amended,
+      metaUpgrades: new DataMetaUpgradeRegistry(amended), save: new SaveManager(new MemoryStorageAdapter(), 'condition-copy', {}),
+      characters: new DataCharacterRegistry(amended), arenas: new DataArenaRegistry(amended), stages: new StageRegistry(amended),
+    });
+
+    expect(new StageSelectionController(context).snapshot().stages.find((stage) => stage.id === 'stage:junkyard-02')!.lockCopy).toBe(
+      'Meet all requirements: Clear First Scavenge; Meet any requirement: Defeat Scrap Crusher; Complete First Victory.',
+    );
+  });
+
+  it('keeps an N+1 grant kind visible in the first-clear reward headline', () => {
+    const data = loadGameData();
+    const targetId = data.stages![0]!.rewardProfileId;
+    const rewardProfiles = data.rewardProfiles!.map((reward) => reward.id === targetId ? {
+      ...reward,
+      grants: [...(reward.grants ?? []), { type: 'grant-item' as const, itemId: 'item:future-signal', amount: 2 }],
+    } : reward);
+    const amended = { ...data, rewardProfiles };
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data: amended,
+      metaUpgrades: new DataMetaUpgradeRegistry(amended), save: new SaveManager(new MemoryStorageAdapter(), 'grant-copy', {}),
+      characters: new DataCharacterRegistry(amended), arenas: new DataArenaRegistry(amended), stages: new StageRegistry(amended),
+    });
+
+    expect(new StageSelectionController(context).snapshot().stages[0]!.reward.headline).toContain('Future Signal ×2');
   });
 
   it('selects only unlocked stages; rejects locked ones', () => {
@@ -89,6 +267,8 @@ describe('StageSelectionController (Epic 20)', () => {
     // Stage 2 now selectable
     expect(controller.select('stage:junkyard-02').ok).toBe(true);
     expect(controller.hasNextUnlockedStage()).toBe(false);
+    controller.select('stage:junkyard-01');
+    expect(controller.snapshot().frontier).toEqual({ kind: 'replay', stageId: 'stage:junkyard-01' });
   });
 
   it('keeps a frozen snapshot and bumps the revision on selection', () => {

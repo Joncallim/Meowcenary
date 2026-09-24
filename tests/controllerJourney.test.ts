@@ -32,14 +32,15 @@ if (!import.meta.url.includes('?as-harness')) {
         controller: { snapshot: () => import('../src/ui/menus').MainMenuSnapshot };
       }).controller.snapshot();
 
-    // 1. Menu home: navDown, confirm → Mercenary/Character.
+    // 1. Menu home: skip Change Contract, confirm → Mercenary/Character.
     let sceneBefore = sceneCommands(menu.scene);
     menu.press(13);
-    expect(menu.events).toEqual(['ui:navigate']);
+    menu.press(13);
+    expect(menu.events).toEqual(['ui:navigate', 'ui:navigate']);
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
     const captureRunStart = vi.spyOn(menu.context, 'captureRunPresentationBaseline');
     menu.press(0);
-    expect(menu.events).toEqual(['ui:navigate', 'ui:confirm']);
+    expect(menu.events).toEqual(['ui:navigate', 'ui:navigate', 'ui:confirm']);
     expect(menu.textContents()).toContain('Mercenary');
     expect(menuSnapshot().panel).toBe('character');
     sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 1');
@@ -49,26 +50,31 @@ if (!import.meta.url.includes('?as-harness')) {
     // 2. Character: confirm the visible default (already-selected is a
     //    successful no-op), then back → Home.
     menu.press(0);
-    expect(menu.events).toEqual(['ui:navigate', 'ui:confirm', 'ui:confirm']);
+    expect(menu.events).toEqual(['ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm']);
     expect(menu.textContents()).toContain('Mercenary');
     expect(menuSnapshot().panel).toBe('character');
     menu.press(1);
-    expect(menu.events).toEqual(['ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back']);
+    expect(menu.events).toEqual(['ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back']);
     expect(menu.textContents()).toContain('Play Contract');
     expect(menuSnapshot().panel).toBe('home');
     sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 2');
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
     assertZeroPointerCalls(menu.pointerCalls, 'menu step 2');
 
-    // 3. Home (panel reset): navDown, navDown, confirm → Loadout/Equipment.
+    // 3. Home (panel reset): open the grouped Loadout hub, then Equipment.
+    menu.press(13);
     menu.press(13);
     menu.press(13);
     expect(menu.events).toEqual([
-      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate',
+      'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back',
+      'ui:navigate', 'ui:navigate', 'ui:navigate',
     ]);
     menu.press(0);
+    expect(menuSnapshot().panel).toBe('loadout');
+    menu.press(0);
     expect(menu.events).toEqual([
-      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm',
+      'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back',
+      'ui:navigate', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm',
     ]);
     expect(menu.textContents()).toContain('Equipment');
     expect(menuSnapshot().panel).toBe('equipment');
@@ -76,11 +82,14 @@ if (!import.meta.url.includes('?as-harness')) {
     assertZeroPointerCalls(menu.pointerCalls, 'menu step 3');
 
     // 4. Equipment exposes its data-backed fabrication blueprints; the
-    //    controller Back action returns Home without activating a recipe.
+    //    controller Back action returns through Loadout without activating a recipe.
     expect(menu.textContents()).toContain('AVAILABLE BLUEPRINTS');
     menu.press(1);
+    expect(menuSnapshot().panel).toBe('loadout');
+    menu.press(1);
     expect(menu.events).toEqual([
-      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:back',
+      'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back',
+      'ui:navigate', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:back',
     ]);
     expect(menu.textContents()).toContain('Play Contract');
     expect(menuSnapshot().panel).toBe('home');
@@ -92,7 +101,8 @@ if (!import.meta.url.includes('?as-harness')) {
     //    restart (F3).
     menu.press(0);
     expect(menu.events).toEqual([
-      'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:back', 'ui:confirm',
+      'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back',
+      'ui:navigate', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:back', 'ui:confirm',
     ]);
     // Contract launch awaits the required visual closure before entering the
     // Game scene; even an already-loaded fixture crosses the async boundary.
@@ -314,7 +324,7 @@ if (!import.meta.url.includes('?as-harness')) {
     fresh.press(0);
     expect(fresh.events.slice(beforeMenu)).toEqual(['ui:navigate', 'ui:confirm']);
     expectSceneDeltas(sceneBefore14, fresh.scene, 'adjust loadout branch step 14', { start: 1 });
-    expect(fresh.scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, { initialPanel: 'equipment' });
+    expect(fresh.scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, { initialPanel: 'loadout' });
     assertZeroPointerCalls(fresh.pointerCalls, 'main menu branch step 14');
   });
 

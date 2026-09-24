@@ -10,6 +10,7 @@
 import type { GameContext } from '../engine/context';
 import type { DataAchievementRegistry } from '../systems/achievements';
 import type { AchievementDefinition } from '../gameplay/achievementSystem';
+import { describeProgressionGrant } from './progressionPresentation';
 
 /** Never use an unrevealed achievement's own art as a lock glyph: the image
  * itself would reveal the reward before its discovery boundary. */
@@ -134,27 +135,5 @@ function describeRewards(
   data: GameContext['data'],
 ): string {
   if (rewards.length === 0) return 'No persistent reward.';
-  return rewards.map(({ grant }) => {
-    switch (grant.type) {
-      case 'grant-scrap': return `+${grant.amount} scrap`;
-      case 'unlock-character': return `Unlocks ${nameFor(data.characters, grant.characterId, 'character')}`;
-      case 'unlock-part': return `Unlocks ${nameFor(data.gunParts, grant.partId, 'part')}`;
-      case 'unlock-equipment': return `Unlocks ${nameFor(data.equipment, grant.equipmentId, 'equipment')}`;
-      case 'unlock-trait': return 'Unlocks a trait';
-      case 'unlock-stage': return `Unlocks ${nameFor(data.stages, grant.stageId, 'contract')}`;
-      case 'grant-part-instance': return `Earns ${nameFor(data.gunParts, grant.partId, 'part')}`;
-      case 'grant-equipment-instance': return `Earns ${nameFor(data.equipment, grant.equipmentId, 'equipment')}`;
-      case 'permanent-upgrade-level': return `Improves ${nameFor(data.metaUpgrades, grant.upgradeId, 'upgrade')}`;
-      case 'achievement-completed': return 'Completes an achievement';
-      case 'grant-item': return 'Earns an item';
-    }
-  }).join(' • ');
-}
-
-function nameFor(
-  rows: readonly { readonly id: string; readonly name: string }[] | undefined,
-  id: string,
-  fallback: string,
-): string {
-  return rows?.find((row) => row.id === id)?.name ?? fallback;
+  return rewards.map(({ grant }) => describeProgressionGrant(grant, data, 'sentence')).join(' • ');
 }

@@ -428,7 +428,7 @@ export class PhaserRunSummaryView {
       this.onAdjustLoadout();
       return;
     }
-    this.scenePlugin.start(SceneKey.Menu, { initialPanel: 'equipment' });
+    this.scenePlugin.start(SceneKey.Menu, { initialPanel: 'loadout' });
   }
 
   /** Returns to the neutral Menu surface only after terminal settlement is

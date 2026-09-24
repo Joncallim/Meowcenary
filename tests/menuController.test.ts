@@ -57,6 +57,7 @@ describe('MainMenuController', () => {
     expect(controller.open('character').panel).toBe('character');
     expect(controller.open('arena').panel).toBe('arena');
     expect(controller.open('stage').panel).toBe('stage');
+    expect(controller.open('loadout').panel).toBe('loadout');
     expect(controller.open('settings').panel).toBe('settings');
 
     const backToHome = controller.back();
@@ -156,6 +157,7 @@ describe('MainMenuController', () => {
     expect(cancelled.panel).toBe('gunsmith');
     expect(cancelled.gunsmith.confirmation).toBeUndefined();
     expect(context.saveData.gunsmith.parts).toHaveProperty('a');
+    expect(controller.back().panel).toBe('loadout');
     expect(controller.back().panel).toBe('home');
   });
 
@@ -182,6 +184,7 @@ describe('MainMenuController', () => {
     snapshot = controller.back();
     expect(snapshot.panel).toBe('gunsmith');
     expect(snapshot.gunsmith.mergeSelection).toBeUndefined();
+    expect(controller.back().panel).toBe('loadout');
     expect(controller.back().panel).toBe('home');
   });
 

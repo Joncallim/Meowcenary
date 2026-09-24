@@ -186,8 +186,8 @@ function characterSelectTrial(trial: number): void {
   const spy = attachRawConfirmSpy(h);
   const commands = h.sceneCommands();
 
-  // Home → Character: navDown ×1, confirm.
-  for (let i = 0; i < 1; i += 1) { h.padDown(13); h.poll(); h.padUp(13); h.poll(); }
+  // Home → Character: Change Contract is the secondary Contract action.
+  for (let i = 0; i < 2; i += 1) { h.padDown(13); h.poll(); h.padUp(13); h.poll(); }
   h.padDown(0); h.poll(); h.padUp(0); h.poll();
   expect(h.menuSnapshot().panel).toBe('character');
 

@@ -14,8 +14,7 @@ import achievementsJson from '../src/data/achievements.json';
 import rewardProfilesJson from '../src/data/reward-profiles.json';
 import stagesJson from '../src/data/stages.json';
 
-function createHarness() {
-  const data = loadGameData();
+function createHarness(data = loadGameData()) {
   const context = createGameContext({
     bus: createEventBus(),
     menuRng: createRng(1),
@@ -44,9 +43,35 @@ describe('Epic 26 progression overview read model', () => {
 
     expect(snap.nextGoals.length).toBeGreaterThan(0);
     expect(snap.nextGoals[0]).toMatchObject({ kind: 'stage', id: 'stage:junkyard-01' });
+    expect(snap.nextGoals).toHaveLength(3);
+    expect(snap.nextGoals[0]).toMatchObject({ artId: expect.any(String) });
+    expect(snap.nextGoals.every((goal) => !goal.detail.includes('stage:') && !goal.detail.includes('chapter:'))).toBe(true);
     // Goals are sorted by priority.
     const priorities = snap.nextGoals.map((g) => g.priority);
     expect(priorities).toEqual([...priorities].sort((a, b) => a - b));
+  });
+
+  it('describes the authored composite condition for a locked next Contract', () => {
+    const base = loadGameData();
+    const data = {
+      ...base,
+      stages: (base.stages ?? []).map((stage, index) => index === 1 ? {
+        ...stage,
+        unlock: {
+          type: 'all' as const,
+          conditions: [
+            { type: 'stage-cleared' as const, stageId: 'stage:junkyard-01' },
+            { type: 'scrap-total' as const, threshold: 75 },
+          ],
+        },
+      } : stage),
+    };
+    const { context, controller } = createHarness(data);
+    context.completeStage('stage:junkyard-01', 60_000);
+
+    expect(controller.snapshot().nextGoals[0]?.detail).toBe(
+      'Meet all requirements: Clear First Scavenge; Hold 75 Scrap.',
+    );
   });
 
   it('clearing stages advances the ladder and reveals the boss goal', () => {

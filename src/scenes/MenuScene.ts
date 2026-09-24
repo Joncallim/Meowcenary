@@ -16,12 +16,14 @@ import { ScrollableFocusRegion } from '../ui/scrollableFocus';
 import { assembleComposedRunRequest, assembleRunRequest, asLegacyComposedRunRequest, type ComposedRunRequest } from '../gameplay/runRequest';
 import { resolveRunPlan } from '../gameplay/stage/stageContracts';
 import { loadTextureResources, prepareRunPresentation, resolveRunPhysicalResources, type ResourceLoadProgress } from '../systems/resourceLoader';
-import { DataVisualArtRegistry, DataVisualResourceRegistry, resolveAchievementIconBinding } from '../systems/visualArt';
+import { DataVisualArtRegistry, DataVisualResourceRegistry, ensureVisualAnimations, resolveAchievementIconBinding, visualAnimationKey } from '../systems/visualArt';
 import { isPortraitOrientationBlocked } from '../platform/orientation';
 
 const MENU_DEPTH = ThemeDepth.pauseSummary;
 /** 44 physical px at the smallest promised FIT (844×390 → 0.462085). */
 const MIN_MENU_BUTTON_LOGICAL_WIDTH = 44 / 0.462085;
+/** Home is an above-the-fold launch card, not the complete Contract roster. */
+const HOME_THREAT_PREVIEW_LIMIT = 4;
 
 /** The two audible command events a menu button can produce. */
 type MenuAudioEvent = 'ui:confirm' | 'ui:back';
@@ -93,6 +95,14 @@ export class MenuScene extends Phaser.Scene {
   private gunsmithArtLoading = false;
   private readonly pendingGunsmithArtIds = new Set<string>();
   private gunsmithArtGeneration = 0;
+  private panelArtLoading = false;
+  private panelArtInFlight?: Promise<void>;
+  /** Phaser has one LoaderPlugin per scene. Every menu/run presentation
+   * closure enters this tail so rapid panel changes cannot overlap queues. */
+  private menuTextureLoadTail: Promise<void> = Promise.resolve();
+  private readonly pendingPanelArtIds = new Set<string>();
+  private readonly pendingPanelArtRepaints = new Set<MainMenuSnapshot['panel']>();
+  private panelArtGeneration = 0;
   /** Scene-lifetime physical binding resolver. Career can render a large
    * gallery repeatedly, so per-badge catalog cloning/validation is invalid. */
   private visualArt?: DataVisualArtRegistry;
@@ -123,6 +133,11 @@ export class MenuScene extends Phaser.Scene {
     this.gunsmithArtLoading = false;
     this.mercenaryArtLoading = false;
     this.pendingGunsmithArtIds.clear();
+    this.panelArtGeneration += 1;
+    this.panelArtLoading = false;
+    this.panelArtInFlight = undefined;
+    this.pendingPanelArtIds.clear();
+    this.pendingPanelArtRepaints.clear();
     this.isLive = true;
     const ctx = this.getContext();
     this.visualArt = new DataVisualArtRegistry(ctx.data);
@@ -274,6 +289,9 @@ export class MenuScene extends Phaser.Scene {
         case 'stage':
           this.renderStage(root, snapshot, width, contentTop, margin, hitTarget);
           break;
+        case 'loadout':
+          this.renderLoadout(root, snapshot, width, contentTop, margin, hitTarget);
+          break;
         case 'career':
           this.renderCareer(root, snapshot, width, contentTop, margin, hitTarget);
           break;
@@ -376,49 +394,60 @@ export class MenuScene extends Phaser.Scene {
     hitTarget: number,
   ): void {
     const selectedCharacter = snapshot.character.characters.find((c) => c.selected);
-    const selectedStage = snapshot.stage.stages.find((s) => s.selected);
+    const frontier = snapshot.stage.frontier;
+    const selectedStage = snapshot.stage.stages.find((s) => s.id === frontier.stageId)
+      ?? snapshot.stage.stages.find((s) => s.selected);
+    const campaignComplete = frontier.kind === 'campaign-complete';
+    const threatPreview = selectedStage?.threats.slice(0, HOME_THREAT_PREVIEW_LIMIT) ?? [];
+    const omittedThreatCount = Math.max(0, (selectedStage?.threats.length ?? 0) - threatPreview.length);
+    const threatPreviewCopy = [
+      ...threatPreview.map((threat) => threat.name),
+      ...(omittedThreatCount > 0 ? [`+${omittedThreatCount} more`] : []),
+    ].join(' • ');
     const infoLines = [
-      `Character: ${selectedCharacter?.name ?? snapshot.character.selectedCharacterId}`,
-      `Contract: ${selectedStage?.name ?? snapshot.stage.selectedStageId}`,
-      `Scrap: ${this.getContext().saveData.progression.scrap}`,
+      `${selectedCharacter?.name ?? snapshot.character.selectedCharacterId} • ${this.getContext().saveData.progression.scrap} Scrap`,
+      `${campaignComplete ? 'CAMPAIGN COMPLETE — REPLAY' : selectedStage?.completed ? 'REPLAY CONTRACT' : 'NEXT CONTRACT'} • ${selectedStage?.chapterName ?? ''} ${selectedStage?.displayOrder ?? ''}`,
+      `${selectedStage?.name ?? snapshot.stage.selectedStageId} • ${selectedStage?.locationName ?? ''}`,
+      selectedStage?.objective.copy ?? '',
+      selectedStage ? `Threats: ${threatPreviewCopy}` : '',
+      selectedStage?.completed
+        ? `Best: ${formatDuration(selectedStage.bestTimeMs)}`
+        : `First clear: ${selectedStage?.reward.headline ?? ''}`,
     ];
 
     const info = this.own(root, createUiText(this,margin, top, infoLines.join('\n'), {
       color: '#d6f7ff',
       fontFamily: ThemeFont.family,
-      fontSize: `${ThemeFont.labelMin}px`,
-      lineSpacing: 4,
-      wordWrap: { width: width - margin - this.safeRightMargin },
+      fontSize: `${ThemeFont.bodyMin}px`,
+      lineSpacing: 2,
+      wordWrap: { width: Math.max(1, width - margin - this.safeRightMargin - 78) },
     }));
     info.setScrollFactor(0);
 
     const buttons: ReadonlyArray<{ readonly label: string; readonly action: () => void }> = [
       {
-        label: this.runLaunchState === 'failed' ? 'Retry Loading Contract' : 'Play Contract',
+        label: this.runLaunchState === 'failed' ? 'Retry Loading Contract' : selectedStage?.completed ? 'Replay Contract' : 'Play Contract',
         action: () => { void this.startContractWithResources(); },
       },
+      { label: 'Change Contract', action: () => this.render(this.requireController().open('stage')) },
       { label: 'Mercenary', action: () => this.render(this.requireController().open('character')) },
-      { label: 'Loadout: Equipment', action: () => this.render(this.requireController().open('equipment')) },
-      { label: 'Loadout: Gunsmith', action: () => this.render(this.requireController().open('gunsmith')) },
+      { label: 'Loadout', action: () => this.render(this.requireController().open('loadout')) },
       { label: 'Career', action: () => this.render(this.requireController().open('career')) },
       { label: 'Training', action: () => this.render(this.requireController().open('training')) },
       { label: 'Settings', action: () => this.render(this.requireController().open('settings')) },
     ];
-    let y = top + info.height + 24;
-    buttons.forEach(({ label, action }) => {
-      const button = this.addButton(root, this.safeCenterX, y, label, hitTarget, action);
-      y += button.height + 12;
-    });
-
-    const hints = this.own(root, createUiText(this,margin, this.scale.height - edgeMargin(this.currentViewport!, 'bottom') - 14, this.menuHintCopy(), {
-      color: '#a5f3fc',
-      fontFamily: ThemeFont.family,
-      fontSize: `${ThemeFont.bodyMin}px`,
-    }));
-    hints.setScrollFactor(0);
-    this.hint = hints;
+    const artX = width - this.safeRightMargin - 28;
+    if (selectedCharacter) this.addPanelArt(root, artX, top + 18, selectedCharacter.actorArtId, 40);
+    if (selectedStage) {
+      this.addPanelArt(root, artX, top + 54, selectedStage.locationArtId, 34);
+      this.addPanelArt(root, artX - 34, top + 54, selectedStage.objective.artId, 26);
+      threatPreview.forEach((threat, index) => {
+        this.addPanelArt(root, artX - (index % 2) * 30, top + 88 + Math.floor(index / 2) * 28, threat.actorArtId, 24);
+      });
+    }
+    let y = top + info.height + 12;
     if (this.runLaunchState === 'failed') {
-      const detail = this.own(root, createUiText(this, margin, top + info.height + 4,
+      const detail = this.own(root, createUiText(this, margin, y,
         `Couldn't load this Contract. Retry or go Back.`,
         {
           color: '#f87171',
@@ -427,7 +456,60 @@ export class MenuScene extends Phaser.Scene {
           wordWrap: { width: width - margin - this.safeRightMargin },
         }));
       detail.setScrollFactor(0);
+      y += detail.height + 12;
     }
+    const compactLandscape = this.scale.height < 500 && width >= 700;
+    if (compactLandscape) {
+      const gap = 4;
+      const buttonWidth = (width - margin - this.safeRightMargin - gap * (buttons.length - 1)) / buttons.length;
+      buttons.forEach(({ label, action }, index) => {
+        this.addButton(root, margin + index * (buttonWidth + gap), y, label, hitTarget, action, 'ui:confirm', buttonWidth);
+      });
+    } else {
+      buttons.slice(0, 2).forEach(({ label, action }) => {
+        const button = this.addButton(root, this.safeCenterX, y, label, hitTarget, action);
+        y += button.height + 6;
+      });
+      const secondary = buttons.slice(2);
+      const columnGap = 8;
+      const columns = 2;
+      const columnWidth = (width - margin - this.safeRightMargin - columnGap) / columns;
+      secondary.forEach(({ label, action }, index) => {
+        const column = index % columns;
+        this.addButton(root, margin + column * (columnWidth + columnGap), y, label, hitTarget, action, 'ui:confirm', columnWidth);
+        if (column === columns - 1 || index === secondary.length - 1) y += hitTarget + 6;
+      });
+    }
+
+    const hints = this.own(root, createUiText(this,margin, this.scale.height - edgeMargin(this.currentViewport!, 'bottom') - 14, this.menuHintCopy(), {
+      color: '#a5f3fc',
+      fontFamily: ThemeFont.family,
+      fontSize: `${ThemeFont.bodyMin}px`,
+    }));
+    hints.setScrollFactor(0);
+    this.hint = hints;
+    void this.ensurePanelPresentation('home', [
+      selectedCharacter?.actorArtId,
+      selectedStage?.locationArtId,
+      selectedStage?.objective.artId,
+      ...threatPreview.map((threat) => threat.actorArtId),
+    ].filter((id): id is string => id !== undefined));
+  }
+
+  private renderLoadout(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
+    const heading = this.addHeading(root, this.safeCenterX, top, 'Loadout');
+    const selectedCharacter = snapshot.character.characters.find((row) => row.selected);
+    const equipped = Object.values(snapshot.equipment.equipped).filter(Boolean).length;
+    const selectedBuild = snapshot.gunsmith.selectedBuild;
+    const summary = this.own(root, createUiText(this, margin, top + heading.height + 18,
+      `${selectedCharacter?.name ?? 'Mercenary'}\nEquipment ${equipped}/4 slots • ${snapshot.equipment.activeSets.map((set) => `${set.name} ${set.pieces}/4`).join(' • ') || 'No active Set'}\nGunsmith: ${selectedBuild?.title ?? 'Choose a weapon build'}\n${this.getContext().saveData.progression.scrap} Scrap`,
+      { color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, lineSpacing: 4, wordWrap: { width: width - margin - this.safeRightMargin } },
+    ));
+    let y = summary.y + summary.height + 24;
+    this.addButton(root, margin, y, 'Equipment', hitTarget, () => this.render(this.requireController().open('equipment')));
+    y += hitTarget + 12;
+    this.addButton(root, margin, y, 'Gunsmith', hitTarget, () => this.render(this.requireController().open('gunsmith')));
+    this.addBackButton(root, width, margin, hitTarget);
   }
 
   private async startContractWithResources(): Promise<void> {
@@ -477,12 +559,16 @@ export class MenuScene extends Phaser.Scene {
         encounterEnemyIds: plan?.encounter.enemyIds ?? legacyEnemyIds,
         bossId: plan?.encounter.bossId,
       });
-      await prepareRunPresentation(this, ctx.data, resources, (progress) => {
+      // Phaser exposes one scene-wide loader. A cold Home render may already
+      // own it for the hero closure, so launch must reuse that completion
+      // before asking the same loader for the full run closure.
+      await this.panelArtInFlight;
+      await this.serializeTextureLoad(() => prepareRunPresentation(this, ctx.data, resources, (progress) => {
         if (this.isLive && generation === this.runLaunchGeneration && this.runLaunchState === 'loading') {
           this.runLaunchProgress = progress;
           this.render(this.requireController().snapshot());
         }
-      });
+      }));
       if (!this.isLive || generation !== this.runLaunchGeneration || this.runLaunchState !== 'loading') return;
       this.scene.start(SceneKey.Game, { runRequest: request, runStartPresentation, isTraining });
     } catch (error) {
@@ -594,15 +680,46 @@ export class MenuScene extends Phaser.Scene {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Choose Contract');
     let y = top + heading.height + 20;
     this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
+    let chapter: string | undefined;
     snapshot.stage.stages.forEach((stage) => {
-      const label = `${stage.selected ? '✓ ' : ''}${stage.name}${stage.locked ? ' 🔒' : ''}`;
-      this.addButton(root, margin, y, label, hitTarget, () => {
+      if (stage.chapterName !== chapter) {
+        chapter = stage.chapterName;
+        const chapterLabel = this.own(root, createUiText(this, margin, y, chapter.toUpperCase(), {
+          color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.labelMin}px`, fontStyle: '700',
+        }));
+        this.registerScrollObject(chapterLabel);
+        y += chapterLabel.height + 8;
+      }
+      const status = stage.locked ? `LOCKED — ${stage.lockCopy}` : stage.completed ? `CLEARED • Best ${formatDuration(stage.bestTimeMs)}` : 'AVAILABLE';
+      const label = `${stage.selected ? '✓ ' : ''}${stage.boss ? 'BOSS • ' : ''}${stage.name}\n${stage.locationName} • ${stage.objective.copy}\n${status}`;
+      const button = this.addButton(root, margin + 42, y, label, hitTarget, () => {
         this.render(this.requireController().selectStage(stage.id));
-      });
-      y += hitTarget + 16;
+      }, 'ui:confirm', width - margin - this.safeRightMargin - 42);
+      if (stage.locked) this.disableButton(button);
+      this.addPanelArt(root, margin + 18, y + Math.min(button.height, 52) / 2, stage.objective.artId, 32, stage.locked);
+      y += button.height + 10;
+      if (stage.selected && !stage.locked) {
+        const threatGroups = Array.from({ length: Math.ceil(stage.threats.length / 4) }, (_, index) =>
+          stage.threats.slice(index * 4, index * 4 + 4));
+        for (const [index, threats] of threatGroups.entries()) {
+          const detail = this.own(root, createUiText(this, margin + 42, y,
+            `${index === 0 ? 'Threats: ' : ''}${threats.map((threat) => threat.name).join(' • ')}`,
+            { color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin - 42 } },
+          ));
+          this.registerScrollObject(detail);
+          y += detail.height + 4;
+        }
+        const reward = this.own(root, createUiText(this, margin + 42, y,
+          `First clear: ${stage.reward.headline}`,
+          { color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin - 42 } },
+        ));
+        this.registerScrollObject(reward);
+        y += reward.height + 12;
+      }
     });
     this.endScrollableRegion();
     this.addBackButton(root, width, margin, hitTarget);
+    void this.ensurePanelPresentation('stage', snapshot.stage.stages.map((stage) => stage.objective.artId));
   }
 
   private renderCareer(root: Phaser.GameObjects.Container, _snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
@@ -628,13 +745,15 @@ export class MenuScene extends Phaser.Scene {
       { color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin } }));
     y += summary.height + 12;
     overview.nextGoals.forEach((goal) => {
-      const row = this.own(root, createUiText(this, margin, y, `${goal.title}\n${goal.detail}`, {
-        color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin },
+      this.addPanelArt(root, margin + 18, y + 22, goal.artId, 32);
+      const row = this.own(root, createUiText(this, margin + 42, y, `${goal.title}\n${goal.detail}`, {
+        color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin - 42 },
       }));
       y += row.height + 12;
     });
     this.addButton(root, margin, y, 'Choose Contract', hitTarget, () => this.render(this.requireController().open('stage')));
     this.addBackButton(root, width, margin, hitTarget);
+    void this.ensurePanelPresentation('next-goals', overview.nextGoals.map((goal) => goal.artId));
   }
 
   private renderCompendium(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
@@ -648,14 +767,17 @@ export class MenuScene extends Phaser.Scene {
           ? `${entry.fieldNote}\nTells: ${entry.tells}`
           : `${entry.fieldNote}\nBehaviour: ${entry.behaviour}\nTells: ${entry.tells}\nCounterplay: ${entry.counterplay}${entry.foundIn.length > 0 ? `\nFound in: ${entry.foundIn[0]}` : ''}`;
       const name = entry.status === 'unseen' ? 'Unknown' : entry.name;
-      const row = this.addButton(root, margin, y, `${name}\n${detail}`, hitTarget, () => undefined, 'ui:confirm', width - margin - this.safeRightMargin);
+      const artColumn = entry.actorArtId ? 58 : 0;
+      const row = this.addButton(root, margin + artColumn, y, `${name}\n${detail}`, hitTarget, () => undefined, 'ui:confirm', width - margin - this.safeRightMargin - artColumn);
       row.setStyle({
-        color: entry.status === 'unseen' ? '#94a3b8' : '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin },
+        color: entry.status === 'unseen' ? '#94a3b8' : '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
       });
+      if (entry.actorArtId) this.addPanelArt(root, margin + 26, y + Math.min(row.height, 58) / 2, entry.actorArtId, 50, false, true);
       y += row.height + 12;
     });
     this.endScrollableRegion();
     this.addBackButton(root, width, margin, hitTarget);
+    void this.ensurePanelPresentation('compendium', snapshot.compendium.entries.flatMap((entry) => entry.actorArtId ? [entry.actorArtId] : []));
   }
 
   private renderTraining(root: Phaser.GameObjects.Container, width: number, top: number, margin: number, hitTarget: number): void {
@@ -1218,6 +1340,94 @@ export class MenuScene extends Phaser.Scene {
     this.registerScrollObject(icon);
   }
 
+  /** Shared art anchor for Contract, Career and Compendium cards. Semantic IDs
+   * come from their read models; this renderer only understands physical
+   * binding capabilities. */
+  private addPanelArt(root: Phaser.GameObjects.Container, x: number, y: number, artId: string, maxSize: number, subdued = false, animate = false): void {
+    const binding = this.requireVisualArt().bindingById(artId);
+    if (!binding || !this.textures?.exists(binding.textureKey)) return;
+    const frame = binding.load.type === 'spritesheet' ? binding.clips?.idle?.start ?? 0 : binding.frameKey;
+    const image = this.own(root, animate && binding.load.type === 'spritesheet'
+      ? this.add.sprite(x, y, binding.textureKey, frame)
+      : this.add.image(x, y, binding.textureKey, frame));
+    if (binding.load.type === 'spritesheet') {
+      const scale = Math.min(maxSize / binding.load.frame.width, maxSize / binding.load.frame.height);
+      image.setScale(scale);
+    } else {
+      image.setDisplaySize(Math.min(maxSize, binding.display.width), Math.min(maxSize, binding.display.height));
+    }
+    if (animate && binding.load.type === 'spritesheet' && binding.clips?.idle) {
+      (image as Phaser.GameObjects.Sprite).play(visualAnimationKey(binding.id, 'idle'));
+    }
+    image.setAlpha(subdued ? 0.35 : 1).setScrollFactor(0);
+    this.registerScrollObject(image);
+  }
+
+  /** One guarded lazy-loading lifecycle for the growing visual panels. A
+   * completion can repaint only the panel that requested it; pending IDs are
+   * drained afterwards so rapid navigation cannot drop a resource closure. */
+  private ensurePanelPresentation(
+    panel: MainMenuSnapshot['panel'],
+    artIds: readonly string[],
+    repaintWhenCached = false,
+  ): Promise<void> {
+    if (!this.textures?.exists) return Promise.resolve();
+    if (this.panelArtLoading) {
+      artIds.forEach((id) => this.pendingPanelArtIds.add(id));
+      this.pendingPanelArtRepaints.add(panel);
+      return Promise.resolve();
+    }
+    const task = this.loadPanelPresentation(panel, artIds, repaintWhenCached);
+    this.panelArtInFlight = task;
+    const clearTask = () => {
+      if (this.panelArtInFlight === task) this.panelArtInFlight = undefined;
+    };
+    void task.then(clearTask, clearTask);
+    return task;
+  }
+
+  private async loadPanelPresentation(
+    panel: MainMenuSnapshot['panel'],
+    artIds: readonly string[],
+    repaintWhenCached: boolean,
+  ): Promise<void> {
+    const generation = this.panelArtGeneration;
+    const art = this.requireVisualArt();
+    const resources = new DataVisualResourceRegistry(this.getContext().data);
+    const missing = new Map<string, import('../systems/types').VisualTextureResource>();
+    for (const artId of artIds) {
+      const binding = art.bindingById(artId);
+      if (!binding?.resourceId || this.textures.exists(binding.textureKey)) continue;
+      const resource = resources.resourceById(binding.resourceId);
+      if (resource) missing.set(resource.id, resource);
+    }
+    if (missing.size === 0) {
+      if (repaintWhenCached && generation === this.panelArtGeneration && this.isLive && this.committedPanel === panel && this.controller) {
+        this.render(this.controller.snapshot());
+      }
+      return;
+    }
+    this.panelArtLoading = true;
+    let loadedAny = false;
+    try {
+      loadedAny = (await this.serializeTextureLoad(() => loadTextureResources(this, [...missing.values()]))).loaded.length > 0;
+    } finally {
+      if (generation === this.panelArtGeneration) this.panelArtLoading = false;
+    }
+    if (generation !== this.panelArtGeneration || !this.isLive) return;
+    const animationScene = this as unknown as { readonly anims?: Phaser.Animations.AnimationManager };
+    if (loadedAny && animationScene.anims) ensureVisualAnimations(this, art);
+    if (loadedAny && this.committedPanel === panel && this.controller) this.render(this.controller.snapshot());
+    if (this.pendingPanelArtIds.size > 0) {
+      const pending = [...this.pendingPanelArtIds];
+      const repaintPanels = new Set(this.pendingPanelArtRepaints);
+      this.pendingPanelArtIds.clear();
+      this.pendingPanelArtRepaints.clear();
+      const targetPanel = this.committedPanel ?? panel;
+      await this.loadPanelPresentation(targetPanel, pending, repaintPanels.has(targetPanel));
+    }
+  }
+
   /** Mercenary thumbnails use the actor's authoritative first idle frame.
    * Locked entries stay identifiable but are visibly subdued; text remains
    * the authority for their exact unlock requirement. */
@@ -1265,7 +1475,7 @@ export class MenuScene extends Phaser.Scene {
     if (missing.size === 0) return;
     this.achievementArtLoading = true;
     try {
-      const result = await loadTextureResources(this, [...missing.values()]);
+      const result = await this.serializeTextureLoad(() => loadTextureResources(this, [...missing.values()]));
       if (result.loaded.length > 0 && this.committedPanel === 'achievements' && this.controller) {
         this.render(this.controller.snapshot());
       }
@@ -1292,7 +1502,7 @@ export class MenuScene extends Phaser.Scene {
     if (missing.size === 0) return;
     this.mercenaryArtLoading = true;
     try {
-      const result = await loadTextureResources(this, [...missing.values()]);
+      const result = await this.serializeTextureLoad(() => loadTextureResources(this, [...missing.values()]));
       if (result.loaded.length > 0 && this.committedPanel === 'character' && this.controller) {
         this.render(this.controller.snapshot());
       }
@@ -1318,7 +1528,7 @@ export class MenuScene extends Phaser.Scene {
     if (missing.size === 0) return;
     this.equipmentArtLoading = true;
     try {
-      const result = await loadTextureResources(this, [...missing.values()]);
+      const result = await this.serializeTextureLoad(() => loadTextureResources(this, [...missing.values()]));
       if (result.loaded.length > 0 && this.committedPanel === 'equipment' && this.controller) {
         this.render(this.controller.snapshot());
       }
@@ -1351,7 +1561,7 @@ export class MenuScene extends Phaser.Scene {
     this.gunsmithArtLoading = true;
     let loadedAny = false;
     try {
-      const result = await loadTextureResources(this, [...missing.values()]);
+      const result = await this.serializeTextureLoad(() => loadTextureResources(this, [...missing.values()]));
       loadedAny = result.loaded.length > 0;
     } finally {
       if (generation === this.gunsmithArtGeneration) this.gunsmithArtLoading = false;
@@ -1365,6 +1575,12 @@ export class MenuScene extends Phaser.Scene {
       this.pendingGunsmithArtIds.clear();
       await this.ensureGunsmithPresentation(pending);
     }
+  }
+
+  private serializeTextureLoad<T>(load: () => Promise<T>): Promise<T> {
+    const task = this.menuTextureLoadTail.then(load, load);
+    this.menuTextureLoadTail = task.then(() => undefined, () => undefined);
+    return task;
   }
 
   private addBackButton(
@@ -1399,8 +1615,10 @@ export class MenuScene extends Phaser.Scene {
 
   private registerScrollObject(object: Phaser.GameObjects.GameObject): void {
     if (!this.scrollRegion || !this.collectingScrollItems) return;
-    const positioned = object as unknown as { x: number; y: number };
+    const positioned = object as unknown as { x: number; y: number; getBounds?: () => { bottom: number } };
     this.scrollObjects.push({ object, x: positioned.x, y: positioned.y });
+    const bottom = positioned.getBounds?.().bottom;
+    if (bottom !== undefined) this.scrollRegion.includeContentBottom(bottom);
   }
 
   private finishScrollableRegion(): void {
@@ -1524,6 +1742,14 @@ export class MenuScene extends Phaser.Scene {
     // fallback): the retained navigator must not move or emit (F1).
     if (!this.committedDisplay) return;
     const resolved = typeof direction === 'number' ? (direction < 0 ? 'up' : 'down') : direction;
+    const localFocus = this.scrollLocalIndexByFocusIndex.get(this.navigator.index);
+    if (resolved === 'down' && this.scrollRegion && localFocus === this.scrollRegion.itemCount - 1
+      && this.scrollRegion.scrollToEnd()) {
+      this.applyScrollViewport();
+      this.bus?.emit('ui:navigate', {});
+      this.applyFocus();
+      return;
+    }
     const moved = this.navigator.move(resolved);
     if (moved) {
       this.syncScrollFocus(this.navigator.index);
@@ -1576,6 +1802,11 @@ export class MenuScene extends Phaser.Scene {
     this.gunsmithArtLoading = false;
     this.mercenaryArtLoading = false;
     this.pendingGunsmithArtIds.clear();
+    this.panelArtGeneration += 1;
+    this.pendingPanelArtIds.clear();
+    this.pendingPanelArtRepaints.clear();
+    this.panelArtLoading = false;
+    this.panelArtInFlight = undefined;
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
     this.scale.off?.(Phaser.Scale.Events.RESIZE, this.handleResize, this);
@@ -1662,6 +1893,12 @@ export class MenuScene extends Phaser.Scene {
   private getAudioManager(): AudioManager | undefined {
     return getAudioManager(this);
   }
+}
+
+function formatDuration(durationMs?: number): string {
+  if (durationMs === undefined) return '—';
+  const seconds = Math.max(0, Math.floor(durationMs / 1_000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
 function achievementStatusCopy(achievement: MainMenuSnapshot['achievements']['achievements'][number]): string {
