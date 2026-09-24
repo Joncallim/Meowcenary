@@ -19,6 +19,8 @@ not a new design source.
 - Dedicated Equipment baseline: PR #183 merge `30f46af06aeaa10873b01da057ca0e50b352c8ef`
 - Mercenary presentation/readability baseline: PR #184 merge `2d4dadb86ea8bf278fa114b2d5f4e66fb353016d`
 - Ten-Contract content-matrix baseline: PR #185 merge `b2e5d7c6cb82d1c74c7fb41447b259f1264ccba3`
+- Build-pacing baseline: PR #186 merge `a39ee0d1e6a2549b1ad362afe53f71010ea5f579`
+- Enemy-art baseline: PR #187 merge `e042163684330791bfa8fe3336c7dbc472b85674`
 
 ## Frozen persistence decisions
 
@@ -62,9 +64,9 @@ remain **UNVERIFIED** until genuinely performed.
 | #89 Equipment | mechanics/player fabrication and all 8 emblems/32 pieces have exact dedicated semantic art | closed by PR #183; physical device evidence remains UNVERIFIED |
 | #165 navigation | shared scrolling/input foundations shipped; Contract-first Home/selection, Loadout hub and visual Career refinements are in the current unmerged tranche | active UI tranche |
 | #167 production art | architecture complete; production art incomplete | primary active tranche |
-| #171 product pass | Contract matrix shipped; four-role upgrade offers and pacing telemetry are on an independent candidate; integrated fun verdict remains | active pacing/acceptance tranches |
+| #171 product pass | Contract matrix, four-role upgrade offers, and pacing telemetry shipped; integrated fun verdict remains | active acceptance tranche |
 | #174 Volt Lynx | distinct source/export and automated silhouette proof complete | device acceptance remains |
-| #175 actor readability | five Mercenary placeholder actors are in review; enemy/boss and device-scale evidence remain | active art tranche |
+| #175 actor readability | five Mercenary redraws and the enemy-art production tranche shipped; device-scale evidence remains | active acceptance tranche |
 | #98 async challenges | explicitly outside Alpha 3 | defer |
 
 ## Current art direction
