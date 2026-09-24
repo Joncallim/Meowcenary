@@ -26,16 +26,16 @@ describe('Epic 20 stage catalog conformance', () => {
   const rewards = rewardsJson as readonly RewardProfile[];
 
   const reviewedContractMatrix = [
-    ['stage:junkyard-01', { type: 'kill', count: 25 }, 'encounter:junkyard-first-scavenge', 'difficulty:chapter-1-easy'],
-    ['stage:junkyard-02', { type: 'collect', itemId: 'drop:scrap', count: 14 }, 'encounter:junkyard-scrap-run', 'difficulty:chapter-1-easy'],
-    ['stage:junkyard-03', { type: 'survive', seconds: 120 }, 'encounter:junkyard-rusher-ambush', 'difficulty:chapter-1-medium'],
-    ['stage:junkyard-04', { type: 'kill', count: 8, enemyTag: 'tank' }, 'encounter:junkyard-brute-force', 'difficulty:chapter-1-hard'],
-    ['stage:junkyard-05', { type: 'defeat', enemyId: 'boss-crusher' }, 'encounter:junkyard-crusher-boss', 'difficulty:boss-crusher'],
-    ['stage:forge-01', { type: 'collect', itemId: 'drop:scrap', count: 18 }, 'encounter:forge-hot-salvage', 'difficulty:forge-medium'],
-    ['stage:forge-02', { type: 'survive', seconds: 120 }, 'encounter:forge-smelter-rush', 'difficulty:forge-medium'],
-    ['stage:forge-03', { type: 'kill', count: 10, enemyTag: 'shielded' }, 'encounter:forge-steel-wall', 'difficulty:forge-hard'],
-    ['stage:forge-04', { type: 'kill', count: 12, enemyTag: 'ranged' }, 'encounter:forge-cut-the-feed', 'difficulty:forge-hard'],
-    ['stage:junkyard-06', { type: 'defeat', enemyId: 'boss-forge' }, 'encounter:forge-warden-boss', 'difficulty:boss-forge'],
+    ['stage:junkyard-01', 'First Scavenge', { type: 'kill', count: 25 }, 'encounter:junkyard-first-scavenge', 'difficulty:chapter-1-easy'],
+    ['stage:junkyard-02', 'Scrap Run', { type: 'collect', itemId: 'drop:scrap', count: 14 }, 'encounter:junkyard-scrap-run', 'difficulty:chapter-1-easy'],
+    ['stage:junkyard-03', 'Rusher Ambush', { type: 'survive', seconds: 120 }, 'encounter:junkyard-rusher-ambush', 'difficulty:chapter-1-medium'],
+    ['stage:junkyard-04', 'Brute Force', { type: 'kill', count: 8, enemyTag: 'tank' }, 'encounter:junkyard-brute-force', 'difficulty:chapter-1-hard'],
+    ['stage:junkyard-05', 'Scrap Crusher', { type: 'defeat', enemyId: 'boss-crusher' }, 'encounter:junkyard-crusher-boss', 'difficulty:boss-crusher'],
+    ['stage:forge-01', 'Hot Salvage', { type: 'collect', itemId: 'drop:scrap', count: 18 }, 'encounter:forge-hot-salvage', 'difficulty:forge-medium'],
+    ['stage:forge-02', 'Smelter Rush', { type: 'survive', seconds: 120 }, 'encounter:forge-smelter-rush', 'difficulty:forge-medium'],
+    ['stage:forge-03', 'Steel Wall', { type: 'kill', count: 10, enemyTag: 'shielded' }, 'encounter:forge-steel-wall', 'difficulty:forge-hard'],
+    ['stage:forge-04', 'Cut the Feed', { type: 'kill', count: 12, enemyTag: 'ranged' }, 'encounter:forge-cut-the-feed', 'difficulty:forge-hard'],
+    ['stage:junkyard-06', 'Forge Warden', { type: 'defeat', enemyId: 'boss-forge' }, 'encounter:forge-warden-boss', 'difficulty:boss-forge'],
   ] as const;
 
   it('ships two five-contract chapters in display order', () => {
@@ -49,6 +49,7 @@ describe('Epic 20 stage catalog conformance', () => {
   it('matches the reviewed ten-Contract objective, encounter, and difficulty matrix exactly', () => {
     expect(stages.map((stage) => [
       stage.id,
+      stage.name,
       stage.objective,
       stage.encounterProfileId,
       stage.difficultyProfileId,
