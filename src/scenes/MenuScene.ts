@@ -16,7 +16,7 @@ import { ScrollableFocusRegion } from '../ui/scrollableFocus';
 import { assembleComposedRunRequest, assembleRunRequest, asLegacyComposedRunRequest, type ComposedRunRequest } from '../gameplay/runRequest';
 import { resolveRunPlan } from '../gameplay/stage/stageContracts';
 import { loadTextureResources, prepareRunPresentation, resolveRunPhysicalResources, type ResourceLoadProgress } from '../systems/resourceLoader';
-import { DataVisualArtRegistry, DataVisualResourceRegistry, resolveAchievementIconBinding } from '../systems/visualArt';
+import { DataVisualArtRegistry, DataVisualResourceRegistry, ensureVisualAnimations, resolveAchievementIconBinding, visualAnimationKey } from '../systems/visualArt';
 import { isPortraitOrientationBlocked } from '../platform/orientation';
 
 const MENU_DEPTH = ThemeDepth.pauseSummary;
@@ -699,12 +699,22 @@ export class MenuScene extends Phaser.Scene {
       this.addPanelArt(root, margin + 18, y + Math.min(button.height, 52) / 2, stage.objective.artId, 32, stage.locked);
       y += button.height + 10;
       if (stage.selected && !stage.locked) {
-        const detail = this.own(root, createUiText(this, margin + 42, y,
-          `Threats: ${stage.threats.map((threat) => threat.name).join(' • ')}\nFirst clear: ${stage.reward.headline}`,
+        const threatGroups = Array.from({ length: Math.ceil(stage.threats.length / 4) }, (_, index) =>
+          stage.threats.slice(index * 4, index * 4 + 4));
+        for (const [index, threats] of threatGroups.entries()) {
+          const detail = this.own(root, createUiText(this, margin + 42, y,
+            `${index === 0 ? 'Threats: ' : ''}${threats.map((threat) => threat.name).join(' • ')}`,
+            { color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin - 42 } },
+          ));
+          this.registerScrollObject(detail);
+          y += detail.height + 4;
+        }
+        const reward = this.own(root, createUiText(this, margin + 42, y,
+          `First clear: ${stage.reward.headline}`,
           { color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin - 42 } },
         ));
-        this.registerScrollObject(detail);
-        y += detail.height + 12;
+        this.registerScrollObject(reward);
+        y += reward.height + 12;
       }
     });
     this.endScrollableRegion();
@@ -762,7 +772,7 @@ export class MenuScene extends Phaser.Scene {
       row.setStyle({
         color: entry.status === 'unseen' ? '#94a3b8' : '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
       });
-      if (entry.actorArtId) this.addPanelArt(root, margin + 26, y + Math.min(row.height, 58) / 2, entry.actorArtId, 50);
+      if (entry.actorArtId) this.addPanelArt(root, margin + 26, y + Math.min(row.height, 58) / 2, entry.actorArtId, 50, false, true);
       y += row.height + 12;
     });
     this.endScrollableRegion();
@@ -1333,16 +1343,21 @@ export class MenuScene extends Phaser.Scene {
   /** Shared art anchor for Contract, Career and Compendium cards. Semantic IDs
    * come from their read models; this renderer only understands physical
    * binding capabilities. */
-  private addPanelArt(root: Phaser.GameObjects.Container, x: number, y: number, artId: string, maxSize: number, subdued = false): void {
+  private addPanelArt(root: Phaser.GameObjects.Container, x: number, y: number, artId: string, maxSize: number, subdued = false, animate = false): void {
     const binding = this.requireVisualArt().bindingById(artId);
     if (!binding || !this.textures?.exists(binding.textureKey)) return;
     const frame = binding.load.type === 'spritesheet' ? binding.clips?.idle?.start ?? 0 : binding.frameKey;
-    const image = this.own(root, this.add.image(x, y, binding.textureKey, frame));
+    const image = this.own(root, animate && binding.load.type === 'spritesheet'
+      ? this.add.sprite(x, y, binding.textureKey, frame)
+      : this.add.image(x, y, binding.textureKey, frame));
     if (binding.load.type === 'spritesheet') {
       const scale = Math.min(maxSize / binding.load.frame.width, maxSize / binding.load.frame.height);
       image.setScale(scale);
     } else {
       image.setDisplaySize(Math.min(maxSize, binding.display.width), Math.min(maxSize, binding.display.height));
+    }
+    if (animate && binding.load.type === 'spritesheet' && binding.clips?.idle) {
+      (image as Phaser.GameObjects.Sprite).play(visualAnimationKey(binding.id, 'idle'));
     }
     image.setAlpha(subdued ? 0.35 : 1).setScrollFactor(0);
     this.registerScrollObject(image);
@@ -1400,6 +1415,8 @@ export class MenuScene extends Phaser.Scene {
       if (generation === this.panelArtGeneration) this.panelArtLoading = false;
     }
     if (generation !== this.panelArtGeneration || !this.isLive) return;
+    const animationScene = this as unknown as { readonly anims?: Phaser.Animations.AnimationManager };
+    if (loadedAny && animationScene.anims) ensureVisualAnimations(this, art);
     if (loadedAny && this.committedPanel === panel && this.controller) this.render(this.controller.snapshot());
     if (this.pendingPanelArtIds.size > 0) {
       const pending = [...this.pendingPanelArtIds];

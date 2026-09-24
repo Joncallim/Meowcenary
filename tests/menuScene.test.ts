@@ -1206,7 +1206,7 @@ describe('MenuScene', () => {
     }
 
     scene.render({ ...base, panel: 'stage', stage: { ...base.stage, stages } });
-    const detail = harness.textContents().find((text) => text.startsWith('Threats: Threat 0'))!;
+    const detail = harness.textContents().filter((text) => text.includes('Threat ')).join(' • ');
     expect(detail).toContain('Threat 11');
   });
 
@@ -1284,10 +1284,13 @@ describe('MenuScene', () => {
     } : { ...stage, selected: false });
     scene.render({ ...base, panel: 'stage', stage: { ...base.stage, stages } });
 
-    const detail = harness.objects.find((object) => object.state.text.startsWith('Threats: Long Threat Name'))!;
-    const wrapWidth = (detail.state.style.wordWrap as { width: number }).width;
-    expect(detail.state.text).toContain('Long Threat Name 11');
-    expect(detail.state.x + wrapWidth).toBeLessThanOrEqual(390 - scene.safeRightMargin);
+    const details = harness.objects.filter((object) => object.state.text.includes('Long Threat Name'));
+    expect(details.map((detail) => detail.state.text).join(' • ')).toContain('Long Threat Name 11');
+    expect(details).toHaveLength(3);
+    for (const detail of details) {
+      const wrapWidth = (detail.state.style.wordWrap as { width: number }).width;
+      expect(detail.state.x + wrapWidth).toBeLessThanOrEqual(390 - scene.safeRightMargin);
+    }
   });
 
   it('includes a tall selected final-Contract detail block in the narrow shared-scroll extent', () => {
@@ -1315,8 +1318,10 @@ describe('MenuScene', () => {
     }));
     scene.render({ ...base, panel: 'stage', stage: { ...base.stage, selectedStageId: stages[finalIndex]!.id, stages } });
 
-    const detail = harness.objects.find((object) => object.state.text.startsWith('Threats: Threat 0'))!;
-    const detailBottom = detail.state.y + detail.state.height;
+    const details = harness.objects.filter((object) =>
+      object.state.text.includes('Threat ') || object.state.text.startsWith('First clear:'));
+    expect(details.filter((object) => object.state.text.includes('Threat '))).toHaveLength(5);
+    const detailBottom = Math.max(...details.map((detail) => detail.state.y + detail.state.height));
     expect(scene.scrollRegion.contentHeight).toBeGreaterThanOrEqual(detailBottom - scene.scrollViewportTop);
     scene.scrollRegion.scrollBy(10_000);
     expect(scene.scrollRegion.scrollOffset).toBeGreaterThanOrEqual(
@@ -1352,7 +1357,7 @@ describe('MenuScene', () => {
     (harness.menuScene as unknown as { addPanelArt: typeof addPanelArt }).addPanelArt = addPanelArt;
     harness.buttonByLabel('Career')!.state.handlers.pointerup!();
     harness.buttonByLabel('Compendium')!.state.handlers.pointerup!();
-    expect(addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'enemy:dust-mite', 50);
+    expect(addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'enemy:dust-mite', 50, false, true);
   });
 
   it('keeps discovered Compendium copy inside the narrow safe edge after reserving its actor-art column', () => {
