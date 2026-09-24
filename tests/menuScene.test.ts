@@ -474,6 +474,44 @@ describe('MenuScene', () => {
     ]));
   });
 
+  it('keeps an unavailable fitted Part visibly occupied until the recovery command clears it', () => {
+    const harness = createHarness();
+    harness.context.updateGunsmith((state) => ({
+      ...state,
+      parts: { stale: { partId: 'part:removed-definition', tier: 1, infusedTraits: [] } },
+      builds: [{ id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: { barrel: 'stale' }, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+
+    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+
+    const text = harness.textContents();
+    const recoveryIndex = text.indexOf('Unavailable saved part\nREMOVE UNAVAILABLE PART');
+    expect(recoveryIndex).toBeGreaterThan(-1);
+    expect(text[recoveryIndex + 1]).toBe('OPTIC');
+  });
+
+  it('renders both behavior emblems for a Part with two effective traits', () => {
+    const harness = createHarness();
+    const addCatalogIcon = vi.fn();
+    (harness.menuScene as unknown as { addCatalogIcon: typeof addCatalogIcon }).addCatalogIcon = addCatalogIcon;
+    harness.context.updateGunsmith((state) => ({
+      ...state,
+      parts: { barrel: { partId: 'part:barrel-standard', tier: 2, infusedTraits: ['FIRE', 'PIERCING'] } },
+      builds: [{ id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: { barrel: 'barrel' }, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+
+    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+
+    expect(addCatalogIcon).toHaveBeenCalledWith(
+      expect.anything(), expect.any(Number), expect.any(Number), 'trait-icon:fire', 22,
+    );
+    expect(addCatalogIcon).toHaveBeenCalledWith(
+      expect.anything(), expect.any(Number), expect.any(Number), 'trait-icon:piercing', 22,
+    );
+  });
+
   it('uses the production scroll region for 20 Character, 25 Contract, 40 Achievement, and 50 Compendium rows', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {
@@ -1201,17 +1239,18 @@ describe('MenuScene', () => {
     const harness = createHarness({ create: false });
     const art = new DataVisualArtRegistry(harness.context.data);
     const complete = new Map<string, () => void>(); const queued: unknown[][] = []; const rendered = vi.fn();
+    const setFilter = vi.fn();
     let loaded = false;
     const scene = new MenuScene() as unknown as {
       isLive: boolean; committedPanel: string; controller: { snapshot(): unknown };
-      textures: { exists(key: string): boolean };
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
       load: { on(): void; off(): void; once(event: string, listener: () => void): void; atlas(...args: unknown[]): void; start(): void };
       getContext(): typeof harness.context; requireVisualArt(): DataVisualArtRegistry; render(snapshot: unknown): void;
       ensureGunsmithPresentation(ids: readonly string[]): Promise<void>;
     };
     Object.assign(scene, {
       isLive: true, committedPanel: 'gunsmith', controller: { snapshot: () => ({}) },
-      textures: { exists: () => loaded },
+      textures: { exists: () => loaded, get: () => ({ setFilter }) },
       load: {
         on: () => undefined, off: () => undefined,
         once: (event: string, listener: () => void) => { complete.set(event, listener); },
@@ -1227,6 +1266,8 @@ describe('MenuScene', () => {
       'assets/gunsmith/icons/gunsmith-icons-atlas.json',
     ]]);
     expect(rendered).toHaveBeenCalledOnce();
+    expect(setFilter).toHaveBeenCalledOnce();
+    expect(setFilter).toHaveBeenCalledWith(1);
     await scene.ensureGunsmithPresentation(['gun-part-icon:barrel-standard']);
     expect(queued).toHaveLength(1);
 
@@ -1258,6 +1299,19 @@ describe('MenuScene', () => {
     });
     await scene.ensureGunsmithPresentation(['gun-slot-icon:trait']);
     expect(rendered).not.toHaveBeenCalled();
+  });
+
+  it('resets interrupted Gunsmith presentation loading across scene reuse', () => {
+    const harness = createHarness({ create: false });
+    const scene = harness.menuScene as unknown as { gunsmithArtLoading: boolean; create(): void };
+    scene.gunsmithArtLoading = true;
+
+    scene.create();
+    expect(scene.gunsmithArtLoading).toBe(false);
+
+    scene.gunsmithArtLoading = true;
+    harness.lifecycle.emit('shutdown');
+    expect(scene.gunsmithArtLoading).toBe(false);
   });
 
 

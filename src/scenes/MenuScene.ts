@@ -109,6 +109,7 @@ export class MenuScene extends Phaser.Scene {
     this.runLaunchState = 'idle';
     this.runLaunchProgress = undefined;
     this.runLaunchPresentation = undefined;
+    this.gunsmithArtLoading = false;
     this.isLive = true;
     const ctx = this.getContext();
     this.visualArt = new DataVisualArtRegistry(ctx.data);
@@ -752,7 +753,7 @@ export class MenuScene extends Phaser.Scene {
             () => this.render(this.requireController().removeUnavailableGunPart(slot.unavailableFitted!.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin);
           y += row.height + 8;
         }
-        if (slot.candidates.length === 0 && slot.fitted === undefined) {
+        if (slot.candidates.length === 0 && slot.fitted === undefined && slot.unavailableFitted === undefined) {
           const empty = this.own(root, createUiText(this, margin, y, slot.slot === 'trait' ? 'No Trait Core fitted' : 'Empty', {
             color: '#94a3b8', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
           }));
@@ -766,13 +767,15 @@ export class MenuScene extends Phaser.Scene {
             : gunsmithPartActionCopy(part);
           const label = `${part.name} T${part.tier} • ${part.state === 'fitted-here' ? 'FITTED' : part.state === 'fitted-elsewhere' ? `FITTED TO ${part.assignedBuildName?.toUpperCase() ?? 'ANOTHER BUILD'}` : part.state === 'owned-unfitted' ? 'OWNED' : 'UNAVAILABLE'}\n${[...part.effectLines, ...part.traitLines.map((trait) => `${trait} trait`)].join(' • ') || 'No stat change'}\n${action}`;
           const enabled = part.state !== 'incompatible';
-          const iconColumn = part.traitIcons.length > 0 ? 70 : 38;
+          const iconColumn = 38 + part.traitIcons.length * 28;
           const row = this.addButton(root, margin, y, label, hitTarget, () => this.render(part.state === 'fitted-here'
             ? this.requireController().unequipGunPart(part.instanceId)
             : this.requireController().fitGunPart(part.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
           if (!enabled) row.disableInteractive();
           this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, part.iconArtId);
-          if (part.traitIcons[0]) this.addCatalogIcon(root, width - this.safeRightMargin - margin - 45, y + hitTarget / 2, part.traitIcons[0].iconArtId, 22);
+          part.traitIcons.forEach((trait, index) => {
+            this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41 - index * 28, y + hitTarget / 2, trait.iconArtId, 22);
+          });
           y += row.height + 8;
         });
       });
@@ -802,11 +805,13 @@ export class MenuScene extends Phaser.Scene {
         this.registerScrollObject(unavailable);
       }
       snapshot.gunsmith.blueprints.forEach((blueprint) => {
-        const iconColumn = blueprint.traitIcons.length > 0 ? 70 : 38;
+        const iconColumn = 38 + blueprint.traitIcons.length * 28;
         const row = this.addButton(root, margin, y, `${blueprint.name}\n${blueprint.effectLines.join(' • ') || 'No stat change'}\nFabricate — ${blueprint.fabricationCost} Scrap`, hitTarget,
           () => this.render(this.requireController().fabricateGunPart(blueprint.partId)), 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
         this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, blueprint.iconArtId);
-        if (blueprint.traitIcons[0]) this.addCatalogIcon(root, width - this.safeRightMargin - margin - 45, y + hitTarget / 2, blueprint.traitIcons[0].iconArtId, 22);
+        blueprint.traitIcons.forEach((trait, index) => {
+          this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41 - index * 28, y + hitTarget / 2, trait.iconArtId, 22);
+        });
         y += row.height + 8;
       });
     }
@@ -1190,6 +1195,7 @@ export class MenuScene extends Phaser.Scene {
    * knowing that resource identity or constructing a semantic art ID. */
   private async ensureGunsmithPresentation(iconArtIds: readonly string[]): Promise<void> {
     if (this.gunsmithArtLoading || !this.textures?.exists) return;
+    const generation = this.runLaunchGeneration;
     const context = this.getContext();
     const art = this.requireVisualArt();
     const resources = new DataVisualResourceRegistry(context.data);
@@ -1204,11 +1210,11 @@ export class MenuScene extends Phaser.Scene {
     this.gunsmithArtLoading = true;
     try {
       const result = await loadTextureResources(this, [...missing.values()]);
-      if (result.failed.length === 0 && this.isLive && this.committedPanel === 'gunsmith' && this.controller) {
+      if (result.failed.length === 0 && generation === this.runLaunchGeneration && this.isLive && this.committedPanel === 'gunsmith' && this.controller) {
         this.render(this.controller.snapshot());
       }
     } finally {
-      this.gunsmithArtLoading = false;
+      if (generation === this.runLaunchGeneration) this.gunsmithArtLoading = false;
     }
   }
 
@@ -1416,6 +1422,7 @@ export class MenuScene extends Phaser.Scene {
   private handleShutdown(): void {
     this.isLive = false;
     this.runLaunchGeneration += 1;
+    this.gunsmithArtLoading = false;
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
     this.scale.off?.(Phaser.Scale.Events.RESIZE, this.handleResize, this);
