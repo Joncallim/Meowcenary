@@ -118,6 +118,12 @@ function visiblePxoPixels(path: string): Uint8Array {
 }
 
 describe('Volt Lynx production-art distinction', () => {
+  it('keeps every shipped character sheet in parity with visible editable-source layers', () => {
+    expect(() => execFileSync('python3', [
+      'docs/art/scripts/export-character-pxo-fallback.py', '--check',
+    ])).not.toThrow();
+  });
+
   it('keeps the shipped Lynx silhouette materially different from Scrap Tabby at native actor scale', () => {
     const tabby = decodeRgbaPng('public/assets/characters/scrap-tabby/scrap-tabby.png');
     const lynx = decodeRgbaPng('public/assets/characters/volt-lynx/volt-lynx.png');
