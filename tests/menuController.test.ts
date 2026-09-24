@@ -130,7 +130,7 @@ describe('MainMenuController', () => {
     expect(controller.open('equipment').equipment.owned).toHaveLength(1);
     expect(controller.open('equipment').equipment.owned[0]).toMatchObject({ setName: 'Commando', effectSummary: ['+5% Fire Rate'] });
     expect(controller.equipEquipment('helmet').equipment.equipped.helmet).toBe('helmet');
-    expect(controller.snapshot().equipment.activeSets).toMatchObject([{ name: 'Commando', pieces: 1, activeThresholds: [], bonusSummary: [] }]);
+    expect(controller.snapshot().equipment.activeSets).toMatchObject([{ name: 'Commando', emblemArtId: 'icon:equipment-set-commando', pieces: 1, activeThresholds: [], bonusSummary: [] }]);
     expect(controller.upgradeEquipment('helmet').equipment.owned[0].tier).toBe(2);
     expect(controller.snapshot().equipment.owned[0].effectSummary).toEqual(['+10% Fire Rate']);
     // The stage command now banks its profile-owned first-clear reward.
@@ -148,6 +148,7 @@ describe('MainMenuController', () => {
     expect(blueprint).toMatchObject({
       name: 'Commando Helmet',
       setName: 'Commando',
+      setEmblemArtId: 'icon:equipment-set-commando',
       slot: 'helmet',
       fabricationCost: 100,
       effectSummary: ['+5% Fire Rate'],

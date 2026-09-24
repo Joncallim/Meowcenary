@@ -713,12 +713,20 @@ describe('MenuScene', () => {
 
   it('renders unlocked Equipment fabrication blueprints in the player-facing Equipment panel', () => {
     const harness = createHarness();
+    const addCatalogIcon = vi.fn();
+    (harness.menuScene as unknown as { addCatalogIcon: typeof addCatalogIcon }).addCatalogIcon = addCatalogIcon;
 
     harness.buttonByLabel('Loadout: Equipment')!.state.handlers['pointerup']!();
 
     expect(harness.textContents()).toContain('AVAILABLE BLUEPRINTS');
     expect(harness.textContents()).toContain(
       'Commando Helmet\nCommando Set • Helmet\n+5% Fire Rate\nFabricate — 100 Scrap',
+    );
+    expect(addCatalogIcon).toHaveBeenCalledWith(
+      expect.anything(), expect.any(Number), expect.any(Number), 'icon:equipment-commando-helmet',
+    );
+    expect(addCatalogIcon).toHaveBeenCalledWith(
+      expect.anything(), expect.any(Number), expect.any(Number), 'icon:equipment-set-commando', 22,
     );
   });
 
@@ -1133,11 +1141,12 @@ describe('MenuScene', () => {
     const art = new DataVisualArtRegistry(harness.context.data);
     const complete = new Map<string, () => void>();
     const queued: unknown[][] = []; const rendered = vi.fn();
+    const setFilter = vi.fn();
     let loaded = false;
     const scene = new MenuScene() as unknown as {
       committedPanel: string;
       controller: { snapshot(): unknown };
-      textures: { exists(key: string): boolean };
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
       load: {
         on(): void; off(): void; once(event: string, listener: () => void): void;
         atlas(...args: unknown[]): void; start(): void;
@@ -1153,7 +1162,7 @@ describe('MenuScene', () => {
     };
     Object.assign(scene, {
       committedPanel: 'equipment', controller: { snapshot: () => ({}) },
-      textures: { exists: () => loaded },
+      textures: { exists: () => loaded, get: () => ({ setFilter }) },
       load: {
         on: () => undefined, off: () => undefined,
         once: (event: string, listener: () => void) => { complete.set(event, listener); },
@@ -1170,6 +1179,8 @@ describe('MenuScene', () => {
       'assets/equipment/commando/commando-equipment-atlas.json',
     ]]);
     expect(rendered).toHaveBeenCalledOnce();
+    expect(setFilter).toHaveBeenCalledOnce();
+    expect(setFilter).toHaveBeenCalledWith(1);
 
     // A rerender with the physical atlas already present renders the named
     // frame directly; it neither requeues nor silently drops the icon.
