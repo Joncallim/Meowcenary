@@ -723,6 +723,24 @@ describe('MenuScene', () => {
     });
   });
 
+  it('cold-opens the Contract list without loading threat actor sheets that its rows do not render', () => {
+    const harness = createHarness();
+    const requested = vi.fn(async () => undefined);
+    (harness.menuScene as unknown as { ensurePanelPresentation: typeof requested }).ensurePanelPresentation = requested;
+
+    harness.buttonByLabel('Change Contract')!.state.handlers.pointerup!();
+
+    const [, artIds] = requested.mock.calls.at(-1)! as unknown as [string, string[]];
+    expect(artIds).toEqual(harness.context.stages.allStages().map((stage) => {
+      const option = (harness.menuScene as unknown as { controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot } }).controller
+        .snapshot().stage.stages.find((row) => row.id === stage.id)!;
+      return option.objective.artId;
+    }));
+    expect(artIds).not.toContain('enemy:shard-bot');
+    expect(artIds).not.toContain('enemy:bastion-beetle');
+    expect(artIds).not.toContain('enemy:junk-nester');
+  });
+
   it('renders every Mercenary as one graphical row from controller-owned art identities', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {
@@ -1134,7 +1152,7 @@ describe('MenuScene', () => {
     const harness = createHarness();
     harness.buttonByLabel('Change Contract')!.state.handlers.pointerup!();
     expect(harness.textContents()).toEqual(expect.arrayContaining(['JUNKYARD', 'FORGE']));
-    const locked = harness.buttonByLabel('Scrap Run\nJunkyard Lot • Collect 14 Scrap\nLOCKED — Clear First Scavenge first.')!;
+    const locked = harness.buttonByLabel('Scrap Run\nJunkyard Lot • Collect 14 Scrap\nLOCKED — Clear First Scavenge.')!;
     expect(locked.state.interactive).toBe(false);
   });
 

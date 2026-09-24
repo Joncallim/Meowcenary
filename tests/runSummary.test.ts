@@ -748,7 +748,7 @@ describe('PhaserRunSummaryView', () => {
     // no pointer-over: the single surface funnel FIRST syncs the logical
     // index to the activated target, THEN runs its command.
     buttons[1]!.state.handlers['pointerup']!();
-    expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, { initialPanel: 'equipment' });
+    expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, { initialPanel: 'loadout' });
 
     // The retained navigator now sits on Adjust Loadout: keyboard focus reveals
     // the exact retained ring BEFORE the next legal action.
@@ -856,7 +856,7 @@ describe('PhaserRunSummaryView', () => {
     expect(buttons[0]!.state.strokeColor).not.toBe(FocusStroke.color);
 
     expect(view.confirmFocused()).toBe(true);
-    expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, { initialPanel: 'equipment' });
+    expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, { initialPanel: 'loadout' });
   });
 
   it('switches the hint copy exactly per input mode (F9)', () => {
@@ -955,7 +955,7 @@ describe('PhaserRunSummaryView', () => {
       liveButtons(scene)[1]!.state.handlers['pointerup']();
 
       expect(events).toEqual(['ui:confirm']);
-      expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, { initialPanel: 'equipment' });
+      expect(scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, { initialPanel: 'loadout' });
     });
 
     it('emits one confirm and opens neutral Menu from Main Menu only after persistence is durable', () => {

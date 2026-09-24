@@ -43,7 +43,7 @@ describe('StageSelectionController (Epic 20)', () => {
     expect(snap.stages[0].threats).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: 'Dust Mite', actorArtId: 'enemy:dust-mite' }),
     ]));
-    expect(snap.stages[1].lockCopy).toBe('Clear First Scavenge first.');
+    expect(snap.stages[1].lockCopy).toBe('Clear First Scavenge.');
     for (let i = 1; i < snap.stages.length; i++) {
       expect(snap.stages[i].locked).toBe(true);
     }
@@ -103,6 +103,47 @@ describe('StageSelectionController (Epic 20)', () => {
     };
     const registry = new StageRegistry({ ...data, stages: [composite, ...(data.stages ?? [])] });
     expect(registry.allStageIds().indexOf(composite.id)).toBeGreaterThan(registry.allStageIds().indexOf('stage:junkyard-05'));
+  });
+
+  it('describes the complete recursive lock condition instead of inventing a previous-Contract gate', () => {
+    const data = loadGameData();
+    const stages = (data.stages ?? []).map((stage, index) => index === 1 ? {
+      ...stage,
+      unlock: { type: 'all' as const, conditions: [
+        { type: 'stage-cleared' as const, stageId: 'stage:junkyard-01' },
+        { type: 'any' as const, conditions: [
+          { type: 'boss-defeated' as const, bossId: 'boss-crusher' },
+          { type: 'achievement-completed' as const, achievementId: 'achievement:first-victory' },
+        ] },
+      ] },
+    } : stage);
+    const amended = { ...data, stages };
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data: amended,
+      metaUpgrades: new DataMetaUpgradeRegistry(amended), save: new SaveManager(new MemoryStorageAdapter(), 'condition-copy', {}),
+      characters: new DataCharacterRegistry(amended), arenas: new DataArenaRegistry(amended), stages: new StageRegistry(amended),
+    });
+
+    expect(new StageSelectionController(context).snapshot().stages.find((stage) => stage.id === 'stage:junkyard-02')!.lockCopy).toBe(
+      'Meet all requirements: Clear First Scavenge; Meet any requirement: Defeat Scrap Crusher; Complete First Victory.',
+    );
+  });
+
+  it('keeps an N+1 grant kind visible in the first-clear reward headline', () => {
+    const data = loadGameData();
+    const targetId = data.stages![0]!.rewardProfileId;
+    const rewardProfiles = data.rewardProfiles!.map((reward) => reward.id === targetId ? {
+      ...reward,
+      grants: [...(reward.grants ?? []), { type: 'grant-item' as const, itemId: 'item:future-signal', amount: 2 }],
+    } : reward);
+    const amended = { ...data, rewardProfiles };
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data: amended,
+      metaUpgrades: new DataMetaUpgradeRegistry(amended), save: new SaveManager(new MemoryStorageAdapter(), 'grant-copy', {}),
+      characters: new DataCharacterRegistry(amended), arenas: new DataArenaRegistry(amended), stages: new StageRegistry(amended),
+    });
+
+    expect(new StageSelectionController(context).snapshot().stages[0]!.reward.headline).toContain('Future Signal ×2');
   });
 
   it('selects only unlocked stages; rejects locked ones', () => {

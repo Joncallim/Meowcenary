@@ -324,7 +324,7 @@ if (!import.meta.url.includes('?as-harness')) {
     fresh.press(0);
     expect(fresh.events.slice(beforeMenu)).toEqual(['ui:navigate', 'ui:confirm']);
     expectSceneDeltas(sceneBefore14, fresh.scene, 'adjust loadout branch step 14', { start: 1 });
-    expect(fresh.scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, { initialPanel: 'equipment' });
+    expect(fresh.scene.scene.start).toHaveBeenCalledWith(SceneKey.Menu, { initialPanel: 'loadout' });
     assertZeroPointerCalls(fresh.pointerCalls, 'main menu branch step 14');
   });
 

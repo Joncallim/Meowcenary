@@ -10,6 +10,7 @@ import { evaluateCondition } from '../gameplay/conditionEvaluator';
 import { createConditionContext } from '../gameplay/conditionEvaluator';
 import type { ProgressionCondition } from '../gameplay/conditionEvaluator';
 import { DataVisualArtRegistry } from '../systems/visualArt';
+import { describeProgressionCondition, describeProgressionGrant } from './progressionPresentation';
 
 export interface StageOptionView {
   readonly id: string;
@@ -177,26 +178,13 @@ export class StageSelectionController {
     const arena = this.context.arenas.arenaById(stage.arenaId);
     const encounter = this.context.data.encounterProfiles?.find((row) => row.id === stage.encounterProfileId);
     const reward = this.context.data.rewardProfiles?.find((row) => row.id === stage.rewardProfileId);
-    const priorStageId = stage.unlock.type === 'stage-cleared' && typeof stage.unlock.stageId === 'string'
-      ? stage.unlock.stageId : undefined;
-    const priorName = priorStageId ? this.context.stages.stageById(priorStageId)?.name : undefined;
     const threats = (encounter?.enemyIds ?? []).slice(0, 4).flatMap((enemyId) => {
       const enemy = this.context.data.enemies.find((row) => row.id === enemyId);
       const actorArtId = this.visualArt.bindingById(`enemy:${enemyId}`)?.id;
       return enemy && actorArtId ? [{ enemyId, name: enemy.name, actorArtId }] : [];
     });
     const firstClearScrap = reward?.firstClearScrap ?? 0;
-    const grantNames = (reward?.grants ?? []).flatMap((grant) => {
-      if (grant.type === 'grant-part-instance' || grant.type === 'unlock-part') {
-        const part = this.context.data.gunParts?.find((row) => row.id === grant.partId);
-        return part ? [part.name] : [];
-      }
-      if (grant.type === 'grant-equipment-instance' || grant.type === 'unlock-equipment') {
-        const equipment = this.context.data.equipment?.find((row) => row.id === grant.equipmentId);
-        return equipment ? [equipment.name] : [];
-      }
-      return [];
-    });
+    const grantNames = (reward?.grants ?? []).map((grant) => describeProgressionGrant(grant, this.context.data));
     const bestTimeMs = this.context.saveData.stages[stage.id]?.bestTimeMs;
     return Object.freeze({
       id: stage.id, name: stage.name, chapterId: stage.chapterId,
@@ -211,7 +199,7 @@ export class StageSelectionController {
         headline: [`${firstClearScrap} Scrap`, ...grantNames].join(' + '),
       }),
       boss: stage.bossId !== undefined,
-      ...(locked ? { lockCopy: priorName ? `Clear ${priorName} first.` : 'Complete the previous Contract first.' } : {}),
+      ...(locked ? { lockCopy: `${describeProgressionCondition(stage.unlock as unknown as ProgressionCondition, this.context.data)}.` } : {}),
     });
   }
 }

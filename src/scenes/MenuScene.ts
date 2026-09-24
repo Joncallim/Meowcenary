@@ -691,7 +691,7 @@ export class MenuScene extends Phaser.Scene {
     });
     this.endScrollableRegion();
     this.addBackButton(root, width, margin, hitTarget);
-    void this.ensurePanelPresentation('stage', snapshot.stage.stages.flatMap((stage) => [stage.objective.artId, ...stage.threats.map((threat) => threat.actorArtId)]));
+    void this.ensurePanelPresentation('stage', snapshot.stage.stages.map((stage) => stage.objective.artId));
   }
 
   private renderCareer(root: Phaser.GameObjects.Container, _snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
