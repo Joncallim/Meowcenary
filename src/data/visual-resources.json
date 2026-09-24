@@ -629,8 +629,8 @@
     "load": {
       "type": "spritesheet",
       "imageUrl": "assets/enemies/boss-crusher/boss-crusher.png",
-      "frameWidth": 48,
-      "frameHeight": 48
+      "frameWidth": 64,
+      "frameHeight": 64
     }
   },
   {

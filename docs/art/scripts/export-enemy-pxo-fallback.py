@@ -15,28 +15,29 @@ from zipfile import ZipFile
 from PIL import Image
 
 
-ENEMIES = ("dust-mite", "scrap-sniper", "boss-crusher")
-FRAME = 48
+ENEMY_FRAMES = {"dust-mite": 48, "scrap-sniper": 48, "boss-crusher": 64}
+ENEMIES = tuple(ENEMY_FRAMES)
 FRAMES = 16
 
 
 def render_enemy(root: Path, enemy_id: str) -> Image.Image:
+    frame_size = ENEMY_FRAMES[enemy_id]
     source = root / "assets-src" / "enemies" / enemy_id / "source" / f"{enemy_id}.pxo"
-    sheet = Image.new("RGBA", (FRAME * FRAMES, FRAME), (0, 0, 0, 0))
+    sheet = Image.new("RGBA", (frame_size * FRAMES, frame_size), (0, 0, 0, 0))
     with ZipFile(source) as archive:
         project = json.loads(archive.read("data.json"))
-        if (project["size_x"], project["size_y"], len(project["frames"])) != (FRAME, FRAME, FRAMES):
+        if (project["size_x"], project["size_y"], len(project["frames"])) != (frame_size, frame_size, FRAMES):
             raise SystemExit(f"unexpected PXO actor contract: {enemy_id}")
         visible_layers = [
             index for index, layer in enumerate(project["layers"], start=1)
             if layer.get("visible") is True
         ]
         for frame in range(1, FRAMES + 1):
-            composited = Image.new("RGBA", (FRAME, FRAME), (0, 0, 0, 0))
+            composited = Image.new("RGBA", (frame_size, frame_size), (0, 0, 0, 0))
             for layer in visible_layers:
                 raw = archive.read(f"image_data/frames/{frame}/layer_{layer}")
-                composited.alpha_composite(Image.frombytes("RGBA", (FRAME, FRAME), raw))
-            sheet.alpha_composite(composited, ((frame - 1) * FRAME, 0))
+                composited.alpha_composite(Image.frombytes("RGBA", (frame_size, frame_size), raw))
+            sheet.alpha_composite(composited, ((frame - 1) * frame_size, 0))
     return sheet
 
 
