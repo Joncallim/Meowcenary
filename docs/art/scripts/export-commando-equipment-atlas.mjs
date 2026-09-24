@@ -2,16 +2,16 @@
 /** Exports the committed Commando PXO to its runtime atlas without redrawing it. */
 import { deflateSync } from 'node:zlib';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '../../..');
 const source = join(root, 'assets-src/equipment/commando/source/commando-equipment-atlas.pxo');
 const runtime = join(root, 'public/assets/equipment/commando');
 const atlasFrames = Object.fromEntries([
-  'icon:equipment-set-commando', 'icon:equipment-commando-helmet',
-  'icon:equipment-commando-armour', 'icon:equipment-commando-gloves',
-  'icon:equipment-commando-boots',
+  'equipment-set-icon:commando', 'equipment-icon:commando-helmet',
+  'equipment-icon:commando-armour', 'equipment-icon:commando-gloves',
+  'equipment-icon:commando-boots',
 ].map((name, index) => [name, { frame: { x: index * 32, y: 0, w: 32, h: 32 } }]));
 const readPxo = (member, encoding) => execFileSync('unzip', ['-p', source, member], { encoding });
 const project = JSON.parse(readPxo('data.json', 'utf8'));
@@ -40,6 +40,18 @@ const rows = Buffer.alloc((width * 4 + 1) * height);
 for (let y = 0; y < height; y += 1) output.copy(rows, y * (width * 4 + 1) + 1, y * width * 4, (y + 1) * width * 4);
 const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(width); ihdr.writeUInt32BE(height, 4); ihdr[8] = 8; ihdr[9] = 6;
 const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(rows)), chunk('IEND', Buffer.alloc(0))]);
-mkdirSync(runtime, { recursive: true });
-writeFileSync(join(runtime, 'commando-equipment-atlas.png'), png);
-writeFileSync(join(runtime, 'commando-equipment-atlas.json'), `${JSON.stringify({ ...project, export_directory_path: '', export_file_name: 'commando-equipment-atlas', frames: atlasFrames }, null, 2)}\n`);
+const atlasJson = Buffer.from(`${JSON.stringify({ ...project, export_directory_path: '', export_file_name: 'commando-equipment-atlas', frames: atlasFrames }, null, 2)}\n`);
+const pngPath = join(runtime, 'commando-equipment-atlas.png');
+const jsonPath = join(runtime, 'commando-equipment-atlas.json');
+const argumentsList = process.argv.slice(2);
+if (argumentsList.length > 1 || (argumentsList.length === 1 && argumentsList[0] !== '--check')) {
+  throw new Error('Usage: export-commando-equipment-atlas.mjs [--check]');
+}
+if (argumentsList[0] === '--check') {
+  if (!readFileSync(pngPath).equals(png)) throw new Error('Commando atlas PNG is out of date with its editable source');
+  if (!readFileSync(jsonPath).equals(atlasJson)) throw new Error('Commando atlas JSON is out of date with its editable source');
+} else {
+  mkdirSync(runtime, { recursive: true });
+  writeFileSync(pngPath, png);
+  writeFileSync(jsonPath, atlasJson);
+}

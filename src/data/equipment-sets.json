@@ -5,7 +5,7 @@
     "description": "A disciplined all-round combat kit.",
     "unlock": { "type": "always" },
     "pieceFabricationCost": 100,
-    "emblem": "icon:equipment-set-commando",
+    "emblem": "equipment-set-icon:commando",
     "thresholds": {
       "2": { "modifiers": [{ "stat": "attackSpeed", "op": "mult", "value": 1.1 }] },
       "4": { "modifiers": [{ "stat": "spreadDeg", "op": "add", "value": -4 }] }

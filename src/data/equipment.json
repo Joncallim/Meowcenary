@@ -4,7 +4,7 @@
     "name": "Commando Helmet",
     "setId": "set:commando",
     "slot": "helmet",
-    "icon": "icon:equipment-commando-helmet",
+    "icon": "equipment-icon:commando-helmet",
     "effects": [
       {
         "stat": "attackSpeed",
@@ -18,7 +18,7 @@
     "name": "Commando Armour",
     "setId": "set:commando",
     "slot": "armour",
-    "icon": "icon:equipment-commando-armour",
+    "icon": "equipment-icon:commando-armour",
     "effects": [
       {
         "stat": "maxHealth",
@@ -32,7 +32,7 @@
     "name": "Commando Gloves",
     "setId": "set:commando",
     "slot": "gloves",
-    "icon": "icon:equipment-commando-gloves",
+    "icon": "equipment-icon:commando-gloves",
     "effects": [
       {
         "stat": "spreadDeg",
@@ -46,7 +46,7 @@
     "name": "Commando Boots",
     "setId": "set:commando",
     "slot": "boots",
-    "icon": "icon:equipment-commando-boots",
+    "icon": "equipment-icon:commando-boots",
     "effects": [
       {
         "stat": "moveSpeed",

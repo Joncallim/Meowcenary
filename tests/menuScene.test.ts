@@ -761,10 +761,10 @@ describe('MenuScene', () => {
       'Commando Helmet\nCommando Set • Helmet\n+5% Fire Rate\nFabricate — 100 Scrap',
     );
     expect(addCatalogIcon).toHaveBeenCalledWith(
-      expect.anything(), expect.any(Number), expect.any(Number), 'icon:equipment-commando-helmet',
+      expect.anything(), expect.any(Number), expect.any(Number), 'equipment-icon:commando-helmet',
     );
     expect(addCatalogIcon).toHaveBeenCalledWith(
-      expect.anything(), expect.any(Number), expect.any(Number), 'icon:equipment-set-commando', 22,
+      expect.anything(), expect.any(Number), expect.any(Number), 'equipment-set-icon:commando', 22,
     );
   });
 
@@ -1174,6 +1174,56 @@ describe('MenuScene', () => {
     expect(seams.visualArt).toBe(registry);
   });
 
+  it('rerenders successfully loaded Achievement art when another badge fails', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>();
+    let loadError: ((file: { key?: string }) => void) | undefined;
+    const rendered = vi.fn();
+    const loaded = new Set<string>();
+    const scene = new MenuScene() as unknown as {
+      committedPanel: string;
+      controller: { snapshot(): unknown };
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
+      load: {
+        on(event: string, listener: (file: { key?: string }) => void): void;
+        off(): void;
+        once(event: string, listener: () => void): void;
+        image(): void;
+        start(): void;
+      };
+      getContext(): typeof harness.context;
+      requireVisualArt(): DataVisualArtRegistry;
+      render(snapshot: unknown): void;
+      ensureAchievementPresentation(ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      committedPanel: 'achievements', controller: { snapshot: () => ({}) },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: {
+        on: (event: string, listener: (file: { key?: string }) => void) => {
+          if (event === 'loaderror') loadError = listener;
+        },
+        off: () => undefined,
+        once: (event: string, listener: () => void) => { complete.set(event, listener); },
+        image: () => undefined,
+        start: () => {
+          loaded.add('art-upgrade-icon-hot-barrel');
+          complete.get('filecomplete-image-art-upgrade-icon-hot-barrel')?.();
+          loadError?.({ key: 'art-upgrade-icon-heavy-rounds' });
+        },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
+    });
+
+    await scene.ensureAchievementPresentation([
+      'achievement-icon:first-kill',
+      'achievement-icon:kill-milestone-25',
+    ]);
+
+    expect(rendered).toHaveBeenCalledOnce();
+  });
+
   it('loads Equipment atlas resources lazily, rerenders after a cold load, and uses atlas frames when cached', async () => {
     const harness = createHarness({ create: false });
     const art = new DataVisualArtRegistry(harness.context.data);
@@ -1210,7 +1260,7 @@ describe('MenuScene', () => {
       getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
     });
 
-    await scene.ensureEquipmentPresentation(['icon:equipment-commando-helmet']);
+    await scene.ensureEquipmentPresentation(['equipment-icon:commando-helmet']);
     expect(queued).toEqual([[
       'art-equipment-commando',
       'assets/equipment/commando/commando-equipment-atlas.png',
@@ -1229,10 +1279,62 @@ describe('MenuScene', () => {
     } };
     scene.own = (_root, object) => object;
     scene.registerScrollObject = () => undefined;
-    scene.addCatalogIcon({}, 0, 0, 'icon:equipment-commando-helmet');
-    expect(images).toEqual([{ key: 'art-equipment-commando', frame: 'icon:equipment-commando-helmet' }]);
-    await scene.ensureEquipmentPresentation(['icon:equipment-commando-helmet']);
+    scene.addCatalogIcon({}, 0, 0, 'equipment-icon:commando-helmet');
+    expect(images).toEqual([{ key: 'art-equipment-commando', frame: 'equipment-icon:commando-helmet' }]);
+    await scene.ensureEquipmentPresentation(['equipment-icon:commando-helmet']);
     expect(queued).toHaveLength(1);
+  });
+
+  it('rerenders successfully loaded Equipment art when another requested icon fails', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>();
+    let loadError: ((file: { key?: string }) => void) | undefined;
+    const rendered = vi.fn();
+    const loaded = new Set<string>();
+    const scene = new MenuScene() as unknown as {
+      committedPanel: string;
+      controller: { snapshot(): unknown };
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
+      load: {
+        on(event: string, listener: (file: { key?: string }) => void): void;
+        off(): void;
+        once(event: string, listener: () => void): void;
+        image(): void;
+        atlas(): void;
+        start(): void;
+      };
+      getContext(): typeof harness.context;
+      requireVisualArt(): DataVisualArtRegistry;
+      render(snapshot: unknown): void;
+      ensureEquipmentPresentation(ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      committedPanel: 'equipment', controller: { snapshot: () => ({}) },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: {
+        on: (event: string, listener: (file: { key?: string }) => void) => {
+          if (event === 'loaderror') loadError = listener;
+        },
+        off: () => undefined,
+        once: (event: string, listener: () => void) => { complete.set(event, listener); },
+        image: () => undefined,
+        atlas: () => undefined,
+        start: () => {
+          loaded.add('art-equipment-commando');
+          complete.get('filecomplete-atlasjson-art-equipment-commando')?.();
+          loadError?.({ key: 'art-upgrade-icon-quick-paws' });
+        },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
+    });
+
+    await scene.ensureEquipmentPresentation([
+      'equipment-icon:commando-helmet',
+      'upgrade-icon:quick-paws',
+    ]);
+
+    expect(rendered).toHaveBeenCalledOnce();
   });
 
   it('loads the Gunsmith atlas lazily and only rerenders the still-current panel after success', async () => {

@@ -1,6 +1,8 @@
 import { inflateSync } from 'node:zlib';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadGameData } from '../src/systems/validation';
 import { DataVisualArtRegistry } from '../src/systems/visualArt';
@@ -87,42 +89,57 @@ function intersectionOverUnion(a: ReadonlySet<number>, b: ReadonlySet<number>): 
 }
 
 function visiblePxoPixels(path: string): Uint8Array {
-  const readMember = (member: string) => execFileSync('unzip', ['-p', path, member]);
-  const project = JSON.parse(readMember('data.json').toString('utf8')) as {
-    layers: Array<{ visible: boolean }>;
-    frames: unknown[];
-    size_x: number;
-    size_y: number;
-  };
-  expect(project).toMatchObject({ size_x: 48, size_y: 48 });
-  const visibleLayers = project.layers
-    .map((layer, index) => ({ index: index + 1, visible: layer.visible }))
-    .filter((layer) => layer.visible);
-  const sheet = new Uint8Array(project.frames.length * 48 * 48 * 4);
-  for (let frame = 1; frame <= project.frames.length; frame += 1) {
-    for (const layer of visibleLayers) {
-      const pixels = readMember(`image_data/frames/${frame}/layer_${layer.index}`);
-      expect(pixels).toHaveLength(48 * 48 * 4);
-      for (let source = 0; source < pixels.length; source += 4) {
-        const alpha = pixels[source + 3];
-        expect(alpha === 0 || alpha === 255).toBe(true);
-        if (alpha === 0) continue;
-        const x = (source / 4) % 48;
-        const y = Math.floor(source / 4 / 48);
-        const destination = ((y * project.frames.length * 48) + (frame - 1) * 48 + x) * 4;
-        sheet.set(pixels.subarray(source, source + 4), destination);
+  const extracted = mkdtempSync(join(tmpdir(), 'meowcenary-pxo-'));
+  try {
+    execFileSync('unzip', ['-q', path, '-d', extracted]);
+    const readMember = (member: string) => readFileSync(join(extracted, member));
+    const project = JSON.parse(readMember('data.json').toString('utf8')) as {
+      layers: Array<{ visible: boolean }>;
+      frames: unknown[];
+      size_x: number;
+      size_y: number;
+    };
+    expect(project).toMatchObject({ size_x: 48, size_y: 48 });
+    const visibleLayers = project.layers
+      .map((layer, index) => ({ index: index + 1, visible: layer.visible }))
+      .filter((layer) => layer.visible);
+    const sheet = new Uint8Array(project.frames.length * 48 * 48 * 4);
+    for (let frame = 1; frame <= project.frames.length; frame += 1) {
+      for (const layer of visibleLayers) {
+        const pixels = readMember(`image_data/frames/${frame}/layer_${layer.index}`);
+        expect(pixels).toHaveLength(48 * 48 * 4);
+        for (let source = 0; source < pixels.length; source += 4) {
+          const alpha = pixels[source + 3];
+          if (alpha !== 0 && alpha !== 255) {
+            throw new Error(`PXO layer uses unsupported partial alpha at frame ${frame}, layer ${layer.index}`);
+          }
+          if (alpha === 0) continue;
+          const x = (source / 4) % 48;
+          const y = Math.floor(source / 4 / 48);
+          const destination = ((y * project.frames.length * 48) + (frame - 1) * 48 + x) * 4;
+          sheet.set(pixels.subarray(source, source + 4), destination);
+        }
       }
     }
+    return sheet;
+  } finally {
+    rmSync(extracted, { recursive: true, force: true });
   }
-  return sheet;
 }
 
 describe('Volt Lynx production-art distinction', () => {
   it('keeps every shipped character sheet in parity with visible editable-source layers', () => {
-    expect(() => execFileSync('python3', [
-      'docs/art/scripts/export-character-pxo-fallback.py', '--check',
-    ])).not.toThrow();
-  });
+    const characterIds = [
+      'scrap-tabby', 'bolt-hound', 'volt-lynx', 'brass-boar',
+      'ember-cougar', 'scrap-weasel', 'rattle-raptor', 'piston-ram',
+    ] as const;
+
+    for (const characterId of characterIds) {
+      const runtime = decodeRgbaPng(`public/assets/characters/${characterId}/${characterId}.png`);
+      const visibleSource = visiblePxoPixels(`assets-src/characters/${characterId}/source/${characterId}.pxo`);
+      expect(runtime.pixels, characterId).toEqual(visibleSource);
+    }
+  }, 15_000);
 
   it('keeps the shipped Lynx silhouette materially different from Scrap Tabby at native actor scale', () => {
     const tabby = decodeRgbaPng('public/assets/characters/scrap-tabby/scrap-tabby.png');
