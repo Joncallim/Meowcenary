@@ -16,6 +16,7 @@ not a new design source.
 - Forge/Foundry baseline: PR #180 merge `d8120a70fa9cf1f76debcb8547c448867acc8b4e`
 - Whole-run Results truth baseline: PR #181 merge `8530b718c3dc0dc1fb09b92e94cf13decf91b9dc`
 - Assembled Gunsmith baseline: PR #182 merge `8cb8e0396df093c1b8501f47f467b62b64fa1dac`
+- Dedicated Equipment baseline: PR #183 merge `30f46af06aeaa10873b01da057ca0e50b352c8ef`
 
 ## Frozen persistence decisions
 
@@ -53,15 +54,15 @@ remain **UNVERIFIED** until genuinely performed.
 | #90 save/progression | V4 migration and atomic terminal settlement shipped | closed after merged-main CI |
 | #168 Compendium | generic discovery/save/Career UI shipped | closed after merged-main CI |
 | #170 scalability | data-first registries, lazy resources, N+1 proofs shipped | closed after merged-main CI |
-| #85 Contracts | implementation shipped; distinct pacing needs integrated play | keep for acceptance |
+| #85 Contracts | stable ten-Contract structure shipped; reviewed V4 encounter/difficulty matrix still needs reconciliation and integrated play | active content tranche |
 | #87 Gunsmith | mechanics, dedicated Part/slot/trait art, assembled schematics, truthful comparisons, linear exact-pair workflow, and focused destructive confirmations shipped | closed by PR #182; physical device evidence remains UNVERIFIED |
-| #88 Mercenaries | mechanics/ability feedback shipped; cast art readability remains | active art tranche |
-| #89 Equipment | mechanics/player fabrication shipped; all 8 emblems and 32 pieces now have exact dedicated semantic art | current review tranche |
+| #88 Mercenaries | mechanics/ability feedback shipped; graphical roster, grandfathered-availability consistency, exact Rattle cadence, and five placeholder actor redraws are in review | active art/read-model tranche |
+| #89 Equipment | mechanics/player fabrication and all 8 emblems/32 pieces have exact dedicated semantic art | closed by PR #183; physical device evidence remains UNVERIFIED |
 | #165 navigation | implementation shipped; device and final visual acceptance remain | keep for acceptance |
 | #167 production art | architecture complete; production art incomplete | primary active tranche |
-| #171 product pass | integrated pacing/reward/fun verdict remains | follows representative art |
+| #171 product pass | Contract matrix, four-role upgrade offers, playtest evidence, and integrated fun verdict remain | active content/pacing tranches |
 | #174 Volt Lynx | distinct source/export and automated silhouette proof complete | device acceptance remains |
-| #175 actor readability | several generated placeholders remain | active art tranche |
+| #175 actor readability | five Mercenary placeholder actors are in review; enemy/boss and device-scale evidence remain | active art tranche |
 | #98 async challenges | explicitly outside Alpha 3 | defer |
 
 ## Current art direction
@@ -95,6 +96,11 @@ Representative production batch:
    seven emblems and 28 slot pieces in one shared 35-frame atlas. Together
    with Commando, the catalog now resolves all 40 exact semantic Equipment
    art IDs without borrowing Upgrade-card graphics.
+7. The Mercenary candidate replaces Brass Boar, Ember Cougar, Scrap Weasel,
+   Rattle Raptor, and Piston Ram placeholder actors with five distinct
+   production silhouettes. The roster now presents authoritative actor and
+   starting-weapon art through the same lazy physical-resource boundary while
+   keeping locked/selectable truth in the shared character domain.
 
 The completed art PRs add 29 shipped logical images backed by three physical
 resources (Volt Lynx sheet, Commando atlas, and Gunsmith atlas). The Forge
@@ -112,10 +118,10 @@ Automated art-tranche evidence before PR review:
   parity, Lynx defeat, and zero-match findings were corrected.
 
 Generated sources retain prompts/provenance and remain outside runtime assets
-until selected, cleaned, imported, exported, and validated. The Equipment
-batch retains two generated seven-family concept directions; the selected
-flatter, stronger-silhouette direction has been reconstructed as editable
-native pixels with deterministic builder/export parity.
+until selected, cleaned, imported, exported, and validated. The Equipment and
+Mercenary batches each retain selected and rejected generated concept
+directions; their stronger-silhouette directions were reconstructed as
+editable native pixels with deterministic builder/export parity.
 
 ## Known non-blocking follow-up
 
