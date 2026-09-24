@@ -1217,6 +1217,13 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     this.stageRuntime.tick(delta, runState.timeMs);
+    const pending = this.stageRuntime.pendingClear;
+    if (pending && pending.timeMs > runState.timeMs) {
+      // Survive objectives can complete inside this frame. Simulation freezes
+      // immediately at pending-clear, so carry only the stage-owned terminal
+      // timestamp into the run clock instead of dropping the completion frame.
+      runState.timeMs = pending.timeMs;
+    }
   }
 
   private tryCommitStageClear(ctx: GameContext): boolean {
