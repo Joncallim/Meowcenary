@@ -41,8 +41,15 @@ export class MenuScene extends Phaser.Scene {
   private controller?: MainMenuController;
   private root?: Phaser.GameObjects.Container;
   private focusables: Phaser.GameObjects.Text[] = [];
+  /** Buttons which remain readable/focusable for their lock explanation but
+   * must never regain pointer or logical activation when scrolling changes
+   * viewport visibility. */
+  private disabledFocusables = new Set<Phaser.GameObjects.Text>();
   private focusRings: Phaser.GameObjects.Rectangle[] = [];
   private navigator = new FocusNavigator('linear');
+  /** A modal-like command created during a same-panel rebuild may claim focus
+   * only after the rebuilt navigator has received its new item count. */
+  private focusIndexAfterRender?: number;
   /** Rendered, not merely desired, Achievement grid width. The navigator
    * must be rebuilt when rotation changes this value. */
   private achievementGridColumns?: number;
@@ -200,6 +207,7 @@ export class MenuScene extends Phaser.Scene {
     this.root?.destroy(true);
     this.root = undefined;
     this.focusables = [];
+    this.disabledFocusables.clear();
     this.focusRings = [];
     this.scrollRegion = undefined;
     this.collectingScrollItems = false;
@@ -207,6 +215,7 @@ export class MenuScene extends Phaser.Scene {
     this.scrollLocalIndexByFocusIndex.clear();
     this.scrollObjects = [];
     this.hoveredIndex = -1;
+    this.focusIndexAfterRender = undefined;
     this.hint = undefined;
 
     const root = this.add.container(0, 0);
@@ -300,6 +309,7 @@ export class MenuScene extends Phaser.Scene {
       // published its focusables; only then can its prior index be clamped.
       if (preserveFocusAfterGridRebuild) this.navigator.setIndex(preserveFocusIndex);
       if (panelChanged) this.navigator.reset();
+      if (this.focusIndexAfterRender !== undefined) this.navigator.setIndex(this.focusIndexAfterRender);
       this.finishScrollableRegion();
       this.applyFocus();
 
@@ -744,8 +754,33 @@ export class MenuScene extends Phaser.Scene {
         wordWrap: { width: width - margin - this.safeRightMargin },
       }));
       this.registerScrollObject(buildHeader);
-      if (selected.weaponPreviewIconArtId) this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + buildHeader.height / 2, selected.weaponPreviewIconArtId);
       y += buildHeader.height + 12;
+      if (selected.preview) {
+        const previewHeight = 76;
+        const weaponX = margin + 52;
+        const weaponY = y + 24;
+        this.addCatalogIcon(root, weaponX, weaponY, selected.preview.baseArtId, 96);
+        selected.preview.layers.forEach((layer) => this.addCatalogIcon(root, weaponX, weaponY, layer.artId, 96));
+        selected.preview.traitCores.forEach((core, index) => {
+          this.addCatalogIcon(root, margin + 122 + index * 42, weaponY, core.iconArtId, 34);
+        });
+        selected.preview.traitEmblems.forEach((trait, index) => {
+          this.addCatalogIcon(root, width - this.safeRightMargin - 18 - index * 30, weaponY, trait.iconArtId, 24);
+        });
+        const summary = this.own(root, createUiText(this, margin, y + 50, selected.summary, {
+          color: '#f7f1d5', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+          wordWrap: { width: width - margin - this.safeRightMargin },
+        }));
+        this.registerScrollObject(summary);
+        y += Math.max(previewHeight, 50 + summary.height) + 10;
+      } else {
+        const summary = this.own(root, createUiText(this, margin, y, selected.summary, {
+          color: '#f7f1d5', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+          wordWrap: { width: width - margin - this.safeRightMargin },
+        }));
+        this.registerScrollObject(summary);
+        y += summary.height + 10;
+      }
       snapshot.gunsmith.slots.forEach((slot) => {
         const slotHeading = this.own(root, createUiText(this, margin, y, slot.slot === 'trait'
           ? `${slot.label.toUpperCase()} ${slot.candidates.filter((part) => part.state === 'fitted-here').length} / 2`
@@ -778,7 +813,7 @@ export class MenuScene extends Phaser.Scene {
           const row = this.addButton(root, margin, y, label, hitTarget, () => this.render(part.state === 'fitted-here'
             ? this.requireController().unequipGunPart(part.instanceId)
             : this.requireController().fitGunPart(part.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
-          if (!enabled) row.disableInteractive();
+          if (!enabled) this.disableButton(row);
           this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, part.iconArtId);
           part.traitIcons.forEach((trait, index) => {
             this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41 - index * 28, y + hitTarget / 2, trait.iconArtId, 22);
@@ -795,28 +830,60 @@ export class MenuScene extends Phaser.Scene {
         snapshot.gunsmith.workshop.forEach((recipe) => {
           const row = this.addButton(root, margin, y, recipe.label, hitTarget,
             () => this.render(recipe.kind === 'merge'
-              ? this.requireController().mergeGunParts(recipe.firstInstanceId, recipe.secondInstanceId)
-              : this.requireController().infuseGunPart(recipe.targetInstanceId, recipe.traitInstanceId)), 'ui:confirm', width - margin - this.safeRightMargin);
+              ? this.requireController().beginGunMerge(recipe.groupId)
+              : this.requireController().requestGunWorkshop({ kind: 'infuse', targetInstanceId: recipe.targetInstanceId, traitInstanceId: recipe.traitInstanceId })), 'ui:confirm', width - margin - this.safeRightMargin);
           y += row.height + 8;
         });
       }
-      const blueprints = this.own(root, createUiText(this, margin, y, 'BLUEPRINTS', {
+      if (snapshot.gunsmith.mergeSelection && !snapshot.gunsmith.confirmation) {
+        const selection = snapshot.gunsmith.mergeSelection;
+        const selectionHeading = this.own(root, createUiText(this, margin, y, selection.title.toUpperCase(), {
+          color: '#f7d774', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+        }));
+        this.registerScrollObject(selectionHeading);
+        y += selectionHeading.height + 4;
+        selection.choices.forEach((choice) => {
+          const row = this.addButton(root, margin, y, `${choice.recommended ? 'RECOMMENDED • ' : ''}${choice.label}`, hitTarget,
+            () => this.render(this.requireController().selectGunMergeInput(choice.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin);
+          y += row.height + 8;
+        });
+      }
+      if (snapshot.gunsmith.confirmation) {
+        const confirmation = snapshot.gunsmith.confirmation;
+        const detail = [
+          confirmation.title.toUpperCase(),
+          'INPUTS', ...confirmation.inputLines,
+          'OUTPUT', confirmation.outputLine,
+          ...confirmation.mechanicalDelta,
+        ].join('\n');
+        const panel = this.own(root, createUiText(this, margin, y, detail, {
+          color: '#f7d774', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+          wordWrap: { width: width - margin - this.safeRightMargin },
+        }));
+        this.registerScrollObject(panel);
+        y += panel.height + 6;
+        const actionWidth = Math.max(120, (width - margin - this.safeRightMargin - 8) / 2);
+        const confirm = this.addButton(root, margin, y, confirmation.confirmLabel, hitTarget,
+          () => this.render(this.requireController().confirmGunWorkshop()), 'ui:confirm', actionWidth);
+        this.focusIndexAfterRender = this.focusables.indexOf(confirm);
+        const cancel = this.addButton(root, margin + actionWidth + 8, y, 'Cancel', hitTarget,
+          () => this.render(this.requireController().cancelGunWorkshop()), 'ui:back', actionWidth);
+        y += Math.max(confirm.height, cancel.height) + 12;
+      }
+      const catalogHeading = this.own(root, createUiText(this, margin, y, 'PART CATALOG', {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
       }));
-      this.registerScrollObject(blueprints);
-      y += blueprints.height + 4;
-      if (snapshot.gunsmith.blueprints.length === 0) {
-        const unavailable = this.own(root, createUiText(this, margin, y, 'No fabrication blueprints are available yet.', {
-          color: '#94a3b8', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-        }));
-        this.registerScrollObject(unavailable);
-      }
-      snapshot.gunsmith.blueprints.forEach((blueprint) => {
-        const iconColumn = 38 + blueprint.traitIcons.length * 28;
-        const row = this.addButton(root, margin, y, `${blueprint.name}\n${blueprint.effectLines.join(' • ') || 'No stat change'}\nFabricate — ${blueprint.fabricationCost} Scrap`, hitTarget,
-          () => this.render(this.requireController().fabricateGunPart(blueprint.partId)), 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
-        this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, blueprint.iconArtId);
-        blueprint.traitIcons.forEach((trait, index) => {
+      this.registerScrollObject(catalogHeading);
+      y += catalogHeading.height + 4;
+      snapshot.gunsmith.catalog.forEach((part) => {
+        const iconColumn = 38 + part.traitIcons.length * 28;
+        const detail = [part.lockReason, part.sourceLabel].filter((line) => line !== undefined).join(' ');
+        const label = `${part.name} • ${part.rarity.toUpperCase()}\n${part.stateLabel}\n${part.effectLines.join(' • ') || 'Trait engineering'}\n${part.comparisonSummary}\n${detail}${part.fabricationActionLabel === undefined ? '' : `\n${part.fabricationActionLabel}`}`;
+        const row = this.addButton(root, margin, y, label, hitTarget,
+          () => this.render(this.requireController().fabricateGunPart(part.partId)), 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
+        if (!part.canFabricate) this.disableButton(row);
+        this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, part.iconArtId);
+        part.traitIcons.forEach((trait, index) => {
           this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41 - index * 28, y + hitTarget / 2, trait.iconArtId, 22);
         });
         y += row.height + 8;
@@ -824,12 +891,17 @@ export class MenuScene extends Phaser.Scene {
     }
     this.endScrollableRegion();
     void this.ensureGunsmithPresentation([
-      ...(snapshot.gunsmith.selectedBuild?.weaponPreviewIconArtId ? [snapshot.gunsmith.selectedBuild.weaponPreviewIconArtId] : []),
+      ...(snapshot.gunsmith.selectedBuild?.preview ? [
+        snapshot.gunsmith.selectedBuild.preview.baseArtId,
+        ...snapshot.gunsmith.selectedBuild.preview.layers.map((layer) => layer.artId),
+        ...snapshot.gunsmith.selectedBuild.preview.traitCores.map((core) => core.iconArtId),
+        ...snapshot.gunsmith.selectedBuild.preview.traitEmblems.map((trait) => trait.iconArtId),
+      ] : []),
       ...snapshot.gunsmith.slots.flatMap((slot) => [
         slot.iconArtId,
         ...slot.candidates.flatMap((part) => [part.iconArtId, ...part.traitIcons.map((trait) => trait.iconArtId)]),
       ]),
-      ...snapshot.gunsmith.blueprints.flatMap((part) => [part.iconArtId, ...part.traitIcons.map((trait) => trait.iconArtId)]),
+      ...snapshot.gunsmith.catalog.flatMap((part) => [part.iconArtId, ...part.traitIcons.map((trait) => trait.iconArtId)]),
     ]);
     this.addBackButton(root, width, margin, hitTarget);
   }
@@ -1102,6 +1174,11 @@ export class MenuScene extends Phaser.Scene {
     return text;
   }
 
+  private disableButton(text: Phaser.GameObjects.Text): void {
+    this.disabledFocusables.add(text);
+    text.disableInteractive();
+  }
+
   private addHeading(
     root: Phaser.GameObjects.Container,
     x: number,
@@ -1319,7 +1396,7 @@ export class MenuScene extends Phaser.Scene {
       text.setVisible(visible);
       const ring = this.focusRings[index];
       ring?.setVisible(visible);
-      if (visible) text.setInteractive({ useHandCursor: true });
+      if (visible && !this.disabledFocusables.has(text)) text.setInteractive({ useHandCursor: true });
       else text.disableInteractive();
     }
   }
@@ -1410,6 +1487,7 @@ export class MenuScene extends Phaser.Scene {
     if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     if (!this.committedDisplay) return;
     const focused = this.focusables[this.navigator.index];
+    if (focused && this.disabledFocusables.has(focused)) return;
     focused?.emit(Phaser.Input.Events.POINTER_UP);
   }
 

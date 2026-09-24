@@ -13,6 +13,8 @@ not a new design source.
 - Owning integration: PR #163, merged 2026-09-24
 - Character/Equipment art baseline: PR #178 merge `c99bf6dc42349cbb4762be18c0c734cba7db0120`
 - Gunsmith art baseline: PR #179 merge `811112dc9a02df424e478b0b4b21ea617875a375`
+- Forge/Foundry baseline: PR #180 merge `d8120a70fa9cf1f76debcb8547c448867acc8b4e`
+- Whole-run Results truth baseline: PR #181 merge `8530b718c3dc0dc1fb09b92e94cf13decf91b9dc`
 
 ## Frozen persistence decisions
 
@@ -51,7 +53,7 @@ remain **UNVERIFIED** until genuinely performed.
 | #168 Compendium | generic discovery/save/Career UI shipped | closed after merged-main CI |
 | #170 scalability | data-first registries, lazy resources, N+1 proofs shipped | closed after merged-main CI |
 | #85 Contracts | implementation shipped; distinct pacing needs integrated play | keep for acceptance |
-| #87 Gunsmith | mechanics and dedicated Part/slot/trait art shipped; assembled-weapon visuals remain | active assembled-weapon tranche |
+| #87 Gunsmith | mechanics, dedicated Part/slot/trait art, assembled schematics, acquisition states, actual comparisons, and destructive confirmations shipped or in final review | physical player acceptance remains |
 | #88 Mercenaries | mechanics/ability feedback shipped; cast art readability remains | active art tranche |
 | #89 Equipment | mechanics and player fabrication shipped; dedicated piece art remains | active art tranche |
 | #165 navigation | implementation shipped; device and final visual acceptance remain | keep for acceptance |
@@ -81,9 +83,13 @@ Representative production batch:
    and three behavior traits, with editable source, deterministic export,
    lazy resource loading, partial-load recovery, and current-selection closure
    tracking.
-4. Forge Foundry is the active candidate: a distinct existing-architecture
+4. Forge Foundry is merged: a distinct existing-architecture
    Arena, Forge-specific encounters, a 16-image world packet, and an active
    heat-grate skin whose art is part of the exact run resource closure.
+5. The assembled-weapon candidate adds three family chassis and ten co-registered
+   physical-Part layers in one lazy 96×48 atlas. The Gunsmith composes them
+   from data, shows trait sockets/emblems, preserves repeatable fabrication,
+   and keeps destructive Workshop selection linear and explicit.
 
 The completed art PRs add 29 shipped logical images backed by three physical
 resources (Volt Lynx sheet, Commando atlas, and Gunsmith atlas). The Forge
@@ -101,7 +107,10 @@ Automated art-tranche evidence before PR review:
   parity, Lynx defeat, and zero-match findings were corrected.
 
 Generated sources retain prompts/provenance and remain outside runtime assets
-until selected, cleaned, imported, exported, and validated.
+until selected, cleaned, imported, exported, and validated. The next Equipment
+batch has two generated seven-family concept directions retained outside
+runtime assets; the flatter, stronger-silhouette direction is the current
+production candidate pending deterministic Pixelorama reconstruction.
 
 ## Known non-blocking follow-up
 

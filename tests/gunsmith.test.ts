@@ -425,7 +425,12 @@ describe('Epic 23 second-fixture proof (data-only extensibility)', () => {
       name: 'Proof Stock',
       slot: 'stock',
       rarity: 'common',
-      presentation: { iconArtId: 'gun-part-icon:proof-stock', slotIconArtId: 'gun-slot-icon:stock', traitIconArtIds: {} },
+      presentation: {
+        iconArtId: 'gun-part-icon:proof-stock',
+        slotIconArtId: 'gun-slot-icon:stock',
+        assemblyArtId: 'gun-build-part:proof-stock',
+        traitIconArtIds: {},
+      },
       effects: [{ stat: 'spreadDeg', op: 'add', value: -1 }],
       traits: [],
     }] });

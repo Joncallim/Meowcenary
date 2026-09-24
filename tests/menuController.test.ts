@@ -109,7 +109,7 @@ describe('MainMenuController', () => {
     expect(controller.open('arena').notice).toBeUndefined();
   });
 
-  it('routes Gunsmith merge/infuse and equipment upgrade through durable menu commands', () => {
+  it('routes Gunsmith merge/infuse through explicit confirmation and rejects duplicate confirm', () => {
     const { context, controller } = setup();
     context.updateGunsmith((state) => ({ ...state, parts: {
       a: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
@@ -117,8 +117,14 @@ describe('MainMenuController', () => {
       target: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
       fire: { partId: 'part:trait-fire', tier: 2, infusedTraits: [] },
     } }));
-    expect(controller.mergeGunParts('a', 'b').notice).toBeUndefined();
-    expect(controller.infuseGunPart('target', 'fire').notice).toBeUndefined();
+    expect(controller.requestGunWorkshop({ kind: 'merge', firstInstanceId: 'a', secondInstanceId: 'b' }).gunsmith.confirmation).toBeDefined();
+    expect(context.saveData.gunsmith.parts.a).toBeDefined();
+    expect(controller.cancelGunWorkshop().gunsmith.confirmation).toBeUndefined();
+    controller.requestGunWorkshop({ kind: 'merge', firstInstanceId: 'a', secondInstanceId: 'b' });
+    expect(controller.confirmGunWorkshop().notice).toBeUndefined();
+    expect(controller.confirmGunWorkshop().notice).toBe('Choose a Workshop operation first');
+    expect(controller.requestGunWorkshop({ kind: 'infuse', targetInstanceId: 'target', traitInstanceId: 'fire' }).gunsmith.confirmation).toBeDefined();
+    expect(controller.confirmGunWorkshop().notice).toBeUndefined();
     expect(context.saveData.gunsmith.parts.target.infusedTraits).toEqual(['FIRE']);
 
     context.updateMeta((meta) => ({ ...meta, scrap: 100 }));
@@ -135,6 +141,48 @@ describe('MainMenuController', () => {
     expect(controller.snapshot().equipment.owned[0].effectSummary).toEqual(['+10% Fire Rate']);
     // The stage command now banks its profile-owned first-clear reward.
     expect(controller.snapshot().progressionOverview.completedStages).toBeGreaterThanOrEqual(1);
+  });
+
+  it('uses Back to cancel a pending Workshop confirmation before leaving Gunsmith', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      a: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+      b: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+    } }));
+    controller.open('gunsmith');
+    controller.requestGunWorkshop({ kind: 'merge', firstInstanceId: 'a', secondInstanceId: 'b' });
+
+    const cancelled = controller.back();
+    expect(cancelled.panel).toBe('gunsmith');
+    expect(cancelled.gunsmith.confirmation).toBeUndefined();
+    expect(context.saveData.gunsmith.parts).toHaveProperty('a');
+    expect(controller.back().panel).toBe('home');
+  });
+
+  it('uses Back to unwind Workshop confirmation and each merge-selection layer', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      a: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+      b: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+    } }));
+    const gunsmith = controller.open('gunsmith').gunsmith;
+    const group = gunsmith.workshop.find((entry) => entry.kind === 'merge')!;
+    let snapshot = controller.beginGunMerge(group.groupId);
+    expect(snapshot.gunsmith.mergeSelection?.step).toBe('first');
+    snapshot = controller.selectGunMergeInput('a');
+    expect(snapshot.gunsmith.mergeSelection?.step).toBe('second');
+    snapshot = controller.selectGunMergeInput('b');
+    expect(snapshot.gunsmith.confirmation).toBeDefined();
+
+    snapshot = controller.back();
+    expect(snapshot.gunsmith.confirmation).toBeUndefined();
+    expect(snapshot.gunsmith.mergeSelection?.step).toBe('second');
+    snapshot = controller.back();
+    expect(snapshot.gunsmith.mergeSelection?.step).toBe('first');
+    snapshot = controller.back();
+    expect(snapshot.panel).toBe('gunsmith');
+    expect(snapshot.gunsmith.mergeSelection).toBeUndefined();
+    expect(controller.back().panel).toBe('home');
   });
 
   it('exposes unlocked Equipment blueprints and fabricates them through the durable menu command', () => {

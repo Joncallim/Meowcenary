@@ -4,7 +4,7 @@ import { CharacterSelectionController, type CharacterSelectionSnapshot } from '.
 import { SettingsController, type SettingsSnapshot } from './settings';
 import { StageSelectionController, type StageSelectionSnapshot } from './stageSelectionController';
 import { AchievementsController, type AchievementsSnapshot } from './achievementsController';
-import { GunsmithController, type GunsmithSnapshot } from './gunsmithController';
+import { GunsmithController, type GunsmithSnapshot, type GunsmithWorkshopRequest } from './gunsmithController';
 import { EquipmentController, type EquipmentSnapshot } from './equipmentController';
 import { ProgressionOverviewController, type ProgressionOverviewSnapshot } from './progressionOverviewController';
 import { CompendiumController, type CompendiumSnapshot } from './compendiumController';
@@ -95,6 +95,16 @@ export class MainMenuController {
   }
 
   back(): MainMenuSnapshot {
+    if (this.panel === 'gunsmith' && this.gunsmithController.snapshot().confirmation !== undefined) {
+      this.gunsmithController.cancelWorkshop();
+      this.notice = undefined;
+      return this.snapshot();
+    }
+    if (this.panel === 'gunsmith' && this.gunsmithController.hasMergeSelection()) {
+      this.gunsmithController.backMergeSelection();
+      this.notice = undefined;
+      return this.snapshot();
+    }
     if (this.panel !== 'home') {
       this.panel = 'home';
     }
@@ -163,14 +173,32 @@ export class MainMenuController {
     return this.snapshot();
   }
 
-  mergeGunParts(firstInstanceId: string, secondInstanceId: string): MainMenuSnapshot {
-    const result = this.gunsmithController.merge(firstInstanceId, secondInstanceId);
+  requestGunWorkshop(request: GunsmithWorkshopRequest): MainMenuSnapshot {
+    const result = this.gunsmithController.requestWorkshop(request);
     this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
     return this.snapshot();
   }
 
-  infuseGunPart(targetInstanceId: string, traitInstanceId: string): MainMenuSnapshot {
-    const result = this.gunsmithController.infuse(targetInstanceId, traitInstanceId);
+  beginGunMerge(groupId: string): MainMenuSnapshot {
+    const result = this.gunsmithController.beginMerge(groupId);
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
+    return this.snapshot();
+  }
+
+  selectGunMergeInput(instanceId: string): MainMenuSnapshot {
+    const result = this.gunsmithController.selectMergeInput(instanceId);
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
+    return this.snapshot();
+  }
+
+  confirmGunWorkshop(): MainMenuSnapshot {
+    const result = this.gunsmithController.confirmWorkshop();
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
+    return this.snapshot();
+  }
+
+  cancelGunWorkshop(): MainMenuSnapshot {
+    const result = this.gunsmithController.cancelWorkshop();
     this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
     return this.snapshot();
   }
@@ -224,6 +252,8 @@ export class MainMenuController {
       case 'trait-cap-reached': return 'Trait capacity is full — unequip a trait first';
       case 'fabrication-unavailable': return 'That blueprint is not available or needs more Scrap';
       case 'save-failed': return 'Could not save that Gunsmith change';
+      case 'no-pending-confirmation': return 'Choose a Workshop operation first';
+      case 'workshop-operation-unavailable': return 'That Workshop operation is no longer available';
       case 'unknown-family':
       case 'unknown-build':
       case 'unknown-part': return 'That Gunsmith item is unavailable';

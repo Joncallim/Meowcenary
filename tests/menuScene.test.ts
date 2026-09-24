@@ -386,17 +386,45 @@ describe('MenuScene', () => {
     expect(harness.textContents()).toEqual(expect.arrayContaining(['Weapon builds', 'Pistol Build\nEmpty', 'SMG Build\nEmpty', 'Shotgun Build\nEmpty']));
 
     harness.buttonByLabel('Pistol Build\nEmpty')!.state.handlers.pointerup!();
-    expect(harness.textContents()).toEqual(expect.arrayContaining(['Pistol Build\nSelected', 'SMG Build\nEmpty', 'Shotgun Build\nEmpty', 'PISTOL BUILD\nSelected • Active from start']));
-    expect(harness.textContents()).toEqual(expect.arrayContaining(['BLUEPRINTS', 'Compact Receiver\nFire rate +8%\nFabricate — 60 Scrap']));
-    expect(harness.textContents().join('\n')).not.toContain('Standard Barrel\nRange +10\nFabricate');
-    harness.buttonByLabel('Compact Receiver\nFire rate +8%\nFabricate — 60 Scrap')!.state.handlers.pointerup!();
-    expect(harness.textContents()).toContain('That blueprint is not available or needs more Scrap');
+    expect(harness.textContents()).toEqual(expect.arrayContaining([
+      'Pistol Build\nSelected', 'SMG Build\nEmpty', 'Shotgun Build\nEmpty',
+      'PISTOL BUILD\nSelected • Active from start', 'Stock Pistol chassis',
+    ]));
+    const compactLabel = 'Compact Receiver • COMMON\nBlueprint • 60 Scrap\nFire rate +8%\nCurrent build: Fire interval 650ms → 601.9ms\nFabricate for 60 Scrap\nFabricate — 60 Scrap';
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['PART CATALOG', compactLabel]));
+    expect(harness.textContents().join('\n')).toContain('Standard Barrel • COMMON\nLocked blueprint');
+    expect(harness.buttonByLabel(compactLabel)!.state.interactive).toBe(false);
     expect(harness.context.saveData.gunsmith.parts).toEqual({});
     harness.buttonByLabel('SMG Build\nEmpty')!.state.handlers.pointerup!();
     expect(harness.textContents()).toEqual(expect.arrayContaining(['Pistol Build\nConfigured', 'SMG Build\nSelected', 'Shotgun Build\nEmpty']));
     harness.buttonByLabel('Pistol Build\nConfigured')!.state.handlers.pointerup!();
     expect(harness.context.saveData.gunsmith.selectedBuildId).toBe('build:pistol');
     expect(harness.context.saveData.gunsmith.builds.map((build) => build.id)).toEqual(['build:pistol', 'build:smg']);
+  });
+
+  it('keeps unavailable Gunsmith catalog rows inert when scrolling reveals them', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Pistol Build\nEmpty')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      navigator: { index: number };
+      focusables: FakeObject[];
+    };
+    const locked = scene.focusables.find((row) => row.state.text.startsWith('Standard Barrel • COMMON\nLocked blueprint'))!;
+    const lockedIndex = scene.focusables.indexOf(locked);
+    for (let step = 0; step < scene.focusables.length && scene.navigator.index !== lockedIndex; step += 1) {
+      harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+      harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+    }
+
+    expect(scene.navigator.index).toBe(lockedIndex);
+    expect(locked.state.visible).toBe(true);
+    expect(locked.state.interactive).toBe(false);
+    harness.keyboard.keydown('Enter'); harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('Enter'); harness.menuScene.update(0, 16);
+    expect(scene.controller.snapshot().notice).toBeUndefined();
+    expect(harness.context.saveData.gunsmith.parts).toEqual({});
   });
 
   it('uses the shared scroll region for a large Gunsmith inventory without paging controls', () => {
@@ -426,8 +454,129 @@ describe('MenuScene', () => {
     }));
     harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
 
-    expect(harness.textContents()).toContain('Merge 50 × Standard Barrel T1 → T2');
+    expect(harness.textContents()).toContain('Merge 2 of 50 owned Standard Barrel T1 → T2');
     expect(harness.textContents().filter((text) => text.startsWith('Merge '))).toHaveLength(1);
+    harness.buttonByLabel('Merge 2 of 50 owned Standard Barrel T1 → T2')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toContain('CHOOSE FIRST MERGE INPUT');
+    expect(harness.textContents().filter((text) => text.includes('Inventory spare'))).toHaveLength(50);
+    const first = harness.textContents().find((text) => text.startsWith('RECOMMENDED • First input • Standard Barrel T1'))!;
+    harness.buttonByLabel(first)!.state.handlers.pointerup!();
+    expect(harness.textContents()).toContain('CHOOSE COMPATIBLE SECOND INPUT');
+    expect(harness.textContents().filter((text) => text.includes('Inventory spare'))).toHaveLength(49);
+  });
+
+  it('keeps fabrication of a second merge copy actionable when the first copy is fitted', () => {
+    const harness = createHarness();
+    harness.context.commitProgression((progression) => ({ ...progression, scrap: 120 }));
+    harness.context.updateGunsmith((state) => ({
+      ...state,
+      parts: { existing: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] } },
+      builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: { receiver: 'existing' }, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    const label = harness.textContents().find((text) => text.includes('Fabricate another — 60 Scrap'))!;
+    expect(label).toContain('Fitted • T1');
+    for (let step = 0; step < 20 && !harness.buttonByLabel(label)!.state.interactive; step += 1) {
+      harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+      harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+    }
+    expect(harness.buttonByLabel(label)!.state.interactive).toBe(true);
+    harness.buttonByLabel(label)!.state.handlers.pointerup!();
+    expect(Object.values(harness.context.saveData.gunsmith.parts).filter((part) => part.partId === 'part:receiver-compact')).toHaveLength(2);
+  });
+
+  it('requires a visible two-step destructive Workshop confirmation with cancel and duplicate-confirm safety', () => {
+    const harness = createHarness();
+    harness.context.updateGunsmith((state) => ({
+      ...state,
+      parts: {
+        a: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+        b: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+      },
+      builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    const recipe = harness.textContents().find((text) => text.startsWith('Merge 2 of 2 owned Standard Barrel T1 → T2'))!;
+    harness.buttonByLabel(recipe)!.state.handlers.pointerup!();
+    const firstInput = harness.textContents().find((text) => text.startsWith('RECOMMENDED • First input • Standard Barrel T1'))!;
+    harness.buttonByLabel(firstInput)!.state.handlers.pointerup!();
+    const secondInput = harness.textContents().find((text) => text.startsWith('RECOMMENDED • Second input • Standard Barrel T1'))!;
+    harness.buttonByLabel(secondInput)!.state.handlers.pointerup!();
+    expect(harness.context.saveData.gunsmith.parts).toHaveProperty('a');
+    expect(harness.context.saveData.gunsmith.parts).toHaveProperty('b');
+    expect(harness.textContents()).toEqual(expect.arrayContaining([
+      'CONFIRM MERGE\nINPUTS\nStandard Barrel T1 • Range +10\nStandard Barrel T1 • Range +10\nOUTPUT\nStandard Barrel T2 • Range +20\nRange +10 → Range +20',
+      'Merge parts', 'Cancel',
+    ]));
+    expect(harness.textContents()).not.toContain('CHOOSE COMPATIBLE SECOND INPUT');
+    expect(harness.textContents().some((text) => text.startsWith('RECOMMENDED • Second input'))).toBe(false);
+
+    harness.buttonByLabel('Cancel')!.state.handlers.pointerup!();
+    expect(harness.context.saveData.gunsmith.parts).toHaveProperty('a');
+    const retryInput = harness.textContents().find((text) => text.startsWith('RECOMMENDED • Second input • Standard Barrel T1'))!;
+    harness.buttonByLabel(retryInput)!.state.handlers.pointerup!();
+    const confirm = harness.buttonByLabel('Merge parts')!;
+    confirm.state.handlers.pointerup!();
+    confirm.state.handlers.pointerup!();
+    expect(Object.values(harness.context.saveData.gunsmith.parts)).toHaveLength(1);
+  });
+
+  it('focuses and reveals infusion confirmation from a large Workshop list', () => {
+    const harness = createHarness();
+    harness.context.updateGunsmith((state) => ({
+      ...state,
+      parts: Object.fromEntries([
+        ...Array.from({ length: 24 }, (_, index) => [`target-${index}`, { partId: 'part:barrel-standard', tier: 2, infusedTraits: [] }]),
+        ['fire', { partId: 'part:trait-fire', tier: 2, infusedTraits: [] }],
+      ]),
+      builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    const infusion = harness.textContents().find((text) => text.startsWith('Infuse Standard Barrel with Fire Trait Core'))!;
+    harness.buttonByLabel(infusion)!.state.handlers.pointerup!();
+
+    const scene = harness.menuScene as unknown as { navigator: { index: number }; focusables: FakeObject[] };
+    const focused = scene.focusables[scene.navigator.index]!;
+    expect(focused.state.text).toBe('Infuse part');
+    expect(focused.state.visible).toBe(true);
+    expect(focused.state.interactive).toBe(true);
+  });
+
+  it('logical Back cancels a pending Workshop confirmation before leaving Gunsmith', () => {
+    const harness = createHarness();
+    harness.context.updateGunsmith((state) => ({ ...state,
+      parts: {
+        a: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+        b: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+      },
+      builds: [{ id: 'build:pistol', name: 'Main', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    const recipe = harness.textContents().find((text) => text.startsWith('Merge 2 of 2 owned Standard Barrel T1 → T2'))!;
+    harness.buttonByLabel(recipe)!.state.handlers.pointerup!();
+    let input = harness.textContents().find((text) => text.startsWith('RECOMMENDED • First input • Standard Barrel T1'))!;
+    harness.buttonByLabel(input)!.state.handlers.pointerup!();
+    input = harness.textContents().find((text) => text.startsWith('RECOMMENDED • Second input • Standard Barrel T1'))!;
+    harness.buttonByLabel(input)!.state.handlers.pointerup!();
+
+    harness.keyboard.keydown('Escape'); harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('Escape'); harness.menuScene.update(0, 16);
+    expect(harness.textContents()).toContain('Gunsmith');
+    expect(harness.textContents().join('\n')).not.toContain('CONFIRM MERGE');
+    expect(harness.textContents()).toContain('CHOOSE COMPATIBLE SECOND INPUT');
+    expect(harness.context.saveData.gunsmith.parts).toHaveProperty('a');
+
+    harness.keyboard.keydown('Escape'); harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('Escape'); harness.menuScene.update(0, 16);
+    expect(harness.textContents()).toContain('CHOOSE FIRST MERGE INPUT');
+    harness.keyboard.keydown('Escape'); harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('Escape'); harness.menuScene.update(0, 16);
+    expect(harness.textContents()).toContain('Gunsmith');
+    expect(harness.textContents().join('\n')).not.toContain('CHOOSE FIRST MERGE INPUT');
   });
 
   it('keeps a 50-part Gunsmith list focusable and scroll-safe through acceptance viewports', () => {
@@ -1378,6 +1527,46 @@ describe('MenuScene', () => {
     scene.load.start = () => { loaded = true; complete.get('filecomplete-atlasjson-art-gunsmith-icons')?.(); };
     await scene.ensureGunsmithPresentation(['gun-part-icon:receiver-compact']);
     expect(rendered).not.toHaveBeenCalled();
+  });
+
+  it('loads one co-registered assembled-weapon atlas for a chassis and all fitted layers', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>(); const queued: unknown[][] = [];
+    const loaded = new Set<string>();
+    const scene = new MenuScene() as unknown as {
+      isLive: boolean; committedPanel: string; controller: { snapshot(): unknown };
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
+      load: { on(): void; off(): void; once(event: string, listener: () => void): void; atlas(...args: unknown[]): void; start(): void };
+      getContext(): typeof harness.context; requireVisualArt(): DataVisualArtRegistry; render(snapshot: unknown): void;
+      ensureGunsmithPresentation(ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'gunsmith', controller: { snapshot: () => ({}) },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: {
+        on: () => undefined, off: () => undefined,
+        once: (event: string, listener: () => void) => { complete.set(event, listener); },
+        atlas: (...args: unknown[]) => { queued.push(args); },
+        start: () => {
+          loaded.add('art-gun-build-previews');
+          complete.get('filecomplete-atlasjson-art-gun-build-previews')?.();
+        },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art, render: () => undefined,
+    });
+
+    await scene.ensureGunsmithPresentation([
+      'gun-build-base:smg',
+      'gun-build-part:receiver-heavy',
+      'gun-build-part:trigger-hair',
+    ]);
+
+    expect(queued).toEqual([[
+      'art-gun-build-previews',
+      'assets/gunsmith/previews/gun-build-preview-atlas.png',
+      'assets/gunsmith/previews/gun-build-preview-atlas.json',
+    ]]);
   });
 
   it('keeps Gunsmith text usable and does not rerender after a lazy atlas failure', async () => {

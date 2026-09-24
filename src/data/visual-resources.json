@@ -764,6 +764,16 @@
     }
   },
   {
+    "id": "resource:gun-build-previews",
+    "textureKey": "art-gun-build-previews",
+    "sampling": "nearest",
+    "load": {
+      "type": "atlas",
+      "imageUrl": "assets/gunsmith/previews/gun-build-preview-atlas.png",
+      "dataUrl": "assets/gunsmith/previews/gun-build-preview-atlas.json"
+    }
+  },
+  {
     "id": "resource:character-piston-ram",
     "textureKey": "art-character-piston-ram",
     "sampling": "nearest",

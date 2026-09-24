@@ -1631,6 +1631,58 @@
       "resourceId": "resource:gunsmith-icons", "frameKey": "trait-icon:piercing"
     },
     {
+      "id": "gun-build-base:pistol", "kind": "icon", "required": true, "display": { "width": 96, "height": 48 },
+      "resourceId": "resource:gun-build-previews", "frameKey": "gun-build-base:pistol"
+    },
+    {
+      "id": "gun-build-base:smg", "kind": "icon", "required": true, "display": { "width": 96, "height": 48 },
+      "resourceId": "resource:gun-build-previews", "frameKey": "gun-build-base:smg"
+    },
+    {
+      "id": "gun-build-base:shotgun", "kind": "icon", "required": true, "display": { "width": 96, "height": 48 },
+      "resourceId": "resource:gun-build-previews", "frameKey": "gun-build-base:shotgun"
+    },
+    {
+      "id": "gun-build-part:receiver-compact", "kind": "icon", "required": true, "display": { "width": 96, "height": 48 },
+      "resourceId": "resource:gun-build-previews", "frameKey": "gun-build-part:receiver-compact"
+    },
+    {
+      "id": "gun-build-part:receiver-heavy", "kind": "icon", "required": true, "display": { "width": 96, "height": 48 },
+      "resourceId": "resource:gun-build-previews", "frameKey": "gun-build-part:receiver-heavy"
+    },
+    {
+      "id": "gun-build-part:barrel-standard", "kind": "icon", "required": true, "display": { "width": 96, "height": 48 },
+      "resourceId": "resource:gun-build-previews", "frameKey": "gun-build-part:barrel-standard"
+    },
+    {
+      "id": "gun-build-part:barrel-long", "kind": "icon", "required": true, "display": { "width": 96, "height": 48 },
+      "resourceId": "resource:gun-build-previews", "frameKey": "gun-build-part:barrel-long"
+    },
+    {
+      "id": "gun-build-part:optic-red-dot", "kind": "icon", "required": true, "display": { "width": 96, "height": 48 },
+      "resourceId": "resource:gun-build-previews", "frameKey": "gun-build-part:optic-red-dot"
+    },
+    {
+      "id": "gun-build-part:stock-padded", "kind": "icon", "required": true, "display": { "width": 96, "height": 48 },
+      "resourceId": "resource:gun-build-previews", "frameKey": "gun-build-part:stock-padded"
+    },
+    {
+      "id": "gun-build-part:trigger-hair", "kind": "icon", "required": true, "display": { "width": 96, "height": 48 },
+      "resourceId": "resource:gun-build-previews", "frameKey": "gun-build-part:trigger-hair"
+    },
+    {
+      "id": "gun-build-part:magazine-extended", "kind": "icon", "required": true, "display": { "width": 96, "height": 48 },
+      "resourceId": "resource:gun-build-previews", "frameKey": "gun-build-part:magazine-extended"
+    },
+    {
+      "id": "gun-build-part:underbarrel-grenade", "kind": "icon", "required": true, "display": { "width": 96, "height": 48 },
+      "resourceId": "resource:gun-build-previews", "frameKey": "gun-build-part:underbarrel-grenade"
+    },
+    {
+      "id": "gun-build-part:barrel-piercing", "kind": "icon", "required": true, "display": { "width": 96, "height": 48 },
+      "resourceId": "resource:gun-build-previews", "frameKey": "gun-build-part:barrel-piercing"
+    },
+    {
       "id": "character:piston-ram",
       "kind": "character",
       "required": true,

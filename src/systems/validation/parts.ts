@@ -39,13 +39,20 @@ export const checkPart: RowCheckFn = (row: unknown, _index: number): string[] =>
     errors.push('presentation: required object');
   } else {
     const presentation = p.presentation as Record<string, unknown>;
-    const expectedFields = new Set(['iconArtId', 'slotIconArtId', 'traitIconArtIds']);
+    const expectedFields = new Set(['iconArtId', 'slotIconArtId', 'assemblyArtId', 'traitIconArtIds']);
     for (const field of Object.keys(presentation)) if (!expectedFields.has(field)) errors.push(`presentation.${field}: unknown field`);
     const tail = typeof p.id === 'string' && p.id.startsWith('part:') ? p.id.slice('part:'.length) : undefined;
     if (typeof presentation.iconArtId !== 'string') errors.push('presentation.iconArtId: required canonical visual-art ID');
     else if (tail !== undefined && presentation.iconArtId !== `gun-part-icon:${tail}`) errors.push(`presentation.iconArtId: must be exactly "gun-part-icon:${tail}"`);
     if (typeof presentation.slotIconArtId !== 'string') errors.push('presentation.slotIconArtId: required canonical visual-art ID');
     else if (typeof p.slot === 'string' && presentation.slotIconArtId !== `gun-slot-icon:${p.slot}`) errors.push(`presentation.slotIconArtId: must be exactly "gun-slot-icon:${p.slot}"`);
+    if (p.slot === 'trait') {
+      if (presentation.assemblyArtId !== undefined) errors.push('presentation.assemblyArtId: trait cores render in schematic sockets and must not define an overlay');
+    } else if (typeof presentation.assemblyArtId !== 'string') {
+      errors.push('presentation.assemblyArtId: required for a physical Part');
+    } else if (tail !== undefined && presentation.assemblyArtId !== `gun-build-part:${tail}`) {
+      errors.push(`presentation.assemblyArtId: must be exactly "gun-build-part:${tail}"`);
+    }
     const traitIcons = presentation.traitIconArtIds;
     if (!traitIcons || typeof traitIcons !== 'object' || Array.isArray(traitIcons)) {
       errors.push('presentation.traitIconArtIds: required object');
@@ -105,13 +112,14 @@ export const checkPart: RowCheckFn = (row: unknown, _index: number): string[] =>
 };
 
 export function assertPartArtReferences(parts: readonly {
-  presentation: { iconArtId: string; slotIconArtId: string; traitIconArtIds: Readonly<Record<string, string>> };
+  presentation: { iconArtId: string; slotIconArtId: string; assemblyArtId?: string; traitIconArtIds: Readonly<Record<string, string>> };
 }[], catalog: VisualArtCatalog): void {
   const bindings = new Map(catalog.bindings.map((binding) => [binding.id, binding]));
   parts.forEach((part, index) => {
     const references: readonly (readonly [path: string, artId: string])[] = [
       ['iconArtId', part.presentation.iconArtId],
       ['slotIconArtId', part.presentation.slotIconArtId],
+      ...(part.presentation.assemblyArtId === undefined ? [] : [['assemblyArtId', part.presentation.assemblyArtId] as const]),
       ...Object.entries(part.presentation.traitIconArtIds).map(([trait, artId]) => [`traitIconArtIds.${trait}`, artId] as const),
     ];
     for (const [path, artId] of references) {

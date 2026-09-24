@@ -47,6 +47,20 @@ describe('validateAllData', () => {
     ]);
   });
 
+  it('fails closed when assembled Gunsmith presentation is missing or assigned to the wrong tier', () => {
+    const missingPartLayer = mutableData();
+    delete missingPartLayer.gunParts.find((part: { slot: string }) => part.slot !== 'trait').presentation.assemblyArtId;
+    expect(() => validateGameData(missingPartLayer)).toThrow(/assemblyArtId: required for a physical Part/);
+
+    const missingFamilyBase = mutableData();
+    delete missingFamilyBase.weapons.find((weapon: { mergeTier: number }) => weapon.mergeTier === 1).art.gunsmithPreviewBaseArtId;
+    expect(() => validateGameData(missingFamilyBase)).toThrow(/gunsmithPreviewBaseArtId: required on family tier 1/);
+
+    const wrongTierBase = mutableData();
+    wrongTierBase.weapons.find((weapon: { mergeTier: number }) => weapon.mergeTier === 2).art.gunsmithPreviewBaseArtId = 'gun-build-base:pistol';
+    expect(() => validateGameData(wrongTierBase)).toThrow(/only family tier 1 may own the Gunsmith chassis/);
+  });
+
   it('reports every broken catalog without aborting', () => {
     const data = mutableData();
     data.weapons[0].damage = -1;
