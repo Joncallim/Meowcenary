@@ -56,6 +56,16 @@ describe('stage runtime', () => {
     expect(boss.state.status).toBe('objective-complete');
   });
 
+  it('captures a survive clear at the end of the frame that completes it', () => {
+    const runtime = createStageRuntime(plan({ type: 'survive', seconds: 2 }));
+
+    runtime.tick(1_000, 0);
+    expect(runtime.pendingClear).toBeUndefined();
+
+    runtime.tick(1_000, 1_000);
+    expect(runtime.pendingClear).toMatchObject({ timeMs: 2_000 });
+  });
+
   it('records a terminal run loss as a failed stage without creating a clear', () => {
     const runtime = createStageRuntime(plan());
     runtime.tick(0, 0);
