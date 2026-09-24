@@ -865,21 +865,43 @@ export class MenuScene extends Phaser.Scene {
         y += hitTarget * 0.75;
       }
     });
-    this.endScrollableRegion();
     if (snapshot.equipment.owned.length === 0) {
-      this.own(root, createUiText(this, margin, y, 'Complete bosses and achievements to earn persistent equipment.', {
+      const empty = this.own(root, createUiText(this, margin, y, 'Fabricate a blueprint below or earn equipment from rewards.', {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
         wordWrap: { width: width - margin - this.safeRightMargin },
       }));
-      y += hitTarget;
+      this.registerScrollObject(empty);
+      y += empty.height + 12;
     }
     snapshot.equipment.unavailable.forEach(() => {
-      this.own(root, createUiText(this, margin, y, 'A legacy equipment item is unavailable in this version.', {
+      const unavailable = this.own(root, createUiText(this, margin, y, 'A legacy equipment item is unavailable in this version.', {
         color: '#fbbf24', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
         wordWrap: { width: width - margin - this.safeRightMargin },
       }));
-      y += hitTarget * 0.75;
+      this.registerScrollObject(unavailable);
+      y += unavailable.height + 12;
     });
+    const blueprints = this.own(root, createUiText(this, margin, y, 'AVAILABLE BLUEPRINTS', {
+      color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+    }));
+    this.registerScrollObject(blueprints);
+    y += blueprints.height + 4;
+    if (snapshot.equipment.blueprints.length === 0) {
+      const complete = this.own(root, createUiText(this, margin, y, 'All currently unlocked equipment has been fabricated.', {
+        color: '#94a3b8', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+      }));
+      this.registerScrollObject(complete);
+      y += complete.height + 8;
+    }
+    snapshot.equipment.blueprints.forEach((blueprint) => {
+      const slot = `${blueprint.slot.charAt(0).toUpperCase()}${blueprint.slot.slice(1)}`;
+      const row = this.addButton(root, margin, y, `${blueprint.name}\n${blueprint.setName} Set • ${slot}\n${blueprint.effectSummary.join(' • ')}\nFabricate — ${blueprint.fabricationCost} Scrap`, hitTarget, () => {
+        this.render(this.requireController().fabricateEquipment(blueprint.equipmentId));
+      }, 'ui:confirm', width - margin - this.safeRightMargin - 38);
+      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, blueprint.iconArtId);
+      y += row.height + 8;
+    });
+    this.endScrollableRegion();
     this.addBackButton(root, width, margin, hitTarget);
   }
 

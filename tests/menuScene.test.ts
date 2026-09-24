@@ -710,6 +710,17 @@ describe('MenuScene', () => {
     expect(objects.filter((object) => object.state.kind === 'container')).toHaveLength(1);
   });
 
+  it('renders unlocked Equipment fabrication blueprints in the player-facing Equipment panel', () => {
+    const harness = createHarness();
+
+    harness.buttonByLabel('Loadout: Equipment')!.state.handlers['pointerup']!();
+
+    expect(harness.textContents()).toContain('AVAILABLE BLUEPRINTS');
+    expect(harness.textContents()).toContain(
+      'Commando Helmet\nCommando Set • Helmet\n+5% Fire Rate\nFabricate — 100 Scrap',
+    );
+  });
+
   it.each([
     { label: 'Mercenary', heading: 'Mercenary' },
     { label: 'Career', heading: 'Career' },

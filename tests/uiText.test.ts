@@ -195,8 +195,9 @@ describe('createUiText', () => {
     // flow through the sole shared factory.
     // Achievement and Compendium rows now use MenuScene's shared scroll
     // button path instead of owning duplicate text-factory call sites. The
-    // dedicated boss meter contributes one player-facing label.
-    expect(migratedSites).toHaveLength(54);
+    // dedicated boss meter contributes one player-facing label. Equipment's
+    // empty-state guidance and blueprint section heading contribute two more.
+    expect(migratedSites).toHaveLength(56);
 
     const constructorCalls = findCreateUiTextCalls(programSourceFile(program, UI_TEXT_FILE), checker);
     expect(constructorCalls).toHaveLength(0);

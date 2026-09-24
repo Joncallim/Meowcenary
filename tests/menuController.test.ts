@@ -137,6 +137,36 @@ describe('MainMenuController', () => {
     expect(controller.snapshot().progressionOverview.completedStages).toBeGreaterThanOrEqual(1);
   });
 
+  it('exposes unlocked Equipment blueprints and fabricates them through the durable menu command', () => {
+    const { context, controller } = setup();
+    context.updateMeta((meta) => ({ ...meta, scrap: 100 }));
+
+    const equipment = controller.open('equipment').equipment;
+    const blueprint = equipment.blueprints.find(
+      (candidate) => candidate.equipmentId === 'equipment:commando-helmet',
+    );
+    expect(blueprint).toMatchObject({
+      name: 'Commando Helmet',
+      setName: 'Commando',
+      slot: 'helmet',
+      fabricationCost: 100,
+      effectSummary: ['+5% Fire Rate'],
+    });
+
+    const fabricated = controller.fabricateEquipment('equipment:commando-helmet');
+
+    expect(fabricated.notice).toBeUndefined();
+    expect(fabricated.equipment.blueprints).not.toContainEqual(
+      expect.objectContaining({ equipmentId: 'equipment:commando-helmet' }),
+    );
+    expect(fabricated.equipment.owned).toContainEqual(expect.objectContaining({
+      instanceId: 'owned:equipment-commando-helmet',
+      equipmentId: 'equipment:commando-helmet',
+      tier: 1,
+    }));
+    expect(context.saveData.progression.scrap).toBe(0);
+  });
+
   it('keeps stale equipment definitions visible as recoverable unavailable state', () => {
     const { context, controller } = setup();
     context.updateEquipment(() => ({

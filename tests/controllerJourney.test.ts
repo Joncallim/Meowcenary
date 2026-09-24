@@ -74,8 +74,10 @@ if (!import.meta.url.includes('?as-harness')) {
     sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 3');
     assertZeroPointerCalls(menu.pointerCalls, 'menu step 3');
 
-    // 4. An empty Equipment surface exposes only Back; confirm returns Home.
-    menu.press(0);
+    // 4. Equipment exposes its data-backed fabrication blueprints; the
+    //    controller Back action returns Home without activating a recipe.
+    expect(menu.textContents()).toContain('AVAILABLE BLUEPRINTS');
+    menu.press(1);
     expect(menu.events).toEqual([
       'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:back',
     ]);

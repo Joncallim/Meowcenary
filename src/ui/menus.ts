@@ -196,6 +196,11 @@ export class MainMenuController {
     return this.snapshot();
   }
 
+  fabricateEquipment(equipmentId: string): MainMenuSnapshot {
+    this.notice = this.equipmentController.fabricate(equipmentId) ? undefined : 'Equipment: fabrication unavailable';
+    return this.snapshot();
+  }
+
   private noticeForSelectionFailure(
     reason: 'unknown-character' | 'locked' | 'stale-selection' | 'unknown-arena' | string,
   ): string {
