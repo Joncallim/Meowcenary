@@ -277,7 +277,7 @@ function createFakeScene(
         _x: number,
         _y: number,
         text: string,
-        style?: { padding?: { x?: number; y?: number }; resolution?: number },
+        style?: Record<string, unknown> & { padding?: { x?: number; y?: number }; resolution?: number },
       ) {
         if (failNextText) {
           failNextText = false;
@@ -296,7 +296,7 @@ function createFakeScene(
           padding,
           _x,
           _y,
-        ).setStyle({ resolution: style.resolution });
+        ).setStyle(style);
         return register(object);
       },
       rectangle(_x: number, _y: number, width: number, height: number) {
@@ -1176,7 +1176,7 @@ describe('MenuScene', () => {
     const wrapWidth = (row.state.style.wordWrap as { width: number }).width;
     const safeRightMargin = (harness.menuScene as unknown as { safeRightMargin: number }).safeRightMargin;
     expect(row.state.x).toBeGreaterThan(16);
-    expect(row.state.x + wrapWidth).toBeLessThanOrEqual(390 - safeRightMargin);
+    expect(row.state.x + wrapWidth + row.state.padding.left + row.state.padding.right).toBeLessThanOrEqual(390 - safeRightMargin);
   });
 
   it('renders unlocked Equipment fabrication blueprints in the player-facing Equipment panel', () => {
