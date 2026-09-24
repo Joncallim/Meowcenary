@@ -96,6 +96,7 @@ export class MenuScene extends Phaser.Scene {
   private readonly pendingGunsmithArtIds = new Set<string>();
   private gunsmithArtGeneration = 0;
   private panelArtLoading = false;
+  private panelArtInFlight?: Promise<void>;
   private readonly pendingPanelArtIds = new Set<string>();
   private readonly pendingPanelArtRepaints = new Set<MainMenuSnapshot['panel']>();
   private panelArtGeneration = 0;
@@ -131,6 +132,7 @@ export class MenuScene extends Phaser.Scene {
     this.pendingGunsmithArtIds.clear();
     this.panelArtGeneration += 1;
     this.panelArtLoading = false;
+    this.panelArtInFlight = undefined;
     this.pendingPanelArtIds.clear();
     this.pendingPanelArtRepaints.clear();
     this.isLive = true;
@@ -554,6 +556,10 @@ export class MenuScene extends Phaser.Scene {
         encounterEnemyIds: plan?.encounter.enemyIds ?? legacyEnemyIds,
         bossId: plan?.encounter.bossId,
       });
+      // Phaser exposes one scene-wide loader. A cold Home render may already
+      // own it for the hero closure, so launch must reuse that completion
+      // before asking the same loader for the full run closure.
+      await this.panelArtInFlight;
       await prepareRunPresentation(this, ctx.data, resources, (progress) => {
         if (this.isLive && generation === this.runLaunchGeneration && this.runLaunchState === 'loading') {
           this.runLaunchProgress = progress;
@@ -1342,17 +1348,31 @@ export class MenuScene extends Phaser.Scene {
   /** One guarded lazy-loading lifecycle for the growing visual panels. A
    * completion can repaint only the panel that requested it; pending IDs are
    * drained afterwards so rapid navigation cannot drop a resource closure. */
-  private async ensurePanelPresentation(
+  private ensurePanelPresentation(
     panel: MainMenuSnapshot['panel'],
     artIds: readonly string[],
     repaintWhenCached = false,
   ): Promise<void> {
-    if (!this.textures?.exists) return;
+    if (!this.textures?.exists) return Promise.resolve();
     if (this.panelArtLoading) {
       artIds.forEach((id) => this.pendingPanelArtIds.add(id));
       this.pendingPanelArtRepaints.add(panel);
-      return;
+      return Promise.resolve();
     }
+    const task = this.loadPanelPresentation(panel, artIds, repaintWhenCached);
+    this.panelArtInFlight = task;
+    const clearTask = () => {
+      if (this.panelArtInFlight === task) this.panelArtInFlight = undefined;
+    };
+    void task.then(clearTask, clearTask);
+    return task;
+  }
+
+  private async loadPanelPresentation(
+    panel: MainMenuSnapshot['panel'],
+    artIds: readonly string[],
+    repaintWhenCached: boolean,
+  ): Promise<void> {
     const generation = this.panelArtGeneration;
     const art = this.requireVisualArt();
     const resources = new DataVisualResourceRegistry(this.getContext().data);
@@ -1384,7 +1404,7 @@ export class MenuScene extends Phaser.Scene {
       this.pendingPanelArtIds.clear();
       this.pendingPanelArtRepaints.clear();
       const targetPanel = this.committedPanel ?? panel;
-      await this.ensurePanelPresentation(targetPanel, pending, repaintPanels.has(targetPanel));
+      await this.loadPanelPresentation(targetPanel, pending, repaintPanels.has(targetPanel));
     }
   }
 
@@ -1696,6 +1716,14 @@ export class MenuScene extends Phaser.Scene {
     // fallback): the retained navigator must not move or emit (F1).
     if (!this.committedDisplay) return;
     const resolved = typeof direction === 'number' ? (direction < 0 ? 'up' : 'down') : direction;
+    const localFocus = this.scrollLocalIndexByFocusIndex.get(this.navigator.index);
+    if (resolved === 'down' && this.scrollRegion && localFocus === this.scrollRegion.itemCount - 1
+      && this.scrollRegion.scrollToEnd()) {
+      this.applyScrollViewport();
+      this.bus?.emit('ui:navigate', {});
+      this.applyFocus();
+      return;
+    }
     const moved = this.navigator.move(resolved);
     if (moved) {
       this.syncScrollFocus(this.navigator.index);
@@ -1752,6 +1780,7 @@ export class MenuScene extends Phaser.Scene {
     this.pendingPanelArtIds.clear();
     this.pendingPanelArtRepaints.clear();
     this.panelArtLoading = false;
+    this.panelArtInFlight = undefined;
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
     this.scale.off?.(Phaser.Scale.Events.RESIZE, this.handleResize, this);

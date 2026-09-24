@@ -107,6 +107,17 @@ export class ScrollableFocusRegion {
     this.clampScrollOffset();
   }
 
+  /** Reveal the non-focusable tail after the final list item. Returns whether
+   * the viewport moved, so controller navigation can consume one Down press
+   * before leaving the shared region for a fixed control. */
+  scrollToEnd(): boolean {
+    const focusedBottom = this.items.length > 0 ? Math.max(...this.items.map((item) => item.bottom)) : 0;
+    if (this.supplementalContentBottom <= focusedBottom) return false;
+    const before = this._scrollOffset;
+    this._scrollOffset = Math.max(0, this._contentHeight - this.viewportHeight);
+    return this._scrollOffset !== before;
+  }
+
   /** Set scroll offset directly. */
   setScrollOffset(offset: number): void {
     this._scrollOffset = offset;

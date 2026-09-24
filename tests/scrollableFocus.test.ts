@@ -108,6 +108,23 @@ describe('ScrollableFocusRegion', () => {
     expect(region.scrollOffset).toBe(204);
   });
 
+  it('reveals a supplemental detail tail once before controller focus leaves the final row', () => {
+    const region = new ScrollableFocusRegion({ viewportTop: 100, viewportBottom: 300 });
+    region.setItems([{ index: 0, top: 100, bottom: 180 }]);
+    region.includeContentBottom(500);
+
+    expect(region.scrollToEnd()).toBe(true);
+    expect(region.scrollOffset).toBe(204);
+    expect(region.scrollToEnd()).toBe(false);
+  });
+
+  it('does not consume controller navigation for the ordinary trailing item margin', () => {
+    const region = new ScrollableFocusRegion({ viewportTop: 100, viewportBottom: 300 });
+    region.setItems([{ index: 0, top: 280, bottom: 340 }]);
+
+    expect(region.scrollToEnd()).toBe(false);
+  });
+
   it('destroys state', () => {
     const region = new ScrollableFocusRegion({
       viewportTop: 0,

@@ -10,6 +10,7 @@ import type { DataAchievementRegistry } from '../systems/achievements';
 import { evaluateCondition, createConditionContext } from '../gameplay/conditionEvaluator';
 import type { ProgressionCondition } from '../gameplay/conditionEvaluator';
 import { isCharacterAvailable } from '../gameplay/characterSelection';
+import { describeProgressionCondition } from './progressionPresentation';
 
 export interface NextGoalView {
   readonly kind: 'stage' | 'boss' | 'achievement' | 'mastery' | 'character';
@@ -76,7 +77,7 @@ export class ProgressionOverviewController {
         id: nextStage.id,
         title: stageLocked ? `Unlock ${nextStage.name}` : `Clear ${nextStage.name}`,
         detail: stageLocked
-          ? `Complete the previous Contract in ${chapterName(nextStage.chapterId)} to unlock it.`
+          ? `${describeProgressionCondition(nextStage.unlock as unknown as ProgressionCondition, context.data)}.`
           : `Complete this Contract to advance in ${chapterName(nextStage.chapterId)}.`,
         priority: 1,
         artId: stageArtId(nextStage, context),

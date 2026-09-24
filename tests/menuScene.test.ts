@@ -741,6 +741,31 @@ describe('MenuScene', () => {
     expect(artIds).not.toContain('enemy:junk-nester');
   });
 
+  it('waits for the cold Home art closure before a quick Play launch uses the scene loader', async () => {
+    const harness = createHarness();
+    let finishHomeArt!: () => void;
+    const homeArt = new Promise<void>((resolve) => { finishHomeArt = resolve; });
+    const scene = harness.menuScene as unknown as {
+      panelArtInFlight?: Promise<void>;
+      panelArtLoading: boolean;
+      textures: { exists(key: string): boolean; get(key: string): { has(frame: string): boolean; setFilter(mode: number): void } };
+      anims: { exists(key: string): boolean };
+      addPanelArt(...args: unknown[]): void;
+    };
+    scene.panelArtInFlight = homeArt;
+    scene.panelArtLoading = true;
+    scene.textures = { exists: () => true, get: () => ({ has: () => true, setFilter: () => undefined }) };
+    scene.anims = { exists: () => true };
+    scene.addPanelArt = () => undefined;
+
+    harness.buttonByLabel('Play Contract')!.state.handlers.pointerup!();
+    await Promise.resolve();
+    expect(harness.sceneStart).not.toHaveBeenCalled();
+
+    finishHomeArt();
+    await vi.waitFor(() => expect(harness.sceneStart).toHaveBeenCalledOnce());
+  });
+
   it('renders every Mercenary as one graphical row from controller-owned art identities', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {
@@ -1238,7 +1263,8 @@ describe('MenuScene', () => {
       controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
       render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
       scrollViewportTop: number;
-      scrollRegion: { contentHeight: number; viewportHeight: number; scrollOffset: number; scrollBy(delta: number): void };
+      scrollRegion: { contentHeight: number; viewportHeight: number; scrollOffset: number; scrollBy(delta: number): void; includeContentBottom(bottom: number): void };
+      navigator: { index: number };
     };
     const base = scene.controller.snapshot();
     const finalIndex = base.stage.stages.length - 1;
@@ -1259,6 +1285,27 @@ describe('MenuScene', () => {
     expect(scene.scrollRegion.scrollOffset).toBeGreaterThanOrEqual(
       detailBottom - scene.scrollViewportTop - scene.scrollRegion.viewportHeight,
     );
+
+    // Restore focus-driven position, then prove controller Down reveals the
+    // selected detail tail before focus is allowed to leave for fixed Back.
+    scene.render({ ...base, panel: 'stage', stage: { ...base.stage, selectedStageId: stages[finalIndex]!.id, stages } });
+    // The Phaser production Text reports its wrapped height. The lightweight
+    // fake does not, so extend the same shared detail extent to represent the
+    // wrapped N+1 roster at 360px.
+    scene.scrollRegion.includeContentBottom(detailBottom + 200);
+    for (let index = 0; index < finalIndex; index += 1) {
+      harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+      harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+    }
+    expect(scene.navigator.index).toBe(finalIndex);
+    const rowOffset = scene.scrollRegion.scrollOffset;
+    harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+    expect(scene.navigator.index).toBe(finalIndex);
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThan(rowOffset);
+    harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+    expect(scene.navigator.index).toBe(finalIndex + 1);
   });
 
   it('renders discovered Compendium entries with controller-owned actor art identities', () => {
