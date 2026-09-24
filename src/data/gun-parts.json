@@ -4,7 +4,7 @@
     "name": "Compact Receiver",
     "slot": "receiver",
     "rarity": "common",
-    "presentation": { "iconArtId": "upgrade-icon:smg-overclock" },
+    "presentation": { "iconArtId": "gun-part-icon:receiver-compact", "slotIconArtId": "gun-slot-icon:receiver", "traitIconArtIds": {} },
     "effects": [
       { "stat": "attackSpeed", "op": "add", "value": 0.08 }
     ],
@@ -17,7 +17,7 @@
     "name": "Heavy Receiver",
     "slot": "receiver",
     "rarity": "uncommon",
-    "presentation": { "iconArtId": "upgrade-icon:heavy-rounds" },
+    "presentation": { "iconArtId": "gun-part-icon:receiver-heavy", "slotIconArtId": "gun-slot-icon:receiver", "traitIconArtIds": {} },
     "effects": [
       { "stat": "damage", "op": "mult", "value": 1.12 },
       { "stat": "attackSpeed", "op": "mult", "value": 0.94 }
@@ -31,7 +31,7 @@
     "name": "Standard Barrel",
     "slot": "barrel",
     "rarity": "common",
-    "presentation": { "iconArtId": "upgrade-icon:long-barrel" },
+    "presentation": { "iconArtId": "gun-part-icon:barrel-standard", "slotIconArtId": "gun-slot-icon:barrel", "traitIconArtIds": {} },
     "effects": [
       { "stat": "range", "op": "add", "value": 10 }
     ],
@@ -44,7 +44,7 @@
     "name": "Long Barrel",
     "slot": "barrel",
     "rarity": "uncommon",
-    "presentation": { "iconArtId": "upgrade-icon:long-barrel" },
+    "presentation": { "iconArtId": "gun-part-icon:barrel-long", "slotIconArtId": "gun-slot-icon:barrel", "traitIconArtIds": {} },
     "effects": [
       { "stat": "range", "op": "add", "value": 35 },
       { "stat": "projectileSpeed", "op": "mult", "value": 1.1 }
@@ -58,7 +58,7 @@
     "name": "Red-Dot Optic",
     "slot": "optic",
     "rarity": "common",
-    "presentation": { "iconArtId": "upgrade-icon:pistol-deadeye" },
+    "presentation": { "iconArtId": "gun-part-icon:optic-red-dot", "slotIconArtId": "gun-slot-icon:optic", "traitIconArtIds": {} },
     "effects": [
       { "stat": "damage", "op": "mult", "value": 1.05 }
     ],
@@ -71,7 +71,7 @@
     "name": "Padded Stock",
     "slot": "stock",
     "rarity": "common",
-    "presentation": { "iconArtId": "upgrade-icon:run-and-gun" },
+    "presentation": { "iconArtId": "gun-part-icon:stock-padded", "slotIconArtId": "gun-slot-icon:stock", "traitIconArtIds": {} },
     "effects": [
       { "stat": "spreadDeg", "op": "add", "value": -1.5 }
     ],
@@ -84,7 +84,7 @@
     "name": "Hair Trigger",
     "slot": "trigger",
     "rarity": "uncommon",
-    "presentation": { "iconArtId": "upgrade-icon:smg-overclock" },
+    "presentation": { "iconArtId": "gun-part-icon:trigger-hair", "slotIconArtId": "gun-slot-icon:trigger", "traitIconArtIds": {} },
     "effects": [
       { "stat": "attackSpeed", "op": "mult", "value": 1.15 }
     ],
@@ -97,7 +97,7 @@
     "name": "Extended Magazine",
     "slot": "magazine",
     "rarity": "common",
-    "presentation": { "iconArtId": "upgrade-icon:split-shot" },
+    "presentation": { "iconArtId": "gun-part-icon:magazine-extended", "slotIconArtId": "gun-slot-icon:magazine", "traitIconArtIds": {} },
     "effects": [
       { "stat": "projectileCount", "op": "add", "value": 1 }
     ],
@@ -110,7 +110,7 @@
     "name": "Grenade Launcher",
     "slot": "underbarrel",
     "rarity": "epic",
-    "presentation": { "iconArtId": "upgrade-icon:shotgun-breacher" },
+    "presentation": { "iconArtId": "gun-part-icon:underbarrel-grenade", "slotIconArtId": "gun-slot-icon:underbarrel", "traitIconArtIds": { "EXPLOSIVE": "trait-icon:explosive" } },
     "effects": [
       { "stat": "damage", "op": "mult", "value": 1.2 }
     ],
@@ -121,7 +121,7 @@
     "name": "Piercing Barrel",
     "slot": "barrel",
     "rarity": "rare",
-    "presentation": { "iconArtId": "upgrade-icon:punch-through" },
+    "presentation": { "iconArtId": "gun-part-icon:barrel-piercing", "slotIconArtId": "gun-slot-icon:barrel", "traitIconArtIds": { "PIERCING": "trait-icon:piercing" } },
     "effects": [
       { "stat": "pierce", "op": "add", "value": 1 },
       { "stat": "damage", "op": "mult", "value": 0.92 }
@@ -135,7 +135,7 @@
     "name": "Fire Trait Core",
     "slot": "trait",
     "rarity": "uncommon",
-    "presentation": { "iconArtId": "upgrade-icon:hot-barrel" },
+    "presentation": { "iconArtId": "gun-part-icon:trait-fire", "slotIconArtId": "gun-slot-icon:trait", "traitIconArtIds": { "FIRE": "trait-icon:fire" } },
     "effects": [{ "stat": "damage", "op": "mult", "value": 1.02 }],
     "traits": ["FIRE"],
     "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-05" },
@@ -147,7 +147,7 @@
     "name": "Mastered Fire Trait Core",
     "slot": "trait",
     "rarity": "rare",
-    "presentation": { "iconArtId": "upgrade-icon:hot-barrel" },
+    "presentation": { "iconArtId": "gun-part-icon:trait-fire-mastered", "slotIconArtId": "gun-slot-icon:trait", "traitIconArtIds": { "FIRE": "trait-icon:fire" } },
     "effects": [{ "stat": "damage", "op": "mult", "value": 1.05 }],
     "traits": ["FIRE"],
     "rewardPoolId": "pool:traits-mastery",

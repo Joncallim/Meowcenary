@@ -1399,6 +1399,110 @@
       "frameKey": "equipment-icon:commando-boots"
     },
     {
+      "id": "gun-part-icon:receiver-compact",
+      "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-part-icon:receiver-compact"
+    },
+    {
+      "id": "gun-part-icon:receiver-heavy",
+      "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-part-icon:receiver-heavy"
+    },
+    {
+      "id": "gun-part-icon:barrel-standard",
+      "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-part-icon:barrel-standard"
+    },
+    {
+      "id": "gun-part-icon:barrel-long",
+      "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-part-icon:barrel-long"
+    },
+    {
+      "id": "gun-part-icon:optic-red-dot",
+      "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-part-icon:optic-red-dot"
+    },
+    {
+      "id": "gun-part-icon:stock-padded",
+      "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-part-icon:stock-padded"
+    },
+    {
+      "id": "gun-part-icon:trigger-hair",
+      "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-part-icon:trigger-hair"
+    },
+    {
+      "id": "gun-part-icon:magazine-extended",
+      "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-part-icon:magazine-extended"
+    },
+    {
+      "id": "gun-part-icon:underbarrel-grenade",
+      "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-part-icon:underbarrel-grenade"
+    },
+    {
+      "id": "gun-part-icon:barrel-piercing",
+      "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-part-icon:barrel-piercing"
+    },
+    {
+      "id": "gun-part-icon:trait-fire",
+      "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-part-icon:trait-fire"
+    },
+    {
+      "id": "gun-part-icon:trait-fire-mastered",
+      "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-part-icon:trait-fire-mastered"
+    },
+    {
+      "id": "gun-slot-icon:receiver", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-slot-icon:receiver"
+    },
+    {
+      "id": "gun-slot-icon:barrel", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-slot-icon:barrel"
+    },
+    {
+      "id": "gun-slot-icon:optic", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-slot-icon:optic"
+    },
+    {
+      "id": "gun-slot-icon:stock", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-slot-icon:stock"
+    },
+    {
+      "id": "gun-slot-icon:trigger", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-slot-icon:trigger"
+    },
+    {
+      "id": "gun-slot-icon:magazine", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-slot-icon:magazine"
+    },
+    {
+      "id": "gun-slot-icon:underbarrel", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-slot-icon:underbarrel"
+    },
+    {
+      "id": "gun-slot-icon:trait", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "gun-slot-icon:trait"
+    },
+    {
+      "id": "trait-icon:fire", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "trait-icon:fire"
+    },
+    {
+      "id": "trait-icon:explosive", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "trait-icon:explosive"
+    },
+    {
+      "id": "trait-icon:piercing", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 },
+      "resourceId": "resource:gunsmith-icons", "frameKey": "trait-icon:piercing"
+    },
+    {
       "id": "character:piston-ram",
       "kind": "character",
       "required": true,

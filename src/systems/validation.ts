@@ -3187,6 +3187,10 @@ export function validateVisualArtCatalog(raw: unknown): VisualArtCatalog {
       }
       if (typeof kind !== 'string' || !VISUAL_ART_KINDS.has(kind)) {
         rowErrors.push('kind: unknown visual-art kind');
+      // `icon` is a renderer capability shared by semantically named
+      // equipment, Gunsmith, trait and future icon families. Their domain
+      // validators own canonical ID shape; do not collapse them into an
+      // `icon:*` content namespace merely to select the generic renderer.
       } else if (kind !== 'icon' && typeof id === 'string' && !id.startsWith(`${kind}:`)) {
         rowErrors.push('kind: must match id prefix');
       }

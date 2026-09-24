@@ -57,7 +57,14 @@ describe('GunsmithController durable commands', () => {
     expect(controller.fitPart('owned:barrel')).toMatchObject({ ok: true });
     expect(context.saveData.gunsmith.selectedBuildId).toBe('build:pistol');
     expect(context.saveData.gunsmith.builds[0].fitted.barrel).toBe('owned:barrel');
-    expect(controller.snapshot().parts[0]).toMatchObject({ name: 'Standard Barrel', compatible: true, iconArtId: 'upgrade-icon:long-barrel' });
+    expect(controller.snapshot().selectedBuild?.weaponPreviewIconArtId).toBe('weapon-icon:pistol:t1');
+    expect(controller.snapshot().parts[0]).toMatchObject({
+      name: 'Standard Barrel', compatible: true,
+      iconArtId: 'gun-part-icon:barrel-standard', traitIcons: [],
+    });
+    expect(controller.snapshot().slots.find((slot) => slot.slot === 'barrel')).toMatchObject({
+      iconArtId: 'gun-slot-icon:barrel',
+    });
   });
 
   it('moves one owned physical part between builds atomically instead of duplicating it', () => {
@@ -118,6 +125,9 @@ describe('GunsmithController durable commands', () => {
     expect(controller.infuse('target', 'fire')).toMatchObject({ ok: true });
     expect(context.saveData.gunsmith.parts.target.infusedTraits).toEqual(['FIRE']);
     expect(context.saveData.gunsmith.parts.fire).toBeUndefined();
+    expect(controller.snapshot().parts.find((part) => part.instanceId === 'target')?.traitIcons).toEqual([
+      { trait: 'FIRE', iconArtId: 'trait-icon:fire' },
+    ]);
   });
 
   it('uses generic non-reacquirable acquisition policy to protect reward-only cores from destructive infusion', () => {
