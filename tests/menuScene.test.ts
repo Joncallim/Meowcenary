@@ -1101,6 +1101,53 @@ describe('MenuScene', () => {
     );
   });
 
+  it('bounds the narrow Home threat preview while preserving the complete Contract detail roster', () => {
+    const harness = createHarness({ create: false });
+    const scale = harness.menuScene.scale as unknown as {
+      width: number; height: number; displaySize: { width: number; height: number };
+    };
+    scale.width = 360;
+    scale.height = 640;
+    scale.displaySize = { width: 360, height: 640 };
+    harness.menuScene.create();
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      addPanelArt(...args: unknown[]): void;
+      currentViewport: UiViewport;
+    };
+    const base = scene.controller.snapshot();
+    const expandedThreats = Array.from({ length: 12 }, (_, index) => ({
+      enemyId: `enemy-${index}`,
+      name: `Threat ${index}`,
+      actorArtId: 'enemy:dust-mite',
+    }));
+    const stages = base.stage.stages.map((stage, index) => index === 0
+      ? { ...stage, selected: true, threats: expandedThreats }
+      : { ...stage, selected: false });
+    const addPanelArt = vi.fn();
+    scene.addPanelArt = addPanelArt;
+
+    scene.render({ ...base, panel: 'home', stage: { ...base.stage, stages } });
+
+    const homeCopy = harness.textContents().find((text) => text.includes('NEXT CONTRACT'))!;
+    expect(homeCopy).toContain('Threats: Threat 0 • Threat 1 • Threat 2 • Threat 3 • +8 more');
+    expect(homeCopy).not.toContain('Threat 4');
+    expect(addPanelArt.mock.calls.filter((call) => call[3] === 'enemy:dust-mite')).toHaveLength(4);
+    const safeBottom = 640 - edgeMargin(scene.currentViewport, 'bottom');
+    const homeActions = harness.objects.filter((object) =>
+      object.state.kind === 'text' && object.state.handlers.pointerup && !object.state.destroyed);
+    expect(homeActions).toHaveLength(7);
+    for (const action of homeActions) {
+      const paddedHeight = action.state.height - 16 + action.state.padding.top * 2;
+      expect(action.state.y + paddedHeight, action.state.text).toBeLessThanOrEqual(safeBottom);
+    }
+
+    scene.render({ ...base, panel: 'stage', stage: { ...base.stage, stages } });
+    const detail = harness.textContents().find((text) => text.startsWith('Threats: Threat 0'))!;
+    expect(detail).toContain('Threat 11');
+  });
+
   it('keeps the Contract hero and every 44px+ Home action inside all acceptance viewports', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as { handleResize(): void };

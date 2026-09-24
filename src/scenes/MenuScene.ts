@@ -22,6 +22,8 @@ import { isPortraitOrientationBlocked } from '../platform/orientation';
 const MENU_DEPTH = ThemeDepth.pauseSummary;
 /** 44 physical px at the smallest promised FIT (844×390 → 0.462085). */
 const MIN_MENU_BUTTON_LOGICAL_WIDTH = 44 / 0.462085;
+/** Home is an above-the-fold launch card, not the complete Contract roster. */
+const HOME_THREAT_PREVIEW_LIMIT = 4;
 
 /** The two audible command events a menu button can produce. */
 type MenuAudioEvent = 'ui:confirm' | 'ui:back';
@@ -391,12 +393,18 @@ export class MenuScene extends Phaser.Scene {
     const selectedStage = snapshot.stage.stages.find((s) => s.id === frontier.stageId)
       ?? snapshot.stage.stages.find((s) => s.selected);
     const campaignComplete = frontier.kind === 'campaign-complete';
+    const threatPreview = selectedStage?.threats.slice(0, HOME_THREAT_PREVIEW_LIMIT) ?? [];
+    const omittedThreatCount = Math.max(0, (selectedStage?.threats.length ?? 0) - threatPreview.length);
+    const threatPreviewCopy = [
+      ...threatPreview.map((threat) => threat.name),
+      ...(omittedThreatCount > 0 ? [`+${omittedThreatCount} more`] : []),
+    ].join(' • ');
     const infoLines = [
       `${selectedCharacter?.name ?? snapshot.character.selectedCharacterId} • ${this.getContext().saveData.progression.scrap} Scrap`,
       `${campaignComplete ? 'CAMPAIGN COMPLETE — REPLAY' : selectedStage?.completed ? 'REPLAY CONTRACT' : 'NEXT CONTRACT'} • ${selectedStage?.chapterName ?? ''} ${selectedStage?.displayOrder ?? ''}`,
       `${selectedStage?.name ?? snapshot.stage.selectedStageId} • ${selectedStage?.locationName ?? ''}`,
       selectedStage?.objective.copy ?? '',
-      selectedStage ? `Threats: ${selectedStage.threats.map((threat) => threat.name).join(' • ')}` : '',
+      selectedStage ? `Threats: ${threatPreviewCopy}` : '',
       selectedStage?.completed
         ? `Best: ${formatDuration(selectedStage.bestTimeMs)}`
         : `First clear: ${selectedStage?.reward.headline ?? ''}`,
@@ -428,7 +436,7 @@ export class MenuScene extends Phaser.Scene {
     if (selectedStage) {
       this.addPanelArt(root, artX, top + 54, selectedStage.locationArtId, 34);
       this.addPanelArt(root, artX - 34, top + 54, selectedStage.objective.artId, 26);
-      selectedStage.threats.forEach((threat, index) => {
+      threatPreview.forEach((threat, index) => {
         this.addPanelArt(root, artX - (index % 2) * 30, top + 88 + Math.floor(index / 2) * 28, threat.actorArtId, 24);
       });
     }
@@ -479,7 +487,7 @@ export class MenuScene extends Phaser.Scene {
       selectedCharacter?.actorArtId,
       selectedStage?.locationArtId,
       selectedStage?.objective.artId,
-      ...(selectedStage?.threats.map((threat) => threat.actorArtId) ?? []),
+      ...threatPreview.map((threat) => threat.actorArtId),
     ].filter((id): id is string => id !== undefined));
   }
 
