@@ -61,7 +61,7 @@ describe('dedicated Achievement production art', () => {
     expect(new Set(bindings.map((binding) => binding.resourceId))).toEqual(new Set(['resource:achievement-icons']));
     expect(new Set(bindings.map((binding) => binding.frameKey))).toEqual(new Set(ALL_ACHIEVEMENT_ICON_IDS));
     expect(bindings.every((binding) => binding.load.type === 'atlas' && binding.sampling === 'nearest')).toBe(true);
-    expect(bindings.every((binding) => !binding.resourceId.includes('upgrade-icon'))).toBe(true);
+    expect(bindings.every((binding) => !binding.resourceId?.includes('upgrade-icon'))).toBe(true);
   });
 
   it('keeps source, builder, Pixelorama and 32px named-frame export in parity', () => {
