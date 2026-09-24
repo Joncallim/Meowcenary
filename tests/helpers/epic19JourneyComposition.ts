@@ -692,7 +692,7 @@ function createFakeScene(
     tweens,
     textures: {
       exists: vi.fn((key: string) => loadedTextureKeys.has(key)),
-      get: vi.fn(() => ({ has: () => true })),
+      get: vi.fn(() => ({ has: () => true, setFilter: vi.fn() })),
     },
     registry: {
       get: (key: string) => {
