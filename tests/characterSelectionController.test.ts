@@ -33,6 +33,8 @@ describe('CharacterSelectionController', () => {
     expect(snapshot.characters[0]).toMatchObject({ id: 'scrap-tabby', locked: false, selected: true });
     expect(snapshot.characters[0]).toMatchObject({ abilityName: expect.any(String), abilityDescription: expect.any(String) });
     expect(snapshot.characters[0]).toMatchObject({
+      actorArtId: 'character:scrap-tabby',
+      startingWeaponIconArtId: 'weapon-icon:pistol:t1',
       baseStatsSummary: expect.stringContaining('health'),
       passiveSummary: expect.stringContaining('Scrap Hoarder'),
       startingWeaponSummary: expect.any(String),
@@ -45,6 +47,29 @@ describe('CharacterSelectionController', () => {
     // Only the default character is unlocked on a fresh save.
     const unlocked = snapshot.characters.filter((c) => !c.locked);
     expect(unlocked.map((c) => c.id)).toEqual(['scrap-tabby']);
+  });
+
+  it('derives presentation identity for a synthetic twentieth character without controller registration', () => {
+    const { context } = setup();
+    const template = context.characters.characterById('scrap-tabby')!;
+    const extraCharacters = Array.from({ length: 12 }, (_, index) => ({
+      ...structuredClone(template), id: `synthetic-${index + 9}`, name: `Synthetic ${index + 9}`,
+    }));
+    const registry = new DataCharacterRegistry({ characters: [...context.characters.all(), ...extraCharacters] });
+    const metaUpgrades = new DataMetaUpgradeRegistry(context.data);
+    const syntheticContext = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data: context.data,
+      arenas: new DataArenaRegistry(context.data), metaUpgrades, characters: registry,
+      save: new SaveManager(new MemoryStorageAdapter(), 'controller-scale-test', metaUpgrades.maxLevels()),
+    });
+
+    const snapshot = new CharacterSelectionController(syntheticContext).snapshot();
+    expect(snapshot.characters).toHaveLength(20);
+    expect(snapshot.characters[19]).toMatchObject({
+      id: 'synthetic-20',
+      actorArtId: 'character:synthetic-20',
+      startingWeaponIconArtId: 'weapon-icon:pistol:t1',
+    });
   });
 
   it('select enforces revision token', () => {

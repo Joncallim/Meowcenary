@@ -89,6 +89,26 @@ describe('Epic 26 progression overview read model', () => {
     const snap = controller.snapshot();
     expect(snap.unlockedCharacters).toBe(3); // tabby + bolt-hound + volt-lynx
   });
+
+  it('counts grandfathered character entitlements and does not present them as Career unlock goals', () => {
+    const { context, achievements } = createHarness();
+    const definitions = context.characters.all();
+    const entitled = definitions.find((character) => character.id === 'piston-ram')!;
+    const starter = definitions.find((character) => character.id === 'scrap-tabby')!;
+    const registry = new DataCharacterRegistry({ characters: [starter, entitled] });
+    const data = loadGameData();
+    const metaUpgrades = new DataMetaUpgradeRegistry(data);
+    const focusedContext = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data, metaUpgrades,
+      save: new SaveManager(new MemoryStorageAdapter(), 'entitled-career', metaUpgrades.maxLevels()),
+      characters: registry, arenas: new DataArenaRegistry(data), stages: new StageRegistry(data),
+    });
+    focusedContext.updateMeta((meta) => ({ ...meta, unlocks: [...meta.unlocks, 'character:piston-ram'] }));
+
+    const snapshot = new ProgressionOverviewController(focusedContext, achievements).snapshot();
+    expect(snapshot).toMatchObject({ unlockedCharacters: 2, totalCharacters: 2 });
+    expect(snapshot.nextGoals.some((goal) => goal.kind === 'character' && goal.id === 'piston-ram')).toBe(false);
+  });
 });
 
 describe('Epic 26 reward cadence conformance', () => {

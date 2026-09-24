@@ -9,6 +9,7 @@
  * V4 (Slice D): pure shared availability snapshot with diff support.
  */
 import { evaluateCondition, type ProgressionCondition, type ConditionContext } from './conditionEvaluator';
+import { isCharacterAvailable } from './characterSelection';
 
 export interface PersistentAvailabilitySnapshot {
   readonly selectableCharacterIds: readonly string[];
@@ -27,7 +28,7 @@ export function resolveAvailabilitySnapshot(
 ): PersistentAvailabilitySnapshot {
   const selectableCharacterIds: string[] = [];
   for (const def of characterDefinitions) {
-    if (evaluateCondition(def.unlock, facts)) {
+    if (isCharacterAvailable(def, facts)) {
       selectableCharacterIds.push(def.id);
     }
   }

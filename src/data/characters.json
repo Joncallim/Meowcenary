@@ -224,8 +224,8 @@
       }
     ],
     "unlock": {
-      "type": "boss-defeated",
-      "bossId": "boss-crusher"
+      "type": "stage-cleared",
+      "stageId": "stage:junkyard-04"
     },
     "cosmeticSkinIds": []
   },
