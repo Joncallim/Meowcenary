@@ -10,7 +10,7 @@ import { evaluateCondition } from '../gameplay/conditionEvaluator';
 import { createConditionContext } from '../gameplay/conditionEvaluator';
 import type { ProgressionCondition } from '../gameplay/conditionEvaluator';
 import { DataVisualArtRegistry } from '../systems/visualArt';
-import { describeCollectible, describeProgressionCondition, describeProgressionGrant } from './progressionPresentation';
+import { describeCollectible, describeProgressionCondition, describeProgressionGrant, resolveEnemyActorArtId } from './progressionPresentation';
 
 export interface StageOptionView {
   readonly id: string;
@@ -181,8 +181,7 @@ export class StageSelectionController {
     const threatIds = [...(encounter?.enemyIds ?? []), ...(encounter?.bossId ? [encounter.bossId] : [])];
     const threats = [...new Set(threatIds)].flatMap((enemyId) => {
       const enemy = this.context.data.enemies.find((row) => row.id === enemyId);
-      const actorEnemyId = enemy?.archetype === 'elite' ? enemy.baseEnemyId : enemyId;
-      const actorArtId = this.visualArt.bindingById(`enemy:${actorEnemyId}`)?.id;
+      const actorArtId = resolveEnemyActorArtId(enemyId, this.context.data, this.visualArt);
       return enemy && actorArtId ? [{ enemyId, name: enemy.name, actorArtId }] : [];
     });
     const firstClearScrap = reward?.firstClearScrap ?? 0;
@@ -219,7 +218,7 @@ function objectivePresentation(
   switch (objective.type) {
     case 'kill': return Object.freeze({ kind: 'kill', copy: objective.enemyTag ? `Eliminate ${objective.count} ${objective.enemyTag} threats` : `Eliminate ${objective.count} threats`, artId: 'upgrade-icon:heavy-rounds' });
     case 'collect': {
-      const item = describeCollectible(objective.itemId);
+      const item = describeCollectible(objective.itemId, visualArt);
       return Object.freeze({ kind: 'collect', copy: `Collect ${objective.count} ${item.name}`, artId: item.artId });
     }
     case 'survive': return Object.freeze({ kind: 'survive', copy: `Survive ${formatDuration(objective.seconds)}`, artId: 'upgrade-icon:quick-paws' });

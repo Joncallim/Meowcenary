@@ -9,8 +9,7 @@ import { loadGameData } from '../src/systems/validation';
 import { StageRegistry } from '../src/systems/stageRegistry';
 import { CompendiumController } from '../src/ui/compendiumController';
 
-function createHarness() {
-  const data = loadGameData();
+function createHarness(data = loadGameData()) {
   const context = createGameContext({
     bus: createEventBus(), menuRng: createRng(1), data,
     save: new SaveManager(new MemoryStorageAdapter(), 'compendium-controller-test'),
@@ -29,5 +28,17 @@ describe('CompendiumController presentation', () => {
     });
     const unseen = snapshot.entries.find((entry) => entry.status === 'unseen')!;
     expect(unseen.actorArtId).toBeUndefined();
+  });
+
+  it('retains an elite identity while resolving its inherited base actor art', () => {
+    const base = loadGameData();
+    const elite = { id: 'elite:test-dust', name: 'Veteran Dust Mite', archetype: 'elite' as const, baseEnemyId: 'dust-mite' };
+    const data = { ...base, enemies: [...base.enemies, elite] };
+    const { context, controller } = createHarness(data);
+    context.recordCompendiumDiscovery(elite.id, 'encountered');
+
+    expect(controller.snapshot().entries.find((entry) => entry.enemyId === elite.id)).toMatchObject({
+      name: elite.name, status: 'encountered', actorArtId: 'enemy:dust-mite',
+    });
   });
 });

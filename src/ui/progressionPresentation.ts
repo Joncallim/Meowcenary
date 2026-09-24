@@ -4,6 +4,7 @@
 import type { ProgressionCondition } from '../gameplay/conditionEvaluator';
 import type { ProgressionGrant } from '../gameplay/grantProcessor';
 import type { GameData } from '../systems/types';
+import type { DataVisualArtRegistry } from '../systems/visualArt';
 
 export function describeProgressionCondition(condition: ProgressionCondition, data: GameData): string {
   switch (condition.type) {
@@ -80,8 +81,21 @@ function catalogCharacterName(data: GameData, id: string): string | undefined {
 /** Collect objectives own an authored item/drop identity. The same identity
  * is the logical art binding, while its stable slug supplies generic copy for
  * N+1 collectables without a scene branch. */
-export function describeCollectible(itemId: string): { readonly name: string; readonly artId: string } {
-  return Object.freeze({ name: humanizeId(itemId), artId: itemId });
+export function describeCollectible(itemId: string, visualArt: DataVisualArtRegistry): { readonly name: string; readonly artId: string } {
+  return Object.freeze({
+    name: humanizeId(itemId),
+    artId: visualArt.bindingById(itemId)?.id ?? 'upgrade-icon:scrap-magnet',
+  });
+}
+
+export function resolveEnemyActorArtId(
+  enemyId: string,
+  data: GameData,
+  visualArt: DataVisualArtRegistry,
+): string | undefined {
+  const enemy = data.enemies.find((row) => row.id === enemyId);
+  const actorEnemyId = enemy?.archetype === 'elite' ? enemy.baseEnemyId : enemyId;
+  return visualArt.bindingById(`enemy:${actorEnemyId}`)?.id;
 }
 
 function catalogName(rows: readonly { readonly id: string; readonly name: string }[] | undefined, id: string, fallback: string): string {

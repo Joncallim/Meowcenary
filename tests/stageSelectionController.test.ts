@@ -171,7 +171,7 @@ describe('StageSelectionController (Epic 20)', () => {
     });
 
     expect(new StageSelectionController(context).snapshot().stages[0]!.objective).toEqual({
-      kind: 'collect', copy: 'Collect 3 Coolant Cell', artId: 'item:coolant-cell',
+      kind: 'collect', copy: 'Collect 3 Coolant Cell', artId: 'upgrade-icon:scrap-magnet',
     });
   });
 
