@@ -1,0 +1,324 @@
+{
+  "color_mode": 5,
+  "current_frame": 0,
+  "current_layer": 0,
+  "export_directory_path": "",
+  "export_file_format": 0,
+  "export_file_name": "equipment-sets-atlas",
+  "fps": 8,
+  "frames": {
+    "equipment-set-icon:scavenger": {
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:scavenger-helmet": {
+      "frame": {
+        "x": 32,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:scavenger-armour": {
+      "frame": {
+        "x": 64,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:scavenger-gloves": {
+      "frame": {
+        "x": 96,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:scavenger-boots": {
+      "frame": {
+        "x": 128,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-set-icon:juggernaut": {
+      "frame": {
+        "x": 0,
+        "y": 32,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:juggernaut-helmet": {
+      "frame": {
+        "x": 32,
+        "y": 32,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:juggernaut-armour": {
+      "frame": {
+        "x": 64,
+        "y": 32,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:juggernaut-gloves": {
+      "frame": {
+        "x": 96,
+        "y": 32,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:juggernaut-boots": {
+      "frame": {
+        "x": 128,
+        "y": 32,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-set-icon:pyro": {
+      "frame": {
+        "x": 0,
+        "y": 64,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:pyro-helmet": {
+      "frame": {
+        "x": 32,
+        "y": 64,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:pyro-armour": {
+      "frame": {
+        "x": 64,
+        "y": 64,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:pyro-gloves": {
+      "frame": {
+        "x": 96,
+        "y": 64,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:pyro-boots": {
+      "frame": {
+        "x": 128,
+        "y": 64,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-set-icon:recon": {
+      "frame": {
+        "x": 0,
+        "y": 96,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:recon-helmet": {
+      "frame": {
+        "x": 32,
+        "y": 96,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:recon-armour": {
+      "frame": {
+        "x": 64,
+        "y": 96,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:recon-gloves": {
+      "frame": {
+        "x": 96,
+        "y": 96,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:recon-boots": {
+      "frame": {
+        "x": 128,
+        "y": 96,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-set-icon:medic": {
+      "frame": {
+        "x": 0,
+        "y": 128,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:medic-helmet": {
+      "frame": {
+        "x": 32,
+        "y": 128,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:medic-armour": {
+      "frame": {
+        "x": 64,
+        "y": 128,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:medic-gloves": {
+      "frame": {
+        "x": 96,
+        "y": 128,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:medic-boots": {
+      "frame": {
+        "x": 128,
+        "y": 128,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-set-icon:technician": {
+      "frame": {
+        "x": 0,
+        "y": 160,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:technician-helmet": {
+      "frame": {
+        "x": 32,
+        "y": 160,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:technician-armour": {
+      "frame": {
+        "x": 64,
+        "y": 160,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:technician-gloves": {
+      "frame": {
+        "x": 96,
+        "y": 160,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:technician-boots": {
+      "frame": {
+        "x": 128,
+        "y": 160,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-set-icon:demolition": {
+      "frame": {
+        "x": 0,
+        "y": 192,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:demolition-helmet": {
+      "frame": {
+        "x": 32,
+        "y": 192,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:demolition-armour": {
+      "frame": {
+        "x": 64,
+        "y": 192,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:demolition-gloves": {
+      "frame": {
+        "x": 96,
+        "y": 192,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "equipment-icon:demolition-boots": {
+      "frame": {
+        "x": 128,
+        "y": 192,
+        "w": 32,
+        "h": 32
+      }
+    }
+  },
+  "layers": [
+    {
+      "animated_params": "{}",
+      "blend_mode": 0,
+      "clipping_mask": false,
+      "effects": {},
+      "locked": false,
+      "name": "body",
+      "new_cels_linked": false,
+      "opacity": 1,
+      "parent": -1,
+      "type": 0,
+      "visible": true
+    },
+    {
+      "animated_params": "{}",
+      "blend_mode": 0,
+      "clipping_mask": false,
+      "effects": {},
+      "locked": false,
+      "name": "notes",
+      "new_cels_linked": false,
+      "opacity": 1,
+      "parent": -1,
+      "type": 0,
+      "visible": false
+    }
+  ],
+  "pixelorama_version": "v1.2-stable",
+  "pxo_version": 7,
+  "size_x": 160,
+  "size_y": 224,
+  "tags": {}
+}

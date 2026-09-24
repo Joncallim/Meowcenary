@@ -754,6 +754,16 @@
     }
   },
   {
+    "id": "resource:equipment-sets",
+    "textureKey": "art-equipment-sets",
+    "sampling": "nearest",
+    "load": {
+      "type": "atlas",
+      "imageUrl": "assets/equipment/sets/equipment-sets-atlas.png",
+      "dataUrl": "assets/equipment/sets/equipment-sets-atlas.json"
+    }
+  },
+  {
     "id": "resource:gunsmith-icons",
     "textureKey": "art-gunsmith-icons",
     "sampling": "nearest",

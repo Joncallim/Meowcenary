@@ -86,9 +86,7 @@ describe('Visual Art Architecture', () => {
     expect(new Set(bindings.map((binding) => binding?.frameKey))).toEqual(new Set(expected));
     expect((data.equipment ?? []).filter((piece) => piece.setId === 'set:commando').map((piece) => piece.icon)).toEqual(expected.slice(1));
     expect(data.equipmentSets?.find((set) => set.id === 'set:commando')?.emblem).toBe(expected[0]);
-    // The rest of the existing catalog deliberately remains on its borrowed
-    // run-upgrade presentation until each own production family lands.
-    expect(art.bindingById(data.equipment?.find((piece) => piece.id === 'equipment:scavenger-helmet')?.icon ?? '')?.kind).toBe('upgrade-icon');
+    expect(art.bindingById(data.equipment?.find((piece) => piece.id === 'equipment:scavenger-helmet')?.icon ?? '')?.kind).toBe('icon');
   });
 
   it('keeps the committed Commando atlas in exact parity with its editable source', () => {
