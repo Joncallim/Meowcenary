@@ -81,10 +81,7 @@ describe('Epic 25 equipment catalog conformance', () => {
     }
   });
 
-  it('makes every advertised four-piece set earnable through V4 acquisition paths (achievement grants or fabrication)', () => {
-    // V4: equipment is obtained through achievement grants or fabrication,
-    // not through stage reward dumps. Verify that the grant mechanism works
-    // for at least one piece.
+  it('makes every advertised four-piece set earnable through V4 acquisition paths (explicit grants or Set-owned fabrication)', () => {
     const achievementEquipmentIds = new Set(
       (achievementsJson as unknown as Array<{ rewards?: Array<{ grant: { type: string; equipmentId?: string } }> }>)
         .flatMap((a) => a.rewards ?? [])
@@ -93,12 +90,17 @@ describe('Epic 25 equipment catalog conformance', () => {
         .map((g) => g.equipmentId)
     );
 
-    // Verify grant mechanism works: at least one piece is referenced
-    expect(achievementEquipmentIds.size).toBeGreaterThanOrEqual(1);
-
+    const setsById = new Map((equipmentSetsJson as unknown as EquipmentSetDefinition[]).map((set) => [set.id, set]));
     for (const setId of new Set(definitions.map((definition) => definition.setId))) {
       const pieces = definitions.filter((definition) => definition.setId === setId);
       expect(pieces, setId).toHaveLength(EQUIPMENT_SLOTS.length);
+      const set = setsById.get(setId);
+      const fabricable = set !== undefined
+        && Number.isSafeInteger(set.pieceFabricationCost)
+        && set.pieceFabricationCost > 0;
+      for (const piece of pieces) {
+        expect(fabricable || achievementEquipmentIds.has(piece.id), piece.id).toBe(true);
+      }
     }
   });
 

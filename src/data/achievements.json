@@ -69,20 +69,6 @@
           "type": "grant-scrap",
           "amount": 100
         }
-      },
-      {
-        "grant": {
-          "type": "unlock-equipment",
-          "equipmentId": "equipment:commando-helmet"
-        }
-      },
-      {
-        "grant": {
-          "type": "grant-equipment-instance",
-          "instanceId": "reward:crusher-commando-helmet",
-          "equipmentId": "equipment:commando-helmet",
-          "tier": 1
-        }
       }
     ]
   },
@@ -130,7 +116,7 @@
   {
     "id": "achievement:first-victory",
     "name": "First Victory",
-    "description": "Complete your first run.",
+    "description": "Win your first Contract.",
     "kind": "standard",
     "presentation": { "iconArtId": "achievement-icon:first-victory" },
     "target": 1,

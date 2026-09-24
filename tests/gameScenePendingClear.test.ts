@@ -246,6 +246,46 @@ describe('#164 GameScene pending-clear update ordering', () => {
       expect(stageRuntime.pendingClear.timeMs).toBe(capturedTime);
       expect(runState.timeMs).toBe(capturedTime); // run clock frozen too
     });
+
+    it('advances the frozen run clock through a survive completion frame', () => {
+      const { scene } = createHarness({ pendingClear: false, timeMs: 1_000 });
+      const runtime = createStageRuntime({
+        stageId: 'stage:survive-proof',
+        objective: { definition: { type: 'survive', seconds: 2 } },
+        encounter: {},
+        reward: { firstClearScrap: 50, grants: [] },
+      } as any);
+      runtime.tick(1_000, 0);
+      scene.stageRuntime = runtime;
+
+      scene.update(0, 1_000);
+
+      expect(runtime.pendingClear?.timeMs).toBe(2_000);
+      expect(scene.runState.timeMs).toBe(2_000);
+    });
+
+    it('does not advance a survive objective or run clock while paused', () => {
+      const { scene } = createHarness({ pendingClear: false, timeMs: 1_000 });
+      const runtime = createStageRuntime({
+        stageId: 'stage:survive-pause-proof',
+        objective: { definition: { type: 'survive', seconds: 2 } },
+        encounter: {},
+        reward: { firstClearScrap: 50, grants: [] },
+      } as any);
+      runtime.tick(1_000, 0);
+      scene.stageRuntime = runtime;
+      scene.runState.status = 'paused';
+
+      scene.update(0, 1_000);
+
+      expect(runtime.pendingClear).toBeUndefined();
+      expect(scene.runState.timeMs).toBe(1_000);
+
+      scene.runState.status = 'active';
+      scene.update(0, 1_000);
+      expect(runtime.pendingClear?.timeMs).toBe(2_000);
+      expect(scene.runState.timeMs).toBe(2_000);
+    });
   });
 
   describe('RED 5: Pause round trip', () => {

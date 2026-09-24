@@ -37,6 +37,7 @@ import { DataEquipmentRegistry } from '../systems/equipment';
 import { DataPartRegistry } from '../systems/parts';
 import type { ProjectileEffect } from '../gameplay/projectileEffects';
 import { resolvePersistentRunLoadout } from '../gameplay/persistentLoadout';
+import { singleScopedFamily } from '../gameplay/upgrades';
 import { diffAvailability } from '../gameplay/persistentAvailability';
 import { buildArenaScenery, type ArenaScenery } from '../systems/arenaScenery';
 import { UpgradeSystem } from '../systems/UpgradeSystem';
@@ -159,6 +160,9 @@ export class GameScene extends Phaser.Scene {
    * a permanently lost achievement increment. */
   private pendingAchievementFacts: Record<string, number> = {};
   private _wasPendingClear = false;
+  /** Dev-evidence snapshot captured before StageRuntime clears its transient
+   * pending-clear record. It is never gameplay or persistence authority. */
+  private objectiveCompletionTimeMs?: number;
   /** The input adapter owns pointer state; GameScene only declares whether
    * gameplay currently owns pointer gestures. */
   private gameplayPointerSuspended = true;
@@ -182,6 +186,7 @@ export class GameScene extends Phaser.Scene {
     this.completedAchievementNames = [];
     this.completedAchievements = [];
     this.newlyAvailableNames = [];
+    this.objectiveCompletionTimeMs = undefined;
     this.isTraining = data?.isTraining === true;
     // Normal production entry receives the exact request which Menu used to
     // resolve/load its closure. Retaining the fallback keeps old headless
@@ -474,6 +479,13 @@ export class GameScene extends Phaser.Scene {
             bus: ctx.bus,
             dpsMeter,
             weaponRewardIssuedCount: () => this.weaponRewardSystem?.issuedCount ?? 0,
+            ...(plan ? { stageId: plan.stageId } : {}),
+            enemyArchetype: (enemyId) => this.enemyDefinitions?.resolvedById(enemyId)?.archetype,
+            familyForUpgrade: (upgradeId) => {
+              const definition = ctx.data.upgrades.find((candidate) => candidate.id === upgradeId);
+              return definition ? singleScopedFamily(definition.effects) : undefined;
+            },
+            objectiveCompletionTimeMs: () => this.objectiveCompletionTimeMs,
           })
         : undefined;
     this.weaponSystem = new WeaponSystem(
@@ -1199,12 +1211,19 @@ export class GameScene extends Phaser.Scene {
 
   private updateStageObjective(ctx: GameContext, delta: number): void {
     const runState = this.runState;
-    if (!runState) return;
+    if (!runState || runState.status !== 'active') return;
     if (!this.stageRuntime || !this.stagePlan) {
       this.maybeEndRunForVictory(ctx, runState);
       return;
     }
     this.stageRuntime.tick(delta, runState.timeMs);
+    const pending = this.stageRuntime.pendingClear;
+    if (pending && pending.timeMs > runState.timeMs) {
+      // Survive objectives can complete inside this frame. Simulation freezes
+      // immediately at pending-clear, so carry only the stage-owned terminal
+      // timestamp into the run clock instead of dropping the completion frame.
+      runState.timeMs = pending.timeMs;
+    }
   }
 
   private tryCommitStageClear(ctx: GameContext): boolean {
@@ -1215,6 +1234,7 @@ export class GameScene extends Phaser.Scene {
     // cannot split from Scrap, mastery, metrics or Achievements.
     const committed = runtime.tryCommit((pending) => {
       this.terminalStageId = pending.stageId;
+      this.objectiveCompletionTimeMs = pending.timeMs;
       return true;
     });
     if (!committed) return false;

@@ -65,7 +65,14 @@ class ResolvedStageRuntime implements StageRuntime {
       const next = tickSurvive(progress, deltaMs);
       if (next !== progress) this.stageState = updateObjectiveProgress(this.stageState, next.current - progress.current);
     }
-    this.captureClear(runTimeMs);
+    // A survive objective advances during this tick, while `runTimeMs` is the
+    // clock at the start of the frame. Attribute that in-frame clear to the
+    // end of the frame. Event-driven objectives were already completed before
+    // this tick and retain the caller's exact event-frame clock.
+    const clearTimeMs = this.plan.objective.definition.type === 'survive'
+      ? runTimeMs + deltaMs
+      : runTimeMs;
+    this.captureClear(clearTimeMs);
   }
 
   recordEnemyDefeat(enemyId: string, archetype?: string): void {

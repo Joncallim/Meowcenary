@@ -12,6 +12,12 @@ export interface PlaytestSummarySystemOptions {
    *  `weapon:acquired` — ordinary loot can also acquire weapons, and an
    *  issued physical reward may remain uncollected. */
   readonly weaponRewardIssuedCount?: () => number;
+  /** V4 development evidence. Static catalog truth is injected at the
+   * composition boundary; this local reporter never owns stage/enemy rules. */
+  readonly stageId?: string;
+  readonly enemyArchetype?: (enemyId: string) => string | undefined;
+  readonly familyForUpgrade?: (upgradeId: string) => string | undefined;
+  readonly objectiveCompletionTimeMs?: () => number | undefined;
   readonly logger?: Pick<Console, 'info' | 'table'>;
 }
 
@@ -19,6 +25,7 @@ export interface PlaytestSummaryRow {
   readonly seed: number;
   readonly characterId: string;
   readonly arenaId: string;
+  readonly stageId: string | undefined;
   readonly outcome: RunOutcome;
   readonly time: string;
   readonly timeMs: number;
@@ -37,11 +44,23 @@ export interface PlaytestSummaryRow {
   readonly weaponRewardsIssued: number;
   readonly finalRackSize: number;
   readonly finalRackFamilies: string;
+  readonly firstOfferTimeMs: number | undefined;
+  readonly firstWeaponAcquiredTimeMs: number | undefined;
+  readonly objectiveCompletionTimeMs: number | undefined;
+  readonly longestBuildDecisionGapMs: number | undefined;
+  readonly uniqueUpgradeIdsChosen: number;
+  readonly familyScopedChoicesTaken: number;
 }
 
 interface OfferRecord {
   readonly offerId: number;
   readonly choices: readonly string[];
+  readonly timeMs: number;
+}
+
+interface ChosenUpgradeRecord {
+  readonly upgradeId: string;
+  readonly timeMs: number;
 }
 
 /**
@@ -54,17 +73,25 @@ export class PlaytestSummarySystem implements System {
   private readonly runState: RunState;
   private readonly dpsMeter: DpsMeter;
   private readonly weaponRewardIssuedCount?: () => number;
+  private readonly stageId?: string;
+  private readonly enemyArchetype?: (enemyId: string) => string | undefined;
+  private readonly familyForUpgrade?: (upgradeId: string) => string | undefined;
+  private readonly objectiveCompletionTimeMs?: () => number | undefined;
   private readonly logger: Pick<Console, 'info' | 'table'>;
   private readonly unsubscribers: Array<() => void>;
   private readonly levelUps: Array<{ readonly level: number; readonly timeMs: number }> = [];
   private readonly offers: OfferRecord[] = [];
-  private readonly chosenUpgradeIds: string[] = [];
+  private readonly chosenUpgrades: ChosenUpgradeRecord[] = [];
   private readonly weaponAcquisitions: Array<{
     readonly definitionId: string;
     readonly timeMs: number;
   }> = [];
   private mergeCount = 0;
+  private readonly mergeTimesMs: number[] = [];
   private firstMergeTimeMs: number | undefined;
+  private readonly firstSeenEnemies = new Map<string, { readonly archetype: string | undefined; readonly timeMs: number }>();
+  private readonly firstSeenArchetypes = new Map<string, number>();
+  private readonly bossPhases: Array<{ readonly enemyId: string; readonly phase: number; readonly healthFraction: number; readonly timeMs: number }> = [];
   private pickupBlockedCount = 0;
   private printed = false;
   private destroyed = false;
@@ -73,6 +100,10 @@ export class PlaytestSummarySystem implements System {
     this.runState = options.runState;
     this.dpsMeter = options.dpsMeter;
     this.weaponRewardIssuedCount = options.weaponRewardIssuedCount;
+    this.stageId = options.stageId;
+    this.enemyArchetype = options.enemyArchetype;
+    this.familyForUpgrade = options.familyForUpgrade;
+    this.objectiveCompletionTimeMs = options.objectiveCompletionTimeMs;
     this.logger = options.logger ?? console;
     this.unsubscribers = [
       options.bus.on('run:won', () => this.print('won')),
@@ -81,13 +112,14 @@ export class PlaytestSummarySystem implements System {
         this.levelUps.push({ level, timeMs: this.runState.timeMs });
       }),
       options.bus.on('card:offered', ({ offerId, choices }) => {
-        this.offers.push({ offerId, choices });
+        this.offers.push({ offerId, choices, timeMs: this.runState.timeMs });
       }),
       options.bus.on('card:chosen', ({ upgradeId }) => {
-        this.chosenUpgradeIds.push(upgradeId);
+        this.chosenUpgrades.push({ upgradeId, timeMs: this.runState.timeMs });
       }),
       options.bus.on('weapon:merged', () => {
         this.mergeCount += 1;
+        this.mergeTimesMs.push(this.runState.timeMs);
         if (this.firstMergeTimeMs === undefined) {
           this.firstMergeTimeMs = this.runState.timeMs;
         }
@@ -97,6 +129,21 @@ export class PlaytestSummarySystem implements System {
       }),
       options.bus.on('weapon:pickup-blocked', () => {
         this.pickupBlockedCount += 1;
+      }),
+      options.bus.on('enemy:spawned', ({ enemyId }) => {
+        if (!this.firstSeenEnemies.has(enemyId)) {
+          const archetype = this.enemyArchetype?.(enemyId);
+          this.firstSeenEnemies.set(enemyId, {
+            archetype,
+            timeMs: this.runState.timeMs,
+          });
+          if (archetype !== undefined && !this.firstSeenArchetypes.has(archetype)) {
+            this.firstSeenArchetypes.set(archetype, this.runState.timeMs);
+          }
+        }
+      }),
+      options.bus.on('enemy:boss-phase', ({ enemyId, phase, healthFraction }) => {
+        this.bossPhases.push({ enemyId, phase, healthFraction, timeMs: this.runState.timeMs });
       }),
     ];
   }
@@ -137,6 +184,7 @@ export class PlaytestSummarySystem implements System {
       seed: runState.seed,
       characterId: runState.characterId,
       arenaId: runState.arenaId,
+      stageId: this.stageId,
       outcome,
       time: formatTime(safeTimeMs),
       timeMs: safeTimeMs,
@@ -154,6 +202,16 @@ export class PlaytestSummarySystem implements System {
       weaponRewardsIssued: this.weaponRewardIssuedCount?.() ?? 0,
       finalRackSize: rack.count,
       finalRackFamilies: rack.families,
+      firstOfferTimeMs: this.offers[0]?.timeMs,
+      firstWeaponAcquiredTimeMs: this.weaponAcquisitions[0]?.timeMs,
+      objectiveCompletionTimeMs: this.objectiveCompletionTimeMs?.(),
+      longestBuildDecisionGapMs: longestGapMs([
+        ...this.chosenUpgrades.map((entry) => entry.timeMs),
+        ...this.weaponAcquisitions.map((entry) => entry.timeMs),
+        ...this.mergeTimesMs,
+      ], safeTimeMs),
+      uniqueUpgradeIdsChosen: new Set(this.chosenUpgrades.map((entry) => entry.upgradeId)).size,
+      familyScopedChoicesTaken: this.chosenUpgrades.filter((entry) => this.familyForUpgrade?.(entry.upgradeId) !== undefined).length,
     });
 
     this.logger.info('[playtest] run summary');
@@ -184,7 +242,9 @@ export class PlaytestSummarySystem implements System {
           // Offers resolve in emission order, so the nth chosen card belongs
           // to the nth offer; a trailing offer left unresolved by the run
           // ending simply has no chosen entry.
-          chosen: this.chosenUpgradeIds[index] ?? '(unresolved)',
+          offeredTimeMs: offer.timeMs,
+          chosen: this.chosenUpgrades[index]?.upgradeId ?? '(unresolved)',
+          chosenTimeMs: this.chosenUpgrades[index]?.timeMs,
         })),
       );
     }
@@ -197,7 +257,36 @@ export class PlaytestSummarySystem implements System {
         })),
       );
     }
+    if (this.firstSeenEnemies.size > 0) {
+      this.logger.table(
+        Array.from(this.firstSeenEnemies, ([enemyId, entry]) => ({
+          enemyId,
+          archetype: entry.archetype,
+          firstSeenTimeMs: entry.timeMs,
+        })),
+      );
+    }
+    if (this.firstSeenArchetypes.size > 0) {
+      this.logger.table(
+        Array.from(this.firstSeenArchetypes, ([archetype, firstSeenTimeMs]) => ({
+          archetype,
+          firstSeenTimeMs,
+        })),
+      );
+    }
+    if (this.bossPhases.length > 0) {
+      this.logger.table(this.bossPhases);
+    }
   }
+}
+
+function longestGapMs(timesMs: readonly number[], runEndTimeMs: number): number {
+  const sorted = [0, ...timesMs.filter(Number.isFinite), runEndTimeMs].sort((a, b) => a - b);
+  let longest = 0;
+  for (let index = 1; index < sorted.length; index += 1) {
+    longest = Math.max(longest, sorted[index]! - sorted[index - 1]!);
+  }
+  return longest;
 }
 
 /** Average, across consecutive offer pairs, of the fraction of the later
