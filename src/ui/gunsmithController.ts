@@ -368,9 +368,11 @@ export class GunsmithController {
         if (!first) continue;
         workshopRecipes.push(Object.freeze({
           kind: 'merge' as const, firstInstanceId: recipe.firstInstanceId, secondInstanceId: recipe.secondInstanceId,
-          label: recipe.copies === undefined
+          label: `${recipe.copies === undefined
             ? `Merge ${first.name} T${first.tier} variants → T${first.tier + 1}`
-            : `Merge ${recipe.copies} × ${first.name} T${first.tier} → T${first.tier + 1}`,
+            : `Merge ${recipe.copies} × ${first.name} T${first.tier} → T${first.tier + 1}`}${workshopLocationSuffix([
+              partLocation(recipe.firstInstanceId, state), partLocation(recipe.secondInstanceId, state),
+            ])}`,
         } satisfies GunsmithWorkshopRecipe));
         continue;
       }
@@ -379,7 +381,9 @@ export class GunsmithController {
       if (!target || !trait) continue;
       workshopRecipes.push(Object.freeze({
         kind: 'infuse' as const, targetInstanceId: recipe.targetInstanceId, traitInstanceId: recipe.traitInstanceId,
-        label: `Infuse ${target.name} with ${trait.name}`,
+        label: `Infuse ${target.name} with ${trait.name}${workshopLocationSuffix([
+          partLocation(recipe.targetInstanceId, state), partLocation(recipe.traitInstanceId, state),
+        ], ['Target', 'Core'])}`,
       } satisfies GunsmithWorkshopRecipe));
     }
     const workshop = Object.freeze(workshopRecipes);
@@ -673,6 +677,13 @@ function partLocation(instanceId: string, state: GunsmithState): string | undefi
     if (build.traitParts.includes(instanceId)) return `${build.name} • Traits`;
   }
   return undefined;
+}
+
+function workshopLocationSuffix(locations: readonly (string | undefined)[], prefixes?: readonly string[]): string {
+  const visible = locations.flatMap((location, index) => location === undefined
+    ? []
+    : [`${prefixes?.[index] === undefined ? '' : `${prefixes[index]} `}${location}`]);
+  return visible.length === 0 ? '' : `\nUses: ${visible.join(' + ')}`;
 }
 
 function effectDelta(before: readonly string[], after: readonly string[]): string[] {

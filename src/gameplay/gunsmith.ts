@@ -441,13 +441,16 @@ export function listWorkshopRecipes(
       const firstGroup = groups[firstIndex]!;
       for (let secondIndex = firstIndex; secondIndex < groups.length; secondIndex += 1) {
         const secondGroup = groups[secondIndex]!;
-        const first = firstGroup[0]!;
-        const second = firstGroup === secondGroup ? firstGroup[1] : secondGroup[0];
-        if (!second || !mergeParts(first, second, definitions).ok) continue;
-        recipes.push(Object.freeze({
-          kind: 'merge', firstInstanceId: first.instanceId, secondInstanceId: second.instanceId,
-          ...(firstGroup === secondGroup ? { copies: firstGroup.length } : {}),
-        }));
+        const choices = firstGroup === secondGroup
+          ? sameVariantMergeChoices(firstGroup, assignedInstanceIds)
+          : crossVariantMergeChoices(firstGroup, secondGroup, assignedInstanceIds);
+        for (const [first, second] of choices) {
+          if (!mergeParts(first, second, definitions).ok) continue;
+          recipes.push(Object.freeze({
+            kind: 'merge', firstInstanceId: first.instanceId, secondInstanceId: second.instanceId,
+            ...(firstGroup === secondGroup ? { copies: firstGroup.length } : {}),
+          }));
+        }
       }
     }
   }
@@ -458,18 +461,43 @@ export function listWorkshopRecipes(
     const trait = isInfusableTraitSource(candidate, definitions) ? definition?.traits[0] : undefined;
     if (trait !== undefined && !traitSources.has(trait)) traitSources.set(trait, candidate);
   }
-  const infusionOutcomes = new Set<string>();
   for (const target of owned) {
     for (const trait of BEHAVIOR_TRAITS) {
       const source = traitSources.get(trait);
-      const outcomeKey = `${target.partId}\u0000${target.tier}\u0000${canonicalTraits(target.infusedTraits).join(',')}\u0000${trait}`;
-      if (source && !infusionOutcomes.has(outcomeKey) && infuseTrait(target, source, definitions).ok) {
-        infusionOutcomes.add(outcomeKey);
+      if (source && infuseTrait(target, source, definitions).ok) {
         recipes.push(Object.freeze({ kind: 'infuse', targetInstanceId: target.instanceId, traitInstanceId: source.instanceId }));
       }
     }
   }
   return Object.freeze(recipes);
+}
+
+function sameVariantMergeChoices(
+  group: readonly OwnedPart[],
+  assigned: ReadonlySet<string>,
+): readonly (readonly [OwnedPart, OwnedPart])[] {
+  const spares = group.filter((part) => !assigned.has(part.instanceId));
+  const fitted = group.filter((part) => assigned.has(part.instanceId));
+  if (spares.length >= 2) return [[spares[0]!, spares[1]!]];
+  if (spares.length === 1) return fitted.map((part) => [spares[0]!, part] as const);
+  if (fitted.length === 2) return [[fitted[0]!, fitted[1]!]];
+  if (fitted.length > 2) return fitted.map((part, index) => [part, fitted[(index + 1) % fitted.length]!] as const);
+  return [];
+}
+
+function crossVariantMergeChoices(
+  firstGroup: readonly OwnedPart[],
+  secondGroup: readonly OwnedPart[],
+  assigned: ReadonlySet<string>,
+): readonly (readonly [OwnedPart, OwnedPart])[] {
+  const candidates = (group: readonly OwnedPart[]): readonly OwnedPart[] => {
+    const spare = group.find((part) => !assigned.has(part.instanceId));
+    return spare === undefined ? group : [spare];
+  };
+  const first = candidates(firstGroup);
+  const second = candidates(secondGroup);
+  const count = Math.max(first.length, second.length);
+  return Array.from({ length: count }, (_, index) => [first[index % first.length]!, second[index % second.length]!] as const);
 }
 
 // ── Effective stat resolution ─────────────────────────────────────────

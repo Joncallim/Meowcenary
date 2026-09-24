@@ -224,14 +224,61 @@ describe('GunsmithController durable commands', () => {
       expect.objectContaining({ kind: 'merge', firstInstanceId: 'z-spare', secondInstanceId: 'zz-spare' }),
       expect.objectContaining({ kind: 'infuse', targetInstanceId: 'z-target-spare', traitInstanceId: 'z-fire-spare' }),
     ]));
-    expect(workshop).not.toEqual(expect.arrayContaining([
-      expect.objectContaining({ kind: 'infuse', targetInstanceId: 'a-target-fitted' }),
+    expect(workshop).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'infuse', targetInstanceId: 'a-target-fitted', traitInstanceId: 'z-fire-spare' }),
     ]));
     const merge = workshop.find((recipe) => recipe.kind === 'merge' && recipe.firstInstanceId === 'z-spare')!;
     expect(controller.requestWorkshop(merge)).toMatchObject({ ok: true });
     expect(controller.confirmWorkshop()).toMatchObject({ ok: true });
     expect(context.saveData.gunsmith.builds.find((build) => build.id === 'build:pistol')?.fitted.barrel).toBe('a-fitted');
     expect(context.saveData.gunsmith.builds.find((build) => build.id === 'build:smg')?.fitted.barrel).toBe('b-fitted');
+  });
+
+  it('keeps identical fitted infusion targets selectable by their build identity', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state,
+      parts: {
+        'pistol-optic': { partId: 'part:optic-red-dot', tier: 1, infusedTraits: [] },
+        'smg-optic': { partId: 'part:optic-red-dot', tier: 1, infusedTraits: [] },
+        fire: { partId: 'part:trait-fire', tier: 1, infusedTraits: [] },
+      },
+      builds: [
+        { id: 'build:pistol', name: 'Sidearm', baseWeaponFamily: 'pistol', fitted: { optic: 'pistol-optic' }, traitParts: [] },
+        { id: 'build:smg', name: 'Sprayer', baseWeaponFamily: 'smg', fitted: { optic: 'smg-optic' }, traitParts: [] },
+      ], selectedBuildId: 'build:pistol',
+    }));
+
+    const infusions = controller.snapshot().workshop.filter((recipe) => recipe.kind === 'infuse');
+    expect(infusions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ targetInstanceId: 'pistol-optic', traitInstanceId: 'fire', label: expect.stringContaining('Target Sidearm • Optic') }),
+      expect.objectContaining({ targetInstanceId: 'smg-optic', traitInstanceId: 'fire', label: expect.stringContaining('Target Sprayer • Optic') }),
+    ]));
+  });
+
+  it('offers one-spare merge choices for each fitted copy and preserves the unchosen build', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state,
+      parts: {
+        spare: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+        'pistol-barrel': { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+        'smg-barrel': { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+      },
+      builds: [
+        { id: 'build:pistol', name: 'Sidearm', baseWeaponFamily: 'pistol', fitted: { barrel: 'pistol-barrel' }, traitParts: [] },
+        { id: 'build:smg', name: 'Sprayer', baseWeaponFamily: 'smg', fitted: { barrel: 'smg-barrel' }, traitParts: [] },
+      ], selectedBuildId: 'build:pistol',
+    }));
+
+    const merges = controller.snapshot().workshop.filter((recipe) => recipe.kind === 'merge' && recipe.firstInstanceId === 'spare');
+    expect(merges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ secondInstanceId: 'pistol-barrel', label: expect.stringContaining('Sidearm • Barrel') }),
+      expect.objectContaining({ secondInstanceId: 'smg-barrel', label: expect.stringContaining('Sprayer • Barrel') }),
+    ]));
+    expect(merges).toHaveLength(2);
+    controller.requestWorkshop(merges.find((recipe) => recipe.kind === 'merge' && recipe.secondInstanceId === 'pistol-barrel')!);
+    expect(controller.confirmWorkshop()).toMatchObject({ ok: true });
+    expect(context.saveData.gunsmith.builds.find((build) => build.id === 'build:smg')?.fitted.barrel).toBe('smg-barrel');
+    expect(context.saveData.gunsmith.parts['smg-barrel']).toBeDefined();
   });
 
   it('names the affected build and slot when a fitted Workshop input must be consumed', () => {
