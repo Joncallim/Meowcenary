@@ -97,6 +97,9 @@ export class MenuScene extends Phaser.Scene {
   private gunsmithArtGeneration = 0;
   private panelArtLoading = false;
   private panelArtInFlight?: Promise<void>;
+  /** Phaser has one LoaderPlugin per scene. Every menu/run presentation
+   * closure enters this tail so rapid panel changes cannot overlap queues. */
+  private menuTextureLoadTail: Promise<void> = Promise.resolve();
   private readonly pendingPanelArtIds = new Set<string>();
   private readonly pendingPanelArtRepaints = new Set<MainMenuSnapshot['panel']>();
   private panelArtGeneration = 0;
@@ -560,12 +563,12 @@ export class MenuScene extends Phaser.Scene {
       // own it for the hero closure, so launch must reuse that completion
       // before asking the same loader for the full run closure.
       await this.panelArtInFlight;
-      await prepareRunPresentation(this, ctx.data, resources, (progress) => {
+      await this.serializeTextureLoad(() => prepareRunPresentation(this, ctx.data, resources, (progress) => {
         if (this.isLive && generation === this.runLaunchGeneration && this.runLaunchState === 'loading') {
           this.runLaunchProgress = progress;
           this.render(this.requireController().snapshot());
         }
-      });
+      }));
       if (!this.isLive || generation !== this.runLaunchGeneration || this.runLaunchState !== 'loading') return;
       this.scene.start(SceneKey.Game, { runRequest: request, runStartPresentation, isTraining });
     } catch (error) {
@@ -1392,7 +1395,7 @@ export class MenuScene extends Phaser.Scene {
     this.panelArtLoading = true;
     let loadedAny = false;
     try {
-      loadedAny = (await loadTextureResources(this, [...missing.values()])).loaded.length > 0;
+      loadedAny = (await this.serializeTextureLoad(() => loadTextureResources(this, [...missing.values()]))).loaded.length > 0;
     } finally {
       if (generation === this.panelArtGeneration) this.panelArtLoading = false;
     }
@@ -1455,7 +1458,7 @@ export class MenuScene extends Phaser.Scene {
     if (missing.size === 0) return;
     this.achievementArtLoading = true;
     try {
-      const result = await loadTextureResources(this, [...missing.values()]);
+      const result = await this.serializeTextureLoad(() => loadTextureResources(this, [...missing.values()]));
       if (result.loaded.length > 0 && this.committedPanel === 'achievements' && this.controller) {
         this.render(this.controller.snapshot());
       }
@@ -1482,7 +1485,7 @@ export class MenuScene extends Phaser.Scene {
     if (missing.size === 0) return;
     this.mercenaryArtLoading = true;
     try {
-      const result = await loadTextureResources(this, [...missing.values()]);
+      const result = await this.serializeTextureLoad(() => loadTextureResources(this, [...missing.values()]));
       if (result.loaded.length > 0 && this.committedPanel === 'character' && this.controller) {
         this.render(this.controller.snapshot());
       }
@@ -1508,7 +1511,7 @@ export class MenuScene extends Phaser.Scene {
     if (missing.size === 0) return;
     this.equipmentArtLoading = true;
     try {
-      const result = await loadTextureResources(this, [...missing.values()]);
+      const result = await this.serializeTextureLoad(() => loadTextureResources(this, [...missing.values()]));
       if (result.loaded.length > 0 && this.committedPanel === 'equipment' && this.controller) {
         this.render(this.controller.snapshot());
       }
@@ -1541,7 +1544,7 @@ export class MenuScene extends Phaser.Scene {
     this.gunsmithArtLoading = true;
     let loadedAny = false;
     try {
-      const result = await loadTextureResources(this, [...missing.values()]);
+      const result = await this.serializeTextureLoad(() => loadTextureResources(this, [...missing.values()]));
       loadedAny = result.loaded.length > 0;
     } finally {
       if (generation === this.gunsmithArtGeneration) this.gunsmithArtLoading = false;
@@ -1555,6 +1558,12 @@ export class MenuScene extends Phaser.Scene {
       this.pendingGunsmithArtIds.clear();
       await this.ensureGunsmithPresentation(pending);
     }
+  }
+
+  private serializeTextureLoad<T>(load: () => Promise<T>): Promise<T> {
+    const task = this.menuTextureLoadTail.then(load, load);
+    this.menuTextureLoadTail = task.then(() => undefined, () => undefined);
+    return task;
   }
 
   private addBackButton(

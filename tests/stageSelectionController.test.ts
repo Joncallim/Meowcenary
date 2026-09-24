@@ -77,6 +77,30 @@ describe('StageSelectionController (Epic 20)', () => {
     expect(new StageSelectionController(context).snapshot().stages[0]!.threats.map((threat) => threat.enemyId)).toEqual(expandedIds);
   });
 
+  it('keeps a data-only elite threat under its own identity while inheriting base actor art', () => {
+    const data = loadGameData();
+    const targetId = data.stages![0]!.encounterProfileId;
+    const elite = { id: 'elite:test-dust', name: 'Veteran Dust Mite', archetype: 'elite' as const, baseEnemyId: 'dust-mite' };
+    const amended = {
+      ...data,
+      enemies: [...data.enemies, elite],
+      encounterProfiles: data.encounterProfiles!.map((encounter) => encounter.id === targetId
+        ? { ...encounter, enemyIds: [...encounter.enemyIds, elite.id] }
+        : encounter),
+    };
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data: amended,
+      metaUpgrades: new DataMetaUpgradeRegistry(amended), save: new SaveManager(new MemoryStorageAdapter(), 'elite-threat-art', {}),
+      characters: new DataCharacterRegistry(amended), arenas: new DataArenaRegistry(amended), stages: new StageRegistry(amended),
+    });
+
+    expect(new StageSelectionController(context).snapshot().stages[0]!.threats).toContainEqual({
+      enemyId: elite.id,
+      name: elite.name,
+      actorArtId: 'enemy:dust-mite',
+    });
+  });
+
   it('presents boss detail and the campaign-complete frontier without wrapping to the first Contract', () => {
     const { context, controller } = createHarness();
     for (const stage of context.stages.allStages()) context.completeStage(stage.id, 60_000);

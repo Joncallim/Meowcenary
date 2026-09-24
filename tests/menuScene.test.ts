@@ -899,6 +899,42 @@ describe('MenuScene', () => {
     expect(rendered).toHaveBeenCalledOnce();
   });
 
+  it('serializes rapid Home and Mercenary art closures through the one scene loader', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>();
+    const loaded = new Set<string>();
+    let finish!: () => void;
+    const start = vi.fn(() => {
+      finish = () => {
+        loaded.add('art-enemy-dust-mite');
+        complete.get('filecomplete-spritesheet-art-enemy-dust-mite')?.();
+      };
+    });
+    const scene = new MenuScene() as unknown as {
+      isLive: boolean; committedPanel: string; controller: { snapshot(): unknown };
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
+      load: { on(): void; off(): void; once(event: string, listener: () => void): void; spritesheet(): void; start(): void };
+      getContext(): typeof harness.context; requireVisualArt(): DataVisualArtRegistry; render(snapshot: unknown): void;
+      ensurePanelPresentation(panel: 'home', ids: readonly string[]): Promise<void>;
+      ensureMercenaryPresentation(ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'home', controller: { snapshot: () => ({}) },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: { on: () => undefined, off: () => undefined, once: (event: string, listener: () => void) => { complete.set(event, listener); }, spritesheet: () => undefined, start },
+      getContext: () => harness.context, requireVisualArt: () => art, render: () => undefined,
+    });
+
+    const home = scene.ensurePanelPresentation('home', ['enemy:dust-mite']);
+    const mercenary = scene.ensureMercenaryPresentation(['enemy:dust-mite']);
+    await Promise.resolve();
+    expect(start).toHaveBeenCalledOnce();
+    finish();
+    await Promise.all([home, mercenary]);
+    expect(start).toHaveBeenCalledOnce();
+  });
+
   it('does not let an old scene-lifetime panel-art load clear, drain, or repaint restarted state', async () => {
     const harness = createHarness({ create: false });
     const art = new DataVisualArtRegistry(harness.context.data);
@@ -925,6 +961,7 @@ describe('MenuScene', () => {
     });
 
     const oldLoad = scene.ensurePanelPresentation('home', ['enemy:dust-mite']);
+    await Promise.resolve();
     scene.panelArtGeneration = 2;
     scene.panelArtLoading = true;
     scene.pendingPanelArtIds.add('enemy:junk-rusher');

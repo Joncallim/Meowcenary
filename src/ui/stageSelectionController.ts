@@ -180,7 +180,8 @@ export class StageSelectionController {
     const reward = this.context.data.rewardProfiles?.find((row) => row.id === stage.rewardProfileId);
     const threats = [...new Set(encounter?.enemyIds ?? [])].flatMap((enemyId) => {
       const enemy = this.context.data.enemies.find((row) => row.id === enemyId);
-      const actorArtId = this.visualArt.bindingById(`enemy:${enemyId}`)?.id;
+      const actorEnemyId = enemy?.archetype === 'elite' ? enemy.baseEnemyId : enemyId;
+      const actorArtId = this.visualArt.bindingById(`enemy:${actorEnemyId}`)?.id;
       return enemy && actorArtId ? [{ enemyId, name: enemy.name, actorArtId }] : [];
     });
     const firstClearScrap = reward?.firstClearScrap ?? 0;
