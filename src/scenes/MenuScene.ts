@@ -435,6 +435,9 @@ export class MenuScene extends Phaser.Scene {
     if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     const generation = ++this.runLaunchGeneration;
     const ctx = this.getContext();
+    // Result truth belongs to this exact launch, not whatever durable state
+    // happens to exist when asynchronous resource loading eventually ends.
+    const runStartPresentation = ctx.captureRunPresentationBaseline();
     const stage = request.kind === 'stage' ? ctx.stages.stageById(request.stageId) : undefined;
     const arenaId = stage?.arenaId ?? (request.kind === 'legacy-arena' ? request.arenaId : undefined);
     const arena = arenaId === undefined ? undefined : ctx.arenas.arenaById(arenaId);
@@ -469,7 +472,7 @@ export class MenuScene extends Phaser.Scene {
         }
       });
       if (!this.isLive || generation !== this.runLaunchGeneration || this.runLaunchState !== 'loading') return;
-      this.scene.start(SceneKey.Game, { runRequest: request, isTraining });
+      this.scene.start(SceneKey.Game, { runRequest: request, runStartPresentation, isTraining });
     } catch (error) {
       if (!this.isLive || generation !== this.runLaunchGeneration) return;
       this.runLaunchState = 'failed';

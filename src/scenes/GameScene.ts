@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { getGameContext, type GameContext } from '../engine/context';
+import { getGameContext, type GameContext, type RunPresentationBaseline } from '../engine/context';
 import { RuntimeConfig } from '../engine/config';
 import { createRng, deriveRunSeed } from '../engine/rng';
 import { SceneKey } from '../engine/sceneKeys';
@@ -130,6 +130,7 @@ export class GameScene extends Phaser.Scene {
   private terminalSettlement?: RunTerminalSettlementResult;
   private terminalStageId?: string;
   private launchRequest?: ComposedRunRequest;
+  private runStartPresentation?: RunPresentationBaseline;
   private runSummaryController?: RunSummaryController;
   private runSummaryView?: PhaserRunSummaryView;
   private spawnCurve?: Readonly<SpawnCurveDefinition>;
@@ -173,7 +174,7 @@ export class GameScene extends Phaser.Scene {
     super(SceneKey.Game);
   }
 
-  create(data?: { readonly runRequest?: ComposedRunRequest; readonly isTraining?: boolean }): void {
+  create(data?: { readonly runRequest?: ComposedRunRequest; readonly runStartPresentation?: RunPresentationBaseline; readonly isTraining?: boolean }): void {
     const ctx = this.getContext();
     // Phaser restarts this Scene instance for Retry/Replay. Terminal
     // presentation belongs only to the new run's settlement, never the
@@ -187,6 +188,7 @@ export class GameScene extends Phaser.Scene {
     // scene harnesses explicit compatibility-only callers.
     const request = data?.runRequest ?? assembleComposedRunRequest(ctx, ctx.menuRng);
     this.launchRequest = request;
+    this.runStartPresentation = data?.runStartPresentation ?? ctx.captureRunPresentationBaseline();
     // Alpha 3 normal composition resolves the selected contract once at the
     // boundary. GameScene consumes its physical arena result; #85 wires the
     // remaining objective/encounter/reward fields to live systems.
@@ -1231,6 +1233,7 @@ export class GameScene extends Phaser.Scene {
       ...(terminalStatus === 'win' && this.terminalStageId !== undefined ? { stageId: this.terminalStageId } : {}),
       isTraining: this.isTraining,
       metricIncrements: this.pendingAchievementFacts,
+      presentationBaseline: this.runStartPresentation,
     });
     if (!result.terminalApplied) return;
     this.terminalSettlement = result;

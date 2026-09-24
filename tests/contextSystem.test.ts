@@ -736,6 +736,28 @@ describe('GameContext persistence boundary', () => {
     expect(context.saveData.stages).toEqual({});
   });
 
+  it('never attributes campaign progress to Training presentation', () => {
+    const { context } = setup();
+    const trainingStart = context.captureRunPresentationBaseline();
+
+    // Campaign state can advance while a Training launch is pending. Training
+    // remains a non-persistent mode and must not claim that external progress.
+    expect(context.settleRunTerminal({
+      terminalStatus: 'win', runScrap: 0, characterId: 'scrap-tabby', runDurationMs: 10_000,
+      stageId: 'stage:junkyard-01',
+    })).toMatchObject({ ok: true, firstClear: true });
+
+    const training = context.settleRunTerminal({
+      terminalStatus: 'win', runScrap: 50, characterId: 'scrap-tabby', runDurationMs: 20_000,
+      isTraining: true, presentationBaseline: trainingStart,
+    });
+
+    expect(training.achievementIdsCompleted).toEqual([]);
+    expect(training.persistentGrantIds).toEqual([]);
+    expect(training.availabilityBefore).toEqual(training.availabilityAfter);
+    expect(training.availabilityBefore).not.toEqual(trainingStart.availability);
+  });
+
   it('rejects caller-fabricated terminal-owned metrics while accepting registered run facts', () => {
     const { context } = setup();
     const forged = context.settleRunTerminal({
@@ -763,6 +785,38 @@ describe('GameContext persistence boundary', () => {
     expect(result.availabilityAfter.fabricablePartIds.some((id) =>
       !result.availabilityBefore.fabricablePartIds.includes(id),
     )).toBe(true);
+  });
+
+  it('reports availability and Achievements gained across the whole run, not only the terminal write', () => {
+    const { context } = setup();
+    const runStart = context.captureRunPresentationBaseline();
+
+    // Model a durable progression change after launch but before this run's
+    // terminal boundary. The result still belongs to the launch baseline.
+    const intermediate = context.settleRunTerminal({
+      terminalStatus: 'win', runScrap: 0, characterId: 'scrap-tabby', runDurationMs: 10_000,
+      stageId: 'stage:junkyard-01',
+    });
+    expect(intermediate.firstClear).toBe(true);
+
+    const result = context.settleRunTerminal({
+      terminalStatus: 'loss', runScrap: 0, characterId: 'scrap-tabby', runDurationMs: 20_000,
+      stageId: 'stage:junkyard-02', presentationBaseline: runStart,
+    });
+
+    expect(result.availabilityBefore).toEqual(runStart.availability);
+    expect(result.availabilityAfter.fabricablePartIds).not.toEqual(runStart.availability.fabricablePartIds);
+    expect(result.achievementIdsCompleted).toContain('achievement:first-victory');
+  });
+
+  it('captures a deeply immutable run-presentation baseline', () => {
+    const { context } = setup();
+    const baseline = context.captureRunPresentationBaseline();
+
+    expect(Object.isFrozen(baseline)).toBe(true);
+    expect(Object.isFrozen(baseline.availability)).toBe(true);
+    expect(Object.isFrozen(baseline.availability.selectableCharacterIds)).toBe(true);
+    expect(Object.isFrozen(baseline.completedAchievementIds)).toBe(true);
   });
 });
 

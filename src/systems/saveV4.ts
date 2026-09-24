@@ -551,7 +551,9 @@ export interface RunTerminalSettlementResult {
   readonly achievementIdsCompleted: readonly string[];
   readonly scrapAwardedFromAchievements: number;
   readonly masteryTierAwarded: number;
-  /** Captured from the same accepted candidate as all terminal grants. */
+  /** Context-owned run-start baseline and final accepted candidate. Direct
+   * settlement callers without a launch baseline retain terminal-local diff
+   * compatibility. */
   readonly availabilityBefore: PersistentAvailabilitySnapshot;
   readonly availabilityAfter: PersistentAvailabilitySnapshot;
 }
