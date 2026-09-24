@@ -1166,6 +1166,19 @@ describe('MenuScene', () => {
     expect(addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'enemy:dust-mite', 50);
   });
 
+  it('keeps discovered Compendium copy inside the narrow safe edge after reserving its actor-art column', () => {
+    const harness = createHarness();
+    harness.context.recordCompendiumDiscovery('dust-mite', 'defeated');
+    harness.buttonByLabel('Career')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Compendium')!.state.handlers.pointerup!();
+
+    const row = harness.objects.find((object) => object.state.text.startsWith('Dust Mite\n'))!;
+    const wrapWidth = (row.state.style.wordWrap as { width: number }).width;
+    const safeRightMargin = (harness.menuScene as unknown as { safeRightMargin: number }).safeRightMargin;
+    expect(row.state.x).toBeGreaterThan(16);
+    expect(row.state.x + wrapWidth).toBeLessThanOrEqual(390 - safeRightMargin);
+  });
+
   it('renders unlocked Equipment fabrication blueprints in the player-facing Equipment panel', () => {
     const harness = createHarness();
     const addCatalogIcon = vi.fn();
