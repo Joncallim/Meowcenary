@@ -1097,7 +1097,7 @@ describe('MenuScene', () => {
     );
     expect(objects.filter((object) => object.state.kind === 'container')).toHaveLength(1);
     expect(textContents()).toContain(
-      'Scrap Tabby • 0 Scrap\nNEXT CONTRACT • Junkyard 1\nFirst Scavenge • Junkyard Lot\nEliminate 25 threats\nThreats: Dust Mite • Scrap Skitter • Junk Rusher • Scrap Sniper\nFirst clear: 35 Scrap + Standard Barrel',
+      'Scrap Tabby • 0 Scrap\nNEXT CONTRACT • Junkyard 1\nFirst Scavenge • Junkyard Lot\nEliminate 25 threats\nThreats: Dust Mite • Scrap Skitter • Junk Rusher • Scrap Sniper\nFirst clear: 35 Scrap + Standard Barrel T1',
     );
   });
 
@@ -1179,6 +1179,36 @@ describe('MenuScene', () => {
     const wrapWidth = (detail.state.style.wordWrap as { width: number }).width;
     expect(detail.state.text).toContain('Long Threat Name 11');
     expect(detail.state.x + wrapWidth).toBeLessThanOrEqual(390 - scene.safeRightMargin);
+  });
+
+  it('includes a tall selected final-Contract detail block in the narrow shared-scroll extent', () => {
+    const harness = createHarness({ create: false });
+    const scale = harness.menuScene.scale as unknown as { width: number; displaySize: { width: number } };
+    scale.width = 360;
+    scale.displaySize.width = 360;
+    harness.menuScene.create();
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      scrollRegion: { contentHeight: number; viewportHeight: number; scrollOffset: number; scrollBy(delta: number): void };
+    };
+    const base = scene.controller.snapshot();
+    const finalIndex = base.stage.stages.length - 1;
+    const stages = base.stage.stages.map((stage, index) => ({
+      ...stage,
+      locked: false,
+      selected: index === finalIndex,
+      threats: index === finalIndex ? Array.from({ length: 20 }, (_, threatIndex) => ({
+        enemyId: `enemy-${threatIndex}`, name: `Threat ${threatIndex}`, actorArtId: 'enemy:dust-mite',
+      })) : stage.threats,
+    }));
+    scene.render({ ...base, panel: 'stage', stage: { ...base.stage, selectedStageId: stages[finalIndex]!.id, stages } });
+
+    const detail = harness.objects.find((object) => object.state.text.startsWith('Threats: Threat 0'))!;
+    const detailBottom = detail.state.y + detail.state.height;
+    expect(scene.scrollRegion.contentHeight).toBeGreaterThanOrEqual(detailBottom);
+    scene.scrollRegion.scrollBy(10_000);
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThanOrEqual(detailBottom - scene.scrollRegion.viewportHeight);
   });
 
   it('renders discovered Compendium entries with controller-owned actor art identities', () => {

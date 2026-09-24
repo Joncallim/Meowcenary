@@ -1561,8 +1561,10 @@ export class MenuScene extends Phaser.Scene {
 
   private registerScrollObject(object: Phaser.GameObjects.GameObject): void {
     if (!this.scrollRegion || !this.collectingScrollItems) return;
-    const positioned = object as unknown as { x: number; y: number };
+    const positioned = object as unknown as { x: number; y: number; getBounds?: () => { bottom: number } };
     this.scrollObjects.push({ object, x: positioned.x, y: positioned.y });
+    const bottom = positioned.getBounds?.().bottom;
+    if (bottom !== undefined) this.scrollRegion.includeContentBottom(bottom);
   }
 
   private finishScrollableRegion(): void {

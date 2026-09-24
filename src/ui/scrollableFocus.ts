@@ -33,6 +33,7 @@ export class ScrollableFocusRegion {
   private readonly navigator: FocusNavigator;
   private _scrollOffset = 0;
   private _contentHeight = 0;
+  private supplementalContentBottom = 0;
   private items: FocusItemLayout[] = [];
   private readonly viewportTop: number;
   private readonly viewportBottom: number;
@@ -56,9 +57,17 @@ export class ScrollableFocusRegion {
   setItems(items: FocusItemLayout[]): void {
     this.items = [...items];
     this.navigator.setCount(items.length);
-    this._contentHeight = items.length > 0
-      ? Math.max(...items.map((item) => item.bottom)) + this.itemMargin
-      : 0;
+    this.recomputeContentHeight();
+    this.clampScrollOffset();
+  }
+
+  /** Include presentation content that moves with the list but is not itself
+   * focusable. This keeps detail blocks reachable without inventing a fake
+   * navigation target or spacer button. */
+  includeContentBottom(bottom: number): void {
+    if (!Number.isFinite(bottom)) return;
+    this.supplementalContentBottom = Math.max(this.supplementalContentBottom, bottom);
+    this.recomputeContentHeight();
     this.clampScrollOffset();
   }
 
@@ -123,7 +132,14 @@ export class ScrollableFocusRegion {
     this.items = [];
     this._scrollOffset = 0;
     this._contentHeight = 0;
+    this.supplementalContentBottom = 0;
     this.navigator.setCount(0);
+  }
+
+  private recomputeContentHeight(): void {
+    const focusedBottom = this.items.length > 0 ? Math.max(...this.items.map((item) => item.bottom)) : 0;
+    const contentBottom = Math.max(focusedBottom, this.supplementalContentBottom);
+    this._contentHeight = contentBottom > 0 ? contentBottom + this.itemMargin : 0;
   }
 
   private clampScrollOffset(): void {

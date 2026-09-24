@@ -71,6 +71,18 @@ describe('ScrollableFocusRegion', () => {
     expect(region.scrollOffset).toBe(50);
   });
 
+  it('includes non-focusable presentation below the final focus item in its scroll extent', () => {
+    const region = new ScrollableFocusRegion({ viewportTop: 0, viewportBottom: 100 });
+    region.setItems([{ index: 0, top: 0, bottom: 80 }]);
+    region.includeContentBottom(240);
+    expect(region.itemCount).toBe(1);
+    expect(region.contentHeight).toBe(244);
+    region.setItems([{ index: 0, top: 0, bottom: 80 }]);
+    expect(region.contentHeight).toBe(244);
+    region.scrollBy(1_000);
+    expect(region.scrollOffset).toBe(144);
+  });
+
   it('destroys state', () => {
     const region = new ScrollableFocusRegion({
       viewportTop: 0,

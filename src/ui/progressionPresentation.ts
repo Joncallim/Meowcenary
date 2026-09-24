@@ -35,12 +35,14 @@ export function describeProgressionGrant(
     case 'unlock-equipment': return prefix('Unlock', catalogName(data.equipment, grant.equipmentId, 'Equipment'));
     case 'unlock-part': return prefix('Unlock', catalogName(data.gunParts, grant.partId, 'Part'));
     case 'unlock-trait': return prefix('Unlock', humanizeId(grant.traitId));
-    case 'grant-part-instance': return style === 'sentence'
-      ? `Earns ${catalogName(data.gunParts, grant.partId, 'Part')}`
-      : catalogName(data.gunParts, grant.partId, 'Part');
-    case 'grant-equipment-instance': return style === 'sentence'
-      ? `Earns ${catalogName(data.equipment, grant.equipmentId, 'Equipment')}`
-      : catalogName(data.equipment, grant.equipmentId, 'Equipment');
+    case 'grant-part-instance': {
+      const part = `${catalogName(data.gunParts, grant.partId, 'Part')} T${grant.tier ?? 1}`;
+      return style === 'sentence' ? `Earns ${part}` : part;
+    }
+    case 'grant-equipment-instance': {
+      const equipment = `${catalogName(data.equipment, grant.equipmentId, 'Equipment')} T${grant.tier ?? 1}`;
+      return style === 'sentence' ? `Earns ${equipment}` : equipment;
+    }
     case 'grant-item': {
       const quantity = grant.amount ?? 1;
       const item = humanizeId(grant.itemId);

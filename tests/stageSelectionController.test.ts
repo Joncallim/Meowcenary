@@ -85,7 +85,7 @@ describe('StageSelectionController (Epic 20)', () => {
     expect(warden).toMatchObject({
       chapterName: 'Forge', locationName: 'Forge Foundry', boss: true,
       objective: { kind: 'defeat', copy: 'Defeat Forge Warden' },
-      reward: { firstClearScrap: 180 }, completed: true, bestTimeMs: 60_000,
+      reward: { firstClearScrap: 180, headline: '180 Scrap + Mastered Fire Trait Core T3' }, completed: true, bestTimeMs: 60_000,
     });
     expect(snap.frontier).toMatchObject({ kind: 'campaign-complete', stageId: 'stage:junkyard-06' });
   });

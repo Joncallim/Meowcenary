@@ -62,4 +62,14 @@ describe('progression presentation', () => {
     expect(describeProgressionGrant({ type: 'unlock-character', characterId: 'character:scrap-tabby' }, amended)).toBe('Unlock Captain Tabby');
     expect(describeProgressionCondition({ type: 'mastery-reached', subjectId: 'scrap-tabby', tier: 2 }, amended)).toBe('Reach Captain Tabby mastery tier 2');
   });
+
+  it('preserves effective tiers for persistent instance rewards', () => {
+    const data = loadGameData();
+    expect(describeProgressionGrant({
+      type: 'grant-part-instance', instanceId: 'owned:default-tier', partId: 'part:barrel-standard',
+    }, data)).toBe('Standard Barrel T1');
+    expect(describeProgressionGrant({
+      type: 'grant-part-instance', instanceId: 'owned:mastered-tier', partId: 'part:trait-fire-mastered', tier: 3,
+    }, data)).toBe('Mastered Fire Trait Core T3');
+  });
 });
