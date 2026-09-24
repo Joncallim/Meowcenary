@@ -109,4 +109,29 @@ describe('GameScene achievement fact bridge', () => {
     expect(ctx.settleRunTerminal).toHaveBeenCalledWith(expect.objectContaining({ terminalStatus: 'win', characterId: 'scrap-tabby', isTraining: true }));
     expect(scene.hasPendingTerminalPersistence()).toBe(false);
   });
+
+  it('carries the captured launch presentation baseline to terminal settlement', () => {
+    const scene = new GameScene() as any;
+    scene.runState = { status: 'lost', timeMs: 1_000, currency: 12, characterId: 'scrap-tabby' };
+    scene.isTraining = false;
+    scene.runStartPresentation = Object.freeze({
+      availability: Object.freeze({
+        selectableCharacterIds: Object.freeze(['scrap-tabby']),
+        fabricableEquipmentSetIds: Object.freeze([]),
+        fabricablePartIds: Object.freeze([]),
+        maxEquipmentTier: 1,
+      }),
+      completedAchievementIds: Object.freeze([]),
+    });
+    const ctx: any = {
+      data: loadGameData(), bus: createEventBus(),
+      settleRunTerminal: vi.fn(() => ({ ok: true, terminalApplied: true, runScrapBanked: 12 })),
+    };
+
+    scene.trySettleTerminal(ctx, 'loss');
+
+    expect(ctx.settleRunTerminal).toHaveBeenCalledWith(expect.objectContaining({
+      presentationBaseline: scene.runStartPresentation,
+    }));
+  });
 });
