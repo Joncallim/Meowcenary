@@ -2095,6 +2095,21 @@ describe('MenuScene', () => {
     expect(harness.sceneStart).not.toHaveBeenCalled();
     expect(harness.textContents()).toContain('Retry Loading Contract');
   });
+
+  it('places a wrapped Contract loading error above Retry without overlap at the narrow viewport', async () => {
+    const harness = createHarness({ create: false });
+    const scale = harness.menuScene.scale as unknown as { width: number; displaySize: { width: number } };
+    scale.width = 360;
+    scale.displaySize.width = 360;
+    harness.menuScene.create();
+
+    harness.buttonByLabel('Play Contract')!.state.handlers.pointerup!();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const error = harness.objects.find((object) => object.state.text.startsWith("Couldn't load this Contract"))!;
+    const retry = harness.buttonByLabel('Retry Loading Contract')!;
+    expect(error.state.y + error.state.height).toBeLessThanOrEqual(retry.state.y);
+  });
 });
 
 describe('MenuScene audio lifecycle', () => {

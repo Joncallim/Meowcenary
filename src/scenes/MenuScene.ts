@@ -433,6 +433,18 @@ export class MenuScene extends Phaser.Scene {
       });
     }
     let y = top + info.height + 12;
+    if (this.runLaunchState === 'failed') {
+      const detail = this.own(root, createUiText(this, margin, y,
+        `Couldn't load this Contract. Retry or go Back.`,
+        {
+          color: '#f87171',
+          fontFamily: ThemeFont.family,
+          fontSize: `${ThemeFont.bodyMin}px`,
+          wordWrap: { width: width - margin - this.safeRightMargin },
+        }));
+      detail.setScrollFactor(0);
+      y += detail.height + 12;
+    }
     const compactLandscape = this.scale.height < 500 && width >= 700;
     if (compactLandscape) {
       const gap = 4;
@@ -463,17 +475,6 @@ export class MenuScene extends Phaser.Scene {
     }));
     hints.setScrollFactor(0);
     this.hint = hints;
-    if (this.runLaunchState === 'failed') {
-      const detail = this.own(root, createUiText(this, margin, top + info.height + 4,
-        `Couldn't load this Contract. Retry or go Back.`,
-        {
-          color: '#f87171',
-          fontFamily: ThemeFont.family,
-          fontSize: `${ThemeFont.bodyMin}px`,
-          wordWrap: { width: width - margin - this.safeRightMargin },
-        }));
-      detail.setScrollFactor(0);
-    }
     void this.ensurePanelPresentation('home', [
       selectedCharacter?.actorArtId,
       selectedStage?.locationArtId,
