@@ -197,9 +197,9 @@ describe('createUiText', () => {
     // button path instead of owning duplicate text-factory call sites. The
     // dedicated boss meter contributes one player-facing label. Equipment's
     // empty-state guidance and visual Active Sets grouping remain centralized;
-    // the assembled-build summary and destructive Workshop confirmation add
-    // two explicit player-facing call sites.
-    expect(migratedSites).toHaveLength(59);
+    // the assembled-build summary, staged merge selection, and destructive
+    // Workshop confirmation add three explicit player-facing call sites.
+    expect(migratedSites).toHaveLength(60);
 
     const constructorCalls = findCreateUiTextCalls(programSourceFile(program, UI_TEXT_FILE), checker);
     expect(constructorCalls).toHaveLength(0);
