@@ -4,14 +4,21 @@
 **Frozen base SHA:** `5efe56922dd7a9da9d1f073eca8ae4a251e67d37`
 **Authoritative remote validation head:** `90a4063baf499b078ebb64d910aa2bc9be274a33` (pushed to GitHub; exact 40-character SHA)
 
-## Active closeout — PR #177
+## Integrated closeout baseline
 
-**Status:** IN REVIEW
-**Current candidate:** recorded in the PR after each clean-review cycle; do not treat this ledger as deployment evidence.
+**Status:** MERGED
+**Persistence baseline:** `27fa560f75afbaaa4944e338610e42f83ef453cf`
+**Owning integration:** PR #163, merged 2026-09-24
 
-- #177 remains the dependency blocker for the Alpha 3 V4 stack.
-- Its orientation guard suppresses both actions and movement until neutral, stays visible in Phaser fullscreen, and derives rotation from layout viewport dimensions rather than soft-keyboard/browser-chrome visual-viewport changes.
-- Physical-phone acceptance remains UNVERIFIED; it must be recorded only after an actual device session on the final deployed SHA.
+- #177 and its dependent V4 stack are merged into `main`.
+- The orientation guard suppresses both actions and movement until neutral,
+  stays visible in Phaser fullscreen, and derives rotation from layout viewport
+  dimensions rather than soft-keyboard/browser-chrome visual-viewport changes.
+- Atomic terminal settlement and the reconciled V4 migration contract were
+  completed in #163. See `alpha-3-completion-campaign.md` for live recovery
+  state and remaining production-art work.
+- Physical-phone acceptance remains UNVERIFIED; it must be recorded only after
+  an actual device session on the final deployed SHA.
 
 ---
 
@@ -191,15 +198,15 @@
 | Issue | Status |
 |-------|--------|
 | #85 Contracts / objectives / Stage progression | Implementation complete, awaiting manual acceptance |
-| #86 Enemy roster / bosses / universal death facts | Implementation complete ✅ |
+| #86 Enemy roster / bosses / universal death facts | Closed after #163 merged-main verification ✅ |
 | #87 Persistent Gunsmith / Parts | Implementation complete, awaiting manual acceptance |
 | #88 Mercenary identity / unlock cadence | Implementation complete, awaiting manual acceptance |
 | #89 Equipment Sets / fabrication | Implementation complete, awaiting manual acceptance |
-| #90 Save / progression / reward coherence | Implementation complete, awaiting manual acceptance |
+| #90 Save / progression / reward coherence | Closed after #163 merged-main verification ✅ |
 | #165 Contract-first UI / scalable lists | Implementation complete, awaiting manual acceptance |
 | #167 Whole-game disciplined art-production pass | Architecture complete, production art deferred |
-| #168 Monster Compendium | Implementation complete, awaiting manual acceptance |
-| #170 Template-clean authoring / art-resource scalability | Implementation complete, awaiting manual acceptance |
+| #168 Monster Compendium | Closed after #163 merged-main verification ✅ |
+| #170 Template-clean authoring / art-resource scalability | Closed after #163 merged-main verification ✅ |
 | #171 Product / pacing / replayability pass | Implementation complete, awaiting manual acceptance |
 
 ---
