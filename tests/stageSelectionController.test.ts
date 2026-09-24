@@ -62,6 +62,27 @@ describe('StageSelectionController (Epic 20)', () => {
     expect(snap.frontier).toMatchObject({ kind: 'campaign-complete', stageId: 'stage:junkyard-06' });
   });
 
+  it('formats authored survive durations exactly instead of rounding them to whole minutes', () => {
+    const data = loadGameData();
+    const stages = (data.stages ?? []).map((stage, index) => index === 0
+      ? { ...stage, objective: { type: 'survive' as const, seconds: 30 } }
+      : index === 1
+        ? { ...stage, objective: { type: 'survive' as const, seconds: 90 } }
+        : stage);
+    const amended = { ...data, stages };
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data: amended,
+      metaUpgrades: new DataMetaUpgradeRegistry(amended),
+      save: new SaveManager(new MemoryStorageAdapter(), 'survive-copy', {}),
+      characters: new DataCharacterRegistry(amended), arenas: new DataArenaRegistry(amended),
+      stages: new StageRegistry(amended),
+    });
+
+    const snapshot = new StageSelectionController(context).snapshot();
+    expect(snapshot.stages[0]!.objective.copy).toBe('Survive 30 seconds');
+    expect(snapshot.stages[1]!.objective.copy).toBe('Survive 1 minute 30 seconds');
+  });
+
   it('keeps registry stage IDs in display order when authored data is reordered', () => {
     const data = loadGameData();
     const registry = new StageRegistry({ ...data, stages: [...(data.stages ?? [])].reverse() });

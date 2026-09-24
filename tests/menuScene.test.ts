@@ -823,6 +823,76 @@ describe('MenuScene', () => {
     expect(start).toHaveBeenCalledOnce();
   });
 
+  it('repaints the current panel when its queued art became cached by an overlapping prior-panel load', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>(); const rendered = vi.fn(); const loaded = new Set<string>();
+    let finish!: () => void;
+    const scene = new MenuScene() as unknown as {
+      isLive: boolean; committedPanel: string; controller: { snapshot(): unknown };
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
+      load: { on(): void; off(): void; once(event: string, listener: () => void): void; spritesheet(): void; start(): void };
+      getContext(): typeof harness.context; requireVisualArt(): DataVisualArtRegistry; render(snapshot: unknown): void;
+      ensurePanelPresentation(panel: 'home' | 'compendium', ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'home', controller: { snapshot: () => ({ panel: 'compendium' }) },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: {
+        on: () => undefined, off: () => undefined,
+        once: (event: string, listener: () => void) => { complete.set(event, listener); },
+        spritesheet: () => undefined,
+        start: () => { finish = () => { loaded.add('art-enemy-dust-mite'); complete.get('filecomplete-spritesheet-art-enemy-dust-mite')?.(); }; },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
+    });
+
+    const homeLoad = scene.ensurePanelPresentation('home', ['enemy:dust-mite']);
+    scene.committedPanel = 'compendium';
+    await scene.ensurePanelPresentation('compendium', ['enemy:dust-mite']);
+    finish();
+    await homeLoad;
+
+    expect(rendered).toHaveBeenCalledOnce();
+  });
+
+  it('does not let an old scene-lifetime panel-art load clear, drain, or repaint restarted state', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>(); const rendered = vi.fn(); const loaded = new Set<string>();
+    let finish!: () => void;
+    const scene = new MenuScene() as unknown as {
+      isLive: boolean; committedPanel: string; controller: { snapshot(): unknown };
+      panelArtGeneration: number; panelArtLoading: boolean; pendingPanelArtIds: Set<string>;
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
+      load: { on(): void; off(): void; once(event: string, listener: () => void): void; spritesheet(): void; start(): void };
+      getContext(): typeof harness.context; requireVisualArt(): DataVisualArtRegistry; render(snapshot: unknown): void;
+      ensurePanelPresentation(panel: 'home', ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'home', controller: { snapshot: () => ({}) }, panelArtGeneration: 1,
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: {
+        on: () => undefined, off: () => undefined,
+        once: (event: string, listener: () => void) => { complete.set(event, listener); },
+        spritesheet: () => undefined,
+        start: () => { finish = () => { loaded.add('art-enemy-dust-mite'); complete.get('filecomplete-spritesheet-art-enemy-dust-mite')?.(); }; },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
+    });
+
+    const oldLoad = scene.ensurePanelPresentation('home', ['enemy:dust-mite']);
+    scene.panelArtGeneration = 2;
+    scene.panelArtLoading = true;
+    scene.pendingPanelArtIds.add('enemy:junk-rusher');
+    finish();
+    await oldLoad;
+
+    expect(scene.panelArtLoading).toBe(true);
+    expect(scene.pendingPanelArtIds).toEqual(new Set(['enemy:junk-rusher']));
+    expect(rendered).not.toHaveBeenCalled();
+  });
+
   it('keeps shared-list focus deterministic across wheel/touch scrolling and resize', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {

@@ -95,6 +95,8 @@ export class MenuScene extends Phaser.Scene {
   private gunsmithArtGeneration = 0;
   private panelArtLoading = false;
   private readonly pendingPanelArtIds = new Set<string>();
+  private readonly pendingPanelArtRepaints = new Set<MainMenuSnapshot['panel']>();
+  private panelArtGeneration = 0;
   /** Scene-lifetime physical binding resolver. Career can render a large
    * gallery repeatedly, so per-badge catalog cloning/validation is invalid. */
   private visualArt?: DataVisualArtRegistry;
@@ -125,8 +127,10 @@ export class MenuScene extends Phaser.Scene {
     this.gunsmithArtLoading = false;
     this.mercenaryArtLoading = false;
     this.pendingGunsmithArtIds.clear();
+    this.panelArtGeneration += 1;
     this.panelArtLoading = false;
     this.pendingPanelArtIds.clear();
+    this.pendingPanelArtRepaints.clear();
     this.isLive = true;
     const ctx = this.getContext();
     this.visualArt = new DataVisualArtRegistry(ctx.data);
@@ -1329,12 +1333,18 @@ export class MenuScene extends Phaser.Scene {
   /** One guarded lazy-loading lifecycle for the growing visual panels. A
    * completion can repaint only the panel that requested it; pending IDs are
    * drained afterwards so rapid navigation cannot drop a resource closure. */
-  private async ensurePanelPresentation(panel: MainMenuSnapshot['panel'], artIds: readonly string[]): Promise<void> {
+  private async ensurePanelPresentation(
+    panel: MainMenuSnapshot['panel'],
+    artIds: readonly string[],
+    repaintWhenCached = false,
+  ): Promise<void> {
     if (!this.textures?.exists) return;
     if (this.panelArtLoading) {
       artIds.forEach((id) => this.pendingPanelArtIds.add(id));
+      this.pendingPanelArtRepaints.add(panel);
       return;
     }
+    const generation = this.panelArtGeneration;
     const art = this.requireVisualArt();
     const resources = new DataVisualResourceRegistry(this.getContext().data);
     const missing = new Map<string, import('../systems/types').VisualTextureResource>();
@@ -1344,20 +1354,28 @@ export class MenuScene extends Phaser.Scene {
       const resource = resources.resourceById(binding.resourceId);
       if (resource) missing.set(resource.id, resource);
     }
-    if (missing.size === 0) return;
+    if (missing.size === 0) {
+      if (repaintWhenCached && generation === this.panelArtGeneration && this.isLive && this.committedPanel === panel && this.controller) {
+        this.render(this.controller.snapshot());
+      }
+      return;
+    }
     this.panelArtLoading = true;
     let loadedAny = false;
     try {
       loadedAny = (await loadTextureResources(this, [...missing.values()])).loaded.length > 0;
     } finally {
-      this.panelArtLoading = false;
+      if (generation === this.panelArtGeneration) this.panelArtLoading = false;
     }
-    if (!this.isLive) return;
+    if (generation !== this.panelArtGeneration || !this.isLive) return;
     if (loadedAny && this.committedPanel === panel && this.controller) this.render(this.controller.snapshot());
     if (this.pendingPanelArtIds.size > 0) {
       const pending = [...this.pendingPanelArtIds];
+      const repaintPanels = new Set(this.pendingPanelArtRepaints);
       this.pendingPanelArtIds.clear();
-      await this.ensurePanelPresentation(this.committedPanel ?? panel, pending);
+      this.pendingPanelArtRepaints.clear();
+      const targetPanel = this.committedPanel ?? panel;
+      await this.ensurePanelPresentation(targetPanel, pending, repaintPanels.has(targetPanel));
     }
   }
 
@@ -1719,7 +1737,9 @@ export class MenuScene extends Phaser.Scene {
     this.gunsmithArtLoading = false;
     this.mercenaryArtLoading = false;
     this.pendingGunsmithArtIds.clear();
+    this.panelArtGeneration += 1;
     this.pendingPanelArtIds.clear();
+    this.pendingPanelArtRepaints.clear();
     this.panelArtLoading = false;
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);

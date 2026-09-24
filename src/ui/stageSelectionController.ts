@@ -229,10 +229,20 @@ function objectivePresentation(
   switch (objective.type) {
     case 'kill': return Object.freeze({ kind: 'kill', copy: objective.enemyTag ? `Eliminate ${objective.count} ${objective.enemyTag} threats` : `Eliminate ${objective.count} threats`, artId: 'upgrade-icon:heavy-rounds' });
     case 'collect': return Object.freeze({ kind: 'collect', copy: `Collect ${objective.count} Scrap`, artId: 'drop:scrap' });
-    case 'survive': return Object.freeze({ kind: 'survive', copy: `Survive ${Math.round(objective.seconds / 60)} minutes`, artId: 'upgrade-icon:quick-paws' });
+    case 'survive': return Object.freeze({ kind: 'survive', copy: `Survive ${formatDuration(objective.seconds)}`, artId: 'upgrade-icon:quick-paws' });
     case 'defeat': {
       const enemy = context.data.enemies.find((row) => row.id === objective.enemyId);
       return Object.freeze({ kind: 'defeat', copy: `Defeat ${enemy?.name ?? 'the boss'}`, artId: visualArt.bindingById(`enemy:${objective.enemyId}`)?.id ?? 'upgrade-icon:heavy-rounds' });
     }
   }
+}
+
+function formatDuration(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const minuteCopy = `${minutes} minute${minutes === 1 ? '' : 's'}`;
+  const secondCopy = `${seconds} second${seconds === 1 ? '' : 's'}`;
+  if (minutes === 0) return secondCopy;
+  if (seconds === 0) return minuteCopy;
+  return `${minuteCopy} ${secondCopy}`;
 }
