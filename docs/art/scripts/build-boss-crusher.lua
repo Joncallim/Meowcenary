@@ -1,133 +1,86 @@
--- Build: Scrap Crusher (boss archetype placeholder art)
--- Build all native .pxo sources:
---   lua docs/art/scripts/validate-builders.lua --write
--- Export all sheets: docs/art/scripts/export-pixelorama.sh
---
--- NOTE: placeholder art derived from the Dust Mite builder with a boss
--- palette (dark body, gold trim). Real Scrap Crusher art replaces this sheet;
--- the sprite contract (48x48, 16 frames, idle/run/hurt/defeat clips) stays.
+-- Build: Scrap Crusher
+-- Low asymmetric compactor boss on the authoritative 64px boss canvas.
 
 local U = dofile("docs/art/scripts/lib/sprite-utils.lua")
 
 local C = {
-  red   = U.hex("#dc2626"),
-  rust  = U.hex("#7f1d1d"),
-  dark  = U.hex("#1e293b"),
-  gold  = U.hex("#fbbf24"),
-  cream = U.hex("#fff3c4"),
+  hazard = U.hex("#d94336"), redDark = U.hex("#8f2926"),
+  steel = U.hex("#344653"), steelLight = U.hex("#667681"),
+  cream = U.hex("#ead9aa"), copper = U.hex("#b96f3c"), cyan = U.hex("#55cbd2"),
 }
 
-local CX, CY = 24, 24
-
-local function drawLegs(img, cx, cy, frame)
-  local offsets = { 0, 1, -1, 0 }
-  local o = offsets[((frame - 1) % 4) + 1]
-  if frame >= 11 then o = 2 end
-  if frame >= 13 then o = 3 end
-
-  -- heavier, shorter legs (slow heavy tread)
-  local legPairs = {
-    { cx - 10, cy - 2, cx - 13, cy - 4 + o },
-    { cx - 10, cy + 2, cx - 14, cy + 2 - o },
-    { cx - 10, cy + 6, cx - 13, cy + 7 + o },
-    { cx + 10, cy - 2, cx + 13, cy - 4 - o },
-    { cx + 10, cy + 2, cx + 14, cy + 2 + o },
-    { cx + 10, cy + 6, cx + 13, cy + 7 - o },
-  }
-  for _, leg in ipairs(legPairs) do
-    U.outlinedLine(img, leg[1], leg[2], leg[3], leg[4], C.rust, U.OUTLINE, 2)
-  end
+local function drawTreads(img, frame, fallen)
+  local y = fallen and 51 or 49
+  U.outlinedRect(img, 12, y - 3, 40, 6, C.steel)
+  local tick = frame % 3
+  for x = 16 + tick, 48, 7 do U.fillRect(img, x, y - 1, 4, 3, C.steelLight) end
 end
 
 local function drawBodyLayer(spr, frame)
-  local cel = U.clearCel(spr, "body", frame)
-  if not cel then return end
-  local img = cel.image
+  local img = U.clearCel(spr, "body", frame).image
+  local fallen = frame >= 13
+  drawTreads(img, frame, fallen)
 
-  local bob = 0
-  if frame <= 4 then
-    bob = (frame % 2 == 0) and 1 or 0
-  elseif frame <= 10 then
-    bob = (frame % 2 == 0) and -1 or 1
-  elseif frame <= 12 then
-    bob = 1
-  else
-    bob = math.min(frame - 12, 2)
+  if fallen then
+    local settle = frame - 12
+    U.outlinedRect(img, 10, 33 + settle, 38 - settle, 8, C.hazard)
+    U.outlinedRect(img, 14 + settle, 43 + math.min(settle, 2), 36, 7, C.cream)
+    U.outlinedCircle(img, 50 + math.min(settle, 2), 38 + settle, 7, C.copper)
+    U.outlinedLine(img, 11, 36 + settle, 7 + settle, 45, C.steelLight, U.OUTLINE, 3)
+    return
   end
 
-  local cx, cy = CX, CY + bob
+  local jawShift = frame == 11 and 3 or frame == 12 and 1 or 0
+  local idleFlex = frame <= 4 and ((frame % 2 == 0) and 1 or 0) or 0
+  local drive = frame >= 5 and frame <= 10 and ((frame % 2 == 0) and 2 or 0) or 0
 
-  -- wide armored body with gold plating seams
-  U.outlinedCircle(img, cx, cy, 12, C.red)
-  U.outlinedCircle(img, cx - 3, cy - 3, 6, C.dark)
-  U.outlinedCircle(img, cx + 3, cy + 2, 6, C.dark)
-  U.outlinedLine(img, cx - 10, cy - 4, cx + 10, cy - 4, C.gold, U.OUTLINE, 1)
-  U.outlinedLine(img, cx - 9, cy + 6, cx + 9, cy + 6, C.gold, U.OUTLINE, 1)
+  -- One obvious side piston braces the huge jaw assembly.
+  U.outlinedRect(img, 7 + drive, 30, 12, 11, C.steelLight)
+  U.outlinedLine(img, 11 + drive, 35, 23 + jawShift, 35, C.copper, U.OUTLINE, 4)
+  U.outlinedRect(img, 5 + drive, 33, 5, 5, C.cream)
 
-  -- heavy rivet clumps
-  U.outlinedCircle(img, cx - 8, cy + 1, 2, C.gold)
-  U.outlinedCircle(img, cx + 8, cy + 1, 2, C.gold)
-  U.outlinedCircle(img, cx, cy - 8, 2, C.gold)
+  -- Upper and lower compactor jaws dominate the horizontal silhouette.
+  U.outlinedRect(img, 19 + jawShift, 23 + idleFlex, 36 - jawShift, 10, C.hazard)
+  U.fillRect(img, 24 + jawShift, 30 + idleFlex, 25, 3, C.cream)
+  U.outlinedRect(img, 16, 39 - idleFlex, 40, 9, C.redDark)
+  U.fillRect(img, 22, 39 - idleFlex, 28, 3, C.cream)
+  for x = 23, 47, 8 do
+    U.fillRect(img, x, 33 + idleFlex, 4, 3, U.OUTLINE)
+    U.fillRect(img, x + 2, 36 - idleFlex, 4, 3, U.OUTLINE)
+  end
 
-  drawLegs(img, cx, cy, frame)
+  -- Exposed off-center motor keeps the boss asymmetric.
+  U.outlinedCircle(img, 50, 23 + idleFlex, 8, C.copper)
+  U.outlinedCircle(img, 50, 23 + idleFlex, 4, C.steel)
+  U.outlinedLine(img, 50, 19 + idleFlex, 50, 27 + idleFlex, C.cream, U.OUTLINE, 2)
 end
 
 local function drawFaceLayer(spr, frame)
-  local cel = U.clearCel(spr, "face", frame)
-  if not cel then return end
-  local img = cel.image
-
-  local bob = 0
-  if frame <= 4 then
-    bob = (frame % 2 == 0) and 1 or 0
-  elseif frame <= 10 then
-    bob = (frame % 2 == 0) and -1 or 1
-  elseif frame <= 12 then
-    bob = 1
-  else
-    bob = math.min(frame - 12, 2)
+  local img = U.clearCel(spr, "face", frame).image
+  if frame >= 13 then
+    local settle = frame - 12
+    U.outlinedRect(img, 37 - settle, 40 + settle, 7, 4, C.steel)
+    U.fillRect(img, 39 - settle, 41 + settle, 3, 2, C.cyan)
+    return
   end
-
-  local cx, cy = CX, CY + bob
-
-  -- twin angry eyes (boss glare)
-  U.outlinedCircle(img, cx - 1, cy - 3, 4, U.OUTLINE)
-  U.outlinedCircle(img, cx - 1, cy - 3, 2, C.gold)
-  U.put(img, cx, cy - 3, U.OUTLINE)
-  U.outlinedCircle(img, cx + 7, cy - 3, 4, U.OUTLINE)
-  U.outlinedCircle(img, cx + 7, cy - 3, 2, C.gold)
-  U.put(img, cx + 8, cy - 3, U.OUTLINE)
-
-  -- cream jaw plates
-  U.outlinedCircle(img, cx + 3, cy + 4, 4, C.cream)
-
-  -- twin heavy horns
-  U.outlinedLine(img, cx - 4, cy - 11, cx - 7, cy - 15, C.cream, U.OUTLINE, 2)
-  U.outlinedLine(img, cx + 8, cy - 11, cx + 11, cy - 15, C.cream, U.OUTLINE, 2)
+  local idleFlex = frame <= 4 and ((frame % 2 == 0) and 1 or 0) or 0
+  -- A tiny recessed sensor, never an angry face or generic boss crown.
+  U.outlinedRect(img, 37, 26 + idleFlex, 8, 5, C.steel)
+  U.fillRect(img, 40, 27 + idleFlex, 3, 2, C.cyan)
 end
 
 local function drawNotesLayer(spr, frame)
-  local cel = U.clearCel(spr, "notes", frame)
-  if not cel then return end
-  local img = cel.image
-  local c = U.hex("#ff00ff")
-  U.put(img, CX, CY, c)
-  U.put(img, CX - 1, CY, c)
-  U.put(img, CX + 1, CY, c)
-  U.put(img, CX, CY - 1, c)
-  U.put(img, CX, CY + 1, c)
+  local img = U.clearCel(spr, "notes", frame).image
+  local marker = U.hex("#ff00ff")
+  U.put(img, 32, 51, marker)
+  U.put(img, 31, 51, marker)
+  U.put(img, 33, 51, marker)
 end
 
-local function drawFrame(spr, frame)
+local spr = U.makeSprite("enemy", 64, 64)
+for frame = 1, 16 do
   drawBodyLayer(spr, frame)
   drawFaceLayer(spr, frame)
   drawNotesLayer(spr, frame)
 end
-
-local spr = U.makeSprite("enemy", 48, 48)
-
-for frame = 1, 16 do
-  drawFrame(spr, frame)
-end
-
 spr:saveAs("assets-src/enemies/boss-crusher/source/boss-crusher.pxo")

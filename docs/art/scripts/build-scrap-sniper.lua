@@ -1,129 +1,93 @@
--- Build: Scrap Sniper (ranged archetype placeholder art)
--- Build all native .pxo sources:
---   lua docs/art/scripts/validate-builders.lua --write
--- Export all sheets: docs/art/scripts/export-pixelorama.sh
---
--- NOTE: placeholder art derived from the Dust Mite builder with a ranged
--- palette (green body, pale lens). Real Scrap Sniper art replaces this sheet;
--- the sprite contract (48x48, 16 frames, idle/run/hurt/defeat clips) stays.
+-- Build: Scrap Sniper
+-- Tall non-humanoid tripod with a lateral sighting stalk and rear counterweight.
 
 local U = dofile("docs/art/scripts/lib/sprite-utils.lua")
 
 local C = {
-  green = U.hex("#22c55e"),
-  mint  = U.hex("#4ade80"),
-  moss  = U.hex("#15803d"),
-  pale  = U.hex("#fde68a"),
-  dark  = U.hex("#14532d"),
+  steel = U.hex("#9fb5bd"),
+  pale = U.hex("#dce9e8"),
+  ice = U.hex("#5bb4c7"),
+  dark = U.hex("#26343e"),
+  battery = U.hex("#53636d"),
+  red = U.hex("#ef4444"),
 }
 
-local CX, CY = 24, 24
-
-local function drawLegs(img, cx, cy, frame)
-  local offsets = { 0, 1, -1, 0 }
-  local o = offsets[((frame - 1) % 4) + 1]
-  if frame >= 11 then o = 2 end
-  if frame >= 13 then o = 3 end
-
-  local legPairs = {
-    { cx - 10, cy - 3, cx - 14, cy - 5 + o },
-    { cx - 10, cy + 1, cx - 15, cy + 1 - o },
-    { cx - 10, cy + 5, cx - 14, cy + 7 + o },
-    { cx + 10, cy - 3, cx + 14, cy - 5 - o },
-    { cx + 10, cy + 1, cx + 15, cy + 1 + o },
-    { cx + 10, cy + 5, cx + 14, cy + 7 - o },
-  }
-  for _, leg in ipairs(legPairs) do
-    U.outlinedLine(img, leg[1], leg[2], leg[3], leg[4], C.moss, U.OUTLINE, 1)
+local function drawTripod(img, frame, fallen)
+  if fallen then
+    local settle = frame - 12
+    local y = 31 + math.min(settle, 3)
+    U.outlinedLine(img, 13, y + 5, 35, y + 2, C.steel, U.OUTLINE, 1)
+    U.outlinedLine(img, 20, y, 10 + settle, 40, C.dark, U.OUTLINE, 1)
+    U.outlinedLine(img, 27, y, 38 - settle, 40, C.dark, U.OUTLINE, 1)
+    U.outlinedLine(img, 24, y + 1, 25 + settle, 41, C.ice, U.OUTLINE, 1)
+    return
   end
+
+  local stride = 0
+  if frame >= 5 and frame <= 10 then stride = ({ -2, 0, 2, -1, 1, 0 })[frame - 4] end
+  -- Three planted legs leave large, unmistakable negative spaces.
+  U.outlinedLine(img, 21, 24, 12 + stride, 40, C.dark, U.OUTLINE, 1)
+  U.outlinedLine(img, 24, 25, 24 - stride, 41, C.ice, U.OUTLINE, 1)
+  U.outlinedLine(img, 27, 24, 36 + stride, 40, C.dark, U.OUTLINE, 1)
+  U.fillRect(img, 10 + stride, 40, 5, 2, C.pale)
+  U.fillRect(img, 22 - stride, 41, 5, 2, C.pale)
+  U.fillRect(img, 34 + stride, 40, 5, 2, C.pale)
 end
 
 local function drawBodyLayer(spr, frame)
-  local cel = U.clearCel(spr, "body", frame)
-  if not cel then return end
-  local img = cel.image
+  local img = U.clearCel(spr, "body", frame).image
+  local fallen = frame >= 13
+  drawTripod(img, frame, fallen)
 
-  local bob = 0
-  if frame <= 4 then
-    bob = (frame % 2 == 0) and 1 or 0
-  elseif frame <= 10 then
-    bob = (frame % 2 == 0) and -1 or 1
-  elseif frame <= 12 then
-    bob = 1
-  else
-    bob = math.min(frame - 12, 2)
+  if fallen then
+    local settle = frame - 12
+    local y = 30 + math.min(settle, 3)
+    U.outlinedRect(img, 19 + settle, y - 3, 10, 7, C.steel)
+    U.outlinedRect(img, 11 + settle, y - 2, 7, 5, C.battery)
+    U.outlinedLine(img, 23 + settle, y - 3, 38 - settle, y - 5 + settle, C.pale, U.OUTLINE, 2)
+    return
   end
 
-  local cx, cy = CX, CY + bob
+  local recoil = frame == 11 and -2 or frame == 12 and -1 or 0
+  local idleTick = frame <= 4 and ((frame % 2 == 0) and 1 or 0) or 0
+  -- Tiny hub and rear battery/counterweight; the machine is mostly legs and stalk.
+  U.outlinedRect(img, 19, 17 + idleTick, 10, 9, C.steel)
+  U.fillRect(img, 21, 19 + idleTick, 6, 3, C.ice)
+  U.outlinedRect(img, 12, 19 + idleTick, 7, 6, C.battery)
+  U.outlinedLine(img, 15, 19 + idleTick, 12, 16 + idleTick, C.ice, U.OUTLINE, 1)
 
-  -- leaner body with a small forward "barrel" muzzle
-  U.outlinedCircle(img, cx, cy, 9, C.green)
-  U.outlinedCircle(img, cx + 8, cy - 1, 3, C.moss)
-  U.outlinedLine(img, cx + 11, cy - 1, cx + 14, cy - 1, C.dark, U.OUTLINE, 1)
-
-  -- fluff clumps
-  U.outlinedCircle(img, cx - 6, cy - 4, 2, C.mint)
-  U.outlinedCircle(img, cx + 4, cy - 6, 2, C.mint)
-  U.outlinedCircle(img, cx - 3, cy + 6, 2, C.mint)
-
-  drawLegs(img, cx, cy, frame)
+  -- Lateral optical stalk, deliberately not a firearm barrel.
+  U.outlinedLine(img, 23 + recoil, 16 + idleTick, 38 + recoil, 13 + idleTick, C.pale, U.OUTLINE, 2)
+  U.outlinedRect(img, 34 + recoil, 11 + idleTick, 6, 5, C.dark)
+  U.fillRect(img, 27 + recoil, 14 + idleTick, 4, 2, C.ice)
 end
 
 local function drawFaceLayer(spr, frame)
-  local cel = U.clearCel(spr, "face", frame)
-  if not cel then return end
-  local img = cel.image
-
-  local bob = 0
-  if frame <= 4 then
-    bob = (frame % 2 == 0) and 1 or 0
-  elseif frame <= 10 then
-    bob = (frame % 2 == 0) and -1 or 1
-  elseif frame <= 12 then
-    bob = 1
-  else
-    bob = math.min(frame - 12, 2)
+  local img = U.clearCel(spr, "face", frame).image
+  if frame >= 13 then
+    local settle = frame - 12
+    U.outlinedCircle(img, 34 - settle, 27 + settle * 2, 2, C.red)
+    return
   end
-
-  local cx, cy = CX, CY + bob
-
-  -- single large pale "scope" eye
-  U.outlinedCircle(img, cx + 3, cy - 1, 5, C.dark)
-  U.outlinedCircle(img, cx + 3, cy - 1, 2, C.pale)
-  U.put(img, cx + 4, cy - 1, U.OUTLINE)
-
-  -- pale brush cheeks
-  U.outlinedCircle(img, cx - 3, cy + 1, 2, C.pale)
-  U.outlinedCircle(img, cx + 7, cy + 1, 2, C.pale)
-
-  -- antennae
-  local ant = (frame % 2 == 0) and 1 or -1
-  U.outlinedLine(img, cx - 2, cy - 9, cx - 4 + ant, cy - 13, C.moss, U.OUTLINE, 1)
-  U.outlinedLine(img, cx + 2, cy - 9, cx + 4 - ant, cy - 13, C.moss, U.OUTLINE, 1)
+  local recoil = frame == 11 and -2 or frame == 12 and -1 or 0
+  local idleTick = frame <= 4 and ((frame % 2 == 0) and 1 or 0) or 0
+  -- Exactly one danger-red optic is the face/readability accent.
+  U.outlinedCircle(img, 38 + recoil, 13 + idleTick, 2, C.red)
+  U.put(img, 39 + recoil, 13 + idleTick, C.pale)
 end
 
 local function drawNotesLayer(spr, frame)
-  local cel = U.clearCel(spr, "notes", frame)
-  if not cel then return end
-  local img = cel.image
-  local c = U.hex("#ff00ff")
-  U.put(img, CX, CY, c)
-  U.put(img, CX - 1, CY, c)
-  U.put(img, CX + 1, CY, c)
-  U.put(img, CX, CY - 1, c)
-  U.put(img, CX, CY + 1, c)
+  local img = U.clearCel(spr, "notes", frame).image
+  local marker = U.hex("#ff00ff")
+  U.put(img, 24, 41, marker)
+  U.put(img, 23, 41, marker)
+  U.put(img, 25, 41, marker)
 end
 
-local function drawFrame(spr, frame)
+local spr = U.makeSprite("enemy", 48, 48)
+for frame = 1, 16 do
   drawBodyLayer(spr, frame)
   drawFaceLayer(spr, frame)
   drawNotesLayer(spr, frame)
 end
-
-local spr = U.makeSprite("enemy", 48, 48)
-
-for frame = 1, 16 do
-  drawFrame(spr, frame)
-end
-
 spr:saveAs("assets-src/enemies/scrap-sniper/source/scrap-sniper.pxo")
