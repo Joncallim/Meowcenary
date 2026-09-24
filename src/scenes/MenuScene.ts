@@ -527,8 +527,9 @@ export class MenuScene extends Phaser.Scene {
         const next = this.requireController().selectCharacter(character.id, snapshot.character.revision);
         this.render(next);
       }, 'ui:confirm', width - margin - this.safeRightMargin - artColumn);
-      this.addMercenaryActor(root, margin + 28, y + Math.max(56, button.height) / 2, character.actorArtId, 56, character.locked);
-      this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + button.height / 2, character.startingWeaponIconArtId, 32);
+      const rowHeaderHeight = Math.max(56, button.height);
+      this.addMercenaryActor(root, margin + 28, y + rowHeaderHeight / 2, character.actorArtId, 56, character.locked);
+      this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + rowHeaderHeight / 2, character.startingWeaponIconArtId, 32);
       if (character.description || character.abilityName) {
         const details = [
           `${character.description} • Starts: ${character.startingWeaponSummary}`,
@@ -538,7 +539,7 @@ export class MenuScene extends Phaser.Scene {
           character.locked ? character.unlockRequirement : undefined,
         ]
           .filter(Boolean).join('\n');
-        const desc = this.own(root, createUiText(this,margin + artColumn, y + button.height + 2, details, {
+        const desc = this.own(root, createUiText(this,margin + artColumn, y + rowHeaderHeight + 2, details, {
           color: '#a5f3fc',
           fontFamily: ThemeFont.family,
           fontSize: `${ThemeFont.bodyMin}px`,
@@ -546,9 +547,10 @@ export class MenuScene extends Phaser.Scene {
         }));
         desc.setScrollFactor(0);
         this.registerScrollObject(desc);
-        y += desc.height + 8;
+        y += rowHeaderHeight + desc.height + 10;
+      } else {
+        y += rowHeaderHeight + 16;
       }
-      y += button.height + 16;
     });
 
     this.endScrollableRegion();
