@@ -87,8 +87,14 @@ function maskBounds(mask: ReadonlySet<number>) {
   return {
     minX: Math.min(...xs), maxX: Math.max(...xs),
     minY: Math.min(...ys), maxY: Math.max(...ys),
+    width: Math.max(...xs) - Math.min(...xs) + 1,
+    height: Math.max(...ys) - Math.min(...ys) + 1,
     centerX: xs.reduce((sum, x) => sum + x, 0) / xs.length,
   };
+}
+
+function silhouetteHash(mask: ReadonlySet<number>): string {
+  return createHash('sha256').update([...mask].sort((a, b) => a - b).join(',')).digest('hex');
 }
 
 function intersectionOverUnion(a: ReadonlySet<number>, b: ReadonlySet<number>): number {
@@ -162,6 +168,13 @@ describe('Alpha 3 enemy production-art distinction', () => {
         ).toBeLessThan(0.7);
       }
     }
+    const mite = maskBounds(alphaMask(actors[0]!.png, 0));
+    const sniper = maskBounds(alphaMask(actors[1]!.png, 0));
+    const crusher = maskBounds(alphaMask(actors[2]!.png, 0));
+    expect(Math.abs(mite.width - mite.height), 'Dust Mite must remain compact and round').toBeLessThanOrEqual(8);
+    expect(sniper.height, 'Scrap Sniper must read taller than the round Mite').toBeGreaterThan(mite.height);
+    expect(crusher.width, 'Crusher must read as the widest horizontal actor').toBeGreaterThan(sniper.width + 5);
+    expect(crusher.width - crusher.height, 'Crusher must read as a low horizontal jaw').toBeGreaterThan(8);
   });
 
   it('keeps every frame inside the canvas, grounded, centred, and visibly animated in each clip', () => {
@@ -183,9 +196,9 @@ describe('Alpha 3 enemy production-art distinction', () => {
       for (const [start, end] of clips) {
         const hashes = new Set<string>();
         for (let frame = start; frame <= end; frame += 1) {
-          hashes.add(createHash('sha256').update(framePixels(png, frame)).digest('hex'));
+          hashes.add(silhouetteHash(alphaMask(png, frame)));
         }
-        expect(hashes.size, `${id} frames ${start + 1}-${end + 1} are static`).toBeGreaterThan(1);
+        expect(hashes.size, `${id} frames ${start + 1}-${end + 1} have no silhouette motion`).toBeGreaterThan(1);
       }
     }
   });
