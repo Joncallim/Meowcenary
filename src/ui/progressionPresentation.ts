@@ -11,7 +11,7 @@ export function describeProgressionCondition(condition: ProgressionCondition, da
     case 'stage-cleared': return `Clear ${catalogName(data.stages, condition.stageId, 'Contract')}`;
     case 'boss-defeated': return `Defeat ${catalogName(data.enemies, condition.bossId, 'boss')}`;
     case 'achievement-completed': return `Complete ${catalogName(data.achievements, condition.achievementId, 'achievement')}`;
-    case 'mastery-reached': return `Reach ${catalogName(data.characters, condition.subjectId, 'Mercenary')} mastery tier ${condition.tier}`;
+    case 'mastery-reached': return `Reach ${characterName(data, condition.subjectId)} mastery tier ${condition.tier}`;
     case 'owns-content': return `Own ${contentName(data, condition.contentId)}`;
     case 'scrap-total': return `Hold ${condition.threshold} Scrap`;
     case 'permanent-level': return `Reach ${catalogName(data.metaUpgrades, condition.upgradeId, 'upgrade')} level ${condition.minLevel}`;
@@ -31,7 +31,7 @@ export function describeProgressionGrant(
   switch (grant.type) {
     case 'grant-scrap': return style === 'sentence' ? `+${grant.amount} scrap` : `${grant.amount} Scrap`;
     case 'unlock-stage': return prefix('Unlock', catalogName(data.stages, grant.stageId, 'Contract'));
-    case 'unlock-character': return prefix('Unlock', catalogName(data.characters, grant.characterId, 'Mercenary'));
+    case 'unlock-character': return prefix('Unlock', characterName(data, grant.characterId));
     case 'unlock-equipment': return prefix('Unlock', catalogName(data.equipment, grant.equipmentId, 'Equipment'));
     case 'unlock-part': return prefix('Unlock', catalogName(data.gunParts, grant.partId, 'Part'));
     case 'unlock-trait': return prefix('Unlock', humanizeId(grant.traitId));
@@ -57,10 +57,29 @@ export function describeProgressionGrant(
 }
 
 function contentName(data: GameData, id: string): string {
-  return catalogName(data.characters, id,
+  return catalogCharacterName(data, id) ??
     catalogName(data.stages, id,
       catalogName(data.equipment, id,
-        catalogName(data.gunParts, id, humanizeId(id)))));
+        catalogName(data.gunParts, id, humanizeId(id))));
+}
+
+/** Character definitions predate the canonical persistent unlock namespace,
+ * so presentation accepts either form without leaking that storage adapter
+ * into catalog data. */
+function characterName(data: GameData, id: string): string {
+  return catalogCharacterName(data, id) ?? humanizeId(id);
+}
+
+function catalogCharacterName(data: GameData, id: string): string | undefined {
+  const catalogId = id.startsWith('character:') ? id.slice('character:'.length) : id;
+  return data.characters.find((character) => character.id === catalogId)?.name;
+}
+
+/** Collect objectives own an authored item/drop identity. The same identity
+ * is the logical art binding, while its stable slug supplies generic copy for
+ * N+1 collectables without a scene branch. */
+export function describeCollectible(itemId: string): { readonly name: string; readonly artId: string } {
+  return Object.freeze({ name: humanizeId(itemId), artId: itemId });
 }
 
 function catalogName(rows: readonly { readonly id: string; readonly name: string }[] | undefined, id: string, fallback: string): string {

@@ -83,6 +83,23 @@ describe('StageSelectionController (Epic 20)', () => {
     expect(snapshot.stages[1]!.objective.copy).toBe('Survive 1 minute 30 seconds');
   });
 
+  it('derives collect copy and art identity from the authored item instead of assuming Scrap', () => {
+    const data = loadGameData();
+    const stages = (data.stages ?? []).map((stage, index) => index === 0
+      ? { ...stage, objective: { type: 'collect' as const, itemId: 'item:coolant-cell', count: 3 } }
+      : stage);
+    const amended = { ...data, stages };
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data: amended,
+      metaUpgrades: new DataMetaUpgradeRegistry(amended), save: new SaveManager(new MemoryStorageAdapter(), 'collect-copy', {}),
+      characters: new DataCharacterRegistry(amended), arenas: new DataArenaRegistry(amended), stages: new StageRegistry(amended),
+    });
+
+    expect(new StageSelectionController(context).snapshot().stages[0]!.objective).toEqual({
+      kind: 'collect', copy: 'Collect 3 Coolant Cell', artId: 'item:coolant-cell',
+    });
+  });
+
   it('keeps registry stage IDs in display order when authored data is reordered', () => {
     const data = loadGameData();
     const registry = new StageRegistry({ ...data, stages: [...(data.stages ?? [])].reverse() });

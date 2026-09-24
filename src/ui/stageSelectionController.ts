@@ -10,7 +10,7 @@ import { evaluateCondition } from '../gameplay/conditionEvaluator';
 import { createConditionContext } from '../gameplay/conditionEvaluator';
 import type { ProgressionCondition } from '../gameplay/conditionEvaluator';
 import { DataVisualArtRegistry } from '../systems/visualArt';
-import { describeProgressionCondition, describeProgressionGrant } from './progressionPresentation';
+import { describeCollectible, describeProgressionCondition, describeProgressionGrant } from './progressionPresentation';
 
 export interface StageOptionView {
   readonly id: string;
@@ -216,7 +216,10 @@ function objectivePresentation(
 ): StageOptionView['objective'] {
   switch (objective.type) {
     case 'kill': return Object.freeze({ kind: 'kill', copy: objective.enemyTag ? `Eliminate ${objective.count} ${objective.enemyTag} threats` : `Eliminate ${objective.count} threats`, artId: 'upgrade-icon:heavy-rounds' });
-    case 'collect': return Object.freeze({ kind: 'collect', copy: `Collect ${objective.count} Scrap`, artId: 'drop:scrap' });
+    case 'collect': {
+      const item = describeCollectible(objective.itemId);
+      return Object.freeze({ kind: 'collect', copy: `Collect ${objective.count} ${item.name}`, artId: item.artId });
+    }
     case 'survive': return Object.freeze({ kind: 'survive', copy: `Survive ${formatDuration(objective.seconds)}`, artId: 'upgrade-icon:quick-paws' });
     case 'defeat': {
       const enemy = context.data.enemies.find((row) => row.id === objective.enemyId);

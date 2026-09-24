@@ -24,7 +24,7 @@ describe('progression presentation', () => {
     const copy = grants.map((grant) => describeProgressionGrant(grant, data));
     expect(copy).toHaveLength(grants.length);
     expect(copy.every((label) => label.length > 0)).toBe(true);
-    expect(copy).toEqual(expect.arrayContaining(['Future Signal ×2', 'Unlock Future Surge']));
+    expect(copy).toEqual(expect.arrayContaining(['Future Signal ×2', 'Unlock Future Surge', 'Unlock Scrap Tabby']));
   });
 
   it('recursively formats every supported progression condition kind', () => {
@@ -52,5 +52,14 @@ describe('progression presentation', () => {
       'Meet all requirements: Available; Hold 1 Scrap',
       'Meet any requirement: Defeat Scrap Crusher; Complete First Victory',
     ]));
+  });
+
+  it('resolves both canonical persistent and bare runtime character IDs through authored catalog names', () => {
+    const data = loadGameData();
+    const characters = data.characters.map((character, index) => index === 0 ? { ...character, name: 'Captain Tabby' } : character);
+    const amended = { ...data, characters };
+
+    expect(describeProgressionGrant({ type: 'unlock-character', characterId: 'character:scrap-tabby' }, amended)).toBe('Unlock Captain Tabby');
+    expect(describeProgressionCondition({ type: 'mastery-reached', subjectId: 'scrap-tabby', tier: 2 }, amended)).toBe('Reach Captain Tabby mastery tier 2');
   });
 });
