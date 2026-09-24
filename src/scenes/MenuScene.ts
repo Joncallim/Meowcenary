@@ -83,6 +83,7 @@ export class MenuScene extends Phaser.Scene {
   private achievementArtLoading = false;
   private equipmentArtLoading = false;
   private gunsmithArtLoading = false;
+  private readonly pendingGunsmithArtIds = new Set<string>();
   private gunsmithArtGeneration = 0;
   /** Scene-lifetime physical binding resolver. Career can render a large
    * gallery repeatedly, so per-badge catalog cloning/validation is invalid. */
@@ -112,6 +113,7 @@ export class MenuScene extends Phaser.Scene {
     this.runLaunchPresentation = undefined;
     this.gunsmithArtGeneration += 1;
     this.gunsmithArtLoading = false;
+    this.pendingGunsmithArtIds.clear();
     this.isLive = true;
     const ctx = this.getContext();
     this.visualArt = new DataVisualArtRegistry(ctx.data);
@@ -1197,7 +1199,11 @@ export class MenuScene extends Phaser.Scene {
    * neutral slots and reusable traits may share one atlas without the scene
    * knowing that resource identity or constructing a semantic art ID. */
   private async ensureGunsmithPresentation(iconArtIds: readonly string[]): Promise<void> {
-    if (this.gunsmithArtLoading || !this.textures?.exists) return;
+    if (!this.textures?.exists) return;
+    if (this.gunsmithArtLoading) {
+      iconArtIds.forEach((id) => this.pendingGunsmithArtIds.add(id));
+      return;
+    }
     const generation = this.gunsmithArtGeneration;
     const context = this.getContext();
     const art = this.requireVisualArt();
@@ -1211,13 +1217,21 @@ export class MenuScene extends Phaser.Scene {
     }
     if (missing.size === 0) return;
     this.gunsmithArtLoading = true;
+    let loadedAny = false;
     try {
       const result = await loadTextureResources(this, [...missing.values()]);
-      if (result.failed.length === 0 && generation === this.gunsmithArtGeneration && this.isLive && this.committedPanel === 'gunsmith' && this.controller) {
-        this.render(this.controller.snapshot());
-      }
+      loadedAny = result.loaded.length > 0;
     } finally {
       if (generation === this.gunsmithArtGeneration) this.gunsmithArtLoading = false;
+    }
+    if (generation !== this.gunsmithArtGeneration || !this.isLive) return;
+    if (loadedAny && this.committedPanel === 'gunsmith' && this.controller) {
+      this.render(this.controller.snapshot());
+    }
+    if (!this.gunsmithArtLoading && this.pendingGunsmithArtIds.size > 0) {
+      const pending = [...this.pendingGunsmithArtIds];
+      this.pendingGunsmithArtIds.clear();
+      await this.ensureGunsmithPresentation(pending);
     }
   }
 
@@ -1427,6 +1441,7 @@ export class MenuScene extends Phaser.Scene {
     this.runLaunchGeneration += 1;
     this.gunsmithArtGeneration += 1;
     this.gunsmithArtLoading = false;
+    this.pendingGunsmithArtIds.clear();
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
     this.scale.off?.(Phaser.Scale.Events.RESIZE, this.handleResize, this);

@@ -1409,6 +1409,66 @@ describe('MenuScene', () => {
     expect(scene.gunsmithArtLoading).toBe(false);
   });
 
+  it('rerenders Gunsmith when one resource succeeds during a partial lazy-load failure', async () => {
+    const harness = createHarness({ create: false }); const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>(); let loadError: ((file: { key?: string }) => void) | undefined;
+    const rendered = vi.fn(); const loaded = new Set<string>();
+    const scene = new MenuScene() as unknown as {
+      isLive: boolean; committedPanel: string; controller: { snapshot(): unknown };
+      gunsmithArtLoading: boolean;
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(): void } };
+      load: { on(event: string, listener: (file: { key?: string }) => void): void; off(): void; once(event: string, listener: () => void): void; atlas(): void; image(): void; start(): void };
+      getContext(): typeof harness.context; requireVisualArt(): DataVisualArtRegistry; render(snapshot: unknown): void;
+      ensureGunsmithPresentation(ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'gunsmith', controller: { snapshot: () => ({}) },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: {
+        on: (_event: string, listener: (file: { key?: string }) => void) => { loadError = listener; }, off: () => undefined,
+        once: (event: string, listener: () => void) => { complete.set(event, listener); }, atlas: () => undefined, image: () => undefined,
+        start: () => {
+          loaded.add('art-gunsmith-icons');
+          complete.get('filecomplete-atlasjson-art-gunsmith-icons')?.();
+          loadError?.({ key: 'art-weapon-icon-pistol-t1' });
+        },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
+    });
+    await scene.ensureGunsmithPresentation(['gun-slot-icon:barrel', 'weapon-icon:pistol:t1']);
+    expect(rendered).toHaveBeenCalledOnce();
+    expect(scene.gunsmithArtLoading).toBe(false);
+  });
+
+  it('loads the latest Gunsmith preview requested while another closure is in flight', async () => {
+    const harness = createHarness({ create: false }); const art = new DataVisualArtRegistry(harness.context.data);
+    const completions: Array<() => void> = []; const queued: string[] = []; const loaded = new Set<string>();
+    const scene = new MenuScene() as unknown as {
+      isLive: boolean; committedPanel: string; controller: { snapshot(): unknown };
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(): void } };
+      load: { on(): void; off(): void; once(event: string, listener: () => void): void; atlas(key: string): void; image(key: string): void; start(): void };
+      getContext(): typeof harness.context; requireVisualArt(): DataVisualArtRegistry; render(snapshot: unknown): void;
+      ensureGunsmithPresentation(ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'gunsmith', controller: { snapshot: () => ({}) },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: {
+        on: () => undefined, off: () => undefined,
+        once: (_event: string, listener: () => void) => { completions.push(listener); },
+        atlas: (key: string) => { queued.push(key); }, image: (key: string) => { queued.push(key); }, start: () => undefined,
+      },
+      getContext: () => harness.context, requireVisualArt: () => art, render: () => undefined,
+    });
+    const first = scene.ensureGunsmithPresentation(['gun-slot-icon:barrel']);
+    await scene.ensureGunsmithPresentation(['weapon-icon:pistol:t1']);
+    expect(queued).toEqual(['art-gunsmith-icons']);
+    loaded.add('art-gunsmith-icons'); completions.shift()?.();
+    await vi.waitFor(() => expect(queued).toEqual(['art-gunsmith-icons', 'art-weapon-icon-pistol-t1']));
+    loaded.add('art-weapon-icon-pistol-t1'); completions.shift()?.();
+    await first;
+  });
+
   it('resets interrupted Gunsmith presentation loading across scene reuse', () => {
     const harness = createHarness({ create: false });
     const scene = harness.menuScene as unknown as { gunsmithArtLoading: boolean; create(): void };
