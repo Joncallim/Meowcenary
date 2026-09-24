@@ -17,6 +17,7 @@ export interface NextGoalView {
   readonly title: string;
   readonly detail: string;
   readonly priority: number;
+  readonly artId: string;
 }
 
 export interface ProgressionOverviewSnapshot {
@@ -75,9 +76,10 @@ export class ProgressionOverviewController {
         id: nextStage.id,
         title: stageLocked ? `Unlock ${nextStage.name}` : `Clear ${nextStage.name}`,
         detail: stageLocked
-          ? `Complete the previous contract in ${nextStage.chapterId} to unlock it.`
-          : `Complete this contract to advance in ${nextStage.chapterId}.`,
+          ? `Complete the previous Contract in ${chapterName(nextStage.chapterId)} to unlock it.`
+          : `Complete this Contract to advance in ${chapterName(nextStage.chapterId)}.`,
         priority: 1,
+        artId: stageArtId(nextStage, context),
       });
     }
 
@@ -90,6 +92,7 @@ export class ProgressionOverviewController {
         title: `Defeat the ${bossStage.name} boss`,
         detail: 'Boss milestones grant substantially better rewards and unlocks.',
         priority: 2,
+        artId: bossStage.bossId ? `enemy:${bossStage.bossId}` : stageArtId(bossStage, context),
       });
     }
 
@@ -103,6 +106,7 @@ export class ProgressionOverviewController {
         title: achievement.name,
         detail: achievement.description,
         priority: 3,
+        artId: achievement.presentation?.iconArtId ?? 'upgrade-icon:extra-scrap',
       });
       break; // one concrete achievement goal is enough
     }
@@ -117,6 +121,7 @@ export class ProgressionOverviewController {
           title: `Master ${character.name}`,
           detail: 'Reach mastery tier 1 to earn its achievement reward.',
           priority: 4,
+          artId: `character:${character.id}`,
         });
         break;
       }
@@ -132,6 +137,7 @@ export class ProgressionOverviewController {
         title: `Unlock ${firstLockedCharacter.name}`,
         detail: `Requires ${describeCharacterCondition(firstLockedCharacter.unlock)}.`,
         priority: 5,
+        artId: `character:${firstLockedCharacter.id}`,
       });
     }
 
@@ -148,7 +154,7 @@ export class ProgressionOverviewController {
       totalAchievements: achievementDefs.length,
       unlockedCharacters,
       totalCharacters: characters.length,
-      nextGoals: Object.freeze(nextGoals.sort((a, b) => a.priority - b.priority)),
+      nextGoals: Object.freeze(nextGoals.sort((a, b) => a.priority - b.priority).slice(0, 3)),
     });
   }
 }
@@ -168,4 +174,13 @@ function describeCharacterCondition(condition: import('../gameplay/conditionEval
     case 'any': return condition.conditions.map(describeCharacterCondition).join(' or ');
     case 'not': return `not ${describeCharacterCondition(condition.condition)}`;
   }
+}
+
+function stageArtId(stage: ReturnType<GameContext['stages']['allStages']>[number], context: GameContext): string {
+  return context.arenas.arenaById(stage.arenaId)?.visual.floorArtIds[0] ?? 'upgrade-icon:extra-scrap';
+}
+
+function chapterName(chapterId: string): string {
+  return (chapterId.split(':').at(-1) ?? chapterId).split('-')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 }

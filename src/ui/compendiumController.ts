@@ -9,6 +9,7 @@ export interface CompendiumSnapshotEntry {
   readonly behaviour: string;
   readonly tells: string;
   readonly counterplay: string;
+  readonly actorArtId?: string;
 }
 
 export interface CompendiumSnapshot {
@@ -36,12 +37,15 @@ export class CompendiumController {
       }
     }
     return Object.freeze({ entries: Object.freeze(this.context.data.enemies.map((enemy) => {
-      const status = this.context.saveData.compendium[enemy.id] ?? 'unseen';
+      const status: CompendiumSnapshotEntry['status'] = Object.hasOwn(this.context.saveData.compendium, enemy.id)
+        ? this.context.saveData.compendium[enemy.id]!
+        : 'unseen';
       const copy = compendiumCopy(enemy.archetype);
       return Object.freeze({
         enemyId: enemy.id,
         name: enemy.name,
         status,
+        ...(status === 'unseen' ? {} : { actorArtId: `enemy:${enemy.id}` }),
         // An encountered enemy does not reveal the entire future contract
         // graph. One earned location is enough once it has been defeated.
         foundIn: Object.freeze(status === 'defeated' ? (stagesByEnemy.get(enemy.id) ?? []).slice(0, 1) : []),

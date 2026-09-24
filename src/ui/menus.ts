@@ -18,6 +18,7 @@ export type MenuPanel =
    * is intentionally absent from the V4 home information architecture. */
   | 'arena'
   | 'stage'
+  | 'loadout'
   | 'career'
   | 'next-goals'
   | 'achievements'
@@ -105,9 +106,9 @@ export class MainMenuController {
       this.notice = undefined;
       return this.snapshot();
     }
-    if (this.panel !== 'home') {
-      this.panel = 'home';
-    }
+    if (this.panel === 'equipment' || this.panel === 'gunsmith') this.panel = 'loadout';
+    else if (this.panel === 'next-goals' || this.panel === 'achievements' || this.panel === 'compendium') this.panel = 'career';
+    else if (this.panel !== 'home') this.panel = 'home';
     this.notice = undefined;
     return this.snapshot();
   }

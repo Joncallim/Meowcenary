@@ -44,6 +44,9 @@ describe('Epic 26 progression overview read model', () => {
 
     expect(snap.nextGoals.length).toBeGreaterThan(0);
     expect(snap.nextGoals[0]).toMatchObject({ kind: 'stage', id: 'stage:junkyard-01' });
+    expect(snap.nextGoals).toHaveLength(3);
+    expect(snap.nextGoals[0]).toMatchObject({ artId: expect.any(String) });
+    expect(snap.nextGoals.every((goal) => !goal.detail.includes('stage:') && !goal.detail.includes('chapter:'))).toBe(true);
     // Goals are sorted by priority.
     const priorities = snap.nextGoals.map((g) => g.priority);
     expect(priorities).toEqual([...priorities].sort((a, b) => a - b));

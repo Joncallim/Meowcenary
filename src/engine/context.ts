@@ -308,7 +308,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     const available = stages.allStages().filter((candidate) =>
       evaluateCondition(candidate.unlock as ProgressionCondition, facts));
     return available.find((candidate) => current.stages[candidate.id]?.completed !== true)?.id
-      ?? available[0]?.id
+      ?? available[available.length - 1]?.id
       ?? stages.defaultStageId();
   }
   let selectedStageId = normalStageTargetId();

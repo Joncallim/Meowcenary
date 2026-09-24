@@ -33,9 +33,33 @@ describe('StageSelectionController (Epic 20)', () => {
     // Fresh save: only stage 1 (unlock-count 0) is unlocked
     expect(snap.stages[0].locked).toBe(false);
     expect(snap.stages[0].completed).toBe(false);
+    expect(snap.stages[0]).toMatchObject({
+      chapterName: 'Junkyard',
+      locationName: 'Junkyard Lot',
+      objective: { kind: 'kill', copy: 'Eliminate 25 threats' },
+      reward: { firstClearScrap: 35 },
+      boss: false,
+    });
+    expect(snap.stages[0].threats).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'Dust Mite', actorArtId: 'enemy:dust-mite' }),
+    ]));
+    expect(snap.stages[1].lockCopy).toBe('Clear First Scavenge first.');
     for (let i = 1; i < snap.stages.length; i++) {
       expect(snap.stages[i].locked).toBe(true);
     }
+  });
+
+  it('presents boss detail and the campaign-complete frontier without wrapping to the first Contract', () => {
+    const { context, controller } = createHarness();
+    for (const stage of context.stages.allStages()) context.completeStage(stage.id, 60_000);
+    const snap = controller.snapshot();
+    const warden = snap.stages.find((stage) => stage.id === 'stage:junkyard-06')!;
+    expect(warden).toMatchObject({
+      chapterName: 'Forge', locationName: 'Forge Foundry', boss: true,
+      objective: { kind: 'defeat', copy: 'Defeat Forge Warden' },
+      reward: { firstClearScrap: 180 }, completed: true, bestTimeMs: 60_000,
+    });
+    expect(snap.frontier).toMatchObject({ kind: 'campaign-complete', stageId: 'stage:junkyard-06' });
   });
 
   it('keeps registry stage IDs in display order when authored data is reordered', () => {
