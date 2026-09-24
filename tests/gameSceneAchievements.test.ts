@@ -125,7 +125,10 @@ describe('GameScene achievement fact bridge', () => {
     });
     const ctx: any = {
       data: loadGameData(), bus: createEventBus(),
-      settleRunTerminal: vi.fn(() => ({ ok: true, terminalApplied: true, runScrapBanked: 12 })),
+      settleRunTerminal: vi.fn(() => ({
+        ok: true, terminalApplied: true, runScrapBanked: 12,
+        persistentGrantIds: [], achievementIdsCompleted: [],
+      })),
     };
 
     scene.trySettleTerminal(ctx, 'loss');

@@ -101,6 +101,14 @@ export interface RunTerminalRequest {
   /** Monotonic run-local metric facts collected by gameplay.  They are
    * committed only with this terminal candidate, never by UI callbacks. */
   readonly metricIncrements?: Readonly<Record<string, number>>;
+  /** Context-owned, immutable presentation truth captured when this run was
+   * launched. It can widen result reporting, but never changes persistence. */
+  readonly presentationBaseline?: RunPresentationBaseline;
+}
+
+export interface RunPresentationBaseline {
+  readonly availability: PersistentAvailabilitySnapshot;
+  readonly completedAchievementIds: readonly string[];
 }
 
 /** These are observed immutable run facts. Terminal-owned metrics such as
@@ -147,6 +155,9 @@ export interface GameContext {
   /** The sole normal-run durable boundary. A successful terminal event
    * becomes visible only after its complete Save V4 candidate is written. */
   settleRunTerminal(input: RunTerminalRequest): RunTerminalSettlementResult;
+  /** Captures whole-run presentation truth before asynchronous loading or
+   * gameplay can advance durable availability/Achievement facts. */
+  captureRunPresentationBaseline(): RunPresentationBaseline;
   /** One durable commit for the first-clear fact, optional boss fact, and its
    * source-owned rewards.  No fact becomes visible without its receipt. */
   completeStageTransaction(stageId: string, timeMs: number, bossId: string | undefined, transaction: DurableGrantTransaction): boolean;
@@ -221,6 +232,17 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       options.data.gunParts ?? [],
       options.data.equipmentRules === undefined ? 1 : maxEquipmentTier(facts, options.data.equipmentRules, save.progression.unlocks),
     );
+  };
+  const issuedRunPresentationBaselines = new WeakSet<object>();
+  const captureRunPresentationBaseline = (): RunPresentationBaseline => {
+    const baseline = Object.freeze({
+      availability: availabilityFor(current),
+      completedAchievementIds: Object.freeze((options.data.achievements ?? [])
+        .filter((definition) => current.achievements[definition.id]?.completed === true)
+        .map((definition) => definition.id)),
+    });
+    issuedRunPresentationBaselines.add(baseline);
+    return baseline;
   };
   // Character availability is a read of the same authoritative facts as
   // stages/equipment, never a legacy meta-unlock side channel.
@@ -336,6 +358,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     get arenaSelectionRevision() { return arenaSelectionRevision; },
     get selectedStageId() { return selectedStageId; },
     get stageSelectionRevision() { return stageSelectionRevision; },
+    captureRunPresentationBaseline,
     updateSettings(patch) {
       const previousSettings = current.settings;
       const settings = applySettingsPatch(previousSettings, patch);
@@ -485,6 +508,19 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       if (input.isTraining !== true && input.stageId !== undefined && !normalStage) return failed();
       if (input.terminalStatus === 'win' && input.isTraining !== true && !normalStage) return failed();
 
+      const runBaseline = input.presentationBaseline !== undefined
+        && issuedRunPresentationBaselines.has(input.presentationBaseline)
+        ? input.presentationBaseline
+        : undefined;
+      const wholeRunAchievementIds = (candidate: SaveData, terminalIds: readonly string[]): readonly string[] => {
+        if (runBaseline === undefined) return Object.freeze([...terminalIds]);
+        const completedAtLaunch = new Set(runBaseline.completedAchievementIds);
+        return Object.freeze((options.data.achievements ?? [])
+          .filter((definition) => candidate.achievements[definition.id]?.completed === true
+            && !completedAtLaunch.has(definition.id))
+          .map((definition) => definition.id));
+      };
+
       // Training is composed through this one terminal owner so result/input
       // lifecycle stays identical, but its explicit product contract grants
       // no durable economy, mastery, achievements, or discovery progress.
@@ -493,12 +529,12 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         return Object.freeze({
           ok: true, terminalApplied: true, runScrapBanked: 0, firstClear: false,
           bestTimeImproved: false, firstClearScrap: 0, persistentGrantIds: Object.freeze([]),
-          achievementIdsCompleted: Object.freeze([]), scrapAwardedFromAchievements: 0,
-          masteryTierAwarded: 0, availabilityBefore: availability, availabilityAfter: availability,
+          achievementIdsCompleted: wholeRunAchievementIds(current, Object.freeze([])), scrapAwardedFromAchievements: 0,
+          masteryTierAwarded: 0, availabilityBefore: runBaseline?.availability ?? availability, availabilityAfter: availability,
         });
       }
 
-      const availabilityBefore = availabilityFor(current);
+      const availabilityBefore = runBaseline?.availability ?? availabilityFor(current);
       const base = buildRunTerminalSettlement(current, {
         ...input,
         terminalStatus: input.terminalStatus === 'win' ? 'win' : 'loss',
@@ -614,7 +650,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         terminalApplied: true,
         firstClearScrap,
         persistentGrantIds: Object.freeze(persistentGrantIds),
-        achievementIdsCompleted: Object.freeze([...evaluation.completed]),
+        achievementIdsCompleted: wholeRunAchievementIds(candidate, evaluation.completed),
         scrapAwardedFromAchievements: achievementScrap,
         availabilityBefore,
         availabilityAfter: availabilityFor(candidate),

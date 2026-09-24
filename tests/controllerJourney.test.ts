@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   createMenuPhase,
   createGamePhase,
@@ -37,6 +37,7 @@ if (!import.meta.url.includes('?as-harness')) {
     menu.press(13);
     expect(menu.events).toEqual(['ui:navigate']);
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
+    const captureRunStart = vi.spyOn(menu.context, 'captureRunPresentationBaseline');
     menu.press(0);
     expect(menu.events).toEqual(['ui:navigate', 'ui:confirm']);
     expect(menu.textContents()).toContain('Mercenary');
@@ -97,7 +98,13 @@ if (!import.meta.url.includes('?as-harness')) {
     // Game scene; even an already-loaded fixture crosses the async boundary.
     await new Promise((resolve) => setTimeout(resolve, 0));
     sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 5', { start: 1 });
-    expect(menu.sceneStart).toHaveBeenCalledWith(SceneKey.Game, expect.objectContaining({ runRequest: expect.any(Object) }));
+    expect(captureRunStart).toHaveBeenCalledOnce();
+    const runStartPresentation = captureRunStart.mock.results[0]!.value;
+    expect(Object.isFrozen(runStartPresentation)).toBe(true);
+    expect(menu.sceneStart).toHaveBeenCalledWith(SceneKey.Game, expect.objectContaining({
+      runRequest: expect.any(Object),
+      runStartPresentation,
+    }));
     expect(focusRingTargets(menu.scene)).toHaveLength(1);
     assertZeroPointerCalls(menu.pointerCalls, 'menu step 5');
 
