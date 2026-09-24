@@ -4,7 +4,7 @@
     "name": "Commando Helmet",
     "setId": "set:commando",
     "slot": "helmet",
-    "icon": "upgrade-icon:smg-overclock",
+    "icon": "equipment-icon:commando-helmet",
     "effects": [
       {
         "stat": "attackSpeed",
@@ -18,7 +18,7 @@
     "name": "Commando Armour",
     "setId": "set:commando",
     "slot": "armour",
-    "icon": "upgrade-icon:reinforced-coat",
+    "icon": "equipment-icon:commando-armour",
     "effects": [
       {
         "stat": "maxHealth",
@@ -32,7 +32,7 @@
     "name": "Commando Gloves",
     "setId": "set:commando",
     "slot": "gloves",
-    "icon": "upgrade-icon:pistol-deadeye",
+    "icon": "equipment-icon:commando-gloves",
     "effects": [
       {
         "stat": "spreadDeg",
@@ -46,7 +46,7 @@
     "name": "Commando Boots",
     "setId": "set:commando",
     "slot": "boots",
-    "icon": "upgrade-icon:run-and-gun",
+    "icon": "equipment-icon:commando-boots",
     "effects": [
       {
         "stat": "moveSpeed",

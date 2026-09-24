@@ -8,7 +8,15 @@
 
 local realDofile = dofile
 local activeSprite = nil
-local writeProjects = arg[1] == "--write"
+local writeProjects = false
+local onlyScript = nil
+for index = 1, #arg do
+  if arg[index] == "--write" then
+    writeProjects = true
+  elseif arg[index] == "--only" then
+    onlyScript = assert(arg[index + 1], "--only requires a builder path")
+  end
+end
 
 local function assertEqual(actual, expected, message)
   if actual ~= expected then
@@ -518,7 +526,10 @@ local closeOk = manifestPipe:close()
 assert(closeOk, "could not derive builder contracts from V4 visual manifests")
 contracts = assert(load("return " .. manifestContracts, "visual-manifest-contracts"))()
 
+local matchedContracts = 0
 for _, contract in ipairs(contracts) do
+  if onlyScript == nil or contract.script == onlyScript then
+  matchedContracts = matchedContracts + 1
   if contract.externalImporter then
     local source = assert(io.open(contract.savedAs, "rb"), contract.script .. " missing imported Pixelorama source")
     source:close()
@@ -565,6 +576,11 @@ for _, contract in ipairs(contracts) do
   if writeProjects then writePixeloramaProject(sprite) end
   io.write("PASS ", contract.script, "\n")
   end
+  end
+end
+
+if onlyScript ~= nil and matchedContracts == 0 then
+  error("No visual-art builder contract matches " .. onlyScript)
 end
 
 io.write("All visual-art builder contracts passed.\n")

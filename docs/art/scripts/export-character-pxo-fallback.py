@@ -9,7 +9,9 @@ authoring tool and source of truth.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+import sys
 from zipfile import ZipFile
 
 from PIL import Image
@@ -27,24 +29,45 @@ CHARACTERS = (
 )
 FRAME = 48
 FRAMES = 16
-LAYERS = 6
-
-
-def export_character(root: Path, character_id: str) -> None:
+def render_character(root: Path, character_id: str) -> Image.Image:
     source = root / "assets-src" / "characters" / character_id / "source" / f"{character_id}.pxo"
-    output = root / "public" / "assets" / "characters" / character_id / f"{character_id}.png"
     sheet = Image.new("RGBA", (FRAME * FRAMES, FRAME), (0, 0, 0, 0))
     with ZipFile(source) as archive:
+        project = json.loads(archive.read("data.json"))
+        visible_layers = [
+            index
+            for index, layer in enumerate(project["layers"], start=1)
+            if layer.get("visible") is True
+        ]
         for frame in range(1, FRAMES + 1):
             composited = Image.new("RGBA", (FRAME, FRAME), (0, 0, 0, 0))
-            for layer in range(1, LAYERS + 1):
+            for layer in visible_layers:
                 raw = archive.read(f"image_data/frames/{frame}/layer_{layer}")
                 composited.alpha_composite(Image.frombytes("RGBA", (FRAME, FRAME), raw))
             sheet.alpha_composite(composited, ((frame - 1) * FRAME, 0))
-    sheet.save(output)
+    return sheet
+
+
+def export_character(root: Path, character_id: str) -> None:
+    output = root / "public" / "assets" / "characters" / character_id / f"{character_id}.png"
+    render_character(root, character_id).save(output)
+
+
+def check_character(root: Path, character_id: str) -> None:
+    output = root / "public" / "assets" / "characters" / character_id / f"{character_id}.png"
+    with Image.open(output) as shipped:
+        if shipped.convert("RGBA").tobytes() != render_character(root, character_id).tobytes():
+            raise SystemExit(f"visible PXO/runtime mismatch: {character_id}")
 
 
 if __name__ == "__main__":
     repository = Path(__file__).resolve().parents[3]
-    for character in CHARACTERS:
-        export_character(repository, character)
+    arguments = list(sys.argv[1:])
+    check_only = "--check" in arguments
+    arguments = [argument for argument in arguments if argument != "--check"]
+    requested = tuple(arguments) or CHARACTERS
+    unknown = sorted(set(requested) - set(CHARACTERS))
+    if unknown:
+        raise SystemExit(f"unknown character id(s): {', '.join(unknown)}")
+    for character in requested:
+        (check_character if check_only else export_character)(repository, character)

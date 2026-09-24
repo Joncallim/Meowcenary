@@ -40,7 +40,7 @@ describe('validateAllData', () => {
       },
       {
         file: 'equipment', index: -1, field: '',
-        message: 'unknown required upgrade-icon "weapon-icon:pistol:t1"',
+        message: 'unknown required icon "weapon-icon:pistol:t1"',
       },
     ]);
   });

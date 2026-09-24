@@ -209,7 +209,7 @@ const VISUAL_RESOURCE_LOAD_FIELDS = new Set(['type', 'imageUrl', 'dataUrl', 'fra
 const VISUAL_ART_DIMENSION_FIELDS = new Set(['width', 'height']);
 const VISUAL_ART_CLIP_FIELDS = new Set(['start', 'end', 'frameRate', 'repeat']);
 const VISUAL_ART_KINDS = new Set([
-  'character', 'enemy', 'projectile', 'drop', 'weapon-icon', 'weapon-held', 'world', 'upgrade-icon', 'achievement-icon',
+  'character', 'enemy', 'projectile', 'drop', 'weapon-icon', 'weapon-held', 'world', 'icon', 'upgrade-icon', 'achievement-icon',
 ]);
 // Catalog-count ceilings. The spawn-witness search (findRectWitness/findRingWitness)
 // partitions the arena at obstacle edges — cost grows super-linearly with the
@@ -3187,7 +3187,7 @@ export function validateVisualArtCatalog(raw: unknown): VisualArtCatalog {
       }
       if (typeof kind !== 'string' || !VISUAL_ART_KINDS.has(kind)) {
         rowErrors.push('kind: unknown visual-art kind');
-      } else if (typeof id === 'string' && !id.startsWith(`${kind}:`)) {
+      } else if (kind !== 'icon' && typeof id === 'string' && !id.startsWith(`${kind}:`)) {
         rowErrors.push('kind: must match id prefix');
       }
       if (typeof resourceId !== 'string' || !/^resource:[a-z0-9][a-z0-9-]*$/.test(resourceId)) rowErrors.push('resourceId: must be a canonical visual resource ID');

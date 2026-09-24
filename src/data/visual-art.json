@@ -1344,6 +1344,61 @@
       "resourceId": "resource:upgrade-icon-reinforced-coat"
     },
     {
+      "id": "equipment-set-icon:commando",
+      "kind": "icon",
+      "required": true,
+      "display": {
+        "width": 32,
+        "height": 32
+      },
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-set-icon:commando"
+    },
+    {
+      "id": "equipment-icon:commando-helmet",
+      "kind": "icon",
+      "required": true,
+      "display": {
+        "width": 32,
+        "height": 32
+      },
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-helmet"
+    },
+    {
+      "id": "equipment-icon:commando-armour",
+      "kind": "icon",
+      "required": true,
+      "display": {
+        "width": 32,
+        "height": 32
+      },
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-armour"
+    },
+    {
+      "id": "equipment-icon:commando-gloves",
+      "kind": "icon",
+      "required": true,
+      "display": {
+        "width": 32,
+        "height": 32
+      },
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-gloves"
+    },
+    {
+      "id": "equipment-icon:commando-boots",
+      "kind": "icon",
+      "required": true,
+      "display": {
+        "width": 32,
+        "height": 32
+      },
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-boots"
+    },
+    {
       "id": "character:piston-ram",
       "kind": "character",
       "required": true,

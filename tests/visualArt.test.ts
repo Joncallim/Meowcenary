@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import type { RendererKind, VisualTextureResource } from '../src/systems/types';
 import { DataVisualArtRegistry } from '../src/systems/visualArt';
+import { loadGameData, validateVisualArtCatalog } from '../src/systems/validation';
 
 describe('Visual Art Architecture', () => {
   it('RendererKind describes rendering capability, not content owner', () => {
@@ -16,6 +18,26 @@ describe('Visual Art Architecture', () => {
     for (const owner of contentOwners) {
       expect(kinds).not.toContain(owner as RendererKind);
     }
+  });
+
+  it('allows semantic content IDs to use the generic icon renderer', () => {
+    expect(validateVisualArtCatalog({ bindings: [{
+      id: 'equipment-icon:new-set-helmet',
+      kind: 'icon',
+      resourceId: 'resource:ui-equipment',
+      required: true,
+      display: { width: 28, height: 28 },
+    }] }).bindings[0]).toMatchObject({
+      id: 'equipment-icon:new-set-helmet', kind: 'icon',
+    });
+
+    expect(() => validateVisualArtCatalog({ bindings: [{
+      id: 'equipment-icon:new-set-helmet',
+      kind: 'enemy',
+      resourceId: 'resource:ui-equipment',
+      required: true,
+      display: { width: 28, height: 28 },
+    }] })).toThrow(/kind: must match id prefix/);
   });
 
   it('separates logical art from physical resource', () => {
@@ -45,6 +67,34 @@ describe('Visual Art Architecture', () => {
     expect(resolved?.load.type).toBe('atlas');
     expect(resolved?.frameKey).toBe('helmet');
     expect(resolved?.textureKey).toBe('art-ui-equipment');
+  });
+
+  it('binds the Commando set and each dedicated piece to one named-frame equipment atlas', () => {
+    const data = loadGameData();
+    const art = new DataVisualArtRegistry(data);
+    const expected = [
+      'equipment-set-icon:commando',
+      'equipment-icon:commando-helmet',
+      'equipment-icon:commando-armour',
+      'equipment-icon:commando-gloves',
+      'equipment-icon:commando-boots',
+    ];
+    const bindings = expected.map((id) => art.bindingById(id));
+    expect(bindings).not.toContain(undefined);
+    expect(bindings.every((binding) => binding?.kind === 'icon')).toBe(true);
+    expect(new Set(bindings.map((binding) => binding?.resourceId))).toEqual(new Set(['resource:equipment-commando']));
+    expect(new Set(bindings.map((binding) => binding?.frameKey))).toEqual(new Set(expected));
+    expect((data.equipment ?? []).filter((piece) => piece.setId === 'set:commando').map((piece) => piece.icon)).toEqual(expected.slice(1));
+    expect(data.equipmentSets?.find((set) => set.id === 'set:commando')?.emblem).toBe(expected[0]);
+    // The rest of the existing catalog deliberately remains on its borrowed
+    // run-upgrade presentation until each own production family lands.
+    expect(art.bindingById(data.equipment?.find((piece) => piece.id === 'equipment:scavenger-helmet')?.icon ?? '')?.kind).toBe('upgrade-icon');
+  });
+
+  it('keeps the committed Commando atlas in exact parity with its editable source', () => {
+    expect(() => execFileSync('node', [
+      'docs/art/scripts/export-commando-equipment-atlas.mjs', '--check',
+    ])).not.toThrow();
   });
 
   it('ships a distinct physical spritesheet for every selectable mercenary', () => {
