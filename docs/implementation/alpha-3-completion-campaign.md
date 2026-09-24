@@ -15,6 +15,7 @@ not a new design source.
 - Gunsmith art baseline: PR #179 merge `811112dc9a02df424e478b0b4b21ea617875a375`
 - Forge/Foundry baseline: PR #180 merge `d8120a70fa9cf1f76debcb8547c448867acc8b4e`
 - Whole-run Results truth baseline: PR #181 merge `8530b718c3dc0dc1fb09b92e94cf13decf91b9dc`
+- Assembled Gunsmith baseline: PR #182 merge `8cb8e0396df093c1b8501f47f467b62b64fa1dac`
 
 ## Frozen persistence decisions
 
@@ -53,9 +54,9 @@ remain **UNVERIFIED** until genuinely performed.
 | #168 Compendium | generic discovery/save/Career UI shipped | closed after merged-main CI |
 | #170 scalability | data-first registries, lazy resources, N+1 proofs shipped | closed after merged-main CI |
 | #85 Contracts | implementation shipped; distinct pacing needs integrated play | keep for acceptance |
-| #87 Gunsmith | mechanics, dedicated Part/slot/trait art, assembled schematics, acquisition states, actual comparisons, and destructive confirmations shipped or in final review | physical player acceptance remains |
+| #87 Gunsmith | mechanics, dedicated Part/slot/trait art, assembled schematics, truthful comparisons, linear exact-pair workflow, and focused destructive confirmations shipped | closed by PR #182; physical device evidence remains UNVERIFIED |
 | #88 Mercenaries | mechanics/ability feedback shipped; cast art readability remains | active art tranche |
-| #89 Equipment | mechanics and player fabrication shipped; dedicated piece art remains | active art tranche |
+| #89 Equipment | mechanics/player fabrication shipped; all 8 emblems and 32 pieces now have exact dedicated semantic art | current review tranche |
 | #165 navigation | implementation shipped; device and final visual acceptance remain | keep for acceptance |
 | #167 production art | architecture complete; production art incomplete | primary active tranche |
 | #171 product pass | integrated pacing/reward/fun verdict remains | follows representative art |
@@ -86,10 +87,14 @@ Representative production batch:
 4. Forge Foundry is merged: a distinct existing-architecture
    Arena, Forge-specific encounters, a 16-image world packet, and an active
    heat-grate skin whose art is part of the exact run resource closure.
-5. The assembled-weapon candidate adds three family chassis and ten co-registered
+5. The merged assembled-weapon tranche adds three family chassis and ten co-registered
    physical-Part layers in one lazy 96×48 atlas. The Gunsmith composes them
    from data, shows trait sockets/emblems, preserves repeatable fabrication,
-   and keeps destructive Workshop selection linear and explicit.
+   and keeps destructive Workshop selection linear, exact, focused, and explicit.
+6. The Equipment candidate adds dedicated art for the remaining seven Sets:
+   seven emblems and 28 slot pieces in one shared 35-frame atlas. Together
+   with Commando, the catalog now resolves all 40 exact semantic Equipment
+   art IDs without borrowing Upgrade-card graphics.
 
 The completed art PRs add 29 shipped logical images backed by three physical
 resources (Volt Lynx sheet, Commando atlas, and Gunsmith atlas). The Forge
@@ -107,10 +112,10 @@ Automated art-tranche evidence before PR review:
   parity, Lynx defeat, and zero-match findings were corrected.
 
 Generated sources retain prompts/provenance and remain outside runtime assets
-until selected, cleaned, imported, exported, and validated. The next Equipment
-batch has two generated seven-family concept directions retained outside
-runtime assets; the flatter, stronger-silhouette direction is the current
-production candidate pending deterministic Pixelorama reconstruction.
+until selected, cleaned, imported, exported, and validated. The Equipment
+batch retains two generated seven-family concept directions; the selected
+flatter, stronger-silhouette direction has been reconstructed as editable
+native pixels with deterministic builder/export parity.
 
 ## Known non-blocking follow-up
 
