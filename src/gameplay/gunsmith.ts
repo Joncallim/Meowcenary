@@ -383,19 +383,18 @@ export function infuseTrait(
 /** A representative, domain-validated Workshop operation.  Operations are
  * grouped by their mechanically distinct outcome so a repeatable inventory
  * does not turn menu rendering into a pairwise expansion. */
-export type WorkshopRecipe =
-  | {
-      readonly kind: 'merge';
-      readonly firstInstanceId: string;
-      readonly secondInstanceId: string;
-      /** Number of interchangeable copies in a same-state merge group. */
-      readonly copies?: number;
-    }
-  | {
-      readonly kind: 'infuse';
-      readonly targetInstanceId: string;
-      readonly traitInstanceId: string;
-    };
+export type WorkshopRecipe = {
+  readonly kind: 'infuse';
+  readonly targetInstanceId: string;
+  readonly traitInstanceId: string;
+};
+
+export interface WorkshopMergeGroup {
+  readonly id: string;
+  readonly partId: string;
+  readonly tier: number;
+  readonly ownedCount: number;
+}
 
 /**
  * Produces the finite set of mechanically distinct Workshop operations.
@@ -405,55 +404,79 @@ export type WorkshopRecipe =
  * for each registered behavior trait.  This keeps the result linear in the
  * owned inventory while retaining every distinct merge/infusion outcome.
  */
-export function listWorkshopRecipes(
+export function listWorkshopMergeGroups(
+  ownedParts: readonly OwnedPart[],
+  definitions: ReadonlyMap<string, PartDefinition>,
+): readonly WorkshopMergeGroup[] {
+  const groups = new Map<string, OwnedPart[]>();
+  for (const part of ownedParts) {
+    if (!definitions.has(part.partId)) continue;
+    const id = `${part.partId}\u0000${part.tier}`;
+    const group = groups.get(id) ?? [];
+    group.push(part);
+    groups.set(id, group);
+  }
+  return Object.freeze([...groups.entries()].flatMap(([id, parts]) => {
+    const variants = new Map<string, { representatives: OwnedPart[]; count: number }>();
+    for (const part of parts) {
+      const key = canonicalTraits(part.infusedTraits).join(',');
+      const variant = variants.get(key);
+      variant?.representatives.push(part);
+      if (variant === undefined) variants.set(key, { representatives: [part], count: 1 });
+      else variant.count += 1;
+    }
+    const values = [...variants.values()];
+    const legal = values.some((first, firstIndex) => values.some((second, secondIndex) =>
+      (firstIndex !== secondIndex || first.count >= 2)
+      && mergeParts(first.representatives[0]!, second.representatives[firstIndex === secondIndex ? 1 : 0]!, definitions).ok));
+    if (!legal) return [];
+    const [partId, tierText] = id.split('\u0000');
+    return [Object.freeze({ id, partId: partId!, tier: Number(tierText), ownedCount: parts.length })];
+  }));
+}
+
+export function listWorkshopMergeFirstInputs(
+  groupId: string,
+  ownedParts: readonly OwnedPart[],
+  definitions: ReadonlyMap<string, PartDefinition>,
+  assignedInstanceIds: ReadonlySet<string>,
+): readonly OwnedPart[] {
+  const group = mergeGroupParts(groupId, ownedParts);
+  const representatives = new Map<string, readonly [OwnedPart, OwnedPart?]>();
+  for (const part of group) {
+    const key = canonicalTraits(part.infusedTraits).join(',');
+    const current = representatives.get(key);
+    if (current === undefined) representatives.set(key, [part]);
+    else if (current[1] === undefined) representatives.set(key, [current[0], part]);
+  }
+  return Object.freeze(sortWorkshopInputs(group, assignedInstanceIds).filter((first) =>
+    [...representatives.values()].some(([representative, alternate]) => {
+      const second = representative.instanceId === first.instanceId ? alternate : representative;
+      return second !== undefined && mergeParts(first, second, definitions).ok;
+    })));
+}
+
+export function listWorkshopMergeSecondInputs(
+  groupId: string,
+  firstInstanceId: string,
+  ownedParts: readonly OwnedPart[],
+  definitions: ReadonlyMap<string, PartDefinition>,
+  assignedInstanceIds: ReadonlySet<string>,
+): readonly OwnedPart[] {
+  const group = mergeGroupParts(groupId, ownedParts);
+  const first = group.find((part) => part.instanceId === firstInstanceId);
+  if (!first) return Object.freeze([]);
+  return Object.freeze(sortWorkshopInputs(group, assignedInstanceIds).filter((second) =>
+    second.instanceId !== first.instanceId && mergeParts(first, second, definitions).ok));
+}
+
+export function listWorkshopInfusions(
   ownedParts: readonly OwnedPart[],
   definitions: ReadonlyMap<string, PartDefinition>,
   assignedInstanceIds: ReadonlySet<string> = new Set<string>(),
 ): readonly WorkshopRecipe[] {
-  // Preserve stable deterministic identity while preferring inventory spares:
-  // destructive engineering should not dismantle a configured build when an
-  // equivalent unfitted input exists anywhere in the save.
-  const owned = [...ownedParts].sort((left, right) => {
-    const assignmentOrder = Number(assignedInstanceIds.has(left.instanceId)) - Number(assignedInstanceIds.has(right.instanceId));
-    return assignmentOrder || left.instanceId.localeCompare(right.instanceId);
-  });
-  const mergeGroups = new Map<string, OwnedPart[]>();
-  for (const part of owned) {
-    const definition = definitions.get(part.partId);
-    if (!definition) continue;
-    const key = `${part.partId}\u0000${part.tier}\u0000${canonicalTraits(part.infusedTraits).join(',')}`;
-    const group = mergeGroups.get(key) ?? [];
-    group.push(part);
-    mergeGroups.set(key, group);
-  }
-
+  const owned = sortWorkshopInputs(ownedParts, assignedInstanceIds);
   const recipes: WorkshopRecipe[] = [];
-  const groupsByPartTier = new Map<string, OwnedPart[][]>();
-  for (const [key, group] of mergeGroups) {
-    const [partId, tier] = key.split('\u0000');
-    const bucketKey = `${partId}\u0000${tier}`;
-    const bucket = groupsByPartTier.get(bucketKey) ?? [];
-    bucket.push(group);
-    groupsByPartTier.set(bucketKey, bucket);
-  }
-  for (const groups of groupsByPartTier.values()) {
-    for (let firstIndex = 0; firstIndex < groups.length; firstIndex += 1) {
-      const firstGroup = groups[firstIndex]!;
-      for (let secondIndex = firstIndex; secondIndex < groups.length; secondIndex += 1) {
-        const secondGroup = groups[secondIndex]!;
-        const choices = firstGroup === secondGroup
-          ? sameVariantMergeChoices(firstGroup, assignedInstanceIds)
-          : crossVariantMergeChoices(firstGroup, secondGroup, assignedInstanceIds);
-        for (const [first, second] of choices) {
-          if (!mergeParts(first, second, definitions).ok) continue;
-          recipes.push(Object.freeze({
-            kind: 'merge', firstInstanceId: first.instanceId, secondInstanceId: second.instanceId,
-            ...(firstGroup === secondGroup ? { copies: firstGroup.length } : {}),
-          }));
-        }
-      }
-    }
-  }
 
   const traitSources = new Map<BehaviorTrait, OwnedPart>();
   for (const candidate of owned) {
@@ -472,32 +495,22 @@ export function listWorkshopRecipes(
   return Object.freeze(recipes);
 }
 
-function sameVariantMergeChoices(
-  group: readonly OwnedPart[],
+function sortWorkshopInputs(
+  parts: readonly OwnedPart[],
   assigned: ReadonlySet<string>,
-): readonly (readonly [OwnedPart, OwnedPart])[] {
-  const spares = group.filter((part) => !assigned.has(part.instanceId));
-  const fitted = group.filter((part) => assigned.has(part.instanceId));
-  if (spares.length >= 2) return [[spares[0]!, spares[1]!]];
-  if (spares.length === 1) return fitted.map((part) => [spares[0]!, part] as const);
-  if (fitted.length === 2) return [[fitted[0]!, fitted[1]!]];
-  if (fitted.length > 2) return fitted.map((part, index) => [part, fitted[(index + 1) % fitted.length]!] as const);
-  return [];
+): OwnedPart[] {
+  return [...parts].sort((left, right) => {
+    const assignmentOrder = Number(assigned.has(left.instanceId)) - Number(assigned.has(right.instanceId));
+    return assignmentOrder || left.instanceId.localeCompare(right.instanceId);
+  });
 }
 
-function crossVariantMergeChoices(
-  firstGroup: readonly OwnedPart[],
-  secondGroup: readonly OwnedPart[],
-  assigned: ReadonlySet<string>,
-): readonly (readonly [OwnedPart, OwnedPart])[] {
-  const candidates = (group: readonly OwnedPart[]): readonly OwnedPart[] => {
-    const spare = group.find((part) => !assigned.has(part.instanceId));
-    return spare === undefined ? group : [spare];
-  };
-  const first = candidates(firstGroup);
-  const second = candidates(secondGroup);
-  const count = Math.max(first.length, second.length);
-  return Array.from({ length: count }, (_, index) => [first[index % first.length]!, second[index % second.length]!] as const);
+function mergeGroupParts(groupId: string, ownedParts: readonly OwnedPart[]): OwnedPart[] {
+  const separator = groupId.lastIndexOf('\u0000');
+  if (separator < 0) return [];
+  const partId = groupId.slice(0, separator);
+  const tier = Number(groupId.slice(separator + 1));
+  return ownedParts.filter((part) => part.partId === partId && part.tier === tier);
 }
 
 // ── Effective stat resolution ─────────────────────────────────────────

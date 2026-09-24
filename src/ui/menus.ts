@@ -100,6 +100,11 @@ export class MainMenuController {
       this.notice = undefined;
       return this.snapshot();
     }
+    if (this.panel === 'gunsmith' && this.gunsmithController.hasMergeSelection()) {
+      this.gunsmithController.backMergeSelection();
+      this.notice = undefined;
+      return this.snapshot();
+    }
     if (this.panel !== 'home') {
       this.panel = 'home';
     }
@@ -170,6 +175,18 @@ export class MainMenuController {
 
   requestGunWorkshop(request: GunsmithWorkshopRequest): MainMenuSnapshot {
     const result = this.gunsmithController.requestWorkshop(request);
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
+    return this.snapshot();
+  }
+
+  beginGunMerge(groupId: string): MainMenuSnapshot {
+    const result = this.gunsmithController.beginMerge(groupId);
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
+    return this.snapshot();
+  }
+
+  selectGunMergeInput(instanceId: string): MainMenuSnapshot {
+    const result = this.gunsmithController.selectMergeInput(instanceId);
     this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
     return this.snapshot();
   }

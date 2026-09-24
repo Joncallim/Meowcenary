@@ -819,9 +819,22 @@ export class MenuScene extends Phaser.Scene {
         y += workshop.height + 4;
         snapshot.gunsmith.workshop.forEach((recipe) => {
           const row = this.addButton(root, margin, y, recipe.label, hitTarget,
-            () => this.render(this.requireController().requestGunWorkshop(recipe.kind === 'merge'
-              ? { kind: 'merge', firstInstanceId: recipe.firstInstanceId, secondInstanceId: recipe.secondInstanceId }
-              : { kind: 'infuse', targetInstanceId: recipe.targetInstanceId, traitInstanceId: recipe.traitInstanceId })), 'ui:confirm', width - margin - this.safeRightMargin);
+            () => this.render(recipe.kind === 'merge'
+              ? this.requireController().beginGunMerge(recipe.groupId)
+              : this.requireController().requestGunWorkshop({ kind: 'infuse', targetInstanceId: recipe.targetInstanceId, traitInstanceId: recipe.traitInstanceId })), 'ui:confirm', width - margin - this.safeRightMargin);
+          y += row.height + 8;
+        });
+      }
+      if (snapshot.gunsmith.mergeSelection) {
+        const selection = snapshot.gunsmith.mergeSelection;
+        const selectionHeading = this.own(root, createUiText(this, margin, y, selection.title.toUpperCase(), {
+          color: '#f7d774', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+        }));
+        this.registerScrollObject(selectionHeading);
+        y += selectionHeading.height + 4;
+        selection.choices.forEach((choice) => {
+          const row = this.addButton(root, margin, y, `${choice.recommended ? 'RECOMMENDED • ' : ''}${choice.label}`, hitTarget,
+            () => this.render(this.requireController().selectGunMergeInput(choice.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin);
           y += row.height + 8;
         });
       }

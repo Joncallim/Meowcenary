@@ -190,7 +190,7 @@ describe('GunsmithController durable commands', () => {
     } }));
 
     expect(controller.snapshot().workshop).toEqual(expect.arrayContaining([
-      expect.objectContaining({ kind: 'merge', firstInstanceId: 'one', secondInstanceId: 'three', label: 'Merge 3 × Compact Receiver T1 → T2' }),
+      expect.objectContaining({ kind: 'merge', ownedCount: 3, label: 'Merge 2 of 3 owned Compact Receiver T1 → T2' }),
       expect.objectContaining({ kind: 'infuse', targetInstanceId: 'target', traitInstanceId: 'zzz-fire' }),
     ]));
     expect(controller.snapshot().workshop).not.toEqual(expect.arrayContaining([
@@ -221,14 +221,19 @@ describe('GunsmithController durable commands', () => {
 
     const workshop = controller.snapshot().workshop;
     expect(workshop).toEqual(expect.arrayContaining([
-      expect.objectContaining({ kind: 'merge', firstInstanceId: 'z-spare', secondInstanceId: 'zz-spare' }),
+      expect.objectContaining({ kind: 'merge', ownedCount: 4 }),
       expect.objectContaining({ kind: 'infuse', targetInstanceId: 'z-target-spare', traitInstanceId: 'z-fire-spare' }),
     ]));
     expect(workshop).toEqual(expect.arrayContaining([
       expect.objectContaining({ kind: 'infuse', targetInstanceId: 'a-target-fitted', traitInstanceId: 'z-fire-spare' }),
     ]));
-    const merge = workshop.find((recipe) => recipe.kind === 'merge' && recipe.firstInstanceId === 'z-spare')!;
-    expect(controller.requestWorkshop(merge)).toMatchObject({ ok: true });
+    const merge = workshop.find((recipe) => recipe.kind === 'merge' && recipe.ownedCount === 4)!;
+    if (merge.kind !== 'merge') throw new Error('expected merge group');
+    expect(controller.beginMerge(merge.groupId)).toMatchObject({ ok: true });
+    expect(controller.snapshot().mergeSelection?.choices[0]).toMatchObject({ instanceId: 'z-spare', recommended: true });
+    expect(controller.selectMergeInput('z-spare')).toMatchObject({ ok: true });
+    expect(controller.snapshot().mergeSelection?.choices[0]).toMatchObject({ instanceId: 'zz-spare', recommended: true });
+    expect(controller.selectMergeInput('zz-spare')).toMatchObject({ ok: true });
     expect(controller.confirmWorkshop()).toMatchObject({ ok: true });
     expect(context.saveData.gunsmith.builds.find((build) => build.id === 'build:pistol')?.fitted.barrel).toBe('a-fitted');
     expect(context.saveData.gunsmith.builds.find((build) => build.id === 'build:smg')?.fitted.barrel).toBe('b-fitted');
@@ -269,16 +274,65 @@ describe('GunsmithController durable commands', () => {
       ], selectedBuildId: 'build:pistol',
     }));
 
-    const merges = controller.snapshot().workshop.filter((recipe) => recipe.kind === 'merge' && recipe.firstInstanceId === 'spare');
-    expect(merges).toEqual(expect.arrayContaining([
-      expect.objectContaining({ secondInstanceId: 'pistol-barrel', label: expect.stringContaining('Sidearm • Barrel') }),
-      expect.objectContaining({ secondInstanceId: 'smg-barrel', label: expect.stringContaining('Sprayer • Barrel') }),
+    const merge = controller.snapshot().workshop.find((recipe) => recipe.kind === 'merge')!;
+    controller.beginMerge(merge.groupId);
+    expect(controller.snapshot().mergeSelection?.choices[0]).toMatchObject({ instanceId: 'spare', recommended: true });
+    controller.selectMergeInput('spare');
+    expect(controller.snapshot().mergeSelection?.choices).toEqual(expect.arrayContaining([
+      expect.objectContaining({ instanceId: 'pistol-barrel', label: expect.stringContaining('Sidearm • Barrel') }),
+      expect.objectContaining({ instanceId: 'smg-barrel', label: expect.stringContaining('Sprayer • Barrel') }),
     ]));
-    expect(merges).toHaveLength(2);
-    controller.requestWorkshop(merges.find((recipe) => recipe.kind === 'merge' && recipe.secondInstanceId === 'pistol-barrel')!);
+    controller.selectMergeInput('pistol-barrel');
     expect(controller.confirmWorkshop()).toMatchObject({ ok: true });
     expect(context.saveData.gunsmith.builds.find((build) => build.id === 'build:smg')?.fitted.barrel).toBe('smg-barrel');
     expect(context.saveData.gunsmith.parts['smg-barrel']).toBeDefined();
+  });
+
+  it('makes every exact pair reachable for four fitted identical copies without rendering pairs', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state,
+      parts: Object.fromEntries(['a', 'b', 'c', 'd'].map((id) => [id, { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] }])),
+      builds: ['a', 'b', 'c', 'd'].map((id, index) => ({
+        id: `build:${index}`, name: `Build ${id.toUpperCase()}`, baseWeaponFamily: index % 2 === 0 ? 'pistol' : 'smg',
+        fitted: { barrel: id }, traitParts: [],
+      })), selectedBuildId: 'build:0',
+    }));
+    const group = controller.snapshot().workshop.find((entry) => entry.kind === 'merge')!;
+    controller.beginMerge(group.groupId);
+    expect(controller.snapshot().mergeSelection?.choices).toHaveLength(4);
+    controller.selectMergeInput('a');
+    expect(controller.snapshot().mergeSelection?.choices.map((choice) => choice.instanceId)).toEqual(['b', 'c', 'd']);
+    controller.selectMergeInput('d');
+    expect(controller.snapshot().confirmation?.inputLines).toEqual([
+      'Standard Barrel T1 • Range +10 — fitted to Build A • Barrel',
+      'Standard Barrel T1 • Range +10 — fitted to Build D • Barrel',
+    ]);
+  });
+
+  it('keeps every legal cross-variant fitted pair reachable after choosing the first input', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state,
+      parts: {
+        'fire-a': { partId: 'part:barrel-standard', tier: 1, infusedTraits: ['FIRE'] },
+        'fire-b': { partId: 'part:barrel-standard', tier: 1, infusedTraits: ['FIRE'] },
+        'explosive-c': { partId: 'part:barrel-standard', tier: 1, infusedTraits: ['EXPLOSIVE'] },
+        'explosive-d': { partId: 'part:barrel-standard', tier: 1, infusedTraits: ['EXPLOSIVE'] },
+      },
+      builds: [
+        { id: 'build:a', name: 'A', baseWeaponFamily: 'pistol', fitted: { barrel: 'fire-a' }, traitParts: [] },
+        { id: 'build:b', name: 'B', baseWeaponFamily: 'smg', fitted: { barrel: 'fire-b' }, traitParts: [] },
+        { id: 'build:c', name: 'C', baseWeaponFamily: 'pistol', fitted: { barrel: 'explosive-c' }, traitParts: [] },
+        { id: 'build:d', name: 'D', baseWeaponFamily: 'smg', fitted: { barrel: 'explosive-d' }, traitParts: [] },
+      ], selectedBuildId: 'build:a',
+    }));
+    const group = controller.snapshot().workshop.find((entry) => entry.kind === 'merge')!;
+    controller.beginMerge(group.groupId);
+    controller.selectMergeInput('fire-a');
+    expect(controller.snapshot().mergeSelection?.choices.map((choice) => choice.instanceId)).toEqual([
+      'explosive-c', 'explosive-d', 'fire-b',
+    ]);
+    controller.selectMergeInput('explosive-d');
+    expect(controller.snapshot().confirmation?.outputLine).toContain('EXPLOSIVE • FIRE');
   });
 
   it('names the affected build and slot when a fitted Workshop input must be consumed', () => {
@@ -294,7 +348,9 @@ describe('GunsmithController durable commands', () => {
       ], selectedBuildId: 'build:pistol',
     }));
     const recipe = controller.snapshot().workshop.find((candidate) => candidate.kind === 'merge')!;
-    controller.requestWorkshop(recipe);
+    controller.beginMerge(recipe.groupId);
+    controller.selectMergeInput('a');
+    controller.selectMergeInput('b');
     expect(controller.snapshot().confirmation?.inputLines).toEqual([
       'Standard Barrel T1 • Range +10 — fitted to Sidearm • Barrel',
       'Standard Barrel T1 • Range +10 — fitted to Sprayer • Barrel',

@@ -4,7 +4,10 @@ import {
   equipPart,
   infuseTrait,
   isSlotCompatible,
-  listWorkshopRecipes,
+  listWorkshopInfusions,
+  listWorkshopMergeFirstInputs,
+  listWorkshopMergeGroups,
+  listWorkshopMergeSecondInputs,
   mergeParts,
   resolveBuildModifiers,
   resolveBuildTraitModifiers,
@@ -93,8 +96,20 @@ export interface GunsmithCatalogPartView {
 
 /** Presentation-ready, rule-owned Workshop operation. */
 export type GunsmithWorkshopRecipe =
-  | { readonly kind: 'merge'; readonly firstInstanceId: string; readonly secondInstanceId: string; readonly label: string }
+  | { readonly kind: 'merge'; readonly groupId: string; readonly ownedCount: number; readonly label: string }
   | { readonly kind: 'infuse'; readonly targetInstanceId: string; readonly traitInstanceId: string; readonly label: string };
+
+export interface GunsmithMergeSelection {
+  readonly groupId: string;
+  readonly step: 'first' | 'second';
+  readonly title: string;
+  readonly firstInstanceId?: string;
+  readonly choices: readonly {
+    readonly instanceId: string;
+    readonly label: string;
+    readonly recommended: boolean;
+  }[];
+}
 
 export type GunsmithWorkshopRequest =
   | { readonly kind: 'merge'; readonly firstInstanceId: string; readonly secondInstanceId: string }
@@ -152,6 +167,7 @@ export interface GunsmithSnapshot {
   /** Bounded recipes from the Gunsmith domain; scenes do not reconstruct
    * pair eligibility from save records. */
   readonly workshop: readonly GunsmithWorkshopRecipe[];
+  readonly mergeSelection?: GunsmithMergeSelection;
   readonly confirmation?: GunsmithWorkshopConfirmation;
 }
 
@@ -173,6 +189,7 @@ export type GunsmithCommandResult =
 export class GunsmithController {
   private readonly registry: DataPartRegistry;
   private pendingWorkshop?: Readonly<{ request: GunsmithWorkshopRequest; confirmation: GunsmithWorkshopConfirmation }>;
+  private pendingMergeSelection?: { groupId: string; firstInstanceId?: string };
 
   constructor(private readonly context: GameContext) {
     this.registry = new DataPartRegistry({ gunParts: context.data.gunParts ?? [] });
@@ -361,21 +378,15 @@ export class GunsmithController {
       instanceId, partId: stored.partId, tier: stored.tier, infusedTraits: stored.infusedTraits as readonly BehaviorTrait[],
     }]);
     const partViewsById = new Map(parts.map((part) => [part.instanceId, part] as const));
-    const workshopRecipes: GunsmithWorkshopRecipe[] = [];
-    for (const recipe of listWorkshopRecipes(ownedParts, this.registry.asMap(), new Set(assignments.keys()))) {
-      if (recipe.kind === 'merge') {
-        const first = partViewsById.get(recipe.firstInstanceId);
-        if (!first) continue;
-        workshopRecipes.push(Object.freeze({
-          kind: 'merge' as const, firstInstanceId: recipe.firstInstanceId, secondInstanceId: recipe.secondInstanceId,
-          label: `${recipe.copies === undefined
-            ? `Merge ${first.name} T${first.tier} variants → T${first.tier + 1}`
-            : `Merge ${recipe.copies} × ${first.name} T${first.tier} → T${first.tier + 1}`}${workshopLocationSuffix([
-              partLocation(recipe.firstInstanceId, state), partLocation(recipe.secondInstanceId, state),
-            ])}`,
-        } satisfies GunsmithWorkshopRecipe));
-        continue;
-      }
+    const assignedIds = new Set(assignments.keys());
+    const workshopRecipes: GunsmithWorkshopRecipe[] = listWorkshopMergeGroups(ownedParts, this.registry.asMap()).flatMap((group) => {
+      const definition = this.registry.partById(group.partId);
+      return definition === undefined ? [] : [Object.freeze({
+        kind: 'merge' as const, groupId: group.id, ownedCount: group.ownedCount,
+        label: `Merge 2 of ${group.ownedCount} owned ${definition.name} T${group.tier} → T${group.tier + 1}`,
+      })];
+    });
+    for (const recipe of listWorkshopInfusions(ownedParts, this.registry.asMap(), assignedIds)) {
       const target = partViewsById.get(recipe.targetInstanceId);
       const trait = partViewsById.get(recipe.traitInstanceId);
       if (!target || !trait) continue;
@@ -387,6 +398,7 @@ export class GunsmithController {
       } satisfies GunsmithWorkshopRecipe));
     }
     const workshop = Object.freeze(workshopRecipes);
+    const mergeSelection = this.buildMergeSelection(ownedParts, assignedIds, state);
     return Object.freeze({
       selectedBuildId: selected?.id,
       builds: Object.freeze([...state.builds]),
@@ -405,13 +417,46 @@ export class GunsmithController {
       blueprints,
       catalog,
       workshop,
+      ...(mergeSelection === undefined ? {} : { mergeSelection }),
       ...(this.pendingWorkshop === undefined ? {} : { confirmation: this.pendingWorkshop.confirmation }),
     });
   }
 
+  beginMerge(groupId: string): GunsmithCommandResult {
+    const group = this.snapshot().workshop.find((entry) => entry.kind === 'merge' && entry.groupId === groupId);
+    if (group === undefined) return { ok: false, reason: 'workshop-operation-unavailable' };
+    this.pendingWorkshop = undefined;
+    this.pendingMergeSelection = { groupId };
+    return { ok: true, persisted: false };
+  }
+
+  selectMergeInput(instanceId: string): GunsmithCommandResult {
+    const selection = this.snapshot().mergeSelection;
+    if (selection === undefined || !selection.choices.some((choice) => choice.instanceId === instanceId)) {
+      return { ok: false, reason: 'workshop-operation-unavailable' };
+    }
+    if (selection.step === 'first') {
+      this.pendingMergeSelection = { groupId: selection.groupId, firstInstanceId: instanceId };
+      return { ok: true, persisted: false };
+    }
+    return this.requestWorkshop({ kind: 'merge', firstInstanceId: selection.firstInstanceId!, secondInstanceId: instanceId });
+  }
+
+  backMergeSelection(): GunsmithCommandResult {
+    const selection = this.pendingMergeSelection;
+    if (selection === undefined) return { ok: false, reason: 'no-pending-confirmation' };
+    this.pendingMergeSelection = selection.firstInstanceId === undefined ? undefined : { groupId: selection.groupId };
+    return { ok: true, persisted: false };
+  }
+
+  hasMergeSelection(): boolean {
+    return this.pendingMergeSelection !== undefined;
+  }
+
   requestWorkshop(request: GunsmithWorkshopRequest): GunsmithCommandResult {
-    const recipe = this.snapshot().workshop.find((candidate) => sameWorkshopRequest(candidate, request));
-    if (recipe === undefined) return { ok: false, reason: 'workshop-operation-unavailable' };
+    if (request.kind === 'infuse' && !this.snapshot().workshop.some((candidate) => sameWorkshopRequest(candidate, request))) {
+      return { ok: false, reason: 'workshop-operation-unavailable' };
+    }
     const confirmation = this.buildWorkshopConfirmation(request);
     if (confirmation === undefined) return { ok: false, reason: 'workshop-operation-unavailable' };
     this.pendingWorkshop = Object.freeze({ request: Object.freeze({ ...request }), confirmation });
@@ -428,7 +473,9 @@ export class GunsmithController {
     const pending = this.pendingWorkshop;
     if (pending === undefined) return { ok: false, reason: 'no-pending-confirmation' };
     const currentConfirmation = this.buildWorkshopConfirmation(pending.request);
-    const stillAvailable = this.snapshot().workshop.some((candidate) => sameWorkshopRequest(candidate, pending.request));
+    const stillAvailable = pending.request.kind === 'merge'
+      ? currentConfirmation !== undefined
+      : this.snapshot().workshop.some((candidate) => sameWorkshopRequest(candidate, pending.request));
     if (!stillAvailable || currentConfirmation === undefined
       || JSON.stringify(currentConfirmation) !== JSON.stringify(pending.confirmation)) {
       this.pendingWorkshop = undefined;
@@ -438,7 +485,37 @@ export class GunsmithController {
       ? this.merge(pending.request.firstInstanceId, pending.request.secondInstanceId)
       : this.infuse(pending.request.targetInstanceId, pending.request.traitInstanceId);
     if (result.ok || result.reason !== 'save-failed') this.pendingWorkshop = undefined;
+    if (result.ok) this.pendingMergeSelection = undefined;
     return result;
+  }
+
+  private buildMergeSelection(
+    ownedParts: readonly OwnedPart[],
+    assignedIds: ReadonlySet<string>,
+    state: GunsmithState,
+  ): GunsmithMergeSelection | undefined {
+    const pending = this.pendingMergeSelection;
+    if (pending === undefined) return undefined;
+    const inputs = pending.firstInstanceId === undefined
+      ? listWorkshopMergeFirstInputs(pending.groupId, ownedParts, this.registry.asMap(), assignedIds)
+      : listWorkshopMergeSecondInputs(pending.groupId, pending.firstInstanceId, ownedParts, this.registry.asMap(), assignedIds);
+    if (inputs.length === 0) return undefined;
+    const choices = inputs.map((part, index) => {
+      const definition = this.registry.partById(part.partId)!;
+      const location = partLocation(part.instanceId, state);
+      return Object.freeze({
+        instanceId: part.instanceId,
+        label: `${pending.firstInstanceId === undefined ? 'First input' : 'Second input'} • ${partSummaryLine(part, definition)}\n${location === undefined ? 'Inventory spare' : `Fitted: ${location}`}`,
+        recommended: index === 0 && location === undefined,
+      });
+    });
+    return Object.freeze({
+      groupId: pending.groupId,
+      step: pending.firstInstanceId === undefined ? 'first' : 'second',
+      title: pending.firstInstanceId === undefined ? 'Choose first merge input' : 'Choose compatible second input',
+      ...(pending.firstInstanceId === undefined ? {} : { firstInstanceId: pending.firstInstanceId }),
+      choices: Object.freeze(choices),
+    });
   }
 
   private buildWorkshopConfirmation(request: GunsmithWorkshopRequest): GunsmithWorkshopConfirmation | undefined {
@@ -643,10 +720,8 @@ function removePartReferences(builds: readonly Build[], instanceIds: readonly st
 }
 
 function sameWorkshopRequest(recipe: GunsmithWorkshopRecipe, request: GunsmithWorkshopRequest): boolean {
-  return recipe.kind === request.kind && (recipe.kind === 'merge' && request.kind === 'merge'
-    ? recipe.firstInstanceId === request.firstInstanceId && recipe.secondInstanceId === request.secondInstanceId
-    : recipe.kind === 'infuse' && request.kind === 'infuse'
-      && recipe.targetInstanceId === request.targetInstanceId && recipe.traitInstanceId === request.traitInstanceId);
+  return recipe.kind === 'infuse' && request.kind === 'infuse'
+    && recipe.targetInstanceId === request.targetInstanceId && recipe.traitInstanceId === request.traitInstanceId;
 }
 
 function freezeConfirmation(input: GunsmithWorkshopConfirmation): GunsmithWorkshopConfirmation {

@@ -159,6 +159,32 @@ describe('MainMenuController', () => {
     expect(controller.back().panel).toBe('home');
   });
 
+  it('uses Back to unwind Workshop confirmation and each merge-selection layer', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      a: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+      b: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+    } }));
+    const gunsmith = controller.open('gunsmith').gunsmith;
+    const group = gunsmith.workshop.find((entry) => entry.kind === 'merge')!;
+    let snapshot = controller.beginGunMerge(group.groupId);
+    expect(snapshot.gunsmith.mergeSelection?.step).toBe('first');
+    snapshot = controller.selectGunMergeInput('a');
+    expect(snapshot.gunsmith.mergeSelection?.step).toBe('second');
+    snapshot = controller.selectGunMergeInput('b');
+    expect(snapshot.gunsmith.confirmation).toBeDefined();
+
+    snapshot = controller.back();
+    expect(snapshot.gunsmith.confirmation).toBeUndefined();
+    expect(snapshot.gunsmith.mergeSelection?.step).toBe('second');
+    snapshot = controller.back();
+    expect(snapshot.gunsmith.mergeSelection?.step).toBe('first');
+    snapshot = controller.back();
+    expect(snapshot.panel).toBe('gunsmith');
+    expect(snapshot.gunsmith.mergeSelection).toBeUndefined();
+    expect(controller.back().panel).toBe('home');
+  });
+
   it('exposes unlocked Equipment blueprints and fabricates them through the durable menu command', () => {
     const { context, controller } = setup();
     context.updateMeta((meta) => ({ ...meta, scrap: 100 }));

@@ -429,8 +429,15 @@ describe('MenuScene', () => {
     }));
     harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
 
-    expect(harness.textContents()).toContain('Merge 50 × Standard Barrel T1 → T2');
+    expect(harness.textContents()).toContain('Merge 2 of 50 owned Standard Barrel T1 → T2');
     expect(harness.textContents().filter((text) => text.startsWith('Merge '))).toHaveLength(1);
+    harness.buttonByLabel('Merge 2 of 50 owned Standard Barrel T1 → T2')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toContain('CHOOSE FIRST MERGE INPUT');
+    expect(harness.textContents().filter((text) => text.includes('Inventory spare'))).toHaveLength(50);
+    const first = harness.textContents().find((text) => text.startsWith('RECOMMENDED • First input • Standard Barrel T1'))!;
+    harness.buttonByLabel(first)!.state.handlers.pointerup!();
+    expect(harness.textContents()).toContain('CHOOSE COMPATIBLE SECOND INPUT');
+    expect(harness.textContents().filter((text) => text.includes('Inventory spare'))).toHaveLength(49);
   });
 
   it('keeps fabrication of a second merge copy actionable when the first copy is fitted', () => {
@@ -466,8 +473,12 @@ describe('MenuScene', () => {
       selectedBuildId: 'build:pistol',
     }));
     harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
-    const recipe = harness.textContents().find((text) => text.startsWith('Merge 2 × Standard Barrel T1 → T2'))!;
+    const recipe = harness.textContents().find((text) => text.startsWith('Merge 2 of 2 owned Standard Barrel T1 → T2'))!;
     harness.buttonByLabel(recipe)!.state.handlers.pointerup!();
+    const firstInput = harness.textContents().find((text) => text.startsWith('RECOMMENDED • First input • Standard Barrel T1'))!;
+    harness.buttonByLabel(firstInput)!.state.handlers.pointerup!();
+    const secondInput = harness.textContents().find((text) => text.startsWith('RECOMMENDED • Second input • Standard Barrel T1'))!;
+    harness.buttonByLabel(secondInput)!.state.handlers.pointerup!();
     expect(harness.context.saveData.gunsmith.parts).toHaveProperty('a');
     expect(harness.context.saveData.gunsmith.parts).toHaveProperty('b');
     expect(harness.textContents()).toEqual(expect.arrayContaining([
@@ -477,7 +488,8 @@ describe('MenuScene', () => {
 
     harness.buttonByLabel('Cancel')!.state.handlers.pointerup!();
     expect(harness.context.saveData.gunsmith.parts).toHaveProperty('a');
-    harness.buttonByLabel(recipe)!.state.handlers.pointerup!();
+    const retryInput = harness.textContents().find((text) => text.startsWith('RECOMMENDED • Second input • Standard Barrel T1'))!;
+    harness.buttonByLabel(retryInput)!.state.handlers.pointerup!();
     const confirm = harness.buttonByLabel('Merge parts')!;
     confirm.state.handlers.pointerup!();
     confirm.state.handlers.pointerup!();
@@ -495,14 +507,27 @@ describe('MenuScene', () => {
       selectedBuildId: 'build:pistol',
     }));
     harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
-    const recipe = harness.textContents().find((text) => text.startsWith('Merge 2 × Standard Barrel T1 → T2'))!;
+    const recipe = harness.textContents().find((text) => text.startsWith('Merge 2 of 2 owned Standard Barrel T1 → T2'))!;
     harness.buttonByLabel(recipe)!.state.handlers.pointerup!();
+    let input = harness.textContents().find((text) => text.startsWith('RECOMMENDED • First input • Standard Barrel T1'))!;
+    harness.buttonByLabel(input)!.state.handlers.pointerup!();
+    input = harness.textContents().find((text) => text.startsWith('RECOMMENDED • Second input • Standard Barrel T1'))!;
+    harness.buttonByLabel(input)!.state.handlers.pointerup!();
 
     harness.keyboard.keydown('Escape'); harness.menuScene.update(0, 16);
     harness.keyboard.keyup('Escape'); harness.menuScene.update(0, 16);
     expect(harness.textContents()).toContain('Gunsmith');
     expect(harness.textContents().join('\n')).not.toContain('CONFIRM MERGE');
+    expect(harness.textContents()).toContain('CHOOSE COMPATIBLE SECOND INPUT');
     expect(harness.context.saveData.gunsmith.parts).toHaveProperty('a');
+
+    harness.keyboard.keydown('Escape'); harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('Escape'); harness.menuScene.update(0, 16);
+    expect(harness.textContents()).toContain('CHOOSE FIRST MERGE INPUT');
+    harness.keyboard.keydown('Escape'); harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('Escape'); harness.menuScene.update(0, 16);
+    expect(harness.textContents()).toContain('Gunsmith');
+    expect(harness.textContents().join('\n')).not.toContain('CHOOSE FIRST MERGE INPUT');
   });
 
   it('keeps a 50-part Gunsmith list focusable and scroll-safe through acceptance viewports', () => {
