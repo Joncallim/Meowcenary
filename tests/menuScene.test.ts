@@ -1136,6 +1136,56 @@ describe('MenuScene', () => {
     expect(seams.visualArt).toBe(registry);
   });
 
+  it('rerenders successfully loaded Achievement art when another badge fails', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>();
+    let loadError: ((file: { key?: string }) => void) | undefined;
+    const rendered = vi.fn();
+    const loaded = new Set<string>();
+    const scene = new MenuScene() as unknown as {
+      committedPanel: string;
+      controller: { snapshot(): unknown };
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
+      load: {
+        on(event: string, listener: (file: { key?: string }) => void): void;
+        off(): void;
+        once(event: string, listener: () => void): void;
+        image(): void;
+        start(): void;
+      };
+      getContext(): typeof harness.context;
+      requireVisualArt(): DataVisualArtRegistry;
+      render(snapshot: unknown): void;
+      ensureAchievementPresentation(ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      committedPanel: 'achievements', controller: { snapshot: () => ({}) },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: {
+        on: (event: string, listener: (file: { key?: string }) => void) => {
+          if (event === 'loaderror') loadError = listener;
+        },
+        off: () => undefined,
+        once: (event: string, listener: () => void) => { complete.set(event, listener); },
+        image: () => undefined,
+        start: () => {
+          loaded.add('art-upgrade-icon-hot-barrel');
+          complete.get('filecomplete-image-art-upgrade-icon-hot-barrel')?.();
+          loadError?.({ key: 'art-upgrade-icon-heavy-rounds' });
+        },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
+    });
+
+    await scene.ensureAchievementPresentation([
+      'achievement-icon:first-kill',
+      'achievement-icon:kill-milestone-25',
+    ]);
+
+    expect(rendered).toHaveBeenCalledOnce();
+  });
+
   it('loads Equipment atlas resources lazily, rerenders after a cold load, and uses atlas frames when cached', async () => {
     const harness = createHarness({ create: false });
     const art = new DataVisualArtRegistry(harness.context.data);

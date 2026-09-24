@@ -1137,8 +1137,9 @@ export class MenuScene extends Phaser.Scene {
     this.achievementArtLoading = true;
     try {
       const result = await loadTextureResources(this, [...missing.values()]);
-      if (result.failed.length > 0) return;
-      if (this.committedPanel === 'achievements' && this.controller) this.render(this.controller.snapshot());
+      if (result.loaded.length > 0 && this.committedPanel === 'achievements' && this.controller) {
+        this.render(this.controller.snapshot());
+      }
     } finally {
       this.achievementArtLoading = false;
     }

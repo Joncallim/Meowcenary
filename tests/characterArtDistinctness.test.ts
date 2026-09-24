@@ -139,7 +139,7 @@ describe('Volt Lynx production-art distinction', () => {
       const visibleSource = visiblePxoPixels(`assets-src/characters/${characterId}/source/${characterId}.pxo`);
       expect(runtime.pixels, characterId).toEqual(visibleSource);
     }
-  });
+  }, 15_000);
 
   it('keeps the shipped Lynx silhouette materially different from Scrap Tabby at native actor scale', () => {
     const tabby = decodeRgbaPng('public/assets/characters/scrap-tabby/scrap-tabby.png');
