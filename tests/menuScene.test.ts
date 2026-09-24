@@ -390,10 +390,10 @@ describe('MenuScene', () => {
       'Pistol Build\nSelected', 'SMG Build\nEmpty', 'Shotgun Build\nEmpty',
       'PISTOL BUILD\nSelected • Active from start', 'Stock Pistol chassis',
     ]));
-    expect(harness.textContents()).toEqual(expect.arrayContaining(['BLUEPRINTS', 'Compact Receiver\nFire rate +8%\nFabricate — 60 Scrap']));
-    expect(harness.textContents().join('\n')).not.toContain('Standard Barrel\nRange +10\nFabricate');
-    harness.buttonByLabel('Compact Receiver\nFire rate +8%\nFabricate — 60 Scrap')!.state.handlers.pointerup!();
-    expect(harness.textContents()).toContain('That blueprint is not available or needs more Scrap');
+    const compactLabel = 'Compact Receiver • COMMON\nBlueprint • 60 Scrap\nFire rate +8%\nCurrent build: Fire rate +0% → Fire rate +8%\nFabricate for 60 Scrap';
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['PART CATALOG', compactLabel]));
+    expect(harness.textContents().join('\n')).toContain('Standard Barrel • COMMON\nLocked blueprint');
+    expect(harness.buttonByLabel(compactLabel)!.state.interactive).toBe(false);
     expect(harness.context.saveData.gunsmith.parts).toEqual({});
     harness.buttonByLabel('SMG Build\nEmpty')!.state.handlers.pointerup!();
     expect(harness.textContents()).toEqual(expect.arrayContaining(['Pistol Build\nConfigured', 'SMG Build\nSelected', 'Shotgun Build\nEmpty']));
@@ -431,6 +431,36 @@ describe('MenuScene', () => {
 
     expect(harness.textContents()).toContain('Merge 50 × Standard Barrel T1 → T2');
     expect(harness.textContents().filter((text) => text.startsWith('Merge '))).toHaveLength(1);
+  });
+
+  it('requires a visible two-step destructive Workshop confirmation with cancel and duplicate-confirm safety', () => {
+    const harness = createHarness();
+    harness.context.updateGunsmith((state) => ({
+      ...state,
+      parts: {
+        a: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+        b: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+      },
+      builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    const recipe = harness.textContents().find((text) => text.startsWith('Merge 2 × Standard Barrel T1 → T2'))!;
+    harness.buttonByLabel(recipe)!.state.handlers.pointerup!();
+    expect(harness.context.saveData.gunsmith.parts).toHaveProperty('a');
+    expect(harness.context.saveData.gunsmith.parts).toHaveProperty('b');
+    expect(harness.textContents()).toEqual(expect.arrayContaining([
+      'CONFIRM MERGE\nINPUTS\nStandard Barrel T1 • Range +10\nStandard Barrel T1 • Range +10\nOUTPUT\nStandard Barrel T2 • Range +20\nRange +10 → Range +20',
+      'Merge parts', 'Cancel',
+    ]));
+
+    harness.buttonByLabel('Cancel')!.state.handlers.pointerup!();
+    expect(harness.context.saveData.gunsmith.parts).toHaveProperty('a');
+    harness.buttonByLabel(recipe)!.state.handlers.pointerup!();
+    const confirm = harness.buttonByLabel('Merge parts')!;
+    confirm.state.handlers.pointerup!();
+    confirm.state.handlers.pointerup!();
+    expect(Object.values(harness.context.saveData.gunsmith.parts)).toHaveLength(1);
   });
 
   it('keeps a 50-part Gunsmith list focusable and scroll-safe through acceptance viewports', () => {

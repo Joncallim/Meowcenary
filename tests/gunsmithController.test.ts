@@ -10,8 +10,9 @@ import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
 import { mergeParts, resolveBuildModifiers, type OwnedPart } from '../src/gameplay/gunsmith';
 
-function setup() {
-  const data = loadGameData();
+function setup(configure?: (data: ReturnType<typeof loadGameData>) => void) {
+  const data = structuredClone(loadGameData());
+  configure?.(data);
   const storage = new MemoryStorageAdapter();
   const context = createGameContext({
     bus: createEventBus(), menuRng: createRng(1), data,
@@ -133,7 +134,7 @@ describe('GunsmithController durable commands', () => {
 
     expect(controller.snapshot().parts.find((part) => part.instanceId === 'long')).toMatchObject({
       state: 'incompatible', compatible: false,
-      comparisonSummary: 'Barrel occupied — unequip Standard Barrel first.',
+      comparisonSummary: 'Barrel occupied — unequip Standard Barrel first. Candidate: Range +35 • Projectile speed +10%',
     });
     expect(controller.fitPart('long')).toEqual({ ok: false, reason: 'slot-full' });
     expect(context.saveData.gunsmith.builds.find((build) => build.id === 'build:smg')?.fitted.barrel).toBe('long');
@@ -196,6 +197,122 @@ describe('GunsmithController durable commands', () => {
       expect.objectContaining({ kind: 'infuse', traitInstanceId: 'aaa-mastered' }),
       expect.objectContaining({ kind: 'infuse', targetInstanceId: 'capped' }),
     ]));
+  });
+
+  it('owns an immutable two-step merge confirmation with exact inputs, output and tier-scaled delta', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      a: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+      b: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+    } }));
+
+    expect(controller.requestWorkshop({ kind: 'merge', firstInstanceId: 'a', secondInstanceId: 'b' })).toMatchObject({ ok: true });
+    expect(controller.snapshot().confirmation).toEqual({
+      kind: 'merge', title: 'Confirm merge', confirmLabel: 'Merge parts',
+      inputLines: ['Standard Barrel T1 • Range +10', 'Standard Barrel T1 • Range +10'],
+      outputLine: 'Standard Barrel T2 • Range +20',
+      mechanicalDelta: ['Range +10 → Range +20'],
+    });
+    expect(Object.isFrozen(controller.snapshot().confirmation)).toBe(true);
+    expect(context.saveData.gunsmith.parts).toHaveProperty('a');
+
+    expect(controller.confirmWorkshop()).toMatchObject({ ok: true, persisted: true });
+    expect(controller.snapshot().confirmation).toBeUndefined();
+    expect(controller.confirmWorkshop()).toEqual({ ok: false, reason: 'no-pending-confirmation' });
+    expect(Object.values(context.saveData.gunsmith.parts)).toHaveLength(1);
+  });
+
+  it('owns an exact infusion confirmation and cancel never consumes either input', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      target: { partId: 'part:barrel-standard', tier: 2, infusedTraits: [] },
+      fire: { partId: 'part:trait-fire', tier: 1, infusedTraits: [] },
+    } }));
+
+    expect(controller.requestWorkshop({ kind: 'infuse', targetInstanceId: 'target', traitInstanceId: 'fire' })).toMatchObject({ ok: true });
+    expect(controller.snapshot().confirmation).toEqual({
+      kind: 'infuse', title: 'Confirm infusion', confirmLabel: 'Infuse part',
+      inputLines: ['Standard Barrel T2 • Range +20', 'Fire Trait Core T1 • Damage +2% • FIRE'],
+      outputLine: 'Standard Barrel T2 • Range +20 • FIRE',
+      mechanicalDelta: ['Traits None → FIRE', 'FIRE adds Damage +15% and burning hits'],
+    });
+    expect(controller.cancelWorkshop()).toMatchObject({ ok: true });
+    expect(controller.snapshot().confirmation).toBeUndefined();
+    expect(context.saveData.gunsmith.parts).toHaveProperty('target');
+    expect(context.saveData.gunsmith.parts).toHaveProperty('fire');
+  });
+
+  it('refuses a confirmation whose stable inputs now imply a different output', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      a: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+      b: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+    } }));
+    controller.requestWorkshop({ kind: 'merge', firstInstanceId: 'a', secondInstanceId: 'b' });
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      a: { ...state.parts.a!, tier: 2 },
+      b: { ...state.parts.b!, tier: 2 },
+    } }));
+
+    expect(controller.confirmWorkshop()).toEqual({ ok: false, reason: 'workshop-operation-unavailable' });
+    expect(controller.snapshot().confirmation).toBeUndefined();
+    expect(context.saveData.gunsmith.parts.a.tier).toBe(2);
+    expect(context.saveData.gunsmith.parts.b.tier).toBe(2);
+  });
+
+  it('presents every Part definition with authoritative owned, fabricable and reward-only acquisition cues', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state,
+      parts: { barrel: { partId: 'part:barrel-standard', tier: 2, infusedTraits: [] } },
+      builds: [{ id: 'build:pistol', name: 'Main', baseWeaponFamily: 'pistol', fitted: { barrel: 'barrel' }, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+
+    const catalog = controller.snapshot().catalog;
+    expect(catalog).toHaveLength(context.data.gunParts!.length);
+    expect(catalog.find((part) => part.partId === 'part:barrel-standard')).toMatchObject({
+      state: 'fitted', stateLabel: 'Fitted • T2', ownedCount: 1, fabricationCost: 60,
+      effectLines: ['Range +20'], comparisonSummary: 'Current build: Range +20 → Range +0',
+    });
+    expect(catalog.find((part) => part.partId === 'part:receiver-compact')).toMatchObject({
+      state: 'fabricable', stateLabel: 'Blueprint • 60 Scrap', fabricationCost: 60,
+      affordable: false, sourceLabel: 'Fabricate for 60 Scrap',
+    });
+    expect(catalog.find((part) => part.partId === 'part:underbarrel-grenade')).toMatchObject({
+      state: 'reward-only', stateLabel: 'Reward only', sourceLabel: 'First clear: Cut the Feed',
+    });
+    expect(catalog.find((part) => part.partId === 'part:trait-fire-mastered')).toMatchObject({
+      state: 'reward-only', sourceLabel: 'First clear: Boss: Forge Warden',
+    });
+  });
+
+  it('keeps an unmet data-owned fabrication condition visible with player-facing lock copy', () => {
+    const { controller } = setup((data) => {
+      const definition = data.gunParts!.find((part) => part.id === 'part:receiver-compact')!;
+      Object.assign(definition, { unlock: { type: 'stage-cleared', stageId: 'stage:junkyard-02' } });
+    });
+
+    expect(controller.snapshot().catalog.find((part) => part.partId === 'part:receiver-compact')).toMatchObject({
+      state: 'locked', stateLabel: 'Locked blueprint', fabricationCost: 60,
+      affordable: false, sourceLabel: 'Fabricate for 60 Scrap', lockReason: 'Clear Scrap Run.',
+    });
+  });
+
+  it('derives actual selected-build before/after summaries from tier-scaled runtime modifiers', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state,
+      parts: {
+        heavy: { partId: 'part:receiver-heavy', tier: 3, infusedTraits: [] },
+        compact: { partId: 'part:receiver-compact', tier: 2, infusedTraits: [] },
+      },
+      builds: [{ id: 'build:pistol', name: 'Main', baseWeaponFamily: 'pistol', fitted: { receiver: 'heavy' }, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+
+    expect(controller.snapshot().parts.find((part) => part.instanceId === 'heavy')?.comparisonSummary)
+      .toBe('Current build: Damage +36% → Damage +0% • Fire rate -18% → Fire rate +0%');
+    expect(controller.snapshot().parts.find((part) => part.instanceId === 'compact')?.comparisonSummary)
+      .toBe('Receiver occupied — unequip Heavy Receiver first. Candidate: Fire rate +16%');
   });
 
   it('removes consumed merged instances from every fitted build', () => {

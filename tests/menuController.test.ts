@@ -109,7 +109,7 @@ describe('MainMenuController', () => {
     expect(controller.open('arena').notice).toBeUndefined();
   });
 
-  it('routes Gunsmith merge/infuse and equipment upgrade through durable menu commands', () => {
+  it('routes Gunsmith merge/infuse through explicit confirmation and rejects duplicate confirm', () => {
     const { context, controller } = setup();
     context.updateGunsmith((state) => ({ ...state, parts: {
       a: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
@@ -117,8 +117,14 @@ describe('MainMenuController', () => {
       target: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
       fire: { partId: 'part:trait-fire', tier: 2, infusedTraits: [] },
     } }));
-    expect(controller.mergeGunParts('a', 'b').notice).toBeUndefined();
-    expect(controller.infuseGunPart('target', 'fire').notice).toBeUndefined();
+    expect(controller.requestGunWorkshop({ kind: 'merge', firstInstanceId: 'a', secondInstanceId: 'b' }).gunsmith.confirmation).toBeDefined();
+    expect(context.saveData.gunsmith.parts.a).toBeDefined();
+    expect(controller.cancelGunWorkshop().gunsmith.confirmation).toBeUndefined();
+    controller.requestGunWorkshop({ kind: 'merge', firstInstanceId: 'a', secondInstanceId: 'b' });
+    expect(controller.confirmGunWorkshop().notice).toBeUndefined();
+    expect(controller.confirmGunWorkshop().notice).toBe('Choose a Workshop operation first');
+    expect(controller.requestGunWorkshop({ kind: 'infuse', targetInstanceId: 'target', traitInstanceId: 'fire' }).gunsmith.confirmation).toBeDefined();
+    expect(controller.confirmGunWorkshop().notice).toBeUndefined();
     expect(context.saveData.gunsmith.parts.target.infusedTraits).toEqual(['FIRE']);
 
     context.updateMeta((meta) => ({ ...meta, scrap: 100 }));

@@ -819,29 +819,47 @@ export class MenuScene extends Phaser.Scene {
         y += workshop.height + 4;
         snapshot.gunsmith.workshop.forEach((recipe) => {
           const row = this.addButton(root, margin, y, recipe.label, hitTarget,
-            () => this.render(recipe.kind === 'merge'
-              ? this.requireController().mergeGunParts(recipe.firstInstanceId, recipe.secondInstanceId)
-              : this.requireController().infuseGunPart(recipe.targetInstanceId, recipe.traitInstanceId)), 'ui:confirm', width - margin - this.safeRightMargin);
+            () => this.render(this.requireController().requestGunWorkshop(recipe.kind === 'merge'
+              ? { kind: 'merge', firstInstanceId: recipe.firstInstanceId, secondInstanceId: recipe.secondInstanceId }
+              : { kind: 'infuse', targetInstanceId: recipe.targetInstanceId, traitInstanceId: recipe.traitInstanceId })), 'ui:confirm', width - margin - this.safeRightMargin);
           y += row.height + 8;
         });
       }
-      const blueprints = this.own(root, createUiText(this, margin, y, 'BLUEPRINTS', {
+      if (snapshot.gunsmith.confirmation) {
+        const confirmation = snapshot.gunsmith.confirmation;
+        const detail = [
+          confirmation.title.toUpperCase(),
+          'INPUTS', ...confirmation.inputLines,
+          'OUTPUT', confirmation.outputLine,
+          ...confirmation.mechanicalDelta,
+        ].join('\n');
+        const panel = this.own(root, createUiText(this, margin, y, detail, {
+          color: '#f7d774', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+          wordWrap: { width: width - margin - this.safeRightMargin },
+        }));
+        this.registerScrollObject(panel);
+        y += panel.height + 6;
+        const actionWidth = Math.max(120, (width - margin - this.safeRightMargin - 8) / 2);
+        const confirm = this.addButton(root, margin, y, confirmation.confirmLabel, hitTarget,
+          () => this.render(this.requireController().confirmGunWorkshop()), 'ui:confirm', actionWidth);
+        const cancel = this.addButton(root, margin + actionWidth + 8, y, 'Cancel', hitTarget,
+          () => this.render(this.requireController().cancelGunWorkshop()), 'ui:back', actionWidth);
+        y += Math.max(confirm.height, cancel.height) + 12;
+      }
+      const catalogHeading = this.own(root, createUiText(this, margin, y, 'PART CATALOG', {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
       }));
-      this.registerScrollObject(blueprints);
-      y += blueprints.height + 4;
-      if (snapshot.gunsmith.blueprints.length === 0) {
-        const unavailable = this.own(root, createUiText(this, margin, y, 'No fabrication blueprints are available yet.', {
-          color: '#94a3b8', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-        }));
-        this.registerScrollObject(unavailable);
-      }
-      snapshot.gunsmith.blueprints.forEach((blueprint) => {
-        const iconColumn = 38 + blueprint.traitIcons.length * 28;
-        const row = this.addButton(root, margin, y, `${blueprint.name}\n${blueprint.effectLines.join(' • ') || 'No stat change'}\nFabricate — ${blueprint.fabricationCost} Scrap`, hitTarget,
-          () => this.render(this.requireController().fabricateGunPart(blueprint.partId)), 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
-        this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, blueprint.iconArtId);
-        blueprint.traitIcons.forEach((trait, index) => {
+      this.registerScrollObject(catalogHeading);
+      y += catalogHeading.height + 4;
+      snapshot.gunsmith.catalog.forEach((part) => {
+        const iconColumn = 38 + part.traitIcons.length * 28;
+        const detail = [part.lockReason, part.sourceLabel].filter((line) => line !== undefined).join(' ');
+        const label = `${part.name} • ${part.rarity.toUpperCase()}\n${part.stateLabel}\n${part.effectLines.join(' • ') || 'Trait engineering'}\n${part.comparisonSummary}\n${detail}`;
+        const row = this.addButton(root, margin, y, label, hitTarget,
+          () => this.render(this.requireController().fabricateGunPart(part.partId)), 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
+        if (part.state !== 'fabricable' || part.affordable !== true) row.disableInteractive();
+        this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, part.iconArtId);
+        part.traitIcons.forEach((trait, index) => {
           this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41 - index * 28, y + hitTarget / 2, trait.iconArtId, 22);
         });
         y += row.height + 8;
@@ -859,7 +877,7 @@ export class MenuScene extends Phaser.Scene {
         slot.iconArtId,
         ...slot.candidates.flatMap((part) => [part.iconArtId, ...part.traitIcons.map((trait) => trait.iconArtId)]),
       ]),
-      ...snapshot.gunsmith.blueprints.flatMap((part) => [part.iconArtId, ...part.traitIcons.map((trait) => trait.iconArtId)]),
+      ...snapshot.gunsmith.catalog.flatMap((part) => [part.iconArtId, ...part.traitIcons.map((trait) => trait.iconArtId)]),
     ]);
     this.addBackButton(root, width, margin, hitTarget);
   }
