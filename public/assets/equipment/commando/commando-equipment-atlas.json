@@ -7,7 +7,7 @@
   "export_file_name": "commando-equipment-atlas",
   "fps": 8,
   "frames": {
-    "icon:equipment-set-commando": {
+    "equipment-set-icon:commando": {
       "frame": {
         "x": 0,
         "y": 0,
@@ -15,7 +15,7 @@
         "h": 32
       }
     },
-    "icon:equipment-commando-helmet": {
+    "equipment-icon:commando-helmet": {
       "frame": {
         "x": 32,
         "y": 0,
@@ -23,7 +23,7 @@
         "h": 32
       }
     },
-    "icon:equipment-commando-armour": {
+    "equipment-icon:commando-armour": {
       "frame": {
         "x": 64,
         "y": 0,
@@ -31,7 +31,7 @@
         "h": 32
       }
     },
-    "icon:equipment-commando-gloves": {
+    "equipment-icon:commando-gloves": {
       "frame": {
         "x": 96,
         "y": 0,
@@ -39,7 +39,7 @@
         "h": 32
       }
     },
-    "icon:equipment-commando-boots": {
+    "equipment-icon:commando-boots": {
       "frame": {
         "x": 128,
         "y": 0,

@@ -723,10 +723,10 @@ describe('MenuScene', () => {
       'Commando Helmet\nCommando Set • Helmet\n+5% Fire Rate\nFabricate — 100 Scrap',
     );
     expect(addCatalogIcon).toHaveBeenCalledWith(
-      expect.anything(), expect.any(Number), expect.any(Number), 'icon:equipment-commando-helmet',
+      expect.anything(), expect.any(Number), expect.any(Number), 'equipment-icon:commando-helmet',
     );
     expect(addCatalogIcon).toHaveBeenCalledWith(
-      expect.anything(), expect.any(Number), expect.any(Number), 'icon:equipment-set-commando', 22,
+      expect.anything(), expect.any(Number), expect.any(Number), 'equipment-set-icon:commando', 22,
     );
   });
 
@@ -1222,7 +1222,7 @@ describe('MenuScene', () => {
       getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
     });
 
-    await scene.ensureEquipmentPresentation(['icon:equipment-commando-helmet']);
+    await scene.ensureEquipmentPresentation(['equipment-icon:commando-helmet']);
     expect(queued).toEqual([[
       'art-equipment-commando',
       'assets/equipment/commando/commando-equipment-atlas.png',
@@ -1241,9 +1241,9 @@ describe('MenuScene', () => {
     } };
     scene.own = (_root, object) => object;
     scene.registerScrollObject = () => undefined;
-    scene.addCatalogIcon({}, 0, 0, 'icon:equipment-commando-helmet');
-    expect(images).toEqual([{ key: 'art-equipment-commando', frame: 'icon:equipment-commando-helmet' }]);
-    await scene.ensureEquipmentPresentation(['icon:equipment-commando-helmet']);
+    scene.addCatalogIcon({}, 0, 0, 'equipment-icon:commando-helmet');
+    expect(images).toEqual([{ key: 'art-equipment-commando', frame: 'equipment-icon:commando-helmet' }]);
+    await scene.ensureEquipmentPresentation(['equipment-icon:commando-helmet']);
     expect(queued).toHaveLength(1);
   });
 
@@ -1292,7 +1292,7 @@ describe('MenuScene', () => {
     });
 
     await scene.ensureEquipmentPresentation([
-      'icon:equipment-commando-helmet',
+      'equipment-icon:commando-helmet',
       'upgrade-icon:quick-paws',
     ]);
 
