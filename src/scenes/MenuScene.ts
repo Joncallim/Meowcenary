@@ -83,6 +83,7 @@ export class MenuScene extends Phaser.Scene {
   private achievementArtLoading = false;
   private equipmentArtLoading = false;
   private gunsmithArtLoading = false;
+  private gunsmithArtGeneration = 0;
   /** Scene-lifetime physical binding resolver. Career can render a large
    * gallery repeatedly, so per-badge catalog cloning/validation is invalid. */
   private visualArt?: DataVisualArtRegistry;
@@ -109,6 +110,7 @@ export class MenuScene extends Phaser.Scene {
     this.runLaunchState = 'idle';
     this.runLaunchProgress = undefined;
     this.runLaunchPresentation = undefined;
+    this.gunsmithArtGeneration += 1;
     this.gunsmithArtLoading = false;
     this.isLive = true;
     const ctx = this.getContext();
@@ -1195,7 +1197,7 @@ export class MenuScene extends Phaser.Scene {
    * knowing that resource identity or constructing a semantic art ID. */
   private async ensureGunsmithPresentation(iconArtIds: readonly string[]): Promise<void> {
     if (this.gunsmithArtLoading || !this.textures?.exists) return;
-    const generation = this.runLaunchGeneration;
+    const generation = this.gunsmithArtGeneration;
     const context = this.getContext();
     const art = this.requireVisualArt();
     const resources = new DataVisualResourceRegistry(context.data);
@@ -1210,11 +1212,11 @@ export class MenuScene extends Phaser.Scene {
     this.gunsmithArtLoading = true;
     try {
       const result = await loadTextureResources(this, [...missing.values()]);
-      if (result.failed.length === 0 && generation === this.runLaunchGeneration && this.isLive && this.committedPanel === 'gunsmith' && this.controller) {
+      if (result.failed.length === 0 && generation === this.gunsmithArtGeneration && this.isLive && this.committedPanel === 'gunsmith' && this.controller) {
         this.render(this.controller.snapshot());
       }
     } finally {
-      if (generation === this.runLaunchGeneration) this.gunsmithArtLoading = false;
+      if (generation === this.gunsmithArtGeneration) this.gunsmithArtLoading = false;
     }
   }
 
@@ -1422,6 +1424,7 @@ export class MenuScene extends Phaser.Scene {
   private handleShutdown(): void {
     this.isLive = false;
     this.runLaunchGeneration += 1;
+    this.gunsmithArtGeneration += 1;
     this.gunsmithArtLoading = false;
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);

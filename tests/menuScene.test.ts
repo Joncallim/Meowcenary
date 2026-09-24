@@ -1243,6 +1243,7 @@ describe('MenuScene', () => {
     let loaded = false;
     const scene = new MenuScene() as unknown as {
       isLive: boolean; committedPanel: string; controller: { snapshot(): unknown };
+      runLaunchGeneration: number; gunsmithArtLoading: boolean;
       textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
       load: { on(): void; off(): void; once(event: string, listener: () => void): void; atlas(...args: unknown[]): void; start(): void };
       getContext(): typeof harness.context; requireVisualArt(): DataVisualArtRegistry; render(snapshot: unknown): void;
@@ -1282,6 +1283,7 @@ describe('MenuScene', () => {
     let error: ((file: { key?: string }) => void) | undefined; const rendered = vi.fn();
     const scene = new MenuScene() as unknown as {
       isLive: boolean; committedPanel: string; controller: { snapshot(): unknown };
+      runLaunchGeneration: number; gunsmithArtLoading: boolean;
       textures: { exists(key: string): boolean };
       load: { on(event: string, listener: (file: { key?: string }) => void): void; off(): void; once(): void; atlas(): void; start(): void };
       getContext(): typeof harness.context; requireVisualArt(): DataVisualArtRegistry; render(snapshot: unknown): void;
@@ -1293,12 +1295,16 @@ describe('MenuScene', () => {
       load: {
         on: (_event: string, listener: (file: { key?: string }) => void) => { error = listener; },
         off: () => undefined, once: () => undefined, atlas: () => undefined,
-        start: () => error?.({ key: 'art-gunsmith-icons' }),
+        start: () => {
+          scene.runLaunchGeneration += 1;
+          error?.({ key: 'art-gunsmith-icons' });
+        },
       },
       getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
     });
     await scene.ensureGunsmithPresentation(['gun-slot-icon:trait']);
     expect(rendered).not.toHaveBeenCalled();
+    expect(scene.gunsmithArtLoading).toBe(false);
   });
 
   it('resets interrupted Gunsmith presentation loading across scene reuse', () => {
