@@ -73,6 +73,66 @@
     "bossId": "boss-crusher"
   },
   {
+    "id": "encounter:hot-salvage",
+    "enemyIds": [
+      "dust-mite",
+      "junk-rusher",
+      "scrap-skitter",
+      "scrap-sniper"
+    ],
+    "compositionWeights": {
+      "dust-mite": 2,
+      "junk-rusher": 1,
+      "scrap-skitter": 2,
+      "scrap-sniper": 1
+    }
+  },
+  {
+    "id": "encounter:smelter-rush",
+    "enemyIds": [
+      "junk-rusher",
+      "junk-nester",
+      "scrap-skitter",
+      "scrap-sniper"
+    ],
+    "compositionWeights": {
+      "junk-rusher": 2,
+      "junk-nester": 1,
+      "scrap-skitter": 2,
+      "scrap-sniper": 1
+    }
+  },
+  {
+    "id": "encounter:steel-wall",
+    "enemyIds": [
+      "bastion-beetle",
+      "junk-rusher",
+      "dust-mite",
+      "shard-bot"
+    ],
+    "compositionWeights": {
+      "bastion-beetle": 2,
+      "junk-rusher": 1,
+      "dust-mite": 2,
+      "shard-bot": 1
+    }
+  },
+  {
+    "id": "encounter:cut-the-feed",
+    "enemyIds": [
+      "scrap-sniper",
+      "junk-rusher",
+      "bastion-beetle",
+      "dust-mite"
+    ],
+    "compositionWeights": {
+      "scrap-sniper": 2,
+      "junk-rusher": 1,
+      "bastion-beetle": 1,
+      "dust-mite": 2
+    }
+  },
+  {
     "id": "encounter:junkyard-forge-boss",
     "enemyIds": [
       "junk-nester",

@@ -57,16 +57,18 @@ describe('ArenaSelectionController', () => {
     expect(Object.isFrozen(snapshot.arenas)).toBe(true);
     expect(snapshot.selectedArenaId).toBe('junkyard-lot');
     expect(snapshot.revision).toBe(1);
-    expect(snapshot.arenas).toHaveLength(1);
+    expect(snapshot.arenas).toHaveLength(2);
     expect(snapshot.arenas[0]).toMatchObject({ id: 'junkyard-lot', locked: false, selected: true });
+    expect(snapshot.arenas[1]).toMatchObject({ id: 'forge-foundry', locked: true, selected: false });
   });
 
   it('shows locked flags and registry order with two-arena fixture', () => {
     const { controller } = setupWithFixture();
     const snapshot = controller.snapshot();
-    expect(snapshot.arenas).toHaveLength(2);
+    expect(snapshot.arenas).toHaveLength(3);
     expect(snapshot.arenas[0]).toMatchObject({ id: 'junkyard-lot', locked: false, selected: true });
-    expect(snapshot.arenas[1]).toMatchObject({ id: 'voltage-alley', locked: true, selected: false });
+    expect(snapshot.arenas[1]).toMatchObject({ id: 'forge-foundry', locked: true, selected: false });
+    expect(snapshot.arenas[2]).toMatchObject({ id: 'voltage-alley', locked: true, selected: false });
   });
 
   it('select enforces revision token', () => {
@@ -111,7 +113,7 @@ describe('ArenaSelectionController', () => {
     if (result.ok) {
       expect(result.snapshot.selectedArenaId).toBe('voltage-alley');
       expect(result.snapshot.revision).toBe(revision + 1);
-      expect(result.snapshot.arenas[1]).toMatchObject({
+      expect(result.snapshot.arenas[2]).toMatchObject({
         id: 'voltage-alley', locked: false, selected: true,
       });
     }

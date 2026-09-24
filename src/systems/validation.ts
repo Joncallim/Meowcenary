@@ -3106,27 +3106,51 @@ export function assertArenaVisualReferences(
 ): void {
   const byId = new Map(catalog.bindings.map((binding) => [binding.id, binding]));
   const errors: string[] = [];
-  const check = (arenaIndex: number, path: string, artId: string, prefix: string): void => {
+  /**
+   * Arena visuals declare their world family through the semantic floor IDs
+   * (for example `world:forge-floor:*`). Derive role prefixes from that
+   * declaration instead of coupling validation to the first authored arena.
+   * Generic Junkyard-era prop/landmark prefixes remain accepted for
+   * compatibility, while a family-specific prefix is accepted for new
+   * locations such as Forge Foundry.
+   */
+  const familyFromFloorIds = (floorArtIds: readonly string[]): string | undefined => {
+    for (const artId of floorArtIds) {
+      const match = /^world:([a-z0-9-]+)-floor:/.exec(artId);
+      if (match) return match[1];
+    }
+    return undefined;
+  };
+  const check = (arenaIndex: number, path: string, artId: string, prefixes: readonly string[]): void => {
     const binding = byId.get(artId);
     if (!binding) {
       errors.push(`arenas.json[${arenaIndex}].visual.${path}: unknown visual-art id "${artId}"`);
     } else if (binding.kind !== 'world') {
       errors.push(`arenas.json[${arenaIndex}].visual.${path}: expected world binding, got ${binding.kind}`);
-    } else if (!artId.startsWith(prefix)) {
-      errors.push(`arenas.json[${arenaIndex}].visual.${path}: art id must start "${prefix}"`);
+    } else if (!prefixes.some((prefix) => artId.startsWith(prefix))) {
+      errors.push(`arenas.json[${arenaIndex}].visual.${path}: art id must start "${prefixes[0]}"`);
     } else if (!binding.required) {
       errors.push(`arenas.json[${arenaIndex}].visual.${path}: world art must be required`);
     }
   };
 
   arenas.forEach((arena, arenaIndex) => {
+    const family = familyFromFloorIds(arena.visual.floorArtIds);
+    const rolePrefix = (role: 'floor' | 'boundary' | 'prop' | 'landmark'): readonly string[] => {
+      const familyPrefix = family ? `world:${family}-${role}:` : `world:${role}:`;
+      // `world:prop:` and `world:landmark:` are shipped generic families;
+      // floor/boundary families are always location-declared.
+      return role === 'prop' || role === 'landmark'
+        ? [familyPrefix, `world:${role}:`]
+        : [familyPrefix];
+    };
     arena.visual.floorArtIds.forEach((artId, index) =>
-      check(arenaIndex, `floorArtIds[${index}]`, artId, 'world:junkyard-floor:'));
+      check(arenaIndex, `floorArtIds[${index}]`, artId, rolePrefix('floor')));
     for (const [field, artId] of Object.entries(arena.visual.boundary)) {
-      check(arenaIndex, `boundary.${field}`, artId, 'world:junkyard-boundary:');
+      check(arenaIndex, `boundary.${field}`, artId, rolePrefix('boundary'));
     }
     arena.visual.decorations.forEach((decoration, index) =>
-      check(arenaIndex, `decorations[${index}].artId`, decoration.artId, 'world:prop:'));
+      check(arenaIndex, `decorations[${index}].artId`, decoration.artId, rolePrefix('prop')));
 
     const obstacleIds = new Set(arena.obstacles.map((obstacle) => obstacle.id));
     const skinnedIds = new Set<string>();
@@ -3135,7 +3159,7 @@ export function assertArenaVisualReferences(
         errors.push(`arenas.json[${arenaIndex}].visual.obstacleSkins[${index}].obstacleId: unknown obstacle "${skin.obstacleId}"`);
       }
       skinnedIds.add(skin.obstacleId);
-      check(arenaIndex, `obstacleSkins[${index}].artId`, skin.artId, 'world:landmark:');
+      check(arenaIndex, `obstacleSkins[${index}].artId`, skin.artId, rolePrefix('landmark'));
     });
     for (const obstacleId of obstacleIds) {
       if (!skinnedIds.has(obstacleId)) {
