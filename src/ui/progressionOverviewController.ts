@@ -84,8 +84,9 @@ export class ProgressionOverviewController {
     }
 
     // 2. Boss milestone (chapter-05 carries bossId).
-    const bossStage = stages.find((stage) => stage.bossId !== undefined);
-    if (bossStage && !evaluateCondition({ type: 'stage-cleared', stageId: bossStage.id }, conditionCtx)) {
+    const bossStage = stages.find((stage) => stage.bossId !== undefined
+      && !evaluateCondition({ type: 'stage-cleared', stageId: stage.id }, conditionCtx));
+    if (bossStage) {
       nextGoals.push({
         kind: 'boss',
         id: bossStage.id,
@@ -135,7 +136,7 @@ export class ProgressionOverviewController {
         kind: 'character',
         id: firstLockedCharacter.id,
         title: `Unlock ${firstLockedCharacter.name}`,
-        detail: `Requires ${describeCharacterCondition(firstLockedCharacter.unlock)}.`,
+        detail: `Requires ${describeCharacterCondition(firstLockedCharacter.unlock, context)}.`,
         priority: 5,
         artId: `character:${firstLockedCharacter.id}`,
       });
@@ -159,20 +160,20 @@ export class ProgressionOverviewController {
   }
 }
 
-function describeCharacterCondition(condition: import('../gameplay/conditionEvaluator').ProgressionCondition): string {
+function describeCharacterCondition(condition: import('../gameplay/conditionEvaluator').ProgressionCondition, context: GameContext): string {
   switch (condition.type) {
     case 'always': return 'no prerequisite';
-    case 'stage-cleared': return `stage ${condition.stageId}`;
-    case 'boss-defeated': return `boss ${condition.bossId}`;
-    case 'achievement-completed': return `achievement ${condition.achievementId}`;
-    case 'mastery-reached': return `${condition.subjectId} mastery tier ${condition.tier}`;
-    case 'owns-content': return `content ${condition.contentId}`;
-    case 'scrap-total': return `${condition.threshold} scrap`;
-    case 'permanent-level': return `${condition.upgradeId} level ${condition.minLevel}`;
+    case 'stage-cleared': return `clear ${context.stages.stageById(condition.stageId)?.name ?? humanizeId(condition.stageId)}`;
+    case 'boss-defeated': return `defeat ${context.data.enemies.find((enemy) => enemy.id === condition.bossId)?.name ?? humanizeId(condition.bossId)}`;
+    case 'achievement-completed': return `complete ${context.data.achievements?.find((achievement) => achievement.id === condition.achievementId)?.name ?? humanizeId(condition.achievementId)}`;
+    case 'mastery-reached': return `${context.characters.characterById(condition.subjectId)?.name ?? humanizeId(condition.subjectId)} mastery tier ${condition.tier}`;
+    case 'owns-content': return `own ${humanizeId(condition.contentId)}`;
+    case 'scrap-total': return `${condition.threshold} Scrap`;
+    case 'permanent-level': return `${humanizeId(condition.upgradeId)} level ${condition.minLevel}`;
     case 'unlock-count': return `${condition.minCount} content unlocks`;
-    case 'all': return condition.conditions.map(describeCharacterCondition).join(' and ');
-    case 'any': return condition.conditions.map(describeCharacterCondition).join(' or ');
-    case 'not': return `not ${describeCharacterCondition(condition.condition)}`;
+    case 'all': return condition.conditions.map((child) => describeCharacterCondition(child, context)).join(' and ');
+    case 'any': return condition.conditions.map((child) => describeCharacterCondition(child, context)).join(' or ');
+    case 'not': return `not ${describeCharacterCondition(condition.condition, context)}`;
   }
 }
 
@@ -182,5 +183,10 @@ function stageArtId(stage: ReturnType<GameContext['stages']['allStages']>[number
 
 function chapterName(chapterId: string): string {
   return (chapterId.split(':').at(-1) ?? chapterId).split('-')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
+
+function humanizeId(id: string): string {
+  return (id.split(':').at(-1) ?? id).split('-')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 }

@@ -1,4 +1,5 @@
 import type { GameContext } from '../engine/context';
+import { DataVisualArtRegistry } from '../systems/visualArt';
 
 export interface CompendiumSnapshotEntry {
   readonly enemyId: string;
@@ -19,7 +20,10 @@ export interface CompendiumSnapshot {
 /** Production read model for Career → Compendium. Discovery remains owned by
  * GameContext/save; this controller exposes no mutation path. */
 export class CompendiumController {
-  constructor(private readonly context: GameContext) {}
+  private readonly visualArt: DataVisualArtRegistry;
+  constructor(private readonly context: GameContext) {
+    this.visualArt = new DataVisualArtRegistry(context.data);
+  }
 
   snapshot(): CompendiumSnapshot {
     const stagesByEnemy = new Map<string, string[]>();
@@ -41,11 +45,12 @@ export class CompendiumController {
         ? this.context.saveData.compendium[enemy.id]!
         : 'unseen';
       const copy = compendiumCopy(enemy.archetype);
+      const actorArtId = status === 'unseen' ? undefined : this.visualArt.bindingById(`enemy:${enemy.id}`)?.id;
       return Object.freeze({
         enemyId: enemy.id,
         name: enemy.name,
         status,
-        ...(status === 'unseen' ? {} : { actorArtId: `enemy:${enemy.id}` }),
+        ...(actorArtId === undefined ? {} : { actorArtId }),
         // An encountered enemy does not reveal the entire future contract
         // graph. One earned location is enough once it has been defeated.
         foundIn: Object.freeze(status === 'defeated' ? (stagesByEnemy.get(enemy.id) ?? []).slice(0, 1) : []),

@@ -382,7 +382,8 @@ function createHarness(options: { create?: boolean; audio?: boolean } = { create
 describe('MenuScene', () => {
   it('keeps every data-owned Gunsmith chassis reachable after creating a build', () => {
     const harness = createHarness();
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     expect(harness.textContents()).toEqual(expect.arrayContaining(['Weapon builds', 'Pistol Build\nEmpty', 'SMG Build\nEmpty', 'Shotgun Build\nEmpty']));
 
     harness.buttonByLabel('Pistol Build\nEmpty')!.state.handlers.pointerup!();
@@ -404,7 +405,8 @@ describe('MenuScene', () => {
 
   it('keeps unavailable Gunsmith catalog rows inert when scrolling reveals them', () => {
     const harness = createHarness();
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     harness.buttonByLabel('Pistol Build\nEmpty')!.state.handlers.pointerup!();
     const scene = harness.menuScene as unknown as {
       controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
@@ -438,7 +440,8 @@ describe('MenuScene', () => {
       builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
       selectedBuildId: 'build:pistol',
     }));
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     expect(harness.textContents()).not.toContain('Next Gunsmith Page');
     const scene = harness.menuScene as unknown as { scrollRegion?: { itemCount: number } };
     expect(scene.scrollRegion?.itemCount).toBeGreaterThan(1);
@@ -452,7 +455,8 @@ describe('MenuScene', () => {
       builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
       selectedBuildId: 'build:pistol',
     }));
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
 
     expect(harness.textContents()).toContain('Merge 2 of 50 owned Standard Barrel T1 → T2');
     expect(harness.textContents().filter((text) => text.startsWith('Merge '))).toHaveLength(1);
@@ -474,7 +478,8 @@ describe('MenuScene', () => {
       builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: { receiver: 'existing' }, traitParts: [] }],
       selectedBuildId: 'build:pistol',
     }));
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     const label = harness.textContents().find((text) => text.includes('Fabricate another — 60 Scrap'))!;
     expect(label).toContain('Fitted • T1');
     for (let step = 0; step < 20 && !harness.buttonByLabel(label)!.state.interactive; step += 1) {
@@ -497,7 +502,8 @@ describe('MenuScene', () => {
       builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
       selectedBuildId: 'build:pistol',
     }));
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     const recipe = harness.textContents().find((text) => text.startsWith('Merge 2 of 2 owned Standard Barrel T1 → T2'))!;
     harness.buttonByLabel(recipe)!.state.handlers.pointerup!();
     const firstInput = harness.textContents().find((text) => text.startsWith('RECOMMENDED • First input • Standard Barrel T1'))!;
@@ -534,7 +540,8 @@ describe('MenuScene', () => {
       builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
       selectedBuildId: 'build:pistol',
     }));
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     const infusion = harness.textContents().find((text) => text.startsWith('Infuse Standard Barrel with Fire Trait Core'))!;
     harness.buttonByLabel(infusion)!.state.handlers.pointerup!();
 
@@ -555,7 +562,8 @@ describe('MenuScene', () => {
       builds: [{ id: 'build:pistol', name: 'Main', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
       selectedBuildId: 'build:pistol',
     }));
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     const recipe = harness.textContents().find((text) => text.startsWith('Merge 2 of 2 owned Standard Barrel T1 → T2'))!;
     harness.buttonByLabel(recipe)!.state.handlers.pointerup!();
     let input = harness.textContents().find((text) => text.startsWith('RECOMMENDED • First input • Standard Barrel T1'))!;
@@ -587,7 +595,8 @@ describe('MenuScene', () => {
       builds: [{ id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
       selectedBuildId: 'build:pistol',
     }));
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     const scene = harness.menuScene as unknown as { handleResize(): void; navigator: { index: number }; scrollRegion?: { scrollOffset: number } };
     for (let index = 0; index < 52; index += 1) {
       harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
@@ -616,7 +625,8 @@ describe('MenuScene', () => {
       ],
       selectedBuildId: 'build:smg',
     }));
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     expect(harness.textContents()).toEqual(expect.arrayContaining([
       'RECEIVER', 'BARREL', 'OPTIC', 'STOCK', 'TRIGGER', 'MAGAZINE', 'TRAITS 0 / 2',
       'Standard Barrel T1 • FITTED TO PISTOL BUILD\nRange +10\nMOVE FROM PISTOL BUILD',
@@ -632,7 +642,8 @@ describe('MenuScene', () => {
       selectedBuildId: 'build:pistol',
     }));
 
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
 
     const text = harness.textContents();
     const recoveryIndex = text.indexOf('Unavailable saved part\nREMOVE UNAVAILABLE PART');
@@ -651,7 +662,8 @@ describe('MenuScene', () => {
       selectedBuildId: 'build:pistol',
     }));
 
-    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
 
     expect(addCatalogIcon).toHaveBeenCalledWith(
       expect.anything(), expect.any(Number), expect.any(Number), 'trait-icon:fire', 22,
@@ -693,7 +705,7 @@ describe('MenuScene', () => {
       character: { ...base.character, characters: repeat(base.character.characters, 20, (item, index) => ({ ...item, id: `character-${index}`, name: `Character ${index}` })) },
     });
     assertRows('stage', 25, {
-      stage: { ...base.stage, stages: repeat(base.stage.stages, 25, (item, index) => ({ ...item, id: `contract-${index}`, name: `Contract ${index}` })) },
+      stage: { ...base.stage, stages: repeat(base.stage.stages, 25, (item, index) => ({ ...item, id: `contract-${index}`, name: `Contract ${index}`, locked: false })) },
     });
     const achievementRows = repeat(base.achievements.achievements, 40, (item, index) => ({ ...item, id: `achievement-${index}`, name: `Achievement ${index}` }));
     scene.render({ ...base, panel: 'achievements', achievements: { ...base.achievements, achievements: achievementRows } });
@@ -780,6 +792,35 @@ describe('MenuScene', () => {
 
     await scene.ensureMercenaryPresentation(['character:scrap-tabby']);
     expect(rendered).not.toHaveBeenCalled();
+  });
+
+  it('lazy-loads Compendium actor art, rerenders only the captured panel, and reuses cached resources', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>(); const rendered = vi.fn(); const loaded = new Set<string>();
+    const start = vi.fn(() => {
+      loaded.add('art-enemy-dust-mite');
+      complete.get('filecomplete-spritesheet-art-enemy-dust-mite')?.();
+    });
+    const scene = new MenuScene() as unknown as {
+      isLive: boolean; committedPanel: string; controller: { snapshot(): unknown };
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
+      load: { on(): void; off(): void; once(event: string, listener: () => void): void; spritesheet(): void; start(): void };
+      getContext(): typeof harness.context; requireVisualArt(): DataVisualArtRegistry; render(snapshot: unknown): void;
+      ensurePanelPresentation(panel: 'compendium', ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'compendium', controller: { snapshot: () => ({}) },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: { on: () => undefined, off: () => undefined, once: (event: string, listener: () => void) => { complete.set(event, listener); }, spritesheet: () => undefined, start },
+      getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
+    });
+
+    await scene.ensurePanelPresentation('compendium', ['enemy:dust-mite']);
+    expect(start).toHaveBeenCalledOnce();
+    expect(rendered).toHaveBeenCalledOnce();
+    await scene.ensurePanelPresentation('compendium', ['enemy:dust-mite']);
+    expect(start).toHaveBeenCalledOnce();
   });
 
   it('keeps shared-list focus deterministic across wheel/touch scrolling and resize', () => {
@@ -957,9 +998,9 @@ describe('MenuScene', () => {
       expect.arrayContaining([
         'Meowcenary',
         'Play Contract',
+        'Change Contract',
         'Mercenary',
-        'Loadout: Equipment',
-        'Loadout: Gunsmith',
+        'Loadout',
         'Career',
         'Training',
         'Settings',
@@ -967,6 +1008,53 @@ describe('MenuScene', () => {
       ]),
     );
     expect(objects.filter((object) => object.state.kind === 'container')).toHaveLength(1);
+    expect(textContents()).toContain(
+      'Scrap Tabby • 0 Scrap\nNEXT CONTRACT • Junkyard 1\nFirst Scavenge • Junkyard Lot\nEliminate 25 threats\nThreats: Dust Mite • Scrap Skitter • Junk Rusher • Scrap Sniper\nFirst clear: 35 Scrap + Standard Barrel',
+    );
+  });
+
+  it('shows campaign completion as a replay frontier and never wraps the hero back to Next Contract', () => {
+    const harness = createHarness();
+    for (const stage of harness.context.stages.allStages()) harness.context.completeStage(stage.id, 60_000);
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+    };
+    scene.render(scene.controller.snapshot());
+
+    expect(harness.textContents().some((text) => text.includes('CAMPAIGN COMPLETE — REPLAY'))).toBe(true);
+    expect(harness.textContents().some((text) => text.includes('Forge Warden • Forge Foundry'))).toBe(true);
+    expect(harness.textContents()).toContain('Replay Contract');
+    expect(harness.textContents().some((text) => text.includes('NEXT CONTRACT'))).toBe(false);
+  });
+
+  it('routes through one Loadout hub before Equipment or Gunsmith', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['Loadout', 'Equipment', 'Gunsmith', '< Back']));
+    expect(harness.textContents().some((text) => text.includes('Equipment 0/4 slots'))).toBe(true);
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toContain('AVAILABLE BLUEPRINTS');
+    harness.buttonByLabel('< Back')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toContain('Loadout');
+  });
+
+  it('groups Contract cards by chapter and keeps locked rows inert with player-facing requirements', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Change Contract')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['JUNKYARD', 'FORGE']));
+    const locked = harness.buttonByLabel('Scrap Run\nJunkyard Lot • Collect 14 Scrap\nLOCKED — Clear First Scavenge first.')!;
+    expect(locked.state.interactive).toBe(false);
+  });
+
+  it('renders discovered Compendium entries with controller-owned actor art identities', () => {
+    const harness = createHarness();
+    harness.context.recordCompendiumDiscovery('dust-mite', 'encountered');
+    const addPanelArt = vi.fn();
+    (harness.menuScene as unknown as { addPanelArt: typeof addPanelArt }).addPanelArt = addPanelArt;
+    harness.buttonByLabel('Career')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Compendium')!.state.handlers.pointerup!();
+    expect(addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'enemy:dust-mite', 50);
   });
 
   it('renders unlocked Equipment fabrication blueprints in the player-facing Equipment panel', () => {
@@ -974,7 +1062,8 @@ describe('MenuScene', () => {
     const addCatalogIcon = vi.fn();
     (harness.menuScene as unknown as { addCatalogIcon: typeof addCatalogIcon }).addCatalogIcon = addCatalogIcon;
 
-    harness.buttonByLabel('Loadout: Equipment')!.state.handlers['pointerup']!();
+    harness.buttonByLabel('Loadout')!.state.handlers['pointerup']!();
+    harness.buttonByLabel('Equipment')!.state.handlers['pointerup']!();
 
     expect(harness.textContents()).toContain('AVAILABLE BLUEPRINTS');
     expect(harness.textContents()).toContain(
@@ -1017,6 +1106,10 @@ describe('MenuScene', () => {
   it('navigates panels with keyboard focus and Esc returns home', () => {
     const harness = createHarness();
 
+    harness.keyboard.keydown('ArrowDown');
+    harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('ArrowDown');
+    harness.menuScene.update(0, 16);
     harness.keyboard.keydown('ArrowDown'); // focus moves to Mercenary
     harness.menuScene.update(0, 16);
     harness.keyboard.keydown('Enter');
@@ -1044,6 +1137,7 @@ describe('MenuScene', () => {
       harness.menuScene.update(0, 16);
     };
 
+    press(13);
     press(13); // D-pad down → Mercenary
     press(0); // bottom face confirm → Mercenary panel
     expect(harness.textContents()).toContain('Mercenary');
@@ -1166,6 +1260,7 @@ describe('MenuScene', () => {
       harness.menuScene.update(0, 16);
     };
     press('ArrowDown');
+    press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Mercenary');
     expect(seams.navigator.index).toBe(0);
@@ -1200,6 +1295,7 @@ describe('MenuScene', () => {
     expect(seams.navigator.index).toBe(0);
 
     // Home → Mercenary resets to the first character row.
+    press('ArrowDown');
     press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Mercenary');
@@ -1260,9 +1356,10 @@ describe('MenuScene', () => {
     expect(harness.textContents()).not.toContain('Something went wrong — press Esc to retry');
     expect(events).toEqual(['ui:back']);
     press('ArrowDown');
+    press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Mercenary');
-    expect(events).toEqual(['ui:back', 'ui:navigate', 'ui:confirm']);
+    expect(events).toEqual(['ui:back', 'ui:navigate', 'ui:navigate', 'ui:confirm']);
   });
 
   it('clears the stale hint when a render fails AFTER the hint is assigned (round-6)', () => {
@@ -1302,8 +1399,8 @@ describe('MenuScene', () => {
   });
 
   it.each([
-    { name: 'home', steps: 0, expected: ['Play Contract', 'Mercenary', 'Loadout: Equipment', 'Loadout: Gunsmith', 'Career', 'Training', 'Settings'] },
-    { name: 'mercenary', steps: 1, expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', 'Volt Lynx 🔒', 'Brass Boar 🔒', 'Ember Cougar 🔒', 'Scrap Weasel 🔒', 'Rattle Raptor 🔒', 'Piston Ram 🔒', '< Back'] },
+    { name: 'home', steps: 0, expected: ['Play Contract', 'Change Contract', 'Mercenary', 'Loadout', 'Career', 'Training', 'Settings'] },
+    { name: 'mercenary', steps: 2, expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', 'Volt Lynx 🔒', 'Brass Boar 🔒', 'Ember Cougar 🔒', 'Scrap Weasel 🔒', 'Rattle Raptor 🔒', 'Piston Ram 🔒', '< Back'] },
     { name: 'career', steps: 4, expected: ['Next Goals', 'Achievements', 'Compendium', '< Back'] },
     { name: 'training', steps: 5, expected: ['Start Training', '< Back'] },
     { name: 'settings', steps: 6, expected: ['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', '< Back'] },

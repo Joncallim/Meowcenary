@@ -9,6 +9,7 @@ import type { GameContext } from '../engine/context';
 import { evaluateCondition } from '../gameplay/conditionEvaluator';
 import { createConditionContext } from '../gameplay/conditionEvaluator';
 import type { ProgressionCondition } from '../gameplay/conditionEvaluator';
+import { DataVisualArtRegistry } from '../systems/visualArt';
 
 export interface StageOptionView {
   readonly id: string;
@@ -42,9 +43,11 @@ export interface StageSelectionSnapshot {
 
 export class StageSelectionController {
   private readonly context: GameContext;
+  private readonly visualArt: DataVisualArtRegistry;
 
   constructor(context: GameContext) {
     this.context = context;
+    this.visualArt = new DataVisualArtRegistry(context.data);
   }
 
   snapshot(): StageSelectionSnapshot {
@@ -69,14 +72,11 @@ export class StageSelectionController {
       return this.present(stage, locked, stage.id === selectedStageId, completed);
     });
 
-    const next = stages.find((stage) => !stage.completed && !stage.locked);
     const selected = stages.find((stage) => stage.id === selectedStageId) ?? stages[0]!;
     const allComplete = stages.length > 0 && stages.every((stage) => stage.completed);
     const frontier: StageFrontierView = allComplete
-      ? Object.freeze({ kind: 'campaign-complete', stageId: stages[stages.length - 1]!.id })
-      : next
-        ? Object.freeze({ kind: 'next', stageId: next.id })
-        : Object.freeze({ kind: selected.completed ? 'replay' : 'next', stageId: selected.id });
+      ? Object.freeze({ kind: 'campaign-complete', stageId: selected.id })
+      : Object.freeze({ kind: selected.completed ? 'replay' : 'next', stageId: selected.id });
 
     return Object.freeze({
       revision: context.stageSelectionRevision,
@@ -182,7 +182,8 @@ export class StageSelectionController {
     const priorName = priorStageId ? this.context.stages.stageById(priorStageId)?.name : undefined;
     const threats = (encounter?.enemyIds ?? []).slice(0, 4).flatMap((enemyId) => {
       const enemy = this.context.data.enemies.find((row) => row.id === enemyId);
-      return enemy ? [{ enemyId, name: enemy.name, actorArtId: `enemy:${enemyId}` }] : [];
+      const actorArtId = this.visualArt.bindingById(`enemy:${enemyId}`)?.id;
+      return enemy && actorArtId ? [{ enemyId, name: enemy.name, actorArtId }] : [];
     });
     const firstClearScrap = reward?.firstClearScrap ?? 0;
     const grantNames = (reward?.grants ?? []).flatMap((grant) => {
@@ -203,7 +204,7 @@ export class StageSelectionController {
       locked, selected, completed, ...(bestTimeMs === undefined ? {} : { bestTimeMs }),
       locationName: arena?.name ?? 'Unknown location',
       locationArtId: arena?.visual.floorArtIds[0] ?? '',
-      objective: objectivePresentation(stage.objective, this.context),
+      objective: objectivePresentation(stage.objective, this.context, this.visualArt),
       threats: Object.freeze(threats),
       reward: Object.freeze({
         firstClearScrap,
@@ -223,6 +224,7 @@ function chapterName(chapterId: string): string {
 function objectivePresentation(
   objective: ReturnType<GameContext['stages']['allStages']>[number]['objective'],
   context: GameContext,
+  visualArt: DataVisualArtRegistry,
 ): StageOptionView['objective'] {
   switch (objective.type) {
     case 'kill': return Object.freeze({ kind: 'kill', copy: objective.enemyTag ? `Eliminate ${objective.count} ${objective.enemyTag} threats` : `Eliminate ${objective.count} threats`, artId: 'upgrade-icon:heavy-rounds' });
@@ -230,7 +232,7 @@ function objectivePresentation(
     case 'survive': return Object.freeze({ kind: 'survive', copy: `Survive ${Math.round(objective.seconds / 60)} minutes`, artId: 'upgrade-icon:quick-paws' });
     case 'defeat': {
       const enemy = context.data.enemies.find((row) => row.id === objective.enemyId);
-      return Object.freeze({ kind: 'defeat', copy: `Defeat ${enemy?.name ?? 'the boss'}`, artId: `enemy:${objective.enemyId}` });
+      return Object.freeze({ kind: 'defeat', copy: `Defeat ${enemy?.name ?? 'the boss'}`, artId: visualArt.bindingById(`enemy:${objective.enemyId}`)?.id ?? 'upgrade-icon:heavy-rounds' });
     }
   }
 }

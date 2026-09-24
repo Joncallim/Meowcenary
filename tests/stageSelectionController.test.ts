@@ -113,6 +113,8 @@ describe('StageSelectionController (Epic 20)', () => {
     // Stage 2 now selectable
     expect(controller.select('stage:junkyard-02').ok).toBe(true);
     expect(controller.hasNextUnlockedStage()).toBe(false);
+    controller.select('stage:junkyard-01');
+    expect(controller.snapshot().frontier).toEqual({ kind: 'replay', stageId: 'stage:junkyard-01' });
   });
 
   it('keeps a frozen snapshot and bumps the revision on selection', () => {
