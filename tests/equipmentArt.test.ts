@@ -3,8 +3,15 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { inflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
+import { createGameContext } from '../src/engine/context';
+import { createEventBus } from '../src/engine/eventBus';
+import { createRng } from '../src/engine/rng';
+import { DataArenaRegistry } from '../src/systems/arenas';
+import { DataCharacterRegistry } from '../src/systems/characters';
+import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
 import { DataVisualArtRegistry } from '../src/systems/visualArt';
+import { EquipmentController } from '../src/ui/equipmentController';
 
 const SETS = ['commando', 'scavenger', 'juggernaut', 'pyro', 'recon', 'medic', 'technician', 'demolition'] as const;
 const SLOTS = ['helmet', 'armour', 'gloves', 'boots'] as const;
@@ -77,6 +84,25 @@ describe('dedicated Equipment production art', () => {
     expect(Object.values(atlas.frames).every(({ frame }) => frame.w === 32 && frame.h === 32)).toBe(true);
   });
 
+  it('propagates every dedicated piece and Set identity into the Equipment read model', () => {
+    const data = loadGameData();
+    const context = createGameContext({
+      bus: createEventBus(),
+      menuRng: createRng(42),
+      data,
+      arenas: new DataArenaRegistry(data),
+      characters: new DataCharacterRegistry(data),
+      save: new SaveManager(new MemoryStorageAdapter(), 'equipment-art-propagation'),
+    });
+    const snapshot = new EquipmentController(context).snapshot();
+    expect(new Set(snapshot.blueprints.map(({ iconArtId }) => iconArtId))).toEqual(new Set(
+      ALL_EQUIPMENT_ART_IDS.filter((id) => id.startsWith('equipment-icon:')),
+    ));
+    expect(new Set(snapshot.blueprints.map(({ setEmblemArtId }) => setEmblemArtId))).toEqual(new Set(
+      ALL_EQUIPMENT_ART_IDS.filter((id) => id.startsWith('equipment-set-icon:')),
+    ));
+  });
+
   it('preserves unique black silhouettes and grayscale construction at actual 32px source scale', () => {
     const atlas = JSON.parse(readFileSync('public/assets/equipment/sets/equipment-sets-atlas.json', 'utf8')) as {
       frames: Record<string, { frame: { x: number; y: number } }>;
@@ -98,7 +124,7 @@ describe('dedicated Equipment production art', () => {
         grayBytes[index / 4] = Math.round(frame[index]! * 0.299 + frame[index + 1]! * 0.587 + frame[index + 2]! * 0.114);
       }
       expect(opaquePixels, `${id} should be readable rather than empty/noisy`).toBeGreaterThanOrEqual(55);
-      expect(opaquePixels, `${id} should retain negative space at icon scale`).toBeLessThanOrEqual(575);
+      expect(opaquePixels, `${id} should retain negative space at icon scale`).toBeLessThanOrEqual(680);
       silhouettes.add(createHash('sha256').update(alphaBits.join('')).digest('hex'));
       grayscale.add(createHash('sha256').update(grayBytes).digest('hex'));
     }

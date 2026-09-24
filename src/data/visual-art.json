@@ -1527,6 +1527,286 @@
       "frameKey": "equipment-icon:commando-boots"
     },
     {
+      "id": "equipment-set-icon:scavenger",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-set-icon:scavenger"
+    },
+    {
+      "id": "equipment-icon:scavenger-helmet",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-helmet"
+    },
+    {
+      "id": "equipment-icon:scavenger-armour",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-armour"
+    },
+    {
+      "id": "equipment-icon:scavenger-gloves",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-gloves"
+    },
+    {
+      "id": "equipment-icon:scavenger-boots",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-boots"
+    },
+    {
+      "id": "equipment-set-icon:juggernaut",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-set-icon:juggernaut"
+    },
+    {
+      "id": "equipment-icon:juggernaut-helmet",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-helmet"
+    },
+    {
+      "id": "equipment-icon:juggernaut-armour",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-armour"
+    },
+    {
+      "id": "equipment-icon:juggernaut-gloves",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-gloves"
+    },
+    {
+      "id": "equipment-icon:juggernaut-boots",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-boots"
+    },
+    {
+      "id": "equipment-set-icon:pyro",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-set-icon:pyro"
+    },
+    {
+      "id": "equipment-icon:pyro-helmet",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-helmet"
+    },
+    {
+      "id": "equipment-icon:pyro-armour",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-armour"
+    },
+    {
+      "id": "equipment-icon:pyro-gloves",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-gloves"
+    },
+    {
+      "id": "equipment-icon:pyro-boots",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-boots"
+    },
+    {
+      "id": "equipment-set-icon:recon",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-set-icon:recon"
+    },
+    {
+      "id": "equipment-icon:recon-helmet",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-helmet"
+    },
+    {
+      "id": "equipment-icon:recon-armour",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-armour"
+    },
+    {
+      "id": "equipment-icon:recon-gloves",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-gloves"
+    },
+    {
+      "id": "equipment-icon:recon-boots",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-boots"
+    },
+    {
+      "id": "equipment-set-icon:medic",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-set-icon:medic"
+    },
+    {
+      "id": "equipment-icon:medic-helmet",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-helmet"
+    },
+    {
+      "id": "equipment-icon:medic-armour",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-armour"
+    },
+    {
+      "id": "equipment-icon:medic-gloves",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-gloves"
+    },
+    {
+      "id": "equipment-icon:medic-boots",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-boots"
+    },
+    {
+      "id": "equipment-set-icon:technician",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-set-icon:technician"
+    },
+    {
+      "id": "equipment-icon:technician-helmet",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-helmet"
+    },
+    {
+      "id": "equipment-icon:technician-armour",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-armour"
+    },
+    {
+      "id": "equipment-icon:technician-gloves",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-gloves"
+    },
+    {
+      "id": "equipment-icon:technician-boots",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-boots"
+    },
+    {
+      "id": "equipment-set-icon:demolition",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-set-icon:demolition"
+    },
+    {
+      "id": "equipment-icon:demolition-helmet",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-helmet"
+    },
+    {
+      "id": "equipment-icon:demolition-armour",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-armour"
+    },
+    {
+      "id": "equipment-icon:demolition-gloves",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-gloves"
+    },
+    {
+      "id": "equipment-icon:demolition-boots",
+      "kind": "icon",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-boots"
+    },
+    {
       "id": "gun-part-icon:receiver-compact",
       "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
       "resourceId": "resource:gunsmith-icons", "frameKey": "gun-part-icon:receiver-compact"

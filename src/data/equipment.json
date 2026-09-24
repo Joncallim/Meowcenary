@@ -60,7 +60,7 @@
     "name": "Scavenger Helmet",
     "setId": "set:scavenger",
     "slot": "helmet",
-    "icon": "upgrade-icon:scrap-magnet",
+    "icon": "equipment-icon:scavenger-helmet",
     "effects": [
       {
         "stat": "pickupRadius",
@@ -74,7 +74,7 @@
     "name": "Scavenger Boots",
     "setId": "set:scavenger",
     "slot": "boots",
-    "icon": "upgrade-icon:extra-scrap",
+    "icon": "equipment-icon:scavenger-boots",
     "effects": [
       {
         "stat": "currencyGain",
@@ -88,7 +88,7 @@
     "name": "Juggernaut Armour",
     "setId": "set:juggernaut",
     "slot": "armour",
-    "icon": "upgrade-icon:reinforced-coat",
+    "icon": "equipment-icon:juggernaut-armour",
     "effects": [
       {
         "stat": "maxHealth",
@@ -102,7 +102,7 @@
     "name": "Juggernaut Gloves",
     "setId": "set:juggernaut",
     "slot": "gloves",
-    "icon": "upgrade-icon:heavy-rounds",
+    "icon": "equipment-icon:juggernaut-gloves",
     "effects": [
       {
         "stat": "maxHealth",
@@ -116,7 +116,7 @@
     "name": "Pyro Helmet",
     "setId": "set:pyro",
     "slot": "helmet",
-    "icon": "upgrade-icon:hot-barrel",
+    "icon": "equipment-icon:pyro-helmet",
     "effects": [
       {
         "stat": "damage",
@@ -130,7 +130,7 @@
     "name": "Recon Boots",
     "setId": "set:recon",
     "slot": "boots",
-    "icon": "upgrade-icon:quick-paws",
+    "icon": "equipment-icon:recon-boots",
     "effects": [
       {
         "stat": "moveSpeed",
@@ -144,7 +144,7 @@
     "name": "Medic Helmet",
     "setId": "set:medic",
     "slot": "helmet",
-    "icon": "upgrade-icon:reinforced-coat",
+    "icon": "equipment-icon:medic-helmet",
     "effects": [
       {
         "stat": "maxHealth",
@@ -158,7 +158,7 @@
     "name": "Technician Gloves",
     "setId": "set:technician",
     "slot": "gloves",
-    "icon": "upgrade-icon:smg-overclock",
+    "icon": "equipment-icon:technician-gloves",
     "effects": [
       {
         "stat": "attackSpeed",
@@ -172,7 +172,7 @@
     "name": "Scavenger Armour",
     "setId": "set:scavenger",
     "slot": "armour",
-    "icon": "upgrade-icon:extra-scrap",
+    "icon": "equipment-icon:scavenger-armour",
     "effects": [
       {
         "stat": "currencyGain",
@@ -186,7 +186,7 @@
     "name": "Scavenger Gloves",
     "setId": "set:scavenger",
     "slot": "gloves",
-    "icon": "upgrade-icon:scrap-magnet",
+    "icon": "equipment-icon:scavenger-gloves",
     "effects": [
       {
         "stat": "pickupRadius",
@@ -200,7 +200,7 @@
     "name": "Juggernaut Helmet",
     "setId": "set:juggernaut",
     "slot": "helmet",
-    "icon": "upgrade-icon:reinforced-coat",
+    "icon": "equipment-icon:juggernaut-helmet",
     "effects": [
       {
         "stat": "maxHealth",
@@ -214,7 +214,7 @@
     "name": "Juggernaut Boots",
     "setId": "set:juggernaut",
     "slot": "boots",
-    "icon": "upgrade-icon:run-and-gun",
+    "icon": "equipment-icon:juggernaut-boots",
     "effects": [
       {
         "stat": "maxHealth",
@@ -228,7 +228,7 @@
     "name": "Demolition Helmet",
     "setId": "set:demolition",
     "slot": "helmet",
-    "icon": "upgrade-icon:heavy-rounds",
+    "icon": "equipment-icon:demolition-helmet",
     "effects": [
       {
         "stat": "damage",
@@ -242,7 +242,7 @@
     "name": "Demolition Armour",
     "setId": "set:demolition",
     "slot": "armour",
-    "icon": "upgrade-icon:reinforced-coat",
+    "icon": "equipment-icon:demolition-armour",
     "effects": [
       {
         "stat": "maxHealth",
@@ -256,7 +256,7 @@
     "name": "Demolition Gloves",
     "setId": "set:demolition",
     "slot": "gloves",
-    "icon": "upgrade-icon:punch-through",
+    "icon": "equipment-icon:demolition-gloves",
     "effects": [
       {
         "stat": "pierce",
@@ -270,7 +270,7 @@
     "name": "Demolition Boots",
     "setId": "set:demolition",
     "slot": "boots",
-    "icon": "upgrade-icon:quick-paws",
+    "icon": "equipment-icon:demolition-boots",
     "effects": [
       {
         "stat": "moveSpeed",
@@ -284,7 +284,7 @@
     "name": "Pyro Armour",
     "setId": "set:pyro",
     "slot": "armour",
-    "icon": "upgrade-icon:hot-barrel",
+    "icon": "equipment-icon:pyro-armour",
     "effects": [
       {
         "stat": "maxHealth",
@@ -298,7 +298,7 @@
     "name": "Pyro Gloves",
     "setId": "set:pyro",
     "slot": "gloves",
-    "icon": "upgrade-icon:hot-barrel",
+    "icon": "equipment-icon:pyro-gloves",
     "effects": [
       {
         "stat": "attackSpeed",
@@ -312,7 +312,7 @@
     "name": "Pyro Boots",
     "setId": "set:pyro",
     "slot": "boots",
-    "icon": "upgrade-icon:hot-barrel",
+    "icon": "equipment-icon:pyro-boots",
     "effects": [
       {
         "stat": "moveSpeed",
@@ -326,7 +326,7 @@
     "name": "Recon Helmet",
     "setId": "set:recon",
     "slot": "helmet",
-    "icon": "upgrade-icon:pistol-deadeye",
+    "icon": "equipment-icon:recon-helmet",
     "effects": [
       {
         "stat": "projectileSpeed",
@@ -340,7 +340,7 @@
     "name": "Recon Armour",
     "setId": "set:recon",
     "slot": "armour",
-    "icon": "upgrade-icon:long-barrel",
+    "icon": "equipment-icon:recon-armour",
     "effects": [
       {
         "stat": "range",
@@ -354,7 +354,7 @@
     "name": "Recon Gloves",
     "setId": "set:recon",
     "slot": "gloves",
-    "icon": "upgrade-icon:pistol-deadeye",
+    "icon": "equipment-icon:recon-gloves",
     "effects": [
       {
         "stat": "spreadDeg",
@@ -368,7 +368,7 @@
     "name": "Medic Armour",
     "setId": "set:medic",
     "slot": "armour",
-    "icon": "upgrade-icon:reinforced-coat",
+    "icon": "equipment-icon:medic-armour",
     "effects": [
       {
         "stat": "maxHealth",
@@ -382,7 +382,7 @@
     "name": "Medic Gloves",
     "setId": "set:medic",
     "slot": "gloves",
-    "icon": "upgrade-icon:scrap-magnet",
+    "icon": "equipment-icon:medic-gloves",
     "effects": [
       {
         "stat": "pickupRadius",
@@ -396,7 +396,7 @@
     "name": "Medic Boots",
     "setId": "set:medic",
     "slot": "boots",
-    "icon": "upgrade-icon:quick-paws",
+    "icon": "equipment-icon:medic-boots",
     "effects": [
       {
         "stat": "moveSpeed",
@@ -410,7 +410,7 @@
     "name": "Technician Helmet",
     "setId": "set:technician",
     "slot": "helmet",
-    "icon": "upgrade-icon:smg-overclock",
+    "icon": "equipment-icon:technician-helmet",
     "effects": [
       {
         "stat": "projectileSpeed",
@@ -424,7 +424,7 @@
     "name": "Technician Armour",
     "setId": "set:technician",
     "slot": "armour",
-    "icon": "upgrade-icon:reinforced-coat",
+    "icon": "equipment-icon:technician-armour",
     "effects": [
       {
         "stat": "maxHealth",
@@ -438,7 +438,7 @@
     "name": "Technician Boots",
     "setId": "set:technician",
     "slot": "boots",
-    "icon": "upgrade-icon:quick-paws",
+    "icon": "equipment-icon:technician-boots",
     "effects": [
       {
         "stat": "moveSpeed",
