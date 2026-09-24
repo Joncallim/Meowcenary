@@ -244,6 +244,70 @@ describe('offerCards', () => {
       expect(withoutFamily).toEqual([]);
       expect(withFamily.map((card) => card.id)).toEqual(['pistol-only']);
     });
+
+    it('orders a relevant family identity choice before a support alternative and two wildcards', () => {
+      const scopedSupport = familyCard('pistol-defense', 'pistol');
+      scopedSupport.presentation = { category: 'defense', iconArtId: 'upgrade-icon:pistol-defense' };
+      const cards = [
+        familyCard('pistol-identity', 'pistol'),
+        scopedSupport,
+        upgrade('support', { presentation: { category: 'defense', iconArtId: 'upgrade-icon:support' } }),
+        upgrade('offense-b'),
+      ];
+
+      expect(offerCards(cards, context({}, [weaponInstance('pistol')]), new ScriptedRng(), 4).map((card) => card.id)).toEqual([
+        'pistol-identity',
+        'support',
+        'pistol-defense',
+        'offense-b',
+      ]);
+    });
+
+    it('draws Slot A from the combined eligible family pool for multiple equipped families', () => {
+      const cards = [
+        familyCard('pistol-identity', 'pistol'),
+        familyCard('smg-identity', 'smg'),
+        upgrade('support', { presentation: { category: 'utility', iconArtId: 'upgrade-icon:support' } }),
+        upgrade('wildcard'),
+      ];
+      const rack = [weaponInstance('pistol'), weaponInstance('smg')];
+
+      const first = offerCards(cards, context({}, rack), createRng(2718), 4).map((card) => card.id);
+      const second = offerCards(cards, context({}, rack), createRng(2718), 4).map((card) => card.id);
+
+      expect(['pistol-identity', 'smg-identity']).toContain(first[0]);
+      expect(first[1]).toBe('support');
+      expect(first).toEqual(second);
+    });
+
+    it('falls back without duplication when family or support role pools are empty', () => {
+      const noRoles = [upgrade('a'), upgrade('b'), upgrade('c')];
+      expect(offerCards(noRoles, context(), new ScriptedRng(), 4).map((card) => card.id)).toEqual(['a', 'b', 'c']);
+
+      const maxedFamily = familyCard('maxed-family', 'pistol');
+      const support = upgrade('support', { presentation: { category: 'economy', iconArtId: 'upgrade-icon:support' } });
+      const offer = offerCards(
+        [maxedFamily, support, upgrade('wildcard')],
+        context({ 'maxed-family': maxedFamily.maxStacks }, [weaponInstance('pistol')]),
+        new ScriptedRng(),
+        4,
+      );
+      expect(offer.map((card) => card.id)).toEqual(['support', 'wildcard']);
+      expect(new Set(offer.map((card) => card.id)).size).toBe(offer.length);
+    });
+
+    it('never admits a family card for an unequipped family through wildcard fallback', () => {
+      const cards = [
+        familyCard('shotgun-only', 'shotgun'),
+        familyCard('pistol-only', 'pistol'),
+        upgrade('support', { presentation: { category: 'mobility', iconArtId: 'upgrade-icon:support' } }),
+        upgrade('wildcard'),
+      ];
+
+      const offer = offerCards(cards, context({}, [weaponInstance('pistol')]), new ScriptedRng(), 4);
+      expect(offer.map((card) => card.id)).toEqual(['pistol-only', 'support', 'wildcard']);
+      expect(offer.map((card) => card.id)).not.toContain('shotgun-only');
+    });
   });
 });
 

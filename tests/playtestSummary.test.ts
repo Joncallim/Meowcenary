@@ -30,6 +30,9 @@ function createFixture(
     totalDamage?: number;
     upgradeStacks?: Record<string, number>;
     logger?: LoggerSpy;
+    stageId?: string;
+    enemyArchetype?: (enemyId: string) => string | undefined;
+    objectiveCompletionTimeMs?: () => number | undefined;
   } = {},
 ) {
   const bus = createEventBus();
@@ -39,6 +42,9 @@ function createFixture(
     runState,
     bus,
     dpsMeter: fakeDpsMeter(options.totalDamage ?? 0),
+    stageId: options.stageId,
+    enemyArchetype: options.enemyArchetype,
+    objectiveCompletionTimeMs: options.objectiveCompletionTimeMs,
     logger,
   });
   return { bus, runState, logger, system };
@@ -98,6 +104,7 @@ describe('PlaytestSummarySystem', () => {
       seed: 42,
       characterId: 'cat',
       arenaId: 'yard',
+      stageId: undefined,
       outcome: 'won',
       time: '1:05',
       timeMs: 65000,
@@ -115,6 +122,12 @@ describe('PlaytestSummarySystem', () => {
       weaponRewardsIssued: 0,
       finalRackSize: 0,
       finalRackFamilies: '',
+      firstOfferTimeMs: undefined,
+      firstWeaponAcquiredTimeMs: undefined,
+      objectiveCompletionTimeMs: undefined,
+      longestBuildDecisionGapMs: 65_000,
+      uniqueUpgradeIdsChosen: 0,
+      familyScopedChoicesTaken: 0,
     });
   });
 
@@ -343,8 +356,8 @@ describe('PlaytestSummarySystem Epic 18 (D11) evidence', () => {
     // [0] summary row, [1] upgradeStacks, then the three detail tables.
     expect(tables[2]).toEqual([{ level: 2, at: '0:18', timeMs: 18_000 }]);
     expect(tables[3]).toEqual([
-      { offerId: 1, offered: 'quick-paws, hot-barrel', chosen: 'hot-barrel' },
-      { offerId: 2, offered: 'split-shot', chosen: '(unresolved)' },
+      { offerId: 1, offered: 'quick-paws, hot-barrel', offeredTimeMs: 18_000, chosen: 'hot-barrel', chosenTimeMs: 18_000 },
+      { offerId: 2, offered: 'split-shot', offeredTimeMs: 42_000, chosen: '(unresolved)', chosenTimeMs: undefined },
     ]);
     expect(tables[4]).toEqual([
       { definitionId: 'can-smg-t1', at: '0:42', timeMs: 42_000 },
@@ -368,5 +381,77 @@ describe('PlaytestSummarySystem Epic 18 (D11) evidence', () => {
     const row = logger.table.mock.calls[0][0][0] as PlaytestSummaryRow;
     expect(row.offersSeen).toBe(1);
     expect(row.offerOverlapRate).toBe(0);
+  });
+
+  it('records V4 stage, offer/choice, enemy/archetype, boss phase, and objective timing evidence', () => {
+    const { bus, runState, logger } = createFixture({
+      stageId: 'stage:junkyard-03',
+      enemyArchetype: (enemyId) => enemyId === 'dust-mite' ? 'chaser' : enemyId === 'boss-crusher' ? 'boss' : undefined,
+      objectiveCompletionTimeMs: () => 55_000,
+    });
+    startRun(runState, bus);
+    runState.timeMs = 10_000;
+    bus.emit('card:offered', { offerId: 1, choices: ['pistol-deadeye', 'quick-paws'] });
+    runState.timeMs = 12_500;
+    bus.emit('card:chosen', { upgradeId: 'pistol-deadeye' });
+    runState.timeMs = 8_000;
+    bus.emit('enemy:spawned', { instanceId: 1, enemyId: 'dust-mite', x: 0, y: 0 });
+    runState.timeMs = 21_000;
+    bus.emit('enemy:spawned', { instanceId: 2, enemyId: 'dust-mite', x: 0, y: 0 });
+    runState.timeMs = 40_000;
+    bus.emit('enemy:spawned', { instanceId: 3, enemyId: 'boss-crusher', x: 0, y: 0 });
+    runState.timeMs = 48_000;
+    bus.emit('enemy:boss-phase', { instanceId: 3, enemyId: 'boss-crusher', phase: 2, healthFraction: 0.5 });
+    runState.timeMs = 60_000;
+    endRun(runState, 'won', bus);
+
+    const row = logger.table.mock.calls[0][0][0] as PlaytestSummaryRow;
+    expect(row).toMatchObject({
+      stageId: 'stage:junkyard-03',
+      firstOfferTimeMs: 10_000,
+      objectiveCompletionTimeMs: 55_000,
+      uniqueUpgradeIdsChosen: 1,
+    });
+    const tables = logger.table.mock.calls.map((call) => call[0]);
+    expect(tables).toContainEqual([{ offerId: 1, offered: 'pistol-deadeye, quick-paws', offeredTimeMs: 10_000, chosen: 'pistol-deadeye', chosenTimeMs: 12_500 }]);
+    expect(tables).toContainEqual([
+      { enemyId: 'dust-mite', archetype: 'chaser', firstSeenTimeMs: 8_000 },
+      { enemyId: 'boss-crusher', archetype: 'boss', firstSeenTimeMs: 40_000 },
+    ]);
+    expect(tables).toContainEqual([
+      { archetype: 'chaser', firstSeenTimeMs: 8_000 },
+      { archetype: 'boss', firstSeenTimeMs: 40_000 },
+    ]);
+    expect(tables).toContainEqual([{ enemyId: 'boss-crusher', phase: 2, healthFraction: 0.5, timeMs: 48_000 }]);
+  });
+
+  it('derives longest meaningful build-decision gap and family-scoped choice count from injected catalog truth', () => {
+    const bus = createEventBus();
+    const runState = createRunState({ seed: 1, characterId: 'cat', arenaId: 'yard' });
+    const logger = createLogger();
+    const system = new PlaytestSummarySystem({
+      runState,
+      bus,
+      dpsMeter: fakeDpsMeter(0),
+      familyForUpgrade: (upgradeId) => upgradeId === 'pistol-deadeye' ? 'pistol' : undefined,
+      logger,
+    });
+    startRun(runState, bus);
+    runState.timeMs = 5_000;
+    bus.emit('card:chosen', { upgradeId: 'quick-paws' });
+    runState.timeMs = 20_000;
+    bus.emit('weapon:acquired', { definitionId: 'scrap-pistol-t1', instanceId: 'w1', rackCount: 1, rackCapacity: 6, x: 0, y: 0 });
+    runState.timeMs = 50_000;
+    bus.emit('card:chosen', { upgradeId: 'pistol-deadeye' });
+    runState.timeMs = 80_000;
+    bus.emit('card:chosen', { upgradeId: 'pistol-deadeye' });
+    endRun(runState, 'won', bus);
+
+    const row = logger.table.mock.calls[0][0][0] as PlaytestSummaryRow;
+    expect(row.longestBuildDecisionGapMs).toBe(30_000);
+    expect(row.uniqueUpgradeIdsChosen).toBe(2);
+    expect(row.familyScopedChoicesTaken).toBe(2);
+    expect(row.firstWeaponAcquiredTimeMs).toBe(20_000);
+    system.destroy();
   });
 });

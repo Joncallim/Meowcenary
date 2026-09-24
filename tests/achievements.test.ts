@@ -144,6 +144,17 @@ describe('Epic 22 achievement catalog conformance', () => {
     // boss-crusher is the shipped boss enemy from Epic 21
     expect(dataEnemyIds()).toContain('boss-crusher');
   });
+
+  it('keeps Crusher Down focused on its current Scrap reward and describes First Victory as a win', () => {
+    const crusher = definitions.find((d) => d.id === 'achievement:boss-crusher');
+    expect(crusher?.rewards?.map((reward) => reward.grant)).toEqual([
+      { type: 'grant-scrap', amount: 100 },
+    ]);
+
+    const firstVictory = definitions.find((d) => d.id === 'achievement:first-victory');
+    expect(firstVictory?.description).toBe('Win your first Contract.');
+    expect(firstVictory?.metricId).toBe('metric:runs-completed');
+  });
 });
 
 function dataEnemyIds(): string[] {

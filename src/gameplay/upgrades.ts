@@ -20,6 +20,12 @@ export const UPGRADE_RARITY_WEIGHTS = Object.freeze({
 const RUN_UPGRADE_STAT_KEY_SET: ReadonlySet<string> = new Set(RUN_UPGRADE_STAT_KEYS);
 const WEAPON_MODIFIER_STAT_KEY_SET: ReadonlySet<string> = new Set(WEAPON_MODIFIER_STAT_KEYS);
 const UPGRADE_OPS: ReadonlySet<string> = new Set(['add', 'mult']);
+const SUPPORT_CATEGORIES: ReadonlySet<UpgradeDefinition['presentation']['category']> = new Set([
+  'defense',
+  'mobility',
+  'utility',
+  'economy',
+]);
 const DEFAULT_OFFER_COUNT = 3;
 
 /** Epic 18 (D6): the minimum offer-time context `offerCards` needs — never
@@ -63,7 +69,17 @@ export function offerCards(
   const offer: UpgradeDefinition[] = [];
 
   while (offer.length < requestedCount && eligible.length > 0) {
-    const entries = eligible.map((definition) => ({
+    const slot = offer.length;
+    const rolePool = slot === 0
+      ? eligible.filter((definition) => singleScopedFamily(definition.effects) !== undefined)
+      : slot === 1
+        ? eligible.filter((definition) => (
+          singleScopedFamily(definition.effects) === undefined
+          && SUPPORT_CATEGORIES.has(definition.presentation.category)
+        ))
+        : eligible;
+    const drawPool = rolePool.length > 0 ? rolePool : eligible;
+    const entries = drawPool.map((definition) => ({
       item: definition,
       weight: UPGRADE_RARITY_WEIGHTS[definition.rarity],
     }));

@@ -55,7 +55,7 @@ describe('V4 progression integration', () => {
     expect(context.selectCharacter('scrap-weasel', context.selectionRevision)).toMatchObject({ ok: true });
   });
 
-  it('connects a boss stage fact to an achievement, durable equipment reward, and next-stage availability', () => {
+  it('connects a boss stage fact to its achievement and next-stage availability without reminting the retired helmet reward', () => {
     const data = loadGameData();
     const context = createGameContext({
       bus: createEventBus(), menuRng: createRng(1), data,
@@ -82,7 +82,7 @@ describe('V4 progression integration', () => {
     expect(context.commitAchievementTransaction(result.state, context.saveData.achievementMetrics, {
       id: 'achievement:boss-crusher:completion', grants: result.rewards,
     })).toBe(true);
-    expect(context.saveData.equipment['reward:crusher-commando-helmet']).toMatchObject({ equipmentId: 'equipment:commando-helmet' });
+    expect(context.saveData.equipment['reward:crusher-commando-helmet']).toBeUndefined();
     expect(context.saveData.progression.unlocks).toContain('achievement:boss-crusher');
     expect(new StageSelectionController(context).snapshot().stages.find((stage) => stage.id === 'stage:forge-01')?.locked).toBe(false);
   });

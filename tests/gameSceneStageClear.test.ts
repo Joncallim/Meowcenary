@@ -39,6 +39,7 @@ describe('GameScene durable stage clear', () => {
 
     expect(scene.tryCommitStageClear({ bus: createEventBus() })).toBe(true);
     expect(scene.terminalStageId).toBe('stage:junkyard-01');
+    expect(scene.objectiveCompletionTimeMs).toBe(61_000);
     expect(run.status).toBe('won');
   });
 
@@ -66,7 +67,7 @@ describe('GameScene durable stage clear', () => {
     expect(run.status).toBe('won');
   });
 
-  it('carries a live boss objective through durable facts, achievement reward, and next-stage selection', () => {
+  it('carries a live boss objective through durable facts and next-stage selection without the retired helmet reward', () => {
     const data = loadGameData();
     const metaUpgrades = new DataMetaUpgradeRegistry(data);
     const storage = new MemoryStorageAdapter();
@@ -105,7 +106,7 @@ describe('GameScene durable stage clear', () => {
     expect(context.saveData.stages['stage:junkyard-05']?.completed).toBe(true);
     expect(context.saveData.bosses['boss-crusher']?.defeated).toBe(true);
     expect(context.saveData.achievements['achievement:boss-crusher']?.completed).toBe(true);
-    expect(context.saveData.equipment['reward:crusher-commando-helmet']?.equipmentId).toBe('equipment:commando-helmet');
+    expect(context.saveData.equipment['reward:crusher-commando-helmet']).toBeUndefined();
     const reloaded = createGameContext({
       bus: createEventBus(), menuRng: createRng(2), data,
       arenas: new DataArenaRegistry(data), characters: new DataCharacterRegistry(data), metaUpgrades,
@@ -113,7 +114,7 @@ describe('GameScene durable stage clear', () => {
     });
     expect(reloaded.saveData.bosses['boss-crusher']?.defeated).toBe(true);
     expect(reloaded.saveData.achievements['achievement:boss-crusher']?.completed).toBe(true);
-    expect(reloaded.saveData.equipment['reward:crusher-commando-helmet']?.equipmentId).toBe('equipment:commando-helmet');
+    expect(reloaded.saveData.equipment['reward:crusher-commando-helmet']).toBeUndefined();
     expect(new StageSelectionController(reloaded).snapshot().stages
       .find((stage) => stage.id === 'stage:forge-01')?.locked).toBe(false);
   });
