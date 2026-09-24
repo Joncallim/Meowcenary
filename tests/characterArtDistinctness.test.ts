@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { createHash } from 'node:crypto';
 import { loadGameData } from '../src/systems/validation';
 import { DataVisualArtRegistry } from '../src/systems/visualArt';
 
@@ -149,6 +150,29 @@ describe('Volt Lynx production-art distinction', () => {
     expect(lynx).toMatchObject({ width: 48 * 16, height: 48 });
     expect(intersectionOverUnion(firstFrameAlphaMask(tabby), firstFrameAlphaMask(lynx)))
       .toBeLessThan(0.7);
+  });
+
+  it('keeps every Mercenary pair distinct in black silhouette and grayscale at native actor scale', () => {
+    const ids = [
+      'scrap-tabby', 'bolt-hound', 'volt-lynx', 'brass-boar',
+      'ember-cougar', 'scrap-weasel', 'rattle-raptor', 'piston-ram',
+    ] as const;
+    const actors = ids.map((id) => ({ id, png: decodeRgbaPng(`public/assets/characters/${id}/${id}.png`) }));
+    const grayscaleHashes = new Set<string>();
+    for (const actor of actors) {
+      const gray = Buffer.alloc(48 * 48);
+      for (let y = 0; y < 48; y += 1) for (let x = 0; x < 48; x += 1) {
+        const source = (y * actor.png.width + x) * 4;
+        gray[y * 48 + x] = actor.png.pixels[source + 3] === 0 ? 0
+          : Math.round(actor.png.pixels[source] * 0.299 + actor.png.pixels[source + 1] * 0.587 + actor.png.pixels[source + 2] * 0.114);
+      }
+      grayscaleHashes.add(createHash('sha256').update(gray).digest('hex'));
+    }
+    expect(grayscaleHashes.size).toBe(ids.length);
+    for (let left = 0; left < actors.length; left += 1) for (let right = left + 1; right < actors.length; right += 1) {
+      expect(intersectionOverUnion(firstFrameAlphaMask(actors[left]!.png), firstFrameAlphaMask(actors[right]!.png)), `${actors[left]!.id}/${actors[right]!.id}`)
+        .toBeLessThan(0.82);
+    }
   });
 
   it('keeps distinct logical and physical resources under the character-specific run closure', () => {
