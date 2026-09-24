@@ -65,6 +65,8 @@ describe('dedicated Achievement production art', () => {
   });
 
   it('keeps source, builder, Pixelorama and 32px named-frame export in parity', () => {
+    expect(() => execFileSync('node', ['docs/art/scripts/verify-achievement-builder-parity.mjs']))
+      .not.toThrow();
     expect(() => execFileSync('node', ['docs/art/scripts/export-achievement-icons-atlas.mjs', '--check']))
       .not.toThrow();
     const atlas = JSON.parse(readFileSync('public/assets/achievements/achievement-icons-atlas.json', 'utf8')) as {
