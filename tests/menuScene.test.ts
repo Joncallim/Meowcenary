@@ -1156,6 +1156,31 @@ describe('MenuScene', () => {
     expect(locked.state.interactive).toBe(false);
   });
 
+  it('wraps a complete expanded selected-Contract threat roster inside the narrow safe edge', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      safeRightMargin: number;
+    };
+    const base = scene.controller.snapshot();
+    const stages = base.stage.stages.map((stage, index) => index === 0 ? {
+      ...stage,
+      selected: true,
+      threats: Array.from({ length: 12 }, (_, threatIndex) => ({
+        enemyId: `enemy-${threatIndex}`,
+        name: `Long Threat Name ${threatIndex}`,
+        actorArtId: 'enemy:dust-mite',
+      })),
+    } : { ...stage, selected: false });
+    scene.render({ ...base, panel: 'stage', stage: { ...base.stage, stages } });
+
+    const detail = harness.objects.find((object) => object.state.text.startsWith('Threats: Long Threat Name'))!;
+    const wrapWidth = (detail.state.style.wordWrap as { width: number }).width;
+    expect(detail.state.text).toContain('Long Threat Name 11');
+    expect(detail.state.x + wrapWidth).toBeLessThanOrEqual(390 - scene.safeRightMargin);
+  });
+
   it('renders discovered Compendium entries with controller-owned actor art identities', () => {
     const harness = createHarness();
     harness.context.recordCompendiumDiscovery('dust-mite', 'encountered');

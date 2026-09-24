@@ -49,6 +49,34 @@ describe('StageSelectionController (Epic 20)', () => {
     }
   });
 
+  it('keeps every authoritative encounter threat in the read model, including current five- and six-member rosters', () => {
+    const { controller } = createHarness();
+    const snapshot = controller.snapshot();
+    expect(snapshot.stages.find((stage) => stage.id === 'stage:junkyard-02')!.threats.map((threat) => threat.enemyId)).toEqual([
+      'dust-mite', 'scrap-skitter', 'scrap-sniper', 'junk-nester', 'bastion-beetle',
+    ]);
+    expect(snapshot.stages.find((stage) => stage.id === 'stage:forge-04')!.threats.map((threat) => threat.enemyId)).toEqual([
+      'dust-mite', 'scrap-sniper', 'junk-nester', 'junk-rusher', 'shard-bot', 'bastion-beetle',
+    ]);
+  });
+
+  it('scales to an expanded N+1 encounter roster while deduplicating repeated authored IDs in display order', () => {
+    const data = loadGameData();
+    const targetId = data.stages![0]!.encounterProfileId;
+    const expandedIds = data.enemies.map((enemy) => enemy.id);
+    const encounterProfiles = data.encounterProfiles!.map((encounter) => encounter.id === targetId
+      ? { ...encounter, enemyIds: [...expandedIds, expandedIds[2]!] }
+      : encounter);
+    const amended = { ...data, encounterProfiles };
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data: amended,
+      metaUpgrades: new DataMetaUpgradeRegistry(amended), save: new SaveManager(new MemoryStorageAdapter(), 'n-plus-one-threats', {}),
+      characters: new DataCharacterRegistry(amended), arenas: new DataArenaRegistry(amended), stages: new StageRegistry(amended),
+    });
+
+    expect(new StageSelectionController(context).snapshot().stages[0]!.threats.map((threat) => threat.enemyId)).toEqual(expandedIds);
+  });
+
   it('presents boss detail and the campaign-complete frontier without wrapping to the first Contract', () => {
     const { context, controller } = createHarness();
     for (const stage of context.stages.allStages()) context.completeStage(stage.id, 60_000);
