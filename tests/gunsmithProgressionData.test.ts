@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import gunPartsJson from '../src/data/gun-parts.json';
 import rewardProfilesJson from '../src/data/reward-profiles.json';
-import type { PartDefinition } from '../src/gameplay/gunsmith';
+import weaponsJson from '../src/data/weapons.json';
+import { resolveBuildModifiers, type PartDefinition } from '../src/gameplay/gunsmith';
+import { createRunState } from '../src/gameplay/runState';
+import { resolveWeaponStats } from '../src/gameplay/weaponStats';
+import type { WeaponDefinition } from '../src/systems/types';
 
 const parts = new Map((gunPartsJson as unknown as PartDefinition[]).map((part) => [part.id, part] as const));
 const rewards = rewardProfilesJson as unknown as Array<{ id: string; grants?: Array<{ type: string; partId?: string }> }>;
@@ -26,5 +30,21 @@ describe('Gunsmith first-pass progression cadence', () => {
     const rewardIds = new Set(rewards.flatMap((reward) => reward.grants ?? []).map((grant) => grant.partId));
     expect(rewardIds.has('part:underbarrel-grenade')).toBe(true);
     expect(rewardIds.has('part:trait-fire-mastered')).toBe(true);
+  });
+
+  it('gives the paid Padded Stock a real early-SMG effect even when accuracy is already clamped', () => {
+    const stock = parts.get('part:stock-padded')!;
+    const owned = { instanceId: 'owned:stock', partId: stock.id, tier: 1, infusedTraits: [] } as const;
+    const build = { id: 'build:smg', name: 'SMG', baseWeaponFamily: 'smg', fitted: { stock: owned.instanceId }, traitParts: [] } as const;
+    const modifiers = resolveBuildModifiers(build, parts, new Map([[owned.instanceId, owned]]));
+    const runState = createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'arena:junkyard' });
+    modifiers.forEach((modifier) => runState.stats.add(modifier));
+    const smg = (weaponsJson as unknown as WeaponDefinition[]).find((weapon) => weapon.id === 'can-smg-t1')!;
+    const base = resolveWeaponStats(createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'arena:junkyard' }), smg);
+    const engineered = resolveWeaponStats(runState, smg);
+
+    expect(base.spreadDeg).toBe(0);
+    expect(engineered.spreadDeg).toBe(0);
+    expect(engineered.intervalMs).toBeLessThan(base.intervalMs);
   });
 });

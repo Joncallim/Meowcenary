@@ -73,7 +73,8 @@
     "rarity": "common",
     "presentation": { "iconArtId": "gun-part-icon:stock-padded", "slotIconArtId": "gun-slot-icon:stock", "assemblyArtId": "gun-build-part:stock-padded", "traitIconArtIds": {} },
     "effects": [
-      { "stat": "spreadDeg", "op": "add", "value": -1.5 }
+      { "stat": "spreadDeg", "op": "add", "value": -1.5 },
+      { "stat": "attackSpeed", "op": "add", "value": 0.03 }
     ],
     "traits": [],
     "unlock": { "type": "stage-cleared", "stageId": "stage:junkyard-02" },
