@@ -139,7 +139,9 @@ export class ScrollableFocusRegion {
   private recomputeContentHeight(): void {
     const focusedBottom = this.items.length > 0 ? Math.max(...this.items.map((item) => item.bottom)) : 0;
     const contentBottom = Math.max(focusedBottom, this.supplementalContentBottom);
-    this._contentHeight = contentBottom > 0 ? contentBottom + this.itemMargin : 0;
+    this._contentHeight = contentBottom > 0
+      ? Math.max(0, contentBottom - this.viewportTop) + this.itemMargin
+      : 0;
   }
 
   private clampScrollOffset(): void {

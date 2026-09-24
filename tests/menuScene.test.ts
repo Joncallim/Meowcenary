@@ -1190,6 +1190,7 @@ describe('MenuScene', () => {
     const scene = harness.menuScene as unknown as {
       controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
       render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      scrollViewportTop: number;
       scrollRegion: { contentHeight: number; viewportHeight: number; scrollOffset: number; scrollBy(delta: number): void };
     };
     const base = scene.controller.snapshot();
@@ -1206,9 +1207,11 @@ describe('MenuScene', () => {
 
     const detail = harness.objects.find((object) => object.state.text.startsWith('Threats: Threat 0'))!;
     const detailBottom = detail.state.y + detail.state.height;
-    expect(scene.scrollRegion.contentHeight).toBeGreaterThanOrEqual(detailBottom);
+    expect(scene.scrollRegion.contentHeight).toBeGreaterThanOrEqual(detailBottom - scene.scrollViewportTop);
     scene.scrollRegion.scrollBy(10_000);
-    expect(scene.scrollRegion.scrollOffset).toBeGreaterThanOrEqual(detailBottom - scene.scrollRegion.viewportHeight);
+    expect(scene.scrollRegion.scrollOffset).toBeGreaterThanOrEqual(
+      detailBottom - scene.scrollViewportTop - scene.scrollRegion.viewportHeight,
+    );
   });
 
   it('renders discovered Compendium entries with controller-owned actor art identities', () => {

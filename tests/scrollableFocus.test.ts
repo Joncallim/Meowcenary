@@ -83,6 +83,31 @@ describe('ScrollableFocusRegion', () => {
     expect(region.scrollOffset).toBe(144);
   });
 
+  it('computes max drag relative to a nonzero viewport top without overscrolling', () => {
+    const region = new ScrollableFocusRegion({ viewportTop: 100, viewportBottom: 300 });
+    region.setItems([
+      { index: 0, top: 100, bottom: 180 },
+      { index: 1, top: 420, bottom: 500 },
+    ]);
+    region.includeContentBottom(600);
+    expect(region.contentHeight).toBe(504);
+    region.scrollBy(10_000);
+    expect(region.scrollOffset).toBe(304);
+  });
+
+  it('keeps nonzero-top focus and resize clamping in the same relative extent', () => {
+    const region = new ScrollableFocusRegion({ viewportTop: 100, viewportBottom: 300 });
+    region.setItems([
+      { index: 0, top: 100, bottom: 180 },
+      { index: 1, top: 420, bottom: 500 },
+    ]);
+    region.moveFocus('down');
+    expect(region.scrollOffset).toBe(200);
+    region.setScrollOffset(10_000);
+    region.handleResize();
+    expect(region.scrollOffset).toBe(204);
+  });
+
   it('destroys state', () => {
     const region = new ScrollableFocusRegion({
       viewportTop: 0,
