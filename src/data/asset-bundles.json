@@ -24,5 +24,11 @@
       "resource:world-landmark-hanging-press",
       "resource:world-landmark-barrel-power-stack"
     ]
+  },
+  {
+    "id": "bundle:core-forge",
+    "resourceIds": [
+      "resource:world-forge-atlas"
+    ]
   }
 ]

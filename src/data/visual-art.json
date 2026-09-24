@@ -655,6 +655,134 @@
       "resourceId": "resource:world-landmark-barrel-power-stack"
     },
     {
+      "id": "world:forge-floor:base",
+      "kind": "world",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:world-forge-atlas",
+      "frameKey": "world:forge-floor:base"
+    },
+    {
+      "id": "world:forge-floor:grate-patch",
+      "kind": "world",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:world-forge-atlas",
+      "frameKey": "world:forge-floor:grate-patch"
+    },
+    {
+      "id": "world:forge-floor:heat-scar",
+      "kind": "world",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:world-forge-atlas",
+      "frameKey": "world:forge-floor:heat-scar"
+    },
+    {
+      "id": "world:forge-boundary:straight",
+      "kind": "world",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:world-forge-atlas",
+      "frameKey": "world:forge-boundary:straight"
+    },
+    {
+      "id": "world:forge-boundary:corner",
+      "kind": "world",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:world-forge-atlas",
+      "frameKey": "world:forge-boundary:corner"
+    },
+    {
+      "id": "world:forge-boundary:patch",
+      "kind": "world",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:world-forge-atlas",
+      "frameKey": "world:forge-boundary:patch"
+    },
+    {
+      "id": "world:forge-boundary:gate",
+      "kind": "world",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:world-forge-atlas",
+      "frameKey": "world:forge-boundary:gate"
+    },
+    {
+      "id": "world:forge-prop:coil-rack",
+      "kind": "world",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:world-forge-atlas",
+      "frameKey": "world:forge-prop:coil-rack"
+    },
+    {
+      "id": "world:forge-prop:ingot-pallet",
+      "kind": "world",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:world-forge-atlas",
+      "frameKey": "world:forge-prop:ingot-pallet"
+    },
+    {
+      "id": "world:forge-prop:quench-drum",
+      "kind": "world",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:world-forge-atlas",
+      "frameKey": "world:forge-prop:quench-drum"
+    },
+    {
+      "id": "world:forge-prop:tool-cart",
+      "kind": "world",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:world-forge-atlas",
+      "frameKey": "world:forge-prop:tool-cart"
+    },
+    {
+      "id": "world:forge-prop:slag-pile",
+      "kind": "world",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:world-forge-atlas",
+      "frameKey": "world:forge-prop:slag-pile"
+    },
+    {
+      "id": "world:forge-prop:heat-beacon",
+      "kind": "world",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:world-forge-atlas",
+      "frameKey": "world:forge-prop:heat-beacon"
+    },
+    {
+      "id": "world:forge-landmark:furnace-throat",
+      "kind": "world",
+      "required": true,
+      "display": { "width": 64, "height": 64 },
+      "resourceId": "resource:world-forge-atlas",
+      "frameKey": "world:forge-landmark:furnace-throat"
+    },
+    {
+      "id": "world:forge-landmark:cooling-manifold",
+      "kind": "world",
+      "required": true,
+      "display": { "width": 64, "height": 64 },
+      "resourceId": "resource:world-forge-atlas",
+      "frameKey": "world:forge-landmark:cooling-manifold"
+    },
+    {
+      "id": "world:forge-hazard:heat-grate",
+      "kind": "world",
+      "required": true,
+      "display": { "width": 32, "height": 32 },
+      "resourceId": "resource:world-forge-atlas",
+      "frameKey": "world:forge-hazard:heat-grate"
+    },
+    {
       "id": "upgrade-icon:quick-paws",
       "kind": "upgrade-icon",
       "required": true,

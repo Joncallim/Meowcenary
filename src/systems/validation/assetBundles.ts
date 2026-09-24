@@ -65,9 +65,10 @@ export function assertStageAssetBundleReferences(
       arena.visual.boundary.gateArtId,
       ...arena.visual.decorations.map((decoration) => decoration.artId),
       ...arena.visual.obstacleSkins.map((skin) => skin.artId),
+      ...arena.visual.hazardSkins.map((skin) => skin.artId),
     ];
     const bundleAssets = new Set(bundlesById.get(stage.assetBundleId)!.resourceIds);
-    const requiredAssets = new Set(requiredAssetIds.map((id) => visualArt.bindings.find((binding) => binding.id === id)?.resourceId));
+    const requiredAssets = new Set(requiredAssetIds.map((id) => visualArt.bindings.find((binding) => binding.id === id)?.resourceId).filter((resourceId): resourceId is string => resourceId !== undefined));
     for (const assetId of requiredAssetIds) {
       const resourceId = visualArt.bindings.find((binding) => binding.id === assetId)?.resourceId;
       if (!resourceId || !bundleAssets.has(resourceId)) {

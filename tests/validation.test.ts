@@ -1254,6 +1254,10 @@ describe('game data validation', () => {
       const missingSkin = structuredClone(loadGameData()) as any;
       missingSkin.arenas[0].visual.obstacleSkins.pop();
       expect(() => validateGameData(missingSkin)).toThrow(/missing skin for obstacle/);
+
+      const missingHazardSkin = structuredClone(loadGameData()) as any;
+      missingHazardSkin.arenas.find((arena: { id: string }) => arena.id === 'forge-foundry').visual.hazardSkins.pop();
+      expect(() => validateGameData(missingHazardSkin)).toThrow(/missing skin for hazard/);
     });
 
     it('rejects unknown spawnCurveId', () => {
@@ -1268,6 +1272,18 @@ describe('game data validation', () => {
           obstacles: [{ x: 0, y: 0, w: 400, h: 400 }],
         }),
       ]))).toThrow(/must not contain arena centre/);
+    });
+
+    it('rejects a hazard overlapping the production player spawn circle', () => {
+      expect(() => validateGameData(withArenas([
+        arenaFixture({
+          hazards: [{ id: 'spawn-fire', kind: 'heat', x: 190, y: 200, w: 20, h: 20, damagePerSecond: 5 }],
+          visual: {
+            ...TEST_ARENA_VISUAL,
+            hazardSkins: [{ hazardId: 'spawn-fire', artId: 'world:forge-hazard:heat-grate' }],
+          },
+        }),
+      ]))).toThrow(/hazard must not overlap player spawn circle/);
     });
 
     it('rejects no default arena', () => {

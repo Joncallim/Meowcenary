@@ -75,6 +75,7 @@ import type {
   AssetBundleDefinition,
   VisualTextureResource,
 } from './types';
+import { PLAYER_BODY_RADIUS } from '../engine/bodyDimensions';
 import type { AchievementDefinition } from '../gameplay/achievementSystem';
 import type { PartDefinition } from '../gameplay/gunsmith';
 import type { AbilityDefinition } from '../gameplay/abilities';
@@ -178,10 +179,11 @@ const REGION_EDGE_LANES_FIELDS = new Set(['kind', 'inset', 'lanes']);
 const EDGE_LANE_FIELDS = new Set(['side', 'offset', 'width']);
 const EDGE_LANE_SIDES = new Set(['top', 'right', 'bottom', 'left']);
 const OBSTACLE_FIELDS = new Set(['id', 'x', 'y', 'w', 'h']);
-const ARENA_VISUAL_FIELDS = new Set(['floorArtIds', 'boundary', 'decorations', 'obstacleSkins']);
+const ARENA_VISUAL_FIELDS = new Set(['floorArtIds', 'boundary', 'decorations', 'obstacleSkins', 'hazardSkins']);
 const ARENA_BOUNDARY_FIELDS = new Set(['straightArtId', 'cornerArtId', 'patchArtId', 'gateArtId']);
 const ARENA_DECORATION_FIELDS = new Set(['id', 'artId', 'x', 'y', 'flipX', 'layer']);
 const ARENA_OBSTACLE_SKIN_FIELDS = new Set(['obstacleId', 'artId', 'offsetX', 'offsetY']);
+const ARENA_HAZARD_SKIN_FIELDS = new Set(['hazardId', 'artId']);
 const HAZARD_FIELDS = new Set(['id', 'kind', 'x', 'y', 'w', 'h', 'damagePerSecond']);
 const LOOT_KINDS = new Set(['xp', 'scrap', 'chest', 'weapon', 'nothing']);
 const LOOT_FIELDS = new Set(['id', 'entries']);
@@ -1439,6 +1441,17 @@ function checkArena(row: unknown): string[] {
       if (isFiniteNumber(hy) && isFiniteNumber(hh) && h > 0 && hy + hh > h) {
         hazErrors.push('y + h: must not exceed arena height');
       }
+      if (isFiniteNumber(hx) && isFiniteNumber(hy) && isFiniteNumber(hw) && isFiniteNumber(hh) && w > 0 && h > 0) {
+        const spawnX = w / 2;
+        const spawnY = h / 2;
+        const closestX = Math.max(hx, Math.min(spawnX, hx + hw));
+        const closestY = Math.max(hy, Math.min(spawnY, hy + hh));
+        const dx = spawnX - closestX;
+        const dy = spawnY - closestY;
+        if (dx * dx + dy * dy < PLAYER_BODY_RADIUS * PLAYER_BODY_RADIUS) {
+          hazErrors.push('hazard must not overlap player spawn circle');
+        }
+      }
       const dps = readOwnField(hazard, 'damagePerSecond');
       if (!isFiniteNumber(dps) || dps <= 0 || dps > 1000) {
         hazErrors.push('damagePerSecond: required finite number in (0, 1000]');
@@ -1662,6 +1675,29 @@ function checkArenaVisual(row: Record<string, unknown>, arenaWidth: number, aren
         }
       }
       errors.push(...rowErrors.map((error) => `obstacleSkins[${index}].${error}`));
+    });
+  }
+
+  const hazardSkins = readOwnField(row, 'hazardSkins');
+  if (!Array.isArray(hazardSkins) || hazardSkins.length > MAX_HAZARDS) {
+    errors.push(`hazardSkins: required array with at most ${MAX_HAZARDS} entries`);
+  } else {
+    const seen = new Set<string>();
+    hazardSkins.forEach((skin, index) => {
+      if (!isRecord(skin)) {
+        errors.push(`hazardSkins[${index}]: expected object`);
+        return;
+      }
+      const rowErrors: string[] = [];
+      rejectUnknownFields(skin, ARENA_HAZARD_SKIN_FIELDS, rowErrors);
+      requireString(skin, 'hazardId', rowErrors);
+      requireString(skin, 'artId', rowErrors);
+      const hazardId = readOwnField(skin, 'hazardId');
+      if (typeof hazardId === 'string') {
+        if (seen.has(hazardId)) rowErrors.push(`hazardId: duplicate skin for "${hazardId}"`);
+        seen.add(hazardId);
+      }
+      errors.push(...rowErrors.map((error) => `hazardSkins[${index}].${error}`));
     });
   }
   return errors;
@@ -3106,27 +3142,51 @@ export function assertArenaVisualReferences(
 ): void {
   const byId = new Map(catalog.bindings.map((binding) => [binding.id, binding]));
   const errors: string[] = [];
-  const check = (arenaIndex: number, path: string, artId: string, prefix: string): void => {
+  /**
+   * Arena visuals declare their world family through the semantic floor IDs
+   * (for example `world:forge-floor:*`). Derive role prefixes from that
+   * declaration instead of coupling validation to the first authored arena.
+   * Generic Junkyard-era prop/landmark prefixes remain accepted for
+   * compatibility, while a family-specific prefix is accepted for new
+   * locations such as Forge Foundry.
+   */
+  const familyFromFloorIds = (floorArtIds: readonly string[]): string | undefined => {
+    for (const artId of floorArtIds) {
+      const match = /^world:([a-z0-9-]+)-floor:/.exec(artId);
+      if (match) return match[1];
+    }
+    return undefined;
+  };
+  const check = (arenaIndex: number, path: string, artId: string, prefixes: readonly string[]): void => {
     const binding = byId.get(artId);
     if (!binding) {
       errors.push(`arenas.json[${arenaIndex}].visual.${path}: unknown visual-art id "${artId}"`);
     } else if (binding.kind !== 'world') {
       errors.push(`arenas.json[${arenaIndex}].visual.${path}: expected world binding, got ${binding.kind}`);
-    } else if (!artId.startsWith(prefix)) {
-      errors.push(`arenas.json[${arenaIndex}].visual.${path}: art id must start "${prefix}"`);
+    } else if (!prefixes.some((prefix) => artId.startsWith(prefix))) {
+      errors.push(`arenas.json[${arenaIndex}].visual.${path}: art id must start "${prefixes[0]}"`);
     } else if (!binding.required) {
       errors.push(`arenas.json[${arenaIndex}].visual.${path}: world art must be required`);
     }
   };
 
   arenas.forEach((arena, arenaIndex) => {
+    const family = familyFromFloorIds(arena.visual.floorArtIds);
+    const rolePrefix = (role: 'floor' | 'boundary' | 'prop' | 'landmark' | 'hazard'): readonly string[] => {
+      const familyPrefix = family ? `world:${family}-${role}:` : `world:${role}:`;
+      // `world:prop:` and `world:landmark:` are shipped generic families;
+      // floor/boundary families are always location-declared.
+      return role === 'prop' || role === 'landmark'
+        ? [familyPrefix, `world:${role}:`]
+        : [familyPrefix];
+    };
     arena.visual.floorArtIds.forEach((artId, index) =>
-      check(arenaIndex, `floorArtIds[${index}]`, artId, 'world:junkyard-floor:'));
+      check(arenaIndex, `floorArtIds[${index}]`, artId, rolePrefix('floor')));
     for (const [field, artId] of Object.entries(arena.visual.boundary)) {
-      check(arenaIndex, `boundary.${field}`, artId, 'world:junkyard-boundary:');
+      check(arenaIndex, `boundary.${field}`, artId, rolePrefix('boundary'));
     }
     arena.visual.decorations.forEach((decoration, index) =>
-      check(arenaIndex, `decorations[${index}].artId`, decoration.artId, 'world:prop:'));
+      check(arenaIndex, `decorations[${index}].artId`, decoration.artId, rolePrefix('prop')));
 
     const obstacleIds = new Set(arena.obstacles.map((obstacle) => obstacle.id));
     const skinnedIds = new Set<string>();
@@ -3135,11 +3195,25 @@ export function assertArenaVisualReferences(
         errors.push(`arenas.json[${arenaIndex}].visual.obstacleSkins[${index}].obstacleId: unknown obstacle "${skin.obstacleId}"`);
       }
       skinnedIds.add(skin.obstacleId);
-      check(arenaIndex, `obstacleSkins[${index}].artId`, skin.artId, 'world:landmark:');
+      check(arenaIndex, `obstacleSkins[${index}].artId`, skin.artId, rolePrefix('landmark'));
     });
     for (const obstacleId of obstacleIds) {
       if (!skinnedIds.has(obstacleId)) {
         errors.push(`arenas.json[${arenaIndex}].visual.obstacleSkins: missing skin for obstacle "${obstacleId}"`);
+      }
+    }
+    const hazardIds = new Set(arena.hazards.map((hazard) => hazard.id));
+    const skinnedHazardIds = new Set<string>();
+    arena.visual.hazardSkins.forEach((skin, index) => {
+      if (!hazardIds.has(skin.hazardId)) {
+        errors.push(`arenas.json[${arenaIndex}].visual.hazardSkins[${index}].hazardId: unknown hazard "${skin.hazardId}"`);
+      }
+      skinnedHazardIds.add(skin.hazardId);
+      check(arenaIndex, `hazardSkins[${index}].artId`, skin.artId, rolePrefix('hazard'));
+    });
+    for (const hazardId of hazardIds) {
+      if (!skinnedHazardIds.has(hazardId)) {
+        errors.push(`arenas.json[${arenaIndex}].visual.hazardSkins: missing skin for hazard "${hazardId}"`);
       }
     }
   });

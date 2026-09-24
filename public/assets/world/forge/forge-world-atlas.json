@@ -1,0 +1,172 @@
+{
+  "color_mode": 5,
+  "current_frame": 0,
+  "current_layer": 0,
+  "export_directory_path": "",
+  "export_file_format": 0,
+  "export_file_name": "forge-world-atlas",
+  "fps": 8,
+  "frames": {
+    "world:forge-floor:base": {
+      "frame": {
+        "x": 16,
+        "y": 16,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "world:forge-floor:grate-patch": {
+      "frame": {
+        "x": 80,
+        "y": 16,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "world:forge-floor:heat-scar": {
+      "frame": {
+        "x": 144,
+        "y": 16,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "world:forge-boundary:straight": {
+      "frame": {
+        "x": 208,
+        "y": 16,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "world:forge-boundary:corner": {
+      "frame": {
+        "x": 16,
+        "y": 80,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "world:forge-boundary:patch": {
+      "frame": {
+        "x": 80,
+        "y": 80,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "world:forge-boundary:gate": {
+      "frame": {
+        "x": 144,
+        "y": 80,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "world:forge-prop:coil-rack": {
+      "frame": {
+        "x": 208,
+        "y": 80,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "world:forge-prop:ingot-pallet": {
+      "frame": {
+        "x": 16,
+        "y": 144,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "world:forge-prop:quench-drum": {
+      "frame": {
+        "x": 80,
+        "y": 144,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "world:forge-prop:tool-cart": {
+      "frame": {
+        "x": 144,
+        "y": 144,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "world:forge-prop:slag-pile": {
+      "frame": {
+        "x": 208,
+        "y": 144,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "world:forge-prop:heat-beacon": {
+      "frame": {
+        "x": 16,
+        "y": 208,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "world:forge-landmark:furnace-throat": {
+      "frame": {
+        "x": 64,
+        "y": 192,
+        "w": 64,
+        "h": 64
+      }
+    },
+    "world:forge-landmark:cooling-manifold": {
+      "frame": {
+        "x": 192,
+        "y": 192,
+        "w": 64,
+        "h": 64
+      }
+    },
+    "world:forge-hazard:heat-grate": {
+      "frame": {
+        "x": 144,
+        "y": 208,
+        "w": 32,
+        "h": 32
+      }
+    }
+  },
+  "layers": [
+    {
+      "animated_params": "{}",
+      "blend_mode": 0,
+      "clipping_mask": false,
+      "effects": {},
+      "locked": false,
+      "name": "body",
+      "new_cels_linked": false,
+      "opacity": 1,
+      "parent": -1,
+      "type": 0,
+      "visible": true
+    },
+    {
+      "animated_params": "{}",
+      "blend_mode": 0,
+      "clipping_mask": false,
+      "effects": {},
+      "locked": false,
+      "name": "notes",
+      "new_cels_linked": false,
+      "opacity": 1,
+      "parent": -1,
+      "type": 0,
+      "visible": false
+    }
+  ],
+  "pixelorama_version": "v1.2-stable",
+  "pxo_version": 7,
+  "size_x": 256,
+  "size_y": 256,
+  "tags": {}
+}

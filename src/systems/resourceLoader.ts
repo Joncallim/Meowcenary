@@ -267,6 +267,7 @@ export function resolveRunPhysicalResources(options: {
   for (const id of Object.values(options.arena.visual.boundary)) addArt(id);
   for (const decoration of options.arena.visual.decorations) addArt(decoration.artId);
   for (const skin of options.arena.visual.obstacleSkins) addArt(skin.artId);
+  for (const skin of options.arena.visual.hazardSkins) addArt(skin.artId);
 
   const enemyById = new Map(options.data.enemies.map((enemy) => [enemy.id, enemy]));
   const visitedEnemies = new Set<string>();

@@ -24,6 +24,45 @@ const hazard: HazardDefinition = {
 };
 
 describe('HazardSystem', () => {
+  it('tiles the authoritative hazard skin across the exact gameplay rectangle', () => {
+    const tileSprite = {
+      setDepth: vi.fn().mockReturnThis(),
+      destroy: vi.fn(),
+    };
+    const rectangle = vi.fn();
+    const scene = {
+      add: { tileSprite: vi.fn(() => tileSprite), rectangle },
+      textures: { exists: vi.fn(() => true) },
+    };
+    const visualArt = {
+      all: vi.fn(() => []),
+      bindingById: vi.fn(() => ({
+        id: 'world:forge-hazard:heat-grate', kind: 'world', required: true,
+        textureKey: 'art-world-forge', frameKey: 'world:forge-hazard:heat-grate',
+        url: 'assets/world/forge/forge-world-atlas.png', sampling: 'nearest',
+        load: { type: 'atlas', imageUrl: 'assets/world/forge/forge-world-atlas.png', dataUrl: 'assets/world/forge/forge-world-atlas.json' },
+        display: { width: 32, height: 32 },
+      })),
+    };
+    const system = new HazardSystem({
+      scene: scene as never,
+      runState: createRunState({ seed: 1, characterId: 'cat', arenaId: 'arena' }),
+      bus: createEventBus(),
+      player: makePlayer() as never,
+      hazards: [hazard],
+      hazardSkins: [{ hazardId: 'acid-pool', artId: 'world:forge-hazard:heat-grate' }],
+      visualArt: visualArt as never,
+    });
+
+    expect(scene.add.tileSprite).toHaveBeenCalledWith(
+      100, 100, 100, 100, 'art-world-forge', 'world:forge-hazard:heat-grate',
+    );
+    expect(tileSprite.setDepth).toHaveBeenCalledWith(-3);
+    expect(rectangle).not.toHaveBeenCalled();
+    system.destroy();
+    expect(tileSprite.destroy).toHaveBeenCalledOnce();
+  });
+
   it('deals damage when player is inside a hazard', () => {
     const bus = createEventBus();
     const player = makePlayer({ x: 100, y: 100 });

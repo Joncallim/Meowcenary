@@ -528,6 +528,8 @@ export class GameScene extends Phaser.Scene {
         bus: ctx.bus,
         player: this.player,
         hazards: arena.hazards,
+        hazardSkins: arena.visual.hazardSkins,
+        visualArt,
       }),
       this.feedbackSystem,
       this.defeatPresentationSystem,

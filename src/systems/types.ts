@@ -589,6 +589,11 @@ export interface ArenaObstacleSkinDefinition {
   readonly offsetY?: number;
 }
 
+export interface ArenaHazardSkinDefinition {
+  readonly hazardId: string;
+  readonly artId: string;
+}
+
 export interface ArenaVisualDefinition {
   readonly floorArtIds: readonly string[];
   readonly boundary: {
@@ -599,6 +604,7 @@ export interface ArenaVisualDefinition {
   };
   readonly decorations: readonly ArenaDecorationDefinition[];
   readonly obstacleSkins: readonly ArenaObstacleSkinDefinition[];
+  readonly hazardSkins: readonly ArenaHazardSkinDefinition[];
 }
 
 export interface HazardDefinition {

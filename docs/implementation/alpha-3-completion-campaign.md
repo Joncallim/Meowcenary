@@ -11,6 +11,8 @@ not a new design source.
 - Persistence candidate: `c96f3cf0b01940e4cdef6ad487dfe4f6ab1eb845`
 - Persistence baseline on `main`: `27fa560f75afbaaa4944e338610e42f83ef453cf`
 - Owning integration: PR #163, merged 2026-09-24
+- Character/Equipment art baseline: PR #178 merge `c99bf6dc42349cbb4762be18c0c734cba7db0120`
+- Gunsmith art baseline: PR #179 merge `811112dc9a02df424e478b0b4b21ea617875a375`
 
 ## Frozen persistence decisions
 
@@ -49,7 +51,7 @@ remain **UNVERIFIED** until genuinely performed.
 | #168 Compendium | generic discovery/save/Career UI shipped | closed after merged-main CI |
 | #170 scalability | data-first registries, lazy resources, N+1 proofs shipped | closed after merged-main CI |
 | #85 Contracts | implementation shipped; distinct pacing needs integrated play | keep for acceptance |
-| #87 Gunsmith | mechanics shipped; assembled-weapon/dedicated Part visuals remain | active art tranche |
+| #87 Gunsmith | mechanics and dedicated Part/slot/trait art shipped; assembled-weapon visuals remain | active assembled-weapon tranche |
 | #88 Mercenaries | mechanics/ability feedback shipped; cast art readability remains | active art tranche |
 | #89 Equipment | mechanics and player fabrication shipped; dedicated piece art remains | active art tranche |
 | #165 navigation | implementation shipped; device and final visual acceptance remain | keep for acceptance |
@@ -75,14 +77,19 @@ Representative production batch:
 2. Commando now has one dedicated Set emblem and four slot-readable piece
    icons in a single lazy-loaded named-frame atlas. Cold-load rerender and
    already-cached rendering are covered through the physical binding resolver.
-3. Gunsmith exploration selected a coherent 23-icon direction covering all 12
-   Parts, eight slots, and three behavior traits. Production source/export and
-   UI integration are the next tranche.
+3. Gunsmith ships a coherent 23-icon packet covering all 12 Parts, eight slots,
+   and three behavior traits, with editable source, deterministic export,
+   lazy resource loading, partial-load recovery, and current-selection closure
+   tracking.
+4. Forge Foundry is the active candidate: a distinct existing-architecture
+   Arena, Forge-specific encounters, a 16-image world packet, and an active
+   heat-grate skin whose art is part of the exact run resource closure.
 
-The representative batch adds six shipped logical images backed by two
-physical resources (Volt Lynx sheet and Commando atlas), while the 23 Gunsmith
-concept identities remain outside runtime until their deterministic production
-chain and exact-ID validation land.
+The completed art PRs add 29 shipped logical images backed by three physical
+resources (Volt Lynx sheet, Commando atlas, and Gunsmith atlas). The Forge
+candidate adds 16 logical world images in one physical atlas; its selected and
+rejected generated directions are retained as provenance rather than copied
+directly into runtime output.
 
 Automated art-tranche evidence before PR review:
 

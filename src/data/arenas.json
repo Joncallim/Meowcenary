@@ -42,8 +42,61 @@
       "obstacleSkins": [
         { "obstacleId": "hanging-press", "artId": "world:landmark:hanging-press" },
         { "obstacleId": "barrel-power-stack", "artId": "world:landmark:barrel-power-stack" }
-      ]
+      ],
+      "hazardSkins": []
     },
     "unlock": { "type": "default" }
+  },
+  {
+    "id": "forge-foundry",
+    "name": "Forge Foundry",
+    "size": { "width": 768, "height": 1344 },
+    "spawnCurveId": "junkyard-intro",
+    "spawnRegions": [{
+      "kind": "edge-lanes",
+      "inset": 20,
+      "lanes": [
+        { "side": "top", "offset": 416, "width": 96 },
+        { "side": "right", "offset": 608, "width": 96 },
+        { "side": "bottom", "offset": 256, "width": 96 },
+        { "side": "left", "offset": 768, "width": 96 }
+      ]
+    }],
+    "obstacles": [
+      { "id": "furnace-throat", "x": 96, "y": 384, "w": 64, "h": 64 },
+      { "id": "cooling-manifold", "x": 608, "y": 960, "w": 64, "h": 64 }
+    ],
+    "hazards": [
+      { "id": "heat-grate", "kind": "heat-grate", "x": 288, "y": 304, "w": 192, "h": 48, "damagePerSecond": 6 }
+    ],
+    "visual": {
+      "floorArtIds": [
+        "world:forge-floor:base",
+        "world:forge-floor:grate-patch",
+        "world:forge-floor:heat-scar"
+      ],
+      "boundary": {
+        "straightArtId": "world:forge-boundary:straight",
+        "cornerArtId": "world:forge-boundary:corner",
+        "patchArtId": "world:forge-boundary:patch",
+        "gateArtId": "world:forge-boundary:gate"
+      },
+      "decorations": [
+        { "id": "north-coil-rack", "artId": "world:forge-prop:coil-rack", "x": 96, "y": 160, "layer": "low" },
+        { "id": "east-ingot-pallet", "artId": "world:forge-prop:ingot-pallet", "x": 640, "y": 224, "flipX": true, "layer": "low" },
+        { "id": "west-quench-drum", "artId": "world:forge-prop:quench-drum", "x": 128, "y": 768, "layer": "low" },
+        { "id": "east-tool-cart", "artId": "world:forge-prop:tool-cart", "x": 640, "y": 640, "layer": "low" },
+        { "id": "south-slag-pile", "artId": "world:forge-prop:slag-pile", "x": 256, "y": 992, "layer": "ground" },
+        { "id": "south-heat-beacon", "artId": "world:forge-prop:heat-beacon", "x": 544, "y": 1120, "layer": "low" }
+      ],
+      "obstacleSkins": [
+        { "obstacleId": "furnace-throat", "artId": "world:forge-landmark:furnace-throat" },
+        { "obstacleId": "cooling-manifold", "artId": "world:forge-landmark:cooling-manifold" }
+      ],
+      "hazardSkins": [
+        { "hazardId": "heat-grate", "artId": "world:forge-hazard:heat-grate" }
+      ]
+    },
+    "unlock": { "type": "meta", "requiresUnlockId": "arena:forge-foundry" }
   }
 ]

@@ -3,6 +3,9 @@ import type { EventBus } from '../engine/eventBus';
 import type { RunState } from '../gameplay/runState';
 import type { Player } from '../entities/Player';
 import type { HazardDefinition } from './types';
+import type { ArenaHazardSkinDefinition } from './types';
+import type { VisualArtLookup } from './visualArt';
+import { VisualDepth } from './visualDepths';
 
 export interface HazardSystemOptions {
   readonly scene: Phaser.Scene;
@@ -10,6 +13,8 @@ export interface HazardSystemOptions {
   readonly bus: EventBus;
   readonly player: Player;
   readonly hazards: readonly HazardDefinition[];
+  readonly hazardSkins?: readonly ArenaHazardSkinDefinition[];
+  readonly visualArt?: VisualArtLookup;
 }
 
 export class HazardSystem implements System {
@@ -17,7 +22,7 @@ export class HazardSystem implements System {
   private readonly runState: RunState;
   private readonly bus: EventBus;
   private readonly player: Player;
-  private readonly visuals: Phaser.GameObjects.Rectangle[] = [];
+  private readonly visuals: Phaser.GameObjects.GameObject[] = [];
   private destroyed = false;
 
   constructor(options: HazardSystemOptions) {
@@ -26,13 +31,31 @@ export class HazardSystem implements System {
     this.bus = options.bus;
     this.player = options.player;
 
-    if (options.scene.add && options.hazards.length > 0) {
+    if (options.scene.add && options.hazards.length > 0 && options.visualArt) {
+      const skins = new Map((options.hazardSkins ?? []).map((skin) => [skin.hazardId, skin]));
+      for (const h of options.hazards) {
+        const skin = skins.get(h.id);
+        const binding = skin && options.visualArt.bindingById(skin.artId);
+        if (!skin || !binding || binding.kind !== 'world' || !options.scene.textures.exists(binding.textureKey)) {
+          throw new Error(`Hazard "${h.id}" cannot start without its loaded world skin`);
+        }
+        const tile = options.scene.add.tileSprite(
+          h.x + h.w / 2,
+          h.y + h.h / 2,
+          h.w,
+          h.h,
+          binding.textureKey,
+          binding.frameKey,
+        ).setDepth(VisualDepth.groundDecoration);
+        this.visuals.push(tile);
+      }
+    } else if (options.scene.add && options.hazards.length > 0) {
+      // Headless/legacy geometry diagnostics do not supply the production art
+      // registry. Keep their non-authoritative visual fallback isolated here.
       for (const h of options.hazards) {
         const rect = options.scene.add.rectangle(
-          h.x + h.w / 2, h.y + h.h / 2, h.w, h.h,
-          0xff4444,
-          0.18,
-        ).setDepth(0);
+          h.x + h.w / 2, h.y + h.h / 2, h.w, h.h, 0xff4444, 0.18,
+        ).setDepth(VisualDepth.groundDecoration);
         this.visuals.push(rect);
       }
     }

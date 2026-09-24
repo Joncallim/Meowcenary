@@ -10,4 +10,5 @@ export const TEST_ARENA_VISUAL: ArenaVisualDefinition = Object.freeze({
   }),
   decorations: Object.freeze([]),
   obstacleSkins: Object.freeze([]),
+  hazardSkins: Object.freeze([]),
 });

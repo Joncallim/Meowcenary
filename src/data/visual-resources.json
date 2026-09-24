@@ -440,6 +440,16 @@
     }
   },
   {
+    "id": "resource:world-forge-atlas",
+    "textureKey": "art-world-forge-atlas",
+    "sampling": "nearest",
+    "load": {
+      "type": "atlas",
+      "imageUrl": "assets/world/forge/forge-world-atlas.png",
+      "dataUrl": "assets/world/forge/forge-world-atlas.json"
+    }
+  },
+  {
     "id": "resource:upgrade-icon-quick-paws",
     "textureKey": "art-upgrade-icon-quick-paws",
     "sampling": "nearest",
