@@ -734,6 +734,16 @@
     }
   },
   {
+    "id": "resource:equipment-commando",
+    "textureKey": "art-equipment-commando",
+    "sampling": "nearest",
+    "load": {
+      "type": "atlas",
+      "imageUrl": "assets/equipment/commando/commando-equipment-atlas.png",
+      "dataUrl": "assets/equipment/commando/commando-equipment-atlas.json"
+    }
+  },
+  {
     "id": "resource:character-piston-ram",
     "textureKey": "art-character-piston-ram",
     "sampling": "nearest",

@@ -13,6 +13,7 @@ import { DataArenaRegistry } from '../src/systems/arenas';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
+import { DataVisualArtRegistry } from '../src/systems/visualArt';
 import { loadGameData } from '../src/systems/validation';
 import { edgeMargin, minimumHitTarget, type LayoutEdge, type UiViewport } from '../src/ui/layout';
 import { FocusStroke } from '../src/ui/theme';
@@ -1125,6 +1126,64 @@ describe('MenuScene', () => {
     expect(registry).toBeDefined();
     seams.render((harness.menuScene as unknown as { requireController(): { snapshot(): never } }).requireController().snapshot());
     expect(seams.visualArt).toBe(registry);
+  });
+
+  it('loads Equipment atlas resources lazily, rerenders after a cold load, and uses atlas frames when cached', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>();
+    const queued: unknown[][] = []; const rendered = vi.fn();
+    let loaded = false;
+    const scene = new MenuScene() as unknown as {
+      committedPanel: string;
+      controller: { snapshot(): unknown };
+      textures: { exists(key: string): boolean };
+      load: {
+        on(): void; off(): void; once(event: string, listener: () => void): void;
+        atlas(...args: unknown[]): void; start(): void;
+      };
+      getContext(): typeof harness.context;
+      requireVisualArt(): DataVisualArtRegistry;
+      render(snapshot: unknown): void;
+      ensureEquipmentPresentation(ids: readonly string[]): Promise<void>;
+      add: { image(x: number, y: number, key: string, frame?: string): { setDisplaySize(): unknown; setScrollFactor(): unknown } };
+      own<T>(_root: unknown, object: T): T;
+      registerScrollObject(object: unknown): void;
+      addCatalogIcon(root: unknown, x: number, y: number, artId: string): void;
+    };
+    Object.assign(scene, {
+      committedPanel: 'equipment', controller: { snapshot: () => ({}) },
+      textures: { exists: () => loaded },
+      load: {
+        on: () => undefined, off: () => undefined,
+        once: (event: string, listener: () => void) => { complete.set(event, listener); },
+        atlas: (...args: unknown[]) => { queued.push(args); },
+        start: () => { loaded = true; complete.get('filecomplete-atlasjson-art-equipment-commando')?.(); },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
+    });
+
+    await scene.ensureEquipmentPresentation(['icon:equipment-commando-helmet']);
+    expect(queued).toEqual([[
+      'art-equipment-commando',
+      'assets/equipment/commando/commando-equipment-atlas.png',
+      'assets/equipment/commando/commando-equipment-atlas.json',
+    ]]);
+    expect(rendered).toHaveBeenCalledOnce();
+
+    // A rerender with the physical atlas already present renders the named
+    // frame directly; it neither requeues nor silently drops the icon.
+    const images: Array<{ key: string; frame?: string }> = [];
+    scene.add = { image: (_x, _y, key, frame) => {
+      images.push({ key, frame });
+      return { setDisplaySize: () => undefined, setScrollFactor: () => undefined };
+    } };
+    scene.own = (_root, object) => object;
+    scene.registerScrollObject = () => undefined;
+    scene.addCatalogIcon({}, 0, 0, 'icon:equipment-commando-helmet');
+    expect(images).toEqual([{ key: 'art-equipment-commando', frame: 'icon:equipment-commando-helmet' }]);
+    await scene.ensureEquipmentPresentation(['icon:equipment-commando-helmet']);
+    expect(queued).toHaveLength(1);
   });
 
 

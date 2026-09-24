@@ -209,7 +209,7 @@ const VISUAL_RESOURCE_LOAD_FIELDS = new Set(['type', 'imageUrl', 'dataUrl', 'fra
 const VISUAL_ART_DIMENSION_FIELDS = new Set(['width', 'height']);
 const VISUAL_ART_CLIP_FIELDS = new Set(['start', 'end', 'frameRate', 'repeat']);
 const VISUAL_ART_KINDS = new Set([
-  'character', 'enemy', 'projectile', 'drop', 'weapon-icon', 'weapon-held', 'world', 'upgrade-icon', 'achievement-icon',
+  'character', 'enemy', 'projectile', 'drop', 'weapon-icon', 'weapon-held', 'world', 'icon', 'upgrade-icon', 'achievement-icon',
 ]);
 // Catalog-count ceilings. The spawn-witness search (findRectWitness/findRingWitness)
 // partitions the arena at obstacle edges — cost grows super-linearly with the

@@ -403,6 +403,9 @@ export type VisualArtKind =
   | 'weapon-icon'
   | 'weapon-held'
   | 'world'
+  /** Generic static presentation icon: equipment, parts and future data rows
+   * share the same renderer capability without a content-owner branch. */
+  | 'icon'
   | 'upgrade-icon'
   /** Achievement-owned UI badge; rendered by the generic icon renderer. */
   | 'achievement-icon';

@@ -81,6 +81,7 @@ export class MenuScene extends Phaser.Scene {
   private touchDragDistance = 0;
   private touchDidScroll = false;
   private achievementArtLoading = false;
+  private equipmentArtLoading = false;
   /** Scene-lifetime physical binding resolver. Career can render a large
    * gallery repeatedly, so per-badge catalog cloning/validation is invalid. */
   private visualArt?: DataVisualArtRegistry;
@@ -902,6 +903,13 @@ export class MenuScene extends Phaser.Scene {
       y += row.height + 8;
     });
     this.endScrollableRegion();
+    // Equipment presentation is a menu-only lazy closure. It deliberately
+    // follows data-owned art IDs so an ordinary new set/resource does not add
+    // a loader list or an Equipment-ID branch here.
+    void this.ensureEquipmentPresentation([
+      ...(this.getContext().data.equipment ?? []).map((piece) => piece.icon),
+      ...(this.getContext().data.equipmentSets ?? []).map((set) => set.emblem),
+    ]);
     this.addBackButton(root, width, margin, hitTarget);
   }
 
@@ -1079,8 +1087,8 @@ export class MenuScene extends Phaser.Scene {
    * the accessible text label intact rather than turning a catalog problem
    * into an unusable menu action. */
   private addCatalogIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string, maxSize = 26): void {
-    const binding = this.getContext().data.visualArt.bindings.find((candidate) => candidate.id === iconArtId);
-    if (!binding || (binding.kind !== 'upgrade-icon' && binding.kind !== 'achievement-icon') || !this.textures?.exists(binding.textureKey)) return;
+    const binding = this.requireVisualArt().bindingById(iconArtId);
+    if (!binding || (binding.kind !== 'icon' && binding.kind !== 'upgrade-icon' && binding.kind !== 'achievement-icon') || !this.textures?.exists(binding.textureKey)) return;
     const icon = this.own(root, this.add.image(x, y, binding.textureKey, binding.frameKey));
     icon.setDisplaySize(Math.min(maxSize, binding.display.width), Math.min(maxSize, binding.display.height));
     icon.setScrollFactor(0);
@@ -1124,6 +1132,32 @@ export class MenuScene extends Phaser.Scene {
       if (this.committedPanel === 'achievements' && this.controller) this.render(this.controller.snapshot());
     } finally {
       this.achievementArtLoading = false;
+    }
+  }
+
+  /** Equipment/sets use the same physical-resource resolver as Career badges,
+   * but stay out of Boot because they are not needed to reach the Home panel. */
+  private async ensureEquipmentPresentation(iconArtIds: readonly string[]): Promise<void> {
+    if (this.equipmentArtLoading || !this.textures?.exists) return;
+    const context = this.getContext();
+    const art = this.requireVisualArt();
+    const resources = new DataVisualResourceRegistry(context.data);
+    const missing = new Map<string, import('../systems/types').VisualTextureResource>();
+    for (const iconArtId of iconArtIds) {
+      const binding = art.bindingById(iconArtId);
+      if (!binding || !binding.resourceId || this.textures.exists(binding.textureKey)) continue;
+      const resource = resources.resourceById(binding.resourceId);
+      if (resource) missing.set(resource.id, resource);
+    }
+    if (missing.size === 0) return;
+    this.equipmentArtLoading = true;
+    try {
+      const result = await loadTextureResources(this, [...missing.values()]);
+      if (result.failed.length === 0 && this.committedPanel === 'equipment' && this.controller) {
+        this.render(this.controller.snapshot());
+      }
+    } finally {
+      this.equipmentArtLoading = false;
     }
   }
 
