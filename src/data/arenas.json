@@ -67,7 +67,7 @@
       { "id": "cooling-manifold", "x": 608, "y": 960, "w": 64, "h": 64 }
     ],
     "hazards": [
-      { "id": "heat-grate", "kind": "heat-grate", "x": 320, "y": 640, "w": 128, "h": 32, "damagePerSecond": 6 }
+      { "id": "heat-grate", "kind": "heat-grate", "x": 288, "y": 304, "w": 192, "h": 48, "damagePerSecond": 6 }
     ],
     "visual": {
       "floorArtIds": [

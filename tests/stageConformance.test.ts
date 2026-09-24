@@ -3,12 +3,14 @@ import stagesJson from '../src/data/stages.json';
 import encountersJson from '../src/data/encounter-profiles.json';
 import difficultiesJson from '../src/data/difficulty-profiles.json';
 import rewardsJson from '../src/data/reward-profiles.json';
+import spawnCurvesJson from '../src/data/spawn-curves.json';
 import { collectGameDataErrors, loadGameData, validateGameData } from '../src/systems/validation';
 import { DataArenaRegistry } from '../src/systems/arenas';
 import { StageRegistry } from '../src/systems/stageRegistry';
 import { DataEnemyRegistry } from '../src/systems/enemies';
 import type { StageDefinition, EncounterProfile, DifficultyProfile, RewardProfile } from '../src/gameplay/stage/stageContracts';
 import { resolveRunPlan } from '../src/gameplay/stage/stageContracts';
+import { composeStageSpawnCurve } from '../src/gameplay/stage/spawnComposition';
 
 /**
  * Generic stage conformance (Epic 20 acceptance):
@@ -150,6 +152,35 @@ describe('Epic 20 stage catalog conformance', () => {
         default:
           expect.unreachable(`unknown objective type ${(obj as { type: string }).type}`);
       }
+    }
+  });
+
+  it('keeps release encounter breadth and target-tag objectives physically producible', () => {
+    const data = loadGameData();
+    const enemiesById = new Map(data.enemies.map((enemy) => [enemy.id, enemy]));
+    for (const stage of stages) {
+      const encounter = encounters.find((candidate) => candidate.id === stage.encounterProfileId)!;
+      if (stage.bossId === undefined) {
+        expect(encounter.enemyIds.length, `${stage.id} non-boss roster`).toBeGreaterThanOrEqual(4);
+      }
+      if (stage.objective.type === 'survive' && stage.objective.seconds === 120) {
+        expect(encounter.enemyIds.length, `${stage.id} survival roster`).toBeGreaterThanOrEqual(5);
+      }
+      if (stage.objective.type !== 'kill' || stage.objective.enemyTag === undefined) continue;
+      const targetTag = stage.objective.enemyTag;
+      const targetIds = encounter.enemyIds.filter((id) => enemiesById.get(id)?.archetype === targetTag);
+      expect(targetIds.length, `${stage.id} target archetype`).toBeGreaterThan(0);
+      const plan = resolveRunPlan(
+        { stageId: stage.id, characterId: 'scrap-tabby', seed: 1 },
+        { stages, encounterProfiles: encounters, difficultyProfiles: difficulties, rewardProfiles: rewards },
+      );
+      const legacy = spawnCurvesJson.find((curve) => curve.id === data.arenas.find((arena) => arena.id === stage.arenaId)?.spawnCurveId)!;
+      const composed = composeStageSpawnCurve(legacy, plan);
+      const targetWaves = composed.waves.filter((wave) => targetIds.includes(wave.enemyId));
+      expect(targetWaves.length, `${stage.id} target wave`).toBeGreaterThan(0);
+      const spawnOpportunities = targetWaves.reduce((total, wave) =>
+        total + Math.floor(Math.max(0, composed.durationSeconds - wave.startSecond) * 1000 / wave.spawnEveryMs), 0);
+      expect(spawnOpportunities, `${stage.id} target capacity`).toBeGreaterThanOrEqual(stage.objective.count);
     }
   });
 

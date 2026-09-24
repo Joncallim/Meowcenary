@@ -12,7 +12,7 @@ describe('Forge Foundry arena data', () => {
     expect(arena).toMatchObject({
       name: 'Forge Foundry',
       spawnCurveId: 'junkyard-intro',
-      hazards: [{ id: 'heat-grate', kind: 'heat-grate' }],
+      hazards: [{ id: 'heat-grate', kind: 'heat-grate', x: 288, y: 304, w: 192, h: 48 }],
     });
     expect(arena?.visual.floorArtIds).toEqual([
       'world:forge-floor:base',

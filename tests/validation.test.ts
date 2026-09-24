@@ -1274,6 +1274,18 @@ describe('game data validation', () => {
       ]))).toThrow(/must not contain arena centre/);
     });
 
+    it('rejects a hazard overlapping the production player spawn circle', () => {
+      expect(() => validateGameData(withArenas([
+        arenaFixture({
+          hazards: [{ id: 'spawn-fire', kind: 'heat', x: 190, y: 200, w: 20, h: 20, damagePerSecond: 5 }],
+          visual: {
+            ...TEST_ARENA_VISUAL,
+            hazardSkins: [{ hazardId: 'spawn-fire', artId: 'world:forge-hazard:heat-grate' }],
+          },
+        }),
+      ]))).toThrow(/hazard must not overlap player spawn circle/);
+    });
+
     it('rejects no default arena', () => {
       expect(() => validateGameData(withArenas([
         arenaFixture({

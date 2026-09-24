@@ -75,6 +75,7 @@ import type {
   AssetBundleDefinition,
   VisualTextureResource,
 } from './types';
+import { PLAYER_BODY_RADIUS } from '../engine/bodyDimensions';
 import type { AchievementDefinition } from '../gameplay/achievementSystem';
 import type { PartDefinition } from '../gameplay/gunsmith';
 import type { AbilityDefinition } from '../gameplay/abilities';
@@ -1439,6 +1440,17 @@ function checkArena(row: unknown): string[] {
       }
       if (isFiniteNumber(hy) && isFiniteNumber(hh) && h > 0 && hy + hh > h) {
         hazErrors.push('y + h: must not exceed arena height');
+      }
+      if (isFiniteNumber(hx) && isFiniteNumber(hy) && isFiniteNumber(hw) && isFiniteNumber(hh) && w > 0 && h > 0) {
+        const spawnX = w / 2;
+        const spawnY = h / 2;
+        const closestX = Math.max(hx, Math.min(spawnX, hx + hw));
+        const closestY = Math.max(hy, Math.min(spawnY, hy + hh));
+        const dx = spawnX - closestX;
+        const dy = spawnY - closestY;
+        if (dx * dx + dy * dy < PLAYER_BODY_RADIUS * PLAYER_BODY_RADIUS) {
+          hazErrors.push('hazard must not overlap player spawn circle');
+        }
       }
       const dps = readOwnField(hazard, 'damagePerSecond');
       if (!isFiniteNumber(dps) || dps <= 0 || dps > 1000) {
