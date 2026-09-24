@@ -403,7 +403,7 @@ export class MenuScene extends Phaser.Scene {
       fontFamily: ThemeFont.family,
       fontSize: `${ThemeFont.bodyMin}px`,
       lineSpacing: 2,
-      wordWrap: { width: width - margin - this.safeRightMargin },
+      wordWrap: { width: Math.max(1, width - margin - this.safeRightMargin - 78) },
     }));
     info.setScrollFactor(0);
 
@@ -419,13 +419,38 @@ export class MenuScene extends Phaser.Scene {
       { label: 'Training', action: () => this.render(this.requireController().open('training')) },
       { label: 'Settings', action: () => this.render(this.requireController().open('settings')) },
     ];
-    if (selectedCharacter) this.addPanelArt(root, width - this.safeRightMargin - 28, top + 24, selectedCharacter.actorArtId, 44);
-    if (selectedStage) this.addPanelArt(root, margin + 18, top + 54, selectedStage.objective.artId, 30);
+    const artX = width - this.safeRightMargin - 28;
+    if (selectedCharacter) this.addPanelArt(root, artX, top + 18, selectedCharacter.actorArtId, 40);
+    if (selectedStage) {
+      this.addPanelArt(root, artX, top + 54, selectedStage.locationArtId, 34);
+      this.addPanelArt(root, artX - 34, top + 54, selectedStage.objective.artId, 26);
+      selectedStage.threats.forEach((threat, index) => {
+        this.addPanelArt(root, artX - (index % 2) * 30, top + 88 + Math.floor(index / 2) * 28, threat.actorArtId, 24);
+      });
+    }
     let y = top + info.height + 12;
-    buttons.forEach(({ label, action }) => {
-      const button = this.addButton(root, this.safeCenterX, y, label, hitTarget, action);
-      y += button.height + 6;
-    });
+    const compactLandscape = this.scale.height < 500 && width >= 700;
+    if (compactLandscape) {
+      const gap = 4;
+      const buttonWidth = (width - margin - this.safeRightMargin - gap * (buttons.length - 1)) / buttons.length;
+      buttons.forEach(({ label, action }, index) => {
+        this.addButton(root, margin + index * (buttonWidth + gap), y, label, hitTarget, action, 'ui:confirm', buttonWidth);
+      });
+    } else {
+      buttons.slice(0, 2).forEach(({ label, action }) => {
+        const button = this.addButton(root, this.safeCenterX, y, label, hitTarget, action);
+        y += button.height + 6;
+      });
+      const secondary = buttons.slice(2);
+      const columnGap = 8;
+      const columns = 2;
+      const columnWidth = (width - margin - this.safeRightMargin - columnGap) / columns;
+      secondary.forEach(({ label, action }, index) => {
+        const column = index % columns;
+        this.addButton(root, margin + column * (columnWidth + columnGap), y, label, hitTarget, action, 'ui:confirm', columnWidth);
+        if (column === columns - 1 || index === secondary.length - 1) y += hitTarget + 6;
+      });
+    }
 
     const hints = this.own(root, createUiText(this,margin, this.scale.height - edgeMargin(this.currentViewport!, 'bottom') - 14, this.menuHintCopy(), {
       color: '#a5f3fc',
@@ -447,6 +472,7 @@ export class MenuScene extends Phaser.Scene {
     }
     void this.ensurePanelPresentation('home', [
       selectedCharacter?.actorArtId,
+      selectedStage?.locationArtId,
       selectedStage?.objective.artId,
       ...(selectedStage?.threats.map((threat) => threat.actorArtId) ?? []),
     ].filter((id): id is string => id !== undefined));

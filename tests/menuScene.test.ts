@@ -1013,6 +1013,27 @@ describe('MenuScene', () => {
     );
   });
 
+  it('keeps the Contract hero and every 44px+ Home action inside all acceptance viewports', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as { handleResize(): void };
+    for (const [width, height] of [[360, 640], [390, 844], [844, 390], [1280, 720], [1920, 1080]]) {
+      const scale = harness.menuScene.scale as unknown as { width: number; height: number; displaySize: { width: number; height: number } };
+      scale.width = width; scale.height = height; scale.displaySize = { width, height };
+      scene.handleResize();
+      const viewport = (harness.menuScene as unknown as { currentViewport: UiViewport }).currentViewport;
+      const bottom = height - edgeMargin(viewport, 'bottom');
+      const buttons = harness.objects.filter((object) => object.state.kind === 'text' && object.state.handlers.pointerup && !object.state.destroyed);
+      expect(buttons).toHaveLength(7);
+      for (const button of buttons) {
+        // The Phaser fake records padding separately rather than recomputing
+        // Text.height; mirror the real padded target bounds here.
+        const paddedHeight = button.state.height - 16 + button.state.padding.top * 2;
+        expect(paddedHeight).toBeGreaterThanOrEqual(minimumHitTarget(viewport));
+        expect(button.state.y + paddedHeight, `${width}x${height} ${button.state.text}`).toBeLessThanOrEqual(bottom);
+      }
+    }
+  });
+
   it('shows campaign completion as a replay frontier and never wraps the hero back to Next Contract', () => {
     const harness = createHarness();
     for (const stage of harness.context.stages.allStages()) harness.context.completeStage(stage.id, 60_000);
