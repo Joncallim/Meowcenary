@@ -102,6 +102,9 @@ describe('Resource Loader', () => {
     });
     const ids = new Set(resources.map((resource) => resource.id));
     expect(ids).toContain('resource:character-scrap-tabby');
+    // Terminal Achievement tiles are part of the run journey. Their one
+    // bounded atlas must be ready even when the player never visited Career.
+    expect(ids).toContain('resource:achievement-icons');
     expect(ids).toContain('resource:enemy-junk-nester');
     // summon/split descendants must be present before they can materialize.
     expect(ids).toContain('resource:enemy-dust-mite');

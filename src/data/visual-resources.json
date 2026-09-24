@@ -793,5 +793,15 @@
       "frameWidth": 48,
       "frameHeight": 48
     }
+  },
+  {
+    "id": "resource:achievement-icons",
+    "textureKey": "art-achievement-icons",
+    "sampling": "nearest",
+    "load": {
+      "type": "atlas",
+      "imageUrl": "assets/achievements/achievement-icons-atlas.png",
+      "dataUrl": "assets/achievements/achievement-icons-atlas.json"
+    }
   }
 ]

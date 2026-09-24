@@ -1399,77 +1399,88 @@
       "kind": "achievement-icon",
       "required": true,
       "display": { "width": 36, "height": 36 },
-      "resourceId": "resource:upgrade-icon-glass-cannon"
+      "resourceId": "resource:achievement-icons",
+      "frameKey": "achievement-icon:hidden"
     },
     {
       "id": "achievement-icon:first-kill",
       "kind": "achievement-icon",
       "required": true,
       "display": { "width": 36, "height": 36 },
-      "resourceId": "resource:upgrade-icon-hot-barrel"
+      "resourceId": "resource:achievement-icons",
+      "frameKey": "achievement-icon:first-kill"
     },
     {
       "id": "achievement-icon:kill-milestone-25",
       "kind": "achievement-icon",
       "required": true,
       "display": { "width": 36, "height": 36 },
-      "resourceId": "resource:upgrade-icon-heavy-rounds"
+      "resourceId": "resource:achievement-icons",
+      "frameKey": "achievement-icon:kill-milestone-25"
     },
     {
       "id": "achievement-icon:kill-milestone-100",
       "kind": "achievement-icon",
       "required": true,
       "display": { "width": 36, "height": 36 },
-      "resourceId": "resource:upgrade-icon-punch-through"
+      "resourceId": "resource:achievement-icons",
+      "frameKey": "achievement-icon:kill-milestone-100"
     },
     {
       "id": "achievement-icon:first-merge",
       "kind": "achievement-icon",
       "required": true,
       "display": { "width": 36, "height": 36 },
-      "resourceId": "resource:upgrade-icon-smg-overclock"
+      "resourceId": "resource:achievement-icons",
+      "frameKey": "achievement-icon:first-merge"
     },
     {
       "id": "achievement-icon:boss-crusher",
       "kind": "achievement-icon",
       "required": true,
       "display": { "width": 36, "height": 36 },
-      "resourceId": "resource:upgrade-icon-shotgun-breacher"
+      "resourceId": "resource:achievement-icons",
+      "frameKey": "achievement-icon:boss-crusher"
     },
     {
       "id": "achievement-icon:chapter-junkyard",
       "kind": "achievement-icon",
       "required": true,
       "display": { "width": 36, "height": 36 },
-      "resourceId": "resource:upgrade-icon-extra-scrap"
+      "resourceId": "resource:achievement-icons",
+      "frameKey": "achievement-icon:chapter-junkyard"
     },
     {
       "id": "achievement-icon:first-victory",
       "kind": "achievement-icon",
       "required": true,
       "display": { "width": 36, "height": 36 },
-      "resourceId": "resource:upgrade-icon-quick-paws"
+      "resourceId": "resource:achievement-icons",
+      "frameKey": "achievement-icon:first-victory"
     },
     {
       "id": "achievement-icon:mastery-scrap-tabby",
       "kind": "achievement-icon",
       "required": true,
       "display": { "width": 36, "height": 36 },
-      "resourceId": "resource:upgrade-icon-fast-learner"
+      "resourceId": "resource:achievement-icons",
+      "frameKey": "achievement-icon:mastery-scrap-tabby"
     },
     {
       "id": "achievement-icon:scrap-tycoon",
       "kind": "achievement-icon",
       "required": true,
       "display": { "width": 36, "height": 36 },
-      "resourceId": "resource:upgrade-icon-extra-scrap"
+      "resourceId": "resource:achievement-icons",
+      "frameKey": "achievement-icon:scrap-tycoon"
     },
     {
       "id": "achievement-icon:boss-forge",
       "kind": "achievement-icon",
       "required": true,
       "display": { "width": 36, "height": 36 },
-      "resourceId": "resource:upgrade-icon-reinforced-coat"
+      "resourceId": "resource:achievement-icons",
+      "frameKey": "achievement-icon:boss-forge"
     },
     {
       "id": "equipment-set-icon:commando",

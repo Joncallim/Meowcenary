@@ -1,0 +1,132 @@
+{
+  "color_mode": 5,
+  "current_frame": 0,
+  "current_layer": 0,
+  "export_directory_path": "",
+  "export_file_format": 0,
+  "export_file_name": "achievement-icons-atlas",
+  "fps": 8,
+  "frames": {
+    "achievement-icon:hidden": {
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "achievement-icon:first-kill": {
+      "frame": {
+        "x": 32,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "achievement-icon:kill-milestone-25": {
+      "frame": {
+        "x": 64,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "achievement-icon:kill-milestone-100": {
+      "frame": {
+        "x": 96,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "achievement-icon:first-merge": {
+      "frame": {
+        "x": 128,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "achievement-icon:boss-crusher": {
+      "frame": {
+        "x": 160,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "achievement-icon:chapter-junkyard": {
+      "frame": {
+        "x": 192,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "achievement-icon:first-victory": {
+      "frame": {
+        "x": 224,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "achievement-icon:mastery-scrap-tabby": {
+      "frame": {
+        "x": 256,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "achievement-icon:scrap-tycoon": {
+      "frame": {
+        "x": 288,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      }
+    },
+    "achievement-icon:boss-forge": {
+      "frame": {
+        "x": 320,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      }
+    }
+  },
+  "layers": [
+    {
+      "animated_params": "{}",
+      "blend_mode": 0,
+      "clipping_mask": false,
+      "effects": {},
+      "locked": false,
+      "name": "body",
+      "new_cels_linked": false,
+      "opacity": 1,
+      "parent": -1,
+      "type": 0,
+      "visible": true
+    },
+    {
+      "animated_params": "{}",
+      "blend_mode": 0,
+      "clipping_mask": false,
+      "effects": {},
+      "locked": false,
+      "name": "notes",
+      "new_cels_linked": false,
+      "opacity": 1,
+      "parent": -1,
+      "type": 0,
+      "visible": false
+    }
+  ],
+  "pixelorama_version": "v1.2-stable",
+  "pxo_version": 7,
+  "size_x": 352,
+  "size_y": 32,
+  "tags": {}
+}
