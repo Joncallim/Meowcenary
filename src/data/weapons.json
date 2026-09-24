@@ -13,7 +13,7 @@
     "pierce": 0,
     "projectileCount": 1,
     "spreadDeg": 0,
-    "art": { "iconId": "weapon-icon:pistol:t1", "heldId": "weapon-held:pistol:t1", "projectileId": "projectile:pistol" }
+    "art": { "iconId": "weapon-icon:pistol:t1", "heldId": "weapon-held:pistol:t1", "projectileId": "projectile:pistol", "gunsmithPreviewBaseArtId": "gun-build-base:pistol" }
   },
   {
     "id": "scrap-pistol-t2",
@@ -61,7 +61,7 @@
     "pierce": 0,
     "projectileCount": 1,
     "spreadDeg": 0,
-    "art": { "iconId": "weapon-icon:smg:t1", "heldId": "weapon-held:smg:t1", "projectileId": "projectile:smg" }
+    "art": { "iconId": "weapon-icon:smg:t1", "heldId": "weapon-held:smg:t1", "projectileId": "projectile:smg", "gunsmithPreviewBaseArtId": "gun-build-base:smg" }
   },
   {
     "id": "can-smg-t2",
@@ -109,7 +109,7 @@
     "pierce": 0,
     "projectileCount": 4,
     "spreadDeg": 34,
-    "art": { "iconId": "weapon-icon:shotgun:t1", "heldId": "weapon-held:shotgun:t1", "projectileId": "projectile:shotgun" }
+    "art": { "iconId": "weapon-icon:shotgun:t1", "heldId": "weapon-held:shotgun:t1", "projectileId": "projectile:shotgun", "gunsmithPreviewBaseArtId": "gun-build-base:shotgun" }
   },
   {
     "id": "bolt-shotgun-t2",

@@ -744,8 +744,33 @@ export class MenuScene extends Phaser.Scene {
         wordWrap: { width: width - margin - this.safeRightMargin },
       }));
       this.registerScrollObject(buildHeader);
-      if (selected.weaponPreviewIconArtId) this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + buildHeader.height / 2, selected.weaponPreviewIconArtId);
       y += buildHeader.height + 12;
+      if (selected.preview) {
+        const previewHeight = 76;
+        const weaponX = margin + 52;
+        const weaponY = y + 24;
+        this.addCatalogIcon(root, weaponX, weaponY, selected.preview.baseArtId, 96);
+        selected.preview.layers.forEach((layer) => this.addCatalogIcon(root, weaponX, weaponY, layer.artId, 96));
+        selected.preview.traitCores.forEach((core, index) => {
+          this.addCatalogIcon(root, margin + 122 + index * 42, weaponY, core.iconArtId, 34);
+        });
+        selected.preview.traitEmblems.forEach((trait, index) => {
+          this.addCatalogIcon(root, width - this.safeRightMargin - 18 - index * 30, weaponY, trait.iconArtId, 24);
+        });
+        const summary = this.own(root, createUiText(this, margin, y + 50, selected.summary, {
+          color: '#f7f1d5', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+          wordWrap: { width: width - margin - this.safeRightMargin },
+        }));
+        this.registerScrollObject(summary);
+        y += Math.max(previewHeight, 50 + summary.height) + 10;
+      } else {
+        const summary = this.own(root, createUiText(this, margin, y, selected.summary, {
+          color: '#f7f1d5', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+          wordWrap: { width: width - margin - this.safeRightMargin },
+        }));
+        this.registerScrollObject(summary);
+        y += summary.height + 10;
+      }
       snapshot.gunsmith.slots.forEach((slot) => {
         const slotHeading = this.own(root, createUiText(this, margin, y, slot.slot === 'trait'
           ? `${slot.label.toUpperCase()} ${slot.candidates.filter((part) => part.state === 'fitted-here').length} / 2`
@@ -824,7 +849,12 @@ export class MenuScene extends Phaser.Scene {
     }
     this.endScrollableRegion();
     void this.ensureGunsmithPresentation([
-      ...(snapshot.gunsmith.selectedBuild?.weaponPreviewIconArtId ? [snapshot.gunsmith.selectedBuild.weaponPreviewIconArtId] : []),
+      ...(snapshot.gunsmith.selectedBuild?.preview ? [
+        snapshot.gunsmith.selectedBuild.preview.baseArtId,
+        ...snapshot.gunsmith.selectedBuild.preview.layers.map((layer) => layer.artId),
+        ...snapshot.gunsmith.selectedBuild.preview.traitCores.map((core) => core.iconArtId),
+        ...snapshot.gunsmith.selectedBuild.preview.traitEmblems.map((trait) => trait.iconArtId),
+      ] : []),
       ...snapshot.gunsmith.slots.flatMap((slot) => [
         slot.iconArtId,
         ...slot.candidates.flatMap((part) => [part.iconArtId, ...part.traitIcons.map((trait) => trait.iconArtId)]),

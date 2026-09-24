@@ -77,6 +77,8 @@ export interface WeaponDefinition {
     readonly iconId: string;
     readonly heldId: string;
     readonly projectileId: string;
+    /** T1-only family chassis for the persistent Gunsmith schematic. */
+    readonly gunsmithPreviewBaseArtId?: string;
   };
 }
 

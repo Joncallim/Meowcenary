@@ -386,7 +386,10 @@ describe('MenuScene', () => {
     expect(harness.textContents()).toEqual(expect.arrayContaining(['Weapon builds', 'Pistol Build\nEmpty', 'SMG Build\nEmpty', 'Shotgun Build\nEmpty']));
 
     harness.buttonByLabel('Pistol Build\nEmpty')!.state.handlers.pointerup!();
-    expect(harness.textContents()).toEqual(expect.arrayContaining(['Pistol Build\nSelected', 'SMG Build\nEmpty', 'Shotgun Build\nEmpty', 'PISTOL BUILD\nSelected • Active from start']));
+    expect(harness.textContents()).toEqual(expect.arrayContaining([
+      'Pistol Build\nSelected', 'SMG Build\nEmpty', 'Shotgun Build\nEmpty',
+      'PISTOL BUILD\nSelected • Active from start', 'Stock Pistol chassis',
+    ]));
     expect(harness.textContents()).toEqual(expect.arrayContaining(['BLUEPRINTS', 'Compact Receiver\nFire rate +8%\nFabricate — 60 Scrap']));
     expect(harness.textContents().join('\n')).not.toContain('Standard Barrel\nRange +10\nFabricate');
     harness.buttonByLabel('Compact Receiver\nFire rate +8%\nFabricate — 60 Scrap')!.state.handlers.pointerup!();
@@ -1378,6 +1381,46 @@ describe('MenuScene', () => {
     scene.load.start = () => { loaded = true; complete.get('filecomplete-atlasjson-art-gunsmith-icons')?.(); };
     await scene.ensureGunsmithPresentation(['gun-part-icon:receiver-compact']);
     expect(rendered).not.toHaveBeenCalled();
+  });
+
+  it('loads one co-registered assembled-weapon atlas for a chassis and all fitted layers', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>(); const queued: unknown[][] = [];
+    const loaded = new Set<string>();
+    const scene = new MenuScene() as unknown as {
+      isLive: boolean; committedPanel: string; controller: { snapshot(): unknown };
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
+      load: { on(): void; off(): void; once(event: string, listener: () => void): void; atlas(...args: unknown[]): void; start(): void };
+      getContext(): typeof harness.context; requireVisualArt(): DataVisualArtRegistry; render(snapshot: unknown): void;
+      ensureGunsmithPresentation(ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      isLive: true, committedPanel: 'gunsmith', controller: { snapshot: () => ({}) },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: {
+        on: () => undefined, off: () => undefined,
+        once: (event: string, listener: () => void) => { complete.set(event, listener); },
+        atlas: (...args: unknown[]) => { queued.push(args); },
+        start: () => {
+          loaded.add('art-gun-build-previews');
+          complete.get('filecomplete-atlasjson-art-gun-build-previews')?.();
+        },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art, render: () => undefined,
+    });
+
+    await scene.ensureGunsmithPresentation([
+      'gun-build-base:smg',
+      'gun-build-part:receiver-heavy',
+      'gun-build-part:trigger-hair',
+    ]);
+
+    expect(queued).toEqual([[
+      'art-gun-build-previews',
+      'assets/gunsmith/previews/gun-build-preview-atlas.png',
+      'assets/gunsmith/previews/gun-build-preview-atlas.json',
+    ]]);
   });
 
   it('keeps Gunsmith text usable and does not rerender after a lazy atlas failure', async () => {

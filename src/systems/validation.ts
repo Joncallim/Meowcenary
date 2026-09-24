@@ -129,7 +129,7 @@ const WEAPON_FIELDS = new Set([
   'id', 'name', 'family', 'rarity', 'fireRateMs', 'damage', 'projectileSpeed', 'range',
   'mergeTier', 'maxTier', 'pierce', 'projectileCount', 'spreadDeg', 'art',
 ]);
-const WEAPON_ART_FIELDS = new Set(['iconId', 'heldId', 'projectileId']);
+const WEAPON_ART_FIELDS = new Set(['iconId', 'heldId', 'projectileId', 'gunsmithPreviewBaseArtId']);
 const WEAPON_FEEL_FIELDS = new Set(['family', 'muzzle', 'impact', 'recoilPx', 'sfxTierVolumeMultiplier']);
 const WEAPON_FEEL_MUZZLE_FIELDS = new Set(['color', 'radius', 'lifetimeMs']);
 const WEAPON_FEEL_IMPACT_FIELDS = new Set(['color', 'radius']);
@@ -1886,6 +1886,10 @@ function checkWeapon(row: unknown): string[] {
     requireString(art, 'iconId', artErrors);
     requireString(art, 'heldId', artErrors);
     requireString(art, 'projectileId', artErrors);
+    const previewBase = readOwnField(art, 'gunsmithPreviewBaseArtId');
+    if (previewBase !== undefined && (typeof previewBase !== 'string' || previewBase.length === 0)) {
+      artErrors.push('gunsmithPreviewBaseArtId: expected non-empty string');
+    }
     errors.push(...artErrors.map((error) => `art.${error}`));
   }
   return errors;
@@ -2623,6 +2627,16 @@ function assertWeaponTiers(weapons: readonly WeaponDefinition[]): void {
     if (weapon.mergeTier > weapon.maxTier) {
       errors.push(`weapons.json[${index}].mergeTier: ${weapon.mergeTier} exceeds maxTier ${weapon.maxTier}`);
     }
+    const previewBase = weapon.art.gunsmithPreviewBaseArtId;
+    if (weapon.mergeTier === 1) {
+      if (previewBase === undefined) {
+        errors.push(`weapons.json[${index}].art.gunsmithPreviewBaseArtId: required on family tier 1`);
+      } else if (previewBase !== `gun-build-base:${weapon.family}`) {
+        errors.push(`weapons.json[${index}].art.gunsmithPreviewBaseArtId: must be exactly "gun-build-base:${weapon.family}"`);
+      }
+    } else if (previewBase !== undefined) {
+      errors.push(`weapons.json[${index}].art.gunsmithPreviewBaseArtId: only family tier 1 may own the Gunsmith chassis`);
+    }
     const family = byFamily.get(weapon.family) ?? [];
     family.push({ weapon, index });
     byFamily.set(weapon.family, family);
@@ -2998,6 +3012,16 @@ export function assertWeaponArtReferences(
         errors.push(`weapons.json[${index}].art.${field}: expected ${expectedKind} binding, got ${binding.kind}`);
       } else if (!binding.required) {
         errors.push(`weapons.json[${index}].art.${field}: weapon art must be required`);
+      }
+    }
+
+    const previewBase = weapon.art.gunsmithPreviewBaseArtId;
+    if (previewBase !== undefined) {
+      const binding = byId.get(previewBase);
+      if (!binding) {
+        errors.push(`weapons.json[${index}].art.gunsmithPreviewBaseArtId: unknown visual-art id "${previewBase}"`);
+      } else if (binding.kind !== 'icon' || !binding.required) {
+        errors.push(`weapons.json[${index}].art.gunsmithPreviewBaseArtId: must resolve to a required icon binding`);
       }
     }
 

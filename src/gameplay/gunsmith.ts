@@ -101,6 +101,9 @@ export interface PartDefinition {
   readonly presentation: {
     readonly iconArtId: string;
     readonly slotIconArtId: string;
+    /** Co-registered transparent layer used by the assembled build preview.
+     * Trait cores remain separate physical sockets and deliberately omit it. */
+    readonly assemblyArtId?: string;
     readonly traitIconArtIds: Readonly<Partial<Record<BehaviorTrait, string>>>;
   };
 }

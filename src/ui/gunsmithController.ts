@@ -71,7 +71,24 @@ export interface GunsmithBuildPresentation {
   readonly title: string;
   readonly status: 'Selected' | 'Configured' | 'Empty';
   readonly activation: 'Active from start' | 'Activates when acquired';
-  readonly weaponPreviewIconArtId?: string;
+  readonly preview?: GunsmithAssembledPreview;
+  readonly summary: string;
+}
+
+export interface GunsmithAssembledPreview {
+  readonly baseArtId: string;
+  readonly layers: readonly {
+    readonly instanceId: string;
+    readonly slot: string;
+    readonly artId: string;
+    readonly tier: number;
+  }[];
+  readonly traitCores: readonly {
+    readonly instanceId: string;
+    readonly iconArtId: string;
+    readonly tier: number;
+  }[];
+  readonly traitEmblems: readonly { readonly trait: string; readonly iconArtId: string }[];
 }
 
 export interface GunsmithSnapshot {
@@ -170,13 +187,57 @@ export class GunsmithController {
       return [view];
     }));
     const selectedStartFamily = this.selectedStartingFamily();
-    const selectedWeaponPreviewIconArtId = selected === undefined ? undefined : this.context.data.weapons
-      .find((weapon) => weapon.family === selected.baseWeaponFamily && weapon.mergeTier === 1)?.art.iconId;
+    const selectedBaseArtId = selected === undefined ? undefined : this.context.data.weapons
+      .find((weapon) => weapon.family === selected.baseWeaponFamily && weapon.mergeTier === 1)?.art.gunsmithPreviewBaseArtId;
+    const previewLayers = selected === undefined ? [] : PART_SLOTS.flatMap((slot) => {
+      if (slot === 'trait') return [];
+      const instanceId = selected.fitted[slot];
+      if (instanceId === undefined) return [];
+      const stored = state.parts[instanceId];
+      const definition = stored && this.registry.partById(stored.partId);
+      return stored === undefined || definition?.presentation.assemblyArtId === undefined ? [] : [Object.freeze({
+        instanceId, slot, artId: definition.presentation.assemblyArtId, tier: stored.tier,
+      })];
+    });
+    const traitCores = selected === undefined ? [] : selected.traitParts.flatMap((instanceId) => {
+      const stored = state.parts[instanceId];
+      const definition = stored && this.registry.partById(stored.partId);
+      return stored === undefined || definition === undefined ? [] : [Object.freeze({
+        instanceId, iconArtId: definition.presentation.iconArtId, tier: stored.tier,
+      })];
+    });
+    const effectiveTraits = new Set<string>();
+    if (selected !== undefined) {
+      for (const instanceId of [...Object.values(selected.fitted), ...selected.traitParts]) {
+        if (instanceId === undefined) continue;
+        const stored = state.parts[instanceId];
+        const definition = stored && this.registry.partById(stored.partId);
+        if (!stored || !definition) continue;
+        [...definition.traits, ...stored.infusedTraits].forEach((trait) => effectiveTraits.add(trait));
+      }
+    }
+    const traitEmblems = [...effectiveTraits].flatMap((trait) => {
+      const iconArtId = traitIconByTrait.get(trait);
+      return iconArtId === undefined ? [] : [Object.freeze({ trait, iconArtId })];
+    });
+    const fittedNames = selected === undefined ? [] : [...previewLayers, ...traitCores].flatMap((layer) => {
+      const stored = state.parts[layer.instanceId];
+      const definition = stored && this.registry.partById(stored.partId);
+      return definition ? [definition.name] : [];
+    });
     const selectedBuildPresentation = selected === undefined ? undefined : Object.freeze({
-      id: selected.id, familyId: selected.baseWeaponFamily, title: `${familyName(selected.baseWeaponFamily)} Build`,
+      id: selected.id, familyId: selected.baseWeaponFamily, title: selected.name,
       status: selected.id === state.selectedBuildId ? 'Selected' : (Object.keys(selected.fitted).length + selected.traitParts.length > 0 ? 'Configured' : 'Empty'),
       activation: selected.baseWeaponFamily === selectedStartFamily ? 'Active from start' : 'Activates when acquired',
-      ...(selectedWeaponPreviewIconArtId === undefined ? {} : { weaponPreviewIconArtId: selectedWeaponPreviewIconArtId }),
+      summary: fittedNames.length === 0
+        ? `Stock ${familyName(selected.baseWeaponFamily)} chassis`
+        : `${traitEmblems.map((entry) => entry.trait).join(' / ') || 'Engineered'} ${familyName(selected.baseWeaponFamily)} • ${fittedNames.join(' • ')}`,
+      ...(selectedBaseArtId === undefined ? {} : { preview: Object.freeze({
+        baseArtId: selectedBaseArtId,
+        layers: Object.freeze(previewLayers),
+        traitCores: Object.freeze(traitCores),
+        traitEmblems: Object.freeze(traitEmblems),
+      }) }),
     } satisfies GunsmithBuildPresentation);
     const slots = selected === undefined ? [] : PART_SLOTS
       .filter((slot) => slot === 'trait' || isSlotCompatible(selected.baseWeaponFamily, slot))

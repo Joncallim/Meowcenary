@@ -57,7 +57,12 @@ describe('GunsmithController durable commands', () => {
     expect(controller.fitPart('owned:barrel')).toMatchObject({ ok: true });
     expect(context.saveData.gunsmith.selectedBuildId).toBe('build:pistol');
     expect(context.saveData.gunsmith.builds[0].fitted.barrel).toBe('owned:barrel');
-    expect(controller.snapshot().selectedBuild?.weaponPreviewIconArtId).toBe('weapon-icon:pistol:t1');
+    expect(controller.snapshot().selectedBuild?.preview).toMatchObject({
+      baseArtId: 'gun-build-base:pistol',
+      layers: [{ instanceId: 'owned:barrel', slot: 'barrel', artId: 'gun-build-part:barrel-standard', tier: 1 }],
+      traitCores: [],
+      traitEmblems: [],
+    });
     expect(controller.snapshot().parts[0]).toMatchObject({
       name: 'Standard Barrel', compatible: true,
       iconArtId: 'gun-part-icon:barrel-standard', traitIcons: [],
@@ -65,6 +70,37 @@ describe('GunsmithController durable commands', () => {
     expect(controller.snapshot().slots.find((slot) => slot.slot === 'barrel')).toMatchObject({
       iconArtId: 'gun-slot-icon:barrel',
     });
+  });
+
+  it('builds one immutable assembled schematic in slot order with visible trait sockets and deduped emblems', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state,
+      parts: {
+        trigger: { partId: 'part:trigger-hair', tier: 2, infusedTraits: ['FIRE'] },
+        receiver: { partId: 'part:receiver-heavy', tier: 3, infusedTraits: [] },
+        core: { partId: 'part:trait-fire', tier: 1, infusedTraits: [] },
+      },
+      builds: [{
+        id: 'build:smg', name: 'Hot Needle', baseWeaponFamily: 'smg',
+        fitted: { trigger: 'trigger', receiver: 'receiver' }, traitParts: ['core'],
+      }],
+      selectedBuildId: 'build:smg',
+    }));
+
+    const build = controller.snapshot().selectedBuild!;
+    expect(build.title).toBe('Hot Needle');
+    expect(build.preview).toEqual({
+      baseArtId: 'gun-build-base:smg',
+      layers: [
+        { instanceId: 'receiver', slot: 'receiver', artId: 'gun-build-part:receiver-heavy', tier: 3 },
+        { instanceId: 'trigger', slot: 'trigger', artId: 'gun-build-part:trigger-hair', tier: 2 },
+      ],
+      traitCores: [{ instanceId: 'core', iconArtId: 'gun-part-icon:trait-fire', tier: 1 }],
+      traitEmblems: [{ trait: 'FIRE', iconArtId: 'trait-icon:fire' }],
+    });
+    expect(build.summary).toBe('FIRE SMG • Heavy Receiver • Hair Trigger • Fire Trait Core');
+    expect(Object.isFrozen(build.preview)).toBe(true);
+    expect(Object.isFrozen(build.preview?.layers)).toBe(true);
   });
 
   it('moves one owned physical part between builds atomically instead of duplicating it', () => {
