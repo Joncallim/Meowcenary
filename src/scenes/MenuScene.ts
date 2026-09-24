@@ -88,6 +88,7 @@ export class MenuScene extends Phaser.Scene {
   private touchDragDistance = 0;
   private touchDidScroll = false;
   private achievementArtLoading = false;
+  private mercenaryArtLoading = false;
   private equipmentArtLoading = false;
   private gunsmithArtLoading = false;
   private readonly pendingGunsmithArtIds = new Set<string>();
@@ -120,6 +121,7 @@ export class MenuScene extends Phaser.Scene {
     this.runLaunchPresentation = undefined;
     this.gunsmithArtGeneration += 1;
     this.gunsmithArtLoading = false;
+    this.mercenaryArtLoading = false;
     this.pendingGunsmithArtIds.clear();
     this.isLive = true;
     const ctx = this.getContext();
@@ -520,24 +522,27 @@ export class MenuScene extends Phaser.Scene {
 
     snapshot.character.characters.forEach((character) => {
       const label = `${character.selected ? '✓ ' : ''}${character.name}${character.locked ? ' 🔒' : ''}`;
-      const button = this.addButton(root, margin, y, label, hitTarget, () => {
+      const artColumn = 68;
+      const button = this.addButton(root, margin + artColumn, y, label, hitTarget, () => {
         const next = this.requireController().selectCharacter(character.id, snapshot.character.revision);
         this.render(next);
-      });
+      }, 'ui:confirm', width - margin - this.safeRightMargin - artColumn);
+      this.addMercenaryActor(root, margin + 28, y + Math.max(56, button.height) / 2, character.actorArtId, 56, character.locked);
+      this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + button.height / 2, character.startingWeaponIconArtId, 32);
       if (character.description || character.abilityName) {
         const details = [
-          character.description,
+          `${character.description} • Starts: ${character.startingWeaponSummary}`,
           `Base: ${character.baseStatsSummary}`,
           character.passiveSummary,
           character.abilityName ? `${character.abilityName}: ${character.abilityDescription}` : undefined,
           character.locked ? character.unlockRequirement : undefined,
         ]
           .filter(Boolean).join('\n');
-        const desc = this.own(root, createUiText(this,margin + 12, y + button.height + 2, details, {
+        const desc = this.own(root, createUiText(this,margin + artColumn, y + button.height + 2, details, {
           color: '#a5f3fc',
           fontFamily: ThemeFont.family,
           fontSize: `${ThemeFont.bodyMin}px`,
-          wordWrap: { width: width - margin - this.safeRightMargin - 12 },
+          wordWrap: { width: width - margin - this.safeRightMargin - artColumn },
         }));
         desc.setScrollFactor(0);
         this.registerScrollObject(desc);
@@ -547,6 +552,9 @@ export class MenuScene extends Phaser.Scene {
     });
 
     this.endScrollableRegion();
+    void this.ensureMercenaryPresentation(snapshot.character.characters.flatMap((character) => [
+      character.actorArtId, character.startingWeaponIconArtId,
+    ]));
     this.addBackButton(root, width, margin, hitTarget);
   }
 
@@ -1208,6 +1216,19 @@ export class MenuScene extends Phaser.Scene {
     this.registerScrollObject(icon);
   }
 
+  /** Mercenary thumbnails use the actor's authoritative first idle frame.
+   * Locked entries stay identifiable but are visibly subdued; text remains
+   * the authority for their exact unlock requirement. */
+  private addMercenaryActor(root: Phaser.GameObjects.Container, x: number, y: number, actorArtId: string, maxSize = 56, locked = false): void {
+    const binding = this.requireVisualArt().bindingById(actorArtId);
+    if (!binding || binding.kind !== 'character' || binding.load.type !== 'spritesheet' || !this.textures?.exists(binding.textureKey)) return;
+    const actor = this.own(root, this.add.image(x, y, binding.textureKey, binding.clips?.idle?.start ?? 0));
+    actor.setDisplaySize(Math.min(maxSize, binding.display.width * 2), Math.min(maxSize, binding.display.height * 2));
+    actor.setAlpha(locked ? 0.42 : 1);
+    actor.setScrollFactor(0);
+    this.registerScrollObject(actor);
+  }
+
   /** Career shares terminal Achievement badge identity while retaining its
    * own gallery layout. Missing textures intentionally preserve text/focus. */
   private addAchievementIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string, maxSize = 26): void {
@@ -1246,6 +1267,33 @@ export class MenuScene extends Phaser.Scene {
       }
     } finally {
       this.achievementArtLoading = false;
+    }
+  }
+
+  /** The roster is a menu-only lazy resource closure. Character and weapon
+   * identities arrive from the controller/data; the scene never switches on
+   * a Mercenary ID or assumes one physical texture per visual. */
+  private async ensureMercenaryPresentation(artIds: readonly string[]): Promise<void> {
+    if (this.mercenaryArtLoading || !this.textures?.exists) return;
+    const context = this.getContext();
+    const art = this.requireVisualArt();
+    const resources = new DataVisualResourceRegistry(context.data);
+    const missing = new Map<string, import('../systems/types').VisualTextureResource>();
+    for (const artId of artIds) {
+      const binding = art.bindingById(artId);
+      if (!binding || !binding.resourceId || this.textures.exists(binding.textureKey)) continue;
+      const resource = resources.resourceById(binding.resourceId);
+      if (resource) missing.set(resource.id, resource);
+    }
+    if (missing.size === 0) return;
+    this.mercenaryArtLoading = true;
+    try {
+      const result = await loadTextureResources(this, [...missing.values()]);
+      if (result.loaded.length > 0 && this.committedPanel === 'character' && this.controller) {
+        this.render(this.controller.snapshot());
+      }
+    } finally {
+      this.mercenaryArtLoading = false;
     }
   }
 
@@ -1522,6 +1570,7 @@ export class MenuScene extends Phaser.Scene {
     this.runLaunchGeneration += 1;
     this.gunsmithArtGeneration += 1;
     this.gunsmithArtLoading = false;
+    this.mercenaryArtLoading = false;
     this.pendingGunsmithArtIds.clear();
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);

@@ -4,6 +4,7 @@ import { createConditionContext, type ProgressionCondition } from '../gameplay/c
 
 export interface CharacterOptionView {
   readonly id: string;
+  readonly actorArtId: string;
   readonly name: string;
   readonly description: string;
   readonly abilityName?: string;
@@ -11,6 +12,7 @@ export interface CharacterOptionView {
   readonly baseStatsSummary: string;
   readonly passiveSummary: string;
   readonly startingWeaponSummary: string;
+  readonly startingWeaponIconArtId: string;
   /** Always shown for locked choices; also makes earned goals inspectable. */
   readonly unlockRequirement: string;
   readonly locked: boolean;
@@ -43,7 +45,7 @@ export class CharacterSelectionController {
     const selectedCharacterId = context.selectedCharacterId;
     const revision = context.selectionRevision;
     const abilities = new Map((context.data.abilities ?? []).map((ability) => [ability.id, ability] as const));
-    const weaponNames = new Map(context.data.weapons.map((weapon) => [weapon.id, weapon.name] as const));
+    const weapons = new Map(context.data.weapons.map((weapon) => [weapon.id, weapon] as const));
     const facts = createConditionContext(context.saveData.progression, {
       stages: context.saveData.stages,
       achievements: context.saveData.achievements,
@@ -52,6 +54,7 @@ export class CharacterSelectionController {
     });
     const characters = context.characters.all().map((character) => ({
       id: character.id,
+      actorArtId: `character:${character.id}`,
       name: character.name,
       description: character.description,
       ...(character.abilityId !== undefined && abilities.get(character.abilityId) !== undefined
@@ -59,7 +62,8 @@ export class CharacterSelectionController {
         : {}),
       baseStatsSummary: `${character.baseStats.maxHealth} health • ${character.baseStats.moveSpeed} speed`,
       passiveSummary: character.passives.map((passive) => `${passive.name}: ${passive.description}`).join(' • ') || 'No passive.',
-      startingWeaponSummary: character.startingWeaponIds.map((id) => weaponNames.get(id) ?? id).join(' • '),
+      startingWeaponSummary: character.startingWeaponIds.map((id) => weapons.get(id)?.name ?? id).join(' • '),
+      startingWeaponIconArtId: weapons.get(character.startingWeaponIds[0]!)?.art.iconId ?? '',
       unlockRequirement: describeCharacterUnlock(character.unlock),
       locked: !canSelectCharacter(character, facts),
       selected: character.id === selectedCharacterId,

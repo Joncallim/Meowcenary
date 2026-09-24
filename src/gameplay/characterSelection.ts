@@ -6,6 +6,16 @@ export function canSelectCharacter(
   character: Readonly<CharacterDefinition>,
   facts: Readonly<ConditionContext>,
 ): boolean {
+  return isCharacterAvailable(character, facts);
+}
+
+/** Shared availability authority for selectable Mercenaries. Kept on the
+ * character boundary so menus, Career and terminal availability diffs cannot
+ * accidentally drop migration-preserved entitlements. */
+export function isCharacterAvailable(
+  character: Readonly<Pick<CharacterDefinition, 'id' | 'unlock'>>,
+  facts: Readonly<ConditionContext>,
+): boolean {
   // V4 migration preserves characters earned under historical requirements as
   // explicit durable entitlements.  Current catalog conditions still govern
   // new unlocks, but must not revoke a previously earned Mercenary.

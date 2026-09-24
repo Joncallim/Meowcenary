@@ -9,6 +9,7 @@ import type { GameContext } from '../engine/context';
 import type { DataAchievementRegistry } from '../systems/achievements';
 import { evaluateCondition, createConditionContext } from '../gameplay/conditionEvaluator';
 import type { ProgressionCondition } from '../gameplay/conditionEvaluator';
+import { isCharacterAvailable } from '../gameplay/characterSelection';
 
 export interface NextGoalView {
   readonly kind: 'stage' | 'boss' | 'achievement' | 'mastery' | 'character';
@@ -123,7 +124,7 @@ export class ProgressionOverviewController {
 
     // 5. Next locked character with an explicit unlock condition.
     const characters = context.characters.all();
-    const firstLockedCharacter = characters.find((character) => !evaluateCondition(character.unlock, conditionCtx));
+    const firstLockedCharacter = characters.find((character) => !isCharacterAvailable(character, conditionCtx));
     if (firstLockedCharacter) {
       nextGoals.push({
         kind: 'character',
@@ -137,7 +138,7 @@ export class ProgressionOverviewController {
     const completedStages = stages.filter((s) => context.saveData.stages[s.id]?.completed).length;
     const achievementDefs = this.achievements.all();
     const completedAchievements = achievementDefs.filter((a) => context.saveData.achievements[a.id]?.completed).length;
-    const unlockedCharacters = characters.filter((character) => evaluateCondition(character.unlock, conditionCtx)).length;
+    const unlockedCharacters = characters.filter((character) => isCharacterAvailable(character, conditionCtx)).length;
 
     return Object.freeze({
       revision: this.revision,

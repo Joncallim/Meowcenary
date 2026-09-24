@@ -711,6 +711,77 @@ describe('MenuScene', () => {
     });
   });
 
+  it('renders every Mercenary as one graphical row from controller-owned art identities', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      addMercenaryActor: ReturnType<typeof vi.fn>;
+      addCatalogIcon: ReturnType<typeof vi.fn>;
+    };
+    scene.addMercenaryActor = vi.fn();
+    scene.addCatalogIcon = vi.fn();
+    harness.buttonByLabel('Mercenary')!.state.handlers.pointerup!();
+
+    expect(scene.addMercenaryActor).toHaveBeenCalledTimes(8);
+    expect(scene.addMercenaryActor).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'character:scrap-tabby', 56, false);
+    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'weapon-icon:pistol:t1', 32);
+  });
+
+  it('rerenders a still-current Mercenary panel after a partial lazy resource success', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>();
+    let loadError: ((file: { key?: string }) => void) | undefined;
+    const rendered = vi.fn(); const loaded = new Set<string>();
+    const scene = new MenuScene() as unknown as {
+      committedPanel: string; controller: { snapshot(): unknown };
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
+      load: { on(event: string, listener: (file: { key?: string }) => void): void; off(): void; once(event: string, listener: () => void): void; image(): void; spritesheet(): void; start(): void };
+      getContext(): typeof harness.context; requireVisualArt(): DataVisualArtRegistry; render(snapshot: unknown): void;
+      ensureMercenaryPresentation(ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      committedPanel: 'character', controller: { snapshot: () => ({}) },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: {
+        on: (event: string, listener: (file: { key?: string }) => void) => { if (event === 'loaderror') loadError = listener; },
+        off: () => undefined, once: (event: string, listener: () => void) => { complete.set(event, listener); },
+        image: () => undefined, spritesheet: () => undefined,
+        start: () => {
+          loaded.add('art-character-scrap-tabby');
+          complete.get('filecomplete-spritesheet-art-character-scrap-tabby')?.();
+          loadError?.({ key: 'art-weapon-icon-pistol-t1' });
+        },
+      },
+      getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
+    });
+
+    await scene.ensureMercenaryPresentation(['character:scrap-tabby', 'weapon-icon:pistol:t1']);
+    expect(rendered).toHaveBeenCalledOnce();
+  });
+
+  it('does not resurrect the Mercenary panel when its lazy closure completes after navigation', async () => {
+    const harness = createHarness({ create: false });
+    const art = new DataVisualArtRegistry(harness.context.data);
+    const complete = new Map<string, () => void>(); const rendered = vi.fn(); const loaded = new Set<string>();
+    const scene = new MenuScene() as unknown as {
+      committedPanel: string; controller: { snapshot(): unknown };
+      textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
+      load: { on(): void; off(): void; once(event: string, listener: () => void): void; spritesheet(): void; start(): void };
+      getContext(): typeof harness.context; requireVisualArt(): DataVisualArtRegistry; render(snapshot: unknown): void;
+      ensureMercenaryPresentation(ids: readonly string[]): Promise<void>;
+    };
+    Object.assign(scene, {
+      committedPanel: 'home', controller: { snapshot: () => ({}) },
+      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      load: { on: () => undefined, off: () => undefined, once: (event: string, listener: () => void) => { complete.set(event, listener); }, spritesheet: () => undefined,
+        start: () => { loaded.add('art-character-scrap-tabby'); complete.get('filecomplete-spritesheet-art-character-scrap-tabby')?.(); } },
+      getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
+    });
+
+    await scene.ensureMercenaryPresentation(['character:scrap-tabby']);
+    expect(rendered).not.toHaveBeenCalled();
+  });
+
   it('keeps shared-list focus deterministic across wheel/touch scrolling and resize', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {

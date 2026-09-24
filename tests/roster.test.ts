@@ -75,6 +75,14 @@ describe('Epic 24 roster conformance', () => {
     }))).toBe(true);
   });
 
+  it('unlocks Rattle Raptor from Junkyard 4 rather than collapsing it into the Crusher milestone', () => {
+    const raptor = characters.find((character) => character.id === 'rattle-raptor')!;
+    expect(raptor.unlock).toEqual({ type: 'stage-cleared', stageId: 'stage:junkyard-04' });
+    expect(canSelectCharacter(raptor, createConditionContext({ scrap: 0, permanentUpgrades: {}, unlocks: [] }, {
+      stages: { 'stage:junkyard-04': { completed: true } }, bosses: {},
+    }))).toBe(true);
+  });
+
   it('starting weapons resolve to shipped weapons', () => {
     const data = loadGameData();
     const weaponIds = new Set(data.weapons.map((w) => w.id));
