@@ -390,7 +390,7 @@ describe('MenuScene', () => {
       'Pistol Build\nSelected', 'SMG Build\nEmpty', 'Shotgun Build\nEmpty',
       'PISTOL BUILD\nSelected • Active from start', 'Stock Pistol chassis',
     ]));
-    const compactLabel = 'Compact Receiver • COMMON\nBlueprint • 60 Scrap\nFire rate +8%\nCurrent build: Fire rate +0% → Fire rate +8%\nFabricate for 60 Scrap';
+    const compactLabel = 'Compact Receiver • COMMON\nBlueprint • 60 Scrap\nFire rate +8%\nCurrent build: Fire rate +0% → Fire rate +8%\nFabricate for 60 Scrap\nFabricate — 60 Scrap';
     expect(harness.textContents()).toEqual(expect.arrayContaining(['PART CATALOG', compactLabel]));
     expect(harness.textContents().join('\n')).toContain('Standard Barrel • COMMON\nLocked blueprint');
     expect(harness.buttonByLabel(compactLabel)!.state.interactive).toBe(false);
@@ -431,6 +431,27 @@ describe('MenuScene', () => {
 
     expect(harness.textContents()).toContain('Merge 50 × Standard Barrel T1 → T2');
     expect(harness.textContents().filter((text) => text.startsWith('Merge '))).toHaveLength(1);
+  });
+
+  it('keeps fabrication of a second merge copy actionable when the first copy is fitted', () => {
+    const harness = createHarness();
+    harness.context.commitProgression((progression) => ({ ...progression, scrap: 120 }));
+    harness.context.updateGunsmith((state) => ({
+      ...state,
+      parts: { existing: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] } },
+      builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: { receiver: 'existing' }, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    const label = harness.textContents().find((text) => text.includes('Fabricate another — 60 Scrap'))!;
+    expect(label).toContain('Fitted • T1');
+    for (let step = 0; step < 20 && !harness.buttonByLabel(label)!.state.interactive; step += 1) {
+      harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+      harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+    }
+    expect(harness.buttonByLabel(label)!.state.interactive).toBe(true);
+    harness.buttonByLabel(label)!.state.handlers.pointerup!();
+    expect(Object.values(harness.context.saveData.gunsmith.parts).filter((part) => part.partId === 'part:receiver-compact')).toHaveLength(2);
   });
 
   it('requires a visible two-step destructive Workshop confirmation with cancel and duplicate-confirm safety', () => {

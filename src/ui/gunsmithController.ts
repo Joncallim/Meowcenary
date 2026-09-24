@@ -81,6 +81,10 @@ export interface GunsmithCatalogPartView {
   readonly sourceLabel: string;
   readonly fabricationCost?: number;
   readonly affordable?: boolean;
+  /** Availability and current funds are distinct from ownership: repeatable
+   * fabrication remains the route to a second merge input. */
+  readonly canFabricate: boolean;
+  readonly fabricationActionLabel?: string;
   readonly lockReason?: string;
 }
 
@@ -324,6 +328,8 @@ export class GunsmithController {
           : fabricationCost === undefined ? 'reward-only'
             : fabricable ? 'fabricable' : 'locked';
       const sourceLabel = acquisitionSourceLabel(definition.id, fabricationCost, this.context);
+      const affordable = fabricationCost !== undefined && save.progression.scrap >= fabricationCost;
+      const canFabricate = fabricationCost !== undefined && fabricable && affordable;
       const stateLabel = catalogState === 'fitted' ? `Fitted • T${fittedTier}`
         : catalogState === 'owned' ? `Owned ×${owned.length} • best T${bestTier}`
           : catalogState === 'fabricable' ? `Blueprint • ${fabricationCost} Scrap`
@@ -338,7 +344,11 @@ export class GunsmithController {
         effectLines: Object.freeze(formatPartEffects(definition, displayTier)),
         comparisonSummary: representative?.comparisonSummary ?? catalogCandidateComparison(selected, definition, catalogState, bestTier, state, this.registry),
         sourceLabel,
-        ...(fabricationCost === undefined ? {} : { fabricationCost, affordable: save.progression.scrap >= fabricationCost }),
+        canFabricate,
+        ...(fabricationCost === undefined ? {} : {
+          fabricationCost, affordable,
+          ...(fabricable ? { fabricationActionLabel: `${owned.length > 0 ? 'Fabricate another' : 'Fabricate'} — ${fabricationCost} Scrap` } : {}),
+        }),
         ...(catalogState !== 'locked' ? {} : { lockReason: definition.unlock === undefined ? 'Blueprint is not currently available.' : describeCondition(definition.unlock, this.context) }),
       } satisfies GunsmithCatalogPartView);
     }));
@@ -434,11 +444,17 @@ export class GunsmithController {
       if (!result.ok || !definition) return undefined;
       const before = formatPartEffects(definition, first.tier);
       const after = formatPartEffects(definition, result.output.tier);
+      const firstTraits = [...new Set([...definition.traits, ...first.infusedTraits])];
+      const secondTraits = [...new Set([...definition.traits, ...second.infusedTraits])];
+      const outputTraits = [...new Set([...definition.traits, ...result.output.infusedTraits])];
       return freezeConfirmation({
         kind: 'merge', title: 'Confirm merge', confirmLabel: 'Merge parts',
         inputLines: [partSummaryLine(first, definition), partSummaryLine(second, definition)],
         outputLine: partSummaryLine(result.output, definition),
-        mechanicalDelta: effectDelta(before, after),
+        mechanicalDelta: [
+          ...effectDelta(before, after),
+          ...(outputTraits.length === 0 ? [] : [`Traits ${firstTraits.join(' / ') || 'None'} + ${secondTraits.join(' / ') || 'None'} → ${outputTraits.join(' / ')}`]),
+        ],
       });
     }
     const target = ownedPart(state, request.targetInstanceId);

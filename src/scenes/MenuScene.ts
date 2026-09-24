@@ -854,10 +854,10 @@ export class MenuScene extends Phaser.Scene {
       snapshot.gunsmith.catalog.forEach((part) => {
         const iconColumn = 38 + part.traitIcons.length * 28;
         const detail = [part.lockReason, part.sourceLabel].filter((line) => line !== undefined).join(' ');
-        const label = `${part.name} • ${part.rarity.toUpperCase()}\n${part.stateLabel}\n${part.effectLines.join(' • ') || 'Trait engineering'}\n${part.comparisonSummary}\n${detail}`;
+        const label = `${part.name} • ${part.rarity.toUpperCase()}\n${part.stateLabel}\n${part.effectLines.join(' • ') || 'Trait engineering'}\n${part.comparisonSummary}\n${detail}${part.fabricationActionLabel === undefined ? '' : `\n${part.fabricationActionLabel}`}`;
         const row = this.addButton(root, margin, y, label, hitTarget,
           () => this.render(this.requireController().fabricateGunPart(part.partId)), 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
-        if (part.state !== 'fabricable' || part.affordable !== true) row.disableInteractive();
+        if (!part.canFabricate) row.disableInteractive();
         this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, part.iconArtId);
         part.traitIcons.forEach((trait, index) => {
           this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41 - index * 28, y + hitTarget / 2, trait.iconArtId, 22);

@@ -222,6 +222,24 @@ describe('GunsmithController durable commands', () => {
     expect(Object.values(context.saveData.gunsmith.parts)).toHaveLength(1);
   });
 
+  it('shows the lossless trait union before confirming a variant merge', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      fire: { partId: 'part:barrel-standard', tier: 1, infusedTraits: ['FIRE'] },
+      explosive: { partId: 'part:barrel-standard', tier: 1, infusedTraits: ['EXPLOSIVE'] },
+    } }));
+
+    expect(controller.requestWorkshop({ kind: 'merge', firstInstanceId: 'explosive', secondInstanceId: 'fire' })).toMatchObject({ ok: true });
+    expect(controller.snapshot().confirmation).toMatchObject({
+      inputLines: [
+        'Standard Barrel T1 • Range +10 • EXPLOSIVE',
+        'Standard Barrel T1 • Range +10 • FIRE',
+      ],
+      outputLine: 'Standard Barrel T2 • Range +20 • EXPLOSIVE • FIRE',
+      mechanicalDelta: ['Range +10 → Range +20', 'Traits EXPLOSIVE + FIRE → EXPLOSIVE / FIRE'],
+    });
+  });
+
   it('owns an exact infusion confirmation and cancel never consumes either input', () => {
     const { context, controller } = setup();
     context.updateGunsmith((state) => ({ ...state, parts: {
@@ -276,7 +294,7 @@ describe('GunsmithController durable commands', () => {
     });
     expect(catalog.find((part) => part.partId === 'part:receiver-compact')).toMatchObject({
       state: 'fabricable', stateLabel: 'Blueprint • 60 Scrap', fabricationCost: 60,
-      affordable: false, sourceLabel: 'Fabricate for 60 Scrap',
+      affordable: false, canFabricate: false, fabricationActionLabel: 'Fabricate — 60 Scrap', sourceLabel: 'Fabricate for 60 Scrap',
     });
     expect(catalog.find((part) => part.partId === 'part:underbarrel-grenade')).toMatchObject({
       state: 'reward-only', stateLabel: 'Reward only', sourceLabel: 'First clear: Cut the Feed',
@@ -284,6 +302,23 @@ describe('GunsmithController durable commands', () => {
     expect(catalog.find((part) => part.partId === 'part:trait-fire-mastered')).toMatchObject({
       state: 'reward-only', sourceLabel: 'First clear: Boss: Forge Warden',
     });
+  });
+
+  it('keeps repeatable fabrication actionable when a fabricable Part is already fitted', () => {
+    const { context, controller } = setup();
+    context.commitProgression((progression) => ({ ...progression, scrap: 120 }));
+    context.updateGunsmith((state) => ({ ...state,
+      parts: { existing: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] } },
+      builds: [{ id: 'build:pistol', name: 'Main', baseWeaponFamily: 'pistol', fitted: { receiver: 'existing' }, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+
+    expect(controller.snapshot().catalog.find((part) => part.partId === 'part:receiver-compact')).toMatchObject({
+      state: 'fitted', stateLabel: 'Fitted • T1', ownedCount: 1,
+      canFabricate: true, fabricationActionLabel: 'Fabricate another — 60 Scrap',
+    });
+    expect(controller.fabricate('part:receiver-compact')).toMatchObject({ ok: true, persisted: true });
+    expect(Object.values(context.saveData.gunsmith.parts).filter((part) => part.partId === 'part:receiver-compact')).toHaveLength(2);
   });
 
   it('keeps an unmet data-owned fabrication condition visible with player-facing lock copy', () => {
