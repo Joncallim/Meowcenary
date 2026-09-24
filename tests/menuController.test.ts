@@ -143,6 +143,22 @@ describe('MainMenuController', () => {
     expect(controller.snapshot().progressionOverview.completedStages).toBeGreaterThanOrEqual(1);
   });
 
+  it('uses Back to cancel a pending Workshop confirmation before leaving Gunsmith', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: {
+      a: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+      b: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+    } }));
+    controller.open('gunsmith');
+    controller.requestGunWorkshop({ kind: 'merge', firstInstanceId: 'a', secondInstanceId: 'b' });
+
+    const cancelled = controller.back();
+    expect(cancelled.panel).toBe('gunsmith');
+    expect(cancelled.gunsmith.confirmation).toBeUndefined();
+    expect(context.saveData.gunsmith.parts).toHaveProperty('a');
+    expect(controller.back().panel).toBe('home');
+  });
+
   it('exposes unlocked Equipment blueprints and fabricates them through the durable menu command', () => {
     const { context, controller } = setup();
     context.updateMeta((meta) => ({ ...meta, scrap: 100 }));

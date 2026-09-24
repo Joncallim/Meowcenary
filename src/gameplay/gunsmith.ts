@@ -408,8 +408,15 @@ export type WorkshopRecipe =
 export function listWorkshopRecipes(
   ownedParts: readonly OwnedPart[],
   definitions: ReadonlyMap<string, PartDefinition>,
+  assignedInstanceIds: ReadonlySet<string> = new Set<string>(),
 ): readonly WorkshopRecipe[] {
-  const owned = [...ownedParts].sort((left, right) => left.instanceId.localeCompare(right.instanceId));
+  // Preserve stable deterministic identity while preferring inventory spares:
+  // destructive engineering should not dismantle a configured build when an
+  // equivalent unfitted input exists anywhere in the save.
+  const owned = [...ownedParts].sort((left, right) => {
+    const assignmentOrder = Number(assignedInstanceIds.has(left.instanceId)) - Number(assignedInstanceIds.has(right.instanceId));
+    return assignmentOrder || left.instanceId.localeCompare(right.instanceId);
+  });
   const mergeGroups = new Map<string, OwnedPart[]>();
   for (const part of owned) {
     const definition = definitions.get(part.partId);
@@ -451,10 +458,13 @@ export function listWorkshopRecipes(
     const trait = isInfusableTraitSource(candidate, definitions) ? definition?.traits[0] : undefined;
     if (trait !== undefined && !traitSources.has(trait)) traitSources.set(trait, candidate);
   }
+  const infusionOutcomes = new Set<string>();
   for (const target of owned) {
     for (const trait of BEHAVIOR_TRAITS) {
       const source = traitSources.get(trait);
-      if (source && infuseTrait(target, source, definitions).ok) {
+      const outcomeKey = `${target.partId}\u0000${target.tier}\u0000${canonicalTraits(target.infusedTraits).join(',')}\u0000${trait}`;
+      if (source && !infusionOutcomes.has(outcomeKey) && infuseTrait(target, source, definitions).ok) {
+        infusionOutcomes.add(outcomeKey);
         recipes.push(Object.freeze({ kind: 'infuse', targetInstanceId: target.instanceId, traitInstanceId: source.instanceId }));
       }
     }

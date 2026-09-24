@@ -95,6 +95,11 @@ export class MainMenuController {
   }
 
   back(): MainMenuSnapshot {
+    if (this.panel === 'gunsmith' && this.gunsmithController.snapshot().confirmation !== undefined) {
+      this.gunsmithController.cancelWorkshop();
+      this.notice = undefined;
+      return this.snapshot();
+    }
     if (this.panel !== 'home') {
       this.panel = 'home';
     }
