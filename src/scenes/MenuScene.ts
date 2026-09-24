@@ -47,6 +47,9 @@ export class MenuScene extends Phaser.Scene {
   private disabledFocusables = new Set<Phaser.GameObjects.Text>();
   private focusRings: Phaser.GameObjects.Rectangle[] = [];
   private navigator = new FocusNavigator('linear');
+  /** A modal-like command created during a same-panel rebuild may claim focus
+   * only after the rebuilt navigator has received its new item count. */
+  private focusIndexAfterRender?: number;
   /** Rendered, not merely desired, Achievement grid width. The navigator
    * must be rebuilt when rotation changes this value. */
   private achievementGridColumns?: number;
@@ -212,6 +215,7 @@ export class MenuScene extends Phaser.Scene {
     this.scrollLocalIndexByFocusIndex.clear();
     this.scrollObjects = [];
     this.hoveredIndex = -1;
+    this.focusIndexAfterRender = undefined;
     this.hint = undefined;
 
     const root = this.add.container(0, 0);
@@ -305,6 +309,7 @@ export class MenuScene extends Phaser.Scene {
       // published its focusables; only then can its prior index be clamped.
       if (preserveFocusAfterGridRebuild) this.navigator.setIndex(preserveFocusIndex);
       if (panelChanged) this.navigator.reset();
+      if (this.focusIndexAfterRender !== undefined) this.navigator.setIndex(this.focusIndexAfterRender);
       this.finishScrollableRegion();
       this.applyFocus();
 
@@ -860,6 +865,7 @@ export class MenuScene extends Phaser.Scene {
         const actionWidth = Math.max(120, (width - margin - this.safeRightMargin - 8) / 2);
         const confirm = this.addButton(root, margin, y, confirmation.confirmLabel, hitTarget,
           () => this.render(this.requireController().confirmGunWorkshop()), 'ui:confirm', actionWidth);
+        this.focusIndexAfterRender = this.focusables.indexOf(confirm);
         const cancel = this.addButton(root, margin + actionWidth + 8, y, 'Cancel', hitTarget,
           () => this.render(this.requireController().cancelGunWorkshop()), 'ui:back', actionWidth);
         y += Math.max(confirm.height, cancel.height) + 12;

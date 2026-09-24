@@ -523,6 +523,28 @@ describe('MenuScene', () => {
     expect(Object.values(harness.context.saveData.gunsmith.parts)).toHaveLength(1);
   });
 
+  it('focuses and reveals infusion confirmation from a large Workshop list', () => {
+    const harness = createHarness();
+    harness.context.updateGunsmith((state) => ({
+      ...state,
+      parts: Object.fromEntries([
+        ...Array.from({ length: 24 }, (_, index) => [`target-${index}`, { partId: 'part:barrel-standard', tier: 2, infusedTraits: [] }]),
+        ['fire', { partId: 'part:trait-fire', tier: 2, infusedTraits: [] }],
+      ]),
+      builds: [{ id: 'build:pistol', name: 'Main Weapon', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    const infusion = harness.textContents().find((text) => text.startsWith('Infuse Standard Barrel with Fire Trait Core'))!;
+    harness.buttonByLabel(infusion)!.state.handlers.pointerup!();
+
+    const scene = harness.menuScene as unknown as { navigator: { index: number }; focusables: FakeObject[] };
+    const focused = scene.focusables[scene.navigator.index]!;
+    expect(focused.state.text).toBe('Infuse part');
+    expect(focused.state.visible).toBe(true);
+    expect(focused.state.interactive).toBe(true);
+  });
+
   it('logical Back cancels a pending Workshop confirmation before leaving Gunsmith', () => {
     const harness = createHarness();
     harness.context.updateGunsmith((state) => ({ ...state,
