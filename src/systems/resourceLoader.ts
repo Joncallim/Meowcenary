@@ -36,6 +36,16 @@ function fileCompleteEvent(resource: VisualTextureResource): string {
   return `filecomplete-${type}-${resource.textureKey}`;
 }
 
+/** Physical-resource sampling belongs to the loader boundary. Boot and every
+ * lazy surface therefore get the same manifest-owned filtering policy. */
+function applyResourceSampling(scene: Pick<Phaser.Scene, 'textures'>, resource: VisualTextureResource): void {
+  if (resource.sampling !== 'nearest' || !scene.textures.exists(resource.textureKey)) return;
+  // Phaser.Textures.FilterMode.NEAREST is the stable public enum value 1.
+  // Keep this module's Phaser dependency type-only so pure registry/resource
+  // tests do not initialize the browser-only Phaser device singleton.
+  scene.textures.get(resource.textureKey).setFilter(1);
+}
+
 /** Compatibility projection while current PNG exports are progressively
  * packed into atlases. The loader's unit of work is already a physical
  * texture key, so several logical bindings sharing a key produce one load. */
@@ -92,11 +102,13 @@ export function loadTextureResource(
     const key = resource.textureKey;
     // Skip if already loaded
     if (scene.textures.exists(key)) {
+      applyResourceSampling(scene, resource);
       resolve({ resourceId: resource.id, textureKey: key, success: true });
       return;
     }
 
     const onComplete = () => {
+      applyResourceSampling(scene, resource);
       resolve({ resourceId: resource.id, textureKey: key, success: true });
     };
     const onError = () => {
@@ -146,6 +158,7 @@ export async function loadTextureResources(
   const pending = [...findSharedResources(resources).values()]
     .filter((resource) => {
       if (scene.textures.exists(resource.textureKey)) {
+        applyResourceSampling(scene, resource);
         loaded.push({ resourceId: resource.id, textureKey: resource.textureKey, success: true });
         return false;
       }
@@ -168,6 +181,7 @@ export async function loadTextureResources(
     const settle = (resource: VisualTextureResource, success: boolean): void => {
       if (!unsettled.delete(resource.textureKey)) return;
       scene.load.off(fileCompleteEvent(resource), completeHandlers.get(resource.textureKey));
+      if (success) applyResourceSampling(scene, resource);
       (success ? loaded : failed).push({ resourceId: resource.id, textureKey: resource.textureKey, success });
       remaining -= 1;
       onProgress?.({ completed: loaded.length + failed.length, total });

@@ -824,12 +824,19 @@ export class MenuScene extends Phaser.Scene {
     }));
     y += hitTarget + 12;
     if (snapshot.equipment.activeSets.length > 0) {
-      const active = snapshot.equipment.activeSets.map((set) => `${set.name} Set • ${set.pieces}/4 equipped${set.activeThresholds.length ? ` (${set.activeThresholds.join('+')}-piece active)` : ''}\n${set.bonusSummary.join(' • ')}`).join('\n');
-      const activeText = this.own(root, createUiText(this, margin, y, `Active sets — ${active}`, {
+      const activeHeading = this.own(root, createUiText(this, margin, y, 'ACTIVE SETS', {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-        wordWrap: { width: width - margin - this.safeRightMargin },
       }));
-      y += activeText.height + 12;
+      y += activeHeading.height + 4;
+      for (const set of snapshot.equipment.activeSets) {
+        const activeText = this.own(root, createUiText(this, margin, y, `${set.name} Set • ${set.pieces}/4 equipped${set.activeThresholds.length ? ` (${set.activeThresholds.join('+')}-piece active)` : ''}\n${set.bonusSummary.join(' • ')}`, {
+          color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+          wordWrap: { width: width - margin - this.safeRightMargin - 38 },
+        }));
+        this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + Math.min(activeText.height, hitTarget) / 2, set.emblemArtId);
+        y += activeText.height + 8;
+      }
+      y += 4;
     }
     this.own(root, createUiText(this, margin, y, 'Owned equipment:', {
       color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
@@ -838,13 +845,14 @@ export class MenuScene extends Phaser.Scene {
     this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
     snapshot.equipment.owned.forEach((item) => {
       const equippedHere = equipped[item.slot] === item.instanceId;
-      const iconColumn = 38;
+      const iconColumn = 66;
       const equipmentButton = this.addButton(root, margin, y, `${equippedHere ? '✓ ' : ''}${item.name}\n${item.setName} Set • ${item.setPieces}/4 equipped • Tier ${item.tier}\n${equippedHere ? 'Equipped' : 'Tap to equip'}`, hitTarget, () => {
         this.render(equippedHere
           ? this.requireController().unequipEquipment(item.slot as 'helmet' | 'armour' | 'gloves' | 'boots')
           : this.requireController().equipEquipment(item.instanceId));
       }, 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
       this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, item.iconArtId);
+      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41, y + hitTarget / 2, item.setEmblemArtId, 22);
       y += equipmentButton.height + 8;
       const effects = this.own(root, createUiText(this, margin, y, item.effectSummary.join(' • '), {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
@@ -898,8 +906,9 @@ export class MenuScene extends Phaser.Scene {
       const slot = `${blueprint.slot.charAt(0).toUpperCase()}${blueprint.slot.slice(1)}`;
       const row = this.addButton(root, margin, y, `${blueprint.name}\n${blueprint.setName} Set • ${slot}\n${blueprint.effectSummary.join(' • ')}\nFabricate — ${blueprint.fabricationCost} Scrap`, hitTarget, () => {
         this.render(this.requireController().fabricateEquipment(blueprint.equipmentId));
-      }, 'ui:confirm', width - margin - this.safeRightMargin - 38);
+      }, 'ui:confirm', width - margin - this.safeRightMargin - 66);
       this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, blueprint.iconArtId);
+      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41, y + hitTarget / 2, blueprint.setEmblemArtId, 22);
       y += row.height + 8;
     });
     this.endScrollableRegion();
