@@ -529,8 +529,8 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         return Object.freeze({
           ok: true, terminalApplied: true, runScrapBanked: 0, firstClear: false,
           bestTimeImproved: false, firstClearScrap: 0, persistentGrantIds: Object.freeze([]),
-          achievementIdsCompleted: wholeRunAchievementIds(current, Object.freeze([])), scrapAwardedFromAchievements: 0,
-          masteryTierAwarded: 0, availabilityBefore: runBaseline?.availability ?? availability, availabilityAfter: availability,
+          achievementIdsCompleted: Object.freeze([]), scrapAwardedFromAchievements: 0,
+          masteryTierAwarded: 0, availabilityBefore: availability, availabilityAfter: availability,
         });
       }
 
