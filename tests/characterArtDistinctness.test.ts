@@ -175,6 +175,24 @@ describe('Volt Lynx production-art distinction', () => {
     }
   });
 
+  it('keeps production Mercenary clips inside the native canvas and gives idle and hurt visible motion', () => {
+    const ids = ['brass-boar', 'ember-cougar', 'scrap-weasel', 'rattle-raptor', 'piston-ram'] as const;
+    for (const id of ids) {
+      const png = decodeRgbaPng(`public/assets/characters/${id}/${id}.png`);
+      for (let frame = 0; frame < 16; frame += 1) {
+        const mask = frameAlphaMask(png, frame);
+        const edgePixels = [...mask].filter((pixel) => {
+          const x = pixel % 48;
+          const y = Math.floor(pixel / 48);
+          return x === 0 || x === 47 || y === 0 || y === 47;
+        });
+        expect(edgePixels, `${id} frame ${frame + 1} touches the 48px crop edge`).toEqual([]);
+      }
+      expect(frameAlphaMask(png, 0), `${id} idle is static`).not.toEqual(frameAlphaMask(png, 1));
+      expect(frameAlphaMask(png, 10), `${id} hurt is static`).not.toEqual(frameAlphaMask(png, 11));
+    }
+  });
+
   it('keeps distinct logical and physical resources under the character-specific run closure', () => {
     const data = loadGameData();
     const registry = new DataVisualArtRegistry(data);
