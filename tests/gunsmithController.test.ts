@@ -462,6 +462,27 @@ describe('GunsmithController durable commands', () => {
     });
   });
 
+  it('describes one exact highest-tier instance when a catalog definition has mixed owned tiers', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state,
+      parts: {
+        weaker: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
+        strongest: { partId: 'part:barrel-standard', tier: 5, infusedTraits: [] },
+      },
+      builds: [
+        { id: 'build:pistol', name: 'Main', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] },
+        { id: 'build:smg', name: 'Sidearm', baseWeaponFamily: 'smg', fitted: { barrel: 'weaker' }, traitParts: [] },
+        { id: 'build:shotgun', name: 'Scattergun', baseWeaponFamily: 'shotgun', fitted: { barrel: 'strongest' }, traitParts: [] },
+      ],
+      selectedBuildId: 'build:pistol',
+    }));
+
+    expect(controller.snapshot().catalog.find((part) => part.partId === 'part:barrel-standard')).toMatchObject({
+      state: 'fitted', stateLabel: 'Fitted • T5', ownedCount: 2,
+      effectLines: ['Range +50'], comparisonSummary: 'Move from Scattergun.',
+    });
+  });
+
   it('keeps repeatable fabrication actionable when a fabricable Part is already fitted', () => {
     const { context, controller } = setup();
     context.commitProgression((progression) => ({ ...progression, scrap: 120 }));

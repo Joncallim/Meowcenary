@@ -342,7 +342,12 @@ export class GunsmithController {
       const fittedParts = owned.filter((part) => part.state === 'fitted-here' || part.state === 'fitted-elsewhere');
       const fittedCount = fittedParts.length;
       const bestTier = owned.reduce((highest, part) => Math.max(highest, part.tier), 1);
-      const fittedTier = fittedParts.reduce((highest, part) => Math.max(highest, part.tier), 1);
+      const representativePool = fittedCount > 0 ? fittedParts : owned;
+      const representative = representativePool.reduce<GunsmithPartView | undefined>(
+        (best, part) => best === undefined || part.tier > best.tier ? part : best,
+        undefined,
+      );
+      const displayTier = representative?.tier ?? bestTier;
       const fabricationCost = definition.fabricationCost;
       const fabricable = availableBlueprints.has(definition.id);
       const catalogState: GunsmithCatalogPartView['state'] = fittedCount > 0 ? 'fitted'
@@ -352,12 +357,10 @@ export class GunsmithController {
       const sourceLabel = acquisitionSourceLabel(definition.id, fabricationCost, this.context);
       const affordable = fabricationCost !== undefined && save.progression.scrap >= fabricationCost;
       const canFabricate = fabricationCost !== undefined && fabricable && affordable;
-      const stateLabel = catalogState === 'fitted' ? `Fitted • T${fittedTier}`
-        : catalogState === 'owned' ? `Owned ×${owned.length} • best T${bestTier}`
+      const stateLabel = catalogState === 'fitted' ? `Fitted • T${displayTier}`
+        : catalogState === 'owned' ? `Owned ×${owned.length} • best T${displayTier}`
           : catalogState === 'fabricable' ? `Blueprint • ${fabricationCost} Scrap`
             : catalogState === 'locked' ? 'Locked blueprint' : 'Reward only';
-      const representative = owned.find((part) => part.state === 'fitted-here') ?? fittedParts[0] ?? owned[0];
-      const displayTier = representative?.tier ?? bestTier;
       return Object.freeze({
         partId: definition.id, name: definition.name, slot: definition.slot, rarity: definition.rarity,
         iconArtId: definition.presentation.iconArtId,
