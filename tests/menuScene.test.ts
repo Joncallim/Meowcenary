@@ -402,6 +402,31 @@ describe('MenuScene', () => {
     expect(harness.context.saveData.gunsmith.builds.map((build) => build.id)).toEqual(['build:pistol', 'build:smg']);
   });
 
+  it('keeps unavailable Gunsmith catalog rows inert when scrolling reveals them', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Loadout: Gunsmith')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Pistol Build\nEmpty')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      navigator: { index: number };
+      focusables: FakeObject[];
+    };
+    const locked = scene.focusables.find((row) => row.state.text.startsWith('Standard Barrel • COMMON\nLocked blueprint'))!;
+    const lockedIndex = scene.focusables.indexOf(locked);
+    for (let step = 0; step < scene.focusables.length && scene.navigator.index !== lockedIndex; step += 1) {
+      harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+      harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+    }
+
+    expect(scene.navigator.index).toBe(lockedIndex);
+    expect(locked.state.visible).toBe(true);
+    expect(locked.state.interactive).toBe(false);
+    harness.keyboard.keydown('Enter'); harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('Enter'); harness.menuScene.update(0, 16);
+    expect(scene.controller.snapshot().notice).toBeUndefined();
+    expect(harness.context.saveData.gunsmith.parts).toEqual({});
+  });
+
   it('uses the shared scroll region for a large Gunsmith inventory without paging controls', () => {
     const harness = createHarness();
     harness.context.updateGunsmith((state) => ({
@@ -485,6 +510,8 @@ describe('MenuScene', () => {
       'CONFIRM MERGE\nINPUTS\nStandard Barrel T1 • Range +10\nStandard Barrel T1 • Range +10\nOUTPUT\nStandard Barrel T2 • Range +20\nRange +10 → Range +20',
       'Merge parts', 'Cancel',
     ]));
+    expect(harness.textContents()).not.toContain('CHOOSE COMPATIBLE SECOND INPUT');
+    expect(harness.textContents().some((text) => text.startsWith('RECOMMENDED • Second input'))).toBe(false);
 
     harness.buttonByLabel('Cancel')!.state.handlers.pointerup!();
     expect(harness.context.saveData.gunsmith.parts).toHaveProperty('a');

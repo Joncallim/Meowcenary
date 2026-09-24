@@ -41,6 +41,10 @@ export class MenuScene extends Phaser.Scene {
   private controller?: MainMenuController;
   private root?: Phaser.GameObjects.Container;
   private focusables: Phaser.GameObjects.Text[] = [];
+  /** Buttons which remain readable/focusable for their lock explanation but
+   * must never regain pointer or logical activation when scrolling changes
+   * viewport visibility. */
+  private disabledFocusables = new Set<Phaser.GameObjects.Text>();
   private focusRings: Phaser.GameObjects.Rectangle[] = [];
   private navigator = new FocusNavigator('linear');
   /** Rendered, not merely desired, Achievement grid width. The navigator
@@ -200,6 +204,7 @@ export class MenuScene extends Phaser.Scene {
     this.root?.destroy(true);
     this.root = undefined;
     this.focusables = [];
+    this.disabledFocusables.clear();
     this.focusRings = [];
     this.scrollRegion = undefined;
     this.collectingScrollItems = false;
@@ -803,7 +808,7 @@ export class MenuScene extends Phaser.Scene {
           const row = this.addButton(root, margin, y, label, hitTarget, () => this.render(part.state === 'fitted-here'
             ? this.requireController().unequipGunPart(part.instanceId)
             : this.requireController().fitGunPart(part.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
-          if (!enabled) row.disableInteractive();
+          if (!enabled) this.disableButton(row);
           this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, part.iconArtId);
           part.traitIcons.forEach((trait, index) => {
             this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41 - index * 28, y + hitTarget / 2, trait.iconArtId, 22);
@@ -825,7 +830,7 @@ export class MenuScene extends Phaser.Scene {
           y += row.height + 8;
         });
       }
-      if (snapshot.gunsmith.mergeSelection) {
+      if (snapshot.gunsmith.mergeSelection && !snapshot.gunsmith.confirmation) {
         const selection = snapshot.gunsmith.mergeSelection;
         const selectionHeading = this.own(root, createUiText(this, margin, y, selection.title.toUpperCase(), {
           color: '#f7d774', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
@@ -870,7 +875,7 @@ export class MenuScene extends Phaser.Scene {
         const label = `${part.name} • ${part.rarity.toUpperCase()}\n${part.stateLabel}\n${part.effectLines.join(' • ') || 'Trait engineering'}\n${part.comparisonSummary}\n${detail}${part.fabricationActionLabel === undefined ? '' : `\n${part.fabricationActionLabel}`}`;
         const row = this.addButton(root, margin, y, label, hitTarget,
           () => this.render(this.requireController().fabricateGunPart(part.partId)), 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
-        if (!part.canFabricate) row.disableInteractive();
+        if (!part.canFabricate) this.disableButton(row);
         this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, part.iconArtId);
         part.traitIcons.forEach((trait, index) => {
           this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41 - index * 28, y + hitTarget / 2, trait.iconArtId, 22);
@@ -1163,6 +1168,11 @@ export class MenuScene extends Phaser.Scene {
     return text;
   }
 
+  private disableButton(text: Phaser.GameObjects.Text): void {
+    this.disabledFocusables.add(text);
+    text.disableInteractive();
+  }
+
   private addHeading(
     root: Phaser.GameObjects.Container,
     x: number,
@@ -1380,7 +1390,7 @@ export class MenuScene extends Phaser.Scene {
       text.setVisible(visible);
       const ring = this.focusRings[index];
       ring?.setVisible(visible);
-      if (visible) text.setInteractive({ useHandCursor: true });
+      if (visible && !this.disabledFocusables.has(text)) text.setInteractive({ useHandCursor: true });
       else text.disableInteractive();
     }
   }
@@ -1471,6 +1481,7 @@ export class MenuScene extends Phaser.Scene {
     if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     if (!this.committedDisplay) return;
     const focused = this.focusables[this.navigator.index];
+    if (focused && this.disabledFocusables.has(focused)) return;
     focused?.emit(Phaser.Input.Events.POINTER_UP);
   }
 
