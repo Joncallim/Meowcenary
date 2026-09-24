@@ -9,7 +9,11 @@ import { loadGameData } from '../src/systems/validation';
 import { DataVisualArtRegistry } from '../src/systems/visualArt';
 
 const ENEMY_IDS = ['dust-mite', 'scrap-sniper', 'boss-crusher'] as const;
-const FRAME_SIZE = 48;
+const RELEASE_ENEMY_IDS = [
+  'dust-mite', 'junk-rusher', 'trash-brute', 'scrap-sniper', 'scrap-skitter',
+  'bastion-beetle', 'junk-nester', 'shard-bot', 'boss-crusher', 'boss-forge',
+] as const;
+const FRAME_SIZES = { 'dust-mite': 48, 'scrap-sniper': 48, 'boss-crusher': 64 } as const;
 const FRAME_COUNT = 16;
 
 interface RgbaPng {
@@ -62,28 +66,28 @@ function decodeRgbaPng(path: string): RgbaPng {
   return { width, height, pixels };
 }
 
-function framePixels(png: RgbaPng, frame: number): Uint8Array {
-  const pixels = new Uint8Array(FRAME_SIZE * FRAME_SIZE * 4);
-  for (let y = 0; y < FRAME_SIZE; y += 1) {
-    const start = (y * png.width + frame * FRAME_SIZE) * 4;
-    pixels.set(png.pixels.subarray(start, start + FRAME_SIZE * 4), y * FRAME_SIZE * 4);
+function framePixels(png: RgbaPng, frame: number, frameSize: number): Uint8Array {
+  const pixels = new Uint8Array(frameSize * frameSize * 4);
+  for (let y = 0; y < frameSize; y += 1) {
+    const start = (y * png.width + frame * frameSize) * 4;
+    pixels.set(png.pixels.subarray(start, start + frameSize * 4), y * frameSize * 4);
   }
   return pixels;
 }
 
-function alphaMask(png: RgbaPng, frame: number): Set<number> {
-  const pixels = framePixels(png, frame);
+function alphaMask(png: RgbaPng, frame: number, frameSize: number): Set<number> {
+  const pixels = framePixels(png, frame, frameSize);
   const mask = new Set<number>();
-  for (let pixel = 0; pixel < FRAME_SIZE * FRAME_SIZE; pixel += 1) {
+  for (let pixel = 0; pixel < frameSize * frameSize; pixel += 1) {
     if (pixels[pixel * 4 + 3] !== 0) mask.add(pixel);
   }
   return mask;
 }
 
-function maskBounds(mask: ReadonlySet<number>) {
+function maskBounds(mask: ReadonlySet<number>, frameSize: number) {
   expect(mask.size).toBeGreaterThan(0);
-  const xs = [...mask].map((pixel) => pixel % FRAME_SIZE);
-  const ys = [...mask].map((pixel) => Math.floor(pixel / FRAME_SIZE));
+  const xs = [...mask].map((pixel) => pixel % frameSize);
+  const ys = [...mask].map((pixel) => Math.floor(pixel / frameSize));
   return {
     minX: Math.min(...xs), maxX: Math.max(...xs),
     minY: Math.min(...ys), maxY: Math.max(...ys),
@@ -103,9 +107,9 @@ function intersectionOverUnion(a: ReadonlySet<number>, b: ReadonlySet<number>): 
   return intersection / (a.size + b.size - intersection);
 }
 
-function grayscaleHash(png: RgbaPng, frame: number): string {
-  const source = framePixels(png, frame);
-  const gray = Buffer.alloc(FRAME_SIZE * FRAME_SIZE);
+function grayscaleHash(png: RgbaPng, frame: number, frameSize: number): string {
+  const source = framePixels(png, frame, frameSize);
+  const gray = Buffer.alloc(frameSize * frameSize);
   for (let pixel = 0; pixel < gray.length; pixel += 1) {
     const offset = pixel * 4;
     gray[pixel] = source[offset + 3] === 0 ? 0 : Math.round(
@@ -115,7 +119,7 @@ function grayscaleHash(png: RgbaPng, frame: number): string {
   return createHash('sha256').update(gray).digest('hex');
 }
 
-function visiblePxoPixels(path: string): Uint8Array {
+function visiblePxoPixels(path: string, frameSize: number): Uint8Array {
   const extracted = mkdtempSync(join(tmpdir(), 'meowcenary-enemy-pxo-'));
   try {
     execFileSync('unzip', ['-q', path, '-d', extracted]);
@@ -125,21 +129,21 @@ function visiblePxoPixels(path: string): Uint8Array {
       size_x: number;
       size_y: number;
     };
-    expect(project).toMatchObject({ size_x: FRAME_SIZE, size_y: FRAME_SIZE });
+    expect(project).toMatchObject({ size_x: frameSize, size_y: frameSize });
     expect(project.frames).toHaveLength(FRAME_COUNT);
     const visibleLayers = project.layers
       .map((layer, index) => ({ index: index + 1, visible: layer.visible }))
       .filter((layer) => layer.visible);
-    const sheet = new Uint8Array(FRAME_COUNT * FRAME_SIZE * FRAME_SIZE * 4);
+    const sheet = new Uint8Array(FRAME_COUNT * frameSize * frameSize * 4);
     for (let frame = 1; frame <= FRAME_COUNT; frame += 1) {
       for (const layer of visibleLayers) {
         const pixels = readFileSync(join(extracted, `image_data/frames/${frame}/layer_${layer.index}`));
-        expect(pixels).toHaveLength(FRAME_SIZE * FRAME_SIZE * 4);
+        expect(pixels).toHaveLength(frameSize * frameSize * 4);
         for (let source = 0; source < pixels.length; source += 4) {
           if (pixels[source + 3] === 0) continue;
-          const x = source / 4 % FRAME_SIZE;
-          const y = Math.floor(source / 4 / FRAME_SIZE);
-          const destination = (y * FRAME_COUNT * FRAME_SIZE + (frame - 1) * FRAME_SIZE + x) * 4;
+          const x = source / 4 % frameSize;
+          const y = Math.floor(source / 4 / frameSize);
+          const destination = (y * FRAME_COUNT * frameSize + (frame - 1) * frameSize + x) * 4;
           sheet.set(pixels.subarray(source, source + 4), destination);
         }
       }
@@ -150,44 +154,101 @@ function visiblePxoPixels(path: string): Uint8Array {
   }
 }
 
+function displayedIdleFrame(
+  png: RgbaPng,
+  sourceSize: number,
+  displayWidth: number,
+  displayHeight: number,
+): { readonly mask: ReadonlySet<number>; readonly grayscale: Uint8Array } {
+  const canvasSize = 40;
+  const offsetX = Math.floor((canvasSize - displayWidth) / 2);
+  const offsetY = Math.floor((canvasSize - displayHeight) / 2);
+  const mask = new Set<number>();
+  const grayscale = new Uint8Array(canvasSize * canvasSize);
+  const source = framePixels(png, 0, sourceSize);
+  for (let y = 0; y < displayHeight; y += 1) {
+    for (let x = 0; x < displayWidth; x += 1) {
+      const sourceX = Math.floor(x * sourceSize / displayWidth);
+      const sourceY = Math.floor(y * sourceSize / displayHeight);
+      const sourceOffset = (sourceY * sourceSize + sourceX) * 4;
+      if (source[sourceOffset + 3] === 0) continue;
+      const destination = (offsetY + y) * canvasSize + offsetX + x;
+      mask.add(destination);
+      grayscale[destination] = Math.round(
+        source[sourceOffset] * 0.299
+        + source[sourceOffset + 1] * 0.587
+        + source[sourceOffset + 2] * 0.114,
+      );
+    }
+  }
+  return { mask, grayscale };
+}
+
 describe('Alpha 3 enemy production-art distinction', () => {
   const actors = ENEMY_IDS.map((id) => ({
     id,
+    frameSize: FRAME_SIZES[id],
     png: decodeRgbaPng(`public/assets/enemies/${id}/${id}.png`),
   }));
 
   it('rejects duplicate final art and keeps all three native silhouettes and grayscale reads distinct', () => {
     expect(new Set(actors.map(({ png }) => createHash('sha256').update(png.pixels).digest('hex'))).size)
       .toBe(ENEMY_IDS.length);
-    expect(new Set(actors.map(({ png }) => grayscaleHash(png, 0))).size).toBe(ENEMY_IDS.length);
-    for (let left = 0; left < actors.length; left += 1) {
-      for (let right = left + 1; right < actors.length; right += 1) {
-        expect(
-          intersectionOverUnion(alphaMask(actors[left]!.png, 0), alphaMask(actors[right]!.png, 0)),
-          `${actors[left]!.id}/${actors[right]!.id}`,
-        ).toBeLessThan(0.7);
-      }
-    }
-    const mite = maskBounds(alphaMask(actors[0]!.png, 0));
-    const sniper = maskBounds(alphaMask(actors[1]!.png, 0));
-    const crusher = maskBounds(alphaMask(actors[2]!.png, 0));
+    expect(new Set(actors.map(({ png, frameSize }) => grayscaleHash(png, 0, frameSize))).size).toBe(ENEMY_IDS.length);
+    const mite = maskBounds(alphaMask(actors[0]!.png, 0, actors[0]!.frameSize), actors[0]!.frameSize);
+    const sniper = maskBounds(alphaMask(actors[1]!.png, 0, actors[1]!.frameSize), actors[1]!.frameSize);
+    const crusher = maskBounds(alphaMask(actors[2]!.png, 0, actors[2]!.frameSize), actors[2]!.frameSize);
     expect(Math.abs(mite.width - mite.height), 'Dust Mite must remain compact and round').toBeLessThanOrEqual(8);
     expect(sniper.height, 'Scrap Sniper must read taller than the round Mite').toBeGreaterThan(mite.height);
     expect(crusher.width, 'Crusher must read as the widest horizontal actor').toBeGreaterThan(sniper.width + 5);
     expect(crusher.width - crusher.height, 'Crusher must read as a low horizontal jaw').toBeGreaterThan(8);
   });
 
+  it('keeps the new actors distinct from all ten release enemies at actual manifest display size', () => {
+    const registry = new DataVisualArtRegistry(loadGameData());
+    const displayed = RELEASE_ENEMY_IDS.map((id) => {
+      const binding = registry.bindingById(`enemy:${id}`);
+      if (!binding || binding.load.type !== 'spritesheet') throw new Error(`missing enemy actor binding ${id}`);
+      const png = decodeRgbaPng(`public/${binding.url}`);
+      return {
+        id,
+        ...displayedIdleFrame(
+          png,
+          binding.load.frame.width,
+          binding.display.width,
+          binding.display.height,
+        ),
+      };
+    });
+    expect(new Set(displayed.map(({ grayscale }) => createHash('sha256').update(grayscale).digest('hex'))).size)
+      .toBe(RELEASE_ENEMY_IDS.length);
+    for (const selectedId of ENEMY_IDS) {
+      const selected = displayed.find(({ id }) => id === selectedId)!;
+      for (const other of displayed) {
+        if (other.id === selectedId) continue;
+        expect(intersectionOverUnion(selected.mask, other.mask), `${selectedId}/${other.id} at display size`)
+          .toBeLessThan(0.88);
+      }
+    }
+    const mite = maskBounds(displayed.find(({ id }) => id === 'dust-mite')!.mask, 40);
+    const sniper = maskBounds(displayed.find(({ id }) => id === 'scrap-sniper')!.mask, 40);
+    const crusher = maskBounds(displayed.find(({ id }) => id === 'boss-crusher')!.mask, 40);
+    expect(Math.abs(mite.width - mite.height)).toBeLessThanOrEqual(5);
+    expect(sniper.height).toBeGreaterThan(mite.height);
+    expect(crusher.width - crusher.height).toBeGreaterThan(5);
+  });
+
   it('keeps every frame inside the canvas, grounded, centred, and visibly animated in each clip', () => {
     const clips = [[0, 3], [4, 9], [10, 11], [12, 15]] as const;
-    for (const { id, png } of actors) {
-      expect(png).toMatchObject({ width: FRAME_SIZE * FRAME_COUNT, height: FRAME_SIZE });
-      const activeBounds = Array.from({ length: 12 }, (_, frame) => maskBounds(alphaMask(png, frame)));
+    for (const { id, png, frameSize } of actors) {
+      expect(png).toMatchObject({ width: frameSize * FRAME_COUNT, height: frameSize });
+      const activeBounds = Array.from({ length: 12 }, (_, frame) => maskBounds(alphaMask(png, frame, frameSize), frameSize));
       for (let frame = 0; frame < FRAME_COUNT; frame += 1) {
-        const bounds = maskBounds(alphaMask(png, frame));
+        const bounds = maskBounds(alphaMask(png, frame, frameSize), frameSize);
         expect(bounds.minX, `${id} frame ${frame + 1} left crop`).toBeGreaterThan(0);
-        expect(bounds.maxX, `${id} frame ${frame + 1} right crop`).toBeLessThan(FRAME_SIZE - 1);
+        expect(bounds.maxX, `${id} frame ${frame + 1} right crop`).toBeLessThan(frameSize - 1);
         expect(bounds.minY, `${id} frame ${frame + 1} top crop`).toBeGreaterThan(0);
-        expect(bounds.maxY, `${id} frame ${frame + 1} bottom crop`).toBeLessThan(FRAME_SIZE - 1);
+        expect(bounds.maxY, `${id} frame ${frame + 1} bottom crop`).toBeLessThan(frameSize - 1);
       }
       expect(Math.max(...activeBounds.map((bounds) => bounds.maxY)) - Math.min(...activeBounds.map((bounds) => bounds.maxY)), `${id} ground drift`)
         .toBeLessThanOrEqual(2);
@@ -196,7 +257,7 @@ describe('Alpha 3 enemy production-art distinction', () => {
       for (const [start, end] of clips) {
         const hashes = new Set<string>();
         for (let frame = start; frame <= end; frame += 1) {
-          hashes.add(silhouetteHash(alphaMask(png, frame)));
+          hashes.add(silhouetteHash(alphaMask(png, frame, frameSize)));
         }
         expect(hashes.size, `${id} frames ${start + 1}-${end + 1} have no silhouette motion`).toBeGreaterThan(1);
       }
@@ -204,8 +265,8 @@ describe('Alpha 3 enemy production-art distinction', () => {
   });
 
   it('keeps runtime pixels exactly reproducible from visible editable PXO layers', () => {
-    for (const { id, png } of actors) {
-      expect(png.pixels, id).toEqual(visiblePxoPixels(`assets-src/enemies/${id}/source/${id}.pxo`));
+    for (const { id, png, frameSize } of actors) {
+      expect(png.pixels, id).toEqual(visiblePxoPixels(`assets-src/enemies/${id}/source/${id}.pxo`, frameSize));
     }
   }, 15_000);
 
@@ -219,12 +280,13 @@ describe('Alpha 3 enemy production-art distinction', () => {
         { id: 'boss-crusher', name: 'Scrap Crusher', archetype: 'boss', health: 420, damage: 22, speed: 46, xpValue: 40, scrapValue: 60, contactDamage: false, lootTableId: 'brute-cache', attack: { triggerRange: 210, telegraphMs: 900, dashSpeed: 340, dashDurationMs: 420, cooldownMs: 1500 }, actions: [{ id: 'boss-action:aimed-shot' }], phases: [{ id: 'boss-phase-crusher-enraged', atHealthFraction: 0.5, attack: { triggerRange: 240, telegraphMs: 650, dashSpeed: 390, dashDurationMs: 460, cooldownMs: 1100 }, actions: [] }] },
       ]);
     for (const id of ENEMY_IDS) {
+      const frameSize = FRAME_SIZES[id];
       expect(registry.bindingById(`enemy:${id}`)).toMatchObject({
         id: `enemy:${id}`,
         kind: 'enemy',
         display: { width: 26, height: 26 },
         resourceId: `resource:enemy-${id}`,
-        load: { type: 'spritesheet', frame: { width: 48, height: 48 } },
+        load: { type: 'spritesheet', frame: { width: frameSize, height: frameSize } },
         clips: {
           idle: { start: 0, end: 3, frameRate: 6, repeat: -1 },
           run: { start: 4, end: 9, frameRate: 10, repeat: -1 },
