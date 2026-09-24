@@ -1223,7 +1223,9 @@ export class MenuScene extends Phaser.Scene {
     const binding = this.requireVisualArt().bindingById(actorArtId);
     if (!binding || binding.kind !== 'character' || binding.load.type !== 'spritesheet' || !this.textures?.exists(binding.textureKey)) return;
     const actor = this.own(root, this.add.image(x, y, binding.textureKey, binding.clips?.idle?.start ?? 0));
-    actor.setDisplaySize(Math.min(maxSize, binding.display.width * 2), Math.min(maxSize, binding.display.height * 2));
+    const targetWidth = Math.min(maxSize, binding.display.width * 2);
+    const targetHeight = Math.min(maxSize, binding.display.height * 2);
+    actor.setScale(targetWidth / binding.load.frame.width, targetHeight / binding.load.frame.height);
     actor.setAlpha(locked ? 0.42 : 1);
     actor.setScrollFactor(0);
     this.registerScrollObject(actor);

@@ -368,6 +368,12 @@ function fakeObject(
       state.scaleY = y;
       return api;
     },
+    setDisplaySize(width: number, height: number) {
+      requireAlive();
+      state.width = width;
+      state.height = height;
+      return api;
+    },
     setDepth(depth: number) {
       requireAlive();
       state.depth = depth;
