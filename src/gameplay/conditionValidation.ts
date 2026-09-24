@@ -4,7 +4,7 @@
 import { isContentId, isUnlockId } from '../systems/ids';
 
 const CONDITION_TYPES = new Set([
-  'stage-cleared', 'boss-defeated', 'achievement-completed', 'mastery-reached',
+  'always', 'stage-cleared', 'boss-defeated', 'achievement-completed', 'mastery-reached',
   'owns-content', 'all', 'any', 'not', 'scrap-total', 'permanent-level', 'unlock-count',
 ]);
 
@@ -19,6 +19,8 @@ export function validateProgressionCondition(value: unknown, path: string): stri
     return [`${path}.type: must be a valid condition type`];
   }
   switch (condition.type) {
+    case 'always':
+      break;
     case 'stage-cleared':
       if (!canonical(condition.stageId, 'stage:')) errors.push(`${path}.stageId: must be a canonical stage ID`);
       break;

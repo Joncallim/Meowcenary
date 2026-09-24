@@ -43,7 +43,7 @@ export class HeldWeaponView implements HeldWeaponPresentation {
     this.recoilOffsetX = -Math.cos(angle) * recoilPx * HELD_WEAPON_VISUAL_FACTOR;
     this.recoilOffsetY = -Math.sin(angle) * recoilPx * HELD_WEAPON_VISUAL_FACTOR;
     this.image
-      .setTexture(binding.textureKey)
+      .setTexture(binding.textureKey, binding.frameKey)
       .setDisplaySize(
         binding.display.width * HELD_WEAPON_VISUAL_FACTOR,
         binding.display.height * HELD_WEAPON_VISUAL_FACTOR,

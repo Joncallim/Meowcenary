@@ -1053,4 +1053,118 @@ describe('DropSystem', () => {
       expect(runState.currency).toBe(0);
     });
   });
+
+  describe('#164 freeze regression matrix', () => {
+    it('spawns and collects XP pickup without freezing', async () => {
+      const { system, runState, overlapCallback } = await createSystem();
+      const drop = system.spawnDrop(5, 5, { kind: 'xp', amount: 10 });
+      expect(drop.active).toBe(true);
+      expect(drop.grant?.kind).toBe('xp');
+      overlapCallback?.(null, drop.sprite);
+      // applyXp scales by xpGain stat (0.5 in test harness)
+      expect(runState.xp).toBe(5);
+    });
+
+    it('spawns and collects Scrap pickup without freezing', async () => {
+      const { system, runState, overlapCallback } = await createSystem();
+      const drop = system.spawnDrop(5, 5, { kind: 'scrap', amount: 25 });
+      expect(drop.active).toBe(true);
+      overlapCallback?.(null, drop.sprite);
+      expect(runState.currency).toBe(25);
+    });
+
+    it('spawns and collects a Chest without freezing', async () => {
+      const lootTables = {
+        lootTableById: () => ({
+          id: 'test-table',
+          entries: [
+            { kind: 'xp' as const, weight: 1, amount: 5 },
+            { kind: 'scrap' as const, weight: 1, amount: 10 },
+          ],
+        }),
+      };
+      const { system, overlapCallback } = await createSystem({ lootTables });
+      const drop = system.spawnDrop(5, 5, { kind: 'chest', amount: 0, tableId: 'test-table' });
+      expect(drop.active).toBe(true);
+      overlapCallback?.(null, drop.sprite);
+      // Chest processing spawns new drops or applies grants
+      // The chest itself is released after processing
+      expect(system.activeDropCount).toBe(0);
+    });
+
+    it('spawns and collects ordinary weapon pickup without freezing', async () => {
+      const registry = new DataWeaponRegistry(loadGameData());
+      const { system, runState, overlapCallback } = await createSystem({ weaponRegistry: registry });
+      const drop = system.spawnDrop(5, 5, { kind: 'weapon', definitionId: 'scrap-pistol-t1' });
+      expect(drop.active).toBe(true);
+      overlapCallback?.(null, drop.sprite);
+      // Weapon should be added to rack
+      expect(runState.equipped.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('handles full-rack blocked weapon without freezing', async () => {
+      const registry = new DataWeaponRegistry(loadGameData());
+      const { system, runState, overlapCallback } = await createSystem({ weaponRegistry: registry });
+      // Fill the rack to capacity (6)
+      for (let i = 0; i < 6; i++) {
+        runState.equipped.push({ defId: 'scrap-pistol-t1', instanceId: `test-${i}`, family: 'pistol', tier: 1 });
+      }
+      const drop = system.spawnDrop(0, 0, { kind: 'weapon', definitionId: 'can-smg-t1' });
+      expect(drop.active).toBe(true);
+      // Overlap should not crash - blocked drops return early
+      overlapCallback?.(null, drop.sprite);
+      expect(drop.pickupBlocked).toBe(true);
+    });
+
+    it('processes simultaneous XP and weapon drops without freezing', async () => {
+      const registry = new DataWeaponRegistry(loadGameData());
+      const { system, runState, overlapCallback } = await createSystem({ weaponRegistry: registry });
+      // Spawn both drops at the same position (simulating co-occurrence)
+      const xpDrop = system.spawnDrop(5, 5, { kind: 'xp', amount: 10 });
+      const weaponDrop = system.spawnDrop(5, 5, { kind: 'weapon', definitionId: 'scrap-pistol-t1' });
+      expect(xpDrop.active).toBe(true);
+      expect(weaponDrop.active).toBe(true);
+      // Collect XP first
+      overlapCallback?.(null, xpDrop.sprite);
+      // applyXp scales by xpGain stat (0.5 in test harness)
+      expect(runState.xp).toBe(5);
+      // Then collect weapon
+      overlapCallback?.(null, weaponDrop.sprite);
+      expect(runState.equipped.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('survives repeated drop system update without infinite loop', async () => {
+      const { system } = await createSystem();
+      // Spawn many drops
+      for (let i = 0; i < 20; i++) {
+        system.spawnDrop(i * 10, i * 10, { kind: 'xp', amount: 5 });
+        system.spawnDrop(i * 10 + 5, i * 10 + 5, { kind: 'scrap', amount: 3 });
+      }
+      // Update should complete within reasonable time
+      const start = Date.now();
+      for (let frame = 0; frame < 60; frame++) {
+        system.update(16);
+      }
+      const elapsed = Date.now() - start;
+      expect(elapsed).toBeLessThan(5000); // 60 frames should not take 5 seconds
+    });
+
+    it('handles weapon reward near level-up transition without freezing', async () => {
+      const registry = new DataWeaponRegistry(loadGameData());
+      const { system, runState, overlapCallback } = await createSystem({ weaponRegistry: registry });
+      // Set XP to near level-up threshold
+      // Set XP high enough to trigger level-up on next XP gain
+      runState.xp = 1000;
+      // Spawn an XP drop that triggers level-up
+      const xpDrop = system.spawnDrop(5, 5, { kind: 'xp', amount: 10 });
+      overlapCallback?.(null, xpDrop.sprite);
+      // Should have leveled up
+      expect(runState.level).toBeGreaterThanOrEqual(2);
+      // Now spawn a weapon drop (common after level-up when rewards appear)
+      const weaponDrop = system.spawnDrop(5, 5, { kind: 'weapon', definitionId: 'scrap-pistol-t1' });
+      overlapCallback?.(null, weaponDrop.sprite);
+      expect(runState.equipped.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
 });

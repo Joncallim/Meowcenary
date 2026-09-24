@@ -1,13 +1,16 @@
 import type { CharacterDefinition } from '../systems/types';
-import type { MetaState } from '../systems/save';
-import { isUnlocked } from '../gameplay/meta';
+import type { ConditionContext } from './conditionEvaluator';
+import { evaluateCondition } from './conditionEvaluator';
 
 export function canSelectCharacter(
   character: Readonly<CharacterDefinition>,
-  meta: Readonly<MetaState>,
+  facts: Readonly<ConditionContext>,
 ): boolean {
-  if (character.unlock.type === 'default') return true;
-  return isUnlocked(meta, character.unlock.requiresUnlockId);
+  // V4 migration preserves characters earned under historical requirements as
+  // explicit durable entitlements.  Current catalog conditions still govern
+  // new unlocks, but must not revoke a previously earned Mercenary.
+  return facts.progression.unlocks.includes(`character:${character.id}`)
+    || evaluateCondition(character.unlock, facts);
 }
 
 export function selectableCharacters(
@@ -15,15 +18,15 @@ export function selectableCharacters(
     all(): readonly Readonly<CharacterDefinition>[];
     characterById(id: string): Readonly<CharacterDefinition> | undefined;
   },
-  meta: Readonly<MetaState>,
+  facts: Readonly<ConditionContext>,
 ): readonly Readonly<CharacterDefinition>[] {
-  return registry.all().filter((character) => canSelectCharacter(character, meta));
+  return registry.all().filter((character) => canSelectCharacter(character, facts));
 }
 
 export function defaultCharacterId(
   registry: { all(): readonly Readonly<CharacterDefinition>[] },
 ): string {
-  const character = registry.all().find((character) => character.unlock.type === 'default');
+  const character = registry.all().find((character) => character.unlock.type === 'always');
   if (!character) {
     throw new Error('Character catalog has no default character');
   }

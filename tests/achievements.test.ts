@@ -3,6 +3,7 @@ import achievementsJson from '../src/data/achievements.json';
 import { loadGameData, validateGameData } from '../src/systems/validation';
 import { checkAchievement } from '../src/systems/validation/achievements';
 import { DataAchievementRegistry, registeredMetricIds } from '../src/systems/achievements';
+import { DataVisualArtRegistry, resolveAchievementIconBinding } from '../src/systems/visualArt';
 import { evaluateAchievements, type AchievementDefinition, type AchievementState } from '../src/gameplay/achievementSystem';
 import { LocalAchievementAdapter } from '../src/gameplay/achievementPlatform';
 import { processGrant, type ProgressionGrant } from '../src/gameplay/grantProcessor';
@@ -27,6 +28,30 @@ function registryCtx() {
 }
 
 describe('Epic 22 achievement catalog conformance', () => {
+  it('resolves one semantic badge binding for Career and terminal presentation', () => {
+    const data = loadGameData();
+    const visualArt = new DataVisualArtRegistry(data);
+    const achievement = data.achievements![0]!;
+
+    const careerBinding = resolveAchievementIconBinding(visualArt, achievement.presentation.iconArtId);
+    const terminalBinding = resolveAchievementIconBinding(visualArt, achievement.presentation.iconArtId);
+
+    expect(careerBinding).toMatchObject({
+      id: achievement.presentation.iconArtId,
+      kind: 'achievement-icon',
+      textureKey: expect.any(String),
+    });
+    expect(terminalBinding).toEqual(careerBinding);
+  });
+
+  it('does not resolve non-achievement art as an achievement badge', () => {
+    const data = loadGameData();
+    const visualArt = new DataVisualArtRegistry(data);
+    const nonAchievementArt = visualArt.all().find((binding) => binding.kind === 'upgrade-icon')!;
+
+    expect(resolveAchievementIconBinding(visualArt, nonAchievementArt.id)).toBeUndefined();
+  });
+
   it('rejects duplicate optional external platform mappings', () => {
     const data = structuredClone(loadGameData()) as unknown as { achievements: Array<Record<string, unknown>> };
     data.achievements[0]!.platform = { gameCenterId: 'gc-proof' };
@@ -57,6 +82,17 @@ describe('Epic 22 achievement catalog conformance', () => {
     const data = loadGameData();
     expect(data.achievements?.length).toBe(definitions.length);
     expect(validateGameData(data)).toBeTruthy();
+    for (const achievement of data.achievements ?? []) {
+      const binding = data.visualArt.bindings.find((entry) => entry.id === achievement.presentation.iconArtId);
+      expect(binding).toMatchObject({ kind: 'achievement-icon', required: true });
+    }
+  });
+
+  it('fails closed when an active achievement points at non-achievement art', () => {
+    const data = structuredClone(loadGameData());
+    const binding = data.visualArt.bindings.find((entry) => entry.id === data.achievements![0]!.presentation.iconArtId)! as { kind: string };
+    binding.kind = 'upgrade-icon';
+    expect(() => validateGameData(data)).toThrow('must match id prefix');
   });
 
   it('accepts a data-only hidden-kind fixture through the full catalog boundary', () => {
@@ -65,6 +101,7 @@ describe('Epic 22 achievement catalog conformance', () => {
       id: 'achievement:hidden-contract-proof', name: 'Hidden Contract',
       description: 'A hidden data-driven contract.', kind: 'hidden', target: 1,
       metricId: 'metric:enemies-defeated', hidden: true,
+      presentation: { iconArtId: 'achievement-icon:hidden' },
     });
     expect(validateGameData(data).achievements?.some((achievement) => achievement.id === 'achievement:hidden-contract-proof')).toBe(true);
   });
@@ -163,9 +200,10 @@ describe('Epic 22 achievement evaluation (pure)', () => {
   it('hidden achievements stay hidden: completion still recorded, read model filters later', () => {
     const { ctx } = registryCtx();
     const state: AchievementState = {};
-    const result = evaluateAchievements(state, { metrics: { 'metric:scrap-banked': 1000 } }, ctx, 7);
-    expect(result.completed).toContain('achievement:scrap-banked-1000');
-    expect(defMap.get('achievement:scrap-banked-1000')?.hidden).toBe(true);
+    // scrap-tycoon is hidden with target 10000
+    const result = evaluateAchievements(state, { metrics: { 'metric:scrap-banked': 10000 } }, ctx, 7);
+    expect(result.completed).toContain('achievement:scrap-tycoon');
+    expect(defMap.get('achievement:scrap-tycoon')?.hidden).toBe(true);
   });
 
   it('completion is immutable: completed achievements never un-complete', () => {
@@ -247,6 +285,7 @@ describe('Epic 22 second-fixture proof (data-only extensibility)', () => {
       name: 'Proof Fixture',
       description: 'Second-fixture proof: data-only addition.',
       kind: 'incremental',
+      presentation: { iconArtId: 'achievement-icon:first-kill' },
       metricId: 'metric:enemies-defeated',
       target: 250,
       rewards: [{ grant: { type: 'grant-scrap', amount: 10 } as ProgressionGrant }],

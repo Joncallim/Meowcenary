@@ -3,9 +3,11 @@
  * Alpha 3 shared foundation §3: one condition model for all unlock/prerequisite
  * decisions across Epics 20–26.
  */
-import type { ProgressionState, StageProgressState, AchievementProgressState, CharacterMasteryState, BossProgressState } from '../systems/save';
+import type { ProgressionState, ProgressionStateV4, StageProgressState, AchievementProgressState, CharacterMasteryState, BossProgressState } from '../systems/save';
 
 export type ProgressionCondition =
+  /** Explicit unconditional catalog gate (for the one fresh-save starter). */
+  | { readonly type: 'always' }
   | { readonly type: 'stage-cleared'; readonly stageId: string }
   | { readonly type: 'boss-defeated'; readonly bossId: string }
   | { readonly type: 'achievement-completed'; readonly achievementId: string }
@@ -23,7 +25,7 @@ export type ProgressionCondition =
  * Pure — caller provides the snapshot; evaluator makes no I/O calls.
  */
 export interface ConditionContext {
-  readonly progression: Readonly<ProgressionState>;
+  readonly progression: Readonly<ProgressionState | ProgressionStateV4>;
   readonly stages: Readonly<StageProgressState>;
   readonly achievements: Readonly<AchievementProgressState>;
   readonly characters: Readonly<CharacterMasteryState>;
@@ -41,14 +43,21 @@ export function evaluateCondition(
   ctx: ConditionContext,
 ): boolean {
   switch (condition.type) {
+    case 'always':
+      return true;
+
     case 'stage-cleared':
       return ctx.stages[condition.stageId]?.completed === true;
 
     case 'boss-defeated':
-      return ctx.bosses?.[condition.bossId]?.defeated === true;
+      return ctx.bosses?.[condition.bossId]?.defeated === true ||
+        ctx.progression.unlocks.includes(`achievement:${condition.bossId}`);
 
     case 'achievement-completed':
-      return ctx.achievements[condition.achievementId]?.completed === true;
+      // Preserve V2/V3 achievement receipts as equivalent evidence during
+      // the transition from legacy character unlock tokens.
+      return ctx.achievements[condition.achievementId]?.completed === true ||
+        ctx.progression.unlocks.includes(condition.achievementId);
 
     case 'mastery-reached':
       return (ctx.characters[condition.subjectId]?.tier ?? 0) >= condition.tier;
@@ -59,8 +68,10 @@ export function evaluateCondition(
     case 'scrap-total':
       return ctx.progression.scrap >= condition.threshold;
 
-    case 'permanent-level':
-      return (ctx.progression.permanentUpgrades[condition.upgradeId] ?? 0) >= condition.minLevel;
+    case 'permanent-level': {
+      const upgrades = 'permanentUpgrades' in ctx.progression ? ctx.progression.permanentUpgrades : undefined;
+      return (upgrades?.[condition.upgradeId] ?? 0) >= condition.minLevel;
+    }
 
     case 'unlock-count':
       return ctx.progression.unlocks.length >= condition.minCount;
@@ -84,7 +95,7 @@ export function evaluateCondition(
  * Useful for conditions that only depend on progression.
  */
 export function createConditionContext(
-  progression: Readonly<ProgressionState>,
+  progression: Readonly<ProgressionState | ProgressionStateV4>,
   overrides?: Partial<Omit<ConditionContext, 'progression'>>,
 ): ConditionContext {
   return {

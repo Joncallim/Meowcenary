@@ -61,6 +61,49 @@ describe('InputController keyboard movement', () => {
 });
 
 describe('InputController pointer movement', () => {
+  it('requires every held source to return neutral after an orientation quarantine before a fresh edge is delivered', () => {
+    const { controller, input } = createController({ keyboard: true, gamepad: true });
+    const pad = new MockGamepad(0);
+    input.gamepad!.connect(pad);
+    const confirm = vi.fn();
+    controller.onAction('confirm', confirm);
+
+    // Mirrors a landscape interruption: keyboard, pad, and a floating-stick
+    // gesture are all retained while the portrait guard owns the screen.
+    input.keyboard!.keydown('Enter');
+    pad.setButton(0, true);
+    input.pointerDown(100, 100);
+    input.pointerMove(164, 100);
+    controller.quarantineUntilNeutral();
+    controller.update(16);
+    expect(confirm).not.toHaveBeenCalled();
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+
+    // Keyboard and gamepad movement are masked too, not only action edges.
+    input.keyboard!.keydown('d');
+    pad.setLeftStick(1, 0);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+
+    // Releasing only one source does not release the guard.
+    input.keyboard!.keyup('Enter');
+    input.keyboard!.keyup('d');
+    pad.setLeftStick(0, 0);
+    controller.update(16);
+    expect(confirm).not.toHaveBeenCalled();
+
+    // Neutralizing all sources clears it, but does not manufacture an edge.
+    pad.setButton(0, false);
+    input.pointerUp();
+    controller.update(16);
+    expect(confirm).not.toHaveBeenCalled();
+
+    // A new crossing after neutral is the only confirm the scene receives.
+    input.keyboard!.keydown('Enter');
+    controller.update(16);
+    expect(confirm).toHaveBeenCalledTimes(1);
+  });
+
   it('scales pointer drag intent by the configured radius', () => {
     const { controller, input } = createController();
 
@@ -124,6 +167,55 @@ describe('InputController pointer movement', () => {
     input.pointerUp();
     controller.update(16);
     expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+  });
+
+  it('never adopts an interactive UI touch as the movement gesture', () => {
+    const { controller, input } = createController();
+
+    // Phaser's scene-level pointerdown includes interactive objects currently
+    // under the touch. Pause/Resume/Rack/Back/Ability/Extract/Summary all use
+    // this path, so a UI gesture cannot seed floating-stick state.
+    input.emit('pointerdown', new MockPointer(300, 700, true, 0), [{}]);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+    expect(controller.getPresentationSnapshot().pointerStart).toBeNull();
+
+    // A later genuine gameplay gesture starts normally.
+    input.pointerDown(100, 700, 1);
+    input.pointerMove(164, 700, 1);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
+  });
+
+  it('clears modal pointer state but preserves a pinned first finger through second-finger UI use', () => {
+    const { controller, input } = createController();
+
+    // Finger one is the movement owner.
+    input.pointerDown(100, 700, 0);
+    input.pointerMove(132, 700, 0);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0.5, y: 0 });
+
+    // A second UI finger does not cancel the pinned gameplay finger.
+    input.emit('pointerdown', new MockPointer(340, 80, true, 1), [{}]);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0.5, y: 0 });
+
+    // Entering a modal explicitly cancels the pin. Resume accepts only a
+    // fresh pointerdown, never the held pre-modal finger.
+    controller.suspendGameplayPointer();
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+    controller.resumeGameplayPointer();
+    input.pointerMove(164, 700, 0);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 0, y: 0 });
+
+    input.pointerUp(0);
+    input.pointerDown(100, 700, 0);
+    input.pointerMove(164, 700, 0);
+    controller.update(16);
+    expect(controller.getMoveVector()).toEqual({ x: 1, y: 0 });
   });
 
   it('restores keyboard-only movement after the pointer is released', () => {

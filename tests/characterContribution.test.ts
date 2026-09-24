@@ -21,7 +21,7 @@ const scrapTabby: CharacterDefinition = {
       effects: [{ stat: 'pickupRadius', op: 'add', value: 15 }],
     },
   ],
-  unlock: { type: 'default' },
+  unlock: { type: 'always' },
   cosmeticSkinIds: [],
 };
 
@@ -40,7 +40,7 @@ const boltHound: CharacterDefinition = {
       effects: [{ stat: 'moveSpeed', op: 'mult', value: 1.05 }],
     },
   ],
-  unlock: { type: 'meta', requiresUnlockId: 'achievement:first-victory' },
+  unlock: { type: 'achievement-completed', achievementId: 'achievement:first-victory' },
   cosmeticSkinIds: [],
 };
 

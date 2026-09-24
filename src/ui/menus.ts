@@ -1,40 +1,46 @@
 import type { Settings } from '../systems/save';
 import { ArenaSelectionController, type ArenaSelectionSnapshot } from './arenaSelectionController';
 import { CharacterSelectionController, type CharacterSelectionSnapshot } from './characterSelectionController';
-import { ProgressionController, type ProgressionSnapshot } from './progressionController';
 import { SettingsController, type SettingsSnapshot } from './settings';
 import { StageSelectionController, type StageSelectionSnapshot } from './stageSelectionController';
 import { AchievementsController, type AchievementsSnapshot } from './achievementsController';
 import { GunsmithController, type GunsmithSnapshot } from './gunsmithController';
 import { EquipmentController, type EquipmentSnapshot } from './equipmentController';
 import { ProgressionOverviewController, type ProgressionOverviewSnapshot } from './progressionOverviewController';
+import { CompendiumController, type CompendiumSnapshot } from './compendiumController';
 import { DataAchievementRegistry } from '../systems/achievements';
 import type { GameContext } from '../engine/context';
 
 export type MenuPanel =
   | 'home'
   | 'character'
+  /** Compatibility-only route retained for existing controller callers; it
+   * is intentionally absent from the V4 home information architecture. */
   | 'arena'
   | 'stage'
+  | 'career'
+  | 'next-goals'
   | 'achievements'
+  | 'compendium'
+  | 'training'
   | 'gunsmith'
   | 'equipment'
-  | 'progression'
-  | 'settings'
-  | 'reset-confirmation';
+  | 'settings';
 
-type NonResetPanel = Exclude<MenuPanel, 'reset-confirmation'>;
+type NonResetPanel = MenuPanel;
 
 export interface MainMenuSnapshot {
   readonly panel: MenuPanel;
   readonly character: CharacterSelectionSnapshot;
+  /** Legacy selection state remains available to game composition, but Arena
+   * is deliberately not a player-facing top-level destination in V4. */
   readonly arena: ArenaSelectionSnapshot;
   readonly stage: StageSelectionSnapshot;
   readonly achievements: AchievementsSnapshot;
   readonly gunsmith: GunsmithSnapshot;
   readonly equipment: EquipmentSnapshot;
-  readonly progression: ProgressionSnapshot;
   readonly progressionOverview: ProgressionOverviewSnapshot;
+  readonly compendium: CompendiumSnapshot;
   readonly settings: SettingsSnapshot;
   readonly notice?: string;
 }
@@ -43,11 +49,11 @@ export class MainMenuController {
   private readonly characterController: CharacterSelectionController;
   private readonly arenaController: ArenaSelectionController;
   private readonly stageController: StageSelectionController;
-  private readonly progressionController: ProgressionController;
   private readonly progressionOverviewController: ProgressionOverviewController;
   private readonly achievementsController: AchievementsController;
   private readonly gunsmithController: GunsmithController;
   private readonly equipmentController: EquipmentController;
+  private readonly compendiumController: CompendiumController;
   private readonly settingsController: SettingsController;
   private panel: MenuPanel = 'home';
   private previousPanel: NonResetPanel = 'home';
@@ -57,11 +63,11 @@ export class MainMenuController {
     this.characterController = new CharacterSelectionController(context);
     this.arenaController = new ArenaSelectionController(context);
     this.stageController = new StageSelectionController(context);
-    this.progressionController = new ProgressionController(context);
     this.progressionOverviewController = new ProgressionOverviewController(context, new DataAchievementRegistry({ achievements: context.data.achievements ?? [] }));
     this.achievementsController = new AchievementsController(context, new DataAchievementRegistry({ achievements: context.data.achievements ?? [] }));
     this.gunsmithController = new GunsmithController(context);
     this.equipmentController = new EquipmentController(context);
+    this.compendiumController = new CompendiumController(context);
     this.settingsController = new SettingsController(context);
   }
 
@@ -74,8 +80,8 @@ export class MainMenuController {
       achievements: this.achievementsController.snapshot(),
       gunsmith: this.gunsmithController.snapshot(),
       equipment: this.equipmentController.snapshot(),
-      progression: this.progressionController.snapshot(),
       progressionOverview: this.progressionOverviewController.snapshot(),
+      compendium: this.compendiumController.snapshot(),
       settings: this.settingsController.snapshot(),
       notice: this.notice,
     });
@@ -89,12 +95,6 @@ export class MainMenuController {
   }
 
   back(): MainMenuSnapshot {
-    if (this.panel === 'reset-confirmation') {
-      this.panel = 'progression';
-      this.notice = undefined;
-      return this.snapshot();
-    }
-
     if (this.panel !== 'home') {
       this.panel = 'home';
     }
@@ -120,43 +120,10 @@ export class MainMenuController {
     return this.snapshot();
   }
 
-  purchase(upgradeId: string): MainMenuSnapshot {
-    const result = this.progressionController.purchase(upgradeId);
-    if (!result.ok) {
-      this.notice = this.noticeForPurchaseFailure(result.reason);
-      return this.snapshot();
-    }
-    this.notice = result.persisted ? undefined : 'Saved for this session only';
-    return this.snapshot();
-  }
-
-  requestReset(): MainMenuSnapshot {
-    this.previousPanel = 'progression';
-    this.panel = 'reset-confirmation';
-    this.notice = undefined;
-    return this.snapshot();
-  }
-
-  cancelReset(): MainMenuSnapshot {
-    if (this.panel === 'reset-confirmation') {
-      this.panel = 'progression';
-    }
-    this.notice = undefined;
-    return this.snapshot();
-  }
-
-  confirmReset(): MainMenuSnapshot {
-    if (this.panel !== 'reset-confirmation') {
-      this.notice = 'Reset confirmation required';
-      return this.snapshot();
-    }
-    const result = this.progressionController.reset(true);
-    if (!result.ok) {
-      this.notice = result.reason === 'persistence-failed' ? 'Could not save reset' : 'Reset failed';
-      return this.snapshot();
-    }
-    this.notice = result.persisted ? undefined : 'Saved for this session only';
-    this.panel = 'progression';
+  /** Gallery selection is presentation state only; it must never mutate the
+   * achievement ledger or use player-facing strings as identity. */
+  selectAchievement(id: string): MainMenuSnapshot {
+    this.achievementsController.select(id);
     return this.snapshot();
   }
 
@@ -168,37 +135,49 @@ export class MainMenuController {
 
   createGunBuild(family: string): MainMenuSnapshot {
     const result = this.gunsmithController.createBuild(family);
-    this.notice = result.ok ? undefined : `Gunsmith: ${result.reason}`;
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
     return this.snapshot();
   }
 
   selectGunBuild(id: string): MainMenuSnapshot {
     const result = this.gunsmithController.selectBuild(id);
-    this.notice = result.ok ? undefined : `Gunsmith: ${result.reason}`;
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
     return this.snapshot();
   }
 
   fitGunPart(instanceId: string): MainMenuSnapshot {
     const result = this.gunsmithController.fitPart(instanceId);
-    this.notice = result.ok ? undefined : `Gunsmith: ${result.reason}`;
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
     return this.snapshot();
   }
 
   unequipGunPart(instanceId: string): MainMenuSnapshot {
     const result = this.gunsmithController.unequipPart(instanceId);
-    this.notice = result.ok ? undefined : `Gunsmith: ${result.reason}`;
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
+    return this.snapshot();
+  }
+
+  removeUnavailableGunPart(instanceId: string): MainMenuSnapshot {
+    const result = this.gunsmithController.removeUnavailableFittedPart(instanceId);
+    this.notice = result.ok ? 'Unavailable part removed' : this.noticeForGunsmithFailure(result.reason);
     return this.snapshot();
   }
 
   mergeGunParts(firstInstanceId: string, secondInstanceId: string): MainMenuSnapshot {
     const result = this.gunsmithController.merge(firstInstanceId, secondInstanceId);
-    this.notice = result.ok ? undefined : `Gunsmith: ${result.reason}`;
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
     return this.snapshot();
   }
 
   infuseGunPart(targetInstanceId: string, traitInstanceId: string): MainMenuSnapshot {
     const result = this.gunsmithController.infuse(targetInstanceId, traitInstanceId);
-    this.notice = result.ok ? undefined : `Gunsmith: ${result.reason}`;
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
+    return this.snapshot();
+  }
+
+  fabricateGunPart(partId: string): MainMenuSnapshot {
+    const result = this.gunsmithController.fabricate(partId);
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
     return this.snapshot();
   }
 
@@ -214,6 +193,11 @@ export class MainMenuController {
 
   upgradeEquipment(instanceId: string): MainMenuSnapshot {
     this.notice = this.equipmentController.upgrade(instanceId) ? undefined : 'Equipment: upgrade unavailable';
+    return this.snapshot();
+  }
+
+  fabricateEquipment(equipmentId: string): MainMenuSnapshot {
+    this.notice = this.equipmentController.fabricate(equipmentId) ? undefined : 'Equipment: fabrication unavailable';
     return this.snapshot();
   }
 
@@ -233,16 +217,18 @@ export class MainMenuController {
     }
   }
 
-  private noticeForPurchaseFailure(reason: string): string {
+  private noticeForGunsmithFailure(reason: string): string {
     switch (reason) {
-      case 'insufficient-scrap':
-        return 'Not enough scrap';
-      case 'max-level':
-        return 'Already at max level';
-      case 'unknown-upgrade':
-        return 'Upgrade not found';
-      default:
-        return 'Purchase failed';
+      case 'slot-full': return 'That slot is occupied — unequip the current part first';
+      case 'slot-incompatible': return 'That part does not fit this weapon build';
+      case 'trait-cap-reached': return 'Trait capacity is full — unequip a trait first';
+      case 'fabrication-unavailable': return 'That blueprint is not available or needs more Scrap';
+      case 'save-failed': return 'Could not save that Gunsmith change';
+      case 'unknown-family':
+      case 'unknown-build':
+      case 'unknown-part': return 'That Gunsmith item is unavailable';
+      default: return 'That Gunsmith change could not be made';
     }
   }
+
 }

@@ -82,6 +82,11 @@ docs/            Architecture, delivery records, roadmap and art documentation
 scripts/         Repository validation/test tooling
 ```
 
+Alpha 3 builds on that Golden Run baseline with stage contracts, bosses,
+achievement/mastery, Gunsmith builds, mercenary abilities, equipment, and
+integrated progression. See [`docs/roadmap.md`](docs/roadmap.md) for current
+status and [`docs/epics.md`](docs/epics.md) for the shared contracts.
+
 The content layer in `src/data/` includes characters, abilities, achievements, weapons, enemies, arenas, encounters, difficulty profiles, equipment, gun parts, loot tables, upgrades, audio mappings and asset bundles.
 
 ## Documentation

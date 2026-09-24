@@ -25,13 +25,12 @@ function addFixtureActorArt(
   const template = visualArt.bindings.find((binding) => binding.kind === kind);
   if (!template) throw new Error(`Missing ${kind} art fixture template`);
   const ids = [...new Set(rows.map((row) => row.id).filter((id): id is string => typeof id === 'string'))];
-  ids.forEach((id, index) => {
+  ids.forEach((id) => {
     const artId = `${kind}:${id}`;
     if (visualArt.bindings.some((binding) => binding.id === artId)) return;
     visualArt.bindings.push({
       ...structuredClone(template),
       id: artId,
-      textureKey: `fixture-${kind}-${index}`,
     });
   });
 }
@@ -89,9 +88,13 @@ function withEnemies(enemies: Record<string, unknown>[]): unknown {
   // catalogs (which reference the real junkyard arena/enemies) no longer
   // match; clear them so stage cross-references stay honest.
   data.stages = [];
+  // These focused enemy fixtures deliberately replace the stage catalog, so
+  // decouple the unrelated global equipment gate from absent shipped stages.
+  data.equipmentRules = { unlocks: { 2: { type: 'always' }, 3: { type: 'always' }, 4: { type: 'always' } } };
   data.encounterProfiles = [];
   data.difficultyProfiles = [];
-  data.rewardProfiles = [];
+  // Retain the shipped reward profiles: they are the deliberate acquisition
+  // route for reward-only Parts and are independent of these enemy fixtures.
   data.achievements = [];
   data.spawnCurves = [{
     id: 'fixture-curve',
@@ -792,7 +795,7 @@ describe('game data validation', () => {
         baseStats: { maxHealth: 100, moveSpeed: 175 },
         startingWeaponIds: ['scrap-pistol-t1'],
         passives: [],
-        unlock: { type: 'default' as const },
+        unlock: { type: 'always' as const },
         cosmeticSkinIds: [],
         ...overrides,
       };
@@ -878,15 +881,15 @@ describe('game data validation', () => {
     it('rejects bad unlock rules', () => {
       expect(() => validateGameData(withCharacters([
         characterFixture({ unlock: { type: 'bogus' } }),
-      ]))).toThrow(/unlock\.type: must be "default" or "meta"/);
+      ]))).toThrow(/unlock\.type: must be a valid condition type/);
 
       expect(() => validateGameData(withCharacters([
-        characterFixture({ unlock: { type: 'meta' } }),
-      ]))).toThrow(/unlock\.requiresUnlockId/);
+        characterFixture({ unlock: { type: 'achievement-completed' } }),
+      ]))).toThrow(/unlock\.achievementId/);
 
       expect(() => validateGameData(withCharacters([
-        characterFixture({ unlock: { type: 'meta', requiresUnlockId: 'bad' } }),
-      ]))).toThrow(/unlock\.requiresUnlockId: invalid unlock id/);
+        characterFixture({ unlock: { type: 'achievement-completed', achievementId: 'bad' } }),
+      ]))).toThrow(/unlock\.achievementId: must be a canonical achievement ID/);
     });
 
     it('rejects bad cosmetic skin ids', () => {
@@ -1047,9 +1050,9 @@ describe('game data validation', () => {
     });
 
     it('rejects catalog with no default character', () => {
-      const noDefault = characterFixture({ id: 'fighter', unlock: { type: 'meta', requiresUnlockId: 'achievement:test' } });
+      const noDefault = characterFixture({ id: 'fighter', unlock: { type: 'achievement-completed', achievementId: 'achievement:test' } });
       expect(() => validateGameData(withCharacters([noDefault])))
-        .toThrow(/at least one character must have unlock\.type "default"/);
+        .toThrow(/at least one character must have unlock\.type "always"/);
     });
 
     it('rejects duplicate character ids', () => {
@@ -1089,9 +1092,11 @@ describe('game data validation', () => {
       // Fixture arenas replace the shipped junkyard arena; clear stage
       // catalogs so stage→arena cross-references stay honest.
       data.stages = [];
+      data.equipmentRules = { unlocks: { 2: { type: 'always' }, 3: { type: 'always' }, 4: { type: 'always' } } };
       data.encounterProfiles = [];
       data.difficultyProfiles = [];
-      data.rewardProfiles = [];
+      // Keep reward profiles so reward-only Part acquisition remains a valid
+      // global catalog invariant while this fixture isolates arena geometry.
       data.achievements = [];
       return data;
     }
@@ -1315,12 +1320,14 @@ describe('game data validation', () => {
       const data = structuredClone(loadGameData()) as unknown as Record<string, unknown>;
       data.lootTables = tables;
       // Fixture tables replace the shipped chest-standard/brute-cache tables;
-      // clear stage reward catalogs AND enemy loot-table refs so
-      // stage→loot-table and enemy→loot-table references stay honest.
+      // clear stage catalogs and enemy loot-table refs so stage→loot-table
+      // and enemy→loot-table references stay honest.
       data.stages = [];
+      data.equipmentRules = { unlocks: { 2: { type: 'always' }, 3: { type: 'always' }, 4: { type: 'always' } } };
       data.encounterProfiles = [];
       data.difficultyProfiles = [];
-      data.rewardProfiles = [];
+      // Reward profiles are independent of this loot-table fixture and carry
+      // the deliberate route for non-fabricable Parts.
       data.achievements = [];
       const enemies = data.enemies as Array<Record<string, unknown>>;
       for (const enemy of enemies) delete enemy.lootTableId;

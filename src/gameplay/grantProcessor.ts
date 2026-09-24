@@ -7,8 +7,7 @@
  * application is exactly-once where the source is exactly-once. UI cannot
  * grant persistent state directly.
  */
-import { freezeSaveV3, type ProgressionState, type SaveDataV3 } from '../systems/save';
-import { addUnlocks } from './meta';
+import { freezeSaveV4, type ProgressionStateV4, type SaveDataV4 } from '../systems/save';
 import { isContentId, isGrantTransactionId, isOwnedInstanceId, isUnlockId } from '../systems/ids';
 
 export type ProgressionGrant =
@@ -21,8 +20,9 @@ export type ProgressionGrant =
   /** A source-owned persistent inventory reward. The caller supplies an
    * opaque stable instance ID, so replay can never mint a second copy. */
   | { readonly type: 'grant-part-instance'; readonly instanceId: string; readonly partId: string; readonly tier?: number }
-  /** Source-owned equipment instance. Definition identity and owned identity
-   * stay distinct, so two copies may be upgraded/equipped independently. */
+  /** Source-owned equipment reward. The source instance ID is used when the
+   * definition is first minted; V4 still owns at most one instance of each
+   * Equipment definition. */
   | { readonly type: 'grant-equipment-instance'; readonly instanceId: string; readonly equipmentId: string; readonly tier?: number }
   | { readonly type: 'grant-item'; readonly itemId: string; readonly amount?: number }
   | { readonly type: 'achievement-completed'; readonly achievementId: string }
@@ -34,7 +34,7 @@ export type ProgressionGrant =
  * or the same reference if the grant was already applied (idempotent).
  */
 export interface GrantResult {
-  readonly progression: ProgressionState;
+  readonly progression: ProgressionStateV4;
   readonly changed: boolean;
 }
 
@@ -46,7 +46,7 @@ export interface DurableGrantTransaction {
 }
 
 export interface DurableGrantResult {
-  readonly save: SaveDataV3;
+  readonly save: SaveDataV4;
   /** False means the caller supplied an invalid transaction. A valid replay
    * instead has `valid: true, changed: false`, so the persistence boundary
    * can fail malformed producer input without treating retries as failures. */
@@ -57,7 +57,7 @@ export interface DurableGrantResult {
 /** Applies all grants and records their receipt in one immutable save
  * snapshot. Persistence/publishing is owned by GameContext; it must publish
  * this snapshot only after SaveManager.save succeeds. */
-export function applyDurableGrantTransaction(save: SaveDataV3, transaction: DurableGrantTransaction): DurableGrantResult {
+export function applyDurableGrantTransaction(save: SaveDataV4, transaction: DurableGrantTransaction): DurableGrantResult {
   // Validate the whole payload before touching progression.  A malformed
   // trailing grant must not leave an earlier currency/level mutation behind
   // without its receipt.
@@ -85,9 +85,25 @@ export function applyDurableGrantTransaction(save: SaveDataV3, transaction: Dura
     return { save, valid: false, changed: false };
   }
   const equipmentInstanceIds = new Set(equipmentGrants.map((grant) => grant.instanceId));
-  if (equipmentInstanceIds.size !== equipmentGrants.length || equipmentGrants.some((grant) => Object.hasOwn(save.equipment, grant.instanceId))) {
+  const equipmentDefinitionIds = new Set(equipmentGrants.map((grant) => grant.equipmentId));
+  const existingEquipmentByDefinition = new Map(
+    Object.values(save.equipment).map((item) => [item.equipmentId, item] as const),
+  );
+  if (equipmentInstanceIds.size !== equipmentGrants.length
+    || equipmentDefinitionIds.size !== equipmentGrants.length
+    || equipmentGrants.some((grant) => {
+      const requiredTier = grant.tier ?? 1;
+      const instanceCollision = save.equipment[grant.instanceId];
+      if (instanceCollision !== undefined
+        && (instanceCollision.equipmentId !== grant.equipmentId || instanceCollision.tier < requiredTier)) return true;
+      const definitionCollision = existingEquipmentByDefinition.get(grant.equipmentId);
+      return definitionCollision !== undefined && definitionCollision.tier < requiredTier;
+    })) {
     return { save, valid: false, changed: false };
   }
+  const equipmentToMint = equipmentGrants.filter(
+    (grant) => !existingEquipmentByDefinition.has(grant.equipmentId),
+  );
   const progressionGrants = transaction.grants.filter((grant) => grant.type !== 'grant-part-instance' && grant.type !== 'grant-equipment-instance' && grant.type !== 'grant-item');
   const result = processGrants(save.progression, progressionGrants);
   const items = applyItemGrants(save.items, transaction.grants);
@@ -101,14 +117,14 @@ export function applyDurableGrantTransaction(save: SaveDataV3, transaction: Dura
   });
   const equipment = Object.freeze({
     ...save.equipment,
-    ...Object.fromEntries(equipmentGrants.map((grant) => [grant.instanceId, Object.freeze({
+    ...Object.fromEntries(equipmentToMint.map((grant) => [grant.instanceId, Object.freeze({
       equipmentId: grant.equipmentId,
       tier: grant.tier ?? 1,
     })])),
   });
   const appliedGrantTransactions = Object.freeze({ ...save.appliedGrantTransactions, [transaction.id]: true as const });
   const grantTransactionFingerprints = Object.freeze({ ...save.grantTransactionFingerprints, [transaction.id]: fingerprint });
-  return { save: freezeSaveV3({ ...save, progression: result.progression, items, equipment, gunsmith: Object.freeze({ ...save.gunsmith, parts }), appliedGrantTransactions, grantTransactionFingerprints }), valid: true, changed: true };
+  return { save: freezeSaveV4({ ...save, progression: result.progression, items, equipment, gunsmith: Object.freeze({ ...save.gunsmith, parts }), appliedGrantTransactions, grantTransactionFingerprints }), valid: true, changed: true };
 }
 
 /** Canonical payload identity for durable receipt owners and verifiers. */
@@ -123,7 +139,7 @@ function stableSerialize(value: unknown): string {
   return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableSerialize(record[key])}`).join(',')}}`;
 }
 
-function transactionEffectsPresent(save: SaveDataV3, transaction: DurableGrantTransaction): boolean {
+function transactionEffectsPresent(save: SaveDataV4, transaction: DurableGrantTransaction): boolean {
   return transaction.grants.every((grant) => {
     switch (grant.type) {
       // Currency and permanent levels are spendable/retirable state. A later
@@ -144,8 +160,10 @@ function transactionEffectsPresent(save: SaveDataV3, transaction: DurableGrantTr
         return part?.partId === grant.partId && part.tier === (grant.tier ?? 1);
       }
       case 'grant-equipment-instance': {
-        const equipment = save.equipment[grant.instanceId];
-        return equipment?.equipmentId === grant.equipmentId && equipment.tier === (grant.tier ?? 1);
+        const requiredTier = grant.tier ?? 1;
+        return Object.values(save.equipment).some(
+          (equipment) => equipment.equipmentId === grant.equipmentId && equipment.tier >= requiredTier,
+        );
       }
     }
   });
@@ -192,7 +210,7 @@ export function isValidProgressionGrant(grant: unknown): grant is ProgressionGra
  * Pure — no side effects, no I/O.
  */
 export function processGrant(
-  progression: ProgressionState,
+  progression: ProgressionStateV4,
   grant: ProgressionGrant,
 ): GrantResult {
   switch (grant.type) {
@@ -226,7 +244,8 @@ export function processGrant(
       return applyUnlock(progression, grant.achievementId);
 
     case 'permanent-upgrade-level': {
-      const currentLevel = progression.permanentUpgrades[grant.upgradeId] ?? 0;
+      const upgrades = ('permanentUpgrades' in progression ? (progression as any).permanentUpgrades : undefined) as Readonly<Record<string, number>> | undefined;
+      const currentLevel = upgrades?.[grant.upgradeId] ?? 0;
       // A durable receipt must never survive a save sanitizer dropping an
       // overflowed numeric reward. Keep the value representable before the
       // transaction snapshot is constructed.
@@ -234,7 +253,7 @@ export function processGrant(
       if (newLevel <= currentLevel) return { progression, changed: false };
       return freezeResult({
         ...progression,
-        permanentUpgrades: { ...progression.permanentUpgrades, [grant.upgradeId]: newLevel },
+        permanentUpgrades: Object.freeze({ ...(upgrades ?? {}), [grant.upgradeId]: newLevel }),
       });
     }
 
@@ -243,7 +262,7 @@ export function processGrant(
   }
 }
 
-function applyItemGrants(items: SaveDataV3['items'], grants: readonly ProgressionGrant[]): SaveDataV3['items'] {
+function applyItemGrants(items: SaveDataV4['items'], grants: readonly ProgressionGrant[]): SaveDataV4['items'] {
   const next: Record<string, number> = { ...items };
   for (const grant of grants) {
     if (grant.type !== 'grant-item') continue;
@@ -260,7 +279,7 @@ function applyItemGrants(items: SaveDataV3['items'], grants: readonly Progressio
  * Each grant is independently idempotent.
  */
 export function processGrants(
-  progression: ProgressionState,
+  progression: ProgressionStateV4,
   grants: readonly ProgressionGrant[],
 ): GrantResult {
   let current = progression;
@@ -279,26 +298,29 @@ export function processGrants(
 
 // ── Internal helpers ─────────────────────────────────────────────────
 
-function applyScrap(progression: ProgressionState, amount: number): GrantResult {
+function applyScrap(progression: ProgressionStateV4, amount: number): GrantResult {
   const safeAmount = Number.isSafeInteger(amount) && amount > 0 ? amount : 0;
   if (safeAmount === 0) return { progression, changed: false };
   const newScrap = Math.min(Number.MAX_SAFE_INTEGER, progression.scrap + safeAmount);
   return freezeResult({ ...progression, scrap: newScrap });
 }
 
-function applyUnlock(progression: ProgressionState, unlockId: string): GrantResult {
-  const updated = addUnlocks(progression, [unlockId]);
-  return { progression: updated, changed: updated !== progression };
+function applyUnlock(progression: ProgressionStateV4, unlockId: string): GrantResult {
+  if (!isUnlockId(unlockId) || progression.unlocks.includes(unlockId)) return { progression, changed: false };
+  return freezeResult({ ...progression, unlocks: Object.freeze([...progression.unlocks, unlockId]) });
 }
 
-function freezeResult(progression: ProgressionState): GrantResult {
+function freezeResult(progression: ProgressionStateV4): GrantResult {
   return { progression: freezeProgression(progression), changed: true };
 }
 
-function freezeProgression(p: ProgressionState): ProgressionState {
-  return Object.freeze({
+function freezeProgression(p: ProgressionStateV4): ProgressionStateV4 {
+  const result: Record<string, unknown> = {
     scrap: p.scrap,
     unlocks: Object.freeze([...p.unlocks]),
-    permanentUpgrades: Object.freeze({ ...p.permanentUpgrades }),
-  });
+  };
+  if ('permanentUpgrades' in p && p.permanentUpgrades !== undefined) {
+    result.permanentUpgrades = Object.freeze({ ...p.permanentUpgrades });
+  }
+  return Object.freeze(result) as unknown as ProgressionStateV4;
 }

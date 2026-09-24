@@ -44,7 +44,13 @@ export function asLegacyComposedRunRequest(request: RunRequest): ComposedRunRequ
 
 export function assembleRunRequest(ctx: GameContext, rng: Pick<Rng, 'int'>): RunRequest {
   const character = ctx.characters.characterById(ctx.selectedCharacterId);
-  const characterId = character && canSelectCharacter(character, ctx.saveData.progression)
+  const characterFacts = createConditionContext(ctx.saveData.progression, {
+    stages: ctx.saveData.stages,
+    achievements: ctx.saveData.achievements,
+    characters: ctx.saveData.characters,
+    bosses: ctx.saveData.bosses,
+  });
+  const characterId = character && canSelectCharacter(character, characterFacts)
     ? ctx.selectedCharacterId
     : ctx.characters.defaultCharacterId();
 
@@ -62,15 +68,15 @@ export function assembleRunRequest(ctx: GameContext, rng: Pick<Rng, 'int'>): Run
  * hidden stage fallback. */
 export function assembleComposedRunRequest(ctx: GameContext, rng: Pick<Rng, 'int'>): ComposedRunRequest {
   const character = ctx.characters.characterById(ctx.selectedCharacterId);
-  const characterId = character && canSelectCharacter(character, ctx.saveData.progression)
-    ? ctx.selectedCharacterId
-    : ctx.characters.defaultCharacterId();
   const facts = createConditionContext(ctx.saveData.progression, {
     stages: ctx.saveData.stages,
     achievements: ctx.saveData.achievements,
     characters: ctx.saveData.characters,
     bosses: ctx.saveData.bosses,
   });
+  const characterId = character && canSelectCharacter(character, facts)
+    ? ctx.selectedCharacterId
+    : ctx.characters.defaultCharacterId();
   const selected = ctx.stages.stageById(ctx.selectedStageId);
   const available = ctx.stages.allStages().filter((candidate) =>
     evaluateCondition(candidate.unlock as import('./conditionEvaluator').ProgressionCondition, facts));

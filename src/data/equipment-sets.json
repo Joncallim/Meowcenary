@@ -1,0 +1,42 @@
+[
+  {
+    "id": "set:commando",
+    "name": "Commando",
+    "description": "A disciplined all-round combat kit.",
+    "unlock": { "type": "always" },
+    "pieceFabricationCost": 100,
+    "emblem": "upgrade-icon:smg-overclock",
+    "thresholds": {
+      "2": { "modifiers": [{ "stat": "attackSpeed", "op": "mult", "value": 1.1 }] },
+      "4": { "modifiers": [{ "stat": "spreadDeg", "op": "add", "value": -4 }] }
+    }
+  },
+  {
+    "id": "set:scavenger", "name": "Scavenger", "description": "A salvage kit for efficient collection.", "unlock": { "type": "always" }, "pieceFabricationCost": 100, "emblem": "upgrade-icon:extra-scrap",
+    "thresholds": { "2": { "modifiers": [{ "stat": "currencyGain", "op": "mult", "value": 1.15 }] }, "4": { "modifiers": [{ "stat": "pickupRadius", "op": "add", "value": 30 }] } }
+  },
+  {
+    "id": "set:juggernaut", "name": "Juggernaut", "description": "Heavy gear for surviving the crush.", "unlock": { "type": "always" }, "pieceFabricationCost": 100, "emblem": "upgrade-icon:reinforced-coat",
+    "thresholds": { "2": { "modifiers": [{ "stat": "maxHealth", "op": "mult", "value": 1.1 }] }, "4": { "modifiers": [{ "stat": "maxHealth", "op": "add", "value": 40 }] } }
+  },
+  {
+    "id": "set:pyro", "name": "Pyro", "description": "A heat-forward kit for aggressive builds.", "unlock": { "type": "always" }, "pieceFabricationCost": 100, "emblem": "upgrade-icon:hot-barrel",
+    "thresholds": { "2": { "modifiers": [{ "stat": "damage", "op": "mult", "value": 1.06 }], "weaponTraits": ["FIRE"] }, "4": { "modifiers": [{ "stat": "damage", "op": "mult", "value": 1.12 }], "weaponTraits": ["FIRE"] } }
+  },
+  {
+    "id": "set:recon", "name": "Recon", "description": "A mobility kit for long-range pressure.", "unlock": { "type": "always" }, "pieceFabricationCost": 100, "emblem": "upgrade-icon:quick-paws",
+    "thresholds": { "2": { "modifiers": [{ "stat": "moveSpeed", "op": "mult", "value": 1.06 }] }, "4": { "modifiers": [{ "stat": "range", "op": "add", "value": 30 }] } }
+  },
+  {
+    "id": "set:medic", "name": "Medic", "description": "A durable recovery-oriented kit.", "unlock": { "type": "always" }, "pieceFabricationCost": 100, "emblem": "upgrade-icon:reinforced-coat",
+    "thresholds": { "2": { "modifiers": [{ "stat": "maxHealth", "op": "add", "value": 20 }] }, "4": { "modifiers": [{ "stat": "maxHealth", "op": "mult", "value": 1.1 }] } }
+  },
+  {
+    "id": "set:technician", "name": "Technician", "description": "A precision kit for weapon handling.", "unlock": { "type": "always" }, "pieceFabricationCost": 100, "emblem": "upgrade-icon:smg-overclock",
+    "thresholds": { "2": { "modifiers": [{ "stat": "attackSpeed", "op": "mult", "value": 1.05 }] }, "4": { "modifiers": [{ "stat": "attackSpeed", "op": "mult", "value": 1.12 }] } }
+  },
+  {
+    "id": "set:demolition", "name": "Demolition", "description": "A breaching kit for explosive force.", "unlock": { "type": "always" }, "pieceFabricationCost": 100, "emblem": "upgrade-icon:heavy-rounds",
+    "thresholds": { "2": { "modifiers": [{ "stat": "damage", "op": "mult", "value": 1.08 }], "weaponTraits": ["EXPLOSIVE"] }, "4": { "modifiers": [{ "stat": "damage", "op": "mult", "value": 1.15 }], "weaponTraits": ["EXPLOSIVE"] } }
+  }
+]

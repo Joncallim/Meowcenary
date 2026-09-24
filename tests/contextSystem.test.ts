@@ -23,7 +23,7 @@ describe('GameContext persistence boundary', () => {
     expect(context.completeStageTransaction('stage:junkyard-05', 120_000, 'boss-crusher', stageTransaction('stage:junkyard-05', 120_000))).toBe(true);
     expect(context.saveData.stages['stage:junkyard-05'].completed).toBe(true);
     expect(context.saveData.bosses['boss-crusher'].defeated).toBe(true);
-    expect(context.saveData.progression.scrap).toBe(220);
+    expect(context.saveData.progression.scrap).toBe(130);
     expect(context.saveData.appliedGrantTransactions['stage:junkyard-05:first-clear']).toBe(true);
   });
 
@@ -260,10 +260,10 @@ describe('GameContext persistence boundary', () => {
     expect(context.saveData.equipment['owned:helmet'].tier).toBe(1);
     storage.succeed = true;
     expect(context.completeStage('stage:junkyard-02', 1)).toBe(true);
+    expect(context.completeStage('stage:junkyard-03', 1)).toBe(true);
     expect(context.commitEquipmentUpgrade('owned:helmet', 1, 2, 100)).toBe(true);
-    // The legitimate Stage 2 first-clear reward survives the equipment
-    // purchase; it is no longer lost behind the legacy rewardless path.
-    expect(context.saveData.progression.scrap).toBe(40);
+    // The Stage 2/3 first-clear rewards survive the equipment purchase.
+    expect(context.saveData.progression.scrap).toBe(105);
     expect(context.saveData.equipment['owned:helmet'].tier).toBe(2);
     expect(context.commitEquipmentUpgrade('owned:helmet', 1, 2, 100)).toBe(false);
     expect(context.commitEquipmentUpgrade('owned:helmet', 2, 3, 1)).toBe(false);
@@ -675,6 +675,95 @@ describe('GameContext persistence boundary', () => {
     expect(context.selectedArenaId).toBe('junkyard-lot');
     expect(context.arenaSelectionRevision).toBe(revisionBefore + 1);
   });
+
+  it('settles a first boss clear through one candidate write, including terminal facts and achievement receipts', () => {
+    const { context, storage } = setup();
+    const writesBefore = storage.setCalls;
+
+    const result = context.settleRunTerminal({
+      terminalStatus: 'win', runScrap: 17, characterId: 'scrap-tabby', runDurationMs: 61_000,
+      stageId: 'stage:junkyard-05',
+    });
+
+    expect(result).toMatchObject({ ok: true, terminalApplied: true, runScrapBanked: 17, firstClear: true, firstClearScrap: 130 });
+    expect(storage.setCalls).toBe(writesBefore + 1);
+    expect(context.saveData.stages['stage:junkyard-05']).toMatchObject({ completed: true, bestTimeMs: 61_000 });
+    expect(context.saveData.bosses['boss-crusher']).toMatchObject({ defeated: true });
+    expect(context.saveData.characters['scrap-tabby']).toEqual({ xp: 100, tier: 1 });
+    expect(context.saveData.achievementMetrics).toMatchObject({ 'metric:scrap-banked': 17, 'metric:runs-completed': 1 });
+    expect(context.saveData.achievements['achievement:boss-crusher']?.completed).toBe(true);
+    expect(context.saveData.achievements['achievement:first-victory']?.completed).toBe(true);
+    expect(context.saveData.achievements['achievement:mastery-scrap-tabby']?.completed).toBe(true);
+    expect(context.saveData.appliedGrantTransactions['stage:junkyard-05:first-clear']).toBe(true);
+    expect(context.saveData.appliedGrantTransactions['achievement:boss-crusher:completion']).toBe(true);
+    expect(context.saveData.appliedGrantTransactions['achievement:first-victory:completion']).toBe(true);
+    expect(context.saveData.appliedGrantTransactions['achievement:mastery-scrap-tabby:completion']).toBe(true);
+  });
+
+  it('does not publish a failed terminal candidate and safely retries it once', () => {
+    const { context, storage } = setup();
+    storage.succeed = false;
+    const request = {
+      terminalStatus: 'win' as const, runScrap: 17, characterId: 'scrap-tabby', runDurationMs: 61_000,
+      stageId: 'stage:junkyard-01',
+    };
+    expect(context.settleRunTerminal(request)).toMatchObject({ ok: false, terminalApplied: false });
+    expect(context.saveData.stages['stage:junkyard-01']).toBeUndefined();
+    expect(context.saveData.progression.scrap).toBe(0);
+
+    storage.succeed = true;
+    expect(context.settleRunTerminal(request)).toMatchObject({ ok: true, firstClear: true });
+    expect(context.saveData.progression.scrap).toBeGreaterThan(17);
+    expect(context.settleRunTerminal(request)).toMatchObject({ ok: true, firstClear: false });
+    expect(context.saveData.progression.scrap).toBeGreaterThan(17);
+  });
+
+  it('uses the same owner for loss and Training without manufacturing a Contract clear', () => {
+    const { context } = setup();
+    const loss = context.settleRunTerminal({
+      terminalStatus: 'loss', runScrap: 9, characterId: 'scrap-tabby', runDurationMs: 10_000,
+      stageId: 'stage:junkyard-01',
+    });
+    expect(loss).toMatchObject({ ok: true, terminalApplied: true, runScrapBanked: 9, firstClear: false });
+    expect(context.saveData.stages['stage:junkyard-01']).toBeUndefined();
+    expect(context.saveData.achievementMetrics['metric:runs-completed']).toBeUndefined();
+
+    const training = context.settleRunTerminal({
+      terminalStatus: 'win', runScrap: 4, characterId: 'scrap-tabby', runDurationMs: 10_000, isTraining: true,
+    });
+    expect(training).toMatchObject({ ok: true, terminalApplied: true, firstClear: false, runScrapBanked: 0 });
+    expect(context.saveData.characters['scrap-tabby']).toBeUndefined();
+    expect(context.saveData.stages).toEqual({});
+  });
+
+  it('rejects caller-fabricated terminal-owned metrics while accepting registered run facts', () => {
+    const { context } = setup();
+    const forged = context.settleRunTerminal({
+      terminalStatus: 'win', runScrap: 0, characterId: 'scrap-tabby', runDurationMs: 10_000,
+      stageId: 'stage:junkyard-01', metricIncrements: { 'metric:runs-completed': 999 },
+    });
+    expect(forged).toMatchObject({ ok: false, terminalApplied: false });
+    expect(context.saveData.stages['stage:junkyard-01']).toBeUndefined();
+
+    const accepted = context.settleRunTerminal({
+      terminalStatus: 'loss', runScrap: 0, characterId: 'scrap-tabby', runDurationMs: 10_000,
+      metricIncrements: { 'metric:enemies-defeated': 2 },
+    });
+    expect(accepted).toMatchObject({ ok: true, terminalApplied: true });
+    expect(context.saveData.achievementMetrics).toMatchObject({ 'metric:enemies-defeated': 2 });
+  });
+
+  it('captures availability before and after the exact accepted candidate', () => {
+    const { context } = setup();
+    const result = context.settleRunTerminal({
+      terminalStatus: 'win', runScrap: 0, characterId: 'scrap-tabby', runDurationMs: 10_000,
+      stageId: 'stage:junkyard-01',
+    });
+    expect(result.availabilityBefore).not.toBe(result.availabilityAfter);
+    expect(result.availabilityAfter.fabricablePartIds.some((id) =>
+      !result.availabilityBefore.fabricablePartIds.includes(id),
+    )).toBe(true);
+  });
 });
 
 class CountingStorage extends MemoryStorageAdapter {
@@ -709,6 +798,6 @@ function stageTransaction(stageId: string, timeMs: number) {
   if (!reward) throw new Error(`Missing reward profile for ${stageId}`);
   return {
     id: `${stageId}:first-clear`,
-    grants: [{ type: 'grant-scrap' as const, amount: Math.max(1, reward.scrapBase + Math.floor(Math.min(timeMs, 180_000) / 60_000) * reward.scrapPerMinute) }, ...(reward.grants ?? [])],
+    grants: [{ type: 'grant-scrap' as const, amount: Math.max(1, reward.firstClearScrap + Math.floor(Math.min(timeMs, 180_000) / 60_000) * 0) }, ...(reward.grants ?? [])],
   };
 }

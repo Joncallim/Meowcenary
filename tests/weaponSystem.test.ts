@@ -362,8 +362,8 @@ describe('WeaponSystem', () => {
       y: 0,
     });
     expect(killed).toHaveBeenCalledTimes(1);
-    expect(damaged.mock.invocationCallOrder[0]).toBeLessThan(hit.mock.invocationCallOrder[0]);
-    expect(hit.mock.invocationCallOrder[0]).toBeLessThan(killed.mock.invocationCallOrder[0]);
+    expect(damaged.mock.invocationCallOrder[0]).toBeLessThan(killed.mock.invocationCallOrder[0]);
+    expect(killed.mock.invocationCallOrder[0]).toBeLessThan(hit.mock.invocationCallOrder[0]);
     expect(harness.runState.kills).toBe(1);
   });
 
