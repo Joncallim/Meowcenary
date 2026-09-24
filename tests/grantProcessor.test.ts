@@ -5,7 +5,7 @@ import {
   processGrants,
   type ProgressionGrant,
 } from '../src/gameplay/grantProcessor';
-import { createDefaultSaveV4 } from '../src/systems/save';
+import { createDefaultSaveV4, freezeSaveV4 } from '../src/systems/save';
 import { createDefaultProgression } from '../src/systems/save';
 import type { ProgressionState } from '../src/systems/save';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
@@ -207,6 +207,32 @@ describe('durable grant transactions', () => {
     const replay = applyDurableGrantTransaction(once.save, transaction);
     expect(replay.changed).toBe(false);
     expect(Object.keys(replay.save.equipment)).toEqual(['reward:crusher-commando-helmet']);
+  });
+
+  it('records an equipment reward without duplicating a definition fabricated first', () => {
+    const fabricated = freezeSaveV4({
+      ...createDefaultSaveV4(),
+      equipment: {
+        'owned:equipment-commando-helmet': {
+          equipmentId: 'equipment:commando-helmet',
+          tier: 1,
+        },
+      },
+    });
+    const transaction = {
+      id: 'achievement:boss-crusher:equipment-reward',
+      grants: [{ type: 'grant-equipment-instance' as const, instanceId: 'reward:crusher-commando-helmet', equipmentId: 'equipment:commando-helmet', tier: 1 }],
+    };
+
+    const settled = applyDurableGrantTransaction(fabricated, transaction);
+
+    expect(settled).toMatchObject({ valid: true, changed: true });
+    expect(settled.save.equipment).toEqual(fabricated.equipment);
+    expect(settled.save.appliedGrantTransactions[transaction.id]).toBe(true);
+    expect(applyDurableGrantTransaction(settled.save, transaction)).toMatchObject({
+      valid: true,
+      changed: false,
+    });
   });
 
   it('rejects duplicate owned-instance IDs within one transaction before recording its receipt', () => {

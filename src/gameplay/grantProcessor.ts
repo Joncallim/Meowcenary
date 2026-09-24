@@ -20,8 +20,9 @@ export type ProgressionGrant =
   /** A source-owned persistent inventory reward. The caller supplies an
    * opaque stable instance ID, so replay can never mint a second copy. */
   | { readonly type: 'grant-part-instance'; readonly instanceId: string; readonly partId: string; readonly tier?: number }
-  /** Source-owned equipment instance. Definition identity and owned identity
-   * stay distinct, so two copies may be upgraded/equipped independently. */
+  /** Source-owned equipment reward. The source instance ID is used when the
+   * definition is first minted; V4 still owns at most one instance of each
+   * Equipment definition. */
   | { readonly type: 'grant-equipment-instance'; readonly instanceId: string; readonly equipmentId: string; readonly tier?: number }
   | { readonly type: 'grant-item'; readonly itemId: string; readonly amount?: number }
   | { readonly type: 'achievement-completed'; readonly achievementId: string }
@@ -84,9 +85,25 @@ export function applyDurableGrantTransaction(save: SaveDataV4, transaction: Dura
     return { save, valid: false, changed: false };
   }
   const equipmentInstanceIds = new Set(equipmentGrants.map((grant) => grant.instanceId));
-  if (equipmentInstanceIds.size !== equipmentGrants.length || equipmentGrants.some((grant) => Object.hasOwn(save.equipment, grant.instanceId))) {
+  const equipmentDefinitionIds = new Set(equipmentGrants.map((grant) => grant.equipmentId));
+  const existingEquipmentByDefinition = new Map(
+    Object.values(save.equipment).map((item) => [item.equipmentId, item] as const),
+  );
+  if (equipmentInstanceIds.size !== equipmentGrants.length
+    || equipmentDefinitionIds.size !== equipmentGrants.length
+    || equipmentGrants.some((grant) => {
+      const requiredTier = grant.tier ?? 1;
+      const instanceCollision = save.equipment[grant.instanceId];
+      if (instanceCollision !== undefined
+        && (instanceCollision.equipmentId !== grant.equipmentId || instanceCollision.tier < requiredTier)) return true;
+      const definitionCollision = existingEquipmentByDefinition.get(grant.equipmentId);
+      return definitionCollision !== undefined && definitionCollision.tier < requiredTier;
+    })) {
     return { save, valid: false, changed: false };
   }
+  const equipmentToMint = equipmentGrants.filter(
+    (grant) => !existingEquipmentByDefinition.has(grant.equipmentId),
+  );
   const progressionGrants = transaction.grants.filter((grant) => grant.type !== 'grant-part-instance' && grant.type !== 'grant-equipment-instance' && grant.type !== 'grant-item');
   const result = processGrants(save.progression, progressionGrants);
   const items = applyItemGrants(save.items, transaction.grants);
@@ -100,7 +117,7 @@ export function applyDurableGrantTransaction(save: SaveDataV4, transaction: Dura
   });
   const equipment = Object.freeze({
     ...save.equipment,
-    ...Object.fromEntries(equipmentGrants.map((grant) => [grant.instanceId, Object.freeze({
+    ...Object.fromEntries(equipmentToMint.map((grant) => [grant.instanceId, Object.freeze({
       equipmentId: grant.equipmentId,
       tier: grant.tier ?? 1,
     })])),
@@ -143,8 +160,10 @@ function transactionEffectsPresent(save: SaveDataV4, transaction: DurableGrantTr
         return part?.partId === grant.partId && part.tier === (grant.tier ?? 1);
       }
       case 'grant-equipment-instance': {
-        const equipment = save.equipment[grant.instanceId];
-        return equipment?.equipmentId === grant.equipmentId && equipment.tier === (grant.tier ?? 1);
+        const requiredTier = grant.tier ?? 1;
+        return Object.values(save.equipment).some(
+          (equipment) => equipment.equipmentId === grant.equipmentId && equipment.tier >= requiredTier,
+        );
       }
     }
   });
