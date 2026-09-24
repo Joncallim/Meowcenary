@@ -178,7 +178,8 @@ export class StageSelectionController {
     const arena = this.context.arenas.arenaById(stage.arenaId);
     const encounter = this.context.data.encounterProfiles?.find((row) => row.id === stage.encounterProfileId);
     const reward = this.context.data.rewardProfiles?.find((row) => row.id === stage.rewardProfileId);
-    const threats = [...new Set(encounter?.enemyIds ?? [])].flatMap((enemyId) => {
+    const threatIds = [...(encounter?.enemyIds ?? []), ...(encounter?.bossId ? [encounter.bossId] : [])];
+    const threats = [...new Set(threatIds)].flatMap((enemyId) => {
       const enemy = this.context.data.enemies.find((row) => row.id === enemyId);
       const actorEnemyId = enemy?.archetype === 'elite' ? enemy.baseEnemyId : enemyId;
       const actorArtId = this.visualArt.bindingById(`enemy:${actorEnemyId}`)?.id;

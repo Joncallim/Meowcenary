@@ -58,6 +58,29 @@ describe('StageSelectionController (Epic 20)', () => {
     expect(snapshot.stages.find((stage) => stage.id === 'stage:forge-04')!.threats.map((threat) => threat.enemyId)).toEqual([
       'dust-mite', 'scrap-sniper', 'junk-nester', 'junk-rusher', 'shard-bot', 'bastion-beetle',
     ]);
+    expect(snapshot.stages.find((stage) => stage.id === 'stage:junkyard-05')!.threats.at(-1)).toMatchObject({
+      enemyId: 'boss-crusher', name: 'Scrap Crusher', actorArtId: 'enemy:boss-crusher',
+    });
+    expect(snapshot.stages.find((stage) => stage.id === 'stage:junkyard-06')!.threats.at(-1)).toMatchObject({
+      enemyId: 'boss-forge', name: 'Forge Warden', actorArtId: 'enemy:boss-forge',
+    });
+  });
+
+  it('deduplicates a boss authored in both ordinary and boss encounter fields', () => {
+    const data = loadGameData();
+    const encounters = data.encounterProfiles!.map((encounter) => encounter.bossId
+      ? { ...encounter, enemyIds: [...encounter.enemyIds, encounter.bossId] }
+      : encounter);
+    const amended = { ...data, encounterProfiles: encounters };
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data: amended,
+      metaUpgrades: new DataMetaUpgradeRegistry(amended), save: new SaveManager(new MemoryStorageAdapter(), 'boss-threat-dedupe', {}),
+      characters: new DataCharacterRegistry(amended), arenas: new DataArenaRegistry(amended), stages: new StageRegistry(amended),
+    });
+
+    const threats = new StageSelectionController(context).snapshot().stages
+      .find((stage) => stage.id === 'stage:junkyard-05')!.threats;
+    expect(threats.filter((threat) => threat.enemyId === 'boss-crusher')).toHaveLength(1);
   });
 
   it('scales to an expanded N+1 encounter roster while deduplicating repeated authored IDs in display order', () => {
