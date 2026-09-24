@@ -1254,6 +1254,10 @@ describe('game data validation', () => {
       const missingSkin = structuredClone(loadGameData()) as any;
       missingSkin.arenas[0].visual.obstacleSkins.pop();
       expect(() => validateGameData(missingSkin)).toThrow(/missing skin for obstacle/);
+
+      const missingHazardSkin = structuredClone(loadGameData()) as any;
+      missingHazardSkin.arenas.find((arena: { id: string }) => arena.id === 'forge-foundry').visual.hazardSkins.pop();
+      expect(() => validateGameData(missingHazardSkin)).toThrow(/missing skin for hazard/);
     });
 
     it('rejects unknown spawnCurveId', () => {

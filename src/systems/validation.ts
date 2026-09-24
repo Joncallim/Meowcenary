@@ -178,10 +178,11 @@ const REGION_EDGE_LANES_FIELDS = new Set(['kind', 'inset', 'lanes']);
 const EDGE_LANE_FIELDS = new Set(['side', 'offset', 'width']);
 const EDGE_LANE_SIDES = new Set(['top', 'right', 'bottom', 'left']);
 const OBSTACLE_FIELDS = new Set(['id', 'x', 'y', 'w', 'h']);
-const ARENA_VISUAL_FIELDS = new Set(['floorArtIds', 'boundary', 'decorations', 'obstacleSkins']);
+const ARENA_VISUAL_FIELDS = new Set(['floorArtIds', 'boundary', 'decorations', 'obstacleSkins', 'hazardSkins']);
 const ARENA_BOUNDARY_FIELDS = new Set(['straightArtId', 'cornerArtId', 'patchArtId', 'gateArtId']);
 const ARENA_DECORATION_FIELDS = new Set(['id', 'artId', 'x', 'y', 'flipX', 'layer']);
 const ARENA_OBSTACLE_SKIN_FIELDS = new Set(['obstacleId', 'artId', 'offsetX', 'offsetY']);
+const ARENA_HAZARD_SKIN_FIELDS = new Set(['hazardId', 'artId']);
 const HAZARD_FIELDS = new Set(['id', 'kind', 'x', 'y', 'w', 'h', 'damagePerSecond']);
 const LOOT_KINDS = new Set(['xp', 'scrap', 'chest', 'weapon', 'nothing']);
 const LOOT_FIELDS = new Set(['id', 'entries']);
@@ -1664,6 +1665,29 @@ function checkArenaVisual(row: Record<string, unknown>, arenaWidth: number, aren
       errors.push(...rowErrors.map((error) => `obstacleSkins[${index}].${error}`));
     });
   }
+
+  const hazardSkins = readOwnField(row, 'hazardSkins');
+  if (!Array.isArray(hazardSkins) || hazardSkins.length > MAX_HAZARDS) {
+    errors.push(`hazardSkins: required array with at most ${MAX_HAZARDS} entries`);
+  } else {
+    const seen = new Set<string>();
+    hazardSkins.forEach((skin, index) => {
+      if (!isRecord(skin)) {
+        errors.push(`hazardSkins[${index}]: expected object`);
+        return;
+      }
+      const rowErrors: string[] = [];
+      rejectUnknownFields(skin, ARENA_HAZARD_SKIN_FIELDS, rowErrors);
+      requireString(skin, 'hazardId', rowErrors);
+      requireString(skin, 'artId', rowErrors);
+      const hazardId = readOwnField(skin, 'hazardId');
+      if (typeof hazardId === 'string') {
+        if (seen.has(hazardId)) rowErrors.push(`hazardId: duplicate skin for "${hazardId}"`);
+        seen.add(hazardId);
+      }
+      errors.push(...rowErrors.map((error) => `hazardSkins[${index}].${error}`));
+    });
+  }
   return errors;
 }
 
@@ -3136,7 +3160,7 @@ export function assertArenaVisualReferences(
 
   arenas.forEach((arena, arenaIndex) => {
     const family = familyFromFloorIds(arena.visual.floorArtIds);
-    const rolePrefix = (role: 'floor' | 'boundary' | 'prop' | 'landmark'): readonly string[] => {
+    const rolePrefix = (role: 'floor' | 'boundary' | 'prop' | 'landmark' | 'hazard'): readonly string[] => {
       const familyPrefix = family ? `world:${family}-${role}:` : `world:${role}:`;
       // `world:prop:` and `world:landmark:` are shipped generic families;
       // floor/boundary families are always location-declared.
@@ -3164,6 +3188,20 @@ export function assertArenaVisualReferences(
     for (const obstacleId of obstacleIds) {
       if (!skinnedIds.has(obstacleId)) {
         errors.push(`arenas.json[${arenaIndex}].visual.obstacleSkins: missing skin for obstacle "${obstacleId}"`);
+      }
+    }
+    const hazardIds = new Set(arena.hazards.map((hazard) => hazard.id));
+    const skinnedHazardIds = new Set<string>();
+    arena.visual.hazardSkins.forEach((skin, index) => {
+      if (!hazardIds.has(skin.hazardId)) {
+        errors.push(`arenas.json[${arenaIndex}].visual.hazardSkins[${index}].hazardId: unknown hazard "${skin.hazardId}"`);
+      }
+      skinnedHazardIds.add(skin.hazardId);
+      check(arenaIndex, `hazardSkins[${index}].artId`, skin.artId, rolePrefix('hazard'));
+    });
+    for (const hazardId of hazardIds) {
+      if (!skinnedHazardIds.has(hazardId)) {
+        errors.push(`arenas.json[${arenaIndex}].visual.hazardSkins: missing skin for hazard "${hazardId}"`);
       }
     }
   });

@@ -65,6 +65,7 @@ export function assertStageAssetBundleReferences(
       arena.visual.boundary.gateArtId,
       ...arena.visual.decorations.map((decoration) => decoration.artId),
       ...arena.visual.obstacleSkins.map((skin) => skin.artId),
+      ...arena.visual.hazardSkins.map((skin) => skin.artId),
     ];
     const bundleAssets = new Set(bundlesById.get(stage.assetBundleId)!.resourceIds);
     const requiredAssets = new Set(requiredAssetIds.map((id) => visualArt.bindings.find((binding) => binding.id === id)?.resourceId).filter((resourceId): resourceId is string => resourceId !== undefined));
@@ -74,13 +75,8 @@ export function assertStageAssetBundleReferences(
         throw new Error(`stages.json[${stageIndex}].assetBundleId: "${stage.assetBundleId}" is missing arena asset "${assetId}"`);
       }
     }
-    // Bundles may carry additional required world resources for an arena's
-    // declared packet (for example a hazard tile whose gameplay definition
-    // intentionally has no visual field yet). Arena closure remains a hard
-    // subset requirement; unrelated resources are rejected by bundle/data
-    // authoring only when they are not real manifest resources above.
-    if (requiredAssets.size > bundleAssets.size) {
-      throw new Error(`stages.json[${stageIndex}].assetBundleId: "${stage.assetBundleId}" must contain all arena visual assets`);
+    if (bundleAssets.size !== requiredAssets.size) {
+      throw new Error(`stages.json[${stageIndex}].assetBundleId: "${stage.assetBundleId}" must contain exactly the arena visual assets`);
     }
   }
   const declaredAssets = new Set(bundles.flatMap((bundle) => bundle.resourceIds));

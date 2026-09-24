@@ -202,6 +202,12 @@ describe('Epic 20 stage catalog conformance', () => {
     })).toThrow('is missing arena asset');
     expect(() => validateGameData({
       ...source,
+      assetBundles: source.assetBundles.map((bundle) => bundle.id === 'bundle:core-forge'
+        ? { ...bundle, resourceIds: [...bundle.resourceIds, 'resource:world-junkyard-floor-base'] }
+        : bundle),
+    })).toThrow('must contain exactly the arena visual assets');
+    expect(() => validateGameData({
+      ...source,
       visualArt: {
         bindings: [...source.visualArt.bindings, {
           id: 'world:unbundled-proof',

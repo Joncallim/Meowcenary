@@ -42,7 +42,8 @@
       "obstacleSkins": [
         { "obstacleId": "hanging-press", "artId": "world:landmark:hanging-press" },
         { "obstacleId": "barrel-power-stack", "artId": "world:landmark:barrel-power-stack" }
-      ]
+      ],
+      "hazardSkins": []
     },
     "unlock": { "type": "default" }
   },
@@ -91,6 +92,9 @@
       "obstacleSkins": [
         { "obstacleId": "furnace-throat", "artId": "world:forge-landmark:furnace-throat" },
         { "obstacleId": "cooling-manifold", "artId": "world:forge-landmark:cooling-manifold" }
+      ],
+      "hazardSkins": [
+        { "hazardId": "heat-grate", "artId": "world:forge-hazard:heat-grate" }
       ]
     },
     "unlock": { "type": "meta", "requiresUnlockId": "arena:forge-foundry" }

@@ -37,6 +37,9 @@ describe('Forge Foundry arena data', () => {
       'world:forge-landmark:furnace-throat',
       'world:forge-landmark:cooling-manifold',
     ]);
+    expect(arena?.visual.hazardSkins).toEqual([
+      { hazardId: 'heat-grate', artId: 'world:forge-hazard:heat-grate' },
+    ]);
   });
 
   it('repoints every Forge contract while preserving historical stage:junkyard-06', () => {
@@ -51,7 +54,7 @@ describe('Forge Foundry arena data', () => {
     });
   });
 
-  it('declares the full Forge world packet while keeping hazard art out of ArenaVisualDefinition', () => {
+  it('declares the full Forge world packet through the exact arena resource closure', () => {
     const bundle = (bundlesJson as readonly { id: string; resourceIds: readonly string[] }[]).find((candidate) => candidate.id === 'bundle:core-forge');
     expect(bundle?.resourceIds).toEqual(['resource:world-forge-atlas']);
   });
@@ -64,6 +67,7 @@ describe('Forge Foundry arena data', () => {
       ...Object.values(arena!.visual.boundary),
       ...arena!.visual.decorations.map((decoration) => decoration.artId),
       ...arena!.visual.obstacleSkins.map((skin) => skin.artId),
+      ...arena!.visual.hazardSkins.map((skin) => skin.artId),
     ].map((id) => ({ id, kind: 'world' as const, required: true }));
     const catalog = { bindings: forgeBindings } as unknown as VisualArtCatalog;
     expect(() => assertArenaVisualReferences([arena!], catalog)).not.toThrow();
