@@ -167,6 +167,35 @@ describe('MainMenuController', () => {
     expect(context.saveData.progression.scrap).toBe(0);
   });
 
+  it('never offers or duplicates a definition already owned under a reward instance ID', () => {
+    const { context, controller } = setup();
+    context.updateMeta((meta) => ({ ...meta, scrap: 100 }));
+    context.updateEquipment(() => ({
+      equipment: {
+        'reward:crusher-commando-helmet': {
+          equipmentId: 'equipment:commando-helmet',
+          tier: 1,
+        },
+      },
+      loadout: {},
+    }));
+
+    expect(controller.open('equipment').equipment.blueprints).not.toContainEqual(
+      expect.objectContaining({ equipmentId: 'equipment:commando-helmet' }),
+    );
+
+    const rejected = controller.fabricateEquipment('equipment:commando-helmet');
+
+    expect(rejected.notice).toBe('Equipment: fabrication unavailable');
+    expect(context.saveData.progression.scrap).toBe(100);
+    expect(context.saveData.equipment).toEqual({
+      'reward:crusher-commando-helmet': {
+        equipmentId: 'equipment:commando-helmet',
+        tier: 1,
+      },
+    });
+  });
+
   it('keeps stale equipment definitions visible as recoverable unavailable state', () => {
     const { context, controller } = setup();
     context.updateEquipment(() => ({

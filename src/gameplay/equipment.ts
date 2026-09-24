@@ -39,6 +39,13 @@ export function maxEquipmentTier(facts: ConditionContext, rules: EquipmentUpgrad
 }
 export function upgradeCost(currentTier: number): number { return 50 * (currentTier + 1); }
 export function ownedEquipmentId(equipmentId: string): string { return `owned:${equipmentId.replace(':', '-')}`; }
+export function ownsEquipmentDefinition(
+  owned: Iterable<{ readonly equipmentId: string }>,
+  equipmentId: string,
+): boolean {
+  for (const item of owned) if (item.equipmentId === equipmentId) return true;
+  return false;
+}
 
 export function resolveSetBonuses(loadout: EquipmentLoadout, definitions: ReadonlyMap<string, EquipmentDefinition>, setsOrOwned: ReadonlyMap<string, EquipmentSetDefinition> | ReadonlyMap<string, OwnedEquipment>, maybeOwned?: ReadonlyMap<string, OwnedEquipment>): readonly Modifier[] {
   const sets = maybeOwned === undefined ? new Map<string, EquipmentSetDefinition>() : setsOrOwned as ReadonlyMap<string, EquipmentSetDefinition>;

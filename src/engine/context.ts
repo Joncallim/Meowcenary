@@ -27,7 +27,7 @@ import {
 } from '../systems/save';
 import { applyDurableGrantTransaction, durableGrantFingerprint, type DurableGrantTransaction } from '../gameplay/grantProcessor';
 import { noopAchievementAdapter, type AchievementPlatformAdapter } from '../gameplay/achievementPlatform';
-import { EQUIPMENT_TIERS, equipmentUpgradeUnlock, maxEquipmentTier, upgradeCost } from '../gameplay/equipment';
+import { EQUIPMENT_TIERS, equipmentUpgradeUnlock, maxEquipmentTier, ownsEquipmentDefinition, upgradeCost } from '../gameplay/equipment';
 import { updateCompendiumDiscovery } from '../systems/compendium';
 import { settleRunTerminal as buildRunTerminalSettlement, type RunTerminalSettlementResult } from '../systems/saveV4';
 import { DataAchievementRegistry, metricExtractor } from '../systems/achievements';
@@ -392,7 +392,9 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       const set = definition === undefined ? undefined : options.data.equipmentSets?.find((candidate) => candidate.id === definition.setId);
       if (!definition || !set || !evaluateCondition(set.unlock, equipmentUpgradeFacts())) return false;
       const instanceId = `owned:${equipmentId.replace(':', '-')}`;
-      if (current.equipment[instanceId] !== undefined || current.progression.scrap < set.pieceFabricationCost) return false;
+      if (ownsEquipmentDefinition(Object.values(current.equipment), equipmentId)
+        || current.equipment[instanceId] !== undefined
+        || current.progression.scrap < set.pieceFabricationCost) return false;
       const candidate = freezeSaveV4({ ...current,
         progression: Object.freeze({ ...current.progression, scrap: current.progression.scrap - set.pieceFabricationCost }),
         equipment: Object.freeze({ ...current.equipment, [instanceId]: Object.freeze({ equipmentId, tier: 1 }) }),
