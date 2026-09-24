@@ -35,6 +35,20 @@ describe('stage spawn composition', () => {
     expect(second.waves.map((wave) => wave.enemyId)).toEqual(['enemy:third', 'enemy:fourth', 'enemy:fifth']);
   });
 
+  it('preserves authored roster order as evenly spaced pressure layers', () => {
+    const ordered = composeStageSpawnCurve({ ...curve, durationSeconds: 120 }, {
+      ...plan(),
+      encounter: {
+        profileId: 'encounter:ordered',
+        enemyIds: ['swarm', 'flanker', 'charger', 'ranged'],
+        compositionWeights: { swarm: 2, flanker: 1, charger: 1, ranged: 1 },
+      },
+    });
+    expect(ordered.waves.map((wave) => [wave.enemyId, wave.startSecond])).toEqual([
+      ['swarm', 0], ['flanker', 30], ['charger', 60], ['ranged', 90],
+    ]);
+  });
+
   it('caps composed active counts at the spawn director boundary', () => {
     const crowded: SpawnCurveDefinition = {
       ...curve,

@@ -25,12 +25,61 @@ describe('Epic 20 stage catalog conformance', () => {
   const difficulties = difficultiesJson as readonly DifficultyProfile[];
   const rewards = rewardsJson as readonly RewardProfile[];
 
+  const reviewedContractMatrix = [
+    ['stage:junkyard-01', { type: 'kill', count: 25 }, 'encounter:junkyard-first-scavenge', 'difficulty:chapter-1-easy'],
+    ['stage:junkyard-02', { type: 'collect', itemId: 'drop:scrap', count: 14 }, 'encounter:junkyard-scrap-run', 'difficulty:chapter-1-easy'],
+    ['stage:junkyard-03', { type: 'survive', seconds: 120 }, 'encounter:junkyard-rusher-ambush', 'difficulty:chapter-1-medium'],
+    ['stage:junkyard-04', { type: 'kill', count: 8, enemyTag: 'tank' }, 'encounter:junkyard-brute-force', 'difficulty:chapter-1-hard'],
+    ['stage:junkyard-05', { type: 'defeat', enemyId: 'boss-crusher' }, 'encounter:junkyard-crusher-boss', 'difficulty:boss-crusher'],
+    ['stage:forge-01', { type: 'collect', itemId: 'drop:scrap', count: 18 }, 'encounter:forge-hot-salvage', 'difficulty:forge-medium'],
+    ['stage:forge-02', { type: 'survive', seconds: 120 }, 'encounter:forge-smelter-rush', 'difficulty:forge-medium'],
+    ['stage:forge-03', { type: 'kill', count: 10, enemyTag: 'shielded' }, 'encounter:forge-steel-wall', 'difficulty:forge-hard'],
+    ['stage:forge-04', { type: 'kill', count: 12, enemyTag: 'ranged' }, 'encounter:forge-cut-the-feed', 'difficulty:forge-hard'],
+    ['stage:junkyard-06', { type: 'defeat', enemyId: 'boss-forge' }, 'encounter:forge-warden-boss', 'difficulty:boss-forge'],
+  ] as const;
+
   it('ships two five-contract chapters in display order', () => {
     expect(stages).toHaveLength(10);
     for (const chapterId of ['chapter:junkyard', 'chapter:forge']) {
       const orders = stages.filter((stage) => stage.chapterId === chapterId).map((stage) => stage.displayOrder).sort((a, b) => a - b);
       expect(orders, chapterId).toEqual([1, 2, 3, 4, 5]);
     }
+  });
+
+  it('matches the reviewed ten-Contract objective, encounter, and difficulty matrix exactly', () => {
+    expect(stages.map((stage) => [
+      stage.id,
+      stage.objective,
+      stage.encounterProfileId,
+      stage.difficultyProfileId,
+    ])).toEqual(reviewedContractMatrix);
+  });
+
+  it('ships the seven reviewed difficulty identities and tuning candidates', () => {
+    expect(difficulties).toEqual([
+      { id: 'difficulty:chapter-1-easy', healthMultiplier: 1, damageMultiplier: 1, speedMultiplier: 1, spawnPressure: 0.2 },
+      { id: 'difficulty:chapter-1-medium', healthMultiplier: 1.15, damageMultiplier: 1.08, speedMultiplier: 1.02, spawnPressure: 0.35 },
+      { id: 'difficulty:chapter-1-hard', healthMultiplier: 1.3, damageMultiplier: 1.15, speedMultiplier: 1.04, spawnPressure: 0.5 },
+      { id: 'difficulty:forge-medium', healthMultiplier: 1.35, damageMultiplier: 1.18, speedMultiplier: 1.05, spawnPressure: 0.45 },
+      { id: 'difficulty:forge-hard', healthMultiplier: 1.55, damageMultiplier: 1.28, speedMultiplier: 1.08, spawnPressure: 0.6 },
+      { id: 'difficulty:boss-crusher', healthMultiplier: 1.6, damageMultiplier: 1.25, speedMultiplier: 0.95, spawnPressure: 0.4 },
+      { id: 'difficulty:boss-forge', healthMultiplier: 1.9, damageMultiplier: 1.4, speedMultiplier: 1, spawnPressure: 0.55 },
+    ]);
+  });
+
+  it('preserves every reviewed encounter roster in authored pressure-layer order', () => {
+    expect(encounters).toEqual([
+      { id: 'encounter:junkyard-first-scavenge', enemyIds: ['dust-mite', 'scrap-skitter', 'junk-rusher', 'scrap-sniper'], compositionWeights: { 'dust-mite': 2, 'scrap-skitter': 1, 'junk-rusher': 1, 'scrap-sniper': 1 } },
+      { id: 'encounter:junkyard-scrap-run', enemyIds: ['dust-mite', 'scrap-skitter', 'scrap-sniper', 'junk-nester', 'bastion-beetle'], compositionWeights: { 'dust-mite': 2, 'scrap-skitter': 2, 'scrap-sniper': 1, 'junk-nester': 1, 'bastion-beetle': 1 } },
+      { id: 'encounter:junkyard-rusher-ambush', enemyIds: ['dust-mite', 'junk-rusher', 'scrap-skitter', 'shard-bot', 'bastion-beetle'], compositionWeights: { 'dust-mite': 2, 'junk-rusher': 2, 'scrap-skitter': 2, 'shard-bot': 1, 'bastion-beetle': 1 } },
+      { id: 'encounter:junkyard-brute-force', enemyIds: ['dust-mite', 'trash-brute', 'bastion-beetle', 'shard-bot', 'junk-nester'], compositionWeights: { 'dust-mite': 2, 'trash-brute': 2, 'bastion-beetle': 1, 'shard-bot': 1, 'junk-nester': 1 } },
+      { id: 'encounter:junkyard-crusher-boss', enemyIds: ['dust-mite', 'junk-rusher', 'bastion-beetle', 'scrap-sniper'], compositionWeights: { 'dust-mite': 2, 'junk-rusher': 1, 'bastion-beetle': 1, 'scrap-sniper': 1 }, bossId: 'boss-crusher' },
+      { id: 'encounter:forge-hot-salvage', enemyIds: ['dust-mite', 'shard-bot', 'junk-nester', 'scrap-sniper', 'bastion-beetle'], compositionWeights: { 'dust-mite': 2, 'shard-bot': 2, 'junk-nester': 1, 'scrap-sniper': 1, 'bastion-beetle': 1 } },
+      { id: 'encounter:forge-smelter-rush', enemyIds: ['dust-mite', 'junk-rusher', 'shard-bot', 'scrap-skitter', 'bastion-beetle'], compositionWeights: { 'dust-mite': 2, 'junk-rusher': 2, 'shard-bot': 2, 'scrap-skitter': 1, 'bastion-beetle': 1 } },
+      { id: 'encounter:forge-steel-wall', enemyIds: ['dust-mite', 'bastion-beetle', 'junk-nester', 'trash-brute', 'scrap-sniper'], compositionWeights: { 'dust-mite': 2, 'bastion-beetle': 1, 'junk-nester': 1, 'trash-brute': 1, 'scrap-sniper': 1 } },
+      { id: 'encounter:forge-cut-the-feed', enemyIds: ['dust-mite', 'scrap-sniper', 'junk-nester', 'junk-rusher', 'shard-bot', 'bastion-beetle'], compositionWeights: { 'dust-mite': 2, 'scrap-sniper': 1, 'junk-nester': 1, 'junk-rusher': 1, 'shard-bot': 1, 'bastion-beetle': 1 } },
+      { id: 'encounter:forge-warden-boss', enemyIds: ['dust-mite', 'junk-rusher', 'shard-bot', 'junk-nester'], compositionWeights: { 'dust-mite': 2, 'junk-rusher': 1, 'shard-bot': 1, 'junk-nester': 1 }, bossId: 'boss-forge' },
+    ]);
   });
 
   it('uses stable namespaced unique stage IDs (never display numbers as save keys)', () => {
@@ -105,7 +154,7 @@ describe('Epic 20 stage catalog conformance', () => {
 
   it('has a strictly ordered unlock chain across chapters', () => {
     const first = stages.find((stage) => stage.id === 'stage:junkyard-01')!;
-    expect(first.unlock).toMatchObject({ type: 'unlock-count', minCount: 0 });
+    expect(first.unlock).toEqual({ type: 'always' });
     for (const stage of stages.filter((candidate) => candidate.id !== first.id)) {
       expect(stage.unlock).toMatchObject({ type: 'stage-cleared' });
     }
@@ -184,37 +233,37 @@ describe('Epic 20 stage catalog conformance', () => {
     }
   });
 
-  it('second-fixture proof: adding a data-only stage with declared assets requires no scene/schema change', () => {
-    const proofStage: StageDefinition = {
-      id: 'stage:proof-junkyard-01',
-      name: 'Proof Stage',
-      chapterId: 'chapter:proof-junkyard',
-      displayOrder: 1,
+  it('Contract-25 proof: existing primitives scale through data without scene/schema/validator registration', () => {
+    const proofStages: StageDefinition[] = Array.from({ length: 15 }, (_, index) => ({
+      id: `stage:proof-${String(index + 11).padStart(2, '0')}`,
+      name: `Proof Contract ${index + 11}`,
+      chapterId: 'chapter:proof',
+      displayOrder: index + 1,
       arenaId: stages[0].arenaId,
       assetBundleId: stages[0].assetBundleId,
       objective: { type: 'kill', count: 5 },
       encounterProfileId: encounters[0].id,
       difficultyProfileId: difficulties[0].id,
       rewardProfileId: rewards[0].id,
-      unlock: { type: 'stage-cleared', stageId: stages[4].id },
-    };
+      unlock: { type: 'stage-cleared', stageId: index === 0 ? stages.at(-1)!.id : `stage:proof-${String(index + 10).padStart(2, '0')}` },
+    }));
     const validated = validateGameData({
       ...structuredClone(loadGameData()),
-      stages: [...stages, proofStage],
+      stages: [...stages, ...proofStages],
     });
-    // The boot validator and generic resolver accept a new stage using a
-    // declared asset bundle without a scene, loader, or stage-ID branch.
-    const plan = resolveRunPlan(
-      { stageId: 'stage:proof-junkyard-01', characterId: 'scrap-tabby', seed: 7 },
-      {
-        stages: validated.stages!,
-        encounterProfiles: validated.encounterProfiles!,
-        difficultyProfiles: validated.difficultyProfiles!,
-        rewardProfiles: validated.rewardProfiles!,
-      },
-    );
-    expect(plan.stageId).toBe('stage:proof-junkyard-01');
-    expect(plan.objective.definition.type).toBe('kill');
+    expect(validated.stages).toHaveLength(25);
+    const catalog = {
+      stages: validated.stages!,
+      encounterProfiles: validated.encounterProfiles!,
+      difficultyProfiles: validated.difficultyProfiles!,
+      rewardProfiles: validated.rewardProfiles!,
+    };
+    for (const stage of proofStages) {
+      const plan = resolveRunPlan({ stageId: stage.id, characterId: 'scrap-tabby', seed: 7 }, catalog);
+      expect(plan.objective.definition.type).toBe('kill');
+      const legacy = spawnCurvesJson.find((curve) => curve.id === validated.arenas.find((arena) => arena.id === stage.arenaId)?.spawnCurveId)!;
+      expect(composeStageSpawnCurve(legacy, plan).waves.map((wave) => wave.enemyId)).toEqual(encounters[0].enemyIds);
+    }
   });
 
   it('rejects a stage bundle or bundle member that is absent from the real manifest', () => {
