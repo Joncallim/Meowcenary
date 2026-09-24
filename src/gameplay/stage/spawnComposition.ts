@@ -11,6 +11,7 @@ export function composeStageSpawnCurve(
 ): Readonly<SpawnCurveDefinition> {
   const roster = plan.encounter.enemyIds;
   if (roster.length === 0) throw new Error(`Encounter "${plan.encounter.profileId}" has no enemies`);
+  if (legacyCurve.waves.length === 0) throw new Error(`Spawn curve "${legacyCurve.id}" has no waves`);
   const cadenceMultiplier = 1 + plan.difficulty.spawnPressure;
   const aliveMultiplier = 1 + plan.difficulty.spawnPressure;
   // One layer per canonical enemy means SpawnDirector's per-enemy active cap
@@ -18,14 +19,14 @@ export function composeStageSpawnCurve(
   // not identity multiplicity, and every authored archetype gets a layer.
   const layerCount = roster.length;
   const candidates = Array.from({ length: layerCount }, (_, index) => {
-    const wave = legacyCurve.waves[index % legacyCurve.waves.length]!;
+    const wave = legacyCurve.waves[projectedWaveIndex(index, layerCount, legacyCurve.waves.length)]!;
     return Math.max(1, Math.ceil(wave.maxAlive * aliveMultiplier));
   });
   const cappedAlive = capActiveCounts(candidates);
   return deepFreeze({
     ...structuredClone(legacyCurve),
     waves: Array.from({ length: layerCount }, (_, index) => {
-      const wave = legacyCurve.waves[index % legacyCurve.waves.length]!;
+      const wave = legacyCurve.waves[projectedWaveIndex(index, layerCount, legacyCurve.waves.length)]!;
       return {
       ...wave,
       enemyId: roster[index]!,
@@ -35,6 +36,14 @@ export function composeStageSpawnCurve(
       };
     }),
   });
+}
+
+/** Resample the complete source pressure shape over an arbitrary roster.
+ * Endpoints stay endpoints and intermediate layers share their nearest source
+ * role; late support can therefore never wrap back to the opening swarm. */
+function projectedWaveIndex(layerIndex: number, layerCount: number, sourceCount: number): number {
+  if (layerCount <= 1 || sourceCount <= 1) return 0;
+  return Math.round(layerIndex * (sourceCount - 1) / (layerCount - 1));
 }
 
 /** Preserve every wave while enforcing the spawn director's global cap. */

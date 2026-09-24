@@ -49,6 +49,40 @@ describe('stage spawn composition', () => {
     ]);
   });
 
+  it('projects five- and six-member rosters across the source curve without wrapping late support into swarm pressure', () => {
+    const shaped: SpawnCurveDefinition = {
+      ...curve,
+      waves: [
+        { startSecond: 0, enemyId: 'legacy-swarm', spawnEveryMs: 1600, maxAlive: 12 },
+        { startSecond: 25, enemyId: 'legacy-flanker', spawnEveryMs: 2400, maxAlive: 6 },
+        { startSecond: 50, enemyId: 'legacy-ranged', spawnEveryMs: 3200, maxAlive: 4 },
+        { startSecond: 80, enemyId: 'legacy-heavy', spawnEveryMs: 6500, maxAlive: 3 },
+      ],
+    };
+    const neutralDifficulty = { ...plan().difficulty, spawnPressure: 0 };
+    const six = composeStageSpawnCurve(shaped, {
+      difficulty: neutralDifficulty,
+      encounter: {
+        profileId: 'encounter:six-layer-proof',
+        enemyIds: ['one', 'two', 'three', 'four', 'five', 'six'],
+        compositionWeights: { one: 1, two: 1, three: 1, four: 1, five: 1, six: 1 },
+      },
+    });
+    expect(six.waves.map((wave) => wave.spawnEveryMs)).toEqual([1600, 2400, 2400, 3200, 3200, 6500]);
+    expect(six.waves.map((wave) => wave.maxAlive)).toEqual([12, 6, 6, 4, 4, 3]);
+    expect(six.waves.at(-1)).toMatchObject({ enemyId: 'six', spawnEveryMs: 6500, maxAlive: 3 });
+
+    const five = composeStageSpawnCurve(shaped, {
+      difficulty: neutralDifficulty,
+      encounter: {
+        profileId: 'encounter:five-layer-proof',
+        enemyIds: ['one', 'two', 'three', 'four', 'five'],
+      },
+    });
+    expect(five.waves.map((wave) => wave.spawnEveryMs)).toEqual([1600, 2400, 3200, 3200, 6500]);
+    expect(five.waves.at(-1)).toMatchObject({ enemyId: 'five', spawnEveryMs: 6500, maxAlive: 3 });
+  });
+
   it('caps composed active counts at the spawn director boundary', () => {
     const crowded: SpawnCurveDefinition = {
       ...curve,
