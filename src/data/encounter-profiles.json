@@ -1,163 +1,54 @@
 [
   {
-    "id": "encounter:junkyard-intro",
-    "enemyIds": [
-      "dust-mite",
-      "junk-rusher",
-      "scrap-skitter",
-      "scrap-sniper"
-    ],
-    "compositionWeights": {
-      "dust-mite": 3,
-      "junk-rusher": 1,
-      "scrap-skitter": 2,
-      "scrap-sniper": 1
-    }
+    "id": "encounter:junkyard-first-scavenge",
+    "enemyIds": ["dust-mite", "scrap-skitter", "junk-rusher", "scrap-sniper"],
+    "compositionWeights": { "dust-mite": 2, "scrap-skitter": 1, "junk-rusher": 1, "scrap-sniper": 1 }
   },
   {
-    "id": "encounter:junkyard-mixed",
-    "enemyIds": [
-      "dust-mite",
-      "scrap-sniper",
-      "junk-rusher",
-      "junk-nester",
-      "bastion-beetle",
-      "scrap-skitter"
-    ],
-    "compositionWeights": {
-      "dust-mite": 3,
-      "junk-rusher": 1,
-      "junk-nester": 1,
-      "bastion-beetle": 1,
-      "scrap-skitter": 2,
-      "scrap-sniper": 1
-    }
+    "id": "encounter:junkyard-scrap-run",
+    "enemyIds": ["dust-mite", "scrap-skitter", "scrap-sniper", "junk-nester", "bastion-beetle"],
+    "compositionWeights": { "dust-mite": 2, "scrap-skitter": 2, "scrap-sniper": 1, "junk-nester": 1, "bastion-beetle": 1 }
   },
   {
-    "id": "encounter:junkyard-shield-line",
-    "enemyIds": ["bastion-beetle", "junk-nester", "dust-mite"],
-    "compositionWeights": { "bastion-beetle": 2, "junk-nester": 1, "dust-mite": 2 }
+    "id": "encounter:junkyard-rusher-ambush",
+    "enemyIds": ["dust-mite", "junk-rusher", "scrap-skitter", "shard-bot", "bastion-beetle"],
+    "compositionWeights": { "dust-mite": 2, "junk-rusher": 2, "scrap-skitter": 2, "shard-bot": 1, "bastion-beetle": 1 }
   },
   {
-    "id": "encounter:junkyard-rusher-heavy",
-    "enemyIds": [
-      "junk-rusher",
-      "dust-mite",
-      "scrap-skitter",
-      "shard-bot",
-      "scrap-sniper"
-    ],
-    "compositionWeights": {
-      "junk-rusher": 2,
-      "dust-mite": 2,
-      "scrap-skitter": 2,
-      "shard-bot": 1,
-      "scrap-sniper": 1
-    }
+    "id": "encounter:junkyard-brute-force",
+    "enemyIds": ["dust-mite", "trash-brute", "bastion-beetle", "shard-bot", "junk-nester"],
+    "compositionWeights": { "dust-mite": 2, "trash-brute": 2, "bastion-beetle": 1, "shard-bot": 1, "junk-nester": 1 }
   },
   {
-    "id": "encounter:junkyard-elite",
-    "enemyIds": [
-      "trash-brute",
-      "dust-mite",
-      "junk-rusher",
-      "shard-bot"
-    ],
-    "compositionWeights": {
-      "trash-brute": 1,
-      "dust-mite": 2,
-      "junk-rusher": 1,
-      "shard-bot": 1
-    }
-  },
-  {
-    "id": "encounter:junkyard-boss",
-    "enemyIds": [
-      "trash-brute",
-      "junk-rusher",
-      "dust-mite"
-    ],
-    "compositionWeights": {
-      "trash-brute": 3,
-      "junk-rusher": 1,
-      "dust-mite": 1
-    },
+    "id": "encounter:junkyard-crusher-boss",
+    "enemyIds": ["dust-mite", "junk-rusher", "bastion-beetle", "scrap-sniper"],
+    "compositionWeights": { "dust-mite": 2, "junk-rusher": 1, "bastion-beetle": 1, "scrap-sniper": 1 },
     "bossId": "boss-crusher"
   },
   {
-    "id": "encounter:hot-salvage",
-    "enemyIds": [
-      "dust-mite",
-      "junk-rusher",
-      "scrap-skitter",
-      "scrap-sniper"
-    ],
-    "compositionWeights": {
-      "dust-mite": 2,
-      "junk-rusher": 1,
-      "scrap-skitter": 2,
-      "scrap-sniper": 1
-    }
+    "id": "encounter:forge-hot-salvage",
+    "enemyIds": ["dust-mite", "shard-bot", "junk-nester", "scrap-sniper", "bastion-beetle"],
+    "compositionWeights": { "dust-mite": 2, "shard-bot": 2, "junk-nester": 1, "scrap-sniper": 1, "bastion-beetle": 1 }
   },
   {
-    "id": "encounter:smelter-rush",
-    "enemyIds": [
-      "junk-rusher",
-      "junk-nester",
-      "scrap-skitter",
-      "scrap-sniper",
-      "shard-bot"
-    ],
-    "compositionWeights": {
-      "junk-rusher": 2,
-      "junk-nester": 1,
-      "scrap-skitter": 2,
-      "scrap-sniper": 1,
-      "shard-bot": 1
-    }
+    "id": "encounter:forge-smelter-rush",
+    "enemyIds": ["dust-mite", "junk-rusher", "shard-bot", "scrap-skitter", "bastion-beetle"],
+    "compositionWeights": { "dust-mite": 2, "junk-rusher": 2, "shard-bot": 2, "scrap-skitter": 1, "bastion-beetle": 1 }
   },
   {
-    "id": "encounter:steel-wall",
-    "enemyIds": [
-      "bastion-beetle",
-      "junk-rusher",
-      "dust-mite",
-      "shard-bot"
-    ],
-    "compositionWeights": {
-      "bastion-beetle": 2,
-      "junk-rusher": 1,
-      "dust-mite": 2,
-      "shard-bot": 1
-    }
+    "id": "encounter:forge-steel-wall",
+    "enemyIds": ["dust-mite", "bastion-beetle", "junk-nester", "trash-brute", "scrap-sniper"],
+    "compositionWeights": { "dust-mite": 2, "bastion-beetle": 1, "junk-nester": 1, "trash-brute": 1, "scrap-sniper": 1 }
   },
   {
-    "id": "encounter:cut-the-feed",
-    "enemyIds": [
-      "scrap-sniper",
-      "junk-rusher",
-      "bastion-beetle",
-      "dust-mite"
-    ],
-    "compositionWeights": {
-      "scrap-sniper": 2,
-      "junk-rusher": 1,
-      "bastion-beetle": 1,
-      "dust-mite": 2
-    }
+    "id": "encounter:forge-cut-the-feed",
+    "enemyIds": ["dust-mite", "scrap-sniper", "junk-nester", "junk-rusher", "shard-bot", "bastion-beetle"],
+    "compositionWeights": { "dust-mite": 2, "scrap-sniper": 1, "junk-nester": 1, "junk-rusher": 1, "shard-bot": 1, "bastion-beetle": 1 }
   },
   {
-    "id": "encounter:junkyard-forge-boss",
-    "enemyIds": [
-      "junk-nester",
-      "junk-rusher",
-      "shard-bot"
-    ],
-    "compositionWeights": {
-      "junk-nester": 2,
-      "junk-rusher": 1,
-      "shard-bot": 1
-    },
+    "id": "encounter:forge-warden-boss",
+    "enemyIds": ["dust-mite", "junk-rusher", "shard-bot", "junk-nester"],
+    "compositionWeights": { "dust-mite": 2, "junk-rusher": 1, "shard-bot": 1, "junk-nester": 1 },
     "bossId": "boss-forge"
   }
 ]

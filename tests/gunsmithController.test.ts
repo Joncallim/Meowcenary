@@ -458,7 +458,7 @@ describe('GunsmithController durable commands', () => {
       state: 'reward-only', stateLabel: 'Reward only', sourceLabel: 'First clear: Cut the Feed',
     });
     expect(catalog.find((part) => part.partId === 'part:trait-fire-mastered')).toMatchObject({
-      state: 'reward-only', sourceLabel: 'First clear: Boss: Forge Warden',
+      state: 'reward-only', sourceLabel: 'First clear: Forge Warden',
     });
   });
 

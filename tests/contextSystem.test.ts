@@ -187,7 +187,7 @@ describe('GameContext persistence boundary', () => {
     const data = loadGameData();
     const stages = new StageRegistry({
       ...data,
-      encounterProfiles: data.encounterProfiles?.map((profile) => profile.id === 'encounter:junkyard-boss'
+      encounterProfiles: data.encounterProfiles?.map((profile) => profile.id === 'encounter:junkyard-crusher-boss'
         ? { ...profile, bossId: 'boss:wrong' }
         : profile),
     });
