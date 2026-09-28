@@ -120,6 +120,7 @@ export class GameScene extends Phaser.Scene {
   /** Presentation-only suspension; deliberately not a persistent PauseReason. */
   private orientationBlocked = false;
   private hudController?: HudController;
+  private feedbackRenderer?: PhaserFeedbackRenderer;
   private controlsView?: ControlsView;
   private pauseController?: PauseController;
   private inventoryController?: InventoryController;
@@ -520,16 +521,17 @@ export class GameScene extends Phaser.Scene {
       new HeldWeaponView(this),
       projectileEffectsByFamily,
     );
+    this.feedbackRenderer = new PhaserFeedbackRenderer({
+      scene: this,
+      maxEffects: RuntimeConfig.performance.maxFeedbackEffects,
+      maxHeavyEffects: RuntimeConfig.performance.maxHeavyFeedbackEffects,
+      weaponFeel: ctx.data.weaponFeel,
+      viewport,
+    });
     this.feedbackSystem = new FeedbackSystem({
       bus: ctx.bus,
       settings: ctx.settings,
-      renderer: new PhaserFeedbackRenderer({
-        scene: this,
-        maxEffects: RuntimeConfig.performance.maxFeedbackEffects,
-        maxHeavyEffects: RuntimeConfig.performance.maxHeavyFeedbackEffects,
-        weaponFeel: ctx.data.weaponFeel,
-        viewport,
-      }),
+      renderer: this.feedbackRenderer,
     });
     this.defeatPresentationSystem = new DefeatPresentationSystem({
       scene: this,
@@ -799,6 +801,7 @@ export class GameScene extends Phaser.Scene {
     const player = this.player;
     if (!arena || !player) return;
     const visible = zoomedVisibleSize(this.scale.width, this.scale.height, GAMEPLAY_ZOOM);
+    this.feedbackRenderer?.resize(responsiveGameUiViewport(this.scale.width, this.scale.height));
     const presentationBounds = responsiveArenaPresentationBounds(
       arena.width,
       arena.height,
@@ -870,6 +873,7 @@ export class GameScene extends Phaser.Scene {
     this.upgradeSystem = undefined;
     this.weaponSystem = undefined;
     this.feedbackSystem = undefined;
+    this.feedbackRenderer = undefined;
     this.defeatPresentationSystem = undefined;
     this.perfSampler = undefined;
     this.spawnCurve = undefined;

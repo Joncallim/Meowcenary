@@ -91,6 +91,13 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
       expect(overlay.state.x).toBeCloseTo(195, 6);
       expect(overlay.state.y).toBeCloseTo(422, 6);
     }
+    renderer.resize(responsiveGameUiViewport(844, 390));
+    for (const overlay of overlays) {
+      expect(overlay.state.width).toBeCloseTo(675.2, 6);
+      expect(overlay.state.height).toBeCloseTo(312, 6);
+      expect(overlay.state.x).toBeCloseTo(422, 6);
+      expect(overlay.state.y).toBeCloseTo(195, 6);
+    }
     renderer.destroy();
   });
 
