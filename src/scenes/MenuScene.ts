@@ -567,26 +567,30 @@ export class MenuScene extends Phaser.Scene {
 
   private renderLoadout(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Loadout');
+    const compactLandscape = this.scale.height < 500 && width >= 700;
     const actionWidth = Math.min(560, width - margin - this.safeRightMargin);
     const actionX = this.safeCenterX - actionWidth / 2;
     const selectedCharacter = snapshot.character.characters.find((row) => row.selected);
     const equipped = Object.values(snapshot.equipment.equipped).filter(Boolean).length;
     const selectedBuild = snapshot.gunsmith.selectedBuild;
-    const summaryTop = top + heading.height + 18;
-    const summaryHeight = 142;
+    const summaryTop = top + heading.height + (compactLandscape ? 8 : 18);
+    const summaryHeight = compactLandscape ? 68 : 142;
     const summaryPanel = this.uiVisuals?.addPanel(
       this, this.safeCenterX, summaryTop + summaryHeight / 2, actionWidth, summaryHeight, 'card', { alpha: 0.78 },
     );
     if (summaryPanel) this.own(root, summaryPanel);
-    if (selectedCharacter) this.addPanelArt(root, actionX + 46, summaryTop + summaryHeight / 2, selectedCharacter.portraitArtId, 124);
-    this.own(root, createUiText(this, actionX + 96, summaryTop + 14,
-      `${selectedCharacter?.name ?? 'Mercenary'}\nEquipment ${equipped}/4 slots • ${snapshot.equipment.activeSets.map((set) => `${set.name} ${set.pieces}/4`).join(' • ') || 'No active Set'}\nGunsmith: ${selectedBuild?.title ?? 'Choose a weapon build'}\n${this.getContext().saveData.progression.scrap} Scrap`,
-      { color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, lineSpacing: 5, wordWrap: { width: actionWidth - 108 } },
+    if (selectedCharacter) this.addPanelArt(root, actionX + (compactLandscape ? 34 : 46), summaryTop + summaryHeight / 2, selectedCharacter.portraitArtId, compactLandscape ? 60 : 124);
+    const loadoutSummary = compactLandscape
+      ? `${selectedCharacter?.name ?? 'Mercenary'} • ${this.getContext().saveData.progression.scrap} Scrap\nEquipment ${equipped}/4 • ${selectedBuild?.title ?? 'Choose a weapon build'}`
+      : `${selectedCharacter?.name ?? 'Mercenary'}\nEquipment ${equipped}/4 slots • ${snapshot.equipment.activeSets.map((set) => `${set.name} ${set.pieces}/4`).join(' • ') || 'No active Set'}\nGunsmith: ${selectedBuild?.title ?? 'Choose a weapon build'}\n${this.getContext().saveData.progression.scrap} Scrap`;
+    this.own(root, createUiText(this, actionX + (compactLandscape ? 70 : 96), summaryTop + (compactLandscape ? 8 : 14),
+      loadoutSummary,
+      { color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, lineSpacing: compactLandscape ? 2 : 5, wordWrap: { width: actionWidth - (compactLandscape ? 82 : 108) } },
     ));
-    let y = summaryTop + summaryHeight + 16;
-    const actionHeight = Math.max(hitTarget, 68);
+    let y = summaryTop + summaryHeight + (compactLandscape ? 8 : 16);
+    const actionHeight = Math.max(hitTarget, compactLandscape ? 52 : 68);
     this.addButton(root, actionX, y, 'Equipment', actionHeight, () => this.render(this.requireController().open('equipment')), 'ui:confirm', actionWidth, 'equipment-set-icon:commando');
-    y += actionHeight + 12;
+    y += actionHeight + (compactLandscape ? 6 : 12);
     this.addButton(root, actionX, y, 'Gunsmith', actionHeight, () => this.render(this.requireController().open('gunsmith')), 'ui:confirm', actionWidth, selectedCharacter?.startingWeaponIconArtId ?? 'nav-icon:gunsmith');
     this.addBackButton(root, width, margin, hitTarget);
     void this.ensurePanelPresentation('loadout', selectedCharacter ? [selectedCharacter.portraitArtId, selectedCharacter.startingWeaponIconArtId, 'equipment-set-icon:commando'] : ['equipment-set-icon:commando']);
@@ -851,10 +855,11 @@ export class MenuScene extends Phaser.Scene {
 
   private renderCareer(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Career');
+    const compactLandscape = this.scale.height < 500 && width >= 700;
     const actionWidth = Math.min(560, width - margin - this.safeRightMargin);
     const actionX = this.safeCenterX - actionWidth / 2;
-    let y = top + heading.height + 20;
-    const actionHeight = Math.max(hitTarget, 68);
+    let y = top + heading.height + (compactLandscape ? 8 : 20);
+    const actionHeight = Math.max(hitTarget, compactLandscape ? 52 : 68);
     const goalArtId = snapshot.progressionOverview.nextGoals[0]?.artId ?? 'achievement-icon:hidden';
     const compendiumArtId = snapshot.compendium.entries.find((entry) => entry.actorArtId)?.actorArtId ?? 'achievement-icon:hidden';
     for (const [label, panel, artId] of [
@@ -863,14 +868,15 @@ export class MenuScene extends Phaser.Scene {
       ['Compendium', 'compendium', compendiumArtId],
     ] as const) {
       this.addButton(root, actionX, y, label, actionHeight, () => this.render(this.requireController().open(panel)), 'ui:confirm', actionWidth, artId);
-      y += actionHeight + 12;
+      y += actionHeight + (compactLandscape ? 6 : 12);
     }
-    void this.ensurePanelPresentation('career', [goalArtId, 'achievement-icon:first-victory', compendiumArtId]);
     this.addBackButton(root, width, margin, hitTarget);
+    void this.ensurePanelPresentation('career', [goalArtId, 'achievement-icon:first-victory', compendiumArtId]);
   }
 
   private renderNextGoals(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Next Goals');
+    const compactLandscape = this.scale.height < 500 && width >= 700;
     const actionWidth = Math.min(620, width - margin - this.safeRightMargin);
     const actionX = this.safeCenterX - actionWidth / 2;
     let y = top + heading.height + 16;
@@ -878,19 +884,25 @@ export class MenuScene extends Phaser.Scene {
     const summary = this.own(root, createUiText(this, actionX, y,
       `Contracts ${overview.completedStages}/${overview.totalStages} • Achievements ${overview.completedAchievements}/${overview.totalAchievements}`,
       { color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: actionWidth } }));
-    y += summary.height + 12;
-    overview.nextGoals.forEach((goal) => {
-      const cardHeight = 94;
-      const panel = this.uiVisuals?.addPanel(this, this.safeCenterX, y + cardHeight / 2, actionWidth, cardHeight, 'card', { alpha: 0.82 });
+    y += summary.height + (compactLandscape ? 8 : 12);
+    const goalGap = compactLandscape ? 6 : 10;
+    const compactCardWidth = (actionWidth - goalGap * Math.max(0, overview.nextGoals.length - 1)) / Math.max(1, overview.nextGoals.length);
+    overview.nextGoals.forEach((goal, index) => {
+      const cardHeight = compactLandscape ? 78 : 94;
+      const cardWidth = compactLandscape ? compactCardWidth : actionWidth;
+      const cardX = compactLandscape ? actionX + index * (cardWidth + goalGap) : actionX;
+      const panel = this.uiVisuals?.addPanel(this, cardX + cardWidth / 2, y + cardHeight / 2, cardWidth, cardHeight, 'card', { alpha: 0.82 });
       if (panel) this.own(root, panel);
-      this.addPanelArt(root, actionX + 42, y + cardHeight / 2, goal.artId, 72);
-      this.own(root, createUiText(this, actionX + 88, y + 18, `${goal.title}\n${goal.detail}`, {
-        color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, lineSpacing: 3,
-        wordWrap: { width: actionWidth - 100 },
+      this.addPanelArt(root, cardX + (compactLandscape ? 30 : 42), y + cardHeight / 2, goal.artId, compactLandscape ? 50 : 72);
+      const goalCopy = compactLandscape ? goal.title : `${goal.title}\n${goal.detail}`;
+      this.own(root, createUiText(this, cardX + (compactLandscape ? 60 : 88), y + (compactLandscape ? 20 : 18), goalCopy, {
+        color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${compactLandscape ? ThemeFont.labelMin : ThemeFont.bodyMin}px`, lineSpacing: compactLandscape ? 1 : 3,
+        wordWrap: { width: cardWidth - (compactLandscape ? 68 : 100) },
       }));
-      y += cardHeight + 10;
+      if (!compactLandscape) y += cardHeight + goalGap;
     });
-    this.addButton(root, actionX, y, 'Choose Contract', Math.max(hitTarget, 68), () => this.render(this.requireController().open('stage')), 'ui:confirm', actionWidth, overview.nextGoals[0]?.artId ?? 'objective-icon:kill');
+    if (compactLandscape) y += 78 + 8;
+    this.addButton(root, actionX, y, 'Choose Contract', Math.max(hitTarget, compactLandscape ? 52 : 68), () => this.render(this.requireController().open('stage')), 'ui:confirm', actionWidth, overview.nextGoals[0]?.artId ?? 'objective-icon:kill');
     this.addBackButton(root, width, margin, hitTarget);
     void this.ensurePanelPresentation('next-goals', overview.nextGoals.map((goal) => goal.artId));
   }
@@ -1352,10 +1364,11 @@ export class MenuScene extends Phaser.Scene {
     hitTarget: number,
   ): void {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Settings');
+    const compactLandscape = this.scale.height < 500 && width >= 700;
     const actionWidth = Math.min(560, width - margin - this.safeRightMargin);
     const actionX = this.safeCenterX - actionWidth / 2;
-    let y = top + heading.height + 20;
-    const actionHeight = Math.max(hitTarget, 64);
+    let y = top + heading.height + (compactLandscape ? 8 : 20);
+    const actionHeight = Math.max(hitTarget, compactLandscape ? 44 : 64);
 
     const settings = snapshot.settings;
     const rows: Array<{ label: string; artId: string; action: () => MainMenuSnapshot }> = [
@@ -1386,7 +1399,7 @@ export class MenuScene extends Phaser.Scene {
         const next = row.action();
         this.render(next);
       }, 'ui:confirm', actionWidth, row.artId);
-      y += actionHeight + 12;
+      y += actionHeight + (compactLandscape ? 4 : 12);
     });
 
     this.addBackButton(root, width, margin, hitTarget);
@@ -1845,11 +1858,15 @@ export class MenuScene extends Phaser.Scene {
 
   private addBackButton(
     root: Phaser.GameObjects.Container,
-    _width: number,
+    width: number,
     margin: number,
     hitTarget: number,
   ): void {
-    this.addButton(root, margin, this.scale.height - edgeMargin(this.currentViewport!, 'bottom') - hitTarget, 'Back', hitTarget, () => {
+    const compactLandscape = this.scale.height < 500 && width >= 700;
+    const y = compactLandscape
+      ? edgeMargin(this.currentViewport!, 'top') + 8
+      : this.scale.height - edgeMargin(this.currentViewport!, 'bottom') - hitTarget;
+    this.addButton(root, margin, y, 'Back', hitTarget, () => {
       const next = this.requireController().back();
       this.render(next);
     }, 'ui:back', 120, 'action-icon:back');

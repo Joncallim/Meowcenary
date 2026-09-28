@@ -1543,6 +1543,44 @@ describe('MenuScene', () => {
     expect(events).toHaveLength(3);
   });
 
+  it('keeps every compact sparse-menu action clear of Back', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as { handleResize(): void };
+    const scale = harness.menuScene.scale as unknown as {
+      width: number; height: number; displaySize: { width: number; height: number };
+    };
+    scale.width = 844;
+    scale.height = 390;
+    scale.displaySize = { width: 844, height: 390 };
+    scene.handleResize();
+    const expectClearOfBack = (labels: readonly string[]) => {
+      const back = harness.buttonByLabel('Back')!;
+      for (const label of labels) {
+        const target = harness.buttonByLabel(label)!;
+        const overlaps = target.state.x < back.state.x + back.state.width
+          && target.state.x + target.state.width > back.state.x
+          && target.state.y < back.state.y + back.state.height
+          && target.state.y + target.state.height > back.state.y;
+        expect(overlaps, label).toBe(false);
+        expect(target.state.interactive, label).toBe(true);
+      }
+    };
+
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    expectClearOfBack(['Equipment', 'Gunsmith']);
+    harness.buttonByLabel('Back')!.state.handlers.pointerup!();
+
+    harness.buttonByLabel('Career')!.state.handlers.pointerup!();
+    expectClearOfBack(['Next Goals', 'Achievements', 'Compendium']);
+    harness.buttonByLabel('Next Goals')!.state.handlers.pointerup!();
+    expectClearOfBack(['Choose Contract']);
+    harness.buttonByLabel('Back')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Back')!.state.handlers.pointerup!();
+
+    harness.buttonByLabel('Settings')!.state.handlers.pointerup!();
+    expectClearOfBack(['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off']);
+  });
+
   it('navigates and confirms through the real gamepad with zero pointer-plugin calls (F9)', () => {
     const harness = createHarness();
     const pad = new MockGamepad();

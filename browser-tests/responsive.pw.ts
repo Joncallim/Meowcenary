@@ -119,6 +119,47 @@ test('compact phone landscape is quarantined until portrait returns', async ({ b
   await compact.close();
 });
 
+test('fine-pointer compact landscape keeps every sparse menu action visible', async ({ browser }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-1280x720');
+  const compact = await browser.newContext({ viewport: { width: 844, height: 390 }, colorScheme: 'dark' });
+  const page = await compact.newPage();
+  await page.goto('/?visual-test=1');
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: unknown;
+  }).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+  const settled = async () => {
+    await expect.poll(() => page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { isMenuPresentationSettled(): boolean };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.isMenuPresentationSettled() ?? false;
+    })).toBe(true);
+    await page.waitForTimeout(150);
+  };
+  const show = async (panel: string) => {
+    await expect.poll(() => page.evaluate((target) => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { showMenu(panel: string): boolean };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.showMenu(target) ?? false;
+    }, panel)).toBe(true);
+    await settled();
+  };
+
+  await settled();
+  await show('loadout');
+  await expect(page).toHaveScreenshot('compact-loadout.png', { animations: 'disabled' });
+
+  await show('career');
+  await expect(page).toHaveScreenshot('compact-career.png', { animations: 'disabled' });
+  await show('next-goals');
+  await expect(page).toHaveScreenshot('compact-next-goals.png', { animations: 'disabled' });
+
+  await show('settings');
+  await expect(page).toHaveScreenshot('compact-settings.png', { animations: 'disabled' });
+  await compact.close();
+});
+
 test('the production pause control makes the responsive root fullscreen', async ({ page }, testInfo) => {
   // Browsers expose fullscreen as a process-global presentation surface. Run
   // this production-path assertion in one representative project so parallel
