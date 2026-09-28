@@ -2,25 +2,9 @@
   "export_directory_path": "",
   "export_file_name": "ui-atlas",
   "frames": {
-    "brand:title-lockup": {
-      "frame": {
-        "x": 0,
-        "y": 0,
-        "w": 48,
-        "h": 48
-      }
-    },
-    "brand:menu-backdrop": {
-      "frame": {
-        "x": 48,
-        "y": 0,
-        "w": 48,
-        "h": 48
-      }
-    },
     "nav-icon:play-contract": {
       "frame": {
-        "x": 96,
+        "x": 0,
         "y": 0,
         "w": 48,
         "h": 48
@@ -28,7 +12,7 @@
     },
     "nav-icon:change-contract": {
       "frame": {
-        "x": 144,
+        "x": 48,
         "y": 0,
         "w": 48,
         "h": 48
@@ -36,7 +20,7 @@
     },
     "nav-icon:mercenary": {
       "frame": {
-        "x": 192,
+        "x": 96,
         "y": 0,
         "w": 48,
         "h": 48
@@ -44,7 +28,7 @@
     },
     "nav-icon:loadout": {
       "frame": {
-        "x": 240,
+        "x": 144,
         "y": 0,
         "w": 48,
         "h": 48
@@ -52,7 +36,7 @@
     },
     "nav-icon:career": {
       "frame": {
-        "x": 288,
+        "x": 192,
         "y": 0,
         "w": 48,
         "h": 48
@@ -60,7 +44,7 @@
     },
     "nav-icon:training": {
       "frame": {
-        "x": 336,
+        "x": 240,
         "y": 0,
         "w": 48,
         "h": 48
@@ -68,7 +52,7 @@
     },
     "nav-icon:settings": {
       "frame": {
-        "x": 384,
+        "x": 288,
         "y": 0,
         "w": 48,
         "h": 48
@@ -76,7 +60,7 @@
     },
     "nav-icon:gunsmith": {
       "frame": {
-        "x": 432,
+        "x": 336,
         "y": 0,
         "w": 48,
         "h": 48
@@ -84,7 +68,7 @@
     },
     "nav-icon:equipment": {
       "frame": {
-        "x": 480,
+        "x": 384,
         "y": 0,
         "w": 48,
         "h": 48
@@ -92,7 +76,7 @@
     },
     "nav-icon:achievements": {
       "frame": {
-        "x": 528,
+        "x": 432,
         "y": 0,
         "w": 48,
         "h": 48
@@ -100,7 +84,7 @@
     },
     "nav-icon:compendium": {
       "frame": {
-        "x": 576,
+        "x": 480,
         "y": 0,
         "w": 48,
         "h": 48
@@ -108,7 +92,7 @@
     },
     "ui-chrome:panel": {
       "frame": {
-        "x": 624,
+        "x": 528,
         "y": 0,
         "w": 48,
         "h": 48
@@ -116,7 +100,7 @@
     },
     "ui-chrome:card": {
       "frame": {
-        "x": 672,
+        "x": 576,
         "y": 0,
         "w": 48,
         "h": 48
@@ -124,7 +108,7 @@
     },
     "ui-chrome:focus": {
       "frame": {
-        "x": 720,
+        "x": 624,
         "y": 0,
         "w": 48,
         "h": 48
@@ -132,23 +116,23 @@
     },
     "ui-chrome:locked": {
       "frame": {
-        "x": 0,
-        "y": 48,
+        "x": 672,
+        "y": 0,
         "w": 48,
         "h": 48
       }
     },
     "ui-chrome:disabled": {
       "frame": {
-        "x": 48,
-        "y": 48,
+        "x": 720,
+        "y": 0,
         "w": 48,
         "h": 48
       }
     },
     "ui-chrome:scroll-track": {
       "frame": {
-        "x": 96,
+        "x": 0,
         "y": 48,
         "w": 48,
         "h": 48
@@ -156,7 +140,7 @@
     },
     "ui-chrome:scroll-thumb": {
       "frame": {
-        "x": 144,
+        "x": 48,
         "y": 48,
         "w": 48,
         "h": 48
@@ -164,7 +148,7 @@
     },
     "ui-chrome:tab": {
       "frame": {
-        "x": 192,
+        "x": 96,
         "y": 48,
         "w": 48,
         "h": 48
@@ -172,7 +156,7 @@
     },
     "ui-chrome:tooltip": {
       "frame": {
-        "x": 240,
+        "x": 144,
         "y": 48,
         "w": 48,
         "h": 48
@@ -180,7 +164,7 @@
     },
     "ui-chrome:modal": {
       "frame": {
-        "x": 288,
+        "x": 192,
         "y": 48,
         "w": 48,
         "h": 48
@@ -188,7 +172,7 @@
     },
     "ui-chrome:chevron": {
       "frame": {
-        "x": 336,
+        "x": 240,
         "y": 48,
         "w": 48,
         "h": 48
@@ -196,7 +180,7 @@
     },
     "ui-chrome:new": {
       "frame": {
-        "x": 384,
+        "x": 288,
         "y": 48,
         "w": 48,
         "h": 48
@@ -204,7 +188,7 @@
     },
     "ui-chrome:unlocked": {
       "frame": {
-        "x": 432,
+        "x": 336,
         "y": 48,
         "w": 48,
         "h": 48
@@ -212,7 +196,7 @@
     },
     "ui-chrome:complete": {
       "frame": {
-        "x": 480,
+        "x": 384,
         "y": 48,
         "w": 48,
         "h": 48
@@ -220,7 +204,7 @@
     },
     "ui-chrome:boss": {
       "frame": {
-        "x": 528,
+        "x": 432,
         "y": 48,
         "w": 48,
         "h": 48
@@ -228,7 +212,7 @@
     },
     "ui-chrome:merge": {
       "frame": {
-        "x": 576,
+        "x": 480,
         "y": 48,
         "w": 48,
         "h": 48
@@ -236,7 +220,7 @@
     },
     "ui-chrome:cleared": {
       "frame": {
-        "x": 624,
+        "x": 528,
         "y": 48,
         "w": 48,
         "h": 48
@@ -244,7 +228,7 @@
     },
     "ui-chrome:failed": {
       "frame": {
-        "x": 672,
+        "x": 576,
         "y": 48,
         "w": 48,
         "h": 48
@@ -252,7 +236,7 @@
     },
     "stat-icon:max-health": {
       "frame": {
-        "x": 720,
+        "x": 624,
         "y": 48,
         "w": 48,
         "h": 48
@@ -260,23 +244,23 @@
     },
     "stat-icon:move-speed": {
       "frame": {
-        "x": 0,
-        "y": 96,
+        "x": 672,
+        "y": 48,
         "w": 48,
         "h": 48
       }
     },
     "stat-icon:damage": {
       "frame": {
-        "x": 48,
-        "y": 96,
+        "x": 720,
+        "y": 48,
         "w": 48,
         "h": 48
       }
     },
     "stat-icon:attack-speed": {
       "frame": {
-        "x": 96,
+        "x": 0,
         "y": 96,
         "w": 48,
         "h": 48
@@ -284,7 +268,7 @@
     },
     "stat-icon:range": {
       "frame": {
-        "x": 144,
+        "x": 48,
         "y": 96,
         "w": 48,
         "h": 48
@@ -292,7 +276,7 @@
     },
     "stat-icon:projectile-speed": {
       "frame": {
-        "x": 192,
+        "x": 96,
         "y": 96,
         "w": 48,
         "h": 48
@@ -300,7 +284,7 @@
     },
     "stat-icon:spread": {
       "frame": {
-        "x": 240,
+        "x": 144,
         "y": 96,
         "w": 48,
         "h": 48
@@ -308,7 +292,7 @@
     },
     "stat-icon:pickup-radius": {
       "frame": {
-        "x": 288,
+        "x": 192,
         "y": 96,
         "w": 48,
         "h": 48
@@ -316,7 +300,7 @@
     },
     "stat-icon:currency-gain": {
       "frame": {
-        "x": 336,
+        "x": 240,
         "y": 96,
         "w": 48,
         "h": 48
@@ -324,7 +308,7 @@
     },
     "stat-icon:xp-gain": {
       "frame": {
-        "x": 384,
+        "x": 288,
         "y": 96,
         "w": 48,
         "h": 48
@@ -332,7 +316,7 @@
     },
     "stat-icon:projectile-count": {
       "frame": {
-        "x": 432,
+        "x": 336,
         "y": 96,
         "w": 48,
         "h": 48
@@ -340,7 +324,7 @@
     },
     "stat-icon:pierce": {
       "frame": {
-        "x": 480,
+        "x": 384,
         "y": 96,
         "w": 48,
         "h": 48
@@ -348,7 +332,7 @@
     },
     "stat-icon:knockback": {
       "frame": {
-        "x": 528,
+        "x": 432,
         "y": 96,
         "w": 48,
         "h": 48
@@ -356,7 +340,7 @@
     },
     "stat-icon:cooldown": {
       "frame": {
-        "x": 576,
+        "x": 480,
         "y": 96,
         "w": 48,
         "h": 48
@@ -364,7 +348,7 @@
     },
     "stat-icon:healing": {
       "frame": {
-        "x": 624,
+        "x": 528,
         "y": 96,
         "w": 48,
         "h": 48
@@ -372,7 +356,7 @@
     },
     "stat-icon:protection": {
       "frame": {
-        "x": 672,
+        "x": 576,
         "y": 96,
         "w": 48,
         "h": 48
@@ -380,7 +364,7 @@
     },
     "action-icon:move": {
       "frame": {
-        "x": 720,
+        "x": 624,
         "y": 96,
         "w": 48,
         "h": 48
@@ -388,23 +372,23 @@
     },
     "action-icon:confirm": {
       "frame": {
-        "x": 0,
-        "y": 144,
+        "x": 672,
+        "y": 96,
         "w": 48,
         "h": 48
       }
     },
     "action-icon:back": {
       "frame": {
-        "x": 48,
-        "y": 144,
+        "x": 720,
+        "y": 96,
         "w": 48,
         "h": 48
       }
     },
     "action-icon:dash": {
       "frame": {
-        "x": 96,
+        "x": 0,
         "y": 144,
         "w": 48,
         "h": 48
@@ -412,7 +396,7 @@
     },
     "action-icon:ability": {
       "frame": {
-        "x": 144,
+        "x": 48,
         "y": 144,
         "w": 48,
         "h": 48
@@ -420,7 +404,7 @@
     },
     "action-icon:pause": {
       "frame": {
-        "x": 192,
+        "x": 96,
         "y": 144,
         "w": 48,
         "h": 48
@@ -428,7 +412,7 @@
     },
     "action-icon:inventory": {
       "frame": {
-        "x": 240,
+        "x": 144,
         "y": 144,
         "w": 48,
         "h": 48
@@ -436,7 +420,7 @@
     },
     "hud-icon:health": {
       "frame": {
-        "x": 288,
+        "x": 192,
         "y": 144,
         "w": 48,
         "h": 48
@@ -444,7 +428,7 @@
     },
     "hud-icon:timer": {
       "frame": {
-        "x": 336,
+        "x": 240,
         "y": 144,
         "w": 48,
         "h": 48
@@ -452,7 +436,7 @@
     },
     "hud-icon:kills": {
       "frame": {
-        "x": 384,
+        "x": 288,
         "y": 144,
         "w": 48,
         "h": 48
@@ -460,7 +444,7 @@
     },
     "settings-icon:master-audio": {
       "frame": {
-        "x": 432,
+        "x": 336,
         "y": 144,
         "w": 48,
         "h": 48
@@ -468,7 +452,7 @@
     },
     "settings-icon:music": {
       "frame": {
-        "x": 480,
+        "x": 384,
         "y": 144,
         "w": 48,
         "h": 48
@@ -476,7 +460,7 @@
     },
     "settings-icon:sfx": {
       "frame": {
-        "x": 528,
+        "x": 432,
         "y": 144,
         "w": 48,
         "h": 48
@@ -484,7 +468,7 @@
     },
     "settings-icon:reduced-motion": {
       "frame": {
-        "x": 576,
+        "x": 480,
         "y": 144,
         "w": 48,
         "h": 48
@@ -492,7 +476,7 @@
     },
     "settings-icon:fullscreen": {
       "frame": {
-        "x": 624,
+        "x": 528,
         "y": 144,
         "w": 48,
         "h": 48
@@ -500,7 +484,7 @@
     },
     "chapter-icon:junkyard": {
       "frame": {
-        "x": 672,
+        "x": 576,
         "y": 144,
         "w": 48,
         "h": 48
@@ -508,7 +492,7 @@
     },
     "chapter-icon:forge": {
       "frame": {
-        "x": 720,
+        "x": 624,
         "y": 144,
         "w": 48,
         "h": 48
@@ -516,23 +500,23 @@
     },
     "objective-icon:kill": {
       "frame": {
-        "x": 0,
-        "y": 192,
+        "x": 672,
+        "y": 144,
         "w": 48,
         "h": 48
       }
     },
     "objective-icon:collect": {
       "frame": {
-        "x": 48,
-        "y": 192,
+        "x": 720,
+        "y": 144,
         "w": 48,
         "h": 48
       }
     },
     "objective-icon:survive": {
       "frame": {
-        "x": 96,
+        "x": 0,
         "y": 192,
         "w": 48,
         "h": 48
@@ -540,7 +524,7 @@
     },
     "objective-icon:defeat": {
       "frame": {
-        "x": 144,
+        "x": 48,
         "y": 192,
         "w": 48,
         "h": 48
@@ -548,7 +532,7 @@
     },
     "arena-card:junkyard": {
       "frame": {
-        "x": 192,
+        "x": 96,
         "y": 192,
         "w": 48,
         "h": 48
@@ -556,7 +540,7 @@
     },
     "arena-card:forge": {
       "frame": {
-        "x": 240,
+        "x": 144,
         "y": 192,
         "w": 48,
         "h": 48

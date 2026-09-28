@@ -16,6 +16,7 @@ import { FocusNavigator, type FocusDirection } from './focusList';
 import type { InputMode } from '../systems/input';
 import type { ModalButtonHandle } from './modal';
 import { isPortraitOrientationBlocked } from '../platform/orientation';
+import { createUiVisualChrome, type UiVisualChrome } from './visualChrome';
 
 export interface PhaserWeaponRackPanelOptions {
   readonly scene: Phaser.Scene;
@@ -57,6 +58,7 @@ export class PhaserWeaponRackPanel {
   private readonly onBack: () => boolean;
   private readonly requestRender: () => void;
   private readonly visualArt?: VisualArtLookup;
+  private readonly uiVisuals?: UiVisualChrome;
   private notice?: string;
   private confirmation?: MergeConfirmation;
   private disposed = false;
@@ -80,6 +82,7 @@ export class PhaserWeaponRackPanel {
     this.onBack = options.onBack;
     this.requestRender = options.requestRender;
     this.visualArt = options.visualArt;
+    this.uiVisuals = options.visualArt ? createUiVisualChrome(options.visualArt) : undefined;
     this.readInputMode = options.readInputMode ?? (() => 'pointer');
     options.scene.input?.keyboard?.on('keydown', this.handleKeyDown, this);
   }
@@ -261,6 +264,8 @@ export class PhaserWeaponRackPanel {
     if (!weapon) {
       const slot = this.scene.add.rectangle(x, y, width, height, ThemeColor.surface, 0.72);
       root.add(slot);
+      const frame = this.uiVisuals?.addFrame(this.scene, x, y, width, height, 'card', { alpha: 0.72 });
+      if (frame) root.add(frame);
       slot.setStrokeStyle(strokeWidth, ThemeColor.card, 0.75);
       const empty = this.addCardText(
         x,
@@ -285,6 +290,8 @@ export class PhaserWeaponRackPanel {
     const alpha = state === 'incompatible' ? 0.48 : 0.94;
     const card = this.scene.add.rectangle(x, y, width, height, fill, alpha);
     root.add(card);
+    const chrome = this.uiVisuals?.addFrame(this.scene, x, y, width, height, state === 'selected' ? 'focus' : state === 'incompatible' ? 'disabled' : 'card', { alpha: 0.72 });
+    if (chrome) root.add(chrome);
     const edge = this.scene.add.rectangle(x, y, width, height, ThemeColor.surface, 0);
     root.add(edge);
     edge.setStrokeStyle(strokeWidth, rarityStroke, 0.95);
@@ -436,6 +443,8 @@ export class PhaserWeaponRackPanel {
       0.94,
     );
     root.add(panel);
+    const chrome = this.uiVisuals?.addFrame(this.scene, x + width / 2, y + height / 2, width, height, 'panel', { alpha: 0.8 });
+    if (chrome) root.add(chrome);
     panel.setStrokeStyle(physicalToLogical(2, this.viewport), ThemeColor.card, 0.9);
 
     const inset = physicalToLogical(compact ? 6 : 10, this.viewport);

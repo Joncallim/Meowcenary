@@ -12,6 +12,7 @@ import { FocusNavigator, type FocusDirection } from './focusList';
 import type { InputMode } from '../systems/input';
 import { isPortraitOrientationBlocked } from '../platform/orientation';
 import type { VisualArtLookup } from '../systems/visualArt';
+import { createUiVisualChrome } from './visualChrome';
 
 export interface RunSummarySnapshot {
   readonly outcome: RunOutcome;
@@ -521,6 +522,16 @@ export class PhaserRunSummaryView {
       // a disabled status surface. GameScene always supplies recovery, but
       // this keeps an incomplete host from creating an invalid geometry.
       const layout = computeRunSummaryLayout(viewport, Math.max(1, actionSpecs.length));
+      const modalFrame = this.visualArt ? createUiVisualChrome(this.visualArt).addPanel(
+        scene,
+        layout.safeBounds.x + layout.safeBounds.width / 2,
+        layout.safeBounds.y + layout.safeBounds.height / 2,
+        layout.safeBounds.width,
+        layout.safeBounds.height,
+        'modal',
+        { alpha: 0.94, depth: ThemeDepth.pauseSummary + 1 },
+      ) : undefined;
+      if (modalFrame) root.add(modalFrame);
       this.navigator.setColumns(layout.actionColumns);
       const centerX = layout.safeBounds.x + layout.safeBounds.width / 2;
       const heading = this.modal.addText(

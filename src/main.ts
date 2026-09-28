@@ -36,6 +36,7 @@ export const game = new Phaser.Game(config);
 // never expose mutable scene internals in a deployed game.
 if (import.meta.env.VITE_VISUAL_TEST === '1'
     && new URLSearchParams(globalThis.location?.search ?? '').get('visual-test') === '1') {
+  let focusedActorWorldPoint: { x: number; y: number } | undefined;
   const freezeVisualFrame = async (): Promise<void> => {
     for (const scene of game.scene.getScenes(false)) {
       const pending = [...scene.children.list] as Array<Phaser.GameObjects.GameObject & { list?: Phaser.GameObjects.GameObject[] }>;
@@ -70,6 +71,8 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
           panelArtLoading?: boolean;
           mercenaryArtLoading?: boolean;
           achievementArtLoading?: boolean;
+          equipmentArtLoading?: boolean;
+          gunsmithArtLoading?: boolean;
           pendingPanelArtIds?: { size: number };
           pendingPanelArtRepaints?: { size: number };
         };
@@ -77,22 +80,71 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
           && !scene.panelArtLoading
           && !scene.mercenaryArtLoading
           && !scene.achievementArtLoading
+          && !scene.equipmentArtLoading
+          && !scene.gunsmithArtLoading
           && (scene.pendingPanelArtIds?.size ?? 0) === 0
           && (scene.pendingPanelArtRepaints?.size ?? 0) === 0;
       },
       focusFirstEnemy: (bossOnly = false): boolean => {
         const scene = game.scene.getScene('GameScene') as unknown as {
-          cameras?: { main?: { stopFollow(): void; centerOn(x: number, y: number): void } };
-          enemies?: Array<{ definition?: { archetype?: string }; sprite: { x: number; y: number; active?: boolean } }>;
+          cameras?: { main?: {
+            x: number; y: number; zoom: number; worldView: { x: number; y: number };
+            stopFollow(): void; centerOn(x: number, y: number): void;
+          } };
+          enemies?: Array<{
+            definition?: { archetype?: string };
+            sprite: { x: number; y: number; active?: boolean; setPosition(x: number, y: number): unknown };
+            view?: { update(pose: { x: number; y: number; facing: 1; moving: boolean; alpha: number }): void };
+          }>;
           scene?: { pause(): void };
         };
         const enemy = scene?.enemies?.find((candidate) => !bossOnly || candidate.definition?.archetype === 'boss');
         if (!enemy || !scene.cameras?.main) return false;
         if (enemy.sprite.active === false) return false;
         scene.scene?.pause();
+        // Normalize only the dedicated visual-build fixture. This is the real
+        // production actor view and animation binding, posed at a stable world
+        // point so contact timing cannot weaken pixel comparisons.
+        const x = 640; const y = 360;
+        enemy.sprite.setPosition(x, y);
+        enemy.view?.update({ x, y, facing: 1, moving: false, alpha: 1 });
+        focusedActorWorldPoint = { x, y };
         scene.cameras.main.stopFollow();
-        scene.cameras.main.centerOn(enemy.sprite.x, enemy.sprite.y);
+        scene.cameras.main.centerOn(x, y);
         return true;
+      },
+      focusPlayer: (): boolean => {
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          cameras?: { main?: {
+            stopFollow(): void; centerOn(x: number, y: number): void;
+          } };
+          player?: {
+            sprite: { x: number; y: number; active?: boolean; setPosition(x: number, y: number): unknown };
+            view?: { update(pose: { x: number; y: number; facing: 1; moving: boolean; alpha: number }): void };
+          };
+          scene?: { pause(): void };
+        };
+        const player = scene?.player;
+        if (!player || !scene.cameras?.main || player.sprite.active === false) return false;
+        scene.scene?.pause();
+        const x = 640; const y = 360;
+        player.sprite.setPosition(x, y);
+        player.view?.update({ x, y, facing: 1, moving: false, alpha: 1 });
+        focusedActorWorldPoint = { x, y };
+        scene.cameras.main.stopFollow();
+        scene.cameras.main.centerOn(x, y);
+        return true;
+      },
+      focusedActorScreenPoint: (): { x: number; y: number } | undefined => {
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          cameras?: { main?: { x: number; y: number; zoom: number; worldView: { x: number; y: number } } };
+        };
+        const camera = scene?.cameras?.main;
+        if (!camera || !focusedActorWorldPoint) return undefined;
+        return {
+          x: camera.x + (focusedActorWorldPoint.x - camera.worldView.x) * camera.zoom,
+          y: camera.y + (focusedActorWorldPoint.y - camera.worldView.y) * camera.zoom,
+        };
       },
       showMenu: (panel: string): boolean => {
         const scene = game.scene.getScene('MenuScene') as unknown as {

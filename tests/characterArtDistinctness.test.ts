@@ -175,6 +175,21 @@ describe('Volt Lynx production-art distinction', () => {
     }
   });
 
+  it('keeps every gameplay Mercenary readable at the authored native scale with real pose breadth', () => {
+    const ids = [
+      'scrap-tabby', 'bolt-hound', 'volt-lynx', 'brass-boar',
+      'ember-cougar', 'scrap-weasel', 'rattle-raptor', 'piston-ram',
+    ] as const;
+    for (const id of ids) {
+      const png = decodeRgbaPng(`public/assets/characters/${id}/${id}.png`);
+      const idle = maskBounds(frameAlphaMask(png, 0));
+      const uniquePoses = new Set(Array.from({ length: 16 }, (_, frame) =>
+        [...frameAlphaMask(png, frame)].join(',')));
+      expect(idle.height, `${id} collapsed below a readable native-grid silhouette`).toBeGreaterThanOrEqual(28);
+      expect(uniquePoses.size, `${id} lost authored idle/run/hurt/defeat pose breadth`).toBeGreaterThanOrEqual(10);
+    }
+  });
+
   it('keeps production Mercenary clips inside the native canvas and gives idle and hurt visible motion', () => {
     const ids = ['brass-boar', 'ember-cougar', 'scrap-weasel', 'rattle-raptor', 'piston-ram'] as const;
     for (const id of ids) {

@@ -825,6 +825,16 @@
     }
   },
   {
+    "id": "resource:brand-art",
+    "textureKey": "art-brand",
+    "sampling": "nearest",
+    "load": {
+      "type": "atlas",
+      "imageUrl": "assets/ui/brand-art.png",
+      "dataUrl": "assets/ui/brand-art.json"
+    }
+  },
+  {
     "id": "resource:ui-atlas",
     "textureKey": "art-ui-atlas",
     "sampling": "nearest",

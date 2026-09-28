@@ -11,6 +11,7 @@ import type { VisualArtLookup } from '../systems/visualArt';
 import { FocusNavigator, type FocusDirection } from './focusList';
 import type { InputMode } from '../systems/input';
 import type { ModalButtonHandle } from './modal';
+import { createUiVisualChrome } from './visualChrome';
 
 export type PausePanel = 'closed' | 'pause' | 'inventory' | 'exit-confirm';
 
@@ -263,6 +264,17 @@ export class PhaserPauseView {
       root.add(backdrop);
       backdrop.setInteractive();
       backdrop.setScrollFactor(0);
+
+      const modalFrame = this.visualArt ? createUiVisualChrome(this.visualArt).addPanel(
+        scene,
+        width / 2,
+        height / 2,
+        Math.max(120, width - margin * 2),
+        Math.max(120, height - margin * 2),
+        'modal',
+        { alpha: 0.92, depth: ThemeDepth.pauseSummary + 1 },
+      ) : undefined;
+      if (modalFrame) root.add(modalFrame);
 
       let buttons: ModalButtonHandle[] = [];
       let hint: Phaser.GameObjects.Text | undefined;

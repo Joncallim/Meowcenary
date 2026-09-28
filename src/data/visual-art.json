@@ -2105,8 +2105,8 @@
       "id": "passive-icon:hydraulic-core", "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
       "resourceId": "resource:mercenary-identity-icons", "frameKey": "passive-icon:hydraulic-core"
     },
-    { "id": "brand:title-lockup", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "brand:title-lockup" },
-    { "id": "brand:menu-backdrop", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "brand:menu-backdrop" },
+    { "id": "brand:title-lockup", "kind": "icon", "required": true, "display": { "width": 240, "height": 48 }, "resourceId": "resource:brand-art", "frameKey": "brand:title-lockup" },
+    { "id": "brand:menu-backdrop", "kind": "icon", "required": true, "display": { "width": 480, "height": 480 }, "resourceId": "resource:brand-art", "frameKey": "brand:menu-backdrop" },
     { "id": "nav-icon:play-contract", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "nav-icon:play-contract" },
     { "id": "nav-icon:change-contract", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "nav-icon:change-contract" },
     { "id": "nav-icon:mercenary", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "nav-icon:mercenary" },

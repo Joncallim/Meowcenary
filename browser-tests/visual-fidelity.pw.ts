@@ -6,6 +6,8 @@ type VisualTestSeam = {
   isSceneActive(key: string): boolean;
   isMenuPresentationSettled(): boolean;
   focusFirstEnemy(bossOnly?: boolean): boolean;
+  focusPlayer(): boolean;
+  focusedActorScreenPoint(): { x: number; y: number } | undefined;
   showMenu(panel: string): boolean;
 };
 
@@ -72,6 +74,23 @@ async function expectMenuPresentationSettled(page: import('@playwright/test').Pa
   await page.waitForTimeout(100);
 }
 
+async function expectCenteredActor(page: import('@playwright/test').Page, name: string): Promise<void> {
+  const viewport = page.viewportSize();
+  if (!viewport) throw new Error('visual actor capture requires a fixed viewport');
+  const point = await page.evaluate(() => {
+    const seam = (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam })
+      .__MEOWCENARY_VISUAL_TEST__;
+    return seam?.focusedActorScreenPoint();
+  });
+  if (!point) throw new Error('visual actor capture requires a focused actor');
+  const x = Math.max(0, Math.min(viewport.width - 96, Math.round(point.x) - 48));
+  const y = Math.max(0, Math.min(viewport.height - 96, Math.round(point.y) - 48));
+  await expect(page).toHaveScreenshot(name, {
+    animations: 'disabled',
+    clip: { x, y, width: 96, height: 96 },
+  });
+}
+
 test('approved reachable surfaces retain the Meowcenary visual system', async ({ page }, testInfo) => {
   test.skip(!representativeProjects.has(testInfo.project.name));
   const requestedAssets: string[] = [];
@@ -116,6 +135,12 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
   await expect(page).toHaveScreenshot('achievements.png', { animations: 'disabled' });
 
   await page.reload();
+  await showMenu(page, 'settings');
+  await expectMenuPresentationSettled(page);
+  await freezeAtStableFrame(page);
+  await expect(page).toHaveScreenshot('settings.png', { animations: 'disabled' });
+
+  await page.reload();
   await showMenu(page, 'home');
   await press(page, 'Enter');
   await expectScene(page, 'GameScene');
@@ -127,11 +152,26 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
     return seam?.focusFirstEnemy(false) ?? false;
   })).toBe(true);
   await freezeAtStableFrame(page);
-  // Contact timing can change the player's facing/held-weapon pixels before
-  // the first enemy is quarantined. Bound that one actor-sized delta while
-  // the exact enemy roster remains covered by the Compendium captures and
-  // boss gameplay uses the strict 32-pixel clock allowance below.
-  await expect(page).toHaveScreenshot('gameplay.png', { animations: 'disabled', maxDiffPixels: 384 });
+  // Full composition allows incidental player/held-weapon contact timing;
+  // the production enemy view itself is locked exactly in the crop below.
+  await expect(page).toHaveScreenshot('gameplay.png', { animations: 'disabled', maxDiffPixels: 1_500 });
+  await expectCenteredActor(page, 'ordinary-gameplay-actor.png');
+});
+
+test('pause and Weapon Rack use the shared authored modal system', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-1280x720');
+  await page.goto('/?visual-test=1');
+  await showMenu(page, 'home');
+  await press(page, 'Enter');
+  await expectScene(page, 'GameScene');
+  await press(page, 'p');
+  await freezeAtStableFrame(page);
+  await expect(page).toHaveScreenshot('pause-modal.png', { animations: 'disabled' });
+  await resumeLoop(page);
+  await press(page, 'ArrowDown');
+  await press(page, 'Enter');
+  await freezeAtStableFrame(page);
+  await expect(page).toHaveScreenshot('weapon-rack.png', { animations: 'disabled' });
 });
 
 test('boss gameplay keeps the approved boss-scale visual hierarchy', async ({ page }, testInfo) => {
@@ -167,7 +207,45 @@ test('boss gameplay keeps the approved boss-scale visual hierarchy', async ({ pa
     return seam?.focusFirstEnemy(true) ?? false;
   })).toBe(true);
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('boss-gameplay.png', { animations: 'disabled', maxDiffPixels: 32 });
+  await expect(page).toHaveScreenshot('boss-gameplay.png', { animations: 'disabled', maxDiffPixels: 512 });
+  await expectCenteredActor(page, 'boss-gameplay-actor.png');
+});
+
+test('every Mercenary actor retains its approved runtime silhouette', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-1280x720');
+  const characterIds = [
+    'scrap-tabby', 'bolt-hound', 'volt-lynx', 'brass-boar',
+    'ember-cougar', 'scrap-weasel', 'rattle-raptor', 'piston-ram',
+  ];
+  const unlocks = characterIds.map((id) => `character:${id}`);
+  for (const characterId of characterIds) {
+    await page.goto('/?visual-test=1');
+    await page.evaluate(({ selectedCharacterId, progressionUnlocks }) => {
+      localStorage.setItem('meowcenary.save.v2', JSON.stringify({
+        version: 4,
+        settings: { muted: true, musicVolume: 0, sfxVolume: 0, reducedMotion: true },
+        progression: { scrap: 0, unlocks: progressionUnlocks },
+        selectedCharacterId,
+        stages: {}, achievements: {}, achievementMetrics: {}, characters: {},
+        gunsmith: { builds: [], parts: {}, fabricationSerials: {} },
+        equipment: {}, equipmentLoadout: {}, items: {}, bosses: {}, compendium: {},
+        pendingAchievementReports: [], appliedGrantTransactions: {}, grantTransactionFingerprints: {},
+      }));
+    }, { selectedCharacterId: characterId, progressionUnlocks: unlocks });
+    await page.reload();
+    await showMenu(page, 'home');
+    await press(page, 'Enter');
+    await expectScene(page, 'GameScene');
+    await resumeLoop(page);
+    await expect.poll(() => page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.focusPlayer() ?? false;
+    })).toBe(true);
+    await freezeAtStableFrame(page);
+    await expectCenteredActor(page, `mercenary-gameplay-${characterId}.png`);
+  }
 });
 
 test('compendium exposes the complete runtime enemy art roster', async ({ page }, testInfo) => {

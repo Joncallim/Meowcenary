@@ -261,15 +261,15 @@ export class MenuScene extends Phaser.Scene {
     ).setScrollFactor(0));
 
     const backdropBinding = this.uiVisuals?.binding('brand:menu-backdrop');
-    if (backdropBinding && this.textures?.exists?.(backdropBinding.textureKey) && this.add.tileSprite) {
-      this.own(root, this.add.tileSprite(
+    if (backdropBinding && this.textures?.exists?.(backdropBinding.textureKey) && this.add.image) {
+      const backdrop = this.own(root, this.add.image(
         this.scale.width / 2,
         this.scale.height / 2,
-        this.scale.width,
-        this.scale.height,
         backdropBinding.textureKey,
         backdropBinding.frameKey,
-      ).setAlpha(0.34).setScrollFactor(0));
+      ).setAlpha(0.72).setScrollFactor(0));
+      const coverScale = Math.max(this.scale.width / backdrop.width, this.scale.height / backdrop.height);
+      backdrop.setScale(coverScale);
     }
 
     const width = this.scale.width;
@@ -296,9 +296,18 @@ export class MenuScene extends Phaser.Scene {
         fontSize: `${ThemeFont.headingMin}px`,
         fontStyle: '700',
       }));
-      title.setOrigin(0.5).setScrollFactor(0);
-      const lockup = this.uiVisuals?.addIcon(this, this.safeCenterX - title.width / 2 - 18, title.y, 'brand:title-lockup', { size: 28 });
-      if (lockup) this.own(root, lockup);
+      title.setOrigin(0.5).setScrollFactor(0).setAlpha(0);
+      const lockupBinding = this.uiVisuals?.binding('brand:title-lockup');
+      if (lockupBinding && this.textures?.exists?.(lockupBinding.textureKey)) {
+        const lockup = this.own(root, this.add.image(
+          this.safeCenterX,
+          title.y,
+          lockupBinding.textureKey,
+          lockupBinding.frameKey,
+        ).setScrollFactor(0));
+        const lockupWidth = Math.min(240, Math.max(168, width - leftMargin - this.safeRightMargin - 24));
+        lockup.setDisplaySize(lockupWidth, lockupWidth / 5);
+      }
 
       if (snapshot.notice) {
         const notice = this.own(root, createUiText(this,this.safeCenterX, 58 + topMargin, snapshot.notice, {
@@ -634,10 +643,21 @@ export class MenuScene extends Phaser.Scene {
     const presentation = this.runLaunchPresentation;
     const copy = [presentation?.heading ?? 'PREPARING CONTRACT', presentation?.subject, presentation?.mercenary,
       this.runLaunchProgress && `Loading ${this.runLaunchProgress.completed} / ${this.runLaunchProgress.total}`].filter(Boolean).join('\n');
+    const modalWidth = Math.min(520, width - 32);
+    const modalFrame = this.uiVisuals?.addPanel(
+      this,
+      this.safeCenterX,
+      this.scale.height / 2,
+      modalWidth,
+      Math.max(132, hitTarget * 3),
+      'modal',
+      { alpha: 0.96, depth: MENU_DEPTH + 11 },
+    );
+    if (modalFrame) this.own(root, modalFrame);
     const text = this.own(root, createUiText(this, this.safeCenterX, this.scale.height / 2, copy, {
       color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin + 4}px`, align: 'center',
       wordWrap: { width: width - 32 },
-    }).setOrigin(0.5).setDepth(MENU_DEPTH + 11).setScrollFactor(0));
+    }).setOrigin(0.5).setDepth(MENU_DEPTH + 12).setScrollFactor(0));
     text.setPadding(16, hitTarget / 3);
   }
 
@@ -1240,21 +1260,25 @@ export class MenuScene extends Phaser.Scene {
     let y = top + heading.height + 20;
 
     const settings = snapshot.settings;
-    const rows: Array<{ label: string; action: () => MainMenuSnapshot }> = [
+    const rows: Array<{ label: string; artId: string; action: () => MainMenuSnapshot }> = [
       {
         label: `Mute: ${settings.muted ? 'On' : 'Off'}`,
+        artId: 'settings-icon:master-audio',
         action: () => this.requireController().setSettings({ muted: !settings.muted }),
       },
       {
         label: `Music Volume: ${Math.round(settings.musicVolume * 100)}%`,
+        artId: 'settings-icon:music',
         action: () => this.requireController().setSettings({ musicVolume: cycleVolumeStep(settings.musicVolume) }),
       },
       {
         label: `SFX Volume: ${Math.round(settings.sfxVolume * 100)}%`,
+        artId: 'settings-icon:sfx',
         action: () => this.requireController().setSettings({ sfxVolume: cycleVolumeStep(settings.sfxVolume) }),
       },
       {
         label: `Reduced Motion: ${settings.reducedMotion ? 'On' : 'Off'}`,
+        artId: 'settings-icon:reduced-motion',
         action: () => this.requireController().setSettings({ reducedMotion: !settings.reducedMotion }),
       },
     ];
@@ -1263,7 +1287,7 @@ export class MenuScene extends Phaser.Scene {
       this.addButton(root, margin, y, row.label, hitTarget, () => {
         const next = row.action();
         this.render(next);
-      });
+      }, 'ui:confirm', undefined, row.artId);
       y += hitTarget + 12;
     });
 
