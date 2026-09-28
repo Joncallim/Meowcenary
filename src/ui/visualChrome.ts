@@ -34,7 +34,7 @@ export function createUiVisualChrome(visualArt: VisualArtLookup): UiVisualChrome
   const id = (family: UiVisualFamily, name: string) => `${family}:${name}`;
   const addIcon = (scene: Phaser.Scene, x: number, y: number, artId: string, options: UiVisualOptions = {}) => {
     const resolved = binding(artId);
-    if (!resolved || !scene.textures?.exists(resolved.textureKey)) return undefined;
+    if (!resolved || !scene.textures?.exists(resolved.textureKey) || typeof scene.add?.image !== 'function') return undefined;
     const image = scene.add.image(x, y, resolved.textureKey, options.frame ?? resolved.frameKey);
     const size = options.size ?? Math.min(resolved.display.width, resolved.display.height);
     image.setDisplaySize(size, size);
@@ -48,7 +48,19 @@ export function createUiVisualChrome(visualArt: VisualArtLookup): UiVisualChrome
     if (!resolved || !scene.textures?.exists(resolved.textureKey)) return undefined;
     const nineslice = (scene.add as Phaser.Scene['add'] & { nineslice?: (...args: unknown[]) => Phaser.GameObjects.GameObject }).nineslice;
     if (typeof nineslice !== 'function') return undefined;
-    const object = nineslice.call(scene.add, x, y, width, height, resolved.textureKey, options.frame ?? resolved.frameKey, 4, 4, 4, 4);
+    const object = nineslice.call(
+      scene.add,
+      x,
+      y,
+      resolved.textureKey,
+      options.frame ?? resolved.frameKey,
+      width,
+      height,
+      4,
+      4,
+      4,
+      4,
+    );
     const display = object as Phaser.GameObjects.GameObject & {
       setScrollFactor?: (value: number) => unknown;
       setAlpha?: (value: number) => unknown;

@@ -14,6 +14,6 @@ describe('binding-based UI visual chrome', () => {
     const scene = { textures: { exists: () => true }, add: { nineslice } } as never;
     const art = { bindingById: (id: string) => ({ id, textureKey: 'ui', frameKey: id, display: { width: 24, height: 24 } }), all: () => [] } as never;
     createUiVisualChrome(art).addPanel(scene, 10, 20, 180, 96, 'modal', { depth: 800 });
-    expect(nineslice).toHaveBeenCalledWith(10, 20, 180, 96, 'ui', 'ui-chrome:modal', 4, 4, 4, 4);
+    expect(nineslice).toHaveBeenCalledWith(10, 20, 'ui', 'ui-chrome:modal', 180, 96, 4, 4, 4, 4);
   });
 });

@@ -41,6 +41,27 @@ if (new URLSearchParams(globalThis.location?.search ?? '').get('visual-test') ==
     value: Object.freeze({
       freeze: () => game.loop.sleep(),
       resume: () => game.loop.wake(),
+      isSceneActive: (key: string): boolean => game.scene.isActive(key),
+      focusFirstEnemy: (): boolean => {
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          cameras?: { main?: { stopFollow(): void; centerOn(x: number, y: number): void } };
+          enemies?: Array<{ sprite: { x: number; y: number } }>;
+        };
+        const enemy = scene?.enemies?.[0];
+        if (!enemy || !scene.cameras?.main) return false;
+        scene.cameras.main.stopFollow();
+        scene.cameras.main.centerOn(enemy.sprite.x, enemy.sprite.y);
+        return true;
+      },
+      showMenu: (panel: string): boolean => {
+        const scene = game.scene.getScene('MenuScene') as unknown as {
+          controller?: { open(panel: string): unknown };
+          render?(snapshot: unknown): void;
+        };
+        if (!scene?.controller || !scene.render) return false;
+        scene.render(scene.controller.open(panel));
+        return true;
+      },
     }),
   });
 }

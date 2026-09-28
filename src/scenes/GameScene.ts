@@ -370,6 +370,7 @@ export class GameScene extends Phaser.Scene {
       new PhaserHudView({
         scene: this,
         viewport,
+        visualArt,
       }),
     );
     this.controlsView = new ControlsView({
@@ -380,6 +381,7 @@ export class GameScene extends Phaser.Scene {
       onPauseRequested: () => this.routeAction('pause'),
       onAbilityRequested: () => this.routeAction('ability'),
       onExtractRequested: () => this.routeAction('confirm'),
+      visualArt,
       ability: this.abilityDefinition === undefined ? undefined : {
         name: this.abilityDefinition.name,
         description: this.abilityDefinition.description,
@@ -616,6 +618,7 @@ export class GameScene extends Phaser.Scene {
       viewport,
       bus: ctx.bus,
       controller: this.runSummaryController,
+      visualArt,
       readInputMode: () => this.inputController!.getInputMode(),
       resolveAchievementIcon: (iconArtId) => {
         const binding = resolveAchievementIconBinding(visualArt, iconArtId);

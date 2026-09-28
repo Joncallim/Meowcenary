@@ -18,6 +18,7 @@ import { resolveRunPlan } from '../gameplay/stage/stageContracts';
 import { loadTextureResources, prepareRunPresentation, resolveRunPhysicalResources, type ResourceLoadProgress } from '../systems/resourceLoader';
 import { DataVisualArtRegistry, DataVisualResourceRegistry, ensureVisualAnimations, resolveAchievementIconBinding, visualAnimationKey } from '../systems/visualArt';
 import { isPortraitOrientationBlocked } from '../platform/orientation';
+import { createUiVisualChrome, type UiVisualChrome } from '../ui/visualChrome';
 
 const MENU_DEPTH = ThemeDepth.pauseSummary;
 /** 44 physical px at the smallest promised FIT (844×390 → 0.462085). */
@@ -113,6 +114,8 @@ export class MenuScene extends Phaser.Scene {
   /** Scene-lifetime physical binding resolver. Career can render a large
    * gallery repeatedly, so per-badge catalog cloning/validation is invalid. */
   private visualArt?: DataVisualArtRegistry;
+  private uiVisuals?: UiVisualChrome;
+  private buttonChrome: Phaser.GameObjects.GameObject[] = [];
   /** A run never starts against the boot bundle alone. This state remains in
    * Menu so a load failure has a usable Retry/Back surface rather than a
    * partially constructed GameScene. */
@@ -148,6 +151,7 @@ export class MenuScene extends Phaser.Scene {
     this.isLive = true;
     const ctx = this.getContext();
     this.visualArt = new DataVisualArtRegistry(ctx.data);
+    this.uiVisuals = createUiVisualChrome(this.visualArt);
     this.bus = ctx.bus;
     this.controller = new MainMenuController(ctx);
 
@@ -223,6 +227,7 @@ export class MenuScene extends Phaser.Scene {
     this.focusables = [];
     this.disabledFocusables.clear();
     this.focusRings = [];
+    this.buttonChrome = [];
     this.scrollRegion = undefined;
     this.collectingScrollItems = false;
     this.scrollItemIndexes.clear();
@@ -243,6 +248,18 @@ export class MenuScene extends Phaser.Scene {
       this.scale.height,
       ThemeColor.background,
     ).setScrollFactor(0));
+
+    const backdropBinding = this.uiVisuals?.binding('brand:menu-backdrop');
+    if (backdropBinding && this.textures?.exists?.(backdropBinding.textureKey) && this.add.tileSprite) {
+      this.own(root, this.add.tileSprite(
+        this.scale.width / 2,
+        this.scale.height / 2,
+        this.scale.width,
+        this.scale.height,
+        backdropBinding.textureKey,
+        backdropBinding.frameKey,
+      ).setAlpha(0.34).setScrollFactor(0));
+    }
 
     const width = this.scale.width;
     const viewport: UiViewport = responsiveUiViewport(this.scale.width, this.scale.height);
@@ -269,6 +286,8 @@ export class MenuScene extends Phaser.Scene {
         fontStyle: '700',
       }));
       title.setOrigin(0.5).setScrollFactor(0);
+      const lockup = this.uiVisuals?.addIcon(this, this.safeCenterX - title.width / 2 - 18, title.y, 'brand:title-lockup', { size: 28 });
+      if (lockup) this.own(root, lockup);
 
       if (snapshot.notice) {
         const notice = this.own(root, createUiText(this,this.safeCenterX, 58 + topMargin, snapshot.notice, {
@@ -431,17 +450,18 @@ export class MenuScene extends Phaser.Scene {
     }));
     info.setScrollFactor(0);
 
-    const buttons: ReadonlyArray<{ readonly label: string; readonly action: () => void }> = [
+    const buttons: ReadonlyArray<{ readonly label: string; readonly artId: string; readonly action: () => void }> = [
       {
         label: this.runLaunchState === 'failed' ? 'Retry Loading Contract' : selectedStage?.completed ? 'Replay Contract' : 'Play Contract',
+        artId: 'nav-icon:play-contract',
         action: () => { void this.startContractWithResources(); },
       },
-      { label: 'Change Contract', action: () => this.render(this.requireController().open('stage')) },
-      { label: 'Mercenary', action: () => this.render(this.requireController().open('character')) },
-      { label: 'Loadout', action: () => this.render(this.requireController().open('loadout')) },
-      { label: 'Career', action: () => this.render(this.requireController().open('career')) },
-      { label: 'Training', action: () => this.render(this.requireController().open('training')) },
-      { label: 'Settings', action: () => this.render(this.requireController().open('settings')) },
+      { label: 'Change Contract', artId: 'nav-icon:change-contract', action: () => this.render(this.requireController().open('stage')) },
+      { label: 'Mercenary', artId: 'nav-icon:mercenary', action: () => this.render(this.requireController().open('character')) },
+      { label: 'Loadout', artId: 'nav-icon:loadout', action: () => this.render(this.requireController().open('loadout')) },
+      { label: 'Career', artId: 'nav-icon:career', action: () => this.render(this.requireController().open('career')) },
+      { label: 'Training', artId: 'nav-icon:training', action: () => this.render(this.requireController().open('training')) },
+      { label: 'Settings', artId: 'nav-icon:settings', action: () => this.render(this.requireController().open('settings')) },
     ];
     const artX = width - this.safeRightMargin - 28;
     if (selectedCharacter) this.addPanelArt(root, artX, top + 28, selectedCharacter.portraitArtId, 56);
@@ -469,21 +489,21 @@ export class MenuScene extends Phaser.Scene {
     if (compactLandscape) {
       const gap = 4;
       const buttonWidth = (width - margin - this.safeRightMargin - gap * (buttons.length - 1)) / buttons.length;
-      buttons.forEach(({ label, action }, index) => {
-        this.addButton(root, margin + index * (buttonWidth + gap), y, label, hitTarget, action, 'ui:confirm', buttonWidth);
+      buttons.forEach(({ label, artId, action }, index) => {
+        this.addButton(root, margin + index * (buttonWidth + gap), y, label, hitTarget, action, 'ui:confirm', buttonWidth, artId);
       });
     } else {
-      buttons.slice(0, 2).forEach(({ label, action }) => {
-        const button = this.addButton(root, this.safeCenterX, y, label, hitTarget, action);
+      buttons.slice(0, 2).forEach(({ label, artId, action }) => {
+        const button = this.addButton(root, this.safeCenterX, y, label, hitTarget, action, 'ui:confirm', undefined, artId);
         y += button.height + 6;
       });
       const secondary = buttons.slice(2);
       const columnGap = 8;
       const columns = 2;
       const columnWidth = (width - margin - this.safeRightMargin - columnGap) / columns;
-      secondary.forEach(({ label, action }, index) => {
+      secondary.forEach(({ label, artId, action }, index) => {
         const column = index % columns;
-        this.addButton(root, margin + column * (columnWidth + columnGap), y, label, hitTarget, action, 'ui:confirm', columnWidth);
+        this.addButton(root, margin + column * (columnWidth + columnGap), y, label, hitTarget, action, 'ui:confirm', columnWidth, artId);
         if (column === columns - 1 || index === secondary.length - 1) y += hitTarget + 6;
       });
     }
@@ -1242,12 +1262,12 @@ export class MenuScene extends Phaser.Scene {
     callback: () => void,
     audioEvent: MenuAudioEvent = 'ui:confirm',
     maxLabelWidth?: number,
+    artId?: string,
   ): Phaser.GameObjects.Text {
     const text = this.own(root, createUiText(this,x, y, label, {
       color: '#f7f1d5',
       fontFamily: ThemeFont.family,
       fontSize: `${ThemeFont.labelMin}px`,
-      backgroundColor: 'rgba(23, 48, 59, 0.86)',
       padding: { x: 10, y: 8 },
       ...(maxLabelWidth === undefined ? {} : { wordWrap: { width: Math.max(1, maxLabelWidth - 20) } }),
     }));
@@ -1269,12 +1289,36 @@ export class MenuScene extends Phaser.Scene {
       text.setPadding(horizontalPadding, verticalPadding);
     }
 
+    const framedBounds = text.getBounds();
+    const chrome = this.uiVisuals?.addPanel(
+      this,
+      framedBounds.centerX,
+      framedBounds.centerY,
+      framedBounds.width,
+      framedBounds.height,
+      'card',
+      { alpha: 0.96 },
+    );
+    if (chrome) {
+      root.add(chrome);
+      (root as Phaser.GameObjects.Container & { moveBelow?: (child: Phaser.GameObjects.GameObject, sibling: Phaser.GameObjects.GameObject) => unknown })
+        .moveBelow?.(chrome, text);
+      this.buttonChrome.push(chrome);
+    }
+    let icon: Phaser.GameObjects.Image | undefined;
+    if (artId) {
+      icon = this.uiVisuals?.addIcon(this, framedBounds.left + 18, framedBounds.centerY, artId, { size: 22 });
+      if (icon) {
+        root.add(icon);
+      }
+    }
+
     text.setInteractive({ useHandCursor: true });
     text.on(Phaser.Input.Events.POINTER_OVER, () => {
-      text.setStyle({ backgroundColor: 'rgba(33, 71, 86, 0.92)' });
+      (chrome as Phaser.GameObjects.NineSlice | undefined)?.setTint?.(ThemeColor.cardHover);
     });
     text.on(Phaser.Input.Events.POINTER_OUT, () => {
-      text.setStyle({ backgroundColor: 'rgba(23, 48, 59, 0.86)' });
+      (chrome as Phaser.GameObjects.NineSlice | undefined)?.clearTint?.();
     });
     text.on(Phaser.Input.Events.POINTER_UP, () => {
       if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
@@ -1306,6 +1350,8 @@ export class MenuScene extends Phaser.Scene {
       this.scrollItemIndexes.add(index);
       this.scrollObjects.push({ object: text, x: text.x, y: text.y, ownerIndex: index });
       this.scrollObjects.push({ object: ring, x: ring.x, y: ring.y, ownerIndex: index });
+      if (chrome) this.registerScrollObject(chrome, index);
+      if (icon) this.registerScrollObject(icon, index);
       // The shared region receives real rendered bounds, not a screen-local
       // row estimate, so wrapped labels and future content remain correct.
       const itemBounds = text.getBounds();

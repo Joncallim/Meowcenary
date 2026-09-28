@@ -1,4 +1,6 @@
 {
+  "export_directory_path": "",
+  "export_file_name": "ui-atlas",
   "frames": {
     "brand:title-lockup": {
       "frame": {
@@ -50,8 +52,8 @@
     },
     "nav-icon:career": {
       "frame": {
-        "x": 48,
-        "y": 24,
+        "x": 144,
+        "y": 0,
         "w": 24,
         "h": 24
       }
@@ -66,31 +68,7 @@
     },
     "nav-icon:settings": {
       "frame": {
-        "x": 360,
-        "y": 0,
-        "w": 24,
-        "h": 24
-      }
-    },
-    "nav-icon:stages": {
-      "frame": {
-        "x": 216,
-        "y": 0,
-        "w": 24,
-        "h": 24
-      }
-    },
-    "nav-icon:characters": {
-      "frame": {
-        "x": 240,
-        "y": 0,
-        "w": 24,
-        "h": 24
-      }
-    },
-    "nav-icon:progression": {
-      "frame": {
-        "x": 264,
+        "x": 192,
         "y": 0,
         "w": 24,
         "h": 24
@@ -98,7 +76,7 @@
     },
     "nav-icon:gunsmith": {
       "frame": {
-        "x": 288,
+        "x": 216,
         "y": 0,
         "w": 24,
         "h": 24
@@ -106,7 +84,7 @@
     },
     "nav-icon:equipment": {
       "frame": {
-        "x": 312,
+        "x": 240,
         "y": 0,
         "w": 24,
         "h": 24
@@ -114,7 +92,7 @@
     },
     "nav-icon:achievements": {
       "frame": {
-        "x": 336,
+        "x": 264,
         "y": 0,
         "w": 24,
         "h": 24
@@ -122,47 +100,39 @@
     },
     "nav-icon:compendium": {
       "frame": {
-        "x": 0,
-        "y": 24,
-        "w": 24,
-        "h": 24
-      }
-    },
-    "nav-icon:golden-run": {
-      "frame": {
-        "x": 24,
-        "y": 24,
+        "x": 288,
+        "y": 0,
         "w": 24,
         "h": 24
       }
     },
     "ui-chrome:panel": {
       "frame": {
-        "x": 72,
-        "y": 24,
+        "x": 312,
+        "y": 0,
         "w": 24,
         "h": 24
       }
     },
     "ui-chrome:card": {
       "frame": {
-        "x": 96,
-        "y": 24,
+        "x": 336,
+        "y": 0,
         "w": 24,
         "h": 24
       }
     },
     "ui-chrome:focus": {
       "frame": {
-        "x": 120,
-        "y": 24,
+        "x": 360,
+        "y": 0,
         "w": 24,
         "h": 24
       }
     },
     "ui-chrome:locked": {
       "frame": {
-        "x": 144,
+        "x": 0,
         "y": 24,
         "w": 24,
         "h": 24
@@ -170,7 +140,7 @@
     },
     "ui-chrome:disabled": {
       "frame": {
-        "x": 168,
+        "x": 24,
         "y": 24,
         "w": 24,
         "h": 24
@@ -178,7 +148,7 @@
     },
     "ui-chrome:scroll-track": {
       "frame": {
-        "x": 192,
+        "x": 48,
         "y": 24,
         "w": 24,
         "h": 24
@@ -186,7 +156,7 @@
     },
     "ui-chrome:scroll-thumb": {
       "frame": {
-        "x": 216,
+        "x": 72,
         "y": 24,
         "w": 24,
         "h": 24
@@ -194,7 +164,7 @@
     },
     "ui-chrome:tab": {
       "frame": {
-        "x": 240,
+        "x": 96,
         "y": 24,
         "w": 24,
         "h": 24
@@ -202,7 +172,7 @@
     },
     "ui-chrome:tooltip": {
       "frame": {
-        "x": 264,
+        "x": 120,
         "y": 24,
         "w": 24,
         "h": 24
@@ -210,7 +180,7 @@
     },
     "ui-chrome:modal": {
       "frame": {
-        "x": 288,
+        "x": 144,
         "y": 24,
         "w": 24,
         "h": 24
@@ -218,7 +188,7 @@
     },
     "ui-chrome:chevron": {
       "frame": {
-        "x": 312,
+        "x": 168,
         "y": 24,
         "w": 24,
         "h": 24
@@ -226,7 +196,7 @@
     },
     "ui-chrome:new": {
       "frame": {
-        "x": 336,
+        "x": 192,
         "y": 24,
         "w": 24,
         "h": 24
@@ -234,7 +204,7 @@
     },
     "ui-chrome:unlocked": {
       "frame": {
-        "x": 360,
+        "x": 216,
         "y": 24,
         "w": 24,
         "h": 24
@@ -242,55 +212,55 @@
     },
     "ui-chrome:complete": {
       "frame": {
-        "x": 0,
-        "y": 48,
+        "x": 240,
+        "y": 24,
         "w": 24,
         "h": 24
       }
     },
     "ui-chrome:boss": {
       "frame": {
-        "x": 24,
-        "y": 48,
+        "x": 264,
+        "y": 24,
         "w": 24,
         "h": 24
       }
     },
     "ui-chrome:merge": {
       "frame": {
-        "x": 48,
-        "y": 48,
+        "x": 288,
+        "y": 24,
         "w": 24,
         "h": 24
       }
     },
     "ui-chrome:cleared": {
       "frame": {
-        "x": 72,
-        "y": 48,
+        "x": 312,
+        "y": 24,
         "w": 24,
         "h": 24
       }
     },
     "ui-chrome:failed": {
       "frame": {
-        "x": 96,
-        "y": 48,
+        "x": 336,
+        "y": 24,
         "w": 24,
         "h": 24
       }
     },
     "stat-icon:max-health": {
       "frame": {
-        "x": 120,
-        "y": 48,
+        "x": 360,
+        "y": 24,
         "w": 24,
         "h": 24
       }
     },
     "stat-icon:move-speed": {
       "frame": {
-        "x": 144,
+        "x": 0,
         "y": 48,
         "w": 24,
         "h": 24
@@ -298,7 +268,7 @@
     },
     "stat-icon:damage": {
       "frame": {
-        "x": 168,
+        "x": 24,
         "y": 48,
         "w": 24,
         "h": 24
@@ -306,7 +276,7 @@
     },
     "stat-icon:attack-speed": {
       "frame": {
-        "x": 192,
+        "x": 48,
         "y": 48,
         "w": 24,
         "h": 24
@@ -314,7 +284,7 @@
     },
     "stat-icon:range": {
       "frame": {
-        "x": 216,
+        "x": 72,
         "y": 48,
         "w": 24,
         "h": 24
@@ -322,7 +292,7 @@
     },
     "stat-icon:projectile-speed": {
       "frame": {
-        "x": 240,
+        "x": 96,
         "y": 48,
         "w": 24,
         "h": 24
@@ -330,7 +300,7 @@
     },
     "stat-icon:spread": {
       "frame": {
-        "x": 264,
+        "x": 120,
         "y": 48,
         "w": 24,
         "h": 24
@@ -338,7 +308,7 @@
     },
     "stat-icon:pickup-radius": {
       "frame": {
-        "x": 288,
+        "x": 144,
         "y": 48,
         "w": 24,
         "h": 24
@@ -346,7 +316,7 @@
     },
     "stat-icon:currency-gain": {
       "frame": {
-        "x": 312,
+        "x": 168,
         "y": 48,
         "w": 24,
         "h": 24
@@ -354,7 +324,7 @@
     },
     "stat-icon:xp-gain": {
       "frame": {
-        "x": 336,
+        "x": 192,
         "y": 48,
         "w": 24,
         "h": 24
@@ -362,7 +332,7 @@
     },
     "stat-icon:projectile-count": {
       "frame": {
-        "x": 360,
+        "x": 216,
         "y": 48,
         "w": 24,
         "h": 24
@@ -370,55 +340,55 @@
     },
     "stat-icon:pierce": {
       "frame": {
-        "x": 0,
-        "y": 72,
+        "x": 240,
+        "y": 48,
         "w": 24,
         "h": 24
       }
     },
     "stat-icon:knockback": {
       "frame": {
-        "x": 24,
-        "y": 72,
+        "x": 264,
+        "y": 48,
         "w": 24,
         "h": 24
       }
     },
     "stat-icon:cooldown": {
       "frame": {
-        "x": 48,
-        "y": 72,
+        "x": 288,
+        "y": 48,
         "w": 24,
         "h": 24
       }
     },
     "stat-icon:healing": {
       "frame": {
-        "x": 72,
-        "y": 72,
+        "x": 312,
+        "y": 48,
         "w": 24,
         "h": 24
       }
     },
     "stat-icon:protection": {
       "frame": {
-        "x": 96,
-        "y": 72,
+        "x": 336,
+        "y": 48,
         "w": 24,
         "h": 24
       }
     },
     "action-icon:move": {
       "frame": {
-        "x": 120,
-        "y": 72,
+        "x": 360,
+        "y": 48,
         "w": 24,
         "h": 24
       }
     },
     "action-icon:confirm": {
       "frame": {
-        "x": 144,
+        "x": 0,
         "y": 72,
         "w": 24,
         "h": 24
@@ -426,7 +396,7 @@
     },
     "action-icon:back": {
       "frame": {
-        "x": 168,
+        "x": 24,
         "y": 72,
         "w": 24,
         "h": 24
@@ -434,7 +404,7 @@
     },
     "action-icon:dash": {
       "frame": {
-        "x": 192,
+        "x": 48,
         "y": 72,
         "w": 24,
         "h": 24
@@ -442,7 +412,7 @@
     },
     "action-icon:ability": {
       "frame": {
-        "x": 216,
+        "x": 72,
         "y": 72,
         "w": 24,
         "h": 24
@@ -450,7 +420,7 @@
     },
     "action-icon:pause": {
       "frame": {
-        "x": 240,
+        "x": 96,
         "y": 72,
         "w": 24,
         "h": 24
@@ -458,7 +428,7 @@
     },
     "action-icon:inventory": {
       "frame": {
-        "x": 264,
+        "x": 120,
         "y": 72,
         "w": 24,
         "h": 24
@@ -466,7 +436,7 @@
     },
     "hud-icon:health": {
       "frame": {
-        "x": 288,
+        "x": 144,
         "y": 72,
         "w": 24,
         "h": 24
@@ -474,7 +444,7 @@
     },
     "hud-icon:timer": {
       "frame": {
-        "x": 312,
+        "x": 168,
         "y": 72,
         "w": 24,
         "h": 24
@@ -482,7 +452,7 @@
     },
     "hud-icon:kills": {
       "frame": {
-        "x": 336,
+        "x": 192,
         "y": 72,
         "w": 24,
         "h": 24
@@ -490,7 +460,7 @@
     },
     "settings-icon:master-audio": {
       "frame": {
-        "x": 360,
+        "x": 216,
         "y": 72,
         "w": 24,
         "h": 24
@@ -498,55 +468,55 @@
     },
     "settings-icon:music": {
       "frame": {
-        "x": 0,
-        "y": 96,
+        "x": 240,
+        "y": 72,
         "w": 24,
         "h": 24
       }
     },
     "settings-icon:sfx": {
       "frame": {
-        "x": 24,
-        "y": 96,
+        "x": 264,
+        "y": 72,
         "w": 24,
         "h": 24
       }
     },
     "settings-icon:reduced-motion": {
       "frame": {
-        "x": 48,
-        "y": 96,
+        "x": 288,
+        "y": 72,
         "w": 24,
         "h": 24
       }
     },
     "settings-icon:fullscreen": {
       "frame": {
-        "x": 72,
-        "y": 96,
+        "x": 312,
+        "y": 72,
         "w": 24,
         "h": 24
       }
     },
     "chapter-icon:junkyard": {
       "frame": {
-        "x": 96,
-        "y": 96,
+        "x": 336,
+        "y": 72,
         "w": 24,
         "h": 24
       }
     },
     "chapter-icon:forge": {
       "frame": {
-        "x": 120,
-        "y": 96,
+        "x": 360,
+        "y": 72,
         "w": 24,
         "h": 24
       }
     },
     "objective-icon:kill": {
       "frame": {
-        "x": 144,
+        "x": 0,
         "y": 96,
         "w": 24,
         "h": 24
@@ -554,7 +524,7 @@
     },
     "objective-icon:collect": {
       "frame": {
-        "x": 168,
+        "x": 24,
         "y": 96,
         "w": 24,
         "h": 24
@@ -562,7 +532,7 @@
     },
     "objective-icon:survive": {
       "frame": {
-        "x": 192,
+        "x": 48,
         "y": 96,
         "w": 24,
         "h": 24
@@ -570,7 +540,7 @@
     },
     "objective-icon:defeat": {
       "frame": {
-        "x": 216,
+        "x": 72,
         "y": 96,
         "w": 24,
         "h": 24
@@ -578,7 +548,7 @@
     },
     "arena-card:junkyard": {
       "frame": {
-        "x": 240,
+        "x": 96,
         "y": 96,
         "w": 24,
         "h": 24
@@ -586,7 +556,7 @@
     },
     "arena-card:forge": {
       "frame": {
-        "x": 264,
+        "x": 120,
         "y": 96,
         "w": 24,
         "h": 24

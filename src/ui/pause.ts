@@ -170,6 +170,7 @@ export class PhaserPauseView {
   private readonly fullscreen?: FullscreenController;
   private readonly exitLabel: string;
   private readonly onExitConfirmed?: () => void;
+  private readonly visualArt?: VisualArtLookup;
   private unsubscribeFullscreen?: () => void;
   private renderedFullscreenState?: FullscreenState;
   private fullscreenPendingPanel?: PausePanel;
@@ -187,8 +188,9 @@ export class PhaserPauseView {
     this.fullscreen = options.fullscreen;
     this.exitLabel = options.exitLabel ?? 'Leave Run';
     this.onExitConfirmed = options.onExitConfirmed;
+    this.visualArt = options.visualArt;
     this.readInputMode = options.readInputMode ?? (() => 'pointer');
-    this.modal = createModalTextHelpers(options.scene, options.viewport);
+    this.modal = createModalTextHelpers(options.scene, options.viewport, options.visualArt);
     this.weaponRack = new PhaserWeaponRackPanel({
       scene: options.scene,
       viewport: options.viewport,
@@ -397,7 +399,7 @@ export class PhaserPauseView {
       return;
     }
     this.viewport = next;
-    this.modal = createModalTextHelpers(this.scene, next);
+    this.modal = createModalTextHelpers(this.scene, next, this.visualArt);
     this.weaponRack.updateLayoutContext(next, this.modal);
   }
 

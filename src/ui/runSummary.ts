@@ -11,6 +11,7 @@ import { ThemeColor, ThemeDepth, ThemeFont } from './theme';
 import { FocusNavigator, type FocusDirection } from './focusList';
 import type { InputMode } from '../systems/input';
 import { isPortraitOrientationBlocked } from '../platform/orientation';
+import type { VisualArtLookup } from '../systems/visualArt';
 
 export interface RunSummarySnapshot {
   readonly outcome: RunOutcome;
@@ -263,6 +264,7 @@ export interface PhaserRunSummaryViewOptions {
     textureKey: string;
     frameKey?: string;
   }> | undefined;
+  readonly visualArt?: VisualArtLookup;
 }
 
 /** Terminal win/loss surface: reads the already-banked run and offers only
@@ -282,6 +284,7 @@ export class PhaserRunSummaryView {
   private readonly onAdjustLoadout?: () => void;
   private readonly onReplay?: () => void;
   private readonly resolveAchievementIcon?: PhaserRunSummaryViewOptions['resolveAchievementIcon'];
+  private readonly visualArt?: VisualArtLookup;
   private modal: ModalTextHelpers;
   private readonly unsubscribers: Array<() => void>;
   private root?: Phaser.GameObjects.Container;
@@ -315,7 +318,8 @@ export class PhaserRunSummaryView {
     this.onAdjustLoadout = options.onAdjustLoadout;
     this.onReplay = options.onReplay;
     this.resolveAchievementIcon = options.resolveAchievementIcon;
-    this.modal = createModalTextHelpers(options.scene, options.viewport);
+    this.visualArt = options.visualArt;
+    this.modal = createModalTextHelpers(options.scene, options.viewport, options.visualArt);
     this.unsubscribers = [
       options.bus.on('run:won', this.handleTerminal),
       options.bus.on('run:lost', this.handleTerminal),
@@ -400,7 +404,7 @@ export class PhaserRunSummaryView {
     this.viewport = this.viewport.originX === undefined
       ? responsiveUiViewport(this.scene.scale.width, this.scene.scale.height)
       : responsiveGameUiViewport(this.scene.scale.width, this.scene.scale.height);
-    this.modal = createModalTextHelpers(this.scene, this.viewport);
+    this.modal = createModalTextHelpers(this.scene, this.viewport, this.visualArt);
     // Terminal presentation may not exist yet, but its first render still
     // belongs to the latest viewport rather than the launch dimensions.
     if (!this.summaryActive) return;

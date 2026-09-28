@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import { minimumHitTarget, physicalToLogical, type UiViewport } from './layout';
-import { FocusStroke, ThemeColor, ThemeFont } from './theme';
+import { FocusStroke, ThemeColor, ThemeDepth, ThemeFont } from './theme';
 import { createUiText } from './text';
+import type { VisualArtLookup } from '../systems/visualArt';
+import { createUiVisualChrome } from './visualChrome';
 
 export type ModalTextKind = 'heading' | 'body' | 'notice';
 
@@ -45,7 +47,9 @@ export interface ModalTextHelpers {
 export function createModalTextHelpers(
   scene: Phaser.Scene,
   viewport: UiViewport,
+  visualArt?: VisualArtLookup,
 ): ModalTextHelpers {
+  const uiVisuals = visualArt ? createUiVisualChrome(visualArt) : undefined;
   const addText = (
     x: number,
     y: number,
@@ -104,6 +108,16 @@ export function createModalTextHelpers(
         : ThemeColor.surface,
     );
     root.add(rect);
+    const frame = uiVisuals?.addFrame(scene, x, y, width, hitTarget, emphasized ? 'focus' : 'card', {
+      alpha: emphasized ? 0.55 : 0.42,
+      depth: ThemeDepth.pauseSummary + 1,
+    });
+    if (frame) {
+      root.add(frame);
+      (root as Phaser.GameObjects.Container & { moveBelow?: (child: Phaser.GameObjects.GameObject, sibling: Phaser.GameObjects.GameObject) => unknown })
+        .moveBelow?.(frame, rect);
+      rect.setFillStyle(ThemeColor.surface, 0.18);
+    }
     const baseStroke = {
       width: physicalToLogical(2, viewport),
       color: enabled

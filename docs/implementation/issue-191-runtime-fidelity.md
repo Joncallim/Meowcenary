@@ -43,6 +43,9 @@ The “before” classification is intentionally evidence-based rather than
 inferred from filenames: the former character and native enemy builders drew
 ellipses/rectangles/lines, while the five expanded sheets contained one
 `imagegen-import` layer and were reduced to 24–38 logical pixels at runtime.
+Every remediated actor now exports from an editable Pixelorama source. The
+builders restore the exact checked-in native raster for audit/source parity;
+they do not procedurally reconstruct actor silhouettes from geometric shapes.
 
 ## Side-by-side review set
 
@@ -57,16 +60,32 @@ Runtime captures and committed screenshot baselines:
 
 - `browser-tests/visual-fidelity.pw.ts-snapshots/home-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-*.png`
+- `browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-lower-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/contract-selection-*.png`
-- `browser-tests/visual-fidelity.pw.ts-snapshots/career-*.png`
+- `browser-tests/visual-fidelity.pw.ts-snapshots/achievements-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/boss-gameplay-desktop-1280x720-linux.png`
+- `browser-tests/visual-fidelity.pw.ts-snapshots/compendium-desktop-1280x720-linux.png`
+- `browser-tests/visual-fidelity.pw.ts-snapshots/compendium-middle-desktop-1280x720-linux.png`
+- `browser-tests/visual-fidelity.pw.ts-snapshots/compendium-lower-desktop-1280x720-linux.png`
 
 The browser baselines intentionally cover a phone, a foldable-sized viewport,
 and desktop. The gameplay pair catches actor/world scale, nearest sampling,
 HUD/action treatment, and the responsive viewport together; the menu set
 catches brand hierarchy, reusable chrome, focus, navigation, scrolling, and
 content art integration.
+
+### Side-by-side approval evidence
+
+These pairs put the selected authority next to the shipped browser output. The
+runtime columns are intentionally shown at their captured viewport size rather
+than enlarged actor-source scale.
+
+| Approved reference | Runtime output |
+|---|---|
+| [Alpha 3 roster direction B](../../assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png) | [Mercenaries 1–4, phone](../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-phone-390x844-linux.png) and [Mercenaries 5–8, phone](../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-lower-phone-390x844-linux.png) |
+| [Enemy production direction B](../../assets-src/enemies/alpha-3-production-concepts/direction-b-selected.png) | [Compendium roster 1–4](../../browser-tests/visual-fidelity.pw.ts-snapshots/compendium-desktop-1280x720-linux.png), [roster 4–7](../../browser-tests/visual-fidelity.pw.ts-snapshots/compendium-middle-desktop-1280x720-linux.png), [roster 7–10](../../browser-tests/visual-fidelity.pw.ts-snapshots/compendium-lower-desktop-1280x720-linux.png), and [Crusher gameplay](../../browser-tests/visual-fidelity.pw.ts-snapshots/boss-gameplay-desktop-1280x720-linux.png) |
+| [Visual identity production board](../art/concepts/epic-16/visual-identity-production-board.png) | [Home, phone](../../browser-tests/visual-fidelity.pw.ts-snapshots/home-phone-390x844-linux.png) and [Achievements, phone](../../browser-tests/visual-fidelity.pw.ts-snapshots/achievements-phone-390x844-linux.png) |
 
 ## Production fallback contract
 
@@ -83,4 +102,3 @@ production recovery path.
 - Selected and rejected provenance remains intact.
 - Product-owner visual approval is intentionally outstanding; this candidate
   must not close #191 without that recorded approval.
-
