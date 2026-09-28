@@ -731,6 +731,21 @@ describe('MenuScene', () => {
     });
   });
 
+  it('centres achievement copy vertically and reserves enough height for boss reward wrapping', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Career')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Achievements')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Crusher Down\nLocked • 0/1')!.state.handlers.pointerup!();
+
+    const expanded = harness.buttonByLabel(
+      'Crusher Down\nLocked • 0/1\nDefeat the Scrap Crusher boss.\nReward: +100 scrap',
+    );
+    expect(expanded).toBeDefined();
+    expect(expanded!.state.height).toBeGreaterThanOrEqual(184);
+    expect(expanded!.state.padding.top).toBe(expanded!.state.padding.bottom);
+    expect(expanded!.state.style.align).toBe('left');
+  });
+
   it('cold-opens the Contract list without loading threat actor sheets that its rows do not render', () => {
     const harness = createHarness();
     const requested = vi.fn(async () => undefined);

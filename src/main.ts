@@ -28,6 +28,18 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [BootScene, MenuScene, GameScene],
 };
 
+// Phaser rasterises Text objects into canvas textures when they are created.
+// Wait for the self-hosted UI face so those textures never capture a transient
+// system fallback and then keep it for the rest of the session.
+if (globalThis.document?.fonts) {
+  await Promise.all([
+    globalThis.document.fonts.load('400 16px "Nunito"'),
+    globalThis.document.fonts.load('600 16px "Nunito"'),
+    globalThis.document.fonts.load('700 16px "Nunito"'),
+    globalThis.document.fonts.load('800 16px "Nunito"'),
+  ]);
+}
+
 // Exported as a narrow ESM browser lifecycle/smoke seam. Upgrade selection now
 // uses the visible chooser; gameplay ownership remains in scenes and systems.
 export const game = new Phaser.Game(config);

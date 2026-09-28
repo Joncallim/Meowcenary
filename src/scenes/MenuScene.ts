@@ -1003,7 +1003,10 @@ export class MenuScene extends Phaser.Scene {
       const rowIndex = Math.floor(index / columns);
       const x = margin + column * (cardWidth + gap);
       const isExpandedNarrowCard = columns === 1 && achievement.id === selected?.id;
-      const rowHeight = isExpandedNarrowCard ? Math.max(cardHeight, 164) : cardHeight;
+      // The expanded phone card can contain a two-line reward (notably the
+      // boss achievements). Give the whole copy block breathing room and let
+      // addButton centre it vertically instead of pinning it to the top edge.
+      const rowHeight = isExpandedNarrowCard ? Math.max(cardHeight, 184) : cardHeight;
       const y = columns === 1 ? narrowY : gridTop + rowIndex * (cardHeight + gap);
       const label = isExpandedNarrowCard
         ? `${achievement.name}\n${achievementStatusCopy(achievement)} • ${achievement.progress}/${achievement.target}\n${achievement.description}\nReward: ${achievement.rewardSummary}`
@@ -1012,7 +1015,7 @@ export class MenuScene extends Phaser.Scene {
         label,
         rowHeight,
         () => this.render(this.requireController().selectAchievement(achievement.id)),
-        'ui:confirm', cardWidth, undefined, 10, 94, true,
+        'ui:confirm', cardWidth, undefined, 10, 94, false, 'left',
       );
       const rowOwnerIndex = this.focusables.length - 1;
       button.setStyle({ color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px` });
@@ -1430,6 +1433,7 @@ export class MenuScene extends Phaser.Scene {
     trailingReserve = 0,
     leadingReserve = 0,
     topAligned = false,
+    horizontalAlign?: 'left' | 'center',
   ): Phaser.GameObjects.Text {
     const hasNavigationChevron = artId !== undefined && !artId.startsWith('settings-icon:') && !artId.startsWith('action-icon:');
     const effectiveTrailingReserve = Math.max(trailingReserve, hasNavigationChevron ? 34 : 0);
@@ -1445,7 +1449,7 @@ export class MenuScene extends Phaser.Scene {
       fontFamily: ThemeFont.family,
       fontSize: `${maxLabelWidth !== undefined && maxLabelWidth < 190 ? ThemeFont.bodyMin : ThemeFont.labelMin}px`,
       fontStyle: '600',
-      align: topAligned ? 'left' : 'center',
+      align: horizontalAlign ?? (topAligned ? 'left' : 'center'),
       padding: { left: leftInset, right: rightInset, top: 0, bottom: 0 },
       ...(maxLabelWidth === undefined ? {} : { wordWrap: { width: Math.max(1, maxLabelWidth - leftInset - rightInset) } }),
     }));

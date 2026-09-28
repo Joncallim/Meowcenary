@@ -40,7 +40,7 @@ export const ThemeDepth = {
 } as const;
 
 export const ThemeFont = {
-  family: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  family: '"Nunito", "Arial Rounded MT Bold", system-ui, sans-serif',
   bodyMin: 14,
   labelMin: 16,
   headingMin: 22,
