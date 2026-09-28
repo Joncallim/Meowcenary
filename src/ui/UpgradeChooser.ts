@@ -699,7 +699,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
   };
 
   private readonly handleScaleChange = (): void => {
-    if (this.destroyed || !this.offer) {
+    if (this.destroyed) {
       return;
     }
 
@@ -707,6 +707,12 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       this.viewport = responsiveGameUiViewport(this.scene.scale.width, this.scene.scale.height);
     } else {
       this.viewport = responsiveUiViewport(this.scene.scale.width, this.scene.scale.height);
+    }
+    // A resize can happen before the first offer. Keep the cached viewport
+    // current so that later presentation is born into the new layout rather
+    // than the constructor-time dimensions.
+    if (!this.offer) {
+      return;
     }
     this.destroyDisplay();
     this.buildDisplay();

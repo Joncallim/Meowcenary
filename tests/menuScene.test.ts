@@ -666,10 +666,10 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
 
     expect(addCatalogIcon).toHaveBeenCalledWith(
-      expect.anything(), expect.any(Number), expect.any(Number), 'trait-icon:fire', 22,
+      expect.anything(), expect.any(Number), expect.any(Number), 'trait-icon:fire', 22, expect.any(Number),
     );
     expect(addCatalogIcon).toHaveBeenCalledWith(
-      expect.anything(), expect.any(Number), expect.any(Number), 'trait-icon:piercing', 22,
+      expect.anything(), expect.any(Number), expect.any(Number), 'trait-icon:piercing', 22, expect.any(Number),
     );
   });
 
@@ -781,10 +781,10 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Mercenary')!.state.handlers.pointerup!();
 
     expect(scene.addPanelArt).toHaveBeenCalledTimes(8);
-    expect(scene.addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'character-portrait:scrap-tabby', 76, false);
-    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'weapon-icon:pistol:t1', 32);
-    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'ability-icon:scrap-burst', 28);
-    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'passive-icon:scrap-hoarder', 22);
+    expect(scene.addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'character-portrait:scrap-tabby', 76, false, false, expect.any(Number));
+    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'weapon-icon:pistol:t1', 32, expect.any(Number));
+    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'ability-icon:scrap-burst', 28, expect.any(Number));
+    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'passive-icon:scrap-hoarder', 22, expect.any(Number));
   });
 
   it('rerenders a still-current Mercenary panel after a partial lazy resource success', async () => {
@@ -1271,6 +1271,23 @@ describe('MenuScene', () => {
     expect(locked.state.interactive).toBe(false);
   });
 
+  it('keeps scroll headings and detail copy independent from prior focus-row ownership', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      scrollObjects: Array<{ object: FakeObject; ownerIndex?: number }>;
+    };
+    const snapshot = scene.controller.snapshot();
+    scene.render({ ...snapshot, panel: 'stage' });
+
+    const independentCopy = scene.scrollObjects.filter(({ object }) =>
+      object.state.text === 'JUNKYARD' || object.state.text.startsWith('Threats:') || object.state.text.startsWith('First clear:'),
+    );
+    expect(independentCopy.length).toBeGreaterThan(0);
+    expect(independentCopy.every((entry) => entry.ownerIndex === undefined)).toBe(true);
+  });
+
   it('wraps a complete expanded selected-Contract threat roster inside the narrow safe edge', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {
@@ -1363,7 +1380,7 @@ describe('MenuScene', () => {
     (harness.menuScene as unknown as { addPanelArt: typeof addPanelArt }).addPanelArt = addPanelArt;
     harness.buttonByLabel('Career')!.state.handlers.pointerup!();
     harness.buttonByLabel('Compendium')!.state.handlers.pointerup!();
-    expect(addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'enemy:dust-mite', 50, false, true);
+    expect(addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'enemy:dust-mite', 50, false, true, expect.any(Number));
   });
 
   it('keeps discovered Compendium copy inside the narrow safe edge after reserving its actor-art column', () => {
@@ -1392,10 +1409,10 @@ describe('MenuScene', () => {
       'Commando Helmet\nCommando Set • Helmet\n+5% Fire Rate\nFabricate — 100 Scrap',
     );
     expect(addCatalogIcon).toHaveBeenCalledWith(
-      expect.anything(), expect.any(Number), expect.any(Number), 'equipment-icon:commando-helmet',
+      expect.anything(), expect.any(Number), expect.any(Number), 'equipment-icon:commando-helmet', 26, expect.any(Number),
     );
     expect(addCatalogIcon).toHaveBeenCalledWith(
-      expect.anything(), expect.any(Number), expect.any(Number), 'equipment-set-icon:commando', 22,
+      expect.anything(), expect.any(Number), expect.any(Number), 'equipment-set-icon:commando', 22, expect.any(Number),
     );
   });
 

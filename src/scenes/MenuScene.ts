@@ -620,9 +620,10 @@ export class MenuScene extends Phaser.Scene {
         const next = this.requireController().selectCharacter(character.id, snapshot.character.revision);
         this.render(next);
       }, 'ui:confirm', width - margin - this.safeRightMargin - artColumn);
+      const rowOwnerIndex = this.focusables.length - 1;
       const rowHeaderHeight = Math.max(56, button.height);
-      this.addPanelArt(root, margin + 38, y + 38, character.portraitArtId, 76, character.locked);
-      this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + rowHeaderHeight / 2, character.startingWeaponIconArtId, 32);
+      this.addPanelArt(root, margin + 38, y + 38, character.portraitArtId, 76, character.locked, false, rowOwnerIndex);
+      this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + rowHeaderHeight / 2, character.startingWeaponIconArtId, 32, rowOwnerIndex);
       if (character.description || character.abilityName) {
         const detailX = margin + artColumn;
         const details = [
@@ -642,10 +643,10 @@ export class MenuScene extends Phaser.Scene {
         desc.setScrollFactor(0);
         this.registerScrollObject(desc);
         if (character.abilityIconArtId) {
-          this.addCatalogIcon(root, detailX - 18, y + rowHeaderHeight + desc.height - 10, character.abilityIconArtId, 28);
+          this.addCatalogIcon(root, detailX - 18, y + rowHeaderHeight + desc.height - 10, character.abilityIconArtId, 28, rowOwnerIndex);
         }
         character.passives.slice(0, 2).forEach((passive, index) => {
-          this.addCatalogIcon(root, detailX - 18, y + rowHeaderHeight + 46 + index * 26, passive.iconArtId, 22);
+          this.addCatalogIcon(root, detailX - 18, y + rowHeaderHeight + 46 + index * 26, passive.iconArtId, 22, rowOwnerIndex);
         });
         y += rowHeaderHeight + desc.height + 10;
       } else {
@@ -712,8 +713,9 @@ export class MenuScene extends Phaser.Scene {
       const button = this.addButton(root, margin + 42, y, label, hitTarget, () => {
         this.render(this.requireController().selectStage(stage.id));
       }, 'ui:confirm', width - margin - this.safeRightMargin - 42);
+      const rowOwnerIndex = this.focusables.length - 1;
       if (stage.locked) this.disableButton(button);
-      this.addPanelArt(root, margin + 18, y + Math.min(button.height, 52) / 2, stage.objective.artId, 32, stage.locked);
+      this.addPanelArt(root, margin + 18, y + Math.min(button.height, 52) / 2, stage.objective.artId, 32, stage.locked, false, rowOwnerIndex);
       y += button.height + 10;
       if (stage.selected && !stage.locked) {
         const threatGroups = Array.from({ length: Math.ceil(stage.threats.length / 4) }, (_, index) =>
@@ -786,10 +788,11 @@ export class MenuScene extends Phaser.Scene {
       const name = entry.status === 'unseen' ? 'Unknown' : entry.name;
       const artColumn = entry.actorArtId ? 58 : 0;
       const row = this.addButton(root, margin + artColumn, y, `${name}\n${detail}`, hitTarget, () => undefined, 'ui:confirm', width - margin - this.safeRightMargin - artColumn);
+      const rowOwnerIndex = this.focusables.length - 1;
       row.setStyle({
         color: entry.status === 'unseen' ? '#94a3b8' : '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
       });
-      if (entry.actorArtId) this.addPanelArt(root, margin + 26, y + Math.min(row.height, 58) / 2, entry.actorArtId, 50, false, true);
+      if (entry.actorArtId) this.addPanelArt(root, margin + 26, y + Math.min(row.height, 58) / 2, entry.actorArtId, 50, false, true, rowOwnerIndex);
       y += row.height + 12;
     });
     this.endScrollableRegion();
@@ -855,8 +858,9 @@ export class MenuScene extends Phaser.Scene {
         () => this.render(this.requireController().selectAchievement(achievement.id)),
         'ui:confirm', cardWidth,
       );
+      const rowOwnerIndex = this.focusables.length - 1;
       button.setStyle({ color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px` });
-      this.addAchievementIcon(root, x + cardWidth - 18, y + 20, achievement.iconArtId, 28);
+      this.addAchievementIcon(root, x + cardWidth - 18, y + 20, achievement.iconArtId, 28, rowOwnerIndex);
     });
     this.endScrollableRegion();
     this.addBackButton(root, width, margin, hitTarget);
@@ -962,10 +966,11 @@ export class MenuScene extends Phaser.Scene {
           const row = this.addButton(root, margin, y, label, hitTarget, () => this.render(part.state === 'fitted-here'
             ? this.requireController().unequipGunPart(part.instanceId)
             : this.requireController().fitGunPart(part.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
+          const rowOwnerIndex = this.focusables.length - 1;
           if (!enabled) this.disableButton(row);
-          this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, part.iconArtId);
+          this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, part.iconArtId, 26, rowOwnerIndex);
           part.traitIcons.forEach((trait, index) => {
-            this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41 - index * 28, y + hitTarget / 2, trait.iconArtId, 22);
+            this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41 - index * 28, y + hitTarget / 2, trait.iconArtId, 22, rowOwnerIndex);
           });
           y += row.height + 8;
         });
@@ -1030,10 +1035,11 @@ export class MenuScene extends Phaser.Scene {
         const label = `${part.name} • ${part.rarity.toUpperCase()}\n${part.stateLabel}\n${part.effectLines.join(' • ') || 'Trait engineering'}\n${part.comparisonSummary}\n${detail}${part.fabricationActionLabel === undefined ? '' : `\n${part.fabricationActionLabel}`}`;
         const row = this.addButton(root, margin, y, label, hitTarget,
           () => this.render(this.requireController().fabricateGunPart(part.partId)), 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
+        const rowOwnerIndex = this.focusables.length - 1;
         if (!part.canFabricate) this.disableButton(row);
-        this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, part.iconArtId);
+        this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, part.iconArtId, 26, rowOwnerIndex);
         part.traitIcons.forEach((trait, index) => {
-          this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41 - index * 28, y + hitTarget / 2, trait.iconArtId, 22);
+          this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41 - index * 28, y + hitTarget / 2, trait.iconArtId, 22, rowOwnerIndex);
         });
         y += row.height + 8;
       });
@@ -1099,8 +1105,9 @@ export class MenuScene extends Phaser.Scene {
           ? this.requireController().unequipEquipment(item.slot as 'helmet' | 'armour' | 'gloves' | 'boots')
           : this.requireController().equipEquipment(item.instanceId));
       }, 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
-      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, item.iconArtId);
-      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41, y + hitTarget / 2, item.setEmblemArtId, 22);
+      const rowOwnerIndex = this.focusables.length - 1;
+      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, item.iconArtId, 26, rowOwnerIndex);
+      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41, y + hitTarget / 2, item.setEmblemArtId, 22, rowOwnerIndex);
       y += equipmentButton.height + 8;
       const effects = this.own(root, createUiText(this, margin, y, item.effectSummary.join(' • '), {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
@@ -1155,8 +1162,9 @@ export class MenuScene extends Phaser.Scene {
       const row = this.addButton(root, margin, y, `${blueprint.name}\n${blueprint.setName} Set • ${slot}\n${blueprint.effectSummary.join(' • ')}\nFabricate — ${blueprint.fabricationCost} Scrap`, hitTarget, () => {
         this.render(this.requireController().fabricateEquipment(blueprint.equipmentId));
       }, 'ui:confirm', width - margin - this.safeRightMargin - 66);
-      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, blueprint.iconArtId);
-      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41, y + hitTarget / 2, blueprint.setEmblemArtId, 22);
+      const rowOwnerIndex = this.focusables.length - 1;
+      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, blueprint.iconArtId, 26, rowOwnerIndex);
+      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41, y + hitTarget / 2, blueprint.setEmblemArtId, 22, rowOwnerIndex);
       y += row.height + 8;
     });
     this.endScrollableRegion();
@@ -1343,19 +1351,19 @@ export class MenuScene extends Phaser.Scene {
   /** Render a validated data-owned icon. Missing textures deliberately leave
    * the accessible text label intact rather than turning a catalog problem
    * into an unusable menu action. */
-  private addCatalogIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string, maxSize = 26): void {
+  private addCatalogIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string, maxSize = 26, scrollOwnerIndex?: number): void {
     const binding = this.requireVisualArt().bindingById(iconArtId);
     if (!binding || (binding.kind !== 'icon' && binding.kind !== 'upgrade-icon' && binding.kind !== 'achievement-icon' && binding.kind !== 'weapon-icon') || !this.textures?.exists(binding.textureKey)) return;
     const icon = this.own(root, this.add.image(x, y, binding.textureKey, binding.frameKey));
     icon.setDisplaySize(Math.min(maxSize, binding.display.width), Math.min(maxSize, binding.display.height));
     icon.setScrollFactor(0);
-    this.registerScrollObject(icon);
+    this.registerScrollObject(icon, scrollOwnerIndex);
   }
 
   /** Shared art anchor for Contract, Career and Compendium cards. Semantic IDs
    * come from their read models; this renderer only understands physical
    * binding capabilities. */
-  private addPanelArt(root: Phaser.GameObjects.Container, x: number, y: number, artId: string, maxSize: number, subdued = false, animate = false): void {
+  private addPanelArt(root: Phaser.GameObjects.Container, x: number, y: number, artId: string, maxSize: number, subdued = false, animate = false, scrollOwnerIndex?: number): void {
     const binding = this.requireVisualArt().bindingById(artId);
     if (!binding || !this.textures?.exists(binding.textureKey)) return;
     const frame = binding.load.type === 'spritesheet' ? binding.clips?.idle?.start ?? 0 : binding.frameKey;
@@ -1372,7 +1380,7 @@ export class MenuScene extends Phaser.Scene {
       (image as Phaser.GameObjects.Sprite).play(visualAnimationKey(binding.id, 'idle'));
     }
     image.setAlpha(subdued ? 0.35 : 1).setScrollFactor(0);
-    this.registerScrollObject(image);
+    this.registerScrollObject(image, scrollOwnerIndex);
   }
 
   /** One guarded lazy-loading lifecycle for the growing visual panels. A
@@ -1442,13 +1450,13 @@ export class MenuScene extends Phaser.Scene {
 
   /** Career shares terminal Achievement badge identity while retaining its
    * own gallery layout. Missing textures intentionally preserve text/focus. */
-  private addAchievementIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string, maxSize = 26): void {
+  private addAchievementIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string, maxSize = 26, scrollOwnerIndex?: number): void {
     const binding = resolveAchievementIconBinding(this.requireVisualArt(), iconArtId);
     if (!binding || !this.textures?.exists(binding.textureKey)) return;
     const icon = this.own(root, this.add.image(x, y, binding.textureKey, binding.frameKey));
     icon.setDisplaySize(Math.min(maxSize, binding.display.width), Math.min(maxSize, binding.display.height));
     icon.setScrollFactor(0);
-    this.registerScrollObject(icon);
+    this.registerScrollObject(icon, scrollOwnerIndex);
   }
 
   /** Achievement badges remain lazy menu presentation: Boot does not load a
@@ -1610,22 +1618,23 @@ export class MenuScene extends Phaser.Scene {
     this.collectingScrollItems = false;
   }
 
-  private registerScrollObject(object: Phaser.GameObjects.GameObject): void {
+  private registerScrollObject(object: Phaser.GameObjects.GameObject, ownerIndex?: number): void {
     if (!this.scrollRegion || !this.collectingScrollItems) return;
     const positioned = object as unknown as { x: number; y: number; getBounds?: () => { bottom: number } };
-    const candidateOwner = this.focusables.length - 1;
-    const ownerIndex = this.scrollItemIndexes.has(candidateOwner) ? candidateOwner : undefined;
+    const validOwnerIndex = ownerIndex !== undefined && this.scrollItemIndexes.has(ownerIndex)
+      ? ownerIndex
+      : undefined;
     this.scrollObjects.push({
       object,
       x: positioned.x,
       y: positioned.y,
-      ...(ownerIndex === undefined ? {} : { ownerIndex }),
+      ...(validOwnerIndex === undefined ? {} : { ownerIndex: validOwnerIndex }),
     });
     const bottom = positioned.getBounds?.().bottom;
     const bounds = (object as unknown as { getBounds?: () => { top: number; bottom: number } }).getBounds?.();
-    if (ownerIndex !== undefined && bounds) {
-      const prior = this.scrollItemBounds.get(ownerIndex);
-      this.scrollItemBounds.set(ownerIndex, {
+    if (validOwnerIndex !== undefined && bounds) {
+      const prior = this.scrollItemBounds.get(validOwnerIndex);
+      this.scrollItemBounds.set(validOwnerIndex, {
         top: Math.min(prior?.top ?? bounds.top, bounds.top),
         bottom: Math.max(prior?.bottom ?? bounds.bottom, bounds.bottom),
       });

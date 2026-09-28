@@ -396,11 +396,14 @@ export class PhaserRunSummaryView {
   };
 
   private readonly handleResize = (): void => {
-    if (this.disposed || !this.summaryActive) return;
+    if (this.disposed) return;
     this.viewport = this.viewport.originX === undefined
       ? responsiveUiViewport(this.scene.scale.width, this.scene.scale.height)
       : responsiveGameUiViewport(this.scene.scale.width, this.scene.scale.height);
     this.modal = createModalTextHelpers(this.scene, this.viewport);
+    // Terminal presentation may not exist yet, but its first render still
+    // belongs to the latest viewport rather than the launch dimensions.
+    if (!this.summaryActive) return;
     const snapshot = this.controller.snapshot();
     if (snapshot) this.render(snapshot);
   };
