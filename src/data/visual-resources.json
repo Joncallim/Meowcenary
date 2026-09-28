@@ -640,8 +640,8 @@
     "load": {
       "type": "spritesheet",
       "imageUrl": "assets/enemies/scrap-skitter/scrap-skitter.png",
-      "frameWidth": 313,
-      "frameHeight": 313
+      "frameWidth": 48,
+      "frameHeight": 48
     }
   },
   {
@@ -651,8 +651,8 @@
     "load": {
       "type": "spritesheet",
       "imageUrl": "assets/enemies/bastion-beetle/bastion-beetle.png",
-      "frameWidth": 313,
-      "frameHeight": 313
+      "frameWidth": 48,
+      "frameHeight": 48
     }
   },
   {
@@ -662,8 +662,8 @@
     "load": {
       "type": "spritesheet",
       "imageUrl": "assets/enemies/junk-nester/junk-nester.png",
-      "frameWidth": 313,
-      "frameHeight": 313
+      "frameWidth": 48,
+      "frameHeight": 48
     }
   },
   {
@@ -673,8 +673,8 @@
     "load": {
       "type": "spritesheet",
       "imageUrl": "assets/enemies/shard-bot/shard-bot.png",
-      "frameWidth": 313,
-      "frameHeight": 313
+      "frameWidth": 48,
+      "frameHeight": 48
     }
   },
   {
@@ -684,8 +684,8 @@
     "load": {
       "type": "spritesheet",
       "imageUrl": "assets/enemies/boss-forge/boss-forge.png",
-      "frameWidth": 309,
-      "frameHeight": 309
+      "frameWidth": 64,
+      "frameHeight": 64
     }
   },
   {
@@ -822,6 +822,16 @@
       "type": "atlas",
       "imageUrl": "assets/characters/identity/mercenary-identity-icons-atlas.png",
       "dataUrl": "assets/characters/identity/mercenary-identity-icons-atlas.json"
+    }
+  },
+  {
+    "id": "resource:ui-atlas",
+    "textureKey": "art-ui-atlas",
+    "sampling": "nearest",
+    "load": {
+      "type": "atlas",
+      "imageUrl": "assets/ui/ui-atlas.png",
+      "dataUrl": "assets/ui/ui-atlas.json"
     }
   }
 ]
