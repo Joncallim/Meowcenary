@@ -1509,6 +1509,40 @@ describe('MenuScene', () => {
     expect(seams.navigator.index).toBe(6); // Settings, full width
   });
 
+  it('navigates compact-landscape Home as the single horizontal row it renders', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      navigator: { index: number };
+      handleResize(): void;
+    };
+    const scale = harness.menuScene.scale as unknown as {
+      width: number; height: number; displaySize: { width: number; height: number };
+    };
+    scale.width = 844;
+    scale.height = 390;
+    scale.displaySize = { width: 844, height: 390 };
+    scene.handleResize();
+    const events: string[] = [];
+    harness.bus.on('ui:navigate', () => events.push('ui:navigate'));
+    const press = (key: string) => {
+      harness.keyboard.keydown(key);
+      harness.menuScene.update(0, 16);
+      harness.keyboard.keyup(key);
+      harness.menuScene.update(0, 16);
+    };
+
+    press('ArrowDown');
+    expect(scene.navigator.index).toBe(0);
+    expect(events).toEqual([]);
+    press('ArrowRight');
+    expect(scene.navigator.index).toBe(1);
+    press('ArrowLeft');
+    expect(scene.navigator.index).toBe(0);
+    press('ArrowLeft');
+    expect(scene.navigator.index).toBe(6);
+    expect(events).toHaveLength(3);
+  });
+
   it('navigates and confirms through the real gamepad with zero pointer-plugin calls (F9)', () => {
     const harness = createHarness();
     const pad = new MockGamepad();

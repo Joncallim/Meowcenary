@@ -2092,6 +2092,15 @@ export class MenuScene extends Phaser.Scene {
     // retain the navigator's ordinary count-aware behavior in that case.
     if (this.focusables.length !== 7) return this.navigator.move(direction);
     const current = this.navigator.index;
+    // Compact landscape renders every action in one horizontal row. Match
+    // that geometry exactly: horizontal input wraps, while vertical input
+    // does not pretend that an off-axis row exists.
+    if (this.scale.height < 500 && this.scale.width >= 700) {
+      if (direction === 'up' || direction === 'down') return false;
+      const next = direction === 'left' ? (current + 6) % 7 : (current + 1) % 7;
+      this.navigator.setIndex(next);
+      return true;
+    }
     const vertical: Readonly<Record<number, readonly [number, number]>> = {
       0: [6, 1],
       1: [0, 2],
