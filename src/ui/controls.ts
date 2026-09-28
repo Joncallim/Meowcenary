@@ -440,6 +440,7 @@ export class ControlsView {
     }
     this.destroyViewportControls();
     this.viewport = next;
+    this.root?.setPosition(next.originX ?? 0, next.originY ?? 0);
     this.buildViewportControls();
   };
 

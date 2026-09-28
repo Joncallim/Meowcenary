@@ -314,11 +314,16 @@ describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
 
   it('re-reads the zoomed viewport on resize and rebuilds the controls once', () => {
     const { scene, view } = createHarness({ zoomed: true });
+    const root = scene.objects[0];
     const oldPause = scene.objects.find((object) => object.state.interactive)!;
+    expect(root.state.x).toBeCloseTo(39, 5);
+    expect(root.state.y).toBeCloseTo(84.4, 5);
     expect(oldPause.state.width).toBeCloseTo(44 / GAMEPLAY_ZOOM, 5);
 
     scene.resize(844, 390);
 
+    expect(root.state.x).toBeCloseTo(84.4, 5);
+    expect(root.state.y).toBeCloseTo(39, 5);
     expect(oldPause.state.destroyed).toBe(true);
     expect(scene.scale.listenerCount('resize')).toBe(1);
     const live = scene.objects.filter((object) => !object.state.destroyed);
