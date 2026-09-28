@@ -4,19 +4,39 @@ This family is the approved Alpha 3 workshop UI vocabulary from
 `docs/art/alpha-3-art-production-briefs.md` §§16–19. It is intentionally
 small, flat, and pixel-readable at the canonical 390×844 viewport.
 
-`source/ui-atlas.json` is the editable deterministic source. The builder in
+`source/ui-atlas.json` is the editable deterministic source for compact chrome,
+actions, HUD and stat glyphs. The builder in
 `docs/art/scripts/build-ui-atlas.mjs` emits the runtime PNG/JSON atlas. The
 palette is restricted to near-black `#0a0f14`, workshop slate, cream, cyan,
-gold, and danger red; no concept-board pixels are used.
+gold, and danger red.
 
 Frame IDs are semantic and renderer-agnostic (`nav-icon:*`, `ui-chrome:*`,
 `stat-icon:*`, `action-icon:*`, `hud-icon:*`, `settings-icon:*`,
 `chapter-icon:*`, `objective-icon:*`, `arena-card:*`).
 
+## Illustrated Contract and Settings icons
+
+The selected production masters are `concepts/contract-icons-selected.png`
+(SHA-256 `ec58cd6e3f104a49e14f0999a84acaee55a5f3c2558835b5b39134decba0a2cd`)
+and `concepts/settings-icons-selected.png` (SHA-256
+`711f72f778cd31ee0e9745ed77fcdef3c285b9fe49854a56d94f20e5af68051e`).
+The Contract prompt requested a strict 3×2 sheet for Junkyard, Forge, kill,
+collect, survive and defeat, with distinct chapter shields and objective
+plates; the Settings prompt requested master audio, music, SFX, reduced motion
+and fullscreen on a matching 3×2 workshop sheet. Both required chunky
+pixel-painted salvage materials, bold small-scale silhouettes, no text/logos,
+and no skull, crown, realistic insignia or protected medical symbol.
+
+`build-menu-semantic-concept-atlas.py` deterministically crops those selected
+masters into one bounded editable PXO and 96 px-per-frame linear-filtered
+runtime atlas. The semantic IDs remain data-owned. The original procedural
+UI atlas still owns compact control chrome; it is no longer the production
+source for these player-facing Contract and Settings illustrations.
+
 ## Large navigation illustrations
 
-The compact procedural atlas still owns chrome, state, action, stat, settings,
-chapter and objective glyphs. Large player-facing menu destinations use the
+The compact procedural atlas still owns chrome, state, action and stat glyphs.
+Large player-facing menu destinations use the
 selected production boards in `concepts/navigation-primary-selected.png` and
 `concepts/navigation-secondary-selected.png` instead. The distinct Change
 Contract operation uses `concepts/navigation-change-contract-selected.png`.

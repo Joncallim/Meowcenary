@@ -85,28 +85,28 @@ describe('Mercenary portrait and identity-icon production art', () => {
     expect(new Set(portraits.map((binding) => binding.resourceId))).toEqual(new Set(['resource:mercenary-portraits']));
     expect(new Set(icons.map((binding) => binding.resourceId))).toEqual(new Set(['resource:mercenary-identity-icons']));
     expect(portraits.every((binding) => binding.load.type === 'atlas' && binding.sampling === 'linear')).toBe(true);
-    expect(icons.every((binding) => binding.load.type === 'atlas' && binding.sampling === 'nearest')).toBe(true);
+    expect(icons.every((binding) => binding.load.type === 'atlas' && binding.sampling === 'linear')).toBe(true);
     expect([...portraits, ...icons].every((binding) => !binding.resourceId?.match(/actor|upgrade|achievement/))).toBe(true);
   });
 
   it('keeps builders, editable Pixelorama sources, named frames and runtime RGBA in deterministic parity', () => {
     expect(() => execFileSync('node', ['docs/art/scripts/verify-mercenary-identity-builder-parity.mjs'])).not.toThrow();
-    expect(() => execFileSync('node', ['docs/art/scripts/export-mercenary-identity-atlases.mjs', '--check'])).not.toThrow();
+    expect(() => execFileSync('python3', ['docs/art/scripts/build-mercenary-identity-concept-atlas.py', '--check'])).not.toThrow();
     expect(() => execFileSync('python3', ['docs/art/scripts/build-mercenary-portrait-atlas.py', '--check'])).not.toThrow();
     const portraits = JSON.parse(readFileSync('public/assets/characters/identity/mercenary-portraits-atlas.json', 'utf8')) as { size_x: number; size_y: number; frames: Record<string, { frame: { w: number; h: number } }> };
     const icons = JSON.parse(readFileSync('public/assets/characters/identity/mercenary-identity-icons-atlas.json', 'utf8')) as { size_x: number; size_y: number; frames: Record<string, { frame: { w: number; h: number } }> };
     expect([portraits.size_x, portraits.size_y]).toEqual([1200, 240]);
     expect(Object.keys(portraits.frames).sort()).toEqual([...PORTRAIT_IDS].sort());
     expect(Object.values(portraits.frames).every(({ frame }) => frame.w === 150 && frame.h === 240)).toBe(true);
-    expect([icons.size_x, icons.size_y]).toEqual([512, 32]);
+    expect([icons.size_x, icons.size_y]).toEqual([1536, 96]);
     expect(Object.keys(icons.frames).sort()).toEqual([...ABILITY_ICON_IDS, ...PASSIVE_ICON_IDS].sort());
-    expect(Object.values(icons.frames).every(({ frame }) => frame.w === 32 && frame.h === 32)).toBe(true);
+    expect(Object.values(icons.frames).every(({ frame }) => frame.w === 96 && frame.h === 96)).toBe(true);
   });
 
-  it('keeps all final frames nonidentical and collision groups distinct in silhouette and grayscale', () => {
+  it('keeps all final frames nonidentical and grayscale-distinct at production resolution', () => {
     for (const [jsonPath, pngPath, ids, frameWidth, frameHeight] of [
       ['public/assets/characters/identity/mercenary-portraits-atlas.json', 'public/assets/characters/identity/mercenary-portraits-atlas.png', PORTRAIT_IDS, 150, 240],
-      ['public/assets/characters/identity/mercenary-identity-icons-atlas.json', 'public/assets/characters/identity/mercenary-identity-icons-atlas.png', [...ABILITY_ICON_IDS, ...PASSIVE_ICON_IDS], 32, 32],
+      ['public/assets/characters/identity/mercenary-identity-icons-atlas.json', 'public/assets/characters/identity/mercenary-identity-icons-atlas.png', [...ABILITY_ICON_IDS, ...PASSIVE_ICON_IDS], 96, 96],
     ] as const) {
       const atlas = JSON.parse(readFileSync(jsonPath, 'utf8')) as { frames: Record<string, { frame: { x: number; y: number } }> };
       const decoded = decodeUnfilteredRgbaPng(pngPath);
@@ -124,7 +124,10 @@ describe('Mercenary portrait and identity-icon production art', () => {
         grays.set(id, createHash('sha256').update(gray).digest('hex'));
       }
       expect(rgba.size).toBe(ids.length);
-      expect(new Set(silhouettes.values()).size).toBe(ids.length);
+      // Portraits retain transparent actor silhouettes. The illustrated icon
+      // family deliberately uses full-bleed active/passive plates, so alpha is
+      // not an identity signal there; the rendered grayscale frame is.
+      if (frameWidth !== 96) expect(new Set(silhouettes.values()).size).toBe(ids.length);
       expect(new Set(grays.values()).size).toBe(ids.length);
     }
   });

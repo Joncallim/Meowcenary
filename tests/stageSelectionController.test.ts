@@ -38,7 +38,7 @@ describe('StageSelectionController (Epic 20)', () => {
       chapterIconArtId: 'chapter-icon:junkyard',
       locationName: 'Junkyard Lot',
       menuBackdropArtId: 'arena-backdrop:junkyard',
-      objective: { kind: 'kill', copy: 'Eliminate 25 threats' },
+      objective: { kind: 'kill', copy: 'Eliminate 25 threats', artId: 'objective-icon:kill' },
       reward: { firstClearScrap: 35 },
       boss: false,
     });
@@ -53,6 +53,17 @@ describe('StageSelectionController (Epic 20)', () => {
     for (let i = 1; i < snap.stages.length; i++) {
       expect(snap.stages[i].locked).toBe(true);
     }
+  });
+
+  it('uses the dedicated illustrated objective family instead of borrowing upgrades, drops, or enemies', () => {
+    const { controller } = createHarness();
+    const artByKind = new Map(controller.snapshot().stages.map((stage) => [stage.objective.kind, stage.objective.artId]));
+    expect(Object.fromEntries(artByKind)).toEqual({
+      kill: 'objective-icon:kill',
+      collect: 'objective-icon:collect',
+      survive: 'objective-icon:survive',
+      defeat: 'objective-icon:defeat',
+    });
   });
 
   it('keeps every authoritative encounter threat in the read model, including current five- and six-member rosters', () => {
@@ -164,7 +175,7 @@ describe('StageSelectionController (Epic 20)', () => {
     expect(snapshot.stages[1]!.objective.copy).toBe('Survive 1 minute 30 seconds');
   });
 
-  it('derives collect copy and art identity from the authored item instead of assuming Scrap', () => {
+  it('derives collect copy from the authored item while retaining the dedicated objective identity', () => {
     const data = loadGameData();
     const stages = (data.stages ?? []).map((stage, index) => index === 0
       ? { ...stage, objective: { type: 'collect' as const, itemId: 'item:coolant-cell', count: 3 } }
@@ -177,7 +188,7 @@ describe('StageSelectionController (Epic 20)', () => {
     });
 
     expect(new StageSelectionController(context).snapshot().stages[0]!.objective).toEqual({
-      kind: 'collect', copy: 'Collect 3 Coolant Cell', artId: 'upgrade-icon:scrap-magnet',
+      kind: 'collect', copy: 'Collect 3 Coolant Cell', artId: 'objective-icon:collect',
     });
   });
 

@@ -747,10 +747,10 @@ export class MenuScene extends Phaser.Scene {
         desc.setScrollFactor(0);
         this.registerScrollObject(desc, rowOwnerIndex);
         if (character.abilityIconArtId) {
-          this.addCatalogIcon(root, margin + 45, y + cardHeight - 27, character.abilityIconArtId, 34, rowOwnerIndex);
+          this.addCatalogIcon(root, margin + 43, y + cardHeight - 31, character.abilityIconArtId, 46, rowOwnerIndex);
         }
         character.passives.slice(0, 2).forEach((passive, index) => {
-          this.addCatalogIcon(root, margin + 88 + index * 34, y + cardHeight - 27, passive.iconArtId, 30, rowOwnerIndex);
+          this.addCatalogIcon(root, margin + 94 + index * 46, y + cardHeight - 31, passive.iconArtId, 42, rowOwnerIndex);
         });
       }
       y += button.height + 10;
@@ -804,11 +804,15 @@ export class MenuScene extends Phaser.Scene {
     snapshot.stage.stages.forEach((stage) => {
       if (stage.chapterName !== chapter) {
         chapter = stage.chapterName;
-        const chapterLabel = this.own(root, createUiText(this, margin, y, chapter.toUpperCase(), {
+        // Keep the complete illustrated badge inside the scroll viewport.
+        // Partially clipped scroll objects are intentionally hidden, so the
+        // centre must sit at least half an icon below the section boundary.
+        this.addCatalogIcon(root, margin + 22, y + 22, stage.chapterIconArtId, 38);
+        const chapterLabel = this.own(root, createUiText(this, margin + 48, y + 7, chapter.toUpperCase(), {
           color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.labelMin}px`, fontStyle: '700',
         }));
         this.registerScrollObject(chapterLabel);
-        y += chapterLabel.height + 8;
+        y += Math.max(42, chapterLabel.height + 14);
       }
       const status = stage.locked ? `LOCKED — ${stage.lockCopy}` : stage.completed ? `CLEARED • Best ${formatDuration(stage.bestTimeMs)}` : 'AVAILABLE';
       const title = `${stage.selected ? '✓ ' : ''}${stage.boss ? 'BOSS • ' : ''}${stage.name}`;
@@ -861,6 +865,7 @@ export class MenuScene extends Phaser.Scene {
     this.endScrollableRegion();
     this.addBackButton(root, width, margin, hitTarget);
     void this.ensurePanelPresentation('stage', [
+      ...new Set(snapshot.stage.stages.map((stage) => stage.chapterIconArtId)),
       ...snapshot.stage.stages.map((stage) => stage.objective.artId),
       ...snapshot.stage.stages.filter((stage) => stage.selected && !stage.locked)
         .flatMap((stage) => stage.threats.map(({ actorArtId }) => actorArtId)),
@@ -1748,7 +1753,10 @@ export class MenuScene extends Phaser.Scene {
     if (generation !== this.panelArtGeneration || !this.isLive) return;
     const animationScene = this as unknown as { readonly anims?: Phaser.Animations.AnimationManager };
     if (loadedAny && animationScene.anims) ensureVisualAnimations(this, art);
-    if (loadedAny && this.committedPanel === panel && this.controller) this.render(this.controller.snapshot());
+    // Drain every resource requested by the current render before repainting.
+    // Repainting first can start a second loader in the small gap between the
+    // first request completing and its queued backdrop/icon closure draining,
+    // leaving a visually settled menu on its primitive fallback.
     if (this.pendingPanelArtIds.size > 0) {
       const pending = [...this.pendingPanelArtIds];
       const repaintPanels = new Set(this.pendingPanelArtRepaints);
@@ -1757,6 +1765,7 @@ export class MenuScene extends Phaser.Scene {
       const targetPanel = this.committedPanel ?? panel;
       await this.loadPanelPresentation(targetPanel, pending, repaintPanels.has(targetPanel));
     }
+    if (loadedAny && this.committedPanel === panel && this.controller) this.render(this.controller.snapshot());
   }
 
   /** Career shares terminal Achievement badge identity while retaining its

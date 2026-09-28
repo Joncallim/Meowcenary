@@ -817,7 +817,7 @@
   {
     "id": "resource:mercenary-identity-icons",
     "textureKey": "art-mercenary-identity-icons",
-    "sampling": "nearest",
+    "sampling": "linear",
     "load": {
       "type": "atlas",
       "imageUrl": "assets/characters/identity/mercenary-identity-icons-atlas.png",
@@ -860,6 +860,16 @@
       "type": "atlas",
       "imageUrl": "assets/ui/ui-atlas.png",
       "dataUrl": "assets/ui/ui-atlas.json"
+    }
+  },
+  {
+    "id": "resource:menu-semantic-icons",
+    "textureKey": "art-menu-semantic-icons",
+    "sampling": "linear",
+    "load": {
+      "type": "atlas",
+      "imageUrl": "assets/ui/menu-semantic-icons-atlas.png",
+      "dataUrl": "assets/ui/menu-semantic-icons-atlas.json"
     }
   },
   {

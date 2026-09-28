@@ -755,7 +755,7 @@ describe('MenuScene', () => {
 
     const panelRequests = requested.mock.calls as unknown as Array<[string, string[]]>;
     const [, artIds] = panelRequests.find((call) =>
-      call[0] === 'stage' && call[1].includes('upgrade-icon:heavy-rounds'))!;
+      call[0] === 'stage' && call[1].includes('objective-icon:kill'))!;
     const snapshot = (harness.menuScene as unknown as { controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot } }).controller.snapshot();
     const objectiveArtIds = harness.context.stages.allStages().map((stage) => {
       const option = (harness.menuScene as unknown as { controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot } }).controller
@@ -764,7 +764,8 @@ describe('MenuScene', () => {
     });
     const selectedThreatArtIds = snapshot.stage.stages.find((stage) => stage.selected)!.threats
       .map((threat) => threat.actorArtId);
-    expect(artIds).toEqual([...objectiveArtIds, ...selectedThreatArtIds]);
+    const chapterArtIds = [...new Set(snapshot.stage.stages.map((stage) => stage.chapterIconArtId))];
+    expect(artIds).toEqual([...chapterArtIds, ...objectiveArtIds, ...selectedThreatArtIds]);
     const unselectedThreatArtIds = snapshot.stage.stages.filter((stage) => !stage.selected)
       .flatMap((stage) => stage.threats.map((threat) => threat.actorArtId));
     expect(unselectedThreatArtIds.some((artId) => !artIds.includes(artId))).toBe(true);
@@ -808,8 +809,8 @@ describe('MenuScene', () => {
     expect(scene.addPanelArt).toHaveBeenCalledTimes(8);
     expect(scene.addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'character-portrait:scrap-tabby', 204, false, false, expect.any(Number));
     expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'weapon-icon:pistol:t1', 38, expect.any(Number));
-    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'ability-icon:scrap-burst', 34, expect.any(Number));
-    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'passive-icon:scrap-hoarder', 30, expect.any(Number));
+    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'ability-icon:scrap-burst', 46, expect.any(Number));
+    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'passive-icon:scrap-hoarder', 42, expect.any(Number));
   });
 
   it('rerenders a still-current Mercenary panel after a partial lazy resource success', async () => {

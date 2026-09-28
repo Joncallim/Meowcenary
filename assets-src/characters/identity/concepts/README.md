@@ -4,9 +4,21 @@ These untouched generated boards preserve the identity-art provenance. The
 selected board is also the production master for the eight large Mercenary
 portraits: `build-mercenary-portrait-atlas.py` deterministically crops its
 portrait columns into the editable PXO and runtime atlas without repainting or
-regenerating the approved direction. Ability/passive icons remain deliberately
-reauthored on their shipped pixel grid so canonical icon semantics come from
-`docs/art/alpha-3-art-production-briefs.md`, even where a concept prompt differs.
+regenerating the approved direction.
+
+## Ability/passive production board — selected
+
+- File: `ability-passive-icons-selected.png`
+- SHA-256: `b2a9d5b45a8b456352e31a6d8b569fc09e899da7d0e26f541f98fe382d5d1039`
+- Prompt summary: a strict 4×4 sheet containing the eight authored active
+  abilities followed by the eight authored passives, with active powers on
+  heavy hex/round salvage plates and passives on stitched teal patches. The
+  prompt required bold grayscale-distinct silhouettes, cream/teal/brass/cyan
+  workshop materials, no text, logos, skulls, crowns, realistic insignia or
+  protected medical marks, and readability at 40–56 px.
+- Production use: `build-mercenary-identity-concept-atlas.py` crops the selected
+  board into the editable PXO and a 96 px-per-frame runtime atlas. Stable art
+  IDs and ability/passive semantics are unchanged.
 
 ## Direction B — selected
 

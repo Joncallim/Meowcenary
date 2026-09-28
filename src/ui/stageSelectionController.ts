@@ -218,16 +218,17 @@ function objectivePresentation(
   context: GameContext,
   visualArt: DataVisualArtRegistry,
 ): StageOptionView['objective'] {
+  const artId = `objective-icon:${objective.type}`;
   switch (objective.type) {
-    case 'kill': return Object.freeze({ kind: 'kill', copy: objective.enemyTag ? `Eliminate ${objective.count} ${objective.enemyTag} threats` : `Eliminate ${objective.count} threats`, artId: 'upgrade-icon:heavy-rounds' });
+    case 'kill': return Object.freeze({ kind: 'kill', copy: objective.enemyTag ? `Eliminate ${objective.count} ${objective.enemyTag} threats` : `Eliminate ${objective.count} threats`, artId });
     case 'collect': {
       const item = describeCollectible(objective.itemId, visualArt);
-      return Object.freeze({ kind: 'collect', copy: `Collect ${objective.count} ${item.name}`, artId: item.artId });
+      return Object.freeze({ kind: 'collect', copy: `Collect ${objective.count} ${item.name}`, artId });
     }
-    case 'survive': return Object.freeze({ kind: 'survive', copy: `Survive ${formatDuration(objective.seconds)}`, artId: 'upgrade-icon:quick-paws' });
+    case 'survive': return Object.freeze({ kind: 'survive', copy: `Survive ${formatDuration(objective.seconds)}`, artId });
     case 'defeat': {
       const enemy = context.data.enemies.find((row) => row.id === objective.enemyId);
-      return Object.freeze({ kind: 'defeat', copy: `Defeat ${enemy?.name ?? 'the boss'}`, artId: visualArt.bindingById(`enemy:${objective.enemyId}`)?.id ?? 'upgrade-icon:heavy-rounds' });
+      return Object.freeze({ kind: 'defeat', copy: `Defeat ${enemy?.name ?? 'the boss'}`, artId });
     }
   }
 }

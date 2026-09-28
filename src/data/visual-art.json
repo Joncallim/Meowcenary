@@ -2042,67 +2042,67 @@
       "resourceId": "resource:mercenary-portraits", "frameKey": "character-portrait:piston-ram"
     },
     {
-      "id": "ability-icon:scrap-burst", "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "id": "ability-icon:scrap-burst", "kind": "icon", "required": true, "display": { "width": 48, "height": 48 },
       "resourceId": "resource:mercenary-identity-icons", "frameKey": "ability-icon:scrap-burst"
     },
     {
-      "id": "ability-icon:giga-chomp", "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "id": "ability-icon:giga-chomp", "kind": "icon", "required": true, "display": { "width": 48, "height": 48 },
       "resourceId": "resource:mercenary-identity-icons", "frameKey": "ability-icon:giga-chomp"
     },
     {
-      "id": "ability-icon:adrenaline", "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "id": "ability-icon:adrenaline", "kind": "icon", "required": true, "display": { "width": 48, "height": 48 },
       "resourceId": "resource:mercenary-identity-icons", "frameKey": "ability-icon:adrenaline"
     },
     {
-      "id": "ability-icon:shield-flicker", "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "id": "ability-icon:shield-flicker", "kind": "icon", "required": true, "display": { "width": 48, "height": 48 },
       "resourceId": "resource:mercenary-identity-icons", "frameKey": "ability-icon:shield-flicker"
     },
     {
-      "id": "ability-icon:heat-vent", "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "id": "ability-icon:heat-vent", "kind": "icon", "required": true, "display": { "width": 48, "height": 48 },
       "resourceId": "resource:mercenary-identity-icons", "frameKey": "ability-icon:heat-vent"
     },
     {
-      "id": "ability-icon:scavenge-pulse", "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "id": "ability-icon:scavenge-pulse", "kind": "icon", "required": true, "display": { "width": 48, "height": 48 },
       "resourceId": "resource:mercenary-identity-icons", "frameKey": "ability-icon:scavenge-pulse"
     },
     {
-      "id": "ability-icon:precision-mark", "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "id": "ability-icon:precision-mark", "kind": "icon", "required": true, "display": { "width": 48, "height": 48 },
       "resourceId": "resource:mercenary-identity-icons", "frameKey": "ability-icon:precision-mark"
     },
     {
-      "id": "ability-icon:overclock", "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "id": "ability-icon:overclock", "kind": "icon", "required": true, "display": { "width": 48, "height": 48 },
       "resourceId": "resource:mercenary-identity-icons", "frameKey": "ability-icon:overclock"
     },
     {
-      "id": "passive-icon:scrap-hoarder", "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "id": "passive-icon:scrap-hoarder", "kind": "icon", "required": true, "display": { "width": 44, "height": 44 },
       "resourceId": "resource:mercenary-identity-icons", "frameKey": "passive-icon:scrap-hoarder"
     },
     {
-      "id": "passive-icon:quick-tail", "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "id": "passive-icon:quick-tail", "kind": "icon", "required": true, "display": { "width": 44, "height": 44 },
       "resourceId": "resource:mercenary-identity-icons", "frameKey": "passive-icon:quick-tail"
     },
     {
-      "id": "passive-icon:light-paws", "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "id": "passive-icon:light-paws", "kind": "icon", "required": true, "display": { "width": 44, "height": 44 },
       "resourceId": "resource:mercenary-identity-icons", "frameKey": "passive-icon:light-paws"
     },
     {
-      "id": "passive-icon:thick-hide", "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "id": "passive-icon:thick-hide", "kind": "icon", "required": true, "display": { "width": 44, "height": 44 },
       "resourceId": "resource:mercenary-identity-icons", "frameKey": "passive-icon:thick-hide"
     },
     {
-      "id": "passive-icon:ember-aura", "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "id": "passive-icon:ember-aura", "kind": "icon", "required": true, "display": { "width": 44, "height": 44 },
       "resourceId": "resource:mercenary-identity-icons", "frameKey": "passive-icon:ember-aura"
     },
     {
-      "id": "passive-icon:magnet-belly", "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "id": "passive-icon:magnet-belly", "kind": "icon", "required": true, "display": { "width": 44, "height": 44 },
       "resourceId": "resource:mercenary-identity-icons", "frameKey": "passive-icon:magnet-belly"
     },
     {
-      "id": "passive-icon:hunter-eye", "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "id": "passive-icon:hunter-eye", "kind": "icon", "required": true, "display": { "width": 44, "height": 44 },
       "resourceId": "resource:mercenary-identity-icons", "frameKey": "passive-icon:hunter-eye"
     },
     {
-      "id": "passive-icon:hydraulic-core", "kind": "icon", "required": true, "display": { "width": 32, "height": 32 },
+      "id": "passive-icon:hydraulic-core", "kind": "icon", "required": true, "display": { "width": 44, "height": 44 },
       "resourceId": "resource:mercenary-identity-icons", "frameKey": "passive-icon:hydraulic-core"
     },
     { "id": "brand:title-lockup", "kind": "icon", "required": true, "display": { "width": 240, "height": 48 }, "resourceId": "resource:brand-art", "frameKey": "brand:title-lockup" },
@@ -2164,17 +2164,17 @@
     { "id": "hud-icon:health", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "hud-icon:health" },
     { "id": "hud-icon:timer", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "hud-icon:timer" },
     { "id": "hud-icon:kills", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "hud-icon:kills" },
-    { "id": "settings-icon:master-audio", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "settings-icon:master-audio" },
-    { "id": "settings-icon:music", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "settings-icon:music" },
-    { "id": "settings-icon:sfx", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "settings-icon:sfx" },
-    { "id": "settings-icon:reduced-motion", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "settings-icon:reduced-motion" },
-    { "id": "settings-icon:fullscreen", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "settings-icon:fullscreen" },
-    { "id": "chapter-icon:junkyard", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "chapter-icon:junkyard" },
-    { "id": "chapter-icon:forge", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "chapter-icon:forge" },
-    { "id": "objective-icon:kill", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "objective-icon:kill" },
-    { "id": "objective-icon:collect", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "objective-icon:collect" },
-    { "id": "objective-icon:survive", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "objective-icon:survive" },
-    { "id": "objective-icon:defeat", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "objective-icon:defeat" },
+    { "id": "settings-icon:master-audio", "kind": "icon", "required": true, "display": { "width": 40, "height": 40 }, "resourceId": "resource:menu-semantic-icons", "frameKey": "settings-icon:master-audio" },
+    { "id": "settings-icon:music", "kind": "icon", "required": true, "display": { "width": 40, "height": 40 }, "resourceId": "resource:menu-semantic-icons", "frameKey": "settings-icon:music" },
+    { "id": "settings-icon:sfx", "kind": "icon", "required": true, "display": { "width": 40, "height": 40 }, "resourceId": "resource:menu-semantic-icons", "frameKey": "settings-icon:sfx" },
+    { "id": "settings-icon:reduced-motion", "kind": "icon", "required": true, "display": { "width": 40, "height": 40 }, "resourceId": "resource:menu-semantic-icons", "frameKey": "settings-icon:reduced-motion" },
+    { "id": "settings-icon:fullscreen", "kind": "icon", "required": true, "display": { "width": 40, "height": 40 }, "resourceId": "resource:menu-semantic-icons", "frameKey": "settings-icon:fullscreen" },
+    { "id": "chapter-icon:junkyard", "kind": "icon", "required": true, "display": { "width": 56, "height": 56 }, "resourceId": "resource:menu-semantic-icons", "frameKey": "chapter-icon:junkyard" },
+    { "id": "chapter-icon:forge", "kind": "icon", "required": true, "display": { "width": 56, "height": 56 }, "resourceId": "resource:menu-semantic-icons", "frameKey": "chapter-icon:forge" },
+    { "id": "objective-icon:kill", "kind": "icon", "required": true, "display": { "width": 56, "height": 56 }, "resourceId": "resource:menu-semantic-icons", "frameKey": "objective-icon:kill" },
+    { "id": "objective-icon:collect", "kind": "icon", "required": true, "display": { "width": 56, "height": 56 }, "resourceId": "resource:menu-semantic-icons", "frameKey": "objective-icon:collect" },
+    { "id": "objective-icon:survive", "kind": "icon", "required": true, "display": { "width": 56, "height": 56 }, "resourceId": "resource:menu-semantic-icons", "frameKey": "objective-icon:survive" },
+    { "id": "objective-icon:defeat", "kind": "icon", "required": true, "display": { "width": 56, "height": 56 }, "resourceId": "resource:menu-semantic-icons", "frameKey": "objective-icon:defeat" },
     { "id": "arena-card:junkyard", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "arena-card:junkyard" },
     { "id": "arena-card:forge", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "arena-card:forge" }
   ]

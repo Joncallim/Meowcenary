@@ -81,6 +81,7 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
       isMenuPresentationSettled: (): boolean => {
         const scene = game.scene.getScene('MenuScene') as unknown as {
           panelArtLoading?: boolean;
+          panelArtInFlight?: Promise<void>;
           mercenaryArtLoading?: boolean;
           achievementArtLoading?: boolean;
           equipmentArtLoading?: boolean;
@@ -90,6 +91,7 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         };
         return Boolean(scene)
           && !scene.panelArtLoading
+          && !scene.panelArtInFlight
           && !scene.mercenaryArtLoading
           && !scene.achievementArtLoading
           && !scene.equipmentArtLoading
