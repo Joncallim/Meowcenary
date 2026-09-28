@@ -4,6 +4,10 @@ export default defineConfig({
   testDir: './browser-tests',
   testMatch: '**/*.pw.ts',
   fullyParallel: false,
+  // Phaser owns a single CPU-heavy render loop per page. Serial CI projects
+  // keep visual evidence deterministic instead of letting concurrent viewport
+  // runs starve scene/resource transitions on shared runners.
+  workers: process.env.CI ? 1 : undefined,
   retries: 0,
   reporter: 'line',
   use: {
