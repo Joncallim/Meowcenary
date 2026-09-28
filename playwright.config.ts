@@ -15,6 +15,9 @@ export default defineConfig({
     command: 'npm run build && npx vite preview --port 4173',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: false,
+    // Hosted runners take longer than Playwright's 60-second default to
+    // produce the complete provenance/art-validated production bundle.
+    timeout: 180_000,
   },
   projects: [
     { name: 'phone-360x640', use: { viewport: { width: 360, height: 640 }, hasTouch: true, isMobile: true } },
