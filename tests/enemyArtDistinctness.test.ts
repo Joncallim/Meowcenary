@@ -287,10 +287,6 @@ describe('Alpha 3 enemy production-art distinction', () => {
     }
   }, 15_000);
 
-  it('keeps the Forge Warden native master reproducible from its selected provenance sheet', () => {
-    execFileSync('python3', ['docs/art/scripts/export-boss-forge-native-raster.py', '--check']);
-  });
-
   it('restores the remediated actors from exact native raster masters instead of geometric reconstruction', () => {
     for (const id of REMEDIATED_NATIVE_IDS) {
       const builder = readFileSync(`docs/art/scripts/build-${id}.lua`, 'utf8');
@@ -300,6 +296,12 @@ describe('Alpha 3 enemy production-art distinction', () => {
       expect(raster).toContain('palette = {');
       expect(raster.match(/^    \{$/gm), `${id} exact raster frame count`).toHaveLength(FRAME_COUNT);
     }
+    const wardenBuilder = readFileSync('docs/art/scripts/build-boss-forge.lua', 'utf8');
+    const wardenRaster = readFileSync('assets-src/enemies/boss-forge/source/boss-forge-native-raster.lua', 'utf8');
+    expect(wardenBuilder).toContain('native-raster-actor.lua');
+    expect(wardenBuilder).not.toContain('boss-forge-imagegen.png');
+    expect(wardenRaster).toContain('ImageGen concept is provenance/reference only');
+    expect(wardenRaster).not.toMatch(/dofile\([^)]*imagegen|resize|resampl|downscal/i);
   });
 
   it('preserves the gameplay definitions and stable logical/physical presentation contract', () => {
