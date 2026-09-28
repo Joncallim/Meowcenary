@@ -8,12 +8,15 @@ import { describe, expect, it } from 'vitest';
 import { loadGameData } from '../src/systems/validation';
 import { DataVisualArtRegistry } from '../src/systems/visualArt';
 
-const ENEMY_IDS = ['dust-mite', 'scrap-sniper', 'boss-crusher'] as const;
+const ENEMY_IDS = ['dust-mite', 'junk-rusher', 'trash-brute', 'scrap-sniper', 'boss-crusher'] as const;
+const REMEDIATED_NATIVE_IDS = ['dust-mite', 'junk-rusher', 'trash-brute', 'scrap-sniper'] as const;
 const RELEASE_ENEMY_IDS = [
   'dust-mite', 'junk-rusher', 'trash-brute', 'scrap-sniper', 'scrap-skitter',
   'bastion-beetle', 'junk-nester', 'shard-bot', 'boss-crusher', 'boss-forge',
 ] as const;
-const FRAME_SIZES = { 'dust-mite': 48, 'scrap-sniper': 48, 'boss-crusher': 64 } as const;
+const FRAME_SIZES = {
+  'dust-mite': 48, 'junk-rusher': 48, 'trash-brute': 48, 'scrap-sniper': 48, 'boss-crusher': 64,
+} as const;
 const FRAME_COUNT = 16;
 
 interface RgbaPng {
@@ -195,9 +198,13 @@ describe('Alpha 3 enemy production-art distinction', () => {
     expect(new Set(actors.map(({ png }) => createHash('sha256').update(png.pixels).digest('hex'))).size)
       .toBe(ENEMY_IDS.length);
     expect(new Set(actors.map(({ png, frameSize }) => grayscaleHash(png, 0, frameSize))).size).toBe(ENEMY_IDS.length);
-    const mite = maskBounds(alphaMask(actors[0]!.png, 0, actors[0]!.frameSize), actors[0]!.frameSize);
-    const sniper = maskBounds(alphaMask(actors[1]!.png, 0, actors[1]!.frameSize), actors[1]!.frameSize);
-    const crusher = maskBounds(alphaMask(actors[2]!.png, 0, actors[2]!.frameSize), actors[2]!.frameSize);
+    const actor = (id: typeof ENEMY_IDS[number]) => actors.find((candidate) => candidate.id === id)!;
+    const miteActor = actor('dust-mite');
+    const sniperActor = actor('scrap-sniper');
+    const crusherActor = actor('boss-crusher');
+    const mite = maskBounds(alphaMask(miteActor.png, 0, miteActor.frameSize), miteActor.frameSize);
+    const sniper = maskBounds(alphaMask(sniperActor.png, 0, sniperActor.frameSize), sniperActor.frameSize);
+    const crusher = maskBounds(alphaMask(crusherActor.png, 0, crusherActor.frameSize), crusherActor.frameSize);
     expect(Math.abs(mite.width - mite.height), 'Dust Mite must remain compact and round').toBeLessThanOrEqual(8);
     expect(sniper.height, 'Scrap Sniper must read taller than the round Mite').toBeGreaterThan(mite.height);
     expect(crusher.width, 'Crusher must read as the widest horizontal actor').toBeGreaterThan(sniper.width + 5);
@@ -270,12 +277,25 @@ describe('Alpha 3 enemy production-art distinction', () => {
     }
   }, 15_000);
 
+  it('restores the four remediated actors from exact native raster masters instead of geometric reconstruction', () => {
+    for (const id of REMEDIATED_NATIVE_IDS) {
+      const builder = readFileSync(`docs/art/scripts/build-${id}.lua`, 'utf8');
+      const raster = readFileSync(`assets-src/enemies/${id}/source/${id}-native-raster.lua`, 'utf8');
+      expect(builder).toContain('native-raster-actor.lua');
+      expect(builder).not.toMatch(/outlined(?:Circle|Ellipse|Rect|Line)|fill(?:Circle|Ellipse|Rect)/);
+      expect(raster).toContain('palette = {');
+      expect(raster.match(/^    \{$/gm), `${id} exact raster frame count`).toHaveLength(FRAME_COUNT);
+    }
+  });
+
   it('preserves the gameplay definitions and stable logical/physical presentation contract', () => {
     const data = loadGameData();
     const registry = new DataVisualArtRegistry(data);
     expect(data.enemies.filter((enemy) => ENEMY_IDS.includes(enemy.id as typeof ENEMY_IDS[number])))
       .toEqual([
         { id: 'dust-mite', name: 'Dust Mite', archetype: 'chaser', health: 10, damage: 5, speed: 68, xpValue: 1, scrapValue: 1, contactDamage: true },
+        { id: 'junk-rusher', name: 'Junk Rusher', archetype: 'charger', health: 18, damage: 8, speed: 112, xpValue: 2, scrapValue: 2, contactDamage: true, attack: { triggerRange: 150, telegraphMs: 650, dashSpeed: 260, dashDurationMs: 700, cooldownMs: 1200 } },
+        { id: 'trash-brute', name: 'Trash Brute', archetype: 'tank', health: 72, damage: 14, speed: 42, xpValue: 6, scrapValue: 5, contactDamage: true },
         { id: 'scrap-sniper', name: 'Scrap Sniper', archetype: 'ranged', health: 16, damage: 6, speed: 58, xpValue: 3, scrapValue: 3, contactDamage: false, lootTableId: 'chest-standard', attack: { range: 190, telegraphMs: 700, cooldownMs: 1100 } },
         { id: 'boss-crusher', name: 'Scrap Crusher', archetype: 'boss', health: 420, damage: 22, speed: 46, xpValue: 40, scrapValue: 60, contactDamage: false, lootTableId: 'brute-cache', attack: { triggerRange: 210, telegraphMs: 900, dashSpeed: 340, dashDurationMs: 420, cooldownMs: 1500 }, actions: [{ id: 'boss-action:aimed-shot' }], phases: [{ id: 'boss-phase-crusher-enraged', atHealthFraction: 0.5, attack: { triggerRange: 240, telegraphMs: 650, dashSpeed: 390, dashDurationMs: 460, cooldownMs: 1100 }, actions: [] }] },
       ]);
@@ -289,7 +309,7 @@ describe('Alpha 3 enemy production-art distinction', () => {
         load: { type: 'spritesheet', frame: { width: frameSize, height: frameSize } },
         clips: {
           idle: { start: 0, end: 3, frameRate: 6, repeat: -1 },
-          run: { start: 4, end: 9, frameRate: 10, repeat: -1 },
+          run: { start: 4, end: 9, frameRate: id === 'trash-brute' ? 8 : 10, repeat: -1 },
           hurt: { start: 10, end: 11, frameRate: 12, repeat: 0 },
           defeat: { start: 12, end: 15, frameRate: 8, repeat: 0 },
         },
