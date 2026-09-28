@@ -42,3 +42,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Install browser runtime
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser viewport and touch acceptance
+        run: npm run test:browser

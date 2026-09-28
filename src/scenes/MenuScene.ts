@@ -65,7 +65,13 @@ export class MenuScene extends Phaser.Scene {
   /** Maps scene-wide focus indexes (which include fixed controls) to the
    * region's contiguous local indexes. */
   private scrollLocalIndexByFocusIndex = new Map<number, number>();
-  private scrollObjects: Array<{ object: Phaser.GameObjects.GameObject; x: number; y: number }> = [];
+  private scrollObjects: Array<{
+    object: Phaser.GameObjects.GameObject;
+    x: number;
+    y: number;
+    /** Decorations inherit their owning row's all-or-nothing clipping. */
+    ownerIndex?: number;
+  }> = [];
   private scrollViewportTop = 0;
   private scrollViewportBottom = 0;
   private hoveredIndex = -1;
@@ -1288,8 +1294,8 @@ export class MenuScene extends Phaser.Scene {
     const index = this.focusables.length - 1;
     if (this.scrollRegion && this.collectingScrollItems) {
       this.scrollItemIndexes.add(index);
-      this.scrollObjects.push({ object: text, x: text.x, y: text.y });
-      this.scrollObjects.push({ object: ring, x: ring.x, y: ring.y });
+      this.scrollObjects.push({ object: text, x: text.x, y: text.y, ownerIndex: index });
+      this.scrollObjects.push({ object: ring, x: ring.x, y: ring.y, ownerIndex: index });
       // The shared region receives real rendered bounds, not a screen-local
       // row estimate, so wrapped labels and future content remain correct.
       this.scrollRegion.setItems([
@@ -1610,7 +1616,14 @@ export class MenuScene extends Phaser.Scene {
   private registerScrollObject(object: Phaser.GameObjects.GameObject): void {
     if (!this.scrollRegion || !this.collectingScrollItems) return;
     const positioned = object as unknown as { x: number; y: number; getBounds?: () => { bottom: number } };
-    this.scrollObjects.push({ object, x: positioned.x, y: positioned.y });
+    const candidateOwner = this.focusables.length - 1;
+    const ownerIndex = this.scrollItemIndexes.has(candidateOwner) ? candidateOwner : undefined;
+    this.scrollObjects.push({
+      object,
+      x: positioned.x,
+      y: positioned.y,
+      ...(ownerIndex === undefined ? {} : { ownerIndex }),
+    });
     const bottom = positioned.getBounds?.().bottom;
     if (bottom !== undefined) this.scrollRegion.includeContentBottom(bottom);
   }
@@ -1649,7 +1662,8 @@ export class MenuScene extends Phaser.Scene {
         getBounds?(): { top: number; bottom: number };
       };
       object.setPosition?.(entry.x, entry.y - offset);
-      const bounds = object.getBounds?.();
+      const owner = entry.ownerIndex === undefined ? undefined : this.focusables[entry.ownerIndex];
+      const bounds = owner?.getBounds() ?? object.getBounds?.();
       if (bounds) object.setVisible?.(bounds.top >= this.scrollViewportTop && bounds.bottom <= this.scrollViewportBottom);
     }
     for (const index of this.scrollItemIndexes) {

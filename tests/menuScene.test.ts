@@ -680,6 +680,7 @@ describe('MenuScene', () => {
       render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
       navigator: { index: number };
       scrollRegion?: { scrollOffset: number };
+      scrollObjects: Array<{ object: FakeObject; ownerIndex?: number }>;
       focusables: FakeObject[];
     };
     const base = scene.controller.snapshot();
@@ -699,6 +700,9 @@ describe('MenuScene', () => {
       const liveRows = harness.objects.filter((object) => object.state.kind === 'text' && object.state.handlers.pointerup && !object.state.destroyed && object.state.text !== '< Back');
       expect(liveRows[0]!.state.interactive).toBe(false);
       expect(scene.focusables[count - 1]!.state.interactive).toBe(true);
+      for (const entry of scene.scrollObjects.filter((item) => item.ownerIndex !== undefined)) {
+        expect(entry.object.state.visible).toBe(scene.focusables[entry.ownerIndex!]!.state.visible);
+      }
     };
 
     assertRows('character', 20, {
