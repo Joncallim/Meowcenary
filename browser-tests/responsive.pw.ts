@@ -63,14 +63,22 @@ test('phone touch starts a run, moves, and activates the graphical ability contr
   test.skip(testInfo.project.name !== 'phone-390x844');
   const requestedAssets: string[] = [];
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
-  await page.goto('/');
+  await page.goto('/?visual-test=1');
   // Home deliberately rejects actions while its cold art closure owns the
-  // Phaser loader. Retry the visible Play control until that authoritative
-  // launch request starts instead of racing it with a fixed delay.
+  // Phaser loader. The illustrated Home redesign moved the first action card
+  // below the richer Contract hero, so tap its current safe center and prove
+  // the touch reached GameScene rather than inferring launch from an art file
+  // that Home itself now legitimately loads.
   await expect.poll(async () => {
-    await page.touchscreen.tap(195, 220);
-    return requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png'));
+    await page.touchscreen.tap(195, 282);
+    return page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { isSceneActive(key: string): boolean };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.isSceneActive('GameScene') ?? false;
+    });
   }, { intervals: [150, 250, 400], timeout: 8_000 }).toBe(true);
+  expect(requestedAssets.some((path) => path.includes('/assets/'))).toBe(true);
   await page.waitForTimeout(1_000);
 
   // Sample static arena floor away from the animated player/effects. The
