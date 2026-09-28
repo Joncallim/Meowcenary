@@ -65,6 +65,7 @@ export class MenuScene extends Phaser.Scene {
   /** Maps scene-wide focus indexes (which include fixed controls) to the
    * region's contiguous local indexes. */
   private scrollLocalIndexByFocusIndex = new Map<number, number>();
+  private scrollItemBounds = new Map<number, { top: number; bottom: number }>();
   private scrollObjects: Array<{
     object: Phaser.GameObjects.GameObject;
     x: number;
@@ -227,6 +228,7 @@ export class MenuScene extends Phaser.Scene {
     this.scrollItemIndexes.clear();
     this.scrollLocalIndexByFocusIndex.clear();
     this.scrollObjects = [];
+    this.scrollItemBounds.clear();
     this.hoveredIndex = -1;
     this.focusIndexAfterRender = undefined;
     this.hint = undefined;
@@ -1298,14 +1300,9 @@ export class MenuScene extends Phaser.Scene {
       this.scrollObjects.push({ object: ring, x: ring.x, y: ring.y, ownerIndex: index });
       // The shared region receives real rendered bounds, not a screen-local
       // row estimate, so wrapped labels and future content remain correct.
-      this.scrollRegion.setItems([
-        ...Array.from(this.scrollItemIndexes).map((itemIndex, localIndex) => {
-          this.scrollLocalIndexByFocusIndex.set(itemIndex, localIndex);
-          const item = this.focusables[itemIndex]!;
-          const itemBounds = item.getBounds();
-          return { index: localIndex, top: itemBounds.top, bottom: itemBounds.bottom };
-        }),
-      ]);
+      const itemBounds = text.getBounds();
+      this.scrollItemBounds.set(index, { top: itemBounds.top, bottom: itemBounds.bottom });
+      this.rebuildScrollItems();
     }
     text.on(Phaser.Input.Events.POINTER_OVER, () => {
       this.hoveredIndex = index;
@@ -1625,7 +1622,25 @@ export class MenuScene extends Phaser.Scene {
       ...(ownerIndex === undefined ? {} : { ownerIndex }),
     });
     const bottom = positioned.getBounds?.().bottom;
+    const bounds = (object as unknown as { getBounds?: () => { top: number; bottom: number } }).getBounds?.();
+    if (ownerIndex !== undefined && bounds) {
+      const prior = this.scrollItemBounds.get(ownerIndex);
+      this.scrollItemBounds.set(ownerIndex, {
+        top: Math.min(prior?.top ?? bounds.top, bounds.top),
+        bottom: Math.max(prior?.bottom ?? bounds.bottom, bounds.bottom),
+      });
+      this.rebuildScrollItems();
+    }
     if (bottom !== undefined) this.scrollRegion.includeContentBottom(bottom);
+  }
+
+  private rebuildScrollItems(): void {
+    if (!this.scrollRegion) return;
+    this.scrollRegion.setItems(Array.from(this.scrollItemIndexes).map((itemIndex, localIndex) => {
+      this.scrollLocalIndexByFocusIndex.set(itemIndex, localIndex);
+      const bounds = this.scrollItemBounds.get(itemIndex) ?? this.focusables[itemIndex]!.getBounds();
+      return { index: localIndex, top: bounds.top, bottom: bounds.bottom };
+    }));
   }
 
   private finishScrollableRegion(): void {
@@ -1662,14 +1677,19 @@ export class MenuScene extends Phaser.Scene {
         getBounds?(): { top: number; bottom: number };
       };
       object.setPosition?.(entry.x, entry.y - offset);
-      const owner = entry.ownerIndex === undefined ? undefined : this.focusables[entry.ownerIndex];
-      const bounds = owner?.getBounds() ?? object.getBounds?.();
+      const ownerBounds = entry.ownerIndex === undefined ? undefined : this.scrollItemBounds.get(entry.ownerIndex);
+      const bounds = ownerBounds === undefined
+        ? object.getBounds?.()
+        : { top: ownerBounds.top - offset, bottom: ownerBounds.bottom - offset };
       if (bounds) object.setVisible?.(bounds.top >= this.scrollViewportTop && bounds.bottom <= this.scrollViewportBottom);
     }
     for (const index of this.scrollItemIndexes) {
       const text = this.focusables[index];
       if (!text) continue;
-      const bounds = text.getBounds();
+      const groupBounds = this.scrollItemBounds.get(index);
+      const bounds = groupBounds === undefined
+        ? text.getBounds()
+        : { top: groupBounds.top - offset, bottom: groupBounds.bottom - offset };
       const visible = bounds.top >= this.scrollViewportTop && bounds.bottom <= this.scrollViewportBottom;
       text.setVisible(visible);
       const ring = this.focusRings[index];
@@ -1841,6 +1861,7 @@ export class MenuScene extends Phaser.Scene {
     this.scrollItemIndexes.clear();
     this.scrollLocalIndexByFocusIndex.clear();
     this.scrollObjects = [];
+    this.scrollItemBounds.clear();
     this.navigator.setCount(0);
     this.committedPanel = undefined;
     this.committedDisplay = false;
