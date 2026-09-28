@@ -211,6 +211,45 @@ test('boss gameplay keeps the approved boss-scale visual hierarchy', async ({ pa
   await expectCenteredActor(page, 'boss-gameplay-actor.png');
 });
 
+test('Forge Warden keeps its approved furnace-gantry silhouette in live gameplay', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-1280x720');
+  await page.addInitScript(() => {
+    const completed = Object.fromEntries(
+      [
+        'stage:junkyard-01', 'stage:junkyard-02', 'stage:junkyard-03',
+        'stage:junkyard-04', 'stage:junkyard-05',
+        'stage:forge-01', 'stage:forge-02', 'stage:forge-03', 'stage:forge-04',
+      ].map((id) => [id, { completed: true, bestTimeMs: 60_000 }]),
+    );
+    localStorage.setItem('meowcenary.save.v2', JSON.stringify({
+      version: 4,
+      settings: { muted: true, musicVolume: 0, sfxVolume: 0, reducedMotion: true },
+      progression: { scrap: 0, unlocks: [] },
+      stages: completed,
+      achievements: {}, achievementMetrics: {}, characters: {},
+      gunsmith: { builds: [], parts: {}, fabricationSerials: {} },
+      equipment: {}, equipmentLoadout: {}, items: {}, bosses: {}, compendium: {},
+      pendingAchievementReports: [], appliedGrantTransactions: {}, grantTransactionFingerprints: {},
+    }));
+  });
+  const requestedAssets: string[] = [];
+  page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
+  await page.goto('/?visual-test=1');
+  await showMenu(page, 'home');
+  await press(page, 'Enter');
+  await expectScene(page, 'GameScene');
+  await resumeLoop(page);
+  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/boss-forge.png'))).toBe(true);
+  await expect.poll(() => page.evaluate(() => {
+    const seam = (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
+    }).__MEOWCENARY_VISUAL_TEST__;
+    return seam?.focusFirstEnemy(true) ?? false;
+  })).toBe(true);
+  await freezeAtStableFrame(page);
+  await expectCenteredActor(page, 'forge-warden-gameplay-actor.png');
+});
+
 test('every Mercenary actor retains its approved runtime silhouette', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-1280x720');
   const characterIds = [

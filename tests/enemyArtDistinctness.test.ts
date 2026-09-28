@@ -9,13 +9,15 @@ import { loadGameData } from '../src/systems/validation';
 import { DataVisualArtRegistry } from '../src/systems/visualArt';
 
 const ENEMY_IDS = ['dust-mite', 'junk-rusher', 'trash-brute', 'scrap-sniper', 'boss-crusher'] as const;
+const AUDITED_ACTOR_IDS = [...ENEMY_IDS, 'boss-forge'] as const;
 const RELEASE_ENEMY_IDS = [
   'dust-mite', 'junk-rusher', 'trash-brute', 'scrap-sniper', 'scrap-skitter',
   'bastion-beetle', 'junk-nester', 'shard-bot', 'boss-crusher', 'boss-forge',
 ] as const;
 const REMEDIATED_NATIVE_IDS = RELEASE_ENEMY_IDS;
 const FRAME_SIZES = {
-  'dust-mite': 48, 'junk-rusher': 48, 'trash-brute': 48, 'scrap-sniper': 48, 'boss-crusher': 64,
+  'dust-mite': 48, 'junk-rusher': 48, 'trash-brute': 48, 'scrap-sniper': 48,
+  'boss-crusher': 64, 'boss-forge': 64,
 } as const;
 const FRAME_COUNT = 16;
 
@@ -188,17 +190,18 @@ function displayedIdleFrame(
 }
 
 describe('Alpha 3 enemy production-art distinction', () => {
-  const actors = ENEMY_IDS.map((id) => ({
+  const actors = AUDITED_ACTOR_IDS.map((id) => ({
     id,
     frameSize: FRAME_SIZES[id],
     png: decodeRgbaPng(`public/assets/enemies/${id}/${id}.png`),
   }));
 
-  it('rejects duplicate final art and keeps all three native silhouettes and grayscale reads distinct', () => {
+  it('rejects duplicate final art and keeps audited native silhouettes and grayscale reads distinct', () => {
     expect(new Set(actors.map(({ png }) => createHash('sha256').update(png.pixels).digest('hex'))).size)
-      .toBe(ENEMY_IDS.length);
-    expect(new Set(actors.map(({ png, frameSize }) => grayscaleHash(png, 0, frameSize))).size).toBe(ENEMY_IDS.length);
-    const actor = (id: typeof ENEMY_IDS[number]) => actors.find((candidate) => candidate.id === id)!;
+      .toBe(AUDITED_ACTOR_IDS.length);
+    expect(new Set(actors.map(({ png, frameSize }) => grayscaleHash(png, 0, frameSize))).size)
+      .toBe(AUDITED_ACTOR_IDS.length);
+    const actor = (id: typeof AUDITED_ACTOR_IDS[number]) => actors.find((candidate) => candidate.id === id)!;
     const miteActor = actor('dust-mite');
     const sniperActor = actor('scrap-sniper');
     const crusherActor = actor('boss-crusher');
@@ -240,10 +243,15 @@ describe('Alpha 3 enemy production-art distinction', () => {
     const mite = maskBounds(displayed.find(({ id }) => id === 'dust-mite')!.mask, 40);
     const sniper = maskBounds(displayed.find(({ id }) => id === 'scrap-sniper')!.mask, 40);
     const crusher = maskBounds(displayed.find(({ id }) => id === 'boss-crusher')!.mask, 40);
+    const warden = maskBounds(displayed.find(({ id }) => id === 'boss-forge')!.mask, 40);
     expect(Math.abs(mite.width - mite.height)).toBeLessThanOrEqual(5);
     expect(sniper.height).toBeGreaterThan(mite.height);
     expect(crusher.width - crusher.height).toBeGreaterThan(5);
     expect(crusher.width, 'Crusher must retain a boss-scale silhouette at runtime').toBeGreaterThan(sniper.width + 8);
+    expect(warden.height, 'Forge Warden must read materially taller than the low Crusher at runtime')
+      .toBeGreaterThan(crusher.height + 6);
+    expect(warden.width * warden.height, 'Forge Warden must retain a larger boss-scale occupied area')
+      .toBeGreaterThan(crusher.width * crusher.height * 1.25);
   });
 
   it('keeps every frame inside the canvas, grounded, centred, and visibly animated in each clip', () => {
@@ -278,7 +286,11 @@ describe('Alpha 3 enemy production-art distinction', () => {
     }
   }, 15_000);
 
-  it('restores the four remediated actors from exact native raster masters instead of geometric reconstruction', () => {
+  it('keeps the Forge Warden native master reproducible from its selected provenance sheet', () => {
+    execFileSync('python3', ['docs/art/scripts/export-boss-forge-native-raster.py', '--check']);
+  });
+
+  it('restores the remediated actors from exact native raster masters instead of geometric reconstruction', () => {
     for (const id of REMEDIATED_NATIVE_IDS) {
       const builder = readFileSync(`docs/art/scripts/build-${id}.lua`, 'utf8');
       const raster = readFileSync(`assets-src/enemies/${id}/source/${id}-native-raster.lua`, 'utf8');
