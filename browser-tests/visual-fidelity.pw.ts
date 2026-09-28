@@ -5,6 +5,7 @@ import { expect, test } from '@playwright/test';
 // to reach those observable states, so bound infrastructure readiness without
 // changing game timing or weakening any screenshot comparison.
 const visualReadyTimeoutMs = 20_000;
+const illustratedScreenshot = { animations: 'disabled' as const, maxDiffPixels: 128 };
 
 type VisualTestSeam = {
   freeze(): Promise<void>;
@@ -114,48 +115,48 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
   await expect.poll(() => requestedAssets.some((path) => path.endsWith('/enemy-portraits-atlas.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('home.png', { animations: 'disabled' });
+  await expect(page).toHaveScreenshot('home.png', illustratedScreenshot);
 
   await page.reload();
   await showMenu(page, 'character');
   await expect.poll(() => requestedAssets.some((path) => path.endsWith('/mercenary-portraits-atlas.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('mercenary.png', { animations: 'disabled', maxDiffPixels: 128 });
+  await expect(page).toHaveScreenshot('mercenary.png', illustratedScreenshot);
   await resumeLoop(page);
   for (let index = 0; index < 7; index += 1) await press(page, 'ArrowDown');
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('mercenary-lower.png', { animations: 'disabled', maxDiffPixels: 128 });
+  await expect(page).toHaveScreenshot('mercenary-lower.png', illustratedScreenshot);
 
   await page.reload();
   await showMenu(page, 'stage');
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('contract-selection.png', { animations: 'disabled' });
+  await expect(page).toHaveScreenshot('contract-selection.png', illustratedScreenshot);
 
   await page.reload();
   await showMenu(page, 'equipment');
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('loadout-equipment.png', { animations: 'disabled' });
+  await expect(page).toHaveScreenshot('loadout-equipment.png', illustratedScreenshot);
 
   await page.reload();
   await showMenu(page, 'gunsmith');
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('loadout-gunsmith.png', { animations: 'disabled' });
+  await expect(page).toHaveScreenshot('loadout-gunsmith.png', illustratedScreenshot);
 
   await page.reload();
   await showMenu(page, 'achievements');
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('achievements.png', { animations: 'disabled' });
+  await expect(page).toHaveScreenshot('achievements.png', illustratedScreenshot);
 
   await page.reload();
   await showMenu(page, 'settings');
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('settings.png', { animations: 'disabled' });
+  await expect(page).toHaveScreenshot('settings.png', illustratedScreenshot);
 
   await page.reload();
   await showMenu(page, 'home');
@@ -218,11 +219,11 @@ test('stocked Gunsmith showcases assembled weapons, Parts, traits, and Workshop 
   await showMenu(page, 'gunsmith');
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('gunsmith-assembled.png', { animations: 'disabled', maxDiffPixels: 128 });
+  await expect(page).toHaveScreenshot('gunsmith-assembled.png', illustratedScreenshot);
   await resumeLoop(page);
   for (let index = 0; index < 9; index += 1) await press(page, 'ArrowDown');
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('gunsmith-parts.png', { animations: 'disabled', maxDiffPixels: 128 });
+  await expect(page).toHaveScreenshot('gunsmith-parts.png', illustratedScreenshot);
 });
 
 test('pause and Weapon Rack use the shared authored modal system', async ({ page }, testInfo) => {
@@ -233,12 +234,12 @@ test('pause and Weapon Rack use the shared authored modal system', async ({ page
   await expectScene(page, 'GameScene');
   await press(page, 'p');
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('pause-modal.png', { animations: 'disabled' });
+  await expect(page).toHaveScreenshot('pause-modal.png', illustratedScreenshot);
   await resumeLoop(page);
   await press(page, 'ArrowDown');
   await press(page, 'Enter');
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('weapon-rack.png', { animations: 'disabled' });
+  await expect(page).toHaveScreenshot('weapon-rack.png', illustratedScreenshot);
 });
 
 test('transient gameplay decisions use the shared authored visual system', async ({ page }, testInfo) => {
@@ -260,7 +261,7 @@ test('transient gameplay decisions use the shared authored visual system', async
       return seam?.[key]() ?? false;
     }, method), { timeout: visualReadyTimeoutMs }).toBe(true);
     await freezeAtStableFrame(page);
-    await expect(page).toHaveScreenshot(name, { animations: 'disabled' });
+    await expect(page).toHaveScreenshot(name, illustratedScreenshot);
   };
 
   await enterRun();
@@ -277,7 +278,7 @@ test('transient gameplay decisions use the shared authored visual system', async
       return seam?.showRunSummary(value) ?? false;
     }, outcome), { timeout: visualReadyTimeoutMs }).toBe(true);
     await freezeAtStableFrame(page);
-    await expect(page).toHaveScreenshot(`run-summary-${outcome}.png`, { animations: 'disabled' });
+    await expect(page).toHaveScreenshot(`run-summary-${outcome}.png`, illustratedScreenshot);
   }
 });
 
@@ -419,13 +420,13 @@ test('compendium exposes the complete runtime enemy art roster', async ({ page }
   await showMenu(page, 'compendium');
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('compendium.png', { animations: 'disabled' });
+  await expect(page).toHaveScreenshot('compendium.png', illustratedScreenshot);
   await resumeLoop(page);
   for (let index = 0; index < 5; index += 1) await press(page, 'ArrowDown');
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('compendium-middle.png', { animations: 'disabled' });
+  await expect(page).toHaveScreenshot('compendium-middle.png', illustratedScreenshot);
   await resumeLoop(page);
   for (let index = 0; index < 4; index += 1) await press(page, 'ArrowDown');
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('compendium-lower.png', { animations: 'disabled' });
+  await expect(page).toHaveScreenshot('compendium-lower.png', illustratedScreenshot);
 });
