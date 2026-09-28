@@ -141,11 +141,13 @@ export function computeRunSummaryLayout(
   if (!Number.isSafeInteger(actionCount) || actionCount < 1) {
     throw new RangeError('actionCount must be a positive safe integer');
   }
-  const left = edgeMargin(viewport, 'left');
-  const right = edgeMargin(viewport, 'right');
+  const safeLeft = edgeMargin(viewport, 'left');
+  const safeRight = edgeMargin(viewport, 'right');
   const top = edgeMargin(viewport, 'top');
   const bottom = edgeMargin(viewport, 'bottom');
-  const width = Math.max(0, viewport.canvasWidth - left - right);
+  const availableWidth = Math.max(0, viewport.canvasWidth - safeLeft - safeRight);
+  const width = Math.min(availableWidth, physicalToLogical(840, viewport));
+  const left = Math.max(safeLeft, (viewport.canvasWidth - width) / 2);
   const height = Math.max(0, viewport.canvasHeight - top - bottom);
   const safeBounds: RunSummaryRect = { x: left, y: top, width, height };
   const gap = physicalToLogical(8, viewport);

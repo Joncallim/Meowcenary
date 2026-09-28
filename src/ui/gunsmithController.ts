@@ -174,6 +174,7 @@ export interface GunsmithSnapshot {
 export interface GunsmithFamilyView {
   readonly id: string;
   readonly name: string;
+  readonly iconArtId: string;
   readonly selected: boolean;
   /** An existing build can be selected; an absent value means creating this
    * registered family is the appropriate command. */
@@ -407,9 +408,12 @@ export class GunsmithController {
       builds: Object.freeze([...state.builds]),
       families: Object.freeze(getAllWeaponFamilies().map((family) => {
         const build = buildsByFamily.get(family.id);
+        const chassis = this.context.data.weapons.find((weapon) => weapon.family === family.id && weapon.mergeTier === 1)
+          ?? this.context.data.weapons.find((weapon) => weapon.family === family.id);
         return Object.freeze({
           id: family.id,
           name: family.name,
+          iconArtId: chassis?.art.iconId ?? '',
           selected: build !== undefined && build.id === selected?.id,
           existingBuildId: build?.id,
         });

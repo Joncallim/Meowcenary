@@ -267,7 +267,7 @@ export class MenuScene extends Phaser.Scene {
         this.scale.height / 2,
         backdropBinding.textureKey,
         backdropBinding.frameKey,
-      ).setAlpha(0.72).setScrollFactor(0));
+      ).setAlpha(0.48).setScrollFactor(0));
       const coverScale = Math.max(this.scale.width / backdrop.width, this.scale.height / backdrop.height);
       backdrop.setScale(coverScale);
     }
@@ -321,7 +321,7 @@ export class MenuScene extends Phaser.Scene {
         notice.setOrigin(0.5, 0).setScrollFactor(0);
       }
 
-      const contentTop = (snapshot.notice ? 86 : 64) + topMargin;
+      const contentTop = (snapshot.notice ? 96 : 76) + topMargin;
       const contentPanel = this.uiVisuals?.addPanel(
         this,
         this.safeCenterX,
@@ -329,7 +329,7 @@ export class MenuScene extends Phaser.Scene {
         Math.max(120, width - leftMargin - this.safeRightMargin),
         Math.max(80, this.scale.height - contentTop - edgeMargin(viewport, 'bottom')),
         'panel',
-        { alpha: 0.28 },
+        { alpha: 0.86 },
       );
       if (contentPanel) this.own(root, contentPanel);
 
@@ -461,25 +461,26 @@ export class MenuScene extends Phaser.Scene {
       ...threatPreview.map((threat) => threat.name),
       ...(omittedThreatCount > 0 ? [`+${omittedThreatCount} more`] : []),
     ].join(' • ');
-    const infoLines = [
-      `${selectedCharacter?.name ?? snapshot.character.selectedCharacterId} • ${this.getContext().saveData.progression.scrap} Scrap`,
-      `${campaignComplete ? 'CAMPAIGN COMPLETE — REPLAY' : selectedStage?.completed ? 'REPLAY CONTRACT' : 'NEXT CONTRACT'} • ${selectedStage?.chapterName ?? ''} ${selectedStage?.displayOrder ?? ''}`,
-      `${selectedStage?.name ?? snapshot.stage.selectedStageId} • ${selectedStage?.locationName ?? ''}`,
-      selectedStage?.objective.copy ?? '',
-      selectedStage ? `Threats: ${threatPreviewCopy}` : '',
-      selectedStage?.completed
-        ? `Best: ${formatDuration(selectedStage.bestTimeMs)}`
-        : `First clear: ${selectedStage?.reward.headline ?? ''}`,
-    ];
-
-    const info = this.own(root, createUiText(this,margin, top, infoLines.join('\n'), {
-      color: '#d6f7ff',
-      fontFamily: ThemeFont.family,
-      fontSize: `${ThemeFont.bodyMin}px`,
-      lineSpacing: 2,
-      wordWrap: { width: Math.max(1, width - margin - this.safeRightMargin - 78) },
-    }));
-    info.setScrollFactor(0);
+    const heroWidth = Math.max(1, width - margin - this.safeRightMargin - 82);
+    let heroY = top + 4;
+    const addHeroLine = (copy: string, color: string, fontSize: number, style?: string): Phaser.GameObjects.Text => {
+      const line = this.own(root, createUiText(this, margin + 10, heroY, copy, {
+        color, fontFamily: ThemeFont.family, fontSize: `${fontSize}px`,
+        ...(style ? { fontStyle: style } : {}),
+        wordWrap: { width: heroWidth - 10 },
+      }));
+      line.setScrollFactor(0);
+      heroY += line.height + 1;
+      return line;
+    };
+    addHeroLine(`${selectedCharacter?.name ?? snapshot.character.selectedCharacterId}  •  ${this.getContext().saveData.progression.scrap} Scrap`, '#a5f3fc', ThemeFont.bodyMin);
+    addHeroLine(`${campaignComplete ? 'CAMPAIGN COMPLETE — REPLAY' : selectedStage?.completed ? 'REPLAY CONTRACT' : 'NEXT CONTRACT'}  •  ${selectedStage?.chapterName ?? ''} ${selectedStage?.displayOrder ?? ''}`, '#fbbf24', ThemeFont.labelMin, '700');
+    addHeroLine(selectedStage?.name ?? snapshot.stage.selectedStageId, '#f7f1d5', ThemeFont.headingMin, '700');
+    addHeroLine(`${selectedStage?.locationName ?? ''}  •  ${selectedStage?.objective.copy ?? ''}`, '#d6f7ff', ThemeFont.bodyMin);
+    if (selectedStage) addHeroLine(`THREATS  ${threatPreviewCopy}`, '#a5f3fc', ThemeFont.bodyMin);
+    addHeroLine(selectedStage?.completed
+      ? `BEST  ${formatDuration(selectedStage.bestTimeMs)}`
+      : `FIRST CLEAR  ${selectedStage?.reward.headline ?? ''}`, '#86efac', ThemeFont.bodyMin, '700');
 
     const buttons: ReadonlyArray<{ readonly label: string; readonly artId: string; readonly action: () => void }> = [
       {
@@ -503,7 +504,7 @@ export class MenuScene extends Phaser.Scene {
         this.addPanelArt(root, artX - (index % 2) * 30, top + 88 + Math.floor(index / 2) * 28, threat.actorArtId, 24);
       });
     }
-    let y = top + info.height + 12;
+    let y = heroY + 10;
     if (this.runLaunchState === 'failed') {
       const detail = this.own(root, createUiText(this, margin, y,
         `Couldn't load this Contract. Retry or go Back.`,
@@ -524,8 +525,9 @@ export class MenuScene extends Phaser.Scene {
         this.addButton(root, margin + index * (buttonWidth + gap), y, label, hitTarget, action, 'ui:confirm', buttonWidth, artId);
       });
     } else {
+      const primaryWidth = Math.min(440, width - margin - this.safeRightMargin);
       buttons.slice(0, 2).forEach(({ label, artId, action }) => {
-        const button = this.addButton(root, this.safeCenterX, y, label, hitTarget, action, 'ui:confirm', undefined, artId);
+        const button = this.addButton(root, this.safeCenterX, y, label, hitTarget, action, 'ui:confirm', primaryWidth, artId);
         y += button.height + 6;
       });
       const secondary = buttons.slice(2);
@@ -556,17 +558,19 @@ export class MenuScene extends Phaser.Scene {
 
   private renderLoadout(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Loadout');
+    const actionWidth = Math.min(560, width - margin - this.safeRightMargin);
+    const actionX = this.safeCenterX - actionWidth / 2;
     const selectedCharacter = snapshot.character.characters.find((row) => row.selected);
     const equipped = Object.values(snapshot.equipment.equipped).filter(Boolean).length;
     const selectedBuild = snapshot.gunsmith.selectedBuild;
-    const summary = this.own(root, createUiText(this, margin, top + heading.height + 18,
+    const summary = this.own(root, createUiText(this, actionX, top + heading.height + 18,
       `${selectedCharacter?.name ?? 'Mercenary'}\nEquipment ${equipped}/4 slots • ${snapshot.equipment.activeSets.map((set) => `${set.name} ${set.pieces}/4`).join(' • ') || 'No active Set'}\nGunsmith: ${selectedBuild?.title ?? 'Choose a weapon build'}\n${this.getContext().saveData.progression.scrap} Scrap`,
-      { color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, lineSpacing: 4, wordWrap: { width: width - margin - this.safeRightMargin } },
+      { color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, lineSpacing: 5, wordWrap: { width: actionWidth } },
     ));
     let y = summary.y + summary.height + 24;
-    this.addButton(root, margin, y, 'Equipment', hitTarget, () => this.render(this.requireController().open('equipment')));
+    this.addButton(root, actionX, y, 'Equipment', hitTarget, () => this.render(this.requireController().open('equipment')), 'ui:confirm', actionWidth, 'nav-icon:equipment');
     y += hitTarget + 12;
-    this.addButton(root, margin, y, 'Gunsmith', hitTarget, () => this.render(this.requireController().open('gunsmith')));
+    this.addButton(root, actionX, y, 'Gunsmith', hitTarget, () => this.render(this.requireController().open('gunsmith')), 'ui:confirm', actionWidth, 'nav-icon:gunsmith');
     this.addBackButton(root, width, margin, hitTarget);
   }
 
@@ -677,46 +681,47 @@ export class MenuScene extends Phaser.Scene {
 
     snapshot.character.characters.forEach((character) => {
       const label = `${character.selected ? '✓ ' : ''}${character.name}${character.locked ? ' 🔒' : ''}`;
-      const artColumn = 88;
-      const button = this.addButton(root, margin + artColumn, y, label, hitTarget, () => {
+      const cardWidth = width - margin - this.safeRightMargin;
+      const compact = cardWidth < 520;
+      const portraitColumn = compact ? 86 : 108;
+      const cardHeight = compact ? 210 : 138;
+      const button = this.addButton(root, margin, y, label, cardHeight, () => {
         const next = this.requireController().selectCharacter(character.id, snapshot.character.revision);
         this.render(next);
-      }, 'ui:confirm', width - margin - this.safeRightMargin - artColumn);
+      }, 'ui:confirm', cardWidth, undefined, 62, portraitColumn, true);
       const rowOwnerIndex = this.focusables.length - 1;
-      const rowHeaderHeight = Math.max(56, button.height);
-      this.addPanelArt(root, margin + 38, y + 38, character.portraitArtId, 76, character.locked, false, rowOwnerIndex);
-      this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + rowHeaderHeight / 2, character.startingWeaponIconArtId, 32, rowOwnerIndex);
+      this.addPanelArt(root, margin + portraitColumn / 2, y + cardHeight / 2, character.portraitArtId, compact ? 76 : 92, character.locked, false, rowOwnerIndex);
+      this.addCatalogIcon(root, width - this.safeRightMargin - 20, y + 22, character.startingWeaponIconArtId, 30, rowOwnerIndex);
       if (character.locked) {
-        this.addCatalogIcon(root, width - this.safeRightMargin - 52, y + rowHeaderHeight / 2, 'ui-chrome:locked', 24, rowOwnerIndex);
+        this.addCatalogIcon(root, width - this.safeRightMargin - 52, y + 22, 'ui-chrome:locked', 22, rowOwnerIndex);
       }
       if (character.description || character.abilityName) {
-        const detailX = margin + artColumn;
+        const detailX = margin + portraitColumn;
         const details = [
-          `${character.description} • Starts: ${character.startingWeaponSummary}`,
-          `Base: ${character.baseStatsSummary}`,
-          character.passives.map((passive) => `${passive.name}: ${passive.description}`).join(' • '),
-          character.abilityName ? `${character.abilityName.toUpperCase()}: ${character.abilityDescription}` : undefined,
-          character.locked ? character.unlockRequirement : undefined,
+          character.description,
+          `${character.baseStatsSummary}  •  Starts: ${character.startingWeaponSummary}`,
+          character.passives.length > 0 ? `PASSIVE  ${character.passives.map((passive) => `${passive.name} — ${passive.description}`).join(' • ')}` : undefined,
+          character.abilityName ? `ABILITY  ${character.abilityName} — ${character.abilityDescription}` : undefined,
+          character.locked ? `UNLOCK  ${character.unlockRequirement}` : undefined,
         ]
           .filter(Boolean).join('\n');
-        const desc = this.own(root, createUiText(this, detailX, y + rowHeaderHeight + 2, details, {
+        const desc = this.own(root, createUiText(this, detailX, y + 38, details, {
           color: '#a5f3fc',
           fontFamily: ThemeFont.family,
           fontSize: `${ThemeFont.bodyMin}px`,
-          wordWrap: { width: width - margin - this.safeRightMargin - artColumn },
+          lineSpacing: 2,
+          wordWrap: { width: cardWidth - portraitColumn - 12 },
         }));
         desc.setScrollFactor(0);
         this.registerScrollObject(desc, rowOwnerIndex);
         if (character.abilityIconArtId) {
-          this.addCatalogIcon(root, detailX - 18, y + rowHeaderHeight + desc.height - 10, character.abilityIconArtId, 28, rowOwnerIndex);
+          this.addCatalogIcon(root, margin + portraitColumn - 16, y + cardHeight - 25, character.abilityIconArtId, 28, rowOwnerIndex);
         }
         character.passives.slice(0, 2).forEach((passive, index) => {
-          this.addCatalogIcon(root, detailX - 18, y + rowHeaderHeight + 46 + index * 26, passive.iconArtId, 22, rowOwnerIndex);
+          this.addCatalogIcon(root, margin + portraitColumn - 16, y + cardHeight - 56 - index * 26, passive.iconArtId, 22, rowOwnerIndex);
         });
-        y += rowHeaderHeight + desc.height + 10;
-      } else {
-        y += rowHeaderHeight + 16;
       }
+      y += button.height + 10;
     });
 
     this.endScrollableRegion();
@@ -774,13 +779,25 @@ export class MenuScene extends Phaser.Scene {
         y += chapterLabel.height + 8;
       }
       const status = stage.locked ? `LOCKED — ${stage.lockCopy}` : stage.completed ? `CLEARED • Best ${formatDuration(stage.bestTimeMs)}` : 'AVAILABLE';
-      const label = `${stage.selected ? '✓ ' : ''}${stage.boss ? 'BOSS • ' : ''}${stage.name}\n${stage.locationName} • ${stage.objective.copy}\n${status}`;
-      const button = this.addButton(root, margin + 42, y, label, hitTarget, () => {
+      const title = `${stage.selected ? '✓ ' : ''}${stage.boss ? 'BOSS • ' : ''}${stage.name}`;
+      const cardWidth = width - margin - this.safeRightMargin;
+      const cardHeight = 88;
+      const button = this.addButton(root, margin, y, title, cardHeight, () => {
         this.render(this.requireController().selectStage(stage.id));
-      }, 'ui:confirm', width - margin - this.safeRightMargin - 42);
+      }, 'ui:confirm', cardWidth, undefined, 36, 52, true);
       const rowOwnerIndex = this.focusables.length - 1;
       if (stage.locked) this.disableButton(button);
-      this.addPanelArt(root, margin + 18, y + Math.min(button.height, 52) / 2, stage.objective.artId, 32, stage.locked, false, rowOwnerIndex);
+      this.addPanelArt(root, margin + 25, y + cardHeight / 2, stage.objective.artId, 34, stage.locked, false, rowOwnerIndex);
+      const metadata = this.own(root, createUiText(this, margin + 52, y + 34,
+        `${stage.locationName}  •  ${stage.objective.copy}\n${status}`, {
+          color: stage.locked ? '#94a3b8' : stage.completed ? '#86efac' : '#a5f3fc',
+          fontFamily: ThemeFont.family,
+          fontSize: `${ThemeFont.bodyMin}px`,
+          lineSpacing: 2,
+          wordWrap: { width: cardWidth - 98 },
+        }));
+      metadata.setScrollFactor(0);
+      this.registerScrollObject(metadata, rowOwnerIndex);
       const stateArtId = stage.locked ? 'ui-chrome:locked'
         : stage.completed ? 'ui-chrome:cleared'
           : stage.boss ? 'ui-chrome:boss' : undefined;
@@ -788,7 +805,7 @@ export class MenuScene extends Phaser.Scene {
         // The shared scroll rail owns the rightmost 9px. Keep a physical
         // gutter between it and the 24px state marker so neither can obscure
         // the other on the canonical 390px phone viewport.
-        this.addCatalogIcon(root, width - this.safeRightMargin - 30, y + Math.min(button.height, 52) / 2, stateArtId, 24, rowOwnerIndex);
+        this.addCatalogIcon(root, width - this.safeRightMargin - 22, y + 22, stateArtId, 24, rowOwnerIndex);
       }
       y += button.height + 10;
       if (stage.selected && !stage.locked) {
@@ -817,13 +834,15 @@ export class MenuScene extends Phaser.Scene {
 
   private renderCareer(root: Phaser.GameObjects.Container, _snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Career');
+    const actionWidth = Math.min(560, width - margin - this.safeRightMargin);
+    const actionX = this.safeCenterX - actionWidth / 2;
     let y = top + heading.height + 20;
-    for (const [label, panel] of [
-      ['Next Goals', 'next-goals'],
-      ['Achievements', 'achievements'],
-      ['Compendium', 'compendium'],
+    for (const [label, panel, artId] of [
+      ['Next Goals', 'next-goals', 'nav-icon:change-contract'],
+      ['Achievements', 'achievements', 'nav-icon:achievements'],
+      ['Compendium', 'compendium', 'nav-icon:compendium'],
     ] as const) {
-      this.addButton(root, margin, y, label, hitTarget, () => this.render(this.requireController().open(panel)));
+      this.addButton(root, actionX, y, label, hitTarget, () => this.render(this.requireController().open(panel)), 'ui:confirm', actionWidth, artId);
       y += hitTarget + 12;
     }
     this.addBackButton(root, width, margin, hitTarget);
@@ -831,20 +850,22 @@ export class MenuScene extends Phaser.Scene {
 
   private renderNextGoals(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Next Goals');
+    const actionWidth = Math.min(620, width - margin - this.safeRightMargin);
+    const actionX = this.safeCenterX - actionWidth / 2;
     let y = top + heading.height + 16;
     const overview = snapshot.progressionOverview;
-    const summary = this.own(root, createUiText(this, margin, y,
+    const summary = this.own(root, createUiText(this, actionX, y,
       `Contracts ${overview.completedStages}/${overview.totalStages} • Achievements ${overview.completedAchievements}/${overview.totalAchievements}`,
-      { color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin } }));
+      { color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: actionWidth } }));
     y += summary.height + 12;
     overview.nextGoals.forEach((goal) => {
-      this.addPanelArt(root, margin + 18, y + 22, goal.artId, 32);
-      const row = this.own(root, createUiText(this, margin + 42, y, `${goal.title}\n${goal.detail}`, {
-        color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin - 42 },
+      this.addPanelArt(root, actionX + 18, y + 22, goal.artId, 32);
+      const row = this.own(root, createUiText(this, actionX + 42, y, `${goal.title}\n${goal.detail}`, {
+        color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: actionWidth - 42 },
       }));
       y += row.height + 12;
     });
-    this.addButton(root, margin, y, 'Choose Contract', hitTarget, () => this.render(this.requireController().open('stage')));
+    this.addButton(root, actionX, y, 'Choose Contract', hitTarget, () => this.render(this.requireController().open('stage')), 'ui:confirm', actionWidth, 'nav-icon:change-contract');
     this.addBackButton(root, width, margin, hitTarget);
     void this.ensurePanelPresentation('next-goals', overview.nextGoals.map((goal) => goal.artId));
   }
@@ -860,13 +881,21 @@ export class MenuScene extends Phaser.Scene {
           ? `${entry.fieldNote}\nTells: ${entry.tells}`
           : `${entry.fieldNote}\nBehaviour: ${entry.behaviour}\nTells: ${entry.tells}\nCounterplay: ${entry.counterplay}${entry.foundIn.length > 0 ? `\nFound in: ${entry.foundIn[0]}` : ''}`;
       const name = entry.status === 'unseen' ? 'Unknown' : entry.name;
-      const artColumn = entry.actorArtId ? 58 : 0;
-      const row = this.addButton(root, margin + artColumn, y, `${name}\n${detail}`, hitTarget, () => undefined, 'ui:confirm', width - margin - this.safeRightMargin - artColumn);
+      const leading = entry.actorArtId ? 68 : 50;
+      const cardWidth = width - margin - this.safeRightMargin;
+      const cardHeight = entry.status === 'defeated' ? 156 : entry.status === 'encountered' ? 112 : 72;
+      const row = this.addButton(root, margin, y, name, cardHeight, () => undefined, 'ui:confirm', cardWidth, undefined, 8, leading, true);
       const rowOwnerIndex = this.focusables.length - 1;
-      row.setStyle({
-        color: entry.status === 'unseen' ? '#94a3b8' : '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-      });
-      if (entry.actorArtId) this.addPanelArt(root, margin + 26, y + Math.min(row.height, 58) / 2, entry.actorArtId, 50, false, true, rowOwnerIndex);
+      row.setStyle({ color: entry.status === 'unseen' ? '#94a3b8' : '#f7f1d5' });
+      const detailCopy = this.own(root, createUiText(this, margin + leading, y + 34, detail, {
+        color: entry.status === 'unseen' ? '#94a3b8' : '#a5f3fc', fontFamily: ThemeFont.family,
+        fontSize: `${ThemeFont.bodyMin}px`, lineSpacing: 2,
+        wordWrap: { width: cardWidth - leading - 24 },
+      }));
+      detailCopy.setScrollFactor(0);
+      this.registerScrollObject(detailCopy, rowOwnerIndex);
+      if (entry.actorArtId) this.addPanelArt(root, margin + 32, y + cardHeight / 2, entry.actorArtId, 58, false, true, rowOwnerIndex);
+      else this.addCatalogIcon(root, margin + 25, y + cardHeight / 2, 'ui-chrome:locked', 26, rowOwnerIndex);
       y += row.height + 12;
     });
     this.endScrollableRegion();
@@ -876,15 +905,17 @@ export class MenuScene extends Phaser.Scene {
 
   private renderTraining(root: Phaser.GameObjects.Container, width: number, top: number, margin: number, hitTarget: number): void {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Training');
-    const copy = this.own(root, createUiText(this, margin, top + heading.height + 20,
+    const actionWidth = Math.min(560, width - margin - this.safeRightMargin);
+    const actionX = this.safeCenterX - actionWidth / 2;
+    const copy = this.own(root, createUiText(this, actionX, top + heading.height + 20,
       'Practice movement and auto-fire here. Training does not award progression or Compendium discovery.',
-      { color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin } }));
+      { color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: actionWidth } }));
     const startY = top + heading.height + copy.height + 36;
-    this.addButton(root, margin, startY, this.runLaunchState === 'failed' ? 'Retry Training' : 'Start Training', hitTarget, () => { void this.startTrainingWithResources(); });
+    this.addButton(root, actionX, startY, this.runLaunchState === 'failed' ? 'Retry Training' : 'Start Training', hitTarget, () => { void this.startTrainingWithResources(); }, 'ui:confirm', actionWidth, 'nav-icon:training');
     if (this.runLaunchState === 'failed') {
-      this.own(root, createUiText(this, margin, startY + hitTarget + 8, "Couldn't load this Contract. Retry or go Back.", {
+      this.own(root, createUiText(this, actionX, startY + hitTarget + 8, "Couldn't load Training. Retry or go Back.", {
         color: '#f87171', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-        wordWrap: { width: width - margin - this.safeRightMargin },
+        wordWrap: { width: actionWidth },
       }));
     }
     this.addBackButton(root, width, margin, hitTarget);
@@ -904,6 +935,11 @@ export class MenuScene extends Phaser.Scene {
     const selected = snapshot.achievements.selectedAchievement;
     const detailTop = top + heading.height + 10;
     if (selected) {
+      const detailWidth = width - margin - this.safeRightMargin;
+      const detailPanel = this.uiVisuals?.addPanel(
+        this, this.safeCenterX, detailTop + 48, detailWidth, 96, 'card', { alpha: 0.58 },
+      );
+      if (detailPanel) this.own(root, detailPanel);
       this.addAchievementIcon(root, margin + 17, detailTop + 22, selected.iconArtId, 34);
       this.own(root, createUiText(this, margin + 42, detailTop,
         `${selected.name}\n${achievementStatusCopy(selected)} • ${selected.progress}/${selected.target}\n${selected.description}\nReward: ${selected.rewardSummary}`,
@@ -958,15 +994,19 @@ export class MenuScene extends Phaser.Scene {
     this.registerScrollObject(chassis);
     y += hitTarget * 0.7;
     snapshot.gunsmith.families.forEach((family) => {
-      const label = family.selected
-        ? `${family.name} Build\nSelected`
-        : family.existingBuildId
-          ? `${family.name} Build\nConfigured`
-          : `${family.name} Build\nEmpty`;
-      this.addButton(root, margin, y, label, hitTarget, () => this.render(family.existingBuildId
+      const label = `${family.name} Build`;
+      const status = family.selected ? 'SELECTED' : family.existingBuildId ? 'CONFIGURED' : 'EMPTY — TAP TO CREATE';
+      const familyCard = this.addButton(root, margin, y, label, 72, () => this.render(family.existingBuildId
         ? this.requireController().selectGunBuild(family.existingBuildId)
-        : this.requireController().createGunBuild(family.id)));
-      y += hitTarget + 10;
+        : this.requireController().createGunBuild(family.id)), 'ui:confirm', width - margin - this.safeRightMargin, undefined, 8, 60, true);
+      const rowOwnerIndex = this.focusables.length - 1;
+      this.addCatalogIcon(root, margin + 30, y + 36, family.iconArtId, 38, rowOwnerIndex);
+      const statusCopy = this.own(root, createUiText(this, margin + 60, y + 38, status, {
+        color: family.selected ? '#86efac' : '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, fontStyle: '700',
+      }));
+      statusCopy.setScrollFactor(0);
+      this.registerScrollObject(statusCopy, rowOwnerIndex);
+      y += familyCard.height + 10;
     });
     const selected = snapshot.gunsmith.selectedBuild;
     if (!selected) {
@@ -1015,7 +1055,7 @@ export class MenuScene extends Phaser.Scene {
           color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
         }));
         this.registerScrollObject(slotHeading);
-        this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + slotHeading.height / 2, slot.iconArtId, 24);
+        this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + slotHeading.height / 2, slot.iconArtId, 24);
         y += slotHeading.height + 4;
         if (slot.unavailableFitted) {
           const row = this.addButton(root, margin, y, `${slot.unavailableFitted.label}\nREMOVE UNAVAILABLE PART`, hitTarget,
@@ -1039,12 +1079,12 @@ export class MenuScene extends Phaser.Scene {
           const iconColumn = 38 + part.traitIcons.length * 28;
           const row = this.addButton(root, margin, y, label, hitTarget, () => this.render(part.state === 'fitted-here'
             ? this.requireController().unequipGunPart(part.instanceId)
-            : this.requireController().fitGunPart(part.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
+            : this.requireController().fitGunPart(part.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin, undefined, iconColumn);
           const rowOwnerIndex = this.focusables.length - 1;
           if (!enabled) this.disableButton(row);
-          this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, part.iconArtId, 26, rowOwnerIndex);
+          this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + hitTarget / 2, part.iconArtId, 26, rowOwnerIndex);
           part.traitIcons.forEach((trait, index) => {
-            this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41 - index * 28, y + hitTarget / 2, trait.iconArtId, 22, rowOwnerIndex);
+            this.addCatalogIcon(root, width - this.safeRightMargin - 46 - index * 28, y + hitTarget / 2, trait.iconArtId, 22, rowOwnerIndex);
           });
           y += row.height + 8;
         });
@@ -1108,18 +1148,19 @@ export class MenuScene extends Phaser.Scene {
         const detail = [part.lockReason, part.sourceLabel].filter((line) => line !== undefined).join(' ');
         const label = `${part.name} • ${part.rarity.toUpperCase()}\n${part.stateLabel}\n${part.effectLines.join(' • ') || 'Trait engineering'}\n${part.comparisonSummary}\n${detail}${part.fabricationActionLabel === undefined ? '' : `\n${part.fabricationActionLabel}`}`;
         const row = this.addButton(root, margin, y, label, hitTarget,
-          () => this.render(this.requireController().fabricateGunPart(part.partId)), 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
+          () => this.render(this.requireController().fabricateGunPart(part.partId)), 'ui:confirm', width - margin - this.safeRightMargin, undefined, iconColumn);
         const rowOwnerIndex = this.focusables.length - 1;
         if (!part.canFabricate) this.disableButton(row);
-        this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, part.iconArtId, 26, rowOwnerIndex);
+        this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + hitTarget / 2, part.iconArtId, 26, rowOwnerIndex);
         part.traitIcons.forEach((trait, index) => {
-          this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41 - index * 28, y + hitTarget / 2, trait.iconArtId, 22, rowOwnerIndex);
+          this.addCatalogIcon(root, width - this.safeRightMargin - 46 - index * 28, y + hitTarget / 2, trait.iconArtId, 22, rowOwnerIndex);
         });
         y += row.height + 8;
       });
     }
     this.endScrollableRegion();
     void this.ensureGunsmithPresentation([
+      ...snapshot.gunsmith.families.map((family) => family.iconArtId),
       ...(snapshot.gunsmith.selectedBuild?.preview ? [
         snapshot.gunsmith.selectedBuild.preview.baseArtId,
         ...snapshot.gunsmith.selectedBuild.preview.layers.map((layer) => layer.artId),
@@ -1161,7 +1202,7 @@ export class MenuScene extends Phaser.Scene {
           color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
           wordWrap: { width: width - margin - this.safeRightMargin - 38 },
         }));
-        this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + Math.min(activeText.height, hitTarget) / 2, set.emblemArtId);
+        this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + Math.min(activeText.height, hitTarget) / 2, set.emblemArtId);
         y += activeText.height + 8;
       }
       y += 4;
@@ -1178,10 +1219,10 @@ export class MenuScene extends Phaser.Scene {
         this.render(equippedHere
           ? this.requireController().unequipEquipment(item.slot as 'helmet' | 'armour' | 'gloves' | 'boots')
           : this.requireController().equipEquipment(item.instanceId));
-      }, 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
+      }, 'ui:confirm', width - margin - this.safeRightMargin, undefined, iconColumn);
       const rowOwnerIndex = this.focusables.length - 1;
-      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, item.iconArtId, 26, rowOwnerIndex);
-      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41, y + hitTarget / 2, item.setEmblemArtId, 22, rowOwnerIndex);
+      this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + hitTarget / 2, item.iconArtId, 26, rowOwnerIndex);
+      this.addCatalogIcon(root, width - this.safeRightMargin - 48, y + hitTarget / 2, item.setEmblemArtId, 22, rowOwnerIndex);
       y += equipmentButton.height + 8;
       const effects = this.own(root, createUiText(this, margin, y, item.effectSummary.join(' • '), {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
@@ -1233,12 +1274,26 @@ export class MenuScene extends Phaser.Scene {
     }
     snapshot.equipment.blueprints.forEach((blueprint) => {
       const slot = `${blueprint.slot.charAt(0).toUpperCase()}${blueprint.slot.slice(1)}`;
-      const row = this.addButton(root, margin, y, `${blueprint.name}\n${blueprint.setName} Set • ${slot}\n${blueprint.effectSummary.join(' • ')}\nFabricate — ${blueprint.fabricationCost} Scrap`, hitTarget, () => {
+      const cardWidth = width - margin - this.safeRightMargin;
+      const cardHeight = 112;
+      const row = this.addButton(root, margin, y, blueprint.name, cardHeight, () => {
         this.render(this.requireController().fabricateEquipment(blueprint.equipmentId));
-      }, 'ui:confirm', width - margin - this.safeRightMargin - 66);
+      }, 'ui:confirm', cardWidth, undefined, 66, 10, true);
       const rowOwnerIndex = this.focusables.length - 1;
-      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, blueprint.iconArtId, 26, rowOwnerIndex);
-      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41, y + hitTarget / 2, blueprint.setEmblemArtId, 22, rowOwnerIndex);
+      for (const [copy, offset, color] of [
+        [`${blueprint.setName} Set  •  ${slot}`, 35, '#a5f3fc'],
+        [blueprint.effectSummary.join('  •  '), 58, '#d6f7ff'],
+        [`FABRICATE  •  ${blueprint.fabricationCost} Scrap`, 82, '#fbbf24'],
+      ] as const) {
+        const line = this.own(root, createUiText(this, margin + 10, y + offset, copy, {
+          color, fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
+          wordWrap: { width: cardWidth - 82 },
+        }));
+        line.setScrollFactor(0);
+        this.registerScrollObject(line, rowOwnerIndex);
+      }
+      this.addCatalogIcon(root, width - this.safeRightMargin - 20, y + 28, blueprint.iconArtId, 30, rowOwnerIndex);
+      this.addCatalogIcon(root, width - this.safeRightMargin - 52, y + 28, blueprint.setEmblemArtId, 24, rowOwnerIndex);
       y += row.height + 8;
     });
     this.endScrollableRegion();
@@ -1261,6 +1316,8 @@ export class MenuScene extends Phaser.Scene {
     hitTarget: number,
   ): void {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Settings');
+    const actionWidth = Math.min(560, width - margin - this.safeRightMargin);
+    const actionX = this.safeCenterX - actionWidth / 2;
     let y = top + heading.height + 20;
 
     const settings = snapshot.settings;
@@ -1288,10 +1345,10 @@ export class MenuScene extends Phaser.Scene {
     ];
 
     rows.forEach((row) => {
-      this.addButton(root, margin, y, row.label, hitTarget, () => {
+      this.addButton(root, actionX, y, row.label, hitTarget, () => {
         const next = row.action();
         this.render(next);
-      }, 'ui:confirm', undefined, row.artId);
+      }, 'ui:confirm', actionWidth, row.artId);
       y += hitTarget + 12;
     });
 
@@ -1321,13 +1378,17 @@ export class MenuScene extends Phaser.Scene {
     audioEvent: MenuAudioEvent = 'ui:confirm',
     maxLabelWidth?: number,
     artId?: string,
+    trailingReserve = 0,
+    leadingReserve = 0,
+    topAligned = false,
   ): Phaser.GameObjects.Text {
+    const leftInset = Math.max(artId ? 40 : 10, leadingReserve);
     const text = this.own(root, createUiText(this,x, y, label, {
       color: '#f7f1d5',
       fontFamily: ThemeFont.family,
       fontSize: `${ThemeFont.labelMin}px`,
-      padding: { left: artId ? 40 : 10, right: 10, top: 8, bottom: 8 },
-      ...(maxLabelWidth === undefined ? {} : { wordWrap: { width: Math.max(1, maxLabelWidth - (artId ? 50 : 20)) } }),
+      padding: { left: leftInset, right: 10, top: 8, bottom: 8 },
+      ...(maxLabelWidth === undefined ? {} : { wordWrap: { width: Math.max(1, maxLabelWidth - leftInset - 10 - trailingReserve) } }),
     }));
     text.setOrigin(x === this.safeCenterX ? 0.5 : 0, 0);
     text.setScrollFactor(0);
@@ -1336,7 +1397,7 @@ export class MenuScene extends Phaser.Scene {
     const horizontalPadding = bounds.width < MIN_MENU_BUTTON_LOGICAL_WIDTH
       ? (MIN_MENU_BUTTON_LOGICAL_WIDTH - bounds.width) / 2 + (text.padding.left ?? 10)
       : (text.padding.left ?? 10);
-    const verticalPadding = bounds.height < minHeight
+    const verticalPadding = !topAligned && bounds.height < minHeight
       ? (minHeight - bounds.height) / 2 + (text.padding.top ?? 8)
       : (text.padding.top ?? 8);
     // Text bounds include padding. The same correction used for height also
@@ -1345,6 +1406,14 @@ export class MenuScene extends Phaser.Scene {
     // at the worst promised FIT without narrowing longer labels.
     if (horizontalPadding !== (text.padding.left ?? 10) || verticalPadding !== (text.padding.top ?? 8)) {
       text.setPadding(horizontalPadding, verticalPadding);
+    }
+
+    if (maxLabelWidth !== undefined) {
+      const measured = text.getBounds();
+      // A declared card width is a geometry contract, not merely a wrapping
+      // hint. Chrome, pointer hit area, focus ring and scroll bounds all read
+      // from this same Text object below, so they cannot drift apart.
+      text.setFixedSize(Math.max(MIN_MENU_BUTTON_LOGICAL_WIDTH, maxLabelWidth), Math.max(minHeight, measured.height));
     }
 
     const framedBounds = text.getBounds();

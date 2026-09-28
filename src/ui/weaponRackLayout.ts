@@ -56,7 +56,7 @@ export function computeMergePreviewTextLayout(
   compact: boolean,
 ): MergePreviewTextLayout {
   const physical = (pixels: number): number => physicalToLogical(pixels, viewport);
-  const fontSize = compact ? 11 : ThemeFont.bodyMin;
+  const fontSize = compact ? 11 : Math.min(ThemeFont.bodyMin, 12);
   const fontRowSize = physical(Math.ceil(fontSize * 1.25));
   const rowSpacing = physical(compact ? 1 : 4);
   const deltaStep = fontRowSize + rowSpacing;
@@ -92,20 +92,25 @@ export function computeWeaponRackLayout(
   // width. A compact 4px margin and 2px gutter still leave three 44px cards.
   const baseMargin = compact ? 4 : 12;
   const margin = edgeMargin(viewport, 'left', baseMargin);
-  const leftMargin = margin;
-  const rightMargin = edgeMargin(viewport, 'right', baseMargin);
+  const rawRightMargin = edgeMargin(viewport, 'right', baseMargin);
   const topMargin = edgeMargin(viewport, 'top', baseMargin);
   const bottomMargin = edgeMargin(viewport, 'bottom', baseMargin);
   const gap = physical(compact ? 2 : 8);
   const hitTarget = minimumHitTarget(viewport);
-  const headingSize = physical(ThemeFont.headingMin);
-  const labelSize = physical(ThemeFont.labelMin);
+  // Rack geometry reserves its established compact type metrics even when
+  // the broader menu typography grows; 44px slot targets and the complete
+  // merge preview must never be traded away for a taller heading.
+  const headingSize = physical(Math.min(ThemeFont.headingMin, 18));
+  const labelSize = physical(Math.min(ThemeFont.labelMin, 14));
   const guideY = topMargin + headingSize + physical(2);
   const keyHintY = compact ? undefined : guideY + labelSize + physical(4);
   const gridTop = (keyHintY ?? guideY) + labelSize + physical(compact ? 8 : 12);
   const columns = compact ? 3 : 2;
   const rows = Math.max(1, Math.ceil(Math.max(1, capacity) / columns));
-  const gridWidth = Math.max(1, width - leftMargin - rightMargin);
+  const availableWidth = Math.max(1, width - margin - rawRightMargin);
+  const gridWidth = Math.min(availableWidth, physical(960));
+  const leftMargin = Math.max(margin, (width - gridWidth) / 2);
+  const rightMargin = width - leftMargin - gridWidth;
   const safeCenterX = leftMargin + gridWidth / 2;
   const cardWidth = Math.max(1, (gridWidth - gap * (columns - 1)) / columns);
 

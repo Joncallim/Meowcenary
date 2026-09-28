@@ -171,6 +171,11 @@ function fakeObject(
       state.y = y;
       return api;
     },
+    setFixedSize(width: number, height: number) {
+      state.width = width;
+      state.height = height;
+      return api;
+    },
     on(event: string, handler: () => void) {
       state.handlers = { ...state.handlers, [event]: handler };
       return api;
@@ -384,11 +389,11 @@ describe('MenuScene', () => {
     const harness = createHarness();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
-    expect(harness.textContents()).toEqual(expect.arrayContaining(['Weapon builds', 'Pistol Build\nEmpty', 'SMG Build\nEmpty', 'Shotgun Build\nEmpty']));
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['Weapon builds', 'Pistol Build', 'SMG Build', 'Shotgun Build', 'EMPTY — TAP TO CREATE']));
 
-    harness.buttonByLabel('Pistol Build\nEmpty')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Pistol Build')!.state.handlers.pointerup!();
     expect(harness.textContents()).toEqual(expect.arrayContaining([
-      'Pistol Build\nSelected', 'SMG Build\nEmpty', 'Shotgun Build\nEmpty',
+      'Pistol Build', 'SMG Build', 'Shotgun Build', 'SELECTED',
       'PISTOL BUILD\nSelected • Active from start', 'Stock Pistol chassis',
     ]));
     const compactLabel = 'Compact Receiver • COMMON\nBlueprint • 60 Scrap\nFire rate +8%\nCurrent build: Fire interval 650ms → 601.9ms\nFabricate for 60 Scrap\nFabricate — 60 Scrap';
@@ -396,9 +401,9 @@ describe('MenuScene', () => {
     expect(harness.textContents().join('\n')).toContain('Standard Barrel • COMMON\nLocked blueprint');
     expect(harness.buttonByLabel(compactLabel)!.state.interactive).toBe(false);
     expect(harness.context.saveData.gunsmith.parts).toEqual({});
-    harness.buttonByLabel('SMG Build\nEmpty')!.state.handlers.pointerup!();
-    expect(harness.textContents()).toEqual(expect.arrayContaining(['Pistol Build\nConfigured', 'SMG Build\nSelected', 'Shotgun Build\nEmpty']));
-    harness.buttonByLabel('Pistol Build\nConfigured')!.state.handlers.pointerup!();
+    harness.buttonByLabel('SMG Build')!.state.handlers.pointerup!();
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['Pistol Build', 'SMG Build', 'Shotgun Build', 'CONFIGURED', 'SELECTED']));
+    harness.buttonByLabel('Pistol Build')!.state.handlers.pointerup!();
     expect(harness.context.saveData.gunsmith.selectedBuildId).toBe('build:pistol');
     expect(harness.context.saveData.gunsmith.builds.map((build) => build.id)).toEqual(['build:pistol', 'build:smg']);
   });
@@ -407,7 +412,7 @@ describe('MenuScene', () => {
     const harness = createHarness();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
-    harness.buttonByLabel('Pistol Build\nEmpty')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Pistol Build')!.state.handlers.pointerup!();
     const scene = harness.menuScene as unknown as {
       controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
       navigator: { index: number };
@@ -782,7 +787,7 @@ describe('MenuScene', () => {
 
     expect(scene.addPanelArt).toHaveBeenCalledTimes(8);
     expect(scene.addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'character-portrait:scrap-tabby', 76, false, false, expect.any(Number));
-    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'weapon-icon:pistol:t1', 32, expect.any(Number));
+    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'weapon-icon:pistol:t1', 30, expect.any(Number));
     expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'ability-icon:scrap-burst', 28, expect.any(Number));
     expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'passive-icon:scrap-hoarder', 22, expect.any(Number));
   });
@@ -1164,9 +1169,25 @@ describe('MenuScene', () => {
       ]),
     );
     expect(objects.filter((object) => object.state.kind === 'container')).toHaveLength(1);
-    expect(textContents()).toContain(
-      'Scrap Tabby • 0 Scrap\nNEXT CONTRACT • Junkyard 1\nFirst Scavenge • Junkyard Lot\nEliminate 25 threats\nThreats: Dust Mite • Scrap Skitter • Junk Rusher • Scrap Sniper\nFirst clear: 35 Scrap + Standard Barrel T1',
-    );
+    expect(textContents()).toEqual(expect.arrayContaining([
+      'Scrap Tabby  •  0 Scrap',
+      'NEXT CONTRACT  •  Junkyard 1',
+      'First Scavenge',
+      'Junkyard Lot  •  Eliminate 25 threats',
+      'THREATS  Dust Mite • Scrap Skitter • Junk Rusher • Scrap Sniper',
+      'FIRST CLEAR  35 Scrap + Standard Barrel T1',
+    ]));
+  });
+
+  it('uses the declared card width for sparse-menu actions instead of shrink-wrapping labels', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+
+    const equipment = harness.buttonByLabel('Equipment')!;
+    const gunsmith = harness.buttonByLabel('Gunsmith')!;
+    expect(equipment.state.width).toBeGreaterThanOrEqual(360);
+    expect(gunsmith.state.width).toBe(equipment.state.width);
+    expect(equipment.state.x).toBe(gunsmith.state.x);
   });
 
   it('bounds the narrow Home threat preview while preserving the complete Contract detail roster', () => {
@@ -1199,8 +1220,9 @@ describe('MenuScene', () => {
     scene.render({ ...base, panel: 'home', stage: { ...base.stage, stages } });
 
     const homeCopy = harness.textContents().find((text) => text.includes('NEXT CONTRACT'))!;
-    expect(homeCopy).toContain('Threats: Threat 0 • Threat 1 • Threat 2 • Threat 3 • +8 more');
-    expect(homeCopy).not.toContain('Threat 4');
+    expect(homeCopy).toBe('NEXT CONTRACT  •  Junkyard 1');
+    expect(harness.textContents()).toContain('THREATS  Threat 0 • Threat 1 • Threat 2 • Threat 3 • +8 more');
+    expect(harness.textContents().join(' ')).not.toContain('Threat 4');
     expect(addPanelArt.mock.calls.filter((call) => call[3] === 'enemy:dust-mite')).toHaveLength(4);
     const safeBottom = 640 - edgeMargin(scene.currentViewport, 'bottom');
     const homeActions = harness.objects.filter((object) =>
@@ -1247,7 +1269,7 @@ describe('MenuScene', () => {
     scene.render(scene.controller.snapshot());
 
     expect(harness.textContents().some((text) => text.includes('CAMPAIGN COMPLETE — REPLAY'))).toBe(true);
-    expect(harness.textContents().some((text) => text.includes('Forge Warden • Forge Foundry'))).toBe(true);
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['Forge Warden', 'Forge Foundry  •  Defeat Forge Warden']));
     expect(harness.textContents()).toContain('Replay Contract');
     expect(harness.textContents().some((text) => text.includes('NEXT CONTRACT'))).toBe(false);
   });
@@ -1267,8 +1289,9 @@ describe('MenuScene', () => {
     const harness = createHarness();
     harness.buttonByLabel('Change Contract')!.state.handlers.pointerup!();
     expect(harness.textContents()).toEqual(expect.arrayContaining(['JUNKYARD', 'FORGE']));
-    const locked = harness.buttonByLabel('Scrap Run\nJunkyard Lot • Collect 14 Scrap\nLOCKED — Clear First Scavenge.')!;
+    const locked = harness.buttonByLabel('Scrap Run')!;
     expect(locked.state.interactive).toBe(false);
+    expect(harness.textContents()).toContain('Junkyard Lot  •  Collect 14 Scrap\nLOCKED — Clear First Scavenge.');
   });
 
   it('keeps scroll headings and detail copy independent from prior focus-row ownership', () => {
@@ -1380,7 +1403,7 @@ describe('MenuScene', () => {
     (harness.menuScene as unknown as { addPanelArt: typeof addPanelArt }).addPanelArt = addPanelArt;
     harness.buttonByLabel('Career')!.state.handlers.pointerup!();
     harness.buttonByLabel('Compendium')!.state.handlers.pointerup!();
-    expect(addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'enemy:dust-mite', 50, false, true, expect.any(Number));
+    expect(addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'enemy:dust-mite', 58, false, true, expect.any(Number));
   });
 
   it('keeps discovered Compendium copy inside the narrow safe edge after reserving its actor-art column', () => {
@@ -1389,7 +1412,7 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Career')!.state.handlers.pointerup!();
     harness.buttonByLabel('Compendium')!.state.handlers.pointerup!();
 
-    const row = harness.objects.find((object) => object.state.text.startsWith('Dust Mite\n'))!;
+    const row = harness.objects.find((object) => object.state.text.includes('Behaviour:'))!;
     const wrapWidth = (row.state.style.wordWrap as { width: number }).width;
     const safeRightMargin = (harness.menuScene as unknown as { safeRightMargin: number }).safeRightMargin;
     expect(row.state.x).toBeGreaterThan(16);
@@ -1405,14 +1428,14 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Equipment')!.state.handlers['pointerup']!();
 
     expect(harness.textContents()).toContain('AVAILABLE BLUEPRINTS');
-    expect(harness.textContents()).toContain(
-      'Commando Helmet\nCommando Set • Helmet\n+5% Fire Rate\nFabricate — 100 Scrap',
+    expect(harness.textContents()).toEqual(expect.arrayContaining([
+      'Commando Helmet', 'Commando Set  •  Helmet', '+5% Fire Rate', 'FABRICATE  •  100 Scrap',
+    ]));
+    expect(addCatalogIcon).toHaveBeenCalledWith(
+      expect.anything(), expect.any(Number), expect.any(Number), 'equipment-icon:commando-helmet', 30, expect.any(Number),
     );
     expect(addCatalogIcon).toHaveBeenCalledWith(
-      expect.anything(), expect.any(Number), expect.any(Number), 'equipment-icon:commando-helmet', 26, expect.any(Number),
-    );
-    expect(addCatalogIcon).toHaveBeenCalledWith(
-      expect.anything(), expect.any(Number), expect.any(Number), 'equipment-set-icon:commando', 22, expect.any(Number),
+      expect.anything(), expect.any(Number), expect.any(Number), 'equipment-set-icon:commando', 24, expect.any(Number),
     );
   });
 

@@ -247,7 +247,9 @@ export class PhaserPauseView {
     const height = viewport.canvasHeight;
     const margin = physicalToLogical(12, viewport);
     const hitTarget = minimumHitTarget(viewport);
-    const buttonWidth = Math.max(180, width - margin * 4);
+    const modalWidth = Math.min(Math.max(120, width - margin * 2), physicalToLogical(720, viewport));
+    const modalHeight = Math.min(Math.max(120, height - margin * 2), physicalToLogical(600, viewport));
+    const buttonWidth = Math.max(180, Math.min(modalWidth - margin * 2, physicalToLogical(560, viewport)));
     const root = scene.add.container(this.viewport.originX ?? 0, this.viewport.originY ?? 0);
 
     try {
@@ -269,8 +271,8 @@ export class PhaserPauseView {
         scene,
         width / 2,
         height / 2,
-        Math.max(120, width - margin * 2),
-        Math.max(120, height - margin * 2),
+        modalWidth,
+        modalHeight,
         'modal',
         { alpha: 0.92, depth: ThemeDepth.pauseSummary + 1 },
       ) : undefined;
