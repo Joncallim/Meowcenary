@@ -22,16 +22,16 @@ const FRAME_SIZES = {
 } as const;
 const FRAME_COUNT = 16;
 const SELECTED_MASTERS = {
-  'dust-mite': 'dust-mite-imagegen-v2.png',
-  'junk-rusher': 'junk-rusher-imagegen-v2.png',
-  'trash-brute': 'trash-brute-imagegen-v2.png',
-  'scrap-sniper': 'scrap-sniper-imagegen-v2.png',
-  'scrap-skitter': 'scrap-skitter-imagegen.png',
-  'bastion-beetle': 'bastion-beetle-imagegen.png',
-  'junk-nester': 'junk-nester-imagegen.png',
-  'shard-bot': 'shard-bot-imagegen.png',
-  'boss-crusher': 'boss-crusher-imagegen-v2.png',
-  'boss-forge': 'boss-forge-imagegen.png',
+  'dust-mite': 'dust-mite-pixel-v3.png',
+  'junk-rusher': 'junk-rusher-pixel-v3.png',
+  'trash-brute': 'trash-brute-pixel-v3.png',
+  'scrap-sniper': 'scrap-sniper-pixel-v3.png',
+  'scrap-skitter': 'scrap-skitter-pixel-v3.png',
+  'bastion-beetle': 'bastion-beetle-pixel-v3.png',
+  'junk-nester': 'junk-nester-pixel-v3.png',
+  'shard-bot': 'shard-bot-pixel-v3.png',
+  'boss-crusher': 'boss-crusher-pixel-v3.png',
+  'boss-forge': 'boss-forge-pixel-v3.png',
 } as const;
 
 interface RgbaPng {
@@ -267,6 +267,34 @@ describe('Alpha 3 enemy production-art distinction', () => {
       .toBeGreaterThan(crusher.width * crusher.height * 1.25);
   });
 
+  it('keeps every Junkyard threat separated from the floor with broad light and dark value groups at display size', () => {
+    const floor = decodeRgbaPng('public/assets/world/junkyard-floor-base/junkyard-floor-base.png');
+    let floorLuminance = 0;
+    for (let offset = 0; offset < floor.pixels.length; offset += 4) {
+      floorLuminance += floor.pixels[offset]! * 0.299
+        + floor.pixels[offset + 1]! * 0.587
+        + floor.pixels[offset + 2]! * 0.114;
+    }
+    floorLuminance /= floor.width * floor.height;
+    const registry = new DataVisualArtRegistry(loadGameData());
+    for (const id of RELEASE_ENEMY_IDS.filter((enemyId) => enemyId !== 'boss-forge')) {
+      const binding = registry.bindingById(`enemy:${id}`);
+      if (!binding || binding.load.type !== 'spritesheet') throw new Error(`missing enemy actor binding ${id}`);
+      const display = displayedIdleFrame(
+        decodeRgbaPng(`public/${binding.url}`),
+        binding.load.frame.width,
+        binding.display.width,
+        binding.display.height,
+      );
+      const values = [...display.mask].map((pixel) => display.grayscale[pixel]!).sort((a, b) => a - b);
+      const lower = values[Math.floor(values.length * 0.25)]!;
+      const upper = values[Math.floor(values.length * 0.75)]!;
+      const separated = values.filter((value) => Math.abs(value - floorLuminance) >= 25).length / values.length;
+      expect(upper - lower, `${id} collapses into one muddy value group`).toBeGreaterThanOrEqual(45);
+      expect(separated, `${id} does not separate from the Junkyard floor`).toBeGreaterThanOrEqual(0.45);
+    }
+  });
+
   it('keeps every frame inside the canvas, grounded, centred, and visibly animated in each clip', () => {
     const clips = [[0, 3], [4, 9], [10, 11], [12, 15]] as const;
     for (const { id, png, frameSize } of actors) {
@@ -308,7 +336,7 @@ describe('Alpha 3 enemy production-art distinction', () => {
       const portrait = new DataVisualArtRegistry(loadGameData()).bindingById(`enemy-portrait:${id}`);
       expect(portrait).toMatchObject({ resourceId: 'resource:enemy-portraits', sampling: 'linear' });
       const actor = new DataVisualArtRegistry(loadGameData()).bindingById(`enemy:${id}`);
-      expect(actor).toMatchObject({ resourceId: `resource:enemy-${id}`, sampling: 'linear' });
+      expect(actor).toMatchObject({ resourceId: `resource:enemy-${id}`, sampling: 'nearest' });
     }
     expect(productionBuilder).not.toMatch(/outlined(?:Circle|Ellipse|Rect|Line)|fill(?:Circle|Ellipse|Rect)/);
   });

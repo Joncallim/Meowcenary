@@ -2,9 +2,10 @@
 """Build native enemy animation sources and the shared portrait atlas.
 
 The checked-in selected ImageGen sheets are production masters. This builder
-places their deliberately authored 4x4 poses onto the native 48/64px gameplay
-grid and derives a separate high-resolution portrait atlas for menus. The
-native Pixelorama projects remain the editable gameplay source of truth.
+places their deliberately authored pixel-style 4x4 poses onto the native
+48/64px gameplay grid and derives a separate high-resolution portrait atlas
+for menus. The native Pixelorama projects remain the editable gameplay source
+of truth.
 """
 
 from __future__ import annotations
@@ -22,16 +23,16 @@ ROOT = Path(__file__).resolve().parents[3]
 PORTRAIT_SIZE = 256
 FRAMES = 16
 ENEMIES = {
-    "dust-mite": (48, "dust-mite-imagegen-v2.png"),
-    "junk-rusher": (48, "junk-rusher-imagegen-v2.png"),
-    "trash-brute": (48, "trash-brute-imagegen-v2.png"),
-    "scrap-sniper": (48, "scrap-sniper-imagegen-v2.png"),
-    "scrap-skitter": (48, "scrap-skitter-imagegen.png"),
-    "bastion-beetle": (48, "bastion-beetle-imagegen.png"),
-    "junk-nester": (48, "junk-nester-imagegen.png"),
-    "shard-bot": (48, "shard-bot-imagegen.png"),
-    "boss-crusher": (64, "boss-crusher-imagegen-v2.png"),
-    "boss-forge": (64, "boss-forge-imagegen.png"),
+    "dust-mite": (48, "dust-mite-pixel-v3.png"),
+    "junk-rusher": (48, "junk-rusher-pixel-v3.png"),
+    "trash-brute": (48, "trash-brute-pixel-v3.png"),
+    "scrap-sniper": (48, "scrap-sniper-pixel-v3.png"),
+    "scrap-skitter": (48, "scrap-skitter-pixel-v3.png"),
+    "bastion-beetle": (48, "bastion-beetle-pixel-v3.png"),
+    "junk-nester": (48, "junk-nester-pixel-v3.png"),
+    "shard-bot": (48, "shard-bot-pixel-v3.png"),
+    "boss-crusher": (64, "boss-crusher-pixel-v3.png"),
+    "boss-forge": (64, "boss-forge-pixel-v3.png"),
 }
 
 
@@ -57,7 +58,10 @@ def native_frame(cell: Image.Image, size: int) -> Image.Image:
     ratio = min(inset_size / cell.width, inset_size / cell.height)
     width = max(1, round(cell.width * ratio))
     height = max(1, round(cell.height * ratio))
-    reduced = cell.resize((width, height), Image.Resampling.LANCZOS)
+    # The selected masters deliberately use stepped pixel clusters. Nearest
+    # preserves those clusters on the native grid instead of reintroducing the
+    # soft painterly edge that made the old enemies clash with Mercenaries.
+    reduced = cell.resize((width, height), Image.Resampling.NEAREST)
     frame = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     bounds = reduced.getchannel("A").getbbox()
     if bounds:

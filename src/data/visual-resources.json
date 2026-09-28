@@ -24,7 +24,7 @@
   {
     "id": "resource:enemy-dust-mite",
     "textureKey": "art-enemy-dust-mite",
-    "sampling": "linear",
+    "sampling": "nearest",
     "load": {
       "type": "spritesheet",
       "imageUrl": "assets/enemies/dust-mite/dust-mite.png",
@@ -35,7 +35,7 @@
   {
     "id": "resource:enemy-junk-rusher",
     "textureKey": "art-enemy-junk-rusher",
-    "sampling": "linear",
+    "sampling": "nearest",
     "load": {
       "type": "spritesheet",
       "imageUrl": "assets/enemies/junk-rusher/junk-rusher.png",
@@ -46,7 +46,7 @@
   {
     "id": "resource:enemy-trash-brute",
     "textureKey": "art-enemy-trash-brute",
-    "sampling": "linear",
+    "sampling": "nearest",
     "load": {
       "type": "spritesheet",
       "imageUrl": "assets/enemies/trash-brute/trash-brute.png",
@@ -614,7 +614,7 @@
   {
     "id": "resource:enemy-scrap-sniper",
     "textureKey": "art-enemy-scrap-sniper",
-    "sampling": "linear",
+    "sampling": "nearest",
     "load": {
       "type": "spritesheet",
       "imageUrl": "assets/enemies/scrap-sniper/scrap-sniper.png",
@@ -625,7 +625,7 @@
   {
     "id": "resource:enemy-boss-crusher",
     "textureKey": "art-enemy-boss-crusher",
-    "sampling": "linear",
+    "sampling": "nearest",
     "load": {
       "type": "spritesheet",
       "imageUrl": "assets/enemies/boss-crusher/boss-crusher.png",
@@ -636,7 +636,7 @@
   {
     "id": "resource:enemy-scrap-skitter",
     "textureKey": "art-enemy-scrap-skitter",
-    "sampling": "linear",
+    "sampling": "nearest",
     "load": {
       "type": "spritesheet",
       "imageUrl": "assets/enemies/scrap-skitter/scrap-skitter.png",
@@ -647,7 +647,7 @@
   {
     "id": "resource:enemy-bastion-beetle",
     "textureKey": "art-enemy-bastion-beetle",
-    "sampling": "linear",
+    "sampling": "nearest",
     "load": {
       "type": "spritesheet",
       "imageUrl": "assets/enemies/bastion-beetle/bastion-beetle.png",
@@ -658,7 +658,7 @@
   {
     "id": "resource:enemy-junk-nester",
     "textureKey": "art-enemy-junk-nester",
-    "sampling": "linear",
+    "sampling": "nearest",
     "load": {
       "type": "spritesheet",
       "imageUrl": "assets/enemies/junk-nester/junk-nester.png",
@@ -669,7 +669,7 @@
   {
     "id": "resource:enemy-shard-bot",
     "textureKey": "art-enemy-shard-bot",
-    "sampling": "linear",
+    "sampling": "nearest",
     "load": {
       "type": "spritesheet",
       "imageUrl": "assets/enemies/shard-bot/shard-bot.png",
@@ -680,7 +680,7 @@
   {
     "id": "resource:enemy-boss-forge",
     "textureKey": "art-enemy-boss-forge",
-    "sampling": "linear",
+    "sampling": "nearest",
     "load": {
       "type": "spritesheet",
       "imageUrl": "assets/enemies/boss-forge/boss-forge.png",

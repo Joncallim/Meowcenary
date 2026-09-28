@@ -132,6 +132,20 @@ describe('Mercenary portrait and identity-icon production art', () => {
     }
   });
 
+  it('lets active ability symbols own the frame instead of nesting a badge inside the HUD button', () => {
+    const atlas = JSON.parse(readFileSync('public/assets/characters/identity/mercenary-identity-icons-atlas.json', 'utf8')) as { frames: Record<string, { frame: { x: number; y: number } }> };
+    const decoded = decodeUnfilteredRgbaPng('public/assets/characters/identity/mercenary-identity-icons-atlas.png');
+    for (const id of ABILITY_ICON_IDS) {
+      const frame = atlas.frames[id]!.frame;
+      const pixels = crop(decoded.pixels, decoded.width, frame.x, frame.y, 96, 96);
+      let opaque = 0;
+      for (let offset = 3; offset < pixels.length; offset += 4) if (pixels[offset]! > 0) opaque += 1;
+      const coverage = opaque / (96 * 96);
+      expect(coverage, `${id} should be a large transparent symbol, not a full-frame badge`).toBeGreaterThan(0.42);
+      expect(coverage, `${id} should leave the button chrome visible`).toBeLessThan(0.7);
+    }
+  });
+
   it('keeps both presentation atlases out of the boot bundle', () => {
     const boot = loadGameData().assetBundles.find((bundle) => bundle.id === 'bundle:boot-core');
     expect(boot?.resourceIds).not.toContain('resource:mercenary-portraits');

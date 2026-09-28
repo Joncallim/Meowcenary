@@ -10,9 +10,9 @@ visual approval.
   concept/provenance boards named below.
 - Canonical phone review size: 390×844. Foldable/tablet and desktop comparison
   sizes are 1114×720 and 1280×720.
-- Actor comparisons use the actual display sizes produced by the game, the
-  reviewed linear sampling required by the selected high-detail production
-  masters, and the existing #190 responsive camera/layout model.
+- Actor comparisons use the actual display sizes produced by the game, crisp
+  nearest-neighbour sampling for the native-pixel actor sheets, and the
+  existing #190 responsive camera/layout model.
 - A valid result needs all three links in the chain: selected reference,
   editable source, and the runtime capture. Loading or manifest parity alone
   is not visual acceptance.
@@ -62,12 +62,19 @@ parity; they do not procedurally reconstruct actor silhouettes from geometric
 shapes.
 
 All ten selected enemy masters now pass through one deterministic importer.
-It preserves their authored 4×4 pose grid while producing native 48×48
-ordinary and 64×64 boss Pixelorama/runtime sheets with one common ground
+The product-owner follow-up found that the first painterly imports became
+muddy and low-contrast when reduced beside the native-pixel hero. The V3
+masters preserve each authored 4×4 pose grid while translating it into the
+hero's chunky pixel language: near-black silhouette edges, larger material
+groups, brighter role accents, and less sub-pixel noise. They produce native
+48×48 ordinary and 64×64 boss Pixelorama/runtime sheets with one common ground
 datum. A separate 256px-per-entry portrait atlas feeds Contract threat strips
 and Compendium cards, so those surfaces no longer upscale a 26px gameplay
 actor. All ten release enemies participate in all-frame crop, anchor, motion,
 display-scale distinction, editable-source, and runtime-parity regressions.
+Junkyard actors additionally have an actual-display-size luminance gate against
+the authoritative floor so a future import cannot silently return to the
+low-contrast result.
 
 ## Side-by-side review set
 
@@ -77,6 +84,7 @@ Selected references:
 - `assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png`
 - `assets-src/characters/volt-lynx/concepts/volt-lynx-direction-a-selected.png`
 - `assets-src/enemies/alpha-3-production-concepts/direction-b-selected.png`
+- `assets-src/characters/identity/concepts/ability-icons-v2-selected.png`
 - `assets-src/world/junkyard/concepts/junkyard-world-kit-selected.png`
 - `assets-src/world/forge/concepts/forge-foundry-direction-a-selected.png`
 
@@ -95,6 +103,7 @@ Runtime captures and committed screenshot baselines:
 - `browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-*-desktop-1280x720-linux.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/ordinary-gameplay-actor-*.png`
+- `browser-tests/visual-fidelity.pw.ts-snapshots/ability-effect-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/boss-gameplay-desktop-1280x720-linux.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/boss-gameplay-actor-desktop-1280x720-linux.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/forge-gameplay-desktop-1280x720-linux.png`
@@ -121,6 +130,7 @@ captured around the live production sprite; they are not enlarged source art.
 <tr><td><img src="../../assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png" width="480" alt="Selected Alpha 3 Mercenary roster direction B"></td><td><img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-brass-boar-desktop-1280x720-linux.png" width="96" alt="Brass Boar live crop"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-ember-cougar-desktop-1280x720-linux.png" width="96" alt="Ember Cougar live crop"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-scrap-weasel-desktop-1280x720-linux.png" width="96" alt="Scrap Weasel live crop"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-rattle-raptor-desktop-1280x720-linux.png" width="96" alt="Rattle Raptor live crop"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-piston-ram-desktop-1280x720-linux.png" width="96" alt="Piston Ram live crop"></td></tr>
 <tr><td><img src="../art/concepts/epic-13/final-actor-direction.png" width="480" alt="Selected Scrap Tabby and Bolt Hound actor direction"><br><img src="../../assets-src/characters/volt-lynx/concepts/volt-lynx-direction-a-selected.png" width="320" alt="Selected Volt Lynx direction A"></td><td><img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-scrap-tabby-desktop-1280x720-linux.png" width="96" alt="Scrap Tabby live crop"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-bolt-hound-desktop-1280x720-linux.png" width="96" alt="Bolt Hound live crop"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-volt-lynx-desktop-1280x720-linux.png" width="96" alt="Volt Lynx live crop"></td></tr>
 <tr><td><img src="../../assets-src/enemies/alpha-3-production-concepts/direction-b-selected.png" width="480" alt="Selected enemy production direction B"></td><td><img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/compendium-desktop-1280x720-linux.png" width="320" alt="Runtime Compendium first group"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/compendium-middle-desktop-1280x720-linux.png" width="320" alt="Runtime Compendium middle group"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/forge-warden-gameplay-actor-desktop-1280x720-linux.png" width="96" alt="Forge Warden live crop"></td></tr>
+<tr><td><img src="../../assets-src/characters/identity/concepts/ability-icons-v2-selected.png" width="480" alt="Selected active ability symbol board"></td><td><img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/ability-effect-phone-390x844-linux.png" width="195" alt="Scrap Burst production HUD art and effect on phone"></td></tr>
 <tr><td><img src="../../assets-src/world/junkyard/concepts/junkyard-world-kit-selected.png" width="480" alt="Selected Junkyard playable-world kit"><br><img src="../../assets-src/world/forge/concepts/forge-foundry-direction-a-selected.png" width="480" alt="Selected Forge playable-world direction"></td><td><img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-desktop-1280x720-linux.png" width="400" alt="Runtime Junkyard arena"><br><img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/forge-gameplay-desktop-1280x720-linux.png" width="400" alt="Runtime Forge arena"></td></tr>
 <tr><td>Art brief §§16–19: bespoke lockup, crop-safe workshop backdrop, semantic navigation/state/HUD glyphs, and shared modal/card chrome.</td><td><img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/home-phone-390x844-linux.png" width="195" alt="Runtime Home on phone"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/settings-phone-390x844-linux.png" width="195" alt="Runtime Settings on phone"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/pause-modal-desktop-1280x720-linux.png" width="320" alt="Runtime pause modal"></td></tr>
 </table>
@@ -187,6 +197,15 @@ The numbered path below is the repeatable audit journey used at 390×844,
    collision rectangles, hazards, spawn lanes, and camera geometry remain
    unchanged. A dedicated full-scene Forge regression complements the existing
    phone/foldable/desktop Junkyard captures.
+10. **Abilities and combat feedback** — the eight active abilities now use a
+    selected transparent symbol board whose art fills the HUD action rather
+    than nesting a tiny badge inside it. Each authoritative ability event has
+    a distinct bounded pixel-graphic effect (shock shards, heat tongues, loot
+    pull, repair sparks, speed trails, overclock gear, shield hex, and precision
+    brackets). Instant abilities retain their original gameplay duration but
+    receive a short presentation-only hold so the action can be read on a
+    phone. Dedicated phone, foldable, and desktop captures lock the live effect
+    around the real player actor.
 
 The approved Figma Clean Master is also integrated without redrawing: the
 editable SVG and exact export are preserved under `assets-src/ui/brand`, a

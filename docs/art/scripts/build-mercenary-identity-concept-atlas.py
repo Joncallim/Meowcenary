@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the Mercenary ability/passive atlas from its selected concept board."""
+"""Build the Mercenary ability/passive atlas from selected concept boards."""
 
 from __future__ import annotations
 
@@ -27,21 +27,33 @@ ZIP_DATE = (2020, 1, 1, 0, 0, 0)
 
 
 def render(root: Path) -> Image.Image:
-    board = Image.open(
+    active_board = Image.open(
+        root / "assets-src/characters/identity/concepts/ability-icons-v2-selected.png"
+    ).convert("RGBA")
+    passive_board = Image.open(
         root / "assets-src/characters/identity/concepts/ability-passive-icons-selected.png"
     ).convert("RGBA")
     atlas = Image.new("RGBA", (FRAME * len(IDS), FRAME), (0, 0, 0, 0))
     for index, _name in enumerate(IDS):
-        column, row = index % 4, index // 4
+        if index < 8:
+            board = active_board
+            column, row = index % 4, index // 4
+            rows = 2
+        else:
+            board = passive_board
+            passive_index = index - 8
+            column, row = passive_index % 4, passive_index // 4 + 2
+            rows = 4
         left = round(column * board.width / 4)
-        top = round(row * board.height / 4)
+        top = round(row * board.height / rows)
         right = round((column + 1) * board.width / 4)
-        bottom = round((row + 1) * board.height / 4)
+        bottom = round((row + 1) * board.height / rows)
         tile = board.crop((left, top, right, bottom))
-        # Remove only the sheet gutter; preserve the authored plate and padding.
-        inset = max(2, round(min(tile.size) * 0.012))
-        tile = tile.crop((inset, inset, tile.width - inset, tile.height - inset))
-        tile.thumbnail((FRAME, FRAME), Image.Resampling.LANCZOS)
+        bounds = tile.getchannel("A").getbbox()
+        if bounds:
+            tile = tile.crop(bounds)
+        target = FRAME - (8 if index < 8 else 2)
+        tile.thumbnail((target, target), Image.Resampling.NEAREST if index < 8 else Image.Resampling.LANCZOS)
         atlas.alpha_composite(tile, (index * FRAME + (FRAME - tile.width) // 2, (FRAME - tile.height) // 2))
     return atlas
 

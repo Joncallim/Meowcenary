@@ -7,12 +7,15 @@ builder into native editable Pixelorama projects and runtime exports.
 
 ## Selected production sheets
 
-Five 4×4 transparent production masters were generated with the built-in
-OpenAI image generator before the later visual-cutover instruction froze new
-generation. Each prompt required the Alpha 3 limited salvage palette, a strict
-row order of idle/run/hurt/defeat, no text or UI, one consistent ground datum,
-and the behaviour silhouette below. No later replacement generation is part
-of this cutover.
+The original 4×4 transparent production masters established poses and actor
+identity. Product-owner runtime review then found that their painterly detail
+collapsed at 26 px and visibly disagreed with the native Mercenary sprites.
+The approved September 2026 contrast/style remediation therefore generated a
+second, deliberately pixel-made pass from each original sheet plus the shipped
+Scrap Tabby sprite and selected Mercenary board. Every prompt locked the 4×4
+pose order, scale, ground datum and identity while requiring broad pixel
+clusters, near-black silhouette separation, compact flat palettes, transparent
+gutters and no text, glow, gradients or fine surface noise.
 
 | Actor | Source | SHA-256 | Prompt-specific silhouette |
 | --- | --- | --- | --- |
@@ -25,6 +28,25 @@ of this cutover.
 The remaining five selected masters already existed beside their actor PXO
 sources. `build-enemy-production-art.py` treats every selected sheet the same:
 native 48/64px gameplay output plus the separate shared portrait atlas.
+
+## Runtime pixel-style masters — selected
+
+| Actor | Source | SHA-256 | Runtime value/read correction |
+| --- | --- | --- | --- |
+| Dust Mite | `../dust-mite/source/dust-mite-pixel-v3.png` | `8130ea294b2dbf1eec32cea48f9e3e31dc6fb9046f73b78e8fdd0a4524dddc24` | orange shell, cream brushes, steel eye and dark pin-leg separation |
+| Junk Rusher | `../junk-rusher/source/junk-rusher-pixel-v3.png` | `4eb94a37c5275aa849be887fa535fbc4c2dcc523aa41d5f2e797b2ced77025c9` | bright wedge/cream wear edge against charcoal springs |
+| Trash Brute | `../trash-brute/source/trash-brute-pixel-v3.png` | `5318a3435977a88ac83a3865833910e9d9e1e6d13b7b2f00855a3f0490d6acfc` | brighter violet square mass and pale bin-lid forearms |
+| Scrap Sniper | `../scrap-sniper/source/scrap-sniper-pixel-v3.png` | `1c0b0e3e722ca8891d3184b44e56d024cec061ede79d18a2e9cc35336325459f` | pale tripod negative space and isolated red sight |
+| Scrap Skitter | `../scrap-skitter/source/scrap-skitter-pixel-v3.png` | `4edb552b52737ba6a6c2a526232c438b53c19df8eb436552edba3ee4b9e25869` | acid-lime lateral read with separated dark side legs |
+| Bastion Beetle | `../bastion-beetle/source/bastion-beetle-pixel-v3.png` | `54bacaeb1703a2af7875db932416ad6aa919684c67ee853c9a4cf7a3f89ef00f` | cream/teal front wall against exposed navy dome |
+| Junk Nester | `../junk-nester/source/junk-nester-pixel-v3.png` | `7f0e158f0bffc43f539b40f948d42cb660de486159938f4e84e437573887bda9` | bright ochre rear nest and small cream front body |
+| Shard Bot | `../shard-bot/source/shard-bot-pixel-v3.png` | `ef1a55079eb58054175a8ea06349b947690e4d7aa77decfde1f633c5939a1059` | magenta/blue facets with broad cream fracture gaps |
+| Scrap Crusher | `../boss-crusher/source/boss-crusher-pixel-v3.png` | `149c798906c6f43706051012ffb2307d59d05977677c0131c9935f59980e244d` | bright hazard-red horizontal jaws and cream bite edge |
+| Forge Warden | `../boss-forge/source/boss-forge-pixel-v3.png` | `fd52d2b2e0cc993398dc7b29363f971a135dabda2875beaa0769a64ca341f6ab` | white-hot core/copper bands separated from charcoal gantry |
+
+The generated boards remain immutable provenance. The builder imports them
+with nearest-neighbour sampling into the native editable 48/64 px PXO sources;
+runtime actors now also use nearest sampling, matching the Mercenary pipeline.
 
 ## Selected — Direction B
 

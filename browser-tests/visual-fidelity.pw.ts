@@ -14,6 +14,7 @@ type VisualTestSeam = {
   isMenuPresentationSettled(): boolean;
   focusFirstEnemy(bossOnly?: boolean): boolean;
   focusPlayer(): boolean;
+  showAbilityEffect(): boolean;
   focusedActorScreenPoint(): { x: number; y: number } | undefined;
   showMenu(panel: string): boolean;
   showUpgradeChooser(): boolean;
@@ -175,6 +176,24 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
   // the production enemy view itself is locked exactly in the crop below.
   await expect(page).toHaveScreenshot('gameplay.png', { animations: 'disabled', maxDiffPixels: 1_500 });
   await expectCenteredActor(page, 'ordinary-gameplay-actor.png');
+  await resumeLoop(page);
+  await expect.poll(() => page.evaluate(() => {
+    const seam = (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam })
+      .__MEOWCENARY_VISUAL_TEST__;
+    return seam?.focusPlayer() ?? false;
+  }), { timeout: visualReadyTimeoutMs }).toBe(true);
+  await expect.poll(() => page.evaluate(() => {
+    const seam = (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam })
+      .__MEOWCENARY_VISUAL_TEST__;
+    return seam?.showAbilityEffect() ?? false;
+  }), { timeout: visualReadyTimeoutMs }).toBe(true);
+  await page.evaluate(() => {
+    const seam = (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam })
+      .__MEOWCENARY_VISUAL_TEST__;
+    if (!seam) throw new Error('visual-test loop seam was not installed');
+    return seam.freeze();
+  });
+  await expect(page).toHaveScreenshot('ability-effect.png', { animations: 'disabled', maxDiffPixels: 1_500 });
 });
 
 test('stocked Gunsmith showcases assembled weapons, Parts, traits, and Workshop art', async ({ page }, testInfo) => {

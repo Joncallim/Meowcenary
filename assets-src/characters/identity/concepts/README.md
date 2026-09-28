@@ -17,8 +17,26 @@ regenerating the approved direction.
   workshop materials, no text, logos, skulls, crowns, realistic insignia or
   protected medical marks, and readability at 40–56 px.
 - Production use: `build-mercenary-identity-concept-atlas.py` crops the selected
-  board into the editable PXO and a 96 px-per-frame runtime atlas. Stable art
-  IDs and ability/passive semantics are unchanged.
+  board's passive rows into the editable PXO and runtime atlas. Stable art IDs
+  and passive semantics are unchanged.
+
+## Active ability symbol board V2 — selected runtime source
+
+- File: `ability-icons-v2-selected.png`
+- SHA-256: `1d6f426033693d8dad0535b0a7f9aaafd1116d89d5f899750f42abd4d327f6a3`
+- Prompt summary: the prior active-ability row and the approved Mercenary
+  material board were supplied as references. The generation requested the
+  exact eight active abilities in a strict 4×2 order, broad native-pixel
+  clusters, near-black outlines, one dominant semantic symbol occupying about
+  78% of each cell, transparent gutters, and explicitly no surrounding badge,
+  plate, frame, rivets, text, glow, gradients or painterly micro-detail.
+- Selection rationale: the original heavy plates became a badge nested inside
+  the HUD's own button frame, leaving the meaningful symbol too small. V2 lets
+  the ability symbol own the available pixels while existing UI chrome owns
+  focus, readiness and cooldown state.
+- Production use: the deterministic atlas builder uses V2 for the first eight
+  active frames and retains the selected original board for the eight passive
+  frames.
 
 ## Direction B — selected
 

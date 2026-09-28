@@ -149,6 +149,25 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         scene.cameras.main.centerOn(x, y);
         return true;
       },
+      showAbilityEffect: (): boolean => {
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          player?: { x: number; y: number };
+          abilityPresentationSystem?: { update(deltaMs: number, reducedMotion: boolean): void };
+          getContext?(): { bus: { emit(event: 'ability:activated', payload: {
+            abilityId: string; cue: string; x: number; y: number;
+            durationMs: number; color: string; radius: number;
+          }): void } };
+        };
+        if (!scene.player || !scene.abilityPresentationSystem || !scene.getContext) return false;
+        scene.getContext().bus.emit('ability:activated', {
+          abilityId: 'ability:visual-test', cue: 'shockwave',
+          x: scene.player.x, y: scene.player.y,
+          durationMs: 280, color: '#facc15', radius: 90,
+        });
+        scene.abilityPresentationSystem.update(100, false);
+        scene.abilityPresentationSystem.update(0, false);
+        return true;
+      },
       focusedActorScreenPoint: (): { x: number; y: number } | undefined => {
         const scene = game.scene.getScene('GameScene') as unknown as {
           cameras?: { main?: { x: number; y: number; zoom: number; worldView: { x: number; y: number } } };
