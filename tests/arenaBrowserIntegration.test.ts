@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+// Phaser performs browser capability detection at module evaluation time.
+// Register the repository's browser mock before importing production systems.
+import './__mocks__/phaser';
 import { loadGameData } from '../src/systems/validation';
 import { DataArenaRegistry } from '../src/systems/arenas';
 import { DataCharacterRegistry } from '../src/systems/characters';

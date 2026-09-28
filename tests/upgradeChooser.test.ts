@@ -14,7 +14,7 @@ import {
   type UpgradeChooserView,
 } from '../src/ui/upgradeChooserController';
 import { computeUpgradeChooserLayout } from '../src/ui/upgradeChooserLayout';
-import { zoomedGameUiViewport } from '../src/ui/layout';
+import { responsiveGameUiViewport, zoomedGameUiViewport } from '../src/ui/layout';
 import { FocusStroke, ThemeColor } from '../src/ui/theme';
 import type { InputMode } from '../src/systems/input';
 
@@ -420,13 +420,20 @@ class FakeContainer extends FakeDisplayObject {
 }
 
 class FakeScale extends FakeEmitter {
-  readonly width = 390;
-  readonly height = 844;
+  width = 390;
+  height = 844;
   displaySize = { width: 390, height: 844 };
 
   refresh(displayWidth: number, displayHeight: number, orientationChanged = false): void {
     this.displaySize = { width: displayWidth, height: displayHeight };
     if (orientationChanged) this.emit('orientationchange');
+    this.emit('resize');
+  }
+
+  resizeCanvas(width: number, height: number): void {
+    this.width = width;
+    this.height = height;
+    this.displaySize = { width, height };
     this.emit('resize');
   }
 }
@@ -964,6 +971,26 @@ describe('PhaserUpgradeChooserView rendered bounds and lifecycle', () => {
     view.destroy();
     expect(scene.input.keyboard.listenerCount('keydown')).toBe(0);
     expect(scene.scale.listenerCount('resize')).toBe(0);
+  });
+
+  it('uses a resize received before the first offer for its first gameplay render', async () => {
+    const scene = createFakeScene(390, 844);
+    const { PhaserUpgradeChooserView } = await import('../src/ui/UpgradeChooser');
+    const view = new PhaserUpgradeChooserView(
+      scene as never,
+      () => false,
+      undefined,
+      () => 'pointer',
+      responsiveGameUiViewport(390, 844),
+    );
+
+    scene.scale.resizeCanvas(1114, 720);
+    view.render({ offerId: 74, choices: toChoices(definitions) }, () => true);
+
+    const rightEdge = Math.max(...view.diagnostics.cards.map((card) => card.x + card.width));
+    expect(rightEdge).toBeGreaterThan(390 / 1.25);
+    expect(rightEdge).toBeLessThanOrEqual(1114 / 1.25);
+    view.destroy();
   });
 
   it('stays finite at zero displayed size and recovers on resize', async () => {

@@ -788,7 +788,7 @@ describe('game data validation', () => {
 
   describe('character data validation', () => {
     function characterFixture(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-      return {
+      const fixture: Record<string, unknown> = {
         id: 'test-cat',
         name: 'Test Cat',
         description: 'A test cat.',
@@ -798,6 +798,15 @@ describe('game data validation', () => {
         unlock: { type: 'always' as const },
         cosmeticSkinIds: [],
         ...overrides,
+      };
+      const id = String(fixture.id);
+      return {
+        ...fixture,
+        presentation: fixture.presentation ?? { portraitArtId: `character-portrait:${id}` },
+        passives: (fixture.passives as Record<string, unknown>[]).map((passive) => ({
+          ...passive,
+          presentation: passive.presentation ?? { iconArtId: `passive-icon:${String(passive.id)}` },
+        })),
       };
     }
 
@@ -809,6 +818,22 @@ describe('game data validation', () => {
       // fixture and belong to their own validation suite.
       data.achievements = [];
       addFixtureActorArt(data, 'character', characters);
+      const bindings = (data.visualArt as { bindings: Record<string, unknown>[] }).bindings;
+      const known = new Set(bindings.map((binding) => binding.id));
+      for (const character of characters) {
+        const portraitArtId = (character.presentation as { portraitArtId?: string } | undefined)?.portraitArtId;
+        if (portraitArtId && !known.has(portraitArtId)) {
+          bindings.push({ id: portraitArtId, kind: 'portrait', required: true, display: { width: 96, height: 96 }, resourceId: 'resource:mercenary-portraits', frameKey: portraitArtId });
+          known.add(portraitArtId);
+        }
+        for (const passive of character.passives as Record<string, unknown>[]) {
+          const iconArtId = (passive.presentation as { iconArtId?: string } | undefined)?.iconArtId;
+          if (iconArtId && !known.has(iconArtId)) {
+            bindings.push({ id: iconArtId, kind: 'icon', required: true, display: { width: 32, height: 32 }, resourceId: 'resource:mercenary-identity-icons', frameKey: iconArtId });
+            known.add(iconArtId);
+          }
+        }
+      }
       return data;
     }
 

@@ -25,6 +25,48 @@ const ZOOMED_UI_ORIGIN_Y = (RuntimeConfig.canvas.height / 2) * (1 - 1 / GAMEPLAY
 
 const MIN_LAYOUT_SCALE = 0.25;
 
+/** Full-viewport menu coordinate space used with Phaser Scale.RESIZE. Game
+ * coordinates and CSS pixels are intentionally 1:1 so widening the browser
+ * reveals more presentation space instead of stretching a fixed canvas. */
+export function responsiveUiViewport(
+  canvasWidth: number,
+  canvasHeight: number,
+  rawInsets: SafeAreaInsetsPx = readSafeAreaInsets(),
+): UiViewport {
+  const width = positiveFinite(canvasWidth, RuntimeConfig.canvas.width);
+  const height = positiveFinite(canvasHeight, RuntimeConfig.canvas.height);
+  return createViewport({
+    canvasWidth: width,
+    canvasHeight: height,
+    displayWidth: width,
+    displayHeight: height,
+    containerWidth: width,
+    containerHeight: height,
+  }, rawInsets);
+}
+
+/** Full-viewport GameScene UI space. The world camera keeps one fixed zoom,
+ * so actors retain a stable CSS-pixel size while the visible world expands
+ * with the viewport. Scroll-factor-zero children use this compensated space. */
+export function responsiveGameUiViewport(
+  canvasWidth: number,
+  canvasHeight: number,
+  rawInsets: SafeAreaInsetsPx = readSafeAreaInsets(),
+): UiViewport {
+  const width = positiveFinite(canvasWidth, RuntimeConfig.canvas.width);
+  const height = positiveFinite(canvasHeight, RuntimeConfig.canvas.height);
+  return createViewport({
+    canvasWidth: width / GAMEPLAY_ZOOM,
+    canvasHeight: height / GAMEPLAY_ZOOM,
+    displayWidth: width,
+    displayHeight: height,
+    containerWidth: width,
+    containerHeight: height,
+    originX: (width - width / GAMEPLAY_ZOOM) / 2,
+    originY: (height - height / GAMEPLAY_ZOOM) / 2,
+  }, rawInsets);
+}
+
 export function safeDisplayScale(viewport: UiViewport): number {
   const widthScale = viewport.displayWidth / viewport.canvasWidth;
   const heightScale = viewport.displayHeight / viewport.canvasHeight;
@@ -40,6 +82,22 @@ export function physicalToLogical(px: number, viewport: UiViewport): number {
 
 export function minimumHitTarget(viewport: UiViewport): number {
   return physicalToLogical(44, viewport);
+}
+
+/** Centre a readable content lane while preserving larger safe-area edges. */
+export function responsiveContentInsets(
+  canvasWidth: number,
+  safeLeft: number,
+  safeRight: number,
+  maxContentWidth: number,
+): { readonly left: number; readonly right: number } {
+  const width = Math.max(1, Number.isFinite(canvasWidth) ? canvasWidth : 1);
+  const lane = Math.max(1, Math.min(width, Number.isFinite(maxContentWidth) ? maxContentWidth : width));
+  const centering = Math.max(0, (width - lane) / 2);
+  return {
+    left: Math.max(centering, Math.max(0, safeLeft)),
+    right: Math.max(centering, Math.max(0, safeRight)),
+  };
 }
 
 export type LayoutEdge = keyof SafeAreaInsetsPx;

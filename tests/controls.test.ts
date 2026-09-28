@@ -7,7 +7,7 @@ import { MockInputPlugin, MockGamepad } from './__mocks__/phaser';
 import { InputController } from '../src/systems/input';
 import { ControlsView, type AbilityControlDefinition } from '../src/ui/controls';
 import type { TouchStickConfig } from '../src/engine/config';
-import { logicalCanvasViewport, zoomedGameUiViewport, GAMEPLAY_ZOOM } from '../src/ui/layout';
+import { logicalCanvasViewport, responsiveGameUiViewport, GAMEPLAY_ZOOM } from '../src/ui/layout';
 import { ThemeColor, ThemeDepth } from '../src/ui/theme';
 
 function createFakeScene() {
@@ -168,9 +168,10 @@ function createFakeScene() {
     get objects() { return objects; },
     get tweenConfigs() { return tweenConfigs; },
     resize(displayWidth: number, displayHeight: number) {
-      const fitScale = Math.min(displayWidth / 390, displayHeight / 844);
-      scene.scale.displaySize.width = 390 * fitScale;
-      scene.scale.displaySize.height = 844 * fitScale;
+      scene.scale.width = displayWidth;
+      scene.scale.height = displayHeight;
+      scene.scale.displaySize.width = displayWidth;
+      scene.scale.displaySize.height = displayHeight;
       scene.scale.parentSize.width = displayWidth;
       scene.scale.parentSize.height = displayHeight;
       resize?.callback.call(resize.context);
@@ -191,7 +192,7 @@ function createHarness(options: { readReducedMotion?: () => boolean; gamepad?: b
   const view = new ControlsView({
     scene: scene as never,
     input: controller,
-    viewport: zoomed ? zoomedGameUiViewport(scene.scale.displaySize.width, scene.scale.displaySize.height) : logicalCanvasViewport(),
+    viewport: zoomed ? responsiveGameUiViewport(scene.scale.width, scene.scale.height) : logicalCanvasViewport(),
     readReducedMotion,
     onPauseRequested,
     onAbilityRequested,
@@ -313,21 +314,22 @@ describe('ControlsView zoomed GameScene stick (AM-2/AM-3)', () => {
 
   it('re-reads the zoomed viewport on resize and rebuilds the controls once', () => {
     const { scene, view } = createHarness({ zoomed: true });
+    const root = scene.objects[0];
     const oldPause = scene.objects.find((object) => object.state.interactive)!;
+    expect(root.state.x).toBeCloseTo(39, 5);
+    expect(root.state.y).toBeCloseTo(84.4, 5);
     expect(oldPause.state.width).toBeCloseTo(44 / GAMEPLAY_ZOOM, 5);
 
     scene.resize(844, 390);
 
+    expect(root.state.x).toBeCloseTo(84.4, 5);
+    expect(root.state.y).toBeCloseTo(39, 5);
     expect(oldPause.state.destroyed).toBe(true);
     expect(scene.scale.listenerCount('resize')).toBe(1);
     const live = scene.objects.filter((object) => !object.state.destroyed);
     // Rebuilt tree: root + stickBase + stickThumb + hint + pause.
     const pause = live.find((object) => object.state.interactive)!;
-    const fit = 390 / 844;
-    // The zoomed viewport's logical canvas is invariant; the 44px target is
-    // 44/(1.25·fit) logical and renders exactly 44px after camera zoom (the
-    // arch FIT table row for 844×390).
-    expect(pause.state.width).toBeCloseTo(44 / (GAMEPLAY_ZOOM * fit), 5);
+    expect(pause.state.width).toBeCloseTo(44 / GAMEPLAY_ZOOM, 5);
 
     view.destroy();
     expect(scene.scale.listenerCount('resize')).toBe(0);
@@ -347,11 +349,10 @@ describe('ControlsView hints', () => {
     expect(scene.scale.listenerCount('resize')).toBe(1);
     const hint = scene.objects.find((object) => !object.state.destroyed && object.state.text === 'SCRAP BURST — Knock nearby enemies away.')!;
     const pause = scene.objects.find((object) => !object.state.destroyed && object.state.interactive)!;
-    const fitScale = 390 / 844;
     // The strip is gone: the hint owns the bottom safe margin above the stick.
-    expect(Number(hint.state.y) * fitScale).toBeCloseTo(270, 5);
-    expect(Number(pause.state.width) * fitScale).toBeCloseTo(44, 5);
-    expect(Number(pause.state.height) * fitScale).toBeCloseTo(44, 5);
+    expect(Number(hint.state.y)).toBeCloseTo(270, 5);
+    expect(Number(pause.state.width)).toBeCloseTo(44, 5);
+    expect(Number(pause.state.height)).toBeCloseTo(44, 5);
 
     view.destroy();
     expect(scene.scale.listenerCount('resize')).toBe(0);
@@ -540,12 +541,11 @@ describe('ControlsView ability button', () => {
       scene.resize(width, height);
       const ability = scene.objects.find((object) => !object.state.destroyed
         && object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
-      const fit = Math.min(width / 390, height / 844);
-      expect(Number(ability.state.width) * GAMEPLAY_ZOOM * fit).toBeCloseTo(120, 5);
-      expect(Number(ability.state.height) * GAMEPLAY_ZOOM * fit).toBeCloseTo(60, 5);
+      expect(Number(ability.state.width) * GAMEPLAY_ZOOM).toBeCloseTo(120, 5);
+      expect(Number(ability.state.height) * GAMEPLAY_ZOOM).toBeCloseTo(60, 5);
       // The authored right/bottom edges retain two 12px physical insets.
-      expect(Number(ability.state.x) + Number(ability.state.width) / 2).toBeLessThanOrEqual(312);
-      expect(Number(ability.state.y) + Number(ability.state.height) / 2).toBeLessThanOrEqual(675);
+      expect((Number(ability.state.x) + Number(ability.state.width) / 2) * GAMEPLAY_ZOOM).toBeLessThanOrEqual(width - 12 + 0.01);
+      expect((Number(ability.state.y) + Number(ability.state.height) / 2) * GAMEPLAY_ZOOM).toBeLessThanOrEqual(height - 12 + 0.01);
     }
     view.destroy();
   });

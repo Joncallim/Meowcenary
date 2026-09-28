@@ -11,12 +11,22 @@ for (const binding of manifest.bindings) {
 }
 const quote = (value) => JSON.stringify(value);
 const entries = manifest.resources.map((resource) => {
-  const chain = resolveProductionChain(manifest.root, resource); const dimensions = pngDimensions(chain.exportPath, [], resource.id);
+  const chain = resolveProductionChain(manifest.root, resource);
+  const resourceBindings = bindingsByResource.get(resource.id) ?? [];
+  const exported = pngDimensions(chain.exportPath, [], resource.id);
+  // A newly-authored horizontal named-frame atlas has no committed export on
+  // its first builder run. Explicit binding display sizes provide a safe,
+  // deterministic bootstrap contract; every subsequent run uses the export.
+  const inferredAtlas = resource.load?.type === 'atlas' && resourceBindings.length > 0 && resourceBindings.every((binding) =>
+    Number.isInteger(binding.display?.width) && Number.isInteger(binding.display?.height))
+    ? { width: resourceBindings.reduce((sum, binding) => sum + binding.display.width, 0), height: Math.max(...resourceBindings.map((binding) => binding.display.height)) }
+    : undefined;
+  const dimensions = exported ?? inferredAtlas;
   if (!dimensions) throw new Error(`${resource.id}: cannot derive PNG dimensions`);
   const load = resource.load; const spritesheet = load.type === 'spritesheet';
   const frames = spritesheet ? dimensions.width / load.frameWidth : 1;
   if (!Number.isInteger(frames)) throw new Error(`${resource.id}: PNG does not divide into resource frames`);
-  const tags = Object.assign({}, ...((bindingsByResource.get(resource.id) ?? []).map((binding) => Object.fromEntries(Object.entries(binding.clips ?? {}).map(([name, clip]) => [name, [clip.start + 1, clip.end + 1]])))));
+  const tags = Object.assign({}, ...(resourceBindings.map((binding) => Object.fromEntries(Object.entries(binding.clips ?? {}).map(([name, clip]) => [name, [clip.start + 1, clip.end + 1]])))));
   const pairs = Object.entries(tags).map(([name, range]) => `[${quote(name)}]={${range[0]},${range[1]}}`).join(',');
   const externalImporter = readFileSync(chain.builderPath, 'utf8').includes('import-imagegen-enemy-sheet.mjs');
   return `{manifestDriven=true,externalImporter=${externalImporter},script=${quote(relative(manifest.root, chain.builderPath))},width=${spritesheet ? load.frameWidth : dimensions.width},height=${spritesheet ? load.frameHeight : dimensions.height},frames=${frames},layers={},hidden={},populated={},tags={${pairs}},savedAs=${quote(relative(manifest.root, chain.sourcePath))}}`;

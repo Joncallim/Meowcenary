@@ -4,7 +4,7 @@ import type { EventBus } from '../engine/eventBus';
 
 import { SceneKey } from '../engine/sceneKeys';
 import { AudioManager, getAudioManager } from '../systems/audio';
-import { edgeMargin, logicalCanvasViewport, minimumHitTarget, type UiViewport } from '../ui/layout';
+import { edgeMargin, responsiveContentInsets, responsiveUiViewport, minimumHitTarget, type UiViewport } from '../ui/layout';
 import { MainMenuController, type MainMenuSnapshot } from '../ui/menus';
 import { cycleVolumeStep } from '../ui/settings';
 import { ThemeColor, ThemeDepth, ThemeFont } from '../ui/theme';
@@ -65,7 +65,14 @@ export class MenuScene extends Phaser.Scene {
   /** Maps scene-wide focus indexes (which include fixed controls) to the
    * region's contiguous local indexes. */
   private scrollLocalIndexByFocusIndex = new Map<number, number>();
-  private scrollObjects: Array<{ object: Phaser.GameObjects.GameObject; x: number; y: number }> = [];
+  private scrollItemBounds = new Map<number, { top: number; bottom: number }>();
+  private scrollObjects: Array<{
+    object: Phaser.GameObjects.GameObject;
+    x: number;
+    y: number;
+    /** Decorations inherit their owning row's all-or-nothing clipping. */
+    ownerIndex?: number;
+  }> = [];
   private scrollViewportTop = 0;
   private scrollViewportBottom = 0;
   private hoveredIndex = -1;
@@ -144,16 +151,6 @@ export class MenuScene extends Phaser.Scene {
     this.bus = ctx.bus;
     this.controller = new MainMenuController(ctx);
 
-    this.add
-      .rectangle(
-        this.scale.width / 2,
-        this.scale.height / 2,
-        this.scale.width,
-        this.scale.height,
-        ThemeColor.background,
-      )
-      .setScrollFactor(0);
-
     this.inputController = new InputController(this);
     this.inputController.onAction('back', () => this.handleBack());
     this.inputController.onAction('navUp', () => this.handleNavMove(-1));
@@ -231,6 +228,7 @@ export class MenuScene extends Phaser.Scene {
     this.scrollItemIndexes.clear();
     this.scrollLocalIndexByFocusIndex.clear();
     this.scrollObjects = [];
+    this.scrollItemBounds.clear();
     this.hoveredIndex = -1;
     this.focusIndexAfterRender = undefined;
     this.hint = undefined;
@@ -238,17 +236,26 @@ export class MenuScene extends Phaser.Scene {
     const root = this.add.container(0, 0);
     root.setDepth(MENU_DEPTH).setScrollFactor(0);
 
+    this.own(root, this.add.rectangle(
+      this.scale.width / 2,
+      this.scale.height / 2,
+      this.scale.width,
+      this.scale.height,
+      ThemeColor.background,
+    ).setScrollFactor(0));
+
     const width = this.scale.width;
-    const viewport: UiViewport = logicalCanvasViewport(
-      this.scale.displaySize.width,
-      this.scale.displaySize.height,
-      this.scale.parentSize?.width ?? this.scale.displaySize.width,
-      this.scale.parentSize?.height ?? this.scale.displaySize.height,
-    );
+    const viewport: UiViewport = responsiveUiViewport(this.scale.width, this.scale.height);
     this.currentViewport = viewport;
-    const leftMargin = edgeMargin(viewport, 'left');
+    const contentInsets = responsiveContentInsets(
+      width,
+      edgeMargin(viewport, 'left'),
+      edgeMargin(viewport, 'right'),
+      840,
+    );
+    const leftMargin = contentInsets.left;
     const topMargin = edgeMargin(viewport, 'top');
-    this.safeRightMargin = edgeMargin(viewport, 'right');
+    this.safeRightMargin = contentInsets.right;
     this.safeCenterX = (leftMargin + width - this.safeRightMargin) / 2;
     const margin = leftMargin;
     const hitTarget = minimumHitTarget(viewport);
@@ -437,7 +444,7 @@ export class MenuScene extends Phaser.Scene {
       { label: 'Settings', action: () => this.render(this.requireController().open('settings')) },
     ];
     const artX = width - this.safeRightMargin - 28;
-    if (selectedCharacter) this.addPanelArt(root, artX, top + 18, selectedCharacter.actorArtId, 40);
+    if (selectedCharacter) this.addPanelArt(root, artX, top + 28, selectedCharacter.portraitArtId, 56);
     if (selectedStage) {
       this.addPanelArt(root, artX, top + 54, selectedStage.locationArtId, 34);
       this.addPanelArt(root, artX - 34, top + 54, selectedStage.objective.artId, 26);
@@ -489,7 +496,7 @@ export class MenuScene extends Phaser.Scene {
     hints.setScrollFactor(0);
     this.hint = hints;
     void this.ensurePanelPresentation('home', [
-      selectedCharacter?.actorArtId,
+      selectedCharacter?.portraitArtId,
       selectedStage?.locationArtId,
       selectedStage?.objective.artId,
       ...threatPreview.map((threat) => threat.actorArtId),
@@ -608,24 +615,26 @@ export class MenuScene extends Phaser.Scene {
 
     snapshot.character.characters.forEach((character) => {
       const label = `${character.selected ? '✓ ' : ''}${character.name}${character.locked ? ' 🔒' : ''}`;
-      const artColumn = 68;
+      const artColumn = 88;
       const button = this.addButton(root, margin + artColumn, y, label, hitTarget, () => {
         const next = this.requireController().selectCharacter(character.id, snapshot.character.revision);
         this.render(next);
       }, 'ui:confirm', width - margin - this.safeRightMargin - artColumn);
+      const rowOwnerIndex = this.focusables.length - 1;
       const rowHeaderHeight = Math.max(56, button.height);
-      this.addMercenaryActor(root, margin + 28, y + rowHeaderHeight / 2, character.actorArtId, 56, character.locked);
-      this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + rowHeaderHeight / 2, character.startingWeaponIconArtId, 32);
+      this.addPanelArt(root, margin + 38, y + 38, character.portraitArtId, 76, character.locked, false, rowOwnerIndex);
+      this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + rowHeaderHeight / 2, character.startingWeaponIconArtId, 32, rowOwnerIndex);
       if (character.description || character.abilityName) {
+        const detailX = margin + artColumn;
         const details = [
           `${character.description} • Starts: ${character.startingWeaponSummary}`,
           `Base: ${character.baseStatsSummary}`,
-          character.passiveSummary,
-          character.abilityName ? `${character.abilityName}: ${character.abilityDescription}` : undefined,
+          character.passives.map((passive) => `${passive.name}: ${passive.description}`).join(' • '),
+          character.abilityName ? `${character.abilityName.toUpperCase()}: ${character.abilityDescription}` : undefined,
           character.locked ? character.unlockRequirement : undefined,
         ]
           .filter(Boolean).join('\n');
-        const desc = this.own(root, createUiText(this,margin + artColumn, y + rowHeaderHeight + 2, details, {
+        const desc = this.own(root, createUiText(this, detailX, y + rowHeaderHeight + 2, details, {
           color: '#a5f3fc',
           fontFamily: ThemeFont.family,
           fontSize: `${ThemeFont.bodyMin}px`,
@@ -633,6 +642,12 @@ export class MenuScene extends Phaser.Scene {
         }));
         desc.setScrollFactor(0);
         this.registerScrollObject(desc);
+        if (character.abilityIconArtId) {
+          this.addCatalogIcon(root, detailX - 18, y + rowHeaderHeight + desc.height - 10, character.abilityIconArtId, 28, rowOwnerIndex);
+        }
+        character.passives.slice(0, 2).forEach((passive, index) => {
+          this.addCatalogIcon(root, detailX - 18, y + rowHeaderHeight + 46 + index * 26, passive.iconArtId, 22, rowOwnerIndex);
+        });
         y += rowHeaderHeight + desc.height + 10;
       } else {
         y += rowHeaderHeight + 16;
@@ -641,7 +656,10 @@ export class MenuScene extends Phaser.Scene {
 
     this.endScrollableRegion();
     void this.ensureMercenaryPresentation(snapshot.character.characters.flatMap((character) => [
-      character.actorArtId, character.startingWeaponIconArtId,
+      character.portraitArtId,
+      character.startingWeaponIconArtId,
+      ...(character.abilityIconArtId ? [character.abilityIconArtId] : []),
+      ...character.passives.map((passive) => passive.iconArtId),
     ]));
     this.addBackButton(root, width, margin, hitTarget);
   }
@@ -695,8 +713,9 @@ export class MenuScene extends Phaser.Scene {
       const button = this.addButton(root, margin + 42, y, label, hitTarget, () => {
         this.render(this.requireController().selectStage(stage.id));
       }, 'ui:confirm', width - margin - this.safeRightMargin - 42);
+      const rowOwnerIndex = this.focusables.length - 1;
       if (stage.locked) this.disableButton(button);
-      this.addPanelArt(root, margin + 18, y + Math.min(button.height, 52) / 2, stage.objective.artId, 32, stage.locked);
+      this.addPanelArt(root, margin + 18, y + Math.min(button.height, 52) / 2, stage.objective.artId, 32, stage.locked, false, rowOwnerIndex);
       y += button.height + 10;
       if (stage.selected && !stage.locked) {
         const threatGroups = Array.from({ length: Math.ceil(stage.threats.length / 4) }, (_, index) =>
@@ -769,10 +788,11 @@ export class MenuScene extends Phaser.Scene {
       const name = entry.status === 'unseen' ? 'Unknown' : entry.name;
       const artColumn = entry.actorArtId ? 58 : 0;
       const row = this.addButton(root, margin + artColumn, y, `${name}\n${detail}`, hitTarget, () => undefined, 'ui:confirm', width - margin - this.safeRightMargin - artColumn);
+      const rowOwnerIndex = this.focusables.length - 1;
       row.setStyle({
         color: entry.status === 'unseen' ? '#94a3b8' : '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
       });
-      if (entry.actorArtId) this.addPanelArt(root, margin + 26, y + Math.min(row.height, 58) / 2, entry.actorArtId, 50, false, true);
+      if (entry.actorArtId) this.addPanelArt(root, margin + 26, y + Math.min(row.height, 58) / 2, entry.actorArtId, 50, false, true, rowOwnerIndex);
       y += row.height + 12;
     });
     this.endScrollableRegion();
@@ -838,8 +858,9 @@ export class MenuScene extends Phaser.Scene {
         () => this.render(this.requireController().selectAchievement(achievement.id)),
         'ui:confirm', cardWidth,
       );
+      const rowOwnerIndex = this.focusables.length - 1;
       button.setStyle({ color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px` });
-      this.addAchievementIcon(root, x + cardWidth - 18, y + 20, achievement.iconArtId, 28);
+      this.addAchievementIcon(root, x + cardWidth - 18, y + 20, achievement.iconArtId, 28, rowOwnerIndex);
     });
     this.endScrollableRegion();
     this.addBackButton(root, width, margin, hitTarget);
@@ -945,10 +966,11 @@ export class MenuScene extends Phaser.Scene {
           const row = this.addButton(root, margin, y, label, hitTarget, () => this.render(part.state === 'fitted-here'
             ? this.requireController().unequipGunPart(part.instanceId)
             : this.requireController().fitGunPart(part.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
+          const rowOwnerIndex = this.focusables.length - 1;
           if (!enabled) this.disableButton(row);
-          this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, part.iconArtId);
+          this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, part.iconArtId, 26, rowOwnerIndex);
           part.traitIcons.forEach((trait, index) => {
-            this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41 - index * 28, y + hitTarget / 2, trait.iconArtId, 22);
+            this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41 - index * 28, y + hitTarget / 2, trait.iconArtId, 22, rowOwnerIndex);
           });
           y += row.height + 8;
         });
@@ -1013,10 +1035,11 @@ export class MenuScene extends Phaser.Scene {
         const label = `${part.name} • ${part.rarity.toUpperCase()}\n${part.stateLabel}\n${part.effectLines.join(' • ') || 'Trait engineering'}\n${part.comparisonSummary}\n${detail}${part.fabricationActionLabel === undefined ? '' : `\n${part.fabricationActionLabel}`}`;
         const row = this.addButton(root, margin, y, label, hitTarget,
           () => this.render(this.requireController().fabricateGunPart(part.partId)), 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
+        const rowOwnerIndex = this.focusables.length - 1;
         if (!part.canFabricate) this.disableButton(row);
-        this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, part.iconArtId);
+        this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, part.iconArtId, 26, rowOwnerIndex);
         part.traitIcons.forEach((trait, index) => {
-          this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41 - index * 28, y + hitTarget / 2, trait.iconArtId, 22);
+          this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41 - index * 28, y + hitTarget / 2, trait.iconArtId, 22, rowOwnerIndex);
         });
         y += row.height + 8;
       });
@@ -1082,8 +1105,9 @@ export class MenuScene extends Phaser.Scene {
           ? this.requireController().unequipEquipment(item.slot as 'helmet' | 'armour' | 'gloves' | 'boots')
           : this.requireController().equipEquipment(item.instanceId));
       }, 'ui:confirm', width - margin - this.safeRightMargin - iconColumn);
-      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, item.iconArtId);
-      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41, y + hitTarget / 2, item.setEmblemArtId, 22);
+      const rowOwnerIndex = this.focusables.length - 1;
+      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, item.iconArtId, 26, rowOwnerIndex);
+      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41, y + hitTarget / 2, item.setEmblemArtId, 22, rowOwnerIndex);
       y += equipmentButton.height + 8;
       const effects = this.own(root, createUiText(this, margin, y, item.effectSummary.join(' • '), {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
@@ -1138,8 +1162,9 @@ export class MenuScene extends Phaser.Scene {
       const row = this.addButton(root, margin, y, `${blueprint.name}\n${blueprint.setName} Set • ${slot}\n${blueprint.effectSummary.join(' • ')}\nFabricate — ${blueprint.fabricationCost} Scrap`, hitTarget, () => {
         this.render(this.requireController().fabricateEquipment(blueprint.equipmentId));
       }, 'ui:confirm', width - margin - this.safeRightMargin - 66);
-      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, blueprint.iconArtId);
-      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41, y + hitTarget / 2, blueprint.setEmblemArtId, 22);
+      const rowOwnerIndex = this.focusables.length - 1;
+      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 13, y + hitTarget / 2, blueprint.iconArtId, 26, rowOwnerIndex);
+      this.addCatalogIcon(root, width - this.safeRightMargin - margin - 41, y + hitTarget / 2, blueprint.setEmblemArtId, 22, rowOwnerIndex);
       y += row.height + 8;
     });
     this.endScrollableRegion();
@@ -1279,18 +1304,13 @@ export class MenuScene extends Phaser.Scene {
     const index = this.focusables.length - 1;
     if (this.scrollRegion && this.collectingScrollItems) {
       this.scrollItemIndexes.add(index);
-      this.scrollObjects.push({ object: text, x: text.x, y: text.y });
-      this.scrollObjects.push({ object: ring, x: ring.x, y: ring.y });
+      this.scrollObjects.push({ object: text, x: text.x, y: text.y, ownerIndex: index });
+      this.scrollObjects.push({ object: ring, x: ring.x, y: ring.y, ownerIndex: index });
       // The shared region receives real rendered bounds, not a screen-local
       // row estimate, so wrapped labels and future content remain correct.
-      this.scrollRegion.setItems([
-        ...Array.from(this.scrollItemIndexes).map((itemIndex, localIndex) => {
-          this.scrollLocalIndexByFocusIndex.set(itemIndex, localIndex);
-          const item = this.focusables[itemIndex]!;
-          const itemBounds = item.getBounds();
-          return { index: localIndex, top: itemBounds.top, bottom: itemBounds.bottom };
-        }),
-      ]);
+      const itemBounds = text.getBounds();
+      this.scrollItemBounds.set(index, { top: itemBounds.top, bottom: itemBounds.bottom });
+      this.rebuildScrollItems();
     }
     text.on(Phaser.Input.Events.POINTER_OVER, () => {
       this.hoveredIndex = index;
@@ -1331,19 +1351,19 @@ export class MenuScene extends Phaser.Scene {
   /** Render a validated data-owned icon. Missing textures deliberately leave
    * the accessible text label intact rather than turning a catalog problem
    * into an unusable menu action. */
-  private addCatalogIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string, maxSize = 26): void {
+  private addCatalogIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string, maxSize = 26, scrollOwnerIndex?: number): void {
     const binding = this.requireVisualArt().bindingById(iconArtId);
     if (!binding || (binding.kind !== 'icon' && binding.kind !== 'upgrade-icon' && binding.kind !== 'achievement-icon' && binding.kind !== 'weapon-icon') || !this.textures?.exists(binding.textureKey)) return;
     const icon = this.own(root, this.add.image(x, y, binding.textureKey, binding.frameKey));
     icon.setDisplaySize(Math.min(maxSize, binding.display.width), Math.min(maxSize, binding.display.height));
     icon.setScrollFactor(0);
-    this.registerScrollObject(icon);
+    this.registerScrollObject(icon, scrollOwnerIndex);
   }
 
   /** Shared art anchor for Contract, Career and Compendium cards. Semantic IDs
    * come from their read models; this renderer only understands physical
    * binding capabilities. */
-  private addPanelArt(root: Phaser.GameObjects.Container, x: number, y: number, artId: string, maxSize: number, subdued = false, animate = false): void {
+  private addPanelArt(root: Phaser.GameObjects.Container, x: number, y: number, artId: string, maxSize: number, subdued = false, animate = false, scrollOwnerIndex?: number): void {
     const binding = this.requireVisualArt().bindingById(artId);
     if (!binding || !this.textures?.exists(binding.textureKey)) return;
     const frame = binding.load.type === 'spritesheet' ? binding.clips?.idle?.start ?? 0 : binding.frameKey;
@@ -1360,7 +1380,7 @@ export class MenuScene extends Phaser.Scene {
       (image as Phaser.GameObjects.Sprite).play(visualAnimationKey(binding.id, 'idle'));
     }
     image.setAlpha(subdued ? 0.35 : 1).setScrollFactor(0);
-    this.registerScrollObject(image);
+    this.registerScrollObject(image, scrollOwnerIndex);
   }
 
   /** One guarded lazy-loading lifecycle for the growing visual panels. A
@@ -1428,30 +1448,15 @@ export class MenuScene extends Phaser.Scene {
     }
   }
 
-  /** Mercenary thumbnails use the actor's authoritative first idle frame.
-   * Locked entries stay identifiable but are visibly subdued; text remains
-   * the authority for their exact unlock requirement. */
-  private addMercenaryActor(root: Phaser.GameObjects.Container, x: number, y: number, actorArtId: string, maxSize = 56, locked = false): void {
-    const binding = this.requireVisualArt().bindingById(actorArtId);
-    if (!binding || binding.kind !== 'character' || binding.load.type !== 'spritesheet' || !this.textures?.exists(binding.textureKey)) return;
-    const actor = this.own(root, this.add.image(x, y, binding.textureKey, binding.clips?.idle?.start ?? 0));
-    const targetWidth = Math.min(maxSize, binding.display.width * 2);
-    const targetHeight = Math.min(maxSize, binding.display.height * 2);
-    actor.setScale(targetWidth / binding.load.frame.width, targetHeight / binding.load.frame.height);
-    actor.setAlpha(locked ? 0.42 : 1);
-    actor.setScrollFactor(0);
-    this.registerScrollObject(actor);
-  }
-
   /** Career shares terminal Achievement badge identity while retaining its
    * own gallery layout. Missing textures intentionally preserve text/focus. */
-  private addAchievementIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string, maxSize = 26): void {
+  private addAchievementIcon(root: Phaser.GameObjects.Container, x: number, y: number, iconArtId: string, maxSize = 26, scrollOwnerIndex?: number): void {
     const binding = resolveAchievementIconBinding(this.requireVisualArt(), iconArtId);
     if (!binding || !this.textures?.exists(binding.textureKey)) return;
     const icon = this.own(root, this.add.image(x, y, binding.textureKey, binding.frameKey));
     icon.setDisplaySize(Math.min(maxSize, binding.display.width), Math.min(maxSize, binding.display.height));
     icon.setScrollFactor(0);
-    this.registerScrollObject(icon);
+    this.registerScrollObject(icon, scrollOwnerIndex);
   }
 
   /** Achievement badges remain lazy menu presentation: Boot does not load a
@@ -1613,12 +1618,38 @@ export class MenuScene extends Phaser.Scene {
     this.collectingScrollItems = false;
   }
 
-  private registerScrollObject(object: Phaser.GameObjects.GameObject): void {
+  private registerScrollObject(object: Phaser.GameObjects.GameObject, ownerIndex?: number): void {
     if (!this.scrollRegion || !this.collectingScrollItems) return;
     const positioned = object as unknown as { x: number; y: number; getBounds?: () => { bottom: number } };
-    this.scrollObjects.push({ object, x: positioned.x, y: positioned.y });
+    const validOwnerIndex = ownerIndex !== undefined && this.scrollItemIndexes.has(ownerIndex)
+      ? ownerIndex
+      : undefined;
+    this.scrollObjects.push({
+      object,
+      x: positioned.x,
+      y: positioned.y,
+      ...(validOwnerIndex === undefined ? {} : { ownerIndex: validOwnerIndex }),
+    });
     const bottom = positioned.getBounds?.().bottom;
+    const bounds = (object as unknown as { getBounds?: () => { top: number; bottom: number } }).getBounds?.();
+    if (validOwnerIndex !== undefined && bounds) {
+      const prior = this.scrollItemBounds.get(validOwnerIndex);
+      this.scrollItemBounds.set(validOwnerIndex, {
+        top: Math.min(prior?.top ?? bounds.top, bounds.top),
+        bottom: Math.max(prior?.bottom ?? bounds.bottom, bounds.bottom),
+      });
+      this.rebuildScrollItems();
+    }
     if (bottom !== undefined) this.scrollRegion.includeContentBottom(bottom);
+  }
+
+  private rebuildScrollItems(): void {
+    if (!this.scrollRegion) return;
+    this.scrollRegion.setItems(Array.from(this.scrollItemIndexes).map((itemIndex, localIndex) => {
+      this.scrollLocalIndexByFocusIndex.set(itemIndex, localIndex);
+      const bounds = this.scrollItemBounds.get(itemIndex) ?? this.focusables[itemIndex]!.getBounds();
+      return { index: localIndex, top: bounds.top, bottom: bounds.bottom };
+    }));
   }
 
   private finishScrollableRegion(): void {
@@ -1655,13 +1686,19 @@ export class MenuScene extends Phaser.Scene {
         getBounds?(): { top: number; bottom: number };
       };
       object.setPosition?.(entry.x, entry.y - offset);
-      const bounds = object.getBounds?.();
+      const ownerBounds = entry.ownerIndex === undefined ? undefined : this.scrollItemBounds.get(entry.ownerIndex);
+      const bounds = ownerBounds === undefined
+        ? object.getBounds?.()
+        : { top: ownerBounds.top - offset, bottom: ownerBounds.bottom - offset };
       if (bounds) object.setVisible?.(bounds.top >= this.scrollViewportTop && bounds.bottom <= this.scrollViewportBottom);
     }
     for (const index of this.scrollItemIndexes) {
       const text = this.focusables[index];
       if (!text) continue;
-      const bounds = text.getBounds();
+      const groupBounds = this.scrollItemBounds.get(index);
+      const bounds = groupBounds === undefined
+        ? text.getBounds()
+        : { top: groupBounds.top - offset, bottom: groupBounds.bottom - offset };
       const visible = bounds.top >= this.scrollViewportTop && bounds.bottom <= this.scrollViewportBottom;
       text.setVisible(visible);
       const ring = this.focusRings[index];
@@ -1833,6 +1870,7 @@ export class MenuScene extends Phaser.Scene {
     this.scrollItemIndexes.clear();
     this.scrollLocalIndexByFocusIndex.clear();
     this.scrollObjects = [];
+    this.scrollItemBounds.clear();
     this.navigator.setCount(0);
     this.committedPanel = undefined;
     this.committedDisplay = false;

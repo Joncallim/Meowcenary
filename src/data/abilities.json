@@ -6,7 +6,7 @@
     "cooldownMs": 9000,
     "durationMs": 400,
     "effect": { "kind": "knockback", "radius": 90, "power": 260 },
-    "presentation": { "cue": "shockwave", "color": "#facc15", "radius": 90 }
+    "presentation": { "cue": "shockwave", "color": "#facc15", "radius": 90, "iconArtId": "ability-icon:scrap-burst" }
   },
   {
     "id": "ability:overclock",
@@ -21,7 +21,7 @@
         { "stat": "moveSpeed", "op": "mult", "value": 1.25, "sourceId": "ability:overclock" }
       ]
     },
-    "presentation": { "cue": "overclock-aura", "color": "#22d3ee", "radius": 34 }
+    "presentation": { "cue": "overclock-aura", "color": "#22d3ee", "radius": 34, "iconArtId": "ability-icon:overclock" }
   },
   {
     "id": "ability:shield-flicker",
@@ -30,7 +30,7 @@
     "cooldownMs": 15000,
     "durationMs": 1200,
     "effect": { "kind": "invulnerable" },
-    "presentation": { "cue": "shield-aura", "color": "#60a5fa", "radius": 38 }
+    "presentation": { "cue": "shield-aura", "color": "#60a5fa", "radius": 38, "iconArtId": "ability-icon:shield-flicker" }
   },
   {
     "id": "ability:giga-chomp",
@@ -39,7 +39,7 @@
     "cooldownMs": 18000,
     "durationMs": 0,
     "effect": { "kind": "heal", "amount": 40 },
-    "presentation": { "cue": "heal-burst", "color": "#4ade80", "radius": 42 }
+    "presentation": { "cue": "heal-burst", "color": "#4ade80", "radius": 42, "iconArtId": "ability-icon:giga-chomp" }
   },
   {
     "id": "ability:adrenaline",
@@ -53,7 +53,7 @@
         { "stat": "moveSpeed", "op": "mult", "value": 1.4, "sourceId": "ability:adrenaline" }
       ]
     },
-    "presentation": { "cue": "speed-trail", "color": "#f97316", "radius": 28 }
+    "presentation": { "cue": "speed-trail", "color": "#f97316", "radius": 28, "iconArtId": "ability-icon:adrenaline" }
   },
   {
     "id": "ability:heat-vent",
@@ -62,7 +62,7 @@
     "cooldownMs": 11000,
     "durationMs": 800,
     "effect": { "kind": "elemental-burst", "radius": 110, "power": 90 },
-    "presentation": { "cue": "heat-ring", "color": "#fb7185", "radius": 110 }
+    "presentation": { "cue": "heat-ring", "color": "#fb7185", "radius": 110, "iconArtId": "ability-icon:heat-vent" }
   },
   {
     "id": "ability:scavenge-pulse",
@@ -71,7 +71,7 @@
     "cooldownMs": 8000,
     "durationMs": 300,
     "effect": { "kind": "loot-pulse", "radius": 160 },
-    "presentation": { "cue": "loot-pulse", "color": "#a78bfa", "radius": 160 }
+    "presentation": { "cue": "loot-pulse", "color": "#a78bfa", "radius": 160, "iconArtId": "ability-icon:scavenge-pulse" }
   },
   {
     "id": "ability:precision-mark",
@@ -86,6 +86,6 @@
         { "stat": "pierce", "op": "add", "value": 1, "sourceId": "ability:precision-mark" }
       ]
     },
-    "presentation": { "cue": "precision-mark", "color": "#e879f9", "radius": 36 }
+    "presentation": { "cue": "precision-mark", "color": "#e879f9", "radius": 36, "iconArtId": "ability-icon:precision-mark" }
   }
 ]

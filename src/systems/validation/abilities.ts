@@ -40,6 +40,7 @@ export const checkAbility: RowCheckFn = (row: unknown, _index: number): string[]
   else {
     if (typeof presentation.cue !== 'string' || !PRESENTATION_CUES.has(presentation.cue)) errors.push('presentation.cue: invalid registered cue');
     if (typeof presentation.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(presentation.color)) errors.push('presentation.color: must be a hex color');
+    if (typeof presentation.iconArtId !== 'string' || presentation.iconArtId !== `ability-icon:${String(a.id).replace(/^ability:/, '')}`) errors.push('presentation.iconArtId: must exactly match the ability ID');
     if (presentation.radius !== undefined && (typeof presentation.radius !== 'number' || presentation.radius <= 0)) errors.push('presentation.radius: must be positive when provided');
   }
 

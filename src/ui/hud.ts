@@ -6,7 +6,7 @@ import type { Player } from '../entities/Player';
 import type { RunState, RunStatus } from '../gameplay/runState';
 
 import { formatNumber, formatTime } from './format';
-import { edgeMargin, logicalCanvasViewport, physicalToLogical, zoomedGameUiViewport, type UiViewport } from './layout';
+import { edgeMargin, physicalToLogical, responsiveContentInsets, responsiveGameUiViewport, responsiveUiViewport, type UiViewport } from './layout';
 import { ThemeColor, ThemeDepth, ThemeFont } from './theme';
 import { createUiText } from './text';
 
@@ -202,9 +202,15 @@ interface TopHudLayout {
 }
 
 function topHudLayout(viewport: UiViewport): TopHudLayout {
-  const margin = edgeMargin(viewport, 'left');
+  const contentInsets = responsiveContentInsets(
+    viewport.canvasWidth,
+    edgeMargin(viewport, 'left'),
+    edgeMargin(viewport, 'right'),
+    physicalToLogical(720, viewport),
+  );
+  const margin = contentInsets.left;
   const topMargin = edgeMargin(viewport, 'top');
-  const rightMargin = edgeMargin(viewport, 'right');
+  const rightMargin = contentInsets.right;
   // A compact instrument strip: one header, then two labelled meter rows.
   // Labels sit inside their own meters so no text baseline can collide with
   // the next bar on Safari's larger-than-CSS font raster.
@@ -508,8 +514,8 @@ export class PhaserHudView implements HudView {
     }
     const scale = this.scene.scale;
     const next: UiViewport = this.viewport.originX === undefined
-      ? logicalCanvasViewport(scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height)
-      : zoomedGameUiViewport(scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height);
+      ? responsiveUiViewport(scale.width, scale.height)
+      : responsiveGameUiViewport(scale.width, scale.height);
     if (sameViewport(this.viewport, next)) {
       return;
     }

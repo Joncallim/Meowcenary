@@ -138,7 +138,6 @@ export function createMenuSoakHarness(options: {
   const phase = createMenuPhase({ fixtureSeed: options.fixtureSeed, storageKey: options.storageKey });
   const base = driver({ scene: phase.scene, input: phase.input, pad: phase.pad, menuScene: phase.menuScene });
   const focus = focusSurface(phase.scene);
-  const fitScale = (width: number, height: number) => Math.min(width / 390, height / 844);
   return {
     ...base, ...focus,
     menuScene: phase.menuScene,
@@ -153,13 +152,14 @@ export function createMenuSoakHarness(options: {
     resizeEmitCount: () => phase.scene.scale.emitCount('resize'),
     resizeTo: (width, height) => {
       const scale = phase.scene.scale;
-      const fit = fitScale(width, height);
-      scale.displaySize.width = 390 * fit;
-      scale.displaySize.height = 844 * fit;
+      scale.width = width;
+      scale.height = height;
+      scale.displaySize.width = width;
+      scale.displaySize.height = height;
       scale.parentSize.width = width;
       scale.parentSize.height = height;
       // The real Phaser resize event, exactly once per resize.
-      scale.emit('resize', scale, { width, height }, { width: 390 * fit, height: 844 * fit }, 1, 390, 844);
+      scale.emit('resize', scale, { width, height }, { width, height }, 1, width, height);
     },
     destroy: () => phase.destroy(),
   };
@@ -229,7 +229,6 @@ export function createGameSoakHarness(options: {
   });
   const base = driver({ scene: phase.scene, input: phase.input, pad: phase.pad, update: phase.update });
   const focus = focusSurface(phase.scene);
-  const fitScale = (width: number, height: number) => Math.min(width / 390, height / 844);
   return {
     ...base, ...focus,
     gameScene: phase.scene as unknown as GameScene,
@@ -270,13 +269,14 @@ export function createGameSoakHarness(options: {
     tweenAdds: () => phase.tweenAdds,
     resizeTo: (width, height) => {
       const scale = phase.scene.scale;
-      const fit = fitScale(width, height);
-      scale.displaySize.width = 390 * fit;
-      scale.displaySize.height = 844 * fit;
+      scale.width = width;
+      scale.height = height;
+      scale.displaySize.width = width;
+      scale.displaySize.height = height;
       scale.parentSize.width = width;
       scale.parentSize.height = height;
       // The real Phaser resize event, exactly once per resize.
-      scale.emit('resize', scale, { width, height }, { width: 390 * fit, height: 844 * fit }, 1, 390, 844);
+      scale.emit('resize', scale, { width, height }, { width, height }, 1, width, height);
     },
     openChooser: () => { phase.bus.emit('level:up', { level: 2 }); return phase.upgradeChooser.diagnostics.choiceIds; },
     openPause: () => { phase.press(9); },

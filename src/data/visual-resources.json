@@ -803,5 +803,25 @@
       "imageUrl": "assets/achievements/achievement-icons-atlas.png",
       "dataUrl": "assets/achievements/achievement-icons-atlas.json"
     }
+  },
+  {
+    "id": "resource:mercenary-portraits",
+    "textureKey": "art-mercenary-portraits",
+    "sampling": "nearest",
+    "load": {
+      "type": "atlas",
+      "imageUrl": "assets/characters/identity/mercenary-portraits-atlas.png",
+      "dataUrl": "assets/characters/identity/mercenary-portraits-atlas.json"
+    }
+  },
+  {
+    "id": "resource:mercenary-identity-icons",
+    "textureKey": "art-mercenary-identity-icons",
+    "sampling": "nearest",
+    "load": {
+      "type": "atlas",
+      "imageUrl": "assets/characters/identity/mercenary-identity-icons-atlas.png",
+      "dataUrl": "assets/characters/identity/mercenary-identity-icons-atlas.json"
+    }
   }
 ]

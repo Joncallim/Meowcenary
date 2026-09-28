@@ -3,6 +3,7 @@
     "id": "scrap-tabby",
     "name": "Scrap Tabby",
     "description": "A balanced junkyard scavenger who gets by on a little bit of everything.",
+    "presentation": { "portraitArtId": "character-portrait:scrap-tabby" },
     "baseStats": {
       "maxHealth": 100,
       "moveSpeed": 175
@@ -17,6 +18,7 @@
         "kind": "static",
         "name": "Scrap Hoarder",
         "description": "Picks up scrap and XP from a little further away.",
+        "presentation": { "iconArtId": "passive-icon:scrap-hoarder" },
         "effects": [
           {
             "stat": "pickupRadius",
@@ -35,6 +37,7 @@
     "id": "bolt-hound",
     "name": "Bolt Hound",
     "description": "A wiry, high-speed striker who trades toughness for tempo.",
+    "presentation": { "portraitArtId": "character-portrait:bolt-hound" },
     "baseStats": {
       "maxHealth": 80,
       "moveSpeed": 205
@@ -49,6 +52,7 @@
         "kind": "static",
         "name": "Quick Tail",
         "description": "Moves 5% faster on top of an already brisk pace.",
+        "presentation": { "iconArtId": "passive-icon:quick-tail" },
         "effects": [
           {
             "stat": "moveSpeed",
@@ -68,6 +72,7 @@
     "id": "volt-lynx",
     "name": "Volt Lynx",
     "description": "A lightning-fast recon specialist who zips between fights.",
+    "presentation": { "portraitArtId": "character-portrait:volt-lynx" },
     "baseStats": {
       "maxHealth": 85,
       "moveSpeed": 200
@@ -82,6 +87,7 @@
         "kind": "static",
         "name": "Light Paws",
         "description": "Moves 8% faster.",
+        "presentation": { "iconArtId": "passive-icon:light-paws" },
         "effects": [
           {
             "stat": "moveSpeed",
@@ -101,6 +107,7 @@
     "id": "brass-boar",
     "name": "Brass Boar",
     "description": "A heavy plated bruiser who shrugs off hits and charges through.",
+    "presentation": { "portraitArtId": "character-portrait:brass-boar" },
     "baseStats": {
       "maxHealth": 135,
       "moveSpeed": 145
@@ -115,6 +122,7 @@
         "kind": "static",
         "name": "Thick Hide",
         "description": "Has 10% more maximum health.",
+        "presentation": { "iconArtId": "passive-icon:thick-hide" },
         "effects": [
           {
             "stat": "maxHealth",
@@ -134,6 +142,7 @@
     "id": "ember-cougar",
     "name": "Ember Cougar",
     "description": "An elemental striker whose bursts ignite the junkyard.",
+    "presentation": { "portraitArtId": "character-portrait:ember-cougar" },
     "baseStats": {
       "maxHealth": 95,
       "moveSpeed": 180
@@ -148,6 +157,7 @@
         "kind": "static",
         "name": "Ember Aura",
         "description": "Deals 5% more damage.",
+        "presentation": { "iconArtId": "passive-icon:ember-aura" },
         "effects": [
           {
             "stat": "damage",
@@ -167,6 +177,7 @@
     "id": "scrap-weasel",
     "name": "Scrap Weasel",
     "description": "A scavenger-engineer who hoards loot and parts.",
+    "presentation": { "portraitArtId": "character-portrait:scrap-weasel" },
     "baseStats": {
       "maxHealth": 90,
       "moveSpeed": 185
@@ -181,6 +192,7 @@
         "kind": "static",
         "name": "Magnet Belly",
         "description": "Picks up scrap and XP from much further away.",
+        "presentation": { "iconArtId": "passive-icon:magnet-belly" },
         "effects": [
           {
             "stat": "pickupRadius",
@@ -200,6 +212,7 @@
     "id": "rattle-raptor",
     "name": "Rattle Raptor",
     "description": "A precision hunter who marks weak points for heavy volleys.",
+    "presentation": { "portraitArtId": "character-portrait:rattle-raptor" },
     "baseStats": {
       "maxHealth": 92,
       "moveSpeed": 172
@@ -214,6 +227,7 @@
         "kind": "static",
         "name": "Hunter Eye",
         "description": "Shots travel a little faster and further.",
+        "presentation": { "iconArtId": "passive-icon:hunter-eye" },
         "effects": [
           {
             "stat": "range",
@@ -233,6 +247,7 @@
     "id": "piston-ram",
     "name": "Piston Ram",
     "description": "An overclocked automaton that fires in furious bursts.",
+    "presentation": { "portraitArtId": "character-portrait:piston-ram" },
     "baseStats": {
       "maxHealth": 105,
       "moveSpeed": 165
@@ -247,6 +262,7 @@
         "kind": "static",
         "name": "Hydraulic Core",
         "description": "Fires 6% faster.",
+        "presentation": { "iconArtId": "passive-icon:hydraulic-core" },
         "effects": [
           {
             "stat": "attackSpeed",

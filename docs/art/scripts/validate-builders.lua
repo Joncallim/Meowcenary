@@ -40,6 +40,7 @@ local function image(width, height)
     height = height,
     pixels = pixels,
     drawPixel = function(self, x, y, color)
+      assert(color ~= nil, "drawPixel requires a defined palette color")
       local key = tostring(math.floor(x)) .. "," .. tostring(math.floor(y))
       if color == 0 then pixels[key] = nil else pixels[key] = color end
     end,

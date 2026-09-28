@@ -74,6 +74,7 @@ import type {
   RewardProfile,
   AssetBundleDefinition,
   VisualTextureResource,
+  VisualArtKind,
 } from './types';
 import { PLAYER_BODY_RADIUS } from '../engine/bodyDimensions';
 import type { AchievementDefinition } from '../gameplay/achievementSystem';
@@ -165,11 +166,13 @@ const SCALING_FIELDS = new Set(['healthPerMinute', 'damagePerMinute']);
 const WAVE_FIELDS = new Set(['startSecond', 'enemyId', 'spawnEveryMs', 'maxAlive']);
 const CHARACTER_FIELDS = new Set([
   'id', 'name', 'description', 'baseStats', 'startingWeaponIds', 'passives',
-  'unlock', 'cosmeticSkinIds', 'abilityId',
+  'unlock', 'cosmeticSkinIds', 'abilityId', 'presentation',
 ]);
+const CHARACTER_PRESENTATION_FIELDS = new Set(['portraitArtId']);
 const CHARACTER_BASE_STATS_FIELDS = new Set(['maxHealth', 'moveSpeed']);
-const CHARACTER_STATIC_PASSIVE_FIELDS = new Set(['id', 'kind', 'name', 'description', 'effects']);
-const CHARACTER_REACTIVE_PASSIVE_FIELDS = new Set(['id', 'kind', 'name', 'description', 'event', 'handlerId']);
+const CHARACTER_STATIC_PASSIVE_FIELDS = new Set(['id', 'kind', 'name', 'description', 'effects', 'presentation']);
+const CHARACTER_REACTIVE_PASSIVE_FIELDS = new Set(['id', 'kind', 'name', 'description', 'event', 'handlerId', 'presentation']);
+const CHARACTER_PASSIVE_PRESENTATION_FIELDS = new Set(['iconArtId']);
 const ARENA_FIELDS = new Set(['id', 'name', 'size', 'spawnCurveId', 'spawnRegions', 'obstacles', 'hazards', 'unlock', 'visual']);
 const ARENA_SIZE_FIELDS = new Set(['width', 'height']);
 const REGION_RING_FIELDS = new Set(['kind', 'cx', 'cy', 'minRadius', 'maxRadius']);
@@ -211,7 +214,7 @@ const VISUAL_RESOURCE_LOAD_FIELDS = new Set(['type', 'imageUrl', 'dataUrl', 'fra
 const VISUAL_ART_DIMENSION_FIELDS = new Set(['width', 'height']);
 const VISUAL_ART_CLIP_FIELDS = new Set(['start', 'end', 'frameRate', 'repeat']);
 const VISUAL_ART_KINDS = new Set([
-  'character', 'enemy', 'projectile', 'drop', 'weapon-icon', 'weapon-held', 'world', 'icon', 'upgrade-icon', 'achievement-icon',
+  'character', 'enemy', 'projectile', 'drop', 'weapon-icon', 'weapon-held', 'world', 'portrait', 'icon', 'upgrade-icon', 'achievement-icon',
 ]);
 // Catalog-count ceilings. The spawn-witness search (findRectWitness/findRingWitness)
 // partitions the arena at obstacle edges — cost grows super-linearly with the
@@ -719,6 +722,7 @@ export function validateGameData(raw: unknown): GameData {
       throw new Error(`character.${character.id}: abilityId "${character.abilityId}" not found in ability catalog`);
     }
   }
+  assertMercenaryPresentationArtReferences(characters, catalogs.abilities as AbilityDefinition[], visualArt);
 
   assertEquipmentArtReferences(catalogs.equipment as EquipmentDefinition[], equipmentSets, visualArt);
   assertEquipmentSetMembership(catalogs.equipment as EquipmentDefinition[], equipmentSets);
@@ -726,6 +730,32 @@ export function validateGameData(raw: unknown): GameData {
 
   const audio: AudioData = { assets: audioAssets, map: audioMap };
   return withContentVersion({ weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, visualResources, assetBundles, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements, gunParts: catalogs['gun-parts'] as PartDefinition[], abilities: catalogs.abilities as AbilityDefinition[], equipment: catalogs.equipment as EquipmentDefinition[], equipmentSets, equipmentRules }, suppliedContentVersion ?? contentVersionJson);
+}
+
+/** Exact V4 Mercenary presentation coverage. Definitions own logical IDs;
+ * atlas frames and physical resources may be repacked without changing them. */
+export function assertMercenaryPresentationArtReferences(
+  characters: readonly CharacterDefinition[],
+  abilities: readonly AbilityDefinition[],
+  catalog: VisualArtCatalog,
+): void {
+  const byId = new Map(catalog.bindings.map((binding) => [binding.id, binding]));
+  const errors: string[] = [];
+  const check = (id: string, kind: VisualArtKind, path: string): void => {
+    const binding = byId.get(id);
+    if (!binding) errors.push(`${path}: unknown visual-art id "${id}"`);
+    else if (binding.kind !== kind) errors.push(`${path}: expected ${kind} binding, got ${binding.kind}`);
+    else if (!binding.required || binding.frameKey !== id) {
+      errors.push(`${path}: must be a required named-frame atlas binding`);
+    }
+  };
+  characters.forEach((character, characterIndex) => {
+    check(character.presentation.portraitArtId, 'portrait', `characters.json[${characterIndex}].presentation.portraitArtId`);
+    character.passives.forEach((passive, passiveIndex) =>
+      check(passive.presentation.iconArtId, 'icon', `characters.json[${characterIndex}].passives[${passiveIndex}].presentation.iconArtId`));
+  });
+  abilities.forEach((ability, index) => check(ability.presentation.iconArtId, 'icon', `abilities.json[${index}].presentation.iconArtId`));
+  throwIfErrors(errors);
 }
 
 function withContentVersion(data: Omit<GameData, 'contentVersion'>, raw: unknown): GameData {
@@ -2093,6 +2123,19 @@ function checkCharacter(row: unknown): string[] {
   requireString(row, 'name', errors);
   requireString(row, 'description', errors);
 
+  const presentation = readOwnField(row, 'presentation');
+  if (!isRecord(presentation)) {
+    errors.push('presentation: required object');
+  } else {
+    const presentationErrors: string[] = [];
+    rejectUnknownFields(presentation, CHARACTER_PRESENTATION_FIELDS, presentationErrors);
+    const portraitArtId = readOwnField(presentation, 'portraitArtId');
+    if (typeof portraitArtId !== 'string' || (typeof id === 'string' && portraitArtId !== `character-portrait:${id}`)) {
+      presentationErrors.push('portraitArtId: must exactly match the character ID');
+    }
+    errors.push(...presentationErrors.map((error) => `presentation.${error}`));
+  }
+
   const abilityId = readOwnField(row, 'abilityId');
   if (abilityId !== undefined && (typeof abilityId !== 'string' || !isUnlockId(abilityId) || !abilityId.startsWith('ability:'))) {
     errors.push('abilityId: must be a valid unlock ID prefixed with "ability:"');
@@ -2210,6 +2253,7 @@ function checkCharacterStaticPassive(
 
   requireString(passive, 'name', passiveErrors);
   requireString(passive, 'description', passiveErrors);
+  checkCharacterPassivePresentation(passive, pid, passiveErrors);
 
   const effects = readOwnField(passive, 'effects');
   if (!Array.isArray(effects) || effects.length === 0) {
@@ -2269,6 +2313,7 @@ function checkCharacterReactivePassive(
 
   requireString(passive, 'name', passiveErrors);
   requireString(passive, 'description', passiveErrors);
+  checkCharacterPassivePresentation(passive, pid, passiveErrors);
 
   const event = readOwnField(passive, 'event');
   const eventSet = new Set<string>(CHARACTER_PASSIVE_EVENTS);
@@ -2279,6 +2324,25 @@ function checkCharacterReactivePassive(
   requireString(passive, 'handlerId', passiveErrors);
 
   errors.push(...passiveErrors.map((error) => `${path}.${error}`));
+}
+
+function checkCharacterPassivePresentation(
+  passive: Record<string, unknown>,
+  passiveId: unknown,
+  errors: string[],
+): void {
+  const presentation = readOwnField(passive, 'presentation');
+  if (!isRecord(presentation)) {
+    errors.push('presentation: required object');
+    return;
+  }
+  const presentationErrors: string[] = [];
+  rejectUnknownFields(presentation, CHARACTER_PASSIVE_PRESENTATION_FIELDS, presentationErrors);
+  const iconArtId = readOwnField(presentation, 'iconArtId');
+  if (typeof iconArtId !== 'string' || (typeof passiveId === 'string' && iconArtId !== `passive-icon:${passiveId}`)) {
+    presentationErrors.push('iconArtId: must exactly match the passive ID');
+  }
+  errors.push(...presentationErrors.map((error) => `presentation.${error}`));
 }
 
 function checkChargerAttack(enemy: Record<string, unknown>, errors: string[]): void {
@@ -3289,7 +3353,7 @@ export function validateVisualArtCatalog(raw: unknown): VisualArtCatalog {
       // equipment, Gunsmith, trait and future icon families. Their domain
       // validators own canonical ID shape; do not collapse them into an
       // `icon:*` content namespace merely to select the generic renderer.
-      } else if (kind !== 'icon' && typeof id === 'string' && !id.startsWith(`${kind}:`)) {
+      } else if (kind !== 'icon' && kind !== 'portrait' && typeof id === 'string' && !id.startsWith(`${kind}:`)) {
         rowErrors.push('kind: must match id prefix');
       }
       if (typeof resourceId !== 'string' || !/^resource:[a-z0-9][a-z0-9-]*$/.test(resourceId)) rowErrors.push('resourceId: must be a canonical visual resource ID');

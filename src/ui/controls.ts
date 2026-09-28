@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { clampLength } from '../engine/vector';
 import { assertTouchStickConfig, RuntimeConfig, type TouchStickConfig } from '../engine/config';
 import type { InputController, InputMode, InputPresentationSnapshot } from '../systems/input';
-import { edgeMargin, logicalCanvasViewport, pointerToRootLocal, physicalToLogical, GAMEPLAY_ZOOM, zoomedGameUiViewport, type UiViewport } from './layout';
+import { edgeMargin, pointerToRootLocal, physicalToLogical, GAMEPLAY_ZOOM, responsiveGameUiViewport, responsiveUiViewport, type UiViewport } from './layout';
 import { reducedMotionDuration, ThemeColor, ThemeDepth, ThemeFont } from './theme';
 import { createUiText } from './text';
 
@@ -32,6 +32,10 @@ export interface ControlsViewOptions {
 export interface AbilityControlDefinition {
   readonly name: string;
   readonly description: string;
+  readonly icon?: {
+    readonly textureKey: string;
+    readonly frameKey?: string;
+  };
 }
 
 export type AbilityControlPhase = 'ready' | 'active' | 'cooling';
@@ -61,6 +65,7 @@ export class ControlsView {
   private abilityPhase: AbilityControlPhase = 'ready';
   private abilityCooldownSeconds = 0;
   private abilityButton?: Phaser.GameObjects.Rectangle;
+  private abilityIcon?: Phaser.GameObjects.Image;
   private abilityNameText?: Phaser.GameObjects.Text;
   private abilityStateText?: Phaser.GameObjects.Text;
   private pauseGlyphBars: Phaser.GameObjects.Rectangle[] = [];
@@ -196,6 +201,7 @@ export class ControlsView {
       this.hintText,
       this.pauseButton,
       ...(this.abilityButton ? [this.abilityButton] : []),
+      ...(this.abilityIcon ? [this.abilityIcon] : []),
       ...(this.abilityNameText ? [this.abilityNameText] : []),
       ...(this.abilityStateText ? [this.abilityStateText] : []),
       ...this.pauseGlyphBars,
@@ -222,12 +228,24 @@ export class ControlsView {
     this.abilityButton.setInteractive();
     this.abilityButton.on('pointerdown', this.handleAbilityPointerDown, this);
 
-    this.abilityNameText = createUiText(scene, x, y - height * 0.18, containedAbilityName(this.ability!.name), {
+    if (this.ability!.icon && scene.textures.exists(this.ability!.icon.textureKey)) {
+      this.abilityIcon = scene.add.image(
+        x - width * 0.30,
+        y,
+        this.ability!.icon.textureKey,
+        this.ability!.icon.frameKey,
+      );
+      const iconSize = Math.min(height * 0.64, physicalToLogical(36, viewport));
+      this.abilityIcon.setDisplaySize(iconSize, iconSize).setDepth(ThemeDepth.hud + 1).setScrollFactor(0);
+    }
+
+    const copyX = this.abilityIcon ? x + width * 0.12 : x;
+    this.abilityNameText = createUiText(scene, copyX, y - height * 0.18, containedAbilityName(this.ability!.name), {
       color: '#f7f1d5', fontFamily: ThemeFont.family,
       fontSize: `${physicalToLogical(12, viewport)}px`, fontStyle: '700', align: 'center',
     });
     this.abilityNameText.setOrigin(0.5).setDepth(ThemeDepth.hud + 1).setScrollFactor(0);
-    this.abilityStateText = createUiText(scene, x, y + height * 0.20, abilityStateCopy(this.abilityPhase, this.abilityCooldownSeconds), {
+    this.abilityStateText = createUiText(scene, copyX, y + height * 0.20, abilityStateCopy(this.abilityPhase, this.abilityCooldownSeconds), {
       color: '#f7f1d5', fontFamily: ThemeFont.family,
       fontSize: `${physicalToLogical(11, viewport)}px`, fontStyle: '700', align: 'center',
     });
@@ -389,9 +407,11 @@ export class ControlsView {
     this.hintText.destroy();
     this.pauseButton.destroy();
     this.abilityButton?.destroy();
+    this.abilityIcon?.destroy();
     this.abilityNameText?.destroy();
     this.abilityStateText?.destroy();
     this.abilityButton = undefined;
+    this.abilityIcon = undefined;
     this.abilityNameText = undefined;
     this.abilityStateText = undefined;
     this.pauseGlyphBars.forEach((bar) => bar.destroy());
@@ -413,13 +433,14 @@ export class ControlsView {
     }
     const scale = this.scene.scale;
     const next: UiViewport = this.viewport.originX === undefined
-      ? logicalCanvasViewport(scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height)
-      : zoomedGameUiViewport(scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height);
+      ? responsiveUiViewport(scale.width, scale.height)
+      : responsiveGameUiViewport(scale.width, scale.height);
     if (sameViewport(this.viewport, next)) {
       return;
     }
     this.destroyViewportControls();
     this.viewport = next;
+    this.root?.setPosition(next.originX ?? 0, next.originY ?? 0);
     this.buildViewportControls();
   };
 

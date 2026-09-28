@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { EventBus } from '../engine/eventBus';
 import { pauseRun, resumeRun, type RunState } from '../gameplay/runState';
 import { InventoryController, type InventorySnapshot } from './inventory';
-import { edgeMargin, logicalCanvasViewport, minimumHitTarget, physicalToLogical, zoomedGameUiViewport, type UiViewport } from './layout';
+import { edgeMargin, minimumHitTarget, physicalToLogical, responsiveGameUiViewport, responsiveUiViewport, type UiViewport } from './layout';
 import type { FullscreenController, FullscreenState } from './fullscreen';
 import { createModalTextHelpers, type ModalTextHelpers } from './modal';
 import { ThemeColor, ThemeDepth } from './theme';
@@ -391,8 +391,8 @@ export class PhaserPauseView {
   private syncLayoutContext(): void {
     const scale = this.scene.scale;
     const next: UiViewport = this.viewport.originX === undefined
-      ? logicalCanvasViewport(scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height)
-      : zoomedGameUiViewport(scale.displaySize.width, scale.displaySize.height, scale.parentSize.width, scale.parentSize.height);
+      ? responsiveUiViewport(scale.width, scale.height)
+      : responsiveGameUiViewport(scale.width, scale.height);
     if (sameViewport(this.viewport, next)) {
       return;
     }

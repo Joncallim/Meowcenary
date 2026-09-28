@@ -7,6 +7,7 @@ const scrapTabby: CharacterDefinition = {
   id: 'scrap-tabby',
   name: 'Scrap Tabby',
   description: 'A balanced junkyard scavenger.',
+  presentation: { portraitArtId: 'character-portrait:scrap-tabby' },
   baseStats: { maxHealth: 100, moveSpeed: 175 },
   startingWeaponIds: ['scrap-pistol-t1', 'can-smg-t1', 'bolt-shotgun-t1'],
   passives: [{
@@ -14,6 +15,7 @@ const scrapTabby: CharacterDefinition = {
     kind: 'static',
     name: 'Scrap Hoarder',
     description: 'Picks up scrap and XP from a little further away.',
+    presentation: { iconArtId: 'passive-icon:scrap-hoarder' },
     effects: [{ stat: 'pickupRadius', op: 'add', value: 15 }],
   }],
   unlock: { type: 'always' },
@@ -24,6 +26,7 @@ const boltHound: CharacterDefinition = {
   id: 'bolt-hound',
   name: 'Bolt Hound',
   description: 'A wiry, high-speed striker.',
+  presentation: { portraitArtId: 'character-portrait:bolt-hound' },
   baseStats: { maxHealth: 80, moveSpeed: 205 },
   startingWeaponIds: ['can-smg-t1'],
   passives: [{
@@ -31,6 +34,7 @@ const boltHound: CharacterDefinition = {
     kind: 'static',
     name: 'Quick Tail',
     description: 'Moves 5% faster.',
+    presentation: { iconArtId: 'passive-icon:quick-tail' },
     effects: [{ stat: 'moveSpeed', op: 'mult', value: 1.05 }],
   }],
   unlock: { type: 'achievement-completed', achievementId: 'achievement:first-victory' },
@@ -58,7 +62,7 @@ describe('DataCharacterRegistry', () => {
   });
 
   it('throws when there is no default character', () => {
-    const noDefault: CharacterDefinition = { ...boltHound, id: 'fighter' };
+    const noDefault: CharacterDefinition = { ...boltHound, id: 'fighter', presentation: { portraitArtId: 'character-portrait:fighter' } };
     expect(() => new DataCharacterRegistry({
       characters: [boltHound, noDefault],
     })).toThrow(/at least one character must have unlock\.type "always"/);

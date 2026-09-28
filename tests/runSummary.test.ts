@@ -35,6 +35,7 @@ vi.mock('phaser', () => ({
         POINTER_OUT: 'pointerout',
       },
     },
+    Scale: { Events: { RESIZE: 'resize' } },
   },
 }));
 
@@ -445,10 +446,29 @@ describe('PhaserRunSummaryView', () => {
     };
 
     const scenePlugin = { restart: vi.fn(), start: vi.fn() };
+    const resizeListeners: Array<() => void> = [];
+    const scale = {
+      width: 390,
+      height: 844,
+      on(event: string, handler: () => void) {
+        if (event === 'resize') resizeListeners.push(handler);
+      },
+      off(event: string, handler: () => void) {
+        if (event !== 'resize') return;
+        const index = resizeListeners.indexOf(handler);
+        if (index >= 0) resizeListeners.splice(index, 1);
+      },
+      resize(width: number, height: number) {
+        scale.width = width;
+        scale.height = height;
+        [...resizeListeners].forEach((handler) => handler());
+      },
+    };
 
     const scene = {
       input: { keyboard },
       scene: scenePlugin,
+      scale,
       add: {
         container: () => {
           const base = fakeObject('container');
@@ -549,6 +569,18 @@ describe('PhaserRunSummaryView', () => {
 
     expect(view.visible).toBe(false);
     expect(scene.objects).toHaveLength(0);
+  });
+
+  it('uses a resize received before the terminal event for the first summary render', () => {
+    const { bus, scene, view } = createHarness({ banked: bankedRun() });
+    scene.scale.resize(844, 390);
+
+    bus.emit('run:won', { timeMs: 90_000, level: 4, kills: 23 });
+
+    expect(view.visible).toBe(true);
+    expect(scene.objects.some((object) =>
+      object.state.kind === 'rect' && object.state.width === 844 && object.state.height === 390,
+    )).toBe(true);
   });
 
   it('renders the won summary with stats, frozen actions, and an interactive backdrop', () => {

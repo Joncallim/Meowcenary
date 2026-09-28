@@ -12,6 +12,7 @@ function character(overrides: Partial<CharacterDefinition> = {}): CharacterDefin
     id: 'test-cat',
     name: 'Test Cat',
     description: 'Test.',
+    presentation: { portraitArtId: 'character-portrait:test-cat' },
     baseStats: { maxHealth: 100, moveSpeed: 175 },
     startingWeaponIds: [],
     passives: [],
@@ -27,6 +28,7 @@ function reactivePassive(id: string, event: CharacterPassiveEvent, handlerId: st
     kind: 'reactive' as const,
     name: id,
     description: 'Test reactive passive.',
+    presentation: { iconArtId: `passive-icon:${id}` },
     event,
     handlerId,
   };
@@ -296,6 +298,7 @@ describe('PassiveCoordinator', () => {
           kind: 'static',
           name: 'Static',
           description: 'Static.',
+          presentation: { iconArtId: 'passive-icon:static-one' },
           effects: [{ stat: 'damage', op: 'add', value: 5 }],
         },
         reactivePassive('reactive-one', 'enemy:killed', 'test'),

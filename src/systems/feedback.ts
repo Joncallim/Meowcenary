@@ -303,6 +303,17 @@ export class PhaserFeedbackRenderer implements FeedbackRenderer {
     return this.dropped;
   }
 
+  /** Keep screen-space damage/level/merge cues attached to the responsive
+   * gameplay viewport. World-space pooled dots deliberately remain untouched. */
+  resize(viewport: UiViewport): void {
+    const x = (viewport.originX ?? 0) + viewport.canvasWidth / 2;
+    const y = (viewport.originY ?? 0) + viewport.canvasHeight / 2;
+    for (const overlay of [this.damageRect, this.levelRect, this.mergeRect]) {
+      overlay.setPosition(x, y);
+      overlay.setSize(viewport.canvasWidth, viewport.canvasHeight);
+    }
+  }
+
   muzzleFlash(x: number, y: number, family: string): void {
     const feel = this.weaponFeelByFamily.get(family);
     if (!feel) return;

@@ -19,6 +19,8 @@ export interface AbilityPresentationDefinition {
   readonly cue: AbilityPresentationCue;
   readonly color: string;
   readonly radius?: number;
+  /** Explicit logical identity; physical atlas packing remains registry-owned. */
+  readonly iconArtId: string;
 }
 
 export interface AbilityRuntime {

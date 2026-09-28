@@ -7,8 +7,15 @@ export interface OrientationEvidence {
   readonly coarsePrimaryPointer: boolean;
 }
 
+/** Only compact coarse-pointer landscapes need the portrait safety overlay.
+ * Tablets and unfolded foldables have enough vertical room for the responsive
+ * UI and should use their additional field of view instead of being blocked. */
+const COMPACT_LANDSCAPE_MAX_HEIGHT = 599;
+
 export function isPortraitRequiredButUnavailable(evidence: OrientationEvidence): boolean {
-  return evidence.coarsePrimaryPointer && evidence.viewportWidth > evidence.viewportHeight;
+  return evidence.coarsePrimaryPointer
+    && evidence.viewportWidth > evidence.viewportHeight
+    && evidence.viewportHeight <= COMPACT_LANDSCAPE_MAX_HEIGHT;
 }
 
 export interface PortraitOrientationGuard {
