@@ -231,6 +231,15 @@ describe('SpawnSystem', () => {
     });
   });
 
+  it('keeps a supplied production art registry fail-closed when it cannot resolve an actor', async () => {
+    const harness = await createHarness({
+      visualArt: { bindingById: () => undefined },
+    });
+
+    expect(() => harness.system.update(1_600))
+      .toThrow(/Required actor presentation is unavailable: binding is missing/);
+  });
+
   it('builds one frozen environment and reuses its identity for every spawned enemy', async () => {
     const obstacle = { x: 100, y: 120, w: 30, h: 40 };
     const harness = await createHarness({

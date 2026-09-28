@@ -210,6 +210,10 @@ export class SpawnSystem implements System {
       this.ctx.bus,
       this.visualArt?.bindingById(`enemy:${definition.id}`),
       this.environment,
+      // A missing registry is an explicit headless/test composition seam.
+      // Production GameScene always provides the registry; once it does,
+      // even an unresolved required actor binding fails closed in Enemy.
+      this.visualArt === undefined ? { allowPrimitiveFallback: true } : undefined,
     );
     this.enemies.push(enemy);
     this.enemyGroup.add(enemy.sprite);

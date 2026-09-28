@@ -116,6 +116,7 @@ async function createHarness(
   invulnerabilityMs = 650,
   moveVector: { x: number; y: number } = { x: 0, y: 0 },
   art?: Readonly<VisualArtBinding>,
+  allowPrimitiveFallback = true,
 ) {
   const { Player } = await import('../src/entities/Player');
   const circles: MockArc[] = [];
@@ -148,7 +149,7 @@ async function createHarness(
     invulnerabilityMs,
     spawnX: 400,
     spawnY: 300,
-  }, art);
+  }, art, { allowPrimitiveFallback });
 
   return { player, runState, sprite: circles[0], circles, artSprites, bus };
 }
@@ -168,6 +169,14 @@ const playerArt = {
 } as const satisfies VisualArtBinding;
 
 describe('Player', () => {
+  it('rejects missing required actor art unless a harness explicitly opts into primitive fallback', async () => {
+    await expect(createHarness(650, { x: 0, y: 0 }, undefined, false))
+      .rejects.toThrow(/Required actor presentation is unavailable: binding is missing/);
+
+    const fallback = await createHarness();
+    expect(fallback.circles).toHaveLength(5);
+  });
+
   it('moves freely in the full world without HUD-imposed vertical restriction', async () => {
     const { player, sprite } = await createHarness(650, { x: 0, y: -1 });
 

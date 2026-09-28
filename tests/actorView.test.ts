@@ -33,6 +33,25 @@ class Node {
 }
 
 describe('actor views', () => {
+  it('fails closed for absent required actor presentation unless a test explicitly opts into primitives', async () => {
+    const { createAnimatedActorView } = await import('../src/entities/actorView');
+    const scene = {
+      textures: { exists: () => false },
+      anims: { exists: () => false },
+      add: { sprite: () => new Node() },
+    };
+    expect(() => createAnimatedActorView(scene as never, new Node() as never, { node: new Node() as never, dy: 0 }, undefined, 5))
+      .toThrow(/Required actor presentation is unavailable: binding is missing/);
+    expect(createAnimatedActorView(
+      scene as never,
+      new Node() as never,
+      { node: new Node() as never, dy: 0 },
+      undefined,
+      5,
+      { allowPrimitiveFallback: true },
+    )).toBeUndefined();
+  });
+
   it('glues placeholder layers, flashes only marked nodes, and preserves body ownership', async () => {
     const { PlaceholderView } = await import('../src/entities/actorView');
     const body = new Node();
@@ -248,7 +267,12 @@ describe('actor views', () => {
       sampling: 'nearest',
       load: { type: 'spritesheet', frame: { width: 40, height: 20 } },
       display: { width: 20, height: 10 },
-      clips: { idle: { start: 0, end: 0, frameRate: 1, repeat: -1 }, run: { start: 0, end: 0, frameRate: 1, repeat: -1 } },
+      clips: {
+        idle: { start: 0, end: 0, frameRate: 1, repeat: -1 },
+        run: { start: 0, end: 0, frameRate: 1, repeat: -1 },
+        hurt: { start: 0, end: 0, frameRate: 1, repeat: 0 },
+        defeat: { start: 0, end: 0, frameRate: 1, repeat: 0 },
+      },
     } as const;
     createAnimatedActorView(scene as never, new Node() as never, { node: new Node() as never, dy: 0 }, actorBinding, 5);
     expect(sprites[0]?.scale).toEqual([0.65, 0.65]);

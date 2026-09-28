@@ -32,6 +32,18 @@ export interface ActorView {
   destroy(): void;
 }
 
+/**
+ * Primitive actors are deliberately a harness/debug capability, never an
+ * alternate release presentation path. Callers must opt in at construction
+ * time so a missing required texture or animation cannot quietly turn a
+ * production actor into circles.
+ */
+export interface ActorViewFallbackOptions {
+  readonly allowPrimitiveFallback?: boolean;
+}
+
+const REQUIRED_ACTOR_CLIPS = ['idle', 'run', 'hurt', 'defeat'] as const;
+
 /** Epic 17 (D7): bounded pulse for the winding-telegraph fallback on
  *  code-drawn accent nodes — amplitude grows with progress so the cue reads
  *  as "charging up," not a flat blink. Pure function, no timers. */
@@ -181,34 +193,60 @@ export function createAnimatedActorView(
   shadow: { readonly node: Phaser.GameObjects.Arc; readonly dy: number },
   binding: Readonly<VisualArtBinding> | undefined,
   depth: number,
+  fallbackOptions: Readonly<ActorViewFallbackOptions> = {},
 ): SpriteView | undefined {
-  if (binding?.load.type !== 'spritesheet' || !binding.clips?.idle || !binding.clips.run ||
-      !scene.textures.exists(binding.textureKey)) {
-    return undefined;
+  const failure = unavailableRequiredActorPresentation(scene, binding);
+  if (failure !== undefined) {
+    if (fallbackOptions.allowPrimitiveFallback) return undefined;
+    throw new Error(`Required actor presentation is unavailable: ${failure}`);
   }
-  const idle = visualAnimationKey(binding.id, 'idle');
-  const run = visualAnimationKey(binding.id, 'run');
-  if (!scene.anims.exists(idle) || !scene.anims.exists(run)) return undefined;
-  const sprite = scene.add.sprite(body.x, body.y, binding.textureKey, 0)
+  // `unavailableRequiredActorPresentation` proved the binding, texture and
+  // all release clips above. Keep the local narrowing explicit because the
+  // binding still arrives at this presentation boundary as optional data.
+  const actorBinding = binding!;
+  // Unreachable after the diagnostic guard above; retained for TypeScript's
+  // discriminated-union narrowing at the sprite construction site.
+  if (actorBinding.load.type !== 'spritesheet' || !actorBinding.clips) {
+    throw new Error(`Required actor presentation is unavailable: ${actorBinding.id} is not a complete spritesheet binding`);
+  }
+  const idle = visualAnimationKey(actorBinding.id, 'idle');
+  const run = visualAnimationKey(actorBinding.id, 'run');
+  const sprite = scene.add.sprite(body.x, body.y, actorBinding.textureKey, 0)
     .setDepth(depth)
     .setOrigin(0.5)
     .setScale(
-      binding.display.width / binding.load.frame.width * actorVisualFactor(binding),
-      binding.display.height / binding.load.frame.height * actorVisualFactor(binding),
+      actorBinding.display.width / actorBinding.load.frame.width * actorVisualFactor(actorBinding),
+      actorBinding.display.height / actorBinding.load.frame.height * actorVisualFactor(actorBinding),
     );
-  const hurt = binding.clips.hurt ? visualAnimationKey(binding.id, 'hurt') : undefined;
-  const defeat = binding.clips.defeat ? visualAnimationKey(binding.id, 'defeat') : undefined;
+  const hurt = visualAnimationKey(actorBinding.id, 'hurt');
+  const defeat = visualAnimationKey(actorBinding.id, 'defeat');
   // Epic 17 (D7): optional windup clip — no schema change, `clips` is an
   // open record. Absent for every binding until Codex fills it in; the
   // caller falls back to the code-drawn accent pulse until then.
-  const windup = binding.clips.windup ? visualAnimationKey(binding.id, 'windup') : undefined;
+  const windup = actorBinding.clips.windup ? visualAnimationKey(actorBinding.id, 'windup') : undefined;
   return new SpriteView(body, shadow, sprite, {
     idle,
     run,
-    ...(hurt && scene.anims.exists(hurt) ? { hurt } : {}),
-    ...(defeat && scene.anims.exists(defeat) ? { defeat } : {}),
+    hurt,
+    defeat,
     ...(windup && scene.anims.exists(windup) ? { windup } : {}),
   });
+}
+
+/** Return a diagnostic suitable for the launch failure boundary, rather than
+ * treating an asset-present texture as sufficient actor presentation. */
+function unavailableRequiredActorPresentation(
+  scene: Pick<Phaser.Scene, 'textures' | 'anims'>,
+  binding: Readonly<VisualArtBinding> | undefined,
+): string | undefined {
+  if (!binding) return 'binding is missing';
+  if (binding.load.type !== 'spritesheet') return `${binding.id} is not a spritesheet`;
+  const missingClips = REQUIRED_ACTOR_CLIPS.filter((clip) => !binding.clips?.[clip]);
+  if (missingClips.length > 0) return `${binding.id} is missing required clip(s): ${missingClips.join(', ')}`;
+  if (!scene.textures.exists(binding.textureKey)) return `${binding.id} texture "${binding.textureKey}" is missing`;
+  const missingAnimations = REQUIRED_ACTOR_CLIPS.filter((clip) => !scene.anims.exists(visualAnimationKey(binding.id, clip)));
+  if (missingAnimations.length > 0) return `${binding.id} animation(s) are missing: ${missingAnimations.join(', ')}`;
+  return undefined;
 }
 
 export function createStaticArtSprite(

@@ -4,6 +4,7 @@ import {
   computeMenuBundle,
   findSharedResources,
   physicalResourcesForBindings,
+  prepareRunPresentation,
   resolveRunPhysicalResources,
 } from '../src/systems/resourceLoader';
 import type { VisualTextureResource } from '../src/systems/types';
@@ -89,6 +90,48 @@ describe('Resource Loader', () => {
     const resources = physicalResourcesForBindings(bindings);
     expect(resources).toHaveLength(1);
     expect(resources[0]?.textureKey).toBe('art-synthetic-shared-atlas');
+  });
+
+  it('rejects a required actor that lacks any release animation instead of letting entity construction fall back', async () => {
+    const resource: VisualTextureResource = {
+      id: 'resource:character-test',
+      textureKey: 'art-character-test',
+      sampling: 'nearest',
+      load: { type: 'spritesheet', imageUrl: 'assets/characters/test/test.png', frameWidth: 48, frameHeight: 48 },
+    };
+    const data = {
+      visualResources: [resource],
+      visualArt: {
+        bindings: [{
+          id: 'character:test', kind: 'character', required: true,
+          resourceId: resource.id, display: { width: 28, height: 28 },
+          clips: {
+            idle: { start: 0, end: 0, frameRate: 1, repeat: -1 },
+            run: { start: 1, end: 1, frameRate: 1, repeat: -1 },
+          },
+        }],
+      },
+    };
+    const animationKeys = new Set<string>();
+    const scene = {
+      textures: {
+        exists: () => true,
+        get: () => ({ has: () => true, setFilter: () => undefined }),
+      },
+      anims: {
+        exists: (key: string) => animationKeys.has(key),
+        create: ({ key }: { key: string }) => {
+          animationKeys.add(key);
+          return { frames: [{}] };
+        },
+        generateFrameNumbers: () => [{}],
+        remove: () => undefined,
+      },
+      load: {},
+    };
+
+    await expect(prepareRunPresentation(scene as never, data as never, [resource]))
+      .rejects.toThrow(/character:test is missing required hurt clip.*character:test is missing required defeat clip/);
   });
 
   it('closes a selected stage over world, encounter, recursive children, weapons, projectiles and drops', () => {
