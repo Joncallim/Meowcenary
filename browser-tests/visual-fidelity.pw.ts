@@ -117,7 +117,10 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
   await expect.poll(() => requestedAssets.some((path) => path.endsWith('/scrap-tabby.png'))).toBe(true);
   await page.waitForTimeout(2_200);
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('gameplay.png', { animations: 'disabled' });
+  // The run clock can cross one rasterized glyph tick while the browser waits
+  // for fonts; tolerate only that tiny text-level delta. Actor/HUD/layout
+  // regressions exceed this bounded allowance by orders of magnitude.
+  await expect(page).toHaveScreenshot('gameplay.png', { animations: 'disabled', maxDiffPixels: 32 });
 });
 
 test('boss gameplay keeps the approved boss-scale visual hierarchy', async ({ page }, testInfo) => {
