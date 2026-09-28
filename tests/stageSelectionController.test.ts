@@ -35,10 +35,14 @@ describe('StageSelectionController (Epic 20)', () => {
     expect(snap.stages[0].completed).toBe(false);
     expect(snap.stages[0]).toMatchObject({
       chapterName: 'Junkyard',
+      chapterIconArtId: 'chapter-icon:junkyard',
       locationName: 'Junkyard Lot',
       objective: { kind: 'kill', copy: 'Eliminate 25 threats' },
       reward: { firstClearScrap: 35 },
       boss: false,
+    });
+    expect(snap.stages.find((stage) => stage.chapterId === 'chapter:forge')).toMatchObject({
+      chapterIconArtId: 'chapter-icon:forge',
     });
     expect(snap.stages[0].threats).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: 'Dust Mite', actorArtId: 'enemy:dust-mite' }),

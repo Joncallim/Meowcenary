@@ -490,7 +490,7 @@ export class MenuScene extends Phaser.Scene {
         artId: selectedStage?.objective.artId ?? 'objective-icon:kill',
         action: () => { void this.startContractWithResources(); },
       },
-      { label: 'Change Contract', artId: `chapter-icon:${selectedStage?.chapterId === 'chapter:forge' ? 'forge' : 'junkyard'}`, action: () => this.render(this.requireController().open('stage')) },
+      { label: 'Change Contract', artId: selectedStage?.chapterIconArtId ?? selectedStage?.objective.artId ?? 'objective-icon:kill', action: () => this.render(this.requireController().open('stage')) },
       { label: 'Mercenary', artId: homeMercenaryArt, action: () => this.render(this.requireController().open('character')) },
       { label: 'Loadout', artId: 'equipment-set-icon:commando', action: () => this.render(this.requireController().open('loadout')) },
       { label: 'Career', artId: 'achievement-icon:first-victory', action: () => this.render(this.requireController().open('career')) },
@@ -2069,7 +2069,9 @@ export class MenuScene extends Phaser.Scene {
       this.applyFocus();
       return;
     }
-    const moved = this.navigator.move(resolved);
+    const moved = this.committedPanel === 'home'
+      ? this.moveHomeFocus(resolved)
+      : this.navigator.move(resolved);
     if (moved) {
       this.syncScrollFocus(this.navigator.index);
       this.applyScrollViewport();
@@ -2078,6 +2080,42 @@ export class MenuScene extends Phaser.Scene {
       this.bus?.emit('ui:navigate', {});
     }
     this.applyFocus();
+  }
+
+  /**
+   * Home is a mixed layout: two full-width actions, two paired rows, then a
+   * full-width Settings action. Keep keyboard/controller movement spatial so
+   * vertical input never unexpectedly jumps sideways across a paired row.
+   */
+  private moveHomeFocus(direction: FocusDirection): boolean {
+    // Test seams and recovery displays can temporarily expose fewer targets;
+    // retain the navigator's ordinary count-aware behavior in that case.
+    if (this.focusables.length !== 7) return this.navigator.move(direction);
+    const current = this.navigator.index;
+    const vertical: Readonly<Record<number, readonly [number, number]>> = {
+      0: [6, 1],
+      1: [0, 2],
+      2: [1, 4],
+      3: [1, 5],
+      4: [2, 6],
+      5: [3, 6],
+      6: [4, 0],
+    };
+    const horizontal: Readonly<Record<number, readonly [number, number]>> = {
+      0: [0, 0],
+      1: [1, 1],
+      2: [2, 3],
+      3: [2, 3],
+      4: [4, 5],
+      5: [4, 5],
+      6: [6, 6],
+    };
+    const next = direction === 'up' || direction === 'down'
+      ? vertical[current]?.[direction === 'up' ? 0 : 1]
+      : horizontal[current]?.[direction === 'left' ? 0 : 1];
+    if (next === undefined || next === current) return false;
+    this.navigator.setIndex(next);
+    return true;
   }
 
   private handleActivate(): void {

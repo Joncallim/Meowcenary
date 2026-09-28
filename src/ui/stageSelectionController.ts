@@ -16,6 +16,7 @@ export interface StageOptionView {
   readonly id: string;
   readonly name: string;
   readonly chapterId: string;
+  readonly chapterIconArtId: string;
   readonly displayOrder: number;
   readonly locked: boolean;
   readonly selected: boolean;
@@ -188,7 +189,7 @@ export class StageSelectionController {
     const grantNames = (reward?.grants ?? []).map((grant) => describeProgressionGrant(grant, this.context.data));
     const bestTimeMs = this.context.saveData.stages[stage.id]?.bestTimeMs;
     return Object.freeze({
-      id: stage.id, name: stage.name, chapterId: stage.chapterId,
+      id: stage.id, name: stage.name, chapterId: stage.chapterId, chapterIconArtId: stage.chapterIconArtId,
       chapterName: chapterName(stage.chapterId), displayOrder: stage.displayOrder,
       locked, selected, completed, ...(bestTimeMs === undefined ? {} : { bestTimeMs }),
       locationName: arena?.name ?? 'Unknown location',

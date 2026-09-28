@@ -90,6 +90,7 @@ import {
   checkDifficultyProfile,
   checkRewardProfile,
   assertStageArenaReferences,
+  assertStageChapterArtReferences,
   assertStageEncounterReferences,
   assertStageDifficultyReferences,
   assertStageRewardReferences,
@@ -681,6 +682,7 @@ export function validateGameData(raw: unknown): GameData {
 
   assertStageArenaReferences(stages, arenaIds);
   assertVisualResourceReferences(visualArt, visualResources);
+  assertStageChapterArtReferences(stages, visualArt);
   assertStageAssetBundleReferences(stages, assetBundles, visualArt, visualResources, arenas);
   assertStageEncounterReferences(stages, encounterProfileIdSet);
   assertStageDifficultyReferences(stages, difficultyProfileIdSet);
@@ -942,6 +944,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertUpgradeWeaponFamilyReferences(upgrades, weapons),
     () => assertUpgradeArtReferences(upgrades, visualArt),
     () => assertAchievementArtReferences(catalogs.achievements as AchievementDefinition[], visualArt),
+    () => assertStageChapterArtReferences(catalogs.stages as StageDefinition[], visualArt),
     () => assertStageAssetBundleReferences(catalogs.stages as StageDefinition[], assetBundles, visualArt, visualResources, arenas),
     () => assertPartArtReferences(catalogs['gun-parts'] as PartDefinition[], visualArt),
     () => assertPartAcquisitionRoutes(catalogs['gun-parts'] as PartDefinition[], catalogs.rewardProfiles as RewardProfile[], (catalogs.achievements ?? []) as AchievementDefinition[]),

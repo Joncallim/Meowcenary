@@ -1485,6 +1485,30 @@ describe('MenuScene', () => {
     expect(harness.textContents()).not.toContain('✓ Scrap Tabby');
   });
 
+  it('navigates the illustrated Home card grid spatially instead of stepping sideways on Down', () => {
+    const harness = createHarness();
+    const seams = harness.menuScene as unknown as { navigator: { index: number } };
+    const press = (key: string) => {
+      harness.keyboard.keydown(key);
+      harness.menuScene.update(0, 16);
+      harness.keyboard.keyup(key);
+      harness.menuScene.update(0, 16);
+    };
+
+    press('ArrowDown');
+    expect(seams.navigator.index).toBe(1); // Change Contract, full width
+    press('ArrowDown');
+    expect(seams.navigator.index).toBe(2); // Mercenary, left column
+    press('ArrowRight');
+    expect(seams.navigator.index).toBe(3); // Loadout, right column
+    press('ArrowDown');
+    expect(seams.navigator.index).toBe(5); // Training, same column
+    press('ArrowLeft');
+    expect(seams.navigator.index).toBe(4); // Career, paired card
+    press('ArrowDown');
+    expect(seams.navigator.index).toBe(6); // Settings, full width
+  });
+
   it('navigates and confirms through the real gamepad with zero pointer-plugin calls (F9)', () => {
     const harness = createHarness();
     const pad = new MockGamepad();
@@ -1583,8 +1607,8 @@ describe('MenuScene', () => {
       harness.keyboard.keyup(key);
       harness.menuScene.update(0, 16);
     };
-    // Home → Settings (row 6).
-    for (let i = 0; i < 6; i += 1) press('ArrowDown');
+    // Home → Settings through the left spatial column.
+    for (let i = 0; i < 4; i += 1) press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Settings');
 
@@ -1647,8 +1671,8 @@ describe('MenuScene', () => {
       harness.keyboard.keyup(key);
       harness.menuScene.update(0, 16);
     };
-    // Home → Settings (row 6), then walk to Back and return home.
-    for (let i = 0; i < 6; i += 1) press('ArrowDown');
+    // Home → Settings, then walk to Back and return home.
+    for (let i = 0; i < 4; i += 1) press('ArrowDown');
     press('Enter');
     expect(seams.navigator.index).toBe(0);
 
@@ -1682,7 +1706,7 @@ describe('MenuScene', () => {
     // Home → Settings, focus SFX Volume (row 2), then a same-panel toggle
     // fails mid-rebuild: the fallback replaces the tree and the retained
     // navigator must not move/emit without a committed display.
-    for (let i = 0; i < 6; i += 1) press('ArrowDown');
+    for (let i = 0; i < 4; i += 1) press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Settings');
     press('ArrowDown');
@@ -1762,13 +1786,13 @@ describe('MenuScene', () => {
   });
 
   it.each([
-    { name: 'home', steps: 0, expected: ['Play Contract', 'Change Contract', 'Mercenary', 'Loadout', 'Career', 'Training', 'Settings'] },
-    { name: 'mercenary', steps: 2, expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', 'Volt Lynx 🔒', 'Brass Boar 🔒', 'Ember Cougar 🔒', 'Scrap Weasel 🔒', 'Rattle Raptor 🔒', 'Piston Ram 🔒', 'Back'] },
-    { name: 'career', steps: 4, expected: ['Next Goals', 'Achievements', 'Compendium', 'Back'] },
-    { name: 'training', steps: 5, expected: ['Start Training', 'Back'] },
-    { name: 'settings', steps: 6, expected: ['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', 'Back'] },
+    { name: 'home', directions: [], expected: ['Play Contract', 'Change Contract', 'Mercenary', 'Loadout', 'Career', 'Training', 'Settings'] },
+    { name: 'mercenary', directions: ['ArrowDown', 'ArrowDown'], expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', 'Volt Lynx 🔒', 'Brass Boar 🔒', 'Ember Cougar 🔒', 'Scrap Weasel 🔒', 'Rattle Raptor 🔒', 'Piston Ram 🔒', 'Back'] },
+    { name: 'career', directions: ['ArrowDown', 'ArrowDown', 'ArrowDown'], expected: ['Next Goals', 'Achievements', 'Compendium', 'Back'] },
+    { name: 'training', directions: ['ArrowDown', 'ArrowDown', 'ArrowRight', 'ArrowDown'], expected: ['Start Training', 'Back'] },
+    { name: 'settings', directions: ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown'], expected: ['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', 'Back'] },
 
-  ])('registers the exact V4 focus-target order/count with exactly one FocusStroke ring (F6)', ({ steps, expected }) => {
+  ])('registers the exact V4 focus-target order/count with exactly one FocusStroke ring (F6)', ({ directions, expected }) => {
     const harness = createHarness();
     const press = (key: string) => {
       harness.keyboard.keydown(key);
@@ -1791,7 +1815,7 @@ describe('MenuScene', () => {
           object.state.strokeAlpha === FocusStroke.alpha,
       );
 
-    for (let i = 0; i < steps; i += 1) press('ArrowDown');
+    for (const direction of directions) press(direction);
     press('Enter');
 
     // Exact target order and count.
@@ -1819,7 +1843,7 @@ describe('MenuScene', () => {
       harness.menuScene.update(0, 16);
     };
     // Home → Career.
-    for (let i = 0; i < 4; i += 1) press('ArrowDown');
+    for (let i = 0; i < 3; i += 1) press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Career');
     expect(seams.navigator.index).toBe(0);
@@ -2237,8 +2261,8 @@ describe('MenuScene', () => {
         )
         .map((object) => object.state.text);
 
-    // Home → Settings (row 6).
-    for (let i = 0; i < 6; i += 1) press('ArrowDown');
+    // Home → Settings through the left spatial column.
+    for (let i = 0; i < 4; i += 1) press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Settings');
     expect(buttonLabels()).toEqual(['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', 'Back']);
