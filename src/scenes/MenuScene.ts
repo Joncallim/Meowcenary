@@ -48,7 +48,14 @@ export class MenuScene extends Phaser.Scene {
    * must never regain pointer or logical activation when scrolling changes
    * viewport visibility. */
   private disabledFocusables = new Set<Phaser.GameObjects.Text>();
-  private focusRings: Phaser.GameObjects.Rectangle[] = [];
+  private focusRings: Array<Phaser.GameObjects.GameObject & {
+    x: number;
+    y: number;
+    setAlpha?(alpha: number): unknown;
+    setScrollFactor?(factor: number): unknown;
+    setStrokeStyle?(width: number, color: number, alpha: number): unknown;
+    setVisible?(visible: boolean): unknown;
+  }> = [];
   private navigator = new FocusNavigator('linear');
   /** A modal-like command created during a same-panel rebuild may claim focus
    * only after the rebuilt navigator has received its new item count. */
@@ -76,6 +83,8 @@ export class MenuScene extends Phaser.Scene {
   }> = [];
   private scrollViewportTop = 0;
   private scrollViewportBottom = 0;
+  private scrollThumb?: Phaser.GameObjects.GameObject & { setPosition?(x: number, y: number): unknown };
+  private scrollThumbHeight = 0;
   private hoveredIndex = -1;
   private committedPanel?: MainMenuSnapshot['panel'];
   /** Explicit committed-display gate, retained separately from the root
@@ -234,6 +243,8 @@ export class MenuScene extends Phaser.Scene {
     this.scrollLocalIndexByFocusIndex.clear();
     this.scrollObjects = [];
     this.scrollItemBounds.clear();
+    this.scrollThumb = undefined;
+    this.scrollThumbHeight = 0;
     this.hoveredIndex = -1;
     this.focusIndexAfterRender = undefined;
     this.hint = undefined;
@@ -301,6 +312,16 @@ export class MenuScene extends Phaser.Scene {
       }
 
       const contentTop = (snapshot.notice ? 86 : 64) + topMargin;
+      const contentPanel = this.uiVisuals?.addPanel(
+        this,
+        this.safeCenterX,
+        contentTop + (this.scale.height - contentTop - edgeMargin(viewport, 'bottom')) / 2,
+        Math.max(120, width - leftMargin - this.safeRightMargin),
+        Math.max(80, this.scale.height - contentTop - edgeMargin(viewport, 'bottom')),
+        'panel',
+        { alpha: 0.28 },
+      );
+      if (contentPanel) this.own(root, contentPanel);
 
       switch (snapshot.panel) {
         case 'home':
@@ -356,7 +377,7 @@ export class MenuScene extends Phaser.Scene {
       if (preserveFocusAfterGridRebuild) this.navigator.setIndex(preserveFocusIndex);
       if (panelChanged) this.navigator.reset();
       if (this.focusIndexAfterRender !== undefined) this.navigator.setIndex(this.focusIndexAfterRender);
-      this.finishScrollableRegion();
+      this.finishScrollableRegion(root);
       this.applyFocus();
 
       // The root is only published once the display tree is fully built and
@@ -644,6 +665,9 @@ export class MenuScene extends Phaser.Scene {
       const rowHeaderHeight = Math.max(56, button.height);
       this.addPanelArt(root, margin + 38, y + 38, character.portraitArtId, 76, character.locked, false, rowOwnerIndex);
       this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + rowHeaderHeight / 2, character.startingWeaponIconArtId, 32, rowOwnerIndex);
+      if (character.locked) {
+        this.addCatalogIcon(root, width - this.safeRightMargin - 52, y + rowHeaderHeight / 2, 'ui-chrome:locked', 24, rowOwnerIndex);
+      }
       if (character.description || character.abilityName) {
         const detailX = margin + artColumn;
         const details = [
@@ -661,7 +685,7 @@ export class MenuScene extends Phaser.Scene {
           wordWrap: { width: width - margin - this.safeRightMargin - artColumn },
         }));
         desc.setScrollFactor(0);
-        this.registerScrollObject(desc);
+        this.registerScrollObject(desc, rowOwnerIndex);
         if (character.abilityIconArtId) {
           this.addCatalogIcon(root, detailX - 18, y + rowHeaderHeight + desc.height - 10, character.abilityIconArtId, 28, rowOwnerIndex);
         }
@@ -736,6 +760,12 @@ export class MenuScene extends Phaser.Scene {
       const rowOwnerIndex = this.focusables.length - 1;
       if (stage.locked) this.disableButton(button);
       this.addPanelArt(root, margin + 18, y + Math.min(button.height, 52) / 2, stage.objective.artId, 32, stage.locked, false, rowOwnerIndex);
+      const stateArtId = stage.locked ? 'ui-chrome:locked'
+        : stage.completed ? 'ui-chrome:cleared'
+          : stage.boss ? 'ui-chrome:boss' : undefined;
+      if (stateArtId) {
+        this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + Math.min(button.height, 52) / 2, stateArtId, 24, rowOwnerIndex);
+      }
       y += button.height + 10;
       if (stage.selected && !stage.locked) {
         const threatGroups = Array.from({ length: Math.ceil(stage.threats.length / 4) }, (_, index) =>
@@ -1268,8 +1298,8 @@ export class MenuScene extends Phaser.Scene {
       color: '#f7f1d5',
       fontFamily: ThemeFont.family,
       fontSize: `${ThemeFont.labelMin}px`,
-      padding: { x: 10, y: 8 },
-      ...(maxLabelWidth === undefined ? {} : { wordWrap: { width: Math.max(1, maxLabelWidth - 20) } }),
+      padding: { left: artId ? 40 : 10, right: 10, top: 8, bottom: 8 },
+      ...(maxLabelWidth === undefined ? {} : { wordWrap: { width: Math.max(1, maxLabelWidth - (artId ? 50 : 20)) } }),
     }));
     text.setOrigin(x === this.safeCenterX ? 0.5 : 0, 0);
     text.setScrollFactor(0);
@@ -1340,10 +1370,19 @@ export class MenuScene extends Phaser.Scene {
 
     this.focusables.push(text);
     const ringBounds = text.getBounds();
-    const ring = this.add.rectangle(ringBounds.centerX, ringBounds.centerY, ringBounds.width, ringBounds.height, 0, 0);
+    const ring = (this.uiVisuals?.addPanel(
+      this, ringBounds.centerX, ringBounds.centerY, ringBounds.width, ringBounds.height, 'focus', { alpha: 0 },
+    ) ?? this.add.rectangle(ringBounds.centerX, ringBounds.centerY, ringBounds.width, ringBounds.height, 0, 0)) as Phaser.GameObjects.GameObject & {
+      x: number;
+      y: number;
+      setAlpha?(alpha: number): unknown;
+      setScrollFactor?(factor: number): unknown;
+      setStrokeStyle?(width: number, color: number, alpha: number): unknown;
+      setVisible?(visible: boolean): unknown;
+    };
     root.add(ring);
     ring.setStrokeStyle?.(FocusStroke.width, FocusStroke.color, 0);
-    ring.setScrollFactor(0);
+    ring.setScrollFactor?.(0);
     this.focusRings.push(ring);
     const index = this.focusables.length - 1;
     if (this.scrollRegion && this.collectingScrollItems) {
@@ -1375,6 +1414,10 @@ export class MenuScene extends Phaser.Scene {
   private disableButton(text: Phaser.GameObjects.Text): void {
     this.disabledFocusables.add(text);
     text.disableInteractive();
+    const index = this.focusables.indexOf(text);
+    const disabled = this.uiVisuals?.binding('ui-chrome:disabled');
+    const chrome = this.buttonChrome[index] as Phaser.GameObjects.GameObject & { setFrame?(frame: string): unknown } | undefined;
+    if (disabled?.frameKey) chrome?.setFrame?.(disabled.frameKey);
   }
 
   private addHeading(
@@ -1698,13 +1741,32 @@ export class MenuScene extends Phaser.Scene {
     }));
   }
 
-  private finishScrollableRegion(): void {
+  private finishScrollableRegion(root: Phaser.GameObjects.Container): void {
     if (!this.scrollRegion || this.scrollItemIndexes.size === 0) return;
     const focused = this.navigator.index;
     if (this.scrollItemIndexes.has(focused)) {
       this.syncScrollFocus(focused);
     } else {
       this.scrollRegion.handleResize();
+    }
+    const maxScroll = Math.max(0, this.scrollRegion.contentHeight - this.scrollRegion.viewportHeight);
+    if (maxScroll > 0 && this.uiVisuals) {
+      const x = this.scale.width - this.safeRightMargin - 5;
+      const centerY = (this.scrollViewportTop + this.scrollViewportBottom) / 2;
+      const track = this.uiVisuals.addPanel(
+        this, x, centerY, 8, this.scrollRegion.viewportHeight, 'scroll-track', { alpha: 0.72 },
+      );
+      if (track) this.own(root, track);
+      this.scrollThumbHeight = Math.max(32, this.scrollRegion.viewportHeight
+        * (this.scrollRegion.viewportHeight / this.scrollRegion.contentHeight));
+      const thumb = this.uiVisuals.addPanel(
+        this, x, this.scrollViewportTop + this.scrollThumbHeight / 2,
+        8, this.scrollThumbHeight, 'scroll-thumb', { alpha: 0.95 },
+      ) as (Phaser.GameObjects.GameObject & { setPosition?(x: number, y: number): unknown }) | undefined;
+      if (thumb) {
+        this.scrollThumb = thumb;
+        this.own(root, thumb);
+      }
     }
     this.applyScrollViewport();
   }
@@ -1725,6 +1787,14 @@ export class MenuScene extends Phaser.Scene {
   private applyScrollViewport(): void {
     if (!this.scrollRegion) return;
     const offset = this.scrollRegion.scrollOffset;
+    const maxScroll = Math.max(0, this.scrollRegion.contentHeight - this.scrollRegion.viewportHeight);
+    if (this.scrollThumb && maxScroll > 0) {
+      const travel = this.scrollRegion.viewportHeight - this.scrollThumbHeight;
+      this.scrollThumb.setPosition?.(
+        this.scale.width - this.safeRightMargin - 5,
+        this.scrollViewportTop + this.scrollThumbHeight / 2 + travel * (offset / maxScroll),
+      );
+    }
     for (const entry of this.scrollObjects) {
       const object = entry.object as unknown as {
         setPosition?(x: number, y: number): unknown;
@@ -1748,7 +1818,7 @@ export class MenuScene extends Phaser.Scene {
       const visible = bounds.top >= this.scrollViewportTop && bounds.bottom <= this.scrollViewportBottom;
       text.setVisible(visible);
       const ring = this.focusRings[index];
-      ring?.setVisible(visible);
+      ring?.setVisible?.(visible);
       if (visible && !this.disabledFocusables.has(text)) text.setInteractive({ useHandCursor: true });
       else text.disableInteractive();
     }
@@ -1858,6 +1928,7 @@ export class MenuScene extends Phaser.Scene {
       const visible = this.inputController?.getInputMode() !== 'pointer'
         ? index === this.navigator.index
         : index === this.hoveredIndex;
+      this.focusRings[index]?.setAlpha?.(visible ? FocusStroke.alpha : 0);
       this.focusRings[index]?.setStrokeStyle?.(FocusStroke.width, FocusStroke.color, visible ? FocusStroke.alpha : 0);
     });
   }

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "canvas": { "frameWidth": 24, "frameHeight": 24 },
+  "canvas": { "frameWidth": 48, "frameHeight": 48 },
   "palette": {
     "outline": "#0a0f14",
     "slate": "#31485a",

@@ -9,6 +9,6 @@ if app.open then
 else
   -- validate-builders.lua's Pixelorama-compatible harness verifies the
   -- manifest-derived canvas contract without rewriting the authored PXO.
-  local sprite = Sprite(384, 120)
+  local sprite = Sprite(768, 240)
   sprite:saveAs(output)
 end

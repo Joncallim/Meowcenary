@@ -9,25 +9,53 @@ import { tmpdir } from 'node:os';
 const root = resolve(import.meta.dirname, '../../..');
 const sourcePath = join(root, 'assets-src/ui/source/ui-atlas.json');
 const source = JSON.parse(readFileSync(sourcePath, 'utf8'));
-const size = 24;
+const logicalSize = 24;
+const pixelScale = 2;
+const size = logicalSize * pixelScale;
 const columns = 16;
 const rows = Math.ceil(source.frames.length / columns);
 const width = columns * size;
 const height = rows * size;
 const palette = Object.fromEntries(Object.entries(source.palette).map(([k, v]) => [k, [parseInt(v.slice(1, 3), 16), parseInt(v.slice(3, 5), 16), parseInt(v.slice(5, 7), 16)]]));
 const pixels = Buffer.alloc(width * height * 4);
-const put = (x, y, color) => { if (x < 0 || y < 0 || x >= width || y >= height) return; const i = (y * width + x) * 4; pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255; };
+const put = (x, y, color) => {
+  for (let sy = 0; sy < pixelScale; sy++) for (let sx = 0; sx < pixelScale; sx++) {
+    const px = x * pixelScale + sx; const py = y * pixelScale + sy;
+    if (px < 0 || py < 0 || px >= width || py >= height) continue;
+    const i = (py * width + px) * 4;
+    pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2]; pixels[i + 3] = 255;
+  }
+};
 const rect = (ox, oy, x, y, w, h, color) => { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) put(ox + xx, oy + yy, palette[color]); };
+const clearRect = (ox, oy, x, y, w, h) => { for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) for (let sy = 0; sy < pixelScale; sy++) for (let sx = 0; sx < pixelScale; sx++) { const px = (ox + xx) * pixelScale + sx; const py = (oy + yy) * pixelScale + sy; pixels.fill(0, (py * width + px) * 4, (py * width + px) * 4 + 4); } };
 const line = (ox, oy, x0, y0, x1, y1, color) => { const dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1; const dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1; let err = dx + dy; for (;;) { put(ox + x0, oy + y0, palette[color]); if (x0 === x1 && y0 === y1) break; const e = 2 * err; if (e >= dy) { err += dy; x0 += sx; } if (e <= dx) { err += dx; y0 += sy; } } };
 function draw(id, ox, oy) {
   const n = id.split(':')[1] ?? id; const family = id.split(':')[0];
   if (family !== 'ui-chrome') rect(ox, oy, 0, 0, size, size, 'outline');
-  if (family === 'brand') { if (n === 'title-lockup') { rect(ox, oy, 3, 7, 18, 10, 'cream'); rect(ox, oy, 6, 10, 3, 4, 'cyan'); rect(ox, oy, 15, 10, 3, 4, 'cyan'); } else { rect(ox, oy, 2, 2, 20, 20, 'slate'); rect(ox, oy, 5, 5, 2, 14, 'steel'); rect(ox, oy, 11, 4, 2, 16, 'steel'); rect(ox, oy, 17, 6, 2, 14, 'steel'); line(ox, oy, 4, 18, 20, 18, 'cyan'); } return; }
+  if (family === 'brand') {
+    if (n === 'title-lockup') {
+      line(ox, oy, 4, 8, 7, 3, 'cream'); line(ox, oy, 7, 3, 10, 7, 'cream');
+      line(ox, oy, 14, 7, 17, 3, 'cream'); line(ox, oy, 17, 3, 20, 8, 'cream');
+      rect(ox, oy, 4, 8, 16, 11, 'cream'); rect(ox, oy, 6, 10, 12, 7, 'slate');
+      rect(ox, oy, 8, 11, 2, 2, 'cyan'); rect(ox, oy, 14, 11, 2, 2, 'cyan');
+      line(ox, oy, 10, 15, 12, 17, 'gold'); line(ox, oy, 14, 15, 12, 17, 'gold');
+      line(ox, oy, 3, 21, 21, 21, 'cyan');
+    } else {
+      rect(ox, oy, 0, 0, 24, 24, 'outline'); rect(ox, oy, 1, 1, 22, 22, 'slate');
+      line(ox, oy, 1, 7, 23, 7, 'steel'); line(ox, oy, 7, 1, 7, 23, 'steel');
+      rect(ox, oy, 3, 12, 7, 7, 'outline'); rect(ox, oy, 4, 13, 5, 5, 'steel');
+      line(ox, oy, 4, 13, 9, 18, 'gold'); line(ox, oy, 9, 13, 4, 18, 'gold');
+      rect(ox, oy, 15, 3, 5, 3, 'outline'); rect(ox, oy, 16, 4, 3, 1, 'cream');
+      line(ox, oy, 11, 21, 22, 21, 'cyan'); rect(ox, oy, 18, 19, 2, 2, 'cyan');
+    }
+    return;
+  }
   if (family === 'ui-chrome') {
-    const border = n === 'focus' ? 'cyan' : n === 'disabled' ? 'steel' : n === 'modal' ? 'gold' : 'cream';
+    const border = n === 'focus' || n === 'scroll-thumb' ? 'cyan' : n === 'disabled' || n === 'scroll-track' ? 'steel' : n === 'modal' ? 'gold' : 'cream';
     rect(ox, oy, 0, 0, 24, 24, 'outline');
     rect(ox, oy, 1, 1, 22, 22, border);
-    rect(ox, oy, 3, 3, 18, 18, 'slate');
+    if (n === 'focus') clearRect(ox, oy, 3, 3, 18, 18);
+    else rect(ox, oy, 3, 3, 18, 18, 'slate');
     if (n === 'chevron') { line(ox, oy, 8, 6, 16, 12, 'cream'); line(ox, oy, 16, 12, 8, 18, 'cream'); }
     else if (n === 'locked') { rect(ox, oy, 8, 11, 8, 8, 'cream'); rect(ox, oy, 10, 6, 4, 7, 'cream'); }
     else if (n === 'complete' || n === 'cleared') { line(ox, oy, 6, 12, 10, 16, 'cream'); line(ox, oy, 10, 16, 18, 7, 'cream'); }
@@ -54,7 +82,7 @@ function draw(id, ox, oy) {
   // Stat glyphs remain one family but each semantic has a distinct, compact read.
   rect(ox, oy, 5, 5, 14, 14, 'slate'); if (n === 'max-health' || n === 'healing') { line(ox, oy, 12, 6, 12, 18, 'danger'); line(ox, oy, 6, 12, 18, 12, 'danger'); } else if (n === 'move-speed' || n === 'projectile-speed') { line(ox, oy, 5, 12, 19, 12, 'cyan'); line(ox, oy, 14, 7, 19, 12, 'cyan'); line(ox, oy, 14, 17, 19, 12, 'cyan'); } else if (n === 'damage' || n === 'knockback') { line(ox, oy, 5, 12, 19, 12, 'gold'); line(ox, oy, 14, 7, 19, 12, 'gold'); } else if (n === 'attack-speed' || n === 'cooldown') { rect(ox, oy, 7, 7, 10, 10, 'cream'); rect(ox, oy, 11, 4, 2, 8, 'cyan'); } else if (n === 'range' || n === 'pickup-radius') { rect(ox, oy, 10, 10, 4, 4, 'cream'); line(ox, oy, 4, 12, 8, 12, 'cyan'); line(ox, oy, 16, 12, 20, 12, 'cyan'); } else if (n === 'projectile-count' || n === 'spread') { line(ox, oy, 6, 16, 12, 8, 'cream'); line(ox, oy, 12, 8, 18, 16, 'cyan'); line(ox, oy, 12, 8, 12, 19, 'gold'); } else if (n === 'pierce') { line(ox, oy, 4, 12, 20, 12, 'cream'); rect(ox, oy, 10, 7, 4, 10, 'cyan'); } else if (n === 'currency-gain' || n === 'xp-gain') { rect(ox, oy, 7, 7, 10, 10, 'gold'); line(ox, oy, 12, 4, 12, 20, 'cream'); } else { rect(ox, oy, 7, 7, 10, 10, 'cream'); rect(ox, oy, 10, 10, 4, 4, 'outline'); }
 }
-source.frames.forEach((id, index) => draw(id, (index % columns) * size, Math.floor(index / columns) * size));
+source.frames.forEach((id, index) => draw(id, (index % columns) * logicalSize, Math.floor(index / columns) * logicalSize));
 const crcTable = Uint32Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
 const crc32 = bytes => { let c = 0xffffffff; for (const b of bytes) c = crcTable[(c ^ b) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
 const chunk = (type, data) => { const h = Buffer.alloc(8); h.writeUInt32BE(data.length); h.write(type, 4); const t = Buffer.alloc(4); t.writeUInt32BE(crc32(Buffer.concat([Buffer.from(type), data]))); return Buffer.concat([h, data, t]); };

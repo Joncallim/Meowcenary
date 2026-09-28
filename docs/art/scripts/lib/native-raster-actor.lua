@@ -23,7 +23,8 @@ function M.build(spec)
   local palette = {}
   for index, color in ipairs(source.palette) do palette[index] = U.hex(color) end
 
-  local sprite = U.makeSprite("enemy", 48, 48)
+  local size = source.size or 48
+  local sprite = U.makeSprite("enemy", size, size)
   for frame = 1, 16 do
     local body = U.clearCel(sprite, "body", frame).image
     U.clearCel(sprite, "face", frame)
@@ -34,9 +35,11 @@ function M.build(spec)
     -- Hidden anchor/readability notes remain editable but never ship.
     local notes = U.clearCel(sprite, "notes", frame).image
     local marker = U.hex("#ff00ff")
-    U.put(notes, 23, 40, marker)
-    U.put(notes, 24, 40, marker)
-    U.put(notes, 25, 40, marker)
+    local center = math.floor(size / 2)
+    local baseline = size - 8
+    U.put(notes, center - 1, baseline, marker)
+    U.put(notes, center, baseline, marker)
+    U.put(notes, center + 1, baseline, marker)
   end
   sprite:saveAs(spec.output)
 end

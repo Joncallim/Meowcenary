@@ -1003,8 +1003,8 @@
       "kind": "enemy",
       "required": true,
       "display": {
-        "width": 26,
-        "height": 26
+        "width": 38,
+        "height": 38
       },
       "clips": {
         "idle": {

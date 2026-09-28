@@ -56,10 +56,10 @@ export function createUiVisualChrome(visualArt: VisualArtLookup): UiVisualChrome
       options.frame ?? resolved.frameKey,
       width,
       height,
-      4,
-      4,
-      4,
-      4,
+      6,
+      6,
+      6,
+      6,
     );
     const display = object as Phaser.GameObjects.GameObject & {
       setScrollFactor?: (value: number) => unknown;

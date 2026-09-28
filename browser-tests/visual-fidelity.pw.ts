@@ -5,7 +5,7 @@ type VisualTestSeam = {
   resume(): void;
   isSceneActive(key: string): boolean;
   isMenuPresentationSettled(): boolean;
-  focusFirstEnemy(): boolean;
+  focusFirstEnemy(bossOnly?: boolean): boolean;
   showMenu(panel: string): boolean;
 };
 
@@ -104,6 +104,12 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
   await expect(page).toHaveScreenshot('contract-selection.png', { animations: 'disabled' });
 
   await page.reload();
+  await showMenu(page, 'equipment');
+  await expectMenuPresentationSettled(page);
+  await freezeAtStableFrame(page);
+  await expect(page).toHaveScreenshot('loadout-equipment.png', { animations: 'disabled' });
+
+  await page.reload();
   await showMenu(page, 'achievements');
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
@@ -115,14 +121,17 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
   await expectScene(page, 'GameScene');
   await resumeLoop(page);
   await expect.poll(() => requestedAssets.some((path) => path.endsWith('/scrap-tabby.png'))).toBe(true);
-  // Freeze before the first director cadence; enemy roster fidelity is
-  // covered deterministically by the Compendium captures below.
-  await page.waitForTimeout(100);
+  await expect.poll(() => page.evaluate(() => {
+    const seam = (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam })
+      .__MEOWCENARY_VISUAL_TEST__;
+    return seam?.focusFirstEnemy(false) ?? false;
+  })).toBe(true);
   await freezeAtStableFrame(page);
-  // The run clock can cross one rasterized glyph tick while the browser waits
-  // for fonts; tolerate only that tiny text-level delta. Actor/HUD/layout
-  // regressions exceed this bounded allowance by orders of magnitude.
-  await expect(page).toHaveScreenshot('gameplay.png', { animations: 'disabled', maxDiffPixels: 32 });
+  // Contact timing can change the player's facing/held-weapon pixels before
+  // the first enemy is quarantined. Bound that one actor-sized delta while
+  // the exact enemy roster remains covered by the Compendium captures and
+  // boss gameplay uses the strict 32-pixel clock allowance below.
+  await expect(page).toHaveScreenshot('gameplay.png', { animations: 'disabled', maxDiffPixels: 384 });
 });
 
 test('boss gameplay keeps the approved boss-scale visual hierarchy', async ({ page }, testInfo) => {
@@ -155,13 +164,10 @@ test('boss gameplay keeps the approved boss-scale visual hierarchy', async ({ pa
     const seam = (globalThis as typeof globalThis & {
       __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
     }).__MEOWCENARY_VISUAL_TEST__;
-    return seam?.focusFirstEnemy() ?? false;
+    return seam?.focusFirstEnemy(true) ?? false;
   })).toBe(true);
   await freezeAtStableFrame(page);
-  // Boss existence and the exact art resource are asserted above. Permit one
-  // native 64px animation-frame delta while keeping the surrounding HUD,
-  // arena, scale, and camera composition under pixel comparison.
-  await expect(page).toHaveScreenshot('boss-gameplay.png', { animations: 'disabled', maxDiffPixels: 512 });
+  await expect(page).toHaveScreenshot('boss-gameplay.png', { animations: 'disabled', maxDiffPixels: 32 });
 });
 
 test('compendium exposes the complete runtime enemy art roster', async ({ page }, testInfo) => {

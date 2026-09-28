@@ -9,11 +9,11 @@ import { loadGameData } from '../src/systems/validation';
 import { DataVisualArtRegistry } from '../src/systems/visualArt';
 
 const ENEMY_IDS = ['dust-mite', 'junk-rusher', 'trash-brute', 'scrap-sniper', 'boss-crusher'] as const;
-const REMEDIATED_NATIVE_IDS = ['dust-mite', 'junk-rusher', 'trash-brute', 'scrap-sniper'] as const;
 const RELEASE_ENEMY_IDS = [
   'dust-mite', 'junk-rusher', 'trash-brute', 'scrap-sniper', 'scrap-skitter',
   'bastion-beetle', 'junk-nester', 'shard-bot', 'boss-crusher', 'boss-forge',
 ] as const;
+const REMEDIATED_NATIVE_IDS = RELEASE_ENEMY_IDS;
 const FRAME_SIZES = {
   'dust-mite': 48, 'junk-rusher': 48, 'trash-brute': 48, 'scrap-sniper': 48, 'boss-crusher': 64,
 } as const;
@@ -243,6 +243,7 @@ describe('Alpha 3 enemy production-art distinction', () => {
     expect(Math.abs(mite.width - mite.height)).toBeLessThanOrEqual(5);
     expect(sniper.height).toBeGreaterThan(mite.height);
     expect(crusher.width - crusher.height).toBeGreaterThan(5);
+    expect(crusher.width, 'Crusher must retain a boss-scale silhouette at runtime').toBeGreaterThan(sniper.width + 8);
   });
 
   it('keeps every frame inside the canvas, grounded, centred, and visibly animated in each clip', () => {
@@ -304,7 +305,7 @@ describe('Alpha 3 enemy production-art distinction', () => {
       expect(registry.bindingById(`enemy:${id}`)).toMatchObject({
         id: `enemy:${id}`,
         kind: 'enemy',
-        display: { width: 26, height: 26 },
+        display: { width: id === 'boss-crusher' ? 38 : 26, height: id === 'boss-crusher' ? 38 : 26 },
         resourceId: `resource:enemy-${id}`,
         load: { type: 'spritesheet', frame: { width: frameSize, height: frameSize } },
         clips: {

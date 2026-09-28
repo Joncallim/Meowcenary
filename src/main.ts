@@ -31,11 +31,11 @@ const config: Phaser.Types.Core.GameConfig = {
 // Exported as a narrow ESM browser lifecycle/smoke seam. Upgrade selection now
 // uses the visible chooser; gameplay ownership remains in scenes and systems.
 export const game = new Phaser.Game(config);
-// Screenshot acceptance needs a deterministic frame boundary. Keep the seam
-// dormant for ordinary players and expose only loop control when the explicit
-// visual-test query is present; no scene, save, or gameplay state is mutable
-// through this surface.
-if (new URLSearchParams(globalThis.location?.search ?? '').get('visual-test') === '1') {
+// Screenshot acceptance gets a dedicated build-time seam. Vite eliminates
+// this entire branch from ordinary production builds; the query alone can
+// never expose mutable scene internals in a deployed game.
+if (import.meta.env.VITE_VISUAL_TEST === '1'
+    && new URLSearchParams(globalThis.location?.search ?? '').get('visual-test') === '1') {
   const freezeVisualFrame = async (): Promise<void> => {
     for (const scene of game.scene.getScenes(false)) {
       const pending = [...scene.children.list] as Array<Phaser.GameObjects.GameObject & { list?: Phaser.GameObjects.GameObject[] }>;
@@ -80,14 +80,15 @@ if (new URLSearchParams(globalThis.location?.search ?? '').get('visual-test') ==
           && (scene.pendingPanelArtIds?.size ?? 0) === 0
           && (scene.pendingPanelArtRepaints?.size ?? 0) === 0;
       },
-      focusFirstEnemy: (): boolean => {
+      focusFirstEnemy: (bossOnly = false): boolean => {
         const scene = game.scene.getScene('GameScene') as unknown as {
           cameras?: { main?: { stopFollow(): void; centerOn(x: number, y: number): void } };
-          enemies?: Array<{ sprite: { x: number; y: number } }>;
+          enemies?: Array<{ definition?: { archetype?: string }; sprite: { x: number; y: number; active?: boolean } }>;
           scene?: { pause(): void };
         };
-        const enemy = scene?.enemies?.[0];
+        const enemy = scene?.enemies?.find((candidate) => !bossOnly || candidate.definition?.archetype === 'boss');
         if (!enemy || !scene.cameras?.main) return false;
+        if (enemy.sprite.active === false) return false;
         scene.scene?.pause();
         scene.cameras.main.stopFollow();
         scene.cameras.main.centerOn(enemy.sprite.x, enemy.sprite.y);

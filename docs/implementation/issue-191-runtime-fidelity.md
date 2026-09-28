@@ -36,7 +36,7 @@ visual approval.
 | Bastion Beetle | 313×313 generated import | 48×48, 16-frame PXO | §11 authored silhouette |
 | Junk Nester | 313×313 generated import | 48×48, 16-frame PXO | §11 authored silhouette |
 | Shard Bot | 313×313 generated import | 48×48, 16-frame PXO | §11 authored silhouette |
-| Scrap Crusher | geometric approximation / wrong 48px sheet contract | 64×64, 16-frame PXO | enemy production direction B |
+| Scrap Crusher | geometric approximation at ordinary-enemy display scale | 64×64, 16-frame PXO; 38×38 boss display | enemy production direction B |
 | Forge Warden | 309×309 generated import | 64×64, 16-frame PXO | §11 authored silhouette |
 
 The “before” classification is intentionally evidence-based rather than
@@ -62,6 +62,7 @@ Runtime captures and committed screenshot baselines:
 - `browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-lower-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/contract-selection-*.png`
+- `browser-tests/visual-fidelity.pw.ts-snapshots/loadout-equipment-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/achievements-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/boss-gameplay-desktop-1280x720-linux.png`
@@ -83,9 +84,17 @@ than enlarged actor-source scale.
 
 | Approved reference | Runtime output |
 |---|---|
-| [Alpha 3 roster direction B](../../assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png) | [Mercenaries 1–4, phone](../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-phone-390x844-linux.png) and [Mercenaries 5–8, phone](../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-lower-phone-390x844-linux.png) |
+| [Alpha 3 roster direction B](../../assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png) | [Mercenary identity integration, phone](../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-phone-390x844-linux.png), [roster 5–8](../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-lower-phone-390x844-linux.png), and [Scrap Tabby in live gameplay](../../browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-desktop-1280x720-linux.png) |
 | [Enemy production direction B](../../assets-src/enemies/alpha-3-production-concepts/direction-b-selected.png) | [Compendium roster 1–4](../../browser-tests/visual-fidelity.pw.ts-snapshots/compendium-desktop-1280x720-linux.png), [roster 4–7](../../browser-tests/visual-fidelity.pw.ts-snapshots/compendium-middle-desktop-1280x720-linux.png), [roster 7–10](../../browser-tests/visual-fidelity.pw.ts-snapshots/compendium-lower-desktop-1280x720-linux.png), and [Crusher gameplay](../../browser-tests/visual-fidelity.pw.ts-snapshots/boss-gameplay-desktop-1280x720-linux.png) |
-| [Visual identity production board](../art/concepts/epic-16/visual-identity-production-board.png) | [Home, phone](../../browser-tests/visual-fidelity.pw.ts-snapshots/home-phone-390x844-linux.png) and [Achievements, phone](../../browser-tests/visual-fidelity.pw.ts-snapshots/achievements-phone-390x844-linux.png) |
+| [Visual identity production board](../art/concepts/epic-16/visual-identity-production-board.png) | [Home, phone](../../browser-tests/visual-fidelity.pw.ts-snapshots/home-phone-390x844-linux.png), [Equipment, phone](../../browser-tests/visual-fidelity.pw.ts-snapshots/loadout-equipment-phone-390x844-linux.png), and [Achievements, phone](../../browser-tests/visual-fidelity.pw.ts-snapshots/achievements-phone-390x844-linux.png) |
+
+The visual-test controller is compiled only into the dedicated screenshot
+build and uses a fixed boot/run seed. The ordinary production build contains
+no mutable browser seam. Boss gameplay allows only 32 changed pixels for a
+possible clock-glyph boundary, which is smaller than the boss silhouette.
+Ordinary gameplay permits one bounded 384-pixel player-facing/held-weapon
+delta after contact; exact actor pixels are independently locked by the
+Compendium captures and PXO/runtime parity tests.
 
 ## Production fallback contract
 
