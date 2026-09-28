@@ -73,7 +73,14 @@ test('phone touch starts a run, moves, and activates the graphical ability contr
   }, { intervals: [150, 250, 400], timeout: 8_000 }).toBe(true);
   await page.waitForTimeout(1_000);
 
-  const arenaBefore = await page.screenshot({ clip: { x: 100, y: 280, width: 190, height: 300 } });
+  // Sample static arena floor away from the animated player/effects. The
+  // fixed-follow gameplay camera moves this texture only when the player
+  // actually moves, so idle animation cannot satisfy the assertion.
+  const floorClip = { x: 20, y: 180, width: 80, height: 80 };
+  const idleFloorA = await page.screenshot({ clip: floorClip });
+  await page.waitForTimeout(250);
+  const idleFloorB = await page.screenshot({ clip: floorClip });
+  expect(idleFloorB.equals(idleFloorA)).toBe(true);
   const session = await page.context().newCDPSession(page);
   await session.send('Input.dispatchTouchEvent', {
     type: 'touchStart', touchPoints: [{ x: 40, y: 620, id: 1 }],
@@ -83,8 +90,8 @@ test('phone touch starts a run, moves, and activates the graphical ability contr
   });
   await page.waitForTimeout(250);
   await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  const arenaAfter = await page.screenshot({ clip: { x: 100, y: 280, width: 190, height: 300 } });
-  expect(arenaAfter.equals(arenaBefore)).toBe(false);
+  const movedFloor = await page.screenshot({ clip: floorClip });
+  expect(movedFloor.equals(idleFloorB)).toBe(false);
 
   const abilityBefore = await page.screenshot({ clip: { x: 240, y: 750, width: 140, height: 84 } });
   await page.touchscreen.tap(320, 800);
