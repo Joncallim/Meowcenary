@@ -1370,9 +1370,16 @@ export class MenuScene extends Phaser.Scene {
 
     this.focusables.push(text);
     const ringBounds = text.getBounds();
-    const ring = (this.uiVisuals?.addPanel(
+    const visualRing = this.uiVisuals?.addPanel(
       this, ringBounds.centerX, ringBounds.centerY, ringBounds.width, ringBounds.height, 'focus', { alpha: 0 },
-    ) ?? this.add.rectangle(ringBounds.centerX, ringBounds.centerY, ringBounds.width, ringBounds.height, 0, 0)) as Phaser.GameObjects.GameObject & {
+    );
+    // The explicit fallback uses top-left origin so headless layout audits and
+    // real Phaser bounds share the same geometry. Production normally takes
+    // the authored nine-slice path above.
+    const fallbackRing = visualRing ? undefined : this.add
+      .rectangle(ringBounds.left, ringBounds.top, ringBounds.width, ringBounds.height, 0, 0)
+      .setOrigin(0, 0);
+    const ring = (visualRing ?? fallbackRing!) as Phaser.GameObjects.GameObject & {
       x: number;
       y: number;
       setAlpha?(alpha: number): unknown;
