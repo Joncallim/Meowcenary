@@ -1,7 +1,7 @@
 -- Eight active and eight passive icons. Active frames are open/radial;
 -- passives use a quieter closed hex frame. Symbols follow the canonical brief.
 local U=dofile("docs/art/scripts/lib/sprite-utils.lua")
-local C={ink=U.OUTLINE,steel=U.hex("#475569"),hi=U.hex("#94a3b8"),cream=U.hex("#f4edd0"),cyan=U.hex("#67e8f9"),teal=U.hex("#2dd4bf"),orange=U.hex("#f97316"),hot=U.hex("#fbbf24"),rust=U.hex("#a94f32"),dark=U.hex("#1b2530"),brass=U.hex("#b98835"),cobalt=U.hex("#315eae")}
+local C={ink=U.OUTLINE,steel=U.hex("#475569"),hi=U.hex("#94a3b8"),cream=U.hex("#f4edd0"),cyan=U.hex("#67e8f9"),teal=U.hex("#2dd4bf"),orange=U.hex("#f97316"),hot=U.hex("#fbbf24"),rust=U.hex("#a94f32"),dark=U.hex("#1b2530"),brass=U.hex("#b98835"),cobalt=U.hex("#315eae"),magenta=U.hex("#e879f9")}
 local S=32 local spr=U.makePropSprite(S*16,S) local im=U.getCel(spr,"body",1).image U.clear(im)
 local function X(c,x)return c*S+x end
 local function line(c,x1,y1,x2,y2,col,t)U.outlinedLine(im,X(c,x1),y1,X(c,x2),y2,col,C.ink,t or 2)end
