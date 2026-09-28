@@ -57,6 +57,42 @@ local function drawMask(img, mask, ox, oy, palette)
   end
 end
 
+local function drawDetails(img, id, frame, ox, oy, c)
+  local stride = (frame >= 5 and frame <= 10 and ((frame % 2 == 0) and 2 or -1)) or 0
+  if id == "scrap-skitter" then
+    -- Lateral crab-spider legs and one asymmetric antenna make the width read
+    -- survive the 24px runtime display.
+    U.line(img, ox + 5, oy + 14, ox - 2, oy + 18 + stride, c.outline)
+    U.line(img, ox + 21, oy + 14, ox + 29, oy + 17 - stride, c.outline)
+    U.put(img, ox + 28, oy + 16 - stride, c.accent)
+  elseif id == "bastion-beetle" then
+    -- Front shield/mandible wall, with exposed rear carapace seams.
+    U.line(img, ox + 18, oy + 8, ox + 26, oy + 12, c.face)
+    U.line(img, ox + 18, oy + 12, ox + 26, oy + 16, c.accent)
+    U.line(img, ox + 5, oy + 7, ox + 11, oy + 4, c.accent)
+  elseif id == "junk-nester" then
+    -- Tall antennae and an open nest mouth; summon read is not a generic blob.
+    U.line(img, ox + 4, oy + 5, ox + 1, oy - 2 - stride, c.accent)
+    U.line(img, ox + 22, oy + 5, ox + 26, oy - 1 + stride, c.accent)
+    U.line(img, ox + 10, oy + 14, ox + 17, oy + 14, c.outline)
+    U.line(img, ox + 11, oy + 15, ox + 16, oy + 15, c.accent)
+  elseif id == "shard-bot" then
+    -- Four fracture seams and splinter limbs, intentionally not round.
+    U.line(img, ox + 14, oy + 5, ox + 9, oy + 12, c.accent)
+    U.line(img, ox + 14, oy + 5, ox + 18, oy + 12, c.accent)
+    U.line(img, ox + 9, oy + 12, ox + 14, oy + 18, c.face)
+    U.line(img, ox + 18, oy + 12, ox + 14, oy + 18, c.face)
+  elseif id == "boss-forge" then
+    -- Furnace gantry: asymmetric tool arms, vent hood, and hot core.
+    U.line(img, ox + 4, oy + 13, ox - 3, oy + 23 + stride, c.accent)
+    U.line(img, ox + 23, oy + 13, ox + 31, oy + 20 - stride, c.accent)
+    U.line(img, ox + 5, oy + 23, ox + 1, oy + 31, c.face)
+    U.line(img, ox + 22, oy + 22, ox + 28, oy + 30, c.face)
+    U.line(img, ox + 11, oy + 10, ox + 18, oy + 10, c.accent)
+    U.put(img, ox + 14, oy + 12, c.face)
+  end
+end
+
 function M.build(spec)
   local data = assert(masks[spec.id], "missing native enemy mask " .. spec.id)
   local size = spec.size or 48
@@ -69,6 +105,7 @@ function M.build(spec)
     if frame >= 11 and spec.id == "boss-forge" then bob = frame >= 13 and 2 or 1 end
     local body = U.clearCel(s, "body", frame).image
     drawMask(body, data.body, cx, top + bob, { x=c.body, a=c.accent, b=c.face, c=c.accent })
+    drawDetails(body, spec.id, frame, cx, top + bob, c)
     local face = U.clearCel(s, "face", frame).image
     drawMask(face, data.face, cx, top + bob, { x=c.face, o=c.face })
     -- Hand-placed material accents, kept sparse so silhouettes survive 26px.
