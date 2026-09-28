@@ -169,13 +169,20 @@ test('the production pause control makes the responsive root fullscreen', async 
   const requestedAssets: string[] = [];
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
   await page.goto('/');
+  await expect(page.locator('#game-root canvas')).toBeVisible();
+  await page.waitForTimeout(500);
   const supported = await page.evaluate(() => document.fullscreenEnabled);
   test.skip(!supported, 'Headless browser does not expose the Fullscreen API');
   const viewport = page.viewportSize()!;
-  await expect.poll(async () => {
-    await page.mouse.click(viewport.width / 2, 220);
-    return requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png'));
-  }, { intervals: [150, 250, 400], timeout: 8_000 }).toBe(true);
+  // Launch through the selected logical action instead of a stale canvas
+  // coordinate: the production home card moved when its artwork grew.
+  await page.keyboard.down('Enter');
+  await page.waitForTimeout(60);
+  await page.keyboard.up('Enter');
+  await expect.poll(
+    () => requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png')),
+    { intervals: [150, 250, 400], timeout: 8_000 },
+  ).toBe(true);
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1_000);
   // The launch pointer is intentionally quarantined until a neutral sample.
