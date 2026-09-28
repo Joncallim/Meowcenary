@@ -11,6 +11,7 @@ local activeSprite = nil
 local writeProjects = false
 local checkSources = false
 local onlyScript = nil
+local projectOutput = nil
 for index = 1, #arg do
   if arg[index] == "--write" then
     writeProjects = true
@@ -18,7 +19,12 @@ for index = 1, #arg do
     checkSources = true
   elseif arg[index] == "--only" then
     onlyScript = assert(arg[index + 1], "--only requires a builder path")
+  elseif arg[index] == "--write-to" then
+    projectOutput = assert(arg[index + 1], "--write-to requires a target path")
   end
+end
+if projectOutput ~= nil and onlyScript == nil then
+  error("--write-to requires --only so one builder owns the temporary output")
 end
 
 local function assertEqual(actual, expected, message)
@@ -420,7 +426,7 @@ local function readArchiveMember(path, member)
   return bytes
 end
 
-local function writePixeloramaProject(sprite)
+local function writePixeloramaProject(sprite, outputPath)
   local layers = {}
   for _, layer in ipairs(sprite.layers) do
     layers[#layers + 1] = {
@@ -458,7 +464,8 @@ local function writePixeloramaProject(sprite)
   }
 
   local tempRoot = assert(os.tmpname()):gsub("/+$", "") .. "-pixelorama"
-  local targetDirectory = assert(sprite.savedAs:match("^(.*)/[^/]+$"))
+  outputPath = outputPath or sprite.savedAs
+  local targetDirectory = assert(outputPath:match("^(.*)/[^/]+$"))
   run("mkdir -p " .. shellQuote(tempRoot .. "/image_data/frames"))
   run("mkdir -p " .. shellQuote(targetDirectory))
   writeFile(tempRoot .. "/data.json", json(project))
@@ -474,12 +481,14 @@ local function writePixeloramaProject(sprite)
   end
 
   run("find " .. shellQuote(tempRoot) .. " -exec touch -t 202001010000 {} +")
-  run("rm -f " .. shellQuote(sprite.savedAs))
-  local absoluteTarget = assert(io.popen("pwd", "r")):read("*l") .. "/" .. sprite.savedAs
+  run("rm -f " .. shellQuote(outputPath))
+  local absoluteTarget = outputPath:sub(1, 1) == "/"
+    and outputPath
+    or assert(io.popen("pwd", "r")):read("*l") .. "/" .. outputPath
   run("cd " .. shellQuote(tempRoot) .. " && zip -q -X -r " .. shellQuote(absoluteTarget) ..
     " data.json mimetype image_data")
   run("rm -rf " .. shellQuote(tempRoot))
-  io.write("WROTE ", sprite.savedAs, "\n")
+  io.write("WROTE ", outputPath, "\n")
 end
 
 local function writePreview(sprite, path)
@@ -599,6 +608,7 @@ for _, contract in ipairs(contracts) do
     io.write("PARITY ", contract.savedAs, "\n")
   end
   if writeProjects then writePixeloramaProject(sprite) end
+  if projectOutput ~= nil then writePixeloramaProject(sprite, projectOutput) end
   io.write("PASS ", contract.script, "\n")
   end
   end

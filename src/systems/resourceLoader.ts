@@ -299,6 +299,11 @@ export function resolveRunPhysicalResources(options: {
   // Upgrade cards are a gameplay modal, so their required presentation is in
   // the normal run closure too.
   for (const upgrade of options.data.upgrades) addArt(upgrade.presentation.iconArtId);
+  // Result-screen Achievement tiles are also part of the run journey. The
+  // active catalog co-registers in one bounded atlas, so cold Contract launch
+  // prepares terminal presentation without Boot owning a growing Career
+  // collection.
+  for (const achievement of options.data.achievements ?? []) addArt(achievement.presentation.iconArtId);
 
   const resources: VisualTextureResource[] = [];
   const seen = new Set<string>();

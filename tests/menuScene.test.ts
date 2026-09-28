@@ -1807,44 +1807,40 @@ describe('MenuScene', () => {
     expect(seams.visualArt).toBe(registry);
   });
 
-  it('rerenders successfully loaded Achievement art when another badge fails', async () => {
+  it('loads the shared Achievement atlas lazily, rerenders after a cold load, and uses hidden/named frames when cached', async () => {
     const harness = createHarness({ create: false });
     const art = new DataVisualArtRegistry(harness.context.data);
     const complete = new Map<string, () => void>();
-    let loadError: ((file: { key?: string }) => void) | undefined;
+    const queued: unknown[][] = [];
     const rendered = vi.fn();
-    const loaded = new Set<string>();
+    const setFilter = vi.fn();
+    let loaded = false;
     const scene = new MenuScene() as unknown as {
       committedPanel: string;
       controller: { snapshot(): unknown };
       textures: { exists(key: string): boolean; get(key: string): { setFilter(mode: number): void } };
       load: {
-        on(event: string, listener: (file: { key?: string }) => void): void;
-        off(): void;
-        once(event: string, listener: () => void): void;
-        image(): void;
-        start(): void;
+        on(): void; off(): void; once(event: string, listener: () => void): void;
+        atlas(...args: unknown[]): void; start(): void;
       };
       getContext(): typeof harness.context;
       requireVisualArt(): DataVisualArtRegistry;
       render(snapshot: unknown): void;
       ensureAchievementPresentation(ids: readonly string[]): Promise<void>;
+      add: { image(x: number, y: number, key: string, frame?: string): { setDisplaySize(): unknown; setScrollFactor(): unknown } };
+      own<T>(_root: unknown, object: T): T;
+      registerScrollObject(object: unknown): void;
+      addAchievementIcon(root: unknown, x: number, y: number, artId: string): void;
     };
     Object.assign(scene, {
       committedPanel: 'achievements', controller: { snapshot: () => ({}) },
-      textures: { exists: (key: string) => loaded.has(key), get: () => ({ setFilter: () => undefined }) },
+      textures: { exists: () => loaded, get: () => ({ setFilter }) },
       load: {
-        on: (event: string, listener: (file: { key?: string }) => void) => {
-          if (event === 'loaderror') loadError = listener;
-        },
+        on: () => undefined,
         off: () => undefined,
         once: (event: string, listener: () => void) => { complete.set(event, listener); },
-        image: () => undefined,
-        start: () => {
-          loaded.add('art-upgrade-icon-hot-barrel');
-          complete.get('filecomplete-image-art-upgrade-icon-hot-barrel')?.();
-          loadError?.({ key: 'art-upgrade-icon-heavy-rounds' });
-        },
+        atlas: (...args: unknown[]) => { queued.push(args); },
+        start: () => { loaded = true; complete.get('filecomplete-atlasjson-art-achievement-icons')?.(); },
       },
       getContext: () => harness.context, requireVisualArt: () => art, render: rendered,
     });
@@ -1854,7 +1850,29 @@ describe('MenuScene', () => {
       'achievement-icon:kill-milestone-25',
     ]);
 
+    expect(queued).toEqual([[
+      'art-achievement-icons',
+      'assets/achievements/achievement-icons-atlas.png',
+      'assets/achievements/achievement-icons-atlas.json',
+    ]]);
     expect(rendered).toHaveBeenCalledOnce();
+    expect(setFilter).toHaveBeenCalledWith(1);
+
+    const images: Array<{ key: string; frame?: string }> = [];
+    scene.add = { image: (_x, _y, key, frame) => {
+      images.push({ key, frame });
+      return { setDisplaySize: () => undefined, setScrollFactor: () => undefined };
+    } };
+    scene.own = (_root, object) => object;
+    scene.registerScrollObject = () => undefined;
+    scene.addAchievementIcon({}, 0, 0, 'achievement-icon:hidden');
+    scene.addAchievementIcon({}, 0, 0, 'achievement-icon:first-kill');
+    expect(images).toEqual([
+      { key: 'art-achievement-icons', frame: 'achievement-icon:hidden' },
+      { key: 'art-achievement-icons', frame: 'achievement-icon:first-kill' },
+    ]);
+    await scene.ensureAchievementPresentation(['achievement-icon:first-kill']);
+    expect(queued).toHaveLength(1);
   });
 
   it('loads Equipment atlas resources lazily, rerenders after a cold load, and uses atlas frames when cached', async () => {
