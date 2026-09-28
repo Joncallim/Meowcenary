@@ -5,7 +5,7 @@ import {
   ZERO_LISTENER_DIAGNOSTICS,
 } from './helpers/epic19SoakHarness';
 import { endRun } from '../src/gameplay/runState';
-import { GAMEPLAY_ZOOM, minimumHitTarget, zoomedGameUiViewport } from '../src/ui/layout';
+import { GAMEPLAY_ZOOM, minimumHitTarget, responsiveGameUiViewport } from '../src/ui/layout';
 import { PhaserFeedbackRenderer } from '../src/systems/feedback';
 import { createSharedFakeSceneForConformance } from './helpers/epic19JourneyComposition';
 import { FocusStroke, ThemeColor } from '../src/ui/theme';
@@ -33,19 +33,14 @@ interface ScaleLike {
   };
 }
 
-function assertFitFixtureSetup(surface: ScaleLike, width: number, height: number): number {
-  // RESIZE-05: the harness derives the expected FIT scale independently as
-  // min(containerWidth/390, containerHeight/844) and validates the fixture
-  // setup once — surface regressions never credit themselves with proving
-  // Phaser FIT itself.
-  const fit = Math.min(width / 390, height / 844);
-  expect(surface.scale.width).toBe(390);
-  expect(surface.scale.height).toBe(844);
-  expect(surface.scale.displaySize.width).toBeCloseTo(390 * fit, 6);
-  expect(surface.scale.displaySize.height).toBeCloseTo(844 * fit, 6);
+function assertResizeFixtureSetup(surface: ScaleLike, width: number, height: number): number {
+  expect(surface.scale.width).toBe(width);
+  expect(surface.scale.height).toBe(height);
+  expect(surface.scale.displaySize.width).toBe(width);
+  expect(surface.scale.displaySize.height).toBe(height);
   expect(surface.scale.parentSize.width).toBe(width);
   expect(surface.scale.parentSize.height).toBe(height);
-  return fit;
+  return 1;
 }
 
 interface TargetLike {
@@ -81,7 +76,7 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
   it('composes GameScene surfaces in the zoomed root and feedback overlays', () => {
     const { scene, camera } = createSharedFakeSceneForConformance();
     camera.setZoom(GAMEPLAY_ZOOM);
-    const viewport = zoomedGameUiViewport(390, 844, 390, 844);
+    const viewport = responsiveGameUiViewport(390, 844);
     expect(viewport.canvasWidth).toBeCloseTo(312, 6);
     expect(viewport.canvasHeight).toBeCloseTo(675.2, 6);
     expect(viewport.originX).toBeCloseTo(39, 6);
@@ -103,18 +98,14 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
   // UI. The zoomed viewport's logical canvas is invariant 312×675.2 at world
   // origin (39,84.4); a 44px physical target is 44/(1.25·s) logical and
   // renders exactly 44px after the camera zoom 1.25 and FIT s.
-  it.each(REFERENCE_VIEWPORTS)('zoomed GameScene UI matches the arch FIT table at $name (audit)', ({ width, height }) => {
-    const fit = Math.min(width / 390, height / 844);
-    const viewport = zoomedGameUiViewport(390 * fit, 844 * fit);
-    expect(viewport.canvasWidth).toBeCloseTo(312, 6);
-    expect(viewport.canvasHeight).toBeCloseTo(675.2, 6);
-    expect(viewport.originX).toBeCloseTo(39, 6);
-    expect(viewport.originY).toBeCloseTo(84.4, 6);
-    // 44px logical per the arch table: 35.2 / 76.1764103 / 21.7487555 /
-    // 41.2622222 at the four viewports.
-    expect(minimumHitTarget(viewport)).toBeCloseTo(44 / (GAMEPLAY_ZOOM * fit), 6);
-    // Rendered physical: logical × camera zoom × FIT = exactly 44.
-    expect(minimumHitTarget(viewport) * GAMEPLAY_ZOOM * fit).toBeCloseTo(44, 6);
+  it.each(REFERENCE_VIEWPORTS)('zoomed GameScene UI expands with $name while targets remain physical', ({ width, height }) => {
+    const viewport = responsiveGameUiViewport(width, height);
+    expect(viewport.canvasWidth).toBeCloseTo(width / GAMEPLAY_ZOOM, 6);
+    expect(viewport.canvasHeight).toBeCloseTo(height / GAMEPLAY_ZOOM, 6);
+    expect(viewport.originX).toBeCloseTo((width - width / GAMEPLAY_ZOOM) / 2, 6);
+    expect(viewport.originY).toBeCloseTo((height - height / GAMEPLAY_ZOOM) / 2, 6);
+    expect(minimumHitTarget(viewport)).toBeCloseTo(44 / GAMEPLAY_ZOOM, 6);
+    expect(minimumHitTarget(viewport) * GAMEPLAY_ZOOM).toBeCloseTo(44, 6);
   });
 
   it.each(REFERENCE_VIEWPORTS)('preserves committed focus and command ownership at $name', ({ width, height }) => {
@@ -133,7 +124,7 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     menu.resizeTo(width, height);
     expect(menu.resizeEmitCount()).toBe(1);
     expect((menu.menuScene as unknown as { renderRebuildCount: number }).renderRebuildCount).toBe(menuRebuilds + 1);
-    assertFitFixtureSetup(menu.menuScene as unknown as ScaleLike, width, height);
+    assertResizeFixtureSetup(menu.menuScene as unknown as ScaleLike, width, height);
     // The MenuScene listener transactionally rebuilds directly from THIS event
     // (no panel detour), preserving focus and listener cardinality.
     expect(menu.focusRingCount()).toBe(1);
@@ -143,14 +134,14 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     const menuTargets = (menu.menuScene as unknown as { objects: readonly TargetLike[] }).objects
       .filter((object) => object.state.kind === 'text' && object.state.handlers['pointerup'] && !object.state.destroyed);
     expect(menuTargets).toHaveLength(7);
-    assertPhysicalTargets(menuTargets, Math.min(width / 390, height / 844));
+    assertPhysicalTargets(menuTargets, 1);
     const menuRing = menu.focusRingBounds()!;
     expect(menuRing.height).toBeGreaterThan(0);
     expect(menuRing.width).toBeGreaterThan(0);
     expect(menuRing.x).toBeGreaterThanOrEqual(-1);
-    expect(menuRing.x + menuRing.width).toBeLessThanOrEqual(391);
+    expect(menuRing.x + menuRing.width).toBeLessThanOrEqual(width + 1);
     expect(menuRing.y).toBeGreaterThanOrEqual(-1);
-    expect(menuRing.y + menuRing.height).toBeLessThanOrEqual(845);
+    expect(menuRing.y + menuRing.height).toBeLessThanOrEqual(height + 1);
     // G-15: a valid nav after the direct rebuild works (committed-display true).
     let navs = 0;
     menu.context.bus.on('ui:navigate', () => { navs += 1; });
@@ -190,23 +181,22 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
 
     game.resizeTo(width, height);
     expect(game.resizeEmitCount()).toBe(1);
-    assertFitFixtureSetup(game.gameScene as unknown as ScaleLike, width, height);
+    assertResizeFixtureSetup(game.gameScene as unknown as ScaleLike, width, height);
     // The chooser rebuilds exactly once from the real event, keeps the
-    // committed offer and the focused index, and stays within the logical
-    // canvas (390×844) — no CENTER_BOTH/browser-offset claims here.
+    // committed offer and the focused index, and stays within the responsive
+    // viewport — no FIT pillarbox/browser-offset claims here.
     expect(game.chooserDiagnostics().rebuildCount).toBe(rebuilds + 1);
     expect(game.chooserDiagnostics().offerId).toBe(offerId);
     expect(game.focusSignature()).toEqual([0, 1, 0]);
-    // getBounds() reports RENDERED extents (width/height already include the
-    // recorded camera zoom, M-02), so world-space edges divide the zoom back
-    // out before comparing against the logical canvas.
+    // getBounds() reports rendered extents in the harness, so compare them
+    // directly with the full canvas dimensions.
     for (const card of game.chooserDiagnostics().cards) {
-      const worldWidth = card.width / GAMEPLAY_ZOOM;
-      const worldHeight = card.height / GAMEPLAY_ZOOM;
-      expect(card.x - worldWidth / 2).toBeGreaterThanOrEqual(-1);
-      expect(card.x + worldWidth / 2).toBeLessThanOrEqual(391);
-      expect(card.y - worldHeight / 2).toBeGreaterThanOrEqual(-1);
-      expect(card.y + worldHeight / 2).toBeLessThanOrEqual(845);
+      const localWidth = card.width / GAMEPLAY_ZOOM;
+      const localHeight = card.height / GAMEPLAY_ZOOM;
+      expect(card.x - localWidth / 2).toBeGreaterThanOrEqual(-1);
+      expect(card.x + localWidth / 2).toBeLessThanOrEqual(width + 1);
+      expect(card.y - localHeight / 2).toBeGreaterThanOrEqual(-1);
+      expect(card.y + localHeight / 2).toBeLessThanOrEqual(height + 1);
     }
     // Every surface with a scale listener was invoked exactly once; no
     // duplicate ui:* or hidden command comes from the resize itself.
@@ -218,7 +208,7 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     const pauseButton = (game.gameScene as unknown as { objects: readonly TargetLike[] }).objects
       .find((object) => object.state.kind === 'rect' && object.state.handlers['pointerdown'] && !object.state.destroyed);
     expect(pauseButton).toBeDefined();
-    assertPhysicalTargets([pauseButton!], Math.min(width / 390, height / 844));
+    assertPhysicalTargets([pauseButton!], 1);
 
     game.resizeTo(390, 844);
     expect(game.chooserDiagnostics().rebuildCount).toBe(rebuilds + 2);
@@ -271,7 +261,7 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     const rackTargets = (game.gameScene as unknown as { objects: readonly TargetLike[] }).objects
       .filter((object) => object.state.kind === 'rect' && object.state.handlers['pointerover'] && !object.state.destroyed);
     expect(rackTargets.length).toBeGreaterThanOrEqual(8); // 6 slots + Merge + Back
-    assertPhysicalTargets(rackTargets, Math.min(width / 390, height / 844));
+    assertPhysicalTargets(rackTargets, 1);
     expect(game.focusedRackTargetIndex()).toBe(0); // focus preserved
     expect(uiEvents).toBe(uiBeforeRackResize); // no command from resize
     expect(game.sceneCommands()).toEqual(commands);
@@ -305,7 +295,7 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     const summaryButtons = (game.gameScene as unknown as { objects: readonly TargetLike[] }).objects
       .filter((object) => object.state.kind === 'rect' && object.state.handlers['pointerup'] && !object.state.destroyed);
     expect(summaryButtons.length).toBe(3); // Retry + Adjust Loadout + Main Menu
-    assertPhysicalTargets(summaryButtons, Math.min(width / 390, height / 844));
+    assertPhysicalTargets(summaryButtons, 1);
     // G-15: nav remains live after the direct summary rebuild.
     const summaryNavsBefore = uiEvents;
     game.resizeTo(390, 844);

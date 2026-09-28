@@ -9,6 +9,7 @@ import { AudioManager, getAudioManager } from '../systems/audio';
 import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
 import { prepareRun } from '../gameplay/runStart';
+import { responsiveArenaPresentationBounds } from '../gameplay/responsiveArenaPresentation';
 import { assembleComposedRunRequest, type ComposedRunRequest } from '../gameplay/runRequest';
 import { resolveRunPlan, type ResolvedRunPlan } from '../gameplay/stage/stageContracts';
 import { createStageRuntime, type StageRuntime } from '../gameplay/stage/stageRuntime';
@@ -59,7 +60,7 @@ import {
   type CompletedAchievementPresentation,
   type RunSummarySource,
 } from '../ui/runSummary';
-import { GAMEPLAY_ZOOM, zoomedGameUiViewport } from '../ui/layout';
+import { GAMEPLAY_ZOOM, responsiveGameUiViewport } from '../ui/layout';
 import { FullscreenController } from '../ui/fullscreen';
 import { PassiveCoordinator } from '../systems/PassiveCoordinator';
 import { HazardSystem } from '../systems/HazardSystem';
@@ -172,6 +173,7 @@ export class GameScene extends Phaser.Scene {
   /** Prevents ghost clicks during scene transitions by suppressing all
    *  input for a brief window after a state-changing action. */
   private _inputBlockedUntil = 0;
+  private arenaDimensions?: { readonly width: number; readonly height: number };
 
 
   constructor() {
@@ -315,14 +317,22 @@ export class GameScene extends Phaser.Scene {
     this.dropGroup = this.physics.add.group();
 
     this.physics.world.setBounds(0, 0, arena.size.width, arena.size.height);
-    this.cameras.main.setBounds(0, 0, arena.size.width, arena.size.height);
-
-    const viewport = zoomedGameUiViewport(
-      this.scale.displaySize.width,
-      this.scale.displaySize.height,
-      this.scale.parentSize.width,
-      this.scale.parentSize.height,
+    const presentationBounds = responsiveArenaPresentationBounds(
+      arena.size.width,
+      arena.size.height,
+      this.scale.width,
+      this.scale.height,
+      GAMEPLAY_ZOOM,
     );
+    this.cameras.main.setBounds(
+      presentationBounds.x,
+      presentationBounds.y,
+      presentationBounds.width,
+      presentationBounds.height,
+    );
+    this.arenaDimensions = Object.freeze({ width: arena.size.width, height: arena.size.height });
+
+    const viewport = responsiveGameUiViewport(this.scale.width, this.scale.height);
     this.player = new Player(this, this.inputController, this.runState, ctx.bus, {
       baseMaxHealth: prepared.basePlayer.maxHealth,
       baseMoveSpeed: prepared.basePlayer.moveSpeed,
@@ -342,6 +352,7 @@ export class GameScene extends Phaser.Scene {
       this.cameras.main.startFollow(this.player.sprite, false, 0.1, 0.1);
     }
     this.cameras.main.setZoom(GAMEPLAY_ZOOM);
+    this.scale.on?.(Phaser.Scale.Events.RESIZE, this.handleResponsiveCamera, this);
 
     this.hudController = new HudController(
       ctx.bus,
@@ -371,6 +382,13 @@ export class GameScene extends Phaser.Scene {
       ability: this.abilityDefinition === undefined ? undefined : {
         name: this.abilityDefinition.name,
         description: this.abilityDefinition.description,
+        icon: (() => {
+          const binding = visualArt.bindingById(this.abilityDefinition!.presentation.iconArtId);
+          return binding === undefined ? undefined : {
+            textureKey: binding.textureKey,
+            ...(binding.frameKey === undefined ? {} : { frameKey: binding.frameKey }),
+          };
+        })(),
       },
     });
     this.syncAbilityPresentation();
@@ -776,9 +794,40 @@ export class GameScene extends Phaser.Scene {
     ]);
   }
 
+  private readonly handleResponsiveCamera = (): void => {
+    const arena = this.arenaDimensions;
+    const player = this.player;
+    if (!arena || !player) return;
+    const visible = zoomedVisibleSize(this.scale.width, this.scale.height, GAMEPLAY_ZOOM);
+    const presentationBounds = responsiveArenaPresentationBounds(
+      arena.width,
+      arena.height,
+      this.scale.width,
+      this.scale.height,
+      GAMEPLAY_ZOOM,
+    );
+    const camera = this.cameras.main as Phaser.Cameras.Scene2D.Camera & {
+      stopFollow?: () => Phaser.Cameras.Scene2D.Camera;
+      centerOn?: (x: number, y: number) => Phaser.Cameras.Scene2D.Camera;
+    };
+    camera.setBounds(
+      presentationBounds.x,
+      presentationBounds.y,
+      presentationBounds.width,
+      presentationBounds.height,
+    );
+    if (arenaFollowEnabled(arena.width, arena.height, visible.width, visible.height)) {
+      camera.startFollow(player.sprite, false, 0.1, 0.1);
+      return;
+    }
+    camera.stopFollow?.();
+    camera.centerOn?.(arena.width / 2, arena.height / 2);
+  };
+
   private handleShutdown(): void {
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
+    this.scale?.off?.(Phaser.Scale.Events.RESIZE, this.handleResponsiveCamera, this);
     this.removeAudioUnlockListeners();
     this.unsubscribers.forEach((unsubscribe) => {
       unsubscribe();
@@ -824,6 +873,7 @@ export class GameScene extends Phaser.Scene {
     this.defeatPresentationSystem = undefined;
     this.perfSampler = undefined;
     this.spawnCurve = undefined;
+    this.arenaDimensions = undefined;
     this.arenaScenery?.destroy();
     this.arenaScenery = undefined;
     this.runState = undefined;

@@ -769,16 +769,18 @@ describe('MenuScene', () => {
   it('renders every Mercenary as one graphical row from controller-owned art identities', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {
-      addMercenaryActor: ReturnType<typeof vi.fn>;
+      addPanelArt: ReturnType<typeof vi.fn>;
       addCatalogIcon: ReturnType<typeof vi.fn>;
     };
-    scene.addMercenaryActor = vi.fn();
+    scene.addPanelArt = vi.fn();
     scene.addCatalogIcon = vi.fn();
     harness.buttonByLabel('Mercenary')!.state.handlers.pointerup!();
 
-    expect(scene.addMercenaryActor).toHaveBeenCalledTimes(8);
-    expect(scene.addMercenaryActor).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'character:scrap-tabby', 56, false);
+    expect(scene.addPanelArt).toHaveBeenCalledTimes(8);
+    expect(scene.addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'character-portrait:scrap-tabby', 76, false);
     expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'weapon-icon:pistol:t1', 32);
+    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'ability-icon:scrap-burst', 28);
+    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'passive-icon:scrap-hoarder', 22);
   });
 
   it('rerenders a still-current Mercenary panel after a partial lazy resource success', async () => {

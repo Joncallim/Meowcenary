@@ -12,7 +12,7 @@ import {
 } from './upgradeChooserController';
 import { computeUpgradeChooserLayout } from './upgradeChooserLayout';
 import type { InputMode } from '../systems/input';
-import { logicalCanvasViewport, physicalToLogical, zoomedGameUiViewport, type UiViewport } from './layout';
+import { physicalToLogical, responsiveGameUiViewport, responsiveUiViewport, type UiViewport } from './layout';
 import { ZERO_SAFE_AREA } from '../platform/safeArea';
 import { isPortraitOrientationBlocked } from '../platform/orientation';
 
@@ -704,21 +704,9 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
     }
 
     if (this.viewport?.originX !== undefined) {
-      this.viewport = zoomedGameUiViewport(
-        this.scene.scale.displaySize.width,
-        this.scene.scale.displaySize.height,
-        this.scene.scale.parentSize.width,
-        this.scene.scale.parentSize.height,
-      );
+      this.viewport = responsiveGameUiViewport(this.scene.scale.width, this.scene.scale.height);
     } else {
-      const parentWidth = this.scene.scale.parentSize?.width ?? this.scene.scale.displaySize.width;
-      const parentHeight = this.scene.scale.parentSize?.height ?? this.scene.scale.displaySize.height;
-      this.viewport = logicalCanvasViewport(
-        this.scene.scale.displaySize.width,
-        this.scene.scale.displaySize.height,
-        parentWidth,
-        parentHeight,
-      );
+      this.viewport = responsiveUiViewport(this.scene.scale.width, this.scene.scale.height);
     }
     this.destroyDisplay();
     this.buildDisplay();

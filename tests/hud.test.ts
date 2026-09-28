@@ -430,9 +430,10 @@ describe('PhaserHudView', () => {
       },
       get objects() { return objects; },
       resize(displayWidth: number, displayHeight: number) {
-        const fitScale = Math.min(displayWidth / 390, displayHeight / 844);
-        scene.scale.displaySize.width = 390 * fitScale;
-        scene.scale.displaySize.height = 844 * fitScale;
+        scene.scale.width = displayWidth;
+        scene.scale.height = displayHeight;
+        scene.scale.displaySize.width = displayWidth;
+        scene.scale.displaySize.height = displayHeight;
         scene.scale.parentSize.width = displayWidth;
         scene.scale.parentSize.height = displayHeight;
         resize?.handler.call(resize.context);

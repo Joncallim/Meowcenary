@@ -4,7 +4,7 @@ import type { EventBus } from '../engine/eventBus';
 
 import { SceneKey } from '../engine/sceneKeys';
 import { AudioManager, getAudioManager } from '../systems/audio';
-import { edgeMargin, logicalCanvasViewport, minimumHitTarget, type UiViewport } from '../ui/layout';
+import { edgeMargin, responsiveContentInsets, responsiveUiViewport, minimumHitTarget, type UiViewport } from '../ui/layout';
 import { MainMenuController, type MainMenuSnapshot } from '../ui/menus';
 import { cycleVolumeStep } from '../ui/settings';
 import { ThemeColor, ThemeDepth, ThemeFont } from '../ui/theme';
@@ -144,16 +144,6 @@ export class MenuScene extends Phaser.Scene {
     this.bus = ctx.bus;
     this.controller = new MainMenuController(ctx);
 
-    this.add
-      .rectangle(
-        this.scale.width / 2,
-        this.scale.height / 2,
-        this.scale.width,
-        this.scale.height,
-        ThemeColor.background,
-      )
-      .setScrollFactor(0);
-
     this.inputController = new InputController(this);
     this.inputController.onAction('back', () => this.handleBack());
     this.inputController.onAction('navUp', () => this.handleNavMove(-1));
@@ -238,17 +228,26 @@ export class MenuScene extends Phaser.Scene {
     const root = this.add.container(0, 0);
     root.setDepth(MENU_DEPTH).setScrollFactor(0);
 
+    this.own(root, this.add.rectangle(
+      this.scale.width / 2,
+      this.scale.height / 2,
+      this.scale.width,
+      this.scale.height,
+      ThemeColor.background,
+    ).setScrollFactor(0));
+
     const width = this.scale.width;
-    const viewport: UiViewport = logicalCanvasViewport(
-      this.scale.displaySize.width,
-      this.scale.displaySize.height,
-      this.scale.parentSize?.width ?? this.scale.displaySize.width,
-      this.scale.parentSize?.height ?? this.scale.displaySize.height,
-    );
+    const viewport: UiViewport = responsiveUiViewport(this.scale.width, this.scale.height);
     this.currentViewport = viewport;
-    const leftMargin = edgeMargin(viewport, 'left');
+    const contentInsets = responsiveContentInsets(
+      width,
+      edgeMargin(viewport, 'left'),
+      edgeMargin(viewport, 'right'),
+      840,
+    );
+    const leftMargin = contentInsets.left;
     const topMargin = edgeMargin(viewport, 'top');
-    this.safeRightMargin = edgeMargin(viewport, 'right');
+    this.safeRightMargin = contentInsets.right;
     this.safeCenterX = (leftMargin + width - this.safeRightMargin) / 2;
     const margin = leftMargin;
     const hitTarget = minimumHitTarget(viewport);
@@ -437,7 +436,7 @@ export class MenuScene extends Phaser.Scene {
       { label: 'Settings', action: () => this.render(this.requireController().open('settings')) },
     ];
     const artX = width - this.safeRightMargin - 28;
-    if (selectedCharacter) this.addPanelArt(root, artX, top + 18, selectedCharacter.actorArtId, 40);
+    if (selectedCharacter) this.addPanelArt(root, artX, top + 28, selectedCharacter.portraitArtId, 56);
     if (selectedStage) {
       this.addPanelArt(root, artX, top + 54, selectedStage.locationArtId, 34);
       this.addPanelArt(root, artX - 34, top + 54, selectedStage.objective.artId, 26);
@@ -489,7 +488,7 @@ export class MenuScene extends Phaser.Scene {
     hints.setScrollFactor(0);
     this.hint = hints;
     void this.ensurePanelPresentation('home', [
-      selectedCharacter?.actorArtId,
+      selectedCharacter?.portraitArtId,
       selectedStage?.locationArtId,
       selectedStage?.objective.artId,
       ...threatPreview.map((threat) => threat.actorArtId),
@@ -608,24 +607,25 @@ export class MenuScene extends Phaser.Scene {
 
     snapshot.character.characters.forEach((character) => {
       const label = `${character.selected ? '✓ ' : ''}${character.name}${character.locked ? ' 🔒' : ''}`;
-      const artColumn = 68;
+      const artColumn = 88;
       const button = this.addButton(root, margin + artColumn, y, label, hitTarget, () => {
         const next = this.requireController().selectCharacter(character.id, snapshot.character.revision);
         this.render(next);
       }, 'ui:confirm', width - margin - this.safeRightMargin - artColumn);
       const rowHeaderHeight = Math.max(56, button.height);
-      this.addMercenaryActor(root, margin + 28, y + rowHeaderHeight / 2, character.actorArtId, 56, character.locked);
+      this.addPanelArt(root, margin + 38, y + 38, character.portraitArtId, 76, character.locked);
       this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + rowHeaderHeight / 2, character.startingWeaponIconArtId, 32);
       if (character.description || character.abilityName) {
+        const detailX = margin + artColumn;
         const details = [
           `${character.description} • Starts: ${character.startingWeaponSummary}`,
           `Base: ${character.baseStatsSummary}`,
-          character.passiveSummary,
-          character.abilityName ? `${character.abilityName}: ${character.abilityDescription}` : undefined,
+          character.passives.map((passive) => `${passive.name}: ${passive.description}`).join(' • '),
+          character.abilityName ? `${character.abilityName.toUpperCase()}: ${character.abilityDescription}` : undefined,
           character.locked ? character.unlockRequirement : undefined,
         ]
           .filter(Boolean).join('\n');
-        const desc = this.own(root, createUiText(this,margin + artColumn, y + rowHeaderHeight + 2, details, {
+        const desc = this.own(root, createUiText(this, detailX, y + rowHeaderHeight + 2, details, {
           color: '#a5f3fc',
           fontFamily: ThemeFont.family,
           fontSize: `${ThemeFont.bodyMin}px`,
@@ -633,6 +633,12 @@ export class MenuScene extends Phaser.Scene {
         }));
         desc.setScrollFactor(0);
         this.registerScrollObject(desc);
+        if (character.abilityIconArtId) {
+          this.addCatalogIcon(root, detailX - 18, y + rowHeaderHeight + desc.height - 10, character.abilityIconArtId, 28);
+        }
+        character.passives.slice(0, 2).forEach((passive, index) => {
+          this.addCatalogIcon(root, detailX - 18, y + rowHeaderHeight + 46 + index * 26, passive.iconArtId, 22);
+        });
         y += rowHeaderHeight + desc.height + 10;
       } else {
         y += rowHeaderHeight + 16;
@@ -641,7 +647,10 @@ export class MenuScene extends Phaser.Scene {
 
     this.endScrollableRegion();
     void this.ensureMercenaryPresentation(snapshot.character.characters.flatMap((character) => [
-      character.actorArtId, character.startingWeaponIconArtId,
+      character.portraitArtId,
+      character.startingWeaponIconArtId,
+      ...(character.abilityIconArtId ? [character.abilityIconArtId] : []),
+      ...character.passives.map((passive) => passive.iconArtId),
     ]));
     this.addBackButton(root, width, margin, hitTarget);
   }
@@ -1426,21 +1435,6 @@ export class MenuScene extends Phaser.Scene {
       const targetPanel = this.committedPanel ?? panel;
       await this.loadPanelPresentation(targetPanel, pending, repaintPanels.has(targetPanel));
     }
-  }
-
-  /** Mercenary thumbnails use the actor's authoritative first idle frame.
-   * Locked entries stay identifiable but are visibly subdued; text remains
-   * the authority for their exact unlock requirement. */
-  private addMercenaryActor(root: Phaser.GameObjects.Container, x: number, y: number, actorArtId: string, maxSize = 56, locked = false): void {
-    const binding = this.requireVisualArt().bindingById(actorArtId);
-    if (!binding || binding.kind !== 'character' || binding.load.type !== 'spritesheet' || !this.textures?.exists(binding.textureKey)) return;
-    const actor = this.own(root, this.add.image(x, y, binding.textureKey, binding.clips?.idle?.start ?? 0));
-    const targetWidth = Math.min(maxSize, binding.display.width * 2);
-    const targetHeight = Math.min(maxSize, binding.display.height * 2);
-    actor.setScale(targetWidth / binding.load.frame.width, targetHeight / binding.load.frame.height);
-    actor.setAlpha(locked ? 0.42 : 1);
-    actor.setScrollFactor(0);
-    this.registerScrollObject(actor);
   }
 
   /** Career shares terminal Achievement badge identity while retaining its

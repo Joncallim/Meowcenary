@@ -11,7 +11,7 @@ import { createWeaponInstance, type WeaponInstance } from '../src/gameplay/weapo
 import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import { loadGameData } from '../src/systems/validation';
 import { InventoryController } from '../src/ui/inventory';
-import { logicalCanvasViewport } from '../src/ui/layout';
+import { GAMEPLAY_ZOOM, logicalCanvasViewport } from '../src/ui/layout';
 import { PauseController, PhaserPauseView } from '../src/ui/pause';
 import { FullscreenController } from '../src/ui/fullscreen';
 import { FocusStroke } from '../src/ui/theme';
@@ -530,9 +530,10 @@ describe('PhaserPauseView', () => {
         return prevented;
       },
       resize(displayWidth: number, displayHeight: number) {
-        const fitScale = Math.min(displayWidth / 390, displayHeight / 844);
-        scene.scale.displaySize.width = 390 * fitScale;
-        scene.scale.displaySize.height = 844 * fitScale;
+        scene.scale.width = displayWidth;
+        scene.scale.height = displayHeight;
+        scene.scale.displaySize.width = displayWidth;
+        scene.scale.displaySize.height = displayHeight;
         scene.scale.parentSize.width = displayWidth;
         scene.scale.parentSize.height = displayHeight;
         resize?.handler.call(resize.context);
@@ -1214,7 +1215,7 @@ describe('PhaserPauseView', () => {
       expect(rectangle.state.y + rectangle.state.height / 2).toBeLessThanOrEqual(844);
     }
     const compactSlots = liveRectangles.filter(
-      (object) => object.state.width < 140 && object.state.height > 120
+      (object) => object.state.width < 300 && object.state.height > 44 / GAMEPLAY_ZOOM
         && object.state.handlers['pointerover'],
     );
     expect(compactSlots).toHaveLength(6);
@@ -1559,6 +1560,8 @@ describe('PhaserPauseView', () => {
       // scale that Phaser never surfaced): the settle-time key no longer
       // matches the captured resize key, so the dedupe must fall through to
       // a real rebuild instead of silently publishing stale geometry.
+      scene.scale.width = 390;
+      scene.scale.height = 844;
       scene.scale.displaySize.width = 390;
       scene.scale.displaySize.height = 844;
       scene.scale.parentSize.width = 390;

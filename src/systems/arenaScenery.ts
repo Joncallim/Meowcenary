@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import type { ArenaDefinition, EdgeSpawnLane, VisualArtBinding } from './types';
 import type { VisualArtLookup } from './visualArt';
 import { VisualDepth } from './visualDepths';
+import { GAMEPLAY_ZOOM } from '../ui/layout';
+import { responsiveArenaPresentationBounds } from '../gameplay/responsiveArenaPresentation';
 
 const TILE_SIZE = 32;
 
@@ -38,6 +40,7 @@ export class ArenaWorldView implements ArenaScenery {
   readonly obstacleGroup: Phaser.Physics.Arcade.StaticGroup;
   private readonly nodes: Phaser.GameObjects.GameObject[] = [];
   private readonly presentationNodes: ArenaPresentationNode[] = [];
+  private overscanFloor?: Phaser.GameObjects.TileSprite;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -49,6 +52,7 @@ export class ArenaWorldView implements ArenaScenery {
     // creating a single body: a collidable landmark without its readable skin
     // is a release-blocking resource failure, never a playable fallback.
     if (this.visualArt) this.assertRequiredVisualsAvailable();
+    this.buildOverscanFloor();
     this.buildFloor();
     this.buildBoundary();
     this.buildDecorations();
@@ -59,11 +63,50 @@ export class ArenaWorldView implements ArenaScenery {
   }
 
   destroy(): void {
+    this.scene.scale?.off?.(Phaser.Scale.Events.RESIZE, this.resizeOverscanFloor, this);
     for (const node of this.nodes) node.destroy();
     this.nodes.length = 0;
     this.presentationNodes.length = 0;
     this.obstacleGroup.destroy(true);
   }
+
+  private buildOverscanFloor(): void {
+    const binding = this.binding(this.arena.visual.floorArtIds[0]!);
+    const add = this.scene.add as typeof this.scene.add & {
+      tileSprite?: (x: number, y: number, width: number, height: number, texture: string, frame?: string | number) => Phaser.GameObjects.TileSprite;
+    };
+    if (!binding || !add.tileSprite) return;
+    const bounds = responsiveArenaPresentationBounds(
+      this.arena.size.width,
+      this.arena.size.height,
+      this.scene.scale.width,
+      this.scene.scale.height,
+      GAMEPLAY_ZOOM,
+    );
+    this.overscanFloor = add.tileSprite(
+      bounds.centerX,
+      bounds.centerY,
+      bounds.width,
+      bounds.height,
+      binding.textureKey,
+      binding.frameKey,
+    ).setDepth(VisualDepth.floor - 1);
+    this.nodes.push(this.overscanFloor);
+    this.scene.scale.on?.(Phaser.Scale.Events.RESIZE, this.resizeOverscanFloor, this);
+  }
+
+  private readonly resizeOverscanFloor = (): void => {
+    if (!this.overscanFloor) return;
+    const bounds = responsiveArenaPresentationBounds(
+      this.arena.size.width,
+      this.arena.size.height,
+      this.scene.scale.width,
+      this.scene.scale.height,
+      GAMEPLAY_ZOOM,
+    );
+    this.overscanFloor.setPosition(bounds.centerX, bounds.centerY);
+    this.overscanFloor.setSize(bounds.width, bounds.height);
+  };
 
   /** Narrow diagnostic surface: proves that the actual images made by this
    * production world builder are live, rather than merely that their files

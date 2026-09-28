@@ -8,18 +8,13 @@ import { physicsDebugEnabled } from './systems/debug';
 import { installDiagnostics } from './engine/diagnostics';
 import { bindVisualViewportRefresh, isGestureActive } from './platform/visualViewport';
 import { installPortraitOrientationGuard } from './platform/orientation';
+import { responsiveScaleConfig } from './platform/gameScale';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game-root',
   backgroundColor: '#101820',
-  scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: RuntimeConfig.canvas.width,
-    height: RuntimeConfig.canvas.height,
-    fullscreenTarget: 'game-root',
-  },
+  scale: responsiveScaleConfig(),
   input: {
     activePointers: 3,
     gamepad: true,
