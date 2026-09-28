@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test';
 
+// A complete visual pass deliberately reloads Phaser and its art bundles many
+// times. Shared CI runners can take materially longer than a developer machine
+// to reach those observable states, so bound infrastructure readiness without
+// changing game timing or weakening any screenshot comparison.
+const visualReadyTimeoutMs = 20_000;
+
 type VisualTestSeam = {
   freeze(): Promise<void>;
   resume(): void;
@@ -51,7 +57,7 @@ async function showMenu(page: import('@playwright/test').Page, panel: string): P
       __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
     }).__MEOWCENARY_VISUAL_TEST__;
     return seam?.showMenu(targetPanel) ?? false;
-  }, panel)).toBe(true);
+  }, panel), { timeout: visualReadyTimeoutMs }).toBe(true);
   await page.waitForTimeout(250);
 }
 
@@ -61,7 +67,7 @@ async function expectScene(page: import('@playwright/test').Page, key: string): 
       __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
     }).__MEOWCENARY_VISUAL_TEST__;
     return seam?.isSceneActive(sceneKey) ?? false;
-  }, key)).toBe(true);
+  }, key), { timeout: visualReadyTimeoutMs }).toBe(true);
 }
 
 async function expectMenuPresentationSettled(page: import('@playwright/test').Page): Promise<void> {
@@ -70,7 +76,7 @@ async function expectMenuPresentationSettled(page: import('@playwright/test').Pa
       __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
     }).__MEOWCENARY_VISUAL_TEST__;
     return seam?.isMenuPresentationSettled() ?? false;
-  })).toBe(true);
+  }), { timeout: visualReadyTimeoutMs }).toBe(true);
   await page.waitForTimeout(100);
 }
 
@@ -92,6 +98,7 @@ async function expectCenteredActor(page: import('@playwright/test').Page, name: 
 }
 
 test('approved reachable surfaces retain the Meowcenary visual system', async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
   test.skip(!representativeProjects.has(testInfo.project.name));
   const requestedAssets: string[] = [];
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
@@ -99,15 +106,15 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
   await page.goto('/?visual-test=1');
   const canvas = page.locator('#game-root canvas');
   await expect(canvas).toBeVisible();
-  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/ui-atlas.png'))).toBe(true);
-  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/scrap-sniper.png'))).toBe(true);
+  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/ui-atlas.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
+  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/scrap-sniper.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
   await expect(page).toHaveScreenshot('home.png', { animations: 'disabled' });
 
   await page.reload();
   await showMenu(page, 'character');
-  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/mercenary-portraits-atlas.png'))).toBe(true);
+  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/mercenary-portraits-atlas.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
   await expect(page).toHaveScreenshot('mercenary.png', { animations: 'disabled' });
@@ -145,12 +152,12 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
   await press(page, 'Enter');
   await expectScene(page, 'GameScene');
   await resumeLoop(page);
-  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/scrap-tabby.png'))).toBe(true);
+  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/scrap-tabby.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
   await expect.poll(() => page.evaluate(() => {
     const seam = (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam })
       .__MEOWCENARY_VISUAL_TEST__;
     return seam?.focusFirstEnemy(false) ?? false;
-  })).toBe(true);
+  }), { timeout: visualReadyTimeoutMs }).toBe(true);
   await freezeAtStableFrame(page);
   // Full composition allows incidental player/held-weapon contact timing;
   // the production enemy view itself is locked exactly in the crop below.
@@ -199,13 +206,13 @@ test('boss gameplay keeps the approved boss-scale visual hierarchy', async ({ pa
   await press(page, 'Enter');
   await expectScene(page, 'GameScene');
   await resumeLoop(page);
-  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/boss-crusher.png'))).toBe(true);
+  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/boss-crusher.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
   await expect.poll(() => page.evaluate(() => {
     const seam = (globalThis as typeof globalThis & {
       __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
     }).__MEOWCENARY_VISUAL_TEST__;
     return seam?.focusFirstEnemy(true) ?? false;
-  })).toBe(true);
+  }), { timeout: visualReadyTimeoutMs }).toBe(true);
   await freezeAtStableFrame(page);
   await expect(page).toHaveScreenshot('boss-gameplay.png', { animations: 'disabled', maxDiffPixels: 512 });
   await expectCenteredActor(page, 'boss-gameplay-actor.png');
@@ -239,18 +246,19 @@ test('Forge Warden keeps its approved furnace-gantry silhouette in live gameplay
   await press(page, 'Enter');
   await expectScene(page, 'GameScene');
   await resumeLoop(page);
-  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/boss-forge.png'))).toBe(true);
+  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/boss-forge.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
   await expect.poll(() => page.evaluate(() => {
     const seam = (globalThis as typeof globalThis & {
       __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
     }).__MEOWCENARY_VISUAL_TEST__;
     return seam?.focusFirstEnemy(true) ?? false;
-  })).toBe(true);
+  }), { timeout: visualReadyTimeoutMs }).toBe(true);
   await freezeAtStableFrame(page);
   await expectCenteredActor(page, 'forge-warden-gameplay-actor.png');
 });
 
 test('every Mercenary actor retains its approved runtime silhouette', async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
   test.skip(testInfo.project.name !== 'desktop-1280x720');
   const characterIds = [
     'scrap-tabby', 'bolt-hound', 'volt-lynx', 'brass-boar',
@@ -281,7 +289,7 @@ test('every Mercenary actor retains its approved runtime silhouette', async ({ p
         __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
       }).__MEOWCENARY_VISUAL_TEST__;
       return seam?.focusPlayer() ?? false;
-    })).toBe(true);
+    }), { timeout: visualReadyTimeoutMs }).toBe(true);
     await freezeAtStableFrame(page);
     await expectCenteredActor(page, `mercenary-gameplay-${characterId}.png`);
   }
