@@ -37,7 +37,7 @@ export const game = new Phaser.Game(config);
 // through this surface.
 if (new URLSearchParams(globalThis.location?.search ?? '').get('visual-test') === '1') {
   const freezeVisualFrame = async (): Promise<void> => {
-    for (const scene of game.scene.getScenes(true)) {
+    for (const scene of game.scene.getScenes(false)) {
       const pending = [...scene.children.list] as Array<Phaser.GameObjects.GameObject & { list?: Phaser.GameObjects.GameObject[] }>;
       while (pending.length > 0) {
         const child = pending.pop()!;
