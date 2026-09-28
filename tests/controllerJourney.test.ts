@@ -64,7 +64,7 @@ if (!import.meta.url.includes('?as-harness')) {
     // 3. Home (panel reset): open the grouped Loadout hub, then Equipment.
     menu.press(13);
     menu.press(13);
-    menu.press(13);
+    menu.press(15);
     expect(menu.events).toEqual([
       'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back',
       'ui:navigate', 'ui:navigate', 'ui:navigate',
@@ -458,10 +458,10 @@ function pressOpCount(script: readonly ScriptedOperation[]): number {
 
 function buildMenuPostureScript(): ScriptedOperation[] {
   const script: ScriptedOperation[] = [];
-  // 480 nav presses — 13 (navDown) and 15 (navRight) both advance the linear
-  // 5-row menu navigator +1 and wrap.
+  // 480 vertical nav presses exercise the mixed full-width/two-column Home
+  // layout. Down always has a spatial destination and wraps at Settings.
   for (let i = 0; i < 480; i += 1) {
-    script.push({ press: i % 2 === 0 ? 13 : 15 });
+    script.push({ press: 13 });
     if (i % 16 === 15) script.push({ idlePolls: 2 });
   }
   return script;
