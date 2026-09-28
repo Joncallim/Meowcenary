@@ -87,6 +87,12 @@ describe('Gunsmith production art', () => {
     expect(new Set(signatures.slice(0, 20)).size).toBe(20);
     expect(new Set(expectedIds.map((_, frame) => rgbaSignature(png.pixels, png.width, frame))).size).toBe(expectedIds.length);
     expect(signatures[10]).not.toBe(signatures[20]); // physical Fire Core vs reusable FIRE emblem
+    for (let frame = 0; frame < expectedIds.length; frame += 1) {
+      for (let x = 0; x < FRAME_SIZE; x += 1) {
+        expect(png.pixels[(frame * FRAME_SIZE + x) * 4 + 3], `${expectedIds[frame]} top edge`).toBe(0);
+        expect(png.pixels[((FRAME_SIZE - 1) * png.width + frame * FRAME_SIZE + x) * 4 + 3], `${expectedIds[frame]} bottom edge`).toBe(0);
+      }
+    }
   });
 
   it('uses exact, non-overlapping named frames in the same stable order', () => {

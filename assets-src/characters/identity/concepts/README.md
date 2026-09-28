@@ -83,3 +83,12 @@ regenerating the approved direction.
   resemblance to existing game IP."
 - Rejection rationale: attractive enlarged, but painterly material noise and
   incidental glow collapse at the required 24–32px icon size.
+
+## Runtime portrait cutover
+
+The dossier silhouettes above remain the identity-system exploration record,
+but are no longer the live Mercenary portraits. Runtime cards now crop the
+approved full-character masters for Scrap Tabby, Bolt Hound, Volt Lynx and the
+five-character Alpha 3 roster board. `build-mercenary-portrait-atlas.py`
+performs the deterministic crop/matte and preserves the stable eight portrait
+IDs; ability and passive icons continue to use the selected identity boards.

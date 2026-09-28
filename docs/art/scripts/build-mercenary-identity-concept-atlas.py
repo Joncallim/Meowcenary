@@ -52,7 +52,10 @@ def render(root: Path) -> Image.Image:
         bounds = tile.getchannel("A").getbbox()
         if bounds:
             tile = tile.crop(bounds)
-        target = FRAME - (8 if index < 8 else 2)
+        # Keep an intentional transparent safety gutter. These symbols are
+        # displayed inside circular controls and must never read as cropped
+        # when their authored sparks/ears reach the source-cell boundary.
+        target = 76 if index < 8 else 82
         tile.thumbnail((target, target), Image.Resampling.NEAREST if index < 8 else Image.Resampling.LANCZOS)
         atlas.alpha_composite(tile, (index * FRAME + (FRAME - tile.width) // 2, (FRAME - tile.height) // 2))
     return atlas

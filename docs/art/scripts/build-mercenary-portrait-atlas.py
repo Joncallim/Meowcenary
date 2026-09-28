@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Build the shipped Mercenary portraits from the selected identity board.
+"""Build the shipped Mercenary portraits from approved character concepts.
 
 The untouched selected board remains the provenance master.  This deterministic
-crop turns its portrait column into eight consistently framed, runtime-sized
+crop turns the selected character masters into eight consistently framed, runtime-sized
 cards and mirrors the result into an editable Pixelorama source plus Phaser
 atlas export.  It intentionally does not regenerate or reinterpret the art.
 """
@@ -30,25 +30,54 @@ MERCENARIES = (
 )
 FRAME_WIDTH = 150
 FRAME_HEIGHT = 240
-SOURCE_TILE_WIDTH = 384
-SOURCE_TILE_HEIGHT = 512
-SOURCE_CROP = (8, 48, 243, 472)
 ZIP_DATE = (2020, 1, 1, 0, 0, 0)
 
 
-def render(root: Path) -> Image.Image:
-    source = root / "assets-src/characters/identity/concepts/direction-b-selected.png"
-    board = Image.open(source).convert("RGBA")
-    if board.size != (1536, 1024):
-        raise SystemExit(f"selected Mercenary identity board changed size: {board.size}")
+def remove_light_backdrop(image: Image.Image, background: tuple[int, int, int]) -> Image.Image:
+    """Extract the opaque Epic 13 concept subject without touching its master."""
+    pixels = []
+    for red, green, blue, alpha in image.get_flattened_data():
+        distance = ((red - background[0]) ** 2 + (green - background[1]) ** 2 + (blue - background[2]) ** 2) ** 0.5
+        matte = max(0, min(255, round((distance - 18) * 255 / 48)))
+        pixels.append((red, green, blue, min(alpha, matte)))
+    extracted = Image.new("RGBA", image.size)
+    extracted.putdata(pixels)
+    return extracted
 
+
+def trim(image: Image.Image) -> Image.Image:
+    bounds = image.getchannel("A").getbbox()
+    if bounds is None:
+        raise SystemExit("approved Mercenary crop contains no visible pixels")
+    return image.crop(bounds)
+
+
+def approved_portraits(root: Path) -> tuple[Image.Image, ...]:
+    tabby = Image.open(root / "docs/art/concepts/epic-13/scrap-tabby-concept.png").convert("RGBA")
+    hound = Image.open(root / "docs/art/concepts/epic-13/bolt-hound-concept.png").convert("RGBA")
+    lynx = Image.open(root / "assets-src/characters/volt-lynx/concepts/volt-lynx-direction-a-selected.png").convert("RGBA")
+    roster = Image.open(root / "assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png").convert("RGBA")
+    if tabby.size != (1536, 1024) or hound.size != (1536, 1024) or lynx.size != (1774, 887) or roster.size != (1774, 887):
+        raise SystemExit("an approved Mercenary concept master changed dimensions")
+
+    # The first two approved concept sheets predate transparent provenance.
+    # Crop only the large hero pose and derive its matte from the known paper
+    # colour. Later selected masters already carry authoritative alpha.
+    tabby_hero = remove_light_backdrop(tabby.crop((18, 18, 825, 1005)), (249, 245, 229))
+    hound_hero = remove_light_backdrop(hound.crop((35, 642, 335, 990)), (247, 245, 241))
+    lynx_hero = lynx.crop((70, 20, 610, 870))
+
+    # Selected Alpha 3 roster board, in authored order: Brass Boar, Ember
+    # Cougar, Scrap Weasel, Rattle Raptor and Piston Ram.
+    roster_columns = ((0, 372), (372, 710), (710, 1062), (1062, 1425), (1425, 1774))
+    roster_heroes = tuple(roster.crop((left, 0, right, roster.height)) for left, right in roster_columns)
+    return tuple(trim(image) for image in (tabby_hero, hound_hero, lynx_hero, *roster_heroes))
+
+
+def render(root: Path) -> Image.Image:
     atlas = Image.new("RGBA", (FRAME_WIDTH * len(MERCENARIES), FRAME_HEIGHT), (0, 0, 0, 0))
-    left, top, right, bottom = SOURCE_CROP
-    for index, _character_id in enumerate(MERCENARIES):
-        tile_x = (index % 4) * SOURCE_TILE_WIDTH
-        tile_y = (index // 4) * SOURCE_TILE_HEIGHT
-        portrait = board.crop((tile_x + left, tile_y + top, tile_x + right, tile_y + bottom))
-        portrait.thumbnail((140, FRAME_HEIGHT), Image.Resampling.LANCZOS)
+    for index, portrait in enumerate(approved_portraits(root)):
+        portrait.thumbnail((140, 228), Image.Resampling.LANCZOS)
         atlas.alpha_composite(
             portrait,
             (index * FRAME_WIDTH + (FRAME_WIDTH - portrait.width) // 2, (FRAME_HEIGHT - portrait.height) // 2),

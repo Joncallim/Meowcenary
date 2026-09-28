@@ -175,6 +175,8 @@ export interface GunsmithFamilyView {
   readonly id: string;
   readonly name: string;
   readonly iconArtId: string;
+  /** Rich assembled chassis art used by the live Gunsmith family card. */
+  readonly previewBaseArtId?: string;
   readonly selected: boolean;
   /** An existing build can be selected; an absent value means creating this
    * registered family is the appropriate command. */
@@ -414,6 +416,9 @@ export class GunsmithController {
           id: family.id,
           name: family.name,
           iconArtId: chassis?.art.iconId ?? '',
+          ...(chassis?.art.gunsmithPreviewBaseArtId === undefined ? {} : {
+            previewBaseArtId: chassis.art.gunsmithPreviewBaseArtId,
+          }),
           selected: build !== undefined && build.id === selected?.id,
           existingBuildId: build?.id,
         });

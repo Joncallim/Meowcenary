@@ -1,9 +1,9 @@
 # Assembled weapon preview art provenance
 
-These boards were generated for directional exploration only. Their pixels are
-not shipped in the runtime atlas. The checked-in Pixelorama source deliberately
-translates the selected direction into native 96×48 pixel art with a common
-receiver/grip datum and transparent, interchangeable Part overlays.
+These boards were generated for directional exploration and the selected board
+is now the production source. The deterministic importer crops it into native
+96×48 art with a common receiver/grip datum and transparent, interchangeable
+Part overlays; the generated Pixelorama packet preserves editable provenance.
 
 ## Selected direction
 
@@ -29,5 +29,5 @@ component registration did not survive intended 96×48 runtime scale.
 
 SHA-256: `d94029a5b404e0999d4e1892d2bb448ce27f8c9810129ff9e0f2e38d286ef9f6`
 
-The deterministic Lua builder is the production drawing authority; the Node
-exporter proves editable-source → runtime-atlas parity.
+The deterministic Python importer is the production drawing authority and
+proves selected concept → editable source → runtime-atlas parity.

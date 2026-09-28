@@ -159,14 +159,20 @@ The numbered path below is the repeatable audit journey used at 390×844,
    uses a roomy 4+3 gallery instead of seven undersized buttons.
 2. **Choose Contract** — available/locked hierarchy, objective art, reward
    detail, focus visibility, and scroll containment were checked together.
-3. **Mercenary** — the former tiny geometric avatars were replaced by crops
-   from the approved identity board. Portraits are now the dominant card
-   column; ability, passive, and weapon art remain secondary.
+3. **Mercenary** — the rejected dossier silhouettes were replaced by
+   deterministic crops of the approved full-colour character masters. Locked
+   characters remain full-colour previews (lock state is carried by chrome),
+   while portraits own the dominant card column and ability/passive art keeps
+   a clear transparent safety gutter.
 4. **Loadout / Equipment / Gunsmith** — selected identity, equipment pieces,
    blueprints, chassis, and part art are shown at card scale instead of being
    treated as utility glyphs. The selected Direction B Gunsmith board now owns
    the 12 Part icons, eight slot glyphs, and three trait emblems. The assembled
-   weapon is the visual focal point; stocked desktop, foldable and phone
+   weapon is the visual focal point. The approved assembled-gun master now
+   drives the family cards, fitted build preview, weapon-rack icons and held
+   gameplay weapon; the selected Commando and seven-family Equipment boards
+   ship as 96px art rather than enlarged 32px primitives. A four-slot live
+   loadout strip makes persisted armour visible after reload. Stocked desktop, foldable and phone
    regressions prove the fitted/owned/incompatible and Workshop surfaces with
    live domain state rather than an empty fixture. Text is grouped beside the
    visual it explains and reserves both icon columns on narrow phones.
@@ -206,6 +212,9 @@ The numbered path below is the repeatable audit journey used at 390×844,
     receive a short presentation-only hold so the action can be read on a
     phone. Dedicated phone, foldable, and desktop captures lock the live effect
     around the real player actor.
+11. **Continuous scrolling** — the shared list mask now clips partial cards at
+    the viewport edge instead of hiding the entire row. Fully off-screen rows
+    remain culled and clipped portions cannot receive pointer activation.
 
 The approved Figma Clean Master is also integrated without redrawing: the
 editable SVG and exact export are preserved under `assets-src/ui/brand`, a

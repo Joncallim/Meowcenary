@@ -48,8 +48,16 @@ def render(root: Path) -> Image.Image:
     if board.size != (1536, 1024):
         raise SystemExit(f"selected Gunsmith board changed size: {board.size}")
     atlas = Image.new("RGBA", (FRAME * len(IDS), FRAME), (0, 0, 0, 0))
-    for index, (_name, tile) in enumerate(tiles(board)):
-        tile.thumbnail((FRAME, FRAME), Image.Resampling.LANCZOS)
+    for index, (name, tile) in enumerate(tiles(board)):
+        bounds = tile.getchannel("A").getbbox()
+        if bounds:
+            tile = tile.crop(bounds)
+        # Individual semantic groups need different breathing room at card
+        # scale: slot silhouettes are visually taller, while parts and trait
+        # emblems are wider. Every frame retains at least an eight-pixel clear
+        # gutter so authored pixels cannot be mistaken for a clipped crop.
+        target = 76 if name in SLOTS else 80
+        tile.thumbnail((target, target), Image.Resampling.LANCZOS)
         atlas.alpha_composite(tile, (index * FRAME + (FRAME - tile.width) // 2, (FRAME - tile.height) // 2))
     return atlas
 

@@ -1,4 +1,7 @@
--- Dedicated Commando Equipment set atlas.  Five 32px cells share one
+-- external-production-importer: build-equipment-concept-atlases.py crops the
+-- selected Commando concept into the 96px production atlas. This legacy
+-- entrypoint remains only for manifest-derived builder discovery.
+-- Dedicated Commando Equipment set atlas. Five logical cells share one
 -- resource, but their stable logical identities live in visual-art.json.
 local U = dofile("docs/art/scripts/lib/sprite-utils.lua")
 

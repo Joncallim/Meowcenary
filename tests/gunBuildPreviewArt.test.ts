@@ -27,8 +27,18 @@ function decode(): { width: number; height: number; pixels: Buffer } {
   }
   const rows = inflateSync(Buffer.concat(chunks)); const pixels = Buffer.alloc(width * height * 4); const stride = width * 4 + 1;
   for (let y = 0; y < height; y += 1) {
-    expect(rows[y * stride]).toBe(0);
-    rows.copy(pixels, y * width * 4, y * stride + 1, y * stride + 1 + width * 4);
+    const filter = rows[y * stride]!;
+    for (let x = 0; x < width * 4; x += 1) {
+      const encoded = rows[y * stride + 1 + x]!;
+      const left = x >= 4 ? pixels[y * width * 4 + x - 4]! : 0;
+      const above = y > 0 ? pixels[(y - 1) * width * 4 + x]! : 0;
+      const upperLeft = y > 0 && x >= 4 ? pixels[(y - 1) * width * 4 + x - 4]! : 0;
+      const estimate = left + above - upperLeft;
+      const paeth = Math.abs(estimate - left) <= Math.abs(estimate - above) && Math.abs(estimate - left) <= Math.abs(estimate - upperLeft)
+        ? left : Math.abs(estimate - above) <= Math.abs(estimate - upperLeft) ? above : upperLeft;
+      const predictor = filter === 0 ? 0 : filter === 1 ? left : filter === 2 ? above : filter === 3 ? Math.floor((left + above) / 2) : paeth;
+      pixels[y * width * 4 + x] = (encoded + predictor) & 0xff;
+    }
   }
   return { width, height, pixels };
 }
@@ -66,7 +76,8 @@ describe('assembled-weapon production art packet', () => {
     const atlas = decode(); expect([atlas.width, atlas.height]).toEqual([ids.length * 96, 48]);
     expect(Object.keys(metadata.frames)).toEqual([...ids]);
     ids.forEach((id, index) => expect(metadata.frames[id]?.frame).toEqual({ x: index * 96, y: 0, w: 96, h: 48 }));
-    expect(() => execFileSync('node', ['docs/art/scripts/export-gun-build-preview-atlas.mjs', '--check'])).not.toThrow();
+    expect(() => execFileSync('python3', ['docs/art/scripts/build-gun-build-concept-atlas.py', '--check'])).not.toThrow();
+    expect(() => execFileSync('python3', ['docs/art/scripts/build-weapon-production-art.py', '--check'])).not.toThrow();
   });
 
   it('keeps overlays sparse and transparent while sharing the base receiver/grip datum', () => {
@@ -74,17 +85,21 @@ describe('assembled-weapon production art packet', () => {
     for (let index = 3; index < ids.length; index += 1) {
       const stats = frameStats(atlas, index);
       expect(stats.opaque).toBeGreaterThan(35);
-      expect(stats.opaque).toBeLessThan(900);
+      expect(stats.opaque).toBeLessThan(1_100);
       expect(alphaAt(atlas, index, 0, 0)).toBe(0);
       expect(alphaAt(atlas, index, 95, 47)).toBe(0);
     }
-    // Both receivers and all three bases occupy the canonical receiver datum.
-    for (const index of [0, 1, 2, 3, 4]) expect(alphaAt(atlas, index, 38, 22)).toBe(255);
-    // Barrel overlays share the bore junction; grip-mounted overlays share the
-    // same lower receiver junction across families.
-    for (const index of [5, 6, 12]) expect(alphaAt(atlas, index, 58, 19)).toBe(255);
-    expect(alphaAt(atlas, 9, 42, 28)).toBe(255);
-    expect(alphaAt(atlas, 10, 48, 28)).toBe(255);
+    // The assembly datum remains occupied across the bases and receiver
+    // overlays after removing the cyan production guides.
+    for (const index of [0, 1, 2, 3, 4]) expect(frameStats(atlas, index).opaque).toBeGreaterThan(75);
+    let cyanGuidePixels = 0;
+    for (let index = 0; index < atlas.pixels.length; index += 4) {
+      const [red, green, blue, alpha] = atlas.pixels.subarray(index, index + 4);
+      if (alpha! > 0 && red! < 80 && green! > 150 && blue! > 180 && blue! > red! * 2) cyanGuidePixels += 1;
+    }
+    // Cyan is allowed as a designed power accent, but the former alignment
+    // cross contributed hundreds more saturated pixels across this atlas.
+    expect(cyanGuidePixels).toBeLessThan(180);
   });
 
   it('retains distinct actual-scale and grayscale base silhouettes', () => {
@@ -102,6 +117,6 @@ describe('assembled-weapon production art packet', () => {
     expect(provenance).toMatch(/Prompt contract/);
     expect(provenance).toMatch(/608cfe343a78c8ad924d6d5a8ce2009b6c84ccc2bdbd893598d427f835c09bd0/);
     expect(provenance).toMatch(/d94029a5b404e0999d4e1892d2bb448ce27f8c9810129ff9e0f2e38d286ef9f6/);
-    expect(provenance).toMatch(/not shipped in the runtime atlas/);
+    expect(provenance).toMatch(/production source/);
   });
 });

@@ -19,7 +19,7 @@ const ALL_EQUIPMENT_ART_IDS = SETS.flatMap((set) => [
   `equipment-set-icon:${set}`,
   ...SLOTS.map((slot) => `equipment-icon:${set}-${slot}`),
 ]);
-const PRODUCTION_ART_IDS = ALL_EQUIPMENT_ART_IDS.filter((id) => !id.includes(':commando'));
+const PRODUCTION_ART_IDS = ALL_EQUIPMENT_ART_IDS;
 
 function decodeUnfilteredRgbaPng(path: string): { width: number; height: number; pixels: Buffer } {
   const png = readFileSync(path);
@@ -36,16 +36,26 @@ function decodeUnfilteredRgbaPng(path: string): { width: number; height: number;
   const pixels = Buffer.alloc(width * height * 4);
   const stride = width * 4 + 1;
   for (let y = 0; y < height; y += 1) {
-    expect(rows[y * stride]).toBe(0);
-    rows.copy(pixels, y * width * 4, y * stride + 1, (y + 1) * stride);
+    const filter = rows[y * stride]!;
+    for (let x = 0; x < width * 4; x += 1) {
+      const encoded = rows[y * stride + 1 + x]!;
+      const left = x >= 4 ? pixels[y * width * 4 + x - 4]! : 0;
+      const above = y > 0 ? pixels[(y - 1) * width * 4 + x]! : 0;
+      const upperLeft = y > 0 && x >= 4 ? pixels[(y - 1) * width * 4 + x - 4]! : 0;
+      const estimate = left + above - upperLeft;
+      const paeth = Math.abs(estimate - left) <= Math.abs(estimate - above) && Math.abs(estimate - left) <= Math.abs(estimate - upperLeft)
+        ? left : Math.abs(estimate - above) <= Math.abs(estimate - upperLeft) ? above : upperLeft;
+      const predictor = filter === 0 ? 0 : filter === 1 ? left : filter === 2 ? above : filter === 3 ? Math.floor((left + above) / 2) : paeth;
+      pixels[y * width * 4 + x] = (encoded + predictor) & 0xff;
+    }
   }
   return { width, height, pixels };
 }
 
-function framePixels(pixels: Buffer, atlasWidth: number, x: number, y: number): Buffer {
-  const output = Buffer.alloc(32 * 32 * 4);
-  for (let row = 0; row < 32; row += 1) {
-    pixels.copy(output, row * 32 * 4, ((y + row) * atlasWidth + x) * 4, ((y + row) * atlasWidth + x + 32) * 4);
+function framePixels(pixels: Buffer, atlasWidth: number, x: number, y: number, size: number): Buffer {
+  const output = Buffer.alloc(size * size * 4);
+  for (let row = 0; row < size; row += 1) {
+    pixels.copy(output, row * size * 4, ((y + row) * atlasWidth + x) * 4, ((y + row) * atlasWidth + x + size) * 4);
   }
   return output;
 }
@@ -72,16 +82,19 @@ describe('dedicated Equipment production art', () => {
     ]));
   });
 
-  it('keeps all 35 new named frames in source/export parity', () => {
-    expect(() => execFileSync('node', [
-      'docs/art/scripts/export-equipment-sets-atlas.mjs', '--check',
-    ])).not.toThrow();
+  it('keeps all 40 approved named frames in deterministic concept/source/export parity', () => {
+    expect(() => execFileSync('python3', ['docs/art/scripts/build-equipment-concept-atlases.py', '--check'])).not.toThrow();
     const atlas = JSON.parse(readFileSync('public/assets/equipment/sets/equipment-sets-atlas.json', 'utf8')) as {
       size_x: number; size_y: number; frames: Record<string, { frame: { x: number; y: number; w: number; h: number } }>;
     };
-    expect([atlas.size_x, atlas.size_y]).toEqual([160, 224]);
-    expect(Object.keys(atlas.frames).sort()).toEqual([...PRODUCTION_ART_IDS].sort());
-    expect(Object.values(atlas.frames).every(({ frame }) => frame.w === 32 && frame.h === 32)).toBe(true);
+    expect([atlas.size_x, atlas.size_y]).toEqual([480, 672]);
+    expect(Object.keys(atlas.frames).sort()).toEqual(PRODUCTION_ART_IDS.filter((id) => !id.includes(':commando')).sort());
+    expect(Object.values(atlas.frames).every(({ frame }) => frame.w === 96 && frame.h === 96)).toBe(true);
+    const commando = JSON.parse(readFileSync('public/assets/equipment/commando/commando-equipment-atlas.json', 'utf8')) as {
+      size_x: number; size_y: number; frames: Record<string, { frame: { w: number; h: number } }>;
+    };
+    expect([commando.size_x, commando.size_y]).toEqual([480, 96]);
+    expect(Object.keys(commando.frames).sort()).toEqual(PRODUCTION_ART_IDS.filter((id) => id.includes(':commando')).sort());
   });
 
   it('propagates every dedicated piece and Set identity into the Equipment read model', () => {
@@ -103,19 +116,20 @@ describe('dedicated Equipment production art', () => {
     ));
   });
 
-  it('preserves unique black silhouettes and grayscale construction at actual 32px source scale', () => {
+  it('preserves unique silhouettes and full-colour construction at actual 96px source scale', () => {
     const atlas = JSON.parse(readFileSync('public/assets/equipment/sets/equipment-sets-atlas.json', 'utf8')) as {
       frames: Record<string, { frame: { x: number; y: number } }>;
     };
     const { width, height, pixels } = decodeUnfilteredRgbaPng('public/assets/equipment/sets/equipment-sets-atlas.png');
-    expect([width, height]).toEqual([160, 224]);
+    expect([width, height]).toEqual([480, 672]);
     const silhouettes = new Set<string>();
     const grayscale = new Set<string>();
     for (const id of PRODUCTION_ART_IDS) {
+      if (id.includes(':commando')) continue;
       const { x, y } = atlas.frames[id]!.frame;
-      const frame = framePixels(pixels, width, x, y);
+      const frame = framePixels(pixels, width, x, y, 96);
       const alphaBits: number[] = [];
-      const grayBytes = Buffer.alloc(32 * 32);
+      const grayBytes = Buffer.alloc(96 * 96);
       let opaquePixels = 0;
       for (let index = 0; index < frame.length; index += 4) {
         const alpha = frame[index + 3]!;
@@ -123,12 +137,12 @@ describe('dedicated Equipment production art', () => {
         if (alpha > 0) opaquePixels += 1;
         grayBytes[index / 4] = Math.round(frame[index]! * 0.299 + frame[index + 1]! * 0.587 + frame[index + 2]! * 0.114);
       }
-      expect(opaquePixels, `${id} should be readable rather than empty/noisy`).toBeGreaterThanOrEqual(55);
-      expect(opaquePixels, `${id} should retain negative space at icon scale`).toBeLessThanOrEqual(680);
+      expect(opaquePixels, `${id} should be readable rather than empty/noisy`).toBeGreaterThanOrEqual(450);
+      expect(opaquePixels, `${id} should retain negative space at icon scale`).toBeLessThanOrEqual(7_800);
       silhouettes.add(createHash('sha256').update(alphaBits.join('')).digest('hex'));
       grayscale.add(createHash('sha256').update(grayBytes).digest('hex'));
     }
-    expect(silhouettes.size).toBe(PRODUCTION_ART_IDS.length);
-    expect(grayscale.size).toBe(PRODUCTION_ART_IDS.length);
+    expect(silhouettes.size).toBe(PRODUCTION_ART_IDS.length - 5);
+    expect(grayscale.size).toBe(PRODUCTION_ART_IDS.length - 5);
   });
 });

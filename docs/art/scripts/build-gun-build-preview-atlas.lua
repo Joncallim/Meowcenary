@@ -1,3 +1,6 @@
+-- external-production-importer: build-gun-build-concept-atlas.py imports the
+-- selected assembled-weapon board into co-registered production layers. This
+-- legacy entrypoint remains only for manifest-derived builder discovery.
 -- Co-registered assembled-weapon preview atlas. Every 96x48 cell uses the
 -- same receiver datum (38, 22), bore line (y=19), and grip datum (40, 27).
 -- Base families and transparent Part overlays can therefore be composed by

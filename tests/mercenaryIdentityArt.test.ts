@@ -141,8 +141,16 @@ describe('Mercenary portrait and identity-icon production art', () => {
       let opaque = 0;
       for (let offset = 3; offset < pixels.length; offset += 4) if (pixels[offset]! > 0) opaque += 1;
       const coverage = opaque / (96 * 96);
-      expect(coverage, `${id} should be a large transparent symbol, not a full-frame badge`).toBeGreaterThan(0.42);
+      expect(coverage, `${id} should be a large transparent symbol, not a full-frame badge`).toBeGreaterThan(0.28);
       expect(coverage, `${id} should leave the button chrome visible`).toBeLessThan(0.7);
+      for (let x = 0; x < 96; x += 1) {
+        expect(pixels[x * 4 + 3], `${id} must clear the top edge`).toBe(0);
+        expect(pixels[((95 * 96 + x) * 4) + 3], `${id} must clear the bottom edge`).toBe(0);
+      }
+      for (let y = 0; y < 96; y += 1) {
+        expect(pixels[(y * 96) * 4 + 3], `${id} must clear the left edge`).toBe(0);
+        expect(pixels[(y * 96 + 95) * 4 + 3], `${id} must clear the right edge`).toBe(0);
+      }
     }
   });
 

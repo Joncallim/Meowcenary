@@ -726,7 +726,10 @@ export class MenuScene extends Phaser.Scene {
         this.render(next);
       }, 'ui:confirm', cardWidth, undefined, 62, portraitColumn, true);
       const rowOwnerIndex = this.focusables.length - 1;
-      this.addPanelArt(root, margin + portraitColumn / 2, y + cardHeight / 2, character.portraitArtId, compact ? 204 : 184, character.locked, false, rowOwnerIndex);
+      // Locked roster members remain full-colour previews; the lock marker and
+      // disabled command communicate availability without making approved
+      // character art look muddy or unfinished.
+      this.addPanelArt(root, margin + portraitColumn / 2, y + cardHeight / 2, character.portraitArtId, compact ? 204 : 184, false, false, rowOwnerIndex);
       this.addCatalogIcon(root, width - this.safeRightMargin - 22, y + 24, character.startingWeaponIconArtId, 38, rowOwnerIndex);
       if (character.locked) {
         this.addCatalogIcon(root, width - this.safeRightMargin - 52, y + 22, 'ui-chrome:locked', 22, rowOwnerIndex);
@@ -808,9 +811,8 @@ export class MenuScene extends Phaser.Scene {
     snapshot.stage.stages.forEach((stage) => {
       if (stage.chapterName !== chapter) {
         chapter = stage.chapterName;
-        // Keep the complete illustrated badge inside the scroll viewport.
-        // Partially clipped scroll objects are intentionally hidden, so the
-        // centre must sit at least half an icon below the section boundary.
+        // Keep the complete illustrated badge comfortably inside the scroll
+        // viewport while the shared mask handles continuous edge clipping.
         this.addCatalogIcon(root, margin + 22, y + 22, stage.chapterIconArtId, 38);
         const chapterLabel = this.own(root, createUiText(this, margin + 48, y + 7, chapter.toUpperCase(), {
           color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.labelMin}px`, fontStyle: '700',
@@ -1068,12 +1070,12 @@ export class MenuScene extends Phaser.Scene {
     snapshot.gunsmith.families.forEach((family) => {
       const label = `${family.name} Build`;
       const status = family.selected ? 'SELECTED' : family.existingBuildId ? 'CONFIGURED' : 'EMPTY — TAP TO CREATE';
-      const familyCard = this.addButton(root, margin, y, label, 92, () => this.render(family.existingBuildId
+      const familyCard = this.addButton(root, margin, y, label, 100, () => this.render(family.existingBuildId
         ? this.requireController().selectGunBuild(family.existingBuildId)
-        : this.requireController().createGunBuild(family.id)), 'ui:confirm', width - margin - this.safeRightMargin, undefined, 8, 88, true);
+        : this.requireController().createGunBuild(family.id)), 'ui:confirm', width - margin - this.safeRightMargin, undefined, 8, 176, true);
       const rowOwnerIndex = this.focusables.length - 1;
-      this.addCatalogIcon(root, margin + 43, y + 46, family.iconArtId, 68, rowOwnerIndex);
-      const statusCopy = this.own(root, createUiText(this, margin + 88, y + 48, status, {
+      this.addCatalogIcon(root, margin + 78, y + 50, family.previewBaseArtId ?? family.iconArtId, 146, rowOwnerIndex);
+      const statusCopy = this.own(root, createUiText(this, margin + 176, y + 50, status, {
         color: family.selected ? '#86efac' : '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, fontStyle: '700',
       }));
       statusCopy.setScrollFactor(0);
@@ -1241,6 +1243,7 @@ export class MenuScene extends Phaser.Scene {
     this.endScrollableRegion();
     void this.ensureGunsmithPresentation([
       ...snapshot.gunsmith.families.map((family) => family.iconArtId),
+      ...snapshot.gunsmith.families.flatMap((family) => family.previewBaseArtId ? [family.previewBaseArtId] : []),
       ...(snapshot.gunsmith.selectedBuild?.preview ? [
         snapshot.gunsmith.selectedBuild.preview.baseArtId,
         ...snapshot.gunsmith.selectedBuild.preview.layers.map((layer) => layer.artId),
@@ -1271,7 +1274,22 @@ export class MenuScene extends Phaser.Scene {
       color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
       wordWrap: { width: width - margin - this.safeRightMargin },
     }));
-    y += hitTarget + 12;
+    y += hitTarget;
+    const loadoutWidth = width - margin - this.safeRightMargin;
+    const slotWidth = loadoutWidth / 4;
+    (['helmet', 'armour', 'gloves', 'boots'] as const).forEach((slot, index) => {
+      const centerX = margin + slotWidth * (index + 0.5);
+      const equippedId = equipped[slot];
+      const item = equippedId === undefined ? undefined : snapshot.equipment.owned.find((owned) => owned.instanceId === equippedId);
+      const panel = this.uiVisuals?.addPanel(this, centerX, y + 38, Math.max(58, slotWidth - 6), 76, 'card', { alpha: 0.84 });
+      if (panel) this.own(root, panel);
+      if (item) this.addCatalogIcon(root, centerX, y + 32, item.iconArtId, 58);
+      const slotLabel = this.own(root, createUiText(this, centerX, y + 62, slot.toUpperCase(), {
+        color: item ? '#f7f1d5' : '#64748b', fontFamily: ThemeFont.family, fontSize: '11px', fontStyle: '700',
+      })).setOrigin(0.5, 0.5);
+      slotLabel.setScrollFactor(0);
+    });
+    y += 90;
     if (snapshot.equipment.activeSets.length > 0) {
       const activeHeading = this.own(root, createUiText(this, margin, y, 'ACTIVE SETS', {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,

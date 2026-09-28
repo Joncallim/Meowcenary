@@ -16,7 +16,7 @@ All directions instantiate the exact Commando family in
 - close-fitting work gloves with compact knuckle plates;
 - square ankle boots with reinforced toe and straight strap;
 - hard clustered pixels, near-black outlines, compact flat palette, and
-  24–32 px readability;
+  44–60 px card readability;
 - orderly salvage construction without camouflage, rank marks, modern
   military branding, anti-aliasing, glow, text, or watermarks.
 
@@ -53,7 +53,7 @@ SHA-256:
 
 ## Production boundary
 
-The selected family must be rebuilt as dedicated 32×32 editable sources and
-deterministic exports. Generated pixels are not copied straight into
-`public/assets`; logical bindings will change only with complete source,
-builder, export, manifest, validation, and runtime-scale review.
+The selected family is imported into dedicated 96×96 editable sources and
+deterministic exports, leaving enough transparent gutter for live cards. The
+stable logical bindings remain unchanged and the importer validates selected
+concept, Pixelorama source and runtime export together.
