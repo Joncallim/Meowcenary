@@ -296,9 +296,10 @@ export class MenuScene extends Phaser.Scene {
         fontSize: `${ThemeFont.headingMin}px`,
         fontStyle: '700',
       }));
-      title.setOrigin(0.5).setScrollFactor(0).setAlpha(0);
+      title.setOrigin(0.5).setScrollFactor(0);
+      title.setAlpha?.(0);
       const lockupBinding = this.uiVisuals?.binding('brand:title-lockup');
-      if (lockupBinding && this.textures?.exists?.(lockupBinding.textureKey)) {
+      if (lockupBinding && this.textures?.exists?.(lockupBinding.textureKey) && typeof this.add.image === 'function') {
         const lockup = this.own(root, this.add.image(
           this.safeCenterX,
           title.y,
