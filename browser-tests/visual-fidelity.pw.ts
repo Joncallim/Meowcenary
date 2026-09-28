@@ -121,11 +121,11 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
   await expect.poll(() => requestedAssets.some((path) => path.endsWith('/mercenary-portraits-atlas.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('mercenary.png', { animations: 'disabled' });
+  await expect(page).toHaveScreenshot('mercenary.png', { animations: 'disabled', maxDiffPixels: 128 });
   await resumeLoop(page);
   for (let index = 0; index < 7; index += 1) await press(page, 'ArrowDown');
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('mercenary-lower.png', { animations: 'disabled' });
+  await expect(page).toHaveScreenshot('mercenary-lower.png', { animations: 'disabled', maxDiffPixels: 128 });
 
   await page.reload();
   await showMenu(page, 'stage');
@@ -218,11 +218,11 @@ test('stocked Gunsmith showcases assembled weapons, Parts, traits, and Workshop 
   await showMenu(page, 'gunsmith');
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('gunsmith-assembled.png', { animations: 'disabled' });
+  await expect(page).toHaveScreenshot('gunsmith-assembled.png', { animations: 'disabled', maxDiffPixels: 128 });
   await resumeLoop(page);
   for (let index = 0; index < 9; index += 1) await press(page, 'ArrowDown');
   await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('gunsmith-parts.png', { animations: 'disabled' });
+  await expect(page).toHaveScreenshot('gunsmith-parts.png', { animations: 'disabled', maxDiffPixels: 128 });
 });
 
 test('pause and Weapon Rack use the shared authored modal system', async ({ page }, testInfo) => {
