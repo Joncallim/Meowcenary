@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 from PIL import Image
@@ -34,8 +35,8 @@ ENEMIES = {
 }
 
 
-def selected_sheet(enemy_id: str, filename: str) -> Path:
-    return ROOT / "assets-src" / "enemies" / enemy_id / "source" / filename
+def selected_sheet(source_root: Path, enemy_id: str, filename: str) -> Path:
+    return source_root / "assets-src" / "enemies" / enemy_id / "source" / filename
 
 
 def source_cells(sheet: Image.Image) -> list[Image.Image]:
@@ -131,23 +132,39 @@ def write_pxo(path: Path, project: dict, frames: list[Image.Image]) -> None:
             archive.writestr(info, payload)
 
 
-def build() -> None:
+def output_paths(root: Path) -> list[Path]:
+    outputs: list[Path] = []
+    for enemy_id in ENEMIES:
+        outputs.extend([
+            root / "public" / "assets" / "enemies" / enemy_id / f"{enemy_id}.png",
+            root / "public" / "assets" / "enemies" / enemy_id / f"{enemy_id}.json",
+            root / "assets-src" / "enemies" / enemy_id / "source" / f"{enemy_id}.pxo",
+        ])
+    outputs.extend([
+        root / "public" / "assets" / "enemies" / "enemy-portraits-atlas.png",
+        root / "public" / "assets" / "enemies" / "enemy-portraits-atlas.json",
+        root / "assets-src" / "enemies" / "source" / "enemy-portraits-atlas.pxo",
+    ])
+    return outputs
+
+
+def build(source_root: Path, output_root: Path) -> None:
     portraits: list[Image.Image] = []
     portrait_frames: dict[str, dict] = {}
     for index, (enemy_id, (size, filename)) in enumerate(ENEMIES.items()):
-        source = selected_sheet(enemy_id, filename)
+        source = selected_sheet(source_root, enemy_id, filename)
         with Image.open(source) as image:
             cells = source_cells(image)
         frames = [native_frame(cell, size) for cell in cells]
         sheet = Image.new("RGBA", (size * FRAMES, size), (0, 0, 0, 0))
         for frame_index, frame in enumerate(frames):
             sheet.alpha_composite(frame, (frame_index * size, 0))
-        runtime_dir = ROOT / "public" / "assets" / "enemies" / enemy_id
+        runtime_dir = output_root / "public" / "assets" / "enemies" / enemy_id
         runtime_dir.mkdir(parents=True, exist_ok=True)
         sheet.save(runtime_dir / f"{enemy_id}.png", optimize=True)
         project = metadata(enemy_id, size)
         (runtime_dir / f"{enemy_id}.json").write_text(json.dumps(project, indent=2) + "\n")
-        write_pxo(ROOT / "assets-src" / "enemies" / enemy_id / "source" / f"{enemy_id}.pxo", project, frames)
+        write_pxo(output_root / "assets-src" / "enemies" / enemy_id / "source" / f"{enemy_id}.pxo", project, frames)
         portraits.append(portrait(cells[0]))
         portrait_frames[f"enemy-portrait:{enemy_id}"] = {
             "frame": {"x": index * PORTRAIT_SIZE, "y": 0, "w": PORTRAIT_SIZE, "h": PORTRAIT_SIZE},
@@ -159,7 +176,8 @@ def build() -> None:
     atlas = Image.new("RGBA", (PORTRAIT_SIZE * len(portraits), PORTRAIT_SIZE), (0, 0, 0, 0))
     for index, artwork in enumerate(portraits):
         atlas.alpha_composite(artwork, (index * PORTRAIT_SIZE, 0))
-    output = ROOT / "public" / "assets" / "enemies" / "enemy-portraits-atlas.png"
+    output = output_root / "public" / "assets" / "enemies" / "enemy-portraits-atlas.png"
+    output.parent.mkdir(parents=True, exist_ok=True)
     atlas.save(output, optimize=True)
     atlas_json = {
         "export_directory_path": "", "export_file_name": "enemy-portraits-atlas",
@@ -177,27 +195,27 @@ def build() -> None:
         "tags": {}, "current_frame": 0, "current_layer": 0, "fps": 8,
         "export_directory_path": "", "export_file_name": "enemy-portraits-atlas", "export_file_format": 0,
     }
-    write_pxo(ROOT / "assets-src" / "enemies" / "source" / "enemy-portraits-atlas.pxo", portrait_project, [atlas])
+    write_pxo(output_root / "assets-src" / "enemies" / "source" / "enemy-portraits-atlas.pxo", portrait_project, [atlas])
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--root", type=Path, default=ROOT, help=argparse.SUPPRESS)
     args = parser.parse_args()
+    root = args.root.resolve()
     if not args.check:
-        build()
+        build(root, root)
         return
-    tracked = [
-        ROOT / "public" / "assets" / "enemies" / enemy_id / f"{enemy_id}.png"
-        for enemy_id in ENEMIES
-    ] + [
-        ROOT / "public" / "assets" / "enemies" / "enemy-portraits-atlas.png",
-        ROOT / "public" / "assets" / "enemies" / "enemy-portraits-atlas.json",
-        ROOT / "assets-src" / "enemies" / "source" / "enemy-portraits-atlas.pxo",
-    ]
-    before = {path: path.read_bytes() for path in tracked}
-    build()
-    changed = [str(path.relative_to(ROOT)) for path in tracked if path.read_bytes() != before[path]]
+    with TemporaryDirectory(prefix="meow-enemies-") as directory:
+        generated = Path(directory)
+        build(root, generated)
+        changed = [
+            str(expected.relative_to(root))
+            for expected in output_paths(root)
+            if not expected.is_file()
+            or expected.read_bytes() != (generated / expected.relative_to(root)).read_bytes()
+        ]
     if changed:
         raise SystemExit("enemy production art is stale: " + ", ".join(changed))
 

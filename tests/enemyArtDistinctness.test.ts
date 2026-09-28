@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { inflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { loadGameData } from '../src/systems/validation';
@@ -21,6 +21,18 @@ const FRAME_SIZES = {
   'boss-crusher': 64, 'boss-forge': 64,
 } as const;
 const FRAME_COUNT = 16;
+const SELECTED_MASTERS = {
+  'dust-mite': 'dust-mite-imagegen-v2.png',
+  'junk-rusher': 'junk-rusher-imagegen-v2.png',
+  'trash-brute': 'trash-brute-imagegen-v2.png',
+  'scrap-sniper': 'scrap-sniper-imagegen-v2.png',
+  'scrap-skitter': 'scrap-skitter-imagegen.png',
+  'bastion-beetle': 'bastion-beetle-imagegen.png',
+  'junk-nester': 'junk-nester-imagegen.png',
+  'shard-bot': 'shard-bot-imagegen.png',
+  'boss-crusher': 'boss-crusher-imagegen-v2.png',
+  'boss-forge': 'boss-forge-imagegen.png',
+} as const;
 
 interface RgbaPng {
   readonly width: number;
@@ -300,6 +312,50 @@ describe('Alpha 3 enemy production-art distinction', () => {
     }
     expect(productionBuilder).not.toMatch(/outlined(?:Circle|Ellipse|Rect|Line)|fill(?:Circle|Ellipse|Rect)/);
   });
+
+  it('checks every generated enemy artifact from a temporary build without repairing stale files', () => {
+    const root = mkdtempSync(join(tmpdir(), 'meowcenary-enemy-check-'));
+    const copy = (relative: string) => {
+      const destination = join(root, relative);
+      mkdirSync(dirname(destination), { recursive: true });
+      copyFileSync(relative, destination);
+    };
+    const outputs = RELEASE_ENEMY_IDS.flatMap((id) => [
+      `public/assets/enemies/${id}/${id}.png`,
+      `public/assets/enemies/${id}/${id}.json`,
+      `assets-src/enemies/${id}/source/${id}.pxo`,
+    ]).concat([
+      'public/assets/enemies/enemy-portraits-atlas.png',
+      'public/assets/enemies/enemy-portraits-atlas.json',
+      'assets-src/enemies/source/enemy-portraits-atlas.pxo',
+    ]);
+    try {
+      for (const [id, filename] of Object.entries(SELECTED_MASTERS)) {
+        copy(`assets-src/enemies/${id}/source/${filename}`);
+      }
+      for (const output of outputs) copy(output);
+      expect(() => execFileSync('python3', [
+        'docs/art/scripts/build-enemy-production-art.py', '--root', root, '--check',
+      ])).not.toThrow();
+
+      const staleJson = 'public/assets/enemies/dust-mite/dust-mite.json';
+      const stalePxo = 'assets-src/enemies/boss-forge/source/boss-forge.pxo';
+      writeFileSync(join(root, staleJson), '{"stale":true}\n');
+      writeFileSync(join(root, stalePxo), 'stale pxo');
+      const before = new Map(outputs.map((relative) => [relative, readFileSync(join(root, relative))]));
+      const check = spawnSync('python3', [
+        'docs/art/scripts/build-enemy-production-art.py', '--root', root, '--check',
+      ], { encoding: 'utf8' });
+      expect(check.status).not.toBe(0);
+      expect(`${check.stdout}${check.stderr}`).toContain(staleJson);
+      expect(`${check.stdout}${check.stderr}`).toContain(stalePxo);
+      for (const [relative, bytes] of before) {
+        expect(readFileSync(join(root, relative)), relative).toEqual(bytes);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 30_000);
 
   it('preserves the gameplay definitions and stable logical/physical presentation contract', () => {
     const data = loadGameData();

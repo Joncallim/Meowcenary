@@ -64,6 +64,14 @@ function framePixels(pixels: Buffer, atlasWidth: number, x: number, y: number, s
 }
 
 describe('dedicated Achievement production art', () => {
+  it('routes standalone Achievement export and check aliases through the approved 192px builder', () => {
+    const packageJson = JSON.parse(readFileSync('package.json', 'utf8')) as { scripts: Record<string, string> };
+    expect(packageJson.scripts['art:achievements:export'])
+      .toBe('python3 docs/art/scripts/build-achievement-concept-atlas.py');
+    expect(packageJson.scripts['art:achievements:check'])
+      .toBe('python3 docs/art/scripts/build-achievement-concept-atlas.py --check');
+  });
+
   it('covers the exact active catalog plus hidden fallback with one dedicated presentation atlas', () => {
     const data = loadGameData();
     expect(data.achievements?.map((achievement) => achievement.presentation.iconArtId).sort())
