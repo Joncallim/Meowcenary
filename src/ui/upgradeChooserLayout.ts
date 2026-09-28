@@ -138,7 +138,8 @@ export function computeUpgradeChooserLayout(
   // The authored upgrade art is the primary recognition cue, not decoration
   // for the old number badge. Give it a card-scale box and clamp only when a
   // genuinely compact viewport cannot afford that size.
-  const desiredIconSize = Math.max(compactHeader ? 44 : 52, physical(compactHeader ? 32 : 40));
+  const roomyIconSize = canvasHeight >= 500 ? 64 : 52;
+  const desiredIconSize = Math.max(compactHeader ? 44 : roomyIconSize, physical(compactHeader ? 32 : 48));
   const iconSize = Math.max(
     0,
     Math.min(

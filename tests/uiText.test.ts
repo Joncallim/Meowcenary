@@ -202,7 +202,7 @@ describe('createUiText', () => {
     // Contract-first flow adds the Loadout summary plus chapter/detail copy;
     // its selected detail uses a separate shared-factory row so long threat
     // and reward sections remain independently reachable in the scroll region.
-    expect(migratedSites).toHaveLength(64);
+    expect(migratedSites).toHaveLength(68);
 
     const constructorCalls = findCreateUiTextCalls(programSourceFile(program, UI_TEXT_FILE), checker);
     expect(constructorCalls).toHaveLength(0);
