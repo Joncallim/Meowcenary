@@ -843,5 +843,15 @@
       "imageUrl": "assets/ui/ui-atlas.png",
       "dataUrl": "assets/ui/ui-atlas.json"
     }
+  },
+  {
+    "id": "resource:navigation-icons",
+    "textureKey": "art-navigation-icons",
+    "sampling": "linear",
+    "load": {
+      "type": "atlas",
+      "imageUrl": "assets/ui/navigation-icons-atlas.png",
+      "dataUrl": "assets/ui/navigation-icons-atlas.json"
+    }
   }
 ]

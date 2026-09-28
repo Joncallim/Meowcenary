@@ -137,9 +137,11 @@ The numbered path below is the repeatable audit journey used at 390×844,
 
 1. **Home** — contract identity and first-clear value lead; the selected
    Mercenary portrait is a large supporting cue. Navigation now uses one
-   quieter industrial card surface with 60–68px action tiles, 48–56px
-   production-art thumbnails, and a consistent directional chevron. The last
-   odd action spans the row instead of leaving a visibly broken half-grid.
+   quieter industrial card surface with 60–68px action tiles, 50–56px
+   production-art thumbnails, and a consistent directional chevron. The
+   selected ten-piece navigation atlas replaces the old mixed content/icon
+   thumbnails. The last odd portrait action spans the row; compact landscape
+   uses a roomy 4+3 gallery instead of seven undersized buttons.
 2. **Choose Contract** — available/locked hierarchy, objective art, reward
    detail, focus visibility, and scroll containment were checked together.
 3. **Mercenary** — the former tiny geometric avatars were replaced by crops
@@ -149,9 +151,11 @@ The numbered path below is the repeatable audit journey used at 390×844,
    blueprints, chassis, and part art are shown at card scale instead of being
    treated as utility glyphs. Text is grouped beside the visual it explains.
 5. **Career / Next Goals / Achievements / Compendium** — hub actions share the
-   larger illustrated navigation system; goals use illustrated cards; all active Achievement
-   rows use the approved industrial badge board; defeated Compendium rows use
-   authoritative live actor art.
+   larger illustrated navigation system; goals use illustrated cards and keep
+   their actionable requirement in compact landscape. All ten active
+   Achievements—including Crusher Down and Warden Down—plus the hidden badge
+   fallback use the approved industrial badge board; defeated Compendium rows
+   use authoritative live actor art.
 6. **Training / Settings** — short copy and controls retain a single readable
    column without inventing decorative content. Music, SFX, mute and reduced
    motion have distinct visual identities; toggle rows remain explicit
@@ -168,7 +172,10 @@ The numbered path below is the repeatable audit journey used at 390×844,
 Health after remediation: **good candidate for product-owner visual review**.
 All interactive targets retain the repository's 44 px physical minimum;
 keyboard/controller focus uses the same logical rows as touch; text wrapping
-and safe-area containment remain covered by the existing layout tests. The
+and safe-area containment remain covered by the existing layout tests. Menu
+copy uses the browser's native system UI stack at doubled canvas resolution,
+with button labels optically centred between their leading illustration and
+trailing direction marker. The
 remaining limitation is subjective physical-device judgement of density and
 colour at the owner's actual viewing distance.
 
@@ -181,7 +188,7 @@ Additional deterministic evidence:
 - `browser-tests/visual-fidelity.pw.ts-snapshots/run-summary-won-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/run-summary-lost-*.png`
 
-The selected Achievement and Mercenary boards are now production masters,
+The selected Achievement, Mercenary, and primary/secondary navigation boards are now production masters,
 cropped by deterministic importers into editable Pixelorama sources and
 runtime atlases. Their source/export parity is part of `art:validate`; the
 older geometric Lua entrypoints are explicitly classified as external-import

@@ -43,7 +43,7 @@ test('keyboard player journey reaches Mercenary, Career and gameplay on the real
   await page.screenshot({ path: testInfo.outputPath('mercenary.png') });
 
   await openHome();
-  for (let index = 0; index < 4; index += 1) await press('ArrowDown');
+  for (let index = 0; index < 3; index += 1) await press('ArrowDown');
   await press('Enter');
   await press('ArrowDown');
   await press('Enter');
@@ -147,6 +147,7 @@ test('fine-pointer compact landscape keeps every sparse menu action visible', as
   };
 
   await settled();
+  await expect(page).toHaveScreenshot('compact-home.png', { animations: 'disabled' });
   await show('loadout');
   await expect(page).toHaveScreenshot('compact-loadout.png', { animations: 'disabled' });
 

@@ -4,7 +4,8 @@
     "resourceIds": [
       "resource:character-scrap-tabby",
       "resource:brand-art",
-      "resource:ui-atlas"
+      "resource:ui-atlas",
+      "resource:navigation-icons"
     ]
   },
   {

@@ -455,6 +455,7 @@ export class MenuScene extends Phaser.Scene {
     const selectedStage = snapshot.stage.stages.find((s) => s.id === frontier.stageId)
       ?? snapshot.stage.stages.find((s) => s.selected);
     const campaignComplete = frontier.kind === 'campaign-complete';
+    const compactLandscape = this.scale.height < 500 && width >= 700;
     const threatPreview = selectedStage?.threats.slice(0, HOME_THREAT_PREVIEW_LIMIT) ?? [];
     const omittedThreatCount = Math.max(0, (selectedStage?.threats.length ?? 0) - threatPreview.length);
     const threatPreviewCopy = [
@@ -473,33 +474,33 @@ export class MenuScene extends Phaser.Scene {
       heroY += line.height + 1;
       return line;
     };
-    addHeroLine(`${selectedCharacter?.name ?? snapshot.character.selectedCharacterId}  •  ${this.getContext().saveData.progression.scrap} Scrap`, '#a5f3fc', ThemeFont.bodyMin);
-    addHeroLine(`${campaignComplete ? 'CAMPAIGN COMPLETE — REPLAY' : selectedStage?.completed ? 'REPLAY CONTRACT' : 'NEXT CONTRACT'}  •  ${selectedStage?.chapterName ?? ''} ${selectedStage?.displayOrder ?? ''}`, '#fbbf24', ThemeFont.labelMin, '700');
-    addHeroLine(selectedStage?.name ?? snapshot.stage.selectedStageId, '#f7f1d5', ThemeFont.headingMin, '700');
+    if (!compactLandscape) {
+      addHeroLine(`${selectedCharacter?.name ?? snapshot.character.selectedCharacterId}  •  ${this.getContext().saveData.progression.scrap} Scrap`, '#a5f3fc', ThemeFont.bodyMin);
+    }
+    addHeroLine(`${campaignComplete ? 'CAMPAIGN COMPLETE — REPLAY' : selectedStage?.completed ? 'REPLAY CONTRACT' : 'NEXT CONTRACT'}  •  ${selectedStage?.chapterName ?? ''} ${selectedStage?.displayOrder ?? ''}${compactLandscape ? `  •  ${selectedStage?.name ?? snapshot.stage.selectedStageId}` : ''}`, '#fbbf24', ThemeFont.labelMin, '700');
+    if (!compactLandscape) addHeroLine(selectedStage?.name ?? snapshot.stage.selectedStageId, '#f7f1d5', ThemeFont.headingMin, '700');
     addHeroLine(`${selectedStage?.locationName ?? ''}  •  ${selectedStage?.objective.copy ?? ''}`, '#d6f7ff', ThemeFont.bodyMin);
     if (selectedStage) addHeroLine(`THREATS  ${threatPreviewCopy}`, '#a5f3fc', ThemeFont.bodyMin);
     addHeroLine(selectedStage?.completed
       ? `BEST  ${formatDuration(selectedStage.bestTimeMs)}`
       : `FIRST CLEAR  ${selectedStage?.reward.headline ?? ''}`, '#86efac', ThemeFont.bodyMin, '700');
 
-    const homeMercenaryArt = selectedCharacter?.portraitArtId ?? 'character-portrait:scrap-tabby';
-    const homeAbilityArt = selectedCharacter?.abilityIconArtId ?? 'ability-icon:scrap-burst';
     const buttons: ReadonlyArray<{ readonly label: string; readonly artId: string; readonly action: () => void }> = [
       {
         label: this.runLaunchState === 'failed' ? 'Retry Loading Contract' : selectedStage?.completed ? 'Replay Contract' : 'Play Contract',
-        artId: selectedStage?.objective.artId ?? 'objective-icon:kill',
+        artId: 'nav-icon:play-contract',
         action: () => { void this.startContractWithResources(); },
       },
-      { label: 'Change Contract', artId: selectedStage?.chapterIconArtId ?? selectedStage?.objective.artId ?? 'objective-icon:kill', action: () => this.render(this.requireController().open('stage')) },
-      { label: 'Mercenary', artId: homeMercenaryArt, action: () => this.render(this.requireController().open('character')) },
-      { label: 'Loadout', artId: 'equipment-set-icon:commando', action: () => this.render(this.requireController().open('loadout')) },
-      { label: 'Career', artId: 'achievement-icon:first-victory', action: () => this.render(this.requireController().open('career')) },
-      { label: 'Training', artId: homeAbilityArt, action: () => this.render(this.requireController().open('training')) },
+      { label: 'Change Contract', artId: 'nav-icon:change-contract', action: () => this.render(this.requireController().open('stage')) },
+      { label: 'Mercenary', artId: 'nav-icon:mercenary', action: () => this.render(this.requireController().open('character')) },
+      { label: 'Loadout', artId: 'nav-icon:loadout', action: () => this.render(this.requireController().open('loadout')) },
+      { label: 'Career', artId: 'nav-icon:career', action: () => this.render(this.requireController().open('career')) },
+      { label: 'Training', artId: 'nav-icon:training', action: () => this.render(this.requireController().open('training')) },
       { label: 'Settings', artId: 'nav-icon:settings', action: () => this.render(this.requireController().open('settings')) },
     ];
     const artX = width - this.safeRightMargin - 44;
     if (selectedCharacter) this.addPanelArt(root, artX, top + 58, selectedCharacter.portraitArtId, 112);
-    let y = heroY + 10;
+    let y = heroY + (this.scale.height <= 680 ? 2 : 10);
     if (this.runLaunchState === 'failed') {
       const detail = this.own(root, createUiText(this, margin, y,
         `Couldn't load this Contract. Retry or go Back.`,
@@ -512,13 +513,17 @@ export class MenuScene extends Phaser.Scene {
       detail.setScrollFactor(0);
       y += detail.height + 12;
     }
-    const compactLandscape = this.scale.height < 500 && width >= 700;
     const actionHeight = Math.max(hitTarget, compactLandscape || this.scale.height <= 680 ? 60 : 68);
     if (compactLandscape) {
-      const gap = 4;
-      const buttonWidth = (width - margin - this.safeRightMargin - gap * (buttons.length - 1)) / buttons.length;
+      const gap = 6;
+      const columns = 4;
+      const buttonWidth = (width - margin - this.safeRightMargin - gap * (columns - 1)) / columns;
+      const secondRowOffset = (buttonWidth + gap) / 2;
       buttons.forEach(({ label, artId, action }, index) => {
-        this.addButton(root, margin + index * (buttonWidth + gap), y, label, actionHeight, action, 'ui:confirm', buttonWidth, artId);
+        const row = Math.floor(index / columns);
+        const column = index % columns;
+        const rowOffset = row === 1 ? secondRowOffset : 0;
+        this.addButton(root, margin + rowOffset + column * (buttonWidth + gap), y + row * (actionHeight + gap), label, actionHeight, action, 'ui:confirm', buttonWidth, artId);
       });
     } else {
       const primaryWidth = Math.min(440, width - margin - this.safeRightMargin);
@@ -557,11 +562,7 @@ export class MenuScene extends Phaser.Scene {
     this.hint = hints;
     void this.ensurePanelPresentation('home', [
       selectedCharacter?.portraitArtId,
-      selectedStage?.objective.artId,
-      homeMercenaryArt,
-      'equipment-set-icon:commando',
-      'achievement-icon:first-victory',
-      homeAbilityArt,
+      ...buttons.map(({ artId }) => artId),
     ].filter((id): id is string => id !== undefined));
   }
 
@@ -589,11 +590,11 @@ export class MenuScene extends Phaser.Scene {
     ));
     let y = summaryTop + summaryHeight + (compactLandscape ? 8 : 16);
     const actionHeight = Math.max(hitTarget, compactLandscape ? 52 : 68);
-    this.addButton(root, actionX, y, 'Equipment', actionHeight, () => this.render(this.requireController().open('equipment')), 'ui:confirm', actionWidth, 'equipment-set-icon:commando');
+    this.addButton(root, actionX, y, 'Equipment', actionHeight, () => this.render(this.requireController().open('equipment')), 'ui:confirm', actionWidth, 'nav-icon:equipment');
     y += actionHeight + (compactLandscape ? 6 : 12);
-    this.addButton(root, actionX, y, 'Gunsmith', actionHeight, () => this.render(this.requireController().open('gunsmith')), 'ui:confirm', actionWidth, selectedCharacter?.startingWeaponIconArtId ?? 'nav-icon:gunsmith');
+    this.addButton(root, actionX, y, 'Gunsmith', actionHeight, () => this.render(this.requireController().open('gunsmith')), 'ui:confirm', actionWidth, 'nav-icon:gunsmith');
     this.addBackButton(root, width, margin, hitTarget);
-    void this.ensurePanelPresentation('loadout', selectedCharacter ? [selectedCharacter.portraitArtId, selectedCharacter.startingWeaponIconArtId, 'equipment-set-icon:commando'] : ['equipment-set-icon:commando']);
+    void this.ensurePanelPresentation('loadout', selectedCharacter ? [selectedCharacter.portraitArtId, 'nav-icon:equipment', 'nav-icon:gunsmith'] : ['nav-icon:equipment', 'nav-icon:gunsmith']);
   }
 
   private async startContractWithResources(): Promise<void> {
@@ -853,25 +854,23 @@ export class MenuScene extends Phaser.Scene {
     void this.ensurePanelPresentation('stage', snapshot.stage.stages.map((stage) => stage.objective.artId));
   }
 
-  private renderCareer(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
+  private renderCareer(root: Phaser.GameObjects.Container, _snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Career');
     const compactLandscape = this.scale.height < 500 && width >= 700;
     const actionWidth = Math.min(560, width - margin - this.safeRightMargin);
     const actionX = this.safeCenterX - actionWidth / 2;
     let y = top + heading.height + (compactLandscape ? 8 : 20);
     const actionHeight = Math.max(hitTarget, compactLandscape ? 52 : 68);
-    const goalArtId = snapshot.progressionOverview.nextGoals[0]?.artId ?? 'achievement-icon:hidden';
-    const compendiumArtId = snapshot.compendium.entries.find((entry) => entry.actorArtId)?.actorArtId ?? 'achievement-icon:hidden';
     for (const [label, panel, artId] of [
-      ['Next Goals', 'next-goals', goalArtId],
-      ['Achievements', 'achievements', 'achievement-icon:first-victory'],
-      ['Compendium', 'compendium', compendiumArtId],
+      ['Next Goals', 'next-goals', 'nav-icon:career'],
+      ['Achievements', 'achievements', 'nav-icon:achievements'],
+      ['Compendium', 'compendium', 'nav-icon:compendium'],
     ] as const) {
       this.addButton(root, actionX, y, label, actionHeight, () => this.render(this.requireController().open(panel)), 'ui:confirm', actionWidth, artId);
       y += actionHeight + (compactLandscape ? 6 : 12);
     }
     this.addBackButton(root, width, margin, hitTarget);
-    void this.ensurePanelPresentation('career', [goalArtId, 'achievement-icon:first-victory', compendiumArtId]);
+    void this.ensurePanelPresentation('career', ['nav-icon:career', 'nav-icon:achievements', 'nav-icon:compendium']);
   }
 
   private renderNextGoals(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
@@ -888,20 +887,20 @@ export class MenuScene extends Phaser.Scene {
     const goalGap = compactLandscape ? 6 : 10;
     const compactCardWidth = (actionWidth - goalGap * Math.max(0, overview.nextGoals.length - 1)) / Math.max(1, overview.nextGoals.length);
     overview.nextGoals.forEach((goal, index) => {
-      const cardHeight = compactLandscape ? 78 : 94;
+      const cardHeight = compactLandscape ? 96 : 94;
       const cardWidth = compactLandscape ? compactCardWidth : actionWidth;
       const cardX = compactLandscape ? actionX + index * (cardWidth + goalGap) : actionX;
       const panel = this.uiVisuals?.addPanel(this, cardX + cardWidth / 2, y + cardHeight / 2, cardWidth, cardHeight, 'card', { alpha: 0.82 });
       if (panel) this.own(root, panel);
-      this.addPanelArt(root, cardX + (compactLandscape ? 30 : 42), y + cardHeight / 2, goal.artId, compactLandscape ? 50 : 72);
-      const goalCopy = compactLandscape ? goal.title : `${goal.title}\n${goal.detail}`;
-      this.own(root, createUiText(this, cardX + (compactLandscape ? 60 : 88), y + (compactLandscape ? 20 : 18), goalCopy, {
-        color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${compactLandscape ? ThemeFont.labelMin : ThemeFont.bodyMin}px`, lineSpacing: compactLandscape ? 1 : 3,
+      this.addPanelArt(root, cardX + (compactLandscape ? 30 : 42), y + cardHeight / 2, goal.artId, compactLandscape ? 52 : 72);
+      const goalCopy = `${goal.title}\n${goal.detail}`;
+      this.own(root, createUiText(this, cardX + (compactLandscape ? 60 : 88), y + (compactLandscape ? 9 : 18), goalCopy, {
+        color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, lineSpacing: compactLandscape ? 0 : 3,
         wordWrap: { width: cardWidth - (compactLandscape ? 68 : 100) },
       }));
       if (!compactLandscape) y += cardHeight + goalGap;
     });
-    if (compactLandscape) y += 78 + 8;
+    if (compactLandscape) y += 96 + 8;
     this.addButton(root, actionX, y, 'Choose Contract', Math.max(hitTarget, compactLandscape ? 52 : 68), () => this.render(this.requireController().open('stage')), 'ui:confirm', actionWidth, overview.nextGoals[0]?.artId ?? 'objective-icon:kill');
     this.addBackButton(root, width, margin, hitTarget);
     void this.ensurePanelPresentation('next-goals', overview.nextGoals.map((goal) => goal.artId));
@@ -1434,19 +1433,21 @@ export class MenuScene extends Phaser.Scene {
   ): Phaser.GameObjects.Text {
     const hasNavigationChevron = artId !== undefined && !artId.startsWith('settings-icon:') && !artId.startsWith('action-icon:');
     const effectiveTrailingReserve = Math.max(trailingReserve, hasNavigationChevron ? 34 : 0);
-    const contentArt = artId !== undefined && !/^(nav-icon|settings-icon|action-icon|ui-chrome):/.test(artId);
+    const contentArt = artId !== undefined && !/^(settings-icon|action-icon|ui-chrome):/.test(artId);
+    const contentArtCap = maxLabelWidth !== undefined && maxLabelWidth < 190 ? 50 : 56;
     const artSize = artId === undefined ? 0 : contentArt
-      ? Math.min(56, Math.max(36, minHeight - 12))
+      ? Math.min(contentArtCap, Math.max(36, minHeight - 12))
       : Math.min(40, Math.max(28, minHeight - 24));
     const leftInset = Math.max(artId ? artSize + 16 : 12, leadingReserve);
-    const horizontalInset = topAligned ? leftInset : Math.max(leftInset, effectiveTrailingReserve);
+    const rightInset = Math.max(topAligned ? 10 : 12, effectiveTrailingReserve);
     const text = this.own(root, createUiText(this,x, y, label, {
       color: '#f7f1d5',
       fontFamily: ThemeFont.family,
-      fontSize: `${ThemeFont.labelMin}px`,
+      fontSize: `${maxLabelWidth !== undefined && maxLabelWidth < 190 ? ThemeFont.bodyMin : ThemeFont.labelMin}px`,
+      fontStyle: '600',
       align: topAligned ? 'left' : 'center',
-      padding: { left: horizontalInset, right: topAligned ? 10 : horizontalInset, top: topAligned ? 8 : 0, bottom: topAligned ? 8 : 0 },
-      ...(maxLabelWidth === undefined ? {} : { wordWrap: { width: Math.max(1, maxLabelWidth - horizontalInset - (topAligned ? 10 : horizontalInset)) } }),
+      padding: { left: leftInset, right: rightInset, top: 0, bottom: 0 },
+      ...(maxLabelWidth === undefined ? {} : { wordWrap: { width: Math.max(1, maxLabelWidth - leftInset - rightInset) } }),
     }));
     text.setOrigin(x === this.safeCenterX ? 0.5 : 0, 0);
     text.setScrollFactor(0);
@@ -1455,23 +1456,20 @@ export class MenuScene extends Phaser.Scene {
     const horizontalPadding = maxLabelWidth === undefined && bounds.width < MIN_MENU_BUTTON_LOGICAL_WIDTH
       ? (MIN_MENU_BUTTON_LOGICAL_WIDTH - bounds.width) / 2 + (text.padding.left ?? 10)
       : (text.padding.left ?? 10);
-    const verticalPadding = maxLabelWidth === undefined && !topAligned && bounds.height < minHeight
-      ? (minHeight - bounds.height) / 2 + (text.padding.top ?? 8)
-      : (text.padding.top ?? 8);
+    const targetHeight = Math.max(minHeight, bounds.height + (topAligned ? 16 : 0));
+    const verticalPadding = topAligned ? 8 : Math.max(0, Math.round((targetHeight - bounds.height) / 2));
     // Text bounds include padding. The same correction used for height also
     // applies horizontally: augment padding by half the missing bounds plus
     // the current inset, so short labels meet the 44px physical width floor
     // at the worst promised FIT without narrowing longer labels.
-    if (horizontalPadding !== (text.padding.left ?? 10) || verticalPadding !== (text.padding.top ?? 8)) {
-      text.setPadding(horizontalPadding, verticalPadding);
-    }
+    text.setPadding(horizontalPadding, verticalPadding, rightInset, topAligned ? 8 : verticalPadding);
 
     if (maxLabelWidth !== undefined) {
       const measured = text.getBounds();
       // A declared card width is a geometry contract, not merely a wrapping
       // hint. Chrome, pointer hit area, focus ring and scroll bounds all read
       // from this same Text object below, so they cannot drift apart.
-      text.setFixedSize(Math.max(MIN_MENU_BUTTON_LOGICAL_WIDTH, maxLabelWidth), Math.max(minHeight, measured.height));
+      text.setFixedSize(Math.max(MIN_MENU_BUTTON_LOGICAL_WIDTH, maxLabelWidth), Math.max(targetHeight, measured.height));
     }
     const framedBounds = text.getBounds();
     const chrome = this.uiVisuals?.addPanel(
@@ -2109,12 +2107,21 @@ export class MenuScene extends Phaser.Scene {
     // retain the navigator's ordinary count-aware behavior in that case.
     if (this.focusables.length !== 7) return this.navigator.move(direction);
     const current = this.navigator.index;
-    // Compact landscape renders every action in one horizontal row. Match
-    // that geometry exactly: horizontal input wraps, while vertical input
-    // does not pretend that an off-axis row exists.
+    // Compact landscape uses a roomy 4+3 gallery so destination art remains
+    // recognizable. Navigation follows those two rows exactly.
     if (this.scale.height < 500 && this.scale.width >= 700) {
-      if (direction === 'up' || direction === 'down') return false;
-      const next = direction === 'left' ? (current + 6) % 7 : (current + 1) % 7;
+      const vertical: Readonly<Record<number, readonly [number, number]>> = {
+        0: [4, 4], 1: [4, 4], 2: [5, 5], 3: [6, 6],
+        4: [0, 0], 5: [2, 2], 6: [3, 3],
+      };
+      const horizontal: Readonly<Record<number, readonly [number, number]>> = {
+        0: [3, 1], 1: [0, 2], 2: [1, 3], 3: [2, 0],
+        4: [6, 5], 5: [4, 6], 6: [5, 4],
+      };
+      const next = direction === 'up' || direction === 'down'
+        ? vertical[current]?.[direction === 'up' ? 0 : 1]
+        : horizontal[current]?.[direction === 'left' ? 0 : 1];
+      if (next === undefined || next === current) return false;
       this.navigator.setIndex(next);
       return true;
     }

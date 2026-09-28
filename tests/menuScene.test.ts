@@ -1509,7 +1509,7 @@ describe('MenuScene', () => {
     expect(seams.navigator.index).toBe(6); // Settings, full width
   });
 
-  it('navigates compact-landscape Home as the single horizontal row it renders', () => {
+  it('navigates compact-landscape Home as the roomy 4+3 gallery it renders', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {
       navigator: { index: number };
@@ -1531,13 +1531,11 @@ describe('MenuScene', () => {
       harness.menuScene.update(0, 16);
     };
 
-    press('ArrowDown');
     expect(scene.navigator.index).toBe(0);
-    expect(events).toEqual([]);
     press('ArrowRight');
     expect(scene.navigator.index).toBe(1);
-    press('ArrowLeft');
-    expect(scene.navigator.index).toBe(0);
+    press('ArrowDown');
+    expect(scene.navigator.index).toBe(4);
     press('ArrowLeft');
     expect(scene.navigator.index).toBe(6);
     expect(events).toHaveLength(3);
@@ -1573,6 +1571,7 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Career')!.state.handlers.pointerup!();
     expectClearOfBack(['Next Goals', 'Achievements', 'Compendium']);
     harness.buttonByLabel('Next Goals')!.state.handlers.pointerup!();
+    expect(harness.textContents().some((copy) => copy.includes('Defeat your first enemy.'))).toBe(true);
     expectClearOfBack(['Choose Contract']);
     harness.buttonByLabel('Back')!.state.handlers.pointerup!();
     harness.buttonByLabel('Back')!.state.handlers.pointerup!();
