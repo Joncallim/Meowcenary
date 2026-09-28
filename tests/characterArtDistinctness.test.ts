@@ -89,6 +89,35 @@ function intersectionOverUnion(a: ReadonlySet<number>, b: ReadonlySet<number>): 
   return intersection / (a.size + b.size - intersection);
 }
 
+function largestConnectedSilhouette(mask: ReadonlySet<number>): Set<number> {
+  const remaining = new Set(mask);
+  const components: Set<number>[] = [];
+  while (remaining.size > 0) {
+    const seed = remaining.values().next().value as number;
+    remaining.delete(seed);
+    const component = new Set([seed]);
+    const pending = [seed];
+    while (pending.length > 0) {
+      const pixel = pending.pop()!;
+      const x = pixel % 48;
+      const y = Math.floor(pixel / 48);
+      const neighbours = [
+        x > 0 ? pixel - 1 : -1,
+        x < 47 ? pixel + 1 : -1,
+        y > 0 ? pixel - 48 : -1,
+        y < 47 ? pixel + 48 : -1,
+      ];
+      for (const neighbour of neighbours) {
+        if (!remaining.delete(neighbour)) continue;
+        component.add(neighbour);
+        pending.push(neighbour);
+      }
+    }
+    components.push(component);
+  }
+  return components.sort((left, right) => right.size - left.size)[0] ?? new Set();
+}
+
 function visiblePxoPixels(path: string): Uint8Array {
   const extracted = mkdtempSync(join(tmpdir(), 'meowcenary-pxo-'));
   try {
@@ -159,6 +188,13 @@ describe('Volt Lynx production-art distinction', () => {
     ] as const;
     const actors = ids.map((id) => ({ id, png: decodeRgbaPng(`public/assets/characters/${id}/${id}.png`) }));
     const grayscaleHashes = new Set<string>();
+    const dominantSilhouettes = actors.map(({ id, png }) => {
+      const complete = firstFrameAlphaMask(png);
+      const dominant = largestConnectedSilhouette(complete);
+      expect(dominant.size / complete.size, `${id} identity cue is detached from the actor silhouette`)
+        .toBeGreaterThan(0.94);
+      return { id, dominant };
+    });
     for (const actor of actors) {
       const gray = Buffer.alloc(48 * 48);
       for (let y = 0; y < 48; y += 1) for (let x = 0; x < 48; x += 1) {
@@ -172,6 +208,8 @@ describe('Volt Lynx production-art distinction', () => {
     for (let left = 0; left < actors.length; left += 1) for (let right = left + 1; right < actors.length; right += 1) {
       expect(intersectionOverUnion(firstFrameAlphaMask(actors[left]!.png), firstFrameAlphaMask(actors[right]!.png)), `${actors[left]!.id}/${actors[right]!.id}`)
         .toBeLessThan(0.82);
+      expect(intersectionOverUnion(dominantSilhouettes[left]!.dominant, dominantSilhouettes[right]!.dominant), `${actors[left]!.id}/${actors[right]!.id} dominant silhouette`)
+        .toBeLessThan(0.75);
     }
   });
 
