@@ -32,6 +32,14 @@ describe('Forge Foundry arena data', () => {
       'world:forge-prop:tool-cart',
       'world:forge-prop:slag-pile',
       'world:forge-prop:heat-beacon',
+      'world:forge-prop:ingot-pallet',
+      'world:forge-prop:slag-pile',
+      'world:forge-prop:coil-rack',
+      'world:forge-prop:tool-cart',
+      'world:forge-prop:quench-drum',
+      'world:forge-prop:ingot-pallet',
+      'world:forge-prop:coil-rack',
+      'world:forge-prop:quench-drum',
     ]);
     expect(arena?.visual.obstacleSkins.map((skin) => skin.artId)).toEqual([
       'world:forge-landmark:furnace-throat',
@@ -69,7 +77,10 @@ describe('Forge Foundry arena data', () => {
       ...arena!.visual.obstacleSkins.map((skin) => skin.artId),
       ...arena!.visual.hazardSkins.map((skin) => skin.artId),
     ].map((id) => ({ id, kind: 'world' as const, required: true }));
-    const catalog = { bindings: forgeBindings } as unknown as VisualArtCatalog;
+    const catalog = { bindings: [
+      { id: arena!.visual.menuBackdropArtId, kind: 'icon' as const, required: true },
+      ...forgeBindings,
+    ] } as unknown as VisualArtCatalog;
     expect(() => assertArenaVisualReferences([arena!], catalog)).not.toThrow();
   });
 });

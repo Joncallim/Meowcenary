@@ -200,9 +200,9 @@ describe('createUiText', () => {
     // the assembled-build summary, staged merge selection, and destructive
     // Workshop confirmation add three explicit player-facing call sites. The
     // Contract-first flow adds the Loadout summary plus chapter/detail copy;
-    // its selected detail uses a separate shared-factory row so long threat
-    // and reward sections remain independently reachable in the scroll region.
-    expect(migratedSites).toHaveLength(68);
+    // its selected detail keeps reward copy reachable in the scroll region;
+    // enemy art now replaces the former text-only threat row.
+    expect(migratedSites).toHaveLength(67);
 
     const constructorCalls = findCreateUiTextCalls(programSourceFile(program, UI_TEXT_FILE), checker);
     expect(constructorCalls).toHaveLength(0);
