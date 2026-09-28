@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "canvas": { "frameWidth": 24, "frameHeight": 24 },
+  "palette": {
+    "outline": "#0a0f14",
+    "slate": "#31485a",
+    "steel": "#537083",
+    "cream": "#f7f1d5",
+    "cyan": "#2dd4bf",
+    "gold": "#fbbf24",
+    "danger": "#f87171"
+  },
+  "frames": [
+    "brand:title-lockup", "brand:menu-backdrop",
+    "nav-icon:play-contract", "nav-icon:change-contract", "nav-icon:mercenary", "nav-icon:loadout", "nav-icon:career", "nav-icon:training", "nav-icon:settings",
+    "nav-icon:stages", "nav-icon:characters", "nav-icon:progression", "nav-icon:gunsmith", "nav-icon:equipment", "nav-icon:achievements", "nav-icon:settings", "nav-icon:compendium", "nav-icon:golden-run", "nav-icon:career",
+    "ui-chrome:panel", "ui-chrome:card", "ui-chrome:focus", "ui-chrome:locked", "ui-chrome:disabled", "ui-chrome:scroll-track", "ui-chrome:scroll-thumb", "ui-chrome:tab", "ui-chrome:tooltip", "ui-chrome:modal", "ui-chrome:chevron", "ui-chrome:new", "ui-chrome:unlocked", "ui-chrome:complete", "ui-chrome:boss", "ui-chrome:merge", "ui-chrome:cleared", "ui-chrome:failed",
+    "stat-icon:max-health", "stat-icon:move-speed", "stat-icon:damage", "stat-icon:attack-speed", "stat-icon:range", "stat-icon:projectile-speed", "stat-icon:spread", "stat-icon:pickup-radius", "stat-icon:currency-gain", "stat-icon:xp-gain", "stat-icon:projectile-count", "stat-icon:pierce", "stat-icon:knockback", "stat-icon:cooldown", "stat-icon:healing", "stat-icon:protection",
+    "action-icon:move", "action-icon:confirm", "action-icon:back", "action-icon:dash", "action-icon:ability", "action-icon:pause", "action-icon:inventory",
+    "hud-icon:health", "hud-icon:timer", "hud-icon:kills",
+    "settings-icon:master-audio", "settings-icon:music", "settings-icon:sfx", "settings-icon:reduced-motion", "settings-icon:fullscreen",
+    "chapter-icon:junkyard", "chapter-icon:forge", "objective-icon:kill", "objective-icon:collect", "objective-icon:survive", "objective-icon:defeat", "arena-card:junkyard", "arena-card:forge"
+  ]
+}
