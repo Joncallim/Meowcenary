@@ -118,7 +118,9 @@ Required release actors are fail-closed. Missing bindings, texture resources,
 idle/run clips, or registered animations surface a diagnostic construction
 error. Primitive actor geometry is available only through the explicit
 development/test opt-in used by art-less harnesses; it is not an automatic
-production recovery path.
+production recovery path. Data-authored elite enemies retain their own combat
+identity while validation, resource closure, and runtime presentation all
+resolve the authoritative base-enemy actor binding.
 
 ## Deliberate non-goals
 

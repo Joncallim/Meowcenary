@@ -24,7 +24,10 @@ function addFixtureActorArt(
   const visualArt = data.visualArt as { bindings: Array<Record<string, unknown>> };
   const template = visualArt.bindings.find((binding) => binding.kind === kind);
   if (!template) throw new Error(`Missing ${kind} art fixture template`);
-  const ids = [...new Set(rows.map((row) => row.id).filter((id): id is string => typeof id === 'string'))];
+  const ids = [...new Set(rows
+    .filter((row) => kind !== 'enemy' || row.archetype !== 'elite')
+    .map((row) => row.id)
+    .filter((id): id is string => typeof id === 'string'))];
   ids.forEach((id) => {
     const artId = `${kind}:${id}`;
     if (visualArt.bindings.some((binding) => binding.id === artId)) return;
@@ -690,6 +693,17 @@ describe('game data validation', () => {
         expect(() => validateGameData(eliteData)).toThrow(/baseEnemyId/);
       }
     }
+  });
+
+  it('validates elite actor presentation through the authoritative base binding', () => {
+    const data = withEnemies([
+      enemyFixture('chaser'), enemyFixture('charger'), enemyFixture('tank'),
+      enemyFixture('ranged'), enemyFixture('boss'), enemyFixture('elite'),
+    ]) as Record<string, unknown>;
+    const bindings = (data.visualArt as { bindings: Array<{ id: string }> }).bindings;
+
+    expect(bindings.some((binding) => binding.id === 'enemy:elite-fixture')).toBe(false);
+    expect(() => validateGameData(data)).not.toThrow();
   });
 
   it('enforces curve identity, duration, scaling, ordering, cadence, and cap constraints', () => {

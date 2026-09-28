@@ -3203,7 +3203,11 @@ export function assertActorAndDropArtReferences(
   characters.forEach((character, index) =>
     checkActor(`character:${character.id}`, 'character', `characters.json[${index}].visualArt`));
   enemies.forEach((enemy, index) =>
-    checkActor(`enemy:${enemy.id}`, 'enemy', `enemies.json[${index}].visualArt`));
+    checkActor(
+      `enemy:${enemy.archetype === 'elite' ? enemy.baseEnemyId : enemy.id}`,
+      'enemy',
+      `enemies.json[${index}].visualArt`,
+    ));
 
   for (const kind of ['xp', 'scrap', 'chest', 'weapon'] as const) {
     const id = `drop:${kind}`;

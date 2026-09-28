@@ -202,13 +202,16 @@ export class SpawnSystem implements System {
       xpValue: scaled.xpValue,
       scrapValue: scaled.scrapValue,
     };
+    const actorDefinitionId = definition.archetype === 'elite'
+      ? definition.baseEnemyId
+      : definition.id;
     const enemy = new Enemy(
       this.scene,
       runtimeDefinition,
       request.pos.x,
       request.pos.y,
       this.ctx.bus,
-      this.visualArt?.bindingById(`enemy:${definition.id}`),
+      this.visualArt?.bindingById(`enemy:${actorDefinitionId}`),
       this.environment,
       // A missing registry is an explicit headless/test composition seam.
       // Production GameScene always provides the registry; once it does,
