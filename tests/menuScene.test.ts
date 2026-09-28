@@ -28,7 +28,8 @@ interface FakeObjectState {
   interactive: boolean;
   visible: boolean;
   destroyed: boolean;
-  handlers: Record<string, () => void>;
+  handlers: Record<string, (...args: unknown[]) => void>;
+  mask?: unknown;
   padding: { left: number; top: number; right: number; bottom: number };
   strokeWidth: number;
   strokeColor?: number;
@@ -64,6 +65,7 @@ function fakeObject(
     visible: true,
     destroyed: false,
     handlers: {},
+    mask: undefined,
     padding: { ...padding },
     strokeWidth: 0,
     strokeColor: undefined,
@@ -166,6 +168,14 @@ function fakeObject(
       state.visible = visible;
       return api;
     },
+    setMask(mask: unknown) {
+      state.mask = mask;
+      return api;
+    },
+    clearMask() {
+      state.mask = undefined;
+      return api;
+    },
     setPosition(x: number, y: number) {
       state.x = x;
       state.y = y;
@@ -176,12 +186,12 @@ function fakeObject(
       state.height = height;
       return api;
     },
-    on(event: string, handler: () => void) {
+    on(event: string, handler: (...args: unknown[]) => void) {
       state.handlers = { ...state.handlers, [event]: handler };
       return api;
     },
-    emit(event: string) {
-      state.handlers[event]?.();
+    emit(event: string, ...args: unknown[]) {
+      state.handlers[event]?.(...args);
     },
     destroy() {
       state.destroyed = true;
@@ -306,6 +316,17 @@ function createFakeScene(
       },
       rectangle(_x: number, _y: number, width: number, height: number) {
         return register(fakeObject('rect', '', width, height, { left: 10, top: 8, right: 10, bottom: 8 }, _x, _y));
+      },
+    },
+    make: {
+      graphics() {
+        const mask = { destroyed: false, destroy() { this.destroyed = true; } };
+        return {
+          fillStyle() { return this; },
+          fillRect() { return this; },
+          createGeometryMask() { return mask; },
+          destroy: vi.fn(),
+        };
       },
     },
     input,
@@ -1042,6 +1063,56 @@ describe('MenuScene', () => {
       expect(scene.navigator.index).toBe(49);
       expect(scene.scrollRegion!.scrollOffset).toBeGreaterThanOrEqual(0);
     }
+  });
+
+  it('clips shared-list cards continuously while keeping clipped-off hit areas inert', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      applyScrollViewport(): void;
+      navigator: { index: number };
+      focusables: FakeObject[];
+      scrollViewportTop: number;
+      scrollRegion: { scrollOffset: number; scrollBy(delta: number): void };
+      scrollItemBounds: Map<number, { top: number; bottom: number }>;
+    };
+    const base = scene.controller.snapshot();
+    const scrollingSnapshot = {
+      ...base,
+      panel: 'compendium',
+      compendium: {
+        ...base.compendium,
+        entries: Array.from({ length: 50 }, (_, index) => ({
+          ...base.compendium.entries[index % base.compendium.entries.length]!,
+          enemyId: `continuous-scroll-${index}`,
+          name: `Continuous Scroll ${index}`,
+        })),
+      },
+    } as import('../src/ui/menus').MainMenuSnapshot;
+    scene.render(scrollingSnapshot);
+
+    const targetIndex = 1;
+    const target = scene.focusables[targetIndex]!;
+    const originalBounds = scene.scrollItemBounds.get(targetIndex)!;
+    scene.scrollRegion.scrollBy(originalBounds.top - scene.scrollViewportTop + 1);
+    scene.applyScrollViewport();
+
+    expect(target.state.visible).toBe(true);
+    expect(target.state.interactive).toBe(true);
+    expect(target.state.mask).toBeDefined();
+    expect(originalBounds.top - scene.scrollRegion.scrollOffset).toBeLessThan(scene.scrollViewportTop);
+
+    const priorFocus = scene.navigator.index;
+    target.state.handlers.pointerup!({ y: scene.scrollViewportTop - 1 });
+    expect(scene.navigator.index).toBe(priorFocus);
+
+    scene.scrollRegion.scrollBy(
+      originalBounds.bottom - scene.scrollViewportTop + 1 - scene.scrollRegion.scrollOffset,
+    );
+    scene.applyScrollViewport();
+    expect(target.state.visible).toBe(false);
+    expect(target.state.interactive).toBe(false);
   });
 
   it('rebuilds the Achievement focus grid across portrait and wide resize without losing its selected card', () => {

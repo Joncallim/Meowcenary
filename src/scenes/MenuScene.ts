@@ -78,11 +78,13 @@ export class MenuScene extends Phaser.Scene {
     object: Phaser.GameObjects.GameObject;
     x: number;
     y: number;
-    /** Decorations inherit their owning row's all-or-nothing clipping. */
+    /** Decorations inherit their owning row's shared viewport visibility. */
     ownerIndex?: number;
   }> = [];
   private scrollViewportTop = 0;
   private scrollViewportBottom = 0;
+  private scrollMaskGraphics?: Phaser.GameObjects.Graphics;
+  private scrollMask?: Phaser.Display.Masks.GeometryMask;
   private scrollThumb?: Phaser.GameObjects.GameObject & { setPosition?(x: number, y: number): unknown };
   private scrollThumbHeight = 0;
   private hoveredIndex = -1;
@@ -231,6 +233,7 @@ export class MenuScene extends Phaser.Scene {
     // The display is uncommitted from the moment teardown begins until a
     // successful publication below (F1 committed-display gate).
     this.committedDisplay = false;
+    this.destroyScrollMask();
     this.root?.destroy(true);
     this.root = undefined;
     this.focusables = [];
@@ -407,6 +410,7 @@ export class MenuScene extends Phaser.Scene {
         void this.ensurePanelPresentation(snapshot.panel, [selectedBackdropArtId]);
       }
     } catch (error) {
+      this.destroyScrollMask();
       root.destroy(true);
       this.focusables = [];
       this.focusRings = [];
@@ -1543,8 +1547,12 @@ export class MenuScene extends Phaser.Scene {
     text.on(Phaser.Input.Events.POINTER_OUT, () => {
       (chrome as Phaser.GameObjects.NineSlice | undefined)?.clearTint?.();
     });
-    text.on(Phaser.Input.Events.POINTER_UP, () => {
+    text.on(Phaser.Input.Events.POINTER_UP, (pointer?: Phaser.Input.Pointer) => {
       if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
+      const focusIndex = this.focusables.indexOf(text);
+      if (this.scrollItemIndexes.has(focusIndex)
+        && pointer
+        && (pointer.y < this.scrollViewportTop || pointer.y >= this.scrollViewportBottom)) return;
       // A drag is a scrolling gesture, never a command activation. Keep the
       // flag through the InputPlugin's pointer-up dispatch so this remains
       // correct regardless of global-vs-object listener ordering.
@@ -1552,7 +1560,7 @@ export class MenuScene extends Phaser.Scene {
         this.touchDidScroll = false;
         return;
       }
-      this.navigator.setIndex(this.focusables.indexOf(text));
+      this.navigator.setIndex(focusIndex);
       this.syncScrollFocus(this.navigator.index);
       this.applyScrollViewport();
       // The single command boundary: pointer clicks and synthetic
@@ -2012,7 +2020,41 @@ export class MenuScene extends Phaser.Scene {
       thumb.setScrollFactor(0);
       this.scrollThumb = thumb;
     }
+    this.createScrollMask();
     this.applyScrollViewport();
+  }
+
+  private createScrollMask(): void {
+    this.destroyScrollMask();
+    const graphics = this.make?.graphics?.({}, false);
+    if (!graphics) return;
+    graphics.fillStyle(0xffffff, 1);
+    graphics.fillRect(
+      0,
+      this.scrollViewportTop,
+      this.scale.width,
+      this.scrollViewportBottom - this.scrollViewportTop,
+    );
+    const mask = graphics.createGeometryMask();
+    this.scrollMaskGraphics = graphics;
+    this.scrollMask = mask;
+    for (const { object } of this.scrollObjects) {
+      (object as Phaser.GameObjects.GameObject & { setMask(mask: Phaser.Display.Masks.GeometryMask): unknown })
+        .setMask(mask);
+    }
+  }
+
+  private destroyScrollMask(): void {
+    if (this.scrollMask) {
+      for (const { object } of this.scrollObjects) {
+        (object as Phaser.GameObjects.GameObject & { clearMask?(destroyMask?: boolean): unknown })
+          .clearMask?.(false);
+      }
+      this.scrollMask.destroy();
+      this.scrollMask = undefined;
+    }
+    this.scrollMaskGraphics?.destroy();
+    this.scrollMaskGraphics = undefined;
   }
 
   private scrollViewportBottomFor(hitTarget: number): number {
@@ -2050,7 +2092,9 @@ export class MenuScene extends Phaser.Scene {
       const bounds = ownerBounds === undefined
         ? object.getBounds?.()
         : { top: ownerBounds.top - offset, bottom: ownerBounds.bottom - offset };
-      if (bounds) object.setVisible?.(bounds.top >= this.scrollViewportTop && bounds.bottom <= this.scrollViewportBottom);
+      if (bounds) object.setVisible?.(
+        bounds.bottom > this.scrollViewportTop && bounds.top < this.scrollViewportBottom,
+      );
     }
     for (const index of this.scrollItemIndexes) {
       const text = this.focusables[index];
@@ -2059,7 +2103,7 @@ export class MenuScene extends Phaser.Scene {
       const bounds = groupBounds === undefined
         ? text.getBounds()
         : { top: groupBounds.top - offset, bottom: groupBounds.bottom - offset };
-      const visible = bounds.top >= this.scrollViewportTop && bounds.bottom <= this.scrollViewportBottom;
+      const visible = bounds.bottom > this.scrollViewportTop && bounds.top < this.scrollViewportBottom;
       text.setVisible(visible);
       const ring = this.focusRings[index];
       ring?.setVisible?.(visible);
@@ -2272,6 +2316,7 @@ export class MenuScene extends Phaser.Scene {
     this.removeAudioUnlockListeners();
     this.inputController?.destroy();
     this.inputController = undefined;
+    this.destroyScrollMask();
     this.root?.destroy(true);
     this.root = undefined;
     // Clear the hint reference BEFORE the root destroy: it is the only
