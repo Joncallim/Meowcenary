@@ -601,6 +601,9 @@ export interface ArenaHazardSkinDefinition {
 }
 
 export interface ArenaVisualDefinition {
+  /** Chapter/location presentation shown behind menu UI. Gameplay geometry
+   * remains entirely owned by the world art below. */
+  readonly menuBackdropArtId: string;
   readonly floorArtIds: readonly string[];
   readonly boundary: {
     readonly straightArtId: string;

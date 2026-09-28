@@ -6,7 +6,7 @@ import { DataVisualArtRegistry } from '../src/systems/visualArt';
 
 const DESTINATIONS = [
   'play-contract', 'mercenary', 'loadout', 'career', 'training', 'settings',
-  'equipment', 'gunsmith', 'achievements', 'compendium',
+  'equipment', 'gunsmith', 'achievements', 'compendium', 'change-contract',
 ] as const;
 
 describe('large menu navigation art', () => {
@@ -20,10 +20,9 @@ describe('large menu navigation art', () => {
         display: { width: 96, height: 96 },
       });
     }
-    expect(art.bindingById('nav-icon:change-contract')).toMatchObject({
-      resourceId: 'resource:navigation-icons',
-      frameKey: 'nav-icon:play-contract',
-    });
+    expect(art.bindingById('nav-icon:change-contract')?.frameKey).toBe('nav-icon:change-contract');
+    expect(art.bindingById('nav-icon:change-contract')?.frameKey)
+      .not.toBe(art.bindingById('nav-icon:play-contract')?.frameKey);
   });
 
   it('keeps generated master, editable source, and deterministic runtime export in parity', () => {
@@ -34,7 +33,7 @@ describe('large menu navigation art', () => {
       size_y: number;
       frames: Record<string, { frame: { w: number; h: number } }>;
     };
-    expect([atlas.size_x, atlas.size_y]).toEqual([1920, 192]);
+    expect([atlas.size_x, atlas.size_y]).toEqual([2112, 192]);
     expect(Object.keys(atlas.frames).sort()).toEqual(DESTINATIONS.map((id) => `nav-icon:${id}`).sort());
     expect(Object.values(atlas.frames).every(({ frame }) => frame.w === 192 && frame.h === 192)).toBe(true);
   });

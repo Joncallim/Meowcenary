@@ -1286,6 +1286,10 @@ describe('game data validation', () => {
     });
 
     it('rejects world-role drift and unskinned collision landmarks', () => {
+      const missingBackdrop = structuredClone(loadGameData()) as any;
+      missingBackdrop.arenas[0].visual.menuBackdropArtId = 'arena-backdrop:missing';
+      expect(() => validateGameData(missingBackdrop)).toThrow(/menuBackdropArtId: unknown visual-art id/);
+
       const wrongRole = structuredClone(loadGameData()) as any;
       wrongRole.arenas[0].visual.floorArtIds[0] = 'world:prop:crate';
       expect(() => validateGameData(wrongRole)).toThrow(/art id must start "world:junkyard-floor:"/);

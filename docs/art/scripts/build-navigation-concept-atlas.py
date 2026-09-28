@@ -16,6 +16,7 @@ PRIMARY = (
     "play-contract", "mercenary", "loadout", "career", "training", "settings",
 )
 SECONDARY = ("equipment", "gunsmith", "achievements", "compendium")
+SINGLES = ("change-contract",)
 FRAME = 192
 ZIP_DATE = (2020, 1, 1, 0, 0, 0)
 
@@ -23,20 +24,24 @@ ZIP_DATE = (2020, 1, 1, 0, 0, 0)
 def selected_tiles(root: Path):
     primary = Image.open(root / "assets-src/ui/concepts/navigation-primary-selected.png").convert("RGBA")
     secondary = Image.open(root / "assets-src/ui/concepts/navigation-secondary-selected.png").convert("RGBA")
+    change_contract = Image.open(root / "assets-src/ui/concepts/navigation-change-contract-selected.png").convert("RGBA")
     if primary.size != (1536, 1024):
         raise SystemExit(f"selected primary navigation board changed size: {primary.size}")
     if secondary.size != (1254, 1254):
         raise SystemExit(f"selected secondary navigation board changed size: {secondary.size}")
+    if change_contract.size != (1254, 1254):
+        raise SystemExit(f"selected Change Contract art changed size: {change_contract.size}")
     for index, name in enumerate(PRIMARY):
         column, row = index % 3, index // 3
         yield name, primary.crop((column * 512, row * 512, (column + 1) * 512, (row + 1) * 512))
     for index, name in enumerate(SECONDARY):
         column, row = index % 2, index // 2
         yield name, secondary.crop((column * 627, row * 627, (column + 1) * 627, (row + 1) * 627))
+    yield "change-contract", change_contract
 
 
 def render(root: Path) -> Image.Image:
-    atlas = Image.new("RGBA", (FRAME * (len(PRIMARY) + len(SECONDARY)), FRAME), (0, 0, 0, 0))
+    atlas = Image.new("RGBA", (FRAME * (len(PRIMARY) + len(SECONDARY) + len(SINGLES)), FRAME), (0, 0, 0, 0))
     for index, (_name, tile) in enumerate(selected_tiles(root)):
         alpha = tile.getchannel("A")
         bounds = alpha.getbbox()
@@ -49,7 +54,7 @@ def render(root: Path) -> Image.Image:
 
 
 def frame_ids() -> tuple[str, ...]:
-    return tuple(f"nav-icon:{name}" for name in (*PRIMARY, *SECONDARY))
+    return tuple(f"nav-icon:{name}" for name in (*PRIMARY, *SECONDARY, *SINGLES))
 
 
 def frames_json() -> bytes:

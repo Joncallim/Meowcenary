@@ -79,6 +79,8 @@ Selected references:
 - `assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png`
 - `assets-src/characters/volt-lynx/concepts/volt-lynx-direction-a-selected.png`
 - `assets-src/enemies/alpha-3-production-concepts/direction-b-selected.png`
+- `assets-src/world/junkyard/concepts/junkyard-world-kit-selected.png`
+- `assets-src/world/forge/concepts/forge-foundry-direction-a-selected.png`
 
 Runtime captures and committed screenshot baselines:
 
@@ -94,6 +96,7 @@ Runtime captures and committed screenshot baselines:
 - `browser-tests/visual-fidelity.pw.ts-snapshots/ordinary-gameplay-actor-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/boss-gameplay-desktop-1280x720-linux.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/boss-gameplay-actor-desktop-1280x720-linux.png`
+- `browser-tests/visual-fidelity.pw.ts-snapshots/forge-gameplay-desktop-1280x720-linux.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/compendium-desktop-1280x720-linux.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/compendium-middle-desktop-1280x720-linux.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/compendium-lower-desktop-1280x720-linux.png`
@@ -117,6 +120,7 @@ captured around the live production sprite; they are not enlarged source art.
 <tr><td><img src="../../assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png" width="480" alt="Selected Alpha 3 Mercenary roster direction B"></td><td><img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-brass-boar-desktop-1280x720-linux.png" width="96" alt="Brass Boar live crop"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-ember-cougar-desktop-1280x720-linux.png" width="96" alt="Ember Cougar live crop"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-scrap-weasel-desktop-1280x720-linux.png" width="96" alt="Scrap Weasel live crop"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-rattle-raptor-desktop-1280x720-linux.png" width="96" alt="Rattle Raptor live crop"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-piston-ram-desktop-1280x720-linux.png" width="96" alt="Piston Ram live crop"></td></tr>
 <tr><td><img src="../art/concepts/epic-13/final-actor-direction.png" width="480" alt="Selected Scrap Tabby and Bolt Hound actor direction"><br><img src="../../assets-src/characters/volt-lynx/concepts/volt-lynx-direction-a-selected.png" width="320" alt="Selected Volt Lynx direction A"></td><td><img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-scrap-tabby-desktop-1280x720-linux.png" width="96" alt="Scrap Tabby live crop"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-bolt-hound-desktop-1280x720-linux.png" width="96" alt="Bolt Hound live crop"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-volt-lynx-desktop-1280x720-linux.png" width="96" alt="Volt Lynx live crop"></td></tr>
 <tr><td><img src="../../assets-src/enemies/alpha-3-production-concepts/direction-b-selected.png" width="480" alt="Selected enemy production direction B"></td><td><img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/compendium-desktop-1280x720-linux.png" width="320" alt="Runtime Compendium first group"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/compendium-middle-desktop-1280x720-linux.png" width="320" alt="Runtime Compendium middle group"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/forge-warden-gameplay-actor-desktop-1280x720-linux.png" width="96" alt="Forge Warden live crop"></td></tr>
+<tr><td><img src="../../assets-src/world/junkyard/concepts/junkyard-world-kit-selected.png" width="480" alt="Selected Junkyard playable-world kit"><br><img src="../../assets-src/world/forge/concepts/forge-foundry-direction-a-selected.png" width="480" alt="Selected Forge playable-world direction"></td><td><img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-desktop-1280x720-linux.png" width="400" alt="Runtime Junkyard arena"><br><img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/forge-gameplay-desktop-1280x720-linux.png" width="400" alt="Runtime Forge arena"></td></tr>
 <tr><td>Art brief §§16–19: bespoke lockup, crop-safe workshop backdrop, semantic navigation/state/HUD glyphs, and shared modal/card chrome.</td><td><img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/home-phone-390x844-linux.png" width="195" alt="Runtime Home on phone"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/settings-phone-390x844-linux.png" width="195" alt="Runtime Settings on phone"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/pause-modal-desktop-1280x720-linux.png" width="320" alt="Runtime pause modal"></td></tr>
 </table>
 
@@ -168,6 +172,15 @@ The numbered path below is the repeatable audit journey used at 390×844,
    modal chrome no longer stretches decorative source bands into large solid
    bars; terminal actions share the same flat card language and use outer
    gutters rather than text or controls touching the screen frame.
+9. **Playable arenas** — Junkyard's primitive world pieces were replaced by a
+   selected 15-piece top-down production board with deterministic native-grid
+   crops, editable PXO sources, and exact export checks. Runtime flooring now
+   keeps the base material quiet and forms sparse deterministic repair zones
+   instead of alternating every tile. Both Junkyard and Forge use denser,
+   chapter-specific perimeter dressing while the authored clear start plaza,
+   collision rectangles, hazards, spawn lanes, and camera geometry remain
+   unchanged. A dedicated full-scene Forge regression complements the existing
+   phone/foldable/desktop Junkyard captures.
 
 Health after remediation: **good candidate for product-owner visual review**.
 All interactive targets retain the repository's 44 px physical minimum;
@@ -177,7 +190,10 @@ copy uses the browser's native system UI stack at doubled canvas resolution,
 with button labels optically centred between their leading illustration and
 trailing direction marker. The
 remaining limitation is subjective physical-device judgement of density and
-colour at the owner's actual viewing distance.
+colour at the owner's actual viewing distance. The interface uses self-hosted
+Nunito for readable rounded body and action text while retaining the bespoke
+pixel title lockup; card copy is vertically centred and optically centred in
+the content column between its artwork and trailing action marker.
 
 Additional deterministic evidence:
 
@@ -188,7 +204,7 @@ Additional deterministic evidence:
 - `browser-tests/visual-fidelity.pw.ts-snapshots/run-summary-won-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/run-summary-lost-*.png`
 
-The selected Achievement, Mercenary, and primary/secondary navigation boards are now production masters,
+The selected Achievement, Mercenary, Junkyard-world, and primary/secondary navigation boards are now production masters,
 cropped by deterministic importers into editable Pixelorama sources and
 runtime atlases. Their source/export parity is part of `art:validate`; the
 older geometric Lua entrypoints are explicitly classified as external-import
@@ -207,7 +223,8 @@ defeat presentation emitted from the elite's logical kill event.
 
 ## Deliberate non-goals
 
-- No campaign, combat, progression, save, or playable-world geometry changed.
+- No campaign, combat, progression, save, or playable-world geometry changed;
+  world changes are presentation-only and remain data-authored.
 - No new actor or speculative future UI family was added.
 - Selected and rejected provenance remains intact.
 - Product-owner visual approval is intentionally outstanding; this candidate

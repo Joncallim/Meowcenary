@@ -297,6 +297,7 @@ test('Forge Warden keeps its approved furnace-gantry silhouette in live gameplay
     return seam?.focusFirstEnemy(true) ?? false;
   }), { timeout: visualReadyTimeoutMs }).toBe(true);
   await freezeAtStableFrame(page);
+  await expect(page).toHaveScreenshot('forge-gameplay.png', { animations: 'disabled', maxDiffPixels: 512 });
   await expectCenteredActor(page, 'forge-warden-gameplay-actor.png');
 });
 

@@ -260,7 +260,14 @@ export class MenuScene extends Phaser.Scene {
       ThemeColor.background,
     ).setScrollFactor(0));
 
-    const backdropBinding = this.uiVisuals?.binding('brand:menu-backdrop');
+    const selectedBackdropArtId = snapshot.stage.stages.find((stage) => stage.selected)?.menuBackdropArtId
+      ?? 'brand:menu-backdrop';
+    const selectedBackdropBinding = this.uiVisuals?.binding(selectedBackdropArtId);
+    const fallbackBackdropBinding = this.uiVisuals?.binding('brand:menu-backdrop');
+    const backdropBinding = selectedBackdropBinding
+      && this.textures?.exists?.(selectedBackdropBinding.textureKey)
+      ? selectedBackdropBinding
+      : fallbackBackdropBinding;
     if (backdropBinding && this.textures?.exists?.(backdropBinding.textureKey) && this.add.image) {
       const backdrop = this.own(root, this.add.image(
         this.scale.width / 2,
@@ -396,6 +403,9 @@ export class MenuScene extends Phaser.Scene {
       this.root = root;
       this.committedPanel = snapshot.panel;
       this.committedDisplay = true;
+      if (selectedBackdropArtId !== 'brand:menu-backdrop') {
+        void this.ensurePanelPresentation(snapshot.panel, [selectedBackdropArtId]);
+      }
     } catch (error) {
       root.destroy(true);
       this.focusables = [];
@@ -457,11 +467,6 @@ export class MenuScene extends Phaser.Scene {
     const campaignComplete = frontier.kind === 'campaign-complete';
     const compactLandscape = this.scale.height < 500 && width >= 700;
     const threatPreview = selectedStage?.threats.slice(0, HOME_THREAT_PREVIEW_LIMIT) ?? [];
-    const omittedThreatCount = Math.max(0, (selectedStage?.threats.length ?? 0) - threatPreview.length);
-    const threatPreviewCopy = [
-      ...threatPreview.map((threat) => threat.name),
-      ...(omittedThreatCount > 0 ? [`+${omittedThreatCount} more`] : []),
-    ].join(' • ');
     const heroWidth = Math.max(1, width - margin - this.safeRightMargin - 82);
     let heroY = top + 4;
     const addHeroLine = (copy: string, color: string, fontSize: number, style?: string): Phaser.GameObjects.Text => {
@@ -480,7 +485,11 @@ export class MenuScene extends Phaser.Scene {
     addHeroLine(`${campaignComplete ? 'CAMPAIGN COMPLETE — REPLAY' : selectedStage?.completed ? 'REPLAY CONTRACT' : 'NEXT CONTRACT'}  •  ${selectedStage?.chapterName ?? ''} ${selectedStage?.displayOrder ?? ''}${compactLandscape ? `  •  ${selectedStage?.name ?? snapshot.stage.selectedStageId}` : ''}`, '#fbbf24', ThemeFont.labelMin, '700');
     if (!compactLandscape) addHeroLine(selectedStage?.name ?? snapshot.stage.selectedStageId, '#f7f1d5', ThemeFont.headingMin, '700');
     addHeroLine(`${selectedStage?.locationName ?? ''}  •  ${selectedStage?.objective.copy ?? ''}`, '#d6f7ff', ThemeFont.bodyMin);
-    if (selectedStage) addHeroLine(`THREATS  ${threatPreviewCopy}`, '#a5f3fc', ThemeFont.bodyMin);
+    if (threatPreview.length > 0) {
+      const iconSize = compactLandscape ? 28 : this.scale.height <= 680 ? 26 : 34;
+      this.addThreatIconStrip(root, threatPreview, margin + 10, heroY, heroWidth - 10, iconSize, 8);
+      heroY += iconSize + 3;
+    }
     addHeroLine(selectedStage?.completed
       ? `BEST  ${formatDuration(selectedStage.bestTimeMs)}`
       : `FIRST CLEAR  ${selectedStage?.reward.headline ?? ''}`, '#86efac', ThemeFont.bodyMin, '700');
@@ -563,6 +572,7 @@ export class MenuScene extends Phaser.Scene {
     void this.ensurePanelPresentation('home', [
       selectedCharacter?.portraitArtId,
       ...buttons.map(({ artId }) => artId),
+      ...threatPreview.map(({ actorArtId }) => actorArtId),
     ].filter((id): id is string => id !== undefined));
   }
 
@@ -831,16 +841,15 @@ export class MenuScene extends Phaser.Scene {
       }
       y += button.height + 10;
       if (stage.selected && !stage.locked) {
-        const threatGroups = Array.from({ length: Math.ceil(stage.threats.length / 4) }, (_, index) =>
-          stage.threats.slice(index * 4, index * 4 + 4));
-        for (const [index, threats] of threatGroups.entries()) {
-          const detail = this.own(root, createUiText(this, margin + 42, y,
-            `${index === 0 ? 'Threats: ' : ''}${threats.map((threat) => threat.name).join(' • ')}`,
-            { color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin - 42 } },
-          ));
-          this.registerScrollObject(detail);
-          y += detail.height + 4;
-        }
+        y += this.addThreatIconStrip(
+          root,
+          stage.threats,
+          margin + 42,
+          y,
+          width - margin - this.safeRightMargin - 54,
+          42,
+          8,
+        ) + 8;
         const reward = this.own(root, createUiText(this, margin + 42, y,
           `First clear: ${stage.reward.headline}`,
           { color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, wordWrap: { width: width - margin - this.safeRightMargin - 42 } },
@@ -851,7 +860,11 @@ export class MenuScene extends Phaser.Scene {
     });
     this.endScrollableRegion();
     this.addBackButton(root, width, margin, hitTarget);
-    void this.ensurePanelPresentation('stage', snapshot.stage.stages.map((stage) => stage.objective.artId));
+    void this.ensurePanelPresentation('stage', [
+      ...snapshot.stage.stages.map((stage) => stage.objective.artId),
+      ...snapshot.stage.stages.filter((stage) => stage.selected && !stage.locked)
+        .flatMap((stage) => stage.threats.map(({ actorArtId }) => actorArtId)),
+    ]);
   }
 
   private renderCareer(root: Phaser.GameObjects.Container, _snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
@@ -1015,7 +1028,7 @@ export class MenuScene extends Phaser.Scene {
         label,
         rowHeight,
         () => this.render(this.requireController().selectAchievement(achievement.id)),
-        'ui:confirm', cardWidth, undefined, 10, 94, false, 'left',
+        'ui:confirm', cardWidth, undefined, 10, 94, false, 'center',
       );
       const rowOwnerIndex = this.focusables.length - 1;
       button.setStyle({ color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px` });
@@ -1650,6 +1663,35 @@ export class MenuScene extends Phaser.Scene {
     }
     image.setAlpha(subdued ? 0.35 : 1).setScrollFactor(0);
     this.registerScrollObject(image, scrollOwnerIndex);
+  }
+
+  /** Enemy identity is already art-backed in the Stage read model. Menus show
+   * that identity directly instead of repeating a dense label such as
+   * “THREATS Dust Mite • …”. The renderer only lays out generic actor art. */
+  private addThreatIconStrip(
+    root: Phaser.GameObjects.Container,
+    threats: readonly { readonly actorArtId: string }[],
+    x: number,
+    y: number,
+    maxWidth: number,
+    iconSize: number,
+    gap: number,
+  ): number {
+    if (threats.length === 0) return 0;
+    const columns = Math.max(1, Math.floor((maxWidth + gap) / (iconSize + gap)));
+    threats.forEach((threat, index) => {
+      const column = index % columns;
+      const row = Math.floor(index / columns);
+      this.addPanelArt(
+        root,
+        x + iconSize / 2 + column * (iconSize + gap),
+        y + iconSize / 2 + row * (iconSize + gap),
+        threat.actorArtId,
+        iconSize,
+      );
+    });
+    const rows = Math.ceil(threats.length / columns);
+    return rows * iconSize + (rows - 1) * gap;
   }
 
   /** One guarded lazy-loading lifecycle for the growing visual panels. A

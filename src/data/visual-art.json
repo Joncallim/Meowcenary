@@ -579,8 +579,8 @@
       "kind": "world",
       "required": true,
       "display": {
-        "width": 32,
-        "height": 32
+        "width": 44,
+        "height": 36
       },
       "resourceId": "resource:world-prop-tyre-pile"
     },
@@ -589,8 +589,8 @@
       "kind": "world",
       "required": true,
       "display": {
-        "width": 32,
-        "height": 32
+        "width": 44,
+        "height": 44
       },
       "resourceId": "resource:world-prop-crate"
     },
@@ -599,8 +599,8 @@
       "kind": "world",
       "required": true,
       "display": {
-        "width": 32,
-        "height": 32
+        "width": 52,
+        "height": 40
       },
       "resourceId": "resource:world-prop-engine-block"
     },
@@ -609,8 +609,8 @@
       "kind": "world",
       "required": true,
       "display": {
-        "width": 32,
-        "height": 32
+        "width": 56,
+        "height": 40
       },
       "resourceId": "resource:world-prop-scrap-heap"
     },
@@ -619,7 +619,7 @@
       "kind": "world",
       "required": true,
       "display": {
-        "width": 32,
+        "width": 52,
         "height": 32
       },
       "resourceId": "resource:world-prop-oil-stain"
@@ -629,8 +629,8 @@
       "kind": "world",
       "required": true,
       "display": {
-        "width": 32,
-        "height": 32
+        "width": 36,
+        "height": 52
       },
       "resourceId": "resource:world-prop-warning-sign"
     },
@@ -639,8 +639,8 @@
       "kind": "world",
       "required": true,
       "display": {
-        "width": 64,
-        "height": 64
+        "width": 80,
+        "height": 88
       },
       "resourceId": "resource:world-landmark-hanging-press"
     },
@@ -649,8 +649,8 @@
       "kind": "world",
       "required": true,
       "display": {
-        "width": 64,
-        "height": 64
+        "width": 80,
+        "height": 88
       },
       "resourceId": "resource:world-landmark-barrel-power-stack"
     },
@@ -714,7 +714,7 @@
       "id": "world:forge-prop:coil-rack",
       "kind": "world",
       "required": true,
-      "display": { "width": 32, "height": 32 },
+      "display": { "width": 48, "height": 42 },
       "resourceId": "resource:world-forge-atlas",
       "frameKey": "world:forge-prop:coil-rack"
     },
@@ -722,7 +722,7 @@
       "id": "world:forge-prop:ingot-pallet",
       "kind": "world",
       "required": true,
-      "display": { "width": 32, "height": 32 },
+      "display": { "width": 48, "height": 40 },
       "resourceId": "resource:world-forge-atlas",
       "frameKey": "world:forge-prop:ingot-pallet"
     },
@@ -730,7 +730,7 @@
       "id": "world:forge-prop:quench-drum",
       "kind": "world",
       "required": true,
-      "display": { "width": 32, "height": 32 },
+      "display": { "width": 44, "height": 44 },
       "resourceId": "resource:world-forge-atlas",
       "frameKey": "world:forge-prop:quench-drum"
     },
@@ -738,7 +738,7 @@
       "id": "world:forge-prop:tool-cart",
       "kind": "world",
       "required": true,
-      "display": { "width": 32, "height": 32 },
+      "display": { "width": 52, "height": 40 },
       "resourceId": "resource:world-forge-atlas",
       "frameKey": "world:forge-prop:tool-cart"
     },
@@ -746,7 +746,7 @@
       "id": "world:forge-prop:slag-pile",
       "kind": "world",
       "required": true,
-      "display": { "width": 32, "height": 32 },
+      "display": { "width": 52, "height": 36 },
       "resourceId": "resource:world-forge-atlas",
       "frameKey": "world:forge-prop:slag-pile"
     },
@@ -754,7 +754,7 @@
       "id": "world:forge-prop:heat-beacon",
       "kind": "world",
       "required": true,
-      "display": { "width": 32, "height": 32 },
+      "display": { "width": 38, "height": 52 },
       "resourceId": "resource:world-forge-atlas",
       "frameKey": "world:forge-prop:heat-beacon"
     },
@@ -762,7 +762,7 @@
       "id": "world:forge-landmark:furnace-throat",
       "kind": "world",
       "required": true,
-      "display": { "width": 64, "height": 64 },
+      "display": { "width": 88, "height": 88 },
       "resourceId": "resource:world-forge-atlas",
       "frameKey": "world:forge-landmark:furnace-throat"
     },
@@ -770,7 +770,7 @@
       "id": "world:forge-landmark:cooling-manifold",
       "kind": "world",
       "required": true,
-      "display": { "width": 64, "height": 64 },
+      "display": { "width": 88, "height": 88 },
       "resourceId": "resource:world-forge-atlas",
       "frameKey": "world:forge-landmark:cooling-manifold"
     },
@@ -2107,8 +2107,10 @@
     },
     { "id": "brand:title-lockup", "kind": "icon", "required": true, "display": { "width": 240, "height": 48 }, "resourceId": "resource:brand-art", "frameKey": "brand:title-lockup" },
     { "id": "brand:menu-backdrop", "kind": "icon", "required": true, "display": { "width": 480, "height": 480 }, "resourceId": "resource:brand-art", "frameKey": "brand:menu-backdrop" },
+    { "id": "arena-backdrop:junkyard", "kind": "icon", "required": true, "display": { "width": 768, "height": 512 }, "resourceId": "resource:menu-backdrop-junkyard" },
+    { "id": "arena-backdrop:forge", "kind": "icon", "required": true, "display": { "width": 768, "height": 512 }, "resourceId": "resource:menu-backdrop-forge" },
     { "id": "nav-icon:play-contract", "kind": "icon", "required": true, "display": { "width": 96, "height": 96 }, "resourceId": "resource:navigation-icons", "frameKey": "nav-icon:play-contract" },
-    { "id": "nav-icon:change-contract", "kind": "icon", "required": true, "display": { "width": 96, "height": 96 }, "resourceId": "resource:navigation-icons", "frameKey": "nav-icon:play-contract" },
+    { "id": "nav-icon:change-contract", "kind": "icon", "required": true, "display": { "width": 96, "height": 96 }, "resourceId": "resource:navigation-icons", "frameKey": "nav-icon:change-contract" },
     { "id": "nav-icon:mercenary", "kind": "icon", "required": true, "display": { "width": 96, "height": 96 }, "resourceId": "resource:navigation-icons", "frameKey": "nav-icon:mercenary" },
     { "id": "nav-icon:loadout", "kind": "icon", "required": true, "display": { "width": 96, "height": 96 }, "resourceId": "resource:navigation-icons", "frameKey": "nav-icon:loadout" },
     { "id": "nav-icon:career", "kind": "icon", "required": true, "display": { "width": 96, "height": 96 }, "resourceId": "resource:navigation-icons", "frameKey": "nav-icon:career" },

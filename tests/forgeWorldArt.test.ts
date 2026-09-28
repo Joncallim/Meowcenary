@@ -59,8 +59,9 @@ describe('Forge/Foundry production art packet', () => {
     expect(bindings.map((binding) => binding.id)).toEqual([...forgeIds]);
     expect(new Set(bindings.map((binding) => binding.resourceId))).toEqual(new Set(['resource:world-forge-atlas']));
     expect(bindings.every((binding) => binding.kind === 'world' && binding.required === true && binding.frameKey === binding.id)).toBe(true);
-    expect(bindings.filter((binding) => binding.display.width === 32 && binding.display.height === 32)).toHaveLength(14);
-    expect(bindings.filter((binding) => binding.display.width === 64 && binding.display.height === 64)).toHaveLength(2);
+    expect(bindings.filter((binding) => binding.display.width === 32 && binding.display.height === 32)).toHaveLength(8);
+    expect(bindings.filter((binding) => binding.id.includes('-prop:')).every((binding) => binding.display.width >= 38 && binding.display.height >= 36)).toBe(true);
+    expect(bindings.filter((binding) => binding.id.includes('-landmark:')).every((binding) => binding.display.width === 88 && binding.display.height === 88)).toBe(true);
     const resource = visualResources.find((candidate) => candidate.id === 'resource:world-forge-atlas');
     expect(resource).toMatchObject({ id: 'resource:world-forge-atlas', sampling: 'nearest', load: { type: 'atlas' } });
   });

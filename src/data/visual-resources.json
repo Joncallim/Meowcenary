@@ -825,6 +825,24 @@
     }
   },
   {
+    "id": "resource:menu-backdrop-junkyard",
+    "textureKey": "art-menu-backdrop-junkyard",
+    "sampling": "linear",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/ui/backdrops/menu-junkyard.png"
+    }
+  },
+  {
+    "id": "resource:menu-backdrop-forge",
+    "textureKey": "art-menu-backdrop-forge",
+    "sampling": "linear",
+    "load": {
+      "type": "image",
+      "imageUrl": "assets/ui/backdrops/menu-forge.png"
+    }
+  },
+  {
     "id": "resource:brand-art",
     "textureKey": "art-brand",
     "sampling": "nearest",

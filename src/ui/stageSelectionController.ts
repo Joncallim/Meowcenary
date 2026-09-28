@@ -25,6 +25,7 @@ export interface StageOptionView {
   readonly chapterName: string;
   readonly locationName: string;
   readonly locationArtId: string;
+  readonly menuBackdropArtId: string;
   readonly objective: { readonly kind: string; readonly copy: string; readonly artId: string };
   readonly threats: readonly { readonly enemyId: string; readonly name: string; readonly actorArtId: string }[];
   readonly reward: { readonly firstClearScrap: number; readonly headline: string };
@@ -194,6 +195,7 @@ export class StageSelectionController {
       locked, selected, completed, ...(bestTimeMs === undefined ? {} : { bestTimeMs }),
       locationName: arena?.name ?? 'Unknown location',
       locationArtId: arena?.visual.floorArtIds[0] ?? '',
+      menuBackdropArtId: arena?.visual.menuBackdropArtId ?? 'brand:menu-backdrop',
       objective: objectivePresentation(stage.objective, this.context, this.visualArt),
       threats: Object.freeze(threats),
       reward: Object.freeze({

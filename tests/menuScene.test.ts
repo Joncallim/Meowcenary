@@ -743,25 +743,31 @@ describe('MenuScene', () => {
     expect(expanded).toBeDefined();
     expect(expanded!.state.height).toBeGreaterThanOrEqual(184);
     expect(expanded!.state.padding.top).toBe(expanded!.state.padding.bottom);
-    expect(expanded!.state.style.align).toBe('left');
+    expect(expanded!.state.style.align).toBe('center');
   });
 
-  it('cold-opens the Contract list without loading threat actor sheets that its rows do not render', () => {
+  it('cold-opens the Contract list with actor art only for the selected threat strip', () => {
     const harness = createHarness();
     const requested = vi.fn(async () => undefined);
     (harness.menuScene as unknown as { ensurePanelPresentation: typeof requested }).ensurePanelPresentation = requested;
 
     harness.buttonByLabel('Change Contract')!.state.handlers.pointerup!();
 
-    const [, artIds] = requested.mock.calls.at(-1)! as unknown as [string, string[]];
-    expect(artIds).toEqual(harness.context.stages.allStages().map((stage) => {
+    const panelRequests = requested.mock.calls as unknown as Array<[string, string[]]>;
+    const [, artIds] = panelRequests.find((call) =>
+      call[0] === 'stage' && call[1].includes('upgrade-icon:heavy-rounds'))!;
+    const snapshot = (harness.menuScene as unknown as { controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot } }).controller.snapshot();
+    const objectiveArtIds = harness.context.stages.allStages().map((stage) => {
       const option = (harness.menuScene as unknown as { controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot } }).controller
         .snapshot().stage.stages.find((row) => row.id === stage.id)!;
       return option.objective.artId;
-    }));
-    expect(artIds).not.toContain('enemy:shard-bot');
-    expect(artIds).not.toContain('enemy:bastion-beetle');
-    expect(artIds).not.toContain('enemy:junk-nester');
+    });
+    const selectedThreatArtIds = snapshot.stage.stages.find((stage) => stage.selected)!.threats
+      .map((threat) => threat.actorArtId);
+    expect(artIds).toEqual([...objectiveArtIds, ...selectedThreatArtIds]);
+    const unselectedThreatArtIds = snapshot.stage.stages.filter((stage) => !stage.selected)
+      .flatMap((stage) => stage.threats.map((threat) => threat.actorArtId));
+    expect(unselectedThreatArtIds.some((artId) => !artIds.includes(artId))).toBe(true);
   });
 
   it('waits for the cold Home art closure before a quick Play launch uses the scene loader', async () => {
@@ -1188,9 +1194,9 @@ describe('MenuScene', () => {
       'NEXT CONTRACT  •  Junkyard 1',
       'First Scavenge',
       'Junkyard Lot  •  Eliminate 25 threats',
-      'THREATS  Dust Mite • Scrap Skitter • Junk Rusher • Scrap Sniper',
       'FIRST CLEAR  35 Scrap + Standard Barrel T1',
     ]));
+    expect(textContents().some((text) => text.includes('THREATS'))).toBe(false);
   });
 
   it('uses the declared card width for sparse-menu actions instead of shrink-wrapping labels', () => {
@@ -1204,7 +1210,7 @@ describe('MenuScene', () => {
     expect(equipment.state.x).toBe(gunsmith.state.x);
   });
 
-  it('bounds the narrow Home threat preview while preserving the complete Contract detail roster', () => {
+  it('renders a bounded narrow Home threat preview as enemy art rather than text', () => {
     const harness = createHarness({ create: false });
     const scale = harness.menuScene.scale as unknown as {
       width: number; height: number; displaySize: { width: number; height: number };
@@ -1235,11 +1241,9 @@ describe('MenuScene', () => {
 
     const homeCopy = harness.textContents().find((text) => text.includes('NEXT CONTRACT'))!;
     expect(homeCopy).toBe('NEXT CONTRACT  •  Junkyard 1');
-    expect(harness.textContents()).toContain('THREATS  Threat 0 • Threat 1 • Threat 2 • Threat 3 • +8 more');
-    expect(harness.textContents().join(' ')).not.toContain('Threat 4');
-    // Home keeps the complete bounded threat preview as readable copy rather
-    // than shrinking four actor sheets into illegible decorative thumbnails.
-    expect(addPanelArt.mock.calls.filter((call) => call[3] === 'enemy:dust-mite')).toHaveLength(0);
+    expect(harness.textContents().join(' ')).not.toContain('THREATS');
+    expect(harness.textContents().join(' ')).not.toContain('Threat 0');
+    expect(addPanelArt.mock.calls.filter((call) => call[3] === 'enemy:dust-mite')).toHaveLength(4);
     const safeBottom = 640 - edgeMargin(scene.currentViewport, 'bottom');
     const homeActions = harness.objects.filter((object) =>
       object.state.kind === 'text' && object.state.handlers.pointerup && !object.state.destroyed);
@@ -1250,8 +1254,8 @@ describe('MenuScene', () => {
     }
 
     scene.render({ ...base, panel: 'stage', stage: { ...base.stage, stages } });
-    const detail = harness.textContents().filter((text) => text.includes('Threat ')).join(' • ');
-    expect(detail).toContain('Threat 11');
+    expect(harness.textContents().join(' ')).not.toContain('Threat 11');
+    expect(addPanelArt.mock.calls.filter((call) => call[3] === 'enemy:dust-mite')).toHaveLength(16);
   });
 
   it('keeps the Contract hero and every 44px+ Home action inside all acceptance viewports', () => {
@@ -1310,7 +1314,7 @@ describe('MenuScene', () => {
     expect(harness.textContents()).toContain('Junkyard Lot  •  Collect 14 Scrap\nLOCKED — Clear First Scavenge.');
   });
 
-  it('keeps scroll headings and detail copy independent from prior focus-row ownership', () => {
+  it('keeps scroll headings and reward detail independent from prior focus-row ownership', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {
       controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
@@ -1321,18 +1325,19 @@ describe('MenuScene', () => {
     scene.render({ ...snapshot, panel: 'stage' });
 
     const independentCopy = scene.scrollObjects.filter(({ object }) =>
-      object.state.text === 'JUNKYARD' || object.state.text.startsWith('Threats:') || object.state.text.startsWith('First clear:'),
+      object.state.text === 'JUNKYARD' || object.state.text.startsWith('First clear:'),
     );
     expect(independentCopy.length).toBeGreaterThan(0);
     expect(independentCopy.every((entry) => entry.ownerIndex === undefined)).toBe(true);
   });
 
-  it('wraps a complete expanded selected-Contract threat roster inside the narrow safe edge', () => {
+  it('lays out the complete selected-Contract threat roster as bounded enemy icons', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {
       controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
       render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
       safeRightMargin: number;
+      addPanelArt: ReturnType<typeof vi.fn>;
     };
     const base = scene.controller.snapshot();
     const stages = base.stage.stages.map((stage, index) => index === 0 ? {
@@ -1344,15 +1349,13 @@ describe('MenuScene', () => {
         actorArtId: 'enemy:dust-mite',
       })),
     } : { ...stage, selected: false });
+    scene.addPanelArt = vi.fn();
     scene.render({ ...base, panel: 'stage', stage: { ...base.stage, stages } });
 
-    const details = harness.objects.filter((object) => object.state.text.includes('Long Threat Name'));
-    expect(details.map((detail) => detail.state.text).join(' • ')).toContain('Long Threat Name 11');
-    expect(details).toHaveLength(3);
-    for (const detail of details) {
-      const wrapWidth = (detail.state.style.wordWrap as { width: number }).width;
-      expect(detail.state.x + wrapWidth).toBeLessThanOrEqual(390 - scene.safeRightMargin);
-    }
+    const threatCalls = scene.addPanelArt.mock.calls.filter((call) => call[3] === 'enemy:dust-mite');
+    expect(threatCalls).toHaveLength(12);
+    expect(threatCalls.every((call) => Number(call[1]) + Number(call[4]) / 2 <= 390 - scene.safeRightMargin)).toBe(true);
+    expect(harness.textContents().join(' ')).not.toContain('Long Threat Name');
   });
 
   it('includes a tall selected final-Contract detail block in the narrow shared-scroll extent', () => {
@@ -1380,9 +1383,8 @@ describe('MenuScene', () => {
     }));
     scene.render({ ...base, panel: 'stage', stage: { ...base.stage, selectedStageId: stages[finalIndex]!.id, stages } });
 
-    const details = harness.objects.filter((object) =>
-      object.state.text.includes('Threat ') || object.state.text.startsWith('First clear:'));
-    expect(details.filter((object) => object.state.text.includes('Threat '))).toHaveLength(5);
+    const details = harness.objects.filter((object) => object.state.text.startsWith('First clear:'));
+    expect(details).toHaveLength(1);
     const detailBottom = Math.max(...details.map((detail) => detail.state.y + detail.state.height));
     expect(scene.scrollRegion.contentHeight).toBeGreaterThanOrEqual(detailBottom - scene.scrollViewportTop);
     scene.scrollRegion.scrollBy(10_000);

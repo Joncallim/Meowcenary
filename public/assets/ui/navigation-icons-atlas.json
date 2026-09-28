@@ -1,7 +1,7 @@
 {
   "export_directory_path": "",
   "export_file_name": "navigation-icons-atlas",
-  "size_x": 1920,
+  "size_x": 2112,
   "size_y": 192,
   "frames": {
     "nav-icon:play-contract": {
@@ -79,6 +79,14 @@
     "nav-icon:compendium": {
       "frame": {
         "x": 1728,
+        "y": 0,
+        "w": 192,
+        "h": 192
+      }
+    },
+    "nav-icon:change-contract": {
+      "frame": {
+        "x": 1920,
         "y": 0,
         "w": 192,
         "h": 192

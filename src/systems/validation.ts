@@ -183,7 +183,7 @@ const REGION_EDGE_LANES_FIELDS = new Set(['kind', 'inset', 'lanes']);
 const EDGE_LANE_FIELDS = new Set(['side', 'offset', 'width']);
 const EDGE_LANE_SIDES = new Set(['top', 'right', 'bottom', 'left']);
 const OBSTACLE_FIELDS = new Set(['id', 'x', 'y', 'w', 'h']);
-const ARENA_VISUAL_FIELDS = new Set(['floorArtIds', 'boundary', 'decorations', 'obstacleSkins', 'hazardSkins']);
+const ARENA_VISUAL_FIELDS = new Set(['menuBackdropArtId', 'floorArtIds', 'boundary', 'decorations', 'obstacleSkins', 'hazardSkins']);
 const ARENA_BOUNDARY_FIELDS = new Set(['straightArtId', 'cornerArtId', 'patchArtId', 'gateArtId']);
 const ARENA_DECORATION_FIELDS = new Set(['id', 'artId', 'x', 'y', 'flipX', 'layer']);
 const ARENA_OBSTACLE_SKIN_FIELDS = new Set(['obstacleId', 'artId', 'offsetX', 'offsetY']);
@@ -1634,6 +1634,7 @@ function checkArena(row: unknown): string[] {
 function checkArenaVisual(row: Record<string, unknown>, arenaWidth: number, arenaHeight: number): string[] {
   const errors: string[] = [];
   rejectUnknownFields(row, ARENA_VISUAL_FIELDS, errors);
+  requireString(row, 'menuBackdropArtId', errors);
   const floorArtIds = readOwnField(row, 'floorArtIds');
   if (!Array.isArray(floorArtIds) || floorArtIds.length < 1 || floorArtIds.length > 8) {
     errors.push('floorArtIds: required array with 1 through 8 entries');
@@ -3266,6 +3267,14 @@ export function assertArenaVisualReferences(
   };
 
   arenas.forEach((arena, arenaIndex) => {
+    const backdrop = byId.get(arena.visual.menuBackdropArtId);
+    if (!backdrop) {
+      errors.push(`arenas.json[${arenaIndex}].visual.menuBackdropArtId: unknown visual-art id "${arena.visual.menuBackdropArtId}"`);
+    } else if (backdrop.kind !== 'icon') {
+      errors.push(`arenas.json[${arenaIndex}].visual.menuBackdropArtId: expected icon binding, got ${backdrop.kind}`);
+    } else if (!backdrop.required) {
+      errors.push(`arenas.json[${arenaIndex}].visual.menuBackdropArtId: menu backdrop art must be required`);
+    }
     const family = familyFromFloorIds(arena.visual.floorArtIds);
     const rolePrefix = (role: 'floor' | 'boundary' | 'prop' | 'landmark' | 'hazard'): readonly string[] => {
       const familyPrefix = family ? `world:${family}-${role}:` : `world:${role}:`;
