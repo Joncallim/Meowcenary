@@ -1,0 +1,23 @@
+{
+  "export_directory_path": "",
+  "export_file_name": "meowcenary-emblem",
+  "size_x": 514,
+  "size_y": 416,
+  "frames": [
+    {
+      "cels": [
+        {
+          "opacity": 1
+        }
+      ],
+      "duration": 1
+    }
+  ],
+  "layers": [
+    {
+      "name": "approved Figma Clean Master",
+      "visible": true
+    }
+  ],
+  "tags": []
+}

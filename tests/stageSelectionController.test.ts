@@ -47,7 +47,7 @@ describe('StageSelectionController (Epic 20)', () => {
       menuBackdropArtId: 'arena-backdrop:forge',
     });
     expect(snap.stages[0].threats).toEqual(expect.arrayContaining([
-      expect.objectContaining({ name: 'Dust Mite', actorArtId: 'enemy:dust-mite' }),
+      expect.objectContaining({ name: 'Dust Mite', actorArtId: 'enemy-portrait:dust-mite' }),
     ]));
     expect(snap.stages[1].lockCopy).toBe('Clear First Scavenge.');
     for (let i = 1; i < snap.stages.length; i++) {
@@ -76,10 +76,10 @@ describe('StageSelectionController (Epic 20)', () => {
       'dust-mite', 'scrap-sniper', 'junk-nester', 'junk-rusher', 'shard-bot', 'bastion-beetle',
     ]);
     expect(snapshot.stages.find((stage) => stage.id === 'stage:junkyard-05')!.threats.at(-1)).toMatchObject({
-      enemyId: 'boss-crusher', name: 'Scrap Crusher', actorArtId: 'enemy:boss-crusher',
+      enemyId: 'boss-crusher', name: 'Scrap Crusher', actorArtId: 'enemy-portrait:boss-crusher',
     });
     expect(snapshot.stages.find((stage) => stage.id === 'stage:junkyard-06')!.threats.at(-1)).toMatchObject({
-      enemyId: 'boss-forge', name: 'Forge Warden', actorArtId: 'enemy:boss-forge',
+      enemyId: 'boss-forge', name: 'Forge Warden', actorArtId: 'enemy-portrait:boss-forge',
     });
   });
 
@@ -137,7 +137,7 @@ describe('StageSelectionController (Epic 20)', () => {
     expect(new StageSelectionController(context).snapshot().stages[0]!.threats).toContainEqual({
       enemyId: elite.id,
       name: elite.name,
-      actorArtId: 'enemy:dust-mite',
+      actorArtId: 'enemy-portrait:dust-mite',
     });
   });
 

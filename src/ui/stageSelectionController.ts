@@ -10,7 +10,7 @@ import { evaluateCondition } from '../gameplay/conditionEvaluator';
 import { createConditionContext } from '../gameplay/conditionEvaluator';
 import type { ProgressionCondition } from '../gameplay/conditionEvaluator';
 import { DataVisualArtRegistry } from '../systems/visualArt';
-import { describeCollectible, describeProgressionCondition, describeProgressionGrant, resolveEnemyActorArtId } from './progressionPresentation';
+import { describeCollectible, describeProgressionCondition, describeProgressionGrant, resolveEnemyPortraitArtId } from './progressionPresentation';
 
 export interface StageOptionView {
   readonly id: string;
@@ -183,7 +183,7 @@ export class StageSelectionController {
     const threatIds = [...(encounter?.enemyIds ?? []), ...(encounter?.bossId ? [encounter.bossId] : [])];
     const threats = [...new Set(threatIds)].flatMap((enemyId) => {
       const enemy = this.context.data.enemies.find((row) => row.id === enemyId);
-      const actorArtId = resolveEnemyActorArtId(enemyId, this.context.data, this.visualArt);
+      const actorArtId = resolveEnemyPortraitArtId(enemyId, this.context.data, this.visualArt);
       return enemy && actorArtId ? [{ enemyId, name: enemy.name, actorArtId }] : [];
     });
     const firstClearScrap = reward?.firstClearScrap ?? 0;

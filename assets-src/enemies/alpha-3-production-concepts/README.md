@@ -2,8 +2,29 @@
 
 These untouched ImageGen boards record the exploration behind the Dust Mite,
 Scrap Sniper, and Scrap Crusher production redraw. They are provenance only;
-runtime pixels are authored in the checked-in deterministic Lua builders and
-editable Pixelorama projects.
+the selected production sheets are imported through the deterministic enemy
+builder into native editable Pixelorama projects and runtime exports.
+
+## Selected production sheets
+
+Five 4×4 transparent production masters were generated with the built-in
+OpenAI image generator before the later visual-cutover instruction froze new
+generation. Each prompt required the Alpha 3 limited salvage palette, a strict
+row order of idle/run/hurt/defeat, no text or UI, one consistent ground datum,
+and the behaviour silhouette below. No later replacement generation is part
+of this cutover.
+
+| Actor | Source | SHA-256 | Prompt-specific silhouette |
+| --- | --- | --- | --- |
+| Dust Mite | `../dust-mite/source/dust-mite-imagegen-v2.png` | `9237f225cea7061dd73fef61f6a34583720b9e421bb87bfd466732911091fb8a` | compact round one-eyed scrap/fluff mite, wire antennae and six pin legs |
+| Junk Rusher | `../junk-rusher/source/junk-rusher-imagegen-v2.png` | `d7ae54fee56e7fe8f3f9bab6f25dd63084c37cfe5bf8254c3197c6608bca5791` | low forward wedge with bumper/coil construction and a readable charge line |
+| Trash Brute | `../trash-brute/source/trash-brute-imagegen-v2.png` | `a1635961c4cc8b95c6972bd66fcda6f60c0ead62296fce36687c64de008f2629` | broad square bruiser with oversized plated forearms |
+| Scrap Sniper | `../scrap-sniper/source/scrap-sniper-imagegen-v2.png` | `8deeb61ba3cf1cdba03fc6d0162c9a46901a922afb7985f5edf68f0b128ce77c` | very tall narrow non-humanoid tripod with lateral optic stalk |
+| Scrap Crusher | `../boss-crusher/source/boss-crusher-imagegen-v2.png` | `d5cae0c21c3060e053a610a495f3b90c44b089b4539b95d952250792c421ca28` | low asymmetric boss dominated by two horizontal compactor jaws |
+
+The remaining five selected masters already existed beside their actor PXO
+sources. `build-enemy-production-art.py` treats every selected sheet the same:
+native 48/64px gameplay output plus the separate shared portrait atlas.
 
 ## Selected — Direction B
 

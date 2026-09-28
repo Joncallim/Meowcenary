@@ -671,10 +671,10 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
 
     expect(addCatalogIcon).toHaveBeenCalledWith(
-      expect.anything(), expect.any(Number), expect.any(Number), 'trait-icon:fire', 22, expect.any(Number),
+      expect.anything(), expect.any(Number), expect.any(Number), 'trait-icon:fire', 32, expect.any(Number),
     );
     expect(addCatalogIcon).toHaveBeenCalledWith(
-      expect.anything(), expect.any(Number), expect.any(Number), 'trait-icon:piercing', 22, expect.any(Number),
+      expect.anything(), expect.any(Number), expect.any(Number), 'trait-icon:piercing', 32, expect.any(Number),
     );
   });
 
@@ -1422,7 +1422,7 @@ describe('MenuScene', () => {
     (harness.menuScene as unknown as { addPanelArt: typeof addPanelArt }).addPanelArt = addPanelArt;
     harness.buttonByLabel('Career')!.state.handlers.pointerup!();
     harness.buttonByLabel('Compendium')!.state.handlers.pointerup!();
-    expect(addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'enemy:dust-mite', 108, false, true, expect.any(Number));
+    expect(addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'enemy-portrait:dust-mite', 108, false, true, expect.any(Number));
   });
 
   it('keeps discovered Compendium copy inside the narrow safe edge after reserving its actor-art column', () => {
@@ -2180,8 +2180,7 @@ describe('MenuScene', () => {
       'assets/gunsmith/icons/gunsmith-icons-atlas.json',
     ]]);
     expect(rendered).toHaveBeenCalledOnce();
-    expect(setFilter).toHaveBeenCalledOnce();
-    expect(setFilter).toHaveBeenCalledWith(1);
+    expect(setFilter).not.toHaveBeenCalled();
     await scene.ensureGunsmithPresentation(['gun-part-icon:barrel-standard']);
     expect(queued).toHaveLength(1);
 

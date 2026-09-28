@@ -314,7 +314,7 @@ export class MenuScene extends Phaser.Scene {
           lockupBinding.frameKey,
         ).setScrollFactor(0));
         const lockupWidth = Math.min(240, Math.max(168, width - leftMargin - this.safeRightMargin - 24));
-        lockup.setDisplaySize(lockupWidth, lockupWidth / 5);
+        lockup.setDisplaySize(lockupWidth, lockupWidth * lockupBinding.display.height / lockupBinding.display.width);
       }
 
       if (snapshot.notice) {
@@ -1064,12 +1064,12 @@ export class MenuScene extends Phaser.Scene {
     snapshot.gunsmith.families.forEach((family) => {
       const label = `${family.name} Build`;
       const status = family.selected ? 'SELECTED' : family.existingBuildId ? 'CONFIGURED' : 'EMPTY — TAP TO CREATE';
-      const familyCard = this.addButton(root, margin, y, label, 82, () => this.render(family.existingBuildId
+      const familyCard = this.addButton(root, margin, y, label, 92, () => this.render(family.existingBuildId
         ? this.requireController().selectGunBuild(family.existingBuildId)
-        : this.requireController().createGunBuild(family.id)), 'ui:confirm', width - margin - this.safeRightMargin, undefined, 8, 76, true);
+        : this.requireController().createGunBuild(family.id)), 'ui:confirm', width - margin - this.safeRightMargin, undefined, 8, 88, true);
       const rowOwnerIndex = this.focusables.length - 1;
-      this.addCatalogIcon(root, margin + 38, y + 41, family.iconArtId, 56, rowOwnerIndex);
-      const statusCopy = this.own(root, createUiText(this, margin + 76, y + 42, status, {
+      this.addCatalogIcon(root, margin + 43, y + 46, family.iconArtId, 68, rowOwnerIndex);
+      const statusCopy = this.own(root, createUiText(this, margin + 88, y + 48, status, {
         color: family.selected ? '#86efac' : '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`, fontStyle: '700',
       }));
       statusCopy.setScrollFactor(0);
@@ -1091,23 +1091,29 @@ export class MenuScene extends Phaser.Scene {
       this.registerScrollObject(buildHeader);
       y += buildHeader.height + 12;
       if (selected.preview) {
-        const previewHeight = 76;
-        const weaponX = margin + 52;
-        const weaponY = y + 24;
-        this.addCatalogIcon(root, weaponX, weaponY, selected.preview.baseArtId, 96);
-        selected.preview.layers.forEach((layer) => this.addCatalogIcon(root, weaponX, weaponY, layer.artId, 96));
+        const previewHeight = 142;
+        const previewWidth = width - margin - this.safeRightMargin;
+        const previewPanel = this.uiVisuals?.addPanel(this, this.safeCenterX, y + previewHeight / 2, previewWidth, previewHeight, 'card', { alpha: 0.82 });
+        if (previewPanel) {
+          this.own(root, previewPanel);
+          this.registerScrollObject(previewPanel);
+        }
+        const weaponX = this.safeCenterX;
+        const weaponY = y + 48;
+        this.addCatalogIcon(root, weaponX, weaponY, selected.preview.baseArtId, 176);
+        selected.preview.layers.forEach((layer) => this.addCatalogIcon(root, weaponX, weaponY, layer.artId, 176));
         selected.preview.traitCores.forEach((core, index) => {
-          this.addCatalogIcon(root, margin + 122 + index * 42, weaponY, core.iconArtId, 34);
+          this.addCatalogIcon(root, margin + 30 + index * 52, y + 30, core.iconArtId, 44);
         });
         selected.preview.traitEmblems.forEach((trait, index) => {
-          this.addCatalogIcon(root, width - this.safeRightMargin - 18 - index * 30, weaponY, trait.iconArtId, 24);
+          this.addCatalogIcon(root, width - this.safeRightMargin - 24 - index * 40, y + 30, trait.iconArtId, 34);
         });
-        const summary = this.own(root, createUiText(this, margin, y + 50, selected.summary, {
+        const summary = this.own(root, createUiText(this, this.safeCenterX, y + 100, selected.summary, {
           color: '#f7f1d5', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
-          wordWrap: { width: width - margin - this.safeRightMargin },
-        }));
+          align: 'center', wordWrap: { width: previewWidth - 24 },
+        })).setOrigin(0.5, 0);
         this.registerScrollObject(summary);
-        y += Math.max(previewHeight, 50 + summary.height) + 10;
+        y += Math.max(previewHeight, 104 + summary.height) + 12;
       } else {
         const summary = this.own(root, createUiText(this, margin, y, selected.summary, {
           color: '#f7f1d5', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
@@ -1117,14 +1123,14 @@ export class MenuScene extends Phaser.Scene {
         y += summary.height + 10;
       }
       snapshot.gunsmith.slots.forEach((slot) => {
-        const slotHeading = this.own(root, createUiText(this, margin, y, slot.slot === 'trait'
+        const slotHeading = this.own(root, createUiText(this, margin + 42, y + 4, slot.slot === 'trait'
           ? `${slot.label.toUpperCase()} ${slot.candidates.filter((part) => part.state === 'fitted-here').length} / 2`
           : slot.label.toUpperCase(), {
           color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
         }));
         this.registerScrollObject(slotHeading);
-        this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + slotHeading.height / 2, slot.iconArtId, 24);
-        y += slotHeading.height + 4;
+        this.addCatalogIcon(root, margin + 18, y + 16, slot.iconArtId, 32);
+        y += Math.max(slotHeading.height + 8, 36);
         if (slot.unavailableFitted) {
           const row = this.addButton(root, margin, y, `${slot.unavailableFitted.label}\nREMOVE UNAVAILABLE PART`, hitTarget,
             () => this.render(this.requireController().removeUnavailableGunPart(slot.unavailableFitted!.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin);
@@ -1144,15 +1150,16 @@ export class MenuScene extends Phaser.Scene {
             : gunsmithPartActionCopy(part);
           const label = `${part.name} T${part.tier} • ${part.state === 'fitted-here' ? 'FITTED' : part.state === 'fitted-elsewhere' ? `FITTED TO ${part.assignedBuildName?.toUpperCase() ?? 'ANOTHER BUILD'}` : part.state === 'owned-unfitted' ? 'OWNED' : 'UNAVAILABLE'}\n${[...part.effectLines, ...part.traitLines.map((trait) => `${trait} trait`)].join(' • ') || 'No stat change'}\n${action}`;
           const enabled = part.state !== 'incompatible';
-          const iconColumn = 38 + part.traitIcons.length * 28;
-          const row = this.addButton(root, margin, y, label, hitTarget, () => this.render(part.state === 'fitted-here'
+          const iconColumn = 68 + part.traitIcons.length * 38;
+          const partRowHeight = Math.max(hitTarget, 76);
+          const row = this.addButton(root, margin, y, label, partRowHeight, () => this.render(part.state === 'fitted-here'
             ? this.requireController().unequipGunPart(part.instanceId)
-            : this.requireController().fitGunPart(part.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin, undefined, iconColumn);
+            : this.requireController().fitGunPart(part.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin, undefined, 0, iconColumn);
           const rowOwnerIndex = this.focusables.length - 1;
           if (!enabled) this.disableButton(row);
-          this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + hitTarget / 2, part.iconArtId, 26, rowOwnerIndex);
+          this.addCatalogIcon(root, margin + 30, y + partRowHeight / 2, part.iconArtId, 52, rowOwnerIndex);
           part.traitIcons.forEach((trait, index) => {
-            this.addCatalogIcon(root, width - this.safeRightMargin - 46 - index * 28, y + hitTarget / 2, trait.iconArtId, 22, rowOwnerIndex);
+            this.addCatalogIcon(root, width - this.safeRightMargin - 24 - index * 38, y + partRowHeight / 2, trait.iconArtId, 32, rowOwnerIndex);
           });
           y += row.height + 8;
         });
@@ -1164,10 +1171,10 @@ export class MenuScene extends Phaser.Scene {
         this.registerScrollObject(workshop);
         y += workshop.height + 4;
         snapshot.gunsmith.workshop.forEach((recipe) => {
-          const row = this.addButton(root, margin, y, recipe.label, hitTarget,
+          const row = this.addButton(root, margin, y, recipe.label, Math.max(hitTarget, 62),
             () => this.render(recipe.kind === 'merge'
               ? this.requireController().beginGunMerge(recipe.groupId)
-              : this.requireController().requestGunWorkshop({ kind: 'infuse', targetInstanceId: recipe.targetInstanceId, traitInstanceId: recipe.traitInstanceId })), 'ui:confirm', width - margin - this.safeRightMargin);
+              : this.requireController().requestGunWorkshop({ kind: 'infuse', targetInstanceId: recipe.targetInstanceId, traitInstanceId: recipe.traitInstanceId })), 'ui:confirm', width - margin - this.safeRightMargin, 'ui-chrome:merge');
           y += row.height + 8;
         });
       }
@@ -1212,16 +1219,17 @@ export class MenuScene extends Phaser.Scene {
       this.registerScrollObject(catalogHeading);
       y += catalogHeading.height + 4;
       snapshot.gunsmith.catalog.forEach((part) => {
-        const iconColumn = 38 + part.traitIcons.length * 28;
+        const iconColumn = 68 + part.traitIcons.length * 38;
         const detail = [part.lockReason, part.sourceLabel].filter((line) => line !== undefined).join(' ');
         const label = `${part.name} • ${part.rarity.toUpperCase()}\n${part.stateLabel}\n${part.effectLines.join(' • ') || 'Trait engineering'}\n${part.comparisonSummary}\n${detail}${part.fabricationActionLabel === undefined ? '' : `\n${part.fabricationActionLabel}`}`;
-        const row = this.addButton(root, margin, y, label, hitTarget,
-          () => this.render(this.requireController().fabricateGunPart(part.partId)), 'ui:confirm', width - margin - this.safeRightMargin, undefined, iconColumn);
+        const catalogRowHeight = Math.max(hitTarget, 92);
+        const row = this.addButton(root, margin, y, label, catalogRowHeight,
+          () => this.render(this.requireController().fabricateGunPart(part.partId)), 'ui:confirm', width - margin - this.safeRightMargin, undefined, 0, iconColumn);
         const rowOwnerIndex = this.focusables.length - 1;
         if (!part.canFabricate) this.disableButton(row);
-        this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + hitTarget / 2, part.iconArtId, 26, rowOwnerIndex);
+        this.addCatalogIcon(root, margin + 30, y + catalogRowHeight / 2, part.iconArtId, 52, rowOwnerIndex);
         part.traitIcons.forEach((trait, index) => {
-          this.addCatalogIcon(root, width - this.safeRightMargin - 46 - index * 28, y + hitTarget / 2, trait.iconArtId, 22, rowOwnerIndex);
+          this.addCatalogIcon(root, width - this.safeRightMargin - 24 - index * 38, y + catalogRowHeight / 2, trait.iconArtId, 32, rowOwnerIndex);
         });
         y += row.height + 8;
       });

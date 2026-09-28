@@ -110,6 +110,8 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
   const canvas = page.locator('#game-root canvas');
   await expect(canvas).toBeVisible();
   await expect.poll(() => requestedAssets.some((path) => path.endsWith('/ui-atlas.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
+  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/menu-junkyard.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
+  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/enemy-portraits-atlas.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
   await expect(page).toHaveScreenshot('home.png', { animations: 'disabled' });
@@ -136,6 +138,12 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
   await expect(page).toHaveScreenshot('loadout-equipment.png', { animations: 'disabled' });
+
+  await page.reload();
+  await showMenu(page, 'gunsmith');
+  await expectMenuPresentationSettled(page);
+  await freezeAtStableFrame(page);
+  await expect(page).toHaveScreenshot('loadout-gunsmith.png', { animations: 'disabled' });
 
   await page.reload();
   await showMenu(page, 'achievements');
@@ -166,6 +174,55 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
   // the production enemy view itself is locked exactly in the crop below.
   await expect(page).toHaveScreenshot('gameplay.png', { animations: 'disabled', maxDiffPixels: 1_500 });
   await expectCenteredActor(page, 'ordinary-gameplay-actor.png');
+});
+
+test('stocked Gunsmith showcases assembled weapons, Parts, traits, and Workshop art', async ({ page }, testInfo) => {
+  test.setTimeout(45_000);
+  test.skip(!representativeProjects.has(testInfo.project.name));
+  await page.addInitScript(() => {
+    localStorage.setItem('meowcenary.save.v2', JSON.stringify({
+      version: 4,
+      settings: { muted: true, musicVolume: 0, sfxVolume: 0, reducedMotion: true },
+      progression: { scrap: 640, unlocks: [] },
+      stages: Object.fromEntries(
+        ['stage:junkyard-01', 'stage:junkyard-02', 'stage:junkyard-03', 'stage:junkyard-04', 'stage:junkyard-05']
+          .map((id) => [id, { completed: true, bestTimeMs: 60_000 }]),
+      ),
+      achievements: {}, achievementMetrics: {}, characters: {},
+      gunsmith: {
+        builds: [{
+          id: 'build:pistol', name: 'Junkyard Spark', baseWeaponFamily: 'pistol',
+          fitted: {
+            receiver: 'owned:receiver-heavy:1', barrel: 'owned:barrel-piercing:1',
+            optic: 'owned:optic-red-dot:1', trigger: 'owned:trigger-hair:1',
+          },
+          traitParts: ['owned:trait-fire:1'],
+        }],
+        selectedBuildId: 'build:pistol',
+        parts: {
+          'owned:receiver-heavy:1': { partId: 'part:receiver-heavy', tier: 2, infusedTraits: [] },
+          'owned:barrel-piercing:1': { partId: 'part:barrel-piercing', tier: 2, infusedTraits: [] },
+          'owned:optic-red-dot:1': { partId: 'part:optic-red-dot', tier: 1, infusedTraits: [] },
+          'owned:trigger-hair:1': { partId: 'part:trigger-hair', tier: 1, infusedTraits: [] },
+          'owned:trait-fire:1': { partId: 'part:trait-fire', tier: 2, infusedTraits: [] },
+          'owned:receiver-compact:1': { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] },
+          'owned:receiver-compact:2': { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] },
+        },
+        fabricationSerials: { 'part:receiver-compact': 2 },
+      },
+      equipment: {}, equipmentLoadout: {}, items: {}, bosses: {}, compendium: {},
+      pendingAchievementReports: [], appliedGrantTransactions: {}, grantTransactionFingerprints: {},
+    }));
+  });
+  await page.goto('/?visual-test=1');
+  await showMenu(page, 'gunsmith');
+  await expectMenuPresentationSettled(page);
+  await freezeAtStableFrame(page);
+  await expect(page).toHaveScreenshot('gunsmith-assembled.png', { animations: 'disabled' });
+  await resumeLoop(page);
+  for (let index = 0; index < 9; index += 1) await press(page, 'ArrowDown');
+  await freezeAtStableFrame(page);
+  await expect(page).toHaveScreenshot('gunsmith-parts.png', { animations: 'disabled' });
 });
 
 test('pause and Weapon Rack use the shared authored modal system', async ({ page }, testInfo) => {

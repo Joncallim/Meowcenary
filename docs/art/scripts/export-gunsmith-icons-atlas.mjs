@@ -20,12 +20,13 @@ const names = [
   'gun-slot-icon:underbarrel', 'gun-slot-icon:trait',
   'trait-icon:fire', 'trait-icon:explosive', 'trait-icon:piercing',
 ];
-const atlasFrames = Object.fromEntries(names.map((name, index) => [name, { frame: { x: index * 32, y: 0, w: 32, h: 32 } }]));
+const cell = 96;
+const atlasFrames = Object.fromEntries(names.map((name, index) => [name, { frame: { x: index * cell, y: 0, w: cell, h: cell } }]));
 const readPxo = (member, encoding) => execFileSync('unzip', ['-p', source, member], { encoding });
 const project = JSON.parse(readPxo('data.json', 'utf8'));
 const { size_x: width, size_y: height } = project;
-if (width !== names.length * 32 || height !== 32 || !Array.isArray(project.layers) || !Array.isArray(project.frames) || project.frames.length !== 1) {
-  throw new Error(`Gunsmith source must be one ${names.length * 32}x32 Pixelorama frame`);
+if (width !== names.length * cell || height !== cell || !Array.isArray(project.layers) || !Array.isArray(project.frames) || project.frames.length !== 1) {
+  throw new Error(`Gunsmith source must be one ${names.length * cell}x${cell} Pixelorama frame`);
 }
 const output = Buffer.alloc(width * height * 4);
 const alphaComposite = (destination, sourcePixels) => {

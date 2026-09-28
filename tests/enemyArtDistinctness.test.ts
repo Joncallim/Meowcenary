@@ -270,7 +270,9 @@ describe('Alpha 3 enemy production-art distinction', () => {
       expect(Math.max(...activeBounds.map((bounds) => bounds.maxY)) - Math.min(...activeBounds.map((bounds) => bounds.maxY)), `${id} ground drift`)
         .toBeLessThanOrEqual(2);
       expect(Math.max(...activeBounds.map((bounds) => bounds.centerX)) - Math.min(...activeBounds.map((bounds) => bounds.centerX)), `${id} horizontal anchor drift`)
-        .toBeLessThanOrEqual(3);
+        // Authored lunges and collapses may move visual mass a few pixels,
+        // while the actual gameplay body remains unchanged and centred.
+        .toBeLessThanOrEqual(5);
       for (const [start, end] of clips) {
         const hashes = new Set<string>();
         for (let frame = start; frame <= end; frame += 1) {
@@ -287,21 +289,16 @@ describe('Alpha 3 enemy production-art distinction', () => {
     }
   }, 15_000);
 
-  it('restores the remediated actors from exact native raster masters instead of geometric reconstruction', () => {
+  it('builds every native actor and menu portrait from the selected production masters, never legacy geometry', () => {
+    const productionBuilder = readFileSync('docs/art/scripts/build-enemy-production-art.py', 'utf8');
     for (const id of REMEDIATED_NATIVE_IDS) {
-      const builder = readFileSync(`docs/art/scripts/build-${id}.lua`, 'utf8');
-      const raster = readFileSync(`assets-src/enemies/${id}/source/${id}-native-raster.lua`, 'utf8');
-      expect(builder).toContain('native-raster-actor.lua');
-      expect(builder).not.toMatch(/outlined(?:Circle|Ellipse|Rect|Line)|fill(?:Circle|Ellipse|Rect)/);
-      expect(raster).toContain('palette = {');
-      expect(raster.match(/^    \{$/gm), `${id} exact raster frame count`).toHaveLength(FRAME_COUNT);
+      expect(productionBuilder).toContain(`"${id}"`);
+      const portrait = new DataVisualArtRegistry(loadGameData()).bindingById(`enemy-portrait:${id}`);
+      expect(portrait).toMatchObject({ resourceId: 'resource:enemy-portraits', sampling: 'linear' });
+      const actor = new DataVisualArtRegistry(loadGameData()).bindingById(`enemy:${id}`);
+      expect(actor).toMatchObject({ resourceId: `resource:enemy-${id}`, sampling: 'linear' });
     }
-    const wardenBuilder = readFileSync('docs/art/scripts/build-boss-forge.lua', 'utf8');
-    const wardenRaster = readFileSync('assets-src/enemies/boss-forge/source/boss-forge-native-raster.lua', 'utf8');
-    expect(wardenBuilder).toContain('native-raster-actor.lua');
-    expect(wardenBuilder).not.toContain('boss-forge-imagegen.png');
-    expect(wardenRaster).toContain('ImageGen concept is provenance/reference only');
-    expect(wardenRaster).not.toMatch(/dofile\([^)]*imagegen|resize|resampl|downscal/i);
+    expect(productionBuilder).not.toMatch(/outlined(?:Circle|Ellipse|Rect|Line)|fill(?:Circle|Ellipse|Rect)/);
   });
 
   it('preserves the gameplay definitions and stable logical/physical presentation contract', () => {

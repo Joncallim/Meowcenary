@@ -10,8 +10,9 @@ visual approval.
   concept/provenance boards named below.
 - Canonical phone review size: 390×844. Foldable/tablet and desktop comparison
   sizes are 1114×720 and 1280×720.
-- Actor comparisons use the actual display sizes produced by the game, nearest
-  sampling, and the existing #190 responsive camera/layout model.
+- Actor comparisons use the actual display sizes produced by the game, the
+  reviewed linear sampling required by the selected high-detail production
+  masters, and the existing #190 responsive camera/layout model.
 - A valid result needs all three links in the chain: selected reference,
   editable source, and the runtime capture. Loading or manifest parity alone
   is not visual acceptance.
@@ -28,16 +29,16 @@ visual approval.
 | Scrap Weasel | 20px-tall / 6-pose geometric approximation | restored native 48×48 pixel master, 16-frame PXO | selected Alpha 3 roster direction B |
 | Rattle Raptor | 20px-tall / 6-pose geometric approximation | restored native 48×48 pixel master, 16-frame PXO | selected Alpha 3 roster direction B |
 | Piston Ram | 23px-tall / 5-pose geometric approximation | restored native 48×48 pixel master, 16-frame PXO | selected Alpha 3 roster direction B |
-| Dust Mite | geometric approximation | 48×48, 16-frame PXO | Epic 13 / enemy production direction B |
-| Junk Rusher | geometric approximation | 48×48, 16-frame PXO | Epic 13 actor direction |
-| Trash Brute | geometric approximation | 48×48, 16-frame PXO | Epic 13 actor direction |
-| Scrap Sniper | geometric approximation | 48×48, 16-frame PXO | enemy production direction B |
-| Scrap Skitter | 313×313 generated import | 48×48, 16-frame PXO | §11 authored silhouette |
-| Bastion Beetle | 313×313 generated import | 48×48, 16-frame PXO | §11 authored silhouette |
-| Junk Nester | 313×313 generated import | 48×48, 16-frame PXO | §11 authored silhouette |
-| Shard Bot | 313×313 generated import | 48×48, 16-frame PXO | §11 authored silhouette |
-| Scrap Crusher | geometric approximation at ordinary-enemy display scale | 64×64, 16-frame PXO; 38×38 boss display | enemy production direction B |
-| Forge Warden | 309×309 generated import | 64×64, 16-frame PXO | §11 authored silhouette |
+| Dust Mite | geometric approximation | selected master → 48×48, 16-frame PXO | Epic 13 / enemy production direction B |
+| Junk Rusher | geometric approximation | selected master → 48×48, 16-frame PXO | Epic 13 actor direction |
+| Trash Brute | geometric approximation | selected master → 48×48, 16-frame PXO | Epic 13 actor direction |
+| Scrap Sniper | geometric approximation | selected master → 48×48, 16-frame PXO | enemy production direction B |
+| Scrap Skitter | 313×313 generated runtime import | selected master → 48×48, 16-frame PXO | §11 silhouette brief |
+| Bastion Beetle | 313×313 generated runtime import | selected master → 48×48, 16-frame PXO | §11 silhouette brief |
+| Junk Nester | 313×313 generated runtime import | selected master → 48×48, 16-frame PXO | §11 silhouette brief |
+| Shard Bot | 313×313 generated runtime import | selected master → 48×48, 16-frame PXO | §11 silhouette brief |
+| Scrap Crusher | geometric approximation at ordinary-enemy display scale | selected master → 64×64, 16-frame PXO; 38×38 boss display | enemy production direction B |
+| Forge Warden | 309×309 generated runtime import | selected master → 64×64, 16-frame PXO | §11 silhouette brief |
 
 The “before” classification is intentionally evidence-based rather than
 inferred from filenames: the former character and native enemy builders drew
@@ -60,15 +61,12 @@ The builders restore the exact checked-in native raster for audit/source
 parity; they do not procedurally reconstruct actor silhouettes from geometric
 shapes.
 
-The four former 313px ordinary-enemy imports were reauthored directly on the
-48px grid. Their approximate live idle bounds improved from 16×9 to 22×18
-(Skitter), 16×12 to 26×22 (Beetle), 15×13 to 24×23 (Nester), and 15×10 to
-18×21 (Shard Bot). Forge Warden was independently authored across all 16
-frames on the 64px production grid; the selected generated sheet remains
-reference/provenance and is not an export input. Its idle silhouette is a
-margin-safe 59×56 and occupies about 37×35 live pixels, versus Crusher's low
-33×23 footprint.
-All ten release enemies now participate in the all-frame crop, anchor, motion,
+All ten selected enemy masters now pass through one deterministic importer.
+It preserves their authored 4×4 pose grid while producing native 48×48
+ordinary and 64×64 boss Pixelorama/runtime sheets with one common ground
+datum. A separate 256px-per-entry portrait atlas feeds Contract threat strips
+and Compendium cards, so those surfaces no longer upscale a 26px gameplay
+actor. All ten release enemies participate in all-frame crop, anchor, motion,
 display-scale distinction, editable-source, and runtime-parity regressions.
 
 ## Side-by-side review set
@@ -89,6 +87,9 @@ Runtime captures and committed screenshot baselines:
 - `browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-lower-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/contract-selection-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/loadout-equipment-*.png`
+- `browser-tests/visual-fidelity.pw.ts-snapshots/loadout-gunsmith-*.png`
+- `browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-assembled-*.png`
+- `browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-parts-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/achievements-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/settings-*.png`
 - `browser-tests/visual-fidelity.pw.ts-snapshots/gameplay-*.png`
@@ -153,7 +154,12 @@ The numbered path below is the repeatable audit journey used at 390×844,
    column; ability, passive, and weapon art remain secondary.
 4. **Loadout / Equipment / Gunsmith** — selected identity, equipment pieces,
    blueprints, chassis, and part art are shown at card scale instead of being
-   treated as utility glyphs. Text is grouped beside the visual it explains.
+   treated as utility glyphs. The selected Direction B Gunsmith board now owns
+   the 12 Part icons, eight slot glyphs, and three trait emblems. The assembled
+   weapon is the visual focal point; stocked desktop, foldable and phone
+   regressions prove the fitted/owned/incompatible and Workshop surfaces with
+   live domain state rather than an empty fixture. Text is grouped beside the
+   visual it explains and reserves both icon columns on narrow phones.
 5. **Career / Next Goals / Achievements / Compendium** — hub actions share the
    larger illustrated navigation system; goals use illustrated cards and keep
    their actionable requirement in compact landscape. All ten active
@@ -182,18 +188,23 @@ The numbered path below is the repeatable audit journey used at 390×844,
    unchanged. A dedicated full-scene Forge regression complements the existing
    phone/foldable/desktop Junkyard captures.
 
+The approved Figma Clean Master is also integrated without redrawing: the
+editable SVG and exact export are preserved under `assets-src/ui/brand`, a
+deterministic importer emits the primary, title, emblem, monochrome and browser
+derivatives, and the real menu plus favicon consume those exports. The locked
+runtime typeface remains the self-hosted Nunito family; the isolated “Inter”
+acceptance bullet in the cutover handoff conflicts with—and is superseded
+by—the explicit locked Nunito section.
+
 Health after remediation: **good candidate for product-owner visual review**.
 All interactive targets retain the repository's 44 px physical minimum;
 keyboard/controller focus uses the same logical rows as touch; text wrapping
 and safe-area containment remain covered by the existing layout tests. Menu
-copy uses the browser's native system UI stack at doubled canvas resolution,
-with button labels optically centred between their leading illustration and
-trailing direction marker. The
-remaining limitation is subjective physical-device judgement of density and
-colour at the owner's actual viewing distance. The interface uses self-hosted
-Nunito for readable rounded body and action text while retaining the bespoke
-pixel title lockup; card copy is vertically centred and optically centred in
-the content column between its artwork and trailing action marker.
+copy uses self-hosted Nunito at doubled canvas resolution, with button labels
+optically centred between their leading illustration and trailing direction
+marker. The remaining limitation is subjective physical-device judgement of
+density and colour at the owner's actual viewing distance. The approved clean
+vector wordmark remains artwork rather than recreated text.
 
 Additional deterministic evidence:
 

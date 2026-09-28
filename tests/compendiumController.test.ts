@@ -24,7 +24,7 @@ describe('CompendiumController presentation', () => {
     context.recordCompendiumDiscovery('dust-mite', 'encountered');
     const snapshot = controller.snapshot();
     expect(snapshot.entries.find((entry) => entry.enemyId === 'dust-mite')).toMatchObject({
-      name: 'Dust Mite', status: 'encountered', actorArtId: 'enemy:dust-mite',
+      name: 'Dust Mite', status: 'encountered', actorArtId: 'enemy-portrait:dust-mite',
     });
     const unseen = snapshot.entries.find((entry) => entry.status === 'unseen')!;
     expect(unseen.actorArtId).toBeUndefined();
@@ -38,7 +38,7 @@ describe('CompendiumController presentation', () => {
     context.recordCompendiumDiscovery(elite.id, 'encountered');
 
     expect(controller.snapshot().entries.find((entry) => entry.enemyId === elite.id)).toMatchObject({
-      name: elite.name, status: 'encountered', actorArtId: 'enemy:dust-mite',
+      name: elite.name, status: 'encountered', actorArtId: 'enemy-portrait:dust-mite',
     });
   });
 });

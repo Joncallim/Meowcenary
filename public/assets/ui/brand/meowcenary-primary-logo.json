@@ -1,0 +1,23 @@
+{
+  "export_directory_path": "",
+  "export_file_name": "meowcenary-primary-logo",
+  "size_x": 892,
+  "size_y": 632,
+  "frames": [
+    {
+      "cels": [
+        {
+          "opacity": 1
+        }
+      ],
+      "duration": 1
+    }
+  ],
+  "layers": [
+    {
+      "name": "approved Figma Clean Master",
+      "visible": true
+    }
+  ],
+  "tags": []
+}
