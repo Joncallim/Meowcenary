@@ -273,7 +273,7 @@ export class PhaserPauseView {
         height / 2,
         modalWidth,
         modalHeight,
-        'modal',
+        'panel',
         { alpha: 0.92, depth: ThemeDepth.pauseSummary + 1 },
       ) : undefined;
       if (modalFrame) root.add(modalFrame);

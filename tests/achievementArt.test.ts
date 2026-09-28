@@ -20,7 +20,7 @@ const ACTIVE_ACHIEVEMENT_ICON_IDS = [
 ] as const;
 const ALL_ACHIEVEMENT_ICON_IDS = ['achievement-icon:hidden', ...ACTIVE_ACHIEVEMENT_ICON_IDS] as const;
 
-function decodeUnfilteredRgbaPng(path: string): { width: number; height: number; pixels: Buffer } {
+function decodeRgbaPng(path: string): { width: number; height: number; pixels: Buffer } {
   const png = readFileSync(path);
   const width = png.readUInt32BE(16);
   const height = png.readUInt32BE(20);
@@ -34,23 +34,37 @@ function decodeUnfilteredRgbaPng(path: string): { width: number; height: number;
   const rows = inflateSync(Buffer.concat(idat));
   const pixels = Buffer.alloc(width * height * 4);
   const stride = width * 4 + 1;
+  const bytesPerPixel = 4;
   for (let y = 0; y < height; y += 1) {
-    expect(rows[y * stride]).toBe(0);
-    rows.copy(pixels, y * width * 4, y * stride + 1, (y + 1) * stride);
+    const filter = rows[y * stride]!;
+    if (filter > 4) throw new Error(`unsupported PNG filter ${filter}`);
+    for (let x = 0; x < width * bytesPerPixel; x += 1) {
+      const encoded = rows[y * stride + 1 + x]!;
+      const left = x >= bytesPerPixel ? pixels[y * width * bytesPerPixel + x - bytesPerPixel]! : 0;
+      const above = y > 0 ? pixels[(y - 1) * width * bytesPerPixel + x]! : 0;
+      const upperLeft = y > 0 && x >= bytesPerPixel ? pixels[(y - 1) * width * bytesPerPixel + x - bytesPerPixel]! : 0;
+      const estimate = left + above - upperLeft;
+      const leftDistance = Math.abs(estimate - left);
+      const aboveDistance = Math.abs(estimate - above);
+      const diagonalDistance = Math.abs(estimate - upperLeft);
+      const paeth = leftDistance <= aboveDistance && leftDistance <= diagonalDistance ? left : aboveDistance <= diagonalDistance ? above : upperLeft;
+      const predictor = filter === 0 ? 0 : filter === 1 ? left : filter === 2 ? above : filter === 3 ? Math.floor((left + above) / 2) : paeth;
+      pixels[y * width * bytesPerPixel + x] = (encoded + predictor) & 0xff;
+    }
   }
   return { width, height, pixels };
 }
 
-function framePixels(pixels: Buffer, atlasWidth: number, x: number, y: number): Buffer {
-  const output = Buffer.alloc(32 * 32 * 4);
-  for (let row = 0; row < 32; row += 1) {
-    pixels.copy(output, row * 32 * 4, ((y + row) * atlasWidth + x) * 4, ((y + row) * atlasWidth + x + 32) * 4);
+function framePixels(pixels: Buffer, atlasWidth: number, x: number, y: number, size: number): Buffer {
+  const output = Buffer.alloc(size * size * 4);
+  for (let row = 0; row < size; row += 1) {
+    pixels.copy(output, row * size * 4, ((y + row) * atlasWidth + x) * 4, ((y + row) * atlasWidth + x + size) * 4);
   }
   return output;
 }
 
 describe('dedicated Achievement production art', () => {
-  it('covers the exact active catalog plus hidden fallback with one dedicated nearest atlas', () => {
+  it('covers the exact active catalog plus hidden fallback with one dedicated presentation atlas', () => {
     const data = loadGameData();
     expect(data.achievements?.map((achievement) => achievement.presentation.iconArtId).sort())
       .toEqual([...ACTIVE_ACHIEVEMENT_ICON_IDS].sort());
@@ -60,39 +74,37 @@ describe('dedicated Achievement production art', () => {
     expect(bindings.map((binding) => binding.id).sort()).toEqual([...ALL_ACHIEVEMENT_ICON_IDS].sort());
     expect(new Set(bindings.map((binding) => binding.resourceId))).toEqual(new Set(['resource:achievement-icons']));
     expect(new Set(bindings.map((binding) => binding.frameKey))).toEqual(new Set(ALL_ACHIEVEMENT_ICON_IDS));
-    expect(bindings.every((binding) => binding.load.type === 'atlas' && binding.sampling === 'nearest')).toBe(true);
+    expect(bindings.every((binding) => binding.load.type === 'atlas' && binding.sampling === 'linear')).toBe(true);
     expect(bindings.every((binding) => !binding.resourceId?.includes('upgrade-icon'))).toBe(true);
   });
 
-  it('keeps source, builder, Pixelorama and 32px named-frame export in parity', () => {
-    expect(() => execFileSync('node', ['docs/art/scripts/verify-achievement-builder-parity.mjs']))
-      .not.toThrow();
-    expect(() => execFileSync('node', ['docs/art/scripts/export-achievement-icons-atlas.mjs', '--check']))
+  it('keeps the approved source board, editable Pixelorama source and named-frame export in parity', () => {
+    expect(() => execFileSync('python3', ['docs/art/scripts/build-achievement-concept-atlas.py', '--check']))
       .not.toThrow();
     const atlas = JSON.parse(readFileSync('public/assets/achievements/achievement-icons-atlas.json', 'utf8')) as {
       size_x: number;
       size_y: number;
       frames: Record<string, { frame: { x: number; y: number; w: number; h: number } }>;
     };
-    expect([atlas.size_x, atlas.size_y]).toEqual([352, 32]);
+    expect([atlas.size_x, atlas.size_y]).toEqual([2112, 192]);
     expect(Object.keys(atlas.frames).sort()).toEqual([...ALL_ACHIEVEMENT_ICON_IDS].sort());
-    expect(Object.values(atlas.frames).every(({ frame }) => frame.w === 32 && frame.h === 32)).toBe(true);
+    expect(Object.values(atlas.frames).every(({ frame }) => frame.w === 192 && frame.h === 192)).toBe(true);
   });
 
   it('keeps every badge nonidentical with distinct boss/chapter/victory silhouettes and grayscale reads', () => {
     const atlas = JSON.parse(readFileSync('public/assets/achievements/achievement-icons-atlas.json', 'utf8')) as {
       frames: Record<string, { frame: { x: number; y: number } }>;
     };
-    const { width, height, pixels } = decodeUnfilteredRgbaPng('public/assets/achievements/achievement-icons-atlas.png');
-    expect([width, height]).toEqual([352, 32]);
+    const { width, height, pixels } = decodeRgbaPng('public/assets/achievements/achievement-icons-atlas.png');
+    expect([width, height]).toEqual([2112, 192]);
     const pixelHashes = new Set<string>();
     const silhouetteHashes = new Map<string, string>();
     const grayscaleHashes = new Map<string, string>();
     for (const id of ALL_ACHIEVEMENT_ICON_IDS) {
       const { x, y } = atlas.frames[id]!.frame;
-      const frame = framePixels(pixels, width, x, y);
-      const alphaBits = Buffer.alloc(32 * 32);
-      const grayBytes = Buffer.alloc(32 * 32);
+      const frame = framePixels(pixels, width, x, y, 192);
+      const alphaBits = Buffer.alloc(192 * 192);
+      const grayBytes = Buffer.alloc(192 * 192);
       let opaquePixels = 0;
       for (let index = 0; index < frame.length; index += 4) {
         const alpha = frame[index + 3]!;
@@ -100,8 +112,8 @@ describe('dedicated Achievement production art', () => {
         if (alpha > 0) opaquePixels += 1;
         grayBytes[index / 4] = Math.round(frame[index]! * 0.299 + frame[index + 1]! * 0.587 + frame[index + 2]! * 0.114);
       }
-      expect(opaquePixels, `${id} should read at actual icon scale`).toBeGreaterThanOrEqual(90);
-      expect(opaquePixels, `${id} should retain negative space`).toBeLessThanOrEqual(760);
+      expect(opaquePixels, `${id} should read at actual icon scale`).toBeGreaterThanOrEqual(8_000);
+      expect(opaquePixels, `${id} should retain negative space`).toBeLessThanOrEqual(36_000);
       pixelHashes.add(createHash('sha256').update(frame).digest('hex'));
       silhouetteHashes.set(id, createHash('sha256').update(alphaBits).digest('hex'));
       grayscaleHashes.set(id, createHash('sha256').update(grayBytes).digest('hex'));

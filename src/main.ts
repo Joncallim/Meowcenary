@@ -146,6 +146,59 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
           y: camera.y + (focusedActorWorldPoint.y - camera.worldView.y) * camera.zoom,
         };
       },
+      showUpgradeChooser: (): boolean => {
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          runState?: { status: string };
+          getContext?(): { bus: { emit(event: string, payload: unknown): void } };
+        };
+        if (scene.runState?.status !== 'active' || !scene.getContext) return false;
+        scene.getContext().bus.emit('level:up', { level: 2 });
+        return true;
+      },
+      showExtraction: (): boolean => {
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          controlsView?: { setExtractionState(active: boolean): void };
+          scene?: { pause(): void };
+        };
+        if (!scene.controlsView) return false;
+        scene.controlsView.setExtractionState(true);
+        scene.scene?.pause();
+        return true;
+      },
+      showRunSummary: (outcome: 'won' | 'lost'): boolean => {
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          runState?: {
+            status: string;
+            timeMs: number;
+            level: number;
+            kills: number;
+            currency: number;
+          };
+          terminalSettlement?: unknown;
+          completedAchievementNames?: string[];
+          completedAchievements?: unknown[];
+          newlyAvailableNames?: string[];
+          getContext?(): { bus: { emit(event: string, payload: unknown): void } };
+        };
+        const run = scene.runState;
+        if (!run || !scene.getContext) return false;
+        Object.assign(run, { status: outcome, timeMs: 83_420, level: 6, kills: 47, currency: 86 });
+        scene.terminalSettlement = Object.freeze({
+          ok: true,
+          terminalApplied: true,
+          runScrapBanked: 86,
+          firstClear: outcome === 'won',
+          bestTimeImproved: outcome === 'won',
+          firstClearScrap: outcome === 'won' ? 35 : 0,
+          persistentGrantIds: Object.freeze(outcome === 'won' ? ['part:standard-barrel:t1'] : []),
+          achievementIdsCompleted: Object.freeze([]),
+        });
+        scene.completedAchievementNames = [];
+        scene.completedAchievements = [];
+        scene.newlyAvailableNames = outcome === 'won' ? ['Standard Barrel T1'] : [];
+        scene.getContext().bus.emit(outcome === 'won' ? 'run:won' : 'run:lost', {});
+        return true;
+      },
       showMenu: (panel: string): boolean => {
         const scene = game.scene.getScene('MenuScene') as unknown as {
           controller?: { open(panel: string): unknown };

@@ -37,7 +37,8 @@ export function createUiVisualChrome(visualArt: VisualArtLookup): UiVisualChrome
     if (!resolved || !scene.textures?.exists(resolved.textureKey) || typeof scene.add?.image !== 'function') return undefined;
     const image = scene.add.image(x, y, resolved.textureKey, options.frame ?? resolved.frameKey);
     const size = options.size ?? Math.min(resolved.display.width, resolved.display.height);
-    image.setDisplaySize(size, size);
+    const scale = size / Math.max(resolved.display.width, resolved.display.height);
+    image.setDisplaySize(resolved.display.width * scale, resolved.display.height * scale);
     image.setAlpha(options.alpha ?? 1);
     image.setScrollFactor(options.scrollFactor ?? 0);
     if (options.depth !== undefined) image.setDepth(options.depth);

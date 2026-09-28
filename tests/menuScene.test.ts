@@ -702,7 +702,7 @@ describe('MenuScene', () => {
       pressDown(count - 1);
       expect(scene.navigator.index).toBe(count - 1);
       expect(scene.scrollRegion?.scrollOffset).toBeGreaterThan(0);
-      const liveRows = harness.objects.filter((object) => object.state.kind === 'text' && object.state.handlers.pointerup && !object.state.destroyed && object.state.text !== '< Back');
+      const liveRows = harness.objects.filter((object) => object.state.kind === 'text' && object.state.handlers.pointerup && !object.state.destroyed && object.state.text !== 'Back');
       expect(liveRows[0]!.state.interactive).toBe(false);
       expect(scene.focusables[count - 1]!.state.interactive).toBe(true);
       for (const entry of scene.scrollObjects.filter((item) => item.ownerIndex !== undefined)) {
@@ -718,10 +718,9 @@ describe('MenuScene', () => {
     });
     const achievementRows = repeat(base.achievements.achievements, 40, (item, index) => ({ ...item, id: `achievement-${index}`, name: `Achievement ${index}` }));
     scene.render({ ...base, panel: 'achievements', achievements: { ...base.achievements, achievements: achievementRows } });
-    // Gallery is a real two-column grid: keyboard right chooses a card in
-    // the row and down preserves its column all the way to the last row.
-    harness.keyboard.keydown('ArrowRight'); harness.menuScene.update(0, 16); harness.keyboard.keyup('ArrowRight'); harness.menuScene.update(0, 16);
-    for (let index = 0; index < 19; index += 1) {
+    // The phone gallery is deliberately one large badge per row so the
+    // approved art remains readable at its actual presentation size.
+    for (let index = 0; index < 39; index += 1) {
       harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16); harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
     }
     expect(scene.navigator.index).toBe(39);
@@ -786,10 +785,10 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Mercenary')!.state.handlers.pointerup!();
 
     expect(scene.addPanelArt).toHaveBeenCalledTimes(8);
-    expect(scene.addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'character-portrait:scrap-tabby', 76, false, false, expect.any(Number));
-    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'weapon-icon:pistol:t1', 30, expect.any(Number));
-    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'ability-icon:scrap-burst', 28, expect.any(Number));
-    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'passive-icon:scrap-hoarder', 22, expect.any(Number));
+    expect(scene.addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'character-portrait:scrap-tabby', 204, false, false, expect.any(Number));
+    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'weapon-icon:pistol:t1', 38, expect.any(Number));
+    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'ability-icon:scrap-burst', 34, expect.any(Number));
+    expect(scene.addCatalogIcon).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'passive-icon:scrap-hoarder', 30, expect.any(Number));
   });
 
   it('rerenders a still-current Mercenary panel after a partial lazy resource success', async () => {
@@ -1044,19 +1043,19 @@ describe('MenuScene', () => {
     harness.keyboard.keyup('ArrowRight'); harness.menuScene.update(0, 16);
     harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
     harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
-    expect(scene.navigator).toMatchObject({ index: 3, columns: 2 });
+    expect(scene.navigator).toMatchObject({ index: 1, columns: 1 });
 
     (harness.menuScene.scale as unknown as { width: number; height: number; displaySize: { width: number; height: number } }).width = 844;
     (harness.menuScene.scale as unknown as { height: number; displaySize: { width: number; height: number } }).height = 390;
     (harness.menuScene.scale as unknown as { displaySize: { width: number; height: number } }).displaySize = { width: 844, height: 390 };
     scene.handleResize();
-    expect(scene.navigator).toMatchObject({ index: 3, columns: 3 });
+    expect(scene.navigator).toMatchObject({ index: 1, columns: 3 });
 
     (harness.menuScene.scale as unknown as { width: number; height: number; displaySize: { width: number; height: number } }).width = 390;
     (harness.menuScene.scale as unknown as { height: number; displaySize: { width: number; height: number } }).height = 844;
     (harness.menuScene.scale as unknown as { displaySize: { width: number; height: number } }).displaySize = { width: 390, height: 844 };
     scene.handleResize();
-    expect(scene.navigator).toMatchObject({ index: 3, columns: 2 });
+    expect(scene.navigator).toMatchObject({ index: 1, columns: 1 });
   });
 
   it('treats a touch drag as scrolling, resets its baseline, and never activates the dragged row', () => {
@@ -1111,7 +1110,7 @@ describe('MenuScene', () => {
     expect(confirms).toEqual(['confirm']);
   });
 
-  it('projects injected top/bottom/side insets and keeps the hint and < Back inside the safe rect', () => {
+  it('projects injected top/bottom/side insets and keeps the hint and Back inside the safe rect', () => {
     const values: Record<string, string> = {
       '--safe-top': '59px', '--safe-right': '31px', '--safe-bottom': '21px', '--safe-left': '47px',
     };
@@ -1139,10 +1138,10 @@ describe('MenuScene', () => {
       expect(hint.state.y).toBe(viewport.canvasHeight - margin('bottom') - 14);
       expect(hint.state.x + hint.state.width).toBeLessThanOrEqual(viewport.canvasWidth - margin('right'));
 
-      // Sub-panel: < Back is anchored above the bottom margin band with its
+      // Sub-panel: Back is anchored above the bottom margin band with its
       // full bounds clear of the injected insets on every side.
       harness.buttonByLabel('Mercenary')!.state.handlers['pointerup']!();
-      const back = liveText('< Back');
+      const back = liveText('Back');
       expect(back.state.x).toBe(margin('left'));
       expect(back.state.y).toBe(viewport.canvasHeight - margin('bottom') - minimumHitTarget(viewport));
       expect(back.state.x + back.state.width).toBeLessThanOrEqual(viewport.canvasWidth - margin('right'));
@@ -1223,7 +1222,9 @@ describe('MenuScene', () => {
     expect(homeCopy).toBe('NEXT CONTRACT  •  Junkyard 1');
     expect(harness.textContents()).toContain('THREATS  Threat 0 • Threat 1 • Threat 2 • Threat 3 • +8 more');
     expect(harness.textContents().join(' ')).not.toContain('Threat 4');
-    expect(addPanelArt.mock.calls.filter((call) => call[3] === 'enemy:dust-mite')).toHaveLength(4);
+    // Home keeps the complete bounded threat preview as readable copy rather
+    // than shrinking four actor sheets into illegible decorative thumbnails.
+    expect(addPanelArt.mock.calls.filter((call) => call[3] === 'enemy:dust-mite')).toHaveLength(0);
     const safeBottom = 640 - edgeMargin(scene.currentViewport, 'bottom');
     const homeActions = harness.objects.filter((object) =>
       object.state.kind === 'text' && object.state.handlers.pointerup && !object.state.destroyed);
@@ -1277,11 +1278,11 @@ describe('MenuScene', () => {
   it('routes through one Loadout hub before Equipment or Gunsmith', () => {
     const harness = createHarness();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
-    expect(harness.textContents()).toEqual(expect.arrayContaining(['Loadout', 'Equipment', 'Gunsmith', '< Back']));
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['Loadout', 'Equipment', 'Gunsmith', 'Back']));
     expect(harness.textContents().some((text) => text.includes('Equipment 0/4 slots'))).toBe(true);
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     expect(harness.textContents()).toContain('AVAILABLE BLUEPRINTS');
-    harness.buttonByLabel('< Back')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Back')!.state.handlers.pointerup!();
     expect(harness.textContents()).toContain('Loadout');
   });
 
@@ -1403,7 +1404,7 @@ describe('MenuScene', () => {
     (harness.menuScene as unknown as { addPanelArt: typeof addPanelArt }).addPanelArt = addPanelArt;
     harness.buttonByLabel('Career')!.state.handlers.pointerup!();
     harness.buttonByLabel('Compendium')!.state.handlers.pointerup!();
-    expect(addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'enemy:dust-mite', 58, false, true, expect.any(Number));
+    expect(addPanelArt).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), 'enemy:dust-mite', 108, false, true, expect.any(Number));
   });
 
   it('keeps discovered Compendium copy inside the narrow safe edge after reserving its actor-art column', () => {
@@ -1432,10 +1433,10 @@ describe('MenuScene', () => {
       'Commando Helmet', 'Commando Set  •  Helmet', '+5% Fire Rate', 'FABRICATE  •  100 Scrap',
     ]));
     expect(addCatalogIcon).toHaveBeenCalledWith(
-      expect.anything(), expect.any(Number), expect.any(Number), 'equipment-icon:commando-helmet', 30, expect.any(Number),
+      expect.anything(), expect.any(Number), expect.any(Number), 'equipment-icon:commando-helmet', 60, expect.any(Number),
     );
     expect(addCatalogIcon).toHaveBeenCalledWith(
-      expect.anything(), expect.any(Number), expect.any(Number), 'equipment-set-icon:commando', 24, expect.any(Number),
+      expect.anything(), expect.any(Number), expect.any(Number), 'equipment-set-icon:commando', 34, expect.any(Number),
     );
   });
 
@@ -1628,7 +1629,7 @@ describe('MenuScene', () => {
     expect(seams.navigator.index).toBe(0);
 
     // The roster has two characters, so the last selectable row is 1
-    // (row 2 would be < Back).
+    // (row 2 would be Back).
     press('ArrowDown');
     expect(seams.navigator.index).toBe(1);
     press('Enter');
@@ -1646,7 +1647,7 @@ describe('MenuScene', () => {
       harness.keyboard.keyup(key);
       harness.menuScene.update(0, 16);
     };
-    // Home → Settings (row 6), then walk to < Back and return home.
+    // Home → Settings (row 6), then walk to Back and return home.
     for (let i = 0; i < 6; i += 1) press('ArrowDown');
     press('Enter');
     expect(seams.navigator.index).toBe(0);
@@ -1762,10 +1763,10 @@ describe('MenuScene', () => {
 
   it.each([
     { name: 'home', steps: 0, expected: ['Play Contract', 'Change Contract', 'Mercenary', 'Loadout', 'Career', 'Training', 'Settings'] },
-    { name: 'mercenary', steps: 2, expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', 'Volt Lynx 🔒', 'Brass Boar 🔒', 'Ember Cougar 🔒', 'Scrap Weasel 🔒', 'Rattle Raptor 🔒', 'Piston Ram 🔒', '< Back'] },
-    { name: 'career', steps: 4, expected: ['Next Goals', 'Achievements', 'Compendium', '< Back'] },
-    { name: 'training', steps: 5, expected: ['Start Training', '< Back'] },
-    { name: 'settings', steps: 6, expected: ['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', '< Back'] },
+    { name: 'mercenary', steps: 2, expected: ['✓ Scrap Tabby', 'Bolt Hound 🔒', 'Volt Lynx 🔒', 'Brass Boar 🔒', 'Ember Cougar 🔒', 'Scrap Weasel 🔒', 'Rattle Raptor 🔒', 'Piston Ram 🔒', 'Back'] },
+    { name: 'career', steps: 4, expected: ['Next Goals', 'Achievements', 'Compendium', 'Back'] },
+    { name: 'training', steps: 5, expected: ['Start Training', 'Back'] },
+    { name: 'settings', steps: 6, expected: ['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', 'Back'] },
 
   ])('registers the exact V4 focus-target order/count with exactly one FocusStroke ring (F6)', ({ steps, expected }) => {
     const harness = createHarness();
@@ -1829,7 +1830,7 @@ describe('MenuScene', () => {
     press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Compendium');
-    expect(harness.textContents()).toContain('< Back');
+    expect(harness.textContents()).toContain('Back');
     expect(seams.navigator.index).toBe(0);
   });
 
@@ -1902,7 +1903,7 @@ describe('MenuScene', () => {
       'assets/achievements/achievement-icons-atlas.json',
     ]]);
     expect(rendered).toHaveBeenCalledOnce();
-    expect(setFilter).toHaveBeenCalledWith(1);
+    expect(setFilter).not.toHaveBeenCalled();
 
     const images: Array<{ key: string; frame?: string }> = [];
     scene.add = { image: (_x, _y, key, frame) => {
@@ -2240,7 +2241,7 @@ describe('MenuScene', () => {
     for (let i = 0; i < 6; i += 1) press('ArrowDown');
     press('Enter');
     expect(harness.textContents()).toContain('Settings');
-    expect(buttonLabels()).toEqual(['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', '< Back']);
+    expect(buttonLabels()).toEqual(['Mute: Off', 'Music Volume: 70%', 'SFX Volume: 80%', 'Reduced Motion: Off', 'Back']);
     expect(seams.navigator.index).toBe(0);
 
     // Navigate through settings rows.
@@ -2289,7 +2290,7 @@ describe('MenuScene', () => {
     const harness = createHarness();
 
     harness.buttonByLabel('Mercenary')!.state.handlers['pointerup']!();
-    harness.buttonByLabel('< Back')!.state.handlers['pointerup']!();
+    harness.buttonByLabel('Back')!.state.handlers['pointerup']!();
     expect(harness.textContents()).toContain('Play Contract');
   });
 
@@ -2532,12 +2533,12 @@ describe('MenuScene UI command events', () => {
     expect(events).toEqual([]);
   });
 
-  it('emits ui:confirm for the panel button and ui:back for < Back, never a second confirm', () => {
+  it('emits ui:confirm for the panel button and ui:back for Back, never a second confirm', () => {
     const harness = createHarness();
     const events = recordEvents(harness.bus);
 
     harness.buttonByLabel('Mercenary')!.state.handlers['pointerup']!();
-    harness.buttonByLabel('< Back')!.state.handlers['pointerup']!();
+    harness.buttonByLabel('Back')!.state.handlers['pointerup']!();
 
     expect(events).toEqual(['ui:confirm', 'ui:back']);
   });

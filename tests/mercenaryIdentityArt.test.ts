@@ -37,9 +37,26 @@ function decodeUnfilteredRgbaPng(path: string): { width: number; height: number;
   const rows = inflateSync(Buffer.concat(idat));
   const pixels = Buffer.alloc(width * height * 4);
   const stride = width * 4 + 1;
+  const bytesPerPixel = 4;
   for (let y = 0; y < height; y += 1) {
-    expect(rows[y * stride]).toBe(0);
-    rows.copy(pixels, y * width * 4, y * stride + 1, (y + 1) * stride);
+    const filter = rows[y * stride]!;
+    if (filter > 4) throw new Error(`unsupported PNG filter ${filter}`);
+    for (let x = 0; x < width * bytesPerPixel; x += 1) {
+      const encoded = rows[y * stride + 1 + x]!;
+      const left = x >= bytesPerPixel ? pixels[y * width * bytesPerPixel + x - bytesPerPixel]! : 0;
+      const above = y > 0 ? pixels[(y - 1) * width * bytesPerPixel + x]! : 0;
+      const upperLeft = y > 0 && x >= bytesPerPixel ? pixels[(y - 1) * width * bytesPerPixel + x - bytesPerPixel]! : 0;
+      const paeth = (() => {
+        const estimate = left + above - upperLeft;
+        const leftDistance = Math.abs(estimate - left);
+        const aboveDistance = Math.abs(estimate - above);
+        const diagonalDistance = Math.abs(estimate - upperLeft);
+        return leftDistance <= aboveDistance && leftDistance <= diagonalDistance ? left : aboveDistance <= diagonalDistance ? above : upperLeft;
+      })();
+      const predictor = filter === 0 ? 0 : filter === 1 ? left : filter === 2 ? above
+        : filter === 3 ? Math.floor((left + above) / 2) : filter === 4 ? paeth : Number.NaN;
+      pixels[y * width * bytesPerPixel + x] = (encoded + predictor) & 0xff;
+    }
   }
   return { width, height, pixels };
 }
@@ -67,35 +84,37 @@ describe('Mercenary portrait and identity-icon production art', () => {
     expect(icons.map((binding) => binding.id).sort()).toEqual([...ABILITY_ICON_IDS, ...PASSIVE_ICON_IDS].sort());
     expect(new Set(portraits.map((binding) => binding.resourceId))).toEqual(new Set(['resource:mercenary-portraits']));
     expect(new Set(icons.map((binding) => binding.resourceId))).toEqual(new Set(['resource:mercenary-identity-icons']));
-    expect([...portraits, ...icons].every((binding) => binding.load.type === 'atlas' && binding.sampling === 'nearest')).toBe(true);
+    expect(portraits.every((binding) => binding.load.type === 'atlas' && binding.sampling === 'linear')).toBe(true);
+    expect(icons.every((binding) => binding.load.type === 'atlas' && binding.sampling === 'nearest')).toBe(true);
     expect([...portraits, ...icons].every((binding) => !binding.resourceId?.match(/actor|upgrade|achievement/))).toBe(true);
   });
 
   it('keeps builders, editable Pixelorama sources, named frames and runtime RGBA in deterministic parity', () => {
     expect(() => execFileSync('node', ['docs/art/scripts/verify-mercenary-identity-builder-parity.mjs'])).not.toThrow();
     expect(() => execFileSync('node', ['docs/art/scripts/export-mercenary-identity-atlases.mjs', '--check'])).not.toThrow();
+    expect(() => execFileSync('python3', ['docs/art/scripts/build-mercenary-portrait-atlas.py', '--check'])).not.toThrow();
     const portraits = JSON.parse(readFileSync('public/assets/characters/identity/mercenary-portraits-atlas.json', 'utf8')) as { size_x: number; size_y: number; frames: Record<string, { frame: { w: number; h: number } }> };
     const icons = JSON.parse(readFileSync('public/assets/characters/identity/mercenary-identity-icons-atlas.json', 'utf8')) as { size_x: number; size_y: number; frames: Record<string, { frame: { w: number; h: number } }> };
-    expect([portraits.size_x, portraits.size_y]).toEqual([768, 96]);
+    expect([portraits.size_x, portraits.size_y]).toEqual([1200, 240]);
     expect(Object.keys(portraits.frames).sort()).toEqual([...PORTRAIT_IDS].sort());
-    expect(Object.values(portraits.frames).every(({ frame }) => frame.w === 96 && frame.h === 96)).toBe(true);
+    expect(Object.values(portraits.frames).every(({ frame }) => frame.w === 150 && frame.h === 240)).toBe(true);
     expect([icons.size_x, icons.size_y]).toEqual([512, 32]);
     expect(Object.keys(icons.frames).sort()).toEqual([...ABILITY_ICON_IDS, ...PASSIVE_ICON_IDS].sort());
     expect(Object.values(icons.frames).every(({ frame }) => frame.w === 32 && frame.h === 32)).toBe(true);
   });
 
   it('keeps all final frames nonidentical and collision groups distinct in silhouette and grayscale', () => {
-    for (const [jsonPath, pngPath, ids, frameSize] of [
-      ['public/assets/characters/identity/mercenary-portraits-atlas.json', 'public/assets/characters/identity/mercenary-portraits-atlas.png', PORTRAIT_IDS, 96],
-      ['public/assets/characters/identity/mercenary-identity-icons-atlas.json', 'public/assets/characters/identity/mercenary-identity-icons-atlas.png', [...ABILITY_ICON_IDS, ...PASSIVE_ICON_IDS], 32],
+    for (const [jsonPath, pngPath, ids, frameWidth, frameHeight] of [
+      ['public/assets/characters/identity/mercenary-portraits-atlas.json', 'public/assets/characters/identity/mercenary-portraits-atlas.png', PORTRAIT_IDS, 150, 240],
+      ['public/assets/characters/identity/mercenary-identity-icons-atlas.json', 'public/assets/characters/identity/mercenary-identity-icons-atlas.png', [...ABILITY_ICON_IDS, ...PASSIVE_ICON_IDS], 32, 32],
     ] as const) {
       const atlas = JSON.parse(readFileSync(jsonPath, 'utf8')) as { frames: Record<string, { frame: { x: number; y: number } }> };
       const decoded = decodeUnfilteredRgbaPng(pngPath);
       const rgba = new Set<string>(); const silhouettes = new Map<string, string>(); const grays = new Map<string, string>();
       for (const id of ids) {
         const frame = atlas.frames[id]!.frame;
-        const pixels = crop(decoded.pixels, decoded.width, frame.x, frame.y, frameSize, frameSize);
-        const alpha = Buffer.alloc(frameSize * frameSize); const gray = Buffer.alloc(frameSize * frameSize);
+        const pixels = crop(decoded.pixels, decoded.width, frame.x, frame.y, frameWidth, frameHeight);
+        const alpha = Buffer.alloc(frameWidth * frameHeight); const gray = Buffer.alloc(frameWidth * frameHeight);
         for (let i = 0; i < pixels.length; i += 4) {
           alpha[i / 4] = pixels[i + 3]! > 0 ? 1 : 0;
           gray[i / 4] = Math.round(pixels[i]! * 0.299 + pixels[i + 1]! * 0.587 + pixels[i + 2]! * 0.114);

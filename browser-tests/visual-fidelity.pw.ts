@@ -15,6 +15,9 @@ type VisualTestSeam = {
   focusPlayer(): boolean;
   focusedActorScreenPoint(): { x: number; y: number } | undefined;
   showMenu(panel: string): boolean;
+  showUpgradeChooser(): boolean;
+  showExtraction(): boolean;
+  showRunSummary(outcome: 'won' | 'lost'): boolean;
 };
 
 const representativeProjects = new Set([
@@ -107,7 +110,6 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
   const canvas = page.locator('#game-root canvas');
   await expect(canvas).toBeVisible();
   await expect.poll(() => requestedAssets.some((path) => path.endsWith('/ui-atlas.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
-  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/scrap-sniper.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
   await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
   await expect(page).toHaveScreenshot('home.png', { animations: 'disabled' });
@@ -153,6 +155,7 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
   await expectScene(page, 'GameScene');
   await resumeLoop(page);
   await expect.poll(() => requestedAssets.some((path) => path.endsWith('/scrap-tabby.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
+  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/scrap-sniper.png')), { timeout: visualReadyTimeoutMs }).toBe(true);
   await expect.poll(() => page.evaluate(() => {
     const seam = (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam })
       .__MEOWCENARY_VISUAL_TEST__;
@@ -179,6 +182,46 @@ test('pause and Weapon Rack use the shared authored modal system', async ({ page
   await press(page, 'Enter');
   await freezeAtStableFrame(page);
   await expect(page).toHaveScreenshot('weapon-rack.png', { animations: 'disabled' });
+});
+
+test('transient gameplay decisions use the shared authored visual system', async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  test.skip(!new Set(['phone-390x844', 'desktop-1280x720']).has(testInfo.project.name));
+
+  const enterRun = async (): Promise<void> => {
+    await page.goto('/?visual-test=1');
+    await showMenu(page, 'home');
+    await press(page, 'Enter');
+    await expectScene(page, 'GameScene');
+    await resumeLoop(page);
+  };
+  const show = async (method: 'showUpgradeChooser' | 'showExtraction', name: string): Promise<void> => {
+    await expect.poll(() => page.evaluate((key) => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.[key]() ?? false;
+    }, method), { timeout: visualReadyTimeoutMs }).toBe(true);
+    await freezeAtStableFrame(page);
+    await expect(page).toHaveScreenshot(name, { animations: 'disabled' });
+  };
+
+  await enterRun();
+  await show('showUpgradeChooser', 'upgrade-chooser.png');
+  await enterRun();
+  await show('showExtraction', 'extraction.png');
+
+  for (const outcome of ['won', 'lost'] as const) {
+    await enterRun();
+    await expect.poll(() => page.evaluate((value) => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.showRunSummary(value) ?? false;
+    }, outcome), { timeout: visualReadyTimeoutMs }).toBe(true);
+    await freezeAtStableFrame(page);
+    await expect(page).toHaveScreenshot(`run-summary-${outcome}.png`, { animations: 'disabled' });
+  }
 });
 
 test('boss gameplay keeps the approved boss-scale visual hierarchy', async ({ page }, testInfo) => {

@@ -797,7 +797,7 @@
   {
     "id": "resource:achievement-icons",
     "textureKey": "art-achievement-icons",
-    "sampling": "nearest",
+    "sampling": "linear",
     "load": {
       "type": "atlas",
       "imageUrl": "assets/achievements/achievement-icons-atlas.png",
@@ -807,7 +807,7 @@
   {
     "id": "resource:mercenary-portraits",
     "textureKey": "art-mercenary-portraits",
-    "sampling": "nearest",
+    "sampling": "linear",
     "load": {
       "type": "atlas",
       "imageUrl": "assets/characters/identity/mercenary-portraits-atlas.png",

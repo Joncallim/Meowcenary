@@ -1398,7 +1398,7 @@
       "id": "achievement-icon:hidden",
       "kind": "achievement-icon",
       "required": true,
-      "display": { "width": 36, "height": 36 },
+      "display": { "width": 192, "height": 192 },
       "resourceId": "resource:achievement-icons",
       "frameKey": "achievement-icon:hidden"
     },
@@ -1406,7 +1406,7 @@
       "id": "achievement-icon:first-kill",
       "kind": "achievement-icon",
       "required": true,
-      "display": { "width": 36, "height": 36 },
+      "display": { "width": 192, "height": 192 },
       "resourceId": "resource:achievement-icons",
       "frameKey": "achievement-icon:first-kill"
     },
@@ -1414,7 +1414,7 @@
       "id": "achievement-icon:kill-milestone-25",
       "kind": "achievement-icon",
       "required": true,
-      "display": { "width": 36, "height": 36 },
+      "display": { "width": 192, "height": 192 },
       "resourceId": "resource:achievement-icons",
       "frameKey": "achievement-icon:kill-milestone-25"
     },
@@ -1422,7 +1422,7 @@
       "id": "achievement-icon:kill-milestone-100",
       "kind": "achievement-icon",
       "required": true,
-      "display": { "width": 36, "height": 36 },
+      "display": { "width": 192, "height": 192 },
       "resourceId": "resource:achievement-icons",
       "frameKey": "achievement-icon:kill-milestone-100"
     },
@@ -1430,7 +1430,7 @@
       "id": "achievement-icon:first-merge",
       "kind": "achievement-icon",
       "required": true,
-      "display": { "width": 36, "height": 36 },
+      "display": { "width": 192, "height": 192 },
       "resourceId": "resource:achievement-icons",
       "frameKey": "achievement-icon:first-merge"
     },
@@ -1438,7 +1438,7 @@
       "id": "achievement-icon:boss-crusher",
       "kind": "achievement-icon",
       "required": true,
-      "display": { "width": 36, "height": 36 },
+      "display": { "width": 192, "height": 192 },
       "resourceId": "resource:achievement-icons",
       "frameKey": "achievement-icon:boss-crusher"
     },
@@ -1446,7 +1446,7 @@
       "id": "achievement-icon:chapter-junkyard",
       "kind": "achievement-icon",
       "required": true,
-      "display": { "width": 36, "height": 36 },
+      "display": { "width": 192, "height": 192 },
       "resourceId": "resource:achievement-icons",
       "frameKey": "achievement-icon:chapter-junkyard"
     },
@@ -1454,7 +1454,7 @@
       "id": "achievement-icon:first-victory",
       "kind": "achievement-icon",
       "required": true,
-      "display": { "width": 36, "height": 36 },
+      "display": { "width": 192, "height": 192 },
       "resourceId": "resource:achievement-icons",
       "frameKey": "achievement-icon:first-victory"
     },
@@ -1462,7 +1462,7 @@
       "id": "achievement-icon:mastery-scrap-tabby",
       "kind": "achievement-icon",
       "required": true,
-      "display": { "width": 36, "height": 36 },
+      "display": { "width": 192, "height": 192 },
       "resourceId": "resource:achievement-icons",
       "frameKey": "achievement-icon:mastery-scrap-tabby"
     },
@@ -1470,7 +1470,7 @@
       "id": "achievement-icon:scrap-tycoon",
       "kind": "achievement-icon",
       "required": true,
-      "display": { "width": 36, "height": 36 },
+      "display": { "width": 192, "height": 192 },
       "resourceId": "resource:achievement-icons",
       "frameKey": "achievement-icon:scrap-tycoon"
     },
@@ -1478,7 +1478,7 @@
       "id": "achievement-icon:boss-forge",
       "kind": "achievement-icon",
       "required": true,
-      "display": { "width": 36, "height": 36 },
+      "display": { "width": 192, "height": 192 },
       "resourceId": "resource:achievement-icons",
       "frameKey": "achievement-icon:boss-forge"
     },
@@ -2010,35 +2010,35 @@
       "resourceId": "resource:character-piston-ram"
     },
     {
-      "id": "character-portrait:scrap-tabby", "kind": "portrait", "required": true, "display": { "width": 96, "height": 96 },
+      "id": "character-portrait:scrap-tabby", "kind": "portrait", "required": true, "display": { "width": 150, "height": 240 },
       "resourceId": "resource:mercenary-portraits", "frameKey": "character-portrait:scrap-tabby"
     },
     {
-      "id": "character-portrait:bolt-hound", "kind": "portrait", "required": true, "display": { "width": 96, "height": 96 },
+      "id": "character-portrait:bolt-hound", "kind": "portrait", "required": true, "display": { "width": 150, "height": 240 },
       "resourceId": "resource:mercenary-portraits", "frameKey": "character-portrait:bolt-hound"
     },
     {
-      "id": "character-portrait:volt-lynx", "kind": "portrait", "required": true, "display": { "width": 96, "height": 96 },
+      "id": "character-portrait:volt-lynx", "kind": "portrait", "required": true, "display": { "width": 150, "height": 240 },
       "resourceId": "resource:mercenary-portraits", "frameKey": "character-portrait:volt-lynx"
     },
     {
-      "id": "character-portrait:brass-boar", "kind": "portrait", "required": true, "display": { "width": 96, "height": 96 },
+      "id": "character-portrait:brass-boar", "kind": "portrait", "required": true, "display": { "width": 150, "height": 240 },
       "resourceId": "resource:mercenary-portraits", "frameKey": "character-portrait:brass-boar"
     },
     {
-      "id": "character-portrait:ember-cougar", "kind": "portrait", "required": true, "display": { "width": 96, "height": 96 },
+      "id": "character-portrait:ember-cougar", "kind": "portrait", "required": true, "display": { "width": 150, "height": 240 },
       "resourceId": "resource:mercenary-portraits", "frameKey": "character-portrait:ember-cougar"
     },
     {
-      "id": "character-portrait:scrap-weasel", "kind": "portrait", "required": true, "display": { "width": 96, "height": 96 },
+      "id": "character-portrait:scrap-weasel", "kind": "portrait", "required": true, "display": { "width": 150, "height": 240 },
       "resourceId": "resource:mercenary-portraits", "frameKey": "character-portrait:scrap-weasel"
     },
     {
-      "id": "character-portrait:rattle-raptor", "kind": "portrait", "required": true, "display": { "width": 96, "height": 96 },
+      "id": "character-portrait:rattle-raptor", "kind": "portrait", "required": true, "display": { "width": 150, "height": 240 },
       "resourceId": "resource:mercenary-portraits", "frameKey": "character-portrait:rattle-raptor"
     },
     {
-      "id": "character-portrait:piston-ram", "kind": "portrait", "required": true, "display": { "width": 96, "height": 96 },
+      "id": "character-portrait:piston-ram", "kind": "portrait", "required": true, "display": { "width": 150, "height": 240 },
       "resourceId": "resource:mercenary-portraits", "frameKey": "character-portrait:piston-ram"
     },
     {

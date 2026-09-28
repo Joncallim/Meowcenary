@@ -7,7 +7,6 @@ import { join, resolve } from 'node:path';
 
 const root=resolve(import.meta.dirname,'../../..');
 const rows=[
-  ['docs/art/scripts/build-mercenary-portraits-atlas.lua','assets-src/characters/identity/source/mercenary-portraits-atlas.pxo'],
   ['docs/art/scripts/build-mercenary-identity-icons-atlas.lua','assets-src/characters/identity/source/mercenary-identity-icons-atlas.pxo'],
 ];
 const members=(path)=>execFileSync('unzip',['-Z1',path],{encoding:'utf8'}).split('\n').filter(Boolean).sort();

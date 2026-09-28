@@ -638,15 +638,14 @@ describe('Upgrade chooser physical layout', () => {
     }
   });
 
-  it('gives the card icon its declared D8 display size at portrait phone scale', () => {
+  it('gives authored card art a readable display size at portrait phone scale', () => {
     const display = fittedCanvas(390, 844);
     for (const count of [1, 2, 3, 4, 5]) {
       const layout = computeUpgradeChooserLayout(390, 844, display.width, display.height, count);
       layout.cards.forEach((card) => {
-        // visual-art.json declares 36x36 for every upgrade-icon binding, and
-        // D8 specifies a 36-40px logical display; the leading column must not
-        // shrink it back to the old ~21px number-badge box.
-        expect(card.iconSize).toBeGreaterThanOrEqual(36);
+        // The leading column must not shrink the primary visual cue back to
+        // the old number-badge box.
+        expect(card.iconSize).toBeGreaterThanOrEqual(52);
         // The icon box fits inside the card's padded area in both axes.
         expect(card.iconSize).toBeLessThanOrEqual(card.height - card.padding * 2 + 0.001);
         expect(card.padding + card.iconSize).toBeLessThanOrEqual(card.width - card.padding + 0.001);
@@ -1397,8 +1396,8 @@ describe('PhaserUpgradeChooserView keyboard focus and reduced motion', () => {
     ));
     allRarityDefinitions.forEach((definition, index) => {
       expect(edges[index]?.strokeColor).toBe(ThemeColor.rarity[definition.rarity]);
-      expect(edges[index]?.strokeWidth).toBe(2);
-      expect(edges[index]?.strokeAlpha).toBe(0.95);
+      expect(edges[index]?.strokeWidth).toBe(0);
+      expect(edges[index]?.strokeAlpha).toBe(0);
     });
     expect(view.diagnostics.text
       .filter((text) => text.role.startsWith('rarity:'))

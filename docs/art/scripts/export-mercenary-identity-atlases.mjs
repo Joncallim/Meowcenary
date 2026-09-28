@@ -8,11 +8,6 @@ import { join, resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '../../..');
 const definitions = [
   {
-    source: 'assets-src/characters/identity/source/mercenary-portraits-atlas.pxo',
-    runtime: 'public/assets/characters/identity', name: 'mercenary-portraits-atlas', size: 96,
-    frames: ['scrap-tabby','bolt-hound','volt-lynx','brass-boar','ember-cougar','scrap-weasel','rattle-raptor','piston-ram'].map((id) => `character-portrait:${id}`),
-  },
-  {
     source: 'assets-src/characters/identity/source/mercenary-identity-icons-atlas.pxo',
     runtime: 'public/assets/characters/identity', name: 'mercenary-identity-icons-atlas', size: 32,
     frames: [

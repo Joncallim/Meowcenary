@@ -1,10 +1,12 @@
 # Alpha 3 Mercenary identity-art provenance
 
-These untouched generated boards are provenance/reference inputs only. The
-runtime portraits and icons are deliberately reauthored on the shipped pixel
-grid by deterministic builders under `docs/art/scripts/`. Canonical icon
-semantics come from `docs/art/alpha-3-art-production-briefs.md`, even where a
-concept-board prompt differs.
+These untouched generated boards preserve the identity-art provenance. The
+selected board is also the production master for the eight large Mercenary
+portraits: `build-mercenary-portrait-atlas.py` deterministically crops its
+portrait columns into the editable PXO and runtime atlas without repainting or
+regenerating the approved direction. Ability/passive icons remain deliberately
+reauthored on their shipped pixel grid so canonical icon semantics come from
+`docs/art/alpha-3-art-production-briefs.md`, even where a concept prompt differs.
 
 ## Direction B — selected
 

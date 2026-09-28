@@ -151,15 +151,17 @@ export function computeRunSummaryLayout(
   const height = Math.max(0, viewport.canvasHeight - top - bottom);
   const safeBounds: RunSummaryRect = { x: left, y: top, width, height };
   const gap = physicalToLogical(8, viewport);
+  const contentLeft = left + gap;
+  const contentWidth = Math.max(0, width - gap * 2);
   const hitTarget = minimumHitTarget(viewport);
   const headingHeight = physicalToLogical(ThemeFont.headingMin, viewport) + gap;
   const rowGap = physicalToLogical(ThemeFont.labelMin + 8, viewport);
   const statsHeight = rowGap * 7;
-  const headingBounds: RunSummaryRect = { x: left, y: top, width, height: headingHeight };
-  const statsBounds: RunSummaryRect = {
-    x: left,
+  const headingBounds: RunSummaryRect = { x: contentLeft, y: top + gap, width: contentWidth, height: headingHeight };
+  let statsBounds: RunSummaryRect = {
+    x: contentLeft,
     y: headingBounds.y + headingBounds.height + gap,
-    width,
+    width: contentWidth,
     height: statsHeight,
   };
 
@@ -167,36 +169,42 @@ export function computeRunSummaryLayout(
   const actionRows = Math.ceil(actionCount / actionColumns);
   const actionTrayHeight = actionRows * hitTarget + Math.max(0, actionRows - 1) * gap;
   const actionTrayBounds: RunSummaryRect = {
-    x: left,
-    y: top + height - actionTrayHeight,
-    width,
+    x: contentLeft,
+    y: top + height - gap - actionTrayHeight,
+    width: contentWidth,
     height: actionTrayHeight,
   };
   const hintHeight = physicalToLogical(ThemeFont.labelMin, viewport);
   const hintBounds: RunSummaryRect = {
-    x: left,
+    x: contentLeft,
     y: actionTrayBounds.y - gap - hintHeight,
-    width,
+    width: contentWidth,
     height: hintHeight,
   };
+  const availableStatsHeight = Math.max(0, hintBounds.y - gap - statsBounds.y);
+  if (statsBounds.height > availableStatsHeight) {
+    statsBounds = { ...statsBounds, height: availableStatsHeight };
+  }
+  const contentStart = statsBounds.y + statsBounds.height + gap;
+  const contentEnd = hintBounds.y - gap;
   const contentBounds: RunSummaryRect = {
-    x: left,
-    y: statsBounds.y + statsBounds.height + gap,
-    width,
-    height: Math.max(0, hintBounds.y - gap - (statsBounds.y + statsBounds.height + gap)),
+    x: contentLeft,
+    y: Math.min(contentStart, contentEnd),
+    width: contentWidth,
+    height: Math.max(0, contentEnd - contentStart),
   };
   const actionBounds: RunSummaryRect[] = [];
   const columnGap = gap;
-  const halfWidth = (width - columnGap) / 2;
+  const halfWidth = (contentWidth - columnGap) / 2;
   for (let index = 0; index < actionCount; index += 1) {
     const row = Math.floor(index / actionColumns);
     const isLastOdd = actionColumns === 2 && actionCount % 2 === 1 && index === actionCount - 1;
     actionBounds.push(isLastOdd
-      ? { x: left, y: actionTrayBounds.y + row * (hitTarget + gap), width, height: hitTarget }
+      ? { x: contentLeft, y: actionTrayBounds.y + row * (hitTarget + gap), width: contentWidth, height: hitTarget }
       : {
-        x: left + (index % actionColumns) * (halfWidth + columnGap),
+        x: contentLeft + (index % actionColumns) * (halfWidth + columnGap),
         y: actionTrayBounds.y + row * (hitTarget + gap),
-        width: actionColumns === 1 ? width : halfWidth,
+        width: actionColumns === 1 ? contentWidth : halfWidth,
         height: hitTarget,
       });
   }
@@ -530,7 +538,7 @@ export class PhaserRunSummaryView {
         layout.safeBounds.y + layout.safeBounds.height / 2,
         layout.safeBounds.width,
         layout.safeBounds.height,
-        'modal',
+        'panel',
         { alpha: 0.94, depth: ThemeDepth.pauseSummary + 1 },
       ) : undefined;
       if (modalFrame) root.add(modalFrame);
@@ -545,7 +553,7 @@ export class PhaserRunSummaryView {
       root.add(heading);
       heading.setOrigin(0.5);
 
-      const rowGap = layout.statsBounds.height / 6;
+      const rowGap = layout.statsBounds.height / 7;
       const rows: ReadonlyArray<readonly [string, string]> = [
         ['Time', formatTime(snapshot.timeMs)],
         ['Level', formatNumber(snapshot.level)],

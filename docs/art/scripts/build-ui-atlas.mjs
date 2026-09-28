@@ -51,21 +51,44 @@ function draw(id, ox, oy) {
     return;
   }
   if (family === 'ui-chrome') {
+    if (n === 'panel') {
+      rect(ox, oy, 0, 0, 24, 24, 'panel');
+      return;
+    }
+    if (n === 'card') {
+      rect(ox, oy, 0, 0, 24, 24, 'surface');
+      clearRect(ox, oy, 0, 0, 1, 1);
+      clearRect(ox, oy, 23, 0, 1, 1);
+      clearRect(ox, oy, 0, 23, 1, 1);
+      clearRect(ox, oy, 23, 23, 1, 1);
+      rect(ox, oy, 0, 8, 1, 8, 'cyan');
+      return;
+    }
+    if (n === 'chevron') {
+      line(ox, oy, 8, 6, 16, 12, 'cream');
+      line(ox, oy, 16, 12, 8, 18, 'cream');
+      return;
+    }
+    if (n === 'modal') {
+      rect(ox, oy, 0, 0, 24, 24, 'outline');
+      rect(ox, oy, 1, 1, 22, 22, 'gold');
+      rect(ox, oy, 2, 2, 20, 20, 'slate');
+      line(ox, oy, 4, 3, 19, 3, 'steelHi');
+      rect(ox, oy, 2, 5, 1, 4, 'cyan');
+      rect(ox, oy, 21, 15, 1, 4, 'cyan');
+      return;
+    }
     const border = n === 'focus' || n === 'scroll-thumb' ? 'cyan' : n === 'disabled' || n === 'scroll-track' ? 'steel' : n === 'modal' ? 'gold' : 'cream';
     rect(ox, oy, 0, 0, 24, 24, 'outline');
     rect(ox, oy, 1, 1, 22, 22, border);
     if (n === 'focus') { clearRect(ox, oy, 3, 3, 18, 18); rect(ox, oy, 2, 2, 5, 2, 'cyan'); rect(ox, oy, 2, 2, 2, 5, 'cyan'); rect(ox, oy, 17, 20, 5, 2, 'cyan'); rect(ox, oy, 20, 17, 2, 5, 'cyan'); }
     else rect(ox, oy, 3, 3, 18, 18, 'slate');
-    if (n === 'panel') { rect(ox, oy, 3, 3, 2, 2, 'gold'); rect(ox, oy, 19, 3, 2, 2, 'gold'); rect(ox, oy, 3, 19, 2, 2, 'gold'); rect(ox, oy, 19, 19, 2, 2, 'gold'); }
-    else if (n === 'card') { clearRect(ox, oy, 3, 3, 3, 3); clearRect(ox, oy, 18, 18, 3, 3); line(ox, oy, 5, 4, 19, 4, 'cream'); line(ox, oy, 4, 5, 4, 19, 'cream'); }
-    else if (n === 'tab') { rect(ox, oy, 3, 3, 18, 4, 'cyan'); rect(ox, oy, 7, 9, 10, 2, 'steel'); }
+    if (n === 'tab') { rect(ox, oy, 3, 3, 18, 4, 'cyan'); rect(ox, oy, 7, 9, 10, 2, 'steel'); }
     else if (n === 'tooltip') { rect(ox, oy, 5, 5, 14, 12, 'cream'); rect(ox, oy, 7, 7, 10, 8, 'slate'); line(ox, oy, 9, 17, 12, 21, 'cream'); line(ox, oy, 12, 21, 15, 17, 'cream'); }
-    else if (n === 'modal') { rect(ox, oy, 3, 3, 18, 4, 'gold'); rect(ox, oy, 3, 18, 18, 3, 'gold'); rect(ox, oy, 6, 9, 12, 2, 'steel'); }
     else if (n === 'disabled') { line(ox, oy, 5, 18, 18, 5, 'steel', 2); line(ox, oy, 5, 15, 15, 5, 'outline'); }
     else if (n === 'scroll-track') { rect(ox, oy, 10, 3, 4, 18, 'outline'); rect(ox, oy, 11, 4, 2, 16, 'steel'); }
     else if (n === 'scroll-thumb') { rect(ox, oy, 8, 5, 8, 14, 'cyan'); rect(ox, oy, 10, 8, 4, 2, 'cream'); rect(ox, oy, 10, 14, 4, 2, 'cream'); }
-    if (n === 'chevron') { line(ox, oy, 8, 6, 16, 12, 'cream'); line(ox, oy, 16, 12, 8, 18, 'cream'); }
-    else if (n === 'locked') { rect(ox, oy, 8, 11, 8, 8, 'cream'); rect(ox, oy, 10, 6, 4, 7, 'cream'); }
+    if (n === 'locked') { rect(ox, oy, 8, 11, 8, 8, 'cream'); rect(ox, oy, 10, 6, 4, 7, 'cream'); }
     else if (n === 'complete' || n === 'cleared') { line(ox, oy, 6, 12, 10, 16, 'cream'); line(ox, oy, 10, 16, 18, 7, 'cream'); }
     else if (n === 'failed') { line(ox, oy, 7, 7, 17, 17, 'danger'); line(ox, oy, 17, 7, 7, 17, 'danger'); }
     else if (n === 'merge') { line(ox, oy, 6, 8, 12, 12, 'cream'); line(ox, oy, 6, 16, 12, 12, 'cream'); line(ox, oy, 12, 12, 18, 12, 'cyan'); }
@@ -88,7 +111,7 @@ function draw(id, ox, oy) {
     else { line(ox, oy, 6, 17, 12, 6, 'cream'); line(ox, oy, 12, 6, 18, 17, 'cyan'); }
     return;
   }
-  if (family === 'action-icon' || family === 'settings-icon' || family === 'hud-icon') { rect(ox, oy, 3, 3, 18, 18, 'slate'); if (n === 'move') { line(ox, oy, 12, 4, 12, 20, 'cream'); line(ox, oy, 4, 12, 20, 12, 'cream'); } else if (n === 'confirm') { line(ox, oy, 5, 12, 10, 17, 'cyan'); line(ox, oy, 10, 17, 19, 6, 'cyan'); } else if (n === 'back') { line(ox, oy, 6, 12, 18, 12, 'cream'); line(ox, oy, 6, 12, 12, 6, 'cream'); line(ox, oy, 6, 12, 12, 18, 'cream'); } else if (n === 'pause') { rect(ox, oy, 7, 6, 3, 12, 'cream'); rect(ox, oy, 14, 6, 3, 12, 'cream'); } else if (n === 'dash') { line(ox, oy, 4, 8, 15, 8, 'cyan'); line(ox, oy, 4, 12, 20, 12, 'cream'); line(ox, oy, 4, 16, 15, 16, 'cyan'); line(ox, oy, 15, 7, 20, 12, 'cream'); line(ox, oy, 20, 12, 15, 17, 'cream'); } else if (n === 'ability') { line(ox, oy, 12, 4, 14, 10, 'gold'); line(ox, oy, 14, 10, 20, 12, 'gold'); line(ox, oy, 20, 12, 14, 14, 'cyan'); line(ox, oy, 14, 14, 12, 20, 'cyan'); line(ox, oy, 12, 20, 10, 14, 'gold'); line(ox, oy, 10, 14, 4, 12, 'gold'); line(ox, oy, 4, 12, 10, 10, 'cyan'); line(ox, oy, 10, 10, 12, 4, 'cyan'); } else if (n === 'inventory') { rect(ox, oy, 6, 6, 5, 5, 'cream'); rect(ox, oy, 13, 6, 5, 5, 'cyan'); rect(ox, oy, 6, 13, 5, 5, 'gold'); rect(ox, oy, 13, 13, 5, 5, 'cream'); } else if (n === 'timer') { rect(ox, oy, 6, 6, 12, 12, 'gold'); rect(ox, oy, 11, 3, 2, 4, 'gold'); line(ox, oy, 12, 12, 17, 9, 'outline'); } else if (n === 'kills') { line(ox, oy, 5, 17, 12, 6, 'danger'); line(ox, oy, 12, 6, 19, 17, 'danger'); rect(ox, oy, 10, 10, 4, 4, 'cream'); } else if (n === 'health') { rect(ox, oy, 6, 8, 12, 10, 'cream'); line(ox, oy, 12, 5, 12, 20, 'danger'); line(ox, oy, 7, 12, 17, 12, 'danger'); } else if (n.includes('audio') || n === 'music' || n === 'sfx') { rect(ox, oy, 6, 10, 5, 7, 'cream'); line(ox, oy, 11, 10, 17, 6, 'cream'); line(ox, oy, 17, 6, 17, 18, 'cream'); } else if (n === 'reduced-motion') { line(ox, oy, 5, 9, 19, 9, 'cyan'); line(ox, oy, 5, 15, 14, 15, 'cream'); rect(ox, oy, 16, 13, 3, 5, 'gold'); } else if (n === 'fullscreen') { line(ox, oy, 5, 9, 5, 5, 'cream'); line(ox, oy, 5, 5, 9, 5, 'cream'); line(ox, oy, 19, 9, 19, 5, 'cream'); line(ox, oy, 19, 5, 15, 5, 'cream'); line(ox, oy, 12, 8, 12, 16, 'cyan'); } else { rect(ox, oy, 5, 5, 14, 14, 'cream'); rect(ox, oy, 10, 10, 4, 4, 'outline'); } return; }
+  if (family === 'action-icon' || family === 'settings-icon' || family === 'hud-icon') { rect(ox, oy, 3, 3, 18, 18, 'slate'); if (n === 'move') { line(ox, oy, 12, 4, 12, 20, 'cream'); line(ox, oy, 4, 12, 20, 12, 'cream'); } else if (n === 'confirm') { line(ox, oy, 5, 12, 10, 17, 'cyan'); line(ox, oy, 10, 17, 19, 6, 'cyan'); } else if (n === 'back') { line(ox, oy, 6, 12, 18, 12, 'cream'); line(ox, oy, 6, 12, 12, 6, 'cream'); line(ox, oy, 6, 12, 12, 18, 'cream'); } else if (n === 'pause') { rect(ox, oy, 7, 6, 3, 12, 'cream'); rect(ox, oy, 14, 6, 3, 12, 'cream'); } else if (n === 'dash') { line(ox, oy, 4, 8, 15, 8, 'cyan'); line(ox, oy, 4, 12, 20, 12, 'cream'); line(ox, oy, 4, 16, 15, 16, 'cyan'); line(ox, oy, 15, 7, 20, 12, 'cream'); line(ox, oy, 20, 12, 15, 17, 'cream'); } else if (n === 'ability') { line(ox, oy, 12, 4, 14, 10, 'gold'); line(ox, oy, 14, 10, 20, 12, 'gold'); line(ox, oy, 20, 12, 14, 14, 'cyan'); line(ox, oy, 14, 14, 12, 20, 'cyan'); line(ox, oy, 12, 20, 10, 14, 'gold'); line(ox, oy, 10, 14, 4, 12, 'gold'); line(ox, oy, 4, 12, 10, 10, 'cyan'); line(ox, oy, 10, 10, 12, 4, 'cyan'); } else if (n === 'inventory') { rect(ox, oy, 6, 6, 5, 5, 'cream'); rect(ox, oy, 13, 6, 5, 5, 'cyan'); rect(ox, oy, 6, 13, 5, 5, 'gold'); rect(ox, oy, 13, 13, 5, 5, 'cream'); } else if (n === 'timer') { rect(ox, oy, 6, 6, 12, 12, 'gold'); rect(ox, oy, 11, 3, 2, 4, 'gold'); line(ox, oy, 12, 12, 17, 9, 'outline'); } else if (n === 'kills') { line(ox, oy, 5, 17, 12, 6, 'danger'); line(ox, oy, 12, 6, 19, 17, 'danger'); rect(ox, oy, 10, 10, 4, 4, 'cream'); } else if (n === 'health') { rect(ox, oy, 6, 8, 12, 10, 'cream'); line(ox, oy, 12, 5, 12, 20, 'danger'); line(ox, oy, 7, 12, 17, 12, 'danger'); } else if (n === 'music') { line(ox, oy, 9, 7, 18, 5, 'cyan'); line(ox, oy, 9, 7, 9, 17, 'cream'); line(ox, oy, 18, 5, 18, 15, 'cream'); rect(ox, oy, 5, 16, 5, 3, 'gold'); rect(ox, oy, 14, 14, 5, 3, 'gold'); } else if (n === 'sfx') { rect(ox, oy, 5, 10, 5, 6, 'cream'); line(ox, oy, 10, 10, 14, 7, 'cream'); line(ox, oy, 14, 7, 14, 19, 'cream'); line(ox, oy, 17, 8, 20, 5, 'cyan'); line(ox, oy, 17, 12, 21, 12, 'cyan'); line(ox, oy, 17, 16, 20, 19, 'cyan'); } else if (n.includes('audio') || n === 'mute') { rect(ox, oy, 5, 10, 5, 7, 'cream'); line(ox, oy, 10, 10, 16, 6, 'cream'); line(ox, oy, 16, 6, 16, 18, 'cream'); line(ox, oy, 18, 8, 21, 16, 'danger'); line(ox, oy, 21, 8, 18, 16, 'danger'); } else if (n === 'reduced-motion') { line(ox, oy, 5, 9, 19, 9, 'cyan'); line(ox, oy, 5, 15, 14, 15, 'cream'); rect(ox, oy, 16, 13, 3, 5, 'gold'); } else if (n === 'fullscreen') { line(ox, oy, 5, 9, 5, 5, 'cream'); line(ox, oy, 5, 5, 9, 5, 'cream'); line(ox, oy, 19, 9, 19, 5, 'cream'); line(ox, oy, 19, 5, 15, 5, 'cream'); line(ox, oy, 12, 8, 12, 16, 'cyan'); } else { rect(ox, oy, 5, 5, 14, 14, 'cream'); rect(ox, oy, 10, 10, 4, 4, 'outline'); } return; }
   if (family === 'chapter-icon' || family === 'objective-icon' || family === 'arena-card') { rect(ox, oy, 3, 4, 18, 16, 'slate'); if (n === 'kill' || n === 'defeat') { line(ox, oy, 5, 18, 12, 5, 'danger'); line(ox, oy, 12, 5, 19, 18, 'danger'); } else if (n === 'collect') { rect(ox, oy, 7, 7, 10, 10, 'gold'); line(ox, oy, 12, 4, 12, 20, 'cyan'); } else if (n === 'survive') { rect(ox, oy, 7, 5, 10, 14, 'cream'); line(ox, oy, 12, 8, 12, 16, 'cyan'); } else if (n === 'forge') { rect(ox, oy, 6, 8, 12, 9, 'gold'); rect(ox, oy, 9, 5, 6, 4, 'cream'); } else { line(ox, oy, 6, 17, 12, 6, 'gold'); line(ox, oy, 12, 6, 18, 17, 'gold'); line(ox, oy, 7, 14, 17, 14, 'cyan'); } return; }
   // Stat glyphs remain one family but each semantic has a distinct, compact read.
   rect(ox, oy, 5, 5, 14, 14, 'slate'); if (n === 'max-health' || n === 'healing') { line(ox, oy, 12, 6, 12, 18, 'danger'); line(ox, oy, 6, 12, 18, 12, 'danger'); } else if (n === 'move-speed' || n === 'projectile-speed') { line(ox, oy, 5, 12, 19, 12, 'cyan'); line(ox, oy, 14, 7, 19, 12, 'cyan'); line(ox, oy, 14, 17, 19, 12, 'cyan'); } else if (n === 'damage' || n === 'knockback') { line(ox, oy, 5, 12, 19, 12, 'gold'); line(ox, oy, 14, 7, 19, 12, 'gold'); } else if (n === 'attack-speed' || n === 'cooldown') { rect(ox, oy, 7, 7, 10, 10, 'cream'); rect(ox, oy, 11, 4, 2, 8, 'cyan'); } else if (n === 'range' || n === 'pickup-radius') { rect(ox, oy, 10, 10, 4, 4, 'cream'); line(ox, oy, 4, 12, 8, 12, 'cyan'); line(ox, oy, 16, 12, 20, 12, 'cyan'); } else if (n === 'projectile-count' || n === 'spread') { line(ox, oy, 6, 16, 12, 8, 'cream'); line(ox, oy, 12, 8, 18, 16, 'cyan'); line(ox, oy, 12, 8, 12, 19, 'gold'); } else if (n === 'pierce') { line(ox, oy, 4, 12, 20, 12, 'cream'); rect(ox, oy, 10, 7, 4, 10, 'cyan'); } else if (n === 'currency-gain' || n === 'xp-gain') { rect(ox, oy, 7, 7, 10, 10, 'gold'); line(ox, oy, 12, 4, 12, 20, 'cream'); } else { rect(ox, oy, 7, 7, 10, 10, 'cream'); rect(ox, oy, 10, 10, 4, 4, 'outline'); }

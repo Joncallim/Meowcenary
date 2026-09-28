@@ -82,6 +82,7 @@ export class ControlsView {
   private disposed = false;
 
   private extractActive = false;
+  private extractPanel?: Phaser.GameObjects.Rectangle;
   private extractButton?: Phaser.GameObjects.Rectangle;
   private extractLabel?: Phaser.GameObjects.Text;
 
@@ -341,6 +342,17 @@ export class ControlsView {
     // Position EXTRACT at 55% canvas height — above ALL RunSummary buttons
     // (Y≈676, 732, 788 for 390x844) to prevent ghost-click overlap.
     const extractY = Math.round(viewport.canvasHeight * 0.55);
+    this.extractPanel = scene.add.rectangle(
+      extractX,
+      extractY - physicalToLogical(8, viewport),
+      btnWidth + physicalToLogical(32, viewport),
+      btnHeight + physicalToLogical(72, viewport),
+      ThemeColor.surface,
+      0.9,
+    );
+    this.extractPanel.setDepth(ThemeDepth.hud);
+    this.extractPanel.setScrollFactor(0);
+    this.extractPanel.setStrokeStyle(physicalToLogical(2, viewport), ThemeColor.gold, 0.9);
     this.extractButton = scene.add.rectangle(
       extractX, extractY,
       btnWidth, btnHeight,
@@ -382,7 +394,7 @@ export class ControlsView {
     this.hintText.setDepth(ThemeDepth.transientHint);
     this.hintText.setScrollFactor(0);
 
-    this.root?.add([this.hintText, this.pauseButton, this.extractButton, this.extractLabel, ...this.pauseGlyphBars, ...(this.pauseArt ? [this.pauseArt] : [])]);
+    this.root?.add([this.extractPanel, this.hintText, this.pauseButton, this.extractButton, this.extractLabel, ...this.pauseGlyphBars, ...(this.pauseArt ? [this.pauseArt] : [])]);
   }
 
   update(dtMs: number): void {
@@ -438,6 +450,8 @@ export class ControlsView {
     this.pauseGlyphBars = [];
     this.pauseArt?.destroy();
     this.pauseArt = undefined;
+    this.extractPanel?.destroy();
+    this.extractPanel = undefined;
     if (this.extractButton) {
       this.extractButton.off('pointerdown', this.handleExtractPointerDown, this);
       this.extractButton.destroy();

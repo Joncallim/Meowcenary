@@ -129,6 +129,64 @@ world point, so an actor disappearance, scale change, or sprite drift cannot
 hide inside that composition allowance. Compendium captures and PXO/runtime
 parity independently lock the complete roster.
 
+## Player-facing screen polish audit
+
+The final pass reviewed the live screen rather than only its asset request.
+The numbered path below is the repeatable audit journey used at 390×844,
+1114×720, and 1280×720.
+
+1. **Home** — contract identity and first-clear value lead; the selected
+   Mercenary portrait is a large supporting cue. Navigation now uses one
+   quieter industrial card surface with 60–68px action tiles, 48–56px
+   production-art thumbnails, and a consistent directional chevron. The last
+   odd action spans the row instead of leaving a visibly broken half-grid.
+2. **Choose Contract** — available/locked hierarchy, objective art, reward
+   detail, focus visibility, and scroll containment were checked together.
+3. **Mercenary** — the former tiny geometric avatars were replaced by crops
+   from the approved identity board. Portraits are now the dominant card
+   column; ability, passive, and weapon art remain secondary.
+4. **Loadout / Equipment / Gunsmith** — selected identity, equipment pieces,
+   blueprints, chassis, and part art are shown at card scale instead of being
+   treated as utility glyphs. Text is grouped beside the visual it explains.
+5. **Career / Next Goals / Achievements / Compendium** — hub actions share the
+   larger illustrated navigation system; goals use illustrated cards; all active Achievement
+   rows use the approved industrial badge board; defeated Compendium rows use
+   authoritative live actor art.
+6. **Training / Settings** — short copy and controls retain a single readable
+   column without inventing decorative content. Music, SFX, mute and reduced
+   motion have distinct visual identities; toggle rows remain explicit
+   commands rather than ambiguous cards.
+7. **Upgrade chooser** — authored upgrade sprites are promoted from the old
+   number-badge scale to the primary recognition cue, while the measured
+   compact-landscape layout still preserves readable names and descriptions.
+8. **Extraction / pause / Weapon Rack / result** — extraction now owns an
+   opaque, bounded action plate so live actors cannot collide with its label;
+   modal chrome no longer stretches decorative source bands into large solid
+   bars; terminal actions share the same flat card language and use outer
+   gutters rather than text or controls touching the screen frame.
+
+Health after remediation: **good candidate for product-owner visual review**.
+All interactive targets retain the repository's 44 px physical minimum;
+keyboard/controller focus uses the same logical rows as touch; text wrapping
+and safe-area containment remain covered by the existing layout tests. The
+remaining limitation is subjective physical-device judgement of density and
+colour at the owner's actual viewing distance.
+
+Additional deterministic evidence:
+
+- `browser-tests/ui-audit-capture.pw.ts-snapshots/menu-*.png` covers all 12
+  reachable menu panels at phone, foldable, and desktop sizes.
+- `browser-tests/visual-fidelity.pw.ts-snapshots/upgrade-chooser-*.png`
+- `browser-tests/visual-fidelity.pw.ts-snapshots/extraction-*.png`
+- `browser-tests/visual-fidelity.pw.ts-snapshots/run-summary-won-*.png`
+- `browser-tests/visual-fidelity.pw.ts-snapshots/run-summary-lost-*.png`
+
+The selected Achievement and Mercenary boards are now production masters,
+cropped by deterministic importers into editable Pixelorama sources and
+runtime atlases. Their source/export parity is part of `art:validate`; the
+older geometric Lua entrypoints are explicitly classified as external-import
+discovery shims and cannot silently overwrite the selected art.
+
 ## Production fallback contract
 
 Required release actors are fail-closed. Missing bindings, texture resources,
@@ -142,7 +200,7 @@ defeat presentation emitted from the elite's logical kill event.
 
 ## Deliberate non-goals
 
-- No campaign, combat, progression, save, or responsive geometry changed.
+- No campaign, combat, progression, save, or playable-world geometry changed.
 - No new actor or speculative future UI family was added.
 - Selected and rejected provenance remains intact.
 - Product-owner visual approval is intentionally outstanding; this candidate

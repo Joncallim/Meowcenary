@@ -119,13 +119,9 @@ export function createModalTextHelpers(
       rect.setFillStyle(ThemeColor.surface, 0.18);
     }
     const baseStroke = {
-      width: physicalToLogical(2, viewport),
-      color: enabled
-        ? emphasized
-          ? ThemeColor.primary
-          : ThemeColor.muted
-        : ThemeColor.card,
-      alpha: enabled ? 0.9 : 0.55,
+      width: 0,
+      color: ThemeColor.muted,
+      alpha: 0,
     } as const;
     rect.setStrokeStyle(baseStroke.width, baseStroke.color, baseStroke.alpha);
     rect.setScrollFactor(0);
@@ -156,8 +152,8 @@ export function createModalTextHelpers(
         );
         rect.setStrokeStyle(
           baseStroke.width,
-          nextEnabled ? emphasized ? ThemeColor.primary : ThemeColor.muted : ThemeColor.card,
-          nextEnabled ? 0.9 : 0.55,
+          ThemeColor.muted,
+          0,
         );
         (text as Phaser.GameObjects.Text & { setStyle?: (style: Record<string, unknown>) => unknown }).setStyle?.({
           color: nextEnabled ? '#f7f1d5' : '#78909c',

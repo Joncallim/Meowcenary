@@ -26,6 +26,8 @@ contrast at thumbnail scale. Direction A was rejected because its painterly
 gold trim and incidental debris become noisy at 32px and drift from the
 established runtime material language.
 
-The untouched boards are provenance, not runtime exports. The deterministic
-Pixelorama builder reauthors the selected vocabulary on the game's pixel grid;
-the committed PXO remains the editable production source.
+The untouched boards preserve provenance. The selected board is also the
+production master for the large Career badges:
+`build-achievement-concept-atlas.py` deterministically crops the eleven
+approved tiles into the editable PXO and runtime atlas without repainting or
+regenerating them.

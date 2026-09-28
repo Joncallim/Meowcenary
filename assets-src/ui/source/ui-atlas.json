@@ -3,8 +3,11 @@
   "canvas": { "frameWidth": 48, "frameHeight": 48 },
   "palette": {
     "outline": "#0a0f14",
+    "panel": "#172a37",
+    "surface": "#294353",
     "slate": "#31485a",
     "steel": "#537083",
+    "steelHi": "#94a3b8",
     "cream": "#f7f1d5",
     "cyan": "#2dd4bf",
     "gold": "#fbbf24",
