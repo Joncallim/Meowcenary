@@ -8,15 +8,16 @@ import { describe, expect, it } from 'vitest';
 import { loadGameData } from '../src/systems/validation';
 import { DataVisualArtRegistry } from '../src/systems/visualArt';
 
-const ENEMY_IDS = ['dust-mite', 'junk-rusher', 'trash-brute', 'scrap-sniper', 'boss-crusher'] as const;
-const AUDITED_ACTOR_IDS = [...ENEMY_IDS, 'boss-forge'] as const;
+const BASELINE_ENEMY_IDS = ['dust-mite', 'junk-rusher', 'trash-brute', 'scrap-sniper', 'boss-crusher'] as const;
 const RELEASE_ENEMY_IDS = [
   'dust-mite', 'junk-rusher', 'trash-brute', 'scrap-sniper', 'scrap-skitter',
   'bastion-beetle', 'junk-nester', 'shard-bot', 'boss-crusher', 'boss-forge',
 ] as const;
+const AUDITED_ACTOR_IDS = RELEASE_ENEMY_IDS;
 const REMEDIATED_NATIVE_IDS = RELEASE_ENEMY_IDS;
 const FRAME_SIZES = {
   'dust-mite': 48, 'junk-rusher': 48, 'trash-brute': 48, 'scrap-sniper': 48,
+  'scrap-skitter': 48, 'bastion-beetle': 48, 'junk-nester': 48, 'shard-bot': 48,
   'boss-crusher': 64, 'boss-forge': 64,
 } as const;
 const FRAME_COUNT = 16;
@@ -232,7 +233,7 @@ describe('Alpha 3 enemy production-art distinction', () => {
     });
     expect(new Set(displayed.map(({ grayscale }) => createHash('sha256').update(grayscale).digest('hex'))).size)
       .toBe(RELEASE_ENEMY_IDS.length);
-    for (const selectedId of ENEMY_IDS) {
+    for (const selectedId of RELEASE_ENEMY_IDS) {
       const selected = displayed.find(({ id }) => id === selectedId)!;
       for (const other of displayed) {
         if (other.id === selectedId) continue;
@@ -304,7 +305,7 @@ describe('Alpha 3 enemy production-art distinction', () => {
   it('preserves the gameplay definitions and stable logical/physical presentation contract', () => {
     const data = loadGameData();
     const registry = new DataVisualArtRegistry(data);
-    expect(data.enemies.filter((enemy) => ENEMY_IDS.includes(enemy.id as typeof ENEMY_IDS[number])))
+    expect(data.enemies.filter((enemy) => BASELINE_ENEMY_IDS.includes(enemy.id as typeof BASELINE_ENEMY_IDS[number])))
       .toEqual([
         { id: 'dust-mite', name: 'Dust Mite', archetype: 'chaser', health: 10, damage: 5, speed: 68, xpValue: 1, scrapValue: 1, contactDamage: true },
         { id: 'junk-rusher', name: 'Junk Rusher', archetype: 'charger', health: 18, damage: 8, speed: 112, xpValue: 2, scrapValue: 2, contactDamage: true, attack: { triggerRange: 150, telegraphMs: 650, dashSpeed: 260, dashDurationMs: 700, cooldownMs: 1200 } },
@@ -312,7 +313,7 @@ describe('Alpha 3 enemy production-art distinction', () => {
         { id: 'scrap-sniper', name: 'Scrap Sniper', archetype: 'ranged', health: 16, damage: 6, speed: 58, xpValue: 3, scrapValue: 3, contactDamage: false, lootTableId: 'chest-standard', attack: { range: 190, telegraphMs: 700, cooldownMs: 1100 } },
         { id: 'boss-crusher', name: 'Scrap Crusher', archetype: 'boss', health: 420, damage: 22, speed: 46, xpValue: 40, scrapValue: 60, contactDamage: false, lootTableId: 'brute-cache', attack: { triggerRange: 210, telegraphMs: 900, dashSpeed: 340, dashDurationMs: 420, cooldownMs: 1500 }, actions: [{ id: 'boss-action:aimed-shot' }], phases: [{ id: 'boss-phase-crusher-enraged', atHealthFraction: 0.5, attack: { triggerRange: 240, telegraphMs: 650, dashSpeed: 390, dashDurationMs: 460, cooldownMs: 1100 }, actions: [] }] },
       ]);
-    for (const id of ENEMY_IDS) {
+    for (const id of BASELINE_ENEMY_IDS) {
       const frameSize = FRAME_SIZES[id];
       expect(registry.bindingById(`enemy:${id}`)).toMatchObject({
         id: `enemy:${id}`,

@@ -46,15 +46,27 @@ ellipses/rectangles/lines, while the five expanded sheets contained one
 Every remediated actor now exports from an editable Pixelorama source. For the
 Mercenaries, the richer checked-in native-grid production pixels predating the
 regressed tiny reconstructions were used as editable underdrawings, then each
-sheet received native-pixel identity polish against its selected brief (Tabby
-scarf/guard, Hound harness/bracer, Lynx harness/cell, Boar tusks/plate, Cougar
-vents, Weasel coil/tool, Raptor optic/harness, Ram gauge/horns). The resulting
-pixels differ from the issue baseline for all eight actors. Their first frames
-are 30–46px tall and their 16-frame sheets retain at least 10 distinct alpha
-poses. A conformance regression locks both facts.
+sheet received connected native-pixel silhouette work against its selected
+brief: Tabby's hooked tail/notched ear, Hound's swept ear/angular tail, Lynx's
+three-point cheek ruff, Boar's paired tusks/broad plate, Cougar's curled
+tail/mantle, Weasel's dominant satchel, Raptor's beak/crest, and Ram's projected
+piston forearms. Versus the rejected candidate, 3.1–9.0% of each idle alpha
+mask changed, the worst pairwise dominant-component overlap improved from
+0.740 to 0.715, and at least 94% of every cue remains connected to the actor
+rather than existing as a detached token. Their first frames are 30–46px tall
+and their 16-frame sheets retain at least 10 distinct alpha poses. Conformance
+regressions lock those properties.
 The builders restore the exact checked-in native raster for audit/source
 parity; they do not procedurally reconstruct actor silhouettes from geometric
 shapes.
+
+The four former 313px ordinary-enemy imports were reauthored directly on the
+48px grid. Their approximate live idle bounds improved from 16×9 to 22×18
+(Skitter), 16×12 to 26×22 (Beetle), 15×13 to 24×23 (Nester), and 15×10 to
+18×21 (Shard Bot). Forge Warden is now a margin-safe 54×51 native silhouette
+and occupies about 34×32 live pixels, versus Crusher's low 33×23 footprint.
+All ten release enemies now participate in the all-frame crop, anchor, motion,
+display-scale distinction, editable-source, and runtime-parity regressions.
 
 ## Side-by-side review set
 
@@ -93,15 +105,17 @@ content art integration.
 
 ### Side-by-side approval evidence
 
-These pairs put the selected authority next to the shipped browser output. The
-runtime columns are intentionally shown at their captured viewport size rather
-than enlarged actor-source scale.
+These pairs render the selected authority beside the shipped browser output,
+not merely links to files. The actor crops are the exact 96×96 browser pixels
+captured around the live production sprite; they are not enlarged source art.
 
-| Approved reference | Runtime output |
-|---|---|
-| [Alpha 3 roster direction B](../../assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png) | [Mercenary identity integration, phone](../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-phone-390x844-linux.png), [roster 5–8](../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-lower-phone-390x844-linux.png), plus exact live-gameplay crops `mercenary-gameplay-*-desktop-1280x720-linux.png` for all eight actors |
-| [Enemy production direction B](../../assets-src/enemies/alpha-3-production-concepts/direction-b-selected.png) | [Compendium roster 1–4](../../browser-tests/visual-fidelity.pw.ts-snapshots/compendium-desktop-1280x720-linux.png), [roster 4–7](../../browser-tests/visual-fidelity.pw.ts-snapshots/compendium-middle-desktop-1280x720-linux.png), [roster 7–10](../../browser-tests/visual-fidelity.pw.ts-snapshots/compendium-lower-desktop-1280x720-linux.png), and [Crusher gameplay](../../browser-tests/visual-fidelity.pw.ts-snapshots/boss-gameplay-desktop-1280x720-linux.png) |
-| Art brief §§16–19: bespoke lockup, crop-safe workshop backdrop, semantic navigation/state/HUD glyphs, shared modal/card chrome | [Home, phone](../../browser-tests/visual-fidelity.pw.ts-snapshots/home-phone-390x844-linux.png), [Home, desktop](../../browser-tests/visual-fidelity.pw.ts-snapshots/home-desktop-1280x720-linux.png), [Settings, phone](../../browser-tests/visual-fidelity.pw.ts-snapshots/settings-phone-390x844-linux.png), [Equipment, phone](../../browser-tests/visual-fidelity.pw.ts-snapshots/loadout-equipment-phone-390x844-linux.png), [Achievements, phone](../../browser-tests/visual-fidelity.pw.ts-snapshots/achievements-phone-390x844-linux.png), [Pause modal](../../browser-tests/visual-fidelity.pw.ts-snapshots/pause-modal-desktop-1280x720-linux.png), and [Weapon Rack](../../browser-tests/visual-fidelity.pw.ts-snapshots/weapon-rack-desktop-1280x720-linux.png) |
+<table>
+<tr><th>Approved reference</th><th>Runtime output at review scale</th></tr>
+<tr><td><img src="../../assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png" width="480" alt="Selected Alpha 3 Mercenary roster direction B"></td><td><img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-brass-boar-desktop-1280x720-linux.png" width="96" alt="Brass Boar live crop"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-ember-cougar-desktop-1280x720-linux.png" width="96" alt="Ember Cougar live crop"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-scrap-weasel-desktop-1280x720-linux.png" width="96" alt="Scrap Weasel live crop"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-rattle-raptor-desktop-1280x720-linux.png" width="96" alt="Rattle Raptor live crop"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-piston-ram-desktop-1280x720-linux.png" width="96" alt="Piston Ram live crop"></td></tr>
+<tr><td><img src="../art/concepts/epic-13/final-actor-direction.png" width="480" alt="Selected Scrap Tabby and Bolt Hound actor direction"><br><img src="../../assets-src/characters/volt-lynx/concepts/volt-lynx-direction-a-selected.png" width="320" alt="Selected Volt Lynx direction A"></td><td><img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-scrap-tabby-desktop-1280x720-linux.png" width="96" alt="Scrap Tabby live crop"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-bolt-hound-desktop-1280x720-linux.png" width="96" alt="Bolt Hound live crop"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-gameplay-volt-lynx-desktop-1280x720-linux.png" width="96" alt="Volt Lynx live crop"></td></tr>
+<tr><td><img src="../../assets-src/enemies/alpha-3-production-concepts/direction-b-selected.png" width="480" alt="Selected enemy production direction B"></td><td><img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/compendium-desktop-1280x720-linux.png" width="320" alt="Runtime Compendium first group"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/compendium-middle-desktop-1280x720-linux.png" width="320" alt="Runtime Compendium middle group"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/forge-warden-gameplay-actor-desktop-1280x720-linux.png" width="96" alt="Forge Warden live crop"></td></tr>
+<tr><td>Art brief §§16–19: bespoke lockup, crop-safe workshop backdrop, semantic navigation/state/HUD glyphs, and shared modal/card chrome.</td><td><img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/home-phone-390x844-linux.png" width="195" alt="Runtime Home on phone"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/settings-phone-390x844-linux.png" width="195" alt="Runtime Settings on phone"> <img src="../../browser-tests/visual-fidelity.pw.ts-snapshots/pause-modal-desktop-1280x720-linux.png" width="320" alt="Runtime pause modal"></td></tr>
+</table>
 
 The visual-test controller is compiled only into the dedicated screenshot
 build and uses a fixed boot/run seed. The ordinary production build contains
