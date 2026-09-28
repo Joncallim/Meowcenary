@@ -152,7 +152,10 @@ describe('Epic 19 Slice 5 resize/FIT regression', () => {
     // G-15: a valid nav after the direct rebuild works (committed-display true).
     let navs = 0;
     menu.context.bus.on('ui:navigate', () => { navs += 1; });
-    menu.padDown(13); menu.poll(); menu.padUp(13); menu.poll();
+    // Compact landscape is a single horizontal card row; every other
+    // reference viewport uses the portrait/tall mixed grid.
+    const navButton = height < 500 && width >= 700 ? 15 : 13;
+    menu.padDown(navButton); menu.poll(); menu.padUp(navButton); menu.poll();
     expect(navs).toBe(1);
     menu.resizeTo(390, 844);
     expect(menu.resizeEmitCount()).toBe(2);
