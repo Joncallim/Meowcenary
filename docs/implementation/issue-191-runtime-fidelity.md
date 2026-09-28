@@ -45,9 +45,13 @@ ellipses/rectangles/lines, while the five expanded sheets contained one
 `imagegen-import` layer and were reduced to 24–38 logical pixels at runtime.
 Every remediated actor now exports from an editable Pixelorama source. For the
 Mercenaries, the richer checked-in native-grid production pixels predating the
-regressed tiny reconstructions were promoted into the current lossless raster
-pipeline. Their first frames are 30–46px tall and their 16-frame sheets retain
-at least 10 distinct alpha poses. A conformance regression locks both facts.
+regressed tiny reconstructions were used as editable underdrawings, then each
+sheet received native-pixel identity polish against its selected brief (Tabby
+scarf/guard, Hound harness/bracer, Lynx harness/cell, Boar tusks/plate, Cougar
+vents, Weasel coil/tool, Raptor optic/harness, Ram gauge/horns). The resulting
+pixels differ from the issue baseline for all eight actors. Their first frames
+are 30–46px tall and their 16-frame sheets retain at least 10 distinct alpha
+poses. A conformance regression locks both facts.
 The builders restore the exact checked-in native raster for audit/source
 parity; they do not procedurally reconstruct actor silhouettes from geometric
 shapes.

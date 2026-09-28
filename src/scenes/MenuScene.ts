@@ -785,7 +785,10 @@ export class MenuScene extends Phaser.Scene {
         : stage.completed ? 'ui-chrome:cleared'
           : stage.boss ? 'ui-chrome:boss' : undefined;
       if (stateArtId) {
-        this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + Math.min(button.height, 52) / 2, stateArtId, 24, rowOwnerIndex);
+        // The shared scroll rail owns the rightmost 9px. Keep a physical
+        // gutter between it and the 24px state marker so neither can obscure
+        // the other on the canonical 390px phone viewport.
+        this.addCatalogIcon(root, width - this.safeRightMargin - 30, y + Math.min(button.height, 52) / 2, stateArtId, 24, rowOwnerIndex);
       }
       y += button.height + 10;
       if (stage.selected && !stage.locked) {
