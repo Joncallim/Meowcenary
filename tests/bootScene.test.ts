@@ -273,7 +273,11 @@ describe('BootScene loading and startup wiring', () => {
     const binding = new DataAssetBundleRegistry(loadGameData()).resourcesForBundle(BOOT_RESOURCE_BUNDLE_ID)![0]!;
     const { boot, loadImage, loadSpritesheet, loadEvents } = createBoot();
     boot.preload();
-    expect(loadImage).not.toHaveBeenCalled();
+    expect(loadImage).toHaveBeenCalledOnce();
+    expect(loadImage).toHaveBeenCalledWith(
+      'art-brand-title-lockup',
+      'assets/ui/brand/meowcenary-title-lockup.png',
+    );
     expect(loadSpritesheet).toHaveBeenCalledWith(binding.textureKey, binding.load.imageUrl, {
       frameWidth: binding.load.frameWidth,
       frameHeight: binding.load.frameHeight,

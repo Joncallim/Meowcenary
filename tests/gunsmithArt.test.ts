@@ -28,24 +28,38 @@ function decodePng(path: string): { width: number; height: number; pixels: Uint8
   const raw = inflateSync(Buffer.concat(idat)); const rowBytes = width * 4; const pixels = new Uint8Array(rowBytes * height);
   for (let y = 0; y < height; y += 1) {
     const filter = raw[y * (rowBytes + 1)];
-    expect(filter).toBe(0);
-    pixels.set(raw.subarray(y * (rowBytes + 1) + 1, (y + 1) * (rowBytes + 1)), y * rowBytes);
+    expect(filter).toBeLessThanOrEqual(4);
+    for (let x = 0; x < rowBytes; x += 1) {
+      const encoded = raw[y * (rowBytes + 1) + 1 + x]!;
+      const left = x >= 4 ? pixels[y * rowBytes + x - 4]! : 0;
+      const above = y > 0 ? pixels[(y - 1) * rowBytes + x]! : 0;
+      const upperLeft = y > 0 && x >= 4 ? pixels[(y - 1) * rowBytes + x - 4]! : 0;
+      const estimate = left + above - upperLeft;
+      const paeth = Math.abs(estimate - left) <= Math.abs(estimate - above)
+        && Math.abs(estimate - left) <= Math.abs(estimate - upperLeft)
+        ? left : Math.abs(estimate - above) <= Math.abs(estimate - upperLeft) ? above : upperLeft;
+      const predictor = filter === 0 ? 0 : filter === 1 ? left : filter === 2 ? above
+        : filter === 3 ? Math.floor((left + above) / 2) : paeth;
+      pixels[y * rowBytes + x] = (encoded + predictor) & 0xff;
+    }
   }
   return { width, height, pixels };
 }
 
+const FRAME_SIZE = 96;
+
 function alphaSignature(pixels: Uint8Array, atlasWidth: number, frame: number): string {
   let signature = '';
-  for (let y = 0; y < 32; y += 1) for (let x = 0; x < 32; x += 1) {
-    signature += pixels[(y * atlasWidth + frame * 32 + x) * 4 + 3] === 0 ? '0' : '1';
+  for (let y = 0; y < FRAME_SIZE; y += 1) for (let x = 0; x < FRAME_SIZE; x += 1) {
+    signature += pixels[(y * atlasWidth + frame * FRAME_SIZE + x) * 4 + 3] === 0 ? '0' : '1';
   }
   return signature;
 }
 
 function rgbaSignature(pixels: Uint8Array, atlasWidth: number, frame: number): string {
   const bytes: number[] = [];
-  for (let y = 0; y < 32; y += 1) for (let x = 0; x < 32; x += 1) {
-    bytes.push(...pixels.subarray((y * atlasWidth + frame * 32 + x) * 4, (y * atlasWidth + frame * 32 + x + 1) * 4));
+  for (let y = 0; y < FRAME_SIZE; y += 1) for (let x = 0; x < FRAME_SIZE; x += 1) {
+    bytes.push(...pixels.subarray((y * atlasWidth + frame * FRAME_SIZE + x) * 4, (y * atlasWidth + frame * FRAME_SIZE + x + 1) * 4));
   }
   return Buffer.from(bytes).toString('base64');
 }
@@ -65,7 +79,7 @@ describe('Gunsmith production art', () => {
 
   it('exports the committed editable PXO pixels exactly and keeps every frame silhouette distinct', () => {
     const png = decodePng('public/assets/gunsmith/icons/gunsmith-icons-atlas.png');
-    expect(png).toMatchObject({ width: 23 * 32, height: 32 });
+    expect(png).toMatchObject({ width: 23 * FRAME_SIZE, height: FRAME_SIZE });
     const raw = execFileSync('unzip', ['-p', 'assets-src/gunsmith/icons/source/gunsmith-icons-atlas.pxo', 'image_data/frames/1/layer_1']);
     expect(Buffer.from(png.pixels)).toEqual(raw);
     const signatures = expectedIds.map((_, frame) => alphaSignature(png.pixels, png.width, frame));
@@ -81,7 +95,7 @@ describe('Gunsmith production art', () => {
     };
     expect(Object.keys(atlas.frames)).toEqual(expectedIds);
     expect(Object.values(atlas.frames).map(({ frame }) => frame)).toEqual(
-      expectedIds.map((_, index) => ({ x: index * 32, y: 0, w: 32, h: 32 })),
+      expectedIds.map((_, index) => ({ x: index * FRAME_SIZE, y: 0, w: FRAME_SIZE, h: FRAME_SIZE })),
     );
   });
 });
