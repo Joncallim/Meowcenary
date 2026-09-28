@@ -36,19 +36,59 @@ export const game = new Phaser.Game(config);
 // visual-test query is present; no scene, save, or gameplay state is mutable
 // through this surface.
 if (new URLSearchParams(globalThis.location?.search ?? '').get('visual-test') === '1') {
+  const freezeVisualFrame = async (): Promise<void> => {
+    for (const scene of game.scene.getScenes(true)) {
+      const pending = [...scene.children.list] as Array<Phaser.GameObjects.GameObject & { list?: Phaser.GameObjects.GameObject[] }>;
+      while (pending.length > 0) {
+        const child = pending.pop()!;
+        if (child.list) pending.push(...child.list);
+        const animated = child as unknown as {
+          anims?: {
+            currentAnim?: { frames?: readonly unknown[] };
+            setCurrentFrame?(frame: unknown): void;
+          };
+        };
+        const firstFrame = animated.anims?.currentAnim?.frames?.[0];
+        if (firstFrame) animated.anims?.setCurrentFrame?.(firstFrame);
+      }
+    }
+    game.anims.pauseAll();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    game.loop.sleep();
+  };
   Object.defineProperty(globalThis, '__MEOWCENARY_VISUAL_TEST__', {
     configurable: true,
     value: Object.freeze({
-      freeze: () => game.loop.sleep(),
-      resume: () => game.loop.wake(),
+      freeze: freezeVisualFrame,
+      resume: () => {
+        game.anims.resumeAll();
+        game.loop.wake();
+      },
       isSceneActive: (key: string): boolean => game.scene.isActive(key),
+      isMenuPresentationSettled: (): boolean => {
+        const scene = game.scene.getScene('MenuScene') as unknown as {
+          panelArtLoading?: boolean;
+          mercenaryArtLoading?: boolean;
+          achievementArtLoading?: boolean;
+          pendingPanelArtIds?: { size: number };
+          pendingPanelArtRepaints?: { size: number };
+        };
+        return Boolean(scene)
+          && !scene.panelArtLoading
+          && !scene.mercenaryArtLoading
+          && !scene.achievementArtLoading
+          && (scene.pendingPanelArtIds?.size ?? 0) === 0
+          && (scene.pendingPanelArtRepaints?.size ?? 0) === 0;
+      },
       focusFirstEnemy: (): boolean => {
         const scene = game.scene.getScene('GameScene') as unknown as {
           cameras?: { main?: { stopFollow(): void; centerOn(x: number, y: number): void } };
           enemies?: Array<{ sprite: { x: number; y: number } }>;
+          scene?: { pause(): void };
         };
         const enemy = scene?.enemies?.[0];
         if (!enemy || !scene.cameras?.main) return false;
+        scene.scene?.pause();
         scene.cameras.main.stopFollow();
         scene.cameras.main.centerOn(enemy.sprite.x, enemy.sprite.y);
         return true;

@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
 
 type VisualTestSeam = {
-  freeze(): void;
+  freeze(): Promise<void>;
   resume(): void;
   isSceneActive(key: string): boolean;
+  isMenuPresentationSettled(): boolean;
   focusFirstEnemy(): boolean;
   showMenu(panel: string): boolean;
 };
@@ -28,7 +29,7 @@ async function freezeAtStableFrame(page: import('@playwright/test').Page): Promi
       __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
     }).__MEOWCENARY_VISUAL_TEST__;
     if (!seam) throw new Error('visual-test loop seam was not installed');
-    seam.freeze();
+    return seam.freeze();
   });
 }
 
@@ -61,6 +62,16 @@ async function expectScene(page: import('@playwright/test').Page, key: string): 
   }, key)).toBe(true);
 }
 
+async function expectMenuPresentationSettled(page: import('@playwright/test').Page): Promise<void> {
+  await expect.poll(() => page.evaluate(() => {
+    const seam = (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
+    }).__MEOWCENARY_VISUAL_TEST__;
+    return seam?.isMenuPresentationSettled() ?? false;
+  })).toBe(true);
+  await page.waitForTimeout(100);
+}
+
 test('approved reachable surfaces retain the Meowcenary visual system', async ({ page }, testInfo) => {
   test.skip(!representativeProjects.has(testInfo.project.name));
   const requestedAssets: string[] = [];
@@ -70,12 +81,15 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
   const canvas = page.locator('#game-root canvas');
   await expect(canvas).toBeVisible();
   await expect.poll(() => requestedAssets.some((path) => path.endsWith('/ui-atlas.png'))).toBe(true);
+  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/scrap-sniper.png'))).toBe(true);
+  await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
   await expect(page).toHaveScreenshot('home.png', { animations: 'disabled' });
 
   await page.reload();
   await showMenu(page, 'character');
   await expect.poll(() => requestedAssets.some((path) => path.endsWith('/mercenary-portraits-atlas.png'))).toBe(true);
+  await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
   await expect(page).toHaveScreenshot('mercenary.png', { animations: 'disabled' });
   await resumeLoop(page);
@@ -85,11 +99,13 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
 
   await page.reload();
   await showMenu(page, 'stage');
+  await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
   await expect(page).toHaveScreenshot('contract-selection.png', { animations: 'disabled' });
 
   await page.reload();
   await showMenu(page, 'achievements');
+  await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
   await expect(page).toHaveScreenshot('achievements.png', { animations: 'disabled' });
 
@@ -136,7 +152,6 @@ test('boss gameplay keeps the approved boss-scale visual hierarchy', async ({ pa
     }).__MEOWCENARY_VISUAL_TEST__;
     return seam?.focusFirstEnemy() ?? false;
   })).toBe(true);
-  await page.waitForTimeout(250);
   await freezeAtStableFrame(page);
   await expect(page).toHaveScreenshot('boss-gameplay.png', { animations: 'disabled' });
 });
@@ -162,7 +177,7 @@ test('compendium exposes the complete runtime enemy art roster', async ({ page }
   });
   await page.goto('/?visual-test=1');
   await showMenu(page, 'compendium');
-  await page.waitForTimeout(750);
+  await expectMenuPresentationSettled(page);
   await freezeAtStableFrame(page);
   await expect(page).toHaveScreenshot('compendium.png', { animations: 'disabled' });
   await resumeLoop(page);
