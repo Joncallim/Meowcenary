@@ -538,6 +538,7 @@ export class GameScene extends Phaser.Scene {
     this.defeatPresentationSystem = new DefeatPresentationSystem({
       scene: this,
       bus: ctx.bus,
+      data: ctx.data,
       visualArt,
       maxPresentations: RuntimeConfig.performance.maxDefeatPresentations,
     });

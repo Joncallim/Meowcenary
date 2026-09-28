@@ -5,6 +5,7 @@ import type { ProgressionCondition } from '../gameplay/conditionEvaluator';
 import type { ProgressionGrant } from '../gameplay/grantProcessor';
 import type { GameData } from '../systems/types';
 import type { DataVisualArtRegistry } from '../systems/visualArt';
+import { resolveEnemyActorBinding } from '../systems/visualArt';
 
 export function describeProgressionCondition(condition: ProgressionCondition, data: GameData): string {
   switch (condition.type) {
@@ -93,9 +94,7 @@ export function resolveEnemyActorArtId(
   data: GameData,
   visualArt: DataVisualArtRegistry,
 ): string | undefined {
-  const enemy = data.enemies.find((row) => row.id === enemyId);
-  const actorEnemyId = enemy?.archetype === 'elite' ? enemy.baseEnemyId : enemyId;
-  return visualArt.bindingById(`enemy:${actorEnemyId}`)?.id;
+  return resolveEnemyActorBinding(enemyId, data, visualArt)?.id;
 }
 
 function catalogName(rows: readonly { readonly id: string; readonly name: string }[] | undefined, id: string, fallback: string): string {
