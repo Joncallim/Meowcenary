@@ -31,6 +31,19 @@ const config: Phaser.Types.Core.GameConfig = {
 // Exported as a narrow ESM browser lifecycle/smoke seam. Upgrade selection now
 // uses the visible chooser; gameplay ownership remains in scenes and systems.
 export const game = new Phaser.Game(config);
+// Screenshot acceptance needs a deterministic frame boundary. Keep the seam
+// dormant for ordinary players and expose only loop control when the explicit
+// visual-test query is present; no scene, save, or gameplay state is mutable
+// through this surface.
+if (new URLSearchParams(globalThis.location?.search ?? '').get('visual-test') === '1') {
+  Object.defineProperty(globalThis, '__MEOWCENARY_VISUAL_TEST__', {
+    configurable: true,
+    value: Object.freeze({
+      freeze: () => game.loop.sleep(),
+      resume: () => game.loop.wake(),
+    }),
+  });
+}
 // The DOM-owned guard remains reliable even when the fitted canvas cannot lay
 // out its authored portrait UI on a phone rotated into landscape.
 const portraitOrientationGuard = installPortraitOrientationGuard();
