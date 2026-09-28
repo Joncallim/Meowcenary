@@ -405,6 +405,7 @@ export type VisualArtKind =
   | 'weapon-icon'
   | 'weapon-held'
   | 'world'
+  | 'portrait'
   /** Generic static presentation icon: equipment, parts and future data rows
    * share the same renderer capability without a content-owner branch. */
   | 'icon'
@@ -517,6 +518,7 @@ export interface CharacterStaticPassiveDefinition {
   readonly name: string;
   readonly description: string;
   readonly effects: readonly UpgradeEffect[];
+  readonly presentation: { readonly iconArtId: string };
 }
 
 export interface CharacterReactivePassiveDefinition {
@@ -526,6 +528,7 @@ export interface CharacterReactivePassiveDefinition {
   readonly description: string;
   readonly event: CharacterPassiveEvent;
   readonly handlerId: string;
+  readonly presentation: { readonly iconArtId: string };
 }
 
 export type CharacterPassiveDefinition =
@@ -544,6 +547,7 @@ export interface CharacterDefinition {
   /** Alpha 3 shared condition vocabulary; never character-specific rules. */
   readonly unlock: ProgressionCondition;
   readonly cosmeticSkinIds: readonly string[];
+  readonly presentation: { readonly portraitArtId: string };
 }
 
 export interface ArenaSize {

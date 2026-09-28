@@ -102,6 +102,8 @@ describe('Resource Loader', () => {
     });
     const ids = new Set(resources.map((resource) => resource.id));
     expect(ids).toContain('resource:character-scrap-tabby');
+    expect(ids).toContain('resource:mercenary-identity-icons');
+    expect(ids).not.toContain('resource:mercenary-portraits');
     // Terminal Achievement tiles are part of the run journey. Their one
     // bounded atlas must be ready even when the player never visited Career.
     expect(ids).toContain('resource:achievement-icons');

@@ -5,12 +5,15 @@ import { createConditionContext, type ProgressionCondition } from '../gameplay/c
 export interface CharacterOptionView {
   readonly id: string;
   readonly actorArtId: string;
+  readonly portraitArtId: string;
   readonly name: string;
   readonly description: string;
   readonly abilityName?: string;
   readonly abilityDescription?: string;
+  readonly abilityIconArtId?: string;
   readonly baseStatsSummary: string;
   readonly passiveSummary: string;
+  readonly passives: readonly { readonly name: string; readonly description: string; readonly iconArtId: string }[];
   readonly startingWeaponSummary: string;
   readonly startingWeaponIconArtId: string;
   /** Always shown for locked choices; also makes earned goals inspectable. */
@@ -55,13 +58,15 @@ export class CharacterSelectionController {
     const characters = context.characters.all().map((character) => ({
       id: character.id,
       actorArtId: `character:${character.id}`,
+      portraitArtId: character.presentation.portraitArtId,
       name: character.name,
       description: character.description,
       ...(character.abilityId !== undefined && abilities.get(character.abilityId) !== undefined
-        ? { abilityName: abilities.get(character.abilityId)!.name, abilityDescription: abilities.get(character.abilityId)!.description }
+        ? { abilityName: abilities.get(character.abilityId)!.name, abilityDescription: abilities.get(character.abilityId)!.description, abilityIconArtId: abilities.get(character.abilityId)!.presentation.iconArtId }
         : {}),
       baseStatsSummary: `${character.baseStats.maxHealth} health • ${character.baseStats.moveSpeed} speed`,
       passiveSummary: character.passives.map((passive) => `${passive.name}: ${passive.description}`).join(' • ') || 'No passive.',
+      passives: Object.freeze(character.passives.map((passive) => Object.freeze({ name: passive.name, description: passive.description, iconArtId: passive.presentation.iconArtId }))),
       startingWeaponSummary: character.startingWeaponIds.map((id) => weapons.get(id)?.name ?? id).join(' • '),
       startingWeaponIconArtId: weapons.get(character.startingWeaponIds[0]!)?.art.iconId ?? '',
       unlockRequirement: describeCharacterUnlock(character.unlock),

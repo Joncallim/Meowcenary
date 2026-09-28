@@ -105,7 +105,7 @@ describe('Epic 24 ability state machine (pure, deterministic, pause-safe)', () =
     id: 'ability:test', name: 'Test', description: 't',
     cooldownMs: 10000, durationMs: 2000,
     effect: { kind: 'knockback', radius: 50, power: 100 },
-    presentation: { cue: 'shockwave', color: '#ffffff', radius: 50 },
+    presentation: { cue: 'shockwave', color: '#ffffff', radius: 50, iconArtId: 'ability-icon:test' },
   };
 
   it('starts ready; activation fires exactly once per cooldown', () => {
@@ -207,6 +207,7 @@ describe('Epic 24 second-fixture proof (data-only extensibility)', () => {
       id: 'proof-sphinx',
       name: 'Proof Sphinx',
       description: 'Second-fixture proof character.',
+      presentation: { portraitArtId: 'character-portrait:proof-sphinx' },
       baseStats: { maxHealth: 100, moveSpeed: 175 },
       startingWeaponIds: ['scrap-pistol-t1'],
       abilityId: 'ability:scrap-burst', // existing registered ability
@@ -215,6 +216,7 @@ describe('Epic 24 second-fixture proof (data-only extensibility)', () => {
         kind: 'static',
         name: 'Proof Static',
         description: 'No-op proof passive.',
+        presentation: { iconArtId: 'passive-icon:proof-static' },
         effects: [{ stat: 'pickupRadius', op: 'add', value: 5 }],
       } as unknown as CharacterDefinition['passives'][number]],
       unlock: { type: 'achievement-completed', achievementId: 'achievement:first-victory' },

@@ -263,6 +263,14 @@ export function resolveRunPhysicalResources(options: {
   const addArt = (id: string): void => { artIds.add(id); };
 
   addArt(`character:${options.characterId}`);
+  const selectedCharacter = options.data.characters.find((character) => character.id === options.characterId);
+  if (!selectedCharacter) throw new Error(`Run resource closure references missing character "${options.characterId}"`);
+  if (selectedCharacter.abilityId) {
+    const ability = options.data.abilities?.find((candidate) => candidate.id === selectedCharacter.abilityId);
+    if (!ability) throw new Error(`Run resource closure references missing ability "${selectedCharacter.abilityId}"`);
+    if (!ability.presentation.iconArtId) throw new Error(`Run resource closure references ability "${selectedCharacter.abilityId}" without presentation art`);
+    addArt(ability.presentation.iconArtId);
+  }
   for (const id of options.arena.visual.floorArtIds) addArt(id);
   for (const id of Object.values(options.arena.visual.boundary)) addArt(id);
   for (const decoration of options.arena.visual.decorations) addArt(decoration.artId);

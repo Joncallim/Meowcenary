@@ -34,6 +34,9 @@ describe('CharacterSelectionController', () => {
     expect(snapshot.characters[0]).toMatchObject({ abilityName: expect.any(String), abilityDescription: expect.any(String) });
     expect(snapshot.characters[0]).toMatchObject({
       actorArtId: 'character:scrap-tabby',
+      portraitArtId: 'character-portrait:scrap-tabby',
+      abilityIconArtId: 'ability-icon:scrap-burst',
+      passives: [{ name: 'Scrap Hoarder', iconArtId: 'passive-icon:scrap-hoarder' }],
       startingWeaponIconArtId: 'weapon-icon:pistol:t1',
       baseStatsSummary: expect.stringContaining('health'),
       passiveSummary: expect.stringContaining('Scrap Hoarder'),
@@ -54,6 +57,7 @@ describe('CharacterSelectionController', () => {
     const template = context.characters.characterById('scrap-tabby')!;
     const extraCharacters = Array.from({ length: 12 }, (_, index) => ({
       ...structuredClone(template), id: `synthetic-${index + 9}`, name: `Synthetic ${index + 9}`,
+      presentation: { portraitArtId: `character-portrait:synthetic-${index + 9}` },
     }));
     const registry = new DataCharacterRegistry({ characters: [...context.characters.all(), ...extraCharacters] });
     const metaUpgrades = new DataMetaUpgradeRegistry(context.data);
@@ -68,6 +72,8 @@ describe('CharacterSelectionController', () => {
     expect(snapshot.characters[19]).toMatchObject({
       id: 'synthetic-20',
       actorArtId: 'character:synthetic-20',
+      portraitArtId: 'character-portrait:synthetic-20',
+      abilityIconArtId: 'ability-icon:scrap-burst',
       startingWeaponIconArtId: 'weapon-icon:pistol:t1',
     });
   });

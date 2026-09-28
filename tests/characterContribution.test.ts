@@ -10,6 +10,7 @@ const scrapTabby: CharacterDefinition = {
   id: 'scrap-tabby',
   name: 'Scrap Tabby',
   description: 'A balanced junkyard scavenger.',
+  presentation: { portraitArtId: 'character-portrait:scrap-tabby' },
   baseStats: { maxHealth: 100, moveSpeed: 175 },
   startingWeaponIds: ['scrap-pistol-t1', 'can-smg-t1', 'bolt-shotgun-t1'],
   passives: [
@@ -18,6 +19,7 @@ const scrapTabby: CharacterDefinition = {
       kind: 'static',
       name: 'Scrap Hoarder',
       description: 'Picks up scrap and XP from a little further away.',
+      presentation: { iconArtId: 'passive-icon:scrap-hoarder' },
       effects: [{ stat: 'pickupRadius', op: 'add', value: 15 }],
     },
   ],
@@ -29,6 +31,7 @@ const boltHound: CharacterDefinition = {
   id: 'bolt-hound',
   name: 'Bolt Hound',
   description: 'A wiry, high-speed striker.',
+  presentation: { portraitArtId: 'character-portrait:bolt-hound' },
   baseStats: { maxHealth: 80, moveSpeed: 205 },
   startingWeaponIds: ['can-smg-t1'],
   passives: [
@@ -37,6 +40,7 @@ const boltHound: CharacterDefinition = {
       kind: 'static',
       name: 'Quick Tail',
       description: 'Moves 5% faster.',
+      presentation: { iconArtId: 'passive-icon:quick-tail' },
       effects: [{ stat: 'moveSpeed', op: 'mult', value: 1.05 }],
     },
   ],
@@ -78,6 +82,7 @@ describe('resolveCharacterRunContribution', () => {
           kind: 'static',
           name: 'A',
           description: 'A.',
+          presentation: { iconArtId: 'passive-icon:passive-a' },
           effects: [{ stat: 'damage', op: 'add', value: 5 }],
         },
         {
@@ -85,6 +90,7 @@ describe('resolveCharacterRunContribution', () => {
           kind: 'static',
           name: 'B',
           description: 'B.',
+          presentation: { iconArtId: 'passive-icon:passive-b' },
           effects: [
             { stat: 'moveSpeed', op: 'mult', value: 1.1 },
             { stat: 'maxHealth', op: 'add', value: 10 },
@@ -110,6 +116,7 @@ describe('resolveCharacterRunContribution', () => {
           kind: 'static',
           name: 'Static',
           description: 'Static.',
+          presentation: { iconArtId: 'passive-icon:static-one' },
           effects: [{ stat: 'damage', op: 'add', value: 3 }],
         },
         {
@@ -117,6 +124,7 @@ describe('resolveCharacterRunContribution', () => {
           kind: 'reactive',
           name: 'Reactive',
           description: 'Reactive.',
+          presentation: { iconArtId: 'passive-icon:reactive-one' },
           event: 'enemy:killed',
           handlerId: 'test-handler',
         },
