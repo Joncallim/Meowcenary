@@ -63,8 +63,11 @@ shapes.
 The four former 313px ordinary-enemy imports were reauthored directly on the
 48px grid. Their approximate live idle bounds improved from 16×9 to 22×18
 (Skitter), 16×12 to 26×22 (Beetle), 15×13 to 24×23 (Nester), and 15×10 to
-18×21 (Shard Bot). Forge Warden is now a margin-safe 54×51 native silhouette
-and occupies about 34×32 live pixels, versus Crusher's low 33×23 footprint.
+18×21 (Shard Bot). Forge Warden was independently authored across all 16
+frames on the 64px production grid; the selected generated sheet remains
+reference/provenance and is not an export input. Its idle silhouette is a
+margin-safe 59×56 and occupies about 37×35 live pixels, versus Crusher's low
+33×23 footprint.
 All ten release enemies now participate in the all-frame crop, anchor, motion,
 display-scale distinction, editable-source, and runtime-parity regressions.
 
@@ -134,7 +137,8 @@ error. Primitive actor geometry is available only through the explicit
 development/test opt-in used by art-less harnesses; it is not an automatic
 production recovery path. Data-authored elite enemies retain their own combat
 identity while validation, resource closure, and runtime presentation all
-resolve the authoritative base-enemy actor binding.
+resolve the authoritative base-enemy actor binding, including the cosmetic
+defeat presentation emitted from the elite's logical kill event.
 
 ## Deliberate non-goals
 
