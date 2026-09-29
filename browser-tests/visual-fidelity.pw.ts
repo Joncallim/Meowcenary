@@ -103,7 +103,11 @@ async function expectCenteredActor(page: import('@playwright/test').Page, name: 
 }
 
 test('approved reachable surfaces retain the Meowcenary visual system', async ({ page }, testInfo) => {
-  test.setTimeout(90_000);
+  // This journey reloads seven independently lazy-loaded production surfaces
+  // before entering gameplay. A single-core CI runner has measured just over
+  // 90 seconds while every bounded readiness assertion remained healthy; the
+  // suite-level budget must cover the whole journey, not compete with them.
+  test.setTimeout(180_000);
   test.skip(!representativeProjects.has(testInfo.project.name));
   const requestedAssets: string[] = [];
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
