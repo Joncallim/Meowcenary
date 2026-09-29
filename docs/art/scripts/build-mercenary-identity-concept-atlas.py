@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -24,15 +25,27 @@ IDS = (
 )
 FRAME = 96
 ZIP_DATE = (2020, 1, 1, 0, 0, 0)
+SELECTED_MASTER_SHA256 = {
+    "ability-icons-v2-selected.png": "1d6f426033693d8dad0535b0a7f9aaafd1116d89d5f899750f42abd4d327f6a3",
+    "ability-passive-icons-selected.png": "b2a9d5b45a8b456352e31a6d8b569fc09e899da7d0e26f541f98fe382d5d1039",
+}
+
+
+def selected_master(root: Path, name: str) -> Path:
+    path = root / "assets-src/characters/identity/concepts" / name
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    expected = SELECTED_MASTER_SHA256[name]
+    if actual != expected:
+        raise SystemExit(
+            f"Selected Mercenary identity master digest mismatch for {name}: "
+            f"expected {expected}, got {actual}"
+        )
+    return path
 
 
 def render(root: Path) -> Image.Image:
-    active_board = Image.open(
-        root / "assets-src/characters/identity/concepts/ability-icons-v2-selected.png"
-    ).convert("RGBA")
-    passive_board = Image.open(
-        root / "assets-src/characters/identity/concepts/ability-passive-icons-selected.png"
-    ).convert("RGBA")
+    active_board = Image.open(selected_master(root, "ability-icons-v2-selected.png")).convert("RGBA")
+    passive_board = Image.open(selected_master(root, "ability-passive-icons-selected.png")).convert("RGBA")
     atlas = Image.new("RGBA", (FRAME * len(IDS), FRAME), (0, 0, 0, 0))
     for index, _name in enumerate(IDS):
         if index < 8:

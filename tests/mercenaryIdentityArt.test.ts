@@ -127,6 +127,13 @@ describe('Mercenary portrait and identity-icon production art', () => {
     expect(Object.values(icons.frames).every(({ frame }) => frame.w === 96 && frame.h === 96)).toBe(true);
   }, 15_000);
 
+  it('pins the selected identity production masters used by the deterministic builder', () => {
+    const builder = readFileSync('docs/art/scripts/build-mercenary-identity-concept-atlas.py', 'utf8');
+    expect(builder).toContain('b2a9d5b45a8b456352e31a6d8b569fc09e899da7d0e26f541f98fe382d5d1039');
+    expect(builder).toContain('1d6f426033693d8dad0535b0a7f9aaafd1116d89d5f899750f42abd4d327f6a3');
+    expect(builder).toContain('Selected Mercenary identity master digest mismatch');
+  });
+
   it('keeps all final frames nonidentical and grayscale-distinct at production resolution', () => {
     for (const [jsonPath, pngPath, ids, frameWidth, frameHeight] of [
       ['public/assets/characters/identity/mercenary-portraits-atlas.json', 'public/assets/characters/identity/mercenary-portraits-atlas.png', PORTRAIT_IDS, 150, 240],
