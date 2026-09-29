@@ -115,6 +115,7 @@ describe('Mercenary portrait and identity-icon production art', () => {
 
   it('keeps builders, editable Pixelorama sources, named frames and runtime RGBA in deterministic parity', () => {
     expect(() => execFileSync('node', ['docs/art/scripts/verify-mercenary-identity-builder-parity.mjs'])).not.toThrow();
+    expect(() => execFileSync('node', ['docs/art/scripts/export-mercenary-identity-atlases.mjs', '--check'])).not.toThrow();
     expect(() => execFileSync('python3', ['docs/art/scripts/build-mercenary-identity-concept-atlas.py', '--check'])).not.toThrow();
     expect(() => execFileSync('python3', ['docs/art/scripts/build-mercenary-portrait-atlas.py', '--check'])).not.toThrow();
     const portraits = JSON.parse(readFileSync('public/assets/characters/identity/mercenary-portraits-atlas.json', 'utf8')) as { size_x: number; size_y: number; frames: Record<string, { frame: { w: number; h: number } }> };
