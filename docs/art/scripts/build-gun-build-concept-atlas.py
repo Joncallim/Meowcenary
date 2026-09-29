@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
@@ -39,6 +40,7 @@ LAYERS = (
 # loaded successfully.
 SCALE = 0.12
 TARGET_ANCHOR = (39, 23)
+SELECTED_MASTER_SHA256 = "608cfe343a78c8ad924d6d5a8ce2009b6c84ccc2bdbd893598d427f835c09bd0"
 LAYER_SCALES = {
     "gun-build-base:smg": 0.11,
     "gun-build-part:magazine-extended": 0.10,
@@ -114,7 +116,11 @@ def remove_resampled_guide_edges(image: Image.Image) -> Image.Image:
 
 
 def render(root: Path) -> Image.Image:
-    board = Image.open(root / "assets-src/gunsmith/previews/concepts/assembled-weapons-direction-a-selected.png").convert("RGBA")
+    board_path = root / "assets-src/gunsmith/previews/concepts/assembled-weapons-direction-a-selected.png"
+    actual = hashlib.sha256(board_path.read_bytes()).hexdigest()
+    if actual != SELECTED_MASTER_SHA256:
+        raise SystemExit(f"selected assembled-weapon master digest mismatch: expected {SELECTED_MASTER_SHA256}, got {actual}")
+    board = Image.open(board_path).convert("RGBA")
     if board.size != (1536, 1024):
         raise SystemExit(f"selected assembled-weapon board changed size: {board.size}")
     atlas = Image.new("RGBA", (FRAME_WIDTH * len(LAYERS), FRAME_HEIGHT), (0, 0, 0, 0))

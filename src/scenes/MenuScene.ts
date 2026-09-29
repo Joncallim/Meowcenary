@@ -1634,11 +1634,15 @@ export class MenuScene extends Phaser.Scene {
       this.scrollItemBounds.set(index, { top: itemBounds.top, bottom: itemBounds.bottom });
       this.rebuildScrollItems();
     }
-    text.on(Phaser.Input.Events.POINTER_OVER, () => {
+    text.on(Phaser.Input.Events.POINTER_OVER, (pointer: Phaser.Input.Pointer) => {
+      const focusIndex = this.focusables.indexOf(text);
+      if (this.scrollItemIndexes.has(focusIndex)
+        && (pointer.y < this.scrollViewportTop || pointer.y >= this.scrollViewportBottom)) return;
       this.hoveredIndex = index;
       this.navigator.setIndex(index);
-      this.syncScrollFocus(index);
-      this.applyScrollViewport();
+      // Hover follows the pointer without auto-revealing the whole row. Wheel
+      // and drag scrolling therefore remain continuous when a row is only
+      // partly inside the geometry mask.
       this.applyFocus();
     });
     text.on(Phaser.Input.Events.POINTER_OUT, () => {
@@ -2212,6 +2216,20 @@ export class MenuScene extends Phaser.Scene {
     if (!this.committedDisplay) return;
     const resolved = typeof direction === 'number' ? (direction < 0 ? 'up' : 'down') : direction;
     const localFocus = this.scrollLocalIndexByFocusIndex.get(this.navigator.index);
+    if (resolved === 'up' && this.scrollRegion && localFocus === 0
+      && this.scrollRegion.scrollToStart()) {
+      this.applyScrollViewport();
+      this.bus?.emit('ui:navigate', {});
+      this.applyFocus();
+      return;
+    }
+    if (resolved === 'down' && this.scrollRegion && localFocus === 0
+      && this.scrollRegion.ensureFocusedVisible()) {
+      this.applyScrollViewport();
+      this.bus?.emit('ui:navigate', {});
+      this.applyFocus();
+      return;
+    }
     if (resolved === 'down' && this.scrollRegion && localFocus === this.scrollRegion.itemCount - 1
       && this.scrollRegion.scrollToEnd()) {
       this.applyScrollViewport();

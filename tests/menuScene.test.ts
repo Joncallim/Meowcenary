@@ -1103,6 +1103,10 @@ describe('MenuScene', () => {
     expect(target.state.mask).toBeDefined();
     expect(originalBounds.top - scene.scrollRegion.scrollOffset).toBeLessThan(scene.scrollViewportTop);
 
+    const partialOffset = scene.scrollRegion.scrollOffset;
+    target.state.handlers.pointerover!({ y: scene.scrollViewportTop + 2 });
+    expect(scene.scrollRegion.scrollOffset).toBe(partialOffset);
+
     const priorFocus = scene.navigator.index;
     target.state.handlers.pointerup!({ y: scene.scrollViewportTop - 1 });
     expect(scene.navigator.index).toBe(priorFocus);
@@ -1556,6 +1560,20 @@ describe('MenuScene', () => {
     expect(scene.scrollObjects.some(({ object }) => object.state.text === 'Equipped: 1/4 pieces')).toBe(true);
     expect(scene.scrollObjects.some(({ object }) => object.state.text === 'ACTIVE SETS')).toBe(true);
     expect(harness.objects.some((object) => object.state.text.startsWith('✓ Commando Helmet'))).toBe(true);
+    const scrollRegion = (scene as unknown as {
+      scrollRegion: { scrollOffset: number; ensureVisible(index: number): void };
+      applyScrollViewport(): void;
+    }).scrollRegion;
+    scrollRegion.ensureVisible(0);
+    (scene as unknown as { applyScrollViewport(): void }).applyScrollViewport();
+    const initiallyFocusedOffset = scrollRegion.scrollOffset;
+    expect(initiallyFocusedOffset).toBeGreaterThan(0);
+    harness.keyboard.keydown('ArrowUp'); harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('ArrowUp'); harness.menuScene.update(0, 16);
+    expect(scrollRegion.scrollOffset).toBe(0);
+    harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+    expect(scrollRegion.scrollOffset).toBe(initiallyFocusedOffset);
   });
 
   it.each([

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
@@ -22,10 +23,14 @@ SOURCE_COLUMN = 313
 SOURCE_ROW = 337
 SOURCE_TOP = 90
 ZIP_DATE = (2020, 1, 1, 0, 0, 0)
+SELECTED_MASTER_SHA256 = "cfad6ea94cc2e0085255c7fd8831355b085bc111691120e6f9be6b505d7b700f"
 
 
 def render(root: Path) -> Image.Image:
     board_path = root / "assets-src/achievements/concepts/direction-b-selected.png"
+    actual = hashlib.sha256(board_path.read_bytes()).hexdigest()
+    if actual != SELECTED_MASTER_SHA256:
+        raise SystemExit(f"selected Achievement master digest mismatch: expected {SELECTED_MASTER_SHA256}, got {actual}")
     board = Image.open(board_path).convert("RGBA")
     if board.size != (1254, 1254):
         raise SystemExit(f"selected Achievement board changed size: {board.size}")

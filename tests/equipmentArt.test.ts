@@ -83,6 +83,9 @@ describe('dedicated Equipment production art', () => {
   });
 
   it('keeps all 40 approved named frames in deterministic concept/source/export parity', () => {
+    const builder = readFileSync('docs/art/scripts/build-equipment-concept-atlases.py', 'utf8');
+    expect(builder).toContain('eccaad70498657a84456d8fef8564fdbeff598b22356649e23cb52b8e3a89d1b');
+    expect(builder).toContain('c43d0727ce022b76c398248c4b8531ccd24bf93bf37176dd5ebdac212276bbe6');
     expect(() => execFileSync('python3', ['docs/art/scripts/build-equipment-concept-atlases.py', '--check'])).not.toThrow();
     const atlas = JSON.parse(readFileSync('public/assets/equipment/sets/equipment-sets-atlas.json', 'utf8')) as {
       size_x: number; size_y: number; frames: Record<string, { frame: { x: number; y: number; w: number; h: number } }>;

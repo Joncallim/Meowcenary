@@ -72,6 +72,8 @@ describe('assembled-weapon production art packet', () => {
   });
 
   it('keeps editable source, deterministic export, and 96x48 named-frame parity', () => {
+    expect(readFileSync('docs/art/scripts/build-gun-build-concept-atlas.py', 'utf8'))
+      .toContain('608cfe343a78c8ad924d6d5a8ce2009b6c84ccc2bdbd893598d427f835c09bd0');
     const metadata = JSON.parse(readFileSync(metadataPath, 'utf8')) as { frames: Record<string, { frame: { x: number; y: number; w: number; h: number } }> };
     const atlas = decode(); expect([atlas.width, atlas.height]).toEqual([ids.length * 96, 48]);
     expect(Object.keys(metadata.frames)).toEqual([...ids]);

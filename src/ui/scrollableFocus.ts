@@ -34,6 +34,7 @@ export class ScrollableFocusRegion {
   private _scrollOffset = 0;
   private _contentHeight = 0;
   private supplementalContentBottom = 0;
+  private prefixRevealed = false;
   private items: FocusItemLayout[] = [];
   private readonly viewportTop: number;
   private readonly viewportBottom: number;
@@ -92,6 +93,7 @@ export class ScrollableFocusRegion {
 
   /** Move focus in the given direction.  Returns true if focus changed. */
   moveFocus(direction: FocusDirection): boolean {
+    this.prefixRevealed = false;
     const before = this.navigator.index;
     this.navigator.move(direction);
     if (this.navigator.index !== before) {
@@ -103,6 +105,7 @@ export class ScrollableFocusRegion {
 
   /** Scroll by a delta (e.g. from mouse wheel or touch drag). */
   scrollBy(delta: number): void {
+    this.prefixRevealed = false;
     this._scrollOffset += delta;
     this.clampScrollOffset();
   }
@@ -118,8 +121,31 @@ export class ScrollableFocusRegion {
     return this._scrollOffset !== before;
   }
 
+  /** Reveal non-focusable presentation before the first list item. Controller
+   * navigation consumes one Up press before leaving the region, mirroring the
+   * supplemental-tail behavior. */
+  scrollToStart(): boolean {
+    const firstTop = this.items.length > 0 ? Math.min(...this.items.map((item) => item.top)) : this.viewportTop;
+    if (firstTop <= this.viewportTop) return false;
+    const before = this._scrollOffset;
+    this._scrollOffset = 0;
+    const moved = this._scrollOffset !== before;
+    if (moved) this.prefixRevealed = true;
+    return moved;
+  }
+
+  /** Restore the retained focus row after a prefix was inspected. */
+  ensureFocusedVisible(): boolean {
+    if (!this.prefixRevealed) return false;
+    this.prefixRevealed = false;
+    const before = this._scrollOffset;
+    this.ensureVisible(this.navigator.index);
+    return this._scrollOffset !== before;
+  }
+
   /** Set scroll offset directly. */
   setScrollOffset(offset: number): void {
+    this.prefixRevealed = false;
     this._scrollOffset = offset;
     this.clampScrollOffset();
   }
@@ -144,6 +170,7 @@ export class ScrollableFocusRegion {
     this._scrollOffset = 0;
     this._contentHeight = 0;
     this.supplementalContentBottom = 0;
+    this.prefixRevealed = false;
     this.navigator.setCount(0);
   }
 

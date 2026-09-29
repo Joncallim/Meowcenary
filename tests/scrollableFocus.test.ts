@@ -118,6 +118,18 @@ describe('ScrollableFocusRegion', () => {
     expect(region.scrollToEnd()).toBe(false);
   });
 
+  it('reveals and restores non-focusable presentation before the first controller row', () => {
+    const region = new ScrollableFocusRegion({ viewportTop: 100, viewportBottom: 300 });
+    region.setItems([{ index: 0, top: 360, bottom: 420 }, { index: 1, top: 430, bottom: 490 }]);
+    region.ensureVisible(0);
+    expect(region.scrollOffset).toBe(120);
+    expect(region.scrollToStart()).toBe(true);
+    expect(region.scrollOffset).toBe(0);
+    expect(region.scrollToStart()).toBe(false);
+    expect(region.ensureFocusedVisible()).toBe(true);
+    expect(region.scrollOffset).toBe(120);
+  });
+
   it('does not consume controller navigation for the ordinary trailing item margin', () => {
     const region = new ScrollableFocusRegion({ viewportTop: 100, viewportBottom: 300 });
     region.setItems([{ index: 0, top: 280, bottom: 340 }]);

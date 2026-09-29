@@ -87,6 +87,8 @@ describe('dedicated Achievement production art', () => {
   });
 
   it('keeps the approved source board, editable Pixelorama source and named-frame export in parity', () => {
+    expect(readFileSync('docs/art/scripts/build-achievement-concept-atlas.py', 'utf8'))
+      .toContain('cfad6ea94cc2e0085255c7fd8831355b085bc111691120e6f9be6b505d7b700f');
     expect(() => execFileSync('python3', ['docs/art/scripts/build-achievement-concept-atlas.py', '--check']))
       .not.toThrow();
     const atlas = JSON.parse(readFileSync('public/assets/achievements/achievement-icons-atlas.json', 'utf8')) as {

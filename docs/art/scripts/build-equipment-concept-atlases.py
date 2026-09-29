@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
@@ -17,6 +18,18 @@ FRAME = 96
 SLOTS = ("helmet", "armour", "gloves", "boots")
 SETS = ("scavenger", "juggernaut", "pyro", "recon", "medic", "technician", "demolition")
 ZIP_DATE = (2026, 1, 1, 0, 0, 0)
+SELECTED_MASTER_SHA256 = {
+    "commando": "eccaad70498657a84456d8fef8564fdbeff598b22356649e23cb52b8e3a89d1b",
+    "sets": "c43d0727ce022b76c398248c4b8531ccd24bf93bf37176dd5ebdac212276bbe6",
+}
+
+
+def selected_board(path: Path, identity: str) -> Image.Image:
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    expected = SELECTED_MASTER_SHA256[identity]
+    if actual != expected:
+        raise SystemExit(f"selected Equipment master digest mismatch for {identity}: expected {expected}, got {actual}")
+    return Image.open(path).convert("RGBA")
 
 
 def fit_cell(board: Image.Image, column: int, row: int, columns: int, rows: int) -> Image.Image:
@@ -86,8 +99,8 @@ def emit(output: Path, name: str, set_ids: tuple[str, ...], atlas: Image.Image, 
 
 
 def write(root: Path, output: Path) -> None:
-    commando = Image.open(root / "assets-src/equipment/commando/concepts/commando-direction-a-selected.png").convert("RGBA")
-    sets = Image.open(root / "assets-src/equipment/sets/concepts/equipment-families-direction-b-selected.png").convert("RGBA")
+    commando = selected_board(root / "assets-src/equipment/commando/concepts/commando-direction-a-selected.png", "commando")
+    sets = selected_board(root / "assets-src/equipment/sets/concepts/equipment-families-direction-b-selected.png", "sets")
     if commando.size != (2172, 724) or sets.size != (1312, 1199):
         raise SystemExit("an approved Equipment concept master changed dimensions")
     emit(output, "commando-equipment-atlas", ("commando",), build_atlas(commando, 1),
