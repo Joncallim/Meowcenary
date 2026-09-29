@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -23,6 +24,10 @@ SETTINGS_IDS = (
 IDS = CONTRACT_IDS + SETTINGS_IDS
 FRAME = 96
 ZIP_DATE = (2020, 1, 1, 0, 0, 0)
+SELECTED_SHA256 = {
+    "contract-icons-selected.png": "ec58cd6e3f104a49e14f0999a84acaee55a5f3c2558835b5b39134decba0a2cd",
+    "settings-icons-selected.png": "711f72f778cd31ee0e9745ed77fcdef3c285b9fe49854a56d94f20e5af68051e",
+}
 
 
 def tiles(root: Path):
@@ -30,7 +35,10 @@ def tiles(root: Path):
         ("contract-icons-selected.png", CONTRACT_IDS),
         ("settings-icons-selected.png", SETTINGS_IDS),
     ):
-        board = Image.open(root / "assets-src/ui/concepts" / filename).convert("RGBA")
+        path = root / "assets-src/ui/concepts" / filename
+        if hashlib.sha256(path.read_bytes()).hexdigest() != SELECTED_SHA256[filename]:
+            raise SystemExit(f"selected menu semantic master digest mismatch for {filename}")
+        board = Image.open(path).convert("RGBA")
         if board.size != (1536, 1024):
             raise SystemExit(f"selected {filename} changed size: {board.size}")
         for index, name in enumerate(names):

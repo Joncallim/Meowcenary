@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -16,12 +17,19 @@ CHAPTERS = ("junkyard", "forge")
 SOURCE_SIZE = (1536, 1024)
 RUNTIME_SIZE = (768, 512)
 ZIP_DATE = (2020, 1, 1, 0, 0, 0)
+SELECTED_SHA256 = {
+    "junkyard": "608bf29683d87cd11883aea08060c87bbac261bb79f312338af4b21096dbd1d0",
+    "forge": "625c7535279006a4c4c15a8bf9ca2ec2cd18b7865ddac62a5b20748ab10ac79e",
+}
 
 
 def sources(root: Path) -> dict[str, Image.Image]:
     result: dict[str, Image.Image] = {}
     for chapter in CHAPTERS:
-        image = Image.open(root / f"assets-src/ui/concepts/menu-backdrop-{chapter}-selected.png").convert("RGBA")
+        path = root / f"assets-src/ui/concepts/menu-backdrop-{chapter}-selected.png"
+        if hashlib.sha256(path.read_bytes()).hexdigest() != SELECTED_SHA256[chapter]:
+            raise SystemExit(f"selected {chapter} menu backdrop digest mismatch")
+        image = Image.open(path).convert("RGBA")
         if image.size != SOURCE_SIZE:
             raise SystemExit(f"selected {chapter} menu backdrop changed size: {image.size}")
         result[chapter] = image

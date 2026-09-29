@@ -9,6 +9,7 @@ atlas export.  It intentionally does not regenerate or reinterpret the art.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -31,6 +32,21 @@ MERCENARIES = (
 FRAME_WIDTH = 150
 FRAME_HEIGHT = 240
 ZIP_DATE = (2020, 1, 1, 0, 0, 0)
+APPROVED_MASTER_SHA256 = {
+    "docs/art/concepts/epic-13/scrap-tabby-concept.png": "45fd3dbc077917e8afa41ee555f843d090f0fc37c4014d5cffdb13fccff750de",
+    "docs/art/concepts/epic-13/bolt-hound-concept.png": "010836b007027a4e885ae63635dc7df0044cc5853eb11304bf637109cafffb64",
+    "assets-src/characters/volt-lynx/concepts/volt-lynx-direction-a-selected.png": "ab84b83f729bdce701a50d50751bc04a1081dd3dd6b263127dfba50973aa5701",
+    "assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png": "25cdc618848f853e8053d430e3ef0a8e1c26a699245f98e82d6d25e91bbbe729",
+}
+
+
+def approved_master(root: Path, relative: str) -> Path:
+    path = root / relative
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    expected = APPROVED_MASTER_SHA256[relative]
+    if actual != expected:
+        raise SystemExit(f"approved Mercenary portrait master digest mismatch for {relative}: expected {expected}, got {actual}")
+    return path
 
 
 def remove_light_backdrop(image: Image.Image, background: tuple[int, int, int]) -> Image.Image:
@@ -113,10 +129,10 @@ def keep_dominant_subject(image: Image.Image) -> Image.Image:
 
 
 def approved_portraits(root: Path) -> tuple[Image.Image, ...]:
-    tabby = Image.open(root / "docs/art/concepts/epic-13/scrap-tabby-concept.png").convert("RGBA")
-    hound = Image.open(root / "docs/art/concepts/epic-13/bolt-hound-concept.png").convert("RGBA")
-    lynx = Image.open(root / "assets-src/characters/volt-lynx/concepts/volt-lynx-direction-a-selected.png").convert("RGBA")
-    roster = Image.open(root / "assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png").convert("RGBA")
+    tabby = Image.open(approved_master(root, "docs/art/concepts/epic-13/scrap-tabby-concept.png")).convert("RGBA")
+    hound = Image.open(approved_master(root, "docs/art/concepts/epic-13/bolt-hound-concept.png")).convert("RGBA")
+    lynx = Image.open(approved_master(root, "assets-src/characters/volt-lynx/concepts/volt-lynx-direction-a-selected.png")).convert("RGBA")
+    roster = Image.open(approved_master(root, "assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png")).convert("RGBA")
     if tabby.size != (1536, 1024) or hound.size != (1536, 1024) or lynx.size != (1774, 887) or roster.size != (1774, 887):
         raise SystemExit("an approved Mercenary concept master changed dimensions")
 

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -30,6 +31,7 @@ SLOTS = (
 TRAITS = ("trait-icon:fire", "trait-icon:explosive", "trait-icon:piercing")
 IDS = PARTS + SLOTS + TRAITS
 ZIP_DATE = (2026, 1, 1, 0, 0, 0)
+SELECTED_SHA256 = "f7131380a9499994f2f437830f523f0163ef42fca40976b4bd6c94555f7c42a5"
 
 
 def tiles(board: Image.Image):
@@ -44,7 +46,10 @@ def tiles(board: Image.Image):
 
 
 def render(root: Path) -> Image.Image:
-    board = Image.open(root / "assets-src/gunsmith/icons/concepts/gunsmith-icons-direction-b-selected.png").convert("RGBA")
+    path = root / "assets-src/gunsmith/icons/concepts/gunsmith-icons-direction-b-selected.png"
+    if hashlib.sha256(path.read_bytes()).hexdigest() != SELECTED_SHA256:
+        raise SystemExit("selected Gunsmith master digest mismatch")
+    board = Image.open(path).convert("RGBA")
     if board.size != (1536, 1024):
         raise SystemExit(f"selected Gunsmith board changed size: {board.size}")
     atlas = Image.new("RGBA", (FRAME * len(IDS), FRAME), (0, 0, 0, 0))

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -19,12 +20,25 @@ SECONDARY = ("equipment", "gunsmith", "achievements", "compendium")
 SINGLES = ("change-contract",)
 FRAME = 192
 ZIP_DATE = (2020, 1, 1, 0, 0, 0)
+SELECTED_SHA256 = {
+    "navigation-primary-selected.png": "717e2f3d11c716ba1fab482668abf3b263fcf0afa698d01a0d8a5d56e3cd6691",
+    "navigation-secondary-selected.png": "b9f3d0a21165372c424458ea308cb16c7dd438b81997e1d643a5ca4db756703f",
+    "navigation-change-contract-selected.png": "3aa29128e8197cd4655266bb1f08eac8633403c73beddda94c9e77311951b6fb",
+}
+
+
+def selected_board(root: Path, name: str) -> Image.Image:
+    path = root / "assets-src/ui/concepts" / name
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    if actual != SELECTED_SHA256[name]:
+        raise SystemExit(f"selected navigation master digest mismatch for {name}")
+    return Image.open(path).convert("RGBA")
 
 
 def selected_tiles(root: Path):
-    primary = Image.open(root / "assets-src/ui/concepts/navigation-primary-selected.png").convert("RGBA")
-    secondary = Image.open(root / "assets-src/ui/concepts/navigation-secondary-selected.png").convert("RGBA")
-    change_contract = Image.open(root / "assets-src/ui/concepts/navigation-change-contract-selected.png").convert("RGBA")
+    primary = selected_board(root, "navigation-primary-selected.png")
+    secondary = selected_board(root, "navigation-secondary-selected.png")
+    change_contract = selected_board(root, "navigation-change-contract-selected.png")
     if primary.size != (1536, 1024):
         raise SystemExit(f"selected primary navigation board changed size: {primary.size}")
     if secondary.size != (1254, 1254):
