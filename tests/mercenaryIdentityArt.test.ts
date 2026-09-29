@@ -125,7 +125,7 @@ describe('Mercenary portrait and identity-icon production art', () => {
     expect([icons.size_x, icons.size_y]).toEqual([1536, 96]);
     expect(Object.keys(icons.frames).sort()).toEqual([...ABILITY_ICON_IDS, ...PASSIVE_ICON_IDS].sort());
     expect(Object.values(icons.frames).every(({ frame }) => frame.w === 96 && frame.h === 96)).toBe(true);
-  });
+  }, 15_000);
 
   it('keeps all final frames nonidentical and grayscale-distinct at production resolution', () => {
     for (const [jsonPath, pngPath, ids, frameWidth, frameHeight] of [

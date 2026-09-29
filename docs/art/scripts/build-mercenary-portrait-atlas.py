@@ -54,41 +54,61 @@ def trim(image: Image.Image) -> Image.Image:
 
 def keep_dominant_subject(image: Image.Image) -> Image.Image:
     """Discard disconnected board callouts while preserving the actor."""
-    alpha = image.getchannel("A")
-    remaining = {(x, y) for y in range(image.height) for x in range(image.width) if alpha.getpixel((x, y)) > 8}
-    components: list[set[tuple[int, int]]] = []
-    while remaining:
-        start = remaining.pop()
-        component = {start}
+    width, height = image.size
+    alpha = image.getchannel("A").tobytes()
+    visited = bytearray(width * height)
+    dominant: list[int] = []
+    for start, value in enumerate(alpha):
+        if value <= 8 or visited[start]:
+            continue
+        visited[start] = 1
+        component = [start]
         pending = [start]
         while pending:
-            x, y = pending.pop()
-            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
-                point = (x + dx, y + dy)
-                if point in remaining:
-                    remaining.remove(point)
-                    component.add(point)
-                    pending.append(point)
-        components.append(component)
-    if not components:
+            index = pending.pop()
+            x, y = index % width, index // width
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    if dx == 0 and dy == 0:
+                        continue
+                    nx, ny = x + dx, y + dy
+                    if not (0 <= nx < width and 0 <= ny < height):
+                        continue
+                    neighbor = ny * width + nx
+                    if alpha[neighbor] > 8 and not visited[neighbor]:
+                        visited[neighbor] = 1
+                        component.append(neighbor)
+                        pending.append(neighbor)
+        if len(component) > len(dominant):
+            dominant = component
+    if not dominant:
         raise SystemExit("approved Mercenary crop contains no actor component")
-    dominant = max(components, key=len)
     # Include the antialiased fringe around the selected opaque component.
-    keep = set(dominant)
+    keep = bytearray(width * height)
+    for index in dominant:
+        keep[index] = 1
     pending = list(dominant)
     while pending:
-        x, y = pending.pop()
+        index = pending.pop()
+        x, y = index % width, index // width
         for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
-            point = (x + dx, y + dy)
-            if point in keep or not (0 <= point[0] < image.width and 0 <= point[1] < image.height):
+            nx, ny = x + dx, y + dy
+            if not (0 <= nx < width and 0 <= ny < height):
                 continue
-            if alpha.getpixel(point) > 0:
-                keep.add(point)
-                pending.append(point)
+            neighbor = ny * width + nx
+            if keep[neighbor]:
+                continue
+            if alpha[neighbor] > 0:
+                keep[neighbor] = 1
+                pending.append(neighbor)
     output = Image.new("RGBA", image.size, (0, 0, 0, 0))
-    source = image.load(); target = output.load()
-    for point in keep:
-        target[point] = source[point]
+    source = image.tobytes()
+    pixels = bytearray(len(source))
+    for index, selected in enumerate(keep):
+        if selected:
+            offset = index * 4
+            pixels[offset:offset + 4] = source[offset:offset + 4]
+    output.frombytes(bytes(pixels))
     return output
 
 
