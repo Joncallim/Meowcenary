@@ -8,6 +8,7 @@ editable Pixelorama packaging. It never regenerates or repaints the concept.
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import sys
@@ -19,6 +20,7 @@ from PIL import Image, ImageEnhance, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[3]
 MASTER = ROOT / "assets-src/world/junkyard/concepts/junkyard-world-kit-selected.png"
+SELECTED_MASTER_SHA256 = "fafbd2d1663868f6f47e691108fc536555e0a2dcaf51ca52b652456a711e6dee"
 
 
 @dataclass(frozen=True)
@@ -137,6 +139,12 @@ def pxo_bytes(asset: Asset, image: Image.Image) -> bytes:
 
 def main() -> None:
     check = "--check" in sys.argv
+    actual = hashlib.sha256(MASTER.read_bytes()).hexdigest()
+    if actual != SELECTED_MASTER_SHA256:
+        raise SystemExit(
+            "selected Junkyard master digest mismatch: "
+            f"expected {SELECTED_MASTER_SHA256}, got {actual}"
+        )
     master = Image.open(MASTER).convert("RGBA")
     failures: list[str] = []
     for asset in ASSETS:

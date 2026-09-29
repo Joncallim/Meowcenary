@@ -1561,11 +1561,8 @@ describe('MenuScene', () => {
     expect(scene.scrollObjects.some(({ object }) => object.state.text === 'ACTIVE SETS')).toBe(true);
     expect(harness.objects.some((object) => object.state.text.startsWith('✓ Commando Helmet'))).toBe(true);
     const scrollRegion = (scene as unknown as {
-      scrollRegion: { scrollOffset: number; ensureVisible(index: number): void };
-      applyScrollViewport(): void;
+      scrollRegion: { scrollOffset: number };
     }).scrollRegion;
-    scrollRegion.ensureVisible(0);
-    (scene as unknown as { applyScrollViewport(): void }).applyScrollViewport();
     const initiallyFocusedOffset = scrollRegion.scrollOffset;
     expect(initiallyFocusedOffset).toBeGreaterThan(0);
     harness.keyboard.keydown('ArrowUp'); harness.menuScene.update(0, 16);

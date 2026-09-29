@@ -2100,6 +2100,12 @@ export class MenuScene extends Phaser.Scene {
     // move it through the same deterministic navigation path as real input.
     while (this.scrollRegion.focusedIndex < localIndex) this.scrollRegion.moveFocus('down');
     while (this.scrollRegion.focusedIndex > localIndex) this.scrollRegion.moveFocus('up');
+    // The region and global navigator both begin at zero. Moving between
+    // indexes therefore cannot reveal an initially focused first action that
+    // follows a tall, non-focusable summary. Apply the same visibility rule
+    // even when their indexes already agree; Up can still deliberately reveal
+    // that prefix and the next Down restores this retained action.
+    this.scrollRegion.ensureVisible(localIndex);
   }
 
   private applyScrollViewport(): void {
