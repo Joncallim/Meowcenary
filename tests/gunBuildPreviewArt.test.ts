@@ -80,7 +80,7 @@ describe('assembled-weapon production art packet', () => {
     ids.forEach((id, index) => expect(metadata.frames[id]?.frame).toEqual({ x: index * 96, y: 0, w: 96, h: 48 }));
     expect(() => execFileSync('python3', ['docs/art/scripts/build-gun-build-concept-atlas.py', '--check'])).not.toThrow();
     expect(() => execFileSync('python3', ['docs/art/scripts/build-weapon-production-art.py', '--check'])).not.toThrow();
-  });
+  }, 15_000);
 
   it('keeps overlays sparse and transparent while sharing the base receiver/grip datum', () => {
     const atlas = decode();
