@@ -127,6 +127,30 @@ export class StageSelectionController {
     return this.nextUnlocked(this.snapshot()) !== undefined;
   }
 
+  /**
+   * Resolves the Contract reached after a terminal clear. First clears may
+   * already advance the context-owned selection before Results renders; in
+   * that case the selected frontier is the continuation and must not be
+   * skipped by another `selectNext()` call.
+   */
+  continuationAfter(completedStageId: string): StageOptionView | undefined {
+    const snapshot = this.snapshot();
+    const selected = snapshot.stages.find((stage) => stage.id === snapshot.selectedStageId);
+    if (selected && selected.id !== completedStageId && !selected.locked && !selected.completed) {
+      return selected;
+    }
+    const completedIndex = snapshot.stages.findIndex((stage) => stage.id === completedStageId);
+    if (completedIndex < 0) return undefined;
+    return snapshot.stages.slice(completedIndex + 1).find((stage) => !stage.locked && !stage.completed);
+  }
+
+  selectContinuationAfter(completedStageId: string): { readonly ok: boolean; readonly snapshot: StageSelectionSnapshot } {
+    const continuation = this.continuationAfter(completedStageId);
+    if (!continuation) return { ok: false, snapshot: this.snapshot() };
+    if (continuation.id === this.context.selectedStageId) return { ok: true, snapshot: this.snapshot() };
+    return this.select(continuation.id);
+  }
+
   /** Select the previous unlocked stage before the current one. */
   selectPrevious(): { readonly ok: boolean; readonly snapshot: StageSelectionSnapshot } {
     const snap = this.snapshot();

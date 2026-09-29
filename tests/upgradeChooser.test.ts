@@ -1535,11 +1535,29 @@ describe('PhaserUpgradeChooserView pointer funnel (§3-G)', () => {
       card.emit('pointerdown', { id });
       card.emit('pointerup', { id });
     };
+    const directTap = (card: FakeDisplayObject, id = 7) => {
+      card.emit('pointerdown', { id });
+      card.emit('pointerup', { id });
+    };
     return {
-      scene, bus, runState, chooser, feedback, renderer, chosen, cards, tap,
+      scene, bus, runState, chooser, feedback, renderer, chosen, cards, tap, directTap,
       confirms: () => confirms,
     };
   }
+
+  it('a direct touch tap selects a non-first card without a synthetic hover event', () => {
+    const h = createFunnelHarness();
+    h.bus.emit('level:up', { level: 2 });
+    const cards = h.cards();
+
+    h.directTap(cards[1]!, 17);
+
+    expect(h.chosen).toHaveLength(1);
+    expect(h.runState.upgradeStacks[h.chosen[0]!]).toBe(1);
+    expect(h.chooser.diagnostics.choiceIds).toEqual([]);
+    h.chooser.destroy();
+    h.feedback.destroy();
+  });
 
   it('a real down+up card tap commits exactly one card:chosen with the captured pointer identity', () => {
     const h = createFunnelHarness();

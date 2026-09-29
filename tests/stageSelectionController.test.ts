@@ -26,6 +26,38 @@ function createHarness(): { context: GameContext; controller: StageSelectionCont
 }
 
 describe('StageSelectionController (Epic 20)', () => {
+  it('continues to the already-selected Forge frontier after Scrap Crusher settles', () => {
+    const { context, controller } = createHarness();
+    let settled;
+    for (const stageId of [
+      'stage:junkyard-01',
+      'stage:junkyard-02',
+      'stage:junkyard-03',
+      'stage:junkyard-04',
+      'stage:junkyard-05',
+    ]) {
+      settled = context.settleRunTerminal({
+        terminalStatus: 'win',
+        runScrap: 0,
+        characterId: 'scrap-tabby',
+        runDurationMs: 120_000,
+        stageId,
+      });
+      expect(settled.ok).toBe(true);
+    }
+
+    expect(settled).toMatchObject({ ok: true, terminalApplied: true, firstClear: true });
+    expect(controller.snapshot().stages.find((stage) => stage.id === 'stage:forge-01')?.locked).toBe(false);
+    expect(context.selectedStageId).toBe('stage:forge-01');
+    expect(controller.continuationAfter('stage:junkyard-05')).toMatchObject({
+      id: 'stage:forge-01',
+      selected: true,
+      locked: false,
+    });
+    expect(controller.selectContinuationAfter('stage:junkyard-05').ok).toBe(true);
+    expect(context.selectedStageId).toBe('stage:forge-01');
+  });
+
   it('lists all stage contracts in progression order with unlocked/locked state', () => {
     const { controller } = createHarness();
     const snap = controller.snapshot();

@@ -601,7 +601,8 @@ export class GameScene extends Phaser.Scene {
         return scene.terminalSettlement;
       },
       get canContinue(): boolean {
-        return scene.stagePlan !== undefined && new StageSelectionController(ctx).hasNextUnlockedStage();
+        return scene.stagePlan !== undefined
+          && new StageSelectionController(ctx).continuationAfter(scene.stagePlan.stageId) !== undefined;
       },
       get completedAchievementNames(): readonly string[] {
         return scene.completedAchievementNames;
@@ -629,7 +630,7 @@ export class GameScene extends Phaser.Scene {
       },
       onNextStage: () => {
         if (!scene.stagePlan) return false;
-        return new StageSelectionController(ctx).selectNext().ok;
+        return new StageSelectionController(ctx).selectContinuationAfter(scene.stagePlan.stageId).ok;
       },
       canNavigate: () => !scene.hasPendingTerminalPersistence(),
       onDiscardPending: () => scene.discardPendingTerminalPersistence(),

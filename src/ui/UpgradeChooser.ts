@@ -378,7 +378,15 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           card.setFillStyle(RARITY_CARD_BACKGROUND[choice.rarity], this.enabled ? 1 : 0.58);
         });
         card.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
-          if (this.acceptsNavigation && this.currentOfferId === offer.offerId) this.armedPointerIds.set(pointer.id, index);
+          if (this.acceptsNavigation && this.currentOfferId === offer.offerId) {
+            // Touch has no hover phase. The pressed card becomes the logical
+            // focus target at the same boundary that captures pointer identity,
+            // so pointer, keyboard and controller submit the same card command.
+            this.hoveredIndex = index;
+            this.focusIndex = index;
+            this.applyFocusStroke();
+            this.armedPointerIds.set(pointer.id, index);
+          }
         });
         card.on(Phaser.Input.Events.POINTER_UP, (pointer: Phaser.Input.Pointer) => {
           if (this.armedPointerIds.get(pointer?.id) !== index) return;
