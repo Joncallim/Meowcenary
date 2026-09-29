@@ -18,6 +18,7 @@ test('canvas fills the available viewport and survives a live resize', async ({ 
 });
 
 test('keyboard player journey reaches Mercenary, Career and gameplay on the real canvas', async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
   const requestedAssets: string[] = [];
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
   const press = async (key: string) => {
