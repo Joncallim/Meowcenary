@@ -51,6 +51,16 @@ describe('MainMenuController', () => {
     expect(snapshot.notice).toBeUndefined();
   });
 
+  it('keeps heavy workshop read models lazy and stable until their surface reads them', () => {
+    const { controller } = setup();
+    const snapshot = controller.snapshot();
+    const descriptor = Object.getOwnPropertyDescriptor(snapshot, 'gunsmith');
+
+    expect(descriptor?.get).toBeTypeOf('function');
+    expect(snapshot.gunsmith).toBe(snapshot.gunsmith);
+    expect(Object.getOwnPropertyDescriptor(snapshot, 'equipment')?.get).toBeTypeOf('function');
+  });
+
   it('opens sub-panels and returns to home via back', () => {
     const { controller } = setup();
 

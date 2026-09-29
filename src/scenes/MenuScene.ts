@@ -153,6 +153,8 @@ export class MenuScene extends Phaser.Scene {
     this.gunsmithArtGeneration += 1;
     this.gunsmithArtLoading = false;
     this.mercenaryArtLoading = false;
+    this.equipmentArtLoading = false;
+    this.achievementArtLoading = false;
     this.pendingGunsmithArtIds.clear();
     this.panelArtGeneration += 1;
     this.panelArtLoading = false;
@@ -609,6 +611,14 @@ export class MenuScene extends Phaser.Scene {
     this.addButton(root, actionX, y, 'Gunsmith', actionHeight, () => this.render(this.requireController().open('gunsmith')), 'ui:confirm', actionWidth, 'nav-icon:gunsmith');
     this.addBackButton(root, width, margin, hitTarget);
     void this.ensurePanelPresentation('loadout', selectedCharacter ? [selectedCharacter.portraitArtId, 'nav-icon:equipment', 'nav-icon:gunsmith'] : ['nav-icon:equipment', 'nav-icon:gunsmith']);
+    // Loadout is the intentional doorway to both of the heaviest menu
+    // surfaces. Warm their physical art here so the next tap opens a complete
+    // workshop instead of showing a cold-loading pause after navigation.
+    void this.ensureEquipmentPresentation([
+      ...snapshot.equipment.owned.flatMap((item) => [item.iconArtId, item.setEmblemArtId]),
+      ...snapshot.equipment.blueprints.flatMap((item) => [item.iconArtId, item.setEmblemArtId]),
+    ]);
+    void this.ensureGunsmithPresentation(this.collectGunsmithArtIds(snapshot));
   }
 
   private async startContractWithResources(): Promise<void> {
@@ -1241,7 +1251,12 @@ export class MenuScene extends Phaser.Scene {
       });
     }
     this.endScrollableRegion();
-    void this.ensureGunsmithPresentation([
+    void this.ensureGunsmithPresentation(this.collectGunsmithArtIds(snapshot));
+    this.addBackButton(root, width, margin, hitTarget);
+  }
+
+  private collectGunsmithArtIds(snapshot: MainMenuSnapshot): readonly string[] {
+    return [
       ...snapshot.gunsmith.families.map((family) => family.iconArtId),
       ...snapshot.gunsmith.families.flatMap((family) => family.previewBaseArtId ? [family.previewBaseArtId] : []),
       ...(snapshot.gunsmith.selectedBuild?.preview ? [
@@ -1255,8 +1270,7 @@ export class MenuScene extends Phaser.Scene {
         ...slot.candidates.flatMap((part) => [part.iconArtId, ...part.traitIcons.map((trait) => trait.iconArtId)]),
       ]),
       ...snapshot.gunsmith.catalog.flatMap((part) => [part.iconArtId, ...part.traitIcons.map((trait) => trait.iconArtId)]),
-    ]);
-    this.addBackButton(root, width, margin, hitTarget);
+    ];
   }
 
   private renderEquipment(
@@ -2351,6 +2365,8 @@ export class MenuScene extends Phaser.Scene {
     this.gunsmithArtGeneration += 1;
     this.gunsmithArtLoading = false;
     this.mercenaryArtLoading = false;
+    this.equipmentArtLoading = false;
+    this.achievementArtLoading = false;
     this.pendingGunsmithArtIds.clear();
     this.panelArtGeneration += 1;
     this.pendingPanelArtIds.clear();
