@@ -1,10 +1,8 @@
 # Alpha 3 Mercenary identity-art provenance
 
-These untouched generated boards preserve the identity-art provenance. The
-selected board is also the production master for the eight large Mercenary
-portraits: `build-mercenary-portrait-atlas.py` deterministically crops its
-portrait columns into the editable PXO and runtime atlas without repainting or
-regenerating the approved direction.
+These untouched generated boards preserve the identity-art exploration and the
+production masters for the ability/passive icon family. They are not the live
+large-portrait source; the later runtime portrait cutover is documented below.
 
 ## Ability/passive production board — selected
 
@@ -92,3 +90,14 @@ approved full-character masters for Scrap Tabby, Bolt Hound, Volt Lynx and the
 five-character Alpha 3 roster board. `build-mercenary-portrait-atlas.py`
 performs the deterministic crop/matte and preserves the stable eight portrait
 IDs; ability and passive icons continue to use the selected identity boards.
+
+The exact approved portrait masters are preserved and hash-locked here:
+
+- `docs/art/concepts/epic-13/scrap-tabby-concept.png` —
+  `45fd3dbc077917e8afa41ee555f843d090f0fc37c4014d5cffdb13fccff750de`
+- `docs/art/concepts/epic-13/bolt-hound-concept.png` —
+  `010836b007027a4e885ae63635dc7df0044cc5853eb11304bf637109cafffb64`
+- `assets-src/characters/volt-lynx/concepts/volt-lynx-direction-a-selected.png` —
+  `ab84b83f729bdce701a50d50751bc04a1081dd3dd6b263127dfba50973aa5701`
+- `assets-src/characters/alpha-3-roster-concepts/direction-b-selected.png` —
+  `25cdc618848f853e8053d430e3ef0a8e1c26a699245f98e82d6d25e91bbbe729`

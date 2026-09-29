@@ -33,8 +33,16 @@ LAYERS = (
     ("gun-build-part:underbarrel-grenade", (820, 610, 1190, 950), (67, 170)),
     ("gun-build-part:barrel-piercing", (1160, 600, 1536, 940), (76, 180)),
 )
-SCALE = 0.155
+# Keep every assembled layer on the shared authored datum, but leave a real
+# transparent gutter around the 96x48 runtime frame.  The earlier 0.155 import
+# clipped tall magazines, grips and the shotgun even though the atlas itself
+# loaded successfully.
+SCALE = 0.12
 TARGET_ANCHOR = (39, 23)
+LAYER_SCALES = {
+    "gun-build-base:smg": 0.11,
+    "gun-build-part:magazine-extended": 0.10,
+}
 
 
 def remove_alignment_guides(image: Image.Image, anchor: tuple[int, int]) -> Image.Image:
@@ -74,17 +82,52 @@ def remove_alignment_guides(image: Image.Image, anchor: tuple[int, int]) -> Imag
     return clean
 
 
+def remove_resampled_guide_edges(image: Image.Image) -> Image.Image:
+    """Remove cyan guide fragments reintroduced by Lanczos resampling.
+
+    This pass is intentionally limited to the shared receiver datum. Cyan
+    power accents elsewhere in the approved weapon art remain untouched.
+    """
+    source = list(image.get_flattened_data())
+    guide: set[tuple[int, int]] = set()
+    for index, (red, green, blue, alpha) in enumerate(source):
+        x, y = index % image.width, index // image.width
+        near_datum = abs(x - TARGET_ANCHOR[0]) <= 9 and abs(y - TARGET_ANCHOR[1]) <= 24
+        if near_datum and alpha > 0 and red < 100 and green > 125 and blue > 150 and blue > red * 1.55:
+            guide.add((x, y))
+    mask = {(x + dx, y + dy) for x, y in guide for dx in range(-1, 2) for dy in range(-1, 2)
+            if 0 <= x + dx < image.width and 0 <= y + dy < image.height}
+    pixels = list(source)
+    for x, y in mask:
+        replacement = None
+        for radius in range(1, 8):
+            candidates = ((x - radius, y), (x + radius, y), (x, y - radius), (x, y + radius))
+            replacement = next((point for point in candidates
+                                if 0 <= point[0] < image.width and 0 <= point[1] < image.height
+                                and point not in mask and source[point[1] * image.width + point[0]][3] > 0), None)
+            if replacement is not None:
+                break
+        pixels[y * image.width + x] = source[replacement[1] * image.width + replacement[0]] if replacement else (0, 0, 0, 0)
+    clean = Image.new("RGBA", image.size)
+    clean.putdata(pixels)
+    return clean
+
+
 def render(root: Path) -> Image.Image:
     board = Image.open(root / "assets-src/gunsmith/previews/concepts/assembled-weapons-direction-a-selected.png").convert("RGBA")
     if board.size != (1536, 1024):
         raise SystemExit(f"selected assembled-weapon board changed size: {board.size}")
     atlas = Image.new("RGBA", (FRAME_WIDTH * len(LAYERS), FRAME_HEIGHT), (0, 0, 0, 0))
-    for index, (_name, crop, anchor) in enumerate(LAYERS):
+    for index, (name, crop, anchor) in enumerate(LAYERS):
+        scale = LAYER_SCALES.get(name, SCALE)
         layer = remove_alignment_guides(board.crop(crop), anchor)
-        layer = layer.resize((round(layer.width * SCALE), round(layer.height * SCALE)), Image.Resampling.LANCZOS)
-        x = index * FRAME_WIDTH + TARGET_ANCHOR[0] - round(anchor[0] * SCALE)
-        y = TARGET_ANCHOR[1] - round(anchor[1] * SCALE)
-        atlas.alpha_composite(layer, (x, y))
+        layer = layer.resize((round(layer.width * scale), round(layer.height * scale)), Image.Resampling.LANCZOS)
+        frame = Image.new("RGBA", (FRAME_WIDTH, FRAME_HEIGHT), (0, 0, 0, 0))
+        x = TARGET_ANCHOR[0] - round(anchor[0] * scale)
+        y = TARGET_ANCHOR[1] - round(anchor[1] * scale)
+        frame.alpha_composite(layer, (x, y))
+        frame = remove_resampled_guide_edges(frame)
+        atlas.alpha_composite(frame, (index * FRAME_WIDTH, 0))
     return atlas
 
 

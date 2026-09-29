@@ -16,7 +16,7 @@ All directions instantiate the exact Commando family in
 - close-fitting work gloves with compact knuckle plates;
 - square ankle boots with reinforced toe and straight strap;
 - hard clustered pixels, near-black outlines, compact flat palette, and
-  44–60 px card readability;
+  24–32 px readability;
 - orderly salvage construction without camouflage, rank marks, modern
   military branding, anti-aliasing, glow, text, or watermarks.
 
@@ -57,3 +57,7 @@ The selected family is imported into dedicated 96×96 editable sources and
 deterministic exports, leaving enough transparent gutter for live cards. The
 stable logical bindings remain unchanged and the importer validates selected
 concept, Pixelorama source and runtime export together.
+
+The later runtime cutover targets a 44–60 px live-card presentation from those
+96×96 source frames. That display target is an integration decision; it does
+not rewrite the original generation prompt above.

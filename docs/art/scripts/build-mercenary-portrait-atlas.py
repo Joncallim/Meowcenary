@@ -65,12 +65,22 @@ def approved_portraits(root: Path) -> tuple[Image.Image, ...]:
     # colour. Later selected masters already carry authoritative alpha.
     tabby_hero = remove_light_backdrop(tabby.crop((18, 18, 825, 1005)), (249, 245, 229))
     hound_hero = remove_light_backdrop(hound.crop((35, 642, 335, 990)), (247, 245, 241))
-    lynx_hero = lynx.crop((70, 20, 610, 870))
+    # These bounds isolate the authored actors themselves.  The selected
+    # boards contain neighbouring silhouettes and callout marks outside these
+    # rectangles; column-sized crops allowed those marks to survive the alpha
+    # trim and show up as stray shapes on the live cards.
+    lynx_hero = lynx.crop((130, 40, 475, 860))
 
     # Selected Alpha 3 roster board, in authored order: Brass Boar, Ember
     # Cougar, Scrap Weasel, Rattle Raptor and Piston Ram.
-    roster_columns = ((0, 372), (372, 710), (710, 1062), (1062, 1425), (1425, 1774))
-    roster_heroes = tuple(roster.crop((left, 0, right, roster.height)) for left, right in roster_columns)
+    roster_bounds = (
+        (0, 170, 410, 715),
+        (385, 125, 715, 715),
+        (675, 245, 1060, 715),
+        (950, 210, 1420, 720),
+        (1385, 130, 1774, 715),
+    )
+    roster_heroes = tuple(roster.crop(bounds) for bounds in roster_bounds)
     return tuple(trim(image) for image in (tabby_hero, hound_hero, lynx_hero, *roster_heroes))
 
 

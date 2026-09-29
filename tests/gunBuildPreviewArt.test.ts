@@ -82,24 +82,31 @@ describe('assembled-weapon production art packet', () => {
 
   it('keeps overlays sparse and transparent while sharing the base receiver/grip datum', () => {
     const atlas = decode();
-    for (let index = 3; index < ids.length; index += 1) {
+    for (let index = 0; index < ids.length; index += 1) {
       const stats = frameStats(atlas, index);
-      expect(stats.opaque).toBeGreaterThan(35);
-      expect(stats.opaque).toBeLessThan(1_100);
-      expect(alphaAt(atlas, index, 0, 0)).toBe(0);
-      expect(alphaAt(atlas, index, 95, 47)).toBe(0);
+      expect(stats.opaque).toBeGreaterThan(index < 3 ? 75 : 35);
+      expect(stats.opaque).toBeLessThan(index < 3 ? 1_800 : 1_100);
+      for (let x = 0; x < 96; x += 1) {
+        expect(alphaAt(atlas, index, x, 0), `${ids[index]} clips the top edge`).toBe(0);
+        expect(alphaAt(atlas, index, x, 47), `${ids[index]} clips the bottom edge`).toBe(0);
+      }
+      for (let y = 0; y < 48; y += 1) {
+        expect(alphaAt(atlas, index, 0, y), `${ids[index]} clips the left edge`).toBe(0);
+        expect(alphaAt(atlas, index, 95, y), `${ids[index]} clips the right edge`).toBe(0);
+      }
     }
     // The assembly datum remains occupied across the bases and receiver
     // overlays after removing the cyan production guides.
     for (const index of [0, 1, 2, 3, 4]) expect(frameStats(atlas, index).opaque).toBeGreaterThan(75);
-    let cyanGuidePixels = 0;
-    for (let index = 0; index < atlas.pixels.length; index += 4) {
-      const [red, green, blue, alpha] = atlas.pixels.subarray(index, index + 4);
-      if (alpha! > 0 && red! < 80 && green! > 150 && blue! > 180 && blue! > red! * 2) cyanGuidePixels += 1;
+    for (let frame = 0; frame < ids.length; frame += 1) {
+      let guidePixels = 0;
+      for (let y = 0; y < 48; y += 1) for (let x = 30; x <= 48; x += 1) {
+        const offset = (y * atlas.width + frame * 96 + x) * 4;
+        const [red, green, blue, alpha] = atlas.pixels.subarray(offset, offset + 4);
+        if (alpha! > 0 && red! < 80 && green! > 150 && blue! > 180 && blue! > red! * 2) guidePixels += 1;
+      }
+      expect(guidePixels, `${ids[frame]} retains the cyan assembly guide`).toBe(0);
     }
-    // Cyan is allowed as a designed power accent, but the former alignment
-    // cross contributed hundreds more saturated pixels across this atlas.
-    expect(cyanGuidePixels).toBeLessThan(180);
   });
 
   it('retains distinct actual-scale and grayscale base silhouettes', () => {

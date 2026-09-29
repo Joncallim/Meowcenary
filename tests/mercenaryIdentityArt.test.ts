@@ -69,6 +69,30 @@ function crop(pixels: Buffer, atlasWidth: number, x: number, y: number, width: n
   return output;
 }
 
+function visibleComponentSizes(pixels: Buffer, width: number, height: number): number[] {
+  const visible = new Set<number>();
+  for (let index = 0; index < width * height; index += 1) if (pixels[index * 4 + 3]! > 8) visible.add(index);
+  const sizes: number[] = [];
+  while (visible.size > 0) {
+    const start = visible.values().next().value as number;
+    visible.delete(start);
+    const pending = [start]; let size = 0;
+    while (pending.length > 0) {
+      const index = pending.pop()!; size += 1;
+      const x = index % width; const y = Math.floor(index / width);
+      for (let dy = -1; dy <= 1; dy += 1) for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = x + dx; const ny = y + dy;
+        if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+        const neighbor = ny * width + nx;
+        if (visible.delete(neighbor)) pending.push(neighbor);
+      }
+    }
+    sizes.push(size);
+  }
+  return sizes.sort((left, right) => right - left);
+}
+
 describe('Mercenary portrait and identity-icon production art', () => {
   it('covers the exact catalogs through explicit data references and two bounded nearest atlases', () => {
     const data = loadGameData();
@@ -150,6 +174,24 @@ describe('Mercenary portrait and identity-icon production art', () => {
       for (let y = 0; y < 96; y += 1) {
         expect(pixels[(y * 96) * 4 + 3], `${id} must clear the left edge`).toBe(0);
         expect(pixels[(y * 96 + 95) * 4 + 3], `${id} must clear the right edge`).toBe(0);
+      }
+    }
+  });
+
+  it('isolates each approved Mercenary subject without neighbouring board fragments', () => {
+    const decoded = decodeUnfilteredRgbaPng('public/assets/characters/identity/mercenary-portraits-atlas.png');
+    for (let index = 0; index < CHARACTER_IDS.length; index += 1) {
+      const pixels = crop(decoded.pixels, decoded.width, index * 150, 0, 150, 240);
+      const components = visibleComponentSizes(pixels, 150, 240);
+      expect(components[0], `${CHARACTER_IDS[index]} needs one substantial actor silhouette`).toBeGreaterThan(7_000);
+      expect(components[1] ?? 0, `${CHARACTER_IDS[index]} contains a neighbouring board fragment`).toBeLessThan(500);
+      for (let x = 0; x < 150; x += 1) {
+        expect(pixels[x * 4 + 3], `${CHARACTER_IDS[index]} must clear the top edge`).toBe(0);
+        expect(pixels[((239 * 150 + x) * 4) + 3], `${CHARACTER_IDS[index]} must clear the bottom edge`).toBe(0);
+      }
+      for (let y = 0; y < 240; y += 1) {
+        expect(pixels[(y * 150) * 4 + 3], `${CHARACTER_IDS[index]} must clear the left edge`).toBe(0);
+        expect(pixels[(y * 150 + 149) * 4 + 3], `${CHARACTER_IDS[index]} must clear the right edge`).toBe(0);
       }
     }
   });
