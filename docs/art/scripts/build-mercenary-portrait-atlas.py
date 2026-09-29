@@ -52,6 +52,46 @@ def trim(image: Image.Image) -> Image.Image:
     return image.crop(bounds)
 
 
+def keep_dominant_subject(image: Image.Image) -> Image.Image:
+    """Discard disconnected board callouts while preserving the actor."""
+    alpha = image.getchannel("A")
+    remaining = {(x, y) for y in range(image.height) for x in range(image.width) if alpha.getpixel((x, y)) > 8}
+    components: list[set[tuple[int, int]]] = []
+    while remaining:
+        start = remaining.pop()
+        component = {start}
+        pending = [start]
+        while pending:
+            x, y = pending.pop()
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
+                point = (x + dx, y + dy)
+                if point in remaining:
+                    remaining.remove(point)
+                    component.add(point)
+                    pending.append(point)
+        components.append(component)
+    if not components:
+        raise SystemExit("approved Mercenary crop contains no actor component")
+    dominant = max(components, key=len)
+    # Include the antialiased fringe around the selected opaque component.
+    keep = set(dominant)
+    pending = list(dominant)
+    while pending:
+        x, y = pending.pop()
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
+            point = (x + dx, y + dy)
+            if point in keep or not (0 <= point[0] < image.width and 0 <= point[1] < image.height):
+                continue
+            if alpha.getpixel(point) > 0:
+                keep.add(point)
+                pending.append(point)
+    output = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    source = image.load(); target = output.load()
+    for point in keep:
+        target[point] = source[point]
+    return output
+
+
 def approved_portraits(root: Path) -> tuple[Image.Image, ...]:
     tabby = Image.open(root / "docs/art/concepts/epic-13/scrap-tabby-concept.png").convert("RGBA")
     hound = Image.open(root / "docs/art/concepts/epic-13/bolt-hound-concept.png").convert("RGBA")
@@ -81,7 +121,8 @@ def approved_portraits(root: Path) -> tuple[Image.Image, ...]:
         (1385, 130, 1774, 715),
     )
     roster_heroes = tuple(roster.crop(bounds) for bounds in roster_bounds)
-    return tuple(trim(image) for image in (tabby_hero, hound_hero, lynx_hero, *roster_heroes))
+    isolated = (tabby_hero, hound_hero, *(keep_dominant_subject(image) for image in (lynx_hero, *roster_heroes)))
+    return tuple(trim(image) for image in isolated)
 
 
 def render(root: Path) -> Image.Image:
