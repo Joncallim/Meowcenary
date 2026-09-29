@@ -1529,6 +1529,35 @@ describe('MenuScene', () => {
     );
   });
 
+  it('keeps a populated Equipment summary inside the compact-landscape scroll surface', () => {
+    const harness = createHarness();
+    harness.context.updateEquipment(() => ({
+      equipment: { 'owned:equipment-commando-helmet': { equipmentId: 'equipment:commando-helmet', tier: 1 } },
+      loadout: { helmet: 'owned:equipment-commando-helmet' },
+    }));
+    const scene = harness.menuScene as unknown as {
+      handleResize(): void;
+      scrollViewportTop: number;
+      scrollViewportBottom: number;
+      scrollObjects: Array<{ object: FakeObject }>;
+    };
+    const scale = harness.menuScene.scale as unknown as {
+      width: number; height: number; displaySize: { width: number; height: number };
+    };
+    scale.width = 844;
+    scale.height = 390;
+    scale.displaySize = { width: 844, height: 390 };
+    scene.handleResize();
+
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+
+    expect(scene.scrollViewportTop).toBeLessThan(scene.scrollViewportBottom);
+    expect(scene.scrollObjects.some(({ object }) => object.state.text === 'Equipped: 1/4 pieces')).toBe(true);
+    expect(scene.scrollObjects.some(({ object }) => object.state.text === 'ACTIVE SETS')).toBe(true);
+    expect(harness.objects.some((object) => object.state.text.startsWith('✓ Commando Helmet'))).toBe(true);
+  });
+
   it.each([
     { label: 'Mercenary', heading: 'Mercenary' },
     { label: 'Career', heading: 'Career' },

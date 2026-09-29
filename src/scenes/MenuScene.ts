@@ -1269,11 +1269,18 @@ export class MenuScene extends Phaser.Scene {
   ): void {
     const heading = this.addHeading(root, this.safeCenterX, top, 'Equipment');
     let y = top + heading.height + 14;
+    // The complete loadout summary belongs to the shared scroll surface. On
+    // compact landscape screens a populated set summary can otherwise consume
+    // the whole viewport before the first actionable equipment row exists.
+    // Keeping the artwork in-flow preserves the visual loadout while ensuring
+    // every owned item and blueprint can be focused and scrolled into view.
+    this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
     const equipped = snapshot.equipment.equipped;
-    this.own(root, createUiText(this, margin, y, `Equipped: ${Object.values(equipped).filter(Boolean).length}/4 pieces`, {
+    const equippedCount = this.own(root, createUiText(this, margin, y, `Equipped: ${Object.values(equipped).filter(Boolean).length}/4 pieces`, {
       color: '#d6f7ff', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
       wordWrap: { width: width - margin - this.safeRightMargin },
     }));
+    this.registerScrollObject(equippedCount);
     y += hitTarget;
     const loadoutWidth = width - margin - this.safeRightMargin;
     const slotWidth = loadoutWidth / 4;
@@ -1282,34 +1289,37 @@ export class MenuScene extends Phaser.Scene {
       const equippedId = equipped[slot];
       const item = equippedId === undefined ? undefined : snapshot.equipment.owned.find((owned) => owned.instanceId === equippedId);
       const panel = this.uiVisuals?.addPanel(this, centerX, y + 38, Math.max(58, slotWidth - 6), 76, 'card', { alpha: 0.84 });
-      if (panel) this.own(root, panel);
+      if (panel) this.registerScrollObject(this.own(root, panel));
       if (item) this.addCatalogIcon(root, centerX, y + 32, item.iconArtId, 58);
       const slotLabel = this.own(root, createUiText(this, centerX, y + 62, slot.toUpperCase(), {
         color: item ? '#f7f1d5' : '#64748b', fontFamily: ThemeFont.family, fontSize: '11px', fontStyle: '700',
       })).setOrigin(0.5, 0.5);
       slotLabel.setScrollFactor(0);
+      this.registerScrollObject(slotLabel);
     });
     y += 90;
     if (snapshot.equipment.activeSets.length > 0) {
       const activeHeading = this.own(root, createUiText(this, margin, y, 'ACTIVE SETS', {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
       }));
+      this.registerScrollObject(activeHeading);
       y += activeHeading.height + 4;
       for (const set of snapshot.equipment.activeSets) {
         const activeText = this.own(root, createUiText(this, margin, y, `${set.name} Set • ${set.pieces}/4 equipped${set.activeThresholds.length ? ` (${set.activeThresholds.join('+')}-piece active)` : ''}\n${set.bonusSummary.join(' • ')}`, {
           color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
           wordWrap: { width: width - margin - this.safeRightMargin - 38 },
         }));
+        this.registerScrollObject(activeText);
         this.addCatalogIcon(root, width - this.safeRightMargin - 18, y + Math.min(activeText.height, hitTarget) / 2, set.emblemArtId);
         y += activeText.height + 8;
       }
       y += 4;
     }
-    this.own(root, createUiText(this, margin, y, 'Owned equipment:', {
+    const ownedHeading = this.own(root, createUiText(this, margin, y, 'Owned equipment:', {
       color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
     }));
+    this.registerScrollObject(ownedHeading);
     y += hitTarget * 0.7;
-    this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
     snapshot.equipment.owned.forEach((item) => {
       const equippedHere = equipped[item.slot] === item.instanceId;
       const iconColumn = 92;
