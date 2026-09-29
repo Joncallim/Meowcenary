@@ -11,6 +11,7 @@ of truth.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -34,10 +35,29 @@ ENEMIES = {
     "boss-crusher": (64, "boss-crusher-pixel-v3.png"),
     "boss-forge": (64, "boss-forge-pixel-v3.png"),
 }
+SELECTED_MASTER_SHA256 = {
+    "dust-mite": "8130ea294b2dbf1eec32cea48f9e3e31dc6fb9046f73b78e8fdd0a4524dddc24",
+    "junk-rusher": "4eb94a37c5275aa849be887fa535fbc4c2dcc523aa41d5f2e797b2ced77025c9",
+    "trash-brute": "5318a3435977a88ac83a3865833910e9d9e1e6d13b7b2f00855a3f0490d6acfc",
+    "scrap-sniper": "1c0b0e3e722ca8891d3184b44e56d024cec061ede79d18a2e9cc35336325459f",
+    "scrap-skitter": "4edb552b52737ba6a6c2a526232c438b53c19df8eb436552edba3ee4b9e25869",
+    "bastion-beetle": "54bacaeb1703a2af7875db932416ad6aa919684c67ee853c9a4cf7a3f89ef00f",
+    "junk-nester": "7f0e158f0bffc43f539b40f948d42cb660de486159938f4e84e437573887bda9",
+    "shard-bot": "ef1a55079eb58054175a8ea06349b947690e4d7aa77decfde1f633c5939a1059",
+    "boss-crusher": "149c798906c6f43706051012ffb2307d59d05977677c0131c9935f59980e244d",
+    "boss-forge": "fd52d2b2e0cc993398dc7b29363f971a135dabda2875beaa0769a64ca341f6ab",
+}
 
 
 def selected_sheet(source_root: Path, enemy_id: str, filename: str) -> Path:
-    return source_root / "assets-src" / "enemies" / enemy_id / "source" / filename
+    path = source_root / "assets-src" / "enemies" / enemy_id / "source" / filename
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    expected = SELECTED_MASTER_SHA256[enemy_id]
+    if actual != expected:
+        raise SystemExit(
+            f"selected enemy master digest mismatch for {enemy_id}: expected {expected}, got {actual}"
+        )
+    return path
 
 
 def source_cells(sheet: Image.Image) -> list[Image.Image]:

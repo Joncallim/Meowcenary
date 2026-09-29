@@ -331,6 +331,8 @@ describe('Alpha 3 enemy production-art distinction', () => {
 
   it('builds every native actor and menu portrait from the selected production masters, never legacy geometry', () => {
     const productionBuilder = readFileSync('docs/art/scripts/build-enemy-production-art.py', 'utf8');
+    const packageJson = JSON.parse(readFileSync('package.json', 'utf8')) as { scripts: Record<string, string> };
+    expect(packageJson.scripts['art:enemies:export']).toBe('python3 docs/art/scripts/build-enemy-production-art.py');
     for (const id of REMEDIATED_NATIVE_IDS) {
       expect(productionBuilder).toContain(`"${id}"`);
       const portrait = new DataVisualArtRegistry(loadGameData()).bindingById(`enemy-portrait:${id}`);
@@ -365,6 +367,17 @@ describe('Alpha 3 enemy production-art distinction', () => {
       expect(() => execFileSync('python3', [
         'docs/art/scripts/build-enemy-production-art.py', '--root', root, '--check',
       ])).not.toThrow();
+
+      copyFileSync(
+        join(root, 'assets-src/enemies/junk-rusher/source/junk-rusher-pixel-v3.png'),
+        join(root, 'assets-src/enemies/dust-mite/source/dust-mite-pixel-v3.png'),
+      );
+      const driftedMaster = spawnSync('python3', [
+        'docs/art/scripts/build-enemy-production-art.py', '--root', root, '--check',
+      ], { encoding: 'utf8' });
+      expect(driftedMaster.status).not.toBe(0);
+      expect(`${driftedMaster.stdout}${driftedMaster.stderr}`).toContain('selected enemy master digest mismatch for dust-mite');
+      copy(`assets-src/enemies/dust-mite/source/${SELECTED_MASTERS['dust-mite']}`);
 
       const staleJson = 'public/assets/enemies/dust-mite/dust-mite.json';
       const stalePxo = 'assets-src/enemies/boss-forge/source/boss-forge.pxo';
