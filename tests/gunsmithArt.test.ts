@@ -92,8 +92,12 @@ describe('Gunsmith production art', () => {
         expect(png.pixels[(frame * FRAME_SIZE + x) * 4 + 3], `${expectedIds[frame]} top edge`).toBe(0);
         expect(png.pixels[((FRAME_SIZE - 1) * png.width + frame * FRAME_SIZE + x) * 4 + 3], `${expectedIds[frame]} bottom edge`).toBe(0);
       }
+      for (let y = 0; y < FRAME_SIZE; y += 1) {
+        expect(png.pixels[(y * png.width + frame * FRAME_SIZE) * 4 + 3], `${expectedIds[frame]} left edge`).toBe(0);
+        expect(png.pixels[(y * png.width + frame * FRAME_SIZE + FRAME_SIZE - 1) * 4 + 3], `${expectedIds[frame]} right edge`).toBe(0);
+      }
     }
-  });
+  }, 15_000);
 
   it('uses exact, non-overlapping named frames in the same stable order', () => {
     const atlas = JSON.parse(readFileSync('public/assets/gunsmith/icons/gunsmith-icons-atlas.json', 'utf8')) as {

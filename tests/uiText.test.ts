@@ -201,8 +201,9 @@ describe('createUiText', () => {
     // Workshop confirmation add three explicit player-facing call sites. The
     // Contract-first flow adds the Loadout summary plus chapter/detail copy;
     // its selected detail keeps reward copy reachable in the scroll region;
-    // enemy art now replaces the former text-only threat row.
-    expect(migratedSites).toHaveLength(67);
+    // enemy art now replaces the former text-only threat row; Equipment's
+    // persisted loadout strip adds one shared-factory slot label site.
+    expect(migratedSites).toHaveLength(68);
 
     const constructorCalls = findCreateUiTextCalls(programSourceFile(program, UI_TEXT_FILE), checker);
     expect(constructorCalls).toHaveLength(0);

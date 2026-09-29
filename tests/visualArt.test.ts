@@ -90,8 +90,8 @@ describe('Visual Art Architecture', () => {
   });
 
   it('keeps the committed Commando atlas in exact parity with its editable source', () => {
-    expect(() => execFileSync('node', [
-      'docs/art/scripts/export-commando-equipment-atlas.mjs', '--check',
+    expect(() => execFileSync('python3', [
+      'docs/art/scripts/build-equipment-concept-atlases.py', '--check',
     ])).not.toThrow();
   });
 
