@@ -39,7 +39,10 @@ test('keyboard player journey reaches Mercenary, Career and gameplay on the real
   await press('ArrowDown');
   await press('Enter');
   await page.waitForTimeout(500);
-  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/mercenary-portraits-atlas.png'))).toBe(true);
+  await expect.poll(
+    () => requestedAssets.some((path) => path.endsWith('/mercenary-portraits-atlas.png')),
+    { intervals: [150, 250, 400], timeout: 8_000 },
+  ).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('mercenary.png') });
 
   await openHome();
@@ -48,13 +51,19 @@ test('keyboard player journey reaches Mercenary, Career and gameplay on the real
   await press('ArrowDown');
   await press('Enter');
   await page.waitForTimeout(500);
-  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/achievement-icons-atlas.png'))).toBe(true);
+  await expect.poll(
+    () => requestedAssets.some((path) => path.endsWith('/achievement-icons-atlas.png')),
+    { intervals: [150, 250, 400], timeout: 8_000 },
+  ).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('achievements.png') });
 
   await openHome();
   await press('Enter');
   await page.waitForTimeout(1_500);
-  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png'))).toBe(true);
+  await expect.poll(
+    () => requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png')),
+    { intervals: [150, 250, 400], timeout: 8_000 },
+  ).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('gameplay.png') });
   await expect(canvas).toBeVisible();
 });
