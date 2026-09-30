@@ -813,7 +813,7 @@ function sanitizeCompendiumState(raw: unknown): CompendiumState {
 
 /** Validate and normalize a V4 ProgressionState (no permanent upgrades). */
 export function sanitizeProgressionV4(raw: unknown): ProgressionStateV4 {
-  if (!isPlainRecord(raw)) return { scrap: 0, unlocks: [] };
+  if (!isPlainRecord(raw)) return Object.freeze({ scrap: 0, unlocks: Object.freeze([]) });
   const scrapRaw = readOwn(raw, 'scrap');
   const scrap = isNonNegativeSafeInteger(scrapRaw) ? scrapRaw : 0;
   const unlocksRaw = readOwn(raw, 'unlocks');
@@ -967,7 +967,7 @@ function freezeProgression(p: ProgressionState): ProgressionState {
 }
 
 /**
- * Produces the only externally visible Save V3 snapshot shape.  Every nested
+ * Produces the only externally visible Save V4 snapshot shape.  Every nested
  * record is copied and frozen as well as the domain map, so callers cannot
  * mutate owned-instance/fact state behind GameContext's persistence boundary.
  */
@@ -975,15 +975,22 @@ export function freezeSaveV4(save: SaveDataV4): SaveDataV4 {
   return Object.freeze({
     version: 4,
     settings: Object.isFrozen(save.settings) ? save.settings : freezeSettings(save.settings),
-    progression: Object.isFrozen(save.progression) ? save.progression : Object.freeze({ ...save.progression }),
+    progression: freezeProgressionV4(save.progression),
     stages: Object.freeze(Object.fromEntries(Object.entries(save.stages).map(([id, state]) => [id, Object.freeze({ ...state })]))),
     achievements: Object.freeze(Object.fromEntries(Object.entries(save.achievements).map(([id, state]) => [id, Object.freeze({ ...state })]))),
     achievementMetrics: Object.isFrozen(save.achievementMetrics) ? save.achievementMetrics : Object.freeze({ ...save.achievementMetrics }),
     characters: Object.freeze(Object.fromEntries(Object.entries(save.characters).map(([id, state]) => [id, Object.freeze({ ...state })]))),
     ...(save.selectedCharacterId === undefined ? {} : { selectedCharacterId: save.selectedCharacterId }),
     gunsmith: Object.freeze({
-      builds: Object.freeze([...save.gunsmith.builds]),
-      parts: Object.freeze({ ...save.gunsmith.parts }),
+      builds: Object.freeze(save.gunsmith.builds.map((build) => Object.freeze({
+        ...build,
+        fitted: Object.freeze({ ...build.fitted }),
+        traitParts: Object.freeze([...build.traitParts]),
+      }))),
+      parts: Object.freeze(Object.fromEntries(Object.entries(save.gunsmith.parts).map(([id, part]) => [id, Object.freeze({
+        ...part,
+        infusedTraits: Object.freeze([...part.infusedTraits]),
+      })]))),
       ...(save.gunsmith.selectedBuildId === undefined ? {} : { selectedBuildId: save.gunsmith.selectedBuildId }),
       ...(save.gunsmith.fabricationSerials === undefined ? {} : { fabricationSerials: Object.freeze({ ...save.gunsmith.fabricationSerials }) }),
     }),
@@ -995,6 +1002,24 @@ export function freezeSaveV4(save: SaveDataV4): SaveDataV4 {
     pendingAchievementReports: Object.isFrozen(save.pendingAchievementReports) ? save.pendingAchievementReports : Object.freeze([...save.pendingAchievementReports]),
     appliedGrantTransactions: Object.isFrozen(save.appliedGrantTransactions) ? save.appliedGrantTransactions : Object.freeze({ ...save.appliedGrantTransactions }),
     grantTransactionFingerprints: Object.isFrozen(save.grantTransactionFingerprints) ? save.grantTransactionFingerprints : Object.freeze({ ...save.grantTransactionFingerprints }),
+  });
+}
+
+function freezeProgressionV4(progression: ProgressionStateV4): ProgressionStateV4 {
+  const unlocks = Object.isFrozen(progression.unlocks)
+    ? progression.unlocks
+    : Object.freeze([...progression.unlocks]);
+  const permanentUpgrades = progression.permanentUpgrades;
+  const frozenPermanentUpgrades = permanentUpgrades === undefined || Object.isFrozen(permanentUpgrades)
+    ? permanentUpgrades
+    : Object.freeze({ ...permanentUpgrades });
+  if (Object.isFrozen(progression) && unlocks === progression.unlocks && frozenPermanentUpgrades === permanentUpgrades) {
+    return progression;
+  }
+  return Object.freeze({
+    ...progression,
+    unlocks,
+    ...(frozenPermanentUpgrades === undefined ? {} : { permanentUpgrades: frozenPermanentUpgrades }),
   });
 }
 

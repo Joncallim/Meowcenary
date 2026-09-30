@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { resolvePersistentRunLoadout } from '../src/gameplay/persistentLoadout';
 import { getAllFamilyIds } from '../src/gameplay/weaponFamilies';
+import { ModifierStack } from '../src/gameplay/stats';
 import { createDefaultSaveV4, type SaveDataV4 } from '../src/systems/save';
+import { resolveEquipmentModifiers, type EquipmentDefinition, type EquipmentSetDefinition, type OwnedEquipment } from '../src/gameplay/equipment';
 
 function partDefinition(
   id: string,
@@ -26,6 +28,55 @@ function partDefinition(
 }
 
 describe('persistent run loadout', () => {
+  it('keeps accepted global Equipment and Set effects identical between pure and run resolvers', () => {
+    const pieceEffects = [{ stat: 'damage' as const, op: 'mult' as const, value: 1.03 }];
+    const setEffects = [{ stat: 'damage' as const, op: 'mult' as const, value: 1.1 }];
+    const definitions = new Map<string, EquipmentDefinition>([
+      ['equipment:test-global-helmet', { id: 'equipment:test-global-helmet', name: 'Test Helmet', setId: 'set:test-global', slot: 'helmet', icon: 'icon:test', effects: pieceEffects }],
+      ['equipment:test-global-armour', { id: 'equipment:test-global-armour', name: 'Test Armour', setId: 'set:test-global', slot: 'armour', icon: 'icon:test', effects: [] }],
+    ]);
+    const sets = new Map<string, EquipmentSetDefinition>([['set:test-global', {
+      id: 'set:test-global', name: 'Test Set', description: 'Test', unlock: { type: 'always' }, pieceFabricationCost: 1, emblem: 'icon:test',
+      thresholds: { 2: { modifiers: setEffects }, 4: { modifiers: [] } },
+    }]]);
+    const owned = new Map<string, OwnedEquipment>([
+      ['helmet', { instanceId: 'helmet', equipmentId: 'equipment:test-global-helmet', tier: 2 }],
+      ['armour', { instanceId: 'armour', equipmentId: 'equipment:test-global-armour', tier: 1 }],
+    ]);
+    const save: SaveDataV4 = {
+      ...createDefaultSaveV4(),
+      equipment: {
+        helmet: { equipmentId: 'equipment:test-global-helmet', tier: 2 },
+        armour: { equipmentId: 'equipment:test-global-armour', tier: 1 },
+      },
+      equipmentLoadout: { helmet: 'helmet', armour: 'armour' },
+    };
+    const contribution = resolvePersistentRunLoadout(
+      save,
+      new Map([['set:test-global', { id: 'set:test-global', setBonuses: {
+        2: { modifiers: setEffects },
+      } }]]),
+      new Map([
+        ['equipment:test-global-helmet', { id: 'equipment:test-global-helmet', setId: 'set:test-global', slot: 'helmet' as const,
+          effects: pieceEffects }],
+        ['equipment:test-global-armour', { id: 'equipment:test-global-armour', setId: 'set:test-global', slot: 'armour' as const, effects: [] }],
+      ]),
+      new Map(),
+    );
+    const stack = new ModifierStack();
+    contribution.modifiers.forEach((modifier) => stack.add(modifier));
+    const pure = resolveEquipmentModifiers({ equipped: { helmet: 'helmet', armour: 'armour' } }, definitions, sets, owned);
+    const mechanicalEffects = (modifiers: readonly { stat: string; op: string; value: number; scope?: { kind: string; family: string } }[]) =>
+      modifiers.map(({ stat, op, value, scope }) => ({ stat, op, value, scope })).sort((a, b) => a.stat.localeCompare(b.stat));
+
+    expect(stack.resolveWeapon('damage', 100, 'pistol')).toBeCloseTo(116.6);
+    expect(stack.resolveWeapon('damage', 100, 'shotgun')).toBeCloseTo(116.6);
+    expect(stack.resolveWeapon('damage', 100, 'smg')).toBeCloseTo(116.6);
+    expect(stack.resolve('damage', 100)).toBeCloseTo(116.6);
+    expect(mechanicalEffects(contribution.modifiers)).toEqual(mechanicalEffects(pure));
+    expect(contribution.modifiers.every((modifier) => modifier.scope === undefined)).toBe(true);
+  });
+
   it('installs each registered trait stat package once per affected family alongside projectile effects', () => {
     const save: SaveDataV4 = {
       ...createDefaultSaveV4(),
