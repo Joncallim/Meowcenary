@@ -32,7 +32,7 @@ import { createRunState } from '../gameplay/runState';
 import { resolveWeaponStats, type EffectiveWeaponStats } from '../gameplay/weaponStats';
 import type { WeaponDefinition } from '../systems/types';
 import { deepFreeze } from '../engine/freeze';
-import { GUNSMITH_CHASSIS, resolveGunsmithVisualAssembly } from './gunsmithVisualAssembly';
+import { GUNSMITH_CHASSIS, resolveGunsmithPartVisual, resolveGunsmithVisualAssembly } from './gunsmithVisualAssembly';
 import { resolveEquipmentLoadoutPresentation, type EquipmentLoadoutPresentation } from './equipmentPresentation';
 
 export type GunsmithSurface = 'build' | 'workshop' | 'parts';
@@ -318,7 +318,7 @@ export class GunsmithController {
       const view: GunsmithPartView = Object.freeze({
         instanceId, partId: stored.partId, name: definition.name, slot: definition.slot,
         tier: stored.tier, traits,
-        iconArtId: definition.presentation.iconArtId,
+        iconArtId: resolveGunsmithPartVisual(definition, stored.tier).iconArtId,
         traitIcons: Object.freeze(traits.flatMap((trait) => {
           const iconArtId = traitIconByTrait.get(trait);
           return iconArtId === undefined ? [] : [Object.freeze({ trait, iconArtId })];
@@ -391,7 +391,7 @@ export class GunsmithController {
       .filter((part) => availableBlueprints.has(part.id))
       .map((part) => Object.freeze({
         partId: part.id, name: part.name, slot: part.slot, fabricationCost: part.fabricationCost!,
-        iconArtId: part.presentation.iconArtId,
+        iconArtId: resolveGunsmithPartVisual(part, 1).iconArtId,
         traitIcons: Object.freeze(Object.entries(part.presentation.traitIconArtIds).flatMap(([trait, iconArtId]) => iconArtId === undefined ? [] : [Object.freeze({ trait, iconArtId })])),
         effectLines: Object.freeze(part.effects.map((effect) => formatGunsmithEffect(effect, 1))),
       } satisfies GunsmithBlueprintView)));
@@ -422,7 +422,7 @@ export class GunsmithController {
             : catalogState === 'locked' ? 'LOCKED' : 'REWARD ONLY';
       return Object.freeze({
         partId: definition.id, name: definition.name, slot: definition.slot, rarity: definition.rarity,
-        iconArtId: definition.presentation.iconArtId,
+        iconArtId: resolveGunsmithPartVisual(definition, displayTier).iconArtId,
         traitIcons: Object.freeze(Object.entries(definition.presentation.traitIconArtIds).flatMap(([trait, iconArtId]) => iconArtId === undefined ? [] : [Object.freeze({ trait, iconArtId })])),
         state: catalogState, stateLabel, ownedCount: owned.length,
         effectLines: statChips, statChips,
@@ -986,7 +986,7 @@ function workshopPartView(part: OwnedPart, state: GunsmithState, registry: DataP
     return iconArtId === undefined ? [] : [{ trait, iconArtId }];
   });
   return { instanceId: part.instanceId, partId: part.partId, name: definition.name, slot: definition.slot,
-    tier: part.tier, iconArtId: definition.presentation.iconArtId, statChips: formatPartEffects(definition, part.tier),
+    tier: part.tier, iconArtId: resolveGunsmithPartVisual(definition, part.tier).iconArtId, statChips: formatPartEffects(definition, part.tier),
     traitLines: traits, traitIcons, fittingLocations, stateLabel: fittingLocations.length > 0 ? 'EQUIPPED' : 'STORED',
     effectScope: fittingLocations.length > 0 ? [...new Set(fittingLocations.map((fact) => familyName(fact.familyId)))].join(' / ')
       : compatibleFamilyScope(definition.slot) };

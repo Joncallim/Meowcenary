@@ -900,5 +900,25 @@
       "imageUrl": "assets/ui/navigation-icons-atlas.png",
       "dataUrl": "assets/ui/navigation-icons-atlas.json"
     }
+  },
+  {
+    "id": "resource:gunsmith-tier-icons",
+    "textureKey": "art-gunsmith-tier-icons",
+    "sampling": "nearest",
+    "load": {
+      "type": "atlas",
+      "imageUrl": "assets/gunsmith/tiers/gunsmith-tier-icons-atlas.png",
+      "dataUrl": "assets/gunsmith/tiers/gunsmith-tier-icons-atlas.json"
+    }
+  },
+  {
+    "id": "resource:gunsmith-tier-assembly",
+    "textureKey": "art-gunsmith-tier-assembly",
+    "sampling": "nearest",
+    "load": {
+      "type": "atlas",
+      "imageUrl": "assets/gunsmith/tiers/gunsmith-tier-assembly-atlas.png",
+      "dataUrl": "assets/gunsmith/tiers/gunsmith-tier-assembly-atlas.json"
+    }
   }
 ]

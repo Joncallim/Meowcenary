@@ -50,7 +50,7 @@ describe('Workshop structured consequence presentation', () => {
     const confirmation = controller.snapshot().confirmation as any;
     expect(confirmation.inputs.map((part: any) => part.instanceId)).toEqual(['first', 'second']);
     expect(confirmation.output).toMatchObject({ instanceId: pure.output.instanceId, partId: pure.output.partId,
-      tier: pure.output.tier, stateLabel: 'STORED', fittingLocations: [], iconArtId: 'gun-part-icon:barrel-standard' });
+      tier: pure.output.tier, stateLabel: 'STORED', fittingLocations: [], iconArtId: 'gun-part-icon:barrel-standard:t2' });
     expect(confirmation.consumedInstanceIds).toEqual(pure.consumed);
     expect(confirmation.preservedInstanceIds).toEqual([]);
     expect(confirmation.clearedFittings).toEqual([

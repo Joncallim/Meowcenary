@@ -26,18 +26,18 @@ describe('GunsmithController durable commands', () => {
   it('exposes every registered chassis even when no build exists, then preserves each family selection', () => {
     const { context, controller } = setup();
     expect(controller.snapshot().families).toEqual([
-      { id: 'pistol', name: 'Pistol', iconArtId: 'weapon-icon:pistol:t1', previewBaseArtId: 'gun-build-base:pistol', selected: false, existingBuildId: undefined },
-      { id: 'smg', name: 'SMG', iconArtId: 'weapon-icon:smg:t1', previewBaseArtId: 'gun-build-base:smg', selected: false, existingBuildId: undefined },
-      { id: 'shotgun', name: 'Shotgun', iconArtId: 'weapon-icon:shotgun:t1', previewBaseArtId: 'gun-build-base:shotgun', selected: false, existingBuildId: undefined },
+      { id: 'pistol', name: 'Pistol', iconArtId: 'gun-chassis-icon:pistol', previewBaseArtId: 'gun-build-base:pistol', selected: false, existingBuildId: undefined },
+      { id: 'smg', name: 'SMG', iconArtId: 'gun-chassis-icon:smg', previewBaseArtId: 'gun-build-base:smg', selected: false, existingBuildId: undefined },
+      { id: 'shotgun', name: 'Shotgun', iconArtId: 'gun-chassis-icon:shotgun', previewBaseArtId: 'gun-build-base:shotgun', selected: false, existingBuildId: undefined },
     ]);
 
     expect(controller.createBuild('pistol')).toMatchObject({ ok: true });
     expect(controller.createBuild('smg')).toMatchObject({ ok: true });
     expect(controller.selectBuild('build:pistol')).toMatchObject({ ok: true });
     expect(controller.snapshot().families).toEqual([
-      { id: 'pistol', name: 'Pistol', iconArtId: 'weapon-icon:pistol:t1', previewBaseArtId: 'gun-build-base:pistol', selected: true, existingBuildId: 'build:pistol' },
-      { id: 'smg', name: 'SMG', iconArtId: 'weapon-icon:smg:t1', previewBaseArtId: 'gun-build-base:smg', selected: false, existingBuildId: 'build:smg' },
-      { id: 'shotgun', name: 'Shotgun', iconArtId: 'weapon-icon:shotgun:t1', previewBaseArtId: 'gun-build-base:shotgun', selected: false, existingBuildId: undefined },
+      { id: 'pistol', name: 'Pistol', iconArtId: 'gun-chassis-icon:pistol', previewBaseArtId: 'gun-build-base:pistol', selected: true, existingBuildId: 'build:pistol' },
+      { id: 'smg', name: 'SMG', iconArtId: 'gun-chassis-icon:smg', previewBaseArtId: 'gun-build-base:smg', selected: false, existingBuildId: 'build:smg' },
+      { id: 'shotgun', name: 'Shotgun', iconArtId: 'gun-chassis-icon:shotgun', previewBaseArtId: 'gun-build-base:shotgun', selected: false, existingBuildId: undefined },
     ]);
     expect(context.saveData.gunsmith.builds.map((build) => build.id)).toEqual(['build:pistol', 'build:smg']);
   });
@@ -60,13 +60,13 @@ describe('GunsmithController durable commands', () => {
     expect(context.saveData.gunsmith.builds[0].fitted.barrel).toBe('owned:barrel');
     expect(controller.snapshot().selectedBuild?.preview).toMatchObject({
       baseArtId: 'gun-build-base:pistol',
-      layers: [{ instanceId: 'owned:barrel', slot: 'barrel', artId: 'gun-build-part:barrel-standard', tier: 1 }],
+      layers: [{ instanceId: 'owned:barrel', slot: 'barrel', artId: 'gun-build-part:barrel-standard:t1', tier: 1 }],
       traitCores: [],
       traitEmblems: [],
     });
     expect(controller.snapshot().parts[0]).toMatchObject({
       name: 'Standard Barrel', compatible: true,
-      iconArtId: 'gun-part-icon:barrel-standard', traitIcons: [],
+      iconArtId: 'gun-part-icon:barrel-standard:t1', traitIcons: [],
     });
     expect(controller.snapshot().slots.find((slot) => slot.slot === 'barrel')).toMatchObject({
       iconArtId: 'gun-slot-icon:barrel',
@@ -93,8 +93,8 @@ describe('GunsmithController durable commands', () => {
     expect(build.preview).toEqual({
       baseArtId: 'gun-build-base:smg',
       layers: [
-        { instanceId: 'receiver', slot: 'receiver', artId: 'gun-build-part:receiver-heavy', tier: 3 },
-        { instanceId: 'trigger', slot: 'trigger', artId: 'gun-build-part:trigger-hair', tier: 2 },
+        { instanceId: 'receiver', slot: 'receiver', artId: 'gun-build-part:receiver-heavy:t3', tier: 3 },
+        { instanceId: 'trigger', slot: 'trigger', artId: 'gun-build-part:trigger-hair:t2', tier: 2 },
       ],
       traitCores: [{ instanceId: 'core', iconArtId: 'gun-part-icon:trait-fire', tier: 1 }],
       traitEmblems: [{ trait: 'FIRE', iconArtId: 'trait-icon:fire' }],

@@ -1922,16 +1922,16 @@
       "resourceId": "resource:gunsmith-icons", "frameKey": "trait-icon:piercing"
     },
     {
-      "id": "gun-build-base:pistol", "kind": "icon", "required": true, "display": { "width": 96, "height": 48 },
-      "resourceId": "resource:gun-build-previews", "frameKey": "gun-build-base:pistol"
+      "id": "gun-build-base:pistol", "kind": "icon", "required": true, "display": { "width": 358, "height": 196 },
+      "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-base:pistol"
     },
     {
-      "id": "gun-build-base:smg", "kind": "icon", "required": true, "display": { "width": 96, "height": 48 },
-      "resourceId": "resource:gun-build-previews", "frameKey": "gun-build-base:smg"
+      "id": "gun-build-base:smg", "kind": "icon", "required": true, "display": { "width": 358, "height": 196 },
+      "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-base:smg"
     },
     {
-      "id": "gun-build-base:shotgun", "kind": "icon", "required": true, "display": { "width": 96, "height": 48 },
-      "resourceId": "resource:gun-build-previews", "frameKey": "gun-build-base:shotgun"
+      "id": "gun-build-base:shotgun", "kind": "icon", "required": true, "display": { "width": 358, "height": 196 },
+      "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-base:shotgun"
     },
     {
       "id": "gun-build-part:receiver-compact", "kind": "icon", "required": true, "display": { "width": 96, "height": 48 },
@@ -2410,6 +2410,315 @@
     {"id": "equipment-icon:technician-boots:t3", "kind": "icon", "required": true, "display": {"width": 32, "height": 32}, "resourceId": "resource:equipment-sets", "frameKey": "equipment-icon:technician-boots:t3"},
     {"id": "equipment-wearable:technician-boots:t3", "kind": "icon", "required": true, "display": {"width": 32, "height": 32}, "resourceId": "resource:equipment-sets", "frameKey": "equipment-icon:technician-boots:t3"},
     {"id": "equipment-icon:technician-boots:t4", "kind": "icon", "required": true, "display": {"width": 32, "height": 32}, "resourceId": "resource:equipment-sets", "frameKey": "equipment-icon:technician-boots:t4"},
-    {"id": "equipment-wearable:technician-boots:t4", "kind": "icon", "required": true, "display": {"width": 32, "height": 32}, "resourceId": "resource:equipment-sets", "frameKey": "equipment-icon:technician-boots:t4"}
+    {"id": "equipment-wearable:technician-boots:t4", "kind": "icon", "required": true, "display": {"width": 32, "height": 32}, "resourceId": "resource:equipment-sets", "frameKey": "equipment-icon:technician-boots:t4"},
+    {
+      "id": "gun-chassis-icon:pistol", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-chassis-icon:pistol"
+    },
+    {
+      "id": "gun-chassis-icon:smg", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-chassis-icon:smg"
+    },
+    {
+      "id": "gun-chassis-icon:shotgun", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-chassis-icon:shotgun"
+    },
+    {
+      "id": "gun-part-icon:receiver-compact:t1", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:receiver-compact:t1"
+    },
+    {
+      "id": "gun-build-part:receiver-compact:t1", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:receiver-compact:t1"
+    },
+    {
+      "id": "gun-part-icon:receiver-compact:t2", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:receiver-compact:t2"
+    },
+    {
+      "id": "gun-build-part:receiver-compact:t2", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:receiver-compact:t2"
+    },
+    {
+      "id": "gun-part-icon:receiver-compact:t3", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:receiver-compact:t3"
+    },
+    {
+      "id": "gun-build-part:receiver-compact:t3", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:receiver-compact:t3"
+    },
+    {
+      "id": "gun-part-icon:receiver-compact:t4", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:receiver-compact:t4"
+    },
+    {
+      "id": "gun-build-part:receiver-compact:t4", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:receiver-compact:t4"
+    },
+    {
+      "id": "gun-part-icon:receiver-compact:t5", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:receiver-compact:t5"
+    },
+    {
+      "id": "gun-build-part:receiver-compact:t5", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:receiver-compact:t5"
+    },
+    {
+      "id": "gun-part-icon:receiver-heavy:t1", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:receiver-heavy:t1"
+    },
+    {
+      "id": "gun-build-part:receiver-heavy:t1", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:receiver-heavy:t1"
+    },
+    {
+      "id": "gun-part-icon:receiver-heavy:t2", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:receiver-heavy:t2"
+    },
+    {
+      "id": "gun-build-part:receiver-heavy:t2", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:receiver-heavy:t2"
+    },
+    {
+      "id": "gun-part-icon:receiver-heavy:t3", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:receiver-heavy:t3"
+    },
+    {
+      "id": "gun-build-part:receiver-heavy:t3", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:receiver-heavy:t3"
+    },
+    {
+      "id": "gun-part-icon:receiver-heavy:t4", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:receiver-heavy:t4"
+    },
+    {
+      "id": "gun-build-part:receiver-heavy:t4", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:receiver-heavy:t4"
+    },
+    {
+      "id": "gun-part-icon:receiver-heavy:t5", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:receiver-heavy:t5"
+    },
+    {
+      "id": "gun-build-part:receiver-heavy:t5", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:receiver-heavy:t5"
+    },
+    {
+      "id": "gun-part-icon:barrel-standard:t1", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:barrel-standard:t1"
+    },
+    {
+      "id": "gun-build-part:barrel-standard:t1", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:barrel-standard:t1"
+    },
+    {
+      "id": "gun-part-icon:barrel-standard:t2", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:barrel-standard:t2"
+    },
+    {
+      "id": "gun-build-part:barrel-standard:t2", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:barrel-standard:t2"
+    },
+    {
+      "id": "gun-part-icon:barrel-standard:t3", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:barrel-standard:t3"
+    },
+    {
+      "id": "gun-build-part:barrel-standard:t3", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:barrel-standard:t3"
+    },
+    {
+      "id": "gun-part-icon:barrel-standard:t4", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:barrel-standard:t4"
+    },
+    {
+      "id": "gun-build-part:barrel-standard:t4", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:barrel-standard:t4"
+    },
+    {
+      "id": "gun-part-icon:barrel-standard:t5", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:barrel-standard:t5"
+    },
+    {
+      "id": "gun-build-part:barrel-standard:t5", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:barrel-standard:t5"
+    },
+    {
+      "id": "gun-part-icon:barrel-long:t1", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:barrel-long:t1"
+    },
+    {
+      "id": "gun-build-part:barrel-long:t1", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:barrel-long:t1"
+    },
+    {
+      "id": "gun-part-icon:barrel-long:t2", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:barrel-long:t2"
+    },
+    {
+      "id": "gun-build-part:barrel-long:t2", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:barrel-long:t2"
+    },
+    {
+      "id": "gun-part-icon:barrel-long:t3", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:barrel-long:t3"
+    },
+    {
+      "id": "gun-build-part:barrel-long:t3", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:barrel-long:t3"
+    },
+    {
+      "id": "gun-part-icon:barrel-long:t4", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:barrel-long:t4"
+    },
+    {
+      "id": "gun-build-part:barrel-long:t4", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:barrel-long:t4"
+    },
+    {
+      "id": "gun-part-icon:barrel-long:t5", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:barrel-long:t5"
+    },
+    {
+      "id": "gun-build-part:barrel-long:t5", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:barrel-long:t5"
+    },
+    {
+      "id": "gun-part-icon:optic-red-dot:t1", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:optic-red-dot:t1"
+    },
+    {
+      "id": "gun-build-part:optic-red-dot:t1", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:optic-red-dot:t1"
+    },
+    {
+      "id": "gun-part-icon:optic-red-dot:t2", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:optic-red-dot:t2"
+    },
+    {
+      "id": "gun-build-part:optic-red-dot:t2", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:optic-red-dot:t2"
+    },
+    {
+      "id": "gun-part-icon:optic-red-dot:t3", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:optic-red-dot:t3"
+    },
+    {
+      "id": "gun-build-part:optic-red-dot:t3", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:optic-red-dot:t3"
+    },
+    {
+      "id": "gun-part-icon:optic-red-dot:t4", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:optic-red-dot:t4"
+    },
+    {
+      "id": "gun-build-part:optic-red-dot:t4", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:optic-red-dot:t4"
+    },
+    {
+      "id": "gun-part-icon:optic-red-dot:t5", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:optic-red-dot:t5"
+    },
+    {
+      "id": "gun-build-part:optic-red-dot:t5", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:optic-red-dot:t5"
+    },
+    {
+      "id": "gun-part-icon:stock-padded:t1", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:stock-padded:t1"
+    },
+    {
+      "id": "gun-build-part:stock-padded:t1", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:stock-padded:t1"
+    },
+    {
+      "id": "gun-part-icon:stock-padded:t2", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:stock-padded:t2"
+    },
+    {
+      "id": "gun-build-part:stock-padded:t2", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:stock-padded:t2"
+    },
+    {
+      "id": "gun-part-icon:stock-padded:t3", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:stock-padded:t3"
+    },
+    {
+      "id": "gun-build-part:stock-padded:t3", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:stock-padded:t3"
+    },
+    {
+      "id": "gun-part-icon:stock-padded:t4", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:stock-padded:t4"
+    },
+    {
+      "id": "gun-build-part:stock-padded:t4", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:stock-padded:t4"
+    },
+    {
+      "id": "gun-part-icon:stock-padded:t5", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:stock-padded:t5"
+    },
+    {
+      "id": "gun-build-part:stock-padded:t5", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:stock-padded:t5"
+    },
+    {
+      "id": "gun-part-icon:trigger-hair:t1", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:trigger-hair:t1"
+    },
+    {
+      "id": "gun-build-part:trigger-hair:t1", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:trigger-hair:t1"
+    },
+    {
+      "id": "gun-part-icon:trigger-hair:t2", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:trigger-hair:t2"
+    },
+    {
+      "id": "gun-build-part:trigger-hair:t2", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:trigger-hair:t2"
+    },
+    {
+      "id": "gun-part-icon:trigger-hair:t3", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:trigger-hair:t3"
+    },
+    {
+      "id": "gun-build-part:trigger-hair:t3", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:trigger-hair:t3"
+    },
+    {
+      "id": "gun-part-icon:trigger-hair:t4", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:trigger-hair:t4"
+    },
+    {
+      "id": "gun-build-part:trigger-hair:t4", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:trigger-hair:t4"
+    },
+    {
+      "id": "gun-part-icon:trigger-hair:t5", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:trigger-hair:t5"
+    },
+    {
+      "id": "gun-build-part:trigger-hair:t5", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:trigger-hair:t5"
+    },
+    {
+      "id": "gun-part-icon:magazine-extended:t1", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:magazine-extended:t1"
+    },
+    {
+      "id": "gun-build-part:magazine-extended:t1", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:magazine-extended:t1"
+    },
+    {
+      "id": "gun-part-icon:magazine-extended:t2", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:magazine-extended:t2"
+    },
+    {
+      "id": "gun-build-part:magazine-extended:t2", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:magazine-extended:t2"
+    },
+    {
+      "id": "gun-part-icon:magazine-extended:t3", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:magazine-extended:t3"
+    },
+    {
+      "id": "gun-build-part:magazine-extended:t3", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:magazine-extended:t3"
+    },
+    {
+      "id": "gun-part-icon:magazine-extended:t4", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:magazine-extended:t4"
+    },
+    {
+      "id": "gun-build-part:magazine-extended:t4", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:magazine-extended:t4"
+    },
+    {
+      "id": "gun-part-icon:magazine-extended:t5", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:magazine-extended:t5"
+    },
+    {
+      "id": "gun-build-part:magazine-extended:t5", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:magazine-extended:t5"
+    },
+    {
+      "id": "gun-part-icon:underbarrel-grenade:t1", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:underbarrel-grenade:t1"
+    },
+    {
+      "id": "gun-build-part:underbarrel-grenade:t1", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:underbarrel-grenade:t1"
+    },
+    {
+      "id": "gun-part-icon:underbarrel-grenade:t2", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:underbarrel-grenade:t2"
+    },
+    {
+      "id": "gun-build-part:underbarrel-grenade:t2", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:underbarrel-grenade:t2"
+    },
+    {
+      "id": "gun-part-icon:underbarrel-grenade:t3", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:underbarrel-grenade:t3"
+    },
+    {
+      "id": "gun-build-part:underbarrel-grenade:t3", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:underbarrel-grenade:t3"
+    },
+    {
+      "id": "gun-part-icon:underbarrel-grenade:t4", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:underbarrel-grenade:t4"
+    },
+    {
+      "id": "gun-build-part:underbarrel-grenade:t4", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:underbarrel-grenade:t4"
+    },
+    {
+      "id": "gun-part-icon:underbarrel-grenade:t5", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:underbarrel-grenade:t5"
+    },
+    {
+      "id": "gun-build-part:underbarrel-grenade:t5", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:underbarrel-grenade:t5"
+    },
+    {
+      "id": "gun-part-icon:barrel-piercing:t1", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:barrel-piercing:t1"
+    },
+    {
+      "id": "gun-build-part:barrel-piercing:t1", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:barrel-piercing:t1"
+    },
+    {
+      "id": "gun-part-icon:barrel-piercing:t2", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:barrel-piercing:t2"
+    },
+    {
+      "id": "gun-build-part:barrel-piercing:t2", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:barrel-piercing:t2"
+    },
+    {
+      "id": "gun-part-icon:barrel-piercing:t3", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:barrel-piercing:t3"
+    },
+    {
+      "id": "gun-build-part:barrel-piercing:t3", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:barrel-piercing:t3"
+    },
+    {
+      "id": "gun-part-icon:barrel-piercing:t4", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:barrel-piercing:t4"
+    },
+    {
+      "id": "gun-build-part:barrel-piercing:t4", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:barrel-piercing:t4"
+    },
+    {
+      "id": "gun-part-icon:barrel-piercing:t5", "kind": "icon", "required": true, "display": {"width": 128, "height": 80}, "resourceId": "resource:gunsmith-tier-icons", "frameKey": "gun-part-icon:barrel-piercing:t5"
+    },
+    {
+      "id": "gun-build-part:barrel-piercing:t5", "kind": "icon", "required": true, "display": {"width": 358, "height": 196}, "resourceId": "resource:gunsmith-tier-assembly", "frameKey": "gun-build-part:barrel-piercing:t5"
+    }
   ]
 }
