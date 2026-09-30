@@ -15,12 +15,16 @@ import { FocusStroke } from '../ui/theme';
 import { ScrollableFocusRegion } from '../ui/scrollableFocus';
 import { assembleComposedRunRequest, assembleRunRequest, asLegacyComposedRunRequest, type ComposedRunRequest } from '../gameplay/runRequest';
 import { resolveRunPlan } from '../gameplay/stage/stageContracts';
-import { loadTextureResources, prepareRunPresentation, resolveRunPhysicalResources, type ResourceLoadProgress } from '../systems/resourceLoader';
+import { loadTextureResources, prepareRunPresentation, resolveRunPhysicalResources, type ResourceLoadProgress, type ResourceLoadResult } from '../systems/resourceLoader';
 import { DataVisualArtRegistry, DataVisualResourceRegistry, ensureVisualAnimations, resolveAchievementIconBinding, visualAnimationKey } from '../systems/visualArt';
 import { isPortraitOrientationBlocked } from '../platform/orientation';
 import { createUiVisualChrome, type UiVisualChrome } from '../ui/visualChrome';
 
 const MENU_DEPTH = ThemeDepth.pauseSummary;
+const EMPTY_RESOURCE_LOAD_RESULT: ResourceLoadResult = Object.freeze({
+  loaded: Object.freeze([]),
+  failed: Object.freeze([]),
+});
 /** 44 physical px at the smallest promised FIT (844×390 → 0.462085). */
 const MIN_MENU_BUTTON_LOGICAL_WIDTH = 44 / 0.462085;
 /** Home is an above-the-fold launch card, not the complete Contract roster. */
@@ -119,6 +123,12 @@ export class MenuScene extends Phaser.Scene {
   /** Phaser has one LoaderPlugin per scene. Every menu/run presentation
    * closure enters this tail so rapid panel changes cannot overlap queues. */
   private menuTextureLoadTail: Promise<void> = Promise.resolve();
+  /** Queued or active work in the current scene generation. The visual-test
+   * seam observes this count instead of trying to inspect Promise state. */
+  private menuTextureLoadPending = 0;
+  /** Detaches reused scenes from loader promises whose completion event was
+   * cancelled when the prior scene generation shut down. */
+  private menuTextureLoadGeneration = 0;
   private readonly pendingPanelArtIds = new Set<string>();
   private readonly pendingPanelArtRepaints = new Set<MainMenuSnapshot['panel']>();
   private panelArtGeneration = 0;
@@ -147,6 +157,7 @@ export class MenuScene extends Phaser.Scene {
   create(data?: { readonly initialPanel?: import('../ui/menus').MenuPanel; readonly replayRequest?: ComposedRunRequest; readonly isTraining?: boolean }): void {
     // Phaser reuses this Scene instance after Game. Loading is transient and
     // must never leave a newly activated Menu permanently inert.
+    this.resetMenuTextureLoadQueue();
     this.runLaunchState = 'idle';
     this.runLaunchProgress = undefined;
     this.runLaunchPresentation = undefined;
@@ -677,7 +688,7 @@ export class MenuScene extends Phaser.Scene {
           this.runLaunchProgress = progress;
           this.render(this.requireController().snapshot());
         }
-      }));
+      }), undefined);
       if (!this.isLive || generation !== this.runLaunchGeneration || this.runLaunchState !== 'loading') return;
       this.scene.start(SceneKey.Game, { runRequest: request, runStartPresentation, isTraining });
     } catch (error) {
@@ -1808,7 +1819,10 @@ export class MenuScene extends Phaser.Scene {
     this.panelArtLoading = true;
     let loadedAny = false;
     try {
-      loadedAny = (await this.serializeTextureLoad(() => loadTextureResources(this, [...missing.values()]))).loaded.length > 0;
+      loadedAny = (await this.serializeTextureLoad(
+        () => loadTextureResources(this, [...missing.values()]),
+        EMPTY_RESOURCE_LOAD_RESULT,
+      )).loaded.length > 0;
     } finally {
       if (generation === this.panelArtGeneration) this.panelArtLoading = false;
     }
@@ -1861,14 +1875,18 @@ export class MenuScene extends Phaser.Scene {
       if (resource) missing.set(resource.id, resource);
     }
     if (missing.size === 0) return;
+    const generation = this.menuTextureLoadGeneration;
     this.achievementArtLoading = true;
     try {
-      const result = await this.serializeTextureLoad(() => loadTextureResources(this, [...missing.values()]));
-      if (result.loaded.length > 0 && this.committedPanel === 'achievements' && this.controller) {
+      const result = await this.serializeTextureLoad(
+        () => loadTextureResources(this, [...missing.values()]),
+        EMPTY_RESOURCE_LOAD_RESULT,
+      );
+      if (generation === this.menuTextureLoadGeneration && result.loaded.length > 0 && this.committedPanel === 'achievements' && this.controller) {
         this.render(this.controller.snapshot());
       }
     } finally {
-      this.achievementArtLoading = false;
+      if (generation === this.menuTextureLoadGeneration) this.achievementArtLoading = false;
     }
   }
 
@@ -1888,14 +1906,18 @@ export class MenuScene extends Phaser.Scene {
       if (resource) missing.set(resource.id, resource);
     }
     if (missing.size === 0) return;
+    const generation = this.menuTextureLoadGeneration;
     this.mercenaryArtLoading = true;
     try {
-      const result = await this.serializeTextureLoad(() => loadTextureResources(this, [...missing.values()]));
-      if (result.loaded.length > 0 && this.committedPanel === 'character' && this.controller) {
+      const result = await this.serializeTextureLoad(
+        () => loadTextureResources(this, [...missing.values()]),
+        EMPTY_RESOURCE_LOAD_RESULT,
+      );
+      if (generation === this.menuTextureLoadGeneration && result.loaded.length > 0 && this.committedPanel === 'character' && this.controller) {
         this.render(this.controller.snapshot());
       }
     } finally {
-      this.mercenaryArtLoading = false;
+      if (generation === this.menuTextureLoadGeneration) this.mercenaryArtLoading = false;
     }
   }
 
@@ -1914,14 +1936,18 @@ export class MenuScene extends Phaser.Scene {
       if (resource) missing.set(resource.id, resource);
     }
     if (missing.size === 0) return;
+    const generation = this.menuTextureLoadGeneration;
     this.equipmentArtLoading = true;
     try {
-      const result = await this.serializeTextureLoad(() => loadTextureResources(this, [...missing.values()]));
-      if (result.loaded.length > 0 && this.committedPanel === 'equipment' && this.controller) {
+      const result = await this.serializeTextureLoad(
+        () => loadTextureResources(this, [...missing.values()]),
+        EMPTY_RESOURCE_LOAD_RESULT,
+      );
+      if (generation === this.menuTextureLoadGeneration && result.loaded.length > 0 && this.committedPanel === 'equipment' && this.controller) {
         this.render(this.controller.snapshot());
       }
     } finally {
-      this.equipmentArtLoading = false;
+      if (generation === this.menuTextureLoadGeneration) this.equipmentArtLoading = false;
     }
   }
 
@@ -1949,7 +1975,10 @@ export class MenuScene extends Phaser.Scene {
     this.gunsmithArtLoading = true;
     let loadedAny = false;
     try {
-      const result = await this.serializeTextureLoad(() => loadTextureResources(this, [...missing.values()]));
+      const result = await this.serializeTextureLoad(
+        () => loadTextureResources(this, [...missing.values()]),
+        EMPTY_RESOURCE_LOAD_RESULT,
+      );
       loadedAny = result.loaded.length > 0;
     } finally {
       if (generation === this.gunsmithArtGeneration) this.gunsmithArtLoading = false;
@@ -1965,10 +1994,30 @@ export class MenuScene extends Phaser.Scene {
     }
   }
 
-  private serializeTextureLoad<T>(load: () => Promise<T>): Promise<T> {
-    const task = this.menuTextureLoadTail.then(load, load);
-    this.menuTextureLoadTail = task.then(() => undefined, () => undefined);
+  private serializeTextureLoad<T>(load: () => Promise<T>, cancelledResult: T): Promise<T> {
+    const generation = this.menuTextureLoadGeneration;
+    this.menuTextureLoadPending += 1;
+    const loadCurrentGeneration = (): Promise<T> => generation === this.menuTextureLoadGeneration
+      ? load()
+      : Promise.resolve(cancelledResult);
+    const task = this.menuTextureLoadTail.then(loadCurrentGeneration, loadCurrentGeneration);
+    this.menuTextureLoadTail = task.then(
+      () => this.finishMenuTextureLoad(generation),
+      () => this.finishMenuTextureLoad(generation),
+    );
     return task;
+  }
+
+  private finishMenuTextureLoad(generation: number): void {
+    if (generation === this.menuTextureLoadGeneration) {
+      this.menuTextureLoadPending = Math.max(0, this.menuTextureLoadPending - 1);
+    }
+  }
+
+  private resetMenuTextureLoadQueue(): void {
+    this.menuTextureLoadGeneration += 1;
+    this.menuTextureLoadPending = 0;
+    this.menuTextureLoadTail = Promise.resolve();
   }
 
   private addBackButton(
@@ -2360,6 +2409,7 @@ export class MenuScene extends Phaser.Scene {
 
   private handleShutdown(): void {
     this.isLive = false;
+    this.resetMenuTextureLoadQueue();
     this.runLaunchGeneration += 1;
     this.gunsmithArtGeneration += 1;
     this.gunsmithArtLoading = false;

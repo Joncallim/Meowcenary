@@ -49,6 +49,31 @@ export const game = new Phaser.Game(config);
 if (import.meta.env.VITE_VISUAL_TEST === '1'
     && new URLSearchParams(globalThis.location?.search ?? '').get('visual-test') === '1') {
   let focusedActorWorldPoint: { x: number; y: number } | undefined;
+  const isMenuPresentationSettled = (): boolean => {
+    const scene = game.scene.getScene('MenuScene') as unknown as {
+      panelArtLoading?: boolean;
+      panelArtInFlight?: Promise<void>;
+      mercenaryArtLoading?: boolean;
+      achievementArtLoading?: boolean;
+      equipmentArtLoading?: boolean;
+      gunsmithArtLoading?: boolean;
+      menuTextureLoadPending?: number;
+      pendingPanelArtIds?: { size: number };
+      pendingPanelArtRepaints?: { size: number };
+      pendingGunsmithArtIds?: { size: number };
+    };
+    return Boolean(scene)
+      && !scene.panelArtLoading
+      && !scene.panelArtInFlight
+      && !scene.mercenaryArtLoading
+      && !scene.achievementArtLoading
+      && !scene.equipmentArtLoading
+      && !scene.gunsmithArtLoading
+      && (scene.menuTextureLoadPending ?? 0) === 0
+      && (scene.pendingPanelArtIds?.size ?? 0) === 0
+      && (scene.pendingPanelArtRepaints?.size ?? 0) === 0
+      && (scene.pendingGunsmithArtIds?.size ?? 0) === 0;
+  };
   const freezeVisualFrame = async (): Promise<void> => {
     for (const scene of game.scene.getScenes(false)) {
       const pending = [...scene.children.list] as Array<Phaser.GameObjects.GameObject & { list?: Phaser.GameObjects.GameObject[] }>;
@@ -78,27 +103,7 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         game.loop.wake();
       },
       isSceneActive: (key: string): boolean => game.scene.isActive(key),
-      isMenuPresentationSettled: (): boolean => {
-        const scene = game.scene.getScene('MenuScene') as unknown as {
-          panelArtLoading?: boolean;
-          panelArtInFlight?: Promise<void>;
-          mercenaryArtLoading?: boolean;
-          achievementArtLoading?: boolean;
-          equipmentArtLoading?: boolean;
-          gunsmithArtLoading?: boolean;
-          pendingPanelArtIds?: { size: number };
-          pendingPanelArtRepaints?: { size: number };
-        };
-        return Boolean(scene)
-          && !scene.panelArtLoading
-          && !scene.panelArtInFlight
-          && !scene.mercenaryArtLoading
-          && !scene.achievementArtLoading
-          && !scene.equipmentArtLoading
-          && !scene.gunsmithArtLoading
-          && (scene.pendingPanelArtIds?.size ?? 0) === 0
-          && (scene.pendingPanelArtRepaints?.size ?? 0) === 0;
-      },
+      isMenuPresentationSettled,
       focusFirstEnemy: (bossOnly = false): boolean => {
         const scene = game.scene.getScene('GameScene') as unknown as {
           cameras?: { main?: {
@@ -237,7 +242,11 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
           controller?: { open(panel: string): unknown };
           render?(snapshot: unknown): void;
         };
-        if (!scene?.controller || !scene.render) return false;
+        // A direct test seam must not mutate the read model while the prior
+        // panel still owns the one scene-wide loader. Real navigation can
+        // remain responsive; visual authority waits for a closed resource
+        // generation before opening the next independently captured surface.
+        if (!scene?.controller || !scene.render || !isMenuPresentationSettled()) return false;
         scene.render(scene.controller.open(panel));
         return true;
       },

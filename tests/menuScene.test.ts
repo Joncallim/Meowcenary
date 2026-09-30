@@ -2450,6 +2450,31 @@ describe('MenuScene', () => {
     expect(scene.gunsmithArtLoading).toBe(false);
   });
 
+  it('starts a new scene-generation texture load when the prior loader never settles', async () => {
+    const harness = createHarness({ create: false });
+    const scene = harness.menuScene as unknown as {
+      create(): void;
+      menuTextureLoadPending: number;
+      serializeTextureLoad<T>(load: () => Promise<T>, cancelledResult: T): Promise<T>;
+    };
+    scene.create();
+    let markOldStarted!: () => void;
+    const oldStarted = new Promise<void>((resolve) => { markOldStarted = resolve; });
+    void scene.serializeTextureLoad(() => {
+      markOldStarted();
+      return new Promise(() => undefined);
+    }, undefined);
+    await oldStarted;
+
+    harness.lifecycle.emit('shutdown');
+    scene.create();
+    const startFreshLoad = vi.fn(async () => ({ loaded: [], failed: [] } as const));
+    await scene.serializeTextureLoad(startFreshLoad, { loaded: [], failed: [] } as const);
+
+    expect(startFreshLoad).toHaveBeenCalledOnce();
+    expect(scene.menuTextureLoadPending).toBe(0);
+  });
+
 
   it('registers settings panel targets in order and drives them through logical nav/confirm', () => {
     const harness = createHarness();

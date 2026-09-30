@@ -421,6 +421,11 @@ test('every Mercenary actor retains its approved runtime silhouette', async ({ p
 });
 
 test('compendium exposes the complete runtime enemy art roster', async ({ page }, testInfo) => {
+  // This cold-loads the full actor portrait atlas, then captures three exact
+  // scroll positions. Shared CI runners can complete every bounded resource
+  // assertion and screenshot while exceeding Playwright's generic 30s test
+  // budget, so keep the larger budget local to this one evidence journey.
+  test.setTimeout(60_000);
   test.skip(testInfo.project.name !== 'desktop-1280x720');
   await page.addInitScript(() => {
     const enemyIds = [
