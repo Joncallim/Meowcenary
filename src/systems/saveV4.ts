@@ -617,8 +617,10 @@ export function settleRunTerminal(
 
     // Update Stage fact
     const currentBestTime = existingStage?.bestTimeMs;
-    bestTimeImproved = firstClear || (currentBestTime !== undefined && input.runDurationMs < currentBestTime);
-    const newBestTime = firstClear || bestTimeImproved ? input.runDurationMs : currentBestTime;
+    bestTimeImproved = firstClear
+      || currentBestTime === undefined
+      || input.runDurationMs < currentBestTime;
+    const newBestTime = bestTimeImproved ? input.runDurationMs : currentBestTime;
     stages[input.stageId] = Object.freeze({
       completed: true,
       ...(newBestTime !== undefined ? { bestTimeMs: newBestTime } : {}),

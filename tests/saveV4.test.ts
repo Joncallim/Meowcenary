@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   migrateV3ToV4Full,
   reconcileV4Achievements,
@@ -467,6 +467,25 @@ describe('Run terminal settlement', () => {
     expect(candidate.stages['stage:junkyard-01']?.bestTimeMs).toBe(40000);
     // Only run Scrap banked, not first-clear reward
     expect(candidate.progression.scrap).toBe(60);
+  });
+
+  it('establishes a current-ruleset best time for a migrated completed stage', () => {
+    const save = freezeSaveV4({
+      ...createDefaultSaveV4(),
+      stages: { 'stage:junkyard-01': { completed: true } },
+    });
+    const rewardResolver = vi.fn(() => ({ scrap: 35, grants: [] }));
+
+    const { result, candidate } = settleRunTerminal(save, {
+      terminalStatus: 'win', runScrap: 0, characterId: 'scrap-tabby',
+      runDurationMs: 47_000, stageId: 'stage:junkyard-01',
+    }, rewardResolver, noMastery, emptyAchievements);
+
+    expect(result.firstClear).toBe(false);
+    expect(result.firstClearScrap).toBe(0);
+    expect(result.bestTimeImproved).toBe(true);
+    expect(candidate.stages['stage:junkyard-01']?.bestTimeMs).toBe(47_000);
+    expect(rewardResolver).not.toHaveBeenCalled();
   });
 
   it('updates runs-completed metric on win', () => {
