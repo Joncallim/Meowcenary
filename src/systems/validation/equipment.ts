@@ -17,7 +17,7 @@ function modifiers(value: unknown, path: string, errors: string[]): void {
     // Equipment effects and Set bonuses are global under the Alpha 3 loadout
     // contract; family-scoped engineering is owned by the selected Gunsmith
     // build. ModifierSpec is shared, so reject that broader field here.
-    if ('scope' in e) errors.push(`${path}[${i}].scope: unsupported for global Equipment modifiers`);
+    if ('scope' in e) errors.push(`${path}[${i}].scope: unsupported for Equipment modifiers; effects are global`);
     if ('sourceId' in e) errors.push(`${path}[${i}].sourceId: retired; runtime owns provenance`);
   });
 }
