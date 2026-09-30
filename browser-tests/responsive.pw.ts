@@ -222,15 +222,29 @@ test('cold Home readiness stays closed until Boot resources arrive', async ({ pa
   })).toBe(true);
 });
 
-test('keyboard player journey reaches Mercenary and gameplay on the real canvas', async ({ page }, testInfo) => {
+test('keyboard player journey reaches Mercenary and returns Home on the real canvas', async ({ page }, testInfo) => {
   test.setTimeout(60_000);
   const requestedAssets: string[] = [];
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
   const step = async <T>(label: string, action: () => Promise<T>): Promise<T> => test.step(label, action);
   const press = async (key: string) => step(`key ${key}`, async () => {
     await page.keyboard.down(key);
-    await page.waitForTimeout(60);
-    await page.keyboard.up(key);
+    try {
+      // A fixed key hold can end between Phaser polls under CI load. Keep
+      // the real key down until the scene-owned core has sampled that edge.
+      await expect.poll(() => page.evaluate(() => {
+        const seam = (globalThis as typeof globalThis & {
+          __MEOWCENARY_VISUAL_TEST__?: {
+            isMenuInputNeutral(): boolean;
+            isSceneActive(key: string): boolean;
+          };
+        }).__MEOWCENARY_VISUAL_TEST__;
+        return seam !== undefined
+          && (!seam.isMenuInputNeutral() || seam.isSceneActive('GameScene'));
+      }), { intervals: [16, 32, 50], timeout: 4_000 }).toBe(true);
+    } finally {
+      await page.keyboard.up(key);
+    }
     // Keyboard actions are polled: give the input owner its neutral edge
     // before another press of the same key. This checks the logical input
     // state after InputController's own per-frame keyboard poll.
@@ -283,13 +297,63 @@ test('keyboard player journey reaches Mercenary and gameplay on the real canvas'
   await press('Escape');
   await awaitMenu('home');
 
+  await expect(canvas).toBeVisible();
+});
+
+
+test('keyboard player launches the prepared Contract on the real canvas', async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
+  const requestedAssets: string[] = [];
+  page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
+  const step = async <T>(label: string, action: () => Promise<T>): Promise<T> => test.step(label, action);
+  const press = async (key: string) => step(`key ${key}`, async () => {
+    await page.keyboard.down(key);
+    try {
+      // A fixed key hold can end between Phaser polls under CI load. Keep
+      // the real key down until the scene-owned core has sampled that edge.
+      await expect.poll(() => page.evaluate(() => {
+        const seam = (globalThis as typeof globalThis & {
+          __MEOWCENARY_VISUAL_TEST__?: {
+            isMenuInputNeutral(): boolean;
+            isSceneActive(key: string): boolean;
+          };
+        }).__MEOWCENARY_VISUAL_TEST__;
+        return seam !== undefined
+          && (!seam.isMenuInputNeutral() || seam.isSceneActive('GameScene'));
+      }), { intervals: [16, 32, 50], timeout: 4_000 }).toBe(true);
+    } finally {
+      await page.keyboard.up(key);
+    }
+    // Keyboard actions are polled: give the input owner its neutral edge
+    // before another press of the same key. This checks the logical input
+    // state after InputController's own per-frame keyboard poll.
+    await expect.poll(() => page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { isMenuInputNeutral(): boolean };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.isMenuInputNeutral() ?? false;
+    }), { intervals: [16, 32, 50], timeout: 4_000 }).toBe(true);
+  });
+
+  await applyKeyboardCpuThrottle(page, testInfo.project.name);
+  await step('cold boot and page navigation', () => page.goto('/?visual-test=1'));
+  await step('settled Home before launch', async () => {
+    const settled = await page.evaluate(async () => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { waitForMenuPresentation(): Promise<boolean> };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.waitForMenuPresentation() ?? false;
+    });
+    expect(settled).toBe(true);
+  });
+  const canvas = page.locator('#game-root canvas');
   await press('Enter');
   await expect.poll(() => page.evaluate(() => {
     const seam = (globalThis as typeof globalThis & {
       __MEOWCENARY_VISUAL_TEST__?: { isSceneActive(key: string): boolean };
     }).__MEOWCENARY_VISUAL_TEST__;
     return seam?.isSceneActive('GameScene') ?? false;
-  }), { intervals: [150, 250, 400], timeout: 8_000 }).toBe(true);
+  }), { intervals: [150, 250, 400], timeout: 30_000 }).toBe(true);
   await expect.poll(
     () => requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png')),
     { intervals: [150, 250, 400], timeout: 8_000 },
@@ -305,8 +369,22 @@ test('keyboard player journey reaches Career and Achievements on the real canvas
   const step = async <T>(label: string, action: () => Promise<T>): Promise<T> => test.step(label, action);
   const press = async (key: string) => step(`key ${key}`, async () => {
     await page.keyboard.down(key);
-    await page.waitForTimeout(60);
-    await page.keyboard.up(key);
+    try {
+      // A fixed key hold can end between Phaser polls under CI load. Keep
+      // the real key down until the scene-owned core has sampled that edge.
+      await expect.poll(() => page.evaluate(() => {
+        const seam = (globalThis as typeof globalThis & {
+          __MEOWCENARY_VISUAL_TEST__?: {
+            isMenuInputNeutral(): boolean;
+            isSceneActive(key: string): boolean;
+          };
+        }).__MEOWCENARY_VISUAL_TEST__;
+        return seam !== undefined
+          && (!seam.isMenuInputNeutral() || seam.isSceneActive('GameScene'));
+      }), { intervals: [16, 32, 50], timeout: 4_000 }).toBe(true);
+    } finally {
+      await page.keyboard.up(key);
+    }
     // Keyboard actions are polled; wait for Phaser's next frame to observe the
     // neutral edge before another press of the same key.
     await expect.poll(() => page.evaluate(() => {

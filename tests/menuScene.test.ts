@@ -1615,6 +1615,9 @@ describe('MenuScene', () => {
     harness.menuScene.update(0, 16);
     expect(harness.textContents()).toContain('Mercenary');
 
+    harness.keyboard.keyup('ArrowDown');
+    harness.keyboard.keyup('Enter');
+    harness.menuScene.update(0, 16);
     harness.keyboard.keydown('Escape');
     harness.menuScene.update(0, 16);
     expect(harness.textContents()).toContain('Play Contract');
@@ -2821,5 +2824,35 @@ describe('MenuScene UI command events', () => {
     harness.buttonByLabel('Play Contract')!.state.handlers['pointerout']!();
 
     expect(events).toEqual([]);
+  });
+});
+
+describe('Menu transition input boundary', () => {
+  it('does not deliver same-poll navigation into the panel opened by Confirm', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as { navigator: { index: number; setIndex(index: number): void }; committedPanel?: string };
+    scene.navigator.setIndex(2); // Mercenary in the authored Home action map.
+    harness.keyboard.keydown('Enter'); harness.keyboard.keydown('ArrowDown');
+    harness.menuScene.update(0, 16);
+    expect(scene.committedPanel).toBe('character');
+    expect(scene.navigator.index).toBe(0);
+    harness.keyboard.keyup('Enter'); harness.keyboard.keyup('ArrowDown');
+    harness.menuScene.update(0, 16);
+    harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+    expect(scene.navigator.index).toBe(1);
+  });
+
+  it('does not deliver same-poll navigation into Home after Back', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Mercenary')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as { navigator: { index: number }; committedPanel?: string };
+    harness.keyboard.keydown('Escape'); harness.keyboard.keydown('ArrowDown');
+    harness.menuScene.update(0, 16);
+    expect(scene.committedPanel).toBe('home');
+    expect(scene.navigator.index).toBe(0);
+    harness.keyboard.keyup('Escape'); harness.keyboard.keyup('ArrowDown');
+    harness.menuScene.update(0, 16);
+    harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+    expect(scene.navigator.index).toBe(1);
   });
 });
