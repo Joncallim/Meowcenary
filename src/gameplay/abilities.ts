@@ -29,7 +29,14 @@ export interface AbilityRuntime {
   /** Enemies that abilities can affect. No longer exposes takeDamage
    * directly — use damageEnemy() instead so all lethal damage converges
    * through the universal resolver. */
-  readonly enemies: Iterable<{ x: number; y: number; body: { setVelocity(x: number, y: number): void } }>;
+  readonly enemies: Iterable<{
+    x: number;
+    y: number;
+    body: { setVelocity(x: number, y: number): void };
+    /** Optional entity-owned boundary for impulses that must survive the
+     * scene's subsequent steering update. */
+    applyKnockback?(x: number, y: number): void;
+  }>;
   /** Apply damage to an enemy through the universal lethal-settlement
    * boundary (increments runState.kills, emits enemy:killed exactly once
    * per alive→dead transition). */
@@ -81,7 +88,10 @@ function applyAreaEffect(effect: Extract<AbilityEffect, { radius: number; power:
     if (damage) {
       runtime.damageEnemy(enemy, effect.power);
     } else {
-      enemy.body.setVelocity(dx / distance * effect.power, dy / distance * effect.power);
+      const velocityX = dx / distance * effect.power;
+      const velocityY = dy / distance * effect.power;
+      if (enemy.applyKnockback) enemy.applyKnockback(velocityX, velocityY);
+      else enemy.body.setVelocity(velocityX, velocityY);
     }
   }
 }

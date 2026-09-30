@@ -47,6 +47,10 @@ export class DropSystem implements System {
   private readonly basePickupRadius: number;
   private readonly dropPool: Pool<Drop>;
   private readonly liveDrops = new Set<Drop>();
+  /** Pool identity is reused, so settlement queues track spawn generations
+   * rather than treating a Drop object as one lifetime. */
+  private readonly spawnSerialByDrop = new Map<Drop, number>();
+  private nextSpawnSerial = 0;
   private readonly ownedDrops: Drop[] = [];
   private readonly dropBySprite = new Map<Phaser.GameObjects.GameObject, Drop>();
   private readonly unsubscribeEnemyKilled: () => void;
@@ -114,12 +118,56 @@ export class DropSystem implements System {
   }
 
   /**
+   * Objective completion freezes normal pickup physics. Settle the consumable
+   * loot that was already authored into the arena so the completing kill
+   * cannot strand its reward. Weapons still pass through normal rack
+   * admission; a full rack remains an explicit blocked pickup rather than
+   * silently consuming the reward. Chests may enqueue another physical drop,
+   * so the bounded queue also settles newly spawned weapon grants.
+   *
+   * XP still updates the run, but level-up events are suppressed because the
+   * extraction boundary, rather than an upgrade chooser, owns this state.
+   */
+  settlePendingClearLoot(): number {
+    if (this.runState.status !== 'active') return 0;
+
+    let settled = 0;
+    const queue = [...this.liveDrops].map((drop) => ({ drop, serial: this.spawnSerialByDrop.get(drop) ?? 0 }));
+    const enqueuedSerials = new Set(queue.map(({ serial }) => serial));
+    for (let index = 0; index < queue.length; index += 1) {
+      const { drop, serial } = queue[index]!;
+      // A queued pooled object may have been released and reacquired before
+      // its earlier entry is reached. Only the matching spawn lifetime owns
+      // this queue entry; the new lifetime is appended below.
+      if (this.spawnSerialByDrop.get(drop) !== serial) continue;
+      if (!drop.active || !drop.grant) continue;
+      // The extraction boundary never runs ordinary pickup updates. A
+      // manual rack merge can nevertheless free capacity while paused;
+      // re-open admission here without resuming magnetization or physics.
+      if (drop.pickupBlocked && this.runState.equipped.length < WEAPON_RACK_CAPACITY) {
+        drop.setPickupBlocked(false);
+      }
+      this.collect(drop, true);
+      if (!drop.active) settled += 1;
+      for (const spawned of this.liveDrops) {
+        const spawnedSerial = this.spawnSerialByDrop.get(spawned) ?? 0;
+        if (enqueuedSerials.has(spawnedSerial)) continue;
+        enqueuedSerials.add(spawnedSerial);
+        queue.push({ drop: spawned, serial: spawnedSerial });
+      }
+    }
+    return settled;
+  }
+
+  /**
    * Spawns a drop at the given position. In production this is called from the
    * `enemy:killed` handler so that loot tables and RNG are respected; tests may
    * call it directly to bypass loot resolution and exercise collection logic.
    */
   spawnDrop(x: number, y: number, grant: LootGrant): Drop {
     const drop = this.dropPool.acquire();
+    this.nextSpawnSerial += 1;
+    this.spawnSerialByDrop.set(drop, this.nextSpawnSerial);
     this.liveDrops.add(drop);
     drop.spawn(x, y, grant);
     trace('drop:spawn', {
@@ -168,6 +216,7 @@ export class DropSystem implements System {
     }
     this.ownedDrops.length = 0;
     this.liveDrops.clear();
+    this.spawnSerialByDrop.clear();
     this.dropBySprite.clear();
   }
 
@@ -201,7 +250,7 @@ export class DropSystem implements System {
     this.collect(drop);
   }
 
-  private collect(drop: Drop): void {
+  private collect(drop: Drop, suppressLevelUpEvents = false): void {
     if (this.runState.status !== 'active' || !drop.active) {
       trace('drop:collect-skip', { reason: 'inactive' });
       return;
@@ -221,13 +270,13 @@ export class DropSystem implements System {
     trace('drop:collect-enter', { kind: grant.kind, x: Math.round(x), y: Math.round(y) });
     switch (grant.kind) {
       case 'xp':
-        this.applyXpGrant(grant.amount);
+        this.applyXpGrant(grant.amount, !suppressLevelUpEvents);
         break;
       case 'scrap':
         this.applyScrapGrant(grant.amount);
         break;
       case 'chest':
-        this.collectChest(drop);
+        this.collectChest(drop, suppressLevelUpEvents);
         return; // the chest itself never emits drop:collected
       case 'weapon':
         this.collectWeapon(drop, grant.definitionId);
@@ -281,8 +330,8 @@ export class DropSystem implements System {
     }
   }
 
-  private applyXpGrant(amount: number): void {
-    applyXp(this.runState, amount, this.ctx.bus);
+  private applyXpGrant(amount: number, emitEvents = true): void {
+    applyXp(this.runState, amount, emitEvents ? this.ctx.bus : undefined);
   }
 
   private applyScrapGrant(amount: number): void {
@@ -293,7 +342,7 @@ export class DropSystem implements System {
     }
   }
 
-  private collectChest(drop: Drop): void {
+  private collectChest(drop: Drop, suppressLevelUpEvents = false): void {
     const chestGrant = drop.grant;
     const { x, y } = drop;
     const tableId = chestGrant?.kind === 'chest' ? chestGrant.tableId : undefined;
@@ -334,7 +383,7 @@ export class DropSystem implements System {
         continue;
       }
       if (grant.kind === 'xp') {
-        this.applyXpGrant(grant.amount);
+        this.applyXpGrant(grant.amount, !suppressLevelUpEvents);
       } else if (grant.kind === 'scrap') {
         this.applyScrapGrant(grant.amount);
       } else {

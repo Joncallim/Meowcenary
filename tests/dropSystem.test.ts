@@ -19,6 +19,7 @@ import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import { loadGameData } from '../src/systems/validation';
 import charactersJson from '../src/data/characters.json';
 import metaUpgradesJson from '../src/data/meta-upgrades.json';
+import { InventoryController } from '../src/ui/inventory';
 import upgradesJson from '../src/data/upgrades.json';
 
 interface TestSystem {
@@ -120,6 +121,35 @@ async function createSystem(options: {
 }
 
 describe('DropSystem', () => {
+  it('retries a blocked completion weapon after a paused merge without running pickup physics', async () => {
+    const registry = new DataWeaponRegistry(loadGameData());
+    const { system, runState, bus } = await createSystem({ weaponRegistry: registry });
+    const definition = registry.weaponById('scrap-pistol-t1')!;
+    runState.equipped = Array.from({ length: 6 }, () => registry.createWeaponInstance(definition));
+    const blocked = vi.fn();
+    const acquired = vi.fn();
+    bus.on('weapon:pickup-blocked', blocked);
+    bus.on('weapon:acquired', acquired);
+    const drop = system.spawnDrop(500, 500, { kind: 'weapon', definitionId: definition.id });
+
+    expect(system.settlePendingClearLoot()).toBe(0);
+    expect(drop.pickupBlocked).toBe(true);
+    expect(system.settlePendingClearLoot()).toBe(0);
+    expect(blocked).toHaveBeenCalledOnce();
+    runState.status = 'paused';
+    runState.pauseReason = 'manual';
+    const inventory = new InventoryController({ runState, bus, weaponRegistry: registry });
+    inventory.toggle(runState.equipped[0]!.instanceId);
+    inventory.toggle(runState.equipped[1]!.instanceId);
+    expect(inventory.mergeSelected().ok).toBe(true);
+    runState.status = 'active';
+    runState.pauseReason = null;
+
+    expect(system.settlePendingClearLoot()).toBe(1);
+    expect(acquired).toHaveBeenCalledOnce();
+    expect(runState.equipped).toHaveLength(6);
+    expect(system.activeDropCount).toBe(0);
+  });
   it('collects only nearby ordinary drops for a loot-pulse ability', async () => {
     const { system, runState } = await createSystem();
     system.spawnDrop(10, 0, { kind: 'scrap', amount: 3 });
@@ -130,6 +160,71 @@ describe('DropSystem', () => {
     expect(system.collectNearbyConsumables(100)).toBe(2);
     expect(runState.currency).toBe(3);
     expect(system.activeDropCount).toBe(2);
+  });
+
+  it('safely settles consumable and chest loot when objective clear freezes the arena', async () => {
+    const lootTables = {
+      lootTableById: vi.fn((id: string) => id === 'clear-cache'
+        ? { id, entries: [{ kind: 'scrap' as const, amount: 11, weight: 1 }] }
+        : undefined),
+    };
+    const { system, runState, bus } = await createSystem({ lootTables });
+    const levelUps = vi.fn();
+    const collected = vi.fn();
+    bus.on('level:up', levelUps);
+    bus.on('drop:collected', collected);
+    system.spawnDrop(100, 100, { kind: 'xp', amount: 5 });
+    system.spawnDrop(100, 100, { kind: 'scrap', amount: 7 });
+    system.spawnDrop(100, 100, { kind: 'chest', amount: 0, tableId: 'clear-cache' });
+
+    expect(system.settlePendingClearLoot()).toBe(3);
+
+    expect(runState.currency).toBe(18);
+    expect(runState.level).toBe(2);
+    expect(levelUps).not.toHaveBeenCalled();
+    expect(collected.mock.calls.map(([event]) => [event.kind, event.amount])).toEqual([
+      ['xp', 5],
+      ['scrap', 7],
+      ['scrap', 11],
+    ]);
+    expect(system.activeDropCount).toBe(0);
+  });
+
+  it('settles a weapon spawned by a completion chest through normal rack admission', async () => {
+    const lootTables = {
+      lootTableById: vi.fn((id: string) => id === 'completion-weapon'
+        ? { id, entries: [{ kind: 'weapon' as const, definitionId: 'scrap-pistol-t1', weight: 1 }] }
+        : undefined),
+    };
+    const { system, runState, bus } = await createSystem({ lootTables });
+    const acquired = vi.fn();
+    bus.on('weapon:acquired', acquired);
+    system.spawnDrop(100, 100, { kind: 'chest', amount: 0, tableId: 'completion-weapon' });
+
+    expect(system.settlePendingClearLoot()).toBe(2);
+
+    expect(runState.equipped).toHaveLength(1);
+    expect(runState.equipped[0]?.defId).toBe('scrap-pistol-t1');
+    expect(acquired).toHaveBeenCalledOnce();
+    expect(system.activeDropCount).toBe(0);
+  });
+
+  it('tracks pooled spawn generations while consecutive completion chests emit weapons', async () => {
+    const lootTables = {
+      lootTableById: vi.fn((id: string) => id === 'completion-weapon'
+        ? { id, entries: [{ kind: 'weapon' as const, definitionId: 'scrap-pistol-t1', weight: 1 }] }
+        : undefined),
+    };
+    const { system, runState } = await createSystem({ lootTables });
+    // The XP drop is released first. Each following chest can then reacquire
+    // an object identity already processed in this same settlement pass.
+    system.spawnDrop(100, 100, { kind: 'xp', amount: 1 });
+    system.spawnDrop(100, 100, { kind: 'chest', amount: 0, tableId: 'completion-weapon' });
+    system.spawnDrop(100, 100, { kind: 'chest', amount: 0, tableId: 'completion-weapon' });
+
+    expect(system.settlePendingClearLoot()).toBe(5);
+    expect(runState.equipped).toHaveLength(2);
+    expect(system.activeDropCount).toBe(0);
   });
   beforeEach(() => {
     vi.clearAllMocks();

@@ -1,7 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   migrateV3ToV4Full,
-  reconcileV4Achievements,
   settleRunTerminal,
   SaveManagerV4,
   type RunTerminalInput,
@@ -244,9 +243,7 @@ describe('V3 → V4 migration', () => {
     expect(v4.progression.unlocks).toContain('capability:equipment-tier-2');
   });
 
-  it('derives T3 capability floor from boss-crusher defeated (achievement already completed)', () => {
-    // Crusher achievement already exists, so gap settlement skips it
-    // Step 8 then sees boss-crusher defeated but no T4 evidence from achievement
+  it('derives T4 capability floor from a historically completed Crusher Down achievement', () => {
     const v3 = createV3Fixture({
       bosses: { 'boss-crusher': { defeated: true } },
       stages: { 'stage:junkyard-02': { completed: true } },
@@ -254,6 +251,22 @@ describe('V3 → V4 migration', () => {
     });
     const { capabilityFloors } = migrateV3ToV4Full(v3);
     expect(capabilityFloors).toContain('capability:equipment-tier-4');
+  });
+
+  it('does not promote repaired Crusher Down completion into frozen V3 T4 evidence', () => {
+    const v3 = createV3Fixture({
+      bosses: { 'boss-crusher': { defeated: true } },
+      stages: { 'stage:junkyard-02': { completed: true } },
+      achievements: {},
+    });
+
+    const first = migrateV3ToV4Full(v3);
+    const second = migrateV3ToV4Full(v3);
+
+    expect(first.save.achievements['achievement:boss-crusher']?.completed).toBe(true);
+    expect(first.capabilityFloors).toContain('capability:equipment-tier-3');
+    expect(first.capabilityFloors).not.toContain('capability:equipment-tier-4');
+    expect(second.capabilityFloors).toEqual(first.capabilityFloors);
   });
 
   it('collapses legitimate duplicate Commando Helmet and refunds upgrade spend', () => {
@@ -293,13 +306,34 @@ describe('SaveManagerV4', () => {
     expect(save.progression.scrap).toBe(0);
   });
 
-  it('saves and loads V4 data round-trip', () => {
+  it('delegates a populated V4 round-trip to the production persistence owner', () => {
     const storage = new MemoryStorageAdapter();
     const manager = new SaveManagerV4(storage);
-    const save = createDefaultSaveV4();
+    const save = freezeSaveV4({
+      ...createDefaultSaveV4(),
+      progression: { scrap: 41, unlocks: ['character:bolt-hound'] },
+      stages: { 'stage:junkyard-01': { completed: true, bestTimeMs: 42_000 } },
+      achievements: { 'achievement:first-victory': { completed: true } },
+      achievementMetrics: { 'metric:enemies-defeated': 12 },
+      characters: { 'scrap-tabby': { tier: 2, xp: 9 } },
+      selectedCharacterId: 'scrap-tabby',
+      gunsmith: {
+        builds: [{ id: 'build-a', name: 'A', baseWeaponFamily: 'pistol', fitted: { barrel: 'part-copy-a' }, traitParts: [] }],
+        parts: { 'part-copy-a': { partId: 'part:barrel-standard', tier: 2, infusedTraits: ['FIRE'] } },
+        selectedBuildId: 'build-a', fabricationSerials: { 'part:barrel-standard': 3 },
+      },
+      equipment: { 'equip-copy-a': { equipmentId: 'equipment:commando-helmet', tier: 2 } },
+      equipmentLoadout: { helmet: 'equip-copy-a' },
+      items: { 'item:scrap-shot': 2 },
+      bosses: { 'boss-crusher': { defeated: true } },
+      compendium: { 'dust-mite': 'defeated' },
+      pendingAchievementReports: ['achievement:first-victory'],
+      appliedGrantTransactions: { 'stage:junkyard-01:first-clear': true },
+      grantTransactionFingerprints: { 'stage:junkyard-01:first-clear': '[{"amount":35,"type":"grant-scrap"}]' },
+    });
     expect(manager.save(save)).toBe(true);
     const loaded = manager.load();
-    expect(loaded.version).toBe(4);
+    expect(loaded).toEqual(save);
   });
 
   it('clears data', () => {
@@ -310,60 +344,6 @@ describe('SaveManagerV4', () => {
     expect(manager.clear()).toBe(true);
     const loaded = manager.load();
     expect(loaded.progression.scrap).toBe(0);
-  });
-});
-
-// ── V4 Achievement Reconciliation Tests ──────────────────────────────
-
-describe('V4 Achievement reconciliation', () => {
-  it('completes First Victory when runs-completed >= 1', () => {
-    const save = createDefaultSaveV4();
-    const result = reconcileV4Achievements(save, {
-      stages: {},
-      bosses: {},
-      metrics: { 'metric:runs-completed': 1 },
-      characters: {},
-      achievements: {},
-    });
-    expect(result.completions.some((c) => c.achievementId === 'achievement:first-victory')).toBe(true);
-    expect(result.scrapAwarded).toBe(25);
-  });
-
-  it('completes First Blood when kills >= 1', () => {
-    const save = createDefaultSaveV4();
-    const result = reconcileV4Achievements(save, {
-      stages: {},
-      bosses: {},
-      metrics: { 'metric:kills': 1 },
-      characters: {},
-      achievements: {},
-    });
-    expect(result.completions.some((c) => c.achievementId === 'achievement:first-blood')).toBe(true);
-  });
-
-  it('completes Crusher Down when boss-crusher defeated', () => {
-    const save = createDefaultSaveV4();
-    const result = reconcileV4Achievements(save, {
-      stages: {},
-      bosses: { 'boss-crusher': { defeated: true } },
-      metrics: {},
-      characters: {},
-      achievements: {},
-    });
-    expect(result.completions.some((c) => c.achievementId === 'achievement:boss-crusher')).toBe(true);
-    expect(result.scrapAwarded).toBe(100);
-  });
-
-  it('skips already-completed achievements', () => {
-    const save = createDefaultSaveV4();
-    const result = reconcileV4Achievements(save, {
-      stages: {},
-      bosses: {},
-      metrics: { 'metric:kills': 100 },
-      characters: {},
-      achievements: { 'achievement:first-blood': { completed: true } },
-    });
-    expect(result.completions.some((c) => c.achievementId === 'achievement:first-blood')).toBe(false);
   });
 });
 
@@ -453,6 +433,25 @@ describe('Run terminal settlement', () => {
     expect(candidate.stages['stage:junkyard-01']?.bestTimeMs).toBe(40000);
     // Only run Scrap banked, not first-clear reward
     expect(candidate.progression.scrap).toBe(60);
+  });
+
+  it('establishes a current-ruleset best time for a migrated completed stage', () => {
+    const save = freezeSaveV4({
+      ...createDefaultSaveV4(),
+      stages: { 'stage:junkyard-01': { completed: true } },
+    });
+    const rewardResolver = vi.fn(() => ({ scrap: 35, grants: [] }));
+
+    const { result, candidate } = settleRunTerminal(save, {
+      terminalStatus: 'win', runScrap: 0, characterId: 'scrap-tabby',
+      runDurationMs: 47_000, stageId: 'stage:junkyard-01',
+    }, rewardResolver, noMastery, emptyAchievements);
+
+    expect(result.firstClear).toBe(false);
+    expect(result.firstClearScrap).toBe(0);
+    expect(result.bestTimeImproved).toBe(true);
+    expect(candidate.stages['stage:junkyard-01']?.bestTimeMs).toBe(47_000);
+    expect(rewardResolver).not.toHaveBeenCalled();
   });
 
   it('updates runs-completed metric on win', () => {

@@ -140,7 +140,7 @@ export interface GameContext {
   /** The only runtime mutation boundary for owned parts/builds.  Commands
    * prepare a complete immutable state; publication occurs only after its
    * Save V4 snapshot is durable. */
-  updateGunsmith(transform: (state: GunsmithState) => GunsmithState): PersistenceUpdate<GunsmithState>;
+  updateGunsmith(transform: (state: GunsmithState) => GunsmithState | undefined): PersistenceUpdate<GunsmithState>;
   updateEquipment(transform: (state: { readonly equipment: EquipmentState; readonly loadout: EquipmentLoadoutState }) => { readonly equipment: EquipmentState; readonly loadout: EquipmentLoadoutState }): PersistenceUpdate<EquipmentState>;
   /** V4 Set fabrication: one owned copy per definition, atomically paid. */
   fabricateEquipment(equipmentId: string): boolean;
@@ -197,6 +197,49 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
   const partDefinitions = new Map((options.data.gunParts ?? []).map((part) => [part.id, part] as const));
   const knownTraitIds = new Set((options.data.gunParts ?? []).flatMap((part) => part.traits.map((trait) => `trait:${trait.toLowerCase()}`)));
   const knownAchievementIds = new Set((options.data.achievements ?? []).map((achievement) => achievement.id));
+  const reconcileActiveAchievements = (loaded: SaveData): SaveData => {
+    const registry = new DataAchievementRegistry({ achievements: options.data.achievements ?? [] });
+    const metricEntries = new Map<string, NonNullable<ReturnType<typeof metricExtractor>>>();
+    for (const definition of registry.all()) {
+      if (definition.metricId === undefined) continue;
+      const extractor = metricExtractor(definition.metricId);
+      if (extractor !== undefined) metricEntries.set(definition.metricId, extractor);
+    }
+    const evaluation = evaluateAchievements(loaded.achievements, {
+      metrics: loaded.achievementMetrics,
+      progression: loaded.progression,
+      stages: loaded.stages,
+      characters: loaded.characters,
+      bosses: loaded.bosses,
+    }, { definitions: registry.asMap(), metrics: metricEntries }, 0);
+    if (evaluation.state === loaded.achievements && evaluation.completed.length === 0) return loaded;
+
+    let candidate = loaded;
+    for (const achievementId of evaluation.completed) {
+      const definition = registry.achievementById(achievementId);
+      if (!definition) return loaded;
+      const transaction: DurableGrantTransaction = {
+        id: `${achievementId}:completion`,
+        grants: [
+          { type: 'achievement-completed', achievementId },
+          ...(definition.rewards ?? []).map((reward) => reward.grant),
+        ],
+      };
+      const granted = applyDurableGrantTransaction(candidate, transaction);
+      if (!granted.valid) return loaded;
+      candidate = granted.save;
+    }
+    candidate = freezeSaveV4({
+      ...candidate,
+      achievements: evaluation.state,
+      pendingAchievementReports: Object.freeze([
+        ...new Set([...candidate.pendingAchievementReports, ...evaluation.completed]),
+      ]),
+    });
+    if (!options.save.save(candidate)) return loaded;
+    return candidate;
+  };
+  current = reconcileActiveAchievements(current);
   const normalizeEquipmentLoadout = (
     equipment: EquipmentState,
     loadout: EquipmentLoadoutState,
@@ -394,6 +437,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     },
     updateGunsmith(transform) {
       const gunsmith = transform(current.gunsmith);
+      if (gunsmith === undefined) return Object.freeze({ value: current.gunsmith, persisted: false });
       const candidate = freezeSaveV4({ ...current, gunsmith });
       // SaveManager is deliberately the sanitizer/normalizer.  Reload the
       // persisted representation before publication so a controller can
@@ -790,11 +834,15 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     reportAchievement(definitionId, progress) {
       // First persist an outbox entry. Native mirrors are non-authoritative,
       // but a transient failure must survive a restart and be retryable.
-      const pending = current.pendingAchievementReports.includes(definitionId)
+      const alreadyPending = current.pendingAchievementReports.includes(definitionId);
+      const pending = alreadyPending
         ? current.pendingAchievementReports
         : Object.freeze([...current.pendingAchievementReports, definitionId]);
-      if (!options.save.save(freezeSaveV4({ ...current, pendingAchievementReports: pending }))) return;
-      current = freezeSaveV4({ ...current, pendingAchievementReports: pending });
+      if (!alreadyPending) {
+        const queued = freezeSaveV4({ ...current, pendingAchievementReports: pending });
+        if (!options.save.save(queued)) return;
+        current = queued;
+      }
       void Promise.resolve()
         .then(() => achievementPlatform.report(definitionId, progress))
         .then(() => {

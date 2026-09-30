@@ -32,7 +32,7 @@ export interface StageRuntime {
   readonly pendingClear?: PendingStageClear;
   tick(deltaMs: number, runTimeMs: number): void;
   recordEnemyDefeat(enemyId: string, archetype?: string): void;
-  recordCollection(itemId: string): void;
+  recordCollection(itemId: string, amount?: number): void;
   /** Records the terminal run-loss fact at the stage-owned lifecycle seam. */
   fail(): void;
   /** Formats a display-only objective read model. The optional name resolver
@@ -87,10 +87,10 @@ class ResolvedStageRuntime implements StageRuntime {
     if (next !== progress) this.stageState = updateObjectiveProgress(this.stageState, next.current - progress.current);
   }
 
-  recordCollection(itemId: string): void {
+  recordCollection(itemId: string, amount = 1): void {
     if (this.stageState.status !== 'active' || this.plan.objective.definition.type !== 'collect') return;
     const progress = this.stageState.objectiveProgress;
-    const next = recordCollect(progress, itemId, this.plan.objective.definition.itemId);
+    const next = recordCollect(progress, itemId, this.plan.objective.definition.itemId, amount);
     if (next !== progress) this.stageState = updateObjectiveProgress(this.stageState, next.current - progress.current);
   }
 

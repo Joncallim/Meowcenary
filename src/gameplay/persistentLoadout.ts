@@ -12,13 +12,13 @@
 import type { Modifier } from './stats';
 import type { ProjectileEffect } from './projectileEffects';
 import type { BehaviorTrait } from './weaponTraits';
-import { resolveFamilyTraits, resolveTraitProjectileEffects, BEHAVIOR_TRAITS } from './weaponTraits';
+import { resolveFamilyTraits, resolveTraitModifiers, resolveTraitProjectileEffects } from './weaponTraits';
 import { scaleModifierByTier, type ModifierSpec } from './stats';
 import { type EquipmentSlot } from './equipmentV4';
 import { isValidFamily } from './weaponFamilies';
 import type { SaveDataV4 } from '../systems/save';
 import type { GunsmithState } from '../systems/save';
-import { resolveBuildModifiers, resolveBuildProjectileEffects, resolveBuildTraitModifiers, type OwnedPart, type PartDefinition, type WeaponBuild } from './gunsmith';
+import { resolveBuildModifiers, resolveBuildProjectileEffects, resolveBuildTraitModifiers, resolveBuildTraits, type OwnedPart, type PartDefinition, type WeaponBuild } from './gunsmith';
 
 export interface PersistentRunLoadoutContribution {
   readonly modifiers: readonly Modifier[];
@@ -96,11 +96,7 @@ export function resolvePersistentRunLoadout(
     slot: EquipmentSlot;
     effects: readonly ModifierSpec[];
   }>,
-  partDefinitions: ReadonlyMap<string, {
-    id: string;
-    effects: readonly ModifierSpec[];
-    traits: readonly BehaviorTrait[];
-  }>,
+  partDefinitions: ReadonlyMap<string, PartDefinition>,
 ): PersistentRunLoadoutContribution {
   const modifiers: Modifier[] = [];
   const traitSources: BehaviorTrait[][] = [];
@@ -187,81 +183,17 @@ export function resolvePersistentRunLoadout(
   if (save.gunsmith.selectedBuildId) {
     const build = save.gunsmith.builds.find((b) => b.id === save.gunsmith.selectedBuildId);
     if (build && isValidFamily(build.baseWeaponFamily)) {
-      const buildModifiers: Modifier[] = [];
-      const buildTraits: BehaviorTrait[] = [];
-
-      // Resolve fitted parts
-      for (const [, instanceId] of Object.entries(build.fitted)) {
-        if (!instanceId) continue;
-        const part = save.gunsmith.parts[instanceId];
-        if (!part) continue;
-        const partDef = partDefinitions.get(part.partId);
-        if (!partDef) continue;
-
-        // Part modifiers with tier scaling
-        const tier = Math.max(1, Math.min(5, part.tier ?? 1));
-        for (const spec of partDef.effects) {
-          buildModifiers.push({
-            stat: spec.stat,
-            op: spec.op as 'add' | 'mult',
-            value: scaleModifierByTier(spec, tier),
-            sourceId: instanceId,
-            scope: { kind: 'weapon-family', family: build.baseWeaponFamily },
-          });
-        }
-
-        // Part traits (family-scoped)
-        if (partDef.traits) {
-          buildTraits.push(...partDef.traits);
-        }
-
-        // Infused traits
-        if (part.infusedTraits) {
-          for (const trait of part.infusedTraits) {
-            if (BEHAVIOR_TRAITS.includes(trait as any)) {
-              buildTraits.push(trait as BehaviorTrait);
-            }
-          }
-        }
-      }
-
-      // Resolve trait parts
-      for (const instanceId of build.traitParts) {
-        const part = save.gunsmith.parts[instanceId];
-        if (!part) continue;
-        const partDef = partDefinitions.get(part.partId);
-        if (!partDef) continue;
-
-        // Trait parts also contribute their modifiers
-        const tier = Math.max(1, Math.min(5, part.tier ?? 1));
-        for (const spec of partDef.effects) {
-          buildModifiers.push({
-            stat: spec.stat,
-            op: spec.op as 'add' | 'mult',
-            value: scaleModifierByTier(spec, tier),
-            sourceId: instanceId,
-            scope: { kind: 'weapon-family', family: build.baseWeaponFamily },
-          });
-        }
-
-        if (partDef.traits) {
-          buildTraits.push(...partDef.traits);
-        }
-        if (part.infusedTraits) {
-          for (const trait of part.infusedTraits) {
-            if (BEHAVIOR_TRAITS.includes(trait as any)) {
-              buildTraits.push(trait as BehaviorTrait);
-            }
-          }
-        }
-      }
-
-      // Deduplicate build traits
-      const uniqueBuildTraits = [...new Set(buildTraits)];
+      const ownedParts = new Map<string, OwnedPart>(Object.entries(save.gunsmith.parts).map(([instanceId, part]) => [instanceId, {
+        instanceId,
+        partId: part.partId,
+        tier: part.tier,
+        infusedTraits: part.infusedTraits as OwnedPart['infusedTraits'],
+      }]));
+      const weaponBuild = build as WeaponBuild;
       gunsmithBuild = {
         familyId: build.baseWeaponFamily,
-        modifiers: buildModifiers,
-        traits: uniqueBuildTraits,
+        modifiers: resolveBuildModifiers(weaponBuild, partDefinitions, ownedParts),
+        traits: resolveBuildTraits(weaponBuild, partDefinitions, ownedParts),
       };
     }
   }
@@ -290,6 +222,13 @@ export function resolvePersistentRunLoadout(
     }
 
     // Resolve projectile effects from unique traits
+    for (const modifier of resolveTraitModifiers(familyTraits)) {
+      modifiers.push({
+        ...modifier,
+        sourceId: `trait:${familyId}:${modifier.stat}:${modifier.op}`,
+        scope: { kind: 'weapon-family', family: familyId },
+      });
+    }
     const effects = resolveTraitProjectileEffects(familyTraits);
     projectileEffectsByFamily.set(familyId, effects);
   }

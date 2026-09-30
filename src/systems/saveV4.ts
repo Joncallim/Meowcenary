@@ -17,24 +17,18 @@
 
 import type {
   ProgressionStateV4,
-  StageProgressState,
-  AchievementProgressState,
-  AchievementMetricState,
-  CharacterMasteryState,
-  BossProgressState,
   BossProgress,
   StageProgress,
   AchievementProgress,
   PartInstance,
   EquipmentInstance,
   Build,
-  Settings,
   SaveDataV3,
   SaveDataV4,
   StorageAdapter,
   MasteryProgress,
 } from './save';
-import { freezeSaveV4, createDefaultSaveV4, createDefaultProgressionV4, DEFAULT_SETTINGS } from './save';
+import { freezeSaveV4, SaveManager } from './save';
 import type { PersistentAvailabilitySnapshot } from '../gameplay/persistentAvailability';
 
 // ── ProgressionGrant type (local copy to avoid circular deps) ─────────
@@ -132,28 +126,12 @@ const CURRENT_TEN_STAGE_IDS: readonly string[] = [
   'stage:forge-01', 'stage:forge-02', 'stage:forge-03', 'stage:forge-04',
 ];
 
-/** Active V4 Achievement catalog IDs (for reconciliation). */
-const ACTIVE_V4_ACHIEVEMENT_IDS: readonly string[] = [
-  'achievement:first-victory', 'achievement:first-blood', 'achievement:scrap-squad',
-  'achievement:junkyard-veteran', 'achievement:forge-initiate', 'achievement:scrap-tycoon',
-  'achievement:boss-crusher', 'achievement:chapter-junkyard', 'achievement:mastery-scrap-tabby',
-  'achievement:boss-forge', 'achievement:kill-milestone-25', 'achievement:kill-milestone-100',
-];
-
 // ── Safe helpers ──────────────────────────────────────────────────────
 
 function safeAddScrap(current: number, amount: number): number {
   const safe = Number.isSafeInteger(amount) && amount > 0 ? amount : 0;
   if (safe === 0) return current;
   return Math.min(Number.MAX_SAFE_INTEGER, current + safe);
-}
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
-  try {
-    const prototype = Object.getPrototypeOf(value);
-    return prototype === Object.prototype || prototype === null;
-  } catch { return false; }
 }
 
 function freezeProgressionV4(p: ProgressionStateV4): ProgressionStateV4 {
@@ -172,6 +150,13 @@ export interface V4MigrationResult {
  */
 export function migrateV3ToV4Full(v3: SaveDataV3): V4MigrationResult {
   const capabilityFloors: string[] = [];
+  // Capability compatibility is derived only from facts that existed in V3.
+  // Later migration repairs may materialize equivalent current-catalog facts,
+  // but must never promote the historical entitlement tier.
+  const historicalCrusherDownCompleted = v3.achievements['achievement:boss-crusher']?.completed === true;
+  const historicalBossCrusherDefeated = v3.bosses['boss-crusher']?.defeated === true
+    || v3.stages['stage:junkyard-05']?.completed === true;
+  const historicalJ2Completed = v3.stages['stage:junkyard-02']?.completed === true;
 
   // Build mutable working state from V3
   const retiredRefund = Object.entries(v3.progression.permanentUpgrades).reduce((sum, [id, level]) =>
@@ -264,15 +249,11 @@ export function migrateV3ToV4Full(v3: SaveDataV3): V4MigrationResult {
   }
 
   // Step 8: Derive historical Equipment tier capability floor
-  const crusherDownCompleted = achievements['achievement:boss-crusher']?.completed === true;
-  const bossCrusherDefeated = bosses['boss-crusher']?.defeated === true;
-  const j2Completed = v3.stages['stage:junkyard-02']?.completed === true;
-
-  if (crusherDownCompleted) {
+  if (historicalCrusherDownCompleted) {
     capabilityFloors.push('capability:equipment-tier-4');
-  } else if (bossCrusherDefeated) {
+  } else if (historicalBossCrusherDefeated) {
     capabilityFloors.push('capability:equipment-tier-3');
-  } else if (j2Completed) {
+  } else if (historicalJ2Completed) {
     capabilityFloors.push('capability:equipment-tier-2');
   }
 
@@ -429,105 +410,6 @@ export function migrateV3ToV4Full(v3: SaveDataV3): V4MigrationResult {
   return { save, capabilityFloors };
 }
 
-// ── V4 Achievement reconciliation ────────────────────────────────────
-
-export interface V4AchievementCompletion {
-  readonly achievementId: string;
-  readonly completed: boolean;
-  readonly scrapAwarded: number;
-}
-
-/**
- * Generic V4 load-time Achievement reconciliation.
- * Evaluates active V4 Achievements against current canonical facts and
- * completes any that are satisfied but missing.
- */
-export function reconcileV4Achievements(
-  _save: SaveDataV4,
-  facts: {
-    stages: StageProgressState;
-    bosses: BossProgressState;
-    metrics: AchievementMetricState;
-    characters: CharacterMasteryState;
-    achievements: AchievementProgressState;
-  },
-): { readonly completions: readonly V4AchievementCompletion[]; readonly scrapAwarded: number } {
-  const completions: V4AchievementCompletion[] = [];
-  let scrapAwarded = 0;
-
-  for (const achievementId of ACTIVE_V4_ACHIEVEMENT_IDS) {
-    if (facts.achievements[achievementId]?.completed) continue;
-
-    let shouldComplete = false;
-    let scrapReward = 0;
-
-    switch (achievementId) {
-      case 'achievement:first-victory':
-        shouldComplete = (facts.metrics['metric:runs-completed'] ?? 0) >= 1;
-        scrapReward = 25;
-        break;
-      case 'achievement:first-blood':
-        shouldComplete = (facts.metrics['metric:kills'] ?? 0) >= 1;
-        break;
-      case 'achievement:scrap-squad':
-        shouldComplete = (facts.metrics['metric:scrap-banked'] ?? 0) >= 500;
-        break;
-      case 'achievement:junkyard-veteran':
-        shouldComplete =
-          facts.stages['stage:junkyard-01']?.completed === true &&
-          facts.stages['stage:junkyard-02']?.completed === true &&
-          facts.stages['stage:junkyard-03']?.completed === true &&
-          facts.stages['stage:junkyard-04']?.completed === true &&
-          facts.stages['stage:junkyard-05']?.completed === true &&
-          facts.stages['stage:junkyard-06']?.completed === true;
-        break;
-      case 'achievement:forge-initiate':
-        shouldComplete =
-          facts.stages['stage:forge-01']?.completed === true &&
-          facts.stages['stage:forge-02']?.completed === true &&
-          facts.stages['stage:forge-03']?.completed === true &&
-          facts.stages['stage:forge-04']?.completed === true;
-        break;
-      case 'achievement:scrap-tycoon':
-        shouldComplete = (facts.metrics['metric:scrap-banked'] ?? 0) >= 10000;
-        break;
-      case 'achievement:boss-crusher':
-        shouldComplete = facts.bosses['boss-crusher']?.defeated === true;
-        scrapReward = 100;
-        break;
-      case 'achievement:chapter-junkyard':
-        shouldComplete =
-          facts.stages['stage:junkyard-01']?.completed === true &&
-          facts.stages['stage:junkyard-02']?.completed === true &&
-          facts.stages['stage:junkyard-03']?.completed === true &&
-          facts.stages['stage:junkyard-04']?.completed === true &&
-          facts.stages['stage:junkyard-05']?.completed === true;
-        scrapReward = 200;
-        break;
-      case 'achievement:mastery-scrap-tabby':
-        shouldComplete = (facts.characters['scrap-tabby']?.tier ?? 0) >= 1;
-        scrapReward = 75;
-        break;
-      case 'achievement:boss-forge':
-        shouldComplete = facts.bosses['boss-forge']?.defeated === true;
-        break;
-      case 'achievement:kill-milestone-25':
-        shouldComplete = (facts.metrics['metric:kills'] ?? 0) >= 25;
-        break;
-      case 'achievement:kill-milestone-100':
-        shouldComplete = (facts.metrics['metric:kills'] ?? 0) >= 100;
-        break;
-    }
-
-    if (shouldComplete) {
-      completions.push({ achievementId, completed: true, scrapAwarded: scrapReward });
-      scrapAwarded += scrapReward;
-    }
-  }
-
-  return { completions, scrapAwarded };
-}
-
 // ── Run terminal settlement ──────────────────────────────────────────
 
 export interface RunTerminalInput {
@@ -614,8 +496,10 @@ export function settleRunTerminal(
 
     // Update Stage fact
     const currentBestTime = existingStage?.bestTimeMs;
-    bestTimeImproved = firstClear || (currentBestTime !== undefined && input.runDurationMs < currentBestTime);
-    const newBestTime = firstClear || bestTimeImproved ? input.runDurationMs : currentBestTime;
+    bestTimeImproved = firstClear
+      || currentBestTime === undefined
+      || input.runDurationMs < currentBestTime;
+    const newBestTime = bestTimeImproved ? input.runDurationMs : currentBestTime;
     stages[input.stageId] = Object.freeze({
       completed: true,
       ...(newBestTime !== undefined ? { bestTimeMs: newBestTime } : {}),
@@ -732,199 +616,27 @@ export function settleRunTerminal(
  * Keeps the existing LocalStorage key `meowcenary.save.v2`.
  */
 export class SaveManagerV4 {
-  private writeProtected = false;
+  private readonly owner: SaveManager;
 
   constructor(
-    private readonly storage: StorageAdapter,
-    private readonly key: string = 'meowcenary.save.v2',
-  ) {}
+    storage: StorageAdapter,
+    key: string = 'meowcenary.save.v2',
+  ) {
+    this.owner = new SaveManager(storage, key);
+  }
 
   /** Load and migrate to V4. Returns a complete V4 save. */
   load(): SaveDataV4 {
-    try {
-      const raw = this.storage.getItem(this.key);
-      if (raw === null) return createDefaultSaveV4();
-      const parsed = this.parseRaw(raw);
-      if (!isPlainRecord(parsed)) return createDefaultSaveV4();
-
-      const version = parsed['version'];
-      if (version === 4) {
-        return this.sanitizeV4(parsed as Record<string, unknown>);
-      }
-      if (version === 3 || version === 2 || version === 1) {
-        return this.migrateToV4(parsed as Record<string, unknown>);
-      }
-      if (Number.isSafeInteger(version) && (version as number) > 4) {
-        this.writeProtected = true;
-      }
-      return createDefaultSaveV4();
-    } catch {
-      return createDefaultSaveV4();
-    }
+    return this.owner.load();
   }
 
   /** Save V4 state. */
   save(data: SaveDataV4): boolean {
-    if (this.writeProtected) return false;
-    try {
-      return this.storage.setItem(this.key, JSON.stringify(data)) === true;
-    } catch {
-      return false;
-    }
+    return this.owner.save(data);
   }
 
   /** Clear all save data. */
   clear(): boolean {
-    try {
-      const cleared = this.storage.removeItem(this.key) === true;
-      if (cleared) this.writeProtected = false;
-      return cleared;
-    } catch {
-      return false;
-    }
-  }
-
-  private parseRaw(raw: string): unknown {
-    if (raw.trim() === '') return null;
-    try { return JSON.parse(raw); } catch { return null; }
-  }
-
-  /** Migrate raw save to V4 (handles V1-V3 via existing migration path). */
-  private migrateToV4(raw: Record<string, unknown>): SaveDataV4 {
-    // For V1 and V2, we need to use the existing migration path
-    // But since we can't import migrate() from save without circular deps,
-    // we do a simple V3 normalization first
-    const version = raw['version'];
-    let v3: SaveDataV3;
-
-    if (version === 1) {
-      v3 = {
-        version: 3,
-        settings: this.sanitizeSettings(raw['settings'] as any),
-        progression: { scrap: 0, unlocks: [], permanentUpgrades: {} },
-        stages: {},
-        achievements: {},
-        achievementMetrics: {},
-        characters: {},
-        gunsmith: { builds: [], parts: {} },
-        equipment: {},
-        equipmentLoadout: {},
-        items: {},
-        bosses: {},
-        pendingAchievementReports: [],
-        appliedGrantTransactions: {},
-        grantTransactionFingerprints: {},
-      };
-    } else if (version === 2) {
-      const meta = this.sanitizeV2Meta(raw['meta'] as any);
-      const achievements: AchievementProgressState = {};
-      if (meta.unlocks.includes('achievement:first-victory')) {
-        achievements['achievement:first-victory'] = { completed: true };
-      }
-      v3 = {
-        version: 3,
-        settings: this.sanitizeSettings(raw['settings'] as any),
-        progression: { scrap: meta.scrap, unlocks: [...meta.unlocks], permanentUpgrades: { ...meta.permanentUpgrades } },
-        stages: {},
-        achievements,
-        achievementMetrics: {},
-        characters: {},
-        gunsmith: { builds: [], parts: {} },
-        equipment: {},
-        equipmentLoadout: {},
-        items: {},
-        bosses: {},
-        pendingAchievementReports: [],
-        appliedGrantTransactions: {},
-        grantTransactionFingerprints: {},
-      };
-    } else {
-      // V3
-      v3 = raw as unknown as SaveDataV3;
-    }
-
-    const { save: v4 } = migrateV3ToV4Full(v3);
-    return v4;
-  }
-
-  private sanitizeSettings(raw: unknown): Settings {
-    if (!isPlainRecord(raw)) return DEFAULT_SETTINGS;
-    return Object.freeze({
-      muted: typeof raw['muted'] === 'boolean' ? raw['muted'] as boolean : DEFAULT_SETTINGS.muted,
-      musicVolume: typeof raw['musicVolume'] === 'number' && Number.isFinite(raw['musicVolume'])
-        ? Math.min(1, Math.max(0, raw['musicVolume'] as number)) : DEFAULT_SETTINGS.musicVolume,
-      sfxVolume: typeof raw['sfxVolume'] === 'number' && Number.isFinite(raw['sfxVolume'])
-        ? Math.min(1, Math.max(0, raw['sfxVolume'] as number)) : DEFAULT_SETTINGS.sfxVolume,
-      reducedMotion: typeof raw['reducedMotion'] === 'boolean' ? raw['reducedMotion'] as boolean : DEFAULT_SETTINGS.reducedMotion,
-    });
-  }
-
-  private sanitizeV2Meta(raw: unknown): { scrap: number; unlocks: string[]; permanentUpgrades: Record<string, number> } {
-    if (!isPlainRecord(raw)) return { scrap: 0, unlocks: [], permanentUpgrades: {} };
-    return {
-      scrap: Number.isSafeInteger(raw['scrap']) && (raw['scrap'] as number) >= 0 ? raw['scrap'] as number : 0,
-      unlocks: Array.isArray(raw['unlocks'])
-        ? (raw['unlocks'] as unknown[]).filter((id): id is string => typeof id === 'string')
-        : [],
-      permanentUpgrades: isPlainRecord(raw['permanentUpgrades'])
-        ? Object.fromEntries(
-            Object.entries(raw['permanentUpgrades'] as Record<string, unknown>)
-              .filter(([, v]) => Number.isSafeInteger(v) && (v as number) > 0)
-              .map(([k, v]) => [k, v as number]),
-          )
-        : {},
-    };
-  }
-
-  private sanitizeV4(raw: Record<string, unknown>): SaveDataV4 {
-    // Minimal sanitization for V4 - trust the V4 format
-    const progression = this.sanitizeProgressionV4(raw['progression'] as any);
-    return freezeSaveV4({
-      version: 4,
-      settings: this.sanitizeSettings(raw['settings'] as any),
-      progression,
-      stages: this.sanitizeRecord(raw['stages'] as any) as unknown as StageProgressState,
-      achievements: this.sanitizeRecord(raw['achievements'] as any) as unknown as AchievementProgressState,
-      achievementMetrics: Object.freeze({}),
-      characters: this.sanitizeRecord(raw['characters'] as any) as unknown as CharacterMasteryState,
-      selectedCharacterId: typeof raw['selectedCharacterId'] === 'string' ? raw['selectedCharacterId'] as string : undefined,
-      gunsmith: isPlainRecord(raw['gunsmith'])
-        ? Object.freeze({
-            builds: Object.freeze([]),
-            parts: Object.freeze({}),
-            selectedBuildId: undefined,
-            fabricationSerials: Object.freeze({}),
-          })
-        : Object.freeze({ builds: Object.freeze([]), parts: Object.freeze({}), fabricationSerials: Object.freeze({}) }),
-      equipment: Object.freeze({}),
-      equipmentLoadout: Object.freeze({}),
-      items: Object.freeze({}),
-      bosses: Object.freeze({}),
-      compendium: Object.freeze({}),
-      pendingAchievementReports: Object.freeze([]),
-      appliedGrantTransactions: Object.freeze({}),
-      grantTransactionFingerprints: Object.freeze({}),
-    });
-  }
-
-  private sanitizeProgressionV4(raw: unknown): ProgressionStateV4 {
-    if (!isPlainRecord(raw)) return createDefaultProgressionV4();
-    const scrap = Number.isSafeInteger(raw['scrap']) && (raw['scrap'] as number) >= 0 ? raw['scrap'] as number : 0;
-    const unlocksRaw = raw['unlocks'];
-    const unlocks: string[] = [];
-    const seen = new Set<string>();
-    if (Array.isArray(unlocksRaw)) {
-      for (const id of unlocksRaw) {
-        if (typeof id === 'string' && !seen.has(id)) {
-          seen.add(id);
-          unlocks.push(id);
-        }
-      }
-    }
-    return Object.freeze({ scrap, unlocks: Object.freeze(unlocks) });
-  }
-
-  private sanitizeRecord(raw: unknown): Record<string, unknown> {
-    return isPlainRecord(raw) ? Object.freeze({ ...raw }) : Object.freeze({});
+    return this.owner.clear();
   }
 }

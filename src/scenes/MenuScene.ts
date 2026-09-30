@@ -1509,7 +1509,7 @@ export class MenuScene extends Phaser.Scene {
     y: number,
     label: string,
     minHeight: number,
-    callback: () => void,
+    callback?: () => void,
     audioEvent: MenuAudioEvent = 'ui:confirm',
     maxLabelWidth?: number,
     artId?: string,
@@ -1603,6 +1603,7 @@ export class MenuScene extends Phaser.Scene {
     text.on(Phaser.Input.Events.POINTER_UP, (pointer?: Phaser.Input.Pointer) => {
       if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
       const focusIndex = this.focusables.indexOf(text);
+      if (!callback || this.disabledFocusables.has(text)) return;
       if (this.scrollItemIndexes.has(focusIndex)
         && pointer
         && (pointer.y < this.scrollViewportTop || pointer.y >= this.scrollViewportBottom)) return;
@@ -1613,6 +1614,9 @@ export class MenuScene extends Phaser.Scene {
         this.touchDidScroll = false;
         return;
       }
+      // Pointer Confirm/Back takes the same transition boundary as logical
+      // activation: sampled edges from this frame cannot reach the new panel.
+      this.inputController?.quarantineUntilNeutral();
       this.navigator.setIndex(focusIndex);
       this.syncScrollFocus(this.navigator.index);
       this.applyScrollViewport();
@@ -2275,6 +2279,7 @@ export class MenuScene extends Phaser.Scene {
 
   private handleBack(): void {
     if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
+    this.inputController?.quarantineUntilNeutral();
     // Home Esc is still a back command; it emits even when the controller
     // refuses (already home).
     this.bus?.emit('ui:back', {});
@@ -2386,8 +2391,10 @@ export class MenuScene extends Phaser.Scene {
     if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     if (!this.committedDisplay) return;
     const focused = this.focusables[this.navigator.index];
-    if (focused && this.disabledFocusables.has(focused)) return;
-    focused?.emit(Phaser.Input.Events.POINTER_UP);
+    if (!focused || this.disabledFocusables.has(focused)) return;
+    // The destination panel cannot consume other edges sampled for this one.
+    this.inputController?.quarantineUntilNeutral();
+    focused.emit(Phaser.Input.Events.POINTER_UP);
   }
 
   private applyFocus(): void {

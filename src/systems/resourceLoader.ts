@@ -98,51 +98,10 @@ export function loadTextureResource(
   scene: Phaser.Scene,
   resource: VisualTextureResource,
 ): Promise<LoadedResource> {
-  return new Promise((resolve) => {
-    const key = resource.textureKey;
-    // Skip if already loaded
-    if (scene.textures.exists(key)) {
-      applyResourceSampling(scene, resource);
-      resolve({ resourceId: resource.id, textureKey: key, success: true });
-      return;
-    }
-
-    const onComplete = () => {
-      applyResourceSampling(scene, resource);
-      resolve({ resourceId: resource.id, textureKey: key, success: true });
-    };
-    const onError = () => {
-      resolve({ resourceId: resource.id, textureKey: key, success: false });
-    };
-
-    scene.load.once(fileCompleteEvent(resource), onComplete);
-    scene.load.once(`loaderror-${key}`, onError);
-
-    switch (resource.load.type) {
-      case 'image':
-        scene.load.image(key, resource.load.imageUrl);
-        break;
-      case 'atlas':
-        if (resource.load.dataUrl) {
-          scene.load.atlas(key, resource.load.imageUrl, resource.load.dataUrl);
-        } else {
-          resolve({ resourceId: resource.id, textureKey: key, success: false });
-          return;
-        }
-        break;
-      case 'spritesheet':
-        scene.load.spritesheet(key, resource.load.imageUrl, {
-          frameWidth: resource.load.frameWidth ?? 32,
-          frameHeight: resource.load.frameHeight ?? 32,
-        });
-        break;
-      default:
-        resolve({ resourceId: resource.id, textureKey: key, success: false });
-        return;
-    }
-
-    scene.load.start();
-  });
+  return loadTextureResources(scene, [resource]).then((result) =>
+    result.loaded[0]
+    ?? result.failed[0]
+    ?? { resourceId: resource.id, textureKey: resource.textureKey, success: false });
 }
 
 /**

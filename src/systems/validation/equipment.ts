@@ -14,6 +14,10 @@ function modifiers(value: unknown, path: string, errors: string[]): void {
     if (typeof e.stat !== 'string' || !stats.has(e.stat)) errors.push(`${path}[${i}].stat: invalid stat`);
     if (e.op !== 'add' && e.op !== 'mult') errors.push(`${path}[${i}].op: must be add or mult`);
     if (typeof e.value !== 'number' || !Number.isFinite(e.value) || e.value === 0) errors.push(`${path}[${i}].value: must be non-zero finite`);
+    // Equipment effects and Set bonuses are global under the Alpha 3 loadout
+    // contract; family-scoped engineering is owned by the selected Gunsmith
+    // build. ModifierSpec is shared, so reject that broader field here.
+    if ('scope' in e) errors.push(`${path}[${i}].scope: unsupported for Equipment modifiers; effects are global`);
     if ('sourceId' in e) errors.push(`${path}[${i}].sourceId: retired; runtime owns provenance`);
   });
 }

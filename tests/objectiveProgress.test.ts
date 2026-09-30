@@ -59,6 +59,20 @@ describe('objective progress helpers (pure)', () => {
     expect(isObjectiveComplete(p)).toBe(true);
   });
 
+  it('counts validated collection quantity and clamps it to the target', () => {
+    let p = createObjectiveProgress({ type: 'collect', itemId: 'drop:scrap', count: 14 });
+    p = recordCollect(p, 'drop:scrap', 'drop:scrap', 5);
+    p = recordCollect(p, 'drop:scrap', 'drop:scrap', 3);
+    expect(p.current).toBe(8);
+    expect(recordCollect(p, 'drop:xp', 'drop:scrap', 6)).toBe(p);
+    expect(recordCollect(p, 'drop:scrap', 'drop:scrap', 0)).toBe(p);
+    expect(recordCollect(p, 'drop:scrap', 'drop:scrap', -1)).toBe(p);
+    expect(recordCollect(p, 'drop:scrap', 'drop:scrap', Number.NaN)).toBe(p);
+    p = recordCollect(p, 'drop:scrap', 'drop:scrap', 6);
+    expect(p.current).toBe(14);
+    expect(isObjectiveComplete(p)).toBe(true);
+  });
+
   it('advances survive time in seconds, clamped to target', () => {
     let p = createObjectiveProgress(surviveObjective);
     p = tickSurvive(p, 30_000);

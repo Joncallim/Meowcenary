@@ -73,6 +73,10 @@ export class Enemy implements EnemyInstance {
    * while this counter only prevents duplicate threshold facts. */
   private announcedBossPhase = 0;
   private dashHitEmitted = false;
+  /** A knockback is applied after physics and before SpawnSystem's steering
+   * update. Keep it for that update so steering cannot erase the impulse
+   * before Arcade integrates it once. */
+  private pendingKnockback: Vec2 | undefined;
 
   constructor(
     scene: Phaser.Scene,
@@ -174,13 +178,27 @@ export class Enemy implements EnemyInstance {
     return this.sprite.body as Phaser.Physics.Arcade.Body;
   }
 
+  applyKnockback(x: number, y: number): void {
+    if (!this.active || this.state === 'dead' || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    this.pendingKnockback = { x, y };
+    this.body.setVelocity(x, y);
+  }
+
   update(player: Player, dtMs: number): void {
     if (!this.active || !player.active) {
       return;
     }
     if (!Number.isFinite(dtMs) || dtMs <= 0) {
+      this.pendingKnockback = undefined;
       this.body.setVelocity(0, 0);
       this.syncPresentation(false);
+      return;
+    }
+    if (this.pendingKnockback) {
+      const knockback = this.pendingKnockback;
+      this.pendingKnockback = undefined;
+      this.body.setVelocity(knockback.x, knockback.y);
+      this.syncPresentation(true, player);
       return;
     }
 
@@ -309,6 +327,7 @@ export class Enemy implements EnemyInstance {
   }
 
   destroy(): void {
+    this.pendingKnockback = undefined;
     this.health = 0;
     this.state = 'dead';
     this.stateTimerMs = 0;

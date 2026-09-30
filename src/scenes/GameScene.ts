@@ -119,6 +119,9 @@ export class GameScene extends Phaser.Scene {
   private physicsPausedByRun = false;
   /** Presentation-only suspension; deliberately not a persistent PauseReason. */
   private orientationBlocked = false;
+  /** Unblocking is acknowledged by the browser callback but physics remains
+   * paused until GameScene owns the next post-physics update boundary. */
+  private orientationResumePending = false;
   private hudController?: HudController;
   private feedbackRenderer?: PhaserFeedbackRenderer;
   private controlsView?: ControlsView;
@@ -162,6 +165,9 @@ export class GameScene extends Phaser.Scene {
    * a permanently lost achievement increment. */
   private pendingAchievementFacts: Record<string, number> = {};
   private _wasPendingClear = false;
+  /** Retry frozen loot only when rack capacity changes, including after a
+   * pause-menu merge. Reset for every restart of this persistent scene. */
+  private pendingClearLootRackCount?: number;
   /** Dev-evidence snapshot captured before StageRuntime clears its transient
    * pending-clear record. It is never gameplay or persistence authority. */
   private objectiveCompletionTimeMs?: number;
@@ -182,15 +188,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(data?: { readonly runRequest?: ComposedRunRequest; readonly runStartPresentation?: RunPresentationBaseline; readonly isTraining?: boolean }): void {
+    this.resetPerRunState(data?.isTraining === true);
     const ctx = this.getContext();
-    // Phaser restarts this Scene instance for Retry/Replay. Terminal
-    // presentation belongs only to the new run's settlement, never the
-    // previous instance's completed-achievement cache.
-    this.completedAchievementNames = [];
-    this.completedAchievements = [];
-    this.newlyAvailableNames = [];
-    this.objectiveCompletionTimeMs = undefined;
-    this.isTraining = data?.isTraining === true;
     // Normal production entry receives the exact request which Menu used to
     // resolve/load its closure. Retaining the fallback keeps old headless
     // scene harnesses explicit compatibility-only callers.
@@ -306,11 +305,7 @@ export class GameScene extends Phaser.Scene {
 
     this.inputController = new InputController(this);
     this.orientationBlocked = isPortraitOrientationBlocked();
-    this.unsubscribers.push(onPortraitOrientationChange((blocked) => {
-      this.orientationBlocked = blocked;
-      this.inputController?.quarantineUntilNeutral();
-      if (this.runState) this.syncPhysicsPause(this.runState);
-    }));
+    this.unsubscribers.push(onPortraitOrientationChange(this.handleOrientationChange));
     this.debugOverlay = new DebugOverlay(this);
 
     this.enemyGroup = this.physics.add.group();
@@ -547,7 +542,20 @@ export class GameScene extends Phaser.Scene {
       RuntimeConfig.performance.targetFps,
     );
 
-    const spawnSystem = new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup, arena, directorCurve, visualArt, plan?.difficulty);
+    const spawnSystem = new SpawnSystem(
+      this,
+      ctx,
+      this.runState,
+      spawnRng,
+      this.player,
+      this.enemies,
+      this.enemyGroup,
+      arena,
+      directorCurve,
+      visualArt,
+      plan?.difficulty,
+      () => this.canReceiveCombatDamage(),
+    );
     if (plan?.encounter.bossId) {
       spawnSystem.spawnEncounterEnemy(plan.encounter.bossId, arena.size.width / 2, Math.max(80, arena.size.height * 0.2));
     }
@@ -697,6 +705,26 @@ export class GameScene extends Phaser.Scene {
     this.syncPhysicsPause(this.runState);
   }
 
+  /** Phaser restarts one persistent Scene instance for Retry/Replay. Reset
+   * every run-owned persistence and presentation cache before even resolving
+   * the next context so a failed create cannot retain terminal authority. */
+  private resetPerRunState(isTraining: boolean): void {
+    this.terminalSettlement = undefined;
+    this.terminalStageId = undefined;
+    this.pendingAchievementFacts = {};
+    this.achievementToast = undefined;
+    this._wasPendingClear = false;
+    this.pendingClearLootRackCount = undefined;
+    this.completedAchievementNames = [];
+    this.completedAchievements = [];
+    this.newlyAvailableNames = [];
+    this.objectiveCompletionTimeMs = undefined;
+    this.gameplayPointerSuspended = true;
+    this.orientationResumePending = false;
+    this._inputBlockedUntil = 0;
+    this.isTraining = isTraining;
+  }
+
   update(_time: number, delta: number): void {
     const runState = this.runState;
     const ctx = this.getContext();
@@ -706,6 +734,7 @@ export class GameScene extends Phaser.Scene {
 
     if (this.orientationBlocked || isPortraitOrientationBlocked()) {
       this.orientationBlocked = true;
+      this.orientationResumePending = false;
       this.syncPhysicsPause(runState);
       this.inputController.quarantineUntilNeutral();
       this.gameplayPointerSuspended = true;
@@ -713,7 +742,15 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.perfSampler?.recordFrame(delta);
+    if (this.orientationResumePending) {
+      this.inputController.quarantineUntilNeutral();
+      this.gameplayPointerSuspended = true;
+    }
     this.inputController.update(delta);
+    // Arcade already skipped this frame while the flag was true. Clearing it
+    // here lets the normal scene-owned pause resolver resume for the *next*
+    // physics integration, after neutral input has been consumed.
+    this.orientationResumePending = false;
     this.syncGameplayPointerOwnership();
     this.pauseView?.refreshInputPresentation();
     this.runSummaryView?.refreshInputPresentation();
@@ -729,7 +766,7 @@ export class GameScene extends Phaser.Scene {
     // Objective completion is a durable boundary. A transient save failure
     // must not leave combat running long enough to turn an earned clear into
     // a loss; the next frames retry only the idempotent transaction.
-    const isPendingClear = this.stageRuntime?.pendingClear && runState.status === 'active';
+    let isPendingClear = this.stageRuntime?.pendingClear !== undefined && runState.status === 'active';
 
     // === SIMULATION PHASE ===
     // Stop combat simulation and freeze the run clock during pendingClear
@@ -740,14 +777,28 @@ export class GameScene extends Phaser.Scene {
       this.tickAbility(delta);
       if (runState.status === 'active') this.abilityPresentationSystem?.update(delta, ctx.settings.reducedMotion);
       this.player.update(delta);
-      this.systems.forEach((system) => {
+      for (const system of this.systems) {
         system.update(delta);
-      });
+        // Weapon/burn updates can complete an objective after the frame's
+        // normal stage tick. Capture and pause that boundary before another
+        // system or the next Arcade integration can mutate combat state.
+        if (this.stageRuntime?.state.status === 'objective-complete') {
+          this.updateStageObjective(ctx, 0);
+          isPendingClear = this.stageRuntime.pendingClear !== undefined;
+          this.syncPhysicsPause(runState);
+          break;
+        }
+      }
     } else {
       // An activation can synchronously complete the final objective. Draw
       // its freshly emitted cue once without advancing it before extraction
       // freezes simulation state.
       this.abilityPresentationSystem?.update(0, ctx.settings.reducedMotion);
+    }
+
+    if (isPendingClear && this.pendingClearLootRackCount !== runState.equipped.length) {
+      this.dropSystem?.settlePendingClearLoot();
+      this.pendingClearLootRackCount = runState.equipped.length;
     }
 
     // === PRESENTATION PHASE ===
@@ -1213,16 +1264,17 @@ export class GameScene extends Phaser.Scene {
         if (!this.isTraining && this.stagePlan) ctx.recordCompendiumDiscovery(enemyId, 'defeated');
         if (!this.isTraining) this.evaluateLiveAchievements(ctx, { 'metric:enemies-defeated': 1 });
       }),
-      ctx.bus.on('drop:collected', ({ kind }) => this.recordStageCollection(`drop:${kind}`)),
+      ctx.bus.on('drop:collected', ({ kind, amount }) => this.recordStageCollection(`drop:${kind}`, amount)),
       ctx.bus.on('weapon:merged', () => { if (!this.isTraining) this.evaluateLiveAchievements(ctx, { 'metric:merges-performed': 1 }); }),
     );
   }
 
-  /** The pickup kind is the authoritative live collection fact. Stage data
-   * selects a generic item namespace (for example `drop:scrap`), so another
-   * collect contract requires no stage-ID branch. */
-  private recordStageCollection(itemId: string): void {
-    this.stageRuntime?.recordCollection(itemId);
+  /** Pickup kind and authored amount are the authoritative live collection
+   * fact. Currency modifiers remain outside objective progress. Stage data
+   * selects a generic item namespace, so another collect contract needs no
+   * stage-ID branch. */
+  private recordStageCollection(itemId: string, amount: number): void {
+    this.stageRuntime?.recordCollection(itemId, amount);
   }
 
   private describeStageObjective(): string | undefined {
@@ -1260,6 +1312,7 @@ export class GameScene extends Phaser.Scene {
     // The user may leave an unavailable-storage result surface, but no
     // terminal progress is represented as accepted without this marker.
     this.terminalSettlement = undefined;
+    this.pendingAchievementFacts = {};
   }
 
   private describeAchievementToast(): string | undefined {
@@ -1288,6 +1341,13 @@ export class GameScene extends Phaser.Scene {
   private tryCommitStageClear(ctx: GameContext): boolean {
     const runtime = this.stageRuntime;
     if (!runtime) return false;
+    // Confirm can arrive before this frame's update, including immediately
+    // after a paused merge. Drain while the run is still active so terminal
+    // settlement sees every admissible completing-kill/chest reward.
+    if (runtime.pendingClear && this.runState?.status === 'active') {
+      this.dropSystem?.settlePendingClearLoot();
+      this.pendingClearLootRackCount = this.runState.equipped.length;
+    }
     // StageRuntime owns extraction input gating only. Durable consequences are
     // deferred to the single run-terminal candidate after `endRun` so they
     // cannot split from Scrap, mastery, metrics or Achievements.
@@ -1346,7 +1406,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private syncPhysicsPause(runState: RunState): void {
-    const shouldPause = this.orientationBlocked || runState.status !== 'active' || this.stageRuntime?.pendingClear !== undefined;
+    const shouldPause = this.orientationBlocked
+      || this.orientationResumePending
+      || runState.status !== 'active'
+      || this.stageRuntime?.pendingClear !== undefined;
     if (shouldPause && !this.physicsPausedByRun) {
       this.physics.world.pause();
       this.physicsPausedByRun = true;
@@ -1357,6 +1420,28 @@ export class GameScene extends Phaser.Scene {
       this.physics.world.resume();
       this.physicsPausedByRun = false;
     }
+  }
+
+  private readonly handleOrientationChange = (blocked: boolean): void => {
+    const wasBlocked = this.orientationBlocked;
+    this.orientationBlocked = blocked;
+    this.inputController?.quarantineUntilNeutral();
+    if (blocked) {
+      this.orientationResumePending = false;
+      if (this.runState) this.syncPhysicsPause(this.runState);
+      return;
+    }
+    if (wasBlocked) this.orientationResumePending = true;
+  };
+
+  /** One synchronous mutation gate shared by all Arcade damage callbacks.
+   * Objective completion itself closes the gate; pendingClear is captured at
+   * the scene boundary on the following update when completion came from a
+   * physics callback. */
+  private canReceiveCombatDamage(): boolean {
+    return this.runState?.status === 'active'
+      && this.stageRuntime?.state.status !== 'objective-complete'
+      && this.stageRuntime?.pendingClear === undefined;
   }
 
   /** A pointer gesture belongs to gameplay only while the run is genuinely

@@ -27,6 +27,35 @@ function completedRuntime(reward: Record<string, unknown>) {
 /** Regression for the runtime boundary: a failed save must retain the exact
  * objective-completion snapshot rather than recomputing/losing its reward. */
 describe('GameScene durable stage clear', () => {
+  it('drains completion loot before an immediate extraction confirmation ends the run', () => {
+    const scene = new GameScene() as any;
+    const run = createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'junkyard-lot' });
+    run.status = 'active';
+    scene.runState = run;
+    scene.stageRuntime = completedRuntime({ firstClearScrap: 35 });
+    const settlePendingClearLoot = vi.fn(() => expect(run.status).toBe('active'));
+    scene.dropSystem = { settlePendingClearLoot };
+
+    expect(scene.tryCommitStageClear({ bus: createEventBus() })).toBe(true);
+    expect(settlePendingClearLoot).toHaveBeenCalledOnce();
+    expect(run.status).toBe('won');
+  });
+  it('forwards the authored Scrap amount from the collection event into objective progress', () => {
+    const scene = new GameScene() as any;
+    const bus = createEventBus();
+    scene.stageRuntime = createStageRuntime({
+      stageId: 'stage:junkyard-02', encounter: {}, reward: { firstClearScrap: 1 },
+      objective: { definition: { type: 'collect', itemId: 'drop:scrap', count: 14 } },
+    } as any);
+    scene.stageRuntime.tick(0, 0);
+    scene.installAuthoritativeFactListeners({ bus } as any);
+
+    bus.emit('drop:collected', { kind: 'scrap', amount: 5, x: 0, y: 0 });
+    bus.emit('drop:collected', { kind: 'scrap', amount: 3, x: 0, y: 0 });
+
+    expect(scene.stageRuntime.state.objectiveProgress.current).toBe(8);
+  });
+
   it('captures the completed Stage identity without persisting a partial terminal result', () => {
     const scene = new GameScene() as any;
     const run = createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'junkyard-lot' });
