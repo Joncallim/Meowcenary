@@ -35,6 +35,7 @@ describe('Gunsmith Build commands', () => {
 
   it('resolves fitting inside the transform and never resurrects a consumed instance or stale state', () => {
     const { controller, context, storage } = setup();
+    context.updateGunsmith((state) => ({ ...state, builds: state.builds.map((build) => ({ ...build, fitted: {} })) }));
     const update = context.updateGunsmith.bind(context);
     context.updateGunsmith = (transform) => {
       update((current) => ({ ...current, parts: { standard: current.parts.standard,
@@ -46,7 +47,7 @@ describe('Gunsmith Build commands', () => {
     expect(write).toHaveBeenCalledTimes(1); // Only the simulated intervening command.
     expect(context.saveData.gunsmith.parts.long).toBeUndefined();
     expect(context.saveData.gunsmith.parts.fresh).toBeDefined();
-    expect(context.saveData.gunsmith.builds[0].fitted.barrel).toBe('standard');
+    expect(context.saveData.gunsmith.builds[0].fitted.barrel).toBeUndefined();
   });
 
   it('rejects a Gunsmith transform without touching storage or publishing a new snapshot', () => {
@@ -92,5 +93,69 @@ describe('Gunsmith Build commands', () => {
     }
     expect(controller.snapshot().selectedBuild?.preview?.baseArtId).toBe('gun-build-base:pistol');
     expect(controller.snapshot().families.find((family) => family.id === 'pistol')?.previewBaseArtId).toBe('gun-build-base:pistol');
+  });
+
+  it('re-resolves unequipping inside the transform without dropping a newly fitted optic', () => {
+    const { controller, context } = setup();
+    const update = context.updateGunsmith.bind(context);
+    context.updateGunsmith = (transform) => {
+      update((state) => ({ ...state, parts: { ...state.parts, optic: { partId: 'part:optic-red-dot', tier: 1, infusedTraits: [] } },
+        builds: state.builds.map((build) => ({ ...build, fitted: { ...build.fitted, optic: 'optic' } })) }));
+      return update(transform);
+    };
+    expect(controller.unequipPart('standard')).toMatchObject({ ok: true });
+    expect(context.saveData.gunsmith.builds[0].fitted).toEqual({ optic: 'optic' });
+  });
+
+  it('clears a candidate when selecting a different active family', () => {
+    const { controller } = setup();
+    controller.selectSlot('barrel');
+    controller.previewPart('long');
+    controller.createBuild('smg');
+    expect(controller.snapshot().selectedCandidateInstanceId).toBeUndefined();
+    expect(controller.snapshot().candidatePreview).toBeUndefined();
+  });
+
+  it('keeps a failed commit unpublished and allows retrying the unchanged candidate', () => {
+    const { controller, context, storage } = setup();
+    controller.selectSlot('barrel');
+    controller.previewPart('long');
+    const before = context.saveData;
+    const preview = controller.snapshot().candidatePreview;
+    const write = vi.spyOn(storage, 'setItem').mockReturnValue(false);
+    expect(controller.commitPreview()).toEqual({ ok: false, reason: 'save-failed' });
+    expect(context.saveData).toBe(before);
+    expect(controller.snapshot().candidatePreview).toBe(preview);
+    write.mockRestore();
+    expect(controller.commitPreview()).toMatchObject({ ok: true });
+    expect(controller.snapshot().selectedBuild?.preview).toEqual(preview);
+  });
+
+  it('normalizes both displayed and commanded slots after changing weapon family', () => {
+    const { controller, context } = setup();
+    controller.createBuild('smg');
+    controller.selectSlot('stock');
+    controller.selectBuild('build:pistol');
+    context.updateGunsmith((state) => ({ ...state, parts: { ...state.parts,
+      receiver: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] } } }));
+    expect(controller.snapshot().selectedSlot).toBe('receiver');
+    expect(controller.previewPart('receiver')).toMatchObject({ ok: true });
+  });
+
+  it('selects an existing family build by its stable ID instead of creating a duplicate chassis', () => {
+    const { controller, context } = setup();
+    context.updateGunsmith((state) => ({ ...state, builds: state.builds.map((build) => ({ ...build, id: 'legacy:pistol' })), selectedBuildId: 'legacy:pistol' }));
+    expect(controller.createBuild('pistol')).toMatchObject({ ok: true });
+    expect(context.saveData.gunsmith.builds).toHaveLength(1);
+    expect(context.saveData.gunsmith.selectedBuildId).toBe('legacy:pistol');
+  });
+
+  it('does not display removed candidate art after resetting progression', () => {
+    const { controller, context } = setup();
+    controller.selectSlot('barrel');
+    controller.previewPart('long');
+    context.resetProgression();
+    expect(controller.snapshot().selectedCandidateInstanceId).toBeUndefined();
+    expect(controller.snapshot().candidatePreview).toBeUndefined();
   });
 });

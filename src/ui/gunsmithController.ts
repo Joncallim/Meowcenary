@@ -1,4 +1,4 @@
-import type { GameContext, PersistenceUpdate } from '../engine/context';
+import type { GameContext } from '../engine/context';
 import {
   replacePartInBuild,
   equipPart,
@@ -273,10 +273,8 @@ export class GunsmithController {
           const iconArtId = traitIconByTrait.get(trait);
           return iconArtId === undefined ? [] : [Object.freeze({ trait, iconArtId })];
         })),
-        // A cross-build move is only actionable when its destination is
-        // genuinely eligible.  Do not advertise "Move from …" for an
-        // occupied ordinary slot or full trait capacity: that would promise
-        // an operation the domain correctly refuses.
+        // Occupied ordinary slots replace atomically; full trait sockets
+        // require an explicitly selected displaced instance.
         compatible: selected === undefined || (compatible && capacity),
         fitted: fittedHere,
         state: fittedHere ? 'fitted-here' : !compatible || !capacity ? 'incompatible' : assigned !== undefined ? 'fitted-elsewhere' : 'owned-unfitted',
@@ -408,14 +406,16 @@ export class GunsmithController {
     }
     const workshop = Object.freeze(workshopRecipes);
     const mergeSelection = this.buildMergeSelection(ownedParts, assignedIds, state);
-    const normalizedSlot = slots.some((entry) => entry.slot === this.selectedSlot) ? this.selectedSlot : (slots[0]?.slot ?? 'receiver');
+    const normalizedSlot = this.resolvedSelectedSlot(selected);
+    const pendingPart = this.pendingPart && state.parts[this.pendingPart.instanceId]
+      && selected?.id === this.pendingPart.buildId ? this.pendingPart : undefined;
     const value = Object.freeze({
       surface: this.surface,
       selectedSlot: normalizedSlot,
-      ...(this.pendingPart === undefined ? {} : {
-        selectedCandidateInstanceId: this.pendingPart.instanceId,
-        candidatePreview: this.pendingPart.preview,
-        candidateComparison: this.pendingPart.comparison,
+      ...(pendingPart === undefined ? {} : {
+        selectedCandidateInstanceId: pendingPart.instanceId,
+        candidatePreview: pendingPart.preview,
+        candidateComparison: pendingPart.comparison,
       }),
       selectedBuildId: selected?.id,
       builds: Object.freeze([...state.builds]),
@@ -613,19 +613,24 @@ export class GunsmithController {
 
   createBuild(baseWeaponFamily: string, name = `${familyName(baseWeaponFamily)} Build`): GunsmithCommandResult {
     if (!isValidFamily(baseWeaponFamily)) return { ok: false, reason: 'unknown-family' };
-    const id = `build:${baseWeaponFamily}`;
-    if (this.context.saveData.gunsmith.builds.some((build) => build.id === id)) return this.selectBuild(id);
-    const update = this.context.updateGunsmith((state) => ({
-      ...state,
-      builds: [...state.builds, { id, name, baseWeaponFamily, fitted: {}, traitParts: [] }],
-      selectedBuildId: id,
-    }));
+    const update = this.context.updateGunsmith((state) => {
+      const existing = state.builds.find((build) => build.baseWeaponFamily === baseWeaponFamily);
+      if (existing) return { ...state, selectedBuildId: existing.id };
+      const id = `build:${baseWeaponFamily}`;
+      return { ...state, builds: [...state.builds, { id, name, baseWeaponFamily, fitted: {}, traitParts: [] }], selectedBuildId: id };
+    });
+    if (update.persisted) this.cancelPreview();
     return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
   }
 
   selectBuild(buildId: string): GunsmithCommandResult {
-    if (!this.context.saveData.gunsmith.builds.some((build) => build.id === buildId)) return { ok: false, reason: 'unknown-build' };
-    const update = this.context.updateGunsmith((state) => ({ ...state, selectedBuildId: buildId }));
+    let failure: string | undefined;
+    const update = this.context.updateGunsmith((state) => {
+      if (!state.builds.some((build) => build.id === buildId)) { failure = 'unknown-build'; return undefined; }
+      return { ...state, selectedBuildId: buildId };
+    });
+    if (failure) return { ok: false, reason: failure };
+    if (update.persisted) this.cancelPreview();
     return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
   }
 
@@ -635,6 +640,7 @@ export class GunsmithController {
     let failure: string | undefined;
     let unchanged = false;
     const update = this.context.updateGunsmith((current) => {
+      if (current.selectedBuildId !== buildId) { failure = 'stale-target'; return undefined; }
       const stored = current.parts[instanceId];
       const definition = stored && this.registry.partById(stored.partId);
       if (!definition) { failure = 'unknown-part'; return undefined; }
@@ -670,7 +676,8 @@ export class GunsmithController {
     const save = this.context.saveData;
     const build = selectedBuild(save.gunsmith);
     if (!build) return { ok: false, reason: 'no-selected-build' };
-    const result = replacePartInBuild(save.gunsmith, build.id, this.selectedSlot, instanceId, this.registry.asMap(), displacedInstanceId);
+    const slot = this.resolvedSelectedSlot(build);
+    const result = replacePartInBuild(save.gunsmith, build.id, slot, instanceId, this.registry.asMap(), displacedInstanceId);
     if (!result.ok) return result;
     const candidate = deepFreeze({ ...save, gunsmith: result.state });
     const candidateBuild = result.state.builds.find((row) => row.id === build.id)!;
@@ -680,7 +687,7 @@ export class GunsmithController {
     const lines = persistentComparisonLines(before, after, weapon);
     if (result.displacedInstanceId) lines.unshift(`Stored: ${this.partLabel(result.displacedInstanceId, save.gunsmith)}`);
     if (result.movedFromBuildId && result.movedFromBuildId !== build.id) lines.unshift(`Move from ${save.gunsmith.builds.find((row) => row.id === result.movedFromBuildId)?.name ?? result.movedFromBuildId}`);
-    this.pendingPart = deepFreeze({ buildId: build.id, slot: this.selectedSlot, instanceId,
+    this.pendingPart = deepFreeze({ buildId: build.id, slot, instanceId,
       signature: loadoutSignature(save), preview: resolveGunsmithVisualAssembly(candidateBuild, result.state, this.registry.asMap()),
       comparison: { lines, before, after, displacedInstanceId: result.displacedInstanceId, movedFromBuildId: result.movedFromBuildId } });
     this.presentationRevision += 1;
@@ -713,41 +720,55 @@ export class GunsmithController {
   }
 
   unequipPart(instanceId: string): GunsmithCommandResult {
-    const state = this.context.saveData.gunsmith;
-    const build = selectedBuild(state);
-    if (!build) return { ok: false, reason: 'no-selected-build' };
-    const result = unequipPart(build, instanceId);
-    if (!result.ok) return result;
-    return this.persistBuild(state, result.build);
+    return this.mutateSelectedBuild((build) => unequipPart(build, instanceId));
   }
 
   removeUnavailableFittedPart(instanceId: string): GunsmithCommandResult {
-    const state = this.context.saveData.gunsmith;
-    const build = selectedBuild(state);
-    if (!build || state.parts[instanceId] === undefined || this.registry.partById(state.parts[instanceId].partId) !== undefined) {
-      return { ok: false, reason: 'not-unavailable-fitted-part' };
-    }
-    const fitted = Object.fromEntries(Object.entries(build.fitted).filter(([, id]) => id !== instanceId));
-    const traitParts = build.traitParts.filter((id) => id !== instanceId);
-    if (Object.keys(fitted).length === Object.keys(build.fitted).length && traitParts.length === build.traitParts.length) return { ok: false, reason: 'not-fitted' };
-    const next = { ...build, fitted, traitParts };
-    return this.persistBuild(state, next);
+    return this.mutateSelectedBuild((build, current) => {
+      if (current.parts[instanceId] === undefined || this.registry.partById(current.parts[instanceId].partId) !== undefined) {
+        return { ok: false, reason: 'not-unavailable-fitted-part' };
+      }
+      const result = unequipPart(build, instanceId);
+      return result.ok ? result : { ok: false, reason: 'not-fitted' };
+    });
+  }
+
+  private resolvedSelectedSlot(build: WeaponBuild | undefined): PartSlot {
+    return build && !isSlotCompatible(build.baseWeaponFamily, this.selectedSlot)
+      ? PART_SLOTS.find((slot) => isSlotCompatible(build.baseWeaponFamily, slot)) ?? 'receiver' : this.selectedSlot;
+  }
+
+  private mutateSelectedBuild(transform: (build: WeaponBuild, current: GunsmithState) =>
+    { readonly ok: true; readonly build: WeaponBuild } | { readonly ok: false; readonly reason: string }): GunsmithCommandResult {
+    const buildId = this.context.saveData.gunsmith.selectedBuildId;
+    if (!buildId) return { ok: false, reason: 'no-selected-build' };
+    let failure: string | undefined;
+    const update = this.context.updateGunsmith((current) => {
+      if (current.selectedBuildId !== buildId) { failure = 'stale-target'; return undefined; }
+      const build = current.builds.find((row) => row.id === buildId);
+      if (!build) { failure = 'unknown-build'; return undefined; }
+      const result = transform(build, current);
+      if (!result.ok) { failure = result.reason; return undefined; }
+      return { ...current, builds: current.builds.map((row) => row.id === buildId ? result.build : row) };
+    });
+    if (failure) return { ok: false, reason: failure };
+    if (update.persisted) this.cancelPreview();
+    return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
   }
 
   merge(firstInstanceId: string, secondInstanceId: string): GunsmithCommandResult {
     let failure: string | undefined;
     let collision = false;
-    const update = this.context.updateGunsmith((current) => ({
+    const update = this.context.updateGunsmith((current) => {
       // GameContext re-resolves current state immediately before the one save.
       // Inputs are stable IDs, so stale/consumed state cannot be overwritten.
-      ...((): GunsmithState => {
         const first = ownedPart(current, firstInstanceId);
         const second = ownedPart(current, secondInstanceId);
-        if (!first || !second) { failure = 'missing-parts'; return current; }
+        if (!first || !second) { failure = 'missing-parts'; return undefined; }
         const result = mergeParts(first, second, this.registry.asMap());
-        if (!result.ok) { failure = result.reason; return current; }
+        if (!result.ok) { failure = result.reason; return undefined; }
         // A deterministic output collision is an explicit no-op, never a suffix.
-        if (Object.hasOwn(current.parts, result.output.instanceId)) { collision = true; return current; }
+        if (Object.hasOwn(current.parts, result.output.instanceId)) { collision = true; return undefined; }
         return {
       ...current,
       parts: Object.fromEntries([
@@ -756,8 +777,7 @@ export class GunsmithController {
       ]),
       builds: removePartReferences(current.builds, result.consumed),
         };
-      })(),
-    }));
+    });
     if (failure) return { ok: false, reason: failure };
     if (collision) return { ok: false, reason: 'output-collision' };
     return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
@@ -765,13 +785,12 @@ export class GunsmithController {
 
   infuse(targetInstanceId: string, traitInstanceId: string): GunsmithCommandResult {
     let failure: string | undefined;
-    const update = this.context.updateGunsmith((current) => ({
-      ...((): GunsmithState => {
+    const update = this.context.updateGunsmith((current) => {
         const target = ownedPart(current, targetInstanceId);
         const trait = ownedPart(current, traitInstanceId);
-        if (!target || !trait || targetInstanceId === traitInstanceId) { failure = 'unknown-part'; return current; }
+        if (!target || !trait || targetInstanceId === traitInstanceId) { failure = 'unknown-part'; return undefined; }
         const result = infuseTrait(target, trait, this.registry.asMap());
-        if (!result.ok) { failure = result.reason; return current; }
+        if (!result.ok) { failure = result.reason; return undefined; }
         return {
       ...current,
       parts: Object.fromEntries(Object.entries(current.parts)
@@ -781,20 +800,12 @@ export class GunsmithController {
           : part])),
       builds: removePartReferences(current.builds, [traitInstanceId]),
         };
-      })(),
-    }));
+    });
     if (failure) return { ok: false, reason: failure };
     return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
   }
 
-  private persistBuild(state: GunsmithState, build: WeaponBuild): GunsmithCommandResult {
-    const update: PersistenceUpdate<GunsmithState> = this.context.updateGunsmith((current) => ({
-      ...current,
-      builds: current.builds.map((candidate) => candidate.id === build.id ? build : candidate),
-    }));
-    void state;
-    return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
-  }
+
 }
 
 function familyName(id: string): string { return getAllWeaponFamilies().find((family) => family.id === id)?.name ?? id; }
