@@ -3,6 +3,7 @@ import {
   computeRunResourceClosure,
   computeMenuBundle,
   findSharedResources,
+  loadTextureResource,
   physicalResourcesForBindings,
   prepareRunPresentation,
   resolveRunPhysicalResources,
@@ -31,6 +32,42 @@ describe('Resource Loader', () => {
       load: { type: 'atlas', imageUrl: 'assets/ui/equipment.png', dataUrl: 'assets/ui/equipment.json' },
     },
   ];
+
+  it('settles and cleans up a single-resource failure from Phaser loaderror', async () => {
+    const listeners = new Map<string, Set<(payload?: { key?: string }) => void>>();
+    const add = (event: string, listener: (payload?: { key?: string }) => void) => {
+      const registered = listeners.get(event) ?? new Set();
+      registered.add(listener);
+      listeners.set(event, registered);
+    };
+    const scene = {
+      textures: { exists: () => false },
+      load: {
+        once: add,
+        on: add,
+        off: (event: string, listener?: (payload?: { key?: string }) => void) => {
+          if (listener) listeners.get(event)?.delete(listener);
+          else listeners.delete(event);
+        },
+        image: () => undefined,
+        start: () => {
+          for (const listener of listeners.get('loaderror') ?? []) listener({ key: 'art-missing' });
+        },
+      },
+    };
+    const resource: VisualTextureResource = {
+      id: 'resource:missing', textureKey: 'art-missing', sampling: 'nearest',
+      load: { type: 'image', imageUrl: 'missing.png' },
+    };
+
+    const result = await Promise.race([
+      loadTextureResource(scene as never, resource),
+      new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 20)),
+    ]);
+
+    expect(result).toEqual({ resourceId: 'resource:missing', textureKey: 'art-missing', success: false });
+    expect([...listeners.values()].every((registered) => registered.size === 0)).toBe(true);
+  });
 
   it('computes run resource closure', () => {
     const closure = computeRunResourceClosure(
