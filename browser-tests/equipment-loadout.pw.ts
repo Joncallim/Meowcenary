@@ -10,7 +10,8 @@ type Diagnostic = {
   scroll?: { top: number; bottom: number; offset: number; contentHeight: number };
   equipment?: { selectedSlot: string; selectedInstanceId?: string; equipped: Record<string, string> };
 };
-type Seam = { showMenu(panel: string): boolean; waitForMenuPresentation(): Promise<boolean>; menuLoadoutDiagnostics(): Diagnostic };
+type Seam = { showMenu(panel: string): boolean; waitForMenuPresentation(): Promise<boolean>; menuLoadoutDiagnostics(): Diagnostic;
+  freeze(): Promise<void>; resume(): void };
 const id = (piece: string) => `owned:${piece}`;
 
 async function diagnostic(page: Page): Promise<Diagnostic> {
@@ -28,6 +29,13 @@ async function focus(page: Page, key: string) {
 }
 async function settle(page: Page) {
   expect(await page.evaluate(() => (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: Seam }).__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
+}
+async function capture(page: Page, path: string) {
+  // Capture one settled production frame. Keeping Phaser's render loop busy
+  // during browser rasterization adds load without adding useful evidence.
+  await page.evaluate(() => (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: Seam }).__MEOWCENARY_VISUAL_TEST__.freeze());
+  try { await page.screenshot({ path }); }
+  finally { await page.evaluate(() => (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: Seam }).__MEOWCENARY_VISUAL_TEST__.resume()); }
 }
 
 test('slot-first Equipment previews before commit and preserves semantic focus through live resize', async ({ page }, testInfo) => {
@@ -51,7 +59,7 @@ test('slot-first Equipment previews before commit and preserves semantic focus t
   expect(state.buttons.slice(0, 4).map((button) => button.key)).toEqual(['equipment-slot:helmet', 'equipment-slot:armour', 'equipment-slot:gloves', 'equipment-slot:boots']);
   expect(state.copy.join('\n')).toContain('EQUIPMENT • WHOLE LOADOUT');
   expect(state.copy.join('\n')).toContain('GUNSMITH • ENGINEERED WEAPON FAMILY');
-  await page.screenshot({ path: testInfo.outputPath('loadout-slots.png') });
+  await test.step('capture the settled four-slot overview', () => capture(page, testInfo.outputPath('loadout-slots.png')));
   await focus(page, 'loadout:equipment'); await press(page, 'Enter'); await settle(page);
   state = await diagnostic(page);
   expect(state.panel).toBe('equipment');
@@ -83,7 +91,7 @@ test('slot-first Equipment previews before commit and preserves semantic focus t
   expect(state.copy.join('\n')).toContain('LOSE 2-piece');
   expect(state.copy.join('\n')).toContain('GAIN 2-piece');
   expect(state.copy.join('\n')).toContain('[All Weapons]');
-  await page.screenshot({ path: testInfo.outputPath('equipment-preview.png') });
+  await test.step('capture candidate consequences before persistence', () => capture(page, testInfo.outputPath('equipment-preview.png')));
   // The desktop context has a fine pointer; phone landscape remains guarded
   // by the production orientation adapter and is covered by its own suite.
   if (!testInfo.project.use.hasTouch) {
@@ -104,5 +112,5 @@ test('slot-first Equipment previews before commit and preserves semantic focus t
   expect((await diagnostic(page)).equipment?.equipped.helmet).toBe(candidate);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('meowcenary.save.v2')!));
   expect(saved.equipmentLoadout.helmet).toBe(candidate);
-  await page.screenshot({ path: testInfo.outputPath('equipment-committed.png') });
+  await test.step('capture the committed candidate', () => capture(page, testInfo.outputPath('equipment-committed.png')));
 });
