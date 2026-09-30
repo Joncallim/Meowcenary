@@ -50,6 +50,7 @@ function createHarness(options: {
   // Mock input controller
   scene.inputController = {
     update: vi.fn(),
+    quarantineUntilNeutral: vi.fn(),
     getMoveVector: () => ({ x: 0, y: 0 }),
     getPointer: () => null,
   };
@@ -140,6 +141,22 @@ function createHarness(options: {
 }
 
 describe('#164 GameScene pending-clear update ordering', () => {
+  it('defers portrait-unblock physics resume until the scene-owned update boundary', () => {
+    const { scene } = createHarness();
+    scene.orientationBlocked = true;
+    scene.physicsPausedByRun = true;
+
+    scene.handleOrientationChange(false);
+
+    expect(scene.physics.world.resume).not.toHaveBeenCalled();
+    expect(scene.physicsPausedByRun).toBe(true);
+
+    scene.update(0, 16);
+
+    expect(scene.inputController.quarantineUntilNeutral).toHaveBeenCalled();
+    expect(scene.physics.world.resume).toHaveBeenCalledOnce();
+  });
+
   describe('RED 1: HUD update during pendingClear', () => {
     it('updates HudController when pendingClear is active', () => {
       const { scene, hudUpdateSpy } = createHarness({ pendingClear: true, timeMs: 30_000 });

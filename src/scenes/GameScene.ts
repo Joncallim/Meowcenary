@@ -119,6 +119,9 @@ export class GameScene extends Phaser.Scene {
   private physicsPausedByRun = false;
   /** Presentation-only suspension; deliberately not a persistent PauseReason. */
   private orientationBlocked = false;
+  /** Unblocking is acknowledged by the browser callback but physics remains
+   * paused until GameScene owns the next post-physics update boundary. */
+  private orientationResumePending = false;
   private hudController?: HudController;
   private feedbackRenderer?: PhaserFeedbackRenderer;
   private controlsView?: ControlsView;
@@ -299,11 +302,7 @@ export class GameScene extends Phaser.Scene {
 
     this.inputController = new InputController(this);
     this.orientationBlocked = isPortraitOrientationBlocked();
-    this.unsubscribers.push(onPortraitOrientationChange((blocked) => {
-      this.orientationBlocked = blocked;
-      this.inputController?.quarantineUntilNeutral();
-      if (this.runState) this.syncPhysicsPause(this.runState);
-    }));
+    this.unsubscribers.push(onPortraitOrientationChange(this.handleOrientationChange));
     this.debugOverlay = new DebugOverlay(this);
 
     this.enemyGroup = this.physics.add.group();
@@ -717,6 +716,7 @@ export class GameScene extends Phaser.Scene {
     this.newlyAvailableNames = [];
     this.objectiveCompletionTimeMs = undefined;
     this.gameplayPointerSuspended = true;
+    this.orientationResumePending = false;
     this._inputBlockedUntil = 0;
     this.isTraining = isTraining;
   }
@@ -730,6 +730,7 @@ export class GameScene extends Phaser.Scene {
 
     if (this.orientationBlocked || isPortraitOrientationBlocked()) {
       this.orientationBlocked = true;
+      this.orientationResumePending = false;
       this.syncPhysicsPause(runState);
       this.inputController.quarantineUntilNeutral();
       this.gameplayPointerSuspended = true;
@@ -737,7 +738,15 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.perfSampler?.recordFrame(delta);
+    if (this.orientationResumePending) {
+      this.inputController.quarantineUntilNeutral();
+      this.gameplayPointerSuspended = true;
+    }
     this.inputController.update(delta);
+    // Arcade already skipped this frame while the flag was true. Clearing it
+    // here lets the normal scene-owned pause resolver resume for the *next*
+    // physics integration, after neutral input has been consumed.
+    this.orientationResumePending = false;
     this.syncGameplayPointerOwnership();
     this.pauseView?.refreshInputPresentation();
     this.runSummaryView?.refreshInputPresentation();
@@ -1380,7 +1389,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private syncPhysicsPause(runState: RunState): void {
-    const shouldPause = this.orientationBlocked || runState.status !== 'active' || this.stageRuntime?.pendingClear !== undefined;
+    const shouldPause = this.orientationBlocked
+      || this.orientationResumePending
+      || runState.status !== 'active'
+      || this.stageRuntime?.pendingClear !== undefined;
     if (shouldPause && !this.physicsPausedByRun) {
       this.physics.world.pause();
       this.physicsPausedByRun = true;
@@ -1392,6 +1404,18 @@ export class GameScene extends Phaser.Scene {
       this.physicsPausedByRun = false;
     }
   }
+
+  private readonly handleOrientationChange = (blocked: boolean): void => {
+    const wasBlocked = this.orientationBlocked;
+    this.orientationBlocked = blocked;
+    this.inputController?.quarantineUntilNeutral();
+    if (blocked) {
+      this.orientationResumePending = false;
+      if (this.runState) this.syncPhysicsPause(this.runState);
+      return;
+    }
+    if (wasBlocked) this.orientationResumePending = true;
+  };
 
   /** One synchronous mutation gate shared by all Arcade damage callbacks.
    * Objective completion itself closes the gate; pendingClear is captured at
