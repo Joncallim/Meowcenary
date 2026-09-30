@@ -596,6 +596,7 @@ describe('MenuScene', () => {
     harness.buttonByLabel(input)!.state.handlers.pointerup!();
     input = harness.textContents().find((text) => text.startsWith('RECOMMENDED • Second input • Standard Barrel T1'))!;
     harness.buttonByLabel(input)!.state.handlers.pointerup!();
+    harness.menuScene.update(0, 16); // release the accepted pointer edge before logical Back
 
     harness.keyboard.keydown('Escape'); harness.menuScene.update(0, 16);
     harness.keyboard.keyup('Escape'); harness.menuScene.update(0, 16);
@@ -1558,6 +1559,7 @@ describe('MenuScene', () => {
 
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    harness.menuScene.update(0, 16); // re-arm after the accepted pointer transition
 
     expect(scene.scrollViewportTop).toBeLessThan(scene.scrollViewportBottom);
     expect(scene.scrollObjects.some(({ object }) => object.state.text === 'Equipped: 1/4 pieces')).toBe(true);
@@ -2845,6 +2847,7 @@ describe('Menu transition input boundary', () => {
   it('does not deliver same-poll navigation into Home after Back', () => {
     const harness = createHarness();
     harness.buttonByLabel('Mercenary')!.state.handlers.pointerup!();
+    harness.menuScene.update(0, 16); // re-arm after the accepted pointer transition
     const scene = harness.menuScene as unknown as { navigator: { index: number }; committedPanel?: string };
     harness.keyboard.keydown('Escape'); harness.keyboard.keydown('ArrowDown');
     harness.menuScene.update(0, 16);
@@ -2854,5 +2857,76 @@ describe('Menu transition input boundary', () => {
     harness.menuScene.update(0, 16);
     harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
     expect(scene.navigator.index).toBe(1);
+  });
+
+  it('quarantines sampled keyboard navigation after a pointer Confirm opens a panel', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Mercenary')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as { navigator: { index: number }; committedPanel?: string };
+
+    harness.keyboard.keydown('ArrowDown');
+    harness.menuScene.update(0, 16);
+    expect(scene.committedPanel).toBe('character');
+    expect(scene.navigator.index).toBe(0);
+
+    harness.keyboard.keyup('ArrowDown');
+    harness.menuScene.update(0, 16);
+    harness.keyboard.keydown('ArrowDown');
+    harness.menuScene.update(0, 16);
+    expect(scene.navigator.index).toBe(1);
+  });
+
+  it('quarantines sampled gamepad navigation after a pointer Back returns Home', () => {
+    const harness = createHarness();
+    const pad = new MockGamepad();
+    harness.input.gamepad!.connect(pad);
+    harness.buttonByLabel('Mercenary')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Back')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as { navigator: { index: number }; committedPanel?: string };
+
+    pad.setButton(13, true);
+    harness.menuScene.update(0, 16);
+    expect(scene.committedPanel).toBe('home');
+    expect(scene.navigator.index).toBe(0);
+
+    pad.setButton(13, false);
+    harness.menuScene.update(0, 16);
+    pad.setButton(13, true);
+    harness.menuScene.update(0, 16);
+    expect(scene.navigator.index).toBe(1);
+  });
+
+  it('leaves disabled pointer rows inert and does not quarantine their sampled navigation', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Change Contract')!.state.handlers.pointerup!();
+    harness.menuScene.update(0, 16); // re-arm after the accepted pointer transition
+    const locked = harness.buttonByLabel('Scrap Run')!;
+    const scene = harness.menuScene as unknown as { navigator: { index: number } };
+    const before = scene.navigator.index;
+    const events: string[] = [];
+    harness.bus.on('ui:confirm', () => events.push('confirm'));
+
+    locked.state.handlers.pointerup!(); // defensive probe of a disabled target
+    harness.keyboard.keydown('ArrowDown');
+    harness.menuScene.update(0, 16);
+    expect(events).toEqual([]);
+    expect(scene.navigator.index).not.toBe(before);
+  });
+
+  it('leaves pointer rows without a callback inert', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      addButton(root: unknown, x: number, y: number, label: string, minHeight: number,
+        callback?: () => void): FakeObject;
+      root: unknown;
+      navigator: { index: number };
+    };
+    const button = scene.addButton(scene.root, 0, 0, 'No command', 44, undefined);
+    const events: string[] = [];
+    harness.bus.on('ui:confirm', () => events.push('confirm'));
+
+    button.state.handlers.pointerup!();
+    expect(events).toEqual([]);
+    expect(scene.navigator.index).toBe(0);
   });
 });
