@@ -37,7 +37,8 @@ export class Player {
   readonly sprite: Phaser.GameObjects.Arc;
   health: number;
   private readonly view: ActorView;
-  private invulnerableMs = 0;
+  private contactInvulnerableMs = 0;
+  private abilityInvulnerableMs = 0;
   private facing: 1 | -1 = 1;
 
   constructor(
@@ -160,11 +161,11 @@ export class Player {
       return;
     }
 
-    if (this.invulnerableMs > 0 && Number.isFinite(dtMs) && dtMs > 0) {
-      this.invulnerableMs = Math.max(0, this.invulnerableMs - dtMs);
-      if (this.invulnerableMs === 0) {
-        this.view.update(this.currentPose());
-      }
+    const wasInvulnerable = this.hasAnyInvulnerability();
+    if (Number.isFinite(dtMs) && dtMs > 0 && wasInvulnerable) {
+      this.contactInvulnerableMs = Math.max(0, this.contactInvulnerableMs - dtMs);
+      this.abilityInvulnerableMs = Math.max(0, this.abilityInvulnerableMs - dtMs);
+      if (wasInvulnerable && !this.hasAnyInvulnerability()) this.view.update(this.currentPose());
     }
 
     const speed = Math.max(0, this.runState.stats.resolve('moveSpeed', this.options.baseMoveSpeed));
@@ -174,7 +175,7 @@ export class Player {
   takeDamage(amount: number): void {
     if (
       this.runState.status !== 'active' ||
-      this.invulnerableMs > 0 ||
+      this.hasAnyInvulnerability() ||
       !Number.isFinite(amount) ||
       amount <= 0
     ) {
@@ -182,13 +183,13 @@ export class Player {
     }
 
     this.health = Math.max(0, this.health - amount);
-    this.invulnerableMs = Number.isFinite(this.options.invulnerabilityMs)
+    this.contactInvulnerableMs = Number.isFinite(this.options.invulnerabilityMs)
       ? Math.max(0, this.options.invulnerabilityMs)
       : 0;
     // Only tint while an invulnerability window is active; update() clears the tint
     // when the countdown reaches 0. Guarding here avoids a permanently stuck tint
     // when invulnerabilityMs is 0 (no i-frames), which update() would never restore.
-    if (this.invulnerableMs > 0) {
+    if (this.hasAnyInvulnerability()) {
       this.view.update(this.currentPose());
     }
     this.view.playOneShot(this.health <= 0 ? 'defeat' : 'hurt');
@@ -210,7 +211,7 @@ export class Player {
 
   grantInvulnerability(durationMs: number): void {
     if (this.runState.status !== 'active' || !Number.isFinite(durationMs) || durationMs <= 0) return;
-    this.invulnerableMs = Math.max(this.invulnerableMs, durationMs);
+    this.abilityInvulnerableMs = Math.max(this.abilityInvulnerableMs, durationMs);
     this.view.update(this.currentPose());
   }
 
@@ -221,7 +222,7 @@ export class Player {
     // (for example Shield Flicker), otherwise Forge hazards bypass the ability.
     if (
       this.runState.status !== 'active' ||
-      this.invulnerableMs > 0 ||
+      this.abilityInvulnerableMs > 0 ||
       !Number.isFinite(amount) ||
       amount <= 0
     ) return;
@@ -249,7 +250,11 @@ export class Player {
       y: this.y,
       facing: this.facing,
       moving: this.runState.status === 'active' && (move.x !== 0 || move.y !== 0),
-      alpha: this.invulnerableMs > 0 ? 0.45 : 1,
+      alpha: this.hasAnyInvulnerability() ? 0.45 : 1,
     } as const;
+  }
+
+  private hasAnyInvulnerability(): boolean {
+    return this.contactInvulnerableMs > 0 || this.abilityInvulnerableMs > 0;
   }
 }
