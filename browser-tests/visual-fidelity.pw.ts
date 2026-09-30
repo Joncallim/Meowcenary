@@ -5,7 +5,14 @@ import { expect, test } from '@playwright/test';
 // to reach those observable states, so bound infrastructure readiness without
 // changing game timing or weakening any screenshot comparison.
 const visualReadyTimeoutMs = 20_000;
-const illustratedScreenshot = { animations: 'disabled' as const, maxDiffPixels: 128 };
+const illustratedScreenshot = {
+  animations: 'disabled' as const,
+  maxDiffPixels: 128,
+  // GitHub's constrained Chromium exceeded the 5 s default while capturing a
+  // settled Equipment frame. This only bounds screenshot scheduling; the
+  // pixel contract above remains exact.
+  timeout: 20_000,
+};
 
 type VisualTestSeam = {
   freeze(): Promise<void>;
@@ -206,7 +213,11 @@ test('stocked Gunsmith showcases assembled weapons, Parts, traits, and Workshop 
   // This exact two-capture journey closes the full Parts/trait/chassis atlas.
   // Keep its infrastructure budget local while resource readiness itself is
   // awaited through the scene-owned loader queue above.
-  test.setTimeout(90_000);
+  // The exact GitHub runner completed foldable in 81 s and exhausted 90 s on
+  // desktop after every scene-owned readiness boundary had closed. Keep the
+  // outer journey budget above that measured infrastructure cost; individual
+  // resource closure remains capped at 60 s with state diagnostics.
+  test.setTimeout(120_000);
   test.skip(!representativeProjects.has(testInfo.project.name));
   await page.addInitScript(() => {
     localStorage.setItem('meowcenary.save.v2', JSON.stringify({
@@ -243,15 +254,21 @@ test('stocked Gunsmith showcases assembled weapons, Parts, traits, and Workshop 
       pendingAchievementReports: [], appliedGrantTransactions: {}, grantTransactionFingerprints: {},
     }));
   });
-  await page.goto('/?visual-test=1');
-  await showMenu(page, 'gunsmith');
-  await expectMenuPresentationSettled(page);
-  await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('gunsmith-assembled.png', illustratedScreenshot);
-  await resumeLoop(page);
-  for (let index = 0; index < 9; index += 1) await press(page, 'ArrowDown');
-  await freezeAtStableFrame(page);
-  await expect(page).toHaveScreenshot('gunsmith-parts.png', illustratedScreenshot);
+  await test.step('close the stocked Gunsmith resource generation', async () => {
+    await page.goto('/?visual-test=1');
+    await showMenu(page, 'gunsmith');
+    await expectMenuPresentationSettled(page);
+  });
+  await test.step('capture the assembled build', async () => {
+    await freezeAtStableFrame(page);
+    await expect(page).toHaveScreenshot('gunsmith-assembled.png', illustratedScreenshot);
+  });
+  await test.step('navigate and capture the stocked Parts list', async () => {
+    await resumeLoop(page);
+    for (let index = 0; index < 9; index += 1) await press(page, 'ArrowDown');
+    await freezeAtStableFrame(page);
+    await expect(page).toHaveScreenshot('gunsmith-parts.png', illustratedScreenshot);
+  });
 });
 
 test('pause and Weapon Rack use the shared authored modal system', async ({ page }, testInfo) => {
