@@ -8,6 +8,7 @@ import { isContentId, isUnlockId } from '../ids';
 import { validateProgressionCondition } from '../../gameplay/conditionValidation';
 import { isValidProgressionGrant, type ProgressionGrant } from '../../gameplay/grantProcessor';
 import type { RowCheck } from '../validation';
+import type { VisualArtCatalog } from '../types';
 
 // Re-exported for use by this module's public API.
 type RowCheckFn = RowCheck;
@@ -29,6 +30,9 @@ export const checkStage: RowCheckFn = (row: unknown, _index: number): string[] =
   }
   if (typeof s.chapterId !== 'string' || !isUnlockId(s.chapterId) || !s.chapterId.startsWith('chapter:')) {
     errors.push('chapterId: must be a valid unlock ID (e.g. chapter:junkyard)');
+  }
+  if (typeof s.chapterIconArtId !== 'string' || !isUnlockId(s.chapterIconArtId) || !s.chapterIconArtId.startsWith('chapter-icon:')) {
+    errors.push('chapterIconArtId: must be a valid chapter icon art ID');
   }
   if (typeof s.displayOrder !== 'number' || !Number.isSafeInteger(s.displayOrder) || s.displayOrder < 1) {
     errors.push('displayOrder: must be a positive safe integer');
@@ -201,6 +205,20 @@ export function assertStageArenaReferences(
   for (const stage of stages) {
     if (!arenaIds.has(stage.arenaId)) {
       throw new Error(`stage.${stage.id}: arenaId "${stage.arenaId}" not found in arena catalog`);
+    }
+  }
+}
+
+/** Every chapter presentation reference is a required generic icon binding. */
+export function assertStageChapterArtReferences(
+  stages: readonly StageDefinition[],
+  catalog: VisualArtCatalog,
+): void {
+  const bindings = new Map(catalog.bindings.map((binding) => [binding.id, binding]));
+  for (const stage of stages) {
+    const binding = bindings.get(stage.chapterIconArtId);
+    if (!binding || binding.kind !== 'icon' || !binding.required) {
+      throw new Error(`stage.${stage.id}: unknown required chapter icon "${stage.chapterIconArtId}"`);
     }
   }
 }

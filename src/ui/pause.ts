@@ -11,6 +11,7 @@ import type { VisualArtLookup } from '../systems/visualArt';
 import { FocusNavigator, type FocusDirection } from './focusList';
 import type { InputMode } from '../systems/input';
 import type { ModalButtonHandle } from './modal';
+import { createUiVisualChrome } from './visualChrome';
 
 export type PausePanel = 'closed' | 'pause' | 'inventory' | 'exit-confirm';
 
@@ -170,6 +171,7 @@ export class PhaserPauseView {
   private readonly fullscreen?: FullscreenController;
   private readonly exitLabel: string;
   private readonly onExitConfirmed?: () => void;
+  private readonly visualArt?: VisualArtLookup;
   private unsubscribeFullscreen?: () => void;
   private renderedFullscreenState?: FullscreenState;
   private fullscreenPendingPanel?: PausePanel;
@@ -187,8 +189,9 @@ export class PhaserPauseView {
     this.fullscreen = options.fullscreen;
     this.exitLabel = options.exitLabel ?? 'Leave Run';
     this.onExitConfirmed = options.onExitConfirmed;
+    this.visualArt = options.visualArt;
     this.readInputMode = options.readInputMode ?? (() => 'pointer');
-    this.modal = createModalTextHelpers(options.scene, options.viewport);
+    this.modal = createModalTextHelpers(options.scene, options.viewport, options.visualArt);
     this.weaponRack = new PhaserWeaponRackPanel({
       scene: options.scene,
       viewport: options.viewport,
@@ -244,7 +247,9 @@ export class PhaserPauseView {
     const height = viewport.canvasHeight;
     const margin = physicalToLogical(12, viewport);
     const hitTarget = minimumHitTarget(viewport);
-    const buttonWidth = Math.max(180, width - margin * 4);
+    const modalWidth = Math.min(Math.max(120, width - margin * 2), physicalToLogical(720, viewport));
+    const modalHeight = Math.min(Math.max(120, height - margin * 2), physicalToLogical(600, viewport));
+    const buttonWidth = Math.max(180, Math.min(modalWidth - margin * 2, physicalToLogical(560, viewport)));
     const root = scene.add.container(this.viewport.originX ?? 0, this.viewport.originY ?? 0);
 
     try {
@@ -261,6 +266,17 @@ export class PhaserPauseView {
       root.add(backdrop);
       backdrop.setInteractive();
       backdrop.setScrollFactor(0);
+
+      const modalFrame = this.visualArt ? createUiVisualChrome(this.visualArt).addPanel(
+        scene,
+        width / 2,
+        height / 2,
+        modalWidth,
+        modalHeight,
+        'panel',
+        { alpha: 0.92, depth: ThemeDepth.pauseSummary + 1 },
+      ) : undefined;
+      if (modalFrame) root.add(modalFrame);
 
       let buttons: ModalButtonHandle[] = [];
       let hint: Phaser.GameObjects.Text | undefined;
@@ -397,7 +413,7 @@ export class PhaserPauseView {
       return;
     }
     this.viewport = next;
-    this.modal = createModalTextHelpers(this.scene, next);
+    this.modal = createModalTextHelpers(this.scene, next, this.visualArt);
     this.weaponRack.updateLayoutContext(next, this.modal);
   }
 

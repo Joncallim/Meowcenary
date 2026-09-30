@@ -5,6 +5,8 @@ import type { InputController, InputMode, InputPresentationSnapshot } from '../s
 import { edgeMargin, pointerToRootLocal, physicalToLogical, GAMEPLAY_ZOOM, responsiveGameUiViewport, responsiveUiViewport, type UiViewport } from './layout';
 import { reducedMotionDuration, ThemeColor, ThemeDepth, ThemeFont } from './theme';
 import { createUiText } from './text';
+import type { VisualArtLookup } from '../systems/visualArt';
+import { createUiVisualChrome, type UiVisualChrome } from './visualChrome';
 
 
 const HINT_DURATION_MS = 2200;
@@ -25,6 +27,7 @@ export interface ControlsViewOptions {
    * changes.  Supplying no definition is valid for a character with no
    * active ability and deliberately renders no combat card. */
   readonly ability?: AbilityControlDefinition | null;
+  readonly visualArt?: VisualArtLookup;
 }
 
 /** The narrow presentation boundary between the ability runtime and touch UI.
@@ -69,6 +72,9 @@ export class ControlsView {
   private abilityNameText?: Phaser.GameObjects.Text;
   private abilityStateText?: Phaser.GameObjects.Text;
   private pauseGlyphBars: Phaser.GameObjects.Rectangle[] = [];
+  private pauseArt?: Phaser.GameObjects.Image;
+  private abilityFrame?: Phaser.GameObjects.GameObject;
+  private readonly uiVisuals?: UiVisualChrome;
   private hintElapsedMs = 0;
   private hintFaded = false;
   private teachingHintActive = false;
@@ -76,6 +82,7 @@ export class ControlsView {
   private disposed = false;
 
   private extractActive = false;
+  private extractPanel?: Phaser.GameObjects.Rectangle;
   private extractButton?: Phaser.GameObjects.Rectangle;
   private extractLabel?: Phaser.GameObjects.Text;
 
@@ -93,6 +100,7 @@ export class ControlsView {
     this.stickRadius = touchStick.radius;
     this.visibleStickRadius = Math.min(this.stickRadius, 48);
     this.ability = options.ability ?? undefined;
+    this.uiVisuals = options.visualArt ? createUiVisualChrome(options.visualArt) : undefined;
     const add = scene.add as typeof scene.add & { container?: (x: number, y: number) => Phaser.GameObjects.Container };
     this.root = add.container?.(viewport.originX ?? 0, viewport.originY ?? 0);
     this.root?.setScrollFactor(0).setDepth(ThemeDepth.hud);
@@ -182,7 +190,10 @@ export class ControlsView {
     const glyphWidth = physicalToLogical(8, viewport);
     const glyphHeight = physicalToLogical(22, viewport);
     const glyphOffset = physicalToLogical(8, viewport);
-    this.pauseGlyphBars = [-1, 1].map((direction) => {
+    this.pauseArt = this.uiVisuals?.addIcon(scene, this.pauseButton.x, this.pauseButton.y, 'action-icon:pause', {
+      size: physicalToLogical(28, viewport), depth: ThemeDepth.hud + 1,
+    });
+    this.pauseGlyphBars = this.pauseArt ? [] : [-1, 1].map((direction) => {
       const bar = scene.add.rectangle(
         this.pauseButton.x + direction * glyphOffset,
         this.pauseButton.y,
@@ -201,10 +212,12 @@ export class ControlsView {
       this.hintText,
       this.pauseButton,
       ...(this.abilityButton ? [this.abilityButton] : []),
+      ...(this.abilityFrame ? [this.abilityFrame] : []),
       ...(this.abilityIcon ? [this.abilityIcon] : []),
       ...(this.abilityNameText ? [this.abilityNameText] : []),
       ...(this.abilityStateText ? [this.abilityStateText] : []),
       ...this.pauseGlyphBars,
+      ...(this.pauseArt ? [this.pauseArt] : []),
     ]);
   }
 
@@ -227,6 +240,9 @@ export class ControlsView {
     // boundary sees it and never adopts this finger as a movement gesture.
     this.abilityButton.setInteractive();
     this.abilityButton.on('pointerdown', this.handleAbilityPointerDown, this);
+    this.abilityFrame = this.uiVisuals?.addFrame(scene, x, y, width, height, 'focus', {
+      alpha: 0.42, depth: ThemeDepth.hud + 0.5,
+    });
 
     if (this.ability!.icon && scene.textures.exists(this.ability!.icon.textureKey)) {
       this.abilityIcon = scene.add.image(
@@ -301,7 +317,10 @@ export class ControlsView {
     this.pauseButton.setStrokeStyle(physicalToLogical(2, viewport), ThemeColor.cream, 0.8);
     this.pauseButton.setInteractive();
     this.pauseButton.on('pointerdown', this.handlePausePointerDown, this);
-    this.pauseGlyphBars = [-1, 1].map((direction) => {
+    this.pauseArt = this.uiVisuals?.addIcon(scene, this.pauseButton.x, this.pauseButton.y, 'action-icon:pause', {
+      size: physicalToLogical(28, viewport), depth: ThemeDepth.hud + 1,
+    });
+    this.pauseGlyphBars = this.pauseArt ? [] : [-1, 1].map((direction) => {
       const glyphOffset = physicalToLogical(8, viewport);
       const glyphWidth = physicalToLogical(8, viewport);
       const glyphHeight = physicalToLogical(22, viewport);
@@ -323,6 +342,17 @@ export class ControlsView {
     // Position EXTRACT at 55% canvas height — above ALL RunSummary buttons
     // (Y≈676, 732, 788 for 390x844) to prevent ghost-click overlap.
     const extractY = Math.round(viewport.canvasHeight * 0.55);
+    this.extractPanel = scene.add.rectangle(
+      extractX,
+      extractY - physicalToLogical(8, viewport),
+      btnWidth + physicalToLogical(32, viewport),
+      btnHeight + physicalToLogical(72, viewport),
+      ThemeColor.surface,
+      0.9,
+    );
+    this.extractPanel.setDepth(ThemeDepth.hud);
+    this.extractPanel.setScrollFactor(0);
+    this.extractPanel.setStrokeStyle(physicalToLogical(2, viewport), ThemeColor.gold, 0.9);
     this.extractButton = scene.add.rectangle(
       extractX, extractY,
       btnWidth, btnHeight,
@@ -364,7 +394,7 @@ export class ControlsView {
     this.hintText.setDepth(ThemeDepth.transientHint);
     this.hintText.setScrollFactor(0);
 
-    this.root?.add([this.hintText, this.pauseButton, this.extractButton, this.extractLabel, ...this.pauseGlyphBars]);
+    this.root?.add([this.extractPanel, this.hintText, this.pauseButton, this.extractButton, this.extractLabel, ...this.pauseGlyphBars, ...(this.pauseArt ? [this.pauseArt] : [])]);
   }
 
   update(dtMs: number): void {
@@ -407,6 +437,8 @@ export class ControlsView {
     this.hintText.destroy();
     this.pauseButton.destroy();
     this.abilityButton?.destroy();
+    this.abilityFrame?.destroy();
+    this.abilityFrame = undefined;
     this.abilityIcon?.destroy();
     this.abilityNameText?.destroy();
     this.abilityStateText?.destroy();
@@ -416,6 +448,10 @@ export class ControlsView {
     this.abilityStateText = undefined;
     this.pauseGlyphBars.forEach((bar) => bar.destroy());
     this.pauseGlyphBars = [];
+    this.pauseArt?.destroy();
+    this.pauseArt = undefined;
+    this.extractPanel?.destroy();
+    this.extractPanel = undefined;
     if (this.extractButton) {
       this.extractButton.off('pointerdown', this.handleExtractPointerDown, this);
       this.extractButton.destroy();

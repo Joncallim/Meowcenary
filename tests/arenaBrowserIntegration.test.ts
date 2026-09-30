@@ -10,7 +10,7 @@ import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
-import { ArenaWorldView, buildArenaScenery } from '../src/systems/arenaScenery';
+import { ArenaWorldView, buildArenaScenery, floorArtIdForCell } from '../src/systems/arenaScenery';
 import { VisualDepth } from '../src/systems/visualDepths';
 import { spawnPoint, findRectWitness } from '../src/gameplay/spawnRegion';
 import { assembleRunRequest } from '../src/gameplay/runRequest';
@@ -204,6 +204,21 @@ describe('arena data-level integration', () => {
     scenery.destroy();
     expect(images.every((image) => image.destroyed)).toBe(true);
     expect(group.destroy).toHaveBeenCalledWith(true);
+  });
+
+  it('keeps floor variants sparse and clustered instead of checkerboarding every tile', () => {
+    const ids = ['base', 'patch-a', 'patch-b'];
+    const cells = Array.from({ length: 24 * 42 }, (_, index) =>
+      floorArtIdForCell(ids, index % 24, Math.floor(index / 24)));
+    const variants = cells.filter((id) => id !== 'base');
+
+    expect(variants.length).toBeGreaterThan(60);
+    expect(variants.length).toBeLessThan(cells.length * 0.25);
+    expect(new Set(variants)).toEqual(new Set(['patch-a', 'patch-b']));
+    expect(cells.some((id, index) =>
+      id !== 'base' && index % 24 < 23 && cells[index + 1] !== 'base')).toBe(true);
+    expect(Array.from({ length: 12 }, (_, column) => floorArtIdForCell(ids, column, 0)))
+      .toEqual(Array.from({ length: 12 }, (_, column) => floorArtIdForCell(ids, column, 0)));
   });
 
   it('fails before creating any collider when a required obstacle skin texture is missing', () => {

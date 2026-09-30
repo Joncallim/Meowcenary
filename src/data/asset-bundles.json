@@ -2,7 +2,12 @@
   {
     "id": "bundle:boot-core",
     "resourceIds": [
-      "resource:character-scrap-tabby"
+      "resource:character-scrap-tabby",
+      "resource:brand-art",
+      "resource:brand-title-lockup",
+      "resource:ui-atlas",
+      "resource:menu-semantic-icons",
+      "resource:navigation-icons"
     ]
   },
   {

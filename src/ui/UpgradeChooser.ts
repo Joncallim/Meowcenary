@@ -283,7 +283,7 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         ThemeColor.surface,
         0.96,
       ));
-      backdrop.setStrokeStyle(2, ThemeColor.primary, 0.72).setInteractive().setScrollFactor(0);
+      backdrop.setInteractive().setScrollFactor(0);
       const heading = own(createUiText(this.scene,
         layout.contentCenterX,
         layout.headingY,
@@ -349,11 +349,19 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
         ));
         edge
           .setStrokeStyle(
-            this.viewport ? physicalToLogical(2, this.viewport) : 2,
+            0,
             ThemeColor.rarity[choice.rarity],
-            RARITY_EDGE_ALPHA,
+            0,
           )
           .setScrollFactor(0);
+        own(this.scene.add.rectangle(
+          cardLeft + (this.viewport ? physicalToLogical(2, this.viewport) : 2),
+          cardLayout.y,
+          this.viewport ? physicalToLogical(4, this.viewport) : 4,
+          cardLayout.height - (this.viewport ? physicalToLogical(8, this.viewport) : 8),
+          ThemeColor.rarity[choice.rarity],
+          RARITY_EDGE_ALPHA,
+        )).setScrollFactor(0);
         cardEdges.push(edge);
         card.on(Phaser.Input.Events.POINTER_OVER, () => {
           if (this.enabled) {
@@ -370,7 +378,15 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           card.setFillStyle(RARITY_CARD_BACKGROUND[choice.rarity], this.enabled ? 1 : 0.58);
         });
         card.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
-          if (this.acceptsNavigation && this.currentOfferId === offer.offerId) this.armedPointerIds.set(pointer.id, index);
+          if (this.acceptsNavigation && this.currentOfferId === offer.offerId) {
+            // Touch has no hover phase. The pressed card becomes the logical
+            // focus target at the same boundary that captures pointer identity,
+            // so pointer, keyboard and controller submit the same card command.
+            this.hoveredIndex = index;
+            this.focusIndex = index;
+            this.applyFocusStroke();
+            this.armedPointerIds.set(pointer.id, index);
+          }
         });
         card.on(Phaser.Input.Events.POINTER_UP, (pointer: Phaser.Input.Pointer) => {
           if (this.armedPointerIds.get(pointer?.id) !== index) return;
@@ -388,12 +404,12 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
           cardLayout.iconSize > 0 &&
           this.scene.textures.exists(iconBinding.textureKey);
         if (showIcon) {
-          // The layout's icon box already honors the binding's declared
-          // display size wherever the card can afford it, and clamps only
-          // when it genuinely cannot — so the icon keeps its D8 sizing at
-          // phone scale instead of shrinking to the old number-badge box.
-          const size = Math.min(cardLayout.iconSize, iconBinding.display.width);
-          const height = Math.min(cardLayout.iconSize, iconBinding.display.height);
+          // Upgrade cards intentionally promote their authored icon above the
+          // binding's gameplay/default display hint. The measured card box is
+          // still the hard limit, so this never causes narrow-screen overflow.
+          const aspect = iconBinding.display.width / iconBinding.display.height;
+          const size = aspect >= 1 ? cardLayout.iconSize : cardLayout.iconSize * aspect;
+          const height = aspect >= 1 ? cardLayout.iconSize / aspect : cardLayout.iconSize;
           const icon = own(this.scene.add.image(
             cardLeft + cardLayout.padding + size / 2,
             cardTop + cardLayout.padding + height / 2,
@@ -600,9 +616,9 @@ export class PhaserUpgradeChooserView implements UpgradeChooserView {
       const rarity = this.offer?.choices[index]?.rarity;
       if (!rarity) return;
       edge.setStrokeStyle(
-        focused ? FocusStroke.width : this.viewport ? physicalToLogical(2, this.viewport) : 2,
+        focused ? FocusStroke.width : 0,
         focused ? FocusStroke.color : ThemeColor.rarity[rarity],
-        focused ? FocusStroke.alpha : RARITY_EDGE_ALPHA,
+        focused ? FocusStroke.alpha : 0,
       );
     });
   }

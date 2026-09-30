@@ -1,3 +1,6 @@
+-- external-production-importer: build-achievement-concept-atlas.py crops the
+-- selected concept board into the production atlas. This legacy entrypoint
+-- remains only for manifest-derived builder discovery.
 -- Dedicated V4 Achievement badges. One physical atlas carries stable named
 -- logical frames; the Career and terminal renderers remain content-agnostic.
 local U = dofile("docs/art/scripts/lib/sprite-utils.lua")

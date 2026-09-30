@@ -40,10 +40,10 @@ export const ThemeDepth = {
 } as const;
 
 export const ThemeFont = {
-  family: 'Inter, sans-serif',
-  bodyMin: 12,
-  labelMin: 14,
-  headingMin: 18,
+  family: '"Nunito", "Arial Rounded MT Bold", system-ui, sans-serif',
+  bodyMin: 14,
+  labelMin: 16,
+  headingMin: 22,
 } as const;
 
 export const FocusStroke = {

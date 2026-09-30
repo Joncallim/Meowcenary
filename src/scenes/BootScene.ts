@@ -89,7 +89,9 @@ export class BootScene extends Phaser.Scene {
     ensureVisualAnimations(this, visualArt);
     const save = new SaveManager(new LocalStorageAdapter(), undefined);
     // This RNG is boot/menu scoped only. Run gameplay owns its own seed.
-    const bootSeed = Date.now();
+    const visualTestBuild = import.meta.env.VITE_VISUAL_TEST === '1'
+      && new URLSearchParams(globalThis.location?.search ?? '').get('visual-test') === '1';
+    const bootSeed = visualTestBuild ? 191 : Date.now();
     const ctx = createGameContext({
       bus: createEventBus(),
       menuRng: createRng(bootSeed),

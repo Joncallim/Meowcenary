@@ -1,0 +1,28 @@
+{
+  "export_directory_path": "",
+  "export_file_name": "brand-art",
+  "frames": {
+    "brand:title-lockup": {
+      "frame": {
+        "x": 120,
+        "y": 0,
+        "w": 240,
+        "h": 48
+      }
+    },
+    "brand:menu-backdrop": {
+      "frame": {
+        "x": 0,
+        "y": 64,
+        "w": 480,
+        "h": 480
+      }
+    }
+  },
+  "meta": {
+    "app": "meowcenary-brand-builder",
+    "version": 1,
+    "image": "brand-art.png",
+    "scale": 1
+  }
+}

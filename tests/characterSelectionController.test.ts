@@ -45,8 +45,14 @@ describe('CharacterSelectionController', () => {
     });
     expect(snapshot.characters.find((character) => character.id === 'brass-boar')).toMatchObject({
       locked: true,
-      unlockRequirement: 'Defeat boss-crusher.',
+      unlockRequirement: 'Defeat Scrap Crusher.',
     });
+    expect(snapshot.characters.find((character) => character.id === 'bolt-hound')?.unlockRequirement)
+      .toBe('Complete First Victory.');
+    expect(snapshot.characters.find((character) => character.id === 'rattle-raptor')?.unlockRequirement)
+      .toBe('Clear Brute Force.');
+    expect(snapshot.characters.map((character) => character.unlockRequirement).join(' '))
+      .not.toMatch(/(?:achievement|stage|boss):/);
     // Only the default character is unlocked on a fresh save.
     const unlocked = snapshot.characters.filter((c) => !c.locked);
     expect(unlocked.map((c) => c.id)).toEqual(['scrap-tabby']);

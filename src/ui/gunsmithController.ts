@@ -174,6 +174,9 @@ export interface GunsmithSnapshot {
 export interface GunsmithFamilyView {
   readonly id: string;
   readonly name: string;
+  readonly iconArtId: string;
+  /** Rich assembled chassis art used by the live Gunsmith family card. */
+  readonly previewBaseArtId?: string;
   readonly selected: boolean;
   /** An existing build can be selected; an absent value means creating this
    * registered family is the appropriate command. */
@@ -190,12 +193,24 @@ export class GunsmithController {
   private readonly registry: DataPartRegistry;
   private pendingWorkshop?: Readonly<{ request: GunsmithWorkshopRequest; confirmation: GunsmithWorkshopConfirmation }>;
   private pendingMergeSelection?: { groupId: string; firstInstanceId?: string };
+  private presentationRevision = 0;
+  private cachedSnapshot?: Readonly<{
+    save: GameContext['saveData'];
+    selectionRevision: number;
+    presentationRevision: number;
+    value: GunsmithSnapshot;
+  }>;
 
   constructor(private readonly context: GameContext) {
     this.registry = new DataPartRegistry({ gunParts: context.data.gunParts ?? [] });
   }
 
   snapshot(): GunsmithSnapshot {
+    const cached = this.cachedSnapshot;
+    if (cached
+      && cached.save === this.context.saveData
+      && cached.selectionRevision === this.context.selectionRevision
+      && cached.presentationRevision === this.presentationRevision) return cached.value;
     const state = this.context.saveData.gunsmith;
     const selected = state.builds.find((build) => build.id === state.selectedBuildId);
     const representativeWeapon = selected === undefined ? undefined : this.context.data.weapons
@@ -402,14 +417,20 @@ export class GunsmithController {
     }
     const workshop = Object.freeze(workshopRecipes);
     const mergeSelection = this.buildMergeSelection(ownedParts, assignedIds, state);
-    return Object.freeze({
+    const value = Object.freeze({
       selectedBuildId: selected?.id,
       builds: Object.freeze([...state.builds]),
       families: Object.freeze(getAllWeaponFamilies().map((family) => {
         const build = buildsByFamily.get(family.id);
+        const chassis = this.context.data.weapons.find((weapon) => weapon.family === family.id && weapon.mergeTier === 1)
+          ?? this.context.data.weapons.find((weapon) => weapon.family === family.id);
         return Object.freeze({
           id: family.id,
           name: family.name,
+          iconArtId: chassis?.art.iconId ?? '',
+          ...(chassis?.art.gunsmithPreviewBaseArtId === undefined ? {} : {
+            previewBaseArtId: chassis.art.gunsmithPreviewBaseArtId,
+          }),
           selected: build !== undefined && build.id === selected?.id,
           existingBuildId: build?.id,
         });
@@ -423,6 +444,13 @@ export class GunsmithController {
       ...(mergeSelection === undefined ? {} : { mergeSelection }),
       ...(this.pendingWorkshop === undefined ? {} : { confirmation: this.pendingWorkshop.confirmation }),
     });
+    this.cachedSnapshot = Object.freeze({
+      save: this.context.saveData,
+      selectionRevision: this.context.selectionRevision,
+      presentationRevision: this.presentationRevision,
+      value,
+    });
+    return value;
   }
 
   beginMerge(groupId: string): GunsmithCommandResult {
@@ -430,6 +458,7 @@ export class GunsmithController {
     if (group === undefined) return { ok: false, reason: 'workshop-operation-unavailable' };
     this.pendingWorkshop = undefined;
     this.pendingMergeSelection = { groupId };
+    this.presentationRevision += 1;
     return { ok: true, persisted: false };
   }
 
@@ -440,6 +469,7 @@ export class GunsmithController {
     }
     if (selection.step === 'first') {
       this.pendingMergeSelection = { groupId: selection.groupId, firstInstanceId: instanceId };
+      this.presentationRevision += 1;
       return { ok: true, persisted: false };
     }
     return this.requestWorkshop({ kind: 'merge', firstInstanceId: selection.firstInstanceId!, secondInstanceId: instanceId });
@@ -449,6 +479,7 @@ export class GunsmithController {
     const selection = this.pendingMergeSelection;
     if (selection === undefined) return { ok: false, reason: 'no-pending-confirmation' };
     this.pendingMergeSelection = selection.firstInstanceId === undefined ? undefined : { groupId: selection.groupId };
+    this.presentationRevision += 1;
     return { ok: true, persisted: false };
   }
 
@@ -463,12 +494,14 @@ export class GunsmithController {
     const confirmation = this.buildWorkshopConfirmation(request);
     if (confirmation === undefined) return { ok: false, reason: 'workshop-operation-unavailable' };
     this.pendingWorkshop = Object.freeze({ request: Object.freeze({ ...request }), confirmation });
+    this.presentationRevision += 1;
     return { ok: true, persisted: false };
   }
 
   cancelWorkshop(): GunsmithCommandResult {
     if (this.pendingWorkshop === undefined) return { ok: false, reason: 'no-pending-confirmation' };
     this.pendingWorkshop = undefined;
+    this.presentationRevision += 1;
     return { ok: true, persisted: false };
   }
 
@@ -482,12 +515,16 @@ export class GunsmithController {
     if (!stillAvailable || currentConfirmation === undefined
       || JSON.stringify(currentConfirmation) !== JSON.stringify(pending.confirmation)) {
       this.pendingWorkshop = undefined;
+      this.presentationRevision += 1;
       return { ok: false, reason: 'workshop-operation-unavailable' };
     }
     const result = pending.request.kind === 'merge'
       ? this.merge(pending.request.firstInstanceId, pending.request.secondInstanceId)
       : this.infuse(pending.request.targetInstanceId, pending.request.traitInstanceId);
-    if (result.ok || result.reason !== 'save-failed') this.pendingWorkshop = undefined;
+    if (result.ok || result.reason !== 'save-failed') {
+      this.pendingWorkshop = undefined;
+      this.presentationRevision += 1;
+    }
     if (result.ok) this.pendingMergeSelection = undefined;
     return result;
   }

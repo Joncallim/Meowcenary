@@ -1,6 +1,6 @@
 import { deepFreeze } from '../engine/freeze';
 import type Phaser from 'phaser';
-import type { ResolvedVisualArtBinding, VisualTextureResource } from './types';
+import type { GameData, ResolvedVisualArtBinding, VisualTextureResource } from './types';
 import { validateVisualArtCatalog } from './validation';
 
 export interface VisualArtLookup {
@@ -19,6 +19,21 @@ export function resolveAchievementIconBinding(
 ): Readonly<ResolvedVisualArtBinding> | undefined {
   const binding = art.bindingById(iconArtId);
   return binding?.kind === 'achievement-icon' ? binding : undefined;
+}
+
+/** Resolve the physical actor art used by an enemy presentation. Elite rows
+ * inherit their base enemy's actor sheet; their distinction is applied by the
+ * runtime tint/scale treatment rather than by inventing an unregistered sheet.
+ * Every presentation path (live actor, Compendium, stage cards, defeat echo)
+ * must use this resolver so an elite event cannot silently lose its art. */
+export function resolveEnemyActorBinding(
+  enemyId: string,
+  data: Pick<GameData, 'enemies'>,
+  art: Pick<VisualArtLookup, 'bindingById'>,
+): Readonly<ResolvedVisualArtBinding> | undefined {
+  const enemy = data.enemies.find((row) => row.id === enemyId);
+  const actorEnemyId = enemy?.archetype === 'elite' ? enemy.baseEnemyId : enemyId;
+  return art.bindingById(`enemy:${actorEnemyId}`);
 }
 
 export class DataVisualResourceRegistry {

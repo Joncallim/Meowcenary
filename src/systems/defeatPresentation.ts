@@ -2,9 +2,9 @@ import Phaser from 'phaser';
 import type { EventBus, GameEventListener } from '../engine/eventBus';
 import { createPool, type Pool } from '../engine/pool';
 import type { System } from '../engine/system';
-import type { VisualArtBinding } from './types';
+import type { GameData, VisualArtBinding } from './types';
 import type { VisualArtLookup } from './visualArt';
-import { visualAnimationKey } from './visualArt';
+import { resolveEnemyActorBinding, visualAnimationKey } from './visualArt';
 import { VisualDepth } from './visualDepths';
 import { ACTOR_VISUAL_SCALE_BY_KIND } from '../entities/actorView';
 
@@ -18,6 +18,7 @@ interface DefeatPresentation {
 export interface DefeatPresentationOptions {
   readonly scene: Phaser.Scene;
   readonly bus: EventBus;
+  readonly data: Pick<GameData, 'enemies'>;
   readonly visualArt: VisualArtLookup;
   readonly maxPresentations: number;
 }
@@ -63,7 +64,7 @@ export class DefeatPresentationSystem implements System {
   }
 
   private readonly handleEnemyKilled: GameEventListener<'enemy:killed'> = ({ enemyId, x, y }) => {
-    const binding = this.options.visualArt.bindingById(`enemy:${enemyId}`);
+    const binding = resolveEnemyActorBinding(enemyId, this.options.data, this.options.visualArt);
     if (binding?.load.type !== 'spritesheet' || !binding.clips?.defeat ||
         !this.options.scene.textures.exists(binding.textureKey)) return;
     const animationKey = visualAnimationKey(binding.id, 'defeat');

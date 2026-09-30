@@ -37,9 +37,26 @@ function decodeUnfilteredRgbaPng(path: string): { width: number; height: number;
   const rows = inflateSync(Buffer.concat(idat));
   const pixels = Buffer.alloc(width * height * 4);
   const stride = width * 4 + 1;
+  const bytesPerPixel = 4;
   for (let y = 0; y < height; y += 1) {
-    expect(rows[y * stride]).toBe(0);
-    rows.copy(pixels, y * width * 4, y * stride + 1, (y + 1) * stride);
+    const filter = rows[y * stride]!;
+    if (filter > 4) throw new Error(`unsupported PNG filter ${filter}`);
+    for (let x = 0; x < width * bytesPerPixel; x += 1) {
+      const encoded = rows[y * stride + 1 + x]!;
+      const left = x >= bytesPerPixel ? pixels[y * width * bytesPerPixel + x - bytesPerPixel]! : 0;
+      const above = y > 0 ? pixels[(y - 1) * width * bytesPerPixel + x]! : 0;
+      const upperLeft = y > 0 && x >= bytesPerPixel ? pixels[(y - 1) * width * bytesPerPixel + x - bytesPerPixel]! : 0;
+      const paeth = (() => {
+        const estimate = left + above - upperLeft;
+        const leftDistance = Math.abs(estimate - left);
+        const aboveDistance = Math.abs(estimate - above);
+        const diagonalDistance = Math.abs(estimate - upperLeft);
+        return leftDistance <= aboveDistance && leftDistance <= diagonalDistance ? left : aboveDistance <= diagonalDistance ? above : upperLeft;
+      })();
+      const predictor = filter === 0 ? 0 : filter === 1 ? left : filter === 2 ? above
+        : filter === 3 ? Math.floor((left + above) / 2) : filter === 4 ? paeth : Number.NaN;
+      pixels[y * width * bytesPerPixel + x] = (encoded + predictor) & 0xff;
+    }
   }
   return { width, height, pixels };
 }
@@ -50,6 +67,30 @@ function crop(pixels: Buffer, atlasWidth: number, x: number, y: number, width: n
     pixels.copy(output, row * width * 4, ((y + row) * atlasWidth + x) * 4, ((y + row) * atlasWidth + x + width) * 4);
   }
   return output;
+}
+
+function visibleComponentSizes(pixels: Buffer, width: number, height: number): number[] {
+  const visible = new Set<number>();
+  for (let index = 0; index < width * height; index += 1) if (pixels[index * 4 + 3]! > 8) visible.add(index);
+  const sizes: number[] = [];
+  while (visible.size > 0) {
+    const start = visible.values().next().value as number;
+    visible.delete(start);
+    const pending = [start]; let size = 0;
+    while (pending.length > 0) {
+      const index = pending.pop()!; size += 1;
+      const x = index % width; const y = Math.floor(index / width);
+      for (let dy = -1; dy <= 1; dy += 1) for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = x + dx; const ny = y + dy;
+        if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+        const neighbor = ny * width + nx;
+        if (visible.delete(neighbor)) pending.push(neighbor);
+      }
+    }
+    sizes.push(size);
+  }
+  return sizes.sort((left, right) => right - left);
 }
 
 describe('Mercenary portrait and identity-icon production art', () => {
@@ -67,35 +108,56 @@ describe('Mercenary portrait and identity-icon production art', () => {
     expect(icons.map((binding) => binding.id).sort()).toEqual([...ABILITY_ICON_IDS, ...PASSIVE_ICON_IDS].sort());
     expect(new Set(portraits.map((binding) => binding.resourceId))).toEqual(new Set(['resource:mercenary-portraits']));
     expect(new Set(icons.map((binding) => binding.resourceId))).toEqual(new Set(['resource:mercenary-identity-icons']));
-    expect([...portraits, ...icons].every((binding) => binding.load.type === 'atlas' && binding.sampling === 'nearest')).toBe(true);
+    expect(portraits.every((binding) => binding.load.type === 'atlas' && binding.sampling === 'linear')).toBe(true);
+    expect(icons.every((binding) => binding.load.type === 'atlas' && binding.sampling === 'linear')).toBe(true);
     expect([...portraits, ...icons].every((binding) => !binding.resourceId?.match(/actor|upgrade|achievement/))).toBe(true);
   });
 
   it('keeps builders, editable Pixelorama sources, named frames and runtime RGBA in deterministic parity', () => {
     expect(() => execFileSync('node', ['docs/art/scripts/verify-mercenary-identity-builder-parity.mjs'])).not.toThrow();
     expect(() => execFileSync('node', ['docs/art/scripts/export-mercenary-identity-atlases.mjs', '--check'])).not.toThrow();
+    expect(() => execFileSync('python3', ['docs/art/scripts/build-mercenary-identity-concept-atlas.py', '--check'])).not.toThrow();
+    expect(() => execFileSync('python3', ['docs/art/scripts/build-mercenary-portrait-atlas.py', '--check'])).not.toThrow();
     const portraits = JSON.parse(readFileSync('public/assets/characters/identity/mercenary-portraits-atlas.json', 'utf8')) as { size_x: number; size_y: number; frames: Record<string, { frame: { w: number; h: number } }> };
     const icons = JSON.parse(readFileSync('public/assets/characters/identity/mercenary-identity-icons-atlas.json', 'utf8')) as { size_x: number; size_y: number; frames: Record<string, { frame: { w: number; h: number } }> };
-    expect([portraits.size_x, portraits.size_y]).toEqual([768, 96]);
+    expect([portraits.size_x, portraits.size_y]).toEqual([1200, 240]);
     expect(Object.keys(portraits.frames).sort()).toEqual([...PORTRAIT_IDS].sort());
-    expect(Object.values(portraits.frames).every(({ frame }) => frame.w === 96 && frame.h === 96)).toBe(true);
-    expect([icons.size_x, icons.size_y]).toEqual([512, 32]);
+    expect(Object.values(portraits.frames).every(({ frame }) => frame.w === 150 && frame.h === 240)).toBe(true);
+    expect([icons.size_x, icons.size_y]).toEqual([1536, 96]);
     expect(Object.keys(icons.frames).sort()).toEqual([...ABILITY_ICON_IDS, ...PASSIVE_ICON_IDS].sort());
-    expect(Object.values(icons.frames).every(({ frame }) => frame.w === 32 && frame.h === 32)).toBe(true);
+    expect(Object.values(icons.frames).every(({ frame }) => frame.w === 96 && frame.h === 96)).toBe(true);
+  }, 15_000);
+
+  it('pins the selected identity production masters used by the deterministic builder', () => {
+    const builder = readFileSync('docs/art/scripts/build-mercenary-identity-concept-atlas.py', 'utf8');
+    expect(builder).toContain('b2a9d5b45a8b456352e31a6d8b569fc09e899da7d0e26f541f98fe382d5d1039');
+    expect(builder).toContain('1d6f426033693d8dad0535b0a7f9aaafd1116d89d5f899750f42abd4d327f6a3');
+    expect(builder).toContain('Selected Mercenary identity master digest mismatch');
   });
 
-  it('keeps all final frames nonidentical and collision groups distinct in silhouette and grayscale', () => {
-    for (const [jsonPath, pngPath, ids, frameSize] of [
-      ['public/assets/characters/identity/mercenary-portraits-atlas.json', 'public/assets/characters/identity/mercenary-portraits-atlas.png', PORTRAIT_IDS, 96],
-      ['public/assets/characters/identity/mercenary-identity-icons-atlas.json', 'public/assets/characters/identity/mercenary-identity-icons-atlas.png', [...ABILITY_ICON_IDS, ...PASSIVE_ICON_IDS], 32],
+  it('pins every approved full-colour portrait master before crop import', () => {
+    const builder = readFileSync('docs/art/scripts/build-mercenary-portrait-atlas.py', 'utf8');
+    for (const digest of [
+      '45fd3dbc077917e8afa41ee555f843d090f0fc37c4014d5cffdb13fccff750de',
+      '010836b007027a4e885ae63635dc7df0044cc5853eb11304bf637109cafffb64',
+      'ab84b83f729bdce701a50d50751bc04a1081dd3dd6b263127dfba50973aa5701',
+      '25cdc618848f853e8053d430e3ef0a8e1c26a699245f98e82d6d25e91bbbe729',
+    ]) expect(builder).toContain(digest);
+    expect(builder).toContain('approved Mercenary portrait master digest mismatch');
+  });
+
+  it('keeps all final frames nonidentical and grayscale-distinct at production resolution', () => {
+    for (const [jsonPath, pngPath, ids, frameWidth, frameHeight] of [
+      ['public/assets/characters/identity/mercenary-portraits-atlas.json', 'public/assets/characters/identity/mercenary-portraits-atlas.png', PORTRAIT_IDS, 150, 240],
+      ['public/assets/characters/identity/mercenary-identity-icons-atlas.json', 'public/assets/characters/identity/mercenary-identity-icons-atlas.png', [...ABILITY_ICON_IDS, ...PASSIVE_ICON_IDS], 96, 96],
     ] as const) {
       const atlas = JSON.parse(readFileSync(jsonPath, 'utf8')) as { frames: Record<string, { frame: { x: number; y: number } }> };
       const decoded = decodeUnfilteredRgbaPng(pngPath);
       const rgba = new Set<string>(); const silhouettes = new Map<string, string>(); const grays = new Map<string, string>();
       for (const id of ids) {
         const frame = atlas.frames[id]!.frame;
-        const pixels = crop(decoded.pixels, decoded.width, frame.x, frame.y, frameSize, frameSize);
-        const alpha = Buffer.alloc(frameSize * frameSize); const gray = Buffer.alloc(frameSize * frameSize);
+        const pixels = crop(decoded.pixels, decoded.width, frame.x, frame.y, frameWidth, frameHeight);
+        const alpha = Buffer.alloc(frameWidth * frameHeight); const gray = Buffer.alloc(frameWidth * frameHeight);
         for (let i = 0; i < pixels.length; i += 4) {
           alpha[i / 4] = pixels[i + 3]! > 0 ? 1 : 0;
           gray[i / 4] = Math.round(pixels[i]! * 0.299 + pixels[i + 1]! * 0.587 + pixels[i + 2]! * 0.114);
@@ -105,8 +167,51 @@ describe('Mercenary portrait and identity-icon production art', () => {
         grays.set(id, createHash('sha256').update(gray).digest('hex'));
       }
       expect(rgba.size).toBe(ids.length);
-      expect(new Set(silhouettes.values()).size).toBe(ids.length);
+      // Portraits retain transparent actor silhouettes. The illustrated icon
+      // family deliberately uses full-bleed active/passive plates, so alpha is
+      // not an identity signal there; the rendered grayscale frame is.
+      if (frameWidth !== 96) expect(new Set(silhouettes.values()).size).toBe(ids.length);
       expect(new Set(grays.values()).size).toBe(ids.length);
+    }
+  });
+
+  it('lets active ability symbols own the frame instead of nesting a badge inside the HUD button', () => {
+    const atlas = JSON.parse(readFileSync('public/assets/characters/identity/mercenary-identity-icons-atlas.json', 'utf8')) as { frames: Record<string, { frame: { x: number; y: number } }> };
+    const decoded = decodeUnfilteredRgbaPng('public/assets/characters/identity/mercenary-identity-icons-atlas.png');
+    for (const id of ABILITY_ICON_IDS) {
+      const frame = atlas.frames[id]!.frame;
+      const pixels = crop(decoded.pixels, decoded.width, frame.x, frame.y, 96, 96);
+      let opaque = 0;
+      for (let offset = 3; offset < pixels.length; offset += 4) if (pixels[offset]! > 0) opaque += 1;
+      const coverage = opaque / (96 * 96);
+      expect(coverage, `${id} should be a large transparent symbol, not a full-frame badge`).toBeGreaterThan(0.28);
+      expect(coverage, `${id} should leave the button chrome visible`).toBeLessThan(0.7);
+      for (let x = 0; x < 96; x += 1) {
+        expect(pixels[x * 4 + 3], `${id} must clear the top edge`).toBe(0);
+        expect(pixels[((95 * 96 + x) * 4) + 3], `${id} must clear the bottom edge`).toBe(0);
+      }
+      for (let y = 0; y < 96; y += 1) {
+        expect(pixels[(y * 96) * 4 + 3], `${id} must clear the left edge`).toBe(0);
+        expect(pixels[(y * 96 + 95) * 4 + 3], `${id} must clear the right edge`).toBe(0);
+      }
+    }
+  });
+
+  it('isolates each approved Mercenary subject without neighbouring board fragments', () => {
+    const decoded = decodeUnfilteredRgbaPng('public/assets/characters/identity/mercenary-portraits-atlas.png');
+    for (let index = 0; index < CHARACTER_IDS.length; index += 1) {
+      const pixels = crop(decoded.pixels, decoded.width, index * 150, 0, 150, 240);
+      const components = visibleComponentSizes(pixels, 150, 240);
+      expect(components[0], `${CHARACTER_IDS[index]} needs one substantial actor silhouette`).toBeGreaterThan(7_000);
+      expect(components[1] ?? 0, `${CHARACTER_IDS[index]} contains a neighbouring board fragment`).toBeLessThan(500);
+      for (let x = 0; x < 150; x += 1) {
+        expect(pixels[x * 4 + 3], `${CHARACTER_IDS[index]} must clear the top edge`).toBe(0);
+        expect(pixels[((239 * 150 + x) * 4) + 3], `${CHARACTER_IDS[index]} must clear the bottom edge`).toBe(0);
+      }
+      for (let y = 0; y < 240; y += 1) {
+        expect(pixels[(y * 150) * 4 + 3], `${CHARACTER_IDS[index]} must clear the left edge`).toBe(0);
+        expect(pixels[(y * 150 + 149) * 4 + 3], `${CHARACTER_IDS[index]} must clear the right edge`).toBe(0);
+      }
     }
   });
 

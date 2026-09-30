@@ -80,7 +80,7 @@ export class ProgressionOverviewController {
           ? `${describeProgressionCondition(nextStage.unlock as unknown as ProgressionCondition, context.data)}.`
           : `Complete this Contract to advance in ${chapterName(nextStage.chapterId)}.`,
         priority: 1,
-        artId: stageArtId(nextStage, context),
+        artId: stageArtId(nextStage),
       });
     }
 
@@ -94,7 +94,7 @@ export class ProgressionOverviewController {
         title: `Defeat the ${bossStage.name} boss`,
         detail: 'Boss milestones grant substantially better rewards and unlocks.',
         priority: 2,
-        artId: bossStage.bossId ? `enemy:${bossStage.bossId}` : stageArtId(bossStage, context),
+        artId: bossStage.bossId ? `enemy:${bossStage.bossId}` : stageArtId(bossStage),
       });
     }
 
@@ -178,8 +178,8 @@ function describeCharacterCondition(condition: import('../gameplay/conditionEval
   }
 }
 
-function stageArtId(stage: ReturnType<GameContext['stages']['allStages']>[number], context: GameContext): string {
-  return context.arenas.arenaById(stage.arenaId)?.visual.floorArtIds[0] ?? 'upgrade-icon:extra-scrap';
+function stageArtId(stage: ReturnType<GameContext['stages']['allStages']>[number]): string {
+  return `objective-icon:${stage.objective.type}`;
 }
 
 function chapterName(chapterId: string): string {

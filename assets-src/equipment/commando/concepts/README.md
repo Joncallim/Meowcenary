@@ -53,7 +53,11 @@ SHA-256:
 
 ## Production boundary
 
-The selected family must be rebuilt as dedicated 32×32 editable sources and
-deterministic exports. Generated pixels are not copied straight into
-`public/assets`; logical bindings will change only with complete source,
-builder, export, manifest, validation, and runtime-scale review.
+The selected family is imported into dedicated 96×96 editable sources and
+deterministic exports, leaving enough transparent gutter for live cards. The
+stable logical bindings remain unchanged and the importer validates selected
+concept, Pixelorama source and runtime export together.
+
+The later runtime cutover targets a 44–60 px live-card presentation from those
+96×96 source frames. That display target is an integration decision; it does
+not rewrite the original generation prompt above.

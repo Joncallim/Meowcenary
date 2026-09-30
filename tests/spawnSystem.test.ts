@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRunState, type RunStatus } from '../src/gameplay/runState';
+import { DataVisualArtRegistry } from '../src/systems/visualArt';
 import { loadGameData } from '../src/systems/validation';
 
 class SpawnBody {
@@ -74,6 +75,28 @@ class SpawnArc {
   }
 }
 
+class SpawnSprite {
+  active = true;
+
+  constructor(
+    public x: number,
+    public y: number,
+  ) {}
+
+  setDepth(): this { return this; }
+  setOrigin(): this { return this; }
+  setScale(): this { return this; }
+  setPosition(x: number, y: number): this { this.x = x; this.y = y; return this; }
+  setFlipX(): this { return this; }
+  setAlpha(): this { return this; }
+  setTint(): this { return this; }
+  clearTint(): this { return this; }
+  play(): this { return this; }
+  on(): this { return this; }
+  off(): this { return this; }
+  destroy(): void { this.active = false; }
+}
+
 vi.mock('phaser', () => ({ default: {} }));
 
 interface HarnessOptions {
@@ -82,6 +105,7 @@ interface HarnessOptions {
   arena?: Record<string, unknown>;
   curve?: Record<string, unknown>;
   visualArt?: unknown;
+  mutateData?: (data: ReturnType<typeof loadGameData>) => void;
 }
 
 async function createHarness(options: HarnessOptions = {}) {
@@ -89,7 +113,8 @@ async function createHarness(options: HarnessOptions = {}) {
   const runState = createRunState({ seed: 1, characterId: 'starter', arenaId: 'arena' });
   runState.status = options.status ?? 'active';
   const bus = createEventBus();
-  const data = loadGameData();
+  const data = structuredClone(loadGameData());
+  options.mutateData?.(data);
   const enemies = options.enemies ?? [];
   const enemyGroup = { add: vi.fn() };
   const player = {
@@ -102,7 +127,12 @@ async function createHarness(options: HarnessOptions = {}) {
   const overlaps: Array<(playerObject: unknown, enemyObject: unknown) => void> = [];
   const scene = {
     scale: { width: 800, height: 600 },
-    add: { circle: (x: number, y: number) => new SpawnArc(x, y) },
+    add: {
+      circle: (x: number, y: number) => new SpawnArc(x, y),
+      sprite: (x: number, y: number) => new SpawnSprite(x, y),
+    },
+    textures: { exists: () => true },
+    anims: { exists: () => true },
     physics: {
       add: {
         existing: () => undefined,
@@ -229,6 +259,43 @@ describe('SpawnSystem', () => {
       x: enemy.pos.x,
       y: enemy.pos.y,
     });
+  });
+
+  it('keeps a supplied production art registry fail-closed when it cannot resolve an actor', async () => {
+    const harness = await createHarness({
+      visualArt: { bindingById: () => undefined },
+    });
+
+    expect(() => harness.system.update(1_600))
+      .toThrow(/Required actor presentation is unavailable: binding is missing/);
+  });
+
+  it('renders a data-authored elite through its authoritative base actor binding', async () => {
+    const data = loadGameData();
+    const art = new DataVisualArtRegistry(data);
+    const bindingById = vi.spyOn(art, 'bindingById');
+    const harness = await createHarness({
+      curve: {
+        id: 'elite-curve', durationSeconds: 360,
+        scaling: { healthPerMinute: 0.18, damagePerMinute: 0.10 },
+        waves: [{ startSecond: 0, enemyId: 'elite-dust-mite', spawnEveryMs: 1600, maxAlive: 1 }],
+      },
+      mutateData: (gameData) => {
+        gameData.enemies.push({
+          id: 'elite-dust-mite',
+          name: 'Elite Dust Mite',
+          archetype: 'elite',
+          baseEnemyId: 'dust-mite',
+        });
+      },
+      visualArt: art,
+    });
+
+    expect(() => harness.system.update(1_600)).not.toThrow();
+    expect(bindingById).toHaveBeenCalledWith('enemy:dust-mite');
+    expect(bindingById).not.toHaveBeenCalledWith('enemy:elite-dust-mite');
+    expect(harness.enemies).toHaveLength(1);
+    expect((harness.enemies[0] as { defId: string }).defId).toBe('elite-dust-mite');
   });
 
   it('builds one frozen environment and reuses its identity for every spawned enemy', async () => {

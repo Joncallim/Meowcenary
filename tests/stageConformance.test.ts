@@ -118,6 +118,23 @@ describe('Epic 20 stage catalog conformance', () => {
     }
   });
 
+  it('requires every Stage to own a resolvable required chapter icon', () => {
+    const data = structuredClone(loadGameData());
+    const missing = { ...data.stages![0], chapterIconArtId: 'chapter-icon:missing' };
+    const errors = collectGameDataErrors({ ...data, stages: [missing, ...data.stages!.slice(1)] });
+    expect(errors).toContainEqual(expect.objectContaining({
+      message: `stage.${missing.id}: unknown required chapter icon "chapter-icon:missing"`,
+    }));
+
+    const malformed = { ...data.stages![0] } as Record<string, unknown>;
+    delete malformed.chapterIconArtId;
+    expect(collectGameDataErrors({ ...data, stages: [malformed, ...data.stages!.slice(1)] }))
+      .toContainEqual(expect.objectContaining({
+        file: 'stages.json', index: 0, field: 'chapterIconArtId',
+        message: 'must be a valid chapter icon art ID',
+      }));
+  });
+
   it('resolves every encounter profile against real enemy definitions', () => {
     const data = loadGameData();
     const enemies = new DataEnemyRegistry(data);
@@ -239,6 +256,7 @@ describe('Epic 20 stage catalog conformance', () => {
       id: `stage:proof-${String(index + 11).padStart(2, '0')}`,
       name: `Proof Contract ${index + 11}`,
       chapterId: 'chapter:proof',
+      chapterIconArtId: 'chapter-icon:junkyard',
       displayOrder: index + 1,
       arenaId: stages[0].arenaId,
       assetBundleId: stages[0].assetBundleId,

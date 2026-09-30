@@ -20,8 +20,8 @@ describe('Epic 19 Slice 5 gamepad lifecycle soak', () => {
     h.context.bus.on('ui:navigate', () => { navigations += 1; });
     h.context.bus.on('ui:confirm', () => { confirms += 1; });
     h.context.bus.on('ui:back', () => { backs += 1; });
-    // V4 home has seven destinations (Play Contract, Mercenary, two Loadout
-    // surfaces, Career, Training, Settings); the ringed rect is the background + row index, so the
+    // V4 home has seven destinations in a mixed full-width/two-column layout;
+    // the ringed rect is the background + focus index, so the
     // ringed target index is exactly 1 + the navigator row. Switch the
     // presentation to gamepad first (pointer mode shows the ring only on
     // hover), then return to row 0.
@@ -33,8 +33,8 @@ describe('Epic 19 Slice 5 gamepad lifecycle soak', () => {
     expect(h.ringedTargetIndex()).toBe(1 + menuRow);
 
     for (let cycle = 0; cycle < 128; cycle += 1) {
-      // navDown (13) and navRight (15) both advance the linear navigator +1.
-      const direction = sequence.nextBoolean() ? 13 : 15;
+      // Seeded vertical movement always has a spatial destination.
+      const direction = sequence.nextBoolean() ? 13 : 12;
       const navBefore = navigations;
       const commands = h.sceneCommands();
 
@@ -45,7 +45,10 @@ describe('Epic 19 Slice 5 gamepad lifecycle soak', () => {
       expect(navigations).toBe(navBefore + 1);
       expect(confirms).toBe(0);
       expect(backs).toBe(0);
-      menuRow = (menuRow + 1) % 7;
+      const vertical = direction === 13
+        ? [1, 2, 4, 5, 6, 6, 0]
+        : [6, 0, 1, 1, 2, 3, 4];
+      menuRow = vertical[menuRow]!;
       expect(h.focusRingCount()).toBe(1);
       expect(h.ringedTargetIndex()).toBe(1 + menuRow);
       const recordedRing = h.ringedTargetIndex();
@@ -95,7 +98,7 @@ describe('Epic 19 Slice 5 gamepad lifecycle soak', () => {
       expect(confirms).toBe(0);
       expect(backs).toBe(0);
       expect(h.focusRingCount()).toBe(1);
-      menuRow = (menuRow + 1) % 7;
+      menuRow = vertical[menuRow]!;
       expect(h.ringedTargetIndex()).toBe(1 + menuRow);
       expect(h.sceneCommands()).toEqual(commands);
     }

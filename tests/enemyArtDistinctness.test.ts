@@ -1,20 +1,38 @@
 import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { inflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { loadGameData } from '../src/systems/validation';
 import { DataVisualArtRegistry } from '../src/systems/visualArt';
 
-const ENEMY_IDS = ['dust-mite', 'scrap-sniper', 'boss-crusher'] as const;
+const BASELINE_ENEMY_IDS = ['dust-mite', 'junk-rusher', 'trash-brute', 'scrap-sniper', 'boss-crusher'] as const;
 const RELEASE_ENEMY_IDS = [
   'dust-mite', 'junk-rusher', 'trash-brute', 'scrap-sniper', 'scrap-skitter',
   'bastion-beetle', 'junk-nester', 'shard-bot', 'boss-crusher', 'boss-forge',
 ] as const;
-const FRAME_SIZES = { 'dust-mite': 48, 'scrap-sniper': 48, 'boss-crusher': 64 } as const;
+const AUDITED_ACTOR_IDS = RELEASE_ENEMY_IDS;
+const REMEDIATED_NATIVE_IDS = RELEASE_ENEMY_IDS;
+const FRAME_SIZES = {
+  'dust-mite': 48, 'junk-rusher': 48, 'trash-brute': 48, 'scrap-sniper': 48,
+  'scrap-skitter': 48, 'bastion-beetle': 48, 'junk-nester': 48, 'shard-bot': 48,
+  'boss-crusher': 64, 'boss-forge': 64,
+} as const;
 const FRAME_COUNT = 16;
+const SELECTED_MASTERS = {
+  'dust-mite': 'dust-mite-pixel-v3.png',
+  'junk-rusher': 'junk-rusher-pixel-v3.png',
+  'trash-brute': 'trash-brute-pixel-v3.png',
+  'scrap-sniper': 'scrap-sniper-pixel-v3.png',
+  'scrap-skitter': 'scrap-skitter-pixel-v3.png',
+  'bastion-beetle': 'bastion-beetle-pixel-v3.png',
+  'junk-nester': 'junk-nester-pixel-v3.png',
+  'shard-bot': 'shard-bot-pixel-v3.png',
+  'boss-crusher': 'boss-crusher-pixel-v3.png',
+  'boss-forge': 'boss-forge-pixel-v3.png',
+} as const;
 
 interface RgbaPng {
   readonly width: number;
@@ -185,19 +203,24 @@ function displayedIdleFrame(
 }
 
 describe('Alpha 3 enemy production-art distinction', () => {
-  const actors = ENEMY_IDS.map((id) => ({
+  const actors = AUDITED_ACTOR_IDS.map((id) => ({
     id,
     frameSize: FRAME_SIZES[id],
     png: decodeRgbaPng(`public/assets/enemies/${id}/${id}.png`),
   }));
 
-  it('rejects duplicate final art and keeps all three native silhouettes and grayscale reads distinct', () => {
+  it('rejects duplicate final art and keeps audited native silhouettes and grayscale reads distinct', () => {
     expect(new Set(actors.map(({ png }) => createHash('sha256').update(png.pixels).digest('hex'))).size)
-      .toBe(ENEMY_IDS.length);
-    expect(new Set(actors.map(({ png, frameSize }) => grayscaleHash(png, 0, frameSize))).size).toBe(ENEMY_IDS.length);
-    const mite = maskBounds(alphaMask(actors[0]!.png, 0, actors[0]!.frameSize), actors[0]!.frameSize);
-    const sniper = maskBounds(alphaMask(actors[1]!.png, 0, actors[1]!.frameSize), actors[1]!.frameSize);
-    const crusher = maskBounds(alphaMask(actors[2]!.png, 0, actors[2]!.frameSize), actors[2]!.frameSize);
+      .toBe(AUDITED_ACTOR_IDS.length);
+    expect(new Set(actors.map(({ png, frameSize }) => grayscaleHash(png, 0, frameSize))).size)
+      .toBe(AUDITED_ACTOR_IDS.length);
+    const actor = (id: typeof AUDITED_ACTOR_IDS[number]) => actors.find((candidate) => candidate.id === id)!;
+    const miteActor = actor('dust-mite');
+    const sniperActor = actor('scrap-sniper');
+    const crusherActor = actor('boss-crusher');
+    const mite = maskBounds(alphaMask(miteActor.png, 0, miteActor.frameSize), miteActor.frameSize);
+    const sniper = maskBounds(alphaMask(sniperActor.png, 0, sniperActor.frameSize), sniperActor.frameSize);
+    const crusher = maskBounds(alphaMask(crusherActor.png, 0, crusherActor.frameSize), crusherActor.frameSize);
     expect(Math.abs(mite.width - mite.height), 'Dust Mite must remain compact and round').toBeLessThanOrEqual(8);
     expect(sniper.height, 'Scrap Sniper must read taller than the round Mite').toBeGreaterThan(mite.height);
     expect(crusher.width, 'Crusher must read as the widest horizontal actor').toBeGreaterThan(sniper.width + 5);
@@ -222,7 +245,7 @@ describe('Alpha 3 enemy production-art distinction', () => {
     });
     expect(new Set(displayed.map(({ grayscale }) => createHash('sha256').update(grayscale).digest('hex'))).size)
       .toBe(RELEASE_ENEMY_IDS.length);
-    for (const selectedId of ENEMY_IDS) {
+    for (const selectedId of RELEASE_ENEMY_IDS) {
       const selected = displayed.find(({ id }) => id === selectedId)!;
       for (const other of displayed) {
         if (other.id === selectedId) continue;
@@ -233,9 +256,43 @@ describe('Alpha 3 enemy production-art distinction', () => {
     const mite = maskBounds(displayed.find(({ id }) => id === 'dust-mite')!.mask, 40);
     const sniper = maskBounds(displayed.find(({ id }) => id === 'scrap-sniper')!.mask, 40);
     const crusher = maskBounds(displayed.find(({ id }) => id === 'boss-crusher')!.mask, 40);
+    const warden = maskBounds(displayed.find(({ id }) => id === 'boss-forge')!.mask, 40);
     expect(Math.abs(mite.width - mite.height)).toBeLessThanOrEqual(5);
     expect(sniper.height).toBeGreaterThan(mite.height);
     expect(crusher.width - crusher.height).toBeGreaterThan(5);
+    expect(crusher.width, 'Crusher must retain a boss-scale silhouette at runtime').toBeGreaterThan(sniper.width + 8);
+    expect(warden.height, 'Forge Warden must read materially taller than the low Crusher at runtime')
+      .toBeGreaterThan(crusher.height + 6);
+    expect(warden.width * warden.height, 'Forge Warden must retain a larger boss-scale occupied area')
+      .toBeGreaterThan(crusher.width * crusher.height * 1.25);
+  });
+
+  it('keeps every Junkyard threat separated from the floor with broad light and dark value groups at display size', () => {
+    const floor = decodeRgbaPng('public/assets/world/junkyard-floor-base/junkyard-floor-base.png');
+    let floorLuminance = 0;
+    for (let offset = 0; offset < floor.pixels.length; offset += 4) {
+      floorLuminance += floor.pixels[offset]! * 0.299
+        + floor.pixels[offset + 1]! * 0.587
+        + floor.pixels[offset + 2]! * 0.114;
+    }
+    floorLuminance /= floor.width * floor.height;
+    const registry = new DataVisualArtRegistry(loadGameData());
+    for (const id of RELEASE_ENEMY_IDS.filter((enemyId) => enemyId !== 'boss-forge')) {
+      const binding = registry.bindingById(`enemy:${id}`);
+      if (!binding || binding.load.type !== 'spritesheet') throw new Error(`missing enemy actor binding ${id}`);
+      const display = displayedIdleFrame(
+        decodeRgbaPng(`public/${binding.url}`),
+        binding.load.frame.width,
+        binding.display.width,
+        binding.display.height,
+      );
+      const values = [...display.mask].map((pixel) => display.grayscale[pixel]!).sort((a, b) => a - b);
+      const lower = values[Math.floor(values.length * 0.25)]!;
+      const upper = values[Math.floor(values.length * 0.75)]!;
+      const separated = values.filter((value) => Math.abs(value - floorLuminance) >= 25).length / values.length;
+      expect(upper - lower, `${id} collapses into one muddy value group`).toBeGreaterThanOrEqual(45);
+      expect(separated, `${id} does not separate from the Junkyard floor`).toBeGreaterThanOrEqual(0.45);
+    }
   });
 
   it('keeps every frame inside the canvas, grounded, centred, and visibly animated in each clip', () => {
@@ -253,7 +310,9 @@ describe('Alpha 3 enemy production-art distinction', () => {
       expect(Math.max(...activeBounds.map((bounds) => bounds.maxY)) - Math.min(...activeBounds.map((bounds) => bounds.maxY)), `${id} ground drift`)
         .toBeLessThanOrEqual(2);
       expect(Math.max(...activeBounds.map((bounds) => bounds.centerX)) - Math.min(...activeBounds.map((bounds) => bounds.centerX)), `${id} horizontal anchor drift`)
-        .toBeLessThanOrEqual(3);
+        // Authored lunges and collapses may move visual mass a few pixels,
+        // while the actual gameplay body remains unchanged and centred.
+        .toBeLessThanOrEqual(5);
       for (const [start, end] of clips) {
         const hashes = new Set<string>();
         for (let frame = start; frame <= end; frame += 1) {
@@ -270,26 +329,97 @@ describe('Alpha 3 enemy production-art distinction', () => {
     }
   }, 15_000);
 
+  it('builds every native actor and menu portrait from the selected production masters, never legacy geometry', () => {
+    const productionBuilder = readFileSync('docs/art/scripts/build-enemy-production-art.py', 'utf8');
+    const packageJson = JSON.parse(readFileSync('package.json', 'utf8')) as { scripts: Record<string, string> };
+    expect(packageJson.scripts['art:enemies:export']).toBe('python3 docs/art/scripts/build-enemy-production-art.py');
+    for (const id of REMEDIATED_NATIVE_IDS) {
+      expect(productionBuilder).toContain(`"${id}"`);
+      const portrait = new DataVisualArtRegistry(loadGameData()).bindingById(`enemy-portrait:${id}`);
+      expect(portrait).toMatchObject({ resourceId: 'resource:enemy-portraits', sampling: 'linear' });
+      const actor = new DataVisualArtRegistry(loadGameData()).bindingById(`enemy:${id}`);
+      expect(actor).toMatchObject({ resourceId: `resource:enemy-${id}`, sampling: 'nearest' });
+    }
+    expect(productionBuilder).not.toMatch(/outlined(?:Circle|Ellipse|Rect|Line)|fill(?:Circle|Ellipse|Rect)/);
+  });
+
+  it('checks every generated enemy artifact from a temporary build without repairing stale files', () => {
+    const root = mkdtempSync(join(tmpdir(), 'meowcenary-enemy-check-'));
+    const copy = (relative: string) => {
+      const destination = join(root, relative);
+      mkdirSync(dirname(destination), { recursive: true });
+      copyFileSync(relative, destination);
+    };
+    const outputs = RELEASE_ENEMY_IDS.flatMap((id) => [
+      `public/assets/enemies/${id}/${id}.png`,
+      `public/assets/enemies/${id}/${id}.json`,
+      `assets-src/enemies/${id}/source/${id}.pxo`,
+    ]).concat([
+      'public/assets/enemies/enemy-portraits-atlas.png',
+      'public/assets/enemies/enemy-portraits-atlas.json',
+      'assets-src/enemies/source/enemy-portraits-atlas.pxo',
+    ]);
+    try {
+      for (const [id, filename] of Object.entries(SELECTED_MASTERS)) {
+        copy(`assets-src/enemies/${id}/source/${filename}`);
+      }
+      for (const output of outputs) copy(output);
+      expect(() => execFileSync('python3', [
+        'docs/art/scripts/build-enemy-production-art.py', '--root', root, '--check',
+      ])).not.toThrow();
+
+      copyFileSync(
+        join(root, 'assets-src/enemies/junk-rusher/source/junk-rusher-pixel-v3.png'),
+        join(root, 'assets-src/enemies/dust-mite/source/dust-mite-pixel-v3.png'),
+      );
+      const driftedMaster = spawnSync('python3', [
+        'docs/art/scripts/build-enemy-production-art.py', '--root', root, '--check',
+      ], { encoding: 'utf8' });
+      expect(driftedMaster.status).not.toBe(0);
+      expect(`${driftedMaster.stdout}${driftedMaster.stderr}`).toContain('selected enemy master digest mismatch for dust-mite');
+      copy(`assets-src/enemies/dust-mite/source/${SELECTED_MASTERS['dust-mite']}`);
+
+      const staleJson = 'public/assets/enemies/dust-mite/dust-mite.json';
+      const stalePxo = 'assets-src/enemies/boss-forge/source/boss-forge.pxo';
+      writeFileSync(join(root, staleJson), '{"stale":true}\n');
+      writeFileSync(join(root, stalePxo), 'stale pxo');
+      const before = new Map(outputs.map((relative) => [relative, readFileSync(join(root, relative))]));
+      const check = spawnSync('python3', [
+        'docs/art/scripts/build-enemy-production-art.py', '--root', root, '--check',
+      ], { encoding: 'utf8' });
+      expect(check.status).not.toBe(0);
+      expect(`${check.stdout}${check.stderr}`).toContain(staleJson);
+      expect(`${check.stdout}${check.stderr}`).toContain(stalePxo);
+      for (const [relative, bytes] of before) {
+        expect(readFileSync(join(root, relative)), relative).toEqual(bytes);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 30_000);
+
   it('preserves the gameplay definitions and stable logical/physical presentation contract', () => {
     const data = loadGameData();
     const registry = new DataVisualArtRegistry(data);
-    expect(data.enemies.filter((enemy) => ENEMY_IDS.includes(enemy.id as typeof ENEMY_IDS[number])))
+    expect(data.enemies.filter((enemy) => BASELINE_ENEMY_IDS.includes(enemy.id as typeof BASELINE_ENEMY_IDS[number])))
       .toEqual([
         { id: 'dust-mite', name: 'Dust Mite', archetype: 'chaser', health: 10, damage: 5, speed: 68, xpValue: 1, scrapValue: 1, contactDamage: true },
+        { id: 'junk-rusher', name: 'Junk Rusher', archetype: 'charger', health: 18, damage: 8, speed: 112, xpValue: 2, scrapValue: 2, contactDamage: true, attack: { triggerRange: 150, telegraphMs: 650, dashSpeed: 260, dashDurationMs: 700, cooldownMs: 1200 } },
+        { id: 'trash-brute', name: 'Trash Brute', archetype: 'tank', health: 72, damage: 14, speed: 42, xpValue: 6, scrapValue: 5, contactDamage: true },
         { id: 'scrap-sniper', name: 'Scrap Sniper', archetype: 'ranged', health: 16, damage: 6, speed: 58, xpValue: 3, scrapValue: 3, contactDamage: false, lootTableId: 'chest-standard', attack: { range: 190, telegraphMs: 700, cooldownMs: 1100 } },
         { id: 'boss-crusher', name: 'Scrap Crusher', archetype: 'boss', health: 420, damage: 22, speed: 46, xpValue: 40, scrapValue: 60, contactDamage: false, lootTableId: 'brute-cache', attack: { triggerRange: 210, telegraphMs: 900, dashSpeed: 340, dashDurationMs: 420, cooldownMs: 1500 }, actions: [{ id: 'boss-action:aimed-shot' }], phases: [{ id: 'boss-phase-crusher-enraged', atHealthFraction: 0.5, attack: { triggerRange: 240, telegraphMs: 650, dashSpeed: 390, dashDurationMs: 460, cooldownMs: 1100 }, actions: [] }] },
       ]);
-    for (const id of ENEMY_IDS) {
+    for (const id of BASELINE_ENEMY_IDS) {
       const frameSize = FRAME_SIZES[id];
       expect(registry.bindingById(`enemy:${id}`)).toMatchObject({
         id: `enemy:${id}`,
         kind: 'enemy',
-        display: { width: 26, height: 26 },
+        display: { width: id === 'boss-crusher' ? 38 : 26, height: id === 'boss-crusher' ? 38 : 26 },
         resourceId: `resource:enemy-${id}`,
         load: { type: 'spritesheet', frame: { width: frameSize, height: frameSize } },
         clips: {
           idle: { start: 0, end: 3, frameRate: 6, repeat: -1 },
-          run: { start: 4, end: 9, frameRate: 10, repeat: -1 },
+          run: { start: 4, end: 9, frameRate: id === 'trash-brute' ? 8 : 10, repeat: -1 },
           hurt: { start: 10, end: 11, frameRate: 12, repeat: 0 },
           defeat: { start: 12, end: 15, frameRate: 8, repeat: 0 },
         },

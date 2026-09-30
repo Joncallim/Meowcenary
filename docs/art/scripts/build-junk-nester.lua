@@ -1,2 +1,2 @@
--- Deterministically imports the checked-in ImageGen source sheet into the native Pixelorama project.
-os.execute("node docs/art/scripts/import-imagegen-enemy-sheet.mjs junk-nester assets-src/enemies/junk-nester/source/junk-nester-imagegen.png")
+local N = dofile("docs/art/scripts/lib/native-raster-actor.lua")
+N.build({ id="junk-nester", raster="assets-src/enemies/junk-nester/source/junk-nester-native-raster.lua", output="assets-src/enemies/junk-nester/source/junk-nester.pxo" })

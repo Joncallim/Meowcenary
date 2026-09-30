@@ -5,6 +5,7 @@ import type { ProgressionCondition } from '../gameplay/conditionEvaluator';
 import type { ProgressionGrant } from '../gameplay/grantProcessor';
 import type { GameData } from '../systems/types';
 import type { DataVisualArtRegistry } from '../systems/visualArt';
+import { resolveEnemyActorBinding } from '../systems/visualArt';
 
 export function describeProgressionCondition(condition: ProgressionCondition, data: GameData): string {
   switch (condition.type) {
@@ -93,9 +94,21 @@ export function resolveEnemyActorArtId(
   data: GameData,
   visualArt: DataVisualArtRegistry,
 ): string | undefined {
-  const enemy = data.enemies.find((row) => row.id === enemyId);
-  const actorEnemyId = enemy?.archetype === 'elite' ? enemy.baseEnemyId : enemyId;
-  return visualArt.bindingById(`enemy:${actorEnemyId}`)?.id;
+  return resolveEnemyActorBinding(enemyId, data, visualArt)?.id;
+}
+
+/** Menus use the production portrait derived from the same approved actor
+ * source. Elite aliases inherit the base enemy portrait just as they inherit
+ * the base gameplay actor. */
+export function resolveEnemyPortraitArtId(
+  enemyId: string,
+  data: GameData,
+  visualArt: DataVisualArtRegistry,
+): string | undefined {
+  const actor = resolveEnemyActorBinding(enemyId, data, visualArt);
+  if (!actor) return undefined;
+  const portraitId = actor.id.replace(/^enemy:/, 'enemy-portrait:');
+  return visualArt.bindingById(portraitId)?.id ?? actor.id;
 }
 
 function catalogName(rows: readonly { readonly id: string; readonly name: string }[] | undefined, id: string, fallback: string): string {

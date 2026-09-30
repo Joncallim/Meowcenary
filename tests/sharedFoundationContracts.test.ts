@@ -112,6 +112,7 @@ describe('Alpha 3 shared foundation canonical contracts', () => {
       id: 'stage:contract-fixture',
       name: 'Contract Fixture',
       chapterId: 'chapter:junkyard',
+      chapterIconArtId: 'chapter-icon:junkyard',
       displayOrder: 99,
       arenaId: stages[0].arenaId,
       assetBundleId: stages[0].assetBundleId,

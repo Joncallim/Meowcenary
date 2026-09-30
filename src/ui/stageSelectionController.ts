@@ -10,12 +10,13 @@ import { evaluateCondition } from '../gameplay/conditionEvaluator';
 import { createConditionContext } from '../gameplay/conditionEvaluator';
 import type { ProgressionCondition } from '../gameplay/conditionEvaluator';
 import { DataVisualArtRegistry } from '../systems/visualArt';
-import { describeCollectible, describeProgressionCondition, describeProgressionGrant, resolveEnemyActorArtId } from './progressionPresentation';
+import { describeCollectible, describeProgressionCondition, describeProgressionGrant, resolveEnemyPortraitArtId } from './progressionPresentation';
 
 export interface StageOptionView {
   readonly id: string;
   readonly name: string;
   readonly chapterId: string;
+  readonly chapterIconArtId: string;
   readonly displayOrder: number;
   readonly locked: boolean;
   readonly selected: boolean;
@@ -24,6 +25,7 @@ export interface StageOptionView {
   readonly chapterName: string;
   readonly locationName: string;
   readonly locationArtId: string;
+  readonly menuBackdropArtId: string;
   readonly objective: { readonly kind: string; readonly copy: string; readonly artId: string };
   readonly threats: readonly { readonly enemyId: string; readonly name: string; readonly actorArtId: string }[];
   readonly reward: { readonly firstClearScrap: number; readonly headline: string };
@@ -125,6 +127,30 @@ export class StageSelectionController {
     return this.nextUnlocked(this.snapshot()) !== undefined;
   }
 
+  /**
+   * Resolves the Contract reached after a terminal clear. First clears may
+   * already advance the context-owned selection before Results renders; in
+   * that case the selected frontier is the continuation and must not be
+   * skipped by another `selectNext()` call.
+   */
+  continuationAfter(completedStageId: string): StageOptionView | undefined {
+    const snapshot = this.snapshot();
+    const selected = snapshot.stages.find((stage) => stage.id === snapshot.selectedStageId);
+    if (selected && selected.id !== completedStageId && !selected.locked && !selected.completed) {
+      return selected;
+    }
+    const completedIndex = snapshot.stages.findIndex((stage) => stage.id === completedStageId);
+    if (completedIndex < 0) return undefined;
+    return snapshot.stages.slice(completedIndex + 1).find((stage) => !stage.locked && !stage.completed);
+  }
+
+  selectContinuationAfter(completedStageId: string): { readonly ok: boolean; readonly snapshot: StageSelectionSnapshot } {
+    const continuation = this.continuationAfter(completedStageId);
+    if (!continuation) return { ok: false, snapshot: this.snapshot() };
+    if (continuation.id === this.context.selectedStageId) return { ok: true, snapshot: this.snapshot() };
+    return this.select(continuation.id);
+  }
+
   /** Select the previous unlocked stage before the current one. */
   selectPrevious(): { readonly ok: boolean; readonly snapshot: StageSelectionSnapshot } {
     const snap = this.snapshot();
@@ -181,18 +207,19 @@ export class StageSelectionController {
     const threatIds = [...(encounter?.enemyIds ?? []), ...(encounter?.bossId ? [encounter.bossId] : [])];
     const threats = [...new Set(threatIds)].flatMap((enemyId) => {
       const enemy = this.context.data.enemies.find((row) => row.id === enemyId);
-      const actorArtId = resolveEnemyActorArtId(enemyId, this.context.data, this.visualArt);
+      const actorArtId = resolveEnemyPortraitArtId(enemyId, this.context.data, this.visualArt);
       return enemy && actorArtId ? [{ enemyId, name: enemy.name, actorArtId }] : [];
     });
     const firstClearScrap = reward?.firstClearScrap ?? 0;
     const grantNames = (reward?.grants ?? []).map((grant) => describeProgressionGrant(grant, this.context.data));
     const bestTimeMs = this.context.saveData.stages[stage.id]?.bestTimeMs;
     return Object.freeze({
-      id: stage.id, name: stage.name, chapterId: stage.chapterId,
+      id: stage.id, name: stage.name, chapterId: stage.chapterId, chapterIconArtId: stage.chapterIconArtId,
       chapterName: chapterName(stage.chapterId), displayOrder: stage.displayOrder,
       locked, selected, completed, ...(bestTimeMs === undefined ? {} : { bestTimeMs }),
       locationName: arena?.name ?? 'Unknown location',
       locationArtId: arena?.visual.floorArtIds[0] ?? '',
+      menuBackdropArtId: arena?.visual.menuBackdropArtId ?? 'brand:menu-backdrop',
       objective: objectivePresentation(stage.objective, this.context, this.visualArt),
       threats: Object.freeze(threats),
       reward: Object.freeze({
@@ -215,16 +242,17 @@ function objectivePresentation(
   context: GameContext,
   visualArt: DataVisualArtRegistry,
 ): StageOptionView['objective'] {
+  const artId = `objective-icon:${objective.type}`;
   switch (objective.type) {
-    case 'kill': return Object.freeze({ kind: 'kill', copy: objective.enemyTag ? `Eliminate ${objective.count} ${objective.enemyTag} threats` : `Eliminate ${objective.count} threats`, artId: 'upgrade-icon:heavy-rounds' });
+    case 'kill': return Object.freeze({ kind: 'kill', copy: objective.enemyTag ? `Eliminate ${objective.count} ${objective.enemyTag} threats` : `Eliminate ${objective.count} threats`, artId });
     case 'collect': {
       const item = describeCollectible(objective.itemId, visualArt);
-      return Object.freeze({ kind: 'collect', copy: `Collect ${objective.count} ${item.name}`, artId: item.artId });
+      return Object.freeze({ kind: 'collect', copy: `Collect ${objective.count} ${item.name}`, artId });
     }
-    case 'survive': return Object.freeze({ kind: 'survive', copy: `Survive ${formatDuration(objective.seconds)}`, artId: 'upgrade-icon:quick-paws' });
+    case 'survive': return Object.freeze({ kind: 'survive', copy: `Survive ${formatDuration(objective.seconds)}`, artId });
     case 'defeat': {
       const enemy = context.data.enemies.find((row) => row.id === objective.enemyId);
-      return Object.freeze({ kind: 'defeat', copy: `Defeat ${enemy?.name ?? 'the boss'}`, artId: visualArt.bindingById(`enemy:${objective.enemyId}`)?.id ?? 'upgrade-icon:heavy-rounds' });
+      return Object.freeze({ kind: 'defeat', copy: `Defeat ${enemy?.name ?? 'the boss'}`, artId });
     }
   }
 }

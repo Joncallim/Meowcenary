@@ -1,12 +1,12 @@
 {
   "pixelorama_version": "v1.2-stable",
   "pxo_version": 7,
-  "size_x": 313,
-  "size_y": 313,
+  "size_x": 48,
+  "size_y": 48,
   "color_mode": 5,
   "layers": [
     {
-      "name": "imagegen-import",
+      "name": "selected-production-art",
       "visible": true,
       "locked": false,
       "blend_mode": 0,

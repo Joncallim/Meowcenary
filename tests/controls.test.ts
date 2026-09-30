@@ -350,7 +350,7 @@ describe('ControlsView hints', () => {
     const hint = scene.objects.find((object) => !object.state.destroyed && object.state.text === 'SCRAP BURST — Knock nearby enemies away.')!;
     const pause = scene.objects.find((object) => !object.state.destroyed && object.state.interactive)!;
     // The strip is gone: the hint owns the bottom safe margin above the stick.
-    expect(Number(hint.state.y)).toBeCloseTo(270, 5);
+    expect(Number(hint.state.y)).toBeCloseTo(268, 5);
     expect(Number(pause.state.width)).toBeCloseTo(44, 5);
     expect(Number(pause.state.height)).toBeCloseTo(44, 5);
 

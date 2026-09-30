@@ -1,172 +1,136 @@
 {
-  "color_mode": 5,
-  "current_frame": 0,
-  "current_layer": 0,
   "export_directory_path": "",
-  "export_file_format": 0,
   "export_file_name": "mercenary-identity-icons-atlas",
-  "fps": 8,
+  "size_x": 1536,
+  "size_y": 96,
   "frames": {
     "ability-icon:scrap-burst": {
       "frame": {
         "x": 0,
         "y": 0,
-        "w": 32,
-        "h": 32
+        "w": 96,
+        "h": 96
       }
     },
     "ability-icon:giga-chomp": {
       "frame": {
-        "x": 32,
+        "x": 96,
         "y": 0,
-        "w": 32,
-        "h": 32
+        "w": 96,
+        "h": 96
       }
     },
     "ability-icon:adrenaline": {
       "frame": {
-        "x": 64,
+        "x": 192,
         "y": 0,
-        "w": 32,
-        "h": 32
+        "w": 96,
+        "h": 96
       }
     },
     "ability-icon:shield-flicker": {
       "frame": {
-        "x": 96,
+        "x": 288,
         "y": 0,
-        "w": 32,
-        "h": 32
+        "w": 96,
+        "h": 96
       }
     },
     "ability-icon:heat-vent": {
       "frame": {
-        "x": 128,
+        "x": 384,
         "y": 0,
-        "w": 32,
-        "h": 32
+        "w": 96,
+        "h": 96
       }
     },
     "ability-icon:scavenge-pulse": {
       "frame": {
-        "x": 160,
+        "x": 480,
         "y": 0,
-        "w": 32,
-        "h": 32
+        "w": 96,
+        "h": 96
       }
     },
     "ability-icon:precision-mark": {
       "frame": {
-        "x": 192,
+        "x": 576,
         "y": 0,
-        "w": 32,
-        "h": 32
+        "w": 96,
+        "h": 96
       }
     },
     "ability-icon:overclock": {
       "frame": {
-        "x": 224,
+        "x": 672,
         "y": 0,
-        "w": 32,
-        "h": 32
+        "w": 96,
+        "h": 96
       }
     },
     "passive-icon:scrap-hoarder": {
       "frame": {
-        "x": 256,
+        "x": 768,
         "y": 0,
-        "w": 32,
-        "h": 32
+        "w": 96,
+        "h": 96
       }
     },
     "passive-icon:quick-tail": {
       "frame": {
-        "x": 288,
+        "x": 864,
         "y": 0,
-        "w": 32,
-        "h": 32
+        "w": 96,
+        "h": 96
       }
     },
     "passive-icon:light-paws": {
       "frame": {
-        "x": 320,
+        "x": 960,
         "y": 0,
-        "w": 32,
-        "h": 32
+        "w": 96,
+        "h": 96
       }
     },
     "passive-icon:thick-hide": {
       "frame": {
-        "x": 352,
+        "x": 1056,
         "y": 0,
-        "w": 32,
-        "h": 32
+        "w": 96,
+        "h": 96
       }
     },
     "passive-icon:ember-aura": {
       "frame": {
-        "x": 384,
+        "x": 1152,
         "y": 0,
-        "w": 32,
-        "h": 32
+        "w": 96,
+        "h": 96
       }
     },
     "passive-icon:magnet-belly": {
       "frame": {
-        "x": 416,
+        "x": 1248,
         "y": 0,
-        "w": 32,
-        "h": 32
+        "w": 96,
+        "h": 96
       }
     },
     "passive-icon:hunter-eye": {
       "frame": {
-        "x": 448,
+        "x": 1344,
         "y": 0,
-        "w": 32,
-        "h": 32
+        "w": 96,
+        "h": 96
       }
     },
     "passive-icon:hydraulic-core": {
       "frame": {
-        "x": 480,
+        "x": 1440,
         "y": 0,
-        "w": 32,
-        "h": 32
+        "w": 96,
+        "h": 96
       }
     }
-  },
-  "layers": [
-    {
-      "animated_params": "{}",
-      "blend_mode": 0,
-      "clipping_mask": false,
-      "effects": {},
-      "locked": false,
-      "name": "body",
-      "new_cels_linked": false,
-      "opacity": 1,
-      "parent": -1,
-      "type": 0,
-      "visible": true
-    },
-    {
-      "animated_params": "{}",
-      "blend_mode": 0,
-      "clipping_mask": false,
-      "effects": {},
-      "locked": false,
-      "name": "notes",
-      "new_cels_linked": false,
-      "opacity": 1,
-      "parent": -1,
-      "type": 0,
-      "visible": false
-    }
-  ],
-  "pixelorama_version": "v1.2-stable",
-  "pxo_version": 7,
-  "size_x": 512,
-  "size_y": 32,
-  "tags": {}
+  }
 }

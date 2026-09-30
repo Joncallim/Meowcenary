@@ -131,18 +131,15 @@ export function computeUpgradeChooserLayout(
   const padding = Math.min(desiredPadding, Math.max(0, (cardWidth - 3) / 2));
   const contentWidth = Math.max(MIN_REGION_SIZE, cardWidth - padding * 2);
   const desiredNumberWidth = Math.max(fonts.name * 1.35, physical(18));
-  // Reserve enough real card width for the longest production cue (for
-  // example, "legendary • mobility") before measured font fitting begins.
-  // Compact layouts may still hide the secondary cue when their physical
-  // minimum font cannot fit, but portrait keeps the cue visible and whole.
-  const desiredRarityReserve = Math.max(compactHeader ? 0 : 120, physical(44));
+  // Reserve the complete rarity word without letting that secondary label
+  // crowd the upgrade's player-facing name out of a portrait card.
+  const desiredRarityReserve = Math.max(compactHeader ? 0 : 92, physical(44));
   const desiredInlineGap = Math.max(compactHeader ? 0 : 8, physical(3));
-  // Epic 18 (D8/D9 priority 1): the leading column holds the card icon, whose
-  // binding declares a 36px logical display. Sizing that column from the old
-  // "1." text badge alone would shrink the icon to roughly half its declared
-  // size; it is instead the larger of the text badge and an icon box clamped
-  // to what the card can actually afford in both axes.
-  const desiredIconSize = Math.max(36, physical(28));
+  // The authored upgrade art is the primary recognition cue, not decoration
+  // for the old number badge. Give it a card-scale box and clamp only when a
+  // genuinely compact viewport cannot afford that size.
+  const roomyIconSize = canvasHeight >= 500 ? 64 : 52;
+  const desiredIconSize = Math.max(compactHeader ? 44 : roomyIconSize, physical(compactHeader ? 32 : 48));
   const iconSize = Math.max(
     0,
     Math.min(

@@ -24,7 +24,10 @@ function addFixtureActorArt(
   const visualArt = data.visualArt as { bindings: Array<Record<string, unknown>> };
   const template = visualArt.bindings.find((binding) => binding.kind === kind);
   if (!template) throw new Error(`Missing ${kind} art fixture template`);
-  const ids = [...new Set(rows.map((row) => row.id).filter((id): id is string => typeof id === 'string'))];
+  const ids = [...new Set(rows
+    .filter((row) => kind !== 'enemy' || row.archetype !== 'elite')
+    .map((row) => row.id)
+    .filter((id): id is string => typeof id === 'string'))];
   ids.forEach((id) => {
     const artId = `${kind}:${id}`;
     if (visualArt.bindings.some((binding) => binding.id === artId)) return;
@@ -692,6 +695,17 @@ describe('game data validation', () => {
     }
   });
 
+  it('validates elite actor presentation through the authoritative base binding', () => {
+    const data = withEnemies([
+      enemyFixture('chaser'), enemyFixture('charger'), enemyFixture('tank'),
+      enemyFixture('ranged'), enemyFixture('boss'), enemyFixture('elite'),
+    ]) as Record<string, unknown>;
+    const bindings = (data.visualArt as { bindings: Array<{ id: string }> }).bindings;
+
+    expect(bindings.some((binding) => binding.id === 'enemy:elite-fixture')).toBe(false);
+    expect(() => validateGameData(data)).not.toThrow();
+  });
+
   it('enforces curve identity, duration, scaling, ordering, cadence, and cap constraints', () => {
     const mutateCurve = (mutate: (curve: Record<string, any>) => void): unknown => {
       const data = structuredClone(loadGameData()) as unknown as { spawnCurves: Record<string, any>[] };
@@ -1272,6 +1286,10 @@ describe('game data validation', () => {
     });
 
     it('rejects world-role drift and unskinned collision landmarks', () => {
+      const missingBackdrop = structuredClone(loadGameData()) as any;
+      missingBackdrop.arenas[0].visual.menuBackdropArtId = 'arena-backdrop:missing';
+      expect(() => validateGameData(missingBackdrop)).toThrow(/menuBackdropArtId: unknown visual-art id/);
+
       const wrongRole = structuredClone(loadGameData()) as any;
       wrongRole.arenas[0].visual.floorArtIds[0] = 'world:prop:crate';
       expect(() => validateGameData(wrongRole)).toThrow(/art id must start "world:junkyard-floor:"/);

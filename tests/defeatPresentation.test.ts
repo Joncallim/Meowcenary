@@ -62,7 +62,13 @@ function createHarness(maxPresentations = 24) {
     bindingById: (id) => id === binding.id ? binding : undefined,
     all: () => [binding],
   };
-  return { scene, bus, visualArt, sprites, maxPresentations };
+  const data = {
+    enemies: [
+      { id: 'dust-mite', archetype: 'direct' },
+      { id: 'elite:dust-mite', archetype: 'elite', baseEnemyId: 'dust-mite' },
+    ],
+  };
+  return { scene, bus, data, visualArt, sprites, maxPresentations };
 }
 
 describe('DefeatPresentationSystem', () => {
@@ -77,7 +83,7 @@ describe('DefeatPresentationSystem', () => {
     expect(system.allocatedPresentationCount).toBe(1);
     expect(harness.scene.physics.add.existing).not.toHaveBeenCalled();
     expect(harness.sprites[0]?.played).toEqual(['art:enemy:dust-mite:defeat']);
-    expect(harness.sprites[0]?.scale).toEqual([26 / 48 * 1.30, 26 / 48 * 1.30]);
+    expect(harness.sprites[0]?.scale).toEqual([26 / 48 * 1.45, 26 / 48 * 1.45]);
 
     harness.sprites[0]?.complete('art:enemy:dust-mite:defeat');
     expect(system.activePresentationCount).toBe(0);
@@ -100,6 +106,20 @@ describe('DefeatPresentationSystem', () => {
     system.update(1_000);
     expect(system.activePresentationCount).toBe(0);
     expect(system.allocatedPresentationCount).toBe(2);
+  });
+
+  it('uses the authoritative base actor sheet for an elite defeat event', async () => {
+    const harness = createHarness();
+    const { DefeatPresentationSystem } = await import('../src/systems/defeatPresentation');
+    const system = new DefeatPresentationSystem(harness as never);
+
+    harness.bus.emit('enemy:killed', {
+      instanceId: 1, enemyId: 'elite:dust-mite', xpValue: 1, scrapValue: 1, x: 10, y: 20,
+    });
+
+    expect(system.activePresentationCount).toBe(1);
+    expect(system.allocatedPresentationCount).toBe(1);
+    expect(harness.sprites[0]?.played).toEqual(['art:enemy:dust-mite:defeat']);
   });
 
   it('ignores unavailable art and unsubscribes/destroys exactly once', async () => {

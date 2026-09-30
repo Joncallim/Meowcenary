@@ -455,8 +455,10 @@ function fakeObject(
       }
       return api;
     },
-    setFixedSize() {
+    setFixedSize(width: number, height: number) {
       requireAlive();
+      state.width = Math.max(0, width - padding.left - padding.right);
+      state.height = Math.max(0, height - padding.top - padding.bottom);
       return api;
     },
     setCrop() {

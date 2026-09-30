@@ -73,14 +73,18 @@ export class MainMenuController {
   }
 
   snapshot(): MainMenuSnapshot {
+    // Gunsmith and Equipment are the two largest derived read models. Keep
+    // them lazy so opening Home, Career, Settings, or Contract selection does
+    // not build an off-screen workshop/catalog on every menu command.
+    const controller = this;
     return Object.freeze({
       panel: this.panel,
       character: this.characterController.snapshot(),
       arena: this.arenaController.snapshot(),
       stage: this.stageController.snapshot(),
       achievements: this.achievementsController.snapshot(),
-      gunsmith: this.gunsmithController.snapshot(),
-      equipment: this.equipmentController.snapshot(),
+      get gunsmith() { return controller.gunsmithController.snapshot(); },
+      get equipment() { return controller.equipmentController.snapshot(); },
       progressionOverview: this.progressionOverviewController.snapshot(),
       compendium: this.compendiumController.snapshot(),
       settings: this.settingsController.snapshot(),

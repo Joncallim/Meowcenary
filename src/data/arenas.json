@@ -20,6 +20,7 @@
     ],
     "hazards": [],
     "visual": {
+      "menuBackdropArtId": "arena-backdrop:junkyard",
       "floorArtIds": [
         "world:junkyard-floor:base",
         "world:junkyard-floor:patch-a",
@@ -37,7 +38,15 @@
         { "id": "west-engine", "artId": "world:prop:engine-block", "x": 128, "y": 768, "layer": "low" },
         { "id": "east-scrap", "artId": "world:prop:scrap-heap", "x": 640, "y": 640, "layer": "low" },
         { "id": "south-oil", "artId": "world:prop:oil-stain", "x": 256, "y": 992, "layer": "ground" },
-        { "id": "south-warning", "artId": "world:prop:warning-sign", "x": 544, "y": 1120, "layer": "low" }
+        { "id": "south-warning", "artId": "world:prop:warning-sign", "x": 544, "y": 1120, "layer": "low" },
+        { "id": "north-scrap", "artId": "world:prop:scrap-heap", "x": 272, "y": 176, "layer": "low" },
+        { "id": "north-oil", "artId": "world:prop:oil-stain", "x": 496, "y": 240, "layer": "ground" },
+        { "id": "west-tyres-mid", "artId": "world:prop:tyre-pile", "x": 80, "y": 560, "layer": "low" },
+        { "id": "west-crate-low", "artId": "world:prop:crate", "x": 96, "y": 880, "layer": "low" },
+        { "id": "east-engine-mid", "artId": "world:prop:engine-block", "x": 672, "y": 480, "flipX": true, "layer": "low" },
+        { "id": "east-tyres-low", "artId": "world:prop:tyre-pile", "x": 656, "y": 832, "flipX": true, "layer": "low" },
+        { "id": "south-crate", "artId": "world:prop:crate", "x": 160, "y": 1168, "layer": "low" },
+        { "id": "south-engine", "artId": "world:prop:engine-block", "x": 624, "y": 1184, "flipX": true, "layer": "low" }
       ],
       "obstacleSkins": [
         { "obstacleId": "hanging-press", "artId": "world:landmark:hanging-press" },
@@ -70,6 +79,7 @@
       { "id": "heat-grate", "kind": "heat-grate", "x": 288, "y": 304, "w": 192, "h": 48, "damagePerSecond": 6 }
     ],
     "visual": {
+      "menuBackdropArtId": "arena-backdrop:forge",
       "floorArtIds": [
         "world:forge-floor:base",
         "world:forge-floor:grate-patch",
@@ -87,7 +97,15 @@
         { "id": "west-quench-drum", "artId": "world:forge-prop:quench-drum", "x": 128, "y": 768, "layer": "low" },
         { "id": "east-tool-cart", "artId": "world:forge-prop:tool-cart", "x": 640, "y": 640, "layer": "low" },
         { "id": "south-slag-pile", "artId": "world:forge-prop:slag-pile", "x": 256, "y": 992, "layer": "ground" },
-        { "id": "south-heat-beacon", "artId": "world:forge-prop:heat-beacon", "x": 544, "y": 1120, "layer": "low" }
+        { "id": "south-heat-beacon", "artId": "world:forge-prop:heat-beacon", "x": 544, "y": 1120, "layer": "low" },
+        { "id": "north-ingots", "artId": "world:forge-prop:ingot-pallet", "x": 272, "y": 176, "layer": "low" },
+        { "id": "north-slag", "artId": "world:forge-prop:slag-pile", "x": 496, "y": 240, "layer": "ground" },
+        { "id": "west-coils-mid", "artId": "world:forge-prop:coil-rack", "x": 80, "y": 560, "layer": "low" },
+        { "id": "west-cart-low", "artId": "world:forge-prop:tool-cart", "x": 96, "y": 880, "layer": "low" },
+        { "id": "east-quench-mid", "artId": "world:forge-prop:quench-drum", "x": 672, "y": 480, "flipX": true, "layer": "low" },
+        { "id": "east-ingots-low", "artId": "world:forge-prop:ingot-pallet", "x": 656, "y": 832, "flipX": true, "layer": "low" },
+        { "id": "south-coils", "artId": "world:forge-prop:coil-rack", "x": 160, "y": 1168, "layer": "low" },
+        { "id": "south-quench", "artId": "world:forge-prop:quench-drum", "x": 624, "y": 1184, "flipX": true, "layer": "low" }
       ],
       "obstacleSkins": [
         { "obstacleId": "furnace-throat", "artId": "world:forge-landmark:furnace-throat" },

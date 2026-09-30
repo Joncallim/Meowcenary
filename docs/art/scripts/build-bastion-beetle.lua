@@ -1,2 +1,2 @@
--- Deterministically imports the checked-in ImageGen source sheet into the native Pixelorama project.
-os.execute("node docs/art/scripts/import-imagegen-enemy-sheet.mjs bastion-beetle assets-src/enemies/bastion-beetle/source/bastion-beetle-imagegen.png")
+local N = dofile("docs/art/scripts/lib/native-raster-actor.lua")
+N.build({ id="bastion-beetle", raster="assets-src/enemies/bastion-beetle/source/bastion-beetle-native-raster.lua", output="assets-src/enemies/bastion-beetle/source/bastion-beetle.pxo" })

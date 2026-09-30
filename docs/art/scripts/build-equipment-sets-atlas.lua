@@ -1,3 +1,6 @@
+-- external-production-importer: build-equipment-concept-atlases.py crops the
+-- selected seven-family concept into the 96px production atlas. This legacy
+-- entrypoint remains only for manifest-derived builder discovery.
 -- Dedicated non-Commando Equipment art. Seven 5-icon rows share one atlas:
 -- Set emblem, Helmet, Armour, Gloves, Boots. Stable meaning remains in the
 -- logical frame keys rather than atlas position.

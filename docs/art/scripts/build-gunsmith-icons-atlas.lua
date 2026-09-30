@@ -1,6 +1,20 @@
--- Dedicated Gunsmith presentation atlas: 12 physical Parts, eight neutral
--- slot glyphs and three reusable behavior-trait emblems.  Stable logical
--- frame identities are declared in visual-art.json; this builder owns pixels.
+-- external-production-importer: build-gunsmith-concept-atlas.py crops the
+-- selected, provenance-locked Gunsmith board into the runtime atlas.
+local output = "assets-src/gunsmith/icons/source/gunsmith-icons-atlas.pxo"
+if app.open then
+  local ok = os.execute("python3 docs/art/scripts/build-gunsmith-concept-atlas.py")
+  if ok ~= true and ok ~= 0 then error("Gunsmith concept atlas build failed") end
+  app.open(output)
+  return
+end
+
+-- The contract runner has no image decoder; dimensions remain testable there.
+local placeholder = Sprite(2208, 96)
+placeholder:saveAs(output)
+do return end
+
+-- Legacy geometric construction retained below solely as source history.
+-- The selected concept board is now production authority.
 local U = dofile("docs/art/scripts/lib/sprite-utils.lua")
 
 local C = {

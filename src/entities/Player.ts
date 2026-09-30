@@ -11,6 +11,7 @@ import {
   ACTOR_VISUAL_SCALE_BY_KIND,
   PlaceholderView,
   createAnimatedActorView,
+  type ActorViewFallbackOptions,
   type ActorView,
 } from './actorView';
 
@@ -46,6 +47,7 @@ export class Player {
     private readonly bus: EventBus,
     private readonly options: PlayerOptions,
     art?: Readonly<VisualArtBinding>,
+    fallbackOptions?: Readonly<ActorViewFallbackOptions>,
   ) {
     this.health = this.maxHealth;
     this.sprite = scene.add
@@ -74,6 +76,7 @@ export class Player {
       { node: shadow, dy: SHADOW_OFFSET_Y * PLAYER_VISUAL_FACTOR },
       art,
       VisualDepth.player,
+      fallbackOptions,
     );
     if (animatedView) {
       this.view = animatedView;

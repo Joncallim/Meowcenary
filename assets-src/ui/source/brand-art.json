@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "authority": "docs/art/alpha-3-art-production-briefs.md sections 16-17",
+  "direction": "salvage workshop dispatch board with bespoke chunky title lettering",
+  "canvas": { "width": 480, "height": 544 },
+  "frames": {
+    "brand:title-lockup": { "x": 120, "y": 0, "width": 240, "height": 48 },
+    "brand:menu-backdrop": { "x": 0, "y": 64, "width": 480, "height": 480 }
+  },
+  "palette": {
+    "void": "#080d12",
+    "outline": "#0a0f14",
+    "wallDark": "#172631",
+    "wall": "#263b48",
+    "steel": "#466071",
+    "cream": "#f7f1d5",
+    "cyan": "#2dd4bf",
+    "rust": "#9a4d28",
+    "gold": "#fbbf24",
+    "yard": "#304756"
+  }
+}

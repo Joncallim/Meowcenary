@@ -28,7 +28,9 @@ const entries = manifest.resources.map((resource) => {
   if (!Number.isInteger(frames)) throw new Error(`${resource.id}: PNG does not divide into resource frames`);
   const tags = Object.assign({}, ...(resourceBindings.map((binding) => Object.fromEntries(Object.entries(binding.clips ?? {}).map(([name, clip]) => [name, [clip.start + 1, clip.end + 1]])))));
   const pairs = Object.entries(tags).map(([name, range]) => `[${quote(name)}]={${range[0]},${range[1]}}`).join(',');
-  const externalImporter = readFileSync(chain.builderPath, 'utf8').includes('import-imagegen-enemy-sheet.mjs');
+  const builderSource = readFileSync(chain.builderPath, 'utf8');
+  const externalImporter = builderSource.includes('import-imagegen-enemy-sheet.mjs')
+    || builderSource.includes('external-production-importer');
   return `{manifestDriven=true,externalImporter=${externalImporter},script=${quote(relative(manifest.root, chain.builderPath))},width=${spritesheet ? load.frameWidth : dimensions.width},height=${spritesheet ? load.frameHeight : dimensions.height},frames=${frames},layers={},hidden={},populated={},tags={${pairs}},savedAs=${quote(relative(manifest.root, chain.sourcePath))}}`;
 });
 process.stdout.write(`{${entries.join(',')}}`);

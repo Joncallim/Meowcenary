@@ -26,6 +26,38 @@ function createHarness(): { context: GameContext; controller: StageSelectionCont
 }
 
 describe('StageSelectionController (Epic 20)', () => {
+  it('continues to the already-selected Forge frontier after Scrap Crusher settles', () => {
+    const { context, controller } = createHarness();
+    let settled;
+    for (const stageId of [
+      'stage:junkyard-01',
+      'stage:junkyard-02',
+      'stage:junkyard-03',
+      'stage:junkyard-04',
+      'stage:junkyard-05',
+    ]) {
+      settled = context.settleRunTerminal({
+        terminalStatus: 'win',
+        runScrap: 0,
+        characterId: 'scrap-tabby',
+        runDurationMs: 120_000,
+        stageId,
+      });
+      expect(settled.ok).toBe(true);
+    }
+
+    expect(settled).toMatchObject({ ok: true, terminalApplied: true, firstClear: true });
+    expect(controller.snapshot().stages.find((stage) => stage.id === 'stage:forge-01')?.locked).toBe(false);
+    expect(context.selectedStageId).toBe('stage:forge-01');
+    expect(controller.continuationAfter('stage:junkyard-05')).toMatchObject({
+      id: 'stage:forge-01',
+      selected: true,
+      locked: false,
+    });
+    expect(controller.selectContinuationAfter('stage:junkyard-05').ok).toBe(true);
+    expect(context.selectedStageId).toBe('stage:forge-01');
+  });
+
   it('lists all stage contracts in progression order with unlocked/locked state', () => {
     const { controller } = createHarness();
     const snap = controller.snapshot();
@@ -35,18 +67,35 @@ describe('StageSelectionController (Epic 20)', () => {
     expect(snap.stages[0].completed).toBe(false);
     expect(snap.stages[0]).toMatchObject({
       chapterName: 'Junkyard',
+      chapterIconArtId: 'chapter-icon:junkyard',
       locationName: 'Junkyard Lot',
-      objective: { kind: 'kill', copy: 'Eliminate 25 threats' },
+      menuBackdropArtId: 'arena-backdrop:junkyard',
+      objective: { kind: 'kill', copy: 'Eliminate 25 threats', artId: 'objective-icon:kill' },
       reward: { firstClearScrap: 35 },
       boss: false,
     });
+    expect(snap.stages.find((stage) => stage.chapterId === 'chapter:forge')).toMatchObject({
+      chapterIconArtId: 'chapter-icon:forge',
+      menuBackdropArtId: 'arena-backdrop:forge',
+    });
     expect(snap.stages[0].threats).toEqual(expect.arrayContaining([
-      expect.objectContaining({ name: 'Dust Mite', actorArtId: 'enemy:dust-mite' }),
+      expect.objectContaining({ name: 'Dust Mite', actorArtId: 'enemy-portrait:dust-mite' }),
     ]));
     expect(snap.stages[1].lockCopy).toBe('Clear First Scavenge.');
     for (let i = 1; i < snap.stages.length; i++) {
       expect(snap.stages[i].locked).toBe(true);
     }
+  });
+
+  it('uses the dedicated illustrated objective family instead of borrowing upgrades, drops, or enemies', () => {
+    const { controller } = createHarness();
+    const artByKind = new Map(controller.snapshot().stages.map((stage) => [stage.objective.kind, stage.objective.artId]));
+    expect(Object.fromEntries(artByKind)).toEqual({
+      kill: 'objective-icon:kill',
+      collect: 'objective-icon:collect',
+      survive: 'objective-icon:survive',
+      defeat: 'objective-icon:defeat',
+    });
   });
 
   it('keeps every authoritative encounter threat in the read model, including current five- and six-member rosters', () => {
@@ -59,10 +108,10 @@ describe('StageSelectionController (Epic 20)', () => {
       'dust-mite', 'scrap-sniper', 'junk-nester', 'junk-rusher', 'shard-bot', 'bastion-beetle',
     ]);
     expect(snapshot.stages.find((stage) => stage.id === 'stage:junkyard-05')!.threats.at(-1)).toMatchObject({
-      enemyId: 'boss-crusher', name: 'Scrap Crusher', actorArtId: 'enemy:boss-crusher',
+      enemyId: 'boss-crusher', name: 'Scrap Crusher', actorArtId: 'enemy-portrait:boss-crusher',
     });
     expect(snapshot.stages.find((stage) => stage.id === 'stage:junkyard-06')!.threats.at(-1)).toMatchObject({
-      enemyId: 'boss-forge', name: 'Forge Warden', actorArtId: 'enemy:boss-forge',
+      enemyId: 'boss-forge', name: 'Forge Warden', actorArtId: 'enemy-portrait:boss-forge',
     });
   });
 
@@ -120,7 +169,7 @@ describe('StageSelectionController (Epic 20)', () => {
     expect(new StageSelectionController(context).snapshot().stages[0]!.threats).toContainEqual({
       enemyId: elite.id,
       name: elite.name,
-      actorArtId: 'enemy:dust-mite',
+      actorArtId: 'enemy-portrait:dust-mite',
     });
   });
 
@@ -158,7 +207,7 @@ describe('StageSelectionController (Epic 20)', () => {
     expect(snapshot.stages[1]!.objective.copy).toBe('Survive 1 minute 30 seconds');
   });
 
-  it('derives collect copy and art identity from the authored item instead of assuming Scrap', () => {
+  it('derives collect copy from the authored item while retaining the dedicated objective identity', () => {
     const data = loadGameData();
     const stages = (data.stages ?? []).map((stage, index) => index === 0
       ? { ...stage, objective: { type: 'collect' as const, itemId: 'item:coolant-cell', count: 3 } }
@@ -171,7 +220,7 @@ describe('StageSelectionController (Epic 20)', () => {
     });
 
     expect(new StageSelectionController(context).snapshot().stages[0]!.objective).toEqual({
-      kind: 'collect', copy: 'Collect 3 Coolant Cell', artId: 'upgrade-icon:scrap-magnet',
+      kind: 'collect', copy: 'Collect 3 Coolant Cell', artId: 'objective-icon:collect',
     });
   });
 

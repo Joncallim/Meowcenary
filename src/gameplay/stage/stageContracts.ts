@@ -48,6 +48,8 @@ export interface StageDefinition {
   readonly id: string; // e.g. 'stage:junkyard-01'
   readonly name: string;
   readonly chapterId: string; // e.g. 'chapter:junkyard'
+  /** Data-owned menu identity for the chapter; scenes must not infer art from IDs. */
+  readonly chapterIconArtId: string;
   readonly displayOrder: number; // never a persistence key
   readonly arenaId: string;
   /** Validated content bundle containing the stage's required visual assets. */

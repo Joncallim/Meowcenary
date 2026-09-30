@@ -1,2 +1,2 @@
--- Deterministically imports the checked-in ImageGen source sheet into the native Pixelorama project.
-os.execute("node docs/art/scripts/import-imagegen-enemy-sheet.mjs boss-forge assets-src/enemies/boss-forge/source/boss-forge-imagegen.png")
+local N = dofile("docs/art/scripts/lib/native-raster-actor.lua")
+N.build({ id="boss-forge", raster="assets-src/enemies/boss-forge/source/boss-forge-native-raster.lua", output="assets-src/enemies/boss-forge/source/boss-forge.pxo" })

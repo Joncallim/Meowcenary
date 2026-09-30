@@ -9,6 +9,8 @@ import { formatNumber, formatTime } from './format';
 import { edgeMargin, physicalToLogical, responsiveContentInsets, responsiveGameUiViewport, responsiveUiViewport, type UiViewport } from './layout';
 import { ThemeColor, ThemeDepth, ThemeFont } from './theme';
 import { createUiText } from './text';
+import type { VisualArtLookup } from '../systems/visualArt';
+import { createUiVisualChrome, type UiVisualChrome } from './visualChrome';
 
 export interface HudSnapshot {
   readonly status: RunStatus;
@@ -182,6 +184,7 @@ export function createHudSource(options: CreateHudSourceOptions): HudSource {
 export interface HudViewOptions {
   readonly scene: Phaser.Scene;
   readonly viewport: UiViewport;
+  readonly visualArt?: VisualArtLookup;
 }
 
 interface TopHudLayout {
@@ -253,6 +256,7 @@ export class PhaserHudView implements HudView {
   private readonly scene: Phaser.Scene;
   private viewport: UiViewport;
   private backing!: Phaser.GameObjects.Rectangle;
+  private backingFrame?: Phaser.GameObjects.GameObject;
   private container!: Phaser.GameObjects.Container;
   private statusText!: Phaser.GameObjects.Text;
   private timeText!: Phaser.GameObjects.Text;
@@ -273,10 +277,12 @@ export class PhaserHudView implements HudView {
 
   private lastSnapshot?: HudSnapshot;
   private disposed = false;
+  private readonly uiVisuals?: UiVisualChrome;
 
   constructor(options: HudViewOptions) {
     this.scene = options.scene;
     this.viewport = options.viewport;
+    this.uiVisuals = options.visualArt ? createUiVisualChrome(options.visualArt) : undefined;
 
     this.buildDisplay();
     this.scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
@@ -347,6 +353,15 @@ export class PhaserHudView implements HudView {
       1,
     );
     this.backing.setScrollFactor(0).setDepth(ThemeDepth.hudBacking);
+    this.backingFrame = this.uiVisuals?.addFrame(
+      scene,
+      (viewport.originX ?? 0) + layout.canvasWidth / 2,
+      (viewport.originY ?? 0) + backingHeight / 2,
+      layout.canvasWidth,
+      backingHeight,
+      'panel',
+      { alpha: 0.9, depth: ThemeDepth.hudBacking + 1 },
+    );
 
     const textStyle = {
       color: '#d6f7ff',
@@ -400,7 +415,7 @@ export class PhaserHudView implements HudView {
     this.healthBarFill.setScrollFactor(0);
     this.healthBarFill.setDepth(ThemeDepth.hud);
 
-    this.healthText = createUiText(scene, layout.margin + physicalToLogical(5, viewport), layout.barTop + layout.barHeight / 2, '', {
+    this.healthText = createUiText(scene, layout.margin + physicalToLogical(22, viewport), layout.barTop + layout.barHeight / 2, '', {
       ...labelStyle,
       color: '#f8fafc',
     });
@@ -428,7 +443,7 @@ export class PhaserHudView implements HudView {
     this.xpBarFill.setScrollFactor(0);
     this.xpBarFill.setDepth(ThemeDepth.hud);
 
-    this.levelText = createUiText(scene,layout.margin + physicalToLogical(5, viewport), layout.xpTop + layout.barHeight / 2, '', {
+    this.levelText = createUiText(scene,layout.margin + physicalToLogical(22, viewport), layout.xpTop + layout.barHeight / 2, '', {
       ...labelStyle,
       color: '#f8fafc',
     });
@@ -482,6 +497,15 @@ export class PhaserHudView implements HudView {
     });
     this.bossText.setOrigin(0, 0.5).setScrollFactor(0).setDepth(ThemeDepth.hud).setVisible(false);
 
+    const iconSize = physicalToLogical(14, viewport);
+    const icons = [
+      this.uiVisuals?.addIcon(scene, layout.margin + physicalToLogical(11, viewport), layout.barTop + layout.barHeight / 2, 'hud-icon:health', { size: iconSize, depth: ThemeDepth.hud + 1 }),
+      this.uiVisuals?.addIcon(scene, layout.margin + physicalToLogical(11, viewport), layout.xpTop + layout.barHeight / 2, 'stat-icon:xp-gain', { size: iconSize, depth: ThemeDepth.hud + 1 }),
+      this.uiVisuals?.addIcon(scene, layout.rightHudX - physicalToLogical(54, viewport), layout.topMargin + layout.labelSize / 2, 'hud-icon:timer', { size: iconSize, depth: ThemeDepth.hud + 1 }),
+      this.uiVisuals?.addIcon(scene, layout.rightHudX - physicalToLogical(42, viewport), layout.statsTop + layout.labelSize / 2, 'hud-icon:kills', { size: iconSize, depth: ThemeDepth.hud + 1 }),
+      this.uiVisuals?.addIcon(scene, layout.rightHudX - physicalToLogical(42, viewport), layout.statsTop + layout.labelSize * 1.65, 'stat-icon:currency-gain', { size: iconSize, depth: ThemeDepth.hud + 1 }),
+    ].filter((icon): icon is Phaser.GameObjects.Image => icon !== undefined);
+
 
 
     this.container.add([
@@ -500,11 +524,15 @@ export class PhaserHudView implements HudView {
       this.bossBarFill,
       this.bossText,
 
+      ...icons,
+
     ]);
   }
 
   private destroyDisplay(): void {
     this.backing.destroy();
+    this.backingFrame?.destroy();
+    this.backingFrame = undefined;
     this.container.destroy(true);
   }
 

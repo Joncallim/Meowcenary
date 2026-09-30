@@ -15,7 +15,11 @@ from zipfile import ZipFile
 from PIL import Image
 
 
-ENEMY_FRAMES = {"dust-mite": 48, "scrap-sniper": 48, "boss-crusher": 64}
+ENEMY_FRAMES = {
+    "dust-mite": 48, "junk-rusher": 48, "trash-brute": 48,
+    "scrap-sniper": 48, "scrap-skitter": 48, "bastion-beetle": 48,
+    "junk-nester": 48, "shard-bot": 48, "boss-crusher": 64, "boss-forge": 64,
+}
 ENEMIES = tuple(ENEMY_FRAMES)
 FRAMES = 16
 

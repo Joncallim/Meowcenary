@@ -40,6 +40,7 @@ test('logical physical metadata and missing PNG fail', () => { expectFail({ bind
 test('logical renderer compatibility and ordinary family additions are data-driven', () => {
   expectFail({ bindings: [binding({ kind: 'not-a-renderer' })] }, /unsupported renderer kind/);
   expectFail({ bindings: [binding({ kind: 'character', clips: { idle: { start: 0, end: 0 } } })] }, /require a spritesheet resource/);
+  expectFail({ bindings: [binding({ id: 'character:test', kind: 'character' })] }, /required actor binding is missing idle clip/);
   const added = resource({ id: 'resource:ordinary', textureKey: 'art-ordinary', load: { type: 'image', imageUrl: 'assets/test/ordinary.png' } });
   assert.equal(run({ resources: [added], bindings: [binding({ resourceId: 'resource:ordinary' })] }).ok, true);
 });

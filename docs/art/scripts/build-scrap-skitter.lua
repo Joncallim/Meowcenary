@@ -1,2 +1,2 @@
--- Deterministically imports the checked-in ImageGen source sheet into the native Pixelorama project.
-os.execute("node docs/art/scripts/import-imagegen-enemy-sheet.mjs scrap-skitter assets-src/enemies/scrap-skitter/source/scrap-skitter-imagegen.png")
+local N = dofile("docs/art/scripts/lib/native-raster-actor.lua")
+N.build({ id="scrap-skitter", raster="assets-src/enemies/scrap-skitter/source/scrap-skitter-native-raster.lua", output="assets-src/enemies/scrap-skitter/source/scrap-skitter.pxo" })

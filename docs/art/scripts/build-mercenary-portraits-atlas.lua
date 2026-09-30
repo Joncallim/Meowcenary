@@ -1,3 +1,6 @@
+-- external-production-importer: build-mercenary-portrait-atlas.py crops the
+-- selected concept board into the production atlas. This legacy entrypoint
+-- remains only for manifest-derived builder discovery.
 -- Eight canonical 96px Mercenary portraits in one bounded named-frame atlas.
 local U = dofile("docs/art/scripts/lib/sprite-utils.lua")
 local C = {

@@ -378,10 +378,19 @@ export async function prepareRunPresentation(
   ensureVisualAnimations(scene, art);
   const missing: string[] = [];
   for (const binding of requiredBindings) {
-    if ((binding.kind !== 'character' && binding.kind !== 'enemy') ||
-        binding.load.type !== 'spritesheet' || !binding.clips) continue;
+    if (binding.kind !== 'character' && binding.kind !== 'enemy') continue;
+    if (!binding.required) {
+      missing.push(`${binding.id} is not marked required`);
+      continue;
+    }
+    if (binding.load.type !== 'spritesheet') {
+      missing.push(`${binding.id} is not a spritesheet`);
+      continue;
+    }
     for (const clip of ['idle', 'run', 'hurt', 'defeat'] as const) {
-      if (binding.clips[clip] && !scene.anims.exists(visualAnimationKey(binding.id, clip))) {
+      if (!binding.clips?.[clip]) {
+        missing.push(`${binding.id} is missing required ${clip} clip`);
+      } else if (!scene.anims.exists(visualAnimationKey(binding.id, clip))) {
         missing.push(`${binding.id} ${clip}`);
       }
     }

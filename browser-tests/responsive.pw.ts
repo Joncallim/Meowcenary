@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test';
 
+async function applyKeyboardCpuThrottle(page: import('@playwright/test').Page, project: string): Promise<void> {
+  const rate = Number(process.env.MEOW_KEYBOARD_CPU_THROTTLE_RATE ?? 0);
+  if (project !== 'desktop-1920x1080' || !Number.isFinite(rate) || rate < 2) return;
+  const session = await page.context().newCDPSession(page);
+  await session.send('Emulation.setCPUThrottlingRate', { rate });
+}
+
 test('canvas fills the available viewport and survives a live resize', async ({ page }, testInfo) => {
   await page.goto('/');
   const canvas = page.locator('#game-root canvas');
@@ -17,45 +24,279 @@ test('canvas fills the available viewport and survives a live resize', async ({ 
   await page.screenshot({ path: testInfo.outputPath('home-resized.png') });
 });
 
-test('keyboard player journey reaches Mercenary, Career and gameplay on the real canvas', async ({ page }, testInfo) => {
+test('cold Home readiness stays closed until Boot resources arrive', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-1920x1080');
+  let releaseBootImage!: () => void;
+  let signalBootImage!: () => void;
+  const bootImageRequested = new Promise<void>((resolve) => { signalBootImage = resolve; });
+  const bootImageRelease = new Promise<void>((resolve) => { releaseBootImage = resolve; });
+  await page.route('**/assets/ui/navigation-icons-atlas.png', async (route) => {
+    signalBootImage();
+    await bootImageRelease;
+    await route.continue();
+  });
+
+  try {
+    await page.goto('/?visual-test=1', { waitUntil: 'domcontentloaded' });
+    await bootImageRequested;
+    await expect.poll(() => page.evaluate(() => Boolean((globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: unknown;
+    }).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+    const readiness = await page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: {
+          isMenuPresentationSettled(): boolean;
+          menuPresentationDiagnostics(): Record<string, unknown>;
+        };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return { settled: seam?.isMenuPresentationSettled(), diagnostics: seam?.menuPresentationDiagnostics() };
+    });
+    expect(readiness.settled).toBe(false);
+    expect(readiness.diagnostics).toMatchObject({ active: false, committedDisplay: false });
+  } finally {
+    releaseBootImage();
+  }
+
+  await page.evaluate(async () => {
+    const seam = (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: { waitForMenuPresentation(): Promise<boolean> };
+    }).__MEOWCENARY_VISUAL_TEST__;
+    await seam?.waitForMenuPresentation();
+  });
+  await expect.poll(() => page.evaluate(() => {
+    const seam = (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: {
+        isMenuPresentationSettled(): boolean;
+        menuPresentationDiagnostics(): Record<string, unknown>;
+      };
+    }).__MEOWCENARY_VISUAL_TEST__;
+    return seam?.isMenuPresentationSettled() && seam.menuPresentationDiagnostics().committedPanel === 'home';
+  })).toBe(true);
+});
+
+test('keyboard player journey reaches Mercenary and returns Home on the real canvas', async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
   const requestedAssets: string[] = [];
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
-  const press = async (key: string) => {
+  const step = async <T>(label: string, action: () => Promise<T>): Promise<T> => test.step(label, action);
+  const press = async (key: string) => step(`key ${key}`, async () => {
     await page.keyboard.down(key);
-    await page.waitForTimeout(60);
-    await page.keyboard.up(key);
-    await page.waitForTimeout(250);
-  };
-  const openHome = async () => {
-    await page.goto('/');
-    await page.waitForTimeout(500);
-  };
+    try {
+      // A fixed key hold can end between Phaser polls under CI load. Keep
+      // the real key down until the scene-owned core has sampled that edge.
+      await expect.poll(() => page.evaluate(() => {
+        const seam = (globalThis as typeof globalThis & {
+          __MEOWCENARY_VISUAL_TEST__?: {
+            isMenuInputNeutral(): boolean;
+            isSceneActive(key: string): boolean;
+          };
+        }).__MEOWCENARY_VISUAL_TEST__;
+        return seam !== undefined
+          && (!seam.isMenuInputNeutral() || seam.isSceneActive('GameScene'));
+      }), { intervals: [16, 32, 50], timeout: 4_000 }).toBe(true);
+    } finally {
+      await page.keyboard.up(key);
+    }
+    // Keyboard actions are polled: give the input owner its neutral edge
+    // before another press of the same key. This checks the logical input
+    // state after InputController's own per-frame keyboard poll.
+    await expect.poll(() => page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { isMenuInputNeutral(): boolean };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.isMenuInputNeutral() ?? false;
+    }), { intervals: [16, 32, 50], timeout: 4_000 }).toBe(true);
+  });
+  const awaitMenu = async (panel: 'home' | 'character' | 'career' | 'achievements') => step(`settled menu ${panel}`, async () => {
+    const settled = await page.evaluate(async () => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { waitForMenuPresentation(): Promise<boolean> };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.waitForMenuPresentation() ?? false;
+    });
+    expect(settled).toBe(true);
+    await expect.poll(() => page.evaluate((expectedPanel) => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: {
+          isMenuPresentationSettled(): boolean;
+          menuPresentationDiagnostics(): Record<string, unknown>;
+        };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      const diagnostics = seam?.menuPresentationDiagnostics();
+      return seam?.isMenuPresentationSettled() === true
+        && diagnostics?.active === true
+        && diagnostics?.committedDisplay === true
+        && diagnostics?.committedPanel === expectedPanel;
+    }, panel)).toBe(true);
+  });
 
-  await openHome();
+  await applyKeyboardCpuThrottle(page, testInfo.project.name);
+  await step('cold boot and page navigation', () => page.goto('/?visual-test=1'));
+  await awaitMenu('home');
   const canvas = page.locator('#game-root canvas');
   await expect(canvas).toBeVisible();
 
   await press('ArrowDown');
   await press('ArrowDown');
   await press('Enter');
-  await page.waitForTimeout(500);
-  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/mercenary-portraits-atlas.png'))).toBe(true);
+  await awaitMenu('character');
+  await expect.poll(
+    () => requestedAssets.some((path) => path.endsWith('/mercenary-portraits-atlas.png')),
+    { intervals: [150, 250, 400], timeout: 8_000 },
+  ).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('mercenary.png') });
 
-  await openHome();
-  for (let index = 0; index < 4; index += 1) await press('ArrowDown');
+  await press('Escape');
+  await awaitMenu('home');
+
+  await expect(canvas).toBeVisible();
+});
+
+
+test('keyboard player launches the prepared Contract on the real canvas', async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
+  const requestedAssets: string[] = [];
+  page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
+  const step = async <T>(label: string, action: () => Promise<T>): Promise<T> => test.step(label, action);
+  const press = async (key: string) => step(`key ${key}`, async () => {
+    await page.keyboard.down(key);
+    try {
+      // A fixed key hold can end between Phaser polls under CI load. Keep
+      // the real key down until the scene-owned core has sampled that edge.
+      await expect.poll(() => page.evaluate(() => {
+        const seam = (globalThis as typeof globalThis & {
+          __MEOWCENARY_VISUAL_TEST__?: {
+            isMenuInputNeutral(): boolean;
+            isSceneActive(key: string): boolean;
+          };
+        }).__MEOWCENARY_VISUAL_TEST__;
+        return seam !== undefined
+          && (!seam.isMenuInputNeutral() || seam.isSceneActive('GameScene'));
+      }), { intervals: [16, 32, 50], timeout: 4_000 }).toBe(true);
+    } finally {
+      await page.keyboard.up(key);
+    }
+    // Keyboard actions are polled: give the input owner its neutral edge
+    // before another press of the same key. This checks the logical input
+    // state after InputController's own per-frame keyboard poll.
+    await expect.poll(() => page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { isMenuInputNeutral(): boolean };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.isMenuInputNeutral() ?? false;
+    }), { intervals: [16, 32, 50], timeout: 4_000 }).toBe(true);
+  });
+
+  await applyKeyboardCpuThrottle(page, testInfo.project.name);
+  await step('cold boot and page navigation', () => page.goto('/?visual-test=1'));
+  await step('settled Home before launch', async () => {
+    const settled = await page.evaluate(async () => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { waitForMenuPresentation(): Promise<boolean> };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.waitForMenuPresentation() ?? false;
+    });
+    expect(settled).toBe(true);
+  });
+  const canvas = page.locator('#game-root canvas');
   await press('Enter');
+  await expect.poll(() => page.evaluate(() => {
+    const seam = (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: { isSceneActive(key: string): boolean };
+    }).__MEOWCENARY_VISUAL_TEST__;
+    return seam?.isSceneActive('GameScene') ?? false;
+  }), { intervals: [150, 250, 400], timeout: 30_000 }).toBe(true);
+  await expect.poll(
+    () => requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png')),
+    { intervals: [150, 250, 400], timeout: 8_000 },
+  ).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('gameplay.png') });
+  await expect(canvas).toBeVisible();
+});
+
+test('keyboard player journey reaches Career and Achievements on the real canvas', async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
+  const requestedAssets: string[] = [];
+  page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
+  const step = async <T>(label: string, action: () => Promise<T>): Promise<T> => test.step(label, action);
+  const press = async (key: string) => step(`key ${key}`, async () => {
+    await page.keyboard.down(key);
+    try {
+      // A fixed key hold can end between Phaser polls under CI load. Keep
+      // the real key down until the scene-owned core has sampled that edge.
+      await expect.poll(() => page.evaluate(() => {
+        const seam = (globalThis as typeof globalThis & {
+          __MEOWCENARY_VISUAL_TEST__?: {
+            isMenuInputNeutral(): boolean;
+            isSceneActive(key: string): boolean;
+          };
+        }).__MEOWCENARY_VISUAL_TEST__;
+        return seam !== undefined
+          && (!seam.isMenuInputNeutral() || seam.isSceneActive('GameScene'));
+      }), { intervals: [16, 32, 50], timeout: 4_000 }).toBe(true);
+    } finally {
+      await page.keyboard.up(key);
+    }
+    // Keyboard actions are polled; wait for Phaser's next frame to observe the
+    // neutral edge before another press of the same key.
+    await expect.poll(() => page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { isMenuInputNeutral(): boolean };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.isMenuInputNeutral() ?? false;
+    }), { intervals: [16, 32, 50], timeout: 4_000 }).toBe(true);
+  });
+  const awaitMenu = async (panel: 'home' | 'career' | 'achievements') => step(`settled menu ${panel}`, async () => {
+    const settled = await page.evaluate(async () => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { waitForMenuPresentation(): Promise<boolean> };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.waitForMenuPresentation() ?? false;
+    });
+    expect(settled).toBe(true);
+    await expect.poll(() => page.evaluate((expectedPanel) => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: {
+          isMenuPresentationSettled(): boolean;
+          menuPresentationDiagnostics(): Record<string, unknown>;
+        };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      const diagnostics = seam?.menuPresentationDiagnostics();
+      return seam?.isMenuPresentationSettled() === true
+        && diagnostics?.active === true
+        && diagnostics?.committedDisplay === true
+        && diagnostics?.committedPanel === expectedPanel;
+    }, panel)).toBe(true);
+  });
+
+  await applyKeyboardCpuThrottle(page, testInfo.project.name);
+  await step('cold boot and page navigation', () => page.goto('/?visual-test=1'));
+  await awaitMenu('home');
+  const canvas = page.locator('#game-root canvas');
+  await expect(canvas).toBeVisible();
+
+  for (let index = 0; index < 3; index += 1) await press('ArrowDown');
+  await press('Enter');
+  await awaitMenu('career');
   await press('ArrowDown');
   await press('Enter');
-  await page.waitForTimeout(500);
-  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/achievement-icons-atlas.png'))).toBe(true);
+  await awaitMenu('achievements');
+  expect(await page.evaluate(() => {
+    const seam = (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: { menuPresentationDiagnostics(): Record<string, unknown> };
+    }).__MEOWCENARY_VISUAL_TEST__;
+    return (seam?.menuPresentationDiagnostics().loadedTextureKeys as string[] | undefined)?.includes('art-achievement-icons');
+  })).toBe(true);
+  await expect.poll(
+    () => requestedAssets.some((path) => path.endsWith('/achievement-icons-atlas.png')),
+    { intervals: [150, 250, 400], timeout: 8_000 },
+  ).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('achievements.png') });
 
-  await openHome();
-  await press('Enter');
-  await page.waitForTimeout(1_500);
-  await expect.poll(() => requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png'))).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath('gameplay.png') });
+  await press('Escape');
+  await awaitMenu('career');
+  await press('Escape');
+  await awaitMenu('home');
   await expect(canvas).toBeVisible();
 });
 
@@ -63,14 +304,22 @@ test('phone touch starts a run, moves, and activates the graphical ability contr
   test.skip(testInfo.project.name !== 'phone-390x844');
   const requestedAssets: string[] = [];
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
-  await page.goto('/');
+  await page.goto('/?visual-test=1');
   // Home deliberately rejects actions while its cold art closure owns the
-  // Phaser loader. Retry the visible Play control until that authoritative
-  // launch request starts instead of racing it with a fixed delay.
+  // Phaser loader. The illustrated Home redesign moved the first action card
+  // below the richer Contract hero, so tap its current safe center and prove
+  // the touch reached GameScene rather than inferring launch from an art file
+  // that Home itself now legitimately loads.
   await expect.poll(async () => {
-    await page.touchscreen.tap(195, 220);
-    return requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png'));
+    await page.touchscreen.tap(195, 282);
+    return page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { isSceneActive(key: string): boolean };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.isSceneActive('GameScene') ?? false;
+    });
   }, { intervals: [150, 250, 400], timeout: 8_000 }).toBe(true);
+  expect(requestedAssets.some((path) => path.includes('/assets/'))).toBe(true);
   await page.waitForTimeout(1_000);
 
   // Sample static arena floor away from the animated player/effects. The
@@ -111,6 +360,48 @@ test('compact phone landscape is quarantined until portrait returns', async ({ b
   await compact.close();
 });
 
+test('fine-pointer compact landscape keeps every sparse menu action visible', async ({ browser }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-1280x720');
+  const compact = await browser.newContext({ viewport: { width: 844, height: 390 }, colorScheme: 'dark' });
+  const page = await compact.newPage();
+  await page.goto('/?visual-test=1');
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: unknown;
+  }).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+  const settled = async () => {
+    await expect.poll(() => page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { isMenuPresentationSettled(): boolean };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.isMenuPresentationSettled() ?? false;
+    })).toBe(true);
+    await page.waitForTimeout(150);
+  };
+  const show = async (panel: string) => {
+    await expect.poll(() => page.evaluate((target) => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { showMenu(panel: string): boolean };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.showMenu(target) ?? false;
+    }, panel)).toBe(true);
+    await settled();
+  };
+
+  await settled();
+  await expect(page).toHaveScreenshot('compact-home.png', { animations: 'disabled' });
+  await show('loadout');
+  await expect(page).toHaveScreenshot('compact-loadout.png', { animations: 'disabled' });
+
+  await show('career');
+  await expect(page).toHaveScreenshot('compact-career.png', { animations: 'disabled' });
+  await show('next-goals');
+  await expect(page).toHaveScreenshot('compact-next-goals.png', { animations: 'disabled' });
+
+  await show('settings');
+  await expect(page).toHaveScreenshot('compact-settings.png', { animations: 'disabled' });
+  await compact.close();
+});
+
 test('the production pause control makes the responsive root fullscreen', async ({ page }, testInfo) => {
   // Browsers expose fullscreen as a process-global presentation surface. Run
   // this production-path assertion in one representative project so parallel
@@ -119,13 +410,20 @@ test('the production pause control makes the responsive root fullscreen', async 
   const requestedAssets: string[] = [];
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
   await page.goto('/');
+  await expect(page.locator('#game-root canvas')).toBeVisible();
+  await page.waitForTimeout(500);
   const supported = await page.evaluate(() => document.fullscreenEnabled);
   test.skip(!supported, 'Headless browser does not expose the Fullscreen API');
   const viewport = page.viewportSize()!;
-  await expect.poll(async () => {
-    await page.mouse.click(viewport.width / 2, 220);
-    return requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png'));
-  }, { intervals: [150, 250, 400], timeout: 8_000 }).toBe(true);
+  // Launch through the selected logical action instead of a stale canvas
+  // coordinate: the production home card moved when its artwork grew.
+  await page.keyboard.down('Enter');
+  await page.waitForTimeout(60);
+  await page.keyboard.up('Enter');
+  await expect.poll(
+    () => requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png')),
+    { intervals: [150, 250, 400], timeout: 8_000 },
+  ).toBe(true);
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1_000);
   // The launch pointer is intentionally quarantined until a neutral sample.

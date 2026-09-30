@@ -1,6 +1,6 @@
 import type { GameContext } from '../engine/context';
 import { DataVisualArtRegistry } from '../systems/visualArt';
-import { resolveEnemyActorArtId } from './progressionPresentation';
+import { resolveEnemyPortraitArtId } from './progressionPresentation';
 
 export interface CompendiumSnapshotEntry {
   readonly enemyId: string;
@@ -48,7 +48,7 @@ export class CompendiumController {
       const copy = compendiumCopy(enemy.archetype);
       const actorArtId = status === 'unseen'
         ? undefined
-        : resolveEnemyActorArtId(enemy.id, this.context.data, this.visualArt);
+        : resolveEnemyPortraitArtId(enemy.id, this.context.data, this.visualArt);
       return Object.freeze({
         enemyId: enemy.id,
         name: enemy.name,

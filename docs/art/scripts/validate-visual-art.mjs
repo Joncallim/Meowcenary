@@ -100,6 +100,11 @@ export function validateVisualManifest(root) {
     references.add(resource.id);
     const animatedKind = binding.kind === 'character' || binding.kind === 'enemy';
     if (animatedKind && resource.load?.type !== 'spritesheet') fail(id, `${binding.kind} bindings require a spritesheet resource`);
+    if (animatedKind && binding.required) {
+      for (const clip of ['idle', 'run', 'hurt', 'defeat']) {
+        if (!binding.clips?.[clip]) fail(id, `required actor binding is missing ${clip} clip`);
+      }
+    }
     if (binding.frameKey !== undefined) {
       if (resource.load?.type !== 'atlas') fail(id, 'named frame requires an atlas resource');
       else if (!resource._validatedAtlasFrames?.has(binding.frameKey)) fail(id, `named atlas frame ${binding.frameKey} does not exist`);

@@ -1,6 +1,7 @@
 import type { ArenaVisualDefinition } from '../../src/systems/types';
 
 export const TEST_ARENA_VISUAL: ArenaVisualDefinition = Object.freeze({
+  menuBackdropArtId: 'arena-backdrop:junkyard',
   floorArtIds: Object.freeze(['world:junkyard-floor:base']),
   boundary: Object.freeze({
     straightArtId: 'world:junkyard-boundary:straight',

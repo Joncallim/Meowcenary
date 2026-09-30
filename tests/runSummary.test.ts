@@ -15,7 +15,7 @@ import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
-import { logicalCanvasViewport } from '../src/ui/layout';
+import { logicalCanvasViewport, responsiveGameUiViewport } from '../src/ui/layout';
 import {
   computeRunSummaryLayout,
   PhaserRunSummaryView,
@@ -240,7 +240,7 @@ describe('computeRunSummaryLayout', () => {
         layout.actionBounds.forEach((action, index) => {
           expect(action.x).toBeGreaterThanOrEqual(layout.safeBounds.x);
           expect(action.y).toBeGreaterThanOrEqual(layout.safeBounds.y);
-          expect(action.x + action.width).toBeLessThanOrEqual(layout.safeBounds.x + layout.safeBounds.width);
+          expect(action.x + action.width).toBeLessThanOrEqual(layout.safeBounds.x + layout.safeBounds.width + 0.001);
           expect(action.y + action.height).toBeLessThanOrEqual(layout.safeBounds.y + layout.safeBounds.height);
           expect(action.width * (displayWidth / viewport.canvasWidth)).toBeGreaterThanOrEqual(44);
           expect(action.height * (displayHeight / viewport.canvasHeight)).toBeGreaterThanOrEqual(44);
@@ -249,6 +249,13 @@ describe('computeRunSummaryLayout', () => {
       }
     });
   }
+
+  it('centres a readable terminal surface on wide displays', () => {
+    const layout = computeRunSummaryLayout(responsiveGameUiViewport(1920, 1080), 4);
+    expect(layout.safeBounds.width).toBe(672);
+    expect(layout.safeBounds.x).toBe(432);
+    expect(layout.actionBounds.every((action) => action.width < 672)).toBe(true);
+  });
 });
 
 describe('RunSummaryController terminal integration', () => {

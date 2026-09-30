@@ -118,6 +118,9 @@ function enemyDefinition(): ResolvedEnemyDefinition {
         10,
         20,
         bus,
+        undefined,
+        undefined,
+        { allowPrimitiveFallback: true },
       ),
       sprite: circles[0], circles,
     };
@@ -156,7 +159,7 @@ function enemyDefinition(): ResolvedEnemyDefinition {
     const { enemy, sprite, circles } = await createEnemy();
     expect(sprite.body?.setCircle).toHaveBeenCalledWith(13);
     expect(sprite.visible).toBe(false);
-    expect(circles.map((circle) => circle.radius)).toEqual([13, 12 * 1.30, 13 * 1.30, 5 * 1.30]);
+    expect(circles.map((circle) => circle.radius)).toEqual([13, 12 * 1.45, 13 * 1.45, 5 * 1.45]);
     expect(enemy.pos).toEqual({ x: 10, y: 20 });
   });
 
@@ -403,14 +406,24 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       };
     }
 
-    it('constructs fallback body/accent only when animated enemy art is unavailable', async () => {
+    it('constructs fallback body/accent only when a test explicitly opts into it', async () => {
       const fallback = await createEnemy();
       const loaded = await createArtEnemy(enemyDefinition(), 10);
 
       // Fallback: physics proxy, display body, accent, and shadow.
       expect(fallback.circles).toHaveLength(4);
       // Loaded art retains only the physics proxy and shared display shadow.
-      expect(loaded.circles.map((circle) => circle.radius)).toEqual([13, 12 * 1.30]);
+      expect(loaded.circles.map((circle) => circle.radius)).toEqual([13, 12 * 1.45]);
+    });
+
+    it('rejects missing required actor art on the production constructor path', async () => {
+      const { Enemy } = await import('../src/entities/Enemy');
+      const scene = {
+        add: { circle: (x: number, y: number, radius: number) => new MockArc(x, y, radius) },
+        physics: { add: { existing: () => undefined } },
+      };
+      expect(() => new Enemy(scene as never, enemyDefinition(), 10, 20, createEventBus()))
+        .toThrow(/Required actor presentation is unavailable: binding is missing/);
     });
 
     it('shows the run clip while a charger pursues and the idle clip once stopped', async () => {
@@ -547,7 +560,7 @@ function enemyDefinition(): ResolvedEnemyDefinition {
         physics: { add: { existing: () => undefined } },
       };
       const { Enemy } = await import('../src/entities/Enemy');
-      const enemy = new Enemy(scene as never, chargerDefinition, 10, 20, bus);
+      const enemy = new Enemy(scene as never, chargerDefinition, 10, 20, bus, undefined, undefined, { allowPrimitiveFallback: true });
       // circles: physics body, shadow, enlarged fallback body, telegraph accent.
       // Explicit depths keep the accent above the fallback body regardless of
       // allocation order; loaded art avoids creating the two fallback nodes.

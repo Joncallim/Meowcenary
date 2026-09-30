@@ -370,6 +370,7 @@ export class GameScene extends Phaser.Scene {
       new PhaserHudView({
         scene: this,
         viewport,
+        visualArt,
       }),
     );
     this.controlsView = new ControlsView({
@@ -380,6 +381,7 @@ export class GameScene extends Phaser.Scene {
       onPauseRequested: () => this.routeAction('pause'),
       onAbilityRequested: () => this.routeAction('ability'),
       onExtractRequested: () => this.routeAction('confirm'),
+      visualArt,
       ability: this.abilityDefinition === undefined ? undefined : {
         name: this.abilityDefinition.name,
         description: this.abilityDefinition.description,
@@ -536,6 +538,7 @@ export class GameScene extends Phaser.Scene {
     this.defeatPresentationSystem = new DefeatPresentationSystem({
       scene: this,
       bus: ctx.bus,
+      data: ctx.data,
       visualArt,
       maxPresentations: RuntimeConfig.performance.maxDefeatPresentations,
     });
@@ -598,7 +601,8 @@ export class GameScene extends Phaser.Scene {
         return scene.terminalSettlement;
       },
       get canContinue(): boolean {
-        return scene.stagePlan !== undefined && new StageSelectionController(ctx).hasNextUnlockedStage();
+        return scene.stagePlan !== undefined
+          && new StageSelectionController(ctx).continuationAfter(scene.stagePlan.stageId) !== undefined;
       },
       get completedAchievementNames(): readonly string[] {
         return scene.completedAchievementNames;
@@ -616,6 +620,7 @@ export class GameScene extends Phaser.Scene {
       viewport,
       bus: ctx.bus,
       controller: this.runSummaryController,
+      visualArt,
       readInputMode: () => this.inputController!.getInputMode(),
       resolveAchievementIcon: (iconArtId) => {
         const binding = resolveAchievementIconBinding(visualArt, iconArtId);
@@ -625,7 +630,7 @@ export class GameScene extends Phaser.Scene {
       },
       onNextStage: () => {
         if (!scene.stagePlan) return false;
-        return new StageSelectionController(ctx).selectNext().ok;
+        return new StageSelectionController(ctx).selectContinuationAfter(scene.stagePlan.stageId).ok;
       },
       canNavigate: () => !scene.hasPendingTerminalPersistence(),
       onDiscardPending: () => scene.discardPendingTerminalPersistence(),

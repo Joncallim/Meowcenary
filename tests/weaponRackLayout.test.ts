@@ -94,6 +94,18 @@ describe('computeWeaponRackLayout', () => {
     expect(landscape.columns).not.toBe(portrait.columns);
   });
 
+  it('centres a bounded rack surface on a wide desktop instead of stretching cards edge to edge', () => {
+    const viewport = {
+      canvasWidth: 1024, canvasHeight: 576, displayWidth: 1280, displayHeight: 720,
+      containerWidth: 1280, containerHeight: 720, layoutInsets: { top: 0, right: 0, bottom: 0, left: 0 },
+    };
+    const layout = computeWeaponRackLayout(viewport, 6);
+    const gridWidth = layout.cardWidth * layout.columns + layout.gap * (layout.columns - 1);
+    expect(gridWidth * safeDisplayScale(viewport)).toBeLessThanOrEqual(960);
+    expect(layout.leftMargin).toBeGreaterThan(100);
+    expect(layout.rightMargin).toBeGreaterThan(100);
+  });
+
   it('keeps every numeric region finite for a collapsed display', () => {
     const layout = computeWeaponRackLayout(logicalCanvasViewport(0, 0), 6);
     const values = [

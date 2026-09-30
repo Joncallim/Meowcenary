@@ -15,6 +15,7 @@ import {
   ACTOR_VISUAL_SCALE_BY_KIND,
   PlaceholderView,
   createAnimatedActorView,
+  type ActorViewFallbackOptions,
   type ActorView,
 } from './actorView';
 
@@ -81,6 +82,7 @@ export class Enemy implements EnemyInstance {
     private readonly bus: EventBus,
     art?: Readonly<VisualArtBinding>,
     private readonly environment?: ChargerEnvironment,
+    fallbackOptions?: Readonly<ActorViewFallbackOptions>,
   ) {
     nextEnemyInstanceId += 1;
     this.definition = deepFreeze(structuredClone(definition));
@@ -104,6 +106,7 @@ export class Enemy implements EnemyInstance {
       { node: shadow, dy: SHADOW_OFFSET_Y * ENEMY_VISUAL_FACTOR },
       art,
       VisualDepth.enemy,
+      fallbackOptions,
     );
     if (animatedView) {
       this.view = animatedView;

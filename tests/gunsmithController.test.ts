@@ -26,18 +26,18 @@ describe('GunsmithController durable commands', () => {
   it('exposes every registered chassis even when no build exists, then preserves each family selection', () => {
     const { context, controller } = setup();
     expect(controller.snapshot().families).toEqual([
-      { id: 'pistol', name: 'Pistol', selected: false, existingBuildId: undefined },
-      { id: 'smg', name: 'SMG', selected: false, existingBuildId: undefined },
-      { id: 'shotgun', name: 'Shotgun', selected: false, existingBuildId: undefined },
+      { id: 'pistol', name: 'Pistol', iconArtId: 'weapon-icon:pistol:t1', previewBaseArtId: 'gun-build-base:pistol', selected: false, existingBuildId: undefined },
+      { id: 'smg', name: 'SMG', iconArtId: 'weapon-icon:smg:t1', previewBaseArtId: 'gun-build-base:smg', selected: false, existingBuildId: undefined },
+      { id: 'shotgun', name: 'Shotgun', iconArtId: 'weapon-icon:shotgun:t1', previewBaseArtId: 'gun-build-base:shotgun', selected: false, existingBuildId: undefined },
     ]);
 
     expect(controller.createBuild('pistol')).toMatchObject({ ok: true });
     expect(controller.createBuild('smg')).toMatchObject({ ok: true });
     expect(controller.selectBuild('build:pistol')).toMatchObject({ ok: true });
     expect(controller.snapshot().families).toEqual([
-      { id: 'pistol', name: 'Pistol', selected: true, existingBuildId: 'build:pistol' },
-      { id: 'smg', name: 'SMG', selected: false, existingBuildId: 'build:smg' },
-      { id: 'shotgun', name: 'Shotgun', selected: false, existingBuildId: undefined },
+      { id: 'pistol', name: 'Pistol', iconArtId: 'weapon-icon:pistol:t1', previewBaseArtId: 'gun-build-base:pistol', selected: true, existingBuildId: 'build:pistol' },
+      { id: 'smg', name: 'SMG', iconArtId: 'weapon-icon:smg:t1', previewBaseArtId: 'gun-build-base:smg', selected: false, existingBuildId: 'build:smg' },
+      { id: 'shotgun', name: 'Shotgun', iconArtId: 'weapon-icon:shotgun:t1', previewBaseArtId: 'gun-build-base:shotgun', selected: false, existingBuildId: undefined },
     ]);
     expect(context.saveData.gunsmith.builds.map((build) => build.id)).toEqual(['build:pistol', 'build:smg']);
   });
