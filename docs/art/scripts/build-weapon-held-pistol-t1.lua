@@ -1,2 +1,4 @@
-EPIC16_WEAPON_ART = { kind = "held", family = "pistol", tier = 1, width = 32, height = 20, frames = 1, savedAs = "assets-src/held-weapons/weapon-held-pistol-t1/source/weapon-held-pistol-t1.pxo" }
-dofile("docs/art/scripts/lib/epic16-weapon-art.lua")
+-- external-production-importer: pinned native weapon tier master; CANDIDATE.
+-- Historical procedural recipe is archived in lib/epic16-weapon-art.lua.
+local ok = os.execute("python3 docs/art/scripts/build-weapon-production-art.py")
+if ok ~= true and ok ~= 0 then error("candidate weapon tier import failed") end

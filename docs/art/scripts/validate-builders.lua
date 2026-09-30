@@ -550,10 +550,22 @@ assert(closeOk, "could not derive builder contracts from V4 visual manifests")
 contracts = assert(load("return " .. manifestContracts, "visual-manifest-contracts"))()
 
 local matchedContracts = 0
+local weaponImportValidated = false
 for _, contract in ipairs(contracts) do
   if onlyScript == nil or contract.script == onlyScript then
   matchedContracts = matchedContracts + 1
   if contract.externalImporter then
+    -- Only the eighteen existing held/icon weapon imports use this pinned
+    -- raster/source parity gate. Other external families retain their contract.
+    local kind, family, tier = contract.script:match("^docs/art/scripts/build%-weapon%-(%a+)%-(%a+)%-t([123])%.lua$")
+    if (kind == "held" or kind == "icon") and
+        (family == "pistol" or family == "smg" or family == "shotgun") and tier ~= nil then
+      if not weaponImportValidated then
+        local ok = os.execute("python3 docs/art/scripts/build-weapon-production-art.py --check")
+        assert(ok == true or ok == 0, "pinned weapon tier source/raster parity failed")
+        weaponImportValidated = true
+      end
+    end
     local source = assert(io.open(contract.savedAs, "rb"), contract.script .. " missing imported Pixelorama source")
     source:close()
     io.write("PASS ", contract.script, " (external importer source contract)\n")
