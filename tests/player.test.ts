@@ -276,6 +276,25 @@ describe('Player', () => {
     expect(sprite.alpha).toBe(1);
   });
 
+  it('Shield Flicker invulnerability blocks Forge environmental damage', async () => {
+    const { player, bus } = await createHarness();
+    const damaged = vi.fn();
+    bus.on('player:damaged', damaged);
+
+    player.grantInvulnerability(1200);
+    player.takeEnvironmentalDamage(10);
+
+    expect(player.health).toBe(100);
+    expect(damaged).not.toHaveBeenCalled();
+
+    // Once the explicit Shield Flicker window expires, the same hazard damage
+    // must be accepted by the normal environmental-damage boundary.
+    player.update(1200);
+    player.takeEnvironmentalDamage(10);
+    expect(player.health).toBe(90);
+    expect(damaged).toHaveBeenCalledWith({ amount: 10, healthRemaining: 90 });
+  });
+
   it('takeEnvironmentalDamage lethal hit emits player:died and ends the run', async () => {
     const { player, runState, sprite, bus } = await createHarness();
     const died = vi.fn();

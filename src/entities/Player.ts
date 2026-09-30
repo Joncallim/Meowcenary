@@ -215,7 +215,16 @@ export class Player {
   }
 
   takeEnvironmentalDamage(amount: number): void {
-    if (this.runState.status !== 'active' || !Number.isFinite(amount) || amount <= 0) return;
+    // Environmental hazards use this separate entry point so they can apply
+    // continuous damage without creating combat hit-stun. They must still
+    // respect the same explicit invulnerability window granted by abilities
+    // (for example Shield Flicker), otherwise Forge hazards bypass the ability.
+    if (
+      this.runState.status !== 'active' ||
+      this.invulnerableMs > 0 ||
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) return;
     this.health = Math.max(0, this.health - amount);
     this.view.playOneShot(this.health <= 0 ? 'defeat' : 'hurt');
     this.bus.emit('player:damaged', { amount, healthRemaining: this.health });
