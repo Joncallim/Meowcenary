@@ -562,6 +562,18 @@ export function buildHasTrait(
     definition.traits.includes(trait) || part.infusedTraits.includes(trait));
 }
 
+/** Canonical behavior-trait view of a persisted build. This deliberately
+ * shares resolvedBuildParts() with preview/stat resolution so corrupt or stale
+ * assignments cannot contribute through a second runtime-only path. */
+export function resolveBuildTraits(
+  build: WeaponBuild,
+  definitions: ReadonlyMap<string, PartDefinition>,
+  ownedParts: ReadonlyMap<string, OwnedPart>,
+): readonly BehaviorTrait[] {
+  return Object.freeze(BEHAVIOR_TRAITS.filter((trait) =>
+    buildHasTrait(build, trait, definitions, ownedParts)));
+}
+
 /** Persistent saves are untrusted input: one owned instance may contribute
  * through exactly one compatible, definition-matching slot. */
 function resolvedBuildParts(
@@ -595,9 +607,9 @@ export function resolveBuildTraitModifiers(
   ownedParts: ReadonlyMap<string, OwnedPart>,
 ): readonly Modifier[] {
   const modifiers: Modifier[] = [];
-  for (const trait of BEHAVIOR_TRAITS) {
+  for (const trait of resolveBuildTraits(build, definitions, ownedParts)) {
     const effect = TRAIT_BEHAVIORS[trait].modifier;
-    if (!effect || !buildHasTrait(build, trait, definitions, ownedParts)) continue;
+    if (!effect) continue;
     modifiers.push({ ...effect, sourceId: `trait:${build.id}:${trait.toLowerCase()}`, scope: { kind: 'weapon-family', family: build.baseWeaponFamily } });
   }
   return modifiers;
