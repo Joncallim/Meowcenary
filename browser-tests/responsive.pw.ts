@@ -36,6 +36,13 @@ function expectedArenaPresentationBounds(diagnostic: ArenaFramingDiagnostics) {
   };
 }
 
+async function applyKeyboardCpuThrottle(page: import('@playwright/test').Page, project: string): Promise<void> {
+  const rate = Number(process.env.MEOW_KEYBOARD_CPU_THROTTLE_RATE ?? 0);
+  if (project !== 'desktop-1920x1080' || !Number.isFinite(rate) || rate < 2) return;
+  const session = await page.context().newCDPSession(page);
+  await session.send('Emulation.setCPUThrottlingRate', { rate });
+}
+
 test('canvas fills the available viewport and survives a live resize', async ({ page }, testInfo) => {
   await page.goto('/');
   const canvas = page.locator('#game-root canvas');
@@ -215,19 +222,26 @@ test('cold Home readiness stays closed until Boot resources arrive', async ({ pa
   })).toBe(true);
 });
 
-test('keyboard player journey reaches Mercenary, Career and gameplay on the real canvas', async ({ page }, testInfo) => {
+test('keyboard player journey reaches Mercenary and gameplay on the real canvas', async ({ page }, testInfo) => {
   test.setTimeout(60_000);
   const requestedAssets: string[] = [];
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
-  const press = async (key: string) => {
+  const step = async <T>(label: string, action: () => Promise<T>): Promise<T> => test.step(label, action);
+  const press = async (key: string) => step(`key ${key}`, async () => {
     await page.keyboard.down(key);
     await page.waitForTimeout(60);
     await page.keyboard.up(key);
     // Keyboard actions are polled: give the input owner its neutral edge
-    // before another press of the same key, independently of panel loading.
-    await page.waitForTimeout(250);
-  };
-  const awaitMenu = async (panel: 'home' | 'character' | 'career' | 'achievements') => {
+    // before another press of the same key. This checks the logical input
+    // state after InputController's own per-frame keyboard poll.
+    await expect.poll(() => page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { isMenuInputNeutral(): boolean };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.isMenuInputNeutral() ?? false;
+    }), { intervals: [16, 32, 50], timeout: 4_000 }).toBe(true);
+  });
+  const awaitMenu = async (panel: 'home' | 'character' | 'career' | 'achievements') => step(`settled menu ${panel}`, async () => {
     const settled = await page.evaluate(async () => {
       const seam = (globalThis as typeof globalThis & {
         __MEOWCENARY_VISUAL_TEST__?: { waitForMenuPresentation(): Promise<boolean> };
@@ -248,9 +262,10 @@ test('keyboard player journey reaches Mercenary, Career and gameplay on the real
         && diagnostics?.committedDisplay === true
         && diagnostics?.committedPanel === expectedPanel;
     }, panel)).toBe(true);
-  };
+  });
 
-  await page.goto('/?visual-test=1');
+  await applyKeyboardCpuThrottle(page, testInfo.project.name);
+  await step('cold boot and page navigation', () => page.goto('/?visual-test=1'));
   await awaitMenu('home');
   const canvas = page.locator('#game-root canvas');
   await expect(canvas).toBeVisible();
@@ -267,6 +282,69 @@ test('keyboard player journey reaches Mercenary, Career and gameplay on the real
 
   await press('Escape');
   await awaitMenu('home');
+
+  await press('Enter');
+  await expect.poll(() => page.evaluate(() => {
+    const seam = (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: { isSceneActive(key: string): boolean };
+    }).__MEOWCENARY_VISUAL_TEST__;
+    return seam?.isSceneActive('GameScene') ?? false;
+  }), { intervals: [150, 250, 400], timeout: 8_000 }).toBe(true);
+  await expect.poll(
+    () => requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png')),
+    { intervals: [150, 250, 400], timeout: 8_000 },
+  ).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('gameplay.png') });
+  await expect(canvas).toBeVisible();
+});
+
+test('keyboard player journey reaches Career and Achievements on the real canvas', async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
+  const requestedAssets: string[] = [];
+  page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
+  const step = async <T>(label: string, action: () => Promise<T>): Promise<T> => test.step(label, action);
+  const press = async (key: string) => step(`key ${key}`, async () => {
+    await page.keyboard.down(key);
+    await page.waitForTimeout(60);
+    await page.keyboard.up(key);
+    // Keyboard actions are polled; wait for Phaser's next frame to observe the
+    // neutral edge before another press of the same key.
+    await expect.poll(() => page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { isMenuInputNeutral(): boolean };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.isMenuInputNeutral() ?? false;
+    }), { intervals: [16, 32, 50], timeout: 4_000 }).toBe(true);
+  });
+  const awaitMenu = async (panel: 'home' | 'career' | 'achievements') => step(`settled menu ${panel}`, async () => {
+    const settled = await page.evaluate(async () => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { waitForMenuPresentation(): Promise<boolean> };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.waitForMenuPresentation() ?? false;
+    });
+    expect(settled).toBe(true);
+    await expect.poll(() => page.evaluate((expectedPanel) => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: {
+          isMenuPresentationSettled(): boolean;
+          menuPresentationDiagnostics(): Record<string, unknown>;
+        };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      const diagnostics = seam?.menuPresentationDiagnostics();
+      return seam?.isMenuPresentationSettled() === true
+        && diagnostics?.active === true
+        && diagnostics?.committedDisplay === true
+        && diagnostics?.committedPanel === expectedPanel;
+    }, panel)).toBe(true);
+  });
+
+  await applyKeyboardCpuThrottle(page, testInfo.project.name);
+  await step('cold boot and page navigation', () => page.goto('/?visual-test=1'));
+  await awaitMenu('home');
+  const canvas = page.locator('#game-root canvas');
+  await expect(canvas).toBeVisible();
+
   for (let index = 0; index < 3; index += 1) await press('ArrowDown');
   await press('Enter');
   await awaitMenu('career');
@@ -289,18 +367,6 @@ test('keyboard player journey reaches Mercenary, Career and gameplay on the real
   await awaitMenu('career');
   await press('Escape');
   await awaitMenu('home');
-  await press('Enter');
-  await expect.poll(() => page.evaluate(() => {
-    const seam = (globalThis as typeof globalThis & {
-      __MEOWCENARY_VISUAL_TEST__?: { isSceneActive(key: string): boolean };
-    }).__MEOWCENARY_VISUAL_TEST__;
-    return seam?.isSceneActive('GameScene') ?? false;
-  }), { intervals: [150, 250, 400], timeout: 8_000 }).toBe(true);
-  await expect.poll(
-    () => requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png')),
-    { intervals: [150, 250, 400], timeout: 8_000 },
-  ).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath('gameplay.png') });
   await expect(canvas).toBeVisible();
 });
 

@@ -1,4 +1,4 @@
-import type { GameContext, PersistenceUpdate } from '../engine/context';
+import type { GameContext } from '../engine/context';
 import {
   assignPartToBuild,
   equipPart,
@@ -634,38 +634,48 @@ export class GunsmithController {
   }
 
   fitPart(instanceId: string): GunsmithCommandResult {
-    const state = this.context.saveData.gunsmith;
-    const build = selectedBuild(state);
-    if (!build) return { ok: false, reason: 'no-selected-build' };
-    // Persistent fitting is global: the same physical instance moves from an
-    // older build only after the target validates.  Do not use equipPart here
-    // because it intentionally only knows one build.
-    const result = assignPartToBuild(state, build.id, instanceId, this.registry.asMap());
-    if (!result.ok) return result;
-    const update = this.context.updateGunsmith(() => result.state);
+    const buildId = this.context.saveData.gunsmith.selectedBuildId;
+    if (!buildId) return { ok: false, reason: 'no-selected-build' };
+    let failure: string | undefined;
+    const update = this.context.updateGunsmith((current) => {
+      if (current.selectedBuildId !== buildId) { failure = 'stale-target'; return undefined; }
+      const result = assignPartToBuild(current, buildId, instanceId, this.registry.asMap());
+      if (!result.ok) { failure = result.reason; return undefined; }
+      return result.state;
+    });
+    if (failure) return { ok: false, reason: failure };
     return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
   }
 
   unequipPart(instanceId: string): GunsmithCommandResult {
-    const state = this.context.saveData.gunsmith;
-    const build = selectedBuild(state);
-    if (!build) return { ok: false, reason: 'no-selected-build' };
-    const result = unequipPart(build, instanceId);
-    if (!result.ok) return result;
-    return this.persistBuild(state, result.build);
+    return this.mutateSelectedBuild((build) => unequipPart(build, instanceId));
   }
 
   removeUnavailableFittedPart(instanceId: string): GunsmithCommandResult {
-    const state = this.context.saveData.gunsmith;
-    const build = selectedBuild(state);
-    if (!build || state.parts[instanceId] === undefined || this.registry.partById(state.parts[instanceId].partId) !== undefined) {
-      return { ok: false, reason: 'not-unavailable-fitted-part' };
-    }
-    const fitted = Object.fromEntries(Object.entries(build.fitted).filter(([, id]) => id !== instanceId));
-    const traitParts = build.traitParts.filter((id) => id !== instanceId);
-    if (Object.keys(fitted).length === Object.keys(build.fitted).length && traitParts.length === build.traitParts.length) return { ok: false, reason: 'not-fitted' };
-    const next = { ...build, fitted, traitParts };
-    return this.persistBuild(state, next);
+    return this.mutateSelectedBuild((build, current) => {
+      if (current.parts[instanceId] === undefined || this.registry.partById(current.parts[instanceId].partId) !== undefined) {
+        return { ok: false, reason: 'not-unavailable-fitted-part' };
+      }
+      const result = unequipPart(build, instanceId);
+      return result.ok ? result : { ok: false, reason: 'not-fitted' };
+    });
+  }
+
+  private mutateSelectedBuild(transform: (build: WeaponBuild, current: GunsmithState) =>
+    { readonly ok: true; readonly build: WeaponBuild } | { readonly ok: false; readonly reason: string }): GunsmithCommandResult {
+    const buildId = this.context.saveData.gunsmith.selectedBuildId;
+    if (!buildId) return { ok: false, reason: 'no-selected-build' };
+    let failure: string | undefined;
+    const update = this.context.updateGunsmith((current) => {
+      if (current.selectedBuildId !== buildId) { failure = 'stale-target'; return undefined; }
+      const build = current.builds.find((row) => row.id === buildId);
+      if (!build) { failure = 'unknown-build'; return undefined; }
+      const result = transform(build, current);
+      if (!result.ok) { failure = result.reason; return undefined; }
+      return { ...current, builds: current.builds.map((row) => row.id === buildId ? result.build : row) };
+    });
+    if (failure) return { ok: false, reason: failure };
+    return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
   }
 
   merge(firstInstanceId: string, secondInstanceId: string): GunsmithCommandResult {
@@ -721,14 +731,7 @@ export class GunsmithController {
     return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
   }
 
-  private persistBuild(state: GunsmithState, build: WeaponBuild): GunsmithCommandResult {
-    const update: PersistenceUpdate<GunsmithState> = this.context.updateGunsmith((current) => ({
-      ...current,
-      builds: current.builds.map((candidate) => candidate.id === build.id ? build : candidate),
-    }));
-    void state;
-    return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
-  }
+
 }
 
 function familyName(id: string): string { return getAllWeaponFamilies().find((family) => family.id === id)?.name ?? id; }
@@ -738,11 +741,6 @@ function occupiedSlotMessage(selected: Build, slot: string, state: GunsmithState
   const current = currentId === undefined ? undefined : state.parts[currentId];
   const name = current === undefined ? undefined : registry.partById(current.partId)?.name;
   return `${gunsmithSlotLabel(slot as import('../gameplay/gunsmith').PartSlot)} occupied — unequip ${name ?? 'the current part'} first.`;
-}
-
-function selectedBuild(state: GunsmithState): WeaponBuild | undefined {
-  const build = state.builds.find((candidate) => candidate.id === state.selectedBuildId);
-  return build === undefined ? undefined : { ...build, fitted: { ...build.fitted }, traitParts: [...build.traitParts] };
 }
 
 function ownedPart(state: GunsmithState, instanceId: string): OwnedPart | undefined {
