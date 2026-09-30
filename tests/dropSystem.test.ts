@@ -19,6 +19,7 @@ import { DataWeaponRegistry } from '../src/systems/weaponRegistry';
 import { loadGameData } from '../src/systems/validation';
 import charactersJson from '../src/data/characters.json';
 import metaUpgradesJson from '../src/data/meta-upgrades.json';
+import { InventoryController } from '../src/ui/inventory';
 import upgradesJson from '../src/data/upgrades.json';
 
 interface TestSystem {
@@ -120,6 +121,35 @@ async function createSystem(options: {
 }
 
 describe('DropSystem', () => {
+  it('retries a blocked completion weapon after a paused merge without running pickup physics', async () => {
+    const registry = new DataWeaponRegistry(loadGameData());
+    const { system, runState, bus } = await createSystem({ weaponRegistry: registry });
+    const definition = registry.weaponById('scrap-pistol-t1')!;
+    runState.equipped = Array.from({ length: 6 }, () => registry.createWeaponInstance(definition));
+    const blocked = vi.fn();
+    const acquired = vi.fn();
+    bus.on('weapon:pickup-blocked', blocked);
+    bus.on('weapon:acquired', acquired);
+    const drop = system.spawnDrop(500, 500, { kind: 'weapon', definitionId: definition.id });
+
+    expect(system.settlePendingClearLoot()).toBe(0);
+    expect(drop.pickupBlocked).toBe(true);
+    expect(system.settlePendingClearLoot()).toBe(0);
+    expect(blocked).toHaveBeenCalledOnce();
+    runState.status = 'paused';
+    runState.pauseReason = 'manual';
+    const inventory = new InventoryController({ runState, bus, weaponRegistry: registry });
+    inventory.toggle(runState.equipped[0]!.instanceId);
+    inventory.toggle(runState.equipped[1]!.instanceId);
+    expect(inventory.mergeSelected().ok).toBe(true);
+    runState.status = 'active';
+    runState.pauseReason = null;
+
+    expect(system.settlePendingClearLoot()).toBe(1);
+    expect(acquired).toHaveBeenCalledOnce();
+    expect(runState.equipped).toHaveLength(6);
+    expect(system.activeDropCount).toBe(0);
+  });
   it('collects only nearby ordinary drops for a loot-pulse ability', async () => {
     const { system, runState } = await createSystem();
     system.spawnDrop(10, 0, { kind: 'scrap', amount: 3 });

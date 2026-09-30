@@ -27,6 +27,19 @@ function completedRuntime(reward: Record<string, unknown>) {
 /** Regression for the runtime boundary: a failed save must retain the exact
  * objective-completion snapshot rather than recomputing/losing its reward. */
 describe('GameScene durable stage clear', () => {
+  it('drains completion loot before an immediate extraction confirmation ends the run', () => {
+    const scene = new GameScene() as any;
+    const run = createRunState({ seed: 1, characterId: 'scrap-tabby', arenaId: 'junkyard-lot' });
+    run.status = 'active';
+    scene.runState = run;
+    scene.stageRuntime = completedRuntime({ firstClearScrap: 35 });
+    const settlePendingClearLoot = vi.fn(() => expect(run.status).toBe('active'));
+    scene.dropSystem = { settlePendingClearLoot };
+
+    expect(scene.tryCommitStageClear({ bus: createEventBus() })).toBe(true);
+    expect(settlePendingClearLoot).toHaveBeenCalledOnce();
+    expect(run.status).toBe('won');
+  });
   it('forwards the authored Scrap amount from the collection event into objective progress', () => {
     const scene = new GameScene() as any;
     const bus = createEventBus();

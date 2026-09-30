@@ -165,9 +165,9 @@ export class GameScene extends Phaser.Scene {
    * a permanently lost achievement increment. */
   private pendingAchievementFacts: Record<string, number> = {};
   private _wasPendingClear = false;
-  /** Pending-clear loot is settled once because normal pickup physics is
-   * frozen for extraction. Reset for every restart of this persistent scene. */
-  private pendingClearLootSettled = false;
+  /** Retry frozen loot only when rack capacity changes, including after a
+   * pause-menu merge. Reset for every restart of this persistent scene. */
+  private pendingClearLootRackCount?: number;
   /** Dev-evidence snapshot captured before StageRuntime clears its transient
    * pending-clear record. It is never gameplay or persistence authority. */
   private objectiveCompletionTimeMs?: number;
@@ -714,7 +714,7 @@ export class GameScene extends Phaser.Scene {
     this.pendingAchievementFacts = {};
     this.achievementToast = undefined;
     this._wasPendingClear = false;
-    this.pendingClearLootSettled = false;
+    this.pendingClearLootRackCount = undefined;
     this.completedAchievementNames = [];
     this.completedAchievements = [];
     this.newlyAvailableNames = [];
@@ -796,9 +796,9 @@ export class GameScene extends Phaser.Scene {
       this.abilityPresentationSystem?.update(0, ctx.settings.reducedMotion);
     }
 
-    if (isPendingClear && !this.pendingClearLootSettled) {
+    if (isPendingClear && this.pendingClearLootRackCount !== runState.equipped.length) {
       this.dropSystem?.settlePendingClearLoot();
-      this.pendingClearLootSettled = true;
+      this.pendingClearLootRackCount = runState.equipped.length;
     }
 
     // === PRESENTATION PHASE ===
@@ -1341,6 +1341,13 @@ export class GameScene extends Phaser.Scene {
   private tryCommitStageClear(ctx: GameContext): boolean {
     const runtime = this.stageRuntime;
     if (!runtime) return false;
+    // Confirm can arrive before this frame's update, including immediately
+    // after a paused merge. Drain while the run is still active so terminal
+    // settlement sees every admissible completing-kill/chest reward.
+    if (runtime.pendingClear && this.runState?.status === 'active') {
+      this.dropSystem?.settlePendingClearLoot();
+      this.pendingClearLootRackCount = this.runState.equipped.length;
+    }
     // StageRuntime owns extraction input gating only. Durable consequences are
     // deferred to the single run-terminal candidate after `endRun` so they
     // cannot split from Scrap, mastery, metrics or Achievements.

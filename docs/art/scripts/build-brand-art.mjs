@@ -83,4 +83,18 @@ const atlas = `${JSON.stringify({ export_directory_path: '', export_file_name: '
 const out = join(root, 'public/assets/ui'); const pxoPath = join(root, 'assets-src/ui/source/brand-art.pxo');
 const pxoProject = { color_mode: 5, current_frame: 0, current_layer: 0, export_directory_path: 'assets-src/ui/source', export_file_format: 0, export_file_name: 'brand-art', fps: 8, frames: [{ cels: [{ opacity: 1, ui_color: '(0.0, 0.0, 0.0, 0.0)', z_index: 0 }], duration: 1 }], layers: [{ animated_params: '{}', blend_mode: 0, clipping_mask: false, effects: {}, locked: false, name: 'authored brand and workshop backdrop', new_cels_linked: false, opacity: 1, parent: -1, type: 0, visible: true }], pixelorama_version: 'v1.2-stable', pxo_version: 7, size_x: width, size_y: height, tags: {} };
 function writePxo() { const temporary = mkdtempSync(join(tmpdir(), 'meowcenary-brand-pxo-')); try { const frameDir = join(temporary, 'image_data/frames/1'); mkdirSync(frameDir, { recursive: true }); writeFileSync(join(temporary, 'data.json'), JSON.stringify(pxoProject)); writeFileSync(join(temporary, 'mimetype'), 'application/x-pixelorama'); writeFileSync(join(frameDir, 'layer_1'), pixels); const epoch = new Date('2020-01-01T00:00:00Z'); for (const path of [join(temporary, 'data.json'), join(temporary, 'mimetype'), join(frameDir, 'layer_1')]) utimesSync(path, epoch, epoch); execFileSync('zip', ['-X', '-q', '-r', pxoPath, 'data.json', 'mimetype', 'image_data'], { cwd: temporary }); } finally { rmSync(temporary, { recursive: true, force: true }); } }
-if (process.argv.includes('--check')) { if (!readFileSync(join(out, 'brand-art.png')).equals(png)) throw new Error('Brand PNG is out of date'); if (readFileSync(join(out, 'brand-art.json'), 'utf8') !== atlas) throw new Error('Brand atlas is out of date'); const pxoPixels = execFileSync('unzip', ['-p', pxoPath, 'image_data/frames/1/layer_1']); if (!pxoPixels.equals(pixels)) throw new Error('Brand Pixelorama source is out of date'); } else { mkdirSync(out, { recursive: true }); writeFileSync(join(out, 'brand-art.png'), png); writeFileSync(join(out, 'brand-art.json'), atlas); writePxo(); }
+if (process.argv.includes('--check')) {
+  if (!readFileSync(join(out, 'brand-art.png')).equals(png)) throw new Error('Brand PNG is out of date');
+  if (readFileSync(join(out, 'brand-art.json'), 'utf8') !== atlas) throw new Error('Brand atlas is out of date');
+  const pxoMimetype = execFileSync('unzip', ['-p', pxoPath, 'mimetype']);
+  const pxoMetadata = execFileSync('unzip', ['-p', pxoPath, 'data.json']);
+  const pxoPixels = execFileSync('unzip', ['-p', pxoPath, 'image_data/frames/1/layer_1']);
+  if (!pxoMimetype.equals(Buffer.from('application/x-pixelorama'))) throw new Error('Brand Pixelorama source has an invalid mimetype');
+  if (!pxoMetadata.equals(Buffer.from(JSON.stringify(pxoProject)))) throw new Error('Brand Pixelorama project metadata is out of date');
+  if (!pxoPixels.equals(pixels)) throw new Error('Brand Pixelorama source pixels are out of date');
+} else {
+  mkdirSync(out, { recursive: true });
+  writeFileSync(join(out, 'brand-art.png'), png);
+  writeFileSync(join(out, 'brand-art.json'), atlas);
+  writePxo();
+}
