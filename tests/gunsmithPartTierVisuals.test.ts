@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import visuals from '../src/data/gunsmith-part-visuals.json';
 import art from '../src/data/visual-art.json';
-import { loadGameData } from '../src/systems/validation';
+import { loadGameData, validateGameData, collectGameDataErrors } from '../src/systems/validation';
 import { GUNSMITH_CHASSIS, resolveGunsmithPartVisual, resolveGunsmithVisualAssembly, validateGunsmithPartVisuals } from '../src/ui/gunsmithVisualAssembly';
 import type { Build, GunsmithState } from '../src/systems/save';
 const data = loadGameData();
@@ -10,6 +10,14 @@ const parts = data.gunParts!;
 const definitions = new Map(parts.map((part) => [part.id, part]));
 
 describe('exact owned Part tier presentation', () => {
+  it('production content validation rejects a missing high-tier Part binding before menu launch', () => {
+    const broken = structuredClone(loadGameData());
+    const missing = resolveGunsmithPartVisual(parts[0]!, 5).assemblyArtId!;
+    broken.visualArt.bindings = broken.visualArt.bindings.filter((binding) => binding.id !== missing);
+    expect(() => validateGameData(broken)).toThrow(/Unregistered Gunsmith Part visual tier/);
+    expect(collectGameDataErrors(broken).some((issue) => issue.message.includes('Unregistered Gunsmith Part visual tier'))).toBe(true);
+  });
+
   it('covers all physical tiers with distinct icon and assembly IDs in two physical resources', () => {
     validateGunsmithPartVisuals(parts, visuals.parts, new Set(art.bindings.map((row) => row.id)));
     const physical = parts.filter((part) => part.slot !== 'trait');

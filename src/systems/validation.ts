@@ -113,6 +113,7 @@ import { findEdgeLaneWitness, findRectWitness, findRingWitness } from '../gamepl
 import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 import { isRegisteredBossActionId } from '../gameplay/bossActions';
 import { DataEquipmentVisualRegistry, type EquipmentVisualDefinition } from '../presentation/equipmentVisuals';
+import { validateGunsmithPartVisuals } from '../presentation/gunsmithPartVisuals';
 
 const RARITIES = new Set<Rarity>(['common', 'uncommon', 'rare', 'epic', 'legendary']);
 const ENEMY_ARCHETYPES = new Set<EnemyArchetype>([
@@ -728,6 +729,7 @@ export function validateGameData(raw: unknown): GameData {
 
   // Epic 23: gun-part effect sources (appended, preserving frozen order).
   assertPartArtReferences(catalogs['gun-parts'] as PartDefinition[], visualArt);
+  validateGunsmithPartVisuals(catalogs['gun-parts'] as PartDefinition[], undefined, new Set(visualArt.bindings.map((binding) => binding.id)));
   assertPartAcquisitionRoutes(catalogs['gun-parts'] as PartDefinition[], rewardProfiles, (catalogs.achievements ?? []) as AchievementDefinition[]);
 
   // Epic 24: character ability references resolve against the ability catalog.
@@ -1003,6 +1005,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertStageChapterArtReferences(catalogs.stages as StageDefinition[], visualArt),
     () => assertStageAssetBundleReferences(catalogs.stages as StageDefinition[], assetBundles, visualArt, visualResources, arenas),
     () => assertPartArtReferences(catalogs['gun-parts'] as PartDefinition[], visualArt),
+    () => validateGunsmithPartVisuals(catalogs['gun-parts'] as PartDefinition[], undefined, new Set(visualArt.bindings.map((binding) => binding.id))),
     () => assertPartAcquisitionRoutes(catalogs['gun-parts'] as PartDefinition[], catalogs.rewardProfiles as RewardProfile[], (catalogs.achievements ?? []) as AchievementDefinition[]),
     () => assertEquipmentArtReferences(catalogs.equipment as EquipmentDefinition[], catalogs.equipmentSets as EquipmentSetDefinition[], visualArt),
     () => assertEquipmentVisualReferences(catalogs.equipment as EquipmentDefinition[], catalogs.equipmentVisuals as EquipmentVisualDefinition[], visualArt),
