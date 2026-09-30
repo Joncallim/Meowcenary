@@ -96,6 +96,7 @@ export class MenuScene extends Phaser.Scene {
   private scrollViewportBottom = 0;
   private scrollMaskGraphics?: Phaser.GameObjects.Graphics;
   private scrollMask?: Phaser.Display.Masks.GeometryMask;
+  private scrollMaskContainer?: Phaser.GameObjects.Container;
   private scrollThumb?: Phaser.GameObjects.GameObject & { setPosition?(x: number, y: number): unknown };
   private scrollThumbHeight = 0;
   private hoveredIndex = -1;
@@ -2249,11 +2250,11 @@ export class MenuScene extends Phaser.Scene {
         this.scrollThumb = this.own(root, thumb) as Phaser.GameObjects.GameObject & { setPosition?(x: number, y: number): unknown };
       }
     }
-    this.createScrollMask();
+    this.createScrollMask(root);
     this.applyScrollViewport();
   }
 
-  private createScrollMask(): void {
+  private createScrollMask(root: Phaser.GameObjects.Container): void {
     this.destroyScrollMask();
     const graphics = this.make?.graphics?.({}, false);
     if (!graphics) return;
@@ -2267,21 +2268,23 @@ export class MenuScene extends Phaser.Scene {
     const mask = graphics.createGeometryMask();
     this.scrollMaskGraphics = graphics;
     this.scrollMask = mask;
-    for (const { object } of this.scrollObjects) {
-      (object as Phaser.GameObjects.GameObject & { setMask(mask: Phaser.Display.Masks.GeometryMask): unknown })
-        .setMask(mask);
-    }
+    // One stencil pass clips the entire shared scroll surface. Applying the
+    // same mask to every decoration/text flushes and clears WebGL per child,
+    // starving input and resource observation on software-rendered desktops.
+    const content = this.own(root, this.add.container(0, 0));
+    content.add(this.scrollObjects.map(({ object }) => object));
+    content.setMask(mask);
+    this.scrollMaskContainer = content;
   }
 
   private destroyScrollMask(): void {
     if (this.scrollMask) {
-      for (const { object } of this.scrollObjects) {
-        (object as Phaser.GameObjects.GameObject & { clearMask?(destroyMask?: boolean): unknown })
-          .clearMask?.(false);
-      }
+      this.scrollMaskContainer?.clearMask(false);
       this.scrollMask.destroy();
       this.scrollMask = undefined;
     }
+    // The content remains a child of root; root owns its deep destruction.
+    this.scrollMaskContainer = undefined;
     this.scrollMaskGraphics?.destroy();
     this.scrollMaskGraphics = undefined;
   }

@@ -72,7 +72,10 @@ function fakeObject(
     strokeAlpha: 0,
     style: {},
   };
+  let parentContainer: { remove(child: unknown): unknown } | undefined;
   const api = {
+    get parentContainer() { return parentContainer; },
+    set parentContainer(value: { remove(child: unknown): unknown } | undefined) { parentContainer = value; },
     get state() {
       return { ...state, handlers: { ...state.handlers }, padding: { ...state.padding }, style: { ...state.style } };
     },
@@ -267,18 +270,28 @@ function createFakeScene(
           get state() {
             return { ...base.state };
           },
+          get parentContainer() { return base.parentContainer; },
+          set parentContainer(value: { remove(child: unknown): unknown } | undefined) { base.parentContainer = value; },
           children: [] as FakeObject[],
+          remove(child: unknown) {
+            const index = container.children.indexOf(child as FakeObject);
+            if (index >= 0) container.children.splice(index, 1);
+            (child as FakeObject).parentContainer = undefined;
+            return container;
+          },
           add(children: unknown) {
             const list = Array.isArray(children) ? children : [children];
             list.forEach((child) => {
               const object = register(child as FakeObject);
               if (!container.children.includes(object)) {
+                object.parentContainer?.remove(object);
+                object.parentContainer = container;
                 container.children.push(object);
               }
             });
             return container;
           },
-          destroy(deep = false) {
+          destroy(deep = true) {
             if (deep) {
               container.children.forEach((child) => child.destroy());
             }
@@ -1247,6 +1260,40 @@ describe('MenuScene', () => {
     }
   });
 
+  it('clips a long menu with one shared stencil owner and closes it on rebuild', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      scrollObjects: Array<{ object: FakeObject }>;
+    };
+    const base = scene.controller.snapshot();
+    const snapshot = {
+      ...base, panel: 'compendium',
+      compendium: { ...base.compendium, entries: Array.from({ length: 50 }, (_, index) => ({
+        ...base.compendium.entries[index % base.compendium.entries.length]!,
+        enemyId: `clip-owner-${index}`, name: `Clip Owner ${index}`,
+      })) },
+    } as import('../src/ui/menus').MainMenuSnapshot;
+    scene.render(snapshot);
+    const masked = harness.objects.filter(object => !object.state.destroyed && object.state.mask !== undefined);
+    // A GeometryMask stencil clear/flush per row starves real rendering and
+    // input at desktop sizes even though all texture resources have settled.
+    expect(masked).toHaveLength(1);
+    expect(masked[0]!.state.kind).toBe('container');
+    const owner = masked[0]! as FakeObject & { children: FakeObject[] };
+    expect(scene.scrollObjects.length).toBeGreaterThan(50);
+    for (const { object } of scene.scrollObjects) {
+      expect(object.state.mask).toBeUndefined();
+      expect(owner.children).toContain(object);
+    }
+    const mask = owner.state.mask as { destroyed: boolean };
+    scene.render({ ...base, panel: 'home' });
+    expect(owner.state.destroyed).toBe(true);
+    expect(mask.destroyed).toBe(true);
+    expect(harness.objects.filter(object => !object.state.destroyed && object.state.mask !== undefined)).toHaveLength(0);
+  });
+
   it('clips shared-list cards continuously while keeping clipped-off hit areas inert', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {
@@ -1258,6 +1305,7 @@ describe('MenuScene', () => {
       scrollViewportTop: number;
       scrollRegion: { scrollOffset: number; scrollBy(delta: number): void };
       scrollItemBounds: Map<number, { top: number; bottom: number }>;
+      scrollMaskContainer: FakeObject & { children: FakeObject[] };
     };
     const base = scene.controller.snapshot();
     const scrollingSnapshot = {
@@ -1282,7 +1330,9 @@ describe('MenuScene', () => {
 
     expect(target.state.visible).toBe(true);
     expect(target.state.interactive).toBe(true);
-    expect(target.state.mask).toBeDefined();
+    expect(target.state.mask).toBeUndefined();
+    expect(scene.scrollMaskContainer.state.mask).toBeDefined();
+    expect(scene.scrollMaskContainer.children).toContain(target);
     expect(originalBounds.top - scene.scrollRegion.scrollOffset).toBeLessThan(scene.scrollViewportTop);
 
     const partialOffset = scene.scrollRegion.scrollOffset;
@@ -1776,7 +1826,7 @@ describe('MenuScene', () => {
     // ... because the old root was destroyed and a single live root remains,
     // i.e. the display tree was rebuilt instead of left frozen.
     const liveContainers = harness.objects.filter(
-      (object) => object.state.kind === 'container' && !object.state.destroyed,
+      (object) => object.state.kind === 'container' && !object.state.destroyed && object.parentContainer === undefined,
     );
     expect(liveContainers).toHaveLength(1);
     const destroyedRoots = harness.objects.filter(
@@ -2768,7 +2818,7 @@ describe('MenuScene', () => {
     expect(harness.textContents()).not.toContain('Something went wrong — press Esc to retry');
 
     const liveContainers = harness.objects.filter(
-      (object) => object.state.kind === 'container' && !object.state.destroyed,
+      (object) => object.state.kind === 'container' && !object.state.destroyed && object.parentContainer === undefined,
     );
     expect(liveContainers).toHaveLength(1);
   });
