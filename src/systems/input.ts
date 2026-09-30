@@ -620,6 +620,9 @@ export class InputController implements System {
       for (let h = 0; h < anyHandlers.length; h += 1) {
         anyHandlers[h](edge);
       }
+      // A modal confirmation may quarantine inside its handler. Remaining
+      // edges were sampled before that transition and cannot own the new UI.
+      if (this.quarantinedUntilNeutral) break;
     }
   }
 
