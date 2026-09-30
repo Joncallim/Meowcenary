@@ -2,58 +2,176 @@ import type { GameContext } from '../engine/context';
 import { DataEquipmentRegistry } from '../systems/equipment';
 import { equipEquipment, unequipEquipment, maxEquipmentTier, upgradeCost, type EquipmentSlot, type OwnedEquipment } from '../gameplay/equipment';
 import { createConditionContext, evaluateCondition } from '../gameplay/conditionEvaluator';
-import { scaleModifierByTier, type ModifierSpec } from '../gameplay/stats';
-
-const label = (effect: ModifierSpec, tier = 1): string => {
-  const value = scaleModifierByTier(effect, tier);
-  if (effect.op === 'mult') {
-    const percent = Math.round((value - 1) * 100);
-    const names: Partial<Record<ModifierSpec['stat'], string>> = {
-      attackSpeed: 'Fire Rate', moveSpeed: 'Move Speed', damage: 'Damage',
-      maxHealth: 'Max Health', currencyGain: 'Scrap Gain', xpGain: 'XP Gain',
-    };
-    return `${percent >= 0 ? '+' : ''}${percent}% ${names[effect.stat] ?? effect.stat}`;
-  }
-  const names: Partial<Record<ModifierSpec['stat'], string>> = {
-    maxHealth: 'Max Health', moveSpeed: 'Move Speed', spreadDeg: 'Weapon Spread',
-    pickupRadius: 'Pickup Radius', range: 'Weapon Range', damage: 'Damage',
-  };
-  const suffix = effect.stat === 'spreadDeg' ? '°' : '';
-  return `${value >= 0 ? '+' : ''}${value}${suffix} ${names[effect.stat] ?? effect.stat}`;
-};
+import { presentLoadoutModifier, type LoadoutEffectPresentation } from './loadoutPresentation';
+import { describeProgressionCondition } from './progressionPresentation';
+import { resolveEquipmentComparison, resolveEquipmentLoadoutPresentation, type EquipmentComparison, type EquipmentLoadoutPresentation, type EquipmentPreviewCommand } from './equipmentPresentation';
 export interface EquipmentSnapshot {
-  readonly equipped: Readonly<Record<string, string | undefined>>;
-  readonly owned: readonly {
-    readonly instanceId: string; readonly equipmentId: string; readonly name: string;
-    readonly setName: string; readonly setEmblemArtId: string; readonly setPieces: number;
-    readonly slot: string; readonly tier: number; readonly iconArtId: string;
-    readonly effectSummary: readonly string[]; readonly comparisonSummary?: string;
-    readonly upgradeCost?: number; readonly upgradeLocked?: boolean;
-  }[];
-  readonly blueprints: readonly {
-    readonly equipmentId: string; readonly name: string; readonly setName: string;
-    readonly setEmblemArtId: string; readonly slot: string; readonly iconArtId: string;
-    readonly fabricationCost: number; readonly effectSummary: readonly string[];
-  }[];
-  readonly activeSets: readonly {
-    readonly name: string; readonly emblemArtId: string; readonly pieces: number;
-    readonly activeThresholds: readonly (2 | 4)[]; readonly bonusSummary: readonly string[];
-  }[];
-  readonly unavailable: readonly { readonly instanceId: string; readonly equipmentId: string }[];
+    readonly presentation: EquipmentLoadoutPresentation;
+    readonly selectedSlot: EquipmentSlot;
+    readonly selectedInstanceId?: string;
+    readonly selectedBlueprintId?: string;
+    readonly comparison?: EquipmentComparison;
+    readonly equipped: Readonly<Record<string, string | undefined>>;
+    readonly owned: readonly {
+        readonly instanceId: string;
+        readonly equipmentId: string;
+        readonly name: string;
+        readonly setName: string;
+        readonly setEmblemArtId: string;
+        readonly setPieces: number;
+        readonly slot: string;
+        readonly tier: number;
+        readonly iconArtId: string;
+        readonly effectSummary: readonly string[];
+        readonly comparisonSummary?: string;
+        readonly upgradeCost?: number;
+        readonly upgradeLocked?: boolean;
+        readonly upgradePreview?: EquipmentComparison;
+        readonly upgradeLockReason?: string;
+    }[];
+    readonly blueprints: readonly {
+        readonly equipmentId: string;
+        readonly name: string;
+        readonly setName: string;
+        readonly setEmblemArtId: string;
+        readonly slot: string;
+        readonly iconArtId: string;
+        readonly fabricationCost: number;
+        readonly effectSummary: readonly string[];
+        readonly effects: readonly LoadoutEffectPresentation[];
+    }[];
+    readonly activeSets: readonly {
+        readonly name: string;
+        readonly emblemArtId: string;
+        readonly pieces: number;
+        readonly activeThresholds: readonly (2 | 4)[];
+        readonly bonusSummary: readonly string[];
+    }[];
+    readonly unavailable: readonly {
+        readonly instanceId: string;
+        readonly equipmentId: string;
+    }[];
 }
 export class EquipmentController {
-  private readonly registry: DataEquipmentRegistry;
-  constructor(private readonly context: GameContext) { this.registry = new DataEquipmentRegistry({ equipment: context.data.equipment ?? [], equipmentSets: context.data.equipmentSets ?? [], equipmentRules: context.data.equipmentRules ?? { unlocks: { 2: { type: 'always' }, 3: { type: 'always' }, 4: { type: 'always' } } } }); }
-  private facts() { const s = this.context.saveData; return createConditionContext(s.progression, { stages: s.stages, achievements: s.achievements, characters: s.characters, bosses: s.bosses }); }
-  snapshot(): EquipmentSnapshot { const state = this.context.saveData; const equipped = Object.freeze({ ...(state.equipmentLoadout ?? {}) }); const counts = new Map<string, number>();
-    for (const [slot, id] of Object.entries(equipped)) { const item = id === undefined ? undefined : state.equipment[id]; const def = item === undefined ? undefined : this.registry.equipmentById(item.equipmentId); if (def?.slot === slot) counts.set(def.setId, (counts.get(def.setId) ?? 0) + 1); }
-    const facts = this.facts();
-    const maxTier = maxEquipmentTier(facts, this.registry.rules, state.progression.unlocks);
-    const ownedDefinitionIds = new Set(Object.values(state.equipment).map((item) => item.equipmentId));
-    return Object.freeze({ equipped, owned: Object.freeze(Object.entries(state.equipment).flatMap(([instanceId, item]) => { const def = this.registry.equipmentById(item.equipmentId); if (!def) return []; const set = this.registry.setById(def.setId)!; const cost = item.tier < maxTier ? upgradeCost(item.tier) : undefined; return [Object.freeze({ instanceId, equipmentId: item.equipmentId, name: def.name, setName: set.name, setEmblemArtId: set.emblem, setPieces: counts.get(def.setId) ?? 0, slot: def.slot, tier: item.tier, iconArtId: def.icon, effectSummary: Object.freeze(def.effects.map((effect) => label(effect, item.tier))), ...(cost === undefined ? { upgradeLocked: item.tier < 4 } : { upgradeCost: cost }) })]; })), blueprints: Object.freeze(this.registry.all().flatMap((piece) => { const set = this.registry.setById(piece.setId)!; if (!evaluateCondition(set.unlock, facts) || ownedDefinitionIds.has(piece.id)) return []; return [Object.freeze({ equipmentId: piece.id, name: piece.name, setName: set.name, setEmblemArtId: set.emblem, slot: piece.slot, iconArtId: piece.icon, fabricationCost: set.pieceFabricationCost, effectSummary: Object.freeze(piece.effects.map((effect) => label(effect))) })]; })), activeSets: Object.freeze([...counts.entries()].map(([setId, pieces]) => { const set = this.registry.setById(setId)!; const activeThresholds = ([2, 4] as const).filter((threshold) => pieces >= threshold); return Object.freeze({ name: set.name, emblemArtId: set.emblem, pieces, activeThresholds: Object.freeze(activeThresholds), bonusSummary: Object.freeze(activeThresholds.map((threshold) => `${threshold}-piece: ${set.thresholds[threshold].modifiers.map((effect) => label(effect)).join(', ')}`)) }); })), unavailable: Object.freeze(Object.entries(state.equipment).flatMap(([instanceId, item]) => this.registry.equipmentById(item.equipmentId) ? [] : [{ instanceId, equipmentId: item.equipmentId }])) }); }
-  equip(instanceId: string): boolean { const save = this.context.saveData; const owned = new Map<string, OwnedEquipment>(Object.entries(save.equipment).map(([id, item]) => [id, { instanceId: id, ...item }])); const result = equipEquipment({ equipped: save.equipmentLoadout ?? {} }, instanceId, this.registry.asMap(), owned); return result.ok && this.context.updateEquipment(() => ({ equipment: save.equipment, loadout: result.loadout.equipped })).persisted; }
-  unequip(slot: EquipmentSlot): boolean { const save = this.context.saveData; const result = unequipEquipment({ equipped: save.equipmentLoadout ?? {} }, slot); return result.ok && this.context.updateEquipment(() => ({ equipment: save.equipment, loadout: result.loadout.equipped })).persisted; }
-  upgrade(instanceId: string): boolean { const save = this.context.saveData; const item = save.equipment[instanceId]; if (!item || item.tier >= maxEquipmentTier(this.facts(), this.registry.rules, save.progression.unlocks) || save.progression.scrap < upgradeCost(item.tier)) return false; return this.context.commitEquipmentUpgrade(instanceId, item.tier, item.tier + 1, upgradeCost(item.tier)); }
-  fabricable(): readonly string[] { return this.snapshot().blueprints.map((blueprint) => blueprint.equipmentId); }
-  fabricate(equipmentId: string): boolean { return this.context.fabricateEquipment(equipmentId); }
+    private readonly registry: DataEquipmentRegistry;
+    private selectedSlot: EquipmentSlot = 'helmet';
+    private selectedInstanceId?: string;
+    private selectedBlueprintId?: string;
+    constructor(private readonly context: GameContext) { this.registry = new DataEquipmentRegistry({ equipment: context.data.equipment ?? [], equipmentSets: context.data.equipmentSets ?? [], equipmentRules: context.data.equipmentRules ?? { unlocks: { 2: { type: 'always' }, 3: { type: 'always' }, 4: { type: 'always' } } } }); }
+    private facts() { const s = this.context.saveData; return createConditionContext(s.progression, { stages: s.stages, achievements: s.achievements, characters: s.characters, bosses: s.bosses }); }
+    snapshot(): EquipmentSnapshot {
+        const state = this.context.saveData;
+        const equipped = Object.freeze({ ...(state.equipmentLoadout ?? {}) });
+        const facts = this.facts();
+        const maxTier = maxEquipmentTier(facts, this.registry.rules, state.progression.unlocks);
+        const ownedDefinitionIds = new Set(Object.values(state.equipment).map((item) => item.equipmentId));
+        const presentation = resolveEquipmentLoadoutPresentation(state, this.context.data);
+        const selected = this.selectedInstanceId === undefined ? undefined : state.equipment[this.selectedInstanceId];
+        const selectedDefinition = selected && this.registry.equipmentById(selected.equipmentId);
+        const selectedInstanceId = selectedDefinition?.slot === this.selectedSlot ? this.selectedInstanceId : undefined;
+        const selectedBlueprintId = this.selectedBlueprintId !== undefined
+            && this.registry.equipmentById(this.selectedBlueprintId)?.slot === this.selectedSlot
+            && !ownedDefinitionIds.has(this.selectedBlueprintId) ? this.selectedBlueprintId : undefined;
+        const owned = presentation.slots.flatMap((slot) => slot.candidates.map((item) => {
+            const set = presentation.sets.find((row) => row.setId === item.setId)!;
+            const cost = item.tier < maxTier ? upgradeCost(item.tier) : undefined;
+            const upgradeLockReason = item.tier < 4 && item.tier >= maxTier
+                ? describeProgressionCondition(this.registry.rules.unlocks[(item.tier + 1) as 2 | 3 | 4], this.context.data)
+                : undefined;
+            return Object.freeze({ ...item, setName: set.name, setEmblemArtId: set.emblemArtId,
+                setPieces: set.equippedCount,
+                effectSummary: Object.freeze(item.effects.map((effect) => effect.kind === 'modifier' ? effect.text : effect.label)),
+                upgradePreview: item.instanceId === selectedInstanceId && item.tier < 4
+                    ? this.preview({ kind: 'upgrade', instanceId: item.instanceId }) : undefined,
+                upgradeLockReason,
+                ...(cost === undefined ? { upgradeLocked: item.tier < 4 } : { upgradeCost: cost }),
+            });
+        }));
+        const blueprints = this.registry.all().flatMap((piece) => {
+            const set = this.registry.setById(piece.setId)!;
+            if (!evaluateCondition(set.unlock, facts) || ownedDefinitionIds.has(piece.id)) return [];
+            const effects = Object.freeze(piece.effects.map((effect) => presentLoadoutModifier(effect)));
+            return [Object.freeze({ equipmentId: piece.id, name: piece.name, setName: set.name,
+                setEmblemArtId: set.emblem, slot: piece.slot, iconArtId: piece.icon,
+                fabricationCost: set.pieceFabricationCost, effects,
+                effectSummary: Object.freeze(effects.map((effect) => effect.text)),
+            })];
+        });
+        const activeSets = presentation.sets.filter((set) => set.equippedCount > 0).map((set) => {
+            const thresholds = set.thresholds.filter((threshold) => threshold.active);
+            return Object.freeze({ name: set.name, emblemArtId: set.emblemArtId, pieces: set.equippedCount,
+                activeThresholds: Object.freeze(thresholds.map((threshold) => threshold.count)),
+                bonusSummary: Object.freeze(thresholds.map((threshold) =>
+                    `${threshold.count}-piece: ${threshold.effects.map((effect) => effect.kind === 'modifier' ? effect.text : effect.label).join(', ')}`)),
+            });
+        });
+        const unavailable = Object.entries(state.equipment).flatMap(([instanceId, item]) =>
+            this.registry.equipmentById(item.equipmentId) ? [] : [Object.freeze({ instanceId, equipmentId: item.equipmentId })]);
+        return Object.freeze({ presentation, selectedSlot: this.selectedSlot, selectedInstanceId, selectedBlueprintId,
+            comparison: selectedInstanceId === undefined ? undefined : this.preview({ kind: 'equip', instanceId: selectedInstanceId }),
+            equipped, owned: Object.freeze(owned), blueprints: Object.freeze(blueprints),
+            activeSets: Object.freeze(activeSets), unavailable: Object.freeze(unavailable),
+        });
+    }
+    selectSlot(slot: EquipmentSlot): boolean {
+        if (!['helmet', 'armour', 'gloves', 'boots'].includes(slot))
+            return false;
+        this.selectedSlot = slot;
+        this.selectedInstanceId = this.context.saveData.equipmentLoadout?.[slot];
+        this.selectedBlueprintId = undefined;
+        return true;
+    }
+    selectCandidate(instanceId: string): boolean {
+        const item = this.context.saveData.equipment[instanceId];
+        const definition = item && this.registry.equipmentById(item.equipmentId);
+        if (!definition || definition.slot !== this.selectedSlot)
+            return false;
+        this.selectedInstanceId = instanceId;
+        this.selectedBlueprintId = undefined;
+        return true;
+    }
+    selectBlueprint(equipmentId: string): boolean {
+        if (!this.snapshot().blueprints.some((piece) => piece.equipmentId === equipmentId && piece.slot === this.selectedSlot))
+            return false;
+        this.selectedBlueprintId = equipmentId;
+        this.selectedInstanceId = undefined;
+        return true;
+    }
+    preview(command: EquipmentPreviewCommand): EquipmentComparison | undefined {
+        return resolveEquipmentComparison(this.context.saveData, this.context.data, command);
+    }
+    equip(instanceId: string): boolean {
+        return this.context.updateEquipment(({ equipment, loadout }) => {
+            const owned = new Map<string, OwnedEquipment>(Object.entries(equipment).map(([id, item]) => [id, { instanceId: id, ...item }]));
+            const item = owned.get(instanceId);
+            const definition = item && this.registry.equipmentById(item.equipmentId);
+            if (!definition || loadout[definition.slot] === instanceId)
+                return undefined;
+            const result = equipEquipment({ equipped: loadout }, instanceId, this.registry.asMap(), owned);
+            return result.ok ? { equipment, loadout: result.loadout.equipped } : undefined;
+        }).persisted;
+    }
+    unequip(slot: EquipmentSlot): boolean {
+        return this.context.updateEquipment(({ equipment, loadout }) => {
+            const result = unequipEquipment({ equipped: loadout }, slot);
+            return result.ok ? { equipment, loadout: result.loadout.equipped } : undefined;
+        }).persisted;
+    }
+    upgrade(instanceId: string, expectedTier?: number): boolean {
+        const save = this.context.saveData;
+        const item = save.equipment[instanceId];
+        if (!item || (expectedTier !== undefined && item.tier !== expectedTier)
+            || item.tier >= maxEquipmentTier(this.facts(), this.registry.rules, save.progression.unlocks)
+            || save.progression.scrap < upgradeCost(item.tier)) return false;
+        return this.context.commitEquipmentUpgrade(instanceId, item.tier, item.tier + 1, upgradeCost(item.tier));
+    }
+    fabricable(): readonly string[] { return this.snapshot().blueprints.map((blueprint) => blueprint.equipmentId); }
+    fabricate(equipmentId: string): boolean {
+        const persisted = this.context.fabricateEquipment(equipmentId);
+        if (persisted && this.selectedBlueprintId === equipmentId) {
+            this.selectedInstanceId = Object.entries(this.context.saveData.equipment).find(([, item]) => item.equipmentId === equipmentId)?.[0];
+            this.selectedBlueprintId = undefined;
+        }
+        return persisted;
+    }
 }

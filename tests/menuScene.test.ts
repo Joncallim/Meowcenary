@@ -406,6 +406,186 @@ function createHarness(options: { create?: boolean; audio?: boolean } = { create
 }
 
 describe('MenuScene', () => {
+  it('opens Equipment with four selectable slots and selects an item before any equip mutation', () => {
+    const harness = createHarness();
+    harness.context.updateEquipment(() => ({
+      equipment: {
+        helmet: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+        recon: { equipmentId: 'equipment:recon-helmet', tier: 1 },
+        armour: { equipmentId: 'equipment:commando-armour', tier: 1 },
+      }, loadout: { helmet: 'helmet', armour: 'armour' },
+    }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as { focusables: FakeObject[] };
+    expect(scene.focusables.slice(0, 4).map((row) => row.state.text.split('\n')[0])).toEqual(['HELMET', 'ARMOUR', 'GLOVES', 'BOOTS']);
+    expect(harness.textContents().some((text) => text.includes('Tap to equip'))).toBe(false);
+    const candidate = scene.focusables.find((row) => row.state.text === 'Recon Helmet\nT1 • STORED')!;
+    const before = harness.context.saveData;
+    expect(candidate).toBeDefined();
+    candidate.state.handlers.pointerup!();
+    expect(harness.context.saveData).toBe(before);
+    expect(harness.textContents().join('\n')).toContain('Replaces Commando Helmet');
+    expect(harness.textContents().join('\n')).toContain('LOSE 2-piece');
+    expect(harness.textContents().join('\n')).toContain('[All Weapons]');
+    harness.buttonByLabel('Equip Recon Helmet')!.state.handlers.pointerup!();
+    expect(harness.context.saveData.equipmentLoadout?.helmet).toBe('recon');
+  });
+
+  it('keeps blueprint selection separate from fabrication and fabrication separate from equip', () => {
+    const harness = createHarness();
+    harness.context.updateMeta((progression) => ({ ...progression, scrap: 100 }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const before = harness.context.saveData;
+    harness.buttonByLabel('Commando Helmet\nFABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
+    expect(harness.context.saveData).toBe(before);
+    expect(harness.textContents().join('\n')).toContain('Creates a stored T1 item');
+    harness.buttonByLabel('Fabricate for 100 Scrap')!.state.handlers.pointerup!();
+    expect(harness.context.saveData.equipment['owned:equipment-commando-helmet']).toBeDefined();
+    expect(harness.context.saveData.equipmentLoadout?.helmet).toBeUndefined();
+  });
+
+  it('preserves selected-item semantic focus across repaint/resize and clamps removed selection to its slot', () => {
+    const harness = createHarness();
+    harness.context.updateEquipment(() => ({
+      equipment: { recon: { equipmentId: 'equipment:recon-helmet', tier: 1 } }, loadout: {},
+    }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      handleResize(): void; focusables: FakeObject[]; navigator: { index: number };
+      focusKeyByButton: Map<FakeObject, string>;
+      scrollViewportTop: number;
+      scrollViewportBottom: number;
+    };
+    const key = () => scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!);
+    expect(key()).toBe('equipment-detail:recon');
+    const selectedY = scene.focusables[scene.navigator.index]!.state.y;
+    expect(selectedY).toBeGreaterThanOrEqual(scene.scrollViewportTop);
+    expect(selectedY).toBeLessThan(scene.scrollViewportTop + (scene.scrollViewportBottom - scene.scrollViewportTop) / 2);
+    scene.render(scene.controller.snapshot());
+    expect(key()).toBe('equipment-detail:recon');
+    expect(scene.focusables[scene.navigator.index]!.state.y).toBe(selectedY);
+    for (const [width, height] of [[360, 640], [390, 844], [844, 390], [1280, 720], [1920, 1080]]) {
+      Object.assign(harness.menuScene.scale, { width, height, displaySize: { width, height } });
+      scene.handleResize();
+      expect(key()).toBe('equipment-detail:recon');
+      expect(scene.controller.snapshot().equipment.selectedInstanceId).toBe('recon');
+      const active = scene.focusables[scene.navigator.index]!;
+      expect(active.state.visible).toBe(true);
+      expect(active.state.x).toBeGreaterThanOrEqual(12);
+      expect(active.state.x + active.state.width).toBeLessThanOrEqual(width - 12);
+    }
+    harness.context.updateEquipment(() => ({ equipment: {}, loadout: {} }));
+    scene.render(scene.controller.snapshot());
+    expect(key()).toBe('equipment-slot:helmet');
+    expect(scene.controller.snapshot().equipment.selectedInstanceId).toBeUndefined();
+  });
+
+  it('keeps a selected stored upgrade explicit and names the actual tier lock', () => {
+    const harness = createHarness();
+    harness.context.updateEquipment(() => ({ equipment: { helmet: { equipmentId: 'equipment:commando-helmet', tier: 1 } }, loadout: {} }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const before = harness.context.saveData;
+    harness.buttonByLabel('Commando Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    const copy = harness.textContents().join('\n');
+    expect(copy).toContain('STORED: no active Loadout value changes until equipped.');
+    expect(copy).toContain('+5% Fire Rate [All Weapons]');
+    expect(copy).toContain('+10% Fire Rate [All Weapons]');
+    expect(copy).toContain('LOCKED • Clear Rusher Ambush');
+    expect(harness.context.saveData).toBe(before);
+  });
+
+  it('uses real controller input to select a candidate without equipping and then commits its explicit action', () => {
+    const harness = createHarness();
+    harness.context.updateEquipment(() => ({ equipment: { helmet: { equipmentId: 'equipment:commando-helmet', tier: 1 } }, loadout: {} }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const pad = new MockGamepad(); harness.input.gamepad!.connect(pad);
+    const scene = harness.menuScene as unknown as { focusables: FakeObject[]; navigator: { index: number } };
+    const press = (position: number) => {
+      pad.setButton(position, true); harness.menuScene.update(0, 16);
+      pad.setButton(position, false); harness.menuScene.update(0, 16);
+    };
+    const focusLabel = (label: string) => {
+      for (let step = 0; step < scene.focusables.length + 2 && scene.focusables[scene.navigator.index]?.state.text !== label; step += 1) press(13);
+      expect(scene.focusables[scene.navigator.index]?.state.text).toBe(label);
+    };
+    focusLabel('Commando Helmet\nT1 • STORED');
+    const before = harness.context.saveData;
+    press(0);
+    expect(harness.context.saveData).toBe(before);
+    focusLabel('Equip Commando Helmet'); press(0);
+    expect(harness.context.saveData.equipmentLoadout?.helmet).toBe('helmet');
+    press(1);
+    expect(harness.textContents()).toContain('Loadout');
+  });
+
+  it('routes keyboard and controller directions through the rendered slot grid before the linear candidate list', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      handleResize(): void; focusables: FakeObject[]; navigator: { index: number; setIndex(index: number): void };
+      focusKeyByButton: Map<FakeObject, string>;
+    };
+    const focused = () => scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!);
+    const press = (key: string) => {
+      harness.keyboard.keydown(key); harness.menuScene.update(0, 16);
+      harness.keyboard.keyup(key); harness.menuScene.update(0, 16);
+    };
+    expect(focused()).toBe('equipment-slot:helmet');
+    press('ArrowDown'); expect(focused()).toBe('equipment-slot:gloves');
+    press('ArrowUp'); expect(focused()).toBe('equipment-slot:helmet');
+    press('ArrowRight'); expect(focused()).toBe('equipment-slot:armour');
+    press('ArrowDown'); expect(focused()).toBe('equipment-slot:boots');
+    press('ArrowDown'); expect(focused()?.startsWith('equipment-blueprint:')).toBe(true);
+    press('ArrowDown'); expect(scene.navigator.index).toBe(5);
+    const pad = new MockGamepad(); harness.input.gamepad!.connect(pad);
+    for (const [width, height] of [[844, 390], [1280, 720], [1920, 1080]]) {
+      Object.assign(harness.menuScene.scale, { width, height, displaySize: { width, height } });
+      scene.handleResize(); scene.navigator.setIndex(0);
+      pad.setButton(15, true); harness.menuScene.update(0, 16);
+      pad.setButton(15, false); harness.menuScene.update(0, 16);
+      expect(focused()).toBe('equipment-slot:armour');
+      pad.setButton(13, true); harness.menuScene.update(0, 16);
+      pad.setButton(13, false); harness.menuScene.update(0, 16);
+      expect(scene.navigator.index).toBe(4);
+    }
+  });
+
+  it('shows equipped scope and the engineered family with deduplicated traits in the shared Loadout overview', () => {
+    const harness = createHarness();
+    harness.context.updateEquipment(() => ({
+      equipment: Object.fromEntries(['helmet', 'armour', 'gloves', 'boots'].map((slot) => [slot, { equipmentId: `equipment:pyro-${slot}`, tier: 1 }])),
+      loadout: { helmet: 'helmet', armour: 'armour', gloves: 'gloves', boots: 'boots' },
+    }));
+    harness.context.updateGunsmith(() => ({
+      builds: [{ id: 'build:fire-pistol', name: 'Fire Pistol', baseWeaponFamily: 'pistol', fitted: { barrel: 'barrel' }, traitParts: ['fire'] }],
+      selectedBuildId: 'build:fire-pistol', fabricationSerials: {},
+      parts: { barrel: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] }, fire: { partId: 'part:trait-fire', tier: 1, infusedTraits: [] } },
+    }));
+    const icons = vi.fn();
+    (harness.menuScene as unknown as { addCatalogIcon: typeof icons }).addCatalogIcon = icons;
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    const copy = harness.textContents().join('\n');
+    expect(copy).toContain('EQUIPPED EFFECTS');
+    expect(copy).toContain('[All Weapons]');
+    expect(copy).toContain('Pistol • ACTIVE');
+    expect(copy).toContain('ACTIVE FROM START');
+    expect(copy).toContain('FIRE [Pistol] • Does not stack');
+    expect(copy).toContain('Sources: Pyro 2-piece • Pyro 4-piece • Fire Pistol');
+    const scene = harness.menuScene as unknown as { controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot } };
+    const preview = scene.controller.snapshot().gunsmith.selectedBuild!.preview!;
+    for (const artId of [preview.baseArtId, ...preview.layers.map((layer) => layer.artId)]) {
+      expect(icons).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), artId, 176);
+    }
+  });
   it('keeps every data-owned Gunsmith chassis reachable after creating a build', () => {
     const harness = createHarness();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
@@ -1377,7 +1557,7 @@ describe('MenuScene', () => {
     const harness = createHarness();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     expect(harness.textContents()).toEqual(expect.arrayContaining(['Loadout', 'Equipment', 'Gunsmith', 'Back']));
-    expect(harness.textContents().some((text) => text.includes('Equipment 0/4 slots'))).toBe(true);
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['EQUIPMENT • WHOLE LOADOUT', 'GUNSMITH • ENGINEERED WEAPON FAMILY', 'HELMET\nEmpty', 'ARMOUR\nEmpty', 'GLOVES\nEmpty', 'BOOTS\nEmpty']));
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     expect(harness.textContents()).toContain('AVAILABLE BLUEPRINTS');
     harness.buttonByLabel('Back')!.state.handlers.pointerup!();
@@ -1525,9 +1705,11 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Equipment')!.state.handlers['pointerup']!();
 
     expect(harness.textContents()).toContain('AVAILABLE BLUEPRINTS');
-    expect(harness.textContents()).toEqual(expect.arrayContaining([
-      'Commando Helmet', 'Commando Set  •  Helmet', '+5% Fire Rate', 'FABRICATE  •  100 Scrap',
-    ]));
+    expect(harness.textContents()).toContain('Commando Helmet\nFABRICABLE • 100 Scrap');
+    expect(harness.textContents().some((text) => text.includes('Commando Armour'))).toBe(false);
+    harness.buttonByLabel('Commando Helmet\nFABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
+    expect(harness.textContents().join('\n')).toContain('+5% Fire Rate [All Weapons]');
+    expect(harness.textContents()).toContain('Fabricate for 100 Scrap');
     expect(addCatalogIcon).toHaveBeenCalledWith(
       expect.anything(), expect.any(Number), expect.any(Number), 'equipment-icon:commando-helmet', 60, expect.any(Number),
     );
@@ -1560,20 +1742,18 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
 
     expect(scene.scrollViewportTop).toBeLessThan(scene.scrollViewportBottom);
-    expect(scene.scrollObjects.some(({ object }) => object.state.text === 'Equipped: 1/4 pieces')).toBe(true);
+    expect(scene.scrollObjects.some(({ object }) => object.state.text === 'HELMET\nCommando Helmet\nT1 • EQUIPPED')).toBe(true);
     expect(scene.scrollObjects.some(({ object }) => object.state.text === 'ACTIVE SETS')).toBe(true);
-    expect(harness.objects.some((object) => object.state.text.startsWith('✓ Commando Helmet'))).toBe(true);
+    expect(harness.objects.some((object) => object.state.text === 'Commando Helmet\nT1 • EQUIPPED')).toBe(true);
     const scrollRegion = (scene as unknown as {
       scrollRegion: { scrollOffset: number };
     }).scrollRegion;
-    const initiallyFocusedOffset = scrollRegion.scrollOffset;
-    expect(initiallyFocusedOffset).toBeGreaterThan(0);
-    harness.keyboard.keydown('ArrowUp'); harness.menuScene.update(0, 16);
-    harness.keyboard.keyup('ArrowUp'); harness.menuScene.update(0, 16);
     expect(scrollRegion.scrollOffset).toBe(0);
-    harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
-    harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
-    expect(scrollRegion.scrollOffset).toBe(initiallyFocusedOffset);
+    for (let index = 0; index < 5; index += 1) {
+      harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+      harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+    }
+    expect(scrollRegion.scrollOffset).toBeGreaterThan(0);
   });
 
   it.each([
@@ -1679,7 +1859,7 @@ describe('MenuScene', () => {
 
   it('keeps every compact sparse-menu action clear of Back', () => {
     const harness = createHarness();
-    const scene = harness.menuScene as unknown as { handleResize(): void };
+    const scene = harness.menuScene as unknown as { handleResize(): void; focusables: FakeObject[]; navigator: { index: number } };
     const scale = harness.menuScene.scale as unknown as {
       width: number; height: number; displaySize: { width: number; height: number };
     };
@@ -1701,7 +1881,13 @@ describe('MenuScene', () => {
     };
 
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
-    expectClearOfBack(['Equipment', 'Gunsmith']);
+    for (const label of ['Equipment', 'Gunsmith']) {
+      for (let step = 0; step < scene.focusables.length && scene.focusables[scene.navigator.index]?.state.text !== label; step += 1) {
+        harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
+        harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
+      }
+      expectClearOfBack([label]);
+    }
     harness.buttonByLabel('Back')!.state.handlers.pointerup!();
 
     harness.buttonByLabel('Career')!.state.handlers.pointerup!();

@@ -27,7 +27,7 @@ import {
 } from '../systems/save';
 import { applyDurableGrantTransaction, durableGrantFingerprint, type DurableGrantTransaction } from '../gameplay/grantProcessor';
 import { noopAchievementAdapter, type AchievementPlatformAdapter } from '../gameplay/achievementPlatform';
-import { EQUIPMENT_TIERS, equipmentUpgradeUnlock, maxEquipmentTier, ownsEquipmentDefinition, upgradeCost } from '../gameplay/equipment';
+import { EQUIPMENT_TIERS, equipmentUpgradeUnlock, maxEquipmentTier, ownsEquipmentDefinition, upgradeCost, upgradeEquipment } from '../gameplay/equipment';
 import { updateCompendiumDiscovery } from '../systems/compendium';
 import { settleRunTerminal as buildRunTerminalSettlement, type RunTerminalSettlementResult } from '../systems/saveV4';
 import { DataAchievementRegistry, metricExtractor } from '../systems/achievements';
@@ -141,7 +141,9 @@ export interface GameContext {
    * prepare a complete immutable state; publication occurs only after its
    * Save V4 snapshot is durable. */
   updateGunsmith(transform: (state: GunsmithState) => GunsmithState): PersistenceUpdate<GunsmithState>;
-  updateEquipment(transform: (state: { readonly equipment: EquipmentState; readonly loadout: EquipmentLoadoutState }) => { readonly equipment: EquipmentState; readonly loadout: EquipmentLoadoutState }): PersistenceUpdate<EquipmentState>;
+  /** Resolve Equipment commands against current ownership/loadout. Returning
+   * undefined rejects the request without a write or state publication. */
+  updateEquipment(transform: (state: { readonly equipment: EquipmentState; readonly loadout: EquipmentLoadoutState }) => { readonly equipment: EquipmentState; readonly loadout: EquipmentLoadoutState } | undefined): PersistenceUpdate<EquipmentState>;
   /** V4 Set fabrication: one owned copy per definition, atomically paid. */
   fabricateEquipment(equipmentId: string): boolean;
   /** V4 Gunsmith fabrication: one physical T1 part and its Scrap charge are
@@ -192,6 +194,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
   let current = options.save.load();
   const stages = options.stages ?? new StageRegistryCtor(options.data);
   const knownEquipmentIds = new Set((options.data.equipment ?? []).map((equipment) => equipment.id));
+  const equipmentDefinitionsById = new Map((options.data.equipment ?? []).map((definition) => [definition.id, definition]));
   const equipmentSlotById = new Map((options.data.equipment ?? []).map((equipment) => [equipment.id, equipment.slot] as const));
   const knownPartIds = new Set((options.data.gunParts ?? []).map((part) => part.id));
   const partDefinitions = new Map((options.data.gunParts ?? []).map((part) => [part.id, part] as const));
@@ -448,6 +451,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     },
     updateEquipment(transform) {
       const next = transform({ equipment: current.equipment, loadout: current.equipmentLoadout ?? {} });
+      if (next === undefined) return Object.freeze({ value: current.equipment, persisted: false });
       const candidate = normalizeEquipmentSnapshot(freezeSaveV4({ ...current, equipment: next.equipment, equipmentLoadout: next.loadout }));
       if (!options.save.save(candidate)) return Object.freeze({ value: current.equipment, persisted: false });
       current = options.save.load();
@@ -506,6 +510,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     commitEquipmentUpgrade(instanceId, expectedTier, nextTier, cost) {
       const owned = current.equipment[instanceId];
       if (!owned
+        || !knownEquipmentIds.has(owned.equipmentId)
         || !Number.isSafeInteger(expectedTier) || !Number.isSafeInteger(nextTier)
         || !Number.isSafeInteger(cost) || cost <= 0
         || owned.tier !== expectedTier || expectedTier < 1 || expectedTier >= EQUIPMENT_TIERS.length
@@ -513,11 +518,13 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         || cost !== upgradeCost(expectedTier)
         || current.progression.scrap < cost) return false;
       const rules = options.data.equipmentRules;
-      if (rules !== undefined && nextTier > maxEquipmentTier(equipmentUpgradeFacts(), rules, current.progression.unlocks)) return false;
+      const upgrade = upgradeEquipment({ instanceId, ...owned }, current.progression.scrap,
+        equipmentDefinitionsById, equipmentUpgradeFacts(), rules, current.progression.unlocks);
+      if (!upgrade.ok) return false;
       const candidate = freezeSaveV4({
         ...current,
         progression: Object.freeze({ ...current.progression, scrap: current.progression.scrap - cost }),
-        equipment: Object.freeze({ ...current.equipment, [instanceId]: Object.freeze({ ...owned, tier: nextTier }) }),
+        equipment: Object.freeze({ ...current.equipment, [instanceId]: Object.freeze({ equipmentId: upgrade.output.equipmentId, tier: upgrade.output.tier }) }),
       });
       if (!options.save.save(candidate)) return false;
       current = options.save.load();

@@ -10,6 +10,8 @@ import { ProgressionOverviewController, type ProgressionOverviewSnapshot } from 
 import { CompendiumController, type CompendiumSnapshot } from './compendiumController';
 import { DataAchievementRegistry } from '../systems/achievements';
 import type { GameContext } from '../engine/context';
+import type { EquipmentSlot } from '../gameplay/equipment';
+import type { EquipmentPreviewCommand, EquipmentComparison } from './equipmentPresentation';
 
 export type MenuPanel =
   | 'home'
@@ -214,6 +216,25 @@ export class MainMenuController {
     return this.snapshot();
   }
 
+  selectEquipmentSlot(slot: EquipmentSlot): MainMenuSnapshot {
+    this.notice = this.equipmentController.selectSlot(slot) ? undefined : 'Equipment: slot unavailable';
+    return this.snapshot();
+  }
+
+  selectEquipmentCandidate(instanceId: string): MainMenuSnapshot {
+    this.notice = this.equipmentController.selectCandidate(instanceId) ? undefined : 'Equipment: item unavailable';
+    return this.snapshot();
+  }
+
+  selectEquipmentBlueprint(equipmentId: string): MainMenuSnapshot {
+    this.notice = this.equipmentController.selectBlueprint(equipmentId) ? undefined : 'Equipment: blueprint unavailable';
+    return this.snapshot();
+  }
+
+  equipmentPreview(command: EquipmentPreviewCommand): EquipmentComparison | undefined {
+    return this.equipmentController.preview(command);
+  }
+
   equipEquipment(instanceId: string): MainMenuSnapshot {
     this.notice = this.equipmentController.equip(instanceId) ? undefined : 'Equipment: cannot equip that item';
     return this.snapshot();
@@ -224,8 +245,8 @@ export class MainMenuController {
     return this.snapshot();
   }
 
-  upgradeEquipment(instanceId: string): MainMenuSnapshot {
-    this.notice = this.equipmentController.upgrade(instanceId) ? undefined : 'Equipment: upgrade unavailable';
+  upgradeEquipment(instanceId: string, expectedTier?: number): MainMenuSnapshot {
+    this.notice = this.equipmentController.upgrade(instanceId, expectedTier) ? undefined : 'Equipment: upgrade unavailable';
     return this.snapshot();
   }
 

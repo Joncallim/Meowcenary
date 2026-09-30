@@ -232,6 +232,12 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
           fullscreen: document.fullscreenElement?.id,
         });
       },
+      menuLoadoutDiagnostics: (): Record<string, unknown> | undefined => {
+        const scene = game.scene.getScene('MenuScene') as unknown as {
+          loadoutUiDiagnostics?(): Record<string, unknown>;
+        };
+        return scene?.loadoutUiDiagnostics?.();
+      },
       isMenuPresentationSettled,
       waitForMenuPresentation: async (): Promise<boolean> => {
         const deadline = performance.now() + 60_000;
