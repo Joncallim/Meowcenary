@@ -244,9 +244,7 @@ describe('V3 → V4 migration', () => {
     expect(v4.progression.unlocks).toContain('capability:equipment-tier-2');
   });
 
-  it('derives T3 capability floor from boss-crusher defeated (achievement already completed)', () => {
-    // Crusher achievement already exists, so gap settlement skips it
-    // Step 8 then sees boss-crusher defeated but no T4 evidence from achievement
+  it('derives T4 capability floor from a historically completed Crusher Down achievement', () => {
     const v3 = createV3Fixture({
       bosses: { 'boss-crusher': { defeated: true } },
       stages: { 'stage:junkyard-02': { completed: true } },
@@ -254,6 +252,22 @@ describe('V3 → V4 migration', () => {
     });
     const { capabilityFloors } = migrateV3ToV4Full(v3);
     expect(capabilityFloors).toContain('capability:equipment-tier-4');
+  });
+
+  it('does not promote repaired Crusher Down completion into frozen V3 T4 evidence', () => {
+    const v3 = createV3Fixture({
+      bosses: { 'boss-crusher': { defeated: true } },
+      stages: { 'stage:junkyard-02': { completed: true } },
+      achievements: {},
+    });
+
+    const first = migrateV3ToV4Full(v3);
+    const second = migrateV3ToV4Full(v3);
+
+    expect(first.save.achievements['achievement:boss-crusher']?.completed).toBe(true);
+    expect(first.capabilityFloors).toContain('capability:equipment-tier-3');
+    expect(first.capabilityFloors).not.toContain('capability:equipment-tier-4');
+    expect(second.capabilityFloors).toEqual(first.capabilityFloors);
   });
 
   it('collapses legitimate duplicate Commando Helmet and refunds upgrade spend', () => {

@@ -172,6 +172,13 @@ export interface V4MigrationResult {
  */
 export function migrateV3ToV4Full(v3: SaveDataV3): V4MigrationResult {
   const capabilityFloors: string[] = [];
+  // Capability compatibility is derived only from facts that existed in V3.
+  // Later migration repairs may materialize equivalent current-catalog facts,
+  // but must never promote the historical entitlement tier.
+  const historicalCrusherDownCompleted = v3.achievements['achievement:boss-crusher']?.completed === true;
+  const historicalBossCrusherDefeated = v3.bosses['boss-crusher']?.defeated === true
+    || v3.stages['stage:junkyard-05']?.completed === true;
+  const historicalJ2Completed = v3.stages['stage:junkyard-02']?.completed === true;
 
   // Build mutable working state from V3
   const retiredRefund = Object.entries(v3.progression.permanentUpgrades).reduce((sum, [id, level]) =>
@@ -264,15 +271,11 @@ export function migrateV3ToV4Full(v3: SaveDataV3): V4MigrationResult {
   }
 
   // Step 8: Derive historical Equipment tier capability floor
-  const crusherDownCompleted = achievements['achievement:boss-crusher']?.completed === true;
-  const bossCrusherDefeated = bosses['boss-crusher']?.defeated === true;
-  const j2Completed = v3.stages['stage:junkyard-02']?.completed === true;
-
-  if (crusherDownCompleted) {
+  if (historicalCrusherDownCompleted) {
     capabilityFloors.push('capability:equipment-tier-4');
-  } else if (bossCrusherDefeated) {
+  } else if (historicalBossCrusherDefeated) {
     capabilityFloors.push('capability:equipment-tier-3');
-  } else if (j2Completed) {
+  } else if (historicalJ2Completed) {
     capabilityFloors.push('capability:equipment-tier-2');
   }
 
