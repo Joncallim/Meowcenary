@@ -1115,7 +1115,10 @@ describe('MenuScene', () => {
       originalBounds.bottom - scene.scrollViewportTop + 1 - scene.scrollRegion.scrollOffset,
     );
     scene.applyScrollViewport();
-    expect(target.state.visible).toBe(false);
+    // The geometry mask performs the visual crop. The row stays alive while
+    // it crosses the edge so scrolling is continuous; only its hit area is
+    // disabled once the whole row has left the viewport.
+    expect(target.state.visible).toBe(true);
     expect(target.state.interactive).toBe(false);
   });
 

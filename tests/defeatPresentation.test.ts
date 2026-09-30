@@ -83,7 +83,7 @@ describe('DefeatPresentationSystem', () => {
     expect(system.allocatedPresentationCount).toBe(1);
     expect(harness.scene.physics.add.existing).not.toHaveBeenCalled();
     expect(harness.sprites[0]?.played).toEqual(['art:enemy:dust-mite:defeat']);
-    expect(harness.sprites[0]?.scale).toEqual([26 / 48 * 1.30, 26 / 48 * 1.30]);
+    expect(harness.sprites[0]?.scale).toEqual([26 / 48 * 1.45, 26 / 48 * 1.45]);
 
     harness.sprites[0]?.complete('art:enemy:dust-mite:defeat');
     expect(system.activePresentationCount).toBe(0);

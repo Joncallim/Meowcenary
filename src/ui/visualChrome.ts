@@ -49,6 +49,8 @@ export function createUiVisualChrome(visualArt: VisualArtLookup): UiVisualChrome
     if (!resolved || !scene.textures?.exists(resolved.textureKey)) return undefined;
     const nineslice = (scene.add as Phaser.Scene['add'] & { nineslice?: (...args: unknown[]) => Phaser.GameObjects.GameObject }).nineslice;
     if (typeof nineslice !== 'function') return undefined;
+    const horizontalSlice = Math.min(12, Math.max(1, width / 2));
+    const verticalSlice = Math.min(12, Math.max(1, height / 2));
     const object = nineslice.call(
       scene.add,
       x,
@@ -57,10 +59,10 @@ export function createUiVisualChrome(visualArt: VisualArtLookup): UiVisualChrome
       options.frame ?? resolved.frameKey,
       width,
       height,
-      12,
-      12,
-      12,
-      12,
+      horizontalSlice,
+      horizontalSlice,
+      verticalSlice,
+      verticalSlice,
     );
     const display = object as Phaser.GameObjects.GameObject & {
       setScrollFactor?: (value: number) => unknown;

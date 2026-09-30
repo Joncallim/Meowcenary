@@ -1302,16 +1302,16 @@ export class MenuScene extends Phaser.Scene {
       const centerX = margin + slotWidth * (index + 0.5);
       const equippedId = equipped[slot];
       const item = equippedId === undefined ? undefined : snapshot.equipment.owned.find((owned) => owned.instanceId === equippedId);
-      const panel = this.uiVisuals?.addPanel(this, centerX, y + 38, Math.max(58, slotWidth - 6), 76, 'card', { alpha: 0.84 });
+      const panel = this.uiVisuals?.addPanel(this, centerX, y + 44, Math.max(64, slotWidth - 6), 88, 'card', { alpha: 0.9 });
       if (panel) this.registerScrollObject(this.own(root, panel));
-      if (item) this.addCatalogIcon(root, centerX, y + 32, item.iconArtId, 58);
-      const slotLabel = this.own(root, createUiText(this, centerX, y + 62, slot.toUpperCase(), {
-        color: item ? '#f7f1d5' : '#64748b', fontFamily: ThemeFont.family, fontSize: '11px', fontStyle: '700',
+      if (item) this.addCatalogIcon(root, centerX, y + 35, item.iconArtId, Math.min(72, slotWidth - 18));
+      const slotLabel = this.own(root, createUiText(this, centerX, y + 77, slot.toUpperCase(), {
+        color: item ? '#f7f1d5' : '#64748b', fontFamily: ThemeFont.family, fontSize: '12px', fontStyle: '700',
       })).setOrigin(0.5, 0.5);
       slotLabel.setScrollFactor(0);
       this.registerScrollObject(slotLabel);
     });
-    y += 90;
+    y += 104;
     if (snapshot.equipment.activeSets.length > 0) {
       const activeHeading = this.own(root, createUiText(this, margin, y, 'ACTIVE SETS', {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
@@ -1336,15 +1336,15 @@ export class MenuScene extends Phaser.Scene {
     y += hitTarget * 0.7;
     snapshot.equipment.owned.forEach((item) => {
       const equippedHere = equipped[item.slot] === item.instanceId;
-      const iconColumn = 92;
+      const iconColumn = 108;
       const equipmentButton = this.addButton(root, margin, y, `${equippedHere ? '✓ ' : ''}${item.name}\n${item.setName} Set • ${item.setPieces}/4 equipped • Tier ${item.tier}\n${equippedHere ? 'Equipped' : 'Tap to equip'}`, hitTarget, () => {
         this.render(equippedHere
           ? this.requireController().unequipEquipment(item.slot as 'helmet' | 'armour' | 'gloves' | 'boots')
           : this.requireController().equipEquipment(item.instanceId));
       }, 'ui:confirm', width - margin - this.safeRightMargin, undefined, iconColumn);
       const rowOwnerIndex = this.focusables.length - 1;
-      this.addCatalogIcon(root, width - this.safeRightMargin - 26, y + hitTarget / 2, item.iconArtId, 44, rowOwnerIndex);
-      this.addCatalogIcon(root, width - this.safeRightMargin - 68, y + hitTarget / 2, item.setEmblemArtId, 32, rowOwnerIndex);
+      this.addCatalogIcon(root, margin + 42, y + hitTarget / 2, item.iconArtId, 68, rowOwnerIndex);
+      this.addCatalogIcon(root, margin + 82, y + hitTarget / 2, item.setEmblemArtId, 28, rowOwnerIndex);
       y += equipmentButton.height + 8;
       const effects = this.own(root, createUiText(this, margin, y, item.effectSummary.join(' • '), {
         color: '#a5f3fc', fontFamily: ThemeFont.family, fontSize: `${ThemeFont.bodyMin}px`,
@@ -2049,22 +2049,24 @@ export class MenuScene extends Phaser.Scene {
     }
     const maxScroll = Math.max(0, this.scrollRegion.contentHeight - this.scrollRegion.viewportHeight);
     if (maxScroll > 0 && this.uiVisuals) {
-      const x = this.scale.width - Math.max(3, this.safeRightMargin / 2);
+      const x = this.scale.width - Math.max(7, this.safeRightMargin / 2);
       const centerY = (this.scrollViewportTop + this.scrollViewportBottom) / 2;
-      const track = this.own(root, this.add.rectangle(x, centerY, 3, this.scrollRegion.viewportHeight, ThemeColor.surface, 0.8));
-      track.setScrollFactor(0);
+      const track = this.uiVisuals.addPanel(this, x, centerY, 8, this.scrollRegion.viewportHeight, 'scroll-track', { alpha: 0.92 });
+      if (track) this.own(root, track);
       this.scrollThumbHeight = Math.max(32, this.scrollRegion.viewportHeight
         * (this.scrollRegion.viewportHeight / this.scrollRegion.contentHeight));
-      const thumb = this.own(root, this.add.rectangle(
+      const thumb = this.uiVisuals.addPanel(
+        this,
         x,
         this.scrollViewportTop + this.scrollThumbHeight / 2,
-        4,
+        10,
         this.scrollThumbHeight,
-        ThemeColor.primary,
-        0.95,
-      ));
-      thumb.setScrollFactor(0);
-      this.scrollThumb = thumb;
+        'scroll-thumb',
+        { alpha: 0.98 },
+      );
+      if (thumb) {
+        this.scrollThumb = this.own(root, thumb) as Phaser.GameObjects.GameObject & { setPosition?(x: number, y: number): unknown };
+      }
     }
     this.createScrollMask();
     this.applyScrollViewport();
@@ -2129,7 +2131,7 @@ export class MenuScene extends Phaser.Scene {
     if (this.scrollThumb && maxScroll > 0) {
       const travel = this.scrollRegion.viewportHeight - this.scrollThumbHeight;
       this.scrollThumb.setPosition?.(
-        this.scale.width - Math.max(3, this.safeRightMargin / 2),
+        this.scale.width - Math.max(7, this.safeRightMargin / 2),
         this.scrollViewportTop + this.scrollThumbHeight / 2 + travel * (offset / maxScroll),
       );
     }
@@ -2137,16 +2139,13 @@ export class MenuScene extends Phaser.Scene {
       const object = entry.object as unknown as {
         setPosition?(x: number, y: number): unknown;
         setVisible?(visible: boolean): unknown;
-        getBounds?(): { top: number; bottom: number };
       };
       object.setPosition?.(entry.x, entry.y - offset);
-      const ownerBounds = entry.ownerIndex === undefined ? undefined : this.scrollItemBounds.get(entry.ownerIndex);
-      const bounds = ownerBounds === undefined
-        ? object.getBounds?.()
-        : { top: ownerBounds.top - offset, bottom: ownerBounds.bottom - offset };
-      if (bounds) object.setVisible?.(
-        bounds.bottom > this.scrollViewportTop && bounds.top < this.scrollViewportBottom,
-      );
+      // Keep every scroll object alive and let the geometry mask crop it at
+      // the viewport edge. Hiding a whole card as soon as one grouped child
+      // crossed the boundary produced the abrupt, paged-looking scroll the
+      // production UI is explicitly meant to avoid.
+      object.setVisible?.(true);
     }
     for (const index of this.scrollItemIndexes) {
       const text = this.focusables[index];
@@ -2156,9 +2155,9 @@ export class MenuScene extends Phaser.Scene {
         ? text.getBounds()
         : { top: groupBounds.top - offset, bottom: groupBounds.bottom - offset };
       const visible = bounds.bottom > this.scrollViewportTop && bounds.top < this.scrollViewportBottom;
-      text.setVisible(visible);
+      text.setVisible(true);
       const ring = this.focusRings[index];
-      ring?.setVisible?.(visible);
+      ring?.setVisible?.(true);
       if (visible && !this.disabledFocusables.has(text)) text.setInteractive({ useHandCursor: true });
       else text.disableInteractive();
     }

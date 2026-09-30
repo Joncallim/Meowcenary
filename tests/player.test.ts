@@ -354,8 +354,8 @@ describe('Player', () => {
 
     expect(sprite.body.setCircle).toHaveBeenCalledWith(14);
     expect(sprite.visible).toBe(false);
-    expect(circles.map((circle) => circle.radius)).toEqual([14, 13 * 1.30, 14 * 1.30, 4.5 * 1.30, 4.5 * 1.30]);
-    const fallbackBody = circles.find((circle) => circle.radius === 14 * 1.30);
+    expect(circles.map((circle) => circle.radius)).toEqual([14, 13 * 1.55, 14 * 1.55, 4.5 * 1.55, 4.5 * 1.55]);
+    const fallbackBody = circles.find((circle) => circle.radius === 14 * 1.55);
     expect([fallbackBody?.x, fallbackBody?.y]).toEqual([400, 300]);
   });
 
@@ -367,19 +367,19 @@ describe('Player', () => {
     expect(fallback.circles).toHaveLength(5);
     // Loaded art: only the physics proxy and its shared display shadow; no
     // construct-then-destroy fallback circles may be allocated.
-    expect(loaded.circles.map((circle) => circle.radius)).toEqual([14, 13 * 1.30]);
+    expect(loaded.circles.map((circle) => circle.radius)).toEqual([14, 13 * 1.55]);
     expect(loaded.artSprites).toHaveLength(1);
   });
 
-  it('keeps the loaded actor art and its shadow at the same 1.30 presentation factor', async () => {
+  it('keeps the loaded actor art and its shadow at the same 1.55 presentation factor', async () => {
     const { player, artSprites, circles } = await createHarness(650, { x: 0, y: 0 }, playerArt);
-    const shadow = circles.find((circle) => circle.radius === 13 * 1.30);
+    const shadow = circles.find((circle) => circle.radius === 13 * 1.55);
 
-    expect(artSprites[0]?.scale).toEqual([28 / 48 * 1.30, 28 / 48 * 1.30]);
+    expect(artSprites[0]?.scale).toEqual([28 / 48 * 1.55, 28 / 48 * 1.55]);
     player.update(16);
     // Sabotage: passing the unscaled 15px offset to SpriteView makes this 315,
     // leaving real art and fallback shadows visually out of parity.
-    expect([shadow?.x, shadow?.y]).toEqual([400, 300 + 15 * 1.30]);
+    expect([shadow?.x, shadow?.y]).toEqual([400, 300 + 15 * 1.55]);
   });
 
   it('never lets presentation poses touch the body size or position APIs', async () => {

@@ -4,8 +4,10 @@ import type { VisualArtBinding } from '../systems/types';
 
 /** Presentation-only multiplier. Physics bodies retain their authored radii. */
 export const ACTOR_VISUAL_SCALE_BY_KIND = Object.freeze({
-  character: 1.30,
-  enemy: 1.30,
+  // Present authored actor sheets above their collision footprint so they
+  // remain readable against detailed arenas without changing gameplay.
+  character: 1.55,
+  enemy: 1.45,
 });
 
 export function actorVisualFactor(binding: Readonly<VisualArtBinding>): number {

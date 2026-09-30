@@ -114,12 +114,12 @@ describe('HeldWeaponView', () => {
 
     // Firing straight right with 3px recoil pulls the muzzle 3px back.
     view.show(heldBinding, 100, 200, 0, 3);
-    expect([image.displayWidth, image.displayHeight]).toEqual([28 * 1.30, 18 * 1.30]);
-    expect([image.x, image.y]).toEqual([100 - 3 * 1.30, 200]);
+    expect([image.displayWidth, image.displayHeight]).toEqual([28 * 1.55, 18 * 1.55]);
+    expect([image.x, image.y]).toEqual([100 - 3 * 1.55, 200]);
 
     // The recoil offset stays constant while the player keeps moving.
     view.update(16, 120, 210);
-    expect([image.x, image.y]).toEqual([120 - 3 * 1.30, 210]);
+    expect([image.x, image.y]).toEqual([120 - 3 * 1.55, 210]);
     view.destroy();
   });
 

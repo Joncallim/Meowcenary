@@ -250,7 +250,7 @@ describe('actor views', () => {
 
   it('applies the actor visual factor to actor art but never enlarges static nonactors', async () => {
     const { ACTOR_VISUAL_SCALE_BY_KIND, createAnimatedActorView, createStaticArtSprite } = await import('../src/entities/actorView');
-    expect(ACTOR_VISUAL_SCALE_BY_KIND).toEqual({ character: 1.30, enemy: 1.30 });
+    expect(ACTOR_VISUAL_SCALE_BY_KIND).toEqual({ character: 1.55, enemy: 1.45 });
 
     const sprites: Node[] = [];
     const scene = {
@@ -275,7 +275,7 @@ describe('actor views', () => {
       },
     } as const;
     createAnimatedActorView(scene as never, new Node() as never, { node: new Node() as never, dy: 0 }, actorBinding, 5);
-    expect(sprites[0]?.scale).toEqual([0.65, 0.65]);
+    expect(sprites[0]?.scale).toEqual([0.775, 0.775]);
 
     const nonActorBinding = {
       id: 'drop:xp', kind: 'drop', textureKey: 'xp', url: 'xp.png', required: true,

@@ -159,7 +159,7 @@ function enemyDefinition(): ResolvedEnemyDefinition {
     const { enemy, sprite, circles } = await createEnemy();
     expect(sprite.body?.setCircle).toHaveBeenCalledWith(13);
     expect(sprite.visible).toBe(false);
-    expect(circles.map((circle) => circle.radius)).toEqual([13, 12 * 1.30, 13 * 1.30, 5 * 1.30]);
+    expect(circles.map((circle) => circle.radius)).toEqual([13, 12 * 1.45, 13 * 1.45, 5 * 1.45]);
     expect(enemy.pos).toEqual({ x: 10, y: 20 });
   });
 
@@ -413,7 +413,7 @@ function enemyDefinition(): ResolvedEnemyDefinition {
       // Fallback: physics proxy, display body, accent, and shadow.
       expect(fallback.circles).toHaveLength(4);
       // Loaded art retains only the physics proxy and shared display shadow.
-      expect(loaded.circles.map((circle) => circle.radius)).toEqual([13, 12 * 1.30]);
+      expect(loaded.circles.map((circle) => circle.radius)).toEqual([13, 12 * 1.45]);
     });
 
     it('rejects missing required actor art on the production constructor path', async () => {
