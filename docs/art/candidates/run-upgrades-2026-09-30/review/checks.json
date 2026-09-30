@@ -1,0 +1,452 @@
+[
+  {
+    "id": "quick-paws",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "source_sha256": "669d4f69b7a3af4947ccf10478c3c8bf1fdbb45729f947fa1eb0bd192306c9e0",
+    "source_alpha_extrema": [
+      0,
+      255
+    ],
+    "native_sha256": "17775d487fa60d7a24dcde98da168d061ddfde7b4e765af7432875344ed506ca",
+    "source_bbox": [
+      0,
+      51,
+      1220,
+      1226
+    ],
+    "native_bbox": [
+      5,
+      8,
+      45,
+      41
+    ]
+  },
+  {
+    "id": "extra-scrap",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "source_sha256": "5cfc781ffa40fc95b625154a510d2c30cedb1f39d4ce88025f22679518be7f2e",
+    "source_alpha_extrema": [
+      0,
+      255
+    ],
+    "native_sha256": "f9a719272c904ea7045c3b38b870e945c71cfa528c148861779972e22c34d6db",
+    "source_bbox": [
+      0,
+      48,
+      1218,
+      1220
+    ],
+    "native_bbox": [
+      6,
+      6,
+      45,
+      42
+    ]
+  },
+  {
+    "id": "hot-barrel",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "source_sha256": "e3b5c29d489a3a88f87cfe38eebf04575f0a0aa1c5a5535683e76d20d98d1702",
+    "source_alpha_extrema": [
+      0,
+      255
+    ],
+    "native_sha256": "833d25796a4530384cfa8fdf1a57e9b69bb5ccee15b20054faa7131c2146deaf",
+    "source_bbox": [
+      0,
+      54,
+      1221,
+      1214
+    ],
+    "native_bbox": [
+      4,
+      10,
+      45,
+      38
+    ]
+  },
+  {
+    "id": "scrap-magnet",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "source_sha256": "99e7de504adf711b655e047c82b6628da52c55bc29c382b21caa65cf3c56cd80",
+    "source_alpha_extrema": [
+      0,
+      255
+    ],
+    "native_sha256": "b577a8a5d1d7aa15197b6e647eb9050d75bd7b9ce3cc07e5f2ff595d786e2e04",
+    "source_bbox": [
+      0,
+      51,
+      1240,
+      1226
+    ],
+    "native_bbox": [
+      5,
+      7,
+      44,
+      40
+    ]
+  },
+  {
+    "id": "reinforced-coat",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "source_sha256": "1cc4578e0df8e0022afc410682fba3a3fa6c09b10f045b9299bab7842c88f534",
+    "source_alpha_extrema": [
+      0,
+      255
+    ],
+    "native_sha256": "a1a68fde17d47ebb1ab1686560605b1e54761f8fe7286bf3059ba78b874f94d2",
+    "source_bbox": [
+      0,
+      21,
+      1216,
+      1238
+    ],
+    "native_bbox": [
+      4,
+      10,
+      45,
+      43
+    ]
+  },
+  {
+    "id": "fast-learner",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "source_sha256": "d160f2c96ec79f54f0bcf2d50c98d354b7248948950daaabac75dfd15354c0d3",
+    "source_alpha_extrema": [
+      0,
+      255
+    ],
+    "native_sha256": "4eadd721c92dec0c4c912cf88b363c1b0213f2f2b2173c2cf2c42cc2da5a1a04",
+    "source_bbox": [
+      0,
+      21,
+      1228,
+      1216
+    ],
+    "native_bbox": [
+      4,
+      5,
+      45,
+      44
+    ]
+  },
+  {
+    "id": "heavy-rounds",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "source_sha256": "04f4623838f49c76704dc20e11c2efc57d164d041abb6bc99d12309f63c3a60c",
+    "source_alpha_extrema": [
+      0,
+      255
+    ],
+    "native_sha256": "c73628af2982d229840ae315ad677b5bf428e34da1c5c6014aef4c52c5fe4cc5",
+    "source_bbox": [
+      0,
+      49,
+      1230,
+      1228
+    ],
+    "native_bbox": [
+      4,
+      5,
+      45,
+      44
+    ]
+  },
+  {
+    "id": "long-barrel",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "source_sha256": "43a63d1835437f346eb99585f76ecb56c78d7d66276e9861fe75e51828edd5f4",
+    "source_alpha_extrema": [
+      0,
+      255
+    ],
+    "native_sha256": "a5ac64b0ad1f1dcc81ab033e3c32c6ed0c991f9070a6270dc42e8d0fb69ba079",
+    "source_bbox": [
+      0,
+      53,
+      1240,
+      1214
+    ],
+    "native_bbox": [
+      3,
+      13,
+      45,
+      34
+    ]
+  },
+  {
+    "id": "split-shot",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "source_sha256": "98a9ccd41a12f598c5fd075c50c3cf23c4bfceb9d031f56ef888291878437bff",
+    "source_alpha_extrema": [
+      0,
+      255
+    ],
+    "native_sha256": "bf12f584f665d8b99f60028742bf37f0b913a929c349372dced584cc8d139ef3",
+    "source_bbox": [
+      0,
+      19,
+      1239,
+      1214
+    ],
+    "native_bbox": [
+      4,
+      5,
+      45,
+      44
+    ]
+  },
+  {
+    "id": "punch-through",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "source_sha256": "f5062e78132f8ec18fa20b38f441dd99cbbacced3fcd7f38cf7fdebb264f7bb4",
+    "source_alpha_extrema": [
+      0,
+      255
+    ],
+    "native_sha256": "4991ef060f58135a2347e74eab5e37fca3b930c6dc56bbcb57f98b5f9cff3656",
+    "source_bbox": [
+      24,
+      53,
+      1240,
+      1227
+    ],
+    "native_bbox": [
+      4,
+      7,
+      44,
+      42
+    ]
+  },
+  {
+    "id": "glass-cannon",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "source_sha256": "0d6d86a760ae40818493245751907055dbbd12124adf7df71a56d5706df8d5fb",
+    "source_alpha_extrema": [
+      0,
+      255
+    ],
+    "native_sha256": "86388536ae6306a5ad167023297a0274c5902dd3f3f0e6ae6db40c182f6cc868",
+    "source_bbox": [
+      0,
+      49,
+      1238,
+      1228
+    ],
+    "native_bbox": [
+      3,
+      8,
+      45,
+      42
+    ]
+  },
+  {
+    "id": "run-and-gun",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "source_sha256": "809147ffc9f87b1a412b4c7a4551f6584bd4497734fc4af818757d4d4970931a",
+    "source_alpha_extrema": [
+      0,
+      255
+    ],
+    "native_sha256": "d9a569e688388f46ffe60e6ad3df173e503a2e909fe5d7866857b9012f52caab",
+    "source_bbox": [
+      12,
+      52,
+      1254,
+      1220
+    ],
+    "native_bbox": [
+      3,
+      10,
+      45,
+      39
+    ]
+  },
+  {
+    "id": "pistol-deadeye",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "source_sha256": "cbe0470ae591142a30966ed9f82ce7164b5ac7b0fefd0004d7f877c9b00e5558",
+    "source_alpha_extrema": [
+      0,
+      255
+    ],
+    "native_sha256": "a5f2a0978548b926e35914abe44f43ce5c0af698b475b28bc77af91611bc3d99",
+    "source_bbox": [
+      0,
+      53,
+      1242,
+      1230
+    ],
+    "native_bbox": [
+      4,
+      6,
+      45,
+      43
+    ]
+  },
+  {
+    "id": "pistol-needle-rounds",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "source_sha256": "0d36d3384d8846100fa6e5c2638081c675341da37e25f7ac762b1e0e52f9c76f",
+    "source_alpha_extrema": [
+      0,
+      255
+    ],
+    "native_sha256": "5a1670eb608546844d150cf0dbaf454d7be13f1c8af0cade6c98e3ef0890a34f",
+    "source_bbox": [
+      0,
+      21,
+      1228,
+      1236
+    ],
+    "native_bbox": [
+      4,
+      7,
+      45,
+      43
+    ]
+  },
+  {
+    "id": "smg-overclock",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "source_sha256": "21dc64d73e3f86ded9b57871e2bf58e7156ceb494dc9899bf3e517e0d48751df",
+    "source_alpha_extrema": [
+      0,
+      255
+    ],
+    "native_sha256": "5379672074294210d71fc1f9ea265916716067d2629a0c02c4a5431e62460679",
+    "source_bbox": [
+      0,
+      21,
+      1225,
+      1220
+    ],
+    "native_bbox": [
+      5,
+      5,
+      45,
+      44
+    ]
+  },
+  {
+    "id": "smg-spray",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "source_sha256": "d3ba29820254e7d898ed2548ebac9127f0a62fcdf7eefaab546676196cdde3f4",
+    "source_alpha_extrema": [
+      0,
+      255
+    ],
+    "native_sha256": "1c61870156ee5eeb7ab90911b5ea4b5a47722af2277c99d6c6e9281768117945",
+    "source_bbox": [
+      0,
+      52,
+      1237,
+      1220
+    ],
+    "native_bbox": [
+      3,
+      10,
+      45,
+      42
+    ]
+  },
+  {
+    "id": "shotgun-buckshot",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "source_sha256": "f523ab9cf723594821f8cafdad47381e6ea0f167a89eda4cdadef3558c0b63ad",
+    "source_alpha_extrema": [
+      0,
+      255
+    ],
+    "native_sha256": "f4983fdd8861cf6b3c5d7f95b9243aa00dc9f09cea45e7cc20f1ab94d2c3f3a4",
+    "source_bbox": [
+      0,
+      53,
+      1245,
+      1254
+    ],
+    "native_bbox": [
+      3,
+      6,
+      45,
+      40
+    ]
+  },
+  {
+    "id": "shotgun-breacher",
+    "source_size": [
+      1254,
+      1254
+    ],
+    "source_sha256": "d811601a95e83452a3fd21d928c2691f769d4b95ef9dc4206f79d19c96b5df6c",
+    "source_alpha_extrema": [
+      0,
+      255
+    ],
+    "native_sha256": "98c4ca89f0f6825111f71e78fe553b946b8f7e6bd75a586f2d6eee484ff3e4e3",
+    "source_bbox": [
+      0,
+      40,
+      1238,
+      1226
+    ],
+    "native_bbox": [
+      4,
+      6,
+      45,
+      42
+    ]
+  }
+]
