@@ -1,6 +1,6 @@
 import type { GameContext, PersistenceUpdate } from '../engine/context';
 import {
-  assignPartToBuild,
+  replacePartInBuild,
   equipPart,
   infuseTrait,
   isSlotCompatible,
@@ -19,6 +19,7 @@ import {
   type OwnedPart,
   type PartDefinition,
   type WeaponBuild,
+  type PartSlot,
 } from '../gameplay/gunsmith';
 import { getAllWeaponFamilies, isValidFamily } from '../gameplay/weaponFamilies';
 import { DataPartRegistry } from '../systems/parts';
@@ -30,6 +31,11 @@ import { resolveAvailabilitySnapshot } from '../gameplay/persistentAvailability'
 import { createRunState } from '../gameplay/runState';
 import { resolveWeaponStats, type EffectiveWeaponStats } from '../gameplay/weaponStats';
 import type { WeaponDefinition } from '../systems/types';
+import { deepFreeze } from '../engine/freeze';
+import { GUNSMITH_CHASSIS, resolveGunsmithVisualAssembly } from './gunsmithVisualAssembly';
+import { resolveEquipmentLoadoutPresentation, type EquipmentLoadoutPresentation } from './equipmentPresentation';
+
+export type GunsmithSurface = 'build' | 'workshop' | 'parts';
 
 export interface GunsmithPartView {
   readonly instanceId: string;
@@ -151,6 +157,17 @@ export interface GunsmithAssembledPreview {
 }
 
 export interface GunsmithSnapshot {
+  readonly surface: GunsmithSurface;
+  readonly selectedSlot: PartSlot;
+  readonly selectedCandidateInstanceId?: string;
+  readonly candidatePreview?: GunsmithAssembledPreview;
+  readonly candidateComparison?: {
+    readonly lines: readonly string[];
+    readonly displacedInstanceId?: string;
+    readonly movedFromBuildId?: string;
+    readonly before: EquipmentLoadoutPresentation['runTruth'];
+    readonly after: EquipmentLoadoutPresentation['runTruth'];
+  };
   readonly selectedBuildId?: string;
   readonly builds: readonly Build[];
   /** Data-owned chassis choices.  Menu code must not infer families from the
@@ -190,6 +207,16 @@ export type GunsmithCommandResult =
 /** UI boundary for persistent weapon engineering.  It only adapts immutable
  * Save V3 records to pure commands; all eligibility stays in gameplay. */
 export class GunsmithController {
+  private surface: GunsmithSurface = 'build';
+  private selectedSlot: PartSlot = 'receiver';
+  private pendingPart?: {
+    readonly buildId: string;
+    readonly slot: PartSlot;
+    readonly instanceId: string;
+    readonly signature: string;
+    readonly preview?: GunsmithAssembledPreview;
+    readonly comparison: NonNullable<GunsmithSnapshot['candidateComparison']>;
+  };
   private readonly registry: DataPartRegistry;
   private pendingWorkshop?: Readonly<{ request: GunsmithWorkshopRequest; confirmation: GunsmithWorkshopConfirmation }>;
   private pendingMergeSelection?: { groupId: string; firstInstanceId?: string };
@@ -237,7 +264,6 @@ export class GunsmithController {
       const fittedHere = selected !== undefined && assigned?.id === selected.id;
       const compatible = selected !== undefined && isSlotCompatible(selected.baseWeaponFamily, definition.slot);
       const capacity = definition.slot !== 'trait' || selected === undefined || selected.traitParts.length < MAX_TRAIT_CORES_PER_BUILD || fittedHere;
-      const slotVacant = definition.slot === 'trait' || selected === undefined || selected.fitted[definition.slot] === undefined || fittedHere;
       const traits = Object.freeze([...definition.traits, ...stored.infusedTraits]);
       const view: GunsmithPartView = Object.freeze({
         instanceId, partId: stored.partId, name: definition.name, slot: definition.slot,
@@ -251,9 +277,9 @@ export class GunsmithController {
         // genuinely eligible.  Do not advertise "Move from …" for an
         // occupied ordinary slot or full trait capacity: that would promise
         // an operation the domain correctly refuses.
-        compatible: selected === undefined || (compatible && capacity && slotVacant),
+        compatible: selected === undefined || (compatible && capacity),
         fitted: fittedHere,
-        state: fittedHere ? 'fitted-here' : !compatible || !capacity || !slotVacant ? 'incompatible' : assigned !== undefined ? 'fitted-elsewhere' : 'owned-unfitted',
+        state: fittedHere ? 'fitted-here' : !compatible || !capacity ? 'incompatible' : assigned !== undefined ? 'fitted-elsewhere' : 'owned-unfitted',
         ...(assigned === undefined ? {} : { assignedBuildId: assigned.id, assignedBuildName: assigned.name }),
         effectLines: Object.freeze(definition.effects.map((effect) => formatGunsmithEffect(effect, stored.tier))),
         traitLines: Object.freeze([...definition.traits, ...stored.infusedTraits]),
@@ -262,46 +288,16 @@ export class GunsmithController {
           : fittedHere ? selectedBuildComparison(selected, instanceId, state, this.registry, representativeWeapon)
             : !compatible ? `Cannot fit ${selected.baseWeaponFamily}.`
               : !capacity ? 'Trait capacity full — unequip a trait first.'
-                : !slotVacant ? `${occupiedSlotMessage(selected, definition.slot, state, this.registry)} Candidate: ${formatPartEffects(definition, stored.tier).join(' • ') || 'Trait only'}`
                   : assigned !== undefined ? `Move from ${assigned.name}.`
                     : selectedBuildComparison(selected, instanceId, state, this.registry, representativeWeapon),
       });
       return [view];
     }));
     const selectedStartFamily = this.selectedStartingFamily();
-    const selectedBaseArtId = selected === undefined ? undefined : this.context.data.weapons
-      .find((weapon) => weapon.family === selected.baseWeaponFamily && weapon.mergeTier === 1)?.art.gunsmithPreviewBaseArtId;
-    const previewLayers = selected === undefined ? [] : PART_SLOTS.flatMap((slot) => {
-      if (slot === 'trait') return [];
-      const instanceId = selected.fitted[slot];
-      if (instanceId === undefined) return [];
-      const stored = state.parts[instanceId];
-      const definition = stored && this.registry.partById(stored.partId);
-      return stored === undefined || definition?.presentation.assemblyArtId === undefined ? [] : [Object.freeze({
-        instanceId, slot, artId: definition.presentation.assemblyArtId, tier: stored.tier,
-      })];
-    });
-    const traitCores = selected === undefined ? [] : selected.traitParts.flatMap((instanceId) => {
-      const stored = state.parts[instanceId];
-      const definition = stored && this.registry.partById(stored.partId);
-      return stored === undefined || definition === undefined ? [] : [Object.freeze({
-        instanceId, iconArtId: definition.presentation.iconArtId, tier: stored.tier,
-      })];
-    });
-    const effectiveTraits = new Set<string>();
-    if (selected !== undefined) {
-      for (const instanceId of [...Object.values(selected.fitted), ...selected.traitParts]) {
-        if (instanceId === undefined) continue;
-        const stored = state.parts[instanceId];
-        const definition = stored && this.registry.partById(stored.partId);
-        if (!stored || !definition) continue;
-        [...definition.traits, ...stored.infusedTraits].forEach((trait) => effectiveTraits.add(trait));
-      }
-    }
-    const traitEmblems = [...effectiveTraits].flatMap((trait) => {
-      const iconArtId = traitIconByTrait.get(trait);
-      return iconArtId === undefined ? [] : [Object.freeze({ trait, iconArtId })];
-    });
+    const assembly = selected === undefined ? undefined : resolveGunsmithVisualAssembly(selected, state, this.registry.asMap());
+    const previewLayers = assembly?.layers ?? [];
+    const traitCores = assembly?.traitCores ?? [];
+    const traitEmblems = assembly?.traitEmblems ?? [];
     const fittedNames = selected === undefined ? [] : [...previewLayers, ...traitCores].flatMap((layer) => {
       const stored = state.parts[layer.instanceId];
       const definition = stored && this.registry.partById(stored.partId);
@@ -314,12 +310,7 @@ export class GunsmithController {
       summary: fittedNames.length === 0
         ? `Stock ${familyName(selected.baseWeaponFamily)} chassis`
         : `${traitEmblems.map((entry) => entry.trait).join(' / ') || 'Engineered'} ${familyName(selected.baseWeaponFamily)} • ${fittedNames.join(' • ')}`,
-      ...(selectedBaseArtId === undefined ? {} : { preview: Object.freeze({
-        baseArtId: selectedBaseArtId,
-        layers: Object.freeze(previewLayers),
-        traitCores: Object.freeze(traitCores),
-        traitEmblems: Object.freeze(traitEmblems),
-      }) }),
+      ...(assembly === undefined ? {} : { preview: assembly }),
     } satisfies GunsmithBuildPresentation);
     const slots = selected === undefined ? [] : PART_SLOTS
       .filter((slot) => slot === 'trait' || isSlotCompatible(selected.baseWeaponFamily, slot))
@@ -333,7 +324,7 @@ export class GunsmithController {
             ? {}
             : { unavailableFitted: { instanceId, label: 'Unavailable saved part' } };
         })()),
-        candidates: Object.freeze(parts.filter((part) => part.slot === slot)),
+        candidates: Object.freeze(parts.filter((part) => part.slot === slot && part.compatible)),
       } satisfies GunsmithSlotView));
     const save = this.context.saveData;
     const facts = createConditionContext(save.progression, { stages: save.stages, achievements: save.achievements, characters: save.characters, bosses: save.bosses });
@@ -417,20 +408,25 @@ export class GunsmithController {
     }
     const workshop = Object.freeze(workshopRecipes);
     const mergeSelection = this.buildMergeSelection(ownedParts, assignedIds, state);
+    const normalizedSlot = slots.some((entry) => entry.slot === this.selectedSlot) ? this.selectedSlot : (slots[0]?.slot ?? 'receiver');
     const value = Object.freeze({
+      surface: this.surface,
+      selectedSlot: normalizedSlot,
+      ...(this.pendingPart === undefined ? {} : {
+        selectedCandidateInstanceId: this.pendingPart.instanceId,
+        candidatePreview: this.pendingPart.preview,
+        candidateComparison: this.pendingPart.comparison,
+      }),
       selectedBuildId: selected?.id,
       builds: Object.freeze([...state.builds]),
       families: Object.freeze(getAllWeaponFamilies().map((family) => {
         const build = buildsByFamily.get(family.id);
-        const chassis = this.context.data.weapons.find((weapon) => weapon.family === family.id && weapon.mergeTier === 1)
-          ?? this.context.data.weapons.find((weapon) => weapon.family === family.id);
+        const chassis = GUNSMITH_CHASSIS.find((entry) => entry.familyId === family.id);
         return Object.freeze({
           id: family.id,
           name: family.name,
-          iconArtId: chassis?.art.iconId ?? '',
-          ...(chassis?.art.gunsmithPreviewBaseArtId === undefined ? {} : {
-            previewBaseArtId: chassis.art.gunsmithPreviewBaseArtId,
-          }),
+          iconArtId: chassis?.iconArtId ?? '',
+          ...(chassis === undefined ? {} : { previewBaseArtId: chassis.baseArtId }),
           selected: build !== undefined && build.id === selected?.id,
           existingBuildId: build?.id,
         });
@@ -634,16 +630,86 @@ export class GunsmithController {
   }
 
   fitPart(instanceId: string): GunsmithCommandResult {
-    const state = this.context.saveData.gunsmith;
-    const build = selectedBuild(state);
+    const buildId = this.context.saveData.gunsmith.selectedBuildId;
+    if (!buildId) return { ok: false, reason: 'no-selected-build' };
+    let failure: string | undefined;
+    let unchanged = false;
+    const update = this.context.updateGunsmith((current) => {
+      const stored = current.parts[instanceId];
+      const definition = stored && this.registry.partById(stored.partId);
+      if (!definition) { failure = 'unknown-part'; return undefined; }
+      const result = replacePartInBuild(current, buildId, definition.slot, instanceId, this.registry.asMap());
+      if (!result.ok) { failure = result.reason; return undefined; }
+      unchanged = result.state === current;
+      return unchanged ? undefined : result.state;
+    });
+    if (failure) return { ok: false, reason: failure };
+    this.cancelPreview();
+    return update.persisted || unchanged ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
+  }
+
+  openSurface(surface: GunsmithSurface): void {
+    this.surface = surface;
+    this.cancelPreview();
+  }
+
+  selectSlot(slot: PartSlot): void {
+    const build = selectedBuild(this.context.saveData.gunsmith);
+    if (!PART_SLOTS.includes(slot) || (build && !isSlotCompatible(build.baseWeaponFamily, slot))) return;
+    this.selectedSlot = slot;
+    this.surface = 'build';
+    this.cancelPreview();
+  }
+
+  cancelPreview(): void {
+    this.pendingPart = undefined;
+    this.presentationRevision += 1;
+  }
+
+  previewPart(instanceId: string, displacedInstanceId?: string): GunsmithCommandResult {
+    const save = this.context.saveData;
+    const build = selectedBuild(save.gunsmith);
     if (!build) return { ok: false, reason: 'no-selected-build' };
-    // Persistent fitting is global: the same physical instance moves from an
-    // older build only after the target validates.  Do not use equipPart here
-    // because it intentionally only knows one build.
-    const result = assignPartToBuild(state, build.id, instanceId, this.registry.asMap());
+    const result = replacePartInBuild(save.gunsmith, build.id, this.selectedSlot, instanceId, this.registry.asMap(), displacedInstanceId);
     if (!result.ok) return result;
-    const update = this.context.updateGunsmith(() => result.state);
-    return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
+    const candidate = deepFreeze({ ...save, gunsmith: result.state });
+    const candidateBuild = result.state.builds.find((row) => row.id === build.id)!;
+    const before = resolveEquipmentLoadoutPresentation(save, this.context.data).runTruth;
+    const after = resolveEquipmentLoadoutPresentation(candidate, this.context.data).runTruth;
+    const weapon = this.context.data.weapons.find((row) => row.family === build.baseWeaponFamily && row.mergeTier === 1);
+    const lines = persistentComparisonLines(before, after, weapon);
+    if (result.displacedInstanceId) lines.unshift(`Stored: ${this.partLabel(result.displacedInstanceId, save.gunsmith)}`);
+    if (result.movedFromBuildId && result.movedFromBuildId !== build.id) lines.unshift(`Move from ${save.gunsmith.builds.find((row) => row.id === result.movedFromBuildId)?.name ?? result.movedFromBuildId}`);
+    this.pendingPart = deepFreeze({ buildId: build.id, slot: this.selectedSlot, instanceId,
+      signature: loadoutSignature(save), preview: resolveGunsmithVisualAssembly(candidateBuild, result.state, this.registry.asMap()),
+      comparison: { lines, before, after, displacedInstanceId: result.displacedInstanceId, movedFromBuildId: result.movedFromBuildId } });
+    this.presentationRevision += 1;
+    return { ok: true, persisted: false };
+  }
+
+  commitPreview(): GunsmithCommandResult {
+    const pending = this.pendingPart;
+    if (!pending) return { ok: false, reason: 'no-candidate' };
+    let failure: string | undefined;
+    let unchanged = false;
+    const update = this.context.updateGunsmith((current) => {
+      if (loadoutSignature({ ...this.context.saveData, gunsmith: current }) !== pending.signature) {
+        failure = 'stale-target'; return undefined;
+      }
+      const result = replacePartInBuild(current, pending.buildId, pending.slot, pending.instanceId, this.registry.asMap(), pending.comparison.displacedInstanceId);
+      if (!result.ok) { failure = result.reason; return undefined; }
+      unchanged = result.state === current;
+      return unchanged ? undefined : result.state;
+    });
+    if (failure) { this.cancelPreview(); return { ok: false, reason: failure }; }
+    if (!update.persisted && !unchanged) return { ok: false, reason: 'save-failed' };
+    this.cancelPreview();
+    return { ok: true, persisted: true };
+  }
+
+  private partLabel(instanceId: string, state: GunsmithState): string {
+    const part = state.parts[instanceId];
+    return part ? `${this.registry.partById(part.partId)?.name ?? part.partId} T${part.tier}` : instanceId;
   }
 
   unequipPart(instanceId: string): GunsmithCommandResult {
@@ -732,13 +798,6 @@ export class GunsmithController {
 }
 
 function familyName(id: string): string { return getAllWeaponFamilies().find((family) => family.id === id)?.name ?? id; }
-
-function occupiedSlotMessage(selected: Build, slot: string, state: GunsmithState, registry: DataPartRegistry): string {
-  const currentId = selected.fitted[slot];
-  const current = currentId === undefined ? undefined : state.parts[currentId];
-  const name = current === undefined ? undefined : registry.partById(current.partId)?.name;
-  return `${gunsmithSlotLabel(slot as import('../gameplay/gunsmith').PartSlot)} occupied — unequip ${name ?? 'the current part'} first.`;
-}
 
 function selectedBuild(state: GunsmithState): WeaponBuild | undefined {
   const build = state.builds.find((candidate) => candidate.id === state.selectedBuildId);
@@ -830,11 +889,38 @@ function selectedBuildComparison(
     const result = unequipPart(selected, instanceId);
     after = result.ok ? result.build : undefined;
   } else {
-    const result = equipPart(selected, { instanceId, ...stored } as OwnedPart, registry.asMap());
-    after = result.ok ? result.build : undefined;
+    const result = replacePartInBuild(state, selected.id, definition.slot, instanceId, registry.asMap());
+    after = result.ok ? result.state.builds.find((build) => build.id === selected.id) : undefined;
   }
   if (!after) return `Candidate: ${formatPartEffects(definition, stored.tier).join(' • ') || 'Trait only'}`;
   return buildComparison(selected, after, state, registry, weapon);
+}
+
+function loadoutSignature(save: GameContext['saveData']): string {
+  return JSON.stringify([save.gunsmith, save.equipment, save.equipmentLoadout]);
+}
+
+function persistentComparisonLines(before: EquipmentLoadoutPresentation['runTruth'],
+  after: EquipmentLoadoutPresentation['runTruth'], weapon: WeaponDefinition | undefined): string[] {
+  const lines: string[] = [];
+  if (weapon) {
+    const resolve = (truth: EquipmentLoadoutPresentation['runTruth']) => {
+      const run = createRunState({ seed: 0, characterId: 'gunsmith-preview', arenaId: 'gunsmith-preview' });
+      for (const modifier of truth.modifiers) run.stats.add(modifier);
+      return resolveWeaponStats(run, weapon);
+    };
+    const old = resolve(before);
+    const next = resolve(after);
+    for (const key of Object.keys(WEAPON_STAT_LABELS) as (keyof EffectiveWeaponStats)[]) {
+      if (Math.abs(old[key] - next[key]) >= 1e-9) lines.push(`${familyName(weapon.family)} ${WEAPON_STAT_LABELS[key]} ${formatResolvedStat(key, old[key])} → ${formatResolvedStat(key, next[key])}`);
+    }
+  }
+  for (const next of after.families) {
+    const old = before.families.find((row) => row.familyId === next.familyId);
+    const traits = (row: typeof next | undefined) => row?.traits.map((trait) => `${trait.trait}${trait.deduplicated ? ' (shared; applied once)' : ''}`).join(' / ') || 'None';
+    if (traits(old) !== traits(next)) lines.push(`${familyName(next.familyId)} traits ${traits(old)} → ${traits(next)}`);
+  }
+  return lines.length ? lines : ['No mechanical change'];
 }
 
 function buildComparison(

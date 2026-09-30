@@ -120,7 +120,7 @@ describe('GunsmithController durable commands', () => {
     expect(context.saveData.gunsmith.parts.barrel).toBeDefined();
   });
 
-  it('does not advertise a cross-build move when the target slot is occupied', () => {
+  it('replaces the target occupant while atomically moving a physical part from another build', () => {
     const { context, controller } = setup();
     context.updateGunsmith((state) => ({ ...state, parts: {
       standard: { partId: 'part:barrel-standard', tier: 1, infusedTraits: [] },
@@ -133,11 +133,13 @@ describe('GunsmithController durable commands', () => {
     controller.selectBuild('build:pistol');
 
     expect(controller.snapshot().parts.find((part) => part.instanceId === 'long')).toMatchObject({
-      state: 'incompatible', compatible: false,
-      comparisonSummary: 'Barrel occupied — unequip Standard Barrel first. Candidate: Range +35 • Projectile speed +10%',
+      state: 'fitted-elsewhere', compatible: true,
+      comparisonSummary: 'Move from SMG Build.',
     });
-    expect(controller.fitPart('long')).toEqual({ ok: false, reason: 'slot-full' });
-    expect(context.saveData.gunsmith.builds.find((build) => build.id === 'build:smg')?.fitted.barrel).toBe('long');
+    expect(controller.fitPart('long')).toMatchObject({ ok: true, persisted: true });
+    expect(context.saveData.gunsmith.builds.find((build) => build.id === 'build:smg')?.fitted.barrel).toBeUndefined();
+    expect(context.saveData.gunsmith.builds.find((build) => build.id === 'build:pistol')?.fitted.barrel).toBe('long');
+    expect(context.saveData.gunsmith.parts.standard).toBeDefined();
   });
 
   it('fabricates one paid physical instance with a monotonic serial and publishes nothing on save failure', () => {
@@ -526,7 +528,7 @@ describe('GunsmithController durable commands', () => {
     expect(controller.snapshot().parts.find((part) => part.instanceId === 'heavy')?.comparisonSummary)
       .toBe('Current build: Fire interval 792.7ms → 650ms • Damage 10.9 → 8');
     expect(controller.snapshot().parts.find((part) => part.instanceId === 'compact')?.comparisonSummary)
-      .toBe('Receiver occupied — unequip Heavy Receiver first. Candidate: Fire rate +16%');
+      .toBe('Current build: Fire interval 792.7ms → 560.3ms • Damage 10.9 → 8');
   });
 
   it('uses production weapon-stat clamps so a zero-spread Pistol never promises fake accuracy', () => {
