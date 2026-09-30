@@ -19,6 +19,43 @@ describe('GameScene achievement fact bridge', () => {
     expect(scene.completedAchievements).toEqual([]);
   });
 
+  it('clears terminal persistence state before reusing the scene for another run', () => {
+    const scene = new GameScene() as any;
+    scene.terminalSettlement = { terminalApplied: true, runScrapBanked: 99 };
+    scene.terminalStageId = 'stage:junkyard-01';
+    scene.pendingAchievementFacts = { 'metric:enemies-defeated': 7 };
+    scene.achievementToast = { text: 'Old run', untilMs: 99_999 };
+    scene._wasPendingClear = true;
+    scene.getContext = () => ({});
+
+    expect(() => scene.create()).toThrow();
+
+    expect(scene.terminalSettlement).toBeUndefined();
+    expect(scene.terminalStageId).toBeUndefined();
+    expect(scene.pendingAchievementFacts).toEqual({});
+    expect(scene.achievementToast).toBeUndefined();
+    expect(scene._wasPendingClear).toBe(false);
+
+    scene.runState = { status: 'lost', timeMs: 500, currency: 3, characterId: 'scrap-tabby' };
+    const settleRunTerminal = vi.fn(() => ({
+      ok: true, terminalApplied: true, runScrapBanked: 3,
+      persistentGrantIds: [], achievementIdsCompleted: [],
+    }));
+    scene.trySettleTerminal({ data: loadGameData(), bus: createEventBus(), settleRunTerminal }, 'loss');
+    expect(settleRunTerminal).toHaveBeenCalledOnce();
+  });
+
+  it('discards pending achievement facts when the player leaves without saving', () => {
+    const scene = new GameScene() as any;
+    scene.terminalSettlement = { terminalApplied: false };
+    scene.pendingAchievementFacts = { 'metric:enemies-defeated': 4 };
+
+    scene.discardPendingTerminalPersistence();
+
+    expect(scene.terminalSettlement).toBeUndefined();
+    expect(scene.pendingAchievementFacts).toEqual({});
+  });
+
   it('retains run-local metric facts for the terminal candidate', () => {
     const scene = new GameScene() as any;
     scene.runState = { timeMs: 1_000 };

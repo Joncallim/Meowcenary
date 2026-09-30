@@ -182,15 +182,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(data?: { readonly runRequest?: ComposedRunRequest; readonly runStartPresentation?: RunPresentationBaseline; readonly isTraining?: boolean }): void {
+    this.resetPerRunState(data?.isTraining === true);
     const ctx = this.getContext();
-    // Phaser restarts this Scene instance for Retry/Replay. Terminal
-    // presentation belongs only to the new run's settlement, never the
-    // previous instance's completed-achievement cache.
-    this.completedAchievementNames = [];
-    this.completedAchievements = [];
-    this.newlyAvailableNames = [];
-    this.objectiveCompletionTimeMs = undefined;
-    this.isTraining = data?.isTraining === true;
     // Normal production entry receives the exact request which Menu used to
     // resolve/load its closure. Retaining the fallback keeps old headless
     // scene harnesses explicit compatibility-only callers.
@@ -695,6 +688,24 @@ export class GameScene extends Phaser.Scene {
     // A run launched while the device is already rotated must begin frozen,
     // rather than getting one simulation frame before its first update gate.
     this.syncPhysicsPause(this.runState);
+  }
+
+  /** Phaser restarts one persistent Scene instance for Retry/Replay. Reset
+   * every run-owned persistence and presentation cache before even resolving
+   * the next context so a failed create cannot retain terminal authority. */
+  private resetPerRunState(isTraining: boolean): void {
+    this.terminalSettlement = undefined;
+    this.terminalStageId = undefined;
+    this.pendingAchievementFacts = {};
+    this.achievementToast = undefined;
+    this._wasPendingClear = false;
+    this.completedAchievementNames = [];
+    this.completedAchievements = [];
+    this.newlyAvailableNames = [];
+    this.objectiveCompletionTimeMs = undefined;
+    this.gameplayPointerSuspended = true;
+    this._inputBlockedUntil = 0;
+    this.isTraining = isTraining;
   }
 
   update(_time: number, delta: number): void {
@@ -1260,6 +1271,7 @@ export class GameScene extends Phaser.Scene {
     // The user may leave an unavailable-storage result surface, but no
     // terminal progress is represented as accepted without this marker.
     this.terminalSettlement = undefined;
+    this.pendingAchievementFacts = {};
   }
 
   private describeAchievementToast(): string | undefined {
