@@ -140,7 +140,7 @@ export interface GameContext {
   /** The only runtime mutation boundary for owned parts/builds.  Commands
    * prepare a complete immutable state; publication occurs only after its
    * Save V4 snapshot is durable. */
-  updateGunsmith(transform: (state: GunsmithState) => GunsmithState): PersistenceUpdate<GunsmithState>;
+  updateGunsmith(transform: (state: GunsmithState) => GunsmithState | undefined): PersistenceUpdate<GunsmithState>;
   /** Resolve Equipment commands against current ownership/loadout. Returning
    * undefined rejects the request without a write or state publication. */
   updateEquipment(transform: (state: { readonly equipment: EquipmentState; readonly loadout: EquipmentLoadoutState }) => { readonly equipment: EquipmentState; readonly loadout: EquipmentLoadoutState } | undefined): PersistenceUpdate<EquipmentState>;
@@ -440,6 +440,7 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
     },
     updateGunsmith(transform) {
       const gunsmith = transform(current.gunsmith);
+      if (gunsmith === undefined) return Object.freeze({ value: current.gunsmith, persisted: false });
       const candidate = freezeSaveV4({ ...current, gunsmith });
       // SaveManager is deliberately the sanitizer/normalizer.  Reload the
       // persisted representation before publication so a controller can
