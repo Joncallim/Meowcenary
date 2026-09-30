@@ -367,7 +367,7 @@ describe('GunsmithController durable commands', () => {
     } }));
 
     expect(controller.requestWorkshop({ kind: 'merge', firstInstanceId: 'a', secondInstanceId: 'b' })).toMatchObject({ ok: true });
-    expect(controller.snapshot().confirmation).toEqual({
+    expect(controller.snapshot().confirmation).toMatchObject({
       kind: 'merge', title: 'Confirm merge', confirmLabel: 'Merge parts',
       inputLines: ['Standard Barrel T1 • +10 Range', 'Standard Barrel T1 • +10 Range'],
       outputLine: 'Standard Barrel T2 • +20 Range',
@@ -408,7 +408,7 @@ describe('GunsmithController durable commands', () => {
     } }));
 
     expect(controller.requestWorkshop({ kind: 'infuse', targetInstanceId: 'target', traitInstanceId: 'fire' })).toMatchObject({ ok: true });
-    expect(controller.snapshot().confirmation).toEqual({
+    expect(controller.snapshot().confirmation).toMatchObject({
       kind: 'infuse', title: 'Confirm infusion', confirmLabel: 'Infuse part',
       inputLines: ['Standard Barrel T2 • +20 Range', 'Fire Trait Core T1 • +2% Damage • FIRE'],
       outputLine: 'Standard Barrel T2 • +20 Range • FIRE',

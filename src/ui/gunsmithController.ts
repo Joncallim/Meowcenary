@@ -56,6 +56,8 @@ export interface GunsmithPartView {
   readonly assignedBuildId?: string;
   readonly assignedBuildName?: string;
   readonly effectLines: readonly string[];
+  readonly statChips: readonly string[];
+  readonly sourceLabel: string;
   readonly traitLines: readonly string[];
 }
 
@@ -92,6 +94,7 @@ export interface GunsmithCatalogPartView {
   readonly stateLabel: string;
   readonly ownedCount: number;
   readonly effectLines: readonly string[];
+  readonly statChips: readonly string[];
   readonly comparisonSummary: string;
   readonly sourceLabel: string;
   readonly fabricationCost?: number;
@@ -124,6 +127,30 @@ export type GunsmithWorkshopRequest =
   | { readonly kind: 'merge'; readonly firstInstanceId: string; readonly secondInstanceId: string }
   | { readonly kind: 'infuse'; readonly targetInstanceId: string; readonly traitInstanceId: string };
 
+/** Stable facts about one fitted reference, including non-selected builds. */
+export interface GunsmithFittingFact {
+  readonly buildId: string;
+  readonly buildName: string;
+  readonly familyId: string;
+  readonly slot: PartSlot;
+  readonly instanceId: string;
+}
+
+export interface GunsmithWorkshopPartView {
+  readonly instanceId: string;
+  readonly partId: string;
+  readonly name: string;
+  readonly slot: PartSlot;
+  readonly tier: number;
+  readonly iconArtId: string;
+  readonly statChips: readonly string[];
+  readonly traitLines: readonly BehaviorTrait[];
+  readonly traitIcons: readonly { readonly trait: BehaviorTrait; readonly iconArtId: string }[];
+  readonly stateLabel: 'EQUIPPED' | 'STORED';
+  readonly effectScope: string;
+  readonly fittingLocations: readonly GunsmithFittingFact[];
+}
+
 export interface GunsmithWorkshopConfirmation {
   readonly kind: 'merge' | 'infuse';
   readonly title: string;
@@ -131,6 +158,19 @@ export interface GunsmithWorkshopConfirmation {
   readonly inputLines: readonly string[];
   readonly outputLine: string;
   readonly mechanicalDelta: readonly string[];
+  readonly inputs: readonly GunsmithWorkshopPartView[];
+  readonly output: GunsmithWorkshopPartView;
+  readonly consumedInstanceIds: readonly string[];
+  readonly preservedInstanceIds: readonly string[];
+  readonly clearedFittings: readonly GunsmithFittingFact[];
+  readonly preservedFittings: readonly GunsmithFittingFact[];
+  readonly sideEffectLines: readonly string[];
+  /** Equipment + Gunsmith run truth, separate from the output's engineering gain. */
+  readonly comparison: {
+    readonly before: EquipmentLoadoutPresentation['runTruth'];
+    readonly after: EquipmentLoadoutPresentation['runTruth'];
+    readonly lines: readonly string[];
+  };
 }
 
 export interface GunsmithBuildPresentation {
@@ -264,6 +304,8 @@ export class GunsmithController {
         if (instanceId !== undefined && !assignments.has(instanceId)) assignments.set(instanceId, build);
       }
     }
+    const sourceLabels = new Map(this.registry.all().map((definition) => [definition.id,
+      acquisitionSourceLabel(definition.id, definition.fabricationCost, this.context)] as const));
     const parts = Object.freeze(Object.entries(state.parts).flatMap(([instanceId, stored]) => {
       const definition = this.registry.partById(stored.partId);
       if (!definition) return [];
@@ -272,6 +314,7 @@ export class GunsmithController {
       const compatible = selected !== undefined && isSlotCompatible(selected.baseWeaponFamily, definition.slot);
       const capacity = definition.slot !== 'trait' || selected === undefined || selected.traitParts.length < MAX_TRAIT_CORES_PER_BUILD || fittedHere || selectedTraitInstanceId !== undefined;
       const traits = Object.freeze([...definition.traits, ...stored.infusedTraits]);
+      const statChips = Object.freeze(formatPartEffects(definition, stored.tier));
       const view: GunsmithPartView = Object.freeze({
         instanceId, partId: stored.partId, name: definition.name, slot: definition.slot,
         tier: stored.tier, traits,
@@ -285,10 +328,12 @@ export class GunsmithController {
         compatible: selected === undefined || (compatible && capacity),
         fitted: fittedHere,
         stateLabel: fittedHere || assigned !== undefined ? 'EQUIPPED' : 'STORED',
-        effectScope: selected ? familyName(selected.baseWeaponFamily) : 'Compatible Weapon Family',
+        effectScope: assigned ? familyName(assigned.baseWeaponFamily)
+          : selected && compatible ? familyName(selected.baseWeaponFamily) : compatibleFamilyScope(definition.slot),
         state: fittedHere ? 'fitted-here' : !compatible || !capacity ? 'incompatible' : assigned !== undefined ? 'fitted-elsewhere' : 'owned-unfitted',
         ...(assigned === undefined ? {} : { assignedBuildId: assigned.id, assignedBuildName: assigned.name }),
-        effectLines: Object.freeze(definition.effects.map((effect) => formatGunsmithEffect(effect, stored.tier))),
+        effectLines: statChips, statChips,
+        sourceLabel: sourceLabels.get(definition.id)!,
         traitLines: Object.freeze([...definition.traits, ...stored.infusedTraits]),
         comparisonSummary: selected === undefined
           ? 'Choose a build to preview this part.'
@@ -367,7 +412,8 @@ export class GunsmithController {
         : owned.length > 0 ? 'owned'
           : fabricationCost === undefined ? 'reward-only'
             : fabricable ? 'fabricable' : 'locked';
-      const sourceLabel = acquisitionSourceLabel(definition.id, fabricationCost, this.context);
+      const sourceLabel = sourceLabels.get(definition.id)!;
+      const statChips = Object.freeze(formatPartEffects(definition, displayTier));
       const affordable = fabricationCost !== undefined && save.progression.scrap >= fabricationCost;
       const canFabricate = fabricationCost !== undefined && fabricable && affordable;
       const stateLabel = catalogState === 'fitted' ? `EQUIPPED • T${displayTier}`
@@ -379,7 +425,7 @@ export class GunsmithController {
         iconArtId: definition.presentation.iconArtId,
         traitIcons: Object.freeze(Object.entries(definition.presentation.traitIconArtIds).flatMap(([trait, iconArtId]) => iconArtId === undefined ? [] : [Object.freeze({ trait, iconArtId })])),
         state: catalogState, stateLabel, ownedCount: owned.length,
-        effectLines: Object.freeze(formatPartEffects(definition, displayTier)),
+        effectLines: statChips, statChips,
         comparisonSummary: representative?.comparisonSummary ?? catalogCandidateComparison(selected, definition, catalogState, bestTier, state, this.registry, representativeWeapon),
         sourceLabel,
         canFabricate,
@@ -573,6 +619,12 @@ export class GunsmithController {
       const result = mergeParts(first, second, definitions);
       const definition = definitions.get(first.partId);
       if (!result.ok || !definition) return undefined;
+      const candidate: GunsmithState = {
+        ...state, parts: Object.fromEntries([
+          ...Object.entries(state.parts).filter(([id]) => !result.consumed.includes(id)),
+          [result.output.instanceId, { partId: result.output.partId, tier: result.output.tier, infusedTraits: result.output.infusedTraits }],
+        ]), builds: removePartReferences(state.builds, result.consumed),
+      };
       const before = formatPartEffects(definition, first.tier);
       const after = formatPartEffects(definition, result.output.tier);
       const firstTraits = [...new Set([...definition.traits, ...first.infusedTraits])];
@@ -580,6 +632,7 @@ export class GunsmithController {
       const outputTraits = [...new Set([...definition.traits, ...result.output.infusedTraits])];
       return freezeConfirmation({
         kind: 'merge', title: 'Confirm merge', confirmLabel: 'Merge parts',
+        ...this.workshopOutcome([first, second], result.output, result.consumed, state, candidate),
         inputLines: [partSummaryLine(first, definition, partLocation(first.instanceId, state)), partSummaryLine(second, definition, partLocation(second.instanceId, state))],
         outputLine: partSummaryLine(result.output, definition),
         mechanicalDelta: [
@@ -595,11 +648,17 @@ export class GunsmithController {
     const targetDefinition = definitions.get(target.partId);
     const sourceDefinition = definitions.get(source.partId);
     if (!result.ok || !targetDefinition || !sourceDefinition) return undefined;
+    const candidate: GunsmithState = {
+      ...state, parts: Object.fromEntries(Object.entries(state.parts).filter(([id]) => id !== source.instanceId)
+        .map(([id, part]) => [id, id === result.output.instanceId ? { ...part, infusedTraits: result.output.infusedTraits } : part])),
+      builds: removePartReferences(state.builds, [source.instanceId]),
+    };
     const beforeTraits = [...targetDefinition.traits, ...target.infusedTraits];
     const afterTraits = [...targetDefinition.traits, ...result.output.infusedTraits];
     const addedTrait = afterTraits.find((trait) => !beforeTraits.includes(trait));
     return freezeConfirmation({
       kind: 'infuse', title: 'Confirm infusion', confirmLabel: 'Infuse part',
+      ...this.workshopOutcome([target, source], result.output, [source.instanceId], state, candidate),
       inputLines: [partSummaryLine(target, targetDefinition, partLocation(target.instanceId, state)), partSummaryLine(source, sourceDefinition, partLocation(source.instanceId, state))],
       outputLine: partSummaryLine(result.output, targetDefinition),
       mechanicalDelta: [
@@ -607,6 +666,39 @@ export class GunsmithController {
         ...(addedTrait === undefined ? [] : [describeTraitBehavior(addedTrait)]),
       ],
     });
+  }
+
+  private workshopOutcome(inputs: readonly OwnedPart[], output: OwnedPart, consumed: readonly string[],
+    beforeState: GunsmithState, afterState: GunsmithState): Pick<GunsmithWorkshopConfirmation,
+      'inputs' | 'output' | 'consumedInstanceIds' | 'preservedInstanceIds' | 'clearedFittings'
+      | 'preservedFittings' | 'sideEffectLines' | 'comparison'> {
+    const outputView = workshopPartView(output, afterState, this.registry);
+    const inputViews = inputs.map((part) => workshopPartView(part, beforeState, this.registry));
+    const afterReferences = new Set(fittingFacts(afterState).map(fittingKey));
+    const clearedFittings = fittingFacts(beforeState).filter((fact) => consumed.includes(fact.instanceId)
+      && !afterReferences.has(fittingKey(fact)));
+    const preservedInstanceIds = inputs.filter((part) => !consumed.includes(part.instanceId)
+      && afterState.parts[part.instanceId] !== undefined).map((part) => part.instanceId);
+    const preservedFittings = fittingFacts(beforeState).filter((fact) => preservedInstanceIds.includes(fact.instanceId)
+      && afterReferences.has(fittingKey(fact)));
+    const beforeSave = { ...this.context.saveData, gunsmith: beforeState };
+    const afterSave = { ...this.context.saveData, gunsmith: afterState };
+    const before = resolveEquipmentLoadoutPresentation(beforeSave, this.context.data).runTruth;
+    const after = resolveEquipmentLoadoutPresentation(afterSave, this.context.data).runTruth;
+    const selected = beforeState.builds.find((build) => build.id === beforeState.selectedBuildId);
+    const weapon = selected && this.context.data.weapons.find((row) => row.family === selected.baseWeaponFamily && row.mergeTier === 1);
+    return {
+      inputs: inputViews, output: outputView, consumedInstanceIds: [...consumed], preservedInstanceIds,
+      clearedFittings, preservedFittings,
+      sideEffectLines: [
+        `Consumes ${consumed.length} ${consumed.length === 1 ? 'input' : 'inputs'}.`,
+        ...clearedFittings.map((fact) => `Clears ${fact.buildName} • ${gunsmithSlotLabel(fact.slot)}.`),
+        ...preservedFittings.map((fact) => `Keeps ${fact.buildName} • ${gunsmithSlotLabel(fact.slot)} fitted.`),
+        ...(preservedInstanceIds.includes(output.instanceId) ? [`Preserves ${outputView.name} T${outputView.tier} identity.`] : []),
+        ...(outputView.stateLabel === 'STORED' ? ['Output remains STORED. Fit it separately.'] : []),
+      ],
+      comparison: { before, after, lines: persistentComparisonLines(before, after, weapon) },
+    };
   }
 
   fabricate(partId: string): GunsmithCommandResult {
@@ -863,11 +955,41 @@ function sameWorkshopRequest(recipe: GunsmithWorkshopRecipe, request: GunsmithWo
 }
 
 function freezeConfirmation(input: GunsmithWorkshopConfirmation): GunsmithWorkshopConfirmation {
-  return Object.freeze({
-    ...input,
-    inputLines: Object.freeze([...input.inputLines]),
-    mechanicalDelta: Object.freeze([...input.mechanicalDelta]),
+  return deepFreeze(input);
+}
+
+function fittingFacts(state: GunsmithState): GunsmithFittingFact[] {
+  return state.builds.flatMap((build) => [
+    ...Object.entries(build.fitted).flatMap(([slot, instanceId]) => instanceId === undefined ? [] : [{
+      buildId: build.id, buildName: build.name, familyId: build.baseWeaponFamily, slot: slot as PartSlot, instanceId,
+    }]),
+    ...build.traitParts.map((instanceId) => ({
+      buildId: build.id, buildName: build.name, familyId: build.baseWeaponFamily, slot: 'trait' as const, instanceId,
+    })),
+  ]);
+}
+
+function fittingKey(fact: GunsmithFittingFact): string {
+  return JSON.stringify([fact.buildId, fact.slot, fact.instanceId]);
+}
+
+function compatibleFamilyScope(slot: PartSlot): string {
+  return getAllWeaponFamilies().filter((family) => isSlotCompatible(family.id, slot)).map((family) => family.name).join(' / ');
+}
+
+function workshopPartView(part: OwnedPart, state: GunsmithState, registry: DataPartRegistry): GunsmithWorkshopPartView {
+  const definition = registry.partById(part.partId)!;
+  const fittingLocations = fittingFacts(state).filter((fact) => fact.instanceId === part.instanceId);
+  const traits = [...new Set([...definition.traits, ...part.infusedTraits])];
+  const traitIcons = traits.flatMap((trait) => {
+    const iconArtId = registry.all().map((row) => row.presentation.traitIconArtIds[trait]).find((id) => id !== undefined);
+    return iconArtId === undefined ? [] : [{ trait, iconArtId }];
   });
+  return { instanceId: part.instanceId, partId: part.partId, name: definition.name, slot: definition.slot,
+    tier: part.tier, iconArtId: definition.presentation.iconArtId, statChips: formatPartEffects(definition, part.tier),
+    traitLines: traits, traitIcons, fittingLocations, stateLabel: fittingLocations.length > 0 ? 'EQUIPPED' : 'STORED',
+    effectScope: fittingLocations.length > 0 ? [...new Set(fittingLocations.map((fact) => familyName(fact.familyId)))].join(' / ')
+      : compatibleFamilyScope(definition.slot) };
 }
 
 function formatPartEffects(definition: PartDefinition, tier: number): string[] {
