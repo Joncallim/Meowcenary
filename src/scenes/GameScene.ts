@@ -1255,16 +1255,17 @@ export class GameScene extends Phaser.Scene {
         if (!this.isTraining && this.stagePlan) ctx.recordCompendiumDiscovery(enemyId, 'defeated');
         if (!this.isTraining) this.evaluateLiveAchievements(ctx, { 'metric:enemies-defeated': 1 });
       }),
-      ctx.bus.on('drop:collected', ({ kind }) => this.recordStageCollection(`drop:${kind}`)),
+      ctx.bus.on('drop:collected', ({ kind, amount }) => this.recordStageCollection(`drop:${kind}`, amount)),
       ctx.bus.on('weapon:merged', () => { if (!this.isTraining) this.evaluateLiveAchievements(ctx, { 'metric:merges-performed': 1 }); }),
     );
   }
 
-  /** The pickup kind is the authoritative live collection fact. Stage data
-   * selects a generic item namespace (for example `drop:scrap`), so another
-   * collect contract requires no stage-ID branch. */
-  private recordStageCollection(itemId: string): void {
-    this.stageRuntime?.recordCollection(itemId);
+  /** Pickup kind and authored amount are the authoritative live collection
+   * fact. Currency modifiers remain outside objective progress. Stage data
+   * selects a generic item namespace, so another collect contract needs no
+   * stage-ID branch. */
+  private recordStageCollection(itemId: string, amount: number): void {
+    this.stageRuntime?.recordCollection(itemId, amount);
   }
 
   private describeStageObjective(): string | undefined {

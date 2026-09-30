@@ -58,13 +58,14 @@ export function recordCollect(
   progress: ObjectiveProgress,
   collectedItemId: string,
   requiredItemId: string,
+  amount = 1,
 ): ObjectiveProgress {
   if (progress.type !== 'collect') return progress;
   if (progress.current >= progress.target) return progress;
   if (collectedItemId !== requiredItemId) return progress;
+  if (!Number.isSafeInteger(amount) || amount <= 0) return progress;
 
-  const next = progress.current + 1;
-  if (next > progress.target) return progress;
+  const next = Math.min(progress.target, progress.current + amount);
   return Object.freeze({ ...progress, current: next });
 }
 

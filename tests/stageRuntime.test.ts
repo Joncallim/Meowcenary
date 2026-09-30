@@ -56,6 +56,17 @@ describe('stage runtime', () => {
     expect(boss.state.status).toBe('objective-complete');
   });
 
+  it('records authored collect amounts rather than pickup object count', () => {
+    const collect = createStageRuntime(plan({ type: 'collect', itemId: 'drop:scrap', count: 14 }));
+    collect.tick(0, 0);
+    collect.recordCollection('drop:scrap', 5);
+    collect.recordCollection('drop:scrap', 3);
+    expect(collect.state.objectiveProgress.current).toBe(8);
+    collect.recordCollection('drop:scrap', 6);
+    collect.tick(0, 1);
+    expect(collect.state.status).toBe('objective-complete');
+  });
+
   it('captures a survive clear at the end of the frame that completes it', () => {
     const runtime = createStageRuntime(plan({ type: 'survive', seconds: 2 }));
 
