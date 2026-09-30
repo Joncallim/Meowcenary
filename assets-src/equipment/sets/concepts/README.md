@@ -1,9 +1,16 @@
 # Equipment family concept provenance
 
+Current source state: **ARCHIVE — PROVENANCE ONLY**. Historical selection
+notes below do not confer owner approval on current runtime artwork.
+The production brief remains the design contract. Piece tiers now import
+the **CANDIDATE** masters in `../../tiers/masters.json`; historical Set
+emblems are preserved byte-for-byte. #198/#167/#191 visual acceptance
+remains open.
+
 Generated 2026-09-24 with the built-in OpenAI image-generation tool for the
-seven non-Commando Equipment families. These untouched boards are provenance;
-the runtime pixels were reconstructed at native 32×32 scale in the editable
-Pixelorama source and deterministic Lua builder.
+seven non-Commando Equipment families. These untouched boards preserve
+provenance. The former geometric Lua reconstruction is archived; current
+production uses the tier-master importer and editable Pixelorama export.
 
 ## Shared generation brief
 
@@ -50,7 +57,7 @@ SHA-256:
 
 ## Production translation
 
-The selected direction informed silhouette and construction language only.
-`source/equipment-sets-atlas.pxo` is the accepted editable production source;
-`docs/art/scripts/build-equipment-sets-atlas.lua` reproduces it exactly, and
-the exporter derives the named-frame runtime atlas without redrawing it.
+The selected direction historically informed silhouette and construction.
+The former Lua production translation is archived. Current Pixelorama
+sources and runtime exports derive from the candidate tier-master importer;
+they await owner approval and must not be called accepted visual authority.

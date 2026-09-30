@@ -1,0 +1,1133 @@
+{
+  "schemaVersion": 1,
+  "status": "candidate",
+  "frameSize": 96,
+  "gutter": 6,
+  "columns": 17,
+  "meaningfulAlphaThreshold": 32,
+  "tiers": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "slots": [
+    "helmet",
+    "armour",
+    "gloves",
+    "boots"
+  ],
+  "catalogs": {
+    "equipment": "src/data/equipment.json",
+    "sets": "src/data/equipment-sets.json",
+    "visuals": "src/data/equipment-visuals.json"
+  },
+  "emblemSources": [
+    {
+      "id": "commando",
+      "path": "assets-src/equipment/commando/concepts/commando-direction-a-selected.png",
+      "sha256": "eccaad70498657a84456d8fef8564fdbeff598b22356649e23cb52b8e3a89d1b",
+      "size": [
+        2172,
+        724
+      ],
+      "columns": 5,
+      "rows": 1
+    },
+    {
+      "id": "sets",
+      "path": "assets-src/equipment/sets/concepts/equipment-families-direction-b-selected.png",
+      "sha256": "c43d0727ce022b76c398248c4b8531ccd24bf93bf37176dd5ebdac212276bbe6",
+      "size": [
+        1312,
+        1199
+      ],
+      "columns": 5,
+      "rows": 7
+    }
+  ],
+  "resources": [
+    {
+      "id": "equipment-commando",
+      "name": "commando-equipment-atlas",
+      "setIds": [
+        "set:commando"
+      ],
+      "runtimeDirectory": "public/assets/equipment/commando",
+      "sourceDirectory": "assets-src/equipment/commando/source"
+    },
+    {
+      "id": "equipment-sets",
+      "name": "equipment-sets-atlas",
+      "setIds": [
+        "set:scavenger",
+        "set:juggernaut",
+        "set:pyro",
+        "set:recon",
+        "set:medic",
+        "set:technician",
+        "set:demolition"
+      ],
+      "runtimeDirectory": "public/assets/equipment/sets",
+      "sourceDirectory": "assets-src/equipment/sets/source"
+    }
+  ],
+  "masters": [
+    {
+      "setId": "set:commando",
+      "path": "assets-src/equipment/tiers/candidates/commando-tiers-v1.png",
+      "sha256": "27cebf7a51cd6ce907b72a9fb017d41a04c2dfa34d817094bb07338ab76571c6",
+      "size": [
+        1254,
+        1254
+      ],
+      "emblem": {
+        "sourceId": "commando",
+        "column": 0,
+        "row": 0
+      },
+      "rows": [
+        {
+          "slot": "helmet",
+          "cropRects": [
+            [
+              0,
+              0,
+              314,
+              314
+            ],
+            [
+              314,
+              0,
+              313,
+              314
+            ],
+            [
+              627,
+              0,
+              313,
+              314
+            ],
+            [
+              940,
+              0,
+              314,
+              314
+            ]
+          ]
+        },
+        {
+          "slot": "armour",
+          "cropRects": [
+            [
+              0,
+              314,
+              314,
+              313
+            ],
+            [
+              314,
+              314,
+              313,
+              313
+            ],
+            [
+              627,
+              314,
+              313,
+              313
+            ],
+            [
+              940,
+              314,
+              314,
+              313
+            ]
+          ]
+        },
+        {
+          "slot": "gloves",
+          "cropRects": [
+            [
+              0,
+              627,
+              314,
+              313
+            ],
+            [
+              314,
+              627,
+              313,
+              313
+            ],
+            [
+              627,
+              627,
+              313,
+              313
+            ],
+            [
+              940,
+              627,
+              314,
+              313
+            ]
+          ]
+        },
+        {
+          "slot": "boots",
+          "cropRects": [
+            [
+              0,
+              940,
+              314,
+              314
+            ],
+            [
+              314,
+              940,
+              313,
+              314
+            ],
+            [
+              627,
+              940,
+              313,
+              314
+            ],
+            [
+              940,
+              940,
+              314,
+              314
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "setId": "set:scavenger",
+      "path": "assets-src/equipment/tiers/candidates/scavenger-tiers-v1.png",
+      "sha256": "5af5c993134c8c0fdf0f8c8ed11437381c22c0d899db3fda8ca0037380b46952",
+      "size": [
+        1254,
+        1254
+      ],
+      "emblem": {
+        "sourceId": "sets",
+        "column": 0,
+        "row": 0
+      },
+      "rows": [
+        {
+          "slot": "helmet",
+          "cropRects": [
+            [
+              0,
+              0,
+              314,
+              325
+            ],
+            [
+              314,
+              0,
+              313,
+              325
+            ],
+            [
+              627,
+              0,
+              313,
+              325
+            ],
+            [
+              940,
+              0,
+              314,
+              325
+            ]
+          ]
+        },
+        {
+          "slot": "armour",
+          "cropRects": [
+            [
+              0,
+              325,
+              314,
+              302
+            ],
+            [
+              314,
+              325,
+              313,
+              302
+            ],
+            [
+              627,
+              325,
+              310,
+              302
+            ],
+            [
+              937,
+              325,
+              317,
+              302
+            ]
+          ]
+        },
+        {
+          "slot": "gloves",
+          "cropRects": [
+            [
+              0,
+              627,
+              314,
+              294
+            ],
+            [
+              314,
+              627,
+              313,
+              294
+            ],
+            [
+              627,
+              627,
+              313,
+              294
+            ],
+            [
+              940,
+              627,
+              314,
+              294
+            ]
+          ]
+        },
+        {
+          "slot": "boots",
+          "cropRects": [
+            [
+              0,
+              921,
+              314,
+              333
+            ],
+            [
+              314,
+              921,
+              313,
+              333
+            ],
+            [
+              627,
+              921,
+              313,
+              333
+            ],
+            [
+              940,
+              921,
+              314,
+              333
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "setId": "set:juggernaut",
+      "path": "assets-src/equipment/tiers/candidates/juggernaut-tiers-v1.png",
+      "sha256": "b38ce1b33354a3e3c8b066b4a65afc5298d966326bd4e7d037077da3414985c5",
+      "size": [
+        1254,
+        1254
+      ],
+      "emblem": {
+        "sourceId": "sets",
+        "column": 0,
+        "row": 1
+      },
+      "rows": [
+        {
+          "slot": "helmet",
+          "cropRects": [
+            [
+              0,
+              0,
+              314,
+              353
+            ],
+            [
+              314,
+              0,
+              313,
+              353
+            ],
+            [
+              627,
+              0,
+              313,
+              353
+            ],
+            [
+              940,
+              0,
+              314,
+              353
+            ]
+          ]
+        },
+        {
+          "slot": "armour",
+          "cropRects": [
+            [
+              0,
+              353,
+              314,
+              293
+            ],
+            [
+              314,
+              353,
+              313,
+              293
+            ],
+            [
+              627,
+              353,
+              310,
+              293
+            ],
+            [
+              937,
+              353,
+              317,
+              293
+            ]
+          ]
+        },
+        {
+          "slot": "gloves",
+          "cropRects": [
+            [
+              0,
+              646,
+              314,
+              291
+            ],
+            [
+              314,
+              646,
+              306,
+              291
+            ],
+            [
+              620,
+              646,
+              305,
+              291
+            ],
+            [
+              925,
+              646,
+              329,
+              291
+            ]
+          ]
+        },
+        {
+          "slot": "boots",
+          "cropRects": [
+            [
+              0,
+              937,
+              314,
+              317
+            ],
+            [
+              314,
+              937,
+              313,
+              317
+            ],
+            [
+              627,
+              937,
+              309,
+              317
+            ],
+            [
+              936,
+              937,
+              318,
+              317
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "setId": "set:pyro",
+      "path": "assets-src/equipment/tiers/candidates/pyro-tiers-v1.png",
+      "sha256": "a540ea018d7e129b3f53a0255560c408fa72b7b19725fdce54bc9fdf497a3916",
+      "size": [
+        1254,
+        1254
+      ],
+      "emblem": {
+        "sourceId": "sets",
+        "column": 0,
+        "row": 2
+      },
+      "rows": [
+        {
+          "slot": "helmet",
+          "cropRects": [
+            [
+              0,
+              0,
+              314,
+              327
+            ],
+            [
+              314,
+              0,
+              313,
+              327
+            ],
+            [
+              627,
+              0,
+              313,
+              327
+            ],
+            [
+              940,
+              0,
+              314,
+              327
+            ]
+          ]
+        },
+        {
+          "slot": "armour",
+          "cropRects": [
+            [
+              0,
+              327,
+              314,
+              300
+            ],
+            [
+              314,
+              327,
+              313,
+              300
+            ],
+            [
+              627,
+              327,
+              313,
+              300
+            ],
+            [
+              940,
+              327,
+              314,
+              300
+            ]
+          ]
+        },
+        {
+          "slot": "gloves",
+          "cropRects": [
+            [
+              0,
+              627,
+              314,
+              300
+            ],
+            [
+              314,
+              627,
+              313,
+              300
+            ],
+            [
+              627,
+              627,
+              313,
+              300
+            ],
+            [
+              940,
+              627,
+              314,
+              300
+            ]
+          ]
+        },
+        {
+          "slot": "boots",
+          "cropRects": [
+            [
+              0,
+              927,
+              314,
+              327
+            ],
+            [
+              314,
+              927,
+              313,
+              327
+            ],
+            [
+              627,
+              927,
+              313,
+              327
+            ],
+            [
+              940,
+              927,
+              314,
+              327
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "setId": "set:recon",
+      "path": "assets-src/equipment/tiers/candidates/recon-tiers-v1.png",
+      "sha256": "ac5870705b57f89e91934fe1ce2d8c67516472b3f84cae4c869322ce94d955d6",
+      "size": [
+        1254,
+        1254
+      ],
+      "emblem": {
+        "sourceId": "sets",
+        "column": 0,
+        "row": 3
+      },
+      "rows": [
+        {
+          "slot": "helmet",
+          "cropRects": [
+            [
+              0,
+              0,
+              314,
+              325
+            ],
+            [
+              314,
+              0,
+              313,
+              325
+            ],
+            [
+              627,
+              0,
+              313,
+              325
+            ],
+            [
+              940,
+              0,
+              314,
+              325
+            ]
+          ]
+        },
+        {
+          "slot": "armour",
+          "cropRects": [
+            [
+              0,
+              325,
+              314,
+              302
+            ],
+            [
+              314,
+              325,
+              313,
+              302
+            ],
+            [
+              627,
+              325,
+              313,
+              302
+            ],
+            [
+              940,
+              325,
+              314,
+              302
+            ]
+          ]
+        },
+        {
+          "slot": "gloves",
+          "cropRects": [
+            [
+              0,
+              627,
+              314,
+              313
+            ],
+            [
+              314,
+              627,
+              313,
+              313
+            ],
+            [
+              627,
+              627,
+              313,
+              313
+            ],
+            [
+              940,
+              627,
+              314,
+              313
+            ]
+          ]
+        },
+        {
+          "slot": "boots",
+          "cropRects": [
+            [
+              0,
+              940,
+              314,
+              314
+            ],
+            [
+              314,
+              940,
+              313,
+              314
+            ],
+            [
+              627,
+              940,
+              313,
+              314
+            ],
+            [
+              940,
+              940,
+              314,
+              314
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "setId": "set:medic",
+      "path": "assets-src/equipment/tiers/candidates/medic-tiers-v1.png",
+      "sha256": "e3c9c6db160ec8606d8f259be9e1a85d92735af603dce26bda01d688359cfe05",
+      "size": [
+        1254,
+        1254
+      ],
+      "emblem": {
+        "sourceId": "sets",
+        "column": 0,
+        "row": 4
+      },
+      "rows": [
+        {
+          "slot": "helmet",
+          "cropRects": [
+            [
+              0,
+              0,
+              314,
+              348
+            ],
+            [
+              314,
+              0,
+              313,
+              348
+            ],
+            [
+              627,
+              0,
+              313,
+              348
+            ],
+            [
+              940,
+              0,
+              314,
+              348
+            ]
+          ]
+        },
+        {
+          "slot": "armour",
+          "cropRects": [
+            [
+              0,
+              348,
+              314,
+              307
+            ],
+            [
+              314,
+              348,
+              310,
+              307
+            ],
+            [
+              624,
+              348,
+              313,
+              307
+            ],
+            [
+              937,
+              348,
+              317,
+              307
+            ]
+          ]
+        },
+        {
+          "slot": "gloves",
+          "cropRects": [
+            [
+              0,
+              655,
+              314,
+              294
+            ],
+            [
+              314,
+              655,
+              313,
+              294
+            ],
+            [
+              627,
+              655,
+              301,
+              294
+            ],
+            [
+              928,
+              655,
+              326,
+              294
+            ]
+          ]
+        },
+        {
+          "slot": "boots",
+          "cropRects": [
+            [
+              0,
+              949,
+              314,
+              305
+            ],
+            [
+              314,
+              949,
+              313,
+              305
+            ],
+            [
+              627,
+              949,
+              306,
+              305
+            ],
+            [
+              933,
+              949,
+              321,
+              305
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "setId": "set:technician",
+      "path": "assets-src/equipment/tiers/candidates/technician-tiers-v1.png",
+      "sha256": "7e49bd7ab98fcdbac6ac3e48144c4ce0088f27cc8101e5ad169859e3fb485004",
+      "size": [
+        1254,
+        1254
+      ],
+      "emblem": {
+        "sourceId": "sets",
+        "column": 0,
+        "row": 5
+      },
+      "rows": [
+        {
+          "slot": "helmet",
+          "cropRects": [
+            [
+              0,
+              0,
+              314,
+              332
+            ],
+            [
+              314,
+              0,
+              313,
+              332
+            ],
+            [
+              627,
+              0,
+              313,
+              332
+            ],
+            [
+              940,
+              0,
+              314,
+              332
+            ]
+          ]
+        },
+        {
+          "slot": "armour",
+          "cropRects": [
+            [
+              0,
+              332,
+              314,
+              300
+            ],
+            [
+              314,
+              332,
+              313,
+              300
+            ],
+            [
+              627,
+              332,
+              311,
+              300
+            ],
+            [
+              938,
+              332,
+              316,
+              300
+            ]
+          ]
+        },
+        {
+          "slot": "gloves",
+          "cropRects": [
+            [
+              0,
+              632,
+              314,
+              313
+            ],
+            [
+              314,
+              632,
+              313,
+              313
+            ],
+            [
+              627,
+              632,
+              313,
+              313
+            ],
+            [
+              940,
+              632,
+              314,
+              313
+            ]
+          ]
+        },
+        {
+          "slot": "boots",
+          "cropRects": [
+            [
+              0,
+              945,
+              314,
+              309
+            ],
+            [
+              314,
+              945,
+              313,
+              309
+            ],
+            [
+              627,
+              945,
+              310,
+              309
+            ],
+            [
+              937,
+              945,
+              317,
+              309
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "setId": "set:demolition",
+      "path": "assets-src/equipment/tiers/candidates/demolition-tiers-v1.png",
+      "sha256": "4c99ad976d471df9e84450f1e9df64638e2ee4435d5d5ea9e181e8f70c61ae29",
+      "size": [
+        1254,
+        1254
+      ],
+      "emblem": {
+        "sourceId": "sets",
+        "column": 0,
+        "row": 6
+      },
+      "rows": [
+        {
+          "slot": "helmet",
+          "cropRects": [
+            [
+              0,
+              0,
+              314,
+              375
+            ],
+            [
+              314,
+              0,
+              313,
+              375
+            ],
+            [
+              627,
+              0,
+              313,
+              375
+            ],
+            [
+              940,
+              0,
+              314,
+              375
+            ]
+          ]
+        },
+        {
+          "slot": "armour",
+          "cropRects": [
+            [
+              0,
+              375,
+              314,
+              283
+            ],
+            [
+              314,
+              375,
+              313,
+              283
+            ],
+            [
+              627,
+              375,
+              314,
+              283
+            ],
+            [
+              941,
+              375,
+              313,
+              283
+            ]
+          ]
+        },
+        {
+          "slot": "gloves",
+          "cropRects": [
+            [
+              0,
+              658,
+              314,
+              282
+            ],
+            [
+              314,
+              658,
+              313,
+              282
+            ],
+            [
+              627,
+              658,
+              313,
+              282
+            ],
+            [
+              940,
+              658,
+              314,
+              282
+            ]
+          ]
+        },
+        {
+          "slot": "boots",
+          "cropRects": [
+            [
+              0,
+              940,
+              314,
+              314
+            ],
+            [
+              314,
+              940,
+              313,
+              314
+            ],
+            [
+              627,
+              940,
+              313,
+              314
+            ],
+            [
+              940,
+              940,
+              314,
+              314
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}
