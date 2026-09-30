@@ -11,9 +11,10 @@ const definitions = new Map(parts.map((part) => [part.id, part]));
 
 describe('exact owned Part tier presentation', () => {
   it('production content validation rejects a missing high-tier Part binding before menu launch', () => {
-    const broken = structuredClone(loadGameData());
+    const source = loadGameData();
     const missing = resolveGunsmithPartVisual(parts[0]!, 5).assemblyArtId!;
-    broken.visualArt.bindings = broken.visualArt.bindings.filter((binding) => binding.id !== missing);
+    const broken = { ...source, visualArt: { ...source.visualArt,
+      bindings: source.visualArt.bindings.filter((binding) => binding.id !== missing) } };
     expect(() => validateGameData(broken)).toThrow(/Unregistered Gunsmith Part visual tier/);
     expect(collectGameDataErrors(broken).some((issue) => issue.message.includes('Unregistered Gunsmith Part visual tier'))).toBe(true);
   });
