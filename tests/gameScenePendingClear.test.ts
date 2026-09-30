@@ -268,6 +268,19 @@ describe('#164 GameScene pending-clear update ordering', () => {
       expect(runState.timeMs).toBe(capturedTime); // run clock frozen too
     });
 
+    it('retries frozen completion loot when a pause-menu merge frees rack capacity', () => {
+      const { scene, pendingClearLootSpy, systemsUpdateSpy } = createHarness({ pendingClear: true });
+      scene.runState.equipped = Array.from({ length: 6 }, (_, index) => ({ instanceId: `weapon:${index}` }));
+      scene.update(0, 16);
+      scene.update(0, 16);
+      expect(pendingClearLootSpy).toHaveBeenCalledOnce();
+      scene.runState.equipped.pop();
+      scene.update(0, 16);
+      expect(pendingClearLootSpy).toHaveBeenCalledTimes(2);
+      expect(systemsUpdateSpy).not.toHaveBeenCalled();
+      expect(scene.physics.world.resume).not.toHaveBeenCalled();
+    });
+
     it('pauses immediately when a simulation system completes the objective later in the frame', () => {
       const { scene, pendingClearLootSpy } = createHarness({ pendingClear: false, timeMs: 30_000 });
       const { stageRuntime } = scene;

@@ -141,6 +141,12 @@ export class DropSystem implements System {
       // this queue entry; the new lifetime is appended below.
       if (this.spawnSerialByDrop.get(drop) !== serial) continue;
       if (!drop.active || !drop.grant) continue;
+      // The extraction boundary never runs ordinary pickup updates. A
+      // manual rack merge can nevertheless free capacity while paused;
+      // re-open admission here without resuming magnetization or physics.
+      if (drop.pickupBlocked && this.runState.equipped.length < WEAPON_RACK_CAPACITY) {
+        drop.setPickupBlocked(false);
+      }
       this.collect(drop, true);
       if (!drop.active) settled += 1;
       for (const spawned of this.liveDrops) {
