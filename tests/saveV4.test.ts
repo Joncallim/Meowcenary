@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   migrateV3ToV4Full,
-  reconcileV4Achievements,
   settleRunTerminal,
   SaveManagerV4,
   type RunTerminalInput,
@@ -345,60 +344,6 @@ describe('SaveManagerV4', () => {
     expect(manager.clear()).toBe(true);
     const loaded = manager.load();
     expect(loaded.progression.scrap).toBe(0);
-  });
-});
-
-// ── V4 Achievement Reconciliation Tests ──────────────────────────────
-
-describe('V4 Achievement reconciliation', () => {
-  it('completes First Victory when runs-completed >= 1', () => {
-    const save = createDefaultSaveV4();
-    const result = reconcileV4Achievements(save, {
-      stages: {},
-      bosses: {},
-      metrics: { 'metric:runs-completed': 1 },
-      characters: {},
-      achievements: {},
-    });
-    expect(result.completions.some((c) => c.achievementId === 'achievement:first-victory')).toBe(true);
-    expect(result.scrapAwarded).toBe(25);
-  });
-
-  it('completes First Blood when kills >= 1', () => {
-    const save = createDefaultSaveV4();
-    const result = reconcileV4Achievements(save, {
-      stages: {},
-      bosses: {},
-      metrics: { 'metric:kills': 1 },
-      characters: {},
-      achievements: {},
-    });
-    expect(result.completions.some((c) => c.achievementId === 'achievement:first-blood')).toBe(true);
-  });
-
-  it('completes Crusher Down when boss-crusher defeated', () => {
-    const save = createDefaultSaveV4();
-    const result = reconcileV4Achievements(save, {
-      stages: {},
-      bosses: { 'boss-crusher': { defeated: true } },
-      metrics: {},
-      characters: {},
-      achievements: {},
-    });
-    expect(result.completions.some((c) => c.achievementId === 'achievement:boss-crusher')).toBe(true);
-    expect(result.scrapAwarded).toBe(100);
-  });
-
-  it('skips already-completed achievements', () => {
-    const save = createDefaultSaveV4();
-    const result = reconcileV4Achievements(save, {
-      stages: {},
-      bosses: {},
-      metrics: { 'metric:kills': 100 },
-      characters: {},
-      achievements: { 'achievement:first-blood': { completed: true } },
-    });
-    expect(result.completions.some((c) => c.achievementId === 'achievement:first-blood')).toBe(false);
   });
 });
 

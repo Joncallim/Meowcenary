@@ -17,11 +17,6 @@
 
 import type {
   ProgressionStateV4,
-  StageProgressState,
-  AchievementProgressState,
-  AchievementMetricState,
-  CharacterMasteryState,
-  BossProgressState,
   BossProgress,
   StageProgress,
   AchievementProgress,
@@ -129,14 +124,6 @@ const CURRENT_TEN_STAGE_IDS: readonly string[] = [
   'stage:junkyard-01', 'stage:junkyard-02', 'stage:junkyard-03',
   'stage:junkyard-04', 'stage:junkyard-05', 'stage:junkyard-06',
   'stage:forge-01', 'stage:forge-02', 'stage:forge-03', 'stage:forge-04',
-];
-
-/** Active V4 Achievement catalog IDs (for reconciliation). */
-const ACTIVE_V4_ACHIEVEMENT_IDS: readonly string[] = [
-  'achievement:first-victory', 'achievement:first-blood', 'achievement:scrap-squad',
-  'achievement:junkyard-veteran', 'achievement:forge-initiate', 'achievement:scrap-tycoon',
-  'achievement:boss-crusher', 'achievement:chapter-junkyard', 'achievement:mastery-scrap-tabby',
-  'achievement:boss-forge', 'achievement:kill-milestone-25', 'achievement:kill-milestone-100',
 ];
 
 // ── Safe helpers ──────────────────────────────────────────────────────
@@ -421,105 +408,6 @@ export function migrateV3ToV4Full(v3: SaveDataV3): V4MigrationResult {
   });
 
   return { save, capabilityFloors };
-}
-
-// ── V4 Achievement reconciliation ────────────────────────────────────
-
-export interface V4AchievementCompletion {
-  readonly achievementId: string;
-  readonly completed: boolean;
-  readonly scrapAwarded: number;
-}
-
-/**
- * Generic V4 load-time Achievement reconciliation.
- * Evaluates active V4 Achievements against current canonical facts and
- * completes any that are satisfied but missing.
- */
-export function reconcileV4Achievements(
-  _save: SaveDataV4,
-  facts: {
-    stages: StageProgressState;
-    bosses: BossProgressState;
-    metrics: AchievementMetricState;
-    characters: CharacterMasteryState;
-    achievements: AchievementProgressState;
-  },
-): { readonly completions: readonly V4AchievementCompletion[]; readonly scrapAwarded: number } {
-  const completions: V4AchievementCompletion[] = [];
-  let scrapAwarded = 0;
-
-  for (const achievementId of ACTIVE_V4_ACHIEVEMENT_IDS) {
-    if (facts.achievements[achievementId]?.completed) continue;
-
-    let shouldComplete = false;
-    let scrapReward = 0;
-
-    switch (achievementId) {
-      case 'achievement:first-victory':
-        shouldComplete = (facts.metrics['metric:runs-completed'] ?? 0) >= 1;
-        scrapReward = 25;
-        break;
-      case 'achievement:first-blood':
-        shouldComplete = (facts.metrics['metric:kills'] ?? 0) >= 1;
-        break;
-      case 'achievement:scrap-squad':
-        shouldComplete = (facts.metrics['metric:scrap-banked'] ?? 0) >= 500;
-        break;
-      case 'achievement:junkyard-veteran':
-        shouldComplete =
-          facts.stages['stage:junkyard-01']?.completed === true &&
-          facts.stages['stage:junkyard-02']?.completed === true &&
-          facts.stages['stage:junkyard-03']?.completed === true &&
-          facts.stages['stage:junkyard-04']?.completed === true &&
-          facts.stages['stage:junkyard-05']?.completed === true &&
-          facts.stages['stage:junkyard-06']?.completed === true;
-        break;
-      case 'achievement:forge-initiate':
-        shouldComplete =
-          facts.stages['stage:forge-01']?.completed === true &&
-          facts.stages['stage:forge-02']?.completed === true &&
-          facts.stages['stage:forge-03']?.completed === true &&
-          facts.stages['stage:forge-04']?.completed === true;
-        break;
-      case 'achievement:scrap-tycoon':
-        shouldComplete = (facts.metrics['metric:scrap-banked'] ?? 0) >= 10000;
-        break;
-      case 'achievement:boss-crusher':
-        shouldComplete = facts.bosses['boss-crusher']?.defeated === true;
-        scrapReward = 100;
-        break;
-      case 'achievement:chapter-junkyard':
-        shouldComplete =
-          facts.stages['stage:junkyard-01']?.completed === true &&
-          facts.stages['stage:junkyard-02']?.completed === true &&
-          facts.stages['stage:junkyard-03']?.completed === true &&
-          facts.stages['stage:junkyard-04']?.completed === true &&
-          facts.stages['stage:junkyard-05']?.completed === true;
-        scrapReward = 200;
-        break;
-      case 'achievement:mastery-scrap-tabby':
-        shouldComplete = (facts.characters['scrap-tabby']?.tier ?? 0) >= 1;
-        scrapReward = 75;
-        break;
-      case 'achievement:boss-forge':
-        shouldComplete = facts.bosses['boss-forge']?.defeated === true;
-        break;
-      case 'achievement:kill-milestone-25':
-        shouldComplete = (facts.metrics['metric:kills'] ?? 0) >= 25;
-        break;
-      case 'achievement:kill-milestone-100':
-        shouldComplete = (facts.metrics['metric:kills'] ?? 0) >= 100;
-        break;
-    }
-
-    if (shouldComplete) {
-      completions.push({ achievementId, completed: true, scrapAwarded: scrapReward });
-      scrapAwarded += scrapReward;
-    }
-  }
-
-  return { completions, scrapAwarded };
 }
 
 // ── Run terminal settlement ──────────────────────────────────────────

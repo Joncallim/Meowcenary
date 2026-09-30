@@ -183,6 +183,58 @@ describe('GameContext persistence boundary', () => {
     expect(report).toHaveBeenCalledWith('achievement:first-kill', expect.objectContaining({ completed: true }));
   });
 
+  it('reconciles active V4 achievements from canonical loaded facts in one durable candidate', () => {
+    const data = loadGameData();
+    const meta = new DataMetaUpgradeRegistry(data);
+    const storage = new CountingStorage();
+    const save = new SaveManager(storage, 'achievement-reconcile', meta.maxLevels());
+    expect(save.save({
+      ...save.load(),
+      achievementMetrics: { 'metric:enemies-defeated': 1 },
+    })).toBe(true);
+    storage.setCalls = 0;
+
+    const context = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data,
+      arenas: new DataArenaRegistry(data), metaUpgrades: meta, save,
+      characters: new DataCharacterRegistry(data),
+      achievementPlatform: { report: vi.fn().mockRejectedValue(new Error('offline')) },
+    });
+
+    expect(context.saveData.achievements['achievement:first-kill']).toMatchObject({ progress: 1, completed: true });
+    expect(context.saveData.progression.scrap).toBe(25);
+    expect(context.saveData.appliedGrantTransactions['achievement:first-kill:completion']).toBe(true);
+    expect(context.saveData.pendingAchievementReports).toEqual(['achievement:first-kill']);
+    expect(storage.setCalls).toBe(1);
+  });
+
+  it('publishes no reconciled achievement state after a failed load-time write and retries next boot', () => {
+    const data = loadGameData();
+    const meta = new DataMetaUpgradeRegistry(data);
+    const storage = new CountingStorage();
+    const save = new SaveManager(storage, 'achievement-reconcile-retry', meta.maxLevels());
+    expect(save.save({ ...save.load(), achievementMetrics: { 'metric:enemies-defeated': 1 } })).toBe(true);
+    storage.succeed = false;
+
+    const failed = createGameContext({
+      bus: createEventBus(), menuRng: createRng(1), data,
+      arenas: new DataArenaRegistry(data), metaUpgrades: meta, save,
+      characters: new DataCharacterRegistry(data),
+    });
+    expect(failed.saveData.achievements['achievement:first-kill']).toBeUndefined();
+    expect(failed.saveData.progression.scrap).toBe(0);
+
+    storage.succeed = true;
+    const retried = createGameContext({
+      bus: createEventBus(), menuRng: createRng(2), data,
+      arenas: new DataArenaRegistry(data), metaUpgrades: meta, save,
+      characters: new DataCharacterRegistry(data),
+      achievementPlatform: { report: vi.fn().mockRejectedValue(new Error('offline')) },
+    });
+    expect(retried.saveData.achievements['achievement:first-kill']?.completed).toBe(true);
+    expect(retried.saveData.progression.scrap).toBe(25);
+  });
+
   it('rejects a boss completion when an injected stage catalog disagrees with its encounter', () => {
     const data = loadGameData();
     const stages = new StageRegistry({
