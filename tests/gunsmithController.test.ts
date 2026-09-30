@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createGameContext } from '../src/engine/context';
 import { createEventBus } from '../src/engine/eventBus';
 import { createRng } from '../src/engine/rng';
@@ -19,7 +19,7 @@ function setup(configure?: (data: ReturnType<typeof loadGameData>) => void) {
     metaUpgrades: new DataMetaUpgradeRegistry(data), save: new SaveManager(storage, 'gunsmith', {}),
     characters: new DataCharacterRegistry(data), arenas: new DataArenaRegistry(data),
   });
-  return { context, controller: new GunsmithController(context) };
+  return { context, storage, controller: new GunsmithController(context) };
 }
 
 describe('GunsmithController durable commands', () => {
@@ -40,6 +40,26 @@ describe('GunsmithController durable commands', () => {
       { id: 'shotgun', name: 'Shotgun', iconArtId: 'gun-chassis-icon:shotgun', previewBaseArtId: 'gun-build-base:shotgun', selected: false, existingBuildId: undefined },
     ]);
     expect(context.saveData.gunsmith.builds.map((build) => build.id)).toEqual(['build:pistol', 'build:smg']);
+  });
+
+  it('previews the real stock starting family without creating an active build', () => {
+    const { context, storage, controller } = setup();
+    const write = vi.spyOn(storage, 'setItem');
+    const before = context.saveData;
+    const snapshot = controller.snapshot();
+    expect(snapshot.selectedBuild).toBeUndefined();
+    expect(snapshot.unconfiguredBuild).toMatchObject({
+      familyId: 'pistol', title: 'Stock Pistol',
+      preview: { baseArtId: 'gun-build-base:pistol', layers: [], traitCores: [], traitEmblems: [] },
+    });
+    expect(Object.isFrozen(snapshot.unconfiguredBuild)).toBe(true);
+    expect(Object.isFrozen(snapshot.unconfiguredBuild?.preview)).toBe(true);
+    expect(context.saveData).toBe(before);
+    expect(context.saveData.gunsmith.selectedBuildId).toBeUndefined();
+    expect(write).not.toHaveBeenCalled();
+    expect(controller.createBuild(snapshot.unconfiguredBuild!.familyId)).toMatchObject({ ok: true, persisted: true });
+    expect(controller.snapshot().unconfiguredBuild).toBeUndefined();
+    expect(controller.snapshot().selectedBuild?.preview).toEqual(snapshot.unconfiguredBuild?.preview);
   });
 
   it('rejects an unknown chassis without changing the registered-family presentation', () => {

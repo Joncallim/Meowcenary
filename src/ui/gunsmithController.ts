@@ -212,6 +212,13 @@ export interface GunsmithSnapshot {
     readonly before: EquipmentLoadoutPresentation['runTruth'];
     readonly after: EquipmentLoadoutPresentation['runTruth'];
   };
+  /** The selected Mercenary's real stock family, without activating or saving
+   * an engineered build merely to populate the visual editor. */
+  readonly unconfiguredBuild?: {
+    readonly familyId: string;
+    readonly title: string;
+    readonly preview: GunsmithAssembledPreview;
+  };
   readonly selectedBuildId?: string;
   readonly builds: readonly Build[];
   /** Data-owned chassis choices.  Menu code must not infer families from the
@@ -347,6 +354,12 @@ export class GunsmithController {
     }));
     const selectedStartFamily = this.selectedStartingFamily();
     const assembly = selected === undefined ? undefined : resolveGunsmithVisualAssembly(selected, state, this.registry.asMap());
+    const unconfiguredAssembly = selected === undefined && selectedStartFamily !== undefined
+      ? resolveGunsmithVisualAssembly({ id: 'presentation:stock', name: 'Stock weapon',
+        baseWeaponFamily: selectedStartFamily, fitted: {}, traitParts: [] }, state, this.registry.asMap())
+      : undefined;
+    const unconfiguredBuild = unconfiguredAssembly === undefined || selectedStartFamily === undefined ? undefined
+      : Object.freeze({ familyId: selectedStartFamily, title: `Stock ${familyName(selectedStartFamily)}`, preview: unconfiguredAssembly });
     const previewLayers = assembly?.layers ?? [];
     const traitCores = assembly?.traitCores ?? [];
     const traitEmblems = assembly?.traitEmblems ?? [];
@@ -473,6 +486,7 @@ export class GunsmithController {
         candidatePreview: pendingPart.preview,
         candidateComparison: pendingPart.comparison,
       }),
+      ...(unconfiguredBuild === undefined ? {} : { unconfiguredBuild }),
       selectedBuildId: selected?.id,
       builds: Object.freeze([...state.builds]),
       families: Object.freeze(getAllWeaponFamilies().map((family) => {
