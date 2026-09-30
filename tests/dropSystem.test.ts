@@ -178,6 +178,24 @@ describe('DropSystem', () => {
     expect(acquired).toHaveBeenCalledOnce();
     expect(system.activeDropCount).toBe(0);
   });
+
+  it('tracks pooled spawn generations while consecutive completion chests emit weapons', async () => {
+    const lootTables = {
+      lootTableById: vi.fn((id: string) => id === 'completion-weapon'
+        ? { id, entries: [{ kind: 'weapon' as const, definitionId: 'scrap-pistol-t1', weight: 1 }] }
+        : undefined),
+    };
+    const { system, runState } = await createSystem({ lootTables });
+    // The XP drop is released first. Each following chest can then reacquire
+    // an object identity already processed in this same settlement pass.
+    system.spawnDrop(100, 100, { kind: 'xp', amount: 1 });
+    system.spawnDrop(100, 100, { kind: 'chest', amount: 0, tableId: 'completion-weapon' });
+    system.spawnDrop(100, 100, { kind: 'chest', amount: 0, tableId: 'completion-weapon' });
+
+    expect(system.settlePendingClearLoot()).toBe(5);
+    expect(runState.equipped).toHaveLength(2);
+    expect(system.activeDropCount).toBe(0);
+  });
   beforeEach(() => {
     vi.clearAllMocks();
   });

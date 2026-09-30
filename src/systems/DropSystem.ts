@@ -47,6 +47,10 @@ export class DropSystem implements System {
   private readonly basePickupRadius: number;
   private readonly dropPool: Pool<Drop>;
   private readonly liveDrops = new Set<Drop>();
+  /** Pool identity is reused, so settlement queues track spawn generations
+   * rather than treating a Drop object as one lifetime. */
+  private readonly spawnSerialByDrop = new Map<Drop, number>();
+  private nextSpawnSerial = 0;
   private readonly ownedDrops: Drop[] = [];
   private readonly dropBySprite = new Map<Phaser.GameObjects.GameObject, Drop>();
   private readonly unsubscribeEnemyKilled: () => void;
@@ -128,17 +132,22 @@ export class DropSystem implements System {
     if (this.runState.status !== 'active') return 0;
 
     let settled = 0;
-    const queue = [...this.liveDrops];
-    const seen = new Set(queue);
+    const queue = [...this.liveDrops].map((drop) => ({ drop, serial: this.spawnSerialByDrop.get(drop) ?? 0 }));
+    const enqueuedSerials = new Set(queue.map(({ serial }) => serial));
     for (let index = 0; index < queue.length; index += 1) {
-      const drop = queue[index]!;
+      const { drop, serial } = queue[index]!;
+      // A queued pooled object may have been released and reacquired before
+      // its earlier entry is reached. Only the matching spawn lifetime owns
+      // this queue entry; the new lifetime is appended below.
+      if (this.spawnSerialByDrop.get(drop) !== serial) continue;
       if (!drop.active || !drop.grant) continue;
       this.collect(drop, true);
       if (!drop.active) settled += 1;
       for (const spawned of this.liveDrops) {
-        if (seen.has(spawned)) continue;
-        seen.add(spawned);
-        queue.push(spawned);
+        const spawnedSerial = this.spawnSerialByDrop.get(spawned) ?? 0;
+        if (enqueuedSerials.has(spawnedSerial)) continue;
+        enqueuedSerials.add(spawnedSerial);
+        queue.push({ drop: spawned, serial: spawnedSerial });
       }
     }
     return settled;
@@ -151,6 +160,8 @@ export class DropSystem implements System {
    */
   spawnDrop(x: number, y: number, grant: LootGrant): Drop {
     const drop = this.dropPool.acquire();
+    this.nextSpawnSerial += 1;
+    this.spawnSerialByDrop.set(drop, this.nextSpawnSerial);
     this.liveDrops.add(drop);
     drop.spawn(x, y, grant);
     trace('drop:spawn', {
@@ -199,6 +210,7 @@ export class DropSystem implements System {
     }
     this.ownedDrops.length = 0;
     this.liveDrops.clear();
+    this.spawnSerialByDrop.clear();
     this.dropBySprite.clear();
   }
 
