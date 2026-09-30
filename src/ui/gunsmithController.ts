@@ -519,8 +519,8 @@ export class GunsmithController {
       return { ok: false, reason: 'workshop-operation-unavailable' };
     }
     const result = pending.request.kind === 'merge'
-      ? this.merge(pending.request.firstInstanceId, pending.request.secondInstanceId)
-      : this.infuse(pending.request.targetInstanceId, pending.request.traitInstanceId);
+      ? this.merge(pending.request.firstInstanceId, pending.request.secondInstanceId, pending.confirmation)
+      : this.infuse(pending.request.targetInstanceId, pending.request.traitInstanceId, pending.confirmation);
     if (result.ok || result.reason !== 'save-failed') {
       this.pendingWorkshop = undefined;
       this.presentationRevision += 1;
@@ -558,8 +558,7 @@ export class GunsmithController {
     });
   }
 
-  private buildWorkshopConfirmation(request: GunsmithWorkshopRequest): GunsmithWorkshopConfirmation | undefined {
-    const state = this.context.saveData.gunsmith;
+  private buildWorkshopConfirmation(request: GunsmithWorkshopRequest, state: GunsmithState = this.context.saveData.gunsmith): GunsmithWorkshopConfirmation | undefined {
     const definitions = this.registry.asMap();
     if (request.kind === 'merge') {
       const first = ownedPart(state, request.firstInstanceId);
@@ -678,20 +677,22 @@ export class GunsmithController {
     return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
   }
 
-  merge(firstInstanceId: string, secondInstanceId: string): GunsmithCommandResult {
+  merge(firstInstanceId: string, secondInstanceId: string, expected?: GunsmithWorkshopConfirmation): GunsmithCommandResult {
     let failure: string | undefined;
     let collision = false;
-    const update = this.context.updateGunsmith((current) => ({
+    const update = this.context.updateGunsmith((current) => {
+      if (expected && JSON.stringify(this.buildWorkshopConfirmation({ kind: 'merge', firstInstanceId, secondInstanceId }, current)) !== JSON.stringify(expected)) {
+        failure = 'workshop-operation-unavailable'; return undefined;
+      }
       // GameContext re-resolves current state immediately before the one save.
       // Inputs are stable IDs, so stale/consumed state cannot be overwritten.
-      ...((): GunsmithState => {
         const first = ownedPart(current, firstInstanceId);
         const second = ownedPart(current, secondInstanceId);
-        if (!first || !second) { failure = 'missing-parts'; return current; }
+        if (!first || !second) { failure = 'missing-parts'; return undefined; }
         const result = mergeParts(first, second, this.registry.asMap());
-        if (!result.ok) { failure = result.reason; return current; }
+        if (!result.ok) { failure = result.reason; return undefined; }
         // A deterministic output collision is an explicit no-op, never a suffix.
-        if (Object.hasOwn(current.parts, result.output.instanceId)) { collision = true; return current; }
+        if (Object.hasOwn(current.parts, result.output.instanceId)) { collision = true; return undefined; }
         return {
       ...current,
       parts: Object.fromEntries([
@@ -700,22 +701,23 @@ export class GunsmithController {
       ]),
       builds: removePartReferences(current.builds, result.consumed),
         };
-      })(),
-    }));
+    });
     if (failure) return { ok: false, reason: failure };
     if (collision) return { ok: false, reason: 'output-collision' };
     return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
   }
 
-  infuse(targetInstanceId: string, traitInstanceId: string): GunsmithCommandResult {
+  infuse(targetInstanceId: string, traitInstanceId: string, expected?: GunsmithWorkshopConfirmation): GunsmithCommandResult {
     let failure: string | undefined;
-    const update = this.context.updateGunsmith((current) => ({
-      ...((): GunsmithState => {
+    const update = this.context.updateGunsmith((current) => {
+      if (expected && JSON.stringify(this.buildWorkshopConfirmation({ kind: 'infuse', targetInstanceId, traitInstanceId }, current)) !== JSON.stringify(expected)) {
+        failure = 'workshop-operation-unavailable'; return undefined;
+      }
         const target = ownedPart(current, targetInstanceId);
         const trait = ownedPart(current, traitInstanceId);
-        if (!target || !trait || targetInstanceId === traitInstanceId) { failure = 'unknown-part'; return current; }
+        if (!target || !trait || targetInstanceId === traitInstanceId) { failure = 'unknown-part'; return undefined; }
         const result = infuseTrait(target, trait, this.registry.asMap());
-        if (!result.ok) { failure = result.reason; return current; }
+        if (!result.ok) { failure = result.reason; return undefined; }
         return {
       ...current,
       parts: Object.fromEntries(Object.entries(current.parts)
@@ -725,8 +727,7 @@ export class GunsmithController {
           : part])),
       builds: removePartReferences(current.builds, [traitInstanceId]),
         };
-      })(),
-    }));
+    });
     if (failure) return { ok: false, reason: failure };
     return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
   }
