@@ -8,9 +8,11 @@ import { DataArenaRegistry } from '../src/systems/arenas';
 import { DataCharacterRegistry } from '../src/systems/characters';
 import { DataMetaUpgradeRegistry } from '../src/systems/metaUpgrades';
 import { StageRegistry } from '../src/systems/stageRegistry';
-import { MemoryStorageAdapter, SaveManager } from '../src/systems/save';
+import { createDefaultSaveV4, MemoryStorageAdapter, SaveManager } from '../src/systems/save';
 import { loadGameData } from '../src/systems/validation';
 import type { AchievementPlatformAdapter } from '../src/gameplay/achievementPlatform';
+import { resolvePersistentGunsmithEngineering } from '../src/gameplay/persistentLoadout';
+import { DataPartRegistry } from '../src/systems/parts';
 
 describe('GameContext persistence boundary', () => {
   it('commits stage, boss fact, reward and receipt together or not at all', () => {
@@ -268,6 +270,65 @@ describe('GameContext persistence boundary', () => {
     expect(context.saveData.progression.scrap).toBe(42);
     expect(storage.getCalls).toBe(1);
     expect(storage.setCalls).toBe(2);
+  });
+
+  it('freezes sanitized progression arrays when a corrupt V4 save has non-record progression', () => {
+    const { context, storage } = setup(undefined, undefined, {
+      ...createDefaultSaveV4(),
+      progression: null,
+    });
+    const progression = context.saveData.progression;
+
+    expect(progression).toEqual({ scrap: 0, unlocks: [] });
+    expect(Object.isFrozen(progression)).toBe(true);
+    expect(Object.isFrozen(progression.unlocks)).toBe(true);
+    expect(Reflect.set(progression.unlocks, '0', 'capability:equipment-tier-4')).toBe(false);
+    expect(() => (progression.unlocks as string[]).push('capability:equipment-tier-4')).toThrow(TypeError);
+    expect(context.saveData.progression.unlocks).toEqual([]);
+    expect(JSON.parse(storage.getItem('context-test')!).progression).toBeNull();
+  });
+
+  it('deep-freezes loaded Gunsmith ownership without affecting durable or run snapshots', () => {
+    const { context, storage } = setup();
+    const commit = context.updateGunsmith(() => ({
+      builds: [{
+        id: 'build:pistol', name: 'Pistol', baseWeaponFamily: 'pistol',
+        fitted: { barrel: 'owned:piercing-barrel' }, traitParts: ['owned:fire-core'],
+      }],
+      parts: {
+        'owned:piercing-barrel': { partId: 'part:barrel-piercing', tier: 2, infusedTraits: ['FIRE'] },
+        'owned:fire-core': { partId: 'part:trait-fire', tier: 1, infusedTraits: [] },
+      },
+      selectedBuildId: 'build:pistol',
+      fabricationSerials: {},
+    }));
+    expect(commit.persisted).toBe(true);
+
+    const snapshot = context.saveData.gunsmith;
+    const original = JSON.stringify(snapshot);
+    const parts = new DataPartRegistry({ gunParts: context.data.gunParts ?? [] }).asMap();
+    const contribution = resolvePersistentGunsmithEngineering(snapshot, parts);
+    const modifiers = JSON.stringify(contribution.modifiers);
+    const projectileEffects = [...(contribution.projectileEffectsByFamily.get('pistol') ?? [])];
+    const barrel = snapshot.parts['owned:piercing-barrel']!;
+    const build = snapshot.builds[0]!;
+
+    expect(Object.isFrozen(snapshot.builds[0])).toBe(true);
+    expect(Object.isFrozen(build.fitted)).toBe(true);
+    expect(Object.isFrozen(build.traitParts)).toBe(true);
+    expect(Object.isFrozen(barrel)).toBe(true);
+    expect(Object.isFrozen(barrel.infusedTraits)).toBe(true);
+    expect(Reflect.set(barrel, 'tier', 5)).toBe(false);
+    expect(Reflect.set(build.fitted, 'barrel', 'owned:fire-core')).toBe(false);
+    expect(Reflect.set(build.traitParts, '0', 'owned:piercing-barrel')).toBe(false);
+    expect(Reflect.set(barrel.infusedTraits, '0', 'PIERCING')).toBe(false);
+
+    expect(JSON.stringify(context.saveData.gunsmith)).toBe(original);
+    const reloaded = new SaveManager(storage, 'context-test', new DataMetaUpgradeRegistry(loadGameData()).maxLevels()).load();
+    expect(JSON.stringify(reloaded.gunsmith)).toBe(original);
+    const after = resolvePersistentGunsmithEngineering(context.saveData.gunsmith, parts);
+    expect(JSON.stringify(after.modifiers)).toBe(modifiers);
+    expect([...(after.projectileEffectsByFamily.get('pistol') ?? [])]).toEqual(projectileEffects);
   });
 
   it('publishes equipment mutations only after the complete loadout is durable', () => {
@@ -881,12 +942,13 @@ class CountingStorage extends MemoryStorageAdapter {
   }
 }
 
-function setup(stages?: StageRegistry, achievementPlatform?: AchievementPlatformAdapter) {
+function setup(stages?: StageRegistry, achievementPlatform?: AchievementPlatformAdapter, initialSave?: unknown) {
   const data = loadGameData();
   const arenas = new DataArenaRegistry(data);
   const registry = new DataMetaUpgradeRegistry(data);
   const characters = new DataCharacterRegistry(data);
   const storage = new CountingStorage();
+  if (initialSave !== undefined) storage.setItem('context-test', JSON.stringify(initialSave));
   const save = new SaveManager(storage, 'context-test', registry.maxLevels());
   return {
     storage,
