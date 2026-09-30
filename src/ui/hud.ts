@@ -187,6 +187,12 @@ export interface HudViewOptions {
   readonly visualArt?: VisualArtLookup;
 }
 
+/** The top HUD overlays world space; neither layer may erase the authored
+ * arena edge or an actor standing there. Their combined opacity leaves the
+ * playfield readable while retaining an instrument-panel silhouette. */
+export const HUD_BACKING_ALPHA = 0.42;
+export const HUD_FRAME_ALPHA = 0.48;
+
 interface TopHudLayout {
   readonly margin: number;
   readonly topMargin: number;
@@ -347,10 +353,9 @@ export class PhaserHudView implements HudView {
       layout.canvasWidth,
       backingHeight,
       ThemeColor.surface,
-      // The HUD is a reserved screen region, not a translucent filter over
-      // the arena. An opaque plate makes the playfield begin below the panel
-      // and prevents actors/scenery reading as though they are inside it.
-      1,
+      // HUD is screen-fixed presentation over the complete authored arena.
+      // Keep world/actors legible at y=0; camera and physics stay unchanged.
+      HUD_BACKING_ALPHA,
     );
     this.backing.setScrollFactor(0).setDepth(ThemeDepth.hudBacking);
     this.backingFrame = this.uiVisuals?.addFrame(
@@ -360,7 +365,7 @@ export class PhaserHudView implements HudView {
       layout.canvasWidth,
       backingHeight,
       'panel',
-      { alpha: 0.9, depth: ThemeDepth.hudBacking + 1 },
+      { alpha: HUD_FRAME_ALPHA, depth: ThemeDepth.hudBacking + 1 },
     );
 
     const textStyle = {

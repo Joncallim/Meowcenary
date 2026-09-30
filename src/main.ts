@@ -143,6 +143,95 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         game.loop.wake();
       },
       isSceneActive: (key: string): boolean => game.scene.isActive(key),
+      placePlayerForArenaFraming: (x: number, y: number): boolean => {
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          player?: {
+            sprite: Phaser.GameObjects.GameObject & {
+              setPosition(x: number, y: number): unknown;
+              body?: Phaser.Physics.Arcade.Body;
+            };
+            grantInvulnerability?(durationMs: number): void;
+          };
+          arenaDimensions?: { width: number; height: number };
+        };
+        const player = scene?.player;
+        const arena = scene?.arenaDimensions;
+        if (!player || !arena) return false;
+        const body = player.sprite.body;
+        const radiusX = body?.halfWidth ?? 0;
+        const radiusY = body?.halfHeight ?? 0;
+        const safeX = Phaser.Math.Clamp(x, radiusX, arena.width - radiusX);
+        const safeY = Phaser.Math.Clamp(y, radiusY, arena.height - radiusY);
+        body?.reset(safeX, safeY);
+        player.sprite.setPosition(safeX, safeY);
+        player.grantInvulnerability?.(60_000);
+        return true;
+      },
+      arenaFramingDiagnostics: (): Record<string, unknown> | undefined => {
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          scale?: { width: number; height: number };
+          cameras?: { main?: Phaser.Cameras.Scene2D.Camera };
+          player?: { sprite: Phaser.GameObjects.GameObject & { x: number; y: number; body?: Phaser.Physics.Arcade.Body } };
+          arenaDimensions?: { width: number; height: number };
+          children?: { list: Phaser.GameObjects.GameObject[] };
+        };
+        const camera = scene?.cameras?.main;
+        const player = scene?.player;
+        const arena = scene?.arenaDimensions;
+        if (!camera || !player || !arena || !scene.scale) return undefined;
+        const plainRect = (rect: DOMRect | Phaser.Geom.Rectangle) => ({
+          x: rect.x, y: rect.y, width: rect.width, height: rect.height,
+        });
+        const root = document.getElementById('game-root');
+        const canvas = root?.querySelector('canvas');
+        const styles = getComputedStyle(document.documentElement);
+        const hudLayers = ((scene.children?.list ?? []) as Array<Phaser.GameObjects.GameObject & {
+          depth: number; visible: boolean; alpha: number; fillAlpha?: number;
+        }>)
+          .filter((node) => node.depth >= 90 && node.depth < 100 && node.visible)
+          .map((node) => ({
+            type: node.type,
+            depth: node.depth,
+            alpha: node.alpha,
+            ...(node.fillAlpha === undefined ? {} : { fillAlpha: node.fillAlpha }),
+          }));
+        return Object.freeze({
+          window: { innerWidth, innerHeight, devicePixelRatio },
+          visualViewport: globalThis.visualViewport ? {
+            width: globalThis.visualViewport.width,
+            height: globalThis.visualViewport.height,
+            offsetTop: globalThis.visualViewport.offsetTop,
+            offsetLeft: globalThis.visualViewport.offsetLeft,
+          } : undefined,
+          rootRect: root ? plainRect(root.getBoundingClientRect()) : undefined,
+          canvas: canvas ? {
+            width: canvas.width,
+            height: canvas.height,
+            rect: plainRect(canvas.getBoundingClientRect()),
+          } : undefined,
+          scale: { width: scene.scale.width, height: scene.scale.height },
+          camera: {
+            viewport: { x: camera.x, y: camera.y, width: camera.width, height: camera.height },
+            zoom: camera.zoom,
+            scroll: { x: camera.scrollX, y: camera.scrollY },
+            worldView: plainRect(camera.worldView),
+            bounds: plainRect(camera.getBounds()),
+            roundPixels: camera.roundPixels,
+          },
+          arena,
+          player: {
+            x: player.sprite.x,
+            y: player.sprite.y,
+            bodyRadius: Math.max(player.sprite.body?.halfWidth ?? 0, player.sprite.body?.halfHeight ?? 0),
+          },
+          hudLayers,
+          safeArea: {
+            top: styles.getPropertyValue('--safe-top'), right: styles.getPropertyValue('--safe-right'),
+            bottom: styles.getPropertyValue('--safe-bottom'), left: styles.getPropertyValue('--safe-left'),
+          },
+          fullscreen: document.fullscreenElement?.id,
+        });
+      },
       isMenuPresentationSettled,
       waitForMenuPresentation: async (): Promise<boolean> => {
         const deadline = performance.now() + 60_000;
