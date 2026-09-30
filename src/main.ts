@@ -113,6 +113,14 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
       pendingGunsmithArtIds: scene?.pendingGunsmithArtIds?.size ?? 0,
     };
   };
+  // Tests wait for the logical input owner, rather than a generic animation
+  // frame, to confirm that a released keyboard key has been polled neutral.
+  const isMenuInputNeutral = (): boolean => {
+    const scene = game.scene.getScene('MenuScene') as unknown as {
+      inputController?: { core?: { isNeutral?(): boolean } };
+    };
+    return !game.scene.isActive('MenuScene') || scene.inputController?.core?.isNeutral?.() === true;
+  };
   const waitBeforeDeadline = (pending: Promise<unknown>, deadline: number): Promise<boolean> => new Promise((resolve) => {
     let completed = false;
     const finish = (result: boolean): void => {
@@ -155,6 +163,7 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
       isSceneActive: (key: string): boolean => game.scene.isActive(key),
       isMenuPresentationSettled,
       menuPresentationDiagnostics,
+      isMenuInputNeutral,
       waitForMenuPresentation: async (): Promise<boolean> => {
         const deadline = performance.now() + 60_000;
         // A completed load may synchronously repaint and enqueue the next
