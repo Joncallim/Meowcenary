@@ -12,7 +12,7 @@
 import type { Modifier } from './stats';
 import type { ProjectileEffect } from './projectileEffects';
 import type { BehaviorTrait } from './weaponTraits';
-import { resolveFamilyTraits, resolveTraitProjectileEffects, BEHAVIOR_TRAITS } from './weaponTraits';
+import { resolveFamilyTraits, resolveTraitModifiers, resolveTraitProjectileEffects, BEHAVIOR_TRAITS } from './weaponTraits';
 import { scaleModifierByTier, type ModifierSpec } from './stats';
 import { type EquipmentSlot } from './equipmentV4';
 import { isValidFamily } from './weaponFamilies';
@@ -290,6 +290,13 @@ export function resolvePersistentRunLoadout(
     }
 
     // Resolve projectile effects from unique traits
+    for (const modifier of resolveTraitModifiers(familyTraits)) {
+      modifiers.push({
+        ...modifier,
+        sourceId: `trait:${familyId}:${modifier.stat}:${modifier.op}`,
+        scope: { kind: 'weapon-family', family: familyId },
+      });
+    }
     const effects = resolveTraitProjectileEffects(familyTraits);
     projectileEffectsByFamily.set(familyId, effects);
   }
