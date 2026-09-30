@@ -114,6 +114,28 @@ export class DropSystem implements System {
   }
 
   /**
+   * Objective completion freezes normal pickup physics. Settle the consumable
+   * loot that was already authored into the arena so the completing kill
+   * cannot strand its reward. Weapon drops remain physical/rack-governed and
+   * any weapon produced by a chest is intentionally left in the world.
+   *
+   * XP still updates the run, but level-up events are suppressed because the
+   * extraction boundary, rather than an upgrade chooser, owns this state.
+   */
+  settlePendingClearLoot(): number {
+    if (this.runState.status !== 'active') return 0;
+
+    let settled = 0;
+    for (const drop of [...this.liveDrops]) {
+      const kind = drop.grant?.kind;
+      if (!drop.active || (kind !== 'xp' && kind !== 'scrap' && kind !== 'chest')) continue;
+      this.collect(drop, true);
+      if (!drop.active) settled += 1;
+    }
+    return settled;
+  }
+
+  /**
    * Spawns a drop at the given position. In production this is called from the
    * `enemy:killed` handler so that loot tables and RNG are respected; tests may
    * call it directly to bypass loot resolution and exercise collection logic.
@@ -201,7 +223,7 @@ export class DropSystem implements System {
     this.collect(drop);
   }
 
-  private collect(drop: Drop): void {
+  private collect(drop: Drop, suppressLevelUpEvents = false): void {
     if (this.runState.status !== 'active' || !drop.active) {
       trace('drop:collect-skip', { reason: 'inactive' });
       return;
@@ -221,13 +243,13 @@ export class DropSystem implements System {
     trace('drop:collect-enter', { kind: grant.kind, x: Math.round(x), y: Math.round(y) });
     switch (grant.kind) {
       case 'xp':
-        this.applyXpGrant(grant.amount);
+        this.applyXpGrant(grant.amount, !suppressLevelUpEvents);
         break;
       case 'scrap':
         this.applyScrapGrant(grant.amount);
         break;
       case 'chest':
-        this.collectChest(drop);
+        this.collectChest(drop, suppressLevelUpEvents);
         return; // the chest itself never emits drop:collected
       case 'weapon':
         this.collectWeapon(drop, grant.definitionId);
@@ -281,8 +303,8 @@ export class DropSystem implements System {
     }
   }
 
-  private applyXpGrant(amount: number): void {
-    applyXp(this.runState, amount, this.ctx.bus);
+  private applyXpGrant(amount: number, emitEvents = true): void {
+    applyXp(this.runState, amount, emitEvents ? this.ctx.bus : undefined);
   }
 
   private applyScrapGrant(amount: number): void {
@@ -293,7 +315,7 @@ export class DropSystem implements System {
     }
   }
 
-  private collectChest(drop: Drop): void {
+  private collectChest(drop: Drop, suppressLevelUpEvents = false): void {
     const chestGrant = drop.grant;
     const { x, y } = drop;
     const tableId = chestGrant?.kind === 'chest' ? chestGrant.tableId : undefined;
@@ -334,7 +356,7 @@ export class DropSystem implements System {
         continue;
       }
       if (grant.kind === 'xp') {
-        this.applyXpGrant(grant.amount);
+        this.applyXpGrant(grant.amount, !suppressLevelUpEvents);
       } else if (grant.kind === 'scrap') {
         this.applyScrapGrant(grant.amount);
       } else {

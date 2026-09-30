@@ -165,6 +165,9 @@ export class GameScene extends Phaser.Scene {
    * a permanently lost achievement increment. */
   private pendingAchievementFacts: Record<string, number> = {};
   private _wasPendingClear = false;
+  /** Pending-clear loot is settled once because normal pickup physics is
+   * frozen for extraction. Reset for every restart of this persistent scene. */
+  private pendingClearLootSettled = false;
   /** Dev-evidence snapshot captured before StageRuntime clears its transient
    * pending-clear record. It is never gameplay or persistence authority. */
   private objectiveCompletionTimeMs?: number;
@@ -711,6 +714,7 @@ export class GameScene extends Phaser.Scene {
     this.pendingAchievementFacts = {};
     this.achievementToast = undefined;
     this._wasPendingClear = false;
+    this.pendingClearLootSettled = false;
     this.completedAchievementNames = [];
     this.completedAchievements = [];
     this.newlyAvailableNames = [];
@@ -790,6 +794,11 @@ export class GameScene extends Phaser.Scene {
       // its freshly emitted cue once without advancing it before extraction
       // freezes simulation state.
       this.abilityPresentationSystem?.update(0, ctx.settings.reducedMotion);
+    }
+
+    if (isPendingClear && !this.pendingClearLootSettled) {
+      this.dropSystem?.settlePendingClearLoot();
+      this.pendingClearLootSettled = true;
     }
 
     // === PRESENTATION PHASE ===

@@ -30,6 +30,7 @@ interface SceneHarness {
 
   playerUpdateSpy: ReturnType<typeof vi.spyOn>;
   systemsUpdateSpy: ReturnType<typeof vi.spyOn>;
+  pendingClearLootSpy: ReturnType<typeof vi.fn>;
 }
 
 function createHarness(options: {
@@ -62,6 +63,8 @@ function createHarness(options: {
   scene.systems = [];
   const systemUpdateSpy = vi.fn();
   scene.systems.push({ update: systemUpdateSpy });
+  const pendingClearLootSpy = vi.fn();
+  scene.dropSystem = { settlePendingClearLoot: pendingClearLootSpy };
 
   // Mock HUD controller
   const hudSource = { snapshot: () => ({ timeMs: runState.timeMs, level: runState.level, xp: runState.xp, xpToNext: runState.xpToNext, health: 100, maxHealth: 100, status: runState.status, objective: '', currency: 0, kills: 0, stageLabel: '', ability: '', achievement: '' }) };
@@ -137,6 +140,7 @@ function createHarness(options: {
 
     playerUpdateSpy: vi.spyOn(scene.player, 'update'),
     systemsUpdateSpy: systemUpdateSpy,
+    pendingClearLootSpy,
   };
 }
 
@@ -265,7 +269,7 @@ describe('#164 GameScene pending-clear update ordering', () => {
     });
 
     it('pauses immediately when a simulation system completes the objective later in the frame', () => {
-      const { scene } = createHarness({ pendingClear: false, timeMs: 30_000 });
+      const { scene, pendingClearLootSpy } = createHarness({ pendingClear: false, timeMs: 30_000 });
       const { stageRuntime } = scene;
       for (let index = 5; index < 19; index += 1) {
         stageRuntime.recordEnemyDefeat(`enemy-${index}`, 'grunt');
@@ -280,7 +284,17 @@ describe('#164 GameScene pending-clear update ordering', () => {
 
       expect(stageRuntime.pendingClear).toBeDefined();
       expect(scene.physics.world.pause).toHaveBeenCalledOnce();
+      expect(pendingClearLootSpy).toHaveBeenCalledOnce();
       expect(afterKiller.update).not.toHaveBeenCalled();
+    });
+
+    it('settles frozen loot exactly once when pending clear originated in physics', () => {
+      const { scene, pendingClearLootSpy } = createHarness({ pendingClear: true, timeMs: 30_000 });
+
+      scene.update(0, 16);
+      scene.update(0, 16);
+
+      expect(pendingClearLootSpy).toHaveBeenCalledOnce();
     });
 
     it('advances the frozen run clock through a survive completion frame', () => {

@@ -131,6 +131,34 @@ describe('DropSystem', () => {
     expect(runState.currency).toBe(3);
     expect(system.activeDropCount).toBe(2);
   });
+
+  it('safely settles consumable and chest loot when objective clear freezes the arena', async () => {
+    const lootTables = {
+      lootTableById: vi.fn((id: string) => id === 'clear-cache'
+        ? { id, entries: [{ kind: 'scrap' as const, amount: 11, weight: 1 }] }
+        : undefined),
+    };
+    const { system, runState, bus } = await createSystem({ lootTables });
+    const levelUps = vi.fn();
+    const collected = vi.fn();
+    bus.on('level:up', levelUps);
+    bus.on('drop:collected', collected);
+    system.spawnDrop(100, 100, { kind: 'xp', amount: 5 });
+    system.spawnDrop(100, 100, { kind: 'scrap', amount: 7 });
+    system.spawnDrop(100, 100, { kind: 'chest', amount: 0, tableId: 'clear-cache' });
+
+    expect(system.settlePendingClearLoot()).toBe(3);
+
+    expect(runState.currency).toBe(18);
+    expect(runState.level).toBe(2);
+    expect(levelUps).not.toHaveBeenCalled();
+    expect(collected.mock.calls.map(([event]) => [event.kind, event.amount])).toEqual([
+      ['xp', 5],
+      ['scrap', 7],
+      ['scrap', 11],
+    ]);
+    expect(system.activeDropCount).toBe(0);
+  });
   beforeEach(() => {
     vi.clearAllMocks();
   });
