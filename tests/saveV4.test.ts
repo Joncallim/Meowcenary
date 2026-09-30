@@ -307,13 +307,34 @@ describe('SaveManagerV4', () => {
     expect(save.progression.scrap).toBe(0);
   });
 
-  it('saves and loads V4 data round-trip', () => {
+  it('delegates a populated V4 round-trip to the production persistence owner', () => {
     const storage = new MemoryStorageAdapter();
     const manager = new SaveManagerV4(storage);
-    const save = createDefaultSaveV4();
+    const save = freezeSaveV4({
+      ...createDefaultSaveV4(),
+      progression: { scrap: 41, unlocks: ['character:bolt-hound'] },
+      stages: { 'stage:junkyard-01': { completed: true, bestTimeMs: 42_000 } },
+      achievements: { 'achievement:first-victory': { completed: true } },
+      achievementMetrics: { 'metric:enemies-defeated': 12 },
+      characters: { 'scrap-tabby': { tier: 2, xp: 9 } },
+      selectedCharacterId: 'scrap-tabby',
+      gunsmith: {
+        builds: [{ id: 'build-a', name: 'A', baseWeaponFamily: 'pistol', fitted: { barrel: 'part-copy-a' }, traitParts: [] }],
+        parts: { 'part-copy-a': { partId: 'part:barrel-standard', tier: 2, infusedTraits: ['FIRE'] } },
+        selectedBuildId: 'build-a', fabricationSerials: { 'part:barrel-standard': 3 },
+      },
+      equipment: { 'equip-copy-a': { equipmentId: 'equipment:commando-helmet', tier: 2 } },
+      equipmentLoadout: { helmet: 'equip-copy-a' },
+      items: { 'item:scrap-shot': 2 },
+      bosses: { 'boss-crusher': { defeated: true } },
+      compendium: { 'dust-mite': 'defeated' },
+      pendingAchievementReports: ['achievement:first-victory'],
+      appliedGrantTransactions: { 'stage:junkyard-01:first-clear': true },
+      grantTransactionFingerprints: { 'stage:junkyard-01:first-clear': '[{"amount":35,"type":"grant-scrap"}]' },
+    });
     expect(manager.save(save)).toBe(true);
     const loaded = manager.load();
-    expect(loaded.version).toBe(4);
+    expect(loaded).toEqual(save);
   });
 
   it('clears data', () => {

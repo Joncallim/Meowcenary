@@ -28,13 +28,12 @@ import type {
   PartInstance,
   EquipmentInstance,
   Build,
-  Settings,
   SaveDataV3,
   SaveDataV4,
   StorageAdapter,
   MasteryProgress,
 } from './save';
-import { freezeSaveV4, createDefaultSaveV4, createDefaultProgressionV4, DEFAULT_SETTINGS } from './save';
+import { freezeSaveV4, SaveManager } from './save';
 import type { PersistentAvailabilitySnapshot } from '../gameplay/persistentAvailability';
 
 // ── ProgressionGrant type (local copy to avoid circular deps) ─────────
@@ -146,14 +145,6 @@ function safeAddScrap(current: number, amount: number): number {
   const safe = Number.isSafeInteger(amount) && amount > 0 ? amount : 0;
   if (safe === 0) return current;
   return Math.min(Number.MAX_SAFE_INTEGER, current + safe);
-}
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
-  try {
-    const prototype = Object.getPrototypeOf(value);
-    return prototype === Object.prototype || prototype === null;
-  } catch { return false; }
 }
 
 function freezeProgressionV4(p: ProgressionStateV4): ProgressionStateV4 {
@@ -737,199 +728,27 @@ export function settleRunTerminal(
  * Keeps the existing LocalStorage key `meowcenary.save.v2`.
  */
 export class SaveManagerV4 {
-  private writeProtected = false;
+  private readonly owner: SaveManager;
 
   constructor(
-    private readonly storage: StorageAdapter,
-    private readonly key: string = 'meowcenary.save.v2',
-  ) {}
+    storage: StorageAdapter,
+    key: string = 'meowcenary.save.v2',
+  ) {
+    this.owner = new SaveManager(storage, key);
+  }
 
   /** Load and migrate to V4. Returns a complete V4 save. */
   load(): SaveDataV4 {
-    try {
-      const raw = this.storage.getItem(this.key);
-      if (raw === null) return createDefaultSaveV4();
-      const parsed = this.parseRaw(raw);
-      if (!isPlainRecord(parsed)) return createDefaultSaveV4();
-
-      const version = parsed['version'];
-      if (version === 4) {
-        return this.sanitizeV4(parsed as Record<string, unknown>);
-      }
-      if (version === 3 || version === 2 || version === 1) {
-        return this.migrateToV4(parsed as Record<string, unknown>);
-      }
-      if (Number.isSafeInteger(version) && (version as number) > 4) {
-        this.writeProtected = true;
-      }
-      return createDefaultSaveV4();
-    } catch {
-      return createDefaultSaveV4();
-    }
+    return this.owner.load();
   }
 
   /** Save V4 state. */
   save(data: SaveDataV4): boolean {
-    if (this.writeProtected) return false;
-    try {
-      return this.storage.setItem(this.key, JSON.stringify(data)) === true;
-    } catch {
-      return false;
-    }
+    return this.owner.save(data);
   }
 
   /** Clear all save data. */
   clear(): boolean {
-    try {
-      const cleared = this.storage.removeItem(this.key) === true;
-      if (cleared) this.writeProtected = false;
-      return cleared;
-    } catch {
-      return false;
-    }
-  }
-
-  private parseRaw(raw: string): unknown {
-    if (raw.trim() === '') return null;
-    try { return JSON.parse(raw); } catch { return null; }
-  }
-
-  /** Migrate raw save to V4 (handles V1-V3 via existing migration path). */
-  private migrateToV4(raw: Record<string, unknown>): SaveDataV4 {
-    // For V1 and V2, we need to use the existing migration path
-    // But since we can't import migrate() from save without circular deps,
-    // we do a simple V3 normalization first
-    const version = raw['version'];
-    let v3: SaveDataV3;
-
-    if (version === 1) {
-      v3 = {
-        version: 3,
-        settings: this.sanitizeSettings(raw['settings'] as any),
-        progression: { scrap: 0, unlocks: [], permanentUpgrades: {} },
-        stages: {},
-        achievements: {},
-        achievementMetrics: {},
-        characters: {},
-        gunsmith: { builds: [], parts: {} },
-        equipment: {},
-        equipmentLoadout: {},
-        items: {},
-        bosses: {},
-        pendingAchievementReports: [],
-        appliedGrantTransactions: {},
-        grantTransactionFingerprints: {},
-      };
-    } else if (version === 2) {
-      const meta = this.sanitizeV2Meta(raw['meta'] as any);
-      const achievements: AchievementProgressState = {};
-      if (meta.unlocks.includes('achievement:first-victory')) {
-        achievements['achievement:first-victory'] = { completed: true };
-      }
-      v3 = {
-        version: 3,
-        settings: this.sanitizeSettings(raw['settings'] as any),
-        progression: { scrap: meta.scrap, unlocks: [...meta.unlocks], permanentUpgrades: { ...meta.permanentUpgrades } },
-        stages: {},
-        achievements,
-        achievementMetrics: {},
-        characters: {},
-        gunsmith: { builds: [], parts: {} },
-        equipment: {},
-        equipmentLoadout: {},
-        items: {},
-        bosses: {},
-        pendingAchievementReports: [],
-        appliedGrantTransactions: {},
-        grantTransactionFingerprints: {},
-      };
-    } else {
-      // V3
-      v3 = raw as unknown as SaveDataV3;
-    }
-
-    const { save: v4 } = migrateV3ToV4Full(v3);
-    return v4;
-  }
-
-  private sanitizeSettings(raw: unknown): Settings {
-    if (!isPlainRecord(raw)) return DEFAULT_SETTINGS;
-    return Object.freeze({
-      muted: typeof raw['muted'] === 'boolean' ? raw['muted'] as boolean : DEFAULT_SETTINGS.muted,
-      musicVolume: typeof raw['musicVolume'] === 'number' && Number.isFinite(raw['musicVolume'])
-        ? Math.min(1, Math.max(0, raw['musicVolume'] as number)) : DEFAULT_SETTINGS.musicVolume,
-      sfxVolume: typeof raw['sfxVolume'] === 'number' && Number.isFinite(raw['sfxVolume'])
-        ? Math.min(1, Math.max(0, raw['sfxVolume'] as number)) : DEFAULT_SETTINGS.sfxVolume,
-      reducedMotion: typeof raw['reducedMotion'] === 'boolean' ? raw['reducedMotion'] as boolean : DEFAULT_SETTINGS.reducedMotion,
-    });
-  }
-
-  private sanitizeV2Meta(raw: unknown): { scrap: number; unlocks: string[]; permanentUpgrades: Record<string, number> } {
-    if (!isPlainRecord(raw)) return { scrap: 0, unlocks: [], permanentUpgrades: {} };
-    return {
-      scrap: Number.isSafeInteger(raw['scrap']) && (raw['scrap'] as number) >= 0 ? raw['scrap'] as number : 0,
-      unlocks: Array.isArray(raw['unlocks'])
-        ? (raw['unlocks'] as unknown[]).filter((id): id is string => typeof id === 'string')
-        : [],
-      permanentUpgrades: isPlainRecord(raw['permanentUpgrades'])
-        ? Object.fromEntries(
-            Object.entries(raw['permanentUpgrades'] as Record<string, unknown>)
-              .filter(([, v]) => Number.isSafeInteger(v) && (v as number) > 0)
-              .map(([k, v]) => [k, v as number]),
-          )
-        : {},
-    };
-  }
-
-  private sanitizeV4(raw: Record<string, unknown>): SaveDataV4 {
-    // Minimal sanitization for V4 - trust the V4 format
-    const progression = this.sanitizeProgressionV4(raw['progression'] as any);
-    return freezeSaveV4({
-      version: 4,
-      settings: this.sanitizeSettings(raw['settings'] as any),
-      progression,
-      stages: this.sanitizeRecord(raw['stages'] as any) as unknown as StageProgressState,
-      achievements: this.sanitizeRecord(raw['achievements'] as any) as unknown as AchievementProgressState,
-      achievementMetrics: Object.freeze({}),
-      characters: this.sanitizeRecord(raw['characters'] as any) as unknown as CharacterMasteryState,
-      selectedCharacterId: typeof raw['selectedCharacterId'] === 'string' ? raw['selectedCharacterId'] as string : undefined,
-      gunsmith: isPlainRecord(raw['gunsmith'])
-        ? Object.freeze({
-            builds: Object.freeze([]),
-            parts: Object.freeze({}),
-            selectedBuildId: undefined,
-            fabricationSerials: Object.freeze({}),
-          })
-        : Object.freeze({ builds: Object.freeze([]), parts: Object.freeze({}), fabricationSerials: Object.freeze({}) }),
-      equipment: Object.freeze({}),
-      equipmentLoadout: Object.freeze({}),
-      items: Object.freeze({}),
-      bosses: Object.freeze({}),
-      compendium: Object.freeze({}),
-      pendingAchievementReports: Object.freeze([]),
-      appliedGrantTransactions: Object.freeze({}),
-      grantTransactionFingerprints: Object.freeze({}),
-    });
-  }
-
-  private sanitizeProgressionV4(raw: unknown): ProgressionStateV4 {
-    if (!isPlainRecord(raw)) return createDefaultProgressionV4();
-    const scrap = Number.isSafeInteger(raw['scrap']) && (raw['scrap'] as number) >= 0 ? raw['scrap'] as number : 0;
-    const unlocksRaw = raw['unlocks'];
-    const unlocks: string[] = [];
-    const seen = new Set<string>();
-    if (Array.isArray(unlocksRaw)) {
-      for (const id of unlocksRaw) {
-        if (typeof id === 'string' && !seen.has(id)) {
-          seen.add(id);
-          unlocks.push(id);
-        }
-      }
-    }
-    return Object.freeze({ scrap, unlocks: Object.freeze(unlocks) });
-  }
-
-  private sanitizeRecord(raw: unknown): Record<string, unknown> {
-    return isPlainRecord(raw) ? Object.freeze({ ...raw }) : Object.freeze({});
+    return this.owner.clear();
   }
 }
