@@ -525,8 +525,8 @@ export class GunsmithController {
       return { ok: false, reason: 'workshop-operation-unavailable' };
     }
     const result = pending.request.kind === 'merge'
-      ? this.merge(pending.request.firstInstanceId, pending.request.secondInstanceId)
-      : this.infuse(pending.request.targetInstanceId, pending.request.traitInstanceId);
+      ? this.merge(pending.request.firstInstanceId, pending.request.secondInstanceId, pending.confirmation)
+      : this.infuse(pending.request.targetInstanceId, pending.request.traitInstanceId, pending.confirmation);
     if (result.ok || result.reason !== 'save-failed') {
       this.pendingWorkshop = undefined;
       this.presentationRevision += 1;
@@ -564,8 +564,7 @@ export class GunsmithController {
     });
   }
 
-  private buildWorkshopConfirmation(request: GunsmithWorkshopRequest): GunsmithWorkshopConfirmation | undefined {
-    const state = this.context.saveData.gunsmith;
+  private buildWorkshopConfirmation(request: GunsmithWorkshopRequest, state: GunsmithState = this.context.saveData.gunsmith): GunsmithWorkshopConfirmation | undefined {
     const definitions = this.registry.asMap();
     if (request.kind === 'merge') {
       const first = ownedPart(state, request.firstInstanceId);
@@ -779,10 +778,13 @@ export class GunsmithController {
     return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
   }
 
-  merge(firstInstanceId: string, secondInstanceId: string): GunsmithCommandResult {
+  merge(firstInstanceId: string, secondInstanceId: string, expected?: GunsmithWorkshopConfirmation): GunsmithCommandResult {
     let failure: string | undefined;
     let collision = false;
     const update = this.context.updateGunsmith((current) => {
+      if (expected && JSON.stringify(this.buildWorkshopConfirmation({ kind: 'merge', firstInstanceId, secondInstanceId }, current)) !== JSON.stringify(expected)) {
+        failure = 'workshop-operation-unavailable'; return undefined;
+      }
       // GameContext re-resolves current state immediately before the one save.
       // Inputs are stable IDs, so stale/consumed state cannot be overwritten.
         const first = ownedPart(current, firstInstanceId);
@@ -806,9 +808,12 @@ export class GunsmithController {
     return update.persisted ? { ok: true, persisted: true } : { ok: false, reason: 'save-failed' };
   }
 
-  infuse(targetInstanceId: string, traitInstanceId: string): GunsmithCommandResult {
+  infuse(targetInstanceId: string, traitInstanceId: string, expected?: GunsmithWorkshopConfirmation): GunsmithCommandResult {
     let failure: string | undefined;
     const update = this.context.updateGunsmith((current) => {
+      if (expected && JSON.stringify(this.buildWorkshopConfirmation({ kind: 'infuse', targetInstanceId, traitInstanceId }, current)) !== JSON.stringify(expected)) {
+        failure = 'workshop-operation-unavailable'; return undefined;
+      }
         const target = ownedPart(current, targetInstanceId);
         const trait = ownedPart(current, traitInstanceId);
         if (!target || !trait || targetInstanceId === traitInstanceId) { failure = 'unknown-part'; return undefined; }
