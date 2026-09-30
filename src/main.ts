@@ -61,8 +61,13 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
       pendingPanelArtIds?: { size: number };
       pendingPanelArtRepaints?: { size: number };
       pendingGunsmithArtIds?: { size: number };
+      committedPanel?: string;
+      committedDisplay?: boolean;
     };
     return Boolean(scene)
+      && game.scene.isActive('MenuScene')
+      && scene.committedDisplay === true
+      && scene.committedPanel !== undefined
       && !scene.panelArtLoading
       && !scene.panelArtInFlight
       && !scene.mercenaryArtLoading
@@ -87,9 +92,14 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
       pendingPanelArtRepaints?: { size: number };
       pendingGunsmithArtIds?: { size: number };
       menuTextureLoadSnapshot?(): Readonly<{ generation: number; pending: Promise<void> }>;
+      committedPanel?: string;
+      committedDisplay?: boolean;
     };
     return {
       active: game.scene.isActive('MenuScene'),
+      committedPanel: scene?.committedPanel,
+      committedDisplay: Boolean(scene?.committedDisplay),
+      loadedTextureKeys: game.textures.getTextureKeys(),
       generation: scene?.menuTextureLoadSnapshot?.().generation,
       panelArtLoading: Boolean(scene?.panelArtLoading),
       panelArtInFlight: Boolean(scene?.panelArtInFlight),
@@ -239,6 +249,7 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         return scene?.loadoutUiDiagnostics?.();
       },
       isMenuPresentationSettled,
+      menuPresentationDiagnostics,
       waitForMenuPresentation: async (): Promise<boolean> => {
         const deadline = performance.now() + 60_000;
         // A completed load may synchronously repaint and enqueue the next
