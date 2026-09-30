@@ -159,6 +159,25 @@ describe('DropSystem', () => {
     ]);
     expect(system.activeDropCount).toBe(0);
   });
+
+  it('settles a weapon spawned by a completion chest through normal rack admission', async () => {
+    const lootTables = {
+      lootTableById: vi.fn((id: string) => id === 'completion-weapon'
+        ? { id, entries: [{ kind: 'weapon' as const, definitionId: 'scrap-pistol-t1', weight: 1 }] }
+        : undefined),
+    };
+    const { system, runState, bus } = await createSystem({ lootTables });
+    const acquired = vi.fn();
+    bus.on('weapon:acquired', acquired);
+    system.spawnDrop(100, 100, { kind: 'chest', amount: 0, tableId: 'completion-weapon' });
+
+    expect(system.settlePendingClearLoot()).toBe(2);
+
+    expect(runState.equipped).toHaveLength(1);
+    expect(runState.equipped[0]?.defId).toBe('scrap-pistol-t1');
+    expect(acquired).toHaveBeenCalledOnce();
+    expect(system.activeDropCount).toBe(0);
+  });
   beforeEach(() => {
     vi.clearAllMocks();
   });

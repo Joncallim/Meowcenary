@@ -116,8 +116,10 @@ export class DropSystem implements System {
   /**
    * Objective completion freezes normal pickup physics. Settle the consumable
    * loot that was already authored into the arena so the completing kill
-   * cannot strand its reward. Weapon drops remain physical/rack-governed and
-   * any weapon produced by a chest is intentionally left in the world.
+   * cannot strand its reward. Weapons still pass through normal rack
+   * admission; a full rack remains an explicit blocked pickup rather than
+   * silently consuming the reward. Chests may enqueue another physical drop,
+   * so the bounded queue also settles newly spawned weapon grants.
    *
    * XP still updates the run, but level-up events are suppressed because the
    * extraction boundary, rather than an upgrade chooser, owns this state.
@@ -126,11 +128,18 @@ export class DropSystem implements System {
     if (this.runState.status !== 'active') return 0;
 
     let settled = 0;
-    for (const drop of [...this.liveDrops]) {
-      const kind = drop.grant?.kind;
-      if (!drop.active || (kind !== 'xp' && kind !== 'scrap' && kind !== 'chest')) continue;
+    const queue = [...this.liveDrops];
+    const seen = new Set(queue);
+    for (let index = 0; index < queue.length; index += 1) {
+      const drop = queue[index]!;
+      if (!drop.active || !drop.grant) continue;
       this.collect(drop, true);
       if (!drop.active) settled += 1;
+      for (const spawned of this.liveDrops) {
+        if (seen.has(spawned)) continue;
+        seen.add(spawned);
+        queue.push(spawned);
+      }
     }
     return settled;
   }
