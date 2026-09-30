@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createEventBus } from '../src/engine/eventBus';
+import { applyAbilityEffect, type AbilityDefinition } from '../src/gameplay/abilities';
 import type { ResolvedEnemyDefinition } from '../src/systems/types';
 import { DataEnemyRegistry } from '../src/systems/enemies';
 import { loadGameData } from '../src/systems/validation';
@@ -133,6 +134,34 @@ function enemyDefinition(): ResolvedEnemyDefinition {
     expect(enemy.takeDamage(Number.POSITIVE_INFINITY)).toBe(false);
     expect(enemy.health).toBe(10);
     expect(enemy.active).toBe(true);
+  });
+
+  it('preserves Scrap Burst knockback through the following steering update', async () => {
+    const { enemy, sprite } = await createEnemy();
+    const definition: AbilityDefinition = {
+      id: 'ability:scrap-burst',
+      name: 'Scrap Burst',
+      description: 'Fire a burst that knocks enemies back.',
+      cooldownMs: 9_000,
+      durationMs: 400,
+      effect: { kind: 'knockback', radius: 90, power: 260 },
+      presentation: { cue: 'shockwave', color: '#facc15', radius: 90, iconArtId: 'ability-icon:scrap-burst' },
+    };
+
+    applyAbilityEffect(definition, {
+      player: { x: 0, y: 0, heal: vi.fn(), grantInvulnerability: vi.fn() },
+      stats: { add: vi.fn(), remove: vi.fn() },
+      enemies: [enemy],
+      damageEnemy: vi.fn(),
+      collectNearbyConsumables: vi.fn(),
+    });
+
+    // The scene updates enemies after activating the ability, before the next
+    // Arcade integration. Steering must not erase this outward impulse.
+    enemy.update({ active: true, x: 0, y: 0 } as never, 16);
+
+    expect(sprite.body?.velocity.x).toBeCloseTo(260 * 10 / Math.sqrt(500), 6);
+    expect(sprite.body?.velocity.y).toBeCloseTo(260 * 20 / Math.sqrt(500), 6);
   });
 
   it('exposes stable runtime identity and a live position snapshot', async () => {
