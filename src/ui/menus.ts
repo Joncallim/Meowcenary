@@ -191,6 +191,12 @@ export class MainMenuController {
     return this.snapshot();
   }
 
+  selectGunsmithTraitSocket(instanceId: string): MainMenuSnapshot {
+    this.gunsmithController.selectTraitSocket(instanceId);
+    this.notice = undefined;
+    return this.snapshot();
+  }
+
   previewGunPart(instanceId: string, displacedInstanceId?: string): MainMenuSnapshot {
     const result = this.gunsmithController.previewPart(instanceId, displacedInstanceId);
     this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);

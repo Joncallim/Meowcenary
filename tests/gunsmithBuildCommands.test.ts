@@ -158,4 +158,26 @@ describe('Gunsmith Build commands', () => {
     expect(controller.snapshot().selectedCandidateInstanceId).toBeUndefined();
     expect(controller.snapshot().candidatePreview).toBeUndefined();
   });
+
+  it('selects a full trait socket by stable instance ID and previews an atomic replacement', () => {
+    const { controller, context, storage } = setup();
+    context.updateGunsmith((state) => ({ ...state, parts: { ...state.parts,
+      fire: { partId: 'part:trait-fire', tier: 1, infusedTraits: [] },
+      mastered: { partId: 'part:trait-fire-mastered', tier: 3, infusedTraits: [] },
+      spare: { partId: 'part:trait-fire', tier: 2, infusedTraits: [] },
+    }, builds: state.builds.map((build) => ({ ...build, traitParts: ['fire', 'mastered'] })) }));
+    controller.selectSlot('trait');
+    expect(controller.snapshot().slots.find((slot) => slot.slot === 'trait')?.traitFitted?.map((part) => part.instanceId)).toEqual(['fire', 'mastered']);
+    controller.selectTraitSocket('mastered');
+    expect(controller.snapshot().selectedTraitInstanceId).toBe('mastered');
+    expect(controller.snapshot().slots.find((slot) => slot.slot === 'trait')?.candidates.some((part) => part.instanceId === 'spare')).toBe(true);
+    const write = vi.spyOn(storage, 'setItem');
+    expect(controller.previewPart('spare')).toMatchObject({ ok: true });
+    expect(controller.snapshot().candidateComparison?.displacedInstanceId).toBe('mastered');
+    expect(write).not.toHaveBeenCalled();
+    expect(controller.commitPreview()).toMatchObject({ ok: true });
+    expect(context.saveData.gunsmith.builds[0].traitParts).toEqual(['fire', 'spare']);
+    expect(context.saveData.gunsmith.parts.mastered).toBeDefined();
+    expect(write).toHaveBeenCalledTimes(1);
+  });
 });
