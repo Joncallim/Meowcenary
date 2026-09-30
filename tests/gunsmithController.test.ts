@@ -306,8 +306,8 @@ describe('GunsmithController durable commands', () => {
     expect(controller.snapshot().mergeSelection?.choices.map((choice) => choice.instanceId)).toEqual(['b', 'c', 'd']);
     controller.selectMergeInput('d');
     expect(controller.snapshot().confirmation?.inputLines).toEqual([
-      'Standard Barrel T1 • Range +10 — fitted to Build A • Barrel',
-      'Standard Barrel T1 • Range +10 — fitted to Build D • Barrel',
+      'Standard Barrel T1 • +10 Range — fitted to Build A • Barrel',
+      'Standard Barrel T1 • +10 Range — fitted to Build D • Barrel',
     ]);
   });
 
@@ -354,8 +354,8 @@ describe('GunsmithController durable commands', () => {
     controller.selectMergeInput('a');
     controller.selectMergeInput('b');
     expect(controller.snapshot().confirmation?.inputLines).toEqual([
-      'Standard Barrel T1 • Range +10 — fitted to Sidearm • Barrel',
-      'Standard Barrel T1 • Range +10 — fitted to Sprayer • Barrel',
+      'Standard Barrel T1 • +10 Range — fitted to Sidearm • Barrel',
+      'Standard Barrel T1 • +10 Range — fitted to Sprayer • Barrel',
     ]);
   });
 
@@ -369,9 +369,9 @@ describe('GunsmithController durable commands', () => {
     expect(controller.requestWorkshop({ kind: 'merge', firstInstanceId: 'a', secondInstanceId: 'b' })).toMatchObject({ ok: true });
     expect(controller.snapshot().confirmation).toEqual({
       kind: 'merge', title: 'Confirm merge', confirmLabel: 'Merge parts',
-      inputLines: ['Standard Barrel T1 • Range +10', 'Standard Barrel T1 • Range +10'],
-      outputLine: 'Standard Barrel T2 • Range +20',
-      mechanicalDelta: ['Range +10 → Range +20'],
+      inputLines: ['Standard Barrel T1 • +10 Range', 'Standard Barrel T1 • +10 Range'],
+      outputLine: 'Standard Barrel T2 • +20 Range',
+      mechanicalDelta: ['+10 Range → +20 Range'],
     });
     expect(Object.isFrozen(controller.snapshot().confirmation)).toBe(true);
     expect(context.saveData.gunsmith.parts).toHaveProperty('a');
@@ -392,11 +392,11 @@ describe('GunsmithController durable commands', () => {
     expect(controller.requestWorkshop({ kind: 'merge', firstInstanceId: 'explosive', secondInstanceId: 'fire' })).toMatchObject({ ok: true });
     expect(controller.snapshot().confirmation).toMatchObject({
       inputLines: [
-        'Standard Barrel T1 • Range +10 • EXPLOSIVE',
-        'Standard Barrel T1 • Range +10 • FIRE',
+        'Standard Barrel T1 • +10 Range • EXPLOSIVE',
+        'Standard Barrel T1 • +10 Range • FIRE',
       ],
-      outputLine: 'Standard Barrel T2 • Range +20 • EXPLOSIVE • FIRE',
-      mechanicalDelta: ['Range +10 → Range +20', 'Traits EXPLOSIVE + FIRE → EXPLOSIVE / FIRE'],
+      outputLine: 'Standard Barrel T2 • +20 Range • EXPLOSIVE • FIRE',
+      mechanicalDelta: ['+10 Range → +20 Range', 'Traits EXPLOSIVE + FIRE → EXPLOSIVE / FIRE'],
     });
   });
 
@@ -410,9 +410,9 @@ describe('GunsmithController durable commands', () => {
     expect(controller.requestWorkshop({ kind: 'infuse', targetInstanceId: 'target', traitInstanceId: 'fire' })).toMatchObject({ ok: true });
     expect(controller.snapshot().confirmation).toEqual({
       kind: 'infuse', title: 'Confirm infusion', confirmLabel: 'Infuse part',
-      inputLines: ['Standard Barrel T2 • Range +20', 'Fire Trait Core T1 • Damage +2% • FIRE'],
-      outputLine: 'Standard Barrel T2 • Range +20 • FIRE',
-      mechanicalDelta: ['Traits None → FIRE', 'FIRE adds Damage +15% and burning hits'],
+      inputLines: ['Standard Barrel T2 • +20 Range', 'Fire Trait Core T1 • +2% Damage • FIRE'],
+      outputLine: 'Standard Barrel T2 • +20 Range • FIRE',
+      mechanicalDelta: ['Traits None → FIRE', 'FIRE adds +15% Damage and burning hits'],
     });
     expect(controller.cancelWorkshop()).toMatchObject({ ok: true });
     expect(controller.snapshot().confirmation).toBeUndefined();
@@ -449,15 +449,15 @@ describe('GunsmithController durable commands', () => {
     const catalog = controller.snapshot().catalog;
     expect(catalog).toHaveLength(context.data.gunParts!.length);
     expect(catalog.find((part) => part.partId === 'part:barrel-standard')).toMatchObject({
-      state: 'fitted', stateLabel: 'Fitted • T2', ownedCount: 1, fabricationCost: 60,
-      effectLines: ['Range +20'], comparisonSummary: 'Current build: Range 220 → 200',
+      state: 'fitted', stateLabel: 'EQUIPPED • T2', ownedCount: 1, fabricationCost: 60,
+      effectLines: ['+20 Range'], comparisonSummary: 'Current build: Range 220 → 200',
     });
     expect(catalog.find((part) => part.partId === 'part:receiver-compact')).toMatchObject({
-      state: 'fabricable', stateLabel: 'Blueprint • 60 Scrap', fabricationCost: 60,
+      state: 'fabricable', stateLabel: 'FABRICABLE • 60 Scrap', fabricationCost: 60,
       affordable: false, canFabricate: false, fabricationActionLabel: 'Fabricate — 60 Scrap', sourceLabel: 'Fabricate for 60 Scrap',
     });
     expect(catalog.find((part) => part.partId === 'part:underbarrel-grenade')).toMatchObject({
-      state: 'reward-only', stateLabel: 'Reward only', sourceLabel: 'First clear: Cut the Feed',
+      state: 'reward-only', stateLabel: 'REWARD ONLY', sourceLabel: 'First clear: Cut the Feed',
     });
     expect(catalog.find((part) => part.partId === 'part:trait-fire-mastered')).toMatchObject({
       state: 'reward-only', sourceLabel: 'First clear: Forge Warden',
@@ -480,8 +480,8 @@ describe('GunsmithController durable commands', () => {
     }));
 
     expect(controller.snapshot().catalog.find((part) => part.partId === 'part:barrel-standard')).toMatchObject({
-      state: 'fitted', stateLabel: 'Fitted • T5', ownedCount: 2,
-      effectLines: ['Range +50'], comparisonSummary: 'Move from Scattergun.',
+      state: 'fitted', stateLabel: 'EQUIPPED • T5', ownedCount: 2,
+      effectLines: ['+50 Range'], comparisonSummary: 'Move from Scattergun.',
     });
   });
 
@@ -495,7 +495,7 @@ describe('GunsmithController durable commands', () => {
     }));
 
     expect(controller.snapshot().catalog.find((part) => part.partId === 'part:receiver-compact')).toMatchObject({
-      state: 'fitted', stateLabel: 'Fitted • T1', ownedCount: 1,
+      state: 'fitted', stateLabel: 'EQUIPPED • T1', ownedCount: 1,
       canFabricate: true, fabricationActionLabel: 'Fabricate another — 60 Scrap',
     });
     expect(controller.fabricate('part:receiver-compact')).toMatchObject({ ok: true, persisted: true });
@@ -509,7 +509,7 @@ describe('GunsmithController durable commands', () => {
     });
 
     expect(controller.snapshot().catalog.find((part) => part.partId === 'part:receiver-compact')).toMatchObject({
-      state: 'locked', stateLabel: 'Locked blueprint', fabricationCost: 60,
+      state: 'locked', stateLabel: 'LOCKED', fabricationCost: 60,
       affordable: false, sourceLabel: 'Fabricate for 60 Scrap', lockReason: 'Clear Scrap Run.',
     });
   });

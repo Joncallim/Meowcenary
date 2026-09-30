@@ -46,6 +46,8 @@ export interface GunsmithPartView {
   readonly traits: readonly string[];
   readonly compatible: boolean;
   readonly fitted: boolean;
+  readonly stateLabel: 'EQUIPPED' | 'STORED';
+  readonly effectScope: string;
   /** Player-facing pre-commit delta for the selected build. */
   readonly comparisonSummary: string;
   readonly iconArtId: string;
@@ -277,6 +279,8 @@ export class GunsmithController {
         // require an explicitly selected displaced instance.
         compatible: selected === undefined || (compatible && capacity),
         fitted: fittedHere,
+        stateLabel: fittedHere || assigned !== undefined ? 'EQUIPPED' : 'STORED',
+        effectScope: selected ? familyName(selected.baseWeaponFamily) : 'Compatible Weapon Family',
         state: fittedHere ? 'fitted-here' : !compatible || !capacity ? 'incompatible' : assigned !== undefined ? 'fitted-elsewhere' : 'owned-unfitted',
         ...(assigned === undefined ? {} : { assignedBuildId: assigned.id, assignedBuildName: assigned.name }),
         effectLines: Object.freeze(definition.effects.map((effect) => formatGunsmithEffect(effect, stored.tier))),
@@ -361,10 +365,10 @@ export class GunsmithController {
       const sourceLabel = acquisitionSourceLabel(definition.id, fabricationCost, this.context);
       const affordable = fabricationCost !== undefined && save.progression.scrap >= fabricationCost;
       const canFabricate = fabricationCost !== undefined && fabricable && affordable;
-      const stateLabel = catalogState === 'fitted' ? `Fitted • T${displayTier}`
-        : catalogState === 'owned' ? `Owned ×${owned.length} • best T${displayTier}`
-          : catalogState === 'fabricable' ? `Blueprint • ${fabricationCost} Scrap`
-            : catalogState === 'locked' ? 'Locked blueprint' : 'Reward only';
+      const stateLabel = catalogState === 'fitted' ? `EQUIPPED • T${displayTier}`
+        : catalogState === 'owned' ? `STORED ×${owned.length} • best T${displayTier}`
+          : catalogState === 'fabricable' ? `FABRICABLE • ${fabricationCost} Scrap`
+            : catalogState === 'locked' ? 'LOCKED' : 'REWARD ONLY';
       return Object.freeze({
         partId: definition.id, name: definition.name, slot: definition.slot, rarity: definition.rarity,
         iconArtId: definition.presentation.iconArtId,
