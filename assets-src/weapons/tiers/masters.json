@@ -1,0 +1,323 @@
+{
+  "schemaVersion": 1,
+  "status": "candidate",
+  "Pillow": "12.1.1",
+  "alphaBoundsThreshold": 16,
+  "frameSize": [
+    128,
+    80
+  ],
+  "targetGripAnchor": [
+    32,
+    48
+  ],
+  "gutter": 4,
+  "families": [
+    {
+      "familyId": "pistol",
+      "path": "assets-src/weapons/tiers/candidates/pistol-tiers-v1.png",
+      "sha256": "8a0543ff1c1232baa30721ee1657ad30270271df8888f30e90e2cdc7faeafcd4",
+      "size": [
+        2172,
+        724
+      ],
+      "cropRects": [
+        [
+          125,
+          250,
+          610,
+          584
+        ],
+        [
+          730,
+          198,
+          1370,
+          584
+        ],
+        [
+          1480,
+          193,
+          2106,
+          584
+        ]
+      ],
+      "gripAnchors": [
+        [
+          220,
+          450
+        ],
+        [
+          825,
+          450
+        ],
+        [
+          1590,
+          450
+        ]
+      ],
+      "maxWidth": 96,
+      "generatedSourcePath": "/root/.codex/generated_images/01a0f24c-060d-75b3-9dab-f3588fc072f1/exec-a026c474-07e4-4c3c-8338-dd4b3f087ae3.png"
+    },
+    {
+      "familyId": "smg",
+      "path": "assets-src/weapons/tiers/candidates/smg-tiers-v1.png",
+      "sha256": "0868b410e364c0b9e24a538d1c6c3bc1aec60e283ad03566ed57f7021146fcf9",
+      "size": [
+        2172,
+        724
+      ],
+      "cropRects": [
+        [
+          62,
+          236,
+          563,
+          545
+        ],
+        [
+          634,
+          209,
+          1336,
+          556
+        ],
+        [
+          1367,
+          202,
+          2158,
+          568
+        ]
+      ],
+      "gripAnchors": [
+        [
+          160,
+          425
+        ],
+        [
+          785,
+          425
+        ],
+        [
+          1525,
+          425
+        ]
+      ],
+      "maxWidth": 112,
+      "generatedSourcePath": "/root/.codex/generated_images/01a0f24c-060d-75b3-9dab-f3588fc072f1/exec-cd5ea64a-b4a2-43f3-a8db-ba972aa5fc35.png"
+    },
+    {
+      "familyId": "shotgun",
+      "path": "assets-src/weapons/tiers/candidates/shotgun-tiers-v1.png",
+      "sha256": "621f5f5d306711f50d87eba32c97fe56bdfec7aa173d9690cafaceffa54eb03f",
+      "size": [
+        2172,
+        724
+      ],
+      "cropRects": [
+        [
+          32,
+          251,
+          657,
+          514
+        ],
+        [
+          713,
+          245,
+          1374,
+          514
+        ],
+        [
+          1425,
+          232,
+          2141,
+          515
+        ]
+      ],
+      "gripAnchors": [
+        [
+          225,
+          450
+        ],
+        [
+          870,
+          450
+        ],
+        [
+          1600,
+          450
+        ]
+      ],
+      "maxWidth": 120,
+      "generatedSourcePath": "/root/.codex/generated_images/01a0f24c-060d-75b3-9dab-f3588fc072f1/exec-e7702f7c-6bf5-46fc-ba82-82033d002445.png"
+    }
+  ],
+  "legacyReference": {
+    "path": "assets-src/gunsmith/previews/concepts/assembled-weapons-direction-a-selected.png",
+    "sha256": "608cfe343a78c8ad924d6d5a8ce2009b6c84ccc2bdbd893598d427f835c09bd0",
+    "role": "historical selected style reference, unchanged; new tiers not approved"
+  },
+  "previousEditableSources": [
+    {
+      "path": "assets-src/held-weapons/weapon-held-pistol-t1/source/weapon-held-pistol-t1.pxo",
+      "sha256": "c70c9f3f8cccea95708eb35211f6a570baaa9a0b9700dfa8ceba6bcfd8a44073"
+    },
+    {
+      "path": "assets-src/held-weapons/weapon-held-pistol-t2/source/weapon-held-pistol-t2.pxo",
+      "sha256": "04776217f8c823b956fac71512e781074cc6214633062ea8e4f0665e539c035c"
+    },
+    {
+      "path": "assets-src/held-weapons/weapon-held-pistol-t3/source/weapon-held-pistol-t3.pxo",
+      "sha256": "1adf109da59a0607079565f45124b22904fad731208d9183aea1ea06d4403774"
+    },
+    {
+      "path": "assets-src/held-weapons/weapon-held-smg-t1/source/weapon-held-smg-t1.pxo",
+      "sha256": "d46c418a6d4b04a0d69816bc731349f121bcad5e45ed5e5a78c78d5ec7b8ecf5"
+    },
+    {
+      "path": "assets-src/held-weapons/weapon-held-smg-t2/source/weapon-held-smg-t2.pxo",
+      "sha256": "cfbc8863e018d9d3ca5f2c279b166b4580e911d49ccebdbadf339fd5e2126188"
+    },
+    {
+      "path": "assets-src/held-weapons/weapon-held-smg-t3/source/weapon-held-smg-t3.pxo",
+      "sha256": "782f8689646b6218df87c8cf032102ff185960bf8af051f9e96a10de5ea4f93b"
+    },
+    {
+      "path": "assets-src/held-weapons/weapon-held-shotgun-t1/source/weapon-held-shotgun-t1.pxo",
+      "sha256": "356a61d6861f26dd5c8b2173db0b93d299c1e89b268219e8fa4592afc5bda1d7"
+    },
+    {
+      "path": "assets-src/held-weapons/weapon-held-shotgun-t2/source/weapon-held-shotgun-t2.pxo",
+      "sha256": "eb1750a1cd70a1bfc4f9bdb262554bb4f6a5703cd014ec9c6c900f21bfbd91bc"
+    },
+    {
+      "path": "assets-src/held-weapons/weapon-held-shotgun-t3/source/weapon-held-shotgun-t3.pxo",
+      "sha256": "f71b98b547ccec05974d7a2d0349f1d5ead15700fe762e1f453f30d626a09993"
+    },
+    {
+      "path": "assets-src/weapon-icons/weapon-icon-pistol-t1/source/weapon-icon-pistol-t1.pxo",
+      "sha256": "e6d41ae93ddaf188473b4ad158057c9c4608a6659b9c661cc2e6969ed8954620"
+    },
+    {
+      "path": "assets-src/weapon-icons/weapon-icon-pistol-t2/source/weapon-icon-pistol-t2.pxo",
+      "sha256": "b5af227de2f7a6d07b5ba9eed003b92d644daa79b101d8d6724ce20fb4e37906"
+    },
+    {
+      "path": "assets-src/weapon-icons/weapon-icon-pistol-t3/source/weapon-icon-pistol-t3.pxo",
+      "sha256": "c210704fbc77393e6caf5019d206ec868d5d23a90d8666637e9faaf4abba5f29"
+    },
+    {
+      "path": "assets-src/weapon-icons/weapon-icon-smg-t1/source/weapon-icon-smg-t1.pxo",
+      "sha256": "00afed8e8f8e3b13847ce11288bb5c3fc3d9fc1dd595c63a939cb0a71fc9e070"
+    },
+    {
+      "path": "assets-src/weapon-icons/weapon-icon-smg-t2/source/weapon-icon-smg-t2.pxo",
+      "sha256": "48a24e4f41e0153234fabae406a26950a072648367cc35d1a26d0121449421c2"
+    },
+    {
+      "path": "assets-src/weapon-icons/weapon-icon-smg-t3/source/weapon-icon-smg-t3.pxo",
+      "sha256": "b059e092fc419bbc73701b8bfdc79a6a1a732739769fb6cb300e525ec5a54377"
+    },
+    {
+      "path": "assets-src/weapon-icons/weapon-icon-shotgun-t1/source/weapon-icon-shotgun-t1.pxo",
+      "sha256": "de03c7240fc34f54da691ab0b4c553ab2ed7b61ee4891b9e684582d9855669b6"
+    },
+    {
+      "path": "assets-src/weapon-icons/weapon-icon-shotgun-t2/source/weapon-icon-shotgun-t2.pxo",
+      "sha256": "c9b43ba0b8979c81232ace34afd6a5eff221956d487f553fce6204391146fdca"
+    },
+    {
+      "path": "assets-src/weapon-icons/weapon-icon-shotgun-t3/source/weapon-icon-shotgun-t3.pxo",
+      "sha256": "e86de47cfa3833ae6de92fc6d6ab56fd28ec8c3480569a753cb2b634bbe492c8"
+    }
+  ],
+  "previousBuilders": [
+    {
+      "path": "docs/art/scripts/build-weapon-held-pistol-t1.lua",
+      "sha256": "ba92b41add41f71f6ac9e07502049f214a08660fbe4b607c73549a0fce396a3b",
+      "state": "archived procedural recipe at pre-tranche commit03695c3"
+    },
+    {
+      "path": "docs/art/scripts/build-weapon-icon-pistol-t1.lua",
+      "sha256": "1826fcf714b194f49c1370819ede6d5fb99c8cc368e157b625f47230750845c5",
+      "state": "archived procedural recipe at pre-tranche commit03695c3"
+    },
+    {
+      "path": "docs/art/scripts/build-weapon-held-pistol-t2.lua",
+      "sha256": "d19034f5e5f4ebde0f76608183a2deb04a10e6a8d36b672dc695fec179da1d69",
+      "state": "archived procedural recipe at pre-tranche commit03695c3"
+    },
+    {
+      "path": "docs/art/scripts/build-weapon-icon-pistol-t2.lua",
+      "sha256": "389a669e51fa3918a49feb0c1034e94169827be4746a489003ca68bed4d82d6c",
+      "state": "archived procedural recipe at pre-tranche commit03695c3"
+    },
+    {
+      "path": "docs/art/scripts/build-weapon-held-pistol-t3.lua",
+      "sha256": "b71c131d2a622e9efe0050833dec0948a0014d25f4be28aae4902df222fd3a31",
+      "state": "archived procedural recipe at pre-tranche commit03695c3"
+    },
+    {
+      "path": "docs/art/scripts/build-weapon-icon-pistol-t3.lua",
+      "sha256": "1348b35e660cbaf8ef4c19343998fd1b5114922f8e8c4e37eb15527b6f9fb463",
+      "state": "archived procedural recipe at pre-tranche commit03695c3"
+    },
+    {
+      "path": "docs/art/scripts/build-weapon-held-smg-t1.lua",
+      "sha256": "7d45a64d1295783f39a11b235a19cae0a9954bf2ae237cf36e29a9659420669a",
+      "state": "archived procedural recipe at pre-tranche commit03695c3"
+    },
+    {
+      "path": "docs/art/scripts/build-weapon-icon-smg-t1.lua",
+      "sha256": "bc3a5e942c6620327335c186903527098c8029211f4c5dd0da552dee31030cdc",
+      "state": "archived procedural recipe at pre-tranche commit03695c3"
+    },
+    {
+      "path": "docs/art/scripts/build-weapon-held-smg-t2.lua",
+      "sha256": "b8329de04da37a44960e4721777c1c7a491b21f28c1674343153d4c9e9971d27",
+      "state": "archived procedural recipe at pre-tranche commit03695c3"
+    },
+    {
+      "path": "docs/art/scripts/build-weapon-icon-smg-t2.lua",
+      "sha256": "d09e2ac9bd302e4926c02d695fe276ae544d2f53e70f39160060076e8e2ff7fb",
+      "state": "archived procedural recipe at pre-tranche commit03695c3"
+    },
+    {
+      "path": "docs/art/scripts/build-weapon-held-smg-t3.lua",
+      "sha256": "d8f7c469038a67a0e4d7be2617b1680acbbe48b4439c34ca06ebe6e83d7aef64",
+      "state": "archived procedural recipe at pre-tranche commit03695c3"
+    },
+    {
+      "path": "docs/art/scripts/build-weapon-icon-smg-t3.lua",
+      "sha256": "0015f72075543386746d4378192b8bcac0204f3f5d931a996ab3917cab21025a",
+      "state": "archived procedural recipe at pre-tranche commit03695c3"
+    },
+    {
+      "path": "docs/art/scripts/build-weapon-held-shotgun-t1.lua",
+      "sha256": "2527b605778286158d6e283399a0b172898c987c1fd9ac2175dcd0f3f18600fe",
+      "state": "archived procedural recipe at pre-tranche commit03695c3"
+    },
+    {
+      "path": "docs/art/scripts/build-weapon-icon-shotgun-t1.lua",
+      "sha256": "69b57ce155e1f877ad5d0851361990f91778313099728869b4a3f80b03f38ba7",
+      "state": "archived procedural recipe at pre-tranche commit03695c3"
+    },
+    {
+      "path": "docs/art/scripts/build-weapon-held-shotgun-t2.lua",
+      "sha256": "4683798661cdbd03c9e89e4ac19f3d8d1891010769163fac55c4856dec85c660",
+      "state": "archived procedural recipe at pre-tranche commit03695c3"
+    },
+    {
+      "path": "docs/art/scripts/build-weapon-icon-shotgun-t2.lua",
+      "sha256": "3dd8ac00b0106e11918d6175211895b484f9dae8060815a0cef6c24ea7d429bf",
+      "state": "archived procedural recipe at pre-tranche commit03695c3"
+    },
+    {
+      "path": "docs/art/scripts/build-weapon-held-shotgun-t3.lua",
+      "sha256": "75b953a1e0e5caf6da98a803bbd7856fd7c5016e7a3cd0ee6ab7f21388679267",
+      "state": "archived procedural recipe at pre-tranche commit03695c3"
+    },
+    {
+      "path": "docs/art/scripts/build-weapon-icon-shotgun-t3.lua",
+      "sha256": "d523feeeddc8e520c0f31057a6f6c0e302eb4a5bf470223ae0b36e450bd24f04",
+      "state": "archived procedural recipe at pre-tranche commit03695c3"
+    }
+  ]
+}

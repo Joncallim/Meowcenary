@@ -665,6 +665,9 @@ export interface GameData {
   readonly gunParts?: readonly PartDefinition[];
   readonly abilities?: readonly AbilityDefinition[];
   readonly equipment?: readonly EquipmentDefinition[];
+  /** Per-equipment tier presentation bindings. Optional only for handcrafted
+   * legacy fixtures; shipped GameData validation requires this catalog. */
+  readonly equipmentVisuals?: readonly import('../presentation/equipmentVisuals').EquipmentVisualDefinition[];
   readonly equipmentSets?: readonly EquipmentSetDefinition[];
   readonly equipmentRules?: EquipmentUpgradeRules;
 }

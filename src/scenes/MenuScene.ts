@@ -743,7 +743,10 @@ export class MenuScene extends Phaser.Scene {
     this.endScrollableRegion();
     this.addBackButton(root, width, margin, hitTarget);
     void this.ensurePanelPresentation('loadout', selectedCharacter ? [selectedCharacter.portraitArtId, 'nav-icon:equipment', 'nav-icon:gunsmith'] : ['nav-icon:equipment', 'nav-icon:gunsmith']);
-    void this.ensureEquipmentPresentation(equipment.owned.flatMap((item) => [item.iconArtId, item.setEmblemArtId]));
+    void this.ensureEquipmentPresentation([
+      ...equipment.presentation.slots.flatMap((slot) => slot.equipped ? [slot.equipped.iconArtId] : []),
+      ...equipment.presentation.sets.filter((set) => set.equippedCount > 0).map((set) => set.emblemArtId),
+    ]);
     void this.ensureGunsmithPresentation(this.collectGunsmithArtIds(snapshot));
   }
 
@@ -1512,6 +1515,9 @@ export class MenuScene extends Phaser.Scene {
       if (upgrade.upgradePreview) {
         put(`UPGRADE • T${selected.tier} → T${selected.tier + 1} • ${upgrade.upgradePreview.cost} Scrap\n${equipped ? 'EQUIPPED: improved values apply immediately after upgrade.' : 'STORED: no active Loadout value changes until equipped.'}`);
         const afterItem = upgrade.upgradePreview.after.slots.find((slot) => slot.slot === selected.slot)!.candidates.find((item) => item.instanceId === selected.instanceId)!;
+        this.addCatalogIcon(root, left + 40, y + 40, selected.iconArtId, 72);
+        this.addCatalogIcon(root, left + 136, y + 40, afterItem.iconArtId, 72);
+        y += 88;
         put(`ITEM NOW\n${this.loadoutEffectCopy(selected.effects)}\nITEM AFTER UPGRADE\n${this.loadoutEffectCopy(afterItem.effects)}`);
         if (upgrade.upgradeCost !== undefined) {
           const action = this.addButton(root, left, y, `Upgrade for ${upgrade.upgradeCost} Scrap`, hitTarget, () => this.render(this.requireController().upgradeEquipment(selected.instanceId, selected.tier)), 'ui:confirm', contentWidth);
@@ -1552,8 +1558,12 @@ export class MenuScene extends Phaser.Scene {
     this.endScrollableRegion();
     this.addBackButton(root, width, margin, hitTarget);
     void this.ensureEquipmentPresentation([
-      ...(this.getContext().data.equipment ?? []).map((piece) => piece.icon),
-      ...(this.getContext().data.equipmentSets ?? []).map((set) => set.emblem),
+      ...equipment.presentation.slots.flatMap((slot) => slot.equipped ? [slot.equipped.iconArtId] : []),
+      ...selectedSlot.candidates.map((item) => item.iconArtId),
+      ...blueprints.flatMap((piece) => [piece.iconArtId, piece.setEmblemArtId]),
+      ...activeSets.map((set) => set.emblemArtId),
+      ...equipment.owned.flatMap((item) => item.instanceId === equipment.selectedInstanceId && item.upgradePreview
+        ? item.upgradePreview.after.slots.flatMap((slot) => slot.candidates.filter((candidate) => candidate.instanceId === item.instanceId).map((candidate) => candidate.iconArtId)) : []),
     ]);
     void this.ensurePanelPresentation('equipment', ['nav-icon:mercenary', 'nav-icon:gunsmith']);
   }

@@ -1,5 +1,12 @@
 # Commando Equipment concept provenance
 
+Current source state: **ARCHIVE — PROVENANCE ONLY**. The selection notes
+below record the earlier concept choice; they do not constitute owner
+approval for current runtime artwork. Tier production now imports the
+**CANDIDATE** masters in `../../tiers/masters.json`. The historical emblem
+is preserved byte-for-byte; owner visual acceptance remains open in
+#198/#167/#191. The production brief remains the design contract.
+
 Generated 2026-09-24 with the built-in OpenAI image-generation tool. The four
 borrowed run-upgrade icons previously used by Commando pieces were supplied as
 semantic-collision/scale references only. These files are concept sources, not
@@ -53,10 +60,9 @@ SHA-256:
 
 ## Production boundary
 
-The selected family is imported into dedicated 96×96 editable sources and
-deterministic exports, leaving enough transparent gutter for live cards. The
-stable logical bindings remain unchanged and the importer validates selected
-concept, Pixelorama source and runtime export together.
+Historically this family supplied the dedicated 96×96 source/export. Current
+piece tiers use the candidate tier importer; this board supplies only its
+preserved emblem and historical comparison evidence.
 
 The later runtime cutover targets a 44–60 px live-card presentation from those
 96×96 source frames. That display target is an integration decision; it does

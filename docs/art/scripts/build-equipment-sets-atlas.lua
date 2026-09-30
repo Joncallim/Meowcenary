@@ -1,9 +1,8 @@
--- external-production-importer: build-equipment-concept-atlases.py crops the
--- selected seven-family concept into the 96px production atlas. This legacy
--- entrypoint remains only for manifest-derived builder discovery.
--- Dedicated non-Commando Equipment art. Seven 5-icon rows share one atlas:
--- Set emblem, Helmet, Armour, Gloves, Boots. Stable meaning remains in the
--- logical frame keys rather than atlas position.
+-- external-production-importer: build-equipment-concept-atlases.py imports
+-- candidate tier masters and preserves historical Set emblems. This legacy
+-- geometric builder is ARCHIVE — PROVENANCE ONLY, not production authority.
+-- Runtime tier identities are authored in equipment-visuals.json and share
+-- the existing physical atlas; the validated importer owns production bytes.
 local U = dofile("docs/art/scripts/lib/sprite-utils.lua")
 
 local O = U.OUTLINE

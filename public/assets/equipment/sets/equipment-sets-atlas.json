@@ -1,7 +1,7 @@
 {
   "export_directory_path": "",
   "export_file_name": "equipment-sets-atlas",
-  "size_x": 480,
+  "size_x": 1632,
   "size_y": 672,
   "frames": {
     "equipment-set-icon:scavenger": {
@@ -20,7 +20,7 @@
         "h": 96
       }
     },
-    "equipment-icon:scavenger-armour": {
+    "equipment-icon:scavenger-helmet:t2": {
       "frame": {
         "x": 192,
         "y": 0,
@@ -28,7 +28,7 @@
         "h": 96
       }
     },
-    "equipment-icon:scavenger-gloves": {
+    "equipment-icon:scavenger-helmet:t3": {
       "frame": {
         "x": 288,
         "y": 0,
@@ -36,9 +36,105 @@
         "h": 96
       }
     },
-    "equipment-icon:scavenger-boots": {
+    "equipment-icon:scavenger-helmet:t4": {
       "frame": {
         "x": 384,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:scavenger-armour": {
+      "frame": {
+        "x": 480,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:scavenger-armour:t2": {
+      "frame": {
+        "x": 576,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:scavenger-armour:t3": {
+      "frame": {
+        "x": 672,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:scavenger-armour:t4": {
+      "frame": {
+        "x": 768,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:scavenger-gloves": {
+      "frame": {
+        "x": 864,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:scavenger-gloves:t2": {
+      "frame": {
+        "x": 960,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:scavenger-gloves:t3": {
+      "frame": {
+        "x": 1056,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:scavenger-gloves:t4": {
+      "frame": {
+        "x": 1152,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:scavenger-boots": {
+      "frame": {
+        "x": 1248,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:scavenger-boots:t2": {
+      "frame": {
+        "x": 1344,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:scavenger-boots:t3": {
+      "frame": {
+        "x": 1440,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:scavenger-boots:t4": {
+      "frame": {
+        "x": 1536,
         "y": 0,
         "w": 96,
         "h": 96
@@ -60,7 +156,7 @@
         "h": 96
       }
     },
-    "equipment-icon:juggernaut-armour": {
+    "equipment-icon:juggernaut-helmet:t2": {
       "frame": {
         "x": 192,
         "y": 96,
@@ -68,7 +164,7 @@
         "h": 96
       }
     },
-    "equipment-icon:juggernaut-gloves": {
+    "equipment-icon:juggernaut-helmet:t3": {
       "frame": {
         "x": 288,
         "y": 96,
@@ -76,9 +172,105 @@
         "h": 96
       }
     },
-    "equipment-icon:juggernaut-boots": {
+    "equipment-icon:juggernaut-helmet:t4": {
       "frame": {
         "x": 384,
+        "y": 96,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:juggernaut-armour": {
+      "frame": {
+        "x": 480,
+        "y": 96,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:juggernaut-armour:t2": {
+      "frame": {
+        "x": 576,
+        "y": 96,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:juggernaut-armour:t3": {
+      "frame": {
+        "x": 672,
+        "y": 96,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:juggernaut-armour:t4": {
+      "frame": {
+        "x": 768,
+        "y": 96,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:juggernaut-gloves": {
+      "frame": {
+        "x": 864,
+        "y": 96,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:juggernaut-gloves:t2": {
+      "frame": {
+        "x": 960,
+        "y": 96,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:juggernaut-gloves:t3": {
+      "frame": {
+        "x": 1056,
+        "y": 96,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:juggernaut-gloves:t4": {
+      "frame": {
+        "x": 1152,
+        "y": 96,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:juggernaut-boots": {
+      "frame": {
+        "x": 1248,
+        "y": 96,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:juggernaut-boots:t2": {
+      "frame": {
+        "x": 1344,
+        "y": 96,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:juggernaut-boots:t3": {
+      "frame": {
+        "x": 1440,
+        "y": 96,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:juggernaut-boots:t4": {
+      "frame": {
+        "x": 1536,
         "y": 96,
         "w": 96,
         "h": 96
@@ -100,7 +292,7 @@
         "h": 96
       }
     },
-    "equipment-icon:pyro-armour": {
+    "equipment-icon:pyro-helmet:t2": {
       "frame": {
         "x": 192,
         "y": 192,
@@ -108,7 +300,7 @@
         "h": 96
       }
     },
-    "equipment-icon:pyro-gloves": {
+    "equipment-icon:pyro-helmet:t3": {
       "frame": {
         "x": 288,
         "y": 192,
@@ -116,9 +308,105 @@
         "h": 96
       }
     },
-    "equipment-icon:pyro-boots": {
+    "equipment-icon:pyro-helmet:t4": {
       "frame": {
         "x": 384,
+        "y": 192,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:pyro-armour": {
+      "frame": {
+        "x": 480,
+        "y": 192,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:pyro-armour:t2": {
+      "frame": {
+        "x": 576,
+        "y": 192,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:pyro-armour:t3": {
+      "frame": {
+        "x": 672,
+        "y": 192,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:pyro-armour:t4": {
+      "frame": {
+        "x": 768,
+        "y": 192,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:pyro-gloves": {
+      "frame": {
+        "x": 864,
+        "y": 192,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:pyro-gloves:t2": {
+      "frame": {
+        "x": 960,
+        "y": 192,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:pyro-gloves:t3": {
+      "frame": {
+        "x": 1056,
+        "y": 192,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:pyro-gloves:t4": {
+      "frame": {
+        "x": 1152,
+        "y": 192,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:pyro-boots": {
+      "frame": {
+        "x": 1248,
+        "y": 192,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:pyro-boots:t2": {
+      "frame": {
+        "x": 1344,
+        "y": 192,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:pyro-boots:t3": {
+      "frame": {
+        "x": 1440,
+        "y": 192,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:pyro-boots:t4": {
+      "frame": {
+        "x": 1536,
         "y": 192,
         "w": 96,
         "h": 96
@@ -140,7 +428,7 @@
         "h": 96
       }
     },
-    "equipment-icon:recon-armour": {
+    "equipment-icon:recon-helmet:t2": {
       "frame": {
         "x": 192,
         "y": 288,
@@ -148,7 +436,7 @@
         "h": 96
       }
     },
-    "equipment-icon:recon-gloves": {
+    "equipment-icon:recon-helmet:t3": {
       "frame": {
         "x": 288,
         "y": 288,
@@ -156,9 +444,105 @@
         "h": 96
       }
     },
-    "equipment-icon:recon-boots": {
+    "equipment-icon:recon-helmet:t4": {
       "frame": {
         "x": 384,
+        "y": 288,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:recon-armour": {
+      "frame": {
+        "x": 480,
+        "y": 288,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:recon-armour:t2": {
+      "frame": {
+        "x": 576,
+        "y": 288,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:recon-armour:t3": {
+      "frame": {
+        "x": 672,
+        "y": 288,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:recon-armour:t4": {
+      "frame": {
+        "x": 768,
+        "y": 288,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:recon-gloves": {
+      "frame": {
+        "x": 864,
+        "y": 288,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:recon-gloves:t2": {
+      "frame": {
+        "x": 960,
+        "y": 288,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:recon-gloves:t3": {
+      "frame": {
+        "x": 1056,
+        "y": 288,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:recon-gloves:t4": {
+      "frame": {
+        "x": 1152,
+        "y": 288,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:recon-boots": {
+      "frame": {
+        "x": 1248,
+        "y": 288,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:recon-boots:t2": {
+      "frame": {
+        "x": 1344,
+        "y": 288,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:recon-boots:t3": {
+      "frame": {
+        "x": 1440,
+        "y": 288,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:recon-boots:t4": {
+      "frame": {
+        "x": 1536,
         "y": 288,
         "w": 96,
         "h": 96
@@ -180,7 +564,7 @@
         "h": 96
       }
     },
-    "equipment-icon:medic-armour": {
+    "equipment-icon:medic-helmet:t2": {
       "frame": {
         "x": 192,
         "y": 384,
@@ -188,7 +572,7 @@
         "h": 96
       }
     },
-    "equipment-icon:medic-gloves": {
+    "equipment-icon:medic-helmet:t3": {
       "frame": {
         "x": 288,
         "y": 384,
@@ -196,9 +580,105 @@
         "h": 96
       }
     },
-    "equipment-icon:medic-boots": {
+    "equipment-icon:medic-helmet:t4": {
       "frame": {
         "x": 384,
+        "y": 384,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:medic-armour": {
+      "frame": {
+        "x": 480,
+        "y": 384,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:medic-armour:t2": {
+      "frame": {
+        "x": 576,
+        "y": 384,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:medic-armour:t3": {
+      "frame": {
+        "x": 672,
+        "y": 384,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:medic-armour:t4": {
+      "frame": {
+        "x": 768,
+        "y": 384,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:medic-gloves": {
+      "frame": {
+        "x": 864,
+        "y": 384,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:medic-gloves:t2": {
+      "frame": {
+        "x": 960,
+        "y": 384,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:medic-gloves:t3": {
+      "frame": {
+        "x": 1056,
+        "y": 384,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:medic-gloves:t4": {
+      "frame": {
+        "x": 1152,
+        "y": 384,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:medic-boots": {
+      "frame": {
+        "x": 1248,
+        "y": 384,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:medic-boots:t2": {
+      "frame": {
+        "x": 1344,
+        "y": 384,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:medic-boots:t3": {
+      "frame": {
+        "x": 1440,
+        "y": 384,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:medic-boots:t4": {
+      "frame": {
+        "x": 1536,
         "y": 384,
         "w": 96,
         "h": 96
@@ -220,7 +700,7 @@
         "h": 96
       }
     },
-    "equipment-icon:technician-armour": {
+    "equipment-icon:technician-helmet:t2": {
       "frame": {
         "x": 192,
         "y": 480,
@@ -228,7 +708,7 @@
         "h": 96
       }
     },
-    "equipment-icon:technician-gloves": {
+    "equipment-icon:technician-helmet:t3": {
       "frame": {
         "x": 288,
         "y": 480,
@@ -236,9 +716,105 @@
         "h": 96
       }
     },
-    "equipment-icon:technician-boots": {
+    "equipment-icon:technician-helmet:t4": {
       "frame": {
         "x": 384,
+        "y": 480,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:technician-armour": {
+      "frame": {
+        "x": 480,
+        "y": 480,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:technician-armour:t2": {
+      "frame": {
+        "x": 576,
+        "y": 480,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:technician-armour:t3": {
+      "frame": {
+        "x": 672,
+        "y": 480,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:technician-armour:t4": {
+      "frame": {
+        "x": 768,
+        "y": 480,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:technician-gloves": {
+      "frame": {
+        "x": 864,
+        "y": 480,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:technician-gloves:t2": {
+      "frame": {
+        "x": 960,
+        "y": 480,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:technician-gloves:t3": {
+      "frame": {
+        "x": 1056,
+        "y": 480,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:technician-gloves:t4": {
+      "frame": {
+        "x": 1152,
+        "y": 480,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:technician-boots": {
+      "frame": {
+        "x": 1248,
+        "y": 480,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:technician-boots:t2": {
+      "frame": {
+        "x": 1344,
+        "y": 480,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:technician-boots:t3": {
+      "frame": {
+        "x": 1440,
+        "y": 480,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:technician-boots:t4": {
+      "frame": {
+        "x": 1536,
         "y": 480,
         "w": 96,
         "h": 96
@@ -260,7 +836,7 @@
         "h": 96
       }
     },
-    "equipment-icon:demolition-armour": {
+    "equipment-icon:demolition-helmet:t2": {
       "frame": {
         "x": 192,
         "y": 576,
@@ -268,7 +844,7 @@
         "h": 96
       }
     },
-    "equipment-icon:demolition-gloves": {
+    "equipment-icon:demolition-helmet:t3": {
       "frame": {
         "x": 288,
         "y": 576,
@@ -276,9 +852,105 @@
         "h": 96
       }
     },
-    "equipment-icon:demolition-boots": {
+    "equipment-icon:demolition-helmet:t4": {
       "frame": {
         "x": 384,
+        "y": 576,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:demolition-armour": {
+      "frame": {
+        "x": 480,
+        "y": 576,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:demolition-armour:t2": {
+      "frame": {
+        "x": 576,
+        "y": 576,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:demolition-armour:t3": {
+      "frame": {
+        "x": 672,
+        "y": 576,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:demolition-armour:t4": {
+      "frame": {
+        "x": 768,
+        "y": 576,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:demolition-gloves": {
+      "frame": {
+        "x": 864,
+        "y": 576,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:demolition-gloves:t2": {
+      "frame": {
+        "x": 960,
+        "y": 576,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:demolition-gloves:t3": {
+      "frame": {
+        "x": 1056,
+        "y": 576,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:demolition-gloves:t4": {
+      "frame": {
+        "x": 1152,
+        "y": 576,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:demolition-boots": {
+      "frame": {
+        "x": 1248,
+        "y": 576,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:demolition-boots:t2": {
+      "frame": {
+        "x": 1344,
+        "y": 576,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:demolition-boots:t3": {
+      "frame": {
+        "x": 1440,
+        "y": 576,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:demolition-boots:t4": {
+      "frame": {
+        "x": 1536,
         "y": 576,
         "w": 96,
         "h": 96
