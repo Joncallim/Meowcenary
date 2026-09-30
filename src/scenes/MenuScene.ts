@@ -2008,6 +2008,16 @@ export class MenuScene extends Phaser.Scene {
     return task;
   }
 
+  /** Capture the loader queue and lifecycle generation atomically. Visual
+   * acceptance uses this observable resource boundary instead of guessing how
+   * long a constrained runner needs to decode a particular atlas. */
+  menuTextureLoadSnapshot(): Readonly<{ generation: number; pending: Promise<void> }> {
+    return {
+      generation: this.menuTextureLoadGeneration,
+      pending: this.menuTextureLoadTail,
+    };
+  }
+
   private finishMenuTextureLoad(generation: number): void {
     if (generation === this.menuTextureLoadGeneration) {
       this.menuTextureLoadPending = Math.max(0, this.menuTextureLoadPending - 1);

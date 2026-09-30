@@ -74,6 +74,46 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
       && (scene.pendingPanelArtRepaints?.size ?? 0) === 0
       && (scene.pendingGunsmithArtIds?.size ?? 0) === 0;
   };
+  const menuPresentationDiagnostics = (): Record<string, unknown> => {
+    const scene = game.scene.getScene('MenuScene') as unknown as {
+      panelArtLoading?: boolean;
+      panelArtInFlight?: Promise<void>;
+      mercenaryArtLoading?: boolean;
+      achievementArtLoading?: boolean;
+      equipmentArtLoading?: boolean;
+      gunsmithArtLoading?: boolean;
+      menuTextureLoadPending?: number;
+      pendingPanelArtIds?: { size: number };
+      pendingPanelArtRepaints?: { size: number };
+      pendingGunsmithArtIds?: { size: number };
+      menuTextureLoadSnapshot?(): Readonly<{ generation: number; pending: Promise<void> }>;
+    };
+    return {
+      active: game.scene.isActive('MenuScene'),
+      generation: scene?.menuTextureLoadSnapshot?.().generation,
+      panelArtLoading: Boolean(scene?.panelArtLoading),
+      panelArtInFlight: Boolean(scene?.panelArtInFlight),
+      mercenaryArtLoading: Boolean(scene?.mercenaryArtLoading),
+      achievementArtLoading: Boolean(scene?.achievementArtLoading),
+      equipmentArtLoading: Boolean(scene?.equipmentArtLoading),
+      gunsmithArtLoading: Boolean(scene?.gunsmithArtLoading),
+      menuTextureLoadPending: scene?.menuTextureLoadPending ?? 0,
+      pendingPanelArtIds: scene?.pendingPanelArtIds?.size ?? 0,
+      pendingPanelArtRepaints: scene?.pendingPanelArtRepaints?.size ?? 0,
+      pendingGunsmithArtIds: scene?.pendingGunsmithArtIds?.size ?? 0,
+    };
+  };
+  const waitBeforeDeadline = (pending: Promise<unknown>, deadline: number): Promise<boolean> => new Promise((resolve) => {
+    let completed = false;
+    const finish = (result: boolean): void => {
+      if (completed) return;
+      completed = true;
+      globalThis.clearTimeout(timeout);
+      resolve(result);
+    };
+    const timeout = globalThis.setTimeout(() => finish(false), Math.max(0, deadline - performance.now()));
+    pending.then(() => finish(true), () => finish(false));
+  });
   const freezeVisualFrame = async (): Promise<void> => {
     for (const scene of game.scene.getScenes(false)) {
       const pending = [...scene.children.list] as Array<Phaser.GameObjects.GameObject & { list?: Phaser.GameObjects.GameObject[] }>;
@@ -104,6 +144,32 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
       },
       isSceneActive: (key: string): boolean => game.scene.isActive(key),
       isMenuPresentationSettled,
+      waitForMenuPresentation: async (): Promise<boolean> => {
+        const deadline = performance.now() + 60_000;
+        // A completed load may synchronously repaint and enqueue the next
+        // closure. Observe the scene-owned queue at each frame boundary until
+        // the complete read-model/resource generation is closed.
+        while (performance.now() < deadline) {
+          const scene = game.scene.getScene('MenuScene') as unknown as {
+            menuTextureLoadSnapshot?(): Readonly<{ generation: number; pending: Promise<void> }>;
+          };
+          if (!scene?.menuTextureLoadSnapshot) {
+            if (!await waitBeforeDeadline(new Promise<void>((resolve) => requestAnimationFrame(() => resolve())), deadline)) break;
+            continue;
+          }
+          const snapshot = scene.menuTextureLoadSnapshot();
+          if (!await waitBeforeDeadline(snapshot.pending, deadline)) {
+            throw new Error(`Menu presentation loader deadline exceeded: ${JSON.stringify(menuPresentationDiagnostics())}`);
+          }
+          if (!await waitBeforeDeadline(new Promise<void>((resolve) => requestAnimationFrame(() => resolve())), deadline)) {
+            throw new Error(`Menu presentation frame deadline exceeded: ${JSON.stringify(menuPresentationDiagnostics())}`);
+          }
+          if (scene !== game.scene.getScene('MenuScene')) continue;
+          if (snapshot.generation !== scene.menuTextureLoadSnapshot().generation) continue;
+          if (isMenuPresentationSettled()) return true;
+        }
+        throw new Error(`Menu presentation did not reach closure: ${JSON.stringify(menuPresentationDiagnostics())}`);
+      },
       focusFirstEnemy: (bossOnly = false): boolean => {
         const scene = game.scene.getScene('GameScene') as unknown as {
           cameras?: { main?: {

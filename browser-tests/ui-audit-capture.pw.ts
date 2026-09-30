@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 type VisualTestSeam = {
   showMenu(panel: string): boolean;
   isMenuPresentationSettled(): boolean;
+  waitForMenuPresentation(): Promise<boolean>;
   freeze(): Promise<void>;
   resume(): void;
 };
@@ -21,10 +22,11 @@ test('locks every player-facing menu surface after the polish audit', async ({ p
       const seam = (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam }).__MEOWCENARY_VISUAL_TEST__;
       return seam?.showMenu(target) ?? false;
     }, panel), { timeout: 20_000 }).toBe(true);
-    await expect.poll(() => page.evaluate(() => {
+    const settled = await page.evaluate(() => {
       const seam = (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam }).__MEOWCENARY_VISUAL_TEST__;
-      return seam?.isMenuPresentationSettled() ?? false;
-    }), { timeout: 20_000 }).toBe(true);
+      return seam?.waitForMenuPresentation() ?? false;
+    });
+    expect(settled).toBe(true);
     await page.waitForTimeout(200);
     await page.evaluate(async () => {
       const seam = (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam }).__MEOWCENARY_VISUAL_TEST__;
@@ -33,6 +35,7 @@ test('locks every player-facing menu surface after the polish audit', async ({ p
     await expect(page).toHaveScreenshot(`menu-${panel}.png`, {
       animations: 'disabled',
       maxDiffPixelRatio: 0.01,
+      timeout: 20_000,
     });
     await page.evaluate(() => {
       const seam = (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam }).__MEOWCENARY_VISUAL_TEST__;

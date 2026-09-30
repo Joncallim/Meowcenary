@@ -12,6 +12,7 @@ type VisualTestSeam = {
   resume(): void;
   isSceneActive(key: string): boolean;
   isMenuPresentationSettled(): boolean;
+  waitForMenuPresentation(): Promise<boolean>;
   focusFirstEnemy(bossOnly?: boolean): boolean;
   focusPlayer(): boolean;
   showAbilityEffect(): boolean;
@@ -76,12 +77,13 @@ async function expectScene(page: import('@playwright/test').Page, key: string): 
 }
 
 async function expectMenuPresentationSettled(page: import('@playwright/test').Page): Promise<void> {
-  await expect.poll(() => page.evaluate(() => {
+  const settled = await page.evaluate(() => {
     const seam = (globalThis as typeof globalThis & {
       __MEOWCENARY_VISUAL_TEST__?: VisualTestSeam;
     }).__MEOWCENARY_VISUAL_TEST__;
-    return seam?.isMenuPresentationSettled() ?? false;
-  }), { timeout: visualReadyTimeoutMs }).toBe(true);
+    return seam?.waitForMenuPresentation() ?? false;
+  });
+  expect(settled).toBe(true);
   await page.waitForTimeout(100);
 }
 
@@ -201,7 +203,10 @@ test('approved reachable surfaces retain the Meowcenary visual system', async ({
 });
 
 test('stocked Gunsmith showcases assembled weapons, Parts, traits, and Workshop art', async ({ page }, testInfo) => {
-  test.setTimeout(45_000);
+  // This exact two-capture journey closes the full Parts/trait/chassis atlas.
+  // Keep its infrastructure budget local while resource readiness itself is
+  // awaited through the scene-owned loader queue above.
+  test.setTimeout(90_000);
   test.skip(!representativeProjects.has(testInfo.project.name));
   await page.addInitScript(() => {
     localStorage.setItem('meowcenary.save.v2', JSON.stringify({

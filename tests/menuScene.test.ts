@@ -2456,6 +2456,7 @@ describe('MenuScene', () => {
       create(): void;
       menuTextureLoadPending: number;
       serializeTextureLoad<T>(load: () => Promise<T>, cancelledResult: T): Promise<T>;
+      menuTextureLoadSnapshot(): Readonly<{ generation: number; pending: Promise<void> }>;
     };
     scene.create();
     let markOldStarted!: () => void;
@@ -2465,13 +2466,17 @@ describe('MenuScene', () => {
       return new Promise(() => undefined);
     }, undefined);
     await oldStarted;
+    const interrupted = scene.menuTextureLoadSnapshot();
 
     harness.lifecycle.emit('shutdown');
     scene.create();
     const startFreshLoad = vi.fn(async () => ({ loaded: [], failed: [] } as const));
     await scene.serializeTextureLoad(startFreshLoad, { loaded: [], failed: [] } as const);
+    const fresh = scene.menuTextureLoadSnapshot();
 
     expect(startFreshLoad).toHaveBeenCalledOnce();
+    expect(fresh.generation).toBeGreaterThan(interrupted.generation);
+    await expect(fresh.pending).resolves.toBeUndefined();
     expect(scene.menuTextureLoadPending).toBe(0);
   });
 
