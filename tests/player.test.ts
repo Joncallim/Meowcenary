@@ -276,23 +276,77 @@ describe('Player', () => {
     expect(sprite.alpha).toBe(1);
   });
 
+  it('does not let contact hit-frames shield immediate environmental damage', async () => {
+    const { player } = await createHarness();
+
+    player.takeDamage(10);
+    player.takeEnvironmentalDamage(5);
+
+    expect(player.health).toBe(85);
+  });
+
+  it('expires a short ability window independently while contact hit-frames remain active', async () => {
+    const { player, sprite } = await createHarness();
+
+    player.takeDamage(10);
+    player.grantInvulnerability(100);
+    player.update(100);
+    player.takeEnvironmentalDamage(5);
+    player.takeDamage(5);
+
+    expect(player.health).toBe(85);
+    expect(sprite.alpha).toBe(0.45);
+    player.update(550);
+    expect(sprite.alpha).toBe(1);
+  });
+
   it('Shield Flicker invulnerability blocks Forge environmental damage', async () => {
-    const { player, bus } = await createHarness();
+    const { player, bus, sprite } = await createHarness();
     const damaged = vi.fn();
     bus.on('player:damaged', damaged);
 
+    player.takeDamage(10);
     player.grantInvulnerability(1200);
     player.takeEnvironmentalDamage(10);
 
-    expect(player.health).toBe(100);
-    expect(damaged).not.toHaveBeenCalled();
+    expect(player.health).toBe(90);
+    expect(damaged).toHaveBeenCalledTimes(1);
 
-    // Once the explicit Shield Flicker window expires, the same hazard damage
-    // must be accepted by the normal environmental-damage boundary.
-    player.update(1200);
+    // The ability remains protective after the shorter contact window ends.
+    player.update(650);
     player.takeEnvironmentalDamage(10);
     expect(player.health).toBe(90);
-    expect(damaged).toHaveBeenCalledWith({ amount: 10, healthRemaining: 90 });
+    expect(damaged).toHaveBeenCalledTimes(1);
+    expect(sprite.alpha).toBe(0.45);
+
+    player.update(550);
+    expect(sprite.alpha).toBe(1);
+    player.takeEnvironmentalDamage(10);
+    expect(player.health).toBe(80);
+    expect(damaged).toHaveBeenLastCalledWith({ amount: 10, healthRemaining: 80 });
+  });
+
+  it('freezes both independent invulnerability windows while paused', async () => {
+    const { player, runState, sprite } = await createHarness();
+
+    player.takeDamage(10);
+    player.grantInvulnerability(1200);
+    runState.status = 'paused';
+    player.update(2_000);
+    expect(sprite.alpha).toBe(0.45);
+    runState.status = 'active';
+
+    player.update(650);
+    player.takeDamage(5);
+    player.takeEnvironmentalDamage(5);
+    expect(player.health).toBe(90);
+    expect(sprite.alpha).toBe(0.45);
+
+    player.update(550);
+    expect(sprite.alpha).toBe(1);
+    player.takeDamage(5);
+    player.takeEnvironmentalDamage(5);
+    expect(player.health).toBe(80);
   });
 
   it('takeEnvironmentalDamage lethal hit emits player:died and ends the run', async () => {
