@@ -238,6 +238,108 @@ export function assignPartToBuild<T extends GunsmithAssignmentState>(
   return { ok: true, state: { ...state, builds } as T, ...(movedFromBuildId === undefined ? {} : { movedFromBuildId }) };
 }
 
+export type ReplacePartResult<T extends GunsmithAssignmentState> =
+  | { readonly ok: true; readonly state: T; readonly movedFromBuildId?: string; readonly displacedInstanceId?: string }
+  | { readonly ok: false; readonly reason: 'unknown-build' | 'unknown-part' | 'slot-incompatible' | 'slot-full' | 'duplicate-assignment' | 'stale-target' };
+
+/**
+ * Atomically fits, replaces, or moves one owned Part instance in a build.
+ * Stable IDs are re-resolved from the supplied current state on each call, so
+ * callers can use the same operation for preview and persistence commit.
+ * Ordinary slots replace their current occupant; the optional displaced ID
+ * guards against a stale preview. Trait sockets append when it is omitted and
+ * replace exactly the named socket when supplied.
+ *
+ * Displaced parts stay in `state.parts`: fitting is an assignment, not an
+ * ownership transfer. The input graph is never changed.
+ */
+export function replacePartInBuild<T extends GunsmithAssignmentState>(
+  state: T,
+  targetBuildId: string,
+  slot: PartSlot,
+  incomingInstanceId: string,
+  definitions: ReadonlyMap<string, PartDefinition>,
+  displacedInstanceId?: string,
+): ReplacePartResult<T> {
+  const target = state.builds.find((build) => build.id === targetBuildId);
+  if (!target) return { ok: false, reason: 'unknown-build' };
+
+  const incomingStored = state.parts[incomingInstanceId];
+  if (!incomingStored) return { ok: false, reason: 'unknown-part' };
+  const incomingDefinition = definitions.get(incomingStored.partId);
+  if (!incomingDefinition) return { ok: false, reason: 'unknown-part' };
+  if (incomingDefinition.slot !== slot || !isSlotCompatible(target.baseWeaponFamily, slot)) {
+    return { ok: false, reason: 'slot-incompatible' };
+  }
+
+  // A malformed candidate with duplicate references cannot be made safe by
+  // selecting an arbitrary source; fail before ejecting or moving anything.
+  if (!hasUniquePartAssignments(state)) return { ok: false, reason: 'duplicate-assignment' };
+
+  const currentOrdinaryOccupant = slot === 'trait' ? undefined : target.fitted[slot];
+  if (slot !== 'trait') {
+    if (displacedInstanceId !== undefined && displacedInstanceId !== currentOrdinaryOccupant) {
+      return { ok: false, reason: 'stale-target' };
+    }
+    // An unchanged selection is an idempotent success, not an eject/re-fit.
+    if (currentOrdinaryOccupant === incomingInstanceId) {
+      return { ok: true, state };
+    }
+    if (currentOrdinaryOccupant !== undefined && !state.parts[currentOrdinaryOccupant]) {
+      return { ok: false, reason: 'unknown-part' };
+    }
+  } else if (displacedInstanceId !== undefined) {
+    const displacedIndex = target.traitParts.indexOf(displacedInstanceId);
+    if (displacedIndex < 0 || !state.parts[displacedInstanceId]) {
+      return { ok: false, reason: 'stale-target' };
+    }
+    if (displacedInstanceId === incomingInstanceId) return { ok: true, state };
+  } else if (target.traitParts.includes(incomingInstanceId)) {
+    return { ok: true, state };
+  } else if (target.traitParts.length >= MAX_TRAIT_CORES_PER_BUILD) {
+    return { ok: false, reason: 'slot-full' };
+  }
+
+  const locations = state.builds.flatMap((build) => {
+    const fittedSlots = Object.entries(build.fitted)
+      .filter(([, id]) => id === incomingInstanceId)
+      .map(([fittedSlot]) => fittedSlot as PartSlot);
+    const traitSlots = build.traitParts.flatMap((id, index) => id === incomingInstanceId ? [index] : []);
+    return [
+      ...fittedSlots.map((fittedSlot) => ({ buildId: build.id, slot: fittedSlot })),
+      ...traitSlots.map((index) => ({ buildId: build.id, slot: 'trait' as const, index })),
+    ];
+  });
+  const movedFromBuildId = locations[0]?.buildId;
+  const displaced = slot === 'trait' ? displacedInstanceId : currentOrdinaryOccupant;
+  const builds = state.builds.map((build) => {
+    if (build.id === targetBuildId) {
+      const withoutIncoming = removePartReference(build, incomingInstanceId);
+      if (slot === 'trait') {
+        const traitParts = [...withoutIncoming.traitParts];
+        if (displacedInstanceId === undefined) {
+          traitParts.push(incomingInstanceId);
+        } else {
+          const displacedIndex = traitParts.indexOf(displacedInstanceId);
+          traitParts[displacedIndex] = incomingInstanceId;
+        }
+        return { ...withoutIncoming, traitParts };
+      }
+      return { ...withoutIncoming, fitted: { ...withoutIncoming.fitted, [slot]: incomingInstanceId } };
+    }
+    return locations.some((location) => location.buildId === build.id)
+      ? removePartReference(build, incomingInstanceId)
+      : build;
+  });
+
+  return {
+    ok: true,
+    state: { ...state, builds } as T,
+    ...(movedFromBuildId === undefined ? {} : { movedFromBuildId }),
+    ...(displaced === undefined ? {} : { displacedInstanceId: displaced }),
+  };
+}
+
 /** Removes a physical instance from every compatible reference in a build. */
 export function removePartReference(build: WeaponBuild, instanceId: string): WeaponBuild {
   const fitted = Object.fromEntries(Object.entries(build.fitted).filter(([, id]) => id !== instanceId));

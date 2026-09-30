@@ -15,6 +15,7 @@ import {
   resolveBuildModifiers,
   resolveBuildProjectileEffects,
   resolveBuildTraitModifiers,
+  replacePartInBuild,
   unequipPart,
   type OwnedPart,
   type PartDefinition,
@@ -131,6 +132,201 @@ describe('Epic 23 equip/unequip (transactional)', () => {
     expect(build.traitParts.length).toBe(2);
     const third = equipPart(build, part('part:trait-fire'), defMap);
     expect(third).toMatchObject({ ok: false, reason: 'slot-full' });
+  });
+});
+
+describe('Epic 23 atomic build part replacement/movement', () => {
+  const assignmentState = (builds: readonly WeaponBuild[], parts: Readonly<Record<string, { partId: string; tier: number; infusedTraits: readonly string[] }>>) => ({
+    builds,
+    parts,
+    selectedBuildId: builds[0]?.id,
+    fabricationSerials: { 'part:barrel-standard': 2 },
+  });
+
+  it('replaces an occupied slot atomically and keeps the displaced part owned but unfitted', () => {
+    const original = part('part:barrel-standard');
+    const incoming = part('part:barrel-long', ['FIRE'], 2);
+    const build = { ...smgBuild(), fitted: { barrel: original.instanceId } };
+    const state = assignmentState([build], {
+      [original.instanceId]: { partId: original.partId, tier: original.tier, infusedTraits: original.infusedTraits },
+      [incoming.instanceId]: { partId: incoming.partId, tier: incoming.tier, infusedTraits: incoming.infusedTraits },
+    });
+
+    const result = replacePartInBuild(state, build.id, 'barrel', incoming.instanceId, defMap);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.state.builds[0]?.fitted).toEqual({ barrel: incoming.instanceId });
+    expect(result.state.parts).toEqual(state.parts);
+    expect(result.state.parts[original.instanceId]).toBeDefined();
+    expect(result.state.parts[incoming.instanceId]).toBeDefined();
+    expect(result.state.selectedBuildId).toBe(state.selectedBuildId);
+    expect(result.state.fabricationSerials).toEqual(state.fabricationSerials);
+    expect(state.builds[0]?.fitted).toEqual({ barrel: original.instanceId });
+  });
+
+  it('fits an empty compatible slot from an immutable snapshot without changing it', () => {
+    const incoming = part('part:barrel-long', ['FIRE'], 2);
+    const build = smgBuild();
+    const state = assignmentState([build], {
+      [incoming.instanceId]: { partId: incoming.partId, tier: incoming.tier, infusedTraits: incoming.infusedTraits },
+    });
+    Object.freeze(state.parts[incoming.instanceId]!.infusedTraits);
+    Object.freeze(state.parts[incoming.instanceId]);
+    Object.freeze(state.parts);
+    Object.freeze(state.builds[0]!.fitted);
+    Object.freeze(state.builds[0]!.traitParts);
+    Object.freeze(state.builds[0]);
+    Object.freeze(state.builds);
+    Object.freeze(state);
+
+    const first = replacePartInBuild(state, build.id, 'barrel', incoming.instanceId, defMap);
+    const second = replacePartInBuild(state, build.id, 'barrel', incoming.instanceId, defMap);
+
+    expect(first).toMatchObject({ ok: true, state: { builds: [{ fitted: { barrel: incoming.instanceId } }] } });
+    expect(second).toEqual(first);
+    expect(state.builds[0]?.fitted).toEqual({});
+  });
+
+  it('moves an owned part from another build while replacing the destination part in one result', () => {
+    const displaced = part('part:barrel-standard');
+    const incoming = part('part:barrel-long', ['FIRE'], 2);
+    const pistol: WeaponBuild = { id: 'build:pistol', name: 'Pistol', baseWeaponFamily: 'pistol', fitted: { barrel: incoming.instanceId }, traitParts: [] };
+    const smg: WeaponBuild = { ...smgBuild(), fitted: { barrel: displaced.instanceId } };
+    const state = assignmentState([pistol, smg], {
+      [displaced.instanceId]: { partId: displaced.partId, tier: displaced.tier, infusedTraits: displaced.infusedTraits },
+      [incoming.instanceId]: { partId: incoming.partId, tier: incoming.tier, infusedTraits: incoming.infusedTraits },
+    });
+
+    const result = replacePartInBuild(state, smg.id, 'barrel', incoming.instanceId, defMap);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.state.builds.map(({ id, fitted }) => [id, fitted])).toEqual([
+      [pistol.id, {}],
+      [smg.id, { barrel: incoming.instanceId }],
+    ]);
+    expect(result.state.parts).toEqual(state.parts);
+    expect(state.builds[0]?.fitted.barrel).toBe(incoming.instanceId);
+    expect(state.builds[1]?.fitted.barrel).toBe(displaced.instanceId);
+  });
+
+  it('rejects an incompatible incoming part without ejecting the current fitting', () => {
+    const original = part('part:barrel-standard');
+    const incompatible = part('part:underbarrel-grenade');
+    const build = { ...smgBuild(), fitted: { barrel: original.instanceId } };
+    const state = assignmentState([build], {
+      [original.instanceId]: { partId: original.partId, tier: original.tier, infusedTraits: original.infusedTraits },
+      [incompatible.instanceId]: { partId: incompatible.partId, tier: incompatible.tier, infusedTraits: incompatible.infusedTraits },
+    });
+
+    expect(replacePartInBuild(state, build.id, 'barrel', incompatible.instanceId, defMap))
+      .toMatchObject({ ok: false, reason: 'slot-incompatible' });
+    expect(state.builds[0]?.fitted).toEqual({ barrel: original.instanceId });
+  });
+
+  it('rejects a stale ordinary-slot occupant before moving an otherwise valid candidate', () => {
+    const current = part('part:barrel-standard');
+    const incoming = part('part:barrel-long');
+    const build = { ...smgBuild(), fitted: { barrel: current.instanceId } };
+    const state = assignmentState([build], {
+      [current.instanceId]: { partId: current.partId, tier: current.tier, infusedTraits: current.infusedTraits },
+      [incoming.instanceId]: { partId: incoming.partId, tier: incoming.tier, infusedTraits: incoming.infusedTraits },
+    });
+
+    expect(replacePartInBuild(state, build.id, 'barrel', incoming.instanceId, defMap, 'different-stale-id'))
+      .toMatchObject({ ok: false, reason: 'stale-target' });
+    expect(state.builds[0]?.fitted).toEqual({ barrel: current.instanceId });
+    expect(state.parts[incoming.instanceId]).toBeDefined();
+  });
+
+  it('rejects duplicate incoming assignments before publishing any replacement', () => {
+    const original = part('part:barrel-standard');
+    const incoming = part('part:barrel-long');
+    const source: WeaponBuild = { id: 'build:source', name: 'Source', baseWeaponFamily: 'pistol', fitted: { barrel: incoming.instanceId }, traitParts: [] };
+    const target: WeaponBuild = { ...smgBuild(), fitted: { barrel: original.instanceId, optic: incoming.instanceId } };
+    const state = assignmentState([source, target], {
+      [original.instanceId]: { partId: original.partId, tier: original.tier, infusedTraits: original.infusedTraits },
+      [incoming.instanceId]: { partId: incoming.partId, tier: incoming.tier, infusedTraits: incoming.infusedTraits },
+    });
+
+    expect(replacePartInBuild(state, target.id, 'barrel', incoming.instanceId, defMap))
+      .toMatchObject({ ok: false, reason: 'duplicate-assignment' });
+    expect(state.builds.map(({ id, fitted }) => [id, fitted])).toEqual([
+      [source.id, { barrel: incoming.instanceId }],
+      [target.id, { barrel: original.instanceId, optic: incoming.instanceId }],
+    ]);
+  });
+
+  it('uses the shared trait capacity and does not evict a trait core when full', () => {
+    const first = part('part:trait-fire');
+    const second = part('part:trait-fire');
+    const incoming = part('part:trait-fire');
+    const build = { ...smgBuild(), traitParts: [first.instanceId, second.instanceId] };
+    const state = assignmentState([build], Object.fromEntries([first, second, incoming].map((owned) => [owned.instanceId, {
+      partId: owned.partId, tier: owned.tier, infusedTraits: owned.infusedTraits,
+    }])));
+
+    expect(replacePartInBuild(state, build.id, 'trait', incoming.instanceId, defMap))
+      .toMatchObject({ ok: false, reason: 'slot-full' });
+    expect(state.builds[0]?.traitParts).toEqual([first.instanceId, second.instanceId]);
+    expect(Object.keys(state.parts)).toHaveLength(3);
+  });
+
+  it('replaces a specific trait socket in place while moving its incoming core from another build', () => {
+    const displaced = part('part:trait-fire');
+    const retained = part('part:trait-piercing');
+    const incoming = part('part:trait-fire');
+    const source: WeaponBuild = { id: 'build:source', name: 'Source', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [incoming.instanceId] };
+    const target: WeaponBuild = { ...smgBuild(), traitParts: [displaced.instanceId, retained.instanceId] };
+    const state = assignmentState([source, target], Object.fromEntries([displaced, retained, incoming].map((owned) => [owned.instanceId, {
+      partId: owned.partId, tier: owned.tier, infusedTraits: owned.infusedTraits,
+    }])));
+
+    const result = replacePartInBuild(state, target.id, 'trait', incoming.instanceId, defMap, displaced.instanceId);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.state.builds.map(({ id, traitParts }) => [id, traitParts])).toEqual([
+      [source.id, []],
+      [target.id, [incoming.instanceId, retained.instanceId]],
+    ]);
+    expect(result.state.parts).toEqual(state.parts);
+    expect(state.builds.map(({ id, traitParts }) => [id, traitParts])).toEqual([
+      [source.id, [incoming.instanceId]],
+      [target.id, [displaced.instanceId, retained.instanceId]],
+    ]);
+  });
+
+  it('rejects a stale trait socket identity without moving the incoming core', () => {
+    const current = part('part:trait-fire');
+    const incoming = part('part:trait-fire');
+    const build = { ...smgBuild(), traitParts: [current.instanceId] };
+    const state = assignmentState([build], Object.fromEntries([current, incoming].map((owned) => [owned.instanceId, {
+      partId: owned.partId, tier: owned.tier, infusedTraits: owned.infusedTraits,
+    }])));
+
+    expect(replacePartInBuild(state, build.id, 'trait', incoming.instanceId, defMap, 'stale-trait-id'))
+      .toMatchObject({ ok: false, reason: 'stale-target' });
+    expect(state.builds[0]?.traitParts).toEqual([current.instanceId]);
+    expect(Object.keys(state.parts)).toHaveLength(2);
+  });
+
+  it('treats an already fitted target instance as an immutable no-op', () => {
+    const incoming = part('part:barrel-standard');
+    const build = { ...smgBuild(), fitted: { barrel: incoming.instanceId } };
+    const state = assignmentState([build], {
+      [incoming.instanceId]: { partId: incoming.partId, tier: incoming.tier, infusedTraits: incoming.infusedTraits },
+    });
+    Object.freeze(state.builds[0]!.fitted);
+    Object.freeze(state.builds[0]);
+    Object.freeze(state.builds);
+    Object.freeze(state.parts);
+    Object.freeze(state);
+
+    const result = replacePartInBuild(state, build.id, 'barrel', incoming.instanceId, defMap, incoming.instanceId);
+
+    expect(result).toMatchObject({ ok: true, state });
   });
 });
 
