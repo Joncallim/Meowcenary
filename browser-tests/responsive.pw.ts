@@ -17,6 +17,56 @@ test('canvas fills the available viewport and survives a live resize', async ({ 
   await page.screenshot({ path: testInfo.outputPath('home-resized.png') });
 });
 
+test('cold Home readiness stays closed until Boot resources arrive', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-1920x1080');
+  let releaseBootImage!: () => void;
+  let signalBootImage!: () => void;
+  const bootImageRequested = new Promise<void>((resolve) => { signalBootImage = resolve; });
+  const bootImageRelease = new Promise<void>((resolve) => { releaseBootImage = resolve; });
+  await page.route('**/assets/ui/navigation-icons-atlas.png', async (route) => {
+    signalBootImage();
+    await bootImageRelease;
+    await route.continue();
+  });
+
+  try {
+    await page.goto('/?visual-test=1', { waitUntil: 'domcontentloaded' });
+    await bootImageRequested;
+    await expect.poll(() => page.evaluate(() => Boolean((globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: unknown;
+    }).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+    const readiness = await page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: {
+          isMenuPresentationSettled(): boolean;
+          menuPresentationDiagnostics(): Record<string, unknown>;
+        };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return { settled: seam?.isMenuPresentationSettled(), diagnostics: seam?.menuPresentationDiagnostics() };
+    });
+    expect(readiness.settled).toBe(false);
+    expect(readiness.diagnostics).toMatchObject({ active: false, committedDisplay: false });
+  } finally {
+    releaseBootImage();
+  }
+
+  await page.evaluate(async () => {
+    const seam = (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: { waitForMenuPresentation(): Promise<boolean> };
+    }).__MEOWCENARY_VISUAL_TEST__;
+    await seam?.waitForMenuPresentation();
+  });
+  await expect.poll(() => page.evaluate(() => {
+    const seam = (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: {
+        isMenuPresentationSettled(): boolean;
+        menuPresentationDiagnostics(): Record<string, unknown>;
+      };
+    }).__MEOWCENARY_VISUAL_TEST__;
+    return seam?.isMenuPresentationSettled() && seam.menuPresentationDiagnostics().committedPanel === 'home';
+  })).toBe(true);
+});
+
 test('keyboard player journey reaches Mercenary, Career and gameplay on the real canvas', async ({ page }, testInfo) => {
   test.setTimeout(60_000);
   const requestedAssets: string[] = [];
@@ -25,42 +75,79 @@ test('keyboard player journey reaches Mercenary, Career and gameplay on the real
     await page.keyboard.down(key);
     await page.waitForTimeout(60);
     await page.keyboard.up(key);
+    // Keyboard actions are polled: give the input owner its neutral edge
+    // before another press of the same key, independently of panel loading.
     await page.waitForTimeout(250);
   };
-  const openHome = async () => {
-    await page.goto('/');
-    await page.waitForTimeout(500);
+  const awaitMenu = async (panel: 'home' | 'character' | 'career' | 'achievements') => {
+    const settled = await page.evaluate(async () => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: { waitForMenuPresentation(): Promise<boolean> };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      return seam?.waitForMenuPresentation() ?? false;
+    });
+    expect(settled).toBe(true);
+    await expect.poll(() => page.evaluate((expectedPanel) => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: {
+          isMenuPresentationSettled(): boolean;
+          menuPresentationDiagnostics(): Record<string, unknown>;
+        };
+      }).__MEOWCENARY_VISUAL_TEST__;
+      const diagnostics = seam?.menuPresentationDiagnostics();
+      return seam?.isMenuPresentationSettled() === true
+        && diagnostics?.active === true
+        && diagnostics?.committedDisplay === true
+        && diagnostics?.committedPanel === expectedPanel;
+    }, panel)).toBe(true);
   };
 
-  await openHome();
+  await page.goto('/?visual-test=1');
+  await awaitMenu('home');
   const canvas = page.locator('#game-root canvas');
   await expect(canvas).toBeVisible();
 
   await press('ArrowDown');
   await press('ArrowDown');
   await press('Enter');
-  await page.waitForTimeout(500);
+  await awaitMenu('character');
   await expect.poll(
     () => requestedAssets.some((path) => path.endsWith('/mercenary-portraits-atlas.png')),
     { intervals: [150, 250, 400], timeout: 8_000 },
   ).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('mercenary.png') });
 
-  await openHome();
+  await press('Escape');
+  await awaitMenu('home');
   for (let index = 0; index < 3; index += 1) await press('ArrowDown');
   await press('Enter');
+  await awaitMenu('career');
   await press('ArrowDown');
   await press('Enter');
-  await page.waitForTimeout(500);
+  await awaitMenu('achievements');
+  expect(await page.evaluate(() => {
+    const seam = (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: { menuPresentationDiagnostics(): Record<string, unknown> };
+    }).__MEOWCENARY_VISUAL_TEST__;
+    return (seam?.menuPresentationDiagnostics().loadedTextureKeys as string[] | undefined)?.includes('art-achievement-icons');
+  })).toBe(true);
   await expect.poll(
     () => requestedAssets.some((path) => path.endsWith('/achievement-icons-atlas.png')),
     { intervals: [150, 250, 400], timeout: 8_000 },
   ).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('achievements.png') });
 
-  await openHome();
+  await press('Escape');
+  await awaitMenu('career');
+  await press('Escape');
+  await awaitMenu('home');
   await press('Enter');
-  await page.waitForTimeout(1_500);
+  await expect.poll(() => page.evaluate(() => {
+    const seam = (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: { isSceneActive(key: string): boolean };
+    }).__MEOWCENARY_VISUAL_TEST__;
+    return seam?.isSceneActive('GameScene') ?? false;
+  }), { intervals: [150, 250, 400], timeout: 8_000 }).toBe(true);
   await expect.poll(
     () => requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png')),
     { intervals: [150, 250, 400], timeout: 8_000 },
