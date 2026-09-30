@@ -6,6 +6,7 @@ import achievementsJson from '../src/data/achievements.json';
 import { createConditionContext } from '../src/gameplay/conditionEvaluator';
 import { loadGameData, validateGameData } from '../src/systems/validation';
 import { DataEquipmentRegistry } from '../src/systems/equipment';
+import { checkEquipment, checkEquipmentSet } from '../src/systems/validation/equipment';
 import {
   EQUIPMENT_SLOTS,
   equipEquipment,
@@ -48,6 +49,45 @@ const tierFourFacts = createConditionContext(createDefaultSaveV4().progression, 
 });
 
 describe('Epic 25 equipment catalog conformance', () => {
+  it('rejects family scopes on Equipment and Set modifiers because these effects are global', () => {
+    const piece = definitions[0]!;
+    const globalPiece = { ...piece, effects: [{ stat: 'damage', op: 'mult', value: 1.1 }] };
+    expect(checkEquipment(globalPiece, 0)).toEqual([]);
+    const set = equipmentSetsJson.find((candidate) => candidate.id === piece.setId) as unknown as EquipmentSetDefinition;
+    const globalSet = { ...set, thresholds: {
+      2: { ...set.thresholds[2], modifiers: [{ stat: 'damage', op: 'mult', value: 1.1 }] },
+      4: set.thresholds[4],
+    } };
+    expect(checkEquipmentSet(globalSet, 0)).toEqual([]);
+    const pieceScoped = { ...globalPiece, effects: [{ ...globalPiece.effects[0]!, scope: { kind: 'weapon-family', family: 'pistol' } }] };
+    const setScoped = { ...globalSet, thresholds: {
+      ...globalSet.thresholds,
+      2: { modifiers: [{ stat: 'damage', op: 'mult', value: 1.1, scope: { kind: 'weapon-family', family: 'pistol' } }] },
+    } };
+    expect(() => new DataEquipmentRegistry({ equipment: [pieceScoped], equipmentSets: [setScoped] })).toThrow(/scope: unsupported for Equipment/);
+    expect(() => new DataEquipmentRegistry({ equipment: [globalPiece], equipmentSets: [setScoped] })).toThrow(/scope: unsupported for Equipment/);
+
+    for (const scope of [
+      { kind: 'weapon-family', family: 'pistol' },
+      null,
+      { kind: 'global', family: 'pistol' },
+      { kind: 'weapon-family', family: 'unknown-family' },
+    ]) {
+      expect(checkEquipment({ ...globalPiece, effects: [{ ...globalPiece.effects[0]!, scope }] }, 0))
+        .toContainEqual(expect.stringMatching(/scope: unsupported for Equipment/));
+      expect(checkEquipmentSet({ ...globalSet, thresholds: {
+        ...globalSet.thresholds,
+        2: { modifiers: [{ stat: 'damage', op: 'mult', value: 1.1, scope }] },
+      } }, 0)).toContainEqual(expect.stringMatching(/scope: unsupported for Equipment/));
+    }
+    expect(checkEquipment({ ...globalPiece, effects: [{ stat: 'moveSpeed', op: 'mult', value: 1.1, scope: { kind: 'weapon-family', family: 'pistol' } }] }, 0))
+      .toContainEqual(expect.stringMatching(/scope: unsupported for Equipment/));
+    expect(checkEquipmentSet({ ...globalSet, thresholds: {
+      ...globalSet.thresholds,
+      2: { modifiers: [{ stat: 'moveSpeed', op: 'mult', value: 1.1, scope: { kind: 'weapon-family', family: 'pistol' } }] },
+    } }, 0)).toContainEqual(expect.stringMatching(/scope: unsupported for Equipment/));
+  });
+
   it('ships equipment across 4 slots and multiple set families', () => {
     expect(definitions.length).toBeGreaterThanOrEqual(12);
     const ids = definitions.map((d) => d.id);
