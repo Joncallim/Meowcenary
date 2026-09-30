@@ -247,6 +247,25 @@ describe('#164 GameScene pending-clear update ordering', () => {
       expect(runState.timeMs).toBe(capturedTime); // run clock frozen too
     });
 
+    it('pauses immediately when a simulation system completes the objective later in the frame', () => {
+      const { scene } = createHarness({ pendingClear: false, timeMs: 30_000 });
+      const { stageRuntime } = scene;
+      for (let index = 5; index < 19; index += 1) {
+        stageRuntime.recordEnemyDefeat(`enemy-${index}`, 'grunt');
+      }
+      const afterKiller = { update: vi.fn() };
+      scene.systems = [
+        { update: () => stageRuntime.recordEnemyDefeat('enemy-final', 'grunt') },
+        afterKiller,
+      ];
+
+      scene.update(0, 16);
+
+      expect(stageRuntime.pendingClear).toBeDefined();
+      expect(scene.physics.world.pause).toHaveBeenCalledOnce();
+      expect(afterKiller.update).not.toHaveBeenCalled();
+    });
+
     it('advances the frozen run clock through a survive completion frame', () => {
       const { scene } = createHarness({ pendingClear: false, timeMs: 1_000 });
       const runtime = createStageRuntime({

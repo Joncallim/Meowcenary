@@ -34,6 +34,7 @@ export class SpawnSystem implements System {
   private readonly unsubscribeDashHit: () => void;
   private readonly unsubscribeSummon: () => void;
   private readonly pendingSummons: Array<{ enemyId: string; count: number; maxActive: number; x: number; y: number }> = [];
+  private readonly canDamagePlayer: () => boolean;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -47,7 +48,9 @@ export class SpawnSystem implements System {
     curve: Readonly<SpawnCurveDefinition>,
     private readonly visualArt?: VisualArtLookup,
     private readonly stageDifficulty?: Pick<ResolvedDifficultyProfile, 'healthMultiplier' | 'damageMultiplier' | 'speedMultiplier'>,
+    canDamagePlayer?: () => boolean,
   ) {
+    this.canDamagePlayer = canDamagePlayer ?? (() => this.runState.status === 'active');
     this.registry = new DataEnemyRegistry(this.ctx.data);
     this.director = createSpawnDirector(curve, this.rng);
     this.scaling = Object.freeze(structuredClone(curve.scaling));
@@ -67,7 +70,7 @@ export class SpawnSystem implements System {
       const projectile = new Projectile(this.scene, 6);
       this.enemyProjectiles.push(projectile);
       this.scene.physics.add.overlap(this.player.sprite, projectile.sprite, () => {
-        if (!projectile.active || this.runState.status !== 'active') return;
+        if (!projectile.active || !this.canDamagePlayer()) return;
         this.player.takeDamage(projectile.damage);
         projectile.reset();
       });
@@ -154,7 +157,7 @@ export class SpawnSystem implements System {
   };
 
   private readonly handleDashHit = (hit: { damage: number }): void => {
-    if (this.runState.status !== 'active' || !Number.isFinite(hit.damage) || hit.damage <= 0) return;
+    if (!this.canDamagePlayer() || !Number.isFinite(hit.damage) || hit.damage <= 0) return;
     this.player.takeDamage(hit.damage);
   };
 
@@ -229,7 +232,7 @@ export class SpawnSystem implements System {
   }
 
   private handlePlayerEnemyOverlap(_playerObject: unknown, enemyObject: unknown): void {
-    if (this.runState.status !== 'active') return;
+    if (!this.canDamagePlayer()) return;
     const enemyGameObject = unwrapGameObject(enemyObject);
     const enemy = this.enemies.find((candidate) => candidate.sprite === enemyGameObject);
     if (

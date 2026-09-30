@@ -540,7 +540,20 @@ export class GameScene extends Phaser.Scene {
       RuntimeConfig.performance.targetFps,
     );
 
-    const spawnSystem = new SpawnSystem(this, ctx, this.runState, spawnRng, this.player, this.enemies, this.enemyGroup, arena, directorCurve, visualArt, plan?.difficulty);
+    const spawnSystem = new SpawnSystem(
+      this,
+      ctx,
+      this.runState,
+      spawnRng,
+      this.player,
+      this.enemies,
+      this.enemyGroup,
+      arena,
+      directorCurve,
+      visualArt,
+      plan?.difficulty,
+      () => this.canReceiveCombatDamage(),
+    );
     if (plan?.encounter.bossId) {
       spawnSystem.spawnEncounterEnemy(plan.encounter.bossId, arena.size.width / 2, Math.max(80, arena.size.height * 0.2));
     }
@@ -740,7 +753,7 @@ export class GameScene extends Phaser.Scene {
     // Objective completion is a durable boundary. A transient save failure
     // must not leave combat running long enough to turn an earned clear into
     // a loss; the next frames retry only the idempotent transaction.
-    const isPendingClear = this.stageRuntime?.pendingClear && runState.status === 'active';
+    let isPendingClear = this.stageRuntime?.pendingClear !== undefined && runState.status === 'active';
 
     // === SIMULATION PHASE ===
     // Stop combat simulation and freeze the run clock during pendingClear
@@ -751,9 +764,18 @@ export class GameScene extends Phaser.Scene {
       this.tickAbility(delta);
       if (runState.status === 'active') this.abilityPresentationSystem?.update(delta, ctx.settings.reducedMotion);
       this.player.update(delta);
-      this.systems.forEach((system) => {
+      for (const system of this.systems) {
         system.update(delta);
-      });
+        // Weapon/burn updates can complete an objective after the frame's
+        // normal stage tick. Capture and pause that boundary before another
+        // system or the next Arcade integration can mutate combat state.
+        if (this.stageRuntime?.state.status === 'objective-complete') {
+          this.updateStageObjective(ctx, 0);
+          isPendingClear = this.stageRuntime.pendingClear !== undefined;
+          this.syncPhysicsPause(runState);
+          break;
+        }
+      }
     } else {
       // An activation can synchronously complete the final objective. Draw
       // its freshly emitted cue once without advancing it before extraction
@@ -1369,6 +1391,16 @@ export class GameScene extends Phaser.Scene {
       this.physics.world.resume();
       this.physicsPausedByRun = false;
     }
+  }
+
+  /** One synchronous mutation gate shared by all Arcade damage callbacks.
+   * Objective completion itself closes the gate; pendingClear is captured at
+   * the scene boundary on the following update when completion came from a
+   * physics callback. */
+  private canReceiveCombatDamage(): boolean {
+    return this.runState?.status === 'active'
+      && this.stageRuntime?.state.status !== 'objective-complete'
+      && this.stageRuntime?.pendingClear === undefined;
   }
 
   /** A pointer gesture belongs to gameplay only while the run is genuinely

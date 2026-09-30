@@ -106,6 +106,7 @@ interface HarnessOptions {
   curve?: Record<string, unknown>;
   visualArt?: unknown;
   mutateData?: (data: ReturnType<typeof loadGameData>) => void;
+  canDamagePlayer?: () => boolean;
 }
 
 async function createHarness(options: HarnessOptions = {}) {
@@ -172,6 +173,8 @@ async function createHarness(options: HarnessOptions = {}) {
     arenaFixture as never,
     curveFixture as never,
     options.visualArt as never,
+    undefined,
+    options.canDamagePlayer,
   );
 
   return {
@@ -216,6 +219,23 @@ describe('SpawnSystem', () => {
     harness.runState.status = 'paused';
     harness.bus.emit('enemy:dash-hit', { instanceId: 1, enemyId: 'boss-crusher', damage: 22 });
     expect(harness.player.takeDamage).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects contact, projectile, and dash damage after the objective enters pending clear', async () => {
+    let pendingClear = false;
+    const harness = await createHarness({ canDamagePlayer: () => !pendingClear });
+    harness.system.update(1_600);
+    const enemy = harness.enemies[0] as { sprite: unknown };
+    harness.bus.emit('enemy:ranged-shot', {
+      enemyId: 'scrap-sniper', x: 10, y: 20, dirX: 1, dirY: 0, damage: 6,
+    });
+
+    pendingClear = true;
+    harness.overlap?.(harness.player.sprite, enemy.sprite);
+    harness.overlaps[1]?.(harness.player.sprite, {});
+    harness.bus.emit('enemy:dash-hit', { instanceId: 1, enemyId: 'boss-crusher', damage: 22 });
+
+    expect(harness.player.takeDamage).not.toHaveBeenCalled();
   });
 
   it('freezes active enemies without touching destroyed ones while not active', async () => {
