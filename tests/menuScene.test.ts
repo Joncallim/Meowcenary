@@ -273,6 +273,7 @@ function createFakeScene(
           get parentContainer() { return base.parentContainer; },
           set parentContainer(value: { remove(child: unknown): unknown } | undefined) { base.parentContainer = value; },
           children: [] as FakeObject[],
+          get list(): FakeObject[] { return container.children; },
           remove(child: unknown) {
             const index = container.children.indexOf(child as FakeObject);
             if (index >= 0) container.children.splice(index, 1);
@@ -1292,6 +1293,27 @@ describe('MenuScene', () => {
     expect(owner.state.destroyed).toBe(true);
     expect(mask.destroyed).toBe(true);
     expect(harness.objects.filter(object => !object.state.destroyed && object.state.mask !== undefined)).toHaveLength(0);
+  });
+
+  it('preserves authored card-behind-label paint order when grouping clip ownership', () => {
+    const harness = createHarness();
+    const factory = createFakeScene(harness.context).environment.add;
+    const root = factory.container(0, 0);
+    const label = factory.text(20, 40, 'Foreground label', { resolution: 2 });
+    const card = factory.rectangle(20, 40, 160, 44);
+    // Registration follows creation; authoring moves the card below its label.
+    root.add([card, label]);
+    const scene = harness.menuScene as unknown as {
+      createScrollMask(root: unknown): void;
+      scrollObjects: Array<{ object: FakeObject; x: number; y: number }>;
+      scrollMaskContainer: FakeObject & { children: FakeObject[] };
+      scrollViewportTop: number; scrollViewportBottom: number;
+    };
+    scene.scrollObjects = [{ object: label, x: 20, y: 40 }, { object: card, x: 20, y: 40 }];
+    scene.scrollViewportTop = 20; scene.scrollViewportBottom = 200;
+    scene.createScrollMask(root);
+    expect(scene.scrollMaskContainer.children).toEqual([card, label]);
+    expect(root.children).toEqual([scene.scrollMaskContainer]);
   });
 
   it('clips shared-list cards continuously while keeping clipped-off hit areas inert', () => {

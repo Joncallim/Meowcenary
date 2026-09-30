@@ -2271,8 +2271,12 @@ export class MenuScene extends Phaser.Scene {
     // One stencil pass clips the entire shared scroll surface. Applying the
     // same mask to every decoration/text flushes and clears WebGL per child,
     // starving input and resource observation on software-rendered desktops.
+    const clippedObjects = new Set(this.scrollObjects.map(({ object }) => object));
+    // Registration order can differ from authored paint order (card chrome
+    // is moved below its label). Preserve the current display list exactly.
+    const paintOrder = root.list.filter(object => clippedObjects.has(object));
     const content = this.own(root, this.add.container(0, 0));
-    content.add(this.scrollObjects.map(({ object }) => object));
+    content.add(paintOrder);
     content.setMask(mask);
     this.scrollMaskContainer = content;
   }
