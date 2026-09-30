@@ -274,6 +274,13 @@ function createFakeScene(
           set parentContainer(value: { remove(child: unknown): unknown } | undefined) { base.parentContainer = value; },
           children: [] as FakeObject[],
           get list(): FakeObject[] { return container.children; },
+          moveTo(child: unknown, index: number) {
+            const current = container.children.indexOf(child as FakeObject);
+            if (current < 0) throw new Error('Cannot move an unowned child');
+            container.children.splice(current, 1);
+            container.children.splice(index, 0, child as FakeObject);
+            return container;
+          },
           remove(child: unknown) {
             const index = container.children.indexOf(child as FakeObject);
             if (index >= 0) container.children.splice(index, 1);
@@ -1295,14 +1302,17 @@ describe('MenuScene', () => {
     expect(harness.objects.filter(object => !object.state.destroyed && object.state.mask !== undefined)).toHaveLength(0);
   });
 
-  it('preserves authored card-behind-label paint order when grouping clip ownership', () => {
+  it('preserves authored card and later modal paint order when grouping clip ownership', () => {
     const harness = createHarness();
     const factory = createFakeScene(harness.context).environment.add;
     const root = factory.container(0, 0);
     const label = factory.text(20, 40, 'Foreground label', { resolution: 2 });
     const card = factory.rectangle(20, 40, 160, 44);
+    const modalFrame = factory.rectangle(0, 0, 390, 844);
+    const modalLabel = factory.text(30, 200, 'PREPARING CONTRACT', { resolution: 2 });
     // Registration follows creation; authoring moves the card below its label.
-    root.add([card, label]);
+    // A later modal must remain above the clipped group as well.
+    root.add([card, label, modalFrame, modalLabel]);
     const scene = harness.menuScene as unknown as {
       createScrollMask(root: unknown): void;
       scrollObjects: Array<{ object: FakeObject; x: number; y: number }>;
@@ -1313,7 +1323,33 @@ describe('MenuScene', () => {
     scene.scrollViewportTop = 20; scene.scrollViewportBottom = 200;
     scene.createScrollMask(root);
     expect(scene.scrollMaskContainer.children).toEqual([card, label]);
-    expect(root.children).toEqual([scene.scrollMaskContainer]);
+    expect(root.children).toEqual([scene.scrollMaskContainer, modalFrame, modalLabel]);
+  });
+
+  it('paints the launch modal above scrolling content in the genuine Training render', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      root: FakeObject & { children: FakeObject[] };
+      controller: { open(panel: 'training'): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      runLaunchState: string;
+    };
+    const snapshot = scene.controller.open('training');
+    scene.runLaunchState = 'loading';
+    scene.render(snapshot);
+    const painted: FakeObject[] = [];
+    const flatten = (node: FakeObject): void => {
+      const children = (node as FakeObject & { children?: FakeObject[] }).children;
+      if (children) children.forEach(flatten);
+      else painted.push(node);
+    };
+    flatten(scene.root);
+    const modal = painted.findIndex(object => object.state.kind === 'text'
+      && object.state.text.startsWith('PREPARING CONTRACT'));
+    const controls = painted.flatMap((object, index) => object.state.handlers.pointerup ? [index] : []);
+    expect(modal).toBeGreaterThan(-1);
+    expect(controls.length).toBeGreaterThan(0);
+    expect(Math.max(...controls)).toBeLessThan(modal);
   });
 
   it('clips shared-list cards continuously while keeping clipped-off hit areas inert', () => {

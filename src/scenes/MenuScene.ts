@@ -2275,8 +2275,11 @@ export class MenuScene extends Phaser.Scene {
     // Registration order can differ from authored paint order (card chrome
     // is moved below its label). Preserve the current display list exactly.
     const paintOrder = root.list.filter(object => clippedObjects.has(object));
+    const firstClippedIndex = root.list.findIndex(object => clippedObjects.has(object));
     const content = this.own(root, this.add.container(0, 0));
     content.add(paintOrder);
+    // Keep later fixed overlays (including launch feedback) above the group.
+    if (firstClippedIndex >= 0) root.moveTo(content, firstClippedIndex);
     content.setMask(mask);
     this.scrollMaskContainer = content;
   }
