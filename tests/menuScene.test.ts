@@ -530,6 +530,7 @@ describe('MenuScene', () => {
     const harness = createHarness();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    harness.menuScene.update(0, 16); // neutral poll before fresh logical navigation
     const scene = harness.menuScene as unknown as {
       handleResize(): void; focusables: FakeObject[]; navigator: { index: number; setIndex(index: number): void };
       focusKeyByButton: Map<FakeObject, string>;
