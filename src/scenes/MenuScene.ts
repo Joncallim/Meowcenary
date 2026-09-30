@@ -2403,6 +2403,7 @@ export class MenuScene extends Phaser.Scene {
 
   private handleBack(): void {
     if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
+    this.inputController?.quarantineUntilNeutral();
     // Home Esc is still a back command; it emits even when the controller
     // refuses (already home).
     this.bus?.emit('ui:back', {});
@@ -2533,8 +2534,10 @@ export class MenuScene extends Phaser.Scene {
     if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
     if (!this.committedDisplay) return;
     const focused = this.focusables[this.navigator.index];
-    if (focused && this.disabledFocusables.has(focused)) return;
-    focused?.emit(Phaser.Input.Events.POINTER_UP);
+    if (!focused || this.disabledFocusables.has(focused)) return;
+    // The destination panel cannot consume other edges sampled for this one.
+    this.inputController?.quarantineUntilNeutral();
+    focused.emit(Phaser.Input.Events.POINTER_UP);
   }
 
   private applyFocus(): void {
