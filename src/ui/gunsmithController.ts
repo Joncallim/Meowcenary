@@ -50,6 +50,10 @@ export interface GunsmithPartView {
   readonly effectScope: string;
   /** Player-facing pre-commit delta for the selected build. */
   readonly comparisonSummary: string;
+  /** Exact proposed fitting action and any occupant returned to storage. */
+  readonly actionLabel: string;
+  readonly displacedInstanceId?: string;
+  readonly displacementSummary?: string;
   readonly iconArtId: string;
   readonly traitIcons: readonly { readonly trait: string; readonly iconArtId: string }[];
   readonly state: 'fitted-here' | 'owned-unfitted' | 'fitted-elsewhere' | 'incompatible';
@@ -320,6 +324,13 @@ export class GunsmithController {
       const fittedHere = selected !== undefined && assigned?.id === selected.id;
       const compatible = selected !== undefined && isSlotCompatible(selected.baseWeaponFamily, definition.slot);
       const capacity = definition.slot !== 'trait' || selected === undefined || selected.traitParts.length < MAX_TRAIT_CORES_PER_BUILD || fittedHere || selectedTraitInstanceId !== undefined;
+      const replacement = selected === undefined || fittedHere ? undefined
+        : replacePartInBuild(state, selected.id, definition.slot, instanceId, this.registry.asMap(),
+          definition.slot === 'trait' ? selectedTraitInstanceId : undefined);
+      const displacedInstanceId = replacement?.ok ? replacement.displacedInstanceId : undefined;
+      const replaceLabel = displacedInstanceId === undefined ? undefined : `REPLACE ${this.partLabel(displacedInstanceId, state).toUpperCase()}`;
+      const moveLabel = replacement?.ok && replacement.movedFromBuildId !== undefined
+        ? `MOVE FROM ${(state.builds.find((build) => build.id === replacement.movedFromBuildId)?.name ?? replacement.movedFromBuildId).toUpperCase()}` : undefined;
       const traits = Object.freeze([...definition.traits, ...stored.infusedTraits]);
       const statChips = Object.freeze(formatPartEffects(definition, stored.tier));
       const view: GunsmithPartView = Object.freeze({
@@ -339,6 +350,12 @@ export class GunsmithController {
           : selected && compatible ? familyName(selected.baseWeaponFamily) : compatibleFamilyScope(definition.slot),
         state: fittedHere ? 'fitted-here' : !compatible || !capacity ? 'incompatible' : assigned !== undefined ? 'fitted-elsewhere' : 'owned-unfitted',
         ...(assigned === undefined ? {} : { assignedBuildId: assigned.id, assignedBuildName: assigned.name }),
+        actionLabel: fittedHere ? 'UNEQUIP' : selected === undefined ? 'CHOOSE A BUILD'
+          : !compatible ? `CANNOT FIT ${familyName(selected.baseWeaponFamily).toUpperCase()}`
+            : !capacity ? 'TRAIT CAPACITY FULL' : [moveLabel, replaceLabel].filter(Boolean).join(' • ') || 'FIT',
+        ...(displacedInstanceId === undefined ? {} : {
+          displacedInstanceId, displacementSummary: `${this.partLabel(displacedInstanceId, state)} returns to STORED.`,
+        }),
         effectLines: statChips, statChips,
         sourceLabel: sourceLabels.get(definition.id)!,
         traitLines: Object.freeze([...definition.traits, ...stored.infusedTraits]),
@@ -347,8 +364,8 @@ export class GunsmithController {
           : fittedHere ? selectedBuildComparison(selected, instanceId, state, this.registry, representativeWeapon)
             : !compatible ? `Cannot fit ${selected.baseWeaponFamily}.`
               : !capacity ? 'Trait capacity full — unequip a trait first.'
-                  : assigned !== undefined ? `Move from ${assigned.name}.`
-                    : selectedBuildComparison(selected, instanceId, state, this.registry, representativeWeapon),
+                  : `${assigned !== undefined ? `Move from ${assigned.name}. ` : ''}${selectedBuildComparison(selected, instanceId, state, this.registry, representativeWeapon,
+                    definition.slot === 'trait' ? selectedTraitInstanceId : undefined)}`,
       });
       return [view];
     }));
@@ -759,7 +776,15 @@ export class GunsmithController {
       const stored = current.parts[instanceId];
       const definition = stored && this.registry.partById(stored.partId);
       if (!definition) { failure = 'unknown-part'; return undefined; }
-      const result = replacePartInBuild(current, buildId, definition.slot, instanceId, this.registry.asMap());
+      // Re-resolve the explicit socket inside the save transform; a socket
+      // removed from the current target must never become an implicit eject.
+      const target = current.builds.find((build) => build.id === buildId);
+      if (definition.slot === 'trait' && this.selectedTraitInstanceId && !target?.traitParts.includes(this.selectedTraitInstanceId)) {
+        failure = 'stale-target'; return undefined;
+      }
+      const traitTarget = definition.slot === 'trait' && this.selectedTraitInstanceId
+        && target?.traitParts.includes(this.selectedTraitInstanceId) ? this.selectedTraitInstanceId : undefined;
+      const result = replacePartInBuild(current, buildId, definition.slot, instanceId, this.registry.asMap(), traitTarget);
       if (!result.ok) { failure = result.reason; return undefined; }
       unchanged = result.state === current;
       return unchanged ? undefined : result.state;
@@ -1054,6 +1079,7 @@ function selectedBuildComparison(
   state: GunsmithState,
   registry: DataPartRegistry,
   weapon: WeaponDefinition | undefined,
+  displacedInstanceId?: string,
 ): string {
   const stored = state.parts[instanceId];
   const definition = stored === undefined ? undefined : registry.partById(stored.partId);
@@ -1064,7 +1090,7 @@ function selectedBuildComparison(
     const result = unequipPart(selected, instanceId);
     after = result.ok ? result.build : undefined;
   } else {
-    const result = replacePartInBuild(state, selected.id, definition.slot, instanceId, registry.asMap());
+    const result = replacePartInBuild(state, selected.id, definition.slot, instanceId, registry.asMap(), displacedInstanceId);
     after = result.ok ? result.state.builds.find((build) => build.id === selected.id) : undefined;
   }
   if (!after) return `Candidate: ${formatPartEffects(definition, stored.tier).join(' • ') || 'Trait only'}`;
