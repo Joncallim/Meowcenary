@@ -442,20 +442,20 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       const gunsmith = transform(current.gunsmith);
       if (gunsmith === undefined) return Object.freeze({ value: current.gunsmith, persisted: false });
       const candidate = freezeSaveV4({ ...current, gunsmith });
-      // SaveManager is deliberately the sanitizer/normalizer.  Reload the
-      // persisted representation before publication so a controller can
-      // never expose an optimistic owned instance that would disappear on
-      // the next boot.
-      if (!options.save.save(candidate)) return Object.freeze({ value: current.gunsmith, persisted: false });
-      current = options.save.load();
+      // Publish the save owner's canonical write snapshot, without a second
+      // storage read that could discard the successful transaction.
+      const committed = options.save.commit(candidate);
+      if (!committed) return Object.freeze({ value: current.gunsmith, persisted: false });
+      current = committed;
       return Object.freeze({ value: current.gunsmith, persisted: true });
     },
     updateEquipment(transform) {
       const next = transform({ equipment: current.equipment, loadout: current.equipmentLoadout ?? {} });
       if (next === undefined) return Object.freeze({ value: current.equipment, persisted: false });
       const candidate = normalizeEquipmentSnapshot(freezeSaveV4({ ...current, equipment: next.equipment, equipmentLoadout: next.loadout }));
-      if (!options.save.save(candidate)) return Object.freeze({ value: current.equipment, persisted: false });
-      current = options.save.load();
+      const committed = options.save.commit(candidate);
+      if (!committed) return Object.freeze({ value: current.equipment, persisted: false });
+      current = committed;
       return Object.freeze({ value: current.equipment, persisted: true });
     },
     fabricateEquipment(equipmentId) {
@@ -470,8 +470,9 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         progression: Object.freeze({ ...current.progression, scrap: current.progression.scrap - set.pieceFabricationCost }),
         equipment: Object.freeze({ ...current.equipment, [instanceId]: Object.freeze({ equipmentId, tier: 1 }) }),
       });
-      if (!options.save.save(candidate)) return false;
-      current = options.save.load();
+      const committed = options.save.commit(candidate);
+      if (!committed) return false;
+      current = committed;
       return true;
     },
     fabricatePart(partId) {
@@ -494,8 +495,9 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
           fabricationSerials: Object.freeze({ ...(current.gunsmith.fabricationSerials ?? {}), [partId]: nextSerial }),
         }),
       });
-      if (!options.save.save(candidate)) return false;
-      current = options.save.load();
+      const committed = options.save.commit(candidate);
+      if (!committed) return false;
+      current = committed;
       return true;
     },
     recordCompendiumDiscovery(enemyId, status) {
@@ -504,8 +506,9 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       if (next === current) return true;
       // Never publish optimistic discovery: a failed durable write leaves
       // both the context and the next boot at the prior authoritative state.
-      if (!options.save.save(next)) return false;
-      current = options.save.load();
+      const committed = options.save.commit(next);
+      if (!committed) return false;
+      current = committed;
       return true;
     },
     commitEquipmentUpgrade(instanceId, expectedTier, nextTier, cost) {
@@ -527,8 +530,9 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
         progression: Object.freeze({ ...current.progression, scrap: current.progression.scrap - cost }),
         equipment: Object.freeze({ ...current.equipment, [instanceId]: Object.freeze({ equipmentId: upgrade.output.equipmentId, tier: upgrade.output.tier }) }),
       });
-      if (!options.save.save(candidate)) return false;
-      current = options.save.load();
+      const committed = options.save.commit(candidate);
+      if (!committed) return false;
+      current = committed;
       return true;
     },
     settleRunTerminal(input) {
@@ -875,8 +879,9 @@ export function createGameContext(options: CreateGameContextOptions): GameContex
       const nextXp = previous.xp + xp;
       const next = Object.freeze({ xp: nextXp, tier: Math.max(previous.tier, Math.floor(nextXp / 100)) });
       const save = freezeSaveV4({ ...current, characters: Object.freeze({ ...current.characters, [characterId]: next }) });
-      if (!options.save.save(save)) return false;
-      current = options.save.load();
+      const committed = options.save.commit(save);
+      if (!committed) return false;
+      current = committed;
       return true;
     },
     completeStage(stageId: string, timeMs: number): boolean {

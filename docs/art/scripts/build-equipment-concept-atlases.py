@@ -30,7 +30,10 @@ def relative_path(root: Path, value: str) -> Path:
     require(isinstance(value, str) and bool(value), "Equipment path must be nonempty")
     path = Path(value)
     require(not path.is_absolute() and ".." not in path.parts, f"Equipment path must be relative: {value}")
-    return root / path
+    boundary = root.resolve()
+    candidate = (boundary / path).resolve()
+    require(candidate.is_relative_to(boundary), f"Equipment path escapes root: {value}")
+    return candidate
 
 
 def read_json(root: Path, value: str):

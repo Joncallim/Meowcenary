@@ -1,0 +1,924 @@
+{
+  "state": "CANDIDATE",
+  "ownerApproval": false,
+  "size": 44,
+  "sampling": "nearest",
+  "normalization": "whole 96px cell; no per-object enlargement",
+  "frames": [
+    {
+      "equipmentId": "equipment:commando-helmet",
+      "tier": 1,
+      "iconArtId": "equipment-icon:commando-helmet",
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-helmet"
+    },
+    {
+      "equipmentId": "equipment:commando-helmet",
+      "tier": 2,
+      "iconArtId": "equipment-icon:commando-helmet:t2",
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-helmet:t2"
+    },
+    {
+      "equipmentId": "equipment:commando-helmet",
+      "tier": 3,
+      "iconArtId": "equipment-icon:commando-helmet:t3",
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-helmet:t3"
+    },
+    {
+      "equipmentId": "equipment:commando-helmet",
+      "tier": 4,
+      "iconArtId": "equipment-icon:commando-helmet:t4",
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-helmet:t4"
+    },
+    {
+      "equipmentId": "equipment:commando-armour",
+      "tier": 1,
+      "iconArtId": "equipment-icon:commando-armour",
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-armour"
+    },
+    {
+      "equipmentId": "equipment:commando-armour",
+      "tier": 2,
+      "iconArtId": "equipment-icon:commando-armour:t2",
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-armour:t2"
+    },
+    {
+      "equipmentId": "equipment:commando-armour",
+      "tier": 3,
+      "iconArtId": "equipment-icon:commando-armour:t3",
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-armour:t3"
+    },
+    {
+      "equipmentId": "equipment:commando-armour",
+      "tier": 4,
+      "iconArtId": "equipment-icon:commando-armour:t4",
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-armour:t4"
+    },
+    {
+      "equipmentId": "equipment:commando-gloves",
+      "tier": 1,
+      "iconArtId": "equipment-icon:commando-gloves",
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-gloves"
+    },
+    {
+      "equipmentId": "equipment:commando-gloves",
+      "tier": 2,
+      "iconArtId": "equipment-icon:commando-gloves:t2",
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-gloves:t2"
+    },
+    {
+      "equipmentId": "equipment:commando-gloves",
+      "tier": 3,
+      "iconArtId": "equipment-icon:commando-gloves:t3",
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-gloves:t3"
+    },
+    {
+      "equipmentId": "equipment:commando-gloves",
+      "tier": 4,
+      "iconArtId": "equipment-icon:commando-gloves:t4",
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-gloves:t4"
+    },
+    {
+      "equipmentId": "equipment:commando-boots",
+      "tier": 1,
+      "iconArtId": "equipment-icon:commando-boots",
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-boots"
+    },
+    {
+      "equipmentId": "equipment:commando-boots",
+      "tier": 2,
+      "iconArtId": "equipment-icon:commando-boots:t2",
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-boots:t2"
+    },
+    {
+      "equipmentId": "equipment:commando-boots",
+      "tier": 3,
+      "iconArtId": "equipment-icon:commando-boots:t3",
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-boots:t3"
+    },
+    {
+      "equipmentId": "equipment:commando-boots",
+      "tier": 4,
+      "iconArtId": "equipment-icon:commando-boots:t4",
+      "resourceId": "resource:equipment-commando",
+      "frameKey": "equipment-icon:commando-boots:t4"
+    },
+    {
+      "equipmentId": "equipment:scavenger-helmet",
+      "tier": 1,
+      "iconArtId": "equipment-icon:scavenger-helmet",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-helmet"
+    },
+    {
+      "equipmentId": "equipment:scavenger-helmet",
+      "tier": 2,
+      "iconArtId": "equipment-icon:scavenger-helmet:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-helmet:t2"
+    },
+    {
+      "equipmentId": "equipment:scavenger-helmet",
+      "tier": 3,
+      "iconArtId": "equipment-icon:scavenger-helmet:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-helmet:t3"
+    },
+    {
+      "equipmentId": "equipment:scavenger-helmet",
+      "tier": 4,
+      "iconArtId": "equipment-icon:scavenger-helmet:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-helmet:t4"
+    },
+    {
+      "equipmentId": "equipment:scavenger-armour",
+      "tier": 1,
+      "iconArtId": "equipment-icon:scavenger-armour",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-armour"
+    },
+    {
+      "equipmentId": "equipment:scavenger-armour",
+      "tier": 2,
+      "iconArtId": "equipment-icon:scavenger-armour:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-armour:t2"
+    },
+    {
+      "equipmentId": "equipment:scavenger-armour",
+      "tier": 3,
+      "iconArtId": "equipment-icon:scavenger-armour:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-armour:t3"
+    },
+    {
+      "equipmentId": "equipment:scavenger-armour",
+      "tier": 4,
+      "iconArtId": "equipment-icon:scavenger-armour:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-armour:t4"
+    },
+    {
+      "equipmentId": "equipment:scavenger-gloves",
+      "tier": 1,
+      "iconArtId": "equipment-icon:scavenger-gloves",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-gloves"
+    },
+    {
+      "equipmentId": "equipment:scavenger-gloves",
+      "tier": 2,
+      "iconArtId": "equipment-icon:scavenger-gloves:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-gloves:t2"
+    },
+    {
+      "equipmentId": "equipment:scavenger-gloves",
+      "tier": 3,
+      "iconArtId": "equipment-icon:scavenger-gloves:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-gloves:t3"
+    },
+    {
+      "equipmentId": "equipment:scavenger-gloves",
+      "tier": 4,
+      "iconArtId": "equipment-icon:scavenger-gloves:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-gloves:t4"
+    },
+    {
+      "equipmentId": "equipment:scavenger-boots",
+      "tier": 1,
+      "iconArtId": "equipment-icon:scavenger-boots",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-boots"
+    },
+    {
+      "equipmentId": "equipment:scavenger-boots",
+      "tier": 2,
+      "iconArtId": "equipment-icon:scavenger-boots:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-boots:t2"
+    },
+    {
+      "equipmentId": "equipment:scavenger-boots",
+      "tier": 3,
+      "iconArtId": "equipment-icon:scavenger-boots:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-boots:t3"
+    },
+    {
+      "equipmentId": "equipment:scavenger-boots",
+      "tier": 4,
+      "iconArtId": "equipment-icon:scavenger-boots:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:scavenger-boots:t4"
+    },
+    {
+      "equipmentId": "equipment:juggernaut-helmet",
+      "tier": 1,
+      "iconArtId": "equipment-icon:juggernaut-helmet",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-helmet"
+    },
+    {
+      "equipmentId": "equipment:juggernaut-helmet",
+      "tier": 2,
+      "iconArtId": "equipment-icon:juggernaut-helmet:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-helmet:t2"
+    },
+    {
+      "equipmentId": "equipment:juggernaut-helmet",
+      "tier": 3,
+      "iconArtId": "equipment-icon:juggernaut-helmet:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-helmet:t3"
+    },
+    {
+      "equipmentId": "equipment:juggernaut-helmet",
+      "tier": 4,
+      "iconArtId": "equipment-icon:juggernaut-helmet:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-helmet:t4"
+    },
+    {
+      "equipmentId": "equipment:juggernaut-armour",
+      "tier": 1,
+      "iconArtId": "equipment-icon:juggernaut-armour",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-armour"
+    },
+    {
+      "equipmentId": "equipment:juggernaut-armour",
+      "tier": 2,
+      "iconArtId": "equipment-icon:juggernaut-armour:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-armour:t2"
+    },
+    {
+      "equipmentId": "equipment:juggernaut-armour",
+      "tier": 3,
+      "iconArtId": "equipment-icon:juggernaut-armour:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-armour:t3"
+    },
+    {
+      "equipmentId": "equipment:juggernaut-armour",
+      "tier": 4,
+      "iconArtId": "equipment-icon:juggernaut-armour:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-armour:t4"
+    },
+    {
+      "equipmentId": "equipment:juggernaut-gloves",
+      "tier": 1,
+      "iconArtId": "equipment-icon:juggernaut-gloves",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-gloves"
+    },
+    {
+      "equipmentId": "equipment:juggernaut-gloves",
+      "tier": 2,
+      "iconArtId": "equipment-icon:juggernaut-gloves:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-gloves:t2"
+    },
+    {
+      "equipmentId": "equipment:juggernaut-gloves",
+      "tier": 3,
+      "iconArtId": "equipment-icon:juggernaut-gloves:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-gloves:t3"
+    },
+    {
+      "equipmentId": "equipment:juggernaut-gloves",
+      "tier": 4,
+      "iconArtId": "equipment-icon:juggernaut-gloves:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-gloves:t4"
+    },
+    {
+      "equipmentId": "equipment:juggernaut-boots",
+      "tier": 1,
+      "iconArtId": "equipment-icon:juggernaut-boots",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-boots"
+    },
+    {
+      "equipmentId": "equipment:juggernaut-boots",
+      "tier": 2,
+      "iconArtId": "equipment-icon:juggernaut-boots:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-boots:t2"
+    },
+    {
+      "equipmentId": "equipment:juggernaut-boots",
+      "tier": 3,
+      "iconArtId": "equipment-icon:juggernaut-boots:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-boots:t3"
+    },
+    {
+      "equipmentId": "equipment:juggernaut-boots",
+      "tier": 4,
+      "iconArtId": "equipment-icon:juggernaut-boots:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:juggernaut-boots:t4"
+    },
+    {
+      "equipmentId": "equipment:pyro-helmet",
+      "tier": 1,
+      "iconArtId": "equipment-icon:pyro-helmet",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-helmet"
+    },
+    {
+      "equipmentId": "equipment:pyro-helmet",
+      "tier": 2,
+      "iconArtId": "equipment-icon:pyro-helmet:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-helmet:t2"
+    },
+    {
+      "equipmentId": "equipment:pyro-helmet",
+      "tier": 3,
+      "iconArtId": "equipment-icon:pyro-helmet:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-helmet:t3"
+    },
+    {
+      "equipmentId": "equipment:pyro-helmet",
+      "tier": 4,
+      "iconArtId": "equipment-icon:pyro-helmet:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-helmet:t4"
+    },
+    {
+      "equipmentId": "equipment:pyro-armour",
+      "tier": 1,
+      "iconArtId": "equipment-icon:pyro-armour",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-armour"
+    },
+    {
+      "equipmentId": "equipment:pyro-armour",
+      "tier": 2,
+      "iconArtId": "equipment-icon:pyro-armour:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-armour:t2"
+    },
+    {
+      "equipmentId": "equipment:pyro-armour",
+      "tier": 3,
+      "iconArtId": "equipment-icon:pyro-armour:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-armour:t3"
+    },
+    {
+      "equipmentId": "equipment:pyro-armour",
+      "tier": 4,
+      "iconArtId": "equipment-icon:pyro-armour:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-armour:t4"
+    },
+    {
+      "equipmentId": "equipment:pyro-gloves",
+      "tier": 1,
+      "iconArtId": "equipment-icon:pyro-gloves",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-gloves"
+    },
+    {
+      "equipmentId": "equipment:pyro-gloves",
+      "tier": 2,
+      "iconArtId": "equipment-icon:pyro-gloves:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-gloves:t2"
+    },
+    {
+      "equipmentId": "equipment:pyro-gloves",
+      "tier": 3,
+      "iconArtId": "equipment-icon:pyro-gloves:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-gloves:t3"
+    },
+    {
+      "equipmentId": "equipment:pyro-gloves",
+      "tier": 4,
+      "iconArtId": "equipment-icon:pyro-gloves:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-gloves:t4"
+    },
+    {
+      "equipmentId": "equipment:pyro-boots",
+      "tier": 1,
+      "iconArtId": "equipment-icon:pyro-boots",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-boots"
+    },
+    {
+      "equipmentId": "equipment:pyro-boots",
+      "tier": 2,
+      "iconArtId": "equipment-icon:pyro-boots:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-boots:t2"
+    },
+    {
+      "equipmentId": "equipment:pyro-boots",
+      "tier": 3,
+      "iconArtId": "equipment-icon:pyro-boots:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-boots:t3"
+    },
+    {
+      "equipmentId": "equipment:pyro-boots",
+      "tier": 4,
+      "iconArtId": "equipment-icon:pyro-boots:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:pyro-boots:t4"
+    },
+    {
+      "equipmentId": "equipment:recon-helmet",
+      "tier": 1,
+      "iconArtId": "equipment-icon:recon-helmet",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-helmet"
+    },
+    {
+      "equipmentId": "equipment:recon-helmet",
+      "tier": 2,
+      "iconArtId": "equipment-icon:recon-helmet:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-helmet:t2"
+    },
+    {
+      "equipmentId": "equipment:recon-helmet",
+      "tier": 3,
+      "iconArtId": "equipment-icon:recon-helmet:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-helmet:t3"
+    },
+    {
+      "equipmentId": "equipment:recon-helmet",
+      "tier": 4,
+      "iconArtId": "equipment-icon:recon-helmet:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-helmet:t4"
+    },
+    {
+      "equipmentId": "equipment:recon-armour",
+      "tier": 1,
+      "iconArtId": "equipment-icon:recon-armour",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-armour"
+    },
+    {
+      "equipmentId": "equipment:recon-armour",
+      "tier": 2,
+      "iconArtId": "equipment-icon:recon-armour:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-armour:t2"
+    },
+    {
+      "equipmentId": "equipment:recon-armour",
+      "tier": 3,
+      "iconArtId": "equipment-icon:recon-armour:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-armour:t3"
+    },
+    {
+      "equipmentId": "equipment:recon-armour",
+      "tier": 4,
+      "iconArtId": "equipment-icon:recon-armour:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-armour:t4"
+    },
+    {
+      "equipmentId": "equipment:recon-gloves",
+      "tier": 1,
+      "iconArtId": "equipment-icon:recon-gloves",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-gloves"
+    },
+    {
+      "equipmentId": "equipment:recon-gloves",
+      "tier": 2,
+      "iconArtId": "equipment-icon:recon-gloves:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-gloves:t2"
+    },
+    {
+      "equipmentId": "equipment:recon-gloves",
+      "tier": 3,
+      "iconArtId": "equipment-icon:recon-gloves:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-gloves:t3"
+    },
+    {
+      "equipmentId": "equipment:recon-gloves",
+      "tier": 4,
+      "iconArtId": "equipment-icon:recon-gloves:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-gloves:t4"
+    },
+    {
+      "equipmentId": "equipment:recon-boots",
+      "tier": 1,
+      "iconArtId": "equipment-icon:recon-boots",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-boots"
+    },
+    {
+      "equipmentId": "equipment:recon-boots",
+      "tier": 2,
+      "iconArtId": "equipment-icon:recon-boots:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-boots:t2"
+    },
+    {
+      "equipmentId": "equipment:recon-boots",
+      "tier": 3,
+      "iconArtId": "equipment-icon:recon-boots:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-boots:t3"
+    },
+    {
+      "equipmentId": "equipment:recon-boots",
+      "tier": 4,
+      "iconArtId": "equipment-icon:recon-boots:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:recon-boots:t4"
+    },
+    {
+      "equipmentId": "equipment:medic-helmet",
+      "tier": 1,
+      "iconArtId": "equipment-icon:medic-helmet",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-helmet"
+    },
+    {
+      "equipmentId": "equipment:medic-helmet",
+      "tier": 2,
+      "iconArtId": "equipment-icon:medic-helmet:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-helmet:t2"
+    },
+    {
+      "equipmentId": "equipment:medic-helmet",
+      "tier": 3,
+      "iconArtId": "equipment-icon:medic-helmet:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-helmet:t3"
+    },
+    {
+      "equipmentId": "equipment:medic-helmet",
+      "tier": 4,
+      "iconArtId": "equipment-icon:medic-helmet:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-helmet:t4"
+    },
+    {
+      "equipmentId": "equipment:medic-armour",
+      "tier": 1,
+      "iconArtId": "equipment-icon:medic-armour",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-armour"
+    },
+    {
+      "equipmentId": "equipment:medic-armour",
+      "tier": 2,
+      "iconArtId": "equipment-icon:medic-armour:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-armour:t2"
+    },
+    {
+      "equipmentId": "equipment:medic-armour",
+      "tier": 3,
+      "iconArtId": "equipment-icon:medic-armour:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-armour:t3"
+    },
+    {
+      "equipmentId": "equipment:medic-armour",
+      "tier": 4,
+      "iconArtId": "equipment-icon:medic-armour:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-armour:t4"
+    },
+    {
+      "equipmentId": "equipment:medic-gloves",
+      "tier": 1,
+      "iconArtId": "equipment-icon:medic-gloves",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-gloves"
+    },
+    {
+      "equipmentId": "equipment:medic-gloves",
+      "tier": 2,
+      "iconArtId": "equipment-icon:medic-gloves:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-gloves:t2"
+    },
+    {
+      "equipmentId": "equipment:medic-gloves",
+      "tier": 3,
+      "iconArtId": "equipment-icon:medic-gloves:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-gloves:t3"
+    },
+    {
+      "equipmentId": "equipment:medic-gloves",
+      "tier": 4,
+      "iconArtId": "equipment-icon:medic-gloves:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-gloves:t4"
+    },
+    {
+      "equipmentId": "equipment:medic-boots",
+      "tier": 1,
+      "iconArtId": "equipment-icon:medic-boots",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-boots"
+    },
+    {
+      "equipmentId": "equipment:medic-boots",
+      "tier": 2,
+      "iconArtId": "equipment-icon:medic-boots:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-boots:t2"
+    },
+    {
+      "equipmentId": "equipment:medic-boots",
+      "tier": 3,
+      "iconArtId": "equipment-icon:medic-boots:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-boots:t3"
+    },
+    {
+      "equipmentId": "equipment:medic-boots",
+      "tier": 4,
+      "iconArtId": "equipment-icon:medic-boots:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:medic-boots:t4"
+    },
+    {
+      "equipmentId": "equipment:technician-helmet",
+      "tier": 1,
+      "iconArtId": "equipment-icon:technician-helmet",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-helmet"
+    },
+    {
+      "equipmentId": "equipment:technician-helmet",
+      "tier": 2,
+      "iconArtId": "equipment-icon:technician-helmet:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-helmet:t2"
+    },
+    {
+      "equipmentId": "equipment:technician-helmet",
+      "tier": 3,
+      "iconArtId": "equipment-icon:technician-helmet:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-helmet:t3"
+    },
+    {
+      "equipmentId": "equipment:technician-helmet",
+      "tier": 4,
+      "iconArtId": "equipment-icon:technician-helmet:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-helmet:t4"
+    },
+    {
+      "equipmentId": "equipment:technician-armour",
+      "tier": 1,
+      "iconArtId": "equipment-icon:technician-armour",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-armour"
+    },
+    {
+      "equipmentId": "equipment:technician-armour",
+      "tier": 2,
+      "iconArtId": "equipment-icon:technician-armour:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-armour:t2"
+    },
+    {
+      "equipmentId": "equipment:technician-armour",
+      "tier": 3,
+      "iconArtId": "equipment-icon:technician-armour:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-armour:t3"
+    },
+    {
+      "equipmentId": "equipment:technician-armour",
+      "tier": 4,
+      "iconArtId": "equipment-icon:technician-armour:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-armour:t4"
+    },
+    {
+      "equipmentId": "equipment:technician-gloves",
+      "tier": 1,
+      "iconArtId": "equipment-icon:technician-gloves",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-gloves"
+    },
+    {
+      "equipmentId": "equipment:technician-gloves",
+      "tier": 2,
+      "iconArtId": "equipment-icon:technician-gloves:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-gloves:t2"
+    },
+    {
+      "equipmentId": "equipment:technician-gloves",
+      "tier": 3,
+      "iconArtId": "equipment-icon:technician-gloves:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-gloves:t3"
+    },
+    {
+      "equipmentId": "equipment:technician-gloves",
+      "tier": 4,
+      "iconArtId": "equipment-icon:technician-gloves:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-gloves:t4"
+    },
+    {
+      "equipmentId": "equipment:technician-boots",
+      "tier": 1,
+      "iconArtId": "equipment-icon:technician-boots",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-boots"
+    },
+    {
+      "equipmentId": "equipment:technician-boots",
+      "tier": 2,
+      "iconArtId": "equipment-icon:technician-boots:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-boots:t2"
+    },
+    {
+      "equipmentId": "equipment:technician-boots",
+      "tier": 3,
+      "iconArtId": "equipment-icon:technician-boots:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-boots:t3"
+    },
+    {
+      "equipmentId": "equipment:technician-boots",
+      "tier": 4,
+      "iconArtId": "equipment-icon:technician-boots:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:technician-boots:t4"
+    },
+    {
+      "equipmentId": "equipment:demolition-helmet",
+      "tier": 1,
+      "iconArtId": "equipment-icon:demolition-helmet",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-helmet"
+    },
+    {
+      "equipmentId": "equipment:demolition-helmet",
+      "tier": 2,
+      "iconArtId": "equipment-icon:demolition-helmet:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-helmet:t2"
+    },
+    {
+      "equipmentId": "equipment:demolition-helmet",
+      "tier": 3,
+      "iconArtId": "equipment-icon:demolition-helmet:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-helmet:t3"
+    },
+    {
+      "equipmentId": "equipment:demolition-helmet",
+      "tier": 4,
+      "iconArtId": "equipment-icon:demolition-helmet:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-helmet:t4"
+    },
+    {
+      "equipmentId": "equipment:demolition-armour",
+      "tier": 1,
+      "iconArtId": "equipment-icon:demolition-armour",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-armour"
+    },
+    {
+      "equipmentId": "equipment:demolition-armour",
+      "tier": 2,
+      "iconArtId": "equipment-icon:demolition-armour:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-armour:t2"
+    },
+    {
+      "equipmentId": "equipment:demolition-armour",
+      "tier": 3,
+      "iconArtId": "equipment-icon:demolition-armour:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-armour:t3"
+    },
+    {
+      "equipmentId": "equipment:demolition-armour",
+      "tier": 4,
+      "iconArtId": "equipment-icon:demolition-armour:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-armour:t4"
+    },
+    {
+      "equipmentId": "equipment:demolition-gloves",
+      "tier": 1,
+      "iconArtId": "equipment-icon:demolition-gloves",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-gloves"
+    },
+    {
+      "equipmentId": "equipment:demolition-gloves",
+      "tier": 2,
+      "iconArtId": "equipment-icon:demolition-gloves:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-gloves:t2"
+    },
+    {
+      "equipmentId": "equipment:demolition-gloves",
+      "tier": 3,
+      "iconArtId": "equipment-icon:demolition-gloves:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-gloves:t3"
+    },
+    {
+      "equipmentId": "equipment:demolition-gloves",
+      "tier": 4,
+      "iconArtId": "equipment-icon:demolition-gloves:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-gloves:t4"
+    },
+    {
+      "equipmentId": "equipment:demolition-boots",
+      "tier": 1,
+      "iconArtId": "equipment-icon:demolition-boots",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-boots"
+    },
+    {
+      "equipmentId": "equipment:demolition-boots",
+      "tier": 2,
+      "iconArtId": "equipment-icon:demolition-boots:t2",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-boots:t2"
+    },
+    {
+      "equipmentId": "equipment:demolition-boots",
+      "tier": 3,
+      "iconArtId": "equipment-icon:demolition-boots:t3",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-boots:t3"
+    },
+    {
+      "equipmentId": "equipment:demolition-boots",
+      "tier": 4,
+      "iconArtId": "equipment-icon:demolition-boots:t4",
+      "resourceId": "resource:equipment-sets",
+      "frameKey": "equipment-icon:demolition-boots:t4"
+    }
+  ],
+  "equipmentVisualsSHA256": "8972234300d8516afb5a18735af673527f2a1303bc6ba19dccbda3a9efae0410",
+  "equipmentBindingsSHA256": "f25c13c7db805045f1d4cf5c39796d09fa6570cfc514838d62de01684ad4fd7d",
+  "equipmentResourcesSHA256": "694ab04c53f3a6d0c60300ec2a8f8bc9093d61b4634bd033f37d4c1c3290acc9",
+  "runtimeFilesSHA256": {
+    "public/assets/equipment/commando/commando-equipment-atlas.png": "54728a764deeb63a4b396b79191b933346bb849ac0e6ecb148a24a3523bc14d6",
+    "public/assets/equipment/commando/commando-equipment-atlas.json": "b118fc2095ddbd45e1d8614b1c09ed8abaae43a4f5e426f512ab51644aee6ee6",
+    "public/assets/equipment/sets/equipment-sets-atlas.png": "7120f60c3696613c7ccfbabf4f6b7ba111a19b9867776e707e201a3eceb6d393",
+    "public/assets/equipment/sets/equipment-sets-atlas.json": "e8732d34d9f0f7812cc02a218668e7ebbebf37909e9b18e089d9228b6eb49229"
+  },
+  "outputsSHA256": {
+    "commando.png": "8204712880c61cc34605129918c42f93b36d222e2d1c2828fe984ddd0c07bfca",
+    "scavenger.png": "9c79f7976e61e77967c638f1dd3b15bd3170f0d96bc90d15d8f624cc13712fcd",
+    "juggernaut.png": "93e423b75ca8fa0fc7d586a643d37aa64035a910fa682a4eadb98035d3f37d12",
+    "pyro.png": "818eedb79a13ea7d7aa66f1b63f48b50bfb9ce6270a0610d40732703dc19b873",
+    "recon.png": "9fd760428e8150b3b246f4a4c7b5fefce03ed35c3a1485a85fe3b974651fd702",
+    "medic.png": "b8a59db602c74b580738b337828c533c436d26d8d4a1a2fc2b740496d7c8310b",
+    "technician.png": "0baaa1f5ca745ecdf8e2efe43289498520a39a6d97e914c3aad49bc123115122",
+    "demolition.png": "1aecdf7edc62fe82409461f3bd99c9aca9a65f994c53dfcb15c81cec7216f215"
+  }
+}

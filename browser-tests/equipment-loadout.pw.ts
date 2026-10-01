@@ -63,11 +63,18 @@ test('slot-first Equipment previews before commit and preserves semantic focus t
   await focus(page, 'loadout:equipment'); await press(page, 'Enter'); await settle(page);
   state = await diagnostic(page);
   expect(state.panel).toBe('equipment');
+  // The canonical Equipment surface has four vertical rows. Horizontal
+  // input stays on the current row; vertical input visits each physical slot.
   await press(page, 'ArrowRight');
-  expect((await diagnostic(page)).focusedKey).toBe('equipment-slot:armour');
-  await press(page, 'ArrowLeft');
-  await press(page, 'ArrowDown');
-  expect((await diagnostic(page)).focusedKey).toBe(page.viewportSize()!.width >= 674 ? `equipment-candidate:${id('equipment:commando-helmet')}` : 'equipment-slot:gloves');
+  expect((await diagnostic(page)).focusedKey).toBe('equipment-slot:helmet');
+  for (const slot of ['armour', 'gloves', 'boots']) {
+    await press(page, 'ArrowDown');
+    expect((await diagnostic(page)).focusedKey).toBe(`equipment-slot:${slot}`);
+  }
+  for (const slot of ['gloves', 'armour', 'helmet']) {
+    await press(page, 'ArrowUp');
+    expect((await diagnostic(page)).focusedKey).toBe(`equipment-slot:${slot}`);
+  }
   expect(state.buttons.filter((button) => button.key?.startsWith('equipment-candidate:'))).toHaveLength(8);
   expect(state.buttons.filter((button) => button.key?.startsWith('equipment-candidate:')).every((button) => button.text.includes('Helmet'))).toBe(true);
   const candidate = id('equipment:recon-helmet');

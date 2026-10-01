@@ -72,9 +72,15 @@ function fakeObject(
     strokeAlpha: 0,
     style: {},
   };
+  let parentContainer: { remove(child: unknown): unknown } | undefined;
   const api = {
+    get parentContainer() { return parentContainer; },
+    set parentContainer(value: { remove(child: unknown): unknown } | undefined) { parentContainer = value; },
     get state() {
       return { ...state, handlers: { ...state.handlers }, padding: { ...state.padding }, style: { ...state.style } };
+    },
+    get text() {
+      return state.kind === 'text' ? state.text : undefined;
     },
     get width() {
       return state.width;
@@ -267,18 +273,36 @@ function createFakeScene(
           get state() {
             return { ...base.state };
           },
+          get parentContainer() { return base.parentContainer; },
+          set parentContainer(value: { remove(child: unknown): unknown } | undefined) { base.parentContainer = value; },
           children: [] as FakeObject[],
+          get list(): FakeObject[] { return container.children; },
+          moveTo(child: unknown, index: number) {
+            const current = container.children.indexOf(child as FakeObject);
+            if (current < 0) throw new Error('Cannot move an unowned child');
+            container.children.splice(current, 1);
+            container.children.splice(index, 0, child as FakeObject);
+            return container;
+          },
+          remove(child: unknown) {
+            const index = container.children.indexOf(child as FakeObject);
+            if (index >= 0) container.children.splice(index, 1);
+            (child as FakeObject).parentContainer = undefined;
+            return container;
+          },
           add(children: unknown) {
             const list = Array.isArray(children) ? children : [children];
             list.forEach((child) => {
               const object = register(child as FakeObject);
               if (!container.children.includes(object)) {
+                object.parentContainer?.remove(object);
+                object.parentContainer = container;
                 container.children.push(object);
               }
             });
             return container;
           },
-          destroy(deep = false) {
+          destroy(deep = true) {
             if (deep) {
               container.children.forEach((child) => child.destroy());
             }
@@ -292,7 +316,7 @@ function createFakeScene(
         _x: number,
         _y: number,
         text: string,
-        style?: Record<string, unknown> & { padding?: { x?: number; y?: number }; resolution?: number },
+        style?: Record<string, unknown> & { padding?: { x?: number; y?: number; left?: number; right?: number; top?: number; bottom?: number }; resolution?: number },
       ) {
         if (failNextText) {
           failNextText = false;
@@ -302,12 +326,13 @@ function createFakeScene(
         const padX = style?.padding?.x ?? 10;
         const padY = style?.padding?.y ?? 8;
         // Phaser Text bounds include the padding on both axes.
-        const padding = { left: padX, top: padY, right: padX, bottom: padY };
+        const padding = { left: style?.padding?.left ?? padX, top: style?.padding?.top ?? padY,
+          right: style?.padding?.right ?? padX, bottom: style?.padding?.bottom ?? padY };
         const object = fakeObject(
           'text',
           text,
           Math.max(24, text.length * 8),
-          16 + padY * 2,
+          16 + padding.top + padding.bottom,
           padding,
           _x,
           _y,
@@ -432,6 +457,298 @@ describe('MenuScene', () => {
     expect(harness.context.saveData.equipmentLoadout?.helmet).toBe('recon');
   });
 
+  it('aligns the independently bounded Loadout footer with its 840px content lane on a wide safe viewport', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      root: unknown; safeCenterX: number; safeRightMargin: number;
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      renderLoadout(root: unknown, snapshot: import('../src/ui/menus').MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void;
+      focusables: FakeObject[];
+    };
+    // A wide safe viewport and a separately capped panel lane are independent
+    // geometry inputs; the fixed footer must use the owning panel's left edge.
+    Object.assign(harness.menuScene.scale, { width: 1920, height: 1080 });
+    scene.safeCenterX = 960; scene.safeRightMargin = 12;
+    scene.renderLoadout(scene.root, scene.controller.snapshot(), 1920, 58, 12, 44);
+    const gear = scene.focusables.find((button) => button.state.text === 'HELMET\nEmpty')!;
+    const footer = harness.buttonByLabel('Return to Contract')!;
+    expect(footer.state.x).toBe(gear.state.x);
+    expect(footer.state.width).toBe(840);
+    expect(footer.state.x + footer.state.width).toBe(1380);
+  });
+
+  it('keeps native inline gear, router and framed readiness geometry together at 360px and 390px without inventing fresh equipment', () => {
+    for (const width of [360, 390]) {
+      const harness = createHarness({ create: false });
+      Object.assign(harness.menuScene.scale, { width, height: 844, displaySize: { width, height: 844 } });
+      harness.menuScene.create();
+      const scene = harness.menuScene as unknown as {
+        currentViewport: UiViewport; focusables: FakeObject[];
+      };
+      harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+      const slots = scene.focusables.slice(0, 4);
+      expect(slots.map((slot) => slot.state.text)).toEqual(['HELMET\nEmpty', 'ARMOUR\nEmpty', 'GLOVES\nEmpty', 'BOOTS\nEmpty']);
+      expect(new Set(slots.map((slot) => slot.state.y)).size).toBe(1);
+      slots.forEach((slot, index) => {
+        expect(slot.state.width).toBeGreaterThanOrEqual(minimumHitTarget(scene.currentViewport));
+        if (index) expect(slot.state.x).toBeGreaterThanOrEqual(slots[index - 1]!.state.x + slots[index - 1]!.state.width);
+      });
+      expect(slots[3]!.state.x + slots[3]!.state.width).toBeLessThanOrEqual(width - 16);
+      const equipment = harness.buttonByLabel('Equipment')!;
+      const gunsmith = harness.buttonByLabel('Gunsmith')!;
+      expect(equipment.state.y).toBe(gunsmith.state.y);
+      const readiness = harness.objects.find((object) => object.state.text === 'RUN READINESS' && !object.state.destroyed)!;
+      expect(readiness.state.x).toBe(slots[0]!.state.x + 16);
+      expect(readiness.state.y).toBe(equipment.state.y + equipment.state.height + 48);
+      const footer = harness.buttonByLabel('Return to Contract')!;
+      expect(readiness.state.y + readiness.state.height).toBeLessThan(footer.state.y);
+      const title = harness.objects.find((object) => object.state.text === 'LOADOUT' && !object.state.destroyed)!;
+      const subtitle = harness.objects.find((object) => object.state.text === 'PRE-RUN ENGINEERING' && !object.state.destroyed)!;
+      expect(title.state.x).toBe(slots[0]!.state.x + 12);
+      expect(title.state.y).toBeLessThan(subtitle.state.y);
+      expect(subtitle.state.y + subtitle.state.height).toBeLessThan(slots[0]!.state.y);
+      expect(harness.context.saveData.progression.scrap).toBe(0);
+      expect(Object.keys(harness.context.saveData.equipment)).toHaveLength(0);
+      expect(harness.textContents().join('\n')).toContain('Gunsmith: Unconfigured');
+    }
+  });
+
+  it('renders Browse Sets as an unframed native section while retaining its 44px focus and expansion interaction', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      uiVisuals: { addPanel(...args: unknown[]): unknown }; currentViewport: UiViewport;
+      focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>;
+      navigator: { index: number; setIndex(index: number): void }; focusRings: FakeObject[];
+      inputController: { getInputMode(): 'keyboard' | 'pointer' }; applyFocus(): void; refreshInputPresentation(): void;
+      scrollObjects: Array<{ object: FakeObject; ownerIndex?: number }>;
+    };
+    const panels = vi.spyOn(scene.uiVisuals, 'addPanel');
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const browse = harness.buttonByLabel('BROWSE SETS')!;
+    const bounds = browse.getBounds();
+    expect(panels.mock.calls.filter((call) => call[2] === bounds.centerY && call[3] === bounds.width && call[4] === bounds.height && /card$/.test(String(call[5]))).map((call) => [call[1], call[2], call[3], call[4], call[5]])).toEqual([]);
+    expect(browse.state.style).toMatchObject({ color: '#f78003', fontSize: '10px', align: 'left' });
+    expect(bounds.height).toBeGreaterThanOrEqual(minimumHitTarget(scene.currentViewport));
+    expect(browse.state.interactive).toBe(true);
+    expect(scene.focusKeyByButton.get(browse)).toBe('equipment:browse-sets');
+    const mode = vi.spyOn(scene.inputController, 'getInputMode').mockReturnValue('keyboard');
+    const browseIndex = scene.focusables.indexOf(browse);
+    scene.navigator.setIndex(browseIndex); scene.applyFocus();
+    expect(browse.state.style.color).toBe('#f78003');
+    expect(scene.focusRings[browseIndex]!.state.strokeAlpha).toBe(FocusStroke.alpha);
+    mode.mockReturnValue('pointer'); browse.state.handlers.pointerover!({ y: bounds.centerY }); scene.refreshInputPresentation();
+    expect(browse.state.style.color).toBe('#f78003');
+    expect(scene.focusRings[browseIndex]!.state.strokeAlpha).toBe(FocusStroke.alpha);
+    expect(scene.scrollObjects.some(({ object, ownerIndex }) => object === browse && ownerIndex === scene.focusables.indexOf(browse))).toBe(true);
+    const before = harness.context.saveData;
+    browse.state.handlers.pointerup!();
+    expect(harness.context.saveData).toBe(before);
+    expect(harness.textContents().some((copy) => copy.includes('2-piece INACTIVE'))).toBe(true);
+    const close = harness.buttonByLabel('CLOSE SETS')!;
+    expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment:browse-sets');
+    expect(close.getBounds().height).toBeGreaterThanOrEqual(minimumHitTarget(scene.currentViewport));
+    close.state.handlers.pointerup!();
+    expect(harness.buttonByLabel('BROWSE SETS')).toBeDefined();
+    expect(harness.context.saveData).toBe(before);
+  });
+
+  it('dims disabled Fabricate chrome after an unframed section without dimming the neighboring Back control', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as { uiVisuals: { addPanel(...args: unknown[]): unknown } };
+    const frames: Array<{ name: string; frame: FakeObject; alpha: ReturnType<typeof vi.fn> }> = [];
+    vi.spyOn(scene.uiVisuals, 'addPanel').mockImplementation((_scene, x, y, width, height, name) => {
+      const frame = fakeObject('rect', '', width as number, height as number, undefined,
+        (x as number) - (width as number) / 2, (y as number) - (height as number) / 2);
+      const alpha = vi.fn(() => frame);
+      Object.assign(frame, { setAlpha: alpha, setTint: vi.fn(() => frame) });
+      frames.push({ name: String(name), frame, alpha });
+      return frame;
+    });
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    frames.length = 0;
+    harness.buttonByLabel('Commando Helmet\nFABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
+    const fabricate = harness.buttonByLabel('Fabricate for 100 Scrap')!;
+    const back = harness.buttonByLabel('Back')!;
+    const cardFor = (button: FakeObject) => frames.find(({ name, frame }) => name === 'figma-card'
+      && frame.state.x === button.state.x && frame.state.y === button.state.y
+      && frame.state.width === button.state.width && frame.state.height === button.state.height)!;
+    expect(fabricate.state.interactive).toBe(false);
+    expect(cardFor(fabricate).alpha).toHaveBeenCalledWith(0.72);
+    expect(back.state.interactive).toBe(true);
+    expect(cardFor(back).alpha).not.toHaveBeenCalled();
+  });
+
+  it('keeps fresh Equipment truth empty, shows the catalog emblems before expansion and puts Back in the header after the full-width footer', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      focusables: FakeObject[]; scrollObjects: Array<{ object: FakeObject }>;
+      addCatalogIcon(root: unknown, x: number, y: number, id: string, size: number, ownerIndex?: number): void;
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+    };
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    const icons = vi.spyOn(scene, 'addCatalogIcon');
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const slots = scene.focusables.slice(0, 4);
+    const footer = harness.buttonByLabel('Fabricate Selected')!;
+    const back = harness.buttonByLabel('Back')!;
+    const browse = harness.buttonByLabel('BROWSE SETS')!;
+    expect(footer.state.x).toBe(slots[0]!.state.x);
+    expect(footer.state.width).toBe(slots[0]!.state.width);
+    expect(back.state.y + back.state.height).toBeLessThanOrEqual(slots[0]!.state.y);
+    expect(scene.scrollObjects.some(({ object }) => object === back || object === footer)).toBe(false);
+    expect(scene.focusables.indexOf(back)).toBeGreaterThan(scene.focusables.indexOf(footer));
+    expect(harness.textContents()).toContain('NO ACTIVE SET');
+    expect(harness.textContents()).toContain('0 pieces equipped');
+    const sets = scene.controller.snapshot().equipment.presentation.sets;
+    for (const set of sets) {
+      const calls = icons.mock.calls.filter((call) => call[3] === set.emblemArtId && call[5] === scene.focusables.indexOf(browse));
+      expect(calls).toHaveLength(1);
+      expect(calls[0]![2]).toBeGreaterThan(browse.state.y + browse.state.height);
+    }
+  });
+
+  it('anchors fresh Loadout in Mercenary and stock weapon facts before gear and routes its fixed action to the Contract list', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      scrollObjects: Array<{ object: FakeObject }>; focusables: FakeObject[];
+    };
+    const mercenary = harness.objects.find((object) => object.state.text === 'MERCENARY' && !object.state.destroyed)!;
+    const stock = harness.objects.find((object) => object.state.text === 'STOCK WEAPON' && !object.state.destroyed)!;
+    const gear = scene.focusables.find((object) => object.state.text === 'HELMET\nEmpty')!;
+    const equipment = harness.buttonByLabel('Equipment')!;
+    const gunsmith = harness.buttonByLabel('Gunsmith')!;
+    const readiness = harness.objects.find((object) => object.state.text === 'RUN READINESS' && !object.state.destroyed)!;
+    const launch = harness.buttonByLabel('Return to Contract')!;
+    expect(mercenary.state.y).toBeLessThan(stock.state.y);
+    expect(stock.state.y).toBeLessThan(gear.state.y);
+    expect(gear.state.y).toBeLessThan(equipment.state.y);
+    expect(equipment.state.y).toBe(gunsmith.state.y);
+    expect(readiness.state.y).toBeGreaterThan(equipment.state.y + equipment.state.height);
+    expect(scene.scrollObjects.some(({ object }) => object === launch)).toBe(false);
+    expect(harness.textContents().join('\n')).toContain('0/4 Equipment slots equipped');
+    const before = harness.context.saveData;
+    launch.state.handlers.pointerup!();
+    expect(harness.context.saveData).toBe(before);
+    expect(harness.textContents()).toContain('Choose Contract');
+  });
+
+  it('requests the full native Equipment resource closure including empty ghosts, unequipped Set emblems and tier upgrade art', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      ensureEquipmentPresentation(ids: readonly string[]): Promise<void>;
+      handleResize(): void;
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+    };
+    const requests = vi.spyOn(scene, 'ensureEquipmentPresentation').mockResolvedValue(undefined);
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    requests.mockClear();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const fresh = scene.controller.snapshot().equipment.presentation;
+    expect(fresh.sets.every((set) => set.equippedCount === 0)).toBe(true);
+    const freshIds = requests.mock.calls.flatMap(([ids]) => ids);
+    for (const id of [...fresh.slots.map((slot) => slot.placeholderArtId), ...fresh.sets.map((set) => set.emblemArtId)]) {
+      expect(freshIds, id).toContain(id);
+    }
+
+    harness.context.updateEquipment(() => ({
+      equipment: { candidate: { equipmentId: 'equipment:commando-helmet', tier: 2 } }, loadout: {},
+    }));
+    scene.handleResize();
+    requests.mockClear();
+    harness.buttonByLabel('Commando Helmet\nT2 • STORED')!.state.handlers.pointerup!();
+    const selected = scene.controller.snapshot().equipment;
+    const item = selected.presentation.slots.flatMap((slot) => slot.candidates).find((row) => row.instanceId === 'candidate')!;
+    const upgraded = selected.owned.find((row) => row.instanceId === 'candidate')!.upgradePreview!.after.slots
+      .flatMap((slot) => slot.candidates).find((row) => row.instanceId === 'candidate')!;
+    expect(upgraded.iconArtId).not.toBe(item.iconArtId);
+    const previewIds = requests.mock.calls.flatMap(([ids]) => ids);
+    expect(previewIds).toContain(item.iconArtId);
+    expect(previewIds).toContain(upgraded.iconArtId);
+  });
+
+  it('illustrates empty Equipment slots as subdued semantic ghosts without claiming ownership or painting Loadout overview ghosts', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      focusables: FakeObject[]; handleResize(): void;
+      addPanelArt(root: unknown, x: number, y: number, artId: string, size: number, subdued?: boolean, animate?: boolean, owner?: number): void;
+    };
+    const art = vi.spyOn(scene, 'addPanelArt');
+    const ghosts = () => art.mock.calls.filter((call) => call[3].startsWith('equipment-icon:scavenger-'));
+    const before = harness.context.saveData;
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    expect(ghosts()).toHaveLength(0);
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    expect(ghosts().map((call) => [call[3], call[4], call[5], call[6], call[7]])).toEqual([
+      ['equipment-icon:scavenger-helmet', 44, true, false, 0],
+      ['equipment-icon:scavenger-armour', 44, true, false, 1],
+      ['equipment-icon:scavenger-gloves', 44, true, false, 2],
+      ['equipment-icon:scavenger-boots', 44, true, false, 3],
+    ]);
+    expect(scene.focusables.slice(0, 4).map((slot) => slot.state.text)).toEqual(['HELMET\nEmpty', 'ARMOUR\nEmpty', 'GLOVES\nEmpty', 'BOOTS\nEmpty']);
+    expect(scene.focusables.slice(0, 4).every((slot) => slot.state.padding.left >= 50)).toBe(true);
+    ghosts().forEach((call) => {
+      const slot = scene.focusables[call[7]!]!;
+      expect(call[1] + call[4] / 2).toBeLessThan(slot.state.x + slot.state.padding.left);
+    });
+    harness.buttonByLabel('GLOVES\nEmpty')!.state.handlers.pointerup!();
+    expect(harness.context.saveData).toBe(before);
+    expect(Object.keys(harness.context.saveData.equipment)).toHaveLength(0);
+    harness.context.updateEquipment(() => ({ equipment: { helmet: { equipmentId: 'equipment:commando-helmet', tier: 1 } }, loadout: { helmet: 'helmet' } }));
+    art.mockClear(); scene.handleResize();
+    expect(ghosts().map((call) => call[3])).toEqual(['equipment-icon:scavenger-armour', 'equipment-icon:scavenger-gloves', 'equipment-icon:scavenger-boots']);
+    expect(scene.focusables[0]!.state.text).toContain('Commando Helmet');
+    art.mockClear(); harness.buttonByLabel('Back')!.state.handlers.pointerup!();
+    expect(ghosts()).toHaveLength(0);
+  });
+
+  it('shows all four vertical Equipment slots before inventory scrolling at 360×640 and keeps fabrication fixed across scroll and repaint', () => {
+    const harness = createHarness({ create: false });
+    Object.assign(harness.menuScene.scale, { width: 360, height: 640, displaySize: { width: 360, height: 640 } });
+    harness.menuScene.create();
+    harness.context.updateMeta((progression) => ({ ...progression, scrap: 100 }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>; navigator: { index: number };
+      scrollObjects: Array<{ object: FakeObject }>; currentViewport: UiViewport; scrollViewportTop: number;
+      scrollRegion: { viewportHeight: number; scrollOffset: number; scrollBy(delta: number): void };
+      applyScrollViewport(): void; handleResize(): void;
+    };
+    const slots = scene.focusables.slice(0, 4);
+    const bottom = scene.scrollViewportTop + scene.scrollRegion.viewportHeight;
+    expect(slots.map((slot) => slot.state.x)).toEqual(Array(4).fill(slots[0]!.state.x));
+    slots.forEach((slot, index) => {
+      expect(slot.state.height).toBeGreaterThanOrEqual(minimumHitTarget(scene.currentViewport));
+      expect(slot.state.y).toBeGreaterThanOrEqual(scene.scrollViewportTop);
+      expect(slot.state.y + slot.state.height).toBeLessThanOrEqual(bottom);
+      if (index) expect(slot.state.y).toBeGreaterThanOrEqual(slots[index - 1]!.state.y + slots[index - 1]!.state.height);
+    });
+    const emptyFooter = harness.buttonByLabel('Fabricate Selected')!;
+    expect(emptyFooter.state.interactive).toBe(false);
+    const before = harness.context.saveData;
+    harness.buttonByLabel('BROWSE SETS')!.state.handlers.pointerup!();
+    expect(harness.context.saveData).toBe(before);
+    expect(harness.textContents().some((copy) => copy.includes('2-piece'))).toBe(true);
+    harness.buttonByLabel('Commando Helmet\nFABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
+    expect(harness.context.saveData).toBe(before);
+    scene.handleResize();
+    expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-blueprint-detail:equipment:commando-helmet');
+    const footer = harness.buttonByLabel('Fabricate for 100 Scrap')!;
+    const footerY = footer.state.y;
+    expect(scene.scrollObjects.some(({ object }) => object === footer)).toBe(false);
+    scene.scrollRegion.scrollBy(10_000); scene.applyScrollViewport();
+    expect(footer.state.y).toBe(footerY);
+    expect(footer.state.interactive).toBe(true);
+    footer.state.handlers.pointerup!();
+    expect(harness.context.saveData.progression.scrap).toBe(0);
+    expect(harness.context.saveData.equipment['owned:equipment-commando-helmet']).toBeDefined();
+    expect(harness.context.saveData.equipmentLoadout?.helmet).toBeUndefined();
+    expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-detail:owned:equipment-commando-helmet');
+  });
+
   it('keeps blueprint selection separate from fabrication and fabrication separate from equip', () => {
     const harness = createHarness();
     harness.context.updateMeta((progression) => ({ ...progression, scrap: 100 }));
@@ -523,10 +840,10 @@ describe('MenuScene', () => {
     focusLabel('Equip Commando Helmet'); press(0);
     expect(harness.context.saveData.equipmentLoadout?.helmet).toBe('helmet');
     press(1);
-    expect(harness.textContents()).toContain('Loadout');
+    expect(harness.textContents()).toContain('LOADOUT');
   });
 
-  it('routes keyboard and controller directions through the rendered slot grid before the linear candidate list', () => {
+  it('routes keyboard and controller vertically through all four Equipment slots before Browse Sets and candidates', () => {
     const harness = createHarness();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
@@ -541,22 +858,65 @@ describe('MenuScene', () => {
       harness.keyboard.keyup(key); harness.menuScene.update(0, 16);
     };
     expect(focused()).toBe('equipment-slot:helmet');
-    press('ArrowDown'); expect(focused()).toBe('equipment-slot:gloves');
+    press('ArrowDown'); expect(focused()).toBe('equipment-slot:armour');
     press('ArrowUp'); expect(focused()).toBe('equipment-slot:helmet');
-    press('ArrowRight'); expect(focused()).toBe('equipment-slot:armour');
+    press('ArrowRight'); expect(focused()).toBe('equipment-slot:helmet');
+    press('ArrowDown'); expect(focused()).toBe('equipment-slot:armour');
+    press('ArrowDown'); expect(focused()).toBe('equipment-slot:gloves');
     press('ArrowDown'); expect(focused()).toBe('equipment-slot:boots');
+    press('ArrowDown'); expect(focused()).toBe('equipment:browse-sets');
     press('ArrowDown'); expect(focused()?.startsWith('equipment-blueprint:')).toBe(true);
-    press('ArrowDown'); expect(scene.navigator.index).toBe(5);
     const pad = new MockGamepad(); harness.input.gamepad!.connect(pad);
     for (const [width, height] of [[844, 390], [1280, 720], [1920, 1080]]) {
       Object.assign(harness.menuScene.scale, { width, height, displaySize: { width, height } });
       scene.handleResize(); scene.navigator.setIndex(0);
       pad.setButton(15, true); harness.menuScene.update(0, 16);
       pad.setButton(15, false); harness.menuScene.update(0, 16);
-      expect(focused()).toBe('equipment-slot:armour');
+      expect(focused()).toBe('equipment-slot:helmet');
       pad.setButton(13, true); harness.menuScene.update(0, 16);
       pad.setButton(13, false); harness.menuScene.update(0, 16);
-      expect(scene.navigator.index).toBe(4);
+      expect(focused()).toBe('equipment-slot:armour');
+    }
+  });
+
+  it('keeps the native tall Equipment hero at 142px while preserving first-row y304 and compact first-view slots', () => {
+    for (const height of [844, 640]) {
+      const harness = createHarness({ create: false });
+      Object.assign(harness.menuScene.scale, { width: 390, height, displaySize: { width: 390, height } });
+      harness.menuScene.create();
+      harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+      const scene = harness.menuScene as unknown as {
+        uiVisuals: { addPanel(...args: unknown[]): unknown }; focusables: FakeObject[];
+      };
+      const selectedFrames: FakeObject[] = [];
+      vi.spyOn(scene.uiVisuals, 'addPanel').mockImplementation((_scene, x, y, width, panelHeight, name) => {
+        const frame = fakeObject('rect', '', width as number, panelHeight as number, undefined, x as number, y as number);
+        if (name === 'figma-selected') selectedFrames.push(frame);
+        return frame;
+      });
+      harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+      expect(selectedFrames.map((frame) => frame.state.height)).toEqual([height === 844 ? 142 : 64]);
+      const frame = selectedFrames[0]!;
+      expect(frame.state.y - frame.state.height / 2).toBe(104);
+      expect(scene.focusables[0]!.state.y).toBe(height === 844 ? 304 : 192);
+      expect(scene.focusables.slice(0, 4).every((slot) => slot.state.y + slot.state.height < harness.buttonByLabel('Fabricate Selected')!.state.y)).toBe(true);
+    }
+  });
+
+  it('reports the actual engineered family and controller-owned activation in the bounded readiness card', () => {
+    for (const [familyId, familyName, activation] of [['pistol', 'Pistol', 'Active from start'], ['smg', 'SMG', 'Activates when acquired']] as const) {
+      const harness = createHarness();
+      harness.context.updateGunsmith(() => ({
+        builds: [{ id: 'build:readiness', name: 'Readiness Build', baseWeaponFamily: familyId, fitted: {}, traitParts: [] }],
+        selectedBuildId: 'build:readiness', fabricationSerials: {}, parts: {},
+      }));
+      harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+      const summary = harness.objects.find((object) => !object.state.destroyed && object.state.text.startsWith('0/4 Equipment slots equipped'))!;
+      expect(summary).toBeDefined();
+      expect(summary.state.text).toBe(`0/4 Equipment slots equipped\n${familyName} Build configured\n${activation}`);
+      const heading = harness.objects.find((object) => !object.state.destroyed && object.state.text === 'RUN READINESS')!;
+      expect(summary.state.y + summary.state.height).toBeLessThanOrEqual(heading.state.y - 16 + 114);
+      expect(harness.textContents()).toContain('GUNSMITH • ENGINEERED WEAPON FAMILY');
     }
   });
 
@@ -584,7 +944,7 @@ describe('MenuScene', () => {
     const scene = harness.menuScene as unknown as { controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot } };
     const preview = scene.controller.snapshot().gunsmith.selectedBuild!.preview!;
     for (const artId of [preview.baseArtId, ...preview.layers.map((layer) => layer.artId)]) {
-      expect(icons).toHaveBeenCalledWith(expect.anything(), expect.any(Number), expect.any(Number), artId, 176);
+      expect(icons.mock.calls.map((call) => [call[3], call[4]])).toContainEqual([artId, 88]);
     }
   });
   it('keeps every data-owned Gunsmith chassis reachable after creating a build', () => {
@@ -1247,6 +1607,101 @@ describe('MenuScene', () => {
     }
   });
 
+  it('clips a long menu with one shared stencil owner and closes it on rebuild', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      scrollObjects: Array<{ object: FakeObject }>;
+    };
+    const base = scene.controller.snapshot();
+    const snapshot = {
+      ...base, panel: 'compendium',
+      compendium: { ...base.compendium, entries: Array.from({ length: 50 }, (_, index) => ({
+        ...base.compendium.entries[index % base.compendium.entries.length]!,
+        enemyId: `clip-owner-${index}`, name: `Clip Owner ${index}`,
+      })) },
+    } as import('../src/ui/menus').MainMenuSnapshot;
+    scene.render(snapshot);
+    const masked = harness.objects.filter(object => !object.state.destroyed && object.state.mask !== undefined);
+    // A GeometryMask stencil clear/flush per row starves real rendering and
+    // input at desktop sizes even though all texture resources have settled.
+    expect(masked).toHaveLength(1);
+    expect(masked[0]!.state.kind).toBe('container');
+    const owner = masked[0]! as FakeObject & { children: FakeObject[] };
+    expect(scene.scrollObjects.length).toBeGreaterThan(50);
+    for (const { object } of scene.scrollObjects) {
+      expect(object.state.mask).toBeUndefined();
+      expect(owner.children).toContain(object);
+    }
+    const mask = owner.state.mask as { destroyed: boolean };
+    scene.render({ ...base, panel: 'home' });
+    expect(owner.state.destroyed).toBe(true);
+    expect(mask.destroyed).toBe(true);
+    expect(harness.objects.filter(object => !object.state.destroyed && object.state.mask !== undefined)).toHaveLength(0);
+  });
+
+  it('reports the complete live menu copy through the shared clip container', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      loadoutUiDiagnostics(): { copy: string[] };
+      scrollMaskContainer?: { children: FakeObject[] };
+    };
+    expect(scene.scrollMaskContainer?.children.length).toBeGreaterThan(0);
+    expect(scene.loadoutUiDiagnostics().copy.slice().sort()).toEqual(harness.textContents().slice().sort());
+  });
+
+  it('preserves authored card and later modal paint order when grouping clip ownership', () => {
+    const harness = createHarness();
+    const factory = createFakeScene(harness.context).environment.add;
+    const root = factory.container(0, 0);
+    const label = factory.text(20, 40, 'Foreground label', { resolution: 2 });
+    const card = factory.rectangle(20, 40, 160, 44);
+    const modalFrame = factory.rectangle(0, 0, 390, 844);
+    const modalLabel = factory.text(30, 200, 'PREPARING CONTRACT', { resolution: 2 });
+    // Registration follows creation; authoring moves the card below its label.
+    // A later modal must remain above the clipped group as well.
+    root.add([card, label, modalFrame, modalLabel]);
+    const scene = harness.menuScene as unknown as {
+      createScrollMask(root: unknown): void;
+      scrollObjects: Array<{ object: FakeObject; x: number; y: number }>;
+      scrollMaskContainer: FakeObject & { children: FakeObject[] };
+      scrollViewportTop: number; scrollViewportBottom: number;
+    };
+    scene.scrollObjects = [{ object: label, x: 20, y: 40 }, { object: card, x: 20, y: 40 }];
+    scene.scrollViewportTop = 20; scene.scrollViewportBottom = 200;
+    scene.createScrollMask(root);
+    expect(scene.scrollMaskContainer.children).toEqual([card, label]);
+    expect(root.children).toEqual([scene.scrollMaskContainer, modalFrame, modalLabel]);
+  });
+
+  it('paints the launch modal above scrolling content in the genuine Training render', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      root: FakeObject & { children: FakeObject[] };
+      controller: { open(panel: 'training'): import('../src/ui/menus').MainMenuSnapshot };
+      render(snapshot: import('../src/ui/menus').MainMenuSnapshot): void;
+      runLaunchState: string;
+    };
+    const snapshot = scene.controller.open('training');
+    scene.runLaunchState = 'loading';
+    scene.render(snapshot);
+    const painted: FakeObject[] = [];
+    const flatten = (node: FakeObject): void => {
+      const children = (node as FakeObject & { children?: FakeObject[] }).children;
+      if (children) children.forEach(flatten);
+      else painted.push(node);
+    };
+    flatten(scene.root);
+    const modal = painted.findIndex(object => object.state.kind === 'text'
+      && object.state.text.startsWith('PREPARING CONTRACT'));
+    const controls = painted.flatMap((object, index) => object.state.handlers.pointerup ? [index] : []);
+    expect(modal).toBeGreaterThan(-1);
+    expect(controls.length).toBeGreaterThan(0);
+    expect(Math.max(...controls)).toBeLessThan(modal);
+  });
+
   it('clips shared-list cards continuously while keeping clipped-off hit areas inert', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {
@@ -1258,6 +1713,7 @@ describe('MenuScene', () => {
       scrollViewportTop: number;
       scrollRegion: { scrollOffset: number; scrollBy(delta: number): void };
       scrollItemBounds: Map<number, { top: number; bottom: number }>;
+      scrollMaskContainer: FakeObject & { children: FakeObject[] };
     };
     const base = scene.controller.snapshot();
     const scrollingSnapshot = {
@@ -1282,7 +1738,9 @@ describe('MenuScene', () => {
 
     expect(target.state.visible).toBe(true);
     expect(target.state.interactive).toBe(true);
-    expect(target.state.mask).toBeDefined();
+    expect(target.state.mask).toBeUndefined();
+    expect(scene.scrollMaskContainer.state.mask).toBeDefined();
+    expect(scene.scrollMaskContainer.children).toContain(target);
     expect(originalBounds.top - scene.scrollRegion.scrollOffset).toBeLessThan(scene.scrollViewportTop);
 
     const partialOffset = scene.scrollRegion.scrollOffset;
@@ -1466,9 +1924,11 @@ describe('MenuScene', () => {
 
     const equipment = harness.buttonByLabel('Equipment')!;
     const gunsmith = harness.buttonByLabel('Gunsmith')!;
-    expect(equipment.state.width).toBeGreaterThanOrEqual(360);
+    expect(equipment.state.width).toBeGreaterThanOrEqual(44);
+    expect(equipment.state.width).toBeGreaterThan(equipment.state.text.length * 8);
     expect(gunsmith.state.width).toBe(equipment.state.width);
-    expect(equipment.state.x).toBe(gunsmith.state.x);
+    expect(gunsmith.state.x).toBe(equipment.state.x + equipment.state.width + 10);
+    expect(gunsmith.state.y).toBe(equipment.state.y);
   });
 
   it('renders a bounded narrow Home threat preview as enemy art rather than text', () => {
@@ -1510,7 +1970,7 @@ describe('MenuScene', () => {
       object.state.kind === 'text' && object.state.handlers.pointerup && !object.state.destroyed);
     expect(homeActions).toHaveLength(7);
     for (const action of homeActions) {
-      const paddedHeight = action.state.height - 16 + action.state.padding.top * 2;
+      const paddedHeight = action.getBounds().height;
       expect(action.state.y + paddedHeight, action.state.text).toBeLessThanOrEqual(safeBottom);
     }
 
@@ -1531,9 +1991,9 @@ describe('MenuScene', () => {
       const buttons = harness.objects.filter((object) => object.state.kind === 'text' && object.state.handlers.pointerup && !object.state.destroyed);
       expect(buttons).toHaveLength(7);
       for (const button of buttons) {
-        // The Phaser fake records padding separately rather than recomputing
-        // Text.height; mirror the real padded target bounds here.
-        const paddedHeight = button.state.height - 16 + button.state.padding.top * 2;
+        // Fixed Text bounds already include padding; use the same bounds as
+        // chrome, focus rings and the pointer target without counting it twice.
+        const paddedHeight = button.getBounds().height;
         expect(paddedHeight).toBeGreaterThanOrEqual(minimumHitTarget(viewport));
         expect(button.state.y + paddedHeight, `${width}x${height} ${button.state.text}`).toBeLessThanOrEqual(bottom);
       }
@@ -1558,12 +2018,12 @@ describe('MenuScene', () => {
   it('routes through one Loadout hub before Equipment or Gunsmith', () => {
     const harness = createHarness();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
-    expect(harness.textContents()).toEqual(expect.arrayContaining(['Loadout', 'Equipment', 'Gunsmith', 'Back']));
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['LOADOUT', 'Equipment', 'Gunsmith', 'Return to Contract']));
     expect(harness.textContents()).toEqual(expect.arrayContaining(['EQUIPMENT • WHOLE LOADOUT', 'GUNSMITH • ENGINEERED WEAPON FAMILY', 'HELMET\nEmpty', 'ARMOUR\nEmpty', 'GLOVES\nEmpty', 'BOOTS\nEmpty']));
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     expect(harness.textContents()).toContain('AVAILABLE BLUEPRINTS');
     harness.buttonByLabel('Back')!.state.handlers.pointerup!();
-    expect(harness.textContents()).toContain('Loadout');
+    expect(harness.textContents()).toContain('LOADOUT');
   });
 
   it('groups Contract cards by chapter and keeps locked rows inert with player-facing requirements', () => {
@@ -1776,7 +2236,7 @@ describe('MenuScene', () => {
     // ... because the old root was destroyed and a single live root remains,
     // i.e. the display tree was rebuilt instead of left frozen.
     const liveContainers = harness.objects.filter(
-      (object) => object.state.kind === 'container' && !object.state.destroyed,
+      (object) => object.state.kind === 'container' && !object.state.destroyed && object.parentContainer === undefined,
     );
     expect(liveContainers).toHaveLength(1);
     const destroyedRoots = harness.objects.filter(
@@ -1874,7 +2334,7 @@ describe('MenuScene', () => {
     scale.displaySize = { width: 844, height: 390 };
     scene.handleResize();
     const expectClearOfBack = (labels: readonly string[]) => {
-      const back = harness.buttonByLabel('Back')!;
+      const back = harness.buttonByLabel('Back') ?? harness.buttonByLabel('Return to Contract')!;
       for (const label of labels) {
         const target = harness.buttonByLabel(label)!;
         const overlaps = target.state.x < back.state.x + back.state.width
@@ -1894,6 +2354,7 @@ describe('MenuScene', () => {
       }
       expectClearOfBack([label]);
     }
+    harness.buttonByLabel('Return to Contract')!.state.handlers.pointerup!();
     harness.buttonByLabel('Back')!.state.handlers.pointerup!();
 
     harness.buttonByLabel('Career')!.state.handlers.pointerup!();
@@ -2768,7 +3229,7 @@ describe('MenuScene', () => {
     expect(harness.textContents()).not.toContain('Something went wrong — press Esc to retry');
 
     const liveContainers = harness.objects.filter(
-      (object) => object.state.kind === 'container' && !object.state.destroyed,
+      (object) => object.state.kind === 'container' && !object.state.destroyed && object.parentContainer === undefined,
     );
     expect(liveContainers).toHaveLength(1);
   });

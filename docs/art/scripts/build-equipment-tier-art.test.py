@@ -109,4 +109,44 @@ with tempfile.TemporaryDirectory(prefix='meow-198-tamper-') as directory:
  assert 'equipment-icon:future-authored-frame' in first_meta['frames']
  assert 'equipment-icon:commando-helmet:t2' not in first_meta['frames']
  passed('higher-tier authored frame ID is consumed generically')
+# Exercise the real importer and check sinks, not only the path helper. A valid
+# source/output behind an escaping link must be rejected even when its bytes
+# would otherwise pass pin/parity validation.
+symlink_failures=[]
+for boundary in ('source file', 'output directory', 'output file'):
+ for operation in ('write', 'check'):
+  with tempfile.TemporaryDirectory(prefix='meow-198-symlink-') as directory:
+   sandbox=Path(directory);fixture=sandbox/'repo';outside=sandbox/'outside'
+   fixture.mkdir();outside.mkdir()
+   inputs=[module.CONFIG_PATH,*config['catalogs'].values(),*[s['path'] for s in config['emblemSources']],*[s['path'] for s in config['masters']]]
+   for path in inputs+paths:
+    target=fixture/path;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(root/path,target)
+   relative=config['masters'][0]['path'] if boundary=='source file' else paths[0]
+   target=fixture/relative
+   if boundary=='output directory':
+    escaped=outside/'atlas';shutil.copytree(target.parent,escaped)
+    shutil.rmtree(target.parent);target.parent.symlink_to(escaped,target_is_directory=True)
+   else:
+    escaped=outside/target.name;shutil.copyfile(target,escaped)
+    target.unlink();target.symlink_to(escaped)
+   def snapshot(base):
+    return {str(p.relative_to(base)):(p.read_bytes(),p.stat().st_mtime_ns)
+            for p in base.rglob('*') if p.is_file()}
+   outside_before=snapshot(outside);fixture_before=snapshot(fixture)
+   label=f'{boundary} / {operation}'
+   try:
+    if operation=='write':module.write(fixture,fixture)
+    else:module.check(fixture)
+   except SystemExit as error:
+    assert 'escapes root' in str(error),(label,error)
+   else:
+    symlink_failures.append(label)
+    print('RED escaping symlink accepted: '+label)
+   if snapshot(outside)!=outside_before:
+    symlink_failures.append('outside file written: '+label)
+   if operation=='check':
+    if snapshot(fixture)!=fixture_before:
+     symlink_failures.append('check repaired fixture: '+label)
+   if label not in symlink_failures:passed('escaping symlink rejected without writes: '+label)
+assert not symlink_failures,'Escaping symlinks accepted: '+', '.join(symlink_failures)
 print(f'{checks} focused exporter checks passed')
