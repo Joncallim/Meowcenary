@@ -253,6 +253,20 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         game.loop.wake();
       },
       isSceneActive: (key: string): boolean => game.scene.isActive(key),
+      waitForInputFrame: (): Promise<boolean> => new Promise((resolve) => {
+        if (!game.isRunning || !game.loop.running) { resolve(false); return; }
+        const finish = (result: boolean): void => {
+          game.events.off(Phaser.Core.Events.POST_STEP, sampled);
+          game.events.off(Phaser.Core.Events.DESTROY, destroyed);
+          resolve(result);
+        };
+        const sampled = (): void => finish(true);
+        const destroyed = (): void => finish(false);
+        // Scene input owners sample during update, before POST_STEP. Observe
+        // one real sample without stepping/waking the game or altering input.
+        game.events.once(Phaser.Core.Events.POST_STEP, sampled);
+        game.events.once(Phaser.Core.Events.DESTROY, destroyed);
+      }),
       waitForPreparedGame: async (): Promise<boolean> => {
         // Join the owning serialized loader rather than imposing a synthetic
         // launch-time performance limit. The caller's test budget still bounds
@@ -431,7 +445,12 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
           game.renderer.postRender();
           context.clearRect(0, 0, canvas.width, canvas.height);
           context.drawImage(game.canvas, 0, 0);
-          return { image: canvas.toDataURL('image/png'), pixels: context.getImageData(0, 0, canvas.width, canvas.height).data };
+          // Actor-absent frames are pixel controls, never returned image
+          // artifacts. Keep their full readbacks; avoid two unused HD encodes.
+          return {
+            image: withActor ? canvas.toDataURL('image/png') : undefined,
+            pixels: context.getImageData(0, 0, canvas.width, canvas.height).data,
+          };
         };
         try {
           const plain = capture(false, false);

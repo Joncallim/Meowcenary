@@ -156,6 +156,33 @@ the corrected eight-case foldable/desktop run passes. Full exact-head local and
 hosted validation is still required before merge. The diagnostic correction
 does not change runtime Menu, resource-loading, input or gameplay semantics.
 
+At `73451d1`, the entire local closeout is green, including **103 browser passes /
+59 unchanged scoped skips**. Hosted run `36851319183` finished **101 passed /
+59 unchanged scoped skips / two failures**: both large-desktop cases exhausted
+their original 30-second whole-test budget. Resource handoff and cancellation
+conformance passed on all projects. The contrast case produced all ten PNGs
+and its five-point facts before expiry; every ratio passes (0.892–1.000).
+The lifecycle case reached the second Summary's focused Main Menu action.
+Both failure captures were inspected. No evidence of a failed contrast bound,
+HUD plate-count assertion or resource handoff is inferred from that timeout.
+
+The capture previously encoded four complete PNGs but returned only two.
+Avoiding the two actor-absent exports retains all four renders, all four full
+pixel arrays, exact energy calculations and both original inspectable images.
+An export-count regression requires exactly the two returned artifacts and is
+RED when the unused exports are restored. The lifecycle input driver now
+observes one real Phaser POST_STEP after each key-down/key-up, instead of two
+generic animation frames each. Phaser 3.90 emits POST_STEP after scene update,
+so the action and release have actually been sampled by their logical owner.
+The observer removes its completion/destroy listeners, cancels on game destroy,
+and never wakes or steps the game. Neutral samples after launch and Summary
+transition remain; resize keeps separate render-frame waits. Both Menu round
+trips, three launches, storage checks and all assertions remain. Test budgets,
+thresholds, screenshots and game runtime owners are unchanged. The corrected
+phone/1920×1080 eight-case run passes; full exact-head validation is pending.
+These are bounded diagnostic-work reductions, not a measured game-runtime
+performance improvement claim.
+
 The supplemental corrected checks also pass six cases: 412×915 at DPR 3,
 844×390 fine-pointer desktop, and 1114×720 foldable at DPR 3. Raw contrast and
 root/canvas/camera/world facts are in `supplemental-green.json`. Compact

@@ -22,6 +22,8 @@ type Seam = {
   waitForMenuPresentation(): Promise<boolean>;
   isSceneActive(key: string): boolean;
   waitForPreparedGame(): Promise<boolean>;
+  waitForInputFrame(): Promise<boolean>;
+  isMenuInputNeutral(): boolean;
   stopPreparingMenu(): boolean;
   placePlayerForArenaFraming(x: number, y: number): boolean;
   arenaFramingDiagnostics(): Framing | undefined;
@@ -73,7 +75,17 @@ test('world actor remains distinguishable beneath HUD meters and corner controls
       return Math.abs(state.camera.scroll.x - targetX) < 0.5 && Math.abs(state.camera.scroll.y - targetY) < 0.5 && sx >= 0 && sy >= 0;
     }).toBe(true);
     const framing = await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics());
-    const readability = await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.captureArenaReadability());
+    const capture = await page.evaluate(async () => {
+      const original = HTMLCanvasElement.prototype.toDataURL;
+      let encodes = 0;
+      HTMLCanvasElement.prototype.toDataURL = function (...args) { encodes++; return original.apply(this, args); };
+      try { return { readability: await globalThis.__MEOWCENARY_VISUAL_TEST__!.captureArenaReadability(), encodes }; }
+      finally { HTMLCanvasElement.prototype.toDataURL = original; }
+    });
+    const { readability } = capture;
+    // Only the two returned artifacts need PNG encoding. Four complete pixel
+    // readbacks still define the oracle; unused full-HD exports are waste.
+    expect(capture.encodes).toBe(2);
     expect(readability).toBeDefined();
     const { reference, actual, ...numbers } = readability!;
     for (const [label, image] of [['reference', reference], ['actual', actual]]) {
@@ -107,23 +119,25 @@ test('world actor remains distinguishable beneath HUD meters and corner controls
 });
 
 test('a stopped GameScene cannot repaint an old HUD during Menu resize', async ({ page }) => {
-  const frames = () => page.evaluate(() => new Promise<void>((resolve) =>
+  const renderFrames = () => page.evaluate(() => new Promise<void>((resolve) =>
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  const inputFrame = async () => expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForInputFrame())).toBe(true);
   const press = async (key: string) => {
     await page.keyboard.down(key);
-    await frames();
+    await inputFrame();
     await page.keyboard.up(key);
-    await frames();
+    await inputFrame();
   };
   const launch = async () => {
     expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
+    expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.isMenuInputNeutral())).toBe(true);
     await page.keyboard.down('Enter');
     try {
       expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForPreparedGame())).toBe(true);
     } finally {
       await page.keyboard.up('Enter');
     }
-    await frames();
+    await inputFrame();
   };
   const plateCount = () => page.evaluate(() => {
     const state = globalThis.__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics() as
@@ -139,7 +153,7 @@ test('a stopped GameScene cannot repaint an old HUD during Menu resize', async (
     // Only terminal content is a fixture. The shared Summary focus command,
     // Menu transition, shutdown, resize and second launch use production owners.
     expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.showRunSummary('lost'))).toBe(true);
-    await frames();
+    await inputFrame();
     await press('ArrowDown');
     await press('ArrowDown');
     await press('Enter');
@@ -147,9 +161,9 @@ test('a stopped GameScene cannot repaint an old HUD during Menu resize', async (
     expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
     const savedBeforeResize = await page.evaluate(() => JSON.stringify(Object.entries(localStorage).sort()));
     await page.setViewportSize({ width: viewport.width + 8, height: viewport.height + 8 });
-    await frames();
+    await renderFrames();
     await page.setViewportSize(viewport);
-    await frames();
+    await renderFrames();
     expect(await page.evaluate(() => JSON.stringify(Object.entries(localStorage).sort()))).toBe(savedBeforeResize);
     await launch();
     // A leaked PhaserHudView resize subscription creates two extra plates in
