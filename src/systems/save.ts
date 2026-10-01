@@ -834,6 +834,7 @@ export function sanitizeProgressionV4(raw: unknown): ProgressionStateV4 {
 
 export class SaveManager {
   private writeProtected = false;
+  private committedSnapshot?: SaveData;
 
   constructor(
     private readonly storage: StorageAdapter,
@@ -882,10 +883,21 @@ export class SaveManager {
         appliedGrantTransactions: sanitizeAppliedGrantTransactions(data.appliedGrantTransactions),
         grantTransactionFingerprints: sanitizeGrantTransactionFingerprints(data.grantTransactionFingerprints),
       });
-      return this.storage.setItem(this.key, JSON.stringify(sanitized)) === true;
+      if (this.storage.setItem(this.key, JSON.stringify(sanitized)) !== true) return false;
+      this.committedSnapshot = sanitized;
+      return true;
     } catch {
       return false;
     }
+  }
+
+  /** Publish exactly the canonical snapshot written by this transaction.
+   * A second storage read may throw, return null, or return an older value.
+   * Retain save()'s boolean API and reject a reported success without a write. */
+  commit(data: SaveData): SaveData | undefined {
+    const previous = this.committedSnapshot;
+    if (!this.save(data) || this.committedSnapshot === previous) return undefined;
+    return this.committedSnapshot;
   }
 
   /** V3-aware save per architecture §4.6. */
