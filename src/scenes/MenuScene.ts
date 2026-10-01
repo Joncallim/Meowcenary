@@ -1399,7 +1399,8 @@ export class MenuScene extends Phaser.Scene {
           const partRowHeight = Math.max(hitTarget, 76);
           const row = this.addButton(root, margin, y, label, partRowHeight, () => this.render(part.state === 'fitted-here'
             ? this.requireController().unequipGunPart(part.instanceId)
-            : this.requireController().fitGunPart(part.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin, undefined, 0, iconColumn);
+            : this.requireController().fitGunPart(part.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin,
+          undefined, part.displacedInstanceId === undefined ? 0 : 12, iconColumn, part.displacedInstanceId !== undefined, 'center');
           const rowOwnerIndex = this.focusables.length - 1;
           if (!enabled) this.disableButton(row);
           this.addCatalogIcon(root, margin + 30, y + row.height / 2, part.iconArtId, 52, rowOwnerIndex);
