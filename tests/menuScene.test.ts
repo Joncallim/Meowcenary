@@ -453,6 +453,91 @@ describe('MenuScene', () => {
     expect(harness.context.saveData.equipmentLoadout?.helmet).toBe('recon');
   });
 
+  it('aligns the independently bounded Loadout footer with its 840px content lane on a wide safe viewport', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      root: unknown; safeCenterX: number; safeRightMargin: number;
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+      renderLoadout(root: unknown, snapshot: import('../src/ui/menus').MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void;
+      focusables: FakeObject[];
+    };
+    // A wide safe viewport and a separately capped panel lane are independent
+    // geometry inputs; the fixed footer must use the owning panel's left edge.
+    Object.assign(harness.menuScene.scale, { width: 1920, height: 1080 });
+    scene.safeCenterX = 960; scene.safeRightMargin = 12;
+    scene.renderLoadout(scene.root, scene.controller.snapshot(), 1920, 58, 12, 44);
+    const gear = scene.focusables.find((button) => button.state.text === 'HELMET\nEmpty')!;
+    const footer = harness.buttonByLabel('Return to Contract')!;
+    expect(footer.state.x).toBe(gear.state.x);
+    expect(footer.state.width).toBe(840);
+    expect(footer.state.x + footer.state.width).toBe(1380);
+  });
+
+  it('keeps native inline gear, router and framed readiness geometry together at 360px and 390px without inventing fresh equipment', () => {
+    for (const width of [360, 390]) {
+      const harness = createHarness({ create: false });
+      Object.assign(harness.menuScene.scale, { width, height: 844, displaySize: { width, height: 844 } });
+      harness.menuScene.create();
+      const scene = harness.menuScene as unknown as {
+        currentViewport: UiViewport; focusables: FakeObject[];
+      };
+      harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+      const slots = scene.focusables.slice(0, 4);
+      expect(slots.map((slot) => slot.state.text)).toEqual(['HELMET\nEmpty', 'ARMOUR\nEmpty', 'GLOVES\nEmpty', 'BOOTS\nEmpty']);
+      expect(new Set(slots.map((slot) => slot.state.y)).size).toBe(1);
+      slots.forEach((slot, index) => {
+        expect(slot.state.width).toBeGreaterThanOrEqual(minimumHitTarget(scene.currentViewport));
+        if (index) expect(slot.state.x).toBeGreaterThanOrEqual(slots[index - 1]!.state.x + slots[index - 1]!.state.width);
+      });
+      expect(slots[3]!.state.x + slots[3]!.state.width).toBeLessThanOrEqual(width - 16);
+      const equipment = harness.buttonByLabel('Equipment')!;
+      const gunsmith = harness.buttonByLabel('Gunsmith')!;
+      expect(equipment.state.y).toBe(gunsmith.state.y);
+      const readiness = harness.objects.find((object) => object.state.text === 'RUN READINESS' && !object.state.destroyed)!;
+      expect(readiness.state.x).toBe(slots[0]!.state.x + 16);
+      expect(readiness.state.y).toBe(equipment.state.y + equipment.state.height + 48);
+      const footer = harness.buttonByLabel('Return to Contract')!;
+      expect(readiness.state.y + readiness.state.height).toBeLessThan(footer.state.y);
+      const title = harness.objects.find((object) => object.state.text === 'LOADOUT' && !object.state.destroyed)!;
+      const subtitle = harness.objects.find((object) => object.state.text === 'PRE-RUN ENGINEERING' && !object.state.destroyed)!;
+      expect(title.state.x).toBe(slots[0]!.state.x + 12);
+      expect(title.state.y).toBeLessThan(subtitle.state.y);
+      expect(subtitle.state.y + subtitle.state.height).toBeLessThan(slots[0]!.state.y);
+      expect(harness.context.saveData.progression.scrap).toBe(0);
+      expect(Object.keys(harness.context.saveData.equipment)).toHaveLength(0);
+      expect(harness.textContents().join('\n')).toContain('Gunsmith: Unconfigured');
+    }
+  });
+
+  it('keeps fresh Equipment truth empty, shows the catalog emblems before expansion and puts Back in the header after the full-width footer', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      focusables: FakeObject[]; scrollObjects: Array<{ object: FakeObject }>;
+      addCatalogIcon(root: unknown, x: number, y: number, id: string, size: number, ownerIndex?: number): void;
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+    };
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    const icons = vi.spyOn(scene, 'addCatalogIcon');
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const slots = scene.focusables.slice(0, 4);
+    const footer = harness.buttonByLabel('Fabricate Selected')!;
+    const back = harness.buttonByLabel('Back')!;
+    const browse = harness.buttonByLabel('Browse Sets')!;
+    expect(footer.state.x).toBe(slots[0]!.state.x);
+    expect(footer.state.width).toBe(slots[0]!.state.width);
+    expect(back.state.y + back.state.height).toBeLessThanOrEqual(slots[0]!.state.y);
+    expect(scene.scrollObjects.some(({ object }) => object === back || object === footer)).toBe(false);
+    expect(scene.focusables.indexOf(back)).toBeGreaterThan(scene.focusables.indexOf(footer));
+    expect(harness.textContents()).toContain('NO ACTIVE SET');
+    expect(harness.textContents()).toContain('0 pieces equipped');
+    const sets = scene.controller.snapshot().equipment.presentation.sets;
+    for (const set of sets) {
+      const calls = icons.mock.calls.filter((call) => call[3] === set.emblemArtId && call[5] === scene.focusables.indexOf(browse));
+      expect(calls).toHaveLength(1);
+      expect(calls[0]![2]).toBeGreaterThan(browse.state.y + browse.state.height);
+    }
+  });
+
   it('anchors fresh Loadout in Mercenary and stock weapon facts before gear and routes its fixed action to the Contract list', () => {
     const harness = createHarness();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
@@ -615,7 +700,7 @@ describe('MenuScene', () => {
     focusLabel('Equip Commando Helmet'); press(0);
     expect(harness.context.saveData.equipmentLoadout?.helmet).toBe('helmet');
     press(1);
-    expect(harness.textContents()).toContain('Loadout');
+    expect(harness.textContents()).toContain('LOADOUT');
   });
 
   it('routes keyboard and controller vertically through all four Equipment slots before Browse Sets and candidates', () => {
@@ -1741,12 +1826,12 @@ describe('MenuScene', () => {
   it('routes through one Loadout hub before Equipment or Gunsmith', () => {
     const harness = createHarness();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
-    expect(harness.textContents()).toEqual(expect.arrayContaining(['Loadout', 'Equipment', 'Gunsmith', 'Return to Contract']));
+    expect(harness.textContents()).toEqual(expect.arrayContaining(['LOADOUT', 'Equipment', 'Gunsmith', 'Return to Contract']));
     expect(harness.textContents()).toEqual(expect.arrayContaining(['EQUIPMENT • WHOLE LOADOUT', 'GUNSMITH • ENGINEERED WEAPON FAMILY', 'HELMET\nEmpty', 'ARMOUR\nEmpty', 'GLOVES\nEmpty', 'BOOTS\nEmpty']));
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
     expect(harness.textContents()).toContain('AVAILABLE BLUEPRINTS');
     harness.buttonByLabel('Back')!.state.handlers.pointerup!();
-    expect(harness.textContents()).toContain('Loadout');
+    expect(harness.textContents()).toContain('LOADOUT');
   });
 
   it('groups Contract cards by chapter and keeps locked rows inert with player-facing requirements', () => {
