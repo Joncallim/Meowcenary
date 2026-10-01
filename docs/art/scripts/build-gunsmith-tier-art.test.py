@@ -68,4 +68,25 @@ class ComponentImportTest(unittest.TestCase):
             before=target.read_bytes()
             with self.assertRaisesRegex(ValueError,'out of date'):module.check(root)
             self.assertEqual(target.read_bytes(),before)
+    def test_catalog_symlinks_fail_in_real_write_and_check_without_mutation(self):
+        for name in ('gun-parts.json','gunsmith-part-visuals.json','visual-art.json'):
+            for operation in ('write','check'):
+                with self.subTest(catalog=name,operation=operation), TemporaryDirectory(prefix='meow-part-catalog-link-') as directory:
+                    sandbox=Path(directory);root=sandbox/'repo'
+                    config=json.loads((module.ROOT/module.CONFIG).read_text())
+                    inputs=[module.CONFIG,*[row['path'] for row in config['masters']],
+                        *['src/data/'+value for value in ('gun-parts.json','gunsmith-part-visuals.json','visual-art.json')]]
+                    for relative in inputs:
+                        target=root/relative;target.parent.mkdir(parents=True,exist_ok=True)
+                        shutil.copyfile(module.ROOT/relative,target)
+                    target=root/'src/data'/name;outside=sandbox/name
+                    target.replace(outside);target.symlink_to(outside)
+                    def snapshot():
+                        return {str(path.relative_to(sandbox)):(path.read_bytes(),path.stat().st_mtime_ns)
+                            for path in sandbox.rglob('*') if path.is_file()}
+                    before=snapshot()
+                    with self.assertRaisesRegex(ValueError,'escapes'):
+                        if operation=='write':module.write(root,root)
+                        else:module.check(root)
+                    self.assertEqual(snapshot(),before)
 if __name__=='__main__':unittest.main()

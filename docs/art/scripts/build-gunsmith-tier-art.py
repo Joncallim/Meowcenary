@@ -61,8 +61,8 @@ def render(root):
         meaningful=bounds(image); box=meaningful.getbbox()
         require(box and box[0]>0 and box[1]>0 and box[2]<image.width and box[3]<image.height,'component master clips border')
         native[row['id']]=image
-    parts=json.loads((root/'src/data/gun-parts.json').read_text())
-    registry=json.loads((root/'src/data/gunsmith-part-visuals.json').read_text())
+    parts=json.loads(safe_path(root,'src/data/gun-parts.json','src/data').read_text())
+    registry=json.loads(safe_path(root,'src/data/gunsmith-part-visuals.json','src/data').read_text())
     families={row['partId']:row for row in registry['parts']}
     expected={row['id'] for row in parts if row['slot']!='trait'}
     actual=[row['partId'] for row in config['components']]
@@ -110,7 +110,7 @@ def render(root):
     for name,image in native.items():
         mask=bounds(image)
         require(all(not a or b for a,b in zip(mask.get_flattened_data(),used[name].get_flattened_data())),'crop coverage loses meaningful native pixels')
-    bindings=json.loads((root/'src/data/visual-art.json').read_text())['bindings']
+    bindings=json.loads(safe_path(root,'src/data/visual-art.json','src/data').read_text())['bindings']
     for group,frames in (('icons',icons),('assembly',assembly)):
         expected_resource='resource:gunsmith-tier-'+group
         actual=[r['id'] for r in bindings if r.get('resourceId')==expected_resource]
@@ -150,7 +150,7 @@ def outputs(config):
 def check(root):
     with TemporaryDirectory(prefix='meow-component-art-') as directory:
         target=Path(directory);write(root,target)
-        config=json.loads((root/CONFIG).read_text())
+        config=json.loads(safe_path(root,CONFIG,'assets-src/gunsmith/tiers').read_text())
         for relative in outputs(config):
             require(safe_path(root,relative).read_bytes()==(target/relative).read_bytes(),'component output is out of date:'+relative)
 
