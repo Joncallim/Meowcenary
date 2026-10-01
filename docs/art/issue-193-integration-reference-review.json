@@ -1,0 +1,71 @@
+{
+  "sourceSHA": "f76ac863641b33a4de0754b83548817f85162ccc",
+  "baseMainSHA": "6f8abfad418d8105ac77e147b9065ae1a285930a",
+  "ownerApproval": false,
+  "review": "Parent and independent actual/expected/diff inspection of final corrected captures; all deltas explained by scoped art/command disclosure. Technical candidate references do not confer canonical authority.",
+  "references": [
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/loadout-gunsmith-phone-390x844-linux.png",
+      "oldSHA256": "7d75e9137320779aeca7613a3a9178b545f9b2f9682325a04d7a1735936da685",
+      "candidateSHA256": "788a1b8aec8bbcd5977ae40e309800c782cc9a06bf0ac773e22aa0701dd29fdd",
+      "delta": "Three explicit presentation-owned family chassis icons; card geometry, text, state and chrome unchanged.",
+      "state": "CANDIDATE"
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-assembled-phone-390x844-linux.png",
+      "oldSHA256": "525846affd46480cbf2f8ec5d3f3a389c482c6a6cc6479af24e6d9f0029086d5",
+      "candidateSHA256": "73895f6f8edbcaba7879c431f8bc9d151a35730a46cc0bb9e5cc8fd84b2ad820",
+      "delta": "Explicit chassis cards and same-instance native tier assembly; selected build identity/traits preserved. Phone also shows native fitted receiver icon/shared effect formatting. Scroll thumb shortens with disclosed replacement content.",
+      "state": "CANDIDATE"
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-parts-phone-390x844-linux.png",
+      "oldSHA256": "c1292a2998b0d1fb71cc1adcaff4070b4a6088b3bc22ffccb3f43843bdcc9252",
+      "candidateSHA256": "92539dadc117aa8c886c60d2677f9b07163a6eb1f05c3ccb4bbe06da2a02ef62",
+      "delta": "Exact native tier Part icons and shared effect vocabulary; enabled atomic replacement now explicitly discloses displaced Heavy Receiver T2, return to STORED and actual current-build damage/fire interval deltas. Focused last-row bounds and slot order remain; preceding replacement content wraps/scrolls normally.",
+      "state": "CANDIDATE"
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/loadout-gunsmith-foldable-1114x720-linux.png",
+      "oldSHA256": "77b77ca990878ab5649c2728422c7e9abdc592f92ff3fea3570ef016947af0ef",
+      "candidateSHA256": "6f9007fe4696196857ad7e4802b613db10aff6da046a9f3fbf9ad9f75abede2e",
+      "delta": "Three explicit presentation-owned family chassis icons; card geometry, text, state and chrome unchanged.",
+      "state": "CANDIDATE"
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-assembled-foldable-1114x720-linux.png",
+      "oldSHA256": "bb034e68b64c11f222e637bd6e878a7b25602bc2036b52b5d9c49b03e84c6329",
+      "candidateSHA256": "de8c5742a6bc75370efba72c4e963e2b9b318763f9b038de0b8b8754e1ffb28a",
+      "delta": "Explicit chassis cards and same-instance native tier assembly; selected build identity/traits preserved. Phone also shows native fitted receiver icon/shared effect formatting. Scroll thumb shortens with disclosed replacement content.",
+      "state": "CANDIDATE"
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-parts-foldable-1114x720-linux.png",
+      "oldSHA256": "32c45a160543b64b6da5287e6e67ac54d74b0078b1ca1e8764e1f8fe799130ad",
+      "candidateSHA256": "993b5fa8f50623afed8a8d6439cb052e9d15030d2f1cdf6cf0d453f34be00fd1",
+      "delta": "Exact native tier Part icons and shared effect vocabulary; enabled atomic replacement now explicitly discloses displaced Heavy Receiver T2, return to STORED and actual current-build damage/fire interval deltas. Focused last-row bounds and slot order remain; preceding replacement content wraps/scrolls normally.",
+      "state": "CANDIDATE"
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/loadout-gunsmith-desktop-1280x720-linux.png",
+      "oldSHA256": "d22855f5cea83512784dc26cec2519ea7070aab004f18e4d80bc3b2a7c946b90",
+      "candidateSHA256": "02acc6e1fee2598367e8c2073a5e857b199b8e67f888afecfa2ee31b3b4aba9a",
+      "delta": "Three explicit presentation-owned family chassis icons; card geometry, text, state and chrome unchanged.",
+      "state": "CANDIDATE"
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-assembled-desktop-1280x720-linux.png",
+      "oldSHA256": "d46c669841b57c34d9fd313426921f794ff02332e8886162180e9aef2cf3ade2",
+      "candidateSHA256": "f9fb16c57f4fde0ae8cb7651b48de33c7f98b24f7a3988354b2b6fc882815b6d",
+      "delta": "Explicit chassis cards and same-instance native tier assembly; selected build identity/traits preserved. Phone also shows native fitted receiver icon/shared effect formatting. Scroll thumb shortens with disclosed replacement content.",
+      "state": "CANDIDATE"
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-parts-desktop-1280x720-linux.png",
+      "oldSHA256": "e52a69dbf9d99688718bbcdf1f52f2f02efebf6802ea5e720b1fe7c4c3f1c0d9",
+      "candidateSHA256": "08b3762e091af7c849edcde0f7552ea9fccdecac4cc96c9ae8c2706df404bbd8",
+      "delta": "Exact native tier Part icons and shared effect vocabulary; enabled atomic replacement now explicitly discloses displaced Heavy Receiver T2, return to STORED and actual current-build damage/fire interval deltas. Focused last-row bounds and slot order remain; preceding replacement content wraps/scrolls normally.",
+      "state": "CANDIDATE"
+    }
+  ]
+}
