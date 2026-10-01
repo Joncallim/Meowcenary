@@ -742,6 +742,47 @@ describe('MenuScene', () => {
     }
   });
 
+  it('keeps the native tall Equipment hero at 142px while preserving first-row y304 and compact first-view slots', () => {
+    for (const height of [844, 640]) {
+      const harness = createHarness({ create: false });
+      Object.assign(harness.menuScene.scale, { width: 390, height, displaySize: { width: 390, height } });
+      harness.menuScene.create();
+      harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+      const scene = harness.menuScene as unknown as {
+        uiVisuals: { addPanel(...args: unknown[]): unknown }; focusables: FakeObject[];
+      };
+      const selectedFrames: FakeObject[] = [];
+      vi.spyOn(scene.uiVisuals, 'addPanel').mockImplementation((_scene, x, y, width, panelHeight, name) => {
+        const frame = fakeObject('rect', '', width as number, panelHeight as number, undefined, x as number, y as number);
+        if (name === 'figma-selected') selectedFrames.push(frame);
+        return frame;
+      });
+      harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+      expect(selectedFrames.map((frame) => frame.state.height)).toEqual([height === 844 ? 142 : 64]);
+      const frame = selectedFrames[0]!;
+      expect(frame.state.y - frame.state.height / 2).toBe(104);
+      expect(scene.focusables[0]!.state.y).toBe(height === 844 ? 304 : 192);
+      expect(scene.focusables.slice(0, 4).every((slot) => slot.state.y + slot.state.height < harness.buttonByLabel('Fabricate Selected')!.state.y)).toBe(true);
+    }
+  });
+
+  it('reports the actual engineered family and controller-owned activation in the bounded readiness card', () => {
+    for (const [familyId, familyName, activation] of [['pistol', 'Pistol', 'Active from start'], ['smg', 'SMG', 'Activates when acquired']] as const) {
+      const harness = createHarness();
+      harness.context.updateGunsmith(() => ({
+        builds: [{ id: 'build:readiness', name: 'Readiness Build', baseWeaponFamily: familyId, fitted: {}, traitParts: [] }],
+        selectedBuildId: 'build:readiness', fabricationSerials: {}, parts: {},
+      }));
+      harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+      const summary = harness.objects.find((object) => !object.state.destroyed && object.state.text.startsWith('0/4 Equipment slots equipped'))!;
+      expect(summary).toBeDefined();
+      expect(summary.state.text).toBe(`0/4 Equipment slots equipped\n${familyName} Build configured\n${activation}`);
+      const heading = harness.objects.find((object) => !object.state.destroyed && object.state.text === 'RUN READINESS')!;
+      expect(summary.state.y + summary.state.height).toBeLessThanOrEqual(heading.state.y - 16 + 114);
+      expect(harness.textContents()).toContain('GUNSMITH • ENGINEERED WEAPON FAMILY');
+    }
+  });
+
   it('shows equipped scope and the engineered family with deduplicated traits in the shared Loadout overview', () => {
     const harness = createHarness();
     harness.context.updateEquipment(() => ({

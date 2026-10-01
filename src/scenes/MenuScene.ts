@@ -761,6 +761,8 @@ export class MenuScene extends Phaser.Scene {
     this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
     const equipment = snapshot.equipment;
     const gunsmith = snapshot.gunsmith;
+    const selected = gunsmith.selectedBuild;
+    const family = gunsmith.families.find((row) => row.id === selected?.familyId);
     const selectedCharacter = snapshot.character.characters.find((row) => row.selected);
     this.loadoutSection(root, left, y, 'MERCENARY');
     y += 20;
@@ -784,7 +786,7 @@ export class MenuScene extends Phaser.Scene {
     y += hitTarget + 32;
     this.loadoutMaterial(root, left, y, contentWidth, 114);
     this.loadoutCopy(root, left + 16, y + 16, 'RUN READINESS', contentWidth - 32, '#82949d');
-    this.loadoutCopy(root, left + 16, y + 44, `${selectedCharacter?.name ?? 'Select a Mercenary'} • ${selectedCharacter?.startingWeaponSummary ?? 'No stock weapon'}\n${equipment.presentation.slots.filter((slot) => slot.equipped).length}/4 Equipment slots equipped\nGunsmith: ${gunsmith.selectedBuild ? 'Build configured' : 'Unconfigured'}`, contentWidth - 32);
+    this.loadoutCopy(root, left + 16, y + 44, `${equipment.presentation.slots.filter((slot) => slot.equipped).length}/4 Equipment slots equipped\n${selected ? `${family?.name ?? selected.familyId} Build configured\n${selected.activation}` : 'Gunsmith: Unconfigured'}`, contentWidth - 32);
     y += 130;
     const equippedEffects = equipment.presentation.slots.flatMap((slot) => slot.equipped?.effects ?? []);
     if (equippedEffects.length) {
@@ -801,8 +803,6 @@ export class MenuScene extends Phaser.Scene {
       this.addCatalogIcon(root, left + 17, y + 20, set.emblemArtId, 30);
       y += copy.height + 10;
     }
-    const selected = gunsmith.selectedBuild;
-    const family = gunsmith.families.find((row) => row.id === selected?.familyId);
     const gunsmithHeading = this.loadoutCopy(root, left, y, 'GUNSMITH • ENGINEERED WEAPON FAMILY', contentWidth);
     y += gunsmithHeading.height + 10;
     if (selected) {
@@ -1547,11 +1547,11 @@ export class MenuScene extends Phaser.Scene {
       ?? equipment.presentation.sets.find((set) => set.equippedCount > 0);
     this.loadoutSection(root, left, y, activeSet ? activeSet.equippedCount > 0 ? 'ACTIVE SET' : 'SELECTED SET' : 'NO ACTIVE SET');
     y += 20;
-    const heroHeight = this.scale.height >= 760 ? 176 : 64;
+    const heroHeight = this.scale.height >= 760 ? 142 : 64;
     this.loadoutMaterial(root, left, y, contentWidth, heroHeight, true);
     this.loadoutCopy(root, left + (activeSet ? 94 : 16), y + (heroHeight > 100 ? 36 : 12), activeSet ? `${activeSet.name} Set\n${activeSet.equippedCount}/4 equipped` : '0 pieces equipped', contentWidth - (activeSet ? 110 : 32));
     if (activeSet) this.addCatalogIcon(root, left + 42, y + heroHeight / 2, activeSet.emblemArtId, Math.min(68, heroHeight - 12));
-    y += heroHeight + 4;
+    y += heroHeight + (this.scale.height >= 760 ? 38 : 4);
     this.loadoutSection(root, left, y, 'EQUIPPED SLOTS');
     y += 20;
     y = this.renderEquipmentSlots(root, snapshot, left, y, contentWidth, hitTarget);
