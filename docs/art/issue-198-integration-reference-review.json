@@ -35,6 +35,30 @@
       "candidateSHA256": "fcc0332cb7cfe6b414f196a73914be631945d758ef62019424a5a1910417f609",
       "delta": "Stock Scrap Pistol I preview icon only",
       "state": "CANDIDATE"
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-lower-phone-390x844-linux.png",
+      "sourceSHA": "54157f501da469d5df2aa03e8dc2326c4211e557",
+      "oldSHA256": "8599dc1baef717966e30b330fb34a25911723d7932f65d52c4f4222d35d9ccfe",
+      "candidateSHA256": "5474a5f85f9523b4e82336842788fd5c1dbb2034526dd4ec2050ed2690fca5bb",
+      "delta": "Two starting-weapon T1 icons only: Rattle Raptor Pistol and Piston Ram SMG",
+      "state": "CANDIDATE"
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-lower-foldable-1114x720-linux.png",
+      "sourceSHA": "54157f501da469d5df2aa03e8dc2326c4211e557",
+      "oldSHA256": "e78314a27e60bdcd000c86c355b1854fc2ffd45b357fb9b661ad0da47d93cdff",
+      "candidateSHA256": "f8437918cc0c4deb86a997775173775bfaa81fb5263212385fcce70a400626fe",
+      "delta": "Two starting-weapon T1 icons only: Rattle Raptor Pistol and Piston Ram SMG",
+      "state": "CANDIDATE"
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-lower-desktop-1280x720-linux.png",
+      "sourceSHA": "54157f501da469d5df2aa03e8dc2326c4211e557",
+      "oldSHA256": "835bbded290bdae30207944a872c4de5bd9c3d20116942c776286df0690d8ff8",
+      "candidateSHA256": "eddc6a0eab8368bd3863ef9703f4cfdb29fddc3abb9637589ccffb511f17f35a",
+      "delta": "Two starting-weapon T1 icons only: Rattle Raptor Pistol and Piston Ram SMG",
+      "state": "CANDIDATE"
     }
   ]
 }

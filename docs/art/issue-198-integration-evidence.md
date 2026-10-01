@@ -32,7 +32,7 @@ Weapon color/grayscale evidence at 44px icons and 28px held presentation is in
 remain subject to owner judgment. No rejected candidate is promoted by these
 technical checks; a rejection must invalidate the candidate reference.
 
-## Four inspected browser reference changes
+## Seven inspected browser reference changes
 
 The full initial browser matrix on `04fc6d9389ca1f709c3a6dfa01637e5d5288e9dc`
 had 57 passes, 59 intentional skips and four screenshot failures. Parent and
@@ -44,7 +44,16 @@ independent actual/expected/diff inspection found only these intended changes:
 - Compact 844×390 Loadout: the stock Scrap Pistol I icon. Slots, geometry,
   focus, scroll clip and fixed Return footer match the preceding reference.
 
-Only those four references changed. The adjacent review manifest records source
+After those four updates, the full matrix on `54157f5` passed 58 cases and
+reached three later Mercenary-lower captures that the initial Mercenary
+assertion had prevented from running. Their 169/170/171 above-threshold
+pixels are exclusively the two T1 weapon icons for Rattle Raptor (Pistol) and
+Piston Ram (SMG). Parent actual/expected/diff inspection confirms unchanged
+actors, copy, focus, scroll position and chrome. Independent inspection also
+confirms these three captures: exactly 706 raw changed pixels per viewport,
+293 in the Pistol region and 413 in the SMG region, with none elsewhere.
+
+Only those seven references changed. The adjacent review manifest records source
 SHA, old/candidate digests and each delta. Other Loadout/Equipment, actor,
 Gunsmith, gameplay and modal references and all comparison thresholds remain
 unchanged. These are technical CANDIDATE regression references, not visual
