@@ -21,9 +21,11 @@
     {
       "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-parts-phone-390x844-linux.png",
       "oldSHA256": "c1292a2998b0d1fb71cc1adcaff4070b4a6088b3bc22ffccb3f43843bdcc9252",
-      "candidateSHA256": "92539dadc117aa8c886c60d2677f9b07163a6eb1f05c3ccb4bbe06da2a02ef62",
-      "delta": "Exact native tier Part icons and shared effect vocabulary; enabled atomic replacement now explicitly discloses displaced Heavy Receiver T2, return to STORED and actual current-build damage/fire interval deltas. Focused last-row bounds and slot order remain; preceding replacement content wraps/scrolls normally.",
-      "state": "CANDIDATE"
+      "candidateSHA256": "c4bed216496ae4caf30cd53784b17df8e4a5f9980a53baa7b98356d14e6f3f79",
+      "delta": "Exact native tier Part icons and shared effect vocabulary; enabled atomic replacement now explicitly discloses displaced Heavy Receiver T2, return to STORED and actual current-build damage/fire interval deltas. Focused last-row bounds and slot order remain; preceding replacement content wraps/scrolls normally. Follow-up actual-control RED required 8px native text insets on disclosed replacement rows; row content gains 16px while width/slot order remain. Current-build comparisons use bundled ASCII to instead of the missing arrow glyph, preserving exact values. These explain preceding-row clipping/scroll-thumb shifts and comparison wrapping; focused fitted trait row stays unchanged.",
+      "state": "CANDIDATE",
+      "previousCandidateSHA256": "92539dadc117aa8c886c60d2677f9b07163a6eb1f05c3ccb4bbe06da2a02ef62",
+      "sourceSHA": "26e90efbb0b5fc289f8bb66546e2087de7b5a41e"
     },
     {
       "path": "browser-tests/visual-fidelity.pw.ts-snapshots/loadout-gunsmith-foldable-1114x720-linux.png",
@@ -42,9 +44,11 @@
     {
       "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-parts-foldable-1114x720-linux.png",
       "oldSHA256": "32c45a160543b64b6da5287e6e67ac54d74b0078b1ca1e8764e1f8fe799130ad",
-      "candidateSHA256": "993b5fa8f50623afed8a8d6439cb052e9d15030d2f1cdf6cf0d453f34be00fd1",
-      "delta": "Exact native tier Part icons and shared effect vocabulary; enabled atomic replacement now explicitly discloses displaced Heavy Receiver T2, return to STORED and actual current-build damage/fire interval deltas. Focused last-row bounds and slot order remain; preceding replacement content wraps/scrolls normally.",
-      "state": "CANDIDATE"
+      "candidateSHA256": "1afb6bf34db3358cc614817b700c596aee941f2e48d37c76954a82df1bfa888a",
+      "delta": "Exact native tier Part icons and shared effect vocabulary; enabled atomic replacement now explicitly discloses displaced Heavy Receiver T2, return to STORED and actual current-build damage/fire interval deltas. Focused last-row bounds and slot order remain; preceding replacement content wraps/scrolls normally. Follow-up actual-control RED required 8px native text insets on disclosed replacement rows; row content gains 16px while width/slot order remain. Current-build comparisons use bundled ASCII to instead of the missing arrow glyph, preserving exact values. These explain preceding-row clipping/scroll-thumb shifts and comparison wrapping; focused fitted trait row stays unchanged.",
+      "state": "CANDIDATE",
+      "previousCandidateSHA256": "993b5fa8f50623afed8a8d6439cb052e9d15030d2f1cdf6cf0d453f34be00fd1",
+      "sourceSHA": "26e90efbb0b5fc289f8bb66546e2087de7b5a41e"
     },
     {
       "path": "browser-tests/visual-fidelity.pw.ts-snapshots/loadout-gunsmith-desktop-1280x720-linux.png",
@@ -63,9 +67,19 @@
     {
       "path": "browser-tests/visual-fidelity.pw.ts-snapshots/gunsmith-parts-desktop-1280x720-linux.png",
       "oldSHA256": "e52a69dbf9d99688718bbcdf1f52f2f02efebf6802ea5e720b1fe7c4c3f1c0d9",
-      "candidateSHA256": "08b3762e091af7c849edcde0f7552ea9fccdecac4cc96c9ae8c2706df404bbd8",
-      "delta": "Exact native tier Part icons and shared effect vocabulary; enabled atomic replacement now explicitly discloses displaced Heavy Receiver T2, return to STORED and actual current-build damage/fire interval deltas. Focused last-row bounds and slot order remain; preceding replacement content wraps/scrolls normally.",
-      "state": "CANDIDATE"
+      "candidateSHA256": "05f926b2d137e676a36da0845199ae9a10afed9b7607bc9e0b82ac53842372f6",
+      "delta": "Exact native tier Part icons and shared effect vocabulary; enabled atomic replacement now explicitly discloses displaced Heavy Receiver T2, return to STORED and actual current-build damage/fire interval deltas. Focused last-row bounds and slot order remain; preceding replacement content wraps/scrolls normally. Follow-up actual-control RED required 8px native text insets on disclosed replacement rows; row content gains 16px while width/slot order remain. Current-build comparisons use bundled ASCII to instead of the missing arrow glyph, preserving exact values. These explain preceding-row clipping/scroll-thumb shifts and comparison wrapping; focused fitted trait row stays unchanged.",
+      "state": "CANDIDATE",
+      "previousCandidateSHA256": "08b3762e091af7c849edcde0f7552ea9fccdecac4cc96c9ae8c2706df404bbd8",
+      "sourceSHA": "26e90efbb0b5fc289f8bb66546e2087de7b5a41e"
     }
-  ]
+  ],
+  "followupReview": {
+    "sourceSHA": "26e90efbb0b5fc289f8bb66546e2087de7b5a41e",
+    "hostedReproductionRun": 36819596954,
+    "failureArtifact": 11142839454,
+    "originalHostedFailureRun": 36817401210,
+    "authority": "CANDIDATE; ownerApproval remains false",
+    "scope": "Only three Parts references refined; other six accepted candidates unchanged."
+  }
 }

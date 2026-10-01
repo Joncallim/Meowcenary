@@ -68,3 +68,46 @@ Exact-head full local/hosted and post-main results are recorded on #206/#193/
 #201 once they complete. The residual Figma redesign, actual first-time/device
 review and art approval remain open; candidate comparison APIs alone do not
 satisfy the final UI acceptance.
+
+## Follow-up real-control and hosted failures
+
+The 1284bfd local 120-case matrix was green, but hosted run 36817401210
+failed three Parts references. The original workflow retained no images. A
+failure-only, seven-day upload of test-results was added; reproduction
+36819596954 at 2b424282 preserved artifact 11142839454. All three Parts
+failures reproduced (phone 1,879; foldable 1,165; desktop 1,150 differing
+pixels), alongside six expected RED tests for zero native text insets.
+
+Parent and independent artifact inspection found identical selected Fire Trait,
+card geometry, artwork and focus/scroll state. Desktop/foldable raw differences
+were confined to comparison text at y134..148. Phone comparison wrapping
+differed. The bundled Nunito-latin-variable font lacks U+2192: the arrow
+necessarily uses a system fallback, strongly supporting the metric mismatch
+inference. The exact hosted fallback font was not captured. No keyboard-edge
+race was demonstrated; input timing and screenshot thresholds remain unchanged.
+26e90efbb0b5fc289f8bb66546e2087de7b5a41e replaces only new current-build/
+persistent comparison separators with bundled ASCII “to,” retaining exact stats
+and traits. A new DTO test and real-menu regression were RED before the change;
+58 command/comparison tests and all 125 menu tests passed afterward.
+
+Separately, actual touch, keyboard and virtual-controller captures on 1284bfd
+exposed a clipped final replacement action despite visible row bounds. The
+scene-owned correction 0f1455644f6153e1dab70a79e440ad791c8b6ff2 uses the shared
+8px top/bottom text insets only for disclosed replacement rows. Six browser
+contexts each resize through 360×640, 390×844, 844×390, 1280×720 and 1920×1080;
+the native-inset regression was RED on 2b424282 and GREEN after correction.
+This geometry test is supplemented by inspected actual screenshots, not claimed
+as an automated glyph-visibility test. Actual touch/keyboard/virtual-controller
+confirmation made one save write, fitted the candidate exactly once, retained
+both owned instances, returned the displaced receiver to stored state, and
+passed Back/re-entry and virtual-controller disconnect/reconnect recovery.
+Phone landscape displays the required Rotate Device gate; the 844×390 desktop
+context exposes the focused replacement row and was inspected separately.
+No physical controller or independent first-time comprehension is claimed.
+
+Only the three Parts technical references receive a follow-up correction.
+Actual/expected/diff review explains the 16px replacement-row content increase,
+bundled comparison text, preceding-row/scroll-thumb shift and unchanged final
+fitted trait focus. Previous candidate hashes remain recorded; six earlier
+family/assembly candidates remain unchanged. Full exact-head gates and hosted
+acceptance must pass before merge; earlier local green is not final readiness.
