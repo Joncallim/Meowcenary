@@ -10,6 +10,7 @@ type Framing = {
   canvas: { rect: Rect };
 };
 type Readability = {
+  timings: Record<string, number>;
   actorAlpha: number;
   actorPixels: number;
   referenceEnergy: number;
@@ -32,7 +33,12 @@ type Seam = {
 };
 declare global { var __MEOWCENARY_VISUAL_TEST__: Seam | undefined; }
 
+test.afterEach(async ({}, testInfo) => { console.log(`[world-ui] afterEach entered: ${testInfo.title} (${testInfo.duration}ms, ${testInfo.status})`); });
+
 test('world actor remains distinguishable beneath HUD meters and corner controls', async ({ page }, testInfo) => {
+  const started = performance.now();
+  const mark = (phase: string) => console.log(`[world-ui] ${phase}: ${Math.round(performance.now() - started)}ms`);
+  mark('start');
   await page.goto('/?visual-test=1');
   await expect.poll(() => page.evaluate(() => Boolean(globalThis.__MEOWCENARY_VISUAL_TEST__))).toBe(true);
   expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
@@ -42,6 +48,7 @@ test('world actor remains distinguishable beneath HUD meters and corner controls
   } finally {
     await page.keyboard.up('Enter');
   }
+  mark('prepared game');
   const initial = await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics());
   expect(initial).toBeDefined();
   const { width, height } = initial!.arena;
@@ -74,6 +81,7 @@ test('world actor remains distinguishable beneath HUD meters and corner controls
       const targetY = expectedScroll(y, state.camera.viewport.height, state.camera.bounds.y, state.camera.bounds.height);
       return Math.abs(state.camera.scroll.x - targetX) < 0.5 && Math.abs(state.camera.scroll.y - targetY) < 0.5 && sx >= 0 && sy >= 0;
     }).toBe(true);
+    mark(`${position} settled`);
     const framing = await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics());
     const capture = await page.evaluate(async () => {
       const original = HTMLCanvasElement.prototype.toDataURL;
@@ -83,6 +91,7 @@ test('world actor remains distinguishable beneath HUD meters and corner controls
       finally { HTMLCanvasElement.prototype.toDataURL = original; }
     });
     const { readability } = capture;
+    mark(`${position} captured ${JSON.stringify(readability?.timings)}`);
     // Only the two returned artifacts need PNG encoding. Four complete pixel
     // readbacks still define the oracle; unused full-HD exports are waste.
     expect(capture.encodes).toBe(2);
@@ -93,6 +102,7 @@ test('world actor remains distinguishable beneath HUD meters and corner controls
       await writeFile(path, Buffer.from(image.split(',')[1], 'base64'));
       await testInfo.attach(`${position}-${label}`, { path, contentType: 'image/png' });
     }
+    mark(`${position} artifacts attached`);
     observations.push({ position, framing: framing!, readability: numbers });
     expect(framing!.canvas.rect).toEqual(framing!.rootRect);
     expect(framing!.camera.bounds).toEqual(initial!.camera.bounds);
@@ -109,6 +119,7 @@ test('world actor remains distinguishable beneath HUD meters and corner controls
   const factsPath = testInfo.outputPath('world-readability-facts.json');
   await writeFile(factsPath, JSON.stringify(observations, null, 2));
   await testInfo.attach('world-readability-facts', { path: factsPath, contentType: 'application/json' });
+  mark('facts attached');
   for (const observation of observations) {
     expect(observation.readability.actorPixels, `${observation.position}: nonempty identical-pose actor reference`).toBeGreaterThan(20);
     // At least the majority of the actor's rendered contrast must survive UI
@@ -116,6 +127,7 @@ test('world actor remains distinguishable beneath HUD meters and corner controls
     // plates; it is a regression bound, not subjective visual approval.
     expect(observation.readability.retainedContribution, `${observation.position}: actor contrast retained under UI`).toBeGreaterThanOrEqual(0.6);
   }
+  mark('all contrast assertions passed');
 });
 
 test('a stopped GameScene cannot repaint an old HUD during Menu resize', async ({ page }) => {
@@ -128,7 +140,9 @@ test('a stopped GameScene cannot repaint an old HUD during Menu resize', async (
     await page.keyboard.up(key);
     await inputFrame();
   };
+  let mark = (_phase: string): void => {};
   const launch = async () => {
+    mark('launch start');
     expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
     expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.isMenuInputNeutral())).toBe(true);
     await page.keyboard.down('Enter');
@@ -138,12 +152,16 @@ test('a stopped GameScene cannot repaint an old HUD during Menu resize', async (
       await page.keyboard.up('Enter');
     }
     await inputFrame();
+    mark('launch complete');
   };
   const plateCount = () => page.evaluate(() => {
     const state = globalThis.__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics() as
       (Framing & { hudLayers: Array<{ type: string }> }) | undefined;
     return state?.hudLayers.filter((layer) => layer.type === 'Rectangle' || layer.type === 'NineSlice').length;
   });
+  const started = performance.now();
+  mark = (phase: string) => console.log(`[world-ui] ${phase}: ${Math.round(performance.now() - started)}ms`);
+  mark('start');
   await page.goto('/?visual-test=1');
   await expect.poll(() => page.evaluate(() => Boolean(globalThis.__MEOWCENARY_VISUAL_TEST__))).toBe(true);
   const viewport = page.viewportSize()!;
@@ -159,12 +177,17 @@ test('a stopped GameScene cannot repaint an old HUD during Menu resize', async (
     await press('Enter');
     await expect.poll(() => page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.isSceneActive('MenuScene'))).toBe(true);
     expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
+    mark(`return ${visit} ready`);
     const savedBeforeResize = await page.evaluate(() => JSON.stringify(Object.entries(localStorage).sort()));
-    await page.setViewportSize({ width: viewport.width + 8, height: viewport.height + 8 });
-    await renderFrames();
-    await page.setViewportSize(viewport);
+    // One real Menu resize per return is sufficient to expose the stale
+    // inactive HUD subscription. Balance the viewport across the two visits
+    // rather than rebuilding every Menu twice before each warm launch.
+    await page.setViewportSize(visit === 0
+      ? { width: viewport.width + 8, height: viewport.height + 8 }
+      : viewport);
     await renderFrames();
     expect(await page.evaluate(() => JSON.stringify(Object.entries(localStorage).sort()))).toBe(savedBeforeResize);
+    mark(`resize ${visit} complete`);
     await launch();
     // A leaked PhaserHudView resize subscription creates two extra plates in
     // the inactive scene, which then coexist with the next live HUD.

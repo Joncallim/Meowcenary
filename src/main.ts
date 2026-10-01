@@ -224,7 +224,7 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
     const timeout = globalThis.setTimeout(() => finish(false), Math.max(0, deadline - performance.now()));
     pending.then(() => finish(true), () => finish(false));
   });
-  const freezeVisualFrame = async (): Promise<void> => {
+  const pauseVisualAnimations = (): void => {
     for (const scene of game.scene.getScenes(false)) {
       const pending = [...scene.children.list] as Array<Phaser.GameObjects.GameObject & { list?: Phaser.GameObjects.GameObject[] }>;
       while (pending.length > 0) {
@@ -241,6 +241,9 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
       }
     }
     game.anims.pauseAll();
+  };
+  const freezeVisualFrame = async (): Promise<void> => {
+    pauseVisualAnimations();
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     game.loop.sleep();
   };
@@ -419,7 +422,11 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
           if (!animationsWerePaused) game.anims.resumeAll();
           if (wasRunning) game.loop.wake();
         };
-        await freezeVisualFrame();
+        // The settled pose is rendered explicitly four times below. Freeze
+        // synchronously so two incidental full-scene renders do not precede
+        // every diagnostic. Screenshot callers retain their rendered freeze.
+        pauseVisualAnimations();
+        game.loop.sleep();
         if (!game.scene.isActive('GameScene') || !actor.active) { restoreLoop(); return undefined; }
         const camera = scene.cameras.main;
         const scrollX = camera.scrollX;
@@ -434,7 +441,9 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         canvas.height = game.canvas.height;
         const context = canvas.getContext('2d', { willReadFrequently: true });
         if (!context) { restoreLoop(); return undefined; }
+        const timings: Record<string, number> = {};
         const capture = (withUi: boolean, withActor: boolean) => {
+          const started = performance.now();
           ui.forEach((node, index) => node.setVisible(withUi && visible[index]));
           actor.setVisible(withActor && actorVisible);
           // Camera.preRender normally advances follow. Start each diagnostic
@@ -443,14 +452,19 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
           game.renderer.preRender();
           game.scene.render(game.renderer);
           game.renderer.postRender();
+          const rendered = performance.now();
           context.clearRect(0, 0, canvas.width, canvas.height);
           context.drawImage(game.canvas, 0, 0);
           // Actor-absent frames are pixel controls, never returned image
           // artifacts. Keep their full readbacks; avoid two unused HD encodes.
-          return {
-            image: withActor ? canvas.toDataURL('image/png') : undefined,
-            pixels: context.getImageData(0, 0, canvas.width, canvas.height).data,
-          };
+          const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+          const read = performance.now();
+          const image = withActor ? canvas.toDataURL('image/png') : undefined;
+          const label = `${withUi ? 'ui' : 'plain'}-${withActor ? 'actor' : 'empty'}`;
+          timings[`${label}:render`] = rendered - started;
+          timings[`${label}:read`] = read - rendered;
+          timings[`${label}:encode`] = performance.now() - read;
+          return { image, pixels };
         };
         try {
           const plain = capture(false, false);
@@ -473,6 +487,7 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
             actualEnergy += actualDifference;
           }
           return {
+            timings,
             actorAlpha: actor.alpha,
             actorPixels,
             referenceEnergy,

@@ -190,3 +190,36 @@ coarse-pointer phone landscape continues to use the established orientation
 quarantine/return path; it is not falsely reported as live portrait gameplay.
 No physical Android/iOS device or real browser-chrome inset verification is
 claimed by desktop emulation.
+
+### Bounded diagnostic follow-up after hosted 8290cfc
+
+Hosted run 36856297486 passed all preceding gates and 101 browser cases,
+with 59 existing scoped skips, but again exhausted the two large-desktop
+30-second test-body budgets. All five contrast ratios remained valid; artifact
+ZIP timestamps put the last captures/facts at approximately the deadline.
+This did **not** establish a teardown failure. The lifecycle case reached its
+third warm launch after both Menu returns. See the compressed hosted log.
+
+Added monotonic owner checkpoints and diagnostic render/read/export elapsed
+costs. These measure browser API elapsed time, not isolated GPU utilization.
+The first local desktop attribution run took 13.1s for contrast and 13.3s for
+lifetime: each contrast capture spent roughly 0.5–0.6s in read/export APIs plus
+two avoidable automatic scene renders before the four controlled renders.
+It also showed each lifetime visit performing two successive Menu resizes.
+
+The controlled capture now synchronously freezes the already-settled pose
+before its same four explicit full-canvas renders/readbacks. Ordinary visual
+screenshot freeze still waits for its rendered frame. Each of the two real
+Summary→Menu returns now performs one necessary resize (+8 then original),
+retaining all three real launches, both resize/storage assertions, neutral
+input assertions, and all live-HUD plate assertions. No timeout, threshold,
+assertion, skip, image golden, or production runtime correction changed.
+
+The revised driver was independently shown RED again: disabling the overlap
+correction produced 0.263 retained top-centre contrast; omitting HUD disposal
+produced four plates instead of two after the first Menu resize/relaunch.
+Both temporary runtime changes were restored. Focused GREEN covered phone
+390×844 and desktop1920×1080; the five ratios matched the earlier oracle
+(large desktop .892/.915/.916/1/1). Compressed attribution, RED and GREEN logs
+are retained. Full local and exact-head hosted closeout results are recorded
+on PR211 before merge; this subsection does not claim hosted readiness.
