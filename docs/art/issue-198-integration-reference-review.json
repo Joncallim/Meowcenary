@@ -1,0 +1,40 @@
+{
+  "sourceSHA": "04fc6d9389ca1f709c3a6dfa01637e5d5288e9dc",
+  "baseMainSHA": "57b47977821ee3290c153cae9e552042885e1539",
+  "ownerApproval": false,
+  "review": "Parent and independent actual/expected/diff inspection; no unrelated visual drift",
+  "references": [
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-phone-390x844-linux.png",
+      "oldSHA256": "098b4d7e47f769a652212f018691e6e473124149d0a75f9b87698c9aa530e1dd",
+      "candidateSHA256": "e6f1bb54973df7a9bf5383a579615520aa5f7e89aab515b5ec1572b78fd0cb61",
+      "delta": "Three starting-weapon T1 icons only: two Pistol, one SMG",
+      "state": "CANDIDATE"
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-foldable-1114x720-linux.png",
+      "oldSHA256": "b40095b61696d397ec366f9cd488256921d19e04e4f5b03ead20c13bf8a84a37",
+      "candidateSHA256": "14a5b760b1ba841590d6a222bda205e2cade5f936d9af380a0388c07da2410e1",
+      "delta": "Three starting-weapon T1 icons only: two Pistol, one SMG",
+      "state": "CANDIDATE"
+    },
+    {
+      "path": "browser-tests/visual-fidelity.pw.ts-snapshots/mercenary-desktop-1280x720-linux.png",
+      "oldSHA256": "4466650d74080e6af0d9fdf723ffff0e149dc31b3ba8abb25041dde281f3f13f",
+      "candidateSHA256": "30b3ea0eb4a94b3443aa39d30df8a83668564beee09a7f0b915225fa8420a51f",
+      "delta": "Three starting-weapon T1 icons only: two Pistol, one SMG",
+      "state": "CANDIDATE"
+    },
+    {
+      "path": "browser-tests/responsive.pw.ts-snapshots/compact-loadout-desktop-1280x720-linux.png",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "oldSHA256": "f687a5e3ad479b3e23b0107714cfac1f0587b94cc5d9aefe8a97db6d5713fe2d",
+      "candidateSHA256": "fcc0332cb7cfe6b414f196a73914be631945d758ef62019424a5a1910417f609",
+      "delta": "Stock Scrap Pistol I preview icon only",
+      "state": "CANDIDATE"
+    }
+  ]
+}
