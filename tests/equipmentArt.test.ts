@@ -19,7 +19,11 @@ const ALL_EQUIPMENT_ART_IDS = SETS.flatMap((set) => [
   `equipment-set-icon:${set}`,
   ...SLOTS.map((slot) => `equipment-icon:${set}-${slot}`),
 ]);
-const PRODUCTION_ART_IDS = ALL_EQUIPMENT_ART_IDS;
+const PRODUCTION_ART_IDS = SETS.flatMap((set) => [
+  `equipment-set-icon:${set}`,
+  ...SLOTS.flatMap((slot) => [1, 2, 3, 4].map((tier) =>
+    `equipment-icon:${set}-${slot}${tier === 1 ? '' : `:t${tier}`}`)),
+]);
 
 function decodeUnfilteredRgbaPng(path: string): { width: number; height: number; pixels: Buffer } {
   const png = readFileSync(path);
@@ -82,21 +86,21 @@ describe('dedicated Equipment production art', () => {
     ]));
   });
 
-  it('keeps all 40 approved named frames in deterministic concept/source/export parity', () => {
-    const builder = readFileSync('docs/art/scripts/build-equipment-concept-atlases.py', 'utf8');
+  it('keeps all 136 candidate tier and historical emblem frames in deterministic source/export parity', () => {
+    const builder = readFileSync('assets-src/equipment/tiers/masters.json', 'utf8');
     expect(builder).toContain('eccaad70498657a84456d8fef8564fdbeff598b22356649e23cb52b8e3a89d1b');
     expect(builder).toContain('c43d0727ce022b76c398248c4b8531ccd24bf93bf37176dd5ebdac212276bbe6');
     expect(() => execFileSync('python3', ['docs/art/scripts/build-equipment-concept-atlases.py', '--check'])).not.toThrow();
     const atlas = JSON.parse(readFileSync('public/assets/equipment/sets/equipment-sets-atlas.json', 'utf8')) as {
       size_x: number; size_y: number; frames: Record<string, { frame: { x: number; y: number; w: number; h: number } }>;
     };
-    expect([atlas.size_x, atlas.size_y]).toEqual([480, 672]);
+    expect([atlas.size_x, atlas.size_y]).toEqual([1632, 672]);
     expect(Object.keys(atlas.frames).sort()).toEqual(PRODUCTION_ART_IDS.filter((id) => !id.includes(':commando')).sort());
     expect(Object.values(atlas.frames).every(({ frame }) => frame.w === 96 && frame.h === 96)).toBe(true);
     const commando = JSON.parse(readFileSync('public/assets/equipment/commando/commando-equipment-atlas.json', 'utf8')) as {
       size_x: number; size_y: number; frames: Record<string, { frame: { w: number; h: number } }>;
     };
-    expect([commando.size_x, commando.size_y]).toEqual([480, 96]);
+    expect([commando.size_x, commando.size_y]).toEqual([1632, 96]);
     expect(Object.keys(commando.frames).sort()).toEqual(PRODUCTION_ART_IDS.filter((id) => id.includes(':commando')).sort());
   });
 
@@ -124,7 +128,7 @@ describe('dedicated Equipment production art', () => {
       frames: Record<string, { frame: { x: number; y: number } }>;
     };
     const { width, height, pixels } = decodeUnfilteredRgbaPng('public/assets/equipment/sets/equipment-sets-atlas.png');
-    expect([width, height]).toEqual([480, 672]);
+    expect([width, height]).toEqual([1632, 672]);
     const silhouettes = new Set<string>();
     const grayscale = new Set<string>();
     for (const id of PRODUCTION_ART_IDS) {
@@ -145,7 +149,7 @@ describe('dedicated Equipment production art', () => {
       silhouettes.add(createHash('sha256').update(alphaBits.join('')).digest('hex'));
       grayscale.add(createHash('sha256').update(grayBytes).digest('hex'));
     }
-    expect(silhouettes.size).toBe(PRODUCTION_ART_IDS.length - 5);
-    expect(grayscale.size).toBe(PRODUCTION_ART_IDS.length - 5);
+    expect(silhouettes.size).toBe(PRODUCTION_ART_IDS.length - 17);
+    expect(grayscale.size).toBe(PRODUCTION_ART_IDS.length - 17);
   });
 });

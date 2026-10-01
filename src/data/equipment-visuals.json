@@ -1,0 +1,802 @@
+[
+  {
+    "equipmentId": "equipment:commando-helmet",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:commando-helmet",
+        "wearableArtId": "equipment-wearable:commando-helmet:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:commando-helmet:t2",
+        "wearableArtId": "equipment-wearable:commando-helmet:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:commando-helmet:t3",
+        "wearableArtId": "equipment-wearable:commando-helmet:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:commando-helmet:t4",
+        "wearableArtId": "equipment-wearable:commando-helmet:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:commando-armour",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:commando-armour",
+        "wearableArtId": "equipment-wearable:commando-armour:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:commando-armour:t2",
+        "wearableArtId": "equipment-wearable:commando-armour:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:commando-armour:t3",
+        "wearableArtId": "equipment-wearable:commando-armour:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:commando-armour:t4",
+        "wearableArtId": "equipment-wearable:commando-armour:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:commando-gloves",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:commando-gloves",
+        "wearableArtId": "equipment-wearable:commando-gloves:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:commando-gloves:t2",
+        "wearableArtId": "equipment-wearable:commando-gloves:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:commando-gloves:t3",
+        "wearableArtId": "equipment-wearable:commando-gloves:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:commando-gloves:t4",
+        "wearableArtId": "equipment-wearable:commando-gloves:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:commando-boots",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:commando-boots",
+        "wearableArtId": "equipment-wearable:commando-boots:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:commando-boots:t2",
+        "wearableArtId": "equipment-wearable:commando-boots:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:commando-boots:t3",
+        "wearableArtId": "equipment-wearable:commando-boots:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:commando-boots:t4",
+        "wearableArtId": "equipment-wearable:commando-boots:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:scavenger-helmet",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:scavenger-helmet",
+        "wearableArtId": "equipment-wearable:scavenger-helmet:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:scavenger-helmet:t2",
+        "wearableArtId": "equipment-wearable:scavenger-helmet:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:scavenger-helmet:t3",
+        "wearableArtId": "equipment-wearable:scavenger-helmet:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:scavenger-helmet:t4",
+        "wearableArtId": "equipment-wearable:scavenger-helmet:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:scavenger-boots",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:scavenger-boots",
+        "wearableArtId": "equipment-wearable:scavenger-boots:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:scavenger-boots:t2",
+        "wearableArtId": "equipment-wearable:scavenger-boots:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:scavenger-boots:t3",
+        "wearableArtId": "equipment-wearable:scavenger-boots:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:scavenger-boots:t4",
+        "wearableArtId": "equipment-wearable:scavenger-boots:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:juggernaut-armour",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:juggernaut-armour",
+        "wearableArtId": "equipment-wearable:juggernaut-armour:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:juggernaut-armour:t2",
+        "wearableArtId": "equipment-wearable:juggernaut-armour:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:juggernaut-armour:t3",
+        "wearableArtId": "equipment-wearable:juggernaut-armour:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:juggernaut-armour:t4",
+        "wearableArtId": "equipment-wearable:juggernaut-armour:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:juggernaut-gloves",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:juggernaut-gloves",
+        "wearableArtId": "equipment-wearable:juggernaut-gloves:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:juggernaut-gloves:t2",
+        "wearableArtId": "equipment-wearable:juggernaut-gloves:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:juggernaut-gloves:t3",
+        "wearableArtId": "equipment-wearable:juggernaut-gloves:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:juggernaut-gloves:t4",
+        "wearableArtId": "equipment-wearable:juggernaut-gloves:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:pyro-helmet",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:pyro-helmet",
+        "wearableArtId": "equipment-wearable:pyro-helmet:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:pyro-helmet:t2",
+        "wearableArtId": "equipment-wearable:pyro-helmet:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:pyro-helmet:t3",
+        "wearableArtId": "equipment-wearable:pyro-helmet:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:pyro-helmet:t4",
+        "wearableArtId": "equipment-wearable:pyro-helmet:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:recon-boots",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:recon-boots",
+        "wearableArtId": "equipment-wearable:recon-boots:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:recon-boots:t2",
+        "wearableArtId": "equipment-wearable:recon-boots:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:recon-boots:t3",
+        "wearableArtId": "equipment-wearable:recon-boots:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:recon-boots:t4",
+        "wearableArtId": "equipment-wearable:recon-boots:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:medic-helmet",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:medic-helmet",
+        "wearableArtId": "equipment-wearable:medic-helmet:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:medic-helmet:t2",
+        "wearableArtId": "equipment-wearable:medic-helmet:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:medic-helmet:t3",
+        "wearableArtId": "equipment-wearable:medic-helmet:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:medic-helmet:t4",
+        "wearableArtId": "equipment-wearable:medic-helmet:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:technician-gloves",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:technician-gloves",
+        "wearableArtId": "equipment-wearable:technician-gloves:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:technician-gloves:t2",
+        "wearableArtId": "equipment-wearable:technician-gloves:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:technician-gloves:t3",
+        "wearableArtId": "equipment-wearable:technician-gloves:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:technician-gloves:t4",
+        "wearableArtId": "equipment-wearable:technician-gloves:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:scavenger-armour",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:scavenger-armour",
+        "wearableArtId": "equipment-wearable:scavenger-armour:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:scavenger-armour:t2",
+        "wearableArtId": "equipment-wearable:scavenger-armour:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:scavenger-armour:t3",
+        "wearableArtId": "equipment-wearable:scavenger-armour:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:scavenger-armour:t4",
+        "wearableArtId": "equipment-wearable:scavenger-armour:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:scavenger-gloves",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:scavenger-gloves",
+        "wearableArtId": "equipment-wearable:scavenger-gloves:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:scavenger-gloves:t2",
+        "wearableArtId": "equipment-wearable:scavenger-gloves:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:scavenger-gloves:t3",
+        "wearableArtId": "equipment-wearable:scavenger-gloves:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:scavenger-gloves:t4",
+        "wearableArtId": "equipment-wearable:scavenger-gloves:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:juggernaut-helmet",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:juggernaut-helmet",
+        "wearableArtId": "equipment-wearable:juggernaut-helmet:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:juggernaut-helmet:t2",
+        "wearableArtId": "equipment-wearable:juggernaut-helmet:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:juggernaut-helmet:t3",
+        "wearableArtId": "equipment-wearable:juggernaut-helmet:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:juggernaut-helmet:t4",
+        "wearableArtId": "equipment-wearable:juggernaut-helmet:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:juggernaut-boots",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:juggernaut-boots",
+        "wearableArtId": "equipment-wearable:juggernaut-boots:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:juggernaut-boots:t2",
+        "wearableArtId": "equipment-wearable:juggernaut-boots:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:juggernaut-boots:t3",
+        "wearableArtId": "equipment-wearable:juggernaut-boots:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:juggernaut-boots:t4",
+        "wearableArtId": "equipment-wearable:juggernaut-boots:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:demolition-helmet",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:demolition-helmet",
+        "wearableArtId": "equipment-wearable:demolition-helmet:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:demolition-helmet:t2",
+        "wearableArtId": "equipment-wearable:demolition-helmet:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:demolition-helmet:t3",
+        "wearableArtId": "equipment-wearable:demolition-helmet:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:demolition-helmet:t4",
+        "wearableArtId": "equipment-wearable:demolition-helmet:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:demolition-armour",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:demolition-armour",
+        "wearableArtId": "equipment-wearable:demolition-armour:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:demolition-armour:t2",
+        "wearableArtId": "equipment-wearable:demolition-armour:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:demolition-armour:t3",
+        "wearableArtId": "equipment-wearable:demolition-armour:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:demolition-armour:t4",
+        "wearableArtId": "equipment-wearable:demolition-armour:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:demolition-gloves",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:demolition-gloves",
+        "wearableArtId": "equipment-wearable:demolition-gloves:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:demolition-gloves:t2",
+        "wearableArtId": "equipment-wearable:demolition-gloves:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:demolition-gloves:t3",
+        "wearableArtId": "equipment-wearable:demolition-gloves:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:demolition-gloves:t4",
+        "wearableArtId": "equipment-wearable:demolition-gloves:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:demolition-boots",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:demolition-boots",
+        "wearableArtId": "equipment-wearable:demolition-boots:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:demolition-boots:t2",
+        "wearableArtId": "equipment-wearable:demolition-boots:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:demolition-boots:t3",
+        "wearableArtId": "equipment-wearable:demolition-boots:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:demolition-boots:t4",
+        "wearableArtId": "equipment-wearable:demolition-boots:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:pyro-armour",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:pyro-armour",
+        "wearableArtId": "equipment-wearable:pyro-armour:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:pyro-armour:t2",
+        "wearableArtId": "equipment-wearable:pyro-armour:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:pyro-armour:t3",
+        "wearableArtId": "equipment-wearable:pyro-armour:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:pyro-armour:t4",
+        "wearableArtId": "equipment-wearable:pyro-armour:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:pyro-gloves",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:pyro-gloves",
+        "wearableArtId": "equipment-wearable:pyro-gloves:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:pyro-gloves:t2",
+        "wearableArtId": "equipment-wearable:pyro-gloves:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:pyro-gloves:t3",
+        "wearableArtId": "equipment-wearable:pyro-gloves:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:pyro-gloves:t4",
+        "wearableArtId": "equipment-wearable:pyro-gloves:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:pyro-boots",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:pyro-boots",
+        "wearableArtId": "equipment-wearable:pyro-boots:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:pyro-boots:t2",
+        "wearableArtId": "equipment-wearable:pyro-boots:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:pyro-boots:t3",
+        "wearableArtId": "equipment-wearable:pyro-boots:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:pyro-boots:t4",
+        "wearableArtId": "equipment-wearable:pyro-boots:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:recon-helmet",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:recon-helmet",
+        "wearableArtId": "equipment-wearable:recon-helmet:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:recon-helmet:t2",
+        "wearableArtId": "equipment-wearable:recon-helmet:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:recon-helmet:t3",
+        "wearableArtId": "equipment-wearable:recon-helmet:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:recon-helmet:t4",
+        "wearableArtId": "equipment-wearable:recon-helmet:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:recon-armour",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:recon-armour",
+        "wearableArtId": "equipment-wearable:recon-armour:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:recon-armour:t2",
+        "wearableArtId": "equipment-wearable:recon-armour:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:recon-armour:t3",
+        "wearableArtId": "equipment-wearable:recon-armour:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:recon-armour:t4",
+        "wearableArtId": "equipment-wearable:recon-armour:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:recon-gloves",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:recon-gloves",
+        "wearableArtId": "equipment-wearable:recon-gloves:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:recon-gloves:t2",
+        "wearableArtId": "equipment-wearable:recon-gloves:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:recon-gloves:t3",
+        "wearableArtId": "equipment-wearable:recon-gloves:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:recon-gloves:t4",
+        "wearableArtId": "equipment-wearable:recon-gloves:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:medic-armour",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:medic-armour",
+        "wearableArtId": "equipment-wearable:medic-armour:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:medic-armour:t2",
+        "wearableArtId": "equipment-wearable:medic-armour:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:medic-armour:t3",
+        "wearableArtId": "equipment-wearable:medic-armour:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:medic-armour:t4",
+        "wearableArtId": "equipment-wearable:medic-armour:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:medic-gloves",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:medic-gloves",
+        "wearableArtId": "equipment-wearable:medic-gloves:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:medic-gloves:t2",
+        "wearableArtId": "equipment-wearable:medic-gloves:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:medic-gloves:t3",
+        "wearableArtId": "equipment-wearable:medic-gloves:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:medic-gloves:t4",
+        "wearableArtId": "equipment-wearable:medic-gloves:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:medic-boots",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:medic-boots",
+        "wearableArtId": "equipment-wearable:medic-boots:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:medic-boots:t2",
+        "wearableArtId": "equipment-wearable:medic-boots:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:medic-boots:t3",
+        "wearableArtId": "equipment-wearable:medic-boots:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:medic-boots:t4",
+        "wearableArtId": "equipment-wearable:medic-boots:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:technician-helmet",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:technician-helmet",
+        "wearableArtId": "equipment-wearable:technician-helmet:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:technician-helmet:t2",
+        "wearableArtId": "equipment-wearable:technician-helmet:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:technician-helmet:t3",
+        "wearableArtId": "equipment-wearable:technician-helmet:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:technician-helmet:t4",
+        "wearableArtId": "equipment-wearable:technician-helmet:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:technician-armour",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:technician-armour",
+        "wearableArtId": "equipment-wearable:technician-armour:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:technician-armour:t2",
+        "wearableArtId": "equipment-wearable:technician-armour:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:technician-armour:t3",
+        "wearableArtId": "equipment-wearable:technician-armour:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:technician-armour:t4",
+        "wearableArtId": "equipment-wearable:technician-armour:t4"
+      }
+    ]
+  },
+  {
+    "equipmentId": "equipment:technician-boots",
+    "tiers": [
+      {
+        "tier": 1,
+        "iconArtId": "equipment-icon:technician-boots",
+        "wearableArtId": "equipment-wearable:technician-boots:t1"
+      },
+      {
+        "tier": 2,
+        "iconArtId": "equipment-icon:technician-boots:t2",
+        "wearableArtId": "equipment-wearable:technician-boots:t2"
+      },
+      {
+        "tier": 3,
+        "iconArtId": "equipment-icon:technician-boots:t3",
+        "wearableArtId": "equipment-wearable:technician-boots:t3"
+      },
+      {
+        "tier": 4,
+        "iconArtId": "equipment-icon:technician-boots:t4",
+        "wearableArtId": "equipment-wearable:technician-boots:t4"
+      }
+    ]
+  }
+]

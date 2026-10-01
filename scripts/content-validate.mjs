@@ -28,5 +28,6 @@ run(vitest, [
   'tests/gunsmith.test.ts',
   'tests/roster.test.ts',
   'tests/equipment.test.ts',
+  'tests/equipmentVisuals.test.ts',
   'tests/progressionIntegration.test.ts',
 ]);

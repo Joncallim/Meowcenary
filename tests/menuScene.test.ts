@@ -635,6 +635,40 @@ describe('MenuScene', () => {
     expect(harness.textContents()).toContain('Choose Contract');
   });
 
+  it('requests the full native Equipment resource closure including empty ghosts, unequipped Set emblems and tier upgrade art', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      ensureEquipmentPresentation(ids: readonly string[]): Promise<void>;
+      handleResize(): void;
+      controller: { snapshot(): import('../src/ui/menus').MainMenuSnapshot };
+    };
+    const requests = vi.spyOn(scene, 'ensureEquipmentPresentation').mockResolvedValue(undefined);
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    requests.mockClear();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const fresh = scene.controller.snapshot().equipment.presentation;
+    expect(fresh.sets.every((set) => set.equippedCount === 0)).toBe(true);
+    const freshIds = requests.mock.calls.flatMap(([ids]) => ids);
+    for (const id of [...fresh.slots.map((slot) => slot.placeholderArtId), ...fresh.sets.map((set) => set.emblemArtId)]) {
+      expect(freshIds, id).toContain(id);
+    }
+
+    harness.context.updateEquipment(() => ({
+      equipment: { candidate: { equipmentId: 'equipment:commando-helmet', tier: 2 } }, loadout: {},
+    }));
+    scene.handleResize();
+    requests.mockClear();
+    harness.buttonByLabel('Commando Helmet\nT2 • STORED')!.state.handlers.pointerup!();
+    const selected = scene.controller.snapshot().equipment;
+    const item = selected.presentation.slots.flatMap((slot) => slot.candidates).find((row) => row.instanceId === 'candidate')!;
+    const upgraded = selected.owned.find((row) => row.instanceId === 'candidate')!.upgradePreview!.after.slots
+      .flatMap((slot) => slot.candidates).find((row) => row.instanceId === 'candidate')!;
+    expect(upgraded.iconArtId).not.toBe(item.iconArtId);
+    const previewIds = requests.mock.calls.flatMap(([ids]) => ids);
+    expect(previewIds).toContain(item.iconArtId);
+    expect(previewIds).toContain(upgraded.iconArtId);
+  });
+
   it('illustrates empty Equipment slots as subdued semantic ghosts without claiming ownership or painting Loadout overview ghosts', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {

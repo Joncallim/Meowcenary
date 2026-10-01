@@ -25,6 +25,27 @@ function fixture(): SaveDataV4 {
 }
 
 describe('Equipment immutable consequence preview', () => {
+  it('carries tier-resolved icon and wearable identities through immutable current and candidate state', () => {
+    const save = fixture();
+    const data = loadGameData();
+    for (const tier of [1, 2, 3, 4] as const) {
+      const owned = { ...save, equipment: { ...save.equipment, candidate: { ...save.equipment.candidate!, tier } } };
+      const item = resolveEquipmentLoadoutPresentation(owned, data).slots.flatMap((slot) => slot.candidates).find((row) => row.instanceId === 'candidate')!;
+      const authored = data.equipmentVisuals!.find((row) => row.equipmentId === item.equipmentId)!.tiers.find((row) => row.tier === tier)!;
+      expect(item.iconArtId).toBe(authored.iconArtId);
+      expect(item.wearableArtId).toBe(authored.wearableArtId);
+      const equipped = resolveEquipmentComparison(owned, data, { kind: 'equip', instanceId: 'candidate' })!.after.slots.find((slot) => slot.slot === item.slot)!.equipped!;
+      expect(equipped.iconArtId).toBe(item.iconArtId);
+      expect(equipped.wearableArtId).toBe(item.wearableArtId);
+    }
+    const upgraded = resolveEquipmentComparison(save, data, { kind: 'upgrade', instanceId: 'candidate' })!;
+    const before = upgraded.before.slots.flatMap((slot) => slot.candidates).find((row) => row.instanceId === 'candidate')!;
+    const after = upgraded.after.slots.flatMap((slot) => slot.candidates).find((row) => row.instanceId === 'candidate')!;
+    expect(after.tier).toBe(before.tier + 1);
+    expect(after.iconArtId).not.toBe(before.iconArtId);
+    expect(after.wearableArtId).not.toBe(before.wearableArtId);
+    expect(save.equipment.candidate!.tier).toBe(before.tier);
+  });
   it('provides registered native slot-placeholder identities without creating owned or equipped items', () => {
     const data = loadGameData();
     const save = createDefaultSaveV4();

@@ -44,6 +44,10 @@ describe('validateAllData', () => {
         file: 'equipment', index: -1, field: '',
         message: 'unknown required icon "weapon-icon:pistol:t1"',
       },
+      {
+        file: 'equipment-visuals.json', index: -1, field: '',
+        message: 'Equipment visual row "equipment:commando-helmet" T1 icon must match its gameplay catalog icon "weapon-icon:pistol:t1"',
+      },
     ]);
   });
 
@@ -274,6 +278,7 @@ describe('validateAllData', () => {
       abilities: [],
       equipment: [],
       equipmentSets: [],
+      equipmentVisuals: [],
       equipmentRules: { unlocks: { 2: { type: 'always' }, 3: { type: 'always' }, 4: { type: 'always' } } },
     })).toEqual([
       { file: 'weapons.json', index: -1, field: '', message: 'non-JSON-safe number' },
@@ -327,6 +332,7 @@ describe('validateAllData', () => {
       'equipment',
       'equipmentSets',
       'equipmentRules',
+      'equipmentVisuals',
     ]);
   });
 

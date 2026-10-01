@@ -1,7 +1,7 @@
 {
   "export_directory_path": "",
   "export_file_name": "commando-equipment-atlas",
-  "size_x": 480,
+  "size_x": 1632,
   "size_y": 96,
   "frames": {
     "equipment-set-icon:commando": {
@@ -20,7 +20,7 @@
         "h": 96
       }
     },
-    "equipment-icon:commando-armour": {
+    "equipment-icon:commando-helmet:t2": {
       "frame": {
         "x": 192,
         "y": 0,
@@ -28,7 +28,7 @@
         "h": 96
       }
     },
-    "equipment-icon:commando-gloves": {
+    "equipment-icon:commando-helmet:t3": {
       "frame": {
         "x": 288,
         "y": 0,
@@ -36,9 +36,105 @@
         "h": 96
       }
     },
-    "equipment-icon:commando-boots": {
+    "equipment-icon:commando-helmet:t4": {
       "frame": {
         "x": 384,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:commando-armour": {
+      "frame": {
+        "x": 480,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:commando-armour:t2": {
+      "frame": {
+        "x": 576,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:commando-armour:t3": {
+      "frame": {
+        "x": 672,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:commando-armour:t4": {
+      "frame": {
+        "x": 768,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:commando-gloves": {
+      "frame": {
+        "x": 864,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:commando-gloves:t2": {
+      "frame": {
+        "x": 960,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:commando-gloves:t3": {
+      "frame": {
+        "x": 1056,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:commando-gloves:t4": {
+      "frame": {
+        "x": 1152,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:commando-boots": {
+      "frame": {
+        "x": 1248,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:commando-boots:t2": {
+      "frame": {
+        "x": 1344,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:commando-boots:t3": {
+      "frame": {
+        "x": 1440,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      }
+    },
+    "equipment-icon:commando-boots:t4": {
+      "frame": {
+        "x": 1536,
         "y": 0,
         "w": 96,
         "h": 96

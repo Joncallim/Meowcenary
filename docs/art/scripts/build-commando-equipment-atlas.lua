@@ -1,8 +1,8 @@
--- external-production-importer: build-equipment-concept-atlases.py crops the
--- selected Commando concept into the 96px production atlas. This legacy
--- entrypoint remains only for manifest-derived builder discovery.
--- Dedicated Commando Equipment set atlas. Five logical cells share one
--- resource, but their stable logical identities live in visual-art.json.
+-- external-production-importer: build-equipment-concept-atlases.py imports
+-- candidate tier masters and preserves historical Set emblems. This legacy
+-- geometric builder is ARCHIVE — PROVENANCE ONLY, not production authority.
+-- Runtime tier identities are authored in equipment-visuals.json and share
+-- the existing physical atlas; the validated importer owns production bytes.
 local U = dofile("docs/art/scripts/lib/sprite-utils.lua")
 
 local C = {

@@ -1,4 +1,5 @@
 import type { GameContext } from '../engine/context';
+import { createEquipmentVisualRegistry } from '../presentation/equipmentVisuals';
 import { DataEquipmentRegistry } from '../systems/equipment';
 import { equipEquipment, unequipEquipment, maxEquipmentTier, upgradeCost, type EquipmentSlot, type OwnedEquipment } from '../gameplay/equipment';
 import { createConditionContext, evaluateCondition } from '../gameplay/conditionEvaluator';
@@ -87,12 +88,13 @@ export class EquipmentController {
                 ...(cost === undefined ? { upgradeLocked: item.tier < 4 } : { upgradeCost: cost }),
             });
         }));
+        const visuals = createEquipmentVisualRegistry(this.context.data);
         const blueprints = this.registry.all().flatMap((piece) => {
             const set = this.registry.setById(piece.setId)!;
             if (!evaluateCondition(set.unlock, facts) || ownedDefinitionIds.has(piece.id)) return [];
             const effects = Object.freeze(piece.effects.map((effect) => presentLoadoutModifier(effect)));
             return [Object.freeze({ equipmentId: piece.id, name: piece.name, setName: set.name,
-                setEmblemArtId: set.emblem, slot: piece.slot, iconArtId: piece.icon,
+                setEmblemArtId: set.emblem, slot: piece.slot, iconArtId: visuals?.resolveEquipmentVisual(piece.id, 1)?.iconArtId ?? piece.icon,
                 fabricationCost: set.pieceFabricationCost, effects,
                 effectSummary: Object.freeze(effects.map((effect) => effect.text)),
             })];

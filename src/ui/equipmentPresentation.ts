@@ -1,4 +1,5 @@
 import { deepFreeze } from '../engine/freeze';
+import { createEquipmentVisualRegistry } from '../presentation/equipmentVisuals';
 import { EQUIPMENT_SLOTS, equipEquipment, unequipEquipment, upgradeEquipment, type EquipmentSlot, type OwnedEquipment } from '../gameplay/equipment';
 import { resolveBuildTraits, type OwnedPart } from '../gameplay/gunsmith';
 import { resolvePersistentRunLoadout } from '../gameplay/persistentLoadout';
@@ -10,7 +11,7 @@ import type { SaveDataV4 } from '../systems/save';
 import type { GameData } from '../systems/types';
 import { presentLoadoutModifier, presentLoadoutTrait, type LoadoutEffectPresentation } from './loadoutPresentation';
 
-type Catalog = Pick<GameData, 'equipment' | 'equipmentSets' | 'gunParts'>;
+type Catalog = Pick<GameData, 'equipment' | 'equipmentSets' | 'gunParts'> & Partial<Pick<GameData, 'equipmentVisuals' | 'visualArt'>>;
 /** Presentation-only slot silhouettes reuse registered art. They identify an
  * empty slot and never imply an owned piece or an active Set. */
 const EQUIPMENT_SLOT_PLACEHOLDER_ART: Readonly<Record<EquipmentSlot, string>> = Object.freeze({
@@ -27,6 +28,7 @@ export interface EquipmentItemPresentation {
   readonly tier: number;
   readonly name: string;
   readonly iconArtId: string;
+  readonly wearableArtId?: string;
   readonly setId: string;
   readonly state: 'EQUIPPED' | 'STORED';
   readonly effects: readonly LoadoutEffectPresentation[];
@@ -71,12 +73,14 @@ export interface EquipmentLoadoutPresentation {
 }
 
 export function resolveEquipmentLoadoutPresentation(save: SaveDataV4, catalog: Catalog): EquipmentLoadoutPresentation {
+  const visuals = catalog.visualArt ? createEquipmentVisualRegistry({ ...catalog, visualArt: catalog.visualArt }) : undefined;
   const definitions = new Map((catalog.equipment ?? []).map((piece) => [piece.id, piece]));
   const parts = new Map((catalog.gunParts ?? []).map((part) => [part.id, part]));
   const items: EquipmentItemPresentation[] = Object.entries(save.equipment).flatMap(([instanceId, owned]) => {
     const piece = definitions.get(owned.equipmentId);
+    const visual = visuals?.resolveEquipmentVisual(owned.equipmentId, owned.tier);
     return piece ? [{ instanceId, equipmentId: piece.id, slot: piece.slot, tier: owned.tier, name: piece.name,
-      iconArtId: piece.icon, setId: piece.setId, state: save.equipmentLoadout?.[piece.slot] === instanceId ? 'EQUIPPED' as const : 'STORED' as const,
+      iconArtId: visual?.iconArtId ?? piece.icon, wearableArtId: visual?.wearableArtId, setId: piece.setId, state: save.equipmentLoadout?.[piece.slot] === instanceId ? 'EQUIPPED' as const : 'STORED' as const,
       effects: piece.effects.map((effect) => presentLoadoutModifier(effect, owned.tier)) }] : [];
   });
   const counts = new Map<string, number>();

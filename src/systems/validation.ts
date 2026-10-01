@@ -43,6 +43,7 @@ import abilitiesJson from '../data/abilities.json';
 import equipmentJson from '../data/equipment.json';
 import equipmentSetsJson from '../data/equipment-sets.json';
 import equipmentRulesJson from '../data/equipment-rules.json';
+import equipmentVisualsJson from '../data/equipment-visuals.json';
 import assetBundlesJson from '../data/asset-bundles.json';
 import contentVersionJson from '../data/content-version.json';
 import { STAT_KEYS, RUN_UPGRADE_STAT_KEYS, WEAPON_MODIFIER_STAT_KEYS } from '../gameplay/stats';
@@ -111,6 +112,7 @@ import { checkAssetBundle, assertStageAssetBundleReferences } from './validation
 import { findEdgeLaneWitness, findRectWitness, findRingWitness } from '../gameplay/spawnRegion';
 import { ENEMY_BODY_RADIUS } from '../engine/bodyDimensions';
 import { isRegisteredBossActionId } from '../gameplay/bossActions';
+import { DataEquipmentVisualRegistry, type EquipmentVisualDefinition } from '../presentation/equipmentVisuals';
 
 const RARITIES = new Set<Rarity>(['common', 'uncommon', 'rare', 'epic', 'legendary']);
 const ENEMY_ARCHETYPES = new Set<EnemyArchetype>([
@@ -508,6 +510,17 @@ export const CATALOG_DESCRIPTORS = [
       return validateEquipmentRules(rows);
     },
   },
+  {
+    key: 'equipmentVisuals',
+    file: 'equipment-visuals.json',
+    rootKey: 'equipmentVisuals',
+    data: equipmentVisualsJson,
+    read: (raw) => readOwnField(raw, 'equipmentVisuals'),
+    validateRows: (rows): EquipmentVisualDefinition[] => {
+      throwIfErrors(jsonSafetyErrors(rows, 'equipment-visuals.json'));
+      return validate<EquipmentVisualDefinition>('equipment-visuals.json', rows, checkEquipmentVisual);
+    },
+  },
 ] as const satisfies readonly CatalogDescriptor[];
 
 /** Root requirements derived from the descriptor table: one aggregate root
@@ -729,9 +742,52 @@ export function validateGameData(raw: unknown): GameData {
   assertEquipmentArtReferences(catalogs.equipment as EquipmentDefinition[], equipmentSets, visualArt);
   assertEquipmentSetMembership(catalogs.equipment as EquipmentDefinition[], equipmentSets);
   assertEquipmentRuleReferences(equipmentRules, { stageIds: stageIdSet, bossIds: enemyIdSet });
+  const equipmentVisuals = catalogs.equipmentVisuals as EquipmentVisualDefinition[];
+  assertEquipmentVisualReferences(catalogs.equipment as EquipmentDefinition[], equipmentVisuals, visualArt);
 
   const audio: AudioData = { assets: audioAssets, map: audioMap };
-  return withContentVersion({ weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, visualResources, assetBundles, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements, gunParts: catalogs['gun-parts'] as PartDefinition[], abilities: catalogs.abilities as AbilityDefinition[], equipment: catalogs.equipment as EquipmentDefinition[], equipmentSets, equipmentRules }, suppliedContentVersion ?? contentVersionJson);
+  return withContentVersion({ weapons, enemies, upgrades, metaUpgrades, spawnCurves, characters, arenas, lootTables, weaponFeel, audio, visualArt, visualResources, assetBundles, stages, encounterProfiles, difficultyProfiles, rewardProfiles, achievements, gunParts: catalogs['gun-parts'] as PartDefinition[], abilities: catalogs.abilities as AbilityDefinition[], equipment: catalogs.equipment as EquipmentDefinition[], equipmentVisuals, equipmentSets, equipmentRules }, suppliedContentVersion ?? contentVersionJson);
+}
+
+function checkEquipmentVisual(row: unknown): string[] {
+  if (!isRecord(row)) return ['not an object'];
+  const errors: string[] = [];
+  rejectUnknownFields(row, new Set(['equipmentId', 'tiers']), errors);
+  if (typeof row.equipmentId !== 'string' || row.equipmentId.length === 0 || row.equipmentId.trim() !== row.equipmentId) {
+    errors.push('equipmentId: required nonempty trimmed string');
+  }
+  if (!Array.isArray(row.tiers)) {
+    errors.push('tiers: expected array');
+    return errors;
+  }
+  row.tiers.forEach((tier, tierIndex) => {
+    if (!isRecord(tier)) {
+      errors.push(`tiers[${tierIndex}]: expected object`);
+      return;
+    }
+    rejectUnknownFields(tier, new Set(['tier', 'iconArtId', 'wearableArtId']), errors, `tiers[${tierIndex}]`);
+    if (!Number.isSafeInteger(tier.tier)) errors.push(`tiers[${tierIndex}].tier: expected safe integer`);
+    for (const field of ['iconArtId', 'wearableArtId']) {
+      if (typeof tier[field] !== 'string' || tier[field].length === 0 || tier[field].trim() !== tier[field]) {
+        errors.push(`tiers[${tierIndex}].${field}: required nonempty trimmed string`);
+      }
+    }
+  });
+  return errors;
+}
+
+function assertEquipmentVisualReferences(
+  equipment: readonly EquipmentDefinition[],
+  visuals: readonly EquipmentVisualDefinition[],
+  visualArt: VisualArtCatalog,
+): void {
+  const bindings = new Map(visualArt.bindings.map((binding) => [binding.id, binding]));
+  try {
+    new DataEquipmentVisualRegistry(visuals, equipment, { bindingById: (id) => bindings.get(id) });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`equipment-visuals.json: ${reason}`);
+  }
 }
 
 /** Exact V4 Mercenary presentation coverage. Definitions own logical IDs;
@@ -949,6 +1005,7 @@ export function collectGameDataErrors(raw: unknown): ValidationIssue[] {
     () => assertPartArtReferences(catalogs['gun-parts'] as PartDefinition[], visualArt),
     () => assertPartAcquisitionRoutes(catalogs['gun-parts'] as PartDefinition[], catalogs.rewardProfiles as RewardProfile[], (catalogs.achievements ?? []) as AchievementDefinition[]),
     () => assertEquipmentArtReferences(catalogs.equipment as EquipmentDefinition[], catalogs.equipmentSets as EquipmentSetDefinition[], visualArt),
+    () => assertEquipmentVisualReferences(catalogs.equipment as EquipmentDefinition[], catalogs.equipmentVisuals as EquipmentVisualDefinition[], visualArt),
   ];
   for (const assertion of assertions) {
     try {
