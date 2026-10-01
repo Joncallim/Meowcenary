@@ -194,7 +194,8 @@ describe('createUiText', () => {
     // renderScopedLoadoutEffects rather than repeating factory call sites
     // for every stat, Set threshold, row and comparison label. The separate
     // AST audit still rejects every constructor that bypasses the factory.
-    expect(migratedSites).toHaveLength(56);
+    // Native panel headers add two factory sites; section labels add one.
+    expect(migratedSites).toHaveLength(59);
 
     const constructorCalls = findCreateUiTextCalls(programSourceFile(program, UI_TEXT_FILE), checker);
     expect(constructorCalls).toHaveLength(0);

@@ -2410,6 +2410,12 @@
     {"id": "equipment-icon:technician-boots:t3", "kind": "icon", "required": true, "display": {"width": 32, "height": 32}, "resourceId": "resource:equipment-sets", "frameKey": "equipment-icon:technician-boots:t3"},
     {"id": "equipment-wearable:technician-boots:t3", "kind": "icon", "required": true, "display": {"width": 32, "height": 32}, "resourceId": "resource:equipment-sets", "frameKey": "equipment-icon:technician-boots:t3"},
     {"id": "equipment-icon:technician-boots:t4", "kind": "icon", "required": true, "display": {"width": 32, "height": 32}, "resourceId": "resource:equipment-sets", "frameKey": "equipment-icon:technician-boots:t4"},
-    {"id": "equipment-wearable:technician-boots:t4", "kind": "icon", "required": true, "display": {"width": 32, "height": 32}, "resourceId": "resource:equipment-sets", "frameKey": "equipment-icon:technician-boots:t4"}
-  ]
+    {"id": "equipment-wearable:technician-boots:t4", "kind": "icon", "required": true, "display": {"width": 32, "height": 32}, "resourceId": "resource:equipment-sets", "frameKey": "equipment-icon:technician-boots:t4"},
+    {"id": "ui-chrome:figma-card", "kind": "icon", "required": true, "display": {"width": 174, "height": 75}, "resourceId": "resource:figma-menu-chrome", "frameKey": "ui-chrome:figma-card"},
+    {"id": "ui-chrome:figma-selected", "kind": "icon", "required": true, "display": {"width": 354, "height": 241}, "resourceId": "resource:figma-menu-chrome", "frameKey": "ui-chrome:figma-selected"},
+    {"id": "ui-chrome:figma-primary", "kind": "icon", "required": true, "display": {"width": 220, "height": 51}, "resourceId": "resource:figma-menu-chrome", "frameKey": "ui-chrome:figma-primary"},
+    {"id": "ui-chrome:figma-rivet", "kind": "icon", "required": true, "display": {"width": 5, "height": 5}, "resourceId": "resource:figma-menu-chrome", "frameKey": "ui-chrome:figma-rivet"},
+    {"id": "ui-chrome:figma-arrow", "kind": "icon", "required": true, "display": {"width": 14, "height": 20}, "resourceId": "resource:figma-menu-chrome", "frameKey": "ui-chrome:figma-arrow"},
+    {"id": "brand:figma-home-lockup", "kind": "icon", "required": true, "display": {"width": 174, "height": 129}, "resourceId": "resource:figma-menu-chrome", "frameKey": "brand:figma-home-lockup"}
+]
 }

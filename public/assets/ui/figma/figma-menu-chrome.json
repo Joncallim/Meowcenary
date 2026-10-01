@@ -1,0 +1,56 @@
+{
+  "export_directory_path": "",
+  "export_file_name": "figma-menu-chrome",
+  "size_x": 965,
+  "size_y": 245,
+  "frames": {
+    "ui-chrome:figma-card": {
+      "frame": {
+        "x": 2,
+        "y": 2,
+        "w": 174,
+        "h": 75
+      }
+    },
+    "ui-chrome:figma-selected": {
+      "frame": {
+        "x": 180,
+        "y": 2,
+        "w": 354,
+        "h": 241
+      }
+    },
+    "ui-chrome:figma-primary": {
+      "frame": {
+        "x": 538,
+        "y": 2,
+        "w": 220,
+        "h": 51
+      }
+    },
+    "ui-chrome:figma-rivet": {
+      "frame": {
+        "x": 762,
+        "y": 2,
+        "w": 5,
+        "h": 5
+      }
+    },
+    "ui-chrome:figma-arrow": {
+      "frame": {
+        "x": 771,
+        "y": 2,
+        "w": 14,
+        "h": 20
+      }
+    },
+    "brand:figma-home-lockup": {
+      "frame": {
+        "x": 789,
+        "y": 2,
+        "w": 174,
+        "h": 129
+      }
+    }
+  }
+}

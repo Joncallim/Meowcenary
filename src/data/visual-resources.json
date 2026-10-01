@@ -900,5 +900,6 @@
       "imageUrl": "assets/ui/navigation-icons-atlas.png",
       "dataUrl": "assets/ui/navigation-icons-atlas.json"
     }
-  }
+  },
+    {"id": "resource:figma-menu-chrome", "textureKey": "art-figma-menu-chrome", "sampling": "linear", "load": {"type": "atlas", "imageUrl": "assets/ui/figma/figma-menu-chrome.png", "dataUrl": "assets/ui/figma/figma-menu-chrome.json"}}
 ]

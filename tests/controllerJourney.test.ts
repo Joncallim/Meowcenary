@@ -76,7 +76,7 @@ if (!import.meta.url.includes('?as-harness')) {
       'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm', 'ui:back',
       'ui:navigate', 'ui:navigate', 'ui:navigate', 'ui:confirm', 'ui:confirm',
     ]);
-    expect(menu.textContents()).toContain('Equipment');
+    expect(menu.textContents()).toContain('EQUIPMENT');
     expect(menuSnapshot().panel).toBe('equipment');
     sceneBefore = expectSceneDeltas(sceneBefore, menu.scene, 'menu step 3');
     assertZeroPointerCalls(menu.pointerCalls, 'menu step 3');
