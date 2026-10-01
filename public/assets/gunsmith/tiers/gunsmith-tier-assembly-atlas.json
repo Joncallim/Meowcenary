@@ -1,0 +1,1073 @@
+{
+  "export_directory_path": "",
+  "export_file_name": "gunsmith-tier-assembly-atlas",
+  "frames": {
+    "gun-build-base:pistol": {
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-base:smg": {
+      "frame": {
+        "x": 358,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-base:shotgun": {
+      "frame": {
+        "x": 716,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:receiver-compact:t1": {
+      "frame": {
+        "x": 1074,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:receiver-compact:t2": {
+      "frame": {
+        "x": 1432,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:receiver-compact:t3": {
+      "frame": {
+        "x": 1790,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:receiver-compact:t4": {
+      "frame": {
+        "x": 2148,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:receiver-compact:t5": {
+      "frame": {
+        "x": 2506,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:receiver-heavy:t1": {
+      "frame": {
+        "x": 0,
+        "y": 196,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:receiver-heavy:t2": {
+      "frame": {
+        "x": 358,
+        "y": 196,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:receiver-heavy:t3": {
+      "frame": {
+        "x": 716,
+        "y": 196,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:receiver-heavy:t4": {
+      "frame": {
+        "x": 1074,
+        "y": 196,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:receiver-heavy:t5": {
+      "frame": {
+        "x": 1432,
+        "y": 196,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:barrel-standard:t1": {
+      "frame": {
+        "x": 1790,
+        "y": 196,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:barrel-standard:t2": {
+      "frame": {
+        "x": 2148,
+        "y": 196,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:barrel-standard:t3": {
+      "frame": {
+        "x": 2506,
+        "y": 196,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:barrel-standard:t4": {
+      "frame": {
+        "x": 0,
+        "y": 392,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:barrel-standard:t5": {
+      "frame": {
+        "x": 358,
+        "y": 392,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:barrel-long:t1": {
+      "frame": {
+        "x": 716,
+        "y": 392,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:barrel-long:t2": {
+      "frame": {
+        "x": 1074,
+        "y": 392,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:barrel-long:t3": {
+      "frame": {
+        "x": 1432,
+        "y": 392,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:barrel-long:t4": {
+      "frame": {
+        "x": 1790,
+        "y": 392,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:barrel-long:t5": {
+      "frame": {
+        "x": 2148,
+        "y": 392,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:barrel-piercing:t1": {
+      "frame": {
+        "x": 2506,
+        "y": 392,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:barrel-piercing:t2": {
+      "frame": {
+        "x": 0,
+        "y": 588,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:barrel-piercing:t3": {
+      "frame": {
+        "x": 358,
+        "y": 588,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:barrel-piercing:t4": {
+      "frame": {
+        "x": 716,
+        "y": 588,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:barrel-piercing:t5": {
+      "frame": {
+        "x": 1074,
+        "y": 588,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:underbarrel-grenade:t1": {
+      "frame": {
+        "x": 1432,
+        "y": 588,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:underbarrel-grenade:t2": {
+      "frame": {
+        "x": 1790,
+        "y": 588,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:underbarrel-grenade:t3": {
+      "frame": {
+        "x": 2148,
+        "y": 588,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:underbarrel-grenade:t4": {
+      "frame": {
+        "x": 2506,
+        "y": 588,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:underbarrel-grenade:t5": {
+      "frame": {
+        "x": 0,
+        "y": 784,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:optic-red-dot:t1": {
+      "frame": {
+        "x": 358,
+        "y": 784,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:optic-red-dot:t2": {
+      "frame": {
+        "x": 716,
+        "y": 784,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:optic-red-dot:t3": {
+      "frame": {
+        "x": 1074,
+        "y": 784,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:optic-red-dot:t4": {
+      "frame": {
+        "x": 1432,
+        "y": 784,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:optic-red-dot:t5": {
+      "frame": {
+        "x": 1790,
+        "y": 784,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:trigger-hair:t1": {
+      "frame": {
+        "x": 2148,
+        "y": 784,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:trigger-hair:t2": {
+      "frame": {
+        "x": 2506,
+        "y": 784,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:trigger-hair:t3": {
+      "frame": {
+        "x": 0,
+        "y": 980,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:trigger-hair:t4": {
+      "frame": {
+        "x": 358,
+        "y": 980,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:trigger-hair:t5": {
+      "frame": {
+        "x": 716,
+        "y": 980,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:stock-padded:t1": {
+      "frame": {
+        "x": 1074,
+        "y": 980,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:stock-padded:t2": {
+      "frame": {
+        "x": 1432,
+        "y": 980,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:stock-padded:t3": {
+      "frame": {
+        "x": 1790,
+        "y": 980,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:stock-padded:t4": {
+      "frame": {
+        "x": 2148,
+        "y": 980,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:stock-padded:t5": {
+      "frame": {
+        "x": 2506,
+        "y": 980,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:magazine-extended:t1": {
+      "frame": {
+        "x": 0,
+        "y": 1176,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:magazine-extended:t2": {
+      "frame": {
+        "x": 358,
+        "y": 1176,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:magazine-extended:t3": {
+      "frame": {
+        "x": 716,
+        "y": 1176,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:magazine-extended:t4": {
+      "frame": {
+        "x": 1074,
+        "y": 1176,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    },
+    "gun-build-part:magazine-extended:t5": {
+      "frame": {
+        "x": 1432,
+        "y": 1176,
+        "w": 358,
+        "h": 196
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 358,
+        "h": 196
+      },
+      "sourceSize": {
+        "w": 358,
+        "h": 196
+      }
+    }
+  },
+  "meta": {
+    "size": {
+      "w": 2864,
+      "h": 1372
+    },
+    "scale": "1"
+  }
+}

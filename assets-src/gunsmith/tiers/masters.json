@@ -1,0 +1,831 @@
+{
+  "schemaVersion": 1,
+  "status": "candidate",
+  "Pillow": "12.1.1",
+  "assemblySize": [
+    358,
+    196
+  ],
+  "iconSize": [
+    128,
+    80
+  ],
+  "alphaBoundsThreshold": 16,
+  "masters": [
+    {
+      "id": "receiver-board",
+      "path": "assets-src/gunsmith/tiers/candidates/receiver-board-v1.png",
+      "sha256": "e62969f5c6c4f666550a867e63365a730dfe72f5508c23e6c6cae8427d392c8c",
+      "size": [
+        1984,
+        793
+      ],
+      "generatedSourcePath": "/root/.codex/generated_images/01a0f3ae-1f3f-77e1-a869-5bc23b1c05f2/exec-f323587f-5f1a-42ae-8945-dc37ffd0d37a.png"
+    },
+    {
+      "id": "barrel-board",
+      "path": "assets-src/gunsmith/tiers/candidates/barrel-board-v1.png",
+      "sha256": "75e5c114a298812c8dc3312c820a102093db826e4687d9956bdf3f1aaccfe448",
+      "size": [
+        1983,
+        793
+      ],
+      "generatedSourcePath": "/root/.codex/generated_images/01a0f3ae-1f3f-77e1-a869-5bc23b1c05f2/exec-5f2d44b0-55be-480e-86f5-21cfc898218f.png"
+    },
+    {
+      "id": "piercing-grenade-board",
+      "path": "assets-src/gunsmith/tiers/candidates/piercing-grenade-board-v1.png",
+      "sha256": "437e699bce4a4ceacce3c0b03eb8d3e57c31a05fbb3171245c4cb111ba6791a1",
+      "size": [
+        1983,
+        793
+      ],
+      "generatedSourcePath": "/root/.codex/generated_images/01a0f3ae-1f3f-77e1-a869-5bc23b1c05f2/exec-21883251-39f8-4e7c-9a18-dda94924de20.png"
+    },
+    {
+      "id": "optic-trigger-board",
+      "path": "assets-src/gunsmith/tiers/candidates/optic-trigger-board-v1.png",
+      "sha256": "9fb5d7785a7d23b452f3581f0b3e0eaaa110b63e5ca46f567d524f4033141423",
+      "size": [
+        1983,
+        793
+      ],
+      "generatedSourcePath": "/root/.codex/generated_images/01a0f3ae-1f3f-77e1-a869-5bc23b1c05f2/exec-c76a4149-d168-47ac-b0e8-f0f43d4ba342.png"
+    },
+    {
+      "id": "stock-magazine-board",
+      "path": "assets-src/gunsmith/tiers/candidates/stock-magazine-board-v1.png",
+      "sha256": "8b36fcf7b200d5e7c8aaf14ffe7a22769dfa79a220a78511e0ae2a645885a953",
+      "size": [
+        1983,
+        793
+      ],
+      "generatedSourcePath": "/root/.codex/generated_images/01a0f3ae-1f3f-77e1-a869-5bc23b1c05f2/exec-9c3fdec1-555c-4bfa-bba8-903e0b5433e6.png"
+    },
+    {
+      "id": "chassis-board",
+      "path": "assets-src/gunsmith/tiers/candidates/chassis-board-v1.png",
+      "sha256": "77138742fe5893c990b5cb24ad1b042c5d372f3acc70763c9d9c392885d1fcdc",
+      "size": [
+        1752,
+        897
+      ],
+      "generatedSourcePath": "/root/.codex/generated_images/01a0f3ae-1f3f-77e1-a869-5bc23b1c05f2/exec-b15053f7-f8b9-4189-9691-87f7544d210d.png"
+    }
+  ],
+  "components": [
+    {
+      "partId": "part:receiver-compact",
+      "masterId": "receiver-board",
+      "cropRects": [
+        [
+          85,
+          142,
+          331,
+          328
+        ],
+        [
+          422,
+          127,
+          711,
+          331
+        ],
+        [
+          819,
+          126,
+          1107,
+          335
+        ],
+        [
+          1181,
+          112,
+          1499,
+          339
+        ],
+        [
+          1564,
+          112,
+          1922,
+          341
+        ]
+      ],
+      "sourceAnchors": [
+        [
+          208.0,
+          235.0
+        ],
+        [
+          566.5,
+          229.0
+        ],
+        [
+          963.0,
+          230.5
+        ],
+        [
+          1340.0,
+          225.5
+        ],
+        [
+          1743.0,
+          226.5
+        ]
+      ],
+      "targetAnchor": [
+        140,
+        92
+      ],
+      "maxAssemblyExtent": [
+        110,
+        60
+      ]
+    },
+    {
+      "partId": "part:receiver-heavy",
+      "masterId": "receiver-board",
+      "cropRects": [
+        [
+          59,
+          461,
+          377,
+          699
+        ],
+        [
+          410,
+          442,
+          734,
+          696
+        ],
+        [
+          787,
+          445,
+          1121,
+          703
+        ],
+        [
+          1170,
+          434,
+          1500,
+          701
+        ],
+        [
+          1542,
+          426,
+          1940,
+          705
+        ]
+      ],
+      "sourceAnchors": [
+        [
+          218.0,
+          580.0
+        ],
+        [
+          572.0,
+          569.0
+        ],
+        [
+          954.0,
+          574.0
+        ],
+        [
+          1335.0,
+          567.5
+        ],
+        [
+          1741.0,
+          565.5
+        ]
+      ],
+      "targetAnchor": [
+        140,
+        92
+      ],
+      "maxAssemblyExtent": [
+        110,
+        60
+      ]
+    },
+    {
+      "partId": "part:barrel-standard",
+      "masterId": "barrel-board",
+      "cropRects": [
+        [
+          48,
+          152,
+          296,
+          318
+        ],
+        [
+          394,
+          153,
+          659,
+          314
+        ],
+        [
+          730,
+          151,
+          1014,
+          315
+        ],
+        [
+          1083,
+          149,
+          1436,
+          317
+        ],
+        [
+          1493,
+          136,
+          1935,
+          328
+        ]
+      ],
+      "sourceAnchors": [
+        [
+          65.36,
+          235.0
+        ],
+        [
+          412.55,
+          233.5
+        ],
+        [
+          749.88,
+          233.0
+        ],
+        [
+          1107.71,
+          233.0
+        ],
+        [
+          1523.94,
+          232.0
+        ]
+      ],
+      "targetAnchor": [
+        177,
+        90
+      ],
+      "maxAssemblyExtent": [
+        150,
+        50
+      ]
+    },
+    {
+      "partId": "part:barrel-long",
+      "masterId": "barrel-board",
+      "cropRects": [
+        [
+          43,
+          510,
+          325,
+          635
+        ],
+        [
+          350,
+          510,
+          667,
+          635
+        ],
+        [
+          690,
+          504,
+          1049,
+          635
+        ],
+        [
+          1064,
+          493,
+          1455,
+          641
+        ],
+        [
+          1470,
+          490,
+          1941,
+          640
+        ]
+      ],
+      "sourceAnchors": [
+        [
+          62.74,
+          572.5
+        ],
+        [
+          372.19,
+          572.5
+        ],
+        [
+          715.13,
+          569.5
+        ],
+        [
+          1091.37,
+          567.0
+        ],
+        [
+          1502.97,
+          565.0
+        ]
+      ],
+      "targetAnchor": [
+        177,
+        90
+      ],
+      "maxAssemblyExtent": [
+        150,
+        50
+      ]
+    },
+    {
+      "partId": "part:barrel-piercing",
+      "masterId": "piercing-grenade-board",
+      "cropRects": [
+        [
+          57,
+          161,
+          373,
+          319
+        ],
+        [
+          408,
+          161,
+          723,
+          318
+        ],
+        [
+          771,
+          159,
+          1124,
+          318
+        ],
+        [
+          1153,
+          159,
+          1530,
+          318
+        ],
+        [
+          1573,
+          154,
+          1936,
+          318
+        ]
+      ],
+      "sourceAnchors": [
+        [
+          79.12,
+          240.0
+        ],
+        [
+          430.05,
+          239.5
+        ],
+        [
+          795.71,
+          238.5
+        ],
+        [
+          1179.39,
+          238.5
+        ],
+        [
+          1598.41,
+          236.0
+        ]
+      ],
+      "targetAnchor": [
+        177,
+        90
+      ],
+      "maxAssemblyExtent": [
+        150,
+        50
+      ]
+    },
+    {
+      "partId": "part:underbarrel-grenade",
+      "masterId": "piercing-grenade-board",
+      "cropRects": [
+        [
+          60,
+          459,
+          331,
+          649
+        ],
+        [
+          414,
+          454,
+          699,
+          651
+        ],
+        [
+          773,
+          449,
+          1077,
+          651
+        ],
+        [
+          1141,
+          448,
+          1496,
+          651
+        ],
+        [
+          1564,
+          435,
+          1921,
+          651
+        ]
+      ],
+      "sourceAnchors": [
+        [
+          100.65,
+          487.5
+        ],
+        [
+          456.75,
+          483.55
+        ],
+        [
+          818.6,
+          479.3
+        ],
+        [
+          1194.25,
+          478.45
+        ],
+        [
+          1617.55,
+          467.4
+        ]
+      ],
+      "targetAnchor": [
+        205,
+        113
+      ],
+      "maxAssemblyExtent": [
+        105,
+        45
+      ]
+    },
+    {
+      "partId": "part:optic-red-dot",
+      "masterId": "optic-trigger-board",
+      "cropRects": [
+        [
+          89,
+          182,
+          309,
+          346
+        ],
+        [
+          457,
+          137,
+          689,
+          346
+        ],
+        [
+          834,
+          141,
+          1081,
+          345
+        ],
+        [
+          1209,
+          133,
+          1510,
+          346
+        ],
+        [
+          1571,
+          148,
+          1931,
+          346
+        ]
+      ],
+      "sourceAnchors": [
+        [
+          199.0,
+          332.88
+        ],
+        [
+          573.0,
+          329.28
+        ],
+        [
+          957.5,
+          328.68
+        ],
+        [
+          1359.5,
+          328.96
+        ],
+        [
+          1751.0,
+          330.16
+        ]
+      ],
+      "targetAnchor": [
+        143,
+        78
+      ],
+      "maxAssemblyExtent": [
+        65,
+        36
+      ]
+    },
+    {
+      "partId": "part:trigger-hair",
+      "masterId": "optic-trigger-board",
+      "cropRects": [
+        [
+          50,
+          469,
+          336,
+          678
+        ],
+        [
+          439,
+          456,
+          739,
+          672
+        ],
+        [
+          817,
+          459,
+          1107,
+          687
+        ],
+        [
+          1189,
+          463,
+          1509,
+          678
+        ],
+        [
+          1588,
+          456,
+          1951,
+          710
+        ]
+      ],
+      "sourceAnchors": [
+        [
+          193.0,
+          481.54
+        ],
+        [
+          589.0,
+          468.96
+        ],
+        [
+          962.0,
+          472.68
+        ],
+        [
+          1349.0,
+          475.9
+        ],
+        [
+          1769.5,
+          471.24
+        ]
+      ],
+      "targetAnchor": [
+        143,
+        116
+      ],
+      "maxAssemblyExtent": [
+        45,
+        40
+      ]
+    },
+    {
+      "partId": "part:stock-padded",
+      "masterId": "stock-magazine-board",
+      "cropRects": [
+        [
+          92,
+          129,
+          310,
+          267
+        ],
+        [
+          412,
+          111,
+          680,
+          268
+        ],
+        [
+          779,
+          105,
+          1079,
+          291
+        ],
+        [
+          1143,
+          105,
+          1507,
+          293
+        ],
+        [
+          1579,
+          89,
+          1907,
+          304
+        ]
+      ],
+      "sourceAnchors": [
+        [
+          299.1,
+          198.0
+        ],
+        [
+          666.6,
+          189.5
+        ],
+        [
+          1064.0,
+          198.0
+        ],
+        [
+          1488.8,
+          199.0
+        ],
+        [
+          1890.6,
+          196.5
+        ]
+      ],
+      "targetAnchor": [
+        105,
+        90
+      ],
+      "maxAssemblyExtent": [
+        85,
+        50
+      ]
+    },
+    {
+      "partId": "part:magazine-extended",
+      "masterId": "stock-magazine-board",
+      "cropRects": [
+        [
+          171,
+          428,
+          275,
+          649
+        ],
+        [
+          473,
+          418,
+          615,
+          684
+        ],
+        [
+          829,
+          407,
+          1002,
+          710
+        ],
+        [
+          1200,
+          416,
+          1421,
+          709
+        ],
+        [
+          1627,
+          414,
+          1877,
+          714
+        ]
+      ],
+      "sourceAnchors": [
+        [
+          223.0,
+          439.05
+        ],
+        [
+          544.0,
+          431.3
+        ],
+        [
+          915.5,
+          422.15
+        ],
+        [
+          1310.5,
+          430.65
+        ],
+        [
+          1752.0,
+          429.0
+        ]
+      ],
+      "targetAnchor": [
+        176,
+        114
+      ],
+      "maxAssemblyExtent": [
+        48,
+        67
+      ]
+    }
+  ],
+  "chassis": [
+    {
+      "familyId": "pistol",
+      "masterId": "chassis-board",
+      "baseArtId": "gun-build-base:pistol",
+      "iconArtId": "gun-chassis-icon:pistol",
+      "cropRects": [
+        [
+          77,
+          323,
+          395,
+          611
+        ]
+      ],
+      "sourceAnchors": [
+        [
+          225,
+          390
+        ]
+      ],
+      "targetAnchor": [
+        140,
+        92
+      ],
+      "maxAssemblyExtent": [
+        170,
+        100
+      ]
+    },
+    {
+      "familyId": "smg",
+      "masterId": "chassis-board",
+      "baseArtId": "gun-build-base:smg",
+      "iconArtId": "gun-chassis-icon:smg",
+      "cropRects": [
+        [
+          496,
+          316,
+          1011,
+          615
+        ]
+      ],
+      "sourceAnchors": [
+        [
+          670,
+          390
+        ]
+      ],
+      "targetAnchor": [
+        140,
+        92
+      ],
+      "maxAssemblyExtent": [
+        170,
+        100
+      ]
+    },
+    {
+      "familyId": "shotgun",
+      "masterId": "chassis-board",
+      "baseArtId": "gun-build-base:shotgun",
+      "iconArtId": "gun-chassis-icon:shotgun",
+      "cropRects": [
+        [
+          1040,
+          323,
+          1690,
+          611
+        ]
+      ],
+      "sourceAnchors": [
+        [
+          1270,
+          390
+        ]
+      ],
+      "targetAnchor": [
+        140,
+        92
+      ],
+      "maxAssemblyExtent": [
+        170,
+        100
+      ]
+    }
+  ],
+  "rejected": [
+    {
+      "path": "assets-src/gunsmith/tiers/archive/receiver-board-v0-clipped-rejected.png",
+      "sha256": "9b15d83838e7f67735358dc2dc3be5dd83403abae27bcdbdf54a64b585125589",
+      "reason": "Meaningful HeavyT1 alpha touched left image edge; excluded from runtime."
+    }
+  ]
+}

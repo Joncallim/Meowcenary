@@ -1,0 +1,372 @@
+{
+  "schemaVersion": 1,
+  "status": "candidate",
+  "frameSize": [
+    358,
+    196
+  ],
+  "parts": [
+    {
+      "partId": "part:receiver-compact",
+      "tierInvariant": false,
+      "tiers": [
+        {
+          "tier": 1,
+          "iconArtId": "gun-part-icon:receiver-compact:t1",
+          "assemblyArtId": "gun-build-part:receiver-compact:t1"
+        },
+        {
+          "tier": 2,
+          "iconArtId": "gun-part-icon:receiver-compact:t2",
+          "assemblyArtId": "gun-build-part:receiver-compact:t2"
+        },
+        {
+          "tier": 3,
+          "iconArtId": "gun-part-icon:receiver-compact:t3",
+          "assemblyArtId": "gun-build-part:receiver-compact:t3"
+        },
+        {
+          "tier": 4,
+          "iconArtId": "gun-part-icon:receiver-compact:t4",
+          "assemblyArtId": "gun-build-part:receiver-compact:t4"
+        },
+        {
+          "tier": 5,
+          "iconArtId": "gun-part-icon:receiver-compact:t5",
+          "assemblyArtId": "gun-build-part:receiver-compact:t5"
+        }
+      ]
+    },
+    {
+      "partId": "part:receiver-heavy",
+      "tierInvariant": false,
+      "tiers": [
+        {
+          "tier": 1,
+          "iconArtId": "gun-part-icon:receiver-heavy:t1",
+          "assemblyArtId": "gun-build-part:receiver-heavy:t1"
+        },
+        {
+          "tier": 2,
+          "iconArtId": "gun-part-icon:receiver-heavy:t2",
+          "assemblyArtId": "gun-build-part:receiver-heavy:t2"
+        },
+        {
+          "tier": 3,
+          "iconArtId": "gun-part-icon:receiver-heavy:t3",
+          "assemblyArtId": "gun-build-part:receiver-heavy:t3"
+        },
+        {
+          "tier": 4,
+          "iconArtId": "gun-part-icon:receiver-heavy:t4",
+          "assemblyArtId": "gun-build-part:receiver-heavy:t4"
+        },
+        {
+          "tier": 5,
+          "iconArtId": "gun-part-icon:receiver-heavy:t5",
+          "assemblyArtId": "gun-build-part:receiver-heavy:t5"
+        }
+      ]
+    },
+    {
+      "partId": "part:barrel-standard",
+      "tierInvariant": false,
+      "tiers": [
+        {
+          "tier": 1,
+          "iconArtId": "gun-part-icon:barrel-standard:t1",
+          "assemblyArtId": "gun-build-part:barrel-standard:t1"
+        },
+        {
+          "tier": 2,
+          "iconArtId": "gun-part-icon:barrel-standard:t2",
+          "assemblyArtId": "gun-build-part:barrel-standard:t2"
+        },
+        {
+          "tier": 3,
+          "iconArtId": "gun-part-icon:barrel-standard:t3",
+          "assemblyArtId": "gun-build-part:barrel-standard:t3"
+        },
+        {
+          "tier": 4,
+          "iconArtId": "gun-part-icon:barrel-standard:t4",
+          "assemblyArtId": "gun-build-part:barrel-standard:t4"
+        },
+        {
+          "tier": 5,
+          "iconArtId": "gun-part-icon:barrel-standard:t5",
+          "assemblyArtId": "gun-build-part:barrel-standard:t5"
+        }
+      ]
+    },
+    {
+      "partId": "part:barrel-long",
+      "tierInvariant": false,
+      "tiers": [
+        {
+          "tier": 1,
+          "iconArtId": "gun-part-icon:barrel-long:t1",
+          "assemblyArtId": "gun-build-part:barrel-long:t1"
+        },
+        {
+          "tier": 2,
+          "iconArtId": "gun-part-icon:barrel-long:t2",
+          "assemblyArtId": "gun-build-part:barrel-long:t2"
+        },
+        {
+          "tier": 3,
+          "iconArtId": "gun-part-icon:barrel-long:t3",
+          "assemblyArtId": "gun-build-part:barrel-long:t3"
+        },
+        {
+          "tier": 4,
+          "iconArtId": "gun-part-icon:barrel-long:t4",
+          "assemblyArtId": "gun-build-part:barrel-long:t4"
+        },
+        {
+          "tier": 5,
+          "iconArtId": "gun-part-icon:barrel-long:t5",
+          "assemblyArtId": "gun-build-part:barrel-long:t5"
+        }
+      ]
+    },
+    {
+      "partId": "part:optic-red-dot",
+      "tierInvariant": false,
+      "tiers": [
+        {
+          "tier": 1,
+          "iconArtId": "gun-part-icon:optic-red-dot:t1",
+          "assemblyArtId": "gun-build-part:optic-red-dot:t1"
+        },
+        {
+          "tier": 2,
+          "iconArtId": "gun-part-icon:optic-red-dot:t2",
+          "assemblyArtId": "gun-build-part:optic-red-dot:t2"
+        },
+        {
+          "tier": 3,
+          "iconArtId": "gun-part-icon:optic-red-dot:t3",
+          "assemblyArtId": "gun-build-part:optic-red-dot:t3"
+        },
+        {
+          "tier": 4,
+          "iconArtId": "gun-part-icon:optic-red-dot:t4",
+          "assemblyArtId": "gun-build-part:optic-red-dot:t4"
+        },
+        {
+          "tier": 5,
+          "iconArtId": "gun-part-icon:optic-red-dot:t5",
+          "assemblyArtId": "gun-build-part:optic-red-dot:t5"
+        }
+      ]
+    },
+    {
+      "partId": "part:stock-padded",
+      "tierInvariant": false,
+      "tiers": [
+        {
+          "tier": 1,
+          "iconArtId": "gun-part-icon:stock-padded:t1",
+          "assemblyArtId": "gun-build-part:stock-padded:t1"
+        },
+        {
+          "tier": 2,
+          "iconArtId": "gun-part-icon:stock-padded:t2",
+          "assemblyArtId": "gun-build-part:stock-padded:t2"
+        },
+        {
+          "tier": 3,
+          "iconArtId": "gun-part-icon:stock-padded:t3",
+          "assemblyArtId": "gun-build-part:stock-padded:t3"
+        },
+        {
+          "tier": 4,
+          "iconArtId": "gun-part-icon:stock-padded:t4",
+          "assemblyArtId": "gun-build-part:stock-padded:t4"
+        },
+        {
+          "tier": 5,
+          "iconArtId": "gun-part-icon:stock-padded:t5",
+          "assemblyArtId": "gun-build-part:stock-padded:t5"
+        }
+      ]
+    },
+    {
+      "partId": "part:trigger-hair",
+      "tierInvariant": false,
+      "tiers": [
+        {
+          "tier": 1,
+          "iconArtId": "gun-part-icon:trigger-hair:t1",
+          "assemblyArtId": "gun-build-part:trigger-hair:t1"
+        },
+        {
+          "tier": 2,
+          "iconArtId": "gun-part-icon:trigger-hair:t2",
+          "assemblyArtId": "gun-build-part:trigger-hair:t2"
+        },
+        {
+          "tier": 3,
+          "iconArtId": "gun-part-icon:trigger-hair:t3",
+          "assemblyArtId": "gun-build-part:trigger-hair:t3"
+        },
+        {
+          "tier": 4,
+          "iconArtId": "gun-part-icon:trigger-hair:t4",
+          "assemblyArtId": "gun-build-part:trigger-hair:t4"
+        },
+        {
+          "tier": 5,
+          "iconArtId": "gun-part-icon:trigger-hair:t5",
+          "assemblyArtId": "gun-build-part:trigger-hair:t5"
+        }
+      ]
+    },
+    {
+      "partId": "part:magazine-extended",
+      "tierInvariant": false,
+      "tiers": [
+        {
+          "tier": 1,
+          "iconArtId": "gun-part-icon:magazine-extended:t1",
+          "assemblyArtId": "gun-build-part:magazine-extended:t1"
+        },
+        {
+          "tier": 2,
+          "iconArtId": "gun-part-icon:magazine-extended:t2",
+          "assemblyArtId": "gun-build-part:magazine-extended:t2"
+        },
+        {
+          "tier": 3,
+          "iconArtId": "gun-part-icon:magazine-extended:t3",
+          "assemblyArtId": "gun-build-part:magazine-extended:t3"
+        },
+        {
+          "tier": 4,
+          "iconArtId": "gun-part-icon:magazine-extended:t4",
+          "assemblyArtId": "gun-build-part:magazine-extended:t4"
+        },
+        {
+          "tier": 5,
+          "iconArtId": "gun-part-icon:magazine-extended:t5",
+          "assemblyArtId": "gun-build-part:magazine-extended:t5"
+        }
+      ]
+    },
+    {
+      "partId": "part:underbarrel-grenade",
+      "tierInvariant": false,
+      "tiers": [
+        {
+          "tier": 1,
+          "iconArtId": "gun-part-icon:underbarrel-grenade:t1",
+          "assemblyArtId": "gun-build-part:underbarrel-grenade:t1"
+        },
+        {
+          "tier": 2,
+          "iconArtId": "gun-part-icon:underbarrel-grenade:t2",
+          "assemblyArtId": "gun-build-part:underbarrel-grenade:t2"
+        },
+        {
+          "tier": 3,
+          "iconArtId": "gun-part-icon:underbarrel-grenade:t3",
+          "assemblyArtId": "gun-build-part:underbarrel-grenade:t3"
+        },
+        {
+          "tier": 4,
+          "iconArtId": "gun-part-icon:underbarrel-grenade:t4",
+          "assemblyArtId": "gun-build-part:underbarrel-grenade:t4"
+        },
+        {
+          "tier": 5,
+          "iconArtId": "gun-part-icon:underbarrel-grenade:t5",
+          "assemblyArtId": "gun-build-part:underbarrel-grenade:t5"
+        }
+      ]
+    },
+    {
+      "partId": "part:barrel-piercing",
+      "tierInvariant": false,
+      "tiers": [
+        {
+          "tier": 1,
+          "iconArtId": "gun-part-icon:barrel-piercing:t1",
+          "assemblyArtId": "gun-build-part:barrel-piercing:t1"
+        },
+        {
+          "tier": 2,
+          "iconArtId": "gun-part-icon:barrel-piercing:t2",
+          "assemblyArtId": "gun-build-part:barrel-piercing:t2"
+        },
+        {
+          "tier": 3,
+          "iconArtId": "gun-part-icon:barrel-piercing:t3",
+          "assemblyArtId": "gun-build-part:barrel-piercing:t3"
+        },
+        {
+          "tier": 4,
+          "iconArtId": "gun-part-icon:barrel-piercing:t4",
+          "assemblyArtId": "gun-build-part:barrel-piercing:t4"
+        },
+        {
+          "tier": 5,
+          "iconArtId": "gun-part-icon:barrel-piercing:t5",
+          "assemblyArtId": "gun-build-part:barrel-piercing:t5"
+        }
+      ]
+    },
+    {
+      "partId": "part:trait-fire",
+      "tierInvariant": true,
+      "tiers": [
+        {
+          "tier": 1,
+          "iconArtId": "gun-part-icon:trait-fire"
+        },
+        {
+          "tier": 2,
+          "iconArtId": "gun-part-icon:trait-fire"
+        },
+        {
+          "tier": 3,
+          "iconArtId": "gun-part-icon:trait-fire"
+        },
+        {
+          "tier": 4,
+          "iconArtId": "gun-part-icon:trait-fire"
+        },
+        {
+          "tier": 5,
+          "iconArtId": "gun-part-icon:trait-fire"
+        }
+      ]
+    },
+    {
+      "partId": "part:trait-fire-mastered",
+      "tierInvariant": true,
+      "tiers": [
+        {
+          "tier": 1,
+          "iconArtId": "gun-part-icon:trait-fire-mastered"
+        },
+        {
+          "tier": 2,
+          "iconArtId": "gun-part-icon:trait-fire-mastered"
+        },
+        {
+          "tier": 3,
+          "iconArtId": "gun-part-icon:trait-fire-mastered"
+        },
+        {
+          "tier": 4,
+          "iconArtId": "gun-part-icon:trait-fire-mastered"
+        },
+        {
+          "tier": 5,
+          "iconArtId": "gun-part-icon:trait-fire-mastered"
+        }
+      ]
+    }
+  ]
+}

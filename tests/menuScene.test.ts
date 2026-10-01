@@ -958,9 +958,9 @@ describe('MenuScene', () => {
       'Pistol Build', 'SMG Build', 'Shotgun Build', 'SELECTED',
       'PISTOL BUILD\nSelected • Active from start', 'Stock Pistol chassis',
     ]));
-    const compactLabel = 'Compact Receiver • COMMON\nBlueprint • 60 Scrap\nFire rate +8%\nCurrent build: Fire interval 650ms → 601.9ms\nFabricate for 60 Scrap\nFabricate — 60 Scrap';
+    const compactLabel = 'Compact Receiver • COMMON\nFABRICABLE • 60 Scrap\n+8% Fire Rate\nCurrent build: Fire interval 650ms to 601.9ms\nFabricate for 60 Scrap\nFabricate — 60 Scrap';
     expect(harness.textContents()).toEqual(expect.arrayContaining(['PART CATALOG', compactLabel]));
-    expect(harness.textContents().join('\n')).toContain('Standard Barrel • COMMON\nLocked blueprint');
+    expect(harness.textContents().join('\n')).toContain('Standard Barrel • COMMON\nLOCKED');
     expect(harness.buttonByLabel(compactLabel)!.state.interactive).toBe(false);
     expect(harness.context.saveData.gunsmith.parts).toEqual({});
     harness.buttonByLabel('SMG Build')!.state.handlers.pointerup!();
@@ -980,7 +980,7 @@ describe('MenuScene', () => {
       navigator: { index: number };
       focusables: FakeObject[];
     };
-    const locked = scene.focusables.find((row) => row.state.text.startsWith('Standard Barrel • COMMON\nLocked blueprint'))!;
+    const locked = scene.focusables.find((row) => row.state.text.startsWith('Standard Barrel • COMMON\nLOCKED'))!;
     const lockedIndex = scene.focusables.indexOf(locked);
     for (let step = 0; step < scene.focusables.length && scene.navigator.index !== lockedIndex; step += 1) {
       harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
@@ -1048,7 +1048,7 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
     harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     const label = harness.textContents().find((text) => text.includes('Fabricate another — 60 Scrap'))!;
-    expect(label).toContain('Fitted • T1');
+    expect(label).toContain('EQUIPPED • T1');
     for (let step = 0; step < 20 && !harness.buttonByLabel(label)!.state.interactive; step += 1) {
       harness.keyboard.keydown('ArrowDown'); harness.menuScene.update(0, 16);
       harness.keyboard.keyup('ArrowDown'); harness.menuScene.update(0, 16);
@@ -1080,7 +1080,7 @@ describe('MenuScene', () => {
     expect(harness.context.saveData.gunsmith.parts).toHaveProperty('a');
     expect(harness.context.saveData.gunsmith.parts).toHaveProperty('b');
     expect(harness.textContents()).toEqual(expect.arrayContaining([
-      'CONFIRM MERGE\nINPUTS\nStandard Barrel T1 • Range +10\nStandard Barrel T1 • Range +10\nOUTPUT\nStandard Barrel T2 • Range +20\nRange +10 → Range +20',
+      'CONFIRM MERGE\nINPUTS\nStandard Barrel T1 • +10 Range\nStandard Barrel T1 • +10 Range\nOUTPUT\nStandard Barrel T2 • +20 Range\n+10 Range → +20 Range',
       'Merge parts', 'Cancel',
     ]));
     expect(harness.textContents()).not.toContain('CHOOSE COMPATIBLE SECOND INPUT');
@@ -1182,6 +1182,35 @@ describe('MenuScene', () => {
     }
   });
 
+  it('discloses the displaced Part and mechanical comparison before a one-command replacement', () => {
+    const harness = createHarness();
+    harness.context.updateGunsmith((state) => ({
+      ...state,
+      parts: {
+        heavy: { partId: 'part:receiver-heavy', tier: 2, infusedTraits: [] },
+        compact: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] },
+      },
+      builds: [{ id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: { receiver: 'heavy' }, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    const original = harness.context.saveData.gunsmith;
+    const mutate = vi.spyOn(harness.context, 'updateGunsmith');
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
+    const row = harness.objects.find((object) => !object.state.destroyed && object.state.text.startsWith('Compact Receiver T1 • OWNED'))!;
+    expect(row.state.text).toContain('REPLACE HEAVY RECEIVER T2');
+    expect(row.state.text).toContain('Heavy Receiver T2 returns to STORED.');
+    expect(row.state.text).toContain('Current build:');
+    expect(row.state.text).toContain('738.6ms to 601.9ms');
+    expect(row.state.text).not.toContain('→');
+    expect(mutate).not.toHaveBeenCalled();
+    expect(harness.context.saveData.gunsmith).toBe(original);
+    row.state.handlers.pointerup!();
+    expect(mutate).toHaveBeenCalledTimes(1);
+    expect(harness.context.saveData.gunsmith.builds[0]!.fitted.receiver).toBe('compact');
+    expect(harness.context.saveData.gunsmith.parts).toEqual(original.parts);
+  });
+
   it('groups owned hardware by canonical weapon slot and makes a cross-build move explicit', () => {
     const harness = createHarness();
     harness.context.updateGunsmith((state) => ({
@@ -1197,7 +1226,7 @@ describe('MenuScene', () => {
     harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
     expect(harness.textContents()).toEqual(expect.arrayContaining([
       'RECEIVER', 'BARREL', 'OPTIC', 'STOCK', 'TRIGGER', 'MAGAZINE', 'TRAITS 0 / 2',
-      'Standard Barrel T1 • FITTED TO PISTOL BUILD\nRange +10\nMOVE FROM PISTOL BUILD',
+      'Standard Barrel T1 • FITTED TO PISTOL BUILD\n+10 Range\nMOVE FROM PISTOL BUILD',
     ]));
   });
 
@@ -2961,7 +2990,7 @@ describe('MenuScene', () => {
     expect(rendered).not.toHaveBeenCalled();
   });
 
-  it('loads one co-registered assembled-weapon atlas for a chassis and all fitted layers', async () => {
+  it('loads one native assembly atlas for the explicit chassis and exact fitted Part tiers', async () => {
     const harness = createHarness({ create: false });
     const art = new DataVisualArtRegistry(harness.context.data);
     const complete = new Map<string, () => void>(); const queued: unknown[][] = [];
@@ -2981,8 +3010,8 @@ describe('MenuScene', () => {
         once: (event: string, listener: () => void) => { complete.set(event, listener); },
         atlas: (...args: unknown[]) => { queued.push(args); },
         start: () => {
-          loaded.add('art-gun-build-previews');
-          complete.get('filecomplete-atlasjson-art-gun-build-previews')?.();
+          loaded.add('art-gunsmith-tier-assembly');
+          complete.get('filecomplete-atlasjson-art-gunsmith-tier-assembly')?.();
         },
       },
       getContext: () => harness.context, requireVisualArt: () => art, render: () => undefined,
@@ -2990,14 +3019,14 @@ describe('MenuScene', () => {
 
     await scene.ensureGunsmithPresentation([
       'gun-build-base:smg',
-      'gun-build-part:receiver-heavy',
-      'gun-build-part:trigger-hair',
+      'gun-build-part:receiver-heavy:t3',
+      'gun-build-part:trigger-hair:t5',
     ]);
 
     expect(queued).toEqual([[
-      'art-gun-build-previews',
-      'assets/gunsmith/previews/gun-build-preview-atlas.png',
-      'assets/gunsmith/previews/gun-build-preview-atlas.json',
+      'art-gunsmith-tier-assembly',
+      'assets/gunsmith/tiers/gunsmith-tier-assembly-atlas.png',
+      'assets/gunsmith/tiers/gunsmith-tier-assembly-atlas.json',
     ]]);
   });
 

@@ -4,7 +4,8 @@ import { CharacterSelectionController, type CharacterSelectionSnapshot } from '.
 import { SettingsController, type SettingsSnapshot } from './settings';
 import { StageSelectionController, type StageSelectionSnapshot } from './stageSelectionController';
 import { AchievementsController, type AchievementsSnapshot } from './achievementsController';
-import { GunsmithController, type GunsmithSnapshot, type GunsmithWorkshopRequest } from './gunsmithController';
+import { GunsmithController, type GunsmithSnapshot, type GunsmithWorkshopRequest, type GunsmithSurface } from './gunsmithController';
+import type { PartSlot } from '../gameplay/gunsmith';
 import { EquipmentController, type EquipmentSnapshot } from './equipmentController';
 import { ProgressionOverviewController, type ProgressionOverviewSnapshot } from './progressionOverviewController';
 import { CompendiumController, type CompendiumSnapshot } from './compendiumController';
@@ -102,6 +103,11 @@ export class MainMenuController {
   }
 
   back(): MainMenuSnapshot {
+    if (this.panel === 'gunsmith' && this.gunsmithController.snapshot().selectedCandidateInstanceId !== undefined) {
+      this.gunsmithController.cancelPreview();
+      this.notice = undefined;
+      return this.snapshot();
+    }
     if (this.panel === 'gunsmith' && this.gunsmithController.snapshot().confirmation !== undefined) {
       this.gunsmithController.cancelWorkshop();
       this.notice = undefined;
@@ -109,6 +115,11 @@ export class MainMenuController {
     }
     if (this.panel === 'gunsmith' && this.gunsmithController.hasMergeSelection()) {
       this.gunsmithController.backMergeSelection();
+      this.notice = undefined;
+      return this.snapshot();
+    }
+    if (this.panel === 'gunsmith' && this.gunsmithController.snapshot().surface !== 'build') {
+      this.gunsmithController.openSurface('build');
       this.notice = undefined;
       return this.snapshot();
     }
@@ -165,6 +176,42 @@ export class MainMenuController {
   fitGunPart(instanceId: string): MainMenuSnapshot {
     const result = this.gunsmithController.fitPart(instanceId);
     this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
+    return this.snapshot();
+  }
+
+  openGunsmithSurface(surface: GunsmithSurface): MainMenuSnapshot {
+    this.gunsmithController.openSurface(surface);
+    this.notice = undefined;
+    return this.snapshot();
+  }
+
+  selectGunsmithSlot(slot: PartSlot): MainMenuSnapshot {
+    this.gunsmithController.selectSlot(slot);
+    this.notice = undefined;
+    return this.snapshot();
+  }
+
+  selectGunsmithTraitSocket(instanceId: string): MainMenuSnapshot {
+    this.gunsmithController.selectTraitSocket(instanceId);
+    this.notice = undefined;
+    return this.snapshot();
+  }
+
+  previewGunPart(instanceId: string, displacedInstanceId?: string): MainMenuSnapshot {
+    const result = this.gunsmithController.previewPart(instanceId, displacedInstanceId);
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
+    return this.snapshot();
+  }
+
+  commitGunPartPreview(): MainMenuSnapshot {
+    const result = this.gunsmithController.commitPreview();
+    this.notice = result.ok ? undefined : this.noticeForGunsmithFailure(result.reason);
+    return this.snapshot();
+  }
+
+  cancelGunPartPreview(): MainMenuSnapshot {
+    this.gunsmithController.cancelPreview();
+    this.notice = undefined;
     return this.snapshot();
   }
 

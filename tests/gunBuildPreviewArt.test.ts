@@ -59,10 +59,10 @@ function alphaAt(atlas: ReturnType<typeof decode>, frameIndex: number, x: number
   return atlas.pixels[(y * atlas.width + frameIndex * 96 + x) * 4 + 3]!;
 }
 
-describe('assembled-weapon production art packet', () => {
-  it('binds every exact base and Part identity to one nearest-sampled named-frame atlas', () => {
-    const bindings = visualArt.bindings.filter((binding) => ids.includes(binding.id as typeof ids[number]));
-    expect(bindings.map((binding) => binding.id)).toEqual([...ids]);
+describe('historical tierless assembled-weapon art provenance', () => {
+  it('retains deprecated tierless Part bindings while native chassis use the tier atlas', () => {
+    const bindings = visualArt.bindings.filter((binding) => ids.includes(binding.id as typeof ids[number]) && !binding.id.startsWith('gun-build-base:'));
+    expect(bindings.map((binding) => binding.id)).toEqual(ids.filter((id) => !id.startsWith('gun-build-base:')));
     expect(bindings.every((binding) => binding.required && binding.kind === 'icon' && binding.frameKey === binding.id)).toBe(true);
     expect(bindings.every((binding) => binding.display.width === 96 && binding.display.height === 48)).toBe(true);
     expect(new Set(bindings.map((binding) => binding.resourceId))).toEqual(new Set(['resource:gun-build-previews']));
