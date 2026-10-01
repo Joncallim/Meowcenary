@@ -22,6 +22,8 @@ import { createUiVisualChrome, type UiVisualChrome } from '../ui/visualChrome';
 import { presentLoadoutModifier, type LoadoutEffectPresentation } from '../ui/loadoutPresentation';
 import type { EquipmentComparison, EquipmentLoadoutPresentation, EquipmentSetProgressPresentation } from '../ui/equipmentPresentation';
 import type { GunsmithAssembledPreview } from '../ui/gunsmithController';
+import { performanceProbe } from '../platform/performanceProbe';
+import { collectDisplayObjects, displayObjectChange, type DisplayNode } from '../platform/performanceDisplay';
 
 const MENU_DEPTH = ThemeDepth.pauseSummary;
 const EMPTY_RESOURCE_LOAD_RESULT: ResourceLoadResult = Object.freeze({
@@ -257,7 +259,13 @@ export class MenuScene extends Phaser.Scene {
     this.audioManager?.update(delta);
   }
 
-  private render(snapshot: MainMenuSnapshot): void {
+  private render(snapshot: MainMenuSnapshot, reason?: 'viewport-resize' | 'lazy-art-hydration'): void {
+    const before = performanceProbe ? collectDisplayObjects(this.children.list as unknown as readonly DisplayNode[]) : undefined;
+    const started = performanceProbe?.now();
+    const previousPanel = this.committedPanel;
+    const renderReason = reason ?? (this.committedPanel === undefined ? 'initial-mount'
+      : this.committedPanel === snapshot.panel ? 'same-panel-state-mutation' : 'panel-transition');
+    try {
     this.rebuildCount += 1;
     const panelChanged = this.committedPanel !== undefined && this.committedPanel !== snapshot.panel;
     const achievementGridColumns = snapshot.panel === 'achievements'
@@ -498,6 +506,17 @@ export class MenuScene extends Phaser.Scene {
       // handleBack -> render.
       this.renderFallback();
       throw error;
+    }
+    } finally {
+      if (started !== undefined && before) {
+        const ended = performanceProbe!.now();
+        const after = collectDisplayObjects(this.children.list as unknown as readonly DisplayNode[]);
+        performanceProbe!.record('menu.render', started, {
+          panel: snapshot.panel, fromPanel: previousPanel ?? '(none)', reason: renderReason, rebuildCount: this.rebuildCount,
+          ...displayObjectChange(before, after), textures: this.textures.getTextureKeys().length,
+          committed: this.committedDisplay,
+        }, ended);
+      }
     }
   }
 
@@ -866,6 +885,7 @@ export class MenuScene extends Phaser.Scene {
 
   private async startRunWithResources(request: ComposedRunRequest, isTraining: boolean): Promise<void> {
     if (this.runLaunchState === 'loading' || isPortraitOrientationBlocked()) return;
+    const started = performanceProbe?.now();
     const generation = ++this.runLaunchGeneration;
     const ctx = this.getContext();
     // Result truth belongs to this exact launch, not whatever durable state
@@ -908,9 +928,14 @@ export class MenuScene extends Phaser.Scene {
           this.render(this.requireController().snapshot());
         }
       }), undefined);
-      if (!this.isLive || generation !== this.runLaunchGeneration || this.runLaunchState !== 'loading') return;
+      if (!this.isLive || generation !== this.runLaunchGeneration || this.runLaunchState !== 'loading') {
+        if (started !== undefined) performanceProbe?.record('run.prepare', started, { state: 'cancelled', isTraining });
+        return;
+      }
+      if (started !== undefined) performanceProbe?.record('run.prepare', started, { state: 'ready', isTraining, physicalResources: resources.length, seed: request.seed });
       this.scene.start(SceneKey.Game, { runRequest: request, runStartPresentation, isTraining });
     } catch (error) {
+      if (started !== undefined) performanceProbe?.record('run.prepare', started, { state: 'failed', isTraining });
       if (!this.isLive || generation !== this.runLaunchGeneration) return;
       this.runLaunchState = 'failed';
       this.runLaunchProgress = undefined;
@@ -2064,7 +2089,7 @@ export class MenuScene extends Phaser.Scene {
     }
     if (missing.size === 0) {
       if (repaintWhenCached && generation === this.panelArtGeneration && this.isLive && this.committedPanel === panel && this.controller) {
-        this.render(this.controller.snapshot());
+        this.render(this.controller.snapshot(), 'lazy-art-hydration');
       }
       return;
     }
@@ -2093,7 +2118,7 @@ export class MenuScene extends Phaser.Scene {
       const targetPanel = this.committedPanel ?? panel;
       await this.loadPanelPresentation(targetPanel, pending, repaintPanels.has(targetPanel));
     }
-    if (loadedAny && this.committedPanel === panel && this.controller) this.render(this.controller.snapshot());
+    if (loadedAny && this.committedPanel === panel && this.controller) this.render(this.controller.snapshot(), 'lazy-art-hydration');
   }
 
   /** Career shares terminal Achievement badge identity while retaining its
@@ -2135,7 +2160,7 @@ export class MenuScene extends Phaser.Scene {
         EMPTY_RESOURCE_LOAD_RESULT,
       );
       if (generation === this.menuTextureLoadGeneration && result.loaded.length > 0 && this.committedPanel === 'achievements' && this.controller) {
-        this.render(this.controller.snapshot());
+        this.render(this.controller.snapshot(), 'lazy-art-hydration');
       }
     } finally {
       if (generation === this.menuTextureLoadGeneration) this.achievementArtLoading = false;
@@ -2166,7 +2191,7 @@ export class MenuScene extends Phaser.Scene {
         EMPTY_RESOURCE_LOAD_RESULT,
       );
       if (generation === this.menuTextureLoadGeneration && result.loaded.length > 0 && this.committedPanel === 'character' && this.controller) {
-        this.render(this.controller.snapshot());
+        this.render(this.controller.snapshot(), 'lazy-art-hydration');
       }
     } finally {
       if (generation === this.menuTextureLoadGeneration) this.mercenaryArtLoading = false;
@@ -2196,7 +2221,7 @@ export class MenuScene extends Phaser.Scene {
         EMPTY_RESOURCE_LOAD_RESULT,
       );
       if (generation === this.menuTextureLoadGeneration && result.loaded.length > 0 && (this.committedPanel === 'equipment' || this.committedPanel === 'loadout') && this.controller) {
-        this.render(this.controller.snapshot());
+        this.render(this.controller.snapshot(), 'lazy-art-hydration');
       }
     } finally {
       if (generation === this.menuTextureLoadGeneration) this.equipmentArtLoading = false;
@@ -2237,7 +2262,7 @@ export class MenuScene extends Phaser.Scene {
     }
     if (generation !== this.gunsmithArtGeneration || !this.isLive) return;
     if (loadedAny && (this.committedPanel === 'gunsmith' || this.committedPanel === 'loadout') && this.controller) {
-      this.render(this.controller.snapshot());
+      this.render(this.controller.snapshot(), 'lazy-art-hydration');
     }
     if (!this.gunsmithArtLoading && this.pendingGunsmithArtIds.size > 0) {
       const pending = [...this.pendingGunsmithArtIds];
@@ -2547,7 +2572,7 @@ export class MenuScene extends Phaser.Scene {
 
   private readonly handleResize = (): void => {
     if (!this.controller) return;
-    this.render(this.controller.snapshot());
+    this.render(this.controller.snapshot(), 'viewport-resize');
   };
 
   private handleNavMove(direction: FocusDirection | number): void {

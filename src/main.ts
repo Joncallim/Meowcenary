@@ -9,6 +9,10 @@ import { installDiagnostics } from './engine/diagnostics';
 import { bindVisualViewportRefresh, isGestureActive } from './platform/visualViewport';
 import { installPortraitOrientationGuard } from './platform/orientation';
 import { responsiveScaleConfig } from './platform/gameScale';
+import { performanceProbe } from './platform/performanceProbe';
+import { collectDisplayObjects, type DisplayNode } from './platform/performanceDisplay';
+import type { GameContext } from './engine/context';
+import type { ComposedRunRequest } from './gameplay/runRequest';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -32,17 +36,105 @@ const config: Phaser.Types.Core.GameConfig = {
 // Wait for the self-hosted UI face so those textures never capture a transient
 // system fallback and then keep it for the rest of the session.
 if (globalThis.document?.fonts) {
-  await Promise.all([
+  const started = performanceProbe?.now();
+  const fontRequests = [
     globalThis.document.fonts.load('400 16px "Nunito"'),
     globalThis.document.fonts.load('600 16px "Nunito"'),
     globalThis.document.fonts.load('700 16px "Nunito"'),
     globalThis.document.fonts.load('800 16px "Nunito"'),
-  ]);
+  ];
+  await Promise.all(performanceProbe ? fontRequests.map(async (request, index) => {
+    const weightStart = performanceProbe!.now();
+    await request;
+    performanceProbe!.record('boot.font-weight', weightStart, { weight: [400, 600, 700, 800][index] });
+  }) : fontRequests);
+  if (started !== undefined) performanceProbe?.record('boot.fonts', started, { weights: 4 });
 }
 
 // Exported as a narrow ESM browser lifecycle/smoke seam. Upgrade selection now
 // uses the visible chooser; gameplay ownership remains in scenes and systems.
 export const game = new Phaser.Game(config);
+if (performanceProbe) {
+  const probe = performanceProbe;
+  // Raw Phaser loop cadence includes browser/renderer work, unlike the
+  // smoothed simulation delta. Reads are explicit, outside the update loop.
+  let stepStarted = 0;
+  let renderStarted = 0;
+  let presentedMenu: { panel: string; rebuildCount: number; atMs: number } | undefined;
+  let presentedRun: { seed: number; status: string; atMs: number } | undefined;
+  const startStep = (): void => { stepStarted = probe.now(); };
+  const startRender = (): void => { renderStarted = probe.now(); };
+  const finishRender = (): void => {
+    const ended = probe.now();
+    // POST_STEP is emitted before rendering in Phaser3.90. Whole step CPU
+    // therefore ends at POST_RENDER; render span alone excludes preRender.
+    probe.recordFrameOwner('frame.cpu', ended - stepStarted);
+    probe.recordFrameOwner('frame.render', ended - renderStarted);
+    if (game.scene.isActive('MenuScene')) {
+      const menu = game.scene.getScene('MenuScene') as unknown as {
+        committedPanel?: string; committedDisplay?: boolean; renderRebuildCount: number;
+        panelArtLoading?: boolean; panelArtInFlight?: Promise<void>;
+        mercenaryArtLoading?: boolean; achievementArtLoading?: boolean;
+        equipmentArtLoading?: boolean; gunsmithArtLoading?: boolean; menuTextureLoadPending?: number;
+        pendingPanelArtIds?: { size: number }; pendingPanelArtRepaints?: { size: number }; pendingGunsmithArtIds?: { size: number };
+      };
+      if (menu.committedPanel && menu.committedDisplay && !menu.panelArtLoading && !menu.panelArtInFlight
+        && !menu.mercenaryArtLoading && !menu.achievementArtLoading && !menu.equipmentArtLoading && !menu.gunsmithArtLoading
+        && !menu.menuTextureLoadPending && !menu.pendingPanelArtIds?.size && !menu.pendingPanelArtRepaints?.size && !menu.pendingGunsmithArtIds?.size
+        && presentedMenu?.rebuildCount !== menu.renderRebuildCount) {
+        presentedMenu = Object.freeze({ panel: menu.committedPanel, rebuildCount: menu.renderRebuildCount, atMs: ended });
+      }
+    }
+    if (game.scene.isActive('GameScene')) {
+      const run = (game.scene.getScene('GameScene') as unknown as { runState?: { seed: number; status: string } }).runState;
+      if (run && (presentedRun?.seed !== run.seed || presentedRun.status !== run.status)) presentedRun = Object.freeze({ seed: run.seed, status: run.status, atMs: ended });
+    }
+  };
+  const recordFrame = (): void => {
+    probe.recordFrame(game.loop.rawDelta);
+  };
+  game.events.on(Phaser.Core.Events.PRE_STEP, startStep);
+  game.events.on(Phaser.Core.Events.PRE_RENDER, startRender);
+  game.events.on(Phaser.Core.Events.POST_RENDER, finishRender);
+  game.events.on(Phaser.Core.Events.POST_STEP, recordFrame);
+  const handle = Object.freeze({
+    resetMeasurement: () => { probe.resetMeasurement(); presentedMenu = undefined; presentedRun = undefined; },
+    snapshot: () => {
+      const menu = game.scene.getScenes(true).find(scene => scene.scene.key === 'MenuScene') as unknown as {
+        committedPanel?: string; committedDisplay?: boolean; renderRebuildCount?: number;
+        panelArtLoading?: boolean; panelArtInFlight?: Promise<void>;
+        mercenaryArtLoading?: boolean; achievementArtLoading?: boolean;
+        equipmentArtLoading?: boolean; gunsmithArtLoading?: boolean;
+        menuTextureLoadPending?: number;
+        pendingPanelArtIds?: { size: number }; pendingPanelArtRepaints?: { size: number };
+        pendingGunsmithArtIds?: { size: number };
+      } | undefined;
+      const active = game.scene.getScenes(true);
+      const gameplay = active.find(scene => scene.scene.key === 'GameScene') as unknown as { performanceDiagnostics?(): unknown } | undefined;
+      return {
+        ...probe.snapshot(),
+        activeScenes: active.map(scene => scene.scene.key),
+        presentedMenu, presentedRun,
+        menu: menu ? { panel: menu.committedPanel, committed: menu.committedDisplay === true,
+          rebuildCount: menu.renderRebuildCount,
+          settled: menu.committedDisplay === true && !menu.panelArtLoading && !menu.panelArtInFlight
+            && !menu.mercenaryArtLoading && !menu.achievementArtLoading && !menu.equipmentArtLoading && !menu.gunsmithArtLoading
+            && !menu.menuTextureLoadPending && !menu.pendingPanelArtIds?.size && !menu.pendingPanelArtRepaints?.size && !menu.pendingGunsmithArtIds?.size } : undefined,
+        objects: active.reduce((sum, scene) => sum + collectDisplayObjects(scene.children.list as unknown as readonly DisplayNode[]).size, 0),
+        textures: game.textures.getTextureKeys().length,
+        run: gameplay?.performanceDiagnostics?.(),
+      };
+    },
+  });
+  Object.defineProperty(globalThis, '__MEOWCENARY_PERFORMANCE__', { configurable: true, value: handle });
+  game.events.once(Phaser.Core.Events.DESTROY, () => {
+    game.events.off(Phaser.Core.Events.POST_STEP, recordFrame);
+    game.events.off(Phaser.Core.Events.PRE_STEP, startStep);
+    game.events.off(Phaser.Core.Events.PRE_RENDER, startRender);
+    game.events.off(Phaser.Core.Events.POST_RENDER, finishRender);
+    if ((globalThis as Record<string, unknown>).__MEOWCENARY_PERFORMANCE__ === handle) delete (globalThis as Record<string, unknown>).__MEOWCENARY_PERFORMANCE__;
+  });
+}
 // Screenshot acceptance gets a dedicated build-time seam. Vite eliminates
 // this entire branch from ordinary production builds; the query alone can
 // never expose mutable scene internals in a deployed game.
@@ -430,6 +522,22 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         if (!scene?.controller || !scene.render || !isMenuPresentationSettled()) return false;
         scene.render(scene.controller.open(panel));
         return true;
+      },
+      startPerformanceTraining: async (seed: number): Promise<boolean> => {
+        if (!performanceProbe || !Number.isSafeInteger(seed) || !isMenuPresentationSettled()) return false;
+        const menu = game.scene.getScene('MenuScene') as unknown as {
+          getContext(): GameContext;
+          startRunWithResources(request: ComposedRunRequest, isTraining: boolean): Promise<void>;
+        };
+        const context = menu.getContext();
+        await menu.startRunWithResources(Object.freeze({ kind: 'legacy-arena',
+          characterId: context.selectedCharacterId, arenaId: context.selectedArenaId, seed }), true);
+        return true;
+      },
+      preparePerformanceCombat: (seed: number, count: number): boolean => {
+        if (!performanceProbe) return false;
+        const scene = game.scene.getScene('GameScene') as unknown as { preparePerformanceFixture?(seed: number, count: number): boolean };
+        return scene.preparePerformanceFixture?.(seed, count) === true;
       },
     }),
   });

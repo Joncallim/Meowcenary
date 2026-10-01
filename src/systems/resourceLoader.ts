@@ -9,6 +9,7 @@
 import type Phaser from 'phaser';
 import type { ArenaDefinition, EnemyDefinition, GameData, VisualTextureResource } from './types';
 import { DataVisualArtRegistry, ensureVisualAnimations, visualAnimationKey } from './visualArt';
+import { performanceProbe } from '../platform/performanceProbe';
 
 export interface LoadedResource {
   readonly resourceId: string;
@@ -112,6 +113,7 @@ export async function loadTextureResources(
   resources: readonly VisualTextureResource[],
   onProgress?: (progress: ResourceLoadProgress) => void,
 ): Promise<ResourceLoadResult> {
+  const started = performanceProbe?.now();
   const loaded: LoadedResource[] = [];
   const failed: LoadedResource[] = [];
   const pending = [...findSharedResources(resources).values()]
@@ -128,8 +130,18 @@ export async function loadTextureResources(
       return true;
     });
   const total = loaded.length + failed.length + pending.length;
+  const cached = loaded.length;
+  const recordLoad = (): void => {
+    if (started !== undefined) performanceProbe?.record('resource.load', started, {
+      scene: scene.sys?.settings?.key ?? 'headless', total, cached,
+      requested: pending.length, resourceIds: pending.map(resource => resource.id),
+      urls: pending.flatMap(resource => resource.load.dataUrl
+        ? [resource.load.imageUrl, resource.load.dataUrl] : [resource.load.imageUrl]),
+      loaded: loaded.length, failed: failed.length,
+    });
+  };
   onProgress?.({ completed: loaded.length + failed.length, total });
-  if (pending.length === 0) return { loaded, failed };
+  if (pending.length === 0) { recordLoad(); return { loaded, failed }; }
 
   // Phaser's LoaderPlugin has one queue. Starting it once after all physical
   // resources are queued prevents concurrent `start()` calls from racing and
@@ -177,6 +189,7 @@ export async function loadTextureResources(
     }
     scene.load.start();
   });
+  recordLoad();
   return { loaded, failed };
 }
 

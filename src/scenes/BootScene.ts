@@ -13,6 +13,7 @@ import { loadGameData } from '../systems/validation';
 import { DataVisualArtRegistry, ensureVisualAnimations } from '../systems/visualArt';
 import { DataAssetBundleRegistry } from '../systems/assetBundles';
 import { queueTextureResources } from '../systems/resourceLoader';
+import { performanceProbe } from '../platform/performanceProbe';
 
 export const BOOT_RESOURCE_BUNDLE_ID = 'bundle:boot-core';
 
@@ -54,6 +55,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
+    const started = performanceProbe?.now();
     this.preloadData = loadGameData();
     const bundles = new DataAssetBundleRegistry(this.preloadData);
     this.failedVisualTextureKeys.clear();
@@ -69,9 +71,55 @@ export class BootScene extends Phaser.Scene {
     if (!bootResources) throw new Error(`Missing required boot resource bundle "${BOOT_RESOURCE_BUNDLE_ID}"`);
     this.preloadTextureKeys = new Set(bootResources.map((resource) => resource.textureKey));
     queueTextureResources(this, bootResources);
+    if (started !== undefined) {
+      performanceProbe!.record('boot.preload', started, { physicalResources: bootResources.length, audioFiles: audioAssetsJson.sfx.length + audioAssetsJson.music.length });
+      let loadStart = performanceProbe!.now();
+      const audio = new Set([...audioAssetsJson.sfx, ...audioAssetsJson.music].map(asset => asset.key));
+      const visual = new Set(bootResources.map(resource => resource.textureKey));
+      const failures = new Set<string>();
+      const audioFailures = new Set<string>();
+      const visualFailures = new Set<string>();
+      const finish = (keys: Set<string>, owner: 'boot.audio' | 'boot.visual', key: string): void => {
+        if (keys.delete(key) && keys.size === 0) performanceProbe!.record(owner, loadStart, {
+          failed: owner === 'boot.audio' ? audioFailures.size : visualFailures.size,
+        });
+      };
+      const fileComplete = (key: string): void => { finish(audio, 'boot.audio', key); };
+      // Atlas image/json children may finish earlier than the owning physical
+      // resource. Observe Phaser's keyed multi-file completion, as the normal
+      // resource loader does, rather than calling the image child atlas-ready.
+      const visualHandlers = bootResources.map(resource => ({
+        event: `filecomplete-${resource.load.type === 'atlas' ? 'atlasjson' : resource.load.type}-${resource.textureKey}`,
+        complete: (): void => finish(visual, 'boot.visual', resource.textureKey),
+      }));
+      const failed = (file: { key?: string }): void => {
+        if (file.key) {
+          failures.add(file.key);
+          if (audio.has(file.key)) audioFailures.add(file.key);
+          if (visual.has(file.key)) visualFailures.add(file.key);
+          fileComplete(file.key); finish(visual, 'boot.visual', file.key);
+        }
+      };
+      const onStart = (): void => { loadStart = performanceProbe!.now(); };
+      const cleanup = (): void => {
+        this.load.off('start', onStart); this.load.off('filecomplete', fileComplete); this.load.off('loaderror', failed);
+        this.events.off('shutdown', cleanup); this.events.off('destroy', cleanup);
+        this.load.off('complete', complete);
+        for (const handler of visualHandlers) this.load.off(handler.event, handler.complete);
+      };
+      const complete = (): void => {
+        performanceProbe!.record('boot.load', loadStart, { physicalResources: bootResources.length, audioFiles: audioAssetsJson.sfx.length + audioAssetsJson.music.length,
+          incompleteAudio: audio.size, incompleteVisual: visual.size, failures: [...failures] });
+        cleanup();
+      };
+      this.load.once('start', onStart); this.load.on('filecomplete', fileComplete); this.load.on('loaderror', failed);
+      for (const handler of visualHandlers) this.load.once(handler.event, handler.complete);
+      this.load.once('complete', complete); this.events.once('shutdown', cleanup); this.events.once('destroy', cleanup);
+    }
   }
 
   create(): void {
+    const started = performanceProbe?.now();
     const data = this.preloadData ?? loadGameData();
     const visualArt = new DataVisualArtRegistry(data);
     for (const binding of visualArt.all()) {
@@ -111,6 +159,7 @@ export class BootScene extends Phaser.Scene {
     audio.init(ctx.bus, ctx.settings, ctx.data.audio, ctx.data.weaponFeel);
     this.registry.set(AUDIO_MANAGER_REGISTRY_KEY, audio);
 
+    if (started !== undefined) performanceProbe?.record('boot.create', started);
     this.scene.start(SceneKey.Menu);
   }
 }

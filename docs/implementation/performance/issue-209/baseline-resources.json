@@ -1,0 +1,1145 @@
+{
+  "sourceSha": "4d0419690e95bd6c979d74c10c28a10a1102af67",
+  "build": {
+    "distPresent": true,
+    "note": "No build run. Exact pinned-main ordinary production dist was supplied in integration worktree after initial source inventory; build-meta.json validates commit SHA."
+  },
+  "visualResourceCount": 96,
+  "bundles": [
+    {
+      "id": "bundle:boot-core",
+      "logicalResources": 6,
+      "uniqueTextureKeys": 6,
+      "uniqueFiles": 10,
+      "rawBytes": 931073,
+      "gzipBytes": 916286,
+      "brotliBytes": 915859,
+      "missing": [],
+      "files": [
+        {
+          "url": "assets/characters/scrap-tabby/scrap-tabby.png",
+          "bytes": 3098,
+          "sha256": "3f124391c3cb9d1a5c6b85209f83121d0678260508f2a717f480e5a5eb40e275"
+        },
+        {
+          "url": "assets/ui/brand-art.png",
+          "bytes": 6344,
+          "sha256": "634edb26d1d7d41f7ad8130e1f0c07514f005fb433765e593316f71cf728cdeb"
+        },
+        {
+          "url": "assets/ui/brand-art.json",
+          "bytes": 463,
+          "sha256": "90f9e9d7751e3ad6f5adeacad4e92a5060c5ac530fed059896b0a93dba5817f3"
+        },
+        {
+          "url": "assets/ui/brand/meowcenary-title-lockup.png",
+          "bytes": 19943,
+          "sha256": "3630f926f38532842d52087ed6904bad59e067a62f371cb39839400460dc844b"
+        },
+        {
+          "url": "assets/ui/ui-atlas.png",
+          "bytes": 8249,
+          "sha256": "84d55ef93ac40490391b0aaa94d772a751f955755266d577968177f59a04b866"
+        },
+        {
+          "url": "assets/ui/ui-atlas.json",
+          "bytes": 8917,
+          "sha256": "dd61f14faa906d1f328c16a72def0139ab60a1c661bc77cc32913eb893ec6ae7"
+        },
+        {
+          "url": "assets/ui/menu-semantic-icons-atlas.png",
+          "bytes": 262007,
+          "sha256": "373f882a9225a474a98e96584d964eebbafbdb3985a6fdc8fe37b396c5ca87cb"
+        },
+        {
+          "url": "assets/ui/menu-semantic-icons-atlas.json",
+          "bytes": 1570,
+          "sha256": "05a9c48e6ca57050237a6fe7b46f3fa329c8e071b86d1258b075d8d481570f45"
+        },
+        {
+          "url": "assets/ui/navigation-icons-atlas.png",
+          "bytes": 618919,
+          "sha256": "78d40a69f40952c886827e031a116727dc6d32c8fd3470d493d6c7bf31c4528b"
+        },
+        {
+          "url": "assets/ui/navigation-icons-atlas.json",
+          "bytes": 1563,
+          "sha256": "77dff7b6fe61edd1b27e631a4a2ebc22570296aaf0e34feca22b4e680fd32113"
+        }
+      ]
+    },
+    {
+      "id": "bundle:core-junkyard",
+      "logicalResources": 15,
+      "uniqueTextureKeys": 15,
+      "uniqueFiles": 15,
+      "rawBytes": 158558,
+      "gzipBytes": 158888,
+      "brotliBytes": 158568,
+      "missing": [],
+      "files": [
+        {
+          "url": "assets/world/junkyard-floor-base/junkyard-floor-base.png",
+          "bytes": 2373,
+          "sha256": "2f0c2fddefdcd8c6ec9d0a1e0d8eb9c465621625959d0d5b95979f5379782423"
+        },
+        {
+          "url": "assets/world/junkyard-floor-patch-a/junkyard-floor-patch-a.png",
+          "bytes": 2159,
+          "sha256": "b50e505ecef284de7ae669d7f8114eea4cf01943dc24f958e852bfd2db02c72e"
+        },
+        {
+          "url": "assets/world/junkyard-floor-patch-b/junkyard-floor-patch-b.png",
+          "bytes": 3028,
+          "sha256": "0df1d34e64279dd41aaf1ff5c8792762af00514c324bb5c95185414d52172152"
+        },
+        {
+          "url": "assets/world/junkyard-boundary-straight/junkyard-boundary-straight.png",
+          "bytes": 6127,
+          "sha256": "634219e3d5472f2000e4edc36a4cdacc1cd1e733146c46afbda59f4e9bf734e2"
+        },
+        {
+          "url": "assets/world/junkyard-boundary-corner/junkyard-boundary-corner.png",
+          "bytes": 7049,
+          "sha256": "b0d548fbab7738a6893c5f213a9436c42311f3d67643366876aa0b3f06e439b2"
+        },
+        {
+          "url": "assets/world/junkyard-boundary-patch/junkyard-boundary-patch.png",
+          "bytes": 6447,
+          "sha256": "bcee5e230f84ff4e141df2f4dff620368896c871cd3e26457ef43ba22b56ec77"
+        },
+        {
+          "url": "assets/world/junkyard-boundary-gate/junkyard-boundary-gate.png",
+          "bytes": 6556,
+          "sha256": "de73221dad43bda843b1833b552df4d8c03df2ab23cd02ddeb1b6a6f29d74f46"
+        },
+        {
+          "url": "assets/world/prop-tyre-pile/prop-tyre-pile.png",
+          "bytes": 12136,
+          "sha256": "2eacb4913b79e529ecca7a87379769686d6d3be65306dcc74b05a29696974e62"
+        },
+        {
+          "url": "assets/world/prop-crate/prop-crate.png",
+          "bytes": 10502,
+          "sha256": "642eac8ffa43f8f140426b46c627d83e8cd3cad64e16750b8c46bbfb27557d9b"
+        },
+        {
+          "url": "assets/world/prop-engine-block/prop-engine-block.png",
+          "bytes": 13681,
+          "sha256": "a58a51bf1d4a2c6a777fd7e6b54d5677a68b790ba52ee404e224004c7f36c3df"
+        },
+        {
+          "url": "assets/world/prop-scrap-heap/prop-scrap-heap.png",
+          "bytes": 17353,
+          "sha256": "9fe0c0287e39763679d0f76a2ca9245bb006fdb0620ab3fb0cba1ef7771e4500"
+        },
+        {
+          "url": "assets/world/prop-oil-stain/prop-oil-stain.png",
+          "bytes": 10336,
+          "sha256": "a6379463dc95deb9742b9be729bc3e15ec97f1389db29cd95e19ebdf4cbe5896"
+        },
+        {
+          "url": "assets/world/prop-warning-sign/prop-warning-sign.png",
+          "bytes": 13050,
+          "sha256": "00789bd8aef28d9eb8aac97f6a3fd9621573939a416d7de4ce667476dcadd070"
+        },
+        {
+          "url": "assets/world/landmark-hanging-press/landmark-hanging-press.png",
+          "bytes": 22041,
+          "sha256": "465460c25962d1b65fe74570e36c57372926bb429919a8b18fc13f1fb0b47857"
+        },
+        {
+          "url": "assets/world/landmark-barrel-power-stack/landmark-barrel-power-stack.png",
+          "bytes": 25720,
+          "sha256": "89363972c381bd856c0535096721bf0b0e772c0294ba572bccd3e017b061ebe9"
+        }
+      ]
+    },
+    {
+      "id": "bundle:core-forge",
+      "logicalResources": 1,
+      "uniqueTextureKeys": 1,
+      "uniqueFiles": 2,
+      "rawBytes": 5943,
+      "gzipBytes": 3314,
+      "brotliBytes": 3219,
+      "missing": [],
+      "files": [
+        {
+          "url": "assets/world/forge/forge-world-atlas.png",
+          "bytes": 2862,
+          "sha256": "a2816154eb91a4bd62348d42d36cda05b0d4530f2f839b04756d6d6952106820"
+        },
+        {
+          "url": "assets/world/forge/forge-world-atlas.json",
+          "bytes": 3081,
+          "sha256": "8d52fd9aed17e2900796f31876f42bfab10580036f5559c18a8e9f3d34a4beb7"
+        }
+      ]
+    }
+  ],
+  "allVisual": {
+    "uniqueFiles": 112,
+    "rawBytes": 7813105,
+    "gzipBytes": 7702599,
+    "brotliBytes": 7704597,
+    "missing": [],
+    "files": [
+      {
+        "url": "assets/characters/scrap-tabby/scrap-tabby.png",
+        "bytes": 3098,
+        "sha256": "3f124391c3cb9d1a5c6b85209f83121d0678260508f2a717f480e5a5eb40e275"
+      },
+      {
+        "url": "assets/characters/bolt-hound/bolt-hound.png",
+        "bytes": 3038,
+        "sha256": "d5c3d4d11ce023ac9c9c5b445a439e4a56e28cddfb5f6f0a7dae6795f8f5e435"
+      },
+      {
+        "url": "assets/enemies/dust-mite/dust-mite.png",
+        "bytes": 57312,
+        "sha256": "5b63207c59a1d87ee01bc8c376711616a474f58911d7e4e4cbf6e9d2254b371a"
+      },
+      {
+        "url": "assets/enemies/junk-rusher/junk-rusher.png",
+        "bytes": 40422,
+        "sha256": "59e9e9dd2272f658463d683c836c22094f0624ed1cd9e665b3f2e62ef2e11edc"
+      },
+      {
+        "url": "assets/enemies/trash-brute/trash-brute.png",
+        "bytes": 66731,
+        "sha256": "bf5ebd9cb5944b2499cb29b49c675bc36bb4c73b31fae578bc36c3459b5ba940"
+      },
+      {
+        "url": "assets/projectiles/scrap-shot/scrap-shot.png",
+        "bytes": 308,
+        "sha256": "c3bbe721a90019218aef0901373b35ad4d5114ed25db43e154c8c1b62b50141b"
+      },
+      {
+        "url": "assets/pickups/xp-mote/xp-mote.png",
+        "bytes": 435,
+        "sha256": "f7301f579ba4fd3d6811fd55b7baa31ef58099436edd6144db6f2cad9c15645a"
+      },
+      {
+        "url": "assets/weapon-icons/weapon-icon-pistol-t1/weapon-icon-pistol-t1.png",
+        "bytes": 6790,
+        "sha256": "25f7ba76bc4a8f5413323ca34dfef648fe57e41dd7addc6f3a7d99bcdb1f4627"
+      },
+      {
+        "url": "assets/weapon-icons/weapon-icon-pistol-t2/weapon-icon-pistol-t2.png",
+        "bytes": 9829,
+        "sha256": "cd4fd8e918aee23fed509f7be72072ff1d1b45c7180e6557dd469e148d8979dc"
+      },
+      {
+        "url": "assets/weapon-icons/weapon-icon-pistol-t3/weapon-icon-pistol-t3.png",
+        "bytes": 10842,
+        "sha256": "01832fda90b65e8bd9634975ecbd8b27057cdc4442a81c0107a55800e01b070b"
+      },
+      {
+        "url": "assets/weapon-icons/weapon-icon-smg-t1/weapon-icon-smg-t1.png",
+        "bytes": 6772,
+        "sha256": "a7994d56866487f6eb6bfeb36bf559288e84065373941aae32127c93b113f0ab"
+      },
+      {
+        "url": "assets/weapon-icons/weapon-icon-smg-t2/weapon-icon-smg-t2.png",
+        "bytes": 9287,
+        "sha256": "f30d729bcc29aa509701c4720bdb18faf39aee0fea0567a1e5d88d8bacaf00ac"
+      },
+      {
+        "url": "assets/weapon-icons/weapon-icon-smg-t3/weapon-icon-smg-t3.png",
+        "bytes": 10974,
+        "sha256": "c1413fe61f1698bc59aa6909d77fa1ddcb0f02a890a645ca42d19ed03b656925"
+      },
+      {
+        "url": "assets/weapon-icons/weapon-icon-shotgun-t1/weapon-icon-shotgun-t1.png",
+        "bytes": 6283,
+        "sha256": "c257f47c7989ffc65e9687fcdbc402fcb75865027ab603db9afe15dfc8430c99"
+      },
+      {
+        "url": "assets/weapon-icons/weapon-icon-shotgun-t2/weapon-icon-shotgun-t2.png",
+        "bytes": 6808,
+        "sha256": "b24c590be1d76418ab4203003c4b023720435af993752e4e2e8554a7a7ff8d68"
+      },
+      {
+        "url": "assets/weapon-icons/weapon-icon-shotgun-t3/weapon-icon-shotgun-t3.png",
+        "bytes": 8890,
+        "sha256": "d8da74978334b16cf726fc5dfe3670a24f3d4b99ba53bcf18781a6e50f3bd7f1"
+      },
+      {
+        "url": "assets/held-weapons/weapon-held-pistol-t1/weapon-held-pistol-t1.png",
+        "bytes": 6790,
+        "sha256": "25f7ba76bc4a8f5413323ca34dfef648fe57e41dd7addc6f3a7d99bcdb1f4627"
+      },
+      {
+        "url": "assets/held-weapons/weapon-held-pistol-t2/weapon-held-pistol-t2.png",
+        "bytes": 9829,
+        "sha256": "cd4fd8e918aee23fed509f7be72072ff1d1b45c7180e6557dd469e148d8979dc"
+      },
+      {
+        "url": "assets/held-weapons/weapon-held-pistol-t3/weapon-held-pistol-t3.png",
+        "bytes": 10842,
+        "sha256": "01832fda90b65e8bd9634975ecbd8b27057cdc4442a81c0107a55800e01b070b"
+      },
+      {
+        "url": "assets/held-weapons/weapon-held-smg-t1/weapon-held-smg-t1.png",
+        "bytes": 6772,
+        "sha256": "a7994d56866487f6eb6bfeb36bf559288e84065373941aae32127c93b113f0ab"
+      },
+      {
+        "url": "assets/held-weapons/weapon-held-smg-t2/weapon-held-smg-t2.png",
+        "bytes": 9287,
+        "sha256": "f30d729bcc29aa509701c4720bdb18faf39aee0fea0567a1e5d88d8bacaf00ac"
+      },
+      {
+        "url": "assets/held-weapons/weapon-held-smg-t3/weapon-held-smg-t3.png",
+        "bytes": 10974,
+        "sha256": "c1413fe61f1698bc59aa6909d77fa1ddcb0f02a890a645ca42d19ed03b656925"
+      },
+      {
+        "url": "assets/held-weapons/weapon-held-shotgun-t1/weapon-held-shotgun-t1.png",
+        "bytes": 6283,
+        "sha256": "c257f47c7989ffc65e9687fcdbc402fcb75865027ab603db9afe15dfc8430c99"
+      },
+      {
+        "url": "assets/held-weapons/weapon-held-shotgun-t2/weapon-held-shotgun-t2.png",
+        "bytes": 6808,
+        "sha256": "b24c590be1d76418ab4203003c4b023720435af993752e4e2e8554a7a7ff8d68"
+      },
+      {
+        "url": "assets/held-weapons/weapon-held-shotgun-t3/weapon-held-shotgun-t3.png",
+        "bytes": 8890,
+        "sha256": "d8da74978334b16cf726fc5dfe3670a24f3d4b99ba53bcf18781a6e50f3bd7f1"
+      },
+      {
+        "url": "assets/projectiles/projectile-pistol/projectile-pistol.png",
+        "bytes": 205,
+        "sha256": "eab4a50482a7b094c93b0204fe6615fac65085d763eb05daabf79ecb0cecca0e"
+      },
+      {
+        "url": "assets/projectiles/projectile-smg/projectile-smg.png",
+        "bytes": 198,
+        "sha256": "820a3efd547a74300e06eccb2d20a6b451d1553231d68838b98c53ddc2b126f4"
+      },
+      {
+        "url": "assets/projectiles/projectile-shotgun/projectile-shotgun.png",
+        "bytes": 221,
+        "sha256": "a4ea077ed4587273882308b4496052dfa5f5827b503d60d1b09dba3871b3732c"
+      },
+      {
+        "url": "assets/pickups/drop-scrap/drop-scrap.png",
+        "bytes": 304,
+        "sha256": "5bd6ae8e385b15f9d85247d9eb5708e1b6924cb7b5cd9c45fb893f2a12a0cc43"
+      },
+      {
+        "url": "assets/pickups/drop-chest/drop-chest.png",
+        "bytes": 259,
+        "sha256": "628148d7d2fd57bdebcce0a7dd44d41f11e6ebd4aca82d3a4251a8843287fb6d"
+      },
+      {
+        "url": "assets/pickups/drop-weapon/drop-weapon.png",
+        "bytes": 290,
+        "sha256": "d5b1fe59b65c864a0ec69d842e935af73a220e2bf00baba4c70021463efda47c"
+      },
+      {
+        "url": "assets/world/junkyard-floor-base/junkyard-floor-base.png",
+        "bytes": 2373,
+        "sha256": "2f0c2fddefdcd8c6ec9d0a1e0d8eb9c465621625959d0d5b95979f5379782423"
+      },
+      {
+        "url": "assets/world/junkyard-floor-patch-a/junkyard-floor-patch-a.png",
+        "bytes": 2159,
+        "sha256": "b50e505ecef284de7ae669d7f8114eea4cf01943dc24f958e852bfd2db02c72e"
+      },
+      {
+        "url": "assets/world/junkyard-floor-patch-b/junkyard-floor-patch-b.png",
+        "bytes": 3028,
+        "sha256": "0df1d34e64279dd41aaf1ff5c8792762af00514c324bb5c95185414d52172152"
+      },
+      {
+        "url": "assets/world/junkyard-boundary-straight/junkyard-boundary-straight.png",
+        "bytes": 6127,
+        "sha256": "634219e3d5472f2000e4edc36a4cdacc1cd1e733146c46afbda59f4e9bf734e2"
+      },
+      {
+        "url": "assets/world/junkyard-boundary-corner/junkyard-boundary-corner.png",
+        "bytes": 7049,
+        "sha256": "b0d548fbab7738a6893c5f213a9436c42311f3d67643366876aa0b3f06e439b2"
+      },
+      {
+        "url": "assets/world/junkyard-boundary-patch/junkyard-boundary-patch.png",
+        "bytes": 6447,
+        "sha256": "bcee5e230f84ff4e141df2f4dff620368896c871cd3e26457ef43ba22b56ec77"
+      },
+      {
+        "url": "assets/world/junkyard-boundary-gate/junkyard-boundary-gate.png",
+        "bytes": 6556,
+        "sha256": "de73221dad43bda843b1833b552df4d8c03df2ab23cd02ddeb1b6a6f29d74f46"
+      },
+      {
+        "url": "assets/world/prop-tyre-pile/prop-tyre-pile.png",
+        "bytes": 12136,
+        "sha256": "2eacb4913b79e529ecca7a87379769686d6d3be65306dcc74b05a29696974e62"
+      },
+      {
+        "url": "assets/world/prop-crate/prop-crate.png",
+        "bytes": 10502,
+        "sha256": "642eac8ffa43f8f140426b46c627d83e8cd3cad64e16750b8c46bbfb27557d9b"
+      },
+      {
+        "url": "assets/world/prop-engine-block/prop-engine-block.png",
+        "bytes": 13681,
+        "sha256": "a58a51bf1d4a2c6a777fd7e6b54d5677a68b790ba52ee404e224004c7f36c3df"
+      },
+      {
+        "url": "assets/world/prop-scrap-heap/prop-scrap-heap.png",
+        "bytes": 17353,
+        "sha256": "9fe0c0287e39763679d0f76a2ca9245bb006fdb0620ab3fb0cba1ef7771e4500"
+      },
+      {
+        "url": "assets/world/prop-oil-stain/prop-oil-stain.png",
+        "bytes": 10336,
+        "sha256": "a6379463dc95deb9742b9be729bc3e15ec97f1389db29cd95e19ebdf4cbe5896"
+      },
+      {
+        "url": "assets/world/prop-warning-sign/prop-warning-sign.png",
+        "bytes": 13050,
+        "sha256": "00789bd8aef28d9eb8aac97f6a3fd9621573939a416d7de4ce667476dcadd070"
+      },
+      {
+        "url": "assets/world/landmark-hanging-press/landmark-hanging-press.png",
+        "bytes": 22041,
+        "sha256": "465460c25962d1b65fe74570e36c57372926bb429919a8b18fc13f1fb0b47857"
+      },
+      {
+        "url": "assets/world/landmark-barrel-power-stack/landmark-barrel-power-stack.png",
+        "bytes": 25720,
+        "sha256": "89363972c381bd856c0535096721bf0b0e772c0294ba572bccd3e017b061ebe9"
+      },
+      {
+        "url": "assets/world/forge/forge-world-atlas.png",
+        "bytes": 2862,
+        "sha256": "a2816154eb91a4bd62348d42d36cda05b0d4530f2f839b04756d6d6952106820"
+      },
+      {
+        "url": "assets/world/forge/forge-world-atlas.json",
+        "bytes": 3081,
+        "sha256": "8d52fd9aed17e2900796f31876f42bfab10580036f5559c18a8e9f3d34a4beb7"
+      },
+      {
+        "url": "assets/upgrade-icons/upgrade-icon-quick-paws/upgrade-icon-quick-paws.png",
+        "bytes": 233,
+        "sha256": "0f8fdd42dc773b87f16e87526814147afef82eeb2a0b685d9766cf350a2fd4d7"
+      },
+      {
+        "url": "assets/upgrade-icons/upgrade-icon-extra-scrap/upgrade-icon-extra-scrap.png",
+        "bytes": 251,
+        "sha256": "34d7436e3432851faeef084852da95b048960de3a0aca013b844e6e1d0aa8328"
+      },
+      {
+        "url": "assets/upgrade-icons/upgrade-icon-hot-barrel/upgrade-icon-hot-barrel.png",
+        "bytes": 198,
+        "sha256": "90c9be55e1f6aed53cfb6b49b3440b5c544d2b2cdb6289cade5f949b48b04a54"
+      },
+      {
+        "url": "assets/upgrade-icons/upgrade-icon-scrap-magnet/upgrade-icon-scrap-magnet.png",
+        "bytes": 189,
+        "sha256": "48936448ea8c4b2803e557fc84fae056a20128c3b9ba94ced82fdf0e43a755fc"
+      },
+      {
+        "url": "assets/upgrade-icons/upgrade-icon-reinforced-coat/upgrade-icon-reinforced-coat.png",
+        "bytes": 196,
+        "sha256": "0d0f0d651b06979065d27eea3fdc9af3088e92964fea14c0196cdbb026dd275e"
+      },
+      {
+        "url": "assets/upgrade-icons/upgrade-icon-fast-learner/upgrade-icon-fast-learner.png",
+        "bytes": 193,
+        "sha256": "8ed3ce7842d471cf14075b32ac3d073ac3a973de9fae2200e77d951ea8497935"
+      },
+      {
+        "url": "assets/upgrade-icons/upgrade-icon-heavy-rounds/upgrade-icon-heavy-rounds.png",
+        "bytes": 201,
+        "sha256": "3967c0286645cca1ba5e4b5d012bd35191f0ccc6bc133703e91ff9afa5804f47"
+      },
+      {
+        "url": "assets/upgrade-icons/upgrade-icon-long-barrel/upgrade-icon-long-barrel.png",
+        "bytes": 200,
+        "sha256": "cfd4d3479096f0186afb98e30d232767982f08ce2d491fc6dbb7c5940dea30b0"
+      },
+      {
+        "url": "assets/upgrade-icons/upgrade-icon-split-shot/upgrade-icon-split-shot.png",
+        "bytes": 202,
+        "sha256": "b8de048cbf94917d0d16849a052637465fe3d4e4b543c004f8ce0141f06cd23d"
+      },
+      {
+        "url": "assets/upgrade-icons/upgrade-icon-punch-through/upgrade-icon-punch-through.png",
+        "bytes": 202,
+        "sha256": "850189369831d1dc83176db5ae0d50f20c270972947553e87305bfd3f9d4c035"
+      },
+      {
+        "url": "assets/upgrade-icons/upgrade-icon-glass-cannon/upgrade-icon-glass-cannon.png",
+        "bytes": 235,
+        "sha256": "ee6a0a9c56eb7af35c1b6c448db4d8e35c0b9a60057c5a3a9f80997f18aa2a03"
+      },
+      {
+        "url": "assets/upgrade-icons/upgrade-icon-run-and-gun/upgrade-icon-run-and-gun.png",
+        "bytes": 239,
+        "sha256": "19a4231cae9f12fdcf9fbfd6b081ec9afd6653c602da27f424855e5db94b7467"
+      },
+      {
+        "url": "assets/upgrade-icons/upgrade-icon-pistol-deadeye/upgrade-icon-pistol-deadeye.png",
+        "bytes": 240,
+        "sha256": "1242048797bfd1b08159faebc6a29e24376b812538a5d7d5efb5df10d6f30a8d"
+      },
+      {
+        "url": "assets/upgrade-icons/upgrade-icon-pistol-needle-rounds/upgrade-icon-pistol-needle-rounds.png",
+        "bytes": 239,
+        "sha256": "68c495a81c23b305207f31230fd1309868a0da5295b62d77349849ee15662784"
+      },
+      {
+        "url": "assets/upgrade-icons/upgrade-icon-smg-overclock/upgrade-icon-smg-overclock.png",
+        "bytes": 238,
+        "sha256": "66acd441b4d10b64ac5bb906bb918d68eaeaf36b7fb7e584267cb8bc72d60aab"
+      },
+      {
+        "url": "assets/upgrade-icons/upgrade-icon-smg-spray/upgrade-icon-smg-spray.png",
+        "bytes": 237,
+        "sha256": "5ac39aa7d068d47270c30e8f914d3de3eaf300dd470f3b3445c2f5e01c252043"
+      },
+      {
+        "url": "assets/upgrade-icons/upgrade-icon-shotgun-buckshot/upgrade-icon-shotgun-buckshot.png",
+        "bytes": 237,
+        "sha256": "4ea1f6be777f1612b46b96087feb6d25ff6a65915217acf483a9505a9ac6abac"
+      },
+      {
+        "url": "assets/upgrade-icons/upgrade-icon-shotgun-breacher/upgrade-icon-shotgun-breacher.png",
+        "bytes": 239,
+        "sha256": "f851ceb121f52a8d51d909a46cf03f17482bfe7bb06805a59bc9e2c74925e4c3"
+      },
+      {
+        "url": "assets/enemies/scrap-sniper/scrap-sniper.png",
+        "bytes": 46984,
+        "sha256": "9d296eba8f576bd9b4a1fe99d9c06565a6f05d3f3e213673d57e234f277d3a31"
+      },
+      {
+        "url": "assets/enemies/boss-crusher/boss-crusher.png",
+        "bytes": 105251,
+        "sha256": "600d06eb05bc9dadd0b3d3d47e60e35e4a9ea8790b4851f8e62ca27460ef1cd9"
+      },
+      {
+        "url": "assets/enemies/scrap-skitter/scrap-skitter.png",
+        "bytes": 47144,
+        "sha256": "8f92774fc8986819aeeed6d4dbd42998dd41e9cbb53fb5edbb4fbc5b8f372d3a"
+      },
+      {
+        "url": "assets/enemies/bastion-beetle/bastion-beetle.png",
+        "bytes": 59722,
+        "sha256": "15dc4ebc928cd0d4f9c1f2498c56892c365240945d3e877fcd267d4b1412b0e4"
+      },
+      {
+        "url": "assets/enemies/junk-nester/junk-nester.png",
+        "bytes": 58454,
+        "sha256": "48dab67fc473d69cae241c3d8084f83e7c5f6ab0aa63cb7bba4f828825292088"
+      },
+      {
+        "url": "assets/enemies/shard-bot/shard-bot.png",
+        "bytes": 51291,
+        "sha256": "cbdfdd19271fde11ff4a58ed86fbcb915a24fe4fc470637672d0c754cb5afd1b"
+      },
+      {
+        "url": "assets/enemies/boss-forge/boss-forge.png",
+        "bytes": 111138,
+        "sha256": "d5dbacbc527cbe249612fe2c98bf35c4a7bda4da9c29084a5a921dd5919b68e0"
+      },
+      {
+        "url": "assets/characters/volt-lynx/volt-lynx.png",
+        "bytes": 4799,
+        "sha256": "f941573a3ac12f103838246467cde653a158de2265612bbd0f8e6873b91a5de2"
+      },
+      {
+        "url": "assets/characters/brass-boar/brass-boar.png",
+        "bytes": 3441,
+        "sha256": "b5546f08220ca1a479bd585c6ff2e3ed92cac8ac7bdf5d8f91e6c1465e61f5ee"
+      },
+      {
+        "url": "assets/characters/ember-cougar/ember-cougar.png",
+        "bytes": 3884,
+        "sha256": "2f3fbdde2625bb6829669ed3431a1a4200581635b04ee8288519fcbf2d5b5d4f"
+      },
+      {
+        "url": "assets/characters/scrap-weasel/scrap-weasel.png",
+        "bytes": 3643,
+        "sha256": "56227c4e5774b90257e3ec418f1067f45458af0c1d07b0dd19b2103055ed12d9"
+      },
+      {
+        "url": "assets/characters/rattle-raptor/rattle-raptor.png",
+        "bytes": 3500,
+        "sha256": "bf5e415e353c472a886bd6ab2df5fa93cccc81231e5c7a93603e29817029cf22"
+      },
+      {
+        "url": "assets/equipment/commando/commando-equipment-atlas.png",
+        "bytes": 186629,
+        "sha256": "54728a764deeb63a4b396b79191b933346bb849ac0e6ecb148a24a3523bc14d6"
+      },
+      {
+        "url": "assets/equipment/commando/commando-equipment-atlas.json",
+        "bytes": 2531,
+        "sha256": "b118fc2095ddbd45e1d8614b1c09ed8abaae43a4f5e426f512ab51644aee6ee6"
+      },
+      {
+        "url": "assets/equipment/sets/equipment-sets-atlas.png",
+        "bytes": 1312562,
+        "sha256": "7120f60c3696613c7ccfbabf4f6b7ba111a19b9867776e707e201a3eceb6d393"
+      },
+      {
+        "url": "assets/equipment/sets/equipment-sets-atlas.json",
+        "bytes": 17034,
+        "sha256": "e8732d34d9f0f7812cc02a218668e7ebbebf37909e9b18e089d9228b6eb49229"
+      },
+      {
+        "url": "assets/gunsmith/icons/gunsmith-icons-atlas.png",
+        "bytes": 207171,
+        "sha256": "41235c7cc3738ade75d114fd09ce89ce5bbc5b40820407510664e25071f708e9"
+      },
+      {
+        "url": "assets/gunsmith/icons/gunsmith-icons-atlas.json",
+        "bytes": 3210,
+        "sha256": "d0e905c0b6bd905d7d7d2636048300bd37dc813999d69a2ce3700513fae1d400"
+      },
+      {
+        "url": "assets/gunsmith/previews/gun-build-preview-atlas.png",
+        "bytes": 23474,
+        "sha256": "f64828bcf70462408eae8f8764a1dea38f20cf54a2ce62f7b9b86036e608f022"
+      },
+      {
+        "url": "assets/gunsmith/previews/gun-build-preview-atlas.json",
+        "bytes": 1906,
+        "sha256": "0f2117a9598a0daedfb1d39c7b723ea4a8a212cba0be2553d334d8ab39fbd364"
+      },
+      {
+        "url": "assets/characters/piston-ram/piston-ram.png",
+        "bytes": 4156,
+        "sha256": "0549b47341027a4adfc237a1d62370c72d41e64f6fad6cb8027a4bc927bf28cd"
+      },
+      {
+        "url": "assets/achievements/achievement-icons-atlas.png",
+        "bytes": 556790,
+        "sha256": "6cec84afe9d6a6a05816760d4de18f23c8d18107d8208c224d0b4f1d8ccbaca9"
+      },
+      {
+        "url": "assets/achievements/achievement-icons-atlas.json",
+        "bytes": 1691,
+        "sha256": "f2d9442b7418d95b5dcd73d2fd9d169b0cd88700343ad026b0d39a1bd9765820"
+      },
+      {
+        "url": "assets/characters/identity/mercenary-portraits-atlas.png",
+        "bytes": 321989,
+        "sha256": "686907c281d9b523dae5de96fffb60fc7f150deee44648574f5deb9cd7aeaac4"
+      },
+      {
+        "url": "assets/characters/identity/mercenary-portraits-atlas.json",
+        "bytes": 1264,
+        "sha256": "2615b4001623fd668b99e72e45331024e801d05521c98e4ea2f6010c85a4252c"
+      },
+      {
+        "url": "assets/characters/identity/mercenary-identity-icons-atlas.png",
+        "bytes": 224423,
+        "sha256": "1c0d626ac6c90a0c1cb23d4e257aa0efb23085277313018d4fc966697e98a788"
+      },
+      {
+        "url": "assets/characters/identity/mercenary-identity-icons-atlas.json",
+        "bytes": 2276,
+        "sha256": "bedde8c10de88f9fa126a5dd7ac0f11a3c73293955e92dc36aa62887ac41b3d3"
+      },
+      {
+        "url": "assets/enemies/enemy-portraits-atlas.png",
+        "bytes": 608822,
+        "sha256": "28bf2147e9be5cc00446063417f4919508527b9964a19fbdb1bb814659baf64b"
+      },
+      {
+        "url": "assets/enemies/enemy-portraits-atlas.json",
+        "bytes": 3690,
+        "sha256": "0595a35c2f92e30d97d5786d32d384fde776eb0c6b5ecb6e10949f179b010425"
+      },
+      {
+        "url": "assets/ui/backdrops/menu-junkyard.png",
+        "bytes": 665597,
+        "sha256": "9505cc23b792c027ec6f22616a888d10d5016d8e23a05f093da051450c8fc9ca"
+      },
+      {
+        "url": "assets/ui/backdrops/menu-forge.png",
+        "bytes": 726967,
+        "sha256": "5ebddf7ba347de1b8b685c2d787c1fb319d134378a2cddd7026b748bfaff3386"
+      },
+      {
+        "url": "assets/ui/brand/meowcenary-title-lockup.png",
+        "bytes": 19943,
+        "sha256": "3630f926f38532842d52087ed6904bad59e067a62f371cb39839400460dc844b"
+      },
+      {
+        "url": "assets/ui/brand-art.png",
+        "bytes": 6344,
+        "sha256": "634edb26d1d7d41f7ad8130e1f0c07514f005fb433765e593316f71cf728cdeb"
+      },
+      {
+        "url": "assets/ui/brand-art.json",
+        "bytes": 463,
+        "sha256": "90f9e9d7751e3ad6f5adeacad4e92a5060c5ac530fed059896b0a93dba5817f3"
+      },
+      {
+        "url": "assets/ui/ui-atlas.png",
+        "bytes": 8249,
+        "sha256": "84d55ef93ac40490391b0aaa94d772a751f955755266d577968177f59a04b866"
+      },
+      {
+        "url": "assets/ui/ui-atlas.json",
+        "bytes": 8917,
+        "sha256": "dd61f14faa906d1f328c16a72def0139ab60a1c661bc77cc32913eb893ec6ae7"
+      },
+      {
+        "url": "assets/ui/menu-semantic-icons-atlas.png",
+        "bytes": 262007,
+        "sha256": "373f882a9225a474a98e96584d964eebbafbdb3985a6fdc8fe37b396c5ca87cb"
+      },
+      {
+        "url": "assets/ui/menu-semantic-icons-atlas.json",
+        "bytes": 1570,
+        "sha256": "05a9c48e6ca57050237a6fe7b46f3fa329c8e071b86d1258b075d8d481570f45"
+      },
+      {
+        "url": "assets/ui/navigation-icons-atlas.png",
+        "bytes": 618919,
+        "sha256": "78d40a69f40952c886827e031a116727dc6d32c8fd3470d493d6c7bf31c4528b"
+      },
+      {
+        "url": "assets/ui/navigation-icons-atlas.json",
+        "bytes": 1563,
+        "sha256": "77dff7b6fe61edd1b27e631a4a2ebc22570296aaf0e34feca22b4e680fd32113"
+      },
+      {
+        "url": "assets/ui/figma/figma-menu-chrome.png",
+        "bytes": 15389,
+        "sha256": "1253d22cf261c8cb7dfdedc4dc4c57a8fe1a653f9ce510a810f4d570f8659509"
+      },
+      {
+        "url": "assets/ui/figma/figma-menu-chrome.json",
+        "bytes": 917,
+        "sha256": "c2925e784002f92c9f5123b74662581e2724dff1c22c5f1c859e06918c9825fe"
+      },
+      {
+        "url": "assets/gunsmith/tiers/gunsmith-tier-icons-atlas.png",
+        "bytes": 524280,
+        "sha256": "747fb55afcf572879672eff2ebfd41e16e974f891fd801bdcb553afa75eeace8"
+      },
+      {
+        "url": "assets/gunsmith/tiers/gunsmith-tier-icons-atlas.json",
+        "bytes": 19173,
+        "sha256": "5a9b4bd7d8007843ab7516b6e25aeefc01f25e5bee17afed61a35a0d62b035e1"
+      },
+      {
+        "url": "assets/gunsmith/tiers/gunsmith-tier-assembly-atlas.png",
+        "bytes": 440272,
+        "sha256": "a57422a64f9ae18854015d70661669c1eff98001ae230c9c4580b047036d176e"
+      },
+      {
+        "url": "assets/gunsmith/tiers/gunsmith-tier-assembly-atlas.json",
+        "bytes": 19425,
+        "sha256": "df04b0edb7372dcf2b3330094b56b5fab96ea437b6a0d281641dbfea28469e7f"
+      }
+    ]
+  },
+  "font": {
+    "path": "public/assets/fonts/nunito-latin-variable.woff2",
+    "bytes": 39152,
+    "sha256": "20fc9b6fc618e7c3c68d3ac750a2a5dfbceb8521675458d2cea580b5693e4798"
+  },
+  "audio": {
+    "sfxCount": 19,
+    "musicCount": 2,
+    "totalBytes": 181084,
+    "combinedDurationSeconds": 11.26,
+    "files": [
+      {
+        "key": "sfx-weapon-fired",
+        "url": "assets/audio/sfx-weapon-fired.wav",
+        "bytes": 1964,
+        "sha256": "b5c1fe55bad268f08ced23f162856e4d17a87e401f8c5daf2fb1c57e001eab59",
+        "durationSeconds": 0.12,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "sfx-weapon-fired-pistol",
+        "url": "assets/audio/sfx-weapon-fired-pistol.wav",
+        "bytes": 1644,
+        "sha256": "6c590cc202bb40e00f8f63fb4eaff5efa00e80624328a7afe0847743654fe83a",
+        "durationSeconds": 0.1,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "sfx-weapon-fired-smg",
+        "url": "assets/audio/sfx-weapon-fired-smg.wav",
+        "bytes": 924,
+        "sha256": "4e9d8d517e3eaee8db3b81aeb1b26e45396e24859666582f3360eecd4832fb45",
+        "durationSeconds": 0.055,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "sfx-weapon-fired-shotgun",
+        "url": "assets/audio/sfx-weapon-fired-shotgun.wav",
+        "bytes": 2604,
+        "sha256": "81268bf28cd599c6fc1554ed96f9baca8323306d63d4dca7b0be559921d099b7",
+        "durationSeconds": 0.16,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "sfx-projectile-hit",
+        "url": "assets/audio/sfx-projectile-hit.wav",
+        "bytes": 1644,
+        "sha256": "d1eaa7bcd7ea26392edfd8d0e1ac34652c6e0b560d6f1060ac446c683f561bba",
+        "durationSeconds": 0.1,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "sfx-projectile-hit-pistol",
+        "url": "assets/audio/sfx-projectile-hit-pistol.wav",
+        "bytes": 1484,
+        "sha256": "d7724aacba08609e391f8ed15a5fb36e510bd779aac96855b65cde505ac9f320",
+        "durationSeconds": 0.09,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "sfx-projectile-hit-smg",
+        "url": "assets/audio/sfx-projectile-hit-smg.wav",
+        "bytes": 924,
+        "sha256": "3296f355f11591b0a4261890a20150bbae56b43af757be17fbe27b37df60ae50",
+        "durationSeconds": 0.055,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "sfx-projectile-hit-shotgun",
+        "url": "assets/audio/sfx-projectile-hit-shotgun.wav",
+        "bytes": 2284,
+        "sha256": "284f89d6168ae8b116a19a0d0fe89f8b27e2310b67c9304cf6bdc3afb59ae5ef",
+        "durationSeconds": 0.14,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "sfx-enemy-killed",
+        "url": "assets/audio/sfx-enemy-killed.wav",
+        "bytes": 3404,
+        "sha256": "726939268b515813cd7ce2ead638df150eb725096f21345152e962ccd4cf181a",
+        "durationSeconds": 0.21,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "sfx-player-damaged",
+        "url": "assets/audio/sfx-player-damaged.wav",
+        "bytes": 3564,
+        "sha256": "3d59b245e9ab668ebae6c13d4f4b9ce19689d99584e7bf0ab56e1babfbc1f1f2",
+        "durationSeconds": 0.22,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "sfx-drop-collected",
+        "url": "assets/audio/sfx-drop-collected.wav",
+        "bytes": 2924,
+        "sha256": "aa80acc1c7986b29fbd5b1cb09a0a6a911a89ef245e0c5782260d8bb75570e6c",
+        "durationSeconds": 0.18,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "sfx-level-up",
+        "url": "assets/audio/sfx-level-up.wav",
+        "bytes": 5164,
+        "sha256": "f349c0e89850f20c825f0906718a4321164da1049b49cd22ede94341111e8e16",
+        "durationSeconds": 0.32,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "sfx-weapon-merged",
+        "url": "assets/audio/sfx-weapon-merged.wav",
+        "bytes": 3884,
+        "sha256": "e0157e7458d0ee6ff163cb71d6b6fe78209073bf528d8a3739a177020ac41dfa",
+        "durationSeconds": 0.24,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "sfx-card-chosen",
+        "url": "assets/audio/sfx-card-chosen.wav",
+        "bytes": 2764,
+        "sha256": "834d98378c0d57f6284d80fc54ec193ca262f9be8c25ece97a5d3a47df87edae",
+        "durationSeconds": 0.17,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "sfx-run-won",
+        "url": "assets/audio/sfx-run-won.wav",
+        "bytes": 6764,
+        "sha256": "af0df48fa5f2badfe7e0166db1959c49ab88ff714e2bb8dd2c7391e22633fe69",
+        "durationSeconds": 0.42,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "sfx-run-lost",
+        "url": "assets/audio/sfx-run-lost.wav",
+        "bytes": 6124,
+        "sha256": "9c68e5037ddfb548c2af49e398233ef0c93c824612061b87d6440825fe776b00",
+        "durationSeconds": 0.38,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "sfx-ui-navigate",
+        "url": "assets/audio/sfx-ui-navigate.wav",
+        "bytes": 1324,
+        "sha256": "9aed2d5a7ff9b62daaf5396f557d935e9e442f8009f7a24a1a6efca411c3fc8a",
+        "durationSeconds": 0.08,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "sfx-ui-confirm",
+        "url": "assets/audio/sfx-ui-confirm.wav",
+        "bytes": 1804,
+        "sha256": "cafc477250741c5ddf2db375d9e588436f229e90a7fd2ee19c520328b2549ddd",
+        "durationSeconds": 0.11,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "sfx-ui-back",
+        "url": "assets/audio/sfx-ui-back.wav",
+        "bytes": 1804,
+        "sha256": "9348b0f0447ba3b464ad1580aa55e1834788d1dbc27fd7de3efa98f7e2c4556d",
+        "durationSeconds": 0.11,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "music-menu",
+        "url": "assets/audio/music-menu.wav",
+        "bytes": 64044,
+        "sha256": "3e583ff01910bd6545d545d9707b00b6d2daa029a080436ce85db203446fb8b1",
+        "durationSeconds": 4.0,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      },
+      {
+        "key": "music-run",
+        "url": "assets/audio/music-run.wav",
+        "bytes": 64044,
+        "sha256": "2de4bb69ddd2641ebae4ac3926ca9e4139d95e48089a617069655cb48423ac34",
+        "durationSeconds": 4.0,
+        "sampleRate": 8000,
+        "channels": 1,
+        "bitsPerSample": 16
+      }
+    ]
+  },
+  "limitations": [
+    "Compression figures are offline level-9 gzip and quality-11 Brotli over each unique current public visual file independently; these are not server wire measurements.",
+    "No browser/cache/network startup measurement performed.",
+    "Compression numbers are local offline compression measurements, not measured network transfer or browser-cache behavior. Resource bytes alone do not identify runtime bottlenecks."
+  ],
+  "requestedPinnedMainSha": "26f46fb5398c7eb769fe1bffa5ed60f80f20eea5",
+  "measurementHeadShaAtCollection": "4d0419690e95bd6c979d74c10c28a10a1102af67",
+  "reconciliation": "Worktree advanced from pinned main to measurement HEAD during shared session; git diff pinned..measurement HEAD shows only src/gameplay/perf.ts and tests/perf.test.ts, so the visual-resource, bundle, audio, font, Boot/Menu/Game source being inventoried is unchanged.",
+  "sourceFacts": {
+    "boot": {
+      "file": "src/scenes/BootScene.ts",
+      "lines": "53-72",
+      "behavior": "Loads all manifest SFX/music during Boot preload, then queues only bundle:boot-core visual resources."
+    },
+    "bundles": {
+      "file": "src/data/asset-bundles.json",
+      "lines": "1-54",
+      "behavior": "boot-core (6 resource IDs), core-junkyard (15), core-forge (1). Stage definitions select junkyard/forge run world bundles."
+    },
+    "menuLazyLoading": {
+      "file": "src/scenes/MenuScene.ts",
+      "lines": "2029-2245",
+      "behavior": "Panel, achievements, mercenary, equipment and Gunsmith visuals are loaded on demand; requests are deduplicated, serialized through one loader queue and guarded by generation/liveness checks; panels repaint after needed assets settle."
+    },
+    "runClosure": {
+      "file": "src/systems/resourceLoader.ts",
+      "lines": "212-291",
+      "behavior": "Derives run resources from chosen character/ability, arena floor/boundary/decor/obstacle/hazard skins, encounter/boss actors and children, all weapon held/projectile/icon art, drops, upgrades and achievement icons; de-duplicates physical resources."
+    },
+    "loader": {
+      "file": "src/systems/resourceLoader.ts",
+      "lines": "65-185",
+      "behavior": "Texture-key de-duplication, skips already-loaded textures, queues all pending resources then starts once; keyed completion/error accounting and explicit progress."
+    },
+    "font": {
+      "file": "src/main.ts",
+      "lines": "33-41",
+      "behavior": "Promise.all waits for four Nunito CSS weight requests (400/600/700/800 at 16px) before Phaser.Game construction."
+    },
+    "fontCss": {
+      "file": "src/styles.css",
+      "lines": "1-7",
+      "behavior": "All requests map to one self-hosted variable WOFF2 with weight range 200-1000 and font-display:block; runtime/cache behavior not browser-measured."
+    },
+    "audioLifecycle": {
+      "file": "src/systems/audio.ts",
+      "lines": "20-37",
+      "behavior": "One game-scoped AudioManager in Boot; SFX are dropped while locked, music waits for the unlocked event, and fades are update-driven."
+    }
+  },
+  "compressionMethod": "Per-file, level-9 gzip and quality-11 Brotli using Node zlib, then summed over unique source public files; atlas PNG and JSON both included. Not production-build chunks or measured HTTP transfer.",
+  "productionBuild": {
+    "sourceSha": "26f46fb5398c7eb769fe1bffa5ed60f80f20eea5",
+    "metadataPath": "/home/jon/projects/meowcenary-worktrees/meowcenary-integration-main/dist/build-meta.json",
+    "metadataCommit": "26f46fb5398c7eb769fe1bffa5ed60f80f20eea5",
+    "productionBuildFlag": "ordinary production dist; build metadata confirms exact pinned commit",
+    "buildFiles": [
+      {
+        "path": "dist/assets/index-ahEG0Lq_.js",
+        "bytes": 792987,
+        "gzipBytes": 178679,
+        "brotliBytes": 145656,
+        "sha256": "d686433e018024ade2c5e541f7efcb022346af51f47d427a7d9f5b22835fa09a"
+      },
+      {
+        "path": "dist/assets/phaser-DXXWZowi.js",
+        "bytes": 1208050,
+        "gzipBytes": 330419,
+        "brotliBytes": 264694,
+        "sha256": "9031f79935ba598df03915ec937779c0480dc35b2e58e0cb9f95b910e56df425"
+      },
+      {
+        "path": "dist/assets/index-CSsFZuHQ.css",
+        "bytes": 1273,
+        "gzipBytes": 587,
+        "brotliBytes": 458,
+        "sha256": "4623fc14b7783dd831c76fb88eb7fd8bf481f16d88b19322e5bc06766e8d645f"
+      }
+    ],
+    "distWholeTree": {
+      "files": 226,
+      "bytes": 10411457,
+      "gzipBytes": 8485657,
+      "brotliBytes": 8377044
+    },
+    "payloadCategories": {
+      "audio": {
+        "files": 21,
+        "bytes": 181084,
+        "gzipBytes": 55846,
+        "brotliBytes": 50649
+      },
+      "fonts": {
+        "files": 1,
+        "bytes": 39152,
+        "gzipBytes": 39185,
+        "brotliBytes": 39156
+      },
+      "allVisualResourceFiles": {
+        "files": 112,
+        "bytes": 7813105,
+        "gzipBytes": 7702599,
+        "brotliBytes": 7704597
+      }
+    },
+    "compressionMethod": "Per-file level-9 gzip and quality-11 Brotli using Node zlib; sizes summed without HTTP headers, shared transport compression configuration is not assumed."
+  },
+  "visualArtBindingCount": 619,
+  "resourceIdentityNotes": {
+    "logicalVisualArtBindings": 619,
+    "physicalVisualResourceRegistryEntries": 96,
+    "uniquePhaserTextureKeys": 96,
+    "uniqueAssetURLs": 112,
+    "distFileCount": 226,
+    "distFilesAreNotRequests": "The full dist contains available built files, including lazily loaded art. A dist file is not proof it is requested at cold Home."
+  },
+  "publicSmokeObserved": {
+    "deployedSha": "26f46fb5398c7eb769fe1bffa5ed60f80f20eea5",
+    "contexts": [
+      {
+        "name": "phone",
+        "viewport": "390x844",
+        "captures": [
+          "phone-home.png",
+          "phone-loadout.png",
+          "phone-equipment.png",
+          "phone-gunsmith.png",
+          "phone-run-launch.png"
+        ],
+        "uniqueNetworkResponsesAcrossJourney": 106,
+        "consolePageRequestHttpErrors": 0
+      },
+      {
+        "name": "desktop",
+        "viewport": "1280x720",
+        "captures": [
+          "desktop-home.png",
+          "desktop-loadout.png",
+          "desktop-equipment.png",
+          "desktop-gunsmith.png",
+          "desktop-run-launch.png"
+        ],
+        "uniqueNetworkResponsesAcrossJourney": 106,
+        "consolePageRequestHttpErrors": 0
+      }
+    ],
+    "verifiedFirstRequestBytes": [
+      {
+        "path": "/assets/fonts/nunito-latin-variable.woff2",
+        "bytes": 39152
+      },
+      {
+        "path": "/assets/ui/brand/meowcenary-browser-icon.png",
+        "bytes": 14852
+      },
+      {
+        "path": "/assets/index-ahEG0Lq_.js",
+        "bytes": 792987
+      },
+      {
+        "path": "/assets/phaser-DXXWZowi.js",
+        "bytes": 1208050
+      },
+      {
+        "path": "/assets/index-CSsFZuHQ.css",
+        "bytes": 1273
+      }
+    ],
+    "caveat": "106 responses are the full captured navigation/menu/run journey per viewport, not cold-Home request count. Only the 5 listed startup requests have response-byte sizes in the smoke status."
+  },
+  "baselineSHA": "26f46fb5398c7eb769fe1bffa5ed60f80f20eea5",
+  "inventoryReconciliation": "Inventory capture source4d041969 differs from26f only in PerfSampler and its tests; every resource/boot/menu/main/manifest/font/art input is baseline-identical. The build and all physical asset/chunk hashes are26f ordinary production."
+}

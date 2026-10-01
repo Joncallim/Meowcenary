@@ -1,0 +1,4596 @@
+{
+  "baselineSHA": "26f46fb5398c7eb769fe1bffa5ed60f80f20eea5",
+  "measurementSHA": "ef8d90cfca226c5595598fb74b3f699d0feb3caa",
+  "cohorts": 9,
+  "checkpoints": 234,
+  "nativeInputActionsWithVerifiedRebuild": 54,
+  "timingsAreEvidenceNotGates": true,
+  "profiles": {
+    "desktop-1280x720": {
+      "profile": {
+        "name": "desktop-1280x720",
+        "width": 1280,
+        "height": 720,
+        "dpr": 1,
+        "touch": false,
+        "cpu": 1
+      },
+      "actions": {
+        "cold-usable-home": {
+          "durationMedianMs": 1106.2000000476837,
+          "durationRangeMs": [
+            985.3000001907349,
+            1156.4000000953674
+          ],
+          "objects": [
+            52,
+            52,
+            52
+          ],
+          "textures": [
+            23,
+            23,
+            23
+          ],
+          "renderCounts": [
+            3,
+            3,
+            3
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 17,
+              "averageMs": 41.28235294117647,
+              "p50Ms": 33.39999999999998,
+              "p95Ms": 150.00000000000006,
+              "p99Ms": 150.00000000000006,
+              "worstMs": 150.00000000000006,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 15,
+              "overBudgetRatio": 0.8823529411764706
+            },
+            {
+              "sampleCount": 16,
+              "averageMs": 53.11875,
+              "p50Ms": 50,
+              "p95Ms": 183.30000000000007,
+              "p99Ms": 183.30000000000007,
+              "worstMs": 183.30000000000007,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 14,
+              "overBudgetRatio": 0.875
+            },
+            {
+              "sampleCount": 16,
+              "averageMs": 44.14374999701977,
+              "p50Ms": 49.89999999999998,
+              "p95Ms": 150,
+              "p99Ms": 150,
+              "worstMs": 150,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 12,
+              "overBudgetRatio": 0.75
+            }
+          ]
+        },
+        "warm-home": {
+          "durationMedianMs": 1500,
+          "durationRangeMs": [
+            1500,
+            1500
+          ],
+          "objects": [
+            52,
+            52,
+            52
+          ],
+          "textures": [
+            23,
+            23,
+            23
+          ],
+          "renderCounts": [
+            0,
+            0,
+            0
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 35,
+              "averageMs": 44.28285714285714,
+              "p50Ms": 50,
+              "p95Ms": 50.09999999999991,
+              "p99Ms": 50.09999999999991,
+              "worstMs": 50.09999999999991,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 35,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 31,
+              "averageMs": 48.91935483870968,
+              "p50Ms": 50,
+              "p95Ms": 50.100000000000136,
+              "p99Ms": 66.69999999999982,
+              "worstMs": 66.69999999999982,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 31,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 32,
+              "averageMs": 48.43124999999999,
+              "p50Ms": 50,
+              "p95Ms": 50.100000000000364,
+              "p99Ms": 66.59999999999991,
+              "worstMs": 66.59999999999991,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 32,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "home-contract": {
+          "durationMedianMs": 56.799999952316284,
+          "durationRangeMs": [
+            54.80000019073486,
+            76.39999985694885
+          ],
+          "objects": [
+            82,
+            82,
+            82
+          ],
+          "textures": [
+            35,
+            35,
+            35
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 50,
+              "p50Ms": 50,
+              "p95Ms": 50,
+              "p99Ms": 50,
+              "worstMs": 50,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 66.59999999999991,
+              "p50Ms": 66.59999999999991,
+              "p95Ms": 66.59999999999991,
+              "p99Ms": 66.59999999999991,
+              "worstMs": 66.59999999999991,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 66.70000000000027,
+              "p50Ms": 66.70000000000027,
+              "p95Ms": 66.70000000000027,
+              "p99Ms": 66.70000000000027,
+              "worstMs": 66.70000000000027,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "home-mercenary": {
+          "durationMedianMs": 468.10000014305115,
+          "durationRangeMs": [
+            464.2999999523163,
+            480.39999985694885
+          ],
+          "objects": [
+            85,
+            85,
+            85
+          ],
+          "textures": [
+            32,
+            32,
+            32
+          ],
+          "renderCounts": [
+            2,
+            2,
+            2
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 6,
+              "averageMs": 80.55000000000003,
+              "p50Ms": 66.69999999999982,
+              "p95Ms": 133.20000000000027,
+              "p99Ms": 133.20000000000027,
+              "worstMs": 133.20000000000027,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 6,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 6,
+              "averageMs": 77.76666666666665,
+              "p50Ms": 66.69999999999982,
+              "p95Ms": 133.30000000000018,
+              "p99Ms": 133.30000000000018,
+              "worstMs": 133.30000000000018,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 6,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 6,
+              "averageMs": 77.76666666666665,
+              "p50Ms": 66.59999999999991,
+              "p95Ms": 133.4000000000001,
+              "p99Ms": 133.4000000000001,
+              "worstMs": 133.4000000000001,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 6,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "home-career": {
+          "durationMedianMs": 8.799999952316284,
+          "durationRangeMs": [
+            8.200000047683716,
+            9.099999904632568
+          ],
+          "objects": [
+            26,
+            26,
+            26
+          ],
+          "textures": [
+            19,
+            19,
+            19
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 66.69999999999982,
+              "p50Ms": 66.69999999999982,
+              "p95Ms": 66.69999999999982,
+              "p99Ms": 66.69999999999982,
+              "worstMs": 66.69999999999982,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 66.69999999999982,
+              "p50Ms": 66.69999999999982,
+              "p95Ms": 66.69999999999982,
+              "p99Ms": 66.69999999999982,
+              "worstMs": 66.69999999999982,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 66.70000000000027,
+              "p50Ms": 66.70000000000027,
+              "p95Ms": 66.70000000000027,
+              "p99Ms": 66.70000000000027,
+              "worstMs": 66.70000000000027,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "loadout-entry": {
+          "durationMedianMs": 1271.2999999523163,
+          "durationRangeMs": [
+            1217.7000000476837,
+            1275.7000000476837
+          ],
+          "objects": [
+            82,
+            82,
+            82
+          ],
+          "textures": [
+            47,
+            47,
+            47
+          ],
+          "renderCounts": [
+            5,
+            5,
+            5
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 17,
+              "averageMs": 70.58235294117651,
+              "p50Ms": 66.69999999999982,
+              "p95Ms": 100,
+              "p99Ms": 100,
+              "worstMs": 100,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 17,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 17,
+              "averageMs": 72.54117647058825,
+              "p50Ms": 66.70000000000027,
+              "p95Ms": 100,
+              "p99Ms": 100,
+              "worstMs": 100,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 17,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 17,
+              "averageMs": 74.50588235294117,
+              "p50Ms": 66.69999999999982,
+              "p95Ms": 116.69999999999982,
+              "p99Ms": 116.69999999999982,
+              "worstMs": 116.69999999999982,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 17,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "equipment-entry": {
+          "durationMedianMs": 44.799999952316284,
+          "durationRangeMs": [
+            42.200000047683716,
+            48.39999985694885
+          ],
+          "objects": [
+            95,
+            95,
+            95
+          ],
+          "textures": [
+            45,
+            45,
+            45
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 50,
+              "p50Ms": 50,
+              "p95Ms": 50,
+              "p99Ms": 50,
+              "worstMs": 50,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 66.69999999999982,
+              "p50Ms": 66.69999999999982,
+              "p95Ms": 66.69999999999982,
+              "p99Ms": 66.69999999999982,
+              "worstMs": 66.69999999999982,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 66.60000000000036,
+              "p50Ms": 66.60000000000036,
+              "p95Ms": 66.60000000000036,
+              "p99Ms": 66.60000000000036,
+              "worstMs": 66.60000000000036,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "equipment-select": {
+          "durationMedianMs": 251.79999995231628,
+          "durationRangeMs": [
+            218.09999990463257,
+            255
+          ],
+          "objects": [
+            117,
+            117,
+            117
+          ],
+          "textures": [
+            57,
+            57,
+            57
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 78.58571428571433,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 150.10000000000036,
+              "p99Ms": 150.10000000000036,
+              "worstMs": 150.10000000000036,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 85.71428571428571,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 183.29999999999927,
+              "p99Ms": 183.29999999999927,
+              "worstMs": 183.29999999999927,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 90.47142857142846,
+              "p50Ms": 83.29999999999927,
+              "p95Ms": 183.29999999999927,
+              "p99Ms": 183.29999999999927,
+              "worstMs": 183.29999999999927,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "equipment-equip": {
+          "durationMedianMs": 206.09999990463257,
+          "durationRangeMs": [
+            198.70000004768372,
+            251.60000014305115
+          ],
+          "objects": [
+            115,
+            115,
+            115
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 78.57142857142857,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 133.29999999999927,
+              "p99Ms": 133.29999999999927,
+              "worstMs": 133.29999999999927,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 80.95714285714295,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 133.40000000000146,
+              "p99Ms": 133.40000000000146,
+              "worstMs": 133.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 88.08571428571433,
+              "p50Ms": 83.29999999999927,
+              "p95Ms": 166.6999999999989,
+              "p99Ms": 166.6999999999989,
+              "worstMs": 166.6999999999989,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "equipment-blueprint-select": {
+          "durationMedianMs": 198,
+          "durationRangeMs": [
+            195.89999985694885,
+            225.40000009536743
+          ],
+          "objects": [
+            102,
+            102,
+            102
+          ],
+          "textures": [
+            48,
+            48,
+            48
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 78.57142857142857,
+              "p50Ms": 66.80000000000291,
+              "p95Ms": 116.5,
+              "p99Ms": 116.5,
+              "worstMs": 116.5,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 80.94285714285694,
+              "p50Ms": 83.29999999999927,
+              "p95Ms": 116.59999999999854,
+              "p99Ms": 116.59999999999854,
+              "worstMs": 116.59999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 85.71428571428571,
+              "p50Ms": 83.29999999999927,
+              "p95Ms": 133.40000000000146,
+              "p99Ms": 133.40000000000146,
+              "worstMs": 133.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "equipment-fabricate": {
+          "durationMedianMs": 214.89999985694885,
+          "durationRangeMs": [
+            206.79999995231628,
+            259.2000000476837
+          ],
+          "objects": [
+            114,
+            114,
+            114
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 80.95714285714244,
+              "p50Ms": 66.69999999999709,
+              "p95Ms": 133.39999999999782,
+              "p99Ms": 133.39999999999782,
+              "worstMs": 133.39999999999782,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 83.34285714285735,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 150,
+              "p99Ms": 150,
+              "worstMs": 150,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 88.10000000000011,
+              "p50Ms": 83.20000000000073,
+              "p95Ms": 166.70000000000073,
+              "p99Ms": 166.70000000000073,
+              "worstMs": 166.70000000000073,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "gunsmith-entry": {
+          "durationMedianMs": 88.10000014305115,
+          "durationRangeMs": [
+            86.40000009536743,
+            101.89999985694885
+          ],
+          "objects": [
+            110,
+            110,
+            110
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 50,
+              "p50Ms": 50,
+              "p95Ms": 50,
+              "p99Ms": 50,
+              "worstMs": 50,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 49.900000000001455,
+              "p50Ms": 49.900000000001455,
+              "p95Ms": 49.900000000001455,
+              "p99Ms": 49.900000000001455,
+              "worstMs": 49.900000000001455,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 66.70000000000073,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 66.70000000000073,
+              "p99Ms": 66.70000000000073,
+              "worstMs": 66.70000000000073,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "gunsmith-build-select": {
+          "durationMedianMs": 218.59999990463257,
+          "durationRangeMs": [
+            202.90000009536743,
+            255.29999995231628
+          ],
+          "objects": [
+            110,
+            110,
+            110
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 69.04285714285756,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 133.29999999999927,
+              "p99Ms": 133.29999999999927,
+              "worstMs": 133.29999999999927,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 73.81428571428582,
+              "p50Ms": 66.60000000000218,
+              "p95Ms": 150.09999999999854,
+              "p99Ms": 150.09999999999854,
+              "worstMs": 150.09999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 80.95714285714295,
+              "p50Ms": 66.69999999999709,
+              "p95Ms": 199.90000000000146,
+              "p99Ms": 199.90000000000146,
+              "worstMs": 199.90000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "gunsmith-part-replace": {
+          "durationMedianMs": 219.40000009536743,
+          "durationRangeMs": [
+            219.39999985694885,
+            234
+          ],
+          "objects": [
+            110,
+            110,
+            110
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 78.55714285714255,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 166.59999999999854,
+              "p99Ms": 166.59999999999854,
+              "worstMs": 166.59999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 73.80000000000031,
+              "p50Ms": 66.60000000000218,
+              "p95Ms": 166.59999999999854,
+              "p99Ms": 166.59999999999854,
+              "worstMs": 166.59999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 76.18571428571418,
+              "p50Ms": 66.60000000000218,
+              "p95Ms": 166.70000000000073,
+              "p99Ms": 166.70000000000073,
+              "worstMs": 166.70000000000073,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "warm-equipment-entry": {
+          "durationMedianMs": 67.40000009536743,
+          "durationRangeMs": [
+            66.20000004768372,
+            80.40000009536743
+          ],
+          "objects": [
+            114,
+            114,
+            114
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 66.70000000000073,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 66.70000000000073,
+              "p99Ms": 66.70000000000073,
+              "worstMs": 66.70000000000073,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 66.70000000000073,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 66.70000000000073,
+              "p99Ms": 66.70000000000073,
+              "worstMs": 66.70000000000073,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 66.59999999999854,
+              "p50Ms": 66.59999999999854,
+              "p95Ms": 66.59999999999854,
+              "p99Ms": 66.59999999999854,
+              "worstMs": 66.59999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "warm-gunsmith-entry": {
+          "durationMedianMs": 79.79999995231628,
+          "durationRangeMs": [
+            79.10000014305115,
+            87.30000019073486
+          ],
+          "objects": [
+            110,
+            110,
+            110
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 133.29999999999927,
+              "p50Ms": 133.29999999999927,
+              "p95Ms": 133.29999999999927,
+              "p99Ms": 133.29999999999927,
+              "worstMs": 133.29999999999927,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 150,
+              "p50Ms": 150,
+              "p95Ms": 150,
+              "p99Ms": 150,
+              "worstMs": 150,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 150,
+              "p50Ms": 150,
+              "p95Ms": 150,
+              "p99Ms": 150,
+              "worstMs": 150,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "warm-home-return": {
+          "durationMedianMs": 14.099999904632568,
+          "durationRangeMs": [
+            13.5,
+            15.800000190734863
+          ],
+          "objects": [
+            52,
+            52,
+            52
+          ],
+          "textures": [
+            33,
+            33,
+            33
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 150,
+              "p50Ms": 150,
+              "p95Ms": 150,
+              "p99Ms": 150,
+              "worstMs": 150,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 150,
+              "p50Ms": 150,
+              "p95Ms": 150,
+              "p99Ms": 150,
+              "worstMs": 150,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 150,
+              "p50Ms": 150,
+              "p95Ms": 150,
+              "p99Ms": 150,
+              "worstMs": 150,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "menu-prepared-game": {
+          "durationMedianMs": 1770.9000000953674,
+          "durationRangeMs": [
+            1699.5,
+            1877.2999999523163
+          ],
+          "objects": [
+            1325,
+            1325,
+            1325
+          ],
+          "textures": [
+            92,
+            92,
+            92
+          ],
+          "renderCounts": [
+            62,
+            62,
+            62
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 18,
+              "averageMs": 103.70000000000012,
+              "p50Ms": 83.29999999999927,
+              "p95Ms": 166.70000000000073,
+              "p99Ms": 166.70000000000073,
+              "worstMs": 166.70000000000073,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 18,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 18,
+              "averageMs": 108.33333333333333,
+              "p50Ms": 83.29999999999927,
+              "p95Ms": 183.3000000000029,
+              "p99Ms": 183.3000000000029,
+              "worstMs": 183.3000000000029,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 18,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 19,
+              "averageMs": 107.89473684210526,
+              "p50Ms": 83.40000000000146,
+              "p95Ms": 200,
+              "p99Ms": 200,
+              "worstMs": 200,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 19,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "light-combat": {
+          "durationMedianMs": 10000,
+          "durationRangeMs": [
+            10000,
+            10000
+          ],
+          "objects": [
+            1376,
+            1376,
+            1376
+          ],
+          "textures": [
+            92,
+            92,
+            92
+          ],
+          "renderCounts": [
+            0,
+            0,
+            0
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 167,
+              "averageMs": 59.87784431137724,
+              "p50Ms": 66.59999999999854,
+              "p95Ms": 66.70000000000073,
+              "p99Ms": 66.79999999999927,
+              "worstMs": 66.80000000000291,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 167,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 164,
+              "averageMs": 61.37926829268291,
+              "p50Ms": 66.60000000000218,
+              "p95Ms": 66.70000000000437,
+              "p99Ms": 83.30000000000291,
+              "worstMs": 83.30000000000291,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 164,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 164,
+              "averageMs": 61.17621951219511,
+              "p50Ms": 66.59999999999854,
+              "p95Ms": 66.70000000000437,
+              "p99Ms": 66.80000000000291,
+              "worstMs": 83.29999999999927,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 164,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "pause": {
+          "durationMedianMs": 70.70000004768372,
+          "durationRangeMs": [
+            66.79999995231628,
+            80.20000004768372
+          ],
+          "objects": [
+            1393,
+            1393,
+            1393
+          ],
+          "textures": [
+            98,
+            98,
+            98
+          ],
+          "renderCounts": [
+            0,
+            0,
+            0
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 9,
+              "averageMs": 72.22222222222223,
+              "p50Ms": 66.70000000000437,
+              "p95Ms": 83.40000000000146,
+              "p99Ms": 83.40000000000146,
+              "worstMs": 83.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 9,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 9,
+              "averageMs": 79.63333333333301,
+              "p50Ms": 83.29999999999563,
+              "p95Ms": 100,
+              "p99Ms": 100,
+              "worstMs": 100,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 9,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 9,
+              "averageMs": 75.92222222222173,
+              "p50Ms": 83.19999999999709,
+              "p95Ms": 83.40000000000146,
+              "p99Ms": 83.40000000000146,
+              "worstMs": 83.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 9,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "resume": {
+          "durationMedianMs": 80.20000004768372,
+          "durationRangeMs": [
+            77.5,
+            86.09999990463257
+          ],
+          "objects": [
+            1379,
+            1379,
+            1379
+          ],
+          "textures": [
+            92,
+            92,
+            92
+          ],
+          "renderCounts": [
+            0,
+            0,
+            0
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 10,
+              "averageMs": 63.340000000000146,
+              "p50Ms": 66.59999999999854,
+              "p95Ms": 83.30000000000291,
+              "p99Ms": 83.30000000000291,
+              "worstMs": 83.30000000000291,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 10,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 10,
+              "averageMs": 65,
+              "p50Ms": 66.59999999999854,
+              "p95Ms": 83.40000000000146,
+              "p99Ms": 83.40000000000146,
+              "worstMs": 83.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 10,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 10,
+              "averageMs": 66.65999999999985,
+              "p50Ms": 66.69999999999709,
+              "p95Ms": 83.39999999999418,
+              "p99Ms": 83.39999999999418,
+              "worstMs": 83.39999999999418,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 10,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "resize-orientation-return": {
+          "durationMedianMs": 688.2999999523163,
+          "durationRangeMs": [
+            663,
+            698.1000001430511
+          ],
+          "objects": [
+            1379,
+            1379,
+            1379
+          ],
+          "textures": [
+            92,
+            92,
+            92
+          ],
+          "renderCounts": [
+            0,
+            0,
+            0
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 15,
+              "averageMs": 47.78000000000029,
+              "p50Ms": 50,
+              "p95Ms": 83.40000000000146,
+              "p99Ms": 83.40000000000146,
+              "worstMs": 83.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 14,
+              "overBudgetRatio": 0.9333333333333333
+            },
+            {
+              "sampleCount": 16,
+              "averageMs": 47.91874999999982,
+              "p50Ms": 49.89999999999418,
+              "p95Ms": 100,
+              "p99Ms": 100,
+              "worstMs": 100,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 15,
+              "overBudgetRatio": 0.9375
+            },
+            {
+              "sampleCount": 16,
+              "averageMs": 46.86875000000009,
+              "p50Ms": 49.900000000001455,
+              "p95Ms": 100,
+              "p99Ms": 100,
+              "worstMs": 100,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 13,
+              "overBudgetRatio": 0.8125
+            }
+          ]
+        },
+        "run-result-menu": {
+          "durationMedianMs": 236.5,
+          "durationRangeMs": [
+            233.10000014305115,
+            250.5
+          ],
+          "objects": [
+            52,
+            52,
+            52
+          ],
+          "textures": [
+            93,
+            93,
+            93
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 69.04285714285652,
+              "p50Ms": 66.70000000000437,
+              "p95Ms": 99.90000000000146,
+              "p99Ms": 99.90000000000146,
+              "worstMs": 99.90000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 66.67142857142815,
+              "p50Ms": 66.69999999999709,
+              "p95Ms": 83.40000000000146,
+              "p99Ms": 83.40000000000146,
+              "worstMs": 83.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 69.04285714285756,
+              "p50Ms": 83.29999999999563,
+              "p95Ms": 83.40000000000146,
+              "p99Ms": 83.40000000000146,
+              "worstMs": 83.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "warm-menu-prepared-game": {
+          "durationMedianMs": 109,
+          "durationRangeMs": [
+            107.70000004768372,
+            122.5
+          ],
+          "objects": [
+            1325,
+            1325,
+            1325
+          ],
+          "textures": [
+            92,
+            92,
+            92
+          ],
+          "renderCounts": [
+            2,
+            2,
+            2
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 4,
+              "averageMs": 70.85000000000036,
+              "p50Ms": 50.099999999998545,
+              "p95Ms": 133.39999999999418,
+              "p99Ms": 133.39999999999418,
+              "worstMs": 133.39999999999418,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 4,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 4,
+              "averageMs": 70.875,
+              "p50Ms": 50.099999999998545,
+              "p95Ms": 116.69999999999709,
+              "p99Ms": 116.69999999999709,
+              "worstMs": 116.69999999999709,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 4,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 4,
+              "averageMs": 66.67499999999927,
+              "p50Ms": 50,
+              "p95Ms": 116.69999999999709,
+              "p99Ms": 116.69999999999709,
+              "worstMs": 116.69999999999709,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 4,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "heavy-combat": {
+          "durationMedianMs": 10000,
+          "durationRangeMs": [
+            10000,
+            10000
+          ],
+          "objects": [
+            1507,
+            1505,
+            1508
+          ],
+          "textures": [
+            92,
+            92,
+            92
+          ],
+          "renderCounts": [
+            0,
+            0,
+            0
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 156,
+              "averageMs": 64.31410256410257,
+              "p50Ms": 66.69999999999709,
+              "p95Ms": 66.70000000000437,
+              "p99Ms": 83.40000000000146,
+              "worstMs": 83.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 156,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 153,
+              "averageMs": 65.79281045751635,
+              "p50Ms": 66.69999999999709,
+              "p95Ms": 83.30000000000291,
+              "p99Ms": 83.40000000000146,
+              "worstMs": 83.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 153,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 152,
+              "averageMs": 66.00657894736842,
+              "p50Ms": 66.69999999999709,
+              "p95Ms": 83.30000000000291,
+              "p99Ms": 83.39999999999418,
+              "worstMs": 83.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 152,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "warm-run-result-menu": {
+          "durationMedianMs": 249,
+          "durationRangeMs": [
+            240.5,
+            262.09999990463257
+          ],
+          "objects": [
+            52,
+            52,
+            52
+          ],
+          "textures": [
+            93,
+            93,
+            93
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 66.67142857142815,
+              "p50Ms": 66.70000000000437,
+              "p95Ms": 100,
+              "p99Ms": 100,
+              "worstMs": 100,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 71.42857142857143,
+              "p50Ms": 83.29999999999563,
+              "p95Ms": 100,
+              "p99Ms": 100,
+              "worstMs": 100,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 69.02857142857205,
+              "p50Ms": 83.29999999999563,
+              "p95Ms": 99.90000000000146,
+              "p99Ms": 99.90000000000146,
+              "worstMs": 99.90000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        }
+      }
+    },
+    "foldable-1114x720-dpr2": {
+      "profile": {
+        "name": "foldable-1114x720-dpr2",
+        "width": 1114,
+        "height": 720,
+        "dpr": 2,
+        "touch": true,
+        "cpu": 4
+      },
+      "actions": {
+        "cold-usable-home": {
+          "durationMedianMs": 2042.6000001430511,
+          "durationRangeMs": [
+            2026.2999999523163,
+            2094.7999999523163
+          ],
+          "objects": [
+            52,
+            52,
+            52
+          ],
+          "textures": [
+            23,
+            23,
+            23
+          ],
+          "renderCounts": [
+            3,
+            3,
+            3
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 15,
+              "averageMs": 78.8884,
+              "p50Ms": 50,
+              "p95Ms": 433.4000000000001,
+              "p99Ms": 433.4000000000001,
+              "worstMs": 433.4000000000001,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 14,
+              "overBudgetRatio": 0.9333333333333333
+            },
+            {
+              "sampleCount": 16,
+              "averageMs": 77.080875,
+              "p50Ms": 50,
+              "p95Ms": 433.29999999999995,
+              "p99Ms": 433.29999999999995,
+              "worstMs": 433.29999999999995,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 16,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 15,
+              "averageMs": 73.33333333333334,
+              "p50Ms": 50,
+              "p95Ms": 383.39999999999986,
+              "p99Ms": 383.39999999999986,
+              "worstMs": 383.39999999999986,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 14,
+              "overBudgetRatio": 0.9333333333333333
+            }
+          ]
+        },
+        "warm-home": {
+          "durationMedianMs": 1500,
+          "durationRangeMs": [
+            1500,
+            1500
+          ],
+          "objects": [
+            52,
+            52,
+            52
+          ],
+          "textures": [
+            23,
+            23,
+            23
+          ],
+          "renderCounts": [
+            0,
+            0,
+            0
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 31,
+              "averageMs": 49.46129032258065,
+              "p50Ms": 50,
+              "p95Ms": 66.60000000000036,
+              "p99Ms": 66.69999999999982,
+              "worstMs": 66.69999999999982,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 31,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 32,
+              "averageMs": 47.91250000000001,
+              "p50Ms": 50,
+              "p95Ms": 50.09999999999991,
+              "p99Ms": 50.09999999999991,
+              "worstMs": 50.09999999999991,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 32,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 32,
+              "averageMs": 48.434375,
+              "p50Ms": 50,
+              "p95Ms": 50.09999999999991,
+              "p99Ms": 50.09999999999991,
+              "worstMs": 50.09999999999991,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 32,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "home-contract": {
+          "durationMedianMs": 206.20000004768372,
+          "durationRangeMs": [
+            202.40000009536743,
+            250.29999995231628
+          ],
+          "objects": [
+            82,
+            82,
+            82
+          ],
+          "textures": [
+            35,
+            35,
+            35
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 116.69999999999982,
+              "p50Ms": 116.69999999999982,
+              "p95Ms": 116.69999999999982,
+              "p99Ms": 116.69999999999982,
+              "worstMs": 116.69999999999982,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 150,
+              "p50Ms": 150,
+              "p95Ms": 150,
+              "p99Ms": 150,
+              "worstMs": 150,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 100,
+              "p50Ms": 100,
+              "p95Ms": 100,
+              "p99Ms": 100,
+              "worstMs": 100,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "home-mercenary": {
+          "durationMedianMs": 896,
+          "durationRangeMs": [
+            886.1000001430511,
+            904
+          ],
+          "objects": [
+            85,
+            85,
+            85
+          ],
+          "textures": [
+            32,
+            32,
+            32
+          ],
+          "renderCounts": [
+            2,
+            2,
+            2
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 6,
+              "averageMs": 127.76666666666672,
+              "p50Ms": 66.80000000000018,
+              "p95Ms": 349.89999999999964,
+              "p99Ms": 349.89999999999964,
+              "worstMs": 349.89999999999964,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 6,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 6,
+              "averageMs": 122.23333333333328,
+              "p50Ms": 66.69999999999982,
+              "p95Ms": 333.39999999999964,
+              "p99Ms": 333.39999999999964,
+              "worstMs": 333.39999999999964,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 6,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 6,
+              "averageMs": 122.2166666666667,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 349.89999999999964,
+              "p99Ms": 349.89999999999964,
+              "worstMs": 349.89999999999964,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 6,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "home-career": {
+          "durationMedianMs": 38.09999990463257,
+          "durationRangeMs": [
+            36.200000047683716,
+            38.200000047683716
+          ],
+          "objects": [
+            26,
+            26,
+            26
+          ],
+          "textures": [
+            19,
+            19,
+            19
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 133.30000000000018,
+              "p50Ms": 133.30000000000018,
+              "p95Ms": 133.30000000000018,
+              "p99Ms": 133.30000000000018,
+              "worstMs": 133.30000000000018,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 116.69999999999982,
+              "p50Ms": 116.69999999999982,
+              "p95Ms": 116.69999999999982,
+              "p99Ms": 116.69999999999982,
+              "worstMs": 116.69999999999982,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 116.69999999999982,
+              "p50Ms": 116.69999999999982,
+              "p95Ms": 116.69999999999982,
+              "p99Ms": 116.69999999999982,
+              "worstMs": 116.69999999999982,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "loadout-entry": {
+          "durationMedianMs": 1893,
+          "durationRangeMs": [
+            1846.0999999046326,
+            1931.5
+          ],
+          "objects": [
+            82,
+            82,
+            82
+          ],
+          "textures": [
+            47,
+            47,
+            47
+          ],
+          "renderCounts": [
+            5,
+            5,
+            5
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 17,
+              "averageMs": 113.72352941176472,
+              "p50Ms": 83.30000000000018,
+              "p95Ms": 266.6999999999998,
+              "p99Ms": 266.6999999999998,
+              "worstMs": 266.6999999999998,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 17,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 17,
+              "averageMs": 111.75882352941174,
+              "p50Ms": 83.30000000000018,
+              "p95Ms": 266.6999999999998,
+              "p99Ms": 266.6999999999998,
+              "worstMs": 266.6999999999998,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 17,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 16,
+              "averageMs": 114.57499999999999,
+              "p50Ms": 83.30000000000018,
+              "p95Ms": 283.1999999999998,
+              "p99Ms": 283.1999999999998,
+              "worstMs": 283.1999999999998,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 16,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "equipment-entry": {
+          "durationMedianMs": 235.79999995231628,
+          "durationRangeMs": [
+            182.79999995231628,
+            242.10000014305115
+          ],
+          "objects": [
+            95,
+            95,
+            95
+          ],
+          "textures": [
+            45,
+            45,
+            45
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 99.90000000000055,
+              "p50Ms": 99.90000000000055,
+              "p95Ms": 99.90000000000055,
+              "p99Ms": 99.90000000000055,
+              "worstMs": 99.90000000000055,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 100,
+              "p50Ms": 100,
+              "p95Ms": 100,
+              "p99Ms": 100,
+              "worstMs": 100,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 116.69999999999982,
+              "p50Ms": 116.69999999999982,
+              "p95Ms": 116.69999999999982,
+              "p99Ms": 116.69999999999982,
+              "worstMs": 116.69999999999982,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "equipment-select": {
+          "durationMedianMs": 467.09999990463257,
+          "durationRangeMs": [
+            465.2000000476837,
+            480.10000014305115
+          ],
+          "objects": [
+            117,
+            117,
+            117
+          ],
+          "textures": [
+            57,
+            57,
+            57
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 119.04285714285705,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 383.3000000000011,
+              "p99Ms": 383.3000000000011,
+              "worstMs": 383.3000000000011,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 119.04285714285705,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 383.3000000000011,
+              "p99Ms": 383.3000000000011,
+              "worstMs": 383.3000000000011,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 119.05714285714281,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 400,
+              "p99Ms": 400,
+              "worstMs": 400,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "equipment-equip": {
+          "durationMedianMs": 405.7000000476837,
+          "durationRangeMs": [
+            402.5,
+            407.2999999523163
+          ],
+          "objects": [
+            115,
+            115,
+            115
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 109.5142857142855,
+              "p50Ms": 66.69999999999891,
+              "p95Ms": 333.3000000000011,
+              "p99Ms": 333.3000000000011,
+              "worstMs": 333.3000000000011,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 111.89999999999989,
+              "p50Ms": 83.30000000000109,
+              "p95Ms": 316.60000000000036,
+              "p99Ms": 316.60000000000036,
+              "worstMs": 316.60000000000036,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 114.28571428571429,
+              "p50Ms": 83.29999999999927,
+              "p95Ms": 333.39999999999964,
+              "p99Ms": 333.39999999999964,
+              "worstMs": 333.39999999999964,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "equipment-blueprint-select": {
+          "durationMedianMs": 367.19999980926514,
+          "durationRangeMs": [
+            361,
+            383.2999999523163
+          ],
+          "objects": [
+            102,
+            102,
+            102
+          ],
+          "textures": [
+            48,
+            48,
+            48
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 107.14285714285714,
+              "p50Ms": 83.29999999999927,
+              "p95Ms": 283.3999999999978,
+              "p99Ms": 283.3999999999978,
+              "worstMs": 283.3999999999978,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 104.75714285714275,
+              "p50Ms": 83.29999999999927,
+              "p95Ms": 283.3000000000029,
+              "p99Ms": 283.3000000000029,
+              "worstMs": 283.3000000000029,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 107.14285714285714,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 316.6000000000022,
+              "p99Ms": 316.6000000000022,
+              "worstMs": 316.6000000000022,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "equipment-fabricate": {
+          "durationMedianMs": 418.7000000476837,
+          "durationRangeMs": [
+            412.40000009536743,
+            451.2000000476837
+          ],
+          "objects": [
+            114,
+            114,
+            114
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 109.52857142857154,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 350,
+              "p99Ms": 350,
+              "worstMs": 350,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 121.42857142857143,
+              "p50Ms": 83.29999999999927,
+              "p95Ms": 366.7000000000007,
+              "p99Ms": 366.7000000000007,
+              "worstMs": 366.7000000000007,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 111.89999999999989,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 333.40000000000146,
+              "p99Ms": 333.40000000000146,
+              "worstMs": 333.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "gunsmith-entry": {
+          "durationMedianMs": 364.2999999523163,
+          "durationRangeMs": [
+            361.69999980926514,
+            374
+          ],
+          "objects": [
+            110,
+            110,
+            110
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 116.60000000000218,
+              "p50Ms": 116.60000000000218,
+              "p95Ms": 116.60000000000218,
+              "p99Ms": 116.60000000000218,
+              "worstMs": 116.60000000000218,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 116.59999999999854,
+              "p50Ms": 116.59999999999854,
+              "p95Ms": 116.59999999999854,
+              "p99Ms": 116.59999999999854,
+              "worstMs": 116.59999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 133.40000000000146,
+              "p50Ms": 133.40000000000146,
+              "p95Ms": 133.40000000000146,
+              "p99Ms": 133.40000000000146,
+              "worstMs": 133.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "gunsmith-build-select": {
+          "durationMedianMs": 519.3999998569489,
+          "durationRangeMs": [
+            512,
+            601.9000000953674
+          ],
+          "objects": [
+            110,
+            110,
+            110
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 121.4142857142854,
+              "p50Ms": 66.60000000000218,
+              "p95Ms": 450.09999999999854,
+              "p99Ms": 450.09999999999854,
+              "worstMs": 450.09999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 128.55714285714254,
+              "p50Ms": 66.59999999999854,
+              "p95Ms": 516.7000000000007,
+              "p99Ms": 516.7000000000007,
+              "worstMs": 516.7000000000007,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 121.42857142857143,
+              "p50Ms": 66.69999999999709,
+              "p95Ms": 466.7000000000007,
+              "p99Ms": 466.7000000000007,
+              "worstMs": 466.7000000000007,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "gunsmith-part-replace": {
+          "durationMedianMs": 501.39999985694885,
+          "durationRangeMs": [
+            475,
+            509.09999990463257
+          ],
+          "objects": [
+            110,
+            110,
+            110
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 119.02857142857154,
+              "p50Ms": 66.60000000000218,
+              "p95Ms": 433.40000000000146,
+              "p99Ms": 433.40000000000146,
+              "worstMs": 433.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 111.91428571428592,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 416.6999999999971,
+              "p99Ms": 416.6999999999971,
+              "worstMs": 416.6999999999971,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 119.05714285714306,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 433.2999999999993,
+              "p99Ms": 433.2999999999993,
+              "worstMs": 433.2999999999993,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "warm-equipment-entry": {
+          "durationMedianMs": 284.40000009536743,
+          "durationRangeMs": [
+            262.80000019073486,
+            288
+          ],
+          "objects": [
+            114,
+            114,
+            114
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 66.79999999999927,
+              "p50Ms": 66.79999999999927,
+              "p95Ms": 66.79999999999927,
+              "p99Ms": 66.79999999999927,
+              "worstMs": 66.79999999999927,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 66.70000000000073,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 66.70000000000073,
+              "p99Ms": 66.70000000000073,
+              "worstMs": 66.70000000000073,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 66.59999999999854,
+              "p50Ms": 66.59999999999854,
+              "p95Ms": 66.59999999999854,
+              "p99Ms": 66.59999999999854,
+              "worstMs": 66.59999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "warm-gunsmith-entry": {
+          "durationMedianMs": 343.90000009536743,
+          "durationRangeMs": [
+            338.7999999523163,
+            352.10000014305115
+          ],
+          "objects": [
+            110,
+            110,
+            110
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 333.2000000000007,
+              "p50Ms": 333.2000000000007,
+              "p95Ms": 333.2000000000007,
+              "p99Ms": 333.2000000000007,
+              "worstMs": 333.2000000000007,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 350,
+              "p50Ms": 350,
+              "p95Ms": 350,
+              "p99Ms": 350,
+              "worstMs": 350,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 366.6000000000022,
+              "p50Ms": 366.6000000000022,
+              "p95Ms": 366.6000000000022,
+              "p99Ms": 366.6000000000022,
+              "worstMs": 366.6000000000022,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "warm-home-return": {
+          "durationMedianMs": 57.700000047683716,
+          "durationRangeMs": [
+            56.40000009536743,
+            62.19999980926514
+          ],
+          "objects": [
+            52,
+            52,
+            52
+          ],
+          "textures": [
+            33,
+            33,
+            33
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 400,
+              "p50Ms": 400,
+              "p95Ms": 400,
+              "p99Ms": 400,
+              "worstMs": 400,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 416.59999999999854,
+              "p50Ms": 416.59999999999854,
+              "p95Ms": 416.59999999999854,
+              "p99Ms": 416.59999999999854,
+              "worstMs": 416.59999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 416.7999999999993,
+              "p50Ms": 416.7999999999993,
+              "p95Ms": 416.7999999999993,
+              "p99Ms": 416.7999999999993,
+              "worstMs": 416.7999999999993,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "menu-prepared-game": {
+          "durationMedianMs": 5486.900000095367,
+          "durationRangeMs": [
+            5344.200000047684,
+            5852.400000095367
+          ],
+          "objects": [
+            1325,
+            1325,
+            1325
+          ],
+          "textures": [
+            92,
+            92,
+            92
+          ],
+          "renderCounts": [
+            62,
+            62,
+            62
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 36,
+              "averageMs": 157.86388888888885,
+              "p50Ms": 166.59999999999854,
+              "p95Ms": 216.70000000000073,
+              "p99Ms": 383.3999999999942,
+              "worstMs": 383.3999999999942,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 36,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 35,
+              "averageMs": 157.61428571428573,
+              "p50Ms": 166.60000000000582,
+              "p95Ms": 200.09999999999854,
+              "p99Ms": 466.59999999999854,
+              "worstMs": 466.59999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 35,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 39,
+              "averageMs": 155.1230769230768,
+              "p50Ms": 166.59999999999854,
+              "p95Ms": 216.6999999999971,
+              "p99Ms": 383.3000000000029,
+              "worstMs": 383.3000000000029,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 39,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "light-combat": {
+          "durationMedianMs": 10000,
+          "durationRangeMs": [
+            10000,
+            10000
+          ],
+          "objects": [
+            1379,
+            1376,
+            1379
+          ],
+          "textures": [
+            92,
+            92,
+            92
+          ],
+          "renderCounts": [
+            0,
+            0,
+            0
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 150,
+              "averageMs": 67.3306666666667,
+              "p50Ms": 66.69999999999709,
+              "p95Ms": 83.30000000000291,
+              "p99Ms": 83.40000000000146,
+              "worstMs": 100,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 150,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 152,
+              "averageMs": 66.33486842105265,
+              "p50Ms": 66.69999999999709,
+              "p95Ms": 83.40000000000146,
+              "p99Ms": 83.40000000000146,
+              "worstMs": 83.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 152,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 148,
+              "averageMs": 67.90270270270274,
+              "p50Ms": 66.69999999999709,
+              "p95Ms": 83.40000000000146,
+              "p99Ms": 100,
+              "worstMs": 100,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 148,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "pause": {
+          "durationMedianMs": 96,
+          "durationRangeMs": [
+            90.29999995231628,
+            107.5
+          ],
+          "objects": [
+            1396,
+            1396,
+            1396
+          ],
+          "textures": [
+            98,
+            98,
+            98
+          ],
+          "renderCounts": [
+            0,
+            0,
+            0
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 9,
+              "averageMs": 85.18888888888938,
+              "p50Ms": 83.30000000000291,
+              "p95Ms": 116.70000000000437,
+              "p99Ms": 116.70000000000437,
+              "worstMs": 116.70000000000437,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 9,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 9,
+              "averageMs": 85.17777777777843,
+              "p50Ms": 83.30000000000291,
+              "p95Ms": 100.09999999999854,
+              "p99Ms": 100.09999999999854,
+              "worstMs": 100.09999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 9,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 9,
+              "averageMs": 85.17777777777762,
+              "p50Ms": 83.30000000000291,
+              "p95Ms": 116.59999999999854,
+              "p99Ms": 116.59999999999854,
+              "worstMs": 116.59999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 9,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "resume": {
+          "durationMedianMs": 95.90000009536743,
+          "durationRangeMs": [
+            91.40000009536743,
+            107.79999995231628
+          ],
+          "objects": [
+            1379,
+            1379,
+            1379
+          ],
+          "textures": [
+            92,
+            92,
+            92
+          ],
+          "renderCounts": [
+            0,
+            0,
+            0
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 10,
+              "averageMs": 73.3300000000003,
+              "p50Ms": 66.69999999999709,
+              "p95Ms": 100,
+              "p99Ms": 100,
+              "worstMs": 100,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 10,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 10,
+              "averageMs": 71.67000000000044,
+              "p50Ms": 66.70000000000437,
+              "p95Ms": 83.40000000000146,
+              "p99Ms": 83.40000000000146,
+              "worstMs": 83.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 10,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 9,
+              "averageMs": 77.76666666666603,
+              "p50Ms": 66.70000000000437,
+              "p95Ms": 100,
+              "p99Ms": 100,
+              "worstMs": 100,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 9,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "resize-orientation-return": {
+          "durationMedianMs": 672.5999999046326,
+          "durationRangeMs": [
+            669.6000001430511,
+            696.9000000953674
+          ],
+          "objects": [
+            1379,
+            1379,
+            1379
+          ],
+          "textures": [
+            92,
+            92,
+            92
+          ],
+          "renderCounts": [
+            0,
+            0,
+            0
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 12,
+              "averageMs": 62.50833333333321,
+              "p50Ms": 66.69999999999709,
+              "p95Ms": 116.60000000000582,
+              "p99Ms": 116.60000000000582,
+              "worstMs": 116.60000000000582,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 12,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 12,
+              "averageMs": 61.108333333333576,
+              "p50Ms": 66.59999999999854,
+              "p95Ms": 116.69999999999709,
+              "p99Ms": 116.69999999999709,
+              "worstMs": 116.69999999999709,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 12,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 12,
+              "averageMs": 63.88333333333321,
+              "p50Ms": 66.60000000000582,
+              "p95Ms": 116.69999999999709,
+              "p99Ms": 116.69999999999709,
+              "worstMs": 116.69999999999709,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 12,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "run-result-menu": {
+          "durationMedianMs": 351.39999985694885,
+          "durationRangeMs": [
+            330.7000000476837,
+            388.90000009536743
+          ],
+          "objects": [
+            52,
+            52,
+            52
+          ],
+          "textures": [
+            93,
+            93,
+            93
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 83.3142857142853,
+              "p50Ms": 83.30000000000291,
+              "p95Ms": 166.70000000000437,
+              "p99Ms": 166.70000000000437,
+              "worstMs": 166.70000000000437,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 90.45714285714348,
+              "p50Ms": 83.20000000000437,
+              "p95Ms": 166.6999999999971,
+              "p99Ms": 166.6999999999971,
+              "worstMs": 166.6999999999971,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 78.55714285714306,
+              "p50Ms": 83.30000000000291,
+              "p95Ms": 166.6999999999971,
+              "p99Ms": 166.6999999999971,
+              "worstMs": 166.6999999999971,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "warm-menu-prepared-game": {
+          "durationMedianMs": 297.59999990463257,
+          "durationRangeMs": [
+            263.2000000476837,
+            312.69999980926514
+          ],
+          "objects": [
+            1325,
+            1325,
+            1325
+          ],
+          "textures": [
+            92,
+            92,
+            92
+          ],
+          "renderCounts": [
+            2,
+            2,
+            2
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 4,
+              "averageMs": 104.14999999999964,
+              "p50Ms": 49.900000000001455,
+              "p95Ms": 266.6999999999971,
+              "p99Ms": 266.6999999999971,
+              "worstMs": 266.6999999999971,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 4,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 4,
+              "averageMs": 116.64999999999964,
+              "p50Ms": 50,
+              "p95Ms": 300,
+              "p99Ms": 300,
+              "worstMs": 300,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 4,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 4,
+              "averageMs": 124.97500000000036,
+              "p50Ms": 50,
+              "p95Ms": 316.6999999999971,
+              "p99Ms": 316.6999999999971,
+              "worstMs": 316.6999999999971,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 4,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "heavy-combat": {
+          "durationMedianMs": 10000,
+          "durationRangeMs": [
+            10000,
+            10000
+          ],
+          "objects": [
+            1508,
+            1507,
+            1509
+          ],
+          "textures": [
+            92,
+            92,
+            92
+          ],
+          "renderCounts": [
+            0,
+            0,
+            0
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 134,
+              "averageMs": 75.24626865671642,
+              "p50Ms": 66.70000000000437,
+              "p95Ms": 99.90000000000146,
+              "p99Ms": 100.09999999999854,
+              "worstMs": 100.09999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 134,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 135,
+              "averageMs": 74.5651851851852,
+              "p50Ms": 66.70000000000437,
+              "p95Ms": 83.40000000000146,
+              "p99Ms": 100.09999999999854,
+              "worstMs": 133.3000000000029,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 135,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 138,
+              "averageMs": 73.3065217391304,
+              "p50Ms": 66.70000000000437,
+              "p95Ms": 83.40000000000146,
+              "p99Ms": 100,
+              "worstMs": 116.69999999999709,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 138,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "warm-run-result-menu": {
+          "durationMedianMs": 369.90000009536743,
+          "durationRangeMs": [
+            340.2000000476837,
+            379.2999999523163
+          ],
+          "objects": [
+            52,
+            52,
+            52
+          ],
+          "textures": [
+            93,
+            93,
+            93
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 85.69999999999916,
+              "p50Ms": 83.29999999999563,
+              "p95Ms": 183.3000000000029,
+              "p99Ms": 183.3000000000029,
+              "worstMs": 183.3000000000029,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 85.71428571428571,
+              "p50Ms": 83.19999999999709,
+              "p95Ms": 150.09999999999854,
+              "p99Ms": 150.09999999999854,
+              "worstMs": 150.09999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 88.10000000000062,
+              "p50Ms": 100,
+              "p95Ms": 183.40000000000146,
+              "p99Ms": 183.40000000000146,
+              "worstMs": 183.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        }
+      }
+    },
+    "phone-390x844-dpr3": {
+      "profile": {
+        "name": "phone-390x844-dpr3",
+        "width": 390,
+        "height": 844,
+        "dpr": 3,
+        "touch": true,
+        "cpu": 4
+      },
+      "actions": {
+        "cold-usable-home": {
+          "durationMedianMs": 1727.7000000476837,
+          "durationRangeMs": [
+            1696.7000000476837,
+            1807.1000001430511
+          ],
+          "objects": [
+            52,
+            52,
+            52
+          ],
+          "textures": [
+            23,
+            23,
+            23
+          ],
+          "renderCounts": [
+            3,
+            3,
+            3
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 15,
+              "averageMs": 57.773333333333326,
+              "p50Ms": 33.299999999999955,
+              "p95Ms": 366.70000000000005,
+              "p99Ms": 366.70000000000005,
+              "worstMs": 366.70000000000005,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 11,
+              "overBudgetRatio": 0.7333333333333333
+            },
+            {
+              "sampleCount": 15,
+              "averageMs": 58.88666666666666,
+              "p50Ms": 33.30000000000018,
+              "p95Ms": 383.30000000000007,
+              "p99Ms": 383.30000000000007,
+              "worstMs": 383.30000000000007,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 13,
+              "overBudgetRatio": 0.8666666666666667
+            },
+            {
+              "sampleCount": 16,
+              "averageMs": 56.243750000000006,
+              "p50Ms": 33.299999999999955,
+              "p95Ms": 366.69999999999993,
+              "p99Ms": 366.69999999999993,
+              "worstMs": 366.69999999999993,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 12,
+              "overBudgetRatio": 0.75
+            }
+          ]
+        },
+        "warm-home": {
+          "durationMedianMs": 1500,
+          "durationRangeMs": [
+            1500,
+            1500
+          ],
+          "objects": [
+            52,
+            52,
+            52
+          ],
+          "textures": [
+            23,
+            23,
+            23
+          ],
+          "renderCounts": [
+            0,
+            0,
+            0
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 64,
+              "averageMs": 23.695312499999996,
+              "p50Ms": 16.700000000000273,
+              "p95Ms": 33.40000000000009,
+              "p99Ms": 33.40000000000009,
+              "worstMs": 33.40000000000009,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 45,
+              "overBudgetRatio": 0.703125
+            },
+            {
+              "sampleCount": 63,
+              "averageMs": 24.073015873015873,
+              "p50Ms": 16.700000000000273,
+              "p95Ms": 33.40000000000009,
+              "p99Ms": 33.40000000000009,
+              "worstMs": 33.40000000000009,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 48,
+              "overBudgetRatio": 0.7619047619047619
+            },
+            {
+              "sampleCount": 64,
+              "averageMs": 23.696875000000002,
+              "p50Ms": 16.700000000000273,
+              "p95Ms": 33.40000000000009,
+              "p99Ms": 33.40000000000009,
+              "worstMs": 33.40000000000009,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 52,
+              "overBudgetRatio": 0.8125
+            }
+          ]
+        },
+        "home-contract": {
+          "durationMedianMs": 130.90000009536743,
+          "durationRangeMs": [
+            129.89999985694885,
+            133.09999990463257
+          ],
+          "objects": [
+            82,
+            82,
+            82
+          ],
+          "textures": [
+            35,
+            35,
+            35
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 83.40000000000009,
+              "p50Ms": 83.40000000000009,
+              "p95Ms": 83.40000000000009,
+              "p99Ms": 83.40000000000009,
+              "worstMs": 83.40000000000009,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 83.30000000000018,
+              "p50Ms": 83.30000000000018,
+              "p95Ms": 83.30000000000018,
+              "p99Ms": 83.30000000000018,
+              "worstMs": 83.30000000000018,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 83.40000000000009,
+              "p50Ms": 83.40000000000009,
+              "p95Ms": 83.40000000000009,
+              "p99Ms": 83.40000000000009,
+              "worstMs": 83.40000000000009,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "home-mercenary": {
+          "durationMedianMs": 616.2000000476837,
+          "durationRangeMs": [
+            594.9000000953674,
+            641.6000001430511
+          ],
+          "objects": [
+            85,
+            85,
+            85
+          ],
+          "textures": [
+            32,
+            32,
+            32
+          ],
+          "renderCounts": [
+            2,
+            2,
+            2
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 6,
+              "averageMs": 80.53333333333337,
+              "p50Ms": 49.899999999999636,
+              "p95Ms": 250,
+              "p99Ms": 250,
+              "worstMs": 250,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 6,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 6,
+              "averageMs": 80.54999999999995,
+              "p50Ms": 33.30000000000018,
+              "p95Ms": 250,
+              "p99Ms": 250,
+              "worstMs": 250,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 6,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 6,
+              "averageMs": 77.7833333333333,
+              "p50Ms": 49.899999999999636,
+              "p95Ms": 233.4000000000001,
+              "p99Ms": 233.4000000000001,
+              "worstMs": 233.4000000000001,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 6,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "home-career": {
+          "durationMedianMs": 31.100000143051147,
+          "durationRangeMs": [
+            30.299999952316284,
+            32.09999990463257
+          ],
+          "objects": [
+            26,
+            26,
+            26
+          ],
+          "textures": [
+            19,
+            19,
+            19
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 83.30000000000018,
+              "p50Ms": 83.30000000000018,
+              "p95Ms": 83.30000000000018,
+              "p99Ms": 83.30000000000018,
+              "worstMs": 83.30000000000018,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 83.39999999999964,
+              "p50Ms": 83.39999999999964,
+              "p95Ms": 83.39999999999964,
+              "p99Ms": 83.39999999999964,
+              "worstMs": 83.39999999999964,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 83.30000000000018,
+              "p50Ms": 83.30000000000018,
+              "p95Ms": 83.30000000000018,
+              "p99Ms": 83.30000000000018,
+              "worstMs": 83.30000000000018,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "loadout-entry": {
+          "durationMedianMs": 1239.0999999046326,
+          "durationRangeMs": [
+            1219.5,
+            1446.8999998569489
+          ],
+          "objects": [
+            82,
+            82,
+            82
+          ],
+          "textures": [
+            47,
+            47,
+            47
+          ],
+          "renderCounts": [
+            5,
+            5,
+            5
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 18,
+              "averageMs": 68.51666666666668,
+              "p50Ms": 33.399999999999636,
+              "p95Ms": 200,
+              "p99Ms": 200,
+              "worstMs": 200,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 17,
+              "overBudgetRatio": 0.9444444444444444
+            },
+            {
+              "sampleCount": 18,
+              "averageMs": 66.6611111111111,
+              "p50Ms": 33.400000000000546,
+              "p95Ms": 166.59999999999945,
+              "p99Ms": 166.59999999999945,
+              "worstMs": 166.59999999999945,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 18,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 18,
+              "averageMs": 79.6277777777778,
+              "p50Ms": 49.900000000000546,
+              "p95Ms": 233.39999999999964,
+              "p99Ms": 233.39999999999964,
+              "worstMs": 233.39999999999964,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 18,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "equipment-entry": {
+          "durationMedianMs": 134.70000004768372,
+          "durationRangeMs": [
+            128.20000004768372,
+            136.79999995231628
+          ],
+          "objects": [
+            95,
+            95,
+            95
+          ],
+          "textures": [
+            45,
+            45,
+            45
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 66.59999999999945,
+              "p50Ms": 66.59999999999945,
+              "p95Ms": 66.59999999999945,
+              "p99Ms": 66.59999999999945,
+              "worstMs": 66.59999999999945,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 83.19999999999982,
+              "p50Ms": 83.19999999999982,
+              "p95Ms": 83.19999999999982,
+              "p99Ms": 83.19999999999982,
+              "worstMs": 83.19999999999982,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 66.60000000000036,
+              "p50Ms": 66.60000000000036,
+              "p95Ms": 66.60000000000036,
+              "p99Ms": 66.60000000000036,
+              "worstMs": 66.60000000000036,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "equipment-select": {
+          "durationMedianMs": 294.30000019073486,
+          "durationRangeMs": [
+            277.69999980926514,
+            328.40000009536743
+          ],
+          "objects": [
+            117,
+            117,
+            117
+          ],
+          "textures": [
+            57,
+            57,
+            57
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 69.05714285714306,
+              "p50Ms": 33.30000000000109,
+              "p95Ms": 250.10000000000036,
+              "p99Ms": 250.10000000000036,
+              "worstMs": 250.10000000000036,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 73.80000000000005,
+              "p50Ms": 33.30000000000109,
+              "p95Ms": 300,
+              "p99Ms": 300,
+              "worstMs": 300,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 66.67142857142842,
+              "p50Ms": 33.399999999999636,
+              "p95Ms": 250,
+              "p99Ms": 250,
+              "worstMs": 250,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "equipment-equip": {
+          "durationMedianMs": 281,
+          "durationRangeMs": [
+            256.09999990463257,
+            293.7999999523163
+          ],
+          "objects": [
+            115,
+            115,
+            115
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 69.05714285714281,
+              "p50Ms": 33.400000000001455,
+              "p95Ms": 233.29999999999927,
+              "p99Ms": 233.29999999999927,
+              "worstMs": 233.29999999999927,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 64.30000000000005,
+              "p50Ms": 33.399999999999636,
+              "p95Ms": 216.60000000000036,
+              "p99Ms": 216.60000000000036,
+              "worstMs": 216.60000000000036,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 69.04285714285705,
+              "p50Ms": 33.30000000000109,
+              "p95Ms": 250,
+              "p99Ms": 250,
+              "worstMs": 250,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "equipment-blueprint-select": {
+          "durationMedianMs": 236.40000009536743,
+          "durationRangeMs": [
+            218.60000014305115,
+            242
+          ],
+          "objects": [
+            102,
+            102,
+            102
+          ],
+          "textures": [
+            48,
+            48,
+            48
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 64.27142857142852,
+              "p50Ms": 33.400000000001455,
+              "p95Ms": 199.89999999999964,
+              "p99Ms": 199.89999999999964,
+              "worstMs": 199.89999999999964,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 57.142857142857146,
+              "p50Ms": 33.399999999999636,
+              "p95Ms": 183.3000000000011,
+              "p99Ms": 183.3000000000011,
+              "worstMs": 183.3000000000011,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 64.28571428571429,
+              "p50Ms": 50,
+              "p95Ms": 183.29999999999927,
+              "p99Ms": 183.29999999999927,
+              "worstMs": 183.29999999999927,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "equipment-fabricate": {
+          "durationMedianMs": 263.2999999523163,
+          "durationRangeMs": [
+            253.90000009536743,
+            386.60000014305115
+          ],
+          "objects": [
+            114,
+            114,
+            114
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 80.95714285714295,
+              "p50Ms": 33.30000000000109,
+              "p95Ms": 350.09999999999854,
+              "p99Ms": 350.09999999999854,
+              "worstMs": 350.09999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 66.67142857142842,
+              "p50Ms": 33.399999999999636,
+              "p95Ms": 233.29999999999927,
+              "p99Ms": 233.29999999999927,
+              "worstMs": 233.29999999999927,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 59.52857142857153,
+              "p50Ms": 33.30000000000109,
+              "p95Ms": 216.6999999999989,
+              "p99Ms": 216.6999999999989,
+              "worstMs": 216.6999999999989,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "gunsmith-entry": {
+          "durationMedianMs": 279.2000000476837,
+          "durationRangeMs": [
+            256.69999980926514,
+            317.7000000476837
+          ],
+          "objects": [
+            110,
+            110,
+            110
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 83.39999999999964,
+              "p50Ms": 83.39999999999964,
+              "p95Ms": 83.39999999999964,
+              "p99Ms": 83.39999999999964,
+              "worstMs": 83.39999999999964,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 66.70000000000073,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 66.70000000000073,
+              "p99Ms": 66.70000000000073,
+              "worstMs": 66.70000000000073,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 66.70000000000073,
+              "p50Ms": 66.70000000000073,
+              "p95Ms": 66.70000000000073,
+              "p99Ms": 66.70000000000073,
+              "worstMs": 66.70000000000073,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "gunsmith-build-select": {
+          "durationMedianMs": 327.5,
+          "durationRangeMs": [
+            291.90000009536743,
+            428.09999990463257
+          ],
+          "objects": [
+            110,
+            110,
+            110
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 92.87142857142837,
+              "p50Ms": 49.900000000001455,
+              "p95Ms": 383.2999999999993,
+              "p99Ms": 383.2999999999993,
+              "worstMs": 383.2999999999993,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 64.27142857142852,
+              "p50Ms": 33.29999999999927,
+              "p95Ms": 266.7000000000007,
+              "p99Ms": 266.7000000000007,
+              "worstMs": 266.7000000000007,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 6,
+              "overBudgetRatio": 0.8571428571428571
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 73.80000000000031,
+              "p50Ms": 33.30000000000291,
+              "p95Ms": 300,
+              "p99Ms": 300,
+              "worstMs": 300,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "gunsmith-part-replace": {
+          "durationMedianMs": 312.39999985694885,
+          "durationRangeMs": [
+            301,
+            357.2000000476837
+          ],
+          "objects": [
+            110,
+            110,
+            110
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 7,
+              "averageMs": 66.65714285714265,
+              "p50Ms": 33.400000000001455,
+              "p95Ms": 266.7000000000007,
+              "p99Ms": 266.7000000000007,
+              "worstMs": 266.7000000000007,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 73.7999999999998,
+              "p50Ms": 33.29999999999927,
+              "p95Ms": 316.7000000000007,
+              "p99Ms": 316.7000000000007,
+              "worstMs": 316.7000000000007,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 7,
+              "averageMs": 66.67142857142815,
+              "p50Ms": 33.29999999999927,
+              "p95Ms": 283.3000000000029,
+              "p99Ms": 283.3000000000029,
+              "worstMs": 283.3000000000029,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "warm-equipment-entry": {
+          "durationMedianMs": 182.30000019073486,
+          "durationRangeMs": [
+            169.89999985694885,
+            213.5
+          ],
+          "objects": [
+            114,
+            114,
+            114
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 33.29999999999927,
+              "p50Ms": 33.29999999999927,
+              "p95Ms": 33.29999999999927,
+              "p99Ms": 33.29999999999927,
+              "worstMs": 33.29999999999927,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 33.30000000000291,
+              "p50Ms": 33.30000000000291,
+              "p95Ms": 33.30000000000291,
+              "p99Ms": 33.30000000000291,
+              "worstMs": 33.30000000000291,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 33.29999999999927,
+              "p50Ms": 33.29999999999927,
+              "p95Ms": 33.29999999999927,
+              "p99Ms": 33.29999999999927,
+              "worstMs": 33.29999999999927,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "warm-gunsmith-entry": {
+          "durationMedianMs": 219.70000004768372,
+          "durationRangeMs": [
+            209.80000019073486,
+            236.70000004768372
+          ],
+          "objects": [
+            110,
+            110,
+            110
+          ],
+          "textures": [
+            55,
+            55,
+            55
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 216.70000000000073,
+              "p50Ms": 216.70000000000073,
+              "p95Ms": 216.70000000000073,
+              "p99Ms": 216.70000000000073,
+              "worstMs": 216.70000000000073,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 200.09999999999854,
+              "p50Ms": 200.09999999999854,
+              "p95Ms": 200.09999999999854,
+              "p99Ms": 200.09999999999854,
+              "worstMs": 200.09999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 233.29999999999927,
+              "p50Ms": 233.29999999999927,
+              "p95Ms": 233.29999999999927,
+              "p99Ms": 233.29999999999927,
+              "worstMs": 233.29999999999927,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "warm-home-return": {
+          "durationMedianMs": 44.200000047683716,
+          "durationRangeMs": [
+            41.299999952316284,
+            45.5
+          ],
+          "objects": [
+            52,
+            52,
+            52
+          ],
+          "textures": [
+            33,
+            33,
+            33
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 1,
+              "averageMs": 283.2999999999993,
+              "p50Ms": 283.2999999999993,
+              "p95Ms": 283.2999999999993,
+              "p99Ms": 283.2999999999993,
+              "worstMs": 283.2999999999993,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 266.59999999999854,
+              "p50Ms": 266.59999999999854,
+              "p95Ms": 266.59999999999854,
+              "p99Ms": 266.59999999999854,
+              "worstMs": 266.59999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 1,
+              "averageMs": 250,
+              "p50Ms": 250,
+              "p95Ms": 250,
+              "p99Ms": 250,
+              "worstMs": 250,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 1,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "menu-prepared-game": {
+          "durationMedianMs": 3609.9000000953674,
+          "durationRangeMs": [
+            3604.5,
+            3727.5999999046326
+          ],
+          "objects": [
+            1325,
+            1325,
+            1325
+          ],
+          "textures": [
+            92,
+            92,
+            92
+          ],
+          "renderCounts": [
+            62,
+            62,
+            62
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 31,
+              "averageMs": 123.11612903225813,
+              "p50Ms": 133.39999999999782,
+              "p95Ms": 183.40000000000146,
+              "p99Ms": 316.7000000000007,
+              "worstMs": 316.7000000000007,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 31,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 31,
+              "averageMs": 118.81290322580648,
+              "p50Ms": 133.29999999999927,
+              "p95Ms": 183.40000000000146,
+              "p99Ms": 350,
+              "worstMs": 350,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 31,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 31,
+              "averageMs": 119.34838709677418,
+              "p50Ms": 133.29999999999927,
+              "p95Ms": 150.10000000000218,
+              "p99Ms": 433.2999999999993,
+              "worstMs": 433.2999999999993,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 30,
+              "overBudgetRatio": 0.967741935483871
+            }
+          ]
+        },
+        "light-combat": {
+          "durationMedianMs": 10000,
+          "durationRangeMs": [
+            10000,
+            10000
+          ],
+          "objects": [
+            1376,
+            1376,
+            1376
+          ],
+          "textures": [
+            92,
+            92,
+            92
+          ],
+          "renderCounts": [
+            0,
+            0,
+            0
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 322,
+              "averageMs": 31.158385093167702,
+              "p50Ms": 33.29999999999927,
+              "p95Ms": 33.400000000001455,
+              "p99Ms": 50,
+              "worstMs": 50.099999999998545,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 303,
+              "overBudgetRatio": 0.9409937888198758
+            },
+            {
+              "sampleCount": 313,
+              "averageMs": 32.1073482428115,
+              "p50Ms": 33.29999999999927,
+              "p95Ms": 49.89999999999782,
+              "p99Ms": 50,
+              "worstMs": 50.10000000000218,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 298,
+              "overBudgetRatio": 0.952076677316294
+            },
+            {
+              "sampleCount": 327,
+              "averageMs": 30.783486238532113,
+              "p50Ms": 33.29999999999927,
+              "p95Ms": 33.400000000001455,
+              "p99Ms": 50,
+              "worstMs": 50.099999999998545,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 305,
+              "overBudgetRatio": 0.9327217125382263
+            }
+          ]
+        },
+        "pause": {
+          "durationMedianMs": 67.29999995231628,
+          "durationRangeMs": [
+            60.19999980926514,
+            72.39999985694885
+          ],
+          "objects": [
+            1393,
+            1393,
+            1393
+          ],
+          "textures": [
+            98,
+            98,
+            98
+          ],
+          "renderCounts": [
+            0,
+            0,
+            0
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 10,
+              "averageMs": 41.659999999999854,
+              "p50Ms": 33.400000000001455,
+              "p95Ms": 66.59999999999854,
+              "p99Ms": 66.59999999999854,
+              "worstMs": 66.59999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 10,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 10,
+              "averageMs": 43.32999999999993,
+              "p50Ms": 33.400000000001455,
+              "p95Ms": 66.70000000000073,
+              "p99Ms": 66.70000000000073,
+              "worstMs": 66.70000000000073,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 10,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 10,
+              "averageMs": 39.990000000000144,
+              "p50Ms": 33.30000000000291,
+              "p95Ms": 66.59999999999854,
+              "p99Ms": 66.59999999999854,
+              "worstMs": 66.59999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 10,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "resume": {
+          "durationMedianMs": 49.59999990463257,
+          "durationRangeMs": [
+            48.09999990463257,
+            60.799999952316284
+          ],
+          "objects": [
+            1379,
+            1379,
+            1379
+          ],
+          "textures": [
+            92,
+            92,
+            92
+          ],
+          "renderCounts": [
+            0,
+            0,
+            0
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 11,
+              "averageMs": 34.845454545454146,
+              "p50Ms": 33.30000000000291,
+              "p95Ms": 50,
+              "p99Ms": 50,
+              "worstMs": 50,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 11,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 11,
+              "averageMs": 33.33636363636337,
+              "p50Ms": 33.30000000000291,
+              "p95Ms": 50,
+              "p99Ms": 50,
+              "worstMs": 50,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 11,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 10,
+              "averageMs": 36.659999999999854,
+              "p50Ms": 33.30000000000291,
+              "p95Ms": 50,
+              "p99Ms": 50,
+              "worstMs": 50,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 10,
+              "overBudgetRatio": 1
+            }
+          ]
+        },
+        "resize-orientation-return": {
+          "durationMedianMs": 571.8999998569489,
+          "durationRangeMs": [
+            556.7000000476837,
+            588.2999999523163
+          ],
+          "objects": [
+            1379,
+            1379,
+            1379
+          ],
+          "textures": [
+            92,
+            92,
+            92
+          ],
+          "renderCounts": [
+            0,
+            0,
+            0
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 14,
+              "averageMs": 45.24285714285673,
+              "p50Ms": 33.400000000001455,
+              "p95Ms": 116.69999999999709,
+              "p99Ms": 116.69999999999709,
+              "worstMs": 116.69999999999709,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 14,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 16,
+              "averageMs": 37.5,
+              "p50Ms": 33.30000000000291,
+              "p95Ms": 83.40000000000146,
+              "p99Ms": 83.40000000000146,
+              "worstMs": 83.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 14,
+              "overBudgetRatio": 0.875
+            },
+            {
+              "sampleCount": 16,
+              "averageMs": 37.49375000000009,
+              "p50Ms": 33.30000000000291,
+              "p95Ms": 83.40000000000146,
+              "p99Ms": 83.40000000000146,
+              "worstMs": 83.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 15,
+              "overBudgetRatio": 0.9375
+            }
+          ]
+        },
+        "run-result-menu": {
+          "durationMedianMs": 200.90000009536743,
+          "durationRangeMs": [
+            200.5,
+            229.70000004768372
+          ],
+          "objects": [
+            52,
+            52,
+            52
+          ],
+          "textures": [
+            93,
+            93,
+            93
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 8,
+              "averageMs": 41.662500000000364,
+              "p50Ms": 33.400000000001455,
+              "p95Ms": 116.59999999999854,
+              "p99Ms": 116.59999999999854,
+              "worstMs": 116.59999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 6,
+              "overBudgetRatio": 0.75
+            },
+            {
+              "sampleCount": 8,
+              "averageMs": 45.837499999999636,
+              "p50Ms": 33.299999999995634,
+              "p95Ms": 116.59999999999854,
+              "p99Ms": 116.59999999999854,
+              "worstMs": 116.59999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 8,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 8,
+              "averageMs": 41.662500000000364,
+              "p50Ms": 33.30000000000291,
+              "p95Ms": 133.40000000000146,
+              "p99Ms": 133.40000000000146,
+              "worstMs": 133.40000000000146,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 6,
+              "overBudgetRatio": 0.75
+            }
+          ]
+        },
+        "warm-menu-prepared-game": {
+          "durationMedianMs": 239.70000004768372,
+          "durationRangeMs": [
+            223.90000009536743,
+            250.89999985694885
+          ],
+          "objects": [
+            1325,
+            1325,
+            1325
+          ],
+          "textures": [
+            92,
+            92,
+            92
+          ],
+          "renderCounts": [
+            2,
+            2,
+            2
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 4,
+              "averageMs": 75.02499999999964,
+              "p50Ms": 33.299999999995634,
+              "p95Ms": 216.6999999999971,
+              "p99Ms": 216.6999999999971,
+              "worstMs": 216.6999999999971,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 4,
+              "overBudgetRatio": 1
+            },
+            {
+              "sampleCount": 4,
+              "averageMs": 83.35000000000036,
+              "p50Ms": 33.400000000001455,
+              "p95Ms": 250,
+              "p99Ms": 250,
+              "worstMs": 250,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 3,
+              "overBudgetRatio": 0.75
+            },
+            {
+              "sampleCount": 4,
+              "averageMs": 83.29999999999927,
+              "p50Ms": 16.599999999998545,
+              "p95Ms": 266.70000000000437,
+              "p99Ms": 266.70000000000437,
+              "worstMs": 266.70000000000437,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 2,
+              "overBudgetRatio": 0.5
+            }
+          ]
+        },
+        "heavy-combat": {
+          "durationMedianMs": 10000,
+          "durationRangeMs": [
+            10000,
+            10000
+          ],
+          "objects": [
+            1521,
+            1511,
+            1508
+          ],
+          "textures": [
+            92,
+            92,
+            92
+          ],
+          "renderCounts": [
+            0,
+            0,
+            0
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 284,
+              "averageMs": 35.38591549295774,
+              "p50Ms": 33.30000000000291,
+              "p95Ms": 50,
+              "p99Ms": 50.10000000000582,
+              "worstMs": 66.59999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 281,
+              "overBudgetRatio": 0.9894366197183099
+            },
+            {
+              "sampleCount": 282,
+              "averageMs": 35.69574468085108,
+              "p50Ms": 33.30000000000291,
+              "p95Ms": 50,
+              "p99Ms": 50.099999999998545,
+              "worstMs": 66.59999999999854,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 280,
+              "overBudgetRatio": 0.9929078014184397
+            },
+            {
+              "sampleCount": 273,
+              "averageMs": 36.81172161172163,
+              "p50Ms": 33.30000000000291,
+              "p95Ms": 50,
+              "p99Ms": 50.10000000000582,
+              "worstMs": 66.60000000000582,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 270,
+              "overBudgetRatio": 0.989010989010989
+            }
+          ]
+        },
+        "warm-run-result-menu": {
+          "durationMedianMs": 201.89999985694885,
+          "durationRangeMs": [
+            199.39999985694885,
+            201.90000009536743
+          ],
+          "objects": [
+            52,
+            52,
+            52
+          ],
+          "textures": [
+            93,
+            93,
+            93
+          ],
+          "renderCounts": [
+            1,
+            1,
+            1
+          ],
+          "rawFrames": [
+            {
+              "sampleCount": 8,
+              "averageMs": 41.662500000000364,
+              "p50Ms": 33.30000000000291,
+              "p95Ms": 116.70000000000437,
+              "p99Ms": 116.70000000000437,
+              "worstMs": 116.70000000000437,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 0.875
+            },
+            {
+              "sampleCount": 8,
+              "averageMs": 43.73750000000018,
+              "p50Ms": 33.400000000001455,
+              "p95Ms": 100,
+              "p99Ms": 100,
+              "worstMs": 100,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 0.875
+            },
+            {
+              "sampleCount": 8,
+              "averageMs": 43.76249999999982,
+              "p50Ms": 33.30000000000291,
+              "p95Ms": 116.79999999999563,
+              "p99Ms": 116.79999999999563,
+              "worstMs": 116.79999999999563,
+              "budgetMs": 16.666666666666668,
+              "overBudgetSamples": 7,
+              "overBudgetRatio": 0.875
+            }
+          ]
+        }
+      }
+    }
+  },
+  "archives": {
+    "controls-raw.json.gz": {
+      "sha256": "28e78abd90b9dd9b15c7f06439bfac288ea12f0e39f389de3b9698b540750380",
+      "bytes": 12366
+    },
+    "baseline-raw.json.gz": {
+      "sha256": "a0b73dc6a543723dcfe458c01b8277c53128470152cdeda30c18ad2a1deaea70",
+      "bytes": 148785
+    },
+    "contracts-raw.json.gz": {
+      "sha256": "018ad8cb728f6e39344aa282d4e5dc22998c200863ac0aee0d82a67bcbe92189",
+      "bytes": 36289
+    },
+    "candidate-resources.json.gz": {
+      "sha256": "cb57b726c0ac6bea60689fbe895fbafeea12e878d851b7736cf43a4d3850bf10",
+      "bytes": 30672
+    }
+  },
+  "actualContractLaunches": {
+    "desktop-1280x720": {
+      "durationsMs": [
+        1988.1000001430511,
+        2108.0999999046326,
+        2039.9000000953674
+      ],
+      "medianMs": 2039.9000000953674,
+      "menuRenderCpuMs": [
+        878.6000015735626,
+        937.5000009536743,
+        912.400000333786
+      ],
+      "seeds": [
+        157550279,
+        157550279,
+        157550279
+      ],
+      "renderCounts": [
+        66,
+        66,
+        66
+      ],
+      "createdObjects": [
+        3630,
+        3630,
+        3630
+      ]
+    },
+    "phone-390x844-dpr3": {
+      "durationsMs": [
+        4708.5,
+        4603.900000095367,
+        4731.700000047684
+      ],
+      "medianMs": 4708.5,
+      "menuRenderCpuMs": [
+        3052.6000010967255,
+        2976.599999666214,
+        3085.500001192093
+      ],
+      "seeds": [
+        157550279,
+        157550279,
+        157550279
+      ],
+      "renderCounts": [
+        66,
+        66,
+        66
+      ],
+      "createdObjects": [
+        3630,
+        3630,
+        3630
+      ]
+    },
+    "foldable-1114x720-dpr2": {
+      "durationsMs": [
+        7151,
+        7134.400000095367,
+        7345.199999809265
+      ],
+      "medianMs": 7151,
+      "menuRenderCpuMs": [
+        3999.3999989032745,
+        3978.300000667572,
+        4173.400000095367
+      ],
+      "seeds": [
+        157550279,
+        157550279,
+        157550279
+      ],
+      "renderCounts": [
+        66,
+        66,
+        66
+      ],
+      "createdObjects": [
+        3630,
+        3630,
+        3630
+      ]
+    }
+  }
+}
