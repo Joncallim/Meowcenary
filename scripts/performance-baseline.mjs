@@ -38,7 +38,7 @@ const result = { baselineSHA: '26f46fb5398c7eb769fe1bffa5ed60f80f20eea5', measur
     combat: 'real Training/resource/spawn/physics/weapon path; fixed run/fixture seeds; fixture grants60s invulnerability; no progression writes',
     result: 'existing dedicated terminal-presentation fixture + real keyboard return; not durable reward acceptance',
     rawFrames: 'Phaser raw loop cadence; gameplay frame samples are separately labelled smoothed simulation delta',
-    limitations: ['Desktop Chromium/Linux virtual renderer, not physical Android/iOS.', 'CPU4x is emulation, not a calibrated phone.',
+    limitations: ['Headless Chromium/Linux; GPU backend unverified, not physical Android/iOS.', 'CPU4x is emulation, not a calibrated phone.',
       'Browser polling and opt-in diagnostic object walks are excluded from recorded render duration but can perturb scheduling.',
       'No timing thresholds or claimed optimization in Phase A. Cold context has fresh HTTP cache; warm navigation keeps textures/cache.',
       'Combat uses seeded fixture inputs and wall-clock frame cadence; actual active/allocated counts are recorded, not assumed identical.'] }, cohorts: [] };
@@ -87,6 +87,9 @@ async function inputAction(page, name, key = 'Enter') {
   const started = await page.evaluate(() => { globalThis.__MEOWCENARY_PERFORMANCE__.resetMeasurement(); return performance.now(); });
   await press(page, key); await settle(page);
   const state = await snapshot(page);
+  const renders = state.events.filter(event => event.owner === 'menu.render');
+  assert.equal(renders.length, 1, 'input edge must cause exactly one current action rebuild');
+  assert.equal(state.presentedMenu.rebuildCount, renders[0].facts.rebuildCount, 'measured frame must present that action revision');
   return { name, durationMs: state.presentedMenu.atMs - started, observedDurationMs: await page.evaluate(start => performance.now() - start, started), state: compact(state) };
 }
 async function launch(page, name, seed) {
