@@ -13,6 +13,7 @@ import { DataAchievementRegistry } from '../systems/achievements';
 import type { GameContext } from '../engine/context';
 import type { EquipmentSlot } from '../gameplay/equipment';
 import type { EquipmentPreviewCommand, EquipmentComparison } from './equipmentPresentation';
+import { performanceProbe } from '../platform/performanceProbe';
 
 export type MenuPanel =
   | 'home'
@@ -76,11 +77,12 @@ export class MainMenuController {
   }
 
   snapshot(): MainMenuSnapshot {
+    const started = performanceProbe?.now();
     // Gunsmith and Equipment are the two largest derived read models. Keep
     // them lazy so opening Home, Career, Settings, or Contract selection does
     // not build an off-screen workshop/catalog on every menu command.
     const controller = this;
-    return Object.freeze({
+    const snapshot = Object.freeze({
       panel: this.panel,
       character: this.characterController.snapshot(),
       arena: this.arenaController.snapshot(),
@@ -93,6 +95,8 @@ export class MainMenuController {
       settings: this.settingsController.snapshot(),
       notice: this.notice,
     });
+    if (started !== undefined) performanceProbe?.record('menu.snapshot', started, { panel: this.panel });
+    return snapshot;
   }
 
   open(panel: NonResetPanel): MainMenuSnapshot {
