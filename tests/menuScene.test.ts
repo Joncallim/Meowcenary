@@ -1182,6 +1182,34 @@ describe('MenuScene', () => {
     }
   });
 
+  it('discloses the displaced Part and mechanical comparison before a one-command replacement', () => {
+    const harness = createHarness();
+    harness.context.updateGunsmith((state) => ({
+      ...state,
+      parts: {
+        heavy: { partId: 'part:receiver-heavy', tier: 2, infusedTraits: [] },
+        compact: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] },
+      },
+      builds: [{ id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: { receiver: 'heavy' }, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    const original = harness.context.saveData.gunsmith;
+    const mutate = vi.spyOn(harness.context, 'updateGunsmith');
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
+    const row = harness.objects.find((object) => !object.state.destroyed && object.state.text.startsWith('Compact Receiver T1 • OWNED'))!;
+    expect(row.state.text).toContain('REPLACE HEAVY RECEIVER T2');
+    expect(row.state.text).toContain('Heavy Receiver T2 returns to STORED.');
+    expect(row.state.text).toContain('Current build:');
+    expect(row.state.text).toContain('→');
+    expect(mutate).not.toHaveBeenCalled();
+    expect(harness.context.saveData.gunsmith).toBe(original);
+    row.state.handlers.pointerup!();
+    expect(mutate).toHaveBeenCalledTimes(1);
+    expect(harness.context.saveData.gunsmith.builds[0]!.fitted.receiver).toBe('compact');
+    expect(harness.context.saveData.gunsmith.parts).toEqual(original.parts);
+  });
+
   it('groups owned hardware by canonical weapon slot and makes a cross-build move explicit', () => {
     const harness = createHarness();
     harness.context.updateGunsmith((state) => ({

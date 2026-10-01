@@ -36,17 +36,6 @@ const HOME_THREAT_PREVIEW_LIMIT = 4;
 /** The two audible command events a menu button can produce. */
 type MenuAudioEvent = 'ui:confirm' | 'ui:back';
 
-/** Player verbs live at the presentation boundary; gameplay command reasons
- * stay out of normal UI copy. */
-function gunsmithPartActionCopy(part: import('../ui/gunsmithController').GunsmithPartView): string {
-  switch (part.state) {
-    case 'fitted-here': return 'UNEQUIP';
-    case 'owned-unfitted': return 'FIT';
-    case 'fitted-elsewhere': return `MOVE FROM ${part.assignedBuildName?.toUpperCase() ?? 'OTHER BUILD'}`;
-    case 'incompatible': return part.comparisonSummary;
-  }
-}
-
 export class MenuScene extends Phaser.Scene {
   private controller?: MainMenuController;
   private root?: Phaser.GameObjects.Container;
@@ -1400,10 +1389,10 @@ export class MenuScene extends Phaser.Scene {
           return;
         }
         slot.candidates.forEach((part) => {
-          const action = part.state === 'incompatible' && slot.fitted !== undefined
-            ? `${slot.label} occupied — unequip ${slot.fitted.name} first`
-            : gunsmithPartActionCopy(part);
-          const label = `${part.name} T${part.tier} • ${part.state === 'fitted-here' ? 'FITTED' : part.state === 'fitted-elsewhere' ? `FITTED TO ${part.assignedBuildName?.toUpperCase() ?? 'ANOTHER BUILD'}` : part.state === 'owned-unfitted' ? 'OWNED' : 'UNAVAILABLE'}\n${[...part.effectLines, ...part.traitLines.map((trait) => `${trait} trait`)].join(' • ') || 'No stat change'}\n${action}`;
+          const action = part.actionLabel;
+          const consequence = part.displacedInstanceId === undefined ? ''
+            : `\n${part.displacementSummary}\n${part.comparisonSummary}`;
+          const label = `${part.name} T${part.tier} • ${part.state === 'fitted-here' ? 'FITTED' : part.state === 'fitted-elsewhere' ? `FITTED TO ${part.assignedBuildName?.toUpperCase() ?? 'ANOTHER BUILD'}` : part.state === 'owned-unfitted' ? 'OWNED' : 'UNAVAILABLE'}\n${[...part.effectLines, ...part.traitLines.map((trait) => `${trait} trait`)].join(' • ') || 'No stat change'}${consequence}\n${action}`;
           const enabled = part.state !== 'incompatible';
           const iconColumn = 68 + part.traitIcons.length * 38;
           const partRowHeight = Math.max(hitTarget, 76);
@@ -1412,9 +1401,9 @@ export class MenuScene extends Phaser.Scene {
             : this.requireController().fitGunPart(part.instanceId)), 'ui:confirm', width - margin - this.safeRightMargin, undefined, 0, iconColumn);
           const rowOwnerIndex = this.focusables.length - 1;
           if (!enabled) this.disableButton(row);
-          this.addCatalogIcon(root, margin + 30, y + partRowHeight / 2, part.iconArtId, 52, rowOwnerIndex);
+          this.addCatalogIcon(root, margin + 30, y + row.height / 2, part.iconArtId, 52, rowOwnerIndex);
           part.traitIcons.forEach((trait, index) => {
-            this.addCatalogIcon(root, width - this.safeRightMargin - 24 - index * 38, y + partRowHeight / 2, trait.iconArtId, 32, rowOwnerIndex);
+            this.addCatalogIcon(root, width - this.safeRightMargin - 24 - index * 38, y + row.height / 2, trait.iconArtId, 32, rowOwnerIndex);
           });
           y += row.height + 8;
         });
