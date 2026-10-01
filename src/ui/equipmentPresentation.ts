@@ -11,6 +11,15 @@ import type { GameData } from '../systems/types';
 import { presentLoadoutModifier, presentLoadoutTrait, type LoadoutEffectPresentation } from './loadoutPresentation';
 
 type Catalog = Pick<GameData, 'equipment' | 'equipmentSets' | 'gunParts'>;
+/** Presentation-only slot silhouettes reuse registered art. They identify an
+ * empty slot and never imply an owned piece or an active Set. */
+const EQUIPMENT_SLOT_PLACEHOLDER_ART: Readonly<Record<EquipmentSlot, string>> = Object.freeze({
+  helmet: 'equipment-icon:scavenger-helmet',
+  armour: 'equipment-icon:scavenger-armour',
+  gloves: 'equipment-icon:scavenger-gloves',
+  boots: 'equipment-icon:scavenger-boots',
+});
+
 export interface EquipmentItemPresentation {
   readonly instanceId: string;
   readonly equipmentId: string;
@@ -39,6 +48,7 @@ export interface EquipmentLoadoutPresentation {
   readonly slots: readonly {
     readonly slot: EquipmentSlot;
     readonly label: string;
+    readonly placeholderArtId: string;
     readonly equipped?: EquipmentItemPresentation;
     readonly candidates: readonly EquipmentItemPresentation[];
   }[];
@@ -94,6 +104,7 @@ export function resolveEquipmentLoadoutPresentation(save: SaveDataV4, catalog: C
     new Map((catalog.equipmentSets ?? []).map((set) => [set.id, { id: set.id, setBonuses: set.thresholds }])), definitions, parts);
   return deepFreeze({
     slots: EQUIPMENT_SLOTS.map((slot) => ({ slot, label: slot.charAt(0).toUpperCase() + slot.slice(1),
+      placeholderArtId: EQUIPMENT_SLOT_PLACEHOLDER_ART[slot],
       equipped: items.find((item) => item.slot === slot && item.state === 'EQUIPPED'), candidates: items.filter((item) => item.slot === slot) })),
     sets,
     runTruth: { modifiers: structuredClone(truth.modifiers), families: getAllFamilyIds().map((familyId) => {

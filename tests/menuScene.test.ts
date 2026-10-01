@@ -316,7 +316,7 @@ function createFakeScene(
         _x: number,
         _y: number,
         text: string,
-        style?: Record<string, unknown> & { padding?: { x?: number; y?: number }; resolution?: number },
+        style?: Record<string, unknown> & { padding?: { x?: number; y?: number; left?: number; right?: number; top?: number; bottom?: number }; resolution?: number },
       ) {
         if (failNextText) {
           failNextText = false;
@@ -326,12 +326,13 @@ function createFakeScene(
         const padX = style?.padding?.x ?? 10;
         const padY = style?.padding?.y ?? 8;
         // Phaser Text bounds include the padding on both axes.
-        const padding = { left: padX, top: padY, right: padX, bottom: padY };
+        const padding = { left: style?.padding?.left ?? padX, top: style?.padding?.top ?? padY,
+          right: style?.padding?.right ?? padX, bottom: style?.padding?.bottom ?? padY };
         const object = fakeObject(
           'text',
           text,
           Math.max(24, text.length * 8),
-          16 + padY * 2,
+          16 + padding.top + padding.bottom,
           padding,
           _x,
           _y,
@@ -565,6 +566,41 @@ describe('MenuScene', () => {
     launch.state.handlers.pointerup!();
     expect(harness.context.saveData).toBe(before);
     expect(harness.textContents()).toContain('Choose Contract');
+  });
+
+  it('illustrates empty Equipment slots as subdued semantic ghosts without claiming ownership or painting Loadout overview ghosts', () => {
+    const harness = createHarness();
+    const scene = harness.menuScene as unknown as {
+      focusables: FakeObject[]; handleResize(): void;
+      addPanelArt(root: unknown, x: number, y: number, artId: string, size: number, subdued?: boolean, animate?: boolean, owner?: number): void;
+    };
+    const art = vi.spyOn(scene, 'addPanelArt');
+    const ghosts = () => art.mock.calls.filter((call) => call[3].startsWith('equipment-icon:scavenger-'));
+    const before = harness.context.saveData;
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    expect(ghosts()).toHaveLength(0);
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    expect(ghosts().map((call) => [call[3], call[4], call[5], call[6], call[7]])).toEqual([
+      ['equipment-icon:scavenger-helmet', 44, true, false, 0],
+      ['equipment-icon:scavenger-armour', 44, true, false, 1],
+      ['equipment-icon:scavenger-gloves', 44, true, false, 2],
+      ['equipment-icon:scavenger-boots', 44, true, false, 3],
+    ]);
+    expect(scene.focusables.slice(0, 4).map((slot) => slot.state.text)).toEqual(['HELMET\nEmpty', 'ARMOUR\nEmpty', 'GLOVES\nEmpty', 'BOOTS\nEmpty']);
+    expect(scene.focusables.slice(0, 4).every((slot) => slot.state.padding.left >= 50)).toBe(true);
+    ghosts().forEach((call) => {
+      const slot = scene.focusables[call[7]!]!;
+      expect(call[1] + call[4] / 2).toBeLessThan(slot.state.x + slot.state.padding.left);
+    });
+    harness.buttonByLabel('GLOVES\nEmpty')!.state.handlers.pointerup!();
+    expect(harness.context.saveData).toBe(before);
+    expect(Object.keys(harness.context.saveData.equipment)).toHaveLength(0);
+    harness.context.updateEquipment(() => ({ equipment: { helmet: { equipmentId: 'equipment:commando-helmet', tier: 1 } }, loadout: { helmet: 'helmet' } }));
+    art.mockClear(); scene.handleResize();
+    expect(ghosts().map((call) => call[3])).toEqual(['equipment-icon:scavenger-armour', 'equipment-icon:scavenger-gloves', 'equipment-icon:scavenger-boots']);
+    expect(scene.focusables[0]!.state.text).toContain('Commando Helmet');
+    art.mockClear(); harness.buttonByLabel('Back')!.state.handlers.pointerup!();
+    expect(ghosts()).toHaveLength(0);
   });
 
   it('shows all four vertical Equipment slots before inventory scrolling at 360×640 and keeps fabrication fixed across scroll and repaint', () => {
@@ -1833,7 +1869,7 @@ describe('MenuScene', () => {
       object.state.kind === 'text' && object.state.handlers.pointerup && !object.state.destroyed);
     expect(homeActions).toHaveLength(7);
     for (const action of homeActions) {
-      const paddedHeight = action.state.height - 16 + action.state.padding.top * 2;
+      const paddedHeight = action.getBounds().height;
       expect(action.state.y + paddedHeight, action.state.text).toBeLessThanOrEqual(safeBottom);
     }
 
@@ -1854,9 +1890,9 @@ describe('MenuScene', () => {
       const buttons = harness.objects.filter((object) => object.state.kind === 'text' && object.state.handlers.pointerup && !object.state.destroyed);
       expect(buttons).toHaveLength(7);
       for (const button of buttons) {
-        // The Phaser fake records padding separately rather than recomputing
-        // Text.height; mirror the real padded target bounds here.
-        const paddedHeight = button.state.height - 16 + button.state.padding.top * 2;
+        // Fixed Text bounds already include padding; use the same bounds as
+        // chrome, focus rings and the pointer target without counting it twice.
+        const paddedHeight = button.getBounds().height;
         expect(paddedHeight).toBeGreaterThanOrEqual(minimumHitTarget(viewport));
         expect(button.state.y + paddedHeight, `${width}x${height} ${button.state.text}`).toBeLessThanOrEqual(bottom);
       }

@@ -25,6 +25,25 @@ function fixture(): SaveDataV4 {
 }
 
 describe('Equipment immutable consequence preview', () => {
+  it('provides registered native slot-placeholder identities without creating owned or equipped items', () => {
+    const data = loadGameData();
+    const save = createDefaultSaveV4();
+    const before = structuredClone(save);
+    const view = resolveEquipmentLoadoutPresentation(save, data);
+    expect(view.slots.map((slot) => [slot.slot, slot.placeholderArtId])).toEqual([
+      ['helmet', 'equipment-icon:scavenger-helmet'], ['armour', 'equipment-icon:scavenger-armour'],
+      ['gloves', 'equipment-icon:scavenger-gloves'], ['boots', 'equipment-icon:scavenger-boots'],
+    ]);
+    for (const slot of view.slots) {
+      expect(data.visualArt.bindings.some((binding) => binding.id === slot.placeholderArtId)).toBe(true);
+      expect(slot.equipped).toBeUndefined();
+      expect(slot.candidates).toHaveLength(0);
+      expect(Object.isFrozen(slot)).toBe(true);
+    }
+    expect(view.sets.every((set) => set.equippedCount === 0)).toBe(true);
+    expect(save).toEqual(before);
+  });
+
   it('exposes active Equipment behavior traits in the production controller summary', () => {
     const data = loadGameData();
     const save = new SaveManager(new MemoryStorageAdapter(), 'equipment-trait-summary');

@@ -844,11 +844,12 @@ export class MenuScene extends Phaser.Scene {
           const next = this.requireController().selectEquipmentSlot(slot.slot);
           this.nextFocusKey = `equipment-slot:${slot.slot}`;
           this.render(overview ? this.requireController().open('equipment') : next);
-        }, 'ui:confirm', slotWidth, undefined, 0, item && !overview ? 50 : 0, true, overview ? 'center' : 'left');
+        }, 'ui:confirm', slotWidth, undefined, 0, !overview ? 50 : 0, true, overview ? 'center' : 'left');
         if (overview) button.setPadding(4, item ? 66 : 34, 4, 8).setFixedSize(slotWidth, rowHeight);
         this.rememberLoadoutFocus(button, `equipment-slot:${slot.slot}`);
         const index = this.focusables.indexOf(button);
         if (item) this.addCatalogIcon(root, overview ? x + slotWidth / 2 : x + 26, y + (overview ? 32 : Math.min(button.height / 2, 50)), item.iconArtId, overview ? Math.min(48, slotWidth - 12) : 44, index);
+        else if (!overview) this.addPanelArt(root, x + 26, y + Math.min(button.height / 2, 50), slot.placeholderArtId, 44, true, false, index);
         rowHeight = Math.max(rowHeight, button.height);
       });
       y += rowHeight + gap;
@@ -1673,6 +1674,7 @@ export class MenuScene extends Phaser.Scene {
     if (selectedBlueprint) this.rememberLoadoutFocus(fabricate, `equipment-fabricate:${selectedBlueprint.equipmentId}`);
     if (!selectedBlueprint || this.getContext().saveData.progression.scrap < selectedBlueprint.fabricationCost) this.disableButton(fabricate);
     void this.ensureEquipmentPresentation([
+      ...equipment.presentation.slots.map((slot) => slot.placeholderArtId),
       ...(this.getContext().data.equipment ?? []).map((piece) => piece.icon),
       ...(this.getContext().data.equipmentSets ?? []).map((set) => set.emblem),
     ]);
