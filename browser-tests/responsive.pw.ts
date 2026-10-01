@@ -557,17 +557,42 @@ test('the production pause control makes the responsive root fullscreen', async 
   test.skip(testInfo.project.name !== 'desktop-1280x720');
   const requestedAssets: string[] = [];
   page.on('response', (response) => requestedAssets.push(new URL(response.url()).pathname));
-  await page.goto('/');
+  await page.goto('/?visual-test=1');
   await expect(page.locator('#game-root canvas')).toBeVisible();
-  await page.waitForTimeout(500);
+  // Observe the existing seam only: controls still drive every transition.
+  // Canvas visibility precedes Boot's asynchronous native menu artwork.
+  await expect.poll(() => page.evaluate(() => {
+    const seam = (globalThis as typeof globalThis & {
+      __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam & {
+        isMenuPresentationSettled(): boolean;
+        menuPresentationDiagnostics(): { committedDisplay?: boolean; committedPanel?: string };
+      };
+    }).__MEOWCENARY_VISUAL_TEST__;
+    const menu = seam?.menuPresentationDiagnostics();
+    return seam?.isMenuPresentationSettled() === true
+      && menu?.committedDisplay === true && menu.committedPanel === 'home';
+  }), { intervals: [150, 250, 400], timeout: 8_000 }).toBe(true);
   const supported = await page.evaluate(() => document.fullscreenEnabled);
   test.skip(!supported, 'Headless browser does not expose the Fullscreen API');
   const viewport = page.viewportSize()!;
   // Launch through the selected logical action instead of a stale canvas
   // coordinate: the production home card moved when its artwork grew.
   await page.keyboard.down('Enter');
-  await page.waitForTimeout(60);
-  await page.keyboard.up('Enter');
+  try {
+    // Hold the real launch key until Phaser has consumed it and installed the
+    // actual arena/player, rather than inferring gameplay from an asset load.
+    await expect.poll(() => page.evaluate(() => {
+      const seam = (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
+      }).__MEOWCENARY_VISUAL_TEST__;
+      const arena = seam?.arenaFramingDiagnostics();
+      return seam?.isSceneActive('GameScene') === true && arena !== undefined
+        && arena.arena.width > 0 && arena.arena.height > 0
+        && Number.isFinite(arena.player.x) && Number.isFinite(arena.player.y);
+    }), { intervals: [150, 250, 400], timeout: 8_000 }).toBe(true);
+  } finally {
+    await page.keyboard.up('Enter');
+  }
   await expect.poll(
     () => requestedAssets.some((path) => path.endsWith('/mercenary-identity-icons-atlas.png')),
     { intervals: [150, 250, 400], timeout: 8_000 },
@@ -581,11 +606,17 @@ test('the production pause control makes the responsive root fullscreen', async 
   await page.waitForTimeout(250);
   await page.mouse.click(viewport.width - 28, 30);
   await page.waitForTimeout(250);
+  const sampledFrames = () => page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
   for (let index = 0; index < 2; index += 1) {
     await page.keyboard.down('ArrowDown');
-    await page.waitForTimeout(60);
-    await page.keyboard.up('ArrowDown');
-    await page.waitForTimeout(150);
+    try {
+      await sampledFrames();
+    } finally {
+      await page.keyboard.up('ArrowDown');
+    }
+    await sampledFrames();
   }
   await page.keyboard.press('Enter');
   await expect.poll(() => page.evaluate(() => document.fullscreenElement?.id)).toBe('game-root');
