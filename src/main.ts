@@ -60,22 +60,48 @@ if (performanceProbe) {
   // smoothed simulation delta. Reads are explicit, outside the update loop.
   let stepStarted = 0;
   let renderStarted = 0;
+  let presentedMenu: { panel: string; rebuildCount: number; atMs: number } | undefined;
+  let presentedRun: { seed: number; status: string; atMs: number } | undefined;
   const startStep = (): void => { stepStarted = probe.now(); };
   const startRender = (): void => { renderStarted = probe.now(); };
-  const finishRender = (): void => { probe.recordFrameOwner('frame.render', probe.now() - renderStarted); };
+  const finishRender = (): void => {
+    const ended = probe.now();
+    // POST_STEP is emitted before rendering in Phaser3.90. Whole step CPU
+    // therefore ends at POST_RENDER; render span alone excludes preRender.
+    probe.recordFrameOwner('frame.cpu', ended - stepStarted);
+    probe.recordFrameOwner('frame.render', ended - renderStarted);
+    if (game.scene.isActive('MenuScene')) {
+      const menu = game.scene.getScene('MenuScene') as unknown as {
+        committedPanel?: string; committedDisplay?: boolean; renderRebuildCount: number;
+        panelArtLoading?: boolean; panelArtInFlight?: Promise<void>;
+        mercenaryArtLoading?: boolean; achievementArtLoading?: boolean;
+        equipmentArtLoading?: boolean; gunsmithArtLoading?: boolean; menuTextureLoadPending?: number;
+        pendingPanelArtIds?: { size: number }; pendingPanelArtRepaints?: { size: number }; pendingGunsmithArtIds?: { size: number };
+      };
+      if (menu.committedPanel && menu.committedDisplay && !menu.panelArtLoading && !menu.panelArtInFlight
+        && !menu.mercenaryArtLoading && !menu.achievementArtLoading && !menu.equipmentArtLoading && !menu.gunsmithArtLoading
+        && !menu.menuTextureLoadPending && !menu.pendingPanelArtIds?.size && !menu.pendingPanelArtRepaints?.size && !menu.pendingGunsmithArtIds?.size
+        && presentedMenu?.rebuildCount !== menu.renderRebuildCount) {
+        presentedMenu = Object.freeze({ panel: menu.committedPanel, rebuildCount: menu.renderRebuildCount, atMs: ended });
+      }
+    }
+    if (game.scene.isActive('GameScene')) {
+      const run = (game.scene.getScene('GameScene') as unknown as { runState?: { seed: number; status: string } }).runState;
+      if (run && (presentedRun?.seed !== run.seed || presentedRun.status !== run.status)) presentedRun = Object.freeze({ seed: run.seed, status: run.status, atMs: ended });
+    }
+  };
   const recordFrame = (): void => {
     probe.recordFrame(game.loop.rawDelta);
-    probe.recordFrameOwner('frame.cpu', probe.now() - stepStarted);
   };
   game.events.on(Phaser.Core.Events.PRE_STEP, startStep);
   game.events.on(Phaser.Core.Events.PRE_RENDER, startRender);
   game.events.on(Phaser.Core.Events.POST_RENDER, finishRender);
   game.events.on(Phaser.Core.Events.POST_STEP, recordFrame);
   const handle = Object.freeze({
-    resetMeasurement: probe.resetMeasurement,
+    resetMeasurement: () => { probe.resetMeasurement(); presentedMenu = undefined; presentedRun = undefined; },
     snapshot: () => {
       const menu = game.scene.getScenes(true).find(scene => scene.scene.key === 'MenuScene') as unknown as {
-        committedPanel?: string; committedDisplay?: boolean;
+        committedPanel?: string; committedDisplay?: boolean; renderRebuildCount?: number;
         panelArtLoading?: boolean; panelArtInFlight?: Promise<void>;
         mercenaryArtLoading?: boolean; achievementArtLoading?: boolean;
         equipmentArtLoading?: boolean; gunsmithArtLoading?: boolean;
@@ -88,7 +114,9 @@ if (performanceProbe) {
       return {
         ...probe.snapshot(),
         activeScenes: active.map(scene => scene.scene.key),
+        presentedMenu, presentedRun,
         menu: menu ? { panel: menu.committedPanel, committed: menu.committedDisplay === true,
+          rebuildCount: menu.renderRebuildCount,
           settled: menu.committedDisplay === true && !menu.panelArtLoading && !menu.panelArtInFlight
             && !menu.mercenaryArtLoading && !menu.achievementArtLoading && !menu.equipmentArtLoading && !menu.gunsmithArtLoading
             && !menu.menuTextureLoadPending && !menu.pendingPanelArtIds?.size && !menu.pendingPanelArtRepaints?.size && !menu.pendingGunsmithArtIds?.size } : undefined,

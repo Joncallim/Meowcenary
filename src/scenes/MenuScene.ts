@@ -262,6 +262,7 @@ export class MenuScene extends Phaser.Scene {
   private render(snapshot: MainMenuSnapshot, reason?: 'viewport-resize' | 'lazy-art-hydration'): void {
     const before = performanceProbe ? collectDisplayObjects(this.children.list as unknown as readonly DisplayNode[]) : undefined;
     const started = performanceProbe?.now();
+    const previousPanel = this.committedPanel;
     const renderReason = reason ?? (this.committedPanel === undefined ? 'initial-mount'
       : this.committedPanel === snapshot.panel ? 'same-panel-state-mutation' : 'panel-transition');
     try {
@@ -511,7 +512,7 @@ export class MenuScene extends Phaser.Scene {
         const ended = performanceProbe!.now();
         const after = collectDisplayObjects(this.children.list as unknown as readonly DisplayNode[]);
         performanceProbe!.record('menu.render', started, {
-          panel: snapshot.panel, reason: renderReason, rebuildCount: this.rebuildCount,
+          panel: snapshot.panel, fromPanel: previousPanel ?? '(none)', reason: renderReason, rebuildCount: this.rebuildCount,
           ...displayObjectChange(before, after), textures: this.textures.getTextureKeys().length,
           committed: this.committedDisplay,
         }, ended);

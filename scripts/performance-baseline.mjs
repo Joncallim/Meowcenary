@@ -11,6 +11,7 @@ const base = option('--url', 'http://127.0.0.1:4261');
 const output = option('--out', '/tmp/meow209-performance');
 const repeats = Number(option('--repeats', '3'));
 const windowMs = Number(option('--window-ms', '10000'));
+const sourceHEAD = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 assert(Number.isInteger(repeats) && repeats >= 1 && repeats <= 10);
 assert(Number.isFinite(windowMs) && windowMs >= 1000 && windowMs <= 30000);
 await mkdir(output, { recursive: true });
@@ -21,18 +22,19 @@ const fixture = {
   gunsmith: { selectedBuildId: 'build:pistol', fabricationSerials: {},
     builds: [{ id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: { receiver: 'heavy' }, traitParts: [] }],
     parts: { heavy: { partId: 'part:receiver-heavy', tier: 2, infusedTraits: [] }, compact: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] } } },
-  equipment: Object.fromEntries(catalog.map(piece => [`owned:${piece.id}`, { equipmentId: piece.id, tier: 1 }])),
+  equipment: Object.fromEntries(catalog.filter(piece => piece.id !== 'equipment:scavenger-helmet').map(piece => [`owned:${piece.id}`, { equipmentId: piece.id, tier: 1 }])),
   equipmentLoadout: { helmet: 'owned:equipment:commando-helmet', armour: 'owned:equipment:commando-armour', gloves: 'owned:equipment:recon-gloves' },
 };
 const meta = await (await fetch(`${base}/build-meta.json`)).json();
+assert.equal(meta.commit, option('--expected-sha', sourceHEAD), 'served build must match the intended measurement SHA');
 const result = { baselineSHA: '26f46fb5398c7eb769fe1bffa5ed60f80f20eea5', measurementSHA: meta.commit,
-  sourceHEAD: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+  sourceHEAD,
   started: new Date().toISOString(), environment: { platform: os.platform(), arch: os.arch(), release: os.release(),
     cpu: os.cpus()[0]?.model, logicalCPUs: os.cpus().length, totalMemory: os.totalmem(), node: process.version },
   method: { repeats, windowMs, frameWindow: 600, percentile: 'nearest rank', budgetMs: 1000 / 60,
     network: 'local Vite preview, unthrottled; resource timing transfer/encoded/decoded sizes retained',
     route: 'existing test-build route seam; real controller/render/load path, excludes input dispatch',
-    action: 'real keyboard focus + Enter through shared logical input; latency includes held input edge',
+    action: 'real keyboard focus + Enter; ready latency ends at recorded POST_RENDER, observedDurationMs also includes release/polling' ,
     combat: 'real Training/resource/spawn/physics/weapon path; fixed run/fixture seeds; fixture grants60s invulnerability; no progression writes',
     result: 'existing dedicated terminal-presentation fixture + real keyboard return; not durable reward acceptance',
     rawFrames: 'Phaser raw loop cadence; gameplay frame samples are separately labelled smoothed simulation delta',
@@ -69,8 +71,13 @@ async function route(page, panel, name) {
     probe.resetMeasurement(); const started = performance.now();
     if (!globalThis.__MEOWCENARY_VISUAL_TEST__.showMenu(panel)) throw new Error('route did not accept');
     await globalThis.__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation();
-    await new Promise(resolve => requestAnimationFrame(() => resolve()));
-    return { durationMs: performance.now() - started, state: probe.snapshot() };
+    const deadline = performance.now() + 15000;
+    let state = probe.snapshot();
+    while (state.presentedMenu?.rebuildCount !== state.menu?.rebuildCount) {
+      if (performance.now() >= deadline) throw new Error('presentation marker did not reach committed revision');
+      await new Promise(resolve => requestAnimationFrame(() => resolve())); state = probe.snapshot();
+    }
+    return { durationMs: state.presentedMenu.atMs - started, observedDurationMs: performance.now() - started, state };
   }, panel);
   assert.equal(measured.state.menu.panel, panel);
   assert.equal(measured.state.menu.settled, true);
@@ -79,23 +86,24 @@ async function route(page, panel, name) {
 async function inputAction(page, name, key = 'Enter') {
   const started = await page.evaluate(() => { globalThis.__MEOWCENARY_PERFORMANCE__.resetMeasurement(); return performance.now(); });
   await press(page, key); await settle(page);
-  return { name, durationMs: await page.evaluate(start => performance.now() - start, started), state: compact(await snapshot(page)) };
+  const state = await snapshot(page);
+  return { name, durationMs: state.presentedMenu.atMs - started, observedDurationMs: await page.evaluate(start => performance.now() - start, started), state: compact(state) };
 }
 async function launch(page, name, seed) {
   const started = await page.evaluate(() => { globalThis.__MEOWCENARY_PERFORMANCE__.resetMeasurement(); return performance.now(); });
   assert.equal(await page.evaluate(seed => globalThis.__MEOWCENARY_VISUAL_TEST__.startPerformanceTraining(seed), seed), true);
-  await page.waitForFunction(() => globalThis.__MEOWCENARY_PERFORMANCE__.snapshot().run?.status === 'active');
+  await page.waitForFunction(() => globalThis.__MEOWCENARY_PERFORMANCE__.snapshot().presentedRun?.status === 'active');
   const state = await snapshot(page); assert.equal(state.run.seed, seed); assert.equal(state.run.training, true);
-  return { name, durationMs: await page.evaluate(start => performance.now() - start, started), state: compact(state) };
+  return { name, durationMs: state.presentedRun.atMs - started, observedDurationMs: await page.evaluate(start => performance.now() - start, started), state: compact(state) };
 }
 async function terminalReturn(page, name) {
   assert.equal(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__.showRunSummary('lost')), true);
   await page.waitForTimeout(200); await press(page, 'ArrowDown'); await press(page, 'ArrowDown');
   const started = await page.evaluate(() => { globalThis.__MEOWCENARY_PERFORMANCE__.resetMeasurement(); return performance.now(); });
   await press(page, 'Enter');
-  await page.waitForFunction(() => globalThis.__MEOWCENARY_PERFORMANCE__.snapshot().menu?.settled === true);
+  await page.waitForFunction(() => globalThis.__MEOWCENARY_PERFORMANCE__.snapshot().presentedMenu?.panel === 'home');
   const state = await snapshot(page); assert.equal(state.menu.panel, 'home'); assert.equal(state.gameplay, undefined);
-  return { name, durationMs: await page.evaluate(start => performance.now() - start, started), state: compact(state) };
+  return { name, durationMs: state.presentedMenu.atMs - started, observedDurationMs: await page.evaluate(start => performance.now() - start, started), state: compact(state) };
 }
 try {
   for (const profile of [{ name: 'desktop-1280x720', width: 1280, height: 720, dpr: 1, touch: false, cpu: 1 },
@@ -117,9 +125,9 @@ try {
       page.on('response', response => { if (response.status() >= 400) cohort.errors.push({ url: response.url(), status: response.status() });
         const encoding = response.headers()['content-encoding']; if (encoding) encodings[response.url()] = encoding; });
       await page.goto(`${base}/?visual-test=1&perf-test=1`, { waitUntil: 'domcontentloaded' });
-      await page.waitForFunction(() => globalThis.__MEOWCENARY_PERFORMANCE__?.snapshot().menu?.settled === true);
+      await page.waitForFunction(() => { const state = globalThis.__MEOWCENARY_PERFORMANCE__?.snapshot(); return state?.menu?.settled === true && state.presentedMenu?.panel === 'home'; });
       const cold = await snapshot(page);
-      cohort.actions.push({ name: 'cold-usable-home', durationMs: await page.evaluate(() => performance.now()), state: compact(cold) });
+      cohort.actions.push({ name: 'cold-usable-home', durationMs: cold.presentedMenu.atMs, observedDurationMs: await page.evaluate(() => performance.now()), state: compact(cold) });
       cohort.coldResources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => ({
         path: new URL(entry.name).pathname, startMs: entry.startTime, durationMs: entry.duration,
         transferSize: entry.transferSize, encodedBodySize: entry.encodedBodySize, decodedBodySize: entry.decodedBodySize,
@@ -136,9 +144,9 @@ try {
       cohort.actions.push(await inputAction(page, 'equipment-equip'));
       const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('meowcenary.save.v2')));
       assert.equal(saved.equipmentLoadout.helmet, 'owned:equipment:recon-helmet');
-      await focus(page, row => row.key === 'equipment-blueprint:equipment:commando-helmet');
+      await focus(page, row => row.key === 'equipment-blueprint:equipment:scavenger-helmet');
       cohort.actions.push(await inputAction(page, 'equipment-blueprint-select'));
-      await focus(page, row => row.key === 'equipment-fabricate:equipment:commando-helmet');
+      await focus(page, row => row.key === 'equipment-fabricate:equipment:scavenger-helmet');
       const countBefore = Object.keys(saved.equipment).length;
       cohort.actions.push(await inputAction(page, 'equipment-fabricate'));
       assert.equal(await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('meowcenary.save.v2')).equipment).length), countBefore + 1);
@@ -158,11 +166,11 @@ try {
       const light = await snapshot(page); assert.equal(light.run.status, 'active', 'light window stays combat-active');
       cohort.actions.push({ name: 'light-combat', durationMs: windowMs, state: compact(light), metricsBefore, metricsAfter: await client.send('Performance.getMetrics') });
       let started = await page.evaluate(() => { globalThis.__MEOWCENARY_PERFORMANCE__.resetMeasurement(); return performance.now(); });
-      await press(page, 'Escape'); await page.waitForFunction(() => globalThis.__MEOWCENARY_PERFORMANCE__.snapshot().run?.status === 'paused');
-      cohort.actions.push({ name: 'pause', durationMs: await page.evaluate(start => performance.now() - start, started), state: compact(await snapshot(page)) });
+      await press(page, 'Escape'); await page.waitForFunction(() => globalThis.__MEOWCENARY_PERFORMANCE__.snapshot().presentedRun?.status === 'paused');
+      cohort.actions.push({ name: 'pause', durationMs: (await snapshot(page)).presentedRun.atMs - started, observedDurationMs: await page.evaluate(start => performance.now() - start, started), state: compact(await snapshot(page)) });
       started = await page.evaluate(() => { globalThis.__MEOWCENARY_PERFORMANCE__.resetMeasurement(); return performance.now(); });
-      await press(page, 'Escape'); await page.waitForFunction(() => globalThis.__MEOWCENARY_PERFORMANCE__.snapshot().run?.status === 'active');
-      cohort.actions.push({ name: 'resume', durationMs: await page.evaluate(start => performance.now() - start, started), state: compact(await snapshot(page)) });
+      await press(page, 'Escape'); await page.waitForFunction(() => globalThis.__MEOWCENARY_PERFORMANCE__.snapshot().presentedRun?.status === 'active');
+      cohort.actions.push({ name: 'resume', durationMs: (await snapshot(page)).presentedRun.atMs - started, observedDurationMs: await page.evaluate(start => performance.now() - start, started), state: compact(await snapshot(page)) });
       started = await page.evaluate(() => { globalThis.__MEOWCENARY_PERFORMANCE__.resetMeasurement(); return performance.now(); });
       await page.setViewportSize({ width: 844, height: 390 }); await page.waitForTimeout(200);
       await page.setViewportSize({ width: profile.width, height: profile.height });
