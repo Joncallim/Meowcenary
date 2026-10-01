@@ -5,7 +5,7 @@ type Rect = { x: number; y: number; width: number; height: number };
 type Framing = {
   arena: { width: number; height: number };
   player: { x: number; y: number; bodyRadius: number };
-  camera: { bounds: Rect; zoom: number; worldView: Rect; roundPixels: boolean };
+  camera: { bounds: Rect; viewport: Rect; scroll: { x: number; y: number }; zoom: number; worldView: Rect; roundPixels: boolean };
   rootRect: Rect;
   canvas: { rect: Rect };
 };
@@ -54,9 +54,18 @@ test('world actor remains distinguishable beneath HUD meters and corner controls
       if (!state) return false;
       const sx = (state.player.x - state.camera.worldView.x) * state.camera.zoom;
       const sy = (state.player.y - state.camera.worldView.y) * state.camera.zoom;
-      const targetX = Math.min(Math.max(x - state.camera.worldView.width / 2, state.camera.bounds.x), state.camera.bounds.x + state.camera.bounds.width - state.camera.worldView.width);
-      const targetY = Math.min(Math.max(y - state.camera.worldView.height / 2, state.camera.bounds.y), state.camera.bounds.y + state.camera.bounds.height - state.camera.worldView.height);
-      return Math.abs(state.camera.worldView.x - targetX) < 0.5 && Math.abs(state.camera.worldView.y - targetY) < 0.5 && sx >= 0 && sy >= 0;
+      // Phaser 3.90 rounds worldView even when render roundPixels=false.
+      // Settle against the real floating scroll, not its integer descriptor:
+      // 1114/1.25=891.2 otherwise yields an impossible half-pixel target.
+      const expectedScroll = (target: number, size: number, start: number, extent: number) => {
+        const visible = size / state.camera.zoom;
+        const min = start + (visible - size) / 2;
+        const max = Math.max(min, min + extent - visible);
+        return Math.min(Math.max(target - size / 2, min), max);
+      };
+      const targetX = expectedScroll(x, state.camera.viewport.width, state.camera.bounds.x, state.camera.bounds.width);
+      const targetY = expectedScroll(y, state.camera.viewport.height, state.camera.bounds.y, state.camera.bounds.height);
+      return Math.abs(state.camera.scroll.x - targetX) < 0.5 && Math.abs(state.camera.scroll.y - targetY) < 0.5 && sx >= 0 && sy >= 0;
     }).toBe(true);
     const framing = await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics());
     const readability = await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.captureArenaReadability());
@@ -72,6 +81,11 @@ test('world actor remains distinguishable beneath HUD meters and corner controls
     expect(framing!.camera.bounds).toEqual(initial!.camera.bounds);
     expect(framing!.camera.zoom).toBe(initial!.camera.zoom);
     expect(framing!.camera.roundPixels).toBe(false);
+    for (const axis of ['x', 'y'] as const) {
+      const size = axis === 'x' ? framing!.camera.viewport.width : framing!.camera.viewport.height;
+      const displaySize = Math.floor(size / framing!.camera.zoom + 0.5);
+      expect(framing!.camera.worldView[axis]).toBe(Math.floor(framing!.camera.scroll[axis] + size / 2 - displaySize / 2 + 0.5));
+    }
     expect(framing!.arena).toEqual(initial!.arena);
     expect(framing!.player.bodyRadius).toBe(radius);
   }

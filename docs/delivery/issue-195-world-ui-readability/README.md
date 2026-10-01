@@ -67,5 +67,73 @@ the browser regression exercises the real view, two Menu round trips, warm
 launch, resize and unchanged durable storage during resize. Its terminal
 content is a fixture, not evidence of natural combat/reward acceptance.
 
-Full candidate validation and ordinary continuous-input inspection are pending.
-Do not close #195 from this interim record.
+## Candidate evidence
+
+Runtime source: `95ec2d0f05db945001faa528915cb5582a4883d2` (PR #211).
+On the same phone/desktop fixtures, `green.json` records 89.2% retained actor
+contrast at top-centre. Phone top-left is 81.6% and top-right 75.1%, while
+foreground HP/status text and Pause/Ability signals retain authored opacity.
+Desktop top corners retain about 91.5%. The unchanged 60% regression passes.
+The rejected all-paint candidate is not the accepted treatment or a golden.
+
+`hud-lifecycle-red.txt.gz` and `hud-lifecycle-unit-red.txt.gz` preserve the actual
+owning-boundary failures. The browser RED has candidate presentation code but
+only the missing GameScene HUD cleanup call removed to match main's shutdown
+condition; it is not falsely labelled an exact full-main build. Both original
+RED phone/desktop cases observe four plates, and both candidate cases observe
+two after repeated transitions.
+
+Ordinary continuous-input evidence is separately archived in
+`continuous-input.json.gz`: fresh saves, 390×844 and 1280×720, keyboard and CDP
+touch, DPR 3. Four contexts, eight continuous centre-to-top traversals including
+Retry, and 36 CSS-scale captures completed without page errors. No placement,
+invulnerability, forced defeat or four-render capture fixture is used. Pause
+blocks movement; resume moves away from the boundary; the actual Abandon and
+Retry commands exercise terminal transitions. This does not establish natural
+combat defeat, reward acceptance, hardware/device acceptance or a #171 verdict.
+Four original representative PNGs are committed; independent inspection found
+the untinted actor recognizable and the HP/level/Pause signals readable.
+
+Reproduce the full automated matrix with the repository's unchanged
+`npm run test:browser`. For the supplemental continuous-input journey, build
+with `VITE_VISUAL_TEST=1`, serve that build, and run `continuous-input.mjs`
+with explicit `MEOW_REPO`, `MEOW_BASE_URL`, `MEOW_EXPECTED_SHA`, `MEOW_OUTPUT`
+and `MEOW_BROWSER_HANDOFF=1`. It asserts source/build identity before launch.
+The supplemental runs use ordinary run seeds; they are inspected journeys,
+not a new wall-clock CI gate. Inspect the images before changing their raw
+`PNGInspection: pending` status into a visual conclusion.
+
+## Remaining acceptance
+
+The normal actor's upper portion still extends outside the canvas at the exact
+physical top edge. It is also cropped in the HUD-hidden reference. This PR does
+not repair that separate presentation/framing question or claim a complete
+uncropped silhouette. #195 remains open, cross-referenced to #175, pending
+measured actor-display bounds and a correction at the proven owner. No arbitrary
+HUD-derived movement wall or camera offset is justified by the HUD result.
+
+Local lint, 183 files / 2,810 core tests, all nine allocation checks and all nine
+test-runner probes pass on the runtime candidate, as do content and complete
+art/source/export validation and production build. The ordinary bundle contains
+neither a test global nor the new capture diagnostic. Exact-head source review
+is clean. Full browser and hosted closeout are pending; #201 remains open.
+
+The first full 150-case browser run at `95ec2d0` finished **90 passed / 59
+existing skips / one failure**. The new foldable preparation predicate compared
+rounded `camera.worldView` with a fractional clamp target: observed x=-61,
+expected x=-61.5, an exact 0.5 difference that cannot satisfy `< 0.5`.
+`foldable-camera-rounding.json` archives the failing state. Phaser 3.90's
+Camera.preRender rounds the worldView descriptor even with roundPixels=false;
+render scroll remains fractional. The corrected preparation check compares
+actual scroll with viewport/zoom-derived clamping at the same tolerance, then
+asserts the integer descriptor exactly. No runtime, time budget, contrast bound,
+golden or image threshold changes. The focused foldable pair passes; the full
+matrix must be rerun before merge.
+
+The supplemental corrected checks also pass six cases: 412×915 at DPR 3,
+844×390 fine-pointer desktop, and 1114×720 foldable at DPR 3. Raw contrast and
+root/canvas/camera/world facts are in `supplemental-green.json`. Compact
+coarse-pointer phone landscape continues to use the established orientation
+quarantine/return path; it is not falsely reported as live portrait gameplay.
+No physical Android/iOS device or real browser-chrome inset verification is
+claimed by desktop emulation.
