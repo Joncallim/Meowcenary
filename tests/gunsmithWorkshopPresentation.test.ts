@@ -64,7 +64,7 @@ describe('Workshop structured consequence presentation', () => {
     expect(confirmation.comparison.before).toEqual(resolveEquipmentLoadoutPresentation(before, context.data).runTruth);
     expect(confirmation.output.statChips).toEqual(['+20 Range']);
     const rangeLine = confirmation.comparison.lines.find((line: string) => line.includes(' Range '));
-    const range = rangeLine?.match(/Range ([\d.]+) → ([\d.]+)/);
+    const range = rangeLine?.match(/Range ([\d.]+) to ([\d.]+)/);
     expect(range).toBeDefined(); expect(Number(range[1])).toBeGreaterThan(Number(range[2]));
     expect(write).not.toHaveBeenCalled(); expect(context.saveData).toBe(before);
     expect(controller.confirmWorkshop()).toMatchObject({ ok: true, persisted: true });
@@ -132,7 +132,7 @@ describe('Workshop structured consequence presentation', () => {
     expect(after.projectileEffects.filter((effect) => effect.kind === 'burn')).toHaveLength(1);
     const traitModifiers = confirmation.comparison.after.modifiers.filter((modifier) => modifier.sourceId.startsWith('trait:pistol:'));
     expect(traitModifiers).toHaveLength(1);
-    expect(confirmation.comparison.lines).toContain('Pistol traits FIRE → FIRE (shared; applied once)');
+    expect(confirmation.comparison.lines).toContain('Pistol traits FIRE to FIRE (shared; applied once)');
     expectDeepFrozen(confirmation.comparison);
   });
 

@@ -1113,13 +1113,13 @@ function persistentComparisonLines(before: EquipmentLoadoutPresentation['runTrut
     const old = resolve(before);
     const next = resolve(after);
     for (const key of Object.keys(WEAPON_STAT_LABELS) as (keyof EffectiveWeaponStats)[]) {
-      if (Math.abs(old[key] - next[key]) >= 1e-9) lines.push(`${familyName(weapon.family)} ${WEAPON_STAT_LABELS[key]} ${formatResolvedStat(key, old[key])} → ${formatResolvedStat(key, next[key])}`);
+      if (Math.abs(old[key] - next[key]) >= 1e-9) lines.push(`${familyName(weapon.family)} ${WEAPON_STAT_LABELS[key]} ${formatResolvedStat(key, old[key])} to ${formatResolvedStat(key, next[key])}`);
     }
   }
   for (const next of after.families) {
     const old = before.families.find((row) => row.familyId === next.familyId);
     const traits = (row: typeof next | undefined) => row?.traits.map((trait) => `${trait.trait}${trait.deduplicated ? ' (shared; applied once)' : ''}`).join(' / ') || 'None';
-    if (traits(old) !== traits(next)) lines.push(`${familyName(next.familyId)} traits ${traits(old)} → ${traits(next)}`);
+    if (traits(old) !== traits(next)) lines.push(`${familyName(next.familyId)} traits ${traits(old)} to ${traits(next)}`);
   }
   return lines.length ? lines : ['No mechanical change'];
 }
@@ -1138,7 +1138,7 @@ function buildComparison(
   const before = resolveBuildWeaponStats(beforeBuild, registry.asMap(), owned, weapon);
   const after = resolveBuildWeaponStats(afterBuild, registry.asMap(), owned, weapon);
   const changed = (Object.keys(WEAPON_STAT_LABELS) as Array<keyof EffectiveWeaponStats>).flatMap((key) =>
-    Math.abs(before[key] - after[key]) < 1e-9 ? [] : [`${WEAPON_STAT_LABELS[key]} ${formatResolvedStat(key, before[key])} → ${formatResolvedStat(key, after[key])}`]);
+    Math.abs(before[key] - after[key]) < 1e-9 ? [] : [`${WEAPON_STAT_LABELS[key]} ${formatResolvedStat(key, before[key])} to ${formatResolvedStat(key, after[key])}`]);
   return `Current build: ${changed.join(' • ') || 'No mechanical change'}`;
 }
 

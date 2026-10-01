@@ -183,7 +183,7 @@ describe('GunsmithController durable commands', () => {
       expect(candidate.displacedInstanceId).toBe('standard');
       expect(candidate.displacementSummary).toBe('Standard Barrel T2 returns to STORED.');
       expect(candidate.comparisonSummary).toContain('Current build:');
-      expect(candidate.comparisonSummary).toContain('Range 220 → 305');
+      expect(candidate.comparisonSummary).toContain('Range 220 to 305');
       if (moved) expect(candidate.comparisonSummary).toContain('Move from SMG Build.');
       expect(Object.isFrozen(candidate)).toBe(true);
       expect(controller.previewPart('long')).toMatchObject({ ok: true, persisted: false });
@@ -251,6 +251,31 @@ describe('GunsmithController durable commands', () => {
     controller.createBuild('pistol');
     expect(controller.snapshot().parts[0]).toMatchObject({ compatible: false, actionLabel: 'CANNOT FIT PISTOL' });
     expect(controller.snapshot().parts[0].displacedInstanceId).toBeUndefined();
+  });
+
+  it('preserves exact current-build and persistent-run stat and trait transitions using bundled comparison copy', () => {
+    const { context, controller } = setup();
+    context.updateGunsmith((state) => ({ ...state,
+      parts: {
+        standard: { partId: 'part:barrel-standard', tier: 2, infusedTraits: [] },
+        long: { partId: 'part:barrel-long', tier: 3, infusedTraits: ['FIRE'] },
+      },
+      builds: [{ id: 'build:pistol', name: 'Main', baseWeaponFamily: 'pistol', fitted: { barrel: 'standard' }, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    controller.selectSlot('barrel');
+    const before = context.saveData;
+    const comparison = controller.snapshot().parts.find((part) => part.instanceId === 'long')!.comparisonSummary;
+    expect(comparison).toContain('Range 220 to 305');
+    expect(comparison).not.toContain('→');
+    expect(controller.previewPart('long')).toMatchObject({ ok: true, persisted: false });
+    const facts = controller.snapshot().candidateComparison!;
+    expect(facts.lines).toContain('Pistol Range 220 to 305');
+    expect(facts.lines).toContain('Pistol traits None to FIRE');
+    expect(facts.lines.join(' ')).not.toContain('→');
+    expect(facts.before.families.find((family) => family.familyId === 'pistol')!.traits).toHaveLength(0);
+    expect(facts.after.families.find((family) => family.familyId === 'pistol')!.traits.map((trait) => trait.trait)).toEqual(['FIRE']);
+    expect(context.saveData).toBe(before);
   });
 
   it('fabricates one paid physical instance with a monotonic serial and publishes nothing on save failure', () => {
@@ -561,7 +586,7 @@ describe('GunsmithController durable commands', () => {
     expect(catalog).toHaveLength(context.data.gunParts!.length);
     expect(catalog.find((part) => part.partId === 'part:barrel-standard')).toMatchObject({
       state: 'fitted', stateLabel: 'EQUIPPED • T2', ownedCount: 1, fabricationCost: 60,
-      effectLines: ['+20 Range'], comparisonSummary: 'Current build: Range 220 → 200',
+      effectLines: ['+20 Range'], comparisonSummary: 'Current build: Range 220 to 200',
     });
     expect(catalog.find((part) => part.partId === 'part:receiver-compact')).toMatchObject({
       state: 'fabricable', stateLabel: 'FABRICABLE • 60 Scrap', fabricationCost: 60,
@@ -592,7 +617,7 @@ describe('GunsmithController durable commands', () => {
 
     expect(controller.snapshot().catalog.find((part) => part.partId === 'part:barrel-standard')).toMatchObject({
       state: 'fitted', stateLabel: 'EQUIPPED • T5', ownedCount: 2,
-      effectLines: ['+50 Range'], comparisonSummary: 'Move from Scattergun. Current build: Range 200 → 250',
+      effectLines: ['+50 Range'], comparisonSummary: 'Move from Scattergun. Current build: Range 200 to 250',
     });
   });
 
@@ -637,9 +662,9 @@ describe('GunsmithController durable commands', () => {
     }));
 
     expect(controller.snapshot().parts.find((part) => part.instanceId === 'heavy')?.comparisonSummary)
-      .toBe('Current build: Fire interval 792.7ms → 650ms • Damage 10.9 → 8');
+      .toBe('Current build: Fire interval 792.7ms to 650ms • Damage 10.9 to 8');
     expect(controller.snapshot().parts.find((part) => part.instanceId === 'compact')?.comparisonSummary)
-      .toBe('Current build: Fire interval 792.7ms → 560.3ms • Damage 10.9 → 8');
+      .toBe('Current build: Fire interval 792.7ms to 560.3ms • Damage 10.9 to 8');
   });
 
   it('uses production weapon-stat clamps so a zero-spread Pistol never promises fake accuracy', () => {
