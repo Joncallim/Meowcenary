@@ -8,6 +8,7 @@ import type { SpawnCurveDefinition } from '../systems/types';
 import { AudioManager, getAudioManager } from '../systems/audio';
 import { Player } from '../entities/Player';
 import type { Enemy } from '../entities/Enemy';
+import { spawnPoint } from '../gameplay/spawnRegion';
 import { prepareRun } from '../gameplay/runStart';
 import { responsiveArenaPresentationBounds } from '../gameplay/responsiveArenaPresentation';
 import { assembleComposedRunRequest, type ComposedRunRequest } from '../gameplay/runRequest';
@@ -66,7 +67,7 @@ import { PassiveCoordinator } from '../systems/PassiveCoordinator';
 import { HazardSystem } from '../systems/HazardSystem';
 import { DEFAULT_PASSIVE_HANDLERS, createPassiveHandlerRegistry } from '../gameplay/characterPassives';
 import { createDpsMeter, type DpsMeter } from '../gameplay/metrics';
-import { createPerfSampler, type PerfSampler } from '../gameplay/perf';
+import { createPerfSampler, GAMEPLAY_PERF_OWNERS, type PerfSampler } from '../gameplay/perf';
 import { PlaytestSummarySystem } from '../systems/playtestSummary';
 import { FeedbackSystem, PhaserFeedbackRenderer } from '../systems/feedback';
 import { DataVisualArtRegistry, resolveAchievementIconBinding } from '../systems/visualArt';
@@ -79,7 +80,13 @@ import { activateAbility, applyAbilityEffect, createAbilityState, expireAbilityE
 import { applyEnemyDamage } from '../gameplay/enemyDamageResolver';
 import { AbilityPresentationSystem } from '../systems/abilityPresentation';
 import type { FocusDirection } from '../ui/focusList';
+import { performanceProbe } from '../platform/performanceProbe';
 import { isPortraitOrientationBlocked, onPortraitOrientationChange } from '../platform/orientation';
+
+// Indices follow the sampler's registered order; resolved once, never in update.
+const PERFORMANCE_OWNER_INDEX: Readonly<Record<string, number>> = Object.fromEntries(
+  GAMEPLAY_PERF_OWNERS.map((owner, index) => [owner.name, index]),
+);
 
 /** U6: the gameplay camera shows canvas/zoom world units — 312×675.2 on the
  *  390×844 canvas at the 1.25× gameplay zoom. */
@@ -145,6 +152,11 @@ export class GameScene extends Phaser.Scene {
   private feedbackSystem?: FeedbackSystem;
   private defeatPresentationSystem?: DefeatPresentationSystem;
   private perfSampler?: PerfSampler;
+  private performanceSystemOwners?: Map<System, number>;
+  private performanceDurations?: Float64Array;
+  private performanceSeen?: Uint8Array;
+  private performanceSpawnSystem?: SpawnSystem;
+  private performanceFixture?: { readonly seed: number; readonly requested: number; readonly spawned: number; readonly invulnerabilityMs: number };
   // Non-owning cache of the Boot-constructed, game-scoped manager.
   private audioManager?: AudioManager;
   private audioUnlockUnsub?: () => void;
@@ -188,6 +200,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(data?: { readonly runRequest?: ComposedRunRequest; readonly runStartPresentation?: RunPresentationBaseline; readonly isTraining?: boolean }): void {
+    const createStarted = performanceProbe?.now();
     this.resetPerRunState(data?.isTraining === true);
     const ctx = this.getContext();
     // Normal production entry receives the exact request which Menu used to
@@ -538,8 +551,9 @@ export class GameScene extends Phaser.Scene {
       maxPresentations: RuntimeConfig.performance.maxDefeatPresentations,
     });
     this.perfSampler = createPerfSampler(
-      RuntimeConfig.performance.sampleWindowFrames,
+      performanceProbe ? 600 : RuntimeConfig.performance.sampleWindowFrames,
       RuntimeConfig.performance.targetFps,
+      performanceProbe ? GAMEPLAY_PERF_OWNERS : [],
     );
 
     const spawnSystem = new SpawnSystem(
@@ -559,23 +573,25 @@ export class GameScene extends Phaser.Scene {
     if (plan?.encounter.bossId) {
       spawnSystem.spawnEncounterEnemy(plan.encounter.bossId, arena.size.width / 2, Math.max(80, arena.size.height * 0.2));
     }
+    const passiveSystem = new PassiveCoordinator({
+      runState: this.runState,
+      bus: ctx.bus,
+      character,
+      handlers: createPassiveHandlerRegistry(DEFAULT_PASSIVE_HANDLERS),
+    });
+    const hazardSystem = new HazardSystem({
+      scene: this,
+      runState: this.runState,
+      bus: ctx.bus,
+      player: this.player,
+      hazards: arena.hazards,
+      hazardSkins: arena.visual.hazardSkins,
+      visualArt,
+    });
     this.systems = [
-      new PassiveCoordinator({
-        runState: this.runState,
-        bus: ctx.bus,
-        character,
-        handlers: createPassiveHandlerRegistry(DEFAULT_PASSIVE_HANDLERS),
-      }),
+      passiveSystem,
       spawnSystem,
-      new HazardSystem({
-        scene: this,
-        runState: this.runState,
-        bus: ctx.bus,
-        player: this.player,
-        hazards: arena.hazards,
-        hazardSkins: arena.visual.hazardSkins,
-        visualArt,
-      }),
+      hazardSystem,
       this.feedbackSystem,
       this.defeatPresentationSystem,
       this.weaponSystem,
@@ -588,6 +604,17 @@ export class GameScene extends Phaser.Scene {
       ...(debugCheatSystem ? [debugCheatSystem] : []),
       ...(playtestSummarySystem ? [playtestSummarySystem] : []),
     ];
+
+    if (performanceProbe) {
+      this.performanceDurations = new Float64Array(GAMEPLAY_PERF_OWNERS.length);
+      this.performanceSeen = new Uint8Array(GAMEPLAY_PERF_OWNERS.length);
+      this.performanceSystemOwners = new Map<System, number>([
+        [passiveSystem, PERFORMANCE_OWNER_INDEX.passives], [spawnSystem, PERFORMANCE_OWNER_INDEX.spawning], [hazardSystem, PERFORMANCE_OWNER_INDEX.hazards],
+        [this.feedbackSystem, PERFORMANCE_OWNER_INDEX.feedback], [this.defeatPresentationSystem, PERFORMANCE_OWNER_INDEX.feedback],
+        [this.weaponSystem, PERFORMANCE_OWNER_INDEX.weapons], [this.weaponRewardSystem, PERFORMANCE_OWNER_INDEX.drops], [this.dropSystem, PERFORMANCE_OWNER_INDEX.drops],
+      ]);
+      this.performanceSpawnSystem = spawnSystem;
+    }
 
     // The run summary source is getter-backed so banking (which happens first
     // in listener order) is visible to the summary's later snapshot reads.
@@ -703,12 +730,24 @@ export class GameScene extends Phaser.Scene {
     // A run launched while the device is already rotated must begin frozen,
     // rather than getting one simulation frame before its first update gate.
     this.syncPhysicsPause(this.runState);
+    if (performanceProbe && this.perfSampler) {
+      performanceProbe.attachGameplay(this.perfSampler);
+      if (createStarted !== undefined) performanceProbe.record('game.create', createStarted, {
+        seed: this.runState.seed, training: this.isTraining, displayRoots: this.children.list.length,
+      });
+    }
   }
 
   /** Phaser restarts one persistent Scene instance for Retry/Replay. Reset
    * every run-owned persistence and presentation cache before even resolving
    * the next context so a failed create cannot retain terminal authority. */
   private resetPerRunState(isTraining: boolean): void {
+    performanceProbe?.releaseGameplay(this.perfSampler);
+    this.performanceSystemOwners = undefined;
+    this.performanceDurations = undefined;
+    this.performanceSeen = undefined;
+    this.performanceSpawnSystem = undefined;
+    this.performanceFixture = undefined;
     this.terminalSettlement = undefined;
     this.terminalStageId = undefined;
     this.pendingAchievementFacts = {};
@@ -742,6 +781,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.perfSampler?.recordFrame(delta);
+    this.performanceDurations?.fill(0);
+    this.performanceSeen?.fill(0);
+    let ownerStarted = performanceProbe?.now();
     if (this.orientationResumePending) {
       this.inputController.quarantineUntilNeutral();
       this.gameplayPointerSuspended = true;
@@ -755,6 +797,8 @@ export class GameScene extends Phaser.Scene {
     this.pauseView?.refreshInputPresentation();
     this.runSummaryView?.refreshInputPresentation();
     this.upgradeChooser?.refreshInputPresentation();
+    this.finishPerformanceOwner(PERFORMANCE_OWNER_INDEX.input, ownerStarted);
+    ownerStarted = performanceProbe?.now();
     this.updateStageObjective(ctx, delta);
     const terminalPersistencePending = this.hasPendingTerminalPersistence();
     if (runState.status === 'won' || runState.status === 'lost') {
@@ -767,25 +811,33 @@ export class GameScene extends Phaser.Scene {
     // must not leave combat running long enough to turn an earned clear into
     // a loss; the next frames retry only the idempotent transaction.
     let isPendingClear = this.stageRuntime?.pendingClear !== undefined && runState.status === 'active';
+    this.finishPerformanceOwner(PERFORMANCE_OWNER_INDEX.stage, ownerStarted);
 
     // === SIMULATION PHASE ===
     // Stop combat simulation and freeze the run clock during pendingClear
     // so an earned clear is never accidentally lost and the displayed
     // completion time remains coherent. Presentation continues below.
     if (!isPendingClear) {
+      ownerStarted = performanceProbe?.now();
       tickRun(runState, delta);
       this.tickAbility(delta);
       if (runState.status === 'active') this.abilityPresentationSystem?.update(delta, ctx.settings.reducedMotion);
       this.player.update(delta);
+      this.finishPerformanceOwner(PERFORMANCE_OWNER_INDEX.player, ownerStarted);
       for (const system of this.systems) {
+        const owner = this.performanceSystemOwners?.get(system);
+        const systemStarted = owner === undefined ? undefined : performanceProbe?.now();
         system.update(delta);
+        if (owner !== undefined) this.finishPerformanceOwner(owner, systemStarted);
         // Weapon/burn updates can complete an objective after the frame's
         // normal stage tick. Capture and pause that boundary before another
         // system or the next Arcade integration can mutate combat state.
         if (this.stageRuntime?.state.status === 'objective-complete') {
+          ownerStarted = performanceProbe?.now();
           this.updateStageObjective(ctx, 0);
           isPendingClear = this.stageRuntime.pendingClear !== undefined;
           this.syncPhysicsPause(runState);
+          this.finishPerformanceOwner(PERFORMANCE_OWNER_INDEX.stage, ownerStarted);
           break;
         }
       }
@@ -793,14 +845,19 @@ export class GameScene extends Phaser.Scene {
       // An activation can synchronously complete the final objective. Draw
       // its freshly emitted cue once without advancing it before extraction
       // freezes simulation state.
+      ownerStarted = performanceProbe?.now();
       this.abilityPresentationSystem?.update(0, ctx.settings.reducedMotion);
+      this.finishPerformanceOwner(PERFORMANCE_OWNER_INDEX.player, ownerStarted);
     }
 
     if (isPendingClear && this.pendingClearLootRackCount !== runState.equipped.length) {
+      ownerStarted = performanceProbe?.now();
       this.dropSystem?.settlePendingClearLoot();
+      this.finishPerformanceOwner(PERFORMANCE_OWNER_INDEX.drops, ownerStarted);
       this.pendingClearLootRackCount = runState.equipped.length;
     }
 
+    ownerStarted = performanceProbe?.now();
     // === PRESENTATION PHASE ===
     // HUD, controls, debug overlay and audio update regardless of
     // pendingClear so the player sees "OBJECTIVE COMPLETE — Confirm to
@@ -820,7 +877,11 @@ export class GameScene extends Phaser.Scene {
     // The manager's deterministic clock stays aligned with the active scene
     // update so terminal music fades continue while the summary remains
     // visible.
+    this.finishPerformanceOwner(PERFORMANCE_OWNER_INDEX.hud, ownerStarted);
+    ownerStarted = performanceProbe?.now();
     this.audioManager?.update(delta);
+    this.finishPerformanceOwner(PERFORMANCE_OWNER_INDEX.audio, ownerStarted);
+    ownerStarted = performanceProbe?.now();
     // HudController was removed from this.systems to separate presentation
     // from simulation. It is always updated here so objective text and
     // timer display remain live during pendingClear.
@@ -850,6 +911,66 @@ export class GameScene extends Phaser.Scene {
       `Move: ${move.x.toFixed(2)}, ${move.y.toFixed(2)}`,
       `Pointer: ${pointer ? `${Math.round(pointer.x)}, ${Math.round(pointer.y)}` : 'none'}`,
     ]);
+    this.finishPerformanceOwner(PERFORMANCE_OWNER_INDEX.hud, ownerStarted);
+    if (this.performanceDurations && this.performanceSeen) {
+      for (let owner = 0; owner < GAMEPLAY_PERF_OWNERS.length; owner += 1) {
+        if (this.performanceSeen[owner]) this.perfSampler?.recordOwner(GAMEPLAY_PERF_OWNERS[owner].name, this.performanceDurations[owner]);
+      }
+    }
+  }
+
+  private finishPerformanceOwner(owner: number, started: number | undefined): void {
+    if (started === undefined || !performanceProbe || !this.performanceDurations || !this.performanceSeen) return;
+    const elapsed = performanceProbe.now() - started;
+    if (!Number.isFinite(elapsed) || elapsed < 0) return;
+    this.performanceDurations[owner] += elapsed;
+    this.performanceSeen[owner] = 1;
+  }
+
+  /** Explicit, read-only benchmark checkpoint; never called by the update loop. */
+  performanceDiagnostics() {
+    return {
+      status: this.runState?.status ?? 'uninitialized',
+      seed: this.runState?.seed,
+      timeMs: this.runState?.timeMs ?? 0,
+      training: this.isTraining,
+      displayRoots: this.children?.list.length ?? 0,
+      enemies: this.enemies.filter(enemy => enemy.active).length,
+      projectiles: { active: this.weaponSystem?.activeProjectileCount ?? 0, allocated: this.weaponSystem?.allocatedProjectileCount ?? 0 },
+      drops: { active: this.dropSystem?.activeDropCount ?? 0, allocated: this.dropSystem?.allocatedDropCount ?? 0 },
+      feedback: { active: this.feedbackSystem?.activeEffectCount ?? 0, allocated: this.feedbackSystem?.allocatedEffectCount ?? 0, dropped: this.feedbackSystem?.droppedEffectCount ?? 0 },
+      defeats: { active: this.defeatPresentationSystem?.activePresentationCount ?? 0, allocated: this.defeatPresentationSystem?.allocatedPresentationCount ?? 0, dropped: this.defeatPresentationSystem?.droppedPresentationCount ?? 0 },
+      fixture: this.performanceFixture ? { ...this.performanceFixture } : undefined,
+    };
+  }
+
+  /** Test-build fixture uses the real spawn/materialisation owner and a separate RNG. */
+  preparePerformanceFixture(seed: number, count = 48): boolean {
+    if (import.meta.env.VITE_VISUAL_TEST !== '1' || !performanceProbe || !this.isTraining
+      || this.runState?.status !== 'active' || !this.player || !this.performanceSpawnSystem
+      || !this.arenaDimensions || this.performanceFixture || !Number.isSafeInteger(seed)
+      || !Number.isInteger(count) || count < 0) return false;
+    const requested = Math.min(48, count);
+    const ctx = this.getContext();
+    const arena = ctx.arenas.arenaById(this.runState.arenaId);
+    if (!arena) return false;
+    const art = new DataVisualArtRegistry(ctx.data);
+    const candidates = ctx.data.enemies.filter(enemy => {
+      if (enemy.archetype === 'boss' || enemy.archetype === 'elite') return false;
+      const binding = art.bindingById(`enemy:${enemy.id}`);
+      return binding !== undefined && this.textures.exists(binding.textureKey);
+    });
+    if (requested > 0 && candidates.length === 0) return false;
+    const rng = createRng(deriveRunSeed(seed, 'performance-fixture'));
+    let spawned = 0;
+    for (let index = 0; index < requested; index += 1) {
+      const enemy = rng.pick(candidates);
+      const position = spawnPoint(arena, rng);
+      if (this.performanceSpawnSystem.spawnEncounterEnemy(enemy.id, position.x, position.y)) spawned += 1;
+    }
+    this.player.grantInvulnerability(60_000);
+    this.performanceFixture = { seed, requested, spawned, invulnerabilityMs: 60_000 };
+    return true;
   }
 
   private readonly handleResponsiveCamera = (): void => {
@@ -931,7 +1052,13 @@ export class GameScene extends Phaser.Scene {
     this.feedbackSystem = undefined;
     this.feedbackRenderer = undefined;
     this.defeatPresentationSystem = undefined;
+    performanceProbe?.releaseGameplay(this.perfSampler);
     this.perfSampler = undefined;
+    this.performanceSystemOwners = undefined;
+    this.performanceDurations = undefined;
+    this.performanceSeen = undefined;
+    this.performanceSpawnSystem = undefined;
+    this.performanceFixture = undefined;
     this.spawnCurve = undefined;
     this.arenaDimensions = undefined;
     this.arenaScenery?.destroy();
