@@ -1,0 +1,1030 @@
+{
+  "sourceSHA": "95ec2d0f05db945001faa528915cb5582a4883d2",
+  "method": "Same unchanged actor-contrast diagnostic as RED. Fixture alpha=0.45; foreground labels/icons preserved. Not a visual-approval threshold.",
+  "rows": {
+    "world-ui-readability.pw.ts-5e658--meters-and-corner-controls-desktop-1280x720": [
+      {
+        "position": "top-centre",
+        "framing": {
+          "window": {
+            "innerWidth": 1280,
+            "innerHeight": 720,
+            "devicePixelRatio": 1
+          },
+          "visualViewport": {
+            "width": 1280,
+            "height": 720,
+            "offsetTop": 0,
+            "offsetLeft": 0
+          },
+          "rootRect": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 720
+          },
+          "canvas": {
+            "width": 1280,
+            "height": 720,
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 720
+            }
+          },
+          "scale": {
+            "width": 1280,
+            "height": 720
+          },
+          "camera": {
+            "viewport": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 720
+            },
+            "zoom": 1.25,
+            "scroll": {
+              "x": -256,
+              "y": -72
+            },
+            "worldView": {
+              "x": -128,
+              "y": 0,
+              "width": 1024,
+              "height": 576
+            },
+            "bounds": {
+              "x": -128,
+              "y": 0,
+              "width": 1024,
+              "height": 1344
+            },
+            "roundPixels": false
+          },
+          "arena": {
+            "width": 768,
+            "height": 1344
+          },
+          "player": {
+            "x": 384,
+            "y": 14,
+            "bodyRadius": 14
+          },
+          "hudLayers": [
+            {
+              "type": "Graphics",
+              "depth": 90,
+              "alpha": 1
+            },
+            {
+              "type": "Rectangle",
+              "depth": 90,
+              "alpha": 0.1,
+              "fillAlpha": 0.42
+            },
+            {
+              "type": "NineSlice",
+              "depth": 91,
+              "alpha": 0.048
+            }
+          ],
+          "safeArea": {
+            "top": "0px",
+            "right": "0px",
+            "bottom": "0px",
+            "left": "0px"
+          }
+        },
+        "readability": {
+          "actorAlpha": 0.45,
+          "actorPixels": 782,
+          "referenceEnergy": 79508,
+          "actualEnergy": 70957,
+          "retainedContribution": 0.8924510741057504
+        }
+      },
+      {
+        "position": "top-left",
+        "framing": {
+          "window": {
+            "innerWidth": 1280,
+            "innerHeight": 720,
+            "devicePixelRatio": 1
+          },
+          "visualViewport": {
+            "width": 1280,
+            "height": 720,
+            "offsetTop": 0,
+            "offsetLeft": 0
+          },
+          "rootRect": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 720
+          },
+          "canvas": {
+            "width": 1280,
+            "height": 720,
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 720
+            }
+          },
+          "scale": {
+            "width": 1280,
+            "height": 720
+          },
+          "camera": {
+            "viewport": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 720
+            },
+            "zoom": 1.25,
+            "scroll": {
+              "x": -256,
+              "y": -72
+            },
+            "worldView": {
+              "x": -128,
+              "y": 0,
+              "width": 1024,
+              "height": 576
+            },
+            "bounds": {
+              "x": -128,
+              "y": 0,
+              "width": 1024,
+              "height": 1344
+            },
+            "roundPixels": false
+          },
+          "arena": {
+            "width": 768,
+            "height": 1344
+          },
+          "player": {
+            "x": 14,
+            "y": 14,
+            "bodyRadius": 14
+          },
+          "hudLayers": [
+            {
+              "type": "Graphics",
+              "depth": 90,
+              "alpha": 1
+            },
+            {
+              "type": "Rectangle",
+              "depth": 90,
+              "alpha": 0.1,
+              "fillAlpha": 0.42
+            },
+            {
+              "type": "NineSlice",
+              "depth": 91,
+              "alpha": 0.048
+            }
+          ],
+          "safeArea": {
+            "top": "0px",
+            "right": "0px",
+            "bottom": "0px",
+            "left": "0px"
+          }
+        },
+        "readability": {
+          "actorAlpha": 0.45,
+          "actorPixels": 809,
+          "referenceEnergy": 81517,
+          "actualEnergy": 74624,
+          "retainedContribution": 0.915440950967283
+        }
+      },
+      {
+        "position": "top-right",
+        "framing": {
+          "window": {
+            "innerWidth": 1280,
+            "innerHeight": 720,
+            "devicePixelRatio": 1
+          },
+          "visualViewport": {
+            "width": 1280,
+            "height": 720,
+            "offsetTop": 0,
+            "offsetLeft": 0
+          },
+          "rootRect": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 720
+          },
+          "canvas": {
+            "width": 1280,
+            "height": 720,
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 720
+            }
+          },
+          "scale": {
+            "width": 1280,
+            "height": 720
+          },
+          "camera": {
+            "viewport": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 720
+            },
+            "zoom": 1.25,
+            "scroll": {
+              "x": -256,
+              "y": -72
+            },
+            "worldView": {
+              "x": -128,
+              "y": 0,
+              "width": 1024,
+              "height": 576
+            },
+            "bounds": {
+              "x": -128,
+              "y": 0,
+              "width": 1024,
+              "height": 1344
+            },
+            "roundPixels": false
+          },
+          "arena": {
+            "width": 768,
+            "height": 1344
+          },
+          "player": {
+            "x": 754,
+            "y": 14,
+            "bodyRadius": 14
+          },
+          "hudLayers": [
+            {
+              "type": "Graphics",
+              "depth": 90,
+              "alpha": 1
+            },
+            {
+              "type": "Rectangle",
+              "depth": 90,
+              "alpha": 0.1,
+              "fillAlpha": 0.42
+            },
+            {
+              "type": "NineSlice",
+              "depth": 91,
+              "alpha": 0.048
+            }
+          ],
+          "safeArea": {
+            "top": "0px",
+            "right": "0px",
+            "bottom": "0px",
+            "left": "0px"
+          }
+        },
+        "readability": {
+          "actorAlpha": 0.45,
+          "actorPixels": 809,
+          "referenceEnergy": 84251,
+          "actualEnergy": 77176,
+          "retainedContribution": 0.9160247356114467
+        }
+      },
+      {
+        "position": "bottom-left",
+        "framing": {
+          "window": {
+            "innerWidth": 1280,
+            "innerHeight": 720,
+            "devicePixelRatio": 1
+          },
+          "visualViewport": {
+            "width": 1280,
+            "height": 720,
+            "offsetTop": 0,
+            "offsetLeft": 0
+          },
+          "rootRect": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 720
+          },
+          "canvas": {
+            "width": 1280,
+            "height": 720,
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 720
+            }
+          },
+          "scale": {
+            "width": 1280,
+            "height": 720
+          },
+          "camera": {
+            "viewport": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 720
+            },
+            "zoom": 1.25,
+            "scroll": {
+              "x": -256,
+              "y": 696
+            },
+            "worldView": {
+              "x": -128,
+              "y": 768,
+              "width": 1024,
+              "height": 576
+            },
+            "bounds": {
+              "x": -128,
+              "y": 0,
+              "width": 1024,
+              "height": 1344
+            },
+            "roundPixels": false
+          },
+          "arena": {
+            "width": 768,
+            "height": 1344
+          },
+          "player": {
+            "x": 14,
+            "y": 1330,
+            "bodyRadius": 14
+          },
+          "hudLayers": [
+            {
+              "type": "Graphics",
+              "depth": 90,
+              "alpha": 1
+            },
+            {
+              "type": "Rectangle",
+              "depth": 90,
+              "alpha": 1,
+              "fillAlpha": 0.42
+            },
+            {
+              "type": "NineSlice",
+              "depth": 91,
+              "alpha": 0.48
+            }
+          ],
+          "safeArea": {
+            "top": "0px",
+            "right": "0px",
+            "bottom": "0px",
+            "left": "0px"
+          }
+        },
+        "readability": {
+          "actorAlpha": 0.45,
+          "actorPixels": 835,
+          "referenceEnergy": 84604,
+          "actualEnergy": 84604,
+          "retainedContribution": 1
+        }
+      },
+      {
+        "position": "bottom-right",
+        "framing": {
+          "window": {
+            "innerWidth": 1280,
+            "innerHeight": 720,
+            "devicePixelRatio": 1
+          },
+          "visualViewport": {
+            "width": 1280,
+            "height": 720,
+            "offsetTop": 0,
+            "offsetLeft": 0
+          },
+          "rootRect": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 720
+          },
+          "canvas": {
+            "width": 1280,
+            "height": 720,
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 720
+            }
+          },
+          "scale": {
+            "width": 1280,
+            "height": 720
+          },
+          "camera": {
+            "viewport": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 720
+            },
+            "zoom": 1.25,
+            "scroll": {
+              "x": -256,
+              "y": 696
+            },
+            "worldView": {
+              "x": -128,
+              "y": 768,
+              "width": 1024,
+              "height": 576
+            },
+            "bounds": {
+              "x": -128,
+              "y": 0,
+              "width": 1024,
+              "height": 1344
+            },
+            "roundPixels": false
+          },
+          "arena": {
+            "width": 768,
+            "height": 1344
+          },
+          "player": {
+            "x": 754,
+            "y": 1330,
+            "bodyRadius": 14
+          },
+          "hudLayers": [
+            {
+              "type": "Graphics",
+              "depth": 90,
+              "alpha": 1
+            },
+            {
+              "type": "Rectangle",
+              "depth": 90,
+              "alpha": 1,
+              "fillAlpha": 0.42
+            },
+            {
+              "type": "NineSlice",
+              "depth": 91,
+              "alpha": 0.48
+            }
+          ],
+          "safeArea": {
+            "top": "0px",
+            "right": "0px",
+            "bottom": "0px",
+            "left": "0px"
+          }
+        },
+        "readability": {
+          "actorAlpha": 0.45,
+          "actorPixels": 836,
+          "referenceEnergy": 86956,
+          "actualEnergy": 86956,
+          "retainedContribution": 1
+        }
+      }
+    ],
+    "world-ui-readability.pw.ts-5e658--meters-and-corner-controls-phone-390x844": [
+      {
+        "position": "top-centre",
+        "framing": {
+          "window": {
+            "innerWidth": 390,
+            "innerHeight": 844,
+            "devicePixelRatio": 1
+          },
+          "visualViewport": {
+            "width": 390,
+            "height": 844,
+            "offsetTop": 0,
+            "offsetLeft": 0
+          },
+          "rootRect": {
+            "x": 0,
+            "y": 0,
+            "width": 390,
+            "height": 844
+          },
+          "canvas": {
+            "width": 390,
+            "height": 844,
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "width": 390,
+              "height": 844
+            }
+          },
+          "scale": {
+            "width": 390,
+            "height": 844
+          },
+          "camera": {
+            "viewport": {
+              "x": 0,
+              "y": 0,
+              "width": 390,
+              "height": 844
+            },
+            "zoom": 1.25,
+            "scroll": {
+              "x": 189,
+              "y": -84.39999999999998
+            },
+            "worldView": {
+              "x": 228,
+              "y": 0,
+              "width": 312,
+              "height": 675
+            },
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 768,
+              "height": 1344
+            },
+            "roundPixels": false
+          },
+          "arena": {
+            "width": 768,
+            "height": 1344
+          },
+          "player": {
+            "x": 384,
+            "y": 14,
+            "bodyRadius": 14
+          },
+          "hudLayers": [
+            {
+              "type": "Graphics",
+              "depth": 90,
+              "alpha": 1
+            },
+            {
+              "type": "Rectangle",
+              "depth": 90,
+              "alpha": 0.1,
+              "fillAlpha": 0.42
+            },
+            {
+              "type": "NineSlice",
+              "depth": 91,
+              "alpha": 0.048
+            }
+          ],
+          "safeArea": {
+            "top": "0px",
+            "right": "0px",
+            "bottom": "0px",
+            "left": "0px"
+          }
+        },
+        "readability": {
+          "actorAlpha": 0.45,
+          "actorPixels": 782,
+          "referenceEnergy": 79508,
+          "actualEnergy": 70957,
+          "retainedContribution": 0.8924510741057504
+        }
+      },
+      {
+        "position": "top-left",
+        "framing": {
+          "window": {
+            "innerWidth": 390,
+            "innerHeight": 844,
+            "devicePixelRatio": 1
+          },
+          "visualViewport": {
+            "width": 390,
+            "height": 844,
+            "offsetTop": 0,
+            "offsetLeft": 0
+          },
+          "rootRect": {
+            "x": 0,
+            "y": 0,
+            "width": 390,
+            "height": 844
+          },
+          "canvas": {
+            "width": 390,
+            "height": 844,
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "width": 390,
+              "height": 844
+            }
+          },
+          "scale": {
+            "width": 390,
+            "height": 844
+          },
+          "camera": {
+            "viewport": {
+              "x": 0,
+              "y": 0,
+              "width": 390,
+              "height": 844
+            },
+            "zoom": 1.25,
+            "scroll": {
+              "x": -39,
+              "y": -84.39999999999998
+            },
+            "worldView": {
+              "x": 0,
+              "y": 0,
+              "width": 312,
+              "height": 675
+            },
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 768,
+              "height": 1344
+            },
+            "roundPixels": false
+          },
+          "arena": {
+            "width": 768,
+            "height": 1344
+          },
+          "player": {
+            "x": 14,
+            "y": 14,
+            "bodyRadius": 14
+          },
+          "hudLayers": [
+            {
+              "type": "Graphics",
+              "depth": 90,
+              "alpha": 1
+            },
+            {
+              "type": "Rectangle",
+              "depth": 90,
+              "alpha": 0.1,
+              "fillAlpha": 0.42
+            },
+            {
+              "type": "NineSlice",
+              "depth": 91,
+              "alpha": 0.048
+            }
+          ],
+          "safeArea": {
+            "top": "0px",
+            "right": "0px",
+            "bottom": "0px",
+            "left": "0px"
+          }
+        },
+        "readability": {
+          "actorAlpha": 0.45,
+          "actorPixels": 809,
+          "referenceEnergy": 81517,
+          "actualEnergy": 66536,
+          "retainedContribution": 0.816222383061202
+        }
+      },
+      {
+        "position": "top-right",
+        "framing": {
+          "window": {
+            "innerWidth": 390,
+            "innerHeight": 844,
+            "devicePixelRatio": 1
+          },
+          "visualViewport": {
+            "width": 390,
+            "height": 844,
+            "offsetTop": 0,
+            "offsetLeft": 0
+          },
+          "rootRect": {
+            "x": 0,
+            "y": 0,
+            "width": 390,
+            "height": 844
+          },
+          "canvas": {
+            "width": 390,
+            "height": 844,
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "width": 390,
+              "height": 844
+            }
+          },
+          "scale": {
+            "width": 390,
+            "height": 844
+          },
+          "camera": {
+            "viewport": {
+              "x": 0,
+              "y": 0,
+              "width": 390,
+              "height": 844
+            },
+            "zoom": 1.25,
+            "scroll": {
+              "x": 417,
+              "y": -84.39999999999998
+            },
+            "worldView": {
+              "x": 456,
+              "y": 0,
+              "width": 312,
+              "height": 675
+            },
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 768,
+              "height": 1344
+            },
+            "roundPixels": false
+          },
+          "arena": {
+            "width": 768,
+            "height": 1344
+          },
+          "player": {
+            "x": 754,
+            "y": 14,
+            "bodyRadius": 14
+          },
+          "hudLayers": [
+            {
+              "type": "Graphics",
+              "depth": 90,
+              "alpha": 1
+            },
+            {
+              "type": "Rectangle",
+              "depth": 90,
+              "alpha": 0.1,
+              "fillAlpha": 0.42
+            },
+            {
+              "type": "NineSlice",
+              "depth": 91,
+              "alpha": 0.048
+            }
+          ],
+          "safeArea": {
+            "top": "0px",
+            "right": "0px",
+            "bottom": "0px",
+            "left": "0px"
+          }
+        },
+        "readability": {
+          "actorAlpha": 0.45,
+          "actorPixels": 796,
+          "referenceEnergy": 82927,
+          "actualEnergy": 62265,
+          "retainedContribution": 0.7508411012094975
+        }
+      },
+      {
+        "position": "bottom-left",
+        "framing": {
+          "window": {
+            "innerWidth": 390,
+            "innerHeight": 844,
+            "devicePixelRatio": 1
+          },
+          "visualViewport": {
+            "width": 390,
+            "height": 844,
+            "offsetTop": 0,
+            "offsetLeft": 0
+          },
+          "rootRect": {
+            "x": 0,
+            "y": 0,
+            "width": 390,
+            "height": 844
+          },
+          "canvas": {
+            "width": 390,
+            "height": 844,
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "width": 390,
+              "height": 844
+            }
+          },
+          "scale": {
+            "width": 390,
+            "height": 844
+          },
+          "camera": {
+            "viewport": {
+              "x": 0,
+              "y": 0,
+              "width": 390,
+              "height": 844
+            },
+            "zoom": 1.25,
+            "scroll": {
+              "x": -39,
+              "y": 584.3999999999999
+            },
+            "worldView": {
+              "x": 0,
+              "y": 669,
+              "width": 312,
+              "height": 675
+            },
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 768,
+              "height": 1344
+            },
+            "roundPixels": false
+          },
+          "arena": {
+            "width": 768,
+            "height": 1344
+          },
+          "player": {
+            "x": 14,
+            "y": 1330,
+            "bodyRadius": 14
+          },
+          "hudLayers": [
+            {
+              "type": "Graphics",
+              "depth": 90,
+              "alpha": 1
+            },
+            {
+              "type": "Rectangle",
+              "depth": 90,
+              "alpha": 1,
+              "fillAlpha": 0.42
+            },
+            {
+              "type": "NineSlice",
+              "depth": 91,
+              "alpha": 0.48
+            }
+          ],
+          "safeArea": {
+            "top": "0px",
+            "right": "0px",
+            "bottom": "0px",
+            "left": "0px"
+          }
+        },
+        "readability": {
+          "actorAlpha": 0.45,
+          "actorPixels": 835,
+          "referenceEnergy": 84604,
+          "actualEnergy": 84604,
+          "retainedContribution": 1
+        }
+      },
+      {
+        "position": "bottom-right",
+        "framing": {
+          "window": {
+            "innerWidth": 390,
+            "innerHeight": 844,
+            "devicePixelRatio": 1
+          },
+          "visualViewport": {
+            "width": 390,
+            "height": 844,
+            "offsetTop": 0,
+            "offsetLeft": 0
+          },
+          "rootRect": {
+            "x": 0,
+            "y": 0,
+            "width": 390,
+            "height": 844
+          },
+          "canvas": {
+            "width": 390,
+            "height": 844,
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "width": 390,
+              "height": 844
+            }
+          },
+          "scale": {
+            "width": 390,
+            "height": 844
+          },
+          "camera": {
+            "viewport": {
+              "x": 0,
+              "y": 0,
+              "width": 390,
+              "height": 844
+            },
+            "zoom": 1.25,
+            "scroll": {
+              "x": 417,
+              "y": 584.3999999999999
+            },
+            "worldView": {
+              "x": 456,
+              "y": 669,
+              "width": 312,
+              "height": 675
+            },
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 768,
+              "height": 1344
+            },
+            "roundPixels": false
+          },
+          "arena": {
+            "width": 768,
+            "height": 1344
+          },
+          "player": {
+            "x": 754,
+            "y": 1330,
+            "bodyRadius": 14
+          },
+          "hudLayers": [
+            {
+              "type": "Graphics",
+              "depth": 90,
+              "alpha": 1
+            },
+            {
+              "type": "Rectangle",
+              "depth": 90,
+              "alpha": 1,
+              "fillAlpha": 0.42
+            },
+            {
+              "type": "NineSlice",
+              "depth": 91,
+              "alpha": 0.48
+            }
+          ],
+          "safeArea": {
+            "top": "0px",
+            "right": "0px",
+            "bottom": "0px",
+            "left": "0px"
+          }
+        },
+        "readability": {
+          "actorAlpha": 0.45,
+          "actorPixels": 823,
+          "referenceEnergy": 85641,
+          "actualEnergy": 84672,
+          "retainedContribution": 0.9886853259536904
+        }
+      }
+    ]
+  }
+}

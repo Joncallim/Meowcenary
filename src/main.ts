@@ -224,7 +224,7 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
     const timeout = globalThis.setTimeout(() => finish(false), Math.max(0, deadline - performance.now()));
     pending.then(() => finish(true), () => finish(false));
   });
-  const freezeVisualFrame = async (): Promise<void> => {
+  const pauseVisualAnimations = (): void => {
     for (const scene of game.scene.getScenes(false)) {
       const pending = [...scene.children.list] as Array<Phaser.GameObjects.GameObject & { list?: Phaser.GameObjects.GameObject[] }>;
       while (pending.length > 0) {
@@ -241,6 +241,9 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
       }
     }
     game.anims.pauseAll();
+  };
+  const freezeVisualFrame = async (): Promise<void> => {
+    pauseVisualAnimations();
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     game.loop.sleep();
   };
@@ -253,6 +256,65 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         game.loop.wake();
       },
       isSceneActive: (key: string): boolean => game.scene.isActive(key),
+      waitForInputFrame: (): Promise<boolean> => new Promise((resolve) => {
+        if (!game.isRunning || !game.loop.running) { resolve(false); return; }
+        const finish = (result: boolean): void => {
+          game.events.off(Phaser.Core.Events.POST_STEP, sampled);
+          game.events.off(Phaser.Core.Events.DESTROY, destroyed);
+          resolve(result);
+        };
+        const sampled = (): void => finish(true);
+        const destroyed = (): void => finish(false);
+        // Scene input owners sample during update, before POST_STEP. Observe
+        // one real sample without stepping/waking the game or altering input.
+        game.events.once(Phaser.Core.Events.POST_STEP, sampled);
+        game.events.once(Phaser.Core.Events.DESTROY, destroyed);
+      }),
+      waitForPreparedGame: async (): Promise<boolean> => {
+        // Join the owning serialized loader rather than imposing a synthetic
+        // launch-time performance limit. The caller's test budget still bounds
+        // this diagnostic, and a failed/cancelled handoff remains observable.
+        const menu = game.scene.getScene('MenuScene') as unknown as {
+          runLaunchState?: string;
+          runLaunchGeneration?: number;
+          menuTextureLoadSnapshot?(): Readonly<{ generation: number; pending: Promise<void> }>;
+        };
+        let launchGeneration: number | undefined;
+        let pending: Promise<void> | undefined;
+        let resourcesClosed = false;
+        let loadFailed = false;
+        while (!game.scene.isActive('GameScene')) {
+          if (!game.scene.isActive('MenuScene') || menu.runLaunchState === 'failed') return false;
+          if (menu.runLaunchState === 'loading') launchGeneration ??= menu.runLaunchGeneration;
+          if (launchGeneration !== undefined && launchGeneration !== menu.runLaunchGeneration) return false;
+          const snapshot = menu.menuTextureLoadSnapshot?.();
+          if (!snapshot) return false;
+          if (snapshot.pending !== pending) {
+            pending = snapshot.pending;
+            resourcesClosed = false;
+            // Observe each queue promise once. Loader shutdown may leave its
+            // old promise unresolved, so cancellation must remain independent
+            // of that promise. Late completion only changes diagnostic locals.
+            void pending.then(
+              () => { if (pending === snapshot.pending) resourcesClosed = true; },
+              () => { if (pending === snapshot.pending) loadFailed = true; },
+            );
+          }
+          if (loadFailed) return false;
+          // A completed load queues the scene transition at the next Phaser
+          // frame; input sampling and scene creation retain their real owners.
+          await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        }
+        return resourcesClosed || pending === undefined;
+      },
+      stopPreparingMenu: (): boolean => {
+        const menu = game.scene.getScene('MenuScene') as unknown as { runLaunchState?: string };
+        if (!game.scene.isActive('MenuScene') || menu.runLaunchState !== 'loading') return false;
+        // Exercise the real Phaser shutdown while a resource request is held.
+        // This seam exists only in the explicitly opted-in visual test build.
+        game.scene.stop('MenuScene');
+        return true;
+      },
       placePlayerForArenaFraming: (x: number, y: number): boolean => {
         const scene = game.scene.getScene('GameScene') as unknown as {
           player?: {
@@ -341,6 +403,105 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
           },
           fullscreen: document.fullscreenElement?.id,
         });
+      },
+      captureArenaReadability: async (): Promise<Record<string, unknown> | undefined> => {
+        // A finite, visual-build-only diagnostic. Compare identical world/pose
+        // pixels with and without UI paint; geometry/alpha checks alone cannot
+        // detect a translucent plate or a control erasing the actor beneath it.
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          player?: { view?: { sprite?: Phaser.GameObjects.Sprite } };
+          cameras: { main: Phaser.Cameras.Scene2D.Camera };
+          children: { list: Phaser.GameObjects.GameObject[] };
+        };
+        const actor = scene?.player?.view?.sprite;
+        if (!game.scene.isActive('GameScene') || !actor) return undefined;
+        const wasRunning = game.loop.running;
+        const animationsWerePaused = game.anims.paused;
+        const restoreLoop = () => {
+          if (!game.isRunning) return;
+          if (!animationsWerePaused) game.anims.resumeAll();
+          if (wasRunning) game.loop.wake();
+        };
+        // The settled pose is rendered explicitly four times below. Freeze
+        // synchronously so two incidental full-scene renders do not precede
+        // every diagnostic. Screenshot callers retain their rendered freeze.
+        pauseVisualAnimations();
+        game.loop.sleep();
+        if (!game.scene.isActive('GameScene') || !actor.active) { restoreLoop(); return undefined; }
+        const camera = scene.cameras.main;
+        const scrollX = camera.scrollX;
+        const scrollY = camera.scrollY;
+        const ui = (scene.children.list as Array<Phaser.GameObjects.GameObject & {
+          depth: number; visible: boolean; setVisible(value: boolean): unknown;
+        }>).filter((node) => node.depth >= 90);
+        const visible = ui.map((node) => node.visible);
+        const actorVisible = actor.visible;
+        const canvas = document.createElement('canvas');
+        canvas.width = game.canvas.width;
+        canvas.height = game.canvas.height;
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        if (!context) { restoreLoop(); return undefined; }
+        const timings: Record<string, number> = {};
+        const capture = (withUi: boolean, withActor: boolean) => {
+          const started = performance.now();
+          ui.forEach((node, index) => node.setVisible(withUi && visible[index]));
+          actor.setVisible(withActor && actorVisible);
+          // Camera.preRender normally advances follow. Start each diagnostic
+          // render from the same scroll so four captures share one transform.
+          camera.setScroll(scrollX, scrollY);
+          game.renderer.preRender();
+          game.scene.render(game.renderer);
+          game.renderer.postRender();
+          const rendered = performance.now();
+          context.clearRect(0, 0, canvas.width, canvas.height);
+          context.drawImage(game.canvas, 0, 0);
+          // Actor-absent frames are pixel controls, never returned image
+          // artifacts. Keep their full readbacks; avoid two unused HD encodes.
+          const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+          const read = performance.now();
+          const image = withActor ? canvas.toDataURL('image/png') : undefined;
+          const label = `${withUi ? 'ui' : 'plain'}-${withActor ? 'actor' : 'empty'}`;
+          timings[`${label}:render`] = rendered - started;
+          timings[`${label}:read`] = read - rendered;
+          timings[`${label}:encode`] = performance.now() - read;
+          return { image, pixels };
+        };
+        try {
+          const plain = capture(false, false);
+          const reference = capture(false, true);
+          const covered = capture(true, false);
+          const actual = capture(true, true);
+          let referenceEnergy = 0;
+          let actualEnergy = 0;
+          let actorPixels = 0;
+          for (let index = 0; index < plain.pixels.length; index += 4) {
+            let referenceDifference = 0;
+            let actualDifference = 0;
+            for (let channel = 0; channel < 3; channel++) {
+              referenceDifference += Math.abs(reference.pixels[index + channel] - plain.pixels[index + channel]);
+              actualDifference += Math.abs(actual.pixels[index + channel] - covered.pixels[index + channel]);
+            }
+            if (referenceDifference < 12) continue;
+            actorPixels++;
+            referenceEnergy += referenceDifference;
+            actualEnergy += actualDifference;
+          }
+          return {
+            timings,
+            actorAlpha: actor.alpha,
+            actorPixels,
+            referenceEnergy,
+            actualEnergy,
+            retainedContribution: referenceEnergy > 0 ? actualEnergy / referenceEnergy : 0,
+            reference: reference.image,
+            actual: actual.image,
+          };
+        } finally {
+          ui.forEach((node, index) => node.setVisible(visible[index]));
+          actor.setVisible(actorVisible);
+          camera.setScroll(scrollX, scrollY);
+          restoreLoop();
+        }
       },
       menuLoadoutDiagnostics: (): Record<string, unknown> | undefined => {
         const scene = game.scene.getScene('MenuScene') as unknown as {

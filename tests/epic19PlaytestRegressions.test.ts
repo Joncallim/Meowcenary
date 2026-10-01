@@ -43,6 +43,49 @@ function fakeSceneObjects(h: { gameScene: object }): FakeSceneObject[] {
   return (h.gameScene as unknown as { objects: FakeSceneObject[] }).objects;
 }
 
+
+/** This legacy composition predates Phaser's mutable world-bounds output.
+ * Adapt this file's HUD paints without changing other journey fixtures. */
+function addHudPaintContracts(scene: ReturnType<typeof createGameSoakHarness>['gameScene']): void {
+  type Paint = ReturnType<typeof createSharedFakeSceneForConformance>['objects'][number];
+  type Bounds = { x: number; y: number; width: number; height: number };
+  const addFactory = (scene as unknown as ReturnType<typeof createSharedFakeSceneForConformance>['scene']).add;
+  const parents = new WeakMap<Paint, Paint>();
+  const decorate = (paint: Paint): Paint => {
+    let originX = paint.state.kind === 'text' ? 0 : 0.5;
+    let originY = originX;
+    let visible = true;
+    paint.setOrigin = (x = 0.5, y = x) => { originX = x; originY = y; return paint; };
+    paint.setVisible = (value = true) => { visible = value; return paint; };
+    Object.defineProperty(paint, 'visible', { get: () => visible && !paint.state.destroyed });
+    paint.getBounds = ((output: Bounds = { x: 0, y: 0, width: 0, height: 0 }) => {
+      const state = paint.state;
+      const parent = parents.get(paint)?.state;
+      output.width = paint.width * state.scaleX;
+      output.height = paint.height * state.scaleY;
+      output.x = state.x + (parent?.x ?? 0) - originX * output.width;
+      output.y = state.y + (parent?.y ?? 0) - originY * output.height;
+      return output;
+    }) as Paint['getBounds'];
+    return paint;
+  };
+  const container = addFactory.container.bind(scene.add);
+  addFactory.container = (x, y) => {
+    const root = container(x, y);
+    Object.defineProperty(root, 'list', { get: () => root.children });
+    const add = root.add.bind(root);
+    root.add = (children) => {
+      for (const child of Array.isArray(children) ? children : [children]) parents.set(child as Paint, root);
+      return add(children);
+    };
+    return root;
+  };
+  const text = addFactory.text.bind(scene.add);
+  addFactory.text = (...args) => decorate(text(...args));
+  const rectangle = addFactory.rectangle.bind(scene.add);
+  addFactory.rectangle = (...args) => decorate(rectangle(...args));
+}
+
 describe('Epic 19 playtest fixes: production-composition pointer merge', () => {
   it('pointer-tap slot A, slot B, Merge -> exactly one weapon:merged from the pointer path', () => {
     const h = createGameSoakHarness({ fixtureSeed: 3, runSeed: 77, storageKey: 'e19-ptr-merge' });
@@ -570,6 +613,7 @@ describe('Epic 19 playtest fixes: health/control-lane 8px physical gap', () => {
   it.each(REFERENCE_VIEWPORTS)('keeps an >=8px physical gap at $name', ({ width, height }) => {
     const h = createGameSoakHarness({ fixtureSeed: width, runSeed: height, storageKey: `e19-gap-${width}` });
     h.resizeTo(width, height);
+    addHudPaintContracts(h.gameScene);
     const hud = new PhaserHudView({
       scene: h.gameScene as never,
       viewport: zoomedGameUiViewport(
@@ -633,6 +677,7 @@ describe('Epic 19 playtest fixes: zoomed GameScene HUD backing projection', () =
       h.gameScene.scale.parentSize.height,
     );
     const before = new Set(fakeSceneObjects(h));
+    addHudPaintContracts(h.gameScene);
     const hud = new PhaserHudView({ scene: h.gameScene as never, viewport });
     const backing = fakeSceneObjects(h)
       .filter((object) => !before.has(object))
@@ -654,6 +699,7 @@ describe('Epic 19 playtest fixes: zoomed GameScene HUD backing projection', () =
 describe('Epic 19 playtest fixes: four-viewport HUD soak', () => {
   it.each(REFERENCE_VIEWPORTS)('keeps both bars and the compact stat rows safe in both directions at $name', ({ width, height }) => {
     const h = createGameSoakHarness({ fixtureSeed: width + height, runSeed: width, storageKey: `e19-hud-${width}` });
+    addHudPaintContracts(h.gameScene);
     const hud = new PhaserHudView({
       scene: h.gameScene as never,
       viewport: zoomedGameUiViewport(
