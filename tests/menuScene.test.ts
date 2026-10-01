@@ -958,7 +958,7 @@ describe('MenuScene', () => {
       'Pistol Build', 'SMG Build', 'Shotgun Build', 'SELECTED',
       'PISTOL BUILD\nSelected • Active from start', 'Stock Pistol chassis',
     ]));
-    const compactLabel = 'Compact Receiver • COMMON\nFABRICABLE • 60 Scrap\n+8% Fire Rate\nCurrent build: Fire interval 650ms → 601.9ms\nFabricate for 60 Scrap\nFabricate — 60 Scrap';
+    const compactLabel = 'Compact Receiver • COMMON\nFABRICABLE • 60 Scrap\n+8% Fire Rate\nCurrent build: Fire interval 650ms to 601.9ms\nFabricate for 60 Scrap\nFabricate — 60 Scrap';
     expect(harness.textContents()).toEqual(expect.arrayContaining(['PART CATALOG', compactLabel]));
     expect(harness.textContents().join('\n')).toContain('Standard Barrel • COMMON\nLOCKED');
     expect(harness.buttonByLabel(compactLabel)!.state.interactive).toBe(false);
@@ -1201,7 +1201,8 @@ describe('MenuScene', () => {
     expect(row.state.text).toContain('REPLACE HEAVY RECEIVER T2');
     expect(row.state.text).toContain('Heavy Receiver T2 returns to STORED.');
     expect(row.state.text).toContain('Current build:');
-    expect(row.state.text).toContain('→');
+    expect(row.state.text).toContain('738.6ms to 601.9ms');
+    expect(row.state.text).not.toContain('→');
     expect(mutate).not.toHaveBeenCalled();
     expect(harness.context.saveData.gunsmith).toBe(original);
     row.state.handlers.pointerup!();

@@ -56,8 +56,10 @@ test('focused Gunsmith replacement keeps the entire action clear of its card bor
     await expect.poll(async () => candidate(await diagnostic(page)).focused).toBe(true);
     const state = await diagnostic(page);
     const row = candidate(state);
+    const capturePath = testInfo.outputPath(`focused-replacement-${viewport.width}x${viewport.height}.png`);
+    await page.screenshot({ path: capturePath, scale: 'css' });
     await testInfo.attach(`focused-replacement-${viewport.width}x${viewport.height}`, {
-      body: await page.screenshot({ scale: 'css' }), contentType: 'image/png',
+      path: capturePath, contentType: 'image/png',
     });
     expect(row.text).toContain('REPLACE HEAVY RECEIVER T2');
     expect(row.text).toContain('Heavy Receiver T2 returns to STORED.');
