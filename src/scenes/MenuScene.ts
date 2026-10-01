@@ -169,6 +169,7 @@ export class MenuScene extends Phaser.Scene {
         return { key: this.focusKeyByButton.get(button) ?? (button.text === 'Back' ? 'back' : undefined),
           text: button.text, focused: index === this.navigator.index, visible: button.visible,
           interactive: button.input?.enabled === true,
+          textInsets: { top: button.padding.top, bottom: button.padding.bottom },
           bounds: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height } };
       }),
       scroll: this.scrollRegion ? { top: this.scrollViewportTop, bottom: this.scrollViewportBottom,
