@@ -342,6 +342,88 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
           fullscreen: document.fullscreenElement?.id,
         });
       },
+      captureArenaReadability: async (): Promise<Record<string, unknown> | undefined> => {
+        // A finite, visual-build-only diagnostic. Compare identical world/pose
+        // pixels with and without UI paint; geometry/alpha checks alone cannot
+        // detect a translucent plate or a control erasing the actor beneath it.
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          player?: { view?: { sprite?: Phaser.GameObjects.Sprite } };
+          cameras: { main: Phaser.Cameras.Scene2D.Camera };
+          children: { list: Phaser.GameObjects.GameObject[] };
+        };
+        const actor = scene?.player?.view?.sprite;
+        if (!game.scene.isActive('GameScene') || !actor) return undefined;
+        const wasRunning = game.loop.running;
+        const animationsWerePaused = game.anims.paused;
+        const restoreLoop = () => {
+          if (!game.isRunning) return;
+          if (!animationsWerePaused) game.anims.resumeAll();
+          if (wasRunning) game.loop.wake();
+        };
+        await freezeVisualFrame();
+        if (!game.scene.isActive('GameScene') || !actor.active) { restoreLoop(); return undefined; }
+        const camera = scene.cameras.main;
+        const scrollX = camera.scrollX;
+        const scrollY = camera.scrollY;
+        const ui = (scene.children.list as Array<Phaser.GameObjects.GameObject & {
+          depth: number; visible: boolean; setVisible(value: boolean): unknown;
+        }>).filter((node) => node.depth >= 90);
+        const visible = ui.map((node) => node.visible);
+        const actorVisible = actor.visible;
+        const canvas = document.createElement('canvas');
+        canvas.width = game.canvas.width;
+        canvas.height = game.canvas.height;
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        if (!context) { restoreLoop(); return undefined; }
+        const capture = (withUi: boolean, withActor: boolean) => {
+          ui.forEach((node, index) => node.setVisible(withUi && visible[index]));
+          actor.setVisible(withActor && actorVisible);
+          // Camera.preRender normally advances follow. Start each diagnostic
+          // render from the same scroll so four captures share one transform.
+          camera.setScroll(scrollX, scrollY);
+          game.renderer.preRender();
+          game.scene.render(game.renderer);
+          game.renderer.postRender();
+          context.clearRect(0, 0, canvas.width, canvas.height);
+          context.drawImage(game.canvas, 0, 0);
+          return { image: canvas.toDataURL('image/png'), pixels: context.getImageData(0, 0, canvas.width, canvas.height).data };
+        };
+        try {
+          const plain = capture(false, false);
+          const reference = capture(false, true);
+          const covered = capture(true, false);
+          const actual = capture(true, true);
+          let referenceEnergy = 0;
+          let actualEnergy = 0;
+          let actorPixels = 0;
+          for (let index = 0; index < plain.pixels.length; index += 4) {
+            let referenceDifference = 0;
+            let actualDifference = 0;
+            for (let channel = 0; channel < 3; channel++) {
+              referenceDifference += Math.abs(reference.pixels[index + channel] - plain.pixels[index + channel]);
+              actualDifference += Math.abs(actual.pixels[index + channel] - covered.pixels[index + channel]);
+            }
+            if (referenceDifference < 12) continue;
+            actorPixels++;
+            referenceEnergy += referenceDifference;
+            actualEnergy += actualDifference;
+          }
+          return {
+            actorAlpha: actor.alpha,
+            actorPixels,
+            referenceEnergy,
+            actualEnergy,
+            retainedContribution: referenceEnergy > 0 ? actualEnergy / referenceEnergy : 0,
+            reference: reference.image,
+            actual: actual.image,
+          };
+        } finally {
+          ui.forEach((node, index) => node.setVisible(visible[index]));
+          actor.setVisible(actorVisible);
+          camera.setScroll(scrollX, scrollY);
+          restoreLoop();
+        }
+      },
       menuLoadoutDiagnostics: (): Record<string, unknown> | undefined => {
         const scene = game.scene.getScene('MenuScene') as unknown as {
           loadoutUiDiagnostics?(): Record<string, unknown>;
