@@ -253,6 +253,51 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         game.loop.wake();
       },
       isSceneActive: (key: string): boolean => game.scene.isActive(key),
+      waitForPreparedGame: async (): Promise<boolean> => {
+        // Join the owning serialized loader rather than imposing a synthetic
+        // launch-time performance limit. The caller's test budget still bounds
+        // this diagnostic, and a failed/cancelled handoff remains observable.
+        const menu = game.scene.getScene('MenuScene') as unknown as {
+          runLaunchState?: string;
+          runLaunchGeneration?: number;
+          menuTextureLoadSnapshot?(): Readonly<{ generation: number; pending: Promise<void> }>;
+        };
+        let launchGeneration: number | undefined;
+        let pending: Promise<void> | undefined;
+        let resourcesClosed = false;
+        let loadFailed = false;
+        while (!game.scene.isActive('GameScene')) {
+          if (!game.scene.isActive('MenuScene') || menu.runLaunchState === 'failed') return false;
+          if (menu.runLaunchState === 'loading') launchGeneration ??= menu.runLaunchGeneration;
+          if (launchGeneration !== undefined && launchGeneration !== menu.runLaunchGeneration) return false;
+          const snapshot = menu.menuTextureLoadSnapshot?.();
+          if (!snapshot) return false;
+          if (snapshot.pending !== pending) {
+            pending = snapshot.pending;
+            resourcesClosed = false;
+            // Observe each queue promise once. Loader shutdown may leave its
+            // old promise unresolved, so cancellation must remain independent
+            // of that promise. Late completion only changes diagnostic locals.
+            void pending.then(
+              () => { if (pending === snapshot.pending) resourcesClosed = true; },
+              () => { if (pending === snapshot.pending) loadFailed = true; },
+            );
+          }
+          if (loadFailed) return false;
+          // A completed load queues the scene transition at the next Phaser
+          // frame; input sampling and scene creation retain their real owners.
+          await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        }
+        return resourcesClosed || pending === undefined;
+      },
+      stopPreparingMenu: (): boolean => {
+        const menu = game.scene.getScene('MenuScene') as unknown as { runLaunchState?: string };
+        if (!game.scene.isActive('MenuScene') || menu.runLaunchState !== 'loading') return false;
+        // Exercise the real Phaser shutdown while a resource request is held.
+        // This seam exists only in the explicitly opted-in visual test build.
+        game.scene.stop('MenuScene');
+        return true;
+      },
       placePlayerForArenaFraming: (x: number, y: number): boolean => {
         const scene = game.scene.getScene('GameScene') as unknown as {
           player?: {

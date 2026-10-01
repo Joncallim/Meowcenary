@@ -2,9 +2,10 @@
 
 Current-main baseline: `a08d05ee4ec25498984765e6e67abad423043813`.
 
-Geometry was already correct: authored physics/world boundaries, camera zoom,
-subpixel follow and root/canvas containment expose the top. The remaining owner
-is screen-fixed paint. A 0.42 rectangle and 0.48 filled nine-slice compound;
+Captured world/camera/root/canvas facts expose the authored world top without
+a DOM offset or HUD-derived physics wall. One proven occlusion owner is
+screen-fixed paint; the separate actor-display crop remains open below.
+A 0.42 rectangle and 0.48 filled nine-slice compound;
 opaque meter paint and corner controls can additionally cover the actor.
 The existing `alpha < 1` browser assertion passes this failure.
 
@@ -129,6 +130,31 @@ actual scroll with viewport/zoom-derived clamping at the same tolerance, then
 asserts the integer descriptor exactly. No runtime, time budget, contrast bound,
 golden or image threshold changes. The focused foldable pair passes; the full
 matrix must be rerun before merge.
+
+The corrected `24c3465` full local matrix finished **91 passed / 59 existing
+skips / zero failures**. Hosted runs exposed a separate test-harness assumption:
+the new tests held Enter while polling scene activation with the default
+five-second assertion window. The `95ec2d0` hosted run had four such desktop
+launch failures plus the foldable descriptor failure above; `24c3465` had two
+desktop launch failures (**89 passed / 59 existing skips**). All four original
+desktop failure screenshots were inspected: GameScene was fully constructed
+at capture, with its intro and time zero. This supports a preparation-observation
+race under load, not a proven gameplay launch failure. No golden was changed.
+
+The visual-only observer now watches the owning serialized resource queue and
+real scene handoff within the unchanged test budget, rather than imposing a
+synthetic five-second launch performance gate. It observes each distinct promise
+once and checks lifecycle/failure/generation independently on frame boundaries;
+it does not wait indefinitely on a loader promise orphaned by scene shutdown.
+Two conformance cases hold a real run asset: one requires the observer to stay
+pending until resource completion and real GameScene activation; the other
+stops the preparing Menu through Phaser, requires cancellation before releasing
+the asset, and rejects late scene resurrection or page errors. This test-only
+shutdown seam is absent from ordinary production. The old promise-blocking
+observer is separately demonstrated RED at the unchanged 30-second budget;
+the corrected eight-case foldable/desktop run passes. Full exact-head local and
+hosted validation is still required before merge. The diagnostic correction
+does not change runtime Menu, resource-loading, input or gameplay semantics.
 
 The supplemental corrected checks also pass six cases: 412×915 at DPR 3,
 844×390 fine-pointer desktop, and 1114×720 foldable at DPR 3. Raw contrast and

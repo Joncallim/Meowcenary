@@ -21,6 +21,8 @@ type Readability = {
 type Seam = {
   waitForMenuPresentation(): Promise<boolean>;
   isSceneActive(key: string): boolean;
+  waitForPreparedGame(): Promise<boolean>;
+  stopPreparingMenu(): boolean;
   placePlayerForArenaFraming(x: number, y: number): boolean;
   arenaFramingDiagnostics(): Framing | undefined;
   captureArenaReadability(): Promise<Readability | undefined>;
@@ -33,8 +35,11 @@ test('world actor remains distinguishable beneath HUD meters and corner controls
   await expect.poll(() => page.evaluate(() => Boolean(globalThis.__MEOWCENARY_VISUAL_TEST__))).toBe(true);
   expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
   await page.keyboard.down('Enter');
-  await expect.poll(() => page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.isSceneActive('GameScene'))).toBe(true);
-  await page.keyboard.up('Enter');
+  try {
+    expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForPreparedGame())).toBe(true);
+  } finally {
+    await page.keyboard.up('Enter');
+  }
   const initial = await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics());
   expect(initial).toBeDefined();
   const { width, height } = initial!.arena;
@@ -113,8 +118,11 @@ test('a stopped GameScene cannot repaint an old HUD during Menu resize', async (
   const launch = async () => {
     expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
     await page.keyboard.down('Enter');
-    await expect.poll(() => page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.isSceneActive('GameScene'))).toBe(true);
-    await page.keyboard.up('Enter');
+    try {
+      expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForPreparedGame())).toBe(true);
+    } finally {
+      await page.keyboard.up('Enter');
+    }
     await frames();
   };
   const plateCount = () => page.evaluate(() => {
@@ -147,5 +155,84 @@ test('a stopped GameScene cannot repaint an old HUD during Menu resize', async (
     // A leaked PhaserHudView resize subscription creates two extra plates in
     // the inactive scene, which then coexist with the next live HUD.
     expect(await plateCount()).toBe(2);
+  }
+});
+
+test('prepared-game observation joins held run art before the real scene handoff', async ({ page }) => {
+  let blockRun = false;
+  let held = false;
+  let release!: () => void;
+  let requested!: (url: string) => void;
+  const requestedAsset = new Promise<string>((resolve) => { requested = resolve; });
+  const releaseAsset = new Promise<void>((resolve) => { release = resolve; });
+  await page.route('**/assets/**', async (route) => {
+    if (blockRun && !held) {
+      held = true;
+      requested(route.request().url());
+      await releaseAsset;
+    }
+    await route.continue();
+  });
+  await page.goto('/?visual-test=1');
+  await expect.poll(() => page.evaluate(() => Boolean(globalThis.__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+  expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
+  blockRun = true;
+  await page.keyboard.down('Enter');
+  try {
+    expect(new URL(await requestedAsset).pathname).toMatch(/^\/assets\//);
+    const preparation = page.evaluate(async () => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForPreparedGame());
+    let observed = false;
+    const observation = preparation.then((value) => { observed = true; return value; });
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    expect(observed).toBe(false);
+    expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.isSceneActive('GameScene'))).toBe(false);
+    release();
+    expect(await observation).toBe(true);
+    expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.isSceneActive('GameScene'))).toBe(true);
+  } finally {
+    release();
+    await page.keyboard.up('Enter');
+  }
+});
+
+test('prepared-game observation cancels during held art without a late scene resurrection', async ({ page }) => {
+  let blockRun = false;
+  let held = false;
+  let release!: () => void;
+  let requested!: (url: string) => void;
+  const requestedAsset = new Promise<string>((resolve) => { requested = resolve; });
+  const releaseAsset = new Promise<void>((resolve) => { release = resolve; });
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.route('**/assets/**', async (route) => {
+    if (blockRun && !held) {
+      held = true;
+      requested(route.request().url());
+      await releaseAsset;
+    }
+    await route.continue();
+  });
+  await page.goto('/?visual-test=1');
+  await expect.poll(() => page.evaluate(() => Boolean(globalThis.__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+  expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
+  blockRun = true;
+  await page.keyboard.down('Enter');
+  try {
+    const heldUrl = await requestedAsset;
+    const observation = page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForPreparedGame());
+    expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.stopPreparingMenu())).toBe(true);
+    // Cancellation must resolve while the old loader request is still held.
+    // Joining only that promise would hang until the unchanged test budget.
+    expect(await observation).toBe(false);
+    expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.isSceneActive('MenuScene'))).toBe(false);
+    const resumedResponse = page.waitForResponse((response) => response.url() === heldUrl);
+    release();
+    await resumedResponse;
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.isSceneActive('GameScene'))).toBe(false);
+    expect(errors).toEqual([]);
+  } finally {
+    release();
+    await page.keyboard.up('Enter');
   }
 });
