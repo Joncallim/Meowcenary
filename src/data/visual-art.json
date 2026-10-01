@@ -2186,6 +2186,12 @@
     { "id": "objective-icon:survive", "kind": "icon", "required": true, "display": { "width": 56, "height": 56 }, "resourceId": "resource:menu-semantic-icons", "frameKey": "objective-icon:survive" },
     { "id": "objective-icon:defeat", "kind": "icon", "required": true, "display": { "width": 56, "height": 56 }, "resourceId": "resource:menu-semantic-icons", "frameKey": "objective-icon:defeat" },
     { "id": "arena-card:junkyard", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "arena-card:junkyard" },
-    { "id": "arena-card:forge", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "arena-card:forge" }
-  ]
+    { "id": "arena-card:forge", "kind": "icon", "required": true, "display": { "width": 24, "height": 24 }, "resourceId": "resource:ui-atlas", "frameKey": "arena-card:forge" },
+    {"id": "ui-chrome:figma-card", "kind": "icon", "required": true, "display": {"width": 174, "height": 75}, "resourceId": "resource:figma-menu-chrome", "frameKey": "ui-chrome:figma-card"},
+    {"id": "ui-chrome:figma-selected", "kind": "icon", "required": true, "display": {"width": 354, "height": 241}, "resourceId": "resource:figma-menu-chrome", "frameKey": "ui-chrome:figma-selected"},
+    {"id": "ui-chrome:figma-primary", "kind": "icon", "required": true, "display": {"width": 220, "height": 51}, "resourceId": "resource:figma-menu-chrome", "frameKey": "ui-chrome:figma-primary"},
+    {"id": "ui-chrome:figma-rivet", "kind": "icon", "required": true, "display": {"width": 5, "height": 5}, "resourceId": "resource:figma-menu-chrome", "frameKey": "ui-chrome:figma-rivet"},
+    {"id": "ui-chrome:figma-arrow", "kind": "icon", "required": true, "display": {"width": 14, "height": 20}, "resourceId": "resource:figma-menu-chrome", "frameKey": "ui-chrome:figma-arrow"},
+    {"id": "brand:figma-home-lockup", "kind": "icon", "required": true, "display": {"width": 174, "height": 129}, "resourceId": "resource:figma-menu-chrome", "frameKey": "brand:figma-home-lockup"}
+]
 }

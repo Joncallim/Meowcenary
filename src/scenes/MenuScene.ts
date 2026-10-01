@@ -55,6 +55,8 @@ export class MenuScene extends Phaser.Scene {
   private nextFocusKey?: string;
   private nextFocusAlignTop = false;
   private equipmentSlotColumns = 2;
+  private loadoutSurface = false;
+  private equipmentSetBrowserOpen = false;
   /** Buttons which remain readable/focusable for their lock explanation but
    * must never regain pointer or logical activation when scrolling changes
    * viewport visibility. */
@@ -210,6 +212,7 @@ export class MenuScene extends Phaser.Scene {
     this.pendingPanelArtIds.clear();
     this.pendingPanelArtRepaints.clear();
     this.isLive = true;
+    this.equipmentSetBrowserOpen = false;
     const ctx = this.getContext();
     this.visualArt = new DataVisualArtRegistry(ctx.data);
     this.uiVisuals = createUiVisualChrome(this.visualArt);
@@ -339,6 +342,7 @@ export class MenuScene extends Phaser.Scene {
       backdrop.setScale(coverScale);
     }
 
+    this.loadoutSurface = snapshot.panel === 'loadout' || snapshot.panel === 'equipment';
     const width = this.scale.width;
     const viewport: UiViewport = responsiveUiViewport(this.scale.width, this.scale.height);
     this.currentViewport = viewport;
@@ -355,6 +359,10 @@ export class MenuScene extends Phaser.Scene {
     const margin = leftMargin;
     const hitTarget = minimumHitTarget(viewport);
 
+    if (this.loadoutSurface) {
+      this.own(root, this.add.rectangle(width / 2, this.scale.height / 2, width, this.scale.height, 0x090e12));
+      this.own(root, this.add.rectangle(width / 2, topMargin + 24, width, 48, 0x101b22));
+    }
     try {
       const title = this.own(root, createUiText(this,this.safeCenterX, 28 + topMargin, 'Meowcenary', {
         align: 'center',
@@ -366,7 +374,7 @@ export class MenuScene extends Phaser.Scene {
       title.setOrigin(0.5).setScrollFactor(0);
       title.setAlpha?.(0);
       const lockupBinding = this.uiVisuals?.binding('brand:title-lockup');
-      if (lockupBinding && this.textures?.exists?.(lockupBinding.textureKey) && typeof this.add.image === 'function') {
+      if (!this.loadoutSurface && lockupBinding && this.textures?.exists?.(lockupBinding.textureKey) && typeof this.add.image === 'function') {
         const lockup = this.own(root, this.add.image(
           this.safeCenterX,
           title.y,
@@ -388,8 +396,8 @@ export class MenuScene extends Phaser.Scene {
         notice.setOrigin(0.5, 0).setScrollFactor(0);
       }
 
-      const contentTop = (snapshot.notice ? 96 : 76) + topMargin;
-      const contentPanel = this.uiVisuals?.addPanel(
+      const contentTop = (snapshot.notice ? 96 : this.loadoutSurface ? 58 : 76) + topMargin;
+      const contentPanel = this.loadoutSurface ? undefined : this.uiVisuals?.addPanel(
         this,
         this.safeCenterX,
         contentTop + (this.scale.height - contentTop - edgeMargin(viewport, 'bottom')) / 2,
@@ -686,21 +694,51 @@ export class MenuScene extends Phaser.Scene {
       `${threshold.count}-piece ${threshold.active ? 'ACTIVE' : 'INACTIVE'}: ${this.loadoutEffectCopy(threshold.effects)}`).join('\n')}`;
   }
 
+  private loadoutMaterial(root: Phaser.GameObjects.Container, x: number, y: number, width: number, height: number, selected = false): void {
+    const panel = this.uiVisuals?.addPanel(this, x + width / 2, y + height / 2, width, height, selected ? 'figma-selected' : 'figma-card');
+    if (panel) { this.own(root, panel); this.registerScrollObject(panel); }
+  }
+
+  /** Footer controls never enter the masked content container. */
+  private loadoutFooter(root: Phaser.GameObjects.Container, left: number, width: number, hitTarget: number, label: string, action: () => void, back = false): Phaser.GameObjects.Text {
+    const y = this.scale.height - edgeMargin(this.currentViewport!, 'bottom') - hitTarget - 8;
+    const footer = this.own(root, this.add.rectangle(left + width / 2, y + hitTarget / 2, width, hitTarget + 16, 0x101b22));
+    footer.setScrollFactor(0);
+    const backWidth = back ? Math.min(120, width / 3) : 0;
+    if (back) this.addButton(root, left, y, 'Back', hitTarget, () => this.render(this.requireController().open('loadout')), 'ui:back', backWidth);
+    const button = this.addButton(root, left + (back ? backWidth + 8 : 0), y, label, hitTarget, action, 'ui:confirm', width - (back ? backWidth + 8 : 0));
+    const bounds = button.getBounds();
+    const chrome = this.uiVisuals?.addPanel(this, bounds.centerX, bounds.centerY, bounds.width, bounds.height, 'figma-primary');
+    if (chrome) { this.own(root, chrome); root.moveTo(chrome, Math.max(0, root.list.indexOf(button))); }
+    return button;
+  }
+
   private renderLoadout(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
-    const heading = this.addHeading(root, this.safeCenterX, top, 'Loadout');
+    this.addHeading(root, this.safeCenterX, edgeMargin(this.currentViewport!, 'top') + 24, 'Loadout');
     const contentWidth = Math.min(840, width - margin - this.safeRightMargin);
     const left = this.safeCenterX - contentWidth / 2;
-    let y = top + heading.height + 12;
+    let y = top;
     this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
     const equipment = snapshot.equipment;
     const gunsmith = snapshot.gunsmith;
     const selectedCharacter = snapshot.character.characters.find((row) => row.selected);
-    const character = this.loadoutCopy(root, left + 76, y, `${selectedCharacter?.name ?? 'Mercenary'}\n${this.getContext().saveData.progression.scrap} Scrap`, contentWidth - 76);
-    if (selectedCharacter) this.addPanelArt(root, left + 34, y + 36, selectedCharacter.portraitArtId, 68);
-    y += Math.max(76, character.height + 12);
+    this.loadoutMaterial(root, left, y, contentWidth, 146, true);
+    this.loadoutCopy(root, left + 112, y + 12, 'MERCENARY', contentWidth - 128, '#f78003');
+    this.loadoutCopy(root, left + 112, y + 38, `${selectedCharacter?.name ?? 'Mercenary'}\n${this.getContext().saveData.progression.scrap} Scrap`, contentWidth - 128);
+    if (selectedCharacter) this.addPanelArt(root, left + 54, y + 74, selectedCharacter.portraitArtId, 96);
+    y += 162;
+    this.loadoutMaterial(root, left, y, contentWidth, 100);
+    this.loadoutCopy(root, left + 94, y + 12, 'STOCK WEAPON', contentWidth - 108, '#f78003');
+    this.loadoutCopy(root, left + 94, y + 38, selectedCharacter?.startingWeaponSummary ?? 'No starting weapon selected', contentWidth - 108);
+    if (selectedCharacter?.startingWeaponIconArtId) this.addPanelArt(root, left + 46, y + 50, selectedCharacter.startingWeaponIconArtId, 70);
+    y += 116;
     const title = this.loadoutCopy(root, left, y, 'EQUIPMENT • WHOLE LOADOUT', contentWidth);
     y += title.height + 8;
     y = this.renderEquipmentSlots(root, snapshot, left, y, contentWidth, hitTarget, true);
+    const actionWidth = (contentWidth - 10) / 2;
+    this.rememberLoadoutFocus(this.addButton(root, left, y, 'Equipment', Math.max(hitTarget, 64), () => this.render(this.requireController().open('equipment')), 'ui:confirm', actionWidth, 'nav-icon:equipment'), 'loadout:equipment');
+    this.rememberLoadoutFocus(this.addButton(root, left + actionWidth + 10, y, 'Gunsmith', Math.max(hitTarget, 64), () => this.render(this.requireController().open('gunsmith')), 'ui:confirm', actionWidth, 'nav-icon:gunsmith'), 'loadout:gunsmith');
+    y += Math.max(hitTarget, 64) + 14;
     const equippedEffects = equipment.presentation.slots.flatMap((slot) => slot.equipped?.effects ?? []);
     if (equippedEffects.length) {
       const effectHeading = this.loadoutCopy(root, left, y, 'EQUIPPED EFFECTS', contentWidth);
@@ -723,7 +761,7 @@ export class MenuScene extends Phaser.Scene {
     if (selected) {
       const previewHeight = 100;
       if (selected.preview) {
-        this.renderAssembledWeapon(root, selected.preview, this.safeCenterX, y + 40);
+        this.renderAssembledWeapon(root, selected.preview, this.safeCenterX, y + 40, 88);
         selected.preview.traitEmblems.forEach((trait, index) => this.addCatalogIcon(root, left + 22 + index * 40, y + 40, trait.iconArtId, 34));
       }
       y += previewHeight;
@@ -736,26 +774,24 @@ export class MenuScene extends Phaser.Scene {
         y += this.loadoutCopy(root, left, y, `${trait.trait} [${family?.name ?? selected.familyId}]${trait.deduplicated ? ' • Does not stack' : ''}\nSources: ${trait.sourceLabels.join(' • ')}`, contentWidth).height + 6;
       }
     } else y += this.loadoutCopy(root, left, y, 'Choose a weapon family to engineer', contentWidth).height + 8;
-    const actionWidth = Math.min(560, contentWidth);
-    const actionX = this.safeCenterX - actionWidth / 2;
-    this.rememberLoadoutFocus(this.addButton(root, actionX, y, 'Equipment', Math.max(hitTarget, 60), () => this.render(this.requireController().open('equipment')), 'ui:confirm', actionWidth, 'nav-icon:equipment'), 'loadout:equipment');
-    y += Math.max(hitTarget, 60) + 10;
-    this.rememberLoadoutFocus(this.addButton(root, actionX, y, 'Gunsmith', Math.max(hitTarget, 60), () => this.render(this.requireController().open('gunsmith')), 'ui:confirm', actionWidth, 'nav-icon:gunsmith'), 'loadout:gunsmith');
+    this.loadoutCopy(root, left, y, 'RUN READINESS', contentWidth, '#f78003');
+    y += 26;
+    this.loadoutCopy(root, left, y, `${selectedCharacter?.name ?? 'Select a Mercenary'} • ${selectedCharacter?.startingWeaponSummary ?? 'No stock weapon'}\n${equipment.presentation.slots.filter((slot) => slot.equipped).length}/4 Equipment slots equipped`, contentWidth);
     this.endScrollableRegion();
-    this.addBackButton(root, width, margin, hitTarget);
-    void this.ensurePanelPresentation('loadout', selectedCharacter ? [selectedCharacter.portraitArtId, 'nav-icon:equipment', 'nav-icon:gunsmith'] : ['nav-icon:equipment', 'nav-icon:gunsmith']);
+    this.loadoutFooter(root, margin, contentWidth, hitTarget, 'Return to Contract', () => this.render(this.requireController().open('stage')));
+    void this.ensurePanelPresentation('loadout', selectedCharacter ? [selectedCharacter.portraitArtId, selectedCharacter.startingWeaponIconArtId, 'nav-icon:equipment', 'nav-icon:gunsmith'] : ['nav-icon:equipment', 'nav-icon:gunsmith']);
     void this.ensureEquipmentPresentation(equipment.owned.flatMap((item) => [item.iconArtId, item.setEmblemArtId]));
     void this.ensureGunsmithPresentation(this.collectGunsmithArtIds(snapshot));
   }
 
   private renderEquipmentSlots(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, left: number, top: number, contentWidth: number, hitTarget: number, overview = false): number {
-    const columns = contentWidth >= 650 ? 4 : 2;
+    const columns = overview ? (contentWidth >= 650 ? 4 : 2) : 1;
     this.equipmentSlotColumns = columns;
     const gap = 8;
     const slotWidth = (contentWidth - gap * (columns - 1)) / columns;
     let y = top;
     for (let row = 0; row < 4 / columns; row += 1) {
-      let rowHeight = Math.max(hitTarget, 102);
+      let rowHeight = Math.max(hitTarget, overview ? 102 : 64);
       snapshot.equipment.presentation.slots.slice(row * columns, (row + 1) * columns).forEach((slot, column) => {
         const x = left + column * (slotWidth + gap);
         const item = slot.equipped;
@@ -1449,19 +1485,42 @@ export class MenuScene extends Phaser.Scene {
 
   /** The existing atlas layers share one authored canvas/anchor. Both menu
    * surfaces consume the same composition so family previews stay aligned. */
-  private renderAssembledWeapon(root: Phaser.GameObjects.Container, preview: GunsmithAssembledPreview, x: number, y: number): void {
-    this.addCatalogIcon(root, x, y, preview.baseArtId, 176);
-    preview.layers.forEach((layer) => this.addCatalogIcon(root, x, y, layer.artId, 176));
+  private renderAssembledWeapon(root: Phaser.GameObjects.Container, preview: GunsmithAssembledPreview, x: number, y: number, size = 176): void {
+    this.addCatalogIcon(root, x, y, preview.baseArtId, size);
+    preview.layers.forEach((layer) => this.addCatalogIcon(root, x, y, layer.artId, size));
   }
 
   private renderEquipment(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, width: number, top: number, margin: number, hitTarget: number): void {
-    const heading = this.addHeading(root, this.safeCenterX, top, 'Equipment');
+    this.addHeading(root, this.safeCenterX, edgeMargin(this.currentViewport!, 'top') + 24, 'Equipment');
     const equipment = snapshot.equipment;
     const contentWidth = Math.min(840, width - margin - this.safeRightMargin);
     const left = this.safeCenterX - contentWidth / 2;
-    let y = top + heading.height + 12;
+    let y = top;
     this.beginScrollableRegion(y, this.scrollViewportBottomFor(hitTarget));
+    const selectedSetName = equipment.blueprints.find((piece) => piece.equipmentId === equipment.selectedBlueprintId)?.setName;
+    const activeSet = equipment.presentation.sets.find((set) => set.name === selectedSetName)
+      ?? equipment.presentation.sets.find((set) => set.equippedCount > 0)
+      ?? equipment.presentation.sets[0];
+    this.loadoutMaterial(root, left, y, contentWidth, 84, true);
+    this.loadoutCopy(root, left + 94, y + 14, 'EQUIPMENT SET', contentWidth - 110, '#f78003');
+    this.loadoutCopy(root, left + 94, y + 38, activeSet ? `${activeSet.name} Set\n${activeSet.equippedCount}/4 equipped` : 'No Set pieces equipped', contentWidth - 110);
+    if (activeSet) this.addCatalogIcon(root, left + 42, y + 42, activeSet.emblemArtId, 60);
+    y += 96;
     y = this.renderEquipmentSlots(root, snapshot, left, y, contentWidth, hitTarget);
+    const browse = this.addButton(root, left, y, this.equipmentSetBrowserOpen ? 'Close Sets' : 'Browse Sets', hitTarget, () => {
+      this.equipmentSetBrowserOpen = !this.equipmentSetBrowserOpen;
+      this.nextFocusKey = 'equipment:browse-sets';
+      this.render(this.requireController().snapshot());
+    }, 'ui:confirm', contentWidth);
+    this.rememberLoadoutFocus(browse, 'equipment:browse-sets');
+    y += browse.height + 12;
+    if (this.equipmentSetBrowserOpen) {
+      for (const set of equipment.presentation.sets) {
+        const copy = this.loadoutCopy(root, left + 46, y, this.setProgressCopy(set), contentWidth - 46);
+        this.addCatalogIcon(root, left + 20, y + 22, set.emblemArtId, 36);
+        y += copy.height + 12;
+      }
+    }
     const put = (text: string, color?: string) => { const copy = this.loadoutCopy(root, left, y, text, contentWidth, color); y += copy.height + 8; };
     const selectedSlot = equipment.presentation.slots.find((slot) => slot.slot === equipment.selectedSlot)!;
     put(`${selectedSlot.label.toUpperCase()} CANDIDATES • ${this.getContext().saveData.progression.scrap} Scrap`);
@@ -1531,15 +1590,6 @@ export class MenuScene extends Phaser.Scene {
       y += detail.height + 10;
       y = this.renderScopedLoadoutEffects(root, selectedBlueprint.effects, left, y, contentWidth);
       put('Creates a stored T1 item. Equip it separately to change your Loadout.');
-      const action = this.addButton(root, left, y, `Fabricate for ${selectedBlueprint.fabricationCost} Scrap`, hitTarget, () => {
-        const next = this.requireController().fabricateEquipment(selectedBlueprint.equipmentId);
-        this.nextFocusKey = next.equipment.selectedInstanceId ? `equipment-detail:${next.equipment.selectedInstanceId}` : `equipment-blueprint-detail:${selectedBlueprint.equipmentId}`;
-        this.nextFocusAlignTop = true;
-        this.render(next);
-      }, 'ui:confirm', contentWidth);
-      this.rememberLoadoutFocus(action, `equipment-fabricate:${selectedBlueprint.equipmentId}`);
-      if (this.getContext().saveData.progression.scrap < selectedBlueprint.fabricationCost) this.disableButton(action);
-      y += action.height + 8;
     }
     put('ACTIVE SETS');
     const activeSets = equipment.presentation.sets.filter((set) => set.equippedCount > 0);
@@ -1551,7 +1601,16 @@ export class MenuScene extends Phaser.Scene {
     }
     if (equipment.unavailable.length) put('A legacy Equipment item is unavailable in this version.', '#fbbf24');
     this.endScrollableRegion();
-    this.addBackButton(root, width, margin, hitTarget);
+    const fabricate = this.loadoutFooter(root, left, contentWidth, hitTarget,
+      selectedBlueprint ? `Fabricate for ${selectedBlueprint.fabricationCost} Scrap` : 'Fabricate Selected', () => {
+        if (!selectedBlueprint) return;
+        const next = this.requireController().fabricateEquipment(selectedBlueprint.equipmentId);
+        this.nextFocusKey = next.equipment.selectedInstanceId ? `equipment-detail:${next.equipment.selectedInstanceId}` : `equipment-blueprint-detail:${selectedBlueprint.equipmentId}`;
+        this.nextFocusAlignTop = true;
+        this.render(next);
+      }, true);
+    if (selectedBlueprint) this.rememberLoadoutFocus(fabricate, `equipment-fabricate:${selectedBlueprint.equipmentId}`);
+    if (!selectedBlueprint || this.getContext().saveData.progression.scrap < selectedBlueprint.fabricationCost) this.disableButton(fabricate);
     void this.ensureEquipmentPresentation([
       ...(this.getContext().data.equipment ?? []).map((piece) => piece.icon),
       ...(this.getContext().data.equipmentSets ?? []).map((set) => set.emblem),
@@ -1684,7 +1743,7 @@ export class MenuScene extends Phaser.Scene {
       framedBounds.centerY,
       framedBounds.width,
       framedBounds.height,
-      'card',
+      this.loadoutSurface ? 'figma-card' : 'card',
       { alpha: 0.96 },
     );
     if (chrome) {
@@ -1925,6 +1984,7 @@ export class MenuScene extends Phaser.Scene {
   ): Promise<void> {
     const generation = this.panelArtGeneration;
     const art = this.requireVisualArt();
+    if (panel === 'loadout' || panel === 'equipment') artIds = [...artIds, 'ui-chrome:figma-card', 'ui-chrome:figma-selected', 'ui-chrome:figma-primary'];
     const resources = new DataVisualResourceRegistry(this.getContext().data);
     const missing = new Map<string, import('../systems/types').VisualTextureResource>();
     for (const artId of artIds) {

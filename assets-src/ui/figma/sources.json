@@ -1,0 +1,349 @@
+{
+  "schemaVersion": 1,
+  "status": "candidate",
+  "fileKey": "LHpXaKqFKksfF2uismDws5",
+  "pageId": "28:2",
+  "pageName": "Menu Screens \u2014 Premium",
+  "frameId": "28:7",
+  "frameName": "Dispatch",
+  "canonicalLayout": "Supplied Figma menu layout and chrome; no actor/art-family authority promotion",
+  "fetchedAt": "2026-09-30",
+  "rasterizer": {
+    "CairoSVG": "2.9.1",
+    "Pillow": "12.1.1"
+  },
+  "sources": [
+    {
+      "id": "imgHomeMod0Shadow",
+      "path": "assets-src/ui/figma/originals/imgHomeMod0Shadow.svg",
+      "sha256": "7a3370c04cc21f90b05e71eac8ac490ab24659b0d50bdb12765494f5504a54aa",
+      "mime": "image/svg+xml",
+      "root": {
+        "width": "171",
+        "height": "71",
+        "viewBox": "0 0 171 71"
+      },
+      "nodeId": "28:117"
+    },
+    {
+      "id": "imgHomeMod0Outer",
+      "path": "assets-src/ui/figma/originals/imgHomeMod0Outer.svg",
+      "sha256": "4368d39253948c0756cf36e06145a10874460dac456fc72f8b795666062f38a6",
+      "mime": "image/svg+xml",
+      "root": {
+        "width": "171",
+        "height": "71",
+        "viewBox": "0 0 171 71"
+      },
+      "nodeId": "28:118"
+    },
+    {
+      "id": "imgHomeMod0Face",
+      "path": "assets-src/ui/figma/originals/imgHomeMod0Face.svg",
+      "sha256": "8446a65824914edd2ee472fec0127a17e5842919ce6ab7f6bb009e4969081ddc",
+      "mime": "image/svg+xml",
+      "root": {
+        "width": "167",
+        "height": "67",
+        "viewBox": "0 0 167 67"
+      },
+      "nodeId": "28:119"
+    },
+    {
+      "id": "imgHeroContractShadow",
+      "path": "assets-src/ui/figma/originals/imgHeroContractShadow.svg",
+      "sha256": "9da9973f6c79c3e070196bb283b542312db81776535cf113f6a1aab569e49d16",
+      "mime": "image/svg+xml",
+      "root": {
+        "width": "351",
+        "height": "237",
+        "viewBox": "0 0 351 237"
+      },
+      "nodeId": "28:80"
+    },
+    {
+      "id": "imgHeroContractOuter",
+      "path": "assets-src/ui/figma/originals/imgHeroContractOuter.svg",
+      "sha256": "ed3aca9f00242c61ae042cb278ec7b728dccf37af1751bdd78b3ff64f72313fc",
+      "mime": "image/svg+xml",
+      "root": {
+        "width": "351",
+        "height": "237",
+        "viewBox": "0 0 351 237"
+      },
+      "nodeId": "28:81"
+    },
+    {
+      "id": "imgHeroContractFace",
+      "path": "assets-src/ui/figma/originals/imgHeroContractFace.svg",
+      "sha256": "37e9d6d4de4d363c2ace44bd906ea92031fbbe840740c5956935145516985bf3",
+      "mime": "image/svg+xml",
+      "root": {
+        "width": "347",
+        "height": "233",
+        "viewBox": "0 0 347 233"
+      },
+      "nodeId": "28:82"
+    },
+    {
+      "id": "imgHeroPlayShadow",
+      "path": "assets-src/ui/figma/originals/imgHeroPlayShadow.svg",
+      "sha256": "14434d83dd7b80e9cc995df193a689757d0547ca39830c04d76fa56f3e7e9190",
+      "mime": "image/svg+xml",
+      "root": {
+        "width": "217",
+        "height": "47",
+        "viewBox": "0 0 217 47"
+      },
+      "nodeId": "28:111"
+    },
+    {
+      "id": "imgHeroPlayFace",
+      "path": "assets-src/ui/figma/originals/imgHeroPlayFace.svg",
+      "sha256": "0ed2d15a6b0e0d311331da309c4d66646746e1f843a7ebbf10301a06cd08e737",
+      "mime": "image/svg+xml",
+      "root": {
+        "width": "217",
+        "height": "47",
+        "viewBox": "0 0 217 47"
+      },
+      "nodeId": "28:112"
+    },
+    {
+      "id": "imgDispatchBoltL94",
+      "path": "assets-src/ui/figma/originals/imgDispatchBoltL94.svg",
+      "sha256": "ca6d4bb2c75c6555d45706f1b402db7e1083c0eaad4142465b6811df437d6e38",
+      "mime": "image/svg+xml",
+      "root": {
+        "width": "5",
+        "height": "5",
+        "viewBox": "0 0 5 5"
+      },
+      "nodeId": "28:19"
+    },
+    {
+      "id": "imgDispatchBoltL94Pin",
+      "path": "assets-src/ui/figma/originals/imgDispatchBoltL94Pin.svg",
+      "sha256": "12c0a71cce7466e96d3bc593e190e29a64a78c5ac371f15e6abc9cd17171352e",
+      "mime": "image/svg+xml",
+      "root": {
+        "width": "2",
+        "height": "2",
+        "viewBox": "0 0 2 2"
+      },
+      "nodeId": "28:20"
+    },
+    {
+      "id": "imgHeroPlayArrow",
+      "path": "assets-src/ui/figma/originals/imgHeroPlayArrow.svg",
+      "sha256": "ab7b5fc2bd9f40dcbe5a3bb3bdaeb257ba97987bdd851dbffe8b1ae55e00cbfa",
+      "mime": "image/svg+xml",
+      "root": {
+        "width": "13.3333",
+        "height": "20",
+        "viewBox": "0 0 13.3333 20"
+      },
+      "nodeId": "28:114"
+    },
+    {
+      "id": "imgHomeBrand",
+      "path": "assets-src/ui/figma/originals/imgHomeBrand.svg",
+      "sha256": "e0f5e0aba55f6de376eaddf690ea0650516f5f31ece0bd56edddeec47f34d1f1",
+      "mime": "image/svg+xml",
+      "root": {
+        "width": "174",
+        "height": "128.172",
+        "viewBox": "0 0 174 128.172"
+      },
+      "nodeId": "28:53"
+    }
+  ],
+  "frames": [
+    {
+      "id": "ui-chrome:figma-card",
+      "size": [
+        174,
+        75
+      ],
+      "geometrySize": [
+        170,
+        70
+      ],
+      "geometryOrigin": [
+        0.5,
+        0.5
+      ],
+      "layers": [
+        {
+          "sourceId": "imgHomeMod0Shadow",
+          "offset": [
+            3,
+            4
+          ]
+        },
+        {
+          "sourceId": "imgHomeMod0Outer",
+          "offset": [
+            0,
+            0
+          ]
+        },
+        {
+          "sourceId": "imgHomeMod0Face",
+          "offset": [
+            2,
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ui-chrome:figma-selected",
+      "size": [
+        354,
+        241
+      ],
+      "geometrySize": [
+        350,
+        236
+      ],
+      "geometryOrigin": [
+        0.5,
+        0.5
+      ],
+      "layers": [
+        {
+          "sourceId": "imgHeroContractShadow",
+          "offset": [
+            3,
+            4
+          ]
+        },
+        {
+          "sourceId": "imgHeroContractOuter",
+          "offset": [
+            0,
+            0
+          ]
+        },
+        {
+          "sourceId": "imgHeroContractFace",
+          "offset": [
+            2,
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ui-chrome:figma-primary",
+      "size": [
+        220,
+        51
+      ],
+      "geometrySize": [
+        216,
+        46
+      ],
+      "geometryOrigin": [
+        0.5,
+        0.5
+      ],
+      "layers": [
+        {
+          "sourceId": "imgHeroPlayShadow",
+          "offset": [
+            3,
+            4
+          ]
+        },
+        {
+          "sourceId": "imgHeroPlayFace",
+          "offset": [
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ui-chrome:figma-rivet",
+      "size": [
+        5,
+        5
+      ],
+      "geometrySize": [
+        5,
+        5
+      ],
+      "geometryOrigin": [
+        0,
+        0
+      ],
+      "layers": [
+        {
+          "sourceId": "imgDispatchBoltL94",
+          "offset": [
+            0,
+            0
+          ]
+        },
+        {
+          "sourceId": "imgDispatchBoltL94Pin",
+          "offset": [
+            1.5,
+            1.5
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ui-chrome:figma-arrow",
+      "size": [
+        14,
+        20
+      ],
+      "geometrySize": [
+        12,
+        18
+      ],
+      "geometryOrigin": [
+        0.5,
+        1
+      ],
+      "layers": [
+        {
+          "sourceId": "imgHeroPlayArrow",
+          "offset": [
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "id": "brand:figma-home-lockup",
+      "size": [
+        174,
+        129
+      ],
+      "geometrySize": [
+        174,
+        127
+      ],
+      "geometryOrigin": [
+        0,
+        0
+      ],
+      "layers": [
+        {
+          "sourceId": "imgHomeBrand",
+          "offset": [
+            0,
+            0
+          ]
+        }
+      ]
+    }
+  ]
+}
