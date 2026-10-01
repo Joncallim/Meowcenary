@@ -11,6 +11,7 @@ import { ThemeColor, ThemeDepth, ThemeFont } from './theme';
 import { createUiText } from './text';
 import type { VisualArtLookup } from '../systems/visualArt';
 import { createUiVisualChrome, type UiVisualChrome } from './visualChrome';
+import { WorldUiReadability, type WorldUiBounds, type WorldUiCamera, type WorldUiPaint } from './worldUiReadability';
 
 export interface HudSnapshot {
   readonly status: RunStatus;
@@ -41,6 +42,7 @@ export interface HudSource {
 export interface HudView {
   render(snapshot: HudSnapshot): void;
   destroy(): void;
+  updateWorldReadability?(bounds: WorldUiBounds | undefined, camera: WorldUiCamera): void;
 }
 
 export class HudController implements System {
@@ -111,6 +113,11 @@ export class HudController implements System {
     this.unsubscribers.forEach((unsubscribe) => unsubscribe());
     this.unsubscribers.length = 0;
     this.view.destroy();
+  }
+
+  /** Presentation overlap runs every frame, independently of throttled HUD copy. */
+  updateWorldReadability(bounds: WorldUiBounds | undefined, camera: WorldUiCamera): void {
+    if (!this.disposed) this.view.updateWorldReadability?.(bounds, camera);
   }
 
   /** Request an immediate render for state changes that are owned by the
@@ -281,6 +288,7 @@ export class PhaserHudView implements HudView {
   private headerFontSize = 1;
   private labelFontSize = 1;
 
+  private readonly readability = new WorldUiReadability();
   private lastSnapshot?: HudSnapshot;
   private disposed = false;
   private readonly uiVisuals?: UiVisualChrome;
@@ -331,7 +339,12 @@ export class PhaserHudView implements HudView {
       this.bossBarFill.setScale(Math.min(1, health / max), 1);
       this.setContainedText(this.bossText, `${boss.name}  ${formatNumber(Math.ceil(health))}/${formatNumber(Math.ceil(max))}`, this.meterTextWidth, this.labelFontSize);
     }
+    this.readability.refreshBounds();
 
+  }
+
+  updateWorldReadability(bounds: WorldUiBounds | undefined, camera: WorldUiCamera): void {
+    if (!this.disposed) this.readability.update(bounds, camera);
   }
 
   destroy(): void {
@@ -532,9 +545,16 @@ export class PhaserHudView implements HudView {
       ...icons,
 
     ]);
+    this.readability.register(this.backing);
+    this.readability.register(this.backingFrame as WorldUiPaint | undefined);
+    // Keep numeric/status foreground readable; only plates and meters yield.
+    for (const paint of [healthBarBg, this.healthBarFill, xpBarBg, this.xpBarFill, this.bossBarBg, this.bossBarFill]) {
+      this.readability.register(paint);
+    }
   }
 
   private destroyDisplay(): void {
+    this.readability.clear();
     this.backing.destroy();
     this.backingFrame?.destroy();
     this.backingFrame = undefined;

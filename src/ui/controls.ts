@@ -7,6 +7,7 @@ import { reducedMotionDuration, ThemeColor, ThemeDepth, ThemeFont } from './them
 import { createUiText } from './text';
 import type { VisualArtLookup } from '../systems/visualArt';
 import { createUiVisualChrome, type UiVisualChrome } from './visualChrome';
+import { WorldUiReadability, type WorldUiBounds, type WorldUiCamera, type WorldUiPaint } from './worldUiReadability';
 
 
 const HINT_DURATION_MS = 2200;
@@ -80,6 +81,8 @@ export class ControlsView {
   private teachingHintActive = false;
   private lastMode: InputMode = 'pointer';
   private disposed = false;
+  private readonly readability = new WorldUiReadability();
+  private readonly stickReadability = new WorldUiReadability();
 
   private extractActive = false;
   private extractPanel?: Phaser.GameObjects.Rectangle;
@@ -124,6 +127,8 @@ export class ControlsView {
     this.stickThumb.setVisible(false);
 
     this.root?.add([this.stickBase, this.stickThumb]);
+    this.stickReadability.register(this.stickBase);
+    this.stickReadability.register(this.stickThumb);
     this.buildViewportControls();
     this.scene.scale.on(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
   }
@@ -219,6 +224,7 @@ export class ControlsView {
       ...this.pauseGlyphBars,
       ...(this.pauseArt ? [this.pauseArt] : []),
     ]);
+    this.registerCombatReadability();
   }
 
   private buildAbilityCard(
@@ -395,6 +401,19 @@ export class ControlsView {
     this.hintText.setScrollFactor(0);
 
     this.root?.add([this.extractPanel, this.hintText, this.pauseButton, this.extractButton, this.extractLabel, ...this.pauseGlyphBars, ...(this.pauseArt ? [this.pauseArt] : [])]);
+    this.registerCombatReadability();
+  }
+
+  private registerCombatReadability(): void {
+    this.readability.register(this.pauseButton);
+    this.readability.register(this.abilityButton);
+    this.readability.register(this.abilityFrame as WorldUiPaint | undefined);
+  }
+
+  updateWorldReadability(bounds: WorldUiBounds | undefined, camera: WorldUiCamera): void {
+    if (this.disposed) return;
+    this.readability.update(bounds, camera);
+    this.stickReadability.update(bounds, camera);
   }
 
   update(dtMs: number): void {
@@ -425,12 +444,14 @@ export class ControlsView {
     this.disposed = true;
     this.scene.scale.off(Phaser.Scale.Events.RESIZE, this.handleScaleChange, this);
     this.destroyViewportControls();
+    this.stickReadability.clear();
     this.stickBase.destroy();
     this.stickThumb.destroy();
     this.root?.destroy(true);
   }
 
   private destroyViewportControls(): void {
+    this.readability.clear();
     this.scene.tweens.killTweensOf(this.hintText);
     this.pauseButton.off('pointerdown', this.handlePausePointerDown, this);
     this.abilityButton?.off('pointerdown', this.handleAbilityPointerDown, this);
@@ -509,6 +530,7 @@ export class ControlsView {
       local.x + clamped.x / zoom,
       local.y + clamped.y / zoom,
     );
+    this.stickReadability.refreshBounds();
   }
 
   private updateHint(mode: InputMode, dtMs: number): void {

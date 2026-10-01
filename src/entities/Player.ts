@@ -126,6 +126,11 @@ export class Player {
     }
   }
 
+  /** Actual rendered actor footprint; the hidden Arcade proxy is not presentation. */
+  writePresentationBounds(output: Phaser.Geom.Rectangle): void {
+    this.view.writeWorldBounds(output);
+  }
+
   get active(): boolean {
     return this.sprite.active;
   }

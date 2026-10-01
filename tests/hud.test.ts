@@ -86,6 +86,23 @@ const eventPayloads = {
 } as const satisfies Partial<GameEventMap>;
 
 describe('HudController', () => {
+  it('updates world readability between unchanged HUD renders and stops after disposal', () => {
+    const { controller, view } = createHarness();
+    const readability = vi.fn();
+    Object.assign(view, { updateWorldReadability: readability });
+    const bounds = { x: 20, y: 10, width: 62, height: 70 };
+    const camera = { scrollX: 0, scrollY: 0 };
+    controller.update(16);
+    controller.updateWorldReadability(bounds, camera);
+    controller.update(16);
+    controller.updateWorldReadability(bounds, camera);
+    expect(view.renders).toHaveLength(1);
+    expect(readability).toHaveBeenCalledTimes(2);
+    controller.destroy();
+    controller.updateWorldReadability(bounds, camera);
+    expect(readability).toHaveBeenCalledTimes(2);
+  });
+
   it('renders on the first update', () => {
     const { controller, view } = createHarness();
 
@@ -321,6 +338,7 @@ describe('PhaserHudView', () => {
         fillAlpha: 1,
         destroyed: false,
       };
+      let parent: { readonly x: number; readonly y: number } | undefined;
       const chain = (key: string, value: unknown) => {
         state[key] = value;
         return api;
@@ -329,6 +347,16 @@ describe('PhaserHudView', () => {
         get state() { return { ...state }; },
         get x() { return state.x as number; },
         get y() { return state.y as number; },
+        get alpha() { return Number(state.alpha); },
+        get visible() { return Boolean(state.visible); },
+        setParent(next: { readonly x: number; readonly y: number }) { parent = next; },
+        getBounds(output = { x: 0, y: 0, width: 0, height: 0 }) {
+          output.width = Number(state.width) * Number(state.scaleX);
+          output.height = Number(state.height) * Number(state.scaleY);
+          output.x = Number(state.x) + (parent?.x ?? 0) - Number(state.originX) * output.width;
+          output.y = Number(state.y) + (parent?.y ?? 0) - Number(state.originY) * output.height;
+          return output;
+        },
         setText(text: string) {
           state.text = text;
           if (kind === 'text') {
@@ -378,9 +406,11 @@ describe('PhaserHudView', () => {
             ...base,
             get state() { return { ...base.state }; },
             children: [] as Array<ReturnType<typeof fakeObject>>,
+            get list(): Array<ReturnType<typeof fakeObject>> { return container.children; },
             add(children: unknown[]) {
               children.forEach((child) => {
                 const object = own(child as ReturnType<typeof fakeObject>);
+                object.setParent(base);
                 container.children.push(object);
               });
               return container;
@@ -706,4 +736,24 @@ describe('PhaserHudView', () => {
     );
     expect(rackText).toBeUndefined();
   });
+  it('fades opaque meters while retaining intersecting HUD foreground copy', () => {
+    const scene = createFakeScene();
+    const view = new PhaserHudView({ scene: scene as never, viewport: logicalCanvasViewport() });
+    view.render({ status: 'active', timeMs: 0, health: 100, maxHealth: 100,
+      level: 1, xp: 0, xpToNext: 100, kills: 0, currency: 0 });
+    const fill = scene.objects.find(object => object.state.fillColor === ThemeColor.danger)!;
+    const number = scene.objects.find(object => String(object.state.text).startsWith('HP '))!;
+    const meter = fill.getBounds();
+    const actor = { x: meter.x, y: 0, width: 390, height: 200 };
+    view.updateWorldReadability(actor, { scrollX: 0, scrollY: 0 });
+    expect(fill.state.alpha).toBe(0.10);
+    expect(number.state.alpha).toBe(1);
+    for (const text of scene.objects.filter(object => object.state.kind === 'text')) expect(text.state.alpha).toBe(1);
+    view.updateWorldReadability({ ...actor, y: 300 }, { scrollX: 0, scrollY: 0 });
+    expect(fill.state.alpha).toBe(1);
+    view.updateWorldReadability(actor, { scrollX: 0, scrollY: 0 });
+    view.destroy();
+    expect(fill.state.alpha).toBe(1);
+  });
+
 });

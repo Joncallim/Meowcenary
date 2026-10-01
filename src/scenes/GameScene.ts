@@ -130,6 +130,7 @@ export class GameScene extends Phaser.Scene {
    * paused until GameScene owns the next post-physics update boundary. */
   private orientationResumePending = false;
   private hudController?: HudController;
+  private playerPresentationBounds?: Phaser.Geom.Rectangle;
   private feedbackRenderer?: PhaserFeedbackRenderer;
   private controlsView?: ControlsView;
   private pauseController?: PauseController;
@@ -363,6 +364,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setZoom(GAMEPLAY_ZOOM);
     this.scale.on?.(Phaser.Scale.Events.RESIZE, this.handleResponsiveCamera, this);
 
+    this.playerPresentationBounds = new Phaser.Geom.Rectangle();
     this.hudController = new HudController(
       ctx.bus,
       createHudSource({
@@ -888,6 +890,14 @@ export class GameScene extends Phaser.Scene {
     this.hudController?.update(delta);
 
     this.controlsView?.update(delta);
+    if (this.player && this.playerPresentationBounds) {
+      // Display bounds, not collision radius, decide which screen-fixed paint
+      // overlaps the actor. This changes only alpha: input/world geometry and
+      // the authoritative gameplay snapshot retain their existing owners.
+      this.player.writePresentationBounds(this.playerPresentationBounds);
+      this.hudController?.updateWorldReadability(this.playerPresentationBounds, this.cameras.main);
+      this.controlsView?.updateWorldReadability(this.playerPresentationBounds, this.cameras.main);
+    }
     const move = this.inputController.getMoveVector();
     const pointer = this.inputController.getPointer();
     const perf = this.perfSampler?.snapshot();
@@ -1037,7 +1047,9 @@ export class GameScene extends Phaser.Scene {
       system.destroy();
     });
     this.systems = [];
+    this.hudController?.destroy();
     this.hudController = undefined;
+    this.playerPresentationBounds = undefined;
     this.dropSystem = undefined;
     this.weaponRewardSystem = undefined;
     this.player?.destroy();

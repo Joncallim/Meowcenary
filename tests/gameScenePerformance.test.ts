@@ -20,7 +20,7 @@ function harness() {
   scene.hasPendingTerminalPersistence = () => false;
   scene.inputController = { update: vi.fn(), getMoveVector: () => ({ x: 0, y: 0 }), getPointer: () => null };
   scene.player = { update: vi.fn(), health: 100, maxHealth: 100, grantInvulnerability: vi.fn() };
-  scene.hudController = { update: vi.fn() };
+  scene.hudController = { update: vi.fn(), destroy: vi.fn() };
   scene.audioManager = { update: vi.fn() };
   scene.perfSampler = createPerfSampler(600, 60, GAMEPLAY_PERF_OWNERS);
   scene.performanceDurations = new Float64Array(11);

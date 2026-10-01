@@ -24,6 +24,7 @@ type Seam = {
   placePlayerForArenaFraming(x: number, y: number): boolean;
   arenaFramingDiagnostics(): Framing | undefined;
   captureArenaReadability(): Promise<Readability | undefined>;
+  showRunSummary(outcome: 'won' | 'lost'): boolean;
 };
 declare global { var __MEOWCENARY_VISUAL_TEST__: Seam | undefined; }
 
@@ -83,5 +84,54 @@ test('world actor remains distinguishable beneath HUD meters and corner controls
     // paint. This catches opaque meters/controls and compounded translucent
     // plates; it is a regression bound, not subjective visual approval.
     expect(observation.readability.retainedContribution, `${observation.position}: actor contrast retained under UI`).toBeGreaterThanOrEqual(0.6);
+  }
+});
+
+test('a stopped GameScene cannot repaint an old HUD during Menu resize', async ({ page }) => {
+  const frames = () => page.evaluate(() => new Promise<void>((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  const press = async (key: string) => {
+    await page.keyboard.down(key);
+    await frames();
+    await page.keyboard.up(key);
+    await frames();
+  };
+  const launch = async () => {
+    expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
+    await page.keyboard.down('Enter');
+    await expect.poll(() => page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.isSceneActive('GameScene'))).toBe(true);
+    await page.keyboard.up('Enter');
+    await frames();
+  };
+  const plateCount = () => page.evaluate(() => {
+    const state = globalThis.__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics() as
+      (Framing & { hudLayers: Array<{ type: string }> }) | undefined;
+    return state?.hudLayers.filter((layer) => layer.type === 'Rectangle' || layer.type === 'NineSlice').length;
+  });
+  await page.goto('/?visual-test=1');
+  await expect.poll(() => page.evaluate(() => Boolean(globalThis.__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+  const viewport = page.viewportSize()!;
+  await launch();
+  expect(await plateCount()).toBe(2);
+  for (let visit = 0; visit < 2; visit++) {
+    // Only terminal content is a fixture. The shared Summary focus command,
+    // Menu transition, shutdown, resize and second launch use production owners.
+    expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.showRunSummary('lost'))).toBe(true);
+    await frames();
+    await press('ArrowDown');
+    await press('ArrowDown');
+    await press('Enter');
+    await expect.poll(() => page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.isSceneActive('MenuScene'))).toBe(true);
+    expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
+    const savedBeforeResize = await page.evaluate(() => JSON.stringify(Object.entries(localStorage).sort()));
+    await page.setViewportSize({ width: viewport.width + 8, height: viewport.height + 8 });
+    await frames();
+    await page.setViewportSize(viewport);
+    await frames();
+    expect(await page.evaluate(() => JSON.stringify(Object.entries(localStorage).sort()))).toBe(savedBeforeResize);
+    await launch();
+    // A leaked PhaserHudView resize subscription creates two extra plates in
+    // the inactive scene, which then coexist with the next live HUD.
+    expect(await plateCount()).toBe(2);
   }
 });

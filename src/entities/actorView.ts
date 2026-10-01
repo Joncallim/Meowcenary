@@ -30,6 +30,7 @@ export interface ActorPose {
 
 export interface ActorView {
   update(pose: ActorPose): void;
+  writeWorldBounds(output: Phaser.Geom.Rectangle): void;
   playOneShot(clip: 'hurt' | 'defeat'): void;
   destroy(): void;
 }
@@ -104,6 +105,28 @@ export class PlaceholderView implements ActorView {
     this.shadow.node.setPosition(pose.x, pose.y + this.shadow.dy);
   }
 
+  writeWorldBounds(output: Phaser.Geom.Rectangle): void {
+    let left = Infinity;
+    let top = Infinity;
+    let right = -Infinity;
+    let bottom = -Infinity;
+    // The hidden physics proxy is excluded. All visible primitive actor
+    // pieces contribute their real display bounds, including ears/shadow.
+    for (let index = -1; index <= this.layers.length; index += 1) {
+      const node = index < 0 ? this.body : index === this.layers.length ? this.shadow.node : this.layers[index].node;
+      if (!node.visible) continue;
+      node.getBounds(output);
+      left = Math.min(left, output.x);
+      top = Math.min(top, output.y);
+      right = Math.max(right, output.x + output.width);
+      bottom = Math.max(bottom, output.y + output.height);
+    }
+    output.x = Number.isFinite(left) ? left : this.body.x;
+    output.y = Number.isFinite(top) ? top : this.body.y;
+    output.width = Number.isFinite(right) ? right - left : 0;
+    output.height = Number.isFinite(bottom) ? bottom - top : 0;
+  }
+
   playOneShot(): void {}
 
   destroy(): void {
@@ -160,6 +183,10 @@ export class SpriteView implements ActorView {
     } else {
       this.sprite.clearTint();
     }
+  }
+
+  writeWorldBounds(output: Phaser.Geom.Rectangle): void {
+    this.sprite.getBounds(output);
   }
 
   playOneShot(clip: 'hurt' | 'defeat'): void {

@@ -14,6 +14,12 @@ class Node {
   scale = [1, 1] as [number, number];
   displaySize = [0, 0] as [number, number];
   listeners = new Map<string, (...args: any[]) => void>();
+  getBounds(output: { x: number; y: number; width: number; height: number }) {
+    output.x = this.x - this.displaySize[0] / 2;
+    output.y = this.y - this.displaySize[1] / 2;
+    output.width = this.displaySize[0]; output.height = this.displaySize[1];
+    return output;
+  }
   setPosition(x: number, y: number): this { this.x = x; this.y = y; return this; }
   setAlpha(alpha: number): this { this.alpha = alpha; return this; }
   setVisible(visible: boolean): this { this.visible = visible; return this; }
@@ -289,4 +295,34 @@ describe('actor views', () => {
     createStaticArtSprite(scene as never, nonActorBinding, 3, ACTOR_VISUAL_SCALE_BY_KIND.character);
     expect(sprites[2]?.scale).toEqual([2, 2]);
   });
+});
+
+
+it('reports actual enlarged SpriteView bounds rather than the hidden physics proxy', async () => {
+  const { SpriteView } = await import('../src/entities/actorView');
+  const body = new Node().setPosition(100, 80).setDisplaySize(24, 24);
+  const sprite = new Node().setPosition(100, 80).setDisplaySize(62, 70);
+  const view = new SpriteView(body as never, { node: new Node() as never, dy: 12 }, sprite as never,
+    { idle: 'idle', run: 'run' });
+  const output = { x: 0, y: 0, width: 0, height: 0 };
+  view.writeWorldBounds(output as never);
+  expect(output).toEqual({ x: 69, y: 45, width: 62, height: 70 });
+  sprite.setPosition(200, 150);
+  view.writeWorldBounds(output as never);
+  expect(output).toEqual({ x: 169, y: 115, width: 62, height: 70 });
+});
+
+it('unions visible fallback art pieces while excluding its hidden physics proxy', async () => {
+  const { PlaceholderView } = await import('../src/entities/actorView');
+  const body = new Node().setPosition(100, 100).setDisplaySize(500, 500).setVisible(false);
+  const torso = new Node().setPosition(100, 100).setDisplaySize(40, 40);
+  const ear = new Node().setPosition(88, 74).setDisplaySize(12, 12);
+  const shadow = new Node().setPosition(100, 124).setDisplaySize(30, 10);
+  const view = new PlaceholderView(body as never, [
+    { node: torso as never, dx: 0, dy: 0, flashes: true },
+    { node: ear as never, dx: -12, dy: -26, flashes: true },
+  ], { node: shadow as never, dy: 24 });
+  const output = { x: 0, y: 0, width: 0, height: 0 };
+  view.writeWorldBounds(output as never);
+  expect(output).toEqual({ x: 80, y: 68, width: 40, height: 61 });
 });

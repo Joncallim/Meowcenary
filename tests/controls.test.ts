@@ -29,6 +29,8 @@ function createFakeScene() {
       width,
       height,
       radius: 0,
+      fontSize: 0,
+      originX: 0.5, originY: 0.5,
       scaleX: 1,
       scaleY: 1,
       scrollFactorX: 1,
@@ -43,6 +45,7 @@ function createFakeScene() {
       depth: 0,
       destroyed: false,
     };
+    let parent: { readonly x: number; readonly y: number } | undefined;
     const listeners = new Map<string, Array<{ callback: (...args: unknown[]) => void; context?: unknown }>>();
     const chain = (key: string, value: unknown) => {
       state[key] = value;
@@ -52,8 +55,26 @@ function createFakeScene() {
       get state() { return { ...state }; },
       get x() { return Number(state.x); },
       get y() { return Number(state.y); },
-      setText(text: string) { return chain('text', text); },
-      setOrigin() { return api; },
+      get alpha() { return Number(state.alpha); },
+      get visible() { return Boolean(state.visible); },
+      setParent(next: { readonly x: number; readonly y: number }) { parent = next; },
+      getBounds(output = { x: 0, y: 0, width: 0, height: 0 }) {
+        output.width = Number(state.width) * Number(state.scaleX);
+        output.height = Number(state.height) * Number(state.scaleY);
+        output.x = Number(state.x) + (parent?.x ?? 0) - Number(state.originX) * output.width;
+        output.y = Number(state.y) + (parent?.y ?? 0) - Number(state.originY) * output.height;
+        return output;
+      },
+      setText(text: string) {
+        state.text = text;
+        if (Number(state.fontSize) > 0) {
+          state.width = text.length * Number(state.fontSize) * 0.55;
+          state.height = Number(state.fontSize) * 1.2;
+        }
+        return api;
+      },
+      setFontSize(size: number) { state.fontSize = size; return api; },
+      setOrigin(x = 0.5, y = x) { state.originX = x; state.originY = y; return api; },
       setScrollFactor(x: number, y: number = x) {
         state.scrollFactorX = x;
         state.scrollFactorY = y;
@@ -122,6 +143,7 @@ function createFakeScene() {
             const list = Array.isArray(children) ? children : [children];
             list.forEach((child) => {
               const object = child as ReturnType<typeof fakeObject>;
+              object.setParent(base);
               if (!this.children.includes(object)) this.children.push(object);
             });
             return this;
@@ -132,9 +154,10 @@ function createFakeScene() {
           },
         };
       },
-      text: (x: number, y: number, text: string, style: { resolution?: number } = {}) => {
+      text: (x: number, y: number, text: string, style: { resolution?: number; fontSize?: string } = {}) => {
         if (style.resolution !== 2) throw new Error('UI text must use resolution 2');
-        return own(fakeObject(x, y).setResolution(style.resolution)).setText(text);
+        return own(fakeObject(x, y).setResolution(style.resolution))
+          .setFontSize(Number.parseFloat(style.fontSize ?? '16')).setText(text);
       },
       rectangle: (x: number, y: number, width: number, height: number, fillColor?: number, fillAlpha?: number) => {
         const object = own(fakeObject(x, y, width, height));
@@ -644,4 +667,39 @@ describe('ControlsView lifecycle guards', () => {
 
     expect(stickBase.state.visible).toBe(false);
   });
+});
+
+
+it('preserves cooling state, hints and ability hit targets while overlapped and after restore', () => {
+  const { scene, view, onAbilityRequested } = createHarness();
+  view.setAbilityPresentation('cooling', 6_100);
+  const ability = scene.objects.find(object => object.state.interactive && object.state.fillColor === ThemeColor.primary)!;
+  const state = scene.objects.find(object => object.state.alpha === 0.76)!;
+  const hint = scene.objects.find(object => String(object.state.text).includes(scrapBurst.description))!;
+  view.updateWorldReadability(ability.getBounds(), { scrollX: 0, scrollY: 0 });
+  expect(ability.state.alpha).toBe(0.10);
+  expect(ability.state.fillAlpha).toBe(0.38);
+  expect(state.state.alpha).toBe(0.76);
+  const name = scene.objects.find(object => object.state.text === scrapBurst.name)!;
+  expect(name.state.alpha).toBe(1);
+  expect(hint.state.alpha).toBe(1);
+  expect(ability.state.interactive).toBe(true);
+  ability.emit('pointerdown');
+  expect(onAbilityRequested).toHaveBeenCalledTimes(1);
+  view.updateWorldReadability(undefined, { scrollX: 0, scrollY: 0 });
+  expect(ability.state.alpha).toBe(1);
+  expect(state.state.alpha).toBe(0.76);
+  view.destroy();
+});
+
+
+it('keeps the Pause glyph readable above an intersecting faded plate', () => {
+  const { scene, view } = createHarness();
+  const pause = scene.objects.find(object => object.state.interactive && object.state.fillColor !== ThemeColor.primary)!;
+  const glyphs = scene.objects.filter(object => object.state.fillColor === ThemeColor.cream && !object.state.interactive);
+  expect(glyphs.length).toBeGreaterThan(0);
+  view.updateWorldReadability(pause.getBounds(), { scrollX: 0, scrollY: 0 });
+  expect(pause.state.alpha).toBe(0.10);
+  for (const glyph of glyphs) expect(glyph.state.alpha).toBe(1);
+  view.destroy();
 });

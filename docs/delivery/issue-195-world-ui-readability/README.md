@@ -16,7 +16,9 @@ measures the RGB contrast contributed by the actor rather than counting merely
 finite screen coordinates. Camera scroll starts identically for each capture,
 because manual Phaser rendering also advances camera follow. UI visibility,
 actor visibility, scroll and pre-existing loop/animation pause state are restored.
-The diagnostic does not run in ordinary production.
+The diagnostic does not run in ordinary production. It uses the existing
+deterministic first-animation-frame fixture; the original animation playhead is
+not restored. This is a diagnostic capture, not a normal live-play screenshot.
 
 `red.json` records two failures on phone 390×844 and desktop 1280×720. Actor
 contrast retained under UI at top-centre was **26.3%** in both. Phone top-left
@@ -45,5 +47,25 @@ Existing #191/#167/#175 and product-owning acceptance gates remain separate.
 
 ## Candidate and validation
 
-Implementation and GREEN evidence pending. Preserve camera/physics/input and
-pointer hit targets. Do not close #195 from this RED record.
+The candidate compares cached screen-fixed paint bounds against the actual
+displayed actor bounds. Only overlapping backing/meter paint is attenuated;
+normal chrome, world geometry, player physics and pointer hit targets keep
+their existing owners. The initial all-paint treatment passed the contrast
+oracle but was rejected by independent image review: HP copy and Pause signals
+became faint at the corners. Foreground signals must remain readable, and the
+same unchanged contrast bound must still pass.
+
+An additional P1 was reproduced at the scene lifetime boundary. On current
+main, GameScene discards its HudController without destroying it: twelve bus
+subscriptions and the PhaserHudView resize listener survive. Resizing in Menu
+then repaints the inactive GameScene, so the next run has **four HUD plates
+instead of two**. Both phone and desktop browser regressions were RED when
+only the missing shutdown call was restored to its pre-fix condition. The fix
+disposes the existing owner before discarding it; no new lifecycle framework
+is involved. The unit regression exercises four visits and bus unsubscribe;
+the browser regression exercises the real view, two Menu round trips, warm
+launch, resize and unchanged durable storage during resize. Its terminal
+content is a fixture, not evidence of natural combat/reward acceptance.
+
+Full candidate validation and ordinary continuous-input inspection are pending.
+Do not close #195 from this interim record.
