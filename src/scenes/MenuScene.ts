@@ -1557,7 +1557,7 @@ export class MenuScene extends Phaser.Scene {
     this.loadoutSection(root, left, y, 'EQUIPPED SLOTS');
     y += 20;
     y = this.renderEquipmentSlots(root, snapshot, left, y, contentWidth, hitTarget);
-    const browse = this.addButton(root, left, y, this.equipmentSetBrowserOpen ? 'Close Sets' : 'Browse Sets', hitTarget, () => {
+    const browse = this.addButton(root, left, y, this.equipmentSetBrowserOpen ? 'CLOSE SETS' : 'BROWSE SETS', hitTarget, () => {
       this.equipmentSetBrowserOpen = !this.equipmentSetBrowserOpen;
       this.nextFocusKey = 'equipment:browse-sets';
       this.render(this.requireController().snapshot());

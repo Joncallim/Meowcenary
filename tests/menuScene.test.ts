@@ -525,7 +525,7 @@ describe('MenuScene', () => {
     };
     const panels = vi.spyOn(scene.uiVisuals, 'addPanel');
     harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
-    const browse = harness.buttonByLabel('Browse Sets')!;
+    const browse = harness.buttonByLabel('BROWSE SETS')!;
     const bounds = browse.getBounds();
     expect(panels.mock.calls.filter((call) => call[2] === bounds.centerY && call[3] === bounds.width && call[4] === bounds.height && /card$/.test(String(call[5]))).map((call) => [call[1], call[2], call[3], call[4], call[5]])).toEqual([]);
     expect(browse.state.style).toMatchObject({ color: '#f78003', fontSize: '10px', align: 'left' });
@@ -545,11 +545,11 @@ describe('MenuScene', () => {
     browse.state.handlers.pointerup!();
     expect(harness.context.saveData).toBe(before);
     expect(harness.textContents().some((copy) => copy.includes('2-piece INACTIVE'))).toBe(true);
-    const close = harness.buttonByLabel('Close Sets')!;
+    const close = harness.buttonByLabel('CLOSE SETS')!;
     expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment:browse-sets');
     expect(close.getBounds().height).toBeGreaterThanOrEqual(minimumHitTarget(scene.currentViewport));
     close.state.handlers.pointerup!();
-    expect(harness.buttonByLabel('Browse Sets')).toBeDefined();
+    expect(harness.buttonByLabel('BROWSE SETS')).toBeDefined();
     expect(harness.context.saveData).toBe(before);
   });
 
@@ -593,7 +593,7 @@ describe('MenuScene', () => {
     const slots = scene.focusables.slice(0, 4);
     const footer = harness.buttonByLabel('Fabricate Selected')!;
     const back = harness.buttonByLabel('Back')!;
-    const browse = harness.buttonByLabel('Browse Sets')!;
+    const browse = harness.buttonByLabel('BROWSE SETS')!;
     expect(footer.state.x).toBe(slots[0]!.state.x);
     expect(footer.state.width).toBe(slots[0]!.state.width);
     expect(back.state.y + back.state.height).toBeLessThanOrEqual(slots[0]!.state.y);
@@ -695,7 +695,7 @@ describe('MenuScene', () => {
     const emptyFooter = harness.buttonByLabel('Fabricate Selected')!;
     expect(emptyFooter.state.interactive).toBe(false);
     const before = harness.context.saveData;
-    harness.buttonByLabel('Browse Sets')!.state.handlers.pointerup!();
+    harness.buttonByLabel('BROWSE SETS')!.state.handlers.pointerup!();
     expect(harness.context.saveData).toBe(before);
     expect(harness.textContents().some((copy) => copy.includes('2-piece'))).toBe(true);
     harness.buttonByLabel('Commando Helmet\nFABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
