@@ -3,7 +3,6 @@ import { BootScene, BOOT_RESOURCE_BUNDLE_ID } from '../src/scenes/BootScene';
 import { DataAssetBundleRegistry } from '../src/systems/assetBundles';
 import { loadGameData } from '../src/systems/validation';
 import audioAssets from '../src/data/audio-assets.json';
-import type { VisualTextureResource } from '../src/systems/types';
 
 vi.mock('phaser', () => ({ default: { Scene: class { constructor(public key: string) {} }, Textures: { FilterMode: { NEAREST: 1 } } } }));
 const probe = vi.hoisted(() => ({ now: vi.fn(() => 100), record: vi.fn() }));
@@ -74,8 +73,8 @@ describe('Boot performance ownership', () => {
     });
     const { boot, load } = createBoot();
     boot.preload();
-    expect(load.atlas).toHaveBeenCalledWith(atlas.textureKey, atlas.load.imageUrl,
-      (atlas.load as Extract<VisualTextureResource['load'], { type: 'atlas' }>).dataUrl);
+    expect(atlas.load.dataUrl).toBeDefined();
+    expect(load.atlas).toHaveBeenCalledWith(atlas.textureKey, atlas.load.imageUrl, atlas.load.dataUrl);
     load.emit('start');
     finishVisual(load);
     load.emit('filecomplete', atlas.textureKey, 'image');
