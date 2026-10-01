@@ -77,14 +77,16 @@ export function resolveEquipmentModifiers(loadout: EquipmentLoadout, definitions
   output.push(...resolveSetBonuses(loadout, definitions, sets, owned));
   return output;
 }
-export type EquipEquipmentResult = { readonly ok: true; readonly loadout: EquipmentLoadout } | { readonly ok: false; readonly reason: 'unknown-equipment' };
+export type EquipEquipmentResult = { readonly ok: true; readonly loadout: EquipmentLoadout } | { readonly ok: false; readonly reason: 'unknown-equipment' | 'already-equipped' };
 export function equipEquipment(loadout: EquipmentLoadout, instanceId: string, definitions: ReadonlyMap<string, EquipmentDefinition>, owned: ReadonlyMap<string, OwnedEquipment>): EquipEquipmentResult {
   const item = owned.get(instanceId); const definition = item && definitions.get(item.equipmentId);
-  return definition ? { ok: true, loadout: { equipped: { ...loadout.equipped, [definition.slot]: instanceId } } } : { ok: false, reason: 'unknown-equipment' };
+  if (!definition) return { ok: false, reason: 'unknown-equipment' };
+  if (loadout.equipped[definition.slot] === instanceId) return { ok: false, reason: 'already-equipped' };
+  return { ok: true, loadout: { equipped: { ...loadout.equipped, [definition.slot]: instanceId } } };
 }
 export type UnequipEquipmentResult = { readonly ok: true; readonly loadout: EquipmentLoadout } | { readonly ok: false; readonly reason: 'slot-empty' };
 export function unequipEquipment(loadout: EquipmentLoadout, slot: EquipmentSlot): UnequipEquipmentResult {
   if (!loadout.equipped[slot]) return { ok: false, reason: 'slot-empty' }; const equipped = { ...loadout.equipped }; delete equipped[slot]; return { ok: true, loadout: { equipped } };
 }
 export type UpgradeEquipmentResult = { readonly ok: true; readonly output: OwnedEquipment; readonly cost: number } | { readonly ok: false; readonly reason: 'unknown-equipment' | 'max-tier' | 'insufficient-funds' | 'locked' };
-export function upgradeEquipment(owned: OwnedEquipment, funds: number, definitions: ReadonlyMap<string, EquipmentDefinition>, facts?: ConditionContext, rules?: EquipmentUpgradeRules): UpgradeEquipmentResult { if (!definitions.has(owned.equipmentId) || !Number.isSafeInteger(owned.tier) || owned.tier < 1) return { ok: false, reason: 'unknown-equipment' }; if (owned.tier >= 4) return { ok: false, reason: 'max-tier' }; if (rules && (!facts || owned.tier >= maxEquipmentTier(facts, rules))) return { ok: false, reason: 'locked' }; const cost = upgradeCost(owned.tier); return funds < cost ? { ok: false, reason: 'insufficient-funds' } : { ok: true, output: { ...owned, tier: owned.tier + 1 }, cost }; }
+export function upgradeEquipment(owned: OwnedEquipment, funds: number, definitions: ReadonlyMap<string, EquipmentDefinition>, facts?: ConditionContext, rules?: EquipmentUpgradeRules, capabilityFloors: readonly string[] = []): UpgradeEquipmentResult { if (!definitions.has(owned.equipmentId) || !Number.isSafeInteger(owned.tier) || owned.tier < 1) return { ok: false, reason: 'unknown-equipment' }; if (owned.tier >= 4) return { ok: false, reason: 'max-tier' }; if (rules && (!facts || owned.tier >= maxEquipmentTier(facts, rules, capabilityFloors))) return { ok: false, reason: 'locked' }; const cost = upgradeCost(owned.tier); return funds < cost ? { ok: false, reason: 'insufficient-funds' } : { ok: true, output: { ...owned, tier: owned.tier + 1 }, cost }; }

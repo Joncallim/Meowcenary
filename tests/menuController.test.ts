@@ -39,6 +39,38 @@ class FailingStorageAdapter implements StorageAdapter {
 }
 
 describe('MainMenuController', () => {
+  it('keeps semantic Equipment selection transient and resolves its preview before explicit equip', () => {
+    const { context, controller } = setup();
+    context.updateEquipment(() => ({
+      equipment: { current: { equipmentId: 'equipment:commando-helmet', tier: 1 }, replacement: { equipmentId: 'equipment:recon-helmet', tier: 1 },
+        armour: { equipmentId: 'equipment:commando-armour', tier: 1 } }, loadout: { helmet: 'current', armour: 'armour' },
+    }));
+    const before = context.saveData;
+    controller.open('equipment');
+    expect(controller.selectEquipmentSlot('helmet').equipment.selectedSlot).toBe('helmet');
+    const selected = controller.selectEquipmentCandidate('replacement').equipment;
+    expect(selected.selectedInstanceId).toBe('replacement');
+    expect(selected.comparison?.displaced?.instanceId).toBe('current');
+    expect(selected.comparison?.setChanges).toContainEqual(expect.objectContaining({ before: 2, after: 1, lost: [2] }));
+    expect(context.saveData).toBe(before);
+    expect(controller.selectEquipmentCandidate('armour').notice).toBe('Equipment: item unavailable');
+    expect(controller.snapshot().equipment.selectedInstanceId).toBe('replacement');
+    expect(controller.equipEquipment('replacement').equipment.equipped.helmet).toBe('replacement');
+  });
+
+  it('transitions a selected fabricated blueprint to its stored instance without equipping', () => {
+    const { context, controller } = setup();
+    context.updateMeta((progression) => ({ ...progression, scrap: 100 }));
+    const before = context.saveData;
+    controller.open('equipment');
+    const selected = controller.selectEquipmentBlueprint('equipment:commando-helmet');
+    expect(selected.equipment.selectedBlueprintId).toBe('equipment:commando-helmet');
+    expect(context.saveData).toBe(before);
+    const after = controller.fabricateEquipment('equipment:commando-helmet').equipment;
+    expect(after.selectedInstanceId).toBe('owned:equipment-commando-helmet');
+    expect(after.selectedBlueprintId).toBeUndefined();
+    expect(after.equipped.helmet).toBeUndefined();
+  });
   it('starts on the home panel with frozen snapshots from each sub-controller', () => {
     const { controller } = setup();
     const snapshot = controller.snapshot();

@@ -189,21 +189,13 @@ describe('createUiText', () => {
     const migratedSites = files
       .filter((file) => resolve(file) !== UI_TEXT_FILE)
       .flatMap((file) => findCreateUiTextCalls(programSourceFile(program, file), checker));
-    // Keep this deliberate inventory in sync with visible UI text. The
-    // semantic touch-ability card contributes separate name/state text, and
-    // the grouped Gunsmith adds its player-facing section labels; all still
-    // flow through the sole shared factory.
-    // Achievement and Compendium rows now use MenuScene's shared scroll
-    // button path instead of owning duplicate text-factory call sites. The
-    // dedicated boss meter contributes one player-facing label. Equipment's
-    // empty-state guidance and visual Active Sets grouping remain centralized;
-    // the assembled-build summary, staged merge selection, and destructive
-    // Workshop confirmation add three explicit player-facing call sites. The
-    // Contract-first flow adds the Loadout summary plus chapter/detail copy;
-    // its selected detail keeps reward copy reachable in the scroll region;
-    // enemy art now replaces the former text-only threat row; Equipment's
-    // persisted loadout strip adds one shared-factory slot label site.
-    expect(migratedSites).toHaveLength(68);
+    // Keep this deliberate source inventory in sync with UI ownership. The
+    // slot-first Loadout/Equipment views now share renderLoadoutText and
+    // renderScopedLoadoutEffects rather than repeating factory call sites
+    // for every stat, Set threshold, row and comparison label. The separate
+    // AST audit still rejects every constructor that bypasses the factory.
+    // Native panel headers add two factory sites; section labels add one.
+    expect(migratedSites).toHaveLength(59);
 
     const constructorCalls = findCreateUiTextCalls(programSourceFile(program, UI_TEXT_FILE), checker);
     expect(constructorCalls).toHaveLength(0);
