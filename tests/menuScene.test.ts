@@ -513,6 +513,73 @@ describe('MenuScene', () => {
     }
   });
 
+  it('renders Browse Sets as an unframed native section while retaining its 44px focus and expansion interaction', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      uiVisuals: { addPanel(...args: unknown[]): unknown }; currentViewport: UiViewport;
+      focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>;
+      navigator: { index: number; setIndex(index: number): void }; focusRings: FakeObject[];
+      inputController: { getInputMode(): 'keyboard' | 'pointer' }; applyFocus(): void; refreshInputPresentation(): void;
+      scrollObjects: Array<{ object: FakeObject; ownerIndex?: number }>;
+    };
+    const panels = vi.spyOn(scene.uiVisuals, 'addPanel');
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const browse = harness.buttonByLabel('Browse Sets')!;
+    const bounds = browse.getBounds();
+    expect(panels.mock.calls.filter((call) => call[2] === bounds.centerY && call[3] === bounds.width && call[4] === bounds.height && /card$/.test(String(call[5]))).map((call) => [call[1], call[2], call[3], call[4], call[5]])).toEqual([]);
+    expect(browse.state.style).toMatchObject({ color: '#f78003', fontSize: '10px', align: 'left' });
+    expect(bounds.height).toBeGreaterThanOrEqual(minimumHitTarget(scene.currentViewport));
+    expect(browse.state.interactive).toBe(true);
+    expect(scene.focusKeyByButton.get(browse)).toBe('equipment:browse-sets');
+    const mode = vi.spyOn(scene.inputController, 'getInputMode').mockReturnValue('keyboard');
+    const browseIndex = scene.focusables.indexOf(browse);
+    scene.navigator.setIndex(browseIndex); scene.applyFocus();
+    expect(browse.state.style.color).toBe('#f78003');
+    expect(scene.focusRings[browseIndex]!.state.strokeAlpha).toBe(FocusStroke.alpha);
+    mode.mockReturnValue('pointer'); browse.state.handlers.pointerover!({ y: bounds.centerY }); scene.refreshInputPresentation();
+    expect(browse.state.style.color).toBe('#f78003');
+    expect(scene.focusRings[browseIndex]!.state.strokeAlpha).toBe(FocusStroke.alpha);
+    expect(scene.scrollObjects.some(({ object, ownerIndex }) => object === browse && ownerIndex === scene.focusables.indexOf(browse))).toBe(true);
+    const before = harness.context.saveData;
+    browse.state.handlers.pointerup!();
+    expect(harness.context.saveData).toBe(before);
+    expect(harness.textContents().some((copy) => copy.includes('2-piece INACTIVE'))).toBe(true);
+    const close = harness.buttonByLabel('Close Sets')!;
+    expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment:browse-sets');
+    expect(close.getBounds().height).toBeGreaterThanOrEqual(minimumHitTarget(scene.currentViewport));
+    close.state.handlers.pointerup!();
+    expect(harness.buttonByLabel('Browse Sets')).toBeDefined();
+    expect(harness.context.saveData).toBe(before);
+  });
+
+  it('dims disabled Fabricate chrome after an unframed section without dimming the neighboring Back control', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as { uiVisuals: { addPanel(...args: unknown[]): unknown } };
+    const frames: Array<{ name: string; frame: FakeObject; alpha: ReturnType<typeof vi.fn> }> = [];
+    vi.spyOn(scene.uiVisuals, 'addPanel').mockImplementation((_scene, x, y, width, height, name) => {
+      const frame = fakeObject('rect', '', width as number, height as number, undefined,
+        (x as number) - (width as number) / 2, (y as number) - (height as number) / 2);
+      const alpha = vi.fn(() => frame);
+      Object.assign(frame, { setAlpha: alpha, setTint: vi.fn(() => frame) });
+      frames.push({ name: String(name), frame, alpha });
+      return frame;
+    });
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    frames.length = 0;
+    harness.buttonByLabel('Commando Helmet\nFABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
+    const fabricate = harness.buttonByLabel('Fabricate for 100 Scrap')!;
+    const back = harness.buttonByLabel('Back')!;
+    const cardFor = (button: FakeObject) => frames.find(({ name, frame }) => name === 'figma-card'
+      && frame.state.x === button.state.x && frame.state.y === button.state.y
+      && frame.state.width === button.state.width && frame.state.height === button.state.height)!;
+    expect(fabricate.state.interactive).toBe(false);
+    expect(cardFor(fabricate).alpha).toHaveBeenCalledWith(0.72);
+    expect(back.state.interactive).toBe(true);
+    expect(cardFor(back).alpha).not.toHaveBeenCalled();
+  });
+
   it('keeps fresh Equipment truth empty, shows the catalog emblems before expansion and puts Back in the header after the full-width footer', () => {
     const harness = createHarness();
     const scene = harness.menuScene as unknown as {

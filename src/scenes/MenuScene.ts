@@ -146,7 +146,8 @@ export class MenuScene extends Phaser.Scene {
    * gallery repeatedly, so per-badge catalog cloning/validation is invalid. */
   private visualArt?: DataVisualArtRegistry;
   private uiVisuals?: UiVisualChrome;
-  private buttonChrome: Phaser.GameObjects.GameObject[] = [];
+  private buttonChrome: Array<Phaser.GameObjects.GameObject | undefined> = [];
+  private sectionButtons = new WeakSet<Phaser.GameObjects.Text>();
   /** A run never starts against the boot bundle alone. This state remains in
    * Menu so a load failure has a usable Retry/Back surface rather than a
    * partially constructed GameScene. */
@@ -1560,7 +1561,7 @@ export class MenuScene extends Phaser.Scene {
       this.equipmentSetBrowserOpen = !this.equipmentSetBrowserOpen;
       this.nextFocusKey = 'equipment:browse-sets';
       this.render(this.requireController().snapshot());
-    }, 'ui:confirm', contentWidth);
+    }, 'ui:confirm', contentWidth, undefined, 0, 0, false, 'left', 'section');
     this.rememberLoadoutFocus(browse, 'equipment:browse-sets');
     y += browse.height + 12;
     // The structured catalog supplies the visible Set row and its exact IDs.
@@ -1758,6 +1759,7 @@ export class MenuScene extends Phaser.Scene {
     leadingReserve = 0,
     topAligned = false,
     horizontalAlign?: 'left' | 'center',
+    appearance: 'card' | 'section' = 'card',
   ): Phaser.GameObjects.Text {
     const hasNavigationChevron = artId !== undefined && !artId.startsWith('settings-icon:') && !artId.startsWith('action-icon:');
     const effectiveTrailingReserve = Math.max(trailingReserve, hasNavigationChevron ? 34 : 0);
@@ -1766,19 +1768,20 @@ export class MenuScene extends Phaser.Scene {
     const artSize = artId === undefined ? 0 : contentArt
       ? Math.min(contentArtCap, Math.max(36, minHeight - 12))
       : Math.min(40, Math.max(28, minHeight - 24));
-    const leftInset = Math.max(artId ? artSize + 16 : 12, leadingReserve);
+    const leftInset = Math.max(artId ? artSize + 16 : appearance === 'section' ? 4 : 12, leadingReserve);
     const rightInset = Math.max(topAligned ? 10 : 12, effectiveTrailingReserve);
     const text = this.own(root, createUiText(this,x, y, label, {
-      color: '#f7f1d5',
+      color: appearance === 'section' ? '#f78003' : '#f7f1d5',
       fontFamily: ThemeFont.family,
-      fontSize: `${this.loadoutSurface && maxLabelWidth !== undefined && maxLabelWidth < 110 ? 10 : maxLabelWidth !== undefined && maxLabelWidth < 190 ? ThemeFont.bodyMin : ThemeFont.labelMin}px`,
-      fontStyle: '600',
+      fontSize: `${appearance === 'section' ? 10 : this.loadoutSurface && maxLabelWidth !== undefined && maxLabelWidth < 110 ? 10 : maxLabelWidth !== undefined && maxLabelWidth < 190 ? ThemeFont.bodyMin : ThemeFont.labelMin}px`,
+      fontStyle: appearance === 'section' ? '700' : '600',
       align: horizontalAlign ?? (topAligned ? 'left' : 'center'),
       padding: { left: leftInset, right: rightInset, top: 0, bottom: 0 },
       ...(maxLabelWidth === undefined ? {} : { wordWrap: { width: Math.max(1, maxLabelWidth - leftInset - rightInset) } }),
     }));
     text.setOrigin(x === this.safeCenterX ? 0.5 : 0, 0);
     text.setScrollFactor(0);
+    if (appearance === 'section') this.sectionButtons.add(text);
 
     const bounds = text.getBounds();
     const horizontalPadding = maxLabelWidth === undefined && bounds.width < MIN_MENU_BUTTON_LOGICAL_WIDTH
@@ -1800,7 +1803,7 @@ export class MenuScene extends Phaser.Scene {
       text.setFixedSize(Math.max(this.loadoutSurface ? minimumHitTarget(this.currentViewport!) : MIN_MENU_BUTTON_LOGICAL_WIDTH, maxLabelWidth), Math.max(targetHeight, measured.height));
     }
     const framedBounds = text.getBounds();
-    const chrome = this.uiVisuals?.addPanel(
+    const chrome = appearance === 'section' ? undefined : this.uiVisuals?.addPanel(
       this,
       framedBounds.centerX,
       framedBounds.centerY,
@@ -1813,8 +1816,10 @@ export class MenuScene extends Phaser.Scene {
       root.add(chrome);
       (root as Phaser.GameObjects.Container & { moveBelow?: (child: Phaser.GameObjects.GameObject, sibling: Phaser.GameObjects.GameObject) => unknown })
         .moveBelow?.(chrome, text);
-      this.buttonChrome.push(chrome);
     }
+    // Keep chrome ownership aligned with every logical button, including
+    // plain section controls and textures which have not loaded yet.
+    this.buttonChrome.push(chrome);
     let icon: Phaser.GameObjects.Image | undefined;
     if (artId) {
       icon = this.uiVisuals?.addIcon(this, framedBounds.left + 8 + artSize / 2, framedBounds.centerY, artId, { size: artSize });
@@ -2670,7 +2675,7 @@ export class MenuScene extends Phaser.Scene {
 
   private applyFocus(): void {
     this.focusables.forEach((text, index) => {
-      text.setStyle({ color: '#f7f1d5' });
+      text.setStyle({ color: this.sectionButtons.has(text) ? '#f78003' : '#f7f1d5' });
       const visible = this.inputController?.getInputMode() !== 'pointer'
         ? index === this.navigator.index
         : index === this.hoveredIndex;
