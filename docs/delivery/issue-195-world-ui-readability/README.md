@@ -223,3 +223,37 @@ Both temporary runtime changes were restored. Focused GREEN covered phone
 (large desktop .892/.915/.916/1/1). Compressed attribution, RED and GREEN logs
 are retained. Full local and exact-head hosted closeout results are recorded
 on PR211 before merge; this subsection does not claim hosted readiness.
+
+### Release-check follow-up on merged main 3a44d88
+
+PR211 merged after exact-head local and hosted gates were green. Full local
+post-merge validation again passed (2,810 core tests, all allocation/runner
+probes, art/content/build,103 browser passes and59 existing scoped skips).
+Hosted main run36863965319 instead finished102 passed/59 skipped/one failed.
+All five contrast assertions passed at29.929s on large desktop. The remaining
+HUD lifetime test exhausted its30s budget during the second Summary return,
+without a failing HUD/storage/neutral assertion. Publication was held.
+
+Owner checkpoints identify11–12s cold launch and approximately7s per
+keyboard traversal through Summary’s two intervening buttons on that runner.
+This regression owns HUD shutdown/resize/reuse, not button-by-button focus
+navigation (covered by the existing Summary input suite). Its driver now
+queries the unique rendered Main Menu label’s actual camera/container transform
+and activates that same production action with real native touch/pointer input.
+The seam only reads coordinates; it neither sets focus nor invokes navigation.
+Bounds and action identity are asserted. Both returns, three launches, resize
+and storage checks, input neutrality and all live-HUD assertions remain.
+
+Contrast now reads framing and captures in one browser invocation, avoiding
+five redundant roundtrips and the incidental scene renders between them.
+All five positions, four controlled pixel readbacks, two returned full PNGs,
+exact camera checks and unchanged .6 contrast bound remain.
+
+Revised touch/pointer driver independently RED again: disabling overlap
+correction yields .263 contrast; removing HUD disposal yields four instead
+of two plates on the first real Menu resize/relaunch. Temporary changes were
+restored. Focused four-case GREEN covers phone390×844 and desktop1920×1080.
+Compressed hosted failure and current-driver RED/GREEN logs are retained.
+Full exact-head/merged-head release checks are recorded on the follow-up PR
+before publication. No production runtime behavior, timeout, image threshold,
+assertion, existing skip or golden is changed by this release-check follow-up.
