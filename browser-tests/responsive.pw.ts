@@ -1,5 +1,41 @@
 import { expect, test } from '@playwright/test';
 
+type ArenaFramingDiagnostics = {
+  window: { innerWidth: number; innerHeight: number; devicePixelRatio: number };
+  rootRect: { x: number; y: number; width: number; height: number };
+  canvas: { width: number; height: number; rect: { x: number; y: number; width: number; height: number } };
+  scale: { width: number; height: number };
+  camera: {
+    viewport: { x: number; y: number; width: number; height: number };
+    zoom: number;
+    worldView: { x: number; y: number; width: number; height: number };
+    bounds: { x: number; y: number; width: number; height: number };
+    roundPixels: boolean;
+  };
+  arena: { width: number; height: number };
+  player: { x: number; y: number; bodyRadius: number };
+  hudLayers: Array<{ type: string; depth: number; alpha: number; fillAlpha?: number }>;
+};
+
+type ArenaFramingSeam = {
+  isSceneActive(key: string): boolean;
+  waitForMenuPresentation(): Promise<boolean>;
+  showMenu(panel: string): boolean;
+  placePlayerForArenaFraming(x: number, y: number): boolean;
+  arenaFramingDiagnostics(): ArenaFramingDiagnostics | undefined;
+};
+
+function expectedArenaPresentationBounds(diagnostic: ArenaFramingDiagnostics) {
+  const width = Math.max(diagnostic.arena.width, diagnostic.scale.width / diagnostic.camera.zoom);
+  const height = Math.max(diagnostic.arena.height, diagnostic.scale.height / diagnostic.camera.zoom);
+  return {
+    x: (diagnostic.arena.width - width) / 2,
+    y: (diagnostic.arena.height - height) / 2,
+    width,
+    height,
+  };
+}
+
 async function applyKeyboardCpuThrottle(page: import('@playwright/test').Page, project: string): Promise<void> {
   const rate = Number(process.env.MEOW_KEYBOARD_CPU_THROTTLE_RATE ?? 0);
   if (project !== 'desktop-1920x1080' || !Number.isFinite(rate) || rate < 2) return;
@@ -22,6 +58,118 @@ test('canvas fills the available viewport and survives a live resize', async ({ 
   await expect(canvas).toBeVisible();
   await expect.poll(async () => canvas.boundingBox()).toEqual({ x: 0, y: 0, width: resized.width, height: resized.height });
   await page.screenshot({ path: testInfo.outputPath('home-resized.png') });
+});
+
+test('authored arena top is camera-visible and not hidden by an opaque HUD plate', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'foldable-1114x720');
+  await page.goto('/?visual-test=1');
+  await expect.poll(() => page.evaluate(() => Boolean((globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
+  }).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
+  expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
+  }).__MEOWCENARY_VISUAL_TEST__?.waitForMenuPresentation())).toBe(true);
+  await expect.poll(() => page.evaluate(() => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
+  }).__MEOWCENARY_VISUAL_TEST__?.showMenu('home') ?? false), { timeout: 20_000 }).toBe(true);
+  expect(await page.evaluate(() => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
+  }).__MEOWCENARY_VISUAL_TEST__?.waitForMenuPresentation())).toBe(true);
+  await page.keyboard.down('Enter');
+  await page.waitForTimeout(60);
+  await page.keyboard.up('Enter');
+  await expect.poll(() => page.evaluate(() => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
+  }).__MEOWCENARY_VISUAL_TEST__?.isSceneActive('GameScene') ?? false), { timeout: 20_000 }).toBe(true);
+
+  const initial = await page.evaluate(() => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
+  }).__MEOWCENARY_VISUAL_TEST__?.arenaFramingDiagnostics());
+  expect(initial).toBeDefined();
+  expect(initial!.rootRect).toEqual({ x: 0, y: 0, width: initial!.window.innerWidth, height: initial!.window.innerHeight });
+  expect(initial!.canvas.rect).toEqual(initial!.rootRect);
+  expect(initial!.scale).toEqual({ width: initial!.canvas.width, height: initial!.canvas.height });
+  expect(initial!.camera.zoom).toBe(1.25);
+  expect(initial!.camera.roundPixels).toBe(false);
+  expect(initial!.camera.bounds).toEqual(expectedArenaPresentationBounds(initial!));
+
+  const assertTopCornersVisible = async (reference: ArenaFramingDiagnostics) => {
+    for (const x of [reference.player.bodyRadius, reference.arena.width - reference.player.bodyRadius]) {
+      await page.evaluate(({ targetX, targetY }) => (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
+      }).__MEOWCENARY_VISUAL_TEST__?.placePlayerForArenaFraming(targetX, targetY), {
+        targetX: x,
+        targetY: reference.player.bodyRadius,
+      });
+      const expectedWorldX = Math.min(
+        Math.max(x - reference.camera.worldView.width / 2, reference.camera.bounds.x),
+        reference.camera.bounds.x + reference.camera.bounds.width - reference.camera.worldView.width,
+      );
+      await expect.poll(async () => {
+        const diagnostic = await page.evaluate(() => (globalThis as typeof globalThis & {
+          __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
+        }).__MEOWCENARY_VISUAL_TEST__?.arenaFramingDiagnostics());
+        return diagnostic ? {
+          x: Math.round(diagnostic.camera.worldView.x),
+          y: Math.round(diagnostic.camera.worldView.y),
+        } : undefined;
+      }).toEqual({ x: Math.round(expectedWorldX), y: 0 });
+      const corner = await page.evaluate(() => (globalThis as typeof globalThis & {
+        __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
+      }).__MEOWCENARY_VISUAL_TEST__?.arenaFramingDiagnostics());
+      expect(corner).toBeDefined();
+      const playerScreenX = corner!.camera.viewport.x
+        + (corner!.player.x - corner!.camera.worldView.x) * corner!.camera.zoom;
+      const playerScreenY = corner!.camera.viewport.y
+        + (corner!.player.y - corner!.camera.worldView.y) * corner!.camera.zoom;
+      expect(playerScreenX).toBeGreaterThanOrEqual(0);
+      expect(playerScreenX).toBeLessThanOrEqual(corner!.canvas.rect.width);
+      expect(playerScreenY).toBeGreaterThanOrEqual(0);
+      expect(playerScreenY).toBeLessThanOrEqual(corner!.canvas.rect.height);
+    }
+  };
+
+  await page.evaluate(({ x, y }) => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
+  }).__MEOWCENARY_VISUAL_TEST__?.placePlayerForArenaFraming(x, y), {
+    x: initial!.arena.width / 2,
+    y: initial!.player.bodyRadius,
+  });
+  await expect.poll(async () => (await page.evaluate(() => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
+  }).__MEOWCENARY_VISUAL_TEST__?.arenaFramingDiagnostics()))?.camera.worldView.y)
+    .toBeCloseTo(0, 0);
+  const atTop = await page.evaluate(() => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
+  }).__MEOWCENARY_VISUAL_TEST__?.arenaFramingDiagnostics());
+  expect(atTop).toBeDefined();
+  expect(atTop!.camera.worldView.y).toBeCloseTo(0, 0);
+  expect(atTop!.camera.bounds.y).toBeLessThanOrEqual(0);
+  // A fully opaque screen-fixed layer proves the observed crop is HUD-owned:
+  // camera, world view and DOM canvas all expose y=0, but the layer erases it.
+  const hudPlates = atTop!.hudLayers.filter((layer) => layer.type === 'Rectangle' || layer.type === 'NineSlice');
+  expect(hudPlates).toHaveLength(2);
+  expect(hudPlates.every((layer) => (layer.fillAlpha ?? layer.alpha) < 1)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('issue-195-arena-top.png') });
+  await assertTopCornersVisible(atTop!);
+
+  const resizedViewport = testInfo.project.name.startsWith('phone')
+    ? { width: 412, height: 915 }
+    : { width: 1920, height: 1080 };
+  await page.setViewportSize(resizedViewport);
+  await expect.poll(async () => (await page.evaluate(() => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
+  }).__MEOWCENARY_VISUAL_TEST__?.arenaFramingDiagnostics()))?.scale).toEqual(resizedViewport);
+  const resized = await page.evaluate(() => (globalThis as typeof globalThis & {
+    __MEOWCENARY_VISUAL_TEST__?: ArenaFramingSeam;
+  }).__MEOWCENARY_VISUAL_TEST__?.arenaFramingDiagnostics());
+  expect(resized?.rootRect).toEqual({ x: 0, y: 0, ...resizedViewport });
+  expect(resized?.canvas.rect).toEqual(resized?.rootRect);
+  expect(resized?.camera.bounds).toEqual(expectedArenaPresentationBounds(resized!));
+  expect(resized?.hudLayers
+    .filter((layer) => layer.type === 'Rectangle' || layer.type === 'NineSlice')
+    .every((layer) => (layer.fillAlpha ?? layer.alpha) < 1)).toBe(true);
+  await assertTopCornersVisible(resized!);
 });
 
 test('cold Home readiness stays closed until Boot resources arrive', async ({ page }, testInfo) => {

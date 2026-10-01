@@ -5,6 +5,7 @@ import { WEAPON_RACK_CAPACITY } from '../src/gameplay/weaponRack';
 import type { Player } from '../src/entities/Player';
 import {
   HudController,
+  HUD_BACKING_ALPHA,
   PhaserHudView,
   createHudSource,
   topHudContentBottom,
@@ -619,7 +620,7 @@ describe('PhaserHudView', () => {
     expect(backing.state).toMatchObject({
       width: viewport.canvasWidth,
       fillColor: ThemeColor.surface,
-      fillAlpha: 1,
+      fillAlpha: HUD_BACKING_ALPHA,
       depth: ThemeDepth.hudBacking,
     });
     expect(hudRoot.state.depth).toBe(ThemeDepth.hud);
