@@ -637,6 +637,29 @@ if (import.meta.env.VITE_VISUAL_TEST === '1'
         scene.scene?.pause();
         return true;
       },
+      summaryMenuTarget: (): Readonly<{ x: number; y: number }> | undefined => {
+        // Read the rendered semantic action, never invoke its command or set
+        // focus. The browser test still activates the real pointer/touch hit
+        // target and follows the scene-owned shutdown/Menu handoff.
+        const scene = game.scene.getScene('GameScene') as unknown as {
+          runSummaryView?: { root?: Phaser.GameObjects.Container };
+          cameras: { main: Phaser.Cameras.Scene2D.Camera };
+        };
+        const root = scene?.runSummaryView?.root;
+        if (!game.scene.isActive('GameScene') || !root?.active || !root.visible) return undefined;
+        const labels = root.list.filter((child): child is Phaser.GameObjects.Text =>
+          child instanceof Phaser.GameObjects.Text && child.active && child.visible && child.text === 'Main Menu');
+        if (labels.length !== 1) return undefined;
+        const label = labels[0];
+        const matrix = Phaser.GameObjects.GetCalcMatrix(label, scene.cameras.main,
+          label.parentContainer?.getWorldTransformMatrix()).calc;
+        const point = matrix.transformPoint(0, 0);
+        const rect = game.canvas.getBoundingClientRect();
+        return Object.freeze({
+          x: rect.left + point.x * rect.width / game.scale.gameSize.width,
+          y: rect.top + point.y * rect.height / game.scale.gameSize.height,
+        });
+      },
       showRunSummary: (outcome: 'won' | 'lost'): boolean => {
         const scene = game.scene.getScene('GameScene') as unknown as {
           runState?: {

@@ -29,6 +29,7 @@ type Seam = {
   placePlayerForArenaFraming(x: number, y: number): boolean;
   arenaFramingDiagnostics(): Framing | undefined;
   captureArenaReadability(): Promise<Readability | undefined>;
+  summaryMenuTarget(): Readonly<{ x: number; y: number }> | undefined;
   showRunSummary(outcome: 'won' | 'lost'): boolean;
 };
 declare global { var __MEOWCENARY_VISUAL_TEST__: Seam | undefined; }
@@ -82,15 +83,17 @@ test('world actor remains distinguishable beneath HUD meters and corner controls
       return Math.abs(state.camera.scroll.x - targetX) < 0.5 && Math.abs(state.camera.scroll.y - targetY) < 0.5 && sx >= 0 && sy >= 0;
     }).toBe(true);
     mark(`${position} settled`);
-    const framing = await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics());
     const capture = await page.evaluate(async () => {
       const original = HTMLCanvasElement.prototype.toDataURL;
       let encodes = 0;
       HTMLCanvasElement.prototype.toDataURL = function (...args) { encodes++; return original.apply(this, args); };
-      try { return { readability: await globalThis.__MEOWCENARY_VISUAL_TEST__!.captureArenaReadability(), encodes }; }
+      try {
+        const framing = globalThis.__MEOWCENARY_VISUAL_TEST__!.arenaFramingDiagnostics();
+        return { framing, readability: await globalThis.__MEOWCENARY_VISUAL_TEST__!.captureArenaReadability(), encodes };
+      }
       finally { HTMLCanvasElement.prototype.toDataURL = original; }
     });
-    const { readability } = capture;
+    const { readability, framing } = capture;
     mark(`${position} captured ${JSON.stringify(readability?.timings)}`);
     // Only the two returned artifacts need PNG encoding. Four complete pixel
     // readbacks still define the oracle; unused full-HD exports are waste.
@@ -134,12 +137,6 @@ test('a stopped GameScene cannot repaint an old HUD during Menu resize', async (
   const renderFrames = () => page.evaluate(() => new Promise<void>((resolve) =>
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   const inputFrame = async () => expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForInputFrame())).toBe(true);
-  const press = async (key: string) => {
-    await page.keyboard.down(key);
-    await inputFrame();
-    await page.keyboard.up(key);
-    await inputFrame();
-  };
   let mark = (_phase: string): void => {};
   const launch = async () => {
     mark('launch start');
@@ -168,13 +165,18 @@ test('a stopped GameScene cannot repaint an old HUD during Menu resize', async (
   await launch();
   expect(await plateCount()).toBe(2);
   for (let visit = 0; visit < 2; visit++) {
-    // Only terminal content is a fixture. The shared Summary focus command,
-    // Menu transition, shutdown, resize and second launch use production owners.
+    // Only terminal content is a fixture. Activate the rendered Main Menu
+    // action through real touch/pointer input. Focus-arrow traversal is covered
+    // by the Summary input tests; this regression owns HUD lifetime/resize.
     expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.showRunSummary('lost'))).toBe(true);
     await inputFrame();
-    await press('ArrowDown');
-    await press('ArrowDown');
-    await press('Enter');
+    const target = await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.summaryMenuTarget());
+    expect(target).toBeDefined();
+    const size = page.viewportSize()!;
+    expect(target!.x).toBeGreaterThan(0); expect(target!.x).toBeLessThan(size.width);
+    expect(target!.y).toBeGreaterThan(0); expect(target!.y).toBeLessThan(size.height);
+    if (test.info().project.use.hasTouch) await page.touchscreen.tap(target!.x, target!.y);
+    else await page.mouse.click(target!.x, target!.y);
     await expect.poll(() => page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.isSceneActive('MenuScene'))).toBe(true);
     expect(await page.evaluate(() => globalThis.__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
     mark(`return ${visit} ready`);
