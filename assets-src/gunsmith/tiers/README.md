@@ -60,3 +60,15 @@ three chassis composed at358×196 with five tiers of compatible physical Parts i
 color and grayscale. It includes both receivers, all three barrels and all seven
 physical slots across the family rows. These contacts were inspected locally;
 in-game/device review and owner approval remain unverified.
+
+## Integration path and evidence checks
+
+The component importer confines all three gameplay/presentation catalog inputs
+and every source/output to the repository boundary. Evidence generation also
+preflights every resolved destination before writing. `--check` rejects stale or
+missing boards without repairing them. Required `art:gun-build:check` (and thus
+`art:validate`) executes both import/evidence parity checks and all nine Python
+regressions, including real symlink targets and non-repairing CLI behavior.
+All twelve native exports and all three contact boards retain their original
+bytes. These checks preserve CANDIDATE provenance; they do not confer owner
+approval or satisfy the separate Build/Workshop/Parts menu acceptance.
