@@ -164,13 +164,16 @@ export class MenuScene extends Phaser.Scene {
    * and presentation state without invoking commands or resolving rules. */
   loadoutUiDiagnostics() {
     const snapshot = this.controller?.snapshot();
+    const collectCopy = (object: Phaser.GameObjects.GameObject): string[] => {
+      const display = object as Phaser.GameObjects.GameObject & {
+        text?: unknown; list?: readonly Phaser.GameObjects.GameObject[];
+      };
+      return typeof display.text === 'string' ? [display.text] : (display.list ?? []).flatMap(collectCopy);
+    };
     return {
       panel: this.committedPanel,
       focusedKey: this.focusKeyByButton.get(this.focusables[this.navigator.index]!),
-      copy: (this.root?.list ?? []).flatMap((object) => {
-        const text = object as Phaser.GameObjects.Text;
-        return typeof text.text === 'string' ? [text.text] : [];
-      }),
+      copy: (this.root?.list ?? []).flatMap(collectCopy),
       buttons: this.focusables.map((button, index) => {
         const bounds = button.getBounds();
         return { key: this.focusKeyByButton.get(button) ?? (button.text === 'Back' ? 'back' : undefined),

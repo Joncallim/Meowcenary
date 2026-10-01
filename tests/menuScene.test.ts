@@ -79,6 +79,9 @@ function fakeObject(
     get state() {
       return { ...state, handlers: { ...state.handlers }, padding: { ...state.padding }, style: { ...state.style } };
     },
+    get text() {
+      return state.kind === 'text' ? state.text : undefined;
+    },
     get width() {
       return state.width;
     },
@@ -1458,6 +1461,17 @@ describe('MenuScene', () => {
     expect(owner.state.destroyed).toBe(true);
     expect(mask.destroyed).toBe(true);
     expect(harness.objects.filter(object => !object.state.destroyed && object.state.mask !== undefined)).toHaveLength(0);
+  });
+
+  it('reports the complete live menu copy through the shared clip container', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      loadoutUiDiagnostics(): { copy: string[] };
+      scrollMaskContainer?: { children: FakeObject[] };
+    };
+    expect(scene.scrollMaskContainer?.children.length).toBeGreaterThan(0);
+    expect(scene.loadoutUiDiagnostics().copy.slice().sort()).toEqual(harness.textContents().slice().sort());
   });
 
   it('preserves authored card and later modal paint order when grouping clip ownership', () => {
