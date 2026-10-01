@@ -47,4 +47,13 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Browser viewport and touch acceptance
+        id: browser
         run: npm run test:browser
+
+      - name: Upload failed browser results
+        if: ${{ failure() && steps.browser.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-failure-results
+          path: test-results/
+          retention-days: 7
