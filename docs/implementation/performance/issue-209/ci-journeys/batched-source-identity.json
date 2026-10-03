@@ -1,0 +1,8 @@
+{
+  "baseline": "1e6528f3e2769c6046bf10352ac1b1a386bbfe9b",
+  "files": {
+    "browser-tests/equipment-loadout.pw.ts": "aee539c51ba13e4a6ba199380a29451196a5f62a661758a06739f55b94f34b19",
+    "browser-tests/equipment-updates.pw.ts": "3272674ccb4a0215a502482bd43f43c52107873dfea1db4f66927de8abd4fb2b",
+    "browser-tests/gunsmith-updates.pw.ts": "17248566bb66bd678bbb145f20de3c407d358f12b1b9c1fcd1f177a74661f1b4"
+  }
+}

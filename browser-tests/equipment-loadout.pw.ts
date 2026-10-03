@@ -12,6 +12,11 @@ type Diagnostic = {
 };
 type Seam = { showMenu(panel: string): boolean; waitForMenuPresentation(): Promise<boolean>; menuLoadoutDiagnostics(): Diagnostic;
   freeze(): Promise<void>; resume(): void };
+type PerformanceState = { events: Array<{ owner: string; facts: Record<string, unknown> }>;
+  presentedMenu?: { revision: number } };
+type PerfGlobal = typeof globalThis & { __MEOWCENARY_PERFORMANCE__: {
+  snapshot(): PerformanceState; resetMeasurement(): void } };
+const measurement = (page: Page) => page.evaluate(() => (globalThis as PerfGlobal).__MEOWCENARY_PERFORMANCE__.snapshot());
 const id = (piece: string) => `owned:${piece}`;
 
 async function diagnostic(page: Page): Promise<Diagnostic> {
@@ -50,7 +55,7 @@ test('slot-first Equipment previews before commit and preserves semantic focus t
     items: {}, bosses: {}, compendium: {}, pendingAchievementReports: [], appliedGrantTransactions: {}, grantTransactionFingerprints: {},
   };
   await page.addInitScript((save) => localStorage.setItem('meowcenary.save.v2', JSON.stringify(save)), seed);
-  await page.goto('/?visual-test=1');
+  await page.goto('/?visual-test=1&perf-test=1');
   await expect.poll(() => page.evaluate(() => Boolean((globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__?: Seam }).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
   await settle(page);
   await expect.poll(() => page.evaluate(() => (globalThis as typeof globalThis & { __MEOWCENARY_VISUAL_TEST__: Seam }).__MEOWCENARY_VISUAL_TEST__.showMenu('loadout'))).toBe(true);
@@ -81,6 +86,11 @@ test('slot-first Equipment previews before commit and preserves semantic focus t
   await focus(page, `equipment-candidate:${candidate}`);
   const target = (await diagnostic(page)).buttons.find((button) => button.key === `equipment-candidate:${candidate}`)!;
   expect(target.visible).toBe(true); expect(target.interactive).toBe(true);
+  // The full-owned catalog still proves local-update ownership, alongside
+  // the mixed stored/fabricable fixture in equipment-updates.pw.ts.
+  const mounted = (await measurement(page)).events.filter(event => event.owner === 'menu.render').at(-1)!;
+  expect(mounted).toBeDefined();
+  await page.evaluate(() => (globalThis as PerfGlobal).__MEOWCENARY_PERFORMANCE__.resetMeasurement());
   const x = target.bounds.x + target.bounds.width / 2;
   const y = target.bounds.y + target.bounds.height / 2;
   if (testInfo.project.use.hasTouch) await page.touchscreen.tap(x, y);
@@ -90,6 +100,13 @@ test('slot-first Equipment previews before commit and preserves semantic focus t
   expect(state.equipment?.selectedInstanceId).toBe(candidate);
   expect(state.equipment?.equipped.helmet).toBe(id('equipment:commando-helmet'));
   expect(state.focusedKey).toBe(`equipment-detail:${candidate}`);
+  const local = await measurement(page);
+  expect(local.events.filter(event => event.owner === 'menu.render')).toHaveLength(0);
+  const updates = local.events.filter(event => event.owner === 'menu.update');
+  expect(updates).toHaveLength(1);
+  expect(updates[0]!.facts).toMatchObject({ section: 'equipment-selection',
+    reason: 'same-panel-state-mutation', rebuildCount: mounted.facts.rebuildCount, committed: true });
+  await expect.poll(async () => (await measurement(page)).presentedMenu?.revision).toBe(updates[0]!.facts.revision);
   const selectedDetail = state.buttons.find((button) => button.focused)!;
   // Shared scrolling clamps at the real content end on tall displays.
   expect(selectedDetail.bounds.y).toBeGreaterThanOrEqual(state.scroll!.top);
