@@ -1769,6 +1769,15 @@ describe('game data validation', () => {
       );
     });
 
+    it('requires explicit, valid audio lifecycle ownership', () => {
+      const missing = mutableAudio();
+      delete (missing.audio.assets.sfx[0] as unknown as Record<string, unknown>).lifecycle;
+      expect(() => validateGameData(missing)).toThrow(/lifecycle: must be menu-common or run-common/);
+      const invalid = mutableAudio();
+      (invalid.audio.assets.music[0] as unknown as Record<string, unknown>).lifecycle = 'anywhere';
+      expect(() => validateGameData(invalid)).toThrow(/lifecycle: must be menu-common or run-common/);
+    });
+
     it('rejects a url that violates the assets/audio/<key>.wav convention', () => {
       const data = mutableAudio();
       data.audio.assets.sfx[0].url = 'assets/audio/sfx-wrong.wav';
@@ -1779,14 +1788,14 @@ describe('game data validation', () => {
       const musicMisplaced = mutableAudio();
       musicMisplaced.audio.assets.music[0] = {
         key: 'sfx-menu',
-        url: 'assets/audio/sfx-menu.wav',
+        url: 'assets/audio/sfx-menu.wav', lifecycle: 'menu-common',
       };
       expect(() => validateGameData(musicMisplaced)).toThrow(/prefixed "music-"/);
 
       const sfxMisplaced = mutableAudio();
       sfxMisplaced.audio.assets.sfx[0] = {
         key: 'music-run',
-        url: 'assets/audio/music-run.wav',
+        url: 'assets/audio/music-run.wav', lifecycle: 'run-common',
       };
       expect(() => validateGameData(sfxMisplaced)).toThrow(/prefixed "sfx-"/);
     });
@@ -1822,7 +1831,7 @@ describe('game data validation', () => {
     it('rejects too many sfx entries', () => {
       const tooMany = Array.from({ length: 65 }, (_, index) => ({
         key: `sfx-bulk-${index}`,
-        url: `assets/audio/sfx-bulk-${index}.wav`,
+        url: `assets/audio/sfx-bulk-${index}.wav`, lifecycle: 'run-common' as const,
       }));
       expect(() => validateGameData(withAudioAssets({
         sfx: tooMany,

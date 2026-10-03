@@ -198,7 +198,7 @@ const LOOT_ENTRY_FIELDS = new Set(['kind', 'amount', 'weight', 'tableId', 'defin
 const MAX_LOOT_TABLES = 64;
 const MAX_LOOT_ENTRIES = 32;
 const AUDIO_ASSET_CATALOG_FIELDS = new Set(['sfx', 'music']);
-const AUDIO_ASSET_ENTRY_FIELDS = new Set(['key', 'url']);
+const AUDIO_ASSET_ENTRY_FIELDS = new Set(['key', 'url', 'lifecycle']);
 const AUDIO_MAP_FIELDS = new Set(['events']);
 const AUDIO_MAP_ENTRY_FIELDS = new Set(['event', 'sfxKey', 'sfxKeyByFamily', 'cooldownMs', 'stopMusic', 'musicFadeMs']);
 const AUDIO_EVENT_KEY_SET = new Set<string>(GAME_EVENT_KEYS);
@@ -1811,6 +1811,10 @@ function checkAudioAsset(row: unknown, requiredPrefix: string): string[] {
     }
   }
   requireString(row, 'url', errors);
+  const lifecycle = readOwnField(row, 'lifecycle');
+  if (lifecycle !== 'menu-common' && lifecycle !== 'run-common') {
+    errors.push('lifecycle: must be menu-common or run-common');
+  }
   return errors;
 }
 

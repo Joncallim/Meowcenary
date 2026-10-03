@@ -15,6 +15,7 @@ import { FocusStroke } from '../ui/theme';
 import { ScrollableFocusRegion } from '../ui/scrollableFocus';
 import { assembleComposedRunRequest, assembleRunRequest, asLegacyComposedRunRequest, type ComposedRunRequest } from '../gameplay/runRequest';
 import { resolveRunPlan } from '../gameplay/stage/stageContracts';
+import { loadAudioResources, resolveAudioResources } from '../systems/audioResources';
 import { loadTextureResources, prepareRunPresentation, resolveRunPhysicalResources, type ResourceLoadProgress, type ResourceLoadResult } from '../systems/resourceLoader';
 import { DataVisualArtRegistry, DataVisualResourceRegistry, ensureVisualAnimations, resolveAchievementIconBinding, visualAnimationKey } from '../systems/visualArt';
 import { isPortraitOrientationBlocked } from '../platform/orientation';
@@ -144,6 +145,8 @@ export class MenuScene extends Phaser.Scene {
    * partially constructed GameScene. */
   private runLaunchState: 'idle' | 'loading' | 'failed' = 'idle';
   private runLaunchProgress?: ResourceLoadProgress;
+  private runLaunchProgressText?: Phaser.GameObjects.Text;
+  private runLaunchProgressLabel = 'Loading';
   private runLaunchPresentation?: { readonly heading: string; readonly subject: string; readonly mercenary: string };
   private runLaunchGeneration = 0;
   private isLive = false;
@@ -295,6 +298,7 @@ export class MenuScene extends Phaser.Scene {
     // successful publication below (F1 committed-display gate).
     this.committedDisplay = false;
     this.destroyScrollMask();
+    this.runLaunchProgressText = undefined;
     this.root?.destroy(true);
     this.root = undefined;
     this.focusables = [];
@@ -494,6 +498,7 @@ export class MenuScene extends Phaser.Scene {
       }
     } catch (error) {
       this.destroyScrollMask();
+      this.runLaunchProgressText = undefined;
       root.destroy(true);
       this.focusables = [];
       this.focusRings = [];
@@ -899,6 +904,7 @@ export class MenuScene extends Phaser.Scene {
       ? { heading: 'PREPARING TRAINING', subject: arena?.name ?? 'Training Arena', mercenary: mercenary?.name ?? request.characterId }
       : { heading: 'PREPARING CONTRACT', subject: stage?.name ?? 'Selected Contract', mercenary: mercenary?.name ?? request.characterId });
     this.runLaunchState = 'loading';
+    this.runLaunchProgressLabel = 'Loading';
     this.runLaunchProgress = undefined;
     this.render(this.requireController().snapshot());
     try {
@@ -925,14 +931,28 @@ export class MenuScene extends Phaser.Scene {
       await this.serializeTextureLoad(() => prepareRunPresentation(this, ctx.data, resources, (progress) => {
         if (this.isLive && generation === this.runLaunchGeneration && this.runLaunchState === 'loading') {
           this.runLaunchProgress = progress;
-          this.render(this.requireController().snapshot());
+          this.runLaunchProgressText?.setText(this.runLaunchCopy());
+        }
+      }), undefined);
+      if (!this.isLive || generation !== this.runLaunchGeneration) {
+        if (started !== undefined) performanceProbe?.record('run.prepare', started, { state: 'cancelled', isTraining });
+        return;
+      }
+      // Optional run audio shares the guarded scene LoaderPlugin queue. Failure
+      // preserves silent play; completion must precede GameScene music/events.
+      const runAudio = resolveAudioResources(ctx.data.audio.assets, 'run-common');
+      this.runLaunchProgressLabel = 'Preparing sound';
+      await this.serializeTextureLoad(() => loadAudioResources(this, runAudio, (progress) => {
+        if (this.isLive && generation === this.runLaunchGeneration && this.runLaunchState === 'loading') {
+          this.runLaunchProgress = progress;
+          this.runLaunchProgressText?.setText(this.runLaunchCopy());
         }
       }), undefined);
       if (!this.isLive || generation !== this.runLaunchGeneration || this.runLaunchState !== 'loading') {
         if (started !== undefined) performanceProbe?.record('run.prepare', started, { state: 'cancelled', isTraining });
         return;
       }
-      if (started !== undefined) performanceProbe?.record('run.prepare', started, { state: 'ready', isTraining, physicalResources: resources.length, seed: request.seed });
+      if (started !== undefined) performanceProbe?.record('run.prepare', started, { state: 'ready', isTraining, physicalResources: resources.length, audioFiles: runAudio.length, seed: request.seed });
       this.scene.start(SceneKey.Game, { runRequest: request, runStartPresentation, isTraining });
     } catch (error) {
       if (started !== undefined) performanceProbe?.record('run.prepare', started, { state: 'failed', isTraining });
@@ -947,9 +967,7 @@ export class MenuScene extends Phaser.Scene {
     const backdrop = this.own(root, this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x081018, 0.94)
       .setDepth(MENU_DEPTH + 10).setScrollFactor(0).setInteractive());
     backdrop.on(Phaser.Input.Events.POINTER_UP, () => undefined);
-    const presentation = this.runLaunchPresentation;
-    const copy = [presentation?.heading ?? 'PREPARING CONTRACT', presentation?.subject, presentation?.mercenary,
-      this.runLaunchProgress && `Loading ${this.runLaunchProgress.completed} / ${this.runLaunchProgress.total}`].filter(Boolean).join('\n');
+    const copy = this.runLaunchCopy();
     const modalWidth = Math.min(520, width - 32);
     const modalFrame = this.uiVisuals?.addPanel(
       this,
@@ -966,6 +984,13 @@ export class MenuScene extends Phaser.Scene {
       wordWrap: { width: width - 32 },
     }).setOrigin(0.5).setDepth(MENU_DEPTH + 12).setScrollFactor(0));
     text.setPadding(16, hitTarget / 3);
+    this.runLaunchProgressText = text;
+  }
+
+  private runLaunchCopy(): string {
+    const presentation = this.runLaunchPresentation;
+    return [presentation?.heading ?? 'PREPARING CONTRACT', presentation?.subject, presentation?.mercenary,
+      this.runLaunchProgress && `${this.runLaunchProgressLabel} ${this.runLaunchProgress.completed} / ${this.runLaunchProgress.total}`].filter(Boolean).join('\n');
   }
 
   private renderCharacter(
@@ -2753,6 +2778,7 @@ export class MenuScene extends Phaser.Scene {
     this.inputController?.destroy();
     this.inputController = undefined;
     this.destroyScrollMask();
+    this.runLaunchProgressText = undefined;
     this.root?.destroy(true);
     this.root = undefined;
     // Clear the hint reference BEFORE the root destroy: it is the only

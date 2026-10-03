@@ -257,6 +257,7 @@ function createFakeScene(
   const sceneStart = vi.fn();
 
   const environment = {
+    cache: { audio: { exists: () => true } },
     registry: {
       get: (key: string) => {
         if (key === GAME_CONTEXT_REGISTRY_KEY) return context;
@@ -1386,6 +1387,70 @@ describe('MenuScene', () => {
 
     finishHomeArt();
     await vi.waitFor(() => expect(harness.sceneStart).toHaveBeenCalledOnce());
+  });
+
+  it.each([false, true])('waits for run audio and rejects late completion after shutdown=%s', async (shutdown) => {
+    const harness = createHarness();
+    const handlers = new Map<string, Set<(...args: unknown[]) => void>>();
+    const cached = new Set<string>();
+    let finish!: () => void;
+    const add = (event: string, listener: (...args: unknown[]) => void) => {
+      const entries = handlers.get(event) ?? new Set(); entries.add(listener); handlers.set(event, entries);
+    };
+    const queued: string[] = [];
+    Object.assign(harness.menuScene, {
+      textures: { exists: () => true, get: () => ({ has: () => true, setFilter: () => undefined }) },
+      anims: { exists: () => true }, addPanelArt: () => undefined,
+      cache: { audio: { exists: (key: string) => cached.has(key) } },
+      load: { on: add, once: add,
+        off: (event: string, listener: (...args: unknown[]) => void) => handlers.get(event)?.delete(listener),
+        audio: (key: string) => queued.push(key),
+        start: () => { finish = () => {
+          queued.forEach(key => cached.add(key));
+          for (const listener of [...(handlers.get('complete') ?? [])]) listener();
+        }; },
+      },
+    });
+    const previous = harness.menuScene.renderRebuildCount;
+    harness.buttonByLabel('Play Contract')!.state.handlers.pointerup!();
+    await vi.waitFor(() => expect(queued).toHaveLength(17));
+    expect(harness.sceneStart).not.toHaveBeenCalled();
+    const progressText = harness.objects.find(object => !object.state.destroyed && object.state.text.startsWith('PREPARING CONTRACT'))!;
+    expect(progressText.state.text).toMatch(/Preparing sound \d+ \/ \d+/);
+    expect(harness.menuScene.renderRebuildCount - previous).toBe(1);
+    if (shutdown) harness.lifecycle.emit('shutdown');
+    else {
+      (harness.menuScene as unknown as { handleResize(): void }).handleResize();
+      expect(progressText.state.destroyed).toBe(true);
+      expect(harness.menuScene.renderRebuildCount - previous).toBe(2);
+    }
+    finish();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    if (shutdown) {
+      expect(harness.sceneStart).not.toHaveBeenCalled();
+      expect(progressText.state.destroyed).toBe(true);
+    } else {
+      expect(harness.sceneStart).toHaveBeenCalledOnce();
+      const current = harness.objects.find(object => !object.state.destroyed && object.state.text.startsWith('PREPARING CONTRACT'))!;
+      expect(current).not.toBe(progressText);
+      expect(current.state.text).toContain('Preparing sound 17 / 17');
+      expect(harness.menuScene.renderRebuildCount - previous).toBe(2);
+    }
+    expect([...handlers.values()].every(entries => entries.size === 0)).toBe(true);
+  });
+
+  it('updates cached run preparation without rebuilding the Menu per resource progress', async () => {
+    const harness = createHarness();
+    Object.assign(harness.menuScene, {
+      textures: { exists: () => true, get: () => ({ has: () => true, setFilter: () => undefined }) },
+      anims: { exists: () => true },
+      cache: { audio: { exists: () => true } },
+      addPanelArt: () => undefined,
+    });
+    const previous = harness.menuScene.renderRebuildCount;
+    harness.buttonByLabel('Play Contract')!.state.handlers.pointerup!();
+    await vi.waitFor(() => expect(harness.sceneStart).toHaveBeenCalledOnce());
+    expect(harness.menuScene.renderRebuildCount - previous).toBe(1);
   });
 
   it('renders every Mercenary as one graphical row from controller-owned art identities', () => {

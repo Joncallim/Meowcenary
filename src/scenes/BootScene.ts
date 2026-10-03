@@ -3,7 +3,6 @@ import { createGameContext, GAME_CONTEXT_REGISTRY_KEY } from '../engine/context'
 import { createEventBus } from '../engine/eventBus';
 import { createRng } from '../engine/rng';
 import { SceneKey } from '../engine/sceneKeys';
-import audioAssetsJson from '../data/audio-assets.json';
 import { AudioManager, AUDIO_MANAGER_REGISTRY_KEY } from '../systems/audio';
 import { DataCharacterRegistry } from '../systems/characters';
 import { DataArenaRegistry } from '../systems/arenas';
@@ -12,6 +11,7 @@ import { LocalStorageAdapter, SaveManager } from '../systems/save';
 import { loadGameData } from '../systems/validation';
 import { DataVisualArtRegistry, ensureVisualAnimations } from '../systems/visualArt';
 import { DataAssetBundleRegistry } from '../systems/assetBundles';
+import { queueAudioResources, resolveAudioResources } from '../systems/audioResources';
 import { queueTextureResources } from '../systems/resourceLoader';
 import { performanceProbe } from '../platform/performanceProbe';
 
@@ -64,17 +64,16 @@ export class BootScene extends Phaser.Scene {
     this.events.once('shutdown', this.removeVisualLoadListeners);
     this.events.once('destroy', this.removeVisualLoadListeners);
 
-    for (const asset of [...audioAssetsJson.sfx, ...audioAssetsJson.music]) {
-      this.load.audio(asset.key, asset.url);
-    }
+    const menuAudio = resolveAudioResources(this.preloadData.audio.assets, 'menu-common');
+    queueAudioResources(this, menuAudio);
     const bootResources = bundles.resourcesForBundle(BOOT_RESOURCE_BUNDLE_ID);
     if (!bootResources) throw new Error(`Missing required boot resource bundle "${BOOT_RESOURCE_BUNDLE_ID}"`);
     this.preloadTextureKeys = new Set(bootResources.map((resource) => resource.textureKey));
     queueTextureResources(this, bootResources);
     if (started !== undefined) {
-      performanceProbe!.record('boot.preload', started, { physicalResources: bootResources.length, audioFiles: audioAssetsJson.sfx.length + audioAssetsJson.music.length });
+      performanceProbe!.record('boot.preload', started, { physicalResources: bootResources.length, audioFiles: menuAudio.length });
       let loadStart = performanceProbe!.now();
-      const audio = new Set([...audioAssetsJson.sfx, ...audioAssetsJson.music].map(asset => asset.key));
+      const audio = new Set(menuAudio.map(asset => asset.key));
       const visual = new Set(bootResources.map(resource => resource.textureKey));
       const failures = new Set<string>();
       const audioFailures = new Set<string>();
@@ -108,7 +107,7 @@ export class BootScene extends Phaser.Scene {
         for (const handler of visualHandlers) this.load.off(handler.event, handler.complete);
       };
       const complete = (): void => {
-        performanceProbe!.record('boot.load', loadStart, { physicalResources: bootResources.length, audioFiles: audioAssetsJson.sfx.length + audioAssetsJson.music.length,
+        performanceProbe!.record('boot.load', loadStart, { physicalResources: bootResources.length, audioFiles: menuAudio.length,
           incompleteAudio: audio.size, incompleteVisual: visual.size, failures: [...failures] });
         cleanup();
       };

@@ -213,12 +213,13 @@ describe('BootScene loading and startup wiring', () => {
     }
   });
 
-  it('preloads every audio catalog row and only the explicit boot physical resource bundle', () => {
+  it('preloads only Menu audio and the explicit boot physical resource bundle', () => {
     const { boot, loadAudio, loadImage, loadSpritesheet, loadEvents } = createBoot();
 
     boot.preload();
 
-    const expected = [...audioAssetsJson.sfx, ...audioAssetsJson.music].map((asset) => [
+    const expected = [...audioAssetsJson.sfx, ...audioAssetsJson.music].filter((asset) =>
+      asset.key.startsWith('sfx-ui-') || asset.key === 'music-menu').map((asset) => [
       asset.key,
       asset.url,
     ]);
