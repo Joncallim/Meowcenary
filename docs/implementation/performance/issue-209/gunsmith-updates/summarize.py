@@ -59,17 +59,16 @@ for profile in profiles:
         values = [spread([a['durationMs'] for a in actions(run, profile, name)]) for run in (baseline,candidate)]
         lines.append(f'| {profile} | {name} | {values[0]} | {values[1]} |')
 lines += ['', '## Gunsmith body ownership', '',
-    '| Profile | Runtime | Presentation owner | Created | Destroyed | Stable objects | Textures | Owner span |',
-    '|---|---|---|---|---|---|---|---:|']
+    '| Profile | Action | Runtime | Presentation owner | Created | Destroyed | Stable objects | Textures | Owner span |',
+    '|---|---|---|---|---|---|---|---|---:|']
 for profile in profiles:
     for name in ['gunsmith-build-switch','gunsmith-build-select','gunsmith-part-replace']:
-        lines.append(f'| {profile} | {name} | | | | | | | |')
         for label, run in [('baseline',baseline),('candidate',candidate)]:
             es = [event(a) for a in actions(run,profile,name)]
             assert len(set(e['owner'] for e in es)) == 1
             facts = [e['facts'] for e in es]
             cells = [numeric([f[k] for f in facts]) for k in ['created','destroyed','stableObjects','textures']]
-            lines.append(f"| {profile} | {label} | {es[0]['owner']} | {' | '.join(cells)} | {spread([e['durationMs'] for e in es])} |")
+            lines.append(f"| {profile} | {name} | {label} | {es[0]['owner']} | {' | '.join(cells)} | {spread([e['durationMs'] for e in es])} |")
 lines += ['', '## Cadence', '',
     'p50/p95/p99 below are medians of each repeat’s nearest-rank percentile; they are not pooled percentiles.',
     'Count, worst-frame and over-budget ratio retain all three repeats. The budget is 16.67ms.', '',

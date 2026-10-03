@@ -37,12 +37,14 @@ reselected the active Pistol; their Gunsmith action timings are not controls
 for this stronger journey. Both sides of this comparison use this same runner.
 
 Build each pinned runtime with `VITE_VISUAL_TEST=1`, serve its `dist` on a
-dedicated local preview port, and run `scripts/performance-baseline.mjs` from
-that runtime's working directory with `--expected-sha`, `--url`, `--out`,
+dedicated local preview port, and invoke the **candidate 83659d2 runner** by
+absolute path from each runtime's working directory. Do not use f61's old
+checked-in runner: it lacks the strengthened SMG fixture. Pass `--expected-sha`, `--url`, `--out`,
 `--repeats 3` and `--window-ms 3000`. Run captures sequentially, without
 concurrent builds/tests. Each runtime has nine fresh contexts, three repeats
 per desktop 1280×720/DPR1, phone 390×844/DPR3 and foldable 1114×720/DPR2
 profile. The latter two use Chromium CPU4x emulation, not physical devices.
+Keep timing evidence outside Playwright's disposable output directory.
 
 The raw archives preserve environment, fixture, seeded combat, owner spans,
 presented-frame latency, frame percentiles/sample counts/worst/over-budget
@@ -68,3 +70,51 @@ image threshold, timeout or existing assertion changes are authorized here.
 Human Figma, art, physical-device and product acceptance remain with their
 owning issues. #209 also retains its remaining measured ownership/mobile seam
 and final device acceptance work.
+
+## Repeated findings
+
+Measured implementation: `83659d2d208c1d845c2db2e13d16846202901f86`.
+There are 18 matched fresh cohorts / 486 checkpoints with zero browser errors.
+Every measured Gunsmith switch and replacement changes its presentation owner
+from `menu.render` to `menu.update`. Each action retains 25 objects: Pistol
+replacement creates/destroys 86 instead of 111 (22.5% fewer). Its stable count
+remains 111 objects / 55 textures; SMG remains 116 / 59 on both runtimes.
+
+Median replacement latency to the presented frame falls from 199.4 → 124.7ms
+on desktop, 277.4 → 221.8ms on phone, and 416.0 → 322.5ms on foldable. The
+three-repeat replacement ranges do not overlap. Both actual family switches
+also improve their medians. Unnecessary common-prefix reconstruction was a
+demonstrated contributor to these interaction costs; coupled body rendering
+still owns most construction work and is retained for correctness.
+
+Other timings are mixed, including slower phone Equipment equip and warm
+Gunsmith entry on desktop/phone. No whole-game, boot or combat improvement is
+claimed. Light/heavy median cadence is essentially unchanged in these short
+windows; exact samples, p50/p95/p99, worst and over-budget counts/ratios are in
+[comparison.md](comparison.md). Uncontrolled background load, baseline-first
+ordering, CPU emulation and the unverified GPU backend limit attribution.
+These results do not establish physical-device responsiveness or a simulation
+CPU bottleneck.
+
+| Ordinary build item | Baseline raw / gzip9 / Brotli11 bytes | Measured candidate |
+|---|---:|---:|
+| Application JS | 814154 / 183838 / 149925 | 817241 / 184479 / 150474 |
+| Phaser chunk | 1208050 / 330419 / 264694 | 1208050 / 330419 / 264694 |
+
+Boot remains six physical visual resources (ten files) plus four menu audio
+files. Logical art remains 619 bindings / 96 physical resources / 112 distinct
+visual URLs; production contains 226 files. Payload/resource ownership is
+unchanged. Full raw inventories and compressed timing archives are alongside
+this report. Reproduce the table with:
+
+```bash
+python3 docs/implementation/performance/issue-209/gunsmith-updates/summarize.py \
+  --baseline docs/implementation/performance/issue-209/gunsmith-updates/baseline-raw.json.gz \
+  --candidate docs/implementation/performance/issue-209/gunsmith-updates/candidate-raw.json.gz \
+  --candidate-sha 83659d2d208c1d845c2db2e13d16846202901f86 \
+  --out /tmp/meow-gunsmith-comparison.md
+```
+
+The following evidence commit changes documentation/archives only. Final
+exact-head gates and ordinary inventory remain separate release requirements;
+no final-head timing claim is made from an unmeasured runtime change.
