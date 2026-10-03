@@ -103,6 +103,38 @@ and 30-second test budget. Original and post-presentation-corrected logs are
 archived alongside the report. These harness changes are separate from game responsiveness;
 the benchmark runner and measured runtime source remain unchanged.
 
+A second exact-head hosted run, `37137838381` at
+`f4012f5fcba7a44c94c29482a43e47ad2871b5c3`, passed 137 rows but still
+exhausted the unchanged 30-second budgets in the two 1920 desktop update
+journeys. Equipment was ready at 8.46 seconds, then timed out during real
+keyboard traversal; its failure capture focused Demolition Helmet on the way
+to Recon Helmet. Gunsmith's failure capture already showed the resized,
+unequipped Compact receiver, so its real replacement/resize/removal sequence
+had reached the display. Neither capture showed the earlier clipped-action
+defect. The complete second hosted RED log is archived; this is evidence of
+remaining acceptance-harness overhead, not a claim that the prior head passed.
+
+The final input helper observes the same shared logical input state inside the
+renderer, sampling with `requestAnimationFrame` under the previous five-second
+assertion deadline. It sends real keyboard events, explicitly checks held and
+released state, releases in `finally`, and returns the fresh semantic focused
+key with the release observation. It does not mutate focus or game state.
+Aggregate phase/key counts expose any future traversal or frame stall. The
+unchanged Equipment fixture reaches Recon in eleven directional presses;
+Gunsmith uses five Down, one Up and three Enter presses for the full journey.
+
+All twelve targeted profile rows pass after rebuilding the diagnostic runtime.
+An earlier run against an ordinary build lacked the test seam and was discarded
+as invalid evidence. At desktop 1920/CPU6, the immediate f401 helper and final
+helper both pass the same two journeys: 44.7 and 41.8 seconds respectively.
+These single-pair timings are descriptive, not a claimed CI or game performance
+improvement. The f401 hosted failure remains the actual RED evidence. The
+archived logs and temporary-copy CPU6 method above reproduce this check;
+no throttle hook or synthetic latency is committed. Independent review checked
+input observation, timer/RAF cleanup and retained post-presentation assertions.
+Full exact-head local and hosted gates remain the release authority.
+
+
 ## Validation and remaining acceptance
 
 Two new regressions run against f61 first fail because build switching and

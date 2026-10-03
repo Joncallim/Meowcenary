@@ -38,41 +38,69 @@ async function settle(page: Page): Promise<void> {
   await expect.poll(() => page.evaluate(() => Boolean((globalThis as Seams).__MEOWCENARY_VISUAL_TEST__))).toBe(true);
   expect(await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.waitForMenuPresentation())).toBe(true);
 }
-async function press(page: Page, key: string): Promise<void> {
-  await page.keyboard.down(key);
+const probes = new WeakMap<Page, { started: number; keys: Record<string, number> }>();
+function phase(page: Page, name: string): void {
+  const probe = probes.get(page)!;
+  console.info(`[equipment-update] ${name}: ${Date.now() - probe.started}ms keys=${JSON.stringify(probe.keys)}`);
+}
+async function observeInput(page: Page, expectedNeutral: boolean) {
+  // Sample the real logical input owner in the renderer, without a protocol
+  // round trip between frames. Keep the previous poll's five-second deadline.
+  return page.evaluate(expected => new Promise<{ neutral: boolean | undefined; focusedKey?: string }>(resolve => {
+    const seam = (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__;
+    let frame: number | undefined;
+    const finish = () => {
+      clearTimeout(timeout);
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      resolve({ neutral: seam?.isMenuInputNeutral(), focusedKey: seam?.menuFocusedKey() });
+    };
+    const timeout = setTimeout(finish, 5000);
+    const sample = () => {
+      if (seam?.isMenuInputNeutral() === expected) finish();
+      else frame = requestAnimationFrame(sample);
+    };
+    sample();
+  }), expectedNeutral);
+}
+async function press(page: Page, key: string): Promise<string | undefined> {
+  const keys = probes.get(page)!.keys;
+  keys[key] = (keys[key] ?? 0) + 1;
   try {
-    await expect.poll(() => page.evaluate(() => {
-      const seam = (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__;
-      return seam !== undefined && !seam.isMenuInputNeutral();
-    }), { intervals: [16, 32, 50] }).toBe(true);
+    const [held] = await Promise.all([observeInput(page, false), page.keyboard.down(key)]);
+    expect(held.neutral, `${key} sampled held`).toBe(false);
   } finally { await page.keyboard.up(key); }
-  await expect.poll(() => page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__?.isMenuInputNeutral()),
-    { intervals: [16, 32, 50] }).toBe(true);
+  const released = await observeInput(page, true);
+  expect(released.neutral, `${key} sampled released`).toBe(true);
+  return released.focusedKey;
 }
 async function focus(page: Page, key: string): Promise<void> {
-  if (await page.evaluate(() =>
-    (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.menuFocusedKey()) === key) return;
+  let focusedKey = await page.evaluate(() =>
+    (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.menuFocusedKey());
+  if (focusedKey === key) return;
   const observed = await diagnostic(page);
   const targetIndex = observed.buttons.findIndex(button => button.key === key);
   expect(targetIndex, `Missing semantic focus ${key}`).toBeGreaterThanOrEqual(0);
-  for (let step = 0; step < observed.buttons.length + 4; step += 1) {
-    const focusedKey = await page.evaluate(() =>
-      (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.menuFocusedKey());
-    if (focusedKey === key) return;
-    const currentIndex = observed.buttons.findIndex(button => button.key === focusedKey);
-    expect(currentIndex, `Unknown semantic focus ${focusedKey}`).toBeGreaterThanOrEqual(0);
-    // Slots use spatial vertical navigation. The body is linear in both axes;
-    // horizontal keys avoid the vertical endpoint's scroll-only first press.
-    await press(page, currentIndex < 4
-      ? currentIndex < targetIndex ? 'ArrowDown' : 'ArrowUp'
-      : currentIndex < targetIndex ? 'ArrowRight' : 'ArrowLeft');
+  const started = Date.now();
+  let steps = 0;
+  try {
+    for (; steps < observed.buttons.length + 4; steps += 1) {
+      if (focusedKey === key) return;
+      const currentIndex = observed.buttons.findIndex(button => button.key === focusedKey);
+      expect(currentIndex, `Unknown semantic focus ${focusedKey}`).toBeGreaterThanOrEqual(0);
+      // Slots use spatial vertical navigation. The body is linear in both axes;
+      // horizontal keys avoid the vertical endpoint's scroll-only first press.
+      focusedKey = await press(page, currentIndex < 4
+        ? currentIndex < targetIndex ? 'ArrowDown' : 'ArrowUp'
+        : currentIndex < targetIndex ? 'ArrowRight' : 'ArrowLeft');
+    }
+  } finally {
+    phase(page, `focus ${key}: steps=${steps} focused=${focusedKey} elapsed=${Date.now() - started}ms`);
   }
   throw new Error(`Focus did not reach ${key}: ${JSON.stringify(await diagnostic(page))}`);
 }
 
 test('Equipment candidate updates preserve committed menu state and selection through resize', async ({ page }, testInfo) => {
-  const started = Date.now();
-  const phase = (name: string) => console.info(`[equipment-update] ${name}: ${Date.now() - started}ms`);
+  probes.set(page, { started: Date.now(), keys: {} });
   const seed = {
     version: 4, settings: { muted: true, musicVolume: 0, sfxVolume: 0, reducedMotion: true },
     progression: { scrap: 640, unlocks: ['capability:equipment-tier-2'] },
@@ -88,14 +116,14 @@ test('Equipment candidate updates preserve committed menu state and selection th
   await expect.poll(() => page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__!.showMenu('equipment'))).toBe(true);
   await settle(page);
   expect((await diagnostic(page)).panel).toBe('equipment');
-  phase('Equipment ready');
+  phase(page, 'Equipment ready');
 
   // Enter through the real keyboard navigator, then use the profile's actual
   // pointer type to select the stored Recon helmet.
   await focus(page, 'equipment-slot:helmet');
   const candidate = id('equipment:recon-helmet');
   await focus(page, `equipment-candidate:${candidate}`);
-  phase('candidate focused by keyboard');
+  phase(page, 'candidate focused by keyboard');
   const beforeSelection = await checkpoint(page);
   const target = beforeSelection.diagnostic.buttons.find(button => button.key === `equipment-candidate:${candidate}`)!;
   expect(target.visible).toBe(true);
@@ -113,7 +141,7 @@ test('Equipment candidate updates preserve committed menu state and selection th
 
   await expect.poll(async () => (await measurement(page)).events.some(event => event.owner === 'menu.update'
     && event.facts.committed === true)).toBe(true);
-  phase('selection committed');
+  phase(page, 'selection committed');
   const selected = await checkpoint(page);
   const afterSelection = selected.diagnostic;
   expect(afterSelection.equipment).toMatchObject({ selectedSlot: 'helmet', selectedInstanceId: candidate,
@@ -143,7 +171,7 @@ test('Equipment candidate updates preserve committed menu state and selection th
   const resize = resized.measurement.events.find(event => event.owner === 'menu.render' && event.facts.reason === 'viewport-resize');
   expect(resize?.facts.rebuildCount).toBe((rebuildCount as number) + 1);
 
-  phase('resize committed');
+  phase(page, 'resize committed');
 
   // Selection is presentation state only: commit through the focused real
   // Equip command and verify the durable authority changes exactly then.
@@ -154,5 +182,5 @@ test('Equipment candidate updates preserve committed menu state and selection th
   expect(equipped.diagnostic.equipment?.equipped.helmet).toBe(candidate);
   const saved = JSON.parse(equipped.saved!);
   expect(saved.equipmentLoadout.helmet).toBe(candidate);
-  phase('equip durable');
+  phase(page, 'equip durable');
 });

@@ -20,18 +20,52 @@ const checkpoint = (page: Page) => page.evaluate(() => ({
 }));
 const measurement = (page: Page) => page.evaluate(() =>
   (globalThis as Seams).__MEOWCENARY_PERFORMANCE__.snapshot());
-async function press(page: Page, key: string): Promise<void> {
-  await page.keyboard.down(key);
-  try { await expect.poll(() => page.evaluate(() =>
-    (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__.isMenuInputNeutral()), { intervals: [16, 32, 50] }).toBe(false); }
-  finally { await page.keyboard.up(key); }
-  await expect.poll(() => page.evaluate(() =>
-    (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__.isMenuInputNeutral()), { intervals: [16, 32, 50] }).toBe(true);
+const probes = new WeakMap<Page, { started: number; keys: Record<string, number> }>();
+function phase(page: Page, name: string): void {
+  const probe = probes.get(page)!;
+  console.info(`[gunsmith-update] ${name}: ${Date.now() - probe.started}ms keys=${JSON.stringify(probe.keys)}`);
+}
+async function observeInput(page: Page, expectedNeutral: boolean) {
+  // Sample the real logical input owner in the renderer, without a protocol
+  // round trip between frames. Keep the previous poll's five-second deadline.
+  return page.evaluate(expected => new Promise<{ neutral: boolean | undefined; focusedKey?: string }>(resolve => {
+    const seam = (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__;
+    let frame: number | undefined;
+    const finish = () => {
+      clearTimeout(timeout);
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      resolve({ neutral: seam?.isMenuInputNeutral(), focusedKey: seam?.menuFocusedKey() });
+    };
+    const timeout = setTimeout(finish, 5000);
+    const sample = () => {
+      if (seam?.isMenuInputNeutral() === expected) finish();
+      else frame = requestAnimationFrame(sample);
+    };
+    sample();
+  }), expectedNeutral);
+}
+async function press(page: Page, key: string): Promise<string | undefined> {
+  const keys = probes.get(page)!.keys;
+  keys[key] = (keys[key] ?? 0) + 1;
+  try {
+    const [held] = await Promise.all([observeInput(page, false), page.keyboard.down(key)]);
+    expect(held.neutral, `${key} sampled held`).toBe(false);
+  } finally { await page.keyboard.up(key); }
+  const released = await observeInput(page, true);
+  expect(released.neutral, `${key} sampled released`).toBe(true);
+  return released.focusedKey;
 }
 async function focus(page: Page, key: string, direction = 'ArrowDown'): Promise<void> {
-  for (let step = 0; step < 80; step += 1) {
-    if (await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__.menuFocusedKey()) === key) return;
-    await press(page, direction);
+  let focusedKey = await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__.menuFocusedKey());
+  const started = Date.now();
+  let steps = 0;
+  try {
+    for (; steps < 80; steps += 1) {
+      if (focusedKey === key) return;
+      focusedKey = await press(page, direction);
+    }
+  } finally {
+    phase(page, `focus ${key} via ${direction}: steps=${steps} focused=${focusedKey} elapsed=${Date.now() - started}ms`);
   }
   throw new Error(`Missing semantic focus ${key}: ${JSON.stringify(await diagnostic(page))}`);
 }
@@ -52,6 +86,7 @@ async function assertLocalCommit(page: Page, rebuildCount: unknown) {
 }
 
 test('Gunsmith build switching and replacement retain menu ownership and semantic focus through resize', async ({ page }, testInfo) => {
+  probes.set(page, { started: Date.now(), keys: {} });
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(String(error)));
   page.on('requestfailed', request => errors.push(`${request.url()}: ${request.failure()?.errorText}`));
@@ -70,6 +105,7 @@ test('Gunsmith build switching and replacement retain menu ownership and semanti
   expect(await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
   expect(await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__.showMenu('gunsmith'))).toBe(true);
   expect(await page.evaluate(() => (globalThis as Seams).__MEOWCENARY_VISUAL_TEST__.waitForMenuPresentation())).toBe(true);
+  phase(page, 'Gunsmith ready');
   const mounted = (await measurement(page)).events.filter(event => event.owner === 'menu.render').at(-1)!;
   const rebuildCount = mounted.facts.rebuildCount;
   for (const family of ['smg', 'pistol']) {
@@ -79,6 +115,7 @@ test('Gunsmith build switching and replacement retain menu ownership and semanti
     const switched = await assertLocalCommit(page, rebuildCount);
     expect(switched.saved.gunsmith.selectedBuildId).toBe(`build:${family}`);
     expect(switched.diagnostic.focusedKey).toBe(`gunsmith-family:${family}`);
+    phase(page, `${family} selected and presented`);
   }
   await focus(page, 'gunsmith-part:compact');
   const target = (await diagnostic(page)).buttons.find(row => row.key === 'gunsmith-part:compact')!;
@@ -94,6 +131,7 @@ test('Gunsmith build switching and replacement retain menu ownership and semanti
   expect(saved.gunsmith.parts.heavy).toMatchObject({ partId: 'part:receiver-heavy', tier: 2 });
   expect(replacement.diagnostic.focusedKey).toBe('gunsmith-part:compact');
   expect(replacement.diagnostic.buttons.find(row => row.key === 'gunsmith-part:compact')!.text).toContain('FITTED');
+  phase(page, 'replacement committed and presented');
   await page.screenshot({ path: testInfo.outputPath('gunsmith-replacement-committed.png'), scale: 'css' });
 
   const viewport = page.viewportSize()!;
@@ -101,6 +139,7 @@ test('Gunsmith build switching and replacement retain menu ownership and semanti
   await expect.poll(async () => (await measurement(page)).events.some(event =>
     event.owner === 'menu.render' && event.facts.reason === 'viewport-resize')).toBe(true);
   await expect.poll(async () => (await diagnostic(page)).focusedKey).toBe('gunsmith-part:compact');
+  phase(page, 'resize focus restored');
   const resize = await checkpoint(page);
   expect(resize.saved.gunsmith).toEqual(saved.gunsmith);
   const resized = resize.measurement.events.filter(event => event.owner === 'menu.render').at(-1)!;
@@ -110,4 +149,5 @@ test('Gunsmith build switching and replacement retain menu ownership and semanti
   expect(removal.saved.gunsmith.builds[0].fitted.receiver).toBeUndefined();
   expect(removal.diagnostic.focusedKey).toBe('gunsmith-part:compact');
   expect(errors).toEqual([]);
+  phase(page, 'removal durable and presented');
 });
