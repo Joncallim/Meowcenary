@@ -1285,6 +1285,263 @@ describe('MenuScene', () => {
     expect(harness.context.saveData.gunsmith.builds.map((build) => build.id)).toEqual(['build:pistol', 'build:smg']);
   });
 
+  it('switches Gunsmith builds in place while updating family selection status once', () => {
+    const harness = createHarness();
+    harness.context.updateGunsmith(() => ({
+      parts: {}, fabricationSerials: {},
+      builds: [
+        { id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: {}, traitParts: [] },
+        { id: 'build:smg', name: 'SMG Build', baseWeaponFamily: 'smg', fitted: {}, traitParts: [] },
+      ],
+      selectedBuildId: 'build:pistol',
+    }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      root: FakeObject; panelContentRoot: FakeObject; scrollMaskContainer: FakeObject;
+      focusables: FakeObject[];
+    };
+    const shell = scene.root, content = scene.panelContentRoot, mask = scene.scrollMaskContainer;
+    const heading = harness.objects.find(object => !object.state.destroyed && object.state.text === 'Gunsmith')!;
+    const pistol = harness.buttonByLabel('Pistol Build')!;
+    const smg = harness.buttonByLabel('SMG Build')!;
+    const pistolStatus = harness.objects.find(object => !object.state.destroyed && object.state.text === 'SELECTED')!;
+    const smgStatus = harness.objects.find(object => !object.state.destroyed && object.state.text === 'CONFIGURED')!;
+    const update = vi.spyOn(harness.context, 'updateGunsmith');
+    const before = harness.context.saveData.gunsmith;
+
+    smg.state.handlers.pointerup!();
+
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(harness.context.saveData.gunsmith).not.toBe(before);
+    expect(harness.context.saveData.gunsmith.selectedBuildId).toBe('build:smg');
+    expect(scene.root === shell, 'build selection replaced the Menu root').toBe(true);
+    expect(scene.panelContentRoot === content, 'build selection replaced the Gunsmith surface').toBe(true);
+    expect(scene.scrollMaskContainer === mask, 'build selection replaced the shared scroll mask').toBe(true);
+    expect(harness.objects.find(object => !object.state.destroyed && object.state.text === 'Gunsmith') === heading,
+      'build selection replaced the Gunsmith heading').toBe(true);
+    expect(harness.buttonByLabel('Pistol Build') === pistol, 'build selection replaced the Pistol family control').toBe(true);
+    expect(harness.buttonByLabel('SMG Build') === smg, 'build selection replaced the SMG family control').toBe(true);
+    expect(pistol.state.destroyed).toBe(false);
+    expect(smg.state.destroyed).toBe(false);
+    expect(pistolStatus.state.text).toBe('CONFIGURED');
+    expect(smgStatus.state.text).toBe('SELECTED');
+    expect(pistolStatus.state.style.color).toBe('#a5f3fc');
+    expect(smgStatus.state.style.color).toBe('#86efac');
+    expect(harness.textContents().join('\n')).toContain('SMG BUILD\nSelected • Activates when acquired');
+  });
+
+  it('replaces a Gunsmith part with one durable update while retaining the surface and revoking the old command', () => {
+    const harness = createHarness();
+    harness.context.updateGunsmith(() => ({
+      parts: {
+        heavy: { partId: 'part:receiver-heavy', tier: 2, infusedTraits: [] },
+        compact: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] },
+      }, fabricationSerials: {},
+      builds: [{ id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: { receiver: 'heavy' }, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      root: FakeObject; panelContentRoot: FakeObject; scrollMaskContainer: FakeObject;
+      focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>;
+      navigator: { index: number }; handleResize(): void;
+    };
+    const shell = scene.root, content = scene.panelContentRoot, mask = scene.scrollMaskContainer;
+    const heading = harness.objects.find(object => !object.state.destroyed && object.state.text === 'Gunsmith')!;
+    const family = harness.buttonByLabel('Pistol Build')!;
+    const row = harness.objects.find(object => !object.state.destroyed && object.state.text.startsWith('Compact Receiver T1 • OWNED'))!;
+    expect(row).toBeDefined();
+    const oldCommand = row.state.handlers.pointerup!;
+    const before = harness.context.saveData.gunsmith;
+    const update = vi.spyOn(harness.context, 'updateGunsmith');
+
+    oldCommand();
+
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(harness.context.saveData.gunsmith).not.toBe(before);
+    expect(harness.context.saveData.gunsmith.builds[0]!.fitted.receiver).toBe('compact');
+    expect(harness.context.saveData.gunsmith.parts).toEqual(before.parts);
+    expect(scene.root === shell, 'part replacement replaced the Menu root').toBe(true);
+    expect(scene.panelContentRoot === content, 'part replacement replaced the Gunsmith surface').toBe(true);
+    expect(scene.scrollMaskContainer === mask, 'part replacement replaced the shared scroll mask').toBe(true);
+    expect(harness.objects.find(object => !object.state.destroyed && object.state.text === 'Gunsmith') === heading,
+      'part replacement replaced the Gunsmith heading').toBe(true);
+    expect(harness.buttonByLabel('Pistol Build') === family, 'part replacement replaced the family control').toBe(true);
+    expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('gunsmith-part:compact');
+
+    const committed = harness.context.saveData.gunsmith;
+    oldCommand();
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(harness.context.saveData.gunsmith).toBe(committed);
+
+    const resize = scene.handleResize.bind(scene);
+    const rebuilt = vi.spyOn(scene, 'handleResize').mockImplementation(resize);
+    const current = scene.root;
+    Object.assign(harness.menuScene.scale, { width: 1280, height: 720, displaySize: { width: 1280, height: 720 } });
+    scene.handleResize();
+    expect(rebuilt).toHaveBeenCalledOnce();
+    expect(scene.root).not.toBe(current);
+    expect(harness.context.saveData.gunsmith.builds[0]!.fitted.receiver).toBe('compact');
+    expect(harness.context.saveData.gunsmith).toBe(committed);
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps repeated Gunsmith build updates bounded and returns scroll geometry to each state', () => {
+    const harness = createHarness();
+    harness.context.updateGunsmith(() => ({
+      parts: { compact: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] } },
+      fabricationSerials: {},
+      builds: [
+        { id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: { receiver: 'compact' }, traitParts: [] },
+        { id: 'build:smg', name: 'SMG Build', baseWeaponFamily: 'smg', fitted: {}, traitParts: [] },
+      ],
+      selectedBuildId: 'build:pistol',
+    }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      root: FakeObject; panelContentRoot: FakeObject; scrollMaskContainer: FakeObject;
+      scrollRegion: { contentHeight: number; viewportHeight: number; scrollOffset: number };
+      focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>; navigator: { index: number };
+    };
+    const shell = scene.root, content = scene.panelContentRoot, mask = scene.scrollMaskContainer;
+    const observed = () => ({
+      liveObjects: harness.objects.filter(object => !object.state.destroyed).length,
+      contentHeight: scene.scrollRegion.contentHeight,
+    });
+    const expectScrollBounded = () => expect(scene.scrollRegion.scrollOffset)
+      .toBeLessThanOrEqual(Math.max(0, scene.scrollRegion.contentHeight - scene.scrollRegion.viewportHeight));
+    const longState = observed();
+    let shortState: ReturnType<typeof observed> | undefined;
+    const update = vi.spyOn(harness.context, 'updateGunsmith');
+
+    for (let iteration = 0; iteration < 4; iteration += 1) {
+      harness.buttonByLabel('SMG Build')!.state.handlers.pointerup!();
+      const currentShortState = observed();
+      if (shortState) expect(currentShortState).toEqual(shortState);
+      else shortState = currentShortState;
+      expect(scene.root === shell, 'short body update replaced the Menu root').toBe(true);
+      expect(scene.panelContentRoot === content, 'short body update replaced the Gunsmith surface').toBe(true);
+      expect(scene.scrollMaskContainer === mask, 'short body update replaced the shared scroll mask').toBe(true);
+      expect(scene.focusables.every(button => !button.state.destroyed)).toBe(true);
+      expectScrollBounded();
+
+      harness.buttonByLabel('Pistol Build')!.state.handlers.pointerup!();
+      expect(observed()).toEqual(longState);
+      expect(scene.root === shell, 'long body update replaced the Menu root').toBe(true);
+      expect(scene.panelContentRoot === content, 'long body update replaced the Gunsmith surface').toBe(true);
+      expect(scene.scrollMaskContainer === mask, 'long body update replaced the shared scroll mask').toBe(true);
+      expect(scene.focusables.every(button => !button.state.destroyed)).toBe(true);
+      expectScrollBounded();
+      expect(harness.context.saveData.gunsmith.selectedBuildId).toBe('build:pistol');
+      expect(update).toHaveBeenCalledTimes((iteration + 1) * 2);
+    }
+    expect(observed().liveObjects).toBe(longState.liveObjects);
+    expect(observed().contentHeight).toBe(longState.contentHeight);
+  });
+
+  it('recovers a failed local Gunsmith body draw without replaying the durable command', () => {
+    const harness = createHarness();
+    harness.context.updateGunsmith(() => ({
+      parts: {
+        heavy: { partId: 'part:receiver-heavy', tier: 2, infusedTraits: [] },
+        compact: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] },
+      }, fabricationSerials: {},
+      builds: [{ id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: { receiver: 'heavy' }, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      root: FakeObject; committedDisplay: boolean;
+      controller: { fitGunPart(instanceId: string): import('../src/ui/menus').MainMenuSnapshot };
+    };
+    const root = scene.root;
+    const fit = vi.spyOn(scene.controller, 'fitGunPart');
+    const update = vi.spyOn(harness.context, 'updateGunsmith');
+    const compactCandidate = harness.objects.find(object =>
+      !object.state.destroyed && object.state.text.startsWith('Compact Receiver T1 • OWNED'))!;
+    harness.failNextText();
+
+    expect(() => compactCandidate.state.handlers.pointerup!()).not.toThrow();
+
+    expect(fit).toHaveBeenCalledExactlyOnceWith('compact');
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(harness.context.saveData.gunsmith.builds[0]!.fitted.receiver).toBe('compact');
+    expect(scene.root).not.toBe(root);
+    expect(root.state.destroyed).toBe(true);
+    expect(scene.committedDisplay).toBe(true);
+    expect(harness.textContents().some(text => text.includes('Compact Receiver T1 • FITTED'))).toBe(true);
+    expect(harness.textContents()).not.toContain('Something went wrong — press Esc to retry');
+  });
+
+  it('shows a save failure notice and rebuilds from the unchanged Gunsmith snapshot', () => {
+    const harness = createHarness();
+    harness.context.updateGunsmith(() => ({
+      parts: {
+        heavy: { partId: 'part:receiver-heavy', tier: 2, infusedTraits: [] },
+        compact: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] },
+      }, fabricationSerials: {},
+      builds: [{ id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: { receiver: 'heavy' }, traitParts: [] }],
+      selectedBuildId: 'build:pistol',
+    }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      root: FakeObject; controller: { fitGunPart(instanceId: string): import('../src/ui/menus').MainMenuSnapshot };
+    };
+    const root = scene.root;
+    const saved = harness.context.saveData;
+    const fit = vi.spyOn(scene.controller, 'fitGunPart');
+    const update = vi.spyOn(harness.context, 'updateGunsmith').mockReturnValue({
+      value: saved.gunsmith,
+      persisted: false,
+    });
+    const compactCandidate = harness.objects.find(object =>
+      !object.state.destroyed && object.state.text.startsWith('Compact Receiver T1 • OWNED'))!;
+
+    compactCandidate.state.handlers.pointerup!();
+
+    expect(fit).toHaveBeenCalledExactlyOnceWith('compact');
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(harness.context.saveData).toBe(saved);
+    expect(scene.root).not.toBe(root);
+    expect(root.state.destroyed).toBe(true);
+    expect(harness.textContents()).toContain('Could not save that Gunsmith change');
+    expect(harness.textContents().some(text => text.startsWith('Heavy Receiver T2 • FITTED'))).toBe(true);
+  });
+
+  it('creates a Gunsmith build once and leaves retryable fallback after its first presentation draw fails', () => {
+    const harness = createHarness();
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Gunsmith')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      controller: { createGunBuild(family: string): import('../src/ui/menus').MainMenuSnapshot };
+      committedDisplay: boolean;
+    };
+    const create = vi.spyOn(scene.controller, 'createGunBuild');
+    const update = vi.spyOn(harness.context, 'updateGunsmith');
+    harness.failNextText();
+
+    expect(() => harness.buttonByLabel('Pistol Build')!.state.handlers.pointerup!()).toThrow('Injected text factory failure');
+
+    expect(create).toHaveBeenCalledExactlyOnceWith('pistol');
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(harness.context.saveData.gunsmith.selectedBuildId).toBe('build:pistol');
+    expect(scene.committedDisplay).toBe(false);
+    expect(harness.textContents()).toContain('Something went wrong — press Esc to retry');
+    harness.keyboard.keyup('Escape'); harness.menuScene.update(0, 16);
+    harness.keyboard.keydown('Escape'); harness.menuScene.update(0, 16);
+    harness.keyboard.keyup('Escape'); harness.menuScene.update(0, 16);
+    expect(create).toHaveBeenCalledOnce();
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(scene.committedDisplay).toBe(true);
+    expect(harness.textContents()).toContain('LOADOUT');
+    expect(harness.textContents()).not.toContain('Something went wrong — press Esc to retry');
+  });
+
   it('keeps unavailable Gunsmith catalog rows inert when scrolling reveals them', () => {
     const harness = createHarness();
     harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();

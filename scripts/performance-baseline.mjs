@@ -20,7 +20,8 @@ const fixture = {
   version: 4, settings: { muted: false, musicVolume: 0.5, sfxVolume: 0.5, reducedMotion: false },
   progression: { scrap: 640, unlocks: ['capability:equipment-tier-2'] }, stages: {}, achievements: {}, characters: {},
   gunsmith: { selectedBuildId: 'build:pistol', fabricationSerials: {},
-    builds: [{ id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: { receiver: 'heavy' }, traitParts: [] }],
+    builds: [{ id: 'build:pistol', name: 'Pistol Build', baseWeaponFamily: 'pistol', fitted: { receiver: 'heavy' }, traitParts: [] },
+      { id: 'build:smg', name: 'SMG Build', baseWeaponFamily: 'smg', fitted: {}, traitParts: [] }],
     parts: { heavy: { partId: 'part:receiver-heavy', tier: 2, infusedTraits: [] }, compact: { partId: 'part:receiver-compact', tier: 1, infusedTraits: [] } } },
   equipment: Object.fromEntries(catalog.filter(piece => piece.id !== 'equipment:scavenger-helmet').map(piece => [`owned:${piece.id}`, { equipmentId: piece.id, tier: 1 }])),
   equipmentLoadout: { helmet: 'owned:equipment:commando-helmet', armour: 'owned:equipment:commando-armour', gloves: 'owned:equipment:recon-gloves' },
@@ -34,7 +35,8 @@ const result = { baselineSHA: '26f46fb5398c7eb769fe1bffa5ed60f80f20eea5', measur
   method: { repeats, windowMs, frameWindow: 600, percentile: 'nearest rank', budgetMs: 1000 / 60,
     network: 'local Vite preview, unthrottled; resource timing transfer/encoded/decoded sizes retained',
     route: 'existing test-build route seam; real controller/render/load path, excludes input dispatch',
-    action: 'real keyboard focus + Enter; ready latency ends at recorded POST_RENDER, observedDurationMs also includes release/polling' ,
+    action: 'real keyboard focus + Enter; ready latency ends at recorded POST_RENDER, observedDurationMs also includes release/polling',
+    gunsmith: 'actual Pistol -> configured SMG -> Pistol build switches, then occupied receiver replacement; durable selected ID and fit asserted',
     combat: 'real Training/resource/spawn/physics/weapon path; fixed run/fixture seeds; fixture grants60s invulnerability; no progression writes',
     result: 'existing dedicated terminal-presentation fixture + real keyboard return; not durable reward acceptance',
     rawFrames: 'Phaser raw loop cadence; gameplay frame samples are separately labelled smoothed simulation delta',
@@ -154,8 +156,12 @@ try {
       cohort.actions.push(await inputAction(page, 'equipment-fabricate'));
       assert.equal(await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('meowcenary.save.v2')).equipment).length), countBefore + 1);
       await route(page, 'home', 'setup-home'); cohort.actions.push(await route(page, 'gunsmith', 'gunsmith-entry'));
+      await focus(page, row => row.text.startsWith('SMG Build'));
+      cohort.actions.push(await inputAction(page, 'gunsmith-build-switch'));
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('meowcenary.save.v2')).gunsmith.selectedBuildId), 'build:smg');
       await focus(page, row => row.text.startsWith('Pistol Build'));
       cohort.actions.push(await inputAction(page, 'gunsmith-build-select'));
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('meowcenary.save.v2')).gunsmith.selectedBuildId), 'build:pistol');
       await focus(page, row => row.text.startsWith('Compact Receiver T1 • OWNED'));
       cohort.actions.push(await inputAction(page, 'gunsmith-part-replace'));
       assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('meowcenary.save.v2')).gunsmith.builds[0].fitted.receiver), 'compact');

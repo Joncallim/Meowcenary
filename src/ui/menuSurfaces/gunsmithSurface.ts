@@ -3,14 +3,82 @@ import type { MainMenuSnapshot } from '../menus';
 import { edgeMargin } from '../layout';
 import { createUiText } from '../text';
 import { ThemeFont } from '../theme';
-import { MenuPanelSurface, type MenuSurfaceLayout, type GunsmithSurfaceCommands, type MenuSurfaceEnvironment } from './surface';
+import { MenuPanelSurface, type MenuSurfaceLayout, type GunsmithSurfaceCommands, type MenuSurfaceEnvironment, type MenuSurfaceControls } from './surface';
 import { collectGunsmithArtIds, renderAssembledWeapon } from './weaponPresentation';
 
 export class GunsmithSurface extends MenuPanelSurface {
   readonly panel = 'gunsmith' as const;
+  private prefixInvariant?: string;
+  private bodyTop = 0;
+  private bodyGeneration = 0;
+  private drawingBody = false;
+  private tailObjects: Phaser.GameObjects.GameObject[] = [];
+  private familyStatuses: Array<{ readonly id: string; readonly text: Phaser.GameObjects.Text }> = [];
+
+  get bodyObjects(): readonly Phaser.GameObjects.GameObject[] { return this.tailObjects; }
+
+  canUpdateBody(snapshot: MainMenuSnapshot, scrap: number): boolean {
+    return !!this.root && this.layout.width === this.environment.scene.scale.width
+      && this.layout.height === this.environment.scene.scale.height && snapshot.panel === this.panel
+      && this.tailObjects.length > 0 && this.familyStatuses.length === snapshot.gunsmith.families.length
+      && this.prefixInvariant === this.prefixFacts(snapshot, scrap);
+  }
+
+  updateBody(scrollRoot: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, scrap: number): void {
+    if (!this.canUpdateBody(snapshot, scrap)) throw new Error('Gunsmith prefix changed during local update');
+    this.bodyGeneration += 1;
+    const old = this.tailObjects;
+    this.tailObjects = [];
+    for (const object of old) object.destroy();
+    snapshot.gunsmith.families.forEach((family, index) => {
+      const statusCopy = this.familyStatuses[index]!;
+      if (statusCopy.id !== family.id) throw new Error('Gunsmith family order changed during local update');
+      const copy = statusCopy.text;
+      const status = family.selected ? 'SELECTED' : family.existingBuildId ? 'CONFIGURED' : 'EMPTY — TAP TO CREATE';
+      const color = family.selected ? '#86efac' : '#a5f3fc';
+      if (copy.text !== status) copy.setText(status);
+      if (copy.style.color !== color) copy.setStyle({ color });
+    });
+    this.drawBody(scrollRoot, this.root!, snapshot);
+  }
+
+  override unmount(): void {
+    this.bodyGeneration += 1;
+    this.prefixInvariant = undefined;
+    this.familyStatuses = [];
+    this.tailObjects = [];
+    super.unmount();
+  }
+
+  override dispose(): void {
+    this.unmount();
+    super.dispose();
+  }
+
+  protected override button(...args: Parameters<MenuSurfaceControls['addButton']>): Phaser.GameObjects.Text {
+    const action = args[5];
+    if (this.drawingBody && action) {
+      const generation = this.bodyGeneration;
+      args[5] = () => { if (generation === this.bodyGeneration) action(); };
+    }
+    return super.button(...args);
+  }
+
+  private prefixFacts(snapshot: MainMenuSnapshot, scrap: number): string {
+    return JSON.stringify([snapshot.notice, scrap,
+      snapshot.stage.stages.find(stage => stage.selected)?.menuBackdropArtId,
+      snapshot.gunsmith.families.map(family => [
+        family.id, family.name, family.iconArtId, family.previewBaseArtId, family.existingBuildId,
+      ])]);
+  }
+
   constructor(environment: MenuSurfaceEnvironment, private readonly commands: GunsmithSurfaceCommands) { super(environment); }
 
-  protected draw(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, layout: MenuSurfaceLayout, _scrap: number): void {
+  protected draw(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, layout: MenuSurfaceLayout, scrap: number): void {
+    // A direct remount also revokes callbacks from the previous body.
+    this.bodyGeneration += 1;
+    this.familyStatuses = [];
+    this.tailObjects = [];
     const { width, top, margin, hitTarget } = layout;
     const heading = this.environment.controls.addHeading(root, this.layout.centerX, top, 'Gunsmith');
     let y = top + heading.height + 14;
@@ -23,9 +91,11 @@ export class GunsmithSurface extends MenuPanelSurface {
     snapshot.gunsmith.families.forEach((family) => {
       const label = `${family.name} Build`;
       const status = family.selected ? 'SELECTED' : family.existingBuildId ? 'CONFIGURED' : 'EMPTY — TAP TO CREATE';
-      const familyCard = this.button(root, margin, y, label, 100, () => this.environment.onSnapshot(family.existingBuildId
-        ? this.commands.selectGunBuild(family.existingBuildId)
-        : this.commands.createGunBuild(family.id)), 'ui:confirm', width - margin - this.layout.rightMargin, undefined, 8, 176, true);
+      const familyCard = this.button(root, margin, y, label, 100, () => {
+        if (family.existingBuildId) this.environment.onSnapshot(this.commands.selectGunBuild(family.existingBuildId), 'gunsmith-body');
+        else this.environment.onSnapshot(this.commands.createGunBuild(family.id));
+      }, 'ui:confirm', width - margin - this.layout.rightMargin, undefined, 8, 176, true);
+      this.environment.controls.rememberFocus(familyCard, `gunsmith-family:${family.id}`);
       const rowOwnerIndex = this.environment.controls.buttonIndex(familyCard);
       this.environment.controls.addCatalogIcon(root, margin + 78, y + 50, family.previewBaseArtId ?? family.iconArtId, 146, rowOwnerIndex);
       const statusCopy = this.own(root, createUiText(this.environment.scene, margin + 176, y + 50, status, {
@@ -33,8 +103,21 @@ export class GunsmithSurface extends MenuPanelSurface {
       }));
       statusCopy.setScrollFactor(0);
       this.environment.controls.registerScrollObject(statusCopy, rowOwnerIndex);
+      this.familyStatuses.push({ id: family.id, text: statusCopy });
       y += familyCard.height + 10;
     });
+    this.bodyTop = y;
+    this.prefixInvariant = this.prefixFacts(snapshot, scrap);
+    this.drawBody(root, root, snapshot);
+  }
+
+  private drawBody(root: Phaser.GameObjects.Container, fixedRoot: Phaser.GameObjects.Container,
+    snapshot: MainMenuSnapshot): void {
+    const { width, margin, hitTarget } = this.layout;
+    let y = this.bodyTop;
+    const before = new Set([...root.list, ...fixedRoot.list]);
+    this.drawingBody = true;
+    try {
     const selected = snapshot.gunsmith.selectedBuild;
     if (!selected) {
       const prompt = this.own(root, createUiText(this.environment.scene, margin, y, 'Choose a weapon build to inspect its engineering.', {
@@ -92,6 +175,7 @@ export class GunsmithSurface extends MenuPanelSurface {
         if (slot.unavailableFitted) {
           const row = this.button(root, margin, y, `${slot.unavailableFitted.label}\nREMOVE UNAVAILABLE PART`, hitTarget,
             () => this.environment.onSnapshot(this.commands.removeUnavailableGunPart(slot.unavailableFitted!.instanceId)), 'ui:confirm', width - margin - this.layout.rightMargin);
+          this.environment.controls.rememberFocus(row, `gunsmith-unavailable:${slot.unavailableFitted.instanceId}`);
           y += row.height + 8;
         }
         if (slot.candidates.length === 0 && slot.fitted === undefined && slot.unavailableFitted === undefined) {
@@ -112,8 +196,9 @@ export class GunsmithSurface extends MenuPanelSurface {
           const partRowHeight = Math.max(hitTarget, 76);
           const row = this.button(root, margin, y, label, partRowHeight, () => this.environment.onSnapshot(part.state === 'fitted-here'
             ? this.commands.unequipGunPart(part.instanceId)
-            : this.commands.fitGunPart(part.instanceId)), 'ui:confirm', width - margin - this.layout.rightMargin,
+            : this.commands.fitGunPart(part.instanceId), 'gunsmith-body'), 'ui:confirm', width - margin - this.layout.rightMargin,
           undefined, part.displacedInstanceId === undefined ? 0 : 12, iconColumn, part.displacedInstanceId !== undefined, 'center');
+          this.environment.controls.rememberFocus(row, `gunsmith-part:${part.instanceId}`);
           const rowOwnerIndex = this.environment.controls.buttonIndex(row);
           if (!enabled) this.environment.controls.disableButton(row);
           this.environment.controls.addCatalogIcon(root, margin + 30, y + row.height / 2, part.iconArtId, 52, rowOwnerIndex);
@@ -134,6 +219,9 @@ export class GunsmithSurface extends MenuPanelSurface {
             () => this.environment.onSnapshot(recipe.kind === 'merge'
               ? this.commands.beginGunMerge(recipe.groupId)
               : this.commands.requestGunWorkshop({ kind: 'infuse', targetInstanceId: recipe.targetInstanceId, traitInstanceId: recipe.traitInstanceId })), 'ui:confirm', width - margin - this.layout.rightMargin, 'ui-chrome:merge');
+          this.environment.controls.rememberFocus(row, recipe.kind === 'merge'
+            ? `gunsmith-workshop:merge:${recipe.groupId}`
+            : `gunsmith-workshop:infuse:${recipe.targetInstanceId}:${recipe.traitInstanceId}`);
           y += row.height + 8;
         });
       }
@@ -147,6 +235,7 @@ export class GunsmithSurface extends MenuPanelSurface {
         selection.choices.forEach((choice) => {
           const row = this.button(root, margin, y, `${choice.recommended ? 'RECOMMENDED • ' : ''}${choice.label}`, hitTarget,
             () => this.environment.onSnapshot(this.commands.selectGunMergeInput(choice.instanceId)), 'ui:confirm', width - margin - this.layout.rightMargin);
+          this.environment.controls.rememberFocus(row, `gunsmith-merge-input:${choice.instanceId}`);
           y += row.height + 8;
         });
       }
@@ -167,9 +256,11 @@ export class GunsmithSurface extends MenuPanelSurface {
         const actionWidth = Math.max(120, (width - margin - this.layout.rightMargin - 8) / 2);
         const confirm = this.button(root, margin, y, confirmation.confirmLabel, hitTarget,
           () => this.environment.onSnapshot(this.commands.confirmGunWorkshop()), 'ui:confirm', actionWidth);
+        this.environment.controls.rememberFocus(confirm, 'gunsmith-confirm');
         this.environment.controls.focusAfterRender(confirm);
         const cancel = this.button(root, margin + actionWidth + 8, y, 'Cancel', hitTarget,
           () => this.environment.onSnapshot(this.commands.cancelGunWorkshop()), 'ui:back', actionWidth);
+        this.environment.controls.rememberFocus(cancel, 'gunsmith-cancel');
         y += Math.max(confirm.height, cancel.height) + 12;
       }
       const catalogHeading = this.own(root, createUiText(this.environment.scene, margin, y, 'PART CATALOG', {
@@ -184,6 +275,7 @@ export class GunsmithSurface extends MenuPanelSurface {
         const catalogRowHeight = Math.max(hitTarget, 92);
         const row = this.button(root, margin, y, label, catalogRowHeight,
           () => this.environment.onSnapshot(this.commands.fabricateGunPart(part.partId)), 'ui:confirm', width - margin - this.layout.rightMargin, undefined, 0, iconColumn);
+        this.environment.controls.rememberFocus(row, `gunsmith-catalog:${part.partId}`);
         const rowOwnerIndex = this.environment.controls.buttonIndex(row);
         if (!part.canFabricate) this.environment.controls.disableButton(row);
         this.environment.controls.addCatalogIcon(root, margin + 30, y + catalogRowHeight / 2, part.iconArtId, 52, rowOwnerIndex);
@@ -195,10 +287,15 @@ export class GunsmithSurface extends MenuPanelSurface {
     }
     this.environment.controls.endScrollableRegion();
     this.environment.resources.gunsmith(collectGunsmithArtIds(snapshot));
-    const compactLandscape = layout.height < 500 && width >= 700;
-    const backY = compactLandscape ? edgeMargin(layout.viewport, 'top') + 8
-      : layout.height - edgeMargin(layout.viewport, 'bottom') - hitTarget;
-    this.button(root, margin, backY, 'Back', hitTarget,
+    const compactLandscape = this.layout.height < 500 && width >= 700;
+    const backY = compactLandscape ? edgeMargin(this.layout.viewport, 'top') + 8
+      : this.layout.height - edgeMargin(this.layout.viewport, 'bottom') - hitTarget;
+    const back = this.button(fixedRoot, margin, backY, 'Back', hitTarget,
       () => this.environment.onSnapshot(this.commands.back()), 'ui:back', 120, 'action-icon:back');
+    this.environment.controls.rememberFocus(back, 'gunsmith-back');
+    } finally {
+      this.drawingBody = false;
+      this.tailObjects = [...new Set([...root.list, ...fixedRoot.list])].filter(object => !before.has(object));
+    }
   }
 }
