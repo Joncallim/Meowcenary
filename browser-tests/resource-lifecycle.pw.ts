@@ -99,13 +99,12 @@ test('Home loads only menu audio; real Play Contract waits for run audio without
 });
 
 test('optional audio failure remains playable and cached return/retry does not reload completed audio', async ({ page }, testInfo) => {
-  let failOptionalOnce = true;
+  let failOptionalRun = true;
   const requests = new Map<string, number>();
   await page.route('**/assets/audio/*.wav', async route => {
     const path = new URL(route.request().url()).pathname;
     requests.set(path, (requests.get(path) ?? 0) + 1);
-    if (failOptionalOnce && path.endsWith('/sfx-weapon-fired.wav')) {
-      failOptionalOnce = false;
+    if (failOptionalRun && path.endsWith('/sfx-weapon-fired.wav')) {
       await route.abort('failed');
       return;
     }
@@ -115,7 +114,10 @@ test('optional audio failure remains playable and cached return/retry does not r
   await waitForHome(page);
   await launch(page, testInfo);
   const firstCounts = new Map(requests);
-  expect(firstCounts.get('/assets/audio/sfx-weapon-fired.wav')).toBe(1);
+  // Phaser 3.90 retries a failed file twice by default; all three attempts fail
+  // during this launch so we exercise actual optional-failure settlement.
+  expect(firstCounts.get('/assets/audio/sfx-weapon-fired.wav')).toBe(3);
+  failOptionalRun = false;
   expect([...firstCounts.keys()].filter(path => /\/(music-run|sfx-(?!ui-)[^/]+)\.wav$/.test(path)).length).toBe(17);
 
   const events = await page.evaluate(() => (globalThis as BrowserGlobals).__MEOWCENARY_PERFORMANCE__!.snapshot().events);
@@ -134,6 +136,6 @@ test('optional audio failure remains playable and cached return/retry does not r
     if (path.endsWith('/sfx-weapon-fired.wav')) continue; // The failed optional file was absent from Phaser's cache.
     expect(requests.get(path), `cached audio request count for ${path}`).toBe(count);
   }
-  expect(requests.get('/assets/audio/sfx-weapon-fired.wav')).toBe(2);
+  expect(requests.get('/assets/audio/sfx-weapon-fired.wav')).toBe(4);
   expect(await page.evaluate(() => (globalThis as BrowserGlobals).__MEOWCENARY_VISUAL_TEST__!.isSceneActive('GameScene'))).toBe(true);
 });
