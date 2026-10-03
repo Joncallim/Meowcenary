@@ -201,6 +201,7 @@ function fakeObject(
     },
     destroy() {
       state.destroyed = true;
+      parentContainer?.remove(api);
     },
   };
   return api;
@@ -305,7 +306,7 @@ function createFakeScene(
           },
           destroy(deep = true) {
             if (deep) {
-              container.children.forEach((child) => child.destroy());
+              [...container.children].forEach((child) => child.destroy());
             }
             base.destroy();
           },
@@ -510,6 +511,9 @@ describe('MenuScene', () => {
     scene.render(scene.controller.open('equipment'));
     const oldRoot = scene.panelContentRoot!;
     await vi.waitFor(() => expect(queued).toEqual(['art-equipment-sets', 'art-equipment-commando']));
+    harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    expect(scene.panelContentRoot).toBe(oldRoot);
+    expect(harness.menuScene.loadoutUiDiagnostics().equipment?.selectedInstanceId).toBe('recon');
     scene.render(scene.controller.open('home'));
     scene.controller.selectEquipmentCandidate('recon');
     scene.render(scene.controller.open('equipment'));
@@ -551,6 +555,137 @@ describe('MenuScene', () => {
     expect(harness.textContents().join('\n')).toContain('[All Weapons]');
     harness.buttonByLabel('Equip Recon Helmet')!.state.handlers.pointerup!();
     expect(harness.context.saveData.equipmentLoadout?.helmet).toBe('recon');
+  });
+
+  it('retains the Equipment shell, prefix and mask during candidate selection while revoking replaced detail commands', () => {
+    const harness = createHarness({ audio: true });
+    harness.context.updateEquipment(() => ({ equipment: {
+      commando: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      recon: { equipmentId: 'equipment:recon-helmet', tier: 1 },
+    }, loadout: { helmet: 'commando' } }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Commando Helmet\nT1 • EQUIPPED')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      root: FakeObject; panelContentRoot: FakeObject; scrollMask: unknown;
+      focusables: FakeObject[]; focusKeyByButton: Map<FakeObject, string>; navigator: { index: number };
+    };
+    const root = scene.root, panel = scene.panelContentRoot, mask = scene.scrollMask;
+    const slots = scene.focusables.slice(0, 4);
+    const recon = harness.buttonByLabel('Recon Helmet\nT1 • STORED')!;
+    const oldUnequip = harness.buttonByLabel('Unequip Commando Helmet')!;
+    const before = harness.context.saveData;
+    const rebuilds = harness.menuScene.renderRebuildCount;
+    const createdBefore = harness.objects.length;
+    recon.state.handlers.pointerup!();
+    expect(scene.root).toBe(root);
+    expect(scene.panelContentRoot).toBe(panel);
+    expect(scene.scrollMask).toBe(mask);
+    expect(scene.focusables.slice(0, 4)).toEqual(slots);
+    expect(harness.buttonByLabel('Recon Helmet\nT1 • STORED')).toBe(recon);
+    expect(harness.menuScene.renderRebuildCount).toBe(rebuilds);
+    expect(harness.objects.length - createdBefore).toBeLessThan(60);
+    expect(harness.context.saveData).toBe(before);
+    expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-detail:recon');
+    expect(oldUnequip.state.destroyed).toBe(true);
+    oldUnequip.state.handlers.pointerup!();
+    expect(harness.context.saveData).toBe(before);
+    expect(harness.textContents().join('\n')).toContain('Replaces Commando Helmet');
+    harness.buttonByLabel('Equip Recon Helmet')!.state.handlers.pointerup!();
+    expect(harness.context.saveData.equipmentLoadout?.helmet).toBe('recon');
+    expect(scene.root).not.toBe(root);
+  });
+
+  it('recomputes shorter Equipment detail extents without scroll drift or retained dead controls', () => {
+    const harness = createHarness();
+    harness.context.updateEquipment(() => ({ equipment: {
+      armour: { equipmentId: 'equipment:commando-armour', tier: 1 },
+      recon: { equipmentId: 'equipment:recon-helmet', tier: 1 },
+    }, loadout: { armour: 'armour' } }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      root: FakeObject; scrollMaskContainer: FakeObject & { list: FakeObject[] };
+      focusables: FakeObject[]; scrollObjects: Array<{ object: FakeObject }>;
+      scrollRegion: { contentHeight: number }; scrollItemBounds: Map<number, { top: number; bottom: number }>;
+      focusKeyByButton: Map<FakeObject, string>; navigator: { index: number };
+    };
+    const root = scene.root, maskContent = scene.scrollMaskContainer;
+    const slotBounds = { ...scene.scrollItemBounds.get(0)! };
+    const candidate = harness.buttonByLabel('Recon Helmet\nT1 • STORED')!;
+    const blueprint = harness.buttonByLabel('Commando Helmet\nFABRICABLE • 100 Scrap')!;
+    const before = harness.context.saveData;
+    candidate.state.handlers.pointerup!();
+    const longHeight = scene.scrollRegion.contentHeight;
+    const longCount = maskContent.list.length;
+    for (let repeat = 0; repeat < 12; repeat += 1) {
+      blueprint.state.handlers.pointerup!();
+      expect(scene.scrollRegion.contentHeight).toBeLessThan(longHeight);
+      expect(harness.buttonByLabel('Fabricate for 100 Scrap')!.state.interactive).toBe(false);
+      expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-blueprint-detail:equipment:commando-helmet');
+      candidate.state.handlers.pointerup!();
+      expect(scene.scrollRegion.contentHeight).toBe(longHeight);
+      expect(maskContent.list).toHaveLength(longCount);
+      expect(scene.scrollItemBounds.get(0)).toEqual(slotBounds);
+      expect(scene.focusables.every(button => !button.state.destroyed)).toBe(true);
+      expect(scene.scrollObjects.every(entry => !entry.object.state.destroyed)).toBe(true);
+      expect(scene.scrollMaskContainer).toBe(maskContent);
+      expect(scene.root).toBe(root);
+      expect(harness.context.saveData).toBe(before);
+    }
+  });
+
+  it('fully rebuilds Equipment when selection changes the Set hero or retained inventory', () => {
+    const harness = createHarness();
+    harness.context.updateEquipment(() => ({ equipment: {
+      commando: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      recon: { equipmentId: 'equipment:recon-helmet', tier: 1 },
+    }, loadout: { helmet: 'commando' } }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as { root: FakeObject; committedDisplay: boolean };
+    const firstRoot = scene.root;
+    harness.buttonByLabel('Pyro Helmet\nFABRICABLE • 100 Scrap')!.state.handlers.pointerup!();
+    expect(scene.root).not.toBe(firstRoot);
+    expect(firstRoot.state.destroyed).toBe(true);
+    expect(harness.textContents().join('\n')).toContain('Pyro Set');
+    const oldCandidate = harness.buttonByLabel('Recon Helmet\nT1 • STORED')!;
+    harness.context.updateEquipment(({ loadout }) => ({ equipment: {
+      commando: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+    }, loadout }));
+    const before = harness.context.saveData, secondRoot = scene.root;
+    oldCandidate.state.handlers.pointerup!();
+    expect(scene.root).not.toBe(secondRoot);
+    expect(scene.committedDisplay).toBe(true);
+    expect(harness.context.saveData).toBe(before);
+    expect(harness.buttonByLabel('Recon Helmet\nT1 • STORED')).toBeUndefined();
+  });
+
+  it('recovers a failed local Equipment draw from the returned snapshot without repeating its command', () => {
+    const harness = createHarness();
+    harness.context.updateEquipment(() => ({ equipment: {
+      commando: { equipmentId: 'equipment:commando-helmet', tier: 1 },
+      recon: { equipmentId: 'equipment:recon-helmet', tier: 1 },
+    }, loadout: { helmet: 'commando' } }));
+    harness.buttonByLabel('Loadout')!.state.handlers.pointerup!();
+    harness.buttonByLabel('Equipment')!.state.handlers.pointerup!();
+    const scene = harness.menuScene as unknown as {
+      root: FakeObject; committedDisplay: boolean; focusables: FakeObject[];
+      controller: { selectEquipmentCandidate(id: string): import('../src/ui/menus').MainMenuSnapshot };
+      focusKeyByButton: Map<FakeObject, string>; navigator: { index: number };
+    };
+    const select = vi.spyOn(scene.controller, 'selectEquipmentCandidate');
+    const root = scene.root, before = harness.context.saveData;
+    harness.failNextText();
+    harness.buttonByLabel('Recon Helmet\nT1 • STORED')!.state.handlers.pointerup!();
+    expect(select).toHaveBeenCalledExactlyOnceWith('recon');
+    expect(scene.root).not.toBe(root);
+    expect(root.state.destroyed).toBe(true);
+    expect(scene.committedDisplay).toBe(true);
+    expect(scene.focusKeyByButton.get(scene.focusables[scene.navigator.index]!)).toBe('equipment-detail:recon');
+    expect(scene.focusables.every(button => !button.state.destroyed)).toBe(true);
+    expect(harness.context.saveData).toBe(before);
+    expect(harness.textContents().join('\n')).toContain('Replaces Commando Helmet');
   });
 
   it('aligns the independently bounded Loadout footer with its 840px content lane on a wide safe viewport', () => {

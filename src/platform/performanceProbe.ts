@@ -1,6 +1,6 @@
 import { createPerfSampler, type PerfSampler } from '../gameplay/perf';
 
-const OWNER_NAMES = ['menu.snapshot', 'menu.render', 'resource.load', 'resource.audio', 'boot.fonts', 'boot.font-weight', 'boot.preload', 'boot.load', 'boot.audio', 'boot.visual', 'boot.create', 'run.prepare', 'game.create'] as const;
+const OWNER_NAMES = ['menu.snapshot', 'menu.render', 'menu.update', 'resource.load', 'resource.audio', 'boot.fonts', 'boot.font-weight', 'boot.preload', 'boot.load', 'boot.audio', 'boot.visual', 'boot.create', 'run.prepare', 'game.create'] as const;
 const FRAME_OWNERS = [{ name: 'frame.cpu' }, { name: 'frame.render' }] as const;
 export type PerformanceOwner = typeof OWNER_NAMES[number];
 export type PerformanceFacts = Readonly<Record<string, string | number | boolean | readonly string[]>>;

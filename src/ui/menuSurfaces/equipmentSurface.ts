@@ -1,12 +1,66 @@
 import type Phaser from 'phaser';
 import type { MainMenuSnapshot } from '../menus';
 import { LoadoutPanelSurface } from './loadoutChrome';
-import { type MenuSurfaceLayout, type EquipmentSurfaceCommands } from './surface';
+import { type MenuSurfaceLayout, type EquipmentSurfaceCommands, type MenuSurfaceControls } from './surface';
 import { edgeMargin } from '../layout';
 
 export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceCommands> {
   readonly panel = 'equipment' as const;
   private equipmentSetBrowserOpen = false;
+  private selectionInvariant?: string;
+  private detailTop = 0;
+  private selectionGeneration = 0;
+  private drawingSelection = false;
+  private tailObjects: Phaser.GameObjects.GameObject[] = [];
+
+  get selectionObjects(): readonly Phaser.GameObjects.GameObject[] { return this.tailObjects; }
+
+  canUpdateSelection(snapshot: MainMenuSnapshot, scrap: number): boolean {
+    return !!this.root && this.layout.width === this.environment.scene.scale.width
+      && this.layout.height === this.environment.scene.scale.height && snapshot.panel === this.panel
+      && this.selectionInvariant === this.prefixInvariant(snapshot, scrap);
+  }
+
+  updateSelection(scrollRoot: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, scrap: number): void {
+    this.selectionGeneration += 1;
+    const old = this.tailObjects;
+    this.tailObjects = [];
+    for (const object of old) object.destroy();
+    this.drawSelection(scrollRoot, this.root!, snapshot, scrap);
+  }
+
+  override unmount(): void {
+    this.selectionGeneration += 1;
+    this.selectionInvariant = undefined;
+    this.tailObjects = [];
+    super.unmount();
+  }
+
+  override dispose(): void {
+    this.unmount();
+    super.dispose();
+  }
+
+  protected override button(...args: Parameters<MenuSurfaceControls['addButton']>): Phaser.GameObjects.Text {
+    const action = args[5];
+    if (this.drawingSelection && action) {
+      const generation = this.selectionGeneration;
+      args[5] = () => { if (generation === this.selectionGeneration) action(); };
+    }
+    return super.button(...args);
+  }
+
+  /** Compare only immutable model facts, never row positions or live objects.
+   * The selected hero can change with a blueprint, requiring a full rebuild. */
+  private prefixInvariant(snapshot: MainMenuSnapshot, scrap: number): string {
+    const equipment = snapshot.equipment;
+    const emblem = equipment.blueprints.find(piece => piece.equipmentId === equipment.selectedBlueprintId)?.setEmblemArtId;
+    const hero = equipment.presentation.sets.find(set => set.emblemArtId === emblem)
+      ?? equipment.presentation.sets.find(set => set.equippedCount > 0);
+    return JSON.stringify([snapshot.notice, scrap, equipment.selectedSlot,
+      this.equipmentSetBrowserOpen, hero, equipment.presentation, equipment.blueprints, equipment.unavailable,
+      snapshot.stage.stages.find(stage => stage.selected)?.menuBackdropArtId]);
+  }
 
   protected draw(root: Phaser.GameObjects.Container, snapshot: MainMenuSnapshot, layout: MenuSurfaceLayout, scrap: number): void {
     const { width, top, margin, hitTarget } = layout;
@@ -58,7 +112,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     for (const item of selectedSlot.candidates) {
       const row = this.button(root, left, y, `${item.name}\nT${item.tier} • ${item.state}`, Math.max(hitTarget, 76), () => {
         this.environment.controls.focusNext(`equipment-detail:${item.instanceId}`, true);
-        this.environment.onSnapshot(this.commands.selectEquipmentCandidate(item.instanceId));
+        this.environment.onSnapshot(this.commands.selectEquipmentCandidate(item.instanceId), 'equipment-selection');
       }, 'ui:confirm', contentWidth, undefined, 0, 76, true, 'left');
       this.rememberLoadoutFocus(row, `equipment-candidate:${item.instanceId}`);
       this.environment.controls.addCatalogIcon(root, left + 34, y + row.height / 2, item.iconArtId, 60, this.environment.controls.buttonIndex(row));
@@ -70,7 +124,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     for (const blueprint of blueprints) {
       const row = this.button(root, left, y, `${blueprint.name}\nFABRICABLE • ${blueprint.fabricationCost} Scrap`, Math.max(hitTarget, 76), () => {
         this.environment.controls.focusNext(`equipment-blueprint-detail:${blueprint.equipmentId}`, true);
-        this.environment.onSnapshot(this.commands.selectEquipmentBlueprint(blueprint.equipmentId));
+        this.environment.onSnapshot(this.commands.selectEquipmentBlueprint(blueprint.equipmentId), 'equipment-selection');
       }, 'ui:confirm', contentWidth, undefined, 0, 76, true, 'left');
       this.rememberLoadoutFocus(row, `equipment-blueprint:${blueprint.equipmentId}`);
       const index = this.environment.controls.buttonIndex(row);
@@ -78,6 +132,24 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       this.environment.controls.addCatalogIcon(root, left + contentWidth - 24, y + row.height / 2, blueprint.setEmblemArtId, 34, index);
       y += row.height + 8;
     }
+    this.detailTop = y;
+    this.selectionInvariant = this.prefixInvariant(snapshot, scrap);
+    this.drawSelection(root, root, snapshot, scrap);
+  }
+
+  private drawSelection(root: Phaser.GameObjects.Container, fixedRoot: Phaser.GameObjects.Container,
+    snapshot: MainMenuSnapshot, scrap: number): void {
+    const equipment = snapshot.equipment;
+    const { width, margin, hitTarget } = this.layout;
+    const contentWidth = Math.min(840, width - margin - this.layout.rightMargin);
+    const left = this.layout.centerX - contentWidth / 2;
+    let y = this.detailTop;
+    const selectedSlot = equipment.presentation.slots.find(slot => slot.slot === equipment.selectedSlot)!;
+    const blueprints = equipment.blueprints.filter(piece => piece.slot === equipment.selectedSlot);
+    const put = (text: string, color?: string) => { const copy = this.loadoutCopy(root, left, y, text, contentWidth, color); y += copy.height + 8; };
+    const before = new Set([...root.list, ...fixedRoot.list]);
+    this.drawingSelection = true;
+    try {
     const selected = selectedSlot.candidates.find((item) => item.instanceId === equipment.selectedInstanceId);
     const selectedBlueprint = blueprints.find((piece) => piece.equipmentId === equipment.selectedBlueprintId);
     if (selected) {
@@ -133,7 +205,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
     }
     if (equipment.unavailable.length) put('A legacy Equipment item is unavailable in this version.', '#fbbf24');
     this.environment.controls.endScrollableRegion();
-    const fabricate = this.loadoutFooter(root, left, contentWidth, hitTarget,
+    const fabricate = this.loadoutFooter(fixedRoot, left, contentWidth, hitTarget,
       selectedBlueprint ? `Fabricate for ${selectedBlueprint.fabricationCost} Scrap` : 'Fabricate Selected', () => {
         if (!selectedBlueprint) return;
         const next = this.commands.fabricateEquipment(selectedBlueprint.equipmentId);
@@ -142,7 +214,7 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
       });
     // Create the bounded fixed Back control last: slots remain the first four
     // semantic focus entries for the shared vertical navigator.
-    this.button(root, left + contentWidth - 72, edgeMargin(this.layout.viewport, 'top') - 12 + 7, 'Back', hitTarget,
+    this.button(fixedRoot, left + contentWidth - 72, edgeMargin(this.layout.viewport, 'top') - 12 + 7, 'Back', hitTarget,
       () => this.environment.onSnapshot(this.commands.open('loadout')), 'ui:back', 72);
     if (selectedBlueprint) this.rememberLoadoutFocus(fabricate, `equipment-fabricate:${selectedBlueprint.equipmentId}`);
     if (!selectedBlueprint || scrap < selectedBlueprint.fabricationCost) this.environment.controls.disableButton(fabricate);
@@ -156,5 +228,9 @@ export class EquipmentSurface extends LoadoutPanelSurface<EquipmentSurfaceComman
         ? item.upgradePreview.after.slots.flatMap((slot) => slot.candidates.filter((candidate) => candidate.instanceId === item.instanceId).map((candidate) => candidate.iconArtId)) : []),
     ]);
     this.environment.resources.panel('equipment', ['nav-icon:mercenary', 'nav-icon:gunsmith']);
+    } finally {
+      this.drawingSelection = false;
+      this.tailObjects = [...new Set([...root.list, ...fixedRoot.list])].filter(object => !before.has(object));
+    }
   }
 }
